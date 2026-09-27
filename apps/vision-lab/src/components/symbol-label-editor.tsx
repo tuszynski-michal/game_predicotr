@@ -1,0 +1,572 @@
+'use client';
+/* eslint-disable @next/next/no-img-element -- exact approved bytes; no optimizer */
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { useToast } from '../../../../packages/ui/src/toasts';
+import { useAnnotations } from './annotation-context';
+import { symbolWriteSession, canMutateSymbolRow } from '../lib/symbol-workflow';
+import {
+  listSources,
+  symbolLabels,
+  symbolDictionaries,
+  symbolDictionary,
+  symbolCrop,
+  writeSymbol,
+  backupSymbols,
+  type Source,
+  type SymbolPage,
+  type SymbolRequest,
+  type DictionaryEntry,
+  type DictionaryView,
+  type LabCropPreview,
+  type DbCropPreview,
+} from '../../../../packages/vision-lab-api-client/src/index';
+
+export function SymbolLabelEditor() {
+  const notify = useToast();
+  const { state, refresh } = useAnnotations();
+  const [sources, setSources] = useState<Source[]>([]);
+  const [game, setGame] = useState('');
+  const [sourceId, setSourceId] = useState('');
+  const [board, setBoard] = useState(0);
+  const [cell, setCell] = useState(0);
+  const [page, setPage] = useState<SymbolPage | null>(null);
+  const [versions, setVersions] = useState<DictionaryView[]>([]);
+  const [active, setActive] = useState<DictionaryView | null>(null);
+  const [entries, setEntries] = useState<DictionaryEntry[]>([]);
+  const [preview, setPreview] = useState<LabCropPreview | DbCropPreview | null>(
+    null,
+  );
+  const [symbolId, setSymbolId] = useState('');
+  const [pending, setPending] = useState<SymbolRequest | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [offset, setOffset] = useState(0);
+  const order = useRef(0);
+  const writing = useRef(false);
+  const writeSession = useRef(symbolWriteSession<SymbolRequest>(writeSymbol));
+  const unavailable = busy || pending !== null;
+  const report = useCallback(
+    (message: string) => notify({ kind: 'error', message }),
+    [notify],
+  );
+
+  const load = useCallback(
+    async (selectedGame: string) => {
+      const generation = ++order.current;
+      setBusy(true);
+      setPreview(null);
+      try {
+        const labels = await symbolLabels(selectedGame || undefined);
+        const dictionaries: DictionaryView[] = [];
+        let start = 0;
+        let token: string | undefined;
+        do {
+          const result = await symbolDictionaries(
+            selectedGame || undefined,
+            start,
+            token,
+          );
+          dictionaries.push(...result.items);
+          token = result.read_token;
+          start += result.items.length;
+          if (start >= result.total) break;
+        } while (true);
+        const locals = dictionaries.filter((d) => d.origin === 'lab');
+        const latest = locals.at(-1);
+        const approved = locals.find((d) => d.active);
+        const [latestFull, approvedFull] = await Promise.all([
+          latest?.version
+            ? symbolDictionary(selectedGame, latest.version)
+            : null,
+          approved?.version
+            ? symbolDictionary(selectedGame, approved.version)
+            : null,
+        ]);
+        if (generation !== order.current) return;
+        setPage(labels);
+        setOffset(0);
+        setVersions(dictionaries);
+        setEntries(latestFull?.entries ?? []);
+        setActive(approvedFull);
+        setSymbolId('');
+      } catch (e) {
+        if (generation === order.current) {
+          setPage(null);
+          report(`Nie można odczytać symboli: ${errorCode(e)}`);
+        }
+      } finally {
+        if (generation === order.current) setBusy(false);
+      }
+    },
+    [report],
+  );
+
+  useEffect(() => {
+    let disposed = false;
+    const requestOrder = order;
+    void (async () => {
+      const all: Source[] = [];
+      let start = 0;
+      while (true) {
+        const result = await listSources(start);
+        all.push(...result.sources);
+        start += result.sources.length;
+        if (start >= result.total) break;
+      }
+      if (!disposed) setSources(all);
+    })().catch(() => report('Nie można pobrać katalogu źródeł.'));
+    return () => {
+      disposed = true;
+      requestOrder.current++;
+    };
+  }, [report]);
+
+  async function submit(body: SymbolRequest) {
+    if (writing.current) return;
+    writing.current = true;
+    setBusy(true);
+    setPending(body);
+    try {
+      await writeSession.current.submit(body);
+      setPending(null);
+      notify({
+        kind: 'success',
+        message: 'Decyzja zapisana. Nie oznacza zgody na trening.',
+      });
+      await load(game);
+    } catch (error) {
+      report(
+        `Zapis niepotwierdzony: ${errorCode(error)}. Ponów dokładnie to żądanie lub odczytaj stan po konflikcie.`,
+      );
+    } finally {
+      writing.current = false;
+      setBusy(false);
+    }
+  }
+  const mutation = () => ({
+    request_id: crypto.randomUUID(),
+    expected_revision: page?.revision ?? 0,
+    actor: 'operator' as const,
+  });
+  const localVersions = versions.filter((d) => d.origin === 'lab');
+  const latest = localVersions.at(-1);
+  const selectedAnnotation = state?.annotations[`${sourceId}:${board}`];
+  const games = Object.fromEntries(
+    sources.map((s) => [s.game_id, s.game_name]),
+  );
+
+  async function previewCell() {
+    if (!selectedAnnotation || unavailable) return;
+    setBusy(true);
+    setPreview(null);
+    try {
+      setPreview(
+        await symbolCrop({
+          kind: 'lab_cell',
+          source_id: sourceId,
+          board_index: board,
+          cell_index: cell,
+          expected_geometry_revision: selectedAnnotation.revision,
+        }),
+      );
+    } catch (error) {
+      report(`Podgląd niedostępny: ${errorCode(error)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function nextPage() {
+    if (!page || unavailable) return;
+    setBusy(true);
+    try {
+      const next = offset + page.items.length;
+      setPage(await symbolLabels(game, undefined, next, page.read_token));
+      setOffset(next);
+    } catch (error) {
+      setPage(null);
+      report(
+        `Nie można odczytać strony: ${errorCode(error)}. Odczytaj listę od początku.`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <main className="symbol-panel">
+      <h1>Etykiety symboli</h1>
+      <p>
+        Słownik określa klasy danej gry. Zatwierdzenie etykiety dotyczy tylko
+        pokazanych pikseli komórki. Żadna z tych decyzji nie uruchamia treningu.
+      </p>
+      {!unavailable && <Link href="/">Wróć do geometrii</Link>}
+      <label>
+        Gra{' '}
+        <select
+          value={game}
+          disabled={unavailable}
+          onChange={(e) => {
+            const value = e.target.value;
+            setGame(value);
+            setSourceId('');
+            setPreview(null);
+            void load(value);
+          }}
+        >
+          <option value="">Wybierz grę</option>
+          {Object.entries(games).map(([id, name]) => (
+            <option value={id} key={id}>
+              {name}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        disabled={busy || !game}
+        onClick={() => {
+          writeSession.current.reload();
+          setPending(null);
+          void refresh()
+            .then(() => load(game))
+            .catch((error) => report(errorCode(error)));
+        }}
+      >
+        Odczytaj stan
+      </button>
+      {pending && (
+        <button disabled={busy} onClick={() => void submit(pending)}>
+          Ponów identyczny zapis
+        </button>
+      )}
+      <fieldset disabled={unavailable || !game || !page}>
+        <legend>Słownik gry</legend>
+        <p>
+          Nowa wersja nie zmienia zatwierdzonej wersji, dopóki jej jawnie nie
+          zatwierdzisz. Zmiana znaczenia klasy wymaga nowego ID i kodu.
+        </p>
+        {entries.map((entry, index) => (
+          <div key={index}>
+            <label>
+              ID{' '}
+              <input
+                value={entry.id}
+                maxLength={64}
+                onChange={(e) =>
+                  setEntries(
+                    entries.map((v, i) =>
+                      i === index ? { ...v, id: e.target.value } : v,
+                    ),
+                  )
+                }
+              />
+            </label>
+            <label>
+              Kod{' '}
+              <input
+                value={entry.code}
+                maxLength={64}
+                onChange={(e) =>
+                  setEntries(
+                    entries.map((v, i) =>
+                      i === index ? { ...v, code: e.target.value } : v,
+                    ),
+                  )
+                }
+              />
+            </label>
+            <label>
+              Nazwa{' '}
+              <input
+                value={entry.display_name}
+                maxLength={128}
+                onChange={(e) =>
+                  setEntries(
+                    entries.map((v, i) =>
+                      i === index ? { ...v, display_name: e.target.value } : v,
+                    ),
+                  )
+                }
+              />
+            </label>
+            <button
+              onClick={() => setEntries(entries.filter((_, i) => i !== index))}
+            >
+              Usuń z nowej wersji
+            </button>
+          </div>
+        ))}
+        <button
+          disabled={entries.length >= 256}
+          onClick={() =>
+            setEntries([...entries, { id: '', code: '', display_name: '' }])
+          }
+        >
+          Dodaj klasę
+        </button>
+        <button
+          onClick={() =>
+            void submit({
+              ...mutation(),
+              op: 'dictionary_draft',
+              game_id: game,
+              base_version: latest?.version ?? null,
+              entries,
+            })
+          }
+        >
+          Zapisz nową wersję
+        </button>
+        <button
+          disabled={!latest?.version || latest.status === 'approved'}
+          onClick={() =>
+            latest?.version &&
+            void submit({
+              ...mutation(),
+              op: 'dictionary_approve',
+              game_id: game,
+              version: latest.version,
+              digest: latest.digest,
+            })
+          }
+        >
+          Zatwierdź zapisaną wersję {latest?.version}
+        </button>
+        <p>Aktywna zatwierdzona wersja: {active?.version ?? 'brak'}</p>
+      </fieldset>
+      <fieldset disabled={unavailable || !game || !page}>
+        <legend>Komórka z zapisanej geometrii</legend>
+        <label>
+          Zdjęcie{' '}
+          <select
+            value={sourceId}
+            onChange={(e) => {
+              setSourceId(e.target.value);
+              setBoard(0);
+              setCell(0);
+              setPreview(null);
+            }}
+          >
+            <option value="">Wybierz zdjęcie</option>
+            {sources
+              .filter((s) => s.game_id === game)
+              .map((s) => (
+                <option value={s.id} key={s.id}>
+                  {s.filename}
+                  {s.role === 'comparison_only' ? ' — tylko porównanie' : ''}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label>
+          Plansza{' '}
+          <input
+            type="number"
+            min={1}
+            max={101}
+            value={board + 1}
+            onChange={(e) => {
+              setBoard(Number(e.target.value) - 1);
+              setPreview(null);
+            }}
+          />
+        </label>
+        <label>
+          Komórka{' '}
+          <input
+            type="number"
+            min={1}
+            max={(selectedAnnotation?.topology.columns ?? 5) * 3}
+            value={cell + 1}
+            onChange={(e) => {
+              setCell(Number(e.target.value) - 1);
+              setPreview(null);
+            }}
+          />
+        </label>
+        <button
+          disabled={!selectedAnnotation}
+          onClick={() => void previewCell()}
+        >
+          Pokaż dokładny crop
+        </button>
+        {!selectedAnnotation && (
+          <p>Wybierz planszę z zapisaną pełną geometrią.</p>
+        )}
+        {preview?.kind === 'lab_cell' && (
+          <div>
+            <img
+              width={192}
+              height={192}
+              alt="Dokładne piksele zatwierdzanej komórki"
+              src={`data:image/png;base64,${preview.png_base64}`}
+            />
+            <label>
+              Klasa{' '}
+              <select
+                value={symbolId}
+                onChange={(e) => setSymbolId(e.target.value)}
+              >
+                <option value="">Wybierz klasę</option>
+                {active?.entries?.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.display_name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {(['approve', 'unknown', 'unreadable', 'grid_issue'] as const).map(
+              (action, i) => (
+                <button
+                  key={action}
+                  disabled={
+                    !active?.version || (action === 'approve' && !symbolId)
+                  }
+                  onClick={() =>
+                    active?.version &&
+                    void submit({
+                      ...mutation(),
+                      op: 'label_decide',
+                      binding: preview.binding,
+                      dictionary_version: active.version,
+                      dictionary_digest: active.digest,
+                      action,
+                      symbol_id: action === 'approve' ? symbolId : null,
+                    })
+                  }
+                >
+                  {
+                    [
+                      'Zatwierdź etykietę',
+                      'Nieznany symbol',
+                      'Nieczytelne',
+                      'Błąd siatki',
+                    ][i]
+                  }
+                </button>
+              ),
+            )}
+          </div>
+        )}
+      </fieldset>
+      <section>
+        <h2>Zapisane etykiety</h2>
+        <p>
+          Trening zablokowany: nie zamrożono podziału danych symboli. Brak
+          danych DB w snapshotcie folderowym jest oczekiwany.
+        </p>
+        {page?.items.map((row) => (
+          <article key={row.sample_id}>
+            <p>
+              {row.source_id.slice(0, 12)} · plansza{' '}
+              {row.origin === 'lab_human_approved'
+                ? Number(row.board_id) + 1
+                : row.board_id}{' '}
+              · komórka {row.cell_index + 1}: {row.symbol_id ?? row.action} —{' '}
+              {row.label_valid ? 'ważna decyzja' : 'wymaga przeglądu'}
+            </p>
+            <p>{[...row.reasons, ...row.training_blockers].join(', ')}</p>
+            {canMutateSymbolRow(row.origin) ? (
+              <button
+                disabled={unavailable || row.action === 'withdraw'}
+                onClick={() =>
+                  void submit({
+                    ...mutation(),
+                    op: 'label_withdraw',
+                    decision_id: row.sample_id,
+                  })
+                }
+              >
+                Wycofaj etykietę
+              </button>
+            ) : (
+              <button
+                disabled={unavailable}
+                onClick={async () => {
+                  setBusy(true);
+                  setPreview(null);
+                  try {
+                    setPreview(
+                      await symbolCrop({
+                        kind: 'db_approved',
+                        sample_id: row.sample_id,
+                      }),
+                    );
+                  } catch (error) {
+                    report(
+                      `Eksportowany crop jest niedostępny: ${errorCode(error)}`,
+                    );
+                  } finally {
+                    setBusy(false);
+                  }
+                }}
+              >
+                Podgląd eksportowanej etykiety
+              </button>
+            )}
+          </article>
+        ))}
+        {preview?.kind === 'db_approved' && (
+          <div>
+            <p>
+              Oryginalne zatwierdzenie DB — tylko odczyt. Słownik{' '}
+              {preview.dictionary.digest}
+            </p>
+            <img
+              alt="Oryginalny zatwierdzony crop DB"
+              src={`data:${preview.media_type};base64,${preview.crop_bytes_base64}`}
+            />
+            <ul>
+              {preview.dictionary.entries?.map((e) => (
+                <li key={e.id}>
+                  {e.code}: {e.display_name}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <p>
+          {page
+            ? page.total === 0
+              ? '0 z 0'
+              : `${offset + 1}–${offset + page.items.length} z ${page.total}`
+            : 'Brak odczytu'}
+        </p>
+        <button
+          disabled={
+            unavailable || !page || offset + page.items.length >= page.total
+          }
+          onClick={() => void nextPage()}
+        >
+          Następna strona
+        </button>
+        <button
+          disabled={unavailable || !page}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              const b = await backupSymbols();
+              notify({
+                kind: 'success',
+                message: `Zapisano backup ${b.backup_id}`,
+              });
+            } catch (error) {
+              report(`Backup nie został potwierdzony: ${errorCode(error)}`);
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Utwórz backup symboli
+        </button>
+      </section>
+    </main>
+  );
+}
+
+function errorCode(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'detail' in error)
+    return typeof error.detail === 'string'
+      ? error.detail
+      : JSON.stringify(error.detail);
+  return String(error);
+}

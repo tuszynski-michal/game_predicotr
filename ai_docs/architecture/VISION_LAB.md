@@ -309,3 +309,20 @@ loopback boundary i generowanego klienta. Ścieżki interpretera, manifestów,
 runów i anotacji pochodzą wyłącznie z konfiguracji operatora. Katalog runów
 nie może nachodzić na snapshot, anotacje lub manifesty. Rejestr trenerów jest
 zamknięty; T05 dodaje leniwą hybrydę, a produkcyjny handler pozostaje niezależny.
+
+## Narzędzia etykiet symboli T06a
+
+D-458 rozdziela budowę narzędzi od kwalifikacji rzeczywistego zbioru.
+Oddzielny, jawnie skonfigurowany magazyn symboli nie zmienia formatu
+AnnotationStore ani jego receipts i podziałów. Wersje słownika, decyzje
+operatora oraz dokładne cropy mają trwałą tożsamość. Zmiana geometrii,
+źródła, cropa lub zatwierdzonego słownika unieważnia aktualność etykiety.
+Adapter DB czyta wyłącznie zweryfikowany eksport; nie otwiera sesji bazy
+i nie tworzy mapowania ani rekordów produkcyjnych.
+
+Nowe trasy pozostają częścią istniejącego lokalnego API i zamkniętego
+proxy. OpenAPI jest źródłem klienta. Szczegółowy kontrakt przed kodowaniem
+określa `ai_docs/delivery/VISION_LAB_SYMBOL_LABELS_CONTRACT.md`.
+Poprawna etykieta nie jest automatycznie próbką dopuszczoną do treningu.
+T06b zachowuje bramki pochodzenia, ról i podziału symboli; D-456 ich nie
+zastępuje. Holdout sprawdzany jest przed udostępnieniem pikseli.

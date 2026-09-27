@@ -49,7 +49,7 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 ## Acceptance criteria
 
 - [x] Porównanie na development, pierwszy poprawny checkpoint w galerii, zgodność ONNX, błędne węzły wymagają korekty.
-- [x] Audyt przypisanym modelem nie pozostawia P0–P2; Outcome i CURRENT_STATE gotowe, osobny commit v1.7.30 domykany poniżej.
+- [x] Audyt przypisanym modelem nie pozostawia P0–P2; Outcome i CURRENT_STATE, osobny commit v1.7.30 zapisane poniżej.
 
 ## Technical notes
 
@@ -227,7 +227,9 @@ DEVscore0,153640529 vsbaseline0,156461470; VAL0,046985619 vs0,046131665.
 Walidacja gorsza o1,85% względnie: nie promować, baseline pozostaje domyślny.
 Pełne mianowniki90/30, missing15/1, invalid0/0. Raport, SHA, wszystkie
 wyniki i punktowy DoD: quality/VISION_LAB_HYBRID_20260927.md.
-Osobny commit v1.7.30 po weryfikacji indeksu; pełny hash po commicie.
+Osobny commit `v1.7.30` / `4072dd53a260677e60a24c49f870e7ef1a58c093`.
+Staged check/stat/list i show/stat/status PASS;38 własnych plików,
+bez cudzych zmian. Pełny hash zapisany po commicie.
 
 Historia przygotowania:
 

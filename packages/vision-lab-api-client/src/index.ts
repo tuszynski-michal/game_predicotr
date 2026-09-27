@@ -12,6 +12,12 @@ import {
   getTrainingRun,
   cancelTrainingRun,
   retryTrainingRun,
+  listSymbolLabels,
+  listSymbolDictionaries,
+  getSymbolDictionary,
+  previewSymbolCrop,
+  saveSymbolDecision,
+  createSymbolBackup,
 } from './generated/sdk.gen';
 import type {
   AnnotationRequest,
@@ -21,6 +27,22 @@ import type {
   PhotoReviewRequest,
   StartRunRequestInput,
   RunMutation,
+} from './generated/types.gen';
+import type {
+  SaveSymbolDecisionData,
+  PreviewSymbolCropData,
+} from './generated/types.gen';
+export type SymbolRequest = SaveSymbolDecisionData['body'];
+export type SymbolCropRequest = PreviewSymbolCropData['body'];
+export type {
+  SymbolPage,
+  SymbolRow,
+  DictionaryPage,
+  DictionaryView,
+  DictionaryEntry,
+  LabCropPreview,
+  DbCropPreview,
+  SymbolResult,
 } from './generated/types.gen';
 export type {
   GeometryResult,
@@ -43,6 +65,58 @@ export type {
 } from './generated/types.gen';
 
 const baseUrl = '/api/lab';
+export async function symbolLabels(
+  gameId?: string,
+  sourceId?: string,
+  offset = 0,
+  readToken?: string,
+) {
+  return (
+    await listSymbolLabels({
+      baseUrl,
+      query: {
+        game_id: gameId,
+        source_id: sourceId,
+        offset,
+        limit: 50,
+        read_token: readToken,
+      },
+      throwOnError: true,
+    })
+  ).data;
+}
+export async function symbolDictionaries(
+  gameId?: string,
+  offset = 0,
+  readToken?: string,
+) {
+  return (
+    await listSymbolDictionaries({
+      baseUrl,
+      query: { game_id: gameId, offset, limit: 100, read_token: readToken },
+      throwOnError: true,
+    })
+  ).data;
+}
+export async function symbolDictionary(gameId: string, version: number) {
+  return (
+    await getSymbolDictionary({
+      baseUrl,
+      path: { game_id: gameId, version },
+      throwOnError: true,
+    })
+  ).data;
+}
+export async function symbolCrop(body: SymbolCropRequest) {
+  return (await previewSymbolCrop({ baseUrl, body, throwOnError: true })).data;
+}
+export async function writeSymbol(body: SymbolRequest) {
+  return (await saveSymbolDecision({ baseUrl, body, throwOnError: true })).data;
+}
+export async function backupSymbols() {
+  return (await createSymbolBackup({ baseUrl, body: {}, throwOnError: true }))
+    .data;
+}
 export async function listSources(offset = 0, game?: string) {
   const response = await list({
     baseUrl,

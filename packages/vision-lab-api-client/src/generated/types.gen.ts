@@ -238,6 +238,233 @@ export type CellOutput = {
 };
 
 /**
+ * CropBinding
+ */
+export type CropBindingInput = {
+    /**
+     * Board Index
+     */
+    board_index: number;
+    /**
+     * Byte Sha256
+     */
+    byte_sha256: string;
+    /**
+     * Catalog Digest
+     */
+    catalog_digest: string;
+    /**
+     * Cell Index
+     */
+    cell_index: number;
+    /**
+     * Crop Id
+     */
+    crop_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Geometry Digest
+     */
+    geometry_digest: string;
+    /**
+     * Geometry Revision
+     */
+    geometry_revision: number;
+    /**
+     * Height
+     */
+    height?: 96;
+    /**
+     * Pixel Sha256
+     */
+    pixel_sha256: string;
+    /**
+     * Quad
+     */
+    quad: [
+        PointInput,
+        PointInput,
+        PointInput,
+        PointInput
+    ];
+    /**
+     * Render Spec
+     */
+    render_spec: {
+        [key: string]: string;
+    };
+    /**
+     * Render Spec Digest
+     */
+    render_spec_digest: string;
+    /**
+     * Renderer Version
+     */
+    renderer_version: 'lab-symbol-crop-rgb96-v1';
+    /**
+     * Snapshot Manifest Id
+     */
+    snapshot_manifest_id: string;
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Source Sha256
+     */
+    source_sha256: string;
+    topology: TopologyInput;
+    /**
+     * Width
+     */
+    width?: 96;
+};
+
+/**
+ * CropBinding
+ */
+export type CropBindingOutput = {
+    /**
+     * Board Index
+     */
+    board_index: number;
+    /**
+     * Byte Sha256
+     */
+    byte_sha256: string;
+    /**
+     * Catalog Digest
+     */
+    catalog_digest: string;
+    /**
+     * Cell Index
+     */
+    cell_index: number;
+    /**
+     * Crop Id
+     */
+    crop_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Geometry Digest
+     */
+    geometry_digest: string;
+    /**
+     * Geometry Revision
+     */
+    geometry_revision: number;
+    /**
+     * Height
+     */
+    height: 96;
+    /**
+     * Pixel Sha256
+     */
+    pixel_sha256: string;
+    /**
+     * Quad
+     */
+    quad: [
+        PointOutput,
+        PointOutput,
+        PointOutput,
+        PointOutput
+    ];
+    /**
+     * Render Spec
+     */
+    render_spec: {
+        [key: string]: string;
+    };
+    /**
+     * Render Spec Digest
+     */
+    render_spec_digest: string;
+    /**
+     * Renderer Version
+     */
+    renderer_version: 'lab-symbol-crop-rgb96-v1';
+    /**
+     * Snapshot Manifest Id
+     */
+    snapshot_manifest_id: string;
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Source Sha256
+     */
+    source_sha256: string;
+    topology: TopologyOutput;
+    /**
+     * Width
+     */
+    width: 96;
+};
+
+/**
+ * DbCropPreview
+ */
+export type DbCropPreview = {
+    /**
+     * Byte Sha256
+     */
+    byte_sha256: string;
+    /**
+     * Crop Bytes Base64
+     */
+    crop_bytes_base64: string;
+    dictionary: DictionaryView;
+    /**
+     * Kind
+     */
+    kind: 'db_approved';
+    /**
+     * Media Type
+     */
+    media_type: string;
+    /**
+     * Origin
+     */
+    origin: 'db_approved';
+    /**
+     * Provenance
+     */
+    provenance: {
+        [key: string]: unknown;
+    };
+    /**
+     * Read Only
+     */
+    read_only: true;
+    /**
+     * Sample Id
+     */
+    sample_id: string;
+};
+
+/**
+ * DbCropRequest
+ */
+export type DbCropRequest = {
+    /**
+     * Kind
+     */
+    kind: 'db_approved';
+    /**
+     * Sample Id
+     */
+    sample_id: string;
+};
+
+/**
  * DetectRequest
  */
 export type DetectRequest = {
@@ -251,6 +478,152 @@ export type DetectRequest = {
      */
     source_id: string;
     topology?: TopologyInput;
+};
+
+/**
+ * DictionaryApprove
+ */
+export type DictionaryApprove = {
+    /**
+     * Actor
+     */
+    actor?: 'operator';
+    /**
+     * Digest
+     */
+    digest: string;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Op
+     */
+    op: 'dictionary_approve';
+    /**
+     * Request Id
+     */
+    request_id: string;
+    /**
+     * Version
+     */
+    version: number;
+};
+
+/**
+ * DictionaryDraft
+ */
+export type DictionaryDraft = {
+    /**
+     * Actor
+     */
+    actor?: 'operator';
+    /**
+     * Base Version
+     */
+    base_version?: number | null;
+    /**
+     * Entries
+     */
+    entries: Array<DictionaryEntry>;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Op
+     */
+    op: 'dictionary_draft';
+    /**
+     * Request Id
+     */
+    request_id: string;
+};
+
+/**
+ * DictionaryEntry
+ */
+export type DictionaryEntry = {
+    /**
+     * Code
+     */
+    code: string;
+    /**
+     * Display Name
+     */
+    display_name: string;
+    /**
+     * Id
+     */
+    id: string;
+};
+
+/**
+ * DictionaryPage
+ */
+export type DictionaryPage = {
+    /**
+     * Items
+     */
+    items: Array<DictionaryView>;
+    /**
+     * Read Token
+     */
+    read_token: string;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Total
+     */
+    total: number;
+};
+
+/**
+ * DictionaryView
+ */
+export type DictionaryView = {
+    /**
+     * Active
+     */
+    active: boolean;
+    /**
+     * Approved At
+     */
+    approved_at: string | null;
+    /**
+     * Digest
+     */
+    digest: string;
+    /**
+     * Entries
+     */
+    entries: Array<DictionaryEntry> | null;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Origin
+     */
+    origin: 'lab' | 'db_snapshot';
+    /**
+     * Status
+     */
+    status: 'draft' | 'approved' | 'snapshot';
+    /**
+     * Version
+     */
+    version: number | null;
 };
 
 /**
@@ -551,6 +924,112 @@ export type HttpValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
+};
+
+/**
+ * LabCropPreview
+ */
+export type LabCropPreview = {
+    binding: CropBindingOutput;
+    /**
+     * Kind
+     */
+    kind: 'lab_cell';
+    /**
+     * Png Base64
+     */
+    png_base64: string;
+};
+
+/**
+ * LabCropRequest
+ */
+export type LabCropRequest = {
+    /**
+     * Board Index
+     */
+    board_index: number;
+    /**
+     * Cell Index
+     */
+    cell_index: number;
+    /**
+     * Expected Geometry Revision
+     */
+    expected_geometry_revision: number;
+    /**
+     * Kind
+     */
+    kind: 'lab_cell';
+    /**
+     * Source Id
+     */
+    source_id: string;
+};
+
+/**
+ * LabelDecide
+ */
+export type LabelDecide = {
+    /**
+     * Action
+     */
+    action: 'approve' | 'unknown' | 'unreadable' | 'grid_issue';
+    /**
+     * Actor
+     */
+    actor?: 'operator';
+    binding: CropBindingInput;
+    /**
+     * Dictionary Digest
+     */
+    dictionary_digest: string;
+    /**
+     * Dictionary Version
+     */
+    dictionary_version: number;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Op
+     */
+    op: 'label_decide';
+    /**
+     * Request Id
+     */
+    request_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id?: string | null;
+};
+
+/**
+ * LabelWithdraw
+ */
+export type LabelWithdraw = {
+    /**
+     * Actor
+     */
+    actor?: 'operator';
+    /**
+     * Decision Id
+     */
+    decision_id: string;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Op
+     */
+    op: 'label_withdraw';
+    /**
+     * Request Id
+     */
+    request_id: string;
 };
 
 /**
@@ -1103,6 +1582,130 @@ export type StoredGeometryQualification = {
 };
 
 /**
+ * SymbolPage
+ */
+export type SymbolPage = {
+    /**
+     * Availability
+     */
+    availability: string;
+    /**
+     * Items
+     */
+    items: Array<SymbolRow>;
+    /**
+     * Read Token
+     */
+    read_token: string;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Total
+     */
+    total: number;
+};
+
+/**
+ * SymbolResult
+ */
+export type SymbolResult = {
+    /**
+     * Label Valid
+     */
+    label_valid: boolean;
+    /**
+     * Reasons
+     */
+    reasons: Array<string>;
+    /**
+     * Replayed
+     */
+    replayed: boolean;
+    /**
+     * Request Id
+     */
+    request_id: string;
+    /**
+     * Result Id
+     */
+    result_id: string;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Trainable
+     */
+    trainable: false;
+    /**
+     * Training Blockers
+     */
+    training_blockers: Array<string>;
+};
+
+/**
+ * SymbolRow
+ */
+export type SymbolRow = {
+    /**
+     * Action
+     */
+    action: string;
+    /**
+     * Board Id
+     */
+    board_id: string;
+    /**
+     * Cell Index
+     */
+    cell_index: number;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Label Valid
+     */
+    label_valid: boolean;
+    /**
+     * Metadata
+     */
+    metadata: {
+        [key: string]: unknown;
+    };
+    /**
+     * Origin
+     */
+    origin: 'lab_human_approved' | 'db_approved';
+    /**
+     * Reasons
+     */
+    reasons: Array<string>;
+    /**
+     * Sample Id
+     */
+    sample_id: string;
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string | null;
+    /**
+     * Trainable
+     */
+    trainable: false;
+    /**
+     * Training Blockers
+     */
+    training_blockers: Array<string>;
+};
+
+/**
  * Timing
  */
 export type Timing = {
@@ -1616,6 +2219,223 @@ export type FreezeSplitResponses = {
 };
 
 export type FreezeSplitResponse = FreezeSplitResponses[keyof FreezeSplitResponses];
+
+export type CreateSymbolBackupData = {
+    body: BackupRequest;
+    path?: never;
+    query?: never;
+    url: '/symbol-backups';
+};
+
+export type CreateSymbolBackupErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CreateSymbolBackupError = CreateSymbolBackupErrors[keyof CreateSymbolBackupErrors];
+
+export type CreateSymbolBackupResponses = {
+    /**
+     * Successful Response
+     */
+    200: BackupResult;
+};
+
+export type CreateSymbolBackupResponse = CreateSymbolBackupResponses[keyof CreateSymbolBackupResponses];
+
+export type PreviewSymbolCropData = {
+    /**
+     * Body
+     */
+    body: ({
+        kind: 'lab_cell';
+    } & LabCropRequest) | ({
+        kind: 'db_approved';
+    } & DbCropRequest);
+    path?: never;
+    query?: never;
+    url: '/symbol-crops';
+};
+
+export type PreviewSymbolCropErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type PreviewSymbolCropError = PreviewSymbolCropErrors[keyof PreviewSymbolCropErrors];
+
+export type PreviewSymbolCropResponses = {
+    /**
+     * Response Preview Symbol Crop
+     *
+     * Successful Response
+     */
+    200: LabCropPreview | DbCropPreview;
+};
+
+export type PreviewSymbolCropResponse = PreviewSymbolCropResponses[keyof PreviewSymbolCropResponses];
+
+export type ListSymbolDictionariesData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Game Id
+         */
+        game_id?: string | null;
+        /**
+         * Offset
+         */
+        offset?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Read Token
+         */
+        read_token?: string | null;
+    };
+    url: '/symbol-dictionaries';
+};
+
+export type ListSymbolDictionariesErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSymbolDictionariesError = ListSymbolDictionariesErrors[keyof ListSymbolDictionariesErrors];
+
+export type ListSymbolDictionariesResponses = {
+    /**
+     * Successful Response
+     */
+    200: DictionaryPage;
+};
+
+export type ListSymbolDictionariesResponse = ListSymbolDictionariesResponses[keyof ListSymbolDictionariesResponses];
+
+export type GetSymbolDictionaryData = {
+    body?: never;
+    path: {
+        /**
+         * Game Id
+         */
+        game_id: string;
+        /**
+         * Version
+         */
+        version: number;
+    };
+    query?: never;
+    url: '/symbol-dictionaries/{game_id}/{version}';
+};
+
+export type GetSymbolDictionaryErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetSymbolDictionaryError = GetSymbolDictionaryErrors[keyof GetSymbolDictionaryErrors];
+
+export type GetSymbolDictionaryResponses = {
+    /**
+     * Successful Response
+     */
+    200: DictionaryView;
+};
+
+export type GetSymbolDictionaryResponse = GetSymbolDictionaryResponses[keyof GetSymbolDictionaryResponses];
+
+export type ListSymbolLabelsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Game Id
+         */
+        game_id?: string | null;
+        /**
+         * Source Id
+         */
+        source_id?: string | null;
+        /**
+         * Offset
+         */
+        offset?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+        /**
+         * Read Token
+         */
+        read_token?: string | null;
+    };
+    url: '/symbols';
+};
+
+export type ListSymbolLabelsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListSymbolLabelsError = ListSymbolLabelsErrors[keyof ListSymbolLabelsErrors];
+
+export type ListSymbolLabelsResponses = {
+    /**
+     * Successful Response
+     */
+    200: SymbolPage;
+};
+
+export type ListSymbolLabelsResponse = ListSymbolLabelsResponses[keyof ListSymbolLabelsResponses];
+
+export type SaveSymbolDecisionData = {
+    /**
+     * Body
+     */
+    body: ({
+        op: 'dictionary_draft';
+    } & DictionaryDraft) | ({
+        op: 'dictionary_approve';
+    } & DictionaryApprove) | ({
+        op: 'label_decide';
+    } & LabelDecide) | ({
+        op: 'label_withdraw';
+    } & LabelWithdraw);
+    path?: never;
+    query?: never;
+    url: '/symbols';
+};
+
+export type SaveSymbolDecisionErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type SaveSymbolDecisionError = SaveSymbolDecisionErrors[keyof SaveSymbolDecisionErrors];
+
+export type SaveSymbolDecisionResponses = {
+    /**
+     * Successful Response
+     */
+    200: SymbolResult;
+};
+
+export type SaveSymbolDecisionResponse = SaveSymbolDecisionResponses[keyof SaveSymbolDecisionResponses];
 
 export type GetTimingsData = {
     body?: never;

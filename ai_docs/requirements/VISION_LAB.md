@@ -200,3 +200,10 @@ Wybrane 777 wymagają własnej kwalifikacji D-453; kontekst zachowuje wąski
 wyjątek D-455. Błąd dowolnego wybranego źródła odrzuca cały pilot.
 To ograniczony test transferu między grami, bez oceny 3 × 3, symboli ani
 oszczędności czasu. Dotychczasowe polityki zachowują swoje bramki.
+
+T06a może rozpocząć pracę z pustymi słownikami i etykietami, aby umożliwić
+ich jawne zatwierdzanie w laboratorium (D-458). Nie tworzy zgód za operatora
+i nie utożsamia zatwierdzonej geometrii z poprawnością symboli. T06b wymaga
+rzeczywistych zatwierdzeń oraz spełnienia bramek pochodzenia i podziału
+symboli. Ukończenie narzędzi nie zamyka T06 ani nie odblokowuje treningu.
+Unknown, unreadable i grid_issue pozostają stanami review, nie klasami.

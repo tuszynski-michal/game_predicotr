@@ -152,7 +152,9 @@ odczyt zapisanych artefaktów i productionbuild sprawdzone. Serwisy lokalne
 - Trwałe runy, budżety, restart odczytu, wersjonowane artefakty i niezmienione
   dane: potwierdzone; bez ukrytych zmian produkcyjnych i bez nowych zgód.
 - Dokumentacja, Outcome i CURRENT_STATE zaktualizowane. Osobny commit
-  v1.7.30 zostanie zapisany po staged check/stat/list, następnie pełny hash.
+  `v1.7.30` / `4072dd53a260677e60a24c49f870e7ef1a58c093`;
+  staged check/stat/list i show/stat/status PASS,38 własnych plików.
+  Cudze zmiany i incidental next-env zachowane poza commitem.
 - STOP B. Dalszy etap C wymaga osobnego uruchomienia. Pełny protokół T03
   rodzin/pomiaru pozostaje odroczony. Model nie jest rekomendowany do promocji.
 

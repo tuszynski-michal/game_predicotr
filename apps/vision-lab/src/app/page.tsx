@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- registered local assets; no image optimizer proxy */
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useToast } from '../../../../packages/ui/src/toasts';
 import { useAnnotations } from '../components/annotation-context';
 import {
@@ -223,6 +224,7 @@ export default function Page() {
       <header>
         <p className="eyebrow">WIZJA / ANOTACJE</p>
         <h1>Laboratorium geometrii</h1>
+        {!protection.pending && !busy && <Link href="/symbols">Etykiety symboli</Link>}
         <button
           disabled={!state || loading || busy || protection.pending}
           onClick={() => {

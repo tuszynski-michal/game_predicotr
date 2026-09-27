@@ -23,7 +23,14 @@ export function allowedRoute(method: string, parts: string[]): boolean {
   return (
     (method === 'GET' &&
       parts.length === 1 &&
-      ['sources', 'annotations', 'timings', 'runs'].includes(parts[0])) ||
+      [
+        'sources',
+        'annotations',
+        'timings',
+        'runs',
+        'symbols',
+        'symbol-dictionaries',
+      ].includes(parts[0])) ||
     (method === 'POST' &&
       parts.length === 1 &&
       [
@@ -33,7 +40,15 @@ export function allowedRoute(method: string, parts: string[]): boolean {
         'splits',
         'backups',
         'runs',
+        'symbols',
+        'symbol-crops',
+        'symbol-backups',
       ].includes(parts[0])) ||
+    (method === 'GET' &&
+      parts.length === 3 &&
+      parts[0] === 'symbol-dictionaries' &&
+      /^[A-Za-z0-9_-]{1,100}$/.test(parts[1]) &&
+      /^[1-9][0-9]*$/.test(parts[2])) ||
     (parts[0] === 'runs' &&
       /^[a-f0-9]{32}$/.test(parts[1] ?? '') &&
       ((method === 'GET' && parts.length === 2) ||
@@ -58,6 +73,10 @@ export function allowedQuery(
       ? ['offset', 'limit', 'game']
       : parts.length === 1 && parts[0] === 'runs'
         ? ['offset', 'limit']
-        : [];
+        : parts.length === 1 && parts[0] === 'symbols'
+          ? ['offset', 'limit', 'game_id', 'source_id', 'read_token']
+          : parts.length === 1 && parts[0] === 'symbol-dictionaries'
+            ? ['offset', 'limit', 'game_id', 'read_token']
+            : [];
   return [...query.keys()].every((key) => keys.includes(key));
 }

@@ -12,7 +12,8 @@ Wybierz grę i zdjęcie, następnie `Pokaż wynik baseline`, aby obejrzeć
 propozycję siatki oraz cropy komórek. Obecny prototyp obsługuje 5 × 3;
 wybór 3 × 3 daje jawne `unsupported`. `complete` oznacza status silnika,
 nie ręczne zatwierdzenie poprawności. Edytor T03 zbiera osobne decyzje
-człowieka; hybryda nie została jeszcze wytrenowana.
+człowieka. Pilot hybrydy T05 jest dostępny jako jawny wybór; nie zastępuje
+domyślnego baseline, ponieważ wynik walidacji nie wykazał poprawy.
 
 ## Import dostarczonego folderu
 
@@ -66,9 +67,10 @@ $logs = Join-Path $repo 'artifacts\vision-lab'
 New-Item -ItemType Directory -Path $logs -Force | Out-Null
 $snapshot = 'C:\Users\tuszy\Documents\game_predictor_vision_data\snapshots\0cdc0770b3535596fdbfa0a8f403cbf32d6a8b134fb52047f5a1f7bda33772c2'
 $annotations = 'C:\Users\tuszy\Documents\game_predictor_vision_data\annotations\0cdc0770b3535596fdbfa0a8f403cbf32d6a8b134fb52047f5a1f7bda33772c2'
-$labApi = Start-Process -FilePath '.\.venv\Scripts\python.exe' -ArgumentList @(
+$labApi = Start-Process -FilePath '.\.venv-vision-lab\Scripts\python.exe' -ArgumentList @(
   '-m', 'game_predictor_worker.vision_lab', '--snapshot', ('"' + $snapshot + '"'),
   '--annotations', ('"' + $annotations + '"'),
+  '--symbols', 'C:\Users\tuszy\Documents\game_predictor_vision_data\symbols\0cdc0770b3535596fdbfa0a8f403cbf32d6a8b134fb52047f5a1f7bda33772c2',
   '--manifests', 'C:\Users\tuszy\Documents\game_predictor_vision_data\manifests',
   '--runs', 'C:\Users\tuszy\Documents\game_predictor_vision_data\runs',
   '--training-python', ('"' + (Join-Path $repo '.venv-vision-lab\Scripts\python.exe') + '"')
@@ -429,3 +431,24 @@ jawnie wybierz hybrydę. Domyślny wybór nadal to Baseline. Epoka i niekalibrow
 bramka są widoczne w selektorze; wszystkie propozycje wymagają przeglądu.
 Brak modeli przed treningiem jest prawidłowym stanem. Modelowe żądania dla
 holdoutów są blokowane; nie zmieniaj podziału, by obejść ten warunek.
+
+## Etykiety symboli — kontrakt T06a
+
+Narzędzia T06a są dostępne pod `http://127.0.0.1:3102/symbols` oraz przez
+link „Etykiety symboli” na stronie geometrii. Wynik testów opisuje TASK-0671.
+Magazyn symboli jest oddzielny od zapisanych siatek. Konfiguracja
+`--symbols <LAB/symbols/snapshot-id>` lub `VISION_LAB_SYMBOLS` jest jawna;
+bez niej trasy symboli zwracają `SYMBOL_DIRECTORY_NOT_CONFIGURED`, a edytor
+geometrii działa jak wcześniej. Nie wskazuj katalogu snapshotu, anotacji,
+manifestów lub runów ani ich nadrzędnego katalogu.
+
+Kolejność pracy: utwórz słownik wybranej gry, zapisz wersję, zatwierdź
+słownik, następnie oceń dokładny crop symbolu. Sam zapis wersji słownika
+nie zatwierdza jej ani obrazów. Nieznany symbol, nieczytelny obraz i błędna
+siatka to osobne stany review, nie klasy treningowe. Zmiana zatwierdzonego
+słownika lub geometrii wymaga ponownej zgody na zależne etykiety.
+
+Poprawna etykieta nie oznacza jeszcze dopuszczenia do treningu. T06b wymaga
+osobnej kontroli pochodzenia i podziału symboli. Historyczne 777 oraz gry
+zamrożone jako holdout nie otrzymują zgody symbolowej przez wcześniejsze
+zatwierdzenie siatek. Nie obchodź komunikatu blokady przez zmianę roli.

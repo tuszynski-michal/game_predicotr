@@ -1,0 +1,93 @@
+"""Exact immutable RGB crops; all callers hold the geometry lock."""
+
+import hashlib
+import io
+
+import cv2
+import numpy as np
+import PIL
+from PIL import Image
+
+from .annotation_contracts import AnnotationState, GeometryAnnotation
+from .annotations import annotation_key, digest
+from .catalog import Catalog
+from .contracts import Board, Point
+from .geometry import cell_quads, crop_cell
+from .photo_review import photo_accepted
+from .symbol_contracts import CropBinding, LabCropRequest
+from .symbol_labels import guard_pixels
+
+
+def render_spec() -> dict[str, str]:
+    return {
+        "opencv": cv2.__version__,
+        "pillow": PIL.__version__,
+        "exif": "transpose-rgb-v1",
+        "warp": "INTER_LINEAR-BORDER_CONSTANT-96",
+        "encoding": "PNG-compress6",
+    }
+
+
+def geometry_for(
+    state: AnnotationState, catalog: Catalog, request: LabCropRequest
+) -> GeometryAnnotation:
+    source = catalog.sources[request.source_id]
+    annotation = state.annotations.get(annotation_key(source.id, request.board_index))
+    if (
+        annotation is None
+        or not annotation.full_approved
+        or annotation.presence != "present"
+        or annotation.revision != request.expected_geometry_revision
+        or annotation.source_sha256 != source.sha256
+        or not photo_accepted(state, source)
+        or not annotation.nodes
+        or any(node.provenance != "human" for node in annotation.nodes)
+    ):
+        raise ValueError("SYMBOL_GEOMETRY_STALE")
+    if request.cell_index >= annotation.topology.columns * annotation.topology.rows:
+        raise ValueError("SYMBOL_CELL_INVALID")
+    return annotation
+
+
+def render_crop(
+    state: AnnotationState,
+    catalog: Catalog,
+    snapshot_id: str,
+    catalog_digest: str,
+    request: LabCropRequest,
+) -> tuple[CropBinding, bytes]:
+    guard_pixels(state, catalog, request.source_id)
+    annotation = geometry_for(state, catalog, request)
+    board = Board(position_index=annotation.board_index, status="complete", nodes=annotation.nodes)
+    quad = cell_quads(board, annotation.topology)[request.cell_index]
+    rgb = np.asarray(catalog.image(catalog.sources[request.source_id]), dtype=np.uint8)
+    crop = crop_cell(rgb, quad)
+    if crop is None:
+        raise ValueError("SYMBOL_CROP_OUTSIDE_SOURCE")
+    output = io.BytesIO()
+    Image.fromarray(crop).save(output, format="PNG", compress_level=6)
+    data = output.getvalue()
+    if len(data) > 256 * 1024:
+        raise ValueError("SYMBOL_CROP_TOO_LARGE")
+    spec = render_spec()
+    binding = CropBinding(
+        snapshot_manifest_id=snapshot_id,
+        catalog_digest=catalog_digest,
+        game_id=catalog.sources[request.source_id].game_id,
+        source_id=request.source_id,
+        source_sha256=catalog.sources[request.source_id].sha256,
+        board_index=request.board_index,
+        geometry_revision=annotation.revision,
+        geometry_digest=digest(annotation.model_dump()),
+        topology=annotation.topology,
+        cell_index=request.cell_index,
+        quad=[Point(x=float(x), y=float(y), provenance="human") for x, y in quad],
+        renderer_version="lab-symbol-crop-rgb96-v1",
+        render_spec=spec,
+        render_spec_digest=digest(spec),
+        pixel_sha256=hashlib.sha256(crop.tobytes()).hexdigest(),
+        byte_sha256=hashlib.sha256(data).hexdigest(),
+        crop_id="0" * 64,
+    )
+    binding.crop_id = digest(binding.model_dump(exclude={"crop_id"}))
+    return binding, data

@@ -397,6 +397,343 @@
         "title": "Cell",
         "type": "object"
       },
+      "CropBinding-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "byte_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Byte Sha256",
+            "type": "string"
+          },
+          "catalog_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Catalog Digest",
+            "type": "string"
+          },
+          "cell_index": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cell Index",
+            "type": "integer"
+          },
+          "crop_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Crop Id",
+            "type": "string"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "geometry_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Geometry Digest",
+            "type": "string"
+          },
+          "geometry_revision": {
+            "minimum": 1.0,
+            "title": "Geometry Revision",
+            "type": "integer"
+          },
+          "height": {
+            "const": 96,
+            "default": 96,
+            "title": "Height",
+            "type": "integer"
+          },
+          "pixel_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Pixel Sha256",
+            "type": "string"
+          },
+          "quad": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Input"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Quad",
+            "type": "array"
+          },
+          "render_spec": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Render Spec",
+            "type": "object"
+          },
+          "render_spec_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Render Spec Digest",
+            "type": "string"
+          },
+          "renderer_version": {
+            "const": "lab-symbol-crop-rgb96-v1",
+            "title": "Renderer Version",
+            "type": "string"
+          },
+          "snapshot_manifest_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Snapshot Manifest Id",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Input"
+          },
+          "width": {
+            "const": 96,
+            "default": 96,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "snapshot_manifest_id",
+          "catalog_digest",
+          "game_id",
+          "source_id",
+          "source_sha256",
+          "board_index",
+          "geometry_revision",
+          "geometry_digest",
+          "topology",
+          "cell_index",
+          "quad",
+          "renderer_version",
+          "render_spec",
+          "render_spec_digest",
+          "pixel_sha256",
+          "byte_sha256",
+          "crop_id"
+        ],
+        "title": "CropBinding",
+        "type": "object"
+      },
+      "CropBinding-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "byte_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Byte Sha256",
+            "type": "string"
+          },
+          "catalog_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Catalog Digest",
+            "type": "string"
+          },
+          "cell_index": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cell Index",
+            "type": "integer"
+          },
+          "crop_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Crop Id",
+            "type": "string"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "geometry_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Geometry Digest",
+            "type": "string"
+          },
+          "geometry_revision": {
+            "minimum": 1.0,
+            "title": "Geometry Revision",
+            "type": "integer"
+          },
+          "height": {
+            "const": 96,
+            "default": 96,
+            "title": "Height",
+            "type": "integer"
+          },
+          "pixel_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Pixel Sha256",
+            "type": "string"
+          },
+          "quad": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Output"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Quad",
+            "type": "array"
+          },
+          "render_spec": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Render Spec",
+            "type": "object"
+          },
+          "render_spec_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Render Spec Digest",
+            "type": "string"
+          },
+          "renderer_version": {
+            "const": "lab-symbol-crop-rgb96-v1",
+            "title": "Renderer Version",
+            "type": "string"
+          },
+          "snapshot_manifest_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Snapshot Manifest Id",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Output"
+          },
+          "width": {
+            "const": 96,
+            "default": 96,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "snapshot_manifest_id",
+          "catalog_digest",
+          "game_id",
+          "source_id",
+          "source_sha256",
+          "board_index",
+          "geometry_revision",
+          "geometry_digest",
+          "topology",
+          "cell_index",
+          "quad",
+          "renderer_version",
+          "render_spec",
+          "render_spec_digest",
+          "width",
+          "height",
+          "pixel_sha256",
+          "byte_sha256",
+          "crop_id"
+        ],
+        "title": "CropBinding",
+        "type": "object"
+      },
+      "DbCropPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_sha256": {
+            "title": "Byte Sha256",
+            "type": "string"
+          },
+          "crop_bytes_base64": {
+            "title": "Crop Bytes Base64",
+            "type": "string"
+          },
+          "dictionary": {
+            "$ref": "#/components/schemas/DictionaryView"
+          },
+          "kind": {
+            "const": "db_approved",
+            "default": "db_approved",
+            "title": "Kind",
+            "type": "string"
+          },
+          "media_type": {
+            "title": "Media Type",
+            "type": "string"
+          },
+          "origin": {
+            "const": "db_approved",
+            "default": "db_approved",
+            "title": "Origin",
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "title": "Provenance",
+            "type": "object"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "sample_id": {
+            "title": "Sample Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "origin",
+          "read_only",
+          "sample_id",
+          "provenance",
+          "byte_sha256",
+          "media_type",
+          "crop_bytes_base64",
+          "dictionary"
+        ],
+        "title": "DbCropPreview",
+        "type": "object"
+      },
+      "DbCropRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "db_approved",
+            "title": "Kind",
+            "type": "string"
+          },
+          "sample_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sample Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "sample_id"
+        ],
+        "title": "DbCropRequest",
+        "type": "object"
+      },
       "DetectRequest": {
         "additionalProperties": false,
         "properties": {
@@ -434,6 +771,262 @@
           "source_id"
         ],
         "title": "DetectRequest",
+        "type": "object"
+      },
+      "DictionaryApprove": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "op": {
+            "const": "dictionary_approve",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "game_id",
+          "version",
+          "digest"
+        ],
+        "title": "DictionaryApprove",
+        "type": "object"
+      },
+      "DictionaryDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/DictionaryEntry"
+            },
+            "maxItems": 256,
+            "title": "Entries",
+            "type": "array"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "op": {
+            "const": "dictionary_draft",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "game_id",
+          "entries"
+        ],
+        "title": "DictionaryDraft",
+        "type": "object"
+      },
+      "DictionaryEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "display_name"
+        ],
+        "title": "DictionaryEntry",
+        "type": "object"
+      },
+      "DictionaryPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DictionaryView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "read_token": {
+            "title": "Read Token",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "revision",
+          "read_token"
+        ],
+        "title": "DictionaryPage",
+        "type": "object"
+      },
+      "DictionaryView": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": false,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "entries": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DictionaryEntry"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entries"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "origin": {
+            "default": "lab",
+            "enum": [
+              "lab",
+              "db_snapshot"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "approved",
+              "snapshot"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "origin",
+          "game_id",
+          "version",
+          "digest",
+          "status",
+          "approved_at",
+          "active",
+          "entries"
+        ],
+        "title": "DictionaryView",
         "type": "object"
       },
       "FamilyDecision": {
@@ -949,6 +1542,183 @@
           }
         },
         "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LabCropPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "binding": {
+            "$ref": "#/components/schemas/CropBinding-Output"
+          },
+          "kind": {
+            "const": "lab_cell",
+            "default": "lab_cell",
+            "title": "Kind",
+            "type": "string"
+          },
+          "png_base64": {
+            "title": "Png Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "binding",
+          "png_base64"
+        ],
+        "title": "LabCropPreview",
+        "type": "object"
+      },
+      "LabCropRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "cell_index": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cell Index",
+            "type": "integer"
+          },
+          "expected_geometry_revision": {
+            "minimum": 1.0,
+            "title": "Expected Geometry Revision",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "lab_cell",
+            "title": "Kind",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "source_id",
+          "board_index",
+          "cell_index",
+          "expected_geometry_revision"
+        ],
+        "title": "LabCropRequest",
+        "type": "object"
+      },
+      "LabelDecide": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "unknown",
+              "unreadable",
+              "grid_issue"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/CropBinding-Input"
+          },
+          "dictionary_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Dictionary Digest",
+            "type": "string"
+          },
+          "dictionary_version": {
+            "minimum": 1.0,
+            "title": "Dictionary Version",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "op": {
+            "const": "label_decide",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "symbol_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol Id"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "binding",
+          "dictionary_version",
+          "dictionary_digest",
+          "action"
+        ],
+        "title": "LabelDecide",
+        "type": "object"
+      },
+      "LabelWithdraw": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "decision_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "op": {
+            "const": "label_withdraw",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "decision_id"
+        ],
+        "title": "LabelWithdraw",
         "type": "object"
       },
       "PhotoReview": {
@@ -1941,6 +2711,197 @@
         "title": "StoredGeometryQualification",
         "type": "object"
       },
+      "SymbolPage": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "title": "Availability",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SymbolRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "read_token": {
+            "title": "Read Token",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "revision",
+          "read_token",
+          "availability"
+        ],
+        "title": "SymbolPage",
+        "type": "object"
+      },
+      "SymbolResult": {
+        "additionalProperties": false,
+        "properties": {
+          "label_valid": {
+            "default": false,
+            "title": "Label Valid",
+            "type": "boolean"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "result_id": {
+            "title": "Result Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "trainable": {
+            "const": false,
+            "default": false,
+            "title": "Trainable",
+            "type": "boolean"
+          },
+          "training_blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Training Blockers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label_valid",
+          "reasons",
+          "training_blockers",
+          "trainable",
+          "revision",
+          "request_id",
+          "result_id",
+          "replayed"
+        ],
+        "title": "SymbolResult",
+        "type": "object"
+      },
+      "SymbolRow": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "board_id": {
+            "title": "Board Id",
+            "type": "string"
+          },
+          "cell_index": {
+            "title": "Cell Index",
+            "type": "integer"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "label_valid": {
+            "default": false,
+            "title": "Label Valid",
+            "type": "boolean"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "origin": {
+            "enum": [
+              "lab_human_approved",
+              "db_approved"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "sample_id": {
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "symbol_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol Id"
+          },
+          "trainable": {
+            "const": false,
+            "default": false,
+            "title": "Trainable",
+            "type": "boolean"
+          },
+          "training_blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Training Blockers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label_valid",
+          "reasons",
+          "training_blockers",
+          "trainable",
+          "sample_id",
+          "origin",
+          "game_id",
+          "source_id",
+          "board_id",
+          "cell_index",
+          "symbol_id",
+          "action",
+          "metadata"
+        ],
+        "title": "SymbolRow",
+        "type": "object"
+      },
       "Timing": {
         "additionalProperties": false,
         "properties": {
@@ -2743,6 +3704,398 @@
           }
         },
         "summary": "Freeze Split"
+      }
+    },
+    "/symbol-backups": {
+      "post": {
+        "operationId": "create_symbol_backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Backup"
+      }
+    },
+    "/symbol-crops": {
+      "post": {
+        "operationId": "preview_symbol_crop",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "db_approved": "#/components/schemas/DbCropRequest",
+                    "lab_cell": "#/components/schemas/LabCropRequest"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/LabCropRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DbCropRequest"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LabCropPreview"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DbCropPreview"
+                    }
+                  ],
+                  "title": "Response Preview Symbol Crop"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview"
+      }
+    },
+    "/symbol-dictionaries": {
+      "get": {
+        "operationId": "list_symbol_dictionaries",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "read_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Read Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Dictionaries"
+      }
+    },
+    "/symbol-dictionaries/{game_id}/{version}": {
+      "get": {
+        "operationId": "get_symbol_dictionary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dictionary"
+      }
+    },
+    "/symbols": {
+      "get": {
+        "operationId": "list_symbol_labels",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "read_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Read Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Labels"
+      },
+      "post": {
+        "operationId": "save_symbol_decision",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "dictionary_approve": "#/components/schemas/DictionaryApprove",
+                    "dictionary_draft": "#/components/schemas/DictionaryDraft",
+                    "label_decide": "#/components/schemas/LabelDecide",
+                    "label_withdraw": "#/components/schemas/LabelWithdraw"
+                  },
+                  "propertyName": "op"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/DictionaryDraft"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DictionaryApprove"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabelDecide"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabelWithdraw"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mutate"
       }
     },
     "/timings": {

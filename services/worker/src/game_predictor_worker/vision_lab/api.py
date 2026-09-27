@@ -41,6 +41,15 @@ class LocalBoundary(BaseHTTPMiddleware):
                 != "application/json"
             ):
                 return Response("JSON_REQUIRED", 415)
+            if request.url.path in {"/symbols", "/symbol-crops", "/symbol-backups"}:
+                size = 0
+                chunks = []
+                async for chunk in request.stream():
+                    size += len(chunk)
+                    if size > 1024 * 1024:
+                        return Response("SYMBOL_REQUEST_TOO_LARGE", 413)
+                    chunks.append(chunk)
+                request._body = b"".join(chunks)
         response = await call_next(request)
         response.headers["Cache-Control"] = "no-store"
         return response
@@ -50,6 +59,7 @@ def create_app(
     catalog: Catalog | None = None,
     annotation_root: Path | None = None,
     run_manager: RunManager | None = None,
+    symbol_root: Path | None = None,
 ) -> FastAPI:
     application = FastAPI(title="Vision Lab API", version="1.0.0", docs_url=None, redoc_url=None)
     application.add_middleware(LocalBoundary)
@@ -128,6 +138,29 @@ def create_app(
         if root is None:
             raise HTTPException(503, "ANNOTATION_DIRECTORY_NOT_CONFIGURED")
         return AnnotationStore(root, current())
+
+    from .symbol_api import install_symbol_routes
+    from .symbol_store import SymbolLabelStore
+
+    configured_symbols = symbol_root or (
+        Path(os.environ["VISION_LAB_SYMBOLS"]) if os.environ.get("VISION_LAB_SYMBOLS") else None
+    )
+    symbols_instance: SymbolLabelStore | None = None
+
+    def symbols() -> SymbolLabelStore:
+        nonlocal symbols_instance
+        if configured_symbols is None:
+            raise HTTPException(503, "SYMBOL_DIRECTORY_NOT_CONFIGURED")
+        if symbols_instance is None:
+            protected = tuple(
+                Path(os.environ[key])
+                for key in ("VISION_LAB_MANIFESTS", "VISION_LAB_RUNS")
+                if os.environ.get(key)
+            )
+            symbols_instance = SymbolLabelStore(configured_symbols, annotations(), protected)
+        return symbols_instance
+
+    install_symbol_routes(application, symbols)
 
     @application.get("/annotations", response_model=AnnotationState, operation_id="get_annotations")
     def get_annotations() -> AnnotationState:

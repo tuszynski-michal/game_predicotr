@@ -244,7 +244,7 @@ reguły pracy etapami i D-447, a **nie uruchamia A**.
 | B | [TASK-0668](../tasks/0668-vision-lab-geometry-annotations.md) | Edytor, warstwowy zbiór, backup, zamrożony split i pomiar kosztu. |
 | B | [TASK-0669](../tasks/completed/0669-vision-lab-training-core.md) | Done: neutralny rdzeń, trwały backend runów, izolowane GPU, checkpoint v2 i odczyt v1; bez przepięcia produkcji. Audyt Astra medium PASS. |
 | B | [TASK-0670](../tasks/completed/0670-vision-lab-hybrid.md) | Done: hybryda, checkpoint w galerii i ONNX; audyty PASS. Walidacja bez poprawy, brak promocji. STOP B. |
-| C | [TASK-0671](../tasks/0671-vision-lab-symbol-labels.md) | Zatwierdzenia DB/lab, słowniki lokalne, ponowna zgoda po recrop. |
+| C | [TASK-0671](../tasks/0671-vision-lab-symbol-labels.md) | T06a done: narzędzia DB/lab, audyt i testy PASS. T06b blocked: brak rzeczywistych zatwierdzeń i kwalifikacji symboli; T07–T09 nieuruchomione. |
 | C | [TASK-0672](../tasks/0672-vision-lab-symbol-models.md) | RGB, szarość, fuzja, kalibracja i metryki per klasa. |
 | C | [TASK-0673](../tasks/0673-vision-lab-training-panel.md) | Panel start/cancel/postęp/retry i historia korzysta z trwałego backendu T04. |
 | C | [TASK-0674](../tasks/0674-vision-lab-validation.md) | Walidacja i zamrożenie modelu/progów przed testem. |
@@ -283,6 +283,19 @@ i nowym lease; stary token nie może zapisać. `succeeded` wymaga atomowego
 raportu i checksum artefaktów.
 
 ## Pomiar, mapa wymagań i kontrole
+
+### Bootstrap T06 w etapie C
+
+Operator uruchomił etap C po T05. Preflight wykazał pusty zbiór słowników i
+etykiet symboli. Dlatego T06a buduje narzędzia ich jawnego zatwierdzania,
+natomiast T06b zachowuje wymagania kwalifikacji rzeczywistego zbioru.
+Ukończenie narzędzi nie oznacza ukończenia T06, T03 ani zgody na trening.
+T06b i zależne T07–T09 zatrzymują się przy braku danych lub niezbędnej
+decyzji operatora. D-453/D-456 pozostają wyłącznie geometryczne.
+Każde podzadanie ma osobny audyt i commit. Szczegółowy kontrakt techniczny:
+[T06a](VISION_LAB_SYMBOL_LABELS_CONTRACT.md), wymagany przed kodowaniem.
+
+### Pomiar geometrii
 
 W T03, przed hybrydą, zamrażamy rozłączne zestawy baseline/hybryda. Losujemy
 przydział w obrębie gry i trudności. Użytkownik nie poprawia tego samego
@@ -602,6 +615,8 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |
+| T06a / TASK-0671 | `gpt-6-sol` | `medium` | Narzędzia, adaptery i trwałe zatwierdzenia symboli. | `gpt-6-sol`, `medium` |
+| T06b / TASK-0671 | `gpt-6-sol` | `medium` | Rzeczywisty zbiór, pochodzenie i bramki danych. | `gpt-6-sol`, `medium` |
 | T07 / TASK-0672 | `gpt-6-sol` | `medium` | Kalibracja i odporność na kolor. | `gpt-6-astra`, `medium` |
 | T08 / TASK-0673 | `gpt-5.6-terra` | `high` | UI gotowych kontraktów. | `gpt-5.6-terra`, `high` |
 | T09 / TASK-0674 | `gpt-6-sol` | `medium` | Ocena dowodów i wybór kierunku. | `gpt-6-astra`, `medium` |

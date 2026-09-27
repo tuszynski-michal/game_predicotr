@@ -11,6 +11,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--snapshot", type=Path, required=True)
     parser.add_argument("--annotations", type=Path)
+    parser.add_argument("--symbols", type=Path)
     parser.add_argument("--manifests", type=Path)
     parser.add_argument("--runs", type=Path)
     parser.add_argument("--training-python", type=Path)
@@ -18,6 +19,7 @@ if __name__ == "__main__":
     for field, variable in (
         ("snapshot", "VISION_LAB_SNAPSHOT"),
         ("annotations", "VISION_LAB_ANNOTATIONS"),
+        ("symbols", "VISION_LAB_SYMBOLS"),
         ("manifests", "VISION_LAB_MANIFESTS"),
         ("runs", "VISION_LAB_RUNS"),
         ("training_python", "VISION_LAB_PYTHON"),

@@ -330,6 +330,53 @@ textarea {
 .editor-preview button {
   margin-top: 12px;
 }
+.symbol-panel button,
+.symbol-panel label {
+  margin: 6px 10px 6px 0;
+  min-width: 0;
+  max-width: calc(100% - 10px);
+}
+.symbol-panel {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.symbol-panel fieldset {
+  margin-block: 18px;
+  margin-inline: 0;
+  padding: 16px;
+  min-width: 0;
+  max-width: 100%;
+}
+.symbol-panel label {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.symbol-panel select,
+.symbol-panel input,
+.symbol-panel img {
+  min-width: 0;
+  max-width: 100%;
+}
+.symbol-panel select {
+  text-overflow: ellipsis;
+}
+.symbol-panel button {
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.symbol-panel img {
+  height: auto;
+}
+.symbol-panel article {
+  padding: 12px 0;
+  border-bottom: 1px solid #465166;
+}
+.symbol-panel > a {
+  display: inline-block;
+  margin: 6px 20px 6px 0;
+}
 @media (max-width: 850px) {
   .editor-workspace {
     grid-template-columns: minmax(0, 1fr);

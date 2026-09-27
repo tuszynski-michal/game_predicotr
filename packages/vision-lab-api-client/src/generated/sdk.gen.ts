@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CancelTrainingRunData, CancelTrainingRunErrors, CancelTrainingRunResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, DetectGeometryData, DetectGeometryErrors, DetectGeometryResponses, FreezeSplitData, FreezeSplitErrors, FreezeSplitResponses, GetAnnotationsData, GetAnnotationsResponses, GetAssetData, GetAssetErrors, GetAssetResponses, GetTimingsData, GetTimingsResponses, GetTrainingRunData, GetTrainingRunErrors, GetTrainingRunResponses, ListSourcesData, ListSourcesErrors, ListSourcesResponses, ListTrainingRunsData, ListTrainingRunsErrors, ListTrainingRunsResponses, RetryTrainingRunData, RetryTrainingRunErrors, RetryTrainingRunResponses, SaveAnnotationData, SaveAnnotationErrors, SaveAnnotationResponses, SaveFamilyData, SaveFamilyErrors, SaveFamilyResponses, StartTrainingRunData, StartTrainingRunErrors, StartTrainingRunResponses } from './types.gen';
+import type { CancelTrainingRunData, CancelTrainingRunErrors, CancelTrainingRunResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, CreateSymbolBackupData, CreateSymbolBackupErrors, CreateSymbolBackupResponses, DetectGeometryData, DetectGeometryErrors, DetectGeometryResponses, FreezeSplitData, FreezeSplitErrors, FreezeSplitResponses, GetAnnotationsData, GetAnnotationsResponses, GetAssetData, GetAssetErrors, GetAssetResponses, GetSymbolDictionaryData, GetSymbolDictionaryErrors, GetSymbolDictionaryResponses, GetTimingsData, GetTimingsResponses, GetTrainingRunData, GetTrainingRunErrors, GetTrainingRunResponses, ListSourcesData, ListSourcesErrors, ListSourcesResponses, ListSymbolDictionariesData, ListSymbolDictionariesErrors, ListSymbolDictionariesResponses, ListSymbolLabelsData, ListSymbolLabelsErrors, ListSymbolLabelsResponses, ListTrainingRunsData, ListTrainingRunsErrors, ListTrainingRunsResponses, PreviewSymbolCropData, PreviewSymbolCropErrors, PreviewSymbolCropResponses, RetryTrainingRunData, RetryTrainingRunErrors, RetryTrainingRunResponses, SaveAnnotationData, SaveAnnotationErrors, SaveAnnotationResponses, SaveFamilyData, SaveFamilyErrors, SaveFamilyResponses, SaveSymbolDecisionData, SaveSymbolDecisionErrors, SaveSymbolDecisionResponses, StartTrainingRunData, StartTrainingRunErrors, StartTrainingRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -132,6 +132,57 @@ export const listSources = <ThrowOnError extends boolean = false>(options?: Opti
  */
 export const freezeSplit = <ThrowOnError extends boolean = false>(options: Options<FreezeSplitData, ThrowOnError>): RequestResult<FreezeSplitResponses, FreezeSplitErrors, ThrowOnError> => (options.client ?? client).post<FreezeSplitResponses, FreezeSplitErrors, ThrowOnError>({
     url: '/splits',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Backup
+ */
+export const createSymbolBackup = <ThrowOnError extends boolean = false>(options: Options<CreateSymbolBackupData, ThrowOnError>): RequestResult<CreateSymbolBackupResponses, CreateSymbolBackupErrors, ThrowOnError> => (options.client ?? client).post<CreateSymbolBackupResponses, CreateSymbolBackupErrors, ThrowOnError>({
+    url: '/symbol-backups',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Preview
+ */
+export const previewSymbolCrop = <ThrowOnError extends boolean = false>(options: Options<PreviewSymbolCropData, ThrowOnError>): RequestResult<PreviewSymbolCropResponses, PreviewSymbolCropErrors, ThrowOnError> => (options.client ?? client).post<PreviewSymbolCropResponses, PreviewSymbolCropErrors, ThrowOnError>({
+    url: '/symbol-crops',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Dictionaries
+ */
+export const listSymbolDictionaries = <ThrowOnError extends boolean = false>(options?: Options<ListSymbolDictionariesData, ThrowOnError>): RequestResult<ListSymbolDictionariesResponses, ListSymbolDictionariesErrors, ThrowOnError> => (options?.client ?? client).get<ListSymbolDictionariesResponses, ListSymbolDictionariesErrors, ThrowOnError>({ url: '/symbol-dictionaries', ...options });
+
+/**
+ * Dictionary
+ */
+export const getSymbolDictionary = <ThrowOnError extends boolean = false>(options: Options<GetSymbolDictionaryData, ThrowOnError>): RequestResult<GetSymbolDictionaryResponses, GetSymbolDictionaryErrors, ThrowOnError> => (options.client ?? client).get<GetSymbolDictionaryResponses, GetSymbolDictionaryErrors, ThrowOnError>({ url: '/symbol-dictionaries/{game_id}/{version}', ...options });
+
+/**
+ * List Labels
+ */
+export const listSymbolLabels = <ThrowOnError extends boolean = false>(options?: Options<ListSymbolLabelsData, ThrowOnError>): RequestResult<ListSymbolLabelsResponses, ListSymbolLabelsErrors, ThrowOnError> => (options?.client ?? client).get<ListSymbolLabelsResponses, ListSymbolLabelsErrors, ThrowOnError>({ url: '/symbols', ...options });
+
+/**
+ * Mutate
+ */
+export const saveSymbolDecision = <ThrowOnError extends boolean = false>(options: Options<SaveSymbolDecisionData, ThrowOnError>): RequestResult<SaveSymbolDecisionResponses, SaveSymbolDecisionErrors, ThrowOnError> => (options.client ?? client).post<SaveSymbolDecisionResponses, SaveSymbolDecisionErrors, ThrowOnError>({
+    url: '/symbols',
     ...options,
     headers: {
         'Content-Type': 'application/json',

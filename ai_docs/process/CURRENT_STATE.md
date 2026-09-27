@@ -6,11 +6,44 @@ last_updated: 2026-09-27
 
 # Current State
 
+### Etap C — T06a odebrane; T06b blokuje dalszy trening
+
+- Operator uruchomił C (T06–T09). D-458 rozdzieliło budowę narzędzi T06a
+  od rzeczywistego zbioru T06b, bez osłabienia bramek. T06a done,
+  nadrzędne TASK-0671 blocked i pozostaje w aktywnych zadaniach.
+  Osobny commit T06a: do zapisania po kontroli indeksu; bazowy HEAD
+  v1.7.30 / 4072dd53a260677e60a24c49f870e7ef1a58c093.
+- Wykonawca Sol medium, niezależny Sol medium: końcowy audyt PASS,
+  bez P0–P2 po dwóch cyklach poprawek. Niezależnie 73 backend,
+  40 UI i 10 klienta PASS; lint/typy/OpenAPI/build PASS. Backup/restore
+  przez CLI w nowych procesach PASS. Raport VISION_LAB_SYMBOL_LABELS_20260927.
+- `/symbols` udostępnia słowniki, dokładne cropy i jawne etykiety,
+  z osobnym magazynem, historią, CAS/retry, backupem i adapterem eksportu
+  DB tylko do odczytu. Brak tworzenia klas lub zgód za operatora.
+  Formularze, toasty i scoped CSS sprawdzone w przeglądarce; także 390 px
+  bez poziomego przepełnienia. Fizyczny Android i restart OS nietestowane.
+- Realny odczyt po restarcie usług: symbol revision 0 / 0 etykiet,
+  0 słowników; magazyn symboli nadal nieutworzony. Geometria rev268 i SHA
+  084bc39de16502de46f6237cbc2fb453a9dc00665ab20d1319301f44f6efa314 bez zmian.
+  Brak nowych treningów, realnych approval, DB sesji, push/merge/aktywacji.
+- Działające procesy: API launcher20552 (2026-09-27 23:06:35),
+  serwer30872 (23:06:37), UI37032 (23:12:42), porty8102/3102.
+  Instrukcja trwałego uruchomienia zawiera jawny `--symbols` i izolowany
+  interpreter. Pierwszy krótki readiness API nie objął startu; sprawdzono
+  ten sam proces, bez duplikatu. Końcowe HTTP200/odczyty PASS.
+- T06b potrzebuje rzeczywistych zatwierdzeń symboli i kwalifikacji
+  pochodzenia/podziału per gra. Akceptacja180 siatek nie jest etykietą klasy.
+  D-453/D-456 pozostają geometryczne; historyczne777 i holdouty nie zostały
+  odblokowane do symboli. T07–T09 nieuruchomione. Nie trzeba ponownie
+  rysować poprawnych siatek. Cudze zmiany pozostają poza commitem.
+
 ### STOP B — T05 odebrany technicznie, model bez promocji
 
 - T03k/T04/T05 zakończone w zakresie pilota D-456. Wykonawca Sol high,
   audyty Astra medium PASS bezP0–P2. T05 done w completed; osobny commit
-  v1.7.30 domykany po staged check/stat/list, pełny hash po commicie.
+  `v1.7.30` / `4072dd53a260677e60a24c49f870e7ef1a58c093`.
+  Staged check/stat/list i show/stat/status PASS;38 plików, cudze zmiany
+  oraz incidental next-env poza commitem. Pełny hash zapisany po commicie.
 - Smoke8b883801a9164eeb9d72474943adf3c1:1ep/10steps/434,93s. Jedyny train
   34adda69c29847f389cb92e487d75ca8:20ep/200steps/568,53s, checkpoint20,
   bestepoch1. Niezależne świeże starty, dokładnie dwa runy attempt1.

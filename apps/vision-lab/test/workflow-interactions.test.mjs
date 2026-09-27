@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { registerHooks } from 'node:module';
-import { readFileSync, existsSync } from 'node:fs';
+import { readFileSync, existsSync, statSync } from 'node:fs';
 import ts from 'typescript';
 import React from 'react';
 import { act, create } from 'react-test-renderer';
@@ -11,19 +11,32 @@ const apiUrl = new URL(
   '../../../packages/vision-lab-api-client/src/index.ts',
   import.meta.url,
 ).href;
+const nextLinkUrl = new URL('./next-link-harness.mjs', import.meta.url).href;
 registerHooks({
   resolve(specifier, context, next) {
+    // Next's bundler resolves this extensionless CJS entry and unwraps its
+    // default export. Native Node ESM needs both steps explicitly. Keep the
+    // real Link implementation: this is resolution, not a replacement anchor.
+    if (specifier === 'next/link')
+      return { url: nextLinkUrl, shortCircuit: true };
     if (specifier.startsWith('.')) {
       const url = new URL(specifier, context.parentURL);
       for (const extension of ['', '.ts', '.tsx']) {
         const candidate = new URL(url.href + extension);
-        if (existsSync(candidate))
+        if (existsSync(candidate) && statSync(candidate).isFile())
           return { url: candidate.href, shortCircuit: true };
       }
     }
     return next(specifier, context);
   },
   load(url, context, next) {
+    if (url === nextLinkUrl)
+      return {
+        format: 'module',
+        shortCircuit: true,
+        source:
+          "import entry from 'next/link.js'; export default entry.default ?? entry;",
+      };
     if (url === apiUrl)
       return {
         format: 'module',
@@ -54,10 +67,13 @@ const { quickReviewQueue } = await import('../src/lib/quick-review.ts');
 const { AnnotationProvider, useAnnotations } =
   await import('../src/components/annotation-context.tsx');
 const { default: Page } = await import('../src/app/page.tsx');
+const { default: NextLink } = await import('next/link');
 const { ToastProvider, useToast } =
   await import('../../../packages/ui/src/toasts.tsx');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 globalThis.window = {
+  setTimeout,
+  clearTimeout,
   addEventListener(type) {
     assert.notEqual(type, 'beforeunload');
   },
@@ -66,6 +82,8 @@ globalThis.window = {
     throw new Error('Browser confirmation is forbidden in lab workflow');
   },
 };
+// Real NextLink uses the browser's self timer fallback for intersection work.
+globalThis.self = globalThis.window;
 globalThis.document = {
   addEventListener() {},
   removeEventListener() {},
@@ -79,6 +97,20 @@ globalThis.ResizeObserver = class {
   disconnect() {}
 };
 const source = { id: 'source', asset_id: 'photo', sha256: 'a'.repeat(64) };
+test('real NextLink resolves and renders its navigation anchor in the Node harness', async () => {
+  let root;
+  await act(async () => {
+    root = create(React.createElement(NextLink, { href: '/symbols' }, 'Etykiety symboli'));
+  });
+  try {
+    const anchor = root.root.findByType('a');
+    assert.equal(anchor.props.href, '/symbols');
+    assert.equal(anchor.props.children, 'Etykiety symboli');
+    assert.equal(typeof anchor.props.onClick, 'function');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
 const points = (columns, offset = 0) =>
   Array.from({ length: 4 * (columns + 1) }, (_, i) => ({
     x: offset + 10 + (i % (columns + 1)) * 20,

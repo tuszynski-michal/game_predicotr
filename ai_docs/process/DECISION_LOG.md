@@ -6,6 +6,28 @@ last_updated: 2026-09-27
 
 # Decision Log
 
+## D-458 — rozdzielenie narzędzi T06 od kwalifikacji zbioru symboli
+
+- **Status:** accepted, 2026-09-27; techniczne doprecyzowanie jawnie
+  uruchomionego etapu C. Nie zmienia polityki danych ani zgód operatora.
+- **Context:** snapshot folderowy nie zawiera słowników i zatwierdzeń
+  symboli. Literalne wymaganie gotowych słowników przed budową narzędzi
+  ich zatwierdzania uniemożliwia bootstrap.
+- **Decision:** T06a dostarcza narzędzia, izolowany magazyn symboli i
+  adapter zweryfikowanego eksportu DB. Może startować z pustym słownikiem.
+  T06b obejmuje rzeczywisty kwalifikowany zbiór. Samo ukończenie T06a nie
+  zamyka T06, T03 ani warunków wejścia do T07.
+- **Data boundary:** zatwierdzenie geometrii nie jest etykietą symbolu.
+  D-453 i D-456 pozostają geometryczne. Brak zatwierdzeń, pochodzenia lub
+  symbolowego podziału danych nie może zostać zastąpiony fixture, predykcją,
+  nazwą pliku albo podziałem całymi grami. Holdouty pozostają chronione.
+- **Persistence:** osobny magazyn symboli nie przepisuje istniejącego
+  stanu geometrii, receipts ani fingerprintów. Decyzja etykiety wiąże
+  dokładny crop i wersję słownika; drift wymaga nowego zatwierdzenia.
+- **Completion:** każdy podtask ma audyt i commit; T06 pozostaje aktywne
+  przy braku rzeczywistych danych. T07–T09 nie omijają tej zależności.
+  Szczegółowy kontrakt T06a wymaga niezależnego PASS przed kodowaniem.
+
 ## D-457 — techniczny kontrakt pierwszej hybrydy D-456
 
 - **Status:** accepted, 2026-09-27; doprecyzowanie techniczne w granicach

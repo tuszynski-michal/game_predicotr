@@ -38,7 +38,7 @@ def test_defaults_are_loopback_only() -> None:
     assert settings.remote_selection_materialization_lease_seconds == 60
     assert settings.remote_selection_materialization_max_attempts == 5
     assert settings.remote_selection_materialization_max_actions_per_cycle == 4
-    assert settings.symbol_review_page_statement_timeout_ms == 5_000
+    assert settings.symbol_review_page_statement_timeout_ms == 20_000
     assert settings.symbol_review_counts_statement_timeout_ms == 15_000
 
 

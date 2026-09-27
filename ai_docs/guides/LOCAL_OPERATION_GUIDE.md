@@ -251,16 +251,17 @@ starszego kontraktu endpointów. Po aktualizacji repozytorium ze starszej wersji
 tego skryptu zatrzymaj istniejące API raz skrótem `Ctrl+C` i uruchom je ponownie;
 od kolejnych zmian ręczny restart nie jest potrzebny.
 
-Odczyty `Weryfikacji symboli` mają domyślny serwerowy limit 5 sekund dla strony
+Odczyty `Weryfikacji symboli` mają domyślny serwerowy limit 20 sekund dla strony
 i 15 sekund dla liczników. W razie kontrolowanych pomiarów można nadpisać je
 przed uruchomieniem API; wartości muszą być dodatnimi milisekundami:
 
 ```powershell
-$env:GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS = '5000'
+$env:GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS = '20000'
 $env:GAME_PREDICTOR_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS = '15000'
 npm run api:dev
 ```
 
+Istniejący proces API wymaga restartu, aby wczytać zmienione ustawienia.
 Timeout chroni połączenie PostgreSQL, ale nie zastępuje optymalizacji zapytania.
 Nie zwiększaj go jako pierwszej reakcji na stale wolne liczniki.
 

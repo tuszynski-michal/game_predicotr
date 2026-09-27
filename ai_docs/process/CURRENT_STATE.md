@@ -6,6 +6,14 @@ last_updated: 2026-09-27
 
 # Current State
 
+### TASK-0714 — Limit listy symboli 20 sekund
+
+- Na polecenie operatora domyślny limit SQL listy zwiększony z 5000 do 20000 ms.
+  Liczniki nadal 15000 ms; nadpisania środowiska zachowane.
+- Testy konfiguracji 41 PASS, Ruff check/format PASS. Nowy proces potwierdził
+  wartości 20000/15000. Istniejący proces API wymaga restartu przez operatora;
+  bez wdrożenia, zmian danych i optymalizacji SQL.
+
 ### Etap C — T06a odebrane; T06b blokuje dalszy trening
 
 - Operator uruchomił C (T06–T09). D-458 rozdzieliło budowę narzędzi T06a

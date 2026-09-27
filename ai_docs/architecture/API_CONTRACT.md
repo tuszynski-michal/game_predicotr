@@ -379,7 +379,7 @@ rodzaju i anuluje poprzedni przy zmianie scope'u lub kursora. To ogranicza
 niepotrzebne połączenia po stronie przeglądarki; przerwanie zapytania SQL po
 rozłączeniu klienta jest osobną odpowiedzialnością backendu.
 
-Use case listy ustawia transakcyjny PostgreSQL `statement_timeout=5000ms`, a
+Use case listy ustawia transakcyjny PostgreSQL `statement_timeout=20000ms`, a
 use case liczników `statement_timeout=15000ms`, zanim sprawdzi gotowość
 projekcji i wykona właściwy odczyt. Ustawienie jest parametryzowane przez
 `set_config(..., true)`, więc wygasa wraz z transakcją i nie wycieka przez pulę

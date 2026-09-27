@@ -390,6 +390,21 @@ Wykonawca obu Sol medium, audyt Astra medium, osobny commit każdego podzadania.
 Nie potwierdzać automatycznie rodzin, nie zamrażać splitu i nie rozpoczynać
 T04/T05 bez brakujących danych. Bez automatycznego startu usług i treningu.
 
+## T03i — odzyskanie metadanych selekcji z Kosza
+
+Na jawną zgodę operatora z 2026-09-27 przeszukać Kosz i odzyskać wyłącznie
+projektowe metadane selekcji do nowego katalogu `recovered_metadata` pod
+`Documents/game_predictor_vision_data`. Kopiowanie zachowuje Kosz, bez
+nadpisywania plików, przywracania zdjęć i filmów oraz bez zmian anotacji.
+Znaleziono dziewięć kandydatów JSON; zakres, kontrola SHA i ponownego odczytu,
+analiza pokrycia oraz kryteria odbioru są w T03i aktywnego TASK-0668.
+Odzyskane pochodzenie jest dowodem pomocniczym, nie automatyczną weryfikacją
+rodzin ani zgodą na freeze lub trening. Status: `done` — dziewięć kopii,
+trwały manifest, świeży odczyt i niezależny audyt Astra medium PASS bez P0–P2.
+Pokrycie nazw 121/473, zgodność SHA obrazów 0/121; pełny raport w
+`ai_docs/quality/VISION_LAB_RECOVERED_METADATA_20260927.md`. Osobny commit
+i pełny hash zapisuje Outcome T03i. Nadrzędny T03 nadal blocked.
+
 ## T14 — końcowe ujednolicenie toastów w aplikacjach webowych
 
 **Status:** `todo`, zaplanowane na polecenie użytkownika; bez implementacji
@@ -496,6 +511,7 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T03f / TASK-0668 | `gpt-6-sol` | `medium` | Jawna kohorta targetów z pełnym grafem przecieku i zgodnością receipts. | `gpt-6-astra`, `medium` |
 | T03g / TASK-0668 | `gpt-6-sol` | `medium` | Addytywny snapshot, pełna kontrola zachowania zapisów i restart. | `gpt-6-astra`, `medium` |
 | T03h / TASK-0668 | `gpt-6-sol` | `medium` | Jawny zapis D-453, backup i idempotencja bez zmiany geometrii. | `gpt-6-astra`, `medium` |
+| T03i / TASK-0668 | `gpt-6-sol` | `medium` | Bezpieczne odzyskanie metadanych i rozróżnienie powiązań nazw od pikseli. | `gpt-6-astra`, `medium` |
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |

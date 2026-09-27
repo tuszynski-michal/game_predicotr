@@ -15,6 +15,77 @@ T03e/T03f są wdrożone i odebrane; T03g zachował zapisy w rozszerzonym zbiorze
 a T03h zastosował kwalifikację geometrii. T04/T05 nie rozpoczęto; nie uruchamiać ich przed
 spełnieniem bramek danych.
 
+## T03i — odzyskanie metadanych selekcji z Kosza
+
+### Status / Goal / Context
+
+`done`. Użytkownik jawnie zezwolił na przeszukanie Kosza i odzyskanie
+projektowych metadanych. Celem jest bezpieczna kopia znalezionych eksportów
+oraz wskazanie ich pokrycia, bez żądania ponownego przygotowania zdjęć.
+
+### Dependencies / Recommended execution / Relevant docs
+
+Zgoda operatora, istniejący katalog laboratorium, odczyt T03h oraz dokumenty
+w Relevant docs tego taska. Wykonawca `gpt-6-sol` / `medium`; osobny audyt
+`gpt-6-astra` / `medium`. Konflikt ścieżki, SHA lub nierozwiązane P0–P2 po
+dwóch cyklach zatrzymują operację. Brakujące pliki raportować, nie odtwarzać
+metadanych z domysłów.
+
+### Scope / Technical notes / Expected files
+
+- Read-only przeszukanie Kosza znalazło osiem JSON w katalogach Blazing,
+  Gang i Reels oraz jeden JSON wewnątrz usuniętego katalogu 777. Sprawdzono
+  375 wpisów najwyższego poziomu i oba usunięte katalogi, 65 katalogów /
+  70914 plików; bez błędów, pozostałej kolejki i pominiętych reparse points.
+- Kopie tylko tych dziewięciu `manual-image-selection-output-v1.json`,
+  w odrębnych podkatalogach nowego `recovered_metadata` pod katalogiem labu.
+  Zachować nazwę oryginału, ścieżkę z Kosza, pierwotną lokalizację, datę
+  usunięcia, rozmiar i SHA-256 w raporcie. Nie wykonywać restore/move/delete.
+- Walidować brak dowiązań i położenie celu; istniejący identyczny plik jest
+  idempotentnym retry, inna zawartość konfliktem. Nie nadpisywać.
+- Parse JSON i porównanie nazw/hash z obecnymi zdjęciami są tylko analizą
+  dowodów. Dopasowana nazwa nie oznacza identycznych pikseli ani nagrania.
+- Zmiany repo: ten task, CURRENT_STATE, plan oraz nowy raport
+  `ai_docs/quality/VISION_LAB_RECOVERED_METADATA_20260927.md`.
+
+### Out of scope / Acceptance criteria / Verification
+
+Bez odzyskiwania zdjęć/filmów, zmian Kosza, snapshotów, kwalifikacji, rodzin,
+zgód, splitu, usług i treningu. Bez zmian API/UI i kodu produkcyjnego.
+
+- [x] Dziewięć kopii poprawnych JSON ma SHA i rozmiar identyczne ze źródłem.
+- [x] Niezależny nowy proces potwierdza kopie i zachowanie źródeł w Koszu.
+- [x] Raport rozróżnia pliki, trafienia nazw, powiązania SHA i niewiadome.
+- [x] Niezależny audyt, diff check, osobny commit i zapis wyniku.
+
+Weryfikacja operacyjna: ograniczone czasowo odczyty JSON, Get-FileHash i
+Test-Path, świeży proces. Testy aplikacji/lint/typecheck nie dotyczą tej
+operacji danych; nie zmienia ona kodu. Nadrzędny T03 pozostaje blocked.
+
+### Outcome T03i
+
+Odzyskano dziewięć kopii (737005 bajtów), w tym dwa puste eksporty Blazing.
+Preview, copy i świeży verify PASS: identyczne SHA/rozmiary i poprawny JSON,
+źródła w Koszu zachowane. Nazwami objęto 121 z 473 nowych JPG: Blazing 27/27,
+Gang 35/35, Reels 54/54 i 777 5/32. Żaden z tych bieżących cropów nie ma SHA
+oryginału wskazanego w eksporcie. To przesłanka pochodzenia, nie dowód pikseli
+ani niezależności nagrań. Z wcześniejszym Treasure znane pokrycie nazw 157/473;
+316 niepokrytych: 27 zdjęć 777, 225 Mumii, 64 Treasure. Nie ponawiać prośby
+o ponowne rysowanie 180 zachowanych siatek. Store rev260/SHA ad7c3d82… bez zmian.
+Raport: VISION_LAB_RECOVERED_METADATA_20260927.md. Nie zmieniono kodu, API,
+usług, snapshotów, anotacji, kwalifikacji, rodzin ani splitu; brak treningu.
+Testy aplikacji/lint/typecheck nie dotyczą tej operacji. Niezależny audyt
+Astra medium PASS bez P0–P2: dziewięć kopii, oryginalne ścieżki/daty z $I,
+121 trafień nazw bez zgodnych SHA obrazów oraz oba niezmienione store.
+Trwały manifest `recovered_metadata/recovery-manifest-20260927.json`:
+74899 B, SHA `954cadcfc97e71cf8636a0b0d6f3dafaa72192c299ff79a0b84d9412e71f38a2`.
+Skorygowano nieścisłość opisu daty Shell; surowe wartości odpowiadają UTC,
+nie lokalnej strefie. Odbiór obejmuje kontrolę nowego procesu i brak nadpisań.
+Commit T03i: v1.7.25 (pełny hash po commicie). Staged check/stat/list PASS.
+Porównanie z DoD: kontrola kopii, nowego procesu, zachowania źródeł oraz
+rozróżnienia dowodów spełniona. Nadrzędny task pozostaje blocked; dalszy krok
+to osobna analiza dowodów pochodzenia, nie automatyczne uruchomienie treningu.
+
 ## Goal
 
 Zatwierdzać warstwowe anotacje geometrii z trwałymi rewizjami i zamrożonymi podziałami.
@@ -549,8 +620,10 @@ zablokowany; nie usuwać decyzji, aby obchodzić tę granicę przy kolejnych imp
   medium PASS bez P0–P2: nowy proces potwierdził ścisłą różnicę payloadu,
   zgodność backupu, 11/30 skuteczność i already_applied bez zmiany SHA.
   Audytor dopasował diagnostykę do braku opcjonalnego pola w dawnym payloadzie;
-  nie przepisywano danych ani nie osłabiano kontraktu. Commit T03h: v1.7.24
-  (hash po commicie). Podzadanie done, nadrzędny plik pozostaje aktywny.
+  nie przepisywano danych ani nie osłabiano kontraktu. Commit T03h: `v1.7.24` /
+  `1434f2135a1056760d5581f9ad180cfb1ccd1d6e`. Staged check/stat/list oraz
+  show/stat/status PASS; obce zmiany zachowane. Hash dopisany po commicie.
+  Podzadanie done, nadrzędny plik pozostaje aktywny.
   Nadrzędny T03 pozostaje blocked na rodzinach i podziale, nie na kwalifikacji 777.
 
 ## T03a — ergonomia edytora i bieżące cropy

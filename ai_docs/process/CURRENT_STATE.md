@@ -6,6 +6,26 @@ last_updated: 2026-09-27
 
 # Current State
 
+### T03i — odzyskiwanie metadanych selekcji
+
+- Użytkownik zezwolił na przeszukanie Kosza i odzyskanie projektowych
+  metadanych. Znaleziono dziewięć JSON: Blazing 4, Gang 2, Reels 2, 777 1.
+  Kopie zapisano wyłącznie do `game_predictor_vision_data/recovered_metadata`,
+  bez nadpisywania, przywracania zdjęć/filmów i zmian zawartości Kosza.
+- Sol medium wykonał kopię i kontrolę w nowym procesie: dziewięć poprawnych
+  JSON, identyczne SHA/rozmiary (737005 bajtów), dwa eksporty Blazing puste.
+  Nazwy obejmują 121/473 nowe zdjęcia: Blazing 27, Gang 35, Reels 54, 777 5.
+  Żadne z 121 SHA obrazu nie zgadza się z bieżącym cropem. Metadane nie
+  potwierdzają same tożsamości pikseli ani niezależności nagrań.
+- Wraz z wcześniejszym Treasure znane pokrycie nazw 157/473; nadal brak
+  mapowania 27 zdjęć 777, 225 Mumii i 64 Treasure. Raport:
+  VISION_LAB_RECOVERED_METADATA_20260927.md. Bez ponownego rysowania siatek.
+  Store rev260/SHA ad7c3d82… niezmieniony; bez rodzin, splitu i treningu.
+  Niezależny audyt Astra medium PASS bez P0–P2, także oba niezmienione store.
+  Manifest trwały przy kopiach: recovery-manifest-20260927.json / SHA
+  `954cadcfc97e71cf8636a0b0d6f3dafaa72192c299ff79a0b84d9412e71f38a2`.
+  T03i done, commit v1.7.25 (hash po commicie); T03 nadal blocked.
+
 ### T03h — kwalifikacja geometrii 777 na rozszerzonym zbiorze
 
 - Wykonano istniejącym CLI, po preview i backupie, jawne D-453 dla 11 zdjęć
@@ -16,7 +36,8 @@ last_updated: 2026-09-27
   rewizji, SHA ani historii. SHA stanu po operacji:
   `ad7c3d8248d303696e701819d705e949be9df094c3e1c2e74e317e7ef8456f17`.
   Wykonawca Sol medium; końcowy niezależny audyt Astra medium PASS bez P0–P2.
-  T03h done, commit v1.7.24 (hash po commicie).
+  T03h done, commit `v1.7.24` / `1434f2135a1056760d5581f9ad180cfb1ccd1d6e`.
+  Staged check/stat/list i show/stat/status PASS; obce zmiany zachowane.
 - Backup i pełne wyniki: VISION_LAB_ADDITIVE_DATA_20260927.md / T03h.
   Zero rodzin, brak splitu. Nie uruchomiono usług, T04/T05 ani treningu.
   Następny krok wymaga mapy konkretnych źródeł do nagrań i kontroli bramek

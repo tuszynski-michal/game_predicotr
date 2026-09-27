@@ -29,13 +29,18 @@ last_updated: 2026-09-26
   nagrania pozostają jedną rodziną; różne foldery mogą zawierać jego wycinki.
   T03 musi powiązać deklarację z konkretnymi źródłami i rodzinami oraz
   sprawdzić konflikty duplikatów i pochodnych przed zamrożeniem podziału.
-- **Execution state:** jest to zmiana polityki, nie wykonana operacja danych.
-  Istniejące snapshoty i role `comparison_only` nie zostały zmienione.
-  Wymagana jest jawna, wersjonowana kwalifikacja do geometrii zachowująca
-  pochodzenie, historię i aktualne zatwierdzenia niezmienionych źródeł.
-  Szczegóły tego mechanizmu wymagają odrębnego doprecyzowania przed kodowaniem;
-  nie należy obchodzić walidacji obecnego importera ani edytować manifestu
-  w miejscu. T04/T05 nadal wymagają ukończenia bramki danych T03.
+- **Execution state (T03e):** mechanizm jawnej geometry-only kwalifikacji
+  zapisuje decyzję z SHA i mapą rewizji w istniejącym AnnotationStore,
+  z lock/CAS/receipt/history. CLI domyślnie wykonuje preview; apply jest
+  osobnym krokiem, a role `comparison_only` i pochodzenie pozostają bez zmian.
+  Obsługiwany jest jednoznaczny historyczny folder 777; źródła DB i V2 nie
+  uzyskują kwalifikacji tym mechanizmem. Jawny purpose geometry w splicie
+  dopuszcza kwalifikacje i przechowuje osobne pełne ręczne targety; domyślny
+  legacy zachowuje poprzednie zachowanie. Reguły rodzin/pomiaru nie są pomijane.
+  Wykonano tylko preview rzeczywistych 11 zaakceptowanych zdjęć, bez apply.
+  Rebase jawnie odrzuca nowy typ decyzji, więc planowany import/rebase należy
+  wykonać wcześniej albo osobno rozszerzyć bezpieczną obsługę przenoszenia.
+  T04/T05 nadal wymagają ukończenia bramki danych T03.
 
 ## D-452 — atomowe pokwitowania uzupełnienia pozycji pilota
 

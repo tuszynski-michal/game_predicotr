@@ -88,8 +88,8 @@ podziału bez przecieku rodzin. Zgoda na geometrię nie zatwierdza symboli
 ani nie zmienia ich dotychczasowych bramek.
 
 Decyzja nie modyfikuje istniejących niezmiennych snapshotów ani zapisanych
-ról. Jawna kwalifikacja geometrii wymaga osobnego bezpiecznego wdrożenia,
-z zachowaniem pochodzenia i ważnych zgód na niezmienione źródła. Sam import
+ról. Jawna kwalifikacja geometrii T03e zachowuje pochodzenie i ważne zgody
+na niezmienione źródła; jej techniczny kontrakt określa architektura labu. Sam import
 lub przyjęcie zdjęcia nie wykonuje tej zmiany. 777 V2 nadal wymaga deklaracji
 użytkownika dla nagrania/rodziny i kontroli konfliktów checksum oraz
 podobieństwa. Brak trafienia podobieństwa nie dowodzi niezależności.

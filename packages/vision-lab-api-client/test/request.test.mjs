@@ -5,8 +5,67 @@ import {
   saveAnnotation,
   saveFamily,
   createBackup,
+  getAnnotations,
+  freezeSplit,
 } from '../src/generated/sdk.gen.ts';
 import { boundary } from '../../../apps/vision-lab/src/lib/boundary.ts';
+
+test('geometry-only state and explicit split purpose preserve the generated contract', async () => {
+  const qualification = {
+    source_id: 'historical-source',
+    source_sha256: 'a'.repeat(64),
+    expected_board_revisions: { 0: 2 },
+    game_id: 'historical-game',
+    purpose: 'geometry',
+    policy_version: 'historical-777-lab-geometry-v1',
+    decision_reference: 'D-453',
+    actor: 'operator',
+    decided_at: '2026-09-27',
+    revision: 3,
+  };
+  const state = {
+    snapshot_id: 'snapshot',
+    revision: 3,
+    annotations: {},
+    families: {},
+    timings: [],
+    split: null,
+    split_stale: false,
+    photo_reviews: {},
+    geometry_qualifications: { 'historical-source': qualification },
+  };
+  const response = await getAnnotations({
+    baseUrl: 'http://127.0.0.1:3102/api/lab',
+    throwOnError: true,
+    fetch: async () =>
+      new Response(JSON.stringify(state), {
+        headers: { 'content-type': 'application/json' },
+      }),
+  });
+  assert.deepEqual(response.data, state);
+  const body = {
+    request_id: 'geometry-split',
+    expected_revision: 3,
+    actor: 'operator',
+    purpose: 'geometry',
+    unseen_game_id: 'unseen',
+    seed: 17,
+    measurement_source_ids: ['a', 'b'],
+    difficulties: { a: 'normal', b: 'normal' },
+  };
+  await freezeSplit({
+    baseUrl: 'http://127.0.0.1:3102/api/lab',
+    body,
+    throwOnError: true,
+    fetch: async (request) => {
+      assert.equal(request.url, 'http://127.0.0.1:3102/api/lab/splits');
+      assert.deepEqual(await request.json(), body);
+      return new Response(JSON.stringify(state), {
+        headers: { 'content-type': 'application/json' },
+      });
+    },
+  });
+});
 test('generated request uses JSON and declared source/topology, never a path', async () => {
   let captured;
   const fetch = async (request) => {

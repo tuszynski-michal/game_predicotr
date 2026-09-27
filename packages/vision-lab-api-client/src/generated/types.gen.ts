@@ -56,6 +56,12 @@ export type AnnotationState = {
         [key: string]: StoredFamily;
     };
     /**
+     * Geometry Qualifications
+     */
+    geometry_qualifications: {
+        [key: string]: StoredGeometryQualification;
+    };
+    /**
      * Photo Reviews
      */
     photo_reviews: {
@@ -313,11 +319,31 @@ export type FrozenSplit = {
      */
     fingerprint: string;
     /**
+     * Geometry Qualification Fingerprints
+     */
+    geometry_qualification_fingerprints: {
+        [key: string]: string;
+    };
+    /**
+     * Geometry Target Fingerprints
+     */
+    geometry_target_fingerprints: {
+        [key: string]: string;
+    };
+    /**
      * Measurement
      */
     measurement: {
         [key: string]: string;
     };
+    /**
+     * Policy Version
+     */
+    policy_version: 'legacy' | 'lab-geometry-split-v1';
+    /**
+     * Purpose
+     */
+    purpose: 'legacy' | 'geometry';
     /**
      * Revision
      */
@@ -702,6 +728,10 @@ export type SplitRequest = {
      */
     measurement_source_ids?: Array<string>;
     /**
+     * Purpose
+     */
+    purpose?: 'legacy' | 'geometry';
+    /**
      * Request Id
      */
     request_id: string;
@@ -759,6 +789,54 @@ export type StoredFamily = {
      * Source Ids
      */
     source_ids: Array<string>;
+};
+
+/**
+ * StoredGeometryQualification
+ */
+export type StoredGeometryQualification = {
+    /**
+     * Actor
+     */
+    actor: string;
+    /**
+     * Decided At
+     */
+    decided_at: string;
+    /**
+     * Decision Reference
+     */
+    decision_reference: 'D-453';
+    /**
+     * Expected Board Revisions
+     */
+    expected_board_revisions: {
+        [key: string]: number;
+    };
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Policy Version
+     */
+    policy_version: 'historical-777-lab-geometry-v1';
+    /**
+     * Purpose
+     */
+    purpose: 'geometry';
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Source Sha256
+     */
+    source_sha256: string;
 };
 
 /**

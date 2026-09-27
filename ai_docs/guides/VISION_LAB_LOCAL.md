@@ -267,3 +267,29 @@ zestawu pomiarowego. Nie używaj go do obejścia brakujących danych.
 
 Stan operacyjny i niespełnione bramki etapu B opisuje
 [raport B](../quality/VISION_LAB_STAGE_B_ACCEPTANCE.md).
+
+## Kwalifikacja geometrii historycznego 777 (D-453)
+
+T03e udostępnia `python -m game_predictor_worker.vision_lab.qualify_geometry`
+z wymaganymi `--snapshot`, `--annotations`, `--request` (plik JSON).
+Bez `--apply` jest to wyłącznie odczytowy preview, bez pliku blokady.
+Request ma request_id, expected_revision, actor, dokładny game_id,
+purpose `geometry`, policy_version `historical-777-lab-geometry-v1`,
+decision_reference `D-453` i bindings: source_id, source_sha256 oraz
+expected_board_revisions całego zdjęcia. Wartości pochodzą z aktualnego
+katalogu i stanu, nie z domysłów o nazwach. `--apply` ponownie sprawdza
+cały batch i zapisuje jedną rewizję przez istniejący magazyn anotacji.
+Przed realnym apply sprawdź preview i wykonaj backup. Ponowienie po utracie
+odpowiedzi używa identycznego requestu/request_id; zmieniony payload daje konflikt.
+
+Zaplanuj import i rebase nowych zdjęć **przed** realnym apply kwalifikacji:
+obecny rebase jawnie odrzuca stan z kwalifikacjami lub ich historią.
+Backup/restore zachowuje je w nowym katalogu bez nadpisania istniejącego.
+Nowy kod nie wykonuje sam operacji na danych ani nie przepina usług.
+
+Kwalifikacja obejmuje tylko pełne ręczne targety geometrii z aktualnie
+zaakceptowanych zdjęć historycznego folderu 777. Role, symbole i zdjęcia
+pozostają niezmienione. Późniejszy freeze musi jawnie podać purpose geometry
+oraz spełnić bramki rodzin, pomiaru i rozłączności. Pominięcie purpose
+zachowuje dawny tryb, bez dopuszczenia 777. Zmiany geometrii/review wymagają
+aktualnych decyzji; raz oznaczony stale split nie odzyskuje ważności przez retry.

@@ -76,19 +76,40 @@ wartość dokumentuje deklarację pochodzenia, nie rozstrzyga samodzielnie
 kwalifikacji treningowej. Format uruchomienia i katalogu wynikowego opisuje
 `guides/VISION_LAB_EXPORT.md`.
 
-Powyższe role opisują istniejący format, nie wdrożenie D-453. Nowa polityka
+Powyższe role opisują niezmienny format źródeł. D-453
 dopuszcza historyczne zdjęcia 777 do uczenia geometrii z nowych ręcznie
 zatwierdzonych siatek labu, zachowując ich historyczne pochodzenie. Dawne
-geometrie v1.1 nie są targetami. Wymaga to osobnego bezpiecznego wdrożenia
-jawnej kwalifikacji geometrii; obecne manifesty, role i zapisane decyzje
-pozostają nietknięte. Należy zachować ważne akceptacje niezmienionych źródeł
-oraz niezależne bramki symboli. Ten zapis nie definiuje nowego formatu ani
-API i nie stanowi gotowego planu migracji. Przed wykonaniem potrzebna jest
-analiza bieżących kontraktów oraz spójna aktualizacja technicznego zakresu T03.
-Obecne `vision_lab/splits.py::freeze_splits` odrzuca grupy z `role != data`
-powodem `COMPARISON_OR_777_PROVENANCE_UNRESOLVED`. To jawny rozjazd nowej
-polityki z istniejącą kwalifikacją runtime, wymagający wdrożenia przed
-treningiem; niniejsza korekta nie wyłącza tej bramki.
+geometrie v1.1 nie są targetami. T03e zapisuje jawne
+`GeometryQualificationRequest` w istniejącym AnnotationStore: jeden atomowy
+batch, CAS, receipts, historia i backup, bez zmiany anotacji i photo review.
+Wersja `historical-777-lab-geometry-v1`, referencja D-453 i zakres geometry
+wiążą dokładny game_id, source_id/SHA, mapę rewizji plansz, autora i czas.
+Pierwszy wariant akceptuje tylko źródła folderowe o dokładnej tożsamości
+777 (game_name i pierwszy segment filename), z rolą comparison_only;
+inne comparison_only, V2 i źródła DB pozostają wykluczone.
+Walidacja wymaga aktualnego photo_accepted i pełnego obecnego ręcznego targetu.
+Kwalifikacja nie wymaga wcześniejszego mapowania rodzin, ale nie zastępuje go.
+
+CLI `vision_lab.qualify_geometry` domyślnie czyta checksummed payload bez
+tworzenia katalogu/.lock; `--apply` ponownie waliduje typed request pod blokadą
+AnnotationStore. Nie ma dodatkowego endpointu ani UI. Addytywna odpowiedź
+AnnotationState jest objęta OpenAPI i generowanym klientem. API nie przyjmuje
+requestu kwalifikacji przez istniejący POST /annotations.
+
+SplitRequest bez purpose zachowuje tryb legacy (w tym dotychczasowe receipts)
+i odrzuca role inne niż data. Jawne purpose geometry może użyć skutecznej
+kwalifikacji D-453. FrozenSplit zapisuje purpose, `lab-geometry-split-v1`,
+fingerprints kwalifikacji oraz osobną mapę pełnych obecnych human targetów;
+wyłącznie te targety liczą pokrycie topologii. Rodziny, duplikaty, pomiar
+i photoacceptance nadal są wymagane. Stare split fingerprints nie są
+przeliczane przy odczycie. Zmiana geometrii, review, rodziny lub kwalifikacji
+oznacza istniejący split stale; odczyt dodatkowo sprawdza skuteczność
+i fingerprint zamrożonej kwalifikacji. Ponowne accept tej samej mapy może
+przywrócić skuteczność kwalifikacji, ale nie kasuje split_stale.
+Nie zmienia się Source.training_eligible ani żadna bramka symboli.
+Rebase jawnie odrzuca bieżące kwalifikacje i ich historię; import/rebase
+nowych zdjęć musi poprzedzać realną kwalifikację do czasu osobnego rozszerzenia.
+Implementacja T03e nie oznacza wykonania kwalifikacji lub splitu na danych.
 
 Eksporter czyta tylko wskazane `source_images`, związane
 `image_source_geometry_revisions`, `image_page_geometry_overrides`,

@@ -67,10 +67,10 @@ trzeba przeanalizować bieżące kontrakty i doprecyzować zakres techniczny,
 zachowując historyczne pochodzenie, ważne zgody na niezmienione źródła
 oraz bramki symboli. Niniejsza korekta nie jest gotowym planem migracji
 ani nowym kontraktem API.
-Potwierdzona obecna blokada: `vision_lab/splits.py::freeze_splits` odrzuca
-grupy z `role != data` jako `COMPARISON_OR_777_PROVENANCE_UNRESOLVED`.
-To rozjazd polityki z runtime do usunięcia w osobnym wdrożeniu; nie wolno
-obejść go zmianą pochodzenia ani wyłączeniem kontroli przecieku.
+Tryb legacy `vision_lab/splits.py::freeze_splits` odrzuca grupy z `role != data`
+jako `COMPARISON_OR_777_PROVENANCE_UNRESOLVED`. T03e dodaje odrębny jawny
+purpose geometry i kwalifikację D-453, bez zmiany pochodzenia ani wyłączenia
+kontroli przecieku. Realne kwalifikacje i zamrożenie splitu pozostają osobnym krokiem.
 
 Deklaracja operatora: materiał pozostałych pięciu gier w
 `C:\Users\tuszy\Documents\game_predictor_traning_set` pochodzi z innych
@@ -140,6 +140,121 @@ Po teście wykonaj lint/typecheck zmienionych modułów i wymagane kontrole kont
 ## Risks / open questions
 
 - Zmiana schematu danych, zakresu zdjęć lub kosztu poza planem wymaga jawnej aktualizacji przed zależnym działaniem.
+
+## T03e — kwalifikacja geometrii historycznego 777
+
+Status `done` (podzadanie; nadrzędny T03 nadal blocked). Zależność D-453, wznowienie B przez użytkownika;
+wykonawca `gpt-6-sol` / `medium`, niezależny audyt `gpt-6-astra` / `medium`.
+Cel: jawnie dopuścić pełne ręczne geometrie historycznego 777 do geometry-only
+splitu, bez zmiany ról snapshotu ani uprawnień do uczenia symboli.
+
+### Kontrakt wykonawczy
+
+- Nowe `GeometryQualificationRequest(Mutation)` i binding źródła: source_id,
+  source_sha256, expected_board_revisions. Request zawiera dokładny game_id,
+  wersję `historical-777-lab-geometry-v1`, referencję `D-453` i niepustą,
+  ograniczoną listę unikalnych bindings. Zakres zawsze geometry. Sprawdzić
+  dokładną tożsamość historycznego folderu 777 w katalogu, nie substring
+  nazwy albo samo comparison_only. Źródła DB bez dowodu tej tożsamości
+  pozostają poza pierwszym wariantem; V2 nie jest promowane.
+- Nowe `StoredGeometryQualification` wiąże binding, game_id, politykę,
+  autora, czas i rewizję decyzji. `AnnotationState.geometry_qualifications`
+  ma domyślnie pustą mapę. Stare payloady nadal się odczytują bez zapisu.
+- `AnnotationStore.mutate`: snapshot/CAS, istnienie i unikalność źródeł,
+  jawna tożsamość gry/rola comparison_only, zgodne SHA i mapa rewizji,
+  photo_accepted, co najmniej jeden pełny obecny target z węzłami human.
+  Wszystkie bindings walidowane przed jednym atomowym zapisem; błąd dowolnego
+  elementu nie kwalifikuje części batcha. Receipt/retry działa jak istniejące
+  mutacje; zmieniony payload przy tym samym request_id daje konflikt.
+- Proponowany `geometry_qualification.py` jest właścicielem wspólnej
+  walidacji skuteczności decyzji. Nie zapisuje anotacji, photo review ani
+  rodzin. Nie wymaga ukończonych rodzin do samej kwalifikacji; freeze nadal
+  bezwarunkowo wymaga poprawnego pochodzenia i wszystkich dotychczasowych bramek.
+- `SplitRequest` rozróżnia dotychczasowy tryb (domyślny przy pominięciu nowego
+  pola) i jawny purpose geometry. Tylko geometry może użyć kwalifikacji D-453.
+  Nowy `FrozenSplit` zachowuje purpose i wersję polityki, fingerprints
+  kwalifikacji oraz osobną mapę pełnych obecnych ręcznych targetów. Szkice,
+  lokalizacje i predykcje nie stają się targetami. Brak targetów wyklucza
+  źródło. Stare fingerprints i assignments nie są przeliczane przy odczycie.
+- Edycja geometrii, odrzucenie/utrata akceptacji albo zmiana rodzin nadal
+  daje stale. Ponowna kwalifikacja jest nowym requestem z bieżącymi bindings;
+  nie zmienia istniejącego zamrożonego podziału. Odczyt wykrywa także utratę
+  skuteczności kwalifikacji. Nie otwierać nowego toru symboli ani zmieniać
+  Source.training_eligible, ról i metadanych katalogu.
+- Proponowany `qualify_geometry.py`: request z pliku JSON, domyślny preview
+  przez read_checked bez tworzenia katalogu/.lock; apply przez ten sam
+  AnnotationStore. Odczyt i walidacja bez mutacji, błąd z konkretnym powodem;
+  apply ponawia walidację pod lockiem. Retry po utracie odpowiedzi i nowy
+  proces zwracają tę samą utrwaloną decyzję, nie drugą rewizję.
+- `rebase_annotations.py` ma jawny fail-closed dla niepustych kwalifikacji
+  i ich historii; nie pomija referencji. Obsługa ich przenoszenia poza T03e.
+  Backup/restore do nowego katalogu zachowuje cały payload.
+- Istniejące API/OpenAPI, klient generowany, wrapper i test odczytu stanu
+  aktualizowane spójnie. Brak nowej trasy i UI. Nowy request kwalifikacji
+  dostępny wyłącznie przez CLI, istniejący transport nie przyjmuje go niejawnie.
+
+### Pliki i weryfikacja
+
+Istniejące moduły w services/worker/src/game_predictor_worker/vision_lab:
+annotation_contracts.py, annotations.py, splits.py, rebase_annotations.py;
+nowe geometry_qualification.py i qualify_geometry.py. Nowe testy kwalifikacji
+oraz istniejące test_vision_lab_annotations.py, test_vision_lab_photo_review.py
+i test_vision_lab_rebase.py (nazwy potwierdzone w repo).
+Kontrakt: packages/vision-lab-api-client/openapi/openapi.json, wygenerowane
+typy, wrapper i testy klienta. Root prowadzi CURRENT_STATE i commit.
+
+Przypadki: poprawne 777 z zachowaniem SHA/role/anotacji; inna gra, inne
+comparison_only, V2, złe SHA/mapa, brak akceptacji, brak full/human, duplikaty
+bindings i częściowo błędny batch odrzucone. CAS/race, konflikt request_id,
+restart i utracona odpowiedź, backup/restore, edycja/reject po freeze,
+niezweryfikowane rodziny, rebase fail-closed, stare payloady i brak pola
+purpose zachowują zachowanie. API i klient potwierdzają additive odpowiedź.
+
+Najpierw focused pytest (limit 120 s), potem Ruff format/check, mypy lab,
+testy klienta/typecheck oraz `npm run vision-lab:openapi:check` z package.json.
+Generowanie: `npm run vision-lab:openapi:generate`. Każda komenda skończona
+ma limit; testy są planowane, nie wykonane. Po audycie porównać DoD punktowo.
+Kryterium ukończenia T03e nie obejmuje zamrożenia realnego splitu ani treningu.
+Aliasy Reels/cohort i import nowych zdjęć to osobny następny pion T03.
+
+### Outcome T03e
+
+- Zrealizowano wersjonowany geometry-only request/binding i atomowy batch
+  w AnnotationStore z CAS, receipts, historią, backupem oraz wspólną walidacją.
+  CLI preview nie tworzy .lock; apply powtarza walidację pod istniejącą blokadą.
+  Dokładne folderowe 777/game_id/SHA/mapa, pełny human target i photoacceptance
+  są wymagane. Nie zmieniono roli, anotacji, photo reviews ani uprawnień symboli.
+- Jawny geometry split zapisuje wersję, qualification fingerprints i osobne
+  full/present/human target fingerprints; topologie liczone tylko z targetów.
+  Legacy split/receipts zachowane, odczyt nie przelicza dawnych fingerprintów.
+  Edycja/reject/rodziny/kwalifikacja dają stale; reaccept nie usuwa stale.
+  Rebase jawnie odrzuca kwalifikacje także obecne wyłącznie w historii.
+- Focused backend końcowo 54/54 PASS (41,29 s): kwalifikacja, anotacje,
+  photo review i rebase. Obejmuje atomic batch/race, błędne bindings,
+  nowe procesy po utracie odpowiedzi, legacy receipt retry, backup/restore,
+  rebase fail-closed, brak side effects preview, stale i pokrycie topologii.
+  Poprzedni przebieg 52/52 PASS zawierał podzbiór tych regresji.
+- Ruff format/check PASS; mypy lab 15 modułów PASS; OpenAPI/generated check
+  PASS; klient 5/5 PASS; TypeScript klienta i UI PASS, także po eksportach
+  wrappera. API GET zwraca kwalifikacje; POST /annotations odrzuca nowy
+  request (CLI-only). Bez nowych tras/UI. git diff --check PASS.
+- Root wykonał wyłącznie realny preview rewizji 259: 11 zaakceptowanych
+  zdjęć 777 / 30 pełnych siatek, status ready. Fingerprint requestu
+  `fa81cb9623e84d1a9ec15907d65ff55db763a133878bb70e5ef11edbcb94c72b`.
+  SHA state przed/po identyczny (`22f452d0e976a9997909ece2cf9bede0073f1241574f5880fa7b3ebdbb0e0586`).
+  Artefakty: artifacts/vision-lab/t03e-777-qualification-request-rev259.json
+  i t03e-777-qualification-preview-rev259.json. Nie wykonano apply.
+- Wymagania, architektura, plan i instrukcja operatora opisują mechanizm
+  oraz obowiązek import/rebase przed realną kwalifikacją. Bez realnego
+  importu, apply, freeze, usług, treningu, buildu UI lub pełnych testów repo.
+  Aliasy/cohort Reels i bramki danych całego T03 pozostają osobnym krokiem.
+- Porównanie z kontraktem T03e: jawność i izolacja D-453, atomowość,
+  trwałość/retry, aktualność kwalifikacji, targety, legacy compatibility,
+  rebase fail-closed oraz spójny odczyt API potwierdzone powyższymi testami.
+  Niezależny audyt Astra medium PASS, bez P0–P2; audytor powtórzył backend
+  qualification/photo review 36/36 PASS (27,42 s) i klient 5/5 PASS.
+  T03e spełnia powyższe DoD; nadrzędny T03 pozostaje blocked na danych,
+  więc plik pozostaje aktywny. Commit T03e: v1.7.21 (hash po commicie).
 
 ## T03a — ergonomia edytora i bieżące cropy
 
@@ -675,7 +790,9 @@ zmiany roli `777`; CURRENT_STATE i usługi należą do koordynatora.
 - Niezależny audyt Astra medium PASS, bez P0–P2. Potwierdzono odczytem
   istniejącą bramkę runtime i zgodność sześciu dokumentów z D-453.
   Kryteria dokumentacyjnej korekty spełnione; pełne DoD T03 nadal wymaga
-  kwalifikacji, rodzin i podziału. Commit korekty v1.7.20 (hash po commicie).
+  kwalifikacji, rodzin i podziału. Commit korekty `v1.7.20` /
+  `69c4594cea8bead9d941fce23236096a1c17f26c`. Hash dopisany po commicie;
+  show/stat/status sprawdzone, obce hunki pozostawiono poza commitem.
 - Historyczne wyniki poniżej opisują stan sprzed D-453. Ówczesna rola
   `comparison_only` nie jest aktualną decyzją o wykluczeniu geometrii 777.
   Bieżące otwarte bramki określają Status i Technical notes tego taska.

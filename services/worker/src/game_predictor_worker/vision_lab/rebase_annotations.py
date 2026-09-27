@@ -33,6 +33,11 @@ def _references(payload: dict[str, Any], catalog: Catalog) -> set[str]:
     if set(payload) != {"state", "history", "receipts"}:
         raise ValueError("REBASE_PAYLOAD_UNSUPPORTED")
     state = AnnotationState.model_validate(payload["state"])
+    if state.geometry_qualifications or any(
+        isinstance(event, dict) and "geometry_qualifications" in event
+        for event in payload["history"]
+    ):
+        raise ValueError("REBASE_GEOMETRY_QUALIFICATIONS_UNSUPPORTED")
     if state.families or state.split is not None or state.split_stale:
         raise ValueError("REBASE_FAMILIES_OR_SPLIT_UNSUPPORTED")
     references: set[str] = set()

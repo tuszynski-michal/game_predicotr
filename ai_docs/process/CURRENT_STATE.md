@@ -6,6 +6,40 @@ last_updated: 2026-09-26
 
 # Current State
 
+### Wznowienie B — wykonanie kwalifikacji geometrii D-453
+
+- Użytkownik polecił kontynuację etapu B. Odczyt poza sandboxem potwierdził
+  dostępność danych laboratorium i niezmieniony SHA stanu rewizji 259:
+  22f452d0e976a9997909ece2cf9bede0073f1241574f5880fa7b3ebdbb0e0586.
+  Na portach 8102/3102 brak listenerów; do diagnostyki plików nie potrzeba
+  uruchamiać usług. Nie zmieniano ACL ani danych.
+- Sol medium wdrożył jawne kwalifikacje geometry-only w AnnotationStore
+  oraz oddzielnie sprawdził mapowanie rzeczywistych źródeł. T03e done,
+  niezależny audyt Astra medium PASS, bez P0–P2. Bez ponownego rysowania
+  starych siatek i bez automatycznego przenoszenia ich na inne cropy.
+- Wdrożony zakres: kontrakty lab, AnnotationStore, splits, rebase guard,
+  osobny CLI kwalifikacji i testy, wygenerowany istniejący klient/OpenAPI
+  oraz dokumentacja. Brak nowego ekranu lub endpointu, bez zmian bazy.
+  Kwalifikacja nie zastępuje rodzin, podziału ani zgód symboli.
+- Backend 54/54, klient 5/5, Ruff, mypy 15 modułów, TypeScript klienta/UI
+  i OpenAPI/generated check PASS. Audytor niezależnie: backend 36/36,
+  klient 5/5 PASS. Testy obejmują nowe procesy, retry, backup i legacy receipts.
+- Rzeczywisty preview w nowym procesie: 11 zaakceptowanych zdjęć 777 /
+  30 pełnych siatek gotowych do kwalifikacji, SHA stanu bez zmian.
+  Nie wykonano apply, importu, splitu, treningu, pełnego buildu ani restartu OS.
+  Import/rebase musi poprzedzić realną kwalifikację: obecny rebase jawnie
+  blokuje kwalifikacje i ich historię. T03 pozostaje blocked na bramkach danych;
+  T04/T05 nieuruchomione. T03e: v1.7.21 (hash po commicie).
+- Porównanie wejścia 473 JPG ze snapshotem 993 źródeł: sześć identycznych
+  Mumii (seq_76555–76608), wszystkie poza zaakceptowanymi zdjęciami. Zero SHA
+  wspólnych z 63 zaakceptowanymi źródłami, bez wniosku o niezależności filmów.
+  Nowy metadata JSON Treasure wskazuje tresure23600 dla zakresu 23590–23913;
+  stary zbiór ma zaakceptowane klatki tego kandydata _002634 i _010010.
+  Wysłano konkretne pytanie o wspólny film; do wyjaśnienia brak rozdzielenia
+  tych potencjalnie powiązanych źródeł. Pozostałe powiązania rodzin wymagają
+  technicznego przypisania, nie wynikają z samych numerów.
+  Raport RO: artifacts/vision-lab/t03-source-map-readonly-report.md.
+
 ### T03 — dopuszczenie historycznych zdjęć 777 do geometrii
 
 - Użytkownik jawnie dopuszcza historyczne 777 do uczenia geometrii.
@@ -30,7 +64,9 @@ last_updated: 2026-09-26
 - Kontrola dokumentacji i niezależny audyt Astra medium PASS, bez P0–P2;
   potwierdzono istniejącą bramkę role != data w freeze_splits. Testów
   aplikacji nie uruchamiano, ponieważ kod nie został zmieniony.
-  Korekta dokumentacyjna: v1.7.20 (hash po commicie); nie zamyka T03.
+  Korekta dokumentacyjna: `v1.7.20` /
+  `69c4594cea8bead9d941fce23236096a1c17f26c`; nie zamyka T03.
+  Hash dopisany po commicie; show/stat/status sprawdzone, obce hunki zachowane.
 
 ### TASK-0713 — dyskretne badge symboli
 

@@ -6,6 +6,7 @@ from collections import defaultdict
 from .annotation_contracts import AnnotationState, FrozenSplit, SplitRequest
 from .annotations import digest
 from .catalog import Catalog
+from .geometry_qualification import full_human_targets, qualification_effective
 from .photo_review import photo_accepted
 
 
@@ -41,9 +42,24 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
     }
     exclusions = {}
     eligible = {}
+    geometry = request.purpose == "geometry"
+    targets = (
+        {
+            key: item
+            for source in catalog.sources.values()
+            for key, item in full_human_targets(state, source).items()
+        }
+        if geometry
+        else {}
+    )
+    target_sources = {item.source_id for item in targets.values()}
     for key, ids in groups.items():
         reason = None
-        if any(catalog.sources[s].role != "data" for s in ids):
+        if any(
+            catalog.sources[s].role != "data"
+            and not (geometry and qualification_effective(state, catalog.sources[s]))
+            for s in ids
+        ):
             reason = "COMPARISON_OR_777_PROVENANCE_UNRESOLVED"
         elif any(
             s not in state.families or state.families[s].provenance != "verified" for s in ids
@@ -53,6 +69,8 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
             reason = "HUMAN_LOCATION_APPROVAL_REQUIRED"
         elif any(not photo_accepted(state, catalog.sources[s]) for s in ids):
             reason = "PHOTO_REVIEW_ACCEPTANCE_REQUIRED"
+        elif geometry and any(s not in target_sources for s in ids):
+            reason = "FULL_HUMAN_GEOMETRY_TARGET_REQUIRED"
         if reason:
             exclusions.update(dict.fromkeys(ids, reason))
         else:
@@ -100,16 +118,17 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
     for index, ids in enumerate(development):
         partition = "validation" if index == 0 else "final_test" if index == 1 else "development"
         assignments.update(dict.fromkeys(ids, partition))
+    topology_annotations = targets if geometry else state.annotations
     training_topologies = {
         a.topology.columns
-        for a in state.annotations.values()
+        for a in topology_annotations.values()
         if a.location_approved
         and a.presence == "present"
         and assignments.get(a.source_id) == "development"
     }
     unseen_topologies = {
         a.topology.columns
-        for a in state.annotations.values()
+        for a in topology_annotations.values()
         if a.location_approved and a.presence == "present" and a.source_id in unseen
     }
     if not unseen_topologies.issubset(training_topologies):
@@ -128,4 +147,19 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
         annotation_fingerprints=fingerprints,
         exclusions=exclusions,
     )
+    if geometry:
+        data.update(
+            purpose="geometry",
+            policy_version="lab-geometry-split-v1",
+            geometry_qualification_fingerprints={
+                source_id: digest(state.geometry_qualifications[source_id].model_dump())
+                for source_id in assignments
+                if catalog.sources[source_id].role != "data"
+            },
+            geometry_target_fingerprints={
+                key: digest(item.model_dump())
+                for key, item in targets.items()
+                if item.source_id in assignments
+            },
+        )
     return FrozenSplit.model_validate({"fingerprint": digest([state.snapshot_id, data]), **data})

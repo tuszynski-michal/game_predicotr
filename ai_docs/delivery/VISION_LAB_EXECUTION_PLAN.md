@@ -47,10 +47,10 @@ użycie historycznych zdjęć 777 w modelu geometrii: targetami są nowe ręczni
 zatwierdzone siatki labu, nie dawne geometrie v1.1. Zastępuje ograniczenie
 D-447 tylko w tym zakresie, bez zmiany historycznego pochodzenia na 777 V2.
 Obecne role i niezmienne snapshoty pozostają nietknięte. Jawna kwalifikacja
-geometrii wymaga osobnego bezpiecznego wdrożenia, zachowującego ważne zgody
-na niezmienione źródła i bramki symboli. Przed implementacją trzeba sprawdzić
-kontrakty i doprecyzować techniczny zakres T03; ten zapis nie definiuje
-nowego API ani gotowej migracji.
+geometrii jest wdrażana w T03e według doprecyzowanego kontraktu TASK-0668,
+z zachowaniem ważnych zgód niezmienionych źródeł i bramek symboli.
+Geometry-only purpose nie zmienia zachowania legacy splitów ani ról.
+Rzeczywiste apply kwalifikacji i zamrożenie splitu pozostają do wykonania.
 
 Operator deklaruje, że zdjęcia pozostałych pięciu gier z
 `C:\Users\tuszy\Documents\game_predictor_traning_set` pochodzą z innych
@@ -295,6 +295,38 @@ właściciela. Zgodnie z korektą T03d nawigacja porzuca niezapisane zmiany
 bez potwierdzenia; busy/pending nadal blokuje nawigację w aplikacji.
 Testy obejmują ponowny odczyt, aktualizację po zapisie, paginację i różne topologie.
 
+## T03e — jawna kwalifikacja geometrii historycznego 777
+
+**Status:** `done`, wznowienie B przez użytkownika 2026-09-27.
+Podzadanie TASK-0668 realizuje D-453, bez zmiany niezmiennych snapshotów,
+importów produkcyjnych ani zgód symboli. Pełny kontrakt i testy poniżej
+w aktywnym TASK-0668. Nie oznacza domknięcia bramki danych całego T03.
+
+Jeden atomowy request kwalifikuje dokładne źródła, SHA i bieżące mapy rewizji
+zaakceptowanych zdjęć. Decyzja jest przechowywana w AnnotationStore z jego
+CAS, receipt, historią i backupem, nie w równoległym magazynie. CLI domyślnie
+wykonuje odczytowy preview; apply ponownie waliduje identyczny request.
+Jawny zakres geometry i wersja polityki odróżniają nowe splity od starych;
+pełne ręczne targety są odrębne od ogólnej mapy anotacji. Role i
+training_eligible źródeł pozostają bez zmian. Kwalifikacja 777 nie omija
+rodzin, fotoakceptacji, pomiaru ani rozłączności podziału.
+
+Istniejące odpowiedzi API dostają additive stan; istniejący split request
+opcjonalny purpose z zachowaniem dotychczasowego zachowania przy pominięciu.
+OpenAPI, generowany klient, wrapper i test odpowiedzi są aktualizowane razem.
+Brak nowego endpointu/UI. Szczegóły bezpieczeństwa i regresje określa task.
+Rebase zachowuje dotychczasowy zakres i jawnie odrzuca kwalifikacje, dopóki
+ich przenoszenie nie będzie osobno wdrożone. To ograniczenie nie usuwa zapisów.
+
+Aliasy Reels i kohorta wejściowa to osobny kolejny pion T03, nie część T03e.
+Przed realnym apply potrzebny jest dokładny preview i kopia stanu; trening
+nie rozpoczyna się przed pozostałymi bramkami T03. Wykonawca Sol medium,
+audyt Astra medium, osobny commit/Outcome; brak automatycznego push.
+Backend 54/54, klient 5/5, lint/typecheck i kontrola kontraktu PASS;
+niezależny audyt PASS bez P0–P2. Realny preview 11 zdjęć / 30 siatek bez
+zmiany danych. Kwalifikacja nie została jeszcze zastosowana; import/rebase
+poprzedza realny apply. Pełny wynik i commit w Outcome T03e TASK-0668.
+
 ## T14 — końcowe ujednolicenie toastów w aplikacjach webowych
 
 **Status:** `todo`, zaplanowane na polecenie użytkownika; bez implementacji
@@ -397,6 +429,7 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T03b / TASK-0668 | `gpt-6-sol` | `medium` | Jawna zgoda, retry i bezpieczne przejście między zapisami plansz. | `gpt-6-astra`, `medium` |
 | T03c / TASK-0668 | `gpt-6-sol` | `medium` | Zachowanie zatwierdzeń i atomowe powiązanie z nowym snapshotem. | `gpt-6-astra`, `medium` |
 | T03d / TASK-0668 | `gpt-6-sol` | `medium` | Trwałe review zdjęcia, wersje geometrii i zgodny pion API/UI. | `gpt-6-astra`, `medium` |
+| T03e / TASK-0668 | `gpt-6-sol` | `medium` | Kwalifikacja geometry-only, trwałość decyzji i ochrona podziałów. | `gpt-6-astra`, `medium` |
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |

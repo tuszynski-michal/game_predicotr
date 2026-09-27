@@ -26,6 +26,8 @@ export type {
   TimingReport,
   PhotoReviewRequest,
   PhotoReview,
+  StoredGeometryQualification,
+  FrozenSplit,
   PointOutput as Point,
 } from './generated/types.gen';
 

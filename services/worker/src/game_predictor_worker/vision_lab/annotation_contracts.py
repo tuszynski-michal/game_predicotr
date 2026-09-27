@@ -79,7 +79,32 @@ class FamilyRequest(Mutation):
     decision: FamilyDecision
 
 
+class GeometryQualificationBinding(Contract):
+    source_id: str
+    source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    expected_board_revisions: dict[str, int]
+
+
+class GeometryQualificationRequest(Mutation):
+    policy_version: Literal["historical-777-lab-geometry-v1"]
+    decision_reference: Literal["D-453"]
+    purpose: Literal["geometry"]
+    game_id: str = Field(min_length=1)
+    bindings: list[GeometryQualificationBinding] = Field(min_length=1, max_length=10000)
+
+
+class StoredGeometryQualification(GeometryQualificationBinding):
+    policy_version: Literal["historical-777-lab-geometry-v1"]
+    decision_reference: Literal["D-453"]
+    purpose: Literal["geometry"]
+    game_id: str
+    actor: str
+    decided_at: str
+    revision: int
+
+
 class SplitRequest(Mutation):
+    purpose: Literal["legacy", "geometry"] = "legacy"
     unseen_game_id: str
     seed: int = Field(ge=0, le=2147483647)
     measurement_source_ids: list[str] = Field(default_factory=list, max_length=10000)
@@ -99,6 +124,10 @@ class Timing(Contract):
 
 
 class FrozenSplit(Contract):
+    purpose: Literal["legacy", "geometry"] = "legacy"
+    policy_version: Literal["legacy", "lab-geometry-split-v1"] = "legacy"
+    geometry_qualification_fingerprints: dict[str, str] = Field(default_factory=dict)
+    geometry_target_fingerprints: dict[str, str] = Field(default_factory=dict)
     fingerprint: str
     revision: int
     unseen_game_id: str
@@ -118,6 +147,7 @@ class AnnotationState(Contract):
     split: FrozenSplit | None = None
     split_stale: bool = False
     photo_reviews: dict[str, PhotoReview] = Field(default_factory=dict)
+    geometry_qualifications: dict[str, StoredGeometryQualification] = Field(default_factory=dict)
 
 
 class BackupResult(Contract):

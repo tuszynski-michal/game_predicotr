@@ -16,6 +16,7 @@ from .annotation_contracts import (
     AnnotationState,
     BackupResult,
     FamilyRequest,
+    GeometryQualificationRequest,
     PhotoReviewRequest,
     SplitRequest,
     StoredFamily,
@@ -25,6 +26,7 @@ from .annotation_contracts import (
 from .catalog import Catalog
 from .contracts import Board, Point, Topology
 from .geometry import cell_quads
+from .geometry_qualification import apply_qualification, qualification_effective
 from .photo_review import apply_photo_review, geometry_changed, photo_accepted
 from .snapshot import canonical, reject_links
 
@@ -162,14 +164,36 @@ class AnnotationStore:
             for source_id in state.split.assignments
         ):
             state.split_stale = True
+        if (
+            state.split
+            and state.split.purpose == "geometry"
+            and any(
+                source_id not in state.geometry_qualifications
+                or not qualification_effective(state, self.catalog.sources[source_id])
+                or digest(state.geometry_qualifications[source_id].model_dump()) != fingerprint
+                for source_id, fingerprint in (
+                    state.split.geometry_qualification_fingerprints.items()
+                )
+            )
+        ):
+            state.split_stale = True
         return state
 
     def mutate(
-        self, request: AnnotationRequest | FamilyRequest | SplitRequest | PhotoReviewRequest
+        self,
+        request: AnnotationRequest
+        | FamilyRequest
+        | SplitRequest
+        | PhotoReviewRequest
+        | GeometryQualificationRequest,
     ) -> AnnotationState:
         with exclusive(self.root):
             payload = self._load()
-            fingerprint = digest(request.model_dump())
+            request_data = request.model_dump()
+            # Keep receipts from the original SplitRequest retryable after upgrade.
+            if isinstance(request, SplitRequest) and request.purpose == "legacy":
+                request_data.pop("purpose")
+            fingerprint = digest(request_data)
             receipt = payload["receipts"].get(request.request_id)
             if receipt is not None:
                 if receipt["fingerprint"] != fingerprint:
@@ -199,6 +223,8 @@ class AnnotationStore:
                 for source_id in decision.source_ids:
                     state.families[source_id] = stored
                 state.split_stale = state.split is not None
+            elif isinstance(request, GeometryQualificationRequest):
+                apply_qualification(state, self.catalog.sources, request, now)
             else:
                 from .splits import freeze_splits
 
@@ -209,7 +235,7 @@ class AnnotationStore:
             payload["state"] = state.model_dump()
             payload["history"].append(
                 {
-                    "request": request.model_dump(),
+                    "request": request_data,
                     "at": now,
                     "revision": state.revision,
                     "split": state.split.model_dump() if state.split else None,
@@ -224,6 +250,18 @@ class AnnotationStore:
                     **(
                         {"photo_review": state.photo_reviews[request.source_id].model_dump()}
                         if isinstance(request, PhotoReviewRequest)
+                        else {}
+                    ),
+                    **(
+                        {
+                            "geometry_qualifications": {
+                                binding.source_id: state.geometry_qualifications[
+                                    binding.source_id
+                                ].model_dump()
+                                for binding in request.bindings
+                            }
+                        }
+                        if isinstance(request, GeometryQualificationRequest)
                         else {}
                     ),
                 }

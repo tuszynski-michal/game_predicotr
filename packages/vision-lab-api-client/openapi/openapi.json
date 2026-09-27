@@ -82,6 +82,13 @@
             "title": "Families",
             "type": "object"
           },
+          "geometry_qualifications": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StoredGeometryQualification"
+            },
+            "title": "Geometry Qualifications",
+            "type": "object"
+          },
           "photo_reviews": {
             "additionalProperties": {
               "$ref": "#/components/schemas/PhotoReview"
@@ -129,7 +136,8 @@
           "timings",
           "split",
           "split_stale",
-          "photo_reviews"
+          "photo_reviews",
+          "geometry_qualifications"
         ],
         "title": "AnnotationState",
         "type": "object"
@@ -526,12 +534,44 @@
             "title": "Fingerprint",
             "type": "string"
           },
+          "geometry_qualification_fingerprints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Geometry Qualification Fingerprints",
+            "type": "object"
+          },
+          "geometry_target_fingerprints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Geometry Target Fingerprints",
+            "type": "object"
+          },
           "measurement": {
             "additionalProperties": {
               "type": "string"
             },
             "title": "Measurement",
             "type": "object"
+          },
+          "policy_version": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "lab-geometry-split-v1"
+            ],
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "purpose": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "geometry"
+            ],
+            "title": "Purpose",
+            "type": "string"
           },
           "revision": {
             "title": "Revision",
@@ -547,6 +587,10 @@
           }
         },
         "required": [
+          "purpose",
+          "policy_version",
+          "geometry_qualification_fingerprints",
+          "geometry_target_fingerprints",
           "fingerprint",
           "revision",
           "unseen_game_id",
@@ -1146,6 +1190,15 @@
             "title": "Measurement Source Ids",
             "type": "array"
           },
+          "purpose": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "geometry"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
           "request_id": {
             "maxLength": 100,
             "minLength": 8,
@@ -1254,6 +1307,72 @@
           "decided_at"
         ],
         "title": "StoredFamily",
+        "type": "object"
+      },
+      "StoredGeometryQualification": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "decided_at": {
+            "title": "Decided At",
+            "type": "string"
+          },
+          "decision_reference": {
+            "const": "D-453",
+            "title": "Decision Reference",
+            "type": "string"
+          },
+          "expected_board_revisions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Expected Board Revisions",
+            "type": "object"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "const": "historical-777-lab-geometry-v1",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "purpose": {
+            "const": "geometry",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_sha256",
+          "expected_board_revisions",
+          "policy_version",
+          "decision_reference",
+          "purpose",
+          "game_id",
+          "actor",
+          "decided_at",
+          "revision"
+        ],
+        "title": "StoredGeometryQualification",
         "type": "object"
       },
       "Timing": {

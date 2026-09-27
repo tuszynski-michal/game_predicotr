@@ -64,8 +64,8 @@ PowerShell bez zmiennych ustawionych w poprzedniej sesji:
 $repo = (Get-Location).Path
 $logs = Join-Path $repo 'artifacts\vision-lab'
 New-Item -ItemType Directory -Path $logs -Force | Out-Null
-$snapshot = 'C:\Users\tuszy\Documents\game_predictor_vision_data\snapshots\82c3c29dd35e17a1df74da249fd8687f86db6be0b781e0bb1a64f1dbbc1962c9'
-$annotations = 'C:\Users\tuszy\Documents\game_predictor_vision_data\annotations\82c3c29dd35e17a1df74da249fd8687f86db6be0b781e0bb1a64f1dbbc1962c9'
+$snapshot = 'C:\Users\tuszy\Documents\game_predictor_vision_data\snapshots\0cdc0770b3535596fdbfa0a8f403cbf32d6a8b134fb52047f5a1f7bda33772c2'
+$annotations = 'C:\Users\tuszy\Documents\game_predictor_vision_data\annotations\0cdc0770b3535596fdbfa0a8f403cbf32d6a8b134fb52047f5a1f7bda33772c2'
 $labApi = Start-Process -FilePath '.\.venv\Scripts\python.exe' -ArgumentList @(
   '-m', 'game_predictor_worker.vision_lab', '--snapshot', ('"' + $snapshot + '"'),
   '--annotations', ('"' + $annotations + '"')
@@ -105,12 +105,20 @@ współbieżnie z serwerem developerskim zapisującym tę samą `.next`.
 
 ## Aktualizacja zdjęć i zachowanie anotacji (T03c)
 
-Aktualny import folderu z 2026-09-26 zawiera 993 zdjęcia i ma ID
+Aktualny zestaw po addytywnym imporcie 2026-09-27 ma 1466 wystąpień
+(993 stare i 473 nowe) oraz 1440 unikalnych SHA. Snapshot i nowy store mają
+identyfikator `0cdc0770b3535596fdbfa0a8f403cbf32d6a8b134fb52047f5a1f7bda33772c2`.
+Ścieżki startu powyżej wskazują ten zestaw. Zachowano 180 siatek, 63 akceptacje
+i całą historię; nowe zdjęcia nie zostały automatycznie zatwierdzone.
+Operacja rebase jest wykonana — nie trzeba jej powtarzać przed startem.
+Nie uruchomiono usług automatycznie. [Raport i backup](../quality/VISION_LAB_ADDITIVE_DATA_20260927.md).
+
+Poprzedni import folderu z 2026-09-26 zawiera 993 zdjęcia i ma ID
 `82c3c29dd35e17a1df74da249fd8687f86db6be0b781e0bb1a64f1dbbc1962c9`.
-Ścieżki w instrukcji uruchomienia powyżej wskazują ten snapshot i odpowiadający
-mu katalog anotacji. Przy pierwszym przejściu użyj poniższej procedury przed
-startem API. Stary snapshot 1180 zdjęć i jego katalog anotacji pozostają kopią
-historyczną; nie uruchamiaj dwóch API zapisujących do różnych kopii podczas pracy.
+Pozostaje zachowany wraz ze swoim store, podobnie jak jeszcze starszy zestaw
+1180 zdjęć. Nie uruchamiaj dwóch API zapisujących do różnych kopii podczas pracy.
+Poniższa procedura opisuje mechanizm i wcześniejsze przejście 1180 → 993;
+jej przykładowych historycznych argumentów nie używaj jako aktualizacji nowego zestawu.
 
 1. Uruchom istniejący importer folderu (sekcja Import), zachowując źródła i stare
    snapshoty. Zapisz zwróconą ścieżkę nowego snapshotu.

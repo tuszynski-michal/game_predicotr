@@ -6,6 +6,24 @@ last_updated: 2026-09-26
 
 # Current State
 
+### T03g — addytywny import i rebase po restarcie
+
+- Done: Sol medium, niezależny audyt Astra medium PASS bez P0–P2.
+  Import opublikował snapshot przed restartem; po restarcie świeży preview,
+  rebase apply i nowy proces `already_applied` potwierdziły trwałość.
+- Nowy snapshot/store: `0cdc0770b3535596fdbfa0a8f403cbf32d6a8b134fb52047f5a1f7bda33772c2`
+  pod Documents/game_predictor_vision_data. 1466 wystąpień / 1440 SHA:
+  993 stare i 473 nowe. Zachowane 180 siatek, 63 aktualne akceptacje,
+  259 historii/receipts oraz 196 timingów. Payload różni tylko snapshot_id.
+  Stary snapshot/store i backup zachowane; brak akceptacji nowych zdjęć.
+- Raport: VISION_LAB_ADDITIVE_DATA_20260927.md. Brak startu usług,
+  zmiany rodzin, splitu lub treningu. Instrukcja startu wskazuje nowe ścieżki.
+  Kwalifikacja 777 na nowym store ma preview ready (11 zdjęć / 30 siatek),
+  bez apply. T03h wykona ją osobno po backupie i audycie zakresu.
+- Commit T03g: v1.7.23 (hash po commicie). T03 nadal blocked na pochodzeniu
+  rodzin i zamrożonym podziale; T04/T05 nieuruchomione. Pytanie do operatora
+  dotyczy ścieżki oryginalnych nagrań/eksportów, nie ponownego rysowania siatek.
+
 ### Autonomiczna kontynuacja laboratorium (2026-09-27)
 
 - Użytkownik zlecił możliwie szeroki dalszy postęp podczas swojej nieobecności,
@@ -22,8 +40,9 @@ last_updated: 2026-09-26
   Backend 78 różnych przypadków PASS, klient 6/6, Ruff/format, mypy 15
   modułów, TypeScript klienta/UI i OpenAPI/generated check PASS. Ochrona
   legacy receipts, pełnego grafu oraz stale obejmuje nowe procesy i backup.
-  Audytor osobno: backend 24/24 i klient 6/6 PASS. Commit v1.7.22
-  (hash po commicie). Realne operacje danych mają osobny odbiór/commit;
+  Audytor osobno: backend 24/24 i klient 6/6 PASS. Commit `v1.7.22` /
+  `d179e8fd46366aa90a06b1187fe2980fd28cfb76`; staged check/stat/list i
+  show/stat/status PASS. Realne operacje danych mają osobny odbiór/commit;
   ten pion nie zamyka T03. Bez pełnego buildu, treningu i aktywacji.
 - Korekta błędnej siatki i ponowna akceptacja już działają. Trening labu,
   checkpoint v2 i backend runów są nadal zakresem T04/T05, nie gotową funkcją.

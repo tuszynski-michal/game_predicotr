@@ -363,12 +363,30 @@ requestu aktualizowane spójnie; bez nowego endpointu/UI lub magazynu decyzji.
 DoD: alias SHA bez skopiowania zgody, przechodnie powiązania przez niewybrane
 źródła, wszystkie bramki provenance/role/unseen/measurement/topology,
 legacy receipts w nowym procesie, atomicity/race/retry, pełne fingerprints,
-stale, backup/restore oraz zgodny API/client. Implementacja do końcowego audytu:
-backend 69 różnych przypadków PASS (pierwszy fokus64 i rozszerzony cohort24),
+stale, backup/restore oraz zgodny API/client. Implementacja odebrana:
+backend 78 różnych przypadków PASS (w tym dziewięć regresji rebase),
 klient6, Ruff/mypy/TypeScript i OpenAPI/generated checks PASS.
 Małe izolowane fixture; timeouty do 120 s, bez benchmarków.
-Po audycie osobny commit i Outcome. Realny import/rebase/apply/freeze,
+Audyt Astra medium PASS, niezależnie backend24 i klient6; commit v1.7.22
+i pełny hash w Outcome TASK-0668. Realny import/rebase/apply/freeze,
 automatyczne potwierdzanie rodzin, symbole i trening poza tym pionem.
+
+## T03g/T03h — operacje danych po kontroli T03
+
+T03g `done`: zaudytowany addytywny import 473 zdjęć i rebase zachowujący
+993 stare źródła, 180 siatek i 63 akceptacje. Nowy snapshot/store, backup
+i pełny raport pochodzenia; brak nowych zgód, zmiany ról, rodzin i splitu.
+Świeże procesy po restarcie potwierdziły integralność i already_applied.
+Raport: `ai_docs/quality/VISION_LAB_ADDITIVE_DATA_20260927.md`.
+
+T03h `todo`: po osobnym commicie T03g zastosować istniejącą kwalifikację D-453
+do 11 zaakceptowanych zdjęć / 30 siatek 777 na nowym store. Obowiązkowe:
+preview dokładnego requestu, backup, CAS/apply, nowy proces i identyczne retry,
+niezmienione geometrie/akceptacje/role oraz audyt przed i po zapisie.
+Pełne kontrakty, pliki, błędy i kryteria obu operacji zapisuje TASK-0668.
+Wykonawca obu Sol medium, audyt Astra medium, osobny commit każdego podzadania.
+Nie potwierdzać automatycznie rodzin, nie zamrażać splitu i nie rozpoczynać
+T04/T05 bez brakujących danych. Bez automatycznego startu usług i treningu.
 
 ## T14 — końcowe ujednolicenie toastów w aplikacjach webowych
 
@@ -474,6 +492,8 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T03d / TASK-0668 | `gpt-6-sol` | `medium` | Trwałe review zdjęcia, wersje geometrii i zgodny pion API/UI. | `gpt-6-astra`, `medium` |
 | T03e / TASK-0668 | `gpt-6-sol` | `medium` | Kwalifikacja geometry-only, trwałość decyzji i ochrona podziałów. | `gpt-6-astra`, `medium` |
 | T03f / TASK-0668 | `gpt-6-sol` | `medium` | Jawna kohorta targetów z pełnym grafem przecieku i zgodnością receipts. | `gpt-6-astra`, `medium` |
+| T03g / TASK-0668 | `gpt-6-sol` | `medium` | Addytywny snapshot, pełna kontrola zachowania zapisów i restart. | `gpt-6-astra`, `medium` |
+| T03h / TASK-0668 | `gpt-6-sol` | `medium` | Jawny zapis D-453, backup i idempotencja bez zmiany geometrii. | `gpt-6-astra`, `medium` |
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |

@@ -11,8 +11,8 @@ last_updated: 2026-09-27
 `blocked` — anotacje i przegląd operatora wykonane; D-453 rozstrzyga użycie
 historycznych zdjęć 777 w modelu geometrii. Pozostają techniczne mapowanie
 źródeł do rodzin, kontrola konfliktów, realne apply kwalifikacji geometrii
-oraz zamrożony podział. Mechanizm T03e jest wdrożony i odebrany; T03f
-wdraża jawną kohortę targetów. T04/T05 nie rozpoczęto; nie uruchamiać ich przed
+oraz zamrożony podział. Mechanizmy T03e/T03f są wdrożone i odebrane;
+T03g zachował zapisy w rozszerzonym zbiorze. T04/T05 nie rozpoczęto; nie uruchamiać ich przed
 spełnieniem bramek danych.
 
 ## Goal
@@ -457,8 +457,74 @@ odbiorze narzędzia: odczytowy preview konkretnej kohorty i pozostałych bramek.
   miało błąd cytowania filtra PowerShell (exit4, bez testów); poprawiono samo
   wywołanie. Żaden test ani bramka nie zostały osłabione. Zastane ostrzeżenie
   Starlette/AnyIO pozostaje poza zakresem.
-  Końcowy git diff --check PASS. Commit T03f: v1.7.22 (hash po commicie).
+  Końcowy git diff --check PASS. Commit T03f: `v1.7.22` /
+  `d179e8fd46366aa90a06b1187fe2980fd28cfb76`; staged check/stat/list oraz
+  show/stat/status PASS, obce zmiany poza commitem.
   Podzadanie done; nadrzędny plik pozostaje aktywny/blocked do odbioru danych T03.
+
+## T03g — addytywny import i zachowanie zapisów
+
+Status `done`. Cel: dołączyć 473 zdjęcia bez utraty 993 źródeł, 180 siatek
+i 63 akceptacji. Wykonanie `gpt-6-sol` / `medium`, niezależny audyt
+`gpt-6-astra` / `medium` przed operacją oraz po jej wykonaniu. Warunki wejścia:
+niezmieniony stan rewizji 259, brak rodzin/splitu/kwalifikacji, zgodne referencje.
+Relevant docs: wymagania i architektura VISION_LAB, D-453, T03c/T03e,
+PLAN_STANDARD/TASK_TEMPLATE. Plan zapisany przed wykonaniem:
+`artifacts/vision-lab/t03-additive-import-proposed-plan.md`; helper operacyjny
+korzysta z istniejących snapshot.import_folder i rebase_annotations.
+
+Scope: jawne mapowanie sześciu nazw gier, nowe ścieżki partii, kontrola wszystkich
+SHA, backup, raport pochodzenia i kopie sidecarów, nowy immutable snapshot,
+preview i apply do nowego store. Brak usuwania, nadpisania starych danych,
+przenoszenia zgód na inne piksele, zmian ról, rodzin, splitu lub treningu.
+Nie przełączać działających usług. Każda różnica ID/SHA/metadanych referencji,
+stanu, backupu albo przypiętych digestów zatrzymuje operację bez obchodzenia
+guardów. Retry akceptuje tylko dokładnie ten sam opublikowany wynik.
+
+Kryteria odbioru i wykonane kontrole: wszystkie stare wpisy manifestu identyczne;
+1466 wystąpień / 1440 SHA / 6 gier; cały payload równy poza snapshot_id;
+180 pełnych siatek, 63 aktualne akceptacje i 259 history/receipts zachowane;
+brak nowych zatwierdzeń; backup identyczny; nowy proces daje already_applied.
+Przed apply brak writera na 8102, po operacji brak osieroconego helpera.
+Limity pojedynczego helpera 60 s, brak benchmarków i zmian kodu aplikacji.
+
+Outcome: wszystkie kryteria PASS, niezależny audyt Astra medium bez P0–P2.
+Restart komputera nastąpił między importem i rebase; świeże odczyty potwierdziły
+import. Rebase i retry potwierdzone w nowych procesach, bez kolejnego restartu OS.
+Dokładne ścieżki/digests/logi: `ai_docs/quality/VISION_LAB_ADDITIVE_DATA_20260927.md`.
+Guide wskazuje nowy snapshot/store. Bez usług, kwalifikacji, freeze i treningu.
+Commit T03g: v1.7.23 (hash po commicie). Następny krok: osobny T03h.
+
+## T03h — zastosowanie jawnej kwalifikacji geometrii 777
+
+Status `todo`. Cel: utrwalić wcześniej autoryzowaną decyzję D-453 dla dokładnych
+11 zdjęć / 30 nowych ręcznych siatek 777 w nowym store. Wykonawca
+`gpt-6-sol` / `medium`, niezależny audyt `gpt-6-astra` / `medium` przed apply
+i po wyniku. Zależność: odebrany i osobno zapisany T03g; dotychczasowy preview
+na nowym snapshot/store daje ready, rewizja 259. Relevant docs jak T03g oraz
+kontrakt T03e i CLI qualify_geometry. Bez nowego kodu, API lub UI.
+
+Wejście: snapshot/store 0cdc0770… (pełne ścieżki w raporcie T03g), SHA stanu
+`ef5903646401fc95225542126e84a85e8d0991bebcbb177efbdb916606de0f01`, request
+`artifacts/vision-lab/t03e-777-qualification-request-rev259.json`, fingerprint
+`fa81cb9623e84d1a9ec15907d65ff55db763a133878bb70e5ef11edbcb94c72b`.
+Request nie był zastosowany na starym store; nie zmieniać jego bindings,
+autora ani rewizji. Rebase zachował źródła, więc nowy preview wiąże te same SHA.
+
+Kolejność: kontrola braku writera, świeży preview, istniejący AnnotationStore.backup
+i sprawdzenie kopii, kwalifikacja istniejącym CLI --apply pod CAS, nowy proces
+preview/retry tego samego requestu. Każdy krok skończony do 60 s. Różnica SHA,
+rewizji, źródła, requestu, kopii lub konflikt zatrzymuje apply bez nadpisania.
+Po niepewnej odpowiedzi najpierw odczytać receipt; nie tworzyć nowego request_id.
+
+Acceptance: rewizja 260, dokładnie 11 skutecznych kwalifikacji, jeden nowy
+receipt/event; wszystkie anotacje, akceptacje, timingi i wcześniejsza historia
+identyczne. Nowy proces rozpoznaje already_applied; ponowienie apply nie zwiększa
+rewizji/historii. Stary store/snapshot i snapshot nowy bez zmian. Brak zmiany
+comparison_only, rodzin, podziału, zgód symboli lub nowych zdjęć. Qualification
+nie odblokowuje treningu bez pozostałych bramek. Rebase z kwalifikacjami pozostaje
+zablokowany; nie usuwać decyzji, aby obchodzić tę granicę przy kolejnych importach.
+Outcome do uzupełnienia po wykonaniu i niezależnym odbiorze.
 
 ## T03a — ergonomia edytora i bieżące cropy
 

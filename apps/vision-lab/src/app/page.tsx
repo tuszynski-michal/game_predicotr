@@ -14,6 +14,7 @@ import {
 } from '../lib/annotation-status';
 import { GeometryEditor } from '../components/geometry-editor';
 import { FamilyEditor } from '../components/family-editor';
+import { QuickReview } from '../components/quick-review';
 import {
   detectGeometry,
   listSources,
@@ -24,6 +25,7 @@ import {
 
 export default function Page() {
   const [catalog, setCatalog] = useState<Source[]>([]);
+  const [quick, setQuick] = useState(false);
   const { state, refresh } = useAnnotations();
   const notify = useToast();
   const [filter, setFilter] = useState<PhotoFilter>('all');
@@ -175,11 +177,32 @@ export default function Page() {
       setBusy(false);
     }
   }
+  if (quick && state)
+    return (
+      <QuickReview
+        sources={catalog}
+        initialState={state}
+        game={game}
+        onReturn={() => setQuick(false)}
+      />
+    );
   return (
     <main>
       <header>
         <p className="eyebrow">WIZJA / ANOTACJE</p>
         <h1>Laboratorium geometrii</h1>
+        <button
+          disabled={!state || loading || busy || protection.pending}
+          onClick={() => {
+            if (canNavigate()) {
+              resetSelection();
+              setQuick(true);
+              window.scrollTo?.(0, 0);
+            }
+          }}
+        >
+          Szybki przegląd
+        </button>
         <p>
           Zdjęcia, propozycje siatek i cropy. Wynik silnika wymaga oceny
           człowieka.

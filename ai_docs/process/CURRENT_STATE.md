@@ -6,6 +6,33 @@ last_updated: 2026-09-26
 
 # Current State
 
+### T03d — szybki przegląd zdjęć (done)
+
+- Zlecenie użytkownika: jedno całe zdjęcie ze wszystkimi zapisanymi siatkami,
+  dwa przyciski Zatwierdź/Odrzuć i następne zdjęcie po potwierdzonym zapisie.
+  Oddzielny tryb ukrywa galerię/rodziny/edytor, mieści zdjęcie w widoku.
+- Kolejka tylko zdjęć z pełną geometrią czekających na przegląd; przyjęte
+  i odrzucone nie wracają po odświeżeniu. Odrzucenie całego zdjęcia trafia
+  do Do poprawy bez usuwania ani uznawania wszystkich siatek za błędne.
+- Zgodne rozszerzenie istniejącego API zapowiedziane: reject i osobna flaga
+  zdjęcia, domyślnie false. Accept usuwa flagę przy dotychczasowych bramkach.
+  SHA, rewizje, CAS, retry i pending pozostają. Bez decyzji na realnych danych.
+- Scope: moduły lab, lab OpenAPI/client, UI/testy i dokumentacja; Sol medium
+  oraz audyt Astra medium według T03d. CURRENT_STATE/DECISION_LOG/restart/commit
+  prowadzi root. Równoległy tor partial-board0708–0711 jest poza zakresem.
+  Baza v1.7.12/9b495091; commit v1.7.13 (hash po commicie).
+- UI34/34, backend20/20, client4/4, format/lint/typecheck, mypy lab,
+  OpenAPI/generated checks i build PASS. Audyt Astra medium bez P0–P2;
+  niezależnie UI25/25 i backend11/11 PASS.
+- Nowe procesy API/UI gotowe (8102/3102). Pierwszy krótki readiness timeout
+  podczas startu; logi potwierdziły gotowość, kolejny GET HTTP200, bez
+  uruchamiania dodatkowych kopii. Backup wykonany; SHA256 state.json przed/po
+  identyczny: 3519739500F642069E99D2BEAFBB334FF7F5118E2F4426CF38E83D35F0692AD3.
+- Browser QA na osobnej karcie: kolejka63, wszystkie3 zapisane siatki pierwszego
+  zdjęcia, dwa aktywne przyciski; pełny widok1280×720 bez scrollowania, powrót
+  do edycji działa. Bez akceptacji/odrzucenia danych użytkownika. Restart OS,
+  fizyczny mobile, trening i kwalifikacja777 poza zakresem; nadrzędny T03 blocked.
+
 ### Niepełne plansze — realizacja zaakceptowanego planu T1–T4
 
 - Zlecenie 2026-09-27: cały PARTIAL_BOARD_SYMBOL_REVIEW_EXECUTION_PLAN.md,
@@ -30,7 +57,9 @@ last_updated: 2026-09-26
 - Zakres: wspólny toast-store/ToastProvider (jedyny konsument produkcyjny:
   lab), testy i dokumenty. Bez zmian API/danych/innych aplikacji; T14 tylko
   aktualizacja planowanego kontraktu. Wykonanie Sol medium / audyt Astra
-  medium według T03b. Baza v1.7.10 / 72997022; commit v1.7.11 (hash po commicie).
+  medium według T03b. Baza v1.7.10 / 72997022; commit `v1.7.11`
+  / `9626f3b3172172b76038f7f53a8314b5eddc2595`. Hash dopisany po commicie;
+  kolejny patch v1.7.12 po kontroli historii.
 - UI29/29, format, lint lab/shared i typecheck PASS. Niezależny audyt
   Astra medium PASS bez P0–P2, testy20/20. Build/restart tylko UI PASS,
   HTTP200. Browser: Kopiuj → Skopiowano i dokładna treść w schowku;

@@ -48,6 +48,8 @@ registerHooks({
 });
 const { GeometryEditor } =
   await import('../src/components/geometry-editor.tsx');
+const { QuickReview } = await import('../src/components/quick-review.tsx');
+const { quickReviewQueue } = await import('../src/lib/quick-review.ts');
 const { AnnotationProvider, useAnnotations } =
   await import('../src/components/annotation-context.tsx');
 const { default: Page } = await import('../src/app/page.tsx');
@@ -103,10 +105,295 @@ const annotation = (index, columns = 5) => {
   };
 };
 const text = (node) =>
-  typeof node === 'string' ? node : (node.children ?? []).map(text).join('');
+  typeof node === 'string'
+    ? node
+    : (Array.isArray(node) ? node : (node.children ?? [])).map(text).join('');
 function button(root, label) {
   return root.root.findAllByType('button').find((node) => text(node) === label);
 }
+async function mountQuick(
+  initial,
+  sources = [source, { ...source, id: 'other', asset_id: 'other' }],
+) {
+  let stored = initial,
+    shared,
+    fail = false,
+    returned = 0;
+  const requests = [],
+    receipts = new Map();
+  function Observer() {
+    shared = useAnnotations();
+    return null;
+  }
+  globalThis.labApi = {
+    read: async () => stored,
+    review: async (body) => {
+      requests.push(body);
+      if (receipts.has(body.request_id)) return receipts.get(body.request_id);
+      stored = {
+        ...stored,
+        revision: stored.revision + 1,
+        photo_reviews: {
+          ...stored.photo_reviews,
+          [body.source_id]: {
+            source_id: body.source_id,
+            source_sha256: body.source_sha256,
+            accepted_board_revisions:
+              body.action === 'accept' ? body.expected_board_revisions : {},
+            rejected: body.action === 'reject',
+            issues: {},
+          },
+        },
+      };
+      receipts.set(body.request_id, stored);
+      if (fail) {
+        fail = false;
+        throw new Error('response lost');
+      }
+      return stored;
+    },
+  };
+  let root;
+  await act(async () => {
+    root = create(
+      React.createElement(
+        ToastProvider,
+        null,
+        React.createElement(
+          AnnotationProvider,
+          null,
+          React.createElement(Observer),
+          React.createElement(QuickReview, {
+            sources,
+            initialState: initial,
+            game: '',
+            onReturn: () => returned++,
+          }),
+        ),
+      ),
+    );
+  });
+  return {
+    root,
+    requests,
+    get stored() {
+      return stored;
+    },
+    get returned() {
+      return returned;
+    },
+    failOnce() {
+      fail = true;
+    },
+    accept: async (value) => act(async () => shared.accept(value)),
+    setRead: (read) => {
+      globalThis.labApi.read = read;
+    },
+    setWrite: (write) => {
+      globalThis.labApi.review = write;
+    },
+    async loadImage() {
+      await act(async () =>
+        root.root
+          .findByProps({ className: 'quick-source-loader' })
+          .props.onLoad({
+            currentTarget: { naturalWidth: 1000, naturalHeight: 700 },
+          }),
+      );
+      await act(async () => root.root.findByType('image').props.onLoad());
+    },
+  };
+}
+const quickInitial = () => ({
+  revision: 1,
+  annotations: {
+    'source:0': annotation(0),
+    'source:12': annotation(12, 3),
+    'other:0': { ...annotation(0), source_id: 'other' },
+  },
+});
+
+test('quick queue preserves catalog order/game and excludes rejected, accepted, corrections and nonfull photos', () => {
+  const ids = [
+    'review',
+    'rejected',
+    'accepted',
+    'fix',
+    'draft',
+    'recheck',
+    'othergame',
+  ];
+  const sources = ids.map((id) => ({
+    ...source,
+    id,
+    game_id: id === 'othergame' ? 'b' : 'a',
+  }));
+  const state = {
+    revision: 1,
+    annotations: Object.fromEntries(
+      ids.map((id) => [
+        `${id}:0`,
+        { ...annotation(0), source_id: id, full_approved: id !== 'draft' },
+      ]),
+    ),
+    photo_reviews: {
+      rejected: { rejected: true },
+      accepted: {
+        source_sha256: source.sha256,
+        accepted_board_revisions: { 0: 1 },
+      },
+      fix: { issues: { 0: { status: 'needs_correction' } } },
+      recheck: { issues: { 0: { status: 'needs_review' } } },
+    },
+  };
+  assert.deepEqual(
+    quickReviewQueue(sources, state, 'a').map((s) => s.id),
+    ['review', 'recheck'],
+  );
+  assert.deepEqual(
+    quickReviewQueue(sources, state).map((s) => s.id),
+    ['review', 'recheck', 'othergame'],
+  );
+});
+
+test('quick review gates visible image, shows every saved grid and advances exactly once per explicit decision', async () => {
+  const h = await mountQuick(quickInitial());
+  let persisted;
+  try {
+    assert.equal(button(h.root, 'Zatwierdź').props.disabled, true);
+    await act(async () =>
+      button(h.root, 'Zatwierdź').props.onClick({ detail: 1 }),
+    );
+    assert.equal(h.requests.length, 0);
+    await act(async () =>
+      h.root.root
+        .findByProps({ className: 'quick-source-loader' })
+        .props.onLoad({
+          currentTarget: { naturalWidth: 1000, naturalHeight: 700 },
+        }),
+    );
+    assert.equal(button(h.root, 'Zatwierdź').props.disabled, true);
+    await act(async () => h.root.root.findByType('image').props.onLoad());
+    assert.equal(h.root.root.findAllByType('polygon').length, 2);
+    assert.equal(h.root.root.findAllByType('polyline').length, 18);
+    assert.match(text(h.root.toJSON()), /13/);
+    await act(async () =>
+      button(h.root, 'Zatwierdź').props.onClick({ detail: 1 }),
+    );
+    assert.deepEqual(h.requests[0].expected_board_revisions, { 0: 1, 12: 1 });
+    assert.match(text(h.root.toJSON()), /Zdjęcie 2 z 2/);
+    assert.equal(button(h.root, 'Odrzuć').props.disabled, true);
+    await h.loadImage();
+    await act(async () =>
+      button(h.root, 'Odrzuć').props.onClick({ detail: 2 }),
+    );
+    assert.equal(h.requests.length, 1);
+    await act(async () => h.root.root.findByType('image').props.onError());
+    await act(async () =>
+      button(h.root, 'Odrzuć').props.onClick({ detail: 1 }),
+    );
+    assert.equal(h.requests.length, 1);
+    await act(async () =>
+      button(h.root, 'Odśwież zdjęcie i stan').props.onClick(),
+    );
+    await h.loadImage();
+    await act(async () =>
+      button(h.root, 'Odrzuć').props.onClick({ detail: 1 }),
+    );
+    assert.match(text(h.root.toJSON()), /Koniec kolejki/);
+    assert.equal(h.requests.length, 2);
+    persisted = h.stored;
+  } finally {
+    await act(async () => h.root.unmount());
+  }
+  const restarted = await mountQuick(persisted);
+  try {
+    assert.match(text(restarted.root.toJSON()), /Koniec kolejki/);
+    assert.equal(restarted.requests.length, 0);
+  } finally {
+    await act(async () => restarted.root.unmount());
+  }
+});
+
+test('quick review lost response keeps exact retry and exit lock after toast expires', async (t) => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  let clock = 0;
+  t.mock.method(performance, 'now', () => clock);
+  const h = await mountQuick(quickInitial());
+  try {
+    await h.loadImage();
+    h.failOnce();
+    const approve = button(h.root, 'Zatwierdź');
+    await act(async () => {
+      approve.props.onClick({ detail: 1 });
+      approve.props.onClick({ detail: 1 });
+    });
+    assert.equal(h.requests.length, 1);
+    assert.match(text(h.root.toJSON()), /Zdjęcie 1 z 2/);
+    await act(async () => {
+      clock += 4000;
+      t.mock.timers.tick(250);
+    });
+    assert.equal(
+      h.root.root.findAllByProps({
+        className: 'shared-toast shared-toast-error',
+      }).length,
+      0,
+    );
+    assert.equal(button(h.root, 'Powrót do edycji').props.disabled, true);
+    await act(async () => button(h.root, 'Powrót do edycji').props.onClick());
+    assert.equal(h.returned, 0);
+    await act(async () =>
+      button(h.root, 'Ponów identyczną decyzję').props.onClick(),
+    );
+    assert.equal(h.requests[0], h.requests[1]);
+    assert.match(text(h.root.toJSON()), /Zdjęcie 2 z 2/);
+  } finally {
+    await act(async () => h.root.unmount());
+  }
+});
+
+test('quick review stale response/read or changed receipt geometry never advances', async () => {
+  const h = await mountQuick(quickInitial());
+  try {
+    await h.loadImage();
+    let resolve;
+    h.setWrite(
+      () =>
+        new Promise((done) => {
+          resolve = done;
+        }),
+    );
+    await act(async () =>
+      button(h.root, 'Zatwierdź').props.onClick({ detail: 1 }),
+    );
+    await h.accept({ ...quickInitial(), revision: 10 });
+    await act(async () => resolve({ ...quickInitial(), revision: 2 }));
+    assert.match(text(h.root.toJSON()), /Zdjęcie 1 z 2/);
+    h.setRead(async () => ({ ...quickInitial(), revision: 3 }));
+    await act(async () =>
+      button(h.root, 'Odśwież zdjęcie i stan').props.onClick(),
+    );
+    assert.equal(button(h.root, 'Powrót do edycji').props.disabled, true);
+    const changed = quickInitial();
+    changed.revision = 11;
+    changed.annotations['source:0'].revision = 11;
+    h.setWrite(async () => changed);
+    await act(async () =>
+      button(h.root, 'Ponów identyczną decyzję').props.onClick(),
+    );
+    assert.match(text(h.root.toJSON()), /Zdjęcie 1 z 2/);
+    assert.equal(button(h.root, 'Powrót do edycji').props.disabled, true);
+    h.setRead(async () => changed);
+    await act(async () =>
+      button(h.root, 'Odśwież zdjęcie i stan').props.onClick(),
+    );
+    assert.equal(button(h.root, 'Powrót do edycji').props.disabled, false);
+    assert.equal(button(h.root, 'Zatwierdź').props.disabled, true);
+  } finally {
+    await act(async () => h.root.unmount());
+  }
+});
 async function mount(initial) {
   const requests = [],
     previews = [];
@@ -192,6 +479,7 @@ async function mount(initial) {
       } else {
         review.accepted_board_revisions = body.expected_board_revisions;
         review.issues = {};
+        review.rejected = false;
       }
       stored = {
         ...stored,
@@ -467,6 +755,32 @@ test('review response loss retains exact request, blocks geometry, and retry nev
     );
   } finally {
     await act(async () => harness.root.unmount());
+  }
+});
+
+test('ordinary review can explicitly accept globally rejected photo without fixing every board', async () => {
+  const h = await mount({
+    revision: 1,
+    annotations: { 'source:0': annotation(0) },
+    photo_reviews: {
+      source: {
+        source_id: 'source',
+        source_sha256: source.sha256,
+        rejected: true,
+        issues: {},
+        accepted_board_revisions: {},
+      },
+    },
+  });
+  try {
+    assert.equal(button(h.root, 'Akceptuj całe zdjęcie').props.disabled, false);
+    await act(async () =>
+      button(h.root, 'Akceptuj całe zdjęcie').props.onClick(),
+    );
+    assert.match(text(h.root.toJSON()), /Zaakceptowane/);
+    assert.equal(h.requests.length, 0);
+  } finally {
+    await act(async () => h.root.unmount());
   }
 });
 

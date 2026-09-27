@@ -138,6 +138,12 @@ export function PhotoReviewPanel({
       aria-label="Przegląd całego zdjęcia"
     >
       <h3>Przegląd całego zdjęcia — {photoReviewLabel[status.status]}</h3>
+      {review?.rejected && (
+        <p>
+          Zdjęcie odrzucone w szybkim przeglądzie. Popraw tylko błędne siatki, a
+          po sprawdzeniu zaakceptuj całe zdjęcie.
+        </p>
+      )}
       <p>
         Do poprawy: {status.correction} · Do ponownego sprawdzenia:{' '}
         {status.recheck}. Wybierz numer na zdjęciu, aby obejrzeć zapis i cropy.

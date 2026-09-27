@@ -31,6 +31,13 @@ last_updated: 2026-09-26
 
 ## D-450 — przegląd zdjęcia jako dodatkowa bramka laboratoryjna
 
+- **Doprecyzowanie 2026-09-27:** szybki przegląd pokazuje pełne zdjęcie
+  i wszystkie zapisane siatki, Zatwierdź/Odrzuć, potem następne po sukcesie.
+  Odrzucenie dotyczy zdjęcia (osobne `rejected`, domyślnie false), nie oznacza
+  każdej geometrii jako błędnej. Trafia do Do poprawy; zapis geometrii nie
+  usuwa tej flagi, jawny accept ją usuwa przy zachowaniu istniejących bramek.
+  Reject unieważnia akceptację/split, zachowuje siatki i podlega tym samym
+  SHA/rewizjom/CAS/receipts/history. Kolejka pomija rozstrzygnięte zdjęcia.
 - **Status:** accepted (TASK-0668/T03d, jawne polecenie użytkownika).
 - **Date:** 2026-09-27.
 - **Decision:** akceptacja zdjęcia wiąże SHA źródła i mapę rewizji wszystkich

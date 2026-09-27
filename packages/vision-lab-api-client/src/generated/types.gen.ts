@@ -512,6 +512,10 @@ export type PhotoReview = {
         [key: string]: BoardReviewIssue;
     };
     /**
+     * Rejected
+     */
+    rejected: boolean;
+    /**
      * Source Id
      */
     source_id: string;
@@ -528,7 +532,7 @@ export type PhotoReviewRequest = {
     /**
      * Action
      */
-    action: 'mark' | 'withdraw' | 'accept';
+    action: 'mark' | 'withdraw' | 'accept' | 'reject';
     /**
      * Actor
      */

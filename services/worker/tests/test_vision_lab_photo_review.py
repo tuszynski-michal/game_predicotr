@@ -133,13 +133,16 @@ def test_cas_geometry_versions_sha_retry_and_per_source_invalidation(tmp_path):
     assert not photo_accepted(store.mutate(request), store.catalog.sources[source_id])
 
 
-def test_restart_backup_and_rebase_preserve_review_and_history(tmp_path):
+@pytest.mark.parametrize("decision", ["accept", "reject"])
+def test_restart_backup_and_rebase_preserve_review_and_history(tmp_path, decision):
     store = setup_store(tmp_path)
     source_id = next(iter(store.catalog.sources))
     full(store, source_id)
     store.mutate(review_for(store, source_id, "mark", [0], "uwaga"))
     full(store, source_id)
     store.mutate(review_for(store, source_id))
+    if decision == "reject":
+        store.mutate(review_for(store, source_id, "reject"))
     backup = store.backup()
     restored = store.restore(backup.backup_id, tmp_path / "restore")
     assert restored.read() == store.read()
@@ -169,21 +172,23 @@ def test_restart_backup_and_rebase_preserve_review_and_history(tmp_path):
     assert read_checked(destination / "state.json") == expected
     assert photo_accepted(
         AnnotationStore(destination, Catalog(new)).read(), store.catalog.sources[source_id]
-    )
+    ) == (decision == "accept")
 
 
-def test_http_review_uses_existing_annotation_route_and_boundary(tmp_path):
+@pytest.mark.parametrize("decision", ["accept", "reject"])
+def test_http_review_uses_existing_annotation_route_and_boundary(tmp_path, decision):
     store = setup_store(tmp_path)
     source_id = next(iter(store.catalog.sources))
     full(store, source_id)
-    request = review_for(store, source_id)
+    request = review_for(store, source_id, decision)
     client = TestClient(create_app(store.catalog, store.root), base_url="http://127.0.0.1:8102")
     assert client.post("/annotations", json=request.model_dump()).status_code == 403
     headers = {"Origin": "http://127.0.0.1:3102"}
     response = client.post("/annotations", json=request.model_dump(), headers=headers)
-    assert response.status_code == 200 and response.json()["photo_reviews"][source_id][
-        "accepted_board_revisions"
-    ] == {"0": 1}
+    assert response.status_code == 200
+    review = response.json()["photo_reviews"][source_id]
+    assert review["rejected"] == (decision == "reject")
+    assert review["accepted_board_revisions"] == ({"0": 1} if decision == "accept" else {})
     assert (
         client.post("/annotations", json=request.model_dump(), headers=headers).json()
         == response.json()
@@ -208,6 +213,9 @@ def test_review_is_additional_split_gate_and_mark_keeps_frozen_assignments(tmp_p
     assert marked.split_stale and marked.split == frozen.split
     assert all(store.catalog.sources[s].role == "data" for s in frozen.split.assignments)
     assert state.annotations == marked.annotations
+    rejected = store.mutate(review_for(store, source_id, "reject"))
+    assert rejected.split_stale and rejected.split == frozen.split
+    assert not photo_accepted(rejected, store.catalog.sources[source_id])
 
 
 def test_legacy_split_gate_is_consistent_on_read_retry_and_mutation(tmp_path):
@@ -224,3 +232,31 @@ def test_legacy_split_gate_is_consistent_on_read_retry_and_mutation(tmp_path):
     assert (store.root / "state.json").read_bytes() == original
     source_id = split_request.measurement_source_ids[0]
     assert store.mutate(review_for(store, source_id)).split_stale
+
+
+def test_reject_is_global_reversible_and_keeps_geometry_issues_and_retry(tmp_path):
+    store = setup_store(tmp_path)
+    source_id = next(iter(store.catalog.sources))
+    full(store, source_id)
+    full(store, source_id, 4)
+    store.mutate(review_for(store, source_id))
+    payload = read_checked(store.root / "state.json")
+    payload["state"]["photo_reviews"][source_id].pop("rejected")
+    write_atomic(store.root / "state.json", payload)
+    assert not store.read().photo_reviews[source_id].rejected
+    original = store.read().annotations
+    request = review_for(store, source_id, "reject")
+    rejected = store.mutate(request)
+    assert store.mutate(request) == rejected
+    assert rejected.annotations == original
+    assert rejected.photo_reviews[source_id].rejected
+    assert rejected.photo_reviews[source_id].issues == {}
+    store.mutate(review_for(store, source_id, "mark", [0]))
+    store.mutate(review_for(store, source_id, "withdraw", [0]))
+    full(store, source_id)
+    assert store.read().photo_reviews[source_id].rejected
+    assert store.read().annotations[f"{source_id}:4"] == original[f"{source_id}:4"]
+    accepted = store.mutate(review_for(store, source_id))
+    assert photo_accepted(accepted, store.catalog.sources[source_id])
+    assert not accepted.photo_reviews[source_id].rejected
+    assert not store.mutate(request).photo_reviews[source_id].rejected

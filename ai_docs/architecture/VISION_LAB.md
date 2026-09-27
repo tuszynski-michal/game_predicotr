@@ -6,6 +6,14 @@ last_updated: 2026-09-26
 
 # Architektura laboratorium wizji
 
+Szybki przegląd używa istniejącego POST /annotations: PhotoReviewRequest ma
+additive reject, PhotoReview.rejected domyślnie false. CAS/SHA/mapa i receipt
+chronią reject jak accept. Reject czyści zaakceptowaną mapę bez geometrii/issues;
+tylko accept usuwa rejected. photo_accepted wyklucza rejected. Historia,
+backup i rebase zachowują pole. QuickReview ma lokalną stabilną kolejkę i
+snapshot wyświetlonej mapy/rewizji, loadguard źródła oraz blokadę pending/ref;
+stare odpowiedzi nie powodują przejścia ani obniżenia wspólnego stanu.
+
 T03d rozszerza istniejący POST /annotations o PhotoReviewRequest, a stan o
 photo_reviews z domyślnym pustym zbiorem. Source SHA i mapa rewizji wszystkich
 pozycji są sprawdzane pod tym samym exclusive/CAS co zapis, przed decyzją.

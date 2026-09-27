@@ -26,6 +26,7 @@ export function photoReviewStatus(
   const accepted = review?.accepted_board_revisions ?? {};
   const versions = photoVersions(rows);
   const complete =
+    !review?.rejected &&
     !issues.length &&
     sha === review?.source_sha256 &&
     Object.keys(accepted).length > 0 &&
@@ -35,7 +36,12 @@ export function photoReviewStatus(
     ) &&
     rows.some((row) => boardStatus(row) === 'full');
   return {
-    status: correction ? 'correction' : complete ? 'accepted' : 'review',
+    status:
+      correction || review?.rejected
+        ? 'correction'
+        : complete
+          ? 'accepted'
+          : 'review',
     correction,
     recheck,
   } as const;

@@ -16,6 +16,7 @@ def photo_accepted(state: AnnotationState, source: Source) -> bool:
     review = state.photo_reviews.get(source.id)
     return bool(
         review
+        and not review.rejected
         and review.source_sha256 == source.sha256
         and review.accepted_board_revisions
         and review.accepted_board_revisions == board_revisions(state, source.id)
@@ -40,11 +41,16 @@ def apply_photo_review(
         source.id, PhotoReview(source_id=source.id, source_sha256=source.sha256)
     )
     indices = [str(i) for i in request.board_indices]
-    if request.action != "accept" and (
+    if request.action in ("mark", "withdraw") and (
         not indices or len(set(indices)) != len(indices) or any(i not in rows for i in indices)
     ):
         raise ValueError("PHOTO_REVIEW_SAVED_POSITIONS_REQUIRED")
-    if request.action == "mark":
+    if request.action == "reject":
+        if indices or request.note or not rows:
+            raise ValueError("PHOTO_REJECT_ENTIRE_SAVED_SET_REQUIRED")
+        review.accepted_board_revisions = {}
+        review.rejected = True
+    elif request.action == "mark":
         for index in indices:
             review.issues[index] = BoardReviewIssue(
                 status="needs_correction",
@@ -77,6 +83,7 @@ def apply_photo_review(
             raise ValueError("PHOTO_CORRECTION_FULL_APPROVAL_REQUIRED")
         review.issues = {}
         review.accepted_board_revisions = revisions
+        review.rejected = False
     review.actor, review.decided_at = request.actor, now
     state.photo_reviews[source.id] = review
     if state.split is not None:

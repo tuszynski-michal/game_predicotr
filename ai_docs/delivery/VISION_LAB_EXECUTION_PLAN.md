@@ -288,6 +288,14 @@ T14 nie zastępuje odbioru modelu T13 i nie odblokowuje treningu.
 ## Przypisanie modeli do zadań
 
 T03d: zlecony przegląd zdjęcia z poprawkami wybranych plansz oraz dodatkową
+bramką akceptacji. Rozszerzenie 2026-09-27: Szybki przegląd ukrywa inne panele,
+pokazuje całe zdjęcie ze wszystkimi zapisanymi siatkami i dwa przyciski
+Zatwierdź/Odrzuć → następne po sukcesie. Kolejka katalogu full/present/review;
+reject całego zdjęcia (rejected=false dla starych danych) bez edycji geometrii
+lub masowych issues, stan Do poprawy do jawnego accept. Snapshot wyświetlonych
+rewizji/SHA, loadguard, ref-lock, exactretry/pending i monotoniczność chronią
+decyzje. Szczegółowe pliki, granice i testy w rozszerzeniu T03d TASK-0668.
+Dotychczasowy przegląd pozostaje narzędziem korekty z dodatkową
 bramką akceptacji. Istniejący POST /annotations rozszerzony o decyzje review;
 SHA i mapa wszystkich rewizji chronią zestaw przed wyścigiem. Mark→zapis→
 ponowny przegląd→jawny accept; withdraw wycofuje błędne zgłoszenie.

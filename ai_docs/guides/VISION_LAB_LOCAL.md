@@ -195,6 +195,17 @@ Raport pomiarów nadal pozostaje w panelu rodzin jako dane.
 
 ### Przegląd zdjęcia i poprawki T03d
 
+Przycisk „Szybki przegląd” przy górze otwiera wyłącznie pełne zdjęcie ze
+wszystkimi zapisanymi siatkami. Obejmuje wybraną grę albo wszystkie; pomija
+zdjęcia bez pełnej obecnej siatki oraz już zaakceptowane lub wymagające poprawy.
+„Zatwierdź” i „Odrzuć” zapisują świadomą decyzję, potem pokazują następne.
+Odrzucenie nie zmienia siatek ani nie zgłasza każdej planszy osobno: zdjęcie
+trafia do „Do poprawy”. W zwykłym edytorze popraw tylko błędne pozycje i
+zaakceptuj całe zdjęcie po sprawdzeniu. Sam zapis poprawki nie usuwa odrzucenia.
+Przy błędzie zapisu zdjęcie pozostaje do identycznego ponowienia lub jawnego
+odświeżenia; do rozstrzygnięcia Powrót jest zablokowany. Po ponownym wejściu
+do trybu zapisane decyzje są pomijane. Żadne zdjęcie nie zatwierdza się samo.
+
 Panel „Przegląd całego zdjęcia” pokazuje zapisane pozycje oraz ich statusy.
 Numery obrysów pozwalają wybrać dokładną zapisaną siatkę i jej cropy.
 Pomarańczowy znak `!` oznacza „Do poprawy”, `↻` — „Do ponownego

@@ -45,6 +45,21 @@ test('annotation and family requests preserve revision, explicit intent and idem
       saveAnnotation,
       'annotations',
       {
+        request_id: 'reject-photo',
+        expected_revision: 8,
+        actor: 'operator',
+        action: 'reject',
+        source_id: 'source',
+        source_sha256: 'a'.repeat(64),
+        expected_board_revisions: { 0: 2, 4: 1 },
+        board_indices: [],
+        note: '',
+      },
+    ],
+    [
+      saveAnnotation,
+      'annotations',
+      {
         request_id: 'request-01',
         expected_revision: 7,
         actor: 'human',

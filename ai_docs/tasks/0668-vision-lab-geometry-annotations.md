@@ -292,7 +292,9 @@ po sukcesie, schowek zawiera dokładną treść, focus zachowuje toast,
 po opuszczeniu przycisku toast znika. Odbiór
 na osobnej karcie, bez anotowania danych; API bez restartu. DoD korekty
 potwierdzone testami; fizyczny Android i restart komputera niebadane.
-Commit v1.7.11 (hash po commicie); T14 nie uruchomiono, nadrzędny T03 blocked.
+Commit `v1.7.11` / `9626f3b3172172b76038f7f53a8314b5eddc2595`.
+Hash dopisany po commicie; kolejny patch v1.7.12 po kontroli historii.
+T14 nie uruchomiono, nadrzędny T03 blocked.
 
 - Wdrożono stałego operatora, pełną zgodę przez kliknięcie, odstępy i opisy,
   auto-przejście po potwierdzonym zapisie z idempotentnym retry, dokładne
@@ -440,6 +442,69 @@ Kolejność: testy skoncentrowane → lint/typecheck → OpenAPI/check → audit
 Skończone procesy limit120s. Bez zapisu realnych danych, roli777 i treningu.
 
 ### Outcome T03d
+
+### Rozszerzenie T03d — szybki przegląd (done, 2026-09-27)
+
+Cel: jedna sekcja pełnego zdjęcia ze wszystkimi zapisanymi siatkami, liniami
+wewnętrznymi i numerami; dwa główne przyciski Zatwierdź/Odrzuć, po sukcesie
+natychmiast następne. Wejście przy górze, tryb ukrywa galerię/rodziny/edytor;
+zdjęcie contain ograniczone viewportem. Powrót, retry/odświeżenie przy błędzie
+są technicznymi kontrolkami. Stabilna kolejka katalogu wybranej gry lub wszystkich:
+źródła z full/present i statusem review, nie accepted/rejected/needs_correction.
+
+Additive API: PhotoReviewRequest.action += reject, PhotoReview.rejected=false.
+Reject sprawdza SHA/mapę/CAS i idempotencję, czyści accept, ustawia rejected,
+nie zmienia geometrii ani nie tworzy issues. Mark/withdraw/edycja zachowują
+rejected; dopiero jawny accept po zwykłych warunkach go usuwa. Status rejected
+to Do poprawy, wykluczony ze splitu i kolejki. Stare payloady zgodne; zachowanie
+historii/backup/rebase bez zmian. Backend API rozszerzenie zapowiedziane.
+
+QuickReview wysyła dokładnie wyświetloną mapę i rewizję; zdjęcie musi zakończyć
+load bez error. Ref-lock chroni doubleclick, pending blokuje wyjście i zachowuje
+identyczne retry niezależnie od toastu. Stara odpowiedź nie przesuwa kursora ani
+nie obniża wspólnej rewizji. Sukces przesuwa raz, restart kolejki pomija decyzje.
+Konflikt wymaga jawnego odczytu/przejrzenia nowych wersji. Brak autoapprove.
+
+Pliki: annotation_contracts.py/photo_review.py i testy lab; izolowane OpenAPI,
+generated client/wrapper/request test; nowy QuickReview/helper, Page/style/status,
+UI regresje i guide/req/arch/plan. Bez dotykania obcego toru partial boards,
+DECISION_LOG/CURRENT_STATE, live danych i usług. Koordynator zapisuje decyzję,
+build/restart/commit. Wykonawca gpt-6-sol medium/audyt gpt-6-astra medium T03d.
+Testy: reject/accept/oldpayload/retry/restart/backup/rebase/split, kolejka,
+load/error/stale/doubleclick/lostresponse/monotonic i istniejące workflow;
+najpierw fokus, lint/typecheck, kontraktcheck, audyt. Komendy do120s.
+
+Wynik implementacji szybkiego przeglądu (freeze): nowy QuickReview i helper
+kolejki, viewportowy obraz ze wszystkimi zapisanymi siatkami/numerami oraz
+wyłącznie dwa główne przyciski decyzji. Loadguard obejmuje widoczne SVG image;
+drugie zdarzenie doubleclick jest ignorowane także po szybkim sukcesie/cache.
+Odrzucenie trwałe bez zmiany geometrii/issues, odwracalne jawnym accept w
+zwykłym panelu. Additive kontrakt laboratoryjny wygenerowano; dotychczasowy
+typowany wrapper writePhotoReview obsługuje rozszerzoną unię bez duplikacji.
+
+Kontrole: UI **34/34 PASS** (1,28 s; node --experimental-strip-types --test
+apps/vision-lab/test/*.test.mjs); backend photo_review+rebase **20/20 PASS**
+(17,86 s; pytest dwa odpowiadające pliki); client request **4/4 PASS** (tsx).
+ESLint lab, format, app/client typecheck, Ruff, mypy13 modułów lab
+--follow-imports=silent, izolowane OpenAPI --check, generated-client --check
+i diffcheck PASS. Testy obejmują kolejność/gry/filtry, wszystkie obrysy,
+image error/load, doubleclick, pending po4s, exactretry, niższą rewizję
+odpowiedzi/GET, zmienioną geometrię receipt oraz restart/backup/rebase.
+DoD względem powyższego zakresu potwierdzone: pełne zdjęcie/wszystkie siatki
+i numery, dwie decyzje i następne po sukcesie, odrzucenie bez kasowania,
+bezpieczne błędy/retry i trwałość po odczycie/restartach w izolowanych testach.
+Niezależny audyt Astra medium PASS bez P0–P2, UI25/25 i backend11/11 PASS.
+Produkcyjny build i nowe procesy API/UI PASS, HTTP200 na3102. Pierwszy krótki
+readiness timeout podczas startu; po kontroli logów kolejny GET200 bez
+duplikowania usług. Kopia bezpieczeństwa state.json wykonana przed restartem;
+SHA256 przed/po identyczny3519739500F642069E99D2BEAFBB334FF7F5118E2F4426CF38E83D35F0692AD3.
+Browser QA na osobnej karcie: kolejka63, wszystkie3 zapisane siatki pierwszego
+zdjęcia, oba przyciski aktywne po załadowaniu; pełny widok1280×720 bez scrolla,
+Powrót do edycji działa. Dowód artifacts/vision-lab/quick-review-qa.png.
+Nie podejmowano decyzji na danych użytkownika. Restart OS/fizyczny mobile,
+trening, kwalifikacja777 i obcy tor partial boards poza zakresem.
+Commit v1.7.13 (hash po commicie); nadrzędny T03 nadal blocked, plik pozostaje
+aktywny do zakończenia pozostałych bramek danych i splitu.
 
 Korekta bez modalnych potwierdzeń, zlecona 2026-09-27: usunąć window.confirm
 z nawigacji i jawnego reconcile oraz beforeunload. Nawigacja porzuca lokalne

@@ -845,6 +845,11 @@
             "title": "Issues",
             "type": "object"
           },
+          "rejected": {
+            "default": false,
+            "title": "Rejected",
+            "type": "boolean"
+          },
           "source_id": {
             "title": "Source Id",
             "type": "string"
@@ -857,6 +862,7 @@
         "required": [
           "source_id",
           "source_sha256",
+          "rejected",
           "accepted_board_revisions",
           "issues",
           "actor",
@@ -872,7 +878,8 @@
             "enum": [
               "mark",
               "withdraw",
-              "accept"
+              "accept",
+              "reject"
             ],
             "title": "Action",
             "type": "string"

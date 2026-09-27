@@ -49,7 +49,7 @@ class FamilyDecision(Contract):
 
 
 class PhotoReviewRequest(Mutation):
-    action: Literal["mark", "withdraw", "accept"]
+    action: Literal["mark", "withdraw", "accept", "reject"]
     source_id: str
     source_sha256: str = Field(min_length=64, max_length=64)
     expected_board_revisions: dict[str, int]
@@ -68,6 +68,7 @@ class BoardReviewIssue(Contract):
 class PhotoReview(Contract):
     source_id: str
     source_sha256: str
+    rejected: bool = False
     accepted_board_revisions: dict[str, int] = Field(default_factory=dict)
     issues: dict[str, BoardReviewIssue] = Field(default_factory=dict)
     actor: str = ""

@@ -6,6 +6,16 @@ last_updated: 2026-09-25
 
 # Laboratorium wizji
 
+Szybki przegląd pokazuje jedno pełne zdjęcie ze wszystkimi zapisanymi siatkami
+(linie i numery) bez galerii, rodzin i edytora. Dwa główne przyciski:
+Zatwierdź/Odrzuć, po potwierdzonym zapisie następne. Kolejka stabilna według
+katalogu wybranej gry/wszystkich, tylko full/present bez accept/reject/needs_correction.
+Odrzucenie całego zdjęcia oznacza Do poprawy bez zmiany geometrii i bez
+oznaczania wszystkich plansz. Edycja/mark/withdraw nie usuwa odrzucenia;
+kasuje je dopiero jawna akceptacja spełniająca zwykłe warunki. Brak wymogu9.
+Decyzja dotyczy wyświetlonych wersji i źródła po załadowaniu zdjęcia; błąd
+obrazu blokuje oba przyciski. Pending blokuje wyjście i zachowuje retry.
+
 Przegląd zdjęcia pokazuje numerowane zapisane siatki oraz cropy wybranej planszy.
 Przegląd zapisanych plansz na całym zdjęciu jest przy wejściu domyślnie
 zwinięty; użytkownik może ręcznie rozwinąć lub zwinąć go nagłówkiem.

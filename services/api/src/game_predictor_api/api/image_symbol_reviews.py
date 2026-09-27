@@ -502,7 +502,7 @@ def create_image_symbol_reviews_router(
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
         limit: Annotated[int, Query(ge=1, le=2500)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPageResponse:
-        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
+        parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_page_response(
             await _run_disconnect_cancellable_query(
                 request,
@@ -518,6 +518,7 @@ def create_image_symbol_reviews_router(
                     max_confidence=max_confidence,
                     limit=limit,
                     include_all_symbols=include_all_symbols,
+                    outside_only=outside_only,
                 ),
             )
         )
@@ -541,7 +542,7 @@ def create_image_symbol_reviews_router(
         min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
     ) -> SymbolCellReviewSkipResponse:
-        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
+        parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_skip_response(
             await _run_disconnect_cancellable_query(
                 request,
@@ -557,6 +558,7 @@ def create_image_symbol_reviews_router(
                     max_confidence=max_confidence,
                     count=count,
                     include_all_symbols=include_all_symbols,
+                    outside_only=outside_only,
                 ),
             )
         )
@@ -578,7 +580,7 @@ def create_image_symbol_reviews_router(
         min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
     ) -> SymbolCellReviewCountSnapshotResponse:
-        parsed_symbol_id, include_all_symbols = _parse_symbol_filter(symbol_id)
+        parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_count_snapshot_response(
             await _run_disconnect_cancellable_query(
                 request,
@@ -592,6 +594,7 @@ def create_image_symbol_reviews_router(
                     min_confidence=min_confidence,
                     max_confidence=max_confidence,
                     include_all_symbols=include_all_symbols,
+                    outside_only=outside_only,
                 ),
             )
         )
@@ -914,17 +917,19 @@ def _required_relative_path(value: str | None) -> str:
     return value
 
 
-def _parse_symbol_filter(value: str) -> tuple[UUID | None, bool]:
+def _parse_symbol_filter(value: str) -> tuple[UUID | None, bool, bool]:
+    if value == "outside":
+        return None, False, True
     if value == "all":
-        return None, True
+        return None, True, False
     if value == "unknown":
-        return None, False
+        return None, False, False
     try:
-        return UUID(value), False
+        return UUID(value), False, False
     except ValueError as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_SYMBOL_FILTER_INVALID",
-            "symbolId must be an active symbol UUID, all, or unknown.",
+            "symbolId must be an active symbol UUID, all, unknown, or outside.",
         ) from error
 
 

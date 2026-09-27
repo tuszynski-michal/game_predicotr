@@ -62,6 +62,8 @@ Nowy kontrakt bez cropa wymaga spójnych odbiorców, nie fikcyjnego zasobu.
 Nie raportować wdrożenia ani naprawy danych na podstawie samych testów.
 
 ## Outcome
+Commit: `v1.7.12` — `9b4950911fd35cb7fa04e878f59c1db4bfdcc7d7`.
+
 ### Changed
 
 - Klasyfikacja full/partial/outside z przecięcia aktualnych footprintów ze źródłem.

@@ -2699,7 +2699,7 @@ class ImageSymbolReviewCellModel(Base):
     logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
     render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    render_spec: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    render_spec: Mapped[dict[str, object] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
     render_spec_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     extractor_version: Mapped[str | None] = mapped_column(String(150), nullable=True)
@@ -3012,6 +3012,7 @@ class ImageSymbolReviewBulkOperationModel(Base):
     filter_symbol_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("symbols.id", ondelete="RESTRICT"), nullable=True
     )
+    filter_scope: Mapped[str | None] = mapped_column(String(50), nullable=True)
     filter_state: Mapped[str | None] = mapped_column(String(20), nullable=True)
     catalog_revision: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     idempotency_key: Mapped[UUID] = mapped_column(nullable=False)

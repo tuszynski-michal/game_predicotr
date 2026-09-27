@@ -138,6 +138,7 @@ class SymbolCellReviewQueryService:
         max_confidence: float | None = None,
         limit: int = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
         include_all_symbols: bool = False,
+        outside_only: bool = False,
     ) -> SymbolCellReviewPage:
         with self._repository.bounded_read(
             timeout_ms=self._page_statement_timeout_ms,
@@ -153,6 +154,7 @@ class SymbolCellReviewQueryService:
                 max_confidence=max_confidence,
                 limit=limit,
                 include_all_symbols=include_all_symbols,
+                outside_only=outside_only,
             )
 
     def _list(
@@ -167,6 +169,7 @@ class SymbolCellReviewQueryService:
         max_confidence: float | None,
         limit: int,
         include_all_symbols: bool,
+        outside_only: bool,
     ) -> SymbolCellReviewPage:
         if not 1 <= limit <= MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE:
             raise SymbolCellReviewError(
@@ -191,6 +194,7 @@ class SymbolCellReviewQueryService:
             min_confidence=min_confidence,
             max_confidence=max_confidence,
             include_all_symbols=include_all_symbols,
+            outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
             uses_current_projection=catalog.uses_current_projection,
@@ -255,6 +259,7 @@ class SymbolCellReviewQueryService:
         max_confidence: float | None = None,
         count: int,
         include_all_symbols: bool = False,
+        outside_only: bool = False,
     ) -> str | None:
         with self._repository.bounded_read(
             timeout_ms=self._page_statement_timeout_ms,
@@ -270,6 +275,7 @@ class SymbolCellReviewQueryService:
                 max_confidence=max_confidence,
                 count=count,
                 include_all_symbols=include_all_symbols,
+                outside_only=outside_only,
             )
 
     def _skip(
@@ -284,6 +290,7 @@ class SymbolCellReviewQueryService:
         max_confidence: float | None,
         count: int,
         include_all_symbols: bool,
+        outside_only: bool,
     ) -> str | None:
         if count < 1:
             raise SymbolCellReviewError(
@@ -313,6 +320,7 @@ class SymbolCellReviewQueryService:
             min_confidence=min_confidence,
             max_confidence=max_confidence,
             include_all_symbols=include_all_symbols,
+            outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
             uses_current_projection=catalog.uses_current_projection,
@@ -364,6 +372,7 @@ class SymbolCellReviewQueryService:
         min_confidence: float | None = None,
         max_confidence: float | None = None,
         include_all_symbols: bool = False,
+        outside_only: bool = False,
     ) -> SymbolCellReviewCountSnapshot:
         with self._repository.bounded_read(
             timeout_ms=self._counts_statement_timeout_ms,
@@ -377,6 +386,7 @@ class SymbolCellReviewQueryService:
                 min_confidence=min_confidence,
                 max_confidence=max_confidence,
                 include_all_symbols=include_all_symbols,
+                outside_only=outside_only,
             )
 
     def _counts(
@@ -389,6 +399,7 @@ class SymbolCellReviewQueryService:
         min_confidence: float | None,
         max_confidence: float | None,
         include_all_symbols: bool,
+        outside_only: bool,
     ) -> SymbolCellReviewCountSnapshot:
         catalog = self._repository.require_ready_game(game_id)
         model_cohort_id = (
@@ -403,6 +414,7 @@ class SymbolCellReviewQueryService:
             min_confidence=min_confidence,
             max_confidence=max_confidence,
             include_all_symbols=include_all_symbols,
+            outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
             uses_current_projection=catalog.uses_current_projection,

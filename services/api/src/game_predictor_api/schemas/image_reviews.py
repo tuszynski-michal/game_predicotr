@@ -74,7 +74,7 @@ class OperationalImageReviewItemResponse(ApiModel):
     geometry: dict[str, object]
     pipeline_fingerprint: Sha256
     cells: tuple[OperationalImageReviewCellResponse, ...] = Field(
-        min_length=IMAGE_REVIEW_CELL_COUNT,
+        min_length=0,
         max_length=IMAGE_REVIEW_CELL_COUNT,
     )
     resolved_value: dict[str, object] | None

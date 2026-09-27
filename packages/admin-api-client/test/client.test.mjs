@@ -3259,3 +3259,45 @@ test('geometry review sources response carries automaticPageProposal through the
     automaticPageProposal,
   );
 });
+
+test('outside review scope and absent crop decision retain their wire contract', async () => {
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push({
+        url: request.url,
+        body: request.method === 'POST' ? await request.json() : null,
+      });
+      return Response.json({
+        items: [],
+        catalogRevision: 1,
+        nextCursor: null,
+        previousCursor: null,
+      });
+    },
+  });
+  await client.listSymbolCellReviews({ gameId: 'game', symbolId: 'outside' });
+  await client.getSymbolCellReviewCounts({
+    gameId: 'game',
+    symbolId: 'outside',
+  });
+  const body = {
+    action: 'reassign',
+    targetSymbolId: 'symbol',
+    expectedRevision: 2,
+    expectedGeometryRevision: 3,
+    expectedCropSampleId: null,
+    expectedCropChecksumSha256: null,
+  };
+  await client.applySymbolCellReviewDecision('game', 'cell', body);
+  assert.equal(
+    new URL(requests[0].url).searchParams.get('symbolId'),
+    'outside',
+  );
+  assert.equal(
+    new URL(requests[1].url).searchParams.get('symbolId'),
+    'outside',
+  );
+  assert.deepEqual(requests[2].body, body);
+});

@@ -37,6 +37,24 @@ Outside po przypisaniu należy tylko do rzeczywistego symbolu, zachowując badge
 Widoczność jest niezależna od wyniku rozpoznania. Nie wymyślać obrazu/checksum.
 Nie nadpisywać operatora, nie obchodzić routingu V2 i CAS.
 
+### Odczytowy punkt odniesienia 2026-09-27
+
+- Gra 777 / bfc4f949-5c14-4850-b02a-db99610bcfa5, schemat produkcyjny 0125.
+- 70 bieżących właścicieli, 985/1050 pozycji, brak duplikatów aktywnej sekwencji.
+  Brak 45 pozycji na 62287/62404/62440 i 20 na siedmiu innych planszach.
+- 67 właścicieli pochodzi z późniejszego importu f786fed3, trzech z 5c36f4d0.
+  Wybór wyłącznie stagingu 0935f4ba byłby błędny.
+- Żadna z 70 plansz nie ma fast search document. Nie używać istniejącego
+  backfillu opartego wyłącznie o te dokumenty do wyboru zakresu naprawy.
+- Wstępna ocena board_geometry: 829 full / 201 partial / 20 outside.
+  Finalne preview musi ponownie sprawdzić właściwą aktualną rewizję, ownera
+  i źródło; liczby nie są regułą klasyfikacji ani wynikiem zastosowanej naprawy.
+- Dane pomocnicze odczytu w work/partial-board-review; nie są trwałym
+  kontraktem narzędzia ani checkpointem produkcyjnej operacji.
+- Apply wymaga potwierdzenia rewizji oraz trwałego pokwitowania w tej samej
+  transakcji co pozycje. Sam zapis lokalnego pliku po commicie nie wystarcza
+  dla utraty odpowiedzi i restartu. Nie nadpisywać historycznych manifestów.
+
 ## Out of scope
 Trening, push/merge, destrukcyjne migracje, produkcyjne apply bez osobnego kroku.
 

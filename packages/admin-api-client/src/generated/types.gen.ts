@@ -7643,23 +7643,7 @@ export type OperationalImageReviewItemResponse = {
   /**
    * Cells
    */
-  cells: [
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-  ];
+  cells: Array<OperationalImageReviewCellResponse>;
   /**
    * Createdat
    */
@@ -9528,11 +9512,11 @@ export type ResolveUnreadableCellRequest = {
   /**
    * Expectedcropchecksumsha256
    */
-  expectedCropChecksumSha256: string;
+  expectedCropChecksumSha256: string | null;
   /**
    * Expectedcropsampleid
    */
-  expectedCropSampleId: string;
+  expectedCropSampleId: string | null;
   /**
    * Expectedgeometryrevision
    */
@@ -10680,11 +10664,11 @@ export type SaveUnreadableBoardCellRequest = {
   /**
    * Expectedcropchecksumsha256
    */
-  expectedCropChecksumSha256: string;
+  expectedCropChecksumSha256: string | null;
   /**
    * Expectedcropsampleid
    */
-  expectedCropSampleId: string;
+  expectedCropSampleId: string | null;
   /**
    * Expectedgeometryrevision
    */
@@ -11939,11 +11923,11 @@ export type SymbolCellReviewBulkExplicitTargetRequest = {
   /**
    * Expectedcropchecksumsha256
    */
-  expectedCropChecksumSha256: string;
+  expectedCropChecksumSha256: string | null;
   /**
    * Expectedcropsampleid
    */
-  expectedCropSampleId: string;
+  expectedCropSampleId: string | null;
   /**
    * Expectedgeometryrevision
    */
@@ -11982,7 +11966,7 @@ export type SymbolCellReviewBulkFilterSelectionRequest = {
   /**
    * Symbolid
    */
-  symbolId: string | 'unknown';
+  symbolId: string | 'unknown' | 'outside' | 'all';
 };
 
 /**
@@ -12198,7 +12182,7 @@ export type SymbolCellReviewListItemResponse = {
   /**
    * Assetmode
    */
-  assetMode?: 'legacy_file' | 'virtual_source';
+  assetMode?: 'legacy_file' | 'virtual_source' | 'none';
   /**
    * Assignedsymbolcode
    */
@@ -12230,11 +12214,11 @@ export type SymbolCellReviewListItemResponse = {
   /**
    * Cropchecksumsha256
    */
-  cropChecksumSha256: string;
+  cropChecksumSha256: string | null;
   /**
    * Cropsampleid
    */
-  cropSampleId: string;
+  cropSampleId: string | null;
   /**
    * Geometryrevision
    */
@@ -12295,6 +12279,10 @@ export type SymbolCellReviewListItemResponse = {
    * Sequencenumber
    */
   sequenceNumber: number;
+  /**
+   * Sourcevisibility
+   */
+  sourceVisibility?: 'full' | 'partial' | 'outside';
 };
 
 /**
@@ -12305,11 +12293,11 @@ export type SymbolCellReviewMutationRequest = {
   /**
    * Expectedcropchecksumsha256
    */
-  expectedCropChecksumSha256: string;
+  expectedCropChecksumSha256: string | null;
   /**
    * Expectedcropsampleid
    */
-  expectedCropSampleId: string;
+  expectedCropSampleId: string | null;
   /**
    * Expectedgeometryrevision
    */
@@ -12972,6 +12960,10 @@ export type SymbolUpdate = {
  */
 export type UnreadableBoardReviewCellResponse = {
   /**
+   * Assetmode
+   */
+  assetMode?: 'legacy_file' | 'virtual_source' | 'none';
+  /**
    * Assignedsymbolcode
    */
   assignedSymbolCode: string | null;
@@ -12998,11 +12990,11 @@ export type UnreadableBoardReviewCellResponse = {
   /**
    * Cropchecksumsha256
    */
-  cropChecksumSha256: string;
+  cropChecksumSha256: string | null;
   /**
    * Cropsampleid
    */
-  cropSampleId: string;
+  cropSampleId: string | null;
   /**
    * Geometryrevision
    */
@@ -13031,6 +13023,10 @@ export type UnreadableBoardReviewCellResponse = {
    * Rowindex
    */
   rowIndex: number;
+  /**
+   * Sourcevisibility
+   */
+  sourceVisibility?: 'full' | 'partial' | 'outside';
 };
 
 /**

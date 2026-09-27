@@ -13875,7 +13875,7 @@
               "$ref": "#/components/schemas/OperationalImageReviewCellResponse"
             },
             "maxItems": 15,
-            "minItems": 15,
+            "minItems": 0,
             "title": "Cells",
             "type": "array"
           },
@@ -17225,14 +17225,28 @@
             "title": "Assignment"
           },
           "expectedCropChecksumSha256": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Expectedcropchecksumsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcropchecksumsha256"
           },
           "expectedCropSampleId": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Expectedcropsampleid",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcropsampleid"
           },
           "expectedGeometryRevision": {
             "minimum": 0.0,
@@ -19170,14 +19184,28 @@
             "type": "integer"
           },
           "expectedCropChecksumSha256": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Expectedcropchecksumsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcropchecksumsha256"
           },
           "expectedCropSampleId": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Expectedcropsampleid",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcropsampleid"
           },
           "expectedGeometryRevision": {
             "minimum": 0.0,
@@ -21381,14 +21409,28 @@
             "type": "string"
           },
           "expectedCropChecksumSha256": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Expectedcropchecksumsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcropchecksumsha256"
           },
           "expectedCropSampleId": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Expectedcropsampleid",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcropsampleid"
           },
           "expectedGeometryRevision": {
             "minimum": 0.0,
@@ -21471,7 +21513,11 @@
                 "type": "string"
               },
               {
-                "const": "unknown",
+                "enum": [
+                  "unknown",
+                  "outside",
+                  "all"
+                ],
                 "type": "string"
               }
             ],
@@ -21864,7 +21910,8 @@
             "default": "legacy_file",
             "enum": [
               "legacy_file",
-              "virtual_source"
+              "virtual_source",
+              "none"
             ],
             "title": "Assetmode",
             "type": "string"
@@ -21924,14 +21971,28 @@
             "type": "string"
           },
           "cropChecksumSha256": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Cropchecksumsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropchecksumsha256"
           },
           "cropSampleId": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Cropsampleid",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropsampleid"
           },
           "geometryRevision": {
             "minimum": 0.0,
@@ -22032,6 +22093,16 @@
             "minimum": 1.0,
             "title": "Sequencenumber",
             "type": "integer"
+          },
+          "sourceVisibility": {
+            "default": "full",
+            "enum": [
+              "full",
+              "partial",
+              "outside"
+            ],
+            "title": "Sourcevisibility",
+            "type": "string"
           }
         },
         "required": [
@@ -22068,14 +22139,28 @@
             "$ref": "#/components/schemas/SymbolCellReviewAction"
           },
           "expectedCropChecksumSha256": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Expectedcropchecksumsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcropchecksumsha256"
           },
           "expectedCropSampleId": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Expectedcropsampleid",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedcropsampleid"
           },
           "expectedGeometryRevision": {
             "minimum": 0.0,
@@ -23305,6 +23390,16 @@
       "UnreadableBoardReviewCellResponse": {
         "additionalProperties": false,
         "properties": {
+          "assetMode": {
+            "default": "legacy_file",
+            "enum": [
+              "legacy_file",
+              "virtual_source",
+              "none"
+            ],
+            "title": "Assetmode",
+            "type": "string"
+          },
           "assignedSymbolCode": {
             "anyOf": [
               {
@@ -23355,14 +23450,28 @@
             "type": "integer"
           },
           "cropChecksumSha256": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Cropchecksumsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropchecksumsha256"
           },
           "cropSampleId": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Cropsampleid",
-            "type": "string"
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropsampleid"
           },
           "geometryRevision": {
             "minimum": 0.0,
@@ -23416,6 +23525,16 @@
             "minimum": 0.0,
             "title": "Rowindex",
             "type": "integer"
+          },
+          "sourceVisibility": {
+            "default": "full",
+            "enum": [
+              "full",
+              "partial",
+              "outside"
+            ],
+            "title": "Sourcevisibility",
+            "type": "string"
           }
         },
         "required": [

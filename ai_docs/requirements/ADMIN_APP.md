@@ -632,6 +632,20 @@ wyszarzone ze spinnerem, ale operator może przejść na inną stronę i uruchom
 kolejną niezależną operację. Zablokowane pozostają wyłącznie targety już wysłane
 oraz krótki foreground start/preview bieżącej decyzji.
 
+**TASK-0709 / D-451:** istniejący filtr `symbolId` obejmuje także `outside`.
+Pozycja bez obrazu i bez symbolu należy do „Poza zdjęciem”, także z oznaczeniem
+Nieczytelny. Po przypisaniu należy wyłącznie do grupy symbolu oraz Wszystkich.
+`sourceVisibility` (`full`, `partial`, `outside`) jest niezależne od decyzji;
+przypisane `partial_visibility` pozostaje w grupie symbolu. Outside nie ma
+predykcji ani pewności; jego zakres pomija filtr pewności. Wariant `assetMode=none`
+zwraca jawne null dla identyfikatorów obrazu. Zmiana symbolu, Nieczytelny i Zła
+siatka zachowują kontrolę rewizji pozycji i geometrii; zatwierdzanie obrazu,
+Niewyraźny i wybór grafiki wymagają rzeczywistych pikseli. Oznaczenie Nieczytelny
+może być rozwiązane jako logiczny symbol lub unknown bez zatwierdzenia cropa.
+Niepełne źródło pozostaje `pending_partial` po decyzjach dotyczących symboli.
+Podgląd istniejącego szczegółu planszy zwraca 0–15 rzeczywistych cropów oraz
+pełne zdjęcie i geometrię; logiczna kolejka weryfikacji nadal ma 15 pozycji.
+
 Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
 symbol`, checkbox `Niewyraźny` i jednoliniowe akcje `Nieczytelny / Zła siatka`.
 Checkbox `Niewyraźny` modyfikuje zatwierdzenie oraz zmianę symbolu: decyzja

@@ -39,10 +39,18 @@ last_updated: 2026-09-26
   TASK-0708–0711; wykonawcy i audyty według tabeli planu.
 - T1 / TASK-0708 zakończony: 15 pozycji, trwałe full/partial/outside,
   migracja 0126, zachowanie ręcznych decyzji i atomowy błąd projekcji.
-  Commit v1.7.12 (hash po commicie); baza v1.7.11 / 9626f3b3172172b76038f7f53a8314b5eddc2595.
+  Commit v1.7.12 / 9b4950911fd35cb7fa04e878f59c1db4bfdcc7d7;
+  baza v1.7.11 / 9626f3b3172172b76038f7f53a8314b5eddc2595.
 - Testy 94+32 PASS, izolowana migracja PostgreSQL 2 PASS; niezależny audyt
   Astra medium bez P0–P2 i 27 PASS. Ruff16 i mypy10 PASS.
-- Następny TASK-0709 / T2: API, grupy, liczniki i operacje bez obrazu.
+- TASK-0709 / T2 zakończony: spójne API, grupy/count/bulk/cursor, decyzje
+  bez obrazu i bez fastdoc, trwały filter_scope (0127), source context przez
+  istniejący endpoint, training exclusion. Naprawiono JSON null → SQL NULL
+  podczas przejścia do outside. Commit v1.7.14 (hash po commicie), po lab v1.7.13.
+- T2: focused 67 i końcowe 40 PASS (częściowo wspólne), JS77, mypy10,
+  TypeScript Admin/client, lint/format i OpenAPI/generated PASS. Audyt Astra
+  medium bez P0–P2 / 70 PASS. PostgreSQL 2+1 PASS (bulk/retry/nowe sesje),
+  API sparse source3 PASS. Następny TASK-0710 / T3 — interfejs i statusy.
 - Dane produkcyjne bez zmian: implementacja i preview zlecone, rzeczywiste
   uzupełnienie danych osobno zgodnie z T4. Testy zapisów tylko izolowane.
 - Zastane zmiany CURRENT_STATE, TASK-0668, completed/TASK-0707,

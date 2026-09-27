@@ -815,7 +815,7 @@ export interface ListOperationalImageReviewItemsOptions extends OperationalImage
 
 export interface ListSymbolCellReviewsOptions {
   readonly gameId: string;
-  readonly symbolId: string | 'unknown';
+  readonly symbolId: string | 'unknown' | 'outside' | 'all';
   readonly state?: SymbolCellReviewFilterState;
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
@@ -827,7 +827,7 @@ export interface ListSymbolCellReviewsOptions {
 
 export interface SkipSymbolCellReviewsOptions {
   readonly gameId: string;
-  readonly symbolId: string | 'unknown';
+  readonly symbolId: string | 'unknown' | 'outside' | 'all';
   readonly count: number;
   readonly state?: SymbolCellReviewFilterState;
   readonly afterCursor?: string;
@@ -843,7 +843,7 @@ export interface GetSymbolCellReviewCountsOptions {
   readonly maxConfidence?: number;
   readonly minConfidence?: number;
   readonly state?: SymbolCellReviewFilterState;
-  readonly symbolId: string | 'unknown';
+  readonly symbolId: string | 'unknown' | 'outside' | 'all';
   readonly signal?: AbortSignal;
 }
 

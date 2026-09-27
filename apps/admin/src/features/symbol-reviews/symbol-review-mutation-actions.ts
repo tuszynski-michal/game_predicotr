@@ -38,6 +38,9 @@ export async function setSymbolImageFromReviewCell(
   target: SymbolReviewExplicitTarget,
   targetSymbolId: string | null,
 ): Promise<SymbolImageFromReviewResult> {
+  if (target.expectedCropChecksumSha256 === null) {
+    return { decision: null, error: 'Brak obrazu pola.', ok: false };
+  }
   const decision = await applySingleSymbolReviewDecision(
     api,
     gameId,

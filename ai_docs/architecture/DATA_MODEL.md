@@ -1276,6 +1276,23 @@ wcześniejszej decyzji z audytu.
 
 ### image_symbol_review_states, image_symbol_review_cells i image_symbol_review_events
 
+TASK-0709 rozszerza kontrakt pozycji o jawny wariant bez obrazu: `asset_mode=none`,
+`source_visibility=outside`, nullable sample/checksum i osobną domenową tożsamość
+pozycji/geometrii. Ręczne etykietowanie nie tworzy approved crop identity.
+Predykat widoczności logicznej (`source_available OR source_visibility=outside`)
+jest współdzielony przez listę, liczniki, snapshoty bulk i mutacje; pobieranie
+obrazu i trening zachowują odrębne wymagania pikseli. V2 używa bieżącej projekcji
+komórek jako właściciela, bez wymagania historycznego dokumentu wyszukiwania.
+
+Liczniki JSON publikują `_semantics: {version: 2}` po spójnym ukończeniu budowy.
+Stare wersje są niedostępne dla odczytu i zamrażania filtra bulk. Odbudowa używa
+istniejących ograniczonych partii i trwałego kursora; zmiana grupowania przez
+równoległy writer resetuje przebieg pod tą samą blokadą stanu. Stary checkpoint
+po restarcie również zaczyna ponownie. To nie uruchamia odbudowy danych użytkownika.
+Migracja `0127_symbol_review_bulk_filter_scope` dodaje nullable `filter_scope`
+do operacji bulk: nowe snapshoty zapisują all/unknown/outside/UUID, a historyczne
+operacje nadal wykonują zamrożone targety. Idempotency checksum wiąże dokładny scope.
+
 TASK-0294 wprowadza trwały, checksum-bound stan pojedynczego cropa, bez
 przechowywania jego bajtów w PostgreSQL. `image_symbol_review_states` jest
 jednym rekordem per gra i ma stan `rebuilding`, `ready` albo `failed`, keysetowy

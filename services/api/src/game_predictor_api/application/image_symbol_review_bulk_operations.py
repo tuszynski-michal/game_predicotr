@@ -43,8 +43,8 @@ class SymbolCellReviewBulkExplicitTarget:
     cell_review_id: UUID
     expected_revision: int
     expected_geometry_revision: int
-    expected_crop_sample_id: str
-    expected_crop_checksum_sha256: str
+    expected_crop_sample_id: str | None
+    expected_crop_checksum_sha256: str | None
 
     def __post_init__(self) -> None:
         if self.expected_revision < 0 or self.expected_geometry_revision < 0:
@@ -52,8 +52,12 @@ class SymbolCellReviewBulkExplicitTarget:
                 "SYMBOL_CELL_REVIEW_BULK_TARGET_REVISION_INVALID",
                 "Expected crop and geometry revisions cannot be negative.",
             )
-        if not _is_sha256(self.expected_crop_sample_id) or not _is_sha256(
-            self.expected_crop_checksum_sha256
+        if (
+            self.expected_crop_sample_id is not None
+            or self.expected_crop_checksum_sha256 is not None
+        ) and (
+            not _is_sha256(self.expected_crop_sample_id)
+            or not _is_sha256(self.expected_crop_checksum_sha256)
         ):
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_BULK_TARGET_CROP_INVALID",
@@ -69,8 +73,19 @@ class SymbolCellReviewBulkFilterSelection:
     min_confidence: float | None = None
     max_confidence: float | None = None
     excluded_cell_review_ids: tuple[UUID, ...] = ()
+    outside_only: bool = False
+    include_all_symbols: bool = False
 
     def __post_init__(self) -> None:
+        if (self.outside_only or self.include_all_symbols) and (
+            self.symbol_id is not None or (self.outside_only and self.include_all_symbols)
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_SYMBOL_FILTER_INVALID", "Conflicting symbol scopes."
+            )
+        if self.outside_only:
+            object.__setattr__(self, "min_confidence", None)
+            object.__setattr__(self, "max_confidence", None)
         if self.catalog_revision < 0:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_BULK_CATALOG_REVISION_INVALID",
@@ -209,7 +224,11 @@ class SymbolCellReviewBulkRequest:
                 "minConfidence": self.filter_selection.min_confidence,
                 "state": self.filter_selection.state.value,
                 "symbolId": (
-                    "unknown"
+                    "outside"
+                    if self.filter_selection.outside_only
+                    else "all"
+                    if self.filter_selection.include_all_symbols
+                    else "unknown"
                     if self.filter_selection.symbol_id is None
                     else str(self.filter_selection.symbol_id)
                 ),
@@ -316,6 +335,7 @@ def _validate_unknown_approval(request: SymbolCellReviewBulkRequest) -> None:
         request.action is SymbolCellReviewAction.APPROVE
         and request.filter_selection is not None
         and request.filter_selection.symbol_id is None
+        and not request.filter_selection.include_all_symbols
     ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_BULK_UNKNOWN_APPROVAL_FORBIDDEN",
@@ -323,8 +343,12 @@ def _validate_unknown_approval(request: SymbolCellReviewBulkRequest) -> None:
         )
 
 
-def _is_sha256(value: str) -> bool:
-    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+def _is_sha256(value: str | None) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 __all__ = [

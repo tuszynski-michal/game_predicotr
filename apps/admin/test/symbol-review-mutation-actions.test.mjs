@@ -292,3 +292,27 @@ test('does not set an image when the approval fails', async () => {
   assert.equal(result.decision, null);
   assert.equal(referenceCalled, false);
 });
+
+test('does not mutate or set a symbol image for a position without pixels', async () => {
+  let calls = 0;
+  const api = {
+    applySymbolCellReviewDecision: async () => {
+      calls += 1;
+    },
+    selectSymbolReferenceFromCellReview: async () => {
+      calls += 1;
+    },
+  };
+  const result = await setSymbolImageFromReviewCell(
+    api,
+    'game',
+    {
+      ...target,
+      expectedCropSampleId: null,
+      expectedCropChecksumSha256: null,
+    },
+    'symbol',
+  );
+  assert.equal(result.ok, false);
+  assert.equal(calls, 0);
+});

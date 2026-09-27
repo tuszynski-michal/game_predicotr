@@ -32,10 +32,15 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
+    SymbolCellReviewListFilter,
 )
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewMutationRepository,
+    _count_semantics_current,
+    _logical_cell_visible_clause,
+    _symbol_scope_filter_clause,
+    _uses_logical_current_cell_identity,
     symbol_cell_review_projection_is_available,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
@@ -82,8 +87,8 @@ class _FrozenTarget:
     cell_index: int
     expected_revision: int
     expected_geometry_revision: int
-    expected_crop_sample_id: str
-    expected_crop_checksum_sha256: str
+    expected_crop_sample_id: str | None
+    expected_crop_checksum_sha256: str | None
 
 
 class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOperationRepository):
@@ -166,6 +171,17 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
             selection_kind=request.selection_kind.value,
             filter_symbol_id=(None if filter_selection is None else filter_selection.symbol_id),
             filter_state=(None if filter_selection is None else filter_selection.state.value),
+            filter_scope=(
+                None
+                if filter_selection is None
+                else "outside"
+                if filter_selection.outside_only
+                else "all"
+                if filter_selection.include_all_symbols
+                else "unknown"
+                if filter_selection.symbol_id is None
+                else str(filter_selection.symbol_id)
+            ),
             catalog_revision=(
                 None if filter_selection is None else filter_selection.catalog_revision
             ),
@@ -219,6 +235,11 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
         state: ImageSymbolReviewStateModel,
     ) -> tuple[int, int]:
         if request.filter_selection is not None:
+            if not _count_semantics_current(state):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_COUNTS_UNAVAILABLE",
+                    "Rebuild the count projection before freezing this filter.",
+                )
             _require_fresh_filter_revision(
                 selection=request.filter_selection,
                 current_catalog_revision=int(state.catalog_revision),
@@ -226,6 +247,7 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
             visible_cells = _visible_cells_statement(
                 game_id=game_id,
                 selection=request.filter_selection,
+                uses_current_projection=_uses_logical_current_cell_identity(self._session, game_id),
             ).with_only_columns(
                 ImageSymbolReviewCellModel.id,
                 ImageSymbolReviewCellModel.review_item_id,
@@ -252,9 +274,12 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
         requested = {target.cell_review_id: target for target in request.explicit_targets}
         rows = tuple(
             self._session.scalars(
-                _visible_cells_statement(game_id=game_id).where(
-                    ImageSymbolReviewCellModel.id.in_(tuple(requested))
-                )
+                _visible_cells_statement(
+                    game_id=game_id,
+                    uses_current_projection=_uses_logical_current_cell_identity(
+                        self._session, game_id
+                    ),
+                ).where(ImageSymbolReviewCellModel.id.in_(tuple(requested)))
             )
         )
         actual = {row.id: row for row in rows}
@@ -300,6 +325,7 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
         visible_cells = _visible_cells_statement(
             game_id=game_id,
             selection=selection,
+            uses_current_projection=_uses_logical_current_cell_identity(self._session, game_id),
         )
         target_columns = (
             "operation_id",
@@ -655,14 +681,13 @@ def _visible_cells_statement(
     *,
     game_id: UUID,
     selection: SymbolCellReviewBulkFilterSelection | None = None,
+    uses_current_projection: bool = False,
 ) -> Select[tuple[ImageSymbolReviewCellModel]]:
     cell = ImageSymbolReviewCellModel
     document = ImageBoardSearchFastDocumentModel
-    prediction_revision = ImageSymbolPredictionRevisionModel
-    observation = CellObservationModel
-    statement = (
-        select(cell)
-        .join(
+    statement = select(cell)
+    if not uses_current_projection:
+        statement = statement.join(
             document,
             and_(
                 document.game_id == cell.game_id,
@@ -672,38 +697,46 @@ def _visible_cells_statement(
                 document.import_job_id == cell.import_job_id,
             ),
         )
-        .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
-        .outerjoin(
-            prediction_revision,
-            prediction_revision.id == cell.prediction_revision_id,
-        )
-        .outerjoin(
-            observation,
-            and_(
-                observation.recognized_board_id == cell.recognized_board_id,
-                observation.row_index == cell.row_index,
-                observation.column_index == cell.column_index,
-            ),
-        )
-        .where(
-            cell.game_id == game_id,
-            cell.geometry_revision == RecognizedBoardModel.geometry_revision,
-            cell.source_available.is_(True),
-        )
+    statement = statement.join(
+        RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id
+    ).where(
+        cell.game_id == game_id,
+        cell.geometry_revision == RecognizedBoardModel.geometry_revision,
+        _logical_cell_visible_clause(),
     )
     if selection is None:
         return statement
-    if selection.symbol_id is None:
-        statement = statement.where(cell.assigned_symbol_id.is_(None))
-    else:
-        statement = statement.where(cell.assigned_symbol_id == selection.symbol_id)
+    review_filter = SymbolCellReviewListFilter(
+        game_id=game_id,
+        symbol_id=selection.symbol_id,
+        state=selection.state,
+        outside_only=selection.outside_only,
+        include_all_symbols=selection.include_all_symbols,
+    )
+    statement = statement.where(_symbol_scope_filter_clause(review_filter))
     if selection.state is not SymbolCellReviewFilterState.ALL:
         statement = statement.where(cell.review_state == selection.state.value)
-    confidence = _prediction_confidence_expression()
-    if selection.min_confidence is not None:
-        statement = statement.where(confidence >= selection.min_confidence)
-    if selection.max_confidence is not None:
-        statement = statement.where(confidence <= selection.max_confidence)
+    if selection.min_confidence is not None or selection.max_confidence is not None:
+        if uses_current_projection:
+            confidence = typing_cast(ColumnElement[float | None], cell.prediction_confidence)
+        else:
+            observation = CellObservationModel
+            statement = statement.outerjoin(
+                ImageSymbolPredictionRevisionModel,
+                ImageSymbolPredictionRevisionModel.id == cell.prediction_revision_id,
+            ).outerjoin(
+                observation,
+                and_(
+                    observation.recognized_board_id == cell.recognized_board_id,
+                    observation.row_index == cell.row_index,
+                    observation.column_index == cell.column_index,
+                ),
+            )
+            confidence = _prediction_confidence_expression()
+        if selection.min_confidence is not None:
+            statement = statement.where(confidence >= selection.min_confidence)
+        if selection.max_confidence is not None:
+            statement = statement.where(confidence <= selection.max_confidence)
     if selection.excluded_cell_review_ids:
         statement = statement.where(cell.id.not_in(selection.excluded_cell_review_ids))
     return statement

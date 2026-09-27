@@ -2314,3 +2314,55 @@ def test_bulk_blurry_operation_accepts_a_target_symbol(tmp_path: Path) -> None:
     assert response.json()["targetSymbolId"] == str(target_symbol_id)
     assert bulk.requests[0].action is SymbolCellReviewAction.MARK_BLURRY
     assert bulk.requests[0].target_symbol_id == target_symbol_id
+
+
+def test_outside_list_and_decision_serialize_explicitly_absent_crop(tmp_path: Path) -> None:
+    game_id, symbol_id = UUID(int=71), UUID(int=72)
+    item = replace(
+        _item(
+            game_id=game_id,
+            symbol_id=None,
+            sequence_number=62287,
+            cell_index=14,
+            review_item_id=UUID(int=73),
+        ),
+        asset_mode="none",
+        source_visibility="outside",
+        crop_sample_id=None,
+        crop_checksum_sha256=None,
+        prediction_symbol_code=None,
+        prediction_confidence=None,
+    )
+    repository = MemorySymbolCellReviewRepository(
+        game_id=game_id, symbol_id=symbol_id, items=(item,)
+    )
+    mutations = MemorySymbolCellReviewMutationRepository()
+    with _client(repository, artifact_root=tmp_path, mutation_repository=mutations) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": "outside", "minConfidence": 0.8},
+        )
+        assert response.status_code == 200
+        result = response.json()["items"][0]
+        assert result["sourceVisibility"] == "outside"
+        assert result["assetMode"] == "none"
+        assert result["cropSampleId"] is None
+        assert result["cropChecksumSha256"] is None
+        assert result["predictionConfidence"] is None
+        assert result["isUnknown"] is False
+        assert repository.filters[-1].outside_only
+        assert repository.filters[-1].min_confidence is None
+        response = client.post(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews/{item.cell_review_id}/decision",
+            json={
+                "action": "reassign",
+                "expectedRevision": item.revision,
+                "expectedGeometryRevision": item.geometry_revision,
+                "expectedCropSampleId": None,
+                "expectedCropChecksumSha256": None,
+                "targetSymbolId": str(symbol_id),
+            },
+        )
+        assert response.status_code == 200
+        assert mutations.commands[-1].expected_crop_sample_id is None
+        assert mutations.commands[-1].expected_crop_checksum_sha256 is None

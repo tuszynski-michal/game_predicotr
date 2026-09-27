@@ -9,7 +9,7 @@ from contextlib import contextmanager
 from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from threading import Event, Lock
-from typing import Any, Protocol, TypedDict, cast
+from typing import Any, Literal, Protocol, TypedDict, cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import Float, String, and_, case, delete, false, func, or_, select, text
@@ -17,6 +17,7 @@ from sqlalchemy import cast as sql_cast
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, aliased, load_only
+from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql import ColumnElement, Select
 
 from game_predictor_api.application.image_reviews import OperationalImageReviewService
@@ -73,6 +74,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewListItem,
     SymbolCellReviewState,
     SymbolCellReviewTransition,
+    SymbolCellWithoutImageIdentity,
     approve_symbol_cell_review,
     derive_symbol_cell_board_resolution,
     invalidate_symbol_cell_reviews_for_geometry,
@@ -132,6 +134,9 @@ _TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES = (
 )
 _COUNT_SCOPE_ALL = "all"
 _COUNT_SCOPE_UNKNOWN = "unknown"
+_COUNT_SCOPE_OUTSIDE = "outside"
+_COUNT_SEMANTICS_KEY = "_semantics"
+_COUNT_SEMANTICS = {"version": 2}
 _COUNT_STATES = (
     SymbolCellReviewState.APPROVED.value,
     SymbolCellReviewState.PENDING.value,
@@ -144,52 +149,74 @@ class _CountedCellState:
     assigned_symbol_id: UUID | None
     review_state: str
     quality_issue: str | None
+    source_visibility: str | None = None
 
     @classmethod
     def from_model(cls, cell: ImageSymbolReviewCellModel) -> _CountedCellState:
         return cls(
             source_available=cell.source_available,
+            source_visibility=cell.source_visibility,
             assigned_symbol_id=cell.assigned_symbol_id,
             review_state=cell.review_state,
             quality_issue=_quality_issue_from_model(cell),
         )
 
 
+def _logical_cell_visible_clause() -> ColumnElement[bool]:
+    cell = ImageSymbolReviewCellModel
+    return or_(cell.source_available.is_(True), cell.source_visibility == "outside")
+
+
 def _count_scope_keys(cell: _CountedCellState | None) -> tuple[str, ...]:
-    if cell is None or not cell.source_available or cell.review_state not in _COUNT_STATES:
+    if cell is None or cell.review_state not in _COUNT_STATES:
         return ()
-    if cell.assigned_symbol_id is None or cell.quality_issue in (
-        _TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES
+    if not cell.source_available and cell.source_visibility != "outside":
+        return ()
+    if cell.source_visibility == "outside":
+        scope = (
+            _COUNT_SCOPE_OUTSIDE
+            if cell.assigned_symbol_id is None
+            else f"symbol:{cell.assigned_symbol_id}"
+        )
+    elif (
+        cell.assigned_symbol_id is None
+        or cell.quality_issue in _TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES
     ):
-        return (_COUNT_SCOPE_ALL, _COUNT_SCOPE_UNKNOWN)
-    if cell.quality_issue in (None, SymbolCellQualityIssue.BLURRY.value):
-        return (_COUNT_SCOPE_ALL, f"symbol:{cell.assigned_symbol_id}")
-    return (_COUNT_SCOPE_ALL,)
+        scope = _COUNT_SCOPE_UNKNOWN
+    else:
+        scope = f"symbol:{cell.assigned_symbol_id}"
+    return (_COUNT_SCOPE_ALL, scope)
 
 
 def _symbol_scope_filter_clause(review_filter: SymbolCellReviewListFilter) -> ColumnElement[bool]:
-    """Restrict a query to the cells visible under one symbol-scoped filter tab.
-
-    A cell with an unresolved recognition (`grid_issue`/`unreadable`, or no
-    assigned symbol) belongs to the game-wide "unknown" tab. A cell marked
-    `blurry` still keeps its human-assigned symbol -- it is excluded from
-    training but must remain visible under that symbol's own tab, not
-    disappear from every filtered view.
-    """
-
+    """One mutually exclusive grouping shared by pages, counts and bulk snapshots."""
     cell = ImageSymbolReviewCellModel
+    outside = cell.source_visibility == "outside"
+    inside = cell.source_visibility.is_distinct_from("outside")
+    if review_filter.include_all_symbols:
+        return _logical_cell_visible_clause()
+    if review_filter.outside_only:
+        return and_(outside, cell.assigned_symbol_id.is_(None))
     if review_filter.symbol_id is None:
-        return or_(
-            cell.assigned_symbol_id.is_(None),
-            cell.quality_issue.in_(_TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES),
+        return and_(
+            inside,
+            or_(
+                cell.assigned_symbol_id.is_(None),
+                cell.quality_issue.in_(_TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES),
+            ),
         )
     return and_(
         cell.assigned_symbol_id == review_filter.symbol_id,
         or_(
+            outside,
             cell.quality_issue.is_(None),
-            cell.quality_issue == SymbolCellQualityIssue.BLURRY.value,
+            cell.quality_issue.not_in(_TEMPORARILY_UNRECOGNIZED_QUALITY_ISSUES),
         ),
     )
+
+
+def _count_semantics_current(state: ImageSymbolReviewStateModel) -> bool:
+    return state.count_projection.get(_COUNT_SEMANTICS_KEY) == _COUNT_SEMANTICS
 
 
 def _count_deltas(
@@ -242,8 +269,32 @@ def _apply_count_deltas(
 ) -> bool:
     if state.count_projection_status not in {"ready", "rebuilding"}:
         return False
+    if state.count_projection_status == "ready" and not _count_semantics_current(state):
+        state.count_projection_status = "unavailable"
+        state.count_projection_failure_message = (
+            "Count semantics changed; run bounded count rebuild."
+        )
+        return False
     deltas = _count_deltas(before, after)
     if not any(deltas.values()):
+        return False
+    if (
+        state.count_projection_status == "rebuilding"
+        and state.count_rebuild_accumulator.get("_building") == _COUNT_SEMANTICS
+    ):
+        # The writer holds the same state lock as each rebuild batch. A write
+        # may precede the UUID cursor, so restart instead of publishing a mixed snapshot.
+        state.count_rebuild_cursor = None
+        state.count_rebuild_accumulator = {"_building": dict(_COUNT_SEMANTICS)}
+        return False
+    if (
+        state.count_projection_status == "rebuilding"
+        and state.count_projection.get("_building_semantics") != _COUNT_SEMANTICS
+    ):
+        state.count_projection_status = "unavailable"
+        state.count_projection_failure_message = (
+            "Historical count rebuild requires restart with current semantics."
+        )
         return False
     state.count_projection = _apply_count_delta_payload(state.count_projection, deltas)
     state.count_projection_revision += 1
@@ -650,7 +701,11 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         scope = self._basic_count_scope(review_filter)
         if scope is not None:
             state = self._session.get(ImageSymbolReviewStateModel, review_filter.game_id)
-            if state is None or state.count_projection_status != "ready":
+            if (
+                state is None
+                or state.count_projection_status != "ready"
+                or not _count_semantics_current(state)
+            ):
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_COUNTS_UNAVAILABLE",
                     "Exact symbol review counts are being prepared for this game.",
@@ -705,6 +760,8 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             return None
         if review_filter.include_all_symbols:
             return _COUNT_SCOPE_ALL
+        if review_filter.outside_only:
+            return _COUNT_SCOPE_OUTSIDE
         if review_filter.symbol_id is None:
             return _COUNT_SCOPE_UNKNOWN
         return f"symbol:{review_filter.symbol_id}"
@@ -757,7 +814,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 source_geometry,
                 source_geometry.id == cell.source_geometry_revision_id,
             )
-            .where(cell.game_id == game_id, cell.id.in_(cell_review_ids))
+            .where(cell.game_id == game_id, cell.id.in_(cell_review_ids), cell.asset_mode != "none")
         ).all()
         return tuple(
             SymbolCellReviewAsset(
@@ -841,6 +898,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 cell.crop_checksum_sha256,
                 cell.cropper_version,
                 cell.asset_mode,
+                cell.source_visibility,
                 cell.render_spec_checksum_sha256,
                 cell.assignment_source,
                 cell.approved_crop_sample_id,
@@ -864,7 +922,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             cell.id,
         ).where(
             cell.game_id == review_filter.game_id,
-            cell.source_available.is_(True),
+            _logical_cell_visible_clause(),
         )
         if not review_filter.include_all_symbols:
             statement = statement.where(_symbol_scope_filter_clause(review_filter))
@@ -935,7 +993,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 RecognizedBoardModel.id == cell.recognized_board_id,
             ).where(cell.geometry_revision == RecognizedBoardModel.geometry_revision)
         statement = statement.where(
-            cell.game_id == review_filter.game_id, cell.source_available.is_(True)
+            cell.game_id == review_filter.game_id, _logical_cell_visible_clause()
         )
         if not review_filter.include_all_symbols:
             statement = statement.where(_symbol_scope_filter_clause(review_filter))
@@ -1151,7 +1209,10 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             reviews=current_board_reviews,
             active_symbol_codes=tuple(symbol_codes.values()),
             topology=_board_topology(board),
-            geometry_approved=board.approved_geometry_revision == board.geometry_revision,
+            geometry_approved=(
+                board.approved_geometry_revision == board.geometry_revision
+                and board.completeness_status != "pending_partial"
+            ),
         )
         any_changed = any(changed_by_cell_id.values())
         board_reopened = False
@@ -1205,7 +1266,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             cells = tuple(
                 ImageReviewResolutionCell(
                     cell_index=review.cell_index,
-                    crop_sample_id=review.crop.crop_sample_id,
+                    crop_sample_id=_required_crop_sample_id(review),
                     symbol_code=review.assigned_symbol_code,
                 )
                 for review in current_board_reviews
@@ -1297,7 +1358,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             self._session.scalars(
                 select(ImageSymbolReviewCellModel).where(
                     ImageSymbolReviewCellModel.id.in_(cell_ids),
-                    ImageSymbolReviewCellModel.source_available.is_(True),
+                    _logical_cell_visible_clause(),
                     ImageSymbolReviewCellModel.game_id == commands[0].game_id,
                 )
             )
@@ -1345,9 +1406,9 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         cell_ids = tuple(command.cell_review_id for command in commands)
         cell = ImageSymbolReviewCellModel
         document = ImageBoardSearchFastDocumentModel
-        rows = self._session.execute(
-            select(cell, ImageReviewItemModel, RecognizedBoardModel, SourceImageModel)
-            .join(
+        statement = select(cell, ImageReviewItemModel, RecognizedBoardModel, SourceImageModel)
+        if not _uses_logical_current_cell_identity(self._session, command.game_id):
+            statement = statement.join(
                 document,
                 and_(
                     document.game_id == cell.game_id,
@@ -1357,12 +1418,13 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                     document.import_job_id == cell.import_job_id,
                 ),
             )
-            .join(ImageReviewItemModel, ImageReviewItemModel.id == cell.review_item_id)
+        rows = self._session.execute(
+            statement.join(ImageReviewItemModel, ImageReviewItemModel.id == cell.review_item_id)
             .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
             .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
             .where(
                 cell.id.in_(cell_ids),
-                cell.source_available.is_(True),
+                _logical_cell_visible_clause(),
                 cell.game_id == command.game_id,
                 cell.geometry_revision == RecognizedBoardModel.geometry_revision,
                 ImageReviewItemModel.status.in_(_ACTIVE_REVIEW_STATUSES),
@@ -1449,6 +1511,32 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         )
 
 
+def _current_review_documents(session: Session, game_id: UUID) -> Any:
+    """Current V2 owner projection; legacy games retain their search-document fence."""
+    if not _uses_logical_current_cell_identity(session, game_id):
+        return ImageBoardSearchFastDocumentModel
+    cell = ImageSymbolReviewCellModel
+    return (
+        select(
+            cell.review_item_id,
+            cell.recognized_board_id,
+            cell.import_job_id,
+            cell.sequence_number,
+            cell.game_id,
+            ImageReviewItemModel.status,
+        )
+        .join(ImageReviewItemModel, ImageReviewItemModel.id == cell.review_item_id)
+        .where(
+            cell.game_id == game_id,
+            _logical_cell_visible_clause(),
+            ImageReviewItemModel.status.in_(_ACTIVE_REVIEW_STATUSES),
+        )
+        .distinct()
+        .subquery()
+        .c
+    )
+
+
 class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository):
     """Current-owner board queue built directly from unreadable cell state."""
 
@@ -1467,7 +1555,7 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
         limit: int,
     ) -> UnreadableBoardReviewSlice:
         cell = ImageSymbolReviewCellModel
-        document = ImageBoardSearchFastDocumentModel
+        document = _current_review_documents(self._session, game_id)
         unreadable_count = (
             select(func.count(cell.id))
             .where(
@@ -1475,9 +1563,9 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
                 cell.review_item_id == document.review_item_id,
                 cell.geometry_revision == RecognizedBoardModel.geometry_revision,
                 cell.quality_issue == SymbolCellQualityIssue.UNREADABLE.value,
-                cell.source_available.is_(True),
+                _logical_cell_visible_clause(),
             )
-            .correlate(document, RecognizedBoardModel)
+            .correlate(document.review_item_id.table, RecognizedBoardModel)
             .scalar_subquery()
         )
         pending_count = (
@@ -1488,9 +1576,9 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
                 cell.geometry_revision == RecognizedBoardModel.geometry_revision,
                 cell.quality_issue == SymbolCellQualityIssue.UNREADABLE.value,
                 cell.review_state == SymbolCellReviewState.PENDING.value,
-                cell.source_available.is_(True),
+                _logical_cell_visible_clause(),
             )
-            .correlate(document, RecognizedBoardModel)
+            .correlate(document.review_item_id.table, RecognizedBoardModel)
             .scalar_subquery()
         )
         statement = (
@@ -1548,9 +1636,16 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
         game_id: UUID,
         review_item_id: UUID,
     ) -> UnreadableBoardReviewDetail | None:
-        document = ImageBoardSearchFastDocumentModel
+        document = _current_review_documents(self._session, game_id)
         board_row = self._session.execute(
-            select(document, RecognizedBoardModel)
+            select(
+                document.review_item_id,
+                document.recognized_board_id,
+                document.import_job_id,
+                document.sequence_number,
+                document.status,
+                RecognizedBoardModel,
+            )
             .join(RecognizedBoardModel, RecognizedBoardModel.id == document.recognized_board_id)
             .where(
                 document.game_id == game_id,
@@ -1563,14 +1658,14 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
                     == RecognizedBoardModel.geometry_revision,
                     ImageSymbolReviewCellModel.quality_issue
                     == SymbolCellQualityIssue.UNREADABLE.value,
-                    ImageSymbolReviewCellModel.source_available.is_(True),
+                    _logical_cell_visible_clause(),
                 )
                 .exists(),
             )
         ).one_or_none()
         if board_row is None:
             return None
-        current, board = board_row
+        current, board = board_row, board_row[-1]
         assigned = aliased(SymbolModel)
         rows = self._session.execute(
             select(ImageSymbolReviewCellModel, assigned)
@@ -1580,19 +1675,12 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
                 ImageSymbolReviewCellModel.review_item_id == review_item_id,
                 ImageSymbolReviewCellModel.recognized_board_id == board.id,
                 ImageSymbolReviewCellModel.geometry_revision == board.geometry_revision,
-                ImageSymbolReviewCellModel.source_available.is_(True),
+                _logical_cell_visible_clause(),
             )
             .order_by(ImageSymbolReviewCellModel.cell_index)
         ).all()
         topology = _board_topology(board)
-        expected_indices = set(
-            available_cell_indices(
-                unavailable_cell_indices=board.unavailable_cell_indices,
-                geometry_qualification=board.geometry_qualification,
-                asset_mode=board.asset_mode,
-                cell_count=topology.cell_count,
-            )
-        )
+        expected_indices = set(range(topology.cell_count))
         if (
             len(rows) != len(expected_indices)
             or {cell.cell_index for cell, _ in rows} != expected_indices
@@ -1623,6 +1711,8 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
                     quality_issue=_quality_issue_from_model(cell_row),
                     revision=int(cell_row.revision),
                     geometry_revision=int(cell_row.geometry_revision),
+                    source_visibility=_source_visibility(cell_row),
+                    asset_mode=cell_row.asset_mode,
                     crop_sample_id=cell_row.crop_sample_id,
                     crop_checksum_sha256=cell_row.crop_checksum_sha256,
                     render_spec_checksum_sha256=cell_row.render_spec_checksum_sha256,
@@ -1635,23 +1725,23 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
         self,
         command: ResolveUnreadableCellCommand,
     ) -> SymbolCellReviewMutationResult:
-        cell_id = self._session.scalar(
-            select(ImageSymbolReviewCellModel.id)
-            .join(
-                ImageBoardSearchFastDocumentModel,
+        statement = select(ImageSymbolReviewCellModel.id)
+        if not _uses_logical_current_cell_identity(self._session, command.game_id):
+            document = ImageBoardSearchFastDocumentModel
+            statement = statement.join(
+                document,
                 and_(
-                    ImageBoardSearchFastDocumentModel.game_id == ImageSymbolReviewCellModel.game_id,
-                    ImageBoardSearchFastDocumentModel.review_item_id
-                    == ImageSymbolReviewCellModel.review_item_id,
-                    ImageBoardSearchFastDocumentModel.recognized_board_id
-                    == ImageSymbolReviewCellModel.recognized_board_id,
+                    document.game_id == ImageSymbolReviewCellModel.game_id,
+                    document.review_item_id == ImageSymbolReviewCellModel.review_item_id,
+                    document.recognized_board_id == ImageSymbolReviewCellModel.recognized_board_id,
                 ),
             )
-            .where(
+        cell_id = self._session.scalar(
+            statement.where(
                 ImageSymbolReviewCellModel.game_id == command.game_id,
                 ImageSymbolReviewCellModel.review_item_id == command.review_item_id,
                 ImageSymbolReviewCellModel.cell_index == command.cell_index,
-                ImageSymbolReviewCellModel.source_available.is_(True),
+                _logical_cell_visible_clause(),
             )
         )
         if cell_id is None:
@@ -2056,7 +2146,10 @@ class SymbolCellReviewWriteThroughCoordinator:
             reviews=reviews,
             active_symbol_codes=tuple(symbol_codes.values()),
             topology=topology,
-            geometry_approved=board.approved_geometry_revision == board.geometry_revision,
+            geometry_approved=(
+                board.approved_geometry_revision == board.geometry_revision
+                and board.completeness_status != "pending_partial"
+            ),
         )
         if resolution is None:
             return False
@@ -2093,7 +2186,7 @@ class SymbolCellReviewWriteThroughCoordinator:
             cells=tuple(
                 ImageReviewResolutionCell(
                     cell_index=review.cell_index,
-                    crop_sample_id=review.crop.crop_sample_id,
+                    crop_sample_id=_required_crop_sample_id(review),
                     symbol_code=review.assigned_symbol_code,
                 )
                 for review in reviews
@@ -2451,6 +2544,9 @@ class SymbolCellReviewWriteThroughCoordinator:
                     previous = _CellPreviousState.from_model(cell)
                     for key, value in values.items():
                         setattr(cell, key, value)
+                    # Historical JSON null decodes to Python None too. Force a
+                    # SQL NULL write when removing an existing image asset.
+                    flag_modified(cell, "render_spec")
                     cell.revision += 1
                     cell.last_reviewed_by = actor
                     self._append_event(
@@ -3195,7 +3291,7 @@ def _locked_board_reviews(
                 ImageSymbolReviewCellModel.game_id == game_id,
                 ImageSymbolReviewCellModel.review_item_id == review_item_id,
                 ImageSymbolReviewCellModel.recognized_board_id == recognized_board_id,
-                ImageSymbolReviewCellModel.source_available.is_(True),
+                _logical_cell_visible_clause(),
             )
             .order_by(ImageSymbolReviewCellModel.cell_index)
             .with_for_update()
@@ -3243,17 +3339,13 @@ def _symbol_cell_review_before_key(key: tuple[int, int, UUID]) -> ColumnElement[
 
 def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
     cell = cast(ImageSymbolReviewCellModel, row[0])
-    if cell.crop_sample_id is None or cell.crop_checksum_sha256 is None:
-        raise SymbolCellReviewError(
-            "SYMBOL_CELL_REVIEW_ASSET_UNAVAILABLE", "This position has no image asset."
-        )
     review = _symbol_cell_review_from_model(
         cell,
         symbol_code_by_id=(
             {} if row[2] is None or row[3] is None else {cast(UUID, row[2]): cast(str, row[3])}
         ),
     )
-    temporarily_unrecognized = review.quality_issue in {
+    temporarily_unrecognized = cell.source_visibility != "outside" and review.quality_issue in {
         SymbolCellQualityIssue.GRID_ISSUE,
         SymbolCellQualityIssue.UNREADABLE,
     }
@@ -3282,6 +3374,7 @@ def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
         prediction_confidence=(None if row[5] is None else float(row[5])),
         asset_mode=cell.asset_mode,
         render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
+        source_visibility=_source_visibility(cell),
     )
 
 
@@ -3311,8 +3404,27 @@ def _prediction_confidence_expression(
     )
     return cast(
         ColumnElement[float | None],
-        func.coalesce(revision_confidence, legacy_confidence),
+        case(
+            (cell.source_visibility == "outside", None),
+            else_=func.coalesce(revision_confidence, legacy_confidence),
+        ),
     )
+
+
+def _required_crop_sample_id(review: SymbolCellReview) -> str:
+    if review.crop.crop_sample_id is None:
+        raise SymbolCellReviewError(
+            "SYMBOL_CELL_REVIEW_ASSET_UNAVAILABLE",
+            "A complete image-board resolution requires real crops.",
+        )
+    return review.crop.crop_sample_id
+
+
+def _source_visibility(cell: ImageSymbolReviewCellModel) -> Literal["full", "partial", "outside"]:
+    value = cell.source_visibility
+    if value in {"full", "partial", "outside"}:
+        return cast(Literal["full", "partial", "outside"], value)
+    return "partial" if cell.quality_issue == "partial_visibility" else "full"
 
 
 def _symbol_cell_review_from_model(
@@ -3320,10 +3432,6 @@ def _symbol_cell_review_from_model(
     *,
     symbol_code_by_id: Mapping[UUID, str],
 ) -> SymbolCellReview:
-    if cell.crop_sample_id is None or cell.crop_checksum_sha256 is None:
-        raise SymbolCellReviewError(
-            "SYMBOL_CELL_REVIEW_ASSET_UNAVAILABLE", "This position has no image asset."
-        )
     quality_issue = _quality_issue_from_model(cell)
     assigned_symbol_code = (
         None if cell.assigned_symbol_id is None else symbol_code_by_id.get(cell.assigned_symbol_id)
@@ -3333,8 +3441,30 @@ def _symbol_cell_review_from_model(
             "SYMBOL_CELL_REVIEW_SYMBOL_INVALID",
             "The crop references an inactive or foreign symbol.",
         )
-    return SymbolCellReview(
-        crop=SymbolCellCropIdentity(
+    visibility = _source_visibility(cell)
+    identity: SymbolCellCropIdentity | SymbolCellWithoutImageIdentity
+    if visibility == "outside":
+        if (
+            cell.asset_mode != "none"
+            or cell.crop_sample_id is not None
+            or cell.crop_checksum_sha256 is not None
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_ASSET_INVALID",
+                "Outside position contains unexpected crop identity.",
+            )
+        identity = SymbolCellWithoutImageIdentity(
+            cell_index=int(cell.cell_index),
+            geometry_revision=int(cell.geometry_revision),
+            cropper_version=cell.cropper_version,
+        )
+    else:
+        if cell.crop_sample_id is None or cell.crop_checksum_sha256 is None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_ASSET_UNAVAILABLE",
+                "The visible position has no image identity.",
+            )
+        identity = SymbolCellCropIdentity(
             cell_index=int(cell.cell_index),
             crop_sample_id=cell.crop_sample_id,
             crop_relative_path=cell.crop_relative_path,
@@ -3342,7 +3472,10 @@ def _symbol_cell_review_from_model(
             geometry_revision=int(cell.geometry_revision),
             cropper_version=cell.cropper_version,
             asset_mode=cell.asset_mode,
-        ),
+        )
+    return SymbolCellReview(
+        crop=identity,
+        source_visibility=visibility,
         predicted_symbol_code=_known_symbol_code(cell.prediction_symbol_code),
         assigned_symbol_code=assigned_symbol_code,
         review_state=SymbolCellReviewState(cell.review_state),
@@ -3841,7 +3974,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                 last_review_item_id=None,
                 failure_message=None,
                 count_projection_status="rebuilding",
-                count_projection={},
+                count_projection={"_building_semantics": dict(_COUNT_SEMANTICS)},
                 count_projection_revision=0,
                 count_rebuild_cursor=None,
                 count_rebuild_accumulator={},
@@ -3877,7 +4010,7 @@ class SqlAlchemyImageSymbolReviewRepository:
         state.status = "rebuilding"
         state.count_projection_status = "rebuilding"
         state.count_rebuild_cursor = None
-        state.count_rebuild_accumulator = {}
+        state.count_rebuild_accumulator = {"_building": dict(_COUNT_SEMANTICS)}
         state.count_projection_failure_message = None
         self._session.flush()
 
@@ -3904,6 +4037,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                 ImageSymbolReviewCellModel.assigned_symbol_id,
                 ImageSymbolReviewCellModel.review_state,
                 ImageSymbolReviewCellModel.quality_issue,
+                ImageSymbolReviewCellModel.source_visibility,
             )
             .where(ImageSymbolReviewCellModel.game_id == game_id)
             .order_by(ImageSymbolReviewCellModel.id)
@@ -3911,9 +4045,19 @@ class SqlAlchemyImageSymbolReviewRepository:
         )
         if state.count_rebuild_cursor is not None:
             statement = statement.where(ImageSymbolReviewCellModel.id > state.count_rebuild_cursor)
+        if state.count_rebuild_accumulator.get("_building") != _COUNT_SEMANTICS:
+            state.count_rebuild_cursor = None
+            state.count_rebuild_accumulator = {"_building": dict(_COUNT_SEMANTICS)}
+            self._session.flush()
+            return False
         rows = self._session.execute(statement).all()
         if not rows:
-            state.count_projection = dict(state.count_rebuild_accumulator)
+            state.count_projection = {
+                key: value
+                for key, value in state.count_rebuild_accumulator.items()
+                if key != "_building"
+            }
+            state.count_projection[_COUNT_SEMANTICS_KEY] = dict(_COUNT_SEMANTICS)
             state.count_projection_revision += 1
             state.count_projection_status = "ready"
             state.count_rebuild_cursor = None
@@ -3929,6 +4073,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                 assigned_symbol_id=cast(UUID | None, row[2]),
                 review_state=str(row[3]),
                 quality_issue=cast(str | None, row[4]),
+                source_visibility=cast(str | None, row[5]),
             )
             for row in rows
         )
@@ -3991,6 +4136,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                     ImageSymbolReviewCellModel.assigned_symbol_id,
                     ImageSymbolReviewCellModel.review_state,
                     ImageSymbolReviewCellModel.quality_issue,
+                    ImageSymbolReviewCellModel.source_visibility,
                 )
             ).all()
             _apply_count_deltas(
@@ -4001,6 +4147,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                         assigned_symbol_id=cast(UUID | None, row[1]),
                         review_state=str(row[2]),
                         quality_issue=cast(str | None, row[3]),
+                        source_visibility=cast(str | None, row[4]),
                     )
                     for row in inserted
                 ),
@@ -4113,7 +4260,17 @@ class SqlAlchemyImageSymbolReviewRepository:
             return self._report_from_state(state, sample_problem_review_item_ids=problem_ids)
 
         state.status = "ready"
-        if state.count_projection_status == "rebuilding":
+        if (
+            state.count_projection_status == "rebuilding"
+            and not state.count_rebuild_accumulator
+            and state.count_projection.get("_building_semantics") == _COUNT_SEMANTICS
+        ):
+            state.count_projection = {
+                key: value
+                for key, value in state.count_projection.items()
+                if key != "_building_semantics"
+            }
+            state.count_projection[_COUNT_SEMANTICS_KEY] = dict(_COUNT_SEMANTICS)
             state.count_projection_status = "ready"
             state.count_projection_failure_message = None
         state.catalog_revision += 1

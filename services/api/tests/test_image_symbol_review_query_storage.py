@@ -237,7 +237,10 @@ def test_v2_basic_counts_use_the_exact_projection_without_cell_sql() -> None:
         (),
         {
             "count_projection_status": "ready",
-            "count_projection": {"unknown": {"approved": 7, "pending": 3}},
+            "count_projection": {
+                "_semantics": {"version": 2},
+                "unknown": {"approved": 7, "pending": 3},
+            },
         },
     )()
     session = _CountProjectionSession(state)
@@ -343,7 +346,7 @@ def test_count_statement_preserves_symbol_quality_and_confidence_filters() -> No
     # A blurry crop keeps its human-assigned symbol and must stay counted
     # under that symbol's own tab -- only grid_issue/unreadable route to the
     # game-wide "unknown" bucket instead.
-    assert "image_symbol_review_cells.quality_issue = 'blurry'" in sql
+    assert "image_symbol_review_cells.quality_issue NOT IN ('grid_issue', 'unreadable')" in sql
     assert "image_symbol_review_cells.review_state = 'pending'" in sql
     assert "image_symbol_prediction_revisions" in sql
     assert "cell_observations" in sql

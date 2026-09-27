@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii plansz i rozpoznawania symboli — plan wykonawczy
 status: accepted
-last_updated: 2026-09-26
+last_updated: 2026-09-27
 ---
 
 # Laboratorium geometrii i symboli
@@ -18,8 +18,9 @@ warunkowo. Kandydat trafia później do aplikacji wyłącznie jako review/shadow
 
 Laboratorium obsługuje topologie **5 kolumn × 3 wiersze** i **3 × 3**.
 Integracja z obecną aplikacją obejmuje tylko 5 × 3; pełne 3 × 3 wymaga
-osobnego planu zależności od 15 komórek. Historyczne 777 służy tylko do
-porównania. 777 V2 jest osobną grą. Pracujemy w bieżącym katalogu na gałęzi
+osobnego planu zależności od 15 komórek. Historyczne 777 ma uczestniczyć
+w uczeniu geometrii z nowych ręcznych siatek labu (D-453); bramki symboli
+pozostają odrębne. 777 V2 jest osobną grą. Pracujemy w bieżącym katalogu na gałęzi
 przygotowanej przez użytkownika. Nie ma automatycznego push, merge, aktywacji
 modelu ani wdrożenia. Liczności zdjęć i podziałów zapisuje manifest konkretnej
 wersji danych, a nie ten plan.
@@ -41,10 +42,25 @@ Raport preflight rozdziela kontrolę mechaniczną, ocenę wizualną i dowody
 niezależności źródeł. Kandydaci z nazw oraz brak duplikatu SHA nie dowodzą
 odrębnych nagrań. T04 nadal wymaga ukończonego T03 i zamrożonego podziału;
 nie obchodzimy tej zależności. Niejasne pochodzenie blokuje zależny trening,
-ale nie odczyt danych i przygotowanie raportu. Wcześniejsze polecenie użycia
-nowych ręcznych geometrii historycznego 777 wymaga spójnego rozstrzygnięcia
-z D-447 i rolą comparison_only przed włączeniem ich do treningu; nie zmieniamy
-pochodzenia na 777 V2 ani nie nadpisujemy niezmiennego snapshotu.
+ale nie odczyt danych i przygotowanie raportu. Decyzja D-453 rozstrzyga
+użycie historycznych zdjęć 777 w modelu geometrii: targetami są nowe ręcznie
+zatwierdzone siatki labu, nie dawne geometrie v1.1. Zastępuje ograniczenie
+D-447 tylko w tym zakresie, bez zmiany historycznego pochodzenia na 777 V2.
+Obecne role i niezmienne snapshoty pozostają nietknięte. Jawna kwalifikacja
+geometrii wymaga osobnego bezpiecznego wdrożenia, zachowującego ważne zgody
+na niezmienione źródła i bramki symboli. Przed implementacją trzeba sprawdzić
+kontrakty i doprecyzować techniczny zakres T03; ten zapis nie definiuje
+nowego API ani gotowej migracji.
+
+Operator deklaruje, że zdjęcia pozostałych pięciu gier z
+`C:\Users\tuszy\Documents\game_predictor_traning_set` pochodzą z innych
+zakresów/folderów nagrań niż wskazane do dotychczasowych siatek; ocenia je
+jako odległe brzegi nagrań, oddzielone kilkoma katalogami. Nie wyprowadzamy
+tej deklaracji z nazw ani nie ponawiamy ogólnego pytania o pochodzenie.
+Pozostaje mapowanie konkretnych źródeł do rodzin i kontrola konfliktów:
+brzegi tego samego filmu pozostają jedną rodziną, a różne foldery nie
+dowodzą niezależnych filmów. T03 pozostaje `blocked` na technicznej
+kwalifikacji i zamrożonym podziale; T04/T05 nie rozpoczęto.
 
 Dowody i wynik: TASK-0668 oraz
 `ai_docs/quality/VISION_LAB_STAGE_B_DATA_PREFLIGHT.md`. Wykonawca T03
@@ -62,7 +78,9 @@ Istniejące reguły zatwierdzeń DB pozostają bez zmian.
 
 Eksporter działa w głównym środowisku tylko do odczytu. Manifest wejściowy
 ogranicza źródła, ich dostępne rewizje, metadane pochodzenia, słowniki,
-powiązane zatwierdzone etykiety i historyczne 777 do porównania. Transakcja
+powiązane zatwierdzone etykiety i historyczne 777. Dotychczasowy format
+eksportu zapisuje dla niego rolę porównawczą; wdrożenie kwalifikacji
+geometrii według D-453 jest osobnym pozostałym krokiem. Transakcja
 `REPEATABLE READ READ ONLY` jest krótka, ma limity czasu i partie. Snapshot
 publikuje się atomowo po sprawdzeniu kompletności i checksum. Pierwotny wynik
 `selective_board_review_v1_1` i późniejsza ręczna reweryfikacja to odrębne
@@ -80,8 +98,8 @@ kopia zarządzanych obrazów z kontrolą SHA → tymczasowy manifest z checksuma
 → fsync plików → atomowy rename na tym samym wolumenie. Retry z tym samym
 fingerprintem weryfikuje snapshot i zwraca go; konflikt kończy błędem.
 
-Folder `777` traktujemy jako historyczny, dopóki nie zostanie wykazane inne
-pochodzenie. 777 V2 wymaga deklaracji użytkownika dla nagrania/rodziny źródeł
+Folder `777` zachowuje historyczne pochodzenie także przy kwalifikacji
+do geometrii według D-453. 777 V2 wymaga deklaracji użytkownika dla nagrania/rodziny źródeł
 oraz kontroli konfliktów checksum i podobieństwa. Brak trafienia podobieństwa
 nie dowodzi niezależności. Sprzeczne lub nierozstrzygnięte źródła są wyłączone
 z treningu. Ten projekt nie uzupełnia slotów siecią w reweryfikacji
@@ -109,8 +127,10 @@ Wznowienie etapu A (2026-09-26): użytkownik dostarczył surowe JPEG-i w
 T02 obejmuje przygotowanie snapshotu plikowego tego wejścia, obok obsługi
 snapshotów eksportera DB z T01. Import zachowuje oryginały, publikuje kopie
 z SHA-256 atomowo i nadaje lokalne tożsamości gry/źródła. Nie tworzy rekordów
-DB, zatwierdzeń, podziału train/test ani etykiet. Wszystkie zdjęcia służą
-podglądowi/testowaniu; folder `777` pozostaje `comparison_only`.
+DB, zatwierdzeń, podziału train/test ani etykiet. W etapie A wszystkie zdjęcia
+służyły podglądowi/testowaniu, a folder `777` otrzymał `comparison_only`.
+Ten zapis opisuje wcześniejszy stan i istniejący snapshot; aktualną
+politykę użycia geometrii określa D-453, bez automatycznej zmiany danych.
 Prefiksy nazw są wyłącznie kandydatami rodzin do sprawdzenia w T03.
 Liczność galerii nie rozszerza budżetu pilota anotacji ani treningów.
 
@@ -219,7 +239,7 @@ badany, a wynik małej próby jest wstępny.
 | Obie topologie w labie | T02–T05, T10 | 24/16 węzłów i właściwe cropy. |
 | Integracja tylko 5 × 3 | T11–T13 | 3 × 3 odrzucone bez modyfikacji danych. |
 | Pochodzenie etykiet | P00, T06, T12 | Typ decyzji, SHA cropa, mapowanie gry. |
-| Brak przecieku 777 | T01, T03, T09, T13 | Manifest ról i rozdzielone metryki. |
+| Geometria 777 i brak przecieku | T01, T03, T09, T13 | D-453: nowe ręczne siatki, jawna kwalifikacja, pochodzenie i rozłączne rodziny; bez zatwierdzania symboli. |
 | Refleksy i kolor | T07, T12, T13 | Wiśnia–winogrono, per klasa, test zmiany barwy. |
 | Ochrona HTTP | T02 | Obcy Host/Origin, prosty POST i obca trasa odrzucone. |
 | Trwałość i izolacja | T03, T04, T08 | Restart, backup, importy, checkpoint v1/v2. |

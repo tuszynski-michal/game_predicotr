@@ -6,6 +6,32 @@ last_updated: 2026-09-26
 
 # Current State
 
+### T03 — dopuszczenie historycznych zdjęć 777 do geometrii
+
+- Użytkownik jawnie dopuszcza historyczne 777 do uczenia geometrii.
+  D-453 zastępuje poprzedni zakaz w tym zakresie: nowe ręczne siatki lab,
+  bez dawnych geometrii v1.1 i bez zatwierdzania symboli. Pochodzenie
+  pozostaje historyczne; podobieństwo przyszłych zdjęć nie gwarantuje jakości.
+- Dla pozostałych gier użytkownik deklaruje inne zakresy/foldery nagrań
+  niż użyte do dotychczasowych siatek. Zapisano deklarację, nie niezależność
+  ustaloną z nazw. Odległe brzegi jednego nagrania pozostają w jednej rodzinie.
+  Następny krok: mapowanie konkretnych źródeł/rodzin i kontrola konfliktów,
+  bez ponawiania ogólnego pytania o już podane pochodzenie.
+- Nowe wejście: Documents/game_predictor_traning_set; dane laboratorium nadal
+  Documents/game_predictor_vision_data. Odczyt poprzedniej tury: 473 JPG
+  (777 32, Blazing 27, Gang 35, Mumie 225, Reels 54, Treasure 100), wszystkie
+  odczytywalne, bez identycznych SHA wewnątrz zestawu. Nie wykonano porównania
+  ze snapshotem: odczyt pliku odmówiony, API8102 nie odpowiadało.
+- Zakres tej korekty: decyzja, wymagania, architektura, plan i TASK-0668.
+  Wykonawca dokumentacji Sol medium, niezależny audyt Astra medium.
+  Bez kodu, importu, zmiany ról/anotacji, usług i treningu. Polityka jest
+  uzgodniona; mechanizm jawnej kwalifikacji geometrii i zamrożony podział
+  pozostają do wykonania. T03 nadal blocked, T04/T05 nieuruchomione.
+- Kontrola dokumentacji i niezależny audyt Astra medium PASS, bez P0–P2;
+  potwierdzono istniejącą bramkę role != data w freeze_splits. Testów
+  aplikacji nie uruchamiano, ponieważ kod nie został zmieniony.
+  Korekta dokumentacyjna: v1.7.20 (hash po commicie); nie zamyka T03.
+
 ### TASK-0713 — dyskretne badge symboli
 
 - Korekta użytkownika: Źródło i oznaczenia kafelka małe, przy rogu,
@@ -39,7 +65,9 @@ last_updated: 2026-09-26
 - Niezależny audyt Astra medium potwierdził dane; skorygowano jeden
   nadmierny wniosek w opisie alternatywy pomiarowej. Kod/API bez zmian,
   testów aplikacji i buildu nie uruchamiano; kontrola diff PASS.
-  Commit dokumentacji/preflight v1.7.18 (hash po commicie).
+  Commit dokumentacji/preflight `v1.7.18` /
+  `b3f6ead9dc9f2a11002dbf5ee322d7bcbc9562f9`. Hash dopisany po commicie;
+  następny patch v1.7.19 po potwierdzeniu historii. Audyt bez P0–P2.
 
 ### T03d — szybki przegląd zdjęć (done)
 

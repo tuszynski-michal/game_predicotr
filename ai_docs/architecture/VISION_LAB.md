@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-09-26
+last_updated: 2026-09-27
 ---
 
 # Architektura laboratorium wizji
@@ -75,6 +75,21 @@ Manifest wejściowy v1 ma `schemaVersion`, `datasetName` i pozycje
 wartość dokumentuje deklarację pochodzenia, nie rozstrzyga samodzielnie
 kwalifikacji treningowej. Format uruchomienia i katalogu wynikowego opisuje
 `guides/VISION_LAB_EXPORT.md`.
+
+Powyższe role opisują istniejący format, nie wdrożenie D-453. Nowa polityka
+dopuszcza historyczne zdjęcia 777 do uczenia geometrii z nowych ręcznie
+zatwierdzonych siatek labu, zachowując ich historyczne pochodzenie. Dawne
+geometrie v1.1 nie są targetami. Wymaga to osobnego bezpiecznego wdrożenia
+jawnej kwalifikacji geometrii; obecne manifesty, role i zapisane decyzje
+pozostają nietknięte. Należy zachować ważne akceptacje niezmienionych źródeł
+oraz niezależne bramki symboli. Ten zapis nie definiuje nowego formatu ani
+API i nie stanowi gotowego planu migracji. Przed wykonaniem potrzebna jest
+analiza bieżących kontraktów oraz spójna aktualizacja technicznego zakresu T03.
+Obecne `vision_lab/splits.py::freeze_splits` odrzuca grupy z `role != data`
+powodem `COMPARISON_OR_777_PROVENANCE_UNRESOLVED`. To jawny rozjazd nowej
+polityki z istniejącą kwalifikacją runtime, wymagający wdrożenia przed
+treningiem; niniejsza korekta nie wyłącza tej bramki.
+
 Eksporter czyta tylko wskazane `source_images`, związane
 `image_source_geometry_revisions`, `image_page_geometry_overrides`,
 `recognized_boards`, `image_board_geometry_revisions`,
@@ -109,6 +124,14 @@ nadpisuje istniejącego snapshotu. Snapshot plikowy nie udaje eksportu DB
 i nie tworzy zatwierdzeń ani uprawnień do treningu. Prefiks nazwy nagrania
 jest kandydatem rodziny, wymagającym weryfikacji w T03. Oba formaty wejścia
 są adaptowane do wspólnego katalogu galerii, bez zależności runtime od bazy.
+
+Deklaracja operatora o odległych brzegach i innych folderach nagrań pięciu
+gier jest wejściem do mapowania źródło–rodzina (D-453). Granicę rodziny
+wyznacza wspólne nagranie i powiązane pochodne, nie odległość w numeracji
+lub liczba katalogów. Końce tego samego filmu pozostają razem. Kontrole
+SHA i podobieństwa rozstrzygają konflikty z deklaracją; brak trafienia
+nie dowodzi niezależności. Przed freeze trzeba powiązać nowy i dotychczasowy
+zbiór, bez automatycznego potwierdzania rodzin z samych nazw.
 
 Hybryda używa MobileNetV3-Small, narożników, perspektywy i opcjonalnego
 dopasowania. Neural_grid przewiduje pełne węzły. Symbole bazują na

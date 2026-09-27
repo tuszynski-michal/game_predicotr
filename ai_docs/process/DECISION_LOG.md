@@ -6,6 +6,37 @@ last_updated: 2026-09-26
 
 # Decision Log
 
+## D-453 — historyczne zdjęcia 777 dopuszczone do uczenia geometrii
+
+- **Status:** accepted, jawna decyzja użytkownika w kontynuacji T03 (2026-09-27).
+- **Decision:** historyczne zdjęcia 777 mogą służyć do uczenia geometrii
+  przyszłych podobnych zdjęć. Referencją są nowe, ręcznie zatwierdzone
+  geometrie laboratorium, nie dawne geometrie silnika v1.1. Decyzja zastępuje
+  zakaz treningu historycznego 777 z D-447 wyłącznie w zakresie geometrii.
+  Historyczne pochodzenie pozostaje prawdziwe; nie oznaczamy tych zdjęć
+  jako 777 V2. Nie zmienia się produkcyjny workflow historycznych importów.
+- **Boundaries:** zgoda na geometrię nie zatwierdza symboli, nie włącza etapu C
+  ani nie gwarantuje jakości na przyszłych zdjęciach. Dawne geometrie v1.1
+  nie zastępują nowych referencji w treningu ani w jego ocenie. Zdjęcie
+  wykorzystane do treningu oraz jego rodzina i pochodne nie mogą jednocześnie
+  stanowić niezależnego testu. Zmiana cropa wymaga geometrii zgodnej z nowym
+  obrazem i aktualnej akceptacji, bez przenoszenia zgody na inne piksele.
+- **Source declaration:** dla pozostałych pięciu gier użytkownik deklaruje,
+  że zdjęcia z `C:\Users\tuszy\Documents\game_predictor_traning_set` pochodzą
+  spoza zakresów/folderów nagrań wykorzystanych do dotychczasowych siatek.
+  Część zdjęć pochodzi z odległych brzegów nagrań. To deklaracja operatora,
+  nie ustalenie niezależności na podstawie nazw. Początek i koniec tego samego
+  nagrania pozostają jedną rodziną; różne foldery mogą zawierać jego wycinki.
+  T03 musi powiązać deklarację z konkretnymi źródłami i rodzinami oraz
+  sprawdzić konflikty duplikatów i pochodnych przed zamrożeniem podziału.
+- **Execution state:** jest to zmiana polityki, nie wykonana operacja danych.
+  Istniejące snapshoty i role `comparison_only` nie zostały zmienione.
+  Wymagana jest jawna, wersjonowana kwalifikacja do geometrii zachowująca
+  pochodzenie, historię i aktualne zatwierdzenia niezmienionych źródeł.
+  Szczegóły tego mechanizmu wymagają odrębnego doprecyzowania przed kodowaniem;
+  nie należy obchodzić walidacji obecnego importera ani edytować manifestu
+  w miejscu. T04/T05 nadal wymagają ukończenia bramki danych T03.
+
 ## D-452 — atomowe pokwitowania uzupełnienia pozycji pilota
 
 - **Status:** accepted, techniczna realizacja T4 / TASK-0711 (2026-09-27).
@@ -133,6 +164,9 @@ last_updated: 2026-09-26
 
 ## D-447 — laboratoryjne zatwierdzenia i plan wizji
 
+- **Późniejsza zmiana:** D-453 dopuszcza historyczne zdjęcia 777 do uczenia
+  geometrii z nowymi zatwierdzeniami lab; poniższy zakaz jest stanem sprzed
+  tej decyzji. Pozostałe granice D-447 pozostają w mocy.
 - **Status:** accepted (P00 / TASK-0665).
 - **Date:** 2026-09-25.
 - **Decision:** lokalne laboratorium może używać osobnych zatwierdzeń

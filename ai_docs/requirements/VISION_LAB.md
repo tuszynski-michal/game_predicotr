@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — wymagania
 status: accepted
-last_updated: 2026-09-25
+last_updated: 2026-09-27
 ---
 
 # Laboratorium wizji
@@ -78,11 +78,31 @@ integracja z obecną aplikacją obejmuje wyłącznie 5 × 3. Pełne 3 × 3 wymag
 osobnego planu dla modelu danych, review i wyszukiwania. Model startuje
 review/shadow, domyślnie wyłączony; D-261 dotyczy późniejszej aktywacji.
 
-Historyczne 777 ma rolę `comparison_only`, bez treningu, kalibracji i wyboru
-progów. Folder `777` jest historyczny do wykazania innego pochodzenia.
-777 V2 wymaga deklaracji użytkownika dla nagrania/rodziny oraz kontroli
-konfliktów checksum i podobieństwa. Brak trafienia podobieństwa nie jest
-dowodem niezależności. Nierozstrzygnięte źródło pozostaje poza treningiem.
+D-453 zastępuje ograniczenie D-447 `comparison_only` wyłącznie dla geometrii
+historycznego 777: te zdjęcia mają uczestniczyć w uczeniu modelu, aby obsługiwał
+przyszłe podobne zdjęcia. Referencją są nowe ręcznie zatwierdzone siatki
+laboratorium, bez używania dawnych geometrii silnika v1.1 jako targetów.
+Historyczne pochodzenie pozostaje jawne; nie trzeba zmieniać go na 777 V2.
+Kwalifikacja wymaga poprawnej i aktualnie zaakceptowanej geometrii oraz
+podziału bez przecieku rodzin. Zgoda na geometrię nie zatwierdza symboli
+ani nie zmienia ich dotychczasowych bramek.
+
+Decyzja nie modyfikuje istniejących niezmiennych snapshotów ani zapisanych
+ról. Jawna kwalifikacja geometrii wymaga osobnego bezpiecznego wdrożenia,
+z zachowaniem pochodzenia i ważnych zgód na niezmienione źródła. Sam import
+lub przyjęcie zdjęcia nie wykonuje tej zmiany. 777 V2 nadal wymaga deklaracji
+użytkownika dla nagrania/rodziny i kontroli konfliktów checksum oraz
+podobieństwa. Brak trafienia podobieństwa nie dowodzi niezależności.
+
+Operator deklaruje, że zdjęcia pozostałych pięciu gier z folderu
+`C:\Users\tuszy\Documents\game_predictor_traning_set` pochodzą z innych
+zakresów/folderów nagrań niż materiał wskazany do dotychczasowych siatek;
+ocenia je jako zdjęcia z odległych brzegów nagrań, oddzielone kilkoma
+katalogami. To deklaracja pochodzenia, nie dowód wynikający z nazw plików.
+Pozostaje techniczne przypisanie źródeł do rodzin i kontrola konfliktów
+z dotychczasowym zbiorem. Brzegi tego samego filmu należą do jednej rodziny;
+różne foldery nie oznaczają automatycznie niezależnych filmów.
+Nierozstrzygnięte powiązania wykluczają zależne próbki do wyjaśnienia.
 
 Oprócz zatwierdzenia DB dopuszcza się `lab_human_approved`: niezmienną
 decyzję człowieka z grą, wersją słownika, obrazem źródłowym i SHA-256,

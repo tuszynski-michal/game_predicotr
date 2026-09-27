@@ -1,16 +1,18 @@
 ---
 title: TASK-0668 — T03 — edytor i zbiór geometrii
 status: blocked
-last_updated: 2026-09-26
+last_updated: 2026-09-27
 ---
 
 # TASK-0668 — T03 — edytor i zbiór geometrii
 
 ## Status
 
-`blocked` — anotacje i przegląd operatora wykonane; trwa odczytowy preflight,
-pozostają dowody pochodzenia oraz zamrożony podział. Nie uruchamiać T04/T05
-przed spełnieniem bramek danych.
+`blocked` — anotacje i przegląd operatora wykonane; D-453 rozstrzyga użycie
+historycznych zdjęć 777 w modelu geometrii. Pozostają techniczne mapowanie
+źródeł do rodzin, kontrola konfliktów, wdrożenie jawnej kwalifikacji geometrii
+oraz zamrożony podział. T04/T05 nie rozpoczęto; nie uruchamiać ich przed
+spełnieniem bramek danych.
 
 ## Goal
 
@@ -33,11 +35,13 @@ STOP A; wybór gry niewidzianej zapisany przed pierwszym treningiem; zatwierdzon
 - `AGENTS.md`, `ai_docs/README.md`, `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (T03 — edytor i zbiór geometrii)
 - `ai_docs/requirements/VISION_LAB.md`, `ai_docs/architecture/VISION_LAB.md`
-- `ai_docs/process/DECISION_LOG.md` (D-447)
+- `ai_docs/process/DECISION_LOG.md` (D-447, D-450, D-453)
 
 ## Scope
 
-Edycja narożników i pełnych węzłów, rewizje, backup/restore, pochodzenie 777 V2, split rodzin i duplikatów; pomiar pierwszych 10 zdjęć na grę i prognoza pracy.
+Edycja narożników i pełnych węzłów, rewizje, backup/restore, kwalifikacja
+geometrii historycznego 777 według D-453, pochodzenie 777 V2, split rodzin
+i duplikatów; pomiar pierwszych 10 zdjęć na grę i prognoza pracy.
 
 ## Out of scope
 
@@ -46,9 +50,36 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 ## Acceptance criteria
 
 - [ ] Brak przecieku rodzin; restart i odtworzenie backupu; narożniki nie udają pełnej siatki; nierozstrzygnięte 777 V2 wykluczone.
+- [ ] Historyczne zdjęcia 777 kwalifikowane do geometrii zgodnie z D-453:
+  nowe ręczne siatki labu, zachowane pochodzenie i ważne zgody niezmienionych
+  źródeł, bez targetów v1.1, zmiany istniejących snapshotów i automatycznej
+  kwalifikacji symboli; techniczne wdrożenie sprawdzone przed treningiem.
 - [ ] Audyt przypisanym modelem nie pozostawia P0–P2; zmiana ma osobny commit, Outcome i CURRENT_STATE.
 
 ## Technical notes
+
+Decyzja użytkownika z 2026-09-27 (D-453): historyczne zdjęcia 777 mają wejść
+do modelu geometrii, aby obsługiwał przyszłe podobne zdjęcia. Referencją są
+nowe ręczne siatki zatwierdzone w labie, nie dawne geometrie v1.1. Nie ma
+już otwartej decyzji produktowej o użyciu 777. Obecne role i immutable
+snapshoty nie zostały zmienione; przed implementacją jawnej kwalifikacji
+trzeba przeanalizować bieżące kontrakty i doprecyzować zakres techniczny,
+zachowując historyczne pochodzenie, ważne zgody na niezmienione źródła
+oraz bramki symboli. Niniejsza korekta nie jest gotowym planem migracji
+ani nowym kontraktem API.
+Potwierdzona obecna blokada: `vision_lab/splits.py::freeze_splits` odrzuca
+grupy z `role != data` jako `COMPARISON_OR_777_PROVENANCE_UNRESOLVED`.
+To rozjazd polityki z runtime do usunięcia w osobnym wdrożeniu; nie wolno
+obejść go zmianą pochodzenia ani wyłączeniem kontroli przecieku.
+
+Deklaracja operatora: materiał pozostałych pięciu gier w
+`C:\Users\tuszy\Documents\game_predictor_traning_set` pochodzi z innych
+zakresów/folderów nagrań niż zdjęcia wskazane do dotychczasowych siatek;
+operator ocenia zdjęcia jako odległe brzegi nagrań, oddzielone kilkoma
+katalogami. Nie jest to wniosek z samych nazw. Nie ponawiamy ogólnego pytania
+o pochodzenie: kolejną kontrolą jest techniczne mapowanie źródło–rodzina
+i konflikty z dotychczasowym zbiorem. Brzegi tego samego filmu pozostają
+w jednej rodzinie; różne foldery nie są automatycznie niezależnymi filmami.
 
 Wznowienie po przeglądzie: ostatni odczyt wykazał 63 zaakceptowane zdjęcia,
 180 pełnych geometrii i brak zapisanych rodzin/splitu; liczności wymagają
@@ -63,8 +94,9 @@ Sprawdzone moduły: `catalog.py::Catalog`, `annotations.py::read_checked`,
 `photo_review.py::photo_accepted`, `geometry.py::cell_quads`,
 `splits.py::freeze_splits` w `services/worker/src/game_predictor_worker/vision_lab`.
 Komendy diagnostyczne ograniczone do istniejącego zbioru, timeout do 120 s.
-Odczyt nie zastępuje brakującej decyzji o pochodzeniu; nierozstrzygnięty
-warunek jest raportowany jako blokada, bez osłabiania istniejących testów.
+Odczyt nie zastępuje mapowania deklarowanego pochodzenia do konkretnych
+źródeł i rodzin; nierozstrzygnięty konflikt jest raportowany jako blokada,
+bez osłabiania istniejących testów.
 
 Etap B uruchomiony jawnie przez użytkownika 2026-09-26. Na wejściu jest
 snapshot plikowy T02 (1180 wystąpień, 1160 SHA), bez ręcznych anotacji.
@@ -621,6 +653,33 @@ zmiany roli `777`; CURRENT_STATE i usługi należą do koordynatora.
 
 ## Outcome T03 (narzędzia i operacje)
 
+### Korekta polityki geometrii i deklaracja pochodzenia (2026-09-27)
+
+- D-453 rozstrzyga użycie historycznych zdjęć 777 w uczeniu geometrii
+  z nowych ręcznych siatek labu. Zaktualizowano wymagania, architekturę,
+  plan i bieżący zakres T03; root prowadzi DECISION_LOG/CURRENT_STATE.
+- Zapisano deklarację operatora o innych zakresach/folderach i odległych
+  brzegach nagrań pięciu gier. Do wykonania pozostaje mapowanie rodzin
+  i kontrola konfliktów, bez uznawania odległości/nazw za niezależność.
+- Odczyt nowego folderu w poprzednim kroku: 473 JPG (777: 32, blazing: 27,
+  gang: 35, mumie: 225, reels: 54, treasure: 100), wszystkie odczytywalne,
+  bez identycznych SHA wewnątrz folderu. Nie porównano ich ze starym
+  snapshotem: odczyt był niedostępny, a API 8102 odrzucało połączenie.
+  Wynik nie dowodzi braku konfliktów między zbiorami ani niezależności rodzin.
+- To zmiana dokumentacji, bez kodu, API, operacji na danych, zmiany ról,
+  przenoszenia akceptacji, restartu usług lub treningu. Testów aplikacji
+  nie uruchamiano. Do wdrożenia kwalifikacji potrzebna jest osobna analiza
+  techniczna; T03 nadal `blocked`, T04/T05 nie rozpoczęto.
+- Kontrola diff bez błędów whitespace; końcowa sekcja modeli i wszystkie
+  przypisania planu zachowane. Zastany zapis hasha commita v1.7.18 zachowano.
+- Niezależny audyt Astra medium PASS, bez P0–P2. Potwierdzono odczytem
+  istniejącą bramkę runtime i zgodność sześciu dokumentów z D-453.
+  Kryteria dokumentacyjnej korekty spełnione; pełne DoD T03 nadal wymaga
+  kwalifikacji, rodzin i podziału. Commit korekty v1.7.20 (hash po commicie).
+- Historyczne wyniki poniżej opisują stan sprzed D-453. Ówczesna rola
+  `comparison_only` nie jest aktualną decyzją o wykluczeniu geometrii 777.
+  Bieżące otwarte bramki określają Status i Technical notes tego taska.
+
 ### Wznowienie — odczytowy preflight danych (2026-09-27)
 
 - Zapisano rozdzielenie zgody na geometrię od zatwierdzenia symboli w planie,
@@ -642,7 +701,9 @@ zmiany roli `777`; CURRENT_STATE i usługi należą do koordynatora.
   Audyt Astra medium potwierdził niezależnie liczności, akceptacje i SHA;
   poprawiono nadmierny wniosek o liczbie grup w alternatywie measurement.
   Kontrola diff bez błędów; bez zmian kodu produkcyjnego i bez jego nowych
-  testów. Commit preflight: v1.7.18 (hash po commicie). T03 pozostaje
+  testów. Audyt końcowy bez P0–P2. Commit preflight: `v1.7.18` /
+  `b3f6ead9dc9f2a11002dbf5ee322d7bcbc9562f9`. Hash dopisany po commicie;
+  następny patch v1.7.19 po potwierdzeniu historii. T03 pozostaje
   aktywny/blocked; T04/T05 nie zostały uruchomione.
 
 ### Operacyjne przywrócenie ścieżki danych

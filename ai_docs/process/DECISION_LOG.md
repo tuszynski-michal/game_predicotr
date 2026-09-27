@@ -6,6 +6,38 @@ last_updated: 2026-09-27
 
 # Decision Log
 
+## D-457 — techniczny kontrakt pierwszej hybrydy D-456
+
+- **Status:** accepted, 2026-09-27; doprecyzowanie techniczne w granicach
+  zleconego B, odebrane pre-code przez Astra medium po zamknięciu3P2.
+  Nie jest dodatkową zgodą na trening
+  poza budżetem D-456 ani na aktywację.
+- **Decision:** pierwszy pilot to obrazowe propozycje BaselineEngine oraz
+  MobileNetV3-Small poprawiający cztery narożniki cropu propozycji. Zamrożony
+  backbone ImageNet i uczony head ograniczają liczbę parametrów przy32zdjęciach
+  development. Homografia daje pełną siatkę5×3. Nie jest to detektor odzyskujący
+  wszystkie pominięte plansze; braki propozycji należą do raportowanego błędu.
+- **Labels:** ręczne węzły służą matchingowi, targetowi i ocenie, nigdy
+  inferencyjnemu wejściu/cropowi. Nieoznaczone pozycje są unknown, nie absent.
+  Brak uczciwych negatives wyłącza presence-head. Nie wymusza się9plansz.
+- **Evaluation:** wybór checkpointu na zamrożonej validation, z kosztem1
+  dla brakujących/nieważnych wyników i średnią per zdjęcie. Pełny protokół,
+  hiperparametry, wersje i testy zapisuje TASK-0670 przed wynikami runu.
+  Wszystkie predykcje wymagają review; gate uncalibrated, bez autoapprove.
+- **Publication:** ONNX najlepszego ukończonego checkpointu z parity,
+  atomowymi artefaktami, SHA i fencing T04. Galeria wybiera model opcjonalnie
+  przez istniejący endpoint geometrii; brak wyboru zachowuje baseline.
+  Final_test/unseen blokowane przed dekodowaniem także w podglądzie pilota.
+- **Reproducibility:** kanoniczny protocol_digest wiąże preset i pełny SHA
+  pretrained z runem/checkpointem/publikacją/inferencją, z ochroną dawnych
+  receipts przy pominiętej opcji. Smoke i train startują niezależnie z tego
+  samego pretrained oraz seeda, bez przenoszenia uczonych wag smoke.
+- **Boundaries:** jeden smoke<=50kroków i jeden train<=20epok/1800s,
+  limit obejmuje walidację/eksport/parity/publikację. Przekroczenie zachowuje
+  checkpoint i zatrzymuje pracę bez nowego runu/resetu budżetu. Bez dodatkowego
+  tuningu. Brak użytecznych par jest jawnym blockerem,
+  nie zgodą na zmianę architektury lub kolejne eksperymenty.
+
 ## D-456 — pilotaż geometrii 5 × 3 z podziałem całymi grami
 
 - **Status:** accepted, 2026-09-27. Po wyjaśnieniu zakresu generalizacji

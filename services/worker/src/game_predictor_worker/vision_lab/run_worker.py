@@ -10,9 +10,10 @@ from game_predictor_worker.training_core.runtime import TrainingInterrupted
 
 from .annotations import read_checked
 from .catalog import Catalog
+from .run_contracts import StartRunRequest
 from .runs import RunManager, Token
 from .training_adapter import TRAINERS, RunControl, train_from_manifest
-from .training_manifest import ManifestAdapter
+from .training_manifest import ManifestAdapter, TrainingInputs
 
 
 def configured_manager(root: Path, settings: dict[str, str]) -> RunManager:
@@ -25,7 +26,14 @@ def configured_manager(root: Path, settings: dict[str, str]) -> RunManager:
         Catalog(Path(settings["snapshot"])),
         Path(settings["annotations"]),
     )
-    return RunManager(root, validate=adapter, models=tuple(TRAINERS), settings=settings)
+
+    def validate(request: StartRunRequest) -> TrainingInputs:
+        from .hybrid_protocol import WEIGHTS_FILENAME, validate_protocol
+
+        validate_protocol(request, Path(settings["manifests"]).parent / "cache" / WEIGHTS_FILENAME)
+        return adapter(request)
+
+    return RunManager(root, validate=validate, models=tuple(TRAINERS), settings=settings)
 
 
 def validate_runtime() -> None:
@@ -58,6 +66,10 @@ def execute(manager: RunManager, run_id: str, lease: Token) -> None:
 
         watchdog = threading.Thread(target=enforce_deadline, daemon=True)
         watchdog.start()
+        if run.request.model_version == "hybrid-mobilenet-v1":
+            if os.environ.get("CUBLAS_WORKSPACE_CONFIG", ":4096:8") != ":4096:8":
+                raise ValueError("RUN_DETERMINISM_CONFIGURATION_MISMATCH")
+            os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
         validate_runtime()
         inputs = manager.validate(run.request)
         from .training_manifest import TrainingInputs

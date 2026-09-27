@@ -6,6 +6,83 @@ last_updated: 2026-09-27
 
 # Current State
 
+### STOP B — T05 odebrany technicznie, model bez promocji
+
+- T03k/T04/T05 zakończone w zakresie pilota D-456. Wykonawca Sol high,
+  audyty Astra medium PASS bezP0–P2. T05 done w completed; osobny commit
+  v1.7.30 domykany po staged check/stat/list, pełny hash po commicie.
+- Smoke8b883801a9164eeb9d72474943adf3c1:1ep/10steps/434,93s. Jedyny train
+  34adda69c29847f389cb92e487d75ca8:20ep/200steps/568,53s, checkpoint20,
+  bestepoch1. Niezależne świeże starty, dokładnie dwa runy attempt1.
+  ONNXparity/freshprocess SHA/report/manifest PASS; oba workery zakończone.
+- DEVscore0,153640529 vsbaseline0,156461470; VAL0,046985619 vs0,046131665:
+  walidacja gorsza o1,85% względnie. Brak dowodu przewagi — baseline
+  pozostaje domyślny, hybryda tylko opcjonalny podgląd needs_review.
+  Mianowniki90/30 obejmują missing15/1; bez ukrytego filtrowania trudnych.
+- RootUI3102: model best1 dostępny, dziewięć propozycji na DEV777,
+  HYBRID_GATE_UNCALIBRATED i cropy; bez nowych zgód/zapisów. SHAstate
+  084bc39…/rev268 poUI identyczne. Reels/Treasure holdouty nietknięte.
+- Testy wykonawcy16+46backend/36UI/9client, mypy34/Ruff/TS/OpenAPI/build
+  PASS; niezależnie30backend/36UI/9client, audyt wszystkich artefaktów PASS.
+  Szczegóły, SHA, punktowy DoD i ograniczenia:
+  `ai_docs/quality/VISION_LAB_HYBRID_20260927.md`.
+- STOP B: bez dodatkowych treningów, aktywacji, push/merge i automatycznegoC.
+  Następny zakresT06–T09 wymaga jawnego uruchomienia. Pełny protokół rodzin
+  i pomiar czasuT03 nadal odroczony. OSrestart/fizycznyAndroid nietestowane.
+
+### T05 — pierwsza hybryda, implementacja i preflight
+
+- Warunek wejścia spełniony: T04 done v1.7.29 /
+  c8ae5bb711128d1eed5286ed029a7e9dbc35f40a, końcowy audyt PASS.
+- Sol high przygotował read-only projekt, zapisany w TASK-0670/D-457.
+  Image-only baseline proposals + MobileNet refinement, bez ręcznych
+  węzłów w wejściu, bez presence-head i bez dopełniania do9. Wszystkie
+  wyniki wymagają review; brakujące propozycje obciążają metrykę.
+  To jawne ograniczenie małego pilota, nie deklaracja gotowej jakości.
+- Root zapowiedział zgodne rozszerzenie istniejącego API /geometry
+  o opcjonalny run_id oraz selector w galerii; baseline pozostaje domyślny.
+  Pliki i testy wskazane w tasku. Brak pytań produktowych blokujących;
+  techniczny kontrakt odebrany przed implementacją.
+- Pre-code Astra medium wskazał3P2: binding pełnego protokołu, niezależność
+  smoke/train i limit obejmujący publikację. Task/D-457 doprecyzowane;
+  końcowy pre-code reaudyt PASS bez P0–P2. To nie wyniki testów modelu.
+- Sol high rozpoczyna kod/testy i ograniczony preflight tylko dev/val.
+  Pobranie oficjalnych pretrained wag MobileNet (~9,8MiB) w granicach T05,
+  z pełnym SHA i ograniczonym czasem. Przed rzeczywistym smoke/train audyt
+  kodu i exact requestów/protokołu/coverage; potem audyt artefaktów i STOP B.
+  Holdouty, produkcyjna aktywacja i nowe zgody operatora pozostają nietknięte.
+- Oficjalne wagi pobrane:10 306 551 B, SHA
+  047dcff4addef86ea5bc2eff13c9614dc11f47ab1160d0a71a25e7db994f4e1f.
+  Wstępne5testów danych/importów/frozen BatchNorm PASS; nie jest to pełny
+  odbiór. Preflight działa w ograniczonych partiach. Root doprecyzował
+  deterministyczny runtime CUDA i ocenę oryginalnych węzłów baseline,
+  odrębną od zero-delta homografii. Brak rzeczywistych runów.
+- Preflight validation ukończony:11 unikalnych zdjęć,29/30 dopasowanych
+  targetów,144,844s łącznie w czterech ograniczonych partiach. Jeden miss
+  pozostaje w mianowniku metryki. Wspólny protocol_digest
+  cee25e97bdbeb43d262a05cb306abfdeb288613ac101e722dedbd580e8ed3425,
+  stan rev268/SHA084bc39... bez zmian;0 holdout decodes i0 runów.
+  Development w toku. Root potwierdził w przeglądarce baseline jako
+  domyślny selector, odtwarzanie zapisanej siatki777 i zwinięty przegląd.
+  Audyt kodu/requestów w toku; nie wydano GO do treningu.
+- Development ukończony:32 zdjęcia,75/90 matched. Kontrole wykonawcy:
+  16 nowych testów,46 powiązanych backend,36 UI,9 client, mypy34,
+  TypeScript/OpenAPI/build PASS. Syntetyczna pełna integracja trwałego
+  runu/checkpointu/best/ONNX/reportu PASS,0 operator images i0 LAB runs.
+  Realny trening nadal czeka na końcowy audyt kodu/requestów.
+- Końcowy code/request/preflight audit Astra medium PASS, brak P0–P2.
+  Root wydał GO jednego dokładnego smoke z zamrożonym presetemcee25e97…;
+  jeden train dopiero po technicznym odbiorze jego checkpointu/ONNX/raportu.
+  Niezależne30backend/9client/36UI PASS. Brak dodatkowych prób/tuningu.
+- Smoke `8b883801a9164eeb9d72474943adf3c1` uruchomiony z dokładnym
+  requestem `d457-hybrid-v1-smoke-20260927`; stan rev268/SHA bez zmian.
+  To jedyny realny run na tym wpisie. Wynik/odbiór oraz train w toku zakresu.
+- Smoke technicalPASS: succeeded434,93s/10steps,checkpoint1/best1,
+  ONNXparitydelta1,49e-7/corner0,000122px. Freshprocess SHA/manifest/report
+  odczytPASS, stan rev268 niezmieniony, worker zakończony. RootGO jednego
+  train `d457-hybrid-v1-train-20260927`20epochs/1800s, świeży start
+  niezależny od smoke. Preset i budżet bez zmian; audyt artefaktów w toku.
+
 ### T04 — izolowany rdzeń treningu, odbiór pilota
 
 - T03k odebrany i zapisany v1.7.28; wejście do T04 spełnione według D-456.
@@ -31,8 +108,9 @@ last_updated: 2026-09-27
   przed publikacją, aby drift nie zastąpił ostatniego poprawnego checkpointu.
   Sol high poprawił przyczynę i dodał regresję; reaudyt Astra medium PASS.
   Niezależnie24backend/9client/35UI oraz3testy checkpointów i9wariantów
-  ochrony katalogów PASS; brak pozostałych P0–P2. Osobny commit v1.7.29
-  przygotowany; pełny hash po zapisie. Następnie T05 według D-456 do STOP B.
+  ochrony katalogów PASS; brak pozostałych P0–P2. Osobny commit `v1.7.29` /
+  `c8ae5bb711128d1eed5286ed029a7e9dbc35f40a`; staged check/stat/list oraz
+  show/stat/status PASS, cudze zmiany zachowane. Następnie T05 według D-456 do STOP B.
 
 ### D-456 / T03k — zatwierdzony pilot całymi grami
 

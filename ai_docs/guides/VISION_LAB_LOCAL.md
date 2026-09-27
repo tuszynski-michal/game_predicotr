@@ -68,7 +68,10 @@ $snapshot = 'C:\Users\tuszy\Documents\game_predictor_vision_data\snapshots\0cdc0
 $annotations = 'C:\Users\tuszy\Documents\game_predictor_vision_data\annotations\0cdc0770b3535596fdbfa0a8f403cbf32d6a8b134fb52047f5a1f7bda33772c2'
 $labApi = Start-Process -FilePath '.\.venv\Scripts\python.exe' -ArgumentList @(
   '-m', 'game_predictor_worker.vision_lab', '--snapshot', ('"' + $snapshot + '"'),
-  '--annotations', ('"' + $annotations + '"')
+  '--annotations', ('"' + $annotations + '"'),
+  '--manifests', 'C:\Users\tuszy\Documents\game_predictor_vision_data\manifests',
+  '--runs', 'C:\Users\tuszy\Documents\game_predictor_vision_data\runs',
+  '--training-python', ('"' + (Join-Path $repo '.venv-vision-lab\Scripts\python.exe') + '"')
 ) -WorkingDirectory $repo -WindowStyle Hidden -PassThru `
   -RedirectStandardOutput (Join-Path $logs 'api.stdout.log') `
   -RedirectStandardError (Join-Path $logs 'api.stderr.log')
@@ -400,3 +403,29 @@ Przed treningiem można wykonać ograniczony odczyt
 `scripts/check_vision_lab_manifest.py --snapshot <snapshot> --annotations <store> --manifest <manifest.json>`
 w izolowanym interpreterze. Kontrola raportuje dev/validation i rewizję,
 nie uruchamia runu, nie dekoduje zdjęć ani nie zapisuje decyzji operatora.
+
+## Jawna hybryda D-457
+
+Wagi `mobilenet_v3_small-047dcff4.pth` pochodzą z
+`https://download.pytorch.org/models/mobilenet_v3_small-047dcff4.pth`.
+Izolowany cache to `<LAB>/cache`; wymagany pełny SHA256:
+`047dcff4addef86ea5bc2eff13c9614dc11f47ab1160d0a71a25e7db994f4e1f`.
+Brak albo zmiana wag/presetu blokuje run, bez pobierania w tle i bez losowego fallbacku.
+Skrypt `freeze_vision_lab_hybrid_protocol.py --cache <LAB/cache> --manifest-id <id>`
+rejestruje preset create-only i wypisuje dokładne dwa requesty do audytu;
+nie uruchamia treningu. Nie zmieniaj ani nie nadpisuj zamrożonego presetu.
+
+Odczytowy `preflight_vision_lab_hybrid.ps1` przyjmuje LabRoot, SnapshotId,
+ManifestId, Partition, Offset i Limit. Partie są ograniczone do115s oraz60s
+bez postępu. Raport podaje matching/missed/errors/czas dla każdego źródła,
+wersję protokołu i checksum niezmienionego stanu. Nie dotyka holdoutów ani zgód.
+Timeout jest błędem operacyjnym, nie etykietą złej geometrii.
+
+Przed prawdziwymi runami potrzebny jest odbiór kodu, protokołu, coverage i
+requestów. Smoke i train startują niezależnie z tych samych pretrained wag;
+train nie przejmuje stanu smoke. Samo otwarcie galerii niczego nie trenuje.
+Po sukcesie wybierz zdjęcie, kliknij „Odśwież dostępne modele”, a następnie
+jawnie wybierz hybrydę. Domyślny wybór nadal to Baseline. Epoka i niekalibrowana
+bramka są widoczne w selektorze; wszystkie propozycje wymagają przeglądu.
+Brak modeli przed treningiem jest prawidłowym stanem. Modelowe żądania dla
+holdoutów są blokowane; nie zmieniaj podziału, by obejść ten warunek.

@@ -20,6 +20,7 @@ class StartRunRequest(Contract):
     manifest_id: str = Field(pattern=r"^[a-f0-9]{64}$")
     model_version: str = Field(min_length=1, max_length=100)
     preprocessing_version: str = Field(min_length=1, max_length=100)
+    protocol_digest: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
     topology: Topology = Field(default_factory=Topology)
     seed: int = Field(ge=0, le=2147483647)
     purpose: Literal["smoke", "train"]
@@ -65,6 +66,8 @@ class RunState(Contract):
     checkpoint: Artifact | None = None
     checkpoint_epoch: int = 0
     report: Artifact | None = None
+    artifacts: dict[str, Artifact] = Field(default_factory=dict)
+    best_epoch: int | None = None
     error: str | None = None
     diagnostics: list[str] = Field(default_factory=list)
     attempts: list[dict[str, Any]] = Field(default_factory=list)

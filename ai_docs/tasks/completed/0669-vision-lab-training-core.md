@@ -192,7 +192,9 @@ stan rev268. Audyt kontraktu T04 Astra medium PASS po dwóch doprecyzowaniach
 P2 (żywy proces i trwały budżet); nie są to wyniki testów implementacji.
 Implementacja Sol high odebrana przez Astra medium po jednym cyklu poprawek,
 bez pozostałych P0–P2. Definition of Done i zakres T04 spełnione; trening
-nadal należy do T05. Osobny commit v1.7.29 przygotowany; pełny hash po zapisie.
+nadal należy do T05. Osobny commit `v1.7.29` /
+`c8ae5bb711128d1eed5286ed029a7e9dbc35f40a`; staged check/stat/list oraz
+show/stat/status PASS. Cudze zmiany zachowane, bez push.
 
 ### Changed
 

@@ -110,3 +110,10 @@ class DetectRequest(Contract):
     source_id: str
     topology: Topology = Field(default_factory=Topology)
     preview_board: Board | None = None
+    run_id: str | None = Field(default=None, pattern=r"^[a-f0-9]{32}$")
+
+    @model_validator(mode="after")
+    def one_engine(self) -> Self:
+        if self.run_id is not None and self.preview_board is not None:
+            raise ValueError("RUN_AND_MANUAL_PREVIEW_CONFLICT")
+        return self

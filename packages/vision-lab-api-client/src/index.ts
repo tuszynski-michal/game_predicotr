@@ -51,10 +51,18 @@ export async function listSources(offset = 0, game?: string) {
   });
   return response.data;
 }
-export async function detectGeometry(sourceId: string, columns: 3 | 5) {
+export async function detectGeometry(
+  sourceId: string,
+  columns: 3 | 5,
+  runId?: string,
+) {
   const response = await detect({
     baseUrl,
-    body: { source_id: sourceId, topology: { columns, rows: 3 } },
+    body: {
+      source_id: sourceId,
+      topology: { columns, rows: 3 },
+      ...(runId ? { run_id: runId } : {}),
+    },
     throwOnError: true,
   });
   return response.data;

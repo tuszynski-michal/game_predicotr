@@ -410,6 +410,18 @@
               }
             ]
           },
+          "run_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
           "source_id": {
             "title": "Source Id",
             "type": "string"
@@ -1174,6 +1186,13 @@
       "RunState": {
         "additionalProperties": false,
         "properties": {
+          "artifacts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Artifact"
+            },
+            "title": "Artifacts",
+            "type": "object"
+          },
           "attempt": {
             "default": 1,
             "title": "Attempt",
@@ -1197,6 +1216,17 @@
             },
             "title": "Attempts",
             "type": "array"
+          },
+          "best_epoch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Epoch"
           },
           "cancel_requested": {
             "default": false,
@@ -1380,6 +1410,8 @@
           "checkpoint",
           "checkpoint_epoch",
           "report",
+          "artifacts",
+          "best_epoch",
           "error",
           "diagnostics",
           "attempts"
@@ -1638,6 +1670,18 @@
             "title": "Preprocessing Version",
             "type": "string"
           },
+          "protocol_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol Digest"
+          },
           "purpose": {
             "enum": [
               "smoke",
@@ -1698,6 +1742,18 @@
             "title": "Preprocessing Version",
             "type": "string"
           },
+          "protocol_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol Digest"
+          },
           "purpose": {
             "enum": [
               "smoke",
@@ -1728,6 +1784,7 @@
           "manifest_id",
           "model_version",
           "preprocessing_version",
+          "protocol_digest",
           "topology",
           "seed",
           "purpose",

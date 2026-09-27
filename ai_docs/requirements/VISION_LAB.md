@@ -6,11 +6,28 @@ last_updated: 2026-09-27
 
 # Laboratorium wizji
 
+Hybryda D-457 jest jawnym wariantem podglądu, nigdy nowym domyślnym silnikiem.
+Poprawia obrazowe propozycje baseline zamrożonym MobileNetV3-Small i uczoną
+głowicą narożników. Ręczne węzły służą wyłącznie targetom i ocenie; nie tworzą
+cropu wejściowego. Brak anotacji oznacza unknown, nie absent; brak presence-head
+i kalibracji oznacza, że każda poprawna propozycja wymaga ręcznego przeglądu.
+Nie dopełnia się wyniku do dziewięciu plansz. Nieobsługiwane 3 × 3 pozostaje jawne.
+
+Pilot wykorzystuje wyłącznie development/validation; wybór modelu na zdjęciu
+final_test/unseen jest blokowany przed dekodowaniem. Najlepsza ukończona epoka
+jest wybierana stałą metryką walidacyjną z karą za brak lub nieważną propozycję,
+nie tylko na łatwych dopasowanych planszach. Raport rozróżnia rzeczywiste węzły
+baseline od początkowej homografii hybrydy oraz ujawnia brak poprawy.
+Jedna próba smoke i jeden niezależny trening zachowują budżety D-457;
+walidacja, eksport ONNX, kontrola zgodności i publikacja należą do tego samego limitu.
+Sukces i odczyt wymagają zgodnych checksum artefaktów. Galeria pokazuje wybraną
+epokę i informację o niekalibrowanej bramce, bez automatycznych zatwierdzeń.
+
 T04 dostarcza trwały backend runów z idempotentnymi start/cancel/retry i historią
 prób. Najwyżej jeden run jest aktywny. Restart obserwuje żywy proces, a nie
 uruchamia drugiego. Wygasły run po potwierdzonej śmierci procesu wymaga jawnego
-retry, które zachowuje budżet oraz checkpoint. Model hybrydy rejestruje dopiero
-T05; brak wykonawcy jest jawnym błędem, nie pozornym sukcesem.
+retry, które zachowuje budżet oraz checkpoint. T05 dodaje zamknięty rejestr
+hybrydy; nieznany wykonawca jest jawnym błędem, nie pozornym sukcesem.
 
 Checkpoint v2 wznawia na granicy ukończonej epoki. Cancel kończy pracę po takim
 checkpointcie; twardy limit czasu może przerwać epokę i pozostawia ostatnią

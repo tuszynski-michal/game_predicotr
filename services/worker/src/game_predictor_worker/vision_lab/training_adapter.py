@@ -26,8 +26,18 @@ class RunControl:
 
 
 Trainer = Callable[[TrainingInputs, StartRunRequest, RunControl], dict[str, Any]]
-# T05 registers its concrete trainer here. No fallback model or fabricated successful run.
-TRAINERS: dict[str, Trainer] = {}
+
+
+def _hybrid(
+    inputs: TrainingInputs, request: StartRunRequest, control: RunControl
+) -> dict[str, Any]:
+    from .hybrid_training import train
+
+    return train(inputs, request, control)
+
+
+# Lazy registry: API/ORT inference must not import torch merely to discover models.
+TRAINERS: dict[str, Trainer] = {"hybrid-mobilenet-v1": _hybrid}
 
 
 def train_from_manifest(

@@ -243,6 +243,10 @@ export type CellOutput = {
 export type DetectRequest = {
     preview_board?: BoardInput | null;
     /**
+     * Run Id
+     */
+    run_id?: string | null;
+    /**
      * Source Id
      */
     source_id: string;
@@ -700,6 +704,12 @@ export type RunPage = {
  */
 export type RunState = {
     /**
+     * Artifacts
+     */
+    artifacts: {
+        [key: string]: Artifact;
+    };
+    /**
      * Attempt
      */
     attempt: number;
@@ -713,6 +723,10 @@ export type RunState = {
     attempts: Array<{
         [key: string]: unknown;
     }>;
+    /**
+     * Best Epoch
+     */
+    best_epoch: number | null;
     /**
      * Cancel Requested
      */
@@ -940,6 +954,10 @@ export type StartRunRequestInput = {
      */
     preprocessing_version: string;
     /**
+     * Protocol Digest
+     */
+    protocol_digest?: string | null;
+    /**
      * Purpose
      */
     purpose: 'smoke' | 'train';
@@ -971,6 +989,10 @@ export type StartRunRequestOutput = {
      * Preprocessing Version
      */
     preprocessing_version: string;
+    /**
+     * Protocol Digest
+     */
+    protocol_digest: string | null;
     /**
      * Purpose
      */

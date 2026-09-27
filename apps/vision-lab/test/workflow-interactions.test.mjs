@@ -29,7 +29,8 @@ registerHooks({
         format: 'module',
         shortCircuit: true,
         source:
-          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = async () => ({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => [];',
+          'export const listRuns = (...args) => globalThis.labApi.runs?.(...args) ?? Promise.resolve({runs: [], total: 0});' +
+          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = (...args) => globalThis.labApi.detect?.(...args) ?? Promise.resolve({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => [];',
       };
     if (/\.(tsx|ts)$/.test(url))
       return {
@@ -983,6 +984,93 @@ test('gallery filter finds approvals beyond first source page and restores persi
     await act(async () => root.unmount());
   }
 });
+test('hybrid model selection stays opt-in and shows best epoch without writing annotations', async () => {
+  const calls = [];
+  const run = {
+    id: 'a'.repeat(32),
+    status: 'succeeded',
+    best_epoch: 3,
+    request: { model_version: 'hybrid-mobilenet-v1' },
+  };
+  globalThis.labApi = {
+    read: async () => ({ revision: 1, annotations: {} }),
+    list: async () => ({
+      sources: [
+        {
+          ...source,
+          game_id: 'game',
+          game_name: 'Gra',
+          filename: 'fixture',
+          duplicate_count: 1,
+        },
+      ],
+      total: 1,
+      games: { game: 'Gra' },
+    }),
+    runs: async () => ({
+      runs: [run, { ...run, id: 'b'.repeat(32), status: 'failed' }],
+      total: 2,
+    }),
+    detect: async (...args) => {
+      calls.push(args);
+      return {
+        source_id: 'source',
+        status: 'detected',
+        boards: [],
+        reasons: [],
+        width: 0,
+        height: 0,
+        topology: { columns: 5, rows: 3 },
+      };
+    },
+    write: async () => {
+      throw new Error('No approvals during inference');
+    },
+  };
+  let root;
+  await act(async () => {
+    root = create(
+      React.createElement(
+        ToastProvider,
+        null,
+        React.createElement(
+          AnnotationProvider,
+          null,
+          React.createElement(Page),
+        ),
+      ),
+    );
+  });
+  try {
+    await act(async () =>
+      root.root
+        .findByProps({ 'aria-label': 'Zdjęcia źródłowe' })
+        .findByType('button')
+        .props.onClick(),
+    );
+    assert.equal(
+      root.root.findByProps({ 'aria-label': 'Model podglądu' }).props.value,
+      '',
+    );
+    await act(async () => button(root, 'Pokaż wynik baseline').props.onClick());
+    assert.equal(calls[0][2], undefined);
+    await act(async () =>
+      button(root, 'Odśwież dostępne modele').props.onClick(),
+    );
+    const selector = root.root.findByProps({ 'aria-label': 'Model podglądu' });
+    assert.equal(selector.findAllByType('option').length, 2);
+    assert.match(text(selector), /epoka 3/);
+    await act(async () =>
+      selector.props.onChange({ target: { value: run.id } }),
+    );
+    await act(async () => button(root, 'Pokaż wynik hybrydy').props.onClick());
+    assert.equal(calls[1][2], run.id);
+    assert.match(text(root.toJSON()), /bramka niekalibrowana/);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('lost response keeps request and position, toast timeout does not clear retry; draft and ninth position stay', async (t) => {
   t.mock.timers.enable({ apis: ['setInterval'] });
   let clock = 0;

@@ -16,6 +16,7 @@ import {
   readRun,
   cancelRun,
   retryRun,
+  detectGeometry as detectWithModel,
 } from '../src/index.ts';
 
 test('run wrappers preserve request identity, attempt CAS and bounded paths', async () => {
@@ -50,6 +51,7 @@ test('run wrappers preserve request identity, attempt CAS and bounded paths', as
     manifest_id: 'b'.repeat(64),
     model_version: 'hybrid-v1',
     preprocessing_version: 'rgb-v1',
+    protocol_digest: 'c'.repeat(64),
     seed: 7,
     purpose: 'smoke',
     configuration: { epochs: 1, max_steps: 50 },
@@ -67,6 +69,10 @@ test('run wrappers preserve request identity, attempt CAS and bounded paths', as
     assert.deepEqual(calls[3].body, mutation);
     assert.match(calls[3].url, /\/cancel$/);
     assert.match(calls[4].url, /\/retry$/);
+    await detectWithModel('source', 5, 'd'.repeat(32));
+    assert.equal(calls[5].body.run_id, 'd'.repeat(32));
+    await detectWithModel('source', 5);
+    assert.equal(Object.hasOwn(calls[6].body, 'run_id'), false);
   } finally {
     globalThis.fetch = original;
     globalThis.Request = originalRequest;

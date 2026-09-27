@@ -18,6 +18,8 @@ import { QuickReview } from '../components/quick-review';
 import {
   detectGeometry,
   listSources,
+  listRuns,
+  type RunState,
   assetUrl,
   type GeometryResult,
   type Source,
@@ -26,6 +28,8 @@ import {
 export default function Page() {
   const [catalog, setCatalog] = useState<Source[]>([]);
   const [quick, setQuick] = useState(false);
+  const [models, setModels] = useState<RunState[]>([]);
+  const [modelRun, setModelRun] = useState('');
   const { state, refresh } = useAnnotations();
   const notify = useToast();
   const [filter, setFilter] = useState<PhotoFilter>('all');
@@ -54,6 +58,30 @@ export default function Page() {
   const [loading, setLoading] = useState(true);
   const [galleryFailed, setGalleryFailed] = useState(false);
   const [familySources, setFamilySources] = useState<Source[]>([]);
+  async function refreshModels() {
+    try {
+      const all: RunState[] = [];
+      let page = await listRuns(0, 100);
+      all.push(...page.runs);
+      while (all.length < page.total) {
+        page = await listRuns(all.length, 100);
+        if (!page.runs.length) throw new Error('Incomplete run catalog');
+        all.push(...page.runs);
+      }
+      setModels(
+        all.filter(
+          (run) =>
+            run.status === 'succeeded' &&
+            run.request.model_version === 'hybrid-mobilenet-v1',
+        ),
+      );
+    } catch {
+      notify({
+        kind: 'error',
+        message: 'Nie można odczytać modeli. Sprawdź konfigurację runów API.',
+      });
+    }
+  }
   const filtered = catalog.filter(
     (source) =>
       (!game || source.game_id === game) &&
@@ -158,13 +186,17 @@ export default function Page() {
     setResult(null);
     const order = ++detectionOrder.current;
     try {
-      const next = await detectGeometry(selected.id, columns);
+      const next = await detectGeometry(
+        selected.id,
+        columns,
+        modelRun || undefined,
+      );
       if (order !== detectionOrder.current) return;
       setResult(next);
       if (next.status !== 'detected')
         notify({
           kind: 'warning',
-          message: `Baseline: ${next.status}. ${next.reasons.join(', ')}`,
+          message: `${modelRun ? 'Hybryda' : 'Baseline'}: ${next.status}. ${next.reasons.join(', ')}`,
         });
     } catch {
       if (order !== detectionOrder.current) return;
@@ -209,8 +241,10 @@ export default function Page() {
         </p>
       </header>
       <p>
-        Liczniki opisują zapisane anotacje, nie kwalifikację treningową. 777:
-        tylko porównanie. Rodziny nagrań wymagają weryfikacji.
+        Liczniki opisują zapisane anotacje, nie kwalifikację treningową. Rola
+        katalogowa 777 pozostaje porównawcza; wybrane zatwierdzone geometrie
+        uczestniczą w zamrożonym pilocie D-453/D-456. Pilot całymi grami nie
+        potwierdza niezależności rodzin nagrań.
       </p>
       <label>
         Gra{' '}
@@ -400,12 +434,46 @@ export default function Page() {
           <p>
             Kandydat rodziny: {selected.family_candidate} ·{' '}
             {selected.role === 'comparison_only'
-              ? 'Tylko porównanie'
-              : 'Materiał testowy'}
+              ? 'Rola katalogowa: porównawcza; kwalifikacja geometrii jest osobna'
+              : 'Rola katalogowa: materiał testowy'}
           </p>
           <button disabled={busy} onClick={detect}>
-            {busy ? 'Analiza zdjęcia…' : 'Pokaż wynik baseline'}
+            {busy
+              ? 'Analiza zdjęcia…'
+              : modelRun
+                ? 'Pokaż wynik hybrydy'
+                : 'Pokaż wynik baseline'}
           </button>
+          <label>
+            Model podglądu
+            <select
+              aria-label="Model podglądu"
+              value={modelRun}
+              disabled={busy || protection.pending}
+              onChange={(event) => {
+                detectionOrder.current++;
+                setResult(null);
+                setModelRun(event.target.value);
+              }}
+            >
+              <option value="">Baseline (domyślny)</option>
+              {models.map((run) => (
+                <option key={run.id} value={run.id}>
+                  Hybryda {run.id.slice(0, 8)} · epoka {run.best_epoch} · wymaga
+                  przeglądu
+                </option>
+              ))}
+            </select>
+          </label>
+          <button disabled={busy} onClick={refreshModels}>
+            Odśwież dostępne modele
+          </button>
+          {modelRun && (
+            <p>
+              Eksperymentalna hybryda, bramka niekalibrowana. Każda propozycja
+              wymaga przeglądu. Tylko development/validation.
+            </p>
+          )}
           <div className="photo">
             <img src={assetUrl(selected.asset_id)} alt="Wybrane zdjęcie" />
             {result && result.width > 0 && (

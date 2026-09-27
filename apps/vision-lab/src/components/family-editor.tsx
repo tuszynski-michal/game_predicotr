@@ -125,9 +125,10 @@ export function FamilyEditor({
           powiązania z pozostałymi rodzinami.
         </label>
         <p>
-          Bez potwierdzenia grupa pozostanie nierozstrzygnięta i wyłączona z
-          treningu. Historyczne 777 i nierozstrzygnięte 777 V2 pozostają
-          wykluczone również po zapisie grupy. Zmiana unieważni bieżący podział.
+          Bez potwierdzenia grupa pozostanie nierozstrzygnięta. Sam zapis grupy
+          nie kwalifikuje geometrii do treningu. Wybrane geometrie historycznego
+          777 dopuszcza osobna decyzja D-453; pilot D-456 dzieli całe gry bez
+          potwierdzania niezależności rodzin. Zmiana unieważni bieżący podział.
         </p>
         <button
           disabled={

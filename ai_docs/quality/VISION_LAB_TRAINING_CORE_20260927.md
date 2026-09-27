@@ -77,8 +77,9 @@ anotacji i manifestów) odrzucono przed jakimkolwiek zapisem.
 Wykonawca ponowił 46 testów backendu, Ruff, format-check i mypy zmiany: PASS.
 Dowody poprawki: artifacts/vision-lab/t04-audit1-*.stdout.log.
 
-T04 spełnia kryteria zadania i planu. Osobny commit v1.7.29 przygotowany;
-pełny hash będzie zapisany w Outcome i Current State po commicie.
+T04 spełnia kryteria zadania i planu. Osobny commit `v1.7.29` /
+`c8ae5bb711128d1eed5286ed029a7e9dbc35f40a`. Staged check/stat/list oraz
+show/stat/status PASS, cudze zmiany zachowane; bez push.
 
 ## Niewykonane i granice
 

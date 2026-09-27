@@ -194,11 +194,18 @@ def create_app(
     @application.post("/geometry", response_model=GeometryResult, operation_id="detect_geometry")
     def geometry(body: DetectRequest) -> GeometryResult:
         try:
+            if body.run_id is not None:
+                from .hybrid_inference import authorized_engine
+
+                engine = authorized_engine(runs(), body.run_id, current(), body.source_id)
+                return current().detect(body.source_id, body.topology, engine=engine)
             return current().detect(body.source_id, body.topology, body.preview_board)
         except KeyError as error:
             raise HTTPException(404, "SOURCE_NOT_FOUND") from error
         except ValueError as error:
-            raise HTTPException(409, "SNAPSHOT_INTEGRITY_ERROR") from error
+            raise HTTPException(
+                409, str(error) if body.run_id else "SNAPSHOT_INTEGRITY_ERROR"
+            ) from error
 
     @application.get(
         "/assets/{asset_id}",

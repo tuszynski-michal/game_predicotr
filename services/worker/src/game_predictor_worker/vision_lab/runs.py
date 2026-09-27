@@ -1,5 +1,6 @@
 """Single-worker durable runs, process identity, fencing and non-refundable budgets."""
 
+import json
 import os
 import subprocess
 import time
@@ -13,7 +14,7 @@ from game_predictor_worker.training_core.runtime import TrainingInterrupted
 
 from .annotations import digest, exclusive, read_checked, write_atomic
 from .process_identity import own_identity, process_created
-from .run_contracts import RunMutation, RunPage, RunState, StartRunRequest
+from .run_contracts import Artifact, RunMutation, RunPage, RunState, StartRunRequest
 from .run_files import publish, verify_artifact
 from .snapshot import canonical, safe_file
 
@@ -46,9 +47,21 @@ def token(run: RunState) -> Token:
     return run.attempt, run.fence, run.lease
 
 
+def canonical_request(request: StartRunRequest, *, exclude_id: bool = False) -> dict[str, Any]:
+    value = request.model_dump(exclude={"request_id"} if exclude_id else set())
+    if value.get("protocol_digest") is None:
+        value.pop("protocol_digest", None)
+    return value
+
+
 def checkpoint_binding(request: StartRunRequest) -> dict[str, Any]:
-    value = request.model_dump(exclude={"request_id"})
-    return {"inputFingerprint": digest(value), "dataSha256": request.manifest_id, **value}
+    value = canonical_request(request, exclude_id=True)
+    fingerprint = digest(value)
+    if request.protocol_digest is not None:
+        from .hybrid_protocol import protocol
+
+        value["protocol"] = protocol()
+    return {"inputFingerprint": fingerprint, "dataSha256": request.manifest_id, **value}
 
 
 class RunManager:
@@ -153,7 +166,7 @@ class RunManager:
         }
 
     def create_or_get_run(self, request: StartRunRequest) -> RunState:
-        fingerprint = digest(["start", request.model_dump()])
+        fingerprint = digest(["start", canonical_request(request)])
         with run_lock(self.root):
             data = self._load()
             replay = self._receipt(data, request.request_id, fingerprint)
@@ -173,7 +186,7 @@ class RunManager:
             run = RunState(
                 id=uuid.uuid4().hex,
                 request=request,
-                fingerprint=digest(request.model_dump(exclude={"request_id"})),
+                fingerprint=digest(canonical_request(request, exclude_id=True)),
                 lease=uuid.uuid4().hex,
                 fence=data["next_fence"],
                 created_at=now,
@@ -228,6 +241,7 @@ class RunManager:
                 stdin=subprocess.DEVNULL,
                 stdout=log,
                 stderr=log,
+                env={**os.environ, "PYTHONUTF8": "1"},
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0,
             )
 
@@ -238,7 +252,23 @@ class RunManager:
             self._save(data)
             runs = [RunState.model_validate(value) for value in data["runs"].values()]
             runs.sort(key=lambda item: (item.created_at, item.id), reverse=True)
+            for run in runs[offset : offset + limit]:
+                self._verify_outputs(run)
             return RunPage(runs=runs[offset : offset + limit], total=len(runs))
+
+    def _verify_outputs(self, run: RunState) -> None:
+        for artifact in run.artifacts.values():
+            verify_artifact(self.root, artifact)
+        if run.status != "succeeded":
+            return
+        if run.report is None or run.checkpoint is None:
+            raise ValueError("RUN_SUCCESS_ARTIFACT_MISSING")
+        report = json.loads(verify_artifact(self.root, run.report).read_bytes())
+        verify_artifact(self.root, run.checkpoint)
+        if run.artifacts and report.get("artifacts") != {
+            name: value.model_dump() for name, value in run.artifacts.items()
+        }:
+            raise ValueError("RUN_ARTIFACT_BINDING_MISMATCH")
 
     def detail(self, run_id: str) -> RunState:
         with run_lock(self.root):
@@ -246,11 +276,7 @@ class RunManager:
             self._reconcile(data)
             run = self._get(data, run_id)
             self._save(data)
-            if run.status == "succeeded":
-                if run.report is None or run.checkpoint is None:
-                    raise ValueError("RUN_SUCCESS_ARTIFACT_MISSING")
-                verify_artifact(self.root, run.report)
-                verify_artifact(self.root, run.checkpoint)
+            self._verify_outputs(run)
             return run
 
     def cancel_run(self, run_id: str, request: RunMutation) -> RunState:
@@ -307,6 +333,9 @@ class RunManager:
                 run.attempt_deadline = None
                 run.launch_deadline = self.clock() + LAUNCH_SECONDS
                 run.error = None
+                run.artifacts = {}
+                run.report = None
+                run.best_epoch = None
                 run.diagnostics = []
             elif run.status in ACTIVE:
                 run.cancel_requested = True
@@ -411,12 +440,24 @@ class RunManager:
                     raise ValueError("RUN_SUCCESS_ARTIFACT_MISSING")
                 else:
                     verify_artifact(self.root, run.checkpoint)
+                    if run.request.protocol_digest is not None and set(run.artifacts) != {
+                        "onnx",
+                        "best_weights",
+                    }:
+                        raise ValueError("RUN_SUCCESS_ARTIFACT_MISSING")
+                    for artifact in run.artifacts.values():
+                        verify_artifact(self.root, artifact)
                     if run.checkpoint_epoch != run.request.configuration.epochs:
                         raise ValueError("RUN_EPOCHS_INCOMPLETE")
             if status not in {"succeeded", "failed", "cancelled"}:
                 raise ValueError("RUN_TERMINAL_STATUS_INVALID")
             run.status = status  # type: ignore[assignment]
             run.error = error
+            if status == "succeeded" and run.request.protocol_digest is not None:
+                best_epoch = (metrics or {}).get("best_epoch")
+                if type(best_epoch) is not int or not 1 <= best_epoch <= run.checkpoint_epoch:
+                    raise ValueError("HYBRID_BEST_STATE_MISSING")
+                run.best_epoch = best_epoch
             report = {
                 "run_id": run.id,
                 "attempt": run.attempt,
@@ -429,7 +470,37 @@ class RunManager:
                 "used_seconds": run.used_seconds,
                 "conservative_seconds": run.conservative_seconds,
                 "metrics": metrics or {},
+                "artifacts": {name: value.model_dump() for name, value in run.artifacts.items()},
+                "binding": checkpoint_binding(run.request),
             }
             run.report = publish(self.root, run.id, run.attempt, canonical(report), "json")
+            if status == "succeeded":
+                self._account(run)
+                if run.used_seconds >= run.request.configuration.max_seconds:
+                    raise TrainingInterrupted("RUN_BUDGET_EXHAUSTED")
             self._save(data, run)
             return run
+
+    def publish_artifact(self, run_id: str, lease: Token, name: str, content: bytes) -> Artifact:
+        extensions = {"onnx": "onnx", "best_weights": "pt"}
+        if name not in extensions:
+            raise ValueError("RUN_ARTIFACT_NAME_INVALID")
+        with run_lock(self.root):
+            data = self._load()
+            run = self._fenced(data, run_id, lease)
+            if run.status != "running":
+                raise ValueError("RUN_NOT_RUNNING")
+            self.validate(run.request)
+            self._account(run)
+            if run.used_seconds >= run.request.configuration.max_seconds:
+                self._save(data, run)
+                raise TrainingInterrupted("RUN_BUDGET_EXHAUSTED")
+            artifact = publish(self.root, run.id, run.attempt, content, extensions[name])
+            verify_artifact(self.root, artifact)
+            self._account(run)
+            if run.used_seconds >= run.request.configuration.max_seconds:
+                self._save(data, run)
+                raise TrainingInterrupted("RUN_BUDGET_EXHAUSTED")
+            run.artifacts[name] = artifact
+            self._save(data, run)
+            return artifact

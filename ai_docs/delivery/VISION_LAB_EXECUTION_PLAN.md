@@ -45,6 +45,24 @@ T05 ocenia development/validation; final_test/unseen pozostają nietknięte
 do końcowego odbioru. Brak oceny symboli, 3 × 3 i oszczędności czasu.
 Limit treningu i brak automatycznej aktywacji pozostają bez zmian.
 
+T03k i T04 odebrane (v1.7.28/v1.7.29). Kontrakt techniczny T05/D-457
+jest zapisany przed kodem i wynikami w TASK-0670: image-only propozycje,
+MobileNetV3-Small refinement, homografia, unknown-mask bez presence-head,
+image-macro walidacja z karą za braki, gate uncalibrated i ONNX w galerii.
+Kontrakt ma PASS audytu pre-code Astra medium; wykonawca pozostaje
+Sol high. Kod i dokładne żądania runów podlegają audytowi przed treningiem,
+a artefakty po treningu. Brak dopasowania propozycji do targetu pozostaje raportowanym
+błędem, a nie cicho odrzuconą próbką. Dotychczasowy baseline bez zmian.
+
+T05 odebrany technicznie2026-09-27: smoke1ep/10steps oraz train20ep/200steps
+w568,53s, checkpoint20/best1, ONNXparity i model w galerii PASS. Audyty
+pre-code/kodu/requestów/artefaktów Astra medium PASS. DEVscore0,153640529
+vsbaseline0,156461470; VAL0,046985619 vs0,046131665 — brak poprawy walidacji,
+bez rekomendacji promocji. Pełne mianowniki90/30 obejmują missing15/1.
+Dokładnie dwa runy, dane rev268 niezmienione, holdouty zamknięte. STOP B.
+Raport: `../quality/VISION_LAB_HYBRID_20260927.md`; dalszy etapC wymaga
+jawnego uruchomienia, bez dodatkowego tuningu lub aktywacji w tej pracy.
+
 ### Wznowienie B po przeglądzie operatora
 
 Użytkownik zaakceptował wybrane geometrie i polecił kontynuację etapu B po
@@ -225,7 +243,7 @@ reguły pracy etapami i D-447, a **nie uruchamia A**.
 | A | [TASK-0667](../tasks/completed/0667-vision-lab-gallery.md) | Kontrakty, baseline, galeria i bezpieczne lokalne API; błędny obraz nie zatrzymuje galerii. |
 | B | [TASK-0668](../tasks/0668-vision-lab-geometry-annotations.md) | Edytor, warstwowy zbiór, backup, zamrożony split i pomiar kosztu. |
 | B | [TASK-0669](../tasks/completed/0669-vision-lab-training-core.md) | Done: neutralny rdzeń, trwały backend runów, izolowane GPU, checkpoint v2 i odczyt v1; bez przepięcia produkcji. Audyt Astra medium PASS. |
-| B | [TASK-0670](../tasks/0670-vision-lab-hybrid.md) | Hybryda i pierwszy checkpoint widoczny w galerii; ONNX. |
+| B | [TASK-0670](../tasks/completed/0670-vision-lab-hybrid.md) | Done: hybryda, checkpoint w galerii i ONNX; audyty PASS. Walidacja bez poprawy, brak promocji. STOP B. |
 | C | [TASK-0671](../tasks/0671-vision-lab-symbol-labels.md) | Zatwierdzenia DB/lab, słowniki lokalne, ponowna zgoda po recrop. |
 | C | [TASK-0672](../tasks/0672-vision-lab-symbol-models.md) | RGB, szarość, fuzja, kalibracja i metryki per klasa. |
 | C | [TASK-0673](../tasks/0673-vision-lab-training-panel.md) | Panel start/cancel/postęp/retry i historia korzysta z trwałego backendu T04. |

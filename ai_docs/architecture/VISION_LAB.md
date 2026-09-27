@@ -6,6 +6,31 @@ last_updated: 2026-09-27
 
 # Architektura laboratorium wizji
 
+T05 rejestruje `hybrid-mobilenet-v1` leniwie: odkrywanie trenerów przez API
+nie importuje torch. `hybrid_data` jest obrazowym adapterem propozycji/cropu,
+matchingu i metryki; `hybrid_model`/`hybrid_training` działają tylko w workerze,
+a `hybrid_inference` używa CPU ONNX Runtime. BaselineEngine pozostaje domyślny.
+Opcjonalny `run_id` w istniejącym POST /geometry jest rozłączny z manual preview.
+Przed Catalog.image sprawdza się completed run, aktualny manifest, dozwoloną
+partycję i zamknięty protokół; holdout daje HOLDOUT_NOT_RELEASED.
+
+`hybrid_protocol` wiąże kanoniczny preset, pełny SHA pretrained wag i wersję
+generatora. Create-only kopia w LAB/cache/protocols jest sprawdzana wraz z
+rzeczywistymi wagami przed etapami cyklu życia. Opcjonalny protocol_digest
+w StartRunRequest jest usuwany z canonical request, jeśli None: istniejące
+receipts/fingerprinty/bindingi T04 pozostają identyczne. Checkpoint i raport
+zawierają pełny preset. Deterministyczny CUDA runtime wymaga ustawienia cuBLAS
+przed inicjalizacją, deterministic algorithms oraz zamrożonych buforów BatchNorm;
+gwarancja odtworzenia dotyczy zgodnego sprzętu i bibliotek, nie dowolnego GPU.
+
+RunManager publikuje fenced immutable `onnx` i `best_weights` oraz ich SHA.
+Wskaźniki pochodzą wyłącznie z serwera, nie z dowolnych ścieżek w metrics.
+Oddzielne best_state w checkpointcie zachowuje wybraną epokę; resume nadal
+odtwarza ostatnią ukończoną epokę. Deadline obejmuje eksport i publikację.
+Parity odrzuca także NaN/Inf, zanim porówna tolerancje. Proces workera ma UTF-8
+logi niezależne od domyślnej strony kodowej Windows. Lista modeli i odczyt
+ponownie sprawdzają SHA artefaktów; galeria pokazuje tylko jawnie wybrany model.
+
 Szybki przegląd używa istniejącego POST /annotations: PhotoReviewRequest ma
 additive reject, PhotoReview.rejected domyślnie false. CAS/SHA/mapa i receipt
 chronią reject jak accept. Reject czyści zaakceptowaną mapę bez geometrii/issues;
@@ -283,4 +308,4 @@ POST /runs i cancel/retry, GET /runs oraz /runs/{id} korzystają z tego samego
 loopback boundary i generowanego klienta. Ścieżki interpretera, manifestów,
 runów i anotacji pochodzą wyłącznie z konfiguracji operatora. Katalog runów
 nie może nachodzić na snapshot, anotacje lub manifesty. Rejestr trenerów jest
-zamknięty i pusty do T05; produkcyjny handler pozostaje niezależny.
+zamknięty; T05 dodaje leniwą hybrydę, a produkcyjny handler pozostaje niezależny.

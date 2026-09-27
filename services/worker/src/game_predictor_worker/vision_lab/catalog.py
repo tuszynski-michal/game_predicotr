@@ -95,7 +95,12 @@ class Catalog:
             return encode(self.image(source))
 
     def detect(
-        self, source_id: str, topology: Topology, preview_board: Board | None = None
+        self,
+        source_id: str,
+        topology: Topology,
+        preview_board: Board | None = None,
+        *,
+        engine: GeometryEngine | None = None,
     ) -> GeometryResult:
         source = self.sources[source_id]
         with self.lock:
@@ -110,7 +115,7 @@ class Catalog:
                     reasons=["IMAGE_DECODE_FAILED"],
                 )
             if preview_board is None:
-                result = self.engine.detect(source_id, rgb, topology)
+                result = (engine or self.engine).detect(source_id, rgb, topology)
             else:
                 # Never trust caller-supplied cells, status or reasons as crop results.
                 board = preview_board.model_copy(deep=True)

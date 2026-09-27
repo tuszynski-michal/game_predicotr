@@ -196,6 +196,32 @@ class LegacyGameOperationalCleanupReceiptModel(Base):
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
 
+class PartialBoardReconciliationReceiptModel(Base):
+    """Control-plane receipt committed atomically with one repaired board."""
+
+    __tablename__ = "partial_board_reconciliation_receipts"
+    __table_args__ = (
+        CheckConstraint(
+            "preview_sha256 ~ '^[0-9a-f]{64}$' AND guard_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND sequence_number > 0",
+            name="ck_partial_board_reconciliation_receipt_identity",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(result) = 'object'", name="ck_partial_board_reconciliation_receipt_result"
+        ),
+    )
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="CASCADE"), primary_key=True
+    )
+    preview_sha256: Mapped[str] = mapped_column(String(64), primary_key=True)
+    sequence_number: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    guard_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    result: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class SymbolModel(Base):
     __tablename__ = "symbols"
     __table_args__ = (
@@ -2699,7 +2725,9 @@ class ImageSymbolReviewCellModel(Base):
     logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
     render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    render_spec: Mapped[dict[str, object] | None] = mapped_column(JSONB(none_as_null=True), nullable=True)
+    render_spec: Mapped[dict[str, object] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
     render_spec_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     extractor_version: Mapped[str | None] = mapped_column(String(150), nullable=True)

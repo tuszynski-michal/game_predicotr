@@ -22,7 +22,7 @@ from game_predictor_api.storage.models import (
     ImageSymbolReviewEventModel,
 )
 from game_predictor_api.storage.symbol_cell_source_visibility import current_source_visibilities
-from test_qualified_cell_reconciliation import _cells
+from test_qualified_cell_reconciliation import _cells, _install_pinned_geometry_records
 
 
 def _quad(x0, y0, x1, y1):
@@ -111,6 +111,7 @@ def _coordinator(monkeypatch, *, asset_mode="virtual_source"):
     source = SimpleNamespace(
         import_job_id=uuid4(), width=100, height=100, oriented_width=100, oriented_height=100
     )
+    _install_pinned_geometry_records(session, board, source)
     coordinator = SymbolCellReviewWriteThroughCoordinator(session)
     coordinator._state_if_initialized = Mock(
         return_value=SimpleNamespace(failure_message=None, count_projection_status="unavailable")

@@ -16,6 +16,56 @@ from game_predictor_api.domain.image_geometry_v2 import (
 type SourceVisibility = Literal["full", "partial", "outside"]
 
 
+def pinned_visibility_geometry(
+    *,
+    board: Mapping[str, object],
+    source: Mapping[str, object],
+    source_geometry: Mapping[str, object] | None,
+    manual_geometry: Mapping[str, object] | None = None,
+) -> Mapping[str, object] | None:
+    """Select the adopted revision, never a later revision or a stale board copy."""
+    if board.get("asset_mode") != "virtual_source":
+        if int(cast(int, board.get("geometry_revision", 0))) > 0:
+            if manual_geometry is None or manual_geometry.get("revision") != board.get(
+                "geometry_revision"
+            ):
+                raise ValueError("Current manual geometry revision is missing.")
+            geometry = manual_geometry.get("geometry")
+        else:
+            geometry = board.get("board_geometry")
+        return geometry if isinstance(geometry, Mapping) else None
+    if (
+        source_geometry is None
+        or str(source_geometry.get("id")) != str(board.get("source_geometry_revision_id"))
+        or str(source_geometry.get("source_image_id")) != str(source.get("id"))
+        or source_geometry.get("source_checksum_sha256") != source.get("checksum_sha256")
+        or source_geometry.get("geometry_checksum_sha256") != board.get("geometry_checksum_sha256")
+        or source_geometry.get("oriented_width") != source.get("oriented_width")
+        or source_geometry.get("oriented_height") != source.get("oriented_height")
+    ):
+        raise ValueError("Pinned source geometry provenance disagrees with the current board.")
+    values = source_geometry.get("board_geometries")
+    position = board.get("position_index")
+    if not isinstance(position, int) or not isinstance(values, list):
+        raise ValueError("Pinned source geometry has no current board slot.")
+    matches = [
+        value
+        for value in values
+        if isinstance(value, Mapping) and value.get("positionIndex") == position
+    ]
+    if len(matches) != 1:
+        raise ValueError("Pinned source geometry must contain exactly one current board slot.")
+    value = dict(matches[0])
+    if value.get("positionIndex") != position or value.get("sequenceNumber") != board.get(
+        "sequence_number"
+    ):
+        raise ValueError("Pinned source geometry slot does not own the current sequence.")
+    # Source revisions store finalQuad; the projection may contain the original
+    # proposal's quad. Never merge those two different sources of geometry.
+    value["latticeBoundsQuad"] = value.get("symbolGridQuad") or value.get("finalQuad")
+    return value
+
+
 def current_source_visibilities(
     *, geometry: Mapping[str, object], width: int, height: int, topology: BoardTopology
 ) -> tuple[SourceVisibility, ...]:

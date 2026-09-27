@@ -62,6 +62,35 @@ def _cells(revision, missing, *, asset_mode="legacy_file"):
     )
 
 
+def _install_pinned_geometry_records(session, board, source):
+    """Provide the adopted revision records required by the production resolver."""
+    source.id = uuid4()
+    source.checksum_sha256 = "a" * 64
+    source.oriented_width = source.oriented_height = 100
+    board.source_geometry_revision_id = uuid4()
+    board.geometry_checksum_sha256 = "b" * 64
+    board.position_index = 0
+    session.get.side_effect = lambda *_: SimpleNamespace(
+        id=board.source_geometry_revision_id,
+        source_image_id=source.id,
+        source_checksum_sha256=source.checksum_sha256,
+        geometry_checksum_sha256=board.geometry_checksum_sha256,
+        oriented_width=100,
+        oriented_height=100,
+        board_geometries=[
+            dict(
+                getattr(board, "board_geometry", {}),
+                positionIndex=0,
+                sequenceNumber=board.sequence_number,
+            )
+        ],
+    )
+    session.scalar.side_effect = lambda *_: SimpleNamespace(
+        revision=board.geometry_revision,
+        geometry=getattr(board, "board_geometry", None),
+    )
+
+
 def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_approval():
     game_id, review_id, board_id, symbol_id = (uuid4() for _ in range(4))
     rows, events = [], []
@@ -105,6 +134,7 @@ def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_ap
         )
     )
     coordinator._current_cells = Mock(return_value=(_cells(0, ()), "cropper-v1", None, None))
+    _install_pinned_geometry_records(session, board, coordinator._review_row.return_value[2])
     assert coordinator.synchronize_after_prediction_refresh(
         game_id=game_id, review_item_id=review_id
     )
@@ -242,6 +272,7 @@ def test_partially_visible_virtual_source_cells_are_forced_unknown_and_never_tra
     source = coordinator._review_row.return_value[2]
     source.width, source.height = 100, 100
     source.oriented_width, source.oriented_height = 100, 100
+    _install_pinned_geometry_records(session, board, source)
 
     assert coordinator.synchronize_after_prediction_refresh(
         game_id=game_id, review_item_id=review_id

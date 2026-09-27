@@ -87,7 +87,13 @@ def resolve_operational_cell_asset(
             "The requested operational review cell does not exist.",
             details={"cellIndex": cell_index},
         )
-    cell = item.cells[cell_index]
+    cell = next((value for value in item.cells if value.cell_index == cell_index), None)
+    if cell is None:
+        raise ImageReviewNotFoundError(
+            "IMAGE_REVIEW_CELL_NOT_FOUND",
+            "The requested operational review cell has no image.",
+            details={"cellIndex": cell_index},
+        )
     if cell.crop_relative_path is None:
         raise ImageReviewNotFoundError(
             "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",

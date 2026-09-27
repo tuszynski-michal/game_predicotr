@@ -6,6 +6,32 @@ last_updated: 2026-09-26
 
 # Decision Log
 
+## D-452 — atomowe pokwitowania uzupełnienia pozycji pilota
+
+- **Status:** accepted, techniczna realizacja T4 / TASK-0711 (2026-09-27).
+- Podgląd jest niezmiennym, wersjonowanym dokumentem z SHA, dokładną listą
+  70 numerów, bieżącym właścicielem, źródłem i decyzjami operatora. Brak
+  historycznej kolumny widoczności oznacza brak oceny, nigdy outside.
+- Widoczność w preview i wspólnym writerze korzysta z tego samego resolvera.
+  Virtual używa przypiętej `source_geometry_revision_id` i jej slotu;
+  legacy aktualnej rewizji ręcznej. Późniejsza, nieprzyjęta rewizja źródła
+  ani stara kopia quada nie zastępuje przyjętej geometrii.
+- Nowa publiczna tabela `partial_board_reconciliation_receipts` jest
+  control plane operacji, nie kolejką jobów ani partycją danych obrazu.
+  Migracja 0128, jawna klasyfikacja SHARED w manifest v2 i FK gry
+  `ON DELETE CASCADE`; zamrożona lista partycji pozostaje bez zmian.
+- Klucz `(game_id, preview_sha256, sequence_number)` wiąże wynik z wejściem.
+  Projekcja 15 pozycji, ochrona decyzji, liczniki i receipt są w jednej
+  transakcji. Po utracie odpowiedzi retry odczytuje receipt, bez ponownego
+  zapisu i bez nadpisania późniejszych decyzji człowieka.
+- Apply sprawdza pełny manifest przed receipt, używa routingu i blokad
+  sequence → source → owner/board/cells → state. Różnica źródła, rewizji,
+  właściciela lub decyzji zatrzymuje daną planszę. Jedna komenda wykonuje
+  maksymalnie pięć nowych prób. Plik raportu nie pełni roli checkpointu.
+- Narzędzie nie modyfikuje manifestów importu, nie uruchamia predykcji
+  ani treningu. Produkcyjne migracje, wdrożenie, apply i odbudowa liczników
+  pozostają oddzielnie zlecanym krokiem danych według zaakceptowanego planu.
+
 ## D-451 — każda pozycja niepełnej planszy dostępna w weryfikacji symboli
 
 - **Status:** accepted, jawne zlecenie użytkownika 2026-09-27.

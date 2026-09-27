@@ -119,6 +119,7 @@ from game_predictor_api.storage.models import (
 )
 from game_predictor_api.storage.symbol_cell_source_visibility import (
     current_source_visibilities,
+    pinned_visibility_geometry,
     qualification_visibilities,
 )
 
@@ -2306,7 +2307,25 @@ class SymbolCellReviewWriteThroughCoordinator:
             asset_mode=board.asset_mode,
         )
         visibilities = qualification_visibilities(board.geometry_qualification, topology.cell_count)
-        geometry_payload = getattr(board, "board_geometry", None)
+        source_geometry = None
+        manual_geometry = None
+        if board.asset_mode == "virtual_source":
+            source_geometry = self._session.get(
+                ImageSourceGeometryRevisionModel, board.source_geometry_revision_id
+            )
+        elif board.geometry_revision > 0:
+            manual_geometry = self._session.scalar(
+                select(ImageBoardGeometryRevisionModel).where(
+                    ImageBoardGeometryRevisionModel.recognized_board_id == board.id,
+                    ImageBoardGeometryRevisionModel.revision == board.geometry_revision,
+                )
+            )
+        geometry_payload = pinned_visibility_geometry(
+            board=vars(board) | {"sequence_number": sequence_number},
+            source=vars(source),
+            source_geometry=None if source_geometry is None else vars(source_geometry),
+            manual_geometry=None if manual_geometry is None else vars(manual_geometry),
+        )
         if isinstance(geometry_payload, Mapping):
             visibilities = current_source_visibilities(
                 geometry=geometry_payload,

@@ -6,6 +6,21 @@ last_updated: 2026-09-24
 
 # Model danych
 
+## Uzupełnienie logicznych pozycji pilota — TASK-0711 / D-452
+
+Migracja 0128 dodaje publiczną tabelę `partial_board_reconciliation_receipts`.
+Złożony klucz gry, SHA niezmiennego preview i numeru planszy oraz zapisany
+SHA porównywanego stanu chronią ponowienie. Receipt jest zapisywany w tej
+samej transakcji co wspólna projekcja pozycji symboli; nie ma harmonogramu
+ani osobnego joba. Utrata odpowiedzi po commicie zwraca wcześniejszy wynik.
+Późniejsze decyzje operatora nie są przy retry odtwarzane ani nadpisywane.
+
+Tabela należy do publicznego control plane (`manifest_v2.SHARED`), ma FK
+do gry z CASCADE i indeks wynikający z PK zaczynającego się od `game_id`.
+Nie rozszerza zamrożonego zestawu 65 partycji ani ich migracji. Nie zawiera
+obrazów, cropów ani kopii manifestu importu. Zapisuje jedynie wynik i SHA
+wejścia; pełny podgląd pozostaje artefaktem operatora.
+
 ## Pokrycie importu plansz (D-437) — TASK-0629
 
 Definicja „planszy dodanej" i indeksy pod odczyt braków importu, bez nowej

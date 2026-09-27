@@ -72,6 +72,21 @@ def test_large_history_and_samples_are_in_same_partitioned_store() -> None:
     assert "jobs" in CATALOG and "jobs" not in GAME_TABLES
 
 
+def test_reconciliation_receipt_is_shared_and_follows_catalog_game_deletion() -> None:
+    name = "partial_board_reconciliation_receipts"
+    assert ownership(name) == "shared"
+    assert name not in PARTITIONED_TABLES
+    table = Base.metadata.tables[name]
+    assert tuple(column.name for column in table.primary_key.columns) == (
+        "game_id",
+        "preview_sha256",
+        "sequence_number",
+    )
+    foreign_key = next(iter(table.foreign_keys))
+    assert foreign_key.target_fullname == "games.id"
+    assert foreign_key.ondelete == "CASCADE"
+
+
 def test_offline_upgrade_is_additive_and_has_no_default_partition() -> None:
     output = StringIO()
     command.upgrade(config(output), f"{PREVIOUS}:{REVISION}", sql=True)

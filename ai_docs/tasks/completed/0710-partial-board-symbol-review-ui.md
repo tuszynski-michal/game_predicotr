@@ -88,4 +88,4 @@ Nie raportować wdrożenia ani naprawy danych na podstawie samych testów.
 - TASK-0711 / T4: narzędzie preview/apply, trwałe pokwitowania i odczytowy podgląd dokładnie 70 plansz.
 
 ### Commit
-- Wersja/hash zostaną dopisane po utworzeniu osobnego commita T3.
+- v1.7.15 / 8568eb4d8b974dc9a0b7d00c9d229d85adc8eb78; potwierdzono git show --stat i pozostały status.

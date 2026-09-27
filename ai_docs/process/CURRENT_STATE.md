@@ -55,9 +55,20 @@ last_updated: 2026-09-26
 - TASK-0710 / T3 zakończony: grupa/badge Poza zdjęciem, kontekst zdjęcia,
   brak atlasu bez obrazu, aktualizacja ograniczonej strony po decyzjach,
   statusy importu. 105 testów logiki + 5 interakcji, TS/lint/format i izolowany
-  build PASS; odbiór przeglądarkowy z fixture PASS. Osobny commit T3 poniżej.
-- Następny TASK-0711 / T4: trwałe narzędzie uzupełnienia i odczytowe preview;
-  produkcyjne migracje/deploy/apply pozostają osobno zlecanym krokiem danych.
+  build PASS; odbiór przeglądarkowy z fixture PASS, audyt Astra bez P0–P2.
+  Commit v1.7.15 / 8568eb4d8b974dc9a0b7d00c9d229d85adc8eb78.
+- TASK-0711 / T4 odebrany technicznie: preview/apply/audit/rebuild-counts,
+  atomowe receipty (0128), wspólny resolver przypiętej geometrii, sparse asset fix.
+  Focused48 + końcowe18 PASS (częściowo wspólne), Ruff15/mypy8 PASS,
+  niezależny audyt Astra medium bez P0–P2 / 14 PASS; realny PostgreSQL5 PASS,
+  także retry w dwóch nowych procesach. Końcowa regresja PostgreSQL6 PASS / 41.86 s.
+- Preview 0125 READ ONLY: 70 gotowych, 985/1050 pozycji, 65 braków;
+  829 full / 201 partial / 20 outside. Dwa procesy dały ten sam SHA:
+  a964291d5517751f0761842d975fef74df4e1c77a8365d26977a6718f8e7e515.
+  Raport: ai_docs/quality/PARTIAL_BOARD_SYMBOL_REVIEW_PILOT_PREVIEW.md.
+- Następny krok jest osobno zlecany: backup, migracje 0126–0128, zgodne usługi,
+  ponowny preview, apply, ograniczona odbudowa liczników i odbiór 1050 pozycji;
+  następnie odczytowy audit innych gier. Dotąd danych produkcyjnych nie zmieniono.
 - Dane produkcyjne bez zmian: implementacja i preview zlecone, rzeczywiste
   uzupełnienie danych osobno zgodnie z T4. Testy zapisów tylko izolowane.
 - Zastane zmiany CURRENT_STATE, TASK-0668, completed/TASK-0707,

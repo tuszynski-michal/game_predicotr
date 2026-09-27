@@ -6,6 +6,22 @@ last_updated: 2026-09-22
 
 # Virtual geometry schema ownership
 
+## Aktualna geometria uzupełnienia pozycji — TASK-0711
+
+Resolver `pinned_visibility_geometry` jest wspólny dla odczytowego preview
+i write-through kolejki symboli. Dla virtual wybiera dokładnie rewizję
+wskazaną przez `recognized_boards.source_geometry_revision_id`, sprawdza
+checksumę geometrii, źródło, jego SHA/wymiary oraz slot i numer sekwencji.
+Nie wybiera najnowszej globalnie rewizji i nie używa starej kopii quada
+z recognized board. Dla legacy po ręcznej korekcie wybiera geometry payload
+bieżącego `image_board_geometry_revisions`; przed korektą geometrię planszy.
+Niezgodność pochodzenia zatrzymuje operację bez zgadywania widoczności.
+
+Preview działa także przed migracją 0126: historyczne `source_visibility`
+odczytywane jako nieznane nie jest podstawą oceny. Klasyfikacja wymaga
+rzeczywistych bajtów źródła zgodnych z SHA, rozmiaru po EXIF oraz przecięcia
+aktualnego wieloboku z obrazem. Nie są tworzone ani renderowane nowe piksele.
+
 ## Niezależny odbiór acceptance shared shape v2 — TASK-0610
 
 Lokalny evaluator G08 jest jedynym właścicielem odczytu acceptance i nie ma

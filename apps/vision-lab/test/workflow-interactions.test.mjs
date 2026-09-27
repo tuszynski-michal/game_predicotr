@@ -43,7 +43,7 @@ registerHooks({
         shortCircuit: true,
         source:
           'export const listRuns = (...args) => globalThis.labApi.runs?.(...args) ?? Promise.resolve({runs: [], total: 0});' +
-          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = (...args) => globalThis.labApi.detect?.(...args) ?? Promise.resolve({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => []; export const symbolLabels = (...args) => globalThis.labApi.symbolLabels(...args); export const symbolDictionaries = (...args) => globalThis.labApi.symbolDictionaries(...args); export const symbolDictionary = (...args) => globalThis.labApi.symbolDictionary(...args); export const symbolCrop = (...args) => globalThis.labApi.symbolCrop(...args); export const writeSymbol = (...args) => globalThis.labApi.writeSymbol(...args); export const backupSymbols = (...args) => globalThis.labApi.backupSymbols(...args);',
+          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = (...args) => globalThis.labApi.detect?.(...args) ?? Promise.resolve({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => []; export const symbolLabels = (...args) => globalThis.labApi.symbolLabels(...args); export const symbolDictionaries = (...args) => globalThis.labApi.symbolDictionaries(...args); export const symbolDictionary = (...args) => globalThis.labApi.symbolDictionary(...args); export const symbolBoard = (...args) => globalThis.labApi.symbolBoard(...args); export const symbolCrop = (...args) => globalThis.labApi.symbolCrop(...args); export const writeSymbol = (...args) => globalThis.labApi.writeSymbol(...args); export const backupSymbols = (...args) => globalThis.labApi.backupSymbols(...args);',
       };
     if (/\.(tsx|ts)$/.test(url))
       return {
@@ -65,6 +65,8 @@ const { GeometryEditor } =
 const { QuickReview } = await import('../src/components/quick-review.tsx');
 const { SymbolLabelEditor } =
   await import('../src/components/symbol-label-editor.tsx');
+const { SymbolBoardEditor } =
+  await import('../src/components/symbol-board-editor.tsx');
 const { quickReviewQueue } = await import('../src/lib/quick-review.ts');
 const { AnnotationProvider, useAnnotations } =
   await import('../src/components/annotation-context.tsx');
@@ -73,6 +75,161 @@ const { default: NextLink } = await import('next/link');
 const { ToastProvider, useToast } =
   await import('../../../packages/ui/src/toasts.tsx');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+test('whole-board component requires all images, preserves selection after reload and rejects late image events', async () => {
+  const requests = [],
+    errors = [];
+  const board = {
+    kind: 'lab_board',
+    revision: 2,
+    topology: { columns: 5, rows: 3 },
+    dictionary: {
+      version: 1,
+      digest: 'dict',
+      entries: [{ id: 'a', display_name: 'Wiśnia' }],
+    },
+    width: 500,
+    height: 300,
+    board_png_base64: 'board',
+    nodes: Array.from({ length: 24 }, (_, i) => ({
+      x: (i % 6) * 100,
+      y: Math.floor(i / 6) * 100,
+    })),
+    cells: Array.from({ length: 15 }, (_, i) => ({
+      binding: { cell_index: i, crop_id: `crop${i}` },
+      png_base64: `cell${i}`,
+      current: null,
+    })),
+  };
+  globalThis.labApi = { symbolBoard: async () => structuredClone(board) };
+  const props = {
+    game: 'g',
+    sources: [{ id: 's', game_id: 'g', filename: 'source' }],
+    annotations: {
+      revision: 1,
+      annotations: {
+        's:0': {
+          source_id: 's',
+          board_index: 0,
+          revision: 1,
+          full_approved: true,
+          presence: 'present',
+        },
+      },
+    },
+    revision: 2,
+    readVersion: 0,
+    disabled: false,
+    onBusy: () => {},
+    onError: (e) => errors.push(e),
+    onSubmit: async (body) => requests.push(body),
+  };
+  let root;
+  await act(async () => {
+    root = create(React.createElement(SymbolBoardEditor, props));
+  });
+  try {
+    await act(async () => {
+      root.root
+        .findAllByType('select')[0]
+        .props.onChange({ target: { value: 's' } });
+    });
+    const selects = () =>
+      root.root
+        .findAllByType('select')
+        .filter((s) => s.props['aria-label']?.startsWith('Symbol pola'));
+    assert.equal(selects().length, 15);
+    assert.equal(root.root.findAllByType('img').length, 16);
+    const numbers = root.root.findAllByType('text');
+    assert.equal(numbers.length, 15);
+    for (const number of numbers) {
+      assert.equal((number.props.style.fontSize * 640) / board.width, 14);
+      assert.equal((number.props.style.strokeWidth * 640) / board.width, 3);
+    }
+    assert.equal(numbers[0].props.x, 50);
+    assert.equal(numbers[0].props.y, 50);
+    assert.equal(requests.length, 0);
+    for (let i = 0; i < 15; i++)
+      await act(async () =>
+        selects()[i].props.onChange({ target: { value: 'class:a' } }),
+      );
+    assert.equal(button(root, 'Zapisz wszystkie 15 pól').props.disabled, true);
+    const oldImages = root.root.findAllByType('img').map((img) => img.props);
+    await act(async () => {
+      for (const img of oldImages) img.onLoad();
+    });
+    assert.equal(button(root, 'Zapisz wszystkie 15 pól').props.disabled, false);
+    await act(async () =>
+      button(root, 'Zapisz wszystkie 15 pól').props.onClick(),
+    );
+    assert.equal(requests.length, 1);
+    assert.equal(requests[0].cells.length, 15);
+    await act(async () =>
+      button(root, 'Odczytaj planszę ponownie').props.onClick(),
+    );
+    assert.equal(root.root.findAllByType('select')[0].props.value, 's');
+    await act(async () => {
+      for (const img of oldImages) img.onLoad();
+      oldImages[0].onError();
+    });
+    assert.equal(errors.length, 0);
+    for (let i = 0; i < 15; i++)
+      await act(async () =>
+        selects()[i].props.onChange({ target: { value: 'state:unknown' } }),
+      );
+    assert.equal(button(root, 'Zapisz wszystkie 15 pól').props.disabled, true);
+    await act(async () => {
+      for (const img of root.root.findAllByType('img')) img.props.onLoad();
+    });
+    assert.equal(button(root, 'Zapisz wszystkie 15 pól').props.disabled, false);
+    await act(async () => root.root.findAllByType('img')[0].props.onError());
+    assert.equal(errors.length, 1);
+    assert.equal(button(root, 'Zapisz wszystkie 15 pól').props.disabled, true);
+    assert.doesNotMatch(text(root.toJSON()), /Nie udało się wczytać obrazu/);
+    let guardedReads = 0;
+    globalThis.labApi.symbolBoard = async () => {
+      guardedReads++;
+      throw Error('HOLDOUT_NOT_RELEASED');
+    };
+    await act(async () =>
+      root.update(
+        React.createElement(SymbolBoardEditor, {
+          ...props,
+          annotations: { ...props.annotations, revision: 2 },
+        }),
+      ),
+    );
+    assert.equal(guardedReads, 1);
+    assert.equal(root.root.findAllByType('img').length, 0);
+    assert.match(errors.at(-1), /HOLDOUT_NOT_RELEASED/);
+    globalThis.labApi.symbolBoard = async () => structuredClone(board);
+    await act(async () =>
+      root.update(
+        React.createElement(SymbolBoardEditor, { ...props, readVersion: 1 }),
+      ),
+    );
+    assert.equal(root.root.findAllByType('img').length, 16);
+    await act(async () =>
+      root.update(
+        React.createElement(SymbolBoardEditor, {
+          ...props,
+          readVersion: 1,
+          annotations: { revision: 3, annotations: {} },
+        }),
+      ),
+    );
+    assert.equal(root.root.findAllByType('img').length, 0);
+    assert.match(text(root.toJSON()), /Brak zapisanej pełnej geometrii/);
+    await act(async () =>
+      root.update(
+        React.createElement(SymbolBoardEditor, { ...props, disabled: true }),
+      ),
+    );
+    assert.equal(root.root.findByType('fieldset').props.disabled, true);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
 globalThis.window = {
   setTimeout,
   clearTimeout,

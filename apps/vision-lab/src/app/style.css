@@ -377,6 +377,73 @@ textarea {
   display: inline-block;
   margin: 6px 20px 6px 0;
 }
+.symbol-board-content {
+  max-width: 640px;
+}
+.symbol-board-picture {
+  position: relative;
+  width: 100%;
+}
+.symbol-board-picture > img {
+  display: block;
+  width: 100%;
+}
+.symbol-board-picture > svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.symbol-board-picture polyline {
+  fill: none;
+  stroke: #55e8ff;
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+.symbol-board-picture text {
+  fill: white;
+  stroke: #111827;
+  paint-order: stroke;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  font-weight: 700;
+}
+.symbol-board-cells {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+.symbol-panel .symbol-board-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 4px;
+  margin: 0;
+  max-width: 100%;
+  font-size: 12px;
+}
+.symbol-board-cell img {
+  width: 100%;
+  max-width: 96px;
+  align-self: center;
+}
+.symbol-panel .symbol-board-cell select {
+  width: 100%;
+  min-height: 34px;
+  height: 34px;
+  padding: 3px;
+  font-size: 13px;
+}
+@media (pointer: coarse), (max-width: 600px) {
+  .symbol-panel .symbol-board-cell select {
+    min-height: 44px;
+    height: 44px;
+  }
+  .symbol-board-cells {
+    gap: 3px;
+  }
+}
 @media (max-width: 850px) {
   .editor-workspace {
     grid-template-columns: minmax(0, 1fr);

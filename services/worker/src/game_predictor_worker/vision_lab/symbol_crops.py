@@ -2,6 +2,7 @@
 
 import hashlib
 import io
+import math
 
 import cv2
 import numpy as np
@@ -14,7 +15,7 @@ from .catalog import Catalog
 from .contracts import Board, Point
 from .geometry import cell_quads, crop_cell
 from .photo_review import photo_accepted
-from .symbol_contracts import CropBinding, LabCropRequest
+from .symbol_contracts import CropBinding, LabBoardRequest, LabCropRequest
 from .symbol_labels import guard_pixels
 
 
@@ -29,7 +30,7 @@ def render_spec() -> dict[str, str]:
 
 
 def geometry_for(
-    state: AnnotationState, catalog: Catalog, request: LabCropRequest
+    state: AnnotationState, catalog: Catalog, request: LabCropRequest | LabBoardRequest
 ) -> GeometryAnnotation:
     source = catalog.sources[request.source_id]
     annotation = state.annotations.get(annotation_key(source.id, request.board_index))
@@ -44,7 +45,10 @@ def geometry_for(
         or any(node.provenance != "human" for node in annotation.nodes)
     ):
         raise ValueError("SYMBOL_GEOMETRY_STALE")
-    if request.cell_index >= annotation.topology.columns * annotation.topology.rows:
+    if (
+        isinstance(request, LabCropRequest)
+        and request.cell_index >= annotation.topology.columns * annotation.topology.rows
+    ):
         raise ValueError("SYMBOL_CELL_INVALID")
     return annotation
 
@@ -61,6 +65,19 @@ def render_crop(
     board = Board(position_index=annotation.board_index, status="complete", nodes=annotation.nodes)
     quad = cell_quads(board, annotation.topology)[request.cell_index]
     rgb = np.asarray(catalog.image(catalog.sources[request.source_id]), dtype=np.uint8)
+    return render_cell(rgb, quad, annotation, catalog, snapshot_id, catalog_digest, request)
+
+
+def render_cell(
+    rgb: np.ndarray,
+    quad: np.ndarray,
+    annotation: GeometryAnnotation,
+    catalog: Catalog,
+    snapshot_id: str,
+    catalog_digest: str,
+    request: LabCropRequest,
+) -> tuple[CropBinding, bytes]:
+    """Shared exact renderer: board and single-cell paths produce identical bytes."""
     crop = crop_cell(rgb, quad)
     if crop is None:
         raise ValueError("SYMBOL_CROP_OUTSIDE_SOURCE")
@@ -91,3 +108,62 @@ def render_crop(
     )
     binding.crop_id = digest(binding.model_dump(exclude={"crop_id"}))
     return binding, data
+
+
+def render_board(
+    state: AnnotationState,
+    catalog: Catalog,
+    snapshot_id: str,
+    catalog_digest: str,
+    request: LabBoardRequest,
+) -> tuple[GeometryAnnotation, np.ndarray, list[tuple[CropBinding, bytes]]]:
+    guard_pixels(state, catalog, request.source_id)
+    annotation = geometry_for(state, catalog, request)
+    rgb = np.asarray(catalog.image(catalog.sources[request.source_id]), dtype=np.uint8)
+    board = Board(position_index=annotation.board_index, status="complete", nodes=annotation.nodes)
+    cells = [
+        render_cell(
+            rgb,
+            quad,
+            annotation,
+            catalog,
+            snapshot_id,
+            catalog_digest,
+            LabCropRequest(
+                kind="lab_cell",
+                source_id=request.source_id,
+                board_index=request.board_index,
+                cell_index=index,
+                expected_geometry_revision=request.expected_geometry_revision,
+            ),
+        )
+        for index, quad in enumerate(cell_quads(board, annotation.topology))
+    ]
+    return annotation, rgb, cells
+
+
+def board_context(rgb: np.ndarray, nodes: list[Point]) -> tuple[bytes, int, int, list[Point]]:
+    """Bounded source-perspective context, retaining every actual grid node."""
+    height, width = rgb.shape[:2]
+    margin = 8
+    left = max(0, math.floor(min(n.x for n in nodes)) - margin)
+    top = max(0, math.floor(min(n.y for n in nodes)) - margin)
+    right = min(width, math.ceil(max(n.x for n in nodes)) + margin + 1)
+    bottom = min(height, math.ceil(max(n.y for n in nodes)) + margin + 1)
+    image = Image.fromarray(rgb[top:bottom, left:right])
+    image.thumbnail((960, 960), Image.Resampling.LANCZOS)
+    preview_width, preview_height = image.size
+    scaled = [
+        Point(
+            x=(n.x - left) * preview_width / (right - left),
+            y=(n.y - top) * preview_height / (bottom - top),
+            provenance=n.provenance,
+        )
+        for n in nodes
+    ]
+    output = io.BytesIO()
+    image.save(output, format="PNG", compress_level=6)
+    data = output.getvalue()
+    if len(data) > 4 * 1024 * 1024:
+        raise ValueError("SYMBOL_BOARD_PREVIEW_TOO_LARGE")
+    return data, preview_width, preview_height, scaled

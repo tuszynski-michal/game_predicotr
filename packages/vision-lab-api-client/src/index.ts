@@ -41,6 +41,8 @@ export type {
   DictionaryView,
   DictionaryEntry,
   LabCropPreview,
+  LabBoardPreview,
+  LabelBoardDecide,
   DbCropPreview,
   SymbolResult,
 } from './generated/types.gen';
@@ -109,6 +111,14 @@ export async function symbolDictionary(gameId: string, version: number) {
 }
 export async function symbolCrop(body: SymbolCropRequest) {
   return (await previewSymbolCrop({ baseUrl, body, throwOnError: true })).data;
+}
+export async function symbolBoard(
+  body: Extract<SymbolCropRequest, { kind: 'lab_board' }>,
+) {
+  const preview = await symbolCrop(body);
+  if (preview.kind !== 'lab_board')
+    throw new Error('SYMBOL_BOARD_RESPONSE_INVALID');
+  return preview;
 }
 export async function writeSymbol(body: SymbolRequest) {
   return (await saveSymbolDecision({ baseUrl, body, throwOnError: true })).data;

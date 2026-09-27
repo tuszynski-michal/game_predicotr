@@ -1,10 +1,28 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-27
+last_updated: 2026-09-28
 ---
 
 # Current State
+
+### TASK-0716 — etykietowanie całej planszy
+
+- Operator zamówił planszę z siatką i 15 kompaktowymi wyborami symboli
+  zamiast pojedynczej komórki. Założenie: jeden jawny atomowy zapis kompletu,
+  odtworzenie aktualnych etykiet, bez autosave i zmian danych podczas QA.
+- D-459 i task opisują zgodne rozszerzenie istniejących tras; poinformowano
+  operatora przed zmianą API. Wykonawca i niezależny audytor Sol medium:
+  pre-code i końcowy audit PASS, bez otwartych P0–P2.
+- Cała plansza z siatką, 9/15 cropów i małych selectów; jeden atomowy zapis.
+  Testy wykonawcy: backend 61, UI 47, klient 10 PASS; lint, scoped typy,
+  OpenAPI/generated i build PASS. Mypy z pełnym śledzeniem importów ma
+  wcześniejsze błędy poza pionem; scoped --follow-imports=silent PASS.
+- Odbiór na żywych danych bez zapisu: 15 pól, obrazy wczytane, selecty 34/44 px,
+  brak poziomego przepełnienia przy 390 px. API/UI odświeżone; brak treningu
+  i zmian oznaczeń operatora. Fizyczny Android i restart Windows nietestowane.
+- Task 0716 done w completed; końcowe QA i review rozmiaru numerów PASS.
+  Osobny commit po kontroli indeksu. API launcher PID 24616, UI PID 11488.
 
 ### TASK-0715 — słownik laboratorium z samą nazwą
 

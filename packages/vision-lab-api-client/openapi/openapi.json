@@ -287,6 +287,70 @@
         "title": "Board",
         "type": "object"
       },
+      "BoardCellDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "unknown",
+              "unreadable",
+              "grid_issue"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/CropBinding-Input"
+          },
+          "symbol_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol Id"
+          }
+        },
+        "required": [
+          "binding",
+          "action"
+        ],
+        "title": "BoardCellDecision",
+        "type": "object"
+      },
+      "BoardCellPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "binding": {
+            "$ref": "#/components/schemas/CropBinding-Output"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SymbolRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "png_base64": {
+            "title": "Png Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "binding",
+          "png_base64",
+          "current"
+        ],
+        "title": "BoardCellPreview",
+        "type": "object"
+      },
       "BoardReviewIssue": {
         "additionalProperties": false,
         "properties": {
@@ -1544,6 +1608,112 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "LabBoardPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "board_png_base64": {
+            "title": "Board Png Base64",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/BoardCellPreview"
+            },
+            "maxItems": 15,
+            "minItems": 9,
+            "title": "Cells",
+            "type": "array"
+          },
+          "dictionary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DictionaryView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "height": {
+            "maximum": 960.0,
+            "minimum": 1.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "lab_board",
+            "default": "lab_board",
+            "title": "Kind",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Output"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Output"
+          },
+          "width": {
+            "maximum": 960.0,
+            "minimum": 1.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "dictionary",
+          "topology",
+          "board_png_base64",
+          "width",
+          "height",
+          "nodes",
+          "cells"
+        ],
+        "title": "LabBoardPreview",
+        "type": "object"
+      },
+      "LabBoardRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "expected_geometry_revision": {
+            "minimum": 1.0,
+            "title": "Expected Geometry Revision",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "lab_board",
+            "title": "Kind",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "source_id",
+          "board_index",
+          "expected_geometry_revision"
+        ],
+        "title": "LabBoardRequest",
+        "type": "object"
+      },
       "LabCropPreview": {
         "additionalProperties": false,
         "properties": {
@@ -1607,6 +1777,62 @@
           "expected_geometry_revision"
         ],
         "title": "LabCropRequest",
+        "type": "object"
+      },
+      "LabelBoardDecide": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/BoardCellDecision"
+            },
+            "maxItems": 15,
+            "minItems": 9,
+            "title": "Cells",
+            "type": "array"
+          },
+          "dictionary_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Dictionary Digest",
+            "type": "string"
+          },
+          "dictionary_version": {
+            "minimum": 1.0,
+            "title": "Dictionary Version",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "op": {
+            "const": "label_board_decide",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "dictionary_version",
+          "dictionary_digest",
+          "cells"
+        ],
+        "title": "LabelBoardDecide",
         "type": "object"
       },
       "LabelDecide": {
@@ -2751,6 +2977,14 @@
       "SymbolResult": {
         "additionalProperties": false,
         "properties": {
+          "decision_ids": {
+            "items": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "title": "Decision Ids",
+            "type": "array"
+          },
           "label_valid": {
             "default": false,
             "title": "Label Valid",
@@ -2802,7 +3036,8 @@
           "revision",
           "request_id",
           "result_id",
-          "replayed"
+          "replayed",
+          "decision_ids"
         ],
         "title": "SymbolResult",
         "type": "object"
@@ -3754,6 +3989,7 @@
                 "discriminator": {
                   "mapping": {
                     "db_approved": "#/components/schemas/DbCropRequest",
+                    "lab_board": "#/components/schemas/LabBoardRequest",
                     "lab_cell": "#/components/schemas/LabCropRequest"
                   },
                   "propertyName": "kind"
@@ -3764,6 +4000,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/DbCropRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabBoardRequest"
                   }
                 ],
                 "title": "Body"
@@ -3783,6 +4022,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/DbCropPreview"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LabBoardPreview"
                     }
                   ],
                   "title": "Response Preview Symbol Crop"
@@ -4048,6 +4290,7 @@
                   "mapping": {
                     "dictionary_approve": "#/components/schemas/DictionaryApprove",
                     "dictionary_draft": "#/components/schemas/DictionaryDraft",
+                    "label_board_decide": "#/components/schemas/LabelBoardDecide",
                     "label_decide": "#/components/schemas/LabelDecide",
                     "label_withdraw": "#/components/schemas/LabelWithdraw"
                   },
@@ -4065,6 +4308,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/LabelWithdraw"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabelBoardDecide"
                   }
                 ],
                 "title": "Body"

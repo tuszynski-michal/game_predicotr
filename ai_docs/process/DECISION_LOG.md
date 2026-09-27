@@ -1,10 +1,26 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-27
+last_updated: 2026-09-28
 ---
 
 # Decision Log
+
+## D-459 — atomowe etykietowanie całej planszy w laboratorium
+
+- **Status:** accepted, 2026-09-27; techniczna realizacja żądania operatora,
+  aby wybierać wszystkie 15 symboli w jednym widoku planszy z siatką.
+- **Decision:** addytywne warianty lab_board w POST /symbol-crops i
+  label_board_decide w POST /symbols. Jeden spójny podgląd pod blokadami,
+  wszystkie dokładne bindingi sprawdzone przed publikacją, jeden atomowy
+  zapis decyzji wszystkich komórek, jedna rewizja i receipt. Poprzednie
+  requesty pozostają zgodne. Szczegóły i pre-code audit w TASK-0716.
+- **UI:** plansza z rzeczywistymi liniami siatki, poniżej cropy i kompaktowe
+  selecty row-major; jeden jawny zapis kompletu, bez autopredykcji i autosave.
+  Istniejące aktualne wybory odczytywane, nieaktualne wymagają ponownej decyzji.
+- **Boundary:** zachowane T06a, historia i pojedyncze decision_id per komórka,
+  role/holdouty, geometrie i bramki treningu. Zgoda nie obejmuje etykietowania
+  za operatora, importu starych etykiet ani treningu. Bez nowego serwera/DB.
 
 ## D-458 — rozdzielenie narzędzi T06 od kwalifikacji zbioru symboli
 

@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — wymagania
 status: accepted
-last_updated: 2026-09-27
+last_updated: 2026-09-28
 ---
 
 # Laboratorium wizji
@@ -214,3 +214,14 @@ edycji. Poprawka nazwy zachowuje tożsamość wpisu. Inny rodzaj symbolu należy
 dodać jako nową pozycję, nie zmieniać znaczenia istniejącej. Zapis nowej wersji
 i jej jawne zatwierdzenie pozostają oddzielnymi akcjami; pusta nazwa blokuje
 zapis i jest zgłaszana toastem. Istniejące słowniki nie wymagają migracji.
+
+Etykietowanie symboli pokazuje całą zapisaną planszę z jej rzeczywistą siatką
+i numerami pól. Pod nią są dokładne cropy oraz kompaktowe selecty w układzie
+5 × 3 (3 × 3 dla tej topologii), w kolejności od lewej do prawej, rzędami.
+Operator ustala wszystkie 15 albo 9 wyborów i zapisuje komplet jednym
+przyciskiem. Oprócz klas słownika może jawnie wybrać nieznany symbol,
+nieczytelność albo błąd siatki; brak wyboru nie staje się żadnym z tych stanów.
+Aktualne etykiety są odtwarzane, nieaktualne wymagają ponownego wyboru.
+Zapis całej planszy jest atomowy i idempotentny; błąd dowolnego pola nie
+publikuje części decyzji. Nie ma autosave ani automatycznego przejścia dalej.
+Źródła chronione nie mogą ujawnić pikseli również w pełnym podglądzie planszy.

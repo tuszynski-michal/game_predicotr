@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-09-27
+last_updated: 2026-09-28
 ---
 
 # Architektura laboratorium wizji
@@ -326,3 +326,13 @@ określa `ai_docs/delivery/VISION_LAB_SYMBOL_LABELS_CONTRACT.md`.
 Poprawna etykieta nie jest automatycznie próbką dopuszczoną do treningu.
 T06b zachowuje bramki pochodzenia, ról i podziału symboli; D-456 ich nie
 zastępuje. Holdout sprawdzany jest przed udostępnieniem pikseli.
+
+TASK-0716/D-459 rozszerza istniejące trasy o podgląd lab_board i atomowe
+label_board_decide. Podgląd tworzy jeden ograniczony kadr planszy z dokładnie
+przeliczonymi węzłami oraz 9/15 niezmienionych cropów RGB96, z jednego odczytu
+obrazu po kontrolach roli/holdoutu. Wspólny snapshot obejmuje rewizję symboli,
+słownik i aktualne decyzje. Batch ponownie sprawdza wszystkie bindingi pod
+blokadami geometry-first; publikuje jeden state z jedną rewizją i receipt,
+zachowując odrębne decision_id i historię każdej komórki. Nie wywołuje mutate
+rekurencyjnie. Stare requesty i receipts pozostają zgodne; szczegółowy kontrakt
+i testy zapisuje TASK-0716, bez zmiany bramek dopuszczenia danych do treningu.

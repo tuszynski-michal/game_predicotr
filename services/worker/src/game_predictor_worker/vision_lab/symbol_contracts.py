@@ -85,8 +85,48 @@ class LabelWithdraw(SymbolMutation):
     decision_id: Sha
 
 
+class BoardCellDecision(Contract):
+    binding: CropBinding
+    action: Literal["approve", "unknown", "unreadable", "grid_issue"]
+    symbol_id: str | None = None
+
+    @model_validator(mode="after")
+    def valid_class(self) -> "BoardCellDecision":
+        if (self.action == "approve") != (self.symbol_id is not None):
+            raise ValueError("SYMBOL_ACTION_CLASS_INVALID")
+        return self
+
+
+class LabelBoardDecide(SymbolMutation):
+    op: Literal["label_board_decide"]
+    dictionary_version: int = Field(ge=1)
+    dictionary_digest: Sha
+    cells: list[BoardCellDecision] = Field(min_length=9, max_length=15)
+
+    @model_validator(mode="after")
+    def complete_board(self) -> "LabelBoardDecide":
+        first = self.cells[0].binding
+        count = first.topology.columns * first.topology.rows
+        if [c.binding.cell_index for c in self.cells] != list(range(count)):
+            raise ValueError("SYMBOL_BOARD_CELLS_INVALID")
+        fields = (
+            "source_id",
+            "game_id",
+            "board_index",
+            "topology",
+            "geometry_revision",
+            "geometry_digest",
+        )
+        if any(
+            any(getattr(c.binding, key) != getattr(first, key) for key in fields)
+            for c in self.cells
+        ):
+            raise ValueError("SYMBOL_BOARD_BINDING_MIXED")
+        return self
+
+
 SymbolRequest = Annotated[
-    DictionaryDraft | DictionaryApprove | LabelDecide | LabelWithdraw,
+    DictionaryDraft | DictionaryApprove | LabelDecide | LabelWithdraw | LabelBoardDecide,
     Field(discriminator="op"),
 ]
 
@@ -104,7 +144,16 @@ class DbCropRequest(Contract):
     sample_id: Sha
 
 
-CropRequest = Annotated[LabCropRequest | DbCropRequest, Field(discriminator="kind")]
+class LabBoardRequest(Contract):
+    kind: Literal["lab_board"]
+    source_id: str
+    board_index: int = Field(ge=0, le=100)
+    expected_geometry_revision: int = Field(ge=1)
+
+
+CropRequest = Annotated[
+    LabCropRequest | DbCropRequest | LabBoardRequest, Field(discriminator="kind")
+]
 
 
 class LabelValidity(Contract):
@@ -119,6 +168,7 @@ class SymbolResult(LabelValidity):
     request_id: str
     result_id: str
     replayed: bool = False
+    decision_ids: list[Sha] = Field(default_factory=list)
 
 
 class SymbolRow(LabelValidity):
@@ -163,6 +213,24 @@ class LabCropPreview(Contract):
     kind: Literal["lab_cell"] = "lab_cell"
     binding: CropBinding
     png_base64: str
+
+
+class BoardCellPreview(Contract):
+    binding: CropBinding
+    png_base64: str
+    current: SymbolRow | None = None
+
+
+class LabBoardPreview(Contract):
+    kind: Literal["lab_board"] = "lab_board"
+    revision: int
+    dictionary: DictionaryView | None = None
+    topology: Topology
+    board_png_base64: str
+    width: int = Field(ge=1, le=960)
+    height: int = Field(ge=1, le=960)
+    nodes: list[Point]
+    cells: list[BoardCellPreview] = Field(min_length=9, max_length=15)
 
 
 class DbCropPreview(Contract):

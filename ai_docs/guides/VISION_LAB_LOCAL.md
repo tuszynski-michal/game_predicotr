@@ -1,7 +1,7 @@
 ---
 title: Lokalne laboratorium wizji — galeria
 status: active
-last_updated: 2026-09-27
+last_updated: 2026-09-28
 ---
 
 # Laboratorium wizji — galeria i anotacje
@@ -443,7 +443,7 @@ geometrii działa jak wcześniej. Nie wskazuj katalogu snapshotu, anotacji,
 manifestów lub runów ani ich nadrzędnego katalogu.
 
 Kolejność pracy: utwórz słownik wybranej gry, zapisz wersję, zatwierdź
-słownik, następnie oceń dokładny crop symbolu. Sam zapis wersji słownika
+słownik, następnie oceń symbole na zapisanej planszy. Sam zapis wersji słownika
 nie zatwierdza jej ani obrazów. Nieznany symbol, nieczytelny obraz i błędna
 siatka to osobne stany review, nie klasy treningowe. Zmiana zatwierdzonego
 słownika lub geometrii wymaga ponownej zgody na zależne etykiety.
@@ -452,6 +452,16 @@ W słowniku kliknij „Dodaj klasę” i wpisz tylko nazwę, np. „Cytryna”.
 ID i kod powstają automatycznie. Poprawienie literówki zachowuje tożsamość
 symbolu; inny rodzaj symbolu dodaj jako nową pozycję. Istniejące wpisy nie
 wymagają ponownego tworzenia. Zapis i zatwierdzenie wersji są nadal osobne.
+
+Sekcja „Symbole całej planszy” zastępuje wybór pojedynczej komórki. Wybierz
+zdjęcie i zapisaną pełną planszę. U góry zobaczysz planszę z siatką, poniżej
+15 dokładnych cropów i małe selecty ułożone 5 × 3. Numery czytaj rzędami,
+od lewej do prawej. Dla geometrii 3 × 3 panel pokazuje 9 pól.
+Ustaw symbol albo jawny stan dla każdego pola, następnie zapisz całą planszę.
+Aktualne zapisane wybory są wczytywane; możesz zmienić tylko błędne.
+Zapis utrwala komplet atomowo. Przy niepotwierdzonym wyniku użyj ponowienia
+identycznego zapisu; nie zmieniaj wyborów przed rozstrzygnięciem żądania.
+Zmiana zdjęcia lub planszy poza zapisem porzuca niezapisane wybory, bez autosave.
 
 Poprawna etykieta nie oznacza jeszcze dopuszczenia do treningu. T06b wymaga
 osobnej kontroli pochodzenia i podziału symboli. Historyczne 777 oraz gry

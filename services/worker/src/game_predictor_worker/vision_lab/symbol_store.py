@@ -14,6 +14,8 @@ from .annotation_contracts import AnnotationState, BackupResult
 from .annotations import AnnotationStore, digest, exclusive, read_checked, write_atomic
 from .snapshot import canonical, reject_links, safe_file
 from .symbol_contracts import (
+    BoardCellDecision,
+    BoardCellPreview,
     CropBinding,
     CropRequest,
     DbCropPreview,
@@ -22,8 +24,11 @@ from .symbol_contracts import (
     DictionaryDraft,
     DictionaryPage,
     DictionaryView,
+    LabBoardPreview,
+    LabBoardRequest,
     LabCropPreview,
     LabCropRequest,
+    LabelBoardDecide,
     LabelDecide,
     LabelWithdraw,
     SymbolPage,
@@ -31,7 +36,7 @@ from .symbol_contracts import (
     SymbolResult,
     SymbolRow,
 )
-from .symbol_crops import geometry_for, render_crop, render_spec
+from .symbol_crops import board_context, geometry_for, render_board, render_crop, render_spec
 from .symbol_labels import holdout_reason, qualify_symbol_sample
 from .symbol_snapshot import SymbolSnapshot
 
@@ -331,10 +336,46 @@ class SymbolLabelStore:
                 availability=self.snapshot.availability,
             )
 
-    def preview(self, request: CropRequest) -> LabCropPreview | DbCropPreview:
-        with self.locked() as (_payload, state, _geometry):
+    def preview(self, request: CropRequest) -> LabCropPreview | DbCropPreview | LabBoardPreview:
+        with self.locked() as (payload, state, _geometry):
             if isinstance(request, DbCropRequest):
                 return self.snapshot.preview(request.sample_id, state)
+            if isinstance(request, LabBoardRequest):
+                annotation, rgb, rendered = render_board(
+                    state, self.catalog, self.snapshot.id, self.annotations.snapshot_id, request
+                )
+                data, width, height, nodes = board_context(rgb, annotation.nodes)
+                current = {}
+                for decision in payload["decisions"]:
+                    b = decision["binding"]
+                    if (
+                        b["source_id"] == request.source_id
+                        and b["board_index"] == request.board_index
+                    ):
+                        current[b["cell_index"]] = decision
+                dictionary = next(
+                    (d for d in self.dictionaries(payload, rendered[0][0].game_id) if d.active),
+                    None,
+                )
+                return LabBoardPreview(
+                    revision=payload["revision"],
+                    dictionary=dictionary,
+                    topology=annotation.topology,
+                    board_png_base64=base64.b64encode(data).decode(),
+                    width=width,
+                    height=height,
+                    nodes=nodes,
+                    cells=[
+                        BoardCellPreview(
+                            binding=b,
+                            png_base64=base64.b64encode(png).decode(),
+                            current=self.local_row(current[b.cell_index], payload, state)
+                            if b.cell_index in current
+                            else None,
+                        )
+                        for b, png in rendered
+                    ],
+                )
             binding, data = render_crop(
                 state, self.catalog, self.snapshot.id, self.annotations.snapshot_id, request
             )
@@ -358,6 +399,7 @@ class SymbolLabelStore:
                 raise ValueError("SYMBOL_REVISION_CONFLICT")
             now = datetime.now(UTC).isoformat()
             result_id = fingerprint
+            decision_ids: list[str] = []
             if isinstance(request, DictionaryDraft):
                 if request.game_id not in {s.game_id for s in self.catalog.sources.values()}:
                     raise KeyError("SYMBOL_GAME_NOT_FOUND")
@@ -411,8 +453,19 @@ class SymbolLabelStore:
                         "request_id": request.request_id,
                     }
                 )
-            elif isinstance(request, LabelDecide):
-                b = request.binding
+            elif isinstance(request, LabelDecide | LabelBoardDecide):
+                cells = (
+                    request.cells
+                    if isinstance(request, LabelBoardDecide)
+                    else [
+                        BoardCellDecision(
+                            binding=request.binding,
+                            action=request.action,
+                            symbol_id=request.symbol_id,
+                        )
+                    ]
+                )
+                b = cells[0].binding
                 dictionary = next(
                     (d for d in self.dictionaries(payload, b.game_id) if d.active), None
                 )
@@ -422,35 +475,65 @@ class SymbolLabelStore:
                     or dictionary.digest != request.dictionary_digest
                 ):
                     raise ValueError("SYMBOL_DICTIONARY_STALE")
-                if request.action == "approve" and request.symbol_id not in {
-                    e.id for e in dictionary.entries or []
-                }:
+                if any(
+                    c.action == "approve"
+                    and c.symbol_id not in {e.id for e in dictionary.entries or []}
+                    for c in cells
+                ):
                     raise ValueError("SYMBOL_CLASS_UNKNOWN")
-                actual, data = render_crop(
-                    state,
-                    self.catalog,
-                    self.snapshot.id,
-                    self.annotations.snapshot_id,
-                    LabCropRequest(
-                        kind="lab_cell",
-                        source_id=b.source_id,
-                        board_index=b.board_index,
-                        cell_index=b.cell_index,
-                        expected_geometry_revision=b.geometry_revision,
-                    ),
-                )
-                if actual != b:
+                if isinstance(request, LabelBoardDecide):
+                    # Revalidate model instances too; callers may have mutated one after parsing.
+                    LabelBoardDecide.model_validate(request.model_dump())
+                    _, _, rendered = render_board(
+                        state,
+                        self.catalog,
+                        self.snapshot.id,
+                        self.annotations.snapshot_id,
+                        LabBoardRequest(
+                            kind="lab_board",
+                            source_id=b.source_id,
+                            board_index=b.board_index,
+                            expected_geometry_revision=b.geometry_revision,
+                        ),
+                    )
+                    decision_ids = [digest([fingerprint, c.binding.cell_index]) for c in cells]
+                else:
+                    rendered = [
+                        render_crop(
+                            state,
+                            self.catalog,
+                            self.snapshot.id,
+                            self.annotations.snapshot_id,
+                            LabCropRequest(
+                                kind="lab_cell",
+                                source_id=b.source_id,
+                                board_index=b.board_index,
+                                cell_index=b.cell_index,
+                                expected_geometry_revision=b.geometry_revision,
+                            ),
+                        )
+                    ]
+                if any(
+                    actual != cell.binding
+                    for cell, (actual, _) in zip(cells, rendered, strict=True)
+                ):
                     raise ValueError("SYMBOL_CROP_CHANGED")
-                publish_file(self.root / "crops" / f"{b.byte_sha256}.png", data)
-                payload["decisions"].append(
-                    {
-                        **request.model_dump(exclude={"op", "request_id", "expected_revision"}),
-                        "origin": "lab_human_approved",
-                        "decision_id": result_id,
-                        "revision": payload["revision"] + 1,
-                        "decided_at": now,
-                    }
-                )
+                for index, (cell, (actual, data)) in enumerate(zip(cells, rendered, strict=True)):
+                    publish_file(self.root / "crops" / f"{actual.byte_sha256}.png", data)
+                    payload["decisions"].append(
+                        {
+                            "binding": cell.binding.model_dump(),
+                            "action": cell.action,
+                            "symbol_id": cell.symbol_id,
+                            "actor": request.actor,
+                            "dictionary_version": request.dictionary_version,
+                            "dictionary_digest": request.dictionary_digest,
+                            "origin": "lab_human_approved",
+                            "decision_id": decision_ids[index] if decision_ids else result_id,
+                            "revision": payload["revision"] + 1,
+                            "decided_at": now,
+                        }
+                    )
             elif isinstance(request, LabelWithdraw):
                 old = next(
                     (d for d in payload["decisions"] if d["decision_id"] == request.decision_id),
@@ -493,6 +576,8 @@ class SymbolLabelStore:
                 "result_id": result_id,
                 "revision": payload["revision"],
             }
+            if decision_ids:
+                payload["receipts"][request.request_id]["decision_ids"] = decision_ids
             if (
                 len(
                     {
@@ -522,18 +607,24 @@ class SymbolLabelStore:
         revision: int,
         replayed: bool,
     ) -> SymbolResult:
-        decision = next((d for d in payload["decisions"] if d["decision_id"] == result_id), None)
-        validity = self.local_row(decision, payload, state) if decision else None
+        decision_ids = payload["receipts"].get(request_id, {}).get("decision_ids", [])
+        selected_ids = set(decision_ids or [result_id])
+        validities = [
+            self.local_row(d, payload, state)
+            for d in payload["decisions"]
+            if d["decision_id"] in selected_ids
+        ]
         return SymbolResult(
             revision=revision,
             request_id=request_id,
             result_id=result_id,
             replayed=replayed,
-            **(
-                {k: getattr(validity, k) for k in ("label_valid", "reasons", "training_blockers")}
-                if validity
-                else {}
-            ),
+            decision_ids=decision_ids,
+            label_valid=bool(validities) and all(v.label_valid for v in validities),
+            reasons=sorted({reason for v in validities for reason in v.reasons}),
+            training_blockers=sorted({reason for v in validities for reason in v.training_blockers})
+            if validities
+            else ["SYMBOL_SPLIT_NOT_FROZEN"],
         )
 
     def backup(self) -> BackupResult:

@@ -176,6 +176,33 @@ export type BoardOutput = {
 };
 
 /**
+ * BoardCellDecision
+ */
+export type BoardCellDecision = {
+    /**
+     * Action
+     */
+    action: 'approve' | 'unknown' | 'unreadable' | 'grid_issue';
+    binding: CropBindingInput;
+    /**
+     * Symbol Id
+     */
+    symbol_id?: string | null;
+};
+
+/**
+ * BoardCellPreview
+ */
+export type BoardCellPreview = {
+    binding: CropBindingOutput;
+    current: SymbolRow | null;
+    /**
+     * Png Base64
+     */
+    png_base64: string;
+};
+
+/**
  * BoardReviewIssue
  */
 export type BoardReviewIssue = {
@@ -927,6 +954,64 @@ export type HttpValidationError = {
 };
 
 /**
+ * LabBoardPreview
+ */
+export type LabBoardPreview = {
+    /**
+     * Board Png Base64
+     */
+    board_png_base64: string;
+    /**
+     * Cells
+     */
+    cells: Array<BoardCellPreview>;
+    dictionary: DictionaryView | null;
+    /**
+     * Height
+     */
+    height: number;
+    /**
+     * Kind
+     */
+    kind: 'lab_board';
+    /**
+     * Nodes
+     */
+    nodes: Array<PointOutput>;
+    /**
+     * Revision
+     */
+    revision: number;
+    topology: TopologyOutput;
+    /**
+     * Width
+     */
+    width: number;
+};
+
+/**
+ * LabBoardRequest
+ */
+export type LabBoardRequest = {
+    /**
+     * Board Index
+     */
+    board_index: number;
+    /**
+     * Expected Geometry Revision
+     */
+    expected_geometry_revision: number;
+    /**
+     * Kind
+     */
+    kind: 'lab_board';
+    /**
+     * Source Id
+     */
+    source_id: string;
+};
+
+/**
  * LabCropPreview
  */
 export type LabCropPreview = {
@@ -965,6 +1050,40 @@ export type LabCropRequest = {
      * Source Id
      */
     source_id: string;
+};
+
+/**
+ * LabelBoardDecide
+ */
+export type LabelBoardDecide = {
+    /**
+     * Actor
+     */
+    actor?: 'operator';
+    /**
+     * Cells
+     */
+    cells: Array<BoardCellDecision>;
+    /**
+     * Dictionary Digest
+     */
+    dictionary_digest: string;
+    /**
+     * Dictionary Version
+     */
+    dictionary_version: number;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Op
+     */
+    op: 'label_board_decide';
+    /**
+     * Request Id
+     */
+    request_id: string;
 };
 
 /**
@@ -1612,6 +1731,10 @@ export type SymbolPage = {
  */
 export type SymbolResult = {
     /**
+     * Decision Ids
+     */
+    decision_ids: Array<string>;
+    /**
      * Label Valid
      */
     label_valid: boolean;
@@ -2253,7 +2376,9 @@ export type PreviewSymbolCropData = {
         kind: 'lab_cell';
     } & LabCropRequest) | ({
         kind: 'db_approved';
-    } & DbCropRequest);
+    } & DbCropRequest) | ({
+        kind: 'lab_board';
+    } & LabBoardRequest);
     path?: never;
     query?: never;
     url: '/symbol-crops';
@@ -2274,7 +2399,7 @@ export type PreviewSymbolCropResponses = {
      *
      * Successful Response
      */
-    200: LabCropPreview | DbCropPreview;
+    200: LabCropPreview | DbCropPreview | LabBoardPreview;
 };
 
 export type PreviewSymbolCropResponse = PreviewSymbolCropResponses[keyof PreviewSymbolCropResponses];
@@ -2413,7 +2538,9 @@ export type SaveSymbolDecisionData = {
         op: 'label_decide';
     } & LabelDecide) | ({
         op: 'label_withdraw';
-    } & LabelWithdraw);
+    } & LabelWithdraw) | ({
+        op: 'label_board_decide';
+    } & LabelBoardDecide);
     path?: never;
     query?: never;
     url: '/symbols';

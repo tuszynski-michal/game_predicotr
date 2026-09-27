@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useToast } from '../../../../packages/ui/src/toasts';
 import { useAnnotations } from './annotation-context';
+import { SymbolBoardEditor } from './symbol-board-editor';
 import {
   symbolWriteSession,
   canMutateSymbolRow,
@@ -24,7 +25,6 @@ import {
   type SymbolRequest,
   type DictionaryEntry,
   type DictionaryView,
-  type LabCropPreview,
   type DbCropPreview,
 } from '../../../../packages/vision-lab-api-client/src/index';
 
@@ -33,24 +33,20 @@ export function SymbolLabelEditor() {
   const { state, refresh } = useAnnotations();
   const [sources, setSources] = useState<Source[]>([]);
   const [game, setGame] = useState('');
-  const [sourceId, setSourceId] = useState('');
-  const [board, setBoard] = useState(0);
-  const [cell, setCell] = useState(0);
   const [page, setPage] = useState<SymbolPage | null>(null);
   const [versions, setVersions] = useState<DictionaryView[]>([]);
   const [active, setActive] = useState<DictionaryView | null>(null);
   const [entries, setEntries] = useState<DictionaryEntry[]>([]);
-  const [preview, setPreview] = useState<LabCropPreview | DbCropPreview | null>(
-    null,
-  );
-  const [symbolId, setSymbolId] = useState('');
+  const [preview, setPreview] = useState<DbCropPreview | null>(null);
   const [pending, setPending] = useState<SymbolRequest | null>(null);
   const [busy, setBusy] = useState(false);
+  const [boardBusy, setBoardBusy] = useState(false);
   const [offset, setOffset] = useState(0);
+  const [boardReadVersion, setBoardReadVersion] = useState(0);
   const order = useRef(0);
   const writing = useRef(false);
   const writeSession = useRef(symbolWriteSession<SymbolRequest>(writeSymbol));
-  const unavailable = busy || pending !== null;
+  const unavailable = busy || boardBusy || pending !== null;
   const report = useCallback(
     (message: string) => notify({ kind: 'error', message }),
     [notify],
@@ -94,7 +90,7 @@ export function SymbolLabelEditor() {
         setVersions(dictionaries);
         setEntries(latestFull?.entries ?? []);
         setActive(approvedFull);
-        setSymbolId('');
+        setBoardReadVersion((value) => value + 1);
       } catch (e) {
         if (generation === order.current) {
           setPage(null);
@@ -156,31 +152,10 @@ export function SymbolLabelEditor() {
   });
   const localVersions = versions.filter((d) => d.origin === 'lab');
   const latest = localVersions.at(-1);
-  const selectedAnnotation = state?.annotations[`${sourceId}:${board}`];
   const games = Object.fromEntries(
     sources.map((s) => [s.game_id, s.game_name]),
   );
 
-  async function previewCell() {
-    if (!selectedAnnotation || unavailable) return;
-    setBusy(true);
-    setPreview(null);
-    try {
-      setPreview(
-        await symbolCrop({
-          kind: 'lab_cell',
-          source_id: sourceId,
-          board_index: board,
-          cell_index: cell,
-          expected_geometry_revision: selectedAnnotation.revision,
-        }),
-      );
-    } catch (error) {
-      report(`Podgląd niedostępny: ${errorCode(error)}`);
-    } finally {
-      setBusy(false);
-    }
-  }
   function saveDictionaryDraft() {
     const normalizedEntries = normalizeSymbolDictionaryEntries(entries);
     if (hasBlankSymbolDictionaryName(normalizedEntries)) {
@@ -228,7 +203,6 @@ export function SymbolLabelEditor() {
           onChange={(e) => {
             const value = e.target.value;
             setGame(value);
-            setSourceId('');
             setPreview(null);
             void load(value);
           }}
@@ -242,7 +216,7 @@ export function SymbolLabelEditor() {
         </select>
       </label>
       <button
-        disabled={busy || !game}
+        disabled={busy || boardBusy || !game}
         onClick={() => {
           writeSession.current.reload();
           setPending(null);
@@ -318,121 +292,18 @@ export function SymbolLabelEditor() {
         </button>
         <p>Aktywna zatwierdzona wersja: {active?.version ?? 'brak'}</p>
       </fieldset>
-      <fieldset disabled={unavailable || !game || !page}>
-        <legend>Komórka z zapisanej geometrii</legend>
-        <label>
-          Zdjęcie{' '}
-          <select
-            value={sourceId}
-            onChange={(e) => {
-              setSourceId(e.target.value);
-              setBoard(0);
-              setCell(0);
-              setPreview(null);
-            }}
-          >
-            <option value="">Wybierz zdjęcie</option>
-            {sources
-              .filter((s) => s.game_id === game)
-              .map((s) => (
-                <option value={s.id} key={s.id}>
-                  {s.filename}
-                  {s.role === 'comparison_only' ? ' — tylko porównanie' : ''}
-                </option>
-              ))}
-          </select>
-        </label>
-        <label>
-          Plansza{' '}
-          <input
-            type="number"
-            min={1}
-            max={101}
-            value={board + 1}
-            onChange={(e) => {
-              setBoard(Number(e.target.value) - 1);
-              setPreview(null);
-            }}
-          />
-        </label>
-        <label>
-          Komórka{' '}
-          <input
-            type="number"
-            min={1}
-            max={(selectedAnnotation?.topology.columns ?? 5) * 3}
-            value={cell + 1}
-            onChange={(e) => {
-              setCell(Number(e.target.value) - 1);
-              setPreview(null);
-            }}
-          />
-        </label>
-        <button
-          disabled={!selectedAnnotation}
-          onClick={() => void previewCell()}
-        >
-          Pokaż dokładny crop
-        </button>
-        {!selectedAnnotation && (
-          <p>Wybierz planszę z zapisaną pełną geometrią.</p>
-        )}
-        {preview?.kind === 'lab_cell' && (
-          <div>
-            <img
-              width={192}
-              height={192}
-              alt="Dokładne piksele zatwierdzanej komórki"
-              src={`data:image/png;base64,${preview.png_base64}`}
-            />
-            <label>
-              Klasa{' '}
-              <select
-                value={symbolId}
-                onChange={(e) => setSymbolId(e.target.value)}
-              >
-                <option value="">Wybierz klasę</option>
-                {active?.entries?.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.display_name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {(['approve', 'unknown', 'unreadable', 'grid_issue'] as const).map(
-              (action, i) => (
-                <button
-                  key={action}
-                  disabled={
-                    !active?.version || (action === 'approve' && !symbolId)
-                  }
-                  onClick={() =>
-                    active?.version &&
-                    void submit({
-                      ...mutation(),
-                      op: 'label_decide',
-                      binding: preview.binding,
-                      dictionary_version: active.version,
-                      dictionary_digest: active.digest,
-                      action,
-                      symbol_id: action === 'approve' ? symbolId : null,
-                    })
-                  }
-                >
-                  {
-                    [
-                      'Zatwierdź etykietę',
-                      'Nieznany symbol',
-                      'Nieczytelne',
-                      'Błąd siatki',
-                    ][i]
-                  }
-                </button>
-              ),
-            )}
-          </div>
-        )}
-      </fieldset>
+      <SymbolBoardEditor
+        key={game}
+        game={game}
+        sources={sources}
+        annotations={state}
+        revision={page?.revision ?? 0}
+        readVersion={boardReadVersion}
+        disabled={unavailable || !page}
+        onBusy={setBoardBusy}
+        onSubmit={submit}
+        onError={report}
+      />
       <section>
         <h2>Zapisane etykiety</h2>
         <p>
@@ -470,12 +341,11 @@ export function SymbolLabelEditor() {
                   setBusy(true);
                   setPreview(null);
                   try {
-                    setPreview(
-                      await symbolCrop({
-                        kind: 'db_approved',
-                        sample_id: row.sample_id,
-                      }),
-                    );
+                    const crop = await symbolCrop({
+                      kind: 'db_approved',
+                      sample_id: row.sample_id,
+                    });
+                    if (crop.kind === 'db_approved') setPreview(crop);
                   } catch (error) {
                     report(
                       `Eksportowany crop jest niedostępny: ${errorCode(error)}`,

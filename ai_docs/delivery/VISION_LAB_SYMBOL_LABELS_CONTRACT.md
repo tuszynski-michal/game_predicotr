@@ -311,6 +311,12 @@ wyświetla reasons; integrity całego store/snapshotu zatrzymuje cały odczyt.
 
 ## UI i testy/odbiór
 
+Rozszerzenie D-459/TASK-0716 zastępuje pojedynczy wybór komórki widokiem
+całej planszy. Uzgodniony kontrakt lab_board/label_board_decide, atomowość,
+zgodność starych requestów i macierz regresji znajdują się w TASK-0716.
+Poniższe reguły pojedynczych bindingów, decyzji oraz ochrony danych nadal
+obowiązują każdą komórkę; batch nie jest odrębnym źródłem zatwierdzenia klasy.
+
 Panel startuje słownikiem pustym, nie tworzy klas. Jawne „Zapisz wersję”
 i „Zatwierdź słownik”; komórka ma approve/unknown/unreadable/grid_issue,
 brak autosave/autopredictionapproval. Wyświetla wersję słownika i crop

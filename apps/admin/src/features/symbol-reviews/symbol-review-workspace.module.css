@@ -207,18 +207,29 @@
 
 .sourceContextButton {
   position: absolute;
-  bottom: 0;
-  right: 0;
+  bottom: 1px;
+  right: 1px;
   z-index: 2;
-  min-width: 44px;
-  min-height: 44px;
-  padding: 3px 5px;
-  border: 0;
-  border-radius: 8px 0 0 0;
+  min-width: 0;
+  min-height: 0;
+  padding: 1px 4px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
   color: white;
-  background: rgb(5 11 20 / 86%);
+  background: rgb(5 11 20 / 22%);
   font-size: 0.65rem;
+  line-height: 1.2;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
   cursor: pointer;
+}
+
+.sourceContextButton:hover {
+  background: rgb(5 11 20 / 35%);
+}
+
+.sourceContextButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .cardToggle::after {
@@ -272,17 +283,19 @@
 
 .cardBadge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  max-width: calc(100% - 8px);
-  padding: 2px 5px;
+  top: 1px;
+  right: 1px;
+  max-width: calc(100% - 2px);
+  padding: 1px 4px;
   overflow: hidden;
-  border-radius: 6px;
-  background: rgb(5 11 20 / 86%);
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(5 11 20 / 22%);
   color: var(--text);
   font-size: 0.62rem;
   font-weight: 800;
   line-height: 1.2;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
@@ -291,16 +304,18 @@
 .sequenceNumber {
   position: absolute;
   z-index: 2;
-  bottom: 3px;
-  left: 3px;
+  bottom: 1px;
+  left: 1px;
   padding: 1px 4px;
-  border-radius: 4px;
-  background: rgb(5 11 20 / 55%);
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(5 11 20 / 22%);
   color: #fff;
   font-size: 0.65rem;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
   line-height: 1.2;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
   pointer-events: none;
 }
 

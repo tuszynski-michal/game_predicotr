@@ -6,6 +6,16 @@ last_updated: 2026-09-26
 
 # Current State
 
+### TASK-0713 — dyskretne badge symboli
+
+- Korekta użytkownika: Źródło i oznaczenia kafelka małe, przy rogu,
+  cienka ramka i mocno przezroczyste tło. Zakres CSS, bez zmian danych/API.
+- Założenie: spójna oprawa obejmuje także jakość i numer planszy.
+- Zakończone: Źródło około 41 × 16 px, odstęp 1 px, ramka 1 px,
+  tło 22%; spójna oprawa numeru/jakości. Prettier i kompilacja Next dev PASS,
+  wizualny odbiór na cropach oraz otwieranie źródła planszy 20/pola 4 PASS.
+- Zmiana CSS bez danych/API; zastane zmiany innych torów poza commitem.
+
 ### Wznowienie etapu B — kontrola danych geometrii
 
 - Użytkownik wznowił pracę po zakończeniu drugiego toru (HEAD v1.7.17 /

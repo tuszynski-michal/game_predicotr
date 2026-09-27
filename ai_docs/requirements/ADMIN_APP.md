@@ -530,8 +530,11 @@ Zaznaczanie, skróty wyboru symbolu, Enter i Nieczytelny obejmują również pol
 bez obrazu. Nie można dla nich zatwierdzić cropa ani ustawić grafiki symbolu;
 nie uruchamiają podglądów atlasu ani filtrowania pewności predykcji.
 
-Przycisk `Źródło` otwiera wyłącznie do odczytu całe zdjęcie z zapisaną siatką
-i wyróżnionym polem, także poza granicami zdjęcia. Podgląd sprawdza właściciela
+Przycisk `Źródło` ma postać kompaktowego badge przy prawym dolnym rogu (TASK-0713).
+Oznaczenia źródła, jakości i numeru mają cienką ramkę, mocno przezroczyste
+tło i minimalny odstęp od krawędzi, aby nie zasłaniały wycinka. Przycisk otwiera
+wyłącznie do odczytu całe zdjęcie z zapisaną siatką i wyróżnionym polem,
+także poza granicami zdjęcia. Podgląd sprawdza właściciela
 i rewizję geometrii oraz checksumę zdjęcia; zmiana rewizji wymaga odświeżenia.
 Pierwszeństwo mają zapisane footprinty komórek, następnie aktualna siatka.
 Brak geometrii nie tworzy zastępczej siatki. Zamknięcie nie zapisuje decyzji.

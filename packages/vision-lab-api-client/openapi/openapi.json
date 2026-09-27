@@ -541,11 +541,42 @@
             "title": "Geometry Qualification Fingerprints",
             "type": "object"
           },
+          "geometry_source_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometry Source Ids"
+          },
           "geometry_target_fingerprints": {
             "additionalProperties": {
               "type": "string"
             },
             "title": "Geometry Target Fingerprints",
+            "type": "object"
+          },
+          "leakage_component_fingerprints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Leakage Component Fingerprints",
+            "type": "object"
+          },
+          "leakage_components": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Leakage Components",
             "type": "object"
           },
           "measurement": {
@@ -559,7 +590,8 @@
             "default": "legacy",
             "enum": [
               "legacy",
-              "lab-geometry-split-v1"
+              "lab-geometry-split-v1",
+              "lab-geometry-cohort-split-v1"
             ],
             "title": "Policy Version",
             "type": "string"
@@ -589,6 +621,9 @@
         "required": [
           "purpose",
           "policy_version",
+          "geometry_source_ids",
+          "leakage_components",
+          "leakage_component_fingerprints",
           "geometry_qualification_fingerprints",
           "geometry_target_fingerprints",
           "fingerprint",
@@ -1181,6 +1216,21 @@
             "minimum": 0.0,
             "title": "Expected Revision",
             "type": "integer"
+          },
+          "geometry_source_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 10000,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometry Source Ids"
           },
           "measurement_source_ids": {
             "items": {

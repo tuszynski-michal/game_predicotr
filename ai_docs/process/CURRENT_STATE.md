@@ -6,6 +6,32 @@ last_updated: 2026-09-26
 
 # Current State
 
+### Autonomiczna kontynuacja laboratorium (2026-09-27)
+
+- Użytkownik zlecił możliwie szeroki dalszy postęp podczas swojej nieobecności,
+  z naprawianiem błędów, audytami i raportem końcowym. Nie oznacza to zgody
+  na pomijanie bramek danych, automatyczne zatwierdzanie przykładów, wydatki,
+  push, aktywację modelu lub wdrożenie. Obowiązuje kolejność zależności planu.
+- Najbliższy zakres T03: jawna kohorta geometrii przy pełnym grafie duplikatów
+  (T03f), analiza addytywnego importu nowych zdjęć i konkretne powiązania
+  źródeł. Wykonawca Sol medium, niezależny audyt Astra medium; jeden wykonawca
+  kodu naraz. Kontrakt T03f odebrano przed implementacją; po restarcie komputera
+  wznowiono częściowy kod i testy, bez dublowania procesu lub pracy.
+- T03f: done, niezależny audyt Astra medium PASS bez P0–P2. Jawna kohorta ogranicza
+  targety, nie pełny graf powiązań; niewybrane aliasy nie otrzymują zgód.
+  Backend 78 różnych przypadków PASS, klient 6/6, Ruff/format, mypy 15
+  modułów, TypeScript klienta/UI i OpenAPI/generated check PASS. Ochrona
+  legacy receipts, pełnego grafu oraz stale obejmuje nowe procesy i backup.
+  Audytor osobno: backend 24/24 i klient 6/6 PASS. Commit v1.7.22
+  (hash po commicie). Realne operacje danych mają osobny odbiór/commit;
+  ten pion nie zamyka T03. Bez pełnego buildu, treningu i aktywacji.
+- Korekta błędnej siatki i ponowna akceptacja już działają. Trening labu,
+  checkpoint v2 i backend runów są nadal zakresem T04/T05, nie gotową funkcją.
+  Obecny split jest jednorazowy: korekta daje stale, retry go nie zastępuje.
+  Nowy trening na poprawionych danych wymaga jawnej nowej wersji zbioru/splitu
+  z zachowaniem ról rodzin i historii użycia, bez ponownego losowania po ocenie;
+  nie należy obiecywać gotowego workflow ani usuwać starego splitu ręcznie.
+
 ### Wznowienie B — wykonanie kwalifikacji geometrii D-453
 
 - Użytkownik polecił kontynuację etapu B. Odczyt poza sandboxem potwierdził
@@ -29,15 +55,22 @@ last_updated: 2026-09-26
   Nie wykonano apply, importu, splitu, treningu, pełnego buildu ani restartu OS.
   Import/rebase musi poprzedzić realną kwalifikację: obecny rebase jawnie
   blokuje kwalifikacje i ich historię. T03 pozostaje blocked na bramkach danych;
-  T04/T05 nieuruchomione. T03e: v1.7.21 (hash po commicie).
+  T04/T05 nieuruchomione. T03e: `v1.7.21` /
+  `6ae971dfc1bd9e97b563a7774594fac59f3f441d`. Hash dopisany po commicie;
+  staged check/stat/list oraz show/stat/status PASS. Obce zmiany zachowane.
 - Porównanie wejścia 473 JPG ze snapshotem 993 źródeł: sześć identycznych
   Mumii (seq_76555–76608), wszystkie poza zaakceptowanymi zdjęciami. Zero SHA
   wspólnych z 63 zaakceptowanymi źródłami, bez wniosku o niezależności filmów.
   Nowy metadata JSON Treasure wskazuje tresure23600 dla zakresu 23590–23913;
   stary zbiór ma zaakceptowane klatki tego kandydata _002634 i _010010.
-  Wysłano konkretne pytanie o wspólny film; do wyjaśnienia brak rozdzielenia
-  tych potencjalnie powiązanych źródeł. Pozostałe powiązania rodzin wymagają
-  technicznego przypisania, nie wynikają z samych numerów.
+  Operator odpowiedział: jeśli metadane tak wskazują, najprawdopodobniej jest
+  to ten sam film. Zapisano ostrożne powiązanie całego nowego zakresu z dawnymi
+  źródłami tresure23600 w jednej grupie ochrony przed przeciekiem; nie wolno
+  rozdzielić ich między trening, walidację i test. To prawdopodobne wspólne
+  pochodzenie, nie niezależnie dowiedziona tożsamość nagrania ani zgodność
+  pikseli po przycięciu. Zapis dotyczy dokumentacji; rodzin w labie nie zmieniono.
+  Nie trzeba ponawiać tego pytania ani rysować dawnych siatek. Pozostałe
+  powiązania wymagają technicznego przypisania, nie wynikają z samych numerów.
   Raport RO: artifacts/vision-lab/t03-source-map-readonly-report.md.
 
 ### T03 — dopuszczenie historycznych zdjęć 777 do geometrii

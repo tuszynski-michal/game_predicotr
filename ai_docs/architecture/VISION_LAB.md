@@ -111,6 +111,28 @@ Rebase jawnie odrzuca bieżące kwalifikacje i ich historię; import/rebase
 nowych zdjęć musi poprzedzać realną kwalifikację do czasu osobnego rozszerzenia.
 Implementacja T03e nie oznacza wykonania kwalifikacji lub splitu na danych.
 
+T03f rozszerza istniejący SplitRequest o geometry_source_ids=None (do 10000 ID).
+Jawna niepusta unikalna lista znanych źródeł wymaga purpose geometry. Kolejność
+requestu pozostaje częścią receipt; pominięcie pola/None usuwa je z hashowanego
+requestu, zachowując stare receipts obu trybów. Bez kohorty fingerprint splitu
+nie zawiera nowych pól. Błędy domenowe /splits pozostają 409, schematu 422.
+build_components obejmuje cały katalog; bramki roli i verified dotyczą całego
+komponentu, a akceptacja, targety i assignments wyłącznie jego wybranych źródeł.
+Measurement wymaga ID z kohorty, trudności wszystkich członków, jednej gry
+i trudności oraz dwóch niezależnych komponentów na stratum. Wszystkie wybrane
+źródła komponentu trafiają razem do pomiaru lub jednego podziału.
+
+FrozenSplit policy lab-geometry-cohort-split-v1 wiąże posortowaną kohortę,
+leakage_components całego katalogu oraz leakage_component_fingerprints pełnych
+Source, StoredFamily (albo null) i kwalifikacji każdego członka niedata (albo
+null). Wszystkie te mapy wchodzą do fingerprintu; stare odczyty mają None/{}/{}.
+_view porównuje graf i fingerprints oraz skuteczność kwalifikacji wszystkich
+członków niedata komponentów z assignments, także niewybranych. Stały brak
+kwalifikacji w wykluczonym komponencie nie daje stale. Zmiana daje stale bez
+przeliczania zapisanych assignments/fingerprintu; mutacje zachowują wcześniejsze
+konserwatywne unieważnianie. Atomowość, CAS, retry, historia i backup należą
+do AnnotationStore. Rebase splitu pozostaje zablokowany. Brak nowej trasy/UI.
+
 Eksporter czyta tylko wskazane `source_images`, związane
 `image_source_geometry_revisions`, `image_page_geometry_overrides`,
 `recognized_boards`, `image_board_geometry_revisions`,

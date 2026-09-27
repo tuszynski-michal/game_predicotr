@@ -128,3 +128,13 @@ niewidzianą; symbole tej gry mają osobny podział per gra. Pomiar oszczędnoś
 czasu używa rozłącznych, losowo przydzielonych zdjęć baseline/hybryda;
 referencję ocenia się bez informacji o silniku, a przerwa ponad 30 s kończy
 aktywny odcinek. Redukcja o 30% jest celem, nie gwarancją.
+
+Jawna kohorta geometrii T03f wybiera wyłącznie źródła targetów. Nieanotowany
+alias poza kohortą nie potrzebuje skopiowanej akceptacji, ale nadal uczestniczy
+w pełnym grafie rodzin, duplikatów SHA i pochodnych. Cały powiązany komponent
+wymaga zweryfikowanego pochodzenia i dopuszczonej roli lub własnej skutecznej
+kwalifikacji D-453. Akceptacja i pełny ręczny target są wymagane od każdego
+wybranego źródła; błąd jednego wyklucza wybrane źródła całego komponentu.
+Niewybrany członek nie omija granic gry niewidzianej ani niezależności pomiaru.
+Wybór kohorty nie potwierdza rodzin, nie tworzy zgód i nie odblokowuje treningu
+przed pozostałymi bramkami T03. Bez jawnej kohorty obowiązuje poprzedni workflow.

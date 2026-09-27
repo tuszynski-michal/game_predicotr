@@ -10,8 +10,9 @@ last_updated: 2026-09-27
 
 `blocked` — anotacje i przegląd operatora wykonane; D-453 rozstrzyga użycie
 historycznych zdjęć 777 w modelu geometrii. Pozostają techniczne mapowanie
-źródeł do rodzin, kontrola konfliktów, wdrożenie jawnej kwalifikacji geometrii
-oraz zamrożony podział. T04/T05 nie rozpoczęto; nie uruchamiać ich przed
+źródeł do rodzin, kontrola konfliktów, realne apply kwalifikacji geometrii
+oraz zamrożony podział. Mechanizm T03e jest wdrożony i odebrany; T03f
+wdraża jawną kohortę targetów. T04/T05 nie rozpoczęto; nie uruchamiać ich przed
 spełnieniem bramek danych.
 
 ## Goal
@@ -62,11 +63,9 @@ Decyzja użytkownika z 2026-09-27 (D-453): historyczne zdjęcia 777 mają wejś�
 do modelu geometrii, aby obsługiwał przyszłe podobne zdjęcia. Referencją są
 nowe ręczne siatki zatwierdzone w labie, nie dawne geometrie v1.1. Nie ma
 już otwartej decyzji produktowej o użyciu 777. Obecne role i immutable
-snapshoty nie zostały zmienione; przed implementacją jawnej kwalifikacji
-trzeba przeanalizować bieżące kontrakty i doprecyzować zakres techniczny,
-zachowując historyczne pochodzenie, ważne zgody na niezmienione źródła
-oraz bramki symboli. Niniejsza korekta nie jest gotowym planem migracji
-ani nowym kontraktem API.
+snapshoty nie zostały zmienione. T03e wdrożył jawną kwalifikację z zachowaniem
+historycznego pochodzenia, ważnych zgód niezmienionych źródeł oraz bramek
+symboli. Realne apply, mapowanie rodzin i split pozostają do wykonania.
 Tryb legacy `vision_lab/splits.py::freeze_splits` odrzuca grupy z `role != data`
 jako `COMPARISON_OR_777_PROVENANCE_UNRESOLVED`. T03e dodaje odrębny jawny
 purpose geometry i kwalifikację D-453, bez zmiany pochodzenia ani wyłączenia
@@ -80,6 +79,19 @@ katalogami. Nie jest to wniosek z samych nazw. Nie ponawiamy ogólnego pytania
 o pochodzenie: kolejną kontrolą jest techniczne mapowanie źródło–rodzina
 i konflikty z dotychczasowym zbiorem. Brzegi tego samego filmu pozostają
 w jednej rodzinie; różne foldery nie są automatycznie niezależnymi filmami.
+
+Wyjątek doprecyzowany przez operatora 2026-09-27: nowe Treasure
+`seq_23590–23913` (36 zdjęć, metadata `sourceDirectoryName=tresure23600`)
+najprawdopodobniej pochodzi z tego samego filmu co dawne zdjęcia
+`tresure zd/tresure23600__tresure23600_002634.jpg` oraz
+`tresure zd/tresure23600__tresure23600_010010.jpg`. Traktować cały wskazany
+nowy zakres i dawne źródła tresure23600 jako jedną grupę ochrony przed
+przeciekiem, bez dzielenia jej między train/validation/test. Przesłanki stanowią
+metadane oraz ostrożna deklaracja operatora, nie niezależne potwierdzenie
+tożsamości filmu. Nie przenosić geometrii na nowe piksele ani nie oznaczać
+tej deklaracji jako pełnej weryfikacji pozostałych rodzin. Brak potrzeby
+ponawiania tego pytania lub rysowania niezmienionych siatek. Następnym krokiem
+pozostaje techniczne mapowanie i kontrola pozostałych powiązań.
 
 Wznowienie po przeglądzie: ostatni odczyt wykazał 63 zaakceptowane zdjęcia,
 180 pełnych geometrii i brak zapisanych rodzin/splitu; liczności wymagają
@@ -254,7 +266,199 @@ Aliasy Reels/cohort i import nowych zdjęć to osobny następny pion T03.
   Niezależny audyt Astra medium PASS, bez P0–P2; audytor powtórzył backend
   qualification/photo review 36/36 PASS (27,42 s) i klient 5/5 PASS.
   T03e spełnia powyższe DoD; nadrzędny T03 pozostaje blocked na danych,
-  więc plik pozostaje aktywny. Commit T03e: v1.7.21 (hash po commicie).
+  więc plik pozostaje aktywny. Commit T03e: `v1.7.21` /
+  `6ae971dfc1bd9e97b563a7774594fac59f3f441d`. Hash dopisany po commicie;
+  staged check/stat/list oraz show/stat/status PASS. Obce hunki poza commitem.
+
+## T03f — jawna kohorta targetów geometrii
+
+### Status, cel i warunki wejścia
+
+Status `done` — kontrakt i końcowy kod odebrane przez niezależny audyt
+Astra medium, bez P0–P2. Zależność: odebrany T03e, wznowienie etapu B.
+Cel: wybrane zaakceptowane źródło może być targetem bez zatwierdzania jego
+nieanotowanego aliasu; pełny graf pochodzenia nadal zapobiega przeciekowi.
+Potwierdzona przyczyna: freeze_splits grupuje cały Catalog, ale wymaga zgód
+każdego członka, także aliasu poza planowaną kohortą. Dotyczy to pięciu
+zaakceptowanych zdjęć Reels; liczność nie jest stałą implementacji.
+Brak rodzin lub decyzji danych nie blokuje izolowanych testów mechanizmu,
+ale nadal blokuje rzeczywisty freeze i T04/T05.
+
+### Recommended execution / Relevant docs
+
+`gpt-6-sol` / `medium`; niezależny audyt `gpt-6-astra` / `medium`.
+Ryzyko obejmuje przeciek przez niewybrane źródła, zachowanie starych receipts
+i oddzielenie członkostwa od targetów. Nierozwiązane P0–P2 po dwóch cyklach
+lub sprzeczność kontraktów zatrzymują wykonanie. Modele dostępne w sesji.
+Relevant docs: dokumenty nadrzędnego T03, PLAN_STANDARD, TASK_TEMPLATE,
+sekcje T03e/T03f planu; nie wczytywać niezwiązanych archiwów.
+
+### Scope i Technical notes
+
+- SplitRequest otrzymuje opcjonalne `geometry_source_ids: list[str] | None`
+  z domyślnym None i limitem 10000. None zachowuje dokładne zachowanie
+  legacy i geometry T03e. Jawna kohorta wymaga purpose geometry, niepustej
+  listy unikalnych, znanych source_id. Nie wybiera źródeł według nazw,
+  akceptacji ani pierwszego wystąpienia SHA automatycznie.
+- Request zachowuje kolejność podaną przez klienta do receipt fingerprintu.
+  Przy None usuwać nowe pole z request_data przed fingerprintem/historią;
+  zachować istniejące usuwanie purpose legacy. Dzięki temu stare receipts
+  obu trybów działają bez przepisywania. Zmieniona lista/kolejność przy tym
+  samym request_id daje REQUEST_ID_CONFLICT; nowe ID nie omija CAS ani
+  SPLIT_ALREADY_FROZEN. Dokładny retry po utracie odpowiedzi działa po restarcie.
+- Graf nadal obejmuje cały Catalog: SHA, family_id i przechodnie relacje
+  source_ids/related_source_ids. Dla komponentu selected oznacza przecięcie
+  z jawną kohortą. Brak selected wyłącza komponent z losowania i liczby grup.
+  Wyodrębnić wspólny czysty helper budowania komponentów z obecnej funkcji
+  freeze_splits bez zmiany deterministycznej kolejności starego algorytmu.
+- Na CAŁYM komponencie dotykającym kohorty obowiązują dotychczasowe bramki
+  role/D-453 oraz families.provenance=verified. Nieanotowany alias data
+  może być członkiem, ale inne comparison_only i nierozstrzygnięte V2 nadal
+  blokują; kwalifikacja D-453 nie rozszerza się na aliasy. Nie zapisujemy
+  żadnych rodzin, kwalifikacji lub zatwierdzeń w toku freeze.
+- Tylko selected musi posiadać location approval, photo_accepted i pełny
+  present/human target. Błąd dowolnego selected wyklucza wszystkie selected
+  tego komponentu; pozostałe poprawne komponenty mogą wejść do wyniku,
+  jeżeli wszystkie bramki całego splitu są spełnione. Losowany jest komponent,
+  lecz assignments, measurement i wszystkie mapy targetów/anotacji/kwalifikacji
+  zawierają wyłącznie wybrane źródła. Alias nie dziedziczy zgody ani targetu.
+- Każde źródło poza jawną kohortą dostaje NOT_IN_GEOMETRY_COHORT w exclusions.
+  Wybrane źródła wykluczone przez bramkę dostają jej istniejący konkretny powód.
+  Brak wymaganych pełnych targetów: FULL_HUMAN_GEOMETRY_TARGET_REQUIRED.
+  Wybór źródła nie jest deklaracją niezależności lub potwierdzeniem rodziny.
+- FrozenSplit dla jawnej kohorty ma policy_version
+  `lab-geometry-cohort-split-v1`, posortowane geometry_source_ids oraz
+  leakage_components: mapę reprezentant → posortowani członkowie dla
+  WSZYSTKICH komponentów katalogu, również niedotykających kohorty.
+  leakage_component_fingerprints wiąże dla każdego komponentu pełne Source,
+  StoredFamily albo jawny brak decyzji oraz StoredGeometryQualification
+  każdego członka niedata (jawny null przy braku), w kolejności source_id. Reprezentant
+  to najmniejsze source_id jak w obecnym union. Obie mapy i kohorta wchodzą
+  do nadrzędnego fingerprintu splitu wraz z dotychczasowymi danymi.
+  Nowe pola mają None/{}/{} dla odczytu starych danych; nie dopisywać ich do
+  danych hashowanych przy freeze bez kohorty. Stare fingerprints bez zmian.
+- Kontrola unseen używa gier CAŁEGO komponentu. Niewybrany most do unseen
+  nie omija UNSEEN_GAME_RELATED_TO_DEVELOPMENT. Pokrycie topologii wyłącznie
+  z wybranych pełnych human targetów, zgodnie z T03e. Nadal wymagane unseen
+  i co najmniej trzy niezależne komponenty development.
+- Measurement wymaga niepustych, unikalnych ID należących do kohorty
+  i przechodzących kwalifikację. Komponent dotykający measurement przenosi
+  wszystkie swoje selected do measurement, nigdy części do development.
+  Wymagane difficulties dla WSZYSTKICH członków komponentu, jedna trudność
+  i jedna gra oraz dwie niezależne grupy na stratum; baseline/hybrid przypisuje
+  się grupie. Te metadane nie zatwierdzają niewybranych aliasów.
+- Walidacja kształtu/kombinacji celu, nieznanych/duplikowanych ID i measurement
+  poza kohortą kończy całą operację bez stanu/receiptu/history; czytelne nowe
+  powody GEOMETRY_COHORT_PURPOSE_REQUIRED, GEOMETRY_COHORT_EMPTY,
+  GEOMETRY_COHORT_DUPLICATE_SOURCE, GEOMETRY_COHORT_SOURCE_NOT_FOUND,
+  MEASUREMENT_OUTSIDE_GEOMETRY_COHORT, MEASUREMENT_DUPLICATE_SOURCE.
+  Błędy domenowe istniejącego /splits zwracają 409, błędy schematu 422.
+  Korekta wymaga poprawnego requestu; brak ukrytego częściowego zapisu.
+- Istniejący AnnotationStore jest jedynym właścicielem atomowego zapisu
+  pod lock/CAS. _view nadal sprawdza photoacceptance wyłącznie assignments;
+  dla nowej wersji dodatkowo porównuje pełne komponenty/fingerprints z
+  aktualnym stanem, oznaczając stale przy zmianie bez przepisywania splitu.
+  Ponadto sprawdza qualification_effective WSZYSTKICH członków niedata
+  komponentów zakwalifikowanych do assignments, także niewybranych mostów.
+  Utrata ich akceptacji jest stale nawet bez zmiany Source/rodziny/kwalifikacji.
+  Stały brak kwalifikacji w całkowicie wykluczonej grupie nie daje stale;
+  mapy targetów i ich qualification fingerprints pozostają selected-only.
+  Pozostawić konserwatywne stale po mutacji geometrii/review/rodziny/kwalifikacji
+  także poza kohortą. Nie kasować stale po reaccept, retry lub przywróceniu
+  poprzedniej relacji. Backup/restore/new process zachowują wszystkie pola.
+  Rebase z istniejącym splitem nadal jest zablokowany.
+- Addytywny kontrakt istniejącego POST /splits oraz odpowiedzi AnnotationState:
+  backend, OpenAPI, generated client, wrapper freezeAnnotations i test requestu
+  aktualizowane razem. Nie powstaje nowy endpoint/UI ani magazyn decyzji.
+
+### Expected files
+
+Istniejące w services/worker/src/game_predictor_worker/vision_lab:
+annotation_contracts.py (SplitRequest/FrozenSplit), annotations.py (mutate/_view),
+splits.py (freeze_splits i proponowane build_components/component_fingerprints).
+Istniejące test_vision_lab_annotations.py, test_vision_lab_geometry_qualification.py,
+test_vision_lab_photo_review.py; nowy proponowany test_vision_lab_geometry_cohort.py.
+Kontrakt packages/vision-lab-api-client/openapi/openapi.json, src/generated,
+src/index.ts, test/request.test.mjs. Dokumenty wymagań/architektury/guide
+VISION_LAB oraz task/plan aktualizowane przy implementacji. Root: CURRENT_STATE,
+DECISION_LOG, realne operacje i commit.
+
+### Acceptance criteria / Test cases
+
+- [x] Zaakceptowany Reels + nieanotowany alias SHA: z kohortą jedno assignment,
+  alias wyłącznie w pełnym komponencie; bez kohorty stare wykluczenie.
+- [x] Niezweryfikowany alias, niedozwolona rola lub V2 blokują selected;
+  żadna rodzina, kwalifikacja, anotacja lub photo review nie jest dopisywana.
+- [x] Przechodni most przez niewybrane źródła scala grupę; niewybrany członek
+  unseen powoduje konflikt; liczby grup nie rosną od liczby aliasów.
+- [x] Measurement spoza kohorty/duplikaty/stratum/difficulty/unseen/pokrycie
+  topologii są fail-closed; komponent nigdy nie dzieli measurement/development.
+- [x] Puste, nieznane i duplikowane ID oraz legacy+kohorta odrzucone; brak
+  pełnego targetu wyklucza komponent, bez częściowego zapisu operacji.
+- [x] Pełny graf/fingerprints wszystkich komponentów są zamrożone, a targety
+  obejmują wyłącznie kohortę. Odczyt i mutation wykrywają stale, także zmianę
+  niewybranego aliasu/rodziny; assignments/fingerprint pozostają niezmienne.
+- [x] Utrata/zmiana kwalifikacji lub reject niewybranego 777 w zakwalifikowanym
+  komponencie daje stale mimo niezmienionego grafu Source/rodzin; stała
+  niekwalifikowana grupa całkowicie wykluczona nie unieważnia wyniku.
+- [x] Nowy proces, utracona odpowiedź/retry, race/CAS i backup/restore PASS;
+  oba historyczne rodzaje receiptów oraz stare fingerprints zachowane.
+- [x] API/generated/wrapper przesyłają dokładną kohortę i odczytują pełne mapy;
+  UI typecheck i dotychczasowy workflow bez kohorty zachowane.
+
+### Verification, granice i Outcome
+
+Procedura weryfikacji (wyniki wykonania poniżej): focused pytest wraz z annotations,
+geometry_qualification i photo_review; małe izolowane fixture, limit 120 s
+na proces jak w Verification nadrzędnego taska. Następnie Ruff format/check,
+mypy --follow-imports=silent modułów labu, npm run vision-lab:openapi:generate,
+npm run vision-lab:openapi:check, test i typecheck workspace
+@game-predictor/vision-lab-api-client oraz typecheck @game-predictor/vision-lab.
+Każdy skończony proces z jawnym timeoutem do 120 s; zero benchmarków.
+Zaliczenie: wszystkie kryteria, spójny kontrakt i niezależny audyt bez P0–P2.
+Zakres wyłączony: realne freeze/import/rebase/apply, automatyczne rodziny,
+kopiowanie zgód, zmiany ról, symbole, migracje DB, nowe UI i trening T04/T05.
+Kohorta sama nie dowodzi niezależności i nie zamyka T03. Następny krok po
+odbiorze narzędzia: odczytowy preview konkretnej kohorty i pozostałych bramek.
+### Outcome T03f — odebrane
+
+- Jawna kohorta działa przez istniejący /splits i AnnotationStore. Pełny graf
+  SHA/rodzin/relacji obejmuje wszystkie źródła. Role i verified są sprawdzane
+  dla wszystkich członków, zgody i targety tylko dla wybranych. Alias nie
+  otrzymuje targetu, akceptacji ani assignmentu. Brak kohorty zachowuje legacy
+  i T03e, łącznie z kolejnością algorytmu, fingerprintami i receipts.
+- Nowa wersja zamraża całą mapę komponentów, pełne metadane źródeł/rodzin
+  i kwalifikacji niedata. Odczyt sprawdza również skuteczność kwalifikacji
+  niewybranego członka użytej grupy; trwały brak kwalifikacji w całkowicie
+  wykluczonej grupie nie unieważnia splitu. Stale nie zmienia przydziałów.
+- Backend pierwszy fokus: **64/64 PASS** (70,48 s), cohort + qualification
+  + annotations + photo_review. Rozszerzony cohort: **24/24 PASS** (43,41 s),
+  czyli łącznie 69 różnych przypadków tych czterech plików. Dodatkowo
+  **11/11 PASS** (11,28 s): dwa powtórzone legacy/geometry retry na starych
+  payloadach bez trzech nowych pól oraz dziewięć regresji rebase. Razem
+  78 różnych przypadków backendu, bez pełnego uruchomienia repozytorium.
+- Ruff check i format PASS (17 plików format), mypy lab --follow-imports=silent
+  PASS (15 modułów). Klient **6/6 PASS**, TypeScript klienta i lab UI PASS.
+  OpenAPI wygenerowane, OpenAPI/generated check PASS. Wrapper zachowuje
+  dokładną kolejność requestu; jego test przesyła kohortę i odczytuje wszystkie
+  mapy. Bez ręcznie rozbieżnych typów, nowego endpointu ani UI.
+- DoD punktowo: alias bez zgód, role/provenance, przechodni most/unseen,
+  liczba niezależnych grup i pomiar całego komponentu, selected-only topology,
+  nieprawidłowe requesty/HTTP409/422, pełny graf/fingerprints i stale, kwalifikacja
+  niewybranego 777, nowy proces/retry/race/backup oraz zgodny klient mają
+  izolowane regresje. Niezależny audyt Astra medium PASS bez P0–P2;
+  audytor osobno wykonał cohort 24/24 (41,96 s) i klient 6/6 (0,18 s).
+- Wymagania, architektura, guide i plan opisują wdrożony zakres. Nie wykonano
+  rzeczywistego freeze/import/rebase/apply, zmian ról lub zgód, restartu usług,
+  treningu, pełnego buildu ani pełnych testów repo. Testy nie potwierdzają
+  niezależności realnych nagrań; T03/T04/T05 zachowują wcześniejsze bramki.
+- Pierwszy start Pythona został zablokowany przez sandbox (exit101), właściwe
+  testy uruchomiono z zatwierdzoną eskalacją. Jedno dodatkowe wywołanie pytest
+  miało błąd cytowania filtra PowerShell (exit4, bez testów); poprawiono samo
+  wywołanie. Żaden test ani bramka nie zostały osłabione. Zastane ostrzeżenie
+  Starlette/AnyIO pozostaje poza zakresem.
+  Końcowy git diff --check PASS. Commit T03f: v1.7.22 (hash po commicie).
+  Podzadanie done; nadrzędny plik pozostaje aktywny/blocked do odbioru danych T03.
 
 ## T03a — ergonomia edytora i bieżące cropy
 
@@ -767,6 +971,18 @@ zapisu na rzeczywistych danych, akceptacji zdjęć użytkownika, treningu ani
 zmiany roli `777`; CURRENT_STATE i usługi należą do koordynatora.
 
 ## Outcome T03 (narzędzia i operacje)
+
+### Doprecyzowanie pochodzenia Treasure (2026-09-27)
+
+- Zapisano odpowiedź operatora i ostrożne wspólne grupowanie nowego zakresu
+  23590–23913 z dawnym tresure23600. Nie uznano prawdopodobieństwa za dowód
+  niezależnej weryfikacji ani za zgodę na przenoszenie siatek między cropami.
+- Aktualizacja dotyczy wyłącznie Technical notes i CURRENT_STATE. Nie
+  zmieniono danych laboratorium, rodzin, podziału, kodu ani kwalifikacji;
+  trening nie został uruchomiony. Testy aplikacji nie są potrzebne dla
+  samego zapisu deklaracji. Kontrola diff bez błędów whitespace; zapis jest
+  uzupełnieniem trwającego T03, bez osobnego zamknięcia taska lub commita.
+  T03 pozostaje aktywny/blocked na innych bramkach.
 
 ### Korekta polityki geometrii i deklaracja pochodzenia (2026-09-27)
 

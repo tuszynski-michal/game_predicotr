@@ -10,7 +10,8 @@ from .geometry_qualification import full_human_targets, qualification_effective
 from .photo_review import photo_accepted
 
 
-def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitRequest) -> FrozenSplit:
+def build_components(catalog: Catalog, state: AnnotationState) -> dict[str, list[str]]:
+    """All sources participate, even sources not selected as training targets."""
     parents = {source_id: source_id for source_id in catalog.sources}
 
     def find(value: str) -> str:
@@ -35,12 +36,58 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
     groups: dict[str, list[str]] = defaultdict(list)
     for source_id in sorted(parents):
         groups[find(source_id)].append(source_id)
+    return dict(groups)
+
+
+def component_fingerprints(
+    catalog: Catalog, state: AnnotationState, components: dict[str, list[str]]
+) -> dict[str, str]:
+    return {
+        key: digest(
+            [
+                {
+                    "source": catalog.sources[source_id].model_dump(),
+                    "family": state.families[source_id].model_dump()
+                    if source_id in state.families
+                    else None,
+                    "geometry_qualification": state.geometry_qualifications[source_id].model_dump()
+                    if catalog.sources[source_id].role != "data"
+                    and source_id in state.geometry_qualifications
+                    else None,
+                }
+                for source_id in ids
+            ]
+        )
+        for key, ids in components.items()
+    }
+
+
+def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitRequest) -> FrozenSplit:
+    cohort = None if request.geometry_source_ids is None else set(request.geometry_source_ids)
+    if cohort is not None:
+        if request.purpose != "geometry":
+            raise ValueError("GEOMETRY_COHORT_PURPOSE_REQUIRED")
+        if not cohort:
+            raise ValueError("GEOMETRY_COHORT_EMPTY")
+        if len(cohort) != len(request.geometry_source_ids or []):
+            raise ValueError("GEOMETRY_COHORT_DUPLICATE_SOURCE")
+        if any(source_id not in catalog.sources for source_id in cohort):
+            raise ValueError("GEOMETRY_COHORT_SOURCE_NOT_FOUND")
+        if len(set(request.measurement_source_ids)) != len(request.measurement_source_ids):
+            raise ValueError("MEASUREMENT_DUPLICATE_SOURCE")
+        if any(source_id not in cohort for source_id in request.measurement_source_ids):
+            raise ValueError("MEASUREMENT_OUTSIDE_GEOMETRY_COHORT")
+    groups = build_components(catalog, state)
     approved = {
         a.source_id
         for a in state.annotations.values()
         if a.location_approved and a.presence == "present"
     }
-    exclusions = {}
+    exclusions = {
+        source_id: "NOT_IN_GEOMETRY_COHORT"
+        for source_id in catalog.sources
+        if cohort is not None and source_id not in cohort
+    }
     eligible = {}
     geometry = request.purpose == "geometry"
     targets = (
@@ -54,6 +101,11 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
     )
     target_sources = {item.source_id for item in targets.values()}
     for key, ids in groups.items():
+        selected = (
+            ids if cohort is None else [source_id for source_id in ids if source_id in cohort]
+        )
+        if not selected:
+            continue
         reason = None
         if any(
             catalog.sources[s].role != "data"
@@ -65,20 +117,20 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
             s not in state.families or state.families[s].provenance != "verified" for s in ids
         ):
             reason = "FAMILY_PROVENANCE_UNRESOLVED"
-        elif any(s not in approved for s in ids):
+        elif any(s not in approved for s in selected):
             reason = "HUMAN_LOCATION_APPROVAL_REQUIRED"
-        elif any(not photo_accepted(state, catalog.sources[s]) for s in ids):
+        elif any(not photo_accepted(state, catalog.sources[s]) for s in selected):
             reason = "PHOTO_REVIEW_ACCEPTANCE_REQUIRED"
-        elif geometry and any(s not in target_sources for s in ids):
+        elif geometry and any(s not in target_sources for s in selected):
             reason = "FULL_HUMAN_GEOMETRY_TARGET_REQUIRED"
         if reason:
-            exclusions.update(dict.fromkeys(ids, reason))
+            exclusions.update(dict.fromkeys(selected, reason))
         else:
             eligible[key] = ids
     if request.unseen_game_id not in {s.game_id for s in catalog.sources.values()}:
         raise ValueError("UNSEEN_GAME_NOT_FOUND")
     measure = set(request.measurement_source_ids)
-    if not measure or any(s not in parents or s in exclusions for s in measure):
+    if not measure or any(s not in catalog.sources or s in exclusions for s in measure):
         raise ValueError("VERIFIED_MEASUREMENT_SOURCES_REQUIRED")
     assignments: dict[str, str] = {}
     measurement: dict[str, str] = {}
@@ -86,12 +138,15 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
     development = []
     unseen = []
     for ids in eligible.values():
+        selected = (
+            ids if cohort is None else [source_id for source_id in ids if source_id in cohort]
+        )
         games = {catalog.sources[s].game_id for s in ids}
         if games == {request.unseen_game_id}:
             if measure.intersection(ids):
                 raise ValueError("MEASUREMENT_UNSEEN_OVERLAP")
-            unseen.extend(ids)
-            assignments.update(dict.fromkeys(ids, "unseen_game"))
+            unseen.extend(selected)
+            assignments.update(dict.fromkeys(selected, "unseen_game"))
         elif request.unseen_game_id in games:
             raise ValueError("UNSEEN_GAME_RELATED_TO_DEVELOPMENT")
         elif measure.intersection(ids):
@@ -100,10 +155,10 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
             difficulties = {request.difficulties[s] for s in ids}
             if len(difficulties) != 1:
                 raise ValueError("RELATED_MEASUREMENT_DIFFICULTY_CONFLICT")
-            strata[(next(iter(games)), next(iter(difficulties)))].append(ids)
-            assignments.update(dict.fromkeys(ids, "measurement"))
+            strata[(next(iter(games)), next(iter(difficulties)))].append(selected)
+            assignments.update(dict.fromkeys(selected, "measurement"))
         else:
-            development.append(ids)
+            development.append(selected)
     if not unseen or len(development) < 3:
         raise ValueError("INSUFFICIENT_VERIFIED_SPLIT_GROUPS")
     rng = random.Random(request.seed)
@@ -161,5 +216,12 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
                 for key, item in targets.items()
                 if item.source_id in assignments
             },
+        )
+    if cohort is not None:
+        data.update(
+            policy_version="lab-geometry-cohort-split-v1",
+            geometry_source_ids=sorted(cohort),
+            leakage_components=groups,
+            leakage_component_fingerprints=component_fingerprints(catalog, state, groups),
         )
     return FrozenSplit.model_validate({"fingerprint": digest([state.snapshot_id, data]), **data})

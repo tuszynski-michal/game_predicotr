@@ -6,6 +6,25 @@ last_updated: 2026-09-26
 
 # Decision Log
 
+## D-454 — jawna kohorta geometrii nie usuwa powiązań źródeł
+
+- **Status:** accepted, techniczne doprecyzowanie T03f w autonomicznej
+  kontynuacji etapu B (2026-09-27), po audycie kontraktu Astra medium.
+- **Decision:** opcjonalny wybór źródeł geometrii ogranicza wyłącznie targety
+  i przypisania przykładów. Graf SHA, rodzin i pochodnych nadal obejmuje cały
+  katalog, w tym nieanotowane aliasy i przechodnie mosty poza kohortą.
+  Alias nie otrzymuje skopiowanej zgody, anotacji ani pozycji treningowej.
+- **Boundaries:** bramki ról/D-453 i zweryfikowanego pochodzenia obowiązują
+  cały komponent; aktualna akceptacja i pełny ręczny target obowiązują wybrane
+  źródła. Gry, unseen i niezależność grup pomiarowych ocenia się na pełnych
+  komponentach. Wybór kohorty nie potwierdza rodzin ani nie zamyka T03.
+- **Durability:** nowa wersja splitu wiąże kohortę, wszystkie komponenty,
+  pełne metadane źródeł, rodziny i kwalifikacje członków niedata.
+  Odczyt kontroluje także skuteczność kwalifikacji niewybranych członków,
+  od których zależą zakwalifikowane komponenty. Zmiany dają stale, nie
+  ciche przeliczenie. Pominięcie kohorty zachowuje stare reguły, fingerprints
+  i receipts. Pełny kontrakt i regresje: TASK-0668/T03f.
+
 ## D-453 — historyczne zdjęcia 777 dopuszczone do uczenia geometrii
 
 - **Status:** accepted, jawna decyzja użytkownika w kontynuacji T03 (2026-09-27).

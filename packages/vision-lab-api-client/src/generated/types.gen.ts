@@ -325,10 +325,26 @@ export type FrozenSplit = {
         [key: string]: string;
     };
     /**
+     * Geometry Source Ids
+     */
+    geometry_source_ids: Array<string> | null;
+    /**
      * Geometry Target Fingerprints
      */
     geometry_target_fingerprints: {
         [key: string]: string;
+    };
+    /**
+     * Leakage Component Fingerprints
+     */
+    leakage_component_fingerprints: {
+        [key: string]: string;
+    };
+    /**
+     * Leakage Components
+     */
+    leakage_components: {
+        [key: string]: Array<string>;
     };
     /**
      * Measurement
@@ -339,7 +355,7 @@ export type FrozenSplit = {
     /**
      * Policy Version
      */
-    policy_version: 'legacy' | 'lab-geometry-split-v1';
+    policy_version: 'legacy' | 'lab-geometry-split-v1' | 'lab-geometry-cohort-split-v1';
     /**
      * Purpose
      */
@@ -723,6 +739,10 @@ export type SplitRequest = {
      * Expected Revision
      */
     expected_revision: number;
+    /**
+     * Geometry Source Ids
+     */
+    geometry_source_ids?: Array<string> | null;
     /**
      * Measurement Source Ids
      */

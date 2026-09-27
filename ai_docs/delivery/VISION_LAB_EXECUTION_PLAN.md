@@ -47,7 +47,7 @@ użycie historycznych zdjęć 777 w modelu geometrii: targetami są nowe ręczni
 zatwierdzone siatki labu, nie dawne geometrie v1.1. Zastępuje ograniczenie
 D-447 tylko w tym zakresie, bez zmiany historycznego pochodzenia na 777 V2.
 Obecne role i niezmienne snapshoty pozostają nietknięte. Jawna kwalifikacja
-geometrii jest wdrażana w T03e według doprecyzowanego kontraktu TASK-0668,
+geometrii jest wdrożona i odebrana w T03e według kontraktu TASK-0668,
 z zachowaniem ważnych zgód niezmienionych źródeł i bramek symboli.
 Geometry-only purpose nie zmienia zachowania legacy splitów ani ról.
 Rzeczywiste apply kwalifikacji i zamrożenie splitu pozostają do wykonania.
@@ -59,8 +59,8 @@ jako odległe brzegi nagrań, oddzielone kilkoma katalogami. Nie wyprowadzamy
 tej deklaracji z nazw ani nie ponawiamy ogólnego pytania o pochodzenie.
 Pozostaje mapowanie konkretnych źródeł do rodzin i kontrola konfliktów:
 brzegi tego samego filmu pozostają jedną rodziną, a różne foldery nie
-dowodzą niezależnych filmów. T03 pozostaje `blocked` na technicznej
-kwalifikacji i zamrożonym podziale; T04/T05 nie rozpoczęto.
+dowodzą niezależnych filmów. T03 pozostaje `blocked` na mapowaniu rodzin,
+realnym apply kwalifikacji i zamrożonym podziale; T04/T05 nie rozpoczęto.
 
 Dowody i wynik: TASK-0668 oraz
 `ai_docs/quality/VISION_LAB_STAGE_B_DATA_PREFLIGHT.md`. Wykonawca T03
@@ -79,8 +79,8 @@ Istniejące reguły zatwierdzeń DB pozostają bez zmian.
 Eksporter działa w głównym środowisku tylko do odczytu. Manifest wejściowy
 ogranicza źródła, ich dostępne rewizje, metadane pochodzenia, słowniki,
 powiązane zatwierdzone etykiety i historyczne 777. Dotychczasowy format
-eksportu zapisuje dla niego rolę porównawczą; wdrożenie kwalifikacji
-geometrii według D-453 jest osobnym pozostałym krokiem. Transakcja
+eksportu zapisuje dla niego rolę porównawczą; mechanizm kwalifikacji
+geometrii D-453 dostarczył T03e, a realne apply pozostaje do wykonania. Transakcja
 `REPEATABLE READ READ ONLY` jest krótka, ma limity czasu i partie. Snapshot
 publikuje się atomowo po sprawdzeniu kompletności i checksum. Pierwotny wynik
 `selective_board_review_v1_1` i późniejsza ręczna reweryfikacja to odrębne
@@ -327,6 +327,49 @@ niezależny audyt PASS bez P0–P2. Realny preview 11 zdjęć / 30 siatek bez
 zmiany danych. Kwalifikacja nie została jeszcze zastosowana; import/rebase
 poprzedza realny apply. Pełny wynik i commit w Outcome T03e TASK-0668.
 
+## T03f — jawna kohorta targetów geometrii
+
+**Status:** `done`; kontrakt i kod odebrane, niezależny audyt Astra medium
+PASS bez P0–P2. Podzadanie TASK-0668 po odebranym T03e; nie zamyka
+T03 i nie uruchamia T04/T05. Wykonawca `gpt-6-sol` / `medium`, audyt
+`gpt-6-astra` / `medium`. Pełny zakres, błędy, pliki i testy w sekcji T03f taska.
+
+Opcjonalne geometry_source_ids=None zachowuje dokładnie dotychczasowy
+legacy i geometry T03e, wraz z receipts. Jawna niepusta unikalna kohorta
+(do 10000 znanych ID) dozwolona tylko dla purpose geometry. Pełny graf
+całego Catalog po SHA/rodzinach/powiązaniach pozostaje źródłem grup.
+Role/D-453 i verified provenance dotyczą wszystkich członków komponentu;
+approval/photoacceptance/full human target wymagane są tylko od wybranych.
+Aliasy poza kohortą nie otrzymują zgód, assignments ani targetów.
+
+Wersja lab-geometry-cohort-split-v1 zamraża posortowaną kohortę, kompletne
+leakage_components oraz fingerprints pełnych Source/StoredFamily i kwalifikacji
+każdego członka niedata (jawny null przy braku) wszystkich komponentów katalogu.
+Pola wchodzą do fingerprintu nowego splitu;
+stare wyniki i retry nie są przepisywane. Gry/unseen, difficulty i niezależność
+grup pomiarowych ocenia się na całych komponentach, a pokrycie topologii
+wyłącznie na wybranych pełnych human targetach. Measurement musi należeć
+do kohorty i nigdy nie rozdziela powiązanej grupy między pomiar i trening.
+
+Mutacja jest atomowa przez istniejący AnnotationStore/CAS/receipt/history.
+_view kontroluje pełny graf/fingerprints nowej wersji oraz skuteczność D-453
+wszystkich członków niedata komponentów zakwalifikowanych do assignments,
+także niewybranych mostów. Stała niekwalifikowana grupa całkowicie wykluczona
+nie daje stale; aliasy nie dostają targetów. Konserwatywne stale po zmianie także poza kohortą
+pozostaje; retry/reaccept go nie usuwa. Backup/restore zachowują nowe dane.
+Addytywne istniejące API /splits, OpenAPI/generated client, wrapper i test
+requestu aktualizowane spójnie; bez nowego endpointu/UI lub magazynu decyzji.
+
+DoD: alias SHA bez skopiowania zgody, przechodnie powiązania przez niewybrane
+źródła, wszystkie bramki provenance/role/unseen/measurement/topology,
+legacy receipts w nowym procesie, atomicity/race/retry, pełne fingerprints,
+stale, backup/restore oraz zgodny API/client. Implementacja do końcowego audytu:
+backend 69 różnych przypadków PASS (pierwszy fokus64 i rozszerzony cohort24),
+klient6, Ruff/mypy/TypeScript i OpenAPI/generated checks PASS.
+Małe izolowane fixture; timeouty do 120 s, bez benchmarków.
+Po audycie osobny commit i Outcome. Realny import/rebase/apply/freeze,
+automatyczne potwierdzanie rodzin, symbole i trening poza tym pionem.
+
 ## T14 — końcowe ujednolicenie toastów w aplikacjach webowych
 
 **Status:** `todo`, zaplanowane na polecenie użytkownika; bez implementacji
@@ -430,6 +473,7 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T03c / TASK-0668 | `gpt-6-sol` | `medium` | Zachowanie zatwierdzeń i atomowe powiązanie z nowym snapshotem. | `gpt-6-astra`, `medium` |
 | T03d / TASK-0668 | `gpt-6-sol` | `medium` | Trwałe review zdjęcia, wersje geometrii i zgodny pion API/UI. | `gpt-6-astra`, `medium` |
 | T03e / TASK-0668 | `gpt-6-sol` | `medium` | Kwalifikacja geometry-only, trwałość decyzji i ochrona podziałów. | `gpt-6-astra`, `medium` |
+| T03f / TASK-0668 | `gpt-6-sol` | `medium` | Jawna kohorta targetów z pełnym grafem przecieku i zgodnością receipts. | `gpt-6-astra`, `medium` |
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |

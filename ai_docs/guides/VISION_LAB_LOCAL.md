@@ -293,3 +293,57 @@ pozostają niezmienione. Późniejszy freeze musi jawnie podać purpose geometry
 oraz spełnić bramki rodzin, pomiaru i rozłączności. Pominięcie purpose
 zachowuje dawny tryb, bez dopuszczenia 777. Zmiany geometrii/review wymagają
 aktualnych decyzji; raz oznaczony stale split nie odzyskuje ważności przez retry.
+
+## Jawna kohorta geometrii
+
+Istniejący POST /splits przy purpose geometry przyjmuje opcjonalną listę
+geometry_source_ids: jawnie wybrane, unikalne ID źródeł (maksymalnie 10000).
+Pominięcie listy zachowuje dotychczasowe reguły. Wybrane źródła muszą mieć
+zaakceptowane zdjęcie i pełne ręczne geometrie. Nie zatwierdzaj nieanotowanych
+aliasów tylko po to, aby włączyć poprawny target: pozostają w grafie ochrony
+przed przeciekiem, bez assignmentu ani skopiowanej zgody.
+
+Pełna rodzina i powiązania każdego wybranego źródła nadal wymagają verified
+oraz dozwolonej roli lub własnej kwalifikacji D-453. Pomiar wybiera źródła
+z kohorty, wymaga trudności wszystkich członków ich komponentów i dwóch
+niezależnych grup na warstwę. Powiązanie z grą niewidzianą nadal blokuje
+przeciek. Sam wybór kohorty nie potwierdza pochodzenia ani gotowości treningu.
+
+Wynik zapisuje kohortę, pełne leakage_components i fingerprints także grup
+wykluczonych; targety oraz assignments obejmują wyłącznie wybrane źródła.
+Źródła poza listą mają NOT_IN_GEOMETRY_COHORT. Zmiana powiązań lub utrata
+skuteczności kwalifikacji członka użytej grupy daje stale. Retry po utracie
+odpowiedzi musi zachować identyczną listę i jej kolejność. Nowe request_id
+nie pozwala nadpisać istniejącego splitu. Nie ma nowego ekranu wyboru kohorty;
+rzeczywisty freeze wymaga uprzedniego odczytowego preview i bramek T03.
+
+## Błędne przykłady i ponowny trening
+
+Można wrócić do zdjęcia, poprawić wybrane siatki, zatwierdzić pełną geometrię
+i ponownie zaakceptować zdjęcie. Nie trzeba zmieniać poprawnych plansz.
+Edycja unieważnia zgodę na poprzednią wersję zdjęcia; kwalifikacja 777 związana
+z wcześniejszą mapą rewizji wymaga nowej decyzji. Istniejący zamrożony podział
+staje się nieaktualny (`stale`) i nie odzyskuje ważności przez ponowienie żądania.
+
+Należy rozróżniać dwa przypadki:
+
+- Wznowienie po przerwaniu kontynuuje ten sam trening, na tych samych danych
+  i konfiguracji. Planowany checkpoint v2 z T04 przechowuje również optimizer,
+  scheduler i stan losowania. Nie jest to sposób podmiany błędnych przykładów.
+- Trening po poprawieniu danych wymaga nowej wersji zbioru, nowej wersji
+  zamrożonego podziału z zachowaniem dotychczasowych ról rodzin i historii
+  użycia oraz nowego runu. Nie losuj ponownie podziału po obejrzeniu wyników.
+  Stare dane, podział oraz wyniki
+  pozostają do porównania. Samo usunięcie przykładu z listy nie usuwa jego
+  wcześniejszego wpływu na wagi. Czysty trening lub start sprzed użycia błędu
+  nie dziedziczy tego konkretnego wpływu; dalsze dostrajanie nie daje takiej
+  gwarancji.
+
+Stan obecny: laboratorium ma edycję, historię i backupy, lecz T04/T05 nie są
+ukończone. Nie ma jeszcze gotowego backendu treningu ani kompletnego workflow
+nowej wersji po korekcie zamrożonego zbioru. Drugi freeze tego samego magazynu
+jest odrzucany (`SPLIT_ALREADY_FROZEN`); restore zachowuje stary split, a rebase
+go nie przenosi. Nie kasuj ręcznie tych pól ani nie nadpisuj checkpointów.
+Przed implementacją ponownego treningu trzeba domknąć jawny kontrakt wersji.
+Korekta materiału wykorzystanego wcześniej do oceny nie jest nowym,
+niezależnym testem modelu; raport musi zachować tę informację.

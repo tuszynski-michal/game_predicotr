@@ -177,6 +177,23 @@ class AnnotationStore:
             )
         ):
             state.split_stale = True
+        if state.split and state.split.policy_version == "lab-geometry-cohort-split-v1":
+            from .splits import build_components, component_fingerprints
+
+            components = build_components(self.catalog, state)
+            if (
+                components != state.split.leakage_components
+                or component_fingerprints(self.catalog, state, components)
+                != state.split.leakage_component_fingerprints
+                or any(
+                    not qualification_effective(state, self.catalog.sources[source_id])
+                    for ids in components.values()
+                    if any(source_id in state.split.assignments for source_id in ids)
+                    for source_id in ids
+                    if self.catalog.sources[source_id].role != "data"
+                )
+            ):
+                state.split_stale = True
         return state
 
     def mutate(
@@ -193,6 +210,8 @@ class AnnotationStore:
             # Keep receipts from the original SplitRequest retryable after upgrade.
             if isinstance(request, SplitRequest) and request.purpose == "legacy":
                 request_data.pop("purpose")
+            if isinstance(request, SplitRequest) and request.geometry_source_ids is None:
+                request_data.pop("geometry_source_ids")
             fingerprint = digest(request_data)
             receipt = payload["receipts"].get(request.request_id)
             if receipt is not None:

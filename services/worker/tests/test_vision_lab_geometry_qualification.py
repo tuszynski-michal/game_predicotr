@@ -292,7 +292,7 @@ def test_old_split_receipt_retry_and_read_do_not_rewrite_payload(tmp_path):
         "geometry_target_fingerprints",
     ):
         payload["state"]["split"].pop(field)
-    legacy_request = request.model_dump(exclude={"purpose"})
+    legacy_request = request.model_dump(exclude={"purpose", "geometry_source_ids"})
     assert payload["receipts"][request.request_id]["fingerprint"] == digest(legacy_request)
     write_atomic(store.root / "state.json", payload)
     before = (store.root / "state.json").read_bytes()
@@ -314,7 +314,7 @@ def test_old_split_receipt_retry_and_read_do_not_rewrite_payload(tmp_path):
             code,
             str(store.root),
             str(store.catalog.root),
-            request.model_dump_json(exclude={"purpose"}),
+            request.model_dump_json(exclude={"purpose", "geometry_source_ids"}),
         ],
         check=True,
         capture_output=True,

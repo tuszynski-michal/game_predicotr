@@ -82,7 +82,7 @@ export async function writeFamily(body: FamilyRequest) {
   return (await saveFamily({ baseUrl, body, throwOnError: true })).data;
 }
 export async function freezeAnnotations(body: SplitRequest) {
-  // Preserve explicit cohort order: it is part of the server's retry receipt.
+  // Preserve explicit policy and cohort order: both bind the server's retry receipt.
   return (await freezeSplit({ baseUrl, body, throwOnError: true })).data;
 }
 export async function backupAnnotations() {

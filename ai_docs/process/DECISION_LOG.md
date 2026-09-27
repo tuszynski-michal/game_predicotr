@@ -6,6 +6,29 @@ last_updated: 2026-09-27
 
 # Decision Log
 
+## D-455 — kwalifikacja targetów 777 bez kwalifikowania kontekstu
+
+- **Status:** accepted, jawna zgoda operatora 2026-09-27 na korektę reguły
+  blokującej 11 zatwierdzonych zdjęć przez 19 niezatwierdzonych członków
+  tych samych trzech kandydatów rodzin. Nie jest to zatwierdzenie rodzin.
+- **Decision:** nowa, jawnie wybierana polityka geometry-only z niepustą
+  kohortą wymaga kwalifikacji D-453 od każdego wybranego targetu 777.
+  Niewybrany jednoznaczny historyczny folder 777 o roli comparison_only
+  może pozostawać wyłącznie kontekstem pełnego grafu bez własnej kwalifikacji.
+  Nie otrzymuje targetu, przypisania, anotacji ani akceptacji za operatora.
+- **Boundaries:** wyjątek nie obejmuje DB, V2, innych comparison_only ani
+  wybranego źródła. Tożsamość historycznego 777 jest sprawdzana równie ściśle
+  jak w D-453. Cały komponent nadal wymaga zweryfikowanego pochodzenia;
+  SHA, rodziny, pochodne, unseen i measurement obejmują cały katalog.
+- **Compatibility:** domyślne requesty, brak kohorty oraz istniejące frozen
+  splity zachowują D-454. Nowa wersja polityki ma osobne jawne pole requestu,
+  usuwane z fingerprintu przy None dla zachowania starych receipts.
+  Nowa wersja nie wymaga skutecznej kwalifikacji niewybranego kontekstu 777,
+  lecz nadal wiąże pełne fingerprints i wykrywa zmianę grafu/metadanych.
+- **Execution:** T03j, spójne backend/OpenAPI/generated client/wrapper/testy,
+  Sol medium i niezależny audyt Astra medium. Zmiana nie rozstrzyga innych
+  braków pochodzenia ani pomiaru i sama nie uruchamia treningu.
+
 ## D-454 — jawna kohorta geometrii nie usuwa powiązań źródeł
 
 - **Status:** accepted, techniczne doprecyzowanie T03f w autonomicznej

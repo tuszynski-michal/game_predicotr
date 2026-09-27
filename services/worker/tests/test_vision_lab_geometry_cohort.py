@@ -297,7 +297,7 @@ def test_pre_cohort_fingerprints_and_receipts_stay_identical(tmp_path, purpose):
         ):
             raw_split.pop(key)
     assert digest([store.snapshot_id, raw_split]) == split.fingerprint
-    historical_request = request.model_dump(exclude={"geometry_source_ids"})
+    historical_request = request.model_dump(exclude={"geometry_source_ids", "geometry_policy"})
     if purpose == "legacy":
         historical_request.pop("purpose")
     assert payload["receipts"][request.request_id]["fingerprint"] == digest(historical_request)

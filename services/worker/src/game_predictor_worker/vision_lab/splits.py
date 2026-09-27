@@ -6,7 +6,7 @@ from collections import defaultdict
 from .annotation_contracts import AnnotationState, FrozenSplit, SplitRequest
 from .annotations import digest
 from .catalog import Catalog
-from .geometry_qualification import full_human_targets, qualification_effective
+from .geometry_qualification import full_human_targets, geometry_role_eligible
 from .photo_review import photo_accepted
 
 
@@ -64,6 +64,11 @@ def component_fingerprints(
 
 def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitRequest) -> FrozenSplit:
     cohort = None if request.geometry_source_ids is None else set(request.geometry_source_ids)
+    if request.geometry_policy is not None:
+        if request.purpose != "geometry":
+            raise ValueError("GEOMETRY_POLICY_PURPOSE_REQUIRED")
+        if cohort is None:
+            raise ValueError("GEOMETRY_POLICY_COHORT_REQUIRED")
     if cohort is not None:
         if request.purpose != "geometry":
             raise ValueError("GEOMETRY_COHORT_PURPOSE_REQUIRED")
@@ -109,7 +114,12 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
         reason = None
         if any(
             catalog.sources[s].role != "data"
-            and not (geometry and qualification_effective(state, catalog.sources[s]))
+            and not (
+                geometry
+                and geometry_role_eligible(
+                    state, catalog.sources[s], request.geometry_policy, cohort
+                )
+            )
             for s in ids
         ):
             reason = "COMPARISON_OR_777_PROVENANCE_UNRESOLVED"
@@ -219,7 +229,7 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
         )
     if cohort is not None:
         data.update(
-            policy_version="lab-geometry-cohort-split-v1",
+            policy_version=request.geometry_policy or "lab-geometry-cohort-split-v1",
             geometry_source_ids=sorted(cohort),
             leakage_components=groups,
             leakage_component_fingerprints=component_fingerprints(catalog, state, groups),

@@ -11,63 +11,66 @@ import {
 import { boundary } from '../../../apps/vision-lab/src/lib/boundary.ts';
 import { freezeAnnotations } from '../src/index.ts';
 
-test('freeze wrapper preserves cohort order and complete leakage maps', async () => {
-  const body = {
-    request_id: 'cohort-split',
-    expected_revision: 8,
-    actor: 'operator',
-    purpose: 'geometry',
-    geometry_source_ids: ['b', 'a'],
-    unseen_game_id: 'unseen',
-    seed: 17,
-    measurement_source_ids: ['a'],
-    difficulties: { a: 'normal', alias: 'normal' },
-  };
-  const state = {
-    revision: 9,
-    split: {
-      policy_version: 'lab-geometry-cohort-split-v1',
-      geometry_source_ids: ['a', 'b'],
-      leakage_components: {
-        a: ['a', 'alias'],
-        b: ['b'],
-        excluded: ['excluded'],
-      },
-      leakage_component_fingerprints: {
-        a: 'first',
-        b: 'second',
-        excluded: 'third',
-      },
-      assignments: { a: 'measurement', b: 'unseen_game' },
-    },
-  };
-  const originalRequest = globalThis.Request;
-  const originalFetch = globalThis.fetch;
-  try {
-    // Emulate the browser origin for the wrapper's existing relative base URL.
-    globalThis.Request = class extends originalRequest {
-      constructor(input, init) {
-        super(
-          typeof input === 'string'
-            ? new URL(input, 'http://127.0.0.1:3102')
-            : input,
-          init,
-        );
-      }
+for (const policy of [undefined, 'lab-geometry-cohort-777-targets-v2']) {
+  test(`freeze wrapper preserves ${policy ?? 'original cohort'}, order and leakage maps`, async () => {
+    const body = {
+      request_id: 'cohort-split',
+      expected_revision: 8,
+      actor: 'operator',
+      purpose: 'geometry',
+      ...(policy ? { geometry_policy: policy } : {}),
+      geometry_source_ids: ['b', 'a'],
+      unseen_game_id: 'unseen',
+      seed: 17,
+      measurement_source_ids: ['a'],
+      difficulties: { a: 'normal', alias: 'normal' },
     };
-    globalThis.fetch = async (request) => {
-      assert.equal(request.url, 'http://127.0.0.1:3102/api/lab/splits');
-      assert.deepEqual(await request.json(), body);
-      return new Response(JSON.stringify(state), {
-        headers: { 'content-type': 'application/json' },
-      });
+    const state = {
+      revision: 9,
+      split: {
+        policy_version: policy ?? 'lab-geometry-cohort-split-v1',
+        geometry_source_ids: ['a', 'b'],
+        leakage_components: {
+          a: ['a', 'alias'],
+          b: ['b'],
+          excluded: ['excluded'],
+        },
+        leakage_component_fingerprints: {
+          a: 'first',
+          b: 'second',
+          excluded: 'third',
+        },
+        assignments: { a: 'measurement', b: 'unseen_game' },
+      },
     };
-    assert.deepEqual(await freezeAnnotations(body), state);
-  } finally {
-    globalThis.Request = originalRequest;
-    globalThis.fetch = originalFetch;
-  }
-});
+    const originalRequest = globalThis.Request;
+    const originalFetch = globalThis.fetch;
+    try {
+      // Emulate the browser origin for the wrapper's existing relative base URL.
+      globalThis.Request = class extends originalRequest {
+        constructor(input, init) {
+          super(
+            typeof input === 'string'
+              ? new URL(input, 'http://127.0.0.1:3102')
+              : input,
+            init,
+          );
+        }
+      };
+      globalThis.fetch = async (request) => {
+        assert.equal(request.url, 'http://127.0.0.1:3102/api/lab/splits');
+        assert.deepEqual(await request.json(), body);
+        return new Response(JSON.stringify(state), {
+          headers: { 'content-type': 'application/json' },
+        });
+      };
+      assert.deepEqual(await freezeAnnotations(body), state);
+    } finally {
+      globalThis.Request = originalRequest;
+      globalThis.fetch = originalFetch;
+    }
+  });
+}
 
 test('geometry-only state and explicit split purpose preserve the generated contract', async () => {
   const qualification = {

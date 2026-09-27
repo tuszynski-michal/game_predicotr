@@ -133,8 +133,20 @@ Jawna kohorta geometrii T03f wybiera wyłącznie źródła targetów. Nieanotowa
 alias poza kohortą nie potrzebuje skopiowanej akceptacji, ale nadal uczestniczy
 w pełnym grafie rodzin, duplikatów SHA i pochodnych. Cały powiązany komponent
 wymaga zweryfikowanego pochodzenia i dopuszczonej roli lub własnej skutecznej
-kwalifikacji D-453. Akceptacja i pełny ręczny target są wymagane od każdego
+kwalifikacji D-453, z wyjątkiem jawnej polityki D-455 opisanej poniżej.
+Akceptacja i pełny ręczny target są wymagane od każdego
 wybranego źródła; błąd jednego wyklucza wybrane źródła całego komponentu.
 Niewybrany członek nie omija granic gry niewidzianej ani niezależności pomiaru.
 Wybór kohorty nie potwierdza rodzin, nie tworzy zgód i nie odblokowuje treningu
 przed pozostałymi bramkami T03. Bez jawnej kohorty obowiązuje poprzedni workflow.
+
+D-455 dodaje opcjonalną politykę `lab-geometry-cohort-777-targets-v2` dla
+geometry-only z jawną niepustą kohortą. Niewybrane źródło folderowe o dokładnej
+nazwie gry `777`, pierwszym segmencie ścieżki `777` i roli `comparison_only`
+nie wymaga własnej kwalifikacji geometrii. Pozostaje wyłącznie kontekstem
+pełnego grafu, bez zatwierdzenia, targetu ani przypisania. Każde wybrane 777
+nadal wymaga własnej skutecznej D-453, zgodnego SHA i rewizji, akceptacji zdjęcia
+oraz pełnej ręcznej geometrii. Wyjątek nie obejmuje DB, V2 ani innych
+comparison_only. Verified całego komponentu, unseen, pomiar i pełne fingerprints
+pozostają obowiązkowe. Pominięcie nowej polityki i istniejące podziały zachowują
+poprzednie reguły; wdrożenie nie zatwierdza rodzin ani nie uruchamia treningu.

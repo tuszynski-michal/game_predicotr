@@ -177,16 +177,27 @@ class AnnotationStore:
             )
         ):
             state.split_stale = True
-        if state.split and state.split.policy_version == "lab-geometry-cohort-split-v1":
+        if state.split and state.split.policy_version in (
+            "lab-geometry-cohort-split-v1",
+            "lab-geometry-cohort-777-targets-v2",
+        ):
+            from .geometry_qualification import geometry_role_eligible
             from .splits import build_components, component_fingerprints
 
             components = build_components(self.catalog, state)
+            cohort = (
+                set(state.split.geometry_source_ids)
+                if state.split.geometry_source_ids is not None
+                else None
+            )
             if (
                 components != state.split.leakage_components
                 or component_fingerprints(self.catalog, state, components)
                 != state.split.leakage_component_fingerprints
                 or any(
-                    not qualification_effective(state, self.catalog.sources[source_id])
+                    not geometry_role_eligible(
+                        state, self.catalog.sources[source_id], state.split.policy_version, cohort
+                    )
                     for ids in components.values()
                     if any(source_id in state.split.assignments for source_id in ids)
                     for source_id in ids
@@ -212,6 +223,8 @@ class AnnotationStore:
                 request_data.pop("purpose")
             if isinstance(request, SplitRequest) and request.geometry_source_ids is None:
                 request_data.pop("geometry_source_ids")
+            if isinstance(request, SplitRequest) and request.geometry_policy is None:
+                request_data.pop("geometry_policy")
             fingerprint = digest(request_data)
             receipt = payload["receipts"].get(request.request_id)
             if receipt is not None:

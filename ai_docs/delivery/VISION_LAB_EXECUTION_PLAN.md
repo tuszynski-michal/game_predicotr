@@ -405,6 +405,19 @@ Pokrycie nazw 121/473, zgodność SHA obrazów 0/121; pełny raport w
 `ai_docs/quality/VISION_LAB_RECOVERED_METADATA_20260927.md`. Osobny commit
 i pełny hash zapisuje Outcome T03i. Nadrzędny T03 nadal blocked.
 
+## T03j — kwalifikacja targetów 777, D-455
+
+Jawnie zatwierdzone 2026-09-27. Nowa opcjonalna polityka requestu istniejącego
+POST /splits zwalnia wyłącznie niewybrane historyczne folderowe 777
+comparison_only z posiadania własnej kwalifikacji geometrii. Targety zawsze
+wymagają własnej D-453, SHA/rewizji, akceptacji i pełnej ręcznej geometrii.
+Pełny graf, verified całego komponentu, unseen, measurement i fingerprints
+pozostają bez osłabienia. Brak nowych zgód, danych ani endpointu.
+Stare requesty/receipts, None oraz istniejące v1 frozen splity zachowują reguły.
+Kontrakt, konkretne pliki, regresje i bramki odbioru: T03j w TASK-0668.
+Status `done`; Sol medium, niezależny audyt Astra medium PASS bez P0–P2.
+Backend 76/76, klient 7/7 i kontrole jakości PASS; osobny commit w Outcome.
+
 ## T14 — końcowe ujednolicenie toastów w aplikacjach webowych
 
 **Status:** `todo`, zaplanowane na polecenie użytkownika; bez implementacji
@@ -512,6 +525,7 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T03g / TASK-0668 | `gpt-6-sol` | `medium` | Addytywny snapshot, pełna kontrola zachowania zapisów i restart. | `gpt-6-astra`, `medium` |
 | T03h / TASK-0668 | `gpt-6-sol` | `medium` | Jawny zapis D-453, backup i idempotencja bez zmiany geometrii. | `gpt-6-astra`, `medium` |
 | T03i / TASK-0668 | `gpt-6-sol` | `medium` | Bezpieczne odzyskanie metadanych i rozróżnienie powiązań nazw od pikseli. | `gpt-6-astra`, `medium` |
+| T03j / TASK-0668 | `gpt-6-sol` | `medium` | Wąska zmiana kwalifikacji targetów z ochroną grafu, wersji i receipts. | `gpt-6-astra`, `medium` |
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |

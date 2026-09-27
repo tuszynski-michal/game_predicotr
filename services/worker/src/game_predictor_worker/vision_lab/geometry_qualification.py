@@ -12,6 +12,36 @@ from .annotation_contracts import (
 from .contracts import Source
 from .photo_review import board_revisions, photo_accepted
 
+TARGETS_ONLY_777_POLICY = "lab-geometry-cohort-777-targets-v2"
+
+
+def historical_folder_777(source: Source) -> bool:
+    """Exact immutable provenance supported by D-453 and D-455."""
+    parts = PurePosixPath(source.filename).parts
+    return (
+        source.source_kind == "folder"
+        and source.game_name == "777"
+        and len(parts) >= 2
+        and parts[0] == "777"
+        and source.role == "comparison_only"
+    )
+
+
+def geometry_role_eligible(
+    state: AnnotationState, source: Source, policy: str | None, cohort: set[str] | None
+) -> bool:
+    """D-455 exempts only unselected historical context, never a target."""
+    return (
+        source.role == "data"
+        or (
+            policy == TARGETS_ONLY_777_POLICY
+            and cohort is not None
+            and source.id not in cohort
+            and historical_folder_777(source)
+        )
+        or qualification_effective(state, source)
+    )
+
 
 def full_human_targets(state: AnnotationState, source: Source) -> dict[str, GeometryAnnotation]:
     return {
@@ -32,15 +62,10 @@ def validate_binding(
 ) -> None:
     # Folder importer stores the exact top-level game directory in both fields.
     # A comparison role alone, a substring, or a DB game name is not this evidence.
-    parts = PurePosixPath(source.filename).parts
     if (
         source.id != binding.source_id
         or source.game_id != game_id
-        or source.source_kind != "folder"
-        or source.game_name != "777"
-        or len(parts) < 2
-        or parts[0] != "777"
-        or source.role != "comparison_only"
+        or not historical_folder_777(source)
     ):
         raise ValueError("GEOMETRY_QUALIFICATION_HISTORICAL_777_REQUIRED")
     if binding.source_sha256 != source.sha256:

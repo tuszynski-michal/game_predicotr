@@ -355,7 +355,7 @@ export type FrozenSplit = {
     /**
      * Policy Version
      */
-    policy_version: 'legacy' | 'lab-geometry-split-v1' | 'lab-geometry-cohort-split-v1';
+    policy_version: 'legacy' | 'lab-geometry-split-v1' | 'lab-geometry-cohort-split-v1' | 'lab-geometry-cohort-777-targets-v2';
     /**
      * Purpose
      */
@@ -739,6 +739,10 @@ export type SplitRequest = {
      * Expected Revision
      */
     expected_revision: number;
+    /**
+     * Geometry Policy
+     */
+    geometry_policy?: 'lab-geometry-cohort-777-targets-v2' | null;
     /**
      * Geometry Source Ids
      */

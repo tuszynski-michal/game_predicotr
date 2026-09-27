@@ -133,6 +133,24 @@ przeliczania zapisanych assignments/fingerprintu; mutacje zachowują wcześniejs
 konserwatywne unieważnianie. Atomowość, CAS, retry, historia i backup należą
 do AnnotationStore. Rebase splitu pozostaje zablokowany. Brak nowej trasy/UI.
 
+T03j/D-455 dodaje opcjonalne SplitRequest.geometry_policy o wartości
+`lab-geometry-cohort-777-targets-v2`; None jest usuwane przed hashowaniem
+requestu/historii, więc legacy, T03e i T03f zachowują receipts i fingerprints.
+V2 wymaga purpose geometry oraz jawnej niepustej kohorty. Błędy kombinacji
+to GEOMETRY_POLICY_PURPOSE_REQUIRED, GEOMETRY_POLICY_COHORT_REQUIRED oraz
+istniejący GEOMETRY_COHORT_EMPTY (HTTP409); nieznany enum daje HTTP422.
+FrozenSplit zapisuje v2 w policy_version, bez dodawania pól do starych hashy.
+Wspólny geometry_role_eligible jest używany przez freeze i _view; zwalnia
+z kwalifikacji jedynie źródła poza geometry_source_ids spełniające ścisły
+historical_folder_777 (folder, game_name=777, filename zaczyna się segmentem
+777 i zawiera nazwę pliku, role=comparison_only). Brak assignmentu sam w sobie
+nie oznacza kontekstu. validate_binding D-453 korzysta z tej samej tożsamości.
+Wybrane niedata wymagają własnej skutecznej kwalifikacji. Pełne komponenty
+i ich fingerprints pozostają niezmienione; _view v1 nadal wymaga kwalifikacji
+wszystkich członków niedata. V2 nie daje fałszywego stale od stałego braku
+kwalifikacji kontekstu, ale wykrywa zmiany pełnych metadanych, rodzin,
+kwalifikacji i grafu. Konserwatywne stale po mutacjach pozostaje bez zmian.
+
 Eksporter czyta tylko wskazane `source_images`, związane
 `image_source_geometry_revisions`, `image_page_geometry_overrides`,
 `recognized_boards`, `image_board_geometry_revisions`,

@@ -6,6 +6,19 @@ last_updated: 2026-09-27
 
 # Current State
 
+### T03j — zatwierdzona korekta kwalifikacji kontekstu 777
+
+- Operator jawnie zgodził się na wymaganie kwalifikacji od targetów, nie od
+  niewybranych zdjęć 777 w pełnym grafie. D-455 zapisuje wąski wyjątek i ochronę
+  starego zachowania. Nowa opcjonalna polityka istniejącego API /splits;
+  backend/OpenAPI/client/testy wykonuje Sol medium, audytuje Astra medium.
+- Nie tworzyć żadnych zgód dla kontekstu. Pochodzenie całych komponentów,
+  unseen, pomiar, pełny graf i zmiany fingerprintów nadal kontrolowane.
+  T03j done: końcowy audyt Astra medium PASS bez P0–P2. Testy backendu 76/76,
+  klienta 7/7; Ruff/format, mypy, TypeScript labu/klienta, OpenAPI/generated
+  check PASS; niezależnie 31 backend + 7 client PASS. Commit v1.7.26
+  (pełny hash po commicie). T04/T05 nadal czekają na faktyczne domknięcie T03.
+
 ### T03i — odzyskiwanie metadanych selekcji
 
 - Użytkownik zezwolił na przeszukanie Kosza i odzyskanie projektowych

@@ -591,7 +591,8 @@
             "enum": [
               "legacy",
               "lab-geometry-split-v1",
-              "lab-geometry-cohort-split-v1"
+              "lab-geometry-cohort-split-v1",
+              "lab-geometry-cohort-777-targets-v2"
             ],
             "title": "Policy Version",
             "type": "string"
@@ -1216,6 +1217,18 @@
             "minimum": 0.0,
             "title": "Expected Revision",
             "type": "integer"
+          },
+          "geometry_policy": {
+            "anyOf": [
+              {
+                "const": "lab-geometry-cohort-777-targets-v2",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometry Policy"
           },
           "geometry_source_ids": {
             "anyOf": [

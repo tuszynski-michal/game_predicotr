@@ -86,6 +86,97 @@ Porównanie z DoD: kontrola kopii, nowego procesu, zachowania źródeł oraz
 rozróżnienia dowodów spełniona. Nadrzędny task pozostaje blocked; dalszy krok
 to osobna analiza dowodów pochodzenia, nie automatyczne uruchomienie treningu.
 
+## T03j — nowa polityka kwalifikacji targetów 777
+
+### Status / Goal / Context / Dependencies
+
+`done`. Usunięto zatwierdzoną przez operatora nadmiarową bramkę: niewybrane
+historyczne zdjęcia 777 nie muszą uzyskać zgód treningowych, aby wybrane
+zatwierdzone zdjęcia mogły się uczyć. D-455 przyjęte; T03f/h odebrane.
+Nie oznacza to rozstrzygnięcia rodzin ani zgody na dodatkowe targety.
+
+### Recommended execution / Relevant docs
+
+`gpt-6-sol` / `medium`, niezależny `gpt-6-astra` / `medium` według planu.
+AGENTS, PLAN_STANDARD, TASK_TEMPLATE, wymagania/architektura labu i D-453–455.
+Brak modelu lub P0–P2 po dwóch cyklach blokuje odbiór.
+
+### Scope / Technical notes / Errors
+
+- Proponowane pole `SplitRequest.geometry_policy`, opcjonalne Literal
+  `lab-geometry-cohort-777-targets-v2` lub None. None usuwane z request_data
+  przed fingerprintem; stare receipts obu purpose i kohort pozostają ważne.
+- Wybór v2 wymaga purpose geometry i jawnej niepustej kohorty; błędny wybór
+  kończy stabilnym ValueError/istniejącym 409, zły enum pozostaje 422.
+- FrozenSplit v2 zapisuje tę wersję i komplet obecnych fingerprintów.
+  Default/None nadal tworzy poprzednią politykę bez nowych danych hashujących.
+- Wyjątek dotyczy wyłącznie źródła POZA kohortą: source_kind folder,
+  game_name dokładnie 777, pierwszy segment filename dokładnie 777,
+  role comparison_only. To nie jest test podciągu nazwy. DB, V2, inne role
+  i comparison_only pozostają pod dotychczasowymi bramkami.
+- Wybrane niedata zawsze wymagają skutecznej własnej kwalifikacji; nie wolno
+  jej kopiować. Cały komponent nadal verified, pełny graf SHA/families/related,
+  kontrola gry/unseen i pomiaru bez zmian. Kontekst nie ma assignments/targetów.
+- `_view` rozgałęzia skuteczność kwalifikacji według wersji frozen splitu.
+  V1 zachowuje kontrolę wszystkich członków; v2 używa tego samego wąskiego
+  wyjątku co freeze. Zmiana grafu lub pełnych fingerprintów nadal daje stale;
+  sam stały brak kwalifikacji wyłączonego kontekstu nie daje stale w v2.
+- Mutacje, backup, CAS, receipts i retry nadal należą do AnnotationStore.
+  Błąd nie zapisuje częściowej zmiany. Realne dane/mapowanie i trening poza
+  zmianą kodu T03j; wznowiona analiza T03 może działać równolegle read-only.
+
+### Expected files
+
+Istniejące `vision_lab/annotation_contracts.py::SplitRequest/FrozenSplit`,
+`splits.py::freeze_splits`, `annotations.py::mutate/_view`, ewentualny wspólny
+predykat w `geometry_qualification.py`, pod
+`services/worker/src/game_predictor_worker/`. Testy w
+`services/worker/tests/test_vision_lab_geometry_cohort.py`, kwalifikacji,
+anotacji i API. OpenAPI i generated types, wrapper `src/index.ts` oraz
+`test/request.test.mjs` w `packages/vision-lab-api-client`. Bez nowego UI.
+Root aktualizuje plan/task/current/decision log, wykonawca właściwe wymagania
+i architekturę; nie dotykać obcych zmian.
+
+### Acceptance / Test cases / Verification
+
+- [x] V2 dopuszcza targety 777 z niekwalifikowanym kontekstem; nie tworzy zgód.
+- [x] V1/None/legacy oraz stare receipts zachowują poprzednie zachowanie.
+- [x] Brak własnej kwalifikacji targetu, nieweryfikowana rodzina, DB/V2/inne
+  comparison, most przez niewybrany alias, unseen i konflikty pomiaru blokują.
+- [x] Nowy proces i backup/restore: v2 bez fałszywego stale, zmiany źródeł,
+  rodziny lub kwalifikacji targetów dają stale, v1 pozostaje rygorystyczne.
+- [x] Spójny pion API/OpenAPI/client i test requestu; testy backendu,
+  Ruff/format/mypy zmienionych modułów, TypeScript klienta, generated check.
+- [x] Niezależny audyt bez P0–P2; Outcome/CURRENT_STATE uzupełnione,
+  osobny commit v1.7.26 przygotowany (pełny hash dopisany po zapisie).
+
+Sprawdzone komendy: pytest plików testowych wyżej, root
+`npm run vision-lab:openapi:generate` i `npm run vision-lab:openapi:check`;
+pozostałe komendy jakości z package.json i konfiguracji repo. Wszystkie
+skończone komendy mają timeout do 120 s, bez benchmarków. Wykonane wyniki
+w Outcome, nie traktować tej listy jako zaliczonych testów.
+
+### Outcome T03j
+
+Implementacja i niezależny audyt zakończone. Sol medium:
+7 nowych regresji PASS (22,09 s), 69 pozostałych regresji PASS (113,98 s),
+łącznie 76 testów backendu; 7 testów klienta PASS (0,37 s). Ruff check/format,
+mypy 15 modułów, TypeScript klienta i laboratorium, OpenAPI generate/check,
+generated check oraz diff check PASS. Każda komenda miała limit do 120 s.
+Istniejące ostrzeżenia Starlette/AnyIO bez błędów testów. Astra medium:
+niezależne 31 testów backendu i 7 klienta PASS; audyt kodu bez P0–P2.
+Pierwszy audyt klienta zatrzymało ograniczenie sandboxa
+`uv_os_get_passwd ENOMEM`; zatwierdzone ponowienie poza sandboxem PASS.
+
+Zmieniono opcjonalny kontrakt istniejącego API, backend, wygenerowany klient,
+wrapper i test żądania; wymagania i architektura odzwierciedlają D-455.
+Nie zmieniono UI, danych, kwalifikacji ani starych receipts. Brak realnego
+freeze i treningu. Po odbiorze ponowić dry-run mapy z nową jawnie wybraną
+polityką; nie omijać pozostałych bramek T03. Wszystkie kryteria T03j pokryto
+testami i audytem; bez pełnego builda repo ani wdrożenia. Cały TASK-0668
+pozostaje aktywny, więc nie przenosi się go do completed razem z podzadaniem.
+Commit T03j: v1.7.26 (pełny hash po commicie).
+
 ## Goal
 
 Zatwierdzać warstwowe anotacje geometrii z trwałymi rewizjami i zamrożonymi podziałami.

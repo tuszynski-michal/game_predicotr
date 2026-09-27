@@ -4,7 +4,13 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useToast } from '../../../../packages/ui/src/toasts';
 import { useAnnotations } from './annotation-context';
-import { symbolWriteSession, canMutateSymbolRow } from '../lib/symbol-workflow';
+import {
+  symbolWriteSession,
+  canMutateSymbolRow,
+  createSymbolDictionaryEntry,
+  hasBlankSymbolDictionaryName,
+  normalizeSymbolDictionaryEntries,
+} from '../lib/symbol-workflow';
 import {
   listSources,
   symbolLabels,
@@ -175,6 +181,21 @@ export function SymbolLabelEditor() {
       setBusy(false);
     }
   }
+  function saveDictionaryDraft() {
+    const normalizedEntries = normalizeSymbolDictionaryEntries(entries);
+    if (hasBlankSymbolDictionaryName(normalizedEntries)) {
+      report('Nazwa symbolu nie może być pusta.');
+      return;
+    }
+    setEntries(normalizedEntries);
+    void submit({
+      ...mutation(),
+      op: 'dictionary_draft',
+      game_id: game,
+      base_version: latest?.version ?? null,
+      entries: normalizedEntries,
+    });
+  }
   async function nextPage() {
     if (!page || unavailable) return;
     setBusy(true);
@@ -241,38 +262,11 @@ export function SymbolLabelEditor() {
         <legend>Słownik gry</legend>
         <p>
           Nowa wersja nie zmienia zatwierdzonej wersji, dopóki jej jawnie nie
-          zatwierdzisz. Zmiana znaczenia klasy wymaga nowego ID i kodu.
+          zatwierdzisz. Aby dodać inny symbol, dodaj nową pozycję; korekta nazwy
+          nie zmienia klasy.
         </p>
-        {entries.map((entry, index) => (
-          <div key={index}>
-            <label>
-              ID{' '}
-              <input
-                value={entry.id}
-                maxLength={64}
-                onChange={(e) =>
-                  setEntries(
-                    entries.map((v, i) =>
-                      i === index ? { ...v, id: e.target.value } : v,
-                    ),
-                  )
-                }
-              />
-            </label>
-            <label>
-              Kod{' '}
-              <input
-                value={entry.code}
-                maxLength={64}
-                onChange={(e) =>
-                  setEntries(
-                    entries.map((v, i) =>
-                      i === index ? { ...v, code: e.target.value } : v,
-                    ),
-                  )
-                }
-              />
-            </label>
+        {entries.map((entry) => (
+          <div key={entry.id}>
             <label>
               Nazwa{' '}
               <input
@@ -280,15 +274,19 @@ export function SymbolLabelEditor() {
                 maxLength={128}
                 onChange={(e) =>
                   setEntries(
-                    entries.map((v, i) =>
-                      i === index ? { ...v, display_name: e.target.value } : v,
+                    entries.map((v) =>
+                      v.id === entry.id
+                        ? { ...v, display_name: e.target.value }
+                        : v,
                     ),
                   )
                 }
               />
             </label>
             <button
-              onClick={() => setEntries(entries.filter((_, i) => i !== index))}
+              onClick={() =>
+                setEntries(entries.filter((value) => value.id !== entry.id))
+              }
             >
               Usuń z nowej wersji
             </button>
@@ -297,24 +295,12 @@ export function SymbolLabelEditor() {
         <button
           disabled={entries.length >= 256}
           onClick={() =>
-            setEntries([...entries, { id: '', code: '', display_name: '' }])
+            setEntries([...entries, createSymbolDictionaryEntry()])
           }
         >
           Dodaj klasę
         </button>
-        <button
-          onClick={() =>
-            void submit({
-              ...mutation(),
-              op: 'dictionary_draft',
-              game_id: game,
-              base_version: latest?.version ?? null,
-              entries,
-            })
-          }
-        >
-          Zapisz nową wersję
-        </button>
+        <button onClick={saveDictionaryDraft}>Zapisz nową wersję</button>
         <button
           disabled={!latest?.version || latest.status === 'approved'}
           onClick={() =>

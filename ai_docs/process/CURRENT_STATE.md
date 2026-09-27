@@ -6,6 +6,19 @@ last_updated: 2026-09-27
 
 # Current State
 
+### TASK-0715 — słownik laboratorium z samą nazwą
+
+- Na prośbę operatora formularz przyjmuje tylko nazwę symbolu.
+  Nowe ID i kody generowane raz przy dodaniu; istniejące pozostają bez zmian.
+  Jawny zapis, zatwierdzenie wersji i identyczny retry zachowują kontrakt T06a.
+- Wąska poprawka UI i testów, bez zmian API, danych, importu dawnych etykiet
+  ani treningu. Wykonawca i niezależny audyt: Terra high, końcowy PASS bez
+  P0–P2 po korekcie regexu UUID w teście. 42/42 testy, lint, typecheck,
+  format i build PASS. Task 0715 done w completed; commit po kontroli indeksu.
+- Nowy proces lokalnego UI22592 odpowiada HTTP200 na3102; API bez restartu.
+  Browser QA: jedno pole Nazwa po dodaniu klasy, brak ID/Kod; bez zapisu
+  danych ani odświeżania karty operatora. Fizyczny Android/OSrestart nietestowane.
+
 ### TASK-0714 — Limit listy symboli 20 sekund
 
 - Na polecenie operatora domyślny limit SQL listy zwiększony z 5000 do 20000 ms.

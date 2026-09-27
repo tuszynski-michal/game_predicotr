@@ -43,7 +43,7 @@ registerHooks({
         shortCircuit: true,
         source:
           'export const listRuns = (...args) => globalThis.labApi.runs?.(...args) ?? Promise.resolve({runs: [], total: 0});' +
-          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = (...args) => globalThis.labApi.detect?.(...args) ?? Promise.resolve({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => [];',
+          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = (...args) => globalThis.labApi.detect?.(...args) ?? Promise.resolve({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => []; export const symbolLabels = (...args) => globalThis.labApi.symbolLabels(...args); export const symbolDictionaries = (...args) => globalThis.labApi.symbolDictionaries(...args); export const symbolDictionary = (...args) => globalThis.labApi.symbolDictionary(...args); export const symbolCrop = (...args) => globalThis.labApi.symbolCrop(...args); export const writeSymbol = (...args) => globalThis.labApi.writeSymbol(...args); export const backupSymbols = (...args) => globalThis.labApi.backupSymbols(...args);',
       };
     if (/\.(tsx|ts)$/.test(url))
       return {
@@ -63,6 +63,8 @@ registerHooks({
 const { GeometryEditor } =
   await import('../src/components/geometry-editor.tsx');
 const { QuickReview } = await import('../src/components/quick-review.tsx');
+const { SymbolLabelEditor } =
+  await import('../src/components/symbol-label-editor.tsx');
 const { quickReviewQueue } = await import('../src/lib/quick-review.ts');
 const { AnnotationProvider, useAnnotations } =
   await import('../src/components/annotation-context.tsx');
@@ -100,13 +102,118 @@ const source = { id: 'source', asset_id: 'photo', sha256: 'a'.repeat(64) };
 test('real NextLink resolves and renders its navigation anchor in the Node harness', async () => {
   let root;
   await act(async () => {
-    root = create(React.createElement(NextLink, { href: '/symbols' }, 'Etykiety symboli'));
+    root = create(
+      React.createElement(NextLink, { href: '/symbols' }, 'Etykiety symboli'),
+    );
   });
   try {
     const anchor = root.root.findByType('a');
     assert.equal(anchor.props.href, '/symbols');
     assert.equal(anchor.props.children, 'Etykiety symboli');
     assert.equal(typeof anchor.props.onClick, 'function');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+test('symbol dictionary exposes only a name, validates it and preserves generated identity in the save payload', async () => {
+  const requests = [];
+  const symbolSource = {
+    ...source,
+    game_id: 'game',
+    game_name: 'Gra',
+    filename: 'source.png',
+    role: 'development',
+  };
+  globalThis.labApi = {
+    read: async () => ({ revision: 1, annotations: {} }),
+    list: async () => ({ sources: [symbolSource], total: 1 }),
+    symbolLabels: async () => ({
+      items: [],
+      revision: 0,
+      total: 0,
+      read_token: undefined,
+    }),
+    symbolDictionaries: async () => ({
+      items: [
+        {
+          origin: 'lab',
+          version: 2,
+          digest: 'draft-digest',
+          status: 'draft',
+          active: false,
+        },
+      ],
+      total: 1,
+      read_token: undefined,
+    }),
+    symbolDictionary: async () => ({
+      entries: [
+        {
+          id: 'legacy-id',
+          code: 'legacy-code',
+          display_name: 'Dzwonek',
+        },
+      ],
+    }),
+    symbolCrop: async () => ({}),
+    writeSymbol: async (request) => requests.push(request),
+    backupSymbols: async () => ({}),
+  };
+  let root;
+  await act(async () => {
+    root = create(
+      React.createElement(
+        ToastProvider,
+        null,
+        React.createElement(
+          AnnotationProvider,
+          null,
+          React.createElement(SymbolLabelEditor),
+        ),
+      ),
+    );
+  });
+  try {
+    await act(async () => {
+      root.root
+        .findAllByType('select')
+        .at(0)
+        .props.onChange({ target: { value: 'game' } });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    await act(async () => button(root, 'Dodaj klasę').props.onClick());
+    const dictionary = root.root
+      .findAllByType('fieldset')
+      .find((node) => text(node).includes('Słownik gry'));
+    assert.equal(dictionary.findAllByType('input').length, 2);
+    assert.doesNotMatch(text(dictionary), /\bID\b|\bKod\b/);
+    await act(async () => button(root, 'Zapisz nową wersję').props.onClick());
+    assert.equal(requests.length, 0);
+    assert.match(text(root.toJSON()), /Nazwa symbolu nie może być pusta/);
+    const [legacyName, newName] = dictionary.findAllByType('input');
+    await act(async () =>
+      legacyName.props.onChange({ target: { value: '  Wiśnia  ' } }),
+    );
+    await act(async () =>
+      newName.props.onChange({ target: { value: '  Winogrono  ' } }),
+    );
+    await act(async () => {
+      button(root, 'Zapisz nową wersję').props.onClick();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    assert.equal(requests.length, 1);
+    const [legacy, entry] = requests[0].entries;
+    assert.deepEqual(legacy, {
+      id: 'legacy-id',
+      code: 'legacy-code',
+      display_name: 'Wiśnia',
+    });
+    assert.match(
+      entry.id,
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
+    );
+    assert.equal(entry.code, `symbol_${entry.id}`);
+    assert.equal(entry.display_name, 'Winogrono');
   } finally {
     await act(async () => root.unmount());
   }

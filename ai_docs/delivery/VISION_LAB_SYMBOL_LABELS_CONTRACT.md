@@ -78,6 +78,14 @@ Zmiana semantyki klasy wymaga nowego ID; UI wyjaśnia tę regułę. Brak mapowan
 lokalnych ID do DB nie blokuje lab label, ale brak integracji pozostaje jawny.
 Nie tworzymy automatycznie słowników z nazw plików/modelu ani zgód za operatora.
 
+Poprawka TASK-0715 upraszcza formularz do samej nazwy. Po jawnym dodaniu wpisu
+UI generuje UUID jako id oraz `symbol_<UUID>` jako code, raz, niezależnie od
+nazwy. Te pola nie są edytowalne ani wymagane od operatora. Wczytane wpisy
+zachowują wszystkie istniejące ID i kody, także o starszym formacie. Przy
+zapisie nazwa jest trimowana; pusta blokuje żądanie z toastem. Retry zachowuje
+cały oryginalny payload. Nowa semantyka wymaga dodania nowej pozycji; korekta
+samej nazwy nie generuje nowej tożsamości. API i zasady wersji są niezmienione.
+
 ## Crop i decyzja człowieka
 
 Binding: snapshot_manifest_id,catalog_digest,game_id,source_id,source_sha256,

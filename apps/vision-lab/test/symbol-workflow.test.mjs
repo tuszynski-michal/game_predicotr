@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import {
   symbolWriteSession,
   canMutateSymbolRow,
+  createSymbolDictionaryEntry,
+  hasBlankSymbolDictionaryName,
+  normalizeSymbolDictionaryEntries,
 } from '../src/lib/symbol-workflow.ts';
 import { allowedRoute, allowedQuery } from '../src/lib/boundary.ts';
 
@@ -67,5 +70,33 @@ test('DB rows are readonly and proxy routes remain closed', () => {
   assert.equal(
     allowedQuery(['symbol-crops'], new URLSearchParams('path=x'), 'POST'),
     false,
+  );
+});
+
+test('new classes receive one generated identity while names are normalized only for save', () => {
+  const first = createSymbolDictionaryEntry(() => 'uuid-first');
+  const second = createSymbolDictionaryEntry(() => 'uuid-second');
+  assert.deepEqual(first, {
+    id: 'uuid-first',
+    code: 'symbol_uuid-first',
+    display_name: '',
+  });
+  assert.notEqual(first.id, second.id);
+  assert.notEqual(first.code, second.code);
+
+  const saved = normalizeSymbolDictionaryEntries([
+    { ...first, display_name: '  Wiśnia  ' },
+    { id: 'legacy-id', code: 'legacy-code', display_name: '  Dzwonek ' },
+  ]);
+  assert.deepEqual(saved, [
+    { ...first, display_name: 'Wiśnia' },
+    { id: 'legacy-id', code: 'legacy-code', display_name: 'Dzwonek' },
+  ]);
+  assert.equal(hasBlankSymbolDictionaryName(saved), false);
+  assert.equal(
+    hasBlankSymbolDictionaryName(
+      normalizeSymbolDictionaryEntries([{ ...second, display_name: '   ' }]),
+    ),
+    true,
   );
 });

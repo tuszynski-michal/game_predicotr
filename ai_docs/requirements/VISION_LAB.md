@@ -207,3 +207,10 @@ i nie utożsamia zatwierdzonej geometrii z poprawnością symboli. T06b wymaga
 rzeczywistych zatwierdzeń oraz spełnienia bramek pochodzenia i podziału
 symboli. Ukończenie narzędzi nie zamyka T06 ani nie odblokowuje treningu.
 Unknown, unreadable i grid_issue pozostają stanami review, nie klasami.
+
+W formularzu słownika operator wpisuje wyłącznie nazwę symbolu. Nowy wpis
+otrzymuje automatycznie stabilne techniczne ID i kod, niewidoczne jako pola
+edycji. Poprawka nazwy zachowuje tożsamość wpisu. Inny rodzaj symbolu należy
+dodać jako nową pozycję, nie zmieniać znaczenia istniejącej. Zapis nowej wersji
+i jej jawne zatwierdzenie pozostają oddzielnymi akcjami; pusta nazwa blokuje
+zapis i jest zgłaszana toastem. Istniejące słowniki nie wymagają migracji.

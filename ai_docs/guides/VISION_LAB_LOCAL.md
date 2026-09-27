@@ -448,6 +448,11 @@ nie zatwierdza jej ani obrazów. Nieznany symbol, nieczytelny obraz i błędna
 siatka to osobne stany review, nie klasy treningowe. Zmiana zatwierdzonego
 słownika lub geometrii wymaga ponownej zgody na zależne etykiety.
 
+W słowniku kliknij „Dodaj klasę” i wpisz tylko nazwę, np. „Cytryna”.
+ID i kod powstają automatycznie. Poprawienie literówki zachowuje tożsamość
+symbolu; inny rodzaj symbolu dodaj jako nową pozycję. Istniejące wpisy nie
+wymagają ponownego tworzenia. Zapis i zatwierdzenie wersji są nadal osobne.
+
 Poprawna etykieta nie oznacza jeszcze dopuszczenia do treningu. T06b wymaga
 osobnej kontroli pochodzenia i podziału symboli. Historyczne 777 oraz gry
 zamrożone jako holdout nie otrzymują zgody symbolowej przez wcześniejsze

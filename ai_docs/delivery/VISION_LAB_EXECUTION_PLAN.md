@@ -26,6 +26,31 @@ wersji danych, a nie ten plan.
 
 ## Dane, etykiety i podziały
 
+### Wznowienie B po przeglądzie operatora
+
+Użytkownik zaakceptował wybrane geometrie i polecił kontynuację etapu B po
+zakończeniu równoległego toru zmian. Zgoda obejmuje lokalizację/siatkę, nie
+poprawność symboli na zdjęciu lub ich etykiet. Geometrie mogą zawierać pojedyncze
+pomyłki; nie traktujemy deklaracji „większość poprawna” jako gwarancji jakości.
+T03 wykonuje odczytowy preflight aktualnych akceptacji, SHA/rewizji, topologii,
+węzłów, źródeł i podziałów. Błąd symbolu nie jest automatycznie błędem geometrii;
+błędna geometria wymaga korekty przed wykorzystaniem próbki. Nie tworzymy
+zatwierdzeń symboli z akceptacji zdjęcia i nie uruchamiamy etapu C.
+
+Raport preflight rozdziela kontrolę mechaniczną, ocenę wizualną i dowody
+niezależności źródeł. Kandydaci z nazw oraz brak duplikatu SHA nie dowodzą
+odrębnych nagrań. T04 nadal wymaga ukończonego T03 i zamrożonego podziału;
+nie obchodzimy tej zależności. Niejasne pochodzenie blokuje zależny trening,
+ale nie odczyt danych i przygotowanie raportu. Wcześniejsze polecenie użycia
+nowych ręcznych geometrii historycznego 777 wymaga spójnego rozstrzygnięcia
+z D-447 i rolą comparison_only przed włączeniem ich do treningu; nie zmieniamy
+pochodzenia na 777 V2 ani nie nadpisujemy niezmiennego snapshotu.
+
+Dowody i wynik: TASK-0668 oraz
+`ai_docs/quality/VISION_LAB_STAGE_B_DATA_PREFLIGHT.md`. Wykonawca T03
+`gpt-6-sol` / `medium`, niezależny audyt `gpt-6-astra` / `medium` według
+końcowej tabeli. T04/T05 zachowują `gpt-6-sol` / `high` i audyt Astra medium.
+
 D-447 dopuszcza dwa jawnie różne źródła etykiet: zatwierdzenie w aplikacji i
 `lab_human_approved`. Laboratorium zapisuje tożsamość gry i wersję słownika,
 obraz oraz SHA-256, planszę, komórkę, rewizję geometrii, dokładny crop oraz

@@ -6,6 +6,31 @@ last_updated: 2026-09-26
 
 # Current State
 
+### Wznowienie etapu B — kontrola danych geometrii
+
+- Użytkownik wznowił pracę po zakończeniu drugiego toru (HEAD v1.7.17 /
+  57e703acb16d435e03521b6ddd02d9857bfa5c72). Obce zmiany dokumentacji,
+  reviewer/next-env, .claude i work pozostają poza zakresem.
+- Doprecyzowanie zapisane: akceptacja siatek nie zatwierdza symboli.
+  Geometrie mogą zawierać pomyłki; wykryte błędy wymagają korekty,
+  nie cichej zmiany danych. Etap C nie został uruchomiony.
+- T03: Sol medium wykonuje odczytowy preflight; Astra medium niezależny
+  audyt. T04/T05 dopiero po bramce pochodzenia i zamrożonym podziale.
+  Nie zmieniamy roli 777 ani nie potwierdzamy rodzin na podstawie nazw.
+- Preflight rewizji 259: 63 zaakceptowane zdjęcia / 180 siatek 5 × 3;
+  4320 węzłów / 2700 komórek, mechaniczne kontrole bez błędów. API8102/3102
+  zgodne z dyskiem. SHA state przed/po identyczny:
+  22f452d0e976a9997909ece2cf9bede0073f1241574f5880fa7b3ebdbb0e0586.
+- Rodziny 0, split brak. 20 grup duplikatów SHA w Reels; 5 wiąże zaakceptowane
+  zdjęcie z nieanotowanym aliasem. Nie dowiedziono niezależności nagrań,
+  nie wykonano dodatkowej oceny wizualnej ani treningu. Anotacji 3 × 3 brak.
+  Raport: VISION_LAB_STAGE_B_DATA_PREFLIGHT.md. Pytanie do użytkownika o
+  dostępność nagrań/powiązań wysłane; T03 nadal blocked na bramce danych.
+- Niezależny audyt Astra medium potwierdził dane; skorygowano jeden
+  nadmierny wniosek w opisie alternatywy pomiarowej. Kod/API bez zmian,
+  testów aplikacji i buildu nie uruchamiano; kontrola diff PASS.
+  Commit dokumentacji/preflight v1.7.18 (hash po commicie).
+
 ### T03d — szybki przegląd zdjęć (done)
 
 - Zlecenie użytkownika: jedno całe zdjęcie ze wszystkimi zapisanymi siatkami,
@@ -20,7 +45,9 @@ last_updated: 2026-09-26
 - Scope: moduły lab, lab OpenAPI/client, UI/testy i dokumentacja; Sol medium
   oraz audyt Astra medium według T03d. CURRENT_STATE/DECISION_LOG/restart/commit
   prowadzi root. Równoległy tor partial-board0708–0711 jest poza zakresem.
-  Baza v1.7.12/9b495091; commit v1.7.13 (hash po commicie).
+  Baza v1.7.12/9b495091; commit `v1.7.13`
+  / `8c7f63350b3b5ee15c96d2e84e88b034abdf3f82`. Hash dopisany po commicie;
+  następny patch v1.7.14 po kontroli historii równoległego toru.
 - UI34/34, backend20/20, client4/4, format/lint/typecheck, mypy lab,
   OpenAPI/generated checks i build PASS. Audyt Astra medium bez P0–P2;
   niezależnie UI25/25 i backend11/11 PASS.

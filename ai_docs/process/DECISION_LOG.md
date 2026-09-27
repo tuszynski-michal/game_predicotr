@@ -57,6 +57,12 @@ last_updated: 2026-09-26
 
 ## D-450 — przegląd zdjęcia jako dodatkowa bramka laboratoryjna
 
+- **Zakres zgody operatora (wznowienie B):** akceptacje dotyczą geometrii,
+  nie poprawności symboli. Zdjęcia mogą mieć niepoprawne symbole/etykiety,
+  a ręczne geometrie pojedyncze pomyłki. Etap B nie używa niezatwierdzonych
+  etykiet symboli jako targetów; etap C zachowuje osobne bramki. Kontrola
+  techniczna geometrii nie udaje oceny wizualnej. Błędna geometria wymaga
+  korekty i nowej akceptacji, bez automatycznego nadpisywania zapisów.
 - **Doprecyzowanie 2026-09-27:** szybki przegląd pokazuje pełne zdjęcie
   i wszystkie zapisane siatki, Zatwierdź/Odrzuć, potem następne po sukcesie.
   Odrzucenie dotyczy zdjęcia (osobne `rejected`, domyślnie false), nie oznacza

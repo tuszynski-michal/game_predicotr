@@ -8,7 +8,9 @@ last_updated: 2026-09-26
 
 ## Status
 
-`blocked` — narzędzia odebrane; wymagane rzeczywiste anotacje i pochodzenie danych.
+`blocked` — anotacje i przegląd operatora wykonane; trwa odczytowy preflight,
+pozostają dowody pochodzenia oraz zamrożony podział. Nie uruchamiać T04/T05
+przed spełnieniem bramek danych.
 
 ## Goal
 
@@ -47,6 +49,22 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 - [ ] Audyt przypisanym modelem nie pozostawia P0–P2; zmiana ma osobny commit, Outcome i CURRENT_STATE.
 
 ## Technical notes
+
+Wznowienie po przeglądzie: ostatni odczyt wykazał 63 zaakceptowane zdjęcia,
+180 pełnych geometrii i brak zapisanych rodzin/splitu; liczności wymagają
+ponownego odczytu. Użytkownik potwierdza geometrię, nie poprawność symboli.
+Nowe bieżące sprawdzenie: SHA i rewizje akceptacji, węzły i granice źródła,
+liczności per gra/topologia, exact duplicates i stan dowodów rodzin.
+Wynik nie może udawać wizualnej walidacji ani potwierdzać niezależności
+po samych nazwach. Planowana kontrola nie zapisuje decyzji, nie zamraża
+splitu i nie zmienia roli 777. Raport:
+`ai_docs/quality/VISION_LAB_STAGE_B_DATA_PREFLIGHT.md` (nowy).
+Sprawdzone moduły: `catalog.py::Catalog`, `annotations.py::read_checked`,
+`photo_review.py::photo_accepted`, `geometry.py::cell_quads`,
+`splits.py::freeze_splits` w `services/worker/src/game_predictor_worker/vision_lab`.
+Komendy diagnostyczne ograniczone do istniejącego zbioru, timeout do 120 s.
+Odczyt nie zastępuje brakującej decyzji o pochodzeniu; nierozstrzygnięty
+warunek jest raportowany jako blokada, bez osłabiania istniejących testów.
 
 Etap B uruchomiony jawnie przez użytkownika 2026-09-26. Na wejściu jest
 snapshot plikowy T02 (1180 wystąpień, 1160 SHA), bez ręcznych anotacji.
@@ -503,8 +521,10 @@ zdjęcia, oba przyciski aktywne po załadowaniu; pełny widok1280×720 bez scrol
 Powrót do edycji działa. Dowód artifacts/vision-lab/quick-review-qa.png.
 Nie podejmowano decyzji na danych użytkownika. Restart OS/fizyczny mobile,
 trening, kwalifikacja777 i obcy tor partial boards poza zakresem.
-Commit v1.7.13 (hash po commicie); nadrzędny T03 nadal blocked, plik pozostaje
-aktywny do zakończenia pozostałych bramek danych i splitu.
+Commit `v1.7.13` / `8c7f63350b3b5ee15c96d2e84e88b034abdf3f82`.
+Hash dopisany po commicie; następny patch v1.7.14 po kontroli historii.
+Nadrzędny T03 nadal blocked, plik pozostaje aktywny do zakończenia
+pozostałych bramek danych i splitu.
 
 Korekta bez modalnych potwierdzeń, zlecona 2026-09-27: usunąć window.confirm
 z nawigacji i jawnego reconcile oraz beforeunload. Nawigacja porzuca lokalne
@@ -601,6 +621,30 @@ zmiany roli `777`; CURRENT_STATE i usługi należą do koordynatora.
 
 ## Outcome T03 (narzędzia i operacje)
 
+### Wznowienie — odczytowy preflight danych (2026-09-27)
+
+- Zapisano rozdzielenie zgody na geometrię od zatwierdzenia symboli w planie,
+  wymaganiach i D-450. Etap C pozostaje poza zakresem wznowienia B.
+- Preflight Sol medium: rewizja 259, 63 aktualne akceptacje, 180 pełnych
+  obecnych siatek 5 × 3, 4320 węzłów / 2700 komórek. Kontrole SHA, map
+  rewizji, struktury i granic źródeł bez błędów. Nie jest to dodatkowa
+  wizualna weryfikacja jakości ani potwierdzenie poprawności symboli.
+- Stan dyskowy i oba API (8102/3102) zgodne; SHA state.json przed/po:
+  `22f452d0e976a9997909ece2cf9bede0073f1241574f5880fa7b3ebdbb0e0586`.
+  Zero zmian anotacji, rodzin, roli źródeł, splitu lub usług.
+- Blokada pozostaje: rodziny 0, brak podziału i dowodów niezależności.
+  20 grup dokładnych duplikatów Reels, z czego 5 zawiera zaakceptowane
+  zdjęcie i nieanotowany alias. Brak identycznych plików w samych 63
+  wybranych zdjęciach nie dowodzi niezależności nagrań. Brak anotacji 3 × 3;
+  nie można raportować wyuczonej jakości tej topologii.
+- Raport: `ai_docs/quality/VISION_LAB_STAGE_B_DATA_PREFLIGHT.md`.
+  Testy aplikacji/build nieuruchamiane: kod i kontrakty niezmienione.
+  Audyt Astra medium potwierdził niezależnie liczności, akceptacje i SHA;
+  poprawiono nadmierny wniosek o liczbie grup w alternatywie measurement.
+  Kontrola diff bez błędów; bez zmian kodu produkcyjnego i bez jego nowych
+  testów. Commit preflight: v1.7.18 (hash po commicie). T03 pozostaje
+  aktywny/blocked; T04/T05 nie zostały uruchomione.
+
 ### Operacyjne przywrócenie ścieżki danych
 
 Na jawne polecenie użytkownika przeniesiono odnaleziony snapshot oraz
@@ -651,8 +695,9 @@ ten wpis pozostaje lokalnym uzupełnieniem do następnego commita.
 
 ### Not completed
 
-- Brak rzeczywistych zatwierdzeń człowieka, potwierdzonego pochodzenia
-  rodzin, pomiaru pierwszych 10 zdjęć/grę i prognozy pracy oraz zamrożonego
+- Aktualizacja po pilocie: zatwierdzenia geometrii i zdjęć zostały wykonane.
+  Nadal wymagane potwierdzenie pochodzenia rodzin, ocena pomiaru pierwszych
+  10 zdjęć/grę i prognozy pracy oraz zamrożenie
   splitu. Kryterium braku przecieku jest przetestowane mechanicznie, ale
   nieudowodnione dla rzeczywistych danych.
 - 777 V2 pozostaje fail-closed: nie dostarczono dowodu pochodzenia i
@@ -667,7 +712,7 @@ ten wpis pozostaje lokalnym uzupełnieniem do następnego commita.
 
 ### Recommended next task
 
-- Rzeczywisty pilot anotacji w gotowym edytorze i rozstrzygnięcie powiązań
-  zdjęć. Dopiero po spełnieniu bramek T03 można uruchomić zależny T04.
+- Preflight wykonanych anotacji i rozstrzygnięcie powiązań zdjęć.
+  Dopiero po spełnieniu bramek T03 można uruchomić zależny T04.
   Odblokowanie samego kodowania T04 wcześniej wymaga zmiany zaakceptowanego
   planu; nie przyjęto jej samodzielnie.

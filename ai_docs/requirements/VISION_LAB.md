@@ -6,6 +6,16 @@ last_updated: 2026-09-25
 
 # Laboratorium wizji
 
+Doprecyzowanie użytkownika przy wznowieniu etapu B: zapisane i zaakceptowane
+siatki są referencją geometrii plansz, a nie zatwierdzeniem symboli. Część
+zdjęć lub ich oznaczeń symboli może być niepoprawna. Brak poprawnej etykiety
+symbolu sam w sobie nie wyklucza poprawnej geometrii z jej uczenia; etykiety
+symboli nie są targetem etapu B i wymagają osobnego zatwierdzenia w etapie C.
+Operator ocenia wybrane geometrie jako poprawne lub w większości poprawne,
+nie jako bezbłędny zbiór. Kontrola techniczna nie zastępuje oceny wizualnej;
+wykryty błąd geometrii wyłącza daną próbkę do poprawy i ponownej akceptacji,
+bez automatycznego poprawiania ani nadpisywania decyzji operatora.
+
 Szybki przegląd pokazuje jedno pełne zdjęcie ze wszystkimi zapisanymi siatkami
 (linie i numery) bez galerii, rodzin i edytora. Dwa główne przyciski:
 Zatwierdź/Odrzuć, po potwierdzonym zapisie następne. Kolejka stabilna według

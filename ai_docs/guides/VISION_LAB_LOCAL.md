@@ -354,11 +354,49 @@ Należy rozróżniać dwa przypadki:
   nie dziedziczy tego konkretnego wpływu; dalsze dostrajanie nie daje takiej
   gwarancji.
 
-Stan obecny: laboratorium ma edycję, historię i backupy, lecz T04/T05 nie są
-ukończone. Nie ma jeszcze gotowego backendu treningu ani kompletnego workflow
-nowej wersji po korekcie zamrożonego zbioru. Drugi freeze tego samego magazynu
+Stan obecny: laboratorium ma edycję, historię, backupy oraz backend runów T04.
+Konkretny trener modelu i trening pilota należą do T05. Nie ma kompletnego
+workflow nowej wersji po korekcie zamrożonego zbioru. Drugi freeze tego samego magazynu
 jest odrzucany (`SPLIT_ALREADY_FROZEN`); restore zachowuje stary split, a rebase
 go nie przenosi. Nie kasuj ręcznie tych pól ani nie nadpisuj checkpointów.
 Przed implementacją ponownego treningu trzeba domknąć jawny kontrakt wersji.
 Korekta materiału wykorzystanego wcześniej do oceny nie jest nowym,
 niezależnym testem modelu; raport musi zachować tę informację.
+
+## Izolowane środowisko treningowe T04
+
+Z katalogu repo uruchamiaj osobno poniższe kroki PowerShell. Każdy ma limit
+120 sekund; po timeout skrypt kończy wyłącznie swój instalator wraz z dziećmi.
+Ponowienie wykorzystuje pobrane pakiety. Główna `.venv` pozostaje bez zmian.
+
+```powershell
+pwsh -NoProfile -File scripts/setup_vision_lab.ps1 -Step Create
+pwsh -NoProfile -File scripts/setup_vision_lab.ps1 -Step Cuda
+pwsh -NoProfile -File scripts/setup_vision_lab.ps1 -Step Dependencies
+pwsh -NoProfile -File scripts/setup_vision_lab.ps1 -Step Project
+pwsh -NoProfile -File scripts/setup_vision_lab.ps1 -Step Check
+```
+
+Pakiety i ich zależności przypina `constraints-vision-lab.txt`, a projekt
+instaluje się editable z `--no-deps`. Check uruchamia nowy proces, sprawdza
+PyTorch 2.12.1+cu130, torchvision 0.27.1+cu130, CUDA 13.0, GPU i krótkie
+obliczenie oraz brak DB/Paddle. Brak CUDA nie przełącza treningu po cichu na CPU.
+
+Do istniejącego polecenia serwera labu można dodać `--manifests <LAB/manifests>`,
+`--runs <LAB/runs>` i `--training-python <repo/.venv-vision-lab/Scripts/python.exe>`.
+Równoważne zmienne to VISION_LAB_MANIFESTS, VISION_LAB_RUNS i VISION_LAB_PYTHON;
+snapshot i anotacje zachowują dotychczasowe opcje. Nie uruchamiaj drugiego API
+na zajętym porcie. Brak konfiguracji daje 503, brak zarejestrowanego modelu
+T05 — RUN_MODEL_NOT_AVAILABLE. Klient podaje manifest_id, nigdy ścieżkę.
+
+Checkpointy i raporty pozostają pod `<runs>/<run_id>/attempt-N/`. Cancel jest
+trwałą intencją, respektowaną na końcu epoki; limit czasu obejmuje też walidację
+i eksport. Po twardym zakończeniu ostatnia epoka pozostaje do jawnego retry.
+Restart ani odczyt API nie uruchamiają runu automatycznie. Żywy proces przy
+starym heartbeat pozostaje running z diagnostyką; nie zabijaj obcego procesu.
+Konserwatywne naliczenie czasu po awarii może wyczerpać pozostały limit.
+
+Przed treningiem można wykonać ograniczony odczyt
+`scripts/check_vision_lab_manifest.py --snapshot <snapshot> --annotations <store> --manifest <manifest.json>`
+w izolowanym interpreterze. Kontrola raportuje dev/validation i rewizję,
+nie uruchamia runu, nie dekoduje zdjęć ani nie zapisuje decyzji operatora.

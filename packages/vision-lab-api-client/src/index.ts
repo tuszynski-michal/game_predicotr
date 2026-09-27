@@ -7,6 +7,11 @@ import {
   freezeSplit,
   createBackup,
   getTimings,
+  startTrainingRun,
+  listTrainingRuns,
+  getTrainingRun,
+  cancelTrainingRun,
+  retryTrainingRun,
 } from './generated/sdk.gen';
 import type {
   AnnotationRequest,
@@ -14,6 +19,8 @@ import type {
   SplitRequest,
   BoardInput,
   PhotoReviewRequest,
+  StartRunRequestInput,
+  RunMutation,
 } from './generated/types.gen';
 export type {
   GeometryResult,
@@ -28,6 +35,10 @@ export type {
   PhotoReview,
   StoredGeometryQualification,
   FrozenSplit,
+  StartRunRequestInput as StartRunRequest,
+  RunMutation,
+  RunState,
+  RunPage,
   PointOutput as Point,
 } from './generated/types.gen';
 
@@ -90,4 +101,46 @@ export async function backupAnnotations() {
 }
 export async function annotationTimings() {
   return (await getTimings({ baseUrl, throwOnError: true })).data;
+}
+
+export async function startRun(body: StartRunRequestInput) {
+  return (await startTrainingRun({ baseUrl, body, throwOnError: true })).data;
+}
+export async function listRuns(offset = 0, limit = 24) {
+  return (
+    await listTrainingRuns({
+      baseUrl,
+      query: { offset, limit },
+      throwOnError: true,
+    })
+  ).data;
+}
+export async function readRun(runId: string) {
+  return (
+    await getTrainingRun({
+      baseUrl,
+      path: { run_id: runId },
+      throwOnError: true,
+    })
+  ).data;
+}
+export async function cancelRun(runId: string, body: RunMutation) {
+  return (
+    await cancelTrainingRun({
+      baseUrl,
+      path: { run_id: runId },
+      body,
+      throwOnError: true,
+    })
+  ).data;
+}
+export async function retryRun(runId: string, body: RunMutation) {
+  return (
+    await retryTrainingRun({
+      baseUrl,
+      path: { run_id: runId },
+      body,
+      throwOnError: true,
+    })
+  ).data;
 }

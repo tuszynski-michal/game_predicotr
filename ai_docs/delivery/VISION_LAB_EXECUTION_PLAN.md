@@ -224,7 +224,7 @@ reguły pracy etapami i D-447, a **nie uruchamia A**.
 | A | [TASK-0666](../tasks/completed/0666-vision-lab-export.md) | Ograniczony eksporter read-only; bez częściowych snapshotów. |
 | A | [TASK-0667](../tasks/completed/0667-vision-lab-gallery.md) | Kontrakty, baseline, galeria i bezpieczne lokalne API; błędny obraz nie zatrzymuje galerii. |
 | B | [TASK-0668](../tasks/0668-vision-lab-geometry-annotations.md) | Edytor, warstwowy zbiór, backup, zamrożony split i pomiar kosztu. |
-| B | [TASK-0669](../tasks/0669-vision-lab-training-core.md) | Neutralny rdzeń, trwały backend runów, izolowane GPU, checkpoint v2 i odczyt v1; bez przepięcia produkcji. |
+| B | [TASK-0669](../tasks/completed/0669-vision-lab-training-core.md) | Done: neutralny rdzeń, trwały backend runów, izolowane GPU, checkpoint v2 i odczyt v1; bez przepięcia produkcji. Audyt Astra medium PASS. |
 | B | [TASK-0670](../tasks/0670-vision-lab-hybrid.md) | Hybryda i pierwszy checkpoint widoczny w galerii; ONNX. |
 | C | [TASK-0671](../tasks/0671-vision-lab-symbol-labels.md) | Zatwierdzenia DB/lab, słowniki lokalne, ponowna zgoda po recrop. |
 | C | [TASK-0672](../tasks/0672-vision-lab-symbol-models.md) | RGB, szarość, fuzja, kalibracja i metryki per klasa. |

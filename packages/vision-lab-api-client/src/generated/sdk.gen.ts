@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { CreateBackupData, CreateBackupErrors, CreateBackupResponses, DetectGeometryData, DetectGeometryErrors, DetectGeometryResponses, FreezeSplitData, FreezeSplitErrors, FreezeSplitResponses, GetAnnotationsData, GetAnnotationsResponses, GetAssetData, GetAssetErrors, GetAssetResponses, GetTimingsData, GetTimingsResponses, ListSourcesData, ListSourcesErrors, ListSourcesResponses, SaveAnnotationData, SaveAnnotationErrors, SaveAnnotationResponses, SaveFamilyData, SaveFamilyErrors, SaveFamilyResponses } from './types.gen';
+import type { CancelTrainingRunData, CancelTrainingRunErrors, CancelTrainingRunResponses, CreateBackupData, CreateBackupErrors, CreateBackupResponses, DetectGeometryData, DetectGeometryErrors, DetectGeometryResponses, FreezeSplitData, FreezeSplitErrors, FreezeSplitResponses, GetAnnotationsData, GetAnnotationsResponses, GetAssetData, GetAssetErrors, GetAssetResponses, GetTimingsData, GetTimingsResponses, GetTrainingRunData, GetTrainingRunErrors, GetTrainingRunResponses, ListSourcesData, ListSourcesErrors, ListSourcesResponses, ListTrainingRunsData, ListTrainingRunsErrors, ListTrainingRunsResponses, RetryTrainingRunData, RetryTrainingRunErrors, RetryTrainingRunResponses, SaveAnnotationData, SaveAnnotationErrors, SaveAnnotationResponses, SaveFamilyData, SaveFamilyErrors, SaveFamilyResponses, StartTrainingRunData, StartTrainingRunErrors, StartTrainingRunResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -69,6 +69,52 @@ export const saveFamily = <ThrowOnError extends boolean = false>(options: Option
  */
 export const detectGeometry = <ThrowOnError extends boolean = false>(options: Options<DetectGeometryData, ThrowOnError>): RequestResult<DetectGeometryResponses, DetectGeometryErrors, ThrowOnError> => (options.client ?? client).post<DetectGeometryResponses, DetectGeometryErrors, ThrowOnError>({
     url: '/geometry',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * List Training Runs
+ */
+export const listTrainingRuns = <ThrowOnError extends boolean = false>(options?: Options<ListTrainingRunsData, ThrowOnError>): RequestResult<ListTrainingRunsResponses, ListTrainingRunsErrors, ThrowOnError> => (options?.client ?? client).get<ListTrainingRunsResponses, ListTrainingRunsErrors, ThrowOnError>({ url: '/runs', ...options });
+
+/**
+ * Start Training Run
+ */
+export const startTrainingRun = <ThrowOnError extends boolean = false>(options: Options<StartTrainingRunData, ThrowOnError>): RequestResult<StartTrainingRunResponses, StartTrainingRunErrors, ThrowOnError> => (options.client ?? client).post<StartTrainingRunResponses, StartTrainingRunErrors, ThrowOnError>({
+    url: '/runs',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Get Training Run
+ */
+export const getTrainingRun = <ThrowOnError extends boolean = false>(options: Options<GetTrainingRunData, ThrowOnError>): RequestResult<GetTrainingRunResponses, GetTrainingRunErrors, ThrowOnError> => (options.client ?? client).get<GetTrainingRunResponses, GetTrainingRunErrors, ThrowOnError>({ url: '/runs/{run_id}', ...options });
+
+/**
+ * Cancel Training Run
+ */
+export const cancelTrainingRun = <ThrowOnError extends boolean = false>(options: Options<CancelTrainingRunData, ThrowOnError>): RequestResult<CancelTrainingRunResponses, CancelTrainingRunErrors, ThrowOnError> => (options.client ?? client).post<CancelTrainingRunResponses, CancelTrainingRunErrors, ThrowOnError>({
+    url: '/runs/{run_id}/cancel',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Retry Training Run
+ */
+export const retryTrainingRun = <ThrowOnError extends boolean = false>(options: Options<RetryTrainingRunData, ThrowOnError>): RequestResult<RetryTrainingRunResponses, RetryTrainingRunErrors, ThrowOnError> => (options.client ?? client).post<RetryTrainingRunResponses, RetryTrainingRunErrors, ThrowOnError>({
+    url: '/runs/{run_id}/retry',
     ...options,
     headers: {
         'Content-Type': 'application/json',

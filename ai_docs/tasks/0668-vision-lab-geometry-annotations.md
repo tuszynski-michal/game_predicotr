@@ -141,7 +141,8 @@ Końcowy niezależny audyt operacji Astra medium PASS bez P0–P2: odtworzenie
 całego payloadu z backupu i jednego requestu, obie kopie i manifest zgodne.
 Brak instalacji GPU, treningu, zmian UI i aktywacji. Kryteria T03k spełnione;
 pełny protokół rodzin/pomiaru T03 pozostaje odroczony zgodnie z D-456.
-Osobny commit v1.7.28 przygotowywany (pełny hash po zapisie). Po commicie
+Osobny commit `v1.7.28` / `84f523ea8a26a45ce419dfc65cd64d73fdaf0cba`.
+Staged check/stat/list i show/stat/status PASS; obce zmiany zachowane. Po commicie
 następny task T04; rodzic TASK-0668 pozostaje aktywny dla odroczonego zakresu.
 
 ## T03i — odzyskanie metadanych selekcji z Kosza

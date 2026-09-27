@@ -9,7 +9,69 @@ import {
   freezeSplit,
 } from '../src/generated/sdk.gen.ts';
 import { boundary } from '../../../apps/vision-lab/src/lib/boundary.ts';
-import { freezeAnnotations } from '../src/index.ts';
+import {
+  freezeAnnotations,
+  startRun,
+  listRuns,
+  readRun,
+  cancelRun,
+  retryRun,
+} from '../src/index.ts';
+
+test('run wrappers preserve request identity, attempt CAS and bounded paths', async () => {
+  const original = globalThis.fetch;
+  const originalRequest = globalThis.Request;
+  globalThis.Request = class extends originalRequest {
+    constructor(input, init) {
+      super(
+        typeof input === 'string'
+          ? new URL(input, 'http://127.0.0.1:3102')
+          : input,
+        init,
+      );
+    }
+  };
+  const calls = [];
+  globalThis.fetch = async (request) => {
+    calls.push({
+      url: request.url,
+      method: request.method,
+      body: request.method === 'POST' ? await request.json() : null,
+    });
+    return new Response(
+      JSON.stringify({ id: 'a'.repeat(32), status: 'queued' }),
+      {
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
+  };
+  const body = {
+    request_id: 'stable-start',
+    manifest_id: 'b'.repeat(64),
+    model_version: 'hybrid-v1',
+    preprocessing_version: 'rgb-v1',
+    seed: 7,
+    purpose: 'smoke',
+    configuration: { epochs: 1, max_steps: 50 },
+  };
+  const mutation = { request_id: 'stable-mutation', expected_attempt: 2 };
+  try {
+    await startRun(body);
+    await listRuns(2, 5);
+    await readRun('a'.repeat(32));
+    await cancelRun('a'.repeat(32), mutation);
+    await retryRun('a'.repeat(32), mutation);
+    assert.deepEqual(calls[0].body, body);
+    assert.match(calls[1].url, /runs\?offset=2&limit=5$/);
+    assert.match(calls[2].url, /runs\/[a-f0-9]{32}$/);
+    assert.deepEqual(calls[3].body, mutation);
+    assert.match(calls[3].url, /\/cancel$/);
+    assert.match(calls[4].url, /\/retry$/);
+  } finally {
+    globalThis.fetch = original;
+    globalThis.Request = originalRequest;
+  }
+});
 
 for (const policy of [
   undefined,

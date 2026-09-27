@@ -6,6 +6,18 @@ last_updated: 2026-09-27
 
 # Laboratorium wizji
 
+T04 dostarcza trwały backend runów z idempotentnymi start/cancel/retry i historią
+prób. Najwyżej jeden run jest aktywny. Restart obserwuje żywy proces, a nie
+uruchamia drugiego. Wygasły run po potwierdzonej śmierci procesu wymaga jawnego
+retry, które zachowuje budżet oraz checkpoint. Model hybrydy rejestruje dopiero
+T05; brak wykonawcy jest jawnym błędem, nie pozornym sukcesem.
+
+Checkpoint v2 wznawia na granicy ukończonej epoki. Cancel kończy pracę po takim
+checkpointcie; twardy limit czasu może przerwać epokę i pozostawia ostatnią
+ukończoną. Kroki rezerwuje się przed obliczeniem, a niepotwierdzony czas po
+awarii nalicza konserwatywnie. Retry nie zwraca budżetu. Odczyt checkpointów
+v1 jest zgodnościowy i jawnie nie gwarantuje identycznego wznowienia.
+
 D-456 dopuszcza osobny pilot geometry-only 5 × 3 z całymi grami przypisanymi
 do rozłącznych development/validation/final_test/unseen_game. W tej jawnej
 polityce nie wymaga się verified rodzin wewnątrz gry ani pomiaru czasu.

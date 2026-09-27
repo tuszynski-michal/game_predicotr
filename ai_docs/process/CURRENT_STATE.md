@@ -6,6 +6,34 @@ last_updated: 2026-09-27
 
 # Current State
 
+### T04 — izolowany rdzeń treningu, odbiór pilota
+
+- T03k odebrany i zapisany v1.7.28; wejście do T04 spełnione według D-456.
+  Sol high jest jedynym wykonawcą kodu, Astra medium niezależnym audytorem.
+  Szczegółowy kontrakt pre-code T04 ma PASS po usunięciu dwóch P2 dotyczących
+  żywego procesu i trwałego budżetu. Brak pytań produktowych blokujących.
+- Zakres: neutralne checkpointy v2/v1, adapter zamrożonego manifestu,
+  trwałe runy/API/proxy/client, osobne środowisko CUDA i testy restartu.
+  Przewidywane nowe pliki/moduły oraz błędy są jawne w TASK-0669.
+  Główna .venv i handler produkcyjny pozostają nietknięte. Nie uruchamiać
+  właściwego treningu przed odebranym T04; model i pierwszy run należą do T05.
+- Wyniki wykonawcy: 46/46 backend (25 nowych + 21 API) PASS, w tym rzeczywisty
+  proces, restart, cancel, watchdog i jednoczesne odświeżanie/zapis. Osobna
+  .venv-vision-lab działa na RTX4050 Laptop z torch2.12.1+cu130,
+  torchvision0.27.1+cu130 i CUDA13.0; krótkie obliczenie GPU w nowym procesie
+  PASS. Rzeczywisty ManifestAdapter zwrócił 90 development/30 validation,
+  bez dekodowania obrazów i bez zmiany stanu rev268. UI35/35, client9/9,
+  Ruff/mypy28/ESLint/TypeScript obu pakietów i OpenAPI PASS. Główna .venv
+  w nowym procesie nadal CPU. Końcowy audyt Astra medium PASS;
+  raport VISION_LAB_TRAINING_CORE_20260927.md zapisuje dowody i ograniczenia;
+  T04 done, task przeniesiony do completed; T05 jeszcze nie rozpoczęto.
+- Audyt cykl1 znalazł jedną P1: checkpoint wymaga ponownej walidacji danych
+  przed publikacją, aby drift nie zastąpił ostatniego poprawnego checkpointu.
+  Sol high poprawił przyczynę i dodał regresję; reaudyt Astra medium PASS.
+  Niezależnie24backend/9client/35UI oraz3testy checkpointów i9wariantów
+  ochrony katalogów PASS; brak pozostałych P0–P2. Osobny commit v1.7.29
+  przygotowany; pełny hash po zapisie. Następnie T05 według D-456 do STOP B.
+
 ### D-456 / T03k — zatwierdzony pilot całymi grami
 
 - Operator zatwierdził pilota i dalszą realizację B. Train: 777, Blazing,
@@ -31,7 +59,8 @@ last_updated: 2026-09-27
   Split `3ebcc3a401a17295c5509cbe5d1f59886fa7a87588427c6bed671665dbe63572`,
   manifest `1e7cc3a70a583320a1f051ef6598c35595aeefb3b94a60631d311c1da0b25bb0`
   pod LAB/manifests; pozostały payload i dotychczasowe zgody bez zmian.
-  Osobny commit v1.7.28 przygotowywany (pełny hash po zapisie).
+  Osobny commit `v1.7.28` / `84f523ea8a26a45ce419dfc65cd64d73fdaf0cba`;
+  staged check/stat/list i show/stat/status PASS; obce zmiany zachowane.
 - Odczyt T04: RTX4050 Laptop 6GB, driver591.62; główna .venv ma CPU torch
   2.12.1/torchvision0.27.1. Sol high wykonał wyłącznie preflight i doprecyzował
   kontrakt w tasku T04; implementacja/instalacja czeka na odebrany T03k.

@@ -243,7 +243,7 @@ scheduler, RNG, konfigurację i SHA-256 danych. Odczyt v1 pozostaje możliwy
 bez obietnicy numerycznie identycznego wznowienia. Produkcyjny
 `training_job.py` użyje neutralnego rdzenia dopiero w T12 po regresjach.
 
-Proponowany `vision_lab/runs.py::RunManager` powstaje w T04 i jest
+`vision_lab/runs.py::RunManager` dostarczony w T04 jest
 właścicielem trwałego kontraktu runów; panel T08 jest jego klientem.
 Stan jest zapisywany atomowo pod
 blokadą międzyprocesową i tokenem lease. `requestId` oraz fingerprint
@@ -260,3 +260,27 @@ utrwaloną intencją i kończy się po checkpointcie; awaria zachowuje ostatni
 poprawny checkpoint. Retry jest jawną nową próbą z nowym lease po kontroli
 fingerprintu; stary proces zostaje odgrodzony. Sukces wymaga atomowo
 opublikowanych checksumowanych artefaktów i raportu.
+
+Stan wszystkich runów i receipts ma checksumowaną kopertę w katalogu runów,
+nie w AnnotationStore. Run-local lock ponawia wyłącznie konflikt blokady do
+10 sekund; zwykłe odczyty panelu nie przerywają writera. `queued` zawiera
+lease/fence oraz launch_deadline. Worker sam zapisuje PID i OS creation time
+przy claim. Utworzenie procesu i ponowna kontrola queued są pod tym samym
+lockiem; anulowany queued nie uruchamia pracy. Każda próba ma osobny katalog
+niezmiennych artefaktów, a dopiero poprawny checkpoint v2 zmienia wskaźnik.
+
+Trwałe rezerwacje kroków i naliczenie czasu są niezależne od checkpointu.
+Worker ma dodatkowy monotoniczny watchdog obejmujący walidację, GPU i eksport;
+po limicie kończy tylko własny proces. Odczyt po wygasłym lease rozpoznaje jego
+brak, zapisuje failed i konserwatywnie nalicza odcinek bez potwierdzenia.
+Nie kasuje ostatniego checkpointu. Cofnięty zegar wyczerpuje pozostały budżet.
+
+`ManifestAdapter` sprawdza kopertę `{payload,sha256}`, zamrożony split i pełną
+listę targetów T03k względem aktualnych anotacji. `TrainingInputs` udostępnia
+wyłącznie development/validation; obraz jest odczytywany przez Catalog z SHA
+i EXIF. Kontrola integralności holdoutów nie dostarcza ich do modelu.
+POST /runs i cancel/retry, GET /runs oraz /runs/{id} korzystają z tego samego
+loopback boundary i generowanego klienta. Ścieżki interpretera, manifestów,
+runów i anotacji pochodzą wyłącznie z konfiguracji operatora. Katalog runów
+nie może nachodzić na snapshot, anotacje lub manifesty. Rejestr trenerów jest
+zamknięty i pusty do T05; produkcyjny handler pozostaje niezależny.

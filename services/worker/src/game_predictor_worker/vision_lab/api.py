@@ -19,6 +19,8 @@ from .annotation_contracts import (
 from .annotations import AnnotationStore
 from .catalog import Catalog, InvalidImageError
 from .contracts import DetectRequest, GeometryResult, SourcePage
+from .run_contracts import RunMutation, RunPage, RunState, StartRunRequest
+from .runs import RunManager
 
 HOSTS = {"127.0.0.1:8102", "localhost:8102"}
 ORIGINS = {"http://127.0.0.1:3102", "http://localhost:3102"}
@@ -44,10 +46,81 @@ class LocalBoundary(BaseHTTPMiddleware):
         return response
 
 
-def create_app(catalog: Catalog | None = None, annotation_root: Path | None = None) -> FastAPI:
+def create_app(
+    catalog: Catalog | None = None,
+    annotation_root: Path | None = None,
+    run_manager: RunManager | None = None,
+) -> FastAPI:
     application = FastAPI(title="Vision Lab API", version="1.0.0", docs_url=None, redoc_url=None)
     application.add_middleware(LocalBoundary)
     registry = catalog
+
+    def runs() -> RunManager:
+        nonlocal run_manager
+        if run_manager is None:
+            names = {
+                "snapshot": "VISION_LAB_SNAPSHOT",
+                "annotations": "VISION_LAB_ANNOTATIONS",
+                "manifests": "VISION_LAB_MANIFESTS",
+                "python": "VISION_LAB_PYTHON",
+            }
+            settings = {key: os.environ.get(value, "") for key, value in names.items()}
+            root = os.environ.get("VISION_LAB_RUNS")
+            if not root or not all(settings.values()):
+                raise HTTPException(503, "RUN_RUNTIME_NOT_CONFIGURED")
+            from .run_worker import configured_manager
+
+            run_manager = configured_manager(Path(root), settings)
+        return run_manager
+
+    def run_error(error: Exception) -> HTTPException:
+        if isinstance(error, KeyError):
+            return HTTPException(404, str(error.args[0]))
+        if str(error) in {"RUN_RUNTIME_NOT_CONFIGURED", "RUN_SPAWN_FAILED", "RUN_GPU_UNAVAILABLE"}:
+            return HTTPException(503, str(error))
+        return HTTPException(409, str(error))
+
+    @application.post("/runs", response_model=RunState, operation_id="start_training_run")
+    def start_training_run(body: StartRunRequest) -> RunState:
+        try:
+            return runs().create_or_get_run(body)
+        except (ValueError, KeyError, RuntimeError) as error:
+            raise run_error(error) from error
+
+    @application.get("/runs", response_model=RunPage, operation_id="list_training_runs")
+    def list_training_runs(
+        offset: int = Query(0, ge=0),
+        limit: int = Query(24, ge=1, le=100),
+    ) -> RunPage:
+        try:
+            return runs().list(offset, limit)
+        except ValueError as error:
+            raise run_error(error) from error
+
+    @application.get("/runs/{run_id}", response_model=RunState, operation_id="get_training_run")
+    def get_training_run(run_id: str) -> RunState:
+        try:
+            return runs().detail(run_id)
+        except (ValueError, KeyError) as error:
+            raise run_error(error) from error
+
+    @application.post(
+        "/runs/{run_id}/cancel", response_model=RunState, operation_id="cancel_training_run"
+    )
+    def cancel_training_run(run_id: str, body: RunMutation) -> RunState:
+        try:
+            return runs().cancel_run(run_id, body)
+        except (ValueError, KeyError, RuntimeError) as error:
+            raise run_error(error) from error
+
+    @application.post(
+        "/runs/{run_id}/retry", response_model=RunState, operation_id="retry_training_run"
+    )
+    def retry_training_run(run_id: str, body: RunMutation) -> RunState:
+        try:
+            return runs().retry_run(run_id, body)
+        except (ValueError, KeyError, RuntimeError) as error:
+            raise run_error(error) from error
 
     def annotations() -> AnnotationStore:
         configured = os.environ.get("VISION_LAB_ANNOTATIONS")

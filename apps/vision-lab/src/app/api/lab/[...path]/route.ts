@@ -1,4 +1,4 @@
-import { allowedRoute, boundary } from '../../../../lib/boundary';
+import { allowedQuery, allowedRoute, boundary } from '../../../../lib/boundary';
 
 async function forward(
   request: Request,
@@ -10,12 +10,7 @@ async function forward(
   if (!allowedRoute(request.method, path))
     return new Response('ROUTE_FORBIDDEN', { status: 404 });
   const url = new URL(request.url);
-  if (
-    [...url.searchParams.keys()].some(
-      (key) => !['offset', 'limit', 'game'].includes(key),
-    ) ||
-    (path[0] !== 'sources' && url.search)
-  )
+  if (!allowedQuery(path, url.searchParams, request.method))
     return new Response('QUERY_FORBIDDEN', { status: 400 });
   const body = request.method === 'POST' ? await request.text() : undefined;
   if (body && body.length > 1024 * 1024)

@@ -87,6 +87,20 @@ export type AnnotationState = {
 };
 
 /**
+ * Artifact
+ */
+export type Artifact = {
+    /**
+     * Relative Path
+     */
+    relative_path: string;
+    /**
+     * Sha256
+     */
+    sha256: string;
+};
+
+/**
  * BackupRequest
  *
  * An explicit JSON request, required by the local mutation boundary.
@@ -654,6 +668,133 @@ export type PointOutput = {
 };
 
 /**
+ * RunMutation
+ */
+export type RunMutation = {
+    /**
+     * Expected Attempt
+     */
+    expected_attempt: number;
+    /**
+     * Request Id
+     */
+    request_id: string;
+};
+
+/**
+ * RunPage
+ */
+export type RunPage = {
+    /**
+     * Runs
+     */
+    runs: Array<RunState>;
+    /**
+     * Total
+     */
+    total: number;
+};
+
+/**
+ * RunState
+ */
+export type RunState = {
+    /**
+     * Attempt
+     */
+    attempt: number;
+    /**
+     * Attempt Deadline
+     */
+    attempt_deadline: number | null;
+    /**
+     * Attempts
+     */
+    attempts: Array<{
+        [key: string]: unknown;
+    }>;
+    /**
+     * Cancel Requested
+     */
+    cancel_requested: boolean;
+    checkpoint: Artifact | null;
+    /**
+     * Checkpoint Epoch
+     */
+    checkpoint_epoch: number;
+    /**
+     * Conservative Seconds
+     */
+    conservative_seconds: number;
+    /**
+     * Created At
+     */
+    created_at: number;
+    /**
+     * Diagnostics
+     */
+    diagnostics: Array<string>;
+    /**
+     * Error
+     */
+    error: string | null;
+    /**
+     * Fence
+     */
+    fence: number;
+    /**
+     * Fingerprint
+     */
+    fingerprint: string;
+    /**
+     * Heartbeat At
+     */
+    heartbeat_at: number | null;
+    /**
+     * Id
+     */
+    id: string;
+    /**
+     * Last Accounted At
+     */
+    last_accounted_at: number | null;
+    /**
+     * Launch Deadline
+     */
+    launch_deadline: number;
+    /**
+     * Lease
+     */
+    lease: string;
+    /**
+     * Pid
+     */
+    pid: number | null;
+    /**
+     * Process Created
+     */
+    process_created: string | null;
+    report: Artifact | null;
+    request: StartRunRequestOutput;
+    /**
+     * Reserved Steps
+     */
+    reserved_steps: number;
+    /**
+     * Started At
+     */
+    started_at: number | null;
+    /**
+     * Status
+     */
+    status: 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+    /**
+     * Used Seconds
+     */
+    used_seconds: number;
+};
+
+/**
  * Source
  */
 export type Source = {
@@ -779,6 +920,70 @@ export type SplitRequest = {
      * Unseen Game Id
      */
     unseen_game_id: string;
+};
+
+/**
+ * StartRunRequest
+ */
+export type StartRunRequestInput = {
+    configuration: TrainingConfigurationInput;
+    /**
+     * Manifest Id
+     */
+    manifest_id: string;
+    /**
+     * Model Version
+     */
+    model_version: string;
+    /**
+     * Preprocessing Version
+     */
+    preprocessing_version: string;
+    /**
+     * Purpose
+     */
+    purpose: 'smoke' | 'train';
+    /**
+     * Request Id
+     */
+    request_id: string;
+    /**
+     * Seed
+     */
+    seed: number;
+    topology?: TopologyInput;
+};
+
+/**
+ * StartRunRequest
+ */
+export type StartRunRequestOutput = {
+    configuration: TrainingConfigurationOutput;
+    /**
+     * Manifest Id
+     */
+    manifest_id: string;
+    /**
+     * Model Version
+     */
+    model_version: string;
+    /**
+     * Preprocessing Version
+     */
+    preprocessing_version: string;
+    /**
+     * Purpose
+     */
+    purpose: 'smoke' | 'train';
+    /**
+     * Request Id
+     */
+    request_id: string;
+    /**
+     * Seed
+     */
+    seed: number;
+    topology: TopologyOutput;
 };
 
 /**
@@ -949,6 +1154,58 @@ export type TopologyOutput = {
      * Rows
      */
     rows: 3;
+};
+
+/**
+ * TrainingConfiguration
+ */
+export type TrainingConfigurationInput = {
+    /**
+     * Batch Size
+     */
+    batch_size?: number;
+    /**
+     * Epochs
+     */
+    epochs?: number;
+    /**
+     * Learning Rate
+     */
+    learning_rate?: number;
+    /**
+     * Max Seconds
+     */
+    max_seconds?: number;
+    /**
+     * Max Steps
+     */
+    max_steps?: number;
+};
+
+/**
+ * TrainingConfiguration
+ */
+export type TrainingConfigurationOutput = {
+    /**
+     * Batch Size
+     */
+    batch_size: number;
+    /**
+     * Epochs
+     */
+    epochs: number;
+    /**
+     * Learning Rate
+     */
+    learning_rate: number;
+    /**
+     * Max Seconds
+     */
+    max_seconds: number;
+    /**
+     * Max Steps
+     */
+    max_steps: number;
 };
 
 /**
@@ -1125,6 +1382,155 @@ export type DetectGeometryResponses = {
 };
 
 export type DetectGeometryResponse = DetectGeometryResponses[keyof DetectGeometryResponses];
+
+export type ListTrainingRunsData = {
+    body?: never;
+    path?: never;
+    query?: {
+        /**
+         * Offset
+         */
+        offset?: number;
+        /**
+         * Limit
+         */
+        limit?: number;
+    };
+    url: '/runs';
+};
+
+export type ListTrainingRunsErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type ListTrainingRunsError = ListTrainingRunsErrors[keyof ListTrainingRunsErrors];
+
+export type ListTrainingRunsResponses = {
+    /**
+     * Successful Response
+     */
+    200: RunPage;
+};
+
+export type ListTrainingRunsResponse = ListTrainingRunsResponses[keyof ListTrainingRunsResponses];
+
+export type StartTrainingRunData = {
+    body: StartRunRequestInput;
+    path?: never;
+    query?: never;
+    url: '/runs';
+};
+
+export type StartTrainingRunErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type StartTrainingRunError = StartTrainingRunErrors[keyof StartTrainingRunErrors];
+
+export type StartTrainingRunResponses = {
+    /**
+     * Successful Response
+     */
+    200: RunState;
+};
+
+export type StartTrainingRunResponse = StartTrainingRunResponses[keyof StartTrainingRunResponses];
+
+export type GetTrainingRunData = {
+    body?: never;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/runs/{run_id}';
+};
+
+export type GetTrainingRunErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type GetTrainingRunError = GetTrainingRunErrors[keyof GetTrainingRunErrors];
+
+export type GetTrainingRunResponses = {
+    /**
+     * Successful Response
+     */
+    200: RunState;
+};
+
+export type GetTrainingRunResponse = GetTrainingRunResponses[keyof GetTrainingRunResponses];
+
+export type CancelTrainingRunData = {
+    body: RunMutation;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/runs/{run_id}/cancel';
+};
+
+export type CancelTrainingRunErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type CancelTrainingRunError = CancelTrainingRunErrors[keyof CancelTrainingRunErrors];
+
+export type CancelTrainingRunResponses = {
+    /**
+     * Successful Response
+     */
+    200: RunState;
+};
+
+export type CancelTrainingRunResponse = CancelTrainingRunResponses[keyof CancelTrainingRunResponses];
+
+export type RetryTrainingRunData = {
+    body: RunMutation;
+    path: {
+        /**
+         * Run Id
+         */
+        run_id: string;
+    };
+    query?: never;
+    url: '/runs/{run_id}/retry';
+};
+
+export type RetryTrainingRunErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+};
+
+export type RetryTrainingRunError = RetryTrainingRunErrors[keyof RetryTrainingRunErrors];
+
+export type RetryTrainingRunResponses = {
+    /**
+     * Successful Response
+     */
+    200: RunState;
+};
+
+export type RetryTrainingRunResponse = RetryTrainingRunResponses[keyof RetryTrainingRunResponses];
 
 export type ListSourcesData = {
     body?: never;

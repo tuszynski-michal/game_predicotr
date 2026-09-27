@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { boundary, allowedRoute } from '../src/lib/boundary.ts';
+import { boundary, allowedRoute, allowedQuery } from '../src/lib/boundary.ts';
 test('Host, Origin and JSON boundary is fail closed', () => {
   const request = (headers, method = 'POST') =>
     new Request('http://127.0.0.1:3102/api/lab/geometry', { method, headers });
@@ -25,6 +25,31 @@ test('Host, Origin and JSON boundary is fail closed', () => {
     415,
   );
   assert.equal(boundary(request({ host: good.host }, 'GET')), null);
+});
+test('training routes and pagination remain closed', () => {
+  assert.equal(
+    allowedQuery(['runs'], new URLSearchParams('offset=1'), 'POST'),
+    false,
+  );
+  const id = 'a'.repeat(32);
+  assert.equal(allowedRoute('POST', ['runs']), true);
+  assert.equal(allowedRoute('GET', ['runs', id]), true);
+  assert.equal(allowedRoute('POST', ['runs', id, 'cancel']), true);
+  assert.equal(allowedRoute('POST', ['runs', id, 'retry']), true);
+  assert.equal(allowedRoute('POST', ['runs', id, 'execute']), false);
+  assert.equal(allowedRoute('GET', ['runs', '../secret']), false);
+  assert.equal(
+    allowedQuery(['runs'], new URLSearchParams('offset=1&limit=2')),
+    true,
+  );
+  assert.equal(
+    allowedQuery(['runs'], new URLSearchParams('game=private')),
+    false,
+  );
+  assert.equal(
+    allowedQuery(['runs', id], new URLSearchParams('offset=1')),
+    false,
+  );
 });
 test('proxy permits only registered route shapes', () => {
   assert.equal(allowedRoute('GET', ['sources']), true);

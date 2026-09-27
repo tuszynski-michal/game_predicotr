@@ -23,15 +23,41 @@ export function allowedRoute(method: string, parts: string[]): boolean {
   return (
     (method === 'GET' &&
       parts.length === 1 &&
-      ['sources', 'annotations', 'timings'].includes(parts[0])) ||
+      ['sources', 'annotations', 'timings', 'runs'].includes(parts[0])) ||
     (method === 'POST' &&
       parts.length === 1 &&
-      ['geometry', 'annotations', 'families', 'splits', 'backups'].includes(
-        parts[0],
-      )) ||
+      [
+        'geometry',
+        'annotations',
+        'families',
+        'splits',
+        'backups',
+        'runs',
+      ].includes(parts[0])) ||
+    (parts[0] === 'runs' &&
+      /^[a-f0-9]{32}$/.test(parts[1] ?? '') &&
+      ((method === 'GET' && parts.length === 2) ||
+        (method === 'POST' &&
+          parts.length === 3 &&
+          ['cancel', 'retry'].includes(parts[2])))) ||
     (method === 'GET' &&
       parts.length === 2 &&
       parts[0] === 'assets' &&
       /^[a-f0-9]{64}$/.test(parts[1]))
   );
+}
+
+export function allowedQuery(
+  parts: string[],
+  query: URLSearchParams,
+  method = 'GET',
+): boolean {
+  if (method !== 'GET') return [...query.keys()].length === 0;
+  const keys =
+    parts.length === 1 && parts[0] === 'sources'
+      ? ['offset', 'limit', 'game']
+      : parts.length === 1 && parts[0] === 'runs'
+        ? ['offset', 'limit']
+        : [];
+  return [...query.keys()].every((key) => keys.includes(key));
 }

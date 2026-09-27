@@ -198,15 +198,25 @@ def test_v2_http_validation_is_atomic(tmp_path):
     assert response.json()["split"]["policy_version"] == TARGETS_ONLY_777_POLICY
 
 
-def test_existing_cohort_receipt_without_policy_is_retryable(tmp_path):
+@pytest.mark.parametrize("policy", [None, TARGETS_ONLY_777_POLICY])
+def test_existing_cohort_receipt_without_policy_is_retryable(tmp_path, policy):
     store, request, _, _ = policy_store(tmp_path)
-    request.geometry_policy = None
+    request.geometry_policy = policy
     frozen = store.mutate(request)
     payload = read_checked(store.root / "state.json")
+    excluded = {"game_partitions"}
+    if policy is None:
+        excluded.add("geometry_policy")
     assert payload["receipts"][request.request_id]["fingerprint"] == digest(
-        request.model_dump(exclude={"geometry_policy"})
+        request.model_dump(exclude=excluded)
     )
-    assert "geometry_policy" not in payload["history"][-1]["request"]
+    assert "game_partitions" not in payload["history"][-1]["request"]
+    if policy is None:
+        assert "geometry_policy" not in payload["history"][-1]["request"]
+    old_split = frozen.split.model_dump(exclude={"fingerprint", "game_partitions"})
+    assert frozen.split.fingerprint == digest([store.snapshot_id, old_split])
+    payload["state"]["split"].pop("game_partitions")
+    write_atomic(store.root / "state.json", payload)
     before = (store.root / "state.json").read_bytes()
     assert retry_new_process(store, request) == frozen.split.fingerprint
     assert (store.root / "state.json").read_bytes() == before

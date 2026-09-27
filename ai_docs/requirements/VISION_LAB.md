@@ -6,6 +6,16 @@ last_updated: 2026-09-27
 
 # Laboratorium wizji
 
+D-456 dopuszcza osobny pilot geometry-only 5 × 3 z całymi grami przypisanymi
+do rozłącznych development/validation/final_test/unseen_game. W tej jawnej
+polityce nie wymaga się verified rodzin wewnątrz gry ani pomiaru czasu.
+Nie zmienia się pochodzenia rodzin i nie twierdzi, że są niezależne. Pełny
+graf wszystkich źródeł musi pozostać wewnątrz przydziałów gier; każde znane
+powiązanie przecinające części blokuje cały zapis. Wybrane targety nadal
+wymagają aktualnych zgód, ręcznej pełnej geometrii, SHA oraz D-453 dla 777.
+Stare polityki i ich wymagania poniżej pozostają bez zmian. Pilot nie mierzy
+jakości 3 × 3, symboli, oszczędności czasu ani gotowości produkcyjnej.
+
 Doprecyzowanie użytkownika przy wznowieniu etapu B: zapisane i zaakceptowane
 siatki są referencją geometrii plansz, a nie zatwierdzeniem symboli. Część
 zdjęć lub ich oznaczeń symboli może być niepoprawna. Brak poprawnej etykiety
@@ -150,3 +160,14 @@ oraz pełnej ręcznej geometrii. Wyjątek nie obejmuje DB, V2 ani innych
 comparison_only. Verified całego komponentu, unseen, pomiar i pełne fingerprints
 pozostają obowiązkowe. Pominięcie nowej polityki i istniejące podziały zachowują
 poprzednie reguły; wdrożenie nie zatwierdza rodzin ani nie uruchamia treningu.
+
+D-456 stanowi osobny wariant pilota `lab-geometry-whole-game-pilot-v1`.
+Jawna mapa przypisuje wszystkie źródła każdej gry do jednej części;
+pełny graf duplikatów, rodzin i pochodnych nie może przecinać tych części,
+również poza kohortą. Pilot dopuszcza brak decyzji rodziny lub unresolved,
+bez awansu do verified i bez pomiaru czasu. Wymaga targetów w każdej z czterech
+części oraz aktualnych akceptacji i pełnych ręcznych geometrii wyłącznie 5 × 3.
+Wybrane 777 wymagają własnej kwalifikacji D-453; kontekst zachowuje wąski
+wyjątek D-455. Błąd dowolnego wybranego źródła odrzuca cały pilot.
+To ograniczony test transferu między grami, bez oceny 3 × 3, symboli ani
+oszczędności czasu. Dotychczasowe polityki zachowują swoje bramki.

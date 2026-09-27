@@ -6,6 +6,36 @@ last_updated: 2026-09-27
 
 # Current State
 
+### D-456 / T03k — zatwierdzony pilot całymi grami
+
+- Operator zatwierdził pilota i dalszą realizację B. Train: 777, Blazing,
+  Gang; validation: Mumie; final_test: Reels; unseen: Treasure. 90/30/30/30
+  pełnych siatek 5 × 3. Bez pomiaru czasu, etykiet symboli i oceny 3 × 3.
+- T03k done: Sol medium zaimplementował wersjonowany split, Astra medium
+  odebrał kontrakt/kod/operację bez P0–P2. Root aktualizuje plan i dokumentację.
+  Przewidywane pliki: kontrakty/annotations/splits/geometry_qualification,
+  nowy whole_game_split, testy i klient OpenAPI. Brak nowych pytań blokujących.
+- Reguły unresolved/measurement starego protokołu nie są fałszowane: nowa
+  polityka wiąże wszystkie źródła gry z jedną partycją i sprawdza pełny graf.
+  Po odbiorze i freeze T03k można przejść do T04/T05 według D-456. Budżet
+  treningu bez zmian, STOP B; bez automatycznego push/aktywacji.
+- Kod T03k zamrożony: 82 backend + 8 client PASS, Ruff/format/mypy/TS/
+  OpenAPI PASS. Astra medium zaakceptował kontrakt i exact propozycję danych;
+  audyt kodu/dry-run również PASS bez P0–P2 (niezależnie 13 backend + 8 client).
+  Przejściowy limit sesji audytora ustąpił po zakończeniu wykonawcy;
+  nie zmieniono przypisanego modelu.
+- Freeze wykonany CAS267 do rev268, split_stale=false; 63/180 targetów,
+  90/30/30/30. Nowy proces replay/odczyt/restore do osobnego katalogu PASS.
+  Post-apply audyt Astra medium PASS bez P0–P2. Stan SHA:
+  `084bc39de16502de46f6237cbc2fb453a9dc00665ab20d1319301f44f6efa314`.
+  Split `3ebcc3a401a17295c5509cbe5d1f59886fa7a87588427c6bed671665dbe63572`,
+  manifest `1e7cc3a70a583320a1f051ef6598c35595aeefb3b94a60631d311c1da0b25bb0`
+  pod LAB/manifests; pozostały payload i dotychczasowe zgody bez zmian.
+  Osobny commit v1.7.28 przygotowywany (pełny hash po zapisie).
+- Odczyt T04: RTX4050 Laptop 6GB, driver591.62; główna .venv ma CPU torch
+  2.12.1/torchvision0.27.1. Sol high wykonał wyłącznie preflight i doprecyzował
+  kontrakt w tasku T04; implementacja/instalacja czeka na odebrany T03k.
+
 ### T03j — zatwierdzona korekta kwalifikacji kontekstu 777
 
 - Operator jawnie zgodził się na wymaganie kwalifikacji od targetów, nie od
@@ -35,11 +65,14 @@ last_updated: 2026-09-27
   powiązań do siedmiu rodzin unresolved, rewizja 267, dokładnie +7 receipts
   i eventów. Pozostały payload identyczny; 180 anotacji i 63 akceptacje zachowane.
   Nowe procesy replay i odczytu PASS; końcowy audyt danych Astra medium PASS
-  bez P0–P2. Osobny operacyjny commit v1.7.27 (pełny hash po commicie). SHA stanu:
+  bez P0–P2. Osobny operacyjny commit `v1.7.27` /
+  `381ec8893895cc40ff76c456ff78c67496bbd30c`; staged check/stat/list i
+  show/stat/status PASS, obce zmiany zachowane. SHA stanu:
   `f4fabe1790b6922ce297ab61e118371aa3eb91a509606c478d67a7a2b75726ae`.
 - Niezależność nagrań i pomiar nadal nierozstrzygnięte. Pilot z podziałem
   całymi grami 5×3, bez pomiaru czasu, przedstawiono operatorowi jako odrębną
-  decyzję; nie jest jeszcze zatwierdzony ani wdrożony. Brak freeze i treningu.
+  decyzję; następnie zatwierdzony w D-456, wdrożenie prowadzi T03k.
+  Brak freeze i treningu na moment otwarcia T03k.
   Nie ponawiać rozstrzygniętych pytań o katalogi Treasure.
 - Dry-run nowej polityki v2 na kopii rewizji 267: nadal
   `VERIFIED_MEASUREMENT_SOURCES_REQUIRED`, 63 zdjęcia wykluczone z powodu

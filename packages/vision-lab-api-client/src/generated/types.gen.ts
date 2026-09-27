@@ -319,6 +319,12 @@ export type FrozenSplit = {
      */
     fingerprint: string;
     /**
+     * Game Partitions
+     */
+    game_partitions: {
+        [key: string]: 'development' | 'validation' | 'final_test' | 'unseen_game';
+    } | null;
+    /**
      * Geometry Qualification Fingerprints
      */
     geometry_qualification_fingerprints: {
@@ -355,7 +361,7 @@ export type FrozenSplit = {
     /**
      * Policy Version
      */
-    policy_version: 'legacy' | 'lab-geometry-split-v1' | 'lab-geometry-cohort-split-v1' | 'lab-geometry-cohort-777-targets-v2';
+    policy_version: 'legacy' | 'lab-geometry-split-v1' | 'lab-geometry-cohort-split-v1' | 'lab-geometry-cohort-777-targets-v2' | 'lab-geometry-whole-game-pilot-v1';
     /**
      * Purpose
      */
@@ -740,9 +746,15 @@ export type SplitRequest = {
      */
     expected_revision: number;
     /**
+     * Game Partitions
+     */
+    game_partitions?: {
+        [key: string]: 'development' | 'validation' | 'final_test' | 'unseen_game';
+    } | null;
+    /**
      * Geometry Policy
      */
-    geometry_policy?: 'lab-geometry-cohort-777-targets-v2' | null;
+    geometry_policy?: 'lab-geometry-cohort-777-targets-v2' | 'lab-geometry-whole-game-pilot-v1' | null;
     /**
      * Geometry Source Ids
      */

@@ -1,6 +1,6 @@
 ---
 title: TASK-0668 — T03 — edytor i zbiór geometrii
-status: blocked
+status: in_progress
 last_updated: 2026-09-27
 ---
 
@@ -8,12 +8,141 @@ last_updated: 2026-09-27
 
 ## Status
 
-`blocked` — anotacje i przegląd operatora wykonane; D-453 rozstrzyga użycie
+`in_progress` — D-456 zatwierdza T03k i pilota całymi grami bez pomiaru.
+Pełny protokół rodzin/pomiaru pozostaje odroczony. Historycznie: anotacje
+i przegląd operatora wykonane; D-453 rozstrzyga użycie
 historycznych zdjęć 777 w modelu geometrii. Pozostają techniczne mapowanie
 źródeł do rodzin, kontrola konfliktów oraz zamrożony podział. Mechanizmy
 T03e/T03f są wdrożone i odebrane; T03g zachował zapisy w rozszerzonym zbiorze,
 a T03h zastosował kwalifikację geometrii. T04/T05 nie rozpoczęto; nie uruchamiać ich przed
-spełnieniem bramek danych.
+spełnieniem bramek danych; od D-456 wystarczy odebrany T03k dla pilota.
+
+## T03k — podział całymi grami i zamrożenie pilota D-456
+
+### Status / Goal / Context / Dependencies
+
+`done`. Umożliwić jawny, ograniczony pilot 5 × 3 na istniejących
+akceptacjach bez udawania verified rodzin lub pomiaru czasu. D-456 accepted,
+T03j done v1.7.26, mapa i siedem unresolved zapisane v1.7.27. Stan wejściowy
+rev267/SHA f4fabe1790b6922ce297ab61e118371aa3eb91a509606c478d67a7a2b75726ae.
+Przed apply ponowna kontrola; obcy zapis blokuje zamiast nadpisania.
+
+### Recommended execution / Relevant docs
+
+`gpt-6-sol` / `medium`, osobny audyt `gpt-6-astra` / `medium`. To zmiana
+spójnego pionu splitu i operacja danych, nie trening. P0–P2 po dwóch cyklach
+blokują. AGENTS, PLAN_STANDARD/TASK_TEMPLATE/DoD, wymagania/architektura labu,
+plan etapu B, D-453–456 i VISION_LAB_SOURCE_MAPPING_20260927.md.
+
+### Scope / Technical notes
+
+- Nowa wartość SplitRequest.geometry_policy:
+  `lab-geometry-whole-game-pilot-v1`; opcjonalne nowe game_partitions=None,
+  mapa game_id na development/validation/final_test/unseen_game.
+  None usuwane przed fingerprintem requestu dla zgodności starych receipts.
+  game_partitions poza pilotem odrzucone; brak mapy w pilocie odrzucony.
+- Pilot wymaga purpose geometry, jawnej niepustej unikalnej znanej kohorty,
+  pustych measurement_source_ids i difficulties. Klucze mapy dokładnie
+  pokrywają gry całego katalogu; co najmniej jedna gra development i dokładnie
+  jedna validation/final_test/unseen_game, unseen zgodne z unseen_game_id.
+  Każda z czterech partycji ma co najmniej jeden pełny wybrany target;
+  pusta partycja to PILOT_GAME_PARTITIONS_INVALID.
+  Nie nadaje się roli źródła ani akceptacji na podstawie przypisania gry.
+- Wszystkie wybrane źródła muszą mieć aktualny photo_accepted, własną
+  skuteczną kwalifikację gdy niedata i pełne ręczne targety wyłącznie 5 × 3.
+  Wąski wyjątek niewybranego historycznego kontekstu 777 identyczny z D-455.
+  Role/kwalifikację kontekstu kontroluje się w komponentach dotykających
+  kohorty jak w T03j; kontrola przecinania partycji obejmuje cały katalog.
+  Błędne wybrane źródło odrzuca cały pilot, bez cichego pomniejszania kohorty.
+- build_components nadal obejmuje wszystkie źródła i wszystkie istniejące
+  SHA/families/related. Każdy komponent całego katalogu musi należeć do jednej
+  partycji wynikającej z game_partitions, także gdy nie ma targetów. Znany
+  konflikt przecinający partycje odrzuca cały freeze. Nie tworzyć verified.
+  Konserwatywne związanie wszystkich źródeł tej samej gry realizuje mapa,
+  nie zapis nowych pozornych FamilyDecision.
+- FrozenSplit zapisuje nową politykę, game_partitions, kohortę, assignments
+  tylko targetów, NOT_IN_GEOMETRY_COHORT dla kontekstu, pusty measurement,
+  pełne leakage_components/fingerprints oraz target/qualification/annotation
+  fingerprints. Fingerprint wiąże cały protokół i mapę. Stare hashe i polityki
+  bez nowych elementów. Odczyt sprawdza pełny graf/fingerprints, mapę i własne
+  kwalifikacje targetów; nie robi fałszywego stale od unresolved lub kontekstu.
+  Mutacje nadal konserwatywnie ustawiają stale, bez ponownego freeze.
+- Czystą gałąź pilota wydzielić do proponowanego whole_game_split.py,
+  wykorzystując istniejące mechanizmy. Błędy domenowe atomowe HTTP409,
+  nieznana wartość schematu 422. Stabilne błędy PILOT_GAME_PARTITIONS_REQUIRED,
+  PILOT_GAME_PARTITIONS_INVALID, PILOT_MEASUREMENT_NOT_SUPPORTED,
+  PILOT_CROSS_PARTITION_COMPONENT, PILOT_FULL_GEOMETRY_REQUIRED,
+  PILOT_TOPOLOGY_NOT_SUPPORTED; dotychczasowe błędy kohorty/kwalifikacji
+  zachować tam, gdzie pasują. API/OpenAPI/generated/wrapper/request test.
+- Operacja po audycie kodu i exact requestu: aktualny katalog/state, backup,
+  dry-run, jeden istniejący AnnotationStore.mutate (CAS267), kolejny odczyt
+  i identyczny retry w nowym procesie. Tylko split + rewizja/event/receipt;
+  geometrie, review, rodziny, kwalifikacje i timingi bez zmian. Backup nie
+  oznacza nadpisywania źródła podczas testu odtworzenia: restore do nowego
+  katalogu. Raport i checksummed manifest pilota poza repo w danych labu.
+- Manifest zawiera snapshot_id, split fingerprint, policy, game_partitions,
+  source_id/SHA/relative path i jawne targety board_index/revision/nodes/SHA
+  oraz przydziały. Nie dodaje nowych etykiet. Walidator T04 ma czytać
+  zamrożony stan i sprawdzać zgodność; trening tylko development, strojenie
+  tylko validation. Bez czytania targetów final_test/unseen do strojenia.
+  Koperta manifestu używa istniejącego formatu {payload, sha256=digest(payload)}.
+  Payload zachowuje format `vision-lab-whole-game-pilot-manifest-v1` propozycji,
+  status zmienia na `frozen`, split_fingerprint na rzeczywisty hash; pozostałe
+  pola i 180 targetów zgodne z zaudytowaną propozycją. Manifest ID to digest
+  payloadu, plik `manifests/<manifest_id>.json` w danych labu, create-only,
+  identyczny retry sprawdza bajty/checksumę. snapshot_manifest_id i katalogowy
+  snapshot_id są różnymi identyfikatorami, nie zamieniać ich. Kontrola całych
+  targetów służy integralności; do modelu podaje się tylko development/validation.
+
+### Expected files
+
+Istniejące vision_lab/annotation_contracts.py, annotations.py, splits.py,
+geometry_qualification.py, pakiet vision-lab-api-client i testy HTTP/request.
+Nowe proponowane vision_lab/whole_game_split.py i test_vision_lab_whole_game_split.py.
+Raport jakości VISION_LAB_WHOLE_GAME_PILOT_20260927.md. Root odpowiada za
+task/current/plan/decision; wykonawca kodu za wymagania i architekturę.
+
+### Acceptance / Test cases / Verification
+
+- [x] Pełny pion pilota i 63/180 targetów z przydziałem D-456; żadnych nowych zgód.
+- [x] Testy: unresolved dopuszczone tylko pilotem; brak/pomylona mapa,
+  measurement, zła topologia, błędna zgoda/kwalifikacja odrzucone atomowo.
+- [x] Konflikt między grami przez SHA lub przechodni nieanotowany alias
+  odrzucony; zmiana grafu/metadanych/kwalifikacji daje stale; stare polityki,
+  receipts i None zachowane; nowy proces, backup/restore oraz retry PASS.
+- [x] Pytest nowych i sąsiednich regresji, Ruff/format/mypy modułów,
+  TypeScript klienta/labu, OpenAPI generate/check, klient request test PASS.
+  Każda komenda ograniczona do 120 s; bez pełnego benchmarku.
+- [x] Audyt kodu i exact operacji bez P0–P2; apply/odczyt/retry PASS;
+  osobny commit, Outcome i CURRENT_STATE. T03k domyka tylko bramkę pilota.
+
+### Out of scope / Risks / Outcome
+
+Bez verified rodzin, etykiet symboli, wyników 3 × 3, oceny oszczędności czasu,
+strojenia na final_test/unseen, treningu w tym podzadaniu, push i aktywacji.
+90 siatek treningowych to mały zbiór; wynik może być słaby. Brak poprawy
+nie upoważnia do zmiany holdoutów. Testy powyżej są planowane, nie wykonane.
+Implementacja zamrożona do audytu. Wykonawca Sol medium: 82 testy backendu
+PASS (nowy pilot 5 + v2/receipt 8: 42,94 s; cohort 24: 68,54 s;
+qualification/annotations/review 45: 56,25 s), klient 8/8 PASS. Ruff check,
+format 20 plików, mypy 16 modułów, TypeScript klienta/labu, OpenAPI generate/
+check/generated i git diff check PASS. Początkowy błąd fixture testu,
+import-order i dwie adnotacje typów poprawione bez osłabienia kontraktu.
+Kontrakt, exact request, końcowy kod i dry-run/manifest przeszły audyt Astra
+medium bez P0–P2; niezależnie 13 backend + 8 client PASS. Wykonano jeden
+freeze CAS267 do rewizji268. Split:
+`3ebcc3a401a17295c5509cbe5d1f59886fa7a87588427c6bed671665dbe63572`.
+Manifest `1e7cc3a70a583320a1f051ef6598c35595aeefb3b94a60631d311c1da0b25bb0`
+opublikowany create-only pod LAB/manifests. Nowy proces replay, odczyt oraz
+restore backupu do nowego katalogu PASS. Pozostały payload identyczny, stare
+store niezmienione; split_stale=false. SHA aktywnego stanu:
+`084bc39de16502de46f6237cbc2fb453a9dc00665ab20d1319301f44f6efa314`.
+Końcowy niezależny audyt operacji Astra medium PASS bez P0–P2: odtworzenie
+całego payloadu z backupu i jednego requestu, obie kopie i manifest zgodne.
+Brak instalacji GPU, treningu, zmian UI i aktywacji. Kryteria T03k spełnione;
+pełny protokół rodzin/pomiaru T03 pozostaje odroczony zgodnie z D-456.
+Osobny commit v1.7.28 przygotowywany (pełny hash po zapisie). Po commicie
+następny task T04; rodzic TASK-0668 pozostaje aktywny dla odroczonego zakresu.
 
 ## T03i — odzyskanie metadanych selekcji z Kosza
 
@@ -1286,7 +1415,8 @@ zmiany roli `777`; CURRENT_STATE i usługi należą do koordynatora.
   uruchomiono T04/T05 ani treningu. T03 pozostaje blocked. Osobna propozycja
   pilotażu całymi grami 5×3 bez pomiaru czasu oczekuje decyzji operatora;
   nie zastępuje przyjętego protokołu samodzielnie. Operacyjny zapis postępu
-  T03 otrzymuje osobny commit v1.7.27 (pełny hash po commicie).
+  T03 ma osobny commit `v1.7.27` / `381ec8893895cc40ff76c456ff78c67496bbd30c`.
+  Staged check/stat/list i show/stat/status PASS; obce zmiany zachowane.
 
 ### Deklaracja obu katalogów Treasure (2026-09-27)
 

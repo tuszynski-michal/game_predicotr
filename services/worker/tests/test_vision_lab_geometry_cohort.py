@@ -283,6 +283,7 @@ def test_pre_cohort_fingerprints_and_receipts_stay_identical(tmp_path, purpose):
     raw_split = split.model_dump(
         exclude={
             "fingerprint",
+            "game_partitions",
             "geometry_source_ids",
             "leakage_components",
             "leakage_component_fingerprints",
@@ -297,11 +298,18 @@ def test_pre_cohort_fingerprints_and_receipts_stay_identical(tmp_path, purpose):
         ):
             raw_split.pop(key)
     assert digest([store.snapshot_id, raw_split]) == split.fingerprint
-    historical_request = request.model_dump(exclude={"geometry_source_ids", "geometry_policy"})
+    historical_request = request.model_dump(
+        exclude={"geometry_source_ids", "geometry_policy", "game_partitions"}
+    )
     if purpose == "legacy":
         historical_request.pop("purpose")
     assert payload["receipts"][request.request_id]["fingerprint"] == digest(historical_request)
-    for field in ("geometry_source_ids", "leakage_components", "leakage_component_fingerprints"):
+    for field in (
+        "geometry_source_ids",
+        "leakage_components",
+        "leakage_component_fingerprints",
+        "game_partitions",
+    ):
         payload["state"]["split"].pop(field)
     write_atomic(store.root / "state.json", payload)
     before = (store.root / "state.json").read_bytes()

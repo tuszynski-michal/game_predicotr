@@ -6,7 +6,11 @@ from collections import defaultdict
 from .annotation_contracts import AnnotationState, FrozenSplit, SplitRequest
 from .annotations import digest
 from .catalog import Catalog
-from .geometry_qualification import full_human_targets, geometry_role_eligible
+from .geometry_qualification import (
+    WHOLE_GAME_PILOT_POLICY,
+    full_human_targets,
+    geometry_role_eligible,
+)
 from .photo_review import photo_accepted
 
 
@@ -63,6 +67,9 @@ def component_fingerprints(
 
 
 def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitRequest) -> FrozenSplit:
+    pilot = request.geometry_policy == WHOLE_GAME_PILOT_POLICY
+    if request.game_partitions is not None and not pilot:
+        raise ValueError("PILOT_GAME_PARTITIONS_INVALID")
     cohort = None if request.geometry_source_ids is None else set(request.geometry_source_ids)
     if request.geometry_policy is not None:
         if request.purpose != "geometry":
@@ -78,6 +85,10 @@ def freeze_splits(catalog: Catalog, state: AnnotationState, request: SplitReques
             raise ValueError("GEOMETRY_COHORT_DUPLICATE_SOURCE")
         if any(source_id not in catalog.sources for source_id in cohort):
             raise ValueError("GEOMETRY_COHORT_SOURCE_NOT_FOUND")
+        if pilot:
+            from .whole_game_split import freeze_whole_game_split
+
+            return freeze_whole_game_split(catalog, state, request)
         if len(set(request.measurement_source_ids)) != len(request.measurement_source_ids):
             raise ValueError("MEASUREMENT_DUPLICATE_SOURCE")
         if any(source_id not in cohort for source_id in request.measurement_source_ids):

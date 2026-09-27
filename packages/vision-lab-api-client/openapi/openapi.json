@@ -534,6 +534,26 @@
             "title": "Fingerprint",
             "type": "string"
           },
+          "game_partitions": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "enum": [
+                    "development",
+                    "validation",
+                    "final_test",
+                    "unseen_game"
+                  ],
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Partitions"
+          },
           "geometry_qualification_fingerprints": {
             "additionalProperties": {
               "type": "string"
@@ -592,7 +612,8 @@
               "legacy",
               "lab-geometry-split-v1",
               "lab-geometry-cohort-split-v1",
-              "lab-geometry-cohort-777-targets-v2"
+              "lab-geometry-cohort-777-targets-v2",
+              "lab-geometry-whole-game-pilot-v1"
             ],
             "title": "Policy Version",
             "type": "string"
@@ -622,6 +643,7 @@
         "required": [
           "purpose",
           "policy_version",
+          "game_partitions",
           "geometry_source_ids",
           "leakage_components",
           "leakage_component_fingerprints",
@@ -1218,10 +1240,33 @@
             "title": "Expected Revision",
             "type": "integer"
           },
+          "game_partitions": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "enum": [
+                    "development",
+                    "validation",
+                    "final_test",
+                    "unseen_game"
+                  ],
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Partitions"
+          },
           "geometry_policy": {
             "anyOf": [
               {
-                "const": "lab-geometry-cohort-777-targets-v2",
+                "enum": [
+                  "lab-geometry-cohort-777-targets-v2",
+                  "lab-geometry-whole-game-pilot-v1"
+                ],
                 "type": "string"
               },
               {

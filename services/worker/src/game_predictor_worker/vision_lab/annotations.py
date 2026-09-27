@@ -205,6 +205,11 @@ class AnnotationStore:
                 )
             ):
                 state.split_stale = True
+        if state.split and state.split.policy_version == "lab-geometry-whole-game-pilot-v1":
+            from .whole_game_split import pilot_is_current
+
+            if not pilot_is_current(self.catalog, state):
+                state.split_stale = True
         return state
 
     def mutate(
@@ -225,6 +230,8 @@ class AnnotationStore:
                 request_data.pop("geometry_source_ids")
             if isinstance(request, SplitRequest) and request.geometry_policy is None:
                 request_data.pop("geometry_policy")
+            if isinstance(request, SplitRequest) and request.game_partitions is None:
+                request_data.pop("game_partitions")
             fingerprint = digest(request_data)
             receipt = payload["receipts"].get(request.request_id)
             if receipt is not None:

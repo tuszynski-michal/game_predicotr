@@ -1,6 +1,7 @@
 """D-453 geometry-only qualification; never a source role or symbol approval."""
 
 from pathlib import PurePosixPath
+from typing import Final
 
 from .annotation_contracts import (
     AnnotationState,
@@ -13,6 +14,7 @@ from .contracts import Source
 from .photo_review import board_revisions, photo_accepted
 
 TARGETS_ONLY_777_POLICY = "lab-geometry-cohort-777-targets-v2"
+WHOLE_GAME_PILOT_POLICY: Final = "lab-geometry-whole-game-pilot-v1"
 
 
 def historical_folder_777(source: Source) -> bool:
@@ -34,7 +36,7 @@ def geometry_role_eligible(
     return (
         source.role == "data"
         or (
-            policy == TARGETS_ONLY_777_POLICY
+            policy in (TARGETS_ONLY_777_POLICY, WHOLE_GAME_PILOT_POLICY)
             and cohort is not None
             and source.id not in cohort
             and historical_folder_777(source)

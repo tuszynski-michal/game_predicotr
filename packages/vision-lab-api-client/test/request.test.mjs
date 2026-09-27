@@ -11,7 +11,11 @@ import {
 import { boundary } from '../../../apps/vision-lab/src/lib/boundary.ts';
 import { freezeAnnotations } from '../src/index.ts';
 
-for (const policy of [undefined, 'lab-geometry-cohort-777-targets-v2']) {
+for (const policy of [
+  undefined,
+  'lab-geometry-cohort-777-targets-v2',
+  'lab-geometry-whole-game-pilot-v1',
+]) {
   test(`freeze wrapper preserves ${policy ?? 'original cohort'}, order and leakage maps`, async () => {
     const body = {
       request_id: 'cohort-split',
@@ -19,16 +23,33 @@ for (const policy of [undefined, 'lab-geometry-cohort-777-targets-v2']) {
       actor: 'operator',
       purpose: 'geometry',
       ...(policy ? { geometry_policy: policy } : {}),
+      ...(policy === 'lab-geometry-whole-game-pilot-v1'
+        ? {
+            game_partitions: {
+              a: 'development',
+              b: 'validation',
+              c: 'final_test',
+              unseen: 'unseen_game',
+            },
+          }
+        : {}),
       geometry_source_ids: ['b', 'a'],
       unseen_game_id: 'unseen',
       seed: 17,
-      measurement_source_ids: ['a'],
-      difficulties: { a: 'normal', alias: 'normal' },
+      measurement_source_ids:
+        policy === 'lab-geometry-whole-game-pilot-v1' ? [] : ['a'],
+      difficulties:
+        policy === 'lab-geometry-whole-game-pilot-v1'
+          ? {}
+          : { a: 'normal', alias: 'normal' },
     };
     const state = {
       revision: 9,
       split: {
         policy_version: policy ?? 'lab-geometry-cohort-split-v1',
+        ...(body.game_partitions
+          ? { game_partitions: body.game_partitions }
+          : {}),
         geometry_source_ids: ['a', 'b'],
         leakage_components: {
           a: ['a', 'alias'],

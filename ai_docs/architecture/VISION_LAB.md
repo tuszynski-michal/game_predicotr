@@ -151,6 +151,32 @@ wszystkich członków niedata. V2 nie daje fałszywego stale od stałego braku
 kwalifikacji kontekstu, ale wykrywa zmiany pełnych metadanych, rodzin,
 kwalifikacji i grafu. Konserwatywne stale po mutacjach pozostaje bez zmian.
 
+T03k/D-456 dodaje geometry_policy `lab-geometry-whole-game-pilot-v1` oraz
+opcjonalne game_partitions w SplitRequest/FrozenSplit. Mapa obejmuje dokładnie
+wszystkie game_id katalogu: co najmniej jedno development, dokładnie jedno
+validation, final_test i unseen_game, zgodne z unseen_game_id. Każda część
+musi mieć co najmniej jeden pełny target. None jest usuwane z requestu przed
+hashowaniem, a starsze polityki nie dodają mapy do danych hashowanych splitu.
+Mapa poza pilotem, niepełna/błędna mapa i pusty przydział dają
+PILOT_GAME_PARTITIONS_INVALID; brak mapy PILOT_GAME_PARTITIONS_REQUIRED.
+Niepusty measurement lub difficulties daje PILOT_MEASUREMENT_NOT_SUPPORTED.
+
+whole_game_split.freeze_whole_game_split jest czystą gałęzią po walidacji
+purpose/kohorty. Nie wymaga verified i nie zapisuje rodzin. Każdy komponent
+całego katalogu sprawdza wobec mapy (PILOT_CROSS_PARTITION_COMPONENT), a role
+kontekstu sprawdza w komponentach dotykających kohorty wspólnym predykatem
+D-455. Każdy target ma photo_accepted i pełną geometrię human 5 × 3;
+brak targetu daje PILOT_FULL_GEOMETRY_REQUIRED, inna pełna topologia
+PILOT_TOPOLOGY_NOT_SUPPORTED. Żaden błąd nie zmniejsza kohorty po cichu.
+FrozenSplit wiąże mapę, całą kohortę, pełne komponenty i fingerprints;
+assignments/targety są tylko wybrane, measurement pusty.
+Odczyt nowej polityki rekonstruuje oczekiwany wynik na bieżącym stanie
+z pierwotnym numerem rewizji splitu i porównuje go z zamrożonym rekordem,
+bez zastępowania rekordów lub przeliczania starych wersji. W ten sposób
+kontroluje także mapę, przydziały, pełne metadane, aktualność targetów i graf
+odległych wykluczonych komponentów; różnica lub błąd walidacji daje stale.
+Receipts, CAS, backup/restore i zakaz ponownego freeze pozostają w AnnotationStore.
+
 Eksporter czyta tylko wskazane `source_images`, związane
 `image_source_geometry_revisions`, `image_page_geometry_overrides`,
 `recognized_boards`, `image_board_geometry_revisions`,
@@ -225,8 +251,11 @@ manifestu, konfiguracji, modelu, topologii, preprocessingu i seeda są
 trwałe przed spawnem. To samo żądanie zwraca ten sam run; ten sam ID z
 innym payloadem daje konflikt. Stany: `queued → running →
 succeeded|failed|cancelled`, bez pauzy. `running` wiąże PID, czas startu,
-lease i heartbeat, więc restart nie uruchamia duplikatu. Wygasły lease po
-sprawdzeniu tożsamości procesu daje recoverable `failed`. Cancel jest
+lease i heartbeat, więc restart nie uruchamia duplikatu. Żywy zgodny proces
+pozostaje obserwowany nawet przy starym heartbeat/lease. Dopiero potwierdzony
+brak zgodnego PID/czasu utworzenia wraz z wygaśnięciem lease daje recoverable
+`failed`. Budżet jest naliczany trwale poza checkpointem; crash i retry nie
+zwracają kroków ani niepotwierdzonego czasu (szczegóły T04). Cancel jest
 utrwaloną intencją i kończy się po checkpointcie; awaria zachowuje ostatni
 poprawny checkpoint. Retry jest jawną nową próbą z nowym lease po kontroli
 fingerprintu; stary proces zostaje odgrodzony. Sukces wymaga atomowo

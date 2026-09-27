@@ -22,6 +22,11 @@ Część zaakceptowanego `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md`; wykona
 
 T04 done, zamrożone podziały i zatwierdzony budżet eksperymentu. Przed kodowaniem ponownie sprawdź bieżący kod, dostępność modelu/reasoning oraz zakres zasobów; istotną rozbieżność zapisz w planie i tasku.
 
+D-456 ogranicza pierwszy rzeczywisty trening do 5 × 3: development 90 siatek,
+validation 30. Final_test Reels i unseen Treasure są zamrożone i nie służą
+strojeniu ani wyborowi checkpointu. Wynik pilota nie ocenia 3 × 3 ani czasu
+pracy. Testy kontraktu 3 × 3 pozostają, bez deklaracji wyuczonej jakości.
+
 ## Recommended execution
 
 `gpt-6-sol`, reasoning `high`; osobny audyt `gpt-6-astra`, reasoning `medium`. Model geometrii i bramki pewności wymagają oceny błędów na obrazach. Brak dokładnej konfiguracji blokuje task; P0–P2 po dwóch cyklach poprawek wymaga zatrzymania i ponownej analizy.

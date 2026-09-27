@@ -20,7 +20,11 @@ Część zaakceptowanego `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md`; wykona
 
 ## Dependencies / entry conditions
 
-T03 done, zamrożony manifest i split. Przed kodowaniem ponownie sprawdź bieżący kod, dostępność modelu/reasoning oraz zakres zasobów; istotną rozbieżność zapisz w planie i tasku.
+D-456: dla zatwierdzonego pilota wystarczy T03k done, zamrożony manifest
+i aktualny split całymi grami. Pełny pomiar i verified rodzin T03 są odroczone,
+nie uznane za wykonane. Przed kodowaniem ponownie sprawdź bieżący kod,
+dostępność modelu/reasoning oraz zakres zasobów; istotną rozbieżność zapisz
+w planie i tasku. T04 nie może trenować na final_test/unseen.
 
 ## Recommended execution
 

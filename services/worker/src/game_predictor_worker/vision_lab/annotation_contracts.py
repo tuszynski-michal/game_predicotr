@@ -103,9 +103,15 @@ class StoredGeometryQualification(GeometryQualificationBinding):
     revision: int
 
 
+GamePartition = Literal["development", "validation", "final_test", "unseen_game"]
+
+
 class SplitRequest(Mutation):
     purpose: Literal["legacy", "geometry"] = "legacy"
-    geometry_policy: Literal["lab-geometry-cohort-777-targets-v2"] | None = None
+    geometry_policy: (
+        Literal["lab-geometry-cohort-777-targets-v2", "lab-geometry-whole-game-pilot-v1"] | None
+    ) = None
+    game_partitions: dict[str, GamePartition] | None = None
     geometry_source_ids: list[str] | None = Field(default=None, max_length=10000)
     unseen_game_id: str
     seed: int = Field(ge=0, le=2147483647)
@@ -132,7 +138,9 @@ class FrozenSplit(Contract):
         "lab-geometry-split-v1",
         "lab-geometry-cohort-split-v1",
         "lab-geometry-cohort-777-targets-v2",
+        "lab-geometry-whole-game-pilot-v1",
     ] = "legacy"
+    game_partitions: dict[str, GamePartition] | None = None
     geometry_source_ids: list[str] | None = None
     leakage_components: dict[str, list[str]] = Field(default_factory=dict)
     leakage_component_fingerprints: dict[str, str] = Field(default_factory=dict)

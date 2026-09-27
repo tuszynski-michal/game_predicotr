@@ -6,6 +6,36 @@ last_updated: 2026-09-27
 
 # Decision Log
 
+## D-456 — pilotaż geometrii 5 × 3 z podziałem całymi grami
+
+- **Status:** accepted, 2026-09-27. Po wyjaśnieniu zakresu generalizacji
+  operator polecił „tak, leć z tym co masz”, zatwierdzając zaproponowany
+  pilot całymi grami bez pomiaru czasu i dalszą realizację etapu B.
+- **Decision:** osobna jawna polityka `lab-geometry-whole-game-pilot-v1`
+  zastępuje dla tego pilota wymóg verified rodzin oraz measurement
+  konserwatywnym przydziałem wszystkich źródeł każdej gry do jednej części.
+  Rodziny pozostają unresolved. Nie deklaruje się niezależności nagrań
+  wewnątrz gry ani nie tworzy nowych zgód. Pełny graf SHA/rodzin/pochodnych
+  nadal kontroluje konflikty pomiędzy częściami, także poza kohortą.
+- **Frozen selection:** development: 777, blazing zd, gang zd; validation:
+  mumie wybrane; final_test: reels; unseen_game: tresure zd. Wybór dokonany
+  przed wynikami modelu, według nazw i wymogu uczenia historycznego 777.
+  Aktualna kohorta: 63 zaakceptowane zdjęcia, 180 pełnych geometrii 5 × 3;
+  90/30/30/30 siatek. Nazwy trzeba jednoznacznie rozwiązać do ID katalogu.
+  Brak jednoznaczności, konflikt grafu lub zmiana danych zatrzymują freeze.
+- **Boundaries:** D-453/D-455, aktualne SHA, kwalifikacje wybranych 777,
+  pełne ręczne geometrie i akceptacje pozostają wymagane. Symbole poza
+  zakresem. T03k zamraża manifest, podział i wyłączenia po audycie, z backupem
+  i idempotencją. Stare polityki zachowują wszystkie poprzednie bramki.
+- **Evaluation:** tylko pilot transferu 5 × 3 pomiędzy grami; bez obietnicy
+  jakości produkcyjnej, 3 × 3, reprezentatywności nagrań ani redukcji czasu
+  o 30%. T05 używa development/validation; final_test i unseen pozostają
+  zamrożone do późniejszego końcowego odbioru, nie do strojenia.
+- **Execution:** ukończone T03k z nieprzestarzałym splitem wystarcza do T04
+  i T05 w tym pilocie, choć pełny protokół rodzin/pomiaru T03 jest odroczony.
+  Budżet T05 nadal do 50 kroków próbnych i jeden trening do 20 epok lub
+  30 minut. STOP B bez automatycznego uruchamiania C, aktywacji lub push.
+
 ## D-455 — kwalifikacja targetów 777 bez kwalifikowania kontekstu
 
 - **Status:** accepted, jawna zgoda operatora 2026-09-27 na korektę reguły

@@ -27,6 +27,24 @@ wersji danych, a nie ten plan.
 
 ## Dane, etykiety i podziały
 
+### Aktualny wariant B — zatwierdzony pilot D-456
+
+Operator zatwierdził realizację pilota na obecnych danych 2026-09-27.
+T03k wdraża osobną politykę podziału całymi grami, bez verified rodzin
+wewnątrz gry i bez measurement. Nie zmienia istniejących polityk ani zgód.
+Wymagania pełnego protokołu rodzin i czasu opisane dalej są odroczone dla
+tego pilota, nie uznane za spełnione. Po T03k z aktualnym zamrożonym splitem
+wykonujemy kolejno T04 i T05, z osobnymi audytami i commitami, do STOP B.
+
+Przydział ustalony przed wynikami: development 777/blazing zd/gang zd,
+validation mumie wybrane, final_test reels, unseen_game tresure zd.
+63 zdjęcia i 180 siatek 5 × 3 dają 90/30/30/30 siatek. Pełny katalog,
+duplikaty i powiązania także poza targetami nie mogą przeciąć przydziałów.
+Podział jest niezmienny; nie losujemy ponownie po słabym wyniku.
+T05 ocenia development/validation; final_test/unseen pozostają nietknięte
+do końcowego odbioru. Brak oceny symboli, 3 × 3 i oszczędności czasu.
+Limit treningu i brak automatycznej aktywacji pozostają bez zmian.
+
 ### Wznowienie B po przeglądzie operatora
 
 Użytkownik zaakceptował wybrane geometrie i polecił kontynuację etapu B po
@@ -83,8 +101,9 @@ Wynik kontynuacji: mapa 1466 źródeł i 365 metadanych, siedem requestów
 unresolved po audycie zapisanych z backupem i kontrolą nowych procesów.
 436 powiązań, rewizja 267; 180 siatek i 63 akceptacje bez zmian. Dry-run v2
 nie przechodzi nadal bramki VERIFIED_MEASUREMENT_SOURCES_REQUIRED.
-Wariant pilotażu całymi grami bez pomiaru czasu jest tylko propozycją
-oczekującą odrębnej zgody, nie zmianą tego planu. T03 pozostaje blocked.
+Wariant pilotażu całymi grami bez pomiaru czasu został następnie zatwierdzony
+w D-456. T03k zastępuje bramkę danych dla pilota; pełny protokół pozostaje
+odroczony, bez deklaracji jego spełnienia.
 
 D-447 dopuszcza dwa jawnie różne źródła etykiet: zatwierdzenie w aplikacji i
 `lab_human_approved`. Laboratorium zapisuje tożsamość gry i wersję słownika,
@@ -236,8 +255,11 @@ sam run po utracie odpowiedzi; inny payload daje konflikt. Backend zapisuje
 `queued` przed startem procesu, a `running` wiąże PID, czas startu, token
 lease i heartbeat. Terminalne stany to `succeeded`, `failed`, `cancelled`;
 panel nie obiecuje pauzy. Po restarcie żywy proces jest tylko obserwowany,
-a wygasły lease po sprawdzeniu PID przechodzi w recoverable `failed`, bez
-drugiej kopii. Cancel utrwala intencję i kończy proces po checkpointcie.
+a dopiero potwierdzony brak zgodnego PID/czasu utworzenia wraz z wygasłym
+lease pozwala na recoverable `failed`, bez drugiej kopii. Żywy proces
+pozostaje obserwowany nawet przy starym heartbeat. Cancel utrwala intencję
+i kończy proces po checkpointcie. T04 nalicza budżet trwale poza checkpointem;
+crash i retry nie zwracają kroków ani niepotwierdzonego czasu.
 Jawne retry tworzy nową próbę tego samego runu po sprawdzeniu fingerprintu
 i nowym lease; stary token nie może zapisać. `succeeded` wymaga atomowego
 raportu i checksum artefaktów.
@@ -436,7 +458,21 @@ Kontrakt, konkretne pliki, regresje i bramki odbioru: T03j w TASK-0668.
 Status `done`; Sol medium, niezależny audyt Astra medium PASS bez P0–P2.
 Backend 76/76, klient 7/7 i kontrole jakości PASS; osobny commit w Outcome.
 
+## T03k — pilot całymi grami, D-456
+
+`done`. Jawna nowa polityka splitu z mapą wszystkich gier, bez
+measurement i bez zmiany unresolved na verified. Pełne SHA/families/related
+nie mogą przecinać partycji, także poza targetami. Pełny kontrakt, pliki,
+błędy, testy i bezpieczne apply opisuje T03k w TASK-0668. Po audycie kodu
+i exact requestu freeze z backupem, nowym procesem, retry i manifestem.
+T03k done z aktualnym splitem otwiera T04/T05 tylko dla pilota; pełny
+protokół T03 pozostaje odroczony. Osobny commit i audyt Sol medium/Astra medium.
+Odbiór: 82 backend + 8 client, lint/typecheck/OpenAPI i niezależny audyt
+kodu/danych PASS. Freeze rev268, 63 zdjęcia/180 siatek, create-only manifest,
+backup/restore i retry w nowych procesach PASS; szczegóły w Outcome T03k.
+
 ## T14 — końcowe ujednolicenie toastów w aplikacjach webowych
+
 
 **Status:** `todo`, zaplanowane na polecenie użytkownika; bez implementacji
 w tej turze i poza automatycznym zakresem etapu B. Ostatnie zadanie
@@ -544,6 +580,7 @@ zachowują historyczny zapis faktycznych wykonawców i audytów w Outcome.
 | T03h / TASK-0668 | `gpt-6-sol` | `medium` | Jawny zapis D-453, backup i idempotencja bez zmiany geometrii. | `gpt-6-astra`, `medium` |
 | T03i / TASK-0668 | `gpt-6-sol` | `medium` | Bezpieczne odzyskanie metadanych i rozróżnienie powiązań nazw od pikseli. | `gpt-6-astra`, `medium` |
 | T03j / TASK-0668 | `gpt-6-sol` | `medium` | Wąska zmiana kwalifikacji targetów z ochroną grafu, wersji i receipts. | `gpt-6-astra`, `medium` |
+| T03k / TASK-0668 | `gpt-6-sol` | `medium` | Wersjonowany podział całymi grami, ochrona grafu i trwały freeze pilota. | `gpt-6-astra`, `medium` |
 | T04 / TASK-0669 | `gpt-6-sol` | `high` | Izolacja, trwały protokół runów i checkpointy. | `gpt-6-astra`, `medium` |
 | T05 / TASK-0670 | `gpt-6-sol` | `high` | Geometria i trening. | `gpt-6-astra`, `medium` |
 | T06 / TASK-0671 | `gpt-6-sol` | `medium` | Słowniki i tożsamość cropów. | `gpt-6-sol`, `medium` |

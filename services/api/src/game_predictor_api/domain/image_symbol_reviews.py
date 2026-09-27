@@ -430,6 +430,11 @@ class SymbolCellReview:
         if (
             quality_issue is SymbolCellQualityIssue.BLURRY
             and self.review_state is not SymbolCellReviewState.APPROVED
+            and not (
+                self.assignment_source is SymbolCellAssignmentSource.HUMAN
+                and self.approved_crop is not None
+                and self.approved_crop.geometry_revision < self.crop.geometry_revision
+            )
         ):
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_BLURRY_STATE_INVALID",

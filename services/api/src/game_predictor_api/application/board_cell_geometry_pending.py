@@ -6,7 +6,7 @@ import base64
 import hashlib
 import json
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Protocol
@@ -457,6 +457,12 @@ class BoardCellGeometryPendingService:
             ManualBoardCellSymbolPredictionError,
         ) as error:
             raise JobConflictError(error.code, str(error)) from error
+        if geometry_qualification is not None:
+            geometry_qualification = replace(
+                geometry_qualification,
+                version="manual-geometry-qualification-v3",
+                fully_unavailable_cell_indices=tuple(sorted(preview.outside_cell_indices)),
+            )
         geometry = _manual_geometry_payload(context, persisted, geometry_qualification)
         artifacts = ImageReviewGeometryArtifacts(
             geometry=geometry,

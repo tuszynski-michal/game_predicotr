@@ -6,6 +6,29 @@ last_updated: 2026-09-26
 
 # Decision Log
 
+## D-451 — każda pozycja niepełnej planszy dostępna w weryfikacji symboli
+
+- **Status:** accepted, jawne zlecenie użytkownika 2026-09-27.
+- **Plan:** PARTIAL_BOARD_SYMBOL_REVIEW_EXECUTION_PLAN.md, TASK-0708–0711.
+- **Decision:** wszystkie 15 logicznych pozycji planszy 3 × 5 pozostają
+  dostępne operatorowi. Trwała dostępność obrazu full/partial/outside jest
+  niezależna od wyniku rozpoznania. Klasyfikacja używa przecięcia wieloboku
+  pola z rzeczywistym obrazem; cztery rogi poza obrazem nie dowodzą outside.
+- Partial rozpoczyna jako Nierozpoznany (?), outside jako Poza zdjęciem.
+  Outside nie otrzymuje fikcyjnego cropa, checksumy ani predykcji. Operator
+  może przypisać symbol lub oznaczyć Nieczytelny. Po przypisaniu pozycja
+  należy wyłącznie do grupy rzeczywistego symbolu (oraz Wszystkich),
+  zachowując badge Poza zdjęciem. Bez przypisania pozostaje w outside.
+- Informacja o niepełnych/brakujących pikselach pozostaje po ręcznej
+  decyzji i wyklucza taki materiał z uczenia symboli. Niepełność zdjęcia
+  nie oznacza braku dostępnych pozycji weryfikacji.
+- Ta decyzja zastępuje wykluczanie logicznych pozycji outside opisane
+  w D-434/D-435 i wykluczanie maski legacy_file w D-449. Historia źródeł
+  i decyzje operatora pozostają chronione. Schemat zmieniany przez Alembic;
+  historyczne rekordy wymagają oceny rzeczywistej geometrii, nie samej maski.
+- Kod i podgląd naprawy zlecone. Produkcyjne uzupełnienie po osobnym
+  zleceniu kroku danych, zgodnie z T4; brak zgody na destrukcyjne operacje.
+
 ## D-450 — przegląd zdjęcia jako dodatkowa bramka laboratoryjna
 
 - **Status:** accepted (TASK-0668/T03d, jawne polecenie użytkownika).

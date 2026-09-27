@@ -511,16 +511,22 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
                 "The pinned symbol model changed before manual resolution.",
             )
         artifacts = projection.artifacts
-        expected_order = [(r, c) for r in range(3) for c in range(5)]
+        outside = (
+            set(projection.geometry_qualification.fully_unavailable_cell_indices)
+            if projection.geometry_qualification is not None
+            else set()
+        )
+        expected_order = [(r, c) for r in range(3) for c in range(5) if r * 5 + c not in outside]
+        prediction_order = [(r, c) for r in range(3) for c in range(5)]
         if (
-            len(artifacts.cells) != 15
+            len(artifacts.cells) != len(expected_order)
             or [(cell.row_index, cell.column_index) for cell in artifacts.cells] != expected_order
             or len(projection.prediction.cells) != 15
             or [
                 (prediction.get("rowIndex"), prediction.get("columnIndex"))
                 for prediction in projection.prediction.cells
             ]
-            != expected_order
+            != prediction_order
             or not _manual_projection_matches(
                 row,
                 source,
@@ -568,11 +574,8 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
         )
         self._session.add(board)
         self._session.flush()
-        for artifact, prediction in zip(
-            artifacts.cells,
-            projection.prediction.cells,
-            strict=True,
-        ):
+        for artifact in artifacts.cells:
+            prediction = projection.prediction.cells[artifact.row_index * 5 + artifact.column_index]
             self._session.add(
                 CellObservationModel(
                     recognized_board_id=board.id,

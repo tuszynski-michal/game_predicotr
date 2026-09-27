@@ -2455,7 +2455,20 @@ def _item_from_records(
             board_relative_path=source.relative_path,
             board_checksum_sha256=source.checksum_sha256,
         )
-    if len(observations) != 15:
+    expected_indices = set(
+        available_cell_indices(
+            unavailable_cell_indices=(),
+            geometry_qualification=getattr(board, "geometry_qualification", None),
+            asset_mode="legacy_file",
+        )
+    )
+    observation_indices = {
+        observation.row_index * 5 + observation.column_index for observation in observations
+    }
+    if len(observation_indices) != len(observations) or observation_indices not in (
+        expected_indices,
+        set(range(15)),
+    ):
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_CELL_COUNT_INVALID",
             "The operational review item must contain exactly 15 cell observations.",
@@ -2474,7 +2487,7 @@ def _item_from_records(
             geometry_revision is None
             or geometry_revision.revision != board.geometry_revision
             or geometry_revision.crop_artifacts is None
-            or len(geometry_revision.crop_artifacts) != 15
+            or len(geometry_revision.crop_artifacts) not in (len(expected_indices), 15)
         ):
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
@@ -2484,18 +2497,20 @@ def _item_from_records(
             cast(int, raw["rowIndex"]) * 5 + cast(int, raw["columnIndex"]): raw
             for raw in geometry_revision.crop_artifacts
         }
-        if set(revised_cells) != set(range(15)):
+        if set(revised_cells) not in (expected_indices, set(range(15))):
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
                 "The current manual geometry cells are not complete row-major crops.",
             )
-    for index, observation in enumerate(observations):
-        expected_index = observation.row_index * 5 + observation.column_index
-        if expected_index != index:
+    for ordinal, observation in enumerate(observations):
+        index = observation.row_index * 5 + observation.column_index
+        if index != sorted(observation_indices)[ordinal]:
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_CELL_ORDER_INVALID",
                 "The operational review cells are not a complete row-major board.",
             )
+        if index not in expected_indices:
+            continue
         prediction = (
             prediction_override[index]
             if prediction_override is not None and len(prediction_override) == 15

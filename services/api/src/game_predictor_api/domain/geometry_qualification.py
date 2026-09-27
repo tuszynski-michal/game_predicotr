@@ -163,9 +163,7 @@ class GeometryQualification:
             if not isinstance(fully_unavailable, Sequence) or isinstance(
                 fully_unavailable, str | bytes
             ):
-                raise GeometryQualificationError(
-                    "Fully-unavailable cell indices must be an array."
-                )
+                raise GeometryQualificationError("Fully-unavailable cell indices must be an array.")
         return cls(
             completeness_status=cast(CompletenessStatus, raw["completenessStatus"]),
             unavailable_cell_indices=tuple(indices),
@@ -239,16 +237,13 @@ def available_cell_indices(
 ) -> frozenset[int]:
     """Cell indices a board's current crops/observations are expected to cover.
 
-    Only virtual-source crop generation (D-434, D-435) renders a cell that
-    is merely declared unavailable but not genuinely, fully outside its
-    source frame; every other asset mode still excludes the whole declared
-    mask, matching legacy_file's unchanged crop-generation path. v1/v2
-    qualifications (or no qualification at all) have no fully-unavailable
-    split, so they fall back to the full declared mask too -- safe for
-    historical rows until their geometry is next corrected.
+    Both file and virtual writers retain partial pixels. A v3 qualification
+    omits only fully outside assets. Historical v1/v2 masks stay conservative;
+    source visibility must be independently assessed from their geometry.
+    This is asset cardinality, not the number of logical review positions.
     """
     excluded = frozenset(unavailable_cell_indices)
-    if asset_mode == "virtual_source" and geometry_qualification is not None:
+    if geometry_qualification is not None:
         try:
             qualification = GeometryQualification.from_dict(geometry_qualification)
         except GeometryQualificationError:
@@ -269,10 +264,10 @@ def partially_visible_cell_indices(
 
     These get a real render for mandatory human review (D-434, D-435) and
     must never be auto-assigned or auto-approved from a model prediction.
-    Empty for legacy_file boards (DA-4) and for v1/v2 qualifications, which
-    have no fully-unavailable split.
+    Applies to both asset modes. Historical v1/v2 qualifications have no
+    fully-unavailable split and require independent source geometry evaluation.
     """
-    if asset_mode != "virtual_source" or geometry_qualification is None:
+    if geometry_qualification is None:
         return frozenset()
     try:
         qualification = GeometryQualification.from_dict(geometry_qualification)

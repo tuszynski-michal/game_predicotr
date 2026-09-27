@@ -6,6 +6,21 @@ last_updated: 2026-09-26
 
 # Current State
 
+### Niepełne plansze — realizacja zaakceptowanego planu T1–T4
+
+- Zlecenie 2026-09-27: cały PARTIAL_BOARD_SYMBOL_REVIEW_EXECUTION_PLAN.md,
+  TASK-0708–0711; wykonawcy i audyty według tabeli planu.
+- T1 / TASK-0708 zakończony: 15 pozycji, trwałe full/partial/outside,
+  migracja 0126, zachowanie ręcznych decyzji i atomowy błąd projekcji.
+  Commit v1.7.12 (hash po commicie); baza v1.7.11 / 9626f3b3172172b76038f7f53a8314b5eddc2595.
+- Testy 94+32 PASS, izolowana migracja PostgreSQL 2 PASS; niezależny audyt
+  Astra medium bez P0–P2 i 27 PASS. Ruff16 i mypy10 PASS.
+- Następny TASK-0709 / T2: API, grupy, liczniki i operacje bez obrazu.
+- Dane produkcyjne bez zmian: implementacja i preview zlecone, rzeczywiste
+  uzupełnienie danych osobno zgodnie z T4. Testy zapisów tylko izolowane.
+- Zastane zmiany CURRENT_STATE, TASK-0668, completed/TASK-0707,
+  apps/reviewer/next-env.d.ts i .claude/ pozostają poza zakresem commitów.
+
 ### Korekta T03b — krótkie toasty i kopiowanie
 
 - Zlecenie użytkownika: wszystkie toasty laboratorium znikają po4s,

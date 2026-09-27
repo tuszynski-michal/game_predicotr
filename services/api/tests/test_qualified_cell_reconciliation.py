@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
 
+import pytest
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_reviews import ImageReviewCell
 from game_predictor_api.domain.image_symbol_reviews import approve_symbol_cell_review
@@ -16,6 +17,14 @@ from game_predictor_api.storage.models import (
     ImageSymbolReviewCellModel,
     ImageSymbolReviewEventModel,
 )
+
+
+@pytest.fixture(autouse=True)
+def v2_current_positions(monkeypatch):
+    monkeypatch.setattr(
+        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
+        lambda *_: True,
+    )
 
 
 def _cells(revision, missing, *, asset_mode="legacy_file"):
@@ -76,12 +85,15 @@ def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_ap
         grid_columns=5,
         sequence_number=1,
         geometry_revision=0,
+        asset_mode="legacy_file",
         geometry_qualification=None,
         unavailable_cell_indices=[],
         completeness_status="complete",
     )
     coordinator = SymbolCellReviewWriteThroughCoordinator(session)
-    coordinator._state_if_initialized = Mock(return_value=SimpleNamespace(failure_message=None))
+    coordinator._state_if_initialized = Mock(
+        return_value=SimpleNamespace(failure_message=None, count_projection_status="unavailable")
+    )
     coordinator._touch_catalog_revision = Mock()
     coordinator._review_row = Mock(
         return_value=(
@@ -208,14 +220,40 @@ def test_partially_visible_virtual_source_cells_are_forced_unknown_and_never_tra
     # ones -- exactly what production_workflow.py now generates (T2/D).
     current_cells = _cells(0, fully_unavailable, asset_mode="virtual_source")
     coordinator._current_cells = Mock(return_value=(current_cells, "cropper-v1", None, None))
+    board.board_geometry = {
+        "cells": [
+            {
+                "rowIndex": index // 5,
+                "columnIndex": index % 5,
+                "sourceQuad": [
+                    {"x": x, "y": y}
+                    for x, y in (
+                        ((-20, 10), (-10, 10), (-10, 20), (-20, 20))
+                        if index in fully_unavailable
+                        else ((-2, 10), (10, 10), (10, 20), (-2, 20))
+                        if index in partially_visible
+                        else ((10, 10), (20, 10), (20, 20), (10, 20))
+                    )
+                ],
+            }
+            for index in range(15)
+        ]
+    }
+    source = coordinator._review_row.return_value[2]
+    source.width, source.height = 100, 100
+    source.oriented_width, source.oriented_height = 100, 100
 
     assert coordinator.synchronize_after_prediction_refresh(
         game_id=game_id, review_item_id=review_id
     )
 
-    assert len(rows) == 12
+    assert len(rows) == 15
     by_index = {row.cell_index: row for row in rows}
-    assert set(by_index) == set(range(15)) - set(fully_unavailable)
+    assert set(by_index) == set(range(15))
+    for index in fully_unavailable:
+        assert by_index[index].source_visibility == "outside"
+        assert by_index[index].crop_sample_id is None
+        assert by_index[index].crop_checksum_sha256 is None
     for index in partially_visible:
         row = by_index[index]
         assert row.assigned_symbol_id is None

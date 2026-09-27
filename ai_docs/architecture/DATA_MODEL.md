@@ -2395,3 +2395,23 @@ manifestu. Aktualny fingerprint wynosi
   plansza i nie tworzy stagingu layoutu. Decyzja `rejected` nie tworzy rekordu
   `recognized_boards`; jej trwałym śladem pozostaje append-only decyzja i
   zamknięty manifest.
+
+## Widoczność źródła komórki (D-451, TASK-0708)
+
+Migracja `0126_symbol_cell_source_visibility` rozszerza parenty `game_data_v2`
+bez zmiany danych użytkownika. `image_symbol_review_cells.source_visibility`
+ma wartości `full`, `partial`, `outside`; NULL oznacza historię wymagającą oceny.
+Tożsamość logiczna pozostaje `(game_id, sequence_number, cell_index)`.
+`outside` wymaga `asset_mode = none`, `source_available = false`, pustych
+crop sample/checksum/path, render provenance i predykcji. Rewizja geometrii
+oraz opcjonalny selektor source revision nadal wskazują kontekst źródła.
+Eventy i cele operacji zbiorczych dopuszczają parę pustych identyfikatorów
+cropa, bez zastępczego pliku lub sztucznej sumy kontrolnej.
+
+Bieżące footprinty komórek i poprawione `latticeBoundsQuad` mają pierwszeństwo
+przed historycznym obrysem `quad`. Historyczna kwalifikacja v3 nie zastępuje
+ponownej oceny przecięcia. Zapis używa wspólnego koordynatora projekcji;
+wyjątek integralności propaguje do właściciela transakcji. Nowy import tworzy
+pozycje również przed inicjalizacją historycznego backfillu, zachowując jego
+osobny stan gotowości. Etykiety człowieka przeżywają recrop; zatwierdzenie
+obrazu staje się nieaktualne i wymaga ponownej weryfikacji.

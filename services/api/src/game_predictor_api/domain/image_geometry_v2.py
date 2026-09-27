@@ -411,20 +411,12 @@ class SourceQuad:
                 "A source quadrilateral must lie inside the EXIF-normalized source image.",
             )
 
-    def require_not_fully_outside(
-        self, source: NormalizedSourceImage | SourceImageBounds
-    ) -> None:
+    def require_not_fully_outside(self, source: NormalizedSourceImage | SourceImageBounds) -> None:
         """Allow a partially visible cell; only reject zero real pixels."""
-        if all(
-            point.x < -SOURCE_SUPPORT_EPSILON
-            or point.x > source.width - 1 + SOURCE_SUPPORT_EPSILON
-            or point.y < -SOURCE_SUPPORT_EPSILON
-            or point.y > source.height - 1 + SOURCE_SUPPORT_EPSILON
-            for point in self.corners
-        ):
+        if not source_quad_intersects_image(self, source):
             raise ImageGeometryContractError(
                 "IMAGE_GEOMETRY_QUAD_ENTIRELY_OUT_OF_BOUNDS",
-                "A partially visible cell must retain at least one in-bounds corner.",
+                "A partially visible cell must intersect the source image.",
             )
 
     def require_manual_edit_bounds(self, source: NormalizedSourceImage | SourceImageBounds) -> None:
@@ -772,9 +764,8 @@ def unavailable_source_cell_indices(
     Projective grid cells use the same square-to-quad transform as VirtualCell.
     Any corner of a convex footprint outside the source pixel centres marks the
     cell unavailable for geometry-qualification and training-exclusion
-    purposes.  A cell with *some* corners still inside may be instantiated as
-    a partially visible ``VirtualCell`` (see ``fully_unavailable_source_cell_indices``);
-    only a cell with every corner outside is never instantiated or rendered.
+    purposes. A positive-area intersection is sufficient for a partially
+    visible ``VirtualCell``, including footprints whose corners all lie outside.
     """
     missing: list[int] = []
     for index in range(topology.cell_count):
@@ -788,19 +779,60 @@ def unavailable_source_cell_indices(
 def fully_unavailable_source_cell_indices(
     quad: SourceQuad, *, source: NormalizedSourceImage | SourceImageBounds, topology: BoardTopology
 ) -> tuple[int, ...]:
-    """Cells with zero real pixels: every corner lies outside the source.
-
-    A strict subset of ``unavailable_source_cell_indices``.  Only these cells
-    are excluded from ``derive_virtual_cells``; a cell with some corners
-    still inside is instantiated as a partially visible ``VirtualCell``.
-    """
+    """Cells with no positive-area intersection with the source image."""
     missing: list[int] = []
     for index in range(topology.cell_count):
         row, column = topology.coordinates(index)
         cell = quad.cell_quad(topology=topology, row_index=row, column_index=column)
-        if _out_of_bounds_corner_count(cell, source) == 4:
+        if not source_quad_intersects_image(cell, source):
             missing.append(index)
     return tuple(missing)
+
+
+def source_quad_intersects_image(
+    quad: SourceQuad, source: NormalizedSourceImage | SourceImageBounds
+) -> bool:
+    """Clip the convex footprint; corners alone cannot prove no intersection.
+
+    Pixel centres occupy [0,width-1] x [0,height-1]. An edge touching the image
+    has no area, while a thin visible sliver remains eligible for rendering.
+    """
+    points = [(point.x, point.y) for point in quad.corners]
+    for axis, boundary, lower in (
+        (0, 0.0, True),
+        (0, float(source.width - 1), False),
+        (1, 0.0, True),
+        (1, float(source.height - 1), False),
+    ):
+        clipped: list[tuple[float, float]] = []
+        if not points:
+            return False
+        previous = points[-1]
+        previous_inside = previous[axis] >= boundary if lower else previous[axis] <= boundary
+        for point in points:
+            inside = point[axis] >= boundary if lower else point[axis] <= boundary
+            if inside != previous_inside:
+                fraction = (boundary - previous[axis]) / (point[axis] - previous[axis])
+                clipped.append(
+                    (
+                        previous[0] + fraction * (point[0] - previous[0]),
+                        previous[1] + fraction * (point[1] - previous[1]),
+                    )
+                )
+            if inside:
+                clipped.append(point)
+            previous, previous_inside = point, inside
+        points = clipped
+    return (
+        len(points) >= 3
+        and abs(
+            sum(
+                a[0] * b[1] - b[0] * a[1]
+                for a, b in zip(points, points[1:] + points[:1], strict=True)
+            )
+        )
+        > 1e-10
+    )
 
 
 def resolve_manual_geometry_qualification(

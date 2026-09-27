@@ -11,6 +11,12 @@ from typing import cast
 
 import cv2
 import numpy as np
+from game_predictor_api.domain.image_geometry_v2 import (
+    SourceImageBounds,
+    SourcePoint,
+    SourceQuad,
+    source_quad_intersects_image,
+)
 from numpy.typing import NDArray
 
 from game_predictor_worker.filesystem import long_path_aware
@@ -84,6 +90,23 @@ class ManualBoardCellGeometryPreview:
     cells: tuple[ManualBoardCellGeometryCellPreview, ...]
     topology: BoardCellTopology = LEGACY_BOARD_CELL_TOPOLOGY
     unavailable_cell_indices: frozenset[int] = frozenset()
+
+    @property
+    def outside_cell_indices(self) -> frozenset[int]:
+        source = SourceImageBounds(self.image_width, self.image_height)
+        return frozenset(
+            cell.row_index * self.topology.columns + cell.column_index
+            for cell in self.cells
+            if not source_quad_intersects_image(
+                SourceQuad(
+                    cast(
+                        tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                        tuple(SourcePoint(x, y) for x, y in cell.source_quad),
+                    )
+                ),
+                source,
+            )
+        )
 
 
 @dataclass(frozen=True, slots=True)
@@ -360,7 +383,10 @@ class ManualBoardCellGeometryPreviewer:
         ]
         namespace = PurePosixPath(*namespace_parts)
         artifacts: list[ManualBoardCellGeometryCellArtifact] = []
+        outside = preview.outside_cell_indices
         for cell in preview.cells:
+            if cell.row_index * self._topology.columns + cell.column_index in outside:
+                continue
             if hashlib.sha256(cell.png).hexdigest() != cell.checksum_sha256:
                 raise ManualBoardCellGeometryPreviewError(
                     "BOARD_CELL_GEOMETRY_ARTIFACT_CHECKSUM_DRIFT",

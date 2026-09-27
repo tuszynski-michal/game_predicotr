@@ -764,15 +764,11 @@ class SemiAutomaticV7ActivationGateModel(Base):
 
     __tablename__ = "semi_automatic_selection_v7_activation_gate"
     __table_args__ = (
-        CheckConstraint(
-            "singleton = TRUE", name="ck_semi_automatic_v7_activation_gate_singleton"
-        ),
+        CheckConstraint("singleton = TRUE", name="ck_semi_automatic_v7_activation_gate_singleton"),
         CheckConstraint(
             "status IN ('blocked', 'active')", name="ck_semi_automatic_v7_activation_gate_status"
         ),
-        CheckConstraint(
-            "generation >= 0", name="ck_semi_automatic_v7_activation_gate_generation"
-        ),
+        CheckConstraint("generation >= 0", name="ck_semi_automatic_v7_activation_gate_generation"),
     )
 
     singleton: Mapped[bool] = mapped_column(Boolean, primary_key=True, default=True)
@@ -2497,9 +2493,7 @@ class ImageSymbolReviewStateModel(Base):
     count_rebuild_accumulator: Mapped[dict[str, object]] = mapped_column(
         JSONB, nullable=False, default=dict, server_default=text("'{}'::jsonb")
     )
-    count_projection_failure_message: Mapped[str | None] = mapped_column(
-        String(500), nullable=True
-    )
+    count_projection_failure_message: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
@@ -2515,10 +2509,28 @@ class ImageSymbolReviewCellModel(Base):
     """Current human-review state for one checksum-bound symbol crop."""
 
     __tablename__ = "image_symbol_review_cells"
+    source_visibility: Mapped[str | None] = mapped_column(String(10), nullable=True)
     source_available: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=True, server_default=text("true")
     )
     __table_args__ = (
+        CheckConstraint(
+            "source_visibility IS NULL OR source_visibility IN ('full', 'partial', 'outside')",
+            name="ck_image_symbol_review_cells_source_visibility",
+        ),
+        CheckConstraint(
+            "(asset_mode = 'none' AND source_visibility IS NOT DISTINCT FROM 'outside' "
+            "AND NOT source_available AND crop_sample_id IS NULL "
+            "AND crop_checksum_sha256 IS NULL AND crop_relative_path IS NULL "
+            "AND render_spec IS NULL AND render_spec_checksum_sha256 IS NULL "
+            "AND rendered_pixel_checksum_sha256 IS NULL AND render_identity_v2_sha256 IS NULL "
+            "AND logical_cell_key IS NULL AND logical_cell_key_v2 IS NULL "
+            "AND extractor_version IS NULL "
+            "AND prediction_symbol_code IS NULL AND prediction_confidence IS NULL) OR "
+            "(asset_mode <> 'none' AND source_visibility IS DISTINCT FROM 'outside' "
+            "AND crop_sample_id IS NOT NULL AND crop_checksum_sha256 IS NOT NULL)",
+            name="ck_image_symbol_review_cells_source_asset",
+        ),
         CheckConstraint(
             "sequence_number > 0 AND cell_index BETWEEN 0 AND 14 "
             "AND row_index BETWEEN 0 AND 2 AND column_index BETWEEN 0 AND 4 "
@@ -2530,7 +2542,7 @@ class ImageSymbolReviewCellModel(Base):
             name="ck_image_symbol_review_cells_checksums",
         ),
         CheckConstraint(
-            "(asset_mode = 'legacy_file' "
+            "asset_mode = 'none' OR (asset_mode = 'legacy_file' "
             r"AND length(btrim(crop_relative_path)) > 0 "
             r"AND crop_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)') OR "
             "(asset_mode = 'virtual_source' AND crop_relative_path IS NULL "
@@ -2691,9 +2703,9 @@ class ImageSymbolReviewCellModel(Base):
     render_spec_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     extractor_version: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
     crop_relative_path: Mapped[str | None] = mapped_column(String(1000), nullable=True)
-    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     cropper_version: Mapped[str] = mapped_column(String(150), nullable=False)
     prediction_symbol_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
@@ -2797,12 +2809,12 @@ class ImageSymbolReviewEventModel(Base):
             name="ck_image_symbol_review_events_current_approved_crop_identity",
         ),
         CheckConstraint(
-            "(previous_asset_mode = 'legacy_file' OR "
+            "(previous_asset_mode IN ('legacy_file', 'none') OR "
             "(previous_asset_mode = 'virtual_source' "
             "AND previous_source_geometry_revision_id IS NOT NULL "
             "AND previous_render_spec_checksum_sha256 ~ '^[0-9a-f]{64}$' "
             "AND previous_rendered_pixel_checksum_sha256 ~ '^[0-9a-f]{64}$')) "
-            "AND (asset_mode = 'legacy_file' OR "
+            "AND (asset_mode IN ('legacy_file', 'none') OR "
             "(asset_mode = 'virtual_source' "
             "AND source_geometry_revision_id IS NOT NULL "
             "AND render_spec_checksum_sha256 ~ '^[0-9a-f]{64}$' "
@@ -2878,8 +2890,8 @@ class ImageSymbolReviewEventModel(Base):
     )
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     extractor_version: Mapped[str | None] = mapped_column(String(150), nullable=True)
-    crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     cell_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     action: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -3038,8 +3050,10 @@ class ImageSymbolReviewBulkTargetModel(Base):
             name="ck_image_symbol_review_bulk_targets_revisions",
         ),
         CheckConstraint(
-            "expected_crop_sample_id ~ '^[0-9a-f]{64}$' AND "
-            "expected_crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            "(expected_crop_sample_id IS NULL AND expected_crop_checksum_sha256 IS NULL) OR "
+            "(expected_crop_sample_id IS NOT NULL AND expected_crop_checksum_sha256 IS NOT NULL "
+            "AND expected_crop_sample_id ~ '^[0-9a-f]{64}$' AND "
+            "expected_crop_checksum_sha256 ~ '^[0-9a-f]{64}$')",
             name="ck_image_symbol_review_bulk_targets_checksums",
         ),
         CheckConstraint(
@@ -3081,8 +3095,8 @@ class ImageSymbolReviewBulkTargetModel(Base):
     cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     expected_revision: Mapped[int] = mapped_column(Integer, nullable=False)
     expected_geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
-    expected_crop_sample_id: Mapped[str] = mapped_column(String(64), nullable=False)
-    expected_crop_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    expected_crop_sample_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    expected_crop_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -6394,9 +6408,7 @@ class BrowserSelectionRetentionModel(Base):
     )
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     state: Mapped[str] = mapped_column(String(24), nullable=False)
-    board_import_status: Mapped[str] = mapped_column(
-        String(24), nullable=False, default="ready"
-    )
+    board_import_status: Mapped[str] = mapped_column(String(24), nullable=False, default="ready")
     manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     managed_manifest_relative_path: Mapped[str | None] = mapped_column(Text)
     managed_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))

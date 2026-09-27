@@ -153,12 +153,12 @@ def test_available_cell_indices_excludes_only_fully_unavailable_for_virtual_sour
         geometry_qualification=v3,
         asset_mode="virtual_source",
     ) == frozenset(range(15)) - {0, 5, 10}
-    # legacy_file boards still exclude the whole declared mask (DA-4).
+    # D-451: real partial crops have identical semantics in both asset modes.
     assert available_cell_indices(
         unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
         geometry_qualification=v3,
         asset_mode="legacy_file",
-    ) == frozenset(range(15)) - {0, 1, 5, 6, 10, 11}
+    ) == frozenset(range(15)) - {0, 5, 10}
     # v1/v2 (or no qualification at all) always fall back to the full mask.
     v2 = GeometryQualification(
         "pending_partial", (0, 1), True, "missing_pixels", version=GEOMETRY_QUALIFICATION_VERSION
@@ -190,15 +190,12 @@ def test_partially_visible_cell_indices_is_the_declared_minus_fully_unavailable_
         geometry_qualification=v3,
         asset_mode="virtual_source",
     ) == {1, 6, 11}
-    # DA-4: never for legacy_file, even with the same v3 qualification.
-    assert (
-        partially_visible_cell_indices(
-            unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
-            geometry_qualification=v3,
-            asset_mode="legacy_file",
-        )
-        == frozenset()
-    )
+    # D-451: legacy files retain the same visible fragments as virtual assets.
+    assert partially_visible_cell_indices(
+        unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
+        geometry_qualification=v3,
+        asset_mode="legacy_file",
+    ) == frozenset({1, 6, 11})
     # v1/v2 has no fully-unavailable split, so nothing is "merely partial".
     v2 = GeometryQualification(
         "pending_partial", (0, 1), True, "missing_pixels", version=GEOMETRY_QUALIFICATION_VERSION

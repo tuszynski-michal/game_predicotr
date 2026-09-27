@@ -392,3 +392,31 @@ def test_manual_v19_persistence_isolates_concurrent_pending_commands(
             namespace_discriminator="not-a-checksum",
         )
     assert invalid.value.code == "BOARD_CELL_GEOMETRY_ARTIFACT_NAMESPACE_INVALID"
+
+
+def test_manual_outside_cells_have_no_durable_crop(tmp_path: Path) -> None:
+    source, checksum, _ = _source(tmp_path)
+    previewer = ManualBoardCellGeometryPreviewer()
+    preview = previewer.preview(
+        source_path=source,
+        expected_source_sha256=checksum,
+        review_item_id="outside-review",
+        source_order_index=0,
+        source_image_id="source-id",
+        source_image_relative_path="source.png",
+        source_group="import-id",
+        sequence_number=1,
+        position_index=0,
+        lattice_bounds_quad=((60.0, 50.0), (560.0, 50.0), (560.0, 800.0), (60.0, 800.0)),
+        corrected_by="local-owner",
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        command_checksum_sha256="d" * 64,
+        unavailable_cell_indices=frozenset(range(5, 15)),
+    )
+    assert preview.outside_cell_indices == frozenset(range(10, 15))
+    artifacts = previewer.persist(
+        preview=preview, managed_data_root=tmp_path / "managed", revision=1
+    )
+    assert [cell.row_index * 5 + cell.column_index for cell in artifacts.cells] == list(range(10))
+    assert len(list((tmp_path / "managed").rglob("*.png"))) == 10

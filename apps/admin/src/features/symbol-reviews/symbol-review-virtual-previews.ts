@@ -46,7 +46,10 @@ export async function loadSymbolReviewPreviewAtlases(
 ): Promise<SymbolReviewVirtualPreviewResult> {
   const chunks = symbolReviewPreviewChunks(
     pageItems.filter(
-      (item) => item.assetMode !== 'none' && item.cropChecksumSha256 !== null,
+      (item) =>
+        item.sourceVisibility !== 'outside' &&
+        item.assetMode !== 'none' &&
+        item.cropChecksumSha256 !== null,
     ),
   );
   if (chunks.length === 0) {

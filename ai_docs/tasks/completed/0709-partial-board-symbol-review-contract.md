@@ -76,6 +76,8 @@ Nowy kontrakt bez cropa wymaga spójnych odbiorców, nie fikcyjnego zasobu.
 Nie raportować wdrożenia ani naprawy danych na podstawie samych testów.
 
 ## Outcome
+Commit: `v1.7.14` — `f86b29e0ef84af7769ed1adc6365c99d8b89ce49`.
+
 ### Changed
 
 - Wspólne grupowanie all/unknown/outside/symbol w SQL, count keys, kursorach

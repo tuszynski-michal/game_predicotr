@@ -334,3 +334,30 @@ test('uses the durable staging status instead of job history', () => {
   );
   assert.equal(readyBoardImportHasImport(staging('1-10', 'upload-1')), false);
 });
+
+test('import progress, processing errors and deferred geometry remain separate', () => {
+  const geometryPreflightJobs = [
+    job({
+      geometryManifestChecksum: 'g'.repeat(64),
+      jobType: 'validate',
+      provisionalReviewRequired: 2,
+      status: 'completed',
+    }),
+  ];
+  for (const boardImportStatus of ['boards_imported', 'importing', 'failed']) {
+    const label = lifecycle({
+      selection: { ...staging('1-10', 'upload-1'), boardImportStatus },
+      geometryPreflightJobs,
+    });
+    assert.match(label, /wymaga korekty geometrii · odroczone zdjęcia 2/);
+    if (boardImportStatus === 'boards_imported')
+      assert.match(
+        label,
+        /plansze utworzone.*weryfikacja symboli poza importem/,
+      );
+    if (boardImportStatus === 'failed')
+      assert.match(label, /błąd przetwarzania importu/);
+    if (boardImportStatus === 'importing')
+      assert.match(label, /trwa import plansz/);
+  }
+});

@@ -107,16 +107,6 @@ export function readyBoardImportGeometryVariant(
 export function readyBoardImportLifecycleLabel(
   state: ReadyBoardImportLifecycleState,
 ): string {
-  switch (state.selection.boardImportStatus) {
-    case 'boards_imported':
-      return 'plansze utworzone · weryfikacja symboli poza importem';
-    case 'importing':
-      return 'trwa import plansz';
-    case 'failed':
-      return 'import przerwany · staging wymaga diagnozy';
-    default:
-      break;
-  }
   const matchingGeometryJobs = state.geometryPreflightJobs.filter((job) => {
     const payload = job.inputPayload as unknown as Record<string, unknown>;
     return (
@@ -140,6 +130,20 @@ export function readyBoardImportLifecycleLabel(
   const reviewRequired =
     latestCompletedGeometry?.progress.pageGeometryPreflight
       ?.provisionalReviewRequired;
+  const geometrySuffix =
+    typeof reviewRequired === 'number' && reviewRequired > 0
+      ? ` · wymaga korekty geometrii · odroczone zdjęcia ${reviewRequired.toLocaleString('pl-PL')}`
+      : '';
+  switch (state.selection.boardImportStatus) {
+    case 'boards_imported':
+      return `plansze utworzone${geometrySuffix} · weryfikacja symboli poza importem`;
+    case 'importing':
+      return `trwa import plansz${geometrySuffix}`;
+    case 'failed':
+      return `błąd przetwarzania importu${geometrySuffix} · staging wymaga diagnozy`;
+    default:
+      break;
+  }
   if (typeof reviewRequired === 'number' && reviewRequired > 0) {
     return `wymaga korekty geometrii · odroczone zdjęcia ${reviewRequired.toLocaleString('pl-PL')}`;
   }

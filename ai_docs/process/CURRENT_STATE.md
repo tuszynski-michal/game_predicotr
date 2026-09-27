@@ -46,11 +46,18 @@ last_updated: 2026-09-26
 - TASK-0709 / T2 zakończony: spójne API, grupy/count/bulk/cursor, decyzje
   bez obrazu i bez fastdoc, trwały filter_scope (0127), source context przez
   istniejący endpoint, training exclusion. Naprawiono JSON null → SQL NULL
-  podczas przejścia do outside. Commit v1.7.14 (hash po commicie), po lab v1.7.13.
+  podczas przejścia do outside. Commit v1.7.14 / f86b29e0ef84af7769ed1adc6365c99d8b89ce49,
+  po lab v1.7.13.
 - T2: focused 67 i końcowe 40 PASS (częściowo wspólne), JS77, mypy10,
   TypeScript Admin/client, lint/format i OpenAPI/generated PASS. Audyt Astra
   medium bez P0–P2 / 70 PASS. PostgreSQL 2+1 PASS (bulk/retry/nowe sesje),
-  API sparse source3 PASS. Następny TASK-0710 / T3 — interfejs i statusy.
+  API sparse source3 PASS.
+- TASK-0710 / T3 zakończony: grupa/badge Poza zdjęciem, kontekst zdjęcia,
+  brak atlasu bez obrazu, aktualizacja ograniczonej strony po decyzjach,
+  statusy importu. 105 testów logiki + 5 interakcji, TS/lint/format i izolowany
+  build PASS; odbiór przeglądarkowy z fixture PASS. Osobny commit T3 poniżej.
+- Następny TASK-0711 / T4: trwałe narzędzie uzupełnienia i odczytowe preview;
+  produkcyjne migracje/deploy/apply pozostają osobno zlecanym krokiem danych.
 - Dane produkcyjne bez zmian: implementacja i preview zlecone, rzeczywiste
   uzupełnienie danych osobno zgodnie z T4. Testy zapisów tylko izolowane.
 - Zastane zmiany CURRENT_STATE, TASK-0668, completed/TASK-0707,

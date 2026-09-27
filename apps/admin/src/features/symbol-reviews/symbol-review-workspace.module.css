@@ -205,6 +205,22 @@
   outline-offset: -3px;
 }
 
+.sourceContextButton {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  z-index: 2;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 3px 5px;
+  border: 0;
+  border-radius: 8px 0 0 0;
+  color: white;
+  background: rgb(5 11 20 / 86%);
+  font-size: 0.65rem;
+  cursor: pointer;
+}
+
 .cardToggle::after {
   position: absolute;
   z-index: 1;

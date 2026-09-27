@@ -136,8 +136,14 @@ test('jumps directly to a numbered review page without hydrating every page in b
   // loop).
   assert.doesNotMatch(jumpFlow, /while \(pageNumber !== targetPageNumber\)/);
   assert.match(jumpFlow, /skipSymbolReviewPages/);
-  assert.match(jumpFlow, /const skipCount = \(Math\.abs\(hops\) - 1\) \* pageFilters\.limit;/);
-  assert.match(jumpFlow, /findCachedSymbolReviewPage\(workspace, targetPageNumber\)/);
+  assert.match(
+    jumpFlow,
+    /const skipCount = \(Math\.abs\(hops\) - 1\) \* pageFilters\.limit;/,
+  );
+  assert.match(
+    jumpFlow,
+    /findCachedSymbolReviewPage\(\s*workspace,\s*targetPageNumber,?\s*\)/,
+  );
   assert.doesNotMatch(
     jumpFlow,
     /setSelection\(createEmptySymbolReviewSelection\(\)\)/,
@@ -168,7 +174,7 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(styles, /\.operationLoader/);
 });
 
-test('removes successful targets locally without reloading or refilling the page', () => {
+test('reconciles the bounded page after direct and bulk decisions instead of assuming every target leaves the scope', () => {
   const directStart = source.indexOf(
     'const result = await applySingleSymbolReviewDecision',
   );
@@ -176,16 +182,18 @@ test('removes successful targets locally without reloading or refilling the page
     'const command = createSymbolReviewBulkCommand',
   );
   const directSuccess = source.slice(directStart, directEnd);
-  assert.match(directSuccess, /setHiddenCellIds/);
-  assert.match(directSuccess, /target\.cellReviewId/);
+  assert.match(directSuccess, /refreshDecisionPage\(\)/);
   assert.doesNotMatch(directSuccess, /setReloadRevision/);
   assert.doesNotMatch(directSuccess, /setPageState\('loading'\)/);
 
   const bulkStart = source.indexOf('const finishOperation = useCallback');
   const bulkEnd = source.indexOf('async function startPreviewedOperation');
   const bulkFinish = source.slice(bulkStart, bulkEnd);
-  assert.match(bulkFinish, /tracked\.submittedCellIds/);
-  assert.match(bulkFinish, /setHiddenCellIds/);
+  assert.match(bulkFinish, /refreshDecisionPage\(\)/);
+  assert.match(
+    bulkFinish,
+    /tracked\.operation\.gameId === filtersRef\.current\.gameId/,
+  );
   assert.doesNotMatch(bulkFinish, /setReloadRevision/);
   assert.doesNotMatch(bulkFinish, /setPageState\('loading'\)/);
 });

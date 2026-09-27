@@ -520,6 +520,28 @@ jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
 
 ### Weryfikacja symboli
 
+**D-451 / TASK-0710:** wybór grupy obejmuje także `Poza zdjęciem`.
+To grupa logicznych pól bez obrazu i bez przypisanego symbolu; po ręcznym
+przypisaniu pole pojawia się wyłącznie pod wybranym symbolem oraz we Wszystkich.
+Kafelek pokazuje „Brak obrazu pola”, numer planszy i pozycję. Badge „Poza
+zdjęciem” albo „Częściowy obraz” pozostaje niezależnie od decyzji; oznaczenia
+Nieczytelny/Zła siatka/Niewyraźny są zachowane obok widoczności.
+Zaznaczanie, skróty wyboru symbolu, Enter i Nieczytelny obejmują również pola
+bez obrazu. Nie można dla nich zatwierdzić cropa ani ustawić grafiki symbolu;
+nie uruchamiają podglądów atlasu ani filtrowania pewności predykcji.
+
+Przycisk `Źródło` otwiera wyłącznie do odczytu całe zdjęcie z zapisaną siatką
+i wyróżnionym polem, także poza granicami zdjęcia. Podgląd sprawdza właściciela
+i rewizję geometrii oraz checksumę zdjęcia; zmiana rewizji wymaga odświeżenia.
+Pierwszeństwo mają zapisane footprinty komórek, następnie aktualna siatka.
+Brak geometrii nie tworzy zastępczej siatki. Zamknięcie nie zapisuje decyzji.
+
+W imporcie „Niepełne zdjęcie” opisuje kompletność źródła, a nie liczbę
+dostępnych pozycji Weryfikacji symboli. Historyczne braki mogą wymagać
+uzupełnienia. Stan stagingu oddzielnie wskazuje import, odroczoną korektę
+geometrii i późniejszą weryfikację symboli; błąd przetwarzania nie jest
+przedstawiany jako ukończona weryfikacja.
+
 `Weryfikacja symboli` jest osobnym, wyłącznie lokalnym obszarem głównej
 nawigacji Admina. Operator wybiera grę oraz zakres symbolu: wszystkie symbole,
 jeden aktywny symbol albo nierozpoznane `?`, a także radio `Stan weryfikacji`:
@@ -673,22 +695,20 @@ liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
 `Zatwierdź` działa wyłącznie dla jawnie zaznaczonych cropów; walidacja backendu
 nadal odrzuca próbę zatwierdzenia nierozpoznanego przypisania.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
-polling każdej operacji nie wysyła nakładających się requestów. Pełny sukces
-usuwa jej targety z aktualnie wyświetlanej strony bez ponownego zapytania i bez
-uzupełniania strony kolejnymi rekordami. Ukryty target pozostawia w
-wirtualizowanej siatce niewidoczne miejsce tej samej wielkości do następnej
-nawigacji, dzięki czemu pozostałe karty nie zmieniają wiersza, nie są
-demontowane i zachowują już wyświetlony atlas. Konflikt lub częściowy błąd pozostawia
-targety widoczne, ponieważ zbiorcza odpowiedź nie wskazuje bezpiecznie ich
-indywidualnego wyniku. Ponowna nawigacja naturalnie pobiera aktualny keyset.
-Lokalne ukrycie targetu nie może ponownie uruchamiać ładowania atlasów ani
-usuwać gotowych miniaturek pozostałych kart. Pamięciowa mapa tile obejmuje
+polling każdej operacji nie wysyła nakładających się requestów. Po końcowym
+wyniku Admin odświeża bieżącą, ograniczoną stronę i unieważnia cache stron
+oraz wcześniejsze requesty. Nie zakłada, że każda decyzja usuwa pole z grupy:
+outside bez przypisania po Nieczytelny pozostaje w Poza zdjęciem, a pole
+przypisane w tej samej grupie lub Wszystkich nadal jest widoczne. Backend
+wyznacza aktualną jakość, przynależność i rewizję także po częściowym wyniku.
+Pamięciowa mapa tile obejmuje
 wyłącznie aktywną stronę i jest czyszczona natychmiast przy zmianie strony,
 filtra albo gry; odtwarzalny cache HTTP/serwera pozostaje niezależny.
 Jedna jawnie zaznaczona karta jest wyjątkiem od workflow masowego: Admin wysyła
 bezpośrednią, checksum-bound decyzję i nie tworzy joba. Po sukcesie czyści
-zaznaczenie, pokazuje krótki komunikat i usuwa kartę bez uzupełniania strony;
-po konflikcie przywraca kartę oraz pokazuje błąd. Dwa lub więcej jawnych cropów
+zaznaczenie, pokazuje krótki komunikat i odczytuje bieżącą stronę. Po konflikcie
+lub utracie odpowiedzi również odczytuje stan, zamiast zgadywać wynik zapisu.
+Dwa lub więcej jawnych cropów
 z bieżącej strony nadal korzysta z preview i trwałego joba. Toast nie zasłania
 toolbara: jest stały około 50 px od lewego i dolnego brzegu viewportu.
 
@@ -1011,9 +1031,10 @@ prezentacji: cztery narożniki, kwalifikacja, podgląd, klucz idempotencji i zap
 pozostają w niezmienionych współrzędnych oryginalnego zdjęcia. Viewport jest
 ponownie centrowany także po zmianie narożnika, aby aktualna siatka nie znikała
 poza canvasem. W trybie „Niepełna plansza” może obejmować obszar poza zdjęciem,
-widoczny jako szare tło. Nie tworzy to brakujących pikseli; komórkę rzeczywiście
-poza kadrem operator nadal oznacza jako niedostępną i system zapisuje ją jako
-„?”.
+widoczny jako szare tło. Nie tworzy to brakujących pikseli. Według D-451
+pozycja rzeczywiście poza kadrem zachowuje trwałe `outside` i bez przypisania
+trafia do grupy „Poza zdjęciem”. Ręczne przypisanie przenosi ją do grupy
+symbolu, zachowując brak obrazu i badge.
 
 Po jawnym poleceniu właściciela, przykładowo po 1000 albo 3000 zweryfikowanych
 planszach, panel pozwala zamrozić nową kohortę feedbacku. Sam licznik nie

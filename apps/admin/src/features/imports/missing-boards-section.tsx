@@ -141,8 +141,10 @@ export function MissingBoardsSection({
               : 'Brakujące plansze'}
           </h3>
           <p>
-            Plansze bez ukończonego importu (pocięte na symbole i zapisane).
-            Zatwierdzenie symboli nie jest wymagane.
+            Pokrycie importu i kompletność zdjęć źródłowych. Niepełne zdjęcie
+            nie oznacza braku pozycji do weryfikacji symboli. Dostępność pól
+            sprawdź w Weryfikacji symboli; historyczne braki mogą wymagać
+            uzupełnienia. Zatwierdzenie symboli nie jest wymagane.
           </p>
         </div>
         <button

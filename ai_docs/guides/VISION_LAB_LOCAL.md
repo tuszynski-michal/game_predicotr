@@ -1,7 +1,7 @@
 ---
 title: Lokalne laboratorium wizji — galeria
 status: active
-last_updated: 2026-09-26
+last_updated: 2026-09-27
 ---
 
 # Laboratorium wizji — galeria i anotacje
@@ -277,6 +277,13 @@ Stan operacyjny i niespełnione bramki etapu B opisuje
 [raport B](../quality/VISION_LAB_STAGE_B_ACCEPTANCE.md).
 
 ## Kwalifikacja geometrii historycznego 777 (D-453)
+
+Na aktualnym store z sekcji startu wykonano T03h: rewizja 260,
+11 zdjęć / 30 pełnych ręcznych siatek ma jawną kwalifikację geometry-only.
+Nie jest to wykonany trening ani zatwierdzenie symboli. Backup, integralność
+i retry opisuje [raport operacji](../quality/VISION_LAB_ADDITIVE_DATA_20260927.md).
+Nie powtarzaj kwalifikacji z nowym request_id bez nowej decyzji; wcześniejsze
+żądanie pozostaje identycznym, idempotentnym retry.
 
 T03e udostępnia `python -m game_predictor_worker.vision_lab.qualify_geometry`
 z wymaganymi `--snapshot`, `--annotations`, `--request` (plik JSON).

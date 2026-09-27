@@ -10,9 +10,9 @@ last_updated: 2026-09-27
 
 `blocked` — anotacje i przegląd operatora wykonane; D-453 rozstrzyga użycie
 historycznych zdjęć 777 w modelu geometrii. Pozostają techniczne mapowanie
-źródeł do rodzin, kontrola konfliktów, realne apply kwalifikacji geometrii
-oraz zamrożony podział. Mechanizmy T03e/T03f są wdrożone i odebrane;
-T03g zachował zapisy w rozszerzonym zbiorze. T04/T05 nie rozpoczęto; nie uruchamiać ich przed
+źródeł do rodzin, kontrola konfliktów oraz zamrożony podział. Mechanizmy
+T03e/T03f są wdrożone i odebrane; T03g zachował zapisy w rozszerzonym zbiorze,
+a T03h zastosował kwalifikację geometrii. T04/T05 nie rozpoczęto; nie uruchamiać ich przed
 spełnieniem bramek danych.
 
 ## Goal
@@ -51,7 +51,7 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 ## Acceptance criteria
 
 - [ ] Brak przecieku rodzin; restart i odtworzenie backupu; narożniki nie udają pełnej siatki; nierozstrzygnięte 777 V2 wykluczone.
-- [ ] Historyczne zdjęcia 777 kwalifikowane do geometrii zgodnie z D-453:
+- [x] Historyczne zdjęcia 777 kwalifikowane do geometrii zgodnie z D-453:
   nowe ręczne siatki labu, zachowane pochodzenie i ważne zgody niezmienionych
   źródeł, bez targetów v1.1, zmiany istniejących snapshotów i automatycznej
   kwalifikacji symboli; techniczne wdrożenie sprawdzone przed treningiem.
@@ -65,11 +65,11 @@ nowe ręczne siatki zatwierdzone w labie, nie dawne geometrie v1.1. Nie ma
 już otwartej decyzji produktowej o użyciu 777. Obecne role i immutable
 snapshoty nie zostały zmienione. T03e wdrożył jawną kwalifikację z zachowaniem
 historycznego pochodzenia, ważnych zgód niezmienionych źródeł oraz bramek
-symboli. Realne apply, mapowanie rodzin i split pozostają do wykonania.
+symboli. Realne apply wykonał T03h; mapowanie rodzin i split pozostają do wykonania.
 Tryb legacy `vision_lab/splits.py::freeze_splits` odrzuca grupy z `role != data`
 jako `COMPARISON_OR_777_PROVENANCE_UNRESOLVED`. T03e dodaje odrębny jawny
 purpose geometry i kwalifikację D-453, bez zmiany pochodzenia ani wyłączenia
-kontroli przecieku. Realne kwalifikacje i zamrożenie splitu pozostają osobnym krokiem.
+kontroli przecieku. Realna kwalifikacja nie zastępuje zamrożenia splitu.
 
 Deklaracja operatora: materiał pozostałych pięciu gier w
 `C:\Users\tuszy\Documents\game_predictor_traning_set` pochodzi z innych
@@ -493,11 +493,13 @@ Restart komputera nastąpił między importem i rebase; świeże odczyty potwier
 import. Rebase i retry potwierdzone w nowych procesach, bez kolejnego restartu OS.
 Dokładne ścieżki/digests/logi: `ai_docs/quality/VISION_LAB_ADDITIVE_DATA_20260927.md`.
 Guide wskazuje nowy snapshot/store. Bez usług, kwalifikacji, freeze i treningu.
-Commit T03g: v1.7.23 (hash po commicie). Następny krok: osobny T03h.
+Commit T03g: `v1.7.23` / `6e1879eeae85121f75e06ff987fc9f37affa4197`.
+Staged check/stat/list i show/stat/status PASS. Następny krok: osobny T03h.
 
 ## T03h — zastosowanie jawnej kwalifikacji geometrii 777
 
-Status `todo`. Cel: utrwalić wcześniej autoryzowaną decyzję D-453 dla dokładnych
+Status `done`, kontrakt, preview i końcowe dane odebrane przez audyt Astra medium.
+Cel: utrwalić wcześniej autoryzowaną decyzję D-453 dla dokładnych
 11 zdjęć / 30 nowych ręcznych siatek 777 w nowym store. Wykonawca
 `gpt-6-sol` / `medium`, niezależny audyt `gpt-6-astra` / `medium` przed apply
 i po wyniku. Zależność: odebrany i osobno zapisany T03g; dotychczasowy preview
@@ -524,7 +526,32 @@ rewizji/historii. Stary store/snapshot i snapshot nowy bez zmian. Brak zmiany
 comparison_only, rodzin, podziału, zgód symboli lub nowych zdjęć. Qualification
 nie odblokowuje treningu bez pozostałych bramek. Rebase z kwalifikacjami pozostaje
 zablokowany; nie usuwać decyzji, aby obchodzić tę granicę przy kolejnych importach.
-Outcome do uzupełnienia po wykonaniu i niezależnym odbiorze.
+### Outcome T03h — odebrane
+
+- Wszystkie sześć kroków limit 60 s, exit 0, stderr pusty: świeży preview,
+  istniejący backup z pełnym porównaniem, CLI apply, nowy proces preview,
+  nowy proces identycznego apply retry oraz końcowe read_checked/Catalog.
+- Rewizja 260, dokładnie 11 skutecznych kwalifikacji / 30 pełnych ręcznych
+  targetów, jeden nowy receipt/event. Pozostały payload identyczny z backupem;
+  180 anotacji, 63 aktualne akceptacje i 196 timingów bez zmian. Zero rodzin,
+  brak splitu, żadnej zmiany ról lub symboli. Stary store i oba snapshoty nietknięte.
+- Nowy proces preview zwraca already_applied; powtórny apply nie zmienia
+  SHA/revision/history. Sam CLI zwraca applied również dla receipt replay,
+  dlatego odbiór opiera się na porównaniu danych, nie samym tekście statusu.
+- Backup ID `8377e75c24281af07136724f5db9ec70d312bd87a7d90f6893a29484431ef62f`;
+  SHA stanu po: `ad7c3d8248d303696e701819d705e949be9df094c3e1c2e74e317e7ef8456f17`.
+  Ścieżki, logi i digesty: VISION_LAB_ADDITIVE_DATA_20260927.md / T03h
+  oraz artifacts/vision-lab/t03h-qualification-operation-outcome.md.
+- Bez testów aplikacji dla samej operacji (kod niezmieniony), restore,
+  restartu OS/usług, treningu, aktywacji, cleanupu i push. Trwałość sprawdzona
+  w nowych procesach; brak osieroconych procesów i listenera 8102.
+  DoD porównano punktowo z kontraktem powyżej. Końcowy niezależny audyt Astra
+  medium PASS bez P0–P2: nowy proces potwierdził ścisłą różnicę payloadu,
+  zgodność backupu, 11/30 skuteczność i already_applied bez zmiany SHA.
+  Audytor dopasował diagnostykę do braku opcjonalnego pola w dawnym payloadzie;
+  nie przepisywano danych ani nie osłabiano kontraktu. Commit T03h: v1.7.24
+  (hash po commicie). Podzadanie done, nadrzędny plik pozostaje aktywny.
+  Nadrzędny T03 pozostaje blocked na rodzinach i podziale, nie na kwalifikacji 777.
 
 ## T03a — ergonomia edytora i bieżące cropy
 

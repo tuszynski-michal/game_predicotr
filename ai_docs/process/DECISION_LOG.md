@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-26
+last_updated: 2026-09-27
 ---
 
 # Decision Log
@@ -56,9 +56,11 @@ last_updated: 2026-09-26
   uzyskują kwalifikacji tym mechanizmem. Jawny purpose geometry w splicie
   dopuszcza kwalifikacje i przechowuje osobne pełne ręczne targety; domyślny
   legacy zachowuje poprzednie zachowanie. Reguły rodzin/pomiaru nie są pomijane.
-  Wykonano tylko preview rzeczywistych 11 zaakceptowanych zdjęć, bez apply.
-  Rebase jawnie odrzuca nowy typ decyzji, więc planowany import/rebase należy
-  wykonać wcześniej albo osobno rozszerzyć bezpieczną obsługę przenoszenia.
+  Po addytywnym imporcie/rebase T03g, osobny T03h zastosował decyzję dla
+  11 zaakceptowanych zdjęć / 30 siatek na nowym store, z backupem, rewizją
+  260 i idempotentnym retry. Geometrie, akceptacje, role i symbole bez zmian.
+  Rebase jawnie odrzuca nowy typ decyzji: dalsze przenoszenie wymaga osobnego
+  bezpiecznego rozszerzenia, nie ręcznego usuwania kwalifikacji lub historii.
   T04/T05 nadal wymagają ukończenia bramki danych T03.
 
 ## D-452 — atomowe pokwitowania uzupełnienia pozycji pilota

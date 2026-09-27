@@ -1,10 +1,27 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-26
+last_updated: 2026-09-27
 ---
 
 # Current State
+
+### T03h — kwalifikacja geometrii 777 na rozszerzonym zbiorze
+
+- Wykonano istniejącym CLI, po preview i backupie, jawne D-453 dla 11 zdjęć
+  i 30 pełnych ręcznych siatek. Stan nowego store: rewizja 260, jeden nowy
+  event/receipt; pozostały payload identyczny z backupem. Zachowane 180
+  anotacji, 63 akceptacje i 196 timingów; role nadal comparison_only.
+- Nowy proces preview: already_applied. Identyczny apply retry nie zmienił
+  rewizji, SHA ani historii. SHA stanu po operacji:
+  `ad7c3d8248d303696e701819d705e949be9df094c3e1c2e74e317e7ef8456f17`.
+  Wykonawca Sol medium; końcowy niezależny audyt Astra medium PASS bez P0–P2.
+  T03h done, commit v1.7.24 (hash po commicie).
+- Backup i pełne wyniki: VISION_LAB_ADDITIVE_DATA_20260927.md / T03h.
+  Zero rodzin, brak splitu. Nie uruchomiono usług, T04/T05 ani treningu.
+  Następny krok wymaga mapy konkretnych źródeł do nagrań i kontroli bramek
+  podziału; wysłano pytanie o katalog oryginalnych nagrań/eksporty selekcji.
+  Nie potrzeba ponownie rysować dotychczasowych siatek. Bez push i aktywacji.
 
 ### T03g — addytywny import i rebase po restarcie
 
@@ -18,9 +35,10 @@ last_updated: 2026-09-26
   Stary snapshot/store i backup zachowane; brak akceptacji nowych zdjęć.
 - Raport: VISION_LAB_ADDITIVE_DATA_20260927.md. Brak startu usług,
   zmiany rodzin, splitu lub treningu. Instrukcja startu wskazuje nowe ścieżki.
-  Kwalifikacja 777 na nowym store ma preview ready (11 zdjęć / 30 siatek),
-  bez apply. T03h wykona ją osobno po backupie i audycie zakresu.
-- Commit T03g: v1.7.23 (hash po commicie). T03 nadal blocked na pochodzeniu
+  W chwili odbioru T03g kwalifikacja miała tylko preview ready (11/30);
+  późniejszy osobny zapis T03h opisuje sekcja powyżej.
+- Commit T03g: `v1.7.23` / `6e1879eeae85121f75e06ff987fc9f37affa4197`;
+  staged check/stat/list i show/stat/status PASS. T03 nadal blocked na pochodzeniu
   rodzin i zamrożonym podziale; T04/T05 nieuruchomione. Pytanie do operatora
   dotyczy ścieżki oryginalnych nagrań/eksportów, nie ponownego rysowania siatek.
 

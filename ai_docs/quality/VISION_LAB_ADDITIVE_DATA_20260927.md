@@ -91,3 +91,41 @@ użyteczne wejście operatora to ścieżka do oryginalnych katalogów nagrań lu
 eksportów selekcji; nie jest potrzebne ponowne rysowanie dotychczasowych siatek.
 T03 pozostaje blocked; brak freeze i treningu T04/T05. Nowe zdjęcia nie zwiększają
 automatycznie liczby zatwierdzonych przykładów ani niezależnych rodzin.
+
+## T03h — późniejsze zastosowanie kwalifikacji geometrii 777
+
+Po commicie T03g i audycie kontraktu Astra medium, Sol medium zastosował
+istniejący request D-453 do nowego store. Rewizja 259 → 260; dokładnie
+11 skutecznych kwalifikacji i 30 pełnych ręcznych targetów, jeden nowy
+receipt/event. Nie zmieniono 180 anotacji, 63 aktualnych akceptacji,
+196 timingów ani wcześniejszych 259 zdarzeń/receipts. Cała reszta payloadu
+jest identyczna z backupem. Rodziny 0, split null, role comparison_only.
+
+Backup istniejącą metodą AnnotationStore, przed apply:
+`C:/Users/tuszy/Documents/game_predictor_vision_data/annotations/0cdc0770b3535596fdbfa0a8f403cbf32d6a8b134fb52047f5a1f7bda33772c2/backups/8377e75c24281af07136724f5db9ec70d312bd87a7d90f6893a29484431ef62f.json`.
+Jego SHA jest równe SHA stanu sprzed operacji:
+`ef5903646401fc95225542126e84a85e8d0991bebcbb177efbdb916606de0f01`.
+
+SHA state.json po apply i identycznym retry:
+`ad7c3d8248d303696e701819d705e949be9df094c3e1c2e74e317e7ef8456f17`.
+Digest payloadu: `f7748d2aca79fe4a1f39fe8241a897f417e7cf357d64a940eb562195f9c7d9b1`.
+Fingerprint requestu: `fa81cb9623e84d1a9ec15907d65ff55db763a133878bb70e5ef11edbcb94c72b`.
+Request `artifacts/vision-lab/t03e-777-qualification-request-rev259.json`
+pozostał niezmieniony; historia zapisuje dokładne bindings i decyzję.
+
+Sześć osobnych kroków z limitem 60 s zakończyło się exit 0 i pustym stderr:
+preview, backup, apply, nowy preview, nowy exact apply retry, końcowa kontrola.
+Nowy proces preview potwierdził already_applied; retry zachował identyczne
+SHA/revision/history. CLI zwraca applied także przy replay, więc sam tekst
+nie jest dowodem nowego zapisu. Sprawdzono qualification_effective i wszystkie
+targety, pełne Catalog i stary SHA. Brak writera przed apply i procesów po nim.
+
+Logi i szczegółowy raport: `artifacts/vision-lab/t03h-qualification-operation-outcome.md`
+oraz `t03h-preview1.*`, `t03h-backup1.*`, `t03h-apply1.*`,
+`t03h-postapply-preview1.*`, `t03h-exact-apply-retry1.*`, `t03h-verification1.*`.
+Końcowy niezależny audyt Astra medium: **PASS, bez P0–P2**. Nowy proces
+audytora potwierdził ścisłą różnicę całego payloadu, skuteczność 11/30,
+backup, stare źródła i already_applied bez zmiany SHA. Nie wykonano restore ani kolejnego
+restartu OS; trwałość sprawdzono w nowych procesach. Bez kodu, usług, nowych
+akceptacji, rodzin, splitu, treningu lub aktywacji. Kwalifikacja nie zwalnia
+z bramek T03; rebase z kwalifikacjami pozostaje zablokowany.

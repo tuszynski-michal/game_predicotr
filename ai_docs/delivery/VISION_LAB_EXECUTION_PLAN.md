@@ -50,7 +50,8 @@ Obecne role i niezmienne snapshoty pozostają nietknięte. Jawna kwalifikacja
 geometrii jest wdrożona i odebrana w T03e według kontraktu TASK-0668,
 z zachowaniem ważnych zgód niezmienionych źródeł i bramek symboli.
 Geometry-only purpose nie zmienia zachowania legacy splitów ani ról.
-Rzeczywiste apply kwalifikacji i zamrożenie splitu pozostają do wykonania.
+Rzeczywiste apply kwalifikacji wykonał T03h po imporcie T03g; zamrożenie
+splitu nadal wymaga rozstrzygnięcia rodzin i pozostałych bramek danych.
 
 Operator deklaruje, że zdjęcia pozostałych pięciu gier z
 `C:\Users\tuszy\Documents\game_predictor_traning_set` pochodzą z innych
@@ -59,8 +60,8 @@ jako odległe brzegi nagrań, oddzielone kilkoma katalogami. Nie wyprowadzamy
 tej deklaracji z nazw ani nie ponawiamy ogólnego pytania o pochodzenie.
 Pozostaje mapowanie konkretnych źródeł do rodzin i kontrola konfliktów:
 brzegi tego samego filmu pozostają jedną rodziną, a różne foldery nie
-dowodzą niezależnych filmów. T03 pozostaje `blocked` na mapowaniu rodzin,
-realnym apply kwalifikacji i zamrożonym podziale; T04/T05 nie rozpoczęto.
+dowodzą niezależnych filmów. T03 pozostaje `blocked` na mapowaniu rodzin
+i zamrożonym podziale; T04/T05 nie rozpoczęto.
 
 Dowody i wynik: TASK-0668 oraz
 `ai_docs/quality/VISION_LAB_STAGE_B_DATA_PREFLIGHT.md`. Wykonawca T03
@@ -80,7 +81,7 @@ Eksporter działa w głównym środowisku tylko do odczytu. Manifest wejściowy
 ogranicza źródła, ich dostępne rewizje, metadane pochodzenia, słowniki,
 powiązane zatwierdzone etykiety i historyczne 777. Dotychczasowy format
 eksportu zapisuje dla niego rolę porównawczą; mechanizm kwalifikacji
-geometrii D-453 dostarczył T03e, a realne apply pozostaje do wykonania. Transakcja
+geometrii D-453 dostarczył T03e, a realne apply wykonał T03h. Transakcja
 `REPEATABLE READ READ ONLY` jest krótka, ma limity czasu i partie. Snapshot
 publikuje się atomowo po sprawdzeniu kompletności i checksum. Pierwotny wynik
 `selective_board_review_v1_1` i późniejsza ręczna reweryfikacja to odrębne
@@ -323,9 +324,9 @@ Przed realnym apply potrzebny jest dokładny preview i kopia stanu; trening
 nie rozpoczyna się przed pozostałymi bramkami T03. Wykonawca Sol medium,
 audyt Astra medium, osobny commit/Outcome; brak automatycznego push.
 Backend 54/54, klient 5/5, lint/typecheck i kontrola kontraktu PASS;
-niezależny audyt PASS bez P0–P2. Realny preview 11 zdjęć / 30 siatek bez
-zmiany danych. Kwalifikacja nie została jeszcze zastosowana; import/rebase
-poprzedza realny apply. Pełny wynik i commit w Outcome T03e TASK-0668.
+niezależny audyt PASS bez P0–P2. W odbiorze samego T03e wykonano tylko preview
+11 zdjęć / 30 siatek; późniejszy T03g/T03h wykonał import/rebase i kwalifikację.
+Pełne wyniki i osobne commity w Outcome odpowiednich podzadań TASK-0668.
 
 ## T03f — jawna kohorta targetów geometrii
 
@@ -379,10 +380,11 @@ i pełny raport pochodzenia; brak nowych zgód, zmiany ról, rodzin i splitu.
 Świeże procesy po restarcie potwierdziły integralność i already_applied.
 Raport: `ai_docs/quality/VISION_LAB_ADDITIVE_DATA_20260927.md`.
 
-T03h `todo`: po osobnym commicie T03g zastosować istniejącą kwalifikację D-453
-do 11 zaakceptowanych zdjęć / 30 siatek 777 na nowym store. Obowiązkowe:
-preview dokładnego requestu, backup, CAS/apply, nowy proces i identyczne retry,
-niezmienione geometrie/akceptacje/role oraz audyt przed i po zapisie.
+T03h `done`: po osobnym commicie T03g zastosowano istniejącą kwalifikację D-453
+do 11 zaakceptowanych zdjęć / 30 siatek 777 na nowym store. Preview dokładnego
+requestu, backup, CAS/apply, nowy proces i identyczne retry PASS; geometrie,
+akceptacje i role niezmienione. Audyt przed i po zapisie PASS bez P0–P2.
+Rewizja 260, jeden nowy event/receipt; nie jest to wykonany trening.
 Pełne kontrakty, pliki, błędy i kryteria obu operacji zapisuje TASK-0668.
 Wykonawca obu Sol medium, audyt Astra medium, osobny commit każdego podzadania.
 Nie potwierdzać automatycznie rodzin, nie zamrażać splitu i nie rozpoczynać

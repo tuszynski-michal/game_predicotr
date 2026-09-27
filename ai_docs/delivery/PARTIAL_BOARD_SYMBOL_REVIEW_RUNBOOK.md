@@ -4,6 +4,14 @@ Zakres: zaakceptowane T4 / TASK-0711, gra 777
 `bfc4f949-5c14-4850-b02a-db99610bcfa5`, dokładne 70 numerów z planu.
 Implementacja narzędzia nie jest wykonaniem migracji, wdrożenia ani apply.
 
+Stan operacyjny2026-09-27: osobno zlecony rollout i apply70 zakończono
+w TASK-0712;1050 pozycji,70 receiptów, liczniki ready/v2 i odbiór API/UI PASS.
+Dowody oraz zakres pozostawionych13 braków poza pilotem opisuje
+`ai_docs/quality/PARTIAL_BOARD_SYMBOL_REVIEW_ROLLOUT.md`, a Outcome:
+`ai_docs/tasks/completed/0712-partial-board-production-rollout.md`.
+Poniższa procedura pozostaje instrukcją przyszłych jawnie zlecanych operacji;
+nie stanowi zgody na rozszerzenie zakresu danych.
+
 ## Kolejność wdrożenia
 
 1. Zakończyć aktywne zapisy importu i korekt; wykonać i sprawdzić backup.

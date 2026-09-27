@@ -148,4 +148,4 @@ Nie raportować wdrożenia ani naprawy danych na podstawie samych testów.
   według runbooka; dopiero po nim odbiór 1050 i audit innych gier.
 
 ### Commit
-- Wersja/hash zostaną dopisane po osobnym commicie T4.
+- v1.7.16 / a4c38cacefc62edffe116b485f6497f708ba71d2; potwierdzono git show --stat i pozostały status.

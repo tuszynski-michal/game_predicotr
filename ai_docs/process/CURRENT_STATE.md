@@ -62,15 +62,27 @@ last_updated: 2026-09-26
   Focused48 + końcowe18 PASS (częściowo wspólne), Ruff15/mypy8 PASS,
   niezależny audyt Astra medium bez P0–P2 / 14 PASS; realny PostgreSQL5 PASS,
   także retry w dwóch nowych procesach. Końcowa regresja PostgreSQL6 PASS / 41.86 s.
+  Commit v1.7.16 / a4c38cacefc62edffe116b485f6497f708ba71d2.
 - Preview 0125 READ ONLY: 70 gotowych, 985/1050 pozycji, 65 braków;
   829 full / 201 partial / 20 outside. Dwa procesy dały ten sam SHA:
   a964291d5517751f0761842d975fef74df4e1c77a8365d26977a6718f8e7e515.
   Raport: ai_docs/quality/PARTIAL_BOARD_SYMBOL_REVIEW_PILOT_PREVIEW.md.
-- Następny krok jest osobno zlecany: backup, migracje 0126–0128, zgodne usługi,
-  ponowny preview, apply, ograniczona odbudowa liczników i odbiór 1050 pozycji;
-  następnie odczytowy audit innych gier. Dotąd danych produkcyjnych nie zmieniono.
-- Dane produkcyjne bez zmian: implementacja i preview zlecone, rzeczywiste
-  uzupełnienie danych osobno zgodnie z T4. Testy zapisów tylko izolowane.
+- TASK-0712 done: użytkownik osobno zlecił wdrożenie i krok danych.
+  Preflight0125 bez aktywnych zapisów, niezależny audyt PASS; zatrzymano main
+  API8000/Admin3000/general worker, pozostawiając lab8102/3102 i reviewer3001.
+  Pełny backup22.09GB: dump0, SHA135915d3…8b4617e1, TOC0/4110 pozycji;
+  bez pełnego restore. Migracje0126–0128 PASS, build Admina PASS.
+  Apply14×5:70 receiptów,1050 pozycji,829full/201partial/20outside,
+  zachowane985 stare ID,0konfliktów. Retry nowego procesu70replayed bez
+  nowych eventów i zmian digestu. W pilocie human decisions0.
+  Liczniki ready/v2:7,499,687 ogółem,20outside, suma10grup zgodna;
+  nowe API9860/Admin23576/general39752 gotowe, lab PID4200/12968 bez zmian.
+  Live API, niezależny audyt danych/liczników/usług i browserQA PASS.
+  UI20 kafelków outside, bezpieczne akcje, kontekst źródła/siatki poprawny;
+  bez zapisywania decyzji podczas QA. Osobny commit przygotowuje root.
+  Audyt innych gier:26plansz/390full/0braków oraz pusta gra testowa.
+  Znane13braków na6 planszach777 poza pilotem potwierdzone odczytowo,
+  bez uzupełnienia. Raport:PARTIAL_BOARD_SYMBOL_REVIEW_ROLLOUT.md.
 - Zastane zmiany CURRENT_STATE, TASK-0668, completed/TASK-0707,
   apps/reviewer/next-env.d.ts i .claude/ pozostają poza zakresem commitów.
 

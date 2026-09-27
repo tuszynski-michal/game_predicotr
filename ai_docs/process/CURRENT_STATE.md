@@ -16,8 +16,49 @@ last_updated: 2026-09-27
   unseen, pomiar, pełny graf i zmiany fingerprintów nadal kontrolowane.
   T03j done: końcowy audyt Astra medium PASS bez P0–P2. Testy backendu 76/76,
   klienta 7/7; Ruff/format, mypy, TypeScript labu/klienta, OpenAPI/generated
-  check PASS; niezależnie 31 backend + 7 client PASS. Commit v1.7.26
-  (pełny hash po commicie). T04/T05 nadal czekają na faktyczne domknięcie T03.
+  check PASS; niezależnie 31 backend + 7 client PASS. Commit `v1.7.26` /
+  `867da1167362f32ae6ff3e623fa976c57c261c1c`; staged check/stat/list oraz
+  show/stat/status PASS, obce zmiany zachowane. T04/T05 czekają na domknięcie T03.
+
+### T03 — wznowione mapowanie i próba podziału
+
+- Operator polecił kontynuację po doprecyzowaniu obu zakresów Treasure.
+  Sol medium przygotował mapę źródeł całego katalogu oraz próbę istniejącego
+  podziału na kopii stanu. Root prowadzi zapis dokumentacji i kontrolę zakresu;
+  Astra medium wykonał niezależny audyt przed zapisem siedmiu rodzin.
+- Wykorzystać deklarację Treasure, odzyskane eksporty oraz wskazany przez
+  operatora katalog `Documents/mumie wybrane` i numery seq. Brak eksportu
+  nie unieważnia konkretnej deklaracji pochodzenia; nazwa lub różnica SHA
+  nie może sama udawać niezależności nagrań ani zgody na nowe geometrie.
+- Raport VISION_LAB_SOURCE_MAPPING_20260927.md obejmuje 1466 źródeł i 365 JSON.
+  Siedem requestów przeszło audyt przed zapisem. Po backupie zapisano 436
+  powiązań do siedmiu rodzin unresolved, rewizja 267, dokładnie +7 receipts
+  i eventów. Pozostały payload identyczny; 180 anotacji i 63 akceptacje zachowane.
+  Nowe procesy replay i odczytu PASS; końcowy audyt danych Astra medium PASS
+  bez P0–P2. Osobny operacyjny commit v1.7.27 (pełny hash po commicie). SHA stanu:
+  `f4fabe1790b6922ce297ab61e118371aa3eb91a509606c478d67a7a2b75726ae`.
+- Niezależność nagrań i pomiar nadal nierozstrzygnięte. Pilot z podziałem
+  całymi grami 5×3, bez pomiaru czasu, przedstawiono operatorowi jako odrębną
+  decyzję; nie jest jeszcze zatwierdzony ani wdrożony. Brak freeze i treningu.
+  Nie ponawiać rozstrzygniętych pytań o katalogi Treasure.
+- Dry-run nowej polityki v2 na kopii rewizji 267: nadal
+  `VERIFIED_MEASUREMENT_SOURCES_REQUIRED`, 63 zdjęcia wykluczone z powodu
+  brakującego/nierozstrzygniętego pochodzenia. Stan przed/po identyczny.
+
+### Treasure — doprecyzowanie katalogów źródłowych przez operatora
+
+- Operator podał i skorygował pochodzenie: 36 zdjęć `seq_23590–23913`
+  z `D:\tresure zd\tresure23600`; pozostałe 64 zdjęcia `seq_429661–430236`
+  z `D:\tresure zd\tresure427100`. Wpis `439***` był literówką; operator
+  jawnie poprawił go na `429***`. Druga grupa obejmuje również końcówkę
+  `430***` (38 nazw zaczynających się od 429 i 26 od 430).
+- Oba katalogi istnieją. Odczyt 100 nazw w folderze treningowym potwierdził
+  zakresy i brak `seq_439*`. To konkretna deklaracja operatora o pochodzeniu,
+  nie niezależny dowód identyczności pikseli lub niezależności nagrań.
+  Brak drugiego eksportu selekcji nie oznacza już braku deklaracji katalogu.
+- Aktualizacja wyłącznie dokumentacyjna w trwającym T03; bez zmian danych,
+  rodzin, akceptacji, splitu i treningu. Następnie powiązać te grupy także
+  z dotychczasowymi źródłami i sprawdzić konflikty przed zamrożeniem podziału.
 
 ### T03i — odzyskiwanie metadanych selekcji
 
@@ -37,7 +78,9 @@ last_updated: 2026-09-27
   Niezależny audyt Astra medium PASS bez P0–P2, także oba niezmienione store.
   Manifest trwały przy kopiach: recovery-manifest-20260927.json / SHA
   `954cadcfc97e71cf8636a0b0d6f3dafaa72192c299ff79a0b84d9412e71f38a2`.
-  T03i done, commit v1.7.25 (hash po commicie); T03 nadal blocked.
+  T03i done, commit `v1.7.25` / `6db4f895719695ab6cdfd6a1f3ad9300f64be013`;
+  staged check/stat/list i show/stat/status PASS, obce zmiany zachowane.
+  T03 nadal blocked.
 
 ### T03h — kwalifikacja geometrii 777 na rozszerzonym zbiorze
 

@@ -68,6 +68,24 @@ Dowody i wynik: TASK-0668 oraz
 `gpt-6-sol` / `medium`, niezależny audyt `gpt-6-astra` / `medium` według
 końcowej tabeli. T04/T05 zachowują `gpt-6-sol` / `high` i audyt Astra medium.
 
+Kontynuacja T03 po doprecyzowaniu operatora: oba zakresy Treasure mają
+konkretne katalogi zapisane w TASK-0668; Mumie są wiązane przez seq i wskazany
+katalog źródłowy. Wykonawca przygotowuje pełną mapę dowodów oraz dry-run
+istniejącego podziału na kopii stanu. Raport
+`ai_docs/quality/VISION_LAB_SOURCE_MAPPING_20260927.md` rozdzieli rzeczywiste
+dowody, deklaracje i unresolved; brak JSON sam nie unieważnia deklaracji.
+Realne zapisy wymagają audytu dokładnej propozycji i przejścia istniejących
+bramek, bez automatycznego verified z prefiksów lub fikcyjnego pomiaru.
+Nie ponawiać rozstrzygniętych pytań o Treasure. Zakres pozostaje T03;
+przypisanie wykonawcy i audytora nie zmienia się.
+
+Wynik kontynuacji: mapa 1466 źródeł i 365 metadanych, siedem requestów
+unresolved po audycie zapisanych z backupem i kontrolą nowych procesów.
+436 powiązań, rewizja 267; 180 siatek i 63 akceptacje bez zmian. Dry-run v2
+nie przechodzi nadal bramki VERIFIED_MEASUREMENT_SOURCES_REQUIRED.
+Wariant pilotażu całymi grami bez pomiaru czasu jest tylko propozycją
+oczekującą odrębnej zgody, nie zmianą tego planu. T03 pozostaje blocked.
+
 D-447 dopuszcza dwa jawnie różne źródła etykiet: zatwierdzenie w aplikacji i
 `lab_human_approved`. Laboratorium zapisuje tożsamość gry i wersję słownika,
 obraz oraz SHA-256, planszę, komórkę, rewizję geometrii, dokładny crop oraz

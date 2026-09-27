@@ -81,7 +81,8 @@ Trwały manifest `recovered_metadata/recovery-manifest-20260927.json`:
 74899 B, SHA `954cadcfc97e71cf8636a0b0d6f3dafaa72192c299ff79a0b84d9412e71f38a2`.
 Skorygowano nieścisłość opisu daty Shell; surowe wartości odpowiadają UTC,
 nie lokalnej strefie. Odbiór obejmuje kontrolę nowego procesu i brak nadpisań.
-Commit T03i: v1.7.25 (pełny hash po commicie). Staged check/stat/list PASS.
+Commit T03i: `v1.7.25` / `6db4f895719695ab6cdfd6a1f3ad9300f64be013`.
+Staged check/stat/list i show/stat/status PASS; obce zmiany zachowane.
 Porównanie z DoD: kontrola kopii, nowego procesu, zachowania źródeł oraz
 rozróżnienia dowodów spełniona. Nadrzędny task pozostaje blocked; dalszy krok
 to osobna analiza dowodów pochodzenia, nie automatyczne uruchomienie treningu.
@@ -148,7 +149,7 @@ i architekturę; nie dotykać obcych zmian.
 - [x] Spójny pion API/OpenAPI/client i test requestu; testy backendu,
   Ruff/format/mypy zmienionych modułów, TypeScript klienta, generated check.
 - [x] Niezależny audyt bez P0–P2; Outcome/CURRENT_STATE uzupełnione,
-  osobny commit v1.7.26 przygotowany (pełny hash dopisany po zapisie).
+  osobny commit v1.7.26 wykonany (pełny hash w Outcome).
 
 Sprawdzone komendy: pytest plików testowych wyżej, root
 `npm run vision-lab:openapi:generate` i `npm run vision-lab:openapi:check`;
@@ -175,7 +176,8 @@ freeze i treningu. Po odbiorze ponowić dry-run mapy z nową jawnie wybraną
 polityką; nie omijać pozostałych bramek T03. Wszystkie kryteria T03j pokryto
 testami i audytem; bez pełnego builda repo ani wdrożenia. Cały TASK-0668
 pozostaje aktywny, więc nie przenosi się go do completed razem z podzadaniem.
-Commit T03j: v1.7.26 (pełny hash po commicie).
+Commit T03j: `v1.7.26` / `867da1167362f32ae6ff3e623fa976c57c261c1c`.
+Staged check/stat/list oraz show/stat/status PASS; obce zmiany zachowane.
 
 ## Goal
 
@@ -221,6 +223,24 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 
 ## Technical notes
 
+Wznowienie operacyjne po deklaracji Treasure (2026-09-27): zlecony wykonawca
+gpt-6-sol / medium przygotowuje pełną mapę źródeł i odczytowy dry-run podziału
+istniejącym `splits.py::freeze_splits` na kopii stanu. Oddzielić dowody SHA,
+eksporty selekcji/cropów, konkretną deklarację operatora i nierozstrzygnięte
+kandydatury. Brak JSON nie jest samodzielnym blokerem zadeklarowanego katalogu.
+Wszystkie powiązania obejmują katalog, nie tylko 63 akceptowane zdjęcia.
+Nie tworzyć verified z samej nazwy; nie dobierać fikcyjnych trudności lub
+niezależnych rodzin pod wymagania pomiaru. Nie przenosić zatwierdzeń na nowe
+obrazy. Realne zapisy dopiero po audycie dokładnej propozycji, bez osłabiania
+bramek w celu uzyskania zielonego wyniku. Konflikt wymaga konkretnego raportu.
+Nowy raport: `ai_docs/quality/VISION_LAB_SOURCE_MAPPING_20260927.md`;
+requesty i wyniki diagnostyczne w `artifacts/vision-lab`. Zmiany dokumentacji
+task/current/plan prowadzi root. Kod produkcyjny i API/UI poza tym krokiem.
+Kryteria: pełne pokrycie mapą (także jawne unresolved), brak podziału znanych
+powiązań, dokładne komunikaty istniejących bramek, zachowane SHA obu store,
+niezależny audyt Astra medium. Następnie zapis rodzin/splitu tylko jeśli
+rzeczywiste dowody i wymagania wystarczają; T04 wymaga ukończonego T03.
+
 Decyzja użytkownika z 2026-09-27 (D-453): historyczne zdjęcia 777 mają wejść
 do modelu geometrii, aby obsługiwał przyszłe podobne zdjęcia. Referencją są
 nowe ręczne siatki zatwierdzone w labie, nie dawne geometrie v1.1. Nie ma
@@ -254,6 +274,18 @@ tożsamości filmu. Nie przenosić geometrii na nowe piksele ani nie oznaczać
 tej deklaracji jako pełnej weryfikacji pozostałych rodzin. Brak potrzeby
 ponawiania tego pytania lub rysowania niezmienionych siatek. Następnym krokiem
 pozostaje techniczne mapowanie i kontrola pozostałych powiązań.
+
+Doprecyzowanie operatora 2026-09-27: konkretne katalogi Treasure to
+`D:\tresure zd\tresure23600` dla 36 nowych zdjęć `seq_23590–23913` oraz
+`D:\tresure zd\tresure427100` dla pozostałych 64 zdjęć `seq_429661–430236`.
+Operator jawnie poprawił wcześniejsze `439***` na `429***`; w drugiej grupie
+38 nazw zaczyna się od 429 i 26 od 430. Odczyt potwierdził istnienie obu
+katalogów i te zakresy w 100 zdjęciach folderu treningowego; brak `seq_439*`.
+Traktować jako deklarację katalogu pochodzenia, nie niezależne potwierdzenie
+tożsamości pikseli ani rozłączności filmów. Nie wymagać drugiego eksportu
+wyłącznie po to, by ponownie pytać o już zadeklarowany katalog. Przed freeze
+nadal powiązać z dawnymi źródłami i sprawdzić konflikty, bez przenoszenia
+geometrii lub akceptacji na nowe piksele.
 
 Wznowienie po przeglądzie: ostatni odczyt wykazał 63 zaakceptowane zdjęcia,
 180 pełnych geometrii i brak zapisanych rodzin/splitu; liczności wymagają
@@ -1228,6 +1260,42 @@ zapisu na rzeczywistych danych, akceptacji zdjęć użytkownika, treningu ani
 zmiany roli `777`; CURRENT_STATE i usługi należą do koordynatora.
 
 ## Outcome T03 (narzędzia i operacje)
+
+### Mapa źródeł i częściowe utrwalenie rodzin (2026-09-27)
+
+- Sol medium zmapował wszystkie 1466 źródeł oraz 365 JSON. Raport:
+  `ai_docs/quality/VISION_LAB_SOURCE_MAPPING_20260927.md`. Dowody SHA,
+  deklaracje katalogów i niepotwierdzona niezależność pozostają rozdzielone.
+- Astra medium zatwierdził dokładne siedem requestów bez P0–P2. Po backupie
+  utrwalono 436 źródeł w siedmiu rodzinach unresolved przez istniejący CAS:
+  rewizja 260–267, dokładnie siedem eventów i receipts. Pozostały payload
+  identyczny z backupem; zachowane 180 anotacji, 63 akceptacje, 11 kwalifikacji
+  i 196 timingów. Nowy proces replay i kolejny odczyt PASS, bez zmiany SHA.
+  Końcowy niezależny audyt Astra medium PASS bez P0–P2: odtworzony cały
+  payload z backupu i siedmiu requestów, SHA obu store oraz kopii potwierdzone.
+  Mapę i requesty skopiowano create-only do
+  `game_predictor_vision_data/reports/t03-source-mapping-20260927`.
+- Dry-run po T03j, na kopii rzeczywistej rewizji 267 i tej samej kohorcie 63,
+  z polityką `lab-geometry-cohort-777-targets-v2`: nadal
+  `VERIFIED_MEASUREMENT_SOURCES_REQUIRED`. Wszystkie 63 targetowe zdjęcia
+  mają nierozstrzygnięte/brakujące pochodzenie komponentu, zero eligible.
+  Oba warianty measurement sprawdzone bez mutacji; SHA przed i po:
+  `f4fabe1790b6922ce297ab61e118371aa3eb91a509606c478d67a7a2b75726ae`.
+- DoD tego kroku: pełne pokrycie mapą, brak nowych akceptacji, backup,
+  idempotencja i kontrola restartu spełnione. Nie zamrożono splitu i nie
+  uruchomiono T04/T05 ani treningu. T03 pozostaje blocked. Osobna propozycja
+  pilotażu całymi grami 5×3 bez pomiaru czasu oczekuje decyzji operatora;
+  nie zastępuje przyjętego protokołu samodzielnie. Operacyjny zapis postępu
+  T03 otrzymuje osobny commit v1.7.27 (pełny hash po commicie).
+
+### Deklaracja obu katalogów Treasure (2026-09-27)
+
+- Zapisano pochodzenie obu nowych zakresów i jawną korektę literówki
+  `439***` na `429***`. Odczyt katalogów i 100 nazw PASS; brak zmian danych.
+- Uzupełniono Technical notes i CURRENT_STATE. Nie zmieniono planu, kodu,
+  rodzin, splitu ani zgód; nie uruchomiono treningu. Testy aplikacji nie
+  dotyczą zapisu deklaracji. To uzupełnienie trwającego T03, nie zamknięcie
+  taska ani nowa kwalifikacja. Kolejny krok: powiązania i kontrola konfliktów.
 
 ### Doprecyzowanie pochodzenia Treasure (2026-09-27)
 

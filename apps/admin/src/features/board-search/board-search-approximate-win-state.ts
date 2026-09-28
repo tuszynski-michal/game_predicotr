@@ -6,17 +6,21 @@ import type { ApproximateWinResponse } from '@game-predictor/admin-api-client';
  * The ceiling matches the API's own `APPROXIMATE_WIN_SPIN_COUNT_MAX` —
  * TASK-0652, `application/board_search_approximate_win.py`.
  */
-export const APPROXIMATE_WIN_RANGE_DEFAULT = 1000;
+export const APPROXIMATE_WIN_RANGE_DEFAULT = 2500;
 export const APPROXIMATE_WIN_RANGE_MAX = 10_000;
 
-/** Client-side pagination only; never changes the calculated summary. */
-export const APPROXIMATE_WIN_ROWS_PAGE_SIZE = 100;
+export interface ApproximateWinChartPoint {
+  readonly cumulativePayoutCredits: number;
+  readonly spinNumber: number;
+}
 
 export type ParsedApproximateWinRange =
   | { readonly ok: true; readonly value: number }
   | { readonly ok: false; readonly error: string };
 
-export function parseApproximateWinRange(text: string): ParsedApproximateWinRange {
+export function parseApproximateWinRange(
+  text: string,
+): ParsedApproximateWinRange {
   const trimmed = text.trim();
   if (trimmed === '') {
     return { error: 'Podaj zakres wygranej.', ok: false };
@@ -98,37 +102,32 @@ export function visibleApproximateWinResult(
   state: ApproximateWinState,
   currentKey: string | null,
 ): ApproximateWinResponse | null {
-  if (state.kind !== 'ready' || currentKey === null || state.key !== currentKey) {
+  if (
+    state.kind !== 'ready' ||
+    currentKey === null ||
+    state.key !== currentKey
+  ) {
     return null;
   }
   return state.result;
 }
 
-export interface ApproximateWinRowsPage {
-  readonly rows: ApproximateWinResponse['rows'];
-  readonly page: number;
-  readonly pageCount: number;
-  readonly totalRowCount: number;
-}
-
 /**
- * Client-side pagination over already-calculated rows. Never touches the
- * range's own summary/completeness/balance — those describe the whole
- * evaluated range regardless of how many rows are currently displayed.
+ * Builds a chart series from the rows returned by the API. The origin is
+ * explicit so the graph never implies a payout before the first spin.
+ * Rows already contain cumulative values for all evaluated spins, including
+ * the losing and missing ones that are intentionally absent from `rows`.
  */
-export function pageApproximateWinRows(
+export function approximateWinChartPoints(
   rows: ApproximateWinResponse['rows'],
-  page: number,
-): ApproximateWinRowsPage {
-  const pageCount = Math.max(1, Math.ceil(rows.length / APPROXIMATE_WIN_ROWS_PAGE_SIZE));
-  const clampedPage = Math.min(Math.max(1, page), pageCount);
-  const start = (clampedPage - 1) * APPROXIMATE_WIN_ROWS_PAGE_SIZE;
-  return {
-    page: clampedPage,
-    pageCount,
-    rows: rows.slice(start, start + APPROXIMATE_WIN_ROWS_PAGE_SIZE),
-    totalRowCount: rows.length,
-  };
+): readonly ApproximateWinChartPoint[] {
+  return [
+    { cumulativePayoutCredits: 0, spinNumber: 0 },
+    ...rows.map((row) => ({
+      cumulativePayoutCredits: row.cumulativePayoutCredits,
+      spinNumber: row.spinNumber,
+    })),
+  ];
 }
 
 export function formatApproximateWinCredits(value: number): string {

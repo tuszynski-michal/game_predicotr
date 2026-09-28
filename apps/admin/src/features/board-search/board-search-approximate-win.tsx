@@ -20,9 +20,9 @@ import {
   APPROXIMATE_WIN_RANGE_DEFAULT,
   APPROXIMATE_WIN_RANGE_MAX,
   type ApproximateWinState,
+  approximateWinChartPoints,
   approximateWinRequestKey,
   formatApproximateWinCredits,
-  pageApproximateWinRows,
   parseApproximateWinRange,
   shouldRequestApproximateWin,
   visibleApproximateWinResult,
@@ -60,7 +60,6 @@ export function BoardSearchApproximateWin({
   const [state, setState] = useState<ApproximateWinState>(
     APPROXIMATE_WIN_IDLE_STATE,
   );
-  const [page, setPage] = useState(1);
   const requestIdRef = useRef(0);
 
   const resultIdentity = selectedResult
@@ -74,10 +73,6 @@ export function BoardSearchApproximateWin({
           spinCount: range,
         })
       : null;
-
-  useEffect(() => {
-    queueMicrotask(() => setPage(1));
-  }, [requestKey]);
 
   function runCalculation(key: string, sequenceNumber: number) {
     const requestId = ++requestIdRef.current;
@@ -151,15 +146,9 @@ export function BoardSearchApproximateWin({
   const visibleResult = visibleApproximateWinResult(state, requestKey);
   const showError = state.kind === 'error' && state.key === requestKey;
   const showLoading = state.kind === 'loading' && state.key === requestKey;
-  const pagedRows = visibleResult
-    ? pageApproximateWinRows(visibleResult.rows, page)
-    : null;
 
   return (
-    <details
-      className="boardSearchApproximateWin"
-      onToggle={handleToggle}
-    >
+    <details className="boardSearchApproximateWin" onToggle={handleToggle}>
       <summary>Przybliżona wygrana</summary>
       <div className="boardSearchApproximateWinBody">
         <div className="boardSearchApproximateWinRange">
@@ -184,8 +173,8 @@ export function BoardSearchApproximateWin({
             />
           </label>
           <small>
-            Liczba kolejnych spinów po wybranej planszy (S+1…S+N), niezależna
-            od „Liczby wyników”.
+            Liczba kolejnych spinów po wybranej planszy (S+1…S+N), niezależna od
+            „Liczby wyników”.
           </small>
         </div>
         {rangeError ? (
@@ -226,8 +215,8 @@ export function BoardSearchApproximateWin({
           </>
         ) : null}
 
-        {visibleResult && pagedRows ? (
-          <ApproximateWinResultView pagedRows={pagedRows} page={page} setPage={setPage} result={visibleResult} />
+        {visibleResult ? (
+          <ApproximateWinResultView result={visibleResult} />
         ) : null}
       </div>
     </details>
@@ -235,15 +224,9 @@ export function BoardSearchApproximateWin({
 }
 
 function ApproximateWinResultView({
-  page,
-  pagedRows,
   result,
-  setPage,
 }: {
-  readonly page: number;
-  readonly pagedRows: ReturnType<typeof pageApproximateWinRows>;
   readonly result: ApproximateWinResponse;
-  readonly setPage: (updater: (current: number) => number) => void;
 }) {
   const hasIncompleteData =
     result.completeness.partialBoardCount > 0 ||
@@ -298,8 +281,10 @@ function ApproximateWinResultView({
 
       <p className="importSubsectionHeader">
         {result.completeness.completeBoardCount.toLocaleString('pl-PL')} plansz
-        kompletnych, {result.completeness.partialBoardCount.toLocaleString('pl-PL')}{' '}
-        częściowych, {result.completeness.missingBoardCount.toLocaleString('pl-PL')}{' '}
+        kompletnych,{' '}
+        {result.completeness.partialBoardCount.toLocaleString('pl-PL')}{' '}
+        częściowych,{' '}
+        {result.completeness.missingBoardCount.toLocaleString('pl-PL')}{' '}
         brakujących
       </p>
 
@@ -314,12 +299,15 @@ function ApproximateWinResultView({
       ) : null}
 
       {result.rows.length === 0 ? (
-        <p className="importEmptyState">
-          W analizowanym zakresie nie ma rozpoznanej wypłaty.
-          {hasIncompleteData
-            ? ' Przy niepełnych danych nie można wykluczyć niewykrytej wygranej.'
-            : ''}
-        </p>
+        <>
+          <p className="importEmptyState">
+            W analizowanym zakresie nie ma rozpoznanej wypłaty.
+            {hasIncompleteData
+              ? ' Przy niepełnych danych nie można wykluczyć niewykrytej wygranej.'
+              : ''}
+          </p>
+          <ApproximateWinPayoutChart rows={result.rows} />
+        </>
       ) : (
         <>
           <div className="importRowsTableWrap">
@@ -335,7 +323,7 @@ function ApproximateWinResultView({
                 </tr>
               </thead>
               <tbody>
-                {pagedRows.rows.map((row) => (
+                {result.rows.map((row) => (
                   <tr key={row.sequenceNumber}>
                     <td>{row.spinNumber.toLocaleString('pl-PL')}</td>
                     <td>#{row.sequenceNumber}</td>
@@ -361,32 +349,102 @@ function ApproximateWinResultView({
               </tbody>
             </table>
           </div>
-          {pagedRows.pageCount > 1 ? (
-            <footer className="boardSearchResultNavigation">
-              <button
-                className="secondaryButton"
-                disabled={page === 1}
-                onClick={() => setPage((current) => current - 1)}
-                type="button"
-              >
-                ← Poprzednia
-              </button>
-              <span>
-                Strona {pagedRows.page} z {pagedRows.pageCount} (
-                {pagedRows.totalRowCount.toLocaleString('pl-PL')} wierszy)
-              </span>
-              <button
-                className="secondaryButton"
-                disabled={page === pagedRows.pageCount}
-                onClick={() => setPage((current) => current + 1)}
-                type="button"
-              >
-                Następna →
-              </button>
-            </footer>
-          ) : null}
+          <ApproximateWinPayoutChart rows={result.rows} />
         </>
       )}
     </>
+  );
+}
+
+function ApproximateWinPayoutChart({
+  rows,
+}: {
+  readonly rows: ApproximateWinResponse['rows'];
+}) {
+  if (rows.length === 0) {
+    return (
+      <section
+        aria-labelledby="approximateWinChartHeading"
+        className="boardSearchApproximateWinChart"
+      >
+        <h3 id="approximateWinChartHeading">Wypłaty według liczby spinów</h3>
+        <p className="importEmptyState">
+          Wykres pojawi się po rozpoznaniu pierwszej wypłaty w tym zakresie.
+        </p>
+      </section>
+    );
+  }
+
+  const points = approximateWinChartPoints(rows);
+  const finalPoint = points.at(-1);
+  if (finalPoint === undefined) {
+    return null;
+  }
+  const width = 800;
+  const height = 240;
+  const padding = { bottom: 34, left: 54, right: 18, top: 18 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const maximumSpin = finalPoint.spinNumber;
+  const maximumPayout = finalPoint.cumulativePayoutCredits;
+  const toX = (spinNumber: number) =>
+    padding.left + (spinNumber / maximumSpin) * chartWidth;
+  const toY = (payoutCredits: number) =>
+    padding.top + chartHeight - (payoutCredits / maximumPayout) * chartHeight;
+  const polylinePoints = points
+    .map(
+      (point) =>
+        `${toX(point.spinNumber)},${toY(point.cumulativePayoutCredits)}`,
+    )
+    .join(' ');
+
+  return (
+    <section
+      aria-labelledby="approximateWinChartHeading"
+      className="boardSearchApproximateWinChart"
+    >
+      <div>
+        <h3 id="approximateWinChartHeading">Wypłaty według liczby spinów</h3>
+        <p>
+          Narastające rozpoznane wypłaty; punkty odpowiadają wyłącznie spinom z
+          dodatnią wypłatą.
+        </p>
+      </div>
+      <svg
+        aria-describedby="approximateWinChartDescription"
+        aria-label="Wykres narastających rozpoznanych wypłat według liczby spinów"
+        role="img"
+        viewBox={`0 0 ${width} ${height}`}
+      >
+        <desc id="approximateWinChartDescription">
+          Od zera do {finalPoint.spinNumber.toLocaleString('pl-PL')} spinów,
+          łączna rozpoznana wypłata wynosi{' '}
+          {formatApproximateWinCredits(finalPoint.cumulativePayoutCredits)}{' '}
+          kredytów.
+        </desc>
+        <line
+          x1={padding.left}
+          x2={width - padding.right}
+          y1={padding.top + chartHeight}
+          y2={padding.top + chartHeight}
+        />
+        <line
+          x1={padding.left}
+          x2={padding.left}
+          y1={padding.top}
+          y2={padding.top + chartHeight}
+        />
+        <polyline fill="none" points={polylinePoints} />
+        <text x={padding.left} y={height - 10}>
+          0
+        </text>
+        <text textAnchor="end" x={width - padding.right} y={height - 10}>
+          {maximumSpin.toLocaleString('pl-PL')} spinów
+        </text>
+        <text x={padding.left - 8} y={padding.top + 4} textAnchor="end">
+          {formatApproximateWinCredits(maximumPayout)}
+        </text>
+      </svg>
+    </section>
   );
 }

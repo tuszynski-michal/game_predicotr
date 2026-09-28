@@ -6,6 +6,17 @@ last_updated: 2026-09-28
 
 # Current State
 
+### TASK-0719 — „Przybliżona wygrana”: przewijalna tabela i wykres
+
+- Ukończone: osobne rozszerzenie klienta Admina, bez zmiany endpointu,
+  obliczeń payoutu ani danych. Domyślny zakres wynosi 2 500 spinów.
+- Tabela dodatnich wypłat renderuje wszystkie wiersze w przewijalnym obszarze
+  ze sticky nagłówkiem (około 20 wierszy naraz), bez paginacji. Pod nią jest
+  lekki wykres SVG narastających rozpoznanych wypłat według numeru spinu;
+  pokazuje jawny pusty stan bez generowania danych.
+- Admin: 611 testów jednostkowych, 49 interakcji, ESLint, TypeScript i build
+  Next PASS. Commit `v1.7.38` — hash do dopisania po kontroli indeksu.
+
 ### TASK-0718 — Uzupełnienie sześciu plansz 777
 
 - Operator wskazał sześć plansz 225930, 225933, 225939, 225942, 225948,

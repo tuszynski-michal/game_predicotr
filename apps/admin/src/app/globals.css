@@ -10140,6 +10140,67 @@ div.imageJobInlineError {
   margin: 0;
 }
 
+.boardSearchApproximateWin .importRowsTableWrap {
+  max-block-size: 680px;
+  overflow: auto;
+}
+
+.boardSearchApproximateWin .importRowsTable th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel-raised);
+}
+
+.boardSearchApproximateWinChart {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  background: var(--panel);
+}
+
+.boardSearchApproximateWinChart h3,
+.boardSearchApproximateWinChart p {
+  margin: 0;
+}
+
+.boardSearchApproximateWinChart h3 {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.boardSearchApproximateWinChart p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.boardSearchApproximateWinChart svg {
+  inline-size: 100%;
+  block-size: auto;
+  min-block-size: 180px;
+  color: var(--muted);
+}
+
+.boardSearchApproximateWinChart line {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.boardSearchApproximateWinChart polyline {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.boardSearchApproximateWinChart text {
+  fill: currentColor;
+  font-size: 11px;
+}
+
 .v7LabelGeometryWorkspace {
   display: grid;
   gap: 16px;

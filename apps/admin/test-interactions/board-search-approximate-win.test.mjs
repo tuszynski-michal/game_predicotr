@@ -25,9 +25,8 @@ for (const key of [
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const { createRoot } = await import('react-dom/client');
-const { BoardSearchWorkspace } = await import(
-  '../src/features/board-search/board-search-workspace.tsx'
-);
+const { BoardSearchWorkspace } =
+  await import('../src/features/board-search/board-search-workspace.tsx');
 
 after(() => dom.window.close());
 
@@ -64,12 +63,16 @@ function boardResult(sequenceNumber, overrides = {}) {
 
 function approximateWinResponse(startSequenceNumber, overrides = {}) {
   return {
-    completeness: { completeBoardCount: 0, missingBoardCount: 1000, partialBoardCount: 0 },
+    completeness: {
+      completeBoardCount: 0,
+      missingBoardCount: 2500,
+      partialBoardCount: 0,
+    },
     dataFingerprintSha256: 'a'.repeat(64),
     dataSource: 'operational_review',
-    evaluatedSpinCount: 1000,
+    evaluatedSpinCount: 2500,
     gameId,
-    requestedSpinCount: 1000,
+    requestedSpinCount: 2500,
     rows: [],
     rules: {
       algorithmVersion: 'payout-v3-unknown-prefix-stop',
@@ -80,7 +83,11 @@ function approximateWinResponse(startSequenceNumber, overrides = {}) {
     sequenceLength: 500000,
     startBoardStatus: null,
     startSequenceNumber,
-    summary: { balanceCredits: -20000, recognizedPayoutCredits: 0, spinCostCredits: 20000 },
+    summary: {
+      balanceCredits: -50000,
+      recognizedPayoutCredits: 0,
+      spinCostCredits: 50000,
+    },
     wrappedAtSequenceEnd: false,
     ...overrides,
   };
@@ -109,9 +116,9 @@ async function eventually(predicate, label) {
 }
 
 function symbolButton() {
-  const current = [...document.querySelectorAll('.boardSearchSymbolButton')].find(
-    (node) => node.title === symbol.name,
-  );
+  const current = [
+    ...document.querySelectorAll('.boardSearchSymbolButton'),
+  ].find((node) => node.title === symbol.name);
   assert.ok(current);
   return current;
 }
@@ -240,10 +247,13 @@ test('first expansion calculates for the currently selected board with the defau
   const root = await renderWorkspaceWithResults(client);
 
   await toggleDetails(approximateWinDetails(), true);
-  await eventually(() => approximateWinCalls.length === 1, 'should calculate once');
+  await eventually(
+    () => approximateWinCalls.length === 1,
+    'should calculate once',
+  );
 
   assert.deepEqual(approximateWinCalls[0], {
-    spinCount: 1000,
+    spinCount: 2500,
     startSequenceNumber: 10,
   });
   await act(async () => root.unmount());
@@ -263,7 +273,10 @@ test('changing the selected board while open refreshes the result', async () => 
   const root = await renderWorkspaceWithResults(client);
 
   await toggleDetails(approximateWinDetails(), true);
-  await eventually(() => approximateWinCalls.length === 1, 'initial calculation');
+  await eventually(
+    () => approximateWinCalls.length === 1,
+    'initial calculation',
+  );
   assert.equal(approximateWinCalls[0].startSequenceNumber, 10);
 
   await click(
@@ -271,7 +284,10 @@ test('changing the selected board while open refreshes the result', async () => 
       node.textContent.includes('Następna'),
     ),
   );
-  await eventually(() => approximateWinCalls.length === 2, 'refreshed calculation');
+  await eventually(
+    () => approximateWinCalls.length === 2,
+    'refreshed calculation',
+  );
   assert.equal(approximateWinCalls[1].startSequenceNumber, 19);
 
   await act(async () => root.unmount());
@@ -289,7 +305,10 @@ test('typing in the range input does not send a request; committing it does', as
   const root = await renderWorkspaceWithResults(client);
 
   await toggleDetails(approximateWinDetails(), true);
-  await eventually(() => approximateWinCalls.length === 1, 'initial calculation');
+  await eventually(
+    () => approximateWinCalls.length === 1,
+    'initial calculation',
+  );
 
   await act(async () => setInputValue(rangeInput(), '2'));
   await act(async () => setInputValue(rangeInput(), '25'));
@@ -297,7 +316,10 @@ test('typing in the range input does not send a request; committing it does', as
   assert.equal(approximateWinCalls.length, 1, 'typing alone must not request');
 
   await act(async () => pressEnter(rangeInput()));
-  await eventually(() => approximateWinCalls.length === 2, 'commit should request');
+  await eventually(
+    () => approximateWinCalls.length === 2,
+    'commit should request',
+  );
   assert.equal(approximateWinCalls[1].spinCount, 25);
 
   await act(async () => root.unmount());
@@ -399,10 +421,66 @@ test('without a selected result, opening shows a message and issues no request',
   await act(async () => root.unmount());
 });
 
+test('renders every payout row in one scrollable table and shows its cumulative-payout chart', async () => {
+  const rows = Array.from({ length: 25 }, (_, index) => ({
+    boardStatus: 'accepted',
+    cumulativeBalanceCredits: (index + 1) * 100 - (index + 1) * 20,
+    cumulativeCostCredits: (index + 1) * 20,
+    cumulativePayoutCredits: (index + 1) * 100,
+    payoutCredits: 100,
+    payoutKind: 'exact',
+    sequenceNumber: index + 1,
+    spinNumber: index + 1,
+  }));
+  const client = makeClient({
+    approximateWinImpl: async (_gameId, options) => ({
+      data: approximateWinResponse(options.startSequenceNumber, {
+        completeness: {
+          completeBoardCount: 25,
+          missingBoardCount: 0,
+          partialBoardCount: 0,
+        },
+        rows,
+        summary: {
+          balanceCredits: 2000,
+          recognizedPayoutCredits: 2500,
+          spinCostCredits: 500,
+        },
+      }),
+    }),
+    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+  });
+  const root = await renderWorkspaceWithResults(client);
+
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      document.querySelectorAll('.boardSearchApproximateWin tbody tr')
+        .length === 25,
+    'all payout rows should render in the single table',
+  );
+
+  assert.equal(
+    document.querySelector(
+      '.boardSearchApproximateWin .boardSearchResultNavigation',
+    ),
+    null,
+  );
+  assert.ok(document.querySelector('.boardSearchApproximateWinChart svg'));
+  assert.match(
+    document.querySelector('.boardSearchApproximateWinChart').textContent,
+    /Narastające rozpoznane wypłaty/,
+  );
+  await act(async () => root.unmount());
+});
+
 test('a technical error shows an alert without fabricating zero metrics', async () => {
   const client = makeClient({
     approximateWinImpl: async () => ({
-      error: { code: 'APPROXIMATE_WIN_RULES_NOT_PUBLISHED', message: 'no rules' },
+      error: {
+        code: 'APPROXIMATE_WIN_RULES_NOT_PUBLISHED',
+        message: 'no rules',
+      },
     }),
     searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
   });
@@ -415,9 +493,28 @@ test('a technical error shows an alert without fabricating zero metrics', async 
     'error banner should render',
   );
 
-  assert.equal(
-    document.body.textContent.includes('Rozpoznane wypłaty'),
-    false,
+  assert.equal(document.body.textContent.includes('Rozpoznane wypłaty'), false);
+  await act(async () => root.unmount());
+});
+
+test('shows an explicit empty chart state when the range has no payouts', async () => {
+  const client = makeClient({
+    approximateWinImpl: async (_gameId, options) => ({
+      data: approximateWinResponse(options.startSequenceNumber),
+    }),
+    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+  });
+  const root = await renderWorkspaceWithResults(client);
+
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () => document.querySelector('.boardSearchApproximateWinChart') !== null,
+    'the empty chart state should render',
+  );
+
+  assert.match(
+    document.querySelector('.boardSearchApproximateWinChart').textContent,
+    /Wykres pojawi się po rozpoznaniu pierwszej wypłaty/,
   );
   await act(async () => root.unmount());
 });

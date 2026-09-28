@@ -336,3 +336,18 @@ blokadami geometry-first; publikuje jeden state z jedną rewizją i receipt,
 zachowując odrębne decision_id i historię każdej komórki. Nie wywołuje mutate
 rekurencyjnie. Stare requesty i receipts pozostają zgodne; szczegółowy kontrakt
 i testy zapisuje TASK-0716, bez zmiany bramek dopuszczenia danych do treningu.
+
+TASK-0717/D-460 dodaje pochodny, paginowany podgląd `kind=lab_queue` do
+istniejącego POST /symbol-crops. Metadane aktualności decyzji wylicza pod
+blokadami z geometrii i symbolstore bez utrwalania flagi ani masowego
+renderowania. Indeks akceptacji oraz uprawnienia source/komponent liczone są
+raz na odczyt; piksele tylko dla bieżącej strony, po kontroli roli/holdoutu.
+Nierozstrzygnięty globalny podział zatrzymuje odczyt jawnym błędem; zwykły
+holdout jest pomijany bez ujawnienia źródła. Błąd nie udaje pustej kolejki.
+Token wiąże obie rewizje, grę, sortowanie oraz wersję renderera. Jawne
+„Do ponownej oceny” odróżnia drift od braku wcześniejszej decyzji.
+Addytywne `label_cells_decide` w POST /symbols zapisuje 1–30 unikalnych
+bindingów do jednej aktywnej klasy w jednym write_atomic, jednej rewizji
+i receipt, z odrębnym decision_id od fingerprintu i crop_id. Wszystkie
+bindingi są renderowane i sprawdzane przed pierwszą publikacją. Dopiero
+zgodny jawny zapis tworzy etykiety; queue nie kwalifikuje próbki do treningu.

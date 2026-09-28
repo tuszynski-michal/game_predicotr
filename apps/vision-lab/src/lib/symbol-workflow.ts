@@ -61,3 +61,12 @@ export function symbolWriteSession<T>(write: (request: T) => Promise<unknown>) {
 export function canMutateSymbolRow(origin: string): boolean {
   return origin === 'lab_human_approved';
 }
+
+export function symbolErrorCode(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'detail' in error)
+    return typeof error.detail === 'string'
+      ? error.detail
+      : JSON.stringify(error.detail);
+  return String(error);
+}

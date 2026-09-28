@@ -42,6 +42,9 @@ export type {
   DictionaryEntry,
   LabCropPreview,
   LabBoardPreview,
+  LabQueuePreview,
+  LabQueueItem,
+  LabelCellsDecide,
   LabelBoardDecide,
   DbCropPreview,
   SymbolResult,
@@ -109,8 +112,31 @@ export async function symbolDictionary(gameId: string, version: number) {
     })
   ).data;
 }
-export async function symbolCrop(body: SymbolCropRequest) {
-  return (await previewSymbolCrop({ baseUrl, body, throwOnError: true })).data;
+let symbolPreviewTail: Promise<void> = Promise.resolve();
+export async function symbolCrop(body: SymbolCropRequest, timeoutMs = 60_000) {
+  // The local annotation store allows one reader at a time. Release the slot
+  // on both success and failure so a board and queue can refresh together.
+  const previous = symbolPreviewTail;
+  let release: () => void = () => {};
+  symbolPreviewTail = new Promise<void>((resolve) => { release = resolve; });
+  await previous;
+  const controller = new AbortController();
+  let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<never>((_resolve, reject) => {
+    timeoutId = setTimeout(() => {
+      controller.abort();
+      reject(new Error('SYMBOL_PREVIEW_TIMEOUT'));
+    }, timeoutMs);
+  });
+  try {
+    return (await Promise.race([
+      previewSymbolCrop({ baseUrl, body, signal: controller.signal, throwOnError: true }),
+      timeout,
+    ])).data;
+  } finally {
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
+    release();
+  }
 }
 export async function symbolBoard(
   body: Extract<SymbolCropRequest, { kind: 'lab_board' }>,
@@ -118,6 +144,22 @@ export async function symbolBoard(
   const preview = await symbolCrop(body);
   if (preview.kind !== 'lab_board')
     throw new Error('SYMBOL_BOARD_RESPONSE_INVALID');
+  return preview;
+}
+export async function symbolQueue(
+  gameId: string,
+  offset = 0,
+  readToken?: string,
+) {
+  const preview = await symbolCrop({
+    kind: 'lab_queue',
+    game_id: gameId,
+    offset,
+    limit: 30,
+    read_token: readToken,
+  });
+  if (preview.kind !== 'lab_queue')
+    throw new Error('SYMBOL_QUEUE_RESPONSE_INVALID');
   return preview;
 }
 export async function writeSymbol(body: SymbolRequest) {

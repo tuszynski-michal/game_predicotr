@@ -5,12 +5,14 @@ import Link from 'next/link';
 import { useToast } from '../../../../packages/ui/src/toasts';
 import { useAnnotations } from './annotation-context';
 import { SymbolBoardEditor } from './symbol-board-editor';
+import { SymbolCandidateQueue } from './symbol-candidate-queue';
 import {
   symbolWriteSession,
   canMutateSymbolRow,
   createSymbolDictionaryEntry,
   hasBlankSymbolDictionaryName,
   normalizeSymbolDictionaryEntries,
+  symbolErrorCode as errorCode,
 } from '../lib/symbol-workflow';
 import {
   listSources,
@@ -41,12 +43,13 @@ export function SymbolLabelEditor() {
   const [pending, setPending] = useState<SymbolRequest | null>(null);
   const [busy, setBusy] = useState(false);
   const [boardBusy, setBoardBusy] = useState(false);
+  const [queueBusy, setQueueBusy] = useState(false);
   const [offset, setOffset] = useState(0);
   const [boardReadVersion, setBoardReadVersion] = useState(0);
   const order = useRef(0);
   const writing = useRef(false);
   const writeSession = useRef(symbolWriteSession<SymbolRequest>(writeSymbol));
-  const unavailable = busy || boardBusy || pending !== null;
+  const unavailable = busy || boardBusy || queueBusy || pending !== null;
   const report = useCallback(
     (message: string) => notify({ kind: 'error', message }),
     [notify],
@@ -216,7 +219,7 @@ export function SymbolLabelEditor() {
         </select>
       </label>
       <button
-        disabled={busy || boardBusy || !game}
+        disabled={busy || boardBusy || queueBusy || !game}
         onClick={() => {
           writeSession.current.reload();
           setPending(null);
@@ -292,8 +295,20 @@ export function SymbolLabelEditor() {
         </button>
         <p>Aktywna zatwierdzona wersja: {active?.version ?? 'brak'}</p>
       </fieldset>
+      <SymbolCandidateQueue
+        key={`queue-${game}`}
+        game={game}
+        sources={sources}
+        active={active}
+        readVersion={boardReadVersion}
+        enabled={!busy && page !== null && pending === null}
+        disabled={unavailable || !page}
+        onBusy={setQueueBusy}
+        onSubmit={submit}
+        onError={report}
+      />
       <SymbolBoardEditor
-        key={game}
+        key={`board-${game}`}
         game={game}
         sources={sources}
         annotations={state}
@@ -416,13 +431,4 @@ export function SymbolLabelEditor() {
       </section>
     </main>
   );
-}
-
-function errorCode(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  if (typeof error === 'object' && error !== null && 'detail' in error)
-    return typeof error.detail === 'string'
-      ? error.detail
-      : JSON.stringify(error.detail);
-  return String(error);
 }

@@ -314,6 +314,10 @@ wyświetla reasons; integrity całego store/snapshotu zatrzymuje cały odczyt.
 Rozszerzenie D-459/TASK-0716 zastępuje pojedynczy wybór komórki widokiem
 całej planszy. Uzgodniony kontrakt lab_board/label_board_decide, atomowość,
 zgodność starych requestów i macierz regresji znajdują się w TASK-0716.
+TASK-0717/D-460 dodaje w tych samych trasach pochodną poczekalnię
+`kind=lab_queue` i atomowe przypisanie `label_cells_decide` do istniejącej
+klasy. Nieprzypisany crop oraz kandydat do ponownej oceny nie są etykietą.
+Kontrakt stron, walidacji i testów znajduje się w TASK-0717.
 Poniższe reguły pojedynczych bindingów, decyzji oraz ochrony danych nadal
 obowiązują każdą komórkę; batch nie jest odrębnym źródłem zatwierdzenia klasy.
 

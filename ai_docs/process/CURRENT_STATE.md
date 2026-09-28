@@ -16,6 +16,21 @@ last_updated: 2026-09-28
   zbiorczej użytkownika ani nie zmieniano innych plansz.
 
 ### TASK-0716 — etykietowanie całej planszy
+### TASK-0717 — poczekalnia cropów symboli
+
+- Operator potwierdził: grupa to istniejący symbol Słownika gry, bez nowej
+  hierarchii. Nieprzypisane cropy pochodzą z aktualnych pełnych geometrii;
+  nie są `unknown`, zatwierdzeniem klasy ani wejściem do treningu.
+- Task 0717 done: stronicowana poczekalnia 30 cropów, przypisanie 1–30 pól
+  do istniejącej klasy w jednym atomowym zapisie. Import nowych zdjęć oraz
+  rebase kwalifikowanego snapshotu są poza tym pionem. Wykonawca i niezależny
+  audytor Sol medium: pre-code oraz końcowy audyt PASS bez otwartych P0–P2.
+  Backend 38, UI 53, klient 12 testów PASS; lint/typy/OpenAPI/build PASS.
+  QA na żywo: Blazing 450 cropów, 30 widocznych, odświeżenie, nawigacja,
+  brak fałszywego toastu, 390 px bez przepełnienia i przyciski 44 px.
+  Bez etykietowania za operatora i bez treningu. Commit/hash po kontroli
+  indeksu; Windows restart i fizyczny Android nietestowane.
+
 
 - Operator zamówił planszę z siatką i 15 kompaktowymi wyborami symboli
   zamiast pojedynczej komórki. Założenie: jeden jawny atomowy zapis kompletu,

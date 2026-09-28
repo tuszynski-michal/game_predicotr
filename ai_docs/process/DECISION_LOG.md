@@ -6,6 +6,22 @@ last_updated: 2026-09-28
 
 # Decision Log
 
+## D-460 — wyliczana poczekalnia cropów bez nowej hierarchii symboli
+
+- **Status:** accepted, 2026-09-28; operator potwierdził, że grupa oznacza
+  istniejący symbol słownika, np. „cytryna”, bez dodatkowej encji aplikacji.
+- **Decision:** cropy z aktualnych zaakceptowanych geometrii są pokazywane
+  stronicowaną poczekalnią. „Nieprzypisany” oznacza brak decyzji albo jej
+  wycofanie, a nie `unknown`; jawnie ocenione aktualne stany nie wracają.
+  Drift geometrii, renderera lub słownika daje osobne „Do ponownej oceny”.
+  Widok jest pochodny, bez trwałej flagi i bez kopii PNG przed zapisem.
+- **Assignment:** operator może przypisać 1–30 widocznych cropów do jednej
+  zatwierdzonej klasy jednym atomowym żądaniem. To jawne zatwierdzenie tylko
+  wskazanych pikseli; nie dopuszcza próbek automatycznie do treningu.
+- **Boundary:** chronione role i holdout przed pikselami, stare requesty
+  symboli bez zmian. TASK-0717 nie importuje nowych zdjęć ani nie omija
+  ograniczeń rebase/freeze obecnego snapshotu.
+
 ## D-459 — atomowe etykietowanie całej planszy w laboratorium
 
 - **Status:** accepted, 2026-09-27; techniczna realizacja żądania operatora,

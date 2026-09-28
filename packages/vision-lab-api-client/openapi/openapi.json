@@ -1779,6 +1779,128 @@
         "title": "LabCropRequest",
         "type": "object"
       },
+      "LabQueueItem": {
+        "additionalProperties": false,
+        "properties": {
+          "binding": {
+            "$ref": "#/components/schemas/CropBinding-Output"
+          },
+          "png_base64": {
+            "title": "Png Base64",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "unassigned",
+              "requires_review"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "binding",
+          "png_base64",
+          "status",
+          "reason"
+        ],
+        "title": "LabQueueItem",
+        "type": "object"
+      },
+      "LabQueuePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LabQueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "lab_queue",
+            "default": "lab_queue",
+            "title": "Kind",
+            "type": "string"
+          },
+          "read_token": {
+            "title": "Read Token",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "items",
+          "total",
+          "revision",
+          "read_token"
+        ],
+        "title": "LabQueuePreview",
+        "type": "object"
+      },
+      "LabQueueRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "lab_queue",
+            "title": "Kind",
+            "type": "string"
+          },
+          "limit": {
+            "default": 30,
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "read_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Token"
+          }
+        },
+        "required": [
+          "kind",
+          "game_id"
+        ],
+        "title": "LabQueueRequest",
+        "type": "object"
+      },
       "LabelBoardDecide": {
         "additionalProperties": false,
         "properties": {
@@ -1833,6 +1955,67 @@
           "cells"
         ],
         "title": "LabelBoardDecide",
+        "type": "object"
+      },
+      "LabelCellsDecide": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "bindings": {
+            "items": {
+              "$ref": "#/components/schemas/CropBinding-Input"
+            },
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Bindings",
+            "type": "array"
+          },
+          "dictionary_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Dictionary Digest",
+            "type": "string"
+          },
+          "dictionary_version": {
+            "minimum": 1.0,
+            "title": "Dictionary Version",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "op": {
+            "const": "label_cells_decide",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "symbol_id": {
+            "title": "Symbol Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "dictionary_version",
+          "dictionary_digest",
+          "symbol_id",
+          "bindings"
+        ],
+        "title": "LabelCellsDecide",
         "type": "object"
       },
       "LabelDecide": {
@@ -3990,7 +4173,8 @@
                   "mapping": {
                     "db_approved": "#/components/schemas/DbCropRequest",
                     "lab_board": "#/components/schemas/LabBoardRequest",
-                    "lab_cell": "#/components/schemas/LabCropRequest"
+                    "lab_cell": "#/components/schemas/LabCropRequest",
+                    "lab_queue": "#/components/schemas/LabQueueRequest"
                   },
                   "propertyName": "kind"
                 },
@@ -4003,6 +4187,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/LabBoardRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabQueueRequest"
                   }
                 ],
                 "title": "Body"
@@ -4025,6 +4212,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/LabBoardPreview"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LabQueuePreview"
                     }
                   ],
                   "title": "Response Preview Symbol Crop"
@@ -4291,6 +4481,7 @@
                     "dictionary_approve": "#/components/schemas/DictionaryApprove",
                     "dictionary_draft": "#/components/schemas/DictionaryDraft",
                     "label_board_decide": "#/components/schemas/LabelBoardDecide",
+                    "label_cells_decide": "#/components/schemas/LabelCellsDecide",
                     "label_decide": "#/components/schemas/LabelDecide",
                     "label_withdraw": "#/components/schemas/LabelWithdraw"
                   },
@@ -4311,6 +4502,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/LabelBoardDecide"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabelCellsDecide"
                   }
                 ],
                 "title": "Body"

@@ -1053,6 +1053,77 @@ export type LabCropRequest = {
 };
 
 /**
+ * LabQueueItem
+ */
+export type LabQueueItem = {
+    binding: CropBindingOutput;
+    /**
+     * Png Base64
+     */
+    png_base64: string;
+    /**
+     * Reason
+     */
+    reason: string | null;
+    /**
+     * Status
+     */
+    status: 'unassigned' | 'requires_review';
+};
+
+/**
+ * LabQueuePreview
+ */
+export type LabQueuePreview = {
+    /**
+     * Items
+     */
+    items: Array<LabQueueItem>;
+    /**
+     * Kind
+     */
+    kind: 'lab_queue';
+    /**
+     * Read Token
+     */
+    read_token: string;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Total
+     */
+    total: number;
+};
+
+/**
+ * LabQueueRequest
+ */
+export type LabQueueRequest = {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Kind
+     */
+    kind: 'lab_queue';
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Offset
+     */
+    offset?: number;
+    /**
+     * Read Token
+     */
+    read_token?: string | null;
+};
+
+/**
  * LabelBoardDecide
  */
 export type LabelBoardDecide = {
@@ -1084,6 +1155,44 @@ export type LabelBoardDecide = {
      * Request Id
      */
     request_id: string;
+};
+
+/**
+ * LabelCellsDecide
+ */
+export type LabelCellsDecide = {
+    /**
+     * Actor
+     */
+    actor?: 'operator';
+    /**
+     * Bindings
+     */
+    bindings: Array<CropBindingInput>;
+    /**
+     * Dictionary Digest
+     */
+    dictionary_digest: string;
+    /**
+     * Dictionary Version
+     */
+    dictionary_version: number;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Op
+     */
+    op: 'label_cells_decide';
+    /**
+     * Request Id
+     */
+    request_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
 };
 
 /**
@@ -2378,7 +2487,9 @@ export type PreviewSymbolCropData = {
         kind: 'db_approved';
     } & DbCropRequest) | ({
         kind: 'lab_board';
-    } & LabBoardRequest);
+    } & LabBoardRequest) | ({
+        kind: 'lab_queue';
+    } & LabQueueRequest);
     path?: never;
     query?: never;
     url: '/symbol-crops';
@@ -2399,7 +2510,7 @@ export type PreviewSymbolCropResponses = {
      *
      * Successful Response
      */
-    200: LabCropPreview | DbCropPreview | LabBoardPreview;
+    200: LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview;
 };
 
 export type PreviewSymbolCropResponse = PreviewSymbolCropResponses[keyof PreviewSymbolCropResponses];
@@ -2540,7 +2651,9 @@ export type SaveSymbolDecisionData = {
         op: 'label_withdraw';
     } & LabelWithdraw) | ({
         op: 'label_board_decide';
-    } & LabelBoardDecide);
+    } & LabelBoardDecide) | ({
+        op: 'label_cells_decide';
+    } & LabelCellsDecide);
     path?: never;
     query?: never;
     url: '/symbols';

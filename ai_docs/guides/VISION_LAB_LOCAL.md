@@ -463,6 +463,21 @@ Zapis utrwala komplet atomowo. Przy niepotwierdzonym wyniku użyj ponowienia
 identycznego zapisu; nie zmieniaj wyborów przed rozstrzygnięciem żądania.
 Zmiana zdjęcia lub planszy poza zapisem porzuca niezapisane wybory, bez autosave.
 
+Sekcja „Poczekalnia cropów” na tej samej stronie zbiera nieprzypisane pola
+z już zatwierdzonych zdjęć i pełnych siatek wybranej gry. Miniatury można
+przeglądać przed utworzeniem słownika, ale przypisanie wymaga jego
+zatwierdzonej wersji. Utwórz w istniejącym „Słowniku gry” symbol, np.
+„Cytryna”, i zatwierdź słownik. W poczekalni zaznacz jeden lub kilka cropów,
+wybierz ten symbol i kliknij „Przypisz zaznaczone”. Można też zaznaczyć
+wszystkie widoczne cropy; jedna strona i jeden zapis obejmują najwyżej 30.
+Przed zapisem sprawdź każdą miniaturę: zbiorcze przypisanie nadaje wszystkim
+zaznaczonym ten sam symbol. Status „Do ponownej oceny” oznacza nieaktualną
+wcześniejszą decyzję, a nie nowy rodzaj symbolu. Cofnięcie wcześniejszej
+decyzji wraca do „Nieprzypisane”. Poczekalnia jest widokiem pochodnym;
+nie tworzy kopii obrazów ani drugiej grupy symboli. Możesz nadal opisywać
+całą planszę w dotychczasowym edytorze. Nowe zdjęcia trzeba dodać osobnym
+workflow; ta sekcja korzysta tylko z materiału obecnego snapshotu.
+
 Poprawna etykieta nie oznacza jeszcze dopuszczenia do treningu. T06b wymaga
 osobnej kontroli pochodzenia i podziału symboli. Historyczne 777 oraz gry
 zamrożone jako holdout nie otrzymują zgody symbolowej przez wcześniejsze

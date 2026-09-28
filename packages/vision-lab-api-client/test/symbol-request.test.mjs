@@ -7,6 +7,7 @@ import {
   symbolDictionary,
   backupSymbols,
   symbolBoard,
+  symbolQueue,
 } from '../src/index.ts';
 
 test('symbol wrappers preserve discriminator, CAS, retry identity and read tokens', async () => {
@@ -29,7 +30,7 @@ test('symbol wrappers preserve discriminator, CAS, retry identity and read token
       method: request.method,
       body: request.method === 'POST' ? await request.json() : null,
     });
-    return new Response(JSON.stringify({ revision: 7, kind: 'lab_board' }), {
+    return new Response(JSON.stringify({ revision: 7, kind: calls.at(-1).body?.kind === 'lab_queue' ? 'lab_queue' : 'lab_board' }), {
       headers: { 'Content-Type': 'application/json' },
     });
   };
@@ -86,6 +87,91 @@ test('symbol wrappers preserve discriminator, CAS, retry identity and read token
     await writeSymbol(batch);
     assert.deepEqual(calls[7].body, batch);
     assert.deepEqual(calls[8].body, batch);
+    const queue = await symbolQueue('local-a', 30, 'view');
+    assert.equal(queue.kind, 'lab_queue');
+    assert.deepEqual(calls[9].body, {
+      kind: 'lab_queue', game_id: 'local-a', offset: 30, limit: 30,
+      read_token: 'view',
+    });
+    const selective = { op: 'label_cells_decide', request_id: 'selective',
+      expected_revision: 7, actor: 'operator', dictionary_version: 1,
+      dictionary_digest: 'a'.repeat(64), symbol_id: 'lemon', bindings: [{ crop_id: 'id' }] };
+    await writeSymbol(selective);
+    assert.deepEqual(calls[10].body, selective);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.Request = OriginalRequest;
+  }
+});
+
+test('symbol crop previews are FIFO and a failed board releases the queue', async () => {
+  const originalFetch = globalThis.fetch;
+  const OriginalRequest = globalThis.Request;
+  globalThis.Request = class extends OriginalRequest {
+    constructor(input, init) {
+      super(typeof input === 'string'
+        ? new URL(input, 'http://127.0.0.1:3102') : input, init);
+    }
+  };
+  const calls = [];
+  let rejectBoard;
+  globalThis.fetch = async (request) => {
+    const body = await request.json();
+    calls.push(body.kind);
+    if (body.kind === 'lab_board')
+      return await new Promise((resolve) => { rejectBoard = resolve; });
+    return new Response(JSON.stringify({ kind: 'lab_queue', items: [],
+      total: 0, revision: 0, read_token: 'token' }),
+    { headers: { 'Content-Type': 'application/json' } });
+  };
+  try {
+    const board = symbolBoard({ kind: 'lab_board', source_id: 's', board_index: 0,
+      expected_geometry_revision: 1 });
+    const queue = symbolQueue('g');
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    assert.deepEqual(calls, ['lab_board']);
+    rejectBoard(new Response(JSON.stringify({ detail: 'ANNOTATION_STORE_BUSY' }),
+      { status: 409, headers: { 'Content-Type': 'application/json' } }));
+    await assert.rejects(board);
+    const result = await queue;
+    assert.equal(result.kind, 'lab_queue');
+    assert.deepEqual(calls, ['lab_board', 'lab_queue']);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.Request = OriginalRequest;
+  }
+});
+
+test('a hung preview is aborted on its bound and releases the next preview', async () => {
+  const originalFetch = globalThis.fetch;
+  const OriginalRequest = globalThis.Request;
+  globalThis.Request = class extends OriginalRequest {
+    constructor(input, init) {
+      super(typeof input === 'string'
+        ? new URL(input, 'http://127.0.0.1:3102') : input, init);
+    }
+  };
+  const calls = [];
+  let abandonedSignal;
+  globalThis.fetch = async (request) => {
+    const body = await request.json();
+    calls.push(body.kind);
+    if (body.kind === 'lab_board') {
+      abandonedSignal = request.signal;
+      return await new Promise(() => {});
+    }
+    return new Response(JSON.stringify({ kind: 'lab_queue', items: [],
+      total: 0, revision: 0, read_token: 'token' }),
+    { headers: { 'Content-Type': 'application/json' } });
+  };
+  try {
+    const hung = symbolCrop({ kind: 'lab_board', source_id: 's', board_index: 0,
+      expected_geometry_revision: 1 }, 20);
+    const next = symbolQueue('g');
+    await assert.rejects(hung, /SYMBOL_PREVIEW_TIMEOUT/);
+    assert.equal(abandonedSignal.aborted, true);
+    assert.equal((await next).kind, 'lab_queue');
+    assert.deepEqual(calls, ['lab_board', 'lab_queue']);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.Request = OriginalRequest;

@@ -7,10 +7,20 @@ from .splits import build_components
 from .symbol_contracts import LabelValidity
 
 
-def holdout_reason(state: AnnotationState, catalog: Catalog, source_id: str) -> str | None:
+def holdout_reason(
+    state: AnnotationState,
+    catalog: Catalog,
+    source_id: str,
+    *,
+    component_members: list[str] | None = None,
+    pilot_current: bool | None = None,
+    policy_validated: bool = False,
+) -> str | None:
     split = state.split
     if split is None:
         return None
+    if policy_validated:
+        return _component_holdout(state, catalog, source_id, component_members)
     if state.split_stale:
         return "HOLDOUT_POLICY_UNRESOLVED"
     games = {s.game_id for s in catalog.sources.values()}
@@ -33,7 +43,9 @@ def holdout_reason(state: AnnotationState, catalog: Catalog, source_id: str) -> 
     if split.policy_version == "lab-geometry-whole-game-pilot-v1":
         from .whole_game_split import pilot_is_current
 
-        if set(split.game_partitions or {}) != games or not pilot_is_current(catalog, state):
+        if set(split.game_partitions or {}) != games or not (
+            pilot_is_current(catalog, state) if pilot_current is None else pilot_current
+        ):
             return "HOLDOUT_POLICY_UNRESOLVED"
     else:
         keys = {
@@ -75,7 +87,22 @@ def holdout_reason(state: AnnotationState, catalog: Catalog, source_id: str) -> 
             for key, value in split.annotation_fingerprints.items()
         ):
             return "HOLDOUT_POLICY_UNRESOLVED"
-    members = next(ids for ids in build_components(catalog, state).values() if source_id in ids)
+    return _component_holdout(state, catalog, source_id, component_members)
+
+
+def _component_holdout(
+    state: AnnotationState,
+    catalog: Catalog,
+    source_id: str,
+    component_members: list[str] | None,
+) -> str | None:
+    split = state.split
+    assert split is not None
+    members = (
+        component_members
+        if component_members is not None
+        else next(ids for ids in build_components(catalog, state).values() if source_id in ids)
+    )
     for member in members:
         source = catalog.sources[member]
         partition = (split.game_partitions or {}).get(source.game_id)

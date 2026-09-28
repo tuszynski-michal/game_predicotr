@@ -225,3 +225,14 @@ Aktualne etykiety są odtwarzane, nieaktualne wymagają ponownego wyboru.
 Zapis całej planszy jest atomowy i idempotentny; błąd dowolnego pola nie
 publikuje części decyzji. Nie ma autosave ani automatycznego przejścia dalej.
 Źródła chronione nie mogą ujawnić pikseli również w pełnym podglądzie planszy.
+
+Poczekalnia symboli pokazuje stronicowane, dokładne cropy z zaakceptowanych
+zdjęć i aktualnych pełnych geometrii danej gry, także przed utworzeniem
+słownika. Brak decyzji albo jej wycofanie daje „Nieprzypisany”; aktualnie
+ocenione `unknown`, nieczytelne i błąd siatki nie są nieprzypisane. Po zmianie
+geometrii, renderera lub słownika stary wybór wymaga osobnej ponownej oceny.
+Operator wybiera jedną lub kilka widocznych miniatur i jedną istniejącą
+klasę słownika, po czym zapisuje tylko zaznaczone cropy atomowo. Brak
+zatwierdzonego słownika blokuje zapis, ale nie podgląd. Poczekalnia sama
+nie zapisuje etykiety, nie uruchamia treningu i nie ujawnia chronionych źródeł.
+„Grupa” symboli jest zwykłym wpisem słownika, nie nowym poziomem danych.

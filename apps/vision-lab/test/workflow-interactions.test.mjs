@@ -43,7 +43,7 @@ registerHooks({
         shortCircuit: true,
         source:
           'export const listRuns = (...args) => globalThis.labApi.runs?.(...args) ?? Promise.resolve({runs: [], total: 0});' +
-          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = (...args) => globalThis.labApi.detect?.(...args) ?? Promise.resolve({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => []; export const symbolLabels = (...args) => globalThis.labApi.symbolLabels(...args); export const symbolDictionaries = (...args) => globalThis.labApi.symbolDictionaries(...args); export const symbolDictionary = (...args) => globalThis.labApi.symbolDictionary(...args); export const symbolBoard = (...args) => globalThis.labApi.symbolBoard(...args); export const symbolCrop = (...args) => globalThis.labApi.symbolCrop(...args); export const writeSymbol = (...args) => globalThis.labApi.writeSymbol(...args); export const backupSymbols = (...args) => globalThis.labApi.backupSymbols(...args);',
+          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = (...args) => globalThis.labApi.detect?.(...args) ?? Promise.resolve({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => []; export const symbolLabels = (...args) => globalThis.labApi.symbolLabels(...args); export const symbolDictionaries = (...args) => globalThis.labApi.symbolDictionaries(...args); export const symbolDictionary = (...args) => globalThis.labApi.symbolDictionary(...args); export const symbolBoard = (...args) => globalThis.labApi.symbolBoard(...args); export const symbolQueue = (...args) => globalThis.labApi.symbolQueue?.(...args) ?? Promise.resolve({kind: "lab_queue", items: [], total: 0, revision: 0, read_token: "test"}); export const symbolCrop = (...args) => globalThis.labApi.symbolCrop(...args); export const writeSymbol = (...args) => globalThis.labApi.writeSymbol(...args); export const backupSymbols = (...args) => globalThis.labApi.backupSymbols(...args);',
       };
     if (/\.(tsx|ts)$/.test(url))
       return {
@@ -67,6 +67,8 @@ const { SymbolLabelEditor } =
   await import('../src/components/symbol-label-editor.tsx');
 const { SymbolBoardEditor } =
   await import('../src/components/symbol-board-editor.tsx');
+const { SymbolCandidateQueue } =
+  await import('../src/components/symbol-candidate-queue.tsx');
 const { quickReviewQueue } = await import('../src/lib/quick-review.ts');
 const { AnnotationProvider, useAnnotations } =
   await import('../src/components/annotation-context.tsx');
@@ -75,6 +77,76 @@ const { default: NextLink } = await import('next/link');
 const { ToastProvider, useToast } =
   await import('../../../packages/ui/src/toasts.tsx');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+test('queue component requires loaded pixels and refreshes after image failure', async () => {
+  const requests = [], errors = [];
+  const page = { kind: 'lab_queue', revision: 2, read_token: 'token', total: 2,
+    items: [0, 1].map((cell_index) => ({ binding: { crop_id: `crop${cell_index}`,
+      cell_index, source_id: 's', board_index: 0 }, png_base64: 'bytes',
+      status: 'unassigned', reason: null })) };
+  globalThis.labApi = { symbolQueue: async () => structuredClone(page) };
+  const props = { game: 'g', sources: [{ id: 's', filename: 'photo.jpg' }],
+    active: { version: 1, digest: 'dict', entries: [{ id: 'a', display_name: 'Cytryna' }] },
+    readVersion: 0, enabled: true, disabled: false, onBusy: () => {},
+    onError: (error) => errors.push(error), onSubmit: async (request) => requests.push(request) };
+  let root;
+  await act(async () => { root = create(React.createElement(SymbolCandidateQueue, props)); });
+  try {
+    const images = root.root.findAllByType('img');
+    assert.equal(images.length, 2);
+    assert.equal(root.root.findAllByType('input')[0].props.disabled, true);
+    await act(async () => images[0].props.onLoad());
+    const checkbox = root.root.findAllByType('input')[0];
+    assert.equal(checkbox.props.disabled, false);
+    await act(async () => checkbox.props.onChange({ target: { checked: true } }));
+    await act(async () => root.root.findByType('select').props.onChange({ target: { value: 'a' } }));
+    await act(async () => button(root, 'Przypisz zaznaczone (1)').props.onClick());
+    assert.equal(requests.length, 1);
+    assert.deepEqual(requests[0].bindings, [page.items[0].binding]);
+    await act(async () => root.update(React.createElement(SymbolCandidateQueue, {
+      ...props, active: { version: 2, digest: 'new-dict',
+        entries: [{ id: 'b', display_name: 'Jabłko' }] },
+    })));
+    assert.equal(root.root.findByType('select').props.value, '');
+    assert.equal(button(root, 'Przypisz zaznaczone (1)').props.disabled, true);
+    await act(async () => images[1].props.onError());
+    assert.equal(root.root.findAllByType('input')[1].props.disabled, true);
+    const oldImageOnLoad = images[0].props.onLoad;
+    await act(async () => button(root, 'Odśwież poczekalnię').props.onClick());
+    assert.equal(errors.length, 1);
+    assert.equal(root.root.findAllByType('input')[0].props.disabled, true);
+    await act(async () => oldImageOnLoad());
+    assert.equal(root.root.findAllByType('input')[0].props.disabled, true);
+    await act(async () => root.root.findAllByType('img')[0].props.onLoad());
+    assert.equal(root.root.findAllByType('input')[0].props.disabled, false);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('queue waits for parent read and reports a real API error code', async () => {
+  let calls = 0;
+  const errors = [];
+  globalThis.labApi = { symbolQueue: async () => {
+    calls++;
+    throw { detail: 'HOLDOUT_POLICY_UNRESOLVED' };
+  } };
+  const props = { game: 'g', sources: [], active: null, readVersion: 0,
+    enabled: false, disabled: true, onBusy: () => {},
+    onError: (message) => errors.push(message), onSubmit: async () => {} };
+  let root;
+  await act(async () => { root = create(React.createElement(SymbolCandidateQueue, props)); });
+  try {
+    assert.equal(calls, 0);
+    assert.deepEqual(errors, []);
+    await act(async () => root.update(React.createElement(SymbolCandidateQueue,
+      { ...props, enabled: true, disabled: false })));
+    assert.equal(calls, 1);
+    assert.deepEqual(errors, ['Nie można odczytać poczekalni: HOLDOUT_POLICY_UNRESOLVED']);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
 
 test('whole-board component requires all images, preserves selection after reload and rejects late image events', async () => {
   const requests = [],
@@ -268,6 +340,34 @@ test('real NextLink resolves and renders its navigation anchor in the Node harne
     assert.equal(anchor.props.href, '/symbols');
     assert.equal(anchor.props.children, 'Etykiety symboli');
     assert.equal(typeof anchor.props.onClick, 'function');
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+test('parent reload stays disabled while queue reads a selected game', async () => {
+  let finishQueue;
+  const source = { id: 's', game_id: 'g', game_name: 'Gra', filename: 'photo.jpg' };
+  globalThis.labApi = {
+    read: async () => ({ revision: 1, annotations: {} }),
+    list: async () => ({ sources: [source], total: 1 }),
+    symbolLabels: async () => ({ items: [], revision: 0, total: 0, read_token: 'labels' }),
+    symbolDictionaries: async () => ({ items: [], total: 0, read_token: 'dict' }),
+    symbolQueue: () => new Promise((resolve) => { finishQueue = resolve; }),
+  };
+  let root;
+  await act(async () => {
+    root = create(React.createElement(ToastProvider, null,
+      React.createElement(AnnotationProvider, null,
+        React.createElement(SymbolLabelEditor))));
+  });
+  try {
+    await act(async () => root.root.findAllByType('select')[0].props.onChange(
+      { target: { value: 'g' } }));
+    assert.equal(typeof finishQueue, 'function');
+    assert.equal(button(root, 'Odczytaj stan').props.disabled, true);
+    await act(async () => finishQueue({ kind: 'lab_queue', items: [], total: 0,
+      revision: 0, read_token: 'queue' }));
+    assert.equal(button(root, 'Odczytaj stan').props.disabled, false);
   } finally {
     await act(async () => root.unmount());
   }

@@ -12,6 +12,7 @@ from .symbol_contracts import (
     DictionaryView,
     LabBoardPreview,
     LabCropPreview,
+    LabQueuePreview,
     SymbolPage,
     SymbolRequest,
     SymbolResult,
@@ -71,10 +72,12 @@ def install_symbol_routes(app: FastAPI, store: Callable[[], SymbolLabelStore]) -
 
     @app.post(
         "/symbol-crops",
-        response_model=LabCropPreview | DbCropPreview | LabBoardPreview,
+        response_model=LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview,
         operation_id="preview_symbol_crop",
     )
-    def preview(body: CropRequest) -> LabCropPreview | DbCropPreview | LabBoardPreview:
+    def preview(
+        body: CropRequest,
+    ) -> LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview:
         try:
             return store().preview(body)
         except (ValueError, KeyError, OSError) as error:

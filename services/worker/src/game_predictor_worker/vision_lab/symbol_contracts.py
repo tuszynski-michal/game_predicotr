@@ -125,8 +125,29 @@ class LabelBoardDecide(SymbolMutation):
         return self
 
 
+class LabelCellsDecide(SymbolMutation):
+    op: Literal["label_cells_decide"]
+    dictionary_version: int = Field(ge=1)
+    dictionary_digest: Sha
+    symbol_id: str
+    bindings: list[CropBinding] = Field(min_length=1, max_length=30)
+
+    @model_validator(mode="after")
+    def distinct_cells(self) -> "LabelCellsDecide":
+        first = self.bindings[0]
+        keys = [(b.source_id, b.board_index, b.cell_index) for b in self.bindings]
+        if any(b.game_id != first.game_id for b in self.bindings) or keys != sorted(set(keys)):
+            raise ValueError("SYMBOL_QUEUE_BINDINGS_INVALID")
+        return self
+
+
 SymbolRequest = Annotated[
-    DictionaryDraft | DictionaryApprove | LabelDecide | LabelWithdraw | LabelBoardDecide,
+    DictionaryDraft
+    | DictionaryApprove
+    | LabelDecide
+    | LabelWithdraw
+    | LabelBoardDecide
+    | LabelCellsDecide,
     Field(discriminator="op"),
 ]
 
@@ -151,8 +172,16 @@ class LabBoardRequest(Contract):
     expected_geometry_revision: int = Field(ge=1)
 
 
+class LabQueueRequest(Contract):
+    kind: Literal["lab_queue"]
+    game_id: str
+    offset: int = Field(default=0, ge=0)
+    limit: int = Field(default=30, ge=1, le=30)
+    read_token: str | None = None
+
+
 CropRequest = Annotated[
-    LabCropRequest | DbCropRequest | LabBoardRequest, Field(discriminator="kind")
+    LabCropRequest | DbCropRequest | LabBoardRequest | LabQueueRequest, Field(discriminator="kind")
 ]
 
 
@@ -231,6 +260,21 @@ class LabBoardPreview(Contract):
     height: int = Field(ge=1, le=960)
     nodes: list[Point]
     cells: list[BoardCellPreview] = Field(min_length=9, max_length=15)
+
+
+class LabQueueItem(Contract):
+    binding: CropBinding
+    png_base64: str
+    status: Literal["unassigned", "requires_review"]
+    reason: str | None = None
+
+
+class LabQueuePreview(Contract):
+    kind: Literal["lab_queue"] = "lab_queue"
+    items: list[LabQueueItem]
+    total: int
+    revision: int
+    read_token: str
 
 
 class DbCropPreview(Contract):

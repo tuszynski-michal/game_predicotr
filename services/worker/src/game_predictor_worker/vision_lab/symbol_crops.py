@@ -142,6 +142,66 @@ def render_board(
     return annotation, rgb, cells
 
 
+def render_selected_bindings(
+    state: AnnotationState,
+    catalog: Catalog,
+    snapshot_id: str,
+    catalog_digest: str,
+    selections: list[tuple[str, int, int, int]],
+) -> list[tuple[CropBinding, bytes]]:
+    """Render only selected cells, decoding each source at most once."""
+    current_source: str | None = None
+    image: np.ndarray | None = None
+    boards: dict[tuple[str, int], tuple[GeometryAnnotation, list[np.ndarray]]] = {}
+    result: list[tuple[CropBinding, bytes]] = []
+    for sid, board_index, cell_index, revision in selections:
+        if sid != current_source:
+            if current_source is not None and sid < current_source:
+                raise ValueError("SYMBOL_QUEUE_BINDINGS_INVALID")
+            guard_pixels(state, catalog, sid)
+            image = np.asarray(catalog.image(catalog.sources[sid]), dtype=np.uint8)
+            current_source = sid
+            boards.clear()
+        key = (sid, board_index)
+        if key not in boards:
+            annotation = geometry_for(
+                state,
+                catalog,
+                LabBoardRequest(
+                    kind="lab_board",
+                    source_id=sid,
+                    board_index=board_index,
+                    expected_geometry_revision=revision,
+                ),
+            )
+            board = Board(
+                position_index=annotation.board_index, status="complete", nodes=annotation.nodes
+            )
+            boards[key] = (annotation, cell_quads(board, annotation.topology))
+        annotation, quads = boards[key]
+        if cell_index >= len(quads):
+            raise ValueError("SYMBOL_CELL_INVALID")
+        assert image is not None
+        result.append(
+            render_cell(
+                image,
+                quads[cell_index],
+                annotation,
+                catalog,
+                snapshot_id,
+                catalog_digest,
+                LabCropRequest(
+                    kind="lab_cell",
+                    source_id=sid,
+                    board_index=board_index,
+                    cell_index=cell_index,
+                    expected_geometry_revision=revision,
+                ),
+            )
+        )
+    return result
+
+
 def board_context(rgb: np.ndarray, nodes: list[Point]) -> tuple[bytes, int, int, list[Point]]:
     """Bounded source-perspective context, retaining every actual grid node."""
     height, width = rgb.shape[:2]

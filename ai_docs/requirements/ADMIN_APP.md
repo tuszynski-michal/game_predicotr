@@ -657,6 +657,9 @@ odrzucone jakościowo cropy o różnych dozwolonych mutacjach.
 Jawne zaznaczenie pozostaje aktywne przy przejściu między keysetowymi stronami,
 więc operator może zbudować jeden job z kilku stron wybranego rozmiaru. Czyści je
 wyłącznie jawna akcja, zmiana filtra albo skuteczne przekazanie operacji.
+Karta odznaczona kliknięciem ma czerwone obramowanie do czasu ponownego
+zaznaczenia, wyczyszczenia zaznaczenia, zmiany filtra albo przekazania operacji;
+jest to wyłącznie lokalna wskazówka wizualna i nie zmienia targetów joba.
 Zmiana filtra przy zaznaczeniu wymaga potwierdzenia i czyści selection. Wysłana
 operacja masowa przechodzi do tła: jej dokładne widoczne targety pozostają
 wyszarzone ze spinnerem, ale operator może przejść na inną stronę i uruchomić

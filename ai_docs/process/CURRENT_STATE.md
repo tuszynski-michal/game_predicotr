@@ -12,6 +12,9 @@ last_updated: 2026-09-28
   Admin zachowuje bieżącą stronę cropów i jej atlasy, zamiast automatycznie
   wracać do pobierania strony. Dokładne wysłane cropy są przygaszone i
   nieaktywne do jawnego `Odśwież cropy`; liczniki nadal odczytywane są osobno.
+- Crop odznaczony kliknięciem ma czerwone obramowanie, aby pozostał widoczny
+  wśród zaznaczonej strony; ponowne zaznaczenie, czyszczenie, zmiana filtra
+  lub przekazanie operacji usuwa wyłącznie tę lokalną wskazówkę.
 
 ### V3 — przyszła brama skali, bez zadania w bieżącym pilocie
 

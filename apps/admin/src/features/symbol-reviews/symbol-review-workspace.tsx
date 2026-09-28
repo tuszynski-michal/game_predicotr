@@ -189,6 +189,9 @@ export function SymbolReviewWorkspace({
   const [selection, setSelection] = useState<SymbolReviewSelection>(
     createEmptySymbolReviewSelection,
   );
+  const [deselectedCellIds, setDeselectedCellIds] = useState<
+    ReadonlySet<string>
+  >(() => new Set());
   const [pendingFilters, setPendingFilters] =
     useState<SymbolReviewFilters | null>(null);
   const [operationDialog, setOperationDialog] =
@@ -300,6 +303,7 @@ export function SymbolReviewWorkspace({
       pagePositionRef.current = { number: 1 };
       setError('');
       setSelection(createEmptySymbolReviewSelection());
+      setDeselectedCellIds(new Set());
       setHiddenCellIds(new Set());
       setSettledCellIds(new Set());
       setVisibleItems([]);
@@ -359,6 +363,7 @@ export function SymbolReviewWorkspace({
     setCountsSnapshot(null);
     setCountsState('loading');
     setSelection(createEmptySymbolReviewSelection());
+    setDeselectedCellIds(new Set());
     dispatch({ type: 'clear_page' });
     setPageState('loading');
     setDecisionPageRevision((value) => value + 1);
@@ -948,6 +953,11 @@ export function SymbolReviewWorkspace({
   function selectVisiblePage() {
     const change = selectVisibleSymbolReviewItems(selection, currentItems);
     setSelection(change.selection);
+    setDeselectedCellIds((current) => {
+      const next = new Set(current);
+      for (const item of currentItems) next.delete(item.id);
+      return next;
+    });
     if (change.rejectedCount > 0) {
       setError(
         `Można wybrać najwyżej 10 000 cropów jawnie. Pominięto: ${change.rejectedCount}.`,
@@ -956,8 +966,15 @@ export function SymbolReviewWorkspace({
   }
 
   function toggleItem(item: SymbolCellReviewListItemResponse) {
+    const wasSelected = isSymbolReviewItemSelected(selection, item);
     const change = toggleSymbolReviewItem(selection, item);
     setSelection(change.selection);
+    setDeselectedCellIds((current) => {
+      const next = new Set(current);
+      if (wasSelected) next.add(item.id);
+      else next.delete(item.id);
+      return next;
+    });
     if (change.rejectedCount > 0) {
       setError('Lista wykluczeń może zawierać najwyżej 10 000 cropów.');
     }
@@ -996,6 +1013,7 @@ export function SymbolReviewWorkspace({
         return;
       }
       setSelection(createEmptySymbolReviewSelection());
+      setDeselectedCellIds(new Set());
       refreshDecisionPage();
       setCountsState('loading');
       setCountsSnapshot(null);
@@ -1064,6 +1082,7 @@ export function SymbolReviewWorkspace({
     setDirectPendingCellIds(new Set());
     if (result.decision !== null) {
       setSelection(createEmptySymbolReviewSelection());
+      setDeselectedCellIds(new Set());
       refreshDecisionPage();
       setCountsState('loading');
       setCountsSnapshot(null);
@@ -1158,6 +1177,7 @@ export function SymbolReviewWorkspace({
     };
     setOperationDialog(null);
     setSelection(createEmptySymbolReviewSelection());
+    setDeselectedCellIds(new Set());
     if (isSymbolReviewBulkOperationTerminal(result.value)) {
       finishOperation(tracked, result.value);
       return;
@@ -1391,7 +1411,10 @@ export function SymbolReviewWorkspace({
           hasActiveSymbols={symbols.length > 0}
           markBlurry={markBlurry}
           onApprove={() => void previewOperation('approve')}
-          onClear={() => setSelection(createEmptySymbolReviewSelection())}
+          onClear={() => {
+            setSelection(createEmptySymbolReviewSelection());
+            setDeselectedCellIds(new Set());
+          }}
           onMarkBlurryChange={setMarkBlurry}
           onMarkGridIssue={() => void previewOperation('mark_grid_issue')}
           onMarkUnreadable={() => void previewOperation('mark_unreadable')}
@@ -1535,6 +1558,7 @@ export function SymbolReviewWorkspace({
                         item.id,
                       )}
                       selected={isSymbolReviewItemSelected(selection, item)}
+                      deselected={deselectedCellIds.has(item.id)}
                       settled={settledCellIds.has(item.id)}
                     />
                   )
@@ -1632,6 +1656,7 @@ export function SymbolReviewWorkspace({
 }
 
 export function SymbolReviewCard({
+  deselected,
   disabled,
   item,
   onToggle,
@@ -1642,6 +1667,7 @@ export function SymbolReviewCard({
   selected,
   settled,
 }: {
+  readonly deselected: boolean;
   readonly disabled: boolean;
   readonly item: SymbolCellReviewListItemResponse;
   readonly onToggle: () => void;
@@ -1656,10 +1682,10 @@ export function SymbolReviewCard({
 
   return (
     <article
-      className={`${styles.card}${selected ? ` ${styles.cardSelected}` : ''}${pending ? ` ${styles.cardPending}` : ''}${settled ? ` ${styles.cardSettled}` : ''}`}
+      className={`${styles.card}${selected ? ` ${styles.cardSelected}` : ''}${deselected ? ` ${styles.cardDeselected}` : ''}${pending ? ` ${styles.cardPending}` : ''}${settled ? ` ${styles.cardSettled}` : ''}`}
     >
       <button
-        aria-label={`${settled ? 'Zapisana zmiana; odśwież cropy, aby pobrać aktualny stan' : selected ? 'Odznacz' : 'Zaznacz'} crop z planszy ${item.sequenceNumber}, pozycja ${item.rowIndex + 1}/${item.columnIndex + 1}`}
+        aria-label={`${settled ? 'Zapisana zmiana; odśwież cropy, aby pobrać aktualny stan' : selected ? 'Odznacz' : deselected ? 'Ponownie zaznacz odznaczony' : 'Zaznacz'} crop z planszy ${item.sequenceNumber}, pozycja ${item.rowIndex + 1}/${item.columnIndex + 1}`}
         aria-pressed={selected}
         className={styles.cardToggle}
         disabled={disabled}

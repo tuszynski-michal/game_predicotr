@@ -155,7 +155,9 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(source, /Zapisywanie zmiany/);
   assert.match(source, /pendingCellIds/);
   assert.match(source, /hiddenCellIds/);
+  assert.match(source, /deselectedCellIds/);
   assert.match(styles, /\.cardPending/);
+  assert.match(styles, /\.cardDeselected/);
   assert.match(styles, /\.cardBadge/);
   assert.match(source, /className=\{styles\.sequenceNumber\}/);
   assert.match(source, /\{item\.sequenceNumber\}/);
@@ -166,6 +168,7 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(source, /Poza kadrem/);
   assert.match(source, /item\.cropApprovalState === 'changed_since_approval'/);
   assert.match(styles, /symbolReviewSpin/);
+  assert.match(source, /Ponownie zaznacz odznaczony/);
   assert.match(source, /applySingleSymbolReviewDecision/);
   assert.match(source, /Symbol został zmieniony/);
   assert.match(styles, /\.toastSuccess/);

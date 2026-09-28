@@ -117,6 +117,16 @@ integracja z obecną aplikacją obejmuje wyłącznie 5 × 3. Pełne 3 × 3 wymag
 osobnego planu dla modelu danych, review i wyszukiwania. Model startuje
 review/shadow, domyślnie wyłączony; D-261 dotyczy późniejszej aktywacji.
 
+Obecny pilot v3 odpowiada na pytanie, czy podejście w ogóle potrafi znajdować
+siatki, ciąć plansze i rozpoznawać symbole. Nie jest odbiorem stuprocentowej
+jakości ani skali produkcyjnej. Po ocenie wykonalności wolno przygotować nowy
+zbiór i wytrenować modele geometrii oraz symboli od początku; obecne etykiety
+i checkpointy nie muszą być promowane. Przed produkcyjną aktywacją lub
+masowym przetwarzaniem v3 wymagany jest osobny, udokumentowany odbiór
+wydajności i trwałości dla przewidywanej liczby gier, zdjęć, plansz i cropów.
+Brak tego dowodu albo wynik przekraczający możliwości magazynu lub workera
+blokuje wdrożenie, nawet gdy mały pilot jakościowy wypadnie dobrze.
+
 D-453 zastępuje ograniczenie D-447 `comparison_only` wyłącznie dla geometrii
 historycznego 777: te zdjęcia mają uczestniczyć w uczeniu modelu, aby obsługiwał
 przyszłe podobne zdjęcia. Referencją są nowe ręcznie zatwierdzone siatki

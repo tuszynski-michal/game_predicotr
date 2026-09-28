@@ -260,6 +260,35 @@ rzeczywisty czas anotacji i błędy. **STOP C:** raport walidacji i rekomendacja
 review/shadow i ograniczenia. Każdy etap wymaga jawnego uruchomienia. Przed
 wydatkiem lub operacją poza zatwierdzonym zakresem następuje stop.
 
+### Brama skali przed wdrożeniem v3 — nie jest zadaniem obecnego pilota
+
+Teraz badamy wykonalność geometrii, cięcia i rozpoznawania symboli na
+ograniczonym zbiorze. Nie wymagamy w tym pilocie jakości 100% ani
+przebudowy magazynu laboratoryjnego. Po wyniku pilota operator może
+przygotować nowe dane i wytrenować oba modele od początku; obecne
+checkpointy i etykiety nie są obowiązkowym wejściem produkcyjnym.
+
+Przed propozycją produkcyjnej aktywacji lub masowego przetwarzania v3
+trzeba odrębnie sprawdzić docelową skalę, także scenariusz orientacyjny
+20 gier × 500 000 plansz × 15 pól = 150 mln potencjalnych cropów.
+To założenie planistyczne, nie zmierzona liczność ani zgoda na tworzenie
+takiego fixture'u. Odbiór musi objąć liczbę gier i źródeł, rozmiar danych,
+czas i pamięć odczytu/zapisu, przepustowość oraz wznowienie po przerwaniu.
+Należy rozdzielić mały, plikowy magazyn laboratorium od produkcyjnych
+partycji `game_data_v2`; nie zakładać, że obecny `state.json`, pełne skany
+lub pobieranie 500 miniatur nadają się na skalę produkcyjną. Trzeba
+zweryfikować model przechowywania obrazów, geometrii, etykiet i pochodnych
+cropów, indeksy/filtrowanie per gra, ograniczone strony i porcje jobów.
+Konkretne progi czasu, pamięci i przepustowości ustala się dopiero dla
+rzeczywistego profilu użycia, przed pomiarem — nie dopisuje ich po wyniku.
+
+Brak profilu, brak pomiaru na reprezentatywnych danych albo niespełnione
+progi oznaczają **STOP: nie wdrażać v3 produkcyjnie**. Wtedy wymagany jest
+osobny plan zmiany zapisu/przetwarzania z migracją i ponownym odbiorem;
+nie wykonywać migracji, masowego importu ani treningu w ramach tego wpisu.
+Ograniczony pilot i porównanie review/shadow mogą trwać bez tej bramy,
+o ile nie są przedstawiane jako gotowość produkcyjna.
+
 Budżet początkowy T05 i T10: do 50 kroków testowych oraz jeden trening do
 20 epok lub 30 minut. T07: dwa treningi (RGB, szarość), każdy do 20 epok lub
 30 minut; fuzja używa ich wyników. Dostępne zależności, wagi i koszt pokazuje

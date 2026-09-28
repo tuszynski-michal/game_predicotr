@@ -6,6 +6,18 @@ last_updated: 2026-09-28
 
 # Current State
 
+### V3 — przyszła brama skali, bez zadania w bieżącym pilocie
+
+- Obecnie sprawdzamy, czy geometria, cięcie i symbole w ogóle działają;
+  jakość 100% oraz magazyn na masową skalę nie są kryterium tego pilota.
+  Po pilocie możliwy nowy zbiór i trening obu modeli od początku.
+- Plan v3 zapisuje obowiązkowy STOP przed produkcyjną aktywacją lub
+  masowym przetwarzaniem: profil danych, reprezentatywny pomiar wydajności,
+  trwałość i model zapisu dla wielu gier (scenariusz 150 mln cropów).
+  Brak dowodu albo przekroczenie możliwości magazynu/workera blokuje
+  wdrożenie i wymaga osobnego planu skalowania. Nie uruchomiono takiego
+  pomiaru, migracji, treningu ani wdrożenia.
+
 ### TASK-0719 — „Przybliżona wygrana”: przewijalna tabela i wykres
 
 - Ukończone: osobne rozszerzenie klienta Admina, bez zmiany endpointu,

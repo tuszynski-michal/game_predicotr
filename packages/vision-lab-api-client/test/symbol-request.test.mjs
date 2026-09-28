@@ -32,7 +32,8 @@ test('symbol wrappers preserve discriminator, CAS, retry identity and read token
     });
     const queue = calls.at(-1).body?.kind === 'lab_queue';
     return new Response(JSON.stringify(queue
-      ? { kind: 'lab_queue', items: [], total: 30, revision: 7, read_token: 'view' }
+      ? { kind: 'lab_queue', items: [], total: calls.at(-1).body.view === 'assigned' ? 0 : 30,
+          revision: 7, read_token: 'view' }
       : { revision: 7, kind: 'lab_board' }), {
       headers: { 'Content-Type': 'application/json' },
     });
@@ -94,13 +95,18 @@ test('symbol wrappers preserve discriminator, CAS, retry identity and read token
     assert.equal(queue.kind, 'lab_queue');
     assert.deepEqual(calls[9].body, {
       kind: 'lab_queue', game_id: 'local-a', offset: 30, limit: 30,
-      read_token: 'view',
+      read_token: 'view', view: 'pending',
+    });
+    await symbolQueue('local-a', 0, undefined, 'lemon');
+    assert.deepEqual(calls[10].body, {
+      kind: 'lab_queue', game_id: 'local-a', offset: 0, limit: 30,
+      view: 'assigned', symbol_id: 'lemon',
     });
     const selective = { op: 'label_cells_decide', request_id: 'selective',
       expected_revision: 7, actor: 'operator', dictionary_version: 1,
       dictionary_digest: 'a'.repeat(64), symbol_id: 'lemon', bindings: [{ crop_id: 'id' }] };
     await writeSymbol(selective);
-    assert.deepEqual(calls[10].body, selective);
+    assert.deepEqual(calls[11].body, selective);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.Request = OriginalRequest;

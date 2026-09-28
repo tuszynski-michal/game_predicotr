@@ -69,6 +69,8 @@ const { SymbolBoardEditor } =
   await import('../src/components/symbol-board-editor.tsx');
 const { SymbolCandidateQueue } =
   await import('../src/components/symbol-candidate-queue.tsx');
+const { SymbolAssignedGallery } =
+  await import('../src/components/symbol-assigned-gallery.tsx');
 const { quickReviewQueue } = await import('../src/lib/quick-review.ts');
 const { AnnotationProvider, useAnnotations } =
   await import('../src/components/annotation-context.tsx');
@@ -77,6 +79,34 @@ const { default: NextLink } = await import('next/link');
 const { ToastProvider, useToast } =
   await import('../../../packages/ui/src/toasts.tsx');
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
+
+test('assigned gallery filters by symbol and refreshes after label writes', async () => {
+  const calls = [];
+  globalThis.labApi = { symbolQueue: async (...args) => {
+    calls.push(args);
+    return { kind: 'lab_queue', revision: calls.length, read_token: 'token', total: 1,
+      items: [{ binding: { crop_id: 'crop-1', source_id: 's', board_index: 1,
+        cell_index: 3 }, png_base64: 'bytes', status: 'assigned' }] };
+  } };
+  const props = { game: 'g', sources: [{ id: 's', filename: 'photo.jpg' }],
+    active: { version: 1, digest: 'dict', entries: [{ id: 'a', display_name: 'Cytryna' }] },
+    readVersion: 0, onError: () => {} };
+  let root;
+  await act(async () => { root = create(React.createElement(SymbolAssignedGallery, props)); });
+  try {
+    assert.equal(calls.length, 0);
+    await act(async () => root.root.findByType('select').props.onChange({ target: { value: 'a' } }));
+    assert.deepEqual(calls[0], ['g', 0, undefined, 'a']);
+    assert.equal(root.root.findAllByType('img').length, 1);
+    assert.match(root.root.findByType('article').findAllByType('span')
+      .map((span) => span.children.join(' ')).join(' '), /Plansza\s+2/);
+    await act(async () => root.update(React.createElement(SymbolAssignedGallery,
+      { ...props, readVersion: 1 })));
+    assert.equal(calls.length, 2);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
 
 test('queue component requires loaded pixels and refreshes after image failure', async () => {
   const requests = [], errors = [];

@@ -175,6 +175,8 @@ class LabBoardRequest(Contract):
 class LabQueueRequest(Contract):
     kind: Literal["lab_queue"]
     game_id: str
+    view: Literal["pending", "assigned"] = "pending"
+    symbol_id: str | None = None
     offset: int = Field(default=0, ge=0)
     limit: int = Field(default=30, ge=1, le=30)
     read_token: str | None = None
@@ -265,7 +267,7 @@ class LabBoardPreview(Contract):
 class LabQueueItem(Contract):
     binding: CropBinding
     png_base64: str
-    status: Literal["unassigned", "requires_review"]
+    status: Literal["unassigned", "requires_review", "assigned"]
     reason: str | None = None
 
 

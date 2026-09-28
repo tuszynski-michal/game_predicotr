@@ -59,7 +59,9 @@ from .symbol_crops import (
 from .symbol_labels import holdout_reason, qualify_symbol_sample
 from .symbol_snapshot import SymbolSnapshot
 
-QueueDescriptor = tuple[str, int, int, int, Literal["unassigned", "requires_review"], str | None]
+QueueDescriptor = tuple[
+    str, int, int, int, Literal["unassigned", "requires_review", "assigned"], str | None
+]
 
 
 def publish_file(path: Path, data: bytes) -> None:
@@ -360,7 +362,12 @@ class SymbolLabelStore:
             )
 
     def queue_descriptors(
-        self, payload: dict[str, Any], state: AnnotationState, game_id: str
+        self,
+        payload: dict[str, Any],
+        state: AnnotationState,
+        game_id: str,
+        view: Literal["pending", "assigned"] = "pending",
+        symbol_id: str | None = None,
     ) -> list[QueueDescriptor]:
         """Enumerate eligible cells from metadata, without opening image or crop files."""
         boards: dict[str, list[Any]] = {}
@@ -380,6 +387,10 @@ class SymbolLabelStore:
             b = decision["binding"]
             latest[(b["source_id"], b["board_index"], b["cell_index"])] = decision
         active = next((d for d in self.dictionaries(payload, game_id) if d.active), None)
+        if view == "assigned" and (
+            active is None or symbol_id not in {entry.id for entry in active.entries or []}
+        ):
+            return []
         spec = render_spec()
         spec_digest = digest(spec)
         components = build_components(self.catalog, state)
@@ -431,8 +442,14 @@ class SymbolLabelStore:
                 geometry_digest = digest(annotation.model_dump())
                 for index in range(annotation.topology.columns * annotation.topology.rows):
                     old = latest.get((sid, annotation.board_index, index))
-                    status: Literal["unassigned", "requires_review"]
+                    status: Literal["unassigned", "requires_review", "assigned"]
+                    if view == "assigned" and (
+                        old is None or old["action"] != "approve" or old["symbol_id"] != symbol_id
+                    ):
+                        continue
                     if old is None or old["action"] == "withdraw":
+                        if view == "assigned":
+                            continue
                         status, reason = "unassigned", None
                     else:
                         b = old["binding"]
@@ -448,6 +465,21 @@ class SymbolLabelStore:
                             or old["dictionary_digest"] != active.digest
                         )
                         if not stale:
+                            if view == "pending":
+                                continue
+                            status, reason = "assigned", None
+                            rows.append(
+                                (
+                                    sid,
+                                    annotation.board_index,
+                                    index,
+                                    annotation.revision,
+                                    status,
+                                    reason,
+                                )
+                            )
+                            continue
+                        if view == "assigned":
                             continue
                         status = "requires_review"
                         reason = (
@@ -478,19 +510,27 @@ class SymbolLabelStore:
             if isinstance(request, LabQueueRequest):
                 if request.game_id not in {s.game_id for s in self.catalog.sources.values()}:
                     raise KeyError("SYMBOL_GAME_NOT_FOUND")
+                if request.view == "assigned" and not request.symbol_id:
+                    raise ValueError("SYMBOL_CLASS_REQUIRED")
+                if request.view == "pending" and request.symbol_id is not None:
+                    raise ValueError("SYMBOL_CLASS_NOT_ALLOWED")
                 token = self.token(
                     payload,
                     geometry,
                     [
                         "lab_queue-v1",
                         request.game_id,
+                        request.view,
+                        request.symbol_id,
                         "source-board-cell-asc",
                         "lab-symbol-crop-rgb96-v1",
                         digest(render_spec()),
                     ],
                 )
                 self.validate_page(request.offset, request.limit, request.read_token, token)
-                descriptors = self.queue_descriptors(payload, state, request.game_id)
+                descriptors = self.queue_descriptors(
+                    payload, state, request.game_id, request.view, request.symbol_id
+                )
                 selected = descriptors[request.offset : request.offset + request.limit]
                 # Only page entries are decoded; one source image can serve several boards.
                 requested = [

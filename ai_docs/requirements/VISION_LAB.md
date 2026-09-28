@@ -239,3 +239,8 @@ nie zapisuje etykiety, nie uruchamia treningu i nie ujawnia chronionych źróde�
 Panel pokazuje do 500 cropów na jednej przewijanej stronie, pobierając je
 małymi partiami. To limit widoku, nie jednej transakcji: pojedyncze
 przypisanie pozostaje ograniczone do 30 świadomie wybranych cropów.
+Pod poczekalnią operator może wybrać symbol aktywnego słownika i obejrzeć
+wszystkie jego aktualnie przypisane cropy z nazwą źródła, numerem planszy i
+pola. Widok jest tylko do odczytu i stronicowany; decyzje nieaktualne po
+zmianie siatki, źródła, renderera lub słownika pozostają w poczekalni do
+ponownej oceny, nie na liście aktualnych przypisań.

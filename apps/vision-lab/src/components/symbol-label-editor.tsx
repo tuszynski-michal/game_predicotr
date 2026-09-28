@@ -6,6 +6,7 @@ import { useToast } from '../../../../packages/ui/src/toasts';
 import { useAnnotations } from './annotation-context';
 import { SymbolBoardEditor } from './symbol-board-editor';
 import { SymbolCandidateQueue } from './symbol-candidate-queue';
+import { SymbolAssignedGallery } from './symbol-assigned-gallery';
 import { gameDisplayName } from '../lib/game-display-name';
 import {
   symbolWriteSession,
@@ -306,6 +307,14 @@ export function SymbolLabelEditor() {
         disabled={unavailable || !page}
         onBusy={setQueueBusy}
         onSubmit={submit}
+        onError={report}
+      />
+      <SymbolAssignedGallery
+        key={`assigned-${game}`}
+        game={game}
+        sources={sources}
+        active={active}
+        readVersion={boardReadVersion}
         onError={report}
       />
       <SymbolBoardEditor

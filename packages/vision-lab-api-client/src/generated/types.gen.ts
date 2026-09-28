@@ -1068,7 +1068,7 @@ export type LabQueueItem = {
     /**
      * Status
      */
-    status: 'unassigned' | 'requires_review';
+    status: 'unassigned' | 'requires_review' | 'assigned';
 };
 
 /**
@@ -1121,6 +1121,14 @@ export type LabQueueRequest = {
      * Read Token
      */
     read_token?: string | null;
+    /**
+     * Symbol Id
+     */
+    symbol_id?: string | null;
+    /**
+     * View
+     */
+    view?: 'pending' | 'assigned';
 };
 
 /**

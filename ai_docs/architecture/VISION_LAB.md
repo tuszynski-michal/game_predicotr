@@ -350,6 +350,12 @@ Klient składa jedną stronę widoku do 500 cropów z kolejnych żądań po
 maksymalnie 30; każde używa tego samego read_token, rewizji i sumy.
 Niepełna lub zmieniona seria odrzuca całą stronę, bez pokazywania
 częściowego wyboru. Backend nadal renderuje tylko żądaną partię.
+Ten sam `lab_queue` dopuszcza `view=assigned` z wymaganym `symbol_id`
+aktywnego słownika. Zwraca wyłącznie bieżące zatwierdzenia bez driftu,
+zachowuje kontrolę roli i holdoutu przed odczytem pikseli oraz paginację
+po 30 na żądanie. Token wiąże także widok i symbol, więc nie wolno użyć
+strony poczekalni jako strony przypisań. Domyślny `view=pending` zachowuje
+dotychczasową kolejkę bez zmiany zapisu.
 Addytywne `label_cells_decide` w POST /symbols zapisuje 1–30 unikalnych
 bindingów do jednej aktywnej klasy w jednym write_atomic, jednej rewizji
 i receipt, z odrębnym decision_id od fingerprintu i crop_id. Wszystkie

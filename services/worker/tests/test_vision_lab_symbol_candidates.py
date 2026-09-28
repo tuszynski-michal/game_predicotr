@@ -111,6 +111,25 @@ def test_batch_exact_retry_and_no_partial_last_binding(tmp_path, monkeypatch):
     result = store.mutate(request)
     assert result.label_valid and len(set(result.decision_ids)) == 3
     assert calls == 1
+    assigned = store.preview(
+        LabQueueRequest(kind="lab_queue", game_id=source.game_id, view="assigned", symbol_id="a")
+    )
+    assert assigned.total == 3
+    assert all(item.status == "assigned" for item in assigned.items)
+    assert {item.binding.crop_id for item in assigned.items} == {
+        binding.crop_id for binding in bindings
+    }
+    assert queue(store, source).total == 12
+    assert (
+        SymbolLabelStore(store.root, store.annotations)
+        .preview(
+            LabQueueRequest(
+                kind="lab_queue", game_id=source.game_id, view="assigned", symbol_id="a"
+            )
+        )
+        .total
+        == 3
+    )
     restarted = SymbolLabelStore(store.root, store.annotations)
     assert restarted.mutate(request).replayed
     after = queue(store, source)
@@ -275,6 +294,15 @@ def test_retry_after_dictionary_change_keeps_ids_but_rechecks_validity(tmp_path)
     assert retry.replayed and retry.revision == first.revision
     assert retry.decision_ids == first.decision_ids and not retry.label_valid
     assert "SYMBOL_DICTIONARY_STALE" in retry.reasons
+    assert (
+        store.preview(
+            LabQueueRequest(
+                kind="lab_queue", game_id=source.game_id, view="assigned", symbol_id="a"
+            )
+        ).total
+        == 0
+    )
+    assert queue(store, source).items[0].status == "requires_review"
 
 
 def test_http_queue_and_selective_mutation_contract(tmp_path):
@@ -310,4 +338,20 @@ def test_http_queue_and_selective_mutation_contract(tmp_path):
     response = client.post("/symbols", json=request.model_dump(), headers=headers)
     assert response.status_code == 200
     assert len(response.json()["decision_ids"]) == 2
+    assigned = client.post(
+        "/symbol-crops",
+        json={"kind": "lab_queue", "game_id": source.game_id, "view": "assigned", "symbol_id": "a"},
+        headers=headers,
+    )
+    assert assigned.status_code == 200
+    assert assigned.json()["total"] == 2
+    assert [item["status"] for item in assigned.json()["items"]] == ["assigned", "assigned"]
+    assert (
+        client.post(
+            "/symbol-crops",
+            json={"kind": "lab_queue", "game_id": source.game_id, "view": "assigned"},
+            headers=headers,
+        ).status_code
+        == 409
+    )
     assert client.post("/symbols", json=request.model_dump(), headers=headers).json()["replayed"]

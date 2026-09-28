@@ -1803,7 +1803,8 @@
           "status": {
             "enum": [
               "unassigned",
-              "requires_review"
+              "requires_review",
+              "assigned"
             ],
             "title": "Status",
             "type": "string"
@@ -1892,6 +1893,26 @@
               }
             ],
             "title": "Read Token"
+          },
+          "symbol_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol Id"
+          },
+          "view": {
+            "default": "pending",
+            "enum": [
+              "pending",
+              "assigned"
+            ],
+            "title": "View",
+            "type": "string"
           }
         },
         "required": [

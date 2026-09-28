@@ -153,6 +153,7 @@ export async function symbolQueue(
   gameId: string,
   offset = 0,
   readToken?: string,
+  symbolId?: string,
 ) {
   let token = readToken;
   let revision: number | undefined;
@@ -162,6 +163,8 @@ export async function symbolQueue(
     const preview = await symbolCrop({
       kind: 'lab_queue',
       game_id: gameId,
+      view: symbolId ? 'assigned' : 'pending',
+      symbol_id: symbolId,
       offset: offset + items.length,
       limit: Math.min(SYMBOL_QUEUE_FETCH_SIZE, SYMBOL_QUEUE_VIEW_SIZE - items.length),
       read_token: token,

@@ -2,6 +2,7 @@
 import { useRef, useState } from 'react';
 import { useAnnotations } from './annotation-context';
 import { useToast } from '../../../../packages/ui/src/toasts';
+import { gameDisplayName } from '../lib/game-display-name';
 import {
   backupAnnotations,
   annotationTimings,
@@ -79,7 +80,7 @@ export function FamilyEditor({
                   )
                 }
               />
-              {source.game_name}: {source.filename}
+              {gameDisplayName(source.game_id, source.game_name)}: {source.filename}
             </label>
           ))}
         </div>

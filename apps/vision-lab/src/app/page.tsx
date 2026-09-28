@@ -16,6 +16,7 @@ import {
 import { GeometryEditor } from '../components/geometry-editor';
 import { FamilyEditor } from '../components/family-editor';
 import { QuickReview } from '../components/quick-review';
+import { gameDisplayName } from '../lib/game-display-name';
 import {
   detectGeometry,
   listSources,
@@ -263,7 +264,7 @@ export default function Page() {
           <option value="">Wszystkie gry</option>
           {Object.entries(games).map(([id, name]) => (
             <option key={id} value={id}>
-              {name}
+              {gameDisplayName(id, name)}
             </option>
           ))}
         </select>
@@ -368,7 +369,7 @@ export default function Page() {
                     });
                   }}
                 />
-                <strong>{source.game_name}</strong>
+                <strong>{gameDisplayName(source.game_id, source.game_name)}</strong>
                 <small>{source.filename}</small>
                 {state ? (
                   <small className="annotation-badge">
@@ -423,7 +424,7 @@ export default function Page() {
       />
       {selected && (
         <section id="inspector" className="inspector">
-          <h2>{selected.game_name} — podgląd</h2>
+          <h2>{gameDisplayName(selected.game_id, selected.game_name)} — podgląd</h2>
           <p>{selected.filename}</p>
           <GeometryEditor
             key={selected.id}

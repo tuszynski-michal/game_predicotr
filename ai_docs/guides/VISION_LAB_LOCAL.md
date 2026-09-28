@@ -46,6 +46,12 @@ Galeria obsługuje również snapshot DB z
 [eksportera T01](VISION_LAB_EXPORT.md). Format DB zachowuje swój manifest
 i identyfikatory; import plikowy nie tworzy fikcyjnych identyfikatorów DB.
 
+W istniejącym snapshocie nazwy źródłowych katalogów pozostają niezmienne.
+Panel pokazuje nazwy gier z katalogu `game_predictor_traning_set`:
+`777`, `blazing`, `gang`, `mumie`, `reels`, `treasure`. To wyłącznie etykiety
+widoczne w laboratorium; identyfikatory gier, źródeł, zapisane siatki,
+podział danych i nazwy plików nie są przepisywane.
+
 ## Powtarzalne uruchomienie po restarcie
 
 Najpierw wykonaj build UI przy zatrzymanym serwerze tej aplikacji:

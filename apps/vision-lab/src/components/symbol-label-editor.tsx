@@ -6,6 +6,7 @@ import { useToast } from '../../../../packages/ui/src/toasts';
 import { useAnnotations } from './annotation-context';
 import { SymbolBoardEditor } from './symbol-board-editor';
 import { SymbolCandidateQueue } from './symbol-candidate-queue';
+import { gameDisplayName } from '../lib/game-display-name';
 import {
   symbolWriteSession,
   canMutateSymbolRow,
@@ -213,7 +214,7 @@ export function SymbolLabelEditor() {
           <option value="">Wybierz grę</option>
           {Object.entries(games).map(([id, name]) => (
             <option value={id} key={id}>
-              {name}
+              {gameDisplayName(id, name)}
             </option>
           ))}
         </select>

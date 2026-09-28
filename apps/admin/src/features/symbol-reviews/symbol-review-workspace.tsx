@@ -68,6 +68,7 @@ import {
   isSymbolReviewPageSize,
   parseSymbolReviewPageNumber,
   SYMBOL_REVIEW_PAGE_SIZES,
+  symbolReviewConfidenceRange,
   symbolReviewFiltersReady,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
@@ -1385,6 +1386,45 @@ export function SymbolReviewWorkspace({
             Kohorta aktywnego modelu
           </label>
         </fieldset>
+        <fieldset>
+          <legend>Pewność rozpoznania</legend>
+          <label>
+            <input
+              checked={filters.confidence === 'all'}
+              disabled={interactionBusy}
+              name="symbol-review-confidence"
+              onChange={() =>
+                requestFilterChange({ ...filters, confidence: 'all' })
+              }
+              type="radio"
+            />
+            Wszystkie
+          </label>
+          <label>
+            <input
+              checked={filters.confidence === 'exact_100'}
+              disabled={interactionBusy}
+              name="symbol-review-confidence"
+              onChange={() =>
+                requestFilterChange({ ...filters, confidence: 'exact_100' })
+              }
+              type="radio"
+            />
+            Dokładnie 100%
+          </label>
+          <label>
+            <input
+              checked={filters.confidence === 'below_100'}
+              disabled={interactionBusy}
+              name="symbol-review-confidence"
+              onChange={() =>
+                requestFilterChange({ ...filters, confidence: 'below_100' })
+              }
+              type="radio"
+            />
+            Poniżej 100%
+          </label>
+        </fieldset>
         <div className={styles.filterActions}>
           <button
             aria-pressed={fullscreen}
@@ -2318,9 +2358,11 @@ function asPageFilters(
   if (!symbolReviewFiltersReady(filters)) {
     return null;
   }
+  const confidenceRange = symbolReviewConfidenceRange(filters.confidence);
   return {
     gameId: filters.gameId,
     limit: filters.pageSize,
+    ...confidenceRange,
     state: filters.state,
     symbolId: filters.symbolId,
   };

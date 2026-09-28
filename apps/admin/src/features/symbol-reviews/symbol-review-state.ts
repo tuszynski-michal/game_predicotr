@@ -11,7 +11,7 @@ export const MAX_SYMBOL_REVIEW_CACHED_PAGES = 3;
 
 export type SymbolReviewPageSize = (typeof SYMBOL_REVIEW_PAGE_SIZES)[number];
 
-export type SymbolReviewConfidenceFilter = 'all' | 'high' | 'low' | 'medium';
+export type SymbolReviewConfidenceFilter = 'all' | 'below_100' | 'exact_100';
 
 export interface SymbolReviewPageRange {
   readonly end: number;
@@ -82,12 +82,10 @@ export function symbolReviewConfidenceRange(
   confidence: SymbolReviewConfidenceFilter,
 ): { readonly maxConfidence?: number; readonly minConfidence?: number } {
   switch (confidence) {
-    case 'low':
-      return { maxConfidence: 0.499_999 };
-    case 'medium':
-      return { maxConfidence: 0.799_999, minConfidence: 0.5 };
-    case 'high':
-      return { minConfidence: 0.8 };
+    case 'exact_100':
+      return { maxConfidence: 1, minConfidence: 1 };
+    case 'below_100':
+      return { maxConfidence: 1 - Number.EPSILON / 2 };
     default:
       return {};
   }

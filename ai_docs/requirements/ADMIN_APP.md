@@ -555,6 +555,10 @@ przedstawiany jako ukończona weryfikacja.
 nawigacji Admina. Operator wybiera grę oraz zakres symbolu: wszystkie symbole,
 jeden aktywny symbol albo nierozpoznane `?`, a także radio `Stan weryfikacji`:
 `Wszystkie`, `Oczekujące`, `Zatwierdzone` albo `Kohorta aktywnego modelu`.
+Radio `Pewność rozpoznania` wybiera `Wszystkie`, `Dokładnie 100%` albo
+`Poniżej 100%`. Pierwszy wariant nie zawęża listy, drugi przekazuje zamknięty
+zakres `minConfidence=maxConfidence=1`, a trzeci obejmuje wartości niższe niż
+`1.0`; wybór zmienia keyset, liczniki i jawne targety kolejnej operacji.
 Ostatni wariant pokazuje wyłącznie bieżące, zatwierdzone cropy należące do
 niezmiennej kohorty modelu wskazanego przez najnowszą aktywację wybranej gry.
 Crop zmieniony od zamrożenia kohorty jest wykluczony; brak aktywnego modelu daje

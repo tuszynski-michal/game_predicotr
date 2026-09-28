@@ -162,14 +162,13 @@ test('accepts only a one-based page number within the known result range', () =>
   assert.equal(parseSymbolReviewPageNumber('13', 12), null);
 });
 
-test('maps stable confidence bands to the API range snapshot', () => {
+test('maps exact and below-100 confidence filters to the API range snapshot', () => {
   assert.deepEqual(symbolReviewConfidenceRange('all'), {});
-  assert.deepEqual(symbolReviewConfidenceRange('low'), {
-    maxConfidence: 0.499999,
+  assert.deepEqual(symbolReviewConfidenceRange('exact_100'), {
+    maxConfidence: 1,
+    minConfidence: 1,
   });
-  assert.deepEqual(symbolReviewConfidenceRange('medium'), {
-    maxConfidence: 0.799999,
-    minConfidence: 0.5,
+  assert.deepEqual(symbolReviewConfidenceRange('below_100'), {
+    maxConfidence: 0.9999999999999999,
   });
-  assert.deepEqual(symbolReviewConfidenceRange('high'), { minConfidence: 0.8 });
 });

@@ -15,6 +15,9 @@ last_updated: 2026-09-28
 - Crop odznaczony kliknięciem ma czerwone obramowanie, aby pozostał widoczny
   wśród zaznaczonej strony; ponowne zaznaczenie, czyszczenie, zmiana filtra
   lub przekazanie operacji usuwa wyłącznie tę lokalną wskazówkę.
+- Filtr `Pewność rozpoznania` rozdziela cropy z dokładnym wynikiem `100%` od
+  wszystkich poniżej `100%`; zakres trafia do istniejącego odczytu keysetowego,
+  liczników oraz kolejnej operacji masowej.
 
 ### V3 — przyszła brama skali, bez zadania w bieżącym pilocie
 

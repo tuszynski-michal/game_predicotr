@@ -80,14 +80,14 @@ export function SymbolLabelEditor() {
         const locals = dictionaries.filter((d) => d.origin === 'lab');
         const latest = locals.at(-1);
         const approved = locals.find((d) => d.active);
-        const [latestFull, approvedFull] = await Promise.all([
-          latest?.version
-            ? symbolDictionary(selectedGame, latest.version)
-            : null,
-          approved?.version
-            ? symbolDictionary(selectedGame, approved.version)
-            : null,
-        ]);
+        const latestFull = latest?.version
+          ? await symbolDictionary(selectedGame, latest.version)
+          : null;
+        const approvedFull = approved?.version
+          ? approved.version === latest?.version
+            ? latestFull
+            : await symbolDictionary(selectedGame, approved.version)
+          : null;
         if (generation !== order.current) return;
         setPage(labels);
         setOffset(0);

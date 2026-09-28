@@ -1,10 +1,13 @@
 """Symbol tools never infer operator approval or training eligibility."""
 
+import time
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import pytest
 from game_predictor_worker.vision_lab.annotation_contracts import PhotoReviewRequest
-from game_predictor_worker.vision_lab.annotations import interpolate
+from game_predictor_worker.vision_lab.annotations import exclusive, interpolate
 from game_predictor_worker.vision_lab.photo_review import board_revisions
 from game_predictor_worker.vision_lab.symbol_contracts import (
     DictionaryApprove,
@@ -38,6 +41,23 @@ def symbols(tmp_path: Path, columns: int = 5):
         )
     )
     return SymbolLabelStore(tmp_path / "symbols", geometry), source
+
+
+def test_symbol_reads_wait_for_short_geometry_lock_contention(tmp_path):
+    store, source = symbols(tmp_path)
+    acquired = Event()
+
+    def hold_geometry_lock():
+        with exclusive(store.annotations.root):
+            acquired.set()
+            time.sleep(0.15)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        holder = pool.submit(hold_geometry_lock)
+        assert acquired.wait(2)
+        page = store.list_dictionaries(source.game_id)
+        holder.result(timeout=2)
+    assert page.total == 0
 
 
 def dictionary(store, source):

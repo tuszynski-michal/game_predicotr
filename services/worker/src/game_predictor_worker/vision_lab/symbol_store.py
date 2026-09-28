@@ -11,7 +11,14 @@ from pathlib import Path
 from typing import Any, Literal
 
 from .annotation_contracts import AnnotationState, BackupResult
-from .annotations import AnnotationStore, digest, exclusive, read_checked, write_atomic
+from .annotations import (
+    AnnotationStore,
+    digest,
+    exclusive,
+    exclusive_bounded,
+    read_checked,
+    write_atomic,
+)
 from .snapshot import canonical, reject_links, safe_file
 from .splits import build_components
 from .symbol_contracts import (
@@ -127,8 +134,10 @@ class SymbolLabelStore:
     ) -> Iterator[tuple[dict[str, Any], AnnotationState, dict[str, Any]]]:
         # Geometry writers also use this lock. Never call AnnotationStore.read here.
         with (
-            exclusive(self.annotations.root),
-            exclusive(self.root) if write or self.root.exists() else nullcontext(),
+            exclusive(self.annotations.root) if write else exclusive_bounded(self.annotations.root),
+            (exclusive(self.root) if write else exclusive_bounded(self.root))
+            if write or self.root.exists()
+            else nullcontext(),
         ):
             self.snapshot.validate_metadata()
             geometry = self.annotations._load()

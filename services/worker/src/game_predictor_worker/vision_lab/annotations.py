@@ -5,6 +5,7 @@ import json
 import os
 import sys
 import tempfile
+import time
 from collections.abc import Iterator
 from contextlib import contextmanager
 from datetime import UTC, datetime
@@ -97,6 +98,25 @@ def exclusive(root: Path) -> Iterator[None]:
                 msvcrt.locking(stream.fileno(), msvcrt.LK_UNLCK, 1)
             else:
                 fcntl.flock(stream.fileno(), fcntl.LOCK_UN)
+
+
+@contextmanager
+def exclusive_bounded(root: Path, timeout_seconds: float = 3.0) -> Iterator[None]:
+    """Wait briefly for a concurrent store reader without changing write semantics."""
+    deadline = time.monotonic() + timeout_seconds
+    while True:
+        lock = exclusive(root)
+        try:
+            lock.__enter__()
+            break
+        except ValueError as error:
+            if str(error) != "ANNOTATION_STORE_BUSY" or time.monotonic() >= deadline:
+                raise
+            time.sleep(0.02)
+    try:
+        yield
+    finally:
+        lock.__exit__(None, None, None)
 
 
 def write_atomic(path: Path, payload: dict[str, Any]) -> None:

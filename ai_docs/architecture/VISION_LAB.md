@@ -346,6 +346,10 @@ Nierozstrzygnięty globalny podział zatrzymuje odczyt jawnym błędem; zwykły
 holdout jest pomijany bez ujawnienia źródła. Błąd nie udaje pustej kolejki.
 Token wiąże obie rewizje, grę, sortowanie oraz wersję renderera. Jawne
 „Do ponownej oceny” odróżnia drift od braku wcześniejszej decyzji.
+Klient składa jedną stronę widoku do 500 cropów z kolejnych żądań po
+maksymalnie 30; każde używa tego samego read_token, rewizji i sumy.
+Niepełna lub zmieniona seria odrzuca całą stronę, bez pokazywania
+częściowego wyboru. Backend nadal renderuje tylko żądaną partię.
 Addytywne `label_cells_decide` w POST /symbols zapisuje 1–30 unikalnych
 bindingów do jednej aktywnej klasy w jednym write_atomic, jednej rewizji
 i receipt, z odrębnym decision_id od fingerprintu i crop_id. Wszystkie

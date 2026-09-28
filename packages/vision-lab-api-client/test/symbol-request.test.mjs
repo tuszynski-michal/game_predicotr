@@ -30,7 +30,10 @@ test('symbol wrappers preserve discriminator, CAS, retry identity and read token
       method: request.method,
       body: request.method === 'POST' ? await request.json() : null,
     });
-    return new Response(JSON.stringify({ revision: 7, kind: calls.at(-1).body?.kind === 'lab_queue' ? 'lab_queue' : 'lab_board' }), {
+    const queue = calls.at(-1).body?.kind === 'lab_queue';
+    return new Response(JSON.stringify(queue
+      ? { kind: 'lab_queue', items: [], total: 30, revision: 7, read_token: 'view' }
+      : { revision: 7, kind: 'lab_board' }), {
       headers: { 'Content-Type': 'application/json' },
     });
   };
@@ -98,6 +101,72 @@ test('symbol wrappers preserve discriminator, CAS, retry identity and read token
       dictionary_digest: 'a'.repeat(64), symbol_id: 'lemon', bindings: [{ crop_id: 'id' }] };
     await writeSymbol(selective);
     assert.deepEqual(calls[10].body, selective);
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.Request = OriginalRequest;
+  }
+});
+
+test('queue composes up to 500 crops from bounded 30-item requests', async () => {
+  const originalFetch = globalThis.fetch;
+  const OriginalRequest = globalThis.Request;
+  globalThis.Request = class extends OriginalRequest {
+    constructor(input, init) {
+      super(typeof input === 'string' ? new URL(input, 'http://127.0.0.1:3102') : input, init);
+    }
+  };
+  const calls = [];
+  globalThis.fetch = async (request) => {
+    const body = await request.json();
+    calls.push(body);
+    const count = Math.min(body.limit, 520 - body.offset);
+    return new Response(JSON.stringify({
+      kind: 'lab_queue', total: 520, revision: 4, read_token: 'stable',
+      items: Array.from({ length: count }, (_, i) => ({
+        binding: { crop_id: `crop-${body.offset + i}` },
+        png_base64: 'pixels', status: 'unassigned', reason: null,
+      })),
+    }), { headers: { 'Content-Type': 'application/json' } });
+  };
+  try {
+    const first = await symbolQueue('game');
+    assert.equal(first.items.length, 500);
+    assert.equal(first.items[0].binding.crop_id, 'crop-0');
+    assert.equal(first.items.at(-1).binding.crop_id, 'crop-499');
+    assert.equal(calls.length, 17);
+    assert.ok(calls.every((call) => call.limit <= 30));
+    assert.equal(calls.at(-1).limit, 20);
+    assert.ok(calls.slice(1).every((call) => call.read_token === 'stable'));
+    const second = await symbolQueue('game', 500, first.read_token);
+    assert.equal(second.items.length, 20);
+    assert.equal(second.items[0].binding.crop_id, 'crop-500');
+  } finally {
+    globalThis.fetch = originalFetch;
+    globalThis.Request = OriginalRequest;
+  }
+});
+
+test('queue rejects a changed view while assembling 500 crops', async () => {
+  const originalFetch = globalThis.fetch;
+  const OriginalRequest = globalThis.Request;
+  globalThis.Request = class extends OriginalRequest {
+    constructor(input, init) {
+      super(typeof input === 'string' ? new URL(input, 'http://127.0.0.1:3102') : input, init);
+    }
+  };
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return new Response(JSON.stringify({
+      kind: 'lab_queue', total: 500, revision: calls, read_token: `view-${calls}`,
+      items: Array.from({ length: 30 }, (_, i) => ({
+        binding: { crop_id: `crop-${i}` }, png_base64: 'pixels', status: 'unassigned', reason: null,
+      })),
+    }), { headers: { 'Content-Type': 'application/json' } });
+  };
+  try {
+    await assert.rejects(symbolQueue('game'), /SYMBOL_QUEUE_VIEW_CHANGED/);
+    assert.equal(calls, 2);
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.Request = OriginalRequest;

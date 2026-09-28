@@ -394,6 +394,8 @@ textarea {
   grid-template-columns: repeat(auto-fill, minmax(138px, 1fr));
   gap: 8px;
   margin-block: 12px;
+  max-height: min(70vh, 900px);
+  overflow-y: auto;
 }
 .symbol-panel .symbol-queue-item {
   display: flex;
@@ -406,6 +408,8 @@ textarea {
   border: 1px solid #465166;
   border-radius: 6px;
   overflow-wrap: anywhere;
+  content-visibility: auto;
+  contain-intrinsic-size: 180px;
 }
 .symbol-queue-item img {
   width: 96px;

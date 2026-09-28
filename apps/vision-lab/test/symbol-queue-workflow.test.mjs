@@ -27,6 +27,15 @@ test('assignment requires displayed image and keeps only selected visible bindin
   assert.equal(queueDecision(page, new Set(['crop-0']), loaded, failed, active, 'other', 'id'), null);
 });
 
+test('500 visible crops do not permit more than 30 in one assignment', () => {
+  const many = { ...page, items: Array.from({ length: 31 }, (_, i) => ({
+    binding: { crop_id: `crop-${i}`, cell_index: i % 15 },
+    status: 'unassigned', png_base64: 'bytes', reason: null,
+  })) };
+  const selected = new Set(many.items.map((item) => item.binding.crop_id));
+  assert.equal(queueDecision(many, selected, selected, new Set(), active, 'lemon', 'id'), null);
+});
+
 test('queue exposes image error and stale-page recovery controls', async () => {
   const source = await readFile(new URL('../src/components/symbol-candidate-queue.tsx', import.meta.url), 'utf8');
   assert.match(source, /onLoad=/);

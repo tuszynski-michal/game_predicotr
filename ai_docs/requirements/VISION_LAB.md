@@ -236,3 +236,6 @@ klasę słownika, po czym zapisuje tylko zaznaczone cropy atomowo. Brak
 zatwierdzonego słownika blokuje zapis, ale nie podgląd. Poczekalnia sama
 nie zapisuje etykiety, nie uruchamia treningu i nie ujawnia chronionych źródeł.
 „Grupa” symboli jest zwykłym wpisem słownika, nie nowym poziomem danych.
+Panel pokazuje do 500 cropów na jednej przewijanej stronie, pobierając je
+małymi partiami. To limit widoku, nie jednej transakcji: pojedyncze
+przypisanie pozostaje ograniczone do 30 świadomie wybranych cropów.

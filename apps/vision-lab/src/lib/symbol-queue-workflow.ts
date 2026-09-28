@@ -4,6 +4,8 @@ import type {
   SymbolRequest,
 } from '../../../../packages/vision-lab-api-client/src/index';
 
+export const MAX_QUEUE_ASSIGNMENT = 30;
+
 export function queueSourceCaption(sourceName: string): string {
   const filename = sourceName.split(/[\\/]/).at(-1) || sourceName;
   return filename.length > 24
@@ -36,7 +38,7 @@ export function queueDecision(
   const bindings = selectableQueueItems(page, loaded, failed)
     .filter((item) => selected.has(item.binding.crop_id))
     .map((item) => item.binding);
-  if (!bindings.length) return null;
+  if (!bindings.length || bindings.length > MAX_QUEUE_ASSIGNMENT) return null;
   return {
     op: 'label_cells_decide',
     request_id: requestId,

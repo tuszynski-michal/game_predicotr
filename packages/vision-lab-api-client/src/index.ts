@@ -146,21 +146,42 @@ export async function symbolBoard(
     throw new Error('SYMBOL_BOARD_RESPONSE_INVALID');
   return preview;
 }
+export const SYMBOL_QUEUE_VIEW_SIZE = 500;
+const SYMBOL_QUEUE_FETCH_SIZE = 30;
+
 export async function symbolQueue(
   gameId: string,
   offset = 0,
   readToken?: string,
 ) {
-  const preview = await symbolCrop({
-    kind: 'lab_queue',
-    game_id: gameId,
-    offset,
-    limit: 30,
-    read_token: readToken,
-  });
-  if (preview.kind !== 'lab_queue')
-    throw new Error('SYMBOL_QUEUE_RESPONSE_INVALID');
-  return preview;
+  let token = readToken;
+  let revision: number | undefined;
+  let total: number | undefined;
+  const items = [] as Extract<Awaited<ReturnType<typeof symbolCrop>>, { kind: 'lab_queue' }>['items'];
+  while (items.length < SYMBOL_QUEUE_VIEW_SIZE) {
+    const preview = await symbolCrop({
+      kind: 'lab_queue',
+      game_id: gameId,
+      offset: offset + items.length,
+      limit: Math.min(SYMBOL_QUEUE_FETCH_SIZE, SYMBOL_QUEUE_VIEW_SIZE - items.length),
+      read_token: token,
+    });
+    if (preview.kind !== 'lab_queue')
+      throw new Error('SYMBOL_QUEUE_RESPONSE_INVALID');
+    if (revision !== undefined &&
+      (preview.revision !== revision || preview.total !== total || preview.read_token !== token))
+      throw new Error('SYMBOL_QUEUE_VIEW_CHANGED');
+    token = preview.read_token;
+    revision = preview.revision;
+    total = preview.total;
+    items.push(...preview.items);
+    if (offset + items.length >= total || preview.items.length === 0) {
+      if (offset + items.length < total)
+        throw new Error('SYMBOL_QUEUE_INCOMPLETE');
+      return { ...preview, items };
+    }
+  }
+  return { kind: 'lab_queue' as const, items, total: total!, revision: revision!, read_token: token! };
 }
 export async function writeSymbol(body: SymbolRequest) {
   return (await saveSymbolDecision({ baseUrl, body, throwOnError: true })).data;

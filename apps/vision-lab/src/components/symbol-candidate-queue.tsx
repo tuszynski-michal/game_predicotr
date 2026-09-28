@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   symbolQueue,
+  SYMBOL_QUEUE_VIEW_SIZE,
   type DictionaryView,
   type LabQueuePreview,
   type Source,
   type SymbolRequest,
 } from '../../../../packages/vision-lab-api-client/src/index';
-import { queueDecision, queueSourceCaption, selectableQueueItems } from '../lib/symbol-queue-workflow';
+import { MAX_QUEUE_ASSIGNMENT, queueDecision, queueSourceCaption, selectableQueueItems } from '../lib/symbol-queue-workflow';
 import { symbolErrorCode } from '../lib/symbol-workflow';
 
 type Props = {
@@ -103,7 +104,7 @@ export function SymbolCandidateQueue({ game, sources, active, readVersion, enabl
   const identity = page ? `${page.read_token}:${offset}:${pageGeneration}` : '';
   return <section className="symbol-queue">
     <h2>Poczekalnia cropów</h2>
-    <p>Nieprzypisane pola czekają na decyzję. „Do ponownej oceny” oznacza zmianę siatki, obrazu lub słownika. Sam podgląd nie zatwierdza etykiet.</p>
+    <p>Nieprzypisane pola czekają na decyzję. „Do ponownej oceny” oznacza zmianę siatki, obrazu lub słownika. Sam podgląd nie zatwierdza etykiet. Na stronie jest do 500 cropów; jednym zapisem przypiszesz do 30.</p>
     <button type="button" disabled={disabled || loading || !game} onClick={() => {
       offsetRef.current = 0;
       setSelected(new Set());
@@ -113,7 +114,8 @@ export function SymbolCandidateQueue({ game, sources, active, readVersion, enabl
       {page.total === 0 ? <p>Brak cropów oczekujących na przypisanie.</p> : <>
         <div className="symbol-queue-actions">
           <button type="button" disabled={disabled || loading || selectable.length === 0}
-            onClick={() => setSelected(new Set(selectable.map((item) => item.binding.crop_id)))}>Zaznacz widoczne</button>
+            onClick={() => setSelected(new Set(selectable.slice(0, MAX_QUEUE_ASSIGNMENT)
+              .map((item) => item.binding.crop_id)))}>Zaznacz do 30 wczytanych</button>
           <button type="button" disabled={disabled || loading || selected.size === 0}
             onClick={() => setSelected(new Set())}>Wyczyść wybór</button>
           <label>Symbol
@@ -133,13 +135,13 @@ export function SymbolCandidateQueue({ game, sources, active, readVersion, enabl
             const sourceName = names[item.binding.source_id] ?? item.binding.source_id;
             return <label className="symbol-queue-item" key={`${pageGeneration}:${id}`}
               aria-label={`${sourceName}, plansza ${item.binding.board_index + 1}, pole ${item.binding.cell_index + 1}`}>
-              <input type="checkbox" checked={selected.has(id)} disabled={disabled || loading || failed.has(id) || !loaded.has(id)}
+              <input type="checkbox" checked={selected.has(id)} disabled={disabled || loading || failed.has(id) || !loaded.has(id) || (selected.size >= MAX_QUEUE_ASSIGNMENT && !selected.has(id))}
                 onChange={(event) => setSelected((current) => {
                   const next = new Set(current);
                   if (event.target.checked) next.add(id); else next.delete(id);
                   return next;
                 })} />
-              <img src={`data:image/png;base64,${item.png_base64}`} alt={`Crop pola ${item.binding.cell_index + 1}`}
+              <img src={`data:image/png;base64,${item.png_base64}`} alt={`Crop pola ${item.binding.cell_index + 1}`} loading="lazy"
                 width={96} height={96} onLoad={() => {
                   if (pageIdentity.current === identity)
                     setLoaded((current) => new Set(current).add(id));
@@ -157,7 +159,7 @@ export function SymbolCandidateQueue({ game, sources, active, readVersion, enabl
         </div>
         <p>{offset + 1}–{offset + page.items.length} z {page.total}</p>
         <button type="button" disabled={disabled || loading || offset === 0}
-          onClick={() => void changePage(Math.max(0, offset - 30))}>Poprzednia strona</button>
+          onClick={() => void changePage(Math.max(0, offset - SYMBOL_QUEUE_VIEW_SIZE))}>Poprzednia strona</button>
         <button type="button" disabled={disabled || loading || offset + page.items.length >= page.total}
           onClick={() => void changePage(offset + page.items.length)}>Następna strona</button>
       </>}

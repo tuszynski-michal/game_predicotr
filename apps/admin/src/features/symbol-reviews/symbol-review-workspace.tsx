@@ -370,6 +370,17 @@ export function SymbolReviewWorkspace({
     setDecisionPageRevision((value) => value + 1);
   }, [requestCoordinator]);
 
+  // Retrying a read must not discard the operator's still-valid local selection.
+  // Unlike the explicit refresh above, this path does not clear the page cache,
+  // preview atlas, or selection.
+  const retryPageLoadPreservingSelection = useCallback(() => {
+    requestCoordinator.cancel('page');
+    pageRequestId.current += 1;
+    setError('');
+    setPageState('loading');
+    setDecisionPageRevision((value) => value + 1);
+  }, [requestCoordinator]);
+
   const requestFilterChange = useCallback(
     (nextFilters: SymbolReviewFilters) => {
       if (selectedCount > 0) {
@@ -1414,15 +1425,45 @@ export function SymbolReviewWorkspace({
           </label>
           <label>
             <input
-              checked={filters.confidence === 'below_100'}
+              checked={filters.confidence === 'from_80_to_100'}
               disabled={interactionBusy}
               name="symbol-review-confidence"
               onChange={() =>
-                requestFilterChange({ ...filters, confidence: 'below_100' })
+                requestFilterChange({
+                  ...filters,
+                  confidence: 'from_80_to_100',
+                })
               }
               type="radio"
             />
-            Poniżej 100%
+            80–&lt;100%
+          </label>
+          <label>
+            <input
+              checked={filters.confidence === 'from_60_to_80'}
+              disabled={interactionBusy}
+              name="symbol-review-confidence"
+              onChange={() =>
+                requestFilterChange({
+                  ...filters,
+                  confidence: 'from_60_to_80',
+                })
+              }
+              type="radio"
+            />
+            60–&lt;80%
+          </label>
+          <label>
+            <input
+              checked={filters.confidence === 'below_60'}
+              disabled={interactionBusy}
+              name="symbol-review-confidence"
+              onChange={() =>
+                requestFilterChange({ ...filters, confidence: 'below_60' })
+              }
+              type="radio"
+            />
+            Poniżej 60%
           </label>
         </fieldset>
         <div className={styles.filterActions}>
@@ -1495,7 +1536,15 @@ export function SymbolReviewWorkspace({
       projectionState === 'loading' ||
       (projectionStatus?.status === 'ready' && pageState === 'loading') ? (
         <SymbolReviewStatus
-          text="Wczytywanie bounded strony cropów…"
+          action={
+            projectionStatus?.status === 'ready' &&
+            gamesState === 'ready' &&
+            symbolsState === 'ready'
+              ? retryPageLoadPreservingSelection
+              : undefined
+          }
+          actionLabel="Ponów pobieranie cropów"
+          text="Wczytywanie bounded strony cropów… Ponowienie pobierania zachowuje bieżącą stronę i zaznaczenia."
           title="Wczytywanie"
         />
       ) : null}
@@ -1522,9 +1571,7 @@ export function SymbolReviewWorkspace({
           title="Ustaw parametry widoku"
         />
       ) : null}
-      {projectionStatus?.status === 'ready' &&
-      pageState === 'ready' &&
-      currentPage !== null ? (
+      {projectionStatus?.status === 'ready' && currentPage !== null ? (
         <>
           <div className={styles.summary}>
             <span>
@@ -2127,8 +2174,8 @@ function SymbolReviewFilterChangeDialog({
       <section aria-modal="true" className={styles.modal} role="dialog">
         <h2>Zmienić filtr?</h2>
         <p>
-          Zmiana gry lub symbolu wyczyści bieżące zaznaczenie ({selectedCount}{' '}
-          cropów). Żadna decyzja ani plik nie zostaną zmienione.
+          Zmiana filtra wyczyści bieżące zaznaczenie ({selectedCount} cropów).
+          Żadna decyzja ani plik nie zostaną zmienione.
         </p>
         <div className={styles.modalActions}>
           <button className="secondaryButton" onClick={onCancel} type="button">
@@ -2277,11 +2324,13 @@ function SymbolReviewProjectionStatus({
 
 function SymbolReviewStatus({
   action,
+  actionLabel = 'Spróbuj ponownie',
   error = false,
   text,
   title,
 }: {
   readonly action?: () => void;
+  readonly actionLabel?: string;
   readonly error?: boolean;
   readonly text: string;
   readonly title: string;
@@ -2299,7 +2348,7 @@ function SymbolReviewStatus({
       </div>
       {action ? (
         <button className="secondaryButton" onClick={action} type="button">
-          Spróbuj ponownie
+          {actionLabel}
         </button>
       ) : null}
     </div>

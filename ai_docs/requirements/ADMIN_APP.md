@@ -555,10 +555,12 @@ przedstawiany jako ukończona weryfikacja.
 nawigacji Admina. Operator wybiera grę oraz zakres symbolu: wszystkie symbole,
 jeden aktywny symbol albo nierozpoznane `?`, a także radio `Stan weryfikacji`:
 `Wszystkie`, `Oczekujące`, `Zatwierdzone` albo `Kohorta aktywnego modelu`.
-Radio `Pewność rozpoznania` wybiera `Wszystkie`, `Dokładnie 100%` albo
-`Poniżej 100%`. Pierwszy wariant nie zawęża listy, drugi przekazuje zamknięty
-zakres `minConfidence=maxConfidence=1`, a trzeci obejmuje wartości niższe niż
-`1.0`; wybór zmienia keyset, liczniki i jawne targety kolejnej operacji.
+Radio `Pewność rozpoznania` wybiera `Wszystkie`, `Dokładnie 100%`,
+`80–<100%`, `60–<80%` albo `Poniżej 60%`. Pierwszy wariant nie zawęża listy,
+a pozostałe tworzą rozłączne przedziały: odpowiednio `1.0`, od `0.8` do
+wartości niższej niż `1.0`, od `0.6` do wartości niższej niż `0.8` oraz
+wartości niższe niż `0.6`; wybór zmienia keyset, liczniki i jawne targety
+kolejnej operacji.
 Ostatni wariant pokazuje wyłącznie bieżące, zatwierdzone cropy należące do
 niezmiennej kohorty modelu wskazanego przez najnowszą aktywację wybranej gry.
 Crop zmieniony od zamrożenia kohorty jest wykluczony; brak aktywnego modelu daje
@@ -716,6 +718,10 @@ wyniku Admin nie odświeża automatycznie bieżącej strony ani jej atlasów:
 zachowuje pozycję operatora, a dokładne wysłane targety pozostają przygaszone
 i nieaktywne. Operator może jawnie wybrać `Odśwież cropy`, aby pobrać aktualny
 stan ograniczonej strony, unieważnić jej cache oraz odblokować te targety.
+Jeżeli odczyt strony utknie lub wymaga ponowienia, akcja `Ponów pobieranie
+cropów` anuluje wyłącznie ten odczyt i zachowuje aktywną stronę, atlas oraz
+lokalne zaznaczenia; widok nie zasłania poprzednio pobranych cropów podczas
+ponowienia.
 Nie zakłada, że każda decyzja usuwa pole z grupy:
 outside bez przypisania po Nieczytelny pozostaje w Poza zdjęciem, a pole
 przypisane w tej samej grupie lub Wszystkich nadal jest widoczne. Backend

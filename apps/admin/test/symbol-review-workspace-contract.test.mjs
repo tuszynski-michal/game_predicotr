@@ -37,7 +37,9 @@ test('loads crops only after selecting both a game and a symbol scope', () => {
   assert.match(source, />Nierozpoznany \(\?\)</);
   assert.match(source, /Pewność rozpoznania/);
   assert.match(source, /Dokładnie 100%/);
-  assert.match(source, /Poniżej 100%/);
+  assert.match(source, /80–&lt;100%/);
+  assert.match(source, /60–&lt;80%/);
+  assert.match(source, /Poniżej 60%/);
   assert.match(source, /symbolReviewConfidenceRange/);
   assert.match(source, /<legend>Stan weryfikacji<\/legend>/);
   assert.match(source, /name="symbol-review-state"/);
@@ -94,7 +96,7 @@ test('keeps a three-page metadata window with virtual cards and background bulk 
   assert.doesNotMatch(source, />\s*Nieczytelny symbol\s*</);
   assert.match(source, /className=\{styles\.qualityActions\}/);
   assert.match(styles, /\.qualityActions\s*\{[\s\S]*?flex-wrap:\s*nowrap;/);
-  assert.match(source, /Zmiana gry lub symbolu wyczyści bieżące zaznaczenie/);
+  assert.match(source, /Zmiana filtra wyczyści bieżące zaznaczenie/);
   assert.match(source, /crypto\.randomUUID\(\)/);
   assert.match(source, /window\.setTimeout/);
   assert.match(source, /activeOperations/);
@@ -207,6 +209,30 @@ test('refreshes after a direct decision but preserves the current page after a b
   assert.match(source, />\s*Odśwież cropy\s*</);
   assert.match(source, /settledCellIds\.has\(item\.id\)/);
   assert.match(styles, /\.cardSettled\s*\{/);
+});
+
+test('can retry a stalled crop page without clearing its local selection', () => {
+  const retryStart = source.indexOf('const retryPageLoadPreservingSelection');
+  const retryEnd = source.indexOf('const requestFilterChange', retryStart);
+  const retry = source.slice(retryStart, retryEnd);
+
+  assert.match(source, /Ponów pobieranie cropów/);
+  assert.match(
+    source,
+    /Ponowienie pobierania zachowuje bieżącą stronę i zaznaczenia/,
+  );
+  assert.match(retry, /requestCoordinator\.cancel\('page'\)/);
+  assert.match(retry, /setDecisionPageRevision/);
+  assert.doesNotMatch(
+    retry,
+    /setSelection\(createEmptySymbolReviewSelection\(\)\)/,
+  );
+  assert.doesNotMatch(retry, /dispatch\(\{ type: 'clear_page' \}\)/);
+  assert.doesNotMatch(retry, /setDeselectedCellIds\(new Set\(\)\)/);
+  assert.match(
+    source,
+    /projectionStatus\?\.status === 'ready' && currentPage !== null/,
+  );
 });
 
 test('retains previews for the active page while locally hiding decided cards', () => {

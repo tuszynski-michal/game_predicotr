@@ -9,6 +9,7 @@ from typing import Any, cast
 from uuid import UUID
 
 PILOT_GAME_ID = UUID("bfc4f949-5c14-4850-b02a-db99610bcfa5")
+FOLLOWUP_777_SEQUENCES = (225930, 225933, 225939, 225942, 225948, 225957)
 PILOT_SEQUENCES = (
     60856,
     61018,
@@ -114,13 +115,17 @@ def blocked_board(sequence_number: int, code: str, message: str) -> dict[str, An
 
 
 def build_manifest(
-    *, game_id: UUID, boards: Sequence[Mapping[str, Any]], storage_generation: int
+    *,
+    game_id: UUID,
+    boards: Sequence[Mapping[str, Any]],
+    storage_generation: int,
+    sequences: Sequence[int] = PILOT_SEQUENCES,
 ) -> dict[str, Any]:
     report: dict[str, Any] = {
         "schema": SCHEMA,
         "gameId": str(game_id),
         "storageGeneration": storage_generation,
-        "sequences": list(PILOT_SEQUENCES),
+        "sequences": list(sequences),
         "boards": json_value(boards),
         "countRebuild": {
             "requiredAfterApply": True,
@@ -138,13 +143,14 @@ def validate_manifest(value: Mapping[str, Any]) -> None:
     """Validate the complete input before consulting an idempotency receipt."""
     try:
         UUID(value["gameId"])
+        allowed_sequences = (PILOT_SEQUENCES, FOLLOWUP_777_SEQUENCES)
         valid = (
             value["schema"] == SCHEMA
             and type(value["storageGeneration"]) is int
             and value["storageGeneration"] >= 2
-            and value["sequences"] == list(PILOT_SEQUENCES)
+            and value["sequences"] in [list(scope) for scope in allowed_sequences]
             and isinstance(value["boards"], list)
-            and [row["sequenceNumber"] for row in value["boards"]] == list(PILOT_SEQUENCES)
+            and [row["sequenceNumber"] for row in value["boards"]] == value["sequences"]
             and value["previewSha256"]
             == digest({key: item for key, item in value.items() if key != "previewSha256"})
         )

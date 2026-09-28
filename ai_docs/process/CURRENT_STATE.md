@@ -6,6 +6,15 @@ last_updated: 2026-09-28
 
 # Current State
 
+### TASK-0718 — Uzupełnienie sześciu plansz 777
+
+- Operator wskazał sześć plansz 225930, 225933, 225939, 225942, 225948,
+  225957. Preview SHA `7753a0d911b0503cac957d1540e6a7e02d15ef70a1d7c12e7cd86ade333f9da9`.
+  Wspólna projekcja uzupełniła 13 pozycji `outside`; teraz każda ma 15.
+- Kontrolne ponowienie sześciu transakcji: 6× `replayed=True`, bez duplikatów.
+  Odczyt bazy: 90 pozycji / 13 `outside`. Nie ponawiano wcześniejszej operacji
+  zbiorczej użytkownika ani nie zmieniano innych plansz.
+
 ### TASK-0716 — etykietowanie całej planszy
 
 - Operator zamówił planszę z siatką i 15 kompaktowymi wyborami symboli

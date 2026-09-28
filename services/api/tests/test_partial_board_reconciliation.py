@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 from game_predictor_api.domain.board_topology import LEGACY_IMAGE_BOARD_TOPOLOGY
 from game_predictor_api.domain.partial_board_reconciliation import (
+    FOLLOWUP_777_SEQUENCES,
     PILOT_SEQUENCES,
     ReconciliationError,
     blocked_board,
@@ -18,6 +19,22 @@ from game_predictor_api.storage.symbol_cell_source_visibility import (
     current_source_visibilities,
     pinned_visibility_geometry,
 )
+
+
+def test_followup_manifest_is_exactly_six_authorized_sequences():
+    manifest = build_manifest(
+        game_id=uuid4(),
+        storage_generation=2,
+        sequences=FOLLOWUP_777_SEQUENCES,
+        boards=[blocked_board(number, "MISSING", "No owner") for number in FOLLOWUP_777_SEQUENCES],
+    )
+    validate_manifest(manifest)
+    manifest["sequences"] = list(FOLLOWUP_777_SEQUENCES[:-1])
+    manifest["previewSha256"] = digest(
+        {key: value for key, value in manifest.items() if key != "previewSha256"}
+    )
+    with pytest.raises(ReconciliationError, match="Preview input is invalid"):
+        validate_manifest(manifest)
 
 
 def _quad(left, right):

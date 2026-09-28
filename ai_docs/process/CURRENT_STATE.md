@@ -6,6 +6,13 @@ last_updated: 2026-09-28
 
 # Current State
 
+### Weryfikacja symboli — zachowanie widoku po jobie masowym
+
+- Po końcowym wyniku `approve`, zmiany symbolu lub innej operacji masowej
+  Admin zachowuje bieżącą stronę cropów i jej atlasy, zamiast automatycznie
+  wracać do pobierania strony. Dokładne wysłane cropy są przygaszone i
+  nieaktywne do jawnego `Odśwież cropy`; liczniki nadal odczytywane są osobno.
+
 ### V3 — przyszła brama skali, bez zadania w bieżącym pilocie
 
 - Obecnie sprawdzamy, czy geometria, cięcie i symbole w ogóle działają;

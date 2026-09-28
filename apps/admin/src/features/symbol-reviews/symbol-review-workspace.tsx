@@ -183,6 +183,9 @@ export function SymbolReviewWorkspace({
   const [hiddenCellIds, setHiddenCellIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [settledCellIds, setSettledCellIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
   const [selection, setSelection] = useState<SymbolReviewSelection>(
     createEmptySymbolReviewSelection,
   );
@@ -298,6 +301,7 @@ export function SymbolReviewWorkspace({
       setError('');
       setSelection(createEmptySymbolReviewSelection());
       setHiddenCellIds(new Set());
+      setSettledCellIds(new Set());
       setVisibleItems([]);
       previewAnchorCellId.current = null;
       setCountsState('idle');
@@ -339,17 +343,19 @@ export function SymbolReviewWorkspace({
     setCountsCatalogRevision(null);
     setRequestedPageNumber('1');
     pagePositionRef.current = { number: 1 };
+    setSettledCellIds(new Set());
     dispatch({ type: 'clear_page' });
     setReloadRevision((revision) => revision + 1);
   }, [requestCoordinator]);
 
   // Decisions may stay in the same scope (including outside/unreadable).
-  // Refresh only this bounded page; discard cached pages and stale requests.
+  // Refresh only on the operator's explicit request after a bulk operation.
   const refreshDecisionPage = useCallback(() => {
     requestCoordinator.cancelAll();
     pageRequestId.current += 1;
     countsRequestId.current += 1;
     setHiddenCellIds(new Set());
+    setSettledCellIds(new Set());
     setCountsSnapshot(null);
     setCountsState('loading');
     setSelection(createEmptySymbolReviewSelection());
@@ -1084,8 +1090,11 @@ export function SymbolReviewWorkspace({
         operation.appliedCount === operation.targetCount &&
         operation.conflictCount === 0 &&
         operation.failedCount === 0;
-      if (tracked.operation.gameId === filtersRef.current.gameId)
-        refreshDecisionPage();
+      if (tracked.operation.gameId === filtersRef.current.gameId) {
+        setSettledCellIds(
+          (current) => new Set([...current, ...tracked.submittedCellIds]),
+        );
+      }
       if (
         tracked.operation.gameId === filtersRef.current.gameId &&
         operation.catalogRevision !== null &&
@@ -1116,7 +1125,7 @@ export function SymbolReviewWorkspace({
             },
       );
     },
-    [refreshDecisionPage],
+    [],
   );
 
   async function startPreviewedOperation() {
@@ -1471,6 +1480,14 @@ export function SymbolReviewWorkspace({
               </span>
               <button
                 className="secondaryButton"
+                disabled={interactionBusy}
+                onClick={refreshDecisionPage}
+                type="button"
+              >
+                Odśwież cropy
+              </button>
+              <button
+                className="secondaryButton"
                 disabled={
                   projectionStarting || projectionStatus.activeJobId !== null
                 }
@@ -1503,7 +1520,11 @@ export function SymbolReviewWorkspace({
                     />
                   ) : (
                     <SymbolReviewCard
-                      disabled={interactionBusy || pendingCellIds.has(item.id)}
+                      disabled={
+                        interactionBusy ||
+                        pendingCellIds.has(item.id) ||
+                        settledCellIds.has(item.id)
+                      }
                       item={item}
                       key={item.id}
                       onToggle={() => toggleItem(item)}
@@ -1514,6 +1535,7 @@ export function SymbolReviewWorkspace({
                         item.id,
                       )}
                       selected={isSymbolReviewItemSelected(selection, item)}
+                      settled={settledCellIds.has(item.id)}
                     />
                   )
                 }
@@ -1618,6 +1640,7 @@ export function SymbolReviewCard({
   previewTile,
   previewUnavailable,
   selected,
+  settled,
 }: {
   readonly disabled: boolean;
   readonly item: SymbolCellReviewListItemResponse;
@@ -1627,15 +1650,16 @@ export function SymbolReviewCard({
   readonly previewTile: SymbolReviewVirtualPreviewTile | undefined;
   readonly previewUnavailable: boolean;
   readonly selected: boolean;
+  readonly settled: boolean;
 }) {
   const badge = symbolReviewCardBadge(item);
 
   return (
     <article
-      className={`${styles.card}${selected ? ` ${styles.cardSelected}` : ''}${pending ? ` ${styles.cardPending}` : ''}`}
+      className={`${styles.card}${selected ? ` ${styles.cardSelected}` : ''}${pending ? ` ${styles.cardPending}` : ''}${settled ? ` ${styles.cardSettled}` : ''}`}
     >
       <button
-        aria-label={`${selected ? 'Odznacz' : 'Zaznacz'} crop z planszy ${item.sequenceNumber}, pozycja ${item.rowIndex + 1}/${item.columnIndex + 1}`}
+        aria-label={`${settled ? 'Zapisana zmiana; odśwież cropy, aby pobrać aktualny stan' : selected ? 'Odznacz' : 'Zaznacz'} crop z planszy ${item.sequenceNumber}, pozycja ${item.rowIndex + 1}/${item.columnIndex + 1}`}
         aria-pressed={selected}
         className={styles.cardToggle}
         disabled={disabled}

@@ -174,7 +174,7 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(styles, /\.operationLoader/);
 });
 
-test('reconciles the bounded page after direct and bulk decisions instead of assuming every target leaves the scope', () => {
+test('refreshes after a direct decision but preserves the current page after a bulk operation', () => {
   const directStart = source.indexOf(
     'const result = await applySingleSymbolReviewDecision',
   );
@@ -189,13 +189,18 @@ test('reconciles the bounded page after direct and bulk decisions instead of ass
   const bulkStart = source.indexOf('const finishOperation = useCallback');
   const bulkEnd = source.indexOf('async function startPreviewedOperation');
   const bulkFinish = source.slice(bulkStart, bulkEnd);
-  assert.match(bulkFinish, /refreshDecisionPage\(\)/);
+  assert.doesNotMatch(bulkFinish, /refreshDecisionPage\(\)/);
+  assert.match(bulkFinish, /setSettledCellIds/);
+  assert.match(bulkFinish, /tracked\.submittedCellIds/);
   assert.match(
     bulkFinish,
     /tracked\.operation\.gameId === filtersRef\.current\.gameId/,
   );
   assert.doesNotMatch(bulkFinish, /setReloadRevision/);
   assert.doesNotMatch(bulkFinish, /setPageState\('loading'\)/);
+  assert.match(source, />\s*Odśwież cropy\s*</);
+  assert.match(source, /settledCellIds\.has\(item\.id\)/);
+  assert.match(styles, /\.cardSettled\s*\{/);
 });
 
 test('retains previews for the active page while locally hiding decided cards', () => {

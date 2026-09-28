@@ -705,8 +705,11 @@ liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
 nadal odrzuca próbę zatwierdzenia nierozpoznanego przypisania.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
 polling każdej operacji nie wysyła nakładających się requestów. Po końcowym
-wyniku Admin odświeża bieżącą, ograniczoną stronę i unieważnia cache stron
-oraz wcześniejsze requesty. Nie zakłada, że każda decyzja usuwa pole z grupy:
+wyniku Admin nie odświeża automatycznie bieżącej strony ani jej atlasów:
+zachowuje pozycję operatora, a dokładne wysłane targety pozostają przygaszone
+i nieaktywne. Operator może jawnie wybrać `Odśwież cropy`, aby pobrać aktualny
+stan ograniczonej strony, unieważnić jej cache oraz odblokować te targety.
+Nie zakłada, że każda decyzja usuwa pole z grupy:
 outside bez przypisania po Nieczytelny pozostaje w Poza zdjęciem, a pole
 przypisane w tej samej grupie lub Wszystkich nadal jest widoczne. Backend
 wyznacza aktualną jakość, przynależność i rewizję także po częściowym wyniku.

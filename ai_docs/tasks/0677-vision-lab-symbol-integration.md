@@ -31,7 +31,7 @@ T11 done; mapowanie gry i symboli zatwierdzone. Przed kodowaniem ponownie sprawd
 - `AGENTS.md`, `ai_docs/README.md`, `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (T12 — symbole i wspólny trening)
 - `ai_docs/requirements/VISION_LAB.md`, `ai_docs/architecture/VISION_LAB.md`
-- `ai_docs/process/DECISION_LOG.md` (D-447)
+- `ai_docs/process/DECISION_LOG.md` (D-447, D-461)
 
 ## Scope
 
@@ -44,6 +44,7 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 ## Acceptance criteria
 
 - [ ] CPU ONNX działa w porównaniu, starsze wydania obsługiwane; brak mapowania blokuje tylko daną grę.
+- [ ] Istniejąca gra `777 v1.1` może używać v3 przy zatwierdzonym mapowaniu jej symboli; wersja gry nie wymusza silnika. Brak mapowania oznacza jawnie niedostępne symbole v3, nie błąd geometrii ani przełączenie na dawne predykcje.
 - [ ] Audyt przypisanym modelem nie pozostawia P0–P2; zmiana ma osobny commit, Outcome i CURRENT_STATE.
 
 ## Technical notes
@@ -57,6 +58,7 @@ Zachowaj kontrakty z planu i właścicieli istniejących decyzji. Błędy wejśc
 ## Test cases
 
 - Brak mapowania, drift cropa, podwójna kalibracja, stary checkpoint v1 i dotychczasowy trening produkcyjny.
+- Porównanie tych samych cropów/pozycji `777 v1.1` ze starym wynikiem; osobne identyfikatory modelu i żadnego nadpisania starej ścieżki.
 
 ## Verification
 

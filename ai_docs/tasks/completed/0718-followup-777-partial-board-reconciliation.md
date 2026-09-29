@@ -44,6 +44,10 @@ Inne gry i plansze, zmiana modelu symboli, hurtowe rozpoznawanie, trening.
 
 ## Outcome
 
+Commit `v1.7.35` / `1406f0344d4f40464001daf364523fef06b7f64a`.
+Staged check/stat/list i post-commit show/stat/status PASS; równoległe zmiany poza commitem.
+14 testów PASS; Ruff check i format PASS (3 pliki).
+
 Preview SHA `7753a0d911b0503cac957d1540e6a7e02d15ef70a1d7c12e7cd86ade333f9da9`
 zapisany w `.runtime/followup-777-six-preview-20260928.json`. Zapis sześciu
 transakcji zakończony; każdy receipt ma `cellCount=15`. Kontrolne ponowienie

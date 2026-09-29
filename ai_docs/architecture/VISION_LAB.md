@@ -268,6 +268,17 @@ scheduler, RNG, konfigurację i SHA-256 danych. Odczyt v1 pozostaje możliwy
 bez obietnicy numerycznie identycznego wznowienia. Produkcyjny
 `training_job.py` użyje neutralnego rdzenia dopiero w T12 po regresjach.
 
+Integracja v3 nie wiąże wyboru silnika z nazwą ani wydaniem gry. Adapter
+inferencji otrzymuje obraz, topologię 5 × 3 i jawnie wybraną wersję modelu;
+nie czyta starych predykcji v1.1 ani roli źródła jako warunku wykonania.
+Kontekst gry jest osobnym wejściem mapowania klas symboli, nie częścią
+modelu geometrii. Porównanie v1.1/v3 tworzy dwa rozdzielne przebiegi dla
+tego samego SHA obrazu i wersjonuje wyniki; żadna ścieżka nie zmienia
+ustawienia domyślnego silnika lub decyzji człowieka. Brak słownika/mapowania
+daje jawne „symbole niedostępne” przy nadal dostępnym wyniku geometrii.
+T11 dostarcza równoległy przegląd geometrii, T12 dołącza symbole, T13
+sprawdza parytet, izolację oraz scenariusz `777 v1.1` (D-461).
+
 `vision_lab/runs.py::RunManager` dostarczony w T04 jest
 właścicielem trwałego kontraktu runów; panel T08 jest jego klientem.
 Stan jest zapisywany atomowo pod

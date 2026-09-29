@@ -12,7 +12,8 @@ last_updated: 2026-09-26
 
 ## Goal
 
-Wprowadzić kandydata geometrii do review/shadow tylko dla 5 × 3.
+Wprowadzić kandydata geometrii do review/shadow tylko dla 5 × 3, także
+równolegle do starego silnika na zdjęciu istniejącej gry `777 v1.1`.
 
 ## Context
 
@@ -31,7 +32,7 @@ STOP C lub D z zamrożonym kandydatem i jawne uruchomienie E. Przed kodowaniem p
 - `AGENTS.md`, `ai_docs/README.md`, `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (T11 — geometria w aplikacji)
 - `ai_docs/requirements/VISION_LAB.md`, `ai_docs/architecture/VISION_LAB.md`
-- `ai_docs/process/DECISION_LOG.md` (D-447)
+- `ai_docs/process/DECISION_LOG.md` (D-447, D-453, D-461)
 
 ## Scope
 
@@ -44,6 +45,8 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 ## Acceptance criteria
 
 - [ ] 3 × 3 daje czytelny unsupported bez dopełnienia do 15 i bez zapisu; stare przepływy bez regresji.
+- [ ] Na tym samym niezmiennym obrazie `777 v1.1` można w jednym widoku porównać geometrię starego silnika i v3, wraz z wersjami, bez tworzenia kopii gry; nazwa/wydanie gry i `comparison_only` nie blokują inferencji v3. V3 nie nadpisuje starego wyniku ani rewizji człowieka.
+- [ ] Brak mapowania symboli nie blokuje porównania geometrii; niedopasowane pozycje i błędy są jawne.
 - [ ] Audyt przypisanym modelem nie pozostawia P0–P2; zmiana ma osobny commit, Outcome i CURRENT_STATE.
 
 ## Technical notes
@@ -58,6 +61,7 @@ Zachowaj kontrakty z planu i właścicieli istniejących decyzji. Błędy wejśc
 ## Test cases
 
 - Shadow nie nadpisuje człowieka; 3 × 3 bez mutacji; 5 × 3 pełny pion API–OpenAPI–klient–wrapper–UI i regresja starego silnika. Żądanie API dla nieobsługiwanej topologii daje stabilny błąd bez zapisu.
+- Scenariusz `777 v1.1`: dwa wyniki na tym samym SHA, niezależne wersje, bez odczytu dawnej predykcji przez adapter v3 i bez mutacji starej ścieżki.
 
 ## Verification
 

@@ -94,6 +94,27 @@ last_updated: 2026-09-29
   walidację ciągłości importu (`synchronize_after_board_reopened`) nadal
   resetuje komórki — to znane ryzyko do osobnego rozstrzygnięcia.
 
+## D-461 — niezależny przebieg v3 dla istniejącej gry v1.1
+
+- **Status:** accepted, 2026-09-28; operator chce uruchamiać v3 także dla
+  istniejącej gry, np. `777 v1.1`, i porównywać wynik z dotychczasowym silnikiem.
+- **Decision:** tożsamość i wydanie gry nie wybierają automatycznie silnika.
+  Ten sam niezmienny obraz może otrzymać dwa oddzielne, oznaczone wyniki:
+  dotychczasowy v1.1 oraz kandydat v3. V3 korzysta z obrazu, topologii,
+  jawnego kontekstu gry do mapowania symboli i własnego wersjonowanego modelu;
+  nie importuje starych predykcji, geometrii ani reguł silnika v1.1.
+  `comparison_only` opisuje kwalifikację źródła do etykiet/treningu, nie jest
+  zakazem inferencji lub porównania na istniejącej grze.
+- **Comparison:** obie ścieżki zachowują osobne identyfikatory runu, wersje
+  silnika/modelu, geometrię, cropy, symbole i błędy. Widok porównuje je na
+  tym samym SHA obrazu oraz odpowiadających sobie pozycjach plansz; brak
+  dopasowania jest jawny, nie jest sukcesem. Wynik v3 pozostaje review/shadow,
+  nie nadpisuje ręcznych decyzji, starego wyniku ani ustawienia gry.
+- **Boundary:** decyzja nie odblokowuje treningu symboli historycznego 777,
+  nie zmienia zamrożonych podziałów ani nie promuje obecnego pilota (walidacja
+  nie wykazała poprawy). Włączenie v3 jako domyślnego silnika lub usunięcie
+  v1.1 wymaga osobnego odbioru jakości i jawnej decyzji operatora.
+
 ## D-460 — wyliczana poczekalnia cropów bez nowej hierarchii symboli
 
 - **Status:** accepted, 2026-09-28; operator potwierdził, że grupa oznacza

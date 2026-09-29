@@ -6,6 +6,27 @@ last_updated: 2026-09-29
 
 # Current State
 
+### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
+
+- Operator polecił wycofać poprzednią konfigurację. Pomiar tylko do odczytu
+  wykazał dokładne kliknięcia; p95 `0,2255` wynikał z połączenia dwóch
+  kadrowań w statycznym V1 oraz niespójnych grup. Stara sesja `482cbe56…`
+  (V1, `blocked_source_drift` po zmianie `reels_test`) zostaje do audytu.
+- D-463: nowy ignorowany manifest
+  `.runtime/v7-label-geometry-calibration-t0603-v2.local.json` przypina oba
+  katalogi 777 do V2. Admin tworzy sesje V2 domyślnie z obu katalogów, ma
+  `Zacznij nową sesję` i ostrzega o zdjęciach bez lokalnej siatki (min. 5
+  pełnych numerów w 2 wierszach i 2 kolumnach). Grupa `A` = `small_777`,
+  `B` = `occluded_777`.
+- Próba na tymczasowym runtime: sesja V2 z 374 źródeł (131 + 243), odmowy
+  dla V1, `rells_big` i `reels_test`. Mutacja trwa ok. 7 s (pełna kontrola
+  inwentarza). Stare punkty w V2 dają diagnostycznie p95 `0,0354`; to nie jest
+  profil.
+- Admin: 16 testów V7, 7 testów interakcji ekranu, `tsc` i ESLint PASS.
+  Instrukcja operatora: `LOCAL_OPERATION_GUIDE.md`. Następny krok: anotacje
+  operatora w nowej sesji V2, potem profil, raport walidacji i adopcja. V7
+  pozostaje zablokowane.
+
 ### D-462 — weryfikacja per komórka, etap A (w toku)
 
 - Plan `ai_docs/delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md`

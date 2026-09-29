@@ -16,7 +16,7 @@ To jest wspólny, wielokrotnie używalny silnik **etykiet liczbowych 3 × 3**, a
 
 - `standard_3x3_numeric_labels_v1` oraz wszystkie profile V1 są niezmienne i nadal odtwarzalne.
 - V2 bierze pod uwagę wyłącznie lokalne dowody obrazu: składniki tekstu i regularność siatki. Nie używa oczekiwanego zakresu, kolejności zdjęć, numerów symboli ani koloru ramki.
-- Dla V2 główną kalibracją są pełne kadry `small_777`; kadr częściowo zasłonięty jest materiałem odpornościowym, nie domyślnym źródłem profilu.
+- Dla V2 główną kalibracją są pełne kadry `small_777`; kadr częściowo zasłonięty jest materiałem odpornościowym, nie domyślnym źródłem profilu. **Zmienione przez D-463 (2026-09-29):** ponowne TASK-0603 kalibruje V2 na obu nagraniach 777 (`small_777` = grupa A, `occluded_777` = grupa B), bo jedno nagranie nie daje dwóch niezależnych grup ujęć; z zasłoniętych kadrów wchodzą tylko pełne numery.
 - Brak jednoznacznej lokalnej siatki daje brak cropów i brak automatycznego dowodu, nigdy fallback do V1 ani zgadywanie pozycji.
 - Nadal obowiązują 5 różnych SHA, 2 grupy ujęć, `contained` i p95 `<= 0,04`. Residual V2 jest liczony w układzie lokalnej siatki, nie całego zdjęcia.
 

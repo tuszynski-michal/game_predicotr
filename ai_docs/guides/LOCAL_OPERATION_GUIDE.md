@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-09-22
+last_updated: 2026-09-29
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -17,54 +17,80 @@ muszą być lokalnymi realnymi katalogami bez dowiązań oraz junctionów w cał
 i nie może być użyty do kalibracji ani podglądu assetu. Konfiguracja nie
 odblokowuje `v7_selection` i nie zapisuje plików `cut`.
 
-### Kalibracja pierwszej rodziny etykiet 777 (TASK-0603)
+### Kalibracja etykiet 777 w trybie V2 (TASK-0603, D-463)
 
-Ten krok służy wyłącznie do nauczenia położenia **numerów** w regularnej siatce
-3 × 3. Nie rozpoznaje symboli, nie zmienia geometrii plansz, nie używa bazy
-konkretnej gry i nie uruchamia automatycznego wyboru zdjęć.
+Ten krok uczy wyłącznie położenia **numerów** w siatce 3 × 3. Nie rozpoznaje
+symboli, nie zmienia geometrii plansz i nie uruchamia automatycznego wyboru
+zdjęć. Tryb V2 najpierw znajduje siatkę numerów na każdym zdjęciu osobno,
+dlatego oba nagrania 777 mogą mieć różne kadrowanie.
 
-1. Otwórz nowy PowerShell w katalogu repozytorium. Ustaw manifest T0603 tylko
-   dla procesu API i uruchom API:
+**Zasady, które decydują o wyniku**
+
+- Grupa ujęć oznacza nagranie, nie kolejność klikania. Wszystkie zdjęcia z
+  katalogu `777` (nagranie `302200`) mają grupę **Ujęcie A**; wszystkie zdjęcia
+  z katalogu `777 - przysłoniete częściowo plansze` (nagranie `45164`) mają
+  **Ujęcie B**. Nie używaj `Ujęcie C`.
+- Grupę ustaw **przed** pierwszym kliknięciem na zdjęciu. Punkty zdjęcia bez
+  grupy nie trafiają do profilu.
+- Oznaczasz zdjęcie tylko wtedy, gdy widać na nim co najmniej 5 pełnych,
+  czytelnych numerów w co najmniej 2 wierszach i 2 kolumnach. Zdjęcie z
+  mniejszą liczbą pełnych numerów pomiń w całości. Jedno takie zdjęcie z
+  punktami blokuje cały profil.
+- Każda z 9 pozycji potrzebuje co najmniej 5 różnych zdjęć z pełnym numerem,
+  w tym co najmniej jednego z A i jednego z B.
+- Wybieraj zdjęcia rozrzucone po nagraniu (początek, środek, koniec), a nie
+  kolejne klatki tej samej strony.
+- Podczas sesji nie zmieniaj niczego w katalogu
+  `dane testowe do planu automatycznego wyboru zdjec`, także w innych
+  podkatalogach, np. `reels_test`. Każda zmiana blokuje sesję (`source drift`).
+
+**Procedura**
+
+1. Zatrzymaj działające API. W nowym PowerShellu w katalogu repozytorium ustaw
+   manifest V2 tylko dla procesu API i uruchom API:
 
    ```powershell
-   $env:GAME_PREDICTOR_V7_LABEL_GEOMETRY_CORPUS_MANIFEST = (Resolve-Path '.runtime\v7-label-geometry-calibration-t0603.local.json')
+   $env:GAME_PREDICTOR_V7_LABEL_GEOMETRY_CORPUS_MANIFEST = (Resolve-Path '.runtime\v7-label-geometry-calibration-t0603-v2.local.json')
    $env:GAME_PREDICTOR_V7_LABEL_GEOMETRY_RUNTIME_ROOT = (Resolve-Path '.runtime')
    npm run api:dev
    ```
 
-2. W drugim PowerShellu uruchom `npm run admin:dev`, otwórz lokalny panel
-   Admina i przejdź do **Kalibracja etykiet V7**. Zaznacz oba materiały 777:
-   grupy bazowe i częściowo zasłonięte plansze. `reels_test` nie jest dostępny
-   i nie wolno go dodawać do tej sesji.
+2. W drugim PowerShellu uruchom `npm run admin:dev` i otwórz **Kalibracja
+   etykiet V7**. Jeżeli ekran przywróci starą sesję (`tryb V1`), najpierw użyj
+   **Porzuć niepotwierdzone**, jeśli kolejka nie jest pusta, a potem **Zacznij
+   nową sesję**. Stara sesja zostaje na serwerze do audytu i nie jest używana.
+3. Zostaw zaznaczone oba materiały 777 i kliknij **Utwórz sesję kalibracji**.
+   Przygotowanie trwa kilkanaście sekund. Nagłówek pokazuje `Rewizja 0 · tryb V2`.
+4. Dla każdego wybranego zdjęcia:
+   1. Wybierz je w **Zdjęcie źródłowe** (`small_777` = katalog `777`,
+      `occluded_777` = katalog z zasłoniętymi planszami).
+   2. Ustaw **Grupa ujęć**: `small_777` → **Ujęcie A**, `occluded_777` →
+      **Ujęcie B**.
+   3. Pozycje 1–9 idą wierszami: 1–3 górny rząd od lewej, 4–6 środkowy,
+      7–9 dolny. Wybierz pozycję, pozostaw **Pełny, czytelny crop** i kliknij
+      dokładny środek numeru.
+   4. Numer zasłonięty, ucięty przez krawędź albo nieczytelny oznacz
+      checkboxem **Numer zasłonięty / nieczytelny**; nie klikaj go. Nie używaj
+      opcji `Przycięty crop` ani `Niepewna widoczność`, bo nie liczą się do
+      profilu.
+   5. Błędny punkt popraw, klikając ponownie właściwy środek na tej samej
+      pozycji. Aby wycofać całe zdjęcie, oznacz każdy jego punkt jako
+      zasłonięty.
+5. Każde kliknięcie pojawia się od razu, ale serwer zapisuje je około 7 s.
+   **Trwała kolejka** pokazuje liczbę niezapisanych kliknięć. Karta gotowości
+   liczy tylko punkty zapisane przez serwer. Można pracować dalej; odświeżenie
+   strony nie gubi kolejki.
+6. Karta **Gotowość do sprawdzenia profilu** ma dla każdej pozycji zielony stan
+   `Gotowa do kontroli serwera` przy `Zdjęcia: 5/5` i `Grupy: 2/2`.
+   Czerwony komunikat „Zdjęcia z za małą siatką” wskazuje zdjęcie do
+   uzupełnienia albo wycofania.
+7. Gdy kolejka ma 0, a wszystkie pozycje są zielone, kliknij **Eksportuj
+   snapshot**, a potem **Sprawdź i utwórz profil**. Serwer ponownie sprawdza
+   pliki, grupy, pełne cropy oraz p95 residualu `<= 0,04`. Odrzucony wynik nie
+   zmienia progu; zapisz komunikat i zgłoś go.
 
-3. Dla wybranego zdjęcia wpisz **Grupę ujęć**. Nadaj tę samą nazwę zdjęciom z
-   tego samego przejścia nagrania, na przykład `przejscie-A`; drugie niezależne
-   przejście nazwij inaczej, na przykład `przejscie-B`. Nie twórz drugiej grupy
-   tylko po to, aby spełnić licznik.
-
-4. Wybierz pozycję 1–9, ustaw **Pełny, czytelny crop** i kliknij dokładny
-   środek widocznego numeru. Wartość `contained` wolno wybrać tylko wtedy, gdy
-   proponowany crop obejmie cały czytelny numer. Numer zasłonięty, poza kadrem,
-   przycięty lub nieczytelny oznacz **Numer zasłonięty / nieczytelny**. Nie
-   klikaj przybliżonego środka i nie odtwarzaj numeru z sąsiedniego zdjęcia.
-
-5. Karta **Gotowość do sprawdzenia profilu** pokazuje postęp osobno dla każdej
-   pozycji. Potrzebuje pięciu różnych SHA źródeł oraz dwóch rzeczywistych grup
-   ujęć, z pełnymi cropami. `unavailable`, `clipped` i `uncertain` są widoczne
-   diagnostycznie, ale nie zwiększają licznika ani nie unieważniają istniejących
-   pełnych oznaczeń. Do profilu serwer przekazuje wyłącznie punkty
-   `annotated` z `contained` i zapisaną grupą ujęć.
-
-6. Najpierw użyj **Eksportuj snapshot**. Następnie użyj **Sprawdź i utwórz
-   profil**. Serwer pod własną blokadą ponownie sprawdza inwentarz, różnorodność,
-   ocenę cropa oraz p95 residualu `<= 0,04`. Nieudany wynik nie zmienia progu;
-   zbierz lepsze punkty i utwórz nową sesję tylko na niezmienionych źródłach.
-
-Pauza, odświeżenie przeglądarki i utracona odpowiedź zachowują kolejkę zamiarów
-lokalnie. Nie usuwaj ręcznie plików z `.runtime` podczas aktywnej sesji. Zmiana
-JPEG-a, katalogu lub manifestu po rozpoczęciu sesji powoduje trwałą blokadę
-`source drift`; zachowaj jej stan do audytu i zacznij nową sesję po ustaleniu
-przyczyny. Utworzenie profilu nadal nie odblokowuje V7.
+Nie usuwaj ręcznie plików z `.runtime`. Profil sam nie odblokowuje V7: potem
+potrzebny jest raport walidacji, adopcja i ponowny odbiór T12.
 
 ## Testowy wariant v0.10.4 po odbiorze TASK-0515
 

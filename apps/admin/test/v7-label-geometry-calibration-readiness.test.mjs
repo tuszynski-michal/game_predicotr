@@ -118,3 +118,51 @@ test('diagnostic clipped annotations do not block five contained points', () => 
   assert.equal(result.positions[0]?.incompleteAnnotationCount, 1);
   assert.equal(result.positions[0]?.readyForProfileCheck, true);
 });
+
+test('V2 readiness rejects a photo whose points cannot fit a local grid', () => {
+  const sources = Array.from({ length: 6 }, (_, index) => source(index + 1));
+  const fullSlots = sources.slice(0, 5).flatMap((item) =>
+    Array.from({ length: 9 }, (_, positionIndex) => ({
+      cropAssessment: 'contained',
+      positionIndex,
+      sourceId: item.sourceId,
+      state: 'annotated',
+    })),
+  );
+  const captureGroups = Object.fromEntries(
+    sources.map((item, index) => [item.sourceId, index < 3 ? 'A' : 'B']),
+  );
+  // Four points in one row and a column cannot define a V2 lattice.
+  const sparseSlots = [0, 1, 2, 3].map((positionIndex) => ({
+    cropAssessment: 'contained',
+    positionIndex,
+    sourceId: 'source-6',
+    state: 'annotated',
+  }));
+  const dynamic = calculateV7LabelGeometryCalibrationReadiness({
+    captureGroups,
+    geometryFamilyId: 'standard_3x3_numeric_labels_v2',
+    slots: [...fullSlots, ...sparseSlots],
+    sources,
+  });
+  assert.deepEqual(dynamic.incompleteLatticeSourceIds, ['source-6']);
+  assert.equal(dynamic.readyForProfileCheck, false);
+
+  const withoutSparse = calculateV7LabelGeometryCalibrationReadiness({
+    captureGroups,
+    geometryFamilyId: 'standard_3x3_numeric_labels_v2',
+    slots: fullSlots,
+    sources,
+  });
+  assert.deepEqual(withoutSparse.incompleteLatticeSourceIds, []);
+  assert.equal(withoutSparse.readyForProfileCheck, true);
+
+  const staticFamily = calculateV7LabelGeometryCalibrationReadiness({
+    captureGroups,
+    geometryFamilyId: 'standard_3x3_numeric_labels_v1',
+    slots: [...fullSlots, ...sparseSlots],
+    sources,
+  });
+  assert.deepEqual(staticFamily.incompleteLatticeSourceIds, []);
+  assert.equal(staticFamily.readyForProfileCheck, true);
+});

@@ -6,6 +6,31 @@ last_updated: 2026-09-29
 
 # Decision Log
 
+## D-463 — ponowne TASK-0603 kalibruje etykiety V2 na obu nagraniach 777
+
+- **Status:** accepted, 2026-09-29; operator polecił wycofać poprzednią
+  konfigurację kalibracji i wybrał tryb V2 dla obu katalogów 777.
+- **Decision:** nowa sesja T0603 używa `standard_3x3_numeric_labels_v2` i
+  osobnego ignorowanego manifestu
+  `.runtime/v7-label-geometry-calibration-t0603-v2.local.json`. Grupa ujęć
+  oznacza nagranie: `small_777` = `A`, `occluded_777` = `B`; z zasłoniętych
+  kadrów wchodzą wyłącznie pełne numery. Admin tworzy nowe sesje w V2,
+  domyślnie z obu katalogów, i przed profilem wymaga, aby każde źródło z
+  punktami miało pięć pełnych numerów w dwóch wierszach i dwóch kolumnach.
+  Zastępuje to część D-420 i planu V2, według której nowa sesja zaczynała od
+  samego `small_777`.
+- **Rationale:** pomiar tylko do odczytu na punktach sesji `482cbe56…`
+  pokazał dokładne kliknięcia (V1 w obrębie jednego katalogu p95 `0,0045` i
+  `0,0143`). Porażka p95 `0,2255` wynikała z połączenia dwóch kadrowań w
+  statycznym V1, a niespójne nazwy grup nie opisywały nagrań. Katalog
+  `small_777` to jedno nagranie, więc samodzielnie nie daje dwóch
+  niezależnych grup ujęć.
+- **Safety:** stara sesja (V1, `blocked_source_drift`) pozostaje na serwerze
+  do audytu; Admin zapomina wyłącznie jej lokalny widok i kolejkę. Manifest V1
+  T0603, progi (5 SHA, 2 grupy, `contained`, p95 `<= 0,04`), holdout
+  `reels_test` i blokada V7 nie zmieniają się. Profil powstaje tylko z
+  anotacji operatora.
+
 ## D-462 — weryfikacja per komórka bez zatwierdzania planszy i siatki
 
 - **Status:** accepted, 2026-09-29; polecenie operatora i zaakceptowany plan

@@ -164,6 +164,32 @@ export class V7LabelGeometryCalibrationLocalStore {
     }
   }
 
+  /**
+   * Forgets only this browser's view of a session so the next start does not
+   * resume it. The server-owned session and its annotations stay for audit.
+   */
+  async forgetSession(sessionId: string): Promise<void> {
+    if (this.factory === undefined) return;
+    const database = await this.open();
+    try {
+      const existing = await requestAll<V7LabelGeometryQueueRecord>(
+        database.transaction(QUEUE_STORE, 'readonly').objectStore(QUEUE_STORE),
+      );
+      const transaction = database.transaction(
+        [QUEUE_STORE, VIEW_STORE],
+        'readwrite',
+      );
+      const queueStore = transaction.objectStore(QUEUE_STORE);
+      for (const record of existing) {
+        if (record.sessionId === sessionId) queueStore.delete(record.key);
+      }
+      transaction.objectStore(VIEW_STORE).delete(sessionId);
+      await transactionComplete(transaction);
+    } finally {
+      database.close();
+    }
+  }
+
   private open(): Promise<IDBDatabase> {
     return new Promise((resolve, reject) => {
       const request = this.factory?.open(DATABASE_NAME, DATABASE_VERSION);

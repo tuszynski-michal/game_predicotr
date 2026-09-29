@@ -175,6 +175,11 @@ Zadanie kończy się po testach, self-audycie, review Astra Medium, poprawie ka�
 
 ### Wznowienie V2 — przygotowanie (2026-09-29)
 
+- Commit `v1.7.50` / `2d9d41984e1fdf5a0b46b00eba3335bd4644e2de`.
+- `v1.7.50` wypchnięty na `origin/v1.1-vision-lab-hybrid-geometry`. Dalsza praca
+  nad TASK-0603 idzie w osobnym worktree `worktrees/v7-t0603-v2-calibration`
+  na gałęzi `feat/v7-t0603-v2-calibration` (od `v1.7.50`), bez zmian drugiej
+  sesji z głównego katalogu.
 - Zmienione pliki: gotowość, lokalny store i ekran kalibracji w
   `apps/admin/src/features/v7-label-geometry/`, testy kontraktu, gotowości i
   interakcji, `LOCAL_OPERATION_GUIDE.md`, wymagania `IMAGE_SELECTION.md`,

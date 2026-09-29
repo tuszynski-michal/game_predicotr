@@ -8,6 +8,11 @@ last_updated: 2026-09-29
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 
+- Commit `v1.7.50` / `2d9d41984e1fdf5a0b46b00eba3335bd4644e2de`.
+- `v1.7.50` wypchnięty na `origin/v1.1-vision-lab-hybrid-geometry`. Dalsza praca
+  nad TASK-0603 idzie w osobnym worktree `worktrees/v7-t0603-v2-calibration`
+  na gałęzi `feat/v7-t0603-v2-calibration` (od `v1.7.50`), bez zmian drugiej
+  sesji z głównego katalogu.
 - Operator polecił wycofać poprzednią konfigurację. Pomiar tylko do odczytu
   wykazał dokładne kliknięcia; p95 `0,2255` wynikał z połączenia dwóch
   kadrowań w statycznym V1 oraz niespójnych grup. Stara sesja `482cbe56…`

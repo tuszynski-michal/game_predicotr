@@ -254,6 +254,157 @@ def test_qualified_pending_projection_preserves_every_logical_position(missing) 
     assert all(payload.candidate.alternative_symbol_codes[i] == () for i in missing)
 
 
+def _partial_board(missing: tuple[int, ...], *, geometry_revision: int):
+    item, board, source, job = _records(status="pending")
+    board.geometry_revision = geometry_revision
+    board.geometry_qualification = GeometryQualification(
+        "pending_partial", missing, True, "missing_pixels"
+    ).to_dict()
+    board.completeness_status = "pending_partial"
+    board.unavailable_cell_indices = list(missing)
+    return item, board, source, job
+
+
+def test_qualified_projection_ignores_observations_of_masked_positions() -> None:
+    """TASK-0730: the worker observes all 15 positions before masking some."""
+
+    missing = (4, 9, 14)
+    item, board, source, job = _partial_board(missing, geometry_revision=0)
+    observations = [
+        CellObservationModel(
+            row_index=index // 5,
+            column_index=index % 5,
+            prediction={
+                "symbolCode": f"symbol-{index}",
+                "alternatives": [{"symbolCode": "other", "confidence": 0.1}],
+            },
+        )
+        for index in range(15)
+    ]
+
+    payload = _payload_from_records(
+        item=item,
+        board=board,
+        source=source,
+        job=job,
+        observations=observations,
+        prediction_override=None,
+    )
+
+    assert payload is not None
+    # A board cut on the right keeps its visible left reels as evidence.
+    assert payload.candidate.primary_symbol_codes == tuple(
+        None if i in missing else f"symbol-{i}" for i in range(15)
+    )
+    assert all(payload.candidate.alternative_symbol_codes[i] == () for i in missing)
+    assert payload.candidate.alternative_symbol_codes[0] == ("other",)
+    # A visible position without an observation still fails closed.
+    assert (
+        _payload_from_records(
+            item=item,
+            board=board,
+            source=source,
+            job=job,
+            observations=observations[1:],
+            prediction_override=None,
+        )
+        is None
+    )
+
+
+def test_qualified_legacy_revision_uses_its_own_current_crops() -> None:
+    """TASK-0730: a manual legacy revision has crops, not a virtual manifest."""
+
+    from game_predictor_api.storage.models import ImageBoardGeometryRevisionModel
+
+    missing = (0, 5, 10)
+    item, board, source, job = _partial_board(missing, geometry_revision=1)
+    revision = ImageBoardGeometryRevisionModel(
+        asset_mode="legacy_file",
+        virtual_render_spec=None,
+        crop_artifacts=[
+            {
+                "rowIndex": index // 5,
+                "columnIndex": index % 5,
+                "cropChecksumSha256": f"{index + 100:064x}",
+            }
+            for index in range(15)
+        ],
+    )
+
+    def observations(stale: int | None = None) -> list[CellObservationModel]:
+        return [
+            CellObservationModel(
+                row_index=index // 5,
+                column_index=index % 5,
+                crop_checksum_sha256=(
+                    "f" * 64 if index in (stale, *missing) else f"{index + 100:064x}"
+                ),
+                prediction={"symbolCode": f"symbol-{index}", "alternatives": []},
+            )
+            for index in range(15)
+        ]
+
+    payload = _payload_from_records(
+        item=item,
+        board=board,
+        source=source,
+        job=job,
+        observations=observations(),
+        prediction_override=None,
+        geometry_revision=revision,
+    )
+    assert payload is not None
+    assert payload.candidate.primary_symbol_codes == tuple(
+        None if i in missing else f"symbol-{i}" for i in range(15)
+    )
+    # A visible observation of other pixels than the revision's crop is stale.
+    assert (
+        _payload_from_records(
+            item=item,
+            board=board,
+            source=source,
+            job=job,
+            observations=observations(stale=7),
+            prediction_override=None,
+            geometry_revision=revision,
+        )
+        is None
+    )
+    # Like an unqualified legacy board, a prediction revision overrides the
+    # observations of visible positions only; masked ones stay unknown.
+    overridden = _payload_from_records(
+        item=item,
+        board=board,
+        source=source,
+        job=job,
+        observations=observations(),
+        prediction_override=[
+            {"rowIndex": i // 5, "columnIndex": i % 5, "symbolCode": "new", "alternatives": []}
+            for i in range(15)
+        ],
+        geometry_revision=revision,
+    )
+    assert overridden is not None
+    assert overridden.candidate.primary_symbol_codes == tuple(
+        None if i in missing else "new" for i in range(15)
+    )
+    # The legacy observation path never applies to a virtual-source board.
+    board.asset_mode = "virtual_source"
+    assert (
+        _payload_from_records(
+            item=item,
+            board=board,
+            source=source,
+            job=job,
+            observations=observations(),
+            prediction_override=None,
+            geometry_revision=revision,
+        )
+        is None
+    )
+
+
 def test_qualified_revised_projection_never_reuses_original_pixel_predictions() -> None:
     from game_predictor_api.storage.models import ImageBoardGeometryRevisionModel
 

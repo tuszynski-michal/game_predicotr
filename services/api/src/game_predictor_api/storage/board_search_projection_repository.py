@@ -1152,9 +1152,13 @@ def _qualified_pending_predictions(
     ):
         return None
     unavailable = set(qualification.unavailable_cell_indices)
+    available = set(range(15)) - unavailable
     by_index: dict[int, Mapping[str, object]] = {}
     current_specs: dict[int, object] = {}
-    if board.geometry_revision > 0:
+    # A manual legacy-file revision rewrites the cell observations to its own
+    # crops instead of carrying a virtual render manifest (TASK-0730).
+    legacy_crops = _legacy_revision_crops(board, revision)
+    if board.geometry_revision > 0 and legacy_crops is None:
         manifest = None if revision is None else revision.virtual_render_spec
         if not isinstance(manifest, Mapping) or not isinstance(manifest.get("cells"), list):
             return None
@@ -1176,8 +1180,17 @@ def _qualified_pending_predictions(
                 or not 0 <= observation.column_index < 5
             ):
                 return None
+            if (
+                legacy_crops is not None
+                and index in available
+                and legacy_crops.get(index) != observation.crop_checksum_sha256
+            ):
+                # An observation of superseded pixels is never evidence.
+                return None
             by_index[index] = observation.prediction
-        if set(by_index) != set(range(15)) - unavailable:
+        # The worker observes every position before the qualification masks
+        # some of them; a masked observation is replaced by an unknown below.
+        if not available <= set(by_index):
             return None
     if predictions is not None:
         seen: set[int] = set()
@@ -1197,9 +1210,13 @@ def _qualified_pending_predictions(
             if index in unavailable:
                 continue
             virtual = prediction.get("virtualCell")
-            if board.geometry_revision > 0 and (
-                not isinstance(virtual, Mapping)
-                or virtual.get("renderSpecChecksumSha256") != current_specs[index]
+            if (
+                board.geometry_revision > 0
+                and legacy_crops is None
+                and (
+                    not isinstance(virtual, Mapping)
+                    or virtual.get("renderSpecChecksumSha256") != current_specs[index]
+                )
             ):
                 continue
             by_index[index] = prediction
@@ -1207,6 +1224,41 @@ def _qualified_pending_predictions(
     return _parse_pending_predictions(
         tuple(empty if index in unavailable else by_index.get(index, empty) for index in range(15))
     )
+
+
+def _legacy_revision_crops(
+    board: RecognizedBoardModel,
+    revision: ImageBoardGeometryRevisionModel | None,
+) -> dict[int, str] | None:
+    """Crop checksums of a current manual legacy-file revision, else ``None``."""
+
+    if (
+        board.geometry_revision <= 0
+        or board.asset_mode != "legacy_file"
+        or revision is None
+        or revision.asset_mode != "legacy_file"
+        or revision.virtual_render_spec is not None
+        or not isinstance(revision.crop_artifacts, list)
+    ):
+        return None
+    crops: dict[int, str] = {}
+    for artifact in revision.crop_artifacts:
+        if not isinstance(artifact, Mapping):
+            return None
+        row = artifact.get("rowIndex")
+        column = artifact.get("columnIndex")
+        checksum = artifact.get("cropChecksumSha256")
+        if (
+            type(row) is not int
+            or type(column) is not int
+            or not 0 <= row < 3
+            or not 0 <= column < 5
+            or not isinstance(checksum, str)
+            or row * 5 + column in crops
+        ):
+            return None
+        crops[row * 5 + column] = checksum
+    return crops
 
 
 def _parse_pending_predictions(

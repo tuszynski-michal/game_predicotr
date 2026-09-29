@@ -101,6 +101,14 @@ last_updated: 2026-09-29
   planszach), scenariusze 1–9 potwierdzone testami i odczytem żywych danych;
   kolejka korekty gry `777` = 119 plansz ze zgłoszeniem `Zła siatka`, gra
   `mumie` = 10 odroczonych slotów. Plan D-462 (etapy A–C) zakończony.
+- TASK-0729 commit `v1.7.59` / `8837b03c`.
+- TASK-0730 done (polecenie operatora 2026-09-30): 108 plansz
+  `pending_partial` gry `777` nie miało dokumentu wyszukiwania (obserwacje
+  pól zamaskowanych, ręczne rewizje `legacy_file` bez manifestu). Po
+  poprawce projekcji i odświeżeniu (preview → apply 108 plansz) gra ma
+  500 000 dokumentów na 500 000 pozycji; plansze niepełne liczą w
+  „Przybliżonej wygranej” potwierdzoną wygraną (prefix-stop). Następny krok:
+  plan snapshotu mobilnego z plansz niepełnych i niezweryfikowanych.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

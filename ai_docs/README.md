@@ -89,6 +89,8 @@ implementacyjnym.
   zaakceptowane przejście na V2-only; DDL wymaga odrębnej zgody operacyjnej.
 - [Cell-level verification plan](delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md)
   — weryfikacja per komórka i jedna kolejka korekty cięcia siatki (D-462).
+- [Symbol reference library plan](delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md)
+  — propozycje symboli z biblioteki zweryfikowanych komórek (D-464).
 - [V2 readiness remediation plan](delivery/V2_READINESS_REMEDIATION_PLAN.md) —
   naprawy po `no-go` T08 oraz blokująca propozycja decyzji TASK-0698.
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)

@@ -6,6 +6,28 @@ last_updated: 2026-09-29
 
 # Decision Log
 
+## D-464 — propozycje symboli z biblioteki zweryfikowanych komórek
+
+- **Status:** accepted, 2026-09-29; operator zaakceptował plan
+  `ai_docs/delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md` i zlecił
+  wyłącznie etap A dla ośmiu symboli gry `777`, w osobnym worktree.
+- **Decision:** oczekująca komórka może otrzymać propozycję symbolu wyliczoną
+  z podobieństwa do komórek zweryfikowanych przez operatora. Propozycja jest
+  osobnym, wersjonowanym wynikiem. Nie zmienia decyzji operatora, stanu
+  komórki ani predykcji aktywnego modelu i nie jest zatwierdzeniem.
+- **Evidence:** wzorcem jest wyłącznie komórka `approved` z decyzją człowieka,
+  pełną widocznością, bez flagi jakości i z tożsamością pikseli akceptacji
+  równą bieżącej. Reguła pewności (7 z 7 głosów w dwóch opisach i zgodność
+  opisów) została ustalona przed pomiarem.
+- **Boundary:** etap A jest odczytowy i nie zapisuje niczego w bazie. Zapis
+  propozycji, API i UI należą do etapu B, ponowny trening do etapu C; oba
+  wymagają osobnego polecenia. Bramka etapu A to ślepa ocena operatora.
+- **Open:** traktowanie zasłoniętych symboli oraz komórek z zatwierdzenia
+  masowego 2026-09-28 jest nierozstrzygnięte i blokuje dobór wzorców w
+  etapie B, nie pomiar etapu A.
+- **Numbering:** gałąź `codex/symbol-split-pilot` ma własne, inne decyzje o
+  numerach D-462 i D-463. Ten wpis używa numeracji gałęzi bazowej.
+
 ## D-463 — ponowne TASK-0603 kalibruje etykiety V2 na obu nagraniach 777
 
 - **Status:** accepted, 2026-09-29; operator polecił wycofać poprzednią

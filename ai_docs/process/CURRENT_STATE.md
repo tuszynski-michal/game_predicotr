@@ -6,6 +6,16 @@ last_updated: 2026-09-29
 
 # Current State
 
+### D-464 — biblioteka wzorców symboli, etap A (w toku)
+
+- Plan `ai_docs/delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md`
+  zaakceptowany 2026-09-29; operator zlecił zapis planu i etap A
+  (TASK-0740, TASK-0741) dla ośmiu symboli gry `777`. Praca w worktree
+  `worktrees/symbol-reference-library`, gałąź `feat/symbol-reference-library`.
+- Etap A jest odczytowy: bez zapisu w bazie, bez zmian API, UI i modelu.
+  Etapy B i C wymagają osobnego polecenia.
+
+
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 
 - Operator polecił wycofać poprzednią konfigurację. Pomiar tylko do odczytu

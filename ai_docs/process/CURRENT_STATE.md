@@ -14,7 +14,14 @@ last_updated: 2026-09-29
   `worktrees/symbol-reference-library`, gałąź `feat/symbol-reference-library`.
 - Etap A jest odczytowy: bez zapisu w bazie, bez zmian API, UI i modelu.
   Etapy B i C wymagają osobnego polecenia.
-
+- Commit planu: `v1.7.52` / `5bf3381f`.
+- TASK-0740 done: skrypt `scripts/evaluate_symbol_reference_library.py`
+  i moduł `symbols/reference_library.py`. Na 2 706 zweryfikowanych komórkach
+  pewne propozycje pokrywają 80,5% ze zgodnością 99,5%; aktywny model na tej
+  wybiórczej próbie 12,7%. Raport:
+  `ai_docs/quality/SYMBOL_REFERENCE_LIBRARY_STAGE_A.md`. 20 testów, Ruff,
+  mypy i niezależny audyt PASS.
+- Następny krok: TASK-0741, ślepa ocena operatora na 200 komórkach.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

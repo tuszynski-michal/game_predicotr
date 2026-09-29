@@ -127,14 +127,16 @@ uruchomieniem.
 ## Przypisanie modeli do zadań
 
 Poziomu rozumowania nie da się ustawić jawnie z bieżącej sesji, dlatego
-rekomendacja jest warunkowa. Względem propozycji z rozmowy T1 wykonuje model
-bieżącej sesji, ponieważ prototyp i pomiary powstały w tej sesji; audyt
-pozostaje niezależny.
+rekomendacja jest warunkowa. T1 i T2 wykonuje model bieżącej sesji, ponieważ
+prototyp i pomiary powstały w tej sesji; audyt jest osobnym agentem. Model
+sesji zmienił się w trakcie T1 z `claude-fable-5-1` na `claude-opus-5-5`
+(zmiana środowiska, nie wybór wykonawcy); wiersze odpowiadają faktycznemu
+wykonaniu.
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| T1 / TASK-0740 | claude-fable-5-1 | high | Przeniesienie sprawdzonego prototypu do narzędzia odczytowego; niskie ryzyko danych. | Tak: claude-opus-5-5, high |
-| T2 / TASK-0741 | claude-fable-5-1 | high | Próbka ślepej oceny i porównanie wyników; wynik zależy od operatora. | Tak: claude-opus-5-5, high |
+| T1 / TASK-0740 | claude-opus-5-5 | high | Przeniesienie sprawdzonego prototypu do narzędzia odczytowego; niskie ryzyko danych. | Tak: claude-opus-5-5, high, osobny agent |
+| T2 / TASK-0741 | claude-opus-5-5 | high | Próbka ślepej oceny i porównanie wyników; wynik zależy od operatora. | Tak: claude-opus-5-5, high, osobny agent |
 | T3 / TASK-0744 | claude-opus-5-5 | high | Migracja, handler workera, wznowienie i ochrona decyzji operatora. | Tak: claude-opus-5-5, high |
 | T4 / TASK-0745 | claude-opus-5-5 | high | Zmiana kontraktu API z zachowaniem zgodności istniejących żądań. | Tak: claude-opus-5-5, high |
 | T5 / TASK-0746 | claude-sonnet-5-5 | high | Interfejs na gotowym kontrakcie, regresje widoku weryfikacji. | Tak: claude-opus-5-5, high |

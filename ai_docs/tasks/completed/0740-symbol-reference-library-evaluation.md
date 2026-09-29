@@ -1,6 +1,6 @@
 ---
 title: TASK-0740 — T1 — odczytowa ocena biblioteki wzorców symboli
-status: in_progress
+status: done
 last_updated: 2026-09-29
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-29
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -34,9 +34,10 @@ tej samej próbie. Plan: `ai_docs/delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PL
 
 ## Recommended execution
 
-`claude-fable-5-1`, reasoning `high` (warunkowo: poziomu nie da się ustawić
-z sesji). Prototyp powstał w tej sesji. Niezależny review `claude-opus-5-5`,
-`high`. Eskalacja: rozbieżność pomiaru z próbą większa niż 3 punkty
+`claude-opus-5-5`, reasoning `high` (warunkowo: poziomu nie da się ustawić
+z sesji). Model sesji zmienił się w trakcie z `claude-fable-5-1`; plan
+odnotowuje zmianę. Prototyp powstał w tej sesji. Niezależny review
+`claude-opus-5-5`, `high`, osobny agent. Eskalacja: rozbieżność pomiaru z próbą większa niż 3 punkty
 procentowe wymaga analizy przed dalszą pracą.
 
 ## Relevant docs
@@ -60,15 +61,18 @@ procentowe wymaga analizy przed dalszą pracą.
 
 ## Acceptance criteria
 
-- [ ] Sesja bazy jest tylko do odczytu; stan wierszy komórek przed i po
-  uruchomieniu jest identyczny (liczność i suma `revision`).
-- [ ] Pomiar z wyłączeniem importu dla wszystkich ośmiu symboli: zgodność,
+- [x] Sesja bazy jest tylko do odczytu (`REPEATABLE READ`, `READ ONLY`,
+  wyłącznie SELECT); ten sam odcisk stanu komórek we wszystkich
+  uruchomieniach. Pierwotne sformułowanie „przed i po” w jednej transakcji
+  niczego nie dowodziło i zastąpiono je porównaniem między uruchomieniami.
+- [x] Pomiar z wyłączeniem importu dla wszystkich ośmiu symboli: zgodność,
   macierz pomyłek, pokrycie i zgodność reguły R7, wynik per pasmo predykcji.
-- [ ] Wycinek o sumie pikseli innej niż zapisana jest wykluczony i policzony.
-- [ ] Komórka bez 7 dostępnych wzorców daje `do_przeglądu`.
-- [ ] Powtórne uruchomienie na tym samym stanie daje identyczny raport.
-- [ ] Testy jednostkowe modułu, Ruff i mypy dla zmienionych plików.
-- [ ] Niezależny audyt bez otwartych P0–P2; osobny commit, Outcome,
+- [x] Wycinek o sumie pikseli innej niż zapisana jest wykluczony i policzony
+  (test; w danych na żywo 0 takich wycinków).
+- [x] Komórka bez 7 dostępnych wzorców daje `do_przeglądu`.
+- [x] Powtórne uruchomienie na tym samym stanie daje identyczny raport.
+- [x] Testy jednostkowe modułu, Ruff i mypy dla zmienionych plików.
+- [x] Niezależny audyt bez otwartych P0–P2; osobny commit, Outcome,
   CURRENT_STATE.
 
 ## Technical notes
@@ -130,4 +134,50 @@ Testy są planowane do chwili wpisania wyników w Outcome.
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- Nowy czysty moduł
+  `services/worker/src/game_predictor_worker/symbols/reference_library.py`:
+  opis kształtu bez barwy, histogram barwy, korekta balansu bieli, głosowanie
+  7 najbliższych wzorców i reguła pewności R7.
+- Nowy skrypt odczytowy `scripts/evaluate_symbol_reference_library.py`
+  (podkomenda `evaluate`): biblioteka zweryfikowanych komórek, ocena z
+  wyłączeniem importu, próbka oczekujących komórek dla ośmiu symboli,
+  `report.json`, `pending-proposals.json` i arkusze PNG. Wznawialny przez
+  pamięć podręczną wycinków; kod wyjścia 3 oznacza niepełne renderowanie.
+- Testy: `services/worker/tests/test_symbol_reference_library.py`,
+  `services/worker/tests/test_evaluate_symbol_reference_library_script.py`.
+- Raport: `ai_docs/quality/SYMBOL_REFERENCE_LIBRARY_STAGE_A.md`.
+
+### Verification results
+
+- 20 testów PASS (6,21 s); Ruff check/format i mypy `--strict` PASS dla
+  czterech plików.
+- Pomiar na 2 706 zweryfikowanych komórkach: głos kształtu 95,6%, pewne
+  propozycje pokrywają 80,5% komórek ze zgodnością 99,5% (11 błędów).
+  Aktywny model na tej wybiórczej próbie 12,7%. Rozbieżność z próbą z
+  rozmowy mieści się w 3 pp (model 14,9% wtedy wyliczony z odtworzonych
+  logitów, teraz z predykcji zapisanych w bazie).
+- Próbka 400 oczekujących komórek z pasma 60–80%: szczegóły per symbol w
+  raporcie jakości.
+- `report.json` SHA `a461e260…8f8c` i `pending-proposals.json` SHA
+  `26317ee6…1e71036` identyczne w sześciu uruchomieniach (cztery wykonawcy,
+  dwa audytora).
+- Niezależny audyt `claude-opus-5-5`: PASS bez P0–P2; poprawione P3 opisane
+  w raporcie jakości.
+
+### Not completed
+
+- Brak ślepej oceny operatora (TASK-0741). Zgodność na oczekujących
+  komórkach nie jest potwierdzona.
+- Pozostawione P3: aktywny model tylko z wpisu `activate`, budżet czasu bez
+  liczenia opisów, nazwa arkusza z kodu symbolu w bazie.
+
+### Documentation updates
+
+- Raport jakości, plan (tabela modeli po zmianie modelu sesji),
+  CURRENT_STATE.
+
+### Recommended next task
+
+- TASK-0741: zamrożenie 200 komórek i ślepa ocena operatora.

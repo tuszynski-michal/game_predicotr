@@ -286,7 +286,7 @@ def test_grid_issue_must_remain_pending() -> None:
     assert error.value.code == "SYMBOL_CELL_REVIEW_GRID_ISSUE_STATE_INVALID"
 
 
-def test_new_geometry_preserves_safe_labels_and_reopens_grid_issue() -> None:
+def test_new_geometry_rechecks_changed_pixels_and_resolves_the_grid_report() -> None:
     initial = _mapped_reviews()
     approved = tuple(
         approve_symbol_cell_review(review, active_symbol_codes=("cherry",)).review
@@ -302,16 +302,17 @@ def test_new_geometry_preserves_safe_labels_and_reopens_grid_issue() -> None:
     )
 
     assert len(invalidated) == 15
+    # The reported crop is replaced by the model suggestion for new pixels.
     assert invalidated[3].review_state is SymbolCellReviewState.PENDING
     assert invalidated[3].quality_issue is None
     assert invalidated[3].assignment_source is SymbolCellAssignmentSource.MODEL
+    # D-462 R6: changed pixels need a new check; the human label remains only
+    # as a pending suggestion and the old approval as history.
     assert all(
-        review.review_state is SymbolCellReviewState.APPROVED
-        for index, review in enumerate(invalidated)
-        if index != 3
-    )
-    assert all(
-        review.crop_approval_state is SymbolCellCropApprovalState.CHANGED_SINCE_APPROVAL
+        review.review_state is SymbolCellReviewState.PENDING
+        and review.assigned_symbol_code == "cherry"
+        and review.assignment_source is SymbolCellAssignmentSource.HUMAN
+        and review.crop_approval_state is SymbolCellCropApprovalState.CHANGED_SINCE_APPROVAL
         for index, review in enumerate(invalidated)
         if index != 3
     )
@@ -654,3 +655,115 @@ def test_board_resolution_needs_no_geometry_approval_but_current_pixels() -> Non
     assert resolution is not None
     assert resolution.action is ImageReviewAction.ACCEPTED
     assert stale is None
+
+
+def test_new_geometry_keeps_verification_of_unchanged_pixels() -> None:
+    approved = tuple(
+        approve_symbol_cell_review(review, active_symbol_codes=("cherry",)).review
+        for review in _mapped_reviews()
+    )
+    marked = (*approved[:3], mark_symbol_cell_grid_issue(approved[3]).review, *approved[4:])
+
+    invalidated = invalidate_symbol_cell_reviews_for_geometry(
+        existing_reviews=marked,
+        current_cells=_current_cells(),
+        geometry_revision=1,
+        cropper_version="board-cell-crops-v19",
+    )
+
+    # D-462 R6: identical pixels keep the verification, rebound to revision 1.
+    assert all(
+        review.review_state is SymbolCellReviewState.APPROVED
+        and review.crop_approval_state is SymbolCellCropApprovalState.CURRENT
+        for index, review in enumerate(invalidated)
+        if index != 3
+    )
+    # R5: saving the geometry resolves the report; the label waits for a check.
+    assert invalidated[3].review_state is SymbolCellReviewState.PENDING
+    assert invalidated[3].quality_issue is None
+    assert invalidated[3].assigned_symbol_code == "cherry"
+
+
+def test_new_geometry_never_revives_an_approval_of_other_pixels() -> None:
+    approved = list(
+        approve_symbol_cell_review(review, active_symbol_codes=("cherry",)).review
+        for review in _mapped_reviews()
+    )
+    # An approval that was given to pixels the cell no longer shows (R10).
+    stale = approved[0].approved_crop
+    assert stale is not None
+    approved[0] = replace(approved[0], approved_crop=replace(stale, crop_checksum_sha256="f" * 64))
+
+    invalidated = invalidate_symbol_cell_reviews_for_geometry(
+        existing_reviews=tuple(approved),
+        current_cells=_current_cells(),
+        geometry_revision=1,
+        cropper_version="board-cell-crops-v19",
+    )
+
+    assert invalidated[0].review_state is SymbolCellReviewState.PENDING
+    assert invalidated[0].assigned_symbol_code == "cherry"
+    assert invalidated[0].crop_approval_state is SymbolCellCropApprovalState.CHANGED_SINCE_APPROVAL
+    assert invalidated[1].crop_approval_state is SymbolCellCropApprovalState.CURRENT
+
+
+def test_new_geometry_keeps_pixel_bound_flags_only_for_the_same_pixels() -> None:
+    reviews = list(_mapped_reviews())
+    reviews[0] = mark_symbol_cell_unreadable(reviews[0]).review
+    reviews[1] = mark_symbol_cell_blurry(
+        approve_symbol_cell_review(reviews[1], active_symbol_codes=("cherry",)).review,
+        active_symbol_codes=("cherry",),
+    ).review
+    reviews[2] = replace(
+        approve_symbol_cell_review(reviews[2], active_symbol_codes=("cherry",)).review,
+        assignment_source=SymbolCellAssignmentSource.BOARD_DECISION,
+    )
+
+    same = invalidate_symbol_cell_reviews_for_geometry(
+        existing_reviews=tuple(reviews),
+        current_cells=_current_cells(),
+        geometry_revision=1,
+        cropper_version="board-cell-crops-v19",
+    )
+    changed = invalidate_symbol_cell_reviews_for_geometry(
+        existing_reviews=tuple(reviews),
+        current_cells=_current_cells(checksum_offset=100),
+        geometry_revision=1,
+        cropper_version="board-cell-crops-v19",
+    )
+
+    assert same[0].quality_issue is SymbolCellQualityIssue.UNREADABLE
+    assert same[1].quality_issue is SymbolCellQualityIssue.BLURRY
+    assert same[1].review_state is SymbolCellReviewState.APPROVED
+    assert same[2].assignment_source is SymbolCellAssignmentSource.BOARD_DECISION
+    assert same[2].crop_approval_state is SymbolCellCropApprovalState.CURRENT
+    assert [review.quality_issue for review in changed[:3]] == [None, None, None]
+    assert [review.review_state for review in changed[:3]] == [SymbolCellReviewState.PENDING] * 3
+    assert changed[2].assignment_source is SymbolCellAssignmentSource.BOARD_DECISION
+
+
+def test_qualified_geometry_rechecks_only_the_changed_available_crop() -> None:
+    approved = tuple(
+        approve_symbol_cell_review(review, active_symbol_codes=("cherry",)).review
+        for review in _mapped_reviews()
+    )
+    current = list(_current_cells())
+    current[0] = _current_cells(checksum_offset=100)[0]
+
+    invalidated = invalidate_symbol_cell_reviews_for_geometry(
+        existing_reviews=approved,
+        current_cells=tuple(current),
+        geometry_revision=1,
+        cropper_version="board-cell-crops-v19",
+        unavailable_cell_indices=(),
+        unchanged_available_indices=frozenset(range(1, 15)),
+    )
+
+    # Scenario 6 on a qualified board: only the changed crop waits for a check.
+    assert invalidated[0].review_state is SymbolCellReviewState.PENDING
+    assert invalidated[0].assigned_symbol_code == "cherry"
+    assert all(
+        review.review_state is SymbolCellReviewState.APPROVED
+        and review.crop_approval_state is SymbolCellCropApprovalState.CURRENT
+        for review in invalidated[1:]
+    )

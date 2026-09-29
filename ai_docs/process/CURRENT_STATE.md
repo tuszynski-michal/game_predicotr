@@ -27,7 +27,7 @@ last_updated: 2026-09-29
   operatora w nowej sesji V2, potem profil, raport walidacji i adopcja. V7
   pozostaje zablokowane.
 
-### D-462 — weryfikacja per komórka, etap A (w toku)
+### D-462 — weryfikacja per komórka, etap A (ukończony)
 
 - Plan `ai_docs/delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md`
   zaakceptowany 2026-09-29 z P1–P4; operator zlecił wyłącznie etap A
@@ -50,6 +50,17 @@ last_updated: 2026-09-29
   decyzją człowieka na komórce, podgląd przeliczenia liczy je jako chronione.
   Opt-in test `close_and_reopen` w `test_image_batch_store.py` pozostaje
   czerwony (od HEAD) i przechodzi do TASK-0724.
+- TASK-0723 commit `v1.7.52` / `f14603bb`.
+- TASK-0724 done: po zapisie geometrii weryfikację zachowują wyłącznie
+  komórki o identycznych zatwierdzonych pikselach (akceptacja przepięta),
+  pozostałe wracają do `pending` z etykietą człowieka jako podpowiedzią;
+  zapis geometrii usuwa zgłoszenia `grid_issue` planszy (także
+  `virtual_source`), każdy ręczny zapis ponownie otwiera rozstrzygniętą
+  planszę i domyka ją z komórek. Test `close_and_reopen` jest znowu zielony.
+- Etap A ukończony. Etapy B i C wymagają polecenia operatora; zapis danych
+  TASK-0728 (≈18,5 tys. dokumentów wyszukiwania, 456 komórek na
+  nieaktualnych cropach, domknięcie plansz 15/15) wymaga osobnej zgody po
+  preview.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

@@ -101,7 +101,10 @@ ranking wyszukiwania, archiwum legacy, trening, usunięcie kolumn/tabel/historii
 ### Etap B — wspólna kolejka i ekran 3001
 
 - **T5 / TASK-0725** — widok `correction` kolejki (R4), `reportedCellIndices`,
-  zapis ograniczony do slotu dla odroczonej planszy `virtual_source`.
+  zapis ograniczony do slotu dla odroczonej planszy `virtual_source`. Od
+  TASK-0724 zapis źródła `virtual_source` ponownie otwiera każdą rozstrzygniętą
+  planszę zdjęcia i domyka ją z komórek; ograniczenie zapisu do slotu musi
+  wykluczyć rodzeństwo z tego kroku.
 - **T6 / TASK-0726** — jeden ekran „Korekta cięcia siatki” (jedna plansza,
   zapis → następna); zmiana nazw w Adminie.
 - **T7 / TASK-0727** — usunięcie `grid-reviews` UI, endpointów szybkiej

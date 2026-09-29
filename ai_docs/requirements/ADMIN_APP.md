@@ -553,8 +553,11 @@ cięcia innych pól oraz zatwierdzenia planszy, siatki lub zdjęcia. Od
 TASK-0723 komplet zweryfikowanych komórek planszy z pełną widocznością i
 jednoznaczną sekwencją domyka ją automatycznie — bez osobnego zatwierdzenia —
 i dopiero wtedy plansza trafia do layoutów, snapshotu i targetu. Zgłoszenie
-`Zła siatka` cofa weryfikację wyłącznie tej komórki. Szczegóły:
-`DECISION_LOG.md` D-462.
+`Zła siatka` cofa weryfikację wyłącznie tej komórki. Od TASK-0724 zapis nowej
+geometrii usuwa zgłoszenia `Zła siatka` tej planszy i wymaga ponownej
+weryfikacji wyłącznie komórek o zmienionych pikselach; ich dotychczasowa
+etykieta jest widoczna jako podpowiedź, a komórki o niezmienionych pikselach
+pozostają zweryfikowane. Szczegóły: `DECISION_LOG.md` D-462.
 
 **D-451 / TASK-0710:** wybór grupy obejmuje także `Poza zdjęciem`.
 To grupa logicznych pól bez obrazu i bez przypisanego symbolu; po ręcznym

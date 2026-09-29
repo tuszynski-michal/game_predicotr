@@ -1348,12 +1348,26 @@ jego pochodzenie jest zapisane w rekordzie komórki i raporcie przebudowy.
 Pełna decyzja Reviewera, jej ponowne otwarcie, zmiana geometrii, wynik
 reinferencji, powstanie nowego elementu pipeline’u i zmiana właściciela
 sekwencji aktualizują tę projekcję w tej samej transakcji. Korekta geometrii
-zastępuje bieżącą tożsamość cropa każdej komórki. Zwykła zatwierdzona etykieta
-pozostaje `approved` z proweniencją poprzednio zatwierdzonych pikseli, natomiast
-pole oznaczone `grid_issue` wraca jako `pending` bez problemu jakości.
-Jego techniczne przypisanie ponownie pochodzi z bieżącej predykcji modelu;
-nie jest zachowywane jako decyzja człowieka i nie staje się zatwierdzoną
-etykietą.
+zastępuje bieżącą tożsamość cropa każdej komórki. Od D-462 (TASK-0724) o
+zachowaniu weryfikacji decydują piksele: komórka o niezmienionej tożsamości
+pikseli (`crop_checksum_sha256`, dla `virtual_source`
+`rendered_pixel_checksum_sha256`) pozostaje `approved`, a jej akceptacja jest
+przepinana na bieżącą rewizję i render. Komórka o zmienionych pikselach wraca
+do `pending`: etykieta człowieka zostaje jako podpowiedź (`assigned_symbol_id`,
+źródło `human`/`board_decision`), poprzednia akceptacja pozostaje jako historia
+w polach `approved_*` i w evencie `geometry_invalidated`, a flagi przypięte do
+pikseli (`blurry`, `unreadable`) nie przechodzą na nowe piksele. Zapis
+geometrii usuwa każde zgłoszenie `grid_issue` tej planszy: przy zmienionych
+pikselach pole dostaje bieżącą predykcję modelu, przy niezmienionych czeka na
+ocenę z dotychczasową etykietą jako podpowiedzią. Akceptacja jest przepinana
+wyłącznie wtedy, gdy zatwierdzone piksele są identyczne z nowymi.
+Logiczna decyzja pozycji bez pikseli (D-451) pozostaje; pozycja, która traci
+piksele, wymaga ponownej oceny. Na pozycji częściowo widocznej (D-434)
+niezweryfikowana etykieta człowieka zostaje podpowiedzią z
+`partial_visibility`, a bez niej pole jest wymuszonym `?`. Każdy ręczny zapis
+geometrii (także `virtual_source` bez kwalifikacji) najpierw ponownie otwiera
+rozstrzygniętą planszę, a po przeliczeniu komórek domyka ją z tych, które
+zachowały weryfikację.
 Reinferencja zmienia sugestię modelu, ale nie może nadpisać zatwierdzenia
 człowieka.
 Pojedyncza akcja `approve`, `reassign`, `mark_grid_issue`, `mark_blurry` albo
@@ -1375,8 +1389,8 @@ człowieka w komórkach (`approved`, `grid_issue`, źródło `human` lub
 `board_decision`). Oznaczenie złej
 siatki na domkniętej planszy usuwa canonical i staging, otwiera jej kolejkę
 oraz job importu, ale zachowuje pozostałe 14 zatwierdzeń dla niezmienionych
-cropów. Nowa geometria unieważnia treningową proweniencję nowych pikseli, ale
-nie kasuje bezpiecznej decyzji logicznej dla nieoznaczonych pól.
+cropów. Nowa geometria wymaga ponownej weryfikacji wyłącznie pól o zmienionych
+pikselach (D-462).
 Write-through zaczyna materializować komórki dopiero po jawnym rozpoczęciu
 backfillu gry; przed tym checkpointem dotychczasowy Reviewer działa bez
 niekompletnej, pozornej projekcji.
@@ -1387,9 +1401,9 @@ Docelowy model 0.9 rozszerza tę projekcję bez łączenia jej z niezmiennymi
 `approved_crop_sample_id`, `approved_crop_checksum_sha256` oraz
 `approved_geometry_revision` wskazują dokładne piksele ostatnio zatwierdzone
 przez człowieka. Stan `current`, `changed_since_approval` albo `unverified` jest
-wyliczany z bieżącej i zatwierdzonej tożsamości cropa. Recrop nie kasuje
-zatwierdzonej etykiety, ale do czasu ponownej weryfikacji nowych pikseli blokuje
-ich udział w treningu.
+wyliczany z bieżącej i zatwierdzonej tożsamości cropa. Recrop ze zmianą
+pikseli cofa weryfikację do `pending`, zachowując etykietę jako podpowiedź;
+recrop bez zmiany pikseli przepina akceptację, więc crop pozostaje `current`.
 `blurry` wymaga rozpoznanego aktywnego symbolu i zachowuje `review_state =
 approved`; nie otwiera kolejki geometrii ani nieczytelnych plansz, lecz jako
 niepusty problem jakości wyklucza bieżący crop z treningu.

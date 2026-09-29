@@ -29,11 +29,15 @@ from game_predictor_api.domain.geometry_qualification import (
 from game_predictor_api.domain.image_geometry_v2 import DirectCellRenderConfiguration
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
-from game_predictor_api.domain.image_symbol_reviews import SymbolCellAssignmentSource
+from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellAssignmentSource,
+    SymbolCellQualityIssue,
+    SymbolCellReviewState,
+    symbol_cell_approval_pixels_changed,
+)
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     AdditiveVirtualGeometryContractError,
     optional_verification_outcome_value,
-    verification_outcome_value,
 )
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
@@ -53,6 +57,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
     _apply_count_deltas,
     _CountedCellState,
+    _verification_v2,
 )
 from game_predictor_api.storage.models import (
     CellObservationModel,
@@ -176,7 +181,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "IMAGE_REVIEW_SUPERSEDED",
                 "A superseded source cannot receive a manual virtual geometry revision.",
             )
-        self._reopen_qualified_revision(prepared, idempotency_key, created_at)
+        self._reopen_resolved_revision(prepared, idempotency_key, created_at)
         try:
             stored_source_geometry = SqlAlchemyImageSourceGeometryRepository(self._session).append(
                 SourceGeometryRevisionInput(
@@ -268,8 +273,14 @@ class SqlAlchemyVirtualGridGeometryRepository:
         )
         source.processed_at = created_at
         self._session.flush()
-        SymbolCellReviewWriteThroughCoordinator(self._session).synchronize_after_cell_mutation(
-            game_id=context.game_id
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        coordinator.synchronize_after_cell_mutation(game_id=context.game_id)
+        # D-462 R2: the reopened board closes again when every verification
+        # survived the new geometry.
+        coordinator.synchronize_board_from_cells(
+            game_id=context.game_id,
+            review_item_id=_require_review_item_id(context),
+            actor=prepared.command.corrected_by,
         )
         self._reconcile_availability(availability_snapshot)
         return VirtualGridGeometrySaveResult(
@@ -409,7 +420,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
 
         for entry in entries:
             if entry.context.review_item_id is not None:
-                self._reopen_qualified_revision(entry, idempotency_key, created_at)
+                self._reopen_resolved_revision(entry, idempotency_key, created_at)
 
         try:
             stored_source_geometry = SqlAlchemyImageSourceGeometryRepository(self._session).append(
@@ -519,6 +530,15 @@ class SqlAlchemyVirtualGridGeometryRepository:
             qualified_review_item_ids=qualified_review_item_ids,
             actor=entries[0].command.corrected_by,
         )
+        # D-462 R2: reopened boards close again from their surviving cells.
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        for entry in entries:
+            if entry.context.review_item_id is not None:
+                coordinator.synchronize_board_from_cells(
+                    game_id=base_context.game_id,
+                    review_item_id=entry.context.review_item_id,
+                    actor=entry.command.corrected_by,
+                )
         self._reconcile_availability(availability_snapshot)
         return VirtualGridGeometrySourceSaveResult(
             revisions=tuple(_revision_from_model(record) for record in records),
@@ -552,7 +572,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "Qualified geometry could not reconcile its current symbol projection.",
             )
 
-    def _reopen_qualified_revision(
+    def _reopen_resolved_revision(
         self,
         prepared: PreparedVirtualGridGeometry,
         idempotency_key: UUID,
@@ -560,8 +580,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
     ) -> None:
         # Reopen while the old selector/render is still coherent. Keeping a
         # resolved layout would publish symbols whose pixels have just changed.
-        if prepared.command.geometry_qualification is None:
-            return
+        # D-462: this applies to every manual geometry, qualified or not; the
+        # board closes again from its cells if every verification survives.
         context = prepared.context
         SqlAlchemyOperationalImageReviewRepository(self._session).reopen_for_symbol_cell_issue(
             review_item_id=_require_review_item_id(context),
@@ -917,6 +937,11 @@ class SqlAlchemyVirtualGridGeometryRepository:
         }
         for cell, rendered in zip(cells, prepared.cells, strict=True):
             previous = _event_previous(cell)
+            pixels_changed = (
+                cell.rendered_pixel_checksum_sha256 != rendered.rendered_pixel_checksum_sha256
+                if cell.rendered_pixel_checksum_sha256 is not None
+                else cell.crop_checksum_sha256 != rendered.crop_checksum_sha256
+            )
             cell.asset_mode = "virtual_source"
             cell.source_geometry_revision_id = source_geometry_revision_id
             cell.logical_cell_key = rendered.logical_cell_key
@@ -931,16 +956,19 @@ class SqlAlchemyVirtualGridGeometryRepository:
             cell.crop_checksum_sha256 = rendered.crop_checksum_sha256
             cell.geometry_revision = revision_number
             cell.cropper_version = prepared.cropper_version
-            _reset_grid_issue_after_virtual_recrop(
+            _recheck_after_virtual_recrop(
                 cell,
+                pixels_changed=pixels_changed,
                 active_symbol_ids_by_code=active_symbol_ids_by_code,
             )
             try:
-                verification = verification_outcome_value(
+                # The same mapping as the write-through: a pending human
+                # suggestion after a recrop is `requires_review` (D-462 R6).
+                verification = _verification_v2(
                     review_state=cell.review_state,
                     quality_issue=cell.quality_issue,
                     assigned_symbol_id=cell.assigned_symbol_id,
-                    prediction_present=cell.prediction_symbol_code not in {None, "?"},
+                    prediction_symbol_code=cell.prediction_symbol_code,
                     assignment_source=cell.assignment_source,
                 )
             except AdditiveVirtualGeometryContractError as error:
@@ -1561,16 +1589,53 @@ def _project_geometry_qualification(
     board.unavailable_cell_indices = list(qualification.unavailable_cell_indices)
 
 
-def _reset_grid_issue_after_virtual_recrop(
+def _recheck_after_virtual_recrop(
     cell: ImageSymbolReviewCellModel,
     *,
+    pixels_changed: bool,
     active_symbol_ids_by_code: dict[str, UUID],
 ) -> None:
-    if cell.quality_issue != "grid_issue":
+    """Apply D-462 R5/R6 to a cell that already carries its new render.
+
+    A saved geometry resolves a grid report. A verification survives only for
+    the same pixels, and its approval is then rebound to the current render;
+    otherwise the human label stays as a pending suggestion, the old approval
+    remains as history and pixel-bound flags do not carry over.
+    """
+
+    human_sources = {
+        SymbolCellAssignmentSource.HUMAN.value,
+        SymbolCellAssignmentSource.BOARD_DECISION.value,
+    }
+    if cell.quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value:
+        cell.quality_issue = None
+        if pixels_changed or cell.assignment_source not in human_sources:
+            cell.assignment_source = SymbolCellAssignmentSource.MODEL.value
+            cell.assigned_symbol_id = active_symbol_ids_by_code.get(
+                cell.prediction_symbol_code or ""
+            )
         return
-    cell.quality_issue = None
-    cell.assignment_source = SymbolCellAssignmentSource.MODEL.value
-    cell.assigned_symbol_id = active_symbol_ids_by_code.get(cell.prediction_symbol_code or "")
+    if cell.review_state == SymbolCellReviewState.APPROVED.value:
+        if symbol_cell_approval_pixels_changed(
+            asset_mode=cell.asset_mode,
+            crop_checksum_sha256=cell.crop_checksum_sha256,
+            approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
+            rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
+            approved_rendered_pixel_checksum_sha256=cell.approved_rendered_pixel_checksum_sha256,
+        ):
+            cell.review_state = SymbolCellReviewState.PENDING.value
+            cell.quality_issue = None
+            return
+        cell.approved_crop_sample_id = cell.crop_sample_id
+        cell.approved_crop_checksum_sha256 = cell.crop_checksum_sha256
+        cell.approved_geometry_revision = cell.geometry_revision
+        cell.approved_asset_mode = cell.asset_mode
+        cell.approved_source_geometry_revision_id = cell.source_geometry_revision_id
+        cell.approved_render_spec_checksum_sha256 = cell.render_spec_checksum_sha256
+        cell.approved_rendered_pixel_checksum_sha256 = cell.rendered_pixel_checksum_sha256
+        return
+    if pixels_changed and cell.assignment_source in human_sources:
+        cell.quality_issue = None
 
 
 def _revision_from_model(

@@ -1,17 +1,24 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
+from typing import Any, cast
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
+from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.storage.image_grid_review_repository import _pending_row_to_item
-from game_predictor_api.storage.models import ImageBoardGeometryRevisionModel
+from game_predictor_api.storage.models import (
+    ImageBoardGeometryRevisionModel,
+    ImageSymbolReviewCellModel,
+    ImageSymbolReviewEventModel,
+)
 from game_predictor_api.storage.virtual_grid_geometry_repository import (
     SqlAlchemyVirtualGridGeometryRepository,
-    _reset_grid_issue_after_virtual_recrop,
+    _recheck_after_virtual_recrop,
 )
 from sqlalchemy.dialects import postgresql
 
@@ -210,8 +217,9 @@ def test_virtual_recrop_resets_grid_issue_to_pending_model_suggestion() -> None:
         review_state="pending",
     )
 
-    _reset_grid_issue_after_virtual_recrop(
+    _recheck_after_virtual_recrop(
         cell,
+        pixels_changed=True,
         active_symbol_ids_by_code={"cherry": predicted_symbol_id},
     )
 
@@ -219,6 +227,75 @@ def test_virtual_recrop_resets_grid_issue_to_pending_model_suggestion() -> None:
     assert cell.quality_issue is None
     assert cell.assignment_source == "model"
     assert cell.assigned_symbol_id == predicted_symbol_id
+
+
+def test_virtual_recrop_resolves_a_grid_report_on_unchanged_pixels() -> None:
+    human_symbol_id = uuid4()
+    cell = SimpleNamespace(
+        assigned_symbol_id=human_symbol_id,
+        assignment_source="human",
+        prediction_symbol_code="cherry",
+        quality_issue="grid_issue",
+        review_state="pending",
+    )
+
+    _recheck_after_virtual_recrop(cell, pixels_changed=False, active_symbol_ids_by_code={})
+
+    # D-462 R5: the saved geometry resolves the report; the label waits.
+    assert (cell.review_state, cell.quality_issue) == ("pending", None)
+    assert (cell.assignment_source, cell.assigned_symbol_id) == ("human", human_symbol_id)
+
+
+def _approved_virtual_cell(*, approved_pixels: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        assigned_symbol_id=uuid4(),
+        assignment_source="human",
+        prediction_symbol_code="cherry",
+        quality_issue="blurry",
+        review_state="approved",
+        asset_mode="virtual_source",
+        crop_sample_id="s2",
+        crop_checksum_sha256="c2",
+        geometry_revision=2,
+        source_geometry_revision_id=uuid4(),
+        render_spec_checksum_sha256="r2",
+        rendered_pixel_checksum_sha256="p2",
+        approved_crop_sample_id="s1",
+        approved_crop_checksum_sha256="c1",
+        approved_geometry_revision=1,
+        approved_asset_mode="virtual_source",
+        approved_source_geometry_revision_id=uuid4(),
+        approved_render_spec_checksum_sha256="r1",
+        approved_rendered_pixel_checksum_sha256=approved_pixels,
+    )
+
+
+def test_virtual_recrop_rebinds_a_verification_of_identical_pixels() -> None:
+    cell = _approved_virtual_cell(approved_pixels="p2")
+
+    _recheck_after_virtual_recrop(cell, pixels_changed=False, active_symbol_ids_by_code={})
+
+    # D-462 R6: same pixels keep the verification, bound to the new render.
+    assert (cell.review_state, cell.quality_issue) == ("approved", "blurry")
+    assert (cell.approved_crop_sample_id, cell.approved_geometry_revision) == ("s2", 2)
+    assert cell.approved_rendered_pixel_checksum_sha256 == "p2"
+    assert cell.approved_source_geometry_revision_id == cell.source_geometry_revision_id
+
+
+def test_virtual_recrop_reopens_a_verification_of_other_pixels() -> None:
+    cell = _approved_virtual_cell(approved_pixels="p1")
+    symbol_id = cell.assigned_symbol_id
+
+    _recheck_after_virtual_recrop(cell, pixels_changed=True, active_symbol_ids_by_code={})
+
+    # Changed pixels need a new check; the label stays as a suggestion and the
+    # old approval as history.
+    assert (cell.review_state, cell.quality_issue) == ("pending", None)
+    assert cell.assigned_symbol_id == symbol_id
+    assert (cell.approved_crop_sample_id, cell.approved_rendered_pixel_checksum_sha256) == (
+        "s1",
+        "p1",
+    )
 
 
 def test_deferred_slot_is_exposed_as_required_manual_template() -> None:
@@ -424,3 +501,142 @@ def _review_cell(index: int = 0) -> SimpleNamespace:
             }
         },
     )
+
+
+def _virtual_cell(index: int, *, symbol_id: object, **values: object) -> ImageSymbolReviewCellModel:
+    cell = ImageSymbolReviewCellModel(
+        id=uuid4(),
+        cell_index=index,
+        review_item_id=uuid4(),
+        asset_mode="virtual_source",
+        crop_sample_id=f"{index:064x}",
+        crop_checksum_sha256=f"{100 + index:064x}",
+        rendered_pixel_checksum_sha256=f"{200 + index:064x}",
+        render_spec_checksum_sha256=f"{300 + index:064x}",
+        geometry_revision=1,
+        prediction_symbol_code="cherry",
+        assigned_symbol_id=symbol_id,
+        assignment_source="model",
+        review_state="pending",
+        quality_issue=None,
+        revision=0,
+        verification_outcome=None,
+    )
+    for key, value in values.items():
+        setattr(cell, key, value)
+    return cell
+
+
+def _approved(index: int, symbol_id: object) -> dict[str, object]:
+    return {
+        "review_state": "approved",
+        "assignment_source": "human",
+        "approved_crop_sample_id": f"{index:064x}",
+        "approved_crop_checksum_sha256": f"{100 + index:064x}",
+        "approved_rendered_pixel_checksum_sha256": f"{200 + index:064x}",
+        "approved_geometry_revision": 1,
+        "approved_asset_mode": "virtual_source",
+        "verification_outcome": "confirmed",
+        "verified_symbol_id_v2": symbol_id,
+    }
+
+
+def test_manual_virtual_save_rechecks_changed_verifications_without_failing() -> None:
+    """P0 regression (D-462 R5/R6): pending human suggestions persist."""
+
+    symbol_id = uuid4()
+    cells = [_virtual_cell(index, symbol_id=symbol_id) for index in range(15)]
+    for index in (0, 1):
+        for key, value in _approved(index, symbol_id).items():
+            setattr(cells[index], key, value)
+    cells[2].assignment_source = "human"
+    cells[2].quality_issue = "grid_issue"
+    cells[2].verification_outcome = "grid_issue"
+    session = Mock()
+    session.scalars.return_value = cells
+    session.get.return_value = None
+    session.execute.return_value = [(symbol_id, "cherry")]
+    rendered = [
+        SimpleNamespace(
+            logical_cell_key=f"k{index}",
+            logical_cell_key_v2=f"v{index}",
+            render_identity_v2_sha256=f"{400 + index:064x}",
+            render_spec={},
+            render_spec_checksum_sha256=f"{500 + index:064x}",
+            # Only cell 0 renders new pixels.
+            rendered_pixel_checksum_sha256=f"{(900 if index == 0 else 200) + index:064x}",
+            extractor_version="x",
+            crop_sample_id=f"{600 + index:064x}",
+            crop_checksum_sha256=f"{700 + index:064x}",
+        )
+        for index in range(15)
+    ]
+    context = SimpleNamespace(
+        game_id=uuid4(),
+        review_item_id=cells[0].review_item_id,
+        recognized_board_id=uuid4(),
+        topology=BoardTopology(rows=3, columns=5),
+        pending_geometry_id=None,
+    )
+    prepared = SimpleNamespace(
+        command=SimpleNamespace(geometry_qualification=None),
+        cells=rendered,
+        cropper_version="virtual-cropper",
+    )
+
+    with patch(
+        "game_predictor_api.storage.virtual_grid_geometry_repository."
+        "SqlAlchemyBoardSearchProjectionRepository"
+    ):
+        SqlAlchemyVirtualGridGeometryRepository(session)._replace_current_cells(
+            context=cast(Any, context),
+            revision_number=2,
+            source_geometry_revision_id=uuid4(),
+            prepared=cast(Any, prepared),
+            actor="grid-reviewer",
+            changed_at=datetime(2026, 9, 29, tzinfo=UTC),
+        )
+
+    changed, unchanged, reported = cells[0], cells[1], cells[2]
+    assert (changed.review_state, changed.verification_outcome) == ("pending", "requires_review")
+    assert changed.assigned_symbol_id == symbol_id
+    assert changed.approved_rendered_pixel_checksum_sha256 == f"{200:064x}"
+    assert (unchanged.review_state, unchanged.approved_geometry_revision) == ("approved", 2)
+    assert unchanged.approved_crop_sample_id == unchanged.crop_sample_id
+    assert (reported.quality_issue, reported.review_state) == (None, "pending")
+    assert reported.verification_outcome == "requires_review"
+    events = [
+        call.args[0]
+        for call in session.add.call_args_list
+        if isinstance(call.args[0], ImageSymbolReviewEventModel)
+    ]
+    assert events[0].previous_approved_crop_checksum_sha256 == f"{100:064x}"
+
+
+@pytest.mark.parametrize("qualification", [None, {"completenessStatus": "complete"}])
+def test_every_manual_virtual_geometry_reopens_a_resolved_board(qualification: object) -> None:
+    context = SimpleNamespace(
+        game_id=uuid4(),
+        import_job_id=uuid4(),
+        review_item_id=uuid4(),
+        pending_geometry_id=None,
+    )
+    prepared = SimpleNamespace(
+        context=context,
+        command=SimpleNamespace(
+            geometry_qualification=qualification,
+            command_sha256="a" * 64,
+            corrected_by="grid-reviewer",
+        ),
+    )
+
+    with patch(
+        "game_predictor_api.storage.virtual_grid_geometry_repository."
+        "SqlAlchemyOperationalImageReviewRepository"
+    ) as operational:
+        SqlAlchemyVirtualGridGeometryRepository(Mock())._reopen_resolved_revision(
+            cast(Any, prepared), uuid4(), datetime(2026, 9, 29, tzinfo=UTC)
+        )
+
+    # D-462: a resolved layout must not survive pixels that just changed.
+    operational.return_value.reopen_for_symbol_cell_issue.assert_called_once()

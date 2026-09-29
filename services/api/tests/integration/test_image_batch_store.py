@@ -1473,6 +1473,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                     approved_at=now + timedelta(seconds=30),
                 )
             assert blocked_approval.value.code == "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED"
+            labels_before = {cell.cell_index: cell.assigned_symbol_id for cell in cells}
             geometry_command = validate_image_review_geometry_command(
                 corners=(
                     ImageReviewGeometryPoint(1, 1),
@@ -1513,14 +1514,29 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
                 .order_by(ImageSymbolReviewCellModel.cell_index)
             ).all()
-            assert [
-                cell.cell_index for cell in refreshed_cells if cell.review_state == "pending"
-            ] == [
-                1,
-                2,
-            ]
+            # D-462 R5/R6: every crop changed, so every verification needs a new
+            # check; human labels stay as pending suggestions with the old
+            # approval as history, and no grid report survives the new geometry.
+            assert all(cell.review_state == "pending" for cell in refreshed_cells)
+            saved_geometry_page = operational_repository.list_items(
+                game_id=game.id,
+                import_job_id=job.id,
+                view=ImageReviewView.ALL,
+                grid_issue_view=ImageReviewGridIssueView.NEEDS_GRID_FIX,
+                after_key=None,
+                before_key=None,
+                expected_queue_version=None,
+                sequence_number=None,
+                resume_at_first_pending=False,
+                limit=10,
+            )
+            # R5: the saved geometry removes the board from "Do poprawy siatki".
+            assert saved_geometry_page.needs_grid_fix_count == 0
+            assert all(cell.quality_issue is None for cell in refreshed_cells)
             assert all(
-                cell.review_state == "approved"
+                cell.assignment_source == "human"
+                and cell.assigned_symbol_id is not None
+                and cell.assigned_symbol_id == labels_before[cell.cell_index]
                 and cell.approved_geometry_revision == 0
                 and cell.geometry_revision == 1
                 for cell in refreshed_cells
@@ -1588,6 +1604,33 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 actor="symbol-cell-operator",
             )
             assert unreadable_result.board_status == "pending"
+            session.flush()
+            # D-462 R6: the recrop changed every crop, so the remaining labels
+            # need a new check before the board can close.
+            for rechecked in session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                    ImageSymbolReviewCellModel.cell_index >= 3,
+                )
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all():
+                assert (
+                    SymbolCellReviewMutationService(
+                        SqlAlchemySymbolCellReviewMutationRepository(session)
+                    )
+                    .approve(
+                        game_id=game.id,
+                        cell_review_id=rechecked.id,
+                        expected_revision=rechecked.revision,
+                        expected_geometry_revision=rechecked.geometry_revision,
+                        expected_crop_sample_id=rechecked.crop_sample_id,
+                        expected_crop_checksum_sha256=rechecked.crop_checksum_sha256,
+                        actor="symbol-cell-operator",
+                    )
+                    .board_status
+                    == "pending"
+                )
             session.flush()
 
             unreadable_service = UnreadableBoardReviewService(

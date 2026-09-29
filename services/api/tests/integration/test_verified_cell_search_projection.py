@@ -431,13 +431,16 @@ def test_verified_cells_reach_search_while_the_board_stays_pending(
             session.commit()
 
         with game_storage_scope(game_id), session_factory() as session:
-            # Every crop changed: the old approval covers other pixels (R10), so
-            # cell 0 is no evidence any more; the document follows the cells.
+            # Every crop changed (R6): verified cells wait for a new check with
+            # the human label as a suggestion, the saved geometry resolves both
+            # grid reports (R5), and search falls back to the model evidence.
             cells = _cells(session, review_item_id)
-            assert cells[0].review_state == "approved"
-            assert cells[1].quality_issue == "grid_issue"
-            assert cells[2].quality_issue == "grid_issue"
-            assert _document_codes(session, game_id) == [1, None, None] + [1] * 12
+            assert [cell.review_state for cell in cells[:4]] == ["pending"] * 4
+            assert cells[0].assignment_source == "human"
+            assert cells[0].assigned_symbol_id == second_symbol_id
+            assert cells[0].approved_crop_checksum_sha256 != cells[0].crop_checksum_sha256
+            assert all(cell.quality_issue is None for cell in cells)
+            assert _document_codes(session, game_id) == [1] * 15
     finally:
         engine.dispose()
 
@@ -499,6 +502,120 @@ def test_fifteen_verified_cells_close_the_board_without_geometry_approval(
             assert staging is not None and staging.cells == [1] * 15
             board = session.get(RecognizedBoardModel, board_id)
             assert board is not None and board.approved_geometry_revision is None
+
+            # A geometry save that keeps every pixel reopens the board and
+            # closes it again from the surviving verifications (R2, R6).
+            operational = SqlAlchemyOperationalImageReviewRepository(session)
+            identical = operational.get_item(
+                seed.review_item_id, game_id=seed.game_id, import_job_id=seed.job_id
+            )
+            assert identical is not None
+            operational.save_geometry_revision(
+                review_item_id=seed.review_item_id,
+                game_id=seed.game_id,
+                import_job_id=seed.job_id,
+                idempotency_key=uuid4(),
+                command=validate_image_review_geometry_command(
+                    corners=(
+                        ImageReviewGeometryPoint(1, 1),
+                        ImageReviewGeometryPoint(91, 1),
+                        ImageReviewGeometryPoint(91, 91),
+                        ImageReviewGeometryPoint(1, 91),
+                    ),
+                    expected_geometry_revision=identical.geometry_revision,
+                    expected_resolution_revision=identical.resolution_revision,
+                    corrected_by="grid-reviewer",
+                ),
+                artifacts=ImageReviewGeometryArtifacts(
+                    geometry={"source": "identical-recrop", "quad": IN_FRAME_QUAD},
+                    board_relative_path="corrected/identical-recrop.png",
+                    board_checksum_sha256="d" * 64,
+                    cropper_version="verified-cell-cropper",
+                    cells=tuple(
+                        ImageReviewGeometryCellArtifact(
+                            row_index=index // 5,
+                            column_index=index % 5,
+                            crop_relative_path=f"corrected/identical-{index}.png",
+                            crop_checksum_sha256=f"{100 + index:064x}",
+                        )
+                        for index in range(15)
+                    ),
+                ),
+                created_at=now + timedelta(minutes=1),
+            )
+            session.commit()
+
+        with game_storage_scope(seed.game_id), session_factory() as session:
+            review = session.get(ImageReviewItemModel, seed.review_item_id)
+            assert review is not None and review.status == "accepted"
+            assert (
+                session.get(
+                    ImageLayoutStagingRowModel,
+                    {"import_job_id": seed.job_id, "recognized_board_id": board_id},
+                )
+                is not None
+            )
+
+            # Scenario 6 (D-462 R6): a corrected geometry changes only cell 0.
+            operational = SqlAlchemyOperationalImageReviewRepository(session)
+            current = operational.get_item(
+                seed.review_item_id, game_id=seed.game_id, import_job_id=seed.job_id
+            )
+            assert current is not None
+            operational.save_geometry_revision(
+                review_item_id=seed.review_item_id,
+                game_id=seed.game_id,
+                import_job_id=seed.job_id,
+                idempotency_key=uuid4(),
+                command=validate_image_review_geometry_command(
+                    corners=(
+                        ImageReviewGeometryPoint(1, 1),
+                        ImageReviewGeometryPoint(91, 1),
+                        ImageReviewGeometryPoint(91, 91),
+                        ImageReviewGeometryPoint(1, 91),
+                    ),
+                    expected_geometry_revision=current.geometry_revision,
+                    expected_resolution_revision=current.resolution_revision,
+                    corrected_by="grid-reviewer",
+                ),
+                artifacts=ImageReviewGeometryArtifacts(
+                    geometry={"source": "partial-recrop", "quad": IN_FRAME_QUAD},
+                    board_relative_path="corrected/partial-recrop.png",
+                    board_checksum_sha256="e" * 64,
+                    cropper_version="verified-cell-cropper",
+                    cells=tuple(
+                        ImageReviewGeometryCellArtifact(
+                            row_index=index // 5,
+                            column_index=index % 5,
+                            crop_relative_path=f"corrected/partial-recrop-{index}.png",
+                            crop_checksum_sha256=f"{(9000 if index == 0 else 100) + index:064x}",
+                        )
+                        for index in range(15)
+                    ),
+                ),
+                created_at=now + timedelta(minutes=2),
+            )
+            session.commit()
+
+        with game_storage_scope(seed.game_id), session_factory() as session:
+            cells = _cells(session, seed.review_item_id)
+            assert cells[0].review_state == "pending"
+            assert cells[0].assignment_source == "human"
+            assert all(cell.review_state == "approved" for cell in cells[1:])
+            assert all(
+                cell.approved_crop_checksum_sha256 == cell.crop_checksum_sha256
+                and cell.approved_geometry_revision == cell.geometry_revision == 2
+                for cell in cells[1:]
+            )
+            review = session.get(ImageReviewItemModel, seed.review_item_id)
+            assert review is not None and review.status == "pending"
+            assert (
+                session.get(
+                    ImageLayoutStagingRowModel,
+                    {"import_job_id": seed.job_id, "recognized_board_id": board_id},
+                )
+                is None
+            )
     finally:
         engine.dispose()
 

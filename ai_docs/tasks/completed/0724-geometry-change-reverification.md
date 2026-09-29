@@ -2,7 +2,7 @@
 
 ## Status
 
-todo
+done
 
 ## Goal
 
@@ -50,16 +50,16 @@ na dwóch ścieżkach geometrii. Audyt: claude-opus-5-5, high.
 
 ## Acceptance criteria
 
-- [ ] Niezmieniony crop (`crop_checksum_sha256`; dla `virtual_source`
+- [x] Niezmieniony crop (`crop_checksum_sha256`; dla `virtual_source`
       dodatkowo `rendered_pixel_checksum_sha256`) → `approved` zachowane, a
       `approved_crop_*` i `approved_geometry_revision` wskazują bieżącą
       tożsamość.
-- [ ] Zmieniony crop → `pending`, `grid_issue` usunięte, poprzedni symbol
+- [x] Zmieniony crop → `pending`, `grid_issue` usunięte, poprzedni symbol
       człowieka jako `assigned_symbol_id`, stara akceptacja w evencie.
-- [ ] Plansza wcześniej `accepted` z komórką o zmienionym cropie przestaje być
+- [x] Plansza wcześniej `accepted` z komórką o zmienionym cropie przestaje być
       kompletna (brak layoutu); niezmienione komórki dalej w projekcji.
-- [ ] Po zapisie geometrii żadna komórka planszy nie ma `grid_issue`.
-- [ ] Testy domeny i integracyjne dla `legacy_file` i `virtual_source`;
+- [x] Po zapisie geometrii żadna komórka planszy nie ma `grid_issue`.
+- [x] Testy domeny i integracyjne dla `legacy_file` i `virtual_source`;
       lint, mypy.
 
 ## Technical notes
@@ -120,4 +120,69 @@ npm run python:typecheck
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- Domain `invalidate_symbol_cell_reviews_for_geometry`: for an `approved`
+  cell the approved pixels decide — the same pixels keep the verification
+  rebound to the new identity; other pixels (including an already stale
+  approval) give a pending human suggestion with the old approval as
+  history. A saved geometry resolves `grid_issue` (suggestion only for the
+  same pixels). Pending human decisions keep their pixel-bound flags only
+  for the same pixels; model suggestions follow the current prediction.
+- `SymbolCellReviewWriteThroughCoordinator._synchronize`: no repository
+  override of domain recrop decisions (only positions that gain pixels keep
+  the human label as a suggestion); approved asset provenance is rebound for
+  every rebound approval; partial visibility keeps a human suggestion with
+  `partial_visibility`; `_outside_human_decision_values` resolves a grid
+  report only for a new geometry and keeps logical decisions without pixels;
+  unavailable qualified cells lose `grid_issue` only on a geometry change.
+- `virtual_grid_geometry_repository`: `_recheck_after_virtual_recrop` (R5/R6
+  for manual `virtual_source` saves) with the write-through verification
+  mapping `_verification_v2`; `_reopen_resolved_revision` reopens every
+  resolved board before any manual geometry; both saves close boards again
+  with `synchronize_board_from_cells`.
+- Docs: `DATA_MODEL.md` (recrop rules and exceptions), `ADMIN_APP.md`
+  (D-462 paragraph), plan (T5 note about sibling reopening).
+
+### Verification results
+
+- Unit: domain (incl. stale approval, pixel-bound flags, qualified partial
+  recrop), virtual repository (ORM-model regression test for the P0 path,
+  unconditional reopen), source visibility (incl. outside grid report kept
+  until a new geometry): all PASS.
+- PostgreSQL: `test_verified_cell_search_projection.py` (3) and
+  `test_image_batch_store.py::test_symbol_cell_mutations_close_and_reopen_one_board_atomically`
+  (red on HEAD, now green after re-approving changed crops and asserting the
+  cleared grid queue) and the bulk-operation test PASS.
+- Full API unit suite: 23 failed / 1550 passed — the same 22 failures as the
+  clean-HEAD worktree plus the user's uncommitted approximate-win limit
+  change; no failure caused by this task.
+- Ruff check/format PASS; mypy shows no errors in changed files.
+- Audit claude-opus-5-5 (subagent, reasoning level inherited): cycle 1 —
+  1× P0 (strict verification mapping in the virtual save), 2× P1 (stale
+  approval revived, virtual save not reopening), 3× P2; cycle 2 — all
+  closed, one new P2 (outside grid report cleared by any synchronization)
+  fixed; final check „Brak uwag P0–P2”.
+
+### Not completed
+
+- No PostgreSQL test of a manual `virtual_source` save exists in the repo;
+  the regression is covered by an ORM-model test of `_replace_current_cells`
+  (counts and the post-save closure are not asserted there).
+- Observation: on a partially visible position a pending human `unreadable`
+  with unchanged pixels becomes `partial_visibility` (neither is evidence).
+- Observation: a qualified recrop treats an approval equal to the new pixels
+  but different from the previous crop as changed (safe variant).
+- `test_image_batch_store.py` still has pre-existing drift in
+  `write_through_tracks` (~805) and `manual_deferred_geometry` (fixture
+  quad) — separate task.
+
+### Documentation updates
+
+- `DATA_MODEL.md`, `ADMIN_APP.md`, plan, `CURRENT_STATE.md`.
+
+### Recommended next task
+
+- Stage A is complete; stage B (TASK-0725–0727) and stage C (TASK-0728–0729)
+  need an explicit operator command; TASK-0728 apply additionally needs
+  consent after preview.

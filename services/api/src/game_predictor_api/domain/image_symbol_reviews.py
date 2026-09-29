@@ -834,67 +834,69 @@ def invalidate_symbol_cell_reviews_for_geometry(
         unavailable_cell_indices=unavailable_cell_indices,
     )
     by_index = {review.cell_index: review for review in existing_reviews}
+    human_sources = {SymbolCellAssignmentSource.HUMAN, SymbolCellAssignmentSource.BOARD_DECISION}
     updated: list[SymbolCellReview] = []
     for current in mapped:
         previous = by_index.get(current.cell_index)
         if previous is None:
             updated.append(current)
             continue
-        if qualified:
-            if (
-                current.cell_index in unchanged_available_indices
-                and current.crop.crop_checksum_sha256 == previous.crop.crop_checksum_sha256
-                and previous.quality_issue is not SymbolCellQualityIssue.GRID_ISSUE
-            ):
+        available = not qualified or current.cell_index in unchanged_available_indices
+        current_pixels = current.crop.crop_checksum_sha256
+        history = previous.approved_crop
+        if history is None and previous.review_state is SymbolCellReviewState.APPROVED:
+            history = _current_crop_approval(previous)
+        suggestion = replace(
+            current,
+            assigned_symbol_code=previous.assigned_symbol_code,
+            assignment_source=previous.assignment_source,
+            approved_crop=history,
+            revision=previous.revision + 1,
+        )
+        if previous.review_state is SymbolCellReviewState.APPROVED:
+            # D-462 R6/R10: only the approved pixels decide. A verification of
+            # the current pixels is kept and rebound to the new identity; an
+            # approval of other pixels becomes a pending suggestion.
+            approved_pixels = (
+                previous.crop.crop_checksum_sha256
+                if previous.approved_crop is None
+                else previous.approved_crop.crop_checksum_sha256
+            )
+            if available and approved_pixels == current_pixels:
                 updated.append(
                     replace(
                         previous,
                         crop=current.crop,
-                        approved_crop=(
-                            _current_crop_approval(current)
-                            if previous.review_state is SymbolCellReviewState.APPROVED
-                            else previous.approved_crop
-                        ),
+                        approved_crop=_current_crop_approval(current),
                         revision=previous.revision + 1,
                     )
                 )
-                continue
-            old_approval = previous.approved_crop
-            if old_approval is None and previous.review_state is SymbolCellReviewState.APPROVED:
-                old_approval = _current_crop_approval(previous)
-            updated.append(
-                replace(current, approved_crop=old_approval, revision=previous.revision + 1)
-            )
+            else:
+                updated.append(suggestion)
             continue
+        same_pixels = available and previous.crop.crop_checksum_sha256 == current_pixels
+        human_label = previous.assignment_source in human_sources
         if previous.quality_issue is SymbolCellQualityIssue.GRID_ISSUE:
-            updated.append(replace(current, revision=previous.revision + 1))
-            continue
-        if previous.review_state is SymbolCellReviewState.APPROVED:
-            approved_crop = previous.approved_crop or _current_crop_approval(previous)
+            # R5: a saved geometry resolves the report. The reported label is
+            # a suggestion only for the same pixels.
             updated.append(
-                replace(
-                    current,
-                    assigned_symbol_code=previous.assigned_symbol_code,
-                    review_state=SymbolCellReviewState.APPROVED,
-                    quality_issue=previous.quality_issue,
-                    assignment_source=previous.assignment_source,
-                    approved_crop=approved_crop,
-                    revision=previous.revision + 1,
-                )
+                suggestion
+                if same_pixels and human_label
+                else replace(current, approved_crop=history, revision=previous.revision + 1)
             )
             continue
-        if previous.quality_issue is SymbolCellQualityIssue.UNREADABLE:
+        if human_label:
+            # A pending human decision (e.g. `unreadable`) describes its
+            # pixels: it stays for the same pixels and becomes a suggestion
+            # without pixel-bound flags for new ones.
             updated.append(
-                replace(
-                    current,
-                    assigned_symbol_code=previous.assigned_symbol_code,
-                    quality_issue=SymbolCellQualityIssue.UNREADABLE,
-                    assignment_source=previous.assignment_source,
-                    revision=previous.revision + 1,
-                )
+                replace(previous, crop=current.crop, revision=previous.revision + 1)
+                if same_pixels
+                else suggestion
             )
             continue
-        updated.append(replace(current, revision=previous.revision + 1))
+        # A model suggestion follows the current prediction.
+        updated.append(replace(current, approved_crop=history, revision=previous.revision + 1))
     return tuple(updated)
 
 

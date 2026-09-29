@@ -162,11 +162,38 @@ def test_outside_position_retry_and_new_pixels_preserve_human_label(monkeypatch,
     assert coordinator.synchronize_after_geometry_change(**args)
     assert len(rows) == 15
     assert outside.source_available and outside.source_visibility == "full"
-    assert outside.assigned_symbol_id == symbol_id and outside.quality_issue == "unreadable"
+    # D-462 R6: new pixels need a new check; the human label stays as a
+    # pending suggestion, while pixel-bound flags do not carry over.
+    assert outside.assigned_symbol_id == symbol_id and outside.quality_issue is None
+    assert outside.assignment_source == "human"
     assert outside.review_state == "pending" and outside.approved_crop_sample_id is None
     count = len(events)
     assert not coordinator.synchronize_for_backfill_reconciliation(**args)
     assert len(events) == count
+
+
+def test_outside_grid_report_lasts_until_a_new_geometry(monkeypatch):
+    coordinator, board, rows, _events, symbol_id, args = _coordinator(monkeypatch)
+    assert coordinator.synchronize_after_geometry_change(**args)
+    outside = next(row for row in rows if row.cell_index == 0)
+    outside.assigned_symbol_id, outside.assignment_source = symbol_id, "human"
+    outside.quality_issue, outside.verification_outcome = "grid_issue", "grid_issue"
+
+    # R7: an unrelated synchronization keeps the report.
+    coordinator.synchronize_for_backfill_reconciliation(**args)
+    assert outside.quality_issue == "grid_issue"
+
+    # R5: a newly saved geometry resolves it; the logical label stays.
+    board.geometry_revision = 2
+    coordinator._current_cells.return_value = (
+        _cells(2, (0,), asset_mode="virtual_source"),
+        "cropper-v1",
+        None,
+        None,
+    )
+    assert coordinator.synchronize_after_geometry_change(**args)
+    assert outside.quality_issue is None and outside.review_state == "pending"
+    assert outside.assigned_symbol_id == symbol_id
 
 
 def test_projection_error_propagates_to_transaction_owner(monkeypatch):
@@ -256,7 +283,9 @@ def test_human_blurry_decision_survives_outside_and_two_recrops(monkeypatch):
         )
         coordinator.synchronize_after_geometry_change(**args)
         assert cell.source_visibility == "full" and cell.review_state == "pending"
-        assert cell.assigned_symbol_id == symbol_id and cell.quality_issue == "blurry"
+        # D-462 R6: the label survives as a suggestion; `blurry` described the
+        # old pixels, and the old approval stays only as history.
+        assert cell.assigned_symbol_id == symbol_id and cell.quality_issue is None
         assert cell.approved_crop_checksum_sha256 == old_approval
         _symbol_cell_review_from_model(cell, symbol_code_by_id={symbol_id: "cherry"})
         assert not coordinator.synchronize_for_backfill_reconciliation(**args)

@@ -2493,11 +2493,12 @@ class SymbolCellReviewWriteThroughCoordinator:
                         else review.approved_crop.geometry_revision
                     ),
                     **_projection_approved_asset_kwargs(
+                        # An approval rebound to unchanged pixels (D-462 R6)
+                        # takes the current asset provenance as well.
                         _approved_asset_projection_from_review_cell(
                             current_cells_by_index[review.cell_index]
                         )
-                        if qualified
-                        and review.approved_crop is not None
+                        if review.approved_crop is not None
                         and review.approved_crop.geometry_revision == board.geometry_revision
                         else _approved_asset_projection_from_model(existing[review.cell_index])
                         if review.approved_crop is not None
@@ -2567,11 +2568,12 @@ class SymbolCellReviewWriteThroughCoordinator:
                         verification_outcome="unknown",
                         verified_symbol_id_v2=None,
                     )
-                elif cell.geometry_revision != board.geometry_revision:
+                else:
                     values.update(
-                        review_state="pending",
-                        verification_outcome="requires_review",
-                        verified_symbol_id_v2=None,
+                        _outside_human_decision_values(
+                            cell,
+                            new_geometry=cell.geometry_revision != board.geometry_revision,
+                        )
                     )
                 if any(getattr(cell, key) != value for key, value in values.items()):
                     previous = _CellPreviousState.from_model(cell)
@@ -2591,6 +2593,33 @@ class SymbolCellReviewWriteThroughCoordinator:
                 available = index in expected_cell_indices
                 if cell.source_available is not available:
                     cell.source_available = available
+                    changed = True
+                if (
+                    geometry_changed
+                    and not available
+                    and cell.quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value
+                ):
+                    # R5: a saved geometry resolves the report of a position
+                    # that no longer has source pixels as well.
+                    previous_state = _CellPreviousState.from_model(cell)
+                    cell.quality_issue = None
+                    verification = _verification_v2(
+                        review_state=cell.review_state,
+                        quality_issue=None,
+                        assigned_symbol_id=cell.assigned_symbol_id,
+                        prediction_symbol_code=cell.prediction_symbol_code,
+                        assignment_source=cell.assignment_source,
+                    )
+                    cell.verification_outcome = verification.outcome
+                    cell.verified_symbol_id_v2 = verification.verified_symbol_id
+                    cell.revision += 1
+                    cell.last_reviewed_by = actor
+                    self._append_event(
+                        cell=cell,
+                        previous=previous_state,
+                        action="geometry_invalidated",
+                        actor=actor,
+                    )
                     changed = True
                 if not available and (
                     cell.import_job_id != source.import_job_id
@@ -2614,12 +2643,14 @@ class SymbolCellReviewWriteThroughCoordinator:
             prediction_symbol_id = active_symbol_ids.get(review_cell.predicted_symbol_code)
             if geometry_changed and existing_cell is not None:
                 target = recropped_targets[review_cell.cell_index]
-                if _is_human_cell_decision(existing_cell):
+                if existing_cell.crop_sample_id is None and _is_human_cell_decision(existing_cell):
+                    # A logical position without pixels (D-451) gained pixels:
+                    # its human label becomes a pending suggestion (D-462 R6);
+                    # the domain rule only sees positions that had pixels.
                     target = replace(
                         target,
                         assigned_symbol_id=existing_cell.assigned_symbol_id,
                         assignment_source=existing_cell.assignment_source,
-                        quality_issue=existing_cell.quality_issue,
                         approved_crop_sample_id=existing_cell.approved_crop_sample_id,
                         approved_crop_checksum_sha256=existing_cell.approved_crop_checksum_sha256,
                         approved_geometry_revision=existing_cell.approved_geometry_revision,
@@ -2627,10 +2658,24 @@ class SymbolCellReviewWriteThroughCoordinator:
                             _approved_asset_projection_from_model(existing_cell)
                         ),
                     )
-                if review_cell.cell_index in partially_visible and not (
-                    _projection_is_human_decision(target)
+                if (
+                    review_cell.cell_index in partially_visible
+                    and target.review_state != SymbolCellReviewState.APPROVED.value
                 ):
-                    target = _forced_partial_visibility_projection()
+                    # D-434: unverified partial pixels are forced unknown; a
+                    # human label stays as a pending suggestion (D-462 R6).
+                    target = (
+                        replace(
+                            target,
+                            quality_issue=SymbolCellQualityIssue.PARTIAL_VISIBILITY.value,
+                        )
+                        if target.assignment_source
+                        in {
+                            SymbolCellAssignmentSource.HUMAN.value,
+                            SymbolCellAssignmentSource.BOARD_DECISION.value,
+                        }
+                        else _forced_partial_visibility_projection()
+                    )
                 event_action = "geometry_invalidated"
             elif resolved_symbol_ids is not None:
                 resolved_symbol_id = resolved_symbol_ids[review_cell.cell_index]
@@ -3855,6 +3900,49 @@ def _is_human_cell_decision(cell: ImageSymbolReviewCellModel) -> bool:
     )
 
 
+def _outside_human_decision_values(
+    cell: ImageSymbolReviewCellModel,
+    *,
+    new_geometry: bool,
+) -> dict[str, object]:
+    """D-462 for a human decision on a position without source pixels.
+
+    Only a newly saved geometry resolves a grid report (R5, R7); any other
+    synchronization keeps it. A logical decision made without pixels (D-451)
+    stays; a verification of pixels that are gone now needs a new check, and
+    pixel-bound flags do not carry over (R6).
+    """
+
+    had_pixels = cell.crop_sample_id is not None
+    review_state = cell.review_state
+    quality_issue = cell.quality_issue
+    if new_geometry and quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value:
+        quality_issue = None
+    if had_pixels:
+        review_state = SymbolCellReviewState.PENDING.value
+        if quality_issue in {
+            SymbolCellQualityIssue.BLURRY.value,
+            SymbolCellQualityIssue.UNREADABLE.value,
+            SymbolCellQualityIssue.PARTIAL_VISIBILITY.value,
+        }:
+            quality_issue = None
+    if review_state == cell.review_state and quality_issue == cell.quality_issue:
+        return {}
+    verification = _verification_v2(
+        review_state=review_state,
+        quality_issue=quality_issue,
+        assigned_symbol_id=cell.assigned_symbol_id,
+        prediction_symbol_code=None,
+        assignment_source=cell.assignment_source,
+    )
+    return {
+        "review_state": review_state,
+        "quality_issue": quality_issue,
+        "verification_outcome": verification.outcome,
+        "verified_symbol_id_v2": verification.verified_symbol_id,
+    }
+
+
 def _forced_partial_visibility_projection() -> _CellProjection:
     """A partially visible cell (D-434/435) is never auto-assigned or
     auto-approved from a model prediction -- only a human, reviewing the
@@ -3868,18 +3956,6 @@ def _forced_partial_visibility_projection() -> _CellProjection:
         approved_crop_checksum_sha256=None,
         approved_geometry_revision=None,
         **_projection_approved_asset_kwargs(_empty_approved_asset_projection()),
-    )
-
-
-def _projection_is_human_decision(target: _CellProjection) -> bool:
-    return (
-        target.review_state == SymbolCellReviewState.APPROVED.value
-        or target.quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value
-        or target.assignment_source
-        in {
-            SymbolCellAssignmentSource.HUMAN.value,
-            SymbolCellAssignmentSource.BOARD_DECISION.value,
-        }
     )
 
 

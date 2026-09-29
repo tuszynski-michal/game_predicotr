@@ -131,7 +131,60 @@ Ocena wzrokowa agenta na arkuszach (nie jest weryfikacją operatora):
 - Arkusze: `artifacts/symbol-reference-library/stage-a/sheets/pending-<SYMBOL>.png`
   w worktree (katalog ignorowany przez git).
 
-## T2 — ślepa ocena operatora (TASK-0741, w toku)
+## T2 — ślepa ocena operatora (TASK-0741, bramka PASS)
+
+Operator ocenił 200/200 komórek 2026-09-29 według reguły: rozpoznawalny
+symbol, także lekko zasłonięty lub przycięty, dostaje klasę; stany
+nieczytelny, zasłonięty i zła siatka tylko wtedy, gdy symbolu nie da się
+rozpoznać. Plik ocen SHA
+`d7b16c908f827f1f4ae3ff738dfcbf5fb6f8bd29c1ad93478eff00a97ee9e591`,
+raport `compare.json` SHA
+`60829592508644fadccb850b225fcdecd08b767db5478358c0c70c175c1ba4c2`.
+
+| Miara | Wynik |
+|---|---:|
+| Komórki z symbolem wg operatora | 195 (1 nieczytelna, 2 zasłonięte, 2 zła siatka) |
+| Pewne propozycje biblioteki | 161 (pokrycie 82,6%) |
+| Zgodność pewnych propozycji | 99,4% (160/161) |
+| Aktywny model na tych samych 195 komórkach | 73,8% |
+
+| Proponowany symbol | Pewne propozycje | Zgodne |
+|---|---:|---:|
+| Arbuz | 16 | 100% |
+| Cytryna | 10 | 100% |
+| Gwiazda | 22 | 100% |
+| Pomarańcz | 23 | 100% |
+| Siedem | 23 | 100% |
+| Śliwka | 16 | 100% |
+| Winogron | 21 | 100% |
+| Wiśnia | 30 | 96,7% |
+
+Bramka: komplet ocen, 99,4% ≥ 98% ogółem, każdy symbol ≥ 95% przy co
+najmniej 10 pewnych propozycjach — **PASS**. Żaden symbol nie pozostał
+niepotwierdzony, ale Cytryna ma dokładnie minimalne 10 propozycji.
+
+Aktywny model na tej próbce (poprawnie / błędnie): Arbuz 13/11, Śliwka 13/11,
+Winogron 12/13, Cytryna 18/6; pozostałe symbole co najwyżej 3 błędy.
+
+Przypadki szczególne (ocena wzrokowa agenta, do potwierdzenia przez
+operatora):
+
+- `f083d112` — jedyny „błąd”: operator Cytryna, propozycja Wiśnia. Wycinek
+  pokazuje wiśnię częściowo pod przyciskiem nawigacji; możliwa pomyłka
+  wyboru na stronie.
+- `cf7f29d9` — operator Zasłonięty, propozycja Wiśnia: wiśnia na wycinku
+  jest widoczna w całości; możliwa pomyłka wyboru.
+- `9d4660f5` — operator Zasłonięty, propozycja Wiśnia: wiśnia pod przyciskiem
+  nawigacji. Biblioteka daje pewną propozycję także dla takiej komórki.
+- Dwie komórki „zła siatka” (`0373f361` numer sekwencji, `b310be76` pole
+  między symbolami) i komórka nieczytelna trafiły do przeglądu.
+- 34 komórki do przeglądu według oceny operatora: Cytryna 11, Pomarańcz 9,
+  Wiśnia 4, Gwiazda 4, zła siatka 2, pozostałe po 1–2.
+
+Żadna z 200 komórek nie została w międzyczasie zatwierdzona w Adminie
+(`laterAdminDecisions.cells = 0`).
+
+### Przygotowanie próbki
 
 Zamrożona próbka: 200 oczekujących komórek, po 25 na przewidziany symbol
 z pasma 60–80%, z 24 importów, bez komórek pokazanych wcześniej z propozycją.
@@ -163,7 +216,7 @@ Bramka: komplet 200 ocen, co najmniej 98% zgodności pewnych propozycji
 ogółem i co najmniej 95% dla każdego proponowanego symbolu z co najmniej
 10 pewnymi propozycjami. Oceny `Nieczytelny`, `Zasłonięty` i `Zła siatka`
 nie są błędami propozycji; raport podaje, ile pewnych propozycji padło na
-takie komórki. Wynik: do uzupełnienia po ocenie.
+takie komórki.
 
 ## Ograniczenia
 

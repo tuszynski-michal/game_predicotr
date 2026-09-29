@@ -22,11 +22,14 @@ last_updated: 2026-09-29
   `ai_docs/quality/SYMBOL_REFERENCE_LIBRARY_STAGE_A.md`. 20 testów, Ruff,
   mypy i niezależny audyt PASS.
   Commit `v1.7.53` / `dbddd50f`.
-- TASK-0741 blocked na ocenach operatora: zamrożona próbka 200 komórek
-  (SHA `0bc38116…4582`) i lokalna strona
-  `artifacts/symbol-reference-library/blind/blind-review.html` w worktree;
-  podkomenda `compare` rozstrzyga bramkę etapu A. 27 testów i audyt PASS.
-  Instrukcja: `ai_docs/quality/SYMBOL_REFERENCE_LIBRARY_STAGE_A.md`.
+- TASK-0741 done: narzędzia `v1.7.54` / `69a4f849`. Ślepa ocena operatora
+  200/200: pewne propozycje 161 (pokrycie 82,6%), zgodność 99,4%, każdy
+  symbol ≥ 96,7%; aktywny model na tych komórkach 73,8%. **Bramka etapu A
+  PASS.** Etap A zakończony; STOP na granicy etapu.
+- Otwarte przed etapem B: O1 (zasłonięte, ale rozpoznawalne symbole — w
+  ocenie przyjęto „klasa”, decyzja do zapisania), O2 (zatwierdzenie masowe
+  2026-09-28), potwierdzenie dwóch możliwych pomyłek oceny
+  (`f083d112`, `cf7f29d9`).
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

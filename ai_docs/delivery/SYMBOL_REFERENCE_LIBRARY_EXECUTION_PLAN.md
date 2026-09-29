@@ -79,6 +79,9 @@ Reviewer.
 Bramka etapu: zgodność pewnych propozycji z oceną operatora co najmniej 98%
 i żaden symbol poniżej 95%. Niespełnienie zatrzymuje etap B.
 
+Stan 2026-09-29: etap A zakończony, bramka PASS (99,4% przy pokryciu
+82,6%; wyniki w `ai_docs/quality/SYMBOL_REFERENCE_LIBRARY_STAGE_A.md`).
+
 ### Etap B — propozycje w weryfikacji symboli
 
 - **T3 / TASK-0744** — tabela propozycji (Alembic) i handler workera.

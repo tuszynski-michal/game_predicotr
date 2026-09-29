@@ -1,6 +1,6 @@
 ---
 title: TASK-0741 — T2 — ślepa ocena operatora dla biblioteki wzorców
-status: blocked
+status: done
 last_updated: 2026-09-29
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-29
 
 ## Status
 
-`blocked` — narzędzia gotowe i zaudytowane; czeka na oceny operatora.
+`done`
 
 ## Goal
 
@@ -59,12 +59,12 @@ pomyłek per symbol przed propozycją zmian.
 - [x] Plik oceny nie zawiera propozycji biblioteki ani predykcji modelu.
 - [x] Zamrożone propozycje mają sumę kontrolną; porównanie odrzuca plik ocen
   dla innego zamrożenia.
-- [ ] Raport: zgodność pewnych propozycji ogółem i per symbol, pokrycie,
+- [x] Raport: zgodność pewnych propozycji ogółem i per symbol, pokrycie,
   osobno komórki oznaczone jako zasłonięte, nieczytelne i zła siatka.
-- [ ] Bramka: co najmniej 98% ogółem i co najmniej 95% dla każdego symbolu
+- [x] Bramka: co najmniej 98% ogółem i co najmniej 95% dla każdego symbolu
   z co najmniej 10 pewnymi propozycjami; symbole z mniejszą liczbą są
   raportowane jako niepotwierdzone.
-- [ ] Niezależny audyt bez otwartych P0–P2; osobny commit, Outcome,
+- [x] Niezależny audyt bez otwartych P0–P2; osobny commit, Outcome,
   CURRENT_STATE.
 
 ## Technical notes
@@ -101,8 +101,8 @@ Komendy powstają w T1 i są zapisywane w raporcie jakości po ich uruchomieniu.
 
 ## Outcome
 
-Stan częściowy: narzędzia i próbka gotowe, brak ocen operatora. Task nie
-jest ukończony i nie trafia do `completed/`.
+Ukończone 2026-09-29. Narzędzia: commit `v1.7.54` / `69a4f849`. Wynik
+bramki zapisany w `ai_docs/quality/SYMBOL_REFERENCE_LIBRARY_STAGE_A.md`.
 
 ### Changed
 
@@ -138,11 +138,26 @@ jest ukończony i nie trafia do `completed/`.
   bramka przechodzi, gdy żaden symbol nie ma 10 pewnych propozycji —
   raport musi to wtedy nazwać wprost.
 
+- Ślepa ocena operatora 200/200 (plik SHA `d7b16c90…e591`). Pewne
+  propozycje: 161, pokrycie 82,6%, zgodność 99,4% (160/161); każdy symbol
+  ≥ 96,7% przy ≥ 10 propozycjach. Aktywny model na tych samych komórkach
+  73,8%. Bramka etapu A: PASS. `compare.json` SHA `60829592…a4c2`.
+- Jedyna niezgodność (`f083d112`) i jedna ocena „zasłonięty” (`cf7f29d9`)
+  wyglądają na możliwe pomyłki wyboru; wymagają potwierdzenia operatora,
+  wynik bramki od nich nie zależy.
+- Wykonanie `compare` nie zmieniało kodu; osobny audyt narzędzi był PASS.
+
 ### Not completed
 
-- Oceny operatora i wynik bramki etapu A.
+- Etapy B i C planu wymagają osobnego polecenia.
+- Pytania O1 i O2 planu: reguła oceny zasłoniętych symboli z tej sesji nie
+  jest jeszcze zapisana jako decyzja dla doboru wzorców.
+
+### Documentation updates
+
+- Raport jakości (sekcja T2), CURRENT_STATE, plan (status etapu A).
 
 ### Recommended next task
 
-- Operator ocenia `blind-review.html` i przekazuje plik ocen; potem
-  `compare --with-database` i domknięcie TASK-0741.
+- Decyzja operatora o O1 i O2, potem rozpisanie i uruchomienie etapu B
+  (TASK-0744–0734).

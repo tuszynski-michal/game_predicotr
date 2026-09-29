@@ -4,6 +4,7 @@ import hashlib
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
 import pytest
@@ -32,6 +33,7 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewSourceApprovalTarget,
     ImageGridReviewSourceAsset,
     ImageGridReviewState,
+    ImageGridReviewView,
     ImageGridSourceApprovalResult,
 )
 from game_predictor_api.domain.image_import_engine_policy import (
@@ -55,6 +57,7 @@ from game_predictor_api.schemas.image_grid_reviews import (
 )
 from game_predictor_api.storage.game_storage_routing import current_game_storage_scope
 from game_predictor_api.storage.image_grid_review_repository import (
+    SqlAlchemyImageGridReviewRepository,
     _confirmed_partial_expression,
     _pending_automatic_proposal_expression,
 )
@@ -183,7 +186,14 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
                 review_filter.source_image_id is None
                 or item.source_image_id == review_filter.source_image_id
             )
-            and (review_filter.view.value == "all" or item.state.value == review_filter.view.value)
+            and (
+                review_filter.view.value == "all"
+                or item.state.value == review_filter.view.value
+                or (
+                    review_filter.view.value == "correction"
+                    and item.state is ImageGridReviewState.NEEDS_CORRECTION
+                )
+            )
         ]
         if after_key is not None:
             matching = [item for item in matching if item.cursor_key > after_key]
@@ -219,6 +229,7 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
                 item.state is ImageGridReviewState.NEEDS_CORRECTION for item in items
             ),
             approved=sum(item.state is ImageGridReviewState.APPROVED for item in items),
+            correction=sum(item.state is ImageGridReviewState.NEEDS_CORRECTION for item in items),
         )
 
     def get_grid_review_source_asset(
@@ -754,6 +765,7 @@ def test_grid_review_api_lists_keyset_page_and_approves_exact_revision(tmp_path:
         "lateralPartialProposals": 0,
         "confirmedPartialGrids": 0,
         "manualCorrection": 1,
+        "correction": 1,
     }
     second = client.get(
         f"/api/v1/admin/games/{items[0].game_id}/grid-reviews",
@@ -1200,3 +1212,57 @@ def test_item_scoped_grid_review_routes_bind_the_query_game_storage(tmp_path: Pa
     assert len(observed_scopes) == 8
     assert all(scope is not None for scope in observed_scopes)
     assert all(scope.game_id == target.game_id for scope in observed_scopes)  # type: ignore[union-attr]
+
+
+def test_correction_view_lists_reported_boards_with_their_cells(tmp_path: Path) -> None:
+    client, repository, items = _client(tmp_path)
+    repository.items = tuple(
+        replace(item, reported_cell_indices=(2, 7))
+        if item.state is ImageGridReviewState.NEEDS_CORRECTION
+        else item
+        for item in items
+    )
+
+    page = client.get(
+        f"/api/v1/admin/games/{items[0].game_id}/grid-reviews",
+        params={"view": "correction", "limit": 1},
+    )
+
+    # D-462 R4: one queue for manual correction, naming the reported cells.
+    assert page.status_code == 200
+    assert page.json()["view"] == "correction"
+    assert [item["sequenceNumber"] for item in page.json()["items"]] == [3]
+    assert page.json()["items"][0]["reportedCellIndices"] == [2, 7]
+    assert page.json()["counts"]["correction"] == 1
+
+
+def test_correction_view_sql_keeps_one_entry_per_board_slot() -> None:
+    session = MagicMock()
+    repository = SqlAlchemyImageGridReviewRepository(session)
+    correction = ImageGridReviewListFilter(
+        game_id=uuid4(),
+        view=ImageGridReviewView.CORRECTION,
+        import_job_id=None,
+    )
+    current_sql = str(
+        repository._visible_statement(review_filter=correction).compile(
+            dialect=postgresql.dialect()
+        )
+    ).lower()
+    pending_sql = str(
+        repository._pending_statement(review_filter=correction).compile(
+            dialect=postgresql.dialect()
+        )
+    ).lower()
+
+    # A reported board is listed; a deferred slot only while no live board
+    # owns it, with or without an automatic proposal (D-462 R4).
+    assert "image_symbol_review_cells.quality_issue" in current_sql
+    assert "not (exists" in pending_sql
+    assert "recognized_boards.source_image_id = image_board_geometry_pending.source_image_id" in (
+        pending_sql
+    )
+    assert "recognized_boards.position_index = image_board_geometry_pending.position_index" in (
+        pending_sql
+    )
+    assert "automaticpartialproposal" not in pending_sql

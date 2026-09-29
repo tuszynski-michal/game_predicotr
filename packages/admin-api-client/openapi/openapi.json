@@ -7782,6 +7782,12 @@
             "title": "Confirmedpartialgrids",
             "type": "integer"
           },
+          "correction": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Correction",
+            "type": "integer"
+          },
           "fullGrids": {
             "default": 0,
             "minimum": 0.0,
@@ -8452,6 +8458,15 @@
             ],
             "title": "Recognizedboardid"
           },
+          "reportedCellIndices": {
+            "default": [],
+            "items": {
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "title": "Reportedcellindices",
+            "type": "array"
+          },
           "resolutionRevision": {
             "minimum": 0.0,
             "title": "Resolutionrevision",
@@ -8978,7 +8993,8 @@
         "enum": [
           "needs_validation",
           "needs_correction",
-          "all"
+          "all",
+          "correction"
         ],
         "title": "ImageGridReviewView",
         "type": "string"

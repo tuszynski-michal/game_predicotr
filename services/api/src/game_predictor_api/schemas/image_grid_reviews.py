@@ -112,6 +112,7 @@ class ImageGridReviewItemResponse(ApiModel):
     board_confidence: float = Field(ge=0, le=1)
     reason_codes: tuple[str, ...]
     state: ImageGridReviewState
+    reported_cell_indices: tuple[Annotated[int, Field(ge=0)], ...] = ()
 
 
 class ImageGridReviewCountsResponse(ApiModel):
@@ -123,6 +124,7 @@ class ImageGridReviewCountsResponse(ApiModel):
     lateral_partial_proposals: int = Field(default=0, ge=0)
     confirmed_partial_grids: int = Field(default=0, ge=0)
     manual_correction: int = Field(default=0, ge=0)
+    correction: int = Field(default=0, ge=0)
 
 
 class ImageGridReviewPageResponse(ApiModel):
@@ -339,6 +341,7 @@ def to_image_grid_review_item_response(
         board_confidence=item.board_confidence,
         reason_codes=item.reason_codes,
         state=item.state,
+        reported_cell_indices=item.reported_cell_indices,
     )
 
 
@@ -382,6 +385,7 @@ def to_image_grid_review_counts_response(
         lateral_partial_proposals=counts.lateral_partial_proposals,
         confirmed_partial_grids=counts.confirmed_partial_grids,
         manual_correction=counts.manual_correction,
+        correction=counts.correction,
     )
 
 

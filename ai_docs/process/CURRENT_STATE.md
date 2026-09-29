@@ -61,6 +61,13 @@ last_updated: 2026-09-29
   TASK-0728 (≈18,5 tys. dokumentów wyszukiwania, 456 komórek na
   nieaktualnych cropach, domknięcie plansz 15/15) wymaga osobnej zgody po
   preview.
+- TASK-0724 commit `v1.7.53` / `fa7228b8`.
+- Etap B (polecenie operatora 2026-09-29, główny checkout, gałąź
+  `v1.1-vision-lab-hybrid-geometry`). TASK-0725 done: API kolejki siatek ma
+  widok `correction` (plansze ze zgłoszeniem `Zła siatka` ∪ odroczone sloty
+  bez planszy, jedna pozycja na slot, `reportedCellIndices`,
+  `counts.correction`); zapis korekty używa istniejących ścieżek jednej
+  planszy.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

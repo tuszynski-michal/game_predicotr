@@ -3301,3 +3301,29 @@ test('outside review scope and absent crop decision retain their wire contract',
   );
   assert.deepEqual(requests[2].body, body);
 });
+
+test('listImageGridReviews requests the single correction queue (D-462)', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const importJobId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ items: [] }, { status: 200 });
+    },
+  });
+
+  await client.listImageGridReviews({
+    gameId,
+    importJobId,
+    limit: 1,
+    view: 'correction',
+  });
+
+  const url = new URL(requests[0].url);
+  assert.equal(url.pathname, `/api/v1/admin/games/${gameId}/grid-reviews`);
+  assert.equal(url.searchParams.get('view'), 'correction');
+  assert.equal(url.searchParams.get('importJobId'), importJobId);
+  assert.equal(url.searchParams.get('limit'), '1');
+});

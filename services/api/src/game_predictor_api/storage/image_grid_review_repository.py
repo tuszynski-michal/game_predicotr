@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -181,9 +182,53 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             visible = tuple(candidates[:limit])
             has_previous = after_key is not None and bool(visible)
         return ImageGridReviewListSlice(
-            items=visible,
+            items=self._with_reported_cells(visible),
             has_previous=has_previous,
             has_next=has_next,
+        )
+
+    def _with_reported_cells(
+        self,
+        items: tuple[ImageGridReviewListItem, ...],
+    ) -> tuple[ImageGridReviewListItem, ...]:
+        """Name the cells whose `Zła siatka` report routed each board here."""
+
+        current = {
+            item.review_item_id: item
+            for item in items
+            if item.review_item_id is not None and item.recognized_board_id is not None
+        }
+        if not current:
+            return items
+        cell = ImageSymbolReviewCellModel
+        reported: dict[UUID, list[int]] = {}
+        game_id = next(iter(current.values())).game_id
+        for review_item_id, board_id, cell_index, geometry_revision in self._session.execute(
+            select(
+                cell.review_item_id,
+                cell.recognized_board_id,
+                cell.cell_index,
+                cell.geometry_revision,
+            )
+            .where(
+                cell.game_id == game_id,
+                cell.review_item_id.in_(list(current)),
+                cell.quality_issue == "grid_issue",
+                cell.source_available.is_(True),
+            )
+            .order_by(cell.review_item_id, cell.cell_index)
+        ).tuples():
+            item = current[review_item_id]
+            if (
+                board_id == item.recognized_board_id
+                and int(geometry_revision) == item.geometry_revision
+            ):
+                reported.setdefault(review_item_id, []).append(int(cell_index))
+        return tuple(
+            replace(item, reported_cell_indices=tuple(reported[item.review_item_id]))
+            if item.review_item_id in reported
+            else item
+            for item in items
         )
 
     def grid_review_counts(
@@ -253,6 +298,28 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             )
             or 0
         )
+        correction_filter = ImageGridReviewListFilter(
+            game_id=review_filter.game_id,
+            view=ImageGridReviewView.CORRECTION,
+            import_job_id=review_filter.import_job_id,
+            source_image_id=review_filter.source_image_id,
+        )
+        reported_boards = int(
+            self._session.scalar(
+                self._visible_statement(review_filter=correction_filter).with_only_columns(
+                    func.count(ImageReviewItemModel.id)
+                )
+            )
+            or 0
+        )
+        deferred_slots = int(
+            self._session.scalar(
+                self._pending_statement(review_filter=correction_filter).with_only_columns(
+                    func.count(ImageBoardGeometryPendingModel.id)
+                )
+            )
+            or 0
+        )
         partial_expression = _confirmed_partial_expression()
         confirmed_partial_grids = int(
             self._session.scalar(
@@ -272,6 +339,7 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             ),
             lateral_partial_proposals=lateral_partial_proposals,
             confirmed_partial_grids=confirmed_partial_grids,
+            correction=reported_boards + deferred_slots,
         )
 
     def get_grid_review_source_asset(
@@ -527,7 +595,10 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             statement = statement.where(
                 RecognizedBoardModel.source_image_id == review_filter.source_image_id
             )
-        if review_filter.view is not ImageGridReviewView.ALL:
+        if review_filter.view is ImageGridReviewView.CORRECTION:
+            # D-462 R4: every current board with a reported grid issue.
+            statement = statement.where(_current_grid_issue_exists())
+        elif review_filter.view is not ImageGridReviewView.ALL:
             statement = statement.where(state_expression == review_filter.view.value)
         return statement
 
@@ -572,6 +643,13 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
                 ImageBoardGeometryPendingModel.source_image_id == review_filter.source_image_id
             )
         automatic_proposal = _pending_automatic_proposal_expression()
+        if review_filter.view is ImageGridReviewView.CORRECTION:
+            # Every deferred slot needs a human geometry, with or without an
+            # automatic proposal (D-462 R4) — unless a live board already owns
+            # the slot: that board is the slot's single queue entry, and a
+            # manual resolution of such a stale deferral would only supersede
+            # it without saving anything.
+            return statement.where(~_live_board_in_slot(review_filter.game_id))
         if review_filter.view is ImageGridReviewView.NEEDS_VALIDATION:
             statement = statement.where(automatic_proposal)
         elif review_filter.view is ImageGridReviewView.NEEDS_CORRECTION:
@@ -623,6 +701,25 @@ def _current_grid_issue_exists() -> Any:
             cell.quality_issue == "grid_issue",
             cell.source_available.is_(True),
         )
+    )
+
+
+def _live_board_in_slot(game_id: UUID) -> Any:
+    """A board already owns the deferred row's source slot.
+
+    Mirrors the manual-resolution guard: with any board in the slot, resolving
+    the deferral would only supersede it, so the board is the slot's entry.
+    """
+
+    del game_id  # the board table is routed by the bound game storage scope
+    board = RecognizedBoardModel
+    return exists(
+        select(board.id)
+        .where(
+            board.source_image_id == ImageBoardGeometryPendingModel.source_image_id,
+            board.position_index == ImageBoardGeometryPendingModel.position_index,
+        )
+        .correlate(ImageBoardGeometryPendingModel)
     )
 
 

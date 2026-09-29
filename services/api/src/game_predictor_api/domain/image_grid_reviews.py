@@ -23,6 +23,10 @@ class ImageGridReviewView(StrEnum):
     NEEDS_VALIDATION = "needs_validation"
     NEEDS_CORRECTION = "needs_correction"
     ALL = "all"
+    # D-462 R4: the single manual-correction queue — every pending deferred
+    # geometry plus every current board with a reported grid issue, one entry
+    # per board slot.
+    CORRECTION = "correction"
 
 
 class ImageGridReviewCursorDirection(StrEnum):
@@ -92,6 +96,8 @@ class ImageGridReviewListItem:
     board_confidence: float
     reason_codes: tuple[str, ...]
     state: ImageGridReviewState
+    # Cells whose `Zła siatka` report routed the board to correction (D-462).
+    reported_cell_indices: tuple[int, ...] = ()
 
     @property
     def cursor_key(self) -> tuple[int, str]:
@@ -106,6 +112,7 @@ class ImageGridReviewCounts:
     full_grids: int | None = None
     lateral_partial_proposals: int = 0
     confirmed_partial_grids: int = 0
+    correction: int = 0
 
     @property
     def manual_correction(self) -> int:

@@ -13,6 +13,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
+from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkExplicitTarget,
     SymbolCellReviewBulkRequest,
@@ -22,6 +23,7 @@ from game_predictor_api.application.image_symbol_review_mutations import (
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
+from game_predictor_api.domain.image_grid_reviews import ImageGridReviewView
 from game_predictor_api.domain.image_reviews import (
     ImageReviewGeometryArtifacts,
     ImageReviewGeometryCellArtifact,
@@ -30,12 +32,16 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewAction
 from game_predictor_api.domain.jobs import JobStatus, JobType, create_job
+from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage.image_grid_review_repository import (
+    SqlAlchemyImageGridReviewRepository,
+)
 from game_predictor_api.storage.image_review_repository import (
     SqlAlchemyOperationalImageReviewRepository,
 )
@@ -51,13 +57,16 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
     CellObservationModel,
+    ImageBoardGeometryPendingModel,
     ImageBoardSearchFastDocumentModel,
     ImageLayoutStagingRowModel,
     ImageReviewItemModel,
     ImageSequenceCanonicalModel,
+    ImageSourceGeometryRevisionModel,
     ImageSymbolReviewCellModel,
     JobModel,
     RecognizedBoardModel,
+    RulesVersionModel,
     SourceImageModel,
 )
 from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
@@ -122,8 +131,13 @@ def _add_pending_board(
     job_id: UUID,
     file_execution_key: str,
     created_at: datetime,
+    sibling_positions: tuple[int, ...] = (),
 ) -> UUID:
-    """One pending 3x5 board whose model predicts `first` everywhere."""
+    """Pending 3x5 boards of one photo whose model predicts `first` everywhere.
+
+    The first board sits in slot 0 with sequence 1; each sibling position `p`
+    gets sequence `p + 1`. Returns the review item of slot 0.
+    """
 
     job = session.get(JobModel, job_id)
     assert job is not None and job.game_id is not None
@@ -139,53 +153,58 @@ def _add_pending_board(
     )
     session.add(source)
     session.flush()
-    board = RecognizedBoardModel(
-        source_image_id=source.id,
-        position_index=0,
-        sequence_number_raw="1",
-        sequence_number=1,
-        sequence_confidence=1.0,
-        board_geometry={"source": "verified-cell-test", "quad": IN_FRAME_QUAD},
-        board_relative_path="crops/verified-cells.png",
-        board_checksum_sha256=f"{1:064x}",
-        cells_prediction={"cells": []},
-        board_confidence=1.0,
-        pipeline_fingerprint=PIPELINE,
-        status="pending_review",
-        created_at=created_at,
-    )
-    session.add(board)
-    session.flush()
-    review = ImageReviewItemModel(
-        game_id=job.game_id,
-        import_job_id=job.id,
-        sequence_number=1,
-        recognized_board_id=board.id,
-        status="pending",
-        snapshot={"sequenceNumber": 1},
-        resolution_revision=0,
-        created_at=created_at,
-    )
-    session.add(review)
-    session.flush()
-    session.add_all(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=index // 5,
-            column_index=index % 5,
-            crop_relative_path=f"crops/verified-cells-{index}.png",
-            crop_checksum_sha256=f"{100 + index:064x}",
-            cropper_version="verified-cell-cropper",
-            prediction={
-                "symbolCode": "first",
-                "confidence": 0.9,
-                "alternatives": [{"symbolCode": "second", "confidence": 0.1}],
-            },
+    first_review_id: UUID | None = None
+    for position in (0, *sibling_positions):
+        sequence = position + 1
+        board = RecognizedBoardModel(
+            source_image_id=source.id,
+            position_index=position,
+            sequence_number_raw=str(sequence),
+            sequence_number=sequence,
+            sequence_confidence=1.0,
+            board_geometry={"source": "verified-cell-test", "quad": IN_FRAME_QUAD},
+            board_relative_path=f"crops/verified-cells-{position}.png",
+            board_checksum_sha256=f"{sequence:064x}",
+            cells_prediction={"cells": []},
+            board_confidence=1.0,
+            pipeline_fingerprint=PIPELINE,
+            status="pending_review",
             created_at=created_at,
         )
-        for index in range(15)
-    )
-    return review.id
+        session.add(board)
+        session.flush()
+        review = ImageReviewItemModel(
+            game_id=job.game_id,
+            import_job_id=job.id,
+            sequence_number=sequence,
+            recognized_board_id=board.id,
+            status="pending",
+            snapshot={"sequenceNumber": sequence},
+            resolution_revision=0,
+            created_at=created_at,
+        )
+        session.add(review)
+        session.flush()
+        first_review_id = first_review_id or review.id
+        session.add_all(
+            CellObservationModel(
+                recognized_board_id=board.id,
+                row_index=index // 5,
+                column_index=index % 5,
+                crop_relative_path=f"crops/verified-cells-{position}-{index}.png",
+                crop_checksum_sha256=f"{1000 * position + 100 + index:064x}",
+                cropper_version="verified-cell-cropper",
+                prediction={
+                    "symbolCode": "first",
+                    "confidence": 0.9,
+                    "alternatives": [{"symbolCode": "second", "confidence": 0.1}],
+                },
+                created_at=created_at,
+            )
+            for index in range(15)
+        )
+    assert first_review_id is not None
+    return first_review_id
 
 
 def _document_codes(session: Session, game_id: UUID) -> list[int | None]:
@@ -218,7 +237,11 @@ class _Seed:
     second_symbol_id: UUID
 
 
-def _seed_pending_board(session_factory: sessionmaker[Session], now: datetime) -> _Seed:
+def _seed_pending_board(
+    session_factory: sessionmaker[Session],
+    now: datetime,
+    sibling_positions: tuple[int, ...] = (),
+) -> _Seed:
     """A ready game with one pending board whose model predicts `first`."""
 
     with session_factory() as session:
@@ -271,6 +294,7 @@ def _seed_pending_board(session_factory: sessionmaker[Session], now: datetime) -
             job_id=job.id,
             file_execution_key=execution.file_execution_key,
             created_at=now,
+            sibling_positions=sibling_positions,
         )
         job_record = session.get(JobModel, job.id)
         assert job_record is not None
@@ -673,5 +697,149 @@ def test_an_approval_of_other_pixels_keeps_the_board_open(
         with game_storage_scope(seed.game_id), session_factory() as session:
             review = session.get(ImageReviewItemModel, seed.review_item_id)
             assert review is not None and review.status == "accepted"
+    finally:
+        engine.dispose()
+
+
+def test_correction_queue_lists_one_reported_board_per_slot(
+    verified_cell_database: URL,
+) -> None:
+    """D-462 R4: scenarios 3, 4 and 5 on one photo with three slots."""
+
+    command.upgrade(_migration_config(verified_cell_database), "head")
+    engine = create_engine(verified_cell_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    now = datetime(2026, 9, 29, 12, tzinfo=UTC)
+
+    def correction_page(session: Session) -> tuple[list[tuple[str, int, tuple[int, ...]]], int]:
+        page = ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session)).list(
+            game_id=seed.game_id,
+            view=ImageGridReviewView.CORRECTION,
+            import_job_id=seed.job_id,
+            source_image_id=None,
+            after_cursor=None,
+            before_cursor=None,
+            limit=10,
+        )
+        return (
+            [
+                (item.slot_kind.value, item.position_index, item.reported_cell_indices)
+                for item in page.items
+            ],
+            page.counts.correction,
+        )
+
+    def deferred_slot(session: Session, board: RecognizedBoardModel, position: int) -> None:
+        source = session.get(SourceImageModel, board.source_image_id)
+        assert source is not None
+        session.add(
+            ImageBoardGeometryPendingModel(
+                game_id=seed.game_id,
+                import_job_id=seed.job_id,
+                source_image_id=board.source_image_id,
+                sequence_number=position + 1,
+                position_index=position,
+                source_checksum_sha256=source.checksum_sha256,
+                source_relative_path=source.relative_path,
+                status="pending",
+                reason_code="residual_too_high",
+                processing_manifest_checksum_sha256=f"{position + 10:064x}",
+                processing_manifest_relative_path=f"manifests/slot-{position}.json",
+                pipeline_fingerprint_sha256=PIPELINE,
+                expected_geometry_revision=0,
+                expected_review_resolution_revision=0,
+            )
+        )
+        session.flush()
+
+    try:
+        # Slot 0 and its sibling slot 1 have live boards; slot 2 has none.
+        seed = _seed_pending_board(session_factory, now, sibling_positions=(1,))
+        with game_storage_scope(seed.game_id), session_factory() as session:
+            assert correction_page(session) == ([], 0)
+            service = SymbolCellReviewMutationService(
+                SqlAlchemySymbolCellReviewMutationRepository(session)
+            )
+            for cell in _cells(session, seed.review_item_id)[1:5:3]:
+                service.mark_grid_issue(
+                    game_id=seed.game_id,
+                    cell_review_id=cell.id,
+                    expected_revision=cell.revision,
+                    expected_geometry_revision=cell.geometry_revision,
+                    expected_crop_sample_id=cell.crop_sample_id,
+                    expected_crop_checksum_sha256=cell.crop_checksum_sha256,
+                    actor="symbol-cell-operator",
+                )
+            session.commit()
+
+        with game_storage_scope(seed.game_id), session_factory() as session:
+            # Two reports of one board give one entry naming both cells, and
+            # the unreported sibling of the same photo is not routed (4, 5).
+            assert correction_page(session) == ([("current_review", 0, (1, 4))], 1)
+            board = session.scalar(
+                select(RecognizedBoardModel)
+                .join(
+                    ImageReviewItemModel,
+                    ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+                )
+                .where(ImageReviewItemModel.id == seed.review_item_id)
+            )
+            assert board is not None
+            source = session.get(SourceImageModel, board.source_image_id)
+            assert source is not None
+            rules = RulesVersionModel(
+                game_id=seed.game_id,
+                version=1,
+                rows=3,
+                columns=5,
+                spin_cost=0,
+                status=RulesVersionStatus.DRAFT,
+                created_at=now,
+                published_at=None,
+            )
+            session.add(rules)
+            session.flush()
+            session.add(
+                ImageSourceGeometryRevisionModel(
+                    game_id=seed.game_id,
+                    source_image_id=source.id,
+                    topology_rules_version_id=rules.id,
+                    revision=0,
+                    sequence_range_start=1,
+                    sequence_range_end=3,
+                    active_board_slots=[0, 1, 2],
+                    coordinate_space="exif-normalized-rgb-pixels-v1",
+                    source_checksum_sha256=source.checksum_sha256,
+                    normalized_pixel_checksum_sha256="b" * 64,
+                    oriented_width=1920,
+                    oriented_height=1080,
+                    normalization_adapter_version="normalization-test-v1",
+                    global_initialization={},
+                    board_geometries=[{"positionIndex": slot} for slot in range(3)],
+                    engine_kind="structured_opencv_v1",
+                    engine_version="structured-test-v1",
+                    geometry_source="auto",
+                    status="needs_review",
+                    geometry_checksum_sha256="d" * 64,
+                    processing_time_ms=1,
+                    warnings=[],
+                    created_by="correction-queue-test",
+                    created_at=now,
+                )
+            )
+            # Scenario 3: the algorithm rejected slot 2 only.
+            deferred_slot(session, board, 2)
+            assert correction_page(session) == (
+                [("current_review", 0, (1, 4)), ("deferred_geometry", 2, ())],
+                2,
+            )
+            # A stale deferral of the reported board's own slot adds nothing:
+            # the live board stays the slot's single entry.
+            deferred_slot(session, board, 0)
+            assert correction_page(session) == (
+                [("current_review", 0, (1, 4)), ("deferred_geometry", 2, ())],
+                2,
+            )
+            session.rollback()
     finally:
         engine.dispose()

@@ -4320,6 +4320,10 @@ export type ImageGridReviewCountsResponse = {
    */
   confirmedPartialGrids?: number;
   /**
+   * Correction
+   */
+  correction?: number;
+  /**
    * Fullgrids
    */
   fullGrids?: number;
@@ -4666,6 +4670,10 @@ export type ImageGridReviewItemResponse = {
    */
   recognizedBoardId: string | null;
   /**
+   * Reportedcellindices
+   */
+  reportedCellIndices?: Array<number>;
+  /**
    * Resolutionrevision
    */
   resolutionRevision: number;
@@ -4934,7 +4942,7 @@ export type ImageGridReviewState =
  * ImageGridReviewView
  */
 export type ImageGridReviewView =
-  'needs_validation' | 'needs_correction' | 'all';
+  'needs_validation' | 'needs_correction' | 'all' | 'correction';
 
 /**
  * ImageImportEnginePolicy

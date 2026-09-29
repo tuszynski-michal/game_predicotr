@@ -2381,12 +2381,26 @@ POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-approval
 POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-revisions
 ```
 
-Lista ma widoki `needs_validation | needs_correction | all`, opcjonalne filtry
-`importJobId` i `sourceImageId`, limit domyślny 25 i maksymalny 100. Keyset
-opiera się na `(sequence_number, review_item_id)`. Opaque cursor jest związany
-z grą, widokiem, importem, źródłem i kierunkiem; nie może zostać odtworzony w
-innym scope. Odpowiedź zwraca liczniki wszystkich trzech stanów dla tego samego
-scope gry/importu/źródła.
+Lista ma widoki `needs_validation | needs_correction | all | correction`,
+opcjonalne filtry `importJobId` i `sourceImageId`, limit domyślny 25 i
+maksymalny 100. Keyset opiera się na `(sequence_number, id slotu)` (id pozycji
+review albo odroczonej geometrii).
+Opaque cursor jest związany z grą, widokiem, importem, źródłem i kierunkiem;
+nie może zostać odtworzony w innym scope. Odpowiedź zwraca liczniki wszystkich
+trzech stanów oraz `correction` dla tego samego scope gry/importu/źródła.
+
+Widok `correction` (D-462, TASK-0725) jest jedną kolejką ręcznej korekty:
+każda odroczona geometria `pending` (z propozycją automatu albo bez niej) oraz
+każda bieżąca plansza z co najmniej jedną komórką `grid_issue`. Slot planszy
+`(sourceImageId, positionIndex)` występuje najwyżej raz — odroczona geometria
+slotu, który ma już planszę, nie tworzy pozycji (jej ręczne rozwiązanie
+tylko by ją supersedowało), a kilka zgłoszeń jednej planszy daje jedną
+pozycję. Element niesie
+`reportedCellIndices` (row-major indeksy bieżących komórek z `grid_issue`,
+pusta lista dla slotu odroczonego). Zapis korekty używa istniejących ścieżek
+jednej planszy: `image-reviews/{reviewItemId}/geometry-*` dla bieżącej planszy
+oraz `board-cell-geometry-pending/{pendingId}/manual-resolution` dla slotu
+odroczonego; żadna z nich nie zmienia innych plansz zdjęcia.
 
 Odczyt listy oraz checksum-bound assetu źródłowego sprawdza istnienie gry, ale
 nie wymaga gotowej projekcji pojedynczych komórek symboli: kolejka geometrii

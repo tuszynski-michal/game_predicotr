@@ -11,22 +11,24 @@ last_updated: 2026-09-29
 - Plan `ai_docs/delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md`
   zaakceptowany 2026-09-29; operator zlecił zapis planu i etap A
   (TASK-0740, TASK-0741) dla ośmiu symboli gry `777`. Praca w worktree
-  `worktrees/symbol-reference-library`, gałąź `feat/symbol-reference-library`.
+  `worktrees/symbol-reference-library`, gałąź `feat/symbol-reference-library`
+  (przeniesiona na `v1.1-vision-lab-hybrid-geometry` 2026-09-30 jako
+  `feat/symbol-reference-library-port`, zadania przenumerowane na 0740+).
 - Etap A jest odczytowy: bez zapisu w bazie, bez zmian API, UI i modelu.
   Etapy B i C wymagają osobnego polecenia.
-- Commit planu: `v1.7.52` / `5bf3381f`.
+- Commit planu: `v1.7.67` / `04e8f30d`.
 - TASK-0740 done: skrypt `scripts/evaluate_symbol_reference_library.py`
   i moduł `symbols/reference_library.py`. Na 2 706 zweryfikowanych komórkach
   pewne propozycje pokrywają 80,5% ze zgodnością 99,5%; aktywny model na tej
   wybiórczej próbie 12,7%. Raport:
   `ai_docs/quality/SYMBOL_REFERENCE_LIBRARY_STAGE_A.md`. 20 testów, Ruff,
   mypy i niezależny audyt PASS.
-  Commit `v1.7.53` / `dbddd50f`.
-- TASK-0741 done: narzędzia `v1.7.54` / `69a4f849`. Ślepa ocena operatora
+  Commit `v1.7.68` / `21740374`.
+- TASK-0741 done: narzędzia `v1.7.69` / `93aa76dd`. Ślepa ocena operatora
   200/200: pewne propozycje 161 (pokrycie 82,6%), zgodność 99,4%, każdy
   symbol ≥ 96,7%; aktywny model na tych komórkach 73,8%. **Bramka etapu A
   PASS.** Etap A zakończony; STOP na granicy etapu.
-  Commit `v1.7.55` / `269d25b7`.
+  Commit `v1.7.70` / `d2fea13f`.
 - D-465: rozpoznawalny, częściowo zasłonięty symbol dostaje klasę;
   zatwierdzenia masowe (`approve` z `operation_id`) nie są wzorcami.
   Operator potwierdził `f083d112` i `cf7f29d9` jako Wiśnia.
@@ -35,7 +37,7 @@ last_updated: 2026-09-29
   poprawkach) i odczytowy podgląd dla 11 864 oczekujących Arbuz < 80%:
   lokalny widok `artifacts/symbol-reference-library/preview-arbuz/preview.html`
   w worktree. Pasmo 0–60% bez ślepej oceny. Nic nie zapisano w bazie.
-  Etap B nieuruchomiony. Commit `v1.7.56` / `c3704796`.
+  Etap B nieuruchomiony. Commit `v1.7.71` / `9dec1578`.
 - TASK-0743 done: podpowiedź dwóch kandydatów dla komórek przeglądu
   (38/38 trafień na ślepej próbce) i biblioteka do 40 wzorców na grupę
   (ślepa próbka 90,3% pokrycia przy 100% zgodności; T1 87,8% / 99,7%).

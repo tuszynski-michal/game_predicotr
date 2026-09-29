@@ -27,7 +27,7 @@ podpowiedzi; stara predykcja modelu pozostaje nietknięta jako rezerwa.
 
 ## Dependencies / entry conditions
 
-- TASK-0742 done (`v1.7.56`), D-465.
+- TASK-0742 done (`v1.7.71`), D-465.
 
 ## Recommended execution
 

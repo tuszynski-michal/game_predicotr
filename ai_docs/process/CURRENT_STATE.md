@@ -96,6 +96,11 @@ last_updated: 2026-09-29
   104 i 106 są znowu `pending` (poza layoutem do ponownej weryfikacji); 0
   nowych weryfikacji (zatwierdzonych 73 378 = 73 834 − 456); dokumenty
   wyszukiwania odświeżone. TASK-0728 done; następny TASK-0729 (odbiór).
+- TASK-0728 zapis apply: commit `v1.7.58` / `bc0b0da0`.
+- TASK-0729 done: kontrolny preview po apply pusty (0 pozycji na 37 894
+  planszach), scenariusze 1–9 potwierdzone testami i odczytem żywych danych;
+  kolejka korekty gry `777` = 119 plansz ze zgłoszeniem `Zła siatka`, gra
+  `mumie` = 10 odroczonych slotów. Plan D-462 (etapy A–C) zakończony.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

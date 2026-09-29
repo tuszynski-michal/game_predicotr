@@ -132,7 +132,9 @@ ranking wyszukiwania, archiwum legacy, trening, usunięcie kolumn/tabel/historii
   `777`): 37 779 dokumentów do odświeżenia, 456 komórek / 113 plansz do
   ponownej weryfikacji, w tym 3 plansze `accepted` do ponownego otwarcia,
   0 domknięć. Apply po zgodzie operatora: 37 782 plansz bez dryfu i błędów.
-- **T9 / TASK-0729** — odbiór całości.
+- **T9 / TASK-0729** — odbiór całości. Wykonany 2026-09-30: kontrolny
+  preview po apply pusty, scenariusze 1–9 z dowodami w zadaniu; plan
+  zakończony.
 
 Szczegóły tasków etapu A są w plikach zadań. Taski etapów B i C zostaną
 rozpisane według TASK_TEMPLATE przed ich uruchomieniem.

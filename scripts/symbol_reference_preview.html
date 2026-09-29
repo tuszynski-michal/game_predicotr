@@ -136,7 +136,7 @@ function renderGallery() {
     images.append(crop, context);
     const meta = document.createElement("div"); meta.className = "meta";
     meta.textContent = "model " + t.confidence + " · głosy kształt/łączony " + t.votes
-      + (proposal === "DO_PRZEGLADU" ? " · kształt wskazuje: " + t.hint : "")
+      + (proposal === "DO_PRZEGLADU" ? " · podpowiedź: " + t.hint : "")
       + " · " + id.slice(0, 8);
     tile.append(images, meta);
     box.appendChild(tile);

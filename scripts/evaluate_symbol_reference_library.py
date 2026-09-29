@@ -46,6 +46,7 @@ from game_predictor_worker.symbols.reference_library import (
     decide,
     descriptor_matrix,
     gray_world,
+    hint_candidates,
     normalize_rows,
     vote,
     vote_batch,
@@ -55,7 +56,7 @@ from PIL import Image, ImageDraw
 from sqlalchemy import Connection, text
 
 REPORT_VERSION = "symbol-reference-library-evaluation-v1"
-REFERENCES_PER_GROUP = 15
+REFERENCES_PER_GROUP = 40
 CONTEXT_SIZE = 96
 EXIT_INCOMPLETE = 3
 _TRANSIENT_SOURCE_ERRORS = frozenset(
@@ -282,6 +283,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
             "--reference-policy",
             choices=tuple(REFERENCE_POLICIES),
             default=DEFAULT_REFERENCE_POLICY,
+        )
+        command.add_argument(
+            "--references-per-group",
+            type=int,
+            default=REFERENCES_PER_GROUP,
+            choices=range(1, 201),
         )
     return parser.parse_args(argv)
 
@@ -777,6 +784,7 @@ def _read_snapshot(
     pending_parameters: Mapping[str, object],
     *,
     reference_policy: str,
+    references_per_group: int = REFERENCES_PER_GROUP,
     pending_sql: str = _PENDING_SQL,
     scope_sql: str | None = None,
 ) -> Snapshot:
@@ -809,7 +817,7 @@ def _read_snapshot(
                     text(_REFERENCE_SQL),
                     {
                         "game_id": game_id,
-                        "per_group": REFERENCES_PER_GROUP,
+                        "per_group": references_per_group,
                         "exclude_bulk_approve": REFERENCE_POLICIES[reference_policy],
                     },
                 ).mappings()
@@ -888,6 +896,7 @@ def _evaluate(arguments: argparse.Namespace) -> int:
             "order_salt": "",
         },
         reference_policy=arguments.reference_policy,
+        references_per_group=arguments.references_per_group,
     )
     game_id, game_name, fingerprint = snapshot.game_id, snapshot.game_name, snapshot.fingerprint
     model, references, pending = snapshot.model, snapshot.references, snapshot.pending
@@ -977,7 +986,7 @@ def _evaluate(arguments: argparse.Namespace) -> int:
         },
         "parameters": {
             "neighbourCount": NEIGHBOUR_COUNT,
-            "referencesPerGroup": REFERENCES_PER_GROUP,
+            "referencesPerGroup": arguments.references_per_group,
             "minConfidence": arguments.min_confidence,
             "maxConfidence": arguments.max_confidence,
             "pendingPerSymbol": arguments.pending_per_symbol,
@@ -1129,6 +1138,7 @@ def _blind_sample(arguments: argparse.Namespace) -> int:
             "order_salt": BLIND_FORMAT,
         },
         reference_policy=arguments.reference_policy,
+        references_per_group=arguments.references_per_group,
     )
     chosen: list[Cell] = []
     taken: Counter[str] = Counter()
@@ -1210,6 +1220,7 @@ def _blind_sample(arguments: argparse.Namespace) -> int:
             "seed": arguments.seed,
             "excludedPreviouslyShown": len(excluded_ids),
             "referencePolicy": arguments.reference_policy,
+            "referencesPerGroup": arguments.references_per_group,
         },
         "library": {"cells": len(library.cells), "excluded": library.excluded},
         "symbolCodes": list(codes),
@@ -1421,7 +1432,7 @@ def _compare(arguments: argparse.Namespace) -> int:
 
 
 RESCORE_VERSION = "symbol-reference-blind-rescore-v1"
-PREVIEW_VERSION = "symbol-reference-preview-v1"
+PREVIEW_VERSION = "symbol-reference-preview-v2"
 PREVIEW_CONTEXT_SIZE = 144
 
 
@@ -1468,6 +1479,7 @@ def _blind_rescore(arguments: argparse.Namespace) -> int:
         artifact_root,
         {"min_confidence": 0.0, "max_confidence": 0.0, "per_symbol": 0, "order_salt": ""},
         reference_policy=arguments.reference_policy,
+        references_per_group=arguments.references_per_group,
     )
     library_cache, remaining = _render(
         snapshot.references,
@@ -1529,6 +1541,9 @@ def _blind_rescore(arguments: argparse.Namespace) -> int:
         comparisons[ratings_path.name] = {
             "original": _compare_ratings(frozen, frozen_sha, ratings),
             "rescored": _compare_ratings(rescored, frozen_sha, ratings),
+            "reviewHints": _review_hint_accuracy(
+                rows, proposals, codes, cast(Mapping[str, Any], ratings.get("ratings", {}))
+            ),
         }
     report = {
         "version": RESCORE_VERSION,
@@ -1537,6 +1552,7 @@ def _blind_rescore(arguments: argparse.Namespace) -> int:
             "referencePolicy", "all-human-v1"
         ),
         "referencePolicy": arguments.reference_policy,
+        "referencesPerGroup": arguments.references_per_group,
         "cellStateFingerprint": snapshot.fingerprint,
         "library": {
             "cells": len(library.cells),
@@ -1560,6 +1576,33 @@ def _blind_rescore(arguments: argparse.Namespace) -> int:
     print(f"library={len(library.cells)} changedProposals={changed}")
     print(f"{output.name} sha256={report_sha}")
     return 0
+
+
+def _review_hint_accuracy(
+    rows: Sequence[Mapping[str, Any]],
+    proposals: Sequence[Proposal],
+    codes: Sequence[str],
+    ratings: Mapping[str, Any],
+) -> dict[str, object]:
+    """How often each hint names the operator's symbol on cells left for review."""
+
+    hits: Counter[str] = Counter()
+    cells = 0
+    for row, proposal in zip(rows, proposals, strict=True):
+        truth = ratings.get(str(row["cellReviewId"]))
+        if proposal.class_index is not None or truth not in codes:
+            continue
+        cells += 1
+        fused = [codes[index] for index in hint_candidates(proposal, 2)]
+        shape = proposal.shape_vote.class_index
+        model = str(row["activeModelSymbol"])
+        hits["shape"] += shape is not None and codes[shape] == truth
+        hits["fused1"] += fused[:1] == [truth]
+        hits["fused2"] += truth in fused
+        hits["model"] += model == truth
+        hits["fused1OrModel"] += truth in {*fused[:1], model}
+    keys = ("fused1", "fused1OrModel", "fused2", "model", "shape")
+    return {"cells": cells, **{key: hits[key] for key in keys}}
 
 
 def _band_bounds(edges: Sequence[float], low: float, high: float) -> list[tuple[float, float]]:
@@ -1652,6 +1695,7 @@ def _preview_rows(
                     "shapeHint": None
                     if shape_vote.class_index is None
                     else codes[shape_vote.class_index],
+                    "hints": [codes[index] for index in hint_candidates(proposal)],
                     "shapeVotes": shape_vote.agreeing_count,
                     "combinedVotes": proposal.combined_vote.agreeing_count,
                 }
@@ -1693,6 +1737,7 @@ def _preview(arguments: argparse.Namespace) -> int:
         artifact_root,
         parameters,
         reference_policy=arguments.reference_policy,
+        references_per_group=arguments.references_per_group,
         pending_sql=_PREVIEW_SQL,
         scope_sql=_PREVIEW_SCOPE_SQL,
     )
@@ -1789,6 +1834,7 @@ def _preview(arguments: argparse.Namespace) -> int:
             "maxConfidence": high,
             "bandEdges": edges,
             "thumbnailsPerGroup": int(arguments.thumbnails_per_group),
+            "referencesPerGroup": arguments.references_per_group,
         },
         "library": {"cells": len(library.cells), "excluded": library.excluded},
         "cells": len(rows),
@@ -1811,7 +1857,7 @@ def _preview(arguments: argparse.Namespace) -> int:
             "context": _context_uri(entry["context"], entry["context_quad"]),
             "confidence": _display_confidence(float(row["activeModelConfidence"])),
             "votes": f"{row['shapeVotes']}/{row['combinedVotes']}",
-            "hint": names.get(str(row["shapeHint"]), "–"),
+            "hint": " / ".join(names.get(code, code) for code in row["hints"]) or "–",
         }
     page = _preview_html(
         {

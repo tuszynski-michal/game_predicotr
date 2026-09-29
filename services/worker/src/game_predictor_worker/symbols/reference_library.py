@@ -7,7 +7,7 @@ and callers must not persist it as one.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import cast
 
 import cv2
@@ -43,6 +43,8 @@ class Vote:
     neighbour_count: int
     agreeing_count: int
     best_similarity: float
+    # Per-class vote weights; excluded from equality because batching may change last digits.
+    class_weights: tuple[float, ...] = field(default=(), compare=False)
 
     @property
     def unanimous(self) -> bool:
@@ -255,7 +257,23 @@ def _vote_from_neighbours(
         neighbour_count=NEIGHBOUR_COUNT,
         agreeing_count=int(np.count_nonzero(neighbour_labels == winner)),
         best_similarity=float(similarity[0]),
+        class_weights=tuple(float(value) for value in weights),
     )
+
+
+def hint_candidates(proposal: Proposal, count: int = 2) -> tuple[int, ...]:
+    """Classes with the largest summed weight of both descriptors' votes.
+
+    A hint for manual review only; it never replaces the unanimous-proposal rule.
+    """
+
+    shape, combined = proposal.shape_vote.class_weights, proposal.combined_vote.class_weights
+    if not shape or not combined or len(shape) != len(combined) or count < 1:
+        return ()
+    fused = np.asarray(shape, dtype=np.float64) + np.asarray(combined, dtype=np.float64)
+    # Stable order: larger weight first, then the lower class index.
+    order = np.lexsort((np.arange(fused.size), -fused))
+    return tuple(int(index) for index in order[:count] if fused[index] > 0)
 
 
 def decide(shape_vote: Vote, combined_vote: Vote) -> Proposal:

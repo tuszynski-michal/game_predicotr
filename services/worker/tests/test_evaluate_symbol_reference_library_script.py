@@ -350,3 +350,43 @@ def test_damaged_preview_rows_cache_is_ignored(tmp_path: Path) -> None:
     path.write_text('{"key": "a", "rows": [', encoding="utf-8")
 
     assert runner._cached_preview_rows(path, "a") is None
+
+
+def test_review_hint_accuracy_counts_only_review_cells_with_a_symbol() -> None:
+    from game_predictor_worker.symbols.reference_library import Proposal, Vote
+
+    def review(weights: tuple[float, ...]) -> Proposal:
+        vote = Vote(0, 7, 4, 0.9, class_weights=weights)
+        return Proposal(None, "not_unanimous", vote, vote)
+
+    sure = Proposal(0, "unanimous", Vote(0, 7, 7, 0.9), Vote(0, 7, 7, 0.9))
+    rows = [
+        {"cellReviewId": "a", "activeModelSymbol": "ARBUZ"},
+        {"cellReviewId": "b", "activeModelSymbol": "ARBUZ"},
+        {"cellReviewId": "c", "activeModelSymbol": "ARBUZ"},
+        {"cellReviewId": "d", "activeModelSymbol": "ARBUZ"},
+    ]
+    report = runner._review_hint_accuracy(
+        rows,
+        [review((3.0, 2.0)), review((1.0, 2.0)), sure, review((1.0, 0.0))],
+        ["ARBUZ", "WISNIA"],
+        {"a": "WISNIA", "b": "WISNIA", "c": "ARBUZ", "d": "ZASLONIETY"},
+    )
+
+    assert report == {
+        "cells": 2,
+        "fused1": 1,
+        "fused1OrModel": 1,
+        "fused2": 2,
+        "model": 0,
+        # Both shape votes name ARBUZ, the operator saw WISNIA.
+        "shape": 0,
+    }
+    assert runner._review_hint_accuracy([], [], ["ARBUZ"], {}) == {
+        "cells": 0,
+        "fused1": 0,
+        "fused1OrModel": 0,
+        "fused2": 0,
+        "model": 0,
+        "shape": 0,
+    }

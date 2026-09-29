@@ -35,7 +35,12 @@ last_updated: 2026-09-29
   poprawkach) i odczytowy podgląd dla 11 864 oczekujących Arbuz < 80%:
   lokalny widok `artifacts/symbol-reference-library/preview-arbuz/preview.html`
   w worktree. Pasmo 0–60% bez ślepej oceny. Nic nie zapisano w bazie.
-  Etap B nieuruchomiony.
+  Etap B nieuruchomiony. Commit `v1.7.56` / `c3704796`.
+- TASK-0743 done: podpowiedź dwóch kandydatów dla komórek przeglądu
+  (38/38 trafień na ślepej próbce) i biblioteka do 40 wzorców na grupę
+  (ślepa próbka 90,3% pokrycia przy 100% zgodności; T1 87,8% / 99,7%).
+  Podgląd: `artifacts/symbol-reference-library/preview-arbuz-g40/preview.html`
+  w worktree. Stara predykcja modelu pozostaje nietknięta jako rezerwa.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

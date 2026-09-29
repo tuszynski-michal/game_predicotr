@@ -30,6 +30,13 @@ last_updated: 2026-09-29
 - **Boundary:** decyzja nie zmienia danych w bazie, stanu komórek ani
   historii zdarzeń. Etap B pozostaje nieuruchomiony; operator zlecił zamiast
   niego odczytowy podgląd zmian dla predykcji Arbuz poniżej 80%.
+- **Library size (TASK-0743):** domyślnie do 40 wzorców na grupę
+  (symbol, import, zgodność z modelem) zamiast 15, zgodnie z zapowiedzią
+  operatorowi, bo pomiar nie obniżył zgodności (T1 99,5% → 99,7%, ślepa
+  próbka 100% → 100%, pokrycie 79,1% → 87,8% i 80,6% → 90,3%). Wartość
+  jest zapisywana w raportach i dostępna parametrem.
+- **Hints:** komórka do przeglądu otrzymuje podpowiedź dwóch kandydatów z
+  sumy wag obu opisów. Podpowiedź nie jest propozycją ani decyzją.
 
 ## D-464 — propozycje symboli z biblioteki zweryfikowanych komórek
 

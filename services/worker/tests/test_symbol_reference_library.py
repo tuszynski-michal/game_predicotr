@@ -10,6 +10,7 @@ from game_predictor_worker.symbols.reference_library import (
     decide,
     descriptor_matrix,
     gray_world,
+    hint_candidates,
     hue_descriptor,
     normalize_rows,
     shape_descriptor,
@@ -212,3 +213,42 @@ def test_vote_batch_keeps_boundary_ties_in_row_order() -> None:
     assert vote_batch(query, references, labels, class_count=2) == [
         vote(query[0], references, labels, class_count=2)
     ]
+
+
+def test_hint_candidates_sum_both_descriptors() -> None:
+    shape = Vote(0, NEIGHBOUR_COUNT, 4, 0.9, class_weights=(2.0, 1.5, 0.0))
+    combined = Vote(1, NEIGHBOUR_COUNT, 5, 0.9, class_weights=(0.5, 3.0, 0.2))
+    proposal = decide(shape, combined)
+
+    assert proposal.class_index is None
+    assert hint_candidates(proposal) == (1, 0)
+    assert hint_candidates(proposal, 1) == (1,)
+
+
+def test_hint_candidates_are_empty_without_references() -> None:
+    empty = Vote(None, 0, 0, 0.0)
+
+    assert hint_candidates(decide(empty, empty)) == ()
+
+
+def test_votes_carry_class_weights() -> None:
+    references, labels = _library()
+
+    result = vote(np.array([1.0, 0.0], dtype=np.float32), references, labels, class_count=2)
+
+    assert len(result.class_weights) == 2
+    assert result.class_weights[0] > result.class_weights[1]
+
+
+def test_hint_candidates_break_ties_by_lower_class_and_reject_mismatch() -> None:
+    tied = decide(
+        Vote(0, NEIGHBOUR_COUNT, 4, 0.9, class_weights=(1.0, 2.0, 2.0)),
+        Vote(1, NEIGHBOUR_COUNT, 4, 0.9, class_weights=(1.0, 1.0, 1.0)),
+    )
+    mismatched = decide(
+        Vote(0, NEIGHBOUR_COUNT, 4, 0.9, class_weights=(1.0, 2.0)),
+        Vote(1, NEIGHBOUR_COUNT, 4, 0.9, class_weights=(1.0, 1.0, 1.0)),
+    )
+
+    assert hint_candidates(tied) == (1, 2)
+    assert hint_candidates(mismatched) == ()

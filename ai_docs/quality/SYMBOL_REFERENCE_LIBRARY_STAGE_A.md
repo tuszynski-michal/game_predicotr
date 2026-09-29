@@ -285,6 +285,62 @@ if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'timeout 120 s' }
 `--library-cache` jest współdzieloną pamięcią podręczną wycinków wzorców
 i może być uzupełniany poza katalogiem wyników.
 
+## A4 — podpowiedzi i rozmiar biblioteki (TASK-0743)
+
+Operator wskazał trzy komórki „do przeglądu” z błędną podpowiedzią
+(`292172c9` Śliwka, `681eaba5` Arbuz, `aa8e6866` Cytryna). Przyczyny:
+zasłonięcie przyciskiem lub dłonią dominuje podobieństwo (najbliższe
+wzorce to inne zasłonięte symbole), a podpowiedź brała tylko opis kształtu.
+
+Podpowiedź to teraz dwie klasy o największej sumie wag obu opisów.
+Trafność na komórkach przeglądu ślepej próbki (oceny poprawione):
+
+| Podpowiedź | 15 wzorców/grupę (38 komórek) | 40 wzorców/grupę (19 komórek) |
+|---|---:|---:|
+| Kształt (dotychczas) | 31 | 15 |
+| Połączona, 1 kandydat | 33 | 16 |
+| Połączona, 2 kandydatów | 38 | 19 |
+| Stary model | 28 | 13 |
+| Połączona (1) lub stary model | 38 | 19 |
+
+Rozmiar biblioteki (polityka `no-bulk-approve-v2`):
+
+| Pomiar | 15 wzorców/grupę | 40 wzorców/grupę |
+|---|---:|---:|
+| Wzorce | 2 508 | 5 700 |
+| T1: pokrycie / zgodność pewnych | 79,1% / 99,5% (10 błędów) | 87,8% / 99,7% (16 błędów) |
+| Ślepa próbka: pokrycie / zgodność | 80,6% / 100% (158) | 90,3% / 100% (177) |
+
+Przy 40 wzorcach każdy symbol ma co najmniej 11 pewnych propozycji w ślepej
+próbce (Cytryna 11), więc żaden nie jest niepotwierdzony. Jedna pewna
+propozycja padła na komórkę ocenioną jako zasłonięta. Zgodność nie spadła,
+więc domyślna wartość to teraz 40 wzorców na grupę. Stara wartość jest
+dostępna przez `--references-per-group 15`.
+
+Podgląd Arbuz poniżej 80% przy 40 wzorcach (`preview-arbuz-g40/preview.html`,
+`preview.json` SHA
+`5b78a43c947e4aa4226c8f55d1bcde3c418caae1b10c25e39021632126b4dd01`; raporty ponownej oceny
+ślepej próbki: `rescore-v2-g15.json` SHA `04921555…31f5`, `rescore-v2-g40.json`
+SHA `a132d937…f489`):
+
+| Propozycja | 0–60% | 60–80% |
+|---|---:|---:|
+| Arbuz (bez zmiany) | 2 621 | 5 384 |
+| Do przeglądu | 377 | 832 |
+| Wiśnia | 60 | 824 |
+| Pomarańcz | 61 | 666 |
+| Gwiazda | 60 | 295 |
+| Siedem | 43 | 271 |
+| Winogron | 12 | 163 |
+| Cytryna | 35 | 116 |
+| Śliwka | 26 | 18 |
+
+Względem 15 wzorców: 0 pewnych propozycji zmieniło symbol, 542 komórki
+przeszły z przeglądu do pewnej propozycji, 58 odwrotnie. Trzy wskazane
+komórki pozostają do przeglądu; podpowiedź: `681eaba5` Arbuz / Siedem,
+`aa8e6866` Pomarańcz / Cytryna, `292172c9` Wiśnia / Winogron (nadal błędna;
+zasłonięta śliwka nie ma podobnych wzorców, pomogą poprawki operatora).
+
 ## Ograniczenia
 
 - Import jest przybliżeniem nagrania; wyłączenie importu nie dowodzi

@@ -4,8 +4,6 @@ import {
   activateGridProfile as activateGeneratedGridProfile,
   activateSymbolModel as activateGeneratedSymbolModel,
   applySymbolCellReviewDecision as applyGeneratedSymbolCellReviewDecision,
-  approveImageGridReviewGeometry as approveGeneratedImageGridReviewGeometry,
-  approveImageGridReviewSourceGeometry as approveGeneratedImageGridReviewSourceGeometry,
   approveManualImageSelection as approveGeneratedManualImageSelection,
   continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
   confirmImageSelectionGroupRange as confirmGeneratedImageSelectionGroupRange,
@@ -40,7 +38,6 @@ import {
   createGridCalibrationCandidate as createGeneratedGridCalibrationCandidate,
   createImageSelection as createGeneratedImageSelection,
   createImageGridReviewGeometryRevision as createGeneratedImageGridReviewGeometryRevision,
-  createImageGridReviewSourceGeometryRevision as createGeneratedImageGridReviewSourceGeometryRevision,
   createSymbolCellPreviewBatch as createGeneratedSymbolCellPreviewBatch,
   createVirtualCellPreviewBatch as createGeneratedVirtualCellPreviewBatch,
   createNextCuratedImageImportBatch as createGeneratedNextCuratedImageImportBatch,
@@ -280,10 +277,7 @@ import type {
   CuratedImageImportBatchCreate,
   CuratedImageImportSourceCreate,
   ImageJobFileRetryRequest,
-  ImageGridReviewApprovalCommand,
-  ImageGridReviewSourceApprovalCommand,
   ImageGridReviewGeometryCommand,
-  ImageGridReviewSourceGeometryCommand,
   ImageGridReviewGeometryPreviewCommand,
   ImageGridReviewView,
   ImageImportEnginePolicyPreviewRequest,
@@ -493,13 +487,7 @@ export type {
   ImageImportEnginePolicyUpdateRequest,
   ImageFolderImportResponse,
   ImageFolderSelectionResponse,
-  ImageGridReviewApprovalCommand,
-  ImageGridReviewApprovalResponse,
-  ImageGridReviewSourceApprovalCommand,
-  ImageGridReviewSourceApprovalResponse,
   ImageGridReviewGeometryCommand,
-  ImageGridReviewSourceGeometryCommand,
-  ImageGridReviewSourceGeometryResponse,
   ImageGridReviewGeometryPreviewCommand,
   ImageGridReviewGeometryResponse,
   ImageGridReviewItemResponse,
@@ -2288,26 +2276,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       });
       return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-reviews/${encodeURIComponent(reviewItemId)}/source-asset?${query.toString()}`;
     },
-    approveImageGridReviewGeometry: (
-      reviewItemId: string,
-      gameId: string,
-      body: ImageGridReviewApprovalCommand,
-    ) =>
-      approveGeneratedImageGridReviewGeometry({
-        body,
-        client,
-        path: { review_item_id: reviewItemId },
-        query: { gameId },
-      }),
-    approveImageGridReviewSourceGeometry: (
-      gameId: string,
-      body: ImageGridReviewSourceApprovalCommand,
-    ) =>
-      approveGeneratedImageGridReviewSourceGeometry({
-        body,
-        client,
-        path: { game_id: gameId },
-      }),
     previewImageGridReviewGeometry: (
       reviewItemId: string,
       context: ImageGridReviewContext,
@@ -2328,17 +2296,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         path: { review_item_id: reviewItemId },
-        query: context,
-      }),
-    createImageGridReviewSourceGeometryRevision: (
-      gameId: string,
-      context: ImageGridReviewContext,
-      body: ImageGridReviewSourceGeometryCommand,
-    ) =>
-      createGeneratedImageGridReviewSourceGeometryRevision({
-        body,
-        client,
-        path: { game_id: gameId },
         query: context,
       }),
     getSymbolCellReviewProjectionStatus: (gameId: string) =>

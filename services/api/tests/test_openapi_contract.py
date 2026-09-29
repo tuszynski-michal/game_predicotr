@@ -127,10 +127,6 @@ def test_grid_review_openapi_is_topology_aware_and_checksum_bound() -> None:
             "get",
         ): "getImageGridReviewSourceAsset",
         (
-            "/api/v1/admin/image-reviews/{review_item_id}/geometry-approval",
-            "post",
-        ): "approveImageGridReviewGeometry",
-        (
             "/api/v1/admin/image-reviews/{review_item_id}/geometry-preview",
             "post",
         ): "previewImageGridReviewGeometry",
@@ -138,20 +134,25 @@ def test_grid_review_openapi_is_topology_aware_and_checksum_bound() -> None:
             "/api/v1/admin/image-reviews/{review_item_id}/geometry-revisions",
             "post",
         ): "createImageGridReviewGeometryRevision",
-        (
-            "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval",
-            "post",
-        ): "approveImageGridReviewSourceGeometry",
-        (
-            "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions",
-            "post",
-        ): "createImageGridReviewSourceGeometryRevision",
     }
     for (path, method), operation_id in expected_operations.items():
         operation = schema["paths"][path][method]
         assert operation["operationId"] == operation_id
         assert operation["tags"] == ["image-grid-reviews"]
         assert set(operation["responses"]).issuperset({"404", "409", "422"})
+    # D-462 / TASK-0727: no board, photo or whole-source approval operation.
+    operation_ids = {
+        operation["operationId"]
+        for path_item in schema["paths"].values()
+        for operation in path_item.values()
+    }
+    assert operation_ids.isdisjoint(
+        {
+            "approveImageGridReviewGeometry",
+            "approveImageGridReviewSourceGeometry",
+            "createImageGridReviewSourceGeometryRevision",
+        }
+    )
 
     command = schema["components"]["schemas"]["ImageGridReviewGeometryCommand"]
     assert "correctedBy" not in command["properties"]

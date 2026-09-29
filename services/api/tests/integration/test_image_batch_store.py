@@ -1177,21 +1177,8 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             assert finished.report.status == "ready"
             session.commit()
 
+        # D-462: no grid approval precedes closing the board from its cells.
         with game_storage_scope(game.id), session_factory() as session:
-            assert SymbolCellReviewWriteThroughCoordinator(session).approve_current_geometry(
-                game_id=game.id,
-                review_item_id=review_item_id,
-                expected_geometry_revision=0,
-                actor="grid-reviewer",
-                approved_at=now + timedelta(seconds=1),
-            )
-            assert not SymbolCellReviewWriteThroughCoordinator(session).approve_current_geometry(
-                game_id=game.id,
-                review_item_id=review_item_id,
-                expected_geometry_revision=0,
-                actor="grid-reviewer",
-                approved_at=now + timedelta(seconds=2),
-            )
             service = SymbolCellReviewMutationService(
                 SqlAlchemySymbolCellReviewMutationRepository(session)
             )
@@ -1464,15 +1451,6 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 import_job_id=job.id,
             )
             assert current is not None
-            with pytest.raises(ImageGridReviewError) as blocked_approval:
-                SymbolCellReviewWriteThroughCoordinator(session).approve_current_geometry(
-                    game_id=game.id,
-                    review_item_id=review_item_id,
-                    expected_geometry_revision=current.geometry_revision,
-                    actor="grid-issue-reviewer",
-                    approved_at=now + timedelta(seconds=30),
-                )
-            assert blocked_approval.value.code == "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED"
             labels_before = {cell.cell_index: cell.assigned_symbol_id for cell in cells}
             geometry_command = validate_image_review_geometry_command(
                 corners=(
@@ -1816,15 +1794,6 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
             backfill.start_or_resume_backfill(game.id)
             assert backfill.backfill_next_batch(game.id, batch_size=50).has_more is False
             assert backfill.backfill_next_batch(game.id, batch_size=50).report.status == "ready"
-            coordinator = SymbolCellReviewWriteThroughCoordinator(session)
-            for review_item_id in (first_review_item_id, second_review_item_id):
-                assert coordinator.approve_current_geometry(
-                    game_id=game.id,
-                    review_item_id=review_item_id,
-                    expected_geometry_revision=0,
-                    actor="grid-reviewer",
-                    approved_at=now + timedelta(seconds=1),
-                )
             cells = session.scalars(
                 select(ImageSymbolReviewCellModel)
                 .where(ImageSymbolReviewCellModel.game_id == game.id)

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import math
 from dataclasses import replace
-from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -19,22 +18,14 @@ from game_predictor_api.application.image_grid_reviews import (
 )
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.image_grid_reviews import (
-    ImageGridApprovalResult,
     ImageGridReviewCounts,
     ImageGridReviewError,
     ImageGridReviewListFilter,
     ImageGridReviewListItem,
     ImageGridReviewSlotKind,
-    ImageGridReviewSourceApprovalTarget,
     ImageGridReviewSourceAsset,
     ImageGridReviewState,
     ImageGridReviewView,
-    ImageGridSourceApprovalResult,
-)
-from game_predictor_api.storage.image_review_repository import acquire_image_sequence_locks
-from game_predictor_api.storage.image_symbol_review_repository import (
-    SymbolCellReviewWriteThroughCoordinator,
-    symbol_cell_review_projection_is_available,
 )
 from game_predictor_api.storage.models import (
     GameModel,
@@ -43,7 +34,6 @@ from game_predictor_api.storage.models import (
     ImageReviewItemModel,
     ImageSourceGeometryRevisionModel,
     ImageSymbolReviewCellModel,
-    ImageSymbolReviewStateModel,
     RecognizedBoardModel,
     SourceImageModel,
 )
@@ -103,27 +93,6 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
     def require_game(self, game_id: UUID) -> None:
         if self._session.get(GameModel, game_id) is None:
             raise ImageGridReviewError("GAME_NOT_FOUND", "The selected game does not exist.")
-
-    def require_ready_game(self, game_id: UUID) -> None:
-        """Reject geometry writes until the checksum-bound cell projection is usable.
-
-        Grid-list and source-asset reads deliberately do not need this guard:
-        they read their own current board/source projections and let an operator
-        inspect the affected import.  A geometry decision, by contrast, invokes
-        write-through synchronization of symbol cells and must remain fail-closed.
-        """
-
-        self.require_game(game_id)
-        state = self._session.get(ImageSymbolReviewStateModel, game_id)
-        if not symbol_cell_review_projection_is_available(
-            self._session,
-            game_id=game_id,
-            state=state,
-        ):
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE",
-                "The current symbol-cell projection is not ready for grid validation.",
-            )
 
     def list_grid_reviews(
         self,
@@ -396,173 +365,6 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             asset_mode=board.asset_mode,
         )
 
-    def approve_grid_geometry(
-        self,
-        *,
-        game_id: UUID,
-        review_item_id: UUID,
-        expected_resolution_revision: int,
-        expected_geometry_revision: int,
-        expected_source_checksum_sha256: str,
-        expected_source_width: int,
-        expected_source_height: int,
-        expected_grid_rows: int,
-        expected_grid_columns: int,
-        actor: str,
-    ) -> ImageGridApprovalResult:
-        row = self._session.execute(
-            self._visible_statement(
-                review_filter=ImageGridReviewListFilter(
-                    game_id=game_id,
-                    view=ImageGridReviewView.ALL,
-                    import_job_id=None,
-                )
-            )
-            .where(ImageReviewItemModel.id == review_item_id)
-            .with_for_update(of=(ImageReviewItemModel, RecognizedBoardModel, SourceImageModel))
-        ).one_or_none()
-        if row is None:
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_ITEM_NOT_FOUND",
-                "The current grid review item does not exist in this game scope.",
-            )
-        item, board, source, _sequence_number, _state = row
-        topology = _topology(board)
-        if item.resolution_revision != expected_resolution_revision:
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
-                "The review item changed after it was loaded.",
-            )
-        if board.geometry_revision != expected_geometry_revision:
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_GEOMETRY_REVISION_CONFLICT",
-                "The board geometry changed after it was loaded.",
-            )
-        if (
-            source.checksum_sha256 != expected_source_checksum_sha256
-            or (source.oriented_width or source.width) != expected_source_width
-            or (source.oriented_height or source.height) != expected_source_height
-        ):
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_SOURCE_DRIFT",
-                "The source image identity changed after the grid review was loaded.",
-            )
-        if topology != BoardTopology(rows=expected_grid_rows, columns=expected_grid_columns):
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_TOPOLOGY_CONFLICT",
-                "The board topology changed after the grid review was loaded.",
-            )
-        changed = SymbolCellReviewWriteThroughCoordinator(self._session).approve_current_geometry(
-            game_id=game_id,
-            review_item_id=review_item_id,
-            expected_geometry_revision=expected_geometry_revision,
-            actor=actor,
-            approved_at=datetime.now(UTC),
-        )
-        self._session.flush()
-        refreshed = self._session.execute(
-            self._visible_statement(
-                review_filter=ImageGridReviewListFilter(
-                    game_id=game_id,
-                    view=ImageGridReviewView.ALL,
-                    import_job_id=None,
-                )
-            ).where(ImageReviewItemModel.id == review_item_id)
-        ).one_or_none()
-        if refreshed is None:
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_CURRENT_OWNER_CONFLICT",
-                "The board stopped being the current sequence owner during approval.",
-            )
-        return ImageGridApprovalResult(item=_row_to_item(refreshed), changed=changed)
-
-    def approve_source_grid_geometry(
-        self,
-        *,
-        game_id: UUID,
-        source_image_id: UUID,
-        targets: tuple[ImageGridReviewSourceApprovalTarget, ...],
-        actor: str,
-    ) -> ImageGridSourceApprovalResult:
-        """Approve every current slot of one source as one all-or-nothing command.
-
-        The local reviewer deliberately hydrates all boards from one source image.
-        Their revision identities are a single snapshot, so validating and
-        mutating them one HTTP request at a time is inherently racy: the first
-        decision can invalidate identities held by the remaining requests.
-        Validate the complete source before invoking the coordinator for any
-        board, then let the surrounding request transaction commit them together.
-        """
-
-        review_filter = ImageGridReviewListFilter(
-            game_id=game_id,
-            view=ImageGridReviewView.ALL,
-            import_job_id=None,
-            source_image_id=source_image_id,
-        )
-        rows = tuple(
-            self._session.execute(
-                self._visible_statement(review_filter=review_filter)
-                .order_by(
-                    RecognizedBoardModel.position_index,
-                    ImageBoardSearchFastDocumentModel.sequence_number,
-                    ImageReviewItemModel.id,
-                )
-                .with_for_update(
-                    of=(
-                        ImageReviewItemModel,
-                        RecognizedBoardModel,
-                        SourceImageModel,
-                    )
-                )
-            ).all()
-        )
-        if not rows:
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_SOURCE_NOT_FOUND",
-                "The current grid-review source has no active board slots in this game.",
-            )
-        current_items = tuple(_row_to_item(row) for row in rows)
-        expected_by_id = {target.review_item_id: target for target in targets}
-        current_ids = {_require_current_review_item_id(item) for item in current_items}
-        if set(expected_by_id) != current_ids:
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
-                "The active board slots changed after this source image was loaded.",
-            )
-        for item in current_items:
-            review_item_id = _require_current_review_item_id(item)
-            target = expected_by_id[review_item_id]
-            _require_source_target_identity(item, target)
-            if item.state is ImageGridReviewState.NEEDS_CORRECTION:
-                raise ImageGridReviewError(
-                    "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED",
-                    "A source containing a current grid issue must be corrected before approval.",
-                )
-
-        acquire_image_sequence_locks(
-            self._session,
-            game_id=game_id,
-            sequence_numbers=[item.sequence_number for item in current_items],
-        )
-        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
-        changed: list[UUID] = []
-        for item in current_items:
-            review_item_id = _require_current_review_item_id(item)
-            if coordinator.approve_current_geometry(
-                game_id=game_id,
-                review_item_id=review_item_id,
-                expected_geometry_revision=item.geometry_revision,
-                actor=actor,
-                approved_at=datetime.now(UTC),
-            ):
-                changed.append(review_item_id)
-        self._session.flush()
-        return ImageGridSourceApprovalResult(
-            source_image_id=source_image_id,
-            approved_review_item_ids=tuple(changed),
-        )
-
     def _visible_statement(self, *, review_filter: ImageGridReviewListFilter) -> Select[Any]:
         document = ImageBoardSearchFastDocumentModel
         state_expression = _state_expression()
@@ -754,39 +556,6 @@ def _topology(board: RecognizedBoardModel) -> BoardTopology:
     return BoardTopology(rows=board.grid_rows or 3, columns=board.grid_columns or 5)
 
 
-def _require_source_target_identity(
-    item: ImageGridReviewListItem,
-    target: ImageGridReviewSourceApprovalTarget,
-) -> None:
-    if item.resolution_revision != target.expected_resolution_revision:
-        raise ImageGridReviewError(
-            "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
-            "A board review item changed after the source was loaded.",
-        )
-    if item.geometry_revision != target.expected_geometry_revision:
-        raise ImageGridReviewError(
-            "IMAGE_GRID_REVIEW_GEOMETRY_REVISION_CONFLICT",
-            "A board geometry changed after the source was loaded.",
-        )
-    if (
-        item.source_checksum_sha256 != target.expected_source_checksum_sha256
-        or item.source_width != target.expected_source_width
-        or item.source_height != target.expected_source_height
-    ):
-        raise ImageGridReviewError(
-            "IMAGE_GRID_REVIEW_SOURCE_DRIFT",
-            "The source image identity changed after the grid review was loaded.",
-        )
-    if (
-        item.topology.rows != target.expected_grid_rows
-        or item.topology.columns != target.expected_grid_columns
-    ):
-        raise ImageGridReviewError(
-            "IMAGE_GRID_REVIEW_TOPOLOGY_CONFLICT",
-            "The board topology changed after the grid review was loaded.",
-        )
-
-
 def _row_to_item(row: Any) -> ImageGridReviewListItem:
     item, board, source, sequence_number, state = row
     return ImageGridReviewListItem(
@@ -815,15 +584,6 @@ def _row_to_item(row: Any) -> ImageGridReviewListItem:
         reason_codes=_reason_codes(board.board_geometry),
         state=ImageGridReviewState(str(state)),
     )
-
-
-def _require_current_review_item_id(item: ImageGridReviewListItem) -> UUID:
-    if item.review_item_id is None:
-        raise ImageGridReviewError(
-            "IMAGE_GRID_REVIEW_SLOT_IDENTITY_INVALID",
-            "A current grid-review item is missing its review identity.",
-        )
-    return item.review_item_id
 
 
 def _pending_row_to_item(row: Any) -> ImageGridReviewListItem:

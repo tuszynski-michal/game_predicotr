@@ -16,7 +16,7 @@ import {
   gridReviewCorners,
   gridReviewGeometryPreviewCommand,
   gridReviewQualification,
-} from '../grid-reviews/grid-review-state.ts';
+} from './board-geometry-correction-state.ts';
 
 import {
   type DeferredBoardCellGeometryClient,

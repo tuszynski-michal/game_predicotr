@@ -637,9 +637,16 @@ i `rows × columns` cropów bezpośrednio z oryginału, ale nie tworzy obrazu z
 narysowanym overlayem. Overlay jest wyłącznie warstwą canvasa w lokalnym
 Reviewerze.
 
+**D-462 (TASK-0726, TASK-0727):** lokalny Reviewer jest jednym ekranem
+„Korekta cięcia siatki”: jedna plansza naraz z kolejki `correction`
+(odroczone geometrie i plansze zgłoszone jako `Zła siatka`), zapis tej jednej
+planszy i przejście do następnej. Szybkie zatwierdzanie planszy lub zdjęcia,
+source-wide szkic 36 narożników i endpoint `source-geometry-revisions` zostały
+usunięte; poniższe akapity o nich opisują stan sprzed D-462.
+
 Kolejka game-wide korzysta z jednego właściciela logicznego numeru oraz
-bounded keysetu. Szybkie zatwierdzenie i edycja wiążą rewizję decyzji,
-geometrii, checksumę i wymiary źródła oraz snapshot topologii. Edytor używa
+bounded keysetu. Edycja wiąże rewizję decyzji, geometrii, checksumę i wymiary
+źródła oraz snapshot topologii. Edytor używa
 czterech narożników w kolejności LT, PT, PD, LD; linie wewnętrzne i cropy są
 wyprowadzane z topologii planszy. Nowy widok nie ładuje katalogu symboli.
 

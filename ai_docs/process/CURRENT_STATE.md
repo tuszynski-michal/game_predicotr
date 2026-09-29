@@ -74,6 +74,13 @@ last_updated: 2026-09-29
   wyróżnione zgłoszone pola); bez zakładek i walidacji gotowych siatek.
   Admin kieruje do tej kolejki. Stare moduły i endpointy zatwierdzania siatek
   usuwa TASK-0727.
+- TASK-0726 commit `v1.7.55` / `4e5dccc6`.
+- TASK-0727 done: usunięto zatwierdzanie siatki planszy i zdjęcia oraz zapis
+  całego zdjęcia przez HTTP (endpointy, metody aplikacji i repozytorium,
+  allowlista originu 3001, OpenAPI, klient, moduł `grid-reviews` Reviewera).
+  Widoki `needs_validation`/`needs_correction`/`all` zostają jako diagnostyka
+  tylko do odczytu. Etap B zakończony; etap C (TASK-0728) wymaga osobnej
+  decyzji operatora, a apply dopiero po preview i zgodzie.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

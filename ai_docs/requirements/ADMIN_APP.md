@@ -486,9 +486,10 @@ Admin nazywa sekcję uruchamiającą Reviewer „Korekta cięcia siatki” i pok
 liczbę plansz do korekty dla wybranego importu oraz liczbę geometrii
 odroczonych przez algorytm. „Otwórz lokalnie” jest aktywne tylko przy
 niepustej kolejce; pusta kolejka ma jawny komunikat. Lokalny origin Reviewera korzysta ze scope-bound ścieżek listy
-kolejki, źródła oraz podglądu i zapisu geometrii jednej planszy (TASK-0727
-usuwa ścieżki dawnej walidacji); inny port oraz każdy origin LAN/publiczny
-pozostają odrzucone. Zdalna sesja Reviewera nie otrzymuje tych ścieżek.
+kolejki, źródła oraz podglądu i zapisu geometrii jednej planszy; ścieżki
+dawnej walidacji (zatwierdzanie planszy i zdjęcia, zapis całego zdjęcia)
+usunął TASK-0727. Inny port oraz każdy origin LAN/publiczny pozostają
+odrzucone. Zdalna sesja Reviewera nie otrzymuje tych ścieżek.
 
 ### Katalog symboli i grafiki referencyjne
 

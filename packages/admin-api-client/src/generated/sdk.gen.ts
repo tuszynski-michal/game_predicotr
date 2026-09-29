@@ -24,12 +24,6 @@ import type {
   ApplySymbolCellReviewDecisionData,
   ApplySymbolCellReviewDecisionErrors,
   ApplySymbolCellReviewDecisionResponses,
-  ApproveImageGridReviewGeometryData,
-  ApproveImageGridReviewGeometryErrors,
-  ApproveImageGridReviewGeometryResponses,
-  ApproveImageGridReviewSourceGeometryData,
-  ApproveImageGridReviewSourceGeometryErrors,
-  ApproveImageGridReviewSourceGeometryResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -93,9 +87,6 @@ import type {
   CreateImageGridReviewGeometryRevisionData,
   CreateImageGridReviewGeometryRevisionErrors,
   CreateImageGridReviewGeometryRevisionResponses,
-  CreateImageGridReviewSourceGeometryRevisionData,
-  CreateImageGridReviewSourceGeometryRevisionErrors,
-  CreateImageGridReviewSourceGeometryRevisionResponses,
   CreateImageSelectionData,
   CreateImageSelectionErrors,
   CreateImageSelectionResponses,
@@ -1339,61 +1330,6 @@ export const listImageGridReviews = <ThrowOnError extends boolean = false>(
     ListImageGridReviewsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/grid-reviews', ...options });
-
-/**
- * Atomically approve every current board geometry of one source image
- */
-export const approveImageGridReviewSourceGeometry = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<ApproveImageGridReviewSourceGeometryData, ThrowOnError>,
-): RequestResult<
-  ApproveImageGridReviewSourceGeometryResponses,
-  ApproveImageGridReviewSourceGeometryErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).post<
-    ApproveImageGridReviewSourceGeometryResponses,
-    ApproveImageGridReviewSourceGeometryErrors,
-    ThrowOnError
-  >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Atomically persist and approve manual geometry for every board of one source
- */
-export const createImageGridReviewSourceGeometryRevision = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<
-    CreateImageGridReviewSourceGeometryRevisionData,
-    ThrowOnError
-  >,
-): RequestResult<
-  CreateImageGridReviewSourceGeometryRevisionResponses,
-  CreateImageGridReviewSourceGeometryRevisionErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).post<
-    CreateImageGridReviewSourceGeometryRevisionResponses,
-    CreateImageGridReviewSourceGeometryRevisionErrors,
-    ThrowOnError
-  >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
 
 /**
  * Get bounded virtual-geometry rollout validation status
@@ -3852,32 +3788,6 @@ export const listOperationalImageReviewResolutionEvents = <
   });
 
 /**
- * Approve one exact current board geometry revision
- */
-export const approveImageGridReviewGeometry = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<ApproveImageGridReviewGeometryData, ThrowOnError>,
-): RequestResult<
-  ApproveImageGridReviewGeometryResponses,
-  ApproveImageGridReviewGeometryErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).post<
-    ApproveImageGridReviewGeometryResponses,
-    ApproveImageGridReviewGeometryErrors,
-    ThrowOnError
-  >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-approval',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
  * Preview corrected topology-aware board-cell crops without persistence
  */
 export const previewImageGridReviewGeometry = <
@@ -3904,7 +3814,7 @@ export const previewImageGridReviewGeometry = <
   });
 
 /**
- * Persist and approve one topology-aware geometry revision
+ * Persist one topology-aware geometry revision of one board
  */
 export const createImageGridReviewGeometryRevision = <
   ThrowOnError extends boolean = false,
@@ -3930,7 +3840,7 @@ export const createImageGridReviewGeometryRevision = <
   });
 
 /**
- * Read one current checksum-bound source image for grid validation
+ * Read one current checksum-bound source image for grid correction
  */
 export const getImageGridReviewSourceAsset = <
   ThrowOnError extends boolean = false,

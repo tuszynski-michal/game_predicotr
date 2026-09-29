@@ -2366,22 +2366,29 @@ UUID albo zapis na nieaktualnej rewizji kończy się stabilnym konfliktem.
 
 ### Lokalna kolejka walidacji geometrii 0.9
 
-Nowy, game-wide odczyt walidacji siatki nie materializuje całej gry i zawsze
-łączy pozycję z bieżącym właścicielem `image_board_search_fast_documents`:
+Od D-462 (TASK-0727) jest to lokalna kolejka korekty cięcia siatki: nie ma
+zatwierdzania planszy ani zdjęcia. Game-wide odczyt nie materializuje całej
+gry i zawsze łączy pozycję z bieżącym właścicielem
+`image_board_search_fast_documents`:
 
 ```text
 GET  /api/v1/admin/games/{gameId}/grid-reviews
 GET  /api/v1/admin/games/{gameId}/image-geometry-rollout
 POST /api/v1/admin/games/{gameId}/image-geometry-rollout
 GET  /api/v1/admin/image-reviews/{reviewItemId}/source-asset
-POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-approval
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-preview
 POST /api/v1/admin/image-reviews/{reviewItemId}/geometry-revisions
-POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-approval
-POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-revisions
 ```
 
-Lista ma widoki `needs_validation | needs_correction | all | correction`,
+TASK-0727 usunął `POST .../image-reviews/{reviewItemId}/geometry-approval`,
+`POST .../grid-reviews/source-geometry-approval` oraz endpoint HTTP
+`POST .../grid-reviews/source-geometry-revisions` (jedynym konsumentem był
+usunięty ekran całego zdjęcia). Lokalny origin Reviewera nie ma ich na
+allowliście.
+
+Lista ma widoki `needs_validation | needs_correction | all | correction`;
+operacyjną kolejką jest wyłącznie `correction`, a pozostałe widoki i liczniki
+stanów są diagnostyką tylko do odczytu (podsumowanie importu w Adminie). Ma
 opcjonalne filtry `importJobId` i `sourceImageId`, limit domyślny 25 i
 maksymalny 100. Keyset opiera się na `(sequence_number, id slotu)` (id pozycji
 review albo odroczonej geometrii).
@@ -2404,32 +2411,24 @@ odroczonego; żadna z nich nie zmienia innych plansz zdjęcia.
 
 Odczyt listy oraz checksum-bound assetu źródłowego sprawdza istnienie gry, ale
 nie wymaga gotowej projekcji pojedynczych komórek symboli: kolejka geometrii
-czyta własne aktualne plansze i źródła. Każda mutacja geometrii nadal wymaga
-tej projekcji; stan `failed` albo niegotowy zwraca przed zapisem `409
-IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`. Dzięki temu operator może obejrzeć
+czyta własne aktualne plansze i źródła. Zapis kwalifikowanej geometrii
+`virtual_source` nadal wymaga tej projekcji: gdy po synchronizacji komórek w
+tej samej transakcji nie jest gotowa, zapis jest wycofywany z `409
+IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`; zwykły zapis wymaga kompletu komórek
+(`IMAGE_GRID_REVIEW_CELLS_INCOMPLETE`). Dzięki temu operator może obejrzeć
 i zdiagnozować wskazany import bez ryzyka zapisania geometrii przy niespójnych
 cropach.
 
 Element kolejki zawiera ponadto immutable identity zdjęcia źródłowego,
 `positionIndex` aktywnego slotu, `assetMode`, nazwę i wersję silnika geometrii,
-`boardConfidence` oraz wersjonowane `reasonCodes`. Lokalny Reviewer może dzięki
-temu pobrać bounded listę maksymalnie dziewięciu aktywnych slotów jednego
-źródła, narysować overlay wyłącznie w pamięci i zachować kolejność row-major.
-Zdalny proxy Reviewera nie udostępnia ani tego filtra, ani endpointów walidacji
-geometrii.
+`boardConfidence` oraz wersjonowane `reasonCodes`. Lokalny Reviewer pokazuje
+jedną planszę naraz z widoku `correction` i rysuje overlay wyłącznie w
+pamięci; filtr `sourceImageId` pozostaje odczytem diagnostycznym. Zdalny proxy
+Reviewera nie udostępnia ani tego filtra, ani endpointów korekty geometrii.
 
-`source-geometry-approval` przyjmuje dokładnie komplet aktualnych slotów
-jednego `sourceImageId`, wraz z tożsamością decyzji, geometrii, źródła i
-topologii każdego slotu. Serwer najpierw blokuje oraz ponownie sprawdza cały
-komplet, a następnie zatwierdza go w jednej transakcji. Stary snapshot,
-niepełny komplet albo zmiana właściciela zwracają konflikt bez częściowego
-zapisu.
-
-`source-geometry-revisions` jest dostępny wyłącznie dla `virtual_source`.
-Przyjmuje cztery narożniki każdego aktywnego slotu w kolejności row-major i
-zapisuje jedną append-only source geometry revision, z której tworzy zgodne
-rewizje plansz oraz wirtualne cropy. Niepełny albo niespójny komplet nie może
-utworzyć rewizji dla żadnego slotu.
+Atomowy zapis wszystkich slotów jednego źródła istnieje wyłącznie w warstwie
+aplikacji (`VirtualGridGeometryService.save_source`, używany przez
+`scripts/reverify_777_grids.py`); nie ma dla niego endpointu HTTP.
 
 Status rolloutu zwraca `not_started | processing | ready | failed`, liczby
 wszystkich i przetworzonych źródeł, liczbę źródeł `virtual_source`, aktywny job,
@@ -3481,12 +3480,9 @@ snapshotcie.
 deferred ustawione jest `pendingGeometryId`, a identyfikatory jeszcze
 nieistniejącej planszy i review pozostają `null`.
 
-`POST /api/v1/admin/games/{gameId}/grid-reviews/source-geometry-revisions`
-przyjmuje dla każdego targetu dokładnie jedno z `reviewItemId` albo
-`pendingGeometryId`. Lista musi dokładnie pokrywać wszystkie aktywne pozycje
-jednej rewizji źródła w kolejności row-major. Polecenie pozostaje atomowe i
-idempotentne; deferred jest materializowany dopiero po poprawnym renderze
-pełnego zestawu.
+Slot `deferred_geometry` koryguje się pojedynczo przez
+`board-cell-geometry-pending/{pendingId}/manual-resolution`; endpoint
+`source-geometry-revisions` usunął TASK-0727.
 
 ### Kontrakt V7 półautomatu przed aktywacją
 

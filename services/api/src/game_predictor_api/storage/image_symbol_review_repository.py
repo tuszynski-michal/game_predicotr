@@ -49,10 +49,6 @@ from game_predictor_api.domain.geometry_qualification import (
     available_cell_indices,
     partially_visible_cell_indices,
 )
-from game_predictor_api.domain.image_grid_reviews import (
-    approve_image_grid_review,
-    derive_image_grid_review,
-)
 from game_predictor_api.domain.image_reviews import (
     ImageReviewAction,
     ImageReviewCell,
@@ -104,7 +100,6 @@ from game_predictor_api.storage.models import (
     CellObservationModel,
     GameModel,
     GameSymbolModelActivationModel,
-    ImageBoardGeometryReviewEventModel,
     ImageBoardGeometryRevisionModel,
     ImageBoardSearchFastDocumentModel,
     ImageReviewItemModel,
@@ -2002,111 +1997,6 @@ class SymbolCellReviewWriteThroughCoordinator:
         if state is None:
             return False
         self._touch_catalog_revision(state)
-        return True
-
-    def approve_current_geometry(
-        self,
-        *,
-        game_id: UUID,
-        review_item_id: UUID,
-        expected_geometry_revision: int,
-        actor: str,
-        approved_at: datetime,
-    ) -> bool:
-        """Approve one exact geometry revision and aggregate its logical board."""
-
-        from game_predictor_api.storage.image_review_repository import (
-            acquire_image_review_sequence_locks,
-        )
-
-        acquire_image_review_sequence_locks(
-            self._session,
-            game_id=game_id,
-            review_item_id=review_item_id,
-            requested_sequence_number=None,
-        )
-        state = self._state_if_initialized(game_id)
-        if state is None:
-            return False
-        row = self._review_row(game_id=game_id, review_item_id=review_item_id)
-        if row is None:
-            return False
-        item, board, _source, _queue_item, _job = row
-        if board.completeness_status == "pending_partial" and board.geometry_qualification is None:
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_PARTIAL_BOARD_NONCANONICAL",
-                "A partial board cannot be approved as a complete layout.",
-            )
-        locked_board = self._session.get(RecognizedBoardModel, board.id, with_for_update=True)
-        if locked_board is None or locked_board.geometry_revision != expected_geometry_revision:
-            raise SymbolCellReviewError(
-                "IMAGE_GRID_REVIEW_GEOMETRY_REVISION_CONFLICT",
-                "The board geometry changed before it could be approved.",
-            )
-        board = locked_board
-        topology = _board_topology(board)
-        cells = tuple(
-            self._session.scalars(
-                select(ImageSymbolReviewCellModel)
-                .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
-                .where(ImageSymbolReviewCellModel.source_available.is_(True))
-                .order_by(ImageSymbolReviewCellModel.cell_index)
-                .with_for_update()
-            )
-        )
-        expected_indices = [
-            index
-            for index in range(topology.cell_count)
-            if index not in board.unavailable_cell_indices
-        ]
-        if [cell.cell_index for cell in cells] != expected_indices or any(
-            cell.geometry_revision != board.geometry_revision for cell in cells
-        ):
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
-                "Geometry approval requires every configured symbol-cell crop.",
-            )
-        # Missing pixels have no crop issue/decision; geometry accounting does
-        # not publish a complete layout (synchronize_board_from_cells guards it).
-        quality_by_index = {cell.cell_index: _quality_issue_from_model(cell) for cell in cells}
-        quality_issues = tuple(quality_by_index.get(index) for index in range(topology.cell_count))
-        grid_review = derive_image_grid_review(
-            topology=topology,
-            geometry_revision=board.geometry_revision,
-            approved_geometry_revision=board.approved_geometry_revision,
-            cell_quality_issues=tuple(
-                None if issue is None else SymbolCellQualityIssue(issue) for issue in quality_issues
-            ),
-        )
-        transition = approve_image_grid_review(grid_review)
-        if not transition.changed:
-            return False
-        previous = board.approved_geometry_revision
-        board.approved_geometry_revision = transition.review.approved_geometry_revision
-        board.geometry_approved_at = approved_at
-        board.geometry_approved_by = actor
-        self._session.add(
-            ImageBoardGeometryReviewEventModel(
-                review_item_id=item.id,
-                recognized_board_id=board.id,
-                geometry_revision=board.geometry_revision,
-                grid_rows=topology.rows,
-                grid_columns=topology.columns,
-                board_checksum_sha256=_geometry_review_event_board_checksum(board),
-                action="approved",
-                previous_approved_geometry_revision=previous,
-                approved_geometry_revision=board.geometry_revision,
-                actor=actor,
-                created_at=approved_at,
-            )
-        )
-        self._session.flush()
-        self._touch_catalog_revision(state)
-        self.synchronize_board_from_cells(
-            game_id=game_id,
-            review_item_id=review_item_id,
-            actor=actor,
-        )
         return True
 
     def synchronize_board_from_cells(

@@ -115,6 +115,14 @@ ranking wyszukiwania, archiwum legacy, trening, usunięcie kolumn/tabel/historii
   zapis → następna); zmiana nazw w Adminie.
 - **T7 / TASK-0727** — usunięcie `grid-reviews` UI, endpointów szybkiej
   akceptacji, allowlisty i widoków `needs_validation`/`all`; OpenAPI + klient.
+  Decyzja przy wykonaniu: widoki `needs_validation`/`needs_correction`/`all` i
+  liczniki zostają jako diagnostyka tylko do odczytu (konsument: podsumowanie
+  importu w Adminie); usunięto trzy endpointy mutacji, metody aplikacji i
+  repozytorium akceptacji, moduł `grid-reviews` Reviewera i przełącznik
+  trybów. `VirtualGridGeometryService.save_source` zostaje dla
+  `reverify_777_grids.py`, bez endpointu HTTP. Skutek zamierzony: kalibracja
+  siatek nie dostaje już próbek „zatwierdzona bez korekty” (rewizja 0);
+  próbki pochodzą wyłącznie z geometrii zapisanych przez człowieka.
 
 ### Etap C — migracja i odbiór
 

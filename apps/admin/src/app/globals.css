@@ -3091,6 +3091,27 @@ a:focus-visible {
   font-size: 12px;
 }
 
+.symbolImagePickerZoom {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.symbolImagePickerZoom input[type='range'] {
+  flex: 1 1 auto;
+  min-width: 160px;
+  max-width: 320px;
+}
+
+.symbolImagePickerZoom span {
+  min-width: 42px;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+
 .symbolImagePickerLoading,
 .symbolImagePickerEmpty {
   display: grid;

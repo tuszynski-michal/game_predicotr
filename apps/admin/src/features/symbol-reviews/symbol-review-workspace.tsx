@@ -1486,7 +1486,6 @@ export function SymbolReviewWorkspace({
       {projectionStatus?.status === 'ready' && currentPage !== null ? (
         <SymbolReviewSelectionToolbar
           busy={interactionBusy}
-          canApprove={selection.kind === 'explicit' && !selectedWithoutImage}
           hasNoImageSelection={selectedWithoutImage}
           canSelectVisible={currentItems.length > 0}
           hasActiveSymbols={symbols.length > 0}
@@ -1917,7 +1916,6 @@ function symbolReviewCardBadge(
 
 function SymbolReviewSelectionToolbar({
   busy,
-  canApprove,
   hasNoImageSelection,
   canSelectVisible,
   hasActiveSymbols,
@@ -1938,7 +1936,6 @@ function SymbolReviewSelectionToolbar({
   readOnly,
 }: {
   readonly busy: boolean;
-  readonly canApprove: boolean;
   readonly hasNoImageSelection: boolean;
   readonly canSetSymbolImage: boolean;
   readonly onSetSymbolImage: () => void;
@@ -1986,8 +1983,9 @@ function SymbolReviewSelectionToolbar({
       <div className={styles.toolbarActions}>
         <button
           className="primaryButton"
-          disabled={actionsDisabled || !canApprove}
+          disabled={true}
           onClick={onApprove}
+          title="Masowe zatwierdzanie jest obecnie wyłączone."
           type="button"
         >
           Zatwierdź

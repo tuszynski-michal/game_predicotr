@@ -6,6 +6,27 @@ last_updated: 2026-09-29
 
 # Decision Log
 
+## D-466 — nowa wersja predykcji z biblioteki wzorców dla oczekujących komórek
+
+- **Status:** accepted, 2026-09-29; decyzja operatora po podglądzie
+  TASK-0743 (warianty filtrów i zapisu wybrane przez operatora).
+- **Decision:** dla oczekujących komórek z przypisaniem od modelu biblioteka
+  wzorców zapisuje nową wersję predykcji istniejącym mechanizmem
+  przeliczania predykcji (`image_symbol_prediction_revisions`,
+  `model_version = symbol-reference-library-v1`). Zapisywane są tylko komórki
+  z pewną propozycją (R7), również gdy potwierdza ona dotychczasowy symbol.
+  Komórki do przeglądu zachowują predykcję modelu. Komórki zatwierdzone,
+  z decyzją człowieka lub z flagą jakości nie są zmieniane.
+- **Supersedes:** reguły R1–R2 planu D-464 w zakresie etapu B: propozycja
+  zmienia predykcję i grupę oczekującej komórki. Decyzja człowieka nadal
+  jest jedynym źródłem weryfikacji (D-462); zapis nie zatwierdza komórek.
+- **Recovery:** poprzednia wersja predykcji pozostaje w historii wersji;
+  każdy przebieg ma podgląd z sumą kontrolną i raport.
+- **Filters:** weryfikacja symboli otrzymuje filtr źródła predykcji (nowy
+  algorytm / stary model) i zakres dat zmiany komórki (od–do).
+- **Execution:** przebieg per symbol modelu i pasmo pewności, zawsze po
+  podglądzie i jawnej zgodzie operatora; pierwszy: Arbuz poniżej 60%.
+
 ## D-465 — dobór wzorców symboli: zasłonięcia i zatwierdzenia masowe
 
 - **Status:** accepted, 2026-09-29; odpowiedzi operatora na pytania O1 i O2

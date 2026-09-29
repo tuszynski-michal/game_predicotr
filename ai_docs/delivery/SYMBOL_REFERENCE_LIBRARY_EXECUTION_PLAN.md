@@ -89,12 +89,36 @@ Stan 2026-09-29: etap A zakończony, bramka PASS (99,4% przy pokryciu
 - **A4 / TASK-0743** — podpowiedź dwóch kandydatów dla komórek przeglądu
   i biblioteka do 40 wzorców na grupę (po pomiarze, bez spadku zgodności).
 
-### Etap B — propozycje w weryfikacji symboli
+### Etap B — propozycje w weryfikacji symboli (D-466, zmieniony 2026-09-29)
 
-- **T3 / TASK-0744** — tabela propozycji (Alembic) i handler workera.
-- **T4 / TASK-0745** — rozszerzenie `listSymbolCellReviews` i liczników,
-  OpenAPI, klient, test żądania.
-- **T5 / TASK-0746** — grupowanie i podgląd wzorców w Adminie.
+Operator zdecydował (D-466): biblioteka zapisuje dla oczekujących komórek
+nową wersję predykcji istniejącym mechanizmem przeliczania predykcji
+(`image_symbol_prediction_revisions`), z `model_version`
+`symbol-reference-library-v1`. Stara predykcja modelu zostaje w historii
+wersji. Zakres przebiegu wybiera operator (symbol modelu i pasmo pewności);
+w przebiegu zapisywane są wyłącznie komórki z pewną propozycją (R7), także
+potwierdzające dotychczasowy symbol (wariant „b”). Komórki do przeglądu
+zachowują starą predykcję. Tabela propozycji z pierwotnego planu nie jest
+potrzebna; brak migracji.
+
+- **T3 / TASK-0744** — narzędzie zapisu: podgląd na sucho z dokładną listą
+  komórek i sumą kontrolną, `--apply` tylko dla identycznego podglądu,
+  transakcja na planszę, tylko komórki `pending` z przypisaniem od modelu,
+  idempotentne wznowienie, raport i kontrola po zapisie.
+- **T4 / TASK-0745** — API: filtry `listSymbolCellReviews` i liczników:
+  źródło predykcji (nowy algorytm / stary model) oraz zakres dat zmiany
+  komórki (`updated_at`, od–do). Backend, OpenAPI, klient, wrapper i test
+  żądania razem.
+- **T5 / TASK-0746** — Admin: przełącznik źródła predykcji i wybór zakresu
+  dat w weryfikacji symboli; filtry działają z istniejącą paginacją,
+  licznikami i operacjami masowymi.
+- **B1 / TASK-0748** — pierwszy przebieg: predykcja Arbuz, pewność poniżej
+  60%. Podgląd, jawna zgoda operatora, zapis, kontrola po zapisie.
+  Wymaga scalenia z gałęzią bazową i restartu API/Admina (filtry z T4/T5).
+
+Kolejność: T3 i T4 równolegle możliwe; T5 po T4; B1 po T3–T5, scaleniu i
+zgodzie. Zapis danych w B1 nie jest objęty poleceniem etapu; wymaga osobnej
+zgody po podglądzie.
 
 ### Etap C — ponowny trening sieci
 
@@ -149,7 +173,8 @@ wykonaniu.
 | T2 / TASK-0741 | claude-opus-5-5 | high | Próbka ślepej oceny i porównanie wyników; wynik zależy od operatora. | Tak: claude-opus-5-5, high, osobny agent |
 | A3 / TASK-0742 | claude-opus-5-5 | high | Zmiana doboru wzorców i podgląd na pełnej grupie, tylko odczyt. | Tak: claude-opus-5-5, high, osobny agent |
 | A4 / TASK-0743 | claude-opus-5-5 | high | Podpowiedzi i rozmiar biblioteki z pomiarem na ślepej próbce. | Tak: claude-opus-5-5, high, osobny agent |
-| T3 / TASK-0744 | claude-opus-5-5 | high | Migracja, handler workera, wznowienie i ochrona decyzji operatora. | Tak: claude-opus-5-5, high |
-| T4 / TASK-0745 | claude-opus-5-5 | high | Zmiana kontraktu API z zachowaniem zgodności istniejących żądań. | Tak: claude-opus-5-5, high |
-| T5 / TASK-0746 | claude-sonnet-5-5 | high | Interfejs na gotowym kontrakcie, regresje widoku weryfikacji. | Tak: claude-opus-5-5, high |
+| T3 / TASK-0744 | claude-opus-5-5 | high | Zapis do żywej bazy przez istniejący mechanizm, podgląd = apply, ochrona decyzji operatora. | Tak: claude-opus-5-5, high, osobny agent |
+| T4 / TASK-0745 | claude-opus-5-5 | high | Zmiana kontraktu API z zachowaniem zgodności istniejących żądań i wydajności list. | Tak: claude-opus-5-5, high, osobny agent |
+| T5 / TASK-0746 | claude-opus-5-5 | high | Interfejs na gotowym kontrakcie, regresje widoku weryfikacji i operacji masowych. | Tak: claude-opus-5-5, high, osobny agent |
+| B1 / TASK-0748 | claude-opus-5-5 | high | Operacja na danych: podgląd, zgoda, zapis, kontrola po zapisie. | Tak: claude-opus-5-5, high, osobny agent |
 | T6 / TASK-0747 | claude-opus-5-5 | high | Trening, dobór zbioru testowego i bramka jakości modelu. | Tak: claude-fable-5-1, high |

@@ -1,10 +1,73 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 ---
 
 # Decision Log
+
+## D-462 — weryfikacja per komórka bez zatwierdzania planszy i siatki
+
+- **Status:** accepted, 2026-09-29; polecenie operatora i zaakceptowany plan
+  `ai_docs/delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md` wraz z
+  rekomendacjami P1–P4. Wdrażana etapami: A (TASK-0722–0724), B (kolejka i
+  ekran 3001), C (migracja danych). Do wdrożenia danego etapu kod działa
+  według dotychczasowych reguł opisanych w planie (B1–B6).
+- **Decision:** źródłem prawdy jest pojedyncza komórka
+  (`image_symbol_review_cells`). Dowodem jest komórka `approved`, której
+  zatwierdzone piksele są bieżącymi pikselami albo której akceptacja nie ma
+  tożsamości pikseli (logiczna pozycja bez obrazu, D-451). Komórka `approved`,
+  dla której tożsamość pikseli akceptacji jest różna od bieżącej
+  (`virtual_source`: `approved_rendered_pixel_checksum_sha256` ≠
+  `rendered_pixel_checksum_sha256`; pozostałe: `approved_crop_checksum_sha256`
+  ≠ `crop_checksum_sha256`), nie jest dowodem, dopóki nie zostanie
+  ponownie zweryfikowana; sam numer rewizji geometrii o tym nie decyduje. Decyzja całej planszy
+  (`assignment_source = board_decision`) jest zbiorem takich decyzji komórek.
+  Dowód od razu zasila kalkulacje działające na pojedynczych komórkach:
+  wyszukiwanie plansz i „Przybliżoną wygraną”. Komórki bez dowodu nadal
+  dostarczają predykcję modelu (P1), z wyjątkiem pól ze zgłoszonym problemem
+  (`grid_issue`, oczekujące `unreadable`, `partial_visibility`), pól bez
+  pikseli źródła bez ręcznej decyzji (zatwierdzone `outside` jest dowodem)
+  oraz zatwierdzonego `?`, które są brakiem dowodu.
+- **Board status:** status planszy jest wyliczany z komórek. Komplet dowodów,
+  pełna widoczność i jednoznaczna sekwencja domykają planszę automatycznie;
+  zatwierdzenie geometrii nie jest warunkiem. Kalkulacje wymagające całej
+  planszy (layout, dataset, snapshot mobilny, target) korzystają wyłącznie z
+  planszy domkniętej; brakujących symboli się nie dopowiada, a
+  `pending_partial` nie tworzy pełnego layoutu (D-451, P4).
+- **Geometry:** zapis geometrii kończy ręczną korektę i usuwa zgłoszenia
+  `grid_issue` tej planszy, ale nie weryfikuje symboli. Komórka o
+  niezmienionej tożsamości cropa zachowuje weryfikację (akceptacja jest
+  przepinana na bieżącą rewizję); zmieniony crop wraca do `pending` z
+  poprzednim symbolem człowieka jako podpowiedzią, a poprzednia akceptacja
+  pozostaje w audycie. Korekta jednej planszy nie zmienia geometrii, cropów
+  ani weryfikacji innych plansz zdjęcia. `approved_geometry_revision`
+  pozostaje wyłącznie znacznikiem geometrii zapisanej lub zakwalifikowanej
+  przez człowieka dla kalibracji; automatyczne przecięcie pomija każdą
+  planszę z decyzją człowieka na komórce.
+- **Reports:** `Zła siatka` na zweryfikowanej komórce cofa weryfikację tylko
+  tej komórki (`pending` + `grid_issue`) i zachowuje informację, która
+  komórka zgłosiła problem; `Zatwierdź` na komórce z `grid_issue` wycofuje
+  zgłoszenie. Stan „zweryfikowana i zgłoszona” nie istnieje.
+- **Freshness:** każda zmiana wiersza komórki (decyzja, cofnięcie, zmiana
+  symbolu, flaga, przecięcie, odświeżenie predykcji) aktualizuje projekcję
+  wyszukiwania planszy w tej samej transakcji; Admin nie używa ponownie wyniku
+  „Przybliżonej wygranej” po ponownym otwarciu sekcji.
+- **Correction queue:** jedna kolejka ręcznej korekty obejmuje odroczone
+  geometrie `pending` oraz plansze z bieżącym `grid_issue`, jedna pozycja na
+  slot planszy; Reviewer 3001 pokazuje jedną planszę naraz, bez walidacji
+  gotowych siatek.
+- **Supersedes:** regułę „Walidacji cięcia siatki 0.9”, w której zatwierdzenie
+  geometrii poprzedza rozstrzygnięcie planszy, oraz zasadę, że zmieniony crop
+  zachowuje `approved` z proweniencją poprzednich pikseli.
+- **Boundary:** bez DDL i bez usuwania historii. Zdalny Reviewer pozostaje bez
+  zmian (P3). Istniejące dane przechodzą na nowe reguły wyłącznie przez preview
+  i jawnie zatwierdzony apply (TASK-0728); 456 komórek zatwierdzonych na
+  zmienionym cropie wróci do weryfikacji (P2), a do tego czasu nie są dowodem.
+  Żadna komórka nie staje się zweryfikowana tylko dlatego, że wcześniej
+  zatwierdzono planszę, siatkę lub zdjęcie. Ponowne otwarcie planszy przez
+  walidację ciągłości importu (`synchronize_after_board_reopened`) nadal
+  resetuje komórki — to znane ryzyko do osobnego rozstrzygnięcia.
 
 ## D-460 — wyliczana poczekalnia cropów bez nowej hierarchii symboli
 

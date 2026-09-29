@@ -1,10 +1,24 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-28
+last_updated: 2026-09-29
 ---
 
 # Current State
+
+### D-462 — weryfikacja per komórka, etap A (w toku)
+
+- Plan `ai_docs/delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md`
+  zaakceptowany 2026-09-29 z P1–P4; operator zlecił wyłącznie etap A
+  (TASK-0721–0724). Etapy B/C wymagają osobnego polecenia, a zapis danych
+  TASK-0728 dodatkowej zgody po preview.
+- TASK-0721 done: D-462, plan, zadania 0722–0724, reguła docelowa w
+  `ADMIN_APP.md`. Zachowanie kodu jeszcze się nie zmieniło — zweryfikowane
+  komórki plansz `pending` nadal nie zasilają wyszukiwania (T2), a domknięcie
+  wymaga akceptacji geometrii (T3).
+- Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
+  PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
+  zadanie).
 
 ### Weryfikacja symboli — zachowanie widoku po jobie masowym
 

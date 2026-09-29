@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-09-25
+last_updated: 2026-09-29
 ---
 
 # Wymagania modułu administracyjnego
@@ -441,6 +441,12 @@ jednej sesji przeglądarki.
 
 ### Walidacja cięcia siatki 0.9
 
+**D-462 (etap B planu `CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md`):** opisany
+niżej workflow walidacji gotowych siatek zostanie zastąpiony jedną kolejką
+„Korekta cięcia siatki” z jedną planszą naraz. Od TASK-0723 zatwierdzenie
+geometrii przestaje być warunkiem domknięcia planszy; do tego czasu pozostaje
+warunkiem, jak opisano poniżej.
+
 Docelowy workflow geometrii korzysta z jednej kolejki całej gry z widokami
 `Do walidacji`, `Do poprawy` i `Wszystkie` oraz opcjonalnym zawężeniem do
 importu. Każdy logiczny numer planszy występuje najwyżej raz: źródłem pozycji
@@ -525,6 +531,17 @@ jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
 „Najpierw zatwierdź crop zawierający ten symbol”.
 
 ### Weryfikacja symboli
+
+**D-462 — weryfikacja per komórka (reguła docelowa, wdrażana w etapie A).**
+Weryfikowana jest pojedyncza komórka, nie plansza ani zdjęcie. Od TASK-0722
+zatwierdzona komórka wchodzi do `Wyszukaj planszę` i „Przybliżonej wygranej”
+zaraz po zapisie decyzji, niezależnie od stanu pozostałych komórek, problemów
+cięcia innych pól oraz zatwierdzenia planszy, siatki lub zdjęcia. Od
+TASK-0723 komplet zweryfikowanych komórek planszy z pełną widocznością i
+jednoznaczną sekwencją domyka ją automatycznie — bez osobnego zatwierdzenia —
+i dopiero wtedy plansza trafia do layoutów, snapshotu i targetu. Zgłoszenie
+`Zła siatka` cofa weryfikację wyłącznie tej komórki. Szczegóły:
+`DECISION_LOG.md` D-462.
 
 **D-451 / TASK-0710:** wybór grupy obejmuje także `Poza zdjęciem`.
 To grupa logicznych pól bez obrazu i bez przypisanego symbolu; po ręcznym

@@ -27,6 +27,16 @@ zadanie odwołuje się do nich jawnie.
 - Z użytkownikiem komunikuj się i przedstawiaj plany po polsku, chyba że
   poprosi inaczej. Instrukcje zapisuj w języku edytowanego dokumentu; nie
   tłumacz przy okazji identyfikatorów, kodu ani istniejącej dokumentacji.
+- Odpowiedzi w czacie pisz w stylu `caveman lite`, aby ograniczyć zużycie
+  tokenów: bez wstępów, grzeczności, powtórzeń i asekuracji; pełne, zwięzłe
+  zdania; jedna myśl na zdanie; bez narracji przed wywołaniami narzędzi. Styl
+  dotyczy tylko rozmowy z użytkownikiem i pozostaje po polsku. Kod, komendy,
+  identyfikatory, cytowane błędy, dokumentację, komunikaty commitów, treść
+  tasków, `Outcome` i wpisy `DECISION_LOG.md` pisz normalnym stylem. Wyjdź ze
+  stylu przy ostrzeżeniach bezpieczeństwa, potwierdzaniu operacji
+  nieodwracalnych i wieloetapowych instrukcjach, w których skrót groziłby
+  błędnym odczytem, a także na prośbę „stop caveman” lub „normal mode”.
+  Agent z dostępnym skillem `caveman` uruchamia go z poziomem `lite`.
 - Ostatnią sekcją każdego planu musi być `Przypisanie modeli do zadań` z
   kompletną tabelą `Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy
 review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i

@@ -9,6 +9,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - Before any task read `ai_docs/README.md`, `ai_docs/process/CURRENT_STATE.md`, the relevant requirements/architecture docs and the active task file directly in `ai_docs/tasks/` (only docs listed in its `Relevant docs`). Do not read `ai_docs/tasks/completed/` or `ai_docs/archive/` unless the active task references them.
 - Before writing or executing a plan, read `ai_docs/process/PLAN_STANDARD.md` and `ai_docs/process/TASK_TEMPLATE.md` in full. Plans end with the section `Przypisanie modeli do zadań` (table: `Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review`, one row per task).
 - Communicate with the user in Polish. Write docs in the language of the edited document.
+- Chat replies use `caveman lite` (token saving): no filler, pleasantries or hedging, full terse sentences, no tool-call narration. Invoke the `caveman` skill with `lite` at session start. Applies to chat only; code, commits, docs, task files and `DECISION_LOG.md` stay normal prose. Drop the style for security warnings and irreversible-action confirmations. Full rule in `AGENTS.md`.
 - Follow the stage execution rule owned by `AGENTS.md`: an explicit request to
   run a stage of an accepted plan authorizes its ordered tasks and assigned
   implementer/auditor delegation. Audit, commit and document each task; stop

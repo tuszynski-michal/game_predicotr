@@ -5,7 +5,9 @@ import {
   APPROXIMATE_WIN_RANGE_DEFAULT,
   APPROXIMATE_WIN_RANGE_MAX,
   approximateWinChartPoints,
+  approximateWinExtremes,
   approximateWinRequestKey,
+  filterApproximateWinRows,
   formatApproximateWinCredits,
   parseApproximateWinRange,
   shouldRequestApproximateWin,
@@ -196,12 +198,12 @@ test('visibleApproximateWinResult only shows a ready result matching the current
   );
 });
 
-function row(sequenceNumber, cumulativePayoutCredits = sequenceNumber * 10) {
+function row(sequenceNumber, cumulativeBalanceCredits = sequenceNumber * 10) {
   return /** @type {any} */ ({
     boardStatus: 'accepted',
-    cumulativeBalanceCredits: 0,
+    cumulativeBalanceCredits,
     cumulativeCostCredits: 0,
-    cumulativePayoutCredits,
+    cumulativePayoutCredits: 0,
     payoutCredits: 1,
     payoutKind: 'exact',
     sequenceNumber,
@@ -209,12 +211,49 @@ function row(sequenceNumber, cumulativePayoutCredits = sequenceNumber * 10) {
   });
 }
 
-test('approximateWinChartPoints starts at zero and preserves cumulative payouts by spin', () => {
-  assert.deepEqual(approximateWinChartPoints([row(4, 50), row(12, 175)]), [
-    { cumulativePayoutCredits: 0, spinNumber: 0 },
-    { cumulativePayoutCredits: 50, spinNumber: 4 },
-    { cumulativePayoutCredits: 175, spinNumber: 12 },
-  ]);
+test('approximateWinChartPoints draws the drop before each payout and ends at the last spin', () => {
+  const payout = (spinNumber, balance, payoutCredits) => ({
+    ...row(spinNumber, balance),
+    payoutCredits,
+  });
+  assert.deepEqual(
+    approximateWinChartPoints([payout(4, -50, 30), payout(12, 175, 385)], {
+      balanceCredits: 95,
+      spinNumber: 20,
+    }),
+    [
+      { cumulativeBalanceCredits: 0, kind: 'start', spinNumber: 0 },
+      { cumulativeBalanceCredits: -80, kind: 'before_payout', spinNumber: 4 },
+      { cumulativeBalanceCredits: -50, kind: 'payout', spinNumber: 4 },
+      { cumulativeBalanceCredits: -210, kind: 'before_payout', spinNumber: 12 },
+      { cumulativeBalanceCredits: 175, kind: 'payout', spinNumber: 12 },
+      { cumulativeBalanceCredits: 95, kind: 'end', spinNumber: 20 },
+    ],
+  );
+  // A range that ends on a payout adds no separate end point.
+  assert.equal(
+    approximateWinChartPoints([payout(4, -50, 30)], {
+      balanceCredits: -50,
+      spinNumber: 4,
+    }).at(-1).kind,
+    'payout',
+  );
+});
+
+test('approximateWinExtremes handles large inputs without spreading arguments', () => {
+  const values = Array.from({ length: 200_001 }, (_, index) => index - 100_000);
+  assert.deepEqual(approximateWinExtremes(values), {
+    maximum: 100_000,
+    minimum: -100_000,
+  });
+  assert.deepEqual(approximateWinExtremes([]), { maximum: 0, minimum: 0 });
+});
+
+test('filterApproximateWinRows keeps only payouts at or above the local threshold', () => {
+  assert.deepEqual(
+    filterApproximateWinRows([row(1), { ...row(2), payoutCredits: 50 }], 50),
+    [{ ...row(2), payoutCredits: 50 }],
+  );
 });
 
 test('formatApproximateWinCredits formats with Polish grouping', () => {

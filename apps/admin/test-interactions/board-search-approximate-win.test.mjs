@@ -145,6 +145,14 @@ function rangeInput() {
   return current;
 }
 
+function minimumPayoutInput() {
+  const current = document.querySelector(
+    'input[aria-label="Minimalna wypłata w tabeli"]',
+  );
+  assert.ok(current);
+  return current;
+}
+
 function setInputValue(input, value) {
   Object.getOwnPropertyDescriptor(
     dom.window.HTMLInputElement.prototype,
@@ -385,7 +393,9 @@ test('collapsing while loading does not crash; reopening recalculates from curre
   await eventually(() => calls.length === 1, 'request started');
 
   await toggleDetails(details, false);
-  pending.resolve({ data: approximateWinResponse(10) });
+  // The discarded in-flight response describes another board; it must never
+  // render after the section was collapsed.
+  pending.resolve({ data: approximateWinResponse(99) });
   await settle();
 
   await toggleDetails(details, true);
@@ -396,6 +406,9 @@ test('collapsing while loading does not crash; reopening recalculates from curre
     () => document.body.textContent.includes('Plansza startowa #10'),
     'fresh result should render on reopen',
   );
+  await settle();
+  assert.equal(calls.length, 2);
+  assert.ok(!document.body.textContent.includes('Plansza startowa #99'));
 
   await act(async () => root.unmount());
 });
@@ -447,33 +460,39 @@ test('without a selected result, opening shows a message and issues no request',
   await act(async () => root.unmount());
 });
 
-test('renders every payout row in one scrollable table and shows its cumulative-payout chart', async () => {
+test('renders every payout row in one scrollable table and shows its cumulative-balance chart', async () => {
   const rows = Array.from({ length: 25 }, (_, index) => ({
     boardStatus: 'accepted',
-    cumulativeBalanceCredits: (index + 1) * 100 - (index + 1) * 20,
+    cumulativeBalanceCredits:
+      ((index + 1) * (index + 2) * 100) / 2 - (index + 1) * 20,
     cumulativeCostCredits: (index + 1) * 20,
-    cumulativePayoutCredits: (index + 1) * 100,
-    payoutCredits: 100,
+    cumulativePayoutCredits: ((index + 1) * (index + 2) * 100) / 2,
+    payoutCredits: (index + 1) * 100,
     payoutKind: 'exact',
     sequenceNumber: index + 1,
     spinNumber: index + 1,
   }));
+  let approximateWinCalls = 0;
   const client = makeClient({
-    approximateWinImpl: async (_gameId, options) => ({
-      data: approximateWinResponse(options.startSequenceNumber, {
-        completeness: {
-          completeBoardCount: 25,
-          missingBoardCount: 0,
-          partialBoardCount: 0,
-        },
-        rows,
-        summary: {
-          balanceCredits: 2000,
-          recognizedPayoutCredits: 2500,
-          spinCostCredits: 500,
-        },
-      }),
-    }),
+    approximateWinImpl: async (_gameId, options) => {
+      approximateWinCalls += 1;
+      return {
+        data: approximateWinResponse(options.startSequenceNumber, {
+          completeness: {
+            completeBoardCount: 25,
+            missingBoardCount: 0,
+            partialBoardCount: 0,
+          },
+          rows,
+          // 2 500 evaluated spins at 20 credits; the last payout is spin 25.
+          summary: {
+            balanceCredits: -17500,
+            recognizedPayoutCredits: 32500,
+            spinCostCredits: 50000,
+          },
+        }),
+      };
+    },
     searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
   });
   const root = await renderWorkspaceWithResults(client);
@@ -495,7 +514,69 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   assert.ok(document.querySelector('.boardSearchApproximateWinChart svg'));
   assert.match(
     document.querySelector('.boardSearchApproximateWinChart').textContent,
-    /Narastające rozpoznane wypłaty/,
+    /Bilans według liczby spinów/,
+  );
+  assert.deepEqual(
+    [...document.querySelectorAll('.boardSearchApproximateWin thead th')].map(
+      (node) => node.textContent,
+    ),
+    ['Spin', 'Plansza', 'Wypłata', 'Bilans narastająco'],
+  );
+
+  const summaryBefore = document.querySelector(
+    '.boardSearchApproximateWin .importMetrics',
+  ).textContent;
+  const chartBefore = document
+    .querySelector('.boardSearchApproximateWinChart polyline')
+    .getAttribute('points');
+  const callsBefore = approximateWinCalls;
+  await act(async () => setInputValue(minimumPayoutInput(), '1000'));
+  await eventually(
+    () =>
+      document.querySelectorAll('.boardSearchApproximateWin tbody tr')
+        .length === 16,
+    'the slider should filter visible payout rows locally',
+  );
+  await settle();
+  // The filter is local: no new calculation, same summary and chart.
+  assert.equal(approximateWinCalls, callsBefore);
+  assert.equal(
+    document.querySelector('.boardSearchApproximateWin .importMetrics')
+      .textContent,
+    summaryBefore,
+  );
+  assert.equal(
+    document
+      .querySelector('.boardSearchApproximateWinChart polyline')
+      .getAttribute('points'),
+    chartBefore,
+  );
+  assert.ok(
+    document.querySelector('.boardSearchApproximateWinChartZero'),
+    'a balance crossing zero shows the zero line',
+  );
+
+  const chart = document.querySelector('.boardSearchApproximateWinChart svg');
+  Object.defineProperty(chart, 'getBoundingClientRect', {
+    value: () => ({ left: 0, width: 800 }),
+  });
+  await act(async () =>
+    chart.dispatchEvent(
+      new dom.window.MouseEvent('pointermove', {
+        bubbles: true,
+        clientX: 800,
+      }),
+    ),
+  );
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchApproximateWinChartTooltip') !== null,
+    'hovering the chart should show a tooltip',
+  );
+  assert.match(
+    document.querySelector('.boardSearchApproximateWinChartTooltip')
+      .textContent,
+    /2500 spinów.*Bilans: -17/,
   );
   await act(async () => root.unmount());
 });

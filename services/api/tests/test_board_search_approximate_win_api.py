@@ -4,6 +4,7 @@ from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
 from game_predictor_api.application.board_search_approximate_win import (
+    APPROXIMATE_WIN_SPIN_COUNT_MAX,
     BoardSearchApproximateWinService,
 )
 from game_predictor_api.config import ApiSettings
@@ -232,7 +233,7 @@ def test_approximate_win_endpoint_requires_query_parameters() -> None:
         )
         too_large_spin_count = client.get(
             f"/api/v1/admin/games/{_GAME_ID}/board-search/approximate-win",
-            params={"startSequenceNumber": 1, "spinCount": 10_001},
+            params={"startSequenceNumber": 1, "spinCount": APPROXIMATE_WIN_SPIN_COUNT_MAX + 1},
         )
 
     assert missing_both.status_code == 422

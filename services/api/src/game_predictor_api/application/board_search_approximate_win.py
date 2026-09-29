@@ -39,10 +39,10 @@ from game_predictor_api.domain.board_search_approximate_win import (
 _APPROXIMATE_WIN_BOARD_ROWS = 3
 _APPROXIMATE_WIN_BOARD_COLUMNS = 5
 
-APPROXIMATE_WIN_SPIN_COUNT_MAX = 10_000
-"""Conservative ceiling on the "Zakres wygranej" input: the calculator does
+APPROXIMATE_WIN_SPIN_COUNT_MAX = 100_000
+"""Operator-approved ceiling for current-version testing; the calculator does
 one synchronous read plus up to `N` in-process payout-v3 evaluations per
-request, with no cache. Raise only after measuring real request latency."""
+request, with no cache."""
 
 _PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
 

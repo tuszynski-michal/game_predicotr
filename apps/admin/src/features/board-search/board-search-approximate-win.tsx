@@ -5,6 +5,7 @@ import type {
   BoardSearchResultResponse,
 } from '@game-predictor/admin-api-client';
 import {
+  type PointerEvent,
   type SyntheticEvent,
   useEffect,
   useMemo,
@@ -21,7 +22,9 @@ import {
   APPROXIMATE_WIN_RANGE_MAX,
   type ApproximateWinState,
   approximateWinChartPoints,
+  approximateWinExtremes,
   approximateWinRequestKey,
+  filterApproximateWinRows,
   formatApproximateWinCredits,
   parseApproximateWinRange,
   shouldRequestApproximateWin,
@@ -236,9 +239,14 @@ function ApproximateWinResultView({
 }: {
   readonly result: ApproximateWinResponse;
 }) {
+  const [minimumPayoutCredits, setMinimumPayoutCredits] = useState(0);
   const hasIncompleteData =
     result.completeness.partialBoardCount > 0 ||
     result.completeness.missingBoardCount > 0;
+  const visibleRows = filterApproximateWinRows(
+    result.rows,
+    minimumPayoutCredits,
+  );
 
   return (
     <>
@@ -314,10 +322,19 @@ function ApproximateWinResultView({
               ? ' Przy niepełnych danych nie można wykluczyć niewykrytej wygranej.'
               : ''}
           </p>
-          <ApproximateWinPayoutChart rows={result.rows} />
+          <ApproximateWinBalanceChart result={result} />
         </>
       ) : (
         <>
+          <ApproximateWinTableFilter
+            maximumPayoutCredits={
+              approximateWinExtremes(
+                result.rows.map((row) => row.payoutCredits),
+              ).maximum
+            }
+            minimumPayoutCredits={minimumPayoutCredits}
+            onMinimumPayoutCreditsChange={setMinimumPayoutCredits}
+          />
           <div className="importRowsTableWrap">
             <table className="importRowsTable">
               <thead>
@@ -325,13 +342,11 @@ function ApproximateWinResultView({
                   <th>Spin</th>
                   <th>Plansza</th>
                   <th>Wypłata</th>
-                  <th>Wypłaty narastająco</th>
-                  <th>Koszt narastająco</th>
                   <th>Bilans narastająco</th>
                 </tr>
               </thead>
               <tbody>
-                {result.rows.map((row) => (
+                {visibleRows.map((row) => (
                   <tr key={row.sequenceNumber}>
                     <td>{row.spinNumber.toLocaleString('pl-PL')}</td>
                     <td>#{row.sequenceNumber}</td>
@@ -340,12 +355,6 @@ function ApproximateWinResultView({
                       {row.payoutKind === 'confirmed_minimum'
                         ? ' · częściowa (potwierdzone minimum)'
                         : ''}
-                    </td>
-                    <td>
-                      {formatApproximateWinCredits(row.cumulativePayoutCredits)}
-                    </td>
-                    <td>
-                      {formatApproximateWinCredits(row.cumulativeCostCredits)}
                     </td>
                     <td>
                       {formatApproximateWinCredits(
@@ -357,25 +366,65 @@ function ApproximateWinResultView({
               </tbody>
             </table>
           </div>
-          <ApproximateWinPayoutChart rows={result.rows} />
+          {visibleRows.length === 0 ? (
+            <p className="importEmptyState">
+              Brak wypłat spełniających wybrany próg.
+            </p>
+          ) : null}
+          <ApproximateWinBalanceChart result={result} />
         </>
       )}
     </>
   );
 }
 
-function ApproximateWinPayoutChart({
-  rows,
+function ApproximateWinTableFilter({
+  maximumPayoutCredits,
+  minimumPayoutCredits,
+  onMinimumPayoutCreditsChange,
 }: {
-  readonly rows: ApproximateWinResponse['rows'];
+  readonly maximumPayoutCredits: number;
+  readonly minimumPayoutCredits: number;
+  readonly onMinimumPayoutCreditsChange: (value: number) => void;
 }) {
+  const value = Math.min(minimumPayoutCredits, maximumPayoutCredits);
+  return (
+    <label className="boardSearchApproximateWinFilter">
+      <span>
+        Pokaż wypłaty od{' '}
+        <output>{formatApproximateWinCredits(value)} kredytów</output>
+      </span>
+      <input
+        aria-label="Minimalna wypłata w tabeli"
+        max={maximumPayoutCredits}
+        min={0}
+        onChange={(event) =>
+          onMinimumPayoutCreditsChange(Number(event.currentTarget.value))
+        }
+        step={1}
+        type="range"
+        value={value}
+      />
+    </label>
+  );
+}
+
+function ApproximateWinBalanceChart({
+  result,
+}: {
+  readonly result: ApproximateWinResponse;
+}) {
+  const rows = result.rows;
+  const [hoveredPoint, setHoveredPoint] = useState<
+    ReturnType<typeof approximateWinChartPoints>[number] | null
+  >(null);
   if (rows.length === 0) {
     return (
       <section
         aria-labelledby="approximateWinChartHeading"
         className="boardSearchApproximateWinChart"
       >
-        <h3 id="approximateWinChartHeading">Wypłaty według liczby spinów</h3>
+        <h3 id="approximateWinChartHeading">Bilans według liczby spinów</h3>
         <p className="importEmptyState">
           Wykres pojawi się po rozpoznaniu pierwszej wypłaty w tym zakresie.
         </p>
@@ -383,7 +432,14 @@ function ApproximateWinPayoutChart({
     );
   }
 
-  const points = approximateWinChartPoints(rows);
+  const points = approximateWinChartPoints(rows, {
+    balanceCredits: result.summary.balanceCredits,
+    spinNumber: result.evaluatedSpinCount,
+  });
+  // The point just before a payout draws the drop; only real states get a tooltip.
+  const tooltipPoints = points.filter(
+    (point) => point.kind !== 'before_payout',
+  );
   const finalPoint = points.at(-1);
   if (finalPoint === undefined) {
     return null;
@@ -394,17 +450,39 @@ function ApproximateWinPayoutChart({
   const chartWidth = width - padding.left - padding.right;
   const chartHeight = height - padding.top - padding.bottom;
   const maximumSpin = finalPoint.spinNumber;
-  const maximumPayout = finalPoint.cumulativePayoutCredits;
+  const { maximum: maximumBalance, minimum: minimumBalance } =
+    approximateWinExtremes(
+      points.map((point) => point.cumulativeBalanceCredits),
+    );
+  const balanceSpan = Math.max(1, maximumBalance - minimumBalance);
   const toX = (spinNumber: number) =>
     padding.left + (spinNumber / maximumSpin) * chartWidth;
-  const toY = (payoutCredits: number) =>
-    padding.top + chartHeight - (payoutCredits / maximumPayout) * chartHeight;
+  const toY = (balanceCredits: number) =>
+    padding.top +
+    chartHeight -
+    ((balanceCredits - minimumBalance) / balanceSpan) * chartHeight;
   const polylinePoints = points
     .map(
       (point) =>
-        `${toX(point.spinNumber)},${toY(point.cumulativePayoutCredits)}`,
+        `${toX(point.spinNumber)},${toY(point.cumulativeBalanceCredits)}`,
     )
     .join(' ');
+  const handlePointerMove = (event: PointerEvent<SVGSVGElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    if (bounds.width === 0) {
+      return;
+    }
+    const pointerX = ((event.clientX - bounds.left) / bounds.width) * width;
+    const closest = tooltipPoints.reduce((best, point) =>
+      Math.abs(toX(point.spinNumber) - pointerX) <
+      Math.abs(toX(best.spinNumber) - pointerX)
+        ? point
+        : best,
+    );
+    setHoveredPoint((current) =>
+      current?.spinNumber === closest.spinNumber ? current : closest,
+    );
+  };
 
   return (
     <section
@@ -412,47 +490,88 @@ function ApproximateWinPayoutChart({
       className="boardSearchApproximateWinChart"
     >
       <div>
-        <h3 id="approximateWinChartHeading">Wypłaty według liczby spinów</h3>
+        <h3 id="approximateWinChartHeading">Bilans według liczby spinów</h3>
         <p>
-          Narastające rozpoznane wypłaty; punkty odpowiadają wyłącznie spinom z
-          dodatnią wypłatą.
+          Narastający bilans: rozpoznane wypłaty minus koszt wszystkich spinów.
+          Między wypłatami bilans spada o koszt każdego spinu; wykres kończy się
+          na ostatnim spinie zakresu.
         </p>
       </div>
-      <svg
-        aria-describedby="approximateWinChartDescription"
-        aria-label="Wykres narastających rozpoznanych wypłat według liczby spinów"
-        role="img"
-        viewBox={`0 0 ${width} ${height}`}
-      >
-        <desc id="approximateWinChartDescription">
-          Od zera do {finalPoint.spinNumber.toLocaleString('pl-PL')} spinów,
-          łączna rozpoznana wypłata wynosi{' '}
-          {formatApproximateWinCredits(finalPoint.cumulativePayoutCredits)}{' '}
-          kredytów.
-        </desc>
-        <line
-          x1={padding.left}
-          x2={width - padding.right}
-          y1={padding.top + chartHeight}
-          y2={padding.top + chartHeight}
-        />
-        <line
-          x1={padding.left}
-          x2={padding.left}
-          y1={padding.top}
-          y2={padding.top + chartHeight}
-        />
-        <polyline fill="none" points={polylinePoints} />
-        <text x={padding.left} y={height - 10}>
-          0
-        </text>
-        <text textAnchor="end" x={width - padding.right} y={height - 10}>
-          {maximumSpin.toLocaleString('pl-PL')} spinów
-        </text>
-        <text x={padding.left - 8} y={padding.top + 4} textAnchor="end">
-          {formatApproximateWinCredits(maximumPayout)}
-        </text>
-      </svg>
+      <div className="boardSearchApproximateWinChartCanvas">
+        <svg
+          aria-describedby="approximateWinChartDescription"
+          aria-label="Wykres narastającego bilansu według liczby spinów"
+          onPointerLeave={() => setHoveredPoint(null)}
+          onPointerMove={handlePointerMove}
+          role="img"
+          viewBox={`0 0 ${width} ${height}`}
+        >
+          <desc id="approximateWinChartDescription">
+            Od zera do {finalPoint.spinNumber.toLocaleString('pl-PL')} spinów,
+            bilans wynosi{' '}
+            {formatApproximateWinCredits(finalPoint.cumulativeBalanceCredits)}{' '}
+            kredytów.
+          </desc>
+          <line
+            x1={padding.left}
+            x2={width - padding.right}
+            y1={padding.top + chartHeight}
+            y2={padding.top + chartHeight}
+          />
+          <line
+            x1={padding.left}
+            x2={padding.left}
+            y1={padding.top}
+            y2={padding.top + chartHeight}
+          />
+          {minimumBalance < 0 && maximumBalance > 0 ? (
+            <line
+              className="boardSearchApproximateWinChartZero"
+              x1={padding.left}
+              x2={width - padding.right}
+              y1={toY(0)}
+              y2={toY(0)}
+            />
+          ) : null}
+          <polyline fill="none" points={polylinePoints} />
+          <text x={padding.left} y={height - 10}>
+            0
+          </text>
+          <text textAnchor="end" x={width - padding.right} y={height - 10}>
+            {maximumSpin.toLocaleString('pl-PL')} spinów
+          </text>
+          <text x={padding.left - 8} y={padding.top + 4} textAnchor="end">
+            {formatApproximateWinCredits(maximumBalance)}
+          </text>
+          <text
+            x={padding.left - 8}
+            y={padding.top + chartHeight}
+            textAnchor="end"
+          >
+            {formatApproximateWinCredits(minimumBalance)}
+          </text>
+        </svg>
+        {hoveredPoint ? (
+          <div
+            className="boardSearchApproximateWinChartTooltip"
+            role="tooltip"
+            style={{
+              left: `${(toX(hoveredPoint.spinNumber) / width) * 100}%`,
+              top: `${(toY(hoveredPoint.cumulativeBalanceCredits) / height) * 100}%`,
+            }}
+          >
+            <span>
+              {hoveredPoint.spinNumber.toLocaleString('pl-PL')} spinów
+            </span>
+            <strong>
+              Bilans:{' '}
+              {formatApproximateWinCredits(
+                hoveredPoint.cumulativeBalanceCredits,
+              )}
+            </strong>
+          </div>
+        ) : null}
+      </div>
     </section>
   );
 }

@@ -152,6 +152,14 @@ last_updated: 2026-09-29
   wdrożenie i wymaga osobnego planu skalowania. Nie uruchomiono takiego
   pomiaru, migracji, treningu ani wdrożenia.
 
+### TASK-0720 — „Przybliżona wygrana”: filtr, tooltip i zakres 100 000
+
+- Ukończone: tabela z kolumnami Spin, Plansza, Wypłata, Bilans narastająco
+  (~10 wierszy), lokalny suwak minimalnej wypłaty (tylko tabela, bez
+  żądania), wykres narastającego bilansu z tooltipem; zakres wygranej do
+  100 000 spinów (API, OpenAPI, Admin). Pomiar na grze `777`: 100 000 spinów
+  liczy się ~17,5 s. Admin 615 testów, lint, typecheck, `openapi:check` PASS.
+
 ### TASK-0719 — „Przybliżona wygrana”: przewijalna tabela i wykres
 
 - Ukończone: osobne rozszerzenie klienta Admina, bez zmiany endpointu,

@@ -25821,7 +25821,7 @@
             "name": "spinCount",
             "required": true,
             "schema": {
-              "maximum": 10000,
+              "maximum": 100000,
               "minimum": 1,
               "title": "Spincount",
               "type": "integer"

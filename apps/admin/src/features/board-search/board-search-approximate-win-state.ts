@@ -7,10 +7,16 @@ import type { ApproximateWinResponse } from '@game-predictor/admin-api-client';
  * TASK-0652, `application/board_search_approximate_win.py`.
  */
 export const APPROXIMATE_WIN_RANGE_DEFAULT = 2500;
-export const APPROXIMATE_WIN_RANGE_MAX = 10_000;
+export const APPROXIMATE_WIN_RANGE_MAX = 100_000;
 
 export interface ApproximateWinChartPoint {
-  readonly cumulativePayoutCredits: number;
+  readonly cumulativeBalanceCredits: number;
+  /**
+   * `before_payout` is the balance after the spin cost and before its payout:
+   * between payouts the balance only falls by the spin cost, so the series is
+   * a saw and never hides the drawdowns.
+   */
+  readonly kind: 'before_payout' | 'end' | 'payout' | 'start';
   readonly spinNumber: number;
 }
 
@@ -113,21 +119,72 @@ export function visibleApproximateWinResult(
 }
 
 /**
- * Builds a chart series from the rows returned by the API. The origin is
- * explicit so the graph never implies a payout before the first spin.
- * Rows already contain cumulative values for all evaluated spins, including
- * the losing and missing ones that are intentionally absent from `rows`.
+ * Builds a cumulative-balance chart series from the rows returned by the API.
+ * The origin is explicit so the graph never implies a balance before the first
+ * spin. Rows already contain cumulative values for all evaluated spins,
+ * including the losing and missing ones absent from `rows`; the balance just
+ * before a payout is its cumulative balance minus that payout. The series ends
+ * at the last evaluated spin with the summary balance.
  */
 export function approximateWinChartPoints(
   rows: ApproximateWinResponse['rows'],
+  end?: { readonly balanceCredits: number; readonly spinNumber: number },
 ): readonly ApproximateWinChartPoint[] {
-  return [
-    { cumulativePayoutCredits: 0, spinNumber: 0 },
-    ...rows.map((row) => ({
-      cumulativePayoutCredits: row.cumulativePayoutCredits,
-      spinNumber: row.spinNumber,
-    })),
+  const points: ApproximateWinChartPoint[] = [
+    { cumulativeBalanceCredits: 0, kind: 'start', spinNumber: 0 },
   ];
+  for (const row of rows) {
+    points.push(
+      {
+        cumulativeBalanceCredits:
+          row.cumulativeBalanceCredits - row.payoutCredits,
+        kind: 'before_payout',
+        spinNumber: row.spinNumber,
+      },
+      {
+        cumulativeBalanceCredits: row.cumulativeBalanceCredits,
+        kind: 'payout',
+        spinNumber: row.spinNumber,
+      },
+    );
+  }
+  const last = points.at(-1);
+  if (
+    end !== undefined &&
+    last !== undefined &&
+    end.spinNumber > last.spinNumber
+  ) {
+    points.push({
+      cumulativeBalanceCredits: end.balanceCredits,
+      kind: 'end',
+      spinNumber: end.spinNumber,
+    });
+  }
+  return points;
+}
+
+/** Minimum and maximum without spreading large arrays into arguments. */
+export function approximateWinExtremes(values: readonly number[]): {
+  readonly maximum: number;
+  readonly minimum: number;
+} {
+  let minimum = Number.POSITIVE_INFINITY;
+  let maximum = Number.NEGATIVE_INFINITY;
+  for (const value of values) {
+    if (value < minimum) minimum = value;
+    if (value > maximum) maximum = value;
+  }
+  return values.length === 0
+    ? { maximum: 0, minimum: 0 }
+    : { maximum, minimum };
+}
+
+/** Filters only the client-rendered payout table; the API result stays intact. */
+export function filterApproximateWinRows(
+  rows: ApproximateWinResponse['rows'],
+  minimumPayoutCredits: number,
+): ApproximateWinResponse['rows'] {
+  return rows.filter((row) => row.payoutCredits >= minimumPayoutCredits);
 }
 
 export function formatApproximateWinCredits(value: number): string {

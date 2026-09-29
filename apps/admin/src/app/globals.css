@@ -10141,7 +10141,7 @@ div.imageJobInlineError {
 }
 
 .boardSearchApproximateWin .importRowsTableWrap {
-  max-block-size: 680px;
+  max-block-size: 360px;
   overflow: auto;
 }
 
@@ -10182,6 +10182,52 @@ div.imageJobInlineError {
   block-size: auto;
   min-block-size: 180px;
   color: var(--muted);
+}
+
+.boardSearchApproximateWinFilter {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.boardSearchApproximateWinFilter output {
+  color: var(--accent);
+}
+
+.boardSearchApproximateWinFilter input {
+  accent-color: var(--accent);
+}
+
+.boardSearchApproximateWinChartCanvas {
+  position: relative;
+}
+
+.boardSearchApproximateWinChartTooltip {
+  position: absolute;
+  z-index: 1;
+  display: grid;
+  gap: 2px;
+  min-width: max-content;
+  padding: 7px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--panel-raised);
+  box-shadow: 0 8px 20px rgb(0 0 0 / 25%);
+  color: var(--muted);
+  font-size: 11px;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 8px));
+}
+
+.boardSearchApproximateWinChartTooltip strong {
+  color: var(--text);
+}
+
+.boardSearchApproximateWinChart line.boardSearchApproximateWinChartZero {
+  stroke-dasharray: 4 4;
 }
 
 .boardSearchApproximateWinChart line {

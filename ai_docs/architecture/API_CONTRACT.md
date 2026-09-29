@@ -255,7 +255,7 @@ sprzeczności, status zatwierdzony, `sequence_number` i UUID.
 ```text
 GET /api/v1/admin/games/{gameId}/board-search/approximate-win
   ?startSequenceNumber={S}
-  &spinCount={N, 1..10000}
+  &spinCount={N, 1..100000}
 ```
 
 Endpoint jest wyłącznie do odczytu, na tym samym routerze co wyszukiwanie

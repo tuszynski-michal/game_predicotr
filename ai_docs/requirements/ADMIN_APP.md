@@ -400,7 +400,7 @@ oszacowanie payoutu dla `N` kolejnych pozycji sekwencji po wybranej planszy
 `S` (zakres `S+1…S+N`; `S` nigdy nie wchodzi do wyniku), używając tego
 samego kalkulatora payoutu co wydania mobilne (`payout-v3-unknown-prefix-stop`)
 i tej samej definicji pełnego cyklu z zawijaniem co mobilna prognoza celu.
-„Zakres wygranej” (domyślnie 2 500, maksymalnie 10 000) jest niezależny od
+„Zakres wygranej” (domyślnie 2 500, maksymalnie 100 000) jest niezależny od
 „Liczby wyników”.
 
 Sekcja jest domyślnie zwinięta i nie liczy niczego, dopóki operator jej nie
@@ -427,14 +427,22 @@ kalkulację zakresu jako błąd, zamiast po cichu pominąć jedną planszę.
 Podsumowanie pokazuje osobno: rozpoznane wypłaty, koszt spinów (suma
 kosztu wszystkich spinów zakresu, również brakujących) i bilans
 (wypłaty minus koszt) — nigdy nie nazywane „zyskiem”. Tabela wyników
-zawiera wyłącznie spiny z dodatnią wypłatą, ze wskazaną sumą narastającą
-wypłat, kosztów i bilansu — również wtedy, gdy bilans narastający
-pozostaje ujemny. Wszystkie wiersze jednej odpowiedzi mieszczą się w pionowo
-przewijalnym obszarze o wysokości około 20 wierszy; nagłówki kolumn pozostają
+zawiera wyłącznie spiny z dodatnią wypłatą w czterech kolumnach: Spin,
+Plansza, Wypłata i Bilans narastająco — również wtedy, gdy bilans narastający
+pozostaje ujemny; wypłata planszy częściowej jest oznaczona jako potwierdzone
+minimum. Wszystkie wiersze jednej odpowiedzi mieszczą się w pionowo
+przewijalnym obszarze o wysokości około 10 wierszy; nagłówki kolumn pozostają
 widoczne podczas przewijania, a interfejs nie ma paginacji ani stopki zmiany
-strony. Pod tabelą jest wykres SVG narastających rozpoznanych wypłat względem
-numeru spinu. Zaczyna się od zera i jasno wskazuje, że punkty danych dotyczą
-wyłącznie spinów z dodatnią wypłatą. Puste wyniki (brak jakiejkolwiek dodatniej
+strony. Suwak „Minimalna wypłata w tabeli” (od zera do najwyższej wypłaty
+bieżącej odpowiedzi, z widoczną wartością) filtruje lokalnie wyłącznie
+widoczne wiersze tabeli: nie wysyła żądania i nie zmienia podsumowania ani
+wykresu. Pod tabelą jest wykres SVG narastającego bilansu (rozpoznane
+wypłaty minus koszt wszystkich spinów) względem numeru spinu. Zaczyna się od
+zera, między wypłatami pokazuje spadek bilansu o koszt spinów (punkt tuż
+przed każdą wypłatą), kończy się na ostatnim spinie zakresu bilansem z
+podsumowania, ma etykiety minimum i maksimum oraz przerywaną linię zera, gdy
+bilans ją przecina; najechanie na wykres pokazuje tooltip najbliższego punktu
+wypłaty albo końca zakresu z liczbą spinów i bilansem. Puste wyniki (brak jakiejkolwiek dodatniej
 wypłaty) nadal pokazują poprawne podsumowanie i kompletność danych, z
 zastrzeżeniem że przy niepełnych danych nie można wykluczyć niewykrytej
 wygranej; wykres pokazuje wtedy komunikat zamiast sztucznych danych. Liczniki

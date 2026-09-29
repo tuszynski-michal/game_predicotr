@@ -495,8 +495,17 @@ odrzucone. Zdalna sesja Reviewera nie otrzymuje tych ścieżek.
 
 Katalog symboli jest definiowany ręcznie dla każdej gry. Formularz utworzenia
 wymaga wyłącznie nazwy i oznaczenia Jokera; Admin API pod blokadą gry nadaje
-stabilny `code`, kolejny `mobileCode` i `displayOrder`. Edycja nazwy nie może
-zmienić żadnego z tych identyfikatorów.
+stabilny `code`, kolejny `mobileCode` i początkowy `displayOrder`. Edycja
+nazwy nie może zmienić `code` ani `mobileCode`.
+
+Operator zmienia kolejność symboli przyciskami „↑/↓” w wierszu katalogu
+(TASK-0730). Przesunięcie zamienia symbol z sąsiadem i przenumerowuje całą
+listę na `0..n-1`, zapisując `displayOrder` przez `PATCH` symbolu tylko dla
+zmienionych pozycji. Zapisy są sekwencyjne i nieatomowe; po błędzie panel
+pokazuje komunikat i wczytuje rzeczywistą kolejność z API. Kolejność steruje
+skrótami cyfrowymi weryfikacji symboli i wyszukiwarki plansz oraz kolejnością
+symboli w kolejnym snapshocie mobilnym; nie zmienia kodów, sygnatur, reguł ani
+sumy wypłat.
 
 Kafel symbolu bez zatwierdzonej grafiki pokazuje `?`. Kliknięcie kafla zawsze
 otwiera picker cropów, który pokazuje aktualne cropy komórek zatwierdzone przez

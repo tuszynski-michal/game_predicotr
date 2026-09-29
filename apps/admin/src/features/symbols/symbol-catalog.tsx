@@ -18,14 +18,18 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   deleteSymbol,
+  reorderSymbols,
   saveSymbol,
   type SymbolsClient,
 } from '@/features/symbols/symbol-catalog-actions';
 import { SymbolImagePickerModal } from '@/features/symbols/symbol-image-picker-modal';
 import {
+  applySymbolDisplayOrderChanges,
   EMPTY_SYMBOL_DRAFT,
+  planSymbolReorder,
   selectGameId,
   type SymbolDraft,
+  type SymbolMoveDirection,
   symbolToDraft,
   upsertSymbol,
   validateSymbolDraft,
@@ -79,6 +83,7 @@ export function SymbolCatalog({
     null,
   );
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
   const gamesRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const mutationInProgress = useRef(false);
@@ -296,6 +301,36 @@ export function SymbolCatalog({
     }
   }
 
+  async function moveSymbol(
+    symbol: SymbolResponse,
+    direction: SymbolMoveDirection,
+  ) {
+    if (mutationInProgress.current || selectedGameId === null) return;
+    const changes = planSymbolReorder(symbols, symbol.id, direction);
+    if (changes.length === 0) return;
+    mutationInProgress.current = true;
+    setReorderingId(symbol.id);
+    setFeedback(null);
+    try {
+      const result = await reorderSymbols(api, selectedGameId, changes);
+      if (!result.ok) {
+        setFeedback({ kind: 'error', text: result.error });
+        await loadSymbols(selectedGameId);
+        return;
+      }
+      setSymbols((current) => applySymbolDisplayOrderChanges(current, changes));
+      setFeedback({
+        kind: 'success',
+        text: `Przesunięto symbol „${symbol.name}” ${
+          direction === 'up' ? 'wyżej' : 'niżej'
+        }.`,
+      });
+    } finally {
+      mutationInProgress.current = false;
+      setReorderingId(null);
+    }
+  }
+
   function requestImageSelection(symbol: SymbolResponse) {
     setFeedback(null);
     setImagePickerSymbolId(symbol.id);
@@ -335,6 +370,7 @@ export function SymbolCatalog({
                 Gra dla katalogu symboli
               </label>
               <select
+                disabled={reorderingId !== null}
                 id="symbol-game-selector"
                 onChange={(event) => chooseGame(event.currentTarget.value)}
                 value={selectedGameId ?? ''}
@@ -419,6 +455,10 @@ export function SymbolCatalog({
                 onDelete={openDeleteDialog}
                 onEdit={openEditEditor}
                 onImageSelection={requestImageSelection}
+                onMove={(symbol, direction) =>
+                  void moveSymbol(symbol, direction)
+                }
+                reorderDisabled={reorderingId !== null || isSubmitting}
                 symbolImageAssetUrl={(symbol) =>
                   api.symbolImageAssetUrl(symbol.gameId, symbol.id)
                 }
@@ -612,6 +652,11 @@ interface SymbolsListProps {
   readonly onDelete: (symbolId: string) => void;
   readonly onEdit: (symbol: SymbolResponse) => void;
   readonly onImageSelection: (symbol: SymbolResponse) => void;
+  readonly onMove: (
+    symbol: SymbolResponse,
+    direction: SymbolMoveDirection,
+  ) => void;
+  readonly reorderDisabled: boolean;
   readonly symbolImageAssetUrl: (symbol: SymbolResponse) => string;
   readonly symbols: readonly SymbolResponse[];
 }
@@ -620,6 +665,8 @@ function SymbolsList({
   onDelete,
   onEdit,
   onImageSelection,
+  onMove,
+  reorderDisabled,
   symbolImageAssetUrl,
   symbols,
 }: SymbolsListProps) {
@@ -633,11 +680,13 @@ function SymbolsList({
           </h2>
         </div>
         <p>
-          Tożsamość i kolejność nadaje Admin API podczas utworzenia symbolu.
+          Tożsamość nadaje Admin API podczas utworzenia symbolu. Kolejność
+          zmienisz strzałkami; skróty 1–9 w weryfikacji symboli i wyszukiwarce
+          plansz podążają za tą kolejnością.
         </p>
       </div>
       <div className="symbolsList">
-        {symbols.map((symbol) => (
+        {symbols.map((symbol, index) => (
           <article
             className="symbolRow"
             data-testid={`symbol-row-${symbol.id}`}
@@ -694,6 +743,28 @@ function SymbolsList({
               </div>
             </div>
             <div className="rowActions">
+              <button
+                aria-label={`Przesuń symbol ${symbol.name} wyżej`}
+                className="secondaryButton"
+                data-testid={`symbol-move-up-${symbol.id}`}
+                disabled={reorderDisabled || index === 0}
+                onClick={() => onMove(symbol, 'up')}
+                title="Przesuń wyżej"
+                type="button"
+              >
+                ↑
+              </button>
+              <button
+                aria-label={`Przesuń symbol ${symbol.name} niżej`}
+                className="secondaryButton"
+                data-testid={`symbol-move-down-${symbol.id}`}
+                disabled={reorderDisabled || index === symbols.length - 1}
+                onClick={() => onMove(symbol, 'down')}
+                title="Przesuń niżej"
+                type="button"
+              >
+                ↓
+              </button>
               <button
                 className="secondaryButton"
                 data-testid={`symbol-edit-${symbol.id}`}

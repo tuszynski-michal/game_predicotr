@@ -6,6 +6,17 @@ last_updated: 2026-09-29
 
 # Current State
 
+### TASK-0730 — zmiana kolejności symboli w katalogu (done)
+
+- Gałąź `feat/symbol-display-order` (worktree `worktrees/symbol-display-order`)
+  od `v1.7.56`. `PATCH` symbolu przyjmuje `displayOrder`; katalog symboli w
+  Adminie ma przyciski „↑/↓”, które przenumerowują listę `0..n-1`. Skróty 1–9
+  weryfikacji symboli i wyszukiwarki plansz podążają za kolejnością. Operator
+  zamienia „7” i „gwiazdę” w grze 777 w panelu; snapshot mobilny dostanie nową
+  kolejność przy kolejnym `snapshot:generate`.
+- Commit `v1.7.57` na gałęzi `feat/symbol-display-order`; wymaga scalenia do
+  `v1.1-vision-lab-hybrid-geometry`.
+
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 
 - Operator polecił wycofać poprzednią konfigurację. Pomiar tylko do odczytu

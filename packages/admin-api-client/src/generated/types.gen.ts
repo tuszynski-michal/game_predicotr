@@ -12749,6 +12749,10 @@ export type SymbolTrainingJobPayload = {
  */
 export type SymbolUpdate = {
   /**
+   * Displayorder
+   */
+  displayOrder?: number | null;
+  /**
    * Iswildcard
    */
   isWildcard?: boolean | null;

@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   deleteSymbol,
+  reorderSymbols,
   saveSymbol,
 } from '../src/features/symbols/symbol-catalog-actions.ts';
 
@@ -106,4 +107,43 @@ test('deletes through the typed boundary and preserves API errors', async () => 
     error: 'Symbol is still used. (SYMBOL_DELETE_BLOCKED)',
     ok: false,
   });
+});
+
+test('reorder saves each displayOrder change and stops at the first error', async () => {
+  const requests = [];
+  const client = createClient({
+    updateSymbol: async (_currentGameId, symbolId, body) => {
+      requests.push({ body, symbolId });
+      return symbolId === 'fails'
+        ? {
+            error: {
+              code: 'VALIDATION_ERROR',
+              details: {},
+              message: 'Invalid',
+            },
+          }
+        : { data: savedSymbol };
+    },
+  });
+
+  const success = await reorderSymbols(client, gameId, [
+    { displayOrder: 6, symbolId: 'seven' },
+    { displayOrder: 7, symbolId: 'star' },
+  ]);
+  assert.deepEqual(success, { ok: true });
+  assert.deepEqual(requests, [
+    { body: { displayOrder: 6 }, symbolId: 'seven' },
+    { body: { displayOrder: 7 }, symbolId: 'star' },
+  ]);
+
+  requests.length = 0;
+  const failure = await reorderSymbols(client, gameId, [
+    { displayOrder: 0, symbolId: 'fails' },
+    { displayOrder: 1, symbolId: 'never-sent' },
+  ]);
+  assert.equal(failure.ok, false);
+  assert.deepEqual(
+    requests.map((request) => request.symbolId),
+    ['fails'],
+  );
 });

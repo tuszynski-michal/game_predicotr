@@ -783,6 +783,9 @@ binarną. Lista jest deterministycznie uporządkowana po `displayOrder`,
 `mobileCode` i technicznym UUID. `DELETE` ustawia `status = archived`.
 Puste po trimowaniu etykiety lokalizowane są odrzucane. W `PATCH` pominięte
 pole zachowuje poprzednią wartość, natomiast jawne `null` usuwa etykietę.
+`PATCH` symbolu przyjmuje `name`, `isWildcard` i `displayOrder` (liczba
+całkowita `0..2147483647`, TASK-0730); jawne `null` dla tych pól daje `422`.
+`displayOrder` nie jest unikalne — remis rozstrzyga `mobileCode`.
 
 Stabilne konflikty i brak zasobu:
 

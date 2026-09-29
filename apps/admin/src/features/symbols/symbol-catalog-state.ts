@@ -72,3 +72,54 @@ function compareSymbols(left: SymbolResponse, right: SymbolResponse): number {
     left.id.localeCompare(right.id)
   );
 }
+
+export type SymbolMoveDirection = 'down' | 'up';
+
+export interface SymbolDisplayOrderChange {
+  readonly displayOrder: number;
+  readonly symbolId: string;
+}
+
+/**
+ * Moves one symbol a single position in the catalog order and renumbers the
+ * whole list to 0..n-1, which also removes existing ties and gaps. Returns only
+ * the symbols whose displayOrder changes; an edge move or an unknown symbol
+ * returns no changes.
+ */
+export function planSymbolReorder(
+  symbols: readonly SymbolResponse[],
+  symbolId: string,
+  direction: SymbolMoveDirection,
+): readonly SymbolDisplayOrderChange[] {
+  const ordered = [...symbols].sort(compareSymbols);
+  const index = ordered.findIndex((symbol) => symbol.id === symbolId);
+  const targetIndex = direction === 'up' ? index - 1 : index + 1;
+  if (index < 0 || targetIndex < 0 || targetIndex >= ordered.length) {
+    return [];
+  }
+  const moved = ordered[index];
+  const neighbour = ordered[targetIndex];
+  if (moved === undefined || neighbour === undefined) return [];
+  ordered[index] = neighbour;
+  ordered[targetIndex] = moved;
+  return ordered.flatMap((symbol, displayOrder) =>
+    symbol.displayOrder === displayOrder
+      ? []
+      : [{ displayOrder, symbolId: symbol.id }],
+  );
+}
+
+export function applySymbolDisplayOrderChanges(
+  symbols: readonly SymbolResponse[],
+  changes: readonly SymbolDisplayOrderChange[],
+): readonly SymbolResponse[] {
+  const orderById = new Map(
+    changes.map((change) => [change.symbolId, change.displayOrder]),
+  );
+  return symbols
+    .map((symbol) => {
+      const displayOrder = orderById.get(symbol.id);
+      return displayOrder === undefined ? symbol : { ...symbol, displayOrder };
+    })
+    .sort(compareSymbols);
+}

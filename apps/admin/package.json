@@ -10,6 +10,7 @@
     "lint": "eslint .",
     "test": "node --experimental-strip-types --test test/*.test.mjs",
     "test:geometry": "tsx --tsconfig tsconfig.json --test test-interactions/*.test.mjs",
+    "pretypecheck": "next typegen",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

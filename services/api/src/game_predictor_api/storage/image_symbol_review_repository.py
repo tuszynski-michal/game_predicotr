@@ -2099,6 +2099,80 @@ class SymbolCellReviewWriteThroughCoordinator:
         )
         return True
 
+    def recheck_changed_pixel_approvals(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        cell_indices: Sequence[int],
+        actor: str,
+    ) -> int:
+        """Return approvals of other pixels to verification (D-462 R10, TASK-0728).
+
+        Like the recrop suggestion (R6): the human label and its source stay
+        as the suggestion and the `approved_*` columns stay as history. An
+        approved cell can only carry `blurry`, which described the approved
+        pixels, so it is cleared. A cell that is no longer such an approval
+        is a drift and aborts.
+        """
+
+        state = self._state_if_initialized(game_id)
+        if state is None:
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
+                "The symbol-cell review projection is not ready for this game.",
+            )
+        indices = sorted(set(cell_indices))
+        cells = tuple(
+            self._session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(
+                    ImageSymbolReviewCellModel.game_id == game_id,
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                    ImageSymbolReviewCellModel.cell_index.in_(indices),
+                )
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+                .with_for_update()
+            )
+        )
+        if [cell.cell_index for cell in cells] != indices or not all(
+            cell.review_state == SymbolCellReviewState.APPROVED.value
+            and _approval_pixels_changed(cell)
+            for cell in cells
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_MIGRATION_DRIFT",
+                "A cell is no longer an approval of other pixels.",
+            )
+        count_before = tuple(_CountedCellState.from_model(cell) for cell in cells)
+        for cell in cells:
+            previous = _CellPreviousState.from_model(cell)
+            cell.review_state = SymbolCellReviewState.PENDING.value
+            if cell.quality_issue == SymbolCellQualityIssue.BLURRY.value:
+                cell.quality_issue = None
+            verification = _verification_v2(
+                review_state=cell.review_state,
+                quality_issue=cell.quality_issue,
+                assigned_symbol_id=cell.assigned_symbol_id,
+                prediction_symbol_code=cell.prediction_symbol_code,
+                assignment_source=cell.assignment_source,
+            )
+            cell.verification_outcome = verification.outcome
+            cell.verified_symbol_id_v2 = verification.verified_symbol_id
+            cell.revision += 1
+            cell.last_reviewed_by = actor
+            self._append_event(
+                cell=cell, previous=previous, action="geometry_invalidated", actor=actor
+            )
+        self._session.flush()
+        _apply_count_deltas(
+            state,
+            before=count_before,
+            after=tuple(_CountedCellState.from_model(cell) for cell in cells),
+        )
+        self._touch_catalog_revision(state)
+        return len(cells)
+
     def synchronize_for_backfill_reconciliation(
         self,
         *,
@@ -3293,15 +3367,95 @@ def _locked_board_reviews(
         cell.cell_index
         for cell in rows
         if cell.review_state == SymbolCellReviewState.APPROVED.value
-        and symbol_cell_approval_pixels_changed(
-            asset_mode=cell.asset_mode,
-            crop_checksum_sha256=cell.crop_checksum_sha256,
-            approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
-            rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
-            approved_rendered_pixel_checksum_sha256=cell.approved_rendered_pixel_checksum_sha256,
-        )
+        and _approval_pixels_changed(cell)
     )
     return reviews, stale_approvals
+
+
+def _approval_pixels_changed(cell: ImageSymbolReviewCellModel) -> bool:
+    return symbol_cell_approval_pixels_changed(
+        asset_mode=cell.asset_mode,
+        crop_checksum_sha256=cell.crop_checksum_sha256,
+        approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
+        rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
+        approved_rendered_pixel_checksum_sha256=cell.approved_rendered_pixel_checksum_sha256,
+    )
+
+
+def active_symbol_codes_by_id(session: Session, game_id: UUID) -> dict[UUID, str]:
+    """Active symbol codes of one game keyed by symbol id."""
+
+    return _active_symbol_maps(session, game_id)[0]
+
+
+@dataclass(frozen=True, slots=True)
+class CellLevelBoardAssessment:
+    """What D-462 decides for one board from its current cell rows."""
+
+    changed_pixel_approvals: frozenset[int]
+    resolution_after_recheck: str | None
+    blocker: str | None
+
+
+def assess_cell_level_board(
+    *,
+    item: ImageReviewItemModel,
+    board: RecognizedBoardModel,
+    cells: Sequence[ImageSymbolReviewCellModel],
+    symbol_code_by_id: Mapping[UUID, str],
+) -> CellLevelBoardAssessment:
+    """Mirror `synchronize_board_from_cells` without locks or writes (TASK-0728).
+
+    Approvals of other pixels count as rechecked (pending); the result is the
+    board decision the cells would derive after that recheck.
+    """
+
+    changed = frozenset(
+        cell.cell_index
+        for cell in cells
+        if cell.review_state == SymbolCellReviewState.APPROVED.value
+        and _approval_pixels_changed(cell)
+    )
+    if item.status != "pending" or board.completeness_status == "pending_partial":
+        return CellLevelBoardAssessment(changed, None, None)
+    sequence_number = _current_sequence_number(item=item, board=board)
+    if sequence_number is None:
+        return CellLevelBoardAssessment(changed, None, "SYMBOL_CELL_REVIEW_SEQUENCE_MISSING")
+    topology = _board_topology(board)
+    visible = sorted(
+        (
+            cell
+            for cell in cells
+            if cell.recognized_board_id == board.id
+            and (cell.source_available is True or cell.source_visibility == "outside")
+        ),
+        key=lambda cell: cell.cell_index,
+    )
+    if [cell.cell_index for cell in visible] != list(range(topology.cell_count)) or any(
+        cell.sequence_number != sequence_number or cell.geometry_revision != board.geometry_revision
+        for cell in visible
+    ):
+        return CellLevelBoardAssessment(changed, None, "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE")
+    try:
+        reviews = tuple(
+            replace(review, review_state=SymbolCellReviewState.PENDING)
+            if review.cell_index in changed
+            else review
+            for review in (
+                _symbol_cell_review_from_model(cell, symbol_code_by_id=symbol_code_by_id)
+                for cell in visible
+            )
+        )
+    except SymbolCellReviewError as error:
+        return CellLevelBoardAssessment(changed, None, error.code)
+    resolution = derive_symbol_cell_board_resolution(
+        reviews=reviews,
+        active_symbol_codes=tuple(symbol_code_by_id.values()),
+        topology=topology,
+    )
+    return CellLevelBoardAssessment(
+        changed, None if resolution is None else resolution.action.value, None
+    )
 
 
 def _symbol_cell_review_order_columns() -> tuple[Any, Any, Any]:
@@ -4814,6 +4968,9 @@ def _current_cropper_version(
 
 
 __all__ = [
+    "CellLevelBoardAssessment",
+    "active_symbol_codes_by_id",
+    "assess_cell_level_board",
     "SqlAlchemySymbolCellReviewQueryRepository",
     "SqlAlchemySymbolCellReviewMutationRepository",
     "SqlAlchemyUnreadableBoardReviewRepository",

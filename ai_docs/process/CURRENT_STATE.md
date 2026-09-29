@@ -81,6 +81,14 @@ last_updated: 2026-09-29
   Widoki `needs_validation`/`needs_correction`/`all` zostają jako diagnostyka
   tylko do odczytu. Etap B zakończony; etap C (TASK-0728) wymaga osobnej
   decyzji operatora, a apply dopiero po preview i zgodzie.
+- TASK-0727 commit `v1.7.56` / `7fd01d92`.
+- Etap C (polecenie operatora 2026-09-29: „zatrzymaj się po podglądzie”).
+  TASK-0728 blocked na zgodę: skrypt `migrate_cell_level_verification.py`
+  (`preview`/`apply`) gotowy; preview gry `777` tylko do odczytu
+  (`artifacts/cell-level-migration/preview-777.json`, `previewSha256`
+  `dca87df2…5e78`): odświeżenie 37 779 dokumentów wyszukiwania, 456 komórek
+  / 113 plansz wraca do weryfikacji, 3 plansze `accepted` (sekwencje 81,
+  104, 106) zostaną ponownie otwarte, 0 domknięć. Apply nie był uruchomiony.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

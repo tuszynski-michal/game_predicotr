@@ -186,6 +186,72 @@ class SqlAlchemyBoardSearchProjectionRepository:
         for review_item_id in sorted(set(review_item_ids), key=str):
             self.sync_review_item(review_item_id)
 
+    def stale_review_item_ids(self, review_item_ids: Sequence[UUID]) -> frozenset[UUID]:
+        """Items whose stored search documents differ from the current records.
+
+        Read-only (TASK-0728): a missing, extra or different candidate, or a
+        sequence document owned by the item that differs from its candidate.
+        """
+
+        ids = sorted(set(review_item_ids), key=str)
+        if not ids:
+            return frozenset()
+        rows = self._session.execute(
+            select(
+                ImageReviewItemModel,
+                RecognizedBoardModel,
+                SourceImageModel,
+                JobModel,
+            )
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .where(ImageReviewItemModel.id.in_(ids))
+        ).all()
+        payloads = _payloads_from_rows(
+            self._session,
+            tuple(cast(ReviewProjectionRow, row) for row in rows),
+        )
+        expected = {payload.candidate.review_item_id: payload for payload in payloads}
+        mobile_codes_by_game = _symbol_mobile_codes_by_game(self._session, payloads)
+        stored = {
+            candidate.review_item_id: candidate
+            for candidate in self._session.scalars(
+                select(ImageBoardSearchCandidateModel).where(
+                    ImageBoardSearchCandidateModel.review_item_id.in_(ids)
+                )
+            )
+        }
+        stale: set[UUID] = set()
+        for review_item_id in ids:
+            payload = expected.get(review_item_id)
+            candidate = stored.get(review_item_id)
+            if payload is None or candidate is None:
+                if payload is not None or candidate is not None:
+                    stale.add(review_item_id)
+                continue
+            values = _candidate_values(payload, mobile_codes_by_game[payload.game_id])
+            if any(
+                _comparable(getattr(candidate, key)) != _comparable(value)
+                for key, value in values.items()
+            ):
+                stale.add(review_item_id)
+        for document in self._session.scalars(
+            select(ImageBoardSearchFastDocumentModel).where(
+                ImageBoardSearchFastDocumentModel.review_item_id.in_(ids)
+            )
+        ):
+            owner = stored.get(document.review_item_id)
+            if owner is None or any(
+                _comparable(getattr(document, key)) != _comparable(value)
+                for key, value in _fast_document_values(owner).items()
+            ):
+                stale.add(document.review_item_id)
+        return frozenset(stale)
+
     def sync_sequence_candidates(self, game_id: UUID, sequence_number: int) -> None:
         """Refresh every current candidate that could own one sequence document."""
 
@@ -1439,6 +1505,14 @@ def _positive_evidence_expression(
 
 def _sequence_sort_key(value: tuple[UUID, int]) -> tuple[str, int]:
     return str(value[0]), value[1]
+
+
+def _comparable(value: object) -> object:
+    """Stored JSONB/ARRAY lists and freshly built tuples compare by content."""
+
+    if isinstance(value, list | tuple):
+        return tuple(_comparable(item) for item in value)
+    return value
 
 
 __all__ = [

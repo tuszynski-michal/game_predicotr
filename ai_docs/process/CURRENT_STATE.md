@@ -68,6 +68,12 @@ last_updated: 2026-09-29
   bez planszy, jedna pozycja na slot, `reportedCellIndices`,
   `counts.correction`); zapis korekty używa istniejących ścieżek jednej
   planszy.
+- TASK-0725 commit `v1.7.54` / `1bb37684`.
+- TASK-0726 done: port 3001 pokazuje wyłącznie ekran „Korekta cięcia siatki”
+  (jedna plansza naraz z kolejki `correction`, zapis i następna plansza,
+  wyróżnione zgłoszone pola); bez zakładek i walidacji gotowych siatek.
+  Admin kieruje do tej kolejki. Stare moduły i endpointy zatwierdzania siatek
+  usuwa TASK-0727.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

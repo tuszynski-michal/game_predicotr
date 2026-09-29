@@ -99,20 +99,22 @@ test('distinguishes an unfinished image import from no image import', () => {
   assert.equal(reviewReadyImports([processing], gameId).length, 0);
 });
 
-test('opens local grid validation for current boards or deferred geometry', () => {
+test('opens the local correction screen only for a non-empty correction queue', () => {
   const grid = {
     approved: 0,
+    correction: 0,
     needsCorrection: 0,
     needsValidation: 0,
   };
   const deferred = { pending: 0, resolved: 0, superseded: 0, total: 0 };
 
   assert.equal(hasReviewerWork(grid, deferred), false);
+  // D-462: boards waiting for the removed validation are no work anymore.
   assert.equal(
-    hasReviewerWork({ ...grid, needsValidation: 1 }, deferred),
-    true,
+    hasReviewerWork({ ...grid, needsValidation: 5 }, deferred),
+    false,
   );
-  assert.equal(hasReviewerWork(grid, { ...deferred, pending: 1 }), true);
+  assert.equal(hasReviewerWork({ ...grid, correction: 1 }, deferred), true);
   assert.equal(hasReviewerWork(null, { ...deferred, pending: 1 }), false);
 });
 

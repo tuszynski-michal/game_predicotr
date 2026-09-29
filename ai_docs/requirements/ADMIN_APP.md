@@ -450,76 +450,45 @@ zwinięcie sekcji odrzuca wynik (także spóźnioną odpowiedź), więc ponowne
 otwarcie zawsze liczy od nowa i uwzględnia symbole zweryfikowane w
 międzyczasie (D-462, TASK-0722).
 
-### Walidacja cięcia siatki 0.9
+### Korekta cięcia siatki
 
-**D-462 (etap B planu `CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md`):** opisany
-niżej workflow walidacji gotowych siatek zostanie zastąpiony jedną kolejką
-„Korekta cięcia siatki” z jedną planszą naraz. Od TASK-0723 zatwierdzenie
-geometrii nie jest warunkiem domknięcia planszy ani użycia jej symboli;
-szybkie zatwierdzenie siatki pozostaje technicznie dostępne do etapu B i
-oznacza geometrię wyłącznie dla kalibracji, stanu kolejki siatek oraz ochrony
-przed automatycznym przecięciem (v2).
+**D-462 (TASK-0726):** lokalny Reviewer na porcie 3001 jest jednym ekranem
+ręcznej korekty cięcia siatki. Zastąpił workflow „Walidacji cięcia siatki 0.9”
+(widoki `Do walidacji`, `Do poprawy`, `Wszystkie`, całe zdjęcie z dziewięcioma
+planszami i `Zatwierdź całe zdjęcie`). Nie ma osobnego zatwierdzania
+poprawności planszy, zdjęcia, siatki ani kompletu symboli.
 
-Docelowy workflow geometrii korzysta z jednej kolejki całej gry z widokami
-`Do walidacji`, `Do poprawy` i `Wszystkie` oraz opcjonalnym zawężeniem do
-importu. Każdy logiczny numer planszy występuje najwyżej raz: źródłem pozycji
-jest bieżący właściciel szybkiej projekcji wyszukiwania, a nie suma stagingów.
+Kolejka jest jedna (`GET .../grid-reviews?view=correction`, `API_CONTRACT.md`):
+plansze, których geometrii algorytm nie wyznaczył albo ją odrzucił
+(odroczona geometria `pending`), oraz plansze z co najmniej jedną komórką
+zgłoszoną w `Weryfikacji symboli` jako `Zła siatka`. Jeden slot planszy
+występuje raz niezależnie od liczby zgłoszeń; zgłoszenie jednej planszy nie
+kieruje do korekty innych plansz tego samego zdjęcia. Kolejka jest zawężona do
+importu wybranego w Adminie.
 
-Lista jest pobierana bounded keysetem. Szybkie zatwierdzenie zawsze dotyczy
-dokładnej rewizji decyzji i geometrii, checksummy oraz wymiarów źródła i
-przypiętej topologii. Zmiana któregokolwiek elementu po załadowaniu ekranu
-powoduje czytelny konflikt i wymaga odświeżenia pozycji. Źródło obrazu jest
-checksum-bound i nie ujawnia ścieżki systemowej.
+Ekran pokazuje dokładnie jedną planszę i jej siatkę: wycinek oryginału wokół
+planszy z czterema narożnikami, numer planszy, pozycję na stronie oraz powód
+(odroczenie algorytmu albo zgłoszone pola, wyróżnione także w podglądzie
+cropów). Operator przeciąga narożniki albo całą siatkę, ogląda aktualny
+podgląd 15 cropów, zapisuje i automatycznie przechodzi do następnej planszy.
+Licznik `Do korekty` oraz przyciski `Poprzednia` / `Pomiń na razie` służą
+wyłącznie nawigacji. `Niepełna plansza` jest dostępna dla slotów odroczonych i
+plansz `virtual_source`; plansza z zapisaną kwalifikacją geometrii otwiera się
+z nią i zapis ją zachowuje (także `complete`).
 
-Preview oraz zapis korekty otrzymują cztery narożniki w przestrzeni obrazu
-źródłowego i topologię gry. Liczba zwracanych cropów wynika z `rows × columns`,
-nie ze stałej 15. Autor decyzji pochodzi z lokalnego, uwierzytelnionego
-kontekstu Admin API.
+Zapis geometrii kończy zadanie korekty i nie weryfikuje symboli. Usuwa
+zgłoszenia `Zła siatka` tej planszy; komórki o zmienionym wycinku wracają do
+zwykłej `Weryfikacji symboli` z dotychczasową etykietą jako podpowiedzią, a
+komórki o niezmienionych pikselach zachowują weryfikację (D-462 R5/R6).
+Zapis dotyczy wyłącznie tej jednej planszy.
 
-Lokalny Reviewer otwiera domyślnie ekran `Zatwierdzanie cięcia siatki` z jednym
-  oryginalnym obrazem i stale widocznym canvasowym overlayem. Obraz otwiera się
-  domyślnie przy powiększeniu 100%. Naciśnięcie widocznej siatki wybiera
-  odpowiadającą jej planszę, a ten sam gest może od razu przeciągnąć narożnik lub
-  cały quad, bez osobnego przycisku i bez przełącznika widoczności overlayu. Szkic obejmuje cały
-komplet aktywnych plansz źródła, dlatego przełączenie planszy nie usuwa
-wcześniejszej korekty. Hit-test zawsze odpowiada geometrii aktualnie rysowanej
-na overlayu, także po lokalnym przesunięciu. Filtry mają kolejność `Do
-walidacji`, `Do poprawy`, `Wszystkie`. `Enter`, `F` i główny przycisk
-zatwierdzają bieżącą geometrię i przechodzą do następnego rekordu. Jeżeli jedno
-źródło zawiera wiele aktywnych plansz, `Zatwierdź całe zdjęcie` wysyła jeden
-checksum- i revision-bound rozkaz: bez zmian zatwierdza bieżący komplet, a z
-aktywnym szkicem atomowo zapisuje i zatwierdza geometrię wszystkich plansz albo
-nie zapisuje żadnej. `Enter` i `F` wykonują dokładnie tę samą akcję co główny
-przycisk. Korekta pozwala wskazać kolejno LT, PT, PD i LD,
-przeciągać narożniki lub całą siatkę, cofać punkt, resetować szkic oraz obejrzeć
-dynamiczne `rows × columns` cropy przed atomowym zapisem i zatwierdzeniem
-rewizji. Wstrzymanie edycji zachowuje kompletny albo częściowy szkic oraz panel
-A/B; ponowne wejście kontynuuje ten szkic. Do czasu zapisu albo jawnego resetu
-zwykłe zatwierdzenie i nawigacja są zablokowane.
-Dla `virtual_source` przycisk `Wyznacz plansze osobno` prowadzi przez cztery
-narożniki każdej aktywnej planszy w kolejności
-row-major; zapis jest dostępny dopiero po komplecie wszystkich slotów i tworzy
-jedną rewizję geometrii źródła. Lokalny szkic każdego slotu pozostaje widoczny
-po przełączeniu planszy oraz po wstrzymaniu i wznowieniu tego trybu, ale nie
-jest trwałą rewizją przed wspólnym zapisem. Ekran nie pozwala edytować symboli
-i nie zapisuje JPEG-a z overlayem. Globalny backfill rolloutu może być w toku,
-nie rozpocząć się albo zostać zablokowany przez inne źródło; sam w sobie nie
-blokuje lokalnej korekty kompletnego bieżącego źródła. Przed zapisem backend
-nadal checksum-bound waliduje dokładnie to źródło, jego topologię, rewizje,
-render spec oraz komplet komórek, więc niepełna proweniencja konkretnej planszy
-pozostaje fail-closed.
-Lokalny origin Reviewera dostaje wyłącznie scope-bound ścieżki szybkiego
-zatwierdzania i wspólnego zapisu geometrii źródła; nie otrzymuje dostępu do
-pozostałych mutacji panelu Admina. `127.0.0.1`, `localhost` i `[::1]` są
-równoważne wyłącznie jako spelling tego samego skonfigurowanego originu HTTP i
-portu lokalnego Reviewera; inny port oraz każdy origin LAN/publiczny pozostają
-odrzucone.
-
-Nowy workflow jest obowiązującym lokalnym widokiem. Zdalna sesja Reviewera
-zachowuje wąsko ograniczoną ścieżkę operacyjną i nie otrzymuje game-wide
-endpointów administracyjnych. Lokalny Reviewer nie ma już przełącznika powrotu
-do poprzedniego widoku; rollback polega na wyłączeniu nowych mutacji i
-zachowaniu danych 0.9, nie na uruchomieniu starego lokalnego UI.
+Admin nazywa sekcję uruchamiającą Reviewer „Korekta cięcia siatki” i pokazuje
+liczbę plansz do korekty dla wybranego importu oraz liczbę geometrii
+odroczonych przez algorytm. „Otwórz lokalnie” jest aktywne tylko przy
+niepustej kolejce; pusta kolejka ma jawny komunikat. Lokalny origin Reviewera korzysta ze scope-bound ścieżek listy
+kolejki, źródła oraz podglądu i zapisu geometrii jednej planszy (TASK-0727
+usuwa ścieżki dawnej walidacji); inny port oraz każdy origin LAN/publiczny
+pozostają odrzucone. Zdalna sesja Reviewera nie otrzymuje tych ścieżek.
 
 ### Katalog symboli i grafiki referencyjne
 

@@ -1,9 +1,6 @@
 'use client';
 
-import type {
-  BoardCellGeometryCorrectionContextResponse,
-  OperationalImageReviewGeometryPoint,
-} from '@game-predictor/admin-api-client';
+import type { OperationalImageReviewGeometryPoint } from '@game-predictor/admin-api-client';
 import {
   type PointerEvent as ReactPointerEvent,
   useCallback,
@@ -22,19 +19,14 @@ import {
 } from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
 
 import {
-  type DeferredBoardCellGeometryClient,
-  loadDeferredBoardCellGeometryContext,
-  previewDeferredBoardCellGeometry,
-  resolveDeferredBoardCellGeometry,
-} from './deferred-board-cell-geometry-actions';
+  type BoardGeometryCorrectionTarget,
+  type BoardGeometryCorrectionView,
+  copyCorners,
+  deferredBoardGeometryTarget,
+} from './board-geometry-correction-target';
+import type { DeferredBoardCellGeometryClient } from './deferred-board-cell-geometry-actions';
 import {
-  deferredBoardCellGeometryCommandKey,
-  deferredBoardCellGeometryCorners,
   deferredBoardCellGeometryIdempotency,
-  deferredBoardCellGeometryPreviewCommand,
-  deferredBoardCellGeometryReasonLabel,
-  deferredBoardCellGeometryResolutionCommand,
-  deferredBoardCellGeometrySourceUrl,
   type DeferredBoardCellGeometryIdempotency,
 } from './deferred-board-cell-geometry-state';
 import {
@@ -67,6 +59,42 @@ export function DeferredBoardCellGeometryEditor({
   readonly onMaterialized: (reviewItemId: string | null) => Promise<void>;
   readonly scope: { readonly gameId: string; readonly importJobId: string };
 }) {
+  const target = useMemo(
+    () =>
+      deferredBoardGeometryTarget({
+        api,
+        apiBaseUrl,
+        pendingId: itemId,
+        scope,
+      }),
+    [api, apiBaseUrl, itemId, scope],
+  );
+  return (
+    <BoardGeometryCorrectionEditor
+      canvasLabel="Odroczona plansza z edytowalną siatką 5 na 3"
+      onConflict={onConflict}
+      onSaved={onMaterialized}
+      target={target}
+    />
+  );
+}
+
+/**
+ * Corrects the grid of exactly one board (D-462): a deferred slot or a
+ * current board with `Zła siatka` reports. Saving the geometry finishes the
+ * correction; it never approves symbols, the board or its photo.
+ */
+export function BoardGeometryCorrectionEditor({
+  canvasLabel = 'Plansza z edytowalną siatką 5 na 3',
+  onConflict,
+  onSaved,
+  target,
+}: {
+  readonly canvasLabel?: string;
+  readonly onConflict: (message: string) => Promise<void>;
+  readonly onSaved: (reviewItemId: string | null) => Promise<void>;
+  readonly target: BoardGeometryCorrectionTarget;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [sourceImage, setSourceImage] = useState<{
     image: HTMLImageElement;
@@ -91,8 +119,9 @@ export function DeferredBoardCellGeometryEditor({
   const idempotencyRef = useRef<DeferredBoardCellGeometryIdempotency | null>(
     null,
   );
-  const [context, setContext] =
-    useState<BoardCellGeometryCorrectionContextResponse | null>(null);
+  const [context, setContext] = useState<BoardGeometryCorrectionView | null>(
+    null,
+  );
   const [contextState, setContextState] = useState<LoadState>('loading');
   const [corners, setCorners] =
     useState<OperationalReviewGeometryCorners | null>(null);
@@ -110,13 +139,13 @@ export function DeferredBoardCellGeometryEditor({
   const commandKey = useMemo(() => {
     if (context === null || corners === null) return '';
     try {
-      return deferredBoardCellGeometryCommandKey(context, corners, flags);
+      return target.commandKey(corners, flags);
     } catch {
       // Invalid qualification (e.g. "Niepełna plansza" without any field
       // marked as missing) never matches a preview; save() surfaces it.
       return '';
     }
-  }, [context, corners, flags]);
+  }, [context, corners, flags, target]);
   const previewIsCurrent = previewUrl !== null && previewKey === commandKey;
 
   useEffect(() => {
@@ -193,15 +222,16 @@ export function DeferredBoardCellGeometryEditor({
       dragIndexRef.current = null;
       gestureRef.current = null;
       translateGridRef.current = null;
-      const result = await loadDeferredBoardCellGeometryContext(
-        api,
-        scope,
-        itemId,
-      );
+      const result = await target.load();
       if (!active) return;
       if (!result.ok) {
         if (result.isConflict) {
           await onConflict(result.error);
+          // The queue may keep this board (no reload); never stay loading.
+          if (active) {
+            setContextState('error');
+            setError(result.error);
+          }
           return;
         }
         setContextState('error');
@@ -209,16 +239,20 @@ export function DeferredBoardCellGeometryEditor({
         return;
       }
       setLoadingSource(true);
-      setContext(result.context);
-      const initialCorners = deferredBoardCellGeometryCorners(result.context);
+      setContext(result.view);
+      // A board that is already partial keeps its qualification and may keep
+      // corners outside the photo.
+      setFlags(result.view.initialFlags);
+      const initialCorners = copyCorners(result.view.suggestedCorners);
       setCorners(initialCorners);
       latestCornersRef.current = initialCorners;
       setViewport(
         operationalReviewGeometryViewport(
           initialCorners,
-          result.context.sourceWidth,
-          result.context.sourceHeight,
+          result.view.sourceWidth,
+          result.view.sourceHeight,
           0.35,
+          result.view.initialFlags.partial,
         ),
       );
       setContextState('ready');
@@ -228,15 +262,9 @@ export function DeferredBoardCellGeometryEditor({
       active = false;
       previewRequestRef.current += 1;
     };
-  }, [api, clearPreview, itemId, onConflict, scope]);
+  }, [clearPreview, onConflict, target]);
 
-  const sourceUrl = useMemo(
-    () =>
-      context === null
-        ? null
-        : deferredBoardCellGeometrySourceUrl(apiBaseUrl, context.item),
-    [apiBaseUrl, context],
-  );
+  const sourceUrl = context?.sourceUrl ?? null;
 
   const centerViewport = useCallback(() => {
     if (context === null || corners === null) return;
@@ -408,13 +436,8 @@ export function DeferredBoardCellGeometryEditor({
       contextState !== 'ready'
     )
       return;
-    let command;
     try {
-      command = deferredBoardCellGeometryPreviewCommand(
-        context,
-        corners,
-        flags,
-      );
+      target.commandKey(corners, flags);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -427,12 +450,7 @@ export function DeferredBoardCellGeometryEditor({
     const requestId = ++previewRequestRef.current;
     setLoadingPreview(true);
     setError('');
-    const result = await previewDeferredBoardCellGeometry(
-      api,
-      scope,
-      itemId,
-      command,
-    );
+    const result = await target.preview(corners, flags);
     if (
       requestId !== previewRequestRef.current ||
       requestedKey !== currentCommandKeyRef.current
@@ -451,7 +469,6 @@ export function DeferredBoardCellGeometryEditor({
     setPreviewUrl(url);
     setPreviewKey(requestedKey);
   }, [
-    api,
     clearPreview,
     commandKey,
     context,
@@ -459,19 +476,26 @@ export function DeferredBoardCellGeometryEditor({
     corners,
     dragging,
     flags,
-    itemId,
     loadingSource,
     onConflict,
     saving,
-    scope,
+    target,
   ]);
 
   useEffect(() => {
-    if (dragging || loadingSource || contextState !== 'ready') return;
+    // A current preview needs no refresh; refreshing it would also clear the
+    // error of a failed save before the operator could read it.
+    if (
+      previewIsCurrent ||
+      dragging ||
+      loadingSource ||
+      contextState !== 'ready'
+    )
+      return;
     // Coalesce rapid releases/qualification changes; never request mid-drag.
     const timer = window.setTimeout(() => void refreshPreview(), 150);
     return () => window.clearTimeout(timer);
-  }, [contextState, dragging, loadingSource, refreshPreview]);
+  }, [contextState, dragging, loadingSource, previewIsCurrent, refreshPreview]);
 
   async function saveGeometry() {
     if (
@@ -490,16 +514,10 @@ export function DeferredBoardCellGeometryEditor({
     idempotencyRef.current = idempotency;
     setSaving(true);
     setError('');
-    const result = await resolveDeferredBoardCellGeometry(
-      api,
-      scope,
-      itemId,
-      deferredBoardCellGeometryResolutionCommand(
-        context,
-        corners,
-        idempotency.idempotencyKey,
-        flags,
-      ),
+    const result = await target.save(
+      corners,
+      flags,
+      idempotency.idempotencyKey,
     );
     setSaving(false);
     if (!result.ok) {
@@ -509,7 +527,7 @@ export function DeferredBoardCellGeometryEditor({
     }
     idempotencyRef.current = null;
     clearPreview();
-    await onMaterialized(result.resolution.reviewItemId);
+    await onSaved(result.reviewItemId);
   }
 
   function updateCanvasGesture(event: ReactPointerEvent<HTMLCanvasElement>) {
@@ -673,26 +691,12 @@ export function DeferredBoardCellGeometryEditor({
   return (
     <div className="deferredGeometryEditor">
       <div className="deferredGeometryMetadata">
-        <div>
-          <span>Numer planszy</span>
-          <strong>{context.item.sequenceNumber.toLocaleString('pl-PL')}</strong>
-        </div>
-        <div>
-          <span>Pozycja na stronie</span>
-          <strong>{context.item.positionIndex + 1} / 9</strong>
-        </div>
-        <div>
-          <span>Powód odroczenia</span>
-          <strong>
-            {deferredBoardCellGeometryReasonLabel(context.item.reasonCode)}
-          </strong>
-        </div>
-        <div>
-          <span>Plik</span>
-          <strong title={context.item.sourceRelativePath}>
-            {context.item.sourceRelativePath}
-          </strong>
-        </div>
+        {context.metadata.map((fact) => (
+          <div key={fact.label}>
+            <span>{fact.label}</span>
+            <strong title={fact.title}>{fact.value}</strong>
+          </div>
+        ))}
       </div>
 
       <div className="operationalReviewGeometryBody deferredGeometryBody">
@@ -713,7 +717,7 @@ export function DeferredBoardCellGeometryEditor({
               className="textButton"
               disabled={saving || dragging}
               onClick={() =>
-                replaceCorners(deferredBoardCellGeometryCorners(context), {
+                replaceCorners(copyCorners(context.suggestedCorners), {
                   recenterViewport: true,
                 })
               }
@@ -734,7 +738,7 @@ export function DeferredBoardCellGeometryEditor({
           </div>
           {loadingSource ? <p>Wczytywanie obrazu…</p> : null}
           <canvas
-            aria-label="Odroczona plansza z edytowalną siatką 5 na 3"
+            aria-label={canvasLabel}
             className="operationalReviewGeometryCanvas deferredGeometryCanvas"
             onLostPointerCapture={(event) => finishCanvasGesture(event, true)}
             onPointerCancel={(event) => finishCanvasGesture(event, true)}
@@ -752,6 +756,7 @@ export function DeferredBoardCellGeometryEditor({
           />
           <fieldset
             disabled={saving || dragging}
+            hidden={!context.supportsPartial}
             style={{ border: 0, fontSize: '0.85rem' }}
           >
             <legend>Dostępne {15 - unavailable.length}/15</legend>
@@ -843,21 +848,27 @@ export function DeferredBoardCellGeometryEditor({
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img alt="Kontaktowy podgląd 15 cropów" src={previewUrl} />
               <div
-                aria-label="Podgląd 15 cropów odroczonej planszy"
+                aria-label="Podgląd 15 cropów planszy"
                 className="operationalReviewGeometryCrops"
               >
                 {Array.from({ length: 15 }, (_, index) => {
                   const row = Math.floor(index / 5);
                   const column = index % 5;
+                  const reported = context.reportedCellIndices.includes(index);
                   return (
                     <div
-                      aria-label={`Crop ${index + 1}`}
+                      aria-label={
+                        reported
+                          ? `Crop ${index + 1} — zgłoszona zła siatka`
+                          : `Crop ${index + 1}`
+                      }
                       key={index}
                       role="img"
                       style={{
                         backgroundImage: `url("${previewUrl}")`,
                         backgroundPosition: `${column * 25}% ${row * 50}%`,
                         backgroundSize: '500% 300%',
+                        outline: reported ? '3px solid #b42318' : undefined,
                       }}
                     />
                   );
@@ -875,10 +886,7 @@ export function DeferredBoardCellGeometryEditor({
       ) : null}
 
       <div className="deferredGeometrySaveBar">
-        <span>
-          Zapis utworzy zwykłą planszę oczekującą na zatwierdzenie symboli. Nie
-          zatwierdzi jej automatycznie.
-        </span>
+        <span>{context.saveHint}</span>
         <button
           className="primaryButton"
           disabled={!previewIsCurrent || saving || loadingPreview}

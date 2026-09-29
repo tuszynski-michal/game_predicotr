@@ -59,8 +59,6 @@ export function ImportGeometryReviewSummary({
       setError('Korekta jest dostępna tylko w lokalnym Adminie.');
       return;
     }
-    const url = new URL(base);
-    url.searchParams.set('gridView', 'needs_correction');
     const popup = prepareLocalReviewerWindow(
       window.location.href,
       input,
@@ -78,7 +76,7 @@ export function ImportGeometryReviewSummary({
       }
       if (
         !popup ||
-        !navigatePreparedLocalReviewerWindow(popup, url.toString())
+        !navigatePreparedLocalReviewerWindow(popup, base)
       ) {
         setError(
           'Przeglądarka zablokowała otwarcie Reviewera. Zezwól na nowe okno i spróbuj ponownie.',
@@ -99,10 +97,9 @@ export function ImportGeometryReviewSummary({
       <summary>Siatki i ręczna korekta</summary>
       {counts ? (
         <p>
-          Pełne siatki: {counts.fullGrids} · boczne partiale do potwierdzenia:{' '}
-          {counts.lateralPartialProposals} · potwierdzone partiale:{' '}
-          {counts.confirmedPartialGrids} · ręczne ustawienie:{' '}
-          {counts.manualCorrection} · błędy techniczne: {technicalErrorCount}
+          Pełne siatki: {counts.fullGrids} · potwierdzone partiale:{' '}
+          {counts.confirmedPartialGrids} · do korekty cięcia siatki:{' '}
+          {counts.correction ?? 0} · błędy techniczne: {technicalErrorCount}
         </p>
       ) : null}
       <button

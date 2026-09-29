@@ -161,7 +161,7 @@ export function ReviewerAccessLauncher({
             gameId,
             importJobId: jobId,
             limit: 1,
-            view: 'all',
+            view: 'correction',
           }),
           api.listPendingBoardCellGeometry({
             gameId,
@@ -267,10 +267,11 @@ export function ReviewerAccessLauncher({
       <header className="pageHeader">
         <div>
           <p className="eyebrow">Osobna aplikacja</p>
-          <h1>Zatwierdzanie cięcia siatki</h1>
+          <h1>Korekta cięcia siatki</h1>
           <p className="lead">
-            Otwórz lokalny Reviewer, aby osobno zatwierdzić geometrię plansz 3×3
-            lub poprawić wewnętrzne siatki symboli 3×5.
+            Otwórz lokalny Reviewer, aby poprawić siatkę plansz odrzuconych
+            przez algorytm albo zgłoszonych jako „Zła siatka”. Jedna plansza
+            naraz; zapis nie zatwierdza symboli.
           </p>
         </div>
       </header>
@@ -383,37 +384,36 @@ export function ReviewerAccessLauncher({
             </div>
           </div>
         ) : gridReviewCounts && deferredGeometryCounts ? (
-          <dl
-            className="reviewerReadinessSummary"
-            aria-label="Stan plansz importu"
-          >
-            <div>
-              <dt>Geometria plansz ze stron 3×3</dt>
-              <dd>
-                {gridReviewTotal(gridReviewCounts).toLocaleString('pl-PL')}
-              </dd>
-            </div>
-            <div>
-              <dt>3×3 do walidacji</dt>
-              <dd>
-                {gridReviewCounts.needsValidation.toLocaleString('pl-PL')}
-              </dd>
-            </div>
-            <div>
-              <dt>3×3 zatwierdzone</dt>
-              <dd>{gridReviewCounts.approved.toLocaleString('pl-PL')}</dd>
-            </div>
-            <div>
-              <dt>3×3 do korekty obrysu</dt>
-              <dd>
-                {gridReviewCounts.needsCorrection.toLocaleString('pl-PL')}
-              </dd>
-            </div>
-            <div>
-              <dt>Niepełne siatki symboli 3×5 do ręcznej korekty</dt>
-              <dd>{deferredGeometryCounts.pending.toLocaleString('pl-PL')}</dd>
-            </div>
-          </dl>
+          <>
+            <dl
+              className="reviewerReadinessSummary"
+              aria-label="Stan plansz importu"
+            >
+              <div>
+                <dt>Geometria plansz ze stron 3×3</dt>
+                <dd>
+                  {gridReviewTotal(gridReviewCounts).toLocaleString('pl-PL')}
+                </dd>
+              </div>
+              <div>
+                <dt>Plansze do korekty cięcia siatki</dt>
+                <dd>
+                  {(gridReviewCounts.correction ?? 0).toLocaleString('pl-PL')}
+                </dd>
+              </div>
+              <div>
+                <dt>Geometrie odroczone przez algorytm</dt>
+                <dd>
+                  {deferredGeometryCounts.pending.toLocaleString('pl-PL')}
+                </dd>
+              </div>
+            </dl>
+            {(gridReviewCounts.correction ?? 0) === 0 ? (
+              <p className="mutedText" role="status">
+                Brak plansz do korekty cięcia siatki w tym imporcie.
+              </p>
+            ) : null}
+          </>
         ) : null}
 
         {error ? (

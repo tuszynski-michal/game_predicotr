@@ -113,8 +113,9 @@ const GAME_SECTION_OPTIONS: readonly {
   },
   {
     id: 'reviews',
-    title: 'Zatwierdzanie cięcia siatki',
-    description: 'Walidacja i korekta geometrii plansz w aplikacji Reviewer.',
+    title: 'Korekta cięcia siatki',
+    description:
+      'Ręczna korekta siatki jednej planszy naraz w aplikacji Reviewer.',
   },
   {
     id: 'unreadable-symbols',

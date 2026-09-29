@@ -62,10 +62,12 @@ test('grid reviewer owns the dark application foundation and styled controls', (
 test('local grid workspace keeps remote reviewer on the restricted legacy path', () => {
   assert.match(gate, /gridValidationEnabled[\s\S]*LocalReviewerWorkspace/);
   assert.match(gate, /OperationalReviewWorkspace/);
-  assert.match(localWorkspace, /GridReviewWorkspace/);
-  assert.match(localWorkspace, /OperationalReviewWorkspace/);
-  assert.match(localWorkspace, /listPendingBoardCellGeometry/);
-  assert.match(localWorkspace, /Niepełne siatki do ręcznej korekty/);
+  // D-462: the local Reviewer is only the single correction screen.
+  assert.match(localWorkspace, /BoardGeometryCorrectionWorkspace/);
+  assert.doesNotMatch(
+    localWorkspace,
+    /GridReviewWorkspace|OperationalReviewWorkspace|Walidacja gotowych siatek|Niepełne siatki/,
+  );
   assert.match(page, /gridValidationEnabled=\{localMode\}/);
   assert.doesNotMatch(page, /REVIEWER_GRID_VALIDATION/);
   assert.doesNotMatch(proxy, /\/grid-reviews/);

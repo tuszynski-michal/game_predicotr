@@ -556,11 +556,13 @@ npm run reviewer:build
 
 Następnie:
 
-1. w Adminie otwórz `Zatwierdzanie`,
+1. w Adminie otwórz `Korekta cięcia siatki`,
 2. wybierz aktywną grę i jej import zdjęć,
 3. kliknij `Otwórz lokalnie`,
 4. Reviewer uruchomi się pod `http://127.0.0.1:3001` i od razu otworzy wybrany
-   import bez tunelu oraz kodu w widoku `Zatwierdzanie cięcia siatki`.
+   import bez tunelu oraz kodu w widoku `Korekta cięcia siatki` — jedna
+   plansza naraz z kolejki plansz odrzuconych przez algorytm albo zgłoszonych
+   jako `Zła siatka` (D-462).
 
 Lokalny widok geometrii jest obowiązującym workflowem i nie ma zmiennej
 przywracającej poprzedni ekran. Sekcja nie tworzy linków online, assignmentów,
@@ -866,7 +868,7 @@ decyzji i kopii danych.
 ## Czasowy link HTTPS do zdalnej ręcznej selekcji
 
 Ten tryb dotyczy wyłącznie purpose-scoped zdalnej ręcznej selekcji zdjęć.
-Nie udostępnia ekranu `Zatwierdzanie cięcia siatki`, który jest wyłącznie
+Nie udostępnia ekranu `Korekta cięcia siatki`, który jest wyłącznie
 lokalny. Admin, API, PostgreSQL i worker pozostają na `127.0.0.1`. Nie
 konfiguruj przekierowania portów routera.
 

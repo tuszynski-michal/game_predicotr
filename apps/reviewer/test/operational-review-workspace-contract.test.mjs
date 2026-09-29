@@ -156,7 +156,7 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(deferredGeometryEditor, /replaceCorners\(next\);/);
   assert.match(
     deferredGeometryEditor,
-    /replaceCorners\(deferredBoardCellGeometryCorners\(context\), \{\s*recenterViewport: true,/,
+    /replaceCorners\(copyCorners\(context\.suggestedCorners\), \{\s*recenterViewport: true,/,
   );
   assert.match(deferredGeometryEditor, /onPointerDown=\{startCanvasGesture\}/);
   assert.match(deferredGeometryEditor, /Zapisz geometrię i dalej/);

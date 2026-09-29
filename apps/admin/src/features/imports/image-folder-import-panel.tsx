@@ -1656,8 +1656,7 @@ export function ImageFolderImportPanel({
                     <p className="curatedImportStatus">
                       Ten staging nie wymaga ponownego importu. Weryfikacja
                       symboli nie zmienia statusu importu plansz. Brakujące
-                      geometrie popraw w „Zatwierdzanie cięcia siatki” →
-                      „Niepełne siatki do ręcznej korekty”.
+                      geometrie popraw w „Korekta cięcia siatki”.
                     </p>
                   ) : null}
                   {active && preflight !== null ? (

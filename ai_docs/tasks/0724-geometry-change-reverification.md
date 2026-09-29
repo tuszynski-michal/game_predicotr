@@ -83,7 +83,12 @@ poprzedniego symbolu: `assigned_symbol_id` z decyzji człowieka,
   `services/api/tests/integration/test_verified_cell_search_projection.py`.
   Świadoma zmiana kontraktu: asercje w
   `services/api/tests/integration/test_image_batch_store.py` (~1515–1523),
-  że akceptacja przetrwa zmieniony crop.
+  że akceptacja przetrwa zmieniony crop. Ten sam test
+  (`test_symbol_cell_mutations_close_and_reopen_one_board_atomically`) pada
+  już na HEAD przy ~1559, bo `grid_issue` przetrwa zapis geometrii (R5), a
+  przy ~1630 oczekuje domknięcia z akceptacji starych cropów, co od
+  TASK-0723 (R10) jest niemożliwe — T4 aktualizuje go tak, aby zmienione
+  komórki zostały ponownie zatwierdzone przed oczekiwaniem `corrected`.
 
 ## Test cases
 

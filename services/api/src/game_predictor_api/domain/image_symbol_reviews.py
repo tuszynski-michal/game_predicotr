@@ -929,17 +929,21 @@ def derive_symbol_cell_board_resolution(
     reviews: Sequence[SymbolCellReview],
     active_symbol_codes: Iterable[str],
     topology: BoardTopology = LEGACY_IMAGE_BOARD_TOPOLOGY,
-    geometry_approved: bool = True,
+    stale_approval_cell_indices: frozenset[int] = frozenset(),
 ) -> SymbolCellBoardResolution | None:
-    """Return a full-board decision only from approved geometry and labels.
+    """Return a full-board decision derived solely from the current cells.
 
-    ``None`` means that the parent board must stay open because of pending
-    labels, a grid issue or unapproved geometry. A manually approved unknown
-    label completes the logical board but always makes its decision corrected.
+    D-462: the board is a container; approving its geometry is no condition.
+    ``None`` means that the parent board stays open because a label is pending,
+    a grid issue is reported, a position lacks full source pixels, or an
+    approval covers other pixels than the current ones
+    (``stale_approval_cell_indices``, see
+    ``symbol_cell_approval_pixels_changed``). A manually approved unknown label
+    completes the logical board but always makes its decision corrected.
     """
 
     _validate_complete_symbol_cell_reviews(reviews, topology=topology)
-    if not geometry_approved or any(review.source_visibility != "full" for review in reviews):
+    if stale_approval_cell_indices or any(review.source_visibility != "full" for review in reviews):
         return None
     active = _normalized_active_symbols(active_symbol_codes)
     ordered = tuple(sorted(reviews, key=lambda review: review.cell_index))

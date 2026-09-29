@@ -84,6 +84,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     mark_symbol_cell_unreadable,
     reassign_symbol_cell_review,
     resolve_unreadable_symbol_cell_review,
+    symbol_cell_approval_pixels_changed,
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
@@ -1201,7 +1202,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         )
         self._session.flush()
 
-        current_board_reviews = self._locked_current_board_reviews(
+        current_board_reviews, stale_approvals = self._locked_current_board_reviews(
             game_id=game_id,
             review_item_id=item.id,
             recognized_board_id=board.id,
@@ -1209,14 +1210,17 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             geometry_revision=board.geometry_revision,
             symbol_code_by_id=symbol_codes,
         )
-        board_resolution = derive_symbol_cell_board_resolution(
-            reviews=current_board_reviews,
-            active_symbol_codes=tuple(symbol_codes.values()),
-            topology=_board_topology(board),
-            geometry_approved=(
-                board.approved_geometry_revision == board.geometry_revision
-                and board.completeness_status != "pending_partial"
-            ),
+        # D-462: the cells alone close the board; geometry approval is no gate.
+        # A partial source still never publishes a complete layout (D-451).
+        board_resolution = (
+            None
+            if board.completeness_status == "pending_partial"
+            else derive_symbol_cell_board_resolution(
+                reviews=current_board_reviews,
+                active_symbol_codes=tuple(symbol_codes.values()),
+                topology=_board_topology(board),
+                stale_approval_cell_indices=stale_approvals,
+            )
         )
         any_changed = any(changed_by_cell_id.values())
         board_reopened = False
@@ -1501,7 +1505,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         sequence_number: int,
         geometry_revision: int,
         symbol_code_by_id: Mapping[UUID, str],
-    ) -> tuple[SymbolCellReview, ...]:
+    ) -> tuple[tuple[SymbolCellReview, ...], frozenset[int]]:
         board = self._session.get(RecognizedBoardModel, recognized_board_id)
         if board is None:
             raise SymbolCellReviewError(
@@ -2114,8 +2118,9 @@ class SymbolCellReviewWriteThroughCoordinator:
     ) -> bool:
         """Materialize a complete parent decision from current cell state.
 
-        Geometry approval and all current cell labels are checked again under
-        the same transaction.  Crop provenance is deliberately not promoted:
+        All current cell labels and their approved pixels are checked again
+        under the same transaction; geometry approval is no condition
+        (D-462).  Crop provenance is deliberately not promoted:
         resolving the logical board after a recrop must not make the new
         pixels training-eligible.
         """
@@ -2141,7 +2146,7 @@ class SymbolCellReviewWriteThroughCoordinator:
             return False
         topology = _board_topology(board)
         symbol_codes, _symbol_ids = _active_symbol_maps(self._session, game_id)
-        reviews = _locked_board_reviews(
+        reviews, stale_approvals = _locked_board_reviews(
             self._session,
             game_id=game_id,
             review_item_id=item.id,
@@ -2151,14 +2156,12 @@ class SymbolCellReviewWriteThroughCoordinator:
             symbol_code_by_id=symbol_codes,
             topology=topology,
         )
+        # `pending_partial` returned above; geometry approval is no gate (D-462).
         resolution = derive_symbol_cell_board_resolution(
             reviews=reviews,
             active_symbol_codes=tuple(symbol_codes.values()),
             topology=topology,
-            geometry_approved=(
-                board.approved_geometry_revision == board.geometry_revision
-                and board.completeness_status != "pending_partial"
-            ),
+            stale_approval_cell_indices=stale_approvals,
         )
         if resolution is None:
             return False
@@ -3320,7 +3323,9 @@ def _locked_board_reviews(
     geometry_revision: int,
     symbol_code_by_id: Mapping[UUID, str],
     topology: BoardTopology,
-) -> tuple[SymbolCellReview, ...]:
+) -> tuple[tuple[SymbolCellReview, ...], frozenset[int]]:
+    """Lock the board's current cells; also name approvals of other pixels."""
+
     rows = tuple(
         session.scalars(
             select(ImageSymbolReviewCellModel)
@@ -3346,9 +3351,22 @@ def _locked_board_reviews(
             "SYMBOL_CELL_REVIEW_CELLS_INCOMPLETE",
             "The current board does not have every configured matching symbol-cell crop.",
         )
-    return tuple(
+    reviews = tuple(
         _symbol_cell_review_from_model(cell, symbol_code_by_id=symbol_code_by_id) for cell in rows
     )
+    stale_approvals = frozenset(
+        cell.cell_index
+        for cell in rows
+        if cell.review_state == SymbolCellReviewState.APPROVED.value
+        and symbol_cell_approval_pixels_changed(
+            asset_mode=cell.asset_mode,
+            crop_checksum_sha256=cell.crop_checksum_sha256,
+            approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
+            rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
+            approved_rendered_pixel_checksum_sha256=cell.approved_rendered_pixel_checksum_sha256,
+        )
+    )
+    return reviews, stale_approvals
 
 
 def _symbol_cell_review_order_columns() -> tuple[Any, Any, Any]:

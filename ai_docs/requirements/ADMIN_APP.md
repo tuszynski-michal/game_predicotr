@@ -455,8 +455,10 @@ międzyczasie (D-462, TASK-0722).
 **D-462 (etap B planu `CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md`):** opisany
 niżej workflow walidacji gotowych siatek zostanie zastąpiony jedną kolejką
 „Korekta cięcia siatki” z jedną planszą naraz. Od TASK-0723 zatwierdzenie
-geometrii przestaje być warunkiem domknięcia planszy; do tego czasu pozostaje
-warunkiem, jak opisano poniżej.
+geometrii nie jest warunkiem domknięcia planszy ani użycia jej symboli;
+szybkie zatwierdzenie siatki pozostaje technicznie dostępne do etapu B i
+oznacza geometrię wyłącznie dla kalibracji, stanu kolejki siatek oraz ochrony
+przed automatycznym przecięciem (v2).
 
 Docelowy workflow geometrii korzysta z jednej kolejki całej gry z widokami
 `Do walidacji`, `Do poprawy` i `Wszystkie` oraz opcjonalnym zawężeniem do

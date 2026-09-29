@@ -1363,8 +1363,16 @@ dokładną rewizją i checksumą cropa, zapisuje event i atomowo agreguje rodzic
 zmiana etykiety i wykluczenie cropa z treningu pozostają jedną rewizją i jedną
 transakcją.
 komplet `rows × columns` aktualnych `approved` bez problemu siatki domyka
-planszę przez istniejący canonical flow jako `accepted` lub `corrected`, ale
-wyłącznie przy zatwierdzonej bieżącej rewizji geometrii. Oznaczenie złej
+planszę przez istniejący canonical flow jako `accepted` lub `corrected`. Od
+D-462 (TASK-0723) zatwierdzenie geometrii (`recognized_boards.approved_geometry_revision`)
+nie jest warunkiem: decydują wyłącznie komórki, pełna widoczność i brak
+`pending_partial`. Komórka `approved`, której zatwierdzone piksele różnią się
+od bieżących (`symbol_cell_approval_pixels_changed`), nie domyka planszy.
+`approved_geometry_revision` pozostaje znacznikiem geometrii zapisanej lub
+zakwalifikowanej przez człowieka dla kalibracji. Automatyczne przecięcie
+(`pending_grid_reinference`, v1 i v2) pomija planszę z jakąkolwiek decyzją
+człowieka w komórkach (`approved`, `grid_issue`, źródło `human` lub
+`board_decision`). Oznaczenie złej
 siatki na domkniętej planszy usuwa canonical i staging, otwiera jej kolejkę
 oraz job importu, ale zachowuje pozostałe 14 zatwierdzeń dla niezmienionych
 cropów. Nowa geometria unieważnia treningową proweniencję nowych pikseli, ale

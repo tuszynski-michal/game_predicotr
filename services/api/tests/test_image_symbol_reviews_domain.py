@@ -631,3 +631,26 @@ def test_symbol_cell_approval_pixels_changed_uses_pixels_not_revisions(
         )
         is changed
     )
+
+
+def test_board_resolution_needs_no_geometry_approval_but_current_pixels() -> None:
+    approved = tuple(
+        approve_symbol_cell_review(review, active_symbol_codes=("cherry",)).review
+        for review in _mapped_reviews()
+    )
+
+    # D-462: fifteen verified cells close the board without any grid approval.
+    resolution = derive_symbol_cell_board_resolution(
+        reviews=approved,
+        active_symbol_codes=("cherry",),
+    )
+    # R10: an approval of pixels that have changed since is no verification.
+    stale = derive_symbol_cell_board_resolution(
+        reviews=approved,
+        active_symbol_codes=("cherry",),
+        stale_approval_cell_indices=frozenset({7}),
+    )
+
+    assert resolution is not None
+    assert resolution.action is ImageReviewAction.ACCEPTED
+    assert stale is None

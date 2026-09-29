@@ -2106,6 +2106,22 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         audit_report_checksum_sha256: str,
     ) -> PendingGridReinferencePreview:
         self._bind(game_id, intent=GameStorageIntent.READ)
+        cell = ImageSymbolReviewCellModel
+        # D-462 R9: the job skips boards with any human cell decision, so the
+        # preview must count them as protected, not recalculable.
+        human_cell_decision = (
+            select(cell.id)
+            .where(
+                cell.game_id == game_id,
+                cell.review_item_id == ImageReviewItemModel.id,
+                or_(
+                    cell.review_state == "approved",
+                    cell.quality_issue == "grid_issue",
+                    cell.assignment_source.in_(("human", "board_decision")),
+                ),
+            )
+            .exists()
+        )
         rows = self._session.execute(
             select(
                 SourceImageModel.id,
@@ -2113,6 +2129,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 RecognizedBoardModel.board_geometry,
                 RecognizedBoardModel.asset_mode,
                 RecognizedBoardModel.approved_geometry_revision,
+                human_cell_decision,
             )
             .select_from(ImageReviewItemModel)
             .join(
@@ -2132,11 +2149,18 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         current_v19_board_count = 0
         protected_board_count = 0
         unsupported_virtual_board_count = 0
-        for source_id, status, board_geometry, asset_mode, approved_geometry_revision in rows:
+        for (
+            source_id,
+            status,
+            board_geometry,
+            asset_mode,
+            approved_geometry_revision,
+            has_human_cell_decision,
+        ) in rows:
             source_statuses[source_id].add(str(status))
             if status == "pending":
                 pending_board_count += 1
-                if approved_geometry_revision is not None:
+                if approved_geometry_revision is not None or has_human_cell_decision:
                     protected_board_count += 1
                 elif asset_mode == "virtual_source":
                     unsupported_virtual_board_count += 1

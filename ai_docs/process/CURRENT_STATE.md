@@ -43,6 +43,13 @@ last_updated: 2026-09-29
   sekcji. Istniejące nieaktualne dokumenty (≈18,5 tys. plansz) odświeży
   dopiero TASK-0728 za zgodą. Domknięcie planszy nadal wymaga akceptacji
   geometrii (T3), a `grid_issue` przetrwa zapis geometrii do T4.
+- TASK-0722 commit `v1.7.51` / `a323e2a1`.
+- TASK-0723 done: komplet zweryfikowanych komórek domyka planszę bez
+  akceptacji geometrii (canonical i staging layoutu), akceptacja innych
+  pikseli nie domyka (R10), automatyczne przecięcie v1/v2 pomija plansze z
+  decyzją człowieka na komórce, podgląd przeliczenia liczy je jako chronione.
+  Opt-in test `close_and_reopen` w `test_image_batch_store.py` pozostaje
+  czerwony (od HEAD) i przechodzi do TASK-0724.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

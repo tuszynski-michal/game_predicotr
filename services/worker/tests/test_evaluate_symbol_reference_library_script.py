@@ -160,3 +160,109 @@ def test_evaluation_excludes_the_cells_own_import() -> None:
 
     # With its own import removed, each cell only sees the other symbol's cells.
     assert [proposal.class_index for proposal in proposals] == [1] * 7 + [0] * 7
+
+
+def _frozen(proposals: list[tuple[str, str, str]]) -> dict[str, Any]:
+    return {
+        "format": runner.BLIND_FORMAT,
+        "game": {"id": "game"},
+        "cells": [
+            {"cellReviewId": identifier, "activeModelSymbol": model, "proposal": proposal}
+            for identifier, model, proposal in proposals
+        ],
+    }
+
+
+def _ratings(values: dict[str, str], frozen_sha: str = "f" * 64) -> dict[str, Any]:
+    return {"format": runner.RATINGS_FORMAT, "frozenSha256": frozen_sha, "ratings": values}
+
+
+def test_compare_rejects_ratings_for_another_freeze() -> None:
+    frozen = _frozen([("a", "ARBUZ", "ARBUZ")])
+
+    with pytest.raises(runner.EvaluationError) as error:
+        runner._compare_ratings(frozen, "f" * 64, _ratings({"a": "ARBUZ"}, "e" * 64))
+
+    assert error.value.code == "SYMBOL_REFERENCE_RATINGS_MISMATCH"
+
+
+def test_compare_rejects_unknown_cells_and_values() -> None:
+    frozen = _frozen([("a", "ARBUZ", "ARBUZ")])
+
+    with pytest.raises(runner.EvaluationError):
+        runner._compare_ratings(frozen, "f" * 64, _ratings({"b": "ARBUZ"}))
+    with pytest.raises(runner.EvaluationError):
+        runner._compare_ratings(frozen, "f" * 64, _ratings({"a": "BANAN"}))
+
+
+def test_non_symbol_ratings_are_reported_but_not_counted_as_errors() -> None:
+    frozen = _frozen([("a", "ARBUZ", "WISNIA"), ("b", "ARBUZ", "ARBUZ")])
+
+    report = runner._compare_ratings(frozen, "f" * 64, _ratings({"a": "ZASLONIETY", "b": "ARBUZ"}))
+
+    assert report["confidentProposals"] == 1
+    assert report["confidentAccuracy"] == 1.0
+    assert report["confidentProposalsOnNonSymbolRatings"] == {"ZASLONIETY": 1}
+
+
+def test_gate_requires_complete_ratings_and_per_symbol_accuracy() -> None:
+    cells = [(f"a{i}", "CYTRYNA", "ARBUZ") for i in range(10)]
+    cells += [(f"w{i}", "WISNIA", "WISNIA") for i in range(10)]
+    cells.append(("review", "ARBUZ", runner.REVIEW))
+    frozen = _frozen(cells)
+    ratings = {identifier: proposal for identifier, _model, proposal in cells[:-1]}
+
+    incomplete = runner._compare_ratings(frozen, "f" * 64, _ratings(ratings))
+    ratings["review"] = "ARBUZ"
+    passed = runner._compare_ratings(frozen, "f" * 64, _ratings(ratings))
+    ratings["a0"] = "CYTRYNA"
+    failed = runner._compare_ratings(frozen, "f" * 64, _ratings(ratings))
+
+    assert incomplete["gate"]["passed"] is False
+    assert passed["gate"]["passed"] is True
+    assert passed["activeModelAccuracy"] == round(11 / 21, 6)
+    # 9/10 for ARBUZ is below the per-symbol threshold although 19/20 overall is 95%.
+    assert failed["gate"]["passed"] is False
+    assert failed["confidentErrors"] == [
+        {"cellReviewId": "a0", "operator": "CYTRYNA", "proposal": "ARBUZ"}
+    ]
+
+
+def test_symbols_below_minimum_support_are_unconfirmed() -> None:
+    frozen = _frozen([("a", "ARBUZ", "ARBUZ")])
+
+    report = runner._compare_ratings(frozen, "f" * 64, _ratings({"a": "ARBUZ"}))
+
+    assert report["unconfirmedSymbols"] == ["ARBUZ"]
+    assert report["gate"]["passed"] is True
+
+
+def test_blind_page_contains_pixels_and_ids_only(tmp_path: Path) -> None:
+    crop = np.zeros((64, 64, 3), dtype=np.uint8)
+    item = {
+        "id": "cell-1",
+        "crop": runner._crop_uri(crop, 192),
+        "context": runner._context_uri(
+            np.zeros((224, 224, 3), dtype=np.uint8), np.zeros((4, 2), dtype=np.float32)
+        ),
+    }
+
+    page = runner._blind_html([item], [("ARBUZ", "Arbuz")], "a" * 64)
+
+    assert "cell-1" in page and "a" * 64 in page
+    for leaked in ("proposal", "activeModel", "Confidence", runner.REVIEW):
+        assert leaked not in page
+    assert "__PAYLOAD__" not in page
+
+
+def test_previously_shown_cells_are_read_from_both_formats(tmp_path: Path) -> None:
+    proposals = tmp_path / "proposals.json"
+    proposals.write_text('[{"cellReviewId": "a"}]', encoding="utf-8")
+    chat = tmp_path / "chat.json"
+    chat.write_text('[{"id": "b"}]', encoding="utf-8")
+    broken = tmp_path / "broken.json"
+    broken.write_text('[{"other": 1}]', encoding="utf-8")
+
+    assert runner._excluded_ids([proposals, chat]) == {"a", "b"}
+    with pytest.raises(runner.EvaluationError):
+        runner._excluded_ids([broken])

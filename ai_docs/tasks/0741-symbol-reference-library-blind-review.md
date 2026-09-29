@@ -1,6 +1,6 @@
 ---
 title: TASK-0741 — T2 — ślepa ocena operatora dla biblioteki wzorców
-status: todo
+status: blocked
 last_updated: 2026-09-29
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-29
 
 ## Status
 
-`todo`
+`blocked` — narzędzia gotowe i zaudytowane; czeka na oceny operatora.
 
 ## Goal
 
@@ -29,8 +29,8 @@ jeszcze nie widział z propozycją.
 
 ## Recommended execution
 
-`claude-fable-5-1`, reasoning `high` (warunkowo). Niezależny review
-`claude-opus-5-5`, `high`. Eskalacja: wynik poniżej bramki wymaga analizy
+`claude-opus-5-5`, reasoning `high` (warunkowo; model sesji zmienił się z
+`claude-fable-5-1`). Niezależny review `claude-opus-5-5`, `high`, osobny agent. Eskalacja: wynik poniżej bramki wymaga analizy
 pomyłek per symbol przed propozycją zmian.
 
 ## Relevant docs
@@ -56,8 +56,8 @@ pomyłek per symbol przed propozycją zmian.
 
 ## Acceptance criteria
 
-- [ ] Plik oceny nie zawiera propozycji biblioteki ani predykcji modelu.
-- [ ] Zamrożone propozycje mają sumę kontrolną; porównanie odrzuca plik ocen
+- [x] Plik oceny nie zawiera propozycji biblioteki ani predykcji modelu.
+- [x] Zamrożone propozycje mają sumę kontrolną; porównanie odrzuca plik ocen
   dla innego zamrożenia.
 - [ ] Raport: zgodność pewnych propozycji ogółem i per symbol, pokrycie,
   osobno komórki oznaczone jako zasłonięte, nieczytelne i zła siatka.
@@ -101,4 +101,48 @@ Komendy powstają w T1 i są zapisywane w raporcie jakości po ich uruchomieniu.
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Stan częściowy: narzędzia i próbka gotowe, brak ocen operatora. Task nie
+jest ukończony i nie trafia do `completed/`.
+
+### Changed
+
+- `scripts/evaluate_symbol_reference_library.py`: podkomendy `blind-sample`
+  (zamrożenie próbki, lokalna strona oceny) i `compare` (porównanie ocen,
+  bramka etapu A, opcjonalny odczyt późniejszych decyzji z Admina).
+  Wspólny odczyt bazy i budowa biblioteki wydzielone z `evaluate` bez zmiany
+  jego wyników.
+- `scripts/symbol_reference_blind_review.html`: szablon strony offline
+  (CSP bez sieci, postęp w `localStorage`, eksport pliku ocen, klawisze
+  1–8 oraz N/Z/S, bez identyfikatorów komórek na ekranie).
+- Testy porównania, strony i wykluczeń w
+  `services/worker/tests/test_evaluate_symbol_reference_library_script.py`.
+
+### Verification results
+
+- 27 testów PASS; Ruff check/format i mypy `--strict` PASS.
+- Próbka: 200 komórek, po 25 na przewidziany symbol z pasma 60–80%, z 24
+  importów; 0 komórek wspólnych z 400 komórkami raportu T1 i z 50 komórkami
+  pokazanymi w rozmowie. `blind-frozen.json` SHA
+  `0bc381166236d40259f62f61aabfcde101fcfa60444c3d540e2ead1d8d384582`,
+  identyczny w dwóch uruchomieniach; kolejne uruchomienie z innymi
+  parametrami w tym samym katalogu kończy się błędem
+  `SYMBOL_REFERENCE_BLIND_FROZEN_EXISTS`.
+- Strona sprawdzona w przeglądarce przez lokalny serwer: ocena klawiszem,
+  ignorowanie Ctrl+0 i przytrzymania, brak UUID na ekranie; testowe oceny
+  usunięte z pamięci przeglądarki.
+- `compare` sprawdzony mechanicznie na sztucznym pliku 20 ocen (nie są to
+  dane operatora ani wynik bramki).
+- Niezależny audyt `claude-opus-5-5`: PASS bez P0–P2. Poprawiono P3:
+  klawiatura, ochrona przed nadpisaniem zamrożenia, faktyczna liczność
+  próbki, lista dozwolonych kodów z modelu, ukrycie UUID. Pozostaje P3:
+  bramka przechodzi, gdy żaden symbol nie ma 10 pewnych propozycji —
+  raport musi to wtedy nazwać wprost.
+
+### Not completed
+
+- Oceny operatora i wynik bramki etapu A.
+
+### Recommended next task
+
+- Operator ocenia `blind-review.html` i przekazuje plik ocen; potem
+  `compare --with-database` i domknięcie TASK-0741.

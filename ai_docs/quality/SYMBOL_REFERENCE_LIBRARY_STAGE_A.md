@@ -131,6 +131,40 @@ Ocena wzrokowa agenta na arkuszach (nie jest weryfikacją operatora):
 - Arkusze: `artifacts/symbol-reference-library/stage-a/sheets/pending-<SYMBOL>.png`
   w worktree (katalog ignorowany przez git).
 
+## T2 — ślepa ocena operatora (TASK-0741, w toku)
+
+Zamrożona próbka: 200 oczekujących komórek, po 25 na przewidziany symbol
+z pasma 60–80%, z 24 importów, bez komórek pokazanych wcześniej z propozycją.
+`blind-frozen.json` SHA
+`0bc381166236d40259f62f61aabfcde101fcfa60444c3d540e2ead1d8d384582`.
+Biblioteka daje w niej 163 pewne propozycje i 37 komórek do przeglądu.
+
+Strona oceny (plik lokalny, bez sieci):
+`worktrees/symbol-reference-library/artifacts/symbol-reference-library/blind/blind-review.html`.
+Strona nie zawiera propozycji ani predykcji. Nie otwieraj
+`blind-frozen.json` przed zakończeniem oceny.
+
+Po pobraniu pliku ocen, z katalogu worktree:
+
+```powershell
+$env:PYTHONPATH = "services\worker\src;services\api\src"
+$py = 'C:\Users\tuszy\Documents\game_predicotr\.venv\Scripts\python.exe'
+$p = Start-Process -FilePath $py -ArgumentList @(
+  'scripts/evaluate_symbol_reference_library.py', 'compare',
+  '--frozen', 'artifacts/symbol-reference-library/blind/blind-frozen.json',
+  '--ratings', '<ścieżka do pobranego blind-ratings-0bc381166236.json>',
+  '--output', 'artifacts/symbol-reference-library/blind/compare.json',
+  '--with-database'
+) -PassThru -NoNewWindow
+if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'timeout 120 s' }
+```
+
+Bramka: komplet 200 ocen, co najmniej 98% zgodności pewnych propozycji
+ogółem i co najmniej 95% dla każdego proponowanego symbolu z co najmniej
+10 pewnymi propozycjami. Oceny `Nieczytelny`, `Zasłonięty` i `Zła siatka`
+nie są błędami propozycji; raport podaje, ile pewnych propozycji padło na
+takie komórki. Wynik: do uzupełnienia po ocenie.
+
 ## Ograniczenia
 
 - Import jest przybliżeniem nagrania; wyłączenie importu nie dowodzi

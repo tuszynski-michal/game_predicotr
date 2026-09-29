@@ -12,6 +12,7 @@ import base64
 import hashlib
 import io
 import json
+import math
 import sys
 import time
 from collections import Counter
@@ -47,6 +48,7 @@ from game_predictor_worker.symbols.reference_library import (
     gray_world,
     normalize_rows,
     vote,
+    vote_batch,
 )
 from numpy.typing import NDArray
 from PIL import Image, ImageDraw
@@ -97,9 +99,63 @@ WITH eligible AS (
     AND c.approved_render_spec_checksum_sha256 = c.render_spec_checksum_sha256
     AND c.approved_rendered_pixel_checksum_sha256 = c.rendered_pixel_checksum_sha256
     AND s.status = 'active'
+    -- D-465: a bulk approval of the model prediction is not operator evidence.
+    AND NOT (
+      :exclude_bulk_approve
+      AND coalesce((
+        SELECT e.action = 'approve' AND e.operation_id IS NOT NULL
+        FROM game_data_v2.image_symbol_review_events e
+        WHERE e.game_id = c.game_id
+          AND e.cell_review_id = c.id
+          AND e.action IN ('approve', 'reassign')
+        ORDER BY e.created_at DESC, e.id DESC
+        LIMIT 1
+      ), false)
+    )
 )
 SELECT * FROM eligible WHERE group_rank <= :per_group ORDER BY id
 """
+
+_PREVIEW_SQL = f"""
+SELECT {_CELL_COLUMNS}, NULL::text AS label
+FROM game_data_v2.image_symbol_review_cells c
+WHERE c.game_id = :game_id
+  AND c.review_state = 'pending'
+  AND c.asset_mode = 'virtual_source'
+  AND c.source_available = true
+  AND c.quality_issue IS NULL
+  AND (c.source_visibility IS NULL OR c.source_visibility = 'full')
+  AND c.render_spec IS NOT NULL
+  AND c.prediction_symbol_code = ANY(:symbols)
+  AND c.prediction_confidence >= :min_confidence
+  AND c.prediction_confidence < :max_confidence
+ORDER BY c.id
+"""
+
+_PREVIEW_SCOPE_SQL = """
+SELECT reason, count(*) AS cells
+FROM (
+  SELECT CASE
+           WHEN c.quality_issue IS NOT NULL THEN 'quality_issue:' || c.quality_issue
+           WHEN c.asset_mode <> 'virtual_source' THEN 'asset_mode:' || c.asset_mode
+           WHEN NOT c.source_available THEN 'source_unavailable'
+           WHEN c.source_visibility IS NOT NULL AND c.source_visibility <> 'full'
+             THEN 'visibility:' || c.source_visibility
+           WHEN c.render_spec IS NULL THEN 'render_spec_missing'
+         END AS reason
+  FROM game_data_v2.image_symbol_review_cells c
+  WHERE c.game_id = :game_id
+    AND c.review_state = 'pending'
+    AND c.prediction_symbol_code = ANY(:symbols)
+    AND c.prediction_confidence >= :min_confidence
+    AND c.prediction_confidence < :max_confidence
+) outside
+WHERE reason IS NOT NULL
+GROUP BY reason
+"""
+
+REFERENCE_POLICIES = {"all-human-v1": False, "no-bulk-approve-v2": True}
+DEFAULT_REFERENCE_POLICY = "no-bulk-approve-v2"
 
 _PENDING_SQL = f"""
 WITH eligible AS (
@@ -194,6 +250,39 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     compare.add_argument("--ratings", required=True, type=Path)
     compare.add_argument("--output", required=True, type=Path)
     compare.add_argument("--with-database", action="store_true")
+
+    rescore = commands.add_parser(
+        "blind-rescore", help="Re-propose a frozen blind sample with another reference policy."
+    )
+    rescore.add_argument("--game-code", required=True)
+    rescore.add_argument("--frozen", required=True, type=Path)
+    rescore.add_argument("--blind-cache", required=True, type=Path)
+    rescore.add_argument("--ratings", required=True, type=Path, action="append")
+    rescore.add_argument("--output", required=True, type=Path)
+    rescore.add_argument("--artifact-root", type=Path)
+    rescore.add_argument("--library-cache", required=True, type=Path)
+    rescore.add_argument("--time-budget-seconds", type=float, default=90.0)
+
+    preview = commands.add_parser(
+        "preview", help="Propose symbols for all matching pending cells and write a local view."
+    )
+    preview.add_argument("--game-code", required=True)
+    preview.add_argument("--output-dir", required=True, type=Path)
+    preview.add_argument("--artifact-root", type=Path)
+    preview.add_argument("--library-cache", required=True, type=Path)
+    preview.add_argument("--symbol", required=True)
+    preview.add_argument("--min-confidence", type=float, default=0.0)
+    preview.add_argument("--max-confidence", type=float, default=0.8)
+    preview.add_argument("--band-edge", type=float, action="append", default=[])
+    preview.add_argument("--thumbnails-per-group", type=int, default=40, choices=range(1, 201))
+    preview.add_argument("--time-budget-seconds", type=float, default=70.0)
+
+    for command in (evaluate, blind, rescore, preview):
+        command.add_argument(
+            "--reference-policy",
+            choices=tuple(REFERENCE_POLICIES),
+            default=DEFAULT_REFERENCE_POLICY,
+        )
     return parser.parse_args(argv)
 
 
@@ -396,7 +485,7 @@ def _context(
     right = int(min(rgb.shape[1], centre[0] + half))
     bottom = int(min(rgb.shape[0], centre[1] + half))
     canvas = np.zeros((size, size, 3), dtype=np.uint8)
-    if right <= left or bottom <= top:
+    if size == 0 or right <= left or bottom <= top:
         return canvas, np.zeros((4, 2), dtype=np.float32)
     window = rgb[top:bottom, left:right]
     scale = size / max(window.shape[:2])
@@ -622,6 +711,10 @@ def _sheet(
     sheet.save(path)
 
 
+def digest_json(value: object) -> str:
+    return hashlib.sha256(_json_bytes(value)).hexdigest()
+
+
 def _json_bytes(value: object) -> bytes:
     return (json.dumps(value, ensure_ascii=False, indent=2, sort_keys=True) + "\n").encode()
 
@@ -664,6 +757,7 @@ class Snapshot:
     symbol_names: dict[str, str]
     references: list[Cell]
     pending: list[Cell]
+    not_in_scope: dict[str, int]
 
 
 @dataclass(frozen=True, slots=True)
@@ -681,8 +775,17 @@ def _read_snapshot(
     game_code: str,
     artifact_root: Path,
     pending_parameters: Mapping[str, object],
+    *,
+    reference_policy: str,
+    pending_sql: str = _PENDING_SQL,
+    scope_sql: str | None = None,
 ) -> Snapshot:
     """Read everything from one REPEATABLE READ, READ ONLY transaction."""
+
+    if reference_policy not in REFERENCE_POLICIES:
+        raise EvaluationError(
+            "SYMBOL_REFERENCE_POLICY_UNKNOWN", f"Unknown reference policy {reference_policy}."
+        )
 
     engine = create_database_engine(settings)
     try:
@@ -704,15 +807,29 @@ def _read_snapshot(
                 _cell(cast(Mapping[str, Any], row))
                 for row in connection.execute(
                     text(_REFERENCE_SQL),
-                    {"game_id": game_id, "per_group": REFERENCES_PER_GROUP},
+                    {
+                        "game_id": game_id,
+                        "per_group": REFERENCES_PER_GROUP,
+                        "exclude_bulk_approve": REFERENCE_POLICIES[reference_policy],
+                    },
                 ).mappings()
             ]
             pending = [
                 _cell(cast(Mapping[str, Any], row))
                 for row in connection.execute(
-                    text(_PENDING_SQL), {"game_id": game_id, **pending_parameters}
+                    text(pending_sql), {"game_id": game_id, **pending_parameters}
                 ).mappings()
             ]
+            not_in_scope = (
+                {
+                    str(row["reason"]): int(row["cells"])
+                    for row in connection.execute(
+                        text(scope_sql), {"game_id": game_id, **pending_parameters}
+                    ).mappings()
+                }
+                if scope_sql is not None
+                else {}
+            )
     finally:
         engine.dispose()
     unknown = sorted(
@@ -723,7 +840,16 @@ def _read_snapshot(
             "SYMBOL_REFERENCE_CLASS_UNKNOWN",
             f"Operator symbols are unknown to the active model: {unknown}.",
         )
-    return Snapshot(game_id, game_name, fingerprint, model, symbol_names, references, pending)
+    return Snapshot(
+        game_id,
+        game_name,
+        fingerprint,
+        model,
+        symbol_names,
+        references,
+        pending,
+        dict(sorted(not_in_scope.items())),
+    )
 
 
 def _build_library(
@@ -761,6 +887,7 @@ def _evaluate(arguments: argparse.Namespace) -> int:
             "per_symbol": arguments.pending_per_symbol,
             "order_salt": "",
         },
+        reference_policy=arguments.reference_policy,
     )
     game_id, game_name, fingerprint = snapshot.game_id, snapshot.game_name, snapshot.fingerprint
     model, references, pending = snapshot.model, snapshot.references, snapshot.pending
@@ -855,6 +982,7 @@ def _evaluate(arguments: argparse.Namespace) -> int:
             "maxConfidence": arguments.max_confidence,
             "pendingPerSymbol": arguments.pending_per_symbol,
             "evaluationExclusion": "same-import-job",
+            "referencePolicy": arguments.reference_policy,
         },
         "cellStateFingerprint": fingerprint,
         "library": {
@@ -1000,6 +1128,7 @@ def _blind_sample(arguments: argparse.Namespace) -> int:
             "per_symbol": per_symbol + len(excluded_ids),
             "order_salt": BLIND_FORMAT,
         },
+        reference_policy=arguments.reference_policy,
     )
     chosen: list[Cell] = []
     taken: Counter[str] = Counter()
@@ -1080,6 +1209,7 @@ def _blind_sample(arguments: argparse.Namespace) -> int:
             "perSymbol": per_symbol,
             "seed": arguments.seed,
             "excludedPreviouslyShown": len(excluded_ids),
+            "referencePolicy": arguments.reference_policy,
         },
         "library": {"cells": len(library.cells), "excluded": library.excluded},
         "symbolCodes": list(codes),
@@ -1290,6 +1420,427 @@ def _compare(arguments: argparse.Namespace) -> int:
     return 0
 
 
+RESCORE_VERSION = "symbol-reference-blind-rescore-v1"
+PREVIEW_VERSION = "symbol-reference-preview-v1"
+PREVIEW_CONTEXT_SIZE = 144
+
+
+def _frozen_cells(path: Path) -> tuple[dict[str, Any], str]:
+    content = path.read_bytes()
+    frozen: Any = json.loads(content)
+    if not isinstance(frozen, Mapping) or frozen.get("format") != BLIND_FORMAT:
+        raise EvaluationError("SYMBOL_REFERENCE_FROZEN_INVALID", "Unknown frozen sample format.")
+    return dict(frozen), hashlib.sha256(content).hexdigest()
+
+
+def _cached_crops(
+    cache: Mapping[str, Mapping[str, Any]], rows: Sequence[Mapping[str, Any]]
+) -> list[NDArray[np.uint8]]:
+    """Return the frozen cells' crops, refusing any cell whose pixels were not frozen."""
+
+    crops: list[NDArray[np.uint8]] = []
+    for row in rows:
+        key = f"{row['cellReviewId']}:{row['renderedPixelChecksumSha256']}"
+        entry = cache.get(key)
+        if entry is None or entry["status"] != "ok":
+            raise EvaluationError(
+                "SYMBOL_REFERENCE_FROZEN_PIXELS_MISSING",
+                f"Cell {row['cellReviewId']} has no frozen crop with the recorded checksum.",
+            )
+        crop = cast(NDArray[np.uint8], entry["crop"])
+        if rgb_pixel_checksum_sha256(crop) != row["renderedPixelChecksumSha256"]:
+            raise EvaluationError(
+                "SYMBOL_REFERENCE_FROZEN_PIXELS_MISSING",
+                f"Cell {row['cellReviewId']} crop differs from the frozen checksum.",
+            )
+        crops.append(crop)
+    return crops
+
+
+def _blind_rescore(arguments: argparse.Namespace) -> int:
+    deadline = time.monotonic() + float(arguments.time_budget_seconds)
+    settings = ApiSettings.from_environment()
+    artifact_root = (arguments.artifact_root or settings.artifact_root).resolve()
+    frozen, frozen_sha = _frozen_cells(cast(Path, arguments.frozen))
+    snapshot = _read_snapshot(
+        settings,
+        arguments.game_code,
+        artifact_root,
+        {"min_confidence": 0.0, "max_confidence": 0.0, "per_symbol": 0, "order_salt": ""},
+        reference_policy=arguments.reference_policy,
+    )
+    library_cache, remaining = _render(
+        snapshot.references,
+        artifact_root=artifact_root,
+        cache_path=cast(Path, arguments.library_cache).resolve(),
+        deadline=deadline,
+    )
+    if remaining:
+        print(f"INCOMPLETE: {remaining} crops still to render; run the same command again.")
+        return EXIT_INCOMPLETE
+    model = snapshot.model
+    codes = model.class_codes
+    if (
+        frozen.get("game", {}).get("code") != arguments.game_code
+        or frozen.get("activeModel", {}).get("checkpointSha256") != model.checkpoint_sha256
+    ):
+        raise EvaluationError(
+            "SYMBOL_REFERENCE_FROZEN_CONTEXT_MISMATCH",
+            "The frozen sample belongs to another game or active model checkpoint.",
+        )
+    rows = list(frozen["cells"])
+    sample_ids = {str(row["cellReviewId"]) for row in rows}
+    # A sample cell verified later in Admin must not vote for itself.
+    references = [cell for cell in snapshot.references if cell.id not in sample_ids]
+    library = _build_library(references, library_cache, model)
+    crops = np.stack(_cached_crops(_load_cache(cast(Path, arguments.blind_cache)), rows))
+    shape, hue = descriptor_matrix(list(crops))
+    combined = normalize_rows(combined_descriptor(shape, _feature_maps(model, crops), hue))
+    proposals = _proposals(
+        shape,
+        combined,
+        library.shape,
+        library.combined,
+        library.labels,
+        class_count=len(codes),
+        exclusions=[None] * len(rows),
+    )
+    rescored = dict(frozen)
+    rescored["cells"] = [
+        {
+            **row,
+            "proposal": REVIEW if proposal.class_index is None else codes[proposal.class_index],
+            "reason": proposal.reason,
+            "shapeVotes": proposal.shape_vote.agreeing_count,
+            "combinedVotes": proposal.combined_vote.agreeing_count,
+        }
+        for row, proposal in zip(rows, proposals, strict=True)
+    ]
+    changed = sum(
+        before["proposal"] != after["proposal"]
+        for before, after in zip(rows, rescored["cells"], strict=True)
+    )
+    comparisons: dict[str, object] = {}
+    for ratings_path in cast(list[Path], arguments.ratings):
+        ratings: Any = json.loads(ratings_path.read_text(encoding="utf-8"))
+        if not isinstance(ratings, Mapping):
+            raise EvaluationError("SYMBOL_REFERENCE_RATINGS_INVALID", "Ratings must be an object.")
+        # Ratings stay bound to the original freeze; only the proposals are recomputed.
+        comparisons[ratings_path.name] = {
+            "original": _compare_ratings(frozen, frozen_sha, ratings),
+            "rescored": _compare_ratings(rescored, frozen_sha, ratings),
+        }
+    report = {
+        "version": RESCORE_VERSION,
+        "frozenSha256": frozen_sha,
+        "originalReferencePolicy": frozen.get("parameters", {}).get(
+            "referencePolicy", "all-human-v1"
+        ),
+        "referencePolicy": arguments.reference_policy,
+        "cellStateFingerprint": snapshot.fingerprint,
+        "library": {
+            "cells": len(library.cells),
+            "excluded": library.excluded,
+            "sampleCellsRemoved": len(snapshot.references) - len(references),
+        },
+        "changedProposals": changed,
+        "rescoredCells": rescored["cells"],
+        "comparisons": comparisons,
+    }
+    output = cast(Path, arguments.output).resolve()
+    output.parent.mkdir(parents=True, exist_ok=True)
+    report_sha = _write_json(output, report)
+    for name, value in comparisons.items():
+        for variant in ("original", "rescored"):
+            result = cast(Mapping[str, Any], cast(Mapping[str, Any], value)[variant])
+            print(
+                f"{name} {variant}: coverage={result['confidentCoverage']} "
+                f"accuracy={result['confidentAccuracy']} gate={result['gate']['passed']}"
+            )
+    print(f"library={len(library.cells)} changedProposals={changed}")
+    print(f"{output.name} sha256={report_sha}")
+    return 0
+
+
+def _band_bounds(edges: Sequence[float], low: float, high: float) -> list[tuple[float, float]]:
+    bounds = [low, *sorted(edges), high]
+    return list(zip(bounds, bounds[1:], strict=False))
+
+
+def _band_label(lower: float, upper: float) -> str:
+    return f"{round(lower * 100)}–{round(upper * 100)}%"
+
+
+def _band(confidence: float, edges: Sequence[float], low: float, high: float) -> str:
+    for lower, upper in _band_bounds(edges, low, high):
+        if lower <= confidence < upper:
+            return _band_label(lower, upper)
+    raise EvaluationError("SYMBOL_REFERENCE_BAND_INVALID", f"Confidence {confidence} is outside.")
+
+
+def _preview_groups(
+    rows: Sequence[Mapping[str, Any]], per_group: int
+) -> dict[tuple[str, str], list[str]]:
+    """Deterministic thumbnail choice per (band, proposal) group."""
+
+    groups: dict[tuple[str, str], list[str]] = {}
+    ordered = sorted(
+        rows,
+        key=lambda row: hashlib.sha256(str(row["cellReviewId"]).encode()).hexdigest(),
+    )
+    for row in ordered:
+        key = (str(row["band"]), str(row["proposal"]))
+        members = groups.setdefault(key, [])
+        if len(members) < per_group:
+            members.append(str(row["cellReviewId"]))
+    return dict(sorted(groups.items()))
+
+
+def _preview_html(payload: Mapping[str, Any]) -> str:
+    content = json.dumps(payload, ensure_ascii=False).replace("</", "<\\/")
+    template = Path(__file__).with_name("symbol_reference_preview.html").read_text(encoding="utf-8")
+    return template.replace("__PAYLOAD__", content)
+
+
+def _display_confidence(value: float) -> str:
+    """Truncate, never round up, so a value below a band edge never shows the edge."""
+
+    return f"{math.floor(value * 100) / 100:.2f}"
+
+
+def _preview_rows(
+    cells: Sequence[Cell],
+    cache: Mapping[str, Mapping[str, Any]],
+    library: Library,
+    model: ActiveModel,
+    *,
+    edges: Sequence[float],
+    low: float,
+    high: float,
+) -> list[dict[str, Any]]:
+    codes = model.class_codes
+    rows: list[dict[str, Any]] = []
+    for start in range(0, len(cells), 2000):
+        chunk = cells[start : start + 2000]
+        shape, combined = _descriptors(chunk, cache, model)
+        # Batched voting; without exclusions it selects the same neighbours as ``vote``.
+        proposals = [
+            decide(shape_vote, combined_vote)
+            for shape_vote, combined_vote in zip(
+                vote_batch(shape, library.shape, library.labels, class_count=len(codes)),
+                vote_batch(combined, library.combined, library.labels, class_count=len(codes)),
+                strict=True,
+            )
+        ]
+        for cell, proposal in zip(chunk, proposals, strict=True):
+            confidence = float(cell.prediction_confidence or 0.0)
+            shape_vote = proposal.shape_vote
+            rows.append(
+                {
+                    "cellReviewId": cell.id,
+                    "importJobId": cell.import_job_id,
+                    "sequenceNumber": cell.sequence_number,
+                    "cellIndex": cell.cell_index,
+                    "renderedPixelChecksumSha256": cell.rendered_pixel_checksum_sha256,
+                    "activeModelSymbol": cell.prediction_symbol_code,
+                    "activeModelConfidence": confidence,
+                    "band": _band(confidence, edges, low, high),
+                    "proposal": REVIEW
+                    if proposal.class_index is None
+                    else codes[proposal.class_index],
+                    "reason": proposal.reason,
+                    "shapeHint": None
+                    if shape_vote.class_index is None
+                    else codes[shape_vote.class_index],
+                    "shapeVotes": shape_vote.agreeing_count,
+                    "combinedVotes": proposal.combined_vote.agreeing_count,
+                }
+            )
+    rows.sort(key=lambda row: str(row["cellReviewId"]))
+    return rows
+
+
+def _cached_preview_rows(path: Path, key: str) -> list[dict[str, Any]] | None:
+    """Rows computed by an earlier, interrupted run over exactly the same inputs."""
+
+    if not path.is_file():
+        return None
+    try:
+        value: Any = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        # A damaged cache is only a lost shortcut; the rows are recomputed.
+        return None
+    if not isinstance(value, Mapping) or value.get("key") != key:
+        return None
+    return cast(list[dict[str, Any]], value["rows"])
+
+
+def _preview(arguments: argparse.Namespace) -> int:
+    low, high = float(arguments.min_confidence), float(arguments.max_confidence)
+    edges = sorted(float(edge) for edge in arguments.band_edge) or [0.6]
+    if not 0.0 <= low < high <= 1.0001 or any(not low < edge < high for edge in edges):
+        raise EvaluationError("SYMBOL_REFERENCE_BAND_INVALID", "The confidence bands are invalid.")
+    deadline = time.monotonic() + float(arguments.time_budget_seconds)
+    settings = ApiSettings.from_environment()
+    artifact_root = (arguments.artifact_root or settings.artifact_root).resolve()
+    output = cast(Path, arguments.output_dir).resolve()
+    output.mkdir(parents=True, exist_ok=True)
+    symbol = str(arguments.symbol)
+    parameters = {"symbols": [symbol], "min_confidence": low, "max_confidence": high}
+    snapshot = _read_snapshot(
+        settings,
+        arguments.game_code,
+        artifact_root,
+        parameters,
+        reference_policy=arguments.reference_policy,
+        pending_sql=_PREVIEW_SQL,
+        scope_sql=_PREVIEW_SCOPE_SQL,
+    )
+    if symbol not in snapshot.model.class_codes:
+        raise EvaluationError(
+            "SYMBOL_REFERENCE_CLASS_UNKNOWN", f"Unknown predicted symbol: {symbol}."
+        )
+    if not snapshot.pending:
+        raise EvaluationError(
+            "SYMBOL_REFERENCE_PREVIEW_EMPTY", "No pending cell matches the preview."
+        )
+    library_cache, remaining = _render(
+        snapshot.references,
+        artifact_root=artifact_root,
+        cache_path=cast(Path, arguments.library_cache).resolve(),
+        deadline=deadline,
+    )
+    cells_cache, cells_remaining = _render(
+        snapshot.pending,
+        artifact_root=artifact_root,
+        cache_path=output / "preview-crops.npz",
+        deadline=deadline,
+        context_size=0,
+    )
+    if remaining or cells_remaining:
+        print(
+            f"INCOMPLETE: {remaining + cells_remaining} of {len(snapshot.pending)} crops "
+            "still to render; run the same command again."
+        )
+        return EXIT_INCOMPLETE
+
+    model = snapshot.model
+    codes = model.class_codes
+    library = _build_library(snapshot.references, library_cache, model)
+    cells, excluded = _usable(snapshot.pending, cells_cache)
+    rows_key = digest_json(
+        {
+            "version": PREVIEW_VERSION,
+            "libraryVersion": REFERENCE_LIBRARY_VERSION,
+            "fingerprint": snapshot.fingerprint,
+            "policy": arguments.reference_policy,
+            "checkpoint": model.checkpoint_sha256,
+            "bands": [low, *edges, high],
+            "library": [_cache_key(cell) for cell in library.cells],
+            "cells": [_cache_key(cell) for cell in cells],
+        }
+    )
+    rows_path = output / "preview-rows-cache.json"
+    rows = _cached_preview_rows(rows_path, rows_key)
+    if rows is None:
+        rows = _preview_rows(cells, cells_cache, library, model, edges=edges, low=low, high=high)
+        # Persist before thumbnails so a resumed run spends its budget on rendering only.
+        temporary = rows_path.with_name(rows_path.name + ".tmp")
+        temporary.write_bytes(_json_bytes({"key": rows_key, "rows": rows}))
+        temporary.replace(rows_path)
+    groups = _preview_groups(rows, int(arguments.thumbnails_per_group))
+    thumbnail_ids = {identifier for members in groups.values() for identifier in members}
+    by_id = {cell.id: cell for cell in cells}
+    context_cache, context_remaining = _render(
+        [by_id[identifier] for identifier in sorted(thumbnail_ids)],
+        artifact_root=artifact_root,
+        cache_path=output / "preview-context.npz",
+        deadline=deadline,
+        context_size=PREVIEW_CONTEXT_SIZE,
+    )
+    if context_remaining:
+        print(
+            f"INCOMPLETE: {context_remaining} thumbnails still to render; "
+            "run the same command again."
+        )
+        return EXIT_INCOMPLETE
+
+    band_order = [_band_label(lower, upper) for lower, upper in _band_bounds(edges, low, high)]
+    summary: dict[str, dict[str, int]] = {}
+    for row in rows:
+        band = summary.setdefault(str(row["band"]), {})
+        band[str(row["proposal"])] = band.get(str(row["proposal"]), 0) + 1
+    ordered_summary = {
+        band: dict(sorted(summary[band].items())) for band in band_order if band in summary
+    }
+    report = {
+        "version": PREVIEW_VERSION,
+        "libraryVersion": REFERENCE_LIBRARY_VERSION,
+        "referencePolicy": arguments.reference_policy,
+        "game": {"id": snapshot.game_id, "code": arguments.game_code, "name": snapshot.game_name},
+        "activeModel": {
+            "iterationId": model.iteration_id,
+            "checkpointSha256": model.checkpoint_sha256,
+        },
+        "cellStateFingerprint": snapshot.fingerprint,
+        "parameters": {
+            "symbol": symbol,
+            "minConfidence": low,
+            "maxConfidence": high,
+            "bandEdges": edges,
+            "thumbnailsPerGroup": int(arguments.thumbnails_per_group),
+        },
+        "library": {"cells": len(library.cells), "excluded": library.excluded},
+        "cells": len(rows),
+        "excluded": excluded,
+        "notInScope": snapshot.not_in_scope,
+        "summary": ordered_summary,
+        "rows": rows,
+    }
+    report_sha = _write_json(output / "preview.json", report)
+
+    names = {code: snapshot.symbol_names.get(code, code) for code in codes}
+    names[REVIEW] = "Do przeglądu"
+    thumbnails: dict[str, dict[str, str]] = {}
+    row_by_id = {str(row["cellReviewId"]): row for row in rows}
+    for identifier in sorted(thumbnail_ids):
+        entry = context_cache[_cache_key(by_id[identifier])]
+        row = row_by_id[identifier]
+        thumbnails[identifier] = {
+            "crop": _crop_uri(entry["crop"], 96),
+            "context": _context_uri(entry["context"], entry["context_quad"]),
+            "confidence": _display_confidence(float(row["activeModelConfidence"])),
+            "votes": f"{row['shapeVotes']}/{row['combinedVotes']}",
+            "hint": names.get(str(row["shapeHint"]), "–"),
+        }
+    page = _preview_html(
+        {
+            "title": f"{snapshot.game_name}: {names[symbol]}",
+            "names": names,
+            "predicted": symbol,
+            "summary": ordered_summary,
+            "groups": [
+                {"band": band, "proposal": proposal, "ids": members}
+                for (band, proposal), members in groups.items()
+            ],
+            "thumbnails": thumbnails,
+            "library": len(library.cells),
+            "policy": arguments.reference_policy,
+            "excluded": excluded,
+            "notInScope": snapshot.not_in_scope,
+            "reportSha256": report_sha,
+        }
+    )
+    (output / "preview.html").write_text(page, encoding="utf-8")
+    print(f"cells={len(rows)} excluded={excluded} notInScope={snapshot.not_in_scope}")
+    print(f"library={len(library.cells)}")
+    for band_label, counts in ordered_summary.items():
+        print(band_label, counts)
+    print(f"preview.json sha256={report_sha}")
+    print(f"preview.html -> {output / 'preview.html'}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parse_args(argv)
     try:
@@ -1299,6 +1850,10 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _blind_sample(arguments)
         if arguments.command == "compare":
             return _compare(arguments)
+        if arguments.command == "blind-rescore":
+            return _blind_rescore(arguments)
+        if arguments.command == "preview":
+            return _preview(arguments)
     except EvaluationError as error:
         print(str(error), file=sys.stderr)
         return 2

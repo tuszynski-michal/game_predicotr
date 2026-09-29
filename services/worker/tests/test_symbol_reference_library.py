@@ -14,6 +14,7 @@ from game_predictor_worker.symbols.reference_library import (
     normalize_rows,
     shape_descriptor,
     vote,
+    vote_batch,
 )
 
 
@@ -185,3 +186,29 @@ def test_invalid_vote_inputs_are_errors() -> None:
         normalize_rows(np.array([[np.nan, 1.0]], dtype=np.float32))
     with pytest.raises(ReferenceLibraryError):
         descriptor_matrix([])
+
+
+def test_vote_batch_matches_single_votes() -> None:
+    rng = np.random.default_rng(3)
+    references = normalize_rows(rng.random((60, 12), dtype=np.float32))
+    labels = rng.integers(0, 4, 60).astype(np.int64)
+    queries = normalize_rows(rng.random((25, 12), dtype=np.float32))
+
+    batch = vote_batch(queries, references, labels, class_count=4)
+    single = [vote(query, references, labels, class_count=4) for query in queries]
+
+    # Matrix and vector products may differ in the last float32 digit only.
+    assert [(v.class_index, v.agreeing_count) for v in batch] == [
+        (v.class_index, v.agreeing_count) for v in single
+    ]
+    assert np.allclose([v.best_similarity for v in batch], [v.best_similarity for v in single])
+
+
+def test_vote_batch_keeps_boundary_ties_in_row_order() -> None:
+    references = normalize_rows(np.array([[1.0, 0.0]] * 9, dtype=np.float32))
+    labels = np.array([1, 1, 1, 1, 1, 1, 1, 0, 0], dtype=np.int64)
+    query = np.array([[1.0, 0.0]], dtype=np.float32)
+
+    assert vote_batch(query, references, labels, class_count=2) == [
+        vote(query[0], references, labels, class_count=2)
+    ]

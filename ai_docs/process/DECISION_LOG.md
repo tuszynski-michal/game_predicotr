@@ -6,6 +6,31 @@ last_updated: 2026-09-29
 
 # Decision Log
 
+## D-465 — dobór wzorców symboli: zasłonięcia i zatwierdzenia masowe
+
+- **Status:** accepted, 2026-09-29; odpowiedzi operatora na pytania O1 i O2
+  planu biblioteki wzorców (D-464).
+- **Occlusion:** symbol częściowo zasłonięty (dłoń, przycisk nawigacji) lub
+  lekko przycięty, ale rozpoznawalny, otrzymuje klasę symbolu. Stan
+  nieczytelny, zasłonięty albo zła siatka oznacza komórkę, w której symbolu
+  nie da się rozpoznać. Reguła obowiązuje w ślepej ocenie i przy doborze
+  wzorców biblioteki.
+- **Bulk approvals:** zatwierdzenia masowe akceptujące predykcję modelu
+  (ostatnie zdarzenie `approve` lub `reassign` komórki jest `approve` z
+  `operation_id`, m.in. 48 698 komórek z 2026-09-28) nie są wzorcami
+  biblioteki ani danymi treningowymi. Operator oglądał je pobieżnie i
+  mogą zawierać błędy. Przeniesienie do innego symbolu (`reassign`), także
+  masowe, pozostaje decyzją operatora i jest wzorcem.
+- **Versioning:** polityka wzorców `no-bulk-approve-v2` jest domyślna dla
+  nowych pomiarów; poprzednia `all-human-v1` pozostaje dostępna do
+  odtworzenia wyników T1/T2.
+- **Corrections:** operator potwierdził, że w ślepej ocenie komórki
+  `f083d112` i `cf7f29d9` to Wiśnia (pomyłki wyboru). Oryginalny plik ocen
+  pozostaje niezmieniony; poprawki są osobnym plikiem.
+- **Boundary:** decyzja nie zmienia danych w bazie, stanu komórek ani
+  historii zdarzeń. Etap B pozostaje nieuruchomiony; operator zlecił zamiast
+  niego odczytowy podgląd zmian dla predykcji Arbuz poniżej 80%.
+
 ## D-464 — propozycje symboli z biblioteki zweryfikowanych komórek
 
 - **Status:** accepted, 2026-09-29; operator zaakceptował plan
@@ -23,8 +48,7 @@ last_updated: 2026-09-29
   propozycji, API i UI należą do etapu B, ponowny trening do etapu C; oba
   wymagają osobnego polecenia. Bramka etapu A to ślepa ocena operatora.
 - **Open:** traktowanie zasłoniętych symboli oraz komórek z zatwierdzenia
-  masowego 2026-09-28 jest nierozstrzygnięte i blokuje dobór wzorców w
-  etapie B, nie pomiar etapu A.
+  masowego 2026-09-28 rozstrzyga D-465.
 - **Numbering:** gałąź `codex/symbol-split-pilot` ma własne, inne decyzje o
   numerach D-462 i D-463. Ten wpis używa numeracji gałęzi bazowej.
 

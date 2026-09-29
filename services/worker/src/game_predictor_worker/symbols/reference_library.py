@@ -200,10 +200,53 @@ def vote(
     similarity = references[allowed] @ query
     # Stable order makes ties deterministic: higher similarity, then lower row.
     order = np.lexsort((allowed, -similarity))[:NEIGHBOUR_COUNT]
-    neighbour_labels = labels[allowed[order]]
+    return _vote_from_neighbours(similarity[order], labels[allowed[order]], class_count)
+
+
+def vote_batch(
+    queries: FloatArray,
+    references: FloatArray,
+    labels: NDArray[np.int64],
+    *,
+    class_count: int,
+) -> list[Vote]:
+    """Vote for every query row in one matrix product, without exclusions.
+
+    Neighbour choice and tie order follow ``vote``; similarities may differ from
+    it in the last float32 digit because the product is computed in a batch.
+    """
+
+    if (
+        queries.ndim != 2
+        or references.ndim != 2
+        or queries.shape[1] != references.shape[1]
+        or labels.shape != (references.shape[0],)
+        or class_count < 2
+        or (labels.size and (int(labels.min()) < 0 or int(labels.max()) >= class_count))
+    ):
+        raise ReferenceLibraryError(
+            "SYMBOL_REFERENCE_VOTE_INPUT_INVALID",
+            "Vote inputs have inconsistent shapes or labels.",
+        )
+    if references.shape[0] < NEIGHBOUR_COUNT:
+        return [vote(query, references, labels, class_count=class_count) for query in queries]
+    similarity = queries @ references.T
+    kth = np.partition(-similarity, NEIGHBOUR_COUNT - 1, axis=1)[:, NEIGHBOUR_COUNT - 1]
+    results: list[Vote] = []
+    for row, threshold in zip(similarity, kth, strict=True):
+        # Keep every tie at the boundary so the stable order matches ``vote`` exactly.
+        candidates = np.flatnonzero(-row <= threshold)
+        order = candidates[np.lexsort((candidates, -row[candidates]))][:NEIGHBOUR_COUNT]
+        results.append(_vote_from_neighbours(row[order], labels[order], class_count))
+    return results
+
+
+def _vote_from_neighbours(
+    similarity: NDArray[np.float32], neighbour_labels: NDArray[np.int64], class_count: int
+) -> Vote:
     weights = np.bincount(
         neighbour_labels,
-        weights=np.maximum(similarity[order], 0.0) + 1e-6,
+        weights=np.maximum(similarity, 0.0) + 1e-6,
         minlength=class_count,
     )
     winner = int(np.argmax(weights))
@@ -211,7 +254,7 @@ def vote(
         class_index=winner,
         neighbour_count=NEIGHBOUR_COUNT,
         agreeing_count=int(np.count_nonzero(neighbour_labels == winner)),
-        best_similarity=float(similarity[order[0]]),
+        best_similarity=float(similarity[0]),
     )
 
 

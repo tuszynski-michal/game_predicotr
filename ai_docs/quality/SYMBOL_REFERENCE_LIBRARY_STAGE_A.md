@@ -218,6 +218,73 @@ ogółem i co najmniej 95% dla każdego proponowanego symbolu z co najmniej
 nie są błędami propozycji; raport podaje, ile pewnych propozycji padło na
 takie komórki.
 
+## A3 — polityka wzorców v2 i podgląd dla predykcji Arbuz (TASK-0742)
+
+D-465 wyłącza z wzorców komórki, których ostatnią decyzją jest masowe
+`approve` (48 698 komórek); przeniesienia `reassign` pozostają.
+
+| Pomiar | `all-human-v1` | `no-bulk-approve-v2` |
+|---|---:|---:|
+| Wzorce | 2 706 | 2 508 |
+| T1: pokrycie / zgodność pewnych propozycji | 80,5% / 99,5% | 79,1% / 99,5% |
+| Ślepa próbka, oceny oryginalne | 82,6% / 99,4% | 80,5% / 99,4% |
+| Ślepa próbka, oceny poprawione | 82,7% / 100% | 80,6% / 100% |
+
+Poprawione oceny: operator potwierdził, że `f083d112` i `cf7f29d9` to
+Wiśnia (osobny plik `blind-ratings-corrected.json`, oryginał bez zmian).
+Polityka v2 zmienia 6 z 200 propozycji ślepej próbki; bramka etapu A nadal
+PASS. Z polityką v2 Cytryna ma 8 pewnych propozycji w próbce, poniżej
+minimum 10 — jej wynik jest niepotwierdzony. `rescore-v2.json` SHA
+`c4de3a068b4e92cb0e222255b3cce978db5da3b98b0d4b4a615a155908df9b63`.
+
+Podgląd: wszystkie oczekujące komórki z predykcją Arbuz poniżej 80%
+(11 864; poza zakresem 16 z `grid_issue` i 11 w trybie `legacy_file`).
+Nic nie zapisano w bazie.
+
+| Propozycja biblioteki | Pewność modelu 0–60% | Pewność modelu 60–80% |
+|---|---:|---:|
+| Arbuz (bez zmiany) | 2 540 (77,1%) | 5 226 (61,0%) |
+| Do przeglądu | 493 (15,0%) | 1 200 (14,0%) |
+| Wiśnia | 47 | 766 |
+| Pomarańcz | 58 | 588 |
+| Gwiazda | 54 | 270 |
+| Siedem | 34 | 230 |
+| Winogron | 12 | 163 |
+| Cytryna | 33 | 108 |
+| Śliwka | 24 | 18 |
+| **Razem** | 3 295 | 8 569 |
+
+`preview.json` SHA
+`0ed25966268122088f4c7278ef2ad3aeebb1ff6ba3bc098ab12f5ea88ec616e9`,
+identyczny w kolejnych uruchomieniach. Widok lokalny:
+`worktrees/symbol-reference-library/artifacts/symbol-reference-library/preview-arbuz/preview.html`
+(zestawienie per pasmo i do 40 przykładów na przejście).
+
+Ograniczenia: pasmo 0–60% nie było objęte ślepą oceną; jego wyniki są
+niepotwierdzone. Ocena wzrokowa agenta na przykładach: przejścia do Siedem
+i Wiśnia pokazują czytelne siódemki i wiśnie (część wiśni pod przyciskiem
+nawigacji, zgodnie z D-465); przejścia do Pomarańcz to żółte owoce z
+listkiem, które w ślepej ocenie operator potwierdzał jako Pomarańcz.
+
+Polecenie (wznawialne, kod wyjścia 3 = uruchom ponownie):
+
+```powershell
+$env:PYTHONPATH = "services\worker\src;services\api\src"
+$py = 'C:\Users\tuszy\Documents\game_predicotr\.venv\Scripts\python.exe'
+$p = Start-Process -FilePath $py -ArgumentList @(
+  'scripts/evaluate_symbol_reference_library.py', 'preview',
+  '--game-code', '7', '--symbol', 'ARBUZ', '--max-confidence', '0.8', '--band-edge', '0.6',
+  '--output-dir', 'artifacts/symbol-reference-library/preview-arbuz',
+  '--artifact-root', 'C:\Users\tuszy\Documents\game_predicotr\artifacts',
+  '--library-cache', 'artifacts/symbol-reference-library/stage-a/crop-cache.npz',
+  '--time-budget-seconds', '60'
+) -PassThru -NoNewWindow
+if (-not $p.WaitForExit(120000)) { $p.Kill(); throw 'timeout 120 s' }
+```
+
+`--library-cache` jest współdzieloną pamięcią podręczną wycinków wzorców
+i może być uzupełniany poza katalogiem wyników.
+
 ## Ograniczenia
 
 - Import jest przybliżeniem nagrania; wyłączenie importu nie dowodzi

@@ -82,6 +82,11 @@ i żaden symbol poniżej 95%. Niespełnienie zatrzymuje etap B.
 Stan 2026-09-29: etap A zakończony, bramka PASS (99,4% przy pokryciu
 82,6%; wyniki w `ai_docs/quality/SYMBOL_REFERENCE_LIBRARY_STAGE_A.md`).
 
+- **A3 / TASK-0742** — na polecenie operatora, zamiast etapu B: polityka
+  wzorców D-465 (`no-bulk-approve-v2`), ponowna ocena ślepej próbki i
+  odczytowy podgląd propozycji dla wszystkich oczekujących predykcji Arbuz
+  poniżej 80%, bez zapisu w bazie.
+
 ### Etap B — propozycje w weryfikacji symboli
 
 - **T3 / TASK-0744** — tabela propozycji (Alembic) i handler workera.
@@ -140,6 +145,7 @@ wykonaniu.
 |---|---|---|---|---|
 | T1 / TASK-0740 | claude-opus-5-5 | high | Przeniesienie sprawdzonego prototypu do narzędzia odczytowego; niskie ryzyko danych. | Tak: claude-opus-5-5, high, osobny agent |
 | T2 / TASK-0741 | claude-opus-5-5 | high | Próbka ślepej oceny i porównanie wyników; wynik zależy od operatora. | Tak: claude-opus-5-5, high, osobny agent |
+| A3 / TASK-0742 | claude-opus-5-5 | high | Zmiana doboru wzorców i podgląd na pełnej grupie, tylko odczyt. | Tak: claude-opus-5-5, high, osobny agent |
 | T3 / TASK-0744 | claude-opus-5-5 | high | Migracja, handler workera, wznowienie i ochrona decyzji operatora. | Tak: claude-opus-5-5, high |
 | T4 / TASK-0745 | claude-opus-5-5 | high | Zmiana kontraktu API z zachowaniem zgodności istniejących żądań. | Tak: claude-opus-5-5, high |
 | T5 / TASK-0746 | claude-sonnet-5-5 | high | Interfejs na gotowym kontrakcie, regresje widoku weryfikacji. | Tak: claude-opus-5-5, high |

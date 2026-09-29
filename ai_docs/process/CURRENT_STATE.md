@@ -26,10 +26,16 @@ last_updated: 2026-09-29
   200/200: pewne propozycje 161 (pokrycie 82,6%), zgodność 99,4%, każdy
   symbol ≥ 96,7%; aktywny model na tych komórkach 73,8%. **Bramka etapu A
   PASS.** Etap A zakończony; STOP na granicy etapu.
-- Otwarte przed etapem B: O1 (zasłonięte, ale rozpoznawalne symbole — w
-  ocenie przyjęto „klasa”, decyzja do zapisania), O2 (zatwierdzenie masowe
-  2026-09-28), potwierdzenie dwóch możliwych pomyłek oceny
-  (`f083d112`, `cf7f29d9`).
+  Commit `v1.7.55` / `269d25b7`.
+- D-465: rozpoznawalny, częściowo zasłonięty symbol dostaje klasę;
+  zatwierdzenia masowe (`approve` z `operation_id`) nie są wzorcami.
+  Operator potwierdził `f083d112` i `cf7f29d9` jako Wiśnia.
+- TASK-0742 done (zamiast etapu B, na polecenie operatora): polityka
+  `no-bulk-approve-v2` (T1 99,5% przy 79,1%, ślepa próbka 100% po
+  poprawkach) i odczytowy podgląd dla 11 864 oczekujących Arbuz < 80%:
+  lokalny widok `artifacts/symbol-reference-library/preview-arbuz/preview.html`
+  w worktree. Pasmo 0–60% bez ślepej oceny. Nic nie zapisano w bazie.
+  Etap B nieuruchomiony.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

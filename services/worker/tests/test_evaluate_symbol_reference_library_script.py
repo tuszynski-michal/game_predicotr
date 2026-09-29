@@ -266,3 +266,87 @@ def test_previously_shown_cells_are_read_from_both_formats(tmp_path: Path) -> No
     assert runner._excluded_ids([proposals, chat]) == {"a", "b"}
     with pytest.raises(runner.EvaluationError):
         runner._excluded_ids([broken])
+
+
+def test_band_labels_follow_numeric_order_and_reject_outside_values() -> None:
+    assert runner._band(0.05, [0.1, 0.6], 0.0, 0.8) == "0–10%"
+    assert runner._band(0.6, [0.1, 0.6], 0.0, 0.8) == "60–80%"
+    assert [runner._band_label(a, b) for a, b in runner._band_bounds([0.6, 0.1], 0.0, 0.8)] == [
+        "0–10%",
+        "10–60%",
+        "60–80%",
+    ]
+    with pytest.raises(runner.EvaluationError):
+        runner._band(0.8, [0.6], 0.0, 0.8)
+
+
+def test_display_confidence_never_rounds_up_to_the_band_edge() -> None:
+    assert runner._display_confidence(0.79996) == "0.79"
+    assert runner._display_confidence(0.6) == "0.60"
+
+
+def test_preview_groups_are_deterministic_and_capped() -> None:
+    rows = [
+        {"cellReviewId": f"cell-{i}", "band": "60–80%", "proposal": "ARBUZ" if i % 3 else "WISNIA"}
+        for i in range(30)
+    ]
+
+    first = runner._preview_groups(rows, 5)
+    second = runner._preview_groups(list(reversed(rows)), 5)
+
+    assert first == second
+    assert sorted(first) == [("60–80%", "ARBUZ"), ("60–80%", "WISNIA")]
+    assert all(len(members) == 5 for members in first.values())
+
+
+def test_crop_only_cache_round_trips(tmp_path: Path) -> None:
+    source, pixels = _source(tmp_path)
+    cell = _cell("good", source, pixels)
+    cache_path = tmp_path / "crops.npz"
+
+    runner._render(
+        [cell],
+        artifact_root=tmp_path,
+        cache_path=cache_path,
+        deadline=time.monotonic() + 60,
+        context_size=0,
+    )
+    reloaded = runner._load_cache(cache_path)[runner._cache_key(cell)]
+
+    assert reloaded["status"] == "ok"
+    assert reloaded["context"].shape == (0, 0, 3)
+    assert rgb_pixel_checksum_sha256(reloaded["crop"]) == pixels
+
+
+def test_frozen_crops_must_match_their_checksum(tmp_path: Path) -> None:
+    source, pixels = _source(tmp_path)
+    cell = _cell("good", source, pixels)
+    cache, _ = runner._render(
+        [cell],
+        artifact_root=tmp_path,
+        cache_path=tmp_path / "cache.npz",
+        deadline=time.monotonic() + 60,
+    )
+    row = {"cellReviewId": "good", "renderedPixelChecksumSha256": pixels}
+
+    assert len(runner._cached_crops(cache, [row])) == 1
+    with pytest.raises(runner.EvaluationError) as error:
+        runner._cached_crops(cache, [{**row, "renderedPixelChecksumSha256": "0" * 64}])
+
+    assert error.value.code == "SYMBOL_REFERENCE_FROZEN_PIXELS_MISSING"
+
+
+def test_cached_preview_rows_require_the_same_key(tmp_path: Path) -> None:
+    path = tmp_path / "rows.json"
+    path.write_bytes(runner._json_bytes({"key": "a", "rows": [{"cellReviewId": "x"}]}))
+
+    assert runner._cached_preview_rows(path, "a") == [{"cellReviewId": "x"}]
+    assert runner._cached_preview_rows(path, "b") is None
+    assert runner._cached_preview_rows(tmp_path / "missing.json", "a") is None
+
+
+def test_damaged_preview_rows_cache_is_ignored(tmp_path: Path) -> None:
+    path = tmp_path / "rows.json"
+    path.write_text('{"key": "a", "rows": [', encoding="utf-8")
+
+    assert runner._cached_preview_rows(path, "a") is None

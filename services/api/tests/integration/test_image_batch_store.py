@@ -163,6 +163,16 @@ pytestmark = pytest.mark.skipif(
 )
 
 
+# Source visibility (D-451) classifies every cell from the current grid quad;
+# a fully in-frame quad keeps all fifteen fixture positions `full`.
+_IN_FRAME_QUAD = [
+    {"x": 100, "y": 100},
+    {"x": 600, "y": 100},
+    {"x": 600, "y": 400},
+    {"x": 100, "y": 400},
+]
+
+
 def _database_url(database_name: str) -> URL:
     return (
         make_url(ApiSettings.from_environment().database_url)
@@ -244,7 +254,9 @@ def _add_review_projection_source(
         sequence_number_raw=str(sequence_number),
         sequence_number=sequence_number,
         sequence_confidence=1.0,
-        board_geometry={"source": "projection-test"},
+        # Source visibility (D-451) classifies every cell from the current
+        # grid quad; a fully in-frame quad keeps all fifteen positions `full`.
+        board_geometry={"source": "projection-test", "quad": _IN_FRAME_QUAD},
         board_relative_path=f"crops/{source_name}.png",
         board_checksum_sha256=f"{sequence_number:064x}",
         cells_prediction={"cells": []},
@@ -509,7 +521,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
                         {"x": 100, "y": 100},
                         {"x": 0, "y": 100},
                     ],
-                    geometry={"source": "manual"},
+                    geometry={"source": "manual", "quad": _IN_FRAME_QUAD},
                     board_relative_path="boards/corrected.png",
                     board_checksum_sha256="4" * 64,
                     cropper_version="corrected-cropper-v1",
@@ -964,7 +976,7 @@ def test_symbol_cell_write_through_tracks_board_geometry_and_prediction_mutation
                 idempotency_key=uuid4(),
                 command=command_value,
                 artifacts=ImageReviewGeometryArtifacts(
-                    geometry={"source": "write-through-test"},
+                    geometry={"source": "write-through-test", "quad": _IN_FRAME_QUAD},
                     board_relative_path="corrected/write-through.png",
                     board_checksum_sha256="c" * 64,
                     cropper_version="write-through-cropper-v2",
@@ -1479,7 +1491,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 idempotency_key=uuid4(),
                 command=geometry_command,
                 artifacts=ImageReviewGeometryArtifacts(
-                    geometry={"source": "grid-issue-filter-test"},
+                    geometry={"source": "grid-issue-filter-test", "quad": _IN_FRAME_QUAD},
                     board_relative_path="corrected/grid-issue.png",
                     board_checksum_sha256="d" * 64,
                     cropper_version="grid-issue-filter-test",

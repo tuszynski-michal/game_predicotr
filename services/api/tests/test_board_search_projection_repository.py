@@ -7,6 +7,8 @@ from uuid import UUID
 
 import pytest
 from game_predictor_api.domain.board_search import (
+    BoardSearchCellDecision,
+    BoardSearchCellEvidence,
     BoardSearchError,
     BoardSearchQueryCell,
     BoardSearchScope,
@@ -16,6 +18,8 @@ from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
     _candidate_values,
+    _cell_decision,
+    _current_cell_decisions,
     _payload_from_records,
 )
 from game_predictor_api.storage.models import (
@@ -112,6 +116,47 @@ def test_pending_projection_uses_latest_prediction_shape_and_order() -> None:
     values = _candidate_values(payload, {"seven": 1, "lemon": 2, "bell": 3})
     assert cast(list[int | None], values["primary_symbol_mobile_codes"])[:2] == [1, 2]
     assert cast(list[int | None], values["alternative_rank_1_mobile_codes"])[:2] == [3, 3]
+
+
+def test_pending_projection_overlays_current_cell_decisions() -> None:
+    item, board, source, job = _records(status="pending")
+    observations = tuple(
+        CellObservationModel(
+            recognized_board_id=board.id,
+            row_index=index // 5,
+            column_index=index % 5,
+            crop_relative_path=f"cells/{index}.jpg",
+            crop_checksum_sha256=f"{index:064x}",
+            cropper_version="v19",
+            prediction={"symbolCode": "seven", "alternatives": [{"symbolCode": "bell"}]},
+        )
+        for index in range(15)
+    )
+
+    payload = _payload_from_records(
+        item=item,
+        board=board,
+        source=source,
+        job=job,
+        observations=observations,
+        prediction_override=None,
+        cell_decisions=(
+            BoardSearchCellDecision(
+                cell_index=0,
+                evidence=BoardSearchCellEvidence.VERIFIED,
+                symbol_code="lemon",
+            ),
+            BoardSearchCellDecision(cell_index=1, evidence=BoardSearchCellEvidence.WITHHELD),
+        ),
+    )
+
+    assert payload is not None
+    assert payload.candidate.status == "pending"
+    assert payload.candidate.primary_symbol_codes[:3] == ("lemon", None, "seven")
+    assert payload.candidate.alternative_symbol_codes[:3] == ((), (), ("bell",))
+    assert "1" not in payload.known_evidence_positions
+    values = _candidate_values(payload, {"seven": 1, "lemon": 2, "bell": 3})
+    assert cast(list[int | None], values["primary_symbol_mobile_codes"])[:3] == [2, None, 1]
 
 
 def test_resolved_projection_uses_human_symbols_and_discards_predictions() -> None:
@@ -342,4 +387,119 @@ def test_partial_archive_fails_closed_instead_of_falling_back() -> None:
             limit=10,
         )
     assert error.value.code == "BOARD_SEARCH_ARCHIVE_INCOMPLETE"
+    session.execute.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        # A verified cell is exact evidence, including a logical `?`.
+        (dict(review_state="approved", symbol_code="lemon"), ("verified", "lemon")),
+        (
+            dict(review_state="approved", quality_issue="blurry", symbol_code="bell"),
+            ("verified", "bell"),
+        ),
+        (dict(review_state="approved", quality_issue="unreadable"), ("verified", None)),
+        # R10: an approval of other pixels than the current ones is no evidence.
+        (dict(review_state="approved", symbol_code="lemon", approval_pixels_changed=True), None),
+        # Reported pending problems withhold the model suggestion.
+        (dict(quality_issue="grid_issue"), ("withheld", None)),
+        (dict(quality_issue="unreadable"), ("withheld", None)),
+        (dict(quality_issue="partial_visibility"), ("withheld", None)),
+        (dict(quality_issue="blurry"), None),
+        (dict(), None),
+        # Without source pixels only an approved logical `outside` is evidence.
+        (
+            dict(
+                review_state="approved",
+                symbol_code="seven",
+                has_source_pixels=False,
+                is_outside=True,
+            ),
+            ("verified", "seven"),
+        ),
+        (dict(has_source_pixels=False, is_outside=True), ("withheld", None)),
+        (
+            dict(
+                review_state="approved",
+                symbol_code="seven",
+                has_source_pixels=False,
+                is_outside=True,
+                approval_pixels_changed=True,
+            ),
+            ("withheld", None),
+        ),
+        (
+            dict(review_state="approved", symbol_code="seven", has_source_pixels=False),
+            ("withheld", None),
+        ),
+    ],
+)
+def test_cell_decision_classifies_current_rows_for_pending_search(
+    state: dict[str, object], expected: tuple[str, str | None] | None
+) -> None:
+    arguments: dict[str, object] = {
+        "cell_index": 4,
+        "review_state": "pending",
+        "quality_issue": None,
+        "has_source_pixels": True,
+        "is_outside": False,
+        "approval_pixels_changed": False,
+        "symbol_code": None,
+    }
+    arguments.update(state)
+
+    decision = _cell_decision(**arguments)  # type: ignore[arg-type]
+
+    if expected is None:
+        assert decision is None
+    else:
+        assert decision is not None
+        assert decision.cell_index == 4
+        assert (decision.evidence.value, decision.symbol_code) == expected
+
+
+def test_current_cell_decisions_ignore_foreign_boards_and_stale_revisions() -> None:
+    item, board, source, job = _records(status="pending")
+    board.geometry_revision = 2
+    other_board = UUID(int=99)
+
+    def row(cell_index: int, recognized_board_id: UUID, geometry_revision: int) -> tuple:
+        return (
+            item.id,
+            recognized_board_id,
+            cell_index,
+            "approved",
+            None,
+            True,
+            "full",
+            geometry_revision,
+            "legacy_file",
+            "c" * 64,
+            "c" * 64,
+            None,
+            None,
+            "lemon",
+        )
+
+    session = MagicMock()
+    session.execute.return_value.tuples.return_value = [
+        row(0, board.id, 2),
+        row(1, other_board, 2),
+        row(2, board.id, 1),
+    ]
+
+    decisions = _current_cell_decisions(session, ((item, board, source, job),))
+
+    assert [decision.cell_index for decision in decisions[item.id]] == [0]
+
+
+def test_current_cell_decisions_skip_resolved_items_without_querying() -> None:
+    item, board, source, job = _records(
+        status="corrected",
+        resolved_value={"sequenceNumber": 1, "symbolCodes": ["seven"] * 15},
+    )
+    session = MagicMock()
+
+    assert _current_cell_decisions(session, ((item, board, source, job),)) == {}
     session.execute.assert_not_called()

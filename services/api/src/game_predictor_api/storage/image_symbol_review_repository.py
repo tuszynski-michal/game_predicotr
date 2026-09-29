@@ -91,6 +91,9 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     optional_verification_outcome_value,
     verification_outcome_value,
 )
+from game_predictor_api.storage.board_search_projection_repository import (
+    SqlAlchemyBoardSearchProjectionRepository,
+)
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -1298,6 +1301,11 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                 "The symbol-cell review projection is not ready for this game.",
             )
         self._session.flush()
+        if any_changed:
+            # D-462: a verified cell feeds board search and approximate win
+            # immediately, even while its board stays pending.
+            SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(item.id)
+            self._session.flush()
         return tuple(
             SymbolCellReviewMutationResult(
                 cell_review_id=command.cell_review_id,
@@ -2291,6 +2299,9 @@ class SymbolCellReviewWriteThroughCoordinator:
             for cell in self._session.scalars(existing_statement.with_for_update())
         }
         count_before = tuple(_CountedCellState.from_model(cell) for cell in existing.values())
+        # Logical V2 cells can move from a previous owner of this sequence;
+        # that owner's search evidence must be refreshed as well (D-462 R8).
+        previous_owner_ids = {cell.review_item_id for cell in existing.values()} - {item.id}
         topology = _board_topology(board)
         expected_cell_indices = set(
             available_cell_indices(
@@ -2841,7 +2852,14 @@ class SymbolCellReviewWriteThroughCoordinator:
             )
             _apply_count_deltas(state, before=count_before, after=count_after)
             self._touch_catalog_revision(state)
+            # D-462 R8: search evidence of a pending board is read from these
+            # rows; callers refreshed the projection before the cells changed.
+            for review_item_id in sorted({item.id, *previous_owner_ids}, key=str):
+                self._refresh_search_projection(review_item_id)
         return changed
+
+    def _refresh_search_projection(self, review_item_id: UUID) -> None:
+        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(review_item_id)
 
     def _state_if_initialized(self, game_id: UUID) -> ImageSymbolReviewStateModel | None:
         return self._session.get(

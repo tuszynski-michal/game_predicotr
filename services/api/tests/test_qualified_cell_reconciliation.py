@@ -124,6 +124,7 @@ def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_ap
         return_value=SimpleNamespace(failure_message=None, count_projection_status="unavailable")
     )
     coordinator._touch_catalog_revision = Mock()
+    coordinator._refresh_search_projection = Mock()
     coordinator._review_row = Mock(
         return_value=(
             SimpleNamespace(id=review_id, status="pending", resolved_value=None),
@@ -237,6 +238,7 @@ def test_partially_visible_virtual_source_cells_are_forced_unknown_and_never_tra
         return_value=SimpleNamespace(failure_message=None, count_projection_status="uninitialized")
     )
     coordinator._touch_catalog_revision = Mock()
+    coordinator._refresh_search_projection = Mock()
     coordinator._review_row = Mock(
         return_value=(
             SimpleNamespace(id=review_id, status="pending", resolved_value=None),

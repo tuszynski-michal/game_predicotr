@@ -366,13 +366,15 @@ test('a stale response for a superseded board never overwrites the current resul
   await act(async () => root.unmount());
 });
 
-test('collapsing while loading does not crash; reopening with the same key reuses the result without refetching', async () => {
+test('collapsing while loading does not crash; reopening recalculates from current data', async () => {
   const pending = deferred();
   const calls = [];
   const client = makeClient({
     approximateWinImpl: async (_gameId, options) => {
       calls.push(options);
-      return await pending.promise;
+      return calls.length === 1
+        ? await pending.promise
+        : { data: approximateWinResponse(10) };
     },
     searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
   });
@@ -387,15 +389,39 @@ test('collapsing while loading does not crash; reopening with the same key reuse
   await settle();
 
   await toggleDetails(details, true);
-  await settle();
-  // Same (board, range) key as before: no new network call, but the
-  // previously resolved result is shown from memory (no server-side cache
-  // exists — TASK-0651/0652 — this is the client's own in-memory reuse).
-  assert.equal(calls.length, 1);
+  // D-462: symbols verified meanwhile can change the payout for the same
+  // (board, range) key, so reopening always issues a fresh request.
+  await eventually(() => calls.length === 2, 'reopening recalculates');
   await eventually(
     () => document.body.textContent.includes('Plansza startowa #10'),
-    'cached result should render on reopen',
+    'fresh result should render on reopen',
   );
+
+  await act(async () => root.unmount());
+});
+
+test('reopening after a ready result recalculates exactly once', async () => {
+  const calls = [];
+  const client = makeClient({
+    approximateWinImpl: async (_gameId, options) => {
+      calls.push(options);
+      return { data: approximateWinResponse(10) };
+    },
+    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+  });
+  const root = await renderWorkspaceWithResults(client);
+
+  const details = approximateWinDetails();
+  await toggleDetails(details, true);
+  await eventually(
+    () => document.body.textContent.includes('Plansza startowa #10'),
+    'first result renders',
+  );
+  await toggleDetails(details, false);
+  await toggleDetails(details, true);
+  await eventually(() => calls.length === 2, 'reopening recalculates');
+  await settle();
+  assert.equal(calls.length, 2);
 
   await act(async () => root.unmount());
 });

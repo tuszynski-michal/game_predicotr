@@ -898,6 +898,32 @@ def invalidate_symbol_cell_reviews_for_geometry(
     return tuple(updated)
 
 
+def symbol_cell_approval_pixels_changed(
+    *,
+    asset_mode: str | None,
+    crop_checksum_sha256: str | None,
+    approved_crop_checksum_sha256: str | None,
+    rendered_pixel_checksum_sha256: str | None,
+    approved_rendered_pixel_checksum_sha256: str | None,
+) -> bool:
+    """Whether an approval was given to other pixels than the current ones.
+
+    D-462 R10: only the approved pixels decide; a new geometry revision that
+    renders identical pixels keeps the verification.  An approval without any
+    pixel identity (a logical position without an image, D-451) never changed.
+    """
+
+    if (
+        asset_mode == "virtual_source"
+        and approved_rendered_pixel_checksum_sha256 is not None
+        and rendered_pixel_checksum_sha256 is not None
+    ):
+        return approved_rendered_pixel_checksum_sha256 != rendered_pixel_checksum_sha256
+    if approved_crop_checksum_sha256 is None:
+        return False
+    return approved_crop_checksum_sha256 != crop_checksum_sha256
+
+
 def derive_symbol_cell_board_resolution(
     *,
     reviews: Sequence[SymbolCellReview],
@@ -1194,4 +1220,5 @@ __all__ = [
     "mark_symbol_cell_unreadable",
     "reassign_symbol_cell_review",
     "resolve_unreadable_symbol_cell_review",
+    "symbol_cell_approval_pixels_changed",
 ]

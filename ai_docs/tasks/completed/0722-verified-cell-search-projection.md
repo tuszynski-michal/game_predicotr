@@ -2,7 +2,7 @@
 
 ## Status
 
-todo
+done
 
 ## Goal
 
@@ -60,20 +60,20 @@ synchronizacja w transakcji mutacji. Audyt: claude-opus-5-5, high.
 
 ## Acceptance criteria
 
-- [ ] Plansza `pending`: komórka `approved` z bieżącymi zatwierdzonymi
+- [x] Plansza `pending`: komórka `approved` z bieżącymi zatwierdzonymi
       pikselami (albo bez tożsamości pikseli akceptacji) i symbolem → ten
       symbol jako primary bez alternatyw; taka komórka bez symbolu (`?`) →
       brak dowodu; `approved` z innymi zatwierdzonymi pikselami niż bieżące →
       traktowana jak niezweryfikowana (R10), niezależnie od numeru rewizji.
-- [ ] `pending` z `quality_issue` `grid_issue`, `unreadable` albo
+- [x] `pending` z `quality_issue` `grid_issue`, `unreadable` albo
       `partial_visibility` → brak dowodu; pozostałe komórki → predykcja.
-- [ ] Pojedyncza decyzja i job masowy aktualizują fast document w tej samej
+- [x] Pojedyncza decyzja i job masowy aktualizują fast document w tej samej
       transakcji, także gdy plansza zostaje `pending`.
-- [ ] Cofnięcie weryfikacji (`Zła siatka`) usuwa symbol z dokumentu.
-- [ ] Zmiana geometrii i odświeżenie predykcji zostawiają dokument zgodny z
+- [x] Cofnięcie weryfikacji (`Zła siatka`) usuwa symbol z dokumentu.
+- [x] Zmiana geometrii i odświeżenie predykcji zostawiają dokument zgodny z
       komórkami po zapisie.
-- [ ] Ponowne otwarcie sekcji „Przybliżona wygrana” wysyła nowe żądanie.
-- [ ] Testy jednostkowe + integracyjny PostgreSQL przechodzą; lint, mypy.
+- [x] Ponowne otwarcie sekcji „Przybliżona wygrana” wysyła nowe żądanie.
+- [x] Testy jednostkowe + integracyjny PostgreSQL przechodzą; lint, mypy.
 
 ## Technical notes
 
@@ -166,4 +166,64 @@ npm run typecheck --workspace @game-predictor/admin
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- Domain: `BoardSearchCellDecision`, `BoardSearchCellEvidence`,
+  `apply_board_search_cell_decisions` (`domain/board_search.py`) and
+  `symbol_cell_approval_pixels_changed` (`domain/image_symbol_reviews.py`,
+  R10 by pixel identity, not by geometry revision).
+- Projection: `_current_cell_decisions` reads the current cells of pending
+  items in one query per synchronization batch (own board, current geometry
+  revision); the pure `_cell_decision` classifies each row; the pending branch
+  of `_payload_from_records` overlays the decisions.
+- Synchronization in the same transaction after every cell-row change:
+  end of `apply_board_mutations` (single decision, unreadable board, bulk
+  job), end of `SymbolCellReviewWriteThroughCoordinator._synchronize` via
+  `_refresh_search_projection` (geometry, prediction, resolution, reopen,
+  backfill reconciliation; also the previous logical owner of moved cells),
+  end of `virtual_grid_geometry_repository._replace_current_cells`.
+- Admin: collapsing „Przybliżona wygrana” resets the state to `idle` and
+  discards an in-flight response; reopening always recalculates.
+- Docs: `ADMIN_APP.md` (pending board evidence, approximate-win client
+  reuse), `DATA_MODEL.md` (board-search projection).
+
+### Verification results
+
+- Unit: `test_board_search_domain.py`, `test_board_search_projection_repository.py`
+  (incl. 12-case `_cell_decision`), `test_image_symbol_reviews_domain.py`,
+  `test_symbol_cell_source_visibility.py`, `test_qualified_cell_reconciliation.py` PASS.
+- PostgreSQL integration `test_verified_cell_search_projection.py` PASS:
+  single decision, bulk job, `Zła siatka` on an unverified and on a verified
+  cell, legacy recrop (old approval on changed pixels is no evidence).
+- Full API unit suite compared with a clean HEAD worktree: 23 failed / 1536 passed; the clean-HEAD worktree has 22 failures, all
+  of which fail identically here. The one extra failure
+  (`test_approximate_win_endpoint_requires_query_parameters`) is caused by
+  the user's uncommitted spin-count limit change in
+  `application/board_search_approximate_win.py`, not by this task.
+- Admin: 615 unit tests PASS; approximate-win interaction tests 10/11 — the
+  failing chart-label test belongs to the user's uncommitted TASK-0720;
+  typecheck PASS; lint 0 errors.
+- Ruff check/format PASS on changed files; mypy reports 70 pre-existing errors
+  in 14 unrelated files and none in changed files.
+- Audit claude-opus-5-5 (subagent, reasoning level inherited): cycle 1 —
+  1× P1 (fake-session tests), 2× P2 (tests), P3 notes; cycle 2 —
+  „Brak uwag P0–P2”; two remaining P3 notes (stale approval of an
+  `outside` cell, SQL-side pair/revision filter test) fixed.
+
+### Not completed
+
+- Existing 18 478 stale documents are refreshed only by TASK-0728 (consent).
+- `grid_issue` survives a geometry save until TASK-0724 (R5); the integration
+  test asserts the current behaviour and TASK-0724 changes it.
+- Performance note: a board can now be synchronized 2–3 times per
+  transaction (import, resolution) and up to about 30 times in an unreadable
+  board save; backfill batches synchronize each changed item. Idempotent; not
+  measured.
+
+### Documentation updates
+
+- `ADMIN_APP.md`, `DATA_MODEL.md`, `CURRENT_STATE.md`.
+
+### Recommended next task
+
+- TASK-0723.

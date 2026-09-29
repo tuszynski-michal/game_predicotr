@@ -30,6 +30,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     mark_symbol_cell_unreadable,
     reassign_symbol_cell_review,
     resolve_unreadable_symbol_cell_review,
+    symbol_cell_approval_pixels_changed,
 )
 
 
@@ -597,4 +598,36 @@ def test_training_requires_current_approved_crop_owner_and_verified_asset() -> N
         active_symbol_codes=("cherry",),
         is_current_owner=False,
         asset_checksum_verified=True,
+    )
+
+
+@pytest.mark.parametrize(
+    ("asset_mode", "values", "changed"),
+    [
+        # Identical pixels under a new geometry revision keep the approval.
+        ("virtual_source", ("c1", "c0", "p1", "p1"), False),
+        ("virtual_source", ("c1", "c1", "p2", "p1"), True),
+        # A virtual row without rendered identity falls back to the crop checksum.
+        ("virtual_source", ("c1", "c1", None, "p1"), False),
+        ("legacy_file", ("c2", "c1", "p1", "p1"), True),
+        ("legacy_file", ("c1", "c1", None, None), False),
+        # An approval without any pixel identity (logical outside, D-451).
+        ("legacy_file", ("c1", None, None, None), False),
+    ],
+)
+def test_symbol_cell_approval_pixels_changed_uses_pixels_not_revisions(
+    asset_mode: str,
+    values: tuple[str | None, str | None, str | None, str | None],
+    changed: bool,
+) -> None:
+    crop, approved_crop, rendered, approved_rendered = values
+    assert (
+        symbol_cell_approval_pixels_changed(
+            asset_mode=asset_mode,
+            crop_checksum_sha256=crop,
+            approved_crop_checksum_sha256=approved_crop,
+            rendered_pixel_checksum_sha256=rendered,
+            approved_rendered_pixel_checksum_sha256=approved_rendered,
+        )
+        is changed
     )

@@ -368,6 +368,15 @@ jest raportowany jako brak danych. Wyniki zachowują deterministyczną kolejnoś
 score, liczba exact, ważone alternatywy, mniej sprzeczności, zatwierdzony status,
 `sequence_number` i stabilna tożsamość źródła.
 
+Dowód planszy oczekującej (D-462, TASK-0722): komórka zweryfikowana w
+`Weryfikacji symboli` jest pewnym symbolem bez alternatyw od chwili zapisu
+decyzji — pojedynczej albo z joba masowego — niezależnie od pozostałych
+komórek i od zatwierdzenia planszy, siatki lub zdjęcia. Komórka ze zgłoszonym
+problemem (`Zła siatka`, oczekujący `Nieczytelny`, `Poza kadrem`) oraz
+zatwierdzone `?` są brakiem dowodu. Zatwierdzenie dotyczące innych pikseli
+niż bieżące nie jest dowodem do ponownej weryfikacji. Pozostałe komórki
+korzystają z predykcji modelu. Tę samą projekcję czyta „Przybliżona wygrana”.
+
 Gra może zostać przełączona na zamrożone archiwum wyszukiwania dopiero po
 pełnym, checksumowanym backfillu. Wynik archiwalny zachowuje ten sam ranking i
 obraz całej planszy, ale nie ujawnia ani nie wymaga identyfikatora review,
@@ -435,9 +444,11 @@ pozycji, niezależnie od liczby zdjęć czy rewizji jednej planszy.
 Kalkulacja jest operacją wyłącznie do odczytu: nie zapisuje oszacowań jako
 rozpoznanych symboli, zatwierdzeń ani danych treningowych, nie pobiera
 zdjęć ani nie uruchamia ponownego rozpoznawania. Nie ma cache serwerowego —
-każde nowe (gra, plansza, zakres) jest liczone od nowa; klient jedynie
-zachowuje w pamięci wynik dla ostatniego niezmienionego wyboru w ramach
-jednej sesji przeglądarki.
+każde żądanie jest liczone od nowa z bieżącej projekcji wyszukiwania. Klient
+zachowuje wynik tylko dopóki sekcja pozostaje otwarta dla tego samego wyboru;
+zwinięcie sekcji odrzuca wynik (także spóźnioną odpowiedź), więc ponowne
+otwarcie zawsze liczy od nowa i uwzględnia symbole zweryfikowane w
+międzyczasie (D-462, TASK-0722).
 
 ### Walidacja cięcia siatki 0.9
 

@@ -117,6 +117,7 @@ def _coordinator(monkeypatch, *, asset_mode="virtual_source"):
         return_value=SimpleNamespace(failure_message=None, count_projection_status="unavailable")
     )
     coordinator._touch_catalog_revision = Mock()
+    coordinator._refresh_search_projection = Mock()
     coordinator._review_row = Mock(return_value=(item, board, source, Mock(), Mock()))
     coordinator._current_cells = Mock(
         return_value=(_cells(1, (0,), asset_mode=asset_mode), "cropper-v1", None, None)
@@ -137,6 +138,8 @@ def test_outside_position_retry_and_new_pixels_preserve_human_label(monkeypatch,
         monkeypatch, asset_mode=asset_mode
     )
     assert coordinator.synchronize_after_geometry_change(**args)
+    # D-462 R8: changed cell rows refresh the board's search evidence.
+    coordinator._refresh_search_projection.assert_called_with(args["review_item_id"])
     assert len(rows) == 15
     outside = next(row for row in rows if row.cell_index == 0)
     assert outside.source_visibility == "outside" and outside.crop_sample_id is None

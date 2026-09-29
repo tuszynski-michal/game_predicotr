@@ -19,12 +19,15 @@ from game_predictor_api.domain.board_search import (
     BoardSearchArchiveAssetReference,
     BoardSearchAssetMode,
     BoardSearchCandidate,
+    BoardSearchCellDecision,
+    BoardSearchCellEvidence,
     BoardSearchError,
     BoardSearchProjectionPayload,
     BoardSearchQueryCell,
     BoardSearchResult,
     BoardSearchScope,
     BoardSearchScore,
+    apply_board_search_cell_decisions,
     select_board_search_document,
 )
 from game_predictor_api.domain.board_search_approximate_win import ApproximateWinDocument
@@ -33,6 +36,7 @@ from game_predictor_api.domain.geometry_qualification import (
     GeometryQualification,
     GeometryQualificationError,
 )
+from game_predictor_api.domain.image_symbol_reviews import symbol_cell_approval_pixels_changed
 from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
@@ -48,6 +52,7 @@ from game_predictor_api.storage.models import (
     ImageReviewItemModel,
     ImageSequenceCanonicalModel,
     ImageSymbolPredictionRevisionModel,
+    ImageSymbolReviewCellModel,
     JobModel,
     LegacyBoardSearchArchiveDocumentModel,
     LegacyBoardSearchArchiveStateModel,
@@ -57,6 +62,9 @@ from game_predictor_api.storage.models import (
 )
 
 _SEARCHABLE_STATUSES = frozenset({"pending", "accepted", "corrected"})
+# A pending cell with one of these reported problems has pixels that are no
+# evidence at all; the model's suggestion for them must not leak into search.
+_WITHHELD_QUALITY_ISSUES = frozenset({"grid_issue", "unreadable", "partial_visibility"})
 _REBUILD_BATCH_SIZE = 400
 
 
@@ -834,6 +842,8 @@ def _payloads_from_rows(
         ):
             current_geometry[geometry_record.recognized_board_id] = geometry_record
 
+    decisions_by_item = _current_cell_decisions(session, rows)
+
     payloads: list[BoardSearchProjectionPayload] = []
     for item, board, source, job in rows:
         payload = _payload_from_records(
@@ -844,10 +854,133 @@ def _payloads_from_rows(
             observations=observations_by_board[board.id],
             prediction_override=latest_predictions.get(item.id),
             geometry_revision=current_geometry.get(board.id),
+            cell_decisions=decisions_by_item.get(item.id, ()),
         )
         if payload is not None:
             payloads.append(payload)
     return tuple(payloads)
+
+
+def _current_cell_decisions(
+    session: Session,
+    rows: Sequence[ReviewProjectionRow],
+) -> dict[UUID, tuple[BoardSearchCellDecision, ...]]:
+    """Read the current human cell decisions of pending boards in one query."""
+
+    pending = [
+        (item, board, job)
+        for item, board, _source, job in rows
+        if item.status == "pending" and job.game_id is not None
+    ]
+    if not pending:
+        return {}
+    cell = ImageSymbolReviewCellModel
+    board_by_item = {item.id: board for item, board, _job in pending}
+    decisions: dict[UUID, list[BoardSearchCellDecision]] = defaultdict(list)
+    for (
+        review_item_id,
+        recognized_board_id,
+        cell_index,
+        review_state,
+        quality_issue,
+        source_available,
+        source_visibility,
+        geometry,
+        asset_mode,
+        crop_checksum,
+        approved_checksum,
+        rendered_pixel_checksum,
+        approved_rendered_pixel_checksum,
+        symbol_code,
+    ) in session.execute(
+        select(
+            cell.review_item_id,
+            cell.recognized_board_id,
+            cell.cell_index,
+            cell.review_state,
+            cell.quality_issue,
+            cell.source_available,
+            cell.source_visibility,
+            cell.geometry_revision,
+            cell.asset_mode,
+            cell.crop_checksum_sha256,
+            cell.approved_crop_checksum_sha256,
+            cell.rendered_pixel_checksum_sha256,
+            cell.approved_rendered_pixel_checksum_sha256,
+            SymbolModel.code,
+        )
+        .outerjoin(SymbolModel, SymbolModel.id == cell.assigned_symbol_id)
+        .where(
+            cell.game_id.in_({job.game_id for _item, _board, job in pending}),
+            cell.review_item_id.in_(list(board_by_item)),
+        )
+        .order_by(cell.review_item_id, cell.cell_index)
+    ).tuples():
+        board = board_by_item[review_item_id]
+        # Only the item's own board at its current geometry revision counts.
+        if recognized_board_id != board.id or int(geometry) != int(board.geometry_revision):
+            continue
+        decision = _cell_decision(
+            cell_index=int(cell_index),
+            review_state=review_state,
+            quality_issue=quality_issue,
+            has_source_pixels=bool(source_available) and source_visibility != "outside",
+            is_outside=source_visibility == "outside",
+            approval_pixels_changed=symbol_cell_approval_pixels_changed(
+                asset_mode=asset_mode,
+                crop_checksum_sha256=crop_checksum,
+                approved_crop_checksum_sha256=approved_checksum,
+                rendered_pixel_checksum_sha256=rendered_pixel_checksum,
+                approved_rendered_pixel_checksum_sha256=approved_rendered_pixel_checksum,
+            ),
+            symbol_code=symbol_code,
+        )
+        if decision is not None:
+            decisions[review_item_id].append(decision)
+    return {item_id: tuple(values) for item_id, values in decisions.items()}
+
+
+def _cell_decision(
+    *,
+    cell_index: int,
+    review_state: str,
+    quality_issue: str | None,
+    has_source_pixels: bool,
+    is_outside: bool,
+    approval_pixels_changed: bool,
+    symbol_code: str | None,
+) -> BoardSearchCellDecision | None:
+    """Classify one current cell row for pending search evidence (D-462).
+
+    ``None`` keeps the model prediction.  A verification of pixels that have
+    changed since (`symbol_cell_approval_pixels_changed`, R10) is no evidence.
+    A position without source pixels is evidence only as a human-approved
+    logical ``outside`` decision (D-451); otherwise it has no evidence at all.
+    """
+
+    if not has_source_pixels:
+        if is_outside and review_state == "approved" and not approval_pixels_changed:
+            return BoardSearchCellDecision(
+                cell_index=cell_index,
+                evidence=BoardSearchCellEvidence.VERIFIED,
+                symbol_code=symbol_code,
+            )
+        return BoardSearchCellDecision(
+            cell_index=cell_index, evidence=BoardSearchCellEvidence.WITHHELD
+        )
+    if review_state == "approved":
+        if approval_pixels_changed:
+            return None
+        return BoardSearchCellDecision(
+            cell_index=cell_index,
+            evidence=BoardSearchCellEvidence.VERIFIED,
+            symbol_code=symbol_code,
+        )
+    if quality_issue in _WITHHELD_QUALITY_ISSUES:
+        return BoardSearchCellDecision(
+            cell_index=cell_index, evidence=BoardSearchCellEvidence.WITHHELD
+        )
+    return None
 
 
 def _payload_from_records(
@@ -859,6 +992,7 @@ def _payload_from_records(
     observations: Sequence[CellObservationModel],
     prediction_override: Sequence[Mapping[str, object]] | None,
     geometry_revision: ImageBoardGeometryRevisionModel | None = None,
+    cell_decisions: Sequence[BoardSearchCellDecision] = (),
 ) -> BoardSearchProjectionPayload | None:
     if item.status not in _SEARCHABLE_STATUSES or job.game_id is None:
         return None
@@ -900,7 +1034,13 @@ def _payload_from_records(
         )
         if parsed is None:
             return None
-        primary, alternatives = parsed
+        # D-462: a verified cell is exact evidence immediately, without waiting
+        # for the remaining cells or any board/grid approval.
+        primary, alternatives = apply_board_search_cell_decisions(
+            primary_symbol_codes=parsed[0],
+            alternative_symbol_codes=parsed[1],
+            decisions=cell_decisions,
+        )
         sequence_number = int(board.sequence_number)
 
     board_identity_checksum = (

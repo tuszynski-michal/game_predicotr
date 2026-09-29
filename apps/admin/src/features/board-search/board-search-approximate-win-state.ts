@@ -74,10 +74,10 @@ export const APPROXIMATE_WIN_IDLE_STATE: ApproximateWinState = Object.freeze({
  * calculation, and neither does switching candidates while collapsed
  * (the caller only calls this once the section is open, keyed off the
  * current selection/range, so a null key naturally short-circuits both).
- * Once a key has a `ready`/`error` result, reopening with the *same* key
- * reuses it instead of recalculating — there is no server-side cache
- * (TASK-0651/0652), so this in-memory comparison is the only reuse this
- * feature gets.
+ * While the section stays open, a key with a `ready`/`error` result is not
+ * requested again. Collapsing resets the component state to `idle` (D-462),
+ * so reopening always recalculates from the current verified symbols; there
+ * is no server-side cache (TASK-0651/0652).
  */
 export function shouldRequestApproximateWin(params: {
   readonly isOpen: boolean;

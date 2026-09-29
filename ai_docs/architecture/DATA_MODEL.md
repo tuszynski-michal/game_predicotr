@@ -2306,6 +2306,22 @@ jednego właściciela dla `game_id + sequence_number`. Obie projekcje są
 aktualizowane w tej samej transakcji co import, nowa predykcja, korekta
 geometrii lub decyzja review.
 
+Od D-462 (TASK-0722) dowód planszy `pending` łączy predykcję z bieżącymi
+decyzjami komórek `image_symbol_review_cells` tej planszy i jej bieżącej
+rewizji geometrii. Komórka `approved` daje dokładny symbol (albo brak dowodu
+dla `?`) bez alternatyw, o ile zatwierdzone piksele są bieżącymi
+(`virtual_source`: `approved_rendered_pixel_checksum_sha256`, w pozostałych
+przypadkach `approved_crop_checksum_sha256`; brak tożsamości akceptacji
+oznacza logiczną pozycję bez obrazu). Komórka `pending` z `grid_issue`,
+`unreadable` albo `partial_visibility` nie daje dowodu; pozycja bez pikseli
+źródła daje dowód wyłącznie jako zatwierdzone `outside`. Decyzje są czytane
+jednym ograniczonym zapytaniem na partię synchronizacji. Każda zmiana wiersza
+komórki — mutacja operatora (`apply_board_mutations`), write-through
+koordynatora po geometrii, predykcji, rozstrzygnięciu lub ponownym otwarciu
+oraz zapis cropów `virtual_source` — synchronizuje dokument planszy w tej
+samej transakcji. Plansze `accepted`/`corrected` nadal używają wyłącznie
+`resolved_value`.
+
 Po upsercie istniejącego kandydata synchronizator musi ponownie zasilić jego
 obiekt ORM z aktualnego wiersza bazy przed wyborem canonical owner i zapisaniem
 fast documentu. Sam `INSERT ... ON CONFLICT DO UPDATE` nie odświeża obiektu,

@@ -140,7 +140,15 @@ export function BoardSearchApproximateWin({
   }
 
   function handleToggle(event: SyntheticEvent<HTMLDetailsElement>) {
-    setIsOpen(event.currentTarget.open);
+    const open = event.currentTarget.open;
+    if (!open) {
+      // D-462: a verified symbol changes the payout without a new selection,
+      // so collapsing drops the result and reopening always recalculates.
+      // Bumping the request id also discards a response still in flight.
+      requestIdRef.current += 1;
+      setState(APPROXIMATE_WIN_IDLE_STATE);
+    }
+    setIsOpen(open);
   }
 
   const visibleResult = visibleApproximateWinResult(state, requestKey);

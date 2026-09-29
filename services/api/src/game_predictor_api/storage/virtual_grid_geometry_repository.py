@@ -1003,6 +1003,12 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 before=count_before,
                 after=tuple(_CountedCellState.from_model(cell) for cell in cells),
             )
+        # D-462 R8: search evidence is read from these cell rows; refresh it
+        # after they changed, in the same transaction.
+        self._session.flush()
+        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(
+            _require_review_item_id(context)
+        )
 
     def _pending_context(
         self,

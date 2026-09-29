@@ -33,10 +33,16 @@ last_updated: 2026-09-29
   zaakceptowany 2026-09-29 z P1–P4; operator zlecił wyłącznie etap A
   (TASK-0721–0724). Etapy B/C wymagają osobnego polecenia, a zapis danych
   TASK-0728 dodatkowej zgody po preview.
-- TASK-0721 done: D-462, plan, zadania 0722–0724, reguła docelowa w
-  `ADMIN_APP.md`. Zachowanie kodu jeszcze się nie zmieniło — zweryfikowane
-  komórki plansz `pending` nadal nie zasilają wyszukiwania (T2), a domknięcie
-  wymaga akceptacji geometrii (T3).
+- TASK-0721 done — commit `v1.7.49` / `27ce1d90`: D-462, plan, zadania
+  0722–0724, reguła docelowa w `ADMIN_APP.md`.
+- TASK-0722 done: zweryfikowana komórka planszy `pending` zasila
+  `Wyszukaj planszę` i „Przybliżoną wygraną” od razu po zapisie (pojedyncza
+  decyzja i job masowy), zgłoszone problemy są brakiem dowodu, akceptacja
+  innych pikseli nie jest dowodem (R10). Projekcja jest synchronizowana po
+  każdej zmianie wierszy komórek; Admin przelicza wynik po ponownym otwarciu
+  sekcji. Istniejące nieaktualne dokumenty (≈18,5 tys. plansz) odświeży
+  dopiero TASK-0728 za zgodą. Domknięcie planszy nadal wymaga akceptacji
+  geometrii (T3), a `grid_issue` przetrwa zapis geometrii do T4.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

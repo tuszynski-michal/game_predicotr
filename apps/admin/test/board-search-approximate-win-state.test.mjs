@@ -154,7 +154,7 @@ test('shouldRequestApproximateWin refires when the selected board or range chang
   );
 });
 
-test('shouldRequestApproximateWin reuses a ready result on reopen with the same key', () => {
+test('shouldRequestApproximateWin keeps a ready result while the same key stays open', () => {
   const key = 'game-1|id|1000';
   assert.equal(
     shouldRequestApproximateWin({

@@ -1,14 +1,23 @@
 ---
 title: Approximate mobile snapshot from every board
-status: proposed
+status: deferred
 last_updated: 2026-09-30
 ---
 
 # Plan: przybliżony snapshot mobilny ze wszystkich plansz
 
-Status: **propozycja do akceptacji operatora**. Plan wymaga nowej decyzji
-(proponowane D-463), bo zmienia zasadę D-462/P4, według której snapshot
-mobilny korzysta wyłącznie z plansz domkniętych.
+Status: **odłożony** (decyzja operatora 2026-09-30: „zapisz plan na później
+zmiany w aplikacji mobilnej — zrealizuj tylko zmiany, jeśli są w aplikacji
+webowej”). Plan wymaga nowej decyzji (proponowane D-463), bo zmienia zasadę
+D-462/P4, według której snapshot mobilny korzysta wyłącznie z plansz
+domkniętych; D-463 nie jest przyjęta.
+
+Część webowa jest już spełniona: po TASK-0730 „Wyszukaj planszę” →
+„Przybliżona wygrana” liczy wszystkie 500 000 pozycji gry `777`, koszt
+każdego spinu, a plansze niepełne jako „częściowa (potwierdzone minimum)”,
+z liczbą plansz pełnych, niepełnych i brakujących. Żaden task tego planu nie
+jest potrzebny aplikacji webowej; T7 (budowa snapshotu w Adminie) ma sens
+tylko razem z aplikacją mobilną, więc też jest odłożony.
 
 ## 1. Wymaganie operatora (2026-09-30)
 
@@ -61,10 +70,10 @@ datasetu oraz dopasowania odpornego na pola nieznane i błędy predykcji.
 
 | # | Pytanie | Rekomendacja |
 |---|---|---|
-| Q1 | Źródło danych przybliżonych | Projekcja wyszukiwania (spójność z „Przybliżoną wygraną”). |
-| Q2 | Ile różnic na polach z predykcją dopuścić przy dopasowaniu? | Do 2 różnic; wynik zawsze pokazuje liczbę różnic; przy remisie kandydatów — „duplicate”. Limit do potwierdzenia pomiarem (T6). |
-| Q3 | Czy pokazywać plansze `missing` w Target jako wiersz? | Nie; liczą koszt, a podsumowanie pokazuje ich liczbę. |
-| Q4 | Jak często budować snapshot? | Ręcznie z Admina (jak dziś), każda budowa = nowa wersja. |
+| Q1 | Źródło danych przybliżonych | Projekcja wyszukiwania (spójność z „Przybliżoną wygraną”). Otwarte. |
+| Q2 | Ile różnic na polach z predykcją dopuścić przy dopasowaniu? | **Odpowiedź operatora 2026-09-30: do 2 różnic**; wynik zawsze pokazuje liczbę różnic; przy remisie kandydatów — „duplicate”. Limit do potwierdzenia pomiarem (T6). |
+| Q3 | Czy pokazywać plansze `missing` w Target jako wiersz? | **Odpowiedź operatora 2026-09-30: nie**; liczą koszt, a podsumowanie pokazuje ich liczbę. |
+| Q4 | Jak często budować snapshot? | Ręcznie z Admina (jak dziś), każda budowa = nowa wersja. Otwarte. |
 
 ## 4. Etapy i taski (proponowane)
 

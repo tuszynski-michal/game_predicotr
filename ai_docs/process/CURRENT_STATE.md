@@ -113,8 +113,12 @@ last_updated: 2026-09-29
 - Plan `ai_docs/delivery/APPROXIMATE_MOBILE_SNAPSHOT_EXECUTION_PLAN.md`
   (status `proposed`, proponowana D-463): przybliżony dataset i snapshot v5
   ze wszystkich plansz (projekcja wyszukiwania, klasy dowodu, wypłata
-  prefix-stop, dopasowanie tolerancyjne w aplikacji). Czeka na akceptację
-  operatora i odpowiedzi Q1–Q4; nic nie wdrożono.
+  prefix-stop, dopasowanie tolerancyjne w aplikacji). Commit `v1.7.61` /
+  `80c15e55`. Operator 2026-09-30: plan odłożony na później (status
+  `deferred`, D-463 nieprzyjęta); Q2 = do 2 różnic, Q3 = `missing` tylko w
+  podsumowaniu. Zmian webowych nie trzeba: po TASK-0730 „Przybliżona
+  wygrana” obejmuje wszystkie pozycje, koszt każdego spinu i potwierdzone
+  minimum plansz niepełnych.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

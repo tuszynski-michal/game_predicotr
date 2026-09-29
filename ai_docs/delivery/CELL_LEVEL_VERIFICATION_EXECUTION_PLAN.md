@@ -131,7 +131,7 @@ ranking wyszukiwania, archiwum legacy, trening, usunięcie kolumn/tabel/historii
   domknięcie plansz 15/15; zero nowych weryfikacji. Preview 2026-09-29 (gra
   `777`): 37 779 dokumentów do odświeżenia, 456 komórek / 113 plansz do
   ponownej weryfikacji, w tym 3 plansze `accepted` do ponownego otwarcia,
-  0 domknięć; apply czeka na zgodę operatora.
+  0 domknięć. Apply po zgodzie operatora: 37 782 plansz bez dryfu i błędów.
 - **T9 / TASK-0729** — odbiór całości.
 
 Szczegóły tasków etapu A są w plikach zadań. Taski etapów B i C zostaną

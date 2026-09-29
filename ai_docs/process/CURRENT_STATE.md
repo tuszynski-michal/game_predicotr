@@ -89,6 +89,13 @@ last_updated: 2026-09-29
   `dca87df2…5e78`): odświeżenie 37 779 dokumentów wyszukiwania, 456 komórek
   / 113 plansz wraca do weryfikacji, 3 plansze `accepted` (sekwencje 81,
   104, 106) zostaną ponownie otwarte, 0 domknięć. Apply nie był uruchomiony.
+- TASK-0728 commit `v1.7.57` / `4f74aaf0`. Po zgodzie operatora apply na grze
+  `777` (10 porcji, `artifacts/cell-level-migration/apply-777-*.json`):
+  37 782 plansz `applied`, 0 dryfu i błędów; 456 komórek wróciło do
+  `Weryfikacji symboli` z etykietą człowieka jako podpowiedzią; plansze 81,
+  104 i 106 są znowu `pending` (poza layoutem do ponownej weryfikacji); 0
+  nowych weryfikacji (zatwierdzonych 73 378 = 73 834 − 456); dokumenty
+  wyszukiwania odświeżone. TASK-0728 done; następny TASK-0729 (odbiór).
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

@@ -2,7 +2,7 @@
 
 ## Status
 
-blocked — preview wykonany; `apply` czeka na osobną zgodę operatora.
+done
 
 ## Goal
 
@@ -178,8 +178,8 @@ Każdy krok z timeoutem ≤ 600 s; preview tylko do odczytu.
 
 ## Outcome
 
-Stan: preview wykonany; `apply` na żywych danych czeka na osobną zgodę
-operatora, dlatego status to `blocked`.
+Stan: preview wykonany 2026-09-29; `apply` na grze `777` wykonany po
+osobnej zgodzie operatora (2026-09-29/30), bez dryfu i błędów.
 
 ### Changed
 
@@ -237,6 +237,16 @@ operatora, dlatego status to `blocked`.
   mają alternatywy modelu dla zweryfikowanych komórek (399/400), inny symbol
   główny (207/400), nieaktualną sumę kontrolną planszy (84/400); dokumenty
   sekwencji odpowiadają kandydatom.
+- Apply (zgoda operatora w czacie po przejrzeniu preview): 10 porcji
+  (`artifacts/cell-level-migration/apply-777-01.json` … `-10.json`, 500 +
+  8 × 4500 + 1282 plansz, ~0,09 s na planszę, łącznie ~52 min): 37 782
+  `applied`, 0 `drift`, 0 `failed`, 0 `fatal`; 456 komórek wróciło do
+  weryfikacji, 3 plansze ponownie otwarte (81, 104, 106 → `pending`), 0
+  domknięć. Każda plansza manifestu wystąpiła dokładnie raz.
+- Odczyt po apply: 0 akceptacji innych pikseli; zatwierdzonych komórek
+  73 378 = 73 834 − 456 (zero nowych weryfikacji); 456 zdarzeń
+  `geometry_invalidated` aktora `cell-level-migration` na 456 różnych
+  komórkach; plansze: 500 026 `pending`, 0 `accepted`.
 - Audyt claude-opus-5-5 (subagent, poziom rozumowania dziedziczony): cykl 1 —
   brak P0–P1, 2× P2 (brak testu ścieżki `virtual_source`, brak testów
   zabezpieczeń: niezmiennika, skryptu, liczników/rewizji katalogu/V2);
@@ -253,14 +263,8 @@ operatora, dlatego status to `blocked`.
 
 ### Not completed
 
-- `apply` na grze `777` — wymaga osobnej zgody operatora. Polecenie:
-  `.\.venv\Scripts\python.exe scripts/migrate_cell_level_verification.py apply --preview artifacts/cell-level-migration/preview-777.json --preview-sha256 dca87df2433f1772d335515a42d80791604fc985dee21142ecc2eb79626b5e78 --output artifacts/cell-level-migration/apply-777.json`
-  Szacunek audytu: 0,10–0,15 s na planszę, łącznie ~60–95 min, więc porcjami
-  `--limit 3000` (~13 uruchomień, każde z nowym `--output`) i wznowieniem
-  `--after-review-item-id <lastReviewItemId poprzedniego raportu>`.
-  Decyzje operatora między preview a apply dają pozycje `drift`; wtedy nowy
-  preview i apply pozostałych.
-- TASK-0729 (odbiór) po apply.
+- Odbiór całości (kontrolny preview po apply, scenariusze 1–9) — TASK-0729.
+- Pozostałe uwagi P3 opisane w wynikach audytu.
 
 ### Documentation updates
 
@@ -268,4 +272,4 @@ operatora, dlatego status to `blocked`.
 
 ### Recommended next task
 
-- Zgoda operatora na `apply` TASK-0728, potem TASK-0729.
+- TASK-0729.

@@ -109,6 +109,12 @@ last_updated: 2026-09-29
   500 000 dokumentów na 500 000 pozycji; plansze niepełne liczą w
   „Przybliżonej wygranej” potwierdzoną wygraną (prefix-stop). Następny krok:
   plan snapshotu mobilnego z plansz niepełnych i niezweryfikowanych.
+- TASK-0730 commit `v1.7.60` / `05eaa5cc`.
+- Plan `ai_docs/delivery/APPROXIMATE_MOBILE_SNAPSHOT_EXECUTION_PLAN.md`
+  (status `proposed`, proponowana D-463): przybliżony dataset i snapshot v5
+  ze wszystkich plansz (projekcja wyszukiwania, klasy dowodu, wypłata
+  prefix-stop, dopasowanie tolerancyjne w aplikacji). Czeka na akceptację
+  operatora i odpowiedzi Q1–Q4; nic nie wdrożono.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).

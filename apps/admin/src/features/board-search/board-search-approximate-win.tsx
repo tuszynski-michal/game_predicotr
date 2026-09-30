@@ -31,7 +31,6 @@ import {
   approximateWinPointKey,
   approximateWinRequestKey,
   filterApproximateWinRows,
-  formatApproximateWinCredits,
   layoutApproximateWinPinLabels,
   moveApproximateWinHighlight,
   parseApproximateWinRange,
@@ -40,6 +39,20 @@ import {
   visibleApproximateWinResult,
 } from './board-search-approximate-win-state';
 import { boardSearchResultIdentity } from './board-search-results-state';
+import {
+  type ApproximateWinAmountUnit,
+  type ApproximateWinDisplay,
+  approximateWinDisplayValue,
+  approximateWinStakeMultiplier,
+  approximateWinStakeOptions,
+  effectiveApproximateWinStakeGrosze,
+  formatApproximateWinAmount,
+  formatApproximateWinAxisValue,
+  formatZloty,
+  loadApproximateWinDisplay,
+  saveApproximateWinDisplay,
+  scaleApproximateWinAmountAtStake,
+} from './board-search-stake';
 
 type ApproximateWinClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
@@ -73,6 +86,14 @@ export function BoardSearchApproximateWin({
     APPROXIMATE_WIN_IDLE_STATE,
   );
   const requestIdRef = useRef(0);
+  const [display, setDisplay] = useState<ApproximateWinDisplay>(
+    loadApproximateWinDisplay,
+  );
+
+  function changeDisplay(next: ApproximateWinDisplay) {
+    setDisplay(next);
+    saveApproximateWinDisplay(next);
+  }
 
   const resultIdentity = selectedResult
     ? boardSearchResultIdentity(selectedResult)
@@ -236,19 +257,46 @@ export function BoardSearchApproximateWin({
         ) : null}
 
         {visibleResult ? (
-          <ApproximateWinResultView result={visibleResult} />
+          <ApproximateWinResultView
+            display={display}
+            onDisplayChange={changeDisplay}
+            result={visibleResult}
+          />
         ) : null}
       </div>
     </details>
   );
 }
 
+/** Formats base-stake credits in the chosen stake and unit (D-470). */
+function approximateWinAmountFormatter(
+  display: ApproximateWinDisplay,
+  spinCost: number,
+) {
+  const stake = effectiveApproximateWinStakeGrosze(display, spinCost);
+  return (baseCredits: number) =>
+    formatApproximateWinAmount(
+      scaleApproximateWinAmountAtStake(baseCredits, stake, spinCost),
+      display.unit,
+    );
+}
+
+function unitNoun(unit: ApproximateWinAmountUnit): string {
+  return unit === 'credits' ? ' kredytów' : '';
+}
+
 function ApproximateWinResultView({
+  display,
+  onDisplayChange,
   result,
 }: {
+  readonly display: ApproximateWinDisplay;
+  readonly onDisplayChange: (display: ApproximateWinDisplay) => void;
   readonly result: ApproximateWinResponse;
 }) {
   const [minimumPayoutCredits, setMinimumPayoutCredits] = useState(0);
+  const spinCost = result.rules.spinCost;
+  const amount = approximateWinAmountFormatter(display, spinCost);
   const hasIncompleteData =
     result.completeness.partialBoardCount > 0 ||
     result.completeness.missingBoardCount > 0;
@@ -267,9 +315,14 @@ function ApproximateWinResultView({
           {result.startSequenceNumber + result.evaluatedSpinCount})
         </p>
         <p>
-          Reguły v{result.rules.rulesVersion} · koszt spinu{' '}
-          {formatApproximateWinCredits(result.rules.spinCost)} kredytów
+          Reguły v{result.rules.rulesVersion} · koszt spinu {amount(spinCost)}
+          {unitNoun(display.unit)}
         </p>
+        <ApproximateWinDisplayControls
+          display={display}
+          onDisplayChange={onDisplayChange}
+          spinCost={spinCost}
+        />
         {result.startBoardStatus === 'pending' ? (
           <p className="feedbackBanner" role="status">
             Plansza startowa #{result.startSequenceNumber} nie jest jeszcze
@@ -288,19 +341,15 @@ function ApproximateWinResultView({
       <dl className="importMetrics">
         <div className="importMetric">
           <dt>Rozpoznane wypłaty</dt>
-          <dd>
-            {formatApproximateWinCredits(
-              result.summary.recognizedPayoutCredits,
-            )}
-          </dd>
+          <dd>{amount(result.summary.recognizedPayoutCredits)}</dd>
         </div>
         <div className="importMetric">
           <dt>Koszt spinów</dt>
-          <dd>{formatApproximateWinCredits(result.summary.spinCostCredits)}</dd>
+          <dd>{amount(result.summary.spinCostCredits)}</dd>
         </div>
         <div className="importMetric">
           <dt>Bilans</dt>
-          <dd>{formatApproximateWinCredits(result.summary.balanceCredits)}</dd>
+          <dd>{amount(result.summary.balanceCredits)}</dd>
         </div>
       </dl>
 
@@ -332,6 +381,7 @@ function ApproximateWinResultView({
               : ''}
           </p>
           <ApproximateWinBalanceChart
+            display={display}
             key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
             result={result}
           />
@@ -339,6 +389,9 @@ function ApproximateWinResultView({
       ) : (
         <>
           <ApproximateWinTableFilter
+            formatAmount={(credits) =>
+              `${amount(credits)}${unitNoun(display.unit)}`
+            }
             maximumPayoutCredits={
               approximateWinExtremes(
                 result.rows.map((row) => row.payoutCredits),
@@ -363,16 +416,12 @@ function ApproximateWinResultView({
                     <td>{row.spinNumber.toLocaleString('pl-PL')}</td>
                     <td>#{row.sequenceNumber}</td>
                     <td>
-                      {formatApproximateWinCredits(row.payoutCredits)}
+                      {amount(row.payoutCredits)}
                       {row.payoutKind === 'confirmed_minimum'
                         ? ' · częściowa (potwierdzone minimum)'
                         : ''}
                     </td>
-                    <td>
-                      {formatApproximateWinCredits(
-                        row.cumulativeBalanceCredits,
-                      )}
-                    </td>
+                    <td>{amount(row.cumulativeBalanceCredits)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -384,6 +433,7 @@ function ApproximateWinResultView({
             </p>
           ) : null}
           <ApproximateWinBalanceChart
+            display={display}
             key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
             result={result}
           />
@@ -393,11 +443,85 @@ function ApproximateWinResultView({
   );
 }
 
+function ApproximateWinDisplayControls({
+  display,
+  onDisplayChange,
+  spinCost,
+}: {
+  readonly display: ApproximateWinDisplay;
+  readonly onDisplayChange: (display: ApproximateWinDisplay) => void;
+  readonly spinCost: number;
+}) {
+  const options = approximateWinStakeOptions(spinCost);
+  const stake = effectiveApproximateWinStakeGrosze(display, spinCost);
+  const stakeDisabled = spinCost <= 0;
+  return (
+    <div className="boardSearchApproximateWinDisplay">
+      <label>
+        <span>Stawka</span>
+        <select
+          aria-describedby={
+            stakeDisabled ? undefined : 'approximateWinStakeHint'
+          }
+          disabled={stakeDisabled}
+          onChange={(event) => {
+            const grosze = Number(event.currentTarget.value);
+            const option = options.find((item) => item.grosze === grosze);
+            onDisplayChange({
+              ...display,
+              // The base option follows the game's spin cost, not a fixed amount.
+              stakeGrosze:
+                option === undefined || option.isBase ? null : grosze,
+            });
+          }}
+          value={stakeDisabled ? '' : String(stake)}
+        >
+          {stakeDisabled ? <option value="">—</option> : null}
+          {options.map((option) => (
+            <option key={option.grosze} value={String(option.grosze)}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label>
+        <span>Jednostka</span>
+        <select
+          onChange={(event) =>
+            onDisplayChange({
+              ...display,
+              unit: event.currentTarget.value === 'pln' ? 'pln' : 'credits',
+            })
+          }
+          value={display.unit}
+        >
+          <option value="credits">kredyty</option>
+          <option value="pln">złote</option>
+        </select>
+      </label>
+      {stakeDisabled ? (
+        <p className="feedbackBanner" role="status">
+          Koszt spinu opublikowanych reguł wynosi 0, więc stawki nie da się
+          przeliczyć. Złote są liczone jako kredyty / 10.
+        </p>
+      ) : (
+        <small id="approximateWinStakeHint">
+          Stawka {formatZloty(stake)} · mnożnik{' '}
+          {approximateWinStakeMultiplier(display, spinCost)} · 1 zł = 10
+          kredytów
+        </small>
+      )}
+    </div>
+  );
+}
+
 function ApproximateWinTableFilter({
+  formatAmount,
   maximumPayoutCredits,
   minimumPayoutCredits,
   onMinimumPayoutCreditsChange,
 }: {
+  readonly formatAmount: (baseCredits: number) => string;
   readonly maximumPayoutCredits: number;
   readonly minimumPayoutCredits: number;
   readonly onMinimumPayoutCreditsChange: (value: number) => void;
@@ -406,8 +530,7 @@ function ApproximateWinTableFilter({
   return (
     <label className="boardSearchApproximateWinFilter">
       <span>
-        Pokaż wypłaty od{' '}
-        <output>{formatApproximateWinCredits(value)} kredytów</output>
+        Pokaż wypłaty od <output>{formatAmount(value)}</output>
       </span>
       <input
         aria-label="Minimalna wypłata w tabeli"
@@ -425,8 +548,10 @@ function ApproximateWinTableFilter({
 }
 
 function ApproximateWinBalanceChart({
+  display,
   result,
 }: {
+  readonly display: ApproximateWinDisplay;
   readonly result: ApproximateWinResponse;
 }) {
   const rows = result.rows;
@@ -465,21 +590,42 @@ function ApproximateWinBalanceChart({
     approximateWinExtremes(
       points.map((point) => point.cumulativeBalanceCredits),
     );
-  const yTicks = approximateWinAxisTicks(minimumBalance, maximumBalance, 5);
+  const spinCost = result.rules.spinCost;
+  const amount = approximateWinAmountFormatter(display, spinCost);
+  // The plot works in the chosen unit so its ticks stay round there too.
+  const stake = effectiveApproximateWinStakeGrosze(display, spinCost);
+  const plotValue = (baseCredits: number) =>
+    approximateWinDisplayValue(
+      scaleApproximateWinAmountAtStake(baseCredits, stake, spinCost),
+      display.unit,
+    );
+  // Label text drops " zł" (the axis names the unit) to fit the label box.
+  const labelAmount = (baseCredits: number) =>
+    display.unit === 'pln'
+      ? plotValue(baseCredits).toLocaleString('pl-PL', {
+          maximumFractionDigits: 2,
+          minimumFractionDigits: 2,
+        })
+      : amount(baseCredits);
+  const yTicks = approximateWinAxisTicks(
+    plotValue(minimumBalance),
+    plotValue(maximumBalance),
+    5,
+  );
   const xTicks = approximateWinAxisTicks(0, finalPoint.spinNumber, 6, {
     integerStep: true,
   });
-  const yLow = yTicks[0] ?? minimumBalance;
-  const yHigh = yTicks.at(-1) ?? maximumBalance;
+  const yLow = yTicks[0] ?? plotValue(minimumBalance);
+  const yHigh = yTicks.at(-1) ?? plotValue(maximumBalance);
   const xHigh = Math.max(1, xTicks.at(-1) ?? finalPoint.spinNumber);
   const { chartBottom, chartLeft, chartRight, chartTop } = CHART_FRAME;
   const chartWidth = chartRight - chartLeft;
   const chartHeight = chartBottom - chartTop;
   const toX = (spinNumber: number) =>
     chartLeft + (spinNumber / xHigh) * chartWidth;
-  const toY = (balanceCredits: number) =>
-    chartBottom -
-    ((balanceCredits - yLow) / Math.max(1e-9, yHigh - yLow)) * chartHeight;
+  const toPlotY = (value: number) =>
+    chartBottom - ((value - yLow) / Math.max(1e-9, yHigh - yLow)) * chartHeight;
+  const toY = (balanceCredits: number) => toPlotY(plotValue(balanceCredits));
   const polylinePoints = points
     .map(
       (point) =>
@@ -623,7 +769,7 @@ function ApproximateWinBalanceChart({
   }: (typeof labels)[number]) => {
     const top = chartLabelTop(placement.row);
     const left = placement.x - CHART_LABEL.width / 2;
-    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, bilans ${formatApproximateWinCredits(point.cumulativeBalanceCredits)}`;
+    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, bilans ${amount(point.cumulativeBalanceCredits)}`;
     return (
       <g
         className={
@@ -651,7 +797,7 @@ function ApproximateWinBalanceChart({
           x={left + 7}
           y={top + 25}
         >
-          Bilans: {formatApproximateWinCredits(point.cumulativeBalanceCredits)}
+          Bilans: {labelAmount(point.cumulativeBalanceCredits)}
         </text>
         {pinned ? (
           <g
@@ -721,10 +867,9 @@ function ApproximateWinBalanceChart({
         >
           <desc id="approximateWinChartDescription">
             Od zera do {finalPoint.spinNumber.toLocaleString('pl-PL')} spinów,
-            bilans końcowy{' '}
-            {formatApproximateWinCredits(finalPoint.cumulativeBalanceCredits)}{' '}
-            kredytów, minimum {formatApproximateWinCredits(minimumBalance)},
-            maksimum {formatApproximateWinCredits(maximumBalance)}.
+            bilans końcowy {amount(finalPoint.cumulativeBalanceCredits)}
+            {unitNoun(display.unit)}, minimum {amount(minimumBalance)}, maksimum{' '}
+            {amount(maximumBalance)}.
           </desc>
           <g className="boardSearchApproximateWinChartGrid">
             {yTicks
@@ -735,8 +880,8 @@ function ApproximateWinBalanceChart({
                   key={`y:${tick}`}
                   x1={chartLeft}
                   x2={chartRight}
-                  y1={toY(tick)}
-                  y2={toY(tick)}
+                  y1={toPlotY(tick)}
+                  y2={toPlotY(tick)}
                 />
               ))}
             {xTicks.map((tick) => (
@@ -768,8 +913,8 @@ function ApproximateWinBalanceChart({
               className="boardSearchApproximateWinChartZero"
               x1={chartLeft}
               x2={chartRight}
-              y1={toY(0)}
-              y2={toY(0)}
+              y1={toPlotY(0)}
+              y2={toPlotY(0)}
             />
           ) : null}
           <polyline
@@ -782,9 +927,9 @@ function ApproximateWinBalanceChart({
               key={`yl:${tick}`}
               textAnchor="end"
               x={chartLeft - 6}
-              y={toY(tick) + 4}
+              y={toPlotY(tick) + 4}
             >
-              {formatApproximateWinCredits(tick)}
+              {formatApproximateWinAxisValue(tick, display.unit)}
             </text>
           ))}
           {xTicks.map((tick) => (
@@ -800,6 +945,11 @@ function ApproximateWinBalanceChart({
           <text textAnchor="end" x={chartRight} y={CHART_HEIGHT - 4}>
             spiny
           </text>
+          {display.unit === 'pln' ? (
+            <text textAnchor="end" x={chartLeft - 6} y={chartBottom + 16}>
+              zł
+            </text>
+          ) : null}
           {labels.map(renderLeader)}
           {labels.map(renderLabel)}
         </svg>
@@ -817,7 +967,7 @@ function ApproximateWinBalanceChart({
               <li key={approximateWinPointKey(point)}>
                 <span>
                   {point.spinNumber.toLocaleString('pl-PL')} spinów · bilans{' '}
-                  {formatApproximateWinCredits(point.cumulativeBalanceCredits)}
+                  {amount(point.cumulativeBalanceCredits)}
                 </span>
                 <button
                   aria-label={`Odepnij punkt ${point.spinNumber.toLocaleString('pl-PL')} spinów`}

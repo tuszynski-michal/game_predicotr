@@ -1,6 +1,6 @@
 ---
 title: TASK-0762 — Stawka i złotówki w „Przybliżonej wygranej”
-status: todo
+status: done
 last_updated: 2026-09-30
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-30
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -48,12 +48,12 @@ Punkt 4 zgłoszenia operatora z 2026-09-30. Liniowość potwierdzona: 4 winogron
 
 ## Acceptance criteria
 
-- [ ] Tabela przykładów z R1 planu przechodzi w testach, w tym 1 000 kredytów przy 6 zł = 600 kredytów = 60,00 zł.
-- [ ] Jedno zaokrąglenie do grosza (połówki od zera) na wartości końcowej; bilans narastający przeliczany z kredytów bazowych.
-- [ ] Przy stawce bazowej i jednostce „kredyty” ekran jest identyczny z dotychczasowym.
-- [ ] Suwak progu przechowuje wartość w kredytach bazowych (krok 1 kredyt bazowy), wyświetla ją przeliczoną; zmiana stawki lub jednostki nie resetuje progu.
-- [ ] `spinCost = 0` wyłącza wybór stawki z komunikatem; jednostka „złote” działa w kursie `kredyty / 10` bez dzielenia przez koszt spinu.
-- [ ] Błąd `localStorage` nie psuje ekranu.
+- [x] Tabela przykładów z R1 planu przechodzi w testach, w tym 1 000 kredytów przy 6 zł = 600 kredytów = 60,00 zł.
+- [x] Jedno zaokrąglenie do grosza (połówki od zera) na wartości końcowej; bilans narastający przeliczany z kredytów bazowych.
+- [x] Przy stawce bazowej i jednostce „kredyty” ekran jest identyczny z dotychczasowym.
+- [x] Suwak progu przechowuje wartość w kredytach bazowych (krok 1 kredyt bazowy), wyświetla ją przeliczoną; zmiana stawki lub jednostki nie resetuje progu.
+- [x] `spinCost = 0` wyłącza wybór stawki z komunikatem; jednostka „złote” działa w kursie `kredyty / 10` bez dzielenia przez koszt spinu.
+- [x] Błąd `localStorage` nie psuje ekranu.
 
 ## Technical notes
 
@@ -108,4 +108,46 @@ Wszystkie komendy z katalogu worktree, timeout 120 s każda.
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- Nowy `board-search-stake.ts`: lista stawek, opcja „bazowa” spoza listy,
+  `effectiveApproximateWinStakeGrosze`, `roundDivideHalfAwayFromZero`
+  (iloraz i reszta), `scaleApproximateWinAmount` i
+  `scaleApproximateWinAmountAtStake`, formatowanie kredytów i złotych,
+  mnożnik, zapis preferencji w `localStorage` z walidacją.
+- `board-search-approximate-win.tsx`: kontrolki „Stawka” i „Jednostka” w
+  nagłówku wyniku (poza `<summary>`), przeliczenie nagłówka, kafelków,
+  tabeli, progu suwaka (przechowywanego w kredytach bazowych), osi, etykiet,
+  opisu i listy przypiętych punktów; wykres rysowany w jednostce widoku,
+  podpis „zł” przy osi w trybie złotych.
+- `globals.css`: styl kontrolek.
+- Testy: `test/board-search-stake.test.mjs` (11 testów, w tym przykład
+  operatora 1 000 → 600 kredytów / 60 zł i test wydajności), dwa testy
+  interakcji (zmiana stawki i jednostki bez żądania, zachowanie progu,
+  opcja bazowa jako `null`, koszt spinu 0).
+
+### Verification results
+
+- `npm run test --workspace @game-predictor/admin`: 642/642 PASS.
+- Testy interakcji `board-search-*`: 25/25 PASS.
+- Typecheck i lint Admina: 0 błędów (znane ostrzeżenia w `imports/`).
+- Statyczny zrzut w przeglądarce: kafelki, tabela i osie w złotych przy
+  stawce 6 zł (mnożnik 3 dla kosztu spinu 20).
+- Audyt niezależnego agenta `claude-opus-5-5` (poziom rozumowania agenta
+  nieustawialny z sesji): cykl 1 FAIL — P1 spowolnienie przy stawce innej
+  niż bazowa (budowanie etykiet opcji przy każdej kwocie) i 7 × P3; cykl 2
+  PASS; dwa pozostałe P3 (odnośnik `aria-describedby`, dwa miejsca po
+  przecinku w etykietach) poprawione przed commitem.
+
+### Not completed
+
+- Nic w zakresie taska. Odmiana „kredytów” dla wartości ułamkowych
+  pozostaje uproszczona (P3).
+
+### Documentation updates
+
+- Brak dodatkowych; wymagania zapisane w TASK-0760.
+
+### Recommended next task
+
+- TASK-0763 (API szczegółów planszy i przyciętego widoku).

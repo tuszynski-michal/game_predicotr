@@ -19,6 +19,10 @@ last_updated: 2026-09-30
 - TASK-0761 done: siatka wykresu bilansu i przypinane punkty z etykietami w
   pasie nad wykresem (mysz i klawiatura, limit 8). 631 testów Admina, 23
   testy interakcji, audyt PASS w drugim cyklu.
+  Commit `v1.7.83` / `76f11042`.
+- TASK-0762 done: stawka (1,20–20 zł) i jednostka (kredyty/złote) w
+  „Przybliżonej wygranej”, przeliczenie lokalne na groszach (D-470). 642
+  testy Admina, 25 testów interakcji, audyt PASS w drugim cyklu.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)
 

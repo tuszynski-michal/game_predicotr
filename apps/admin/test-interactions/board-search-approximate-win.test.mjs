@@ -153,6 +153,15 @@ function minimumPayoutInput() {
   return current;
 }
 
+function selectByLabel(text) {
+  const label = [...document.querySelectorAll('label')].find(
+    (node) => node.querySelector('span')?.textContent === text,
+  );
+  const select = label?.querySelector('select');
+  assert.ok(select, `select labelled ${text} should render`);
+  return select;
+}
+
 function setInputValue(input, value) {
   Object.getOwnPropertyDescriptor(
     dom.window.HTMLInputElement.prototype,
@@ -709,6 +718,193 @@ test('shows an explicit empty chart state when the range has no payouts', async 
   assert.match(
     document.querySelector('.boardSearchApproximateWinChart').textContent,
     /Wykres pojawi się po rozpoznaniu pierwszej wypłaty/,
+  );
+  await act(async () => root.unmount());
+});
+
+test('stake and unit re-scale every amount locally without a new request', async (context) => {
+  context.after(() => dom.window.localStorage.clear());
+  const rows = [
+    {
+      boardStatus: 'accepted',
+      cumulativeBalanceCredits: 80,
+      cumulativeCostCredits: 20,
+      cumulativePayoutCredits: 100,
+      payoutCredits: 100,
+      payoutKind: 'exact',
+      sequenceNumber: 11,
+      spinNumber: 1,
+    },
+    {
+      boardStatus: 'accepted',
+      cumulativeBalanceCredits: 1040,
+      cumulativeCostCredits: 60,
+      cumulativePayoutCredits: 1100,
+      payoutCredits: 1000,
+      payoutKind: 'exact',
+      sequenceNumber: 13,
+      spinNumber: 3,
+    },
+  ];
+  let calls = 0;
+  const client = makeClient({
+    approximateWinImpl: async (_gameId, options) => {
+      calls += 1;
+      return {
+        data: approximateWinResponse(options.startSequenceNumber, {
+          evaluatedSpinCount: 10,
+          requestedSpinCount: 10,
+          rows,
+          summary: {
+            balanceCredits: 900,
+            recognizedPayoutCredits: 1100,
+            spinCostCredits: 200,
+          },
+        }),
+      };
+    },
+    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+  });
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      document.querySelectorAll('.boardSearchApproximateWin tbody tr')
+        .length === 2,
+    'rows should render',
+  );
+  const firstPayout = () =>
+    document.querySelector(
+      '.boardSearchApproximateWin tbody tr td:nth-child(3)',
+    ).textContent;
+  const metrics = () =>
+    [
+      ...document.querySelectorAll(
+        '.boardSearchApproximateWin .importMetric dd',
+      ),
+    ].map((node) => node.textContent);
+  // Base stake (spin cost 20 credits = 2 zł) in credits: unchanged view.
+  assert.equal(firstPayout(), '100');
+  assert.deepEqual(metrics(), ['1100', '200', '900']);
+
+  await act(async () => setInputValue(minimumPayoutInput(), '500'));
+  await eventually(
+    () =>
+      document.querySelectorAll('.boardSearchApproximateWin tbody tr')
+        .length === 1,
+    'threshold filters the first row',
+  );
+
+  const stakeSelect = selectByLabel('Stawka');
+  const unitSelect = selectByLabel('Jednostka');
+  assert.ok(stakeSelect && unitSelect);
+  const choose = async (select, value) => {
+    await act(async () => {
+      select.value = value;
+      select.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    });
+  };
+  await choose(stakeSelect, '600');
+  // 6 zł / 2 zł = multiplier 3; the threshold (base credits) is kept.
+  assert.equal(
+    document.querySelectorAll('.boardSearchApproximateWin tbody tr').length,
+    1,
+  );
+  assert.equal(firstPayout(), '3000');
+  assert.deepEqual(metrics(), ['3300', '600', '2700']);
+  assert.match(
+    document.querySelector('.boardSearchApproximateWinDisplay').textContent,
+    /mnożnik 3/,
+  );
+  await choose(unitSelect, 'pln');
+  assert.equal(firstPayout(), '300,00 zł');
+  assert.equal(
+    document.querySelectorAll('.boardSearchApproximateWin tbody tr').length,
+    1,
+    'the threshold survives a unit change',
+  );
+  assert.deepEqual(metrics(), ['330,00 zł', '60,00 zł', '270,00 zł']);
+  assert.match(
+    document.querySelector('.boardSearchApproximateWinChartGrid')?.parentElement
+      .textContent ?? '',
+    /zł/,
+  );
+  assert.equal(calls, 1, 'changing stake or unit sends no request');
+  assert.equal(
+    JSON.parse(
+      dom.window.localStorage.getItem(
+        'game-predictor-approximate-win-display-v1',
+      ),
+    ).unit,
+    'pln',
+  );
+  // Choosing the base option stores `null`, so it follows the spin cost.
+  await choose(stakeSelect, '200');
+  assert.equal(
+    JSON.parse(
+      dom.window.localStorage.getItem(
+        'game-predictor-approximate-win-display-v1',
+      ),
+    ).stakeGrosze,
+    null,
+  );
+  await act(async () => root.unmount());
+});
+
+test('a zero spin cost disables the stake and keeps złote at credits / 10', async (context) => {
+  context.after(() => dom.window.localStorage.clear());
+  const client = makeClient({
+    approximateWinImpl: async (_gameId, options) => ({
+      data: approximateWinResponse(options.startSequenceNumber, {
+        rows: [
+          {
+            boardStatus: 'accepted',
+            cumulativeBalanceCredits: 500,
+            cumulativeCostCredits: 0,
+            cumulativePayoutCredits: 500,
+            payoutCredits: 500,
+            payoutKind: 'exact',
+            sequenceNumber: 11,
+            spinNumber: 1,
+          },
+        ],
+        rules: {
+          algorithmVersion: 'payout-v3-unknown-prefix-stop',
+          rulesVersion: 1,
+          rulesVersionId: 'rules-1',
+          spinCost: 0,
+        },
+        summary: {
+          balanceCredits: 500,
+          recognizedPayoutCredits: 500,
+          spinCostCredits: 0,
+        },
+      }),
+    }),
+    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+  });
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
+    'row should render',
+  );
+  assert.equal(selectByLabel('Stawka').disabled, true);
+  assert.match(
+    document.querySelector('.boardSearchApproximateWinDisplay').textContent,
+    /Koszt spinu opublikowanych reguł wynosi 0/,
+  );
+  const unit = selectByLabel('Jednostka');
+  await act(async () => {
+    unit.value = 'pln';
+    unit.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  assert.equal(
+    document.querySelector(
+      '.boardSearchApproximateWin tbody tr td:nth-child(3)',
+    ).textContent,
+    '50,00 zł',
   );
   await act(async () => root.unmount());
 });

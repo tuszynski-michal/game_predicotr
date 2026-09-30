@@ -988,3 +988,54 @@ def test_layout_import_normalization_uses_published_rules_and_is_idempotent(
         assert getattr(wrong_game.value.orig, "sqlstate", None) == "23503"
     finally:
         engine.dispose()
+
+
+def test_worker_store_settles_a_job_without_a_game(isolated_worker_database: URL) -> None:
+    """Global jobs (no game) complete and fail without touching per-game stores (D-467)."""
+
+    command.upgrade(_migration_config(isolated_worker_database), "head")
+    engine = create_engine(isolated_worker_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    store = SqlAlchemyWorkerJobStore(session_factory)
+    now = datetime(2026, 9, 30, 21, tzinfo=UTC)
+
+    try:
+        with Session(engine, expire_on_commit=False) as session:
+            repository = SqlAlchemyJobRepository(session)
+            for _ in range(2):
+                repository.add_job(
+                    create_job(
+                        JobType.STORAGE_INVENTORY,
+                        game_id=None,
+                        input_payload={"schema_version": 1, "probe": str(uuid4())},
+                    )
+                )
+            session.commit()
+
+        first = store.claim_next(
+            worker_id="global-worker",
+            worker_version="worker-v10-general",
+            lease_duration=timedelta(seconds=60),
+            claimed_at=now,
+        )
+        assert first is not None and first.game_id is None and first.lease_token is not None
+        completed = store.complete(first.id, lease_token=first.lease_token, completed_at=now)
+        assert completed.status is JobStatus.COMPLETED
+
+        second = store.claim_next(
+            worker_id="global-worker",
+            worker_version="worker-v10-general",
+            lease_duration=timedelta(seconds=60),
+            claimed_at=now,
+        )
+        assert second is not None and second.lease_token is not None
+        failed = store.fail(
+            second.id,
+            lease_token=second.lease_token,
+            error_code="PROBE",
+            error_message="probe",
+            failed_at=now,
+        )
+        assert failed.status is JobStatus.FAILED
+    finally:
+        engine.dispose()

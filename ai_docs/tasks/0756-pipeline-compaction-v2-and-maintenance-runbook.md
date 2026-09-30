@@ -113,6 +113,21 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = "1"
 
 ## Outcome
 
+### Execution (2026-09-30, za zgodą operatora)
+
+- Job `21f933c0-68a7-4bf3-9bbc-392be4e1f2de` (manifest `20feadcd…`):
+  56 710/56 710 wpisów skompaktowanych, 0 konfliktów, `VACUUM (ANALYZE)`
+  wykonany; zostały etapy `board_detection` (56 810) i 56 710 manifestów
+  terminalnych. Dwa pierwsze uruchomienia workera przerwał limit czasu
+  narzędzia sesji; job wznawiał się z checkpointu.
+- Wykryta i naprawiona kolejna pozostałość V1 w workerze: `complete` /
+  `fail` / `pause_for_review` sklepu jobów wołały
+  `reconcile_import_job` wyszukiwarki plansz bez wiązania gry, więc każdy
+  job **bez gry** (`storage_inventory`, `storage_pipeline_compaction`)
+  padał po `0125` na `UndefinedTable: image_board_search_candidates`.
+  Teraz `_reconcile_board_search` pomija joby bez gry i wiąże sesję do gry
+  joba; test izolowany `test_worker_store_settles_a_job_without_a_game`.
+
 ### Audit
 
 - Audyt `claude-opus-5-5`: PASS w zakresie zadania. P2 poza zakresem: rola

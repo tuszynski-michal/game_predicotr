@@ -115,7 +115,7 @@ Według planu §7.
   pakietu UI i Admina czysty.
 - Ręcznie: lokalny Reviewer z worktree na `127.0.0.1:3011` (bez tunelu)
   pokazuje bramkę kodu z informacją o zapisie, osobny CSP i odrzuca trasy
-  spoza allowlisty. Test end-to-end z odblokowaniem wymaga migracji `0129`
+  spoza allowlisty. Test end-to-end z odblokowaniem wymaga migracji `0130`
   na bazie deweloperskiej (zgoda operatora).
 
 - Audyt niezależnego agenta `claude-fable-5-1`: PASS w pierwszym cyklu, bez

@@ -60,7 +60,7 @@ last_updated: 2026-09-30
 - TASK-0774 done (zgłoszenie operatora): etykiety punktów wykresu bilansu i
   lista przypiętych punktów podają jednostkę („kredytów” / „zł”); etykiety
   szersze, pas ma 4 wiersze.
-- TASK-0766 done: sesje udostępniania (migracja `0129`, serwis z kodem
+- TASK-0766 done: sesje udostępniania (migracja `0130`, serwis z kodem
   PBKDF2, rotacją tokenu, blokadą po 5 błędach i limitem 5 aktywnych, Admin
   API create/list/revoke jako operacje wysokiego wpływu, flaga
   `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED`). Migracja nie była uruchamiana
@@ -86,7 +86,7 @@ last_updated: 2026-09-30
   incydent), przewodnik operatora, testy bramki (allowlista = OpenAPI,
   rozdział ciasteczek), odbiór na lokalnym buildzie produkcyjnym Reviewera.
 - **Etap B zakończony; STOP na granicy etapu.** Do odbioru przez operatora
-  (wymaga zgody): migracja `0129_board_search_share_sessions` na bazie
+  (wymaga zgody): migracja `0130_board_search_share_sessions` na bazie
   deweloperskiej (`npm run db:migrate`), restart API/Admina, utworzenie
   linku (uruchamia Quick Tunnel) i test z drugiego urządzenia. Po scaleniu
   gałęzi potrzebne `npm install` (nowy pakiet workspace

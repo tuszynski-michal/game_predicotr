@@ -116,5 +116,5 @@ Według planu §7.
 
 - Uruchomienie publicznego Quick Tunnel i test z drugiego urządzenia —
   poza bramką, wymaga osobnej zgody operatora.
-- Migracja `0129` na bazie deweloperskiej i odbiór w Adminie z prawdziwymi
+- Migracja `0130` na bazie deweloperskiej i odbiór w Adminie z prawdziwymi
   linkami — wymaga zgody operatora.

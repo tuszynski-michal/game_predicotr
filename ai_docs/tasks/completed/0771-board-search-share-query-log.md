@@ -131,5 +131,5 @@ Wszystkie komendy z katalogu worktree, timeout 120 s każda.
   zakresu, komunikat przy błędzie wczytania odtworzenia, błąd „Starszych
   zapytań” nie usuwa wczytanych wpisów.
 - Cykl 2 audytu: PASS, bez otwartych P0–P2 (pozostałe P3: brak zamykania komunikatów odtworzenia).
-- Ręczny odbiór z prawdziwymi wpisami wymaga migracji `0129` na bazie
+- Ręczny odbiór z prawdziwymi wpisami wymaga migracji `0130` na bazie
   deweloperskiej (zgoda operatora).

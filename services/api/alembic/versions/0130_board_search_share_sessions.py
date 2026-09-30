@@ -4,8 +4,8 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.dialects import postgresql
 
-revision = "0129_board_search_share_sessions"
-down_revision = "0128_partial_board_reconciliation_receipts"
+revision = "0130_board_search_share_sessions"
+down_revision = "0129_drop_orphaned_legacy_trigger_functions"
 branch_labels = None
 depends_on = None
 

@@ -109,5 +109,5 @@ Według planu §7.
   trakcie zatrzymywania, `aria-controls`, lista w API działa mimo
   nieodczytanego statusu tunelu (linki bez adresu, test API).
 - Cykl 2 audytu: PASS, bez otwartych P0–P2.
-- Ręczny odbiór w Adminie wymaga migracji `0129` na bazie deweloperskiej i
+- Ręczny odbiór w Adminie wymaga migracji `0130` na bazie deweloperskiej i
   restartu API (zgoda operatora na granicy etapu).

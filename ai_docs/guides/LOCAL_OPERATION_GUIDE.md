@@ -873,7 +873,7 @@ produkcyjnego Reviewera i Quick Tunnel co zdalna ręczna selekcja (sekcja
 niżej): jednorazowo `npm run reviewer:remote:setup` i `npm run reviewer:build`,
 bez `reviewer:dev`. Migracja bazy musi być na `head`
 (`npm run db:migrate`; tabela sesji udostępnień pochodzi z
-`0129_board_search_share_sessions`).
+`0130_board_search_share_sessions`).
 
 1. W Adminie otwórz grę, rozwiń „Wyszukaj plansze” i kliknij „Udostępnij
    online”.

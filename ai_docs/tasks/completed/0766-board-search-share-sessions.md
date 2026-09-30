@@ -84,7 +84,7 @@ Według planu §7.
   rotacją tokenu i blokadą po 5 błędach, authenticate dla TASK-0767,
   sprawdzenie gotowości gry), repozytorium SQLAlchemy i w pamięci z blokadą
   doradczą dla limitu 5 aktywnych sesji i walidacją audytu bez sekretów.
-- Migracja `0129_board_search_share_sessions` (sesje, audyt, dziennik
+- Migracja `0130_board_search_share_sessions` (pierwotnie `0129`; przenumerowana po kolizji z `0129_drop_orphaned_legacy_trigger_functions` z gałęzi biblioteki symboli, której plik skopiowano bez zmian) (sesje, audyt, dziennik
   zapytań D-472 — tabela dziennika tworzona od razu, aby TASK-0767 mógł do
   niej pisać; odczyt i odtworzenie w TASK-0771), modele ORM.
 - Admin API `/admin/board-search-shares/sessions` (create, list, revoke),

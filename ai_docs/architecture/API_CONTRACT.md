@@ -478,7 +478,7 @@ BOARD_SEARCH_SHARE_NOT_FOUND`, `422 BOARD_SEARCH_SHARE_LIFETIME_INVALID` /
 `_LABEL_INVALID` / `_LIST_LIMIT_INVALID`, `401 BOARD_SEARCH_SHARE_CODE_INVALID`
 / `_LOCKED` / `_REVOKED` / `_TOKEN_INVALID`.
 
-Migracja `0129_board_search_share_sessions` tworzy
+Migracja `0130_board_search_share_sessions` (po `0129_drop_orphaned_legacy_trigger_functions` z gałęzi biblioteki symboli) tworzy
 `board_search_share_sessions`, `board_search_share_audit_events` i (dla
 TASK-0767/0771) `board_search_share_query_events` z ograniczeniami rodzaju i
 rozmiaru (4 KiB / 2 KiB) oraz indeksem `(session_id, occurred_at DESC, id

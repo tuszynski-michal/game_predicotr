@@ -76,7 +76,7 @@ zablokowane przez D-443 albo dotyczące tylko usuniętego magazynu `public`.
 - [x] Skrypt baz `diag_*`: testy jednostkowe odmów i frazy potwierdzenia.
 - [x] 0 referencji do usuniętych modułów w kodzie i `package.json`.
 - [x] Ruff, mypy, testy API; audyt bez P0–P2.
-- [ ] Migracja i `--execute` na bazie operatora za osobną zgodą.
+- [x] Migracja i `--execute` na bazie operatora za osobną zgodą.
 
 ## Technical notes
 
@@ -134,8 +134,9 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = "1"
 - Zestaw testów API biegł równolegle z edycją S2 w tym samym worktree, więc
   jego wynik jest niemiarodajny; pełny zestaw powtórzy TASK-0754.
 
-### Not completed
+### Executed on the operator database (2026-09-30, za zgodą operatora)
 
-- Migracja `0129` i `--execute` dla baz `diag_*` na bazie operatora czekają
-  na zgodę (podgląd skryptu: 3 bazy, 42 MB, fraza
-  `DROP-DIAGNOSTIC-DATABASES bbe2f95ce5886802`).
+- `alembic upgrade head`: `0128` → `0129`; 0 osieroconych funkcji w `public`.
+- `drop_diagnostic_databases.py --execute` z frazą
+  `DROP-DIAGNOSTIC-DATABASES bbe2f95ce5886802`: usunięte `diag_raw_test`,
+  `diag_search_path_test`, `diag_search_path_test2`.

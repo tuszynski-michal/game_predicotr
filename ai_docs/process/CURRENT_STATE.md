@@ -88,10 +88,12 @@ last_updated: 2026-09-30
   zastosowana na bazie operatora; plan D-448 zamknięty.
 - TASK-0752 (S1) done: migracja `0129` (osierocone funkcje triggerów),
   skrypt baz `diag_*`, usunięte narzędzia legacy/v0.9, dokumenty
-  zaktualizowane. Audyt Opus PASS. Migracja i `--execute` czekają na zgodę.
+  zaktualizowane. Audyt Opus PASS. Za zgodą operatora 2026-09-30: `0129`
+  zastosowana na bazie (`alembic_version` = `0129`), 3 bazy `diag_*` usunięte.
 - TASK-0753 (S1) done: `scripts/clean_scratch_dirs.ps1` (podgląd 54
-  katalogi, 252 MB; 11 nieczytelnych do usunięcia ręcznie). Audyt Opus
-  PASS. Wykonanie czeka na zgodę.
+  katalogi, 252 MB). Audyt Opus PASS. Wykonane za zgodą operatora
+  2026-09-30: 54 katalogi usunięte; 11 nieczytelnych do usunięcia ręcznie z
+  uprawnieniami administratora.
 - TASK-0754 (S2) done: usunięte gałęzie `uses_current_projection=False`,
   `_uses_logical_current_cell_identity`, `_prediction_confidence_expression`
   i `_base_visible_statement`; jawne `_bind_game_store` zachowuje wiązanie

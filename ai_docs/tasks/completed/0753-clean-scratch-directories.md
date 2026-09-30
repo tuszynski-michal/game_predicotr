@@ -61,10 +61,11 @@ wyszukiwanie i listowanie plików (`CLAUDE.md` każe je ignorować).
 - [x] Podgląd w głównym checkoucie: 54 katalogi usuwalne (251,8 MiB),
   11 nieczytelnych (`t07-pytest-*`, `t6?`) do usunięcia ręcznie z
   uprawnieniami administratora, bez katalogów chronionych i bez `.tmp`.
-- [ ] Warunek wykonania: zatrzymane serwery i workery korzystające z root
+- [x] Warunek wykonania: serwery innych checkoutów działały, ale ich katalog
+  `.tmp` jest poza zakresem; pozostałe kandydaty bez zablokowanych plików
   (skrypt i tak pomija katalogi z zablokowanym, tylko do odczytu lub
   świeżym plikiem).
-- [ ] Wykonanie za zgodą operatora (fraza z podglądu).
+- [x] Wykonanie za zgodą operatora (fraza z podglądu).
 - [x] Audyt bez P0–P2.
 
 ## Technical notes
@@ -103,8 +104,13 @@ powershell -File scripts/clean_scratch_dirs.ps1 -Root C:\Users\tuszy\Documents\g
   przepisanie → PASS; P3 wdrożone (komunikaty dla plików tylko do odczytu i
   długich ścieżek, odmowa UNC).
 
+### Executed (2026-09-30, za zgodą operatora)
+
+- `-Execute -ConfirmPhrase "CLEAN-SCRATCH bba515c056119eac"`: 54 katalogi
+  usunięte (251,8 MiB), 0 porażek.
+
 ### Not completed
 
-- Wykonanie (`-Execute`) czeka na zgodę operatora i zatrzymanie procesów
-  korzystających z root; 11 katalogów nieczytelnych wymaga usunięcia z
-  uprawnieniami administratora.
+- 11 katalogów nieczytelnych (`t6a`–`t6i`, 2× `t07-pytest-*`) wymaga
+  usunięcia ręcznie z uprawnieniami administratora (instrukcja przekazana
+  operatorowi).

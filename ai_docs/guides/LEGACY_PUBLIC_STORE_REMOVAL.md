@@ -1,10 +1,13 @@
 ---
 title: Operacyjne usunięcie legacy game-owned relations z public
-status: active
-last_updated: 2026-09-26
+status: archived
+last_updated: 2026-09-30
 ---
 
 # Runbook: `0125_remove_legacy_public_game_store`
+
+> **Zarchiwizowany 2026-09-30:** migracja `0125` jest zastosowana; skrypt
+> preflightu został usunięty (TASK-0752). Runbook pozostaje jako zapis procesu.
 
 ## Granica operacji
 

@@ -572,18 +572,12 @@ dokładny URL wybranej gry i importu. Dzięki ponownej nawigacji karta nie
 pozostaje na `ERR_CONNECTION_REFUSED`, gdy port 3001 był zatrzymany przed
 kliknięciem.
 
-Po aktualizacji do 0.9 wykonaj migracje i resumowalny backfill przy wyłączonych
-API, workerze, Adminie i Reviewerze:
-
-```powershell
-.venv\Scripts\python.exe scripts\report_v09_storage_cleanup.py --label before --output .runtime\v09-storage-cleanup-before.json
-.venv\Scripts\python.exe -m alembic upgrade head
-.venv\Scripts\python.exe scripts\backfill_v09_schema.py --game-id <GAME_UUID> --batch-size 200
-.venv\Scripts\python.exe scripts\report_v09_storage_cleanup.py --label after --output .runtime\v09-storage-cleanup-after.json
-```
-
-Backfill zapisuje checkpoint w `.runtime` i można go bezpiecznie wznowić.
-Nie uruchamiaj `VACUUM FULL` jako części aktualizacji.
+Aktualizacja do 0.9 (raport zajętości i resumowalny backfill schematu) jest
+procedurą historyczną: jej skrypty `report_v09_storage_cleanup.py` i
+`backfill_v09_schema.py` usunięto w TASK-0752 (D-467), bo wszystkie gry są w
+magazynie V2. Migracje wykonuje się jak zawsze przez `alembic upgrade head`
+przy wyłączonych API, workerze, Adminie i Reviewerze. Nie uruchamiaj
+`VACUUM FULL` jako części aktualizacji.
 
 ## Kontrola zajętości i pierwsze czyszczenie storage
 

@@ -91,6 +91,9 @@ implementacyjnym.
   — weryfikacja per komórka i jedna kolejka korekty cięcia siatki (D-462).
 - [Symbol reference library plan](delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md)
   — propozycje symboli z biblioteki zweryfikowanych komórek (D-464).
+- [Legacy V1 remnants removal plan](delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md)
+  — manifest renderu per plansza, usunięcie `cell_observations`, gałęzi V1
+  i trybu `legacy_file`, retencja pipeline (D-467, S1–S8).
 - [V2 readiness remediation plan](delivery/V2_READINESS_REMEDIATION_PLAN.md) —
   naprawy po `no-go` T08 oraz blokująca propozycja decyzji TASK-0698.
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)

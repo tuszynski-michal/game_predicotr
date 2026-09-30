@@ -1,10 +1,15 @@
 ---
 title: Resumable legacy game deletion
-status: active
-last_updated: 2026-09-08
+status: archived
+last_updated: 2026-09-30
 ---
 
 # TASK-0516 — instrukcja utrzymaniowa
+
+> **Zarchiwizowana 2026-09-30 (D-467, TASK-0752):** gra legacy została
+> usunięta, a skrypty `delete_legacy_game_resumable.py` i
+> `preview_legacy_game_managed_asset_gc.py` usunięto z repozytorium (dostępne
+> w historii Git). Dokument pozostaje jako zapis procesu.
 
 Mechanizm dotyczy wyłącznie `777 v0.1`, UUID
 `80f3c7ec-6110-4e20-a263-2675ee5b15d6`. Chroniona gra `new-siedem`:

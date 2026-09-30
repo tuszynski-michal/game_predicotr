@@ -78,6 +78,19 @@ last_updated: 2026-09-30
   „80–<99%” (bez komórek ≥ 99% i bez predykcji biblioteki 0,99). TASK-0750
   (B3, pasmo 80–99%) w toku.
 
+### D-467 — usunięcie pozostałości V1/legacy (w toku)
+
+- Plan `ai_docs/delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md`
+  (S1–S8) zaakceptowany 2026-09-30 po inwentaryzacji: `cell_observations`
+  28 GB, `render_spec` powielony w komórkach 19 GB, wyniki pipeline 6,8 GB
+  z nieuruchomioną retencją, żywy tryb `legacy_file` (461 plansz 777),
+  martwe gałęzie `uses_current_projection`. Migracja `0125` jest już
+  zastosowana na bazie operatora; plan D-448 zamknięty.
+- TASK-0752 (S1) done: migracja `0129` (osierocone funkcje triggerów),
+  skrypt baz `diag_*`, usunięte narzędzia legacy/v0.9, dokumenty
+  zaktualizowane. Audyt Opus PASS. Migracja i `--execute` czekają na zgodę.
+- TASK-0753 (S1) i TASK-0754 (S2) w toku.
+
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 
 - Operator polecił wycofać poprzednią konfigurację. Pomiar tylko do odczytu

@@ -2,15 +2,21 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  APPROXIMATE_WIN_PIN_LIMIT,
   APPROXIMATE_WIN_RANGE_DEFAULT,
   APPROXIMATE_WIN_RANGE_MAX,
+  approximateWinAxisTicks,
   approximateWinChartPoints,
   approximateWinExtremes,
+  approximateWinPointKey,
   approximateWinRequestKey,
   filterApproximateWinRows,
   formatApproximateWinCredits,
+  layoutApproximateWinPinLabels,
+  moveApproximateWinHighlight,
   parseApproximateWinRange,
   shouldRequestApproximateWin,
+  toggleApproximateWinPinnedPoint,
   visibleApproximateWinResult,
 } from '../src/features/board-search/board-search-approximate-win-state.ts';
 
@@ -265,4 +271,239 @@ test('formatApproximateWinCredits formats with Polish grouping', () => {
     formatApproximateWinCredits(-2000),
     (-2000).toLocaleString('pl-PL'),
   );
+});
+
+function assertRoundTicks(ticks, minimum, maximum) {
+  assert.ok(ticks.length >= 2);
+  assert.ok(ticks[0] <= minimum, `first tick ${ticks[0]} > ${minimum}`);
+  assert.ok(ticks.at(-1) >= maximum, `last tick ${ticks.at(-1)} < ${maximum}`);
+  const step = ticks[1] - ticks[0];
+  const magnitude = 10 ** Math.floor(Math.log10(step));
+  assert.ok(
+    [1, 2, 5, 10].some((factor) => Math.abs(step - factor * magnitude) < 1e-9),
+    `step ${step} is not 1/2/5 x 10^n`,
+  );
+  for (let index = 1; index < ticks.length; index += 1) {
+    assert.ok(Math.abs(ticks[index] - ticks[index - 1] - step) < 1e-9);
+  }
+}
+
+test('approximateWinAxisTicks returns round ticks enclosing the range', () => {
+  assert.deepEqual(
+    approximateWinAxisTicks(-2500, 0),
+    [-2500, -2000, -1500, -1000, -500, 0],
+  );
+  const wide = approximateWinAxisTicks(-120, 9800);
+  assertRoundTicks(wide, -120, 9800);
+  assert.deepEqual(wide, [-2000, 0, 2000, 4000, 6000, 8000, 10000]);
+  assertRoundTicks(approximateWinAxisTicks(-7, 3), -7, 3);
+  assertRoundTicks(approximateWinAxisTicks(0, 2500, 6), 0, 2500);
+  assert.equal(approximateWinAxisTicks(0, 2500, 6)[0], 0);
+});
+
+test('approximateWinAxisTicks widens a degenerate range symmetrically', () => {
+  const zero = approximateWinAxisTicks(0, 0);
+  assertRoundTicks(zero, -1, 1);
+  assert.ok(zero.includes(0));
+  const five = approximateWinAxisTicks(5, 5);
+  assertRoundTicks(five, 0, 10);
+  assert.ok(five.every((tick) => !Object.is(tick, -0)));
+});
+
+const pinPoint = (spinNumber, kind = 'payout') => ({
+  cumulativeBalanceCredits: spinNumber * 10,
+  kind,
+  spinNumber,
+});
+
+test('toggleApproximateWinPinnedPoint pins, unpins and keeps spin order', () => {
+  let state = toggleApproximateWinPinnedPoint([], pinPoint(30));
+  state = toggleApproximateWinPinnedPoint(state.pins, pinPoint(10));
+  assert.deepEqual(
+    state.pins.map((point) => point.spinNumber),
+    [10, 30],
+  );
+  assert.equal(state.limitReached, false);
+  state = toggleApproximateWinPinnedPoint(state.pins, pinPoint(30));
+  assert.deepEqual(
+    state.pins.map((point) => point.spinNumber),
+    [10],
+  );
+  assert.notEqual(
+    approximateWinPointKey(pinPoint(5, 'payout')),
+    approximateWinPointKey(pinPoint(5, 'end')),
+  );
+});
+
+test('toggleApproximateWinPinnedPoint refuses a pin beyond the limit without dropping one', () => {
+  assert.equal(APPROXIMATE_WIN_PIN_LIMIT, 8);
+  let pins = [];
+  for (let spin = 1; spin <= 8; spin += 1) {
+    pins = toggleApproximateWinPinnedPoint(pins, pinPoint(spin)).pins;
+  }
+  const refused = toggleApproximateWinPinnedPoint(pins, pinPoint(99));
+  assert.equal(refused.limitReached, true);
+  assert.equal(refused.pins, pins);
+  const unpinned = toggleApproximateWinPinnedPoint(pins, pinPoint(3));
+  assert.equal(unpinned.limitReached, false);
+  assert.equal(unpinned.pins.length, 7);
+});
+
+const layoutOptions = { labelWidth: 124, maxX: 796, minX: 4, rows: 3 };
+
+function assertNoOverlap(placements, width = 124, gap = 4) {
+  for (const a of placements) {
+    assert.ok(a.x - width / 2 >= 4 - 1e-9 && a.x + width / 2 <= 796 + 1e-9);
+    for (const b of placements) {
+      if (a === b || a.row !== b.row) continue;
+      assert.ok(
+        Math.abs(a.x - b.x) >= width + gap - 1e-9,
+        `labels ${a.key} and ${b.key} overlap in row ${a.row}`,
+      );
+    }
+  }
+}
+
+test('layoutApproximateWinPinLabels stacks labels of the same point into rows', () => {
+  const placements = layoutApproximateWinPinLabels(
+    [
+      { key: 'a', x: 400 },
+      { key: 'b', x: 400 },
+    ],
+    layoutOptions,
+  );
+  assert.deepEqual(
+    placements.map((placement) => [placement.key, placement.row, placement.x]),
+    [
+      ['a', 0, 400],
+      ['b', 1, 400],
+    ],
+  );
+  assertNoOverlap(placements);
+});
+
+test('layoutApproximateWinPinLabels keeps an edge label inside the chart', () => {
+  const [placement] = layoutApproximateWinPinLabels(
+    [{ key: 'edge', x: 795 }],
+    layoutOptions,
+  );
+  assert.equal(placement.x, 796 - 62);
+  assert.equal(placement.pointX, 795);
+});
+
+test('layoutApproximateWinPinLabels fits nine labels of one point without overlap', () => {
+  const labels = Array.from({ length: 9 }, (_, index) => ({
+    key: `p${index}`,
+    x: 400,
+  }));
+  const placements = layoutApproximateWinPinLabels(labels, layoutOptions);
+  assert.equal(placements.length, 9);
+  assertNoOverlap(placements);
+  assert.ok(placements.some((placement) => placement.x !== placement.pointX));
+});
+
+test('layoutApproximateWinPinLabels places a hover label around reserved pins', () => {
+  const pins = layoutApproximateWinPinLabels(
+    Array.from({ length: 8 }, (_, index) => ({ key: `p${index}`, x: 790 })),
+    layoutOptions,
+  );
+  const [hover] = layoutApproximateWinPinLabels([{ key: 'h', x: 790 }], {
+    ...layoutOptions,
+    reserved: pins,
+  });
+  assertNoOverlap([...pins, hover]);
+  assert.deepEqual(
+    pins,
+    layoutApproximateWinPinLabels(
+      Array.from({ length: 8 }, (_, index) => ({ key: `p${index}`, x: 790 })),
+      layoutOptions,
+    ),
+  );
+});
+
+test('moveApproximateWinHighlight skips drop points and stops at the ends', () => {
+  const points = approximateWinChartPoints(
+    [
+      {
+        boardStatus: 'accepted',
+        cumulativeBalanceCredits: 50,
+        cumulativeCostCredits: 50,
+        cumulativePayoutCredits: 100,
+        payoutCredits: 100,
+        payoutKind: 'exact',
+        sequenceNumber: 7,
+        spinNumber: 5,
+      },
+    ],
+    { balanceCredits: 0, spinNumber: 10 },
+  );
+  const keys = (point) =>
+    point === null ? null : approximateWinPointKey(point);
+  assert.equal(keys(moveApproximateWinHighlight(points, null, 1)), 'start:0');
+  assert.equal(keys(moveApproximateWinHighlight(points, null, -1)), 'end:10');
+  assert.equal(
+    keys(moveApproximateWinHighlight(points, 'start:0', 1)),
+    'payout:5',
+  );
+  assert.equal(
+    keys(moveApproximateWinHighlight(points, 'payout:5', 1)),
+    'end:10',
+  );
+  assert.equal(
+    keys(moveApproximateWinHighlight(points, 'end:10', 1)),
+    'end:10',
+  );
+  assert.equal(
+    keys(moveApproximateWinHighlight(points, 'start:0', -1)),
+    'start:0',
+  );
+  assert.equal(moveApproximateWinHighlight([], null, 1), null);
+});
+
+test('layoutApproximateWinPinLabels never overlaps labels at fractional positions', () => {
+  const toX = (spin) => 72 + (spin / 2500) * 710;
+  const sameX = layoutApproximateWinPinLabels(
+    Array.from({ length: 9 }, (_, index) => ({
+      key: `p${index}`,
+      x: 72 + (1234 / 10000) * 710,
+    })),
+    layoutOptions,
+  );
+  assertNoOverlap(sameX);
+  // Deterministic pseudo-random clusters: 8 pins plus a hover label.
+  let seed = 7;
+  const random = () => {
+    seed = (seed * 1103515245 + 12345) % 2147483648;
+    return seed / 2147483648;
+  };
+  for (let run = 0; run < 2000; run += 1) {
+    const centre = random() * 2500;
+    const pins = layoutApproximateWinPinLabels(
+      Array.from({ length: 8 }, (_, index) => ({
+        key: `p${index}`,
+        x: toX(Math.min(2500, centre + random() * 60)),
+      })),
+      layoutOptions,
+    );
+    const hover = layoutApproximateWinPinLabels(
+      [{ key: 'h', x: toX(Math.min(2500, centre + random() * 60)) }],
+      { ...layoutOptions, reserved: pins },
+    );
+    assertNoOverlap([...pins, ...hover]);
+  }
+});
+
+test('approximateWinAxisTicks can keep a whole-number step and rejects unusable ranges', () => {
+  assert.deepEqual(
+    approximateWinAxisTicks(0, 3, 6, { integerStep: true }),
+    [0, 1, 2, 3],
+  );
+  assert.deepEqual(
+    approximateWinAxisTicks(0, 1, 6, { integerStep: true }),
+    [0, 1],
+  );
+  assert.deepEqual(approximateWinAxisTicks(0, Number.NaN), []);
+  assert.deepEqual(approximateWinAxisTicks(0, Number.POSITIVE_INFINITY), []);
+  const ticks = approximateWinAxisTicks(1e300, 1e300 + 1);
+  assert.ok(ticks.length >= 2 && ticks.length <= 1001);
 });

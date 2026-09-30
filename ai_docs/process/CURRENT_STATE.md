@@ -15,6 +15,10 @@ last_updated: 2026-09-30
   `feat/board-search-share` od `v1.7.81` / `f3340b3b`. Numery TASK-0760+
   i D-470+ zostawiają zapas dla równoległego toru biblioteki symboli.
 - TASK-0760 done: plan, D-470, D-471, `ADMIN_APP.md`, pliki zadań 0761–0770.
+  Commit `v1.7.82` / `2a5fb165`.
+- TASK-0761 done: siatka wykresu bilansu i przypinane punkty z etykietami w
+  pasie nad wykresem (mysz i klawiatura, limit 8). 631 testów Admina, 23
+  testy interakcji, audyt PASS w drugim cyklu.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)
 

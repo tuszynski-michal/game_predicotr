@@ -527,7 +527,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
     '.boardSearchApproximateWin .importMetrics',
   ).textContent;
   const chartBefore = document
-    .querySelector('.boardSearchApproximateWinChart polyline')
+    .querySelector('.boardSearchApproximateWinChartSeries')
     .getAttribute('points');
   const callsBefore = approximateWinCalls;
   await act(async () => setInputValue(minimumPayoutInput(), '1000'));
@@ -547,7 +547,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   assert.equal(
     document
-      .querySelector('.boardSearchApproximateWinChart polyline')
+      .querySelector('.boardSearchApproximateWinChartSeries')
       .getAttribute('points'),
     chartBefore,
   );
@@ -560,6 +560,11 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   Object.defineProperty(chart, 'getBoundingClientRect', {
     value: () => ({ left: 0, width: 800 }),
   });
+  assert.ok(
+    document.querySelectorAll('.boardSearchApproximateWinChartGrid line')
+      .length >= 6,
+    'the chart draws horizontal and vertical grid lines',
+  );
   await act(async () =>
     chart.dispatchEvent(
       new dom.window.MouseEvent('pointermove', {
@@ -570,13 +575,95 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   await eventually(
     () =>
-      document.querySelector('.boardSearchApproximateWinChartTooltip') !== null,
-    'hovering the chart should show a tooltip',
+      document.querySelector('.boardSearchApproximateWinChartLabel') !== null,
+    'hovering the chart should show a label in the band above the plot',
   );
   assert.match(
-    document.querySelector('.boardSearchApproximateWinChartTooltip')
-      .textContent,
+    document.querySelector('.boardSearchApproximateWinChartLabel').textContent,
     /2500 spinów.*Bilans: -17/,
+  );
+  assert.ok(
+    document.querySelector('.boardSearchApproximateWinChartLeader'),
+    'the label is connected to its point by a dotted leader line',
+  );
+
+  // Clicking pins the nearest point; the pinned label stays without hover.
+  await act(async () =>
+    chart.dispatchEvent(
+      new dom.window.MouseEvent('click', { bubbles: true, clientX: 800 }),
+    ),
+  );
+  // Escape clears the hover highlight (as leaving the chart would).
+  await act(async () =>
+    chart.dispatchEvent(
+      new dom.window.KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        key: 'Escape',
+      }),
+    ),
+  );
+  await settle();
+  assert.equal(
+    document.querySelectorAll('.boardSearchApproximateWinChartLabelPinned')
+      .length,
+    1,
+  );
+  assert.match(
+    document.querySelector('.boardSearchApproximateWinChartPins').textContent,
+    /2500 spinów/,
+  );
+
+  // Keyboard: ArrowRight from nothing highlights the first point; Enter pins it.
+  await act(async () =>
+    chart.dispatchEvent(
+      new dom.window.KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        key: 'ArrowRight',
+      }),
+    ),
+  );
+  await act(async () =>
+    chart.dispatchEvent(
+      new dom.window.KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        key: 'Enter',
+      }),
+    ),
+  );
+  await settle();
+  assert.equal(
+    document.querySelectorAll('.boardSearchApproximateWinChartLabelPinned')
+      .length,
+    2,
+  );
+
+  // "×" on a pinned label unpins it; "Wyczyść punkty" clears the rest.
+  await click(
+    document.querySelector(
+      '.boardSearchApproximateWinChartLabelPinned .boardSearchApproximateWinChartUnpin',
+    ),
+  );
+  assert.equal(
+    document.querySelectorAll('.boardSearchApproximateWinChartLabelPinned')
+      .length,
+    1,
+  );
+  const clear = [
+    ...document.querySelectorAll('.boardSearchApproximateWinChart button'),
+  ].find((node) => node.textContent === 'Wyczyść punkty');
+  assert.ok(clear);
+  await click(clear);
+  assert.equal(
+    document.querySelectorAll('.boardSearchApproximateWinChartLabelPinned')
+      .length,
+    0,
+  );
+  assert.equal(
+    document.querySelector('.boardSearchApproximateWinChartPins'),
+    null,
   );
   await act(async () => root.unmount());
 });

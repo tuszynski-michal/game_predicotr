@@ -179,6 +179,226 @@ export function approximateWinExtremes(values: readonly number[]): {
     : { maximum, minimum };
 }
 
+/**
+ * "Round" axis ticks (step 1, 2 or 5 × 10ⁿ) whose first and last values
+ * enclose `[minimum, maximum]`. The chart widens its domain to the outer
+ * ticks, so every tick is drawable and labels never collide with separate
+ * min/max labels (TASK-0761). A degenerate range is widened symmetrically.
+ */
+export function approximateWinAxisTicks(
+  minimum: number,
+  maximum: number,
+  targetCount = 5,
+  options: { readonly integerStep?: boolean } = {},
+): readonly number[] {
+  if (!Number.isFinite(minimum) || !Number.isFinite(maximum)) return [];
+  let low = Math.min(minimum, maximum);
+  let high = Math.max(minimum, maximum);
+  if (low === high) {
+    const padding = Math.abs(low) || 1;
+    low -= padding;
+    high += padding;
+  }
+  const rawStep = (high - low) / Math.max(1, targetCount);
+  const magnitude = 10 ** Math.floor(Math.log10(rawStep));
+  const normalized = rawStep / magnitude;
+  const factor =
+    normalized <= 1 ? 1 : normalized <= 2 ? 2 : normalized <= 5 ? 5 : 10;
+  // Spin counts are whole numbers, so their axis never uses a fractional step.
+  const step = options.integerStep
+    ? Math.max(1, factor * magnitude)
+    : factor * magnitude;
+  const decimals = Math.min(20, Math.max(0, -Math.floor(Math.log10(step))));
+  const first = Math.floor(low / step);
+  const last = Math.ceil(high / step);
+  if (
+    !Number.isSafeInteger(first) ||
+    !Number.isSafeInteger(last) ||
+    last - first > 1000
+  ) {
+    return [low, high];
+  }
+  const ticks: number[] = [];
+  for (let index = first; index <= last; index += 1) {
+    // Rounding through toFixed removes binary noise such as 0.30000000000000004.
+    ticks.push(Number((index * step).toFixed(decimals)) + 0);
+  }
+  return ticks;
+}
+
+export const APPROXIMATE_WIN_PIN_LIMIT = 8;
+
+/** Stable identity of a chart point: a payout and its preceding drop share a spin. */
+export function approximateWinPointKey(
+  point: ApproximateWinChartPoint,
+): string {
+  return `${point.kind}:${point.spinNumber}`;
+}
+
+/**
+ * Pin or unpin one point. A new pin beyond `limit` is refused with
+ * `limitReached` instead of silently dropping an older pin.
+ */
+export function toggleApproximateWinPinnedPoint(
+  pins: readonly ApproximateWinChartPoint[],
+  point: ApproximateWinChartPoint,
+  limit = APPROXIMATE_WIN_PIN_LIMIT,
+): {
+  readonly limitReached: boolean;
+  readonly pins: readonly ApproximateWinChartPoint[];
+} {
+  const key = approximateWinPointKey(point);
+  if (pins.some((pin) => approximateWinPointKey(pin) === key)) {
+    return {
+      limitReached: false,
+      pins: pins.filter((pin) => approximateWinPointKey(pin) !== key),
+    };
+  }
+  if (pins.length >= limit) {
+    return { limitReached: true, pins };
+  }
+  return {
+    limitReached: false,
+    pins: [...pins, point].sort(
+      (left, right) =>
+        left.spinNumber - right.spinNumber ||
+        approximateWinPointKey(left).localeCompare(
+          approximateWinPointKey(right),
+        ),
+    ),
+  };
+}
+
+/**
+ * Keyboard navigation over the labelled points: ArrowLeft/ArrowRight move one
+ * point and stop at the ends; the first press starts at the matching end.
+ * `before_payout` points are never targets (they only draw the drop).
+ */
+export function moveApproximateWinHighlight(
+  points: readonly ApproximateWinChartPoint[],
+  currentKey: string | null,
+  step: -1 | 1,
+): ApproximateWinChartPoint | null {
+  const targets = points.filter((point) => point.kind !== 'before_payout');
+  if (targets.length === 0) return null;
+  const index =
+    currentKey === null
+      ? -1
+      : targets.findIndex(
+          (point) => approximateWinPointKey(point) === currentKey,
+        );
+  if (index < 0) {
+    return (step > 0 ? targets[0] : targets.at(-1)) ?? null;
+  }
+  return (
+    targets[Math.min(targets.length - 1, Math.max(0, index + step))] ?? null
+  );
+}
+
+export interface ApproximateWinLabelRequest {
+  readonly key: string;
+  /** Horizontal position of the point the label describes. */
+  readonly x: number;
+}
+
+export interface ApproximateWinLabelPlacement {
+  readonly key: string;
+  /** Row of the label band, 0 = nearest to the plot. */
+  readonly row: number;
+  /** Centre of the label; differs from `pointX` when the label was shifted. */
+  readonly x: number;
+  readonly pointX: number;
+}
+
+/**
+ * Place labels in the band above the plot without overlap. Each label takes
+ * the first row that is free at its point; when no row is free there, it is
+ * shifted sideways to the nearest free slot in the row needing the smallest
+ * shift, and the caller draws a bent leader line. Only when no slot exists
+ * at all does a label overlap (row 0 at its point).
+ */
+export function layoutApproximateWinPinLabels(
+  labels: readonly ApproximateWinLabelRequest[],
+  options: {
+    readonly gap?: number;
+    readonly labelWidth: number;
+    readonly maxX: number;
+    readonly minX: number;
+    /** Labels already placed (e.g. pins) that the new labels must avoid. */
+    readonly reserved?: readonly ApproximateWinLabelPlacement[];
+    readonly rows: number;
+  },
+): readonly ApproximateWinLabelPlacement[] {
+  const gap = options.gap ?? 4;
+  const half = options.labelWidth / 2;
+  const lowest = options.minX + half;
+  const highest = options.maxX - half;
+  const occupied: { left: number; right: number }[][] = Array.from(
+    { length: options.rows },
+    () => [],
+  );
+  for (const placement of options.reserved ?? []) {
+    occupied[placement.row]?.push({
+      left: placement.x - half,
+      right: placement.x + half,
+    });
+  }
+  // Side candidates are computed from the neighbouring slot, so the
+  // comparison needs a tolerance or float noise rejects an exact fit.
+  const tolerance = 1e-6;
+  const isFree = (row: number, centre: number) =>
+    centre >= lowest - tolerance &&
+    centre <= highest + tolerance &&
+    occupied[row].every(
+      (slot) =>
+        centre + half + gap <= slot.left + tolerance ||
+        centre - half - gap >= slot.right - tolerance,
+    );
+  const ordered = [...labels].sort(
+    (left, right) => left.x - right.x || left.key.localeCompare(right.key),
+  );
+  const placements: ApproximateWinLabelPlacement[] = [];
+  for (const label of ordered) {
+    const desired = Math.min(highest, Math.max(lowest, label.x));
+    let best: { row: number; x: number } | null = null;
+    for (let row = 0; row < options.rows; row += 1) {
+      if (isFree(row, desired)) {
+        best = { row, x: desired };
+        break;
+      }
+    }
+    if (best === null) {
+      for (let row = 0; row < options.rows; row += 1) {
+        const candidates = occupied[row].flatMap((slot) => [
+          slot.left - gap - half,
+          slot.right + gap + half,
+        ]);
+        for (const candidate of candidates) {
+          if (!isFree(row, candidate)) continue;
+          if (
+            best === null ||
+            Math.abs(candidate - desired) < Math.abs(best.x - desired)
+          ) {
+            best = { row, x: candidate };
+          }
+        }
+      }
+    }
+    const placed = best ?? { row: 0, x: desired };
+    occupied[placed.row].push({
+      left: placed.x - half,
+      right: placed.x + half,
+    });
+    placements.push({
+      key: label.key,
+      pointX: label.x,
+      row: placed.row,
+      x: placed.x,
+    });
+  }
+  return placements;
+}
+
 /** Filters only the client-rendered payout table; the API result stays intact. */
 export function filterApproximateWinRows(
   rows: ApproximateWinResponse['rows'],

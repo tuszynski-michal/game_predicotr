@@ -5,6 +5,8 @@ import type {
   BoardSearchResultResponse,
 } from '@game-predictor/admin-api-client';
 import {
+  type KeyboardEvent,
+  type MouseEvent,
   type PointerEvent,
   type SyntheticEvent,
   useEffect,
@@ -18,16 +20,23 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 
 import {
   APPROXIMATE_WIN_IDLE_STATE,
+  APPROXIMATE_WIN_PIN_LIMIT,
   APPROXIMATE_WIN_RANGE_DEFAULT,
   APPROXIMATE_WIN_RANGE_MAX,
+  type ApproximateWinChartPoint,
   type ApproximateWinState,
+  approximateWinAxisTicks,
   approximateWinChartPoints,
   approximateWinExtremes,
+  approximateWinPointKey,
   approximateWinRequestKey,
   filterApproximateWinRows,
   formatApproximateWinCredits,
+  layoutApproximateWinPinLabels,
+  moveApproximateWinHighlight,
   parseApproximateWinRange,
   shouldRequestApproximateWin,
+  toggleApproximateWinPinnedPoint,
   visibleApproximateWinResult,
 } from './board-search-approximate-win-state';
 import { boardSearchResultIdentity } from './board-search-results-state';
@@ -322,7 +331,10 @@ function ApproximateWinResultView({
               ? ' Przy niepełnych danych nie można wykluczyć niewykrytej wygranej.'
               : ''}
           </p>
-          <ApproximateWinBalanceChart result={result} />
+          <ApproximateWinBalanceChart
+            key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
+            result={result}
+          />
         </>
       ) : (
         <>
@@ -371,7 +383,10 @@ function ApproximateWinResultView({
               Brak wypłat spełniających wybrany próg.
             </p>
           ) : null}
-          <ApproximateWinBalanceChart result={result} />
+          <ApproximateWinBalanceChart
+            key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
+            result={result}
+          />
         </>
       )}
     </>
@@ -415,9 +430,13 @@ function ApproximateWinBalanceChart({
   readonly result: ApproximateWinResponse;
 }) {
   const rows = result.rows;
-  const [hoveredPoint, setHoveredPoint] = useState<
-    ReturnType<typeof approximateWinChartPoints>[number] | null
-  >(null);
+  const [hoveredPoint, setHoveredPoint] =
+    useState<ApproximateWinChartPoint | null>(null);
+  const [pinnedPoints, setPinnedPoints] = useState<
+    readonly ApproximateWinChartPoint[]
+  >([]);
+  const [pinLimitReached, setPinLimitReached] = useState(false);
+  const svgRef = useRef<SVGSVGElement>(null);
   if (rows.length === 0) {
     return (
       <section
@@ -436,53 +455,241 @@ function ApproximateWinBalanceChart({
     balanceCredits: result.summary.balanceCredits,
     spinNumber: result.evaluatedSpinCount,
   });
-  // The point just before a payout draws the drop; only real states get a tooltip.
-  const tooltipPoints = points.filter(
-    (point) => point.kind !== 'before_payout',
-  );
+  // The point just before a payout draws the drop; only real states get a label.
+  const labelPoints = points.filter((point) => point.kind !== 'before_payout');
   const finalPoint = points.at(-1);
   if (finalPoint === undefined) {
     return null;
   }
-  const width = 800;
-  const height = 240;
-  const padding = { bottom: 34, left: 54, right: 18, top: 18 };
-  const chartWidth = width - padding.left - padding.right;
-  const chartHeight = height - padding.top - padding.bottom;
-  const maximumSpin = finalPoint.spinNumber;
   const { maximum: maximumBalance, minimum: minimumBalance } =
     approximateWinExtremes(
       points.map((point) => point.cumulativeBalanceCredits),
     );
-  const balanceSpan = Math.max(1, maximumBalance - minimumBalance);
+  const yTicks = approximateWinAxisTicks(minimumBalance, maximumBalance, 5);
+  const xTicks = approximateWinAxisTicks(0, finalPoint.spinNumber, 6, {
+    integerStep: true,
+  });
+  const yLow = yTicks[0] ?? minimumBalance;
+  const yHigh = yTicks.at(-1) ?? maximumBalance;
+  const xHigh = Math.max(1, xTicks.at(-1) ?? finalPoint.spinNumber);
+  const { chartBottom, chartLeft, chartRight, chartTop } = CHART_FRAME;
+  const chartWidth = chartRight - chartLeft;
+  const chartHeight = chartBottom - chartTop;
   const toX = (spinNumber: number) =>
-    padding.left + (spinNumber / maximumSpin) * chartWidth;
+    chartLeft + (spinNumber / xHigh) * chartWidth;
   const toY = (balanceCredits: number) =>
-    padding.top +
-    chartHeight -
-    ((balanceCredits - minimumBalance) / balanceSpan) * chartHeight;
+    chartBottom -
+    ((balanceCredits - yLow) / Math.max(1e-9, yHigh - yLow)) * chartHeight;
   const polylinePoints = points
     .map(
       (point) =>
         `${toX(point.spinNumber)},${toY(point.cumulativeBalanceCredits)}`,
     )
     .join(' ');
-  const handlePointerMove = (event: PointerEvent<SVGSVGElement>) => {
-    const bounds = event.currentTarget.getBoundingClientRect();
-    if (bounds.width === 0) {
-      return;
-    }
-    const pointerX = ((event.clientX - bounds.left) / bounds.width) * width;
-    const closest = tooltipPoints.reduce((best, point) =>
+
+  const pinnedKeys = new Set(pinnedPoints.map(approximateWinPointKey));
+  const layoutOptions = {
+    labelWidth: CHART_LABEL.width,
+    maxX: CHART_WIDTH - 4,
+    minX: 4,
+    rows: CHART_LABEL.rows,
+  };
+  const pinPlacements = layoutApproximateWinPinLabels(
+    pinnedPoints.map((point) => ({
+      key: approximateWinPointKey(point),
+      x: toX(point.spinNumber),
+    })),
+    layoutOptions,
+  );
+  const hoverPlacement =
+    hoveredPoint !== null &&
+    !pinnedKeys.has(approximateWinPointKey(hoveredPoint))
+      ? layoutApproximateWinPinLabels(
+          [
+            {
+              key: approximateWinPointKey(hoveredPoint),
+              x: toX(hoveredPoint.spinNumber),
+            },
+          ],
+          { ...layoutOptions, reserved: pinPlacements },
+        )[0]
+      : undefined;
+  const pointByKey = new Map(
+    labelPoints.map((point) => [approximateWinPointKey(point), point]),
+  );
+
+  const closestPoint = (pointerX: number) =>
+    labelPoints.reduce((best, point) =>
       Math.abs(toX(point.spinNumber) - pointerX) <
       Math.abs(toX(best.spinNumber) - pointerX)
         ? point
         : best,
     );
+  const pointerToViewBoxX = (event: MouseEvent<SVGSVGElement>) => {
+    const bounds = event.currentTarget.getBoundingClientRect();
+    return bounds.width === 0
+      ? null
+      : ((event.clientX - bounds.left) / bounds.width) * CHART_WIDTH;
+  };
+  const togglePin = (point: ApproximateWinChartPoint) => {
+    const next = toggleApproximateWinPinnedPoint(pinnedPoints, point);
+    setPinLimitReached(next.limitReached);
+    setPinnedPoints(next.pins);
+  };
+  // An unpin control unmounts itself; keep keyboard focus on the chart.
+  const unpin = (point: ApproximateWinChartPoint) => {
+    togglePin(point);
+    svgRef.current?.focus();
+  };
+  const handlePointerMove = (event: PointerEvent<SVGSVGElement>) => {
+    const pointerX = pointerToViewBoxX(event);
+    if (pointerX === null) return;
+    const closest = closestPoint(pointerX);
     setHoveredPoint((current) =>
-      current?.spinNumber === closest.spinNumber ? current : closest,
+      current !== null &&
+      approximateWinPointKey(current) === approximateWinPointKey(closest)
+        ? current
+        : closest,
     );
   };
+  const handleClick = (event: MouseEvent<SVGSVGElement>) => {
+    const pointerX = pointerToViewBoxX(event);
+    if (pointerX === null) return;
+    togglePin(closestPoint(pointerX));
+  };
+  const handleKeyDown = (event: KeyboardEvent<SVGSVGElement>) => {
+    if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
+      event.preventDefault();
+      setHoveredPoint(
+        moveApproximateWinHighlight(
+          points,
+          hoveredPoint === null ? null : approximateWinPointKey(hoveredPoint),
+          event.key === 'ArrowRight' ? 1 : -1,
+        ),
+      );
+      return;
+    }
+    if (event.key === 'Enter' || event.key === ' ') {
+      if (event.key === ' ') event.preventDefault();
+      if (hoveredPoint !== null) {
+        event.preventDefault();
+        togglePin(hoveredPoint);
+      }
+      return;
+    }
+    if (event.key === 'Escape' && hoveredPoint !== null) {
+      event.preventDefault();
+      setHoveredPoint(null);
+    }
+  };
+
+  const labels = [
+    ...pinPlacements.map((placement) => ({ pinned: true, placement })),
+    ...(hoverPlacement === undefined
+      ? []
+      : [{ pinned: false, placement: hoverPlacement }]),
+  ].flatMap(({ pinned, placement }) => {
+    const point = pointByKey.get(placement.key);
+    return point === undefined ? [] : [{ pinned, placement, point }];
+  });
+  // Leaders and markers are drawn first so no leader crosses a label box.
+  const renderLeader = ({
+    pinned,
+    placement,
+    point,
+  }: (typeof labels)[number]) => {
+    const top = chartLabelTop(placement.row);
+    const pointY = toY(point.cumulativeBalanceCredits);
+    return (
+      <g key={`leader:${pinned ? 'pin' : 'hover'}:${placement.key}`}>
+        <polyline
+          className="boardSearchApproximateWinChartLeader"
+          fill="none"
+          points={`${placement.x},${top + CHART_LABEL.height} ${placement.pointX},${chartTop} ${placement.pointX},${pointY}`}
+        />
+        <circle
+          className="boardSearchApproximateWinChartMarker"
+          cx={placement.pointX}
+          cy={pointY}
+          r={4}
+        />
+      </g>
+    );
+  };
+  const renderLabel = ({
+    pinned,
+    placement,
+    point,
+  }: (typeof labels)[number]) => {
+    const top = chartLabelTop(placement.row);
+    const left = placement.x - CHART_LABEL.width / 2;
+    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, bilans ${formatApproximateWinCredits(point.cumulativeBalanceCredits)}`;
+    return (
+      <g
+        className={
+          pinned
+            ? 'boardSearchApproximateWinChartLabel boardSearchApproximateWinChartLabelPinned'
+            : 'boardSearchApproximateWinChartLabel'
+        }
+        key={`${pinned ? 'pin' : 'hover'}:${placement.key}`}
+        // A shifted label sits above another point; clicking it must not
+        // toggle whichever point is nearest to the pointer.
+        onClick={(event) => event.stopPropagation()}
+      >
+        <rect
+          height={CHART_LABEL.height}
+          rx={5}
+          width={CHART_LABEL.width}
+          x={left}
+          y={top}
+        />
+        <text x={left + 7} y={top + 12}>
+          {point.spinNumber.toLocaleString('pl-PL')} spinów
+        </text>
+        <text
+          className="boardSearchApproximateWinChartLabelValue"
+          x={left + 7}
+          y={top + 25}
+        >
+          Bilans: {formatApproximateWinCredits(point.cumulativeBalanceCredits)}
+        </text>
+        {pinned ? (
+          <g
+            aria-label={`Odepnij punkt: ${description}`}
+            className="boardSearchApproximateWinChartUnpin"
+            onClick={(event) => {
+              event.stopPropagation();
+              unpin(point);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                event.stopPropagation();
+                unpin(point);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+          >
+            <rect
+              height={16}
+              width={16}
+              x={left + CHART_LABEL.width - 19}
+              y={top + 3}
+            />
+            <text
+              x={left + CHART_LABEL.width - 11}
+              y={top + 15}
+              textAnchor="middle"
+            >
+              ×
+            </text>
+          </g>
+        ) : null}
+      </g>
+    );
+  };
+  const drawsZeroLine = yLow < 0 && yHigh > 0;
 
   return (
     <section
@@ -494,84 +701,170 @@ function ApproximateWinBalanceChart({
         <p>
           Narastający bilans: rozpoznane wypłaty minus koszt wszystkich spinów.
           Między wypłatami bilans spada o koszt każdego spinu; wykres kończy się
-          na ostatnim spinie zakresu.
+          na ostatnim spinie zakresu. Kliknij punkt albo użyj strzałek i Enter,
+          aby go przypiąć.
         </p>
       </div>
       <div className="boardSearchApproximateWinChartCanvas">
         <svg
+          ref={svgRef}
           aria-describedby="approximateWinChartDescription"
           aria-label="Wykres narastającego bilansu według liczby spinów"
+          onClick={handleClick}
+          onKeyDown={handleKeyDown}
           onPointerLeave={() => setHoveredPoint(null)}
           onPointerMove={handlePointerMove}
-          role="img"
-          viewBox={`0 0 ${width} ${height}`}
+          aria-roledescription="wykres"
+          role="group"
+          tabIndex={0}
+          viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
         >
           <desc id="approximateWinChartDescription">
             Od zera do {finalPoint.spinNumber.toLocaleString('pl-PL')} spinów,
-            bilans wynosi{' '}
+            bilans końcowy{' '}
             {formatApproximateWinCredits(finalPoint.cumulativeBalanceCredits)}{' '}
-            kredytów.
+            kredytów, minimum {formatApproximateWinCredits(minimumBalance)},
+            maksimum {formatApproximateWinCredits(maximumBalance)}.
           </desc>
+          <g className="boardSearchApproximateWinChartGrid">
+            {yTicks
+              // The dashed zero line replaces the grid line at 0.
+              .filter((tick) => !(drawsZeroLine && tick === 0))
+              .map((tick) => (
+                <line
+                  key={`y:${tick}`}
+                  x1={chartLeft}
+                  x2={chartRight}
+                  y1={toY(tick)}
+                  y2={toY(tick)}
+                />
+              ))}
+            {xTicks.map((tick) => (
+              <line
+                key={`x:${tick}`}
+                x1={toX(tick)}
+                x2={toX(tick)}
+                y1={chartTop}
+                y2={chartBottom}
+              />
+            ))}
+          </g>
           <line
-            x1={padding.left}
-            x2={width - padding.right}
-            y1={padding.top + chartHeight}
-            y2={padding.top + chartHeight}
+            className="boardSearchApproximateWinChartAxis"
+            x1={chartLeft}
+            x2={chartRight}
+            y1={chartBottom}
+            y2={chartBottom}
           />
           <line
-            x1={padding.left}
-            x2={padding.left}
-            y1={padding.top}
-            y2={padding.top + chartHeight}
+            className="boardSearchApproximateWinChartAxis"
+            x1={chartLeft}
+            x2={chartLeft}
+            y1={chartTop}
+            y2={chartBottom}
           />
-          {minimumBalance < 0 && maximumBalance > 0 ? (
+          {drawsZeroLine ? (
             <line
               className="boardSearchApproximateWinChartZero"
-              x1={padding.left}
-              x2={width - padding.right}
+              x1={chartLeft}
+              x2={chartRight}
               y1={toY(0)}
               y2={toY(0)}
             />
           ) : null}
-          <polyline fill="none" points={polylinePoints} />
-          <text x={padding.left} y={height - 10}>
-            0
+          <polyline
+            className="boardSearchApproximateWinChartSeries"
+            fill="none"
+            points={polylinePoints}
+          />
+          {yTicks.map((tick) => (
+            <text
+              key={`yl:${tick}`}
+              textAnchor="end"
+              x={chartLeft - 6}
+              y={toY(tick) + 4}
+            >
+              {formatApproximateWinCredits(tick)}
+            </text>
+          ))}
+          {xTicks.map((tick) => (
+            <text
+              key={`xl:${tick}`}
+              textAnchor="middle"
+              x={toX(tick)}
+              y={chartBottom + 16}
+            >
+              {tick.toLocaleString('pl-PL')}
+            </text>
+          ))}
+          <text textAnchor="end" x={chartRight} y={CHART_HEIGHT - 4}>
+            spiny
           </text>
-          <text textAnchor="end" x={width - padding.right} y={height - 10}>
-            {maximumSpin.toLocaleString('pl-PL')} spinów
-          </text>
-          <text x={padding.left - 8} y={padding.top + 4} textAnchor="end">
-            {formatApproximateWinCredits(maximumBalance)}
-          </text>
-          <text
-            x={padding.left - 8}
-            y={padding.top + chartHeight}
-            textAnchor="end"
-          >
-            {formatApproximateWinCredits(minimumBalance)}
-          </text>
+          {labels.map(renderLeader)}
+          {labels.map(renderLabel)}
         </svg>
-        {hoveredPoint ? (
-          <div
-            className="boardSearchApproximateWinChartTooltip"
-            role="tooltip"
-            style={{
-              left: `${(toX(hoveredPoint.spinNumber) / width) * 100}%`,
-              top: `${(toY(hoveredPoint.cumulativeBalanceCredits) / height) * 100}%`,
-            }}
-          >
-            <span>
-              {hoveredPoint.spinNumber.toLocaleString('pl-PL')} spinów
-            </span>
-            <strong>
-              Bilans:{' '}
-              {formatApproximateWinCredits(
-                hoveredPoint.cumulativeBalanceCredits,
-              )}
-            </strong>
-          </div>
-        ) : null}
       </div>
+      {pinLimitReached ? (
+        <p className="boardSearchApproximateWinChartNotice" role="status">
+          Można przypiąć najwyżej {APPROXIMATE_WIN_PIN_LIMIT} punktów. Odepnij
+          któryś, aby przypiąć kolejny.
+        </p>
+      ) : null}
+      {pinnedPoints.length > 0 ? (
+        <div className="boardSearchApproximateWinChartPins">
+          <ul aria-label="Przypięte punkty wykresu">
+            {pinnedPoints.map((point) => (
+              <li key={approximateWinPointKey(point)}>
+                <span>
+                  {point.spinNumber.toLocaleString('pl-PL')} spinów · bilans{' '}
+                  {formatApproximateWinCredits(point.cumulativeBalanceCredits)}
+                </span>
+                <button
+                  aria-label={`Odepnij punkt ${point.spinNumber.toLocaleString('pl-PL')} spinów`}
+                  className="textButton"
+                  onClick={() => unpin(point)}
+                  type="button"
+                >
+                  Odepnij
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            className="secondaryButton"
+            onClick={() => {
+              setPinnedPoints([]);
+              setPinLimitReached(false);
+              svgRef.current?.focus();
+            }}
+            type="button"
+          >
+            Wyczyść punkty
+          </button>
+        </div>
+      ) : null}
     </section>
+  );
+}
+
+const CHART_WIDTH = 800;
+const CHART_LABEL = { height: 30, rowGap: 4, rows: 3, width: 124 } as const;
+const CHART_LABEL_BAND =
+  CHART_LABEL.rows * (CHART_LABEL.height + CHART_LABEL.rowGap) + 8;
+const CHART_FRAME = {
+  chartBottom: CHART_LABEL_BAND + 190,
+  chartLeft: 72,
+  chartRight: CHART_WIDTH - 18,
+  chartTop: CHART_LABEL_BAND,
+} as const;
+const CHART_HEIGHT = CHART_FRAME.chartBottom + 36;
+
+/** Top of a label box; row 0 sits directly above the plot. */
+function chartLabelTop(row: number): number {
+  return (
+    CHART_LABEL_BAND -
+    8 -
+    (row + 1) * (CHART_LABEL.height + CHART_LABEL.rowGap) +
+    CHART_LABEL.rowGap
   );
 }

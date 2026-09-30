@@ -63,8 +63,8 @@ def test_corrected_footprints_override_old_board_outline():
 
 def _coordinator(monkeypatch, *, asset_mode="virtual_source"):
     monkeypatch.setattr(
-        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
-        lambda *_: True,
+        "game_predictor_api.storage.image_symbol_review_repository._bind_game_store",
+        lambda *_: None,
     )
     rows, events = [], []
     session = Mock()

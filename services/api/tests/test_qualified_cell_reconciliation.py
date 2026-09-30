@@ -20,10 +20,10 @@ from game_predictor_api.storage.models import (
 
 
 @pytest.fixture(autouse=True)
-def v2_current_positions(monkeypatch):
+def in_memory_game_store(monkeypatch):
     monkeypatch.setattr(
-        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
-        lambda *_: True,
+        "game_predictor_api.storage.image_symbol_review_repository._bind_game_store",
+        lambda *_: None,
     )
 
 

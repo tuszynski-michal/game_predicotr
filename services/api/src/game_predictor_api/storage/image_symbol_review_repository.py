@@ -12,8 +12,7 @@ from threading import Event, Lock
 from typing import Any, Literal, Protocol, TypedDict, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import Float, String, and_, case, delete, false, func, or_, select, text
-from sqlalchemy import cast as sql_cast
+from sqlalchemy import String, and_, case, delete, false, func, or_, select, text
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, aliased, load_only
@@ -96,7 +95,6 @@ from game_predictor_api.storage.board_search_projection_repository import (
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
-    GameStorageSchema,
 )
 from game_predictor_api.storage.models import (
     CellObservationModel,
@@ -377,30 +375,26 @@ def symbol_cell_review_projection_is_available(
     return any(job.input_payload.get("preserve_ready_projection") is True for job in jobs)
 
 
-def _uses_logical_current_cell_identity(session: Session, game_id: UUID) -> bool:
-    """V2 keeps one mutable current row per logical board position.
+def _bind_game_store(session: Session, game_id: UUID) -> None:
+    """Bind the session to the game's store before the first cell statement.
 
-    Legacy public storage can contain rows for superseded review items and
-    therefore continues to resolve visibility through the fast-document owner.
-    A V2 partition has no such history: immutable transitions live in the
-    event table while the cell row follows the canonical owner atomically.
+    The bind sets the search path, the game id and the storage generation used
+    by row-level security, independently of an ambient ``game_storage_scope``.
+    Every repository path that queries cells without such a scope calls it once
+    before its first statement (see ``test_cell_paths_bind_the_game_store``).
     """
 
-    return (
-        GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ).store_schema
-        is GameStorageSchema.V2
-    )
+    GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ)
 
 
 def _backfill_cell_conflict_columns(
     session: Session,
     game_id: UUID,
 ) -> tuple[str, ...]:
-    """Match the physical uniqueness rule of the selected game store."""
+    """Match the physical uniqueness rule of the V2 game store."""
 
-    if _uses_logical_current_cell_identity(session, game_id):
-        return ("game_id", "review_item_id", "cell_index")
-    return ("review_item_id", "cell_index")
+    _bind_game_store(session, game_id)
+    return ("game_id", "review_item_id", "cell_index")
 
 
 @dataclass(frozen=True, slots=True)
@@ -432,11 +426,11 @@ class SymbolCellReviewReconciliationStep:
 
 
 class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository):
-    """Bounded current-owner reads for the future local Admin workspace.
+    """Bounded current-owner reads for the local Admin workspace.
 
-    The table can contain historical rows for superseded review items.  Every
-    read therefore joins the narrow fast-document projection, which is the
-    deterministic current owner of one logical ``game + sequence``.
+    A V2 store keeps exactly one current row per logical ``game + sequence``
+    cell position, so reads filter the cell projection directly without an
+    ownership join.
     """
 
     def __init__(self, session: Session) -> None:
@@ -540,7 +534,6 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         return SymbolCellReviewCatalogState(
             catalog_revision=int(state.catalog_revision),
             storage_generation=location.generation,
-            uses_current_projection=location.store_schema is GameStorageSchema.V2,
         )
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None:
@@ -597,27 +590,9 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             candidate_rows = self._session.execute(batch_statement).all()
             if not candidate_rows:
                 break
-            candidate_ids = tuple(cast(UUID, row[0]) for row in candidate_rows)
             self._raise_if_read_cancelled()
-            current_ids = (
-                set(candidate_ids)
-                if review_filter.uses_current_projection
-                else {
-                    cast(UUID, row[0])
-                    for row in self._session.execute(
-                        self._base_visible_statement(
-                            review_filter=review_filter,
-                            include_prediction_confidence=False,
-                        )
-                        .with_only_columns(ImageSymbolReviewCellModel.id)
-                        .where(ImageSymbolReviewCellModel.id.in_(candidate_ids))
-                    ).all()
-                }
-            )
             visible_keys.extend(
-                (int(row[1]), int(row[2]), cast(UUID, row[3]))
-                for row in candidate_rows
-                if cast(UUID, row[0]) in current_ids
+                (int(row[1]), int(row[2]), cast(UUID, row[3])) for row in candidate_rows
             )
             last = candidate_rows[-1]
             seek_key = (int(last[1]), int(last[2]), cast(UUID, last[3]))
@@ -754,8 +729,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
     @staticmethod
     def _basic_count_scope(review_filter: SymbolCellReviewListFilter) -> str | None:
         if (
-            not review_filter.uses_current_projection
-            or review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
+            review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
             or review_filter.min_confidence is not None
             or review_filter.max_confidence is not None
             or review_filter.has_extended_filters
@@ -787,7 +761,6 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         if not cell_review_ids:
             return ()
         cell = ImageSymbolReviewCellModel
-        document = ImageBoardSearchFastDocumentModel
         source_geometry = ImageSourceGeometryRevisionModel
         statement = select(
             cell,
@@ -797,17 +770,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             source_geometry.normalized_pixel_checksum_sha256,
             source_geometry.geometry_checksum_sha256,
         )
-        if not _uses_logical_current_cell_identity(self._session, game_id):
-            statement = statement.join(
-                document,
-                and_(
-                    document.game_id == cell.game_id,
-                    document.sequence_number == cell.sequence_number,
-                    document.review_item_id == cell.review_item_id,
-                    document.recognized_board_id == cell.recognized_board_id,
-                    document.import_job_id == cell.import_job_id,
-                ),
-            )
+        _bind_game_store(self._session, game_id)
         rows = self._session.execute(
             statement.join(
                 RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id
@@ -860,26 +823,18 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
     def _list_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
         cell = ImageSymbolReviewCellModel
         assigned_symbol = aliased(SymbolModel)
-        board_status = (
-            ImageReviewItemModel.status
-            if review_filter.uses_current_projection
-            else ImageBoardSearchFastDocumentModel.status
-        )
         statement = (
             self._visible_statement(review_filter=review_filter)
             .add_columns(
-                board_status.label("board_status"),
+                ImageReviewItemModel.status.label("board_status"),
                 assigned_symbol.id.label("assigned_symbol_id"),
                 assigned_symbol.code.label("assigned_symbol_code"),
                 assigned_symbol.name.label("assigned_symbol_name"),
-                _prediction_confidence_expression(review_filter).label("prediction_confidence"),
+                cell.prediction_confidence.label("prediction_confidence"),
             )
             .outerjoin(assigned_symbol, assigned_symbol.id == cell.assigned_symbol_id)
+            .join(ImageReviewItemModel, ImageReviewItemModel.id == cell.review_item_id)
         )
-        if review_filter.uses_current_projection:
-            statement = statement.join(
-                ImageReviewItemModel, ImageReviewItemModel.id == cell.review_item_id
-            )
         return statement.options(
             load_only(
                 cell.id,
@@ -915,118 +870,60 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         *,
         review_filter: SymbolCellReviewListFilter,
     ) -> Select[Any]:
-        """Seek indexed candidates without allowing ownership joins to force a global sort."""
+        """Seek indexed candidates without joins that could force a global sort."""
 
         cell = ImageSymbolReviewCellModel
-        statement = select(
-            cell.id,
-            cell.sequence_number,
-            cell.cell_index,
-            cell.id,
-        ).where(
-            cell.game_id == review_filter.game_id,
-            _logical_cell_visible_clause(),
-        )
-        if not review_filter.include_all_symbols:
-            statement = statement.where(_symbol_scope_filter_clause(review_filter))
-        statement = _apply_symbol_cell_review_state_filter(
-            statement,
+        return _visible_cell_scope(
+            select(cell.id, cell.sequence_number, cell.cell_index, cell.id),
             review_filter=review_filter,
         )
-        if review_filter.uses_current_projection:
-            confidence = _prediction_confidence_expression(review_filter)
-            if review_filter.min_confidence is not None:
-                statement = statement.where(confidence >= review_filter.min_confidence)
-            if review_filter.max_confidence is not None:
-                statement = statement.where(confidence <= review_filter.max_confidence)
-        return statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))
 
     def _visible_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
-        return self._base_visible_statement(
+        return _visible_cell_scope(
+            select(ImageSymbolReviewCellModel),
             review_filter=review_filter,
-            include_prediction_confidence=True,
         )
 
     def _count_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
         """Aggregate a ready current-owner projection with the narrowest safe joins."""
 
         cell = ImageSymbolReviewCellModel
-        game_wide_without_confidence = (
-            review_filter.include_all_symbols
-            and review_filter.state is not SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
-            and review_filter.min_confidence is None
-            and review_filter.max_confidence is None
-        )
-        return self._base_visible_statement(
-            review_filter=review_filter,
-            include_prediction_confidence=False,
-            require_current_geometry=not game_wide_without_confidence,
-        ).with_only_columns(
+        return self._visible_statement(review_filter=review_filter).with_only_columns(
             func.count().filter(cell.review_state == SymbolCellReviewState.APPROVED.value),
             func.count().filter(cell.review_state == SymbolCellReviewState.PENDING.value),
             maintain_column_froms=True,
         )
 
-    def _base_visible_statement(
-        self,
-        *,
-        review_filter: SymbolCellReviewListFilter,
-        include_prediction_confidence: bool,
-        require_current_geometry: bool = True,
-    ) -> Select[Any]:
-        cell = ImageSymbolReviewCellModel
-        document = ImageBoardSearchFastDocumentModel
-        prediction_revision = ImageSymbolPredictionRevisionModel
-        observation = CellObservationModel
-        statement = select(cell)
-        if not review_filter.uses_current_projection:
-            statement = statement.join(
-                document,
-                and_(
-                    document.game_id == cell.game_id,
-                    document.sequence_number == cell.sequence_number,
-                    document.review_item_id == cell.review_item_id,
-                    document.recognized_board_id == cell.recognized_board_id,
-                    document.import_job_id == cell.import_job_id,
-                ),
-            )
-        if require_current_geometry and not review_filter.uses_current_projection:
-            statement = statement.join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == cell.recognized_board_id,
-            ).where(cell.geometry_revision == RecognizedBoardModel.geometry_revision)
-        statement = statement.where(
-            cell.game_id == review_filter.game_id, _logical_cell_visible_clause()
-        )
-        if not review_filter.include_all_symbols:
-            statement = statement.where(_symbol_scope_filter_clause(review_filter))
-        statement = _apply_symbol_cell_review_state_filter(
-            statement,
-            review_filter=review_filter,
-        )
-        confidence_is_required = (
-            include_prediction_confidence
-            or review_filter.min_confidence is not None
-            or review_filter.max_confidence is not None
-        )
-        if confidence_is_required and not review_filter.uses_current_projection:
-            statement = statement.outerjoin(
-                prediction_revision,
-                prediction_revision.id == cell.prediction_revision_id,
-            ).outerjoin(
-                observation,
-                and_(
-                    observation.recognized_board_id == cell.recognized_board_id,
-                    observation.row_index == cell.row_index,
-                    observation.column_index == cell.column_index,
-                ),
-            )
-        confidence = _prediction_confidence_expression(review_filter)
-        if review_filter.min_confidence is not None:
-            statement = statement.where(confidence >= review_filter.min_confidence)
-        if review_filter.max_confidence is not None:
-            statement = statement.where(confidence <= review_filter.max_confidence)
-        return statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))
+
+def _visible_cell_scope(
+    statement: Select[Any],
+    *,
+    review_filter: SymbolCellReviewListFilter,
+) -> Select[Any]:
+    """Restrict a cell statement to the current V2 cells of one list scope.
+
+    A V2 store keeps one mutable current row per logical board position, so
+    every visible row is already its position's current owner and needs no
+    ownership join. Listing, counting and seeking do not join geometry
+    (unchanged V2 behaviour); bulk operations and ``_locked_current_rows``
+    keep the ``geometry_revision`` guard.
+    """
+
+    cell = ImageSymbolReviewCellModel
+    statement = statement.where(
+        cell.game_id == review_filter.game_id, _logical_cell_visible_clause()
+    )
+    if not review_filter.include_all_symbols:
+        statement = statement.where(_symbol_scope_filter_clause(review_filter))
+    statement = _apply_symbol_cell_review_state_filter(
+        statement,
+        review_filter=review_filter,
+    )
+    if review_filter.min_confidence is not None:
+        statement = statement.where(cell.prediction_confidence >= review_filter.min_confidence)
+    if review_filter.max_confidence is not None:
+        statement = statement.where(cell.prediction_confidence <= review_filter.max_confidence)
+    return statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))
 
 
 def extended_symbol_cell_review_filter_clauses(
@@ -1462,19 +1359,8 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         command = commands[0]
         cell_ids = tuple(command.cell_review_id for command in commands)
         cell = ImageSymbolReviewCellModel
-        document = ImageBoardSearchFastDocumentModel
         statement = select(cell, ImageReviewItemModel, RecognizedBoardModel, SourceImageModel)
-        if not _uses_logical_current_cell_identity(self._session, command.game_id):
-            statement = statement.join(
-                document,
-                and_(
-                    document.game_id == cell.game_id,
-                    document.sequence_number == cell.sequence_number,
-                    document.review_item_id == cell.review_item_id,
-                    document.recognized_board_id == cell.recognized_board_id,
-                    document.import_job_id == cell.import_job_id,
-                ),
-            )
+        _bind_game_store(self._session, command.game_id)
         rows = self._session.execute(
             statement.join(ImageReviewItemModel, ImageReviewItemModel.id == cell.review_item_id)
             .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
@@ -1569,9 +1455,8 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
 
 
 def _current_review_documents(session: Session, game_id: UUID) -> Any:
-    """Current V2 owner projection; legacy games retain their search-document fence."""
-    if not _uses_logical_current_cell_identity(session, game_id):
-        return ImageBoardSearchFastDocumentModel
+    """Current V2 owner projection of one game's active boards."""
+    _bind_game_store(session, game_id)
     cell = ImageSymbolReviewCellModel
     return (
         select(
@@ -1783,16 +1668,7 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
         command: ResolveUnreadableCellCommand,
     ) -> SymbolCellReviewMutationResult:
         statement = select(ImageSymbolReviewCellModel.id)
-        if not _uses_logical_current_cell_identity(self._session, command.game_id):
-            document = ImageBoardSearchFastDocumentModel
-            statement = statement.join(
-                document,
-                and_(
-                    document.game_id == ImageSymbolReviewCellModel.game_id,
-                    document.review_item_id == ImageSymbolReviewCellModel.review_item_id,
-                    document.recognized_board_id == ImageSymbolReviewCellModel.recognized_board_id,
-                ),
-            )
+        _bind_game_store(self._session, command.game_id)
         cell_id = self._session.scalar(
             statement.where(
                 ImageSymbolReviewCellModel.game_id == command.game_id,
@@ -2301,15 +2177,11 @@ class SymbolCellReviewWriteThroughCoordinator:
         existing_statement = select(ImageSymbolReviewCellModel).order_by(
             ImageSymbolReviewCellModel.cell_index
         )
-        if _uses_logical_current_cell_identity(self._session, game_id):
-            existing_statement = existing_statement.where(
-                ImageSymbolReviewCellModel.game_id == game_id,
-                ImageSymbolReviewCellModel.sequence_number == sequence_number,
-            )
-        else:
-            existing_statement = existing_statement.where(
-                ImageSymbolReviewCellModel.review_item_id == review_item_id
-            )
+        _bind_game_store(self._session, game_id)
+        existing_statement = existing_statement.where(
+            ImageSymbolReviewCellModel.game_id == game_id,
+            ImageSymbolReviewCellModel.sequence_number == sequence_number,
+        )
         existing = {
             cell.cell_index: cell
             for cell in self._session.scalars(existing_statement.with_for_update())
@@ -2894,17 +2766,11 @@ class SymbolCellReviewWriteThroughCoordinator:
 
         if changed:
             self._session.flush()
+            _bind_game_store(self._session, game_id)
             current_count_statement = select(ImageSymbolReviewCellModel).where(
-                ImageSymbolReviewCellModel.game_id == game_id
+                ImageSymbolReviewCellModel.game_id == game_id,
+                ImageSymbolReviewCellModel.sequence_number == sequence_number,
             )
-            if _uses_logical_current_cell_identity(self._session, game_id):
-                current_count_statement = current_count_statement.where(
-                    ImageSymbolReviewCellModel.sequence_number == sequence_number
-                )
-            else:
-                current_count_statement = current_count_statement.where(
-                    ImageSymbolReviewCellModel.review_item_id == review_item_id
-                )
             count_after = tuple(
                 _CountedCellState.from_model(cell)
                 for cell in self._session.scalars(
@@ -3568,39 +3434,6 @@ def _row_to_list_item(row: Any) -> SymbolCellReviewListItem:
         asset_mode=cell.asset_mode,
         render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
         source_visibility=_source_visibility(cell),
-    )
-
-
-def _prediction_confidence_expression(
-    review_filter: SymbolCellReviewListFilter,
-) -> ColumnElement[float | None]:
-    """Read confidence from the current V2 projection or legacy sources.
-
-    Pending reinference stores the current per-cell confidence in the linked
-    prediction revision. Legacy rows retain it in ``cell_observations``.  The
-    list and frozen bulk filter use the same expression so a filter snapshot
-    cannot silently broaden between preview and execution.
-    """
-
-    cell = ImageSymbolReviewCellModel
-    if review_filter.uses_current_projection:
-        return cast(ColumnElement[float | None], cell.prediction_confidence)
-    revision = ImageSymbolPredictionRevisionModel
-    observation = CellObservationModel
-    revision_confidence = sql_cast(
-        revision.predictions.op("->")(cell.cell_index).op("->>")("confidence"),
-        Float(),
-    )
-    legacy_confidence = sql_cast(
-        observation.prediction.op("->>")("confidence"),
-        Float(),
-    )
-    return cast(
-        ColumnElement[float | None],
-        case(
-            (cell.source_visibility == "outside", None),
-            else_=func.coalesce(revision_confidence, legacy_confidence),
-        ),
     )
 
 

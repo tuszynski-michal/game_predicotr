@@ -412,8 +412,8 @@ def test_manual_resolution_continues_the_canonical_crop_revision(
 ) -> None:
     monkeypatch.setattr(
         board_cell_geometry_pending_repository,
-        "_uses_logical_current_cell_identity",
-        lambda _session, _game_id: True,
+        "_bind_game_store",
+        lambda _session, _game_id: None,
     )
 
     next_revision = board_cell_geometry_pending_repository._next_manual_geometry_revision(
@@ -431,8 +431,8 @@ def test_manual_resolution_uses_pending_revision_without_current_crops(
 ) -> None:
     monkeypatch.setattr(
         board_cell_geometry_pending_repository,
-        "_uses_logical_current_cell_identity",
-        lambda _session, _game_id: True,
+        "_bind_game_store",
+        lambda _session, _game_id: None,
     )
 
     next_revision = board_cell_geometry_pending_repository._next_manual_geometry_revision(

@@ -92,7 +92,11 @@ last_updated: 2026-09-30
 - TASK-0753 (S1) done: `scripts/clean_scratch_dirs.ps1` (podgląd 54
   katalogi, 252 MB; 11 nieczytelnych do usunięcia ręcznie). Audyt Opus
   PASS. Wykonanie czeka na zgodę.
-- TASK-0754 (S2) w toku.
+- TASK-0754 (S2) done: usunięte gałęzie `uses_current_projection=False`,
+  `_uses_logical_current_cell_identity`, `_prediction_confidence_expression`
+  i `_base_visible_statement`; jawne `_bind_game_store` zachowuje wiązanie
+  magazynu; SQL ścieżki V2 identyczny bajt w bajt (102 sekcje). Audyt Opus
+  PASS. Następne: TASK-0755 (S2), potem S3–S8 po zakończeniu przebiegów.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

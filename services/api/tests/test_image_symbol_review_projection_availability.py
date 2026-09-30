@@ -53,7 +53,6 @@ def test_ready_projection_remains_available_during_marked_reconciliation(monkeyp
     catalog = repository.require_ready_game(uuid4())
     assert catalog.catalog_revision == 17
     assert catalog.storage_generation == 2
-    assert catalog.uses_current_projection is True
 
 
 def test_mutation_remains_available_during_marked_reconciliation() -> None:

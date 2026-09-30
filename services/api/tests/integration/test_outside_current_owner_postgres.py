@@ -196,7 +196,6 @@ def test_outside_decisions_without_fast_document_persist_across_sessions(databas
             symbol_id=None,
             state=SymbolCellReviewFilterState.ALL,
             outside_only=True,
-            uses_current_projection=True,
             storage_generation=2,
         )
         page = query.list_items(

@@ -125,7 +125,6 @@ class SymbolCellReviewListFilter:
     include_all_symbols: bool = False
     model_cohort_id: UUID | None = None
     storage_generation: int = 1
-    uses_current_projection: bool = False
     outside_only: bool = False
     prediction_source: SymbolCellReviewPredictionSource | None = None
     changed_from: datetime | None = None

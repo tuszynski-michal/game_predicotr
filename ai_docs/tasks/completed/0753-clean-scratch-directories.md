@@ -109,8 +109,7 @@ powershell -File scripts/clean_scratch_dirs.ps1 -Root C:\Users\tuszy\Documents\g
 - `-Execute -ConfirmPhrase "CLEAN-SCRATCH bba515c056119eac"`: 54 katalogi
   usunięte (251,8 MiB), 0 porażek.
 
-### Not completed
-
-- 11 katalogów nieczytelnych (`t6a`–`t6i`, 2× `t07-pytest-*`) wymaga
-  usunięcia ręcznie z uprawnieniami administratora (instrukcja przekazana
-  operatorowi).
+- 11 katalogów nieczytelnych (`t6a`–`t6i`, 2× `t07-pytest-*`) usunięto na
+  polecenie operatora osobnym procesem z podniesieniem UAC (`takeown` +
+  `icacls` + `Directory.Delete`, nazwy ograniczone wyrażeniem regularnym);
+  root repozytorium nie ma już katalogów scratch.

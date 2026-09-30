@@ -92,8 +92,8 @@ last_updated: 2026-09-30
   zastosowana na bazie (`alembic_version` = `0129`), 3 bazy `diag_*` usunięte.
 - TASK-0753 (S1) done: `scripts/clean_scratch_dirs.ps1` (podgląd 54
   katalogi, 252 MB). Audyt Opus PASS. Wykonane za zgodą operatora
-  2026-09-30: 54 katalogi usunięte; 11 nieczytelnych do usunięcia ręcznie z
-  uprawnieniami administratora.
+  2026-09-30: 54 katalogi usunięte, 11 nieczytelnych usunięte z
+  podniesieniem UAC; root bez katalogów scratch.
 - TASK-0754 (S2) done: usunięte gałęzie `uses_current_projection=False`,
   `_uses_logical_current_cell_identity`, `_prediction_confidence_expression`
   i `_base_visible_statement`; jawne `_bind_game_store` zachowuje wiązanie

@@ -37,7 +37,7 @@ from game_predictor_api.storage.board_search_approximate_win_repository import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v1 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v3 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,

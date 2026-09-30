@@ -20,6 +20,10 @@ from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometrySaveResult,
     VirtualGridGeometrySourceSaveResult,
 )
+from game_predictor_api.domain.board_render_manifests import (
+    BoardRenderManifestError,
+    revision_render_manifest,
+)
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.geometry_qualification import (
@@ -39,6 +43,7 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     AdditiveVirtualGeometryContractError,
     optional_verification_outcome_value,
 )
+from game_predictor_api.storage.board_render_manifest_repository import add_board_render_manifest
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -237,6 +242,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             created_at=created_at,
         )
         self._session.add(record)
+        self._add_render_manifest(record, game_id=context.game_id)
         previous_approved_geometry_revision = board.approved_geometry_revision
         board.geometry_revision = revision_number
         board.approved_geometry_revision = revision_number
@@ -488,6 +494,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 created_at=created_at,
             )
             self._session.add(record)
+            self._add_render_manifest(record, game_id=entry.context.game_id)
             previous_approved_geometry_revision = board.approved_geometry_revision
             board.geometry_revision = revision_number
             board.approved_geometry_revision = revision_number
@@ -702,6 +709,45 @@ class SqlAlchemyVirtualGridGeometryRepository:
             created_at=created_at,
         )
 
+    def _add_render_manifest(
+        self, record: ImageBoardGeometryRevisionModel, *, game_id: UUID
+    ) -> None:
+        """Persist the revision's render manifest in the same transaction (D-467).
+
+        A revision without renderable cells (every cell outside the source)
+        gets no manifest row: no manifest row <=> no cells.
+        """
+
+        if isinstance(record.virtual_render_spec, dict) and record.virtual_render_spec.get(
+            "cells"
+        ) in ([], ()):
+            return
+        if (
+            record.virtual_render_spec is None
+            or record.virtual_render_spec_checksum_sha256 is None
+            or record.source_geometry_revision_id is None
+        ):
+            raise ImageGridReviewError(
+                "BOARD_RENDER_MANIFEST_PROVENANCE_INVALID",
+                "A virtual geometry revision needs a render spec and source geometry.",
+            )
+        try:
+            manifest = revision_render_manifest(
+                recognized_board_id=record.recognized_board_id,
+                geometry_revision=record.revision,
+                virtual_render_spec=record.virtual_render_spec,
+                virtual_render_spec_checksum_sha256=record.virtual_render_spec_checksum_sha256,
+            )
+        except BoardRenderManifestError as error:
+            raise ImageGridReviewError(error.code, error.message) from error
+        add_board_render_manifest(
+            self._session,
+            game_id=game_id,
+            manifest=manifest,
+            source_geometry_revision_id=record.source_geometry_revision_id,
+            extractor_version=record.cropper_version,
+        )
+
     def _append_geometry_event(
         self,
         *,
@@ -852,6 +898,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             created_at=created_at,
         )
         self._session.add(record)
+        self._add_render_manifest(record, game_id=context.game_id)
         self._append_geometry_event(
             entry=entry,
             review_item_id=review.id,

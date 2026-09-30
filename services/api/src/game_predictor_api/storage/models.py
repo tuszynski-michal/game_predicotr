@@ -2257,6 +2257,60 @@ class CellObservationModel(Base):
     )
 
 
+class BoardRenderManifestModel(Base):
+    """One immutable render manifest per virtual board geometry revision (D-467).
+
+    ``cells`` has the ``virtual_render_spec`` shape; revision 0 is built from
+    the import cells, revisions above zero copy the geometry revision.
+    """
+
+    __tablename__ = "board_render_manifests"
+    __table_args__ = (
+        CheckConstraint("geometry_revision >= 0", name="ck_board_render_manifests_revision"),
+        CheckConstraint(
+            "asset_mode = 'virtual_source'", name="ck_board_render_manifests_asset_mode"
+        ),
+        CheckConstraint(
+            "jsonb_typeof(cells) = 'object' AND jsonb_typeof(cells->'cells') = 'array' "
+            "AND jsonb_array_length(cells->'cells') > 0",
+            name="ck_board_render_manifests_cells",
+        ),
+        CheckConstraint(
+            "manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_board_render_manifests_checksum",
+        ),
+        CheckConstraint(
+            "length(btrim(extractor_version)) > 0",
+            name="ck_board_render_manifests_extractor",
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    recognized_board_id: Mapped[UUID] = mapped_column(
+        ForeignKey("recognized_boards.id", ondelete="CASCADE"), primary_key=True
+    )
+    geometry_revision: Mapped[int] = mapped_column(Integer, primary_key=True)
+    asset_mode: Mapped[str] = mapped_column(
+        String(20),
+        nullable=False,
+        default="virtual_source",
+        server_default=text("'virtual_source'"),
+    )
+    source_geometry_revision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=False
+    )
+    extractor_version: Mapped[str] = mapped_column(String(150), nullable=False)
+    cells: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+
 class ImageReviewItemModel(Base):
     __tablename__ = "image_review_items"
     __table_args__ = (

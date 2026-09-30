@@ -6,7 +6,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from game_predictor_api.storage.game_data_v2_manifest_v1 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v3 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleError,
     _receipt_from_row,

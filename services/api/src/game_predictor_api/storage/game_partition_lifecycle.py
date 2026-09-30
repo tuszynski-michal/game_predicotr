@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from game_predictor_api.storage.game_data_v2_manifest_v1 import (
+from game_predictor_api.storage.game_data_v2_manifest_v3 import (
     CREATE_TABLES,
     DELETE_TABLES,
     SCHEMA,

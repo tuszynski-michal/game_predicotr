@@ -15,7 +15,7 @@ from sqlalchemy import text
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.orm import Session
 
-from game_predictor_api.storage.game_data_v2_manifest_v1 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v3 import GAME_TABLES, VERSION
 
 _GAME_PATH_PATTERN: Final = compile_pattern(r"(?:^|/)games/([0-9a-fA-F-]{36})(?:/|$)")
 _CURRENT_SCOPE: ContextVar[GameStorageScope | None] = ContextVar("game_storage_scope", default=None)

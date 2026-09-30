@@ -45,6 +45,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
 )
 from game_predictor_api.storage.job_repository import job_from_record, job_record_from_domain
 from game_predictor_api.storage.models import (
+    BoardRenderManifestModel,
     CellObservationModel,
     GameModel,
     ImageBoardGeometryRevisionModel,
@@ -796,6 +797,14 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         current = (cell.logical_cell_key_v2, cell.render_identity_v2_sha256)
         expected = (identity.logical_cell_key_v2, identity.render_identity_v2_sha256)
         if current == (None, None):
+            if isinstance(cell, CellObservationModel) and self._has_render_manifest(board):
+                # D-467: a manifest already snapshots this board's observation
+                # identities; this historical tool must not diverge from it.
+                self._invalid_source(
+                    source,
+                    "BOARD_RENDER_MANIFEST_PRESENT",
+                    "The board already has a render manifest; observations are immutable.",
+                )
             cell.logical_cell_key_v2, cell.render_identity_v2_sha256 = expected
             return 1
         if current != expected:
@@ -805,6 +814,16 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 "A persisted v2 render identity differs from immutable render inputs.",
             )
         return 0
+
+    def _has_render_manifest(self, board: RecognizedBoardModel) -> bool:
+        return (
+            self._session.scalar(
+                select(BoardRenderManifestModel.geometry_revision)
+                .where(BoardRenderManifestModel.recognized_board_id == board.id)
+                .limit(1)
+            )
+            is not None
+        )
 
     def _status(
         self,

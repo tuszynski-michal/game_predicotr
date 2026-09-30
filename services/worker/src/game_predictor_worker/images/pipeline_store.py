@@ -8,11 +8,20 @@ from hashlib import sha256
 from typing import cast
 from uuid import NAMESPACE_URL, UUID, uuid5
 
+from game_predictor_api.domain.board_render_manifests import (
+    BoardRenderManifestError,
+    ObservedRenderCell,
+    build_observation_render_manifest,
+)
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
 from game_predictor_api.domain.jobs import require_active_job_lease
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     v2_render_identity_from_spec,
+)
+from game_predictor_api.storage.board_render_manifest_repository import (
+    BoardRenderManifestConflictError,
+    ensure_board_render_manifest,
 )
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
@@ -628,6 +637,17 @@ class SqlAlchemyImagePipelineStore:
                         ),
                         cropper_version=cropper_version,
                         created_at=executed_at,
+                    )
+                if cropped.get("assetMode") == "virtual_source":
+                    _ensure_import_render_manifest(
+                        session,
+                        board,
+                        crop_cells,
+                        cropper_version=cropper_version,
+                        game_id=job.game_id,
+                        source_geometry_revision_id=(
+                            source_geometry.id if source_geometry is not None else None
+                        ),
                     )
                 review_item, ownership_changes = _upsert_review_item(
                     session,
@@ -1483,6 +1503,81 @@ def _upsert_cell(
             "IMAGE_CELL_OBSERVATION_CONFLICT",
             "A cell observation already has different crop or prediction data.",
         )
+
+
+def _ensure_import_render_manifest(
+    session: Session,
+    board: RecognizedBoardModel,
+    crop_cells: Sequence[object],
+    *,
+    cropper_version: str,
+    game_id: UUID,
+    source_geometry_revision_id: UUID | None,
+) -> None:
+    """Write the revision-0 render manifest beside the cell observations (D-467).
+
+    The manifest carries exactly the render identities written to
+    ``cell_observations`` so TASK-0758 can switch readers without a gap.
+    A board without renderable cells has no observations and gets no
+    manifest (rule: no manifest row <=> no cells).
+    """
+
+    if not crop_cells:
+        return
+    columns = board.grid_columns or 5
+    cells: list[ObservedRenderCell] = []
+    extractor_versions: set[str] = set()
+    for crop_value in crop_cells:
+        crop = cast(Mapping[str, object], crop_value)
+        v2_identity = v2_render_identity_from_spec(crop.get("renderSpec"))
+        render_spec = crop.get("renderSpec")
+        if not isinstance(render_spec, Mapping):
+            raise ImagePipelineStoreError(
+                "BOARD_RENDER_MANIFEST_RENDER_SPEC_MISSING",
+                "A virtual cell has no render specification.",
+            )
+        cells.append(
+            ObservedRenderCell(
+                cell_index=cast(int, crop["rowIndex"]) * columns + cast(int, crop["columnIndex"]),
+                render_spec=cast(Mapping[str, object], render_spec),
+                render_spec_checksum_sha256=cast(str, crop["renderSpecChecksumSha256"]),
+                rendered_pixel_checksum_sha256=cast(str, crop["renderedPixelChecksumSha256"]),
+                logical_cell_key=cast(str, crop["logicalCellKeySha256"]),
+                logical_cell_key_v2=(
+                    None if v2_identity is None else v2_identity.logical_cell_key_v2
+                ),
+                render_identity_v2_sha256=(
+                    None if v2_identity is None else v2_identity.render_identity_v2_sha256
+                ),
+            )
+        )
+        extractor_versions.add(cast(str, crop["extractorVersion"]))
+    if (
+        source_geometry_revision_id is None
+        or len(extractor_versions) != 1
+        or cropper_version not in extractor_versions
+    ):
+        raise ImagePipelineStoreError(
+            "BOARD_RENDER_MANIFEST_PROVENANCE_INVALID",
+            "A virtual board needs one source geometry revision and one extractor version "
+            "equal to its cropper version.",
+        )
+    try:
+        manifest = build_observation_render_manifest(
+            recognized_board_id=board.id,
+            cells=cells,
+        )
+        ensure_board_render_manifest(
+            session,
+            game_id=game_id,
+            manifest=manifest,
+            source_geometry_revision_id=source_geometry_revision_id,
+            extractor_version=next(iter(extractor_versions)),
+        )
+    except BoardRenderManifestError as error:
+        raise ImagePipelineStoreError(error.code, error.message) from error
+    except BoardRenderManifestConflictError as error:
+        raise ImagePipelineStoreError(error.code, str(error)) from error
 
 
 def _upsert_review_item(

@@ -149,6 +149,24 @@ last_updated: 2026-09-30
   zastąpione i predykcje nadpisane nowszą rewizją nie blokują usunięcia.
   Zabezpieczeniem pozostają fail-closed liczniki kohort, iteracji i
   aktywacji modelu.
+- **Render manifest (TASK-0757, S4):** nowa tabela gry wymaga nowej wersji
+  zamrożonego manifestu magazynu, więc S4 wprowadza
+  `game-data-v2-manifest-v3` (tabele gry v1 + `board_render_manifests`,
+  66 tabel) i migrację `0131_board_render_manifests` (partycja per gra, RLS,
+  rejestr i CHECK lokalizacji v1 → v3). Router akceptuje tylko v3, dlatego
+  API, worker i skrypt backfillu przy starcie porównują `alembic_version`
+  z głową kodu (`ALEMBIC_HEAD_MISMATCH`); przejście wymaga zatrzymania
+  wszystkich procesów (runbook w `LOCAL_OPERATION_GUIDE.md`). Tabela ma poza
+  proponowanymi kolumnami `source_geometry_revision_id` i `extractor_version`
+  (czytelnicy revision 0 ich potrzebują, a po S5 nie będzie obserwacji);
+  `cells` ma pełny kształt `virtual_render_spec` (z sumami i kluczami
+  komórek), dla revision > 0 jest jego kopią 1:1. Zakres: tylko bieżąca
+  rewizja każdej wirtualnej planszy; brak manifestu ⇔ brak renderowalnych
+  komórek. Writery piszą manifest obok obserwacji; obserwacje usuwa dopiero
+  S5. Pomiar na 777: ok. 45 KB kanonicznego JSON na planszę, ok. 13–17 GB
+  tabeli (zamiast szacowanych 4,5 GB) do czasu S5. Numeracja dalszych
+  etapów przesuwa się o jeden: S5 = manifest magazynu v4 i `0132`, S6 =
+  `0133`, S7 = `0134`.
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu

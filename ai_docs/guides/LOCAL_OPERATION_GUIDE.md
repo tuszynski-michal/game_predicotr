@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-09-29
+last_updated: 2026-10-01
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -115,6 +115,54 @@ Powtórzenie bramki bez odczytu bazy:
 Oczekuj `acceptancePassed: true` i wszystkich pól `gates` równych `true`.
 Szczegóły korpusu, coverage i ograniczeń:
 [odbiór v0.10.4](../quality/LATERAL_PARTIAL_V4_ACCEPTANCE.md).
+
+## Przejście na manifest magazynu v3 i `board_render_manifests` (TASK-0757, D-467)
+
+Kod od TASK-0757 wymaga migracji `0131_board_render_manifests`: router
+magazynu gry akceptuje wyłącznie wersję `game-data-v2-manifest-v3`. Stary kod
+nie działa na nowym schemacie, a nowy na starym. API (`npm run api:dev`),
+worker (`worker:*`) i `scripts/backfill_board_render_manifests.py` sprawdzają
+przy starcie `alembic_version` jednym `SELECT` i przy niezgodności kończą się
+błędem `ALEMBIC_HEAD_MISMATCH` zamiast psuć każde żądanie danych gry.
+
+Przejście (cutover). Strażnik `ALEMBIC_HEAD_MISMATCH` działa tylko przy
+świeżym starcie procesu: `api:dev --reload` przeładowuje wyłącznie proces
+potomny, a już działające API i workery nie są sprawdzane po migracji —
+dlatego kroki 1–2 są obowiązkowe:
+
+1. Zaczekaj na zakończenie aktywnych jobów (import, backfille, biblioteka
+   wzorców) albo zatrzymaj je bezpiecznie.
+2. Zatrzymaj API, workery wszystkich lane'ów i Reviewera we **wszystkich**
+   checkoutach i worktree (także tunel Reviewera). Migracja bierze
+   `LOCK ... ACCESS EXCLUSIVE` na `public.game_storage_locations` z
+   `lock_timeout = 5s`; aktywna transakcja innego procesu powoduje błąd
+   migracji (nic nie zostaje zmienione, można powtórzyć po zatrzymaniu).
+3. Scal kod (merge) do checkoutu, z którego uruchamiasz usługi.
+4. `npm run db:migrate`, potem `npm run db:current` → `0131_board_render_manifests`.
+   Migracja odmówi (`GAME_STORAGE_LIFECYCLE_IN_PROGRESS`,
+   `GAME_STORAGE_LOCATION_BUSY`), jeśli trwa provisionowanie lub usuwanie gry.
+5. Uruchom usługi nowego kodu.
+6. Backfill manifestów (osobna zgoda, dla każdej gry, np. 777 i
+   `cf300bc1-c0c1-4bf9-b607-4c4e1e4f031c`):
+
+   ```powershell
+   .\.venv\Scripts\python.exe scripts\backfill_board_render_manifests.py `
+     --game-id <uuid> --preview --sample-boards 100
+   .\.venv\Scripts\python.exe scripts\backfill_board_render_manifests.py `
+     --game-id <uuid> --execute --max-seconds 100
+   ```
+
+   `--execute` jest wznawialny (checkpoint w
+   `artifacts\data\exports\board-render-manifest-backfill\<gra>\`), odmawia
+   startu i zatrzymuje się po porcji, gdy na dysku z `docker_data.vhdx` jest
+   mniej niż `--min-free-gb` (domyślnie 10 GB). Dla 777 tabela zajmie ok.
+   13–17 GB, do tego WAL; po zakończeniu `VACUUM (ANALYZE)` tabeli
+   (`ai_docs/guides/DATABASE_MAINTENANCE.md`).
+
+Wycofanie: zatrzymaj wszystkie procesy nowego kodu, z nowym kodem wykonaj
+`.\.venv\Scripts\python.exe -m alembic downgrade 0130_board_search_share_sessions`
+(usuwa tabelę manifestów — dane są odtwarzalne z obserwacji do czasu S5 —
+i przywraca rejestr v1), potem uruchom stary kod.
 
 ## Wdrożenie obsługi niepełnych plansz (TASK-0505–0509)
 

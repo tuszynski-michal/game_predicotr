@@ -85,6 +85,7 @@ def _replace_dependencies(
         ),
     )
     monkeypatch.setattr(cli, "create_database_engine", lambda _settings: engine)
+    monkeypatch.setattr(cli, "require_alembic_head", lambda _engine: None)
     monkeypatch.setattr(
         cli,
         "create_session_factory",
@@ -122,6 +123,26 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert FakeLaneHeartbeat.instances[0].options["thread_budget"] == 7
     assert FakeLaneHeartbeat.instances[0].entered
     assert FakeLaneHeartbeat.instances[0].exited
+    assert engine.disposed is True
+
+
+def test_cli_refuses_a_database_schema_other_than_the_code_head(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from game_predictor_api.storage import schema_readiness
+
+    engine = FakeEngine()
+    _replace_dependencies(monkeypatch, engine)
+    monkeypatch.setattr(cli, "require_alembic_head", schema_readiness.require_alembic_head)
+    monkeypatch.setattr(
+        schema_readiness, "database_alembic_revision", lambda _engine: "0130_previous"
+    )
+
+    with pytest.raises(schema_readiness.AlembicHeadMismatchError) as error:
+        cli.main(["--worker-id", "test-worker"])
+
+    assert error.value.code == "ALEMBIC_HEAD_MISMATCH"
+    assert FakeWorker.instances == []
     assert engine.disposed is True
 
 

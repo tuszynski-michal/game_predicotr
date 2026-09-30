@@ -28,7 +28,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v1 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v3 import GAME_TABLES, VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -92,7 +92,9 @@ def database() -> Iterator[Engine]:
     with maintenance.connect() as connection:
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
     try:
-        command.upgrade(config, "0106_game_storage_routing_fence")
+        # The runtime router accepts only the current storage manifest (v3
+        # since 0131), so the routing fence is exercised on the head schema.
+        command.upgrade(config, "head")
         yield engine
     finally:
         engine.dispose()
@@ -103,23 +105,6 @@ def database() -> Iterator[Engine]:
             assert active == 0
             connection.exec_driver_sql(f'DROP DATABASE "{name}"')
         maintenance.dispose()
-
-
-def _upgrade_database_to_head(database: Engine) -> None:
-    """Advance a `database`-fixture instance past its pinned migration 0106.
-
-    Use this only in a test whose ORM models read/write columns added by a
-    migration after 0106 (e.g. `games.shape_geometry_configuration`,
-    `image_page_geometry_overrides.board_frame_quads`) — most tests in this
-    file intentionally stay pinned and must not call this.
-    """
-
-    config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
-    config.set_main_option(
-        "sqlalchemy.url",
-        database.url.render_as_string(hide_password=False).replace("%", "%%"),
-    )
-    command.upgrade(config, "head")
 
 
 def _game(connection: object, *, code: str) -> UUID:
@@ -268,8 +253,6 @@ def test_operational_review_repository_binds_v2_before_game_owned_read(database:
 def test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session(database: Engine) -> None:
     """A saved correction must survive reopening the report after V2 cutover."""
 
-    _upgrade_database_to_head(database)
-
     with database.begin() as connection:
         game_id = _game(connection, code="geometry-snapshot-v2")
         connection.execute(
@@ -319,15 +302,8 @@ def test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session(database: Eng
 
     assert snapshot[source_checksum]["decisionChecksumSha256"] == saved.decision_checksum_sha256
     with database.connect() as connection:
-        assert (
-            connection.scalar(
-                text(
-                    "SELECT count(*) FROM public.image_page_geometry_overrides "
-                    "WHERE game_id=:game_id"
-                ),
-                {"game_id": game_id},
-            )
-            == 0
+        assert connection.scalar(
+            text("SELECT to_regclass('public.image_page_geometry_overrides') IS NULL")
         )
 
 
@@ -372,15 +348,9 @@ def test_import_policy_reads_v2_rollout_in_a_new_unscoped_session(database: Engi
     assert policy.policy.value == "structured_lattice_v3"
     assert policy.revision == 1
     with database.connect() as connection:
-        assert (
-            connection.scalar(
-                text(
-                    "SELECT count(*) FROM public.image_geometry_rollout_states "
-                    "WHERE game_id=:game_id"
-                ),
-                {"game_id": game_id},
-            )
-            == 0
+        # 0125 removed the legacy public copy; nothing can be written there.
+        assert connection.scalar(
+            text("SELECT to_regclass('public.image_geometry_rollout_states') IS NULL")
         )
 
 
@@ -443,7 +413,9 @@ def test_image_batch_registration_uses_v2_composite_identity(database: Engine) -
 
     with database.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM public.image_file_executions")) == 2
-        assert connection.scalar(text("SELECT count(*) FROM public.image_import_job_files")) == 0
+        assert connection.scalar(
+            text("SELECT to_regclass('public.image_import_job_files') IS NULL")
+        )
         rows = connection.execute(
             text(
                 "SELECT game_id, job_id, file_execution_key, order_index "
@@ -655,9 +627,8 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
         ).one()
         assert fast_document.known_evidence_positions == [str(index) for index in range(15)]
         assert fast_document.primary_symbol_mobile_codes == [3] * 15
-        assert (
-            connection.scalar(text("SELECT count(*) FROM public.image_board_search_candidates"))
-            == 0
+        assert connection.scalar(
+            text("SELECT to_regclass('public.image_board_search_candidates') IS NULL")
         )
 
 
@@ -671,8 +642,6 @@ def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: E
     bound the scope, so `require_game` read the empty `public` schema and
     always raised `IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`.
     """
-
-    _upgrade_database_to_head(database)
 
     now = datetime(2026, 9, 14, tzinfo=UTC)
     source_checksum = "e" * 64
@@ -820,13 +789,7 @@ def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: E
     assert asset.source_checksum_sha256 == source_checksum
     assert asset.asset_mode == "legacy_file"
     with database.connect() as connection:
-        assert (
-            connection.scalar(
-                text("SELECT count(*) FROM public.image_review_items WHERE id=:review_item_id"),
-                {"review_item_id": review_item_id},
-            )
-            == 0
-        )
+        assert connection.scalar(text("SELECT to_regclass('public.image_review_items') IS NULL"))
 
 
 def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
@@ -967,13 +930,7 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
             )
     assert wrong_job.value.code == "IMAGE_REVIEW_ITEM_NOT_FOUND"
     with database.connect() as connection:
-        assert (
-            connection.scalar(
-                text("SELECT count(*) FROM public.image_review_items WHERE id=:review_item_id"),
-                {"review_item_id": review_item_id},
-            )
-            == 0
-        )
+        assert connection.scalar(text("SELECT to_regclass('public.image_review_items') IS NULL"))
 
 
 def test_write_status_generation_and_transaction_lock_are_fail_closed(database: Engine) -> None:

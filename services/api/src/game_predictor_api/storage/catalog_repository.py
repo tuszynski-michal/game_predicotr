@@ -21,7 +21,7 @@ from game_predictor_api.domain.catalog import (
     SymbolUsageSummary,
     stable_code_stem_from_name,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v1 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v3 import CREATE_TABLES, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleError,
     GamePartitionLifecycleKind,
@@ -474,9 +474,7 @@ def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> G
         expected_layout_count=record.expected_layout_count,
         created_at=record.created_at,
         updated_at=record.updated_at,
-        storage_version=(
-            storage.storage_version if storage is not None else "game-data-v2-manifest-v1"
-        ),
+        storage_version=(storage.storage_version if storage is not None else VERSION),
         storage_schema=(storage.store_schema.value if storage is not None else "game_data_v2"),
         storage_generation=(storage.generation if storage is not None else 2),
         storage_status=(storage.status.value if storage is not None else "active"),

@@ -35,6 +35,10 @@ from game_predictor_api.storage.database import (
     create_database_engine,
     create_session_factory,
 )
+from game_predictor_api.storage.schema_readiness import (
+    AlembicHeadMismatchError,
+    require_alembic_head,
+)
 from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLaneRepository
 
 from game_predictor_worker.images.geometry_guard_report_reconstruction import (
@@ -286,6 +290,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
             return 0
         finally:
             engine.dispose()
+    try:
+        require_alembic_head(engine)
+    except AlembicHeadMismatchError:
+        engine.dispose()
+        raise
     store = SqlAlchemyWorkerJobStore(session_factory)
     artifact_root = options.artifact_root.resolve()
     handlers: dict[JobType, JobHandler]

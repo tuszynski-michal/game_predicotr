@@ -21,7 +21,7 @@ from game_predictor_api.domain.board_import_coverage import MissingReason
 from game_predictor_api.storage.board_import_coverage_repository import (
     SqlAlchemyBoardImportCoverageRepository,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v1 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v3 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,

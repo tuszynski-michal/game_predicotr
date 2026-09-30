@@ -1,7 +1,7 @@
 ---
 title: Plan usunięcia pozostałości V1/legacy z aplikacji i bazy (D-467)
 status: accepted
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 ---
 
 # Plan usunięcia pozostałości V1/legacy z aplikacji i bazy
@@ -110,8 +110,10 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   przechodzi na ścieżkę wirtualną, nowe gry domyślnie `virtual_default`).
 - Wyliczanie specyfikacji renderu w locie z geometrii źródłowej odrzucono:
   quady są liczone numerycznie, a sumy kontrolne muszą się zgadzać bajt w
-  bajt; zapis manifestu jest deterministyczny i tańszy (ok. 12 KB na
-  planszę, ok. 4,5 GB dla revision 0).
+  bajt; zapis manifestu jest deterministyczny. Szacunek planu (ok. 12 KB na
+  planszę, ok. 4,5 GB dla revision 0) był zaniżony: pomiar TASK-0757 na 777
+  daje ok. 45 KB kanonicznego JSON na planszę i ok. 13–17 GB dla całej
+  tabeli (510 tys. plansz) do czasu usunięcia obserwacji w S5.
 - Retencja rewizji predykcji ograniczona do rewizji zastąpionych review
   items bez komórek (0,12 GB); reszta zostaje jako historia i kotwice.
 
@@ -177,14 +179,17 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
 
 ### S4 — manifest renderu per plansza
 
-- **TASK-0757** — migracja `0130`: tabela V2 `board_render_manifests`
-  (proponowana; `recognized_board_id`, `geometry_revision`, `cells` JSONB w
-  kształcie `virtual_render_spec.cells`, `manifest_checksum_sha256`);
-  backfill porcjami z `cell_observations` dla plansz revision 0 z kontrolą
-  równości sum kontrolnych per komórka; writer importu
+- **TASK-0757** — migracja `0131` i manifest magazynu v3: tabela V2
+  `board_render_manifests` (`recognized_board_id`, `geometry_revision`,
+  `source_geometry_revision_id`, `extractor_version`, `cells` JSONB w
+  kształcie `virtual_render_spec`, `manifest_checksum_sha256`) dla bieżącej
+  rewizji każdej wirtualnej planszy; plansza bez renderowalnych komórek nie
+  ma manifestu; backfill porcjami z `cell_observations` (revision 0, kontrola
+  sum per komórka) i z `virtual_render_spec` (revision > 0); writer importu
   (`worker/images/pipeline_store.py`) i ręczna geometria
-  (`storage/virtual_grid_geometry_repository.py`) piszą manifest zamiast
-  obserwacji.
+  (`storage/virtual_grid_geometry_repository.py`) piszą manifest obok
+  obserwacji (obserwacje zostają do S5); strażnik `ALEMBIC_HEAD_MISMATCH`
+  w API, workerze i skrypcie backfillu.
 - **TASK-0758** — przepięcie odczytów: mapper
   `materialize_current_image_review_cells`, odbudowa i kontrola
   stale-base-crop, projekcja board-search (predykcje z
@@ -196,8 +201,8 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
 
 ### S5 — usunięcie `cell_observations`
 
-- **TASK-0759** — manifest magazynu v3 (bez `cell_observations` i
-  `legacy_board_search_archive_*`), migracja `0131`: aktualizacja
+- **TASK-0759** — manifest magazynu v4 (bez `cell_observations` i
+  `legacy_board_search_archive_*`), migracja `0132`: aktualizacja
   `game_storage_table_manifest`, `game_storage_locations`, `DROP TABLE`
   partycji (preflight: manifest S4 kompletny, 0 referencji w kodzie,
   0 FK), `game_deletion_policy_v1`, `cleanup_repository`,
@@ -215,7 +220,7 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
 - **TASK-0761** — konwersja 461 plansz `legacy_file` w 777 na
   `virtual_source` (skrypt z podglądem, zgoda na `--execute`; komórki z
   decyzją człowieka zachowują decyzje), zawężenie CHECK-ów `asset_mode` do
-  `virtual_source`/`none` (migracja `0132`), zawężenie enumów API pionem.
+  `virtual_source`/`none` (migracja `0133`), zawężenie enumów API pionem.
 
 ### S7 — `render_spec` poza komórkami
 
@@ -225,7 +230,7 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   `scripts/evaluate_symbol_reference_library.py`) przepięte na manifest z
   S4 przez `(recognized_board_id, geometry_revision, cell_index)`;
   komórka zachowuje `render_spec_checksum_sha256` i klucze tożsamości.
-- **TASK-0763** — migracja `0133`: kolumna `render_spec` w
+- **TASK-0763** — migracja `0134`: kolumna `render_spec` w
   `image_symbol_review_cells` usunięta; odzyskanie miejsca przez przepisanie
   partycji (`VACUUM FULL` albo swap partycji; ACCESS EXCLUSIVE, wymaga
   ok. 15 GB wolnego miejsca, okno bez zapisów, zgoda).
@@ -243,7 +248,7 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
 
 | Wymaganie operatora | Zadania | Kryterium |
 |---|---|---|
-| Wyrzucić `cell_observations` i zaszłości | S4–S5 | tabela nie istnieje w manifeście v3; test równoważności komórek |
+| Wyrzucić `cell_observations` i zaszłości | S4–S5 | tabela nie istnieje w manifeście v4; test równoważności komórek |
 | Usunąć puste/nieużywane tabele i bazy | S1, S5 | 0 baz `diag_*`, 0 osieroconych funkcji, 0 pustych partycji archiwum |
 | Przepiąć i wyrzucić duplikaty `render_spec` | S4, S7, S8 | jedno źródło specyfikacji; komórki bez kolumny |
 | Brak powiązań z V1 w kodzie | S2, S6 | 0 wystąpień `uses_current_projection`, `legacy_file` poza migracjami |
@@ -285,7 +290,7 @@ weryfikacji, migracja na dysk 2 TB (osobny runbook), historia decyzji.
 | TASK-0765 | claude-opus-5-5 | high (warunkowo) | Zmiana ról i uprawnień w bazie; wpływ na wszystkie repozytoria. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0757 | claude-opus-5-5 | high (warunkowo) | Nowa tabela, backfill 372 tys. plansz z kontrolą sum kontrolnych, zmiana writera importu. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0758 | claude-opus-5-5 | high (warunkowo) | Przepięcie centralnego mappera i 6 czytelników; test równoważności. | Tak: claude-opus-5-5, high, osobny agent |
-| TASK-0759 | claude-opus-5-5 | high (warunkowo) | Manifest v3 i DROP partycji; nieodwracalne. | Tak: claude-opus-5-5, high, osobny agent |
+| TASK-0759 | claude-opus-5-5 | high (warunkowo) | Manifest v4 i DROP partycji; nieodwracalne. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0760 | claude-opus-5-5 | high (warunkowo) | Zmiana ścieżki ręcznej rezolucji i polityk importu; decyzja produktowa. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0761 | claude-opus-5-5 | high (warunkowo) | Konwersja danych 461 plansz i zawężenie CHECK-ów oraz kontraktu API. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0762 | claude-opus-5-5 | high (warunkowo) | Przepięcie odczytów `render_spec` z zachowaniem sum kontrolnych. | Tak: claude-opus-5-5, high, osobny agent |

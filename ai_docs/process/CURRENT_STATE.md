@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 ---
 
 # Current State
@@ -43,6 +43,16 @@ last_updated: 2026-09-29
   (ślepa próbka 90,3% pokrycia przy 100% zgodności; T1 87,8% / 99,7%).
   Podgląd: `artifacts/symbol-reference-library/preview-arbuz-g40/preview.html`
   w worktree. Stara predykcja modelu pozostaje nietknięta jako rezerwa.
+- D-466 (etap B, 2026-09-30): operator zlecił przeprowadzenie całego procesu
+  (T3 → T4 → T5 → B1) bez swojego udziału, z audytem `claude-fable-5-1` po
+  każdym zadaniu.
+- TASK-0744 (T3) done: moduł `symbols/reference_library_writer.py`
+  (`apply_board`, `revert_board`) i podkomendy `apply-preview`, `apply`,
+  `apply-revert`, `apply-verify`. Manifest Arbuz < 60%: sha256
+  `1e4be8ce…`, 2 703 plansze, 2 918 komórek (2 621 potwierdzeń, 297 zmian).
+  Nic jeszcze nie zapisano w bazie. Audyt Fable: FAIL (P2) → poprawki → PASS.
+  Nie uruchamiać `apply` równolegle z weryfikacją w Adminie ani z jobem
+  przeliczania predykcji.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

@@ -20,12 +20,14 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
+from uuid import UUID
 
 import cv2
 import numpy as np
 import torch
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.storage.database import create_database_engine
+from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_worker.images.normalization import (
     CanonicalSourceLoader,
     CanonicalSourceLoadError,
@@ -51,9 +53,22 @@ from game_predictor_worker.symbols.reference_library import (
     vote,
     vote_batch,
 )
+from game_predictor_worker.symbols.reference_library_writer import (
+    MODEL_VERSION as WRITER_MODEL_VERSION,
+)
+from game_predictor_worker.symbols.reference_library_writer import (
+    BoardPlan,
+    ReferenceLibraryWriteError,
+    TargetCell,
+    apply_board,
+    predictions_digest,
+    revert_board,
+    revert_checksum,
+)
 from numpy.typing import NDArray
 from PIL import Image, ImageDraw
 from sqlalchemy import Connection, text
+from sqlalchemy.exc import DBAPIError
 
 REPORT_VERSION = "symbol-reference-library-evaluation-v1"
 REFERENCES_PER_GROUP = 40
@@ -278,7 +293,38 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     preview.add_argument("--thumbnails-per-group", type=int, default=40, choices=range(1, 201))
     preview.add_argument("--time-budget-seconds", type=float, default=70.0)
 
-    for command in (evaluate, blind, rescore, preview):
+    apply_preview = commands.add_parser(
+        "apply-preview", help="Run the preview and write a manifest of cells to update."
+    )
+    for action in preview._actions:
+        if action.dest != "help":
+            apply_preview._add_action(action)
+
+    apply = commands.add_parser("apply", help="Write library predictions from a manifest.")
+    apply.add_argument("--game-code", required=True)
+    apply.add_argument("--manifest", required=True, type=Path)
+    apply.add_argument("--expected-sha256", required=True)
+    apply.add_argument("--limit-boards", type=int)
+    apply.add_argument(
+        "--board", action="append", default=[], help="Only these review item ids (canary)."
+    )
+    apply.add_argument("--time-budget-seconds", type=float, default=90.0)
+
+    revert = commands.add_parser(
+        "apply-revert", help="Restore the model predictions a manifest run replaced."
+    )
+    for action in apply._actions:
+        if action.dest != "help":
+            revert._add_action(action)
+    revert.add_argument(
+        "--all", action="store_true", help="Revert every board of the manifest (no --board)."
+    )
+
+    verify = commands.add_parser("apply-verify", help="Read back cells written from a manifest.")
+    verify.add_argument("--manifest", required=True, type=Path)
+    verify.add_argument("--expected-sha256", required=True)
+
+    for command in (evaluate, blind, rescore, preview, apply_preview):
         command.add_argument(
             "--reference-policy",
             choices=tuple(REFERENCE_POLICIES),
@@ -1721,7 +1767,10 @@ def _cached_preview_rows(path: Path, key: str) -> list[dict[str, Any]] | None:
 
 def _preview(arguments: argparse.Namespace) -> int:
     low, high = float(arguments.min_confidence), float(arguments.max_confidence)
-    edges = sorted(float(edge) for edge in arguments.band_edge) or [0.6]
+    # The default 60% edge applies only when it lies inside the requested range.
+    edges = sorted(float(edge) for edge in arguments.band_edge) or (
+        [0.6] if low < 0.6 < high else []
+    )
     if not 0.0 <= low < high <= 1.0001 or any(not low < edge < high for edge in edges):
         raise EvaluationError("SYMBOL_REFERENCE_BAND_INVALID", "The confidence bands are invalid.")
     deadline = time.monotonic() + float(arguments.time_budget_seconds)
@@ -1837,6 +1886,7 @@ def _preview(arguments: argparse.Namespace) -> int:
             "referencesPerGroup": arguments.references_per_group,
         },
         "library": {"cells": len(library.cells), "excluded": library.excluded},
+        "libraryIdentitySha256": _library_identity(arguments, model, library),
         "cells": len(rows),
         "excluded": excluded,
         "notInScope": snapshot.not_in_scope,
@@ -1887,6 +1937,377 @@ def _preview(arguments: argparse.Namespace) -> int:
     return 0
 
 
+APPLY_MANIFEST_FORMAT = "symbol-reference-apply-manifest-v1"
+APPLY_BATCH = 1000
+
+
+def _library_identity(arguments: argparse.Namespace, model: ActiveModel, library: Library) -> str:
+    return digest_json(
+        {
+            "version": REFERENCE_LIBRARY_VERSION,
+            "writerModelVersion": WRITER_MODEL_VERSION,
+            "policy": arguments.reference_policy,
+            "referencesPerGroup": arguments.references_per_group,
+            "checkpoint": model.checkpoint_sha256,
+            "library": [_cache_key(cell) for cell in library.cells],
+        }
+    )
+
+
+def _chunks(values: Sequence[str], size: int) -> list[list[str]]:
+    return [list(values[start : start + size]) for start in range(0, len(values), size)]
+
+
+def _apply_preview(arguments: argparse.Namespace) -> int:
+    result = _preview(arguments)
+    if result != 0:
+        return result
+    output = cast(Path, arguments.output_dir).resolve()
+    preview: Any = json.loads((output / "preview.json").read_text(encoding="utf-8"))
+    targets = {
+        str(row["cellReviewId"]): row for row in preview["rows"] if row["proposal"] != REVIEW
+    }
+    settings = ApiSettings.from_environment()
+    engine = create_database_engine(settings)
+    cells: dict[str, Mapping[str, Any]] = {}
+    latest: dict[str, Mapping[str, Any]] = {}
+    try:
+        with engine.connect().execution_options(
+            isolation_level="REPEATABLE READ", postgresql_readonly=True
+        ) as connection:
+            game_id = str(preview["game"]["id"])
+            fingerprint = _cell_state_fingerprint(connection, game_id)
+            for chunk in _chunks(sorted(targets), APPLY_BATCH):
+                for row in connection.execute(
+                    text(
+                        """
+                        SELECT c.id::text AS id, c.review_item_id::text AS review_item_id,
+                               c.recognized_board_id::text AS recognized_board_id,
+                               c.prediction_revision_id::text AS prediction_revision_id,
+                               c.cell_index, c.review_state, c.assignment_source,
+                               c.quality_issue, c.prediction_symbol_code,
+                               c.rendered_pixel_checksum_sha256
+                        FROM game_data_v2.image_symbol_review_cells c
+                        WHERE c.game_id = :game_id AND c.id::text = ANY(:ids)
+                        """
+                    ),
+                    {"game_id": game_id, "ids": chunk},
+                ).mappings():
+                    cells[str(row["id"])] = dict(row)
+            items = sorted({str(cell["review_item_id"]) for cell in cells.values()})
+            for chunk in _chunks(items, APPLY_BATCH):
+                for row in connection.execute(
+                    text(
+                        """
+                        SELECT DISTINCT ON (p.review_item_id)
+                               p.review_item_id::text AS review_item_id, p.id::text AS id,
+                               p.model_version, p.predictions
+                        FROM game_data_v2.image_symbol_prediction_revisions p
+                        WHERE p.game_id = :game_id AND p.review_item_id::text = ANY(:ids)
+                        ORDER BY p.review_item_id, p.created_at DESC, p.id DESC
+                        """
+                    ),
+                    {"game_id": game_id, "ids": chunk},
+                ).mappings():
+                    latest[str(row["review_item_id"])] = dict(row)
+    finally:
+        engine.dispose()
+    if fingerprint != preview["cellStateFingerprint"]:
+        raise EvaluationError(
+            "SYMBOL_REFERENCE_APPLY_STATE_DRIFT",
+            "Cell state changed between the preview and the manifest; run apply-preview again.",
+        )
+
+    excluded: Counter[str] = Counter()
+    boards: dict[str, dict[str, Any]] = {}
+    moves: Counter[str] = Counter()
+    for cell_id, row in sorted(targets.items()):
+        cell = cells.get(cell_id)
+        revision = None if cell is None else latest.get(str(cell["review_item_id"]))
+        if cell is None:
+            excluded["cell_missing"] += 1
+        elif cell["review_state"] != "pending":
+            excluded["not_pending"] += 1
+        elif cell["assignment_source"] != "model":
+            excluded["assignment_not_model"] += 1
+        elif cell["quality_issue"] is not None:
+            excluded["quality_issue"] += 1
+        elif revision is None or revision["id"] != cell["prediction_revision_id"]:
+            excluded["revision_not_current"] += 1
+        elif cell["rendered_pixel_checksum_sha256"] != row["renderedPixelChecksumSha256"]:
+            excluded["pixels_changed"] += 1
+        elif cell["prediction_symbol_code"] != row["activeModelSymbol"]:
+            excluded["prediction_changed"] += 1
+        elif _entry_for_cell(revision["predictions"], int(cell["cell_index"])).get(
+            "referenceLibrary"
+        ):
+            excluded["already_library_prediction"] += 1
+        else:
+            item_id = str(cell["review_item_id"])
+            board = boards.setdefault(
+                item_id,
+                {
+                    "reviewItemId": item_id,
+                    "recognizedBoardId": str(cell["recognized_board_id"]),
+                    "predictionRevisionId": str(revision["id"]),
+                    "predictionsSha256": predictions_digest(revision["predictions"]),
+                    "targets": [],
+                },
+            )
+            board["targets"].append(
+                {
+                    "cellReviewId": cell_id,
+                    "cellIndex": int(cell["cell_index"]),
+                    "renderedPixelChecksumSha256": row["renderedPixelChecksumSha256"],
+                    "oldSymbol": row["activeModelSymbol"],
+                    "newSymbol": row["proposal"],
+                    "shapeVotes": row["shapeVotes"],
+                    "combinedVotes": row["combinedVotes"],
+                }
+            )
+            moves[f"{row['activeModelSymbol']}->{row['proposal']}"] += 1
+    # The revision checksum identifies this run: library and scope. A later run with another
+    # scope writes its own revision on top of this one instead of looking already applied.
+    revision_checksum = digest_json(
+        {
+            "libraryIdentitySha256": preview["libraryIdentitySha256"],
+            "parameters": preview["parameters"],
+            "referencePolicy": preview["referencePolicy"],
+        }
+    )
+    manifest = {
+        "format": APPLY_MANIFEST_FORMAT,
+        "writerModelVersion": WRITER_MODEL_VERSION,
+        "revisionChecksumSha256": revision_checksum,
+        "game": preview["game"],
+        "previewSha256": hashlib.sha256((output / "preview.json").read_bytes()).hexdigest(),
+        "libraryIdentitySha256": preview["libraryIdentitySha256"],
+        "referencePolicy": preview["referencePolicy"],
+        "parameters": preview["parameters"],
+        "cellStateFingerprint": fingerprint,
+        "targets": sum(len(board["targets"]) for board in boards.values()),
+        "moves": dict(sorted(moves.items())),
+        "excluded": dict(sorted(excluded.items())),
+        "boards": [boards[key] for key in sorted(boards)],
+    }
+    manifest_sha = _write_json(output / "apply-manifest.json", manifest)
+    print(f"boards={len(boards)} targets={manifest['targets']} excluded={manifest['excluded']}")
+    print(f"moves={manifest['moves']}")
+    print(f"apply-manifest.json sha256={manifest_sha}")
+    return 0
+
+
+def _entry_for_cell(predictions: Sequence[Mapping[str, Any]], cell_index: int) -> Mapping[str, Any]:
+    for entry in predictions:
+        if int(entry.get("rowIndex", -1)) * 5 + int(entry.get("columnIndex", -1)) == cell_index:
+            return entry
+    return {}
+
+
+def _read_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
+    content = path.read_bytes()
+    if hashlib.sha256(content).hexdigest() != expected_sha256:
+        raise EvaluationError(
+            "SYMBOL_REFERENCE_APPLY_MANIFEST_MISMATCH",
+            "The manifest differs from the approved checksum.",
+        )
+    manifest: Any = json.loads(content)
+    if (
+        not isinstance(manifest, Mapping)
+        or manifest.get("format") != APPLY_MANIFEST_FORMAT
+        or not isinstance(manifest.get("revisionChecksumSha256"), str)
+    ):
+        raise EvaluationError("SYMBOL_REFERENCE_APPLY_MANIFEST_INVALID", "Unknown manifest.")
+    return dict(manifest)
+
+
+def _board_plan(board: Mapping[str, Any]) -> BoardPlan:
+    return BoardPlan(
+        review_item_id=UUID(str(board["reviewItemId"])),
+        recognized_board_id=UUID(str(board["recognizedBoardId"])),
+        prediction_revision_id=UUID(str(board["predictionRevisionId"])),
+        predictions_sha256=str(board["predictionsSha256"]),
+        targets=tuple(
+            TargetCell(
+                cell_review_id=UUID(str(target["cellReviewId"])),
+                cell_index=int(target["cellIndex"]),
+                rendered_pixel_checksum_sha256=str(target["renderedPixelChecksumSha256"]),
+                old_symbol=str(target["oldSymbol"]),
+                new_symbol=str(target["newSymbol"]),
+                shape_votes=int(target["shapeVotes"]),
+                combined_votes=int(target["combinedVotes"]),
+            )
+            for target in board["targets"]
+        ),
+    )
+
+
+def _done(receipts: Mapping[str, str]) -> set[str]:
+    """Boards whose last receipt is final; a failed board is retried by the next run."""
+
+    return {board for board, status in receipts.items() if not status.startswith("failed")}
+
+
+def _receipts(path: Path) -> dict[str, str]:
+    if not path.is_file():
+        return {}
+    result: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            value = json.loads(line)
+            result[str(value["reviewItemId"])] = str(value["status"])
+    return result
+
+
+def _apply(arguments: argparse.Namespace, *, revert: bool = False) -> int:
+    deadline = time.monotonic() + float(arguments.time_budget_seconds)
+    manifest_path = cast(Path, arguments.manifest).resolve()
+    manifest = _read_manifest(manifest_path, str(arguments.expected_sha256))
+    if manifest["game"]["code"] != arguments.game_code:
+        raise EvaluationError("SYMBOL_REFERENCE_APPLY_GAME_MISMATCH", "Wrong game code.")
+    prefix = "revert-receipts" if revert else "apply-receipts"
+    receipts_path = manifest_path.with_name(f"{prefix}-{str(arguments.expected_sha256)[:12]}.jsonl")
+    write_board = revert_board if revert else apply_board
+    if revert and not arguments.board and not arguments.all:
+        raise EvaluationError(
+            "SYMBOL_REFERENCE_REVERT_SCOPE_REQUIRED",
+            "Name the boards to revert with --board, or pass --all to revert the whole run.",
+        )
+    done = _done(_receipts(receipts_path))
+    pending = [board for board in manifest["boards"] if board["reviewItemId"] not in done]
+    if arguments.board:
+        selected = set(arguments.board)
+        unknown = selected - {str(board["reviewItemId"]) for board in manifest["boards"]}
+        if unknown:
+            raise EvaluationError(
+                "SYMBOL_REFERENCE_APPLY_BOARD_UNKNOWN",
+                f"Boards not in the manifest: {', '.join(sorted(unknown))}.",
+            )
+        pending = [board for board in pending if board["reviewItemId"] in selected]
+    if arguments.limit_boards is not None:
+        pending = pending[: int(arguments.limit_boards)]
+    game_id = UUID(str(manifest["game"]["id"]))
+    engine = create_database_engine(ApiSettings.from_environment())
+    session_factory = create_session_factory(engine)
+    counts: Counter[str] = Counter()
+    processed = 0
+    try:
+        with receipts_path.open("a", encoding="utf-8") as receipts:
+            for board in pending:
+                if time.monotonic() >= deadline:
+                    break
+                plan = _board_plan(board)
+                try:
+                    with (
+                        game_storage_scope(game_id),
+                        session_factory() as session,
+                        session.begin(),
+                    ):
+                        status = write_board(
+                            session,
+                            game_id=game_id,
+                            plan=plan,
+                            library_checksum_sha256=str(manifest["revisionChecksumSha256"]),
+                        )
+                except (ReferenceLibraryWriteError, DBAPIError) as error:
+                    # A failed board stays retryable; the transaction has rolled back.
+                    code = getattr(error, "code", None) or type(error).__name__
+                    receipts.write(
+                        json.dumps(
+                            {"reviewItemId": board["reviewItemId"], "status": f"failed:{code}"}
+                        )
+                        + "\n"
+                    )
+                    receipts.flush()
+                    print(f"FAILED {board['reviewItemId']}: {error}", file=sys.stderr)
+                    return 2
+                receipts.write(
+                    json.dumps({"reviewItemId": board["reviewItemId"], "status": status}) + "\n"
+                )
+                receipts.flush()
+                counts[status] += 1
+                processed += 1
+    finally:
+        engine.dispose()
+    receipts_now = _receipts(receipts_path)
+    done = _done(receipts_now)
+    remaining = sum(1 for board in manifest["boards"] if board["reviewItemId"] not in done)
+    totals = Counter(receipts_now.values())
+    print(f"this run={dict(counts)} total={dict(sorted(totals.items()))} remaining={remaining}")
+    if remaining and arguments.limit_boards is None and not arguments.board:
+        print("INCOMPLETE: run the same command again.")
+        return EXIT_INCOMPLETE
+    return 0
+
+
+def _apply_verify(arguments: argparse.Namespace) -> int:
+    manifest_path = cast(Path, arguments.manifest).resolve()
+    manifest = _read_manifest(manifest_path, str(arguments.expected_sha256))
+    game_id = str(manifest["game"]["id"])
+    targets = {
+        str(target["cellReviewId"]): target
+        for board in manifest["boards"]
+        for target in board["targets"]
+    }
+    states: Counter[str] = Counter()
+    reverted_checksum = revert_checksum(str(manifest["revisionChecksumSha256"]))
+    engine = create_database_engine(ApiSettings.from_environment())
+    try:
+        with engine.connect().execution_options(postgresql_readonly=True) as connection:
+            for chunk in _chunks(sorted(targets), APPLY_BATCH):
+                for row in connection.execute(
+                    text(
+                        """
+                        SELECT c.id::text AS id, c.review_state, c.assignment_source,
+                               c.prediction_symbol_code, p.model_version,
+                               p.model_checksum_sha256
+                        FROM game_data_v2.image_symbol_review_cells c
+                        LEFT JOIN game_data_v2.image_symbol_prediction_revisions p
+                          ON p.id = c.prediction_revision_id
+                        WHERE c.game_id = :game_id AND c.id::text = ANY(:ids)
+                        """
+                    ),
+                    {"game_id": game_id, "ids": chunk},
+                ).mappings():
+                    target = targets[str(row["id"])]
+                    if row["review_state"] != "pending":
+                        states["decided_by_operator"] += 1
+                    elif row["model_version"] == WRITER_MODEL_VERSION and str(
+                        row["model_checksum_sha256"]
+                    ) != str(manifest["revisionChecksumSha256"]):
+                        states["other_library_run"] += 1
+                    elif (
+                        row["model_version"] == WRITER_MODEL_VERSION
+                        and row["prediction_symbol_code"] == target["newSymbol"]
+                    ):
+                        states["library_prediction"] += 1
+                    elif row["model_checksum_sha256"] == reverted_checksum:
+                        states["reverted"] += 1
+                    elif row["prediction_symbol_code"] == target["oldSymbol"]:
+                        states["unchanged"] += 1
+                    else:
+                        states["other"] += 1
+    finally:
+        engine.dispose()
+    receipts = _receipts(
+        manifest_path.with_name(f"apply-receipts-{str(arguments.expected_sha256)[:12]}.jsonl")
+    )
+    reverts = _receipts(
+        manifest_path.with_name(f"revert-receipts-{str(arguments.expected_sha256)[:12]}.jsonl")
+    )
+    report = {
+        "manifestSha256": arguments.expected_sha256,
+        "targets": len(targets),
+        "cellStates": dict(sorted(states.items())),
+        "boardReceipts": dict(sorted(Counter(receipts.values()).items())),
+        "revertReceipts": dict(sorted(Counter(reverts.values()).items())),
+    }
+    report_sha = _write_json(manifest_path.with_name("apply-verify.json"), report)
+    print(json.dumps(report, sort_keys=True))
+    print(f"apply-verify.json sha256={report_sha}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     arguments = _parse_args(argv)
     try:
@@ -1900,6 +2321,14 @@ def main(argv: Sequence[str] | None = None) -> int:
             return _blind_rescore(arguments)
         if arguments.command == "preview":
             return _preview(arguments)
+        if arguments.command == "apply-preview":
+            return _apply_preview(arguments)
+        if arguments.command == "apply":
+            return _apply(arguments)
+        if arguments.command == "apply-revert":
+            return _apply(arguments, revert=True)
+        if arguments.command == "apply-verify":
+            return _apply_verify(arguments)
     except EvaluationError as error:
         print(str(error), file=sys.stderr)
         return 2

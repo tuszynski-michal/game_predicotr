@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import importlib.util
+import json
 import sys
 import time
 from pathlib import Path
@@ -390,3 +391,30 @@ def test_review_hint_accuracy_counts_only_review_cells_with_a_symbol() -> None:
         "model": 0,
         "shape": 0,
     }
+
+
+def test_failed_receipts_are_retried_and_final_ones_are_skipped() -> None:
+    receipts = {"a": "applied", "b": "failed:DeadlockDetected", "c": "stale:cell_changed"}
+
+    assert runner._done(receipts) == {"a", "c"}
+
+
+def test_prediction_entry_is_found_by_cell_position() -> None:
+    predictions = [{"rowIndex": 1, "columnIndex": 2, "symbolCode": "ARBUZ"}]
+
+    assert runner._entry_for_cell(predictions, 7)["symbolCode"] == "ARBUZ"
+    assert runner._entry_for_cell(predictions, 8) == {}
+
+
+def test_manifest_without_a_run_checksum_is_rejected(tmp_path: Path) -> None:
+    manifest = tmp_path / "apply-manifest.json"
+    manifest.write_text(json.dumps({"format": runner.APPLY_MANIFEST_FORMAT}), encoding="utf-8")
+    checksum = hashlib.sha256(manifest.read_bytes()).hexdigest()
+
+    with pytest.raises(runner.EvaluationError) as error:
+        runner._read_manifest(manifest, checksum)
+    with pytest.raises(runner.EvaluationError) as mismatch:
+        runner._read_manifest(manifest, "0" * 64)
+
+    assert error.value.code == "SYMBOL_REFERENCE_APPLY_MANIFEST_INVALID"
+    assert mismatch.value.code == "SYMBOL_REFERENCE_APPLY_MANIFEST_MISMATCH"

@@ -56,6 +56,7 @@ type SearchState =
 
 type BoardSearchClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
+  | 'applySymbolCellReviewDecision'
   | 'archivedBoardSearchAssetUrl'
   | 'boardSearchBoardViewUrl'
   | 'getBoardSearchApproximateWin'

@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 from game_predictor_api.domain.board_search import BoardSearchAssetMode, BoardSearchError
 from game_predictor_api.domain.board_search_approximate_win import ApproximateWinDocument
 from game_predictor_api.domain.board_search_board_detail import (
+    BoardSearchBoardCell,
     BoardSearchBoardDocument,
     BoardSearchBoardViewSource,
     PaylineLabel,
@@ -37,6 +38,7 @@ from game_predictor_api.storage.game_storage_routing import (
 from game_predictor_api.storage.models import (
     GameModel,
     ImageReviewItemModel,
+    ImageSymbolReviewCellModel,
     PaylineModel,
     RecognizedBoardModel,
     RulesVersionModel,
@@ -149,6 +151,75 @@ class SqlAlchemyBoardSearchApproximateWinRepository:
             image_checksum_sha256=source.checksum_sha256,
             geometry=dict(board.board_geometry),
             current_board_checksum_sha256=current or "",
+        )
+
+    def board_cells(
+        self,
+        *,
+        game_id: UUID,
+        document: BoardSearchBoardDocument,
+    ) -> tuple[BoardSearchBoardCell, ...]:
+        """Cell review records of the document's board at its current
+        geometry revision (same rule as `_current_cell_decisions`)."""
+        if document.review_item_id is None:
+            return ()
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
+        board = self._session.execute(
+            select(RecognizedBoardModel.id, RecognizedBoardModel.geometry_revision)
+            .join(
+                ImageReviewItemModel,
+                ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+            )
+            .where(ImageReviewItemModel.id == document.review_item_id)
+        ).one_or_none()
+        if board is None:
+            return ()
+        board_id, geometry_revision = board
+        cell = ImageSymbolReviewCellModel
+        rows = self._session.execute(
+            select(
+                cell.cell_index,
+                cell.id,
+                cell.revision,
+                cell.geometry_revision,
+                cell.crop_sample_id,
+                cell.crop_checksum_sha256,
+                cell.review_state,
+                cell.quality_issue,
+                SymbolModel.code,
+            )
+            .outerjoin(SymbolModel, SymbolModel.id == cell.assigned_symbol_id)
+            .where(
+                cell.game_id == game_id,
+                cell.review_item_id == document.review_item_id,
+                cell.recognized_board_id == board_id,
+                cell.geometry_revision == geometry_revision,
+            )
+            .order_by(cell.cell_index)
+        ).tuples()
+        return tuple(
+            BoardSearchBoardCell(
+                cell_index=int(cell_index),
+                cell_review_id=cell_review_id,
+                revision=int(revision),
+                geometry_revision=int(cell_geometry_revision),
+                crop_sample_id=crop_sample_id,
+                crop_checksum_sha256=crop_checksum,
+                review_state=review_state,
+                quality_issue=quality_issue,
+                assigned_symbol_code=symbol_code,
+            )
+            for (
+                cell_index,
+                cell_review_id,
+                revision,
+                cell_geometry_revision,
+                crop_sample_id,
+                crop_checksum,
+                review_state,
+                quality_issue,
+                symbol_code,
+            ) in rows
         )
 
     def payline_labels(self, rules_version_id: UUID) -> dict[str, PaylineLabel]:

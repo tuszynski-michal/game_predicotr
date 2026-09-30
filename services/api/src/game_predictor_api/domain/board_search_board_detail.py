@@ -63,6 +63,22 @@ class BoardSearchBoardViewSource:
 
 
 @dataclass(frozen=True, slots=True)
+class BoardSearchBoardCell:
+    """Current human-review record of one cell, with exactly what the
+    existing checksum-bound cell decision needs (D-473)."""
+
+    cell_index: int
+    cell_review_id: UUID
+    revision: int
+    geometry_revision: int
+    crop_sample_id: str | None
+    crop_checksum_sha256: str | None
+    review_state: str
+    quality_issue: str | None
+    assigned_symbol_code: str | None
+
+
+@dataclass(frozen=True, slots=True)
 class PaylineLabel:
     payline_id: str
     code: str
@@ -338,6 +354,7 @@ __all__ = [
     "BOARD_VIEW_PADDING_FACTOR",
     "BOARD_VIEW_RENDERER_VERSION",
     "BoardPayoutKind",
+    "BoardSearchBoardCell",
     "BoardSearchBoardDocument",
     "BoardSearchBoardView",
     "BoardSearchBoardViewSource",

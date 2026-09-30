@@ -345,7 +345,21 @@ matches[]:              # posortowane po displayOrder linii
   paylineId, paylineCode, paylineName, paylineDisplayOrder, rowPath[5],
   symbolCode, matchedLength, matchedCells[], jokerCells[], payoutCredits
 view: null | { width, height, revision, cellPolygons: null | [15][4] {x, y} }
+cells: null | [15]:     # D-473: rekordy weryfikacji pól do poprawki
+  cellIndex, cellReviewId, revision, geometryRevision,
+  cropSampleId, cropChecksumSha256, reviewState, qualityIssue,
+  assignedSymbolCode
 ```
+
+`cells` jest zwracane wyłącznie dla planszy operacyjnej ze statusem
+`pending`, z rekordami `image_symbol_review_cells` tej planszy i jej
+bieżącej rewizji geometrii (reguła jak w projekcji wyszukiwania), i tylko
+gdy jest ich dokładnie 15. Plansze zatwierdzone, archiwum i niepełny zestaw
+dają `cells = null`. Każdy element jest celem istniejącego
+`POST .../symbol-cell-reviews/{cellReviewId}/decision`
+(`applySymbolCellReviewDecision`) z polami `expected*` przepisanymi z
+rekordu. Publiczna powierzchnia udostępniania (D-471) nie może zwracać
+`cells`.
 
 `sum(matches.payoutCredits) == payoutCredits`. `view` opisuje przycięty widok
 planszy operacyjnej: obrys komórek z zapisanej geometrii plus 20% z każdej

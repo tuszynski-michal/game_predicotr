@@ -52,6 +52,7 @@ from game_predictor_api.storage.models import (
     ImageImportJobFileModel,
     ImageReviewItemModel,
     ImageSequenceCanonicalModel,
+    ImageSymbolReviewCellModel,
     JobModel,
     PaylineModel,
     PayoutRuleModel,
@@ -117,6 +118,7 @@ _V2_PARTITIONED_TABLES = (
     "image_board_search_candidates",
     "image_board_search_fast_documents",
     "image_board_search_projection_states",
+    "image_symbol_review_cells",
 )
 
 
@@ -573,6 +575,40 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
         SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game_id)
         source_checksum = source.checksum_sha256
         board_id = item.recognized_board_id
+        now = datetime.now(UTC)
+        # One record at the board's current geometry revision (0) and one of
+        # an older crop generation that must never be offered for editing.
+        for cell_index, geometry_revision in ((0, 0), (1, 7)):
+            session.add(
+                ImageSymbolReviewCellModel(
+                    game_id=game_id,
+                    import_job_id=job.id,
+                    review_item_id=item.id,
+                    recognized_board_id=board_id,
+                    sequence_number=5,
+                    cell_index=cell_index,
+                    row_index=0,
+                    column_index=cell_index,
+                    crop_sample_id=f"{cell_index + 10:064x}",
+                    crop_relative_path=f"crops/detail-{cell_index}.png",
+                    crop_checksum_sha256=f"{cell_index + 20:064x}",
+                    geometry_revision=geometry_revision,
+                    cropper_version="detail-test-cropper",
+                    prediction_symbol_code="A",
+                    prediction_confidence=0.9,
+                    assigned_symbol_id=symbol_id,
+                    review_state="pending",
+                    quality_issue=None,
+                    verification_outcome=None,
+                    verified_symbol_id_v2=None,
+                    assignment_source="model",
+                    revision=0,
+                    last_reviewed_by="detail-test",
+                    last_reviewed_at=now,
+                    created_at=now,
+                )
+            )
+        session.flush()
 
     with Session(database, expire_on_commit=False) as session:
         before_counts = _game_owned_row_counts(session, game_id)
@@ -583,6 +619,7 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
         _source_mode, document = repository.board_document(game_id=game_id, sequence_number=5)
         assert document is not None
         view_source = repository.board_view_source(game_id=game_id, document=document)
+        board_cells = repository.board_cells(game_id=game_id, document=document)
         missing = repository.board_document(game_id=game_id, sequence_number=6)
         after_counts = _game_owned_row_counts(session, game_id)
 
@@ -595,6 +632,10 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
     ] == [("L1", "Górna", (0, 1, 2, 3))]
     assert detail.symbol_codes[:5] == ("A", "A", "A", "A", None)
     assert detail.view is not None and len(detail.view.cell_polygons) == 15
+    # The board is resolved, so the detail offers no cell editing (D-473),
+    # while the repository still reads only current-geometry records.
+    assert detail.cells is None
+    assert [(cell.cell_index, cell.assigned_symbol_code) for cell in board_cells] == [(0, "A")]
     assert view_source is not None
     assert view_source.image_relative_path == "imports/page_1.jpg"
     assert view_source.image_checksum_sha256 == source_checksum

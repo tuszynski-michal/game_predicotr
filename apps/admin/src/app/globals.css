@@ -10307,6 +10307,56 @@ div.imageJobInlineError {
   gap: 12px;
 }
 
+.boardSearchBoardCellTarget {
+  fill: transparent;
+  stroke: rgb(255 255 255 / 45%);
+  stroke-dasharray: 5 4;
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+
+.boardSearchBoardCellTarget:hover,
+.boardSearchBoardCellTarget:focus-visible {
+  fill: rgb(255 255 255 / 12%);
+  stroke: #ffffff;
+  outline: none;
+}
+
+.boardSearchBoardCellTargetSelected {
+  fill: rgb(255 210 63 / 22%);
+  stroke: #ffd23f;
+  stroke-dasharray: none;
+  stroke-width: 3;
+}
+
+.boardSearchBoardCellCorrection {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.boardSearchBoardCellPalette {
+  display: grid;
+  gap: 8px;
+}
+
+.boardSearchBoardCellPalette p {
+  margin: 0;
+}
+
+.boardSearchBoardCellPaletteGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 6px;
+}
+
+.boardSearchBoardCellPaletteActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .boardSearchBoardLinesSwatch {
   flex: none;
   inline-size: 22px;

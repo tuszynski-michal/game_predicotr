@@ -1211,3 +1211,340 @@ test('the action column opens a board modal with toggleable payline legend', asy
   assert.equal(document.querySelector('.boardSearchBoardLinesDialog'), null);
   await act(async () => root.unmount());
 });
+
+test('a cell correction in the board modal saves a decision and recalculates the table', async (context) => {
+  withDialogSupport();
+  context.after(() => dom.window.localStorage.clear());
+  const seven = {
+    code: 'seven',
+    displayOrder: 1,
+    id: 'symbol-seven',
+    imagePath: null,
+    mobileCode: 7,
+    name: 'Siódemka',
+    status: 'active',
+  };
+  const cells = Array.from({ length: 15 }, (_, index) => ({
+    assignedSymbolCode: 'cherry',
+    cellIndex: index,
+    cellReviewId: `cell-${index}`,
+    cropChecksumSha256: 'b'.repeat(64),
+    cropSampleId: 'a'.repeat(64),
+    geometryRevision: 2,
+    qualityIssue: null,
+    reviewState: 'pending',
+    revision: 5,
+  }));
+  let corrected = false;
+  const decisions = [];
+  let detailCalls = 0;
+  let rangeCalls = 0;
+  const client = {
+    ...makeClient({
+      approximateWinImpl: async (_gameId, options) => {
+        rangeCalls += 1;
+        return {
+          data: approximateWinResponse(options.startSequenceNumber, {
+            evaluatedSpinCount: 10,
+            requestedSpinCount: 10,
+            rows: [
+              {
+                boardStatus: 'pending',
+                cumulativeBalanceCredits: 80,
+                cumulativeCostCredits: 20,
+                cumulativePayoutCredits: 100,
+                payoutCredits: 100,
+                payoutKind: 'confirmed_minimum',
+                sequenceNumber: 11,
+                spinNumber: 1,
+              },
+            ],
+          }),
+        };
+      },
+      searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+    }),
+    applySymbolCellReviewDecision: async (
+      gameIdArgument,
+      cellReviewId,
+      body,
+    ) => {
+      decisions.push({ body, cellReviewId, gameIdArgument });
+      corrected = true;
+      return { data: { cellReviewId } };
+    },
+    boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
+    getBoardSearchBoardDetail: async (_gameId, sequenceNumber) => {
+      detailCalls += 1;
+      const base = linesDetail(sequenceNumber, {
+        boardStatus: 'pending',
+        cells,
+      });
+      // After the correction only the top line is left (60 credits).
+      return {
+        data: corrected
+          ? { ...base, matches: base.matches.slice(0, 1), payoutCredits: 60 }
+          : base,
+      };
+    },
+    listSymbols: async () => ({ data: [symbol, seven] }),
+  };
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
+    'row should render',
+  );
+  await click(
+    document.querySelector(
+      'button[aria-label="Pokaż planszę #11 z liniami wypłat"]',
+    ),
+  );
+  await eventually(
+    () => document.querySelectorAll('.boardSearchBoardLinesMatch').length === 2,
+    'both lines before the correction',
+  );
+  await click(dialogButton('Popraw symbole'));
+  const target = document.querySelector(
+    '.boardSearchBoardCellTarget[aria-label^="Pole 7:"]',
+  );
+  assert.ok(target, 'cells become clickable in correction mode');
+  await click(target);
+  const sevenButton = [
+    ...document.querySelectorAll('.boardSearchBoardCellPalette button'),
+  ].find((node) => node.title === 'Siódemka');
+  assert.ok(sevenButton);
+  await click(sevenButton);
+  await eventually(
+    () => document.querySelectorAll('.boardSearchBoardLinesMatch').length === 1,
+    'the corrected board is fetched again and redrawn',
+  );
+  assert.deepEqual(decisions, [
+    {
+      body: {
+        action: 'reassign',
+        expectedCropChecksumSha256: 'b'.repeat(64),
+        expectedCropSampleId: 'a'.repeat(64),
+        expectedGeometryRevision: 2,
+        expectedRevision: 5,
+        targetSymbolId: 'symbol-seven',
+      },
+      cellReviewId: 'cell-6',
+      gameIdArgument: gameId,
+    },
+  ]);
+  assert.ok(detailCalls >= 2);
+  assert.match(
+    document.querySelector('.boardSearchBoardLinesDialog').textContent,
+    /Zapisano: pole 7 → Siódemka/,
+  );
+  const callsBefore = rangeCalls;
+  await click(dialogButton('Zamknij'));
+  await settle();
+  assert.equal(
+    rangeCalls,
+    callsBefore + 1,
+    'closing after a correction recalculates',
+  );
+  await act(async () => root.unmount());
+});
+
+test('a resolved board offers no cell correction', async (context) => {
+  withDialogSupport();
+  context.after(() => dom.window.localStorage.clear());
+  const client = {
+    ...makeClient({
+      approximateWinImpl: async (_gameId, options) => ({
+        data: approximateWinResponse(options.startSequenceNumber, {
+          evaluatedSpinCount: 10,
+          requestedSpinCount: 10,
+          rows: [
+            {
+              boardStatus: 'accepted',
+              cumulativeBalanceCredits: 80,
+              cumulativeCostCredits: 20,
+              cumulativePayoutCredits: 100,
+              payoutCredits: 100,
+              payoutKind: 'confirmed_minimum',
+              sequenceNumber: 11,
+              spinNumber: 1,
+            },
+          ],
+        }),
+      }),
+      searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+    }),
+    applySymbolCellReviewDecision: async () => {
+      throw new Error('must not be called');
+    },
+    boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
+    getBoardSearchBoardDetail: async (_gameId, sequenceNumber) => ({
+      data: linesDetail(sequenceNumber, { cells: null }),
+    }),
+  };
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
+    'row should render',
+  );
+  await click(
+    document.querySelector(
+      'button[aria-label="Pokaż planszę #11 z liniami wypłat"]',
+    ),
+  );
+  await eventually(
+    () => document.querySelectorAll('.boardSearchBoardLinesMatch').length === 2,
+    'lines render',
+  );
+  assert.equal(dialogButton('Popraw symbole'), undefined);
+  assert.match(
+    document.querySelector('.boardSearchBoardLinesDialog').textContent,
+    /tylko dla plansz oczekujących/,
+  );
+  await act(async () => root.unmount());
+});
+
+test('a revision conflict shows a message and refreshes the board for another try', async (context) => {
+  withDialogSupport();
+  context.after(() => dom.window.localStorage.clear());
+  const seven = {
+    code: 'seven',
+    displayOrder: 1,
+    id: 'symbol-seven',
+    imagePath: null,
+    mobileCode: 7,
+    name: 'Siódemka',
+    status: 'active',
+  };
+  let revision = 5;
+  const cells = () =>
+    Array.from({ length: 15 }, (_, index) => ({
+      assignedSymbolCode: 'cherry',
+      cellIndex: index,
+      cellReviewId: `cell-${index}`,
+      cropChecksumSha256: 'b'.repeat(64),
+      cropSampleId: 'a'.repeat(64),
+      geometryRevision: 2,
+      qualityIssue: null,
+      reviewState: 'pending',
+      revision,
+    }));
+  const decisions = [];
+  let detailCalls = 0;
+  let rangeCalls = 0;
+  const client = {
+    ...makeClient({
+      approximateWinImpl: async (_gameId, options) => {
+        rangeCalls += 1;
+        return {
+          data: approximateWinResponse(options.startSequenceNumber, {
+            evaluatedSpinCount: 10,
+            requestedSpinCount: 10,
+            rows: [
+              {
+                boardStatus: 'pending',
+                cumulativeBalanceCredits: 80,
+                cumulativeCostCredits: 20,
+                cumulativePayoutCredits: 100,
+                payoutCredits: 100,
+                payoutKind: 'confirmed_minimum',
+                sequenceNumber: 11,
+                spinNumber: 1,
+              },
+            ],
+          }),
+        };
+      },
+      searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+    }),
+    applySymbolCellReviewDecision: async (_gameId, cellReviewId, body) => {
+      decisions.push({ body, cellReviewId });
+      // Someone else changed the cell meanwhile.
+      revision = 6;
+      return {
+        error: {
+          code: 'SYMBOL_CELL_REVIEW_REVISION_CONFLICT',
+          message: 'The cell changed. Reload the page.',
+        },
+      };
+    },
+    boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
+    getBoardSearchBoardDetail: async (_gameId, sequenceNumber) => {
+      detailCalls += 1;
+      return {
+        data: linesDetail(sequenceNumber, {
+          boardStatus: 'pending',
+          cells: cells(),
+        }),
+      };
+    },
+    listSymbols: async () => ({ data: [symbol, seven] }),
+  };
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
+    'row should render',
+  );
+  await click(
+    document.querySelector(
+      'button[aria-label="Pokaż planszę #11 z liniami wypłat"]',
+    ),
+  );
+  await eventually(
+    () => document.querySelectorAll('.boardSearchBoardLinesMatch').length === 2,
+    'lines render',
+  );
+  await click(dialogButton('Popraw symbole'));
+  await click(
+    document.querySelector(
+      '.boardSearchBoardCellTarget[aria-label^="Pole 7:"]',
+    ),
+  );
+  const detailCallsBefore = detailCalls;
+  await click(
+    [...document.querySelectorAll('.boardSearchBoardCellPalette button')].find(
+      (node) => node.title === 'Siódemka',
+    ),
+  );
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchBoardLinesDialog [role="alert"]') !==
+      null,
+    'the conflict is reported',
+  );
+  assert.match(
+    document.querySelector('.boardSearchBoardLinesDialog [role="alert"]')
+      .textContent,
+    /zmieniło się w międzyczasie/,
+  );
+  await eventually(
+    () => detailCalls > detailCallsBefore,
+    'the board is fetched again',
+  );
+  assert.equal(decisions.length, 1);
+  assert.equal(decisions[0].body.expectedRevision, 5);
+  // The next attempt carries the refreshed revision.
+  await click(
+    document.querySelector(
+      '.boardSearchBoardCellTarget[aria-label^="Pole 7:"]',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll('.boardSearchBoardCellPalette button')].find(
+      (node) => node.title === 'Siódemka',
+    ),
+  );
+  await eventually(() => decisions.length === 2, 'second attempt sent');
+  assert.equal(decisions[1].body.expectedRevision, 6);
+  // Nothing was saved, so closing does not recalculate the table.
+  const rangeBefore = rangeCalls;
+  await click(dialogButton('Zamknij'));
+  await settle();
+  assert.equal(rangeCalls, rangeBefore);
+  await act(async () => root.unmount());
+});

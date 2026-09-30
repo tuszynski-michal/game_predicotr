@@ -36,6 +36,13 @@ last_updated: 2026-09-30
   PASS w drugim cyklu.
 - 2026-09-30 operator zlecił etap A2: poprawianie symbolu pola z okna planszy
   (D-473, R6, TASK-0772).
+- TASK-0772 done: tryb „Popraw symbole” w oknie planszy zapisuje decyzję
+  pola istniejącym `applySymbolCellReviewDecision`; linie odświeżają się od
+  razu, tabela po zamknięciu okna. Audyt PASS w drugim cyklu.
+- Lokalna instancja do odbioru: Admin `http://127.0.0.1:3010`, API
+  `127.0.0.1:8010` z worktree (`v1.7.88` pozwala Adminowi łączyć się z
+  innym portem API przez `NEXT_PUBLIC_ADMIN_API_BASE_URL`); instancja
+  główna 3000/8000 bez zmian.
 - **Etap A zakończony; STOP na granicy etapu.** Odbiór operatora w Adminie
   według akapitu „Odbiór etapu A” planu. Etap B (TASK-0765–0771, w tym
   dziennik zapytań D-472) wymaga osobnego polecenia. Push i merge nie były

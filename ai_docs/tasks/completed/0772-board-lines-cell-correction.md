@@ -1,6 +1,6 @@
 ---
 title: TASK-0772 — Poprawianie symbolu pola z okna planszy „Przybliżonej wygranej”
-status: todo
+status: done
 last_updated: 2026-09-30
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-30
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -56,15 +56,15 @@ poprawek P0–P2 zatrzymują pracę.
 
 ## Acceptance criteria
 
-- [ ] Plansza oczekująca: 15 pól z identyfikatorem, rewizją, rewizją
+- [x] Plansza oczekująca: 15 pól z identyfikatorem, rewizją, rewizją
   geometrii, próbką i sumą cropa; zatwierdzona i archiwum → `cells = null`.
-- [ ] Wybór innego symbolu → `reassign`, ten sam → `approve`,
+- [x] Wybór innego symbolu → `reassign`, ten sam → `approve`,
   „Nieczytelny” → `mark_unreadable`, „Zła siatka” → `mark_grid_issue`, z
   oczekiwaną rewizją i sumą.
-- [ ] Po zapisie okno pobiera szczegóły ponownie i rysuje nowe linie.
-- [ ] Konflikt rewizji → komunikat i odświeżenie szczegółów.
-- [ ] Zamknięcie okna po zmianie przelicza tabelę.
-- [ ] Brak edycji dla plansz zatwierdzonych.
+- [x] Po zapisie okno pobiera szczegóły ponownie i rysuje nowe linie.
+- [x] Konflikt rewizji → komunikat i odświeżenie szczegółów.
+- [x] Zamknięcie okna po zmianie przelicza tabelę.
+- [x] Brak edycji dla plansz zatwierdzonych.
 
 ## Technical notes
 
@@ -99,4 +99,41 @@ Wszystkie komendy z katalogu worktree, timeout 120 s każda.
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- API: `BoardSearchBoardCell` i `cells[15] | null` w szczegółach planszy
+  (tylko plansza operacyjna `pending`, bieżąca rewizja geometrii, komplet 15
+  rekordów), `board_cells` w repozytorium, schemat
+  `BoardSearchBoardCellResponse`, OpenAPI i klient.
+- Admin: `board-search-board-cell-correction.ts` (mapowanie wyboru na
+  `approve`/`reassign`/`mark_unreadable`/`mark_grid_issue`, rozpoznanie
+  konfliktu), tryb „Popraw symbole” w oknie planszy (klikalne pola,
+  paleta, zapis, ponowne pobranie bez znikania planszy, komunikaty, nagłówek
+  „Po poprawce”, blokada zamknięcia w trakcie zapisu), przeliczenie tabeli
+  po zamknięciu okna ze zmianą.
+- `API_CONTRACT.md` (pole `cells`), plan T8 (publiczne szczegóły bez
+  `cells`).
+
+### Verification results
+
+- API: 44 PASS, 1 pominięty (dowiązania symboliczne); integracja
+  PostgreSQL 2/2 PASS; ruff czysto; OpenAPI i klient aktualne.
+- Admin: 654/654 PASS, interakcje `board-search-*` 29/29 PASS (poprawka,
+  konflikt, plansza zatwierdzona); typecheck i lint bez błędów.
+- Audyt niezależnego agenta `claude-opus-5-5` (poziom rozumowania agenta
+  nieustawialny z sesji): cykl 1 FAIL — P2 nieaktualna wypłata w nagłówku
+  po zapisie, brak `cells` w `API_CONTRACT.md`, brak testu konfliktu; 10 ×
+  P3. Cykl 2 PASS; dwa pozostałe P3 (okno odświeżania, komunikat dla
+  niepełnego zestawu pól) poprawione przed commitem.
+
+### Not completed
+
+- Korekta plansz zatwierdzonych (poza zakresem D-473).
+
+### Documentation updates
+
+- `API_CONTRACT.md`, plan §5 T8.
+
+### Recommended next task
+
+- Odbiór poprawiania pól przez operatora; etap B po osobnym poleceniu.

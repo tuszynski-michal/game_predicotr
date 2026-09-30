@@ -659,7 +659,9 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
     wyszukiwanie czytałoby złe źródło danych.
   - Serwisy wyszukiwania, zakresu i szczegółów są te same co w Adminie; różni
     się tylko autoryzacja i schemat odpowiedzi bez identyfikatorów
-    wewnętrznych.
+    wewnętrznych. Publiczne szczegóły planszy nie zwracają `cells` (D-473:
+    identyfikatory rekordów weryfikacji i poprawianie pól są tylko w
+    Adminie).
   - Limity żądań według wzorca `remote_manual_selection_control.py`.
   - `Cache-Control` obrazów: `private, immutable, max-age=86400`.
   - Każde żądanie `search`, `approximate-win` i `boards/{n}` zapisuje wpis

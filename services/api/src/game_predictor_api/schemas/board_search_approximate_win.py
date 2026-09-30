@@ -134,6 +134,21 @@ class BoardSearchBoardViewResponse(ApiModel):
     )
 
 
+class BoardSearchBoardCellResponse(ApiModel):
+    """One cell's review record: the checksum-bound target of
+    `applySymbolCellReviewDecision` (D-473)."""
+
+    cell_index: int = Field(ge=0, le=14)
+    cell_review_id: UUID
+    revision: int = Field(ge=0)
+    geometry_revision: int = Field(ge=0)
+    crop_sample_id: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    crop_checksum_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    review_state: str
+    quality_issue: str | None
+    assigned_symbol_code: str | None
+
+
 class BoardSearchBoardDetailResponse(ApiModel):
     game_id: UUID
     sequence_number: int = Field(ge=1)
@@ -146,6 +161,12 @@ class BoardSearchBoardDetailResponse(ApiModel):
     payout_kind: Literal["exact", "confirmed_minimum", "none"]
     matches: tuple[BoardSearchLineMatchResponse, ...]
     view: BoardSearchBoardViewResponse | None
+    cells: tuple[BoardSearchBoardCellResponse, ...] | None = Field(
+        description=(
+            "Editable cell review records of a pending operational board; "
+            "null for resolved and archive boards."
+        )
+    )
 
 
 def to_board_search_board_detail_response(
@@ -194,11 +215,28 @@ def to_board_search_board_detail_response(
                 for polygon in detail.view.cell_polygons
             ),
         ),
+        cells=None
+        if detail.cells is None
+        else tuple(
+            BoardSearchBoardCellResponse(
+                cell_index=cell.cell_index,
+                cell_review_id=cell.cell_review_id,
+                revision=cell.revision,
+                geometry_revision=cell.geometry_revision,
+                crop_sample_id=cell.crop_sample_id,
+                crop_checksum_sha256=cell.crop_checksum_sha256,
+                review_state=cell.review_state,
+                quality_issue=cell.quality_issue,
+                assigned_symbol_code=cell.assigned_symbol_code,
+            )
+            for cell in detail.cells
+        ),
     )
 
 
 __all__ = [
     "ApproximateWinCompletenessResponse",
+    "BoardSearchBoardCellResponse",
     "BoardSearchBoardDetailResponse",
     "BoardSearchBoardViewResponse",
     "BoardSearchLineMatchResponse",

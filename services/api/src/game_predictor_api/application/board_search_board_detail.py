@@ -37,6 +37,7 @@ from game_predictor_api.domain.board_search import BoardSearchAssetMode, BoardSe
 from game_predictor_api.domain.board_search_board_detail import (
     BOARD_VIEW_MAX_CROP_PIXELS,
     BoardPayoutKind,
+    BoardSearchBoardCell,
     BoardSearchBoardDocument,
     BoardSearchBoardView,
     BoardSearchBoardViewSource,
@@ -75,6 +76,10 @@ class BoardSearchBoardDetailRepository(Protocol):
 
     def symbol_codes(self, game_id: UUID) -> Mapping[int, str]: ...
 
+    def board_cells(
+        self, *, game_id: UUID, document: BoardSearchBoardDocument
+    ) -> tuple[BoardSearchBoardCell, ...]: ...
+
 
 @dataclass(frozen=True, slots=True)
 class BoardSearchBoardDetail:
@@ -92,6 +97,7 @@ class BoardSearchBoardDetail:
     payout_kind: BoardPayoutKind
     matches: tuple[BoardSearchLineMatch, ...]
     view: BoardSearchBoardView | None
+    cells: tuple[BoardSearchBoardCell, ...] | None
 
 
 def _board_not_found() -> BoardSearchError:
@@ -251,6 +257,17 @@ class BoardSearchBoardDetailService:
             else _prepare_view(source, document.asset_mode, self._artifact_root)
         )
         view = None if prepared is None else prepared[1]
+        # Only a pending operational board is corrected cell by cell (D-462,
+        # D-473); resolved boards read the whole-board decision instead.
+        cells: tuple[BoardSearchBoardCell, ...] | None = None
+        if (
+            document.asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW
+            and document.status == "pending"
+        ):
+            records = self._repository.board_cells(game_id=game_id, document=document)
+            # Correction needs one current record per logical cell; a partial
+            # set (e.g. mid-backfill) is offered as not editable.
+            cells = records if len(records) == 15 else None
 
         return BoardSearchBoardDetail(
             game_id=game_id,
@@ -269,6 +286,7 @@ class BoardSearchBoardDetailService:
             payout_kind=board_payout_kind(evaluation.total_payout, document.mobile_codes),
             matches=tuple(matches),
             view=view,
+            cells=cells,
         )
 
 

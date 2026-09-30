@@ -991,6 +991,51 @@ export type BoardImportCoverageView = 'missing' | 'added';
 export type BoardSearchAssetMode = 'operational_review' | 'legacy_archive';
 
 /**
+ * BoardSearchBoardCellResponse
+ *
+ * One cell's review record: the checksum-bound target of
+ * `applySymbolCellReviewDecision` (D-473).
+ */
+export type BoardSearchBoardCellResponse = {
+  /**
+   * Assignedsymbolcode
+   */
+  assignedSymbolCode: string | null;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string | null;
+  /**
+   * Cropsampleid
+   */
+  cropSampleId: string | null;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Qualityissue
+   */
+  qualityIssue: string | null;
+  /**
+   * Reviewstate
+   */
+  reviewState: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
  * BoardSearchBoardDetailResponse
  */
 export type BoardSearchBoardDetailResponse = {
@@ -1002,6 +1047,12 @@ export type BoardSearchBoardDetailResponse = {
    * Boardstatus
    */
   boardStatus: string;
+  /**
+   * Cells
+   *
+   * Editable cell review records of a pending operational board; null for resolved and archive boards.
+   */
+  cells: Array<BoardSearchBoardCellResponse> | null;
   dataSource: BoardSearchAssetMode;
   /**
    * Gameid

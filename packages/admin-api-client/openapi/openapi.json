@@ -1750,6 +1750,96 @@
         "title": "BoardSearchAssetMode",
         "type": "string"
       },
+      "BoardSearchBoardCellResponse": {
+        "additionalProperties": false,
+        "description": "One cell's review record: the checksum-bound target of\n`applySymbolCellReviewDecision` (D-473).",
+        "properties": {
+          "assignedSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedsymbolcode"
+          },
+          "cellIndex": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "cellReviewId": {
+            "format": "uuid",
+            "title": "Cellreviewid",
+            "type": "string"
+          },
+          "cropChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropchecksumsha256"
+          },
+          "cropSampleId": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropsampleid"
+          },
+          "geometryRevision": {
+            "minimum": 0.0,
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "qualityIssue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualityissue"
+          },
+          "reviewState": {
+            "title": "Reviewstate",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "cellReviewId",
+          "revision",
+          "geometryRevision",
+          "cropSampleId",
+          "cropChecksumSha256",
+          "reviewState",
+          "qualityIssue",
+          "assignedSymbolCode"
+        ],
+        "title": "BoardSearchBoardCellResponse",
+        "type": "object"
+      },
       "BoardSearchBoardDetailResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1761,6 +1851,21 @@
           "boardStatus": {
             "title": "Boardstatus",
             "type": "string"
+          },
+          "cells": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/BoardSearchBoardCellResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Editable cell review records of a pending operational board; null for resolved and archive boards.",
+            "title": "Cells"
           },
           "dataSource": {
             "$ref": "#/components/schemas/BoardSearchAssetMode"
@@ -1835,7 +1940,8 @@
           "payoutCredits",
           "payoutKind",
           "matches",
-          "view"
+          "view",
+          "cells"
         ],
         "title": "BoardSearchBoardDetailResponse",
         "type": "object"

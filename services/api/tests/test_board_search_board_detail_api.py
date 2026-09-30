@@ -11,6 +11,7 @@ from game_predictor_api.application.board_search_board_detail import (
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.board_search import BoardSearchAssetMode, BoardSearchError
 from game_predictor_api.domain.board_search_board_detail import (
+    BoardSearchBoardCell,
     BoardSearchBoardDocument,
     BoardSearchBoardViewSource,
     PaylineLabel,
@@ -78,11 +79,12 @@ def _document(
     *,
     sequence_number: int = 42,
     asset_mode: BoardSearchAssetMode = BoardSearchAssetMode.OPERATIONAL_REVIEW,
+    status: str = "pending",
 ) -> BoardSearchBoardDocument:
     operational = asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW
     return BoardSearchBoardDocument(
         sequence_number=sequence_number,
-        status="pending",
+        status=status,
         board_checksum_sha256="c" * 64,
         mobile_codes=codes,
         asset_mode=asset_mode,
@@ -143,6 +145,30 @@ class MemoryBoardDetailRepository:
 
     def symbol_codes(self, game_id: UUID) -> Mapping[int, str]:
         return {A: "A", B: "B", W: "W"}
+
+    def board_cells(
+        self, *, game_id: UUID, document: BoardSearchBoardDocument
+    ) -> tuple[BoardSearchBoardCell, ...]:
+        self.cell_reads = getattr(self, "cell_reads", 0) + 1
+        return tuple(
+            cell for cell in self._all_cells() if cell.cell_index < getattr(self, "cell_count", 15)
+        )
+
+    def _all_cells(self) -> tuple[BoardSearchBoardCell, ...]:
+        return tuple(
+            BoardSearchBoardCell(
+                cell_index=index,
+                cell_review_id=UUID(int=index + 1),
+                revision=3,
+                geometry_revision=2,
+                crop_sample_id="a" * 64,
+                crop_checksum_sha256="b" * 64,
+                review_state="pending",
+                quality_issue=None,
+                assigned_symbol_code="A",
+            )
+            for index in range(15)
+        )
 
 
 def _client(repository: MemoryBoardDetailRepository) -> TestClient:
@@ -366,3 +392,43 @@ def test_absurd_geometry_yields_no_view_instead_of_an_error() -> None:
 
 def test_the_first_present_lattice_key_decides_like_the_admin_client() -> None:
     assert board_cell_quads({"latticeBoundsQuad": [{"x": 1}], "quad": _LATTICE}) is None
+
+
+def test_pending_board_exposes_its_cell_review_records_for_correction() -> None:
+    body = _get(
+        MemoryBoardDetailRepository(document=_document((A,) * 15), configuration=_configuration())
+    ).json()
+    cells = body["cells"]
+    assert len(cells) == 15
+    assert cells[3] == {
+        "cellIndex": 3,
+        "cellReviewId": str(UUID(int=4)),
+        "revision": 3,
+        "geometryRevision": 2,
+        "cropSampleId": "a" * 64,
+        "cropChecksumSha256": "b" * 64,
+        "reviewState": "pending",
+        "qualityIssue": None,
+        "assignedSymbolCode": "A",
+    }
+
+
+def test_resolved_and_archive_boards_have_no_editable_cells() -> None:
+    accepted = MemoryBoardDetailRepository(
+        document=_document((A,) * 15, status="accepted"), configuration=_configuration()
+    )
+    assert _get(accepted).json()["cells"] is None
+    assert getattr(accepted, "cell_reads", 0) == 0
+    archive = MemoryBoardDetailRepository(
+        document=_document((A,) * 15, asset_mode=BoardSearchAssetMode.LEGACY_ARCHIVE),
+        configuration=_configuration(),
+    )
+    assert _get(archive).json()["cells"] is None
+
+
+def test_a_partial_set_of_cell_records_is_not_offered_for_correction() -> None:
+    repository = MemoryBoardDetailRepository(
+        document=_document((A,) * 15), configuration=_configuration()
+    )
+    repository.cell_count = 14  # type: ignore[attr-defined]
+    assert _get(repository).json()["cells"] is None

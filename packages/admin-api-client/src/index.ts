@@ -390,6 +390,7 @@ import type {
 export type {
   ApproximateWinCompletenessResponse,
   ApproximateWinResponse,
+  BoardSearchBoardCellResponse,
   BoardSearchBoardDetailResponse,
   BoardSearchBoardViewResponse,
   BoardSearchLineMatchResponse,

@@ -368,6 +368,7 @@ export type {
   BoardImportCoverageSegmentResponse,
   BoardImportCoverageView,
   BoardSearchAssetMode,
+  BoardSearchBoardCellResponse,
   BoardSearchBoardDetailResponse,
   BoardSearchBoardViewResponse,
   BoardSearchLineMatchResponse,

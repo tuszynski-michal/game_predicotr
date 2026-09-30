@@ -86,6 +86,9 @@ class ViewRepository:
     def symbol_codes(self, game_id: UUID) -> Mapping[int, str]:
         return {}
 
+    def board_cells(self, *, game_id: UUID, document: BoardSearchBoardDocument) -> tuple[()]:
+        return ()
+
 
 class CountingRender:
     def __init__(self) -> None:

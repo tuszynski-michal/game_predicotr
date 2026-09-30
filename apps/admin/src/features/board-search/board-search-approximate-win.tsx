@@ -325,8 +325,13 @@ function ApproximateWinResultView({
     null,
   );
   const linesTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const closeLines = () => {
+  const closeLines = (edited: boolean) => {
     setLinesRow(null);
+    if (edited) {
+      // A saved cell correction changed the payouts: recalculate the range.
+      onRecalculate();
+      return;
+    }
     // Return focus to the row button that opened the modal.
     linesTriggerRef.current?.focus();
   };

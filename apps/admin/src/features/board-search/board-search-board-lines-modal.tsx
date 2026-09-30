@@ -2,14 +2,21 @@
 
 import type {
   ApproximateWinRowResponse,
+  BoardSearchBoardCellResponse,
   BoardSearchBoardDetailResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import type { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 
+import {
+  type BoardCellCorrectionChoice,
+  type BoardCellCorrectionClient,
+  applyBoardCellCorrection,
+  boardCellCorrectionPalette,
+} from './board-search-board-cell-correction';
 import {
   BOARD_SCHEMA_CELL,
   type BoardLinePoint,
@@ -30,7 +37,12 @@ export type BoardLinesClient = Pick<
   | 'boardSearchBoardViewUrl'
   | 'getBoardSearchBoardDetail'
   | 'symbolImageAssetUrl'
->;
+> &
+  BoardCellCorrectionClient;
+
+type CorrectionNotice =
+  | { readonly kind: 'ok'; readonly text: string }
+  | { readonly kind: 'error'; readonly text: string };
 
 type DetailState =
   | { readonly kind: 'loading' }
@@ -53,7 +65,8 @@ export function BoardSearchBoardLinesModal({
   readonly api: BoardLinesClient;
   readonly formatAmount: (baseCredits: number) => string;
   readonly gameId: string;
-  readonly onClose: () => void;
+  /** `edited` is true when a cell correction was saved in this modal. */
+  readonly onClose: (edited: boolean) => void;
   readonly onRecalculate: () => void;
   readonly row: ApproximateWinRowResponse;
   readonly rulesVersionId: string;
@@ -64,6 +77,14 @@ export function BoardSearchBoardLinesModal({
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
   const [visibility, setVisibility] = useState<BoardLineVisibility>(new Set());
   const [imageFailed, setImageFailed] = useState(false);
+  const [editMode, setEditMode] = useState(false);
+  const [selectedCell, setSelectedCell] = useState<number | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<CorrectionNotice | null>(null);
+  const [edited, setEdited] = useState(false);
+  // Between a save and the refetch the shown board is outdated: no header
+  // "after correction" values and no cell targets with old revisions.
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
     const element = dialog.current;
@@ -76,7 +97,11 @@ export function BoardSearchBoardLinesModal({
     let cancelled = false;
     queueMicrotask(() => {
       if (cancelled) return;
-      setState({ kind: 'loading' });
+      // After a correction the previous board stays visible until the fresh
+      // one arrives, so the photo and the notice do not disappear.
+      setState((previous) =>
+        previous.kind === 'ready' ? previous : { kind: 'loading' },
+      );
       setImageFailed(false);
       void api
         .getBoardSearchBoardDetail(gameId, row.sequenceNumber)
@@ -94,6 +119,7 @@ export function BoardSearchBoardLinesModal({
           }
           setVisibility(initialBoardLineVisibility(result.data.matches));
           setState({ detail: result.data, kind: 'ready' });
+          setRefreshing(false);
         })
         .catch(() => {
           if (!cancelled) {
@@ -113,15 +139,204 @@ export function BoardSearchBoardLinesModal({
   // Close the native modal first: while it is open everything else is
   // inert, so the parent could not move focus back to the row button.
   const requestClose = () => {
+    // A write still in flight must finish first: its result decides whether
+    // the table is recalculated.
+    if (saving) return;
     dialog.current?.close();
-    onClose();
+    onClose(edited);
   };
 
   const detail = state.kind === 'ready' ? state.detail : null;
+  // After a saved correction the table row is known to be stale, so only the
+  // lines themselves must still add up to the board payout.
   const consistency =
     detail === null
       ? null
-      : boardLinesConsistency(detail, row.payoutCredits, rulesVersionId);
+      : edited
+        ? boardLinesConsistency(
+            detail,
+            detail.payoutCredits,
+            detail.rules.rulesVersionId,
+          )
+        : boardLinesConsistency(detail, row.payoutCredits, rulesVersionId);
+  const editableCells = new Map(
+    (detail?.cells ?? []).map((cell) => [cell.cellIndex, cell]),
+  );
+  const canEdit = detail?.cells !== null && detail?.cells !== undefined;
+  const palette = boardCellCorrectionPalette(symbols);
+
+  async function saveCorrection(
+    cell: BoardSearchBoardCellResponse,
+    choice: BoardCellCorrectionChoice,
+  ) {
+    if (saving) return;
+    setSaving(true);
+    setNotice(null);
+    const result = await applyBoardCellCorrection(
+      api,
+      gameId,
+      cell,
+      choice,
+      symbols,
+    );
+    setSaving(false);
+    const label =
+      choice.kind === 'symbol'
+        ? (symbols.find((symbol) => symbol.code === choice.symbolCode)?.name ??
+          choice.symbolCode)
+        : choice.kind === 'unreadable'
+          ? 'nieczytelne (?)'
+          : 'zła siatka';
+    if (result.ok) {
+      setEdited(true);
+      setSelectedCell(null);
+      setNotice({
+        kind: 'ok',
+        text: `Zapisano: pole ${cell.cellIndex + 1} → ${label}.`,
+      });
+    } else {
+      setNotice({
+        kind: 'error',
+        text: result.conflict
+          ? `Pole ${cell.cellIndex + 1} zmieniło się w międzyczasie — plansza została odświeżona, wybierz symbol jeszcze raz.`
+          : result.error,
+      });
+    }
+    // Fresh revisions and lines after a save, and after a conflict too.
+    setRefreshing(true);
+    setAttempt((value) => value + 1);
+  }
+
+  const selected =
+    selectedCell === null ? undefined : editableCells.get(selectedCell);
+  const correctionPanel: ReactNode = !canEdit ? (
+    detail !== null && detail.dataSource === 'operational_review' && !edited ? (
+      <p className="boardSearchBoardLinesNote">
+        {detail.boardStatus === 'pending'
+          ? 'Ta plansza nie ma jeszcze kompletu rekordów weryfikacji pól, więc nie można jej poprawiać z tego okna.'
+          : 'Poprawianie pól jest dostępne tylko dla plansz oczekujących; ta plansza ma już zatwierdzone symbole.'}
+      </p>
+    ) : null
+  ) : (
+    <div className="boardSearchBoardCellCorrection">
+      <button
+        aria-pressed={editMode}
+        className={editMode ? 'primaryButton' : 'secondaryButton'}
+        onClick={() => {
+          setEditMode((value) => !value);
+          setSelectedCell(null);
+        }}
+        type="button"
+      >
+        {editMode ? 'Zakończ poprawianie' : 'Popraw symbole'}
+      </button>
+      {editMode && selected === undefined ? (
+        <p className="boardSearchBoardLinesNote">
+          Kliknij pole na planszy, aby wybrać właściwy symbol.
+        </p>
+      ) : null}
+      {editMode && selected !== undefined ? (
+        <div
+          aria-label={`Popraw pole ${selected.cellIndex + 1}`}
+          className="boardSearchBoardCellPalette"
+          role="group"
+        >
+          <p>
+            Pole {selected.cellIndex + 1} (wiersz{' '}
+            {Math.floor(selected.cellIndex / 5) + 1}, kolumna{' '}
+            {(selected.cellIndex % 5) + 1}) · teraz:{' '}
+            <strong>
+              {cellSymbolName(
+                detail?.symbolCodes[selected.cellIndex] ?? null,
+                symbols,
+              )}
+            </strong>
+          </p>
+          <div className="boardSearchBoardCellPaletteGrid">
+            {palette.map((symbol) => (
+              <button
+                aria-pressed={symbol.code === selected.assignedSymbolCode}
+                className="boardSearchSymbolButton"
+                disabled={saving}
+                key={symbol.id}
+                onClick={() =>
+                  void saveCorrection(selected, {
+                    kind: 'symbol',
+                    symbolCode: symbol.code,
+                  })
+                }
+                title={symbol.name}
+                type="button"
+              >
+                {symbol.imagePath ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- local Admin API asset
+                  <img
+                    alt=""
+                    src={api.symbolImageAssetUrl(gameId, symbol.id)}
+                  />
+                ) : null}
+                <span>{symbol.name}</span>
+              </button>
+            ))}
+          </div>
+          <div className="boardSearchBoardCellPaletteActions">
+            <button
+              className="secondaryButton"
+              disabled={saving}
+              onClick={() =>
+                void saveCorrection(selected, { kind: 'unreadable' })
+              }
+              type="button"
+            >
+              Nieczytelny (?)
+            </button>
+            <button
+              className="secondaryButton"
+              disabled={saving}
+              onClick={() =>
+                void saveCorrection(selected, { kind: 'grid_issue' })
+              }
+              type="button"
+            >
+              Zła siatka
+            </button>
+            <button
+              className="textButton"
+              disabled={saving}
+              onClick={() => setSelectedCell(null)}
+              type="button"
+            >
+              Anuluj
+            </button>
+          </div>
+        </div>
+      ) : null}
+    </div>
+  );
+  // Outside the editing branch: the last correction may close the board, and
+  // its confirmation must still be visible.
+  const correctionMessages: ReactNode = (
+    <>
+      {saving ? <p role="status">Zapisywanie poprawki…</p> : null}
+      {notice !== null ? (
+        <p
+          className={
+            notice.kind === 'ok'
+              ? 'feedbackBanner'
+              : 'feedbackBanner feedbackBannerError'
+          }
+          role={notice.kind === 'ok' ? 'status' : 'alert'}
+        >
+          {notice.text}
+        </p>
+      ) : null}
+      {edited ? (
+        <p className="boardSearchBoardLinesNote">
+          Tabela i bilans zostaną przeliczone po zamknięciu okna.
+        </p>
+      ) : null}
+    </>
+  );
 
   return (
     <dialog
@@ -144,16 +359,35 @@ export function BoardSearchBoardLinesModal({
               {row.spinNumber.toLocaleString('pl-PL')}
             </h2>
             <p>
-              Wypłata {formatAmount(row.payoutCredits)}
-              {row.payoutKind === 'confirmed_minimum'
+              {edited && !refreshing && detail !== null
+                ? 'Po poprawce: wypłata '
+                : 'Wypłata '}
+              {formatAmount(
+                edited && !refreshing && detail !== null
+                  ? detail.payoutCredits
+                  : row.payoutCredits,
+              )}
+              {(edited && !refreshing && detail !== null
+                ? detail.payoutKind
+                : row.payoutKind) === 'confirmed_minimum'
                 ? ' · częściowa (potwierdzone minimum)'
                 : ''}{' '}
-              · {boardStatusLabel(row.boardStatus)}. Linia liczy się tylko od
-              lewej krawędzi i kończy na pierwszym nieznanym polu.
+              ·{' '}
+              {boardStatusLabel(
+                edited && !refreshing && detail !== null
+                  ? detail.boardStatus
+                  : row.boardStatus,
+              )}
+              {edited && !refreshing && detail !== null
+                ? ` (w tabeli ${formatAmount(row.payoutCredits)} do przeliczenia)`
+                : ''}
+              . Linia liczy się tylko od lewej krawędzi i kończy na pierwszym
+              nieznanym polu.
             </p>
           </div>
           <button
             className="secondaryButton"
+            disabled={saving}
             onClick={requestClose}
             type="button"
           >
@@ -189,7 +423,8 @@ export function BoardSearchBoardLinesModal({
             <button
               className="primaryButton"
               onClick={() => {
-                onRecalculate();
+                // After an edit, closing already recalculates the range.
+                if (!edited) onRecalculate();
                 requestClose();
               }}
               type="button"
@@ -206,7 +441,16 @@ export function BoardSearchBoardLinesModal({
             gameId={gameId}
             imageFailed={imageFailed}
             onImageError={() => setImageFailed(true)}
+            correctionPanel={
+              <>
+                {correctionPanel}
+                {correctionMessages}
+              </>
+            }
+            editableCells={editMode && !refreshing ? editableCells : null}
+            onSelectCell={setSelectedCell}
             onVisibilityChange={setVisibility}
+            selectedCell={selectedCell}
             symbols={symbols}
             visibility={visibility}
           />
@@ -218,17 +462,29 @@ export function BoardSearchBoardLinesModal({
 
 function BoardLinesView({
   api,
+  correctionPanel,
   detail,
+  editableCells,
   formatAmount,
   gameId,
   imageFailed,
   onImageError,
+  onSelectCell,
   onVisibilityChange,
+  selectedCell,
   symbols,
   visibility,
 }: {
   readonly api: BoardLinesClient;
+  readonly correctionPanel: ReactNode;
   readonly detail: BoardSearchBoardDetailResponse;
+  /** Cells that can be corrected; `null` outside the correction mode. */
+  readonly editableCells: ReadonlyMap<
+    number,
+    BoardSearchBoardCellResponse
+  > | null;
+  readonly onSelectCell: (cellIndex: number) => void;
+  readonly selectedCell: number | null;
   readonly formatAmount: (baseCredits: number) => string;
   readonly gameId: string;
   readonly imageFailed: boolean;
@@ -276,7 +532,7 @@ function BoardLinesView({
       <div className="boardSearchBoardLinesCanvas">
         <svg
           aria-label={`Plansza ${detail.sequenceNumber} z ${visibleMatches.length} widocznymi liniami wypłat`}
-          role="img"
+          role={editableCells === null ? 'img' : 'group'}
           viewBox={`0 0 ${width} ${height}`}
         >
           {usePhoto && imageUrl !== null ? (
@@ -404,6 +660,39 @@ function BoardLinesView({
               </g>
             );
           })}
+          {editableCells !== null
+            ? cells.map((cell, index) => {
+                const record = editableCells.get(index);
+                if (record === undefined) return null;
+                const name = cellSymbolName(
+                  detail.symbolCodes[index] ?? null,
+                  symbols,
+                );
+                return (
+                  <polygon
+                    aria-label={`Pole ${index + 1}: ${name} — popraw symbol`}
+                    aria-pressed={selectedCell === index}
+                    className={
+                      selectedCell === index
+                        ? 'boardSearchBoardCellTarget boardSearchBoardCellTargetSelected'
+                        : 'boardSearchBoardCellTarget'
+                    }
+                    key={`target:${index}`}
+                    onClick={() => onSelectCell(index)}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onSelectCell(index);
+                      }
+                    }}
+                    points={pointsText(cell)}
+                    role="button"
+                    tabIndex={0}
+                    vectorEffect="non-scaling-stroke"
+                  />
+                );
+              })
+            : null}
         </svg>
         {!usePhoto ? (
           <p className="boardSearchBoardLinesNote">
@@ -418,6 +707,7 @@ function BoardLinesView({
         aria-label="Legenda linii wypłat"
         className="boardSearchBoardLinesLegend"
       >
+        {correctionPanel}
         <div className="boardSearchBoardLinesLegendActions">
           <button
             className="textButton"
@@ -492,6 +782,15 @@ function BoardLinesView({
       </aside>
     </div>
   );
+}
+
+/** Name of the symbol a cell currently counts as (`?` when unknown). */
+function cellSymbolName(
+  code: string | null,
+  symbols: readonly SymbolResponse[],
+): string {
+  if (code === null) return '?';
+  return symbols.find((symbol) => symbol.code === code)?.name ?? code;
 }
 
 function boardStatusLabel(status: string): string {

@@ -177,8 +177,13 @@ last_updated: 2026-09-30
   pewnej propozycji zostało przy modelu. Komórki > 80% i inne symbole bez
   zmian. Poprawki narzędzia `v1.7.79`, `v1.7.80` (audyt Opus PASS).
 - TASK-0751 done: Admin → Weryfikacja symboli ma przedział pewności
-  „80–<99%” (bez komórek ≥ 99% i bez predykcji biblioteki 0,99). TASK-0750
-  (B3, pasmo 80–99%) w toku.
+  „80–<99%” (bez komórek ≥ 99% i bez predykcji biblioteki 0,99).
+- TASK-0750 (B3) done 2026-09-30 05:25–20:01 UTC: pasmo 80–99% dla symboli
+  1–8: 297 894 komórki na 226 623 planszach z predykcją biblioteki, 0
+  błędów, 1 plansza `stale`. Łącznie z B1/B2: 361 082 oczekujących komórek
+  „Nowy algorytm”, 284 240 wersji; 37 060 komórek 80–99% bez pewnej
+  propozycji zostało przy modelu. Komórki ≥ 99% nieruszane (decyzja
+  operatora). Przebiegi zapisu zakończone — S3–S8 planu D-467 odblokowane.
 
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 

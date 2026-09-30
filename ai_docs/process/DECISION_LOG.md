@@ -6,6 +6,26 @@ last_updated: 2026-09-30
 
 # Decision Log
 
+## D-475 — zapis dziennika zapytań linku w osobnej transakcji (uzupełnia D-472)
+
+- **Status:** accepted, 2026-09-30; TASK-0767 (audyt).
+- **Context:** D-472 i plan R5 mówiły o zapisie wpisu „w tej samej
+  transakcji co odczyt”. Odczyty udostępnionej wyszukiwarki idą sesjami
+  przypiętymi do magazynu gry (`game_data_v2`), a dziennik jest tabelą
+  sterującą w `public`; jedna transakcja wymagałaby wiązania zapisu z każdym
+  serwisem odczytu.
+- **Decision:** wpis jest zapisywany w osobnej, krótkiej transakcji, która
+  jest zatwierdzana, zanim odpowiedź z danymi opuści API. Żądanie, którego
+  wpisu nie da się zbudować (kształt, rozmiar), jest odrzucane przed
+  odczytem (`422 BOARD_SEARCH_SHARE_QUERY_INVALID`); nieudany zapis daje
+  `503 BOARD_SEARCH_SHARE_QUERY_LOG_UNAVAILABLE` bez danych; nieudany odczyt
+  jest zapisywany z kodem błędu. Gwarancja fail-closed z D-472 („brak danych
+  bez śladu”) jest zachowana. Skutek: gdy magazyn gry jest niezapisywalny
+  (migracja, blokada), udostępnienie odpowiada 503, bo wpis wiąże się z grą.
+- **Alternatives rejected:** jedna transakcja odczytu i zapisu (sprzężenie
+  wszystkich serwisów odczytu z tabelą sterującą); zapis po wysłaniu
+  odpowiedzi (dane bez śladu przy awarii).
+
 ## D-474 — nieaktualny odczyt planszy w oknie linii i odświeżenie jednej planszy
 
 - **Status:** accepted, 2026-09-30; zgłoszenie operatora (plansza #67755),

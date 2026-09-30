@@ -275,4 +275,11 @@ def _parse_cells(values: list[str]) -> tuple[BoardSearchQueryCell, ...]:
     return tuple(parsed)
 
 
-__all__ = ["create_board_search_router"]
+def parse_board_search_cells(values: list[str]) -> tuple[BoardSearchQueryCell, ...]:
+    """Parse `cellIndex:symbolCode|?` query values (also used by the online
+    share surface, D-471)."""
+
+    return _parse_cells(values)
+
+
+__all__ = ["create_board_search_router", "parse_board_search_cells"]

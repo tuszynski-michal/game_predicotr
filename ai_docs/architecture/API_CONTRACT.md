@@ -485,6 +485,61 @@ rozmiaru (4 KiB / 2 KiB) oraz indeksem `(session_id, occurred_at DESC, id
 DESC)`. Migracja jest addytywna; downgrade jest zablokowany, bo tabele
 trzymają audyt i dziennik zapytań.
 
+### Publiczna powierzchnia udostępniania (D-471, D-472, TASK-0767)
+
+Trasy są osiągalne tylko przez proxy Reviewera: każde żądanie musi mieć
+nagłówek `X-Board-Search-Share-Proxy: reviewer-board-search-v1`
+(`403 BOARD_SEARCH_SHARE_PROXY_REQUIRED`), a poza odblokowaniem cookie
+`gp_board_search_token` (`HttpOnly`, `Secure`, `SameSite=Strict`,
+`Path=/board-search-api`; brak: `401 BOARD_SEARCH_SHARE_TOKEN_REQUIRED`,
+zły, wygasły, zablokowany albo unieważniony:
+`401 BOARD_SEARCH_SHARE_TOKEN_INVALID`). Gra pochodzi wyłącznie z sesji;
+parametr `gameId`/`game_id` w zapytaniu daje
+`422 BOARD_SEARCH_SHARE_PARAMETER_FORBIDDEN`. Odczyty danych działają w
+zakresie magazynu gry z sesji (`game_storage_scope`).
+
+```text
+POST /api/v1/board-search-shares/sessions/{sessionId}/unlock  { accessCode }
+GET  /api/v1/board-search-shares/context
+GET  /api/v1/board-search-shares/symbols
+GET  /api/v1/board-search-shares/symbols/{symbolId}/image?revision={sha256}
+GET  /api/v1/board-search-shares/search?cell=&scope=&limit=
+GET  /api/v1/board-search-shares/approximate-win?startSequenceNumber=&spinCount=
+GET  /api/v1/board-search-shares/boards/{sequenceNumber}
+GET  /api/v1/board-search-shares/boards/{sequenceNumber}/view
+     ?expectedBoardChecksumSha256=&viewRevision=
+```
+
+- `unlock` i `context` zwracają `{ sessionId, label, gameName, expiresAt }`.
+- `symbols` zwraca symbole bez ścieżek: zamiast `imagePath` pole
+  `imageRevision` (suma obrazu wzorca albo `null`); obraz jest dostępny pod
+  URL z tą sumą (inna suma: `409 BOARD_SEARCH_SHARE_SYMBOL_IMAGE_CHANGED`).
+- `search` zwraca wyniki bez `reviewItemId`, `recognizedBoardId`,
+  `importJobId` i `assetMode`; `approximate-win` ma kształt Admina;
+  `boards/{n}` zawsze ma `cells = null` (D-473) i nie ma odświeżania. Oba
+  kształty Admina zawierają `gameId` i `rulesVersionId`: to nie są sekrety,
+  a wspólny UI porównuje `rulesVersionId` przy spójności okna planszy.
+- Wzór: najwyżej 15 komórek po najwyżej 67 znaków (`indeks:kod`); dłuższy
+  albo liczniejszy daje `422 BOARD_SEARCH_SHARE_QUERY_INVALID` bez odczytu i
+  bez wpisu.
+- Obrazy (`symbols/.../image`, widok z `viewRevision`):
+  `Cache-Control: private, immutable, max-age=86400`; widok bez rewizji:
+  `private, no-cache` z `ETag`/`304`.
+- Limity na sesję (w procesie API): 120 żądań JSON/min, 600 obrazów/min,
+  10 kalkulacji zakresu/min i jedna naraz → `429
+  BOARD_SEARCH_SHARE_RATE_LIMITED`.
+
+Dziennik zapytań (R5): `search`, `approximate-win` i `boards/{n}` zapisują
+dokładnie jeden wpis `board_search_share_query_events` (czas serwera,
+rodzaj, parametry do odtworzenia, skrót wyniku, `outcomeCode` = `ok` albo
+stabilny kod błędu). Wzór wyszukiwania jest zapisany w całości, także z
+polami `?` przesłanymi przez klienta. Wpis jest zatwierdzany w osobnej
+krótkiej transakcji zanim odpowiedź z danymi opuści API (D-475); gdy zapis się nie
+uda, odpowiedź to `503 BOARD_SEARCH_SHARE_QUERY_LOG_UNAVAILABLE` bez danych.
+Nieprawidłowe parametry (`422`) nie są zapytaniami o dane i nie są
+zapisywane. Odblokowanie, kontekst, symbole i obrazy nie trafiają do
+dziennika. Nie są zapisywane adresy IP ani nagłówki przeglądarki.
+
 ### Odczyt pojedynczych cropów do weryfikacji symboli
 
 ```text

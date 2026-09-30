@@ -64,6 +64,11 @@ last_updated: 2026-09-30
   `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED`). Migracja nie była uruchamiana
   na bazie deweloperskiej — przed odbiorem etapu B wymaga zgody operatora.
   Audyt PASS w pierwszym cyklu.
+- TASK-0767 done: publiczne trasy udostępnienia (`/board-search-shares`:
+  unlock, kontekst, symbole, wyszukiwanie, zakres, szczegóły, widok) tylko
+  przez proxy Reviewera z cookie sesji, bez identyfikatorów wewnętrznych,
+  z limitami i dziennikiem zapytań fail-closed (D-475: osobna transakcja
+  zatwierdzana przed wysłaniem danych).
 - Etap B w toku; push i merge nie były wykonywane.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)

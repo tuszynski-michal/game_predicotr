@@ -1309,6 +1309,112 @@ export type BoardSearchShareCreatedResponse = {
 };
 
 /**
+ * BoardSearchSharePublicContextResponse
+ *
+ * What the recipient sees about their access; no internal identities.
+ */
+export type BoardSearchSharePublicContextResponse = {
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Gamename
+   */
+  gameName: string;
+  /**
+   * Label
+   */
+  label: string | null;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * BoardSearchSharePublicSearchResponse
+ */
+export type BoardSearchSharePublicSearchResponse = {
+  /**
+   * Querycellcount
+   */
+  queryCellCount: number;
+  /**
+   * Results
+   */
+  results: Array<BoardSearchSharePublicSearchResultResponse>;
+  scope: BoardSearchScope;
+};
+
+/**
+ * BoardSearchSharePublicSearchResultResponse
+ */
+export type BoardSearchSharePublicSearchResultResponse = {
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256: string;
+  score: BoardSearchScoreResponse;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * BoardSearchSharePublicSymbolResponse
+ */
+export type BoardSearchSharePublicSymbolResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Displayorder
+   */
+  displayOrder: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Imagerevision
+   *
+   * Checksum of the symbol image for its immutable URL; null without an image.
+   */
+  imageRevision: string | null;
+  /**
+   * Iswildcard
+   */
+  isWildcard: boolean;
+  /**
+   * Mobilecode
+   */
+  mobileCode: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Nameen
+   */
+  nameEn: string | null;
+  /**
+   * Namepl
+   */
+  namePl: string | null;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
  * BoardSearchShareSessionListResponse
  */
 export type BoardSearchShareSessionListResponse = {
@@ -1376,6 +1482,16 @@ export type BoardSearchShareSessionResponse = {
    * Status
    */
   status: 'active' | 'locked' | 'expired' | 'revoked';
+};
+
+/**
+ * BoardSearchShareUnlock
+ */
+export type BoardSearchShareUnlock = {
+  /**
+   * Accesscode
+   */
+  accessCode: string;
 };
 
 /**
@@ -25852,6 +25968,515 @@ export type ListWorkerLanesResponses = {
 
 export type ListWorkerLanesResponse =
   ListWorkerLanesResponses[keyof ListWorkerLanesResponses];
+
+export type GetBoardSearchShareApproximateWinData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query: {
+    /**
+     * Startsequencenumber
+     */
+    startSequenceNumber: number;
+    /**
+     * Spincount
+     */
+    spinCount: number;
+  };
+  url: '/api/v1/board-search-shares/approximate-win';
+};
+
+export type GetBoardSearchShareApproximateWinErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareApproximateWinError =
+  GetBoardSearchShareApproximateWinErrors[keyof GetBoardSearchShareApproximateWinErrors];
+
+export type GetBoardSearchShareApproximateWinResponses = {
+  /**
+   * Successful Response
+   */
+  200: ApproximateWinResponse;
+};
+
+export type GetBoardSearchShareApproximateWinResponse =
+  GetBoardSearchShareApproximateWinResponses[keyof GetBoardSearchShareApproximateWinResponses];
+
+export type GetBoardSearchShareBoardDetailData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/board-search-shares/boards/{sequence_number}';
+};
+
+export type GetBoardSearchShareBoardDetailErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareBoardDetailError =
+  GetBoardSearchShareBoardDetailErrors[keyof GetBoardSearchShareBoardDetailErrors];
+
+export type GetBoardSearchShareBoardDetailResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchBoardDetailResponse;
+};
+
+export type GetBoardSearchShareBoardDetailResponse =
+  GetBoardSearchShareBoardDetailResponses[keyof GetBoardSearchShareBoardDetailResponses];
+
+export type GetBoardSearchShareBoardViewData = {
+  body?: never;
+  headers?: {
+    /**
+     * If-None-Match
+     */
+    'If-None-Match'?: string | null;
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query: {
+    /**
+     * Expectedboardchecksumsha256
+     */
+    expectedBoardChecksumSha256: string;
+    /**
+     * Viewrevision
+     */
+    viewRevision?: string | null;
+  };
+  url: '/api/v1/board-search-shares/boards/{sequence_number}/view';
+};
+
+export type GetBoardSearchShareBoardViewErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareBoardViewError =
+  GetBoardSearchShareBoardViewErrors[keyof GetBoardSearchShareBoardViewErrors];
+
+export type GetBoardSearchShareBoardViewResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetBoardSearchShareContextData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/board-search-shares/context';
+};
+
+export type GetBoardSearchShareContextErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareContextError =
+  GetBoardSearchShareContextErrors[keyof GetBoardSearchShareContextErrors];
+
+export type GetBoardSearchShareContextResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicContextResponse;
+};
+
+export type GetBoardSearchShareContextResponse =
+  GetBoardSearchShareContextResponses[keyof GetBoardSearchShareContextResponses];
+
+export type SearchBoardSearchShareBoardsData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Cell
+     */
+    cell?: Array<string> | null;
+    scope?: BoardSearchScope;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/board-search-shares/search';
+};
+
+export type SearchBoardSearchShareBoardsErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type SearchBoardSearchShareBoardsError =
+  SearchBoardSearchShareBoardsErrors[keyof SearchBoardSearchShareBoardsErrors];
+
+export type SearchBoardSearchShareBoardsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicSearchResponse;
+};
+
+export type SearchBoardSearchShareBoardsResponse =
+  SearchBoardSearchShareBoardsResponses[keyof SearchBoardSearchShareBoardsResponses];
+
+export type UnlockBoardSearchShareSessionData = {
+  body: BoardSearchShareUnlock;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/board-search-shares/sessions/{session_id}/unlock';
+};
+
+export type UnlockBoardSearchShareSessionErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type UnlockBoardSearchShareSessionError =
+  UnlockBoardSearchShareSessionErrors[keyof UnlockBoardSearchShareSessionErrors];
+
+export type UnlockBoardSearchShareSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicContextResponse;
+};
+
+export type UnlockBoardSearchShareSessionResponse =
+  UnlockBoardSearchShareSessionResponses[keyof UnlockBoardSearchShareSessionResponses];
+
+export type ListBoardSearchShareSymbolsData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/board-search-shares/symbols';
+};
+
+export type ListBoardSearchShareSymbolsErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type ListBoardSearchShareSymbolsError =
+  ListBoardSearchShareSymbolsErrors[keyof ListBoardSearchShareSymbolsErrors];
+
+export type ListBoardSearchShareSymbolsResponses = {
+  /**
+   * Response Listboardsearchsharesymbols
+   *
+   * Successful Response
+   */
+  200: Array<BoardSearchSharePublicSymbolResponse>;
+};
+
+export type ListBoardSearchShareSymbolsResponse =
+  ListBoardSearchShareSymbolsResponses[keyof ListBoardSearchShareSymbolsResponses];
+
+export type GetBoardSearchShareSymbolImageData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query: {
+    /**
+     * Revision
+     */
+    revision: string;
+  };
+  url: '/api/v1/board-search-shares/symbols/{symbol_id}/image';
+};
+
+export type GetBoardSearchShareSymbolImageErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareSymbolImageError =
+  GetBoardSearchShareSymbolImageErrors[keyof GetBoardSearchShareSymbolImageErrors];
+
+export type GetBoardSearchShareSymbolImageResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type GetHealthData = {
   body?: never;

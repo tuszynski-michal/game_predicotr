@@ -247,3 +247,56 @@ def test_real_readiness_refuses_a_game_without_board_search_data(database: Engin
             SqlAlchemyBoardSearchApproximateWinRepository(session), uuid4()
         )
     assert missing.value.code == "GAME_NOT_FOUND"
+
+
+def test_query_log_writes_commit_under_the_game_storage_route(database: Engine) -> None:
+    """The entry carries `game_id`, so the routed session binds the game's
+    store before the flush; the public table must still receive the row."""
+
+    from game_predictor_api.domain.board_search_share_queries import (
+        BoardSearchShareQueryKind,
+        build_board_search_share_query_entry,
+        search_query_request,
+        search_query_summary,
+    )
+    from game_predictor_api.storage.board_search_share_query_repository import (
+        SqlAlchemyBoardSearchShareQueryLog,
+    )
+    from game_predictor_api.storage.database import create_session_factory
+    from game_predictor_api.storage.game_data_v2_manifest_v1 import VERSION
+
+    game_id = _game(database)
+    with Session(database) as session:
+        session.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id, store_schema, generation, manifest_version, status, revision) "
+                "VALUES (:game_id, 'game_data_v2', 2, :version, 'active', 0)"
+            ),
+            {"game_id": game_id, "version": VERSION},
+        )
+        created = _service(session).create(game_id=game_id, lifetime_minutes=60, label=None)
+        session.commit()
+
+    log = SqlAlchemyBoardSearchShareQueryLog(create_session_factory(database))
+    log.record(
+        session_id=created.session.session_id,
+        game_id=game_id,
+        entry=build_board_search_share_query_entry(
+            kind=BoardSearchShareQueryKind.SEARCH,
+            request=search_query_request(cells=[(0, "cherry"), (4, None)], scope="all", limit=5),
+            result_summary=search_query_summary([3, 9]),
+            outcome_code="ok",
+        ),
+        occurred_at=NOW,
+    )
+    with Session(database) as session:
+        rows = session.scalars(
+            select(BoardSearchShareQueryEventModel).where(
+                BoardSearchShareQueryEventModel.session_id == created.session.session_id
+            )
+        ).all()
+        assert len(rows) == 1
+        assert rows[0].request == {"cells": ["0:cherry", "4:?"], "scope": "all", "limit": 5}
+        assert rows[0].result_summary == {"resultCount": 2, "firstSequenceNumbers": [3, 9]}
+        assert rows[0].game_id == game_id

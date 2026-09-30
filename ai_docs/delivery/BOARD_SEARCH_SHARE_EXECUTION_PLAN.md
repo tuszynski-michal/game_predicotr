@@ -151,8 +151,10 @@ grosze = kredyty_bazowe * stawka_gr / stawka_bazowa_gr * 10
   nie widzi i nie zapisuje.
 - Nie zapisujemy adresu IP ani nagłówków przeglądarki. „Adres” oznacza
   udostępniony link, czyli sesję.
-- Zapis jest częścią tej samej transakcji co odczyt (fail-closed): jeżeli
-  wpisu nie da się zapisać, odbiorca dostaje błąd, a nie dane bez śladu.
+- Zapis jest fail-closed: jeżeli wpisu nie da się zapisać, odbiorca dostaje
+  błąd, a nie dane bez śladu. Po TASK-0767 (D-475) wpis jest zatwierdzany w
+  osobnej krótkiej transakcji przed wysłaniem danych, nie w transakcji
+  odczytu.
 - Bramka kodu informuje odbiorcę, że jego zapytania są zapisywane i widoczne
   dla właściciela.
 - Dziennik jest przechowywany razem z rekordem sesji. Nie ma automatycznego

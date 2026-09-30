@@ -17,6 +17,7 @@ from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressStatus,
     is_ready_online_reviewer_ingress,
 )
+from game_predictor_api.domain.board_search import BoardSearchScope
 from game_predictor_api.domain.board_search_shares import (
     BOARD_SEARCH_SHARE_DEFAULT_LIFETIME_MINUTES,
     BOARD_SEARCH_SHARE_MAX_LIFETIME_MINUTES,
@@ -24,6 +25,7 @@ from game_predictor_api.domain.board_search_shares import (
     BOARD_SEARCH_SHARE_REVIEWER_PATH,
     BoardSearchShareStatus,
 )
+from game_predictor_api.schemas.board_search import BoardSearchResponse, BoardSearchScoreResponse
 from game_predictor_api.schemas.catalog import ApiModel
 
 
@@ -118,10 +120,77 @@ def board_search_share_url(public_origin: str, session_id: UUID) -> str:
     )
 
 
+class BoardSearchShareUnlock(ApiModel):
+    access_code: str = Field(min_length=1, max_length=64)
+
+
+class BoardSearchSharePublicContextResponse(ApiModel):
+    """What the recipient sees about their access; no internal identities."""
+
+    session_id: UUID
+    label: str | None
+    game_name: str
+    expires_at: datetime
+
+
+class BoardSearchSharePublicSymbolResponse(ApiModel):
+    id: UUID
+    mobile_code: int
+    code: str
+    name: str
+    name_pl: str | None
+    name_en: str | None
+    is_wildcard: bool
+    display_order: int
+    status: str
+    image_revision: str | None = Field(
+        description="Checksum of the symbol image for its immutable URL; null without an image."
+    )
+
+
+class BoardSearchSharePublicSearchResultResponse(ApiModel):
+    sequence_number: int = Field(ge=1)
+    status: str
+    board_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    score: BoardSearchScoreResponse
+
+
+class BoardSearchSharePublicSearchResponse(ApiModel):
+    scope: BoardSearchScope
+    query_cell_count: int = Field(ge=1, le=15)
+    results: tuple[BoardSearchSharePublicSearchResultResponse, ...] = Field(max_length=100)
+
+
+def to_board_search_share_public_search_response(
+    value: BoardSearchResponse,
+) -> BoardSearchSharePublicSearchResponse:
+    """The Admin search response without review, board and import identities."""
+
+    return BoardSearchSharePublicSearchResponse(
+        scope=value.scope,
+        query_cell_count=value.query_cell_count,
+        results=tuple(
+            BoardSearchSharePublicSearchResultResponse(
+                sequence_number=result.sequence_number,
+                status=result.status,
+                board_checksum_sha256=result.board_checksum_sha256,
+                score=result.score,
+            )
+            for result in value.results
+        ),
+    )
+
+
 __all__ = [
     "BoardSearchShareCreate",
     "BoardSearchShareCreatedResponse",
     "BoardSearchShareSessionListResponse",
     "BoardSearchShareSessionResponse",
+    "BoardSearchShareUnlock",
+    "BoardSearchSharePublicContextResponse",
+    "BoardSearchSharePublicSearchResponse",
+    "BoardSearchSharePublicSearchResultResponse",
+    "BoardSearchSharePublicSymbolResponse",
+    "to_board_search_share_public_search_response",
     "board_search_share_url",
 ]

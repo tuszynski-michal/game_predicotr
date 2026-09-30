@@ -209,7 +209,15 @@ class BoardSearchBoardDetailService:
         self._repository = repository
         self._artifact_root = artifact_root
 
-    def detail(self, *, game_id: UUID, sequence_number: int) -> BoardSearchBoardDetail:
+    def detail(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        include_cells: bool = True,
+    ) -> BoardSearchBoardDetail:
+        """`include_cells=False` is the online share (D-471): cell records carry
+        review identities and correction is Admin-only (D-473)."""
         if sequence_number < 1:
             raise _board_not_found()
         configuration = self._repository.latest_published_rules(game_id)
@@ -279,7 +287,8 @@ class BoardSearchBoardDetailService:
         # D-473); resolved boards read the whole-board decision instead.
         cells: tuple[BoardSearchBoardCell, ...] | None = None
         if (
-            document.asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW
+            include_cells
+            and document.asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW
             and document.status == "pending"
             and not stale
         ):

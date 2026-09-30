@@ -231,6 +231,21 @@ import type {
   GetBoardSearchBoardViewData,
   GetBoardSearchBoardViewErrors,
   GetBoardSearchBoardViewResponses,
+  GetBoardSearchShareApproximateWinData,
+  GetBoardSearchShareApproximateWinErrors,
+  GetBoardSearchShareApproximateWinResponses,
+  GetBoardSearchShareBoardDetailData,
+  GetBoardSearchShareBoardDetailErrors,
+  GetBoardSearchShareBoardDetailResponses,
+  GetBoardSearchShareBoardViewData,
+  GetBoardSearchShareBoardViewErrors,
+  GetBoardSearchShareBoardViewResponses,
+  GetBoardSearchShareContextData,
+  GetBoardSearchShareContextErrors,
+  GetBoardSearchShareContextResponses,
+  GetBoardSearchShareSymbolImageData,
+  GetBoardSearchShareSymbolImageErrors,
+  GetBoardSearchShareSymbolImageResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
@@ -447,6 +462,9 @@ import type {
   ListBoardSearchShareSessionsData,
   ListBoardSearchShareSessionsErrors,
   ListBoardSearchShareSessionsResponses,
+  ListBoardSearchShareSymbolsData,
+  ListBoardSearchShareSymbolsErrors,
+  ListBoardSearchShareSymbolsResponses,
   ListBrowserPageGeometryReviewSourcesData,
   ListBrowserPageGeometryReviewSourcesErrors,
   ListBrowserPageGeometryReviewSourcesResponses,
@@ -743,6 +761,9 @@ import type {
   SealImageGeometryGuardResolutionManifestData,
   SealImageGeometryGuardResolutionManifestErrors,
   SealImageGeometryGuardResolutionManifestResponses,
+  SearchBoardSearchShareBoardsData,
+  SearchBoardSearchShareBoardsErrors,
+  SearchBoardSearchShareBoardsResponses,
   SearchGameBoardsData,
   SearchGameBoardsErrors,
   SearchGameBoardsResponses,
@@ -803,6 +824,9 @@ import type {
   TakeoverRemoteManualSelectionWriterLeaseData,
   TakeoverRemoteManualSelectionWriterLeaseErrors,
   TakeoverRemoteManualSelectionWriterLeaseResponses,
+  UnlockBoardSearchShareSessionData,
+  UnlockBoardSearchShareSessionErrors,
+  UnlockBoardSearchShareSessionResponses,
   UnlockRemoteManualSelectionSessionData,
   UnlockRemoteManualSelectionSessionErrors,
   UnlockRemoteManualSelectionSessionResponses,
@@ -6462,6 +6486,166 @@ export const listWorkerLanes = <ThrowOnError extends boolean = false>(
     unknown,
     ThrowOnError
   >({ url: '/api/v1/admin/worker-lanes', ...options });
+
+/**
+ * Calculate the approximate win for a range of the shared game
+ */
+export const getBoardSearchShareApproximateWin = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareApproximateWinData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareApproximateWinResponses,
+  GetBoardSearchShareApproximateWinErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareApproximateWinResponses,
+    GetBoardSearchShareApproximateWinErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/approximate-win', ...options });
+
+/**
+ * Winning paylines of one board of the shared game (no cell records)
+ */
+export const getBoardSearchShareBoardDetail = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareBoardDetailData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareBoardDetailResponses,
+  GetBoardSearchShareBoardDetailErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareBoardDetailResponses,
+    GetBoardSearchShareBoardDetailErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/boards/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Read the checksum-bound cropped view of one board of the shared game
+ */
+export const getBoardSearchShareBoardView = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareBoardViewData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareBoardViewResponses,
+  GetBoardSearchShareBoardViewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareBoardViewResponses,
+    GetBoardSearchShareBoardViewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/boards/{sequence_number}/view',
+    ...options,
+  });
+
+/**
+ * Read the authenticated share context
+ */
+export const getBoardSearchShareContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetBoardSearchShareContextData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareContextResponses,
+  GetBoardSearchShareContextErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetBoardSearchShareContextResponses,
+    GetBoardSearchShareContextErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/context', ...options });
+
+/**
+ * Find boards of the shared game by a partial symbol pattern
+ */
+export const searchBoardSearchShareBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<SearchBoardSearchShareBoardsData, ThrowOnError>,
+): RequestResult<
+  SearchBoardSearchShareBoardsResponses,
+  SearchBoardSearchShareBoardsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    SearchBoardSearchShareBoardsResponses,
+    SearchBoardSearchShareBoardsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/search', ...options });
+
+/**
+ * Exchange a share link's access code for a session cookie
+ */
+export const unlockBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UnlockBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  UnlockBoardSearchShareSessionResponses,
+  UnlockBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    UnlockBoardSearchShareSessionResponses,
+    UnlockBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/sessions/{session_id}/unlock',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List the shared game's symbols
+ */
+export const listBoardSearchShareSymbols = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListBoardSearchShareSymbolsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareSymbolsResponses,
+  ListBoardSearchShareSymbolsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchShareSymbolsResponses,
+    ListBoardSearchShareSymbolsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/symbols', ...options });
+
+/**
+ * Read one checksum-bound symbol image of the shared game
+ */
+export const getBoardSearchShareSymbolImage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareSymbolImageData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareSymbolImageResponses,
+  GetBoardSearchShareSymbolImageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareSymbolImageResponses,
+    GetBoardSearchShareSymbolImageErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/symbols/{symbol_id}/image',
+    ...options,
+  });
 
 /**
  * Get API health

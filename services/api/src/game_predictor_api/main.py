@@ -39,6 +39,10 @@ from game_predictor_api.application.board_search_share_access import (
     BoardSearchShareAccessService,
     assert_board_search_share_ready,
 )
+from game_predictor_api.application.board_search_share_queries import (
+    BoardSearchShareQueryLog,
+    BoardSearchShareRateLimiter,
+)
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import (
     CleanupService,
@@ -258,6 +262,9 @@ from game_predictor_api.storage.board_search_approximate_win_repository import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.board_search_share_query_repository import (
+    SqlAlchemyBoardSearchShareQueryLog,
+)
 from game_predictor_api.storage.board_search_share_repository import (
     SqlAlchemyBoardSearchShareRepository,
 )
@@ -402,6 +409,8 @@ def create_app(
     board_search_board_detail_service_dependency: Callable[..., object] | None = None,
     board_search_board_view_service_dependency: Callable[..., object] | None = None,
     board_search_share_access_service_dependency: Callable[..., object] | None = None,
+    board_search_share_query_log: BoardSearchShareQueryLog | None = None,
+    board_search_share_rate_limiter: BoardSearchShareRateLimiter | None = None,
     cleanup_service_dependency: Callable[..., object] | None = None,
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
@@ -607,6 +616,12 @@ def create_app(
     resolved_board_search_share_access_dependency = (
         board_search_share_access_service_dependency
         or default_board_search_share_access_service_dependency
+    )
+    resolved_board_search_share_query_log = (
+        board_search_share_query_log or SqlAlchemyBoardSearchShareQueryLog(session_factory)
+    )
+    resolved_board_search_share_rate_limiter = (
+        board_search_share_rate_limiter or BoardSearchShareRateLimiter()
     )
 
     def default_board_search_board_view_service_dependency() -> Iterator[
@@ -1576,6 +1591,8 @@ def create_app(
             board_search_share_access_service_dependency=(
                 resolved_board_search_share_access_dependency
             ),
+            board_search_share_query_log=resolved_board_search_share_query_log,
+            board_search_share_rate_limiter=resolved_board_search_share_rate_limiter,
         )
     )
     if not custom_service_dependency_supplied:

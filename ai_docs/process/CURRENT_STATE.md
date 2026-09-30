@@ -69,6 +69,10 @@ last_updated: 2026-09-30
   przez proxy Reviewera z cookie sesji, bez identyfikatorów wewnętrznych,
   z limitami i dziennikiem zapytań fail-closed (D-475: osobna transakcja
   zatwierdzana przed wysłaniem danych).
+- TASK-0768 done: Reviewer `/board-search?share=<id>` z bramką kodu i
+  informacją o zapisie zapytań, proxy `/board-search-api` z allowlistą,
+  własnym cookie i CSP, adapter z cache klienta; lokalna instancja testowa
+  Reviewera `127.0.0.1:3011` (bez tunelu).
 - Etap B w toku; push i merge nie były wykonywane.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)

@@ -63,11 +63,12 @@ def _preview(settings: ApiSettings, retention_hours: int) -> dict[str, object]:
     engine = create_database_engine(settings)
     factory = create_session_factory(engine)
     try:
-        with factory.begin() as session:
-            report = SqlAlchemyPipelineStateCompactionRepository(
-                session,
-                settings.artifact_root,
-            ).create_preview(cutoff_at=datetime.now(UTC) - timedelta(hours=retention_hours))
+        # Global candidates and per-game guards need separate transactions:
+        # one transaction may bind only one game store.
+        report = SqlAlchemyPipelineStateCompactionRepository(
+            factory,
+            settings.artifact_root,
+        ).create_preview(cutoff_at=datetime.now(UTC) - timedelta(hours=retention_hours))
     finally:
         engine.dispose()
     return {

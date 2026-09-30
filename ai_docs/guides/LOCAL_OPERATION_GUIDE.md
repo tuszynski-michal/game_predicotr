@@ -628,7 +628,8 @@ Kompakcja usuwa tylko odtwarzalne późne payloady i uruchamia
 `VACUUM (ANALYZE)`. Zwolnione strony stają się dostępne do ponownego użycia
 przez PostgreSQL, ale rozmiar pliku VHDX nie musi się zmniejszyć. `VACUUM FULL`,
 zatrzymanie Dockera i kompaktowanie `docker_data.vhdx` nie są częścią GC i
-wymagają osobnej, jawnej operacji operatorskiej.
+wymagają osobnej, jawnej operacji operatorskiej. Procedury opisuje
+[runbook utrzymania bazy](DATABASE_MAINTENANCE.md).
 
 Po odbiorze pierwszego cleanupu automatyczne GC jest domyślnie aktywne.
 `GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY=true` służy do jego jawnego,

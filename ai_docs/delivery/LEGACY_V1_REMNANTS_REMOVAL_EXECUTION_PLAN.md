@@ -166,6 +166,15 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   raport zajętości per gra, kompaktowanie `docker_data.vhdx` przy
   wyłączonym Dockerze).
 
+- **TASK-0765** (dopisane po audycie S3) — rola aplikacyjna bez
+  `SUPERUSER`/`BYPASSRLS`: lokalna rola `game_predictor` jest superuserem,
+  więc RLS `game_data_v2` nie izoluje gier i każde zapytanie bez jawnego
+  `game_id` czyta lub zmienia dane wszystkich gier (także ścieżki Reviewera
+  przez tunel). Zakres: osobna rola aplikacyjna `NOSUPERUSER NOBYPASSRLS`
+  bez własności tabel (migracje na roli właściciela), konfiguracja API i
+  workera, test integracyjny na tej roli, audyt zapytań na `GAME_TABLES`
+  bez predykatu `game_id`. Osobna decyzja operatora (zmiana ról w bazie).
+
 ### S4 — manifest renderu per plansza
 
 - **TASK-0757** — migracja `0130`: tabela V2 `board_render_manifests`
@@ -273,6 +282,7 @@ weryfikacji, migracja na dysk 2 TB (osobny runbook), historia decyzji.
 | TASK-0754 | claude-opus-5-5 | high (warunkowo) | Usunięcie gałęzi w 4 repozytoriach bez zmiany SQL dla V2; wymaga porównania zapytań. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0755 | claude-opus-5-5 | medium (warunkowo) | Jedno zapytanie i test porównawczy. | Tak: claude-opus-5-5, medium, osobny agent |
 | TASK-0756 | claude-opus-5-5 | medium (warunkowo) | Uruchomienie istniejącego joba i runbook; zapis w bazie za zgodą. | Tak: claude-opus-5-5, high, osobny agent |
+| TASK-0765 | claude-opus-5-5 | high (warunkowo) | Zmiana ról i uprawnień w bazie; wpływ na wszystkie repozytoria. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0757 | claude-opus-5-5 | high (warunkowo) | Nowa tabela, backfill 372 tys. plansz z kontrolą sum kontrolnych, zmiana writera importu. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0758 | claude-opus-5-5 | high (warunkowo) | Przepięcie centralnego mappera i 6 czytelników; test równoważności. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0759 | claude-opus-5-5 | high (warunkowo) | Manifest v3 i DROP partycji; nieodwracalne. | Tak: claude-opus-5-5, high, osobny agent |

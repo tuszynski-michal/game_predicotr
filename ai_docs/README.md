@@ -134,6 +134,9 @@ implementacyjnym.
 
 - [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
+- [Utrzymanie bazy danych](guides/DATABASE_MAINTENANCE.md) — raport
+  zajętości, VACUUM po dużych przebiegach, kompaktacja wyników pipeline,
+  kompaktowanie `docker_data.vhdx`, kopia i migracja danych na inny dysk.
 - [Usunięcie legacy public game store](guides/LEGACY_PUBLIC_STORE_REMOVAL.md)
   — preflight, odrębne approval, apply i postflight migracji `0125`.
 - [Eksport snapshotu do laboratorium wizji](guides/VISION_LAB_EXPORT.md) —

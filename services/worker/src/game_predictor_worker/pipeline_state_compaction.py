@@ -15,18 +15,15 @@ from game_predictor_api.domain.pipeline_state_compaction import (
     manifest_checksum,
 )
 from game_predictor_api.storage.models import (
-    ImageBoardGeometryPendingModel,
     ImageFileExecutionModel,
-    ImageImportJobFileModel,
     ImagePipelineStageResultModel,
     ImagePipelineTerminalManifestModel,
-    JobModel,
-    SourceImageModel,
 )
 from game_predictor_api.storage.pipeline_state_compaction_repository import (
+    load_pipeline_execution_references,
     load_pipeline_stage_digests,
 )
-from sqlalchemy import delete, exists, select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -127,7 +124,7 @@ class PipelineStateCompactionHandler:
             with self._engine.connect().execution_options(
                 isolation_level="AUTOCOMMIT"
             ) as connection:
-                connection.execute(text("VACUUM (ANALYZE) image_pipeline_stage_results"))
+                connection.execute(text("VACUUM (ANALYZE) public.image_pipeline_stage_results"))
 
     def _process_batch(
         self,
@@ -137,9 +134,31 @@ class PipelineStateCompactionHandler:
         now: datetime,
     ) -> tuple[int, int, int]:
         applied = freed = blocked = 0
+        keys = tuple(sorted({str(entry.get("fileExecutionKey", "")) for entry in entries}))
         with self._session_factory.begin() as session:
+            # Lock the global executions first. Game-owned import links and
+            # source images reference them by foreign key (KEY SHARE), so a
+            # concurrent link either committed before this lock (and is seen by
+            # the per-game re-check below) or waits until this batch commits.
+            session.execute(
+                select(ImageFileExecutionModel.file_execution_key)
+                .where(ImageFileExecutionModel.file_execution_key.in_(keys))
+                .order_by(ImageFileExecutionModel.file_execution_key)
+                .with_for_update()
+            ).all()
+            # Game-owned guards live in per-game V2 stores; each is read in its
+            # own bound transaction (one transaction binds one game store).
+            compactable_keys = load_pipeline_execution_references(
+                self._session_factory, keys
+            ).compactable_keys
             for entry in entries:
-                outcome, size = _compact_entry(session, entry, mode=mode, now=now)
+                outcome, size = _compact_entry(
+                    session,
+                    entry,
+                    mode=mode,
+                    now=now,
+                    compactable_keys=compactable_keys,
+                )
                 if outcome:
                     applied += 1
                     freed += size
@@ -175,6 +194,7 @@ def _compact_entry(
     *,
     mode: str,
     now: datetime,
+    compactable_keys: frozenset[str],
 ) -> tuple[bool, int]:
     key = str(entry.get("fileExecutionKey", ""))
     execution = session.get(ImageFileExecutionModel, key, with_for_update=True)
@@ -182,34 +202,9 @@ def _compact_entry(
         return False, 0
     if execution.updated_at.isoformat() != entry.get("executionUpdatedAt"):
         return False, 0
-    active_job = session.scalar(
-        select(
-            exists(
-                select(ImageImportJobFileModel.file_execution_key)
-                .join(JobModel, JobModel.id == ImageImportJobFileModel.job_id)
-                .where(
-                    ImageImportJobFileModel.file_execution_key == key,
-                    JobModel.status.in_(("created", "processing")),
-                )
-            )
-        )
-    )
-    unresolved = session.scalar(
-        select(
-            exists(
-                select(ImageBoardGeometryPendingModel.id)
-                .join(
-                    SourceImageModel,
-                    SourceImageModel.id == ImageBoardGeometryPendingModel.source_image_id,
-                )
-                .where(
-                    SourceImageModel.file_execution_key == key,
-                    ImageBoardGeometryPendingModel.status != "resolved",
-                )
-            )
-        )
-    )
-    if active_job or unresolved:
+    # Per-game re-check: an active import, a failed link, unresolved geometry,
+    # a non-active game store or no owning game keeps the payloads.
+    if key not in compactable_keys:
         return False, 0
     current = {
         item.stage: item for item in load_pipeline_stage_digests(session, (key,)).get(key, ())

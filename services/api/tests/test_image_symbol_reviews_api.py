@@ -350,7 +350,6 @@ class MemorySymbolCellReviewRepository:
         return SymbolCellReviewCatalogState(
             catalog_revision=17,
             storage_generation=1,
-            uses_current_projection=False,
         )
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None:

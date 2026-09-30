@@ -31,7 +31,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
-    _uses_logical_current_cell_identity,
+    _bind_game_store,
 )
 from game_predictor_api.storage.models import (
     CellObservationModel,
@@ -722,15 +722,10 @@ def _next_manual_geometry_revision(
     created by another import.  In that case the crop revision is shared by the
     logical 3 x 5 board, so it must advance from the existing projection rather
     than restart from the pending source's pinned revision.
-
-    Legacy storage still keeps crop rows per review item.  Its coordinator does
-    not reuse rows from the former owner, so the original pending revision
-    remains authoritative there.
     """
 
     fallback = expected_geometry_revision + 1
-    if not _uses_logical_current_cell_identity(session, game_id):
-        return fallback
+    _bind_game_store(session, game_id)
     existing_revisions = tuple(
         session.scalars(
             select(ImageSymbolReviewCellModel.geometry_revision)

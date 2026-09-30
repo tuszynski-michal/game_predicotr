@@ -48,7 +48,6 @@ class SymbolCellReviewCatalogState:
 
     catalog_revision: int
     storage_generation: int
-    uses_current_projection: bool
 
 
 class SymbolCellReviewQueryRepository(Protocol):
@@ -211,7 +210,6 @@ class SymbolCellReviewQueryService:
             outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
-            uses_current_projection=catalog.uses_current_projection,
         )
         after_key = (
             decode_symbol_cell_review_cursor(
@@ -349,7 +347,6 @@ class SymbolCellReviewQueryService:
             outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
-            uses_current_projection=catalog.uses_current_projection,
         )
         after_key = (
             decode_symbol_cell_review_cursor(
@@ -455,7 +452,6 @@ class SymbolCellReviewQueryService:
             outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
-            uses_current_projection=catalog.uses_current_projection,
         )
         if catalog.catalog_revision != expected_catalog_revision:
             raise SymbolCellReviewError(

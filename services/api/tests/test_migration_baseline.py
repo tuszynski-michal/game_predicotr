@@ -123,6 +123,7 @@ V12_PAGE_FRAME_GRID_PAIRS_REVISION = "0118_v12_page_frame_grid_pairs"
 V12_GAME_DATA_V2_PAGE_FRAME_GRID_PAIRS_REVISION = "0119_v12_game_data_v2_page_frame_grid_pairs"
 LEGACY_PUBLIC_STORE_REMOVAL_REVISION = "0125_remove_legacy_public_game_store"
 LEGACY_PUBLIC_STORE_REMOVAL_PREVIOUS_REVISION = "0124_game_data_v2_partial_visibility_constraints"
+ORPHANED_LEGACY_TRIGGER_FUNCTIONS_REVISION = "0129_drop_orphaned_legacy_trigger_functions"
 TEST_DATABASE_URL = (
     "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
 )
@@ -457,7 +458,16 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
     legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
     legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
-    assert script.get_heads() == [LEGACY_PUBLIC_STORE_REMOVAL_REVISION]
+    assert script.get_heads() == [ORPHANED_LEGACY_TRIGGER_FUNCTIONS_REVISION]
+    for revision_id, previous in (
+        ("0126_symbol_cell_source_visibility", LEGACY_PUBLIC_STORE_REMOVAL_REVISION),
+        ("0127_symbol_review_bulk_filter_scope", "0126_symbol_cell_source_visibility"),
+        ("0128_partial_board_reconciliation_receipts", "0127_symbol_review_bulk_filter_scope"),
+        (ORPHANED_LEGACY_TRIGGER_FUNCTIONS_REVISION, "0128_partial_board_reconciliation_receipts"),
+    ):
+        later = script.get_revision(revision_id)
+        assert later is not None
+        assert later.down_revision == previous
     legacy_public_store_removal = script.get_revision(LEGACY_PUBLIC_STORE_REMOVAL_REVISION)
     assert legacy_public_store_removal is not None
     assert (

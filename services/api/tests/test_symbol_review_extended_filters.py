@@ -204,36 +204,110 @@ def test_cursor_is_stable_across_offsets_of_the_same_instant() -> None:
     )
 
 
-@pytest.mark.parametrize("uses_current_projection", [False, True])
-@pytest.mark.parametrize("source", list(SymbolCellReviewPredictionSource))
-def test_source_filter_compiles_in_statements_that_join_the_revision(
-    uses_current_projection: bool, source: SymbolCellReviewPredictionSource
-) -> None:
-    review_filter = _filter(
-        prediction_source=source,
-        min_confidence=0.5,
-        uses_current_projection=uses_current_projection,
-    )
+def _v2_statements(review_filter: SymbolCellReviewListFilter) -> dict[str, str]:
+    """Compile every V2 scope statement that shares the list filter semantics."""
+
     repository = SqlAlchemySymbolCellReviewQueryRepository.__new__(
         SqlAlchemySymbolCellReviewQueryRepository
     )
     dialect: Any = cast(Any, postgresql).dialect()
-    statements = [
-        repository._visible_statement(review_filter=review_filter),
-        repository._count_statement(review_filter=review_filter),
-        _visible_cells_statement(
+    statements = {
+        "visible": repository._visible_statement(review_filter=review_filter),
+        "count": repository._count_statement(review_filter=review_filter),
+        "candidate_seek": repository._candidate_seek_statement(review_filter=review_filter),
+        "bulk_visible_cells": _visible_cells_statement(
             game_id=GAME,
             selection=SymbolCellReviewBulkFilterSelection(
                 symbol_id=review_filter.symbol_id,
-                state=SymbolCellReviewFilterState.PENDING,
+                state=review_filter.state,
                 catalog_revision=3,
-                min_confidence=0.5,
-                prediction_source=source,
+                min_confidence=review_filter.min_confidence,
+                max_confidence=review_filter.max_confidence,
+                prediction_source=review_filter.prediction_source,
+                changed_from=review_filter.changed_from,
+                changed_to=review_filter.changed_to,
             ),
-            uses_current_projection=uses_current_projection,
         ),
-    ]
+    }
+    return {name: str(statement.compile(dialect=dialect)) for name, statement in statements.items()}
 
-    for statement in statements:
-        sql = str(statement.compile(dialect=dialect))
+
+@pytest.mark.parametrize("source", list(SymbolCellReviewPredictionSource))
+def test_source_filter_compiles_in_statements_that_join_the_revision(
+    source: SymbolCellReviewPredictionSource,
+) -> None:
+    review_filter = _filter(prediction_source=source, min_confidence=0.5)
+
+    for sql in _v2_statements(review_filter).values():
         assert "image_symbol_prediction_revisions AS library_revision" in sql
+
+
+def test_v2_scope_statements_read_only_the_current_cell_projection() -> None:
+    """The V2 path never joined legacy confidence or ownership sources (TASK-0754)."""
+
+    review_filter = _filter(
+        min_confidence=0.2,
+        max_confidence=0.8,
+        prediction_source=SymbolCellReviewPredictionSource.REFERENCE_LIBRARY,
+        changed_from=MIDNIGHT,
+        changed_to=MIDNIGHT + timedelta(days=1),
+    )
+
+    statements = _v2_statements(review_filter)
+
+    for name, sql in statements.items():
+        assert "cell_observations" not in sql, name
+        assert "image_board_search_fast_documents" not in sql, name
+        assert "coalesce" not in sql.lower(), name
+        assert "image_symbol_review_cells.prediction_confidence >= " in sql, name
+        assert "image_symbol_review_cells.prediction_confidence <= " in sql, name
+        # The prediction revision is reached only through the correlated source filter.
+        assert sql.count("image_symbol_prediction_revisions") == 1, name
+        assert "image_symbol_review_cells.updated_at >= " in sql, name
+        assert "image_symbol_review_cells.updated_at <= " in sql, name
+    for name in ("visible", "count", "candidate_seek"):
+        from_clause = statements[name].split("\nWHERE ")[0].split("\nFROM ")[1]
+        assert from_clause == "image_symbol_review_cells ", name
+    bulk_from_clause = statements["bulk_visible_cells"].split("\nWHERE ")[0].split("\nFROM ")[1]
+    assert bulk_from_clause == (
+        "image_symbol_review_cells JOIN recognized_boards "
+        "ON recognized_boards.id = image_symbol_review_cells.recognized_board_id "
+    )
+    assert (
+        "image_symbol_review_cells.geometry_revision = recognized_boards.geometry_revision"
+        in statements["bulk_visible_cells"]
+    )
+
+
+def test_cell_paths_bind_the_game_store() -> None:
+    """Each cell-query path without an ambient scope binds the store exactly once.
+
+    The bind used to be a side effect of the removed V1/V2 storage probe; a
+    refactor that drops a lone ``_bind_game_store(...)`` call would silently
+    lose the search-path and row-level-security binding of that path.
+    """
+
+    import ast
+    import inspect
+
+    from game_predictor_api.storage import (
+        board_cell_geometry_pending_repository,
+        image_symbol_review_bulk_operation_repository,
+        image_symbol_review_repository,
+    )
+
+    expected = {
+        image_symbol_review_repository: 7,
+        image_symbol_review_bulk_operation_repository: 3,
+        board_cell_geometry_pending_repository: 1,
+    }
+    for module, count in expected.items():
+        tree = ast.parse(inspect.getsource(module))
+        calls = [
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id == "_bind_game_store"
+        ]
+        assert len(calls) == count, module.__name__

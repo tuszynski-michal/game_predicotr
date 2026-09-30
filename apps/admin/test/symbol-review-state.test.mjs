@@ -177,6 +177,11 @@ test('maps non-overlapping confidence ranges to the API range snapshot', () => {
     maxConfidence: 0.9999999999999999,
     minConfidence: 0.8,
   });
+  assert.deepEqual(symbolReviewConfidenceRange('from_80_to_99'), {
+    maxConfidence: 0.9899999999999999,
+    minConfidence: 0.8,
+  });
+  assert.ok(symbolReviewConfidenceRange('from_80_to_99').maxConfidence < 0.99);
   assert.deepEqual(symbolReviewConfidenceRange('from_60_to_80'), {
     maxConfidence: 0.7999999999999999,
     minConfidence: 0.6,

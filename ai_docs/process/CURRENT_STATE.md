@@ -99,6 +99,11 @@ last_updated: 2026-09-30
   poprawiania pól); dziennik zapytań i odtworzenie w Adminie działają; przez
   publiczny adres bramka 200, błędny kod 401 z zapisanym licznikiem, trasa
   Admina 403. Po odbiorze oba linki testowe zatrzymane i tunel wyłączony.
+- 2026-09-30 scalono `v1.1-vision-lab-hybrid-geometry` (`v1.7.88`, tor
+  biblioteki symboli i D-467) do `feat/board-search-share`; konflikty tylko
+  w `README.md` i `DECISION_LOG.md` (obie sekcje zachowane). Po scaleniu:
+  testy API udostępnień i bezpieczeństwa 69/69, migracje `0129`+`0130` na
+  świeżej bazie 12/12, Admin 597/597, Reviewer 192/192, pakiet UI 38/38.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.
@@ -171,6 +176,35 @@ last_updated: 2026-09-30
   komórki „Nowy algorytm”, wszystkie nadal `pending`; 8 313 komórek bez
   pewnej propozycji zostało przy modelu. Komórki > 80% i inne symbole bez
   zmian. Poprawki narzędzia `v1.7.79`, `v1.7.80` (audyt Opus PASS).
+- TASK-0751 done: Admin → Weryfikacja symboli ma przedział pewności
+  „80–<99%” (bez komórek ≥ 99% i bez predykcji biblioteki 0,99). TASK-0750
+  (B3, pasmo 80–99%) w toku.
+
+### D-467 — usunięcie pozostałości V1/legacy (w toku)
+
+- Plan `ai_docs/delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md`
+  (S1–S8) zaakceptowany 2026-09-30 po inwentaryzacji: `cell_observations`
+  28 GB, `render_spec` powielony w komórkach 19 GB, wyniki pipeline 6,8 GB
+  z nieuruchomioną retencją, żywy tryb `legacy_file` (461 plansz 777),
+  martwe gałęzie `uses_current_projection`. Migracja `0125` jest już
+  zastosowana na bazie operatora; plan D-448 zamknięty.
+- TASK-0752 (S1) done: migracja `0129` (osierocone funkcje triggerów),
+  skrypt baz `diag_*`, usunięte narzędzia legacy/v0.9, dokumenty
+  zaktualizowane. Audyt Opus PASS. Za zgodą operatora 2026-09-30: `0129`
+  zastosowana na bazie (`alembic_version` = `0129`), 3 bazy `diag_*` usunięte.
+- TASK-0753 (S1) done: `scripts/clean_scratch_dirs.ps1` (podgląd 54
+  katalogi, 252 MB). Audyt Opus PASS. Wykonane za zgodą operatora
+  2026-09-30: 54 katalogi usunięte, 11 nieczytelnych usunięte z
+  podniesieniem UAC; root bez katalogów scratch.
+- TASK-0754 (S2) done: usunięte gałęzie `uses_current_projection=False`,
+  `_uses_logical_current_cell_identity`, `_prediction_confidence_expression`
+  i `_base_visible_statement`; jawne `_bind_game_store` zachowuje wiązanie
+  magazynu; SQL ścieżki V2 identyczny bajt w bajt (102 sekcje). Audyt Opus
+  PASS.
+- TASK-0755 (S2) done: bramka usuwania symbolu liczy bieżące predykcje z
+  komórek V2 zamiast skanu `cell_observations` (świadome zawężenie, nota w
+  D-467). Audyt Opus PASS. **Etap S2 zamknięty.** S3–S8 po zakończeniu
+  przebiegów zapisu biblioteki (TASK-0750).
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

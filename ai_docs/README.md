@@ -93,6 +93,9 @@ implementacyjnym.
   — propozycje symboli z biblioteki zweryfikowanych komórek (D-464).
 - [Board search share plan](delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md)
   — modal linii wypłat, wykres, stawki i udostępnianie online (D-470, D-471).
+- [Legacy V1 remnants removal plan](delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md)
+  — manifest renderu per plansza, usunięcie `cell_observations`, gałęzi V1
+  i trybu `legacy_file`, retencja pipeline (D-467, S1–S8).
 - [V2 readiness remediation plan](delivery/V2_READINESS_REMEDIATION_PLAN.md) —
   naprawy po `no-go` T08 oraz blokująca propozycja decyzji TASK-0698.
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)

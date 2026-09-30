@@ -124,6 +124,37 @@ last_updated: 2026-09-30
   wyłącznie od lewej krawędzi i kończy na pierwszej nieznanej komórce;
   plansza przycięta z lewej nie daje żadnej linii.
 
+## D-467 — usunięcie pozostałości V1/legacy: manifest renderu per plansza zamiast `cell_observations`
+
+- **Status:** accepted, 2026-09-30; polecenie operatora po inwentaryzacji
+  tylko do odczytu („wyrzuć wszystko, co jest legacy / V1”).
+- **Decision:** aplikacja i baza mają być V2-only bez danych i kodu z ery
+  V1. Specyfikację renderu przechowuje jedna tabela per plansza
+  (`board_render_manifests`, proponowana) w kształcie
+  `virtual_render_spec.cells`; `cell_observations` zostaje usunięta po
+  przepięciu wszystkich czytelników; `render_spec` w komórkach weryfikacji
+  zostaje tylko jako suma kontrolna; gałęzie `uses_current_projection=False`
+  i inne ścieżki istniejące dla magazynu `public` są usuwane; `legacy_file`
+  przestaje być trybem docelowym (ręczna rezolucja odroczonych plansz zapisuje
+  geometrię wirtualną, nowe gry domyślnie `virtual_default`, 461 plansz 777
+  konwertowane); retencja wyników pipeline (`storage_pipeline_compaction`)
+  jest uruchamiana. Plan:
+  `ai_docs/delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md` (S1–S8).
+- **Rejected:** wyliczanie specyfikacji renderu w locie z geometrii
+  źródłowej (sumy kontrolne muszą zgadzać się bajt w bajt); usuwanie
+  zastąpionych rewizji predykcji będących kotwicami `apply-revert` (D-466).
+- **Deletion gate (TASK-0755):** bramka usuwania symbolu
+  (`SYMBOL_DELETE_BLOCKED`) liczy bieżące predykcje komórek V2
+  (`prediction_symbol_code`), nie historyczne obserwacje z importu; plansze
+  zastąpione i predykcje nadpisane nowszą rewizją nie blokują usunięcia.
+  Zabezpieczeniem pozostają fail-closed liczniki kohort, iteracji i
+  aktywacji modelu.
+- **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
+  inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
+  operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu
+  biblioteki wzorców. Migracja `0125` została już zastosowana na bazie
+  operatora (`alembic_version` = `0128`); plan D-448 jest zamknięty.
+
 ## D-466 — nowa wersja predykcji z biblioteki wzorców dla oczekujących komórek
 
 - **Status:** accepted, 2026-09-29; decyzja operatora po podglądzie
@@ -772,7 +803,7 @@ last_updated: 2026-09-30
 
 ## D-443 — skrypt legacy GC odmawia skanu, jeśli jakakolwiek gra ma magazyn per-game (V2)
 
-- **Status:** accepted (TASK-0640, T4 planu D-442, wykonane na wyraźną,
+- **Status:** superseded by D-467 (skrypt usunięty w TASK-0752, 2026-09-30); wcześniej accepted (TASK-0640, T4 planu D-442, wykonane na wyraźną,
   osobną zgodę użytkownika).
 - **Date:** 2026-09-24.
 - **Decision:** `scripts/preview_legacy_game_managed_asset_gc.py`'s

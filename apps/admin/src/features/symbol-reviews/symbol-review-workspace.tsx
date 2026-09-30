@@ -1478,6 +1478,21 @@ export function SymbolReviewWorkspace({
           </label>
           <label>
             <input
+              checked={filters.confidence === 'from_80_to_99'}
+              disabled={interactionBusy}
+              name="symbol-review-confidence"
+              onChange={() =>
+                requestFilterChange({
+                  ...filters,
+                  confidence: 'from_80_to_99',
+                })
+              }
+              type="radio"
+            />
+            80–&lt;99%
+          </label>
+          <label>
+            <input
               checked={filters.confidence === 'from_60_to_80'}
               disabled={interactionBusy}
               name="symbol-review-confidence"

@@ -14,7 +14,12 @@ export const MAX_SYMBOL_REVIEW_CACHED_PAGES = 3;
 export type SymbolReviewPageSize = (typeof SYMBOL_REVIEW_PAGE_SIZES)[number];
 
 export type SymbolReviewConfidenceFilter =
-  'all' | 'below_60' | 'from_60_to_80' | 'from_80_to_100' | 'exact_100';
+  | 'all'
+  | 'below_60'
+  | 'from_60_to_80'
+  | 'from_80_to_99'
+  | 'from_80_to_100'
+  | 'exact_100';
 
 /** Which writer produced the cell's current prediction (D-466). */
 export type SymbolReviewPredictionSourceFilter =
@@ -96,6 +101,9 @@ export function symbolReviewConfidenceRange(
   switch (confidence) {
     case 'exact_100':
       return { maxConfidence: 1, minConfidence: 1 };
+    case 'from_80_to_99':
+      // Model predictions below 99%; reference-library predictions (0.99) stay out.
+      return { maxConfidence: 0.99 - Number.EPSILON / 2, minConfidence: 0.8 };
     case 'from_80_to_100':
       return { maxConfidence: 1 - Number.EPSILON / 2, minConfidence: 0.8 };
     case 'from_60_to_80':

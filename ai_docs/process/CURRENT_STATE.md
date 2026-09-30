@@ -74,6 +74,9 @@ last_updated: 2026-09-30
   komórki „Nowy algorytm”, wszystkie nadal `pending`; 8 313 komórek bez
   pewnej propozycji zostało przy modelu. Komórki > 80% i inne symbole bez
   zmian. Poprawki narzędzia `v1.7.79`, `v1.7.80` (audyt Opus PASS).
+- TASK-0751 done: Admin → Weryfikacja symboli ma przedział pewności
+  „80–<99%” (bez komórek ≥ 99% i bez predykcji biblioteki 0,99). TASK-0750
+  (B3, pasmo 80–99%) w toku.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

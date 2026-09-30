@@ -346,6 +346,20 @@ def test_cached_preview_rows_require_the_same_key(tmp_path: Path) -> None:
     assert runner._cached_preview_rows(tmp_path / "missing.json", "a") is None
 
 
+def test_partial_rows_resume_and_only_complete_rows_are_final(tmp_path: Path) -> None:
+    path = tmp_path / "rows.json"
+    runner._write_rows_cache(path, "a", [{"cellReviewId": "x"}], complete=False)
+
+    assert runner._cached_preview_rows(path, "a") is None
+    assert runner._partial_preview_rows(path, "a") == [{"cellReviewId": "x"}]
+    assert runner._partial_preview_rows(path, "b") == []
+
+    runner._write_rows_cache(path, "a", [{"cellReviewId": "x"}], complete=True)
+
+    assert runner._cached_preview_rows(path, "a") == [{"cellReviewId": "x"}]
+    assert runner._partial_preview_rows(path, "a") == []
+
+
 def test_damaged_preview_rows_cache_is_ignored(tmp_path: Path) -> None:
     path = tmp_path / "rows.json"
     path.write_text('{"key": "a", "rows": [', encoding="utf-8")

@@ -1438,7 +1438,7 @@ def _admin_decisions(game_id: str, cell_ids: Sequence[str]) -> dict[str, str]:
                     JOIN public.symbols s ON s.id = c.assigned_symbol_id
                     WHERE c.game_id = :game_id AND c.review_state = 'approved'
                       AND c.assignment_source = 'human'
-                      AND c.id::text = ANY(:ids)
+                      AND c.id = ANY(CAST(:ids AS uuid[]))
                     """
                 ),
                 {"game_id": game_id, "ids": list(cell_ids)},
@@ -1697,6 +1697,9 @@ def _display_confidence(value: float) -> str:
     return f"{math.floor(value * 100) / 100:.2f}"
 
 
+PREVIEW_ROWS_CHUNK = 2000
+
+
 def _preview_rows(
     cells: Sequence[Cell],
     cache: Mapping[str, Mapping[str, Any]],
@@ -1709,8 +1712,9 @@ def _preview_rows(
 ) -> list[dict[str, Any]]:
     codes = model.class_codes
     rows: list[dict[str, Any]] = []
-    for start in range(0, len(cells), 2000):
-        chunk = cells[start : start + 2000]
+    # Resumed runs split cells at the same boundaries, so float32 voting stays bit-identical.
+    for start in range(0, len(cells), PREVIEW_ROWS_CHUNK):
+        chunk = cells[start : start + PREVIEW_ROWS_CHUNK]
         shape, combined = _descriptors(chunk, cache, model)
         # Batched voting; without exclusions it selects the same neighbours as ``vote``.
         proposals = [
@@ -1750,9 +1754,7 @@ def _preview_rows(
     return rows
 
 
-def _cached_preview_rows(path: Path, key: str) -> list[dict[str, Any]] | None:
-    """Rows computed by an earlier, interrupted run over exactly the same inputs."""
-
+def _read_rows_cache(path: Path, key: str) -> Mapping[str, Any] | None:
     if not path.is_file():
         return None
     try:
@@ -1762,7 +1764,32 @@ def _cached_preview_rows(path: Path, key: str) -> list[dict[str, Any]] | None:
         return None
     if not isinstance(value, Mapping) or value.get("key") != key:
         return None
+    return cast(Mapping[str, Any], value)
+
+
+def _cached_preview_rows(path: Path, key: str) -> list[dict[str, Any]] | None:
+    """Rows computed by an earlier, interrupted run over exactly the same inputs."""
+
+    value = _read_rows_cache(path, key)
+    # Caches written before chunked rows have no ``complete`` flag and are complete.
+    if value is None or value.get("complete", True) is not True:
+        return None
     return cast(list[dict[str, Any]], value["rows"])
+
+
+def _partial_preview_rows(path: Path, key: str) -> list[dict[str, Any]]:
+    """Rows of the chunks an interrupted run finished; each row depends only on its cell."""
+
+    value = _read_rows_cache(path, key)
+    if value is None or value.get("complete", True) is not False:
+        return []
+    return list(cast(list[dict[str, Any]], value["rows"]))
+
+
+def _write_rows_cache(path: Path, key: str, rows: list[dict[str, Any]], *, complete: bool) -> None:
+    temporary = path.with_name(path.name + ".tmp")
+    temporary.write_bytes(_json_bytes({"key": key, "complete": complete, "rows": rows}))
+    temporary.replace(path)
 
 
 def _preview(arguments: argparse.Namespace) -> int:
@@ -1837,11 +1864,38 @@ def _preview(arguments: argparse.Namespace) -> int:
     rows_path = output / "preview-rows-cache.json"
     rows = _cached_preview_rows(rows_path, rows_key)
     if rows is None:
-        rows = _preview_rows(cells, cells_cache, library, model, edges=edges, low=low, high=high)
+        # Descriptors of a large scope do not fit one run; chunks are persisted as they finish
+        # so the next run continues, and every run finishes at least one chunk.
+        # Partial rows live in their own file, so no reader can take them for the final cache.
+        partial_path = output / "preview-rows-partial.json"
+        partial = _partial_preview_rows(partial_path, rows_key)
+        done = {str(row["cellReviewId"]) for row in partial}
+        todo = [cell for cell in cells if str(cell.id) not in done]
+        for start in range(0, len(todo), PREVIEW_ROWS_CHUNK):
+            if start and time.monotonic() >= deadline:
+                break
+            partial.extend(
+                _preview_rows(
+                    todo[start : start + PREVIEW_ROWS_CHUNK],
+                    cells_cache,
+                    library,
+                    model,
+                    edges=edges,
+                    low=low,
+                    high=high,
+                )
+            )
+            _write_rows_cache(partial_path, rows_key, partial, complete=False)
+        if len(partial) < len(cells):
+            print(
+                f"INCOMPLETE: {len(cells) - len(partial)} of {len(cells)} proposals "
+                "still to compute; run the same command again."
+            )
+            return EXIT_INCOMPLETE
+        rows = sorted(partial, key=lambda row: str(row["cellReviewId"]))
         # Persist before thumbnails so a resumed run spends its budget on rendering only.
-        temporary = rows_path.with_name(rows_path.name + ".tmp")
-        temporary.write_bytes(_json_bytes({"key": rows_key, "rows": rows}))
-        temporary.replace(rows_path)
+        _write_rows_cache(rows_path, rows_key, rows, complete=True)
+        partial_path.unlink(missing_ok=True)
     groups = _preview_groups(rows, int(arguments.thumbnails_per_group))
     thumbnail_ids = {identifier for members in groups.values() for identifier in members}
     by_id = {cell.id: cell for cell in cells}
@@ -1988,7 +2042,7 @@ def _apply_preview(arguments: argparse.Namespace) -> int:
                                c.quality_issue, c.prediction_symbol_code,
                                c.rendered_pixel_checksum_sha256
                         FROM game_data_v2.image_symbol_review_cells c
-                        WHERE c.game_id = :game_id AND c.id::text = ANY(:ids)
+                        WHERE c.game_id = :game_id AND c.id = ANY(CAST(:ids AS uuid[]))
                         """
                     ),
                     {"game_id": game_id, "ids": chunk},
@@ -2003,7 +2057,7 @@ def _apply_preview(arguments: argparse.Namespace) -> int:
                                p.review_item_id::text AS review_item_id, p.id::text AS id,
                                p.model_version, p.predictions
                         FROM game_data_v2.image_symbol_prediction_revisions p
-                        WHERE p.game_id = :game_id AND p.review_item_id::text = ANY(:ids)
+                        WHERE p.game_id = :game_id AND p.review_item_id = ANY(CAST(:ids AS uuid[]))
                         ORDER BY p.review_item_id, p.created_at DESC, p.id DESC
                         """
                     ),
@@ -2264,7 +2318,7 @@ def _apply_verify(arguments: argparse.Namespace) -> int:
                         FROM game_data_v2.image_symbol_review_cells c
                         LEFT JOIN game_data_v2.image_symbol_prediction_revisions p
                           ON p.id = c.prediction_revision_id
-                        WHERE c.game_id = :game_id AND c.id::text = ANY(:ids)
+                        WHERE c.game_id = :game_id AND c.id = ANY(CAST(:ids AS uuid[]))
                         """
                     ),
                     {"game_id": game_id, "ids": chunk},

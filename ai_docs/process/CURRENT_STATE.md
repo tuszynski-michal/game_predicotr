@@ -68,6 +68,12 @@ last_updated: 2026-09-30
   296 zmian symbolu), 1 komórka kanarka cofnięta testowo (`apply-revert`),
   377 bez pewnej propozycji przy modelu. 0 błędów, 0 `stale`. Komórki nadal
   `pending`; przegląd w Adminie filtrem „Nowy algorytm”.
+- TASK-0749 (B2) done 2026-09-30 00:35–03:48 UTC: symbole 1–8, oczekujące
+  z predykcją modelu i pewnością ≤ 80%: 60 276 komórek na 54 914 planszach z
+  predykcją biblioteki, 0 błędów, 1 plansza `stale`. Razem z B1: 63 193
+  komórki „Nowy algorytm”, wszystkie nadal `pending`; 8 313 komórek bez
+  pewnej propozycji zostało przy modelu. Komórki > 80% i inne symbole bez
+  zmian. Poprawki narzędzia `v1.7.79`, `v1.7.80` (audyt Opus PASS).
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

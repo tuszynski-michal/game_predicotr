@@ -6,6 +6,26 @@ last_updated: 2026-09-30
 
 # Decision Log
 
+## D-472 — dziennik zapytań udostępnionego linku i odtworzenie w Adminie
+
+- **Status:** accepted, 2026-09-30; dopisek operatora do planu
+  `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` (R5, TASK-0771,
+  etap B). Rozszerza D-471.
+- **Decision:** serwer zapisuje każde publiczne zapytanie o dane
+  udostępnionej wyszukiwarki (wyszukiwanie, przybliżona wygrana, szczegóły
+  planszy): czas, rodzaj, parametry potrzebne do odtworzenia (pełny wzór z
+  polami `?`, zakres, liczba wyników, plansza startowa, zakres spinów) i
+  skrót wyniku. Zapis jest w tej samej transakcji co odczyt; bez wpisu
+  odbiorca nie dostaje danych.
+- **Privacy:** bez adresu IP i nagłówków przeglądarki; bramka kodu informuje
+  odbiorcę o zapisie. Stawka i jednostka są liczone w przeglądarce i nie są
+  zapisywane. Brak automatycznej retencji; usuwanie wymaga osobnej decyzji.
+- **Admin:** dziennik wybranej sesji (najnowsze najpierw, po 50) z przyciskiem
+  „Odtwórz w wyszukiwarce”, który przez `?boardSearchReplay=<eventId>`
+  wypełnia wzór, zakres i liczbę wyników i uruchamia wyszukiwanie; wpis
+  przybliżonej wygranej odtwarza najbliższe wcześniejsze wyszukiwanie tej
+  sesji, planszę startową i zakres spinów.
+
 ## D-471 — udostępnianie „Wyszukaj plansze” online przez link z kodem
 
 - **Status:** accepted, 2026-09-30; plan

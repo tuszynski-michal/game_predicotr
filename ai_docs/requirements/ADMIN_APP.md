@@ -527,6 +527,21 @@ i zmniejszone. Odbiorca nie widzi panelu udostępniania ani identyfikatorów
 wewnętrznych. Po wygaśnięciu albo zatrzymaniu sesji aplikacja pokazuje
 czytelny ekran zakończenia.
 
+**Dziennik zapytań i odtworzenie (D-472, TASK-0771).** Każde zapytanie
+odbiorcy o dane (wyszukiwanie, przybliżona wygrana, szczegóły planszy) jest
+zapisywane z czasem, parametrami i skrótem wyniku, bez adresu IP. Bramka
+kodu informuje odbiorcę o zapisie. W panelu udostępniania operator wybiera
+sesję i widzi jej dziennik od najnowszego wpisu: godzinę, rodzaj, wzór jako
+mini-planszę 3 × 5 z ikonami symboli, zakres wyszukiwania i liczbę wyników
+albo planszę startową i zakres spinów oraz wynik. Przycisk „Odtwórz w
+wyszukiwarce” otwiera „Wyszukaj plansze” tej gry z tym samym wzorem, zakresem
+i liczbą wyników i od razu uruchamia wyszukiwanie. Dla wpisu przybliżonej
+wygranej odtworzenie używa najbliższego wcześniejszego wyszukiwania tej
+sesji, wybiera planszę startową i zakres spinów i rozwija „Przybliżoną
+wygraną”; dla szczegółów planszy dodatkowo otwiera modal. Symbol, który nie
+jest już aktywny, trafia do wzoru jako `?` z ostrzeżeniem. Stawka i jednostka
+odbiorcy nie są znane serwerowi i nie są odtwarzane.
+
 ### Korekta cięcia siatki
 
 **D-462 (TASK-0726):** lokalny Reviewer na porcie 3001 jest jednym ekranem

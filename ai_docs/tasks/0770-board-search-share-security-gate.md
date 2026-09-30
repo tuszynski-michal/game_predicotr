@@ -16,11 +16,11 @@ Nowa powierzchnia jest opisana w modelu zagrożeń, dokumentacji i odebrana na l
 
 ## Context
 
-Punkt 5 zgłoszenia operatora z 2026-09-30, decyzja D-471. Pełna specyfikacja: plan §3 R4, §4.3–4.5 i §5 T11.
+Punkt 5 zgłoszenia operatora z 2026-09-30, decyzja D-471. Pełna specyfikacja: plan §3 R4, §4.3–4.5 i §5 T12.
 
 ## Dependencies / entry conditions
 
-- TASK-0765–0769 done.
+- TASK-0765–0769 i TASK-0771 done.
 - Etap B wymaga osobnego polecenia operatora.
 
 ## Recommended execution
@@ -39,7 +39,7 @@ Punkt 5 zgłoszenia operatora z 2026-09-30, decyzja D-471. Pełna specyfikacja: 
 
 ## Scope
 
-Zakres, pliki, przypadki testowe i kryteria według planu §5 T11. Przed startem ponownie sprawdzić kod po etapie A i doprecyzować ten plik.
+Zakres, pliki, przypadki testowe i kryteria według planu §5 T12. Przed startem ponownie sprawdzić kod po etapie A i doprecyzować ten plik.
 
 ## Out of scope
 
@@ -47,20 +47,20 @@ Według planu §8.
 
 ## Acceptance criteria
 
-- [ ] Kryteria akceptacji planu §5 T11 spełnione.
+- [ ] Kryteria akceptacji planu §5 T12 spełnione.
 - [ ] Brak otwartych uwag P0–P2 audytu.
 
 ## Technical notes
 
-Patrz plan §5 T11.
+Patrz plan §5 T12.
 
 ## Expected files
 
-Patrz plan §5 T11.
+Patrz plan §5 T12.
 
 ## Test cases
 
-Patrz plan §5 T11.
+Patrz plan §5 T12.
 
 ## Verification
 

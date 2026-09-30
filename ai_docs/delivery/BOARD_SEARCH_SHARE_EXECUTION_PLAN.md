@@ -7,7 +7,8 @@ last_updated: 2026-09-30
 # Plan: rozszerzenie „Przybliżonej wygranej” i udostępnianie wyszukiwarki online
 
 Plan zaakceptowany przez operatora 2026-09-30 wraz z poleceniem wykonania
-etapu A. Operator potwierdził liniowość wypłat względem stawki (R1) i
+etapu A. Tego samego dnia operator dodał do etapu B punkt 6 (dziennik
+zapytań udostępnionego linku i odtworzenie zapytania w Adminie, R5, D-472). Operator potwierdził liniowość wypłat względem stawki (R1) i
 wymaganie, by linia wypłaty liczyła się wyłącznie od lewej krawędzi (R2).
 
 ## 1. Stan obecny (fakty z kodu)
@@ -129,6 +130,43 @@ grosze = kredyty_bazowe * stawka_gr / stawka_bazowa_gr * 10
 - API, baza i Admin pozostają na loopbacku. Publiczny jest wyłącznie Reviewer
   za Quick Tunnelem.
 
+### R5. Dziennik zapytań linku i odtworzenie w Adminie (punkt 6) — D-472
+
+- Serwer zapisuje każde publiczne zapytanie o dane: wyszukiwanie
+  (`search`), przybliżoną wygraną (`approximate_win`) i szczegóły planszy
+  (`board_detail`). Nie zapisuje odblokowania (to jest w audycie sesji),
+  kontekstu, symboli ani obrazów.
+- Wpis: czas serwera (UTC, wyświetlany lokalnie), rodzaj, parametry
+  potrzebne do odtworzenia i skrót wyniku:
+  - `search`: pełny wzór (`cellIndex:symbolCode|?`, także pola `?`),
+    zakres (`all_searchable|approved_only`), liczba wyników, liczba
+    zwróconych plansz i do 5 pierwszych numerów plansz;
+  - `approximate_win`: plansza startowa, zakres spinów, wypłaty, koszt,
+    bilans i liczba wierszy;
+  - `board_detail`: numer planszy i wypłata;
+  - kod wyniku (`ok` albo stabilny kod błędu).
+- Stawka i jednostka są przeliczane w przeglądarce odbiorcy, więc serwer ich
+  nie widzi i nie zapisuje.
+- Nie zapisujemy adresu IP ani nagłówków przeglądarki. „Adres” oznacza
+  udostępniony link, czyli sesję.
+- Zapis jest częścią tej samej transakcji co odczyt (fail-closed): jeżeli
+  wpisu nie da się zapisać, odbiorca dostaje błąd, a nie dane bez śladu.
+- Bramka kodu informuje odbiorcę, że jego zapytania są zapisywane i widoczne
+  dla właściciela.
+- Dziennik jest przechowywany razem z rekordem sesji. Nie ma automatycznego
+  usuwania; ewentualna retencja wymaga osobnej decyzji.
+- Admin pokazuje dziennik wybranej sesji, od najnowszego, stronami po 50.
+  Każdy wpis `search` ma przycisk „Odtwórz w wyszukiwarce”: otwiera
+  „Wyszukaj plansze” tej gry z wypełnionym wzorem, zakresem i liczbą wyników
+  i od razu uruchamia wyszukiwanie. Wpis `approximate_win` odtwarza
+  najbliższe wcześniejsze wyszukiwanie tej samej sesji, wybiera planszę
+  startową (gdy jest w wynikach), ustawia zakres spinów i rozwija
+  „Przybliżoną wygraną”. Wpis `board_detail` odtwarza tak samo i otwiera
+  modal planszy.
+- Odtworzenie przekazuje wyłącznie identyfikator wpisu w adresie Admina
+  (`?boardSearchReplay=<uuid>`); parametry są pobierane z API. Symbol, który
+  nie jest już aktywny, trafia do wzoru jako `?` z ostrzeżeniem.
+
 ## 4. Kontrakty
 
 ### 4.1 Szczegóły planszy (nowy endpoint, proponowany)
@@ -195,6 +233,8 @@ Administracja (loopback, Admin):
 POST /api/v1/admin/board-search-shares/sessions        # gameId, label, lifetimeMinutes
 GET  /api/v1/admin/board-search-shares/sessions
 POST /api/v1/admin/board-search-shares/sessions/{id}/revoke
+GET  /api/v1/admin/board-search-shares/sessions/{id}/queries?before={cursor}&limit=1..50
+GET  /api/v1/admin/board-search-shares/queries/{eventId}   # dane do odtworzenia
 ```
 
 Publiczne (tylko przez proxy Reviewera, nagłówek intencji + cookie):
@@ -227,6 +267,14 @@ Limity na sesję (proponowane): 120 żądań JSON/min, 600 obrazów/min,
 
 `board_search_share_audit_events`: `id`, `session_id` (FK), `event_type`
 (`created|unlock_failed|unlocked|locked|revoked`), `created_at`.
+
+`board_search_share_query_events` (D-472): `id`, `session_id` (FK,
+`RESTRICT`), `game_id`, `occurred_at`, `kind`
+(`search|approximate_win|board_detail`), `request` (JSONB, walidowany
+schemat per rodzaj, maks. 4 KiB), `result_summary` (JSONB, maks. 2 KiB),
+`outcome_code`. Indeks `(session_id, occurred_at DESC, id DESC)` dla
+stronicowania kursorem. Wolumen ogranicza limit żądań sesji (maks. ok. 120
+na minutę przez najwyżej 24 h).
 
 Migracja jest wyłącznie addytywna. Numer rewizji ustalić przy wykonaniu
 (ostatnia na gałęzi: `0128_partial_board_reconciliation_receipts.py`; inne
@@ -554,10 +602,15 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
     wewnętrznych.
   - Limity żądań według wzorca `remote_manual_selection_control.py`.
   - `Cache-Control` obrazów: `private, immutable, max-age=86400`.
+  - Każde żądanie `search`, `approximate-win` i `boards/{n}` zapisuje wpis
+    dziennika (R5, model z TASK-0771) w tej samej transakcji; błąd zapisu
+    daje `503 BOARD_SEARCH_SHARE_QUERY_LOG_UNAVAILABLE` bez danych.
 - **Test cases:** brak cookie → 401; token innej sesji nie czyta gry A;
   parametr `gameId` w zapytaniu jest odrzucany; odpowiedź nie zawiera
   zakazanych kluczy (test rekurencyjny); 429 po przekroczeniu limitu;
-  sesja unieważniona w trakcie → 401 przy następnym żądaniu.
+  sesja unieważniona w trakcie → 401 przy następnym żądaniu; każde zapytanie
+  o dane zostawia dokładnie jeden wpis dziennika z pełnym wzorem; błąd zapisu
+  dziennika nie zwraca danych.
 
 #### T9 / TASK-0768 — Aplikacja online w Reviewerze
 
@@ -583,6 +636,8 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
   - Adapter `BoardSearchDataSource` z cache według 4.5.
   - Widok pokazuje czas do wygaśnięcia i czytelny ekran po wygaśnięciu albo
     unieważnieniu.
+  - Bramka kodu informuje, że zapytania są zapisywane i widoczne dla
+    właściciela linku (R5).
 - **Test cases:** allowlista (każda trasa spoza listy → 403); cookie selekcji
   i Reviewera nie autoryzują nowej powierzchni i odwrotnie; nagłówki CSP;
   trafienie i wygaśnięcie cache; zmiana stawki nie wysyła żądania.
@@ -608,7 +663,51 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
 - **Test cases:** cache kodów (wygaśnięcie, usunięcie po unieważnieniu);
   brak tunelu → czytelny błąd; lista filtruje aktywne i zakończone.
 
-#### T11 / TASK-0770 — Bramka bezpieczeństwa, dokumentacja, odbiór
+#### T11 / TASK-0771 — Dziennik zapytań linku i odtworzenie w Adminie (punkt 6)
+
+- **Goal:** operator widzi, kiedy i jakie zapytania wykonano przez dany link,
+  i jednym przyciskiem odtwarza je w swojej wyszukiwarce.
+- **Dependencies:** T7 (sesje), T8 (zapis wpisów w publicznych
+  endpointach), T10 (panel). Kolejność wykonania: po T10, przed T12.
+- **Expected files:** migracja Alembic (tabela z 4.4); istniejące
+  `storage/models.py`, `api/board_search_shares.py`,
+  `application/board_search_share_access.py`,
+  `apps/admin/src/features/board-search/board-search-share-panel.tsx`,
+  `board-search-workspace.tsx`, `catalog-workspace.tsx` /
+  `admin-navigation-state.ts` (parametr `boardSearchReplay`); nowe
+  (proponowane) `domain/board_search_share_queries.py`,
+  `application/board_search_share_queries.py`,
+  `storage/board_search_share_query_repository.py`,
+  `apps/admin/src/features/board-search/board-search-share-query-log.tsx`,
+  `board-search-replay-state.ts`, testy API, repozytorium (PostgreSQL) i
+  Admina; OpenAPI i klient.
+- **Technical notes:**
+  - Model i walidacja `request`/`result_summary` per rodzaj w domenie;
+    nieznany rodzaj albo zbyt duży ładunek to błąd programistyczny.
+  - Zapis wpisu: jedna funkcja aplikacyjna wołana przez publiczne endpointy
+    T8 po poprawnym albo błędnym wyniku (z `outcome_code`), w tej samej
+    sesji bazy.
+  - Lista: kursor `(occurred_at, id)`, najnowsze najpierw, 50 na stronę.
+  - Odtworzenie w Adminie: `?boardSearchReplay=<eventId>` otwiera sekcję gry
+    wpisu, pobiera wpis, ustawia wzór (kolejność pól jak w zapisie),
+    zakres i liczbę wyników, uruchamia wyszukiwanie. Dla
+    `approximate_win`/`board_detail` API zwraca też najbliższe wcześniejsze
+    `search` tej sesji; bez niego Admin pokazuje parametry i komunikat, że
+    wzoru nie da się odtworzyć. Brak planszy startowej w wynikach →
+    komunikat, bez wyboru innej planszy. Nieaktywny symbol → `?` i
+    ostrzeżenie.
+  - Wpis z innej gry niż bieżąca sekcja przełącza na grę wpisu.
+- **Test cases:** zapis wszystkich trzech rodzajów z pełnym wzorem (również
+  `?`); brak IP i nagłówków w wpisie; stronicowanie kursorem bez duplikatów
+  przy równym czasie; wpis innej sesji nie trafia na listę; odtworzenie
+  `search` ustawia dokładnie ten sam wzór, zakres i limit i wysyła jedno
+  wyszukiwanie; odtworzenie `approximate_win` wybiera planszę i zakres;
+  brak wcześniejszego `search` → komunikat; nieaktywny symbol → `?`.
+- **Acceptance:** dziennik pokazuje czas, rodzaj, wzór (mini-plansza 3 × 5
+  z ikonami), zakres, limit albo planszę i zakres spinów oraz wynik; przycisk
+  odtwarza bez ręcznego wpisywania.
+
+#### T12 / TASK-0770 — Bramka bezpieczeństwa, dokumentacja, odbiór
 
 - **Goal:** powierzchnia jest opisana w modelu zagrożeń i odebrana.
 - **Scope:** `ai_docs/security/REMOTE_REVIEWER_THREAT_MODEL.md` (nowa
@@ -619,7 +718,9 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
   urządzenia — wymaga osobnej zgody operatora.
 - **Acceptance:** lista kontrolna: allowlista zgodna z OpenAPI, izolacja
   celu sesji, cookie i pochodzenie żądań, limity, redakcja odpowiedzi,
-  stabilne błędy HTTP; brak otwartych uwag P0–P2.
+  stabilne błędy HTTP, dziennik zapytań (kompletność, brak IP, informacja
+  dla odbiorcy, brak publicznego odczytu dziennika); brak otwartych uwag
+  P0–P2.
 
 **Granica etapu B — STOP.**
 
@@ -636,7 +737,9 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
 | 5. Kopia sekcji ze wszystkimi funkcjami | T6, T9 | te same komponenty z pakietu |
 | 5. Przycięte zdjęcia | T4, T6 | widok WebP ≤ 1280 px |
 | 5. Szybkość i cache | T4, T8, T9 | cache HTTP, cache w pamięci, cache plikowy |
-| 5. Bezpieczeństwo | T8, T9, T11 | allowlista, izolacja, limity |
+| 5. Bezpieczeństwo | T8, T9, T12 | allowlista, izolacja, limity |
+| 6. Dziennik zapytań linku (czas, wzór, parametry) | T8, T11 | jeden wpis na zapytanie, pełny wzór, lista w Adminie |
+| 6. Odtworzenie zapytania jednym przyciskiem | T11 | ten sam wzór, zakres i limit; jedno wyszukiwanie |
 
 ## 7. Ryzyka i niewiadome
 
@@ -656,6 +759,10 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
 - **Ujawnienie danych** — odbiorca widzi zdjęcia plansz, pełną sekwencję
   przez wyszukiwanie i wypłaty. To świadomy zakres punktu 5.
 - **Równoległe worktree** mogą zająć numery migracji, zadań i decyzji.
+
+- **Dziennik zapytań to dane o odbiorcy** — zapisujemy wyłącznie treść
+  zapytań i czas, bez IP i nagłówków; odbiorca jest o tym informowany na
+  bramce. Brak automatycznej retencji (D-472).
 
 ## 8. Zakres wyłączony
 
@@ -694,6 +801,12 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
 | 20 | Cache: HTTP dla obrazów + pamięć karty dla JSON | (a) service worker; (b) IndexedDB; (c) cache serwerowy wyników | (a)(b) trwałe dane po wygaśnięciu sesji i trudne unieważnianie; (c) sprzeczne z D-462 (świeże przeliczenie po weryfikacji symboli). |
 | 21 | Limity żądań na sesję, jedna kalkulacja naraz | Bez limitów | Kalkulacja obciąża ten sam proces, z którego korzysta operator lokalnie. |
 | 22 | Dwa etapy z punktem STOP | Jeden etap | Punkty 1–4 dają wartość od razu i są warunkiem punktu 5; etap B niesie ryzyko bezpieczeństwa i zasługuje na osobne polecenie. |
+| 23 | Dziennik zapisywany na serwerze przy każdym zapytaniu o dane | (a) logi HTTP Reviewera; (b) raport wysyłany przez przeglądarkę odbiorcy | (a) logi nie mają struktury wzoru i są rotowane; (b) odbiorca mógłby go pominąć, a serwer i tak zna każde zapytanie. |
+| 24 | Zapis w tej samej transakcji, fail-closed | Zapis „best effort” po odpowiedzi | Operator chce widzieć wszystkie zapytania; dane bez śladu łamałyby tę gwarancję. |
+| 25 | Bez IP i nagłówków, z informacją na bramce | Zapis IP (`CF-Connecting-IP`) | Sesja już identyfikuje „adres”, o który pyta operator; IP to dane osobowe bez potrzeby. |
+| 26 | Odtworzenie przez identyfikator wpisu w adresie Admina | Parametry wzoru w URL albo w `localStorage` | Identyfikator przetrwa przeładowanie, a parametry zawsze pochodzą z zapisanego wpisu. |
+| 27 | Dla przybliżonej wygranej odtwarzamy najbliższe wcześniejsze wyszukiwanie tej sesji | Tylko parametry bez wzoru | Odbiorca liczy wygraną zawsze dla wyniku wyszukiwania; bez wzoru nie da się wybrać planszy w wynikach. |
+| 28 | Nowy task T11 przed bramką bezpieczeństwa | Rozszerzenie T8 i T10 | Osobny pion (migracja, API, UI) z własnym audytem; bramka T12 obejmuje już dziennik. |
 
 ## Przypisanie modeli do zadań
 
@@ -716,4 +829,5 @@ Eskalacja: dwa nieudane cykle poprawek P0–P2 zatrzymują etap.
 | T8 / TASK-0767 | claude-opus-5-5 | high | Publiczna powierzchnia danych: izolacja gry, redakcja, limity. | Tak: claude-fable-5-1, high, osobny agent |
 | T9 / TASK-0768 | claude-opus-5-5 | high | Proxy, cookie, CSP i cache klienta na publicznym hoście. | Tak: claude-fable-5-1, high, osobny agent |
 | T10 / TASK-0769 | claude-opus-5-5 | high | Panel według istniejącego wzorca zdalnej selekcji. | Tak: claude-opus-5-5, high, osobny agent |
-| T11 / TASK-0770 | claude-opus-5-5 | high | Bramka bezpieczeństwa i spójność dokumentacji z kodem. | Tak: claude-fable-5-1, high, osobny agent |
+| T11 / TASK-0771 | claude-opus-5-5 | high | Migracja, dane o odbiorcy i odtworzenie stanu wyszukiwarki w Adminie. | Tak: claude-fable-5-1, high, osobny agent |
+| T12 / TASK-0770 | claude-opus-5-5 | high | Bramka bezpieczeństwa i spójność dokumentacji z kodem. | Tak: claude-fable-5-1, high, osobny agent |

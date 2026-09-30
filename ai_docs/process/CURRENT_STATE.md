@@ -216,7 +216,8 @@ last_updated: 2026-09-30
   wykonań, ok. 6,0 GB do zwolnienia (manifest `20feadcd…`). Za zgodą
   operatora 2026-09-30 job `21f933c0…` wykonany: 56 710 wpisów, 0
   konfliktów, `VACUUM (ANALYZE)`; po drodze naprawiono `complete` sklepu
-  jobów dla jobów bez gry (v1.7.108). `VACUUM FULL` tabeli czeka na zgodę.
+  jobów dla jobów bez gry (v1.7.108). `VACUUM FULL` za zgodą: tabela
+  6 804 MB → 399 MB, baza 89 → 83 GB. **Etap S3 zamknięty.**
   Nowe TASK-0765 w planie: rola bez `SUPERUSER`/`BYPASSRLS`.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)

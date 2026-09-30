@@ -1,6 +1,6 @@
 ---
 title: TASK-0756 — S3 — kompaktacja wyników pipeline na V2 i runbook utrzymania bazy
-status: in_progress
+status: done
 last_updated: 2026-09-30
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-30
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -119,8 +119,9 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = "1"
   56 710/56 710 wpisów skompaktowanych, 0 konfliktów, `VACUUM (ANALYZE)`
   wykonany, job `completed`; zostały `board_detection` (56 810),
   `discovery`, `normalization` i po 93–98 wierszy etapów usuwalnych
-  wykonań wykluczonych; 56 710 manifestów terminalnych. Tabela nadal
-  6,8 GB do czasu `VACUUM FULL` (osobna zgoda). Dwa pierwsze uruchomienia workera przerwał limit czasu
+  wykonań wykluczonych; 56 710 manifestów terminalnych. `VACUUM (FULL,
+  ANALYZE)` za zgodą operatora 2026-09-30 22:05 UTC: 21 s, tabela
+  6 804 MB → 399 MB, baza 89 GB → 83 GB. Dwa pierwsze uruchomienia workera przerwał limit czasu
   narzędzia sesji; job wznawiał się z checkpointu.
 - Wykryta i naprawiona kolejna pozostałość V1 w workerze: `complete` /
   `fail` / `pause_for_review` sklepu jobów wołały

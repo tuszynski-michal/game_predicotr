@@ -603,3 +603,31 @@ def test_an_oversized_pattern_is_refused_before_any_search_or_log(
         assert response.json()["code"] == "BOARD_SEARCH_SHARE_QUERY_INVALID"
     assert harness.search.calls == []
     assert harness.log.entries == []
+
+
+def test_default_limits_and_range_calculation_limit(tmp_path: Path) -> None:
+    from game_predictor_api.application.board_search_share_queries import (
+        _DEFAULT_LIMITS_PER_MINUTE,
+    )
+
+    assert _DEFAULT_LIMITS_PER_MINUTE == {
+        BoardSearchShareRequestKind.JSON: 120,
+        BoardSearchShareRequestKind.IMAGE: 600,
+        BoardSearchShareRequestKind.APPROXIMATE_WIN: 10,
+    }
+    harness = _harness(
+        tmp_path,
+        limits={
+            BoardSearchShareRequestKind.JSON: 100,
+            BoardSearchShareRequestKind.IMAGE: 100,
+            BoardSearchShareRequestKind.APPROXIMATE_WIN: 1,
+        },
+    )
+    with TestClient(harness.app, base_url="https://testserver") as test_client:
+        _signed_in(test_client, harness, RANGE_GAME_ID)
+        params = {"startSequenceNumber": 1, "spinCount": 5}
+        first = test_client.get(f"{BASE}/approximate-win", params=params, headers=PROXY)
+        second = test_client.get(f"{BASE}/approximate-win", params=params, headers=PROXY)
+    assert first.status_code == 200, first.text
+    assert second.status_code == 429
+    assert second.json()["code"] == "BOARD_SEARCH_SHARE_RATE_LIMITED"

@@ -865,6 +865,33 @@ decyzji i kopii danych.
 - build Android trwa długo — nie uruchamiaj drugiego builda. Poczekaj na
   zakończenie kontrolowanego procesu Gradle albo sprawdź jego ostatni błąd.
 
+## Udostępnienie wyszukiwarki plansz online
+
+Link daje drugiej osobie tylko do odczytu kopię sekcji „Wyszukaj plansze”
+razem z „Przybliżoną wygraną” dla jednej gry (D-471). Wymaga tego samego
+produkcyjnego Reviewera i Quick Tunnel co zdalna ręczna selekcja (sekcja
+niżej): jednorazowo `npm run reviewer:remote:setup` i `npm run reviewer:build`,
+bez `reviewer:dev`. Migracja bazy musi być na `head`
+(`npm run db:migrate`; tabela sesji udostępnień pochodzi z
+`0129_board_search_share_sessions`).
+
+1. W Adminie otwórz grę, rozwiń „Wyszukaj plansze” i kliknij „Udostępnij
+   online”.
+2. Podaj etykietę (opcjonalnie), czas dostępu (1/4/8/24 h, domyślnie 8 h) i
+   kliknij „Utwórz link”. Pierwsze użycie uruchamia publiczny adres Reviewera
+   (do około minuty).
+3. Wyślij link i kod osobnymi wiadomościami. Kod jest pokazywany i
+   pamiętany tylko w tej przeglądarce Admina.
+4. „Dziennik zapytań” przy linku pokazuje, co odbiorca wyszukiwał i liczył;
+   „Odtwórz w wyszukiwarce” powtarza zapytanie w Twoim Adminie.
+5. Po zakończeniu kliknij „Zatrzymaj” (dwa kliknięcia) i zatrzymaj tunel, gdy
+   nic innego nie jest udostępnione.
+
+Najwyżej 5 linków może być aktywnych jednocześnie; 5 błędnych kodów blokuje
+link. Odbiorca po wygaśnięciu albo zatrzymaniu widzi ekran zakończenia.
+Wyłącznik: `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED=false` (API i
+Reviewer).
+
 ## Czasowy link HTTPS do zdalnej ręcznej selekcji
 
 Ten tryb dotyczy wyłącznie purpose-scoped zdalnej ręcznej selekcji zdjęć.

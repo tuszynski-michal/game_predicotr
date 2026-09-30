@@ -1,7 +1,7 @@
 ---
 title: Remote Reviewer threat model
 status: accepted
-last_updated: 2026-08-25
+last_updated: 2026-09-30
 ---
 
 # Model zagrożeń zdalnego Reviewera
@@ -61,6 +61,30 @@ przeglądarka łączy się bezpośrednio z Admin API na `127.0.0.1`; zdalny komp
 interpretuje taki adres jako własny loopback i nie uzyskuje dostępu do API
 właściciela. Publiczny host z parametrami trybu lokalnego pozostaje za bramką
 sesji i kodu.
+
+### Udostępniona wyszukiwarka plansz (D-471, D-472, D-475)
+
+Trzecia powierzchnia tego samego procesu i tunelu: `/board-search?share=<id>`
+z proxy `/board-search-api`. Jest wyłącznie do odczytu i obejmuje jedną grę
+wybraną przy tworzeniu linku w Adminie. Odbiorca ma własne cookie
+`gp_board_search_token` (`HttpOnly`, `Secure`, `SameSite=Strict`,
+`Path=/board-search-api`) i stałą intencję proxy `reviewer-board-search-v1`
+(nagłówek `X-Board-Search-Share-Proxy`). Zamknięta allowlista to: unlock
+kodem, kontekst, symbole, obraz symbolu z sumą, wyszukiwanie, przybliżona
+wygrana, szczegóły planszy i przycięty widok planszy — wyłącznie `GET` poza
+unlockiem, z dokładnymi parametrami. Brak poprawiania pól, odświeżania
+odczytu, pełnych zdjęć, tras Admina i odczytu dziennika zapytań. Cookie
+udostępnienia nie autoryzuje `/review-api` ani `/selection-api`, a ich cookie
+nie autoryzują `/board-search-api` (testy w obu kierunkach). API bierze grę
+wyłącznie z sesji; parametr gry w zapytaniu jest odrzucany.
+
+Każde wykonane zapytanie o dane (wyszukiwanie, zakres, szczegóły planszy)
+zostawia jeden wpis dziennika; żądanie odrzucone przy walidacji parametrów
+(`422`, bez odczytu danych) nie jest zapytaniem i nie jest zapisywane (czas, parametry, skrót wyniku, kod wyniku) bez adresu
+IP i nagłówków. Wpis jest zatwierdzany przed wysłaniem danych; jeżeli nie da
+się go zapisać, odbiorca dostaje `503` bez danych. Bramka kodu informuje o
+zapisie przed podaniem kodu. Dziennik czyta tylko właściciel w Adminie na
+loopbacku.
 
 ## Chronione zasoby i aktorzy
 
@@ -193,6 +217,26 @@ lokalnego high-impact targetu, a heartbeat nie przyjmuje lease tokenu od
 przeglądarki. Legacy globalne endpointy ingressu nie są używane przez zwykły
 przepływ sekcji zatwierdzania.
 
+## Bramka bezpieczeństwa udostępnionej wyszukiwarki (TASK-0770)
+
+Lista kontrolna odbioru etapu B (dowody to testy w repozytorium):
+
+| Kontrola | Dowód |
+|---|---|
+| allowlista proxy równa publicznym trasom OpenAPI, trasy Admina niedostępne | `apps/reviewer/test/board-search-share-security-gate.test.mjs`, `board-search-share-proxy.test.mjs` |
+| izolacja celu sesji: gra tylko z sesji, token innej sesji czyta tylko swoją grę, parametr gry odrzucony | `services/api/tests/test_board_search_share_public_api.py` |
+| cookie i pochodzenie: atrybuty cookie, `Sec-Fetch-Site`/`Origin` dla unlock, rozdział cookie trzech powierzchni | `board-search-share-proxy.test.mjs`, `test-interactions/review-api-share-cookie.test.mjs` |
+| kod i token: PBKDF2, kod zwracany raz, rotacja tokenu, blokada po 5 błędach, unieważnienie i wygaśnięcie | `test_board_search_share_access.py`, integracja PostgreSQL |
+| limity: 120 JSON/min, 600 obrazów/min, 10 kalkulacji/min i jedna naraz, 5 aktywnych linków | `test_board_search_share_public_api.py` (wartości domyślne, 429 dla JSON, obrazów i zakresu, jedna kalkulacja naraz), `test_board_search_share_access*.py` |
+| redakcja odpowiedzi: brak identyfikatorów przeglądu, planszy, importu, rekordów pól, ścieżek i sekretów (API i drugi filtr w proxy); `gameId` i `rulesVersionId` w odpowiedziach zakresu i szczegółów są dozwolone (nie są sekretami) | rekurencyjne testy kluczy w API i proxy, test schematów OpenAPI |
+| stabilne błędy HTTP (`401/403/404/409/422/429/503`) | testy API tras publicznych i administracyjnych |
+| dziennik zapytań: jeden wpis na wykonane zapytanie z pełnym wzorem (także `?`), wpis błędu, fail-closed, brak IP i nagłówków, brak publicznego odczytu | testy API, integracja PostgreSQL, test bramki OpenAPI |
+| informacja dla odbiorcy o zapisie zapytań przed kodem | bramka kodu Reviewera (odbiór ręczny) |
+| lokalny build produkcyjny Reviewera: osobny CSP bez adresu API, trasy spoza allowlisty `403` | odbiór na `next start` (TASK-0770) |
+
+Poza bramką (wymaga osobnej zgody operatora): uruchomienie publicznego
+Quick Tunnel i test z drugiego urządzenia.
+
 ## Bramka bezpieczeństwa TASK-0289
 
 Formalna bramka ma osiem obowiązkowych kontroli: zamkniętą allowlistę zgodną z
@@ -226,6 +270,20 @@ grupie ani pozostawiać tunelu uruchomionego bez aktywnej sesji.
 4. Utwórz nową sesję i nowy link dopiero po ustaleniu przyczyny.
 5. Audyt `reviewer_access_audit_events` zachowuje utworzenie, błędne próby,
    unlock, blokadę i revoke bez sekretów.
+
+### Incydent z linkiem udostępnionej wyszukiwarki
+
+1. W Adminie w „Wyszukaj plansze” → „Udostępnij online” kliknij `Zatrzymaj`
+   przy linku (działa także bez działającego tunelu); odbiorca traci dostęp
+   przy następnym żądaniu.
+2. Jeżeli nie ma innych aktywnych udostępnień, zatrzymaj tunel
+   (`npm run reviewer:remote:stop`).
+3. Awaryjnie ustaw `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED=false` dla API i
+   Reviewera i uruchom je ponownie: tworzenie, odblokowanie i dostęp są
+   wtedy wyłączone (lista i zatrzymanie linków działają).
+4. `board_search_share_audit_events` zachowuje utworzenie, błędne kody,
+   blokadę, odblokowania i zatrzymanie bez sekretów, a
+   `board_search_share_query_events` — co odbiorca oglądał.
 
 ## Zaakceptowany transport
 

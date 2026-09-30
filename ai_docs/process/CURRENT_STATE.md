@@ -49,6 +49,8 @@ last_updated: 2026-09-30
   główna 3000/8000 bez zmian.
 - Etap A zakończony i odebrany; 2026-09-30 operator zlecił poprawki
   (TASK-0773) i etap B (TASK-0765–0771, potem TASK-0770).
+- Lokalna instancja testowa Reviewera z worktree: `127.0.0.1:3011`
+  (dev, bez tunelu, proxy do API 8010).
 - TASK-0765 done: wyszukiwarka żyje w pakiecie
   `packages/board-search-ui` (`BoardSearchDataSource` = podzbiór klienta
   Admin API, mutacje opcjonalne); Admin używa cienkiego opakowania;
@@ -80,7 +82,15 @@ last_updated: 2026-09-30
   stronicowanie) i „Odtwórz w wyszukiwarce” (`?boardSearchReplay=`): ten
   sam wzór z polami `?`, zakres i limit, plansza startowa, zakres spinów i
   okno planszy.
-- Etap B w toku; push i merge nie były wykonywane.
+- TASK-0770 done: model zagrożeń (nowa powierzchnia, lista kontrolna,
+  incydent), przewodnik operatora, testy bramki (allowlista = OpenAPI,
+  rozdział ciasteczek), odbiór na lokalnym buildzie produkcyjnym Reviewera.
+- **Etap B zakończony; STOP na granicy etapu.** Do odbioru przez operatora
+  (wymaga zgody): migracja `0129_board_search_share_sessions` na bazie
+  deweloperskiej (`npm run db:migrate`), restart API/Admina, utworzenie
+  linku (uruchamia Quick Tunnel) i test z drugiego urządzenia. Po scaleniu
+  gałęzi potrzebne `npm install` (nowy pakiet workspace
+  `@game-predictor/board-search-ui`). Push i merge nie były wykonywane.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)
 

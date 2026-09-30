@@ -3385,3 +3385,79 @@ test('listImageGridReviews requests the single correction queue (D-462)', async 
   assert.equal(url.searchParams.get('importJobId'), importJobId);
   assert.equal(url.searchParams.get('limit'), '1');
 });
+
+test('board-search share wrappers use the share paths and confirmed targets', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const sessionId = '22222222-2222-4222-8222-222222222222';
+  const session = {
+    createdAt: '2026-09-30T10:00:00Z',
+    expiresAt: '2026-09-30T18:00:00Z',
+    failedAttempts: 0,
+    gameId,
+    label: null,
+    lastUnlockedAt: null,
+    lockedAt: null,
+    ready: true,
+    revokedAt: null,
+    sessionId,
+    shareUrl: `https://share.trycloudflare.com/board-search?share=${sessionId}`,
+    status: 'active',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const url = new URL(request.url);
+      if (request.method === 'GET') {
+        return Response.json({ sessions: [session] });
+      }
+      if (url.pathname.endsWith('/revoke')) {
+        return Response.json({ ...session, status: 'revoked' });
+      }
+      return Response.json(
+        { accessCode: 'ABCD-EFGH', session },
+        { status: 201 },
+      );
+    },
+  });
+
+  const created = await client.createBoardSearchShareSession({
+    gameId,
+    label: 'Dla Ani',
+    lifetimeMinutes: 480,
+  });
+  await client.listBoardSearchShareSessions({ gameId });
+  await client.listBoardSearchShareSessions();
+  await client.revokeBoardSearchShareSession(sessionId);
+
+  assert.equal(created.data?.accessCode, 'ABCD-EFGH');
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['POST', '/api/v1/admin/board-search-shares/sessions'],
+      ['GET', '/api/v1/admin/board-search-shares/sessions'],
+      ['GET', '/api/v1/admin/board-search-shares/sessions'],
+      [
+        'POST',
+        `/api/v1/admin/board-search-shares/sessions/${sessionId}/revoke`,
+      ],
+    ],
+  );
+  assert.equal(
+    requests[0].headers.get('X-Admin-Target'),
+    'board-search-share-session:new',
+  );
+  assert.equal(
+    requests[3].headers.get('X-Admin-Target'),
+    `board-search-share-session:${sessionId}`,
+  );
+  assert.equal(new URL(requests[1].url).searchParams.get('gameId'), gameId);
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '100');
+  assert.equal(new URL(requests[2].url).searchParams.has('gameId'), false);
+  assert.deepEqual(await requests[0].clone().json(), {
+    gameId,
+    label: 'Dla Ani',
+    lifetimeMinutes: 480,
+  });
+});

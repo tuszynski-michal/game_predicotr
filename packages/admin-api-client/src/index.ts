@@ -64,6 +64,7 @@ import {
   createRulesDraftFromPublished as createGeneratedRulesDraftFromPublished,
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
+  createBoardSearchShareSession as createGeneratedBoardSearchShareSession,
   createRemoteManualSelectionSession as createGeneratedRemoteManualSelectionSession,
   createSymbol as createGeneratedSymbol,
   createSymbolTraining as createGeneratedSymbolTraining,
@@ -166,6 +167,7 @@ import {
   listReviewItems as listGeneratedReviewItems,
   listReviewResolutions as listGeneratedReviewResolutions,
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
+  listBoardSearchShareSessions as listGeneratedBoardSearchShareSessions,
   listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
   listSemiAutomaticFilenameRangeVerifications as listGeneratedSemiAutomaticFilenameRangeVerifications,
   listSemiAutomaticImageSelections as listGeneratedSemiAutomaticImageSelections,
@@ -213,6 +215,7 @@ import {
   retryImageJobFile as retryGeneratedImageJobFile,
   pauseSemiAutomaticImageSelection as pauseGeneratedSemiAutomaticImageSelection,
   revokeReviewerSession as revokeGeneratedReviewerSession,
+  revokeBoardSearchShareSession as revokeGeneratedBoardSearchShareSession,
   revokeRemoteManualSelectionSession as revokeGeneratedRemoteManualSelectionSession,
   reopenRemoteManualSelectionBatch as reopenGeneratedRemoteManualSelectionBatch,
   resolveReviewItem as resolveGeneratedReviewItem,
@@ -338,6 +341,7 @@ import type {
   ReviewerSessionUnlockResponse,
   ReviewerWorkActionCommand,
   ReviewerWorkOpenCommand,
+  BoardSearchShareCreate,
   RemoteManualSelectionSessionCreate,
   RemoteSelectionReopenCommand,
   RemoteSelectionRecoveryStatusResponse,
@@ -702,6 +706,10 @@ export type {
   ReviewerWorkHeartbeatResponse,
   ReviewerWorkOpenCommand,
   ReviewerWorkOpenedResponse,
+  BoardSearchShareCreate,
+  BoardSearchShareCreatedResponse,
+  BoardSearchShareSessionListResponse,
+  BoardSearchShareSessionResponse,
   RemoteManualSelectionSessionCreate,
   ReviewerWorkOverviewResponse,
   RemoteManualSelectionBaseCapabilityResponse,
@@ -1153,6 +1161,31 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       revokeGeneratedReviewerSession({
         client,
         headers: confirmedTargetHeaders(`reviewer-session:${sessionId}`),
+        path: { session_id: sessionId },
+      }),
+    /** Create one online read-only board-search share link (D-471). */
+    createBoardSearchShareSession: (body: BoardSearchShareCreate) =>
+      createGeneratedBoardSearchShareSession({
+        body,
+        client,
+        headers: confirmedTargetHeaders('board-search-share-session:new'),
+      }),
+    listBoardSearchShareSessions: (
+      options: { readonly gameId?: string; readonly limit?: number } = {},
+    ) =>
+      listGeneratedBoardSearchShareSessions({
+        client,
+        query: {
+          ...(options.gameId === undefined ? {} : { gameId: options.gameId }),
+          limit: options.limit ?? 100,
+        },
+      }),
+    revokeBoardSearchShareSession: (sessionId: string) =>
+      revokeGeneratedBoardSearchShareSession({
+        client,
+        headers: confirmedTargetHeaders(
+          `board-search-share-session:${sessionId}`,
+        ),
         path: { session_id: sessionId },
       }),
     selectRemoteManualSelectionHostBase: () =>

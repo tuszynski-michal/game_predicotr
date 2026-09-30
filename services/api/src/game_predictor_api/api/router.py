@@ -9,6 +9,7 @@ from game_predictor_api.api.board_cell_geometry_pending import (
     create_board_cell_geometry_pending_router,
 )
 from game_predictor_api.api.board_search import create_board_search_router
+from game_predictor_api.api.board_search_shares import create_board_search_shares_admin_router
 from game_predictor_api.api.catalog import create_catalog_router
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
@@ -106,6 +107,7 @@ def create_api_router(
     *,
     board_search_board_detail_service_dependency: Callable[..., object],
     board_search_board_view_service_dependency: Callable[..., object],
+    board_search_share_access_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(create_health_router(settings.version))
@@ -126,6 +128,12 @@ def create_api_router(
             artifact_root,
             board_detail_service_dependency=board_search_board_detail_service_dependency,
             board_view_service_dependency=board_search_board_view_service_dependency,
+        )
+    )
+    router.include_router(
+        create_board_search_shares_admin_router(
+            board_search_share_access_service_dependency,
+            reviewer_ingress_service_dependency,
         )
     )
     router.include_router(create_cleanup_router(cleanup_service_dependency))

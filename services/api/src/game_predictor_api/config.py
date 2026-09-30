@@ -61,6 +61,7 @@ class ApiSettings:
     remote_selection_materialization_max_attempts: int = 5
     remote_selection_materialization_max_actions_per_cycle: int = 4
     remote_selection_recovery_enabled: bool = True
+    board_search_share_enabled: bool = True
     remote_selection_recovery_limit: int = 100
     symbol_review_page_statement_timeout_ms: int = _DEFAULT_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS
     symbol_review_counts_statement_timeout_ms: int = (
@@ -236,6 +237,12 @@ class ApiSettings:
             raise ConfigurationError(
                 "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT cannot exceed 1000."
             )
+        # D-471: a kill switch for online board-search sharing. Only "true"
+        # (case and surrounding spaces ignored) enables it; any other value
+        # disables it instead of failing startup.
+        board_search_share_enabled = _parse_boolean_fail_closed(
+            source.get("GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED", "true")
+        )
         symbol_review_page_statement_timeout_ms = _parse_positive_integer(
             source.get(
                 "GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS",
@@ -294,6 +301,7 @@ class ApiSettings:
                 remote_selection_materialization_max_actions_per_cycle
             ),
             remote_selection_recovery_enabled=remote_selection_recovery_enabled,
+            board_search_share_enabled=board_search_share_enabled,
             remote_selection_recovery_limit=remote_selection_recovery_limit,
             symbol_review_page_statement_timeout_ms=(symbol_review_page_statement_timeout_ms),
             symbol_review_counts_statement_timeout_ms=(symbol_review_counts_statement_timeout_ms),
@@ -328,6 +336,10 @@ def _parse_boolean(value: str, *, variable_name: str) -> bool:
     if candidate == "false":
         return False
     raise ConfigurationError(f"{variable_name} must be true or false.")
+
+
+def _parse_boolean_fail_closed(value: str) -> bool:
+    return value.strip().lower() == "true"
 
 
 def _parse_local_root(value: str, *, variable_name: str) -> Path:

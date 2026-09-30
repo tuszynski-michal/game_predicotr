@@ -66,6 +66,9 @@ import type {
   ContinueImageSelectionWithoutImageData,
   ContinueImageSelectionWithoutImageErrors,
   ContinueImageSelectionWithoutImageResponses,
+  CreateBoardSearchShareSessionData,
+  CreateBoardSearchShareSessionErrors,
+  CreateBoardSearchShareSessionResponses,
   CreateBrowserImageSelectionData,
   CreateBrowserImageSelectionErrors,
   CreateBrowserImageSelectionResponses,
@@ -441,6 +444,9 @@ import type {
   ListApprovedSymbolReferenceCandidatesData,
   ListApprovedSymbolReferenceCandidatesErrors,
   ListApprovedSymbolReferenceCandidatesResponses,
+  ListBoardSearchShareSessionsData,
+  ListBoardSearchShareSessionsErrors,
+  ListBoardSearchShareSessionsResponses,
   ListBrowserPageGeometryReviewSourcesData,
   ListBrowserPageGeometryReviewSourcesErrors,
   ListBrowserPageGeometryReviewSourcesResponses,
@@ -716,6 +722,9 @@ import type {
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
+  RevokeBoardSearchShareSessionData,
+  RevokeBoardSearchShareSessionErrors,
+  RevokeBoardSearchShareSessionResponses,
   RevokeRemoteManualSelectionSessionData,
   RevokeRemoteManualSelectionSessionErrors,
   RevokeRemoteManualSelectionSessionResponses,
@@ -846,6 +855,72 @@ export type Options<
    */
   meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * List board-search share sessions without secrets
+ */
+export const listBoardSearchShareSessions = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListBoardSearchShareSessionsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareSessionsResponses,
+  ListBoardSearchShareSessionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchShareSessionsResponses,
+    ListBoardSearchShareSessionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/board-search-shares/sessions', ...options });
+
+/**
+ * Create one online read-only board-search share link
+ */
+export const createBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  CreateBoardSearchShareSessionResponses,
+  CreateBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateBoardSearchShareSessionResponses,
+    CreateBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Immediately stop one board-search share link
+ */
+export const revokeBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RevokeBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  RevokeBoardSearchShareSessionResponses,
+  RevokeBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeBoardSearchShareSessionResponses,
+    RevokeBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/revoke',
+    ...options,
+  });
 
 /**
  * Archive a published dataset version

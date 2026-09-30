@@ -1278,6 +1278,107 @@ export type BoardSearchScoreResponse = {
 };
 
 /**
+ * BoardSearchShareCreate
+ */
+export type BoardSearchShareCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Label
+   */
+  label?: string | null;
+  /**
+   * Lifetimeminutes
+   */
+  lifetimeMinutes?: number;
+};
+
+/**
+ * BoardSearchShareCreatedResponse
+ */
+export type BoardSearchShareCreatedResponse = {
+  /**
+   * Accesscode
+   *
+   * Shown once; only its hash is stored.
+   */
+  accessCode: string;
+  session: BoardSearchShareSessionResponse;
+};
+
+/**
+ * BoardSearchShareSessionListResponse
+ */
+export type BoardSearchShareSessionListResponse = {
+  /**
+   * Sessions
+   */
+  sessions: Array<BoardSearchShareSessionResponse>;
+};
+
+/**
+ * BoardSearchShareSessionResponse
+ *
+ * One share session as the owner sees it; never contains secrets.
+ */
+export type BoardSearchShareSessionResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Failedattempts
+   */
+  failedAttempts: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Label
+   */
+  label: string | null;
+  /**
+   * Lastunlockedat
+   */
+  lastUnlockedAt: string | null;
+  /**
+   * Lockedat
+   */
+  lockedAt: string | null;
+  /**
+   * Ready
+   *
+   * The session is active and the public Reviewer ingress is online.
+   */
+  ready: boolean;
+  /**
+   * Revokedat
+   */
+  revokedAt: string | null;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Shareurl
+   *
+   * The link for the recipient (without the code) while `ready`.
+   */
+  shareUrl: string | null;
+  /**
+   * Status
+   */
+  status: 'active' | 'locked' | 'expired' | 'revoked';
+};
+
+/**
  * BoardSearchViewPointResponse
  */
 export type BoardSearchViewPointResponse = {
@@ -14088,6 +14189,133 @@ export type WorkerLaneStatusResponse = {
    */
   workerVersion: string | null;
 };
+
+export type ListBoardSearchShareSessionsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Gameid
+     */
+    gameId?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/board-search-shares/sessions';
+};
+
+export type ListBoardSearchShareSessionsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListBoardSearchShareSessionsError =
+  ListBoardSearchShareSessionsErrors[keyof ListBoardSearchShareSessionsErrors];
+
+export type ListBoardSearchShareSessionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareSessionListResponse;
+};
+
+export type ListBoardSearchShareSessionsResponse =
+  ListBoardSearchShareSessionsResponses[keyof ListBoardSearchShareSessionsResponses];
+
+export type CreateBoardSearchShareSessionData = {
+  body: BoardSearchShareCreate;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/board-search-shares/sessions';
+};
+
+export type CreateBoardSearchShareSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type CreateBoardSearchShareSessionError =
+  CreateBoardSearchShareSessionErrors[keyof CreateBoardSearchShareSessionErrors];
+
+export type CreateBoardSearchShareSessionResponses = {
+  /**
+   * Successful Response
+   */
+  201: BoardSearchShareCreatedResponse;
+};
+
+export type CreateBoardSearchShareSessionResponse =
+  CreateBoardSearchShareSessionResponses[keyof CreateBoardSearchShareSessionResponses];
+
+export type RevokeBoardSearchShareSessionData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/board-search-shares/sessions/{session_id}/revoke';
+};
+
+export type RevokeBoardSearchShareSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RevokeBoardSearchShareSessionError =
+  RevokeBoardSearchShareSessionErrors[keyof RevokeBoardSearchShareSessionErrors];
+
+export type RevokeBoardSearchShareSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareSessionResponse;
+};
+
+export type RevokeBoardSearchShareSessionResponse =
+  RevokeBoardSearchShareSessionResponses[keyof RevokeBoardSearchShareSessionResponses];
 
 export type ArchiveDatasetVersionData = {
   body?: never;

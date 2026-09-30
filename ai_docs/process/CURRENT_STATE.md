@@ -58,6 +58,12 @@ last_updated: 2026-09-30
 - TASK-0774 done (zgłoszenie operatora): etykiety punktów wykresu bilansu i
   lista przypiętych punktów podają jednostkę („kredytów” / „zł”); etykiety
   szersze, pas ma 4 wiersze.
+- TASK-0766 done: sesje udostępniania (migracja `0129`, serwis z kodem
+  PBKDF2, rotacją tokenu, blokadą po 5 błędach i limitem 5 aktywnych, Admin
+  API create/list/revoke jako operacje wysokiego wpływu, flaga
+  `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED`). Migracja nie była uruchamiana
+  na bazie deweloperskiej — przed odbiorem etapu B wymaga zgody operatora.
+  Audyt PASS w pierwszym cyklu.
 - Etap B w toku; push i merge nie były wykonywane.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)

@@ -181,6 +181,21 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "revoke-remote-manual-selection-session",
         "remote-manual-selection-session:{session_id}",
     ),
+    # D-471: a share link exposes one game's board search online.
+    (
+        "POST",
+        "/api/v1/admin/board-search-shares/sessions",
+    ): HighImpactOperation(
+        "create-board-search-share-session",
+        "board-search-share-session:new",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/board-search-shares/sessions/{session_id}/revoke",
+    ): HighImpactOperation(
+        "revoke-board-search-share-session",
+        "board-search-share-session:{session_id}",
+    ),
 }
 
 _REVIEWER_MUTATION_PATTERNS = tuple(

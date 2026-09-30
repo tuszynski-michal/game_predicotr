@@ -426,6 +426,65 @@ reguł), `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT` (tylko widok),
 `409 BOARD_SEARCH_BOARD_VIEW_CACHE_UNSAFE`; `422` dla nieprawidłowych
 parametrów.
 
+### Sesje udostępniania wyszukiwarki online (D-471, TASK-0766)
+
+```text
+POST /api/v1/admin/board-search-shares/sessions
+operationId: createBoardSearchShareSession
+body: { gameId, label?: string (≤ 100 znaków po normalizacji),
+        lifetimeMinutes: 5..1440 = 480 }
+201:  { session: <sesja>, accessCode: "XXXX-XXXX" }
+
+GET  /api/v1/admin/board-search-shares/sessions?gameId=&limit=1..100
+operationId: listBoardSearchShareSessions
+200:  { sessions: [<sesja>] }   # od najnowszej, bez sekretów
+
+POST /api/v1/admin/board-search-shares/sessions/{sessionId}/revoke
+operationId: revokeBoardSearchShareSession
+200:  <sesja>                   # idempotentne, nie zależy od tunelu
+
+<sesja> = { sessionId, gameId, label, status: active|locked|expired|revoked,
+            failedAttempts, createdAt, expiresAt, lockedAt, revokedAt,
+            lastUnlockedAt, ready, shareUrl }
+```
+
+Tworzenie i unieważnienie są operacjami wysokiego wpływu (nagłówki
+`X-Admin-Intent`, `X-Admin-Confirmation`, `X-Admin-Target`
+`board-search-share-session:new|{sessionId}`). `create` najpierw sprawdza
+wszystko bez zapisu (czas życia, etykieta, gotowość gry, limit), dopiero
+potem uruchamia wspólny tunel Reviewera (`ensure_online_reviewer_ingress`) i
+zapisuje sesję. Gotowość: gra istnieje (`404 GAME_NOT_FOUND`), ma
+przydzielony magazyn danych (`409 GAME_STORAGE_LOCATION_MISSING`), gotową
+projekcję albo archiwum wyszukiwarki (`409 BOARD_SEARCH_PROJECTION_INCOMPLETE`
+/ `BOARD_SEARCH_ARCHIVE_INCOMPLETE`) i opublikowane reguły
+(`409 APPROXIMATE_WIN_RULES_NOT_PUBLISHED`). Najwyżej 5 aktywnych sesji
+(niewygasłych, nieunieważnionych, niezablokowanych), sprawdzane pod blokadą
+transakcyjną: `409 BOARD_SEARCH_SHARE_ACTIVE_LIMIT`.
+
+Kod ma 8 znaków bez znaków mylących (`access_credentials`), jest zwracany
+tylko w odpowiedzi `create`; baza przechowuje sól i skrót PBKDF2. Link
+(`shareUrl` = `{publiczny origin}/board-search?share={sessionId}`) nie zawiera
+kodu i jest podawany tylko, gdy sesja jest aktywna, a tunel online (`ready`).
+Odblokowanie (publiczna trasa w TASK-0767) wydaje nowy token i unieważnia
+poprzedni; 5 błędnych kodów blokuje sesję i czyści token. Audyt
+(`created|unlock_failed|unlocked|locked|revoked`) nie zawiera sekretów.
+
+Flaga `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED` (domyślnie `true`; włącza
+tylko `true` bez względu na wielkość liter i otaczające spacje, każda inna
+wartość wyłącza): wyłączone udostępnianie daje
+`503 BOARD_SEARCH_SHARE_DISABLED` dla tworzenia, odblokowania i dostępu;
+lista i unieważnienie działają zawsze. Pozostałe kody: `404
+BOARD_SEARCH_SHARE_NOT_FOUND`, `422 BOARD_SEARCH_SHARE_LIFETIME_INVALID` /
+`_LABEL_INVALID` / `_LIST_LIMIT_INVALID`, `401 BOARD_SEARCH_SHARE_CODE_INVALID`
+/ `_LOCKED` / `_REVOKED` / `_TOKEN_INVALID`.
+
+Migracja `0129_board_search_share_sessions` tworzy
+`board_search_share_sessions`, `board_search_share_audit_events` i (dla
+TASK-0767/0771) `board_search_share_query_events` z ograniczeniami rodzaju i
+rozmiaru (4 KiB / 2 KiB) oraz indeksem `(session_id, occurred_at DESC, id
+DESC)`. Migracja jest addytywna; downgrade jest zablokowany, bo tabele
+trzymają audyt i dziennik zapytań.
+
 ### Odczyt pojedynczych cropów do weryfikacji symboli
 
 ```text

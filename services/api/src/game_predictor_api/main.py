@@ -7,6 +7,7 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlparse
+from uuid import UUID
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -33,6 +34,10 @@ from game_predictor_api.application.board_search_board_detail import (
     BoardSearchBoardDetailService,
     BoardSearchBoardViewCache,
     BoardSearchBoardViewService,
+)
+from game_predictor_api.application.board_search_share_access import (
+    BoardSearchShareAccessService,
+    assert_board_search_share_ready,
 )
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import (
@@ -161,6 +166,15 @@ from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeom
 from game_predictor_api.application.worker_lanes import WorkerLaneStatusService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.board_search import BoardSearchError
+from game_predictor_api.domain.board_search_shares import (
+    BoardSearchShareAuthenticationError,
+    BoardSearchShareAuthorizationError,
+    BoardSearchShareConflictError,
+    BoardSearchShareError,
+    BoardSearchShareNotFoundError,
+    BoardSearchShareRateLimitError,
+    BoardSearchShareUnavailableError,
+)
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
     CatalogError,
@@ -243,6 +257,9 @@ from game_predictor_api.storage.board_search_approximate_win_repository import (
 )
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.board_search_share_repository import (
+    SqlAlchemyBoardSearchShareRepository,
 )
 from game_predictor_api.storage.browser_staging_retention_repository import (
     SqlAlchemyBrowserStagingRetentionRepository,
@@ -384,6 +401,7 @@ def create_app(
     board_search_approximate_win_service_dependency: Callable[..., object] | None = None,
     board_search_board_detail_service_dependency: Callable[..., object] | None = None,
     board_search_board_view_service_dependency: Callable[..., object] | None = None,
+    board_search_share_access_service_dependency: Callable[..., object] | None = None,
     cleanup_service_dependency: Callable[..., object] | None = None,
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
@@ -438,6 +456,7 @@ def create_app(
             board_search_approximate_win_service_dependency,
             board_search_board_detail_service_dependency,
             board_search_board_view_service_dependency,
+            board_search_share_access_service_dependency,
             cleanup_service_dependency,
             rules_service_dependency,
             dataset_service_dependency,
@@ -553,6 +572,42 @@ def create_app(
         or default_board_search_board_detail_service_dependency
     )
     board_search_board_view_cache = BoardSearchBoardViewCache(resolved_settings.artifact_root)
+
+    def board_search_share_readiness(game_id: UUID) -> None:
+        # Its own session: the readiness read binds game data routing, which
+        # must not leak into the control-plane session that writes the share.
+        with session_factory() as readiness_session:
+            try:
+                assert_board_search_share_ready(
+                    SqlAlchemyBoardSearchApproximateWinRepository(readiness_session), game_id
+                )
+            finally:
+                readiness_session.rollback()
+
+    def default_board_search_share_access_service_dependency() -> Iterator[
+        BoardSearchShareAccessService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchShareAccessService(
+                    SqlAlchemyBoardSearchShareRepository(session),
+                    readiness=board_search_share_readiness,
+                    enabled=resolved_settings.board_search_share_enabled,
+                )
+                session.commit()
+            except BoardSearchShareError:
+                # Failed codes and lockouts are security state and must
+                # survive the error response.
+                session.commit()
+                raise
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_share_access_dependency = (
+        board_search_share_access_service_dependency
+        or default_board_search_share_access_service_dependency
+    )
 
     def default_board_search_board_view_service_dependency() -> Iterator[
         BoardSearchBoardViewService
@@ -1518,6 +1573,9 @@ def create_app(
                 resolved_board_search_board_detail_dependency
             ),
             board_search_board_view_service_dependency=resolved_board_search_board_view_dependency,
+            board_search_share_access_service_dependency=(
+                resolved_board_search_share_access_dependency
+            ),
         )
     )
     if not custom_service_dependency_supplied:
@@ -1877,6 +1935,29 @@ def create_app(
                 "message": error.message,
                 "details": error.details,
             },
+        )
+
+    @application.exception_handler(BoardSearchShareError)
+    async def handle_board_search_share_error(
+        _request: Request,
+        error: BoardSearchShareError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, BoardSearchShareNotFoundError):
+            status_code = 404
+        elif isinstance(error, BoardSearchShareAuthenticationError):
+            status_code = 401
+        elif isinstance(error, BoardSearchShareAuthorizationError):
+            status_code = 403
+        elif isinstance(error, BoardSearchShareConflictError):
+            status_code = 409
+        elif isinstance(error, BoardSearchShareRateLimitError):
+            status_code = 429
+        elif isinstance(error, BoardSearchShareUnavailableError):
+            status_code = 503
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
         )
 
     @application.exception_handler(RemoteManualSelectionError)

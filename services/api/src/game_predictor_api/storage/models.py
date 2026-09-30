@@ -6606,3 +6606,123 @@ class ImageImportGeometryGuardResolutionManifestModel(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+
+class BoardSearchShareSessionModel(Base):
+    """Online read-only board-search share session (D-471)."""
+
+    __tablename__ = "board_search_share_sessions"
+    __table_args__ = (
+        CheckConstraint("failed_attempts BETWEEN 0 AND 5", name="ck_bss_sessions_attempts"),
+        CheckConstraint(
+            "label IS NULL OR length(btrim(label)) BETWEEN 1 AND 100",
+            name="ck_bss_sessions_label",
+        ),
+        CheckConstraint("expires_at > created_at", name="ck_bss_sessions_timestamps"),
+        CheckConstraint(
+            "octet_length(code_salt) = 16 AND octet_length(code_hash) = 32",
+            name="ck_bss_sessions_code_hash",
+        ),
+        CheckConstraint(
+            "(token_hash IS NULL AND token_expires_at IS NULL) OR "
+            "(token_hash IS NOT NULL AND octet_length(token_hash) = 32 "
+            "AND token_expires_at IS NOT NULL)",
+            name="ck_bss_sessions_token_hash",
+        ),
+        Index(
+            "uq_bss_sessions_token_hash",
+            "token_hash",
+            unique=True,
+            postgresql_where=text("token_hash IS NOT NULL"),
+        ),
+        Index("ix_bss_sessions_game_created", "game_id", "created_at", "id"),
+        Index("ix_bss_sessions_expiry", "expires_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    label: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    code_salt: Mapped[bytes] = mapped_column(LargeBinary(16), nullable=False)
+    code_hash: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
+    failed_attempts: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=0, server_default=text("0")
+    )
+    locked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    token_hash: Mapped[bytes | None] = mapped_column(LargeBinary(32), nullable=True)
+    token_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_unlocked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class BoardSearchShareAuditEventModel(Base):
+    __tablename__ = "board_search_share_audit_events"
+    __table_args__ = (
+        CheckConstraint(
+            "event_type IN ('created','unlock_failed','unlocked','locked','revoked')",
+            name="ck_bss_audit_event_type",
+        ),
+        CheckConstraint("length(btrim(outcome_code)) > 0", name="ck_bss_audit_outcome"),
+        CheckConstraint("jsonb_typeof(payload) = 'object'", name="ck_bss_audit_payload"),
+        Index("ix_bss_audit_session_created", "session_id", "created_at", "id"),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("board_search_share_sessions.id", ondelete="RESTRICT"), nullable=False
+    )
+    event_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    outcome_code: Mapped[str] = mapped_column(String(100), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+class BoardSearchShareQueryEventModel(Base):
+    """One data query made through a share link (D-472); written by the
+    public read endpoints in the same transaction as the read."""
+
+    __tablename__ = "board_search_share_query_events"
+    __table_args__ = (
+        CheckConstraint(
+            "kind IN ('search','approximate_win','board_detail')",
+            name="ck_bss_query_kind",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(request) = 'object' AND octet_length(request::text) <= 4096",
+            name="ck_bss_query_request",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(result_summary) = 'object' "
+            "AND octet_length(result_summary::text) <= 2048",
+            name="ck_bss_query_result_summary",
+        ),
+        CheckConstraint("length(btrim(outcome_code)) > 0", name="ck_bss_query_outcome"),
+        Index(
+            "ix_bss_query_session_occurred",
+            "session_id",
+            text("occurred_at DESC"),
+            text("id DESC"),
+        ),
+    )
+
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    session_id: Mapped[UUID] = mapped_column(
+        ForeignKey("board_search_share_sessions.id", ondelete="RESTRICT"), nullable=False
+    )
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
+    )
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    request: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    result_summary: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    outcome_code: Mapped[str] = mapped_column(String(100), nullable=False)

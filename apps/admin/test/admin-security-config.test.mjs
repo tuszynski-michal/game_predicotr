@@ -22,10 +22,10 @@ async function policyWith(apiBaseUrl) {
   const previous = process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL;
   process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL = apiBaseUrl;
   try {
-    const module = await import(
+    const configModule = await import(
       `../next.config.ts?api=${encodeURIComponent(apiBaseUrl)}`
     );
-    const rules = await module.default.headers();
+    const rules = await configModule.default.headers();
     return rules[0]?.headers.find(
       (header) => header.key === 'Content-Security-Policy',
     )?.value;

@@ -10205,6 +10205,115 @@ div.imageJobInlineError {
   color: var(--muted);
 }
 
+.boardSearchVisuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.boardSearchBoardLinesDialog {
+  width: min(1180px, calc(100vw - 32px));
+}
+
+.boardSearchBoardLines {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .boardSearchBoardLines {
+    grid-template-columns: 1fr;
+  }
+}
+
+.boardSearchBoardLinesCanvas {
+  display: grid;
+  gap: 8px;
+}
+
+.boardSearchBoardLinesCanvas svg {
+  inline-size: 100%;
+  block-size: auto;
+  max-block-size: 68vh;
+  border-radius: 10px;
+  background: #14202d;
+}
+
+.boardSearchBoardLinesSchemaCell polygon {
+  fill: var(--panel);
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.boardSearchBoardLinesSchemaCell text {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchBoardLinesUnknown polygon {
+  fill: rgb(0 0 0 / 55%);
+  stroke: none;
+}
+
+.boardSearchBoardLinesUnknown text {
+  fill: var(--muted);
+  font-weight: 700;
+}
+
+.boardSearchBoardLinesJoker circle {
+  fill: rgb(0 0 0 / 70%);
+  stroke-width: 2;
+}
+
+.boardSearchBoardLinesJoker text {
+  fill: #ffffff;
+  font-weight: 700;
+}
+
+.boardSearchBoardLinesNote {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchBoardLinesLegend {
+  display: grid;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.boardSearchBoardLinesLegend ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.boardSearchBoardLinesLegend label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.boardSearchBoardLinesLegendActions {
+  display: flex;
+  gap: 12px;
+}
+
+.boardSearchBoardLinesSwatch {
+  flex: none;
+  inline-size: 22px;
+  block-size: 0;
+  border-top-width: 4px;
+}
+
 .boardSearchApproximateWinDisplay {
   display: flex;
   flex-wrap: wrap;

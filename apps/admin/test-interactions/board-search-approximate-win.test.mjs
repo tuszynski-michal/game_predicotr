@@ -529,7 +529,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
     [...document.querySelectorAll('.boardSearchApproximateWin thead th')].map(
       (node) => node.textContent,
     ),
-    ['Spin', 'Plansza', 'Wypłata', 'Bilans narastająco'],
+    ['Spin', 'Plansza', 'Wypłata', 'Bilans narastająco', 'Akcje'],
   );
 
   const summaryBefore = document.querySelector(
@@ -906,5 +906,308 @@ test('a zero spin cost disables the stake and keeps złote at credits / 10', asy
     ).textContent,
     '50,00 zł',
   );
+  await act(async () => root.unmount());
+});
+
+function withDialogSupport() {
+  const proto = dom.window.HTMLDialogElement.prototype;
+  if (typeof proto.showModal !== 'function') {
+    proto.showModal = function showModal() {
+      this.setAttribute('open', '');
+    };
+    proto.close = function close() {
+      this.removeAttribute('open');
+    };
+  }
+}
+
+function linesDetail(sequenceNumber, overrides = {}) {
+  const polygons = Array.from({ length: 15 }, (_, index) => {
+    const x = (index % 5) / 5;
+    const y = Math.floor(index / 5) / 3;
+    return [
+      { x, y },
+      { x: x + 0.2, y },
+      { x: x + 0.2, y: y + 1 / 3 },
+      { x, y: y + 1 / 3 },
+    ];
+  });
+  return {
+    boardChecksumSha256: 'c'.repeat(64),
+    boardStatus: 'accepted',
+    dataSource: 'operational_review',
+    gameId,
+    matches: [
+      {
+        jokerCells: [],
+        matchedCells: [0, 1, 2, 3],
+        matchedLength: 4,
+        paylineCode: 'L1',
+        paylineDisplayOrder: 0,
+        paylineId: 'top',
+        paylineName: 'Górna',
+        payoutCredits: 60,
+        rowPath: [0, 0, 0, 0, 0],
+        symbolCode: 'cherry',
+      },
+      {
+        jokerCells: [5],
+        matchedCells: [5, 6, 7],
+        matchedLength: 3,
+        paylineCode: 'L2',
+        paylineDisplayOrder: 1,
+        paylineId: 'middle',
+        paylineName: 'Środkowa',
+        payoutCredits: 40,
+        rowPath: [1, 1, 1, 1, 1],
+        symbolCode: 'cherry',
+      },
+    ],
+    payoutCredits: 100,
+    payoutKind: 'confirmed_minimum',
+    rules: {
+      algorithmVersion: 'payout-v3-unknown-prefix-stop',
+      rulesVersion: 1,
+      rulesVersionId: 'rules-1',
+      spinCost: 20,
+    },
+    sequenceNumber,
+    symbolCodes: [
+      'cherry',
+      'cherry',
+      'cherry',
+      'cherry',
+      null,
+      'cherry',
+      'cherry',
+      'cherry',
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    ],
+    view: {
+      cellPolygons: polygons,
+      height: 300,
+      revision: 'd'.repeat(64),
+      width: 500,
+    },
+    ...overrides,
+  };
+}
+
+function dialogButton(text) {
+  return [
+    ...document.querySelectorAll('.boardSearchBoardLinesDialog button'),
+  ].find((node) => node.textContent === text);
+}
+
+test('the action column opens a board modal with toggleable payline legend', async (context) => {
+  withDialogSupport();
+  context.after(() => dom.window.localStorage.clear());
+  const detailCalls = [];
+  let detailImpl = async (_gameId, sequenceNumber) => ({
+    data: linesDetail(sequenceNumber),
+  });
+  let rangeCalls = 0;
+  const client = {
+    ...makeClient({
+      approximateWinImpl: async (_gameId, options) => {
+        rangeCalls += 1;
+        return {
+          data: approximateWinResponse(options.startSequenceNumber, {
+            evaluatedSpinCount: 10,
+            requestedSpinCount: 10,
+            rows: [
+              {
+                boardStatus: 'accepted',
+                cumulativeBalanceCredits: 80,
+                cumulativeCostCredits: 20,
+                cumulativePayoutCredits: 100,
+                payoutCredits: 100,
+                payoutKind: 'confirmed_minimum',
+                sequenceNumber: 11,
+                spinNumber: 1,
+              },
+            ],
+          }),
+        };
+      },
+      searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+    }),
+    boardSearchBoardViewUrl: (_gameId, sequenceNumber, checksum, revision) =>
+      'http://127.0.0.1:8000/view/' +
+      sequenceNumber +
+      '?c=' +
+      checksum +
+      '&r=' +
+      revision,
+    getBoardSearchBoardDetail: (gameIdArgument, sequenceNumber) => {
+      detailCalls.push([gameIdArgument, sequenceNumber]);
+      return detailImpl(gameIdArgument, sequenceNumber);
+    },
+  };
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
+    'row should render',
+  );
+  assert.equal(
+    document.querySelectorAll('.boardSearchApproximateWin thead th').length,
+    5,
+  );
+  const open = document.querySelector(
+    'button[aria-label="Pokaż planszę #11 z liniami wypłat"]',
+  );
+  assert.ok(open);
+  await click(open);
+  await eventually(
+    () => document.querySelectorAll('.boardSearchBoardLinesMatch').length === 2,
+    'both lines should be drawn',
+  );
+  assert.deepEqual(detailCalls, [[gameId, 11]]);
+  assert.ok(
+    document
+      .querySelector('.boardSearchBoardLinesCanvas image')
+      .getAttribute('href')
+      .endsWith('r=' + 'd'.repeat(64)),
+  );
+  // Unknown cells carry the "?" overlay; the joker cell a "J" marker.
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesUnknown').length,
+    8,
+  );
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesJoker').length,
+    1,
+  );
+
+  const toggles = [
+    ...document.querySelectorAll(
+      '.boardSearchBoardLinesLegend input[type="checkbox"]',
+    ),
+  ];
+  assert.equal(toggles.length, 2);
+  await click(toggles[0]);
+  assert.deepEqual(
+    [...document.querySelectorAll('.boardSearchBoardLinesMatch')].map((node) =>
+      node.getAttribute('data-line'),
+    ),
+    ['middle:cherry'],
+  );
+  const legendButton = (text) =>
+    [...document.querySelectorAll('.boardSearchBoardLinesLegend button')].find(
+      (node) => node.textContent === text,
+    );
+  await click(legendButton('Ukryj wszystkie'));
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesMatch').length,
+    0,
+  );
+  await click(legendButton('Pokaż wszystkie'));
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesMatch').length,
+    2,
+  );
+
+  // A broken image falls back to the 3 x 5 schema with the same lines.
+  await act(async () =>
+    document
+      .querySelector('.boardSearchBoardLinesCanvas image')
+      .dispatchEvent(new dom.window.Event('error')),
+  );
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesSchemaCell').length,
+    15,
+  );
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesMatch').length,
+    2,
+  );
+
+  await click(dialogButton('Zamknij'));
+  assert.equal(document.querySelector('.boardSearchBoardLinesDialog'), null);
+  assert.equal(document.activeElement, open, 'focus returns to the row button');
+
+  // Reopening starts with every line visible again, even after hiding one.
+  await click(open);
+  await eventually(
+    () => document.querySelectorAll('.boardSearchBoardLinesMatch').length === 2,
+    'modal redraws both lines',
+  );
+  await click(
+    document.querySelectorAll(
+      '.boardSearchBoardLinesLegend input[type="checkbox"]',
+    )[1],
+  );
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesMatch').length,
+    1,
+  );
+  // Esc (the dialog "cancel" event) closes the modal as well.
+  await act(async () =>
+    document
+      .querySelector('.boardSearchBoardLinesDialog')
+      .dispatchEvent(new dom.window.Event('cancel', { cancelable: true })),
+  );
+  assert.equal(document.querySelector('.boardSearchBoardLinesDialog'), null);
+  await click(open);
+  await eventually(
+    () => document.querySelectorAll('.boardSearchBoardLinesMatch').length === 2,
+    'reopened modal draws both lines',
+  );
+  await click(dialogButton('Zamknij'));
+
+  // A board without a view falls back to the schema with the same lines.
+  detailImpl = async (_gameId, sequenceNumber) => ({
+    data: linesDetail(sequenceNumber, { view: null }),
+  });
+  await click(open);
+  await eventually(
+    () =>
+      document.querySelectorAll('.boardSearchBoardLinesSchemaCell').length ===
+      15,
+    'schema fallback for a board without a view',
+  );
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesMatch').length,
+    2,
+  );
+  assert.match(
+    document.querySelector('.boardSearchBoardLinesNote').textContent,
+    /niedostępne/,
+  );
+  await click(dialogButton('Zamknij'));
+
+  // Error with retry.
+  detailImpl = async () => ({ error: { code: 'X', message: 'boom' } });
+  await click(open);
+  await eventually(
+    () => dialogButton('Spróbuj ponownie') !== undefined,
+    'error offers a retry',
+  );
+  detailImpl = async (_gameId, sequenceNumber) => ({
+    data: linesDetail(sequenceNumber, { payoutCredits: 90 }),
+  });
+  await click(dialogButton('Spróbuj ponownie'));
+  // Payout changed since the table: no lines, only "Przelicz ponownie".
+  await eventually(
+    () => dialogButton('Przelicz ponownie') !== undefined,
+    'inconsistent detail offers a recalculation',
+  );
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesMatch').length,
+    0,
+  );
+  const callsBefore = rangeCalls;
+  await click(dialogButton('Przelicz ponownie'));
+  await settle();
+  assert.equal(rangeCalls, callsBefore + 1);
+  assert.equal(document.querySelector('.boardSearchBoardLinesDialog'), null);
   await act(async () => root.unmount());
 });

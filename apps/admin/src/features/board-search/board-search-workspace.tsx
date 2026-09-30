@@ -57,7 +57,9 @@ type SearchState =
 type BoardSearchClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
   | 'archivedBoardSearchAssetUrl'
+  | 'boardSearchBoardViewUrl'
   | 'getBoardSearchApproximateWin'
+  | 'getBoardSearchBoardDetail'
   | 'getOperationalImageReviewItem'
   | 'listSymbols'
   | 'searchGameBoards'
@@ -599,6 +601,7 @@ export function BoardSearchWorkspace({
             client={api}
             gameId={gameId}
             selectedResult={activeBoardSearchResult(resultsState)}
+            symbols={symbols}
           />
         </>
       ) : null}

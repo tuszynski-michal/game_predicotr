@@ -2,7 +2,9 @@
 
 import type {
   ApproximateWinResponse,
+  ApproximateWinRowResponse,
   BoardSearchResultResponse,
+  SymbolResponse,
 } from '@game-predictor/admin-api-client';
 import {
   type KeyboardEvent,
@@ -38,6 +40,10 @@ import {
   toggleApproximateWinPinnedPoint,
   visibleApproximateWinResult,
 } from './board-search-approximate-win-state';
+import {
+  BoardSearchBoardLinesModal,
+  type BoardLinesClient,
+} from './board-search-board-lines-modal';
 import { boardSearchResultIdentity } from './board-search-results-state';
 import {
   type ApproximateWinAmountUnit,
@@ -57,13 +63,16 @@ import {
 type ApproximateWinClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
   'getBoardSearchApproximateWin'
->;
+> &
+  BoardLinesClient;
 
 interface BoardSearchApproximateWinProps {
   readonly apiBaseUrl: string;
   readonly client?: ApproximateWinClient;
   readonly gameId: string;
   readonly selectedResult: BoardSearchResultResponse | null;
+  /** Game symbols for the fallback board schema in the payline modal. */
+  readonly symbols?: readonly SymbolResponse[];
 }
 
 export function BoardSearchApproximateWin({
@@ -71,6 +80,7 @@ export function BoardSearchApproximateWin({
   client,
   gameId,
   selectedResult,
+  symbols = [],
 }: BoardSearchApproximateWinProps) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
@@ -258,9 +268,17 @@ export function BoardSearchApproximateWin({
 
         {visibleResult ? (
           <ApproximateWinResultView
+            api={api}
             display={display}
+            gameId={gameId}
             onDisplayChange={changeDisplay}
+            onRecalculate={() =>
+              requestKey !== null && selectedResult !== null
+                ? runCalculation(requestKey, selectedResult.sequenceNumber)
+                : undefined
+            }
             result={visibleResult}
+            symbols={symbols}
           />
         ) : null}
       </div>
@@ -286,15 +304,32 @@ function unitNoun(unit: ApproximateWinAmountUnit): string {
 }
 
 function ApproximateWinResultView({
+  api,
   display,
+  gameId,
   onDisplayChange,
+  onRecalculate,
   result,
+  symbols,
 }: {
+  readonly api: BoardLinesClient;
   readonly display: ApproximateWinDisplay;
+  readonly gameId: string;
   readonly onDisplayChange: (display: ApproximateWinDisplay) => void;
+  readonly onRecalculate: () => void;
   readonly result: ApproximateWinResponse;
+  readonly symbols: readonly SymbolResponse[];
 }) {
   const [minimumPayoutCredits, setMinimumPayoutCredits] = useState(0);
+  const [linesRow, setLinesRow] = useState<ApproximateWinRowResponse | null>(
+    null,
+  );
+  const linesTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const closeLines = () => {
+    setLinesRow(null);
+    // Return focus to the row button that opened the modal.
+    linesTriggerRef.current?.focus();
+  };
   const spinCost = result.rules.spinCost;
   const amount = approximateWinAmountFormatter(display, spinCost);
   const hasIncompleteData =
@@ -408,6 +443,9 @@ function ApproximateWinResultView({
                   <th>Plansza</th>
                   <th>Wypłata</th>
                   <th>Bilans narastająco</th>
+                  <th>
+                    <span className="boardSearchVisuallyHidden">Akcje</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -422,6 +460,19 @@ function ApproximateWinResultView({
                         : ''}
                     </td>
                     <td>{amount(row.cumulativeBalanceCredits)}</td>
+                    <td>
+                      <button
+                        aria-label={`Pokaż planszę #${row.sequenceNumber} z liniami wypłat`}
+                        className="textButton"
+                        onClick={(event) => {
+                          linesTriggerRef.current = event.currentTarget;
+                          setLinesRow(row);
+                        }}
+                        type="button"
+                      >
+                        Pokaż planszę
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -431,6 +482,21 @@ function ApproximateWinResultView({
             <p className="importEmptyState">
               Brak wypłat spełniających wybrany próg.
             </p>
+          ) : null}
+          {linesRow !== null ? (
+            <BoardSearchBoardLinesModal
+              api={api}
+              formatAmount={(credits) =>
+                `${amount(credits)}${unitNoun(display.unit)}`
+              }
+              gameId={gameId}
+              key={linesRow.sequenceNumber}
+              onClose={closeLines}
+              onRecalculate={onRecalculate}
+              row={linesRow}
+              rulesVersionId={result.rules.rulesVersionId}
+              symbols={symbols}
+            />
           ) : null}
           <ApproximateWinBalanceChart
             display={display}

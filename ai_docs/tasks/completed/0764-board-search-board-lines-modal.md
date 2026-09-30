@@ -1,6 +1,6 @@
 ---
 title: TASK-0764 — Modal planszy z liniami wypłat i kolumna akcji w tabeli
-status: todo
+status: done
 last_updated: 2026-09-30
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-30
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -49,16 +49,16 @@ Punkt 1 zgłoszenia operatora z 2026-09-30. Plan: §3 R2, §5 T5.
 
 ## Acceptance criteria
 
-- [ ] Przycisk w każdym wierszu ma `aria-label` z numerem planszy; fokus wraca po zamknięciu.
-- [ ] Esc i kliknięcie tła zamykają modal.
-- [ ] Wyłączenie jednej linii nie zmienia pozostałych; nowe otwarcie zaczyna od wszystkich widocznych.
-- [ ] Kolory stabilne według `paylineDisplayOrder`; legenda podaje nazwę (kolor nie jest jedynym nośnikiem).
-- [ ] Rozjazd sumy linii i wiersza albo inny `rulesVersionId` pokazuje komunikat bez rysunku linii; „Przelicz ponownie” zamyka modal i uruchamia kalkulację zakresu dla bieżącego klucza.
-- [ ] Ładowanie pokazuje stan „Wczytywanie planszy…”; 404/409/błąd sieci pokazuje komunikat i „Spróbuj ponownie”.
-- [ ] Szybkie przełączenie planszy nie pokazuje odpowiedzi dla poprzedniej planszy.
-- [ ] Błąd wczytania obrazu przełącza na schemat 3 × 5.
-- [ ] Brak widoku → schemat 3 × 5 z tymi samymi liniami.
-- [ ] Filtr progu i przewijanie tabeli działają jak wcześniej; brak mutacji.
+- [x] Przycisk w każdym wierszu ma `aria-label` z numerem planszy; fokus wraca po zamknięciu.
+- [x] Esc i kliknięcie tła zamykają modal.
+- [x] Wyłączenie jednej linii nie zmienia pozostałych; nowe otwarcie zaczyna od wszystkich widocznych.
+- [x] Kolory stabilne według `paylineDisplayOrder`; legenda podaje nazwę (kolor nie jest jedynym nośnikiem).
+- [x] Rozjazd sumy linii i wiersza albo inny `rulesVersionId` pokazuje komunikat bez rysunku linii; „Przelicz ponownie” zamyka modal i uruchamia kalkulację zakresu dla bieżącego klucza.
+- [x] Ładowanie pokazuje stan „Wczytywanie planszy…”; 404/409/błąd sieci pokazuje komunikat i „Spróbuj ponownie”.
+- [x] Szybkie przełączenie planszy nie pokazuje odpowiedzi dla poprzedniej planszy.
+- [x] Błąd wczytania obrazu przełącza na schemat 3 × 5.
+- [x] Brak widoku → schemat 3 × 5 z tymi samymi liniami.
+- [x] Filtr progu i przewijanie tabeli działają jak wcześniej; brak mutacji.
 
 ## Technical notes
 
@@ -106,4 +106,48 @@ Wszystkie komendy z katalogu worktree, timeout 120 s każda.
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- Nowy `board-search-board-lines-state.ts`: paleta o wysokim kontraście z
+  wzorem kreskowania po jej wyczerpaniu, kolor według `paylineDisplayOrder`
+  (stały między planszami), środki pól, widoczność linii, kontrola
+  spójności (wypłata, wersja reguł, suma linii), przesunięcia linii,
+  komórki schematu 3 × 5.
+- Nowy `board-search-board-lines-modal.tsx`: `<dialog>` z przyciętym widokiem
+  (URL z `viewRevision`), obrysami pól, łamanymi przez środki pól,
+  znacznikami jokerów i nakładką `?`; schemat 3 × 5 przy braku widoku,
+  siatki albo błędzie obrazu; legenda z przełącznikami i „Pokaż/Ukryj
+  wszystkie”; stany ładowania i błędu z „Spróbuj ponownie”; „Przelicz
+  ponownie” przy niespójności; ochrona przed spóźnioną odpowiedzią;
+  zamknięcie zwraca fokus na przycisk wiersza.
+- `board-search-approximate-win.tsx`: piąta kolumna z ukrytym nagłówkiem
+  „Akcje” i przyciskiem „Pokaż planszę”; `board-search-workspace.tsx`:
+  metody klienta i symbole gry; `globals.css`: style modala.
+- Testy: 6 testów stanu, test interakcji modala (linie, legenda, nakładki,
+  schemat, Esc, fokus, błąd i ponowienie, niespójność i przeliczenie).
+
+### Verification results
+
+- `npm run test --workspace @game-predictor/admin`: 648/648 PASS.
+- Testy interakcji `board-search-*`: 26/26 PASS.
+- Typecheck i lint Admina: 0 błędów.
+- Statyczny zrzut modala w przeglądarce: dwie linie w kolorach, joker,
+  `?`, legenda.
+- Audyt niezależnego agenta `claude-opus-5-5` (poziom rozumowania agenta
+  nieustawialny z sesji): cykl 1 FAIL — P2 fokus nie wracał w prawdziwej
+  przeglądarce (fokus przed zamknięciem natywnego modala), P2 kolor linii
+  zależny od zestawu wygranych linii; 5 × P3. Cykl 2 PASS.
+
+### Not completed
+
+- Po „Przelicz ponownie” fokus trafia na `body`, bo wynik przelicza się od
+  nowa (P3, zgodne z planem: operator otwiera modal ponownie).
+- Testy interakcji dla kliknięcia tła i tekstu ładowania (P3).
+
+### Documentation updates
+
+- Brak dodatkowych; wymagania zapisane w TASK-0760.
+
+### Recommended next task
+
+- Odbiór etapu A przez operatora; etap B (TASK-0765) po osobnym poleceniu.

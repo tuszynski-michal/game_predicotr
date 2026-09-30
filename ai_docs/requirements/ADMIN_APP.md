@@ -507,6 +507,14 @@ zamyka modal i liczy zakres od nowa. Błąd pobrania planszy pokazuje
 komunikat z „Spróbuj ponownie”. Brak zdjęcia albo siatki pól nie blokuje modala:
 pokazuje schemat 3 × 5 z ikon symboli z tymi samymi liniami.
 
+**Nieaktualny odczyt planszy (TASK-0773).** Gdy siatka planszy zmieniła się
+po zapisaniu jej odczytu w wyszukiwarce, modal nie pokazuje błędu: rysuje
+linie i wypłatę ze starego odczytu (tak samo liczy tabela) na schemacie 3 × 5
+z ostrzeżeniem i przyciskiem „Odśwież odczyt tej planszy”. Odświeżenie
+przebudowuje odczyt tej jednej planszy z bieżącej siatki i symboli (bez
+zmiany decyzji ludzi); potem wraca zdjęcie i poprawianie pól, a zamknięcie
+okna przelicza tabelę.
+
 **Poprawianie symbolu pola (D-473, TASK-0772).** Dla planszy oczekującej
 modal ma tryb „Popraw symbole”: kliknięcie pola otwiera paletę symboli gry
 oraz „Nieczytelny” i „Zła siatka”. Wybór zapisuje decyzję człowieka dla pola

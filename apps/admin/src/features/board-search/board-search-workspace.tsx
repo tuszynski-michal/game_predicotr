@@ -61,6 +61,7 @@ type BoardSearchClient = Pick<
   | 'boardSearchBoardViewUrl'
   | 'getBoardSearchApproximateWin'
   | 'getBoardSearchBoardDetail'
+  | 'refreshBoardSearchBoardDocument'
   | 'getOperationalImageReviewItem'
   | 'listSymbols'
   | 'searchGameBoards'

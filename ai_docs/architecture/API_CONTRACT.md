@@ -345,6 +345,7 @@ matches[]:              # posortowane po displayOrder linii
   paylineId, paylineCode, paylineName, paylineDisplayOrder, rowPath[5],
   symbolCode, matchedLength, matchedCells[], jokerCells[], payoutCredits
 view: null | { width, height, revision, cellPolygons: null | [15][4] {x, y} }
+documentStale           # TASK-0773: plansza zmieniła się po zapisaniu dokumentu
 cells: null | [15]:     # D-473: rekordy weryfikacji pól do poprawki
   cellIndex, cellReviewId, revision, geometryRevision,
   cropSampleId, cropChecksumSha256, reviewState, qualityIssue,
@@ -390,15 +391,36 @@ powyżej 100 mln pikseli nie jest dekodowane.
 
 Oba endpointy porównują bieżącą sumę tożsamości planszy (bitmapa planszy dla
 `legacy_file`, geometria dla `virtual_source`) z `boardChecksumSha256`
-dokumentu. Niezgodność daje `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`, aby
-obraz z cache `immutable` nigdy nie spotkał innych wielokątów; widok zwraca
-ten sam kod, gdy `expectedBoardChecksumSha256` różni się od dokumentu.
+dokumentu. Przy niezgodności (dokument wyszukiwania sprzed późniejszej
+zmiany siatki) szczegóły zwracają `documentStale = true`, linie i wypłatę z
+dokumentu (tak samo liczy kalkulator zakresu), `view = null` i
+`cells = null` (TASK-0773). Widok w tym stanie zwraca
+`409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`, aby obraz z cache `immutable`
+nigdy nie spotkał innych wielokątów; ten sam kod dostaje, gdy
+`expectedBoardChecksumSha256` różni się od dokumentu.
+
+```text
+POST /api/v1/admin/games/{gameId}/board-search/boards/{sequenceNumber}/refresh
+operationId: refreshBoardSearchBoardDocument
+```
+
+Przebudowuje dokument wyszukiwania jednej pozycji sekwencji z bieżących
+rekordów tą samą synchronizacją projekcji, którą system uruchamia po każdej
+decyzji pola lub geometrii (`sync_review_item` właściciela i
+`sync_sequence_candidates` pozycji), i zwraca
+`{ documentRemoved, detail: <szczegóły> | null }`. Jeżeli po przebudowie na
+tej pozycji nie ma już dokumentu (plansza wyszła ze stanów wyszukiwalnych
+albo zmieniła pozycję), wynik jest zapisany i zwracany jako
+`documentRemoved = true`, a nie jako 404. Nie zmienia żadnej decyzji
+człowieka; powtórzenie zmienia tylko `updated_at` wierszy projekcji.
+Archiwum: `409 BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED`; brak dokumentu przed
+przebudową: `404 BOARD_SEARCH_BOARD_NOT_FOUND`.
 
 Błędy: `404 GAME_NOT_FOUND`, `404 BOARD_SEARCH_BOARD_NOT_FOUND` (brak
 dokumentu), `404 BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE` (brak obrazu, geometrii
 albo obrazu nie da się zdekodować), `404 BOARD_SEARCH_BOARD_VIEW_SOURCE_NOT_FOUND`;
 `409` jak w kalkulatorze zakresu (projekcja/archiwum, reguły, symbol spoza
-reguł), `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`,
+reguł), `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT` (tylko widok),
 `409 BOARD_SEARCH_BOARD_VIEW_SOURCE_PATH_UNSAFE` /
 `_MEDIA_TYPE_UNSUPPORTED` / `_CHECKSUM_DRIFT`,
 `409 BOARD_SEARCH_BOARD_VIEW_CACHE_UNSAFE`; `422` dla nieprawidłowych

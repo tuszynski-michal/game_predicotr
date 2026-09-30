@@ -1055,6 +1055,12 @@ export type BoardSearchBoardDetailResponse = {
   cells: Array<BoardSearchBoardCellResponse> | null;
   dataSource: BoardSearchAssetMode;
   /**
+   * Documentstale
+   *
+   * True when the board changed after its search document was written; lines then come from the older reading and no view or cells are given.
+   */
+  documentStale: boolean;
+  /**
    * Gameid
    */
   gameId: string;
@@ -1080,6 +1086,21 @@ export type BoardSearchBoardDetailResponse = {
    */
   symbolCodes: Array<string | null>;
   view: BoardSearchBoardViewResponse | null;
+};
+
+/**
+ * BoardSearchBoardRefreshResponse
+ *
+ * Outcome of rebuilding one board's search document (TASK-0773).
+ */
+export type BoardSearchBoardRefreshResponse = {
+  detail: BoardSearchBoardDetailResponse | null;
+  /**
+   * Documentremoved
+   *
+   * The rebuild left no search document at this sequence position.
+   */
+  documentRemoved: boolean;
 };
 
 /**
@@ -14663,6 +14684,54 @@ export type GetBoardSearchBoardDetailResponses = {
 
 export type GetBoardSearchBoardDetailResponse =
   GetBoardSearchBoardDetailResponses[keyof GetBoardSearchBoardDetailResponses];
+
+export type RefreshBoardSearchBoardDocumentData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/refresh';
+};
+
+export type RefreshBoardSearchBoardDocumentErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or board-search document not found
+   */
+  404: ErrorResponse;
+  /**
+   * Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid path parameters
+   */
+  422: ErrorResponse;
+};
+
+export type RefreshBoardSearchBoardDocumentError =
+  RefreshBoardSearchBoardDocumentErrors[keyof RefreshBoardSearchBoardDocumentErrors];
+
+export type RefreshBoardSearchBoardDocumentResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchBoardRefreshResponse;
+};
+
+export type RefreshBoardSearchBoardDocumentResponse =
+  RefreshBoardSearchBoardDocumentResponses[keyof RefreshBoardSearchBoardDocumentResponses];
 
 export type GetBoardSearchBoardViewData = {
   body?: never;

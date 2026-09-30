@@ -222,6 +222,28 @@ class SqlAlchemyBoardSearchApproximateWinRepository:
             ) in rows
         )
 
+    def refresh_board_document(
+        self,
+        *,
+        game_id: UUID,
+        document: BoardSearchBoardDocument,
+    ) -> None:
+        """Resynchronise one board's search candidate and document."""
+        if document.review_item_id is None:
+            raise BoardSearchError(
+                "BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED",
+                "Only operational board-search documents can be refreshed.",
+            )
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.WRITE)
+        # Every candidate that could own this position, not only the current
+        # owner, so the reconciled document reflects all current records.
+        self._projection.sync_review_item(document.review_item_id)
+        self._projection.sync_sequence_candidates(game_id, document.sequence_number)
+        self._session.flush()
+        # Core upserts do not refresh loaded ORM rows; later reads must see
+        # the rebuilt document, not a cached copy.
+        self._session.expire_all()
+
     def payline_labels(self, rules_version_id: UUID) -> dict[str, PaylineLabel]:
         return {
             str(record.id): PaylineLabel(

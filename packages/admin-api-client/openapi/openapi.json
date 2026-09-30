@@ -1870,6 +1870,11 @@
           "dataSource": {
             "$ref": "#/components/schemas/BoardSearchAssetMode"
           },
+          "documentStale": {
+            "description": "True when the board changed after its search document was written; lines then come from the older reading and no view or cells are given.",
+            "title": "Documentstale",
+            "type": "boolean"
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -1941,9 +1946,37 @@
           "payoutKind",
           "matches",
           "view",
+          "documentStale",
           "cells"
         ],
         "title": "BoardSearchBoardDetailResponse",
+        "type": "object"
+      },
+      "BoardSearchBoardRefreshResponse": {
+        "additionalProperties": false,
+        "description": "Outcome of rebuilding one board's search document (TASK-0773).",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchBoardDetailResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documentRemoved": {
+            "description": "The rebuild left no search document at this sequence position.",
+            "title": "Documentremoved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documentRemoved",
+          "detail"
+        ],
+        "title": "BoardSearchBoardRefreshResponse",
         "type": "object"
       },
       "BoardSearchBoardViewResponse": {
@@ -26397,6 +26430,94 @@
           }
         },
         "summary": "Winning paylines and cropped-view cell polygons of one board",
+        "tags": [
+          "board-search"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/refresh": {
+      "post": {
+        "operationId": "refreshBoardSearchBoardDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchBoardRefreshResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or board-search document not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid path parameters"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Rebuild one board's search document from its current records",
         "tags": [
           "board-search"
         ]

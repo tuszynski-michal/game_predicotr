@@ -161,12 +161,27 @@ class BoardSearchBoardDetailResponse(ApiModel):
     payout_kind: Literal["exact", "confirmed_minimum", "none"]
     matches: tuple[BoardSearchLineMatchResponse, ...]
     view: BoardSearchBoardViewResponse | None
+    document_stale: bool = Field(
+        description=(
+            "True when the board changed after its search document was written; "
+            "lines then come from the older reading and no view or cells are given."
+        )
+    )
     cells: tuple[BoardSearchBoardCellResponse, ...] | None = Field(
         description=(
             "Editable cell review records of a pending operational board; "
             "null for resolved and archive boards."
         )
     )
+
+
+class BoardSearchBoardRefreshResponse(ApiModel):
+    """Outcome of rebuilding one board's search document (TASK-0773)."""
+
+    document_removed: bool = Field(
+        description="The rebuild left no search document at this sequence position."
+    )
+    detail: BoardSearchBoardDetailResponse | None
 
 
 def to_board_search_board_detail_response(
@@ -215,6 +230,7 @@ def to_board_search_board_detail_response(
                 for polygon in detail.view.cell_polygons
             ),
         ),
+        document_stale=detail.document_stale,
         cells=None
         if detail.cells is None
         else tuple(
@@ -238,6 +254,7 @@ __all__ = [
     "ApproximateWinCompletenessResponse",
     "BoardSearchBoardCellResponse",
     "BoardSearchBoardDetailResponse",
+    "BoardSearchBoardRefreshResponse",
     "BoardSearchBoardViewResponse",
     "BoardSearchLineMatchResponse",
     "BoardSearchViewPointResponse",

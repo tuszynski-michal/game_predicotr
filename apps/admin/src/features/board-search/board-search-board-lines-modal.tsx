@@ -36,6 +36,7 @@ export type BoardLinesClient = Pick<
   ReturnType<typeof createConfiguredAdminApiClient>,
   | 'boardSearchBoardViewUrl'
   | 'getBoardSearchBoardDetail'
+  | 'refreshBoardSearchBoardDocument'
   | 'symbolImageAssetUrl'
 > &
   BoardCellCorrectionClient;
@@ -82,6 +83,12 @@ export function BoardSearchBoardLinesModal({
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<CorrectionNotice | null>(null);
   const [edited, setEdited] = useState(false);
+  // Whether the header's fresh values follow a cell correction or only a
+  // refresh of a stale reading.
+  const [correctionSaved, setCorrectionSaved] = useState(false);
+  // The refresh left no search reading at this position: nothing more to do
+  // here but close (the table is recalculated then).
+  const [documentRemoved, setDocumentRemoved] = useState(false);
   // Between a save and the refetch the shown board is outdated: no header
   // "after correction" values and no cell targets with old revisions.
   const [refreshing, setRefreshing] = useState(false);
@@ -189,6 +196,7 @@ export function BoardSearchBoardLinesModal({
           : 'zła siatka';
     if (result.ok) {
       setEdited(true);
+      setCorrectionSaved(true);
       setSelectedCell(null);
       setNotice({
         kind: 'ok',
@@ -207,10 +215,80 @@ export function BoardSearchBoardLinesModal({
     setAttempt((value) => value + 1);
   }
 
+  async function refreshStaleBoard() {
+    if (saving) return;
+    setSaving(true);
+    setNotice(null);
+    try {
+      const result = await api.refreshBoardSearchBoardDocument(
+        gameId,
+        row.sequenceNumber,
+      );
+      if (result.error !== undefined || result.data === undefined) {
+        setNotice({
+          kind: 'error',
+          text: apiErrorMessage(
+            result.error,
+            'Nie udało się odświeżyć odczytu planszy.',
+          ),
+        });
+        return;
+      }
+      // The rebuilt document may change the payout: the table is stale now.
+      setEdited(true);
+      if (result.data.documentRemoved || result.data.detail === null) {
+        setDocumentRemoved(true);
+        setNotice({
+          kind: 'ok',
+          text: 'Po odświeżeniu ta plansza nie ma już odczytu w wyszukiwarce; tabela zostanie przeliczona po zamknięciu okna.',
+        });
+        return;
+      }
+      const fresh = result.data.detail;
+      setImageFailed(false);
+      setVisibility(initialBoardLineVisibility(fresh.matches));
+      setState({ detail: fresh, kind: 'ready' });
+      setNotice({
+        kind: 'ok',
+        text: 'Odczyt planszy odświeżony z bieżącej siatki i symboli.',
+      });
+    } catch {
+      setNotice({
+        kind: 'error',
+        text: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      });
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const staleWarning: ReactNode =
+    detail !== null && detail.documentStale && !documentRemoved ? (
+      <div className="boardSearchBoardLinesStale" role="status">
+        <p className="feedbackBanner">
+          Siatka tej planszy zmieniła się po zapisaniu odczytu wyszukiwarki.
+          Linie i wypłata pochodzą ze starego odczytu (tak samo liczy tabela),
+          dlatego pokazano je na schemacie bez zdjęcia. Odśwież odczyt, aby
+          policzyć planszę z bieżącej siatki i móc poprawiać pola.
+        </p>
+        <button
+          className="primaryButton"
+          disabled={saving}
+          onClick={() => void refreshStaleBoard()}
+          type="button"
+        >
+          {saving ? 'Odświeżanie…' : 'Odśwież odczyt tej planszy'}
+        </button>
+      </div>
+    ) : null;
+
   const selected =
     selectedCell === null ? undefined : editableCells.get(selectedCell);
   const correctionPanel: ReactNode = !canEdit ? (
-    detail !== null && detail.dataSource === 'operational_review' && !edited ? (
+    detail !== null &&
+    detail.dataSource === 'operational_review' &&
+    !detail.documentStale &&
+    !edited ? (
       <p className="boardSearchBoardLinesNote">
         {detail.boardStatus === 'pending'
           ? 'Ta plansza nie ma jeszcze kompletu rekordów weryfikacji pól, więc nie można jej poprawiać z tego okna.'
@@ -360,7 +438,9 @@ export function BoardSearchBoardLinesModal({
             </h2>
             <p>
               {edited && !refreshing && detail !== null
-                ? 'Po poprawce: wypłata '
+                ? correctionSaved
+                  ? 'Po poprawce: wypłata '
+                  : 'Po odświeżeniu: wypłata '
                 : 'Wypłata '}
               {formatAmount(
                 edited && !refreshing && detail !== null
@@ -443,6 +523,7 @@ export function BoardSearchBoardLinesModal({
             onImageError={() => setImageFailed(true)}
             correctionPanel={
               <>
+                {staleWarning}
                 {correctionPanel}
                 {correctionMessages}
               </>
@@ -696,9 +777,11 @@ function BoardLinesView({
         </svg>
         {!usePhoto ? (
           <p className="boardSearchBoardLinesNote">
-            {view === null || imageFailed
-              ? 'Zdjęcie tej planszy jest niedostępne — linie pokazano na schemacie 3 × 5.'
-              : 'Plansza archiwalna nie ma zapisanej siatki pól — linie pokazano na schemacie 3 × 5.'}
+            {detail.documentStale
+              ? 'Odczyt wyszukiwarki jest nieaktualny względem siatki — linie pokazano na schemacie 3 × 5.'
+              : view === null || imageFailed
+                ? 'Zdjęcie tej planszy jest niedostępne — linie pokazano na schemacie 3 × 5.'
+                : 'Plansza archiwalna nie ma zapisanej siatki pól — linie pokazano na schemacie 3 × 5.'}
           </p>
         ) : null}
       </div>

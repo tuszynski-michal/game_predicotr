@@ -474,9 +474,10 @@ npm run lint --workspace @game-predictor/reviewer
     checksuma równa się `boardChecksumSha256` dokumentu wyszukiwania,
     przeliczone do układu przyciętego widoku. Gdy bieżąca geometria planszy
     ma inną checksumę (projekcja nie nadążyła albo korekta siatki zmieniła
-    geometrię), szczegóły i widok zwracają `409
-    BOARD_SEARCH_BOARD_REVISION_CONFLICT` zamiast łączyć obraz z innymi
-    wielokątami. Dla `legacy_archive` archiwum już przechowuje obraz jednej
+    geometrię), widok zwraca `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`
+    zamiast łączyć obraz z innymi wielokątami, a szczegóły — po TASK-0773 —
+    `documentStale = true` z liniami z dokumentu, bez widoku i pól, oraz
+    możliwość odświeżenia tej jednej planszy. Dla `legacy_archive` archiwum już przechowuje obraz jednej
     planszy, więc widok go tylko zmniejsza (bez obrysu + 20%); geometria
     pól archiwum to **niewiadoma** — jeżeli jej nie ma, `cellPolygons =
     null`; nie wymyślać równomiernej siatki bez dowodu, że obraz archiwalny

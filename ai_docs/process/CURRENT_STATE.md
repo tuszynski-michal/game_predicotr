@@ -39,6 +39,10 @@ last_updated: 2026-09-30
 - TASK-0772 done: tryb „Popraw symbole” w oknie planszy zapisuje decyzję
   pola istniejącym `applySymbolCellReviewDecision`; linie odświeżają się od
   razu, tabela po zamknięciu okna. Audyt PASS w drugim cyklu.
+- TASK-0773 (D-474): okno planszy nie kończy się błędem dla nieaktualnego
+  odczytu wyszukiwarki (88 260 plansz gry 7 sprzed późniejszej rewizji
+  geometrii); pokazuje linie na schemacie i pozwala odświeżyć jedną planszę.
+  Masowe odświeżenie i przyczyna źródłowa — osobne zadanie, wymaga zgody.
 - Lokalna instancja do odbioru: Admin `http://127.0.0.1:3010`, API
   `127.0.0.1:8010` z worktree (`v1.7.88` pozwala Adminowi łączyć się z
   innym portem API przez `NEXT_PUBLIC_ADMIN_API_BASE_URL`); instancja

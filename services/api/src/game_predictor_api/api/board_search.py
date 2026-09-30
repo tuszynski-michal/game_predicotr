@@ -34,6 +34,7 @@ from game_predictor_api.schemas.board_search import (
 from game_predictor_api.schemas.board_search_approximate_win import (
     ApproximateWinResponse,
     BoardSearchBoardDetailResponse,
+    BoardSearchBoardRefreshResponse,
     to_approximate_win_response,
     to_board_search_board_detail_response,
 )
@@ -181,6 +182,26 @@ def create_board_search_router(
     ) -> BoardSearchBoardDetailResponse:
         return to_board_search_board_detail_response(
             service.detail(game_id=game_id, sequence_number=sequence_number)
+        )
+
+    @router.post(
+        "/{game_id}/board-search/boards/{sequence_number}/refresh",
+        response_model=BoardSearchBoardRefreshResponse,
+        operation_id="refreshBoardSearchBoardDocument",
+        summary="Rebuild one board's search document from its current records",
+        responses=BOARD_DETAIL_ERROR_RESPONSES,
+    )
+    def refresh_board_search_board_document(
+        game_id: UUID,
+        sequence_number: Annotated[int, ApiPath(ge=1)],
+        service: Annotated[BoardSearchBoardDetailService, board_detail_service_parameter],
+    ) -> BoardSearchBoardRefreshResponse:
+        result = service.refresh(game_id=game_id, sequence_number=sequence_number)
+        return BoardSearchBoardRefreshResponse(
+            document_removed=result.document_removed,
+            detail=None
+            if result.detail is None
+            else to_board_search_board_detail_response(result.detail),
         )
 
     @router.get(

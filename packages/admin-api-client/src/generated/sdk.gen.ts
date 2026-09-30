@@ -659,6 +659,9 @@ import type {
   RecoverImageSelectionRangesData,
   RecoverImageSelectionRangesErrors,
   RecoverImageSelectionRangesResponses,
+  RefreshBoardSearchBoardDocumentData,
+  RefreshBoardSearchBoardDocumentErrors,
+  RefreshBoardSearchBoardDocumentResponses,
   RefreshImageStorageInventoryData,
   RefreshImageStorageInventoryErrors,
   RefreshImageStorageInventoryResponses,
@@ -1091,6 +1094,28 @@ export const getBoardSearchBoardDetail = <ThrowOnError extends boolean = false>(
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Rebuild one board's search document from its current records
+ */
+export const refreshBoardSearchBoardDocument = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RefreshBoardSearchBoardDocumentData, ThrowOnError>,
+): RequestResult<
+  RefreshBoardSearchBoardDocumentResponses,
+  RefreshBoardSearchBoardDocumentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RefreshBoardSearchBoardDocumentResponses,
+    RefreshBoardSearchBoardDocumentErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/refresh',
     ...options,
   });
 

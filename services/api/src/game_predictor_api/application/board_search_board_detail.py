@@ -80,6 +80,10 @@ class BoardSearchBoardDetailRepository(Protocol):
         self, *, game_id: UUID, document: BoardSearchBoardDocument
     ) -> tuple[BoardSearchBoardCell, ...]: ...
 
+    def refresh_board_document(
+        self, *, game_id: UUID, document: BoardSearchBoardDocument
+    ) -> None: ...
+
 
 @dataclass(frozen=True, slots=True)
 class BoardSearchBoardDetail:
@@ -98,6 +102,7 @@ class BoardSearchBoardDetail:
     matches: tuple[BoardSearchLineMatch, ...]
     view: BoardSearchBoardView | None
     cells: tuple[BoardSearchBoardCell, ...] | None
+    document_stale: bool
 
 
 def _board_not_found() -> BoardSearchError:
@@ -125,16 +130,25 @@ def _load_document(
     return document
 
 
+def _is_stale(
+    source: BoardSearchBoardViewSource | None, document: BoardSearchBoardDocument
+) -> bool:
+    """The board's identity changed after its search document was written
+    (e.g. a later grid revision the projection never picked up)."""
+
+    return (
+        source is not None
+        and source.current_board_checksum_sha256 != document.board_checksum_sha256
+    )
+
+
 def _checked_view_source(
     repository: BoardSearchBoardDetailRepository,
     game_id: UUID,
     document: BoardSearchBoardDocument,
 ) -> BoardSearchBoardViewSource | None:
     source = repository.board_view_source(game_id=game_id, document=document)
-    if (
-        source is not None
-        and source.current_board_checksum_sha256 != document.board_checksum_sha256
-    ):
+    if _is_stale(source, document):
         raise _revision_conflict()
     return source
 
@@ -250,10 +264,14 @@ class BoardSearchBoardDetailService:
             )
         matches.sort(key=lambda item: (item.payline_display_order, item.payline_code))
 
-        source = _checked_view_source(self._repository, game_id, document)
+        source = self._repository.board_view_source(game_id=game_id, document=document)
+        # A stale document still explains the table (both read it), but its
+        # symbols belong to an older grid: no photo, no cell editing, and the
+        # modal offers to refresh this one board (TASK-0773).
+        stale = _is_stale(source, document)
         prepared = (
             None
-            if source is None
+            if source is None or stale
             else _prepare_view(source, document.asset_mode, self._artifact_root)
         )
         view = None if prepared is None else prepared[1]
@@ -263,6 +281,7 @@ class BoardSearchBoardDetailService:
         if (
             document.asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW
             and document.status == "pending"
+            and not stale
         ):
             records = self._repository.board_cells(game_id=game_id, document=document)
             # Correction needs one current record per logical cell; a partial
@@ -287,7 +306,45 @@ class BoardSearchBoardDetailService:
             matches=tuple(matches),
             view=view,
             cells=cells,
+            document_stale=stale,
         )
+
+    def refresh(self, *, game_id: UUID, sequence_number: int) -> BoardSearchBoardRefreshResult:
+        """Rebuild this board's search document from its current records.
+
+        Uses the same projection sync the system runs after every cell or
+        geometry decision, scoped to one board; it never changes a human
+        decision. Only operational documents can be rebuilt.
+        """
+
+        if sequence_number < 1:
+            raise _board_not_found()
+        document = _load_document(self._repository, game_id, sequence_number)
+        if document.asset_mode is not BoardSearchAssetMode.OPERATIONAL_REVIEW:
+            raise BoardSearchError(
+                "BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED",
+                "Only operational board-search documents can be refreshed.",
+            )
+        self._repository.refresh_board_document(game_id=game_id, document=document)
+        # The rebuild may legitimately leave no document at this position
+        # (the board left the searchable states or moved in the sequence).
+        # That outcome must be committed and reported, never turned into a
+        # 404 that rolls the rebuild back.
+        _source, refreshed = self._repository.board_document(
+            game_id=game_id, sequence_number=sequence_number
+        )
+        if refreshed is None:
+            return BoardSearchBoardRefreshResult(detail=None, document_removed=True)
+        return BoardSearchBoardRefreshResult(
+            detail=self.detail(game_id=game_id, sequence_number=sequence_number),
+            document_removed=False,
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class BoardSearchBoardRefreshResult:
+    detail: BoardSearchBoardDetail | None
+    document_removed: bool
 
 
 @dataclass(frozen=True, slots=True)
@@ -507,6 +564,7 @@ __all__ = [
     "BoardSearchBoardDetail",
     "BoardSearchBoardDetailRepository",
     "BoardSearchBoardDetailService",
+    "BoardSearchBoardRefreshResult",
     "BoardSearchBoardViewAsset",
     "BoardSearchBoardViewCache",
     "BoardSearchBoardViewService",

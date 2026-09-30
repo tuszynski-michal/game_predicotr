@@ -1623,6 +1623,7 @@ def create_app(
             # D-470 board detail and view: the board changed since the search
             # document was written, or its source image no longer matches.
             "BOARD_SEARCH_BOARD_REVISION_CONFLICT",
+            "BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED",
             "BOARD_SEARCH_BOARD_VIEW_CACHE_UNSAFE",
             "BOARD_SEARCH_BOARD_VIEW_SOURCE_PATH_UNSAFE",
             "BOARD_SEARCH_BOARD_VIEW_SOURCE_MEDIA_TYPE_UNSUPPORTED",

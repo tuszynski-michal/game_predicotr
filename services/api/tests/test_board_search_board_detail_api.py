@@ -146,6 +146,13 @@ class MemoryBoardDetailRepository:
     def symbol_codes(self, game_id: UUID) -> Mapping[int, str]:
         return {A: "A", B: "B", W: "W"}
 
+    def refresh_board_document(self, *, game_id: UUID, document: BoardSearchBoardDocument) -> None:
+        # The rebuilt document now matches the board's current identity.
+        self.refreshed = [*getattr(self, "refreshed", []), document.sequence_number]
+        self._current_checksum = document.board_checksum_sha256
+        if getattr(self, "remove_on_refresh", False):
+            self._document = None
+
     def board_cells(
         self, *, game_id: UUID, document: BoardSearchBoardDocument
     ) -> tuple[BoardSearchBoardCell, ...]:
@@ -282,17 +289,74 @@ def test_missing_rules_and_symbols_outside_rules_are_conflicts() -> None:
     assert outside.json()["code"] == "APPROXIMATE_WIN_BOARD_SYMBOL_OUTSIDE_RULES"
 
 
-def test_geometry_of_another_board_revision_is_a_conflict() -> None:
-    response = _get(
-        MemoryBoardDetailRepository(
-            document=_document((A,) * 15),
-            configuration=_configuration(),
-            geometry={"latticeBoundsQuad": _LATTICE},
-            current_checksum="e" * 64,
-        )
+def test_a_stale_document_keeps_its_lines_without_photo_or_cell_editing() -> None:
+    """TASK-0773: a grid revised after the search document was written. The
+    lines still explain the table (both read the document), but no photo and
+    no cells are offered until the board is refreshed."""
+
+    repository = MemoryBoardDetailRepository(
+        document=_document((A,) * 15),
+        configuration=_configuration(),
+        geometry={"latticeBoundsQuad": _LATTICE},
+        current_checksum="e" * 64,
+    )
+    response = _get(repository)
+    assert response.status_code == 200
+    body = response.json()
+    assert body["documentStale"] is True
+    assert body["view"] is None
+    assert body["cells"] is None
+    assert len(body["matches"]) == 2
+    assert getattr(repository, "cell_reads", 0) == 0
+
+
+def test_refresh_rebuilds_one_stale_board_and_restores_its_view() -> None:
+    repository = MemoryBoardDetailRepository(
+        document=_document((A,) * 15),
+        configuration=_configuration(),
+        geometry={"latticeBoundsQuad": _LATTICE},
+        current_checksum="e" * 64,
+    )
+    response = _client(repository).post(
+        f"/api/v1/admin/games/{_GAME_ID}/board-search/boards/42/refresh"
+    )
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert repository.refreshed == [42]  # type: ignore[attr-defined]
+    assert body["documentRemoved"] is False
+    assert body["detail"]["documentStale"] is False
+    assert body["detail"]["view"] is not None
+    assert len(body["detail"]["cells"]) == 15
+
+
+def test_refresh_that_removes_the_document_is_reported_not_a_404() -> None:
+    repository = MemoryBoardDetailRepository(
+        document=_document((A,) * 15),
+        configuration=_configuration(),
+        current_checksum="e" * 64,
+    )
+    repository.remove_on_refresh = True  # type: ignore[attr-defined]
+    response = _client(repository).post(
+        f"/api/v1/admin/games/{_GAME_ID}/board-search/boards/42/refresh"
+    )
+    assert response.status_code == 200, response.text
+    assert response.json() == {"documentRemoved": True, "detail": None}
+
+
+def test_refresh_refuses_archive_boards_and_missing_documents() -> None:
+    archive = MemoryBoardDetailRepository(
+        document=_document((A,) * 15, asset_mode=BoardSearchAssetMode.LEGACY_ARCHIVE),
+        configuration=_configuration(),
+    )
+    response = _client(archive).post(
+        f"/api/v1/admin/games/{_GAME_ID}/board-search/boards/42/refresh"
     )
     assert response.status_code == 409
-    assert response.json()["code"] == "BOARD_SEARCH_BOARD_REVISION_CONFLICT"
+    assert response.json()["code"] == "BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED"
+    missing = _client(
+        MemoryBoardDetailRepository(document=None, configuration=_configuration())
+    ).post(f"/api/v1/admin/games/{_GAME_ID}/board-search/boards/42/refresh")
+    assert missing.status_code == 404
 
 
 def test_archive_board_has_no_cell_polygons() -> None:

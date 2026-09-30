@@ -29,7 +29,6 @@ from game_predictor_api.application.board_search_board_detail import (
     BoardSearchBoardDetailService,
 )
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.domain.board_search import BoardSearchError
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.board_search_approximate_win_repository import (
@@ -647,11 +646,27 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
         assert board is not None
         board.board_checksum_sha256 = "e" * 64
 
-    with (
-        Session(database, expire_on_commit=False) as session,
-        pytest.raises(BoardSearchError) as raised,
-    ):
-        BoardSearchBoardDetailService(
+    with Session(database, expire_on_commit=False) as session:
+        stale = BoardSearchBoardDetailService(
             SqlAlchemyBoardSearchApproximateWinRepository(session)
         ).detail(game_id=game_id, sequence_number=5)
-    assert raised.value.code == "BOARD_SEARCH_BOARD_REVISION_CONFLICT"
+    # TASK-0773: the lines stay, the photo and cell editing wait for a refresh.
+    assert stale.document_stale is True
+    assert stale.view is None and stale.cells is None
+    assert stale.payout_credits == 25
+
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        refreshed = BoardSearchBoardDetailService(
+            SqlAlchemyBoardSearchApproximateWinRepository(session)
+        ).refresh(game_id=game_id, sequence_number=5)
+    assert refreshed.document_removed is False
+    assert refreshed.detail is not None
+    assert refreshed.detail.document_stale is False
+    assert refreshed.detail.board_checksum_sha256 == "e" * 64
+
+    with Session(database, expire_on_commit=False) as session:
+        after = BoardSearchBoardDetailService(
+            SqlAlchemyBoardSearchApproximateWinRepository(session)
+        ).detail(game_id=game_id, sequence_number=5)
+    assert after.document_stale is False
+    assert after.payout_credits == 25

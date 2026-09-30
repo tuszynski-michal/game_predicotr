@@ -1548,3 +1548,136 @@ test('a revision conflict shows a message and refreshes the board for another tr
   assert.equal(rangeCalls, rangeBefore);
   await act(async () => root.unmount());
 });
+
+test('a stale board shows its lines on the schema and can be refreshed in place', async (context) => {
+  withDialogSupport();
+  context.after(() => dom.window.localStorage.clear());
+  const cells = Array.from({ length: 15 }, (_, index) => ({
+    assignedSymbolCode: 'cherry',
+    cellIndex: index,
+    cellReviewId: `cell-${index}`,
+    cropChecksumSha256: 'b'.repeat(64),
+    cropSampleId: 'a'.repeat(64),
+    geometryRevision: 1,
+    qualityIssue: null,
+    reviewState: 'pending',
+    revision: 0,
+  }));
+  const refreshes = [];
+  let rangeCalls = 0;
+  const client = {
+    ...makeClient({
+      approximateWinImpl: async (_gameId, options) => {
+        rangeCalls += 1;
+        return {
+          data: approximateWinResponse(options.startSequenceNumber, {
+            evaluatedSpinCount: 10,
+            requestedSpinCount: 10,
+            rows: [
+              {
+                boardStatus: 'pending',
+                cumulativeBalanceCredits: 80,
+                cumulativeCostCredits: 20,
+                cumulativePayoutCredits: 100,
+                payoutCredits: 100,
+                payoutKind: 'confirmed_minimum',
+                sequenceNumber: 11,
+                spinNumber: 1,
+              },
+            ],
+          }),
+        };
+      },
+      searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+    }),
+    applySymbolCellReviewDecision: async () => {
+      throw new Error('no correction in this test');
+    },
+    boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
+    getBoardSearchBoardDetail: async (_gameId, sequenceNumber) => ({
+      data: linesDetail(sequenceNumber, {
+        boardStatus: 'pending',
+        cells: null,
+        documentStale: true,
+        view: null,
+      }),
+    }),
+    refreshBoardSearchBoardDocument: async (gameIdArgument, sequenceNumber) => {
+      refreshes.push([gameIdArgument, sequenceNumber]);
+      if (refreshes.length === 1) {
+        // The first attempt fails: the notice shows and the stale state stays.
+        return { error: { code: 'X', message: 'boom' } };
+      }
+      return {
+        data: {
+          detail: {
+            ...linesDetail(sequenceNumber, { boardStatus: 'pending', cells }),
+            documentStale: false,
+            matches: linesDetail(sequenceNumber).matches.slice(0, 1),
+            payoutCredits: 60,
+          },
+          documentRemoved: false,
+        },
+      };
+    },
+  };
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
+    'row should render',
+  );
+  await click(
+    document.querySelector(
+      'button[aria-label="Pokaż planszę #11 z liniami wypłat"]',
+    ),
+  );
+  await eventually(
+    () => document.querySelectorAll('.boardSearchBoardLinesMatch').length === 2,
+    'stale lines are still drawn',
+  );
+  // No error: lines on the schema, a warning, and no cell editing yet.
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesSchemaCell').length,
+    15,
+  );
+  assert.match(
+    document.querySelector('.boardSearchBoardLinesStale').textContent,
+    /Siatka tej planszy zmieniła się/,
+  );
+  assert.equal(dialogButton('Popraw symbole'), undefined);
+
+  await click(dialogButton('Odśwież odczyt tej planszy'));
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchBoardLinesDialog [role="alert"]') !==
+      null,
+    'a failed refresh is reported',
+  );
+  assert.ok(document.querySelector('.boardSearchBoardLinesStale'));
+  await click(dialogButton('Odśwież odczyt tej planszy'));
+  await eventually(
+    () => dialogButton('Popraw symbole') !== undefined,
+    'the refreshed board offers cell correction',
+  );
+  assert.deepEqual(refreshes, [
+    [gameId, 11],
+    [gameId, 11],
+  ]);
+  assert.equal(document.querySelector('.boardSearchBoardLinesStale'), null);
+  assert.ok(document.querySelector('.boardSearchBoardLinesCanvas image'));
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesMatch').length,
+    1,
+  );
+  assert.match(
+    document.querySelector('.boardSearchBoardLinesDialog').textContent,
+    /Po odświeżeniu: wypłata 60/,
+  );
+  const before = rangeCalls;
+  await click(dialogButton('Zamknij'));
+  await settle();
+  assert.equal(rangeCalls, before + 1, 'closing after a refresh recalculates');
+  await act(async () => root.unmount());
+});

@@ -81,6 +81,7 @@ import {
   getArchivedBoardSearchAsset as getGeneratedArchivedBoardSearchAsset,
   getBoardSearchApproximateWin as getGeneratedBoardSearchApproximateWin,
   getBoardSearchBoardDetail as getGeneratedBoardSearchBoardDetail,
+  refreshBoardSearchBoardDocument as refreshGeneratedBoardSearchBoardDocument,
   getImageImportEnginePolicy as getGeneratedImageImportEnginePolicy,
   previewImageImportEnginePolicy as previewGeneratedImageImportEnginePolicy,
   updateImageImportEnginePolicy as updateGeneratedImageImportEnginePolicy,
@@ -1940,6 +1941,12 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getBoardSearchBoardDetail: (gameId: string, sequenceNumber: number) =>
       getGeneratedBoardSearchBoardDetail({
+        client,
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+      }),
+    /** Rebuild one board's stale search document (TASK-0773). */
+    refreshBoardSearchBoardDocument: (gameId: string, sequenceNumber: number) =>
+      refreshGeneratedBoardSearchBoardDocument({
         client,
         path: { game_id: gameId, sequence_number: sequenceNumber },
       }),

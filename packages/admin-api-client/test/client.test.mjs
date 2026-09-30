@@ -3060,6 +3060,12 @@ test('getBoardSearchBoardDetail and the board view URL use the board-search path
     `/api/v1/admin/games/${gameId}/board-search/boards/42`,
   );
   assert.equal(result.data.payoutKind, 'none');
+  await client.refreshBoardSearchBoardDocument(gameId, 42);
+  assert.equal(requests[1].method, 'POST');
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/boards/42/refresh`,
+  );
   assert.equal(
     client.boardSearchBoardViewUrl(gameId, 42, 'c'.repeat(64)),
     `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/board-search/boards/42/view?expectedBoardChecksumSha256=${'c'.repeat(64)}`,

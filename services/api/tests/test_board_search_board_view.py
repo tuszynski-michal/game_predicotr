@@ -89,6 +89,9 @@ class ViewRepository:
     def board_cells(self, *, game_id: UUID, document: BoardSearchBoardDocument) -> tuple[()]:
         return ()
 
+    def refresh_board_document(self, *, game_id: UUID, document: BoardSearchBoardDocument) -> None:
+        raise AssertionError("the view never refreshes a document")
+
 
 class CountingRender:
     def __init__(self) -> None:

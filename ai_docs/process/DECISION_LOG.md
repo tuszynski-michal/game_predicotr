@@ -6,6 +6,23 @@ last_updated: 2026-09-30
 
 # Decision Log
 
+## D-474 — nieaktualny odczyt planszy w oknie linii i odświeżenie jednej planszy
+
+- **Status:** accepted, 2026-09-30; zgłoszenie operatora (plansza #67755),
+  TASK-0773. Zmienia zachowanie szczegółów planszy z D-470.
+- **Context:** 88 260 z 500 000 dokumentów wyszukiwania gry 7 pochodzi
+  sprzed późniejszej rewizji geometrii planszy i nie zostało odświeżone.
+- **Decision:** szczegóły planszy przy niezgodnej sumie tożsamości nie
+  zwracają 409, tylko `documentStale = true` z liniami i wypłatą z dokumentu
+  (tak samo liczy tabela), bez widoku i pól do poprawki. Widok nadal zwraca
+  409. Admin może przebudować dokument jednej pozycji
+  (`refreshBoardSearchBoardDocument`) tą samą synchronizacją projekcji, którą
+  system uruchamia po każdej decyzji; nie zmienia to decyzji ludzi.
+  Przebudowa, która usuwa dokument, jest zapisywana i raportowana.
+- **Out of scope:** masowe odświeżenie wszystkich nieaktualnych dokumentów
+  (osobna operacja z podglądem i zgodą) i naprawa ścieżki, która pominęła
+  synchronizację.
+
 ## D-473 — poprawianie symbolu pola z okna planszy „Przybliżonej wygranej”
 
 - **Status:** accepted, 2026-09-30; polecenie operatora po odbiorze etapu A

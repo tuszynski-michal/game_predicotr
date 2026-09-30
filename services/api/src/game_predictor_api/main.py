@@ -402,6 +402,12 @@ from game_predictor_api.storage.worker_lane_repository import (
 LOGGER = logging.getLogger(__name__)
 
 
+def _loopback_api_origin(host: str, port: int) -> str:
+    """`http://host:port` with an IPv6 loopback in brackets."""
+
+    return f"http://[{host}]:{port}" if ":" in host else f"http://{host}:{port}"
+
+
 def create_app(
     settings: ApiSettings | None = None,
     *,
@@ -1467,7 +1473,11 @@ def create_app(
         reviewer_access_service_dependency or default_reviewer_access_service_dependency
     )
     project_root = Path(__file__).resolve().parents[4]
-    reviewer_ingress_service = ReviewerIngressService(project_root)
+    reviewer_ingress_service = ReviewerIngressService(
+        project_root,
+        # The Reviewer it starts must proxy to this API, whatever its port.
+        api_origin=_loopback_api_origin(resolved_settings.host, resolved_settings.port),
+    )
     resolved_reviewer_ingress_dependency = reviewer_ingress_service_dependency or (
         lambda: reviewer_ingress_service
     )

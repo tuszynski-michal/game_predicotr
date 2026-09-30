@@ -63,6 +63,11 @@ last_updated: 2026-09-30
   predykcji” (Wszystkie / Nowy algorytm / Stary model) i „Data zmiany
   komórki” (Od–Do, „Od dziś 00:00”, „Zastosuj zakres”, „Wyczyść”). Audyt
   Fable PASS, P3 częściowo wdrożone.
+- TASK-0748 (B1) done 2026-09-30 00:08–00:27 UTC: 2 703 plansze Arbuz
+  < 60%, 2 917 komórek z predykcją biblioteki (2 621 potwierdzeń Arbuz,
+  296 zmian symbolu), 1 komórka kanarka cofnięta testowo (`apply-revert`),
+  377 bez pewnej propozycji przy modelu. 0 błędów, 0 `stale`. Komórki nadal
+  `pending`; przegląd w Adminie filtrem „Nowy algorytm”.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

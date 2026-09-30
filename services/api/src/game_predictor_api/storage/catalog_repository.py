@@ -33,7 +33,6 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageStatus,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     GameSymbolModelActivationModel,
     ImageGeometryRolloutStateModel,
@@ -354,7 +353,10 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         resolved_symbols = ImageReviewItemModel.resolved_value["symbolCodes"].contains(
             [symbol_code]
         )
-        predicted_symbol = CellObservationModel.prediction["symbolCode"].as_string()
+        # Predictions are counted on the current V2 cell projection instead of the per-cell
+        # observation history (D-467): current predictions only, so superseded boards and
+        # predictions overwritten by a later revision no longer block deletion.
+        cell = ImageSymbolReviewCellModel
         return SymbolUsageSummary(
             rules=_count(
                 self._session,
@@ -364,21 +366,16 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             ),
             pending_board_predictions=_count(
                 self._session,
-                select(CellObservationModel.id)
-                .join(
-                    RecognizedBoardModel,
-                    RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
-                )
-                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                select(cell.id)
                 .join(
                     ImageReviewItemModel,
-                    ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+                    (ImageReviewItemModel.game_id == cell.game_id)
+                    & (ImageReviewItemModel.id == cell.review_item_id),
                 )
                 .where(
-                    JobModel.game_id == game_id,
+                    cell.game_id == game_id,
                     ImageReviewItemModel.status == "pending",
-                    predicted_symbol == symbol_code,
+                    cell.prediction_symbol_code == symbol_code,
                 ),
             ),
             resolved_board_decisions=_count(
@@ -398,14 +395,9 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             ),
             observation_predictions=_count(
                 self._session,
-                select(CellObservationModel.id)
-                .join(
-                    RecognizedBoardModel,
-                    RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
-                )
-                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-                .where(JobModel.game_id == game_id, predicted_symbol == symbol_code),
+                select(cell.id).where(
+                    cell.game_id == game_id, cell.prediction_symbol_code == symbol_code
+                ),
             ),
             symbol_cell_assignments=_count(
                 self._session,

@@ -96,7 +96,11 @@ last_updated: 2026-09-30
   `_uses_logical_current_cell_identity`, `_prediction_confidence_expression`
   i `_base_visible_statement`; jawne `_bind_game_store` zachowuje wiązanie
   magazynu; SQL ścieżki V2 identyczny bajt w bajt (102 sekcje). Audyt Opus
-  PASS. Następne: TASK-0755 (S2), potem S3–S8 po zakończeniu przebiegów.
+  PASS.
+- TASK-0755 (S2) done: bramka usuwania symbolu liczy bieżące predykcje z
+  komórek V2 zamiast skanu `cell_observations` (świadome zawężenie, nota w
+  D-467). Audyt Opus PASS. **Etap S2 zamknięty.** S3–S8 po zakończeniu
+  przebiegów zapisu biblioteki (TASK-0750).
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

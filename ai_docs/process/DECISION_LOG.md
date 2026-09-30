@@ -25,6 +25,12 @@ last_updated: 2026-09-30
 - **Rejected:** wyliczanie specyfikacji renderu w locie z geometrii
   źródłowej (sumy kontrolne muszą zgadzać się bajt w bajt); usuwanie
   zastąpionych rewizji predykcji będących kotwicami `apply-revert` (D-466).
+- **Deletion gate (TASK-0755):** bramka usuwania symbolu
+  (`SYMBOL_DELETE_BLOCKED`) liczy bieżące predykcje komórek V2
+  (`prediction_symbol_code`), nie historyczne obserwacje z importu; plansze
+  zastąpione i predykcje nadpisane nowszą rewizją nie blokują usunięcia.
+  Zabezpieczeniem pozostają fail-closed liczniki kohort, iteracji i
+  aktywacji modelu.
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu

@@ -57,6 +57,7 @@ from game_predictor_worker.symbols.reference_library_writer import (
     MODEL_VERSION as WRITER_MODEL_VERSION,
 )
 from game_predictor_worker.symbols.reference_library_writer import (
+    TARGET_QUALITY_CHANGED,
     BoardPlan,
     ReferenceLibraryWriteError,
     TargetCell,
@@ -2264,17 +2265,27 @@ def _apply(arguments: argparse.Namespace, *, revert: bool = False) -> int:
                             library_checksum_sha256=str(manifest["revisionChecksumSha256"]),
                         )
                 except (ReferenceLibraryWriteError, DBAPIError) as error:
-                    # A failed board stays retryable; the transaction has rolled back.
                     code = getattr(error, "code", None) or type(error).__name__
-                    receipts.write(
-                        json.dumps(
-                            {"reviewItemId": board["reviewItemId"], "status": f"failed:{code}"}
-                        )
-                        + "\n"
+                    skippable = (
+                        isinstance(error, ReferenceLibraryWriteError)
+                        and error.code == TARGET_QUALITY_CHANGED
+                        # A revert that cannot finish must stop: the library prediction stays.
+                        and not revert
                     )
-                    receipts.flush()
-                    print(f"FAILED {board['reviewItemId']}: {error}", file=sys.stderr)
-                    return 2
+                    if not skippable:
+                        # A failed board stays retryable; the transaction has rolled back.
+                        receipts.write(
+                            json.dumps(
+                                {"reviewItemId": board["reviewItemId"], "status": f"failed:{code}"}
+                            )
+                            + "\n"
+                        )
+                        receipts.flush()
+                        print(f"FAILED {board['reviewItemId']}: {error}", file=sys.stderr)
+                        return 2
+                    # Rolled back; the target is no longer eligible, so the board is stale.
+                    print(f"SKIPPED {board['reviewItemId']}: {error}", file=sys.stderr)
+                    status = f"stale:{code}"
                 receipts.write(
                     json.dumps({"reviewItemId": board["reviewItemId"], "status": status}) + "\n"
                 )

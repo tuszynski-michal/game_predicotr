@@ -1,11 +1,15 @@
 from __future__ import annotations
 
-from uuid import uuid4
+from types import SimpleNamespace
+from typing import Any, cast
+from uuid import UUID, uuid4
 
 import pytest
+from game_predictor_worker.symbols import reference_library_writer as writer
 from game_predictor_worker.symbols.reference_library_writer import (
     LIBRARY_CONFIDENCE,
     MODEL_VERSION,
+    TARGET_QUALITY_CHANGED,
     ReferenceLibraryWriteError,
     TargetCell,
     predictions_digest,
@@ -89,3 +93,107 @@ def test_revert_checksum_is_distinct_and_valid() -> None:
     assert len(checksum) == 64
     assert checksum == revert_checksum(library)
     assert checksum != revert_checksum("c" * 64)
+
+
+class _Cell(SimpleNamespace):
+    pass
+
+
+class _Session:
+    def __init__(self, cells: list[_Cell], symbol_id: UUID) -> None:
+        self.cells = cells
+        self.symbol_id = symbol_id
+
+    def add(self, revision: Any) -> None:
+        revision.id = uuid4()
+
+    def flush(self) -> None:
+        return None
+
+    def execute(self, _statement: object) -> list[tuple[UUID, str]]:
+        return [(self.symbol_id, "POMARANCZ")]
+
+    def scalars(self, _statement: object) -> list[_Cell]:
+        return self.cells
+
+    def refresh(self, _cell: object) -> None:
+        return None
+
+
+def _write(
+    monkeypatch: pytest.MonkeyPatch, *, flag_target: bool, flag_other: bool, target_first: bool
+) -> None:
+    symbol_id = uuid4()
+
+    def cell(index: int) -> _Cell:
+        return _Cell(
+            id=uuid4(),
+            sequence_number=10,
+            review_state="pending",
+            assigned_symbol_id=symbol_id,
+            assignment_source="model",
+            quality_issue=None,
+            prediction_revision_id=None,
+            prediction_symbol_code="POMARANCZ",
+            cell_index=index,
+        )
+
+    target, other = cell(4), cell(5)
+    cells = [target, other] if target_first else [other, target]
+    revision = SimpleNamespace(id=None)
+
+    class Coordinator:
+        def __init__(self, _session: object) -> None:
+            return None
+
+        def synchronize_after_prediction_refresh(self, **_kwargs: object) -> bool:
+            for flagged, value in ((flag_target, target), (flag_other, other)):
+                value.prediction_revision_id = revision.id
+                if flagged:
+                    value.quality_issue = "partial_visibility"
+                    value.assignment_source = "geometry_partial"
+                    value.assigned_symbol_id = None
+            return True
+
+    class Projection:
+        def __init__(self, _session: object) -> None:
+            return None
+
+        def sync_review_item(self, _review_item_id: object) -> None:
+            return None
+
+    monkeypatch.setattr(writer, "SymbolCellReviewWriteThroughCoordinator", Coordinator)
+    monkeypatch.setattr(writer, "SqlAlchemyBoardSearchProjectionRepository", Projection)
+    session = _Session(cells, symbol_id)
+    plan = writer.BoardPlan(uuid4(), uuid4(), uuid4(), "0" * 64, ())
+    writer._write_revision(
+        cast(Any, session),
+        game_id=uuid4(),
+        plan=plan,
+        cells={value.id: cast(Any, value) for value in cells},
+        revision=cast(Any, revision),
+        expected_symbols={target.id: "POMARANCZ"},
+    )
+
+
+@pytest.mark.parametrize("target_first", [True, False])
+def test_target_gaining_a_quality_issue_is_reported_before_side_effects(
+    monkeypatch: pytest.MonkeyPatch, target_first: bool
+) -> None:
+    with pytest.raises(ReferenceLibraryWriteError) as error:
+        _write(monkeypatch, flag_target=True, flag_other=True, target_first=target_first)
+
+    assert error.value.code == TARGET_QUALITY_CHANGED
+
+
+def test_non_target_gaining_a_quality_issue_is_a_side_effect(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with pytest.raises(ReferenceLibraryWriteError) as error:
+        _write(monkeypatch, flag_target=False, flag_other=True, target_first=True)
+
+    assert error.value.code == "SYMBOL_REFERENCE_WRITE_SIDE_EFFECT"
+
+
+def test_clean_refresh_passes_the_post_write_check(monkeypatch: pytest.MonkeyPatch) -> None:
+    _write(monkeypatch, flag_target=False, flag_other=False, target_first=True)

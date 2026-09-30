@@ -34,6 +34,8 @@ from sqlalchemy.orm import Session
 MODEL_VERSION = "symbol-reference-library-v1"
 LIBRARY_CONFIDENCE = 0.99
 ACTOR = "system:symbol-reference-library"
+# Rolled back like any failed board, but the board is skipped as stale instead of stopping the run.
+TARGET_QUALITY_CHANGED = "SYMBOL_REFERENCE_TARGET_QUALITY_CHANGED"
 
 
 class ReferenceLibraryWriteError(RuntimeError):
@@ -258,6 +260,20 @@ def _write_revision(
         )
     for cell in after:
         session.refresh(cell)
+    # Checked for every target first, so the outcome does not depend on the row order.
+    for cell in after:
+        if (
+            cell.id in expected_symbols
+            and cell.quality_issue is not None
+            and before[cell.id].quality_issue is None
+        ):
+            # The refresh re-derives the cell from current geometry, which can flag it (e.g.
+            # partial visibility) although the stored row was stale; such a cell is no target.
+            raise ReferenceLibraryWriteError(
+                TARGET_QUALITY_CHANGED,
+                f"Target cell {cell.id} gained quality issue {cell.quality_issue}.",
+            )
+    for cell in after:
         symbol = expected_symbols.get(cell.id)
         if symbol is not None:
             if (

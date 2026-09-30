@@ -529,14 +529,19 @@ wyłącznie do odczytu.
 
 ### Udostępnianie wyszukiwania online
 
-**D-471 (etap B planu `BOARD_SEARCH_SHARE_EXECUTION_PLAN.md`, jeszcze
-niezaimplementowany).** Przycisk „Udostępnij online” w sekcji „Wyszukaj
-plansze” tworzy link do kopii tej sekcji razem z „Przybliżoną wygraną” dla
+**D-471 (etap B planu `BOARD_SEARCH_SHARE_EXECUTION_PLAN.md`; panel
+TASK-0769, aplikacja odbiorcy w Reviewerze TASK-0768).** Przycisk
+„Udostępnij online” w nagłówku sekcji „Wyszukaj plansze” tworzy link do kopii tej sekcji razem z „Przybliżoną wygraną” dla
 bieżącej gry. Operator podaje etykietę i czas dostępu (1 h, 4 h, 8 h albo
 24 h; domyślnie 8 h). Po utworzeniu widzi link i 8-znakowy kod wejścia
 (`XXXX-XXXX`), może je skopiować osobno i zatrzymać sesję z potwierdzeniem.
 Link nie zawiera kodu. Kod jest przechowywany wyłącznie lokalnie w
-przeglądarce Admina do wygaśnięcia albo zatrzymania sesji.
+przeglądarce Admina do wygaśnięcia albo zatrzymania sesji; w innej
+przeglądarce panel pokazuje link bez kodu. Panel listuje aktywne linki gry
+(ostatnie otwarcie, czas wygaśnięcia) i osobno zakończone (wygasłe,
+zatrzymane, zablokowane po 5 błędnych kodach). Utworzenie linku uruchamia
+publiczny adres Reviewera; gdy się nie uda, panel pokazuje czytelny błąd i
+nie tworzy linku.
 
 Odbiorca po podaniu kodu ma te same funkcje co operator: liczbę wyników,
 zakres wyszukiwania, paletę symboli, edycję wzoru, karuzelę wyników,

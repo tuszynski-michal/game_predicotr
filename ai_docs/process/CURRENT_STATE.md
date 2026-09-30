@@ -73,6 +73,9 @@ last_updated: 2026-09-30
   informacją o zapisie zapytań, proxy `/board-search-api` z allowlistą,
   własnym cookie i CSP, adapter z cache klienta; lokalna instancja testowa
   Reviewera `127.0.0.1:3011` (bez tunelu).
+- TASK-0769 done: panel „Udostępnij online” w nagłówku „Wyszukaj plansze”
+  (tworzenie, link i kod z kopiowaniem, lista aktywnych i zakończonych,
+  dwustopniowe zatrzymanie, kod tylko w pamięci przeglądarki).
 - Etap B w toku; push i merge nie były wykonywane.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)

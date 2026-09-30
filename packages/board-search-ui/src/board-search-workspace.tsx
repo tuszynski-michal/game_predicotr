@@ -8,7 +8,7 @@ import type {
   BoardSearchScope,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
 import { apiErrorMessage } from './api-error';
 import type { BoardSearchDataSource } from './board-search-data-source';
@@ -58,11 +58,14 @@ interface BoardSearchWorkspaceProps {
   /** Must keep its identity between renders (the Admin memoises it). */
   readonly client: BoardSearchDataSource;
   readonly gameId: string;
+  /** Host-specific controls in the section header (Admin: share panel). */
+  readonly headerActions?: ReactNode;
 }
 
 export function BoardSearchWorkspace({
   client: api,
   gameId,
+  headerActions,
 }: BoardSearchWorkspaceProps) {
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
   const [symbolsState, setSymbolsState] = useState<LoadState>('loading');
@@ -320,6 +323,9 @@ export function BoardSearchWorkspace({
             niezależnie, dlatego nie wymaga pełnej planszy.
           </p>
         </div>
+        {headerActions !== undefined ? (
+          <div className="boardSearchHeaderActions">{headerActions}</div>
+        ) : null}
       </header>
 
       <div className="boardSearchResultLimit">

@@ -9931,3 +9931,102 @@ div.imageJobInlineError {
     display: grid;
   }
 }
+
+/* D-471: online share panel of the board search (Admin only). */
+.boardSearchShare {
+  display: grid;
+  gap: 10px;
+  justify-items: end;
+  max-width: 560px;
+}
+
+.boardSearchSharePanel {
+  display: grid;
+  gap: 12px;
+  width: min(560px, 100%);
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-raised);
+}
+
+.boardSearchSharePanel h3 {
+  margin: 0;
+  font-size: 14px;
+}
+
+.boardSearchShareHint,
+.boardSearchShareEmpty {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchShareCreate {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: end;
+  gap: 8px;
+}
+
+.boardSearchShareCreate label {
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.boardSearchShareList {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.boardSearchShareItem {
+  display: grid;
+  gap: 6px;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+
+.boardSearchShareItemFresh {
+  border-color: var(--accent);
+}
+
+.boardSearchShareItemHeader {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 4px 12px;
+  font-size: 13px;
+}
+
+.boardSearchShareItemHeader span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchShareSecret {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 10px;
+  font-size: 12px;
+}
+
+.boardSearchShareSecret code {
+  overflow-wrap: anywhere;
+}
+
+.boardSearchShareActions {
+  display: flex;
+  gap: 8px;
+}
+
+@media (max-width: 640px) {
+  .boardSearchShareCreate {
+    grid-template-columns: 1fr;
+  }
+}

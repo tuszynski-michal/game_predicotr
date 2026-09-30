@@ -866,3 +866,10 @@
   align-items: center;
   gap: 6px;
 }
+
+.boardSearchHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}

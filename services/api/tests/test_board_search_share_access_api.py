@@ -27,8 +27,13 @@ class FakeIngress:
         self.online = online
         self.start_fails = start_fails
         self.start_count = 0
+        self.status_fails = False
 
     def status(self) -> ReviewerIngressStatus:
+        if self.status_fails:
+            raise ReviewerIngressError(
+                "REVIEWER_INGRESS_CONTROLLER_MISSING", "Synthetic status failure."
+            )
         return ReviewerIngressStatus(
             state="running" if self.online else "stopped",
             public_origin="https://share.trycloudflare.com" if self.online else None,
@@ -203,3 +208,17 @@ def test_share_flag_defaults_on_and_any_invalid_value_disables_it() -> None:
             ).board_search_share_enabled
             is expected
         )
+
+
+def test_the_list_survives_an_unreadable_ingress_status_so_links_can_be_stopped() -> None:
+    app, _repository, ingress = _app()
+    with TestClient(app, base_url="https://testserver") as client:
+        session_id = client.post(SESSIONS, json={"gameId": str(GAME_ID)}).json()["session"][
+            "sessionId"
+        ]
+        ingress.status_fails = True
+        listed = client.get(SESSIONS)
+    assert listed.status_code == 200, listed.text
+    [item] = listed.json()["sessions"]
+    assert item["sessionId"] == session_id
+    assert item["ready"] is False and item["shareUrl"] is None

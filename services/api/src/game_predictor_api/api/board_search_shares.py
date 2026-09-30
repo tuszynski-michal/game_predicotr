@@ -11,7 +11,9 @@ from game_predictor_api.application.board_search_share_access import (
     BoardSearchShareAccessService,
 )
 from game_predictor_api.application.reviewer_ingress import (
+    ReviewerIngressError,
     ReviewerIngressService,
+    ReviewerIngressStatus,
     ensure_online_reviewer_ingress,
 )
 from game_predictor_api.schemas.board_search_shares import (
@@ -80,7 +82,13 @@ def create_board_search_shares_admin_router(
         game_id: Annotated[UUID | None, Query(alias="gameId")] = None,
         limit: Annotated[int, Query(ge=1, le=SESSION_LIST_LIMIT_MAX)] = SESSION_LIST_LIMIT_MAX,
     ) -> BoardSearchShareSessionListResponse:
-        ingress_status = ingress.status()
+        # The list is also where links are stopped: an unreadable ingress
+        # status only hides the share URLs, it never hides the links.
+        ingress_status: ReviewerIngressStatus | None
+        try:
+            ingress_status = ingress.status()
+        except ReviewerIngressError:
+            ingress_status = None
         return BoardSearchShareSessionListResponse(
             sessions=[
                 BoardSearchShareSessionResponse.from_view(item, ingress_status)

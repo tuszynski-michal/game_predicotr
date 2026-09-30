@@ -11,7 +11,7 @@ import {
   selectBoardSearchEntryStart,
   selectedBoardSearchCells,
   undoBoardSearchEdit,
-} from '../src/features/board-search/board-search-editor-state.ts';
+} from '../src/board-search-editor-state.ts';
 
 test('places symbols by columns by default and preserves canonical cell indexes', () => {
   let state = createBoardSearchEditorState();

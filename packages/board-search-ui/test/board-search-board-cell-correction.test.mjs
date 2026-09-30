@@ -5,7 +5,7 @@ import {
   applyBoardCellCorrection,
   boardCellCorrectionPalette,
   boardCellCorrectionRequest,
-} from '../src/features/board-search/board-search-board-cell-correction.ts';
+} from '../src/board-search-board-cell-correction.ts';
 
 const symbols = [
   {

@@ -617,6 +617,11 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
   przeniesione i zielone bez zmiany asercji; test kontraktu adaptera Admina.
 - **Acceptance:** build i typecheck Admina; brak różnic funkcjonalnych poza
   źródłem obrazu karuzeli.
+- **Realizacja (TASK-0765):** `BoardSearchDataSource` to podzbiór
+  wygenerowanego `AdminApiClient` (ten sam kształt `{ data, error }`), a nie
+  osobny interfejs z nowymi nazwami metod; mutacje i zasoby pełnego zdjęcia
+  są opcjonalne. Testy interakcyjne żyją w pakiecie (`test:interactions`),
+  bo Admin ma własną kopię React.
 
 #### T7 / TASK-0766 — Sesje udostępniania: model, serwis, API administracyjne
 

@@ -47,10 +47,15 @@ last_updated: 2026-09-30
   `127.0.0.1:8010` z worktree (`v1.7.88` pozwala Adminowi łączyć się z
   innym portem API przez `NEXT_PUBLIC_ADMIN_API_BASE_URL`); instancja
   główna 3000/8000 bez zmian.
-- **Etap A zakończony; STOP na granicy etapu.** Odbiór operatora w Adminie
-  według akapitu „Odbiór etapu A” planu. Etap B (TASK-0765–0771, w tym
-  dziennik zapytań D-472) wymaga osobnego polecenia. Push i merge nie były
-  wykonywane.
+- Etap A zakończony i odebrany; 2026-09-30 operator zlecił poprawki
+  (TASK-0773) i etap B (TASK-0765–0771, potem TASK-0770).
+- TASK-0765 done: wyszukiwarka żyje w pakiecie
+  `packages/board-search-ui` (`BoardSearchDataSource` = podzbiór klienta
+  Admin API, mutacje opcjonalne); Admin używa cienkiego opakowania;
+  karuzela pokazuje przycięty widok serwera, pełne zdjęcie tylko awaryjnie.
+  Po scaleniu potrzebne `npm install` (nowe dowiązanie workspace). Audyt
+  PASS w pierwszym cyklu.
+- Etap B w toku; push i merge nie były wykonywane.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)
 

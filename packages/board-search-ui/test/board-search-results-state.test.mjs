@@ -12,7 +12,7 @@ import {
   parseBoardCropQuad,
   parseBoardSearchLimit,
   reconcileBoardSearchResultsState,
-} from '../src/features/board-search/board-search-results-state.ts';
+} from '../src/board-search-results-state.ts';
 
 const results = [
   { reviewItemId: 'one', sequenceNumber: 10 },
@@ -185,11 +185,19 @@ test('parseBoardCropQuad returns null for anything that is not exactly a 4-point
   assert.equal(parseBoardCropQuad('not an object'), null);
   assert.equal(parseBoardCropQuad({}), null);
   assert.equal(
-    parseBoardCropQuad({ sourceQuad: quad([[0, 0], [1, 1], [2, 2]]) }),
+    parseBoardCropQuad({
+      sourceQuad: quad([
+        [0, 0],
+        [1, 1],
+        [2, 2],
+      ]),
+    }),
     null,
   );
   assert.equal(
-    parseBoardCropQuad({ sourceQuad: [{ x: 0 }, { x: 1 }, { x: 2 }, { x: 3 }] }),
+    parseBoardCropQuad({
+      sourceQuad: [{ x: 0 }, { x: 1 }, { x: 2 }, { x: 3 }],
+    }),
     null,
   );
   assert.equal(
@@ -251,5 +259,8 @@ test('computeBoardCropTransform returns null for a degenerate quad or non-positi
   ]);
   assert.equal(computeBoardCropTransform(validPoints, 0, 600), null);
   assert.equal(computeBoardCropTransform(validPoints, 1000, -1), null);
-  assert.equal(computeBoardCropTransform(validPoints.slice(0, 3), 1000, 600), null);
+  assert.equal(
+    computeBoardCropTransform(validPoints.slice(0, 3), 1000, 600),
+    null,
+  );
 });

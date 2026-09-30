@@ -25,9 +25,8 @@ for (const key of [
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const { createRoot } = await import('react-dom/client');
-const { BoardSearchWorkspace } = await import(
-  '../src/features/board-search/board-search-workspace.tsx'
-);
+const { BoardSearchWorkspace } =
+  await import('../src/board-search-workspace.tsx');
 
 after(() => dom.window.close());
 
@@ -78,9 +77,9 @@ async function eventually(predicate, label) {
 }
 
 function symbolButton() {
-  const current = [...document.querySelectorAll('.boardSearchSymbolButton')].find(
-    (node) => node.title === symbol.name,
-  );
+  const current = [
+    ...document.querySelectorAll('.boardSearchSymbolButton'),
+  ].find((node) => node.title === symbol.name);
   assert.ok(current);
   return current;
 }
@@ -124,6 +123,7 @@ async function click(node) {
 function makeClient(searchImpl) {
   return {
     archivedBoardSearchAssetUrl: () => 'http://127.0.0.1:8000/archive.jpg',
+    boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
     // No quad in `geometry`: the crop-preview feature (TASK-0655) falls back
     // to showing the full image, which is all these tests care about.
     getOperationalImageReviewItem: async () => ({ data: { geometry: {} } }),
@@ -140,7 +140,6 @@ async function renderWorkspace(client) {
   await act(async () =>
     root.render(
       React.createElement(BoardSearchWorkspace, {
-        apiBaseUrl: 'http://127.0.0.1:8000',
         client,
         gameId,
       }),
@@ -198,7 +197,10 @@ test('committing a new limit re-runs the search and preserves the selected board
   await act(async () => setInputValue(limitInput(), '10'));
   await act(async () => pressEnter(limitInput()));
 
-  await eventually(() => calls.length === 2, 'limit change should re-run search');
+  await eventually(
+    () => calls.length === 2,
+    'limit change should re-run search',
+  );
   assert.equal(calls[1].limit, 10);
   // cells/scope stay unchanged when only the limit changes
   assert.deepEqual(calls[1].cells, calls[0].cells);
@@ -244,7 +246,10 @@ test('changing the limit never changes the query cells or scope, only the count'
 
   await act(async () => setInputValue(limitInput(), '7'));
   await act(async () => pressEnter(limitInput()));
-  await eventually(() => calls.length === 2, 'limit change should re-run search');
+  await eventually(
+    () => calls.length === 2,
+    'limit change should re-run search',
+  );
 
   assert.deepEqual(calls[1].cells, calls[0].cells);
   assert.equal(calls[1].scope, calls[0].scope);

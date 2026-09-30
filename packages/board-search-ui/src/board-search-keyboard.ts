@@ -7,7 +7,7 @@ import {
   digitShortcutIndex,
   hasShortcutModifier,
   type ShortcutKeyboardEvent,
-} from '../../lib/keyboard-shortcuts.ts';
+} from './keyboard-shortcuts.ts';
 
 export const BOARD_SEARCH_UNKNOWN_SHORTCUT = '0';
 

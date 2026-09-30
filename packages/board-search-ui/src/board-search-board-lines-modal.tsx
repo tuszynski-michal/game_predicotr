@@ -8,12 +8,11 @@ import type {
 } from '@game-predictor/admin-api-client';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
-import type { createConfiguredAdminApiClient } from '@/api/admin-api-client';
-import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import { apiErrorMessage } from './api-error';
+import type { BoardSearchDataSource } from './board-search-data-source';
 
 import {
   type BoardCellCorrectionChoice,
-  type BoardCellCorrectionClient,
   applyBoardCellCorrection,
   boardCellCorrectionPalette,
 } from './board-search-board-cell-correction';
@@ -32,14 +31,19 @@ import {
   toggleBoardLineVisibility,
 } from './board-search-board-lines-state';
 
+/**
+ * Without `applySymbolCellReviewDecision` (online share) the modal is
+ * read-only; without `refreshBoardSearchBoardDocument` a stale reading is
+ * only explained, not refreshed.
+ */
 export type BoardLinesClient = Pick<
-  ReturnType<typeof createConfiguredAdminApiClient>,
+  BoardSearchDataSource,
+  | 'applySymbolCellReviewDecision'
   | 'boardSearchBoardViewUrl'
   | 'getBoardSearchBoardDetail'
   | 'refreshBoardSearchBoardDocument'
   | 'symbolImageAssetUrl'
-> &
-  BoardCellCorrectionClient;
+>;
 
 type CorrectionNotice =
   | { readonly kind: 'ok'; readonly text: string }
@@ -169,18 +173,23 @@ export function BoardSearchBoardLinesModal({
   const editableCells = new Map(
     (detail?.cells ?? []).map((cell) => [cell.cellIndex, cell]),
   );
-  const canEdit = detail?.cells !== null && detail?.cells !== undefined;
+  const applyDecision = api.applySymbolCellReviewDecision;
+  const refreshDocument = api.refreshBoardSearchBoardDocument;
+  const canEdit =
+    applyDecision !== undefined &&
+    detail?.cells !== null &&
+    detail?.cells !== undefined;
   const palette = boardCellCorrectionPalette(symbols);
 
   async function saveCorrection(
     cell: BoardSearchBoardCellResponse,
     choice: BoardCellCorrectionChoice,
   ) {
-    if (saving) return;
+    if (saving || applyDecision === undefined) return;
     setSaving(true);
     setNotice(null);
     const result = await applyBoardCellCorrection(
-      api,
+      { applySymbolCellReviewDecision: applyDecision },
       gameId,
       cell,
       choice,
@@ -216,14 +225,11 @@ export function BoardSearchBoardLinesModal({
   }
 
   async function refreshStaleBoard() {
-    if (saving) return;
+    if (saving || refreshDocument === undefined) return;
     setSaving(true);
     setNotice(null);
     try {
-      const result = await api.refreshBoardSearchBoardDocument(
-        gameId,
-        row.sequenceNumber,
-      );
+      const result = await refreshDocument(gameId, row.sequenceNumber);
       if (result.error !== undefined || result.data === undefined) {
         setNotice({
           kind: 'error',
@@ -265,26 +271,38 @@ export function BoardSearchBoardLinesModal({
   const staleWarning: ReactNode =
     detail !== null && detail.documentStale && !documentRemoved ? (
       <div className="boardSearchBoardLinesStale" role="status">
-        <p className="feedbackBanner">
-          Siatka tej planszy zmieniła się po zapisaniu odczytu wyszukiwarki.
-          Linie i wypłata pochodzą ze starego odczytu (tak samo liczy tabela),
-          dlatego pokazano je na schemacie bez zdjęcia. Odśwież odczyt, aby
-          policzyć planszę z bieżącej siatki i móc poprawiać pola.
-        </p>
-        <button
-          className="primaryButton"
-          disabled={saving}
-          onClick={() => void refreshStaleBoard()}
-          type="button"
-        >
-          {saving ? 'Odświeżanie…' : 'Odśwież odczyt tej planszy'}
-        </button>
+        {refreshDocument !== undefined ? (
+          <>
+            <p className="feedbackBanner">
+              Siatka tej planszy zmieniła się po zapisaniu odczytu wyszukiwarki.
+              Linie i wypłata pochodzą ze starego odczytu (tak samo liczy
+              tabela), dlatego pokazano je na schemacie bez zdjęcia. Odśwież
+              odczyt, aby policzyć planszę z bieżącej siatki i móc poprawiać
+              pola.
+            </p>
+            <button
+              className="primaryButton"
+              disabled={saving}
+              onClick={() => void refreshStaleBoard()}
+              type="button"
+            >
+              {saving ? 'Odświeżanie…' : 'Odśwież odczyt tej planszy'}
+            </button>
+          </>
+        ) : (
+          <p className="feedbackBanner">
+            Siatka tej planszy zmieniła się po zapisaniu odczytu wyszukiwarki.
+            Linie i wypłata pochodzą ze starego odczytu (tak samo liczy tabela),
+            dlatego pokazano je na schemacie bez zdjęcia.
+          </p>
+        )}
       </div>
     ) : null;
 
   const selected =
     selectedCell === null ? undefined : editableCells.get(selectedCell);
   const correctionPanel: ReactNode = !canEdit ? (
+    applyDecision !== undefined &&
     detail !== null &&
     detail.dataSource === 'operational_review' &&
     !detail.documentStale &&

@@ -26,9 +26,8 @@ for (const key of [
 globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const { createRoot } = await import('react-dom/client');
-const { BoardSearchWorkspace } = await import(
-  '../src/features/board-search/board-search-workspace.tsx'
-);
+const { BoardSearchWorkspace } =
+  await import('../src/board-search-workspace.tsx');
 
 after(() => dom.window.close());
 
@@ -85,9 +84,9 @@ async function eventually(predicate, label) {
 }
 
 function symbolButton() {
-  const current = [...document.querySelectorAll('.boardSearchSymbolButton')].find(
-    (node) => node.title === symbol.name,
-  );
+  const current = [
+    ...document.querySelectorAll('.boardSearchSymbolButton'),
+  ].find((node) => node.title === symbol.name);
   assert.ok(current);
   return current;
 }
@@ -112,15 +111,37 @@ async function click(node) {
   );
 }
 
+async function fireImageError(img) {
+  await act(async () => img.dispatchEvent(new dom.window.Event('error')));
+}
+
+/** The cropped view fails (e.g. a stale reading): the carousel falls back. */
+async function failView() {
+  const view = boardImage();
+  assert.match(view.src, /view-\d+\.webp$/);
+  await fireImageError(view);
+  await settle();
+}
+
 async function fireImageLoad(img, width, height) {
-  Object.defineProperty(img, 'naturalWidth', { configurable: true, value: width });
-  Object.defineProperty(img, 'naturalHeight', { configurable: true, value: height });
+  Object.defineProperty(img, 'naturalWidth', {
+    configurable: true,
+    value: width,
+  });
+  Object.defineProperty(img, 'naturalHeight', {
+    configurable: true,
+    value: height,
+  });
   await act(async () => img.dispatchEvent(new dom.window.Event('load')));
 }
 
-function makeClient({ geometryImpl, searchImpl }) {
+function makeClient({ geometryImpl, searchImpl, viewUrls = [] }) {
   return {
     archivedBoardSearchAssetUrl: () => 'http://127.0.0.1:8000/archive.jpg',
+    boardSearchBoardViewUrl: (gameIdArgument, sequenceNumber, checksum) => {
+      viewUrls.push([gameIdArgument, sequenceNumber, checksum]);
+      return `http://127.0.0.1:8000/view-${sequenceNumber}.webp`;
+    },
     getOperationalImageReviewItem: geometryImpl,
     listSymbols: async () => ({ data: [symbol] }),
     operationalImageReviewBoardAssetUrl: () =>
@@ -135,7 +156,6 @@ async function renderWorkspace(client) {
   await act(async () =>
     root.render(
       React.createElement(BoardSearchWorkspace, {
-        apiBaseUrl: 'http://127.0.0.1:8000',
         client,
         gameId,
       }),
@@ -161,8 +181,12 @@ test('a valid quad crops the image around the board with padding, undistorted', 
     searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
   });
   const root = await renderWorkspace(client);
+  await failView();
 
-  await eventually(() => geometryCalls.length === 1, 'geometry should be fetched');
+  await eventually(
+    () => geometryCalls.length === 1,
+    'geometry should be fetched',
+  );
   assert.equal(geometryCalls[0].reviewItemId, 'review-10');
   assert.deepEqual(geometryCalls[0].options, { gameId, importJobId: 'job-10' });
 
@@ -182,22 +206,10 @@ test('a valid quad crops the image around the board with padding, undistorted', 
   const cropX = 100 - 40;
   const cropY = 200 - 40;
   assert.equal(frame.style.aspectRatio, `${paddedWidth} / ${paddedHeight}`);
-  assert.equal(
-    croppedImage.style.width,
-    `${(1000 / paddedWidth) * 100}%`,
-  );
-  assert.equal(
-    croppedImage.style.height,
-    `${(600 / paddedHeight) * 100}%`,
-  );
-  assert.equal(
-    croppedImage.style.left,
-    `${(-cropX / paddedWidth) * 100}%`,
-  );
-  assert.equal(
-    croppedImage.style.top,
-    `${(-cropY / paddedHeight) * 100}%`,
-  );
+  assert.equal(croppedImage.style.width, `${(1000 / paddedWidth) * 100}%`);
+  assert.equal(croppedImage.style.height, `${(600 / paddedHeight) * 100}%`);
+  assert.equal(croppedImage.style.left, `${(-cropX / paddedWidth) * 100}%`);
+  assert.equal(croppedImage.style.top, `${(-cropY / paddedHeight) * 100}%`);
 
   await act(async () => root.unmount());
 });
@@ -208,6 +220,7 @@ test('missing or invalid geometry falls back to the full, uncropped image', asyn
     searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
   });
   const root = await renderWorkspace(client);
+  await failView();
 
   await settle();
   await fireImageLoad(boardImage(), 1000, 600);
@@ -227,6 +240,7 @@ test('a failed geometry fetch never blocks the search result; the full image sti
     searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
   });
   const root = await renderWorkspace(client);
+  await failView();
 
   await settle();
   await fireImageLoad(boardImage(), 1000, 600);
@@ -260,8 +274,10 @@ test('legacy_archive results never fetch board geometry', async () => {
     }),
   });
   const root = await renderWorkspace(client);
+  await failView();
 
   await settle();
+  assert.match(boardImage().src, /archive\.jpg$/);
   await fireImageLoad(boardImage(), 1000, 600);
   await settle();
 
@@ -284,13 +300,16 @@ test('switching to the next result replaces the crop instead of keeping the prev
   const client = makeClient({
     geometryImpl: async (reviewItemId) => {
       const sequenceNumber = Number(reviewItemId.split('-')[1]);
-      return { data: { geometry: { sourceQuad: quadForSequence[sequenceNumber] } } };
+      return {
+        data: { geometry: { sourceQuad: quadForSequence[sequenceNumber] } },
+      };
     },
     searchImpl: async () => ({
       data: { results: [boardResult(10), boardResult(19)] },
     }),
   });
   const root = await renderWorkspace(client);
+  await failView();
 
   await settle();
   await fireImageLoad(boardImage(), 1000, 600);
@@ -308,8 +327,9 @@ test('switching to the next result replaces the crop instead of keeping the prev
   );
   await settle();
   // The carousel remounts BoardCrop for the new board (key change), so the
-  // old crop frame must disappear until the new board's own image loads.
+  // old crop frame must disappear and the new board starts with its view.
   assert.equal(document.querySelector('.boardSearchBoardAssetFrame'), null);
+  await failView();
 
   await fireImageLoad(boardImage(), 1000, 600);
   await eventually(
@@ -318,6 +338,54 @@ test('switching to the next result replaces the crop instead of keeping the prev
   );
   const secondFrame = document.querySelector('.boardSearchBoardAssetFrame');
   assert.notEqual(secondFrame.style.aspectRatio, firstAspectRatio);
+
+  await act(async () => root.unmount());
+});
+
+test('the carousel shows the server-side crop first and fetches no geometry for it', async () => {
+  const geometryCalls = [];
+  const viewUrls = [];
+  const client = makeClient({
+    geometryImpl: async (...args) => {
+      geometryCalls.push(args);
+      return { data: { geometry: { sourceQuad: quad } } };
+    },
+    searchImpl: async () => ({
+      data: { results: [boardResult(10), boardResult(19)] },
+    }),
+    viewUrls,
+  });
+  const root = await renderWorkspace(client);
+  await settle();
+
+  const image = boardImage();
+  assert.equal(image.src, 'http://127.0.0.1:8000/view-10.webp');
+  assert.equal(document.querySelector('.boardSearchBoardAssetFrame'), null);
+  assert.equal(geometryCalls.length, 0);
+  // The view is bound to the searched board's checksum; the neighbour is
+  // preloaded through the same cropped view.
+  assert.deepEqual(
+    viewUrls.find(([, sequence]) => sequence === 10),
+    [gameId, 10, boardResult(10).boardChecksumSha256],
+  );
+  assert.ok(viewUrls.some(([, sequence]) => sequence === 19));
+
+  await act(async () => root.unmount());
+});
+
+test('without a full-photo fallback a failed view shows the asset error', async () => {
+  const client = makeClient({
+    geometryImpl: async () => ({ data: { geometry: { sourceQuad: quad } } }),
+    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+  });
+  delete client.archivedBoardSearchAssetUrl;
+  delete client.getOperationalImageReviewItem;
+  delete client.operationalImageReviewBoardAssetUrl;
+  const root = await renderWorkspace(client);
+  await failView();
+
+  assert.ok(document.querySelector('.boardSearchBoardAssetError'));
+  assert.equal(document.querySelector('.boardSearchBoardAsset'), null);
 
   await act(async () => root.unmount());
 });

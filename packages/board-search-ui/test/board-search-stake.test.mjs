@@ -14,7 +14,7 @@ import {
   roundDivideHalfAwayFromZero,
   saveApproximateWinDisplay,
   scaleApproximateWinAmount,
-} from '../src/features/board-search/board-search-stake.ts';
+} from '../src/board-search-stake.ts';
 
 const stake = (grosze, unit = 'credits') => ({ stakeGrosze: grosze, unit });
 const text = (credits, display, spinCost = 100) =>

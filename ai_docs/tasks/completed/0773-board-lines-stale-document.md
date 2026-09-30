@@ -95,8 +95,8 @@ nie odświeżono. W grze 7 takich dokumentów jest 88 260 z 500 000, wszystkie
 - Audyt niezależnego agenta `claude-opus-5-5` (poziom rozumowania agenta
   nieustawialny z sesji): cykl 1 FAIL — P2 przebudowa usuwająca dokument
   kończyła się 404 i wycofaniem zapisu; P3 cache ORM, pozostali kandydaci
-  pozycji, testy, dokumentacja, nagłówek. Poprawki naniesione; cykl 2 w
-  kolejnym kroku.
+  pozycji, testy, dokumentacja, nagłówek. Poprawki naniesione; cykl 2 PASS
+  (uwaga P3a poprawiona przed commitem `v1.7.92`).
 
 ### Not completed
 

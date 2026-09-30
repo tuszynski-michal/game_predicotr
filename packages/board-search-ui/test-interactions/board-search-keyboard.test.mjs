@@ -27,7 +27,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const { createRoot } = await import('react-dom/client');
 const { BoardSearchWorkspace } =
-  await import('../src/features/board-search/board-search-workspace.tsx');
+  await import('../src/board-search-workspace.tsx');
 
 after(() => dom.window.close());
 
@@ -89,9 +89,9 @@ async function renderWorkspace(searchImpl) {
   await act(async () =>
     root.render(
       React.createElement(BoardSearchWorkspace, {
-        apiBaseUrl: 'http://127.0.0.1:8000',
         client: {
           archivedBoardSearchAssetUrl: () => 'http://127.0.0.1:8000/a.jpg',
+          boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
           getOperationalImageReviewItem: async () => ({
             data: { geometry: {} },
           }),

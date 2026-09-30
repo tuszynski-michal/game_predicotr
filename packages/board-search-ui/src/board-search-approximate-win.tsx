@@ -12,13 +12,12 @@ import {
   type PointerEvent,
   type SyntheticEvent,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
 
-import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
-import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import { apiErrorMessage } from './api-error';
+import type { BoardSearchDataSource } from './board-search-data-source';
 
 import {
   APPROXIMATE_WIN_IDLE_STATE,
@@ -61,14 +60,13 @@ import {
 } from './board-search-stake';
 
 type ApproximateWinClient = Pick<
-  ReturnType<typeof createConfiguredAdminApiClient>,
+  BoardSearchDataSource,
   'getBoardSearchApproximateWin'
 > &
   BoardLinesClient;
 
 interface BoardSearchApproximateWinProps {
-  readonly apiBaseUrl: string;
-  readonly client?: ApproximateWinClient;
+  readonly client: ApproximateWinClient;
   readonly gameId: string;
   readonly selectedResult: BoardSearchResultResponse | null;
   /** Game symbols for the fallback board schema in the payline modal. */
@@ -76,16 +74,11 @@ interface BoardSearchApproximateWinProps {
 }
 
 export function BoardSearchApproximateWin({
-  apiBaseUrl,
-  client,
+  client: api,
   gameId,
   selectedResult,
   symbols = [],
 }: BoardSearchApproximateWinProps) {
-  const api = useMemo(
-    () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
-    [apiBaseUrl, client],
-  );
   const [isOpen, setIsOpen] = useState(false);
   const [rangeInput, setRangeInput] = useState(
     String(APPROXIMATE_WIN_RANGE_DEFAULT),

@@ -26,7 +26,7 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 const { createRoot } = await import('react-dom/client');
 const { BoardSearchWorkspace } =
-  await import('../src/features/board-search/board-search-workspace.tsx');
+  await import('../src/board-search-workspace.tsx');
 
 after(() => dom.window.close());
 
@@ -192,6 +192,7 @@ async function toggleDetails(details, open) {
 function makeClient({ searchImpl, approximateWinImpl }) {
   return {
     archivedBoardSearchAssetUrl: () => 'http://127.0.0.1:8000/archive.jpg',
+    boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
     getBoardSearchApproximateWin: approximateWinImpl,
     // No quad in `geometry`: the crop-preview feature (TASK-0655) falls back
     // to showing the full image, which is all these tests care about.
@@ -209,7 +210,6 @@ async function renderWorkspaceWithResults(client) {
   await act(async () =>
     root.render(
       React.createElement(BoardSearchWorkspace, {
-        apiBaseUrl: 'http://127.0.0.1:8000',
         client,
         gameId,
       }),
@@ -1679,5 +1679,92 @@ test('a stale board shows its lines on the schema and can be refreshed in place'
   await click(dialogButton('Zamknij'));
   await settle();
   assert.equal(rangeCalls, before + 1, 'closing after a refresh recalculates');
+  await act(async () => root.unmount());
+});
+
+test('a data source without mutations shows a read-only board modal', async (context) => {
+  withDialogSupport();
+  context.after(() => dom.window.localStorage.clear());
+  const cells = Array.from({ length: 15 }, (_, index) => ({
+    assignedSymbolCode: 'cherry',
+    cellIndex: index,
+    cellReviewId: `cell-${index}`,
+    cropChecksumSha256: 'b'.repeat(64),
+    cropSampleId: 'a'.repeat(64),
+    geometryRevision: 1,
+    qualityIssue: null,
+    reviewState: 'pending',
+    revision: 0,
+  }));
+  let stale = false;
+  // The online share adapter has no correction and no refresh (D-471).
+  const client = {
+    ...makeClient({
+      approximateWinImpl: async (_gameId, options) => ({
+        data: approximateWinResponse(options.startSequenceNumber, {
+          evaluatedSpinCount: 10,
+          requestedSpinCount: 10,
+          rows: [
+            {
+              boardStatus: 'pending',
+              cumulativeBalanceCredits: 80,
+              cumulativeCostCredits: 20,
+              cumulativePayoutCredits: 100,
+              payoutCredits: 100,
+              payoutKind: 'confirmed_minimum',
+              sequenceNumber: 11,
+              spinNumber: 1,
+            },
+          ],
+        }),
+      }),
+      searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+    }),
+    boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
+    getBoardSearchBoardDetail: async (_gameId, sequenceNumber) => ({
+      data: stale
+        ? linesDetail(sequenceNumber, {
+            boardStatus: 'pending',
+            cells: null,
+            documentStale: true,
+            view: null,
+          })
+        : linesDetail(sequenceNumber, { boardStatus: 'pending', cells }),
+    }),
+  };
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
+    'row should render',
+  );
+  const openModal = () =>
+    click(
+      document.querySelector(
+        'button[aria-label="Pokaż planszę #11 z liniami wypłat"]',
+      ),
+    );
+  await openModal();
+  await eventually(
+    () => document.querySelectorAll('.boardSearchBoardLinesMatch').length === 2,
+    'lines render',
+  );
+  assert.equal(dialogButton('Popraw symbole'), undefined);
+  assert.equal(document.querySelector('.boardSearchBoardLinesNote'), null);
+  await click(dialogButton('Zamknij'));
+  await settle();
+
+  stale = true;
+  await openModal();
+  await eventually(
+    () => document.querySelector('.boardSearchBoardLinesStale') !== null,
+    'stale warning renders',
+  );
+  assert.equal(dialogButton('Odśwież odczyt tej planszy'), undefined);
+  assert.match(
+    document.querySelector('.boardSearchBoardLinesStale').textContent,
+    /pochodzą ze starego odczytu/,
+  );
   await act(async () => root.unmount());
 });

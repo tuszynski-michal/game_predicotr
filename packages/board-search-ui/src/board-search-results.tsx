@@ -1,13 +1,12 @@
 'use client';
 
-/* Board crops are local, checksum-verified Admin API assets. */
+/* Board crops are checksum-verified API assets, not Next static media. */
 /* eslint-disable @next/next/no-img-element */
 
 import type { BoardSearchResponse } from '@game-predictor/admin-api-client';
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
-import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
-
+import type { BoardSearchDataSource } from './board-search-data-source';
 import {
   activeBoardSearchResult,
   boardSearchNeighbourIndexes,
@@ -19,34 +18,28 @@ import {
 } from './board-search-results-state';
 
 type BoardSearchResultsClient = Pick<
-  ReturnType<typeof createConfiguredAdminApiClient>,
+  BoardSearchDataSource,
   | 'archivedBoardSearchAssetUrl'
+  | 'boardSearchBoardViewUrl'
   | 'getOperationalImageReviewItem'
   | 'operationalImageReviewBoardAssetUrl'
 >;
+type BoardSearchResult = BoardSearchResponse['results'][number];
 
 interface BoardSearchResultsProps {
-  readonly apiBaseUrl: string;
-  readonly client?: BoardSearchResultsClient;
+  readonly client: BoardSearchResultsClient;
   readonly gameId: string;
   readonly state: BoardSearchResultsState;
   readonly onStateChange: (state: BoardSearchResultsState) => void;
 }
 
 export function BoardSearchResults({
-  apiBaseUrl,
-  client,
+  client: api,
   gameId,
   onStateChange,
   state,
 }: BoardSearchResultsProps) {
-  const api = useMemo(
-    () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
-    [apiBaseUrl, client],
-  );
   const current = activeBoardSearchResult(state);
-
-  const imageUrl = current ? boardSearchAssetUrl(api, gameId, current) : null;
 
   useEffect(() => {
     for (const index of boardSearchNeighbourIndexes(state)) {
@@ -54,11 +47,8 @@ export function BoardSearchResults({
       if (neighbour === undefined) {
         continue;
       }
-      const neighbourUrl = boardSearchAssetUrl(api, gameId, neighbour);
-      if (neighbourUrl !== null) {
-        const image = new Image();
-        image.src = neighbourUrl;
-      }
+      const image = new Image();
+      image.src = boardSearchViewUrl(api, gameId, neighbour);
     }
   }, [api, gameId, state]);
 
@@ -77,7 +67,7 @@ export function BoardSearchResults({
     }
   }
 
-  if (current === null || imageUrl === null) {
+  if (current === null) {
     return (
       <section className="boardSearchResults" aria-live="polite">
         <h2>Wyniki wyszukiwania</h2>
@@ -119,7 +109,6 @@ export function BoardSearchResults({
       <BoardCrop
         api={api}
         gameId={gameId}
-        imageUrl={imageUrl}
         key={`${current.assetMode}:${current.sequenceNumber}`}
         result={current}
       />
@@ -166,28 +155,97 @@ export function BoardSearchResults({
   );
 }
 
-function boardSearchAssetUrl(
+/** The server-side crop around the board (TASK-0763): small and cacheable. */
+function boardSearchViewUrl(
   api: BoardSearchResultsClient,
   gameId: string,
-  result: BoardSearchResponse['results'][number],
+  result: BoardSearchResult,
+): string {
+  return api.boardSearchBoardViewUrl(
+    gameId,
+    result.sequenceNumber,
+    result.boardChecksumSha256,
+  );
+}
+
+/**
+ * The whole stored photo, used only when the cropped view is unavailable
+ * (for example a stale search reading, which the view rejects). `null` when
+ * the data source has no such asset (online share) or the result has none.
+ */
+function boardSearchFullAssetUrl(
+  api: BoardSearchResultsClient,
+  gameId: string,
+  result: BoardSearchResult,
 ): string | null {
   if (result.assetMode === 'legacy_archive') {
-    return api.archivedBoardSearchAssetUrl(
-      gameId,
-      result.sequenceNumber,
-      result.boardChecksumSha256,
+    return (
+      api.archivedBoardSearchAssetUrl?.(
+        gameId,
+        result.sequenceNumber,
+        result.boardChecksumSha256,
+      ) ?? null
     );
   }
   if (result.reviewItemId === null || result.importJobId === null) {
     return null;
   }
-  return api.operationalImageReviewBoardAssetUrl(result.reviewItemId, {
-    gameId,
-    importJobId: result.importJobId,
-  });
+  return (
+    api.operationalImageReviewBoardAssetUrl?.(result.reviewItemId, {
+      gameId,
+      importJobId: result.importJobId,
+    }) ?? null
+  );
 }
 
 function BoardCrop({
+  api,
+  gameId,
+  result,
+}: {
+  readonly api: BoardSearchResultsClient;
+  readonly gameId: string;
+  readonly result: BoardSearchResult;
+}) {
+  const [viewFailed, setViewFailed] = useState(false);
+  const fullImageUrl = viewFailed
+    ? boardSearchFullAssetUrl(api, gameId, result)
+    : null;
+
+  if (!viewFailed) {
+    return (
+      <img
+        alt="Kadr zdjęcia wokół znalezionej planszy"
+        className="boardSearchBoardAsset"
+        onError={() => setViewFailed(true)}
+        src={boardSearchViewUrl(api, gameId, result)}
+      />
+    );
+  }
+  if (fullImageUrl === null) {
+    return <BoardAssetError />;
+  }
+  return (
+    <FullPhotoCrop
+      api={api}
+      gameId={gameId}
+      imageUrl={fullImageUrl}
+      result={result}
+    />
+  );
+}
+
+function BoardAssetError() {
+  return (
+    <div className="boardSearchBoardAssetError" role="alert">
+      Crop tej planszy nie jest obecnie dostępny. Wynik wyszukiwania pozostaje
+      poprawny — wybierz sąsiedni wynik albo sprawdź artefakty importu.
+    </div>
+  );
+}
+
+/** Fallback: the whole photo framed around the board with CSS. */
+function FullPhotoCrop({
   api,
   gameId,
   imageUrl,
@@ -196,16 +254,14 @@ function BoardCrop({
   readonly api: BoardSearchResultsClient;
   readonly gameId: string;
   readonly imageUrl: string;
-  readonly result: BoardSearchResponse['results'][number];
+  readonly result: BoardSearchResult;
 }) {
   const [failed, setFailed] = useState(false);
   // Only `operational_review` boards can be the whole source photo (virtual
   // geometry storage has no persistent per-board bitmap); `legacy_archive`
   // already serves a single-board image, so it never needs this and never
   // issues the extra request.
-  const [quad, setQuad] = useState<ReturnType<typeof parseBoardCropQuad>>(
-    null,
-  );
+  const [quad, setQuad] = useState<ReturnType<typeof parseBoardCropQuad>>(null);
   const [naturalSize, setNaturalSize] = useState<{
     readonly width: number;
     readonly height: number;
@@ -219,20 +275,21 @@ function BoardCrop({
     // board changes, so `quad`/`naturalSize` already start out null for a
     // new board — assigning them again here would be a synchronous
     // setState in the effect body for no behavioural benefit.
+    const getReviewItem = api.getOperationalImageReviewItem;
     if (
       result.assetMode !== 'operational_review' ||
       result.reviewItemId === null ||
-      result.importJobId === null
+      result.importJobId === null ||
+      getReviewItem === undefined
     ) {
       return () => {
         cancelledRef.current = true;
       };
     }
-    void api
-      .getOperationalImageReviewItem(result.reviewItemId, {
-        gameId,
-        importJobId: result.importJobId,
-      })
+    void getReviewItem(result.reviewItemId, {
+      gameId,
+      importJobId: result.importJobId,
+    })
       .then((response) => {
         if (cancelledRef.current) {
           return;
@@ -253,12 +310,7 @@ function BoardCrop({
   }, [api, gameId, result]);
 
   if (failed) {
-    return (
-      <div className="boardSearchBoardAssetError" role="alert">
-        Crop tej planszy nie jest obecnie dostępny. Wynik wyszukiwania pozostaje
-        poprawny — wybierz sąsiedni wynik albo sprawdź artefakty importu.
-      </div>
-    );
+    return <BoardAssetError />;
   }
 
   const transform: BoardCropTransform | null =

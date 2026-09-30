@@ -18,7 +18,7 @@ import {
   shouldRequestApproximateWin,
   toggleApproximateWinPinnedPoint,
   visibleApproximateWinResult,
-} from '../src/features/board-search/board-search-approximate-win-state.ts';
+} from '../src/board-search-approximate-win-state.ts';
 
 test('parseApproximateWinRange accepts a positive integer within the ceiling', () => {
   assert.equal(APPROXIMATE_WIN_RANGE_DEFAULT, 2500);

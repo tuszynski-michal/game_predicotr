@@ -1,11 +1,11 @@
 import type {
+  AdminApiClient,
   BoardSearchBoardCellResponse,
   SymbolCellReviewMutationRequest,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 
-import type { createConfiguredAdminApiClient } from '@/api/admin-api-client';
-import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
+import { apiErrorMessage } from './api-error.ts';
 
 /**
  * Cell correction from the board payline modal (D-473). A correction is the
@@ -20,7 +20,7 @@ export type BoardCellCorrectionChoice =
   | { readonly kind: 'grid_issue' };
 
 export type BoardCellCorrectionClient = Pick<
-  ReturnType<typeof createConfiguredAdminApiClient>,
+  AdminApiClient,
   'applySymbolCellReviewDecision'
 >;
 

@@ -5,12 +5,12 @@ import test from 'node:test';
 import {
   BOARD_SEARCH_UNKNOWN_SHORTCUT,
   resolveBoardSearchKeyboardCommand,
-} from '../src/features/board-search/board-search-keyboard.ts';
+} from '../src/board-search-keyboard.ts';
 import {
   digitShortcutIndex,
   digitShortcutLabel,
   isTextEntryKeyboardTarget,
-} from '../src/lib/keyboard-shortcuts.ts';
+} from '../src/keyboard-shortcuts.ts';
 
 const symbols = Array.from({ length: 10 }, (_, index) => ({
   code: `S${index + 1}`,
@@ -87,10 +87,7 @@ test('shared digit helpers', () => {
 
 test('workspace wires the palette shortcuts', async () => {
   const source = await readFile(
-    new URL(
-      '../src/features/board-search/board-search-workspace.tsx',
-      import.meta.url,
-    ),
+    new URL('../src/board-search-workspace.tsx', import.meta.url),
     'utf8',
   );
   assert.match(source, /window\.addEventListener\('keydown'/);

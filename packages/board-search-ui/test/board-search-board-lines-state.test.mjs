@@ -13,7 +13,7 @@ import {
   initialBoardLineVisibility,
   setAllBoardLinesVisibility,
   toggleBoardLineVisibility,
-} from '../src/features/board-search/board-search-board-lines-state.ts';
+} from '../src/board-search-board-lines-state.ts';
 
 const match = (paylineId, displayOrder, cells, payout, symbolCode = 'A') => ({
   jokerCells: [],

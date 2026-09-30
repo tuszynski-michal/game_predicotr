@@ -208,8 +208,13 @@ last_updated: 2026-09-30
   PASS.
 - TASK-0755 (S2) done: bramka usuwania symbolu liczy bieżące predykcje z
   komórek V2 zamiast skanu `cell_observations` (świadome zawężenie, nota w
-  D-467). Audyt Opus PASS. **Etap S2 zamknięty.** S3–S8 po zakończeniu
-  przebiegów zapisu biblioteki (TASK-0750).
+  D-467). Audyt Opus PASS. **Etap S2 zamknięty.**
+- TASK-0756 (S3) kod i runbook done (audyt Opus PASS): kompaktacja wyników
+  pipeline przepisana na V2 (wykluczenia per gra, fail-closed, jawny filtr
+  `game_id`, bo rola bazy ma `BYPASSRLS`), test izolowany, runbook
+  `guides/DATABASE_MAINTENANCE.md`. Podgląd na bazie operatora: 56 710
+  wykonań, ok. 6,0 GB do zwolnienia (manifest `20feadcd…`). Wykonanie joba
+  czeka na zgodę. Nowe TASK-0765 w planie: rola bez `SUPERUSER`/`BYPASSRLS`.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

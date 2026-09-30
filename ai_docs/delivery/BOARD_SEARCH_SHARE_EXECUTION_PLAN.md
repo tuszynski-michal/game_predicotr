@@ -8,7 +8,9 @@ last_updated: 2026-09-30
 
 Plan zaakceptowany przez operatora 2026-09-30 wraz z poleceniem wykonania
 etapu A. Tego samego dnia operator dodał do etapu B punkt 6 (dziennik
-zapytań udostępnionego linku i odtworzenie zapytania w Adminie, R5, D-472). Operator potwierdził liniowość wypłat względem stawki (R1) i
+zapytań udostępnionego linku i odtworzenie zapytania w Adminie, R5, D-472).
+Po odbiorze etapu A operator zlecił poprawianie symbolu pola z okna planszy
+(R6, D-473, TASK-0772, etap A2). Operator potwierdził liniowość wypłat względem stawki (R1) i
 wymaganie, by linia wypłaty liczyła się wyłącznie od lewej krawędzi (R2).
 
 ## 1. Stan obecny (fakty z kodu)
@@ -166,6 +168,30 @@ grosze = kredyty_bazowe * stawka_gr / stawka_bazowa_gr * 10
 - Odtworzenie przekazuje wyłącznie identyfikator wpisu w adresie Admina
   (`?boardSearchReplay=<uuid>`); parametry są pobierane z API. Symbol, który
   nie jest już aktywny, trafia do wzoru jako `?` z ostrzeżeniem.
+
+### R6. Poprawianie symbolu pola z okna planszy (etap A2) — D-473
+
+- W oknie planszy tryb „Popraw symbole”: klik w pole, wybór symbolu z palety
+  gry albo „Nieczytelny” / „Zła siatka”. Zapis idzie istniejącym
+  `applySymbolCellReviewDecision` (decyzja człowieka dla pola, D-462): ten
+  sam symbol co przypisany → `approve`, inny → `reassign`, „Nieczytelny” →
+  `mark_unreadable`, „Zła siatka” → `mark_grid_issue`.
+- Zgodnie z D-462 decyzja od razu zasila projekcję wyszukiwania: okno
+  pobiera szczegóły ponownie i rysuje nowe linie. „Nieczytelny” czyni pole
+  `?`, więc linia liczy się tylko do niego — to jest sposób na „wyłączenie”
+  linii opartej na błędnym rozpoznaniu, bez osobnego przełącznika.
+- Edycja dotyczy wyłącznie plansz oczekujących (`pending`) z rekordami
+  weryfikacji pól bieżącej geometrii. Plansze zatwierdzone mają symbole z
+  decyzji całej planszy — okno pokazuje komunikat bez edycji.
+- Szczegóły planszy dostają `cells[15] | null` (identyfikator rekordu
+  weryfikacji, rewizja, rewizja geometrii, próbka i suma cropa, stan,
+  problem jakości, przypisany symbol); zgodne rozszerzenie kontraktu, bez
+  nowego endpointu zapisu. Konflikt rewizji z mutacji pokazuje komunikat i
+  odświeża szczegóły.
+- Po poprawkach okno pokazuje nowe linie z informacją, że tabela zostanie
+  przeliczona; zamknięcie okna po zapisanej zmianie przelicza zakres
+  (bramka spójności z wierszem tabeli jest wtedy pomijana, suma linii
+  nadal musi równać się wypłacie).
 
 ## 4. Kontrakty
 
@@ -518,6 +544,36 @@ npm run lint --workspace @game-predictor/reviewer
 - **Acceptance:** filtr progu wypłat i przewijanie tabeli działają jak
   dotąd; modal nie wysyła żadnej mutacji.
 
+#### T5b / TASK-0772 — Poprawianie symbolu pola z okna planszy (etap A2)
+
+- **Goal:** operator poprawia błędnie rozpoznany symbol pola bezpośrednio w
+  oknie planszy, a linie, tabela i bilans przeliczają się z poprawionych
+  danych.
+- **Dependencies:** TASK-0763, TASK-0764.
+- **Expected files:** istniejące `domain/board_search_board_detail.py`,
+  `application/board_search_board_detail.py`,
+  `storage/board_search_approximate_win_repository.py`,
+  `schemas/board_search_approximate_win.py`, OpenAPI i klient,
+  `board-search-board-lines-modal.tsx`, `board-search-board-lines-state.ts`,
+  `board-search-approximate-win.tsx`, `board-search-workspace.tsx`,
+  `globals.css`, `API_CONTRACT.md`; testy API, integracji PostgreSQL i
+  Admina.
+- **Technical notes:** R6. Pola z rekordami weryfikacji tylko dla bieżącej
+  planszy i rewizji geometrii (reguła jak w `_current_cell_decisions`).
+  Zapis przez istniejące `applySingleSymbolReviewDecision`. Paleta z
+  symboli gry (aktywne; kolejność wyświetlania).
+- **Test cases:** szczegóły planszy oczekującej zwracają 15 pól z danymi
+  mutacji; plansza zatwierdzona i archiwum → `cells = null`; pole innej
+  rewizji geometrii nie jest zwracane; w oknie wybór innego symbolu wysyła
+  `reassign` z oczekiwaną rewizją i sumą, ten sam → `approve`,
+  „Nieczytelny” → `mark_unreadable`; po zapisie szczegóły są pobierane
+  ponownie; konflikt rewizji → komunikat i odświeżenie; zamknięcie po
+  zmianie przelicza zakres; przykład operatora: pole z „7” rozpoznane jako
+  Arbuz na linii Arbuz × 5 po poprawce daje Arbuz × 3.
+- **Acceptance:** poprawka zapisuje decyzję człowieka i zmienia linie w
+  oknie; tabela po zamknięciu pokazuje nową wypłatę; plansze zatwierdzone
+  nie mają edycji.
+
 **Odbiór etapu A (cały przepływ):** operator w Adminie wyszukuje planszę,
 rozwija „Przybliżoną wygraną”, widzi siatkę wykresu, przypina kilka punktów
 myszą i klawiaturą, zmienia stawkę i jednostkę (kwoty w tabeli, kafelkach,
@@ -733,6 +789,7 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
 | Wymaganie | Zadanie | Kryterium |
 |---|---|---|
 | 1. Modal z liniami, legenda, kolumna akcji | T4, T5 | suma dopasowań = wypłata wiersza; przełączniki per linia |
+| 1a. Poprawianie symbolu pola z okna (R6) | T5b | decyzja pola zapisana, nowe linie i wypłata po przeliczeniu |
 | 1. Linia tylko od lewej krawędzi (R2) | T4, T5 | plansza przycięta z lewej → brak wiersza i `matches = []` (test T4); częściowo nieznana kolumna 1 → brak linii od tych pól i nakładka `?` w modalu |
 | 2. Siatka wykresu | T2 | testy `approximateWinAxisTicks` |
 | 3. Przypinane punkty, etykiety u góry | T2 | testy przypinania i układu etykiet |
@@ -810,6 +867,7 @@ nie zaczyna się od tych pól, a pola mają nakładkę `?`. Zwinięcie i rozwini
 | 25 | Bez IP i nagłówków, z informacją na bramce | Zapis IP (`CF-Connecting-IP`) | Sesja już identyfikuje „adres”, o który pyta operator; IP to dane osobowe bez potrzeby. |
 | 26 | Odtworzenie przez identyfikator wpisu w adresie Admina | Parametry wzoru w URL albo w `localStorage` | Identyfikator przetrwa przeładowanie, a parametry zawsze pochodzą z zapisanego wpisu. |
 | 27 | Dla przybliżonej wygranej odtwarzamy najbliższe wcześniejsze wyszukiwanie tej sesji | Tylko parametry bez wzoru | Odbiorca liczy wygraną zawsze dla wyniku wyszukiwania; bez wzoru nie da się wybrać planszy w wynikach. |
+| 29 | Poprawka pola istniejącą decyzją weryfikacji symboli | Przełącznik „pomiń linię” w obliczeniu | Przełącznik zmieniałby tylko liczby na ekranie, a błędny symbol zostałby w danych; decyzja pola poprawia wyszukiwanie, wszystkie obliczenia i przyszłe snapshoty. |
 | 28 | Nowy task T11 przed bramką bezpieczeństwa | Rozszerzenie T8 i T10 | Osobny pion (migracja, API, UI) z własnym audytem; bramka T12 obejmuje już dziennik. |
 
 ## Przypisanie modeli do zadań
@@ -828,6 +886,7 @@ Eskalacja: dwa nieudane cykle poprawek P0–P2 zatrzymują etap.
 | T3 / TASK-0762 | claude-opus-5-5 | high | Arytmetyka pieniężna z zaokrągleniami, wiele miejsc prezentacji. | Tak: claude-opus-5-5, high, osobny agent |
 | T4 / TASK-0763 | claude-opus-5-5 | high | Pion API, dwa źródła danych, geometria, pliki i cache. | Tak: claude-opus-5-5, high, osobny agent |
 | T5 / TASK-0764 | claude-opus-5-5 | high | UI na gotowym kontrakcie; geometria nakładki i stan legendy. | Tak: claude-opus-5-5, high, osobny agent |
+| T5b / TASK-0772 | claude-opus-5-5 | high | Zapis decyzji człowieka do żywych danych istniejącym mechanizmem, rozszerzenie kontraktu i UI. | Tak: claude-opus-5-5, high, osobny agent |
 | T6 / TASK-0765 | claude-opus-5-5 | high | Przeniesienie między pakietami z zachowaniem zachowania i buildów dwóch aplikacji. | Tak: claude-opus-5-5, high, osobny agent |
 | T7 / TASK-0766 | claude-opus-5-5 | high | Migracja, poświadczenia, blokady i audyt. | Tak: claude-fable-5-1, high, osobny agent |
 | T8 / TASK-0767 | claude-opus-5-5 | high | Publiczna powierzchnia danych: izolacja gry, redakcja, limity. | Tak: claude-fable-5-1, high, osobny agent |

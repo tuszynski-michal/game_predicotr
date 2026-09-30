@@ -6,6 +6,22 @@ last_updated: 2026-09-30
 
 # Decision Log
 
+## D-473 — poprawianie symbolu pola z okna planszy „Przybliżonej wygranej”
+
+- **Status:** accepted, 2026-09-30; polecenie operatora po odbiorze etapu A
+  planu `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` (R6,
+  TASK-0772).
+- **Decision:** okno planszy z liniami wypłat ma tryb „Popraw symbole”. Klik
+  w pole i wybór symbolu zapisuje decyzję człowieka dla pola istniejącym
+  `applySymbolCellReviewDecision` (`approve`, `reassign`,
+  `mark_unreadable`, `mark_grid_issue`). Decyzja od razu zasila projekcję
+  wyszukiwania (D-462), więc linie, tabela i bilans liczą się z poprawionych
+  danych. „Nieczytelny” czyni pole nieznanym — linia kończy się przed nim.
+- **Scope:** tylko plansze oczekujące z rekordami weryfikacji pól bieżącej
+  geometrii; plansze zatwierdzone i archiwum bez edycji.
+- **Rejected:** lokalny przełącznik pomijający linię w obliczeniu (nie
+  poprawia danych i rozjeżdża się z wyszukiwarką).
+
 ## D-472 — dziennik zapytań udostępnionego linku i odtworzenie w Adminie
 
 - **Status:** accepted, 2026-09-30; dopisek operatora do planu

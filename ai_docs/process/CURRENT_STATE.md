@@ -34,6 +34,8 @@ last_updated: 2026-09-30
 - TASK-0764 done: modal planszy z liniami wypłat z kolumny akcji tabeli,
   legenda z przełącznikiem każdej linii, schemat 3 × 5 bez zdjęcia. Audyt
   PASS w drugim cyklu.
+- 2026-09-30 operator zlecił etap A2: poprawianie symbolu pola z okna planszy
+  (D-473, R6, TASK-0772).
 - **Etap A zakończony; STOP na granicy etapu.** Odbiór operatora w Adminie
   według akapitu „Odbiór etapu A” planu. Etap B (TASK-0765–0771, w tym
   dziennik zapytań D-472) wymaga osobnego polecenia. Push i merge nie były

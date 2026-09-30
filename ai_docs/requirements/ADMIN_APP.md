@@ -505,7 +505,17 @@ wypłaty wiersza albo wynik dotyczy innej wersji reguł, modal pokazuje
 komunikat i „Przelicz ponownie” zamiast niespójnego rysunku; przycisk
 zamyka modal i liczy zakres od nowa. Błąd pobrania planszy pokazuje
 komunikat z „Spróbuj ponownie”. Brak zdjęcia albo siatki pól nie blokuje modala:
-pokazuje schemat 3 × 5 z ikon symboli z tymi samymi liniami. Modal jest
+pokazuje schemat 3 × 5 z ikon symboli z tymi samymi liniami.
+
+**Poprawianie symbolu pola (D-473, TASK-0772).** Dla planszy oczekującej
+modal ma tryb „Popraw symbole”: kliknięcie pola otwiera paletę symboli gry
+oraz „Nieczytelny” i „Zła siatka”. Wybór zapisuje decyzję człowieka dla pola
+tak samo jak „Weryfikacja symboli” (ten sam symbol zatwierdza pole, inny je
+przepisuje) i od razu zmienia linie w oknie. „Nieczytelny” czyni pole `?`,
+więc linia oparta na błędnie rozpoznanym symbolu kończy się przed nim.
+Konflikt z równoległą zmianą pokazuje komunikat i odświeża planszę. Po
+zapisanej zmianie zamknięcie okna przelicza tabelę i bilans. Plansze
+zatwierdzone i archiwalne nie mają edycji. Poza tym trybem modal jest
 wyłącznie do odczytu.
 
 ### Udostępnianie wyszukiwania online

@@ -20,7 +20,7 @@ from uuid import UUID
 
 from game_predictor_worker.domain.contracts import GameConfig
 from game_predictor_worker.domain.errors import DomainValidationError
-from game_predictor_worker.domain.payout import prepare_payout_evaluator
+from game_predictor_worker.domain.payout import PreparedPayoutEvaluator, prepare_payout_evaluator
 from game_predictor_worker.domain.signature import MAX_SIGNATURE_CELL_WIDTH
 from game_predictor_worker.payouts.contracts import RulesPayoutConfiguration
 
@@ -44,7 +44,7 @@ APPROXIMATE_WIN_SPIN_COUNT_MAX = 100_000
 one synchronous read plus up to `N` in-process payout-v3 evaluations per
 request, with no cache."""
 
-_PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
+APPROXIMATE_WIN_PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
 
 
 class BoardSearchApproximateWinRepository(Protocol):
@@ -115,45 +115,7 @@ class BoardSearchApproximateWinService:
                 "APPROXIMATE_WIN_RULES_NOT_PUBLISHED",
                 "The game has no published rules version to calculate payout against.",
             )
-        if (
-            configuration.rows != _APPROXIMATE_WIN_BOARD_ROWS
-            or configuration.columns != _APPROXIMATE_WIN_BOARD_COLUMNS
-        ):
-            raise BoardSearchError(
-                "APPROXIMATE_WIN_RULES_INVALID",
-                (
-                    f"Published rules use a {configuration.rows}x{configuration.columns} "
-                    "board; approximate win requires "
-                    f"{_APPROXIMATE_WIN_BOARD_ROWS}x{_APPROXIMATE_WIN_BOARD_COLUMNS}."
-                ),
-            )
-
-        # `GameConfig.code`/`.name` are display-only identity fields that
-        # `validate_game_config` merely requires to be non-empty; payout
-        # evaluation itself never reads them, so a stable placeholder
-        # derived from the game id is enough here.
-        game = GameConfig(
-            id=str(game_id),
-            code=f"approximate-win-{game_id}",
-            name=f"approximate-win-{game_id}",
-            rows=configuration.rows,
-            columns=configuration.columns,
-            spin_cost=configuration.spin_cost,
-            signature_cell_width=MAX_SIGNATURE_CELL_WIDTH,
-            symbols=configuration.symbols,
-        )
-        try:
-            evaluator = prepare_payout_evaluator(
-                game,
-                configuration.paylines,
-                configuration.payout_symbols,
-                configuration.payout_rules,
-            )
-        except DomainValidationError as error:
-            raise BoardSearchError(
-                "APPROXIMATE_WIN_RULES_INVALID",
-                f"The published rules configuration is invalid ({error.code}).",
-            ) from error
+        evaluator = prepare_approximate_win_evaluator(game_id, configuration)
 
         documents: tuple[ApproximateWinDocument, ...] = ()
         data_source: BoardSearchAssetMode | None = None
@@ -219,14 +181,64 @@ class BoardSearchApproximateWinService:
             rules_version_id=configuration.rules_version_id,
             rules_version=configuration.version,
             spin_cost=configuration.spin_cost,
-            algorithm_version=_PAYOUT_ALGORITHM_VERSION,
+            algorithm_version=APPROXIMATE_WIN_PAYOUT_ALGORITHM_VERSION,
             result=result,
         )
 
 
+def prepare_approximate_win_evaluator(
+    game_id: UUID,
+    configuration: RulesPayoutConfiguration,
+) -> PreparedPayoutEvaluator:
+    """Validate the published rules once and build the payout-v3 evaluator
+    shared by the range calculator and the single-board detail (D-470)."""
+
+    if (
+        configuration.rows != _APPROXIMATE_WIN_BOARD_ROWS
+        or configuration.columns != _APPROXIMATE_WIN_BOARD_COLUMNS
+    ):
+        raise BoardSearchError(
+            "APPROXIMATE_WIN_RULES_INVALID",
+            (
+                f"Published rules use a {configuration.rows}x{configuration.columns} "
+                "board; approximate win requires "
+                f"{_APPROXIMATE_WIN_BOARD_ROWS}x{_APPROXIMATE_WIN_BOARD_COLUMNS}."
+            ),
+        )
+
+    # `GameConfig.code`/`.name` are display-only identity fields that
+    # `validate_game_config` merely requires to be non-empty; payout
+    # evaluation itself never reads them, so a stable placeholder
+    # derived from the game id is enough here.
+    game = GameConfig(
+        id=str(game_id),
+        code=f"approximate-win-{game_id}",
+        name=f"approximate-win-{game_id}",
+        rows=configuration.rows,
+        columns=configuration.columns,
+        spin_cost=configuration.spin_cost,
+        signature_cell_width=MAX_SIGNATURE_CELL_WIDTH,
+        symbols=configuration.symbols,
+    )
+    try:
+        return prepare_payout_evaluator(
+            game,
+            configuration.paylines,
+            configuration.payout_symbols,
+            configuration.payout_rules,
+        )
+    except DomainValidationError as error:
+        raise BoardSearchError(
+            "APPROXIMATE_WIN_RULES_INVALID",
+            f"The published rules configuration is invalid ({error.code}).",
+        ) from error
+
+
 __all__ = [
+    "APPROXIMATE_WIN_PAYOUT_ALGORITHM_VERSION",
     "APPROXIMATE_WIN_SPIN_COUNT_MAX",
     "ApproximateWinCalculation",
     "BoardSearchApproximateWinRepository",
     "BoardSearchApproximateWinService",
+    "prepare_approximate_win_evaluator",
 ]

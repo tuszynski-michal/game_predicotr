@@ -1,6 +1,6 @@
 ---
 title: TASK-0763 — API szczegółów planszy z liniami wypłat i przyciętego widoku planszy
-status: todo
+status: done
 last_updated: 2026-09-30
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-09-30
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -52,13 +52,13 @@ Punkt 1 (dane do modala) i przygotowanie punktu 5 (przycięte obrazy). Ewaluator
 
 ## Acceptance criteria
 
-- [ ] `sum(matches.payoutCredits) == payoutCredits` dla każdej planszy.
-- [ ] Plansza przycięta z lewej (kolumna 1 = `?`, kolumny 2–5 tworzą ciąg) daje `matches = []`, `payoutKind = none`.
-- [ ] Plansza przycięta z prawej z pełnym prefiksem daje `confirmed_minimum`.
-- [ ] Błędy: 404 gry/planszy, 409 reguł/projekcji/symbolu spoza reguł, 409 konfliktu checksumy widoku, odmowa niebezpiecznej ścieżki.
-- [ ] Geometria planszy z inną checksumą niż `boardChecksumSha256` dokumentu daje 409 `BOARD_SEARCH_BOARD_REVISION_CONFLICT` w szczegółach i widoku.
-- [ ] Drugi odczyt widoku pochodzi z cache i ma identyczne bajty; równoległe żądania renderują raz.
-- [ ] Istniejące testy `test_board_search_approximate_win_*` przechodzą bez zmian; `openapi:check` PASS.
+- [x] `sum(matches.payoutCredits) == payoutCredits` dla każdej planszy.
+- [x] Plansza przycięta z lewej (kolumna 1 = `?`, kolumny 2–5 tworzą ciąg) daje `matches = []`, `payoutKind = none`.
+- [x] Plansza przycięta z prawej z pełnym prefiksem daje `confirmed_minimum`.
+- [x] Błędy: 404 gry/planszy, 409 reguł/projekcji/symbolu spoza reguł, 409 konfliktu checksumy widoku, odmowa niebezpiecznej ścieżki.
+- [x] Geometria planszy z inną checksumą niż `boardChecksumSha256` dokumentu daje 409 `BOARD_SEARCH_BOARD_REVISION_CONFLICT` w szczegółach i widoku.
+- [x] Drugi odczyt widoku pochodzi z cache i ma identyczne bajty; równoległe żądania renderują raz.
+- [x] Istniejące testy `test_board_search_approximate_win_*` przechodzą bez zmian; `openapi:check` PASS.
 
 ## Technical notes
 
@@ -121,4 +121,56 @@ Wszystkie komendy z katalogu worktree, timeout 120 s każda.
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- Nowa domena `domain/board_search_board_detail.py`: dokument planszy,
+  źródło widoku, etykiety linii, `board_payout_kind`, port geometrii
+  komórek z Admina (`board_cell_quads`, `derive_grid_cell_quads`),
+  `board_view_crop` (obrys + 20%, ≤ 1280 px, odrzuca geometrię absurdalną),
+  `board_view`, `board_view_revision`.
+- Nowa aplikacja `application/board_search_board_detail.py`:
+  `BoardSearchBoardDetailService` (ten sam ewaluator co kalkulator zakresu
+  przez wydzielone `prepare_approximate_win_evaluator`),
+  `BoardSearchBoardViewService`, `BoardSearchBoardViewCache` (atomowy zapis
+  przez `mkstemp`, jeden render na klucz, LRU 512 MiB, odrzucenie
+  dowiązania), `render_board_view` (EXIF, limit 100 mln pikseli, WebP).
+- Endpointy `getBoardSearchBoardDetail` i `getBoardSearchBoardView`
+  (`viewRevision`, `ETag`, `304`, `immutable` tylko z rewizją), mapowanie
+  nowych kodów błędów, DI w `main.py`, metody repozytoriów
+  (`board_document`, `board_view_source`, `payline_labels`,
+  `symbol_codes`), wspólne `resolve_board_search_image`.
+- OpenAPI, wygenerowany klient, wrapper (`getBoardSearchBoardDetail`,
+  `boardSearchBoardViewUrl`) i test klienta; `API_CONTRACT.md`.
+
+### Verification results
+
+- Testy wyszukiwarki i kalkulatora (szczegóły, widok, zakres, wyszukiwanie,
+  archiwum): 84 PASS, 1 pominięty (dowiązania symboliczne niedostępne dla
+  użytkownika Windows).
+- Integracja PostgreSQL (osobna tymczasowa baza): 2/2 PASS, w tym odczyt
+  `game_data_v2`, brak zapisów i konflikt rewizji.
+- Ruff: czysto. Mypy: 29 błędów w 7 niezwiązanych plikach, istniejące na
+  HEAD; brak błędów w zmienionych plikach.
+- `admin-api-client`: 68/68; OpenAPI i klient aktualne; typecheck Admina
+  czysty.
+- Pełny zestaw testów API: 22 porażki w 9 plikach niezwiązanych z taskiem —
+  te same 22 porażki na HEAD `de566f23` w czystym tymczasowym worktree.
+- Audyt niezależnego agenta `claude-opus-5-5` (poziom rozumowania agenta
+  nieustawialny z sesji): cykl 1 FAIL — P2 obraz `immutable` przy zmianie
+  siatki planszy `legacy_file` bez zmiany sumy, P2 brak widoku dla archiwum;
+  10 × P3. Cykl 2 PASS; P3 niestabilnego testu LRU poprawione przed
+  commitem.
+
+### Not completed
+
+- Rewalidacja `If-None-Match` nadal czyta obraz przed `304` (P3,
+  optymalizacja).
+
+### Documentation updates
+
+- `API_CONTRACT.md`: sekcja „Szczegóły planszy i przycięty widok (D-470)”.
+- Plan §4.2: dopisek o `viewRevision` i widoku archiwum.
+
+### Recommended next task
+
+- TASK-0764 (modal planszy z liniami).

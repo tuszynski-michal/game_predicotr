@@ -21,11 +21,28 @@ from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.board_search import BoardSearchAssetMode, BoardSearchError
 from game_predictor_api.domain.board_search_approximate_win import ApproximateWinDocument
+from game_predictor_api.domain.board_search_board_detail import (
+    BoardSearchBoardDocument,
+    BoardSearchBoardViewSource,
+    PaylineLabel,
+)
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
-from game_predictor_api.storage.models import GameModel, RulesVersionModel
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+)
+from game_predictor_api.storage.models import (
+    GameModel,
+    ImageReviewItemModel,
+    PaylineModel,
+    RecognizedBoardModel,
+    RulesVersionModel,
+    SourceImageModel,
+    SymbolModel,
+)
 
 
 class SqlAlchemyBoardSearchApproximateWinRepository:
@@ -76,6 +93,87 @@ class SqlAlchemyBoardSearchApproximateWinRepository:
             first_sequence_number=first_sequence_number,
             last_sequence_number=last_sequence_number,
         )
+
+    def board_document(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+    ) -> tuple[BoardSearchAssetMode, BoardSearchBoardDocument | None]:
+        return self._projection.board_document(game_id=game_id, sequence_number=sequence_number)
+
+    def board_view_source(
+        self,
+        *,
+        game_id: UUID,
+        document: BoardSearchBoardDocument,
+    ) -> BoardSearchBoardViewSource | None:
+        """Pixels and saved geometry behind one search document.
+
+        The archive holds a single-board image and no cell geometry. An
+        operational document points at the current review item; its board's
+        identity checksum is compared with the document by the caller.
+        """
+        if document.asset_mode is BoardSearchAssetMode.LEGACY_ARCHIVE:
+            if document.archive_relative_path is None:
+                return None
+            return BoardSearchBoardViewSource(
+                image_relative_path=document.archive_relative_path,
+                image_checksum_sha256=document.board_checksum_sha256,
+                geometry=None,
+                current_board_checksum_sha256=document.board_checksum_sha256,
+            )
+        if document.review_item_id is None:
+            return None
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
+        row = self._session.execute(
+            select(RecognizedBoardModel, SourceImageModel)
+            .join(
+                ImageReviewItemModel,
+                ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .where(ImageReviewItemModel.id == document.review_item_id)
+        ).one_or_none()
+        if row is None:
+            return None
+        board, source = row
+        # Same identity rule as the projection writer (`_payload_from_records`).
+        current = (
+            board.board_checksum_sha256
+            if board.asset_mode == "legacy_file"
+            else board.geometry_checksum_sha256
+        )
+        return BoardSearchBoardViewSource(
+            image_relative_path=source.relative_path,
+            image_checksum_sha256=source.checksum_sha256,
+            geometry=dict(board.board_geometry),
+            current_board_checksum_sha256=current or "",
+        )
+
+    def payline_labels(self, rules_version_id: UUID) -> dict[str, PaylineLabel]:
+        return {
+            str(record.id): PaylineLabel(
+                payline_id=str(record.id),
+                code=record.code,
+                name=record.name,
+                display_order=int(record.display_order),
+                row_path=tuple(int(value) for value in record.row_path),
+            )
+            for record in self._session.scalars(
+                select(PaylineModel).where(PaylineModel.rules_version_id == rules_version_id)
+            )
+        }
+
+    def symbol_codes(self, game_id: UUID) -> dict[int, str]:
+        return {
+            int(mobile_code): code
+            for code, mobile_code in self._session.execute(
+                select(SymbolModel.code, SymbolModel.mobile_code).where(
+                    SymbolModel.game_id == game_id
+                )
+            ).tuples()
+        }
 
 
 __all__ = ["SqlAlchemyBoardSearchApproximateWinRepository"]

@@ -80,6 +80,7 @@ import {
   getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
   getArchivedBoardSearchAsset as getGeneratedArchivedBoardSearchAsset,
   getBoardSearchApproximateWin as getGeneratedBoardSearchApproximateWin,
+  getBoardSearchBoardDetail as getGeneratedBoardSearchBoardDetail,
   getImageImportEnginePolicy as getGeneratedImageImportEnginePolicy,
   previewImageImportEnginePolicy as previewGeneratedImageImportEnginePolicy,
   updateImageImportEnginePolicy as updateGeneratedImageImportEnginePolicy,
@@ -389,6 +390,10 @@ import type {
 export type {
   ApproximateWinCompletenessResponse,
   ApproximateWinResponse,
+  BoardSearchBoardDetailResponse,
+  BoardSearchBoardViewResponse,
+  BoardSearchLineMatchResponse,
+  BoardSearchViewPointResponse,
   ApproximateWinRowResponse,
   ApproximateWinRulesResponse,
   ApproximateWinSummaryResponse,
@@ -1932,6 +1937,24 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           spinCount: options.spinCount,
         },
       }),
+    getBoardSearchBoardDetail: (gameId: string, sequenceNumber: number) =>
+      getGeneratedBoardSearchBoardDetail({
+        client,
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+      }),
+    /** Checksum-bound cropped WebP view of one board (D-470); immutable. */
+    boardSearchBoardViewUrl: (
+      gameId: string,
+      sequenceNumber: number,
+      expectedBoardChecksumSha256: string,
+      viewRevision?: string,
+    ) => {
+      // With `viewRevision` (from the board detail) the image is immutable;
+      // without it the browser revalidates by ETag.
+      const query = new URLSearchParams({ expectedBoardChecksumSha256 });
+      if (viewRevision !== undefined) query.set('viewRevision', viewRevision);
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/board-search/boards/${sequenceNumber}/view?${query.toString()}`;
+    },
     archivedBoardSearchAssetUrl: (
       gameId: string,
       sequenceNumber: number,

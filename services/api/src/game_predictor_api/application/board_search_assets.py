@@ -27,11 +27,36 @@ def resolve_board_search_archive_asset(
     reference: BoardSearchArchiveAssetReference,
     artifact_root: Path,
 ) -> BoardSearchArchiveAsset:
-    relative = PurePosixPath(reference.relative_path)
-    if relative.is_absolute() or ".." in relative.parts or "\\" in reference.relative_path:
+    return resolve_board_search_image(
+        reference.relative_path,
+        reference.checksum_sha256,
+        artifact_root,
+        code_prefix="BOARD_SEARCH_ARCHIVE_ASSET",
+        subject="archived board image",
+    )
+
+
+def resolve_board_search_image(
+    relative_path: str,
+    checksum_sha256: str,
+    artifact_root: Path,
+    *,
+    code_prefix: str,
+    subject: str = "board image",
+    verify_checksum: bool = True,
+) -> BoardSearchArchiveAsset:
+    """Resolve one checksum-bound image under `artifact_root/data`.
+
+    `code_prefix` names the error family (`<prefix>_PATH_UNSAFE`,
+    `_NOT_FOUND`, `_MEDIA_TYPE_UNSUPPORTED`, `_CHECKSUM_DRIFT`) and `subject`
+    the noun used in messages.
+    """
+
+    relative = PurePosixPath(relative_path)
+    if relative.is_absolute() or ".." in relative.parts or "\\" in relative_path:
         raise BoardSearchError(
-            "BOARD_SEARCH_ARCHIVE_ASSET_PATH_UNSAFE",
-            "The archived board image path is unsafe.",
+            f"{code_prefix}_PATH_UNSAFE",
+            f"The {subject} path is unsafe.",
         )
     managed_root = artifact_root.resolve() / "data"
     candidate = managed_root.joinpath(*relative.parts).resolve()
@@ -41,19 +66,19 @@ def resolve_board_search_archive_asset(
         or candidate.is_symlink()
     ):
         raise BoardSearchError(
-            "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND",
-            "The archived board image is unavailable.",
+            f"{code_prefix}_NOT_FOUND",
+            f"The {subject} is unavailable.",
         )
     media_type, _encoding = mimetypes.guess_type(candidate.name)
     if media_type not in _IMAGE_MEDIA_TYPES:
         raise BoardSearchError(
-            "BOARD_SEARCH_ARCHIVE_ASSET_MEDIA_TYPE_UNSUPPORTED",
-            "The archived board image format is unsupported.",
+            f"{code_prefix}_MEDIA_TYPE_UNSUPPORTED",
+            f"The {subject} format is unsupported.",
         )
-    if _sha256(candidate) != reference.checksum_sha256:
+    if verify_checksum and _sha256(candidate) != checksum_sha256:
         raise BoardSearchError(
-            "BOARD_SEARCH_ARCHIVE_ASSET_CHECKSUM_DRIFT",
-            "The archived board image checksum differs from persistence.",
+            f"{code_prefix}_CHECKSUM_DRIFT",
+            f"The {subject} checksum differs from persistence.",
         )
     return BoardSearchArchiveAsset(path=candidate, media_type=media_type)
 
@@ -66,4 +91,8 @@ def _sha256(path: Path) -> str:
     return digest.hexdigest()
 
 
-__all__ = ["BoardSearchArchiveAsset", "resolve_board_search_archive_asset"]
+__all__ = [
+    "BoardSearchArchiveAsset",
+    "resolve_board_search_archive_asset",
+    "resolve_board_search_image",
+]

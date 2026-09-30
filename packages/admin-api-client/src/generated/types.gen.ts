@@ -991,6 +991,135 @@ export type BoardImportCoverageView = 'missing' | 'added';
 export type BoardSearchAssetMode = 'operational_review' | 'legacy_archive';
 
 /**
+ * BoardSearchBoardDetailResponse
+ */
+export type BoardSearchBoardDetailResponse = {
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256: string;
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  dataSource: BoardSearchAssetMode;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Matches
+   */
+  matches: Array<BoardSearchLineMatchResponse>;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits: number;
+  /**
+   * Payoutkind
+   */
+  payoutKind: 'exact' | 'confirmed_minimum' | 'none';
+  rules: ApproximateWinRulesResponse;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Symbolcodes
+   */
+  symbolCodes: Array<string | null>;
+  view: BoardSearchBoardViewResponse | null;
+};
+
+/**
+ * BoardSearchBoardViewResponse
+ *
+ * Size of the cropped view and cell polygons in its 0–1 coordinates.
+ */
+export type BoardSearchBoardViewResponse = {
+  /**
+   * Cellpolygons
+   */
+  cellPolygons:
+    | [
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+      ]
+    | null;
+  /**
+   * Height
+   */
+  height: number;
+  /**
+   * Revision
+   */
+  revision: string;
+  /**
+   * Width
+   */
+  width: number;
+};
+
+/**
+ * BoardSearchLineMatchResponse
+ */
+export type BoardSearchLineMatchResponse = {
+  /**
+   * Jokercells
+   */
+  jokerCells: Array<number>;
+  /**
+   * Matchedcells
+   */
+  matchedCells: Array<number>;
+  /**
+   * Matchedlength
+   */
+  matchedLength: number;
+  /**
+   * Paylinecode
+   */
+  paylineCode: string;
+  /**
+   * Paylinedisplayorder
+   */
+  paylineDisplayOrder: number;
+  /**
+   * Paylineid
+   */
+  paylineId: string;
+  /**
+   * Paylinename
+   */
+  paylineName: string;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits: number;
+  /**
+   * Rowpath
+   */
+  rowPath: Array<number>;
+  /**
+   * Symbolcode
+   */
+  symbolCode: string;
+};
+
+/**
  * BoardSearchResponse
  */
 export type BoardSearchResponse = {
@@ -1074,6 +1203,20 @@ export type BoardSearchScoreResponse = {
    * Weightedalternativescore
    */
   weightedAlternativeScore: number;
+};
+
+/**
+ * BoardSearchViewPointResponse
+ */
+export type BoardSearchViewPointResponse = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
 };
 
 /**
@@ -14420,6 +14563,106 @@ export type GetArchivedBoardSearchAssetError =
   GetArchivedBoardSearchAssetErrors[keyof GetArchivedBoardSearchAssetErrors];
 
 export type GetArchivedBoardSearchAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetBoardSearchBoardDetailData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}';
+};
+
+export type GetBoardSearchBoardDetailErrors = {
+  /**
+   * Game or board-search document not found
+   */
+  404: ErrorResponse;
+  /**
+   * Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid path parameters
+   */
+  422: ErrorResponse;
+};
+
+export type GetBoardSearchBoardDetailError =
+  GetBoardSearchBoardDetailErrors[keyof GetBoardSearchBoardDetailErrors];
+
+export type GetBoardSearchBoardDetailResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchBoardDetailResponse;
+};
+
+export type GetBoardSearchBoardDetailResponse =
+  GetBoardSearchBoardDetailResponses[keyof GetBoardSearchBoardDetailResponses];
+
+export type GetBoardSearchBoardViewData = {
+  body?: never;
+  headers?: {
+    /**
+     * If-None-Match
+     */
+    'If-None-Match'?: string | null;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query: {
+    /**
+     * Expectedboardchecksumsha256
+     */
+    expectedBoardChecksumSha256: string;
+    /**
+     * Viewrevision
+     */
+    viewRevision?: string | null;
+  };
+  url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/view';
+};
+
+export type GetBoardSearchBoardViewErrors = {
+  /**
+   * Game or board-search document not found
+   */
+  404: ErrorResponse;
+  /**
+   * Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid path parameters
+   */
+  422: ErrorResponse;
+};
+
+export type GetBoardSearchBoardViewError =
+  GetBoardSearchBoardViewErrors[keyof GetBoardSearchBoardViewErrors];
+
+export type GetBoardSearchBoardViewResponses = {
   /**
    * Successful Response
    */

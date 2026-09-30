@@ -216,7 +216,11 @@ Content-Type: image/webp
 Cache-Control: private, immutable, max-age=31536000
 ```
 
-Niezgodna checksuma: `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`. Brak pliku
+Niezgodna checksuma: `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`.
+Wykonanie (TASK-0763): szczegóły zwracają `view.revision` (tożsamość renderu);
+tylko URL z `viewRevision` jest `immutable`, bez niego `no-cache` z `ETag`,
+a archiwum ma `view` z rozmiarem i `cellPolygons = null`
+(`API_CONTRACT.md`). Brak pliku
 źródłowego: `404 BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE`. Ścieżka pliku
 rozwiązywana fail-closed jak w `resolve_board_search_archive_asset`.
 

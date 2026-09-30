@@ -26,6 +26,10 @@ last_updated: 2026-09-30
 - TASK-0762 done: stawka (1,20–20 zł) i jednostka (kredyty/złote) w
   „Przybliżonej wygranej”, przeliczenie lokalne na groszach (D-470). 642
   testy Admina, 25 testów interakcji, audyt PASS w drugim cyklu.
+  Commit `v1.7.84` / `de566f23`.
+- TASK-0763 done: API szczegółów planszy z liniami wypłat (ten sam ewaluator,
+  linia tylko od lewej) i przyciętego widoku WebP z cache i rewizją widoku.
+  Audyt PASS w drugim cyklu.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)
 

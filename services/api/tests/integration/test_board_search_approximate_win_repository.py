@@ -25,7 +25,11 @@ from alembic.config import Config
 from game_predictor_api.application.board_search_approximate_win import (
     BoardSearchApproximateWinService,
 )
+from game_predictor_api.application.board_search_board_detail import (
+    BoardSearchBoardDetailService,
+)
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.board_search import BoardSearchError
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.board_search_approximate_win_repository import (
@@ -206,6 +210,7 @@ def _resolved_review_item(
     sequence_number: int,
     symbol_codes: tuple[str | None, ...],
     status: str = "accepted",
+    board_geometry: dict[str, object] | None = None,
 ) -> ImageReviewItemModel:
     """One board resolved by a human decision, with `symbol_codes` exactly as
     `resolved_value.symbolCodes` — `None` entries are logical `?`, allowed
@@ -218,7 +223,7 @@ def _resolved_review_item(
         sequence_number_raw=str(sequence_number),
         sequence_number=sequence_number,
         sequence_confidence=1,
-        board_geometry={},
+        board_geometry=board_geometry or {},
         board_relative_path=f"boards/{sequence_number}.jpg",
         board_checksum_sha256="b" * 64,
         cells_prediction={},
@@ -473,3 +478,139 @@ def _game_owned_row_counts(session: Session, game_id: UUID) -> dict[str, int]:
             or 0
         ),
     }
+
+
+def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
+    database: Engine,
+) -> None:
+    """D-470 board detail against a live `game_data_v2` game: the same
+    document, source image and geometry the search reads, payline labels of
+    the published rules, no writes, and a revision conflict once the board's
+    identity checksum no longer matches the search document."""
+
+    game_id = uuid4()
+    rules_version_id = uuid4()
+    symbol_id = uuid4()
+    lattice = [
+        {"x": 10.0, "y": 20.0},
+        {"x": 60.0, "y": 20.0},
+        {"x": 60.0, "y": 50.0},
+        {"x": 10.0, "y": 50.0},
+    ]
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        session.add(
+            GameModel(id=game_id, code="v2-detail", name="V2 Detail", expected_layout_count=20)
+        )
+        session.flush()
+        _provision_v2_storage_location(session, game_id=game_id)
+        session.add(
+            SymbolModel(
+                id=symbol_id,
+                game_id=game_id,
+                mobile_code=1,
+                code="A",
+                name="Symbol A",
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+        )
+        session.flush()
+        session.add(
+            RulesVersionModel(
+                id=rules_version_id,
+                game_id=game_id,
+                version=1,
+                rows=3,
+                columns=5,
+                spin_cost=100,
+                status=RulesVersionStatus.PUBLISHED,
+                published_at=datetime.now(UTC),
+            )
+        )
+        session.flush()
+        session.add(
+            RulesVersionSymbolModel(
+                rules_version_id=rules_version_id,
+                symbol_id=symbol_id,
+                minimum_match_length=3,
+                is_active=True,
+            )
+        )
+        session.flush()
+        session.add(
+            PaylineModel(
+                rules_version_id=rules_version_id,
+                code="L1",
+                name="Górna",
+                row_path=[0, 0, 0, 0, 0],
+                display_order=0,
+                is_active=True,
+            )
+        )
+        session.add_all(
+            PayoutRuleModel(
+                rules_version_id=rules_version_id,
+                symbol_id=symbol_id,
+                match_length=length,
+                payout_credits=credits,
+            )
+            for length, credits in ((3, 10), (4, 25), (5, 50))
+        )
+        session.flush()
+        job = _import_job(session, game_id=game_id)
+        source = _source(session, job=job, relative_path="imports/page_1.jpg")
+        item = _resolved_review_item(
+            session,
+            game_id=game_id,
+            job=job,
+            source=source,
+            position=0,
+            sequence_number=5,
+            symbol_codes=("A", "A", "A", "A", None) + (None,) * 10,
+            board_geometry={"latticeBoundsQuad": lattice},
+        )
+        SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game_id)
+        source_checksum = source.checksum_sha256
+        board_id = item.recognized_board_id
+
+    with Session(database, expire_on_commit=False) as session:
+        before_counts = _game_owned_row_counts(session, game_id)
+        repository = SqlAlchemyBoardSearchApproximateWinRepository(session)
+        detail = BoardSearchBoardDetailService(repository).detail(
+            game_id=game_id, sequence_number=5
+        )
+        _source_mode, document = repository.board_document(game_id=game_id, sequence_number=5)
+        assert document is not None
+        view_source = repository.board_view_source(game_id=game_id, document=document)
+        missing = repository.board_document(game_id=game_id, sequence_number=6)
+        after_counts = _game_owned_row_counts(session, game_id)
+
+    assert before_counts == after_counts, "board detail must not write anything"
+    assert missing[1] is None
+    assert detail.payout_kind == "confirmed_minimum"
+    assert detail.payout_credits == 25
+    assert [
+        (match.payline_code, match.payline_name, match.matched_cells) for match in detail.matches
+    ] == [("L1", "Górna", (0, 1, 2, 3))]
+    assert detail.symbol_codes[:5] == ("A", "A", "A", "A", None)
+    assert detail.view is not None and len(detail.view.cell_polygons) == 15
+    assert view_source is not None
+    assert view_source.image_relative_path == "imports/page_1.jpg"
+    assert view_source.image_checksum_sha256 == source_checksum
+    assert view_source.current_board_checksum_sha256 == document.board_checksum_sha256
+
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
+        board = session.get(RecognizedBoardModel, board_id)
+        assert board is not None
+        board.board_checksum_sha256 = "e" * 64
+
+    with (
+        Session(database, expire_on_commit=False) as session,
+        pytest.raises(BoardSearchError) as raised,
+    ):
+        BoardSearchBoardDetailService(
+            SqlAlchemyBoardSearchApproximateWinRepository(session)
+        ).detail(game_id=game_id, sequence_number=5)
+    assert raised.value.code == "BOARD_SEARCH_BOARD_REVISION_CONFLICT"

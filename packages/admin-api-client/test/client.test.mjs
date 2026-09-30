@@ -3024,6 +3024,52 @@ test('getBoardSearchApproximateWin passes gameId as path and options as query pa
   assert.equal(result.data.evaluatedSpinCount, 0);
 });
 
+test('getBoardSearchBoardDetail and the board view URL use the board-search paths', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        boardChecksumSha256: 'c'.repeat(64),
+        boardStatus: 'accepted',
+        dataSource: 'operational_review',
+        gameId,
+        matches: [],
+        payoutCredits: 0,
+        payoutKind: 'none',
+        rules: {
+          algorithmVersion: 'payout-v3-unknown-prefix-stop',
+          rulesVersion: 1,
+          rulesVersionId: '22222222-2222-4222-8222-222222222222',
+          spinCost: 100,
+        },
+        sequenceNumber: 42,
+        symbolCodes: Array.from({ length: 15 }, () => null),
+        view: null,
+      });
+    },
+  });
+
+  const result = await client.getBoardSearchBoardDetail(gameId, 42);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/boards/42`,
+  );
+  assert.equal(result.data.payoutKind, 'none');
+  assert.equal(
+    client.boardSearchBoardViewUrl(gameId, 42, 'c'.repeat(64)),
+    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/board-search/boards/42/view?expectedBoardChecksumSha256=${'c'.repeat(64)}`,
+  );
+  assert.equal(
+    client.boardSearchBoardViewUrl(gameId, 42, 'c'.repeat(64), 'd'.repeat(64)),
+    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/board-search/boards/42/view?expectedBoardChecksumSha256=${'c'.repeat(64)}&viewRevision=${'d'.repeat(64)}`,
+  );
+});
+
 test('board search builds only a scoped board-crop asset URL for a result', () => {
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000/',

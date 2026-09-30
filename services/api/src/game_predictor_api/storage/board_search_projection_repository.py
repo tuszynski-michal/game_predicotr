@@ -31,6 +31,7 @@ from game_predictor_api.domain.board_search import (
     select_board_search_document,
 )
 from game_predictor_api.domain.board_search_approximate_win import ApproximateWinDocument
+from game_predictor_api.domain.board_search_board_detail import BoardSearchBoardDocument
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.geometry_qualification import (
     GeometryQualification,
@@ -544,6 +545,32 @@ class SqlAlchemyBoardSearchProjectionRepository:
             ) in rows
         )
         return asset_mode, documents
+
+    def board_document(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+    ) -> tuple[BoardSearchAssetMode, BoardSearchBoardDocument | None]:
+        """Read one sequence position from the same source as `search()`,
+        with its internal source identity (D-470 board detail)."""
+        if self._session.get(GameModel, game_id) is None:
+            raise BoardSearchError("GAME_NOT_FOUND", "The selected game does not exist.")
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
+        document, asset_mode = self._document_source(game_id)
+        record = self._session.get(document, (game_id, sequence_number))
+        if record is None:
+            return asset_mode, None
+        operational = asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW
+        return asset_mode, BoardSearchBoardDocument(
+            sequence_number=int(record.sequence_number),
+            status=record.status,
+            board_checksum_sha256=record.board_checksum_sha256,
+            mobile_codes=tuple(record.primary_symbol_mobile_codes),
+            asset_mode=asset_mode,
+            review_item_id=record.review_item_id if operational else None,
+            archive_relative_path=None if operational else record.board_relative_path,
+        )
 
     def archive_asset(
         self,

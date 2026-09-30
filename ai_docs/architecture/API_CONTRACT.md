@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-09-25
+last_updated: 2026-09-30
 ---
 
 # Kontrakty API i danych mobilnych
@@ -316,6 +316,79 @@ dla brakujących/nieprawidłowych parametrów zapytania.
 Kalkulacja nigdy nie zapisuje wyniku ani nie zmienia rozpoznanych symboli,
 zatwierdzeń czy danych treningowych; nie ma serwerowego cache — każde
 żądanie liczy od nowa dla aktualnego stanu danych i reguł.
+
+### Szczegóły planszy i przycięty widok (D-470)
+
+```text
+GET /api/v1/admin/games/{gameId}/board-search/boards/{sequenceNumber}
+GET /api/v1/admin/games/{gameId}/board-search/boards/{sequenceNumber}/view
+  ?expectedBoardChecksumSha256={sha256}[&viewRevision={sha256}]
+```
+
+Oba endpointy są tylko do odczytu i czytają ten sam dokument wyszukiwania co
+`board-search` i kalkulator zakresu. Szczegóły (`getBoardSearchBoardDetail`)
+oceniają jedną planszę tym samym ewaluatorem `payout-v3-unknown-prefix-stop`
+i tą samą najnowszą opublikowaną wersją reguł. Linia jest liczona wyłącznie
+od lewej krawędzi i kończy się na pierwszej nieznanej komórce, więc plansza
+przycięta z lewej nie ma żadnej linii.
+
+Odpowiedź szczegółów:
+
+```text
+gameId, sequenceNumber, boardStatus, boardChecksumSha256
+dataSource              # "operational_review"|"legacy_archive"
+rules: { rulesVersionId, rulesVersion, spinCost, algorithmVersion }
+symbolCodes[15]         # kod symbolu albo null dla „?”
+payoutCredits           # suma, przy stawce bazowej
+payoutKind              # "exact"|"confirmed_minimum"|"none"
+matches[]:              # posortowane po displayOrder linii
+  paylineId, paylineCode, paylineName, paylineDisplayOrder, rowPath[5],
+  symbolCode, matchedLength, matchedCells[], jokerCells[], payoutCredits
+view: null | { width, height, revision, cellPolygons: null | [15][4] {x, y} }
+```
+
+`sum(matches.payoutCredits) == payoutCredits`. `view` opisuje przycięty widok
+planszy operacyjnej: obrys komórek z zapisanej geometrii plus 20% z każdej
+strony, dłuższy bok najwyżej 1280 px; `cellPolygons` są we współrzędnych 0–1
+tego widoku (punkty planszy uciętej przez krawędź zdjęcia mogą wyjść poza
+0–1). Obszar poza zdjęciem jest wypełniony tłem, dlatego widok nie zależy od
+wymiarów zdjęcia. Geometria bez poprawnych 15 komórek, absurdalna geometria
+(obszar powyżej 60 mln pikseli) albo brak obrazu dają `view = null`. Archiwum
+przechowuje obraz jednej planszy, ale nie geometrię komórek: `view` ma
+rozmiar pomniejszonego obrazu i `cellPolygons = null`. `revision` to
+tożsamość renderu (wersja renderera, SHA-256 zdjęcia, obszar i rozmiar) —
+zmienia się także wtedy, gdy zmieni się siatka przy tej samej sumie planszy
+(np. ponowne cięcie v19 planszy `legacy_file`).
+
+Widok (`getBoardSearchBoardView`) zwraca `image/webp` z `ETag` równym
+`revision`. Z parametrem `viewRevision` (z odpowiedzi szczegółów) odpowiedź
+ma `Cache-Control: private, immutable, max-age=31536000`, a niezgodny
+`viewRevision` daje `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`; bez niego
+`private, no-cache` z rewalidacją (`If-None-Match` → `304`). Dla planszy
+operacyjnej to przycięty widok, dla archiwum pomniejszony obraz planszy.
+Plik jest trzymany w jednorazowym cache `artifact_root/data/working/
+board-search-views-v1/` (klucz: wersja renderera, SHA-256 zdjęcia, obszar i
+rozmiar; zapis atomowy przez plik tymczasowy, jeden render dla równoległych
+żądań, najdawniej używane pliki usuwane powyżej 512 MiB, katalog będący
+dowiązaniem symbolicznym jest odrzucany). Trafienie w cache nie czyta zdjęcia
+źródłowego; chybienie sprawdza bezpieczną ścieżkę i SHA-256 zdjęcia. Zdjęcie
+powyżej 100 mln pikseli nie jest dekodowane.
+
+Oba endpointy porównują bieżącą sumę tożsamości planszy (bitmapa planszy dla
+`legacy_file`, geometria dla `virtual_source`) z `boardChecksumSha256`
+dokumentu. Niezgodność daje `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`, aby
+obraz z cache `immutable` nigdy nie spotkał innych wielokątów; widok zwraca
+ten sam kod, gdy `expectedBoardChecksumSha256` różni się od dokumentu.
+
+Błędy: `404 GAME_NOT_FOUND`, `404 BOARD_SEARCH_BOARD_NOT_FOUND` (brak
+dokumentu), `404 BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE` (brak obrazu, geometrii
+albo obrazu nie da się zdekodować), `404 BOARD_SEARCH_BOARD_VIEW_SOURCE_NOT_FOUND`;
+`409` jak w kalkulatorze zakresu (projekcja/archiwum, reguły, symbol spoza
+reguł), `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`,
+`409 BOARD_SEARCH_BOARD_VIEW_SOURCE_PATH_UNSAFE` /
+`_MEDIA_TYPE_UNSUPPORTED` / `_CHECKSUM_DRIFT`,
+`409 BOARD_SEARCH_BOARD_VIEW_CACHE_UNSAFE`; `422` dla nieprawidłowych
+parametrów.
 
 ### Odczyt pojedynczych cropów do weryfikacji symboli
 

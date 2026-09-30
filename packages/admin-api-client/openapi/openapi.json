@@ -1750,6 +1750,215 @@
         "title": "BoardSearchAssetMode",
         "type": "string"
       },
+      "BoardSearchBoardDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Boardchecksumsha256",
+            "type": "string"
+          },
+          "boardStatus": {
+            "title": "Boardstatus",
+            "type": "string"
+          },
+          "dataSource": {
+            "$ref": "#/components/schemas/BoardSearchAssetMode"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchLineMatchResponse"
+            },
+            "title": "Matches",
+            "type": "array"
+          },
+          "payoutCredits": {
+            "minimum": 0.0,
+            "title": "Payoutcredits",
+            "type": "integer"
+          },
+          "payoutKind": {
+            "enum": [
+              "exact",
+              "confirmed_minimum",
+              "none"
+            ],
+            "title": "Payoutkind",
+            "type": "string"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ApproximateWinRulesResponse"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "symbolCodes": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Symbolcodes",
+            "type": "array"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchBoardViewResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "gameId",
+          "sequenceNumber",
+          "boardStatus",
+          "boardChecksumSha256",
+          "dataSource",
+          "rules",
+          "symbolCodes",
+          "payoutCredits",
+          "payoutKind",
+          "matches",
+          "view"
+        ],
+        "title": "BoardSearchBoardDetailResponse",
+        "type": "object"
+      },
+      "BoardSearchBoardViewResponse": {
+        "additionalProperties": false,
+        "description": "Size of the cropped view and cell polygons in its 0–1 coordinates.",
+        "properties": {
+          "cellPolygons": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "$ref": "#/components/schemas/BoardSearchViewPointResponse"
+                  },
+                  "type": "array"
+                },
+                "maxItems": 15,
+                "minItems": 15,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cellpolygons"
+          },
+          "height": {
+            "minimum": 1.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "revision": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Revision",
+            "type": "string"
+          },
+          "width": {
+            "minimum": 1.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "width",
+          "height",
+          "revision",
+          "cellPolygons"
+        ],
+        "title": "BoardSearchBoardViewResponse",
+        "type": "object"
+      },
+      "BoardSearchLineMatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "jokerCells": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Jokercells",
+            "type": "array"
+          },
+          "matchedCells": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Matchedcells",
+            "type": "array"
+          },
+          "matchedLength": {
+            "minimum": 1.0,
+            "title": "Matchedlength",
+            "type": "integer"
+          },
+          "paylineCode": {
+            "title": "Paylinecode",
+            "type": "string"
+          },
+          "paylineDisplayOrder": {
+            "minimum": 0.0,
+            "title": "Paylinedisplayorder",
+            "type": "integer"
+          },
+          "paylineId": {
+            "title": "Paylineid",
+            "type": "string"
+          },
+          "paylineName": {
+            "title": "Paylinename",
+            "type": "string"
+          },
+          "payoutCredits": {
+            "exclusiveMinimum": 0.0,
+            "title": "Payoutcredits",
+            "type": "integer"
+          },
+          "rowPath": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rowpath",
+            "type": "array"
+          },
+          "symbolCode": {
+            "title": "Symbolcode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "paylineId",
+          "paylineCode",
+          "paylineName",
+          "paylineDisplayOrder",
+          "rowPath",
+          "symbolCode",
+          "matchedLength",
+          "matchedCells",
+          "jokerCells",
+          "payoutCredits"
+        ],
+        "title": "BoardSearchLineMatchResponse",
+        "type": "object"
+      },
       "BoardSearchResponse": {
         "additionalProperties": false,
         "properties": {
@@ -1915,6 +2124,25 @@
           "unknownCount"
         ],
         "title": "BoardSearchScoreResponse",
+        "type": "object"
+      },
+      "BoardSearchViewPointResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "BoardSearchViewPointResponse",
         "type": "object"
       },
       "BoardSourceCleanupCommandRequest": {
@@ -25990,6 +26218,188 @@
           }
         },
         "summary": "Read one checksum-bound board image from a frozen search archive",
+        "tags": [
+          "board-search"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}": {
+      "get": {
+        "operationId": "getBoardSearchBoardDetail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchBoardDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or board-search document not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid path parameters"
+          }
+        },
+        "summary": "Winning paylines and cropped-view cell polygons of one board",
+        "tags": [
+          "board-search"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/view": {
+      "get": {
+        "operationId": "getBoardSearchBoardView",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expectedBoardChecksumSha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Expectedboardchecksumsha256",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "viewRevision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-f0-9]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Viewrevision"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or board-search document not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid path parameters"
+          }
+        },
+        "summary": "Read the checksum-bound cropped WebP view of one board",
         "tags": [
           "board-search"
         ]

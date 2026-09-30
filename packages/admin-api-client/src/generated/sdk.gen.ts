@@ -222,6 +222,12 @@ import type {
   GetBoardSearchApproximateWinData,
   GetBoardSearchApproximateWinErrors,
   GetBoardSearchApproximateWinResponses,
+  GetBoardSearchBoardDetailData,
+  GetBoardSearchBoardDetailErrors,
+  GetBoardSearchBoardDetailResponses,
+  GetBoardSearchBoardViewData,
+  GetBoardSearchBoardViewErrors,
+  GetBoardSearchBoardViewResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
@@ -1066,6 +1072,44 @@ export const getArchivedBoardSearchAsset = <
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Winning paylines and cropped-view cell polygons of one board
+ */
+export const getBoardSearchBoardDetail = <ThrowOnError extends boolean = false>(
+  options: Options<GetBoardSearchBoardDetailData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchBoardDetailResponses,
+  GetBoardSearchBoardDetailErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchBoardDetailResponses,
+    GetBoardSearchBoardDetailErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Read the checksum-bound cropped WebP view of one board
+ */
+export const getBoardSearchBoardView = <ThrowOnError extends boolean = false>(
+  options: Options<GetBoardSearchBoardViewData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchBoardViewResponses,
+  GetBoardSearchBoardViewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchBoardViewResponses,
+    GetBoardSearchBoardViewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/view',
     ...options,
   });
 

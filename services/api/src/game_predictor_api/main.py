@@ -29,6 +29,11 @@ from game_predictor_api.application.board_search import BoardSearchService
 from game_predictor_api.application.board_search_approximate_win import (
     BoardSearchApproximateWinService,
 )
+from game_predictor_api.application.board_search_board_detail import (
+    BoardSearchBoardDetailService,
+    BoardSearchBoardViewCache,
+    BoardSearchBoardViewService,
+)
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import (
     CleanupService,
@@ -377,6 +382,8 @@ def create_app(
     catalog_service_dependency: Callable[..., object] | None = None,
     board_search_service_dependency: Callable[..., object] | None = None,
     board_search_approximate_win_service_dependency: Callable[..., object] | None = None,
+    board_search_board_detail_service_dependency: Callable[..., object] | None = None,
+    board_search_board_view_service_dependency: Callable[..., object] | None = None,
     cleanup_service_dependency: Callable[..., object] | None = None,
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
@@ -429,6 +436,8 @@ def create_app(
             catalog_service_dependency,
             board_search_service_dependency,
             board_search_approximate_win_service_dependency,
+            board_search_board_detail_service_dependency,
+            board_search_board_view_service_dependency,
             cleanup_service_dependency,
             rules_service_dependency,
             dataset_service_dependency,
@@ -523,6 +532,45 @@ def create_app(
     resolved_board_search_approximate_win_dependency = (
         board_search_approximate_win_service_dependency
         or default_board_search_approximate_win_service_dependency
+    )
+
+    def default_board_search_board_detail_service_dependency() -> Iterator[
+        BoardSearchBoardDetailService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchBoardDetailService(
+                    SqlAlchemyBoardSearchApproximateWinRepository(session),
+                    artifact_root=resolved_settings.artifact_root,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_board_detail_dependency = (
+        board_search_board_detail_service_dependency
+        or default_board_search_board_detail_service_dependency
+    )
+    board_search_board_view_cache = BoardSearchBoardViewCache(resolved_settings.artifact_root)
+
+    def default_board_search_board_view_service_dependency() -> Iterator[
+        BoardSearchBoardViewService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchBoardViewService(
+                    SqlAlchemyBoardSearchApproximateWinRepository(session),
+                    board_search_board_view_cache,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_board_view_dependency = (
+        board_search_board_view_service_dependency
+        or default_board_search_board_view_service_dependency
     )
 
     def default_cleanup_service_dependency() -> Iterator[CleanupService]:
@@ -1466,6 +1514,10 @@ def create_app(
             resolved_remote_manual_selection_transfer_dependency,
             resolved_remote_manual_selection_recovery_dependency,
             resolved_settings.artifact_root,
+            board_search_board_detail_service_dependency=(
+                resolved_board_search_board_detail_dependency
+            ),
+            board_search_board_view_service_dependency=resolved_board_search_board_view_dependency,
         )
     )
     if not custom_service_dependency_supplied:
@@ -1568,9 +1620,21 @@ def create_app(
             "APPROXIMATE_WIN_RULES_NOT_PUBLISHED",
             "APPROXIMATE_WIN_RULES_INVALID",
             "APPROXIMATE_WIN_BOARD_SYMBOL_OUTSIDE_RULES",
+            # D-470 board detail and view: the board changed since the search
+            # document was written, or its source image no longer matches.
+            "BOARD_SEARCH_BOARD_REVISION_CONFLICT",
+            "BOARD_SEARCH_BOARD_VIEW_CACHE_UNSAFE",
+            "BOARD_SEARCH_BOARD_VIEW_SOURCE_PATH_UNSAFE",
+            "BOARD_SEARCH_BOARD_VIEW_SOURCE_MEDIA_TYPE_UNSUPPORTED",
+            "BOARD_SEARCH_BOARD_VIEW_SOURCE_CHECKSUM_DRIFT",
         }:
             status_code = 409
-        elif error.code == "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND":
+        elif error.code in {
+            "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND",
+            "BOARD_SEARCH_BOARD_NOT_FOUND",
+            "BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE",
+            "BOARD_SEARCH_BOARD_VIEW_SOURCE_NOT_FOUND",
+        }:
             status_code = 404
         # "APPROXIMATE_WIN_SPIN_COUNT_INVALID" and any other/unknown code
         # fall through to the 422 default (malformed query parameters).

@@ -103,6 +103,9 @@ def create_api_router(
     remote_manual_selection_transfer_service_dependency: Callable[..., object],
     remote_manual_selection_recovery_service_dependency: Callable[..., object],
     artifact_root: Path,
+    *,
+    board_search_board_detail_service_dependency: Callable[..., object],
+    board_search_board_view_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(create_health_router(settings.version))
@@ -121,6 +124,8 @@ def create_api_router(
             board_search_service_dependency,
             board_search_approximate_win_service_dependency,
             artifact_root,
+            board_detail_service_dependency=board_search_board_detail_service_dependency,
+            board_view_service_dependency=board_search_board_view_service_dependency,
         )
     )
     router.include_router(create_cleanup_router(cleanup_service_dependency))

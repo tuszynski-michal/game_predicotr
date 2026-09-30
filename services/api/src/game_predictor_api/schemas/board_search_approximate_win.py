@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import Field
 
 from game_predictor_api.application.board_search_approximate_win import ApproximateWinCalculation
+from game_predictor_api.application.board_search_board_detail import BoardSearchBoardDetail
 from game_predictor_api.domain.board_search import BoardSearchAssetMode
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -104,11 +105,108 @@ def to_approximate_win_response(
     )
 
 
+class BoardSearchLineMatchResponse(ApiModel):
+    payline_id: str
+    payline_code: str
+    payline_name: str
+    payline_display_order: int = Field(ge=0)
+    row_path: tuple[int, ...]
+    symbol_code: str
+    matched_length: int = Field(ge=1)
+    matched_cells: tuple[int, ...]
+    joker_cells: tuple[int, ...]
+    payout_credits: int = Field(gt=0)
+
+
+class BoardSearchViewPointResponse(ApiModel):
+    x: float
+    y: float
+
+
+class BoardSearchBoardViewResponse(ApiModel):
+    """Size of the cropped view and cell polygons in its 0–1 coordinates."""
+
+    width: int = Field(ge=1)
+    height: int = Field(ge=1)
+    revision: str = Field(pattern=r"^[a-f0-9]{64}$")
+    cell_polygons: tuple[tuple[BoardSearchViewPointResponse, ...], ...] | None = Field(
+        min_length=15, max_length=15
+    )
+
+
+class BoardSearchBoardDetailResponse(ApiModel):
+    game_id: UUID
+    sequence_number: int = Field(ge=1)
+    board_status: str
+    board_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    data_source: BoardSearchAssetMode
+    rules: ApproximateWinRulesResponse
+    symbol_codes: tuple[str | None, ...]
+    payout_credits: int = Field(ge=0)
+    payout_kind: Literal["exact", "confirmed_minimum", "none"]
+    matches: tuple[BoardSearchLineMatchResponse, ...]
+    view: BoardSearchBoardViewResponse | None
+
+
+def to_board_search_board_detail_response(
+    detail: BoardSearchBoardDetail,
+) -> BoardSearchBoardDetailResponse:
+    return BoardSearchBoardDetailResponse(
+        game_id=detail.game_id,
+        sequence_number=detail.sequence_number,
+        board_status=detail.board_status,
+        board_checksum_sha256=detail.board_checksum_sha256,
+        data_source=detail.data_source,
+        rules=ApproximateWinRulesResponse(
+            rules_version_id=detail.rules_version_id,
+            rules_version=detail.rules_version,
+            spin_cost=detail.spin_cost,
+            algorithm_version=detail.algorithm_version,
+        ),
+        symbol_codes=detail.symbol_codes,
+        payout_credits=detail.payout_credits,
+        payout_kind=detail.payout_kind,
+        matches=tuple(
+            BoardSearchLineMatchResponse(
+                payline_id=match.payline_id,
+                payline_code=match.payline_code,
+                payline_name=match.payline_name,
+                payline_display_order=match.payline_display_order,
+                row_path=match.row_path,
+                symbol_code=match.symbol_code,
+                matched_length=match.matched_length,
+                matched_cells=match.matched_cells,
+                joker_cells=match.joker_cells,
+                payout_credits=match.payout_credits,
+            )
+            for match in detail.matches
+        ),
+        view=None
+        if detail.view is None
+        else BoardSearchBoardViewResponse(
+            width=detail.view.width,
+            height=detail.view.height,
+            revision=detail.view.revision,
+            cell_polygons=None
+            if detail.view.cell_polygons is None
+            else tuple(
+                tuple(BoardSearchViewPointResponse(x=x, y=y) for x, y in polygon)
+                for polygon in detail.view.cell_polygons
+            ),
+        ),
+    )
+
+
 __all__ = [
     "ApproximateWinCompletenessResponse",
+    "BoardSearchBoardDetailResponse",
+    "BoardSearchBoardViewResponse",
+    "BoardSearchLineMatchResponse",
+    "BoardSearchViewPointResponse",
     "ApproximateWinResponse",
     "ApproximateWinRowResponse",
     "ApproximateWinRulesResponse",
     "ApproximateWinSummaryResponse",
     "to_approximate_win_response",
+    "to_board_search_board_detail_response",
 ]

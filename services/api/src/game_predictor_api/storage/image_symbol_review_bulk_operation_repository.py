@@ -41,6 +41,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     _logical_cell_visible_clause,
     _symbol_scope_filter_clause,
     _uses_logical_current_cell_identity,
+    extended_symbol_cell_review_filter_clauses,
     symbol_cell_review_projection_is_available,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
@@ -712,8 +713,12 @@ def _visible_cells_statement(
         state=selection.state,
         outside_only=selection.outside_only,
         include_all_symbols=selection.include_all_symbols,
+        prediction_source=selection.prediction_source,
+        changed_from=selection.changed_from,
+        changed_to=selection.changed_to,
     )
     statement = statement.where(_symbol_scope_filter_clause(review_filter))
+    statement = statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))
     if selection.state is not SymbolCellReviewFilterState.ALL:
         statement = statement.where(cell.review_state == selection.state.value)
     if selection.min_confidence is not None or selection.max_confidence is not None:

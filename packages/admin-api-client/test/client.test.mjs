@@ -2470,6 +2470,56 @@ test('symbol cell review client forwards abort signals for list and count reads'
   assert.equal(requests[1].signal.aborted, true);
 });
 
+test('symbol cell review client sends prediction source and change range only when set', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        catalogRevision: 2,
+        counts: { allCount: 1, approvedCount: 0, pendingCount: 1 },
+        items: [],
+        nextCursor: null,
+        previousCursor: null,
+        skippedCount: 0,
+      });
+    },
+  });
+  const filters = {
+    changedFrom: '2026-09-30T00:00:00+02:00',
+    changedTo: '2026-09-30T23:59:59+02:00',
+    predictionSource: 'reference_library',
+  };
+
+  await client.listSymbolCellReviews({ gameId, symbolId: 'all', ...filters });
+  await client.skipSymbolCellReviews({
+    count: 5,
+    gameId,
+    symbolId: 'all',
+    ...filters,
+  });
+  await client.getSymbolCellReviewCounts({
+    catalogRevision: 2,
+    gameId,
+    symbolId: 'all',
+    ...filters,
+  });
+  await client.listSymbolCellReviews({ gameId, symbolId: 'all' });
+
+  for (const request of requests.slice(0, 3)) {
+    const url = new URL(request.url);
+    assert.equal(url.searchParams.get('predictionSource'), 'reference_library');
+    assert.equal(url.searchParams.get('changedFrom'), filters.changedFrom);
+    assert.equal(url.searchParams.get('changedTo'), filters.changedTo);
+  }
+  const unfiltered = new URL(requests[3].url);
+  assert.equal(unfiltered.searchParams.has('predictionSource'), false);
+  assert.equal(unfiltered.searchParams.has('changedFrom'), false);
+  assert.equal(unfiltered.searchParams.has('changedTo'), false);
+});
+
 test('symbol cell review client reads and starts durable projection preparation', async () => {
   const requests = [];
   const gameId = '22222222-2222-4222-8222-222222222222';

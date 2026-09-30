@@ -1962,6 +1962,7 @@ export type {
   SymbolCellReviewMutationRequest,
   SymbolCellReviewMutationResponse,
   SymbolCellReviewPageResponse,
+  SymbolCellReviewPredictionSource,
   SymbolCellReviewProjectionStartResponse,
   SymbolCellReviewProjectionStatusResponse,
   SymbolCellReviewSkipResponse,

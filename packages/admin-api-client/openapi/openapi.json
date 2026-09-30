@@ -21130,6 +21130,30 @@
             "title": "Catalogrevision",
             "type": "integer"
           },
+          "changedFrom": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changedfrom"
+          },
+          "changedTo": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changedto"
+          },
           "excludedCellReviewIds": {
             "default": [],
             "items": {
@@ -21170,6 +21194,16 @@
               }
             ],
             "title": "Minconfidence"
+          },
+          "predictionSource": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SymbolCellReviewPredictionSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "state": {
             "$ref": "#/components/schemas/SymbolCellReviewFilterState",
@@ -22006,6 +22040,15 @@
         ],
         "title": "SymbolCellReviewPageResponse",
         "type": "object"
+      },
+      "SymbolCellReviewPredictionSource": {
+        "description": "Which writer produced a cell's current prediction (D-466).",
+        "enum": [
+          "reference_library",
+          "model"
+        ],
+        "title": "SymbolCellReviewPredictionSource",
+        "type": "string"
       },
       "SymbolCellReviewProjectionStartResponse": {
         "additionalProperties": false,
@@ -28864,6 +28907,56 @@
               ],
               "title": "Maxconfidence"
             }
+          },
+          {
+            "in": "query",
+            "name": "predictionSource",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SymbolCellReviewPredictionSource"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Predictionsource"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedfrom"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedto"
+            }
           }
         ],
         "responses": {
@@ -29421,6 +29514,56 @@
               ],
               "title": "Maxconfidence"
             }
+          },
+          {
+            "in": "query",
+            "name": "predictionSource",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SymbolCellReviewPredictionSource"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Predictionsource"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedfrom"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedto"
+            }
           }
         ],
         "responses": {
@@ -29579,6 +29722,56 @@
                 }
               ],
               "title": "Maxconfidence"
+            }
+          },
+          {
+            "in": "query",
+            "name": "predictionSource",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SymbolCellReviewPredictionSource"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Predictionsource"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedfrom"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedto"
             }
           },
           {

@@ -11750,6 +11750,14 @@ export type SymbolCellReviewBulkFilterSelectionRequest = {
    */
   catalogRevision: number;
   /**
+   * Changedfrom
+   */
+  changedFrom?: string | null;
+  /**
+   * Changedto
+   */
+  changedTo?: string | null;
+  /**
    * Excludedcellreviewids
    */
   excludedCellReviewIds?: Array<string>;
@@ -11765,6 +11773,7 @@ export type SymbolCellReviewBulkFilterSelectionRequest = {
    * Minconfidence
    */
   minConfidence?: number | null;
+  predictionSource?: SymbolCellReviewPredictionSource | null;
   state?: SymbolCellReviewFilterState;
   /**
    * Symbolid
@@ -12190,6 +12199,13 @@ export type SymbolCellReviewPageResponse = {
    */
   previousCursor: string | null;
 };
+
+/**
+ * SymbolCellReviewPredictionSource
+ *
+ * Which writer produced a cell's current prediction (D-466).
+ */
+export type SymbolCellReviewPredictionSource = 'reference_library' | 'model';
 
 /**
  * SymbolCellReviewProjectionStartResponse
@@ -15933,6 +15949,18 @@ export type GetSymbolCellReviewCountsData = {
      * Maxconfidence
      */
     maxConfidence?: number | null;
+    /**
+     * Predictionsource
+     */
+    predictionSource?: SymbolCellReviewPredictionSource | null;
+    /**
+     * Changedfrom
+     */
+    changedFrom?: string | null;
+    /**
+     * Changedto
+     */
+    changedTo?: string | null;
   };
   url: '/api/v1/admin/games/{game_id}/symbol-cell-review-counts';
 };
@@ -16219,6 +16247,18 @@ export type SkipSymbolCellReviewsData = {
      * Maxconfidence
      */
     maxConfidence?: number | null;
+    /**
+     * Predictionsource
+     */
+    predictionSource?: SymbolCellReviewPredictionSource | null;
+    /**
+     * Changedfrom
+     */
+    changedFrom?: string | null;
+    /**
+     * Changedto
+     */
+    changedTo?: string | null;
   };
   url: '/api/v1/admin/games/{game_id}/symbol-cell-review-skip';
 };
@@ -16285,6 +16325,18 @@ export type ListSymbolCellReviewsData = {
      * Maxconfidence
      */
     maxConfidence?: number | null;
+    /**
+     * Predictionsource
+     */
+    predictionSource?: SymbolCellReviewPredictionSource | null;
+    /**
+     * Changedfrom
+     */
+    changedFrom?: string | null;
+    /**
+     * Changedto
+     */
+    changedTo?: string | null;
     /**
      * Limit
      */

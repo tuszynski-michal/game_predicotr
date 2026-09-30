@@ -345,6 +345,7 @@ import type {
   SymbolModelActivationAction,
   SymbolModelActivationCommand,
   SymbolCellReviewFilterState,
+  SymbolCellReviewPredictionSource,
   SymbolCellReviewAction,
   SymbolCellReviewBulkOperationRequest,
   SymbolCellReviewBulkOperationResponse,
@@ -633,6 +634,7 @@ export type {
   SymbolCellReviewMutationRequest,
   SymbolCellReviewMutationResponse,
   SymbolCellReviewPageResponse,
+  SymbolCellReviewPredictionSource,
   SymbolCellReviewSkipResponse,
   SymbolCellPreviewBatchRequest,
   VirtualCellPreviewBatchRequest,
@@ -801,7 +803,32 @@ export interface ListOperationalImageReviewItemsOptions extends OperationalImage
   readonly limit?: number;
 }
 
-export interface ListSymbolCellReviewsOptions {
+/** Optional filters by prediction source and change time (D-466). */
+export interface SymbolCellReviewExtendedFilterOptions {
+  readonly predictionSource?: SymbolCellReviewPredictionSource;
+  /** Inclusive lower bound of the cell's last change, ISO 8601 with an offset. */
+  readonly changedFrom?: string;
+  /** Inclusive upper bound of the cell's last change, ISO 8601 with an offset. */
+  readonly changedTo?: string;
+}
+
+function symbolCellReviewExtendedFilterQuery(
+  options: SymbolCellReviewExtendedFilterOptions,
+): SymbolCellReviewExtendedFilterOptions {
+  return {
+    ...(options.predictionSource === undefined
+      ? {}
+      : { predictionSource: options.predictionSource }),
+    ...(options.changedFrom === undefined
+      ? {}
+      : { changedFrom: options.changedFrom }),
+    ...(options.changedTo === undefined
+      ? {}
+      : { changedTo: options.changedTo }),
+  };
+}
+
+export interface ListSymbolCellReviewsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly gameId: string;
   readonly symbolId: string | 'unknown' | 'outside' | 'all';
   readonly state?: SymbolCellReviewFilterState;
@@ -813,7 +840,7 @@ export interface ListSymbolCellReviewsOptions {
   readonly signal?: AbortSignal;
 }
 
-export interface SkipSymbolCellReviewsOptions {
+export interface SkipSymbolCellReviewsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly gameId: string;
   readonly symbolId: string | 'unknown' | 'outside' | 'all';
   readonly count: number;
@@ -825,7 +852,7 @@ export interface SkipSymbolCellReviewsOptions {
   readonly signal?: AbortSignal;
 }
 
-export interface GetSymbolCellReviewCountsOptions {
+export interface GetSymbolCellReviewCountsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly catalogRevision: number;
   readonly gameId: string;
   readonly maxConfidence?: number;
@@ -887,8 +914,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getHealth: () => getGeneratedHealth({ client }),
-    createV7LabelGeometryCalibrationSession: (body: V7LabelGeometrySessionCreate) =>
-      createGeneratedV7LabelGeometryCalibrationSession({ body, client }),
+    createV7LabelGeometryCalibrationSession: (
+      body: V7LabelGeometrySessionCreate,
+    ) => createGeneratedV7LabelGeometryCalibrationSession({ body, client }),
     getV7LabelGeometryCalibrationSession: (sessionId: string) =>
       getGeneratedV7LabelGeometryCalibrationSession({
         client,
@@ -931,7 +959,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { session_id: sessionId, source_id: sourceId },
         query: { expectedSourceChecksumSha256 },
       }),
-    listV7LabelGeometryProfiles: () => listGeneratedV7LabelGeometryProfiles({ client }),
+    listV7LabelGeometryProfiles: () =>
+      listGeneratedV7LabelGeometryProfiles({ client }),
     getV7LabelGeometryProfile: (profileFingerprint: string) =>
       getGeneratedV7LabelGeometryProfile({
         client,
@@ -939,7 +968,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     createV7LabelGeometryValidationReport: (body: V7ValidationReportCreate) =>
       createGeneratedV7LabelGeometryValidationReport({ body, client }),
-    listV7LabelGeometryAdoptions: () => listGeneratedV7LabelGeometryAdoptions({ client }),
+    listV7LabelGeometryAdoptions: () =>
+      listGeneratedV7LabelGeometryAdoptions({ client }),
     createV7LabelGeometryAdoption: (body: V7LabelGeometryAdoptionCreate) =>
       createGeneratedV7LabelGeometryAdoption({ body, client }),
     getSemiAutomaticImageSelectionCapabilities: () =>
@@ -1421,7 +1451,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body: file,
         client,
         headers: {
-          ...confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
+          ...confirmedTargetHeaders(
+            `image-import:${gameId}:page-source-replacement`,
+          ),
           'X-Game-Id': gameId,
           'X-Source-Checksum-Sha256': sourceChecksumSha256,
           'X-Source-Relative-Path': sourceRelativePath,
@@ -1445,8 +1477,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           replacementChecksumSha256,
         },
         client,
-        headers: confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
-        path: { upload_id: uploadId, replacement_upload_id: replacementUploadId },
+        headers: confirmedTargetHeaders(
+          `image-import:${gameId}:page-source-replacement`,
+        ),
+        path: {
+          upload_id: uploadId,
+          replacement_upload_id: replacementUploadId,
+        },
       }),
     discardBrowserPageGeometrySourceReplacement: (
       uploadId: string,
@@ -1456,8 +1493,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       discardGeneratedBrowserPageGeometrySourceReplacement({
         body: { gameId },
         client,
-        headers: confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
-        path: { upload_id: uploadId, replacement_upload_id: replacementUploadId },
+        headers: confirmedTargetHeaders(
+          `image-import:${gameId}:page-source-replacement`,
+        ),
+        path: {
+          upload_id: uploadId,
+          replacement_upload_id: replacementUploadId,
+        },
       }),
     cancelBrowserImageSelection: (uploadId: string) =>
       cancelGeneratedBrowserImageSelection({
@@ -2331,6 +2373,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.minConfidence === undefined
             ? {}
             : { minConfidence: options.minConfidence }),
+          ...symbolCellReviewExtendedFilterQuery(options),
         },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
@@ -2354,6 +2397,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.minConfidence === undefined
             ? {}
             : { minConfidence: options.minConfidence }),
+          ...symbolCellReviewExtendedFilterQuery(options),
         },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
@@ -2371,6 +2415,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.minConfidence === undefined
             ? {}
             : { minConfidence: options.minConfidence }),
+          ...symbolCellReviewExtendedFilterQuery(options),
         },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),

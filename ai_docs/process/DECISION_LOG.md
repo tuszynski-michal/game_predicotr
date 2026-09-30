@@ -21,11 +21,21 @@ last_updated: 2026-09-29
   zmienia predykcję i grupę oczekującej komórki. Decyzja człowieka nadal
   jest jedynym źródłem weryfikacji (D-462); zapis nie zatwierdza komórek.
 - **Recovery:** poprzednia wersja predykcji pozostaje w historii wersji;
-  każdy przebieg ma podgląd z sumą kontrolną i raport.
+  każdy przebieg ma podgląd z sumą kontrolną i raport. `apply-revert`
+  przywraca predykcje modelu nową wersją (kopia poprzedniej, suma
+  `sha256("revert:" + suma przebiegu)`) dla wskazanych plansz albo całego
+  przebiegu; zrevertowana plansza nie wraca do biblioteki w tym samym
+  zakresie przebiegu.
 - **Filters:** weryfikacja symboli otrzymuje filtr źródła predykcji (nowy
-  algorytm / stary model) i zakres dat zmiany komórki (od–do).
+  algorytm / stary model) i zakres dat zmiany komórki (od–do). „Nowy
+  algorytm” oznacza komórkę, której wpis w bieżącej wersji predykcji
+  biblioteka przepisała (klucz `referenceLibrary`); wersja biblioteki
+  obejmuje całą planszę, a pozostałe komórki planszy są „starym modelem”.
+  Zapis planszy zmienia `updated_at` wszystkich jej komórek.
 - **Execution:** przebieg per symbol modelu i pasmo pewności, zawsze po
   podglądzie i jawnej zgodzie operatora; pierwszy: Arbuz poniżej 60%.
+  Zgoda na pierwszy przebieg: polecenie operatora z 2026-09-30, by
+  przeprowadzić cały proces (T3–T5, B1) bez jego udziału.
 
 ## D-465 — dobór wzorców symboli: zasłonięcia i zatwierdzenia masowe
 

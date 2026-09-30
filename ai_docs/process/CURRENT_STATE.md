@@ -53,6 +53,12 @@ last_updated: 2026-09-30
   Nic jeszcze nie zapisano w bazie. Audyt Fable: FAIL (P2) → poprawki → PASS.
   Nie uruchamiać `apply` równolegle z weryfikacją w Adminie ani z jobem
   przeliczania predykcji.
+- TASK-0745 (T4) done: API listy, pomijania, liczników i operacji masowych
+  weryfikacji symboli przyjmuje `predictionSource` (`reference_library` —
+  komórka przepisana przez bibliotekę, `model`) oraz `changedFrom` /
+  `changedTo` (`updated_at`, włącznie, ze strefą). OpenAPI, klient i wrapper
+  zaktualizowane. Audyt Fable: PASS → FAIL (P2: korelacja `EXISTS`) →
+  poprawka → PASS.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

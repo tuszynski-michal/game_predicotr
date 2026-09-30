@@ -56,6 +56,7 @@ from game_predictor_api.domain.image_reviews import (
     canonical_image_review_bytes,
 )
 from game_predictor_api.domain.image_symbol_reviews import (
+    REFERENCE_LIBRARY_PREDICTION_MODEL_VERSION,
     SymbolCellApprovedCropIdentity,
     SymbolCellAssignmentSource,
     SymbolCellCropIdentity,
@@ -68,6 +69,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewFilterState,
     SymbolCellReviewListFilter,
     SymbolCellReviewListItem,
+    SymbolCellReviewPredictionSource,
     SymbolCellReviewState,
     SymbolCellReviewTransition,
     SymbolCellWithoutImageIdentity,
@@ -756,6 +758,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             or review_filter.state is SymbolCellReviewFilterState.ACTIVE_MODEL_COHORT
             or review_filter.min_confidence is not None
             or review_filter.max_confidence is not None
+            or review_filter.has_extended_filters
         ):
             return None
         if review_filter.include_all_symbols:
@@ -936,7 +939,7 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 statement = statement.where(confidence >= review_filter.min_confidence)
             if review_filter.max_confidence is not None:
                 statement = statement.where(confidence <= review_filter.max_confidence)
-        return statement
+        return statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))
 
     def _visible_statement(self, *, review_filter: SymbolCellReviewListFilter) -> Select[Any]:
         return self._base_visible_statement(
@@ -1023,7 +1026,53 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             statement = statement.where(confidence >= review_filter.min_confidence)
         if review_filter.max_confidence is not None:
             statement = statement.where(confidence <= review_filter.max_confidence)
-        return statement
+        return statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))
+
+
+def extended_symbol_cell_review_filter_clauses(
+    review_filter: SymbolCellReviewListFilter,
+) -> tuple[ColumnElement[bool], ...]:
+    """Prediction-source and changed-range conditions shared by pages, counts and bulk scopes."""
+
+    cell = ImageSymbolReviewCellModel
+    clauses: list[ColumnElement[bool]] = []
+    if review_filter.prediction_source is not None:
+        # Aliased and correlated to the cell only: some enclosing statements already join the
+        # cell's prediction revision, which auto-correlation would otherwise swallow.
+        revision = aliased(ImageSymbolPredictionRevisionModel, name="library_revision")
+        # A library revision copies the whole board; only entries the library rewrote carry
+        # ``referenceLibrary``, so the source is decided per cell, not per revision.
+        library_entry = (
+            select(revision.id)
+            .where(
+                revision.game_id == cell.game_id,
+                revision.id == cell.prediction_revision_id,
+                revision.model_version == REFERENCE_LIBRARY_PREDICTION_MODEL_VERSION,
+                revision.predictions.contains(
+                    func.jsonb_build_array(
+                        func.jsonb_build_object(
+                            "rowIndex",
+                            cell.row_index,
+                            "columnIndex",
+                            cell.column_index,
+                            "referenceLibrary",
+                            func.jsonb_build_object(),
+                        )
+                    )
+                ),
+            )
+            .correlate(cell)
+            .exists()
+        )
+        if review_filter.prediction_source is SymbolCellReviewPredictionSource.REFERENCE_LIBRARY:
+            clauses.append(library_entry)
+        else:
+            clauses.append(~library_entry)
+    if review_filter.changed_from is not None:
+        clauses.append(cell.updated_at >= review_filter.changed_from)
+    if review_filter.changed_to is not None:
+        clauses.append(cell.updated_at <= review_filter.changed_to)
+    return tuple(clauses)
 
 
 def _apply_symbol_cell_review_state_filter(

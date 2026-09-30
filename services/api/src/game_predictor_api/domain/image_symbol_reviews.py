@@ -14,6 +14,7 @@ import json
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
 from uuid import UUID
@@ -76,6 +77,16 @@ class SymbolCellReviewFilterState(StrEnum):
     PENDING = "pending"
 
 
+class SymbolCellReviewPredictionSource(StrEnum):
+    """Which writer produced a cell's current prediction (D-466)."""
+
+    REFERENCE_LIBRARY = "reference_library"
+    MODEL = "model"
+
+
+REFERENCE_LIBRARY_PREDICTION_MODEL_VERSION = "symbol-reference-library-v1"
+
+
 class SymbolCellReviewCursorDirection(StrEnum):
     AFTER = "after"
     BEFORE = "before"
@@ -116,6 +127,17 @@ class SymbolCellReviewListFilter:
     storage_generation: int = 1
     uses_current_projection: bool = False
     outside_only: bool = False
+    prediction_source: SymbolCellReviewPredictionSource | None = None
+    changed_from: datetime | None = None
+    changed_to: datetime | None = None
+
+    @property
+    def has_extended_filters(self) -> bool:
+        return (
+            self.prediction_source is not None
+            or self.changed_from is not None
+            or self.changed_to is not None
+        )
 
     def __post_init__(self) -> None:
         if self.outside_only:
@@ -161,6 +183,21 @@ class SymbolCellReviewListFilter:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_CONFIDENCE_RANGE_INVALID",
                 "min_confidence cannot be greater than max_confidence.",
+            )
+        for name, moment in (("changed_from", self.changed_from), ("changed_to", self.changed_to)):
+            if moment is not None and moment.tzinfo is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CHANGED_RANGE_INVALID",
+                    f"{name} must include a time zone.",
+                )
+        if (
+            self.changed_from is not None
+            and self.changed_to is not None
+            and self.changed_from > self.changed_to
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_CHANGED_RANGE_INVALID",
+                "changed_from cannot be later than changed_to.",
             )
 
 
@@ -984,6 +1021,25 @@ def is_symbol_cell_training_eligible(
     )
 
 
+def utc_isoformat(value: datetime) -> str:
+    """One spelling per instant, so the same range in another offset keeps its cursor."""
+
+    return value.astimezone(UTC).isoformat()
+
+
+def _extended_filter_payload(review_filter: SymbolCellReviewListFilter) -> dict[str, str]:
+    """Only set filters enter a cursor, so cursors of unfiltered lists keep their bytes."""
+
+    payload: dict[str, str] = {}
+    if review_filter.prediction_source is not None:
+        payload["predictionSource"] = review_filter.prediction_source.value
+    if review_filter.changed_from is not None:
+        payload["changedFrom"] = utc_isoformat(review_filter.changed_from)
+    if review_filter.changed_to is not None:
+        payload["changedTo"] = utc_isoformat(review_filter.changed_to)
+    return payload
+
+
 def encode_symbol_cell_review_cursor(
     *,
     review_filter: SymbolCellReviewListFilter,
@@ -998,6 +1054,7 @@ def encode_symbol_cell_review_cursor(
         "key": [key[0], key[1], str(key[2])],
         "maxConfidence": review_filter.max_confidence,
         "minConfidence": review_filter.min_confidence,
+        **_extended_filter_payload(review_filter),
         "state": review_filter.state.value,
         "storageGeneration": review_filter.storage_generation,
         "symbolId": _symbol_cell_review_filter_scope(review_filter),
@@ -1034,6 +1091,12 @@ def decode_symbol_cell_review_cursor(
         parsed_model_cohort_id = (
             None if payload.get("modelCohortId") is None else UUID(payload["modelCohortId"])
         )
+        # Older cursors omit the extended filters; absence means "not filtered".
+        parsed_extended = {
+            key: payload.get(key)
+            for key in ("predictionSource", "changedFrom", "changedTo")
+            if payload.get(key) is not None
+        }
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
@@ -1060,6 +1123,7 @@ def decode_symbol_cell_review_cursor(
         or parsed_max_confidence != review_filter.max_confidence
         or parsed_storage_generation != review_filter.storage_generation
         or parsed_model_cohort_id != review_filter.model_cohort_id
+        or parsed_extended != _extended_filter_payload(review_filter)
     ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",

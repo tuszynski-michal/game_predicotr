@@ -89,7 +89,10 @@ last_updated: 2026-09-30
 - TASK-0752 (S1) done: migracja `0129` (osierocone funkcje triggerów),
   skrypt baz `diag_*`, usunięte narzędzia legacy/v0.9, dokumenty
   zaktualizowane. Audyt Opus PASS. Migracja i `--execute` czekają na zgodę.
-- TASK-0753 (S1) i TASK-0754 (S2) w toku.
+- TASK-0753 (S1) done: `scripts/clean_scratch_dirs.ps1` (podgląd 54
+  katalogi, 252 MB; 11 nieczytelnych do usunięcia ręcznie). Audyt Opus
+  PASS. Wykonanie czeka na zgodę.
+- TASK-0754 (S2) w toku.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

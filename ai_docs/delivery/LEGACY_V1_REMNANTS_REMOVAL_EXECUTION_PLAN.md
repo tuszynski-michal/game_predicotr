@@ -131,11 +131,14 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   D-443 (skrypt usunięty). Lista usuwanych plików jest w `Scope` zadania.
   Uruchomienie migracji na bazie operatora i `--execute` dla baz `diag_*`
   wymagają osobnej zgody.
-- **TASK-0753** — sprzątanie katalogów scratch w root (`.codex-task*`,
-  `test-temp*`, `t*`, `.tmp`, `.codex-tmp`, `.test-tmp`, `.pytest-tmp`,
-  `.test-artifacts`): podgląd z rozmiarami, usunięcie za zgodą; skrypt
-  `scripts/clean_scratch_dirs.ps1` z listą wzorców i ochroną `.tooling`,
-  `.venv*`, `node_modules`, `artifacts`, `worktrees`, `work`, `.runtime`.
+- **TASK-0753** — sprzątanie katalogów scratch w root (`.codex-task-*`,
+  `test-temp-*`, `t07-pytest-*`, `t6?`, `.test-tmp`, `.pytest-tmp`,
+  `.pytest_cache`, `.test-artifacts`, `.codex-tmp`,
+  `.codex-remote-attachments`): podgląd z rozmiarami,
+  usunięcie za zgodą; skrypt `scripts/clean_scratch_dirs.ps1` pomija
+  reparse pointy, katalogi nieczytelne i w użyciu, chroni `.tooling`,
+  `.venv*`, `node_modules`, `artifacts`, `worktrees`, `work`, `.runtime`,
+  `.tmp` (logi serwerów innych checkoutów).
 
 ### S2 — martwe gałęzie V1 w kodzie
 

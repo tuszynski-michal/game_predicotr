@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 ---
 
 # Wymagania modułu administracyjnego
@@ -427,9 +427,10 @@ kalkulację zakresu jako błąd, zamiast po cichu pominąć jedną planszę.
 Podsumowanie pokazuje osobno: rozpoznane wypłaty, koszt spinów (suma
 kosztu wszystkich spinów zakresu, również brakujących) i bilans
 (wypłaty minus koszt) — nigdy nie nazywane „zyskiem”. Tabela wyników
-zawiera wyłącznie spiny z dodatnią wypłatą w czterech kolumnach: Spin,
-Plansza, Wypłata i Bilans narastająco — również wtedy, gdy bilans narastający
-pozostaje ujemny; wypłata planszy częściowej jest oznaczona jako potwierdzone
+zawiera wyłącznie spiny z dodatnią wypłatą w kolumnach: Spin, Plansza,
+Wypłata, Bilans narastająco i kolumnie akcji bez widocznego nagłówka
+(przycisk „Pokaż planszę”, D-470, TASK-0764) — również wtedy, gdy bilans
+narastający pozostaje ujemny; wypłata planszy częściowej jest oznaczona jako potwierdzone
 minimum. Wszystkie wiersze jednej odpowiedzi mieszczą się w pionowo
 przewijalnym obszarze o wysokości około 10 wierszy; nagłówki kolumn pozostają
 widoczne podczas przewijania, a interfejs nie ma paginacji ani stopki zmiany
@@ -440,9 +441,22 @@ wykresu. Pod tabelą jest wykres SVG narastającego bilansu (rozpoznane
 wypłaty minus koszt wszystkich spinów) względem numeru spinu. Zaczyna się od
 zera, między wypłatami pokazuje spadek bilansu o koszt spinów (punkt tuż
 przed każdą wypłatą), kończy się na ostatnim spinie zakresu bilansem z
-podsumowania, ma etykiety minimum i maksimum oraz przerywaną linię zera, gdy
-bilans ją przecina; najechanie na wykres pokazuje tooltip najbliższego punktu
-wypłaty albo końca zakresu z liczbą spinów i bilansem. Puste wyniki (brak jakiejkolwiek dodatniej
+podsumowania i ma przerywaną linię zera, gdy bilans ją przecina. Wykres ma
+siatkę poziomą i pionową z „okrągłymi” podziałkami (kroki 1/2/5 × 10ⁿ)
+opisanymi na osiach; oś Y sięga do skrajnych podziałek obejmujących minimum
+i maksimum bilansu, a opisy podziałek zastępują osobne etykiety minimum i
+maksimum (TASK-0761). Najechanie
+na wykres pokazuje etykietę najbliższego punktu wypłaty albo końca zakresu z
+liczbą spinów i bilansem; etykieta leży w pasie nad obszarem danych i łączy
+się z punktem kropkowaną pionową linią, więc nie zasłania linii bilansu.
+Kliknięcie przypina najbliższy punkt: jego etykieta zostaje widoczna na
+stałe w tym samym pasie. Ponowne kliknięcie punktu albo „×” na etykiecie
+odpina go, „Wyczyść punkty” odpina wszystkie. Można przypiąć najwyżej 8
+punktów; kolejne kliknięcie pokazuje komunikat i nie usuwa starszego
+punktu. Etykiety nie nachodzą na siebie: gdy brakuje miejsca nad punktem,
+etykieta przesuwa się w bok, a linia prowadząca się łamie. Wykres obsługuje
+klawiaturę: strzałki wybierają punkt, Enter albo spacja przypina lub odpina.
+Przypięcia znikają, gdy wynik dotyczy innej planszy albo zakresu. Puste wyniki (brak jakiejkolwiek dodatniej
 wypłaty) nadal pokazują poprawne podsumowanie i kompletność danych, z
 zastrzeżeniem że przy niepełnych danych nie można wykluczyć niewykrytej
 wygranej; wykres pokazuje wtedy komunikat zamiast sztucznych danych. Liczniki
@@ -457,6 +471,61 @@ zachowuje wynik tylko dopóki sekcja pozostaje otwarta dla tego samego wyboru;
 zwinięcie sekcji odrzuca wynik (także spóźnioną odpowiedź), więc ponowne
 otwarcie zawsze liczy od nowa i uwzględnia symbole zweryfikowane w
 międzyczasie (D-462, TASK-0722).
+
+**Stawka i jednostka (D-470, TASK-0762).** Nagłówek wyniku (poza
+nagłówkiem zwijania sekcji) ma kontrolki
+„Stawka” (1,20 zł, 2 zł, 4 zł, 6 zł, 10 zł, 20 zł) i „Jednostka” (kredyty
+albo złote). `1 zł = 10 kredytów`; stawką bazową jest koszt spinu
+opublikowanych reguł (dziś 100 kredytów = 10 zł); stawka bazowa spoza listy
+pojawia się jako dodatkowa opcja „bazowa”. Wybrana stawka skaluje
+wypłaty i koszt spinu mnożnikiem `stawka / stawka bazowa`, np. 1 000
+kredytów wypłaty przy stawce 10 zł to 600 kredytów (60 zł) przy stawce
+6 zł. Przeliczenie obejmuje podsumowanie, koszt spinu w nagłówku, kolumny
+tabeli, próg suwaka, osie i etykiety wykresu oraz legendę modala planszy.
+Jest wykonywane lokalnie, bez żądania do API, na liczbach całkowitych z
+jednym zaokrągleniem do grosza na wartości końcowej. Nagłówek pokazuje
+mnożnik. Domyślnie obowiązuje stawka bazowa i jednostka „kredyty”, więc
+ekran bez zmiany ustawień wygląda jak wcześniej. Wybór jest zapamiętany w
+przeglądarce jako preferencja widoku. Próg suwaka jest zachowywany przy
+zmianie stawki i jednostki. Koszt spinu równy zero wyłącza wybór stawki z
+komunikatem; jednostka „złote” pozostaje dostępna w kursie `kredyty / 10`.
+
+**Podgląd planszy z liniami (D-470, TASK-0763–0764).** Przycisk w kolumnie
+akcji otwiera modal z przyciętym widokiem wybranej planszy i narysowanymi
+wygrywającymi liniami. Linie i ich wypłaty pochodzą z tego samego
+ewaluatora i tej samej opublikowanej wersji reguł co wiersz tabeli: każda
+linia liczy się wyłącznie od lewej krawędzi i kończy na pierwszej nieznanej
+komórce, więc plansza przycięta z lewej strony nie pokazuje żadnej linii,
+a nieznane pola są oznaczone `?`. Każda linia ma stały kolor według
+kolejności linii wypłat; pola z jokerem mają dodatkowy znacznik. Legenda
+ma przełącznik widoczności dla każdej linii osobno oraz „Pokaż wszystkie”
+i „Ukryj wszystkie”, a każdy wpis podaje nazwę linii, symbol, długość i
+wypłatę w wybranej stawce i jednostce. Gdy suma wypłat linii różni się od
+wypłaty wiersza albo wynik dotyczy innej wersji reguł, modal pokazuje
+komunikat i „Przelicz ponownie” zamiast niespójnego rysunku; przycisk
+zamyka modal i liczy zakres od nowa. Błąd pobrania planszy pokazuje
+komunikat z „Spróbuj ponownie”. Brak zdjęcia albo siatki pól nie blokuje modala:
+pokazuje schemat 3 × 5 z ikon symboli z tymi samymi liniami. Modal jest
+wyłącznie do odczytu.
+
+### Udostępnianie wyszukiwania online
+
+**D-471 (etap B planu `BOARD_SEARCH_SHARE_EXECUTION_PLAN.md`, jeszcze
+niezaimplementowany).** Przycisk „Udostępnij online” w sekcji „Wyszukaj
+plansze” tworzy link do kopii tej sekcji razem z „Przybliżoną wygraną” dla
+bieżącej gry. Operator podaje etykietę i czas dostępu (1 h, 4 h, 8 h albo
+24 h; domyślnie 8 h). Po utworzeniu widzi link i 8-znakowy kod wejścia
+(`XXXX-XXXX`), może je skopiować osobno i zatrzymać sesję z potwierdzeniem.
+Link nie zawiera kodu. Kod jest przechowywany wyłącznie lokalnie w
+przeglądarce Admina do wygaśnięcia albo zatrzymania sesji.
+
+Odbiorca po podaniu kodu ma te same funkcje co operator: liczbę wyników,
+zakres wyszukiwania, paletę symboli, edycję wzoru, karuzelę wyników,
+„Przybliżoną wygraną” z tabelą, wykresem, stawką i modalem linii. Dostęp
+jest tylko do odczytu i obejmuje jedną grę. Obrazy są przycięte do planszy
+i zmniejszone. Odbiorca nie widzi panelu udostępniania ani identyfikatorów
+wewnętrznych. Po wygaśnięciu albo zatrzymaniu sesji aplikacja pokazuje
+czytelny ekran zakończenia.
 
 ### Korekta cięcia siatki
 

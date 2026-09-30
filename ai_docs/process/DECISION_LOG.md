@@ -1,10 +1,55 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 ---
 
 # Decision Log
+
+## D-471 — udostępnianie „Wyszukaj plansze” online przez link z kodem
+
+- **Status:** accepted, 2026-09-30; plan
+  `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` (etap B,
+  TASK-0765–0770). Wdrożenie wymaga osobnego polecenia etapu B.
+- **Decision:** operator tworzy w Adminie link do kopii sekcji
+  „Wyszukaj plansze” razem z „Przybliżoną wygraną”. Nowy cel sesji
+  `board-search-share` ma własną tabelę, cookie i prefiks proxy w Reviewerze
+  za istniejącym Cloudflare Quick Tunnelem. Sesja jest przypięta do jednej
+  gry, tylko do odczytu, dla jednego odbiorcy naraz (nowe odblokowanie
+  rotuje token). Link nie zawiera kodu; kod ma 8 znaków (`XXXX-XXXX`,
+  istniejący generator, PBKDF2, 5 prób). Czas dostępu 1 h / 4 h / 8 h /
+  24 h, domyślnie 8 h. Admin, API i baza pozostają na loopbacku.
+- **Data exposure:** odbiorca widzi symbole, wyniki wyszukiwania, wypłaty i
+  przycięte widoki plansz wybranej gry. Odpowiedzi publiczne nie zawierają
+  identyfikatorów review, planszy, importu, jobów ani ścieżek.
+- **Images:** serwer renderuje przycięty widok planszy (obrys + 20%,
+  dłuższy bok maks. 1280 px, WebP) z cache plikowym; ten sam widok zastępuje
+  w Adminie pobieranie całego zdjęcia i kadrowanie CSS.
+- **Rejected:** wystawienie Admina, osobna aplikacja z drugim tunelem,
+  hosting w chmurze, kod w adresie linku, rozszerzenie
+  `reviewer_access_sessions` o nowy cel.
+
+## D-470 — stawka, złote i linie wypłat w „Przybliżonej wygranej”
+
+- **Status:** accepted, 2026-09-30; plan
+  `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` (TASK-0762 —
+  stawka i złote; TASK-0763–0764 — linie wypłat).
+- **Decision:** `1 zł = 10 kredytów`. Stawka bazowa to koszt spinu
+  opublikowanych reguł (dziś 100 kredytów = 10 zł). Dozwolone stawki:
+  1,20 zł, 2 zł, 4 zł, 6 zł, 10 zł i 20 zł; stawka bazowa spoza tej listy
+  pojawia się jako dodatkowa opcja „bazowa”. Mnożnik `stawka / stawka
+  bazowa` skaluje wypłaty i koszt spinu, więc także bilans. Operator
+  potwierdził liniowość: 4 winogrona dają 1 000 kredytów przy stawce 10 zł
+  i 600 kredytów przy stawce 6 zł.
+- **Arithmetic:** przeliczenie wykonuje klient na liczbach całkowitych
+  (`kredyty × stawka_gr / koszt_spinu` daje grosze; zaokrąglenie z ilorazu
+  i reszty, bez liczb zmiennoprzecinkowych), z jednym zaokrągleniem
+  do grosza (połówki od zera) na wartości końcowej. API i kalkulator liczą
+  dalej w kredytach przy stawce bazowej (D-446 bez zmian).
+- **Lines:** podgląd linii wypłaty w modalu używa tego samego ewaluatora
+  `payout-v3-unknown-prefix-stop` co suma w tabeli. Linia liczy się
+  wyłącznie od lewej krawędzi i kończy na pierwszej nieznanej komórce;
+  plansza przycięta z lewej nie daje żadnej linii.
 
 ## D-466 — nowa wersja predykcji z biblioteki wzorców dla oczekujących komórek
 

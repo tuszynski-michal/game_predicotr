@@ -6,6 +6,16 @@ last_updated: 2026-09-30
 
 # Current State
 
+### D-470 / D-471 — „Przybliżona wygrana”: linie, wykres, stawki; udostępnianie online (w toku)
+
+- Plan `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` zaakceptowany
+  2026-09-30; operator zlecił zapis planu i etap A (TASK-0760–0764). Etap B
+  (TASK-0765–0770, udostępnianie online) wymaga osobnego polecenia.
+- Praca w worktree `worktrees/board-search-share`, gałąź
+  `feat/board-search-share` od `v1.7.81` / `f3340b3b`. Numery TASK-0760+
+  i D-470+ zostawiają zapas dla równoległego toru biblioteki symboli.
+- TASK-0760 done: plan, D-470, D-471, `ADMIN_APP.md`, pliki zadań 0761–0770.
+
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)
 
 - Plan `ai_docs/delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md`

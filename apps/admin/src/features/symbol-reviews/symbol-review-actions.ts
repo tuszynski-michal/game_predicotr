@@ -1,6 +1,7 @@
 import type {
   GameResponse,
   SymbolCellReviewCountSnapshotResponse,
+  SymbolCellReviewExtendedFilterOptions,
   SymbolCellReviewFilterState,
   SymbolCellReviewPageResponse,
   SymbolCellReviewProjectionStartResponse,
@@ -90,7 +91,7 @@ export async function startSymbolReviewProjection(
   }
 }
 
-export interface LoadSymbolReviewPageOptions {
+export interface LoadSymbolReviewPageOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly gameId: string;
@@ -102,7 +103,7 @@ export interface LoadSymbolReviewPageOptions {
   readonly symbolId: string | 'all' | 'unknown';
 }
 
-export interface LoadSymbolReviewCountsOptions {
+export interface LoadSymbolReviewCountsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly catalogRevision: number;
   readonly gameId: string;
   readonly maxConfidence?: number;
@@ -232,7 +233,7 @@ export async function loadSymbolReviewPage(
   }
 }
 
-export interface SkipSymbolReviewPagesOptions {
+export interface SkipSymbolReviewPagesOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly count: number;

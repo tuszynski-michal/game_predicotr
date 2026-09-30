@@ -59,6 +59,10 @@ last_updated: 2026-09-30
   `changedTo` (`updated_at`, włącznie, ze strefą). OpenAPI, klient i wrapper
   zaktualizowane. Audyt Fable: PASS → FAIL (P2: korelacja `EXISTS`) →
   poprawka → PASS.
+- TASK-0746 (T5) done: Admin → Weryfikacja symboli ma grupę „Źródło
+  predykcji” (Wszystkie / Nowy algorytm / Stary model) i „Data zmiany
+  komórki” (Od–Do, „Od dziś 00:00”, „Zastosuj zakres”, „Wyczyść”). Audyt
+  Fable PASS, P3 częściowo wdrożone.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

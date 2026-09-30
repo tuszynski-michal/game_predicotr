@@ -127,6 +127,30 @@
   white-space: nowrap;
 }
 
+.filters fieldset.changeRange {
+  grid-template-columns: minmax(0, 14rem) minmax(0, 14rem) auto;
+}
+
+.filters fieldset.changeRange label {
+  display: grid;
+  gap: 4px;
+}
+
+.changeRangeActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 6px;
+}
+
+.changeRangeError {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
 .summary {
   display: flex;
   align-items: center;
@@ -588,6 +612,10 @@
 
   .filters fieldset {
     grid-column: auto;
+  }
+
+  .filters fieldset.changeRange {
+    grid-template-columns: 1fr;
   }
 
   .summary,

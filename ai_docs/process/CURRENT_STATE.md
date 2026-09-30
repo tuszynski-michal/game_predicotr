@@ -85,12 +85,23 @@ last_updated: 2026-09-30
 - TASK-0770 done: model zagrożeń (nowa powierzchnia, lista kontrolna,
   incydent), przewodnik operatora, testy bramki (allowlista = OpenAPI,
   rozdział ciasteczek), odbiór na lokalnym buildzie produkcyjnym Reviewera.
-- **Etap B zakończony; STOP na granicy etapu.** Do odbioru przez operatora
-  (wymaga zgody): migracja `0130_board_search_share_sessions` na bazie
-  deweloperskiej (`npm run db:migrate`), restart API/Admina, utworzenie
-  linku (uruchamia Quick Tunnel) i test z drugiego urządzenia. Po scaleniu
-  gałęzi potrzebne `npm install` (nowy pakiet workspace
-  `@game-predictor/board-search-ui`). Push i merge nie były wykonywane.
+- 2026-09-30 operator scalił gałąź biblioteki symboli; migracja
+  udostępnień przenumerowana na `0130` po ich `0129` (`v1.7.101`) i za
+  zgodą operatora wykonana na bazie deweloperskiej (head
+  `0130_board_search_share_sessions`).
+- TASK-0775 done (`v1.7.102`): Reviewer uruchamiany przez kontroler tunelu
+  dostaje adres API, które go uruchomiło (wcześniej API na `8010` startowało
+  Reviewera proxy-ującego do `8000`).
+- Odbiór końcowy etapu B wykonany za zgodą operatora na testowej instancji
+  z worktree (Admin 3010, API 8010): utworzenie linku uruchomiło produkcyjnego
+  Reviewera i Quick Tunnel; odbiorca odblokował link, wyszukał plansze z
+  przyciętymi widokami, policzył zakres i otworzył okno planszy (bez
+  poprawiania pól); dziennik zapytań i odtworzenie w Adminie działają; przez
+  publiczny adres bramka 200, błędny kod 401 z zapisanym licznikiem, trasa
+  Admina 403. Po odbiorze oba linki testowe zatrzymane i tunel wyłączony.
+- **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
+  `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
+  `npm run reviewer:build`. Push i merge nie były wykonywane.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)
 

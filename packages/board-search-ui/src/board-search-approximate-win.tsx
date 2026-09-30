@@ -20,6 +20,9 @@ import { apiErrorMessage } from './api-error';
 import type { BoardSearchDataSource } from './board-search-data-source';
 
 import {
+  APPROXIMATE_WIN_CHART_LABEL,
+  APPROXIMATE_WIN_CHART_LABEL_LAYOUT,
+  APPROXIMATE_WIN_CHART_WIDTH,
   APPROXIMATE_WIN_IDLE_STATE,
   APPROXIMATE_WIN_PIN_LIMIT,
   APPROXIMATE_WIN_RANGE_DEFAULT,
@@ -663,14 +666,9 @@ function ApproximateWinBalanceChart({
       scaleApproximateWinAmountAtStake(baseCredits, stake, spinCost),
       display.unit,
     );
-  // Label text drops " zł" (the axis names the unit) to fit the label box.
+  // A chart label or pin is read on its own, so it always names the unit.
   const labelAmount = (baseCredits: number) =>
-    display.unit === 'pln'
-      ? plotValue(baseCredits).toLocaleString('pl-PL', {
-          maximumFractionDigits: 2,
-          minimumFractionDigits: 2,
-        })
-      : amount(baseCredits);
+    `${amount(baseCredits)}${unitNoun(display.unit)}`;
   const yTicks = approximateWinAxisTicks(
     plotValue(minimumBalance),
     plotValue(maximumBalance),
@@ -698,12 +696,7 @@ function ApproximateWinBalanceChart({
     .join(' ');
 
   const pinnedKeys = new Set(pinnedPoints.map(approximateWinPointKey));
-  const layoutOptions = {
-    labelWidth: CHART_LABEL.width,
-    maxX: CHART_WIDTH - 4,
-    minX: 4,
-    rows: CHART_LABEL.rows,
-  };
+  const layoutOptions = APPROXIMATE_WIN_CHART_LABEL_LAYOUT;
   const pinPlacements = layoutApproximateWinPinLabels(
     pinnedPoints.map((point) => ({
       key: approximateWinPointKey(point),
@@ -833,7 +826,7 @@ function ApproximateWinBalanceChart({
   }: (typeof labels)[number]) => {
     const top = chartLabelTop(placement.row);
     const left = placement.x - CHART_LABEL.width / 2;
-    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, bilans ${amount(point.cumulativeBalanceCredits)}`;
+    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, bilans ${labelAmount(point.cumulativeBalanceCredits)}`;
     return (
       <g
         className={
@@ -1031,7 +1024,7 @@ function ApproximateWinBalanceChart({
               <li key={approximateWinPointKey(point)}>
                 <span>
                   {point.spinNumber.toLocaleString('pl-PL')} spinów · bilans{' '}
-                  {amount(point.cumulativeBalanceCredits)}
+                  {labelAmount(point.cumulativeBalanceCredits)}
                 </span>
                 <button
                   aria-label={`Odepnij punkt ${point.spinNumber.toLocaleString('pl-PL')} spinów`}
@@ -1061,8 +1054,8 @@ function ApproximateWinBalanceChart({
   );
 }
 
-const CHART_WIDTH = 800;
-const CHART_LABEL = { height: 30, rowGap: 4, rows: 3, width: 124 } as const;
+const CHART_WIDTH = APPROXIMATE_WIN_CHART_WIDTH;
+const CHART_LABEL = APPROXIMATE_WIN_CHART_LABEL;
 const CHART_LABEL_BAND =
   CHART_LABEL.rows * (CHART_LABEL.height + CHART_LABEL.rowGap) + 8;
 const CHART_FRAME = {

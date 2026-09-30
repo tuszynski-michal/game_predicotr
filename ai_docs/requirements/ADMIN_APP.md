@@ -447,7 +447,8 @@ opisanymi na osiach; oś Y sięga do skrajnych podziałek obejmujących minimum
 i maksimum bilansu, a opisy podziałek zastępują osobne etykiety minimum i
 maksimum (TASK-0761). Najechanie
 na wykres pokazuje etykietę najbliższego punktu wypłaty albo końca zakresu z
-liczbą spinów i bilansem; etykieta leży w pasie nad obszarem danych i łączy
+liczbą spinów i bilansem z jednostką („kredytów” albo „zł”, TASK-0774;
+tak samo lista przypiętych punktów); etykieta leży w pasie nad obszarem danych i łączy
 się z punktem kropkowaną pionową linią, więc nie zasłania linii bilansu.
 Kliknięcie przypina najbliższy punkt: jego etykieta zostaje widoczna na
 stałe w tym samym pasie. Ponowne kliknięcie punktu albo „×” na etykiecie

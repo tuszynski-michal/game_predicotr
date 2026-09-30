@@ -228,6 +228,29 @@ export function approximateWinAxisTicks(
 
 export const APPROXIMATE_WIN_PIN_LIMIT = 8;
 
+/** Chart geometry in SVG units, shared with the label layout tests. */
+export const APPROXIMATE_WIN_CHART_WIDTH = 800;
+/**
+ * Point labels in the band above the plot. The width fits
+ * "Bilans: -123 456,5 kredytów" at the 11 px label font (a seven-digit
+ * credit balance would overflow). Four rows keep the eight pins free of
+ * overlap at this width (three rows are not enough); in rare layouts of two
+ * full clusters the transient hover label may still fall back onto a pin.
+ */
+export const APPROXIMATE_WIN_CHART_LABEL = Object.freeze({
+  height: 30,
+  rowGap: 4,
+  rows: 4,
+  width: 172,
+});
+/** Label layout bounds: the chart width minus a 4-unit margin per side. */
+export const APPROXIMATE_WIN_CHART_LABEL_LAYOUT = Object.freeze({
+  labelWidth: APPROXIMATE_WIN_CHART_LABEL.width,
+  maxX: APPROXIMATE_WIN_CHART_WIDTH - 4,
+  minX: 4,
+  rows: APPROXIMATE_WIN_CHART_LABEL.rows,
+});
+
 /** Stable identity of a chart point: a payout and its preceding drop share a spin. */
 export function approximateWinPointKey(
   point: ApproximateWinChartPoint,

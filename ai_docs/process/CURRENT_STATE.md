@@ -55,6 +55,9 @@ last_updated: 2026-09-30
   karuzela pokazuje przycięty widok serwera, pełne zdjęcie tylko awaryjnie.
   Po scaleniu potrzebne `npm install` (nowe dowiązanie workspace). Audyt
   PASS w pierwszym cyklu.
+- TASK-0774 done (zgłoszenie operatora): etykiety punktów wykresu bilansu i
+  lista przypiętych punktów podają jednostkę („kredytów” / „zł”); etykiety
+  szersze, pas ma 4 wiersze.
 - Etap B w toku; push i merge nie były wykonywane.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)

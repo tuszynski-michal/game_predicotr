@@ -41,6 +41,7 @@ from game_predictor_api.application.board_search_share_access import (
 )
 from game_predictor_api.application.board_search_share_queries import (
     BoardSearchShareQueryLog,
+    BoardSearchShareQueryLogService,
     BoardSearchShareRateLimiter,
 )
 from game_predictor_api.application.catalog import CatalogService
@@ -264,6 +265,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
 )
 from game_predictor_api.storage.board_search_share_query_repository import (
     SqlAlchemyBoardSearchShareQueryLog,
+    SqlAlchemyBoardSearchShareQueryRepository,
 )
 from game_predictor_api.storage.board_search_share_repository import (
     SqlAlchemyBoardSearchShareRepository,
@@ -410,6 +412,7 @@ def create_app(
     board_search_board_view_service_dependency: Callable[..., object] | None = None,
     board_search_share_access_service_dependency: Callable[..., object] | None = None,
     board_search_share_query_log: BoardSearchShareQueryLog | None = None,
+    board_search_share_query_log_service_dependency: Callable[..., object] | None = None,
     board_search_share_rate_limiter: BoardSearchShareRateLimiter | None = None,
     cleanup_service_dependency: Callable[..., object] | None = None,
     rules_service_dependency: Callable[..., object] | None = None,
@@ -616,6 +619,22 @@ def create_app(
     resolved_board_search_share_access_dependency = (
         board_search_share_access_service_dependency
         or default_board_search_share_access_service_dependency
+    )
+
+    def default_board_search_share_query_log_service_dependency() -> Iterator[
+        BoardSearchShareQueryLogService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchShareQueryLogService(
+                    SqlAlchemyBoardSearchShareQueryRepository(session)
+                )
+            finally:
+                session.rollback()
+
+    resolved_board_search_share_query_log_service_dependency = (
+        board_search_share_query_log_service_dependency
+        or default_board_search_share_query_log_service_dependency
     )
     resolved_board_search_share_query_log = (
         board_search_share_query_log or SqlAlchemyBoardSearchShareQueryLog(session_factory)
@@ -1590,6 +1609,9 @@ def create_app(
             board_search_board_view_service_dependency=resolved_board_search_board_view_dependency,
             board_search_share_access_service_dependency=(
                 resolved_board_search_share_access_dependency
+            ),
+            board_search_share_query_log_service_dependency=(
+                resolved_board_search_share_query_log_service_dependency
             ),
             board_search_share_query_log=resolved_board_search_share_query_log,
             board_search_share_rate_limiter=resolved_board_search_share_rate_limiter,

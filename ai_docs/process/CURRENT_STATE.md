@@ -76,6 +76,10 @@ last_updated: 2026-09-30
 - TASK-0769 done: panel „Udostępnij online” w nagłówku „Wyszukaj plansze”
   (tworzenie, link i kod z kopiowaniem, lista aktywnych i zakończonych,
   dwustopniowe zatrzymanie, kod tylko w pamięci przeglądarki).
+- TASK-0771 done: dziennik zapytań linku w panelu (mini-plansza, wynik,
+  stronicowanie) i „Odtwórz w wyszukiwarce” (`?boardSearchReplay=`): ten
+  sam wzór z polami `?`, zakres i limit, plansza startowa, zakres spinów i
+  okno planszy.
 - Etap B w toku; push i merge nie były wykonywane.
 
 ### D-464 — biblioteka wzorców symboli, etap A (w toku)

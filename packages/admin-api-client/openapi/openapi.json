@@ -2498,6 +2498,133 @@
         "title": "BoardSearchSharePublicSymbolResponse",
         "type": "object"
       },
+      "BoardSearchShareQueryEntryResponse": {
+        "additionalProperties": false,
+        "description": "One recorded query of a share link (D-472); never an IP or header.",
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "search",
+              "approximate_win",
+              "board_detail"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "title": "Occurredat",
+            "type": "string"
+          },
+          "outcomeCode": {
+            "title": "Outcomecode",
+            "type": "string"
+          },
+          "request": {
+            "additionalProperties": true,
+            "title": "Request",
+            "type": "object"
+          },
+          "resultSummary": {
+            "additionalProperties": true,
+            "title": "Resultsummary",
+            "type": "object"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sessionId",
+          "gameId",
+          "occurredAt",
+          "kind",
+          "request",
+          "resultSummary",
+          "outcomeCode"
+        ],
+        "title": "BoardSearchShareQueryEntryResponse",
+        "type": "object"
+      },
+      "BoardSearchShareQueryPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchShareQueryEntryResponse"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as `before` for the next, older page; null on the last page.",
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "entries",
+          "nextCursor"
+        ],
+        "title": "BoardSearchShareQueryPageResponse",
+        "type": "object"
+      },
+      "BoardSearchShareQueryReplayResponse": {
+        "additionalProperties": false,
+        "description": "The entry plus the nearest earlier successful search (and, for a\nboard detail, range) of the same link, to reproduce it in the Admin.",
+        "properties": {
+          "approximateWin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchShareQueryEntryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event": {
+            "$ref": "#/components/schemas/BoardSearchShareQueryEntryResponse"
+          },
+          "search": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchShareQueryEntryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event",
+          "search",
+          "approximateWin"
+        ],
+        "title": "BoardSearchShareQueryReplayResponse",
+        "type": "object"
+      },
       "BoardSearchShareSessionListResponse": {
         "additionalProperties": false,
         "properties": {
@@ -25757,6 +25884,59 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/board-search-shares/queries/{event_id}": {
+      "get": {
+        "operationId": "getBoardSearchShareQueryReplay",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareQueryReplayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read one query log entry with what is needed to replay it",
+        "tags": [
+          "board-search-shares"
+        ]
+      }
+    },
     "/api/v1/admin/board-search-shares/sessions": {
       "get": {
         "operationId": "listBoardSearchShareSessions",
@@ -25917,6 +26097,88 @@
           }
         ],
         "summary": "Create one online read-only board-search share link",
+        "tags": [
+          "board-search-shares"
+        ]
+      }
+    },
+    "/api/v1/admin/board-search-shares/sessions/{session_id}/queries": {
+      "get": {
+        "operationId": "listBoardSearchShareQueries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareQueryPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Read a share link's query log, newest first (D-472)",
         "tags": [
           "board-search-shares"
         ]

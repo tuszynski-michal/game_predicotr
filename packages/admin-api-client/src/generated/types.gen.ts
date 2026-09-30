@@ -1415,6 +1415,78 @@ export type BoardSearchSharePublicSymbolResponse = {
 };
 
 /**
+ * BoardSearchShareQueryEntryResponse
+ *
+ * One recorded query of a share link (D-472); never an IP or header.
+ */
+export type BoardSearchShareQueryEntryResponse = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Kind
+   */
+  kind: 'search' | 'approximate_win' | 'board_detail';
+  /**
+   * Occurredat
+   */
+  occurredAt: string;
+  /**
+   * Outcomecode
+   */
+  outcomeCode: string;
+  /**
+   * Request
+   */
+  request: {
+    [key: string]: unknown;
+  };
+  /**
+   * Resultsummary
+   */
+  resultSummary: {
+    [key: string]: unknown;
+  };
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * BoardSearchShareQueryPageResponse
+ */
+export type BoardSearchShareQueryPageResponse = {
+  /**
+   * Entries
+   */
+  entries: Array<BoardSearchShareQueryEntryResponse>;
+  /**
+   * Nextcursor
+   *
+   * Pass as `before` for the next, older page; null on the last page.
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * BoardSearchShareQueryReplayResponse
+ *
+ * The entry plus the nearest earlier successful search (and, for a
+ * board detail, range) of the same link, to reproduce it in the Admin.
+ */
+export type BoardSearchShareQueryReplayResponse = {
+  approximateWin: BoardSearchShareQueryEntryResponse | null;
+  event: BoardSearchShareQueryEntryResponse;
+  search: BoardSearchShareQueryEntryResponse | null;
+};
+
+/**
  * BoardSearchShareSessionListResponse
  */
 export type BoardSearchShareSessionListResponse = {
@@ -14306,6 +14378,42 @@ export type WorkerLaneStatusResponse = {
   workerVersion: string | null;
 };
 
+export type GetBoardSearchShareQueryReplayData = {
+  body?: never;
+  path: {
+    /**
+     * Event Id
+     */
+    event_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/board-search-shares/queries/{event_id}';
+};
+
+export type GetBoardSearchShareQueryReplayErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetBoardSearchShareQueryReplayError =
+  GetBoardSearchShareQueryReplayErrors[keyof GetBoardSearchShareQueryReplayErrors];
+
+export type GetBoardSearchShareQueryReplayResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareQueryReplayResponse;
+};
+
+export type GetBoardSearchShareQueryReplayResponse =
+  GetBoardSearchShareQueryReplayResponses[keyof GetBoardSearchShareQueryReplayResponses];
+
 export type ListBoardSearchShareSessionsData = {
   body?: never;
   path?: never;
@@ -14388,6 +14496,51 @@ export type CreateBoardSearchShareSessionResponses = {
 
 export type CreateBoardSearchShareSessionResponse =
   CreateBoardSearchShareSessionResponses[keyof CreateBoardSearchShareSessionResponses];
+
+export type ListBoardSearchShareQueriesData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: {
+    /**
+     * Before
+     */
+    before?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/board-search-shares/sessions/{session_id}/queries';
+};
+
+export type ListBoardSearchShareQueriesErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ListBoardSearchShareQueriesError =
+  ListBoardSearchShareQueriesErrors[keyof ListBoardSearchShareQueriesErrors];
+
+export type ListBoardSearchShareQueriesResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareQueryPageResponse;
+};
+
+export type ListBoardSearchShareQueriesResponse =
+  ListBoardSearchShareQueriesResponses[keyof ListBoardSearchShareQueriesResponses];
 
 export type RevokeBoardSearchShareSessionData = {
   body?: never;

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlencode, urlparse, urlunparse
 from uuid import UUID
 
@@ -12,6 +12,10 @@ from pydantic import Field
 from game_predictor_api.application.board_search_share_access import (
     BoardSearchShareView,
     CreatedBoardSearchShare,
+)
+from game_predictor_api.application.board_search_share_queries import (
+    BoardSearchShareQueryEvent,
+    BoardSearchShareQueryReplay,
 )
 from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressStatus,
@@ -181,8 +185,65 @@ def to_board_search_share_public_search_response(
     )
 
 
+class BoardSearchShareQueryEntryResponse(ApiModel):
+    """One recorded query of a share link (D-472); never an IP or header."""
+
+    id: UUID
+    session_id: UUID
+    game_id: UUID
+    occurred_at: datetime
+    kind: Literal["search", "approximate_win", "board_detail"]
+    request: dict[str, Any]
+    result_summary: dict[str, Any]
+    outcome_code: str
+
+    @classmethod
+    def from_event(cls, value: BoardSearchShareQueryEvent) -> BoardSearchShareQueryEntryResponse:
+        return cls(
+            id=value.id,
+            session_id=value.session_id,
+            game_id=value.game_id,
+            occurred_at=value.occurred_at,
+            kind=value.kind.value,
+            request=dict(value.request),
+            result_summary=dict(value.result_summary),
+            outcome_code=value.outcome_code,
+        )
+
+
+class BoardSearchShareQueryPageResponse(ApiModel):
+    entries: list[BoardSearchShareQueryEntryResponse]
+    next_cursor: str | None = Field(
+        description="Pass as `before` for the next, older page; null on the last page."
+    )
+
+
+class BoardSearchShareQueryReplayResponse(ApiModel):
+    """The entry plus the nearest earlier successful search (and, for a
+    board detail, range) of the same link, to reproduce it in the Admin."""
+
+    event: BoardSearchShareQueryEntryResponse
+    search: BoardSearchShareQueryEntryResponse | None
+    approximate_win: BoardSearchShareQueryEntryResponse | None
+
+    @classmethod
+    def from_replay(cls, value: BoardSearchShareQueryReplay) -> BoardSearchShareQueryReplayResponse:
+        return cls(
+            event=BoardSearchShareQueryEntryResponse.from_event(value.event),
+            search=None
+            if value.search is None
+            else BoardSearchShareQueryEntryResponse.from_event(value.search),
+            approximate_win=None
+            if value.approximate_win is None
+            else BoardSearchShareQueryEntryResponse.from_event(value.approximate_win),
+        )
+
+
 __all__ = [
     "BoardSearchShareCreate",
+    "BoardSearchShareQueryEntryResponse",
+    "BoardSearchShareQueryPageResponse",
+    "BoardSearchShareQueryReplayResponse",
     "BoardSearchShareCreatedResponse",
     "BoardSearchShareSessionListResponse",
     "BoardSearchShareSessionResponse",

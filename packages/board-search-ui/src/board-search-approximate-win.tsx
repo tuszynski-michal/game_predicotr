@@ -71,6 +71,13 @@ type ApproximateWinClient = Pick<
 interface BoardSearchApproximateWinProps {
   readonly client: ApproximateWinClient;
   readonly gameId: string;
+  /** Replay (D-472): open with this range and optionally one board. */
+  readonly replay?: {
+    readonly id: string;
+    readonly spinCount: number;
+    readonly boardSequenceNumber: number | null;
+  } | null;
+  readonly onReplayNotice?: (notice: string) => void;
   readonly selectedResult: BoardSearchResultResponse | null;
   /** Game symbols for the fallback board schema in the payline modal. */
   readonly symbols?: readonly SymbolResponse[];
@@ -79,10 +86,18 @@ interface BoardSearchApproximateWinProps {
 export function BoardSearchApproximateWin({
   client: api,
   gameId,
+  onReplayNotice,
+  replay = null,
   selectedResult,
   symbols = [],
 }: BoardSearchApproximateWinProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const detailsRef = useRef<HTMLDetailsElement>(null);
+  const appliedReplayId = useRef<string | null>(null);
+  const [boardRequest, setBoardRequest] = useState<{
+    readonly id: string;
+    readonly sequenceNumber: number;
+  } | null>(null);
   const [rangeInput, setRangeInput] = useState(
     String(APPROXIMATE_WIN_RANGE_DEFAULT),
   );
@@ -167,6 +182,25 @@ export function BoardSearchApproximateWin({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, requestKey]);
 
+  useEffect(() => {
+    if (replay === null || appliedReplayId.current === replay.id) return;
+    appliedReplayId.current = replay.id;
+    const request = replay;
+    queueMicrotask(() => {
+      setRangeInput(String(request.spinCount));
+      setRange(request.spinCount);
+      setRangeError(null);
+      setBoardRequest(
+        request.boardSequenceNumber === null
+          ? null
+          : { id: request.id, sequenceNumber: request.boardSequenceNumber },
+      );
+      const details = detailsRef.current;
+      if (details !== null && !details.open) details.open = true;
+      setIsOpen(true);
+    });
+  }, [replay]);
+
   function commitRange() {
     const parsed = parseApproximateWinRange(rangeInput);
     if (!parsed.ok) {
@@ -195,7 +229,11 @@ export function BoardSearchApproximateWin({
   const showLoading = state.kind === 'loading' && state.key === requestKey;
 
   return (
-    <details className="boardSearchApproximateWin" onToggle={handleToggle}>
+    <details
+      className="boardSearchApproximateWin"
+      onToggle={handleToggle}
+      ref={detailsRef}
+    >
       <summary>Przybliżona wygrana</summary>
       <div className="boardSearchApproximateWinBody">
         <div className="boardSearchApproximateWinRange">
@@ -273,6 +311,15 @@ export function BoardSearchApproximateWin({
                 ? runCalculation(requestKey, selectedResult.sequenceNumber)
                 : undefined
             }
+            boardRequest={boardRequest}
+            onBoardRequestHandled={(found, sequenceNumber) => {
+              setBoardRequest(null);
+              if (!found) {
+                onReplayNotice?.(
+                  `Plansza #${sequenceNumber} nie ma wypłaty w tym zakresie, więc jej okna nie otwarto.`,
+                );
+              }
+            }}
             result={visibleResult}
             symbols={symbols}
           />
@@ -301,14 +348,24 @@ function unitNoun(unit: ApproximateWinAmountUnit): string {
 
 function ApproximateWinResultView({
   api,
+  boardRequest,
   display,
   gameId,
+  onBoardRequestHandled,
   onDisplayChange,
   onRecalculate,
   result,
   symbols,
 }: {
   readonly api: BoardLinesClient;
+  readonly boardRequest: {
+    readonly id: string;
+    readonly sequenceNumber: number;
+  } | null;
+  readonly onBoardRequestHandled: (
+    found: boolean,
+    sequenceNumber: number,
+  ) => void;
   readonly display: ApproximateWinDisplay;
   readonly gameId: string;
   readonly onDisplayChange: (display: ApproximateWinDisplay) => void;
@@ -321,6 +378,20 @@ function ApproximateWinResultView({
     null,
   );
   const linesTriggerRef = useRef<HTMLButtonElement | null>(null);
+  useEffect(() => {
+    if (boardRequest === null) return;
+    const request = boardRequest;
+    const row =
+      result.rows.find(
+        (item) => item.sequenceNumber === request.sequenceNumber,
+      ) ?? null;
+    queueMicrotask(() => {
+      if (row !== null) setLinesRow(row);
+      onBoardRequestHandled(row !== null, request.sequenceNumber);
+    });
+    // Handled once per request; the callback identity does not matter.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [boardRequest?.id, result]);
   const closeLines = (edited: boolean) => {
     setLinesRow(null);
     if (edited) {

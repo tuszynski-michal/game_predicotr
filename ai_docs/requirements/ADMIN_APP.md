@@ -554,12 +554,15 @@ czytelny ekran zakończenia.
 **Dziennik zapytań i odtworzenie (D-472, TASK-0771).** Każde zapytanie
 odbiorcy o dane (wyszukiwanie, przybliżona wygrana, szczegóły planszy) jest
 zapisywane z czasem, parametrami i skrótem wyniku, bez adresu IP. Bramka
-kodu informuje odbiorcę o zapisie. W panelu udostępniania operator wybiera
-sesję i widzi jej dziennik od najnowszego wpisu: godzinę, rodzaj, wzór jako
+kodu informuje odbiorcę o zapisie. W panelu udostępniania operator rozwija
+„Dziennik zapytań” wybranego linku (aktywnego albo zakończonego) i widzi go
+od najnowszego wpisu, po 50 („Starsze zapytania”): godzinę, rodzaj, wzór jako
 mini-planszę 3 × 5 z ikonami symboli, zakres wyszukiwania i liczbę wyników
 albo planszę startową i zakres spinów oraz wynik. Przycisk „Odtwórz w
 wyszukiwarce” otwiera „Wyszukaj plansze” tej gry z tym samym wzorem, zakresem
-i liczbą wyników i od razu uruchamia wyszukiwanie. Dla wpisu przybliżonej
+i liczbą wyników (także pola `?`) i od razu uruchamia wyszukiwanie; adres
+Admina zawiera wtedy jednorazowo `?boardSearchReplay=<id wpisu>`, a wpis
+innej gry przełącza na tę grę. Dla wpisu przybliżonej
 wygranej odtworzenie używa najbliższego wcześniejszego wyszukiwania tej
 sesji, wybiera planszę startową i zakres spinów i rozwija „Przybliżoną
 wygraną”; dla szczegółów planszy dodatkowo otwiera modal. Symbol, który nie

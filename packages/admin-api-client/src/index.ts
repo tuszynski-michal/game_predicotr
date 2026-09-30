@@ -65,6 +65,8 @@ import {
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
   createBoardSearchShareSession as createGeneratedBoardSearchShareSession,
+  getBoardSearchShareQueryReplay as getGeneratedBoardSearchShareQueryReplay,
+  listBoardSearchShareQueries as listGeneratedBoardSearchShareQueries,
   createRemoteManualSelectionSession as createGeneratedRemoteManualSelectionSession,
   createSymbol as createGeneratedSymbol,
   createSymbolTraining as createGeneratedSymbolTraining,
@@ -710,6 +712,9 @@ export type {
   BoardSearchShareCreatedResponse,
   BoardSearchShareSessionListResponse,
   BoardSearchSharePublicContextResponse,
+  BoardSearchShareQueryEntryResponse,
+  BoardSearchShareQueryPageResponse,
+  BoardSearchShareQueryReplayResponse,
   BoardSearchSharePublicSearchResponse,
   BoardSearchSharePublicSymbolResponse,
   BoardSearchShareSessionResponse,
@@ -1182,6 +1187,25 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.gameId === undefined ? {} : { gameId: options.gameId }),
           limit: options.limit ?? 100,
         },
+      }),
+    /** One share link's query log, newest first, 50 per page (D-472). */
+    listBoardSearchShareQueries: (
+      sessionId: string,
+      options: { readonly before?: string; readonly limit?: number } = {},
+    ) =>
+      listGeneratedBoardSearchShareQueries({
+        client,
+        path: { session_id: sessionId },
+        query: {
+          ...(options.before === undefined ? {} : { before: options.before }),
+          limit: options.limit ?? 50,
+        },
+      }),
+    /** A query log entry with what is needed to replay it in the Admin. */
+    getBoardSearchShareQueryReplay: (eventId: string) =>
+      getGeneratedBoardSearchShareQueryReplay({
+        client,
+        path: { event_id: eventId },
       }),
     revokeBoardSearchShareSession: (sessionId: string) =>
       revokeGeneratedBoardSearchShareSession({

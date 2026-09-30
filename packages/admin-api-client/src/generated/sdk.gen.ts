@@ -243,6 +243,9 @@ import type {
   GetBoardSearchShareContextData,
   GetBoardSearchShareContextErrors,
   GetBoardSearchShareContextResponses,
+  GetBoardSearchShareQueryReplayData,
+  GetBoardSearchShareQueryReplayErrors,
+  GetBoardSearchShareQueryReplayResponses,
   GetBoardSearchShareSymbolImageData,
   GetBoardSearchShareSymbolImageErrors,
   GetBoardSearchShareSymbolImageResponses,
@@ -459,6 +462,9 @@ import type {
   ListApprovedSymbolReferenceCandidatesData,
   ListApprovedSymbolReferenceCandidatesErrors,
   ListApprovedSymbolReferenceCandidatesResponses,
+  ListBoardSearchShareQueriesData,
+  ListBoardSearchShareQueriesErrors,
+  ListBoardSearchShareQueriesResponses,
   ListBoardSearchShareSessionsData,
   ListBoardSearchShareSessionsErrors,
   ListBoardSearchShareSessionsResponses,
@@ -881,6 +887,27 @@ export type Options<
 };
 
 /**
+ * Read one query log entry with what is needed to replay it
+ */
+export const getBoardSearchShareQueryReplay = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareQueryReplayData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareQueryReplayResponses,
+  GetBoardSearchShareQueryReplayErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareQueryReplayResponses,
+    GetBoardSearchShareQueryReplayErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/queries/{event_id}',
+    ...options,
+  });
+
+/**
  * List board-search share sessions without secrets
  */
 export const listBoardSearchShareSessions = <
@@ -922,6 +949,27 @@ export const createBoardSearchShareSession = <
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Read a share link's query log, newest first (D-472)
+ */
+export const listBoardSearchShareQueries = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListBoardSearchShareQueriesData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareQueriesResponses,
+  ListBoardSearchShareQueriesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListBoardSearchShareQueriesResponses,
+    ListBoardSearchShareQueriesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/queries',
+    ...options,
   });
 
 /**

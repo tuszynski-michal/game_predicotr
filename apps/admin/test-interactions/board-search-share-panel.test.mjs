@@ -80,10 +80,12 @@ function button(text) {
   );
 }
 
-async function render(client) {
+async function render(client, onReplay = () => {}) {
   const root = createRoot(document.getElementById('root'));
   await act(async () =>
-    root.render(React.createElement(BoardSearchSharePanel, { client, gameId })),
+    root.render(
+      React.createElement(BoardSearchSharePanel, { client, gameId, onReplay }),
+    ),
   );
   return root;
 }
@@ -310,4 +312,75 @@ test('a code created while the panel unmounts is still stored', async (context) 
     ) ?? '',
     /LATE-2345/,
   );
+});
+
+test('a link shows its query log with the pattern and replays an entry', async () => {
+  const id = '88888888-8888-4888-8888-888888888888';
+  const eventId = '99999999-9999-4999-8999-999999999999';
+  const replayed = [];
+  const pages = [];
+  const client = {
+    createBoardSearchShareSession: async () => ({ data: undefined }),
+    listBoardSearchShareQueries: async (sessionId, options) => {
+      pages.push([sessionId, options]);
+      return {
+        data: {
+          entries: [
+            {
+              gameId,
+              id: eventId,
+              kind: 'search',
+              occurredAt: new Date().toISOString(),
+              outcomeCode: 'ok',
+              request: {
+                cells: ['0:cherry', '3:?'],
+                limit: 5,
+                scope: 'all_searchable',
+              },
+              resultSummary: { firstSequenceNumbers: [7], resultCount: 1 },
+              sessionId,
+            },
+          ],
+          nextCursor: null,
+        },
+      };
+    },
+    listBoardSearchShareSessions: async () => ({
+      data: { sessions: [session(id)] },
+    }),
+    listSymbols: async () => ({
+      data: [
+        {
+          code: 'cherry',
+          id: 'symbol-cherry',
+          imagePath: null,
+          name: 'Wiśnia',
+        },
+      ],
+    }),
+    revokeBoardSearchShareSession: async () => ({ data: {} }),
+    symbolImageAssetUrl: () => 'http://127.0.0.1:8000/symbol.png',
+  };
+  const root = await render(client, (event) => replayed.push(event));
+  await click(button('Udostępnij online'));
+  await eventually(
+    () => button('Dziennik zapytań') !== undefined,
+    'log toggle',
+  );
+  await click(button('Dziennik zapytań'));
+  await eventually(
+    () => document.querySelector('.boardSearchShareQuery') !== null,
+    'log entry',
+  );
+  assert.deepEqual(pages, [[id, {}]]);
+  const entry = document.querySelector('.boardSearchShareQuery');
+  assert.match(entry.textContent, /Wyszukiwanie/);
+  assert.match(entry.textContent, /wyniki: 1 \(#7\)/);
+  const cells = [...entry.querySelectorAll('.boardSearchShareMiniCell')];
+  assert.equal(cells.length, 15);
+  assert.equal(cells[0].title, 'Wiśnia');
+  assert.equal(cells[3].textContent, '?');
+  await click(button('Odtwórz w wyszukiwarce'));
+  assert.deepEqual(replayed, [eventId]);
+  await act(async () => root.unmount());
 });

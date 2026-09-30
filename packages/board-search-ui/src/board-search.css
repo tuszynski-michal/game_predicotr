@@ -873,3 +873,8 @@
   align-items: flex-start;
   gap: 8px;
 }
+
+.boardSearchReplayNotices {
+  display: grid;
+  gap: 6px;
+}

@@ -235,3 +235,14 @@ export function computeBoardCropTransform(
     imageWidthPercent: (naturalWidth / cropWidth) * 100,
   };
 }
+
+/** Select the result of one board, or `null` when it is not among them. */
+export function selectBoardSearchResultBySequence(
+  state: BoardSearchResultsState,
+  sequenceNumber: number,
+): BoardSearchResultsState | null {
+  const index = state.results.findIndex(
+    (result) => result.sequenceNumber === sequenceNumber,
+  );
+  return index < 0 ? null : Object.freeze({ ...state, activeIndex: index });
+}

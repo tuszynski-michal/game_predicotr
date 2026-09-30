@@ -300,3 +300,82 @@ def test_query_log_writes_commit_under_the_game_storage_route(database: Engine) 
         assert rows[0].request == {"cells": ["0:cherry", "4:?"], "scope": "all", "limit": 5}
         assert rows[0].result_summary == {"resultCount": 2, "firstSequenceNumbers": [3, 9]}
         assert rows[0].game_id == game_id
+
+
+def test_query_log_reads_page_by_key_and_replays_from_postgres(database: Engine) -> None:
+    from game_predictor_api.application.board_search_share_queries import (
+        BoardSearchShareQueryLogService,
+    )
+    from game_predictor_api.storage.board_search_share_query_repository import (
+        SqlAlchemyBoardSearchShareQueryRepository,
+    )
+
+    game_id = _game(database)
+    # Later than every other test's sessions, so the active limit is free.
+    later = NOW + timedelta(days=2)
+    with Session(database) as session:
+        mine = _service(session, now=later).create(game_id=game_id, lifetime_minutes=60, label=None)
+        other = _service(session, now=later).create(
+            game_id=game_id, lifetime_minutes=60, label=None
+        )
+        session.commit()
+    same_time = NOW + timedelta(minutes=5)
+    ids = [UUID(int=1000 + index) for index in range(4)]
+    with Session(database) as session:
+        for index, event_id in enumerate(ids):
+            session.add(
+                BoardSearchShareQueryEventModel(
+                    id=event_id,
+                    session_id=mine.session.session_id,
+                    game_id=game_id,
+                    occurred_at=same_time,
+                    kind="search" if index < 3 else "approximate_win",
+                    request={"cells": [f"{index}:A"], "scope": "all_searchable", "limit": 5}
+                    if index < 3
+                    else {"startSequenceNumber": 3, "spinCount": 10},
+                    result_summary={"resultCount": 1} if index != 2 else {},
+                    outcome_code="ok" if index != 2 else "BOARD_SEARCH_QUERY_EMPTY",
+                )
+            )
+        session.add(
+            BoardSearchShareQueryEventModel(
+                id=uuid4(),
+                session_id=other.session.session_id,
+                game_id=game_id,
+                occurred_at=same_time,
+                kind="search",
+                request={"cells": ["0:B"], "scope": "all_searchable", "limit": 5},
+                result_summary={"resultCount": 0},
+                outcome_code="ok",
+            )
+        )
+        session.commit()
+        columns = {column.name for column in BoardSearchShareQueryEventModel.__table__.columns}
+        assert columns == {
+            "id",
+            "session_id",
+            "game_id",
+            "occurred_at",
+            "kind",
+            "request",
+            "result_summary",
+            "outcome_code",
+        }
+
+    with Session(database) as session:
+        service = BoardSearchShareQueryLogService(
+            SqlAlchemyBoardSearchShareQueryRepository(session)
+        )
+        seen: list[UUID] = []
+        cursor = None
+        while True:
+            page = service.list(session_id=mine.session.session_id, before_cursor=cursor, limit=3)
+            seen.extend(entry.id for entry in page.entries)
+            if page.next_cursor is None:
+                break
+            cursor = page.next_cursor
+        assert seen == list(reversed(ids))
+        replay = service.replay(ids[3])
+        # The nearest earlier successful search skips the failed one (id 1002).
+        assert replay.search is not None and replay.search.id == ids[1]
+        assert replay.approximate_win is not None and replay.approximate_win.id == ids[3]

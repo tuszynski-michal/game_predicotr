@@ -195,3 +195,62 @@ export function boardSearchPatternCellCount(
 ): number {
   return state.cells.filter((symbolCode) => symbolCode !== null).length;
 }
+
+/**
+ * Every filled cell of the pattern for a search request: known symbols and
+ * `?` cells (as `null`). `?` carries no evidence and is ignored by scoring,
+ * but a share link's query log keeps the whole pattern (D-472).
+ */
+export function patternBoardSearchCells(
+  state: BoardSearchEditorState,
+): readonly {
+  readonly cellIndex: number;
+  readonly symbolCode: string | null;
+}[] {
+  return state.cells.flatMap((symbolCode, cellIndex) =>
+    symbolCode === null
+      ? []
+      : [
+          {
+            cellIndex,
+            symbolCode: symbolCode === BOARD_SEARCH_UNKNOWN ? null : symbolCode,
+          },
+        ],
+  );
+}
+
+/**
+ * An editor holding a recorded pattern (replay, D-472). Codes outside
+ * `activeSymbolCodes` become `?` and are reported, never dropped silently.
+ */
+export function boardSearchEditorFromPattern(
+  cells: readonly {
+    readonly cellIndex: number;
+    readonly symbolCode: string | null;
+  }[],
+  activeSymbolCodes: ReadonlySet<string>,
+): {
+  readonly state: BoardSearchEditorState;
+  readonly inactiveCodes: readonly string[];
+} {
+  const next: (string | null)[] = Array<string | null>(
+    BOARD_SEARCH_CELL_COUNT,
+  ).fill(null);
+  const inactive = new Set<string>();
+  for (const cell of cells) {
+    requireCellIndex(cell.cellIndex);
+    if (cell.symbolCode === null) {
+      next[cell.cellIndex] = BOARD_SEARCH_UNKNOWN;
+    } else if (activeSymbolCodes.has(cell.symbolCode)) {
+      next[cell.cellIndex] = cell.symbolCode;
+    } else {
+      next[cell.cellIndex] = BOARD_SEARCH_UNKNOWN;
+      inactive.add(cell.symbolCode);
+    }
+  }
+  const firstEmpty = next.indexOf(null);
+  return {
+    inactiveCodes: [...inactive].sort(),
+    state: createState(next, firstEmpty < 0 ? 0 : firstEmpty, []),
+  };
+}

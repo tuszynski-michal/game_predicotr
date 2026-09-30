@@ -115,6 +115,7 @@ def create_api_router(
     board_search_board_detail_service_dependency: Callable[..., object],
     board_search_board_view_service_dependency: Callable[..., object],
     board_search_share_access_service_dependency: Callable[..., object],
+    board_search_share_query_log_service_dependency: Callable[..., object],
     board_search_share_query_log: BoardSearchShareQueryLog,
     board_search_share_rate_limiter: BoardSearchShareRateLimiter,
 ) -> APIRouter:
@@ -143,6 +144,7 @@ def create_api_router(
         create_board_search_shares_admin_router(
             board_search_share_access_service_dependency,
             reviewer_ingress_service_dependency,
+            board_search_share_query_log_service_dependency,
         )
     )
     router.include_router(

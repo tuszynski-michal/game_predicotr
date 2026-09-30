@@ -264,3 +264,14 @@ test('computeBoardCropTransform returns null for a degenerate quad or non-positi
     null,
   );
 });
+
+test('a result is selected by its board number', async () => {
+  const { selectBoardSearchResultBySequence } =
+    await import('../src/board-search-results-state.ts');
+  const state = createBoardSearchResultsState([
+    { sequenceNumber: 3 },
+    { sequenceNumber: 9 },
+  ]);
+  assert.equal(selectBoardSearchResultBySequence(state, 9).activeIndex, 1);
+  assert.equal(selectBoardSearchResultBySequence(state, 4), null);
+});

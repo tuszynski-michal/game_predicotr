@@ -10,15 +10,22 @@ from game_predictor_api.application.board_search_share_access import (
     SESSION_LIST_LIMIT_MAX,
     BoardSearchShareAccessService,
 )
+from game_predictor_api.application.board_search_share_queries import (
+    BoardSearchShareQueryLogService,
+)
 from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressError,
     ReviewerIngressService,
     ReviewerIngressStatus,
     ensure_online_reviewer_ingress,
 )
+from game_predictor_api.domain.board_search_share_queries import QUERY_LOG_PAGE_SIZE_MAX
 from game_predictor_api.schemas.board_search_shares import (
     BoardSearchShareCreate,
     BoardSearchShareCreatedResponse,
+    BoardSearchShareQueryEntryResponse,
+    BoardSearchShareQueryPageResponse,
+    BoardSearchShareQueryReplayResponse,
     BoardSearchShareSessionListResponse,
     BoardSearchShareSessionResponse,
 )
@@ -28,10 +35,12 @@ from game_predictor_api.schemas.catalog import ErrorResponse
 def create_board_search_shares_admin_router(
     access_service_dependency: Callable[..., object],
     ingress_service_dependency: Callable[..., object],
+    query_log_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/board-search-shares")
     access_service_parameter = Depends(access_service_dependency)
     ingress_service_parameter = Depends(ingress_service_dependency)
+    query_log_parameter = Depends(query_log_service_dependency)
 
     @router.post(
         "/sessions",
@@ -110,6 +119,40 @@ def create_board_search_shares_admin_router(
     ) -> BoardSearchShareSessionResponse:
         # A safety stop must not depend on the optional public ingress.
         return BoardSearchShareSessionResponse.from_view(service.revoke(session_id), None)
+
+    @router.get(
+        "/sessions/{session_id}/queries",
+        response_model=BoardSearchShareQueryPageResponse,
+        operation_id="listBoardSearchShareQueries",
+        summary="Read a share link's query log, newest first (D-472)",
+        tags=["board-search-shares"],
+        responses={404: {"model": ErrorResponse}, 422: {"model": ErrorResponse}},
+    )
+    def list_queries(
+        session_id: UUID,
+        service: Annotated[BoardSearchShareQueryLogService, query_log_parameter],
+        before: Annotated[str | None, Query(max_length=256)] = None,
+        limit: Annotated[int, Query(ge=1, le=QUERY_LOG_PAGE_SIZE_MAX)] = QUERY_LOG_PAGE_SIZE_MAX,
+    ) -> BoardSearchShareQueryPageResponse:
+        page = service.list(session_id=session_id, before_cursor=before, limit=limit)
+        return BoardSearchShareQueryPageResponse(
+            entries=[BoardSearchShareQueryEntryResponse.from_event(item) for item in page.entries],
+            next_cursor=page.next_cursor,
+        )
+
+    @router.get(
+        "/queries/{event_id}",
+        response_model=BoardSearchShareQueryReplayResponse,
+        operation_id="getBoardSearchShareQueryReplay",
+        summary="Read one query log entry with what is needed to replay it",
+        tags=["board-search-shares"],
+        responses={404: {"model": ErrorResponse}},
+    )
+    def get_query_replay(
+        event_id: UUID,
+        service: Annotated[BoardSearchShareQueryLogService, query_log_parameter],
+    ) -> BoardSearchShareQueryReplayResponse:
+        return BoardSearchShareQueryReplayResponse.from_replay(service.replay(event_id))
 
     return router
 

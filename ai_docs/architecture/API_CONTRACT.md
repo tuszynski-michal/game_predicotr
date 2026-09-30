@@ -485,6 +485,31 @@ rozmiaru (4 KiB / 2 KiB) oraz indeksem `(session_id, occurred_at DESC, id
 DESC)`. Migracja jest addytywna; downgrade jest zablokowany, bo tabele
 trzymają audyt i dziennik zapytań.
 
+### Dziennik zapytań linku w Adminie (D-472, TASK-0771)
+
+```text
+GET /api/v1/admin/board-search-shares/sessions/{sessionId}/queries?before=&limit=1..50
+operationId: listBoardSearchShareQueries
+200: { entries: [<wpis>], nextCursor: string | null }
+
+GET /api/v1/admin/board-search-shares/queries/{eventId}
+operationId: getBoardSearchShareQueryReplay
+200: { event: <wpis>, search: <wpis> | null, approximateWin: <wpis> | null }
+
+<wpis> = { id, sessionId, gameId, occurredAt, kind: search|approximate_win|board_detail,
+           request, resultSummary, outcomeCode }
+```
+
+Lista jest stronicowana kursorem `(occurredAt, id)`, od najnowszego wpisu,
+50 na stronę (`before` = `nextCursor` poprzedniej strony; zły kursor:
+`422 BOARD_SEARCH_SHARE_QUERY_CURSOR_INVALID`; nieznany link: `404
+BOARD_SEARCH_SHARE_NOT_FOUND`). Wpis nie ma adresu IP ani nagłówków.
+Odtworzenie zwraca wpis, najbliższe wcześniejsze udane wyszukiwanie tego
+samego linku (dla wyszukiwania — ono samo) i, dla szczegółów planszy,
+najbliższy wcześniejszy udany zakres (dla zakresu — on sam); brak wpisu:
+`404 BOARD_SEARCH_SHARE_QUERY_NOT_FOUND`. Obie trasy są tylko lokalne (Admin);
+publiczna powierzchnia nie ma odczytu dziennika.
+
 ### Publiczna powierzchnia udostępniania (D-471, D-472, TASK-0767)
 
 Trasy są osiągalne tylko przez proxy Reviewera: każde żądanie musi mieć

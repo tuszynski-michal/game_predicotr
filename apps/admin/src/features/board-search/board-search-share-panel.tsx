@@ -13,6 +13,7 @@ import {
   removeBoardSearchShareCode,
   removeEndedBoardSearchShareCodes,
 } from './board-search-share-code-cache';
+import { BoardSearchShareQueryLog } from './board-search-share-query-log';
 import {
   BOARD_SEARCH_SHARE_DEFAULT_LIFETIME_MINUTES,
   BOARD_SEARCH_SHARE_LIFETIMES,
@@ -25,8 +26,11 @@ import {
 export type BoardSearchShareClient = Pick<
   AdminApiClient,
   | 'createBoardSearchShareSession'
+  | 'listBoardSearchShareQueries'
   | 'listBoardSearchShareSessions'
+  | 'listSymbols'
   | 'revokeBoardSearchShareSession'
+  | 'symbolImageAssetUrl'
 >;
 
 type ListState =
@@ -45,9 +49,12 @@ type ListState =
 export function BoardSearchSharePanel({
   client,
   gameId,
+  onReplay,
 }: {
   readonly client: BoardSearchShareClient;
   readonly gameId: string;
+  /** Opens a query log entry in this board search (D-472). */
+  readonly onReplay: (eventId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState('');
@@ -64,6 +71,7 @@ export function BoardSearchSharePanel({
   const [confirmRevoke, setConfirmRevoke] = useState<string | null>(null);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [freshSessionId, setFreshSessionId] = useState<string | null>(null);
+  const [logSessionId, setLogSessionId] = useState<string | null>(null);
   const requestId = useRef(0);
   const panelId = useId();
 
@@ -356,6 +364,14 @@ export function BoardSearchSharePanel({
                             </em>
                           )}
                         </div>
+                        <QueryLogToggle
+                          client={client}
+                          gameId={gameId}
+                          logSessionId={logSessionId}
+                          onReplay={onReplay}
+                          onToggle={setLogSessionId}
+                          sessionId={session.sessionId}
+                        />
                         <div className="boardSearchShareActions">
                           {confirming ? (
                             <>
@@ -413,6 +429,14 @@ export function BoardSearchSharePanel({
                             {formatBoardSearchShareDate(session.createdAt)}
                           </span>
                         </div>
+                        <QueryLogToggle
+                          client={client}
+                          gameId={gameId}
+                          logSessionId={logSessionId}
+                          onReplay={onReplay}
+                          onToggle={setLogSessionId}
+                          sessionId={session.sessionId}
+                        />
                       </li>
                     ))}
                   </ul>
@@ -421,6 +445,44 @@ export function BoardSearchSharePanel({
             </>
           ) : null}
         </section>
+      ) : null}
+    </div>
+  );
+}
+
+function QueryLogToggle({
+  client,
+  gameId,
+  logSessionId,
+  onReplay,
+  onToggle,
+  sessionId,
+}: {
+  readonly client: BoardSearchShareClient;
+  readonly gameId: string;
+  readonly logSessionId: string | null;
+  readonly onReplay: (eventId: string) => void;
+  readonly onToggle: (sessionId: string | null) => void;
+  readonly sessionId: string;
+}) {
+  const open = logSessionId === sessionId;
+  return (
+    <div className="boardSearchShareLogToggle">
+      <button
+        aria-expanded={open}
+        className="textButton"
+        onClick={() => onToggle(open ? null : sessionId)}
+        type="button"
+      >
+        {open ? 'Ukryj dziennik zapytań' : 'Dziennik zapytań'}
+      </button>
+      {open ? (
+        <BoardSearchShareQueryLog
+          client={client}
+          gameId={gameId}
+          onReplay={onReplay}
+          sessionId={sessionId}
+        />
       ) : null}
     </div>
   );

@@ -8,11 +8,16 @@ part of an entry.
 
 from __future__ import annotations
 
+import base64
 import json
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Final
+from uuid import UUID
+
+from game_predictor_api.domain.board_search_shares import BoardSearchShareError
 
 QUERY_REQUEST_MAX_BYTES: Final = 4096
 QUERY_RESULT_SUMMARY_MAX_BYTES: Final = 2048
@@ -135,7 +140,37 @@ def _json_size(value: dict[str, object]) -> int:
     return len(json.dumps(value, ensure_ascii=False).encode("utf-8"))
 
 
+QUERY_LOG_PAGE_SIZE_MAX: Final = 50
+
+
+def encode_query_log_cursor(occurred_at: datetime, event_id: UUID) -> str:
+    """Opaque keyset cursor `(occurred_at, id)` of the last entry on a page."""
+
+    raw = json.dumps(
+        {"at": occurred_at.isoformat(), "id": str(event_id)}, separators=(",", ":")
+    ).encode("utf-8")
+    return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def decode_query_log_cursor(cursor: str) -> tuple[datetime, UUID]:
+    try:
+        padded = cursor + "=" * (-len(cursor) % 4)
+        payload = json.loads(base64.urlsafe_b64decode(padded.encode("ascii")))
+        occurred_at = datetime.fromisoformat(payload["at"])
+        event_id = UUID(payload["id"])
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as error:
+        raise BoardSearchShareError(
+            "BOARD_SEARCH_SHARE_QUERY_CURSOR_INVALID", "The query log cursor is invalid."
+        ) from error
+    if occurred_at.tzinfo is None:
+        raise BoardSearchShareError(
+            "BOARD_SEARCH_SHARE_QUERY_CURSOR_INVALID", "The query log cursor is invalid."
+        )
+    return occurred_at, event_id
+
+
 __all__ = [
+    "QUERY_LOG_PAGE_SIZE_MAX",
     "QUERY_OUTCOME_OK",
     "QUERY_REQUEST_MAX_BYTES",
     "QUERY_RESULT_SUMMARY_MAX_BYTES",
@@ -146,6 +181,8 @@ __all__ = [
     "board_detail_query_request",
     "board_detail_query_summary",
     "build_board_search_share_query_entry",
+    "decode_query_log_cursor",
+    "encode_query_log_cursor",
     "search_query_request",
     "search_query_summary",
 ]

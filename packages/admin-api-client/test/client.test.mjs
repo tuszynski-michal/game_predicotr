@@ -3461,3 +3461,44 @@ test('board-search share wrappers use the share paths and confirmed targets', as
     lifetimeMinutes: 480,
   });
 });
+
+test('board-search share query log wrappers use their Admin paths', async () => {
+  const requests = [];
+  const sessionId = '22222222-2222-4222-8222-222222222222';
+  const eventId = '33333333-3333-4333-8333-333333333333';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json(
+        new URL(request.url).pathname.includes('/queries/')
+          ? { approximateWin: null, event: {}, search: null }
+          : { entries: [], nextCursor: null },
+      );
+    },
+  });
+  await client.listBoardSearchShareQueries(sessionId);
+  await client.listBoardSearchShareQueries(sessionId, {
+    before: 'abc',
+    limit: 10,
+  });
+  await client.getBoardSearchShareQueryReplay(eventId);
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'GET',
+        `/api/v1/admin/board-search-shares/sessions/${sessionId}/queries`,
+      ],
+      [
+        'GET',
+        `/api/v1/admin/board-search-shares/sessions/${sessionId}/queries`,
+      ],
+      ['GET', `/api/v1/admin/board-search-shares/queries/${eventId}`],
+    ],
+  );
+  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '50');
+  assert.equal(new URL(requests[0].url).searchParams.has('before'), false);
+  assert.equal(new URL(requests[1].url).searchParams.get('before'), 'abc');
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '10');
+});

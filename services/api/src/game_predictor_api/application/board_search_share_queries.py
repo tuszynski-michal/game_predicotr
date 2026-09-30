@@ -3,8 +3,9 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from threading import Lock
@@ -12,8 +13,16 @@ from typing import Protocol
 from uuid import UUID
 
 from game_predictor_api.application.board_search_share_access import BoardSearchShareContext
-from game_predictor_api.domain.board_search_share_queries import BoardSearchShareQueryEntry
+from game_predictor_api.domain.board_search_share_queries import (
+    QUERY_LOG_PAGE_SIZE_MAX,
+    BoardSearchShareQueryEntry,
+    BoardSearchShareQueryKind,
+    decode_query_log_cursor,
+    encode_query_log_cursor,
+)
 from game_predictor_api.domain.board_search_shares import (
+    BoardSearchShareError,
+    BoardSearchShareNotFoundError,
     BoardSearchShareRateLimitError,
     BoardSearchShareUnavailableError,
 )
@@ -120,6 +129,126 @@ class BoardSearchShareRateLimiter:
                 del self._entries[key]
 
 
+@dataclass(frozen=True, slots=True)
+class BoardSearchShareQueryEvent:
+    """One stored query log entry as the local owner reads it."""
+
+    id: UUID
+    session_id: UUID
+    game_id: UUID
+    occurred_at: datetime
+    kind: BoardSearchShareQueryKind
+    request: dict[str, object]
+    result_summary: dict[str, object]
+    outcome_code: str
+
+
+@dataclass(frozen=True, slots=True)
+class BoardSearchShareQueryPage:
+    entries: tuple[BoardSearchShareQueryEvent, ...]
+    next_cursor: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class BoardSearchShareQueryReplay:
+    """What the Admin needs to reproduce an entry (R5): the entry itself,
+    the pattern of the nearest earlier successful search of the same link
+    and, for a board detail, the nearest earlier successful range."""
+
+    event: BoardSearchShareQueryEvent
+    search: BoardSearchShareQueryEvent | None
+    approximate_win: BoardSearchShareQueryEvent | None
+
+
+class BoardSearchShareQueryRepository(Protocol):
+    def session_exists(self, session_id: UUID) -> bool: ...
+
+    def list_events(
+        self,
+        *,
+        session_id: UUID,
+        before: tuple[datetime, UUID] | None,
+        limit: int,
+    ) -> Sequence[BoardSearchShareQueryEvent]:
+        """Newest first by `(occurred_at, id)`, strictly before `before`."""
+        ...
+
+    def get_event(self, event_id: UUID) -> BoardSearchShareQueryEvent | None: ...
+
+    def latest_successful_event(
+        self,
+        *,
+        session_id: UUID,
+        kind: BoardSearchShareQueryKind,
+        at_or_before: tuple[datetime, UUID],
+    ) -> BoardSearchShareQueryEvent | None:
+        """The newest `ok` entry of `kind` at or before the given key."""
+        ...
+
+
+class BoardSearchShareQueryLogService:
+    def __init__(self, repository: BoardSearchShareQueryRepository) -> None:
+        self._repository = repository
+
+    def list(
+        self,
+        *,
+        session_id: UUID,
+        before_cursor: str | None = None,
+        limit: int = QUERY_LOG_PAGE_SIZE_MAX,
+    ) -> BoardSearchShareQueryPage:
+        if not 1 <= limit <= QUERY_LOG_PAGE_SIZE_MAX:
+            raise BoardSearchShareError(
+                "BOARD_SEARCH_SHARE_QUERY_LIMIT_INVALID",
+                "The query log page size must be between 1 and 50.",
+            )
+        if not self._repository.session_exists(session_id):
+            raise BoardSearchShareNotFoundError(
+                "BOARD_SEARCH_SHARE_NOT_FOUND", "This share link does not exist."
+            )
+        before = None if before_cursor is None else decode_query_log_cursor(before_cursor)
+        rows = tuple(
+            self._repository.list_events(session_id=session_id, before=before, limit=limit + 1)
+        )
+        entries = rows[:limit]
+        last = entries[-1] if len(rows) > limit else None
+        return BoardSearchShareQueryPage(
+            entries=entries,
+            next_cursor=None
+            if last is None
+            else encode_query_log_cursor(last.occurred_at, last.id),
+        )
+
+    def replay(self, event_id: UUID) -> BoardSearchShareQueryReplay:
+        event = self._repository.get_event(event_id)
+        if event is None:
+            raise BoardSearchShareNotFoundError(
+                "BOARD_SEARCH_SHARE_QUERY_NOT_FOUND", "This query log entry does not exist."
+            )
+        key = (event.occurred_at, event.id)
+        search = (
+            event
+            if event.kind is BoardSearchShareQueryKind.SEARCH
+            else self._repository.latest_successful_event(
+                session_id=event.session_id,
+                kind=BoardSearchShareQueryKind.SEARCH,
+                at_or_before=key,
+            )
+        )
+        approximate_win: BoardSearchShareQueryEvent | None = None
+        if event.kind is BoardSearchShareQueryKind.APPROXIMATE_WIN:
+            approximate_win = event
+        elif event.kind is BoardSearchShareQueryKind.BOARD_DETAIL:
+            approximate_win = self._repository.latest_successful_event(
+                session_id=event.session_id,
+                kind=BoardSearchShareQueryKind.APPROXIMATE_WIN,
+                at_or_before=key,
+            )
+        return BoardSearchShareQueryReplay(
+            event=event, search=search, approximate_win=approximate_win
+        )
+
+
 def _rate_limited() -> BoardSearchShareRateLimitError:
     return BoardSearchShareRateLimitError(
         "BOARD_SEARCH_SHARE_RATE_LIMITED",
@@ -128,7 +257,12 @@ def _rate_limited() -> BoardSearchShareRateLimitError:
 
 
 __all__ = [
+    "BoardSearchShareQueryEvent",
     "BoardSearchShareQueryLog",
+    "BoardSearchShareQueryLogService",
+    "BoardSearchShareQueryPage",
+    "BoardSearchShareQueryReplay",
+    "BoardSearchShareQueryRepository",
     "BoardSearchShareRateLimiter",
     "BoardSearchShareRequestKind",
     "record_board_search_share_query",

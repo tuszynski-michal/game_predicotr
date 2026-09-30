@@ -93,3 +93,36 @@ test('changing entry order preserves values and selects its first empty cell', (
   ]);
   assert.equal(state.selectedCellIndex, 1);
 });
+
+test('pattern cells include unknown cells as null for the request', async () => {
+  const { patternBoardSearchCells, placeBoardSearchUnknown } =
+    await import('../src/board-search-editor-state.ts');
+  let state = createBoardSearchEditorState();
+  state = placeBoardSearchSymbol(state, 'A', 'rows');
+  state = placeBoardSearchUnknown(state, 'rows');
+  state = placeBoardSearchSymbol(state, 'B', 'rows');
+  assert.deepEqual(patternBoardSearchCells(state), [
+    { cellIndex: 0, symbolCode: 'A' },
+    { cellIndex: 1, symbolCode: null },
+    { cellIndex: 2, symbolCode: 'B' },
+  ]);
+});
+
+test('a recorded pattern becomes an editor; inactive symbols turn into ?', async () => {
+  const { boardSearchEditorFromPattern } =
+    await import('../src/board-search-editor-state.ts');
+  const { state, inactiveCodes } = boardSearchEditorFromPattern(
+    [
+      { cellIndex: 4, symbolCode: 'A' },
+      { cellIndex: 0, symbolCode: null },
+      { cellIndex: 7, symbolCode: 'OLD' },
+    ],
+    new Set(['A', 'B']),
+  );
+  assert.equal(state.cells[0], '?');
+  assert.equal(state.cells[4], 'A');
+  assert.equal(state.cells[7], '?');
+  assert.deepEqual(inactiveCodes, ['OLD']);
+  assert.equal(state.selectedCellIndex, 1);
+  assert.deepEqual(state.history, []);
+});

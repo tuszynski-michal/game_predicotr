@@ -2,16 +2,28 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from datetime import datetime
 from threading import RLock
 from uuid import UUID, uuid4
 
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
-from game_predictor_api.application.board_search_share_queries import BoardSearchShareQueryLog
-from game_predictor_api.domain.board_search_share_queries import BoardSearchShareQueryEntry
-from game_predictor_api.storage.models import BoardSearchShareQueryEventModel
+from game_predictor_api.application.board_search_share_queries import (
+    BoardSearchShareQueryEvent,
+    BoardSearchShareQueryLog,
+    BoardSearchShareQueryRepository,
+)
+from game_predictor_api.domain.board_search_share_queries import (
+    QUERY_OUTCOME_OK,
+    BoardSearchShareQueryEntry,
+    BoardSearchShareQueryKind,
+)
+from game_predictor_api.storage.models import (
+    BoardSearchShareQueryEventModel,
+    BoardSearchShareSessionModel,
+)
 
 
 class SqlAlchemyBoardSearchShareQueryLog(BoardSearchShareQueryLog):
@@ -49,6 +61,79 @@ class SqlAlchemyBoardSearchShareQueryLog(BoardSearchShareQueryLog):
                 raise
 
 
+class SqlAlchemyBoardSearchShareQueryRepository(BoardSearchShareQueryRepository):
+    """Reads the log for the local owner (keyset pages on the
+    `(session_id, occurred_at DESC, id DESC)` index)."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def session_exists(self, session_id: UUID) -> bool:
+        return self._session.get(BoardSearchShareSessionModel, session_id) is not None
+
+    def list_events(
+        self,
+        *,
+        session_id: UUID,
+        before: tuple[datetime, UUID] | None,
+        limit: int,
+    ) -> Sequence[BoardSearchShareQueryEvent]:
+        model = BoardSearchShareQueryEventModel
+        statement = select(model).where(model.session_id == session_id)
+        if before is not None:
+            occurred_at, event_id = before
+            statement = statement.where(
+                or_(
+                    model.occurred_at < occurred_at,
+                    and_(model.occurred_at == occurred_at, model.id < event_id),
+                )
+            )
+        statement = statement.order_by(model.occurred_at.desc(), model.id.desc()).limit(limit)
+        return tuple(_event(row) for row in self._session.scalars(statement))
+
+    def get_event(self, event_id: UUID) -> BoardSearchShareQueryEvent | None:
+        row = self._session.get(BoardSearchShareQueryEventModel, event_id)
+        return None if row is None else _event(row)
+
+    def latest_successful_event(
+        self,
+        *,
+        session_id: UUID,
+        kind: BoardSearchShareQueryKind,
+        at_or_before: tuple[datetime, UUID],
+    ) -> BoardSearchShareQueryEvent | None:
+        model = BoardSearchShareQueryEventModel
+        occurred_at, event_id = at_or_before
+        row = self._session.scalar(
+            select(model)
+            .where(
+                model.session_id == session_id,
+                model.kind == kind.value,
+                model.outcome_code == QUERY_OUTCOME_OK,
+                or_(
+                    model.occurred_at < occurred_at,
+                    and_(model.occurred_at == occurred_at, model.id <= event_id),
+                ),
+            )
+            .order_by(model.occurred_at.desc(), model.id.desc())
+            .limit(1)
+        )
+        return None if row is None else _event(row)
+
+
+def _event(row: BoardSearchShareQueryEventModel) -> BoardSearchShareQueryEvent:
+    return BoardSearchShareQueryEvent(
+        id=row.id,
+        session_id=row.session_id,
+        game_id=row.game_id,
+        occurred_at=row.occurred_at,
+        kind=BoardSearchShareQueryKind(row.kind),
+        request=dict(row.request),
+        result_summary=dict(row.result_summary),
+        outcome_code=row.outcome_code,
+    )
+
+
 class InMemoryBoardSearchShareQueryLog(BoardSearchShareQueryLog):
     def __init__(self) -> None:
         self._lock = RLock()
@@ -79,4 +164,8 @@ class InMemoryBoardSearchShareQueryLog(BoardSearchShareQueryLog):
             )
 
 
-__all__ = ["InMemoryBoardSearchShareQueryLog", "SqlAlchemyBoardSearchShareQueryLog"]
+__all__ = [
+    "InMemoryBoardSearchShareQueryLog",
+    "SqlAlchemyBoardSearchShareQueryLog",
+    "SqlAlchemyBoardSearchShareQueryRepository",
+]

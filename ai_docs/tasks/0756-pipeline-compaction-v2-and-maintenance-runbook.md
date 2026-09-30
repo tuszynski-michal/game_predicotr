@@ -86,7 +86,7 @@ wiązanie `game_storage_scope`). `public.image_file_executions` i
   odczytu wykonane; destrukcyjne — `VACUUM FULL`, `diskpart`, `robocopy`,
   zmiana lokalizacji dysku Dockera — nie były uruchamiane).
 - [x] Ruff, mypy, testy; audyt bez P0–P2.
-- [ ] Wykonanie (`start --confirm`, worker, VACUUM) za osobną zgodą.
+- [x] Wykonanie (`start --confirm`, worker, VACUUM) za osobną zgodą.
 
 ## Technical notes
 
@@ -117,8 +117,10 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = "1"
 
 - Job `21f933c0-68a7-4bf3-9bbc-392be4e1f2de` (manifest `20feadcd…`):
   56 710/56 710 wpisów skompaktowanych, 0 konfliktów, `VACUUM (ANALYZE)`
-  wykonany; zostały etapy `board_detection` (56 810) i 56 710 manifestów
-  terminalnych. Dwa pierwsze uruchomienia workera przerwał limit czasu
+  wykonany, job `completed`; zostały `board_detection` (56 810),
+  `discovery`, `normalization` i po 93–98 wierszy etapów usuwalnych
+  wykonań wykluczonych; 56 710 manifestów terminalnych. Tabela nadal
+  6,8 GB do czasu `VACUUM FULL` (osobna zgoda). Dwa pierwsze uruchomienia workera przerwał limit czasu
   narzędzia sesji; job wznawiał się z checkpointu.
 - Wykryta i naprawiona kolejna pozostałość V1 w workerze: `complete` /
   `fail` / `pause_for_review` sklepu jobów wołały

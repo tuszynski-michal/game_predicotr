@@ -18,22 +18,26 @@ last_updated: 2026-10-01
   (numer sprzed scalenia; zadanie przenumerowane z 0730 z powodu kolizji).
   Scalone do `v1.1-vision-lab-hybrid-geometry` commitem `v1.7.132`.
 
-### Hybrydowy silnik siatek V3 — plan do akceptacji (2026-10-01)
+### Hybrydowy silnik siatek V3 — plan do akceptacji (korekta 2026-10-02)
 
 - Plan `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` ma status
-  `proposed`; uzupełnia etap D planu Vision Lab (T10). Zawiera pięć decyzji
-  do potwierdzenia przez operatora (geometria produkcyjna 777 jako dane
-  uczące, budżet treningu, kolejność etapów, metryka nadrzędna, bramka
-  kompletności zdjęcia w aplikacji).
-- Nadrzędna reguła planu: jednostką geometrii jest zdjęcie; żadna plansza
-  zdjęcia nie jest cięta na symbole, dopóki wszystkie oczekiwane plansze
-  nie mają poprawnej siatki (etap V3-0: TASK-0806 raport i kolejka zdjęć
-  niekompletnych, TASK-0807 egzekwowanie w pipeline). Dalej V3-A dane
-  (TASK-0800, 0801), V3-B `neural_grid` i `hybrid_v3` (TASK-0802, 0803),
-  V3-C ocena (TASK-0804), V3-D shadow (TASK-0805).
-- Bez decyzji wolno wykonać tylko zadania odczytowe TASK-0806 i TASK-0800.
-  Pliki zadań powstają przy uruchomieniu etapu. Numery TASK-0800–0807 są
-  zarezerwowane dla tego planu.
+  `proposed`; uzupełnia etap D planu Vision Lab (T10). Korekta operatora z
+  2026-10-02: gra 777 jest poza zakresem (plan nie czyta ani nie zmienia
+  danych produkcyjnych i nie używa zatwierdzonych plansz ani decyzji o
+  symbolach 777 jako danych uczących lub odniesienia), budżet treningu
+  pozostaje bez zmian (smoke do 50 kroków, jeden trening do 20 epok lub
+  30 minut), symbole wybiera się dopiero z cropów poprawnych siatek.
+- Nadrzędna reguła: jednostką geometrii jest zdjęcie; dopóki wszystkie
+  oczekiwane plansze zdjęcia nie mają poprawnej siatki, żadna plansza nie
+  jest cięta na symbole ani nie wchodzi do treningu. Obowiązuje w labie i
+  w przyszłej integracji V3 dla nowych gier.
+- Etapy: V3-0 stan kompletności zdjęcia w labie (TASK-0800), V3-A
+  anotacja wspomagana kompletnych zdjęć i nowa wersja podziału
+  (TASK-0801), V3-B `neural_grid` i `hybrid_v3` z bramką kompletności
+  (TASK-0802, 0803), V3-C ocena (TASK-0804), V3-D integracja dla nowych
+  gier (TASK-0805). Numery TASK-0800–0805 są zarezerwowane dla tego planu;
+  pliki zadań powstają przy uruchomieniu etapu. Pięć decyzji do
+  potwierdzenia jest w planie.
 
 ### D-470 / D-471 — „Przybliżona wygrana”: linie, wykres, stawki; udostępnianie online (w toku)
 

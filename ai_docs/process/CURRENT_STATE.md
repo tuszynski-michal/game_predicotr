@@ -219,18 +219,13 @@ last_updated: 2026-10-01
   jobów dla jobów bez gry (v1.7.108). `VACUUM FULL` za zgodą: tabela
   6 804 MB → 399 MB, baza 89 → 83 GB. **Etap S3 zamknięty.**
   Nowe TASK-0765 w planie: rola bez `SUPERUSER`/`BYPASSRLS`.
-- TASK-0757 (S4) w toku, niezacommitowany: manifest magazynu v3, migracja
-  `0131_board_render_manifests`, writery importu i ręcznej geometrii piszą
-  manifest obok obserwacji, backfill z podglądem, strażnik
-  `ALEMBIC_HEAD_MISMATCH` w API/workerze. Audyt Opus: FAIL warunkowy,
-  poprawki wprowadzone (plansze bez komórek bez manifestu, strażnik głowy
-  Alembic i runbook przejścia, kontrola wersji croppera i sum cropów,
-  blokada mutacji obserwacji przez stary backfill tożsamości, kontrola
-  wolnego miejsca); czeka na ponowny audyt. Podgląd 777 tylko do odczytu:
-  372 355 plansz revision 0 i 137 574 revision > 0 do zapisu, 461 legacy,
-  0 odrzuceń w próbkach, ok. 45 KB/plansza (13–17 GB). Migracja i
-  `--execute` (777 i `cf300bc1…`) tylko za zgodą, z przejściem opisanym w
-  `LOCAL_OPERATION_GUIDE.md`.
+- TASK-0757 (S4) done (v1.7.111, audyt Opus FAIL→PASS): tabela
+  `board_render_manifests` (manifest magazynu v3, migracja `0131`), writery
+  piszą manifest obok obserwacji, strażnik `ALEMBIC_HEAD_MISMATCH`. Cutover
+  2026-10-01 02:00 UTC (API 8000/8010 wznowione; API 8110 z worktree
+  `v7-t0603-v2-calibration` innej sesji wymaga scalenia v1.1). Backfill
+  wykonany: 777 — 509 929 manifestów, 0 odrzuceń, partycja 6,9 GB;
+  `cf300bc1…` 26/26. TASK-0758 (przepięcie czytelników) w toku.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

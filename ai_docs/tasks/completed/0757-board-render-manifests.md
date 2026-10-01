@@ -1,6 +1,6 @@
 ---
 title: TASK-0757 — S4 — manifest renderu per plansza (`board_render_manifests`)
-status: in_progress
+status: done
 last_updated: 2026-10-01
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-01
 
 ## Status
 
-`in_progress` (implementacja i poprawki po audycie Opus (FAIL warunkowy)
+`done` (implementacja i poprawki po audycie Opus (FAIL warunkowy)
 zakończone; czeka na ponowny audyt, commit, migrację i backfill na bazie
 operatora za zgodą)
 
@@ -227,6 +227,29 @@ przywraca rejestr v1), następnie uruchom stary kod. Runbook operatora:
 - Przejście wymaga zatrzymania wszystkich procesów (patrz Cutover).
 
 ## Outcome
+
+### Execution (2026-10-01, zgoda operatora na cały plan)
+
+- Audyt `claude-opus-5-5`: FAIL warunkowy (P1: cutover kod↔baza, writery
+  dla plansz bez komórek; P2: `cropper_version`, rollout backfill,
+  dokumenty) → poprawki (strażnik `ALEMBIC_HEAD_MISMATCH` w API, workerze i
+  backfillu; reguła „brak manifestu ⇔ brak komórek”; kontrola
+  `cropper_version`/`crop_checksum`; odmowa `BOARD_RENDER_MANIFEST_PRESENT`;
+  `--min-free-gb`) → PASS; P3 wdrożone (kontrola sumy i maski przy pustej
+  rewizji, nota o `--reload` w cutover).
+- Cutover 2026-10-01 02:00 UTC: zatrzymane API 8000/8010 z głównego
+  checkoutu (proces potomny uvicorna `--reload` przeżył `taskkill` i trzymał
+  port ze starym kodem — usunięty ręcznie), merge v1.7.111 do
+  `v1.1-vision-lab-hybrid-geometry`, `alembic upgrade head` → `0131`,
+  3 lokalizacje na `game-data-v2-manifest-v3` (revision 2), API wznowione.
+  API z worktree `v7-t0603-v2-calibration` (port 8110, inna sesja) zwraca
+  500 do czasu scalenia v1.1 w tamtym worktree.
+- Backfill: `cf300bc1…` 26/26; `777` 509 929 manifestów (372 355 revision 0
+  zbudowanych z obserwacji, 137 574 skopiowanych z rewizji > 0, 461 legacy
+  pominiętych), 0 odrzuceń, ok. 150 plansz/s, 58 min; partycja 6,9 GB
+  (lepsza kompresja TOAST niż szacowane 13–17 GB). Wolne miejsce na C:
+  43 → 28 GB (zmiana większa niż partycja przez WAL i checkpointy).
+
 
 ### Changed
 

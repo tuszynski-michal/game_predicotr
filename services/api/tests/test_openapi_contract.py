@@ -526,8 +526,13 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
     assert page_schema["properties"]["queueVersion"]["minimum"] == 0
 
     item_schema = schema["components"]["schemas"]["OperationalImageReviewItemResponse"]
-    assert item_schema["properties"]["cells"]["minItems"] == 15
+    # A partial board has fewer rendered cells than its fifteen positions.
+    assert item_schema["properties"]["cells"]["minItems"] == 0
     assert item_schema["properties"]["cells"]["maxItems"] == 15
+    # TASK-0798: the editor needs the persisted qualification and source size.
+    assert {"geometryQualification", "sourceWidth", "sourceHeight"} <= set(
+        item_schema["properties"]
+    )
     cell_schema = schema["components"]["schemas"]["OperationalImageReviewCellResponse"]
     assert cell_schema["properties"]["alternatives"]["maxItems"] == 4
     command_schema = schema["components"]["schemas"]["OperationalImageReviewResolutionCommand"]
@@ -549,22 +554,24 @@ def test_operational_image_reviews_openapi_exposes_bounded_cursor_queue() -> Non
         "expectedResolutionRevision",
         "idempotencyKey",
     } == set(geometry_command["required"])
+    # TASK-0798: signed corners and an optional partial qualification, as in
+    # the grid correction queue.
     assert (
         geometry_command["properties"]["corners"]["prefixItems"]
-        == [{"$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"}] * 4
+        == [{"$ref": "#/components/schemas/ManualSourceGeometryPoint"}] * 4
     )
+    assert "geometryQualification" in geometry_command["properties"]
     geometry_revision = schema["components"]["schemas"][
         "OperationalImageReviewGeometryRevisionResponse"
     ]
-    assert geometry_revision["properties"]["decisionChecksumSha256"]["anyOf"] == [
-        {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-        {"type": "null"},
-    ]
+    # D-467 S6 (TASK-0796): no file-crop decision checksum on a virtual revision.
+    assert "decisionChecksumSha256" not in geometry_revision["properties"]
+    assert "geometryQualification" in geometry_revision["properties"]
     assert (
         schema["paths"]["/api/v1/admin/image-review-items/{review_item_id}/geometry-revisions"][
             "post"
         ]["summary"]
-        == "Persist immutable v19 symbol-lattice geometry and reopen review"
+        == "Persist a virtual-source geometry revision of one board and reopen review"
     )
 
 

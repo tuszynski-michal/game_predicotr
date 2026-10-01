@@ -463,6 +463,19 @@ last_updated: 2026-10-01
   3,6 s → ok. 1,8 s wg pomiaru przybliżonego) i CHECK zatwierdzeń bez
   `legacy_file`. Zmiany API: nieznana gra w `gameId` → 404, token innej
   gry → 401, nowy kod `GAME_SCOPED_RESOURCE_NOT_FOUND`.
+- TASK-0797 wdrożone 2026-10-01: migracja `0138` zastosowana, CHECK
+  zatwierdzeń zwalidowany, API na nowym kodzie.
+- TASK-0798 done (v1.7.143, audyt pominięty): rozstrzygnięcie Reviewera
+  `corrected` z innym numerem sekwencji niż numer planszy kończyło się 500
+  (`Pinned source geometry slot does not own the current sequence`) —
+  teraz jawna odmowa `409 IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE` przed
+  jakimkolwiek zapisem (numer planszy wynika ze slotu geometrii źródła,
+  D-462; nota pod D-198); edytor operacyjny Reviewera używa wspólnego
+  `BoardGeometryCorrectionEditor` i wysyła kwalifikację częściową
+  (kontrakt pionem, allowlista bez nowych tras). Znane, nienaprawione:
+  `image_symbol_review_states.cell_count` przy zamianie pełnej planszy w
+  częściową w grze przed finalizacją backfillu (nie dotyczy 777); pole
+  „korekta numeru” w Reviewerze zostaje do decyzji operatora.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

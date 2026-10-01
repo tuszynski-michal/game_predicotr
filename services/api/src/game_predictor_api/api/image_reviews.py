@@ -376,6 +376,11 @@ def create_image_reviews_router(
             corners=tuple(
                 ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
             ),
+            geometry_qualification=(
+                None
+                if payload.geometry_qualification is None
+                else payload.geometry_qualification.to_domain()
+            ),
         )
         return Response(
             content=preview.contact_sheet_png,
@@ -422,6 +427,11 @@ def create_image_reviews_router(
             expected_resolution_revision=payload.expected_resolution_revision,
             corners=tuple(
                 ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
+            ),
+            geometry_qualification=(
+                None
+                if payload.geometry_qualification is None
+                else payload.geometry_qualification.to_domain()
             ),
             corrected_by=reviewer_actor or payload.corrected_by,
         )

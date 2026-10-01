@@ -14126,21 +14126,21 @@
         "additionalProperties": false,
         "properties": {
           "corners": {
-            "description": "Source-image outer corners of the 5 by 3 symbol lattice in row-major winding",
+            "description": "Source-image outer corners of the 5 by 3 symbol lattice in row-major winding; negative coordinates require an explicitly partial qualification",
             "maxItems": 4,
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Corners",
@@ -14161,6 +14161,16 @@
             "minimum": 0.0,
             "title": "Expectedresolutionrevision",
             "type": "integer"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "idempotencyKey": {
             "format": "uuid",
@@ -14203,21 +14213,21 @@
         "additionalProperties": false,
         "properties": {
           "corners": {
-            "description": "Source-image outer corners of the 5 by 3 symbol lattice in row-major winding",
+            "description": "Source-image outer corners of the 5 by 3 symbol lattice in row-major winding; negative coordinates require an explicitly partial qualification",
             "maxItems": 4,
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Corners",
@@ -14232,6 +14242,16 @@
             "minimum": 0.0,
             "title": "Expectedresolutionrevision",
             "type": "integer"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -14286,16 +14306,16 @@
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Corners",
@@ -14318,6 +14338,16 @@
             "pattern": "^[a-f0-9]{64}$",
             "title": "Geometrychecksumsha256",
             "type": "string"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "id": {
             "format": "uuid",
@@ -14405,6 +14435,17 @@
             "additionalProperties": true,
             "title": "Geometry",
             "type": "object"
+          },
+          "geometryQualification": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryQualificationPayload"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Persisted manual qualification of the current board geometry (TASK-0798)"
           },
           "geometryRevision": {
             "minimum": 0.0,
@@ -14494,10 +14535,36 @@
             "title": "Sourcechecksumsha256",
             "type": "string"
           },
+          "sourceHeight": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Oriented height of the source the corners refer to",
+            "title": "Sourceheight"
+          },
           "sourceOrderIndex": {
             "minimum": 0.0,
             "title": "Sourceorderindex",
             "type": "integer"
+          },
+          "sourceWidth": {
+            "anyOf": [
+              {
+                "exclusiveMinimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Oriented width of the source the corners refer to",
+            "title": "Sourcewidth"
           },
           "status": {
             "title": "Status",

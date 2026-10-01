@@ -60,6 +60,12 @@ może już utworzyć pliku pod artifact root. Koszt żądania to dekodowanie jed
 Endpoint `.../assets/cells/{cellIndex}` pozostaje na allowliście dla zgodności
 kontraktu, ale dla planszy wirtualnej zawsze odpowiada
 `404 IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE` (żaden plik nie jest czytany).
+Od TASK-0798 te same trasy przyjmują opcjonalną kwalifikację częściową i
+narożniki ze znakiem (bez nowych tras i bez zmian allowlisty). Ujemna
+współrzędna bez kwalifikacji `pending_partial` to `422` walidacji, a granice
+edycji względem zdjęcia (`require_manual_edit_bounds`) i maskę brakujących pól
+liczy domena geometrii wirtualnej, więc żądanie przez tunel nie poszerza
+obszaru renderu poza dotychczasowe granice korekty w Adminie.
 
 Od TASK-0797 (D-467) wyszukanie sesji Reviewera po tokenie i po
 identyfikatorze sesji działa na roli aplikacyjnej (RLS `game_data_v2`,

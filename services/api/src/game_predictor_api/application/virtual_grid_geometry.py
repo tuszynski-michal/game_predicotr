@@ -420,6 +420,7 @@ class VirtualGridGeometryService:
         expected_geometry_revision: int,
         expected_resolution_revision: int,
         corners: Sequence[ImageReviewGeometryPoint],
+        geometry_qualification: GeometryQualification | None = None,
     ) -> VirtualGridGeometryPreview:
         """Render one current board for the operational Reviewer (TASK-0796).
 
@@ -444,6 +445,7 @@ class VirtualGridGeometryService:
             expected_grid_rows=context.topology.rows,
             expected_grid_columns=context.topology.columns,
             corners=corners,
+            geometry_qualification=geometry_qualification,
         )
 
     def save_review_item(
@@ -458,6 +460,7 @@ class VirtualGridGeometryService:
         corners: Sequence[ImageReviewGeometryPoint],
         actor: str,
         created_at: datetime,
+        geometry_qualification: GeometryQualification | None = None,
     ) -> VirtualGridGeometrySaveResult:
         """Persist one current board's manual geometry for the Reviewer (TASK-0796).
 
@@ -482,6 +485,7 @@ class VirtualGridGeometryService:
             expected_grid_rows=context.topology.rows,
             expected_grid_columns=context.topology.columns,
             corners=corners,
+            geometry_qualification=geometry_qualification,
             actor=actor,
             created_at=created_at,
         )

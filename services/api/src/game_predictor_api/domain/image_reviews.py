@@ -123,6 +123,11 @@ class ImageReviewItem:
     resolved_at: datetime | None
     resolution_revision: int
     created_at: datetime
+    # TASK-0798: the board's persisted manual qualification (``to_dict``
+    # form) and the oriented source size the corrected corners refer to.
+    geometry_qualification: Mapping[str, object] | None = None
+    source_width: int | None = None
+    source_height: int | None = None
 
     @property
     def cursor_key(self) -> tuple[int, int, int, str]:

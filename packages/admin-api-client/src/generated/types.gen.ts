@@ -7779,13 +7779,13 @@ export type OperationalImageReviewGeometryCommand = {
   /**
    * Corners
    *
-   * Source-image outer corners of the 5 by 3 symbol lattice in row-major winding
+   * Source-image outer corners of the 5 by 3 symbol lattice in row-major winding; negative coordinates require an explicitly partial qualification
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Correctedby
@@ -7799,6 +7799,7 @@ export type OperationalImageReviewGeometryCommand = {
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Idempotencykey
    */
@@ -7826,13 +7827,13 @@ export type OperationalImageReviewGeometryPreviewCommand = {
   /**
    * Corners
    *
-   * Source-image outer corners of the 5 by 3 symbol lattice in row-major winding
+   * Source-image outer corners of the 5 by 3 symbol lattice in row-major winding; negative coordinates require an explicitly partial qualification
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedgeometryrevision
@@ -7842,6 +7843,7 @@ export type OperationalImageReviewGeometryPreviewCommand = {
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
+  geometryQualification?: GeometryQualificationPayload | null;
 };
 
 /**
@@ -7878,10 +7880,10 @@ export type OperationalImageReviewGeometryRevisionResponse = {
    * Corners
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Correctedby
@@ -7899,6 +7901,7 @@ export type OperationalImageReviewGeometryRevisionResponse = {
    * Geometrychecksumsha256
    */
   geometryChecksumSha256: string;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Id
    */
@@ -7956,6 +7959,10 @@ export type OperationalImageReviewItemResponse = {
     [key: string]: unknown;
   };
   /**
+   * Persisted manual qualification of the current board geometry (TASK-0798)
+   */
+  geometryQualification?: GeometryQualificationPayload | null;
+  /**
    * Geometryrevision
    */
   geometryRevision: number;
@@ -8006,9 +8013,21 @@ export type OperationalImageReviewItemResponse = {
    */
   sourceChecksumSha256: string;
   /**
+   * Sourceheight
+   *
+   * Oriented height of the source the corners refer to
+   */
+  sourceHeight?: number | null;
+  /**
    * Sourceorderindex
    */
   sourceOrderIndex: number;
+  /**
+   * Sourcewidth
+   *
+   * Oriented width of the source the corners refer to
+   */
+  sourceWidth?: number | null;
   /**
    * Status
    */

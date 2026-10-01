@@ -2637,9 +2637,17 @@ def test_review_job_completion_migration_backfills_resolved_import(
         engine.dispose()
 
 
-def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_loser(
+def test_parallel_review_decisions_keep_one_owner_and_refuse_a_moved_sequence(
     isolated_image_batch_database: URL,
 ) -> None:
+    """Two concurrent decisions for sequence 1 (TASK-0798).
+
+    V2 keeps one pending owner per sequence, so the competing candidate is
+    read as sequence 2 and its reviewer attests sequence 1.  A virtual
+    board's number is pinned by its source geometry slot: that decision is
+    refused before any write (409) instead of racing for the canonical
+    claim, and the attested board owns sequence 1.
+    """
     command.upgrade(_migration_config(isolated_image_batch_database), "head")
     engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
     session_factory = create_session_factory(engine)
@@ -2701,6 +2709,7 @@ def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_los
         ready = Barrier(2)
 
         def resolve(review_id: UUID, job_id: UUID) -> tuple[UUID, str, str]:
+            refused = False
             with game_storage_scope(game.id), session_factory() as session:
                 service = OperationalImageReviewService(
                     SqlAlchemyOperationalImageReviewRepository(session)
@@ -2719,24 +2728,35 @@ def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_los
                     for cell in current.cells
                 )
                 ready.wait(timeout=10)
-                resolved, event, created = service.resolve_item(
-                    review_id,
-                    game_id=game.id,
-                    import_job_id=job_id,
-                    idempotency_key=uuid4(),
-                    expected_revision=0,
-                    # The candidate read as sequence 2 corrects its sequence to 1.
-                    action=(
-                        ImageReviewAction.ACCEPTED
-                        if current.suggested_sequence_number == 1
-                        else ImageReviewAction.CORRECTED
-                    ),
-                    sequence_number=1,
-                    geometry_revision=current.geometry_revision,
-                    cells=cells,
-                    rejection_reason=None,
-                    resolved_by=f"reviewer-{job_id}",
-                )
+                try:
+                    resolved, event, created = service.resolve_item(
+                        review_id,
+                        game_id=game.id,
+                        import_job_id=job_id,
+                        idempotency_key=uuid4(),
+                        expected_revision=0,
+                        # The candidate read as sequence 2 corrects it to 1.
+                        action=(
+                            ImageReviewAction.ACCEPTED
+                            if current.suggested_sequence_number == 1
+                            else ImageReviewAction.CORRECTED
+                        ),
+                        sequence_number=1,
+                        geometry_revision=current.geometry_revision,
+                        cells=cells,
+                        rejection_reason=None,
+                        resolved_by=f"reviewer-{job_id}",
+                    )
+                except ImageReviewConflictError as error:
+                    session.rollback()
+                    refused = True
+                    assert error.code == "IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE"
+                    assert error.details == {
+                        "boardSequenceNumber": 2,
+                        "requestedSequenceNumber": 1,
+                    }
+                if refused:
+                    return review_id, "refused", "none"
                 assert created is True
                 queue_version, counts = service.queue_snapshot(
                     game_id=game.id,
@@ -2744,7 +2764,7 @@ def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_los
                 )
                 assert queue_version == 1
                 assert counts.total == 1
-                assert counts.accepted + counts.corrected + counts.superseded == 1
+                assert counts.accepted == 1
                 session.commit()
                 return resolved.id, resolved.status, event.action
 
@@ -2756,15 +2776,9 @@ def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_los
                 )
             )
 
-        winner_statuses = {"accepted", "corrected"}
-        assert sorted(status in winner_statuses for _item_id, status, _action in results) == [
-            False,
-            True,
-        ]
-        assert {status for _item_id, status, _action in results} - winner_statuses == {"superseded"}
-        assert sorted(action in winner_statuses for _item_id, _status, action in results) == [
-            False,
-            True,
+        assert sorted((status, action) for _item_id, status, action in results) == [
+            ("accepted", "accepted"),
+            ("refused", "none"),
         ]
 
         with game_storage_scope(game.id), session_factory() as session:
@@ -2775,34 +2789,32 @@ def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_los
                 )
             )
             assert canonical is not None
-            assert canonical.review_item_id in review_ids
+            assert canonical.review_item_id == review_ids[0]
             assert (
                 session.scalar(select(func.count()).select_from(ImageSequenceCanonicalModel)) == 1
             )
-            losing_id = next(
-                review_id for review_id in review_ids if review_id != canonical.review_item_id
+            # The refused candidate is untouched: still pending, no event,
+            # no staging row, no alternative source.
+            refused_item = session.get(ImageReviewItemModel, review_ids[1])
+            assert refused_item is not None
+            assert refused_item.status == "pending"
+            assert refused_item.resolution_revision == 0
+            assert refused_item.resolved_value is None
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageReviewResolutionEventModel)
+                    .where(ImageReviewResolutionEventModel.review_item_id == review_ids[1])
+                )
+                == 0
             )
-            loser = session.get(ImageReviewItemModel, losing_id)
-            assert loser is not None
-            assert loser.status == "superseded"
-            assert loser.resolution_revision >= 1
-            assert loser.resolved_value is not None
-            assert loser.resolved_value["canonicalReviewItemId"] == str(canonical.review_item_id)
             assert (
                 session.scalar(
                     select(func.count())
                     .select_from(ImageSequenceAlternativeModel)
                     .where(ImageSequenceAlternativeModel.game_id == game.id)
                 )
-                == 1
-            )
-            assert (
-                session.scalar(
-                    select(func.count())
-                    .select_from(ImageReviewResolutionEventModel)
-                    .where(ImageReviewResolutionEventModel.action == "superseded")
-                )
-                >= 1
+                == 0
             )
             assert session.scalar(select(func.count()).select_from(ImageLayoutStagingRowModel)) == 1
             states = session.scalars(
@@ -2813,12 +2825,134 @@ def test_parallel_review_decisions_persist_one_canonical_owner_and_supersede_los
             assert len(states) == 2
             assert all(state.queue_version == 1 and state.total_count == 1 for state in states)
             assert sum(state.accepted_count + state.corrected_count for state in states) == 1
-            assert sum(state.superseded_count for state in states) == 1
-            assert sum(state.pending_count for state in states) == 0
+            assert sum(state.superseded_count for state in states) == 0
+            assert sum(state.pending_count for state in states) == 1
+    finally:
+        engine.dispose()
 
-            # D-467 S6 (TASK-0796): manual geometry of a superseded source is
-            # refused by the virtual path; covered with a real source by
-            # ``test_reviewer_operational_geometry_postgres.py``.
+
+def test_a_later_decision_for_a_claimed_sequence_is_superseded_by_the_first_save(
+    isolated_image_batch_database: URL,
+) -> None:
+    """The first persisted decision of a sequence stays canonical (TASK-0798).
+
+    A second source of the same sequence can be pending only after the first
+    decision; accepting it loses the canonical claim and supersedes it,
+    keeps its source as an audited alternative and writes no staging row.
+    """
+
+    command.upgrade(_migration_config(isolated_image_batch_database), "head")
+    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
+    session_factory = create_session_factory(engine)
+    image_store = SqlAlchemyImageBatchStore(session_factory)
+    now = datetime(2026, 8, 20, 15, tzinfo=UTC)
+
+    try:
+        with session_factory() as session:
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+                code="later-save-loses",
+                name="Later save loses",
+                status=GameStatus.ACTIVE,
+            )
+            CatalogService(SqlAlchemyCatalogRepository(session)).create_symbol(
+                game.id,
+                mobile_code=1,
+                code="test",
+                name="Test",
+                image_path=None,
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+            repository = SqlAlchemyJobRepository(session)
+            jobs = (
+                repository.add_job(_image_job(game.id, PIPELINE, now)),
+                repository.add_job(_image_job(game.id, PIPELINE, now + timedelta(seconds=1))),
+            )
+            session.commit()
+
+        def add_candidate(index: int) -> UUID:
+            job = jobs[index - 1]
+            registered = image_store.register_file(
+                job.id,
+                source_checksum_sha256=f"{index}" * 64,
+                pipeline_fingerprint=PIPELINE,
+                source_relative_path=f"source-{index}.jpg",
+                order_index=0,
+                registered_at=now,
+            )
+            with game_storage_scope(game.id), session_factory() as session:
+                review_id, _board_id = _add_review_projection_source(
+                    session,
+                    job_id=job.id,
+                    file_execution_key=registered.file_execution_key,
+                    source_checksum=f"{index}" * 64,
+                    source_name=f"source-{index}.jpg",
+                    position_index=0,
+                    sequence_number=1,
+                    status="pending",
+                    created_at=now,
+                )
+                session.commit()
+            return review_id
+
+        def accept(review_id: UUID, job_id: UUID) -> tuple[str, str]:
+            with game_storage_scope(game.id), session_factory() as session:
+                service = OperationalImageReviewService(
+                    SqlAlchemyOperationalImageReviewRepository(session)
+                )
+                current = service.get_item(review_id, game_id=game.id, import_job_id=job_id)
+                resolved, event, created = service.resolve_item(
+                    review_id,
+                    game_id=game.id,
+                    import_job_id=job_id,
+                    idempotency_key=uuid4(),
+                    expected_revision=current.resolution_revision,
+                    action=ImageReviewAction.ACCEPTED,
+                    sequence_number=1,
+                    geometry_revision=current.geometry_revision,
+                    cells=tuple(
+                        ImageReviewResolutionCell(
+                            cell_index=cell.cell_index,
+                            crop_sample_id=cell.crop_sample_id,
+                            symbol_code="test",
+                        )
+                        for cell in current.cells
+                    ),
+                    rejection_reason=None,
+                    resolved_by=f"reviewer-{job_id}",
+                )
+                assert created is True
+                session.commit()
+                return resolved.status, event.action
+
+        first = add_candidate(1)
+        assert accept(first, jobs[0].id) == ("accepted", "accepted")
+        second = add_candidate(2)
+        assert accept(second, jobs[1].id) == ("superseded", "superseded")
+
+        with game_storage_scope(game.id), session_factory() as session:
+            canonical = session.scalar(
+                select(ImageSequenceCanonicalModel).where(
+                    ImageSequenceCanonicalModel.game_id == game.id,
+                    ImageSequenceCanonicalModel.sequence_number == 1,
+                )
+            )
+            assert canonical is not None and canonical.review_item_id == first
+            loser = session.get(ImageReviewItemModel, second)
+            assert loser is not None and loser.status == "superseded"
+            assert loser.resolved_value is not None
+            assert loser.resolved_value["canonicalReviewItemId"] == str(first)
+            assert loser.resolved_value["reason"] == "canonical_sequence_claim_lost"
+            assert (
+                session.scalar(
+                    select(func.count())
+                    .select_from(ImageSequenceAlternativeModel)
+                    .where(ImageSequenceAlternativeModel.game_id == game.id)
+                )
+                == 1
+            )
+            assert session.scalar(select(func.count()).select_from(ImageLayoutStagingRowModel)) == 1
     finally:
         engine.dispose()
 

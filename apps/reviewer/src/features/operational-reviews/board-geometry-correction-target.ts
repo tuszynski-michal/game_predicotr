@@ -1,8 +1,11 @@
 import type {
   AdminApiClient,
   BoardCellGeometryCorrectionContextResponse,
+  GeometryQualificationPayload,
   ImageGridReviewItemResponse,
   OperationalImageReviewGeometryPoint,
+  OperationalImageReviewGeometryResponse,
+  OperationalImageReviewItemResponse,
 } from '@game-predictor/admin-api-client';
 import {
   completeManualGridFlags,
@@ -16,6 +19,7 @@ import {
   gridReviewCorners,
   gridReviewGeometryPreviewCommand,
   gridReviewQualification,
+  parseGeometryCorners,
 } from './board-geometry-correction-state.ts';
 
 import {
@@ -33,7 +37,18 @@ import {
   deferredBoardCellGeometryResolutionCommand,
   deferredBoardCellGeometrySourceUrl,
 } from './deferred-board-cell-geometry-state.ts';
-import type { OperationalReviewGeometryCorners } from './operational-review-state.ts';
+import {
+  previewOperationalReviewGeometry,
+  saveOperationalReviewGeometry,
+  type OperationalReviewsClient,
+} from './operational-review-actions.ts';
+import {
+  buildOperationalReviewGeometryCommand,
+  buildOperationalReviewGeometryPreviewCommand,
+  operationalReviewAssetUrl,
+  operationalReviewGeometryCorners,
+  type OperationalReviewGeometryCorners,
+} from './operational-review-state.ts';
 
 /**
  * One board whose grid a human corrects on the single-board screen (D-462).
@@ -43,7 +58,7 @@ import type { OperationalReviewGeometryCorners } from './operational-review-stat
 export interface BoardGeometryCorrectionView {
   /** The board's persisted qualification, so a partial board stays partial. */
   readonly initialFlags: ManualGridFlags;
-  readonly kind: 'deferred' | 'reported';
+  readonly kind: 'deferred' | 'operational' | 'reported';
   readonly metadata: readonly BoardGeometryCorrectionFact[];
   readonly reportedCellIndices: readonly number[];
   readonly saveHint: string;
@@ -199,23 +214,16 @@ export function reportedBoardGeometryTarget(input: {
   const command = (
     corners: OperationalReviewGeometryCorners,
     flags: ManualGridFlags,
-  ) => {
-    // A board that already carries a qualification must keep sending one
-    // (also `complete`).
-    const qualified =
-      persistedQualification !== undefined || flags.partial || flags.exclude;
-    return {
-      ...gridReviewGeometryPreviewCommand(item, corners),
-      geometryQualification: qualified
-        ? manualGridQualification(
-            flags,
-            corners,
-            item.sourceWidth,
-            item.sourceHeight,
-          )
-        : null,
-    };
-  };
+  ) => ({
+    ...gridReviewGeometryPreviewCommand(item, corners),
+    geometryQualification: correctionGeometryQualification(
+      persistedQualification,
+      flags,
+      corners,
+      item.sourceWidth,
+      item.sourceHeight,
+    ),
+  });
   const reported = [...(item.reportedCellIndices ?? [])].sort((a, b) => a - b);
   return {
     key: `review:${item.slotId}:${item.geometryRevision}:${item.resolutionRevision}`,
@@ -302,6 +310,187 @@ export function reportedBoardGeometryTarget(input: {
       } catch {
         return disconnected();
       }
+    },
+  };
+}
+
+/**
+ * The qualification one correction command sends (shared by every target).
+ * A board that already carries a qualification keeps sending one (also
+ * `complete`), so a partial board can never silently become complete; a
+ * plain board stays unqualified unless the operator marks it partial or
+ * excluded. Throws when the flags do not describe a valid partial board.
+ */
+export function correctionGeometryQualification(
+  persisted: GeometryQualificationPayload | undefined,
+  flags: ManualGridFlags,
+  corners: OperationalReviewGeometryCorners,
+  sourceWidth: number,
+  sourceHeight: number,
+): GeometryQualificationPayload | null {
+  const qualified = persisted !== undefined || flags.partial || flags.exclude;
+  return qualified
+    ? manualGridQualification(flags, corners, sourceWidth, sourceHeight)
+    : null;
+}
+
+export type OperationalBoardGeometryClient = Pick<
+  OperationalReviewsClient,
+  | 'createOperationalImageReviewGeometryRevision'
+  | 'previewOperationalImageReviewGeometry'
+>;
+
+export interface OperationalBoardGeometryTarget extends BoardGeometryCorrectionTarget {
+  /** The response of the last successful save, read once by the dialog. */
+  takeSavedGeometry(): OperationalImageReviewGeometryResponse | null;
+}
+
+/**
+ * The board open in the operational review (TASK-0798). It corrects through
+ * the operational routes `image-review-items/{id}/geometry-preview` and
+ * `.../geometry-revisions` (same allowlist and Reviewer session), but with
+ * the same flags, qualification and validation as the correction queue.
+ */
+export function operationalBoardGeometryTarget(input: {
+  readonly api: OperationalBoardGeometryClient;
+  readonly apiBaseUrl: string;
+  readonly importJobId: string;
+  readonly item: OperationalImageReviewItemResponse;
+}): OperationalBoardGeometryTarget {
+  const { api, item } = input;
+  let savedGeometry: OperationalImageReviewGeometryResponse | null = null;
+  const scope = { gameId: item.gameId, importJobId: input.importJobId };
+  const persistedQualification = item.geometryQualification ?? undefined;
+  const sourceSize = (): { width: number; height: number } => {
+    if (item.sourceWidth == null || item.sourceHeight == null) {
+      throw new Error('Plansza nie ma wymiarów zdjęcia źródłowego.');
+    }
+    return { height: item.sourceHeight, width: item.sourceWidth };
+  };
+  const command = (
+    corners: OperationalReviewGeometryCorners,
+    flags: ManualGridFlags,
+  ) => {
+    const size = sourceSize();
+    return {
+      ...buildOperationalReviewGeometryPreviewCommand(item, corners),
+      geometryQualification: correctionGeometryQualification(
+        persistedQualification,
+        flags,
+        corners,
+        size.width,
+        size.height,
+      ),
+    };
+  };
+  const sequenceNumber = item.sequenceNumber ?? item.suggestedSequenceNumber;
+  return {
+    key: `operational:${item.id}:${item.geometryRevision}:${item.resolutionRevision}`,
+    async load() {
+      if (item.sourceWidth == null || item.sourceHeight == null) {
+        return {
+          error:
+            'Plansza nie ma wymiarów zdjęcia źródłowego. Odśwież kolejkę i spróbuj ponownie.',
+          isConflict: false,
+          ok: false,
+        };
+      }
+      const width = item.sourceWidth;
+      const height = item.sourceHeight;
+      return {
+        ok: true,
+        view: {
+          initialFlags: manualGridFlagsFromQualification(
+            persistedQualification,
+          ),
+          kind: 'operational',
+          metadata: [
+            {
+              label: 'Numer planszy',
+              value:
+                sequenceNumber == null
+                  ? '—'
+                  : sequenceNumber.toLocaleString('pl-PL'),
+            },
+            {
+              label: 'Pozycja na stronie',
+              value: `${item.positionIndex + 1} / 9`,
+            },
+            {
+              label: 'Rewizja geometrii',
+              value: String(item.geometryRevision),
+            },
+          ],
+          reportedCellIndices: [],
+          saveHint:
+            'Zapis utworzy nową rewizję append-only, zachowa poprzednią geometrię i ponownie otworzy symbole zależne od zmienionych cropów.',
+          sourceHeight: height,
+          sourceUrl: operationalReviewAssetUrl(
+            input.apiBaseUrl,
+            scope,
+            item.id,
+            'source',
+            {
+              usage: 'board-cell-geometry-editor-v19-v1',
+              version: item.sourceChecksumSha256,
+            },
+          ),
+          sourceWidth: width,
+          suggestedCorners:
+            parseGeometryCorners(
+              item.geometry,
+              persistedQualification?.completenessStatus === 'pending_partial',
+            ) ?? operationalReviewGeometryCorners(item, width, height),
+          supportsPartial: true,
+        },
+      };
+    },
+    commandKey(corners, flags) {
+      return JSON.stringify(command(corners, flags));
+    },
+    async preview(corners, flags) {
+      const result = await previewOperationalReviewGeometry(api, {
+        command: command(corners, flags),
+        gameId: item.gameId,
+        importJobId: input.importJobId,
+        reviewItemId: item.id,
+      });
+      return result.ok
+        ? result
+        : {
+            error: result.error,
+            isConflict: result.isRevisionConflict,
+            ok: false,
+          };
+    },
+    async save(corners, flags, idempotencyKey) {
+      const result = await saveOperationalReviewGeometry(api, {
+        command: {
+          ...buildOperationalReviewGeometryCommand(
+            item,
+            corners,
+            idempotencyKey,
+          ),
+          geometryQualification: command(corners, flags).geometryQualification,
+        },
+        gameId: item.gameId,
+        importJobId: input.importJobId,
+        reviewItemId: item.id,
+      });
+      if (!result.ok) {
+        return {
+          error: result.error,
+          isConflict: result.isRevisionConflict,
+          ok: false,
+        };
+      }
+      savedGeometry = result.geometry;
+      return { ok: true, reviewItemId: item.id };
+    },
+    takeSavedGeometry() {
+      const geometry = savedGeometry;
+      savedGeometry = null;
+      return geometry;
     },
   };
 }

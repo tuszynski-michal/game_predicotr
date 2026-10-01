@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 ---
 
 # Wymagania modułu administracyjnego
@@ -1015,6 +1015,65 @@ najnowszymi importami gry. Diagnostyka techniczna per job (wersja silnika
 cięcia, manifest geometrii stron, test ochronny, wersja modelu symboli,
 wynik pipeline'u) została usunięta z tego widoku; pozostaje dostępna w
 zakładce Joby.
+
+### Sekcja „Kompletność siatek zdjęć” w Import plansz (D-479, TASK-0806)
+
+Jednostką geometrii jest zdjęcie źródłowe (D-479). Sekcja, pod „Brakującymi
+planszami”, pokazuje, ile zdjęć gry ma komplet poprawnych siatek, a ile nie, i
+listuje zdjęcia niekompletne. Jest wyłącznie widokiem do odczytu: niczego nie
+zapisuje i nie zmienia pipeline'u; siatki poprawia się w istniejącej kolejce
+siatek (Reviewer). Korzysta z `GET .../geometry-completeness/{gameId}`,
+`.../incomplete-images` i `.../low-quality-boards`.
+
+Definicje (zapisane w czystej funkcji `domain/image_geometry_completeness.py`,
+ten sam przepis liczy SQL raportu):
+
+- oczekiwane pozycje zdjęcia to `active_board_slots` jego najnowszej rewizji
+  geometrii źródła; numer sekwencji pozycji `p` to `sequence_range_start + p`;
+  plansze poza tymi pozycjami (np. ze starszej, dłuższej rewizji) nie liczą się,
+- pozycja jest `ok`, gdy plansza istnieje, jest kompletna i jej geometria jest
+  zatwierdzona przez człowieka (`approved_geometry_revision = geometry_revision`)
+  albo rewizja źródła, na którą plansza wskazuje, ma status `accepted`;
+  `uncertain` — kompletna plansza bez żadnego z tych dowodów; `partial` —
+  plansza `pending_partial`; `missing` — brak planszy; `deferred` — brak planszy
+  i otwarty (`pending`) wiersz odroczonej geometrii (z kodem powodu),
+- zdjęcie jest `complete`, gdy wszystkie pozycje są `ok`; inaczej
+  `incomplete_missing` (jest pozycja `missing`/`deferred`), `incomplete_partial`
+  albo `incomplete_uncertain`; zdjęcie bez żadnej rewizji geometrii źródła ma
+  własny stan `no_source_geometry` (oczekiwana liczba plansz jest nieznana).
+  Zdjęć w statusie `processing` nie pomijamy: wchodzą do liczników i do linii
+  „w tym N zdjęć w przetwarzaniu”.
+
+Zachowanie:
+
+- liczniki: zdjęcia w grze, niekompletne w grze i — po wybraniu przełącznika
+  „Wybrany import” — niekompletne w imporcie; linia stanów zdjęć (brakuje
+  plansz / plansza częściowa / siatka niepotwierdzona / bez geometrii źródła) i
+  linia „Plansze bez poprawnej siatki” z podziałem pozycji na stany i powody
+  odroczenia,
+- filtr stanu zdjęcia (`Wszystkie` + cztery stany niekompletne) i lista po 25
+  zdjęć z przyciskiem „Pokaż więcej zdjęć”, kursor keyset po
+  `(relativePath, sourceImageId)`,
+- każde zdjęcie pokazuje ścieżkę, status zdjęcia, zakres numerów, oczekiwaną
+  liczbę plansz oraz SVG o wymiarach zdjęcia (`exif-normalized-rgb-pixels-v1`)
+  z naniesionymi siatkami plansz: kolor zielony `ok`, żółty `uncertain` i
+  `partial`, czerwony linią przerywaną pozycje bez poprawnej siatki; pozycje
+  bez czworokąta są dodatkowo opisane tekstem „bez siatki”. Czworokąt pochodzi z
+  rewizji, z której plansza została pocięta (a dla pozycji bez planszy z rewizji
+  bieżącej); nic nie jest zgadywane,
+- przycisk „Pokaż zdjęcie pod siatkami” pobiera zdjęcie istniejącym endpointem
+  `getOperationalImageReviewSourceAsset` przez element review jednej z plansz
+  zdjęcia; zdjęcie bez żadnej rozpoznanej planszy nie ma takiego elementu, więc
+  pokazuje tylko siatki i komunikat,
+- „Plansze z niską jakością symboli” to osobne, jawnie uruchamiane zapytanie
+  (przycisk; nigdy przy ładowaniu ani w odświeżaniu): plansze, na których co
+  najmniej `minCells` (domyślnie 5) widocznych pól bez decyzji człowieka
+  (`review_state = pending`) ma pewność predykcji `≤ maxConfidence` (domyślnie
+  80 %). Zakres to wybrany import albo cała gra; przekroczenie limitu 10 s daje
+  jawny błąd z podpowiedzią zawężenia do importu, nigdy pusty wynik,
+- odświeżanie: przy wejściu, po `Odśwież status` panelu (`refreshToken`) i po
+  zmianie zakresu/filtra; co 15 s odświeżane są wyłącznie liczniki i tylko gdy
+  trwa aktywny import tej gry.
 
 ### Minimalistyczne stanowisko zatwierdzania
 

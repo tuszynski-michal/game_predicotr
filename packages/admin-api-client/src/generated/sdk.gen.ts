@@ -278,9 +278,15 @@ import type {
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
+  GetImageGeometryCompletenessData,
+  GetImageGeometryCompletenessErrors,
+  GetImageGeometryCompletenessResponses,
   GetImageGeometryGuardSourceAssetData,
   GetImageGeometryGuardSourceAssetErrors,
   GetImageGeometryGuardSourceAssetResponses,
+  GetImageGeometryLowQualityBoardsData,
+  GetImageGeometryLowQualityBoardsErrors,
+  GetImageGeometryLowQualityBoardsResponses,
   GetImageGeometryRolloutStatusData,
   GetImageGeometryRolloutStatusErrors,
   GetImageGeometryRolloutStatusResponses,
@@ -515,6 +521,9 @@ import type {
   ListImageSelectionsData,
   ListImageSelectionsErrors,
   ListImageSelectionsResponses,
+  ListIncompleteGeometryImagesData,
+  ListIncompleteGeometryImagesErrors,
+  ListIncompleteGeometryImagesResponses,
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
@@ -3679,6 +3688,69 @@ export const getImageDatasetCompleteness = <
     ThrowOnError
   >({
     url: '/api/v1/admin/image-review-items/dataset-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * Count complete and incomplete source images of a game or import (D-479)
+ */
+export const getImageGeometryCompleteness = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryCompletenessData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryCompletenessResponses,
+  GetImageGeometryCompletenessErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryCompletenessResponses,
+    GetImageGeometryCompletenessErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * List one page of source images without a complete set of grids (D-479)
+ */
+export const listIncompleteGeometryImages = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListIncompleteGeometryImagesData, ThrowOnError>,
+): RequestResult<
+  ListIncompleteGeometryImagesResponses,
+  ListIncompleteGeometryImagesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListIncompleteGeometryImagesResponses,
+    ListIncompleteGeometryImagesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/incomplete-images',
+    ...options,
+  });
+
+/**
+ * List boards with many unreviewed low-confidence symbol cells
+ */
+export const getImageGeometryLowQualityBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryLowQualityBoardsData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryLowQualityBoardsResponses,
+  GetImageGeometryLowQualityBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryLowQualityBoardsResponses,
+    GetImageGeometryLowQualityBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/low-quality-boards',
     ...options,
   });
 

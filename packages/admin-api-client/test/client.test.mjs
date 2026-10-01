@@ -3327,6 +3327,68 @@ test('getBoardImportCoverage passes gameId as path and options as query params',
   });
 });
 
+test('geometry completeness wrappers pass gameId as path and filters as query params (D-479)', async () => {
+  const requests = [];
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const importJobId = '44444444-4444-4444-8444-444444444444';
+  const mockFetch = async (request) => {
+    requests.push(request);
+    return Response.json({});
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: mockFetch,
+  });
+
+  await client.getImageGeometryCompleteness({ gameId });
+  await client.getImageGeometryCompleteness({ gameId, importJobId });
+  await client.listIncompleteGeometryImages({ gameId });
+  await client.listIncompleteGeometryImages({
+    gameId,
+    importJobId,
+    imageState: 'incomplete_uncertain',
+    afterCursor: 'abc_-=',
+    limit: 25,
+  });
+  await client.getImageGeometryLowQualityBoards({ gameId });
+  await client.getImageGeometryLowQualityBoards({
+    gameId,
+    importJobId,
+    maxConfidence: 0.6,
+    minCells: 3,
+    limit: 20,
+  });
+
+  assert.equal(requests.length, 6);
+  const base = `/api/v1/admin/image-review-items/geometry-completeness/${gameId}`;
+  const [report, reportImport, list, listFull, low, lowFull] = requests.map(
+    (request) => new URL(request.url),
+  );
+  assert.equal(report.pathname, base);
+  assert.equal(report.search, '');
+  assert.equal(reportImport.pathname, base);
+  assert.deepEqual(Object.fromEntries(reportImport.searchParams.entries()), {
+    importJobId,
+  });
+  assert.equal(list.pathname, `${base}/incomplete-images`);
+  assert.equal(list.search, '');
+  assert.deepEqual(Object.fromEntries(listFull.searchParams.entries()), {
+    importJobId,
+    imageState: 'incomplete_uncertain',
+    afterCursor: 'abc_-=',
+    limit: '25',
+  });
+  assert.equal(low.pathname, `${base}/low-quality-boards`);
+  assert.equal(low.search, '');
+  assert.deepEqual(Object.fromEntries(lowFull.searchParams.entries()), {
+    importJobId,
+    maxConfidence: '0.6',
+    minCells: '3',
+    limit: '20',
+  });
+  for (const request of requests) assert.equal(request.method, 'GET');
+});
+
 test('geometry review sources response carries automaticPageProposal through the wrapper unchanged', async () => {
   const gameId = '55555555-5555-4555-8555-555555555555';
   const uploadId = '66666666-6666-4666-8666-666666666666';

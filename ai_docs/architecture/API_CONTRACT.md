@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 ---
 
 # Kontrakty API i danych mobilnych
@@ -2494,6 +2494,65 @@ kolejną stronę tego samego `view`. `counts.approved` cytuje ten sam licznik
 zatwierdzonych co `dataset-completeness.acceptedBoardCount`, licząc jednak w
 oknie `1..expectedLayoutCount` — nie jest z nim identyczny przy numerach poza
 zakresem.
+
+TASK-0806 dodaje do tego samego routera raport kompletności geometrii zdjęć
+(D-479) — wyłącznie odczyt, bez migracji i bez zapisu:
+
+```text
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}?importJobId=
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/incomplete-images?importJobId=&imageState=&afterCursor=&limit=
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/low-quality-boards?importJobId=&maxConfidence=&minCells=&limit=
+```
+
+`operationId`: `getImageGeometryCompleteness`, `listIncompleteGeometryImages`,
+`getImageGeometryLowQualityBoards`. Jednostką jest zdjęcie źródłowe; oczekiwane
+pozycje to `active_board_slots` najnowszej rewizji geometrii źródła, a stan
+pozycji (`ok | uncertain | partial | missing | deferred`) i zdjęcia (`complete |
+incomplete_missing | incomplete_partial | incomplete_uncertain |
+no_source_geometry`) wynika z reguł D-479 (`ADMIN_APP.md`, sekcja „Kompletność
+siatek zdjęć”). Opcjonalny `importJobId` zawęża wynik do jednego importu tej
+gry; import cudzej gry daje `404 IMAGE_GEOMETRY_COMPLETENESS_IMPORT_NOT_FOUND`,
+nieznana gra `404 IMAGE_REVIEW_GAME_NOT_FOUND`.
+
+Raport zwraca `gameId, importJobId | null, images{total, complete, incomplete,
+incompleteMissing, incompletePartial, incompleteUncertain, noSourceGeometry},
+expectedBoardCount` (suma oczekiwanych pozycji zdjęć z geometrią źródła),
+`positions[{state, reasonCode | null, count}]` (pozycje według stanu; stan
+`deferred` z kodem powodu odroczenia), `sourceStatuses[{imageState,
+sourceStatus, count}]` (m.in. zdjęcia `processing`) i `computedAt`. Liczniki są
+agregowane w SQL po zdjęciu; liczba pozycji `ok`, `uncertain` i `partial` liczy
+tylko plansze z oczekiwanych pozycji.
+
+Lista zwraca wyłącznie zdjęcia niekompletne, posortowane po `(relativePath,
+sourceImageId)`, z kursorem `afterCursor` (nieprzejrzysty, błędny daje `422
+IMAGE_GEOMETRY_COMPLETENESS_CURSOR_INVALID`) i `limit` `1..100` (domyślnie 25).
+`imageState` przyjmuje stany niekompletne (`complete` daje `422
+IMAGE_GEOMETRY_COMPLETENESS_STATE_INVALID`). Element: `sourceImageId,
+importJobId, relativePath, sourceStatus, imageState, sourceRevision |
+null, sequenceRangeStart/End | null, expectedBoardCount | null,
+orientedWidth/Height | null, previewReviewItemId | null, positions[{positionIndex,
+sequenceNumber, state, reasonCode | null, recognizedBoardId | null, quad |
+null}]`. `quad` to cztery punkty w pikselach zdjęcia
+`exif-normalized-rgb-pixels-v1` (z rewizji, z której plansza została pocięta;
+dla pozycji bez planszy z rewizji bieżącej), `null` gdy rewizja nie ma
+czworokąta. `previewReviewItemId` to element review jednej z plansz zdjęcia
+(preferowany nie-`superseded`): istniejący endpoint zasobu źródłowego
+`getOperationalImageReviewSourceAsset` jest kluczowany elementem review, więc
+zdjęcie bez żadnej rozpoznanej planszy ma `null` i nie ma podglądu pliku.
+
+Sygnał niskiej jakości symboli jest osobnym, jawnie wywoływanym zapytaniem na
+tabeli komórek: plansza spełnia go, gdy co najmniej `minCells` (`1..15`,
+domyślnie 5) widocznych komórek (`source_available` albo `outside`) ma
+`review_state = pending` i `prediction_confidence <= maxConfidence`
+(`0..1`, domyślnie 0,80; ta sama definicja „bez decyzji człowieka” i
+pewności co filtry weryfikacji symboli). Odpowiedź: `gameId, importJobId |
+null, maxConfidence, minCells, totalBoards, boards[{recognizedBoardId,
+sourceImageId, importJobId, relativePath, positionIndex, sequenceNumber | null,
+lowCellCount, minConfidence}]` (najwyżej `limit` `1..100`, domyślnie 50,
+sortowane malejąco po `lowCellCount`) i `computedAt`. Zapytanie ma
+transakcyjny `statement_timeout` 10 s; jego przekroczenie to `409
+IMAGE_GEOMETRY_LOW_QUALITY_TIMEOUT` (z `details.timeoutMs`), nigdy pusty wynik.
+Progi poza zakresem dają `422`.
 
 Lista źródeł zwraca stabilny ranking zaakceptowanych plansz tej samej sekwencji,
 jawne metryki jakości, provenance, automatyczny rank i aktualny wybór. Komenda

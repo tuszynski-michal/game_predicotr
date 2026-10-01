@@ -308,6 +308,9 @@ from game_predictor_api.storage.grid_calibration_repository import (
 from game_predictor_api.storage.grid_profile_snapshot_resolver import (
     SqlAlchemyGridProfileSnapshotResolver,
 )
+from game_predictor_api.storage.image_geometry_completeness_repository import (
+    SqlAlchemyImageGeometryCompletenessRepository,
+)
 from game_predictor_api.storage.image_geometry_rollout_backfill_repository import (
     SqlAlchemyImageGeometryRolloutBackfillRepository,
 )
@@ -1225,6 +1228,9 @@ def create_app(
                     ),
                     board_import_coverage_repository=SqlAlchemyBoardImportCoverageRepository(
                         session
+                    ),
+                    geometry_completeness_repository=(
+                        SqlAlchemyImageGeometryCompletenessRepository(session)
                     ),
                 )
                 session.commit()

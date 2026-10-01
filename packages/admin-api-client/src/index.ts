@@ -101,6 +101,9 @@ import {
   handoffImageSelection as handoffGeneratedImageSelection,
   getBoardImportCoverage as getGeneratedBoardImportCoverage,
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
+  getImageGeometryCompleteness as getGeneratedImageGeometryCompleteness,
+  getImageGeometryLowQualityBoards as getGeneratedImageGeometryLowQualityBoards,
+  listIncompleteGeometryImages as listGeneratedIncompleteGeometryImages,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
   getStorageGcRun as getGeneratedStorageGcRun,
@@ -255,6 +258,7 @@ import type {
   ApproximateWinRulesResponse,
   ApproximateWinSummaryResponse,
   BoardImportCoverageView,
+  GeometryImageState,
   ReprocessManagedImageImportData,
   BrowserImageSelectionCreate,
   BrowserImageUploadPlanResponse,
@@ -540,6 +544,18 @@ export type {
   BoardImportCoverageRangeResponse,
   BoardImportCoverageRangeCountsResponse,
   BoardImportCoverageSegmentResponse,
+  GeometryCompletenessImageCountsResponse,
+  GeometryCompletenessPointResponse,
+  GeometryCompletenessPositionCountResponse,
+  GeometryCompletenessPositionResponse,
+  GeometryCompletenessSourceStatusCountResponse,
+  GeometryImageState,
+  GeometryLowQualityBoardResponse,
+  GeometryPositionState,
+  ImageGeometryCompletenessResponse,
+  ImageGeometryLowQualityBoardsResponse,
+  IncompleteGeometryImagePageResponse,
+  IncompleteGeometryImageResponse,
   ImageDiagnosticExportResponse,
   ImageJobFileErrorResponse,
   ImageJobFileResponse,
@@ -814,6 +830,27 @@ export interface GetBoardImportCoverageOptions {
   readonly from?: number;
   readonly to?: number;
   readonly afterSequenceNumber?: number;
+  readonly limit?: number;
+}
+
+export interface GetImageGeometryCompletenessOptions {
+  readonly gameId: string;
+  readonly importJobId?: string;
+}
+
+export interface ListIncompleteGeometryImagesOptions {
+  readonly gameId: string;
+  readonly importJobId?: string;
+  readonly imageState?: Exclude<GeometryImageState, 'complete'>;
+  readonly afterCursor?: string;
+  readonly limit?: number;
+}
+
+export interface GetImageGeometryLowQualityBoardsOptions {
+  readonly gameId: string;
+  readonly importJobId?: string;
+  readonly maxConfidence?: number;
+  readonly minCells?: number;
   readonly limit?: number;
 }
 
@@ -1976,6 +2013,56 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.afterSequenceNumber === undefined
             ? {}
             : { afterSequenceNumber: options.afterSequenceNumber }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    getImageGeometryCompleteness: (
+      options: GetImageGeometryCompletenessOptions,
+    ) =>
+      getGeneratedImageGeometryCompleteness({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.importJobId === undefined
+            ? {}
+            : { importJobId: options.importJobId }),
+        },
+      }),
+    listIncompleteGeometryImages: (
+      options: ListIncompleteGeometryImagesOptions,
+    ) =>
+      listGeneratedIncompleteGeometryImages({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.importJobId === undefined
+            ? {}
+            : { importJobId: options.importJobId }),
+          ...(options.imageState === undefined
+            ? {}
+            : { imageState: options.imageState }),
+          ...(options.afterCursor === undefined
+            ? {}
+            : { afterCursor: options.afterCursor }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    getImageGeometryLowQualityBoards: (
+      options: GetImageGeometryLowQualityBoardsOptions,
+    ) =>
+      getGeneratedImageGeometryLowQualityBoards({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.importJobId === undefined
+            ? {}
+            : { importJobId: options.importJobId }),
+          ...(options.maxConfidence === undefined
+            ? {}
+            : { maxConfidence: options.maxConfidence }),
+          ...(options.minCells === undefined
+            ? {}
+            : { minCells: options.minCells }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
       }),

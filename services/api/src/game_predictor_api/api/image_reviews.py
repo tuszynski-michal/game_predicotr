@@ -26,6 +26,15 @@ from game_predictor_api.application.reviewer_access import (
     ReviewerAccessSession,
 )
 from game_predictor_api.domain.board_import_coverage import BoardImportCoverageView
+from game_predictor_api.domain.image_geometry_completeness import (
+    DEFAULT_LOW_QUALITY_MAX_CONFIDENCE,
+    DEFAULT_LOW_QUALITY_MIN_CELLS,
+    MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
+    MAX_LOW_QUALITY_MIN_CELLS,
+    GeometryImageState,
+    LowQualityThresholds,
+    decode_geometry_image_cursor,
+)
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_PAGE_SIZE,
     ImageReviewGeometryPoint,
@@ -35,6 +44,14 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.image_geometry_completeness import (
+    ImageGeometryCompletenessResponse,
+    ImageGeometryLowQualityBoardsResponse,
+    IncompleteGeometryImagePageResponse,
+    to_geometry_completeness_response,
+    to_geometry_low_quality_boards_response,
+    to_incomplete_geometry_image_page_response,
+)
 from game_predictor_api.schemas.image_reviews import (
     BoardImportCoverageResponse,
     CanonicalImageReviewPageResponse,
@@ -140,6 +157,77 @@ def create_image_reviews_router(
                 range_from=range_from,
                 range_to=range_to,
                 after_sequence_number=after_sequence_number,
+                limit=limit,
+            )
+        )
+
+    @router.get(
+        "/geometry-completeness/{game_id}",
+        response_model=ImageGeometryCompletenessResponse,
+        operation_id="getImageGeometryCompleteness",
+        summary="Count complete and incomplete source images of a game or import (D-479)",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_geometry_completeness(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
+    ) -> ImageGeometryCompletenessResponse:
+        return to_geometry_completeness_response(
+            service.geometry_completeness(game_id, import_job_id=import_job_id)
+        )
+
+    @router.get(
+        "/geometry-completeness/{game_id}/incomplete-images",
+        response_model=IncompleteGeometryImagePageResponse,
+        operation_id="listIncompleteGeometryImages",
+        summary="List one page of source images without a complete set of grids (D-479)",
+        responses=ERROR_RESPONSES,
+    )
+    def list_incomplete_geometry_images(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
+        image_state: Annotated[GeometryImageState | None, Query(alias="imageState")] = None,
+        after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
+        limit: Annotated[int, Query(ge=1, le=MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE)] = 25,
+    ) -> IncompleteGeometryImagePageResponse:
+        return to_incomplete_geometry_image_page_response(
+            service.incomplete_geometry_images(
+                game_id,
+                import_job_id=import_job_id,
+                image_state=image_state,
+                after=(
+                    None if after_cursor is None else decode_geometry_image_cursor(after_cursor)
+                ),
+                limit=limit,
+            )
+        )
+
+    @router.get(
+        "/geometry-completeness/{game_id}/low-quality-boards",
+        response_model=ImageGeometryLowQualityBoardsResponse,
+        operation_id="getImageGeometryLowQualityBoards",
+        summary="List boards with many unreviewed low-confidence symbol cells",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_geometry_low_quality_boards(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
+        max_confidence: Annotated[float, Query(alias="maxConfidence", ge=0, le=1)] = (
+            DEFAULT_LOW_QUALITY_MAX_CONFIDENCE
+        ),
+        min_cells: Annotated[
+            int, Query(alias="minCells", ge=1, le=MAX_LOW_QUALITY_MIN_CELLS)
+        ] = DEFAULT_LOW_QUALITY_MIN_CELLS,
+        limit: Annotated[int, Query(ge=1, le=MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE)] = 50,
+    ) -> ImageGeometryLowQualityBoardsResponse:
+        return to_geometry_low_quality_boards_response(
+            service.geometry_low_quality_boards(
+                game_id,
+                import_job_id=import_job_id,
+                thresholds=LowQualityThresholds(max_confidence=max_confidence, min_cells=min_cells),
                 limit=limit,
             )
         )

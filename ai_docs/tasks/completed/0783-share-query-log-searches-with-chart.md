@@ -53,3 +53,11 @@ wpis ma dać się usunąć.
 - Zapytania repozytorium SQL (`next_event_key`,
   `latest_successful_event_between`, `delete_events`) nie mają testu na
   PostgreSQL.
+- Po scaleniu sprawdzone na działającym Adminie i API (gra 777, 1440 px):
+  lista `kind=search` z `followUpApproximateWin` działa na PostgreSQL;
+  wpis pokazuje wzór i wykres. Panel udostępniania miał 428 px i wykres był
+  mały, więc przy otwartym dzienniku panel zajmuje teraz całą szerokość
+  sekcji (wzór ok. 300 px, wykres ok. 615 × 325 px). Usuwanie wpisu nie było
+  klikane na prawdziwych danych; trasa odpowiada 404 dla nieznanego wpisu.
+- Pas etykiet nad wykresem (miejsce na przypięte punkty) pozostaje pusty do
+  najechania — zajmuje około połowy wysokości wykresu.

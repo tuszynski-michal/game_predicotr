@@ -9953,6 +9953,26 @@ div.imageJobInlineError {
   background: var(--panel-raised);
 }
 
+/* An open query log needs room for its charts: the share panel leaves the
+   header's action column and spans the whole section (D-478). */
+.boardSearchHeader:has(.boardSearchShareQueryLog) {
+  flex-wrap: wrap;
+}
+
+.boardSearchHeaderActions:has(.boardSearchShareQueryLog) {
+  flex-basis: 100%;
+  width: 100%;
+}
+
+.boardSearchShare:has(.boardSearchShareQueryLog) {
+  width: 100%;
+  max-width: none;
+}
+
+.boardSearchShare:has(.boardSearchShareQueryLog) .boardSearchSharePanel {
+  width: 100%;
+}
+
 .boardSearchSharePanel h3 {
   margin: 0;
   font-size: 14px;

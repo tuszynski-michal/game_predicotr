@@ -5,6 +5,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
+from fastapi.responses import Response
 
 from game_predictor_api.application.board_search_share_access import (
     SESSION_LIST_LIMIT_MAX,
@@ -19,7 +20,10 @@ from game_predictor_api.application.reviewer_ingress import (
     ReviewerIngressStatus,
     ensure_online_reviewer_ingress,
 )
-from game_predictor_api.domain.board_search_share_queries import QUERY_LOG_PAGE_SIZE_MAX
+from game_predictor_api.domain.board_search_share_queries import (
+    QUERY_LOG_PAGE_SIZE_MAX,
+    BoardSearchShareQueryKind,
+)
 from game_predictor_api.schemas.board_search_shares import (
     BoardSearchShareCreate,
     BoardSearchShareCreatedResponse,
@@ -133,8 +137,9 @@ def create_board_search_shares_admin_router(
         service: Annotated[BoardSearchShareQueryLogService, query_log_parameter],
         before: Annotated[str | None, Query(max_length=256)] = None,
         limit: Annotated[int, Query(ge=1, le=QUERY_LOG_PAGE_SIZE_MAX)] = QUERY_LOG_PAGE_SIZE_MAX,
+        kind: Annotated[BoardSearchShareQueryKind | None, Query()] = None,
     ) -> BoardSearchShareQueryPageResponse:
-        page = service.list(session_id=session_id, before_cursor=before, limit=limit)
+        page = service.list(session_id=session_id, before_cursor=before, limit=limit, kind=kind)
         return BoardSearchShareQueryPageResponse(
             entries=[BoardSearchShareQueryEntryResponse.from_event(item) for item in page.entries],
             next_cursor=page.next_cursor,
@@ -153,6 +158,21 @@ def create_board_search_shares_admin_router(
         service: Annotated[BoardSearchShareQueryLogService, query_log_parameter],
     ) -> BoardSearchShareQueryReplayResponse:
         return BoardSearchShareQueryReplayResponse.from_replay(service.replay(event_id))
+
+    @router.delete(
+        "/queries/{event_id}",
+        status_code=204,
+        operation_id="deleteBoardSearchShareQuery",
+        summary="Delete one query log entry; a search takes its follow-up entries with it",
+        tags=["board-search-shares"],
+        responses={404: {"model": ErrorResponse}},
+    )
+    def delete_query(
+        event_id: UUID,
+        service: Annotated[BoardSearchShareQueryLogService, query_log_parameter],
+    ) -> Response:
+        service.delete(event_id)
+        return Response(status_code=204)
 
     return router
 

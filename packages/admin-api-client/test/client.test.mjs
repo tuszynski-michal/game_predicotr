@@ -3548,8 +3548,23 @@ test('board-search share query log wrappers use their Admin paths', async () => 
     limit: 10,
   });
   await client.getBoardSearchShareQueryReplay(eventId);
+  await client.listBoardSearchShareQueries(sessionId, { kind: 'search' });
+  await client.deleteBoardSearchShareQuery(eventId);
+  assert.equal(new URL(requests[3].url).searchParams.get('kind'), 'search');
+  assert.equal(requests[4].method, 'DELETE');
+  assert.equal(
+    new URL(requests[4].url).pathname,
+    `/api/v1/admin/board-search-shares/queries/${eventId}`,
+  );
+  assert.equal(
+    requests[4].headers.get('X-Admin-Target'),
+    `board-search-share-query:${eventId}`,
+  );
+  assert.equal(new URL(requests[0].url).searchParams.has('kind'), false);
   assert.deepEqual(
-    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    requests
+      .slice(0, 3)
+      .map((request) => [request.method, new URL(request.url).pathname]),
     [
       [
         'GET',

@@ -5,9 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 from datetime import datetime
 from threading import RLock
+from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy import and_, or_, select
+from sqlalchemy import and_, delete, or_, select
 from sqlalchemy.orm import Session
 
 from game_predictor_api.application.board_search_share_queries import (
@@ -77,9 +78,12 @@ class SqlAlchemyBoardSearchShareQueryRepository(BoardSearchShareQueryRepository)
         session_id: UUID,
         before: tuple[datetime, UUID] | None,
         limit: int,
+        kind: BoardSearchShareQueryKind | None = None,
     ) -> Sequence[BoardSearchShareQueryEvent]:
         model = BoardSearchShareQueryEventModel
         statement = select(model).where(model.session_id == session_id)
+        if kind is not None:
+            statement = statement.where(model.kind == kind.value)
         if before is not None:
             occurred_at, event_id = before
             statement = statement.where(
@@ -119,6 +123,90 @@ class SqlAlchemyBoardSearchShareQueryRepository(BoardSearchShareQueryRepository)
             .limit(1)
         )
         return None if row is None else _event(row)
+
+    def next_event_key(
+        self,
+        *,
+        session_id: UUID,
+        kind: BoardSearchShareQueryKind | None,
+        after: tuple[datetime, UUID],
+    ) -> tuple[datetime, UUID] | None:
+        model = BoardSearchShareQueryEventModel
+        statement = select(model.occurred_at, model.id).where(
+            model.session_id == session_id, _key_after(after)
+        )
+        if kind is not None:
+            statement = statement.where(model.kind == kind.value)
+        row = self._session.execute(
+            statement.order_by(model.occurred_at, model.id).limit(1)
+        ).one_or_none()
+        return None if row is None else (row[0], row[1])
+
+    def latest_successful_event_between(
+        self,
+        *,
+        session_id: UUID,
+        kind: BoardSearchShareQueryKind,
+        after: tuple[datetime, UUID],
+        before: tuple[datetime, UUID] | None,
+    ) -> BoardSearchShareQueryEvent | None:
+        model = BoardSearchShareQueryEventModel
+        statement = select(model).where(
+            model.session_id == session_id,
+            model.kind == kind.value,
+            model.outcome_code == QUERY_OUTCOME_OK,
+            _key_after(after),
+        )
+        if before is not None:
+            statement = statement.where(_key_before(before))
+        row = self._session.scalar(
+            statement.order_by(model.occurred_at.desc(), model.id.desc()).limit(1)
+        )
+        return None if row is None else _event(row)
+
+    def delete_events(
+        self,
+        *,
+        session_id: UUID,
+        start: tuple[datetime, UUID],
+        end: tuple[datetime, UUID] | None,
+    ) -> int:
+        model = BoardSearchShareQueryEventModel
+        occurred_at, event_id = start
+        statement = delete(model).where(
+            model.session_id == session_id,
+            or_(
+                model.occurred_at > occurred_at,
+                and_(model.occurred_at == occurred_at, model.id >= event_id),
+            ),
+        )
+        if end is not None:
+            statement = statement.where(_key_before(end))
+        try:
+            deleted = len(self._session.execute(statement.returning(model.id)).all())
+            self._session.commit()
+        except BaseException:
+            self._session.rollback()
+            raise
+        return deleted
+
+
+def _key_after(key: tuple[datetime, UUID]) -> Any:
+    model = BoardSearchShareQueryEventModel
+    occurred_at, event_id = key
+    return or_(
+        model.occurred_at > occurred_at,
+        and_(model.occurred_at == occurred_at, model.id > event_id),
+    )
+
+
+def _key_before(key: tuple[datetime, UUID]) -> Any:
+    model = BoardSearchShareQueryEventModel
+    occurred_at, event_id = key
+    return or_(
+        model.occurred_at < occurred_at,
+        and_(model.occurred_at == occurred_at, model.id < event_id),
+    )
 
 
 def _event(row: BoardSearchShareQueryEventModel) -> BoardSearchShareQueryEvent:

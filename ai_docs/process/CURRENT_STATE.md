@@ -162,6 +162,10 @@ last_updated: 2026-10-01
 - TASK-0781 done (2026-10-02, zgłoszenie operatora): kafelki symboli w
   „Wyszukaj plansze” są kwadratowe i wypełnione cropem (paleta i pola
   wzoru), numer skrótu ma przezroczyste tło. Tylko CSS.
+- TASK-0783 done (2026-10-02, zgłoszenie operatora, D-478): dziennik linku
+  pokazuje tylko wyszukiwania — wzór 3 × 5 i wykres bilansu planszy, którą
+  odbiorca otworzył; bez linii opisu; wpis można usunąć
+  (`DELETE …/queries/{id}`). Bez migracji; wymaga restartu API.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

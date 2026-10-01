@@ -200,6 +200,13 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "revoke-board-search-share-session",
         "board-search-share-session:{session_id}",
     ),
+    (
+        "DELETE",
+        "/api/v1/admin/board-search-shares/queries/{event_id}",
+    ): HighImpactOperation(
+        "delete-board-search-share-query",
+        "board-search-share-query:{event_id}",
+    ),
 }
 
 _REVIEWER_MUTATION_PATTERNS = tuple(

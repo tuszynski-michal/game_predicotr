@@ -29,6 +29,27 @@ export function boardSearchQueryPatternCells(
   return board;
 }
 
+export interface BoardSearchQueryRange {
+  readonly spinCount: number;
+  readonly startSequenceNumber: number;
+}
+
+/** The range the recipient opened after a search, when one was recorded. */
+export function boardSearchQueryFollowUpRange(entry: {
+  readonly followUpApproximateWin?: Readonly<Record<string, unknown>> | null;
+}): BoardSearchQueryRange | null {
+  const request = entry.followUpApproximateWin;
+  if (request === null || request === undefined) return null;
+  const { spinCount, startSequenceNumber } = request;
+  return typeof spinCount === 'number' &&
+    Number.isInteger(spinCount) &&
+    spinCount > 0 &&
+    typeof startSequenceNumber === 'number' &&
+    Number.isInteger(startSequenceNumber)
+    ? { spinCount, startSequenceNumber }
+    : null;
+}
+
 function numberValue(value: unknown): string {
   return typeof value === 'number' && Number.isFinite(value)
     ? value.toLocaleString('pl-PL')

@@ -196,6 +196,13 @@ class BoardSearchShareQueryEntryResponse(ApiModel):
     request: dict[str, Any]
     result_summary: dict[str, Any]
     outcome_code: str
+    follow_up_approximate_win: dict[str, Any] | None = Field(
+        default=None,
+        description=(
+            "For a search: the request (`startSequenceNumber`, `spinCount`) of the "
+            "newest successful range calculation made before the next search."
+        ),
+    )
 
     @classmethod
     def from_event(cls, value: BoardSearchShareQueryEvent) -> BoardSearchShareQueryEntryResponse:
@@ -208,6 +215,9 @@ class BoardSearchShareQueryEntryResponse(ApiModel):
             request=dict(value.request),
             result_summary=dict(value.result_summary),
             outcome_code=value.outcome_code,
+            follow_up_approximate_win=None
+            if value.follow_up_approximate_win is None
+            else dict(value.follow_up_approximate_win),
         )
 
 

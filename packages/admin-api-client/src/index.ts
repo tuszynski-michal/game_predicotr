@@ -66,6 +66,7 @@ import {
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
   createBoardSearchShareSession as createGeneratedBoardSearchShareSession,
+  deleteBoardSearchShareQuery as deleteGeneratedBoardSearchShareQuery,
   getBoardSearchShareQueryReplay as getGeneratedBoardSearchShareQueryReplay,
   listBoardSearchShareQueries as listGeneratedBoardSearchShareQueries,
   createRemoteManualSelectionSession as createGeneratedRemoteManualSelectionSession,
@@ -1191,15 +1192,28 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     /** One share link's query log, newest first, 50 per page (D-472). */
     listBoardSearchShareQueries: (
       sessionId: string,
-      options: { readonly before?: string; readonly limit?: number } = {},
+      options: {
+        readonly before?: string;
+        /** Only entries of this kind, e.g. the searches (D-478). */
+        readonly kind?: 'search' | 'approximate_win' | 'board_detail';
+        readonly limit?: number;
+      } = {},
     ) =>
       listGeneratedBoardSearchShareQueries({
         client,
         path: { session_id: sessionId },
         query: {
           ...(options.before === undefined ? {} : { before: options.before }),
+          ...(options.kind === undefined ? {} : { kind: options.kind }),
           limit: options.limit ?? 50,
         },
+      }),
+    /** Removes a log entry; a search takes its follow-up entries with it. */
+    deleteBoardSearchShareQuery: (eventId: string) =>
+      deleteGeneratedBoardSearchShareQuery({
+        client,
+        headers: confirmedTargetHeaders(`board-search-share-query:${eventId}`),
+        path: { event_id: eventId },
       }),
     /** A query log entry with what is needed to replay it in the Admin. */
     getBoardSearchShareQueryReplay: (eventId: string) =>

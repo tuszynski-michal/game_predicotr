@@ -13,6 +13,8 @@ import {
   removeBoardSearchShareCode,
   removeEndedBoardSearchShareCodes,
 } from './board-search-share-code-cache';
+import type { BoardSearchDataSource } from '@game-predictor/board-search-ui';
+
 import { BoardSearchShareQueryLog } from './board-search-share-query-log';
 import {
   BOARD_SEARCH_SHARE_DEFAULT_LIFETIME_MINUTES,
@@ -26,12 +28,14 @@ import {
 export type BoardSearchShareClient = Pick<
   AdminApiClient,
   | 'createBoardSearchShareSession'
+  | 'deleteBoardSearchShareQuery'
   | 'listBoardSearchShareQueries'
   | 'listBoardSearchShareSessions'
   | 'listSymbols'
   | 'revokeBoardSearchShareSession'
   | 'symbolImageAssetUrl'
->;
+> &
+  Pick<BoardSearchDataSource, 'getBoardSearchApproximateWin'>;
 
 type ListState =
   | { readonly kind: 'loading' }

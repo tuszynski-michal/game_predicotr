@@ -8,6 +8,7 @@ import {
   readBoardSearchReplayParameter,
 } from '../src/features/board-search/board-search-replay-state.ts';
 import {
+  boardSearchQueryFollowUpRange,
   boardSearchQueryPatternCells,
   describeBoardSearchQueryEntry,
 } from '../src/features/board-search/board-search-share-query-log-state.ts';
@@ -152,4 +153,26 @@ test('a taken-over replay is dropped so a remount does not replay again', () => 
   const other = { gameId: 'g', message: null, plan: { id: 'e:2' } };
   assert.equal(consumeBoardSearchReplay(other, 'e:1'), other);
   assert.equal(consumeBoardSearchReplay(null, 'e:1'), null);
+});
+
+test('a search entry yields the range the recipient opened, or nothing', () => {
+  assert.deepEqual(
+    boardSearchQueryFollowUpRange({
+      followUpApproximateWin: { spinCount: 2500, startSequenceNumber: 170619 },
+    }),
+    { spinCount: 2500, startSequenceNumber: 170619 },
+  );
+  for (const followUpApproximateWin of [
+    null,
+    undefined,
+    {},
+    { spinCount: 0, startSequenceNumber: 1 },
+    { spinCount: '100', startSequenceNumber: 1 },
+    { spinCount: 100 },
+  ]) {
+    assert.equal(
+      boardSearchQueryFollowUpRange({ followUpApproximateWin }),
+      null,
+    );
+  }
 });

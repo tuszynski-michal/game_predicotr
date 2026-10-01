@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from threading import Lock
@@ -141,6 +141,9 @@ class BoardSearchShareQueryEvent:
     request: dict[str, object]
     result_summary: dict[str, object]
     outcome_code: str
+    # For a search: the request of the newest successful range calculation
+    # the recipient made before their next search (D-478).
+    follow_up_approximate_win: dict[str, object] | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,8 +172,41 @@ class BoardSearchShareQueryRepository(Protocol):
         session_id: UUID,
         before: tuple[datetime, UUID] | None,
         limit: int,
+        kind: BoardSearchShareQueryKind | None = None,
     ) -> Sequence[BoardSearchShareQueryEvent]:
         """Newest first by `(occurred_at, id)`, strictly before `before`."""
+        ...
+
+    def next_event_key(
+        self,
+        *,
+        session_id: UUID,
+        kind: BoardSearchShareQueryKind | None,
+        after: tuple[datetime, UUID],
+    ) -> tuple[datetime, UUID] | None:
+        """The key of the oldest entry of `kind` (any kind for `None`)
+        strictly after `after`."""
+        ...
+
+    def latest_successful_event_between(
+        self,
+        *,
+        session_id: UUID,
+        kind: BoardSearchShareQueryKind,
+        after: tuple[datetime, UUID],
+        before: tuple[datetime, UUID] | None,
+    ) -> BoardSearchShareQueryEvent | None:
+        """The newest `ok` entry of `kind` strictly between the keys."""
+        ...
+
+    def delete_events(
+        self,
+        *,
+        session_id: UUID,
+        start: tuple[datetime, UUID],
+        end: tuple[datetime, UUID] | None,
+    ) -> int:
+        """Durably delete entries with `start <= key < end`; returns the count."""
         ...
 
     def get_event(self, event_id: UUID) -> BoardSearchShareQueryEvent | None: ...
@@ -196,6 +232,7 @@ class BoardSearchShareQueryLogService:
         session_id: UUID,
         before_cursor: str | None = None,
         limit: int = QUERY_LOG_PAGE_SIZE_MAX,
+        kind: BoardSearchShareQueryKind | None = None,
     ) -> BoardSearchShareQueryPage:
         if not 1 <= limit <= QUERY_LOG_PAGE_SIZE_MAX:
             raise BoardSearchShareError(
@@ -208,16 +245,55 @@ class BoardSearchShareQueryLogService:
             )
         before = None if before_cursor is None else decode_query_log_cursor(before_cursor)
         rows = tuple(
-            self._repository.list_events(session_id=session_id, before=before, limit=limit + 1)
+            self._repository.list_events(
+                session_id=session_id, before=before, limit=limit + 1, kind=kind
+            )
         )
         entries = rows[:limit]
         last = entries[-1] if len(rows) > limit else None
         return BoardSearchShareQueryPage(
-            entries=entries,
+            entries=tuple(self._with_follow_up(entry) for entry in entries),
             next_cursor=None
             if last is None
             else encode_query_log_cursor(last.occurred_at, last.id),
         )
+
+    def delete(self, event_id: UUID) -> int:
+        """Remove one entry from the owner's log (D-478). A search takes its
+        follow-up entries (ranges, board details) up to the next search with
+        it, so nothing of that search stays behind unseen."""
+
+        event = self._repository.get_event(event_id)
+        if event is None:
+            raise BoardSearchShareNotFoundError(
+                "BOARD_SEARCH_SHARE_QUERY_NOT_FOUND", "This query log entry does not exist."
+            )
+        key = (event.occurred_at, event.id)
+        # Any other entry ends at its direct successor: only itself goes.
+        end = self._repository.next_event_key(
+            session_id=event.session_id,
+            kind=BoardSearchShareQueryKind.SEARCH
+            if event.kind is BoardSearchShareQueryKind.SEARCH
+            else None,
+            after=key,
+        )
+        return self._repository.delete_events(session_id=event.session_id, start=key, end=end)
+
+    def _with_follow_up(self, event: BoardSearchShareQueryEvent) -> BoardSearchShareQueryEvent:
+        if event.kind is not BoardSearchShareQueryKind.SEARCH:
+            return event
+        key = (event.occurred_at, event.id)
+        follow_up = self._repository.latest_successful_event_between(
+            session_id=event.session_id,
+            kind=BoardSearchShareQueryKind.APPROXIMATE_WIN,
+            after=key,
+            before=self._repository.next_event_key(
+                session_id=event.session_id, kind=BoardSearchShareQueryKind.SEARCH, after=key
+            ),
+        )
+        if follow_up is None:
+            return event
+        return replace(event, follow_up_approximate_win=dict(follow_up.request))
 
     def replay(self, event_id: UUID) -> BoardSearchShareQueryReplay:
         event = self._repository.get_event(event_id)

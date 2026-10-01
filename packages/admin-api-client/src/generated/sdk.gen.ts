@@ -165,6 +165,9 @@ import type {
   DecideSemiAutomaticFilenameRangeVerificationData,
   DecideSemiAutomaticFilenameRangeVerificationErrors,
   DecideSemiAutomaticFilenameRangeVerificationResponses,
+  DeleteBoardSearchShareQueryData,
+  DeleteBoardSearchShareQueryErrors,
+  DeleteBoardSearchShareQueryResponses,
   DeleteBoardSourceRangesData,
   DeleteBoardSourceRangesErrors,
   DeleteBoardSourceRangesResponses,
@@ -885,6 +888,28 @@ export type Options<
    */
   meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Delete one query log entry; a search takes its follow-up entries with it
+ */
+export const deleteBoardSearchShareQuery = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteBoardSearchShareQueryData, ThrowOnError>,
+): RequestResult<
+  DeleteBoardSearchShareQueryResponses,
+  DeleteBoardSearchShareQueryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteBoardSearchShareQueryResponses,
+    DeleteBoardSearchShareQueryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/queries/{event_id}',
+    ...options,
+  });
 
 /**
  * Read one query log entry with what is needed to replay it

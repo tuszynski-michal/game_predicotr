@@ -21,6 +21,7 @@ from game_predictor_api.domain.board_search_shares import (
     BoardSearchShareNotFoundError,
 )
 from game_predictor_api.main import create_app
+from game_predictor_api.security.local_admin import match_high_impact_operation
 
 SESSION = UUID(int=1)
 OTHER_SESSION = UUID(int=2)
@@ -36,10 +37,19 @@ class MemoryQueryRepository:
         return session_id in {SESSION, OTHER_SESSION}
 
     def list_events(
-        self, *, session_id: UUID, before: tuple[datetime, UUID] | None, limit: int
+        self,
+        *,
+        session_id: UUID,
+        before: tuple[datetime, UUID] | None,
+        limit: int,
+        kind: BoardSearchShareQueryKind | None = None,
     ) -> Sequence[BoardSearchShareQueryEvent]:
         rows = sorted(
-            (event for event in self.events if event.session_id == session_id),
+            (
+                event
+                for event in self.events
+                if event.session_id == session_id and (kind is None or event.kind is kind)
+            ),
             key=lambda event: (event.occurred_at, event.id),
             reverse=True,
         )
@@ -66,6 +76,61 @@ class MemoryQueryRepository:
             and (event.occurred_at, event.id) <= at_or_before
         ]
         return max(rows, key=lambda event: (event.occurred_at, event.id), default=None)
+
+    def next_event_key(
+        self,
+        *,
+        session_id: UUID,
+        kind: BoardSearchShareQueryKind | None,
+        after: tuple[datetime, UUID],
+    ) -> tuple[datetime, UUID] | None:
+        keys = [
+            (event.occurred_at, event.id)
+            for event in self.events
+            if event.session_id == session_id
+            and (kind is None or event.kind is kind)
+            and (event.occurred_at, event.id) > after
+        ]
+        return min(keys, default=None)
+
+    def latest_successful_event_between(
+        self,
+        *,
+        session_id: UUID,
+        kind: BoardSearchShareQueryKind,
+        after: tuple[datetime, UUID],
+        before: tuple[datetime, UUID] | None,
+    ) -> BoardSearchShareQueryEvent | None:
+        rows = [
+            event
+            for event in self.events
+            if event.session_id == session_id
+            and event.kind is kind
+            and event.outcome_code == "ok"
+            and (event.occurred_at, event.id) > after
+            and (before is None or (event.occurred_at, event.id) < before)
+        ]
+        return max(rows, key=lambda event: (event.occurred_at, event.id), default=None)
+
+    def delete_events(
+        self,
+        *,
+        session_id: UUID,
+        start: tuple[datetime, UUID],
+        end: tuple[datetime, UUID] | None,
+    ) -> int:
+        kept = [
+            event
+            for event in self.events
+            if not (
+                event.session_id == session_id
+                and (event.occurred_at, event.id) >= start
+                and (end is None or (event.occurred_at, event.id) < end)
+            )
+        ]
+        deleted = len(self.events) - len(kept)
+        self.events = kept
+        return deleted
 
 
 def _event(
@@ -211,7 +276,16 @@ def test_http_query_log_pages_and_replay() -> None:
                 "request",
                 "resultSummary",
                 "outcomeCode",
+                "followUpApproximateWin",
             }
+        # D-478: only searches, each with the range the recipient opened.
+        searches = client.get(base, params={"kind": "search"}).json()["entries"]
+        assert [entry["kind"] for entry in searches] == ["search"] * 3
+        assert searches[0]["followUpApproximateWin"] == {
+            "startSequenceNumber": 7,
+            "spinCount": 100,
+        }
+        assert searches[1]["followUpApproximateWin"] is None
         second = client.get(base, params={"limit": 2, "before": body["nextCursor"]})
         assert [entry["id"] for entry in second.json()["entries"]] == [
             str(older[0].id),
@@ -230,3 +304,67 @@ def test_http_query_log_pages_and_replay() -> None:
         assert replay.json()["search"]["id"] == str(search.id)
         assert replay.json()["approximateWin"]["id"] == str(rng.id)
         assert client.get(f"/api/v1/admin/board-search-shares/queries/{uuid4()}").status_code == 404
+
+
+def test_a_search_carries_its_newest_successful_range_before_the_next_search() -> None:
+    first = _event(BoardSearchShareQueryKind.SEARCH, 1)
+    early = _event(BoardSearchShareQueryKind.APPROXIMATE_WIN, 2, request={"startSequenceNumber": 1})
+    newest = _event(
+        BoardSearchShareQueryKind.APPROXIMATE_WIN, 3, request={"startSequenceNumber": 2}
+    )
+    failed = _event(BoardSearchShareQueryKind.APPROXIMATE_WIN, 4, outcome="BOARD_NOT_FOUND")
+    second = _event(BoardSearchShareQueryKind.SEARCH, 5)
+    foreign = _event(
+        BoardSearchShareQueryKind.APPROXIMATE_WIN,
+        6,
+        session_id=OTHER_SESSION,
+        request={"startSequenceNumber": 9},
+    )
+    service = BoardSearchShareQueryLogService(
+        MemoryQueryRepository([first, early, newest, failed, second, foreign])
+    )
+    page = service.list(session_id=SESSION, kind=BoardSearchShareQueryKind.SEARCH)
+    assert [entry.id for entry in page.entries] == [second.id, first.id]
+    assert page.entries[0].follow_up_approximate_win is None
+    assert page.entries[1].follow_up_approximate_win == {"startSequenceNumber": 2}
+
+
+def test_deleting_a_search_removes_its_follow_ups_up_to_the_next_search() -> None:
+    before = _event(BoardSearchShareQueryKind.BOARD_DETAIL, 0)
+    search = _event(BoardSearchShareQueryKind.SEARCH, 1)
+    rng = _event(BoardSearchShareQueryKind.APPROXIMATE_WIN, 2)
+    detail = _event(BoardSearchShareQueryKind.BOARD_DETAIL, 3)
+    following = _event(BoardSearchShareQueryKind.SEARCH, 4)
+    later = _event(BoardSearchShareQueryKind.APPROXIMATE_WIN, 5)
+    foreign = _event(BoardSearchShareQueryKind.APPROXIMATE_WIN, 2, session_id=OTHER_SESSION)
+    repository = MemoryQueryRepository([before, search, rng, detail, following, later, foreign])
+    service = BoardSearchShareQueryLogService(repository)
+
+    assert service.delete(search.id) == 3
+    assert {event.id for event in repository.events} == {
+        before.id,
+        following.id,
+        later.id,
+        foreign.id,
+    }
+    # The last search takes everything after it; any other entry only itself.
+    assert service.delete(before.id) == 1
+    assert service.delete(following.id) == 2
+    assert [event.id for event in repository.events] == [foreign.id]
+    with pytest.raises(BoardSearchShareNotFoundError) as error:
+        service.delete(search.id)
+    assert error.value.code == "BOARD_SEARCH_SHARE_QUERY_NOT_FOUND"
+
+
+def test_http_delete_is_a_confirmed_high_impact_operation_and_removes_the_entry() -> None:
+    search = _event(BoardSearchShareQueryKind.SEARCH, 1)
+    rng = _event(BoardSearchShareQueryKind.APPROXIMATE_WIN, 2)
+    path = f"/api/v1/admin/board-search-shares/queries/{search.id}"
+    operation, target = match_high_impact_operation("DELETE", path)
+    assert operation is not None and operation.action == "delete-board-search-share-query"
+    assert target == f"board-search-share-query:{search.id}"
+    with _client([search, rng]) as client:
+        assert client.delete(path).status_code == 204
+        assert client.delete(path).status_code == 404
+        listed = client.get(f"/api/v1/admin/board-search-shares/sessions/{SESSION}/queries")
+        assert listed.json()["entries"] == []

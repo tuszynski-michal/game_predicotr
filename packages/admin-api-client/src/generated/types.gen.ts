@@ -1424,6 +1424,14 @@ export type BoardSearchSharePublicSymbolResponse = {
  */
 export type BoardSearchShareQueryEntryResponse = {
   /**
+   * Followupapproximatewin
+   *
+   * For a search: the request (`startSequenceNumber`, `spinCount`) of the newest successful range calculation made before the next search.
+   */
+  followUpApproximateWin?: {
+    [key: string]: unknown;
+  } | null;
+  /**
    * Gameid
    */
   gameId: string;
@@ -1460,6 +1468,12 @@ export type BoardSearchShareQueryEntryResponse = {
    */
   sessionId: string;
 };
+
+/**
+ * BoardSearchShareQueryKind
+ */
+export type BoardSearchShareQueryKind =
+  'search' | 'approximate_win' | 'board_detail';
 
 /**
  * BoardSearchShareQueryPageResponse
@@ -14358,6 +14372,50 @@ export type WorkerLaneStatusResponse = {
   workerVersion: string | null;
 };
 
+export type DeleteBoardSearchShareQueryData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Event Id
+     */
+    event_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/board-search-shares/queries/{event_id}';
+};
+
+export type DeleteBoardSearchShareQueryErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteBoardSearchShareQueryError =
+  DeleteBoardSearchShareQueryErrors[keyof DeleteBoardSearchShareQueryErrors];
+
+export type DeleteBoardSearchShareQueryResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type DeleteBoardSearchShareQueryResponse =
+  DeleteBoardSearchShareQueryResponses[keyof DeleteBoardSearchShareQueryResponses];
+
 export type GetBoardSearchShareQueryReplayData = {
   body?: never;
   path: {
@@ -14494,6 +14552,10 @@ export type ListBoardSearchShareQueriesData = {
      * Limit
      */
     limit?: number;
+    /**
+     * Kind
+     */
+    kind?: BoardSearchShareQueryKind | null;
   };
   url: '/api/v1/admin/board-search-shares/sessions/{session_id}/queries';
 };

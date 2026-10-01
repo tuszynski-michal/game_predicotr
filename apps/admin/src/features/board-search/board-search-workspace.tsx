@@ -59,11 +59,14 @@ export function BoardSearchWorkspace({
   const shareClient = useMemo<BoardSearchShareClient | null>(
     () =>
       api.createBoardSearchShareSession !== undefined &&
+      api.deleteBoardSearchShareQuery !== undefined &&
       api.listBoardSearchShareQueries !== undefined &&
       api.listBoardSearchShareSessions !== undefined &&
       api.revokeBoardSearchShareSession !== undefined
         ? {
             createBoardSearchShareSession: api.createBoardSearchShareSession,
+            deleteBoardSearchShareQuery: api.deleteBoardSearchShareQuery,
+            getBoardSearchApproximateWin: api.getBoardSearchApproximateWin,
             listBoardSearchShareQueries: api.listBoardSearchShareQueries,
             listBoardSearchShareSessions: api.listBoardSearchShareSessions,
             listSymbols: api.listSymbols,

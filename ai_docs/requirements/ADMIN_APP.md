@@ -582,10 +582,15 @@ czytelny ekran zakończenia.
 odbiorcy o dane (wyszukiwanie, przybliżona wygrana, szczegóły planszy) jest
 zapisywane z czasem, parametrami i skrótem wyniku, bez adresu IP. Bramka
 kodu informuje odbiorcę o zapisie. W panelu udostępniania operator rozwija
-„Dziennik zapytań” wybranego linku (aktywnego albo zakończonego) i widzi go
-od najnowszego wpisu, po 50 („Starsze zapytania”): godzinę, rodzaj, wzór jako
-mini-planszę 3 × 5 z ikonami symboli, zakres wyszukiwania i liczbę wyników
-albo planszę startową i zakres spinów oraz wynik. Przycisk „Odtwórz w
+„Dziennik zapytań” wybranego linku (aktywnego albo zakończonego) i widzi
+same wyszukiwania (D-478), od najnowszego, po 10 („Starsze wyszukiwania”):
+godzinę, wzór jako planszę 3 × 5 z grafikami symboli (około jednej trzeciej
+szerokości wpisu) oraz — jeżeli odbiorca po tym wyszukiwaniu uruchomił
+„Przybliżoną wygraną” — wykres bilansu tej planszy i zakresu na resztę
+szerokości, liczony w Adminie w stawce bazowej i złotych. Wpisy przybliżonej
+wygranej i szczegółów planszy nie są osobnymi pozycjami, a linia opisu
+(zakres, limit, wyniki) nie jest pokazywana. „Usuń” z potwierdzeniem „Usuń
+wpis” trwale kasuje wyszukiwanie razem z jego późniejszymi zapisami. Przycisk „Odtwórz w
 wyszukiwarce” otwiera „Wyszukaj plansze” tej gry z tym samym wzorem, zakresem
 i liczbą wyników (także pola `?`) i od razu uruchamia wyszukiwanie; adres
 Admina zawiera wtedy jednorazowo `?boardSearchReplay=<id wpisu>`, a wpis

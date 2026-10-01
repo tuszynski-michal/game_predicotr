@@ -11,6 +11,7 @@ import {
   type MouseEvent,
   type PointerEvent,
   useEffect,
+  useId,
   useRef,
   useState,
 } from 'react';
@@ -742,14 +743,27 @@ function ApproximateWinTableFilter({
   );
 }
 
-function ApproximateWinBalanceChart({
+/**
+ * The cumulative balance chart. `compact` drops the heading and the
+ * explanation for places that show many charts (the share query log).
+ */
+export function ApproximateWinBalanceChart({
+  compact = false,
   display,
   result,
 }: {
+  readonly compact?: boolean;
   readonly display: ApproximateWinDisplay;
   readonly result: ApproximateWinResponse;
 }) {
   const rows = result.rows;
+  // Several charts can be on one page, so the ids are per instance.
+  const instanceId = useId();
+  const headingId = `${instanceId}-heading`;
+  const descriptionId = `${instanceId}-description`;
+  const labelling = compact
+    ? { 'aria-label': 'Bilans według liczby spinów' }
+    : { 'aria-labelledby': headingId };
   const [hoveredPoint, setHoveredPoint] =
     useState<ApproximateWinChartPoint | null>(null);
   const [pinnedPoints, setPinnedPoints] = useState<
@@ -759,11 +773,8 @@ function ApproximateWinBalanceChart({
   const svgRef = useRef<SVGSVGElement>(null);
   if (rows.length === 0) {
     return (
-      <section
-        aria-labelledby="approximateWinChartHeading"
-        className="boardSearchApproximateWinChart"
-      >
-        <h3 id="approximateWinChartHeading">Bilans według liczby spinów</h3>
+      <section {...labelling} className="boardSearchApproximateWinChart">
+        {compact ? null : <h3 id={headingId}>Bilans według liczby spinów</h3>}
         <p className="importEmptyState">
           Wykres pojawi się po rozpoznaniu pierwszej wypłaty w tym zakresie.
         </p>
@@ -1033,12 +1044,9 @@ function ApproximateWinBalanceChart({
   const drawsZeroLine = yLow < 0 && yHigh > 0;
 
   return (
-    <section
-      aria-labelledby="approximateWinChartHeading"
-      className="boardSearchApproximateWinChart"
-    >
-      <div>
-        <h3 id="approximateWinChartHeading">Bilans według liczby spinów</h3>
+    <section {...labelling} className="boardSearchApproximateWinChart">
+      <div hidden={compact}>
+        <h3 id={headingId}>Bilans według liczby spinów</h3>
         <p>
           Narastający bilans: rozpoznane wypłaty minus koszt wszystkich spinów.
           Między wypłatami bilans spada o koszt każdego spinu; wykres kończy się
@@ -1050,7 +1058,7 @@ function ApproximateWinBalanceChart({
       <div className="boardSearchApproximateWinChartCanvas">
         <svg
           ref={svgRef}
-          aria-describedby="approximateWinChartDescription"
+          aria-describedby={descriptionId}
           aria-label="Wykres narastającego bilansu według liczby spinów"
           onClick={handleClick}
           onKeyDown={handleKeyDown}
@@ -1061,7 +1069,7 @@ function ApproximateWinBalanceChart({
           tabIndex={0}
           viewBox={`0 0 ${CHART_WIDTH} ${CHART_HEIGHT}`}
         >
-          <desc id="approximateWinChartDescription">
+          <desc id={descriptionId}>
             Od zera do {finalPoint.spinNumber.toLocaleString('pl-PL')} spinów,
             bilans końcowy {amount(finalPoint.cumulativeBalanceCredits)}
             {unitNoun(display.unit)}, minimum {amount(minimumBalance)}, maksimum{' '}

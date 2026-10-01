@@ -2502,6 +2502,19 @@
         "additionalProperties": false,
         "description": "One recorded query of a share link (D-472); never an IP or header.",
         "properties": {
+          "followUpApproximateWin": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "For a search: the request (`startSequenceNumber`, `spinCount`) of the newest successful range calculation made before the next search.",
+            "title": "Followupapproximatewin"
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -2558,6 +2571,15 @@
         ],
         "title": "BoardSearchShareQueryEntryResponse",
         "type": "object"
+      },
+      "BoardSearchShareQueryKind": {
+        "enum": [
+          "search",
+          "approximate_win",
+          "board_detail"
+        ],
+        "title": "BoardSearchShareQueryKind",
+        "type": "string"
       },
       "BoardSearchShareQueryPageResponse": {
         "additionalProperties": false,
@@ -25837,6 +25859,82 @@
   "openapi": "3.1.0",
   "paths": {
     "/api/v1/admin/board-search-shares/queries/{event_id}": {
+      "delete": {
+        "operationId": "deleteBoardSearchShareQuery",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Event Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Delete one query log entry; a search takes its follow-up entries with it",
+        "tags": [
+          "board-search-shares"
+        ]
+      },
       "get": {
         "operationId": "getBoardSearchShareQueryReplay",
         "parameters": [
@@ -26095,6 +26193,22 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/BoardSearchShareQueryKind"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
             }
           }
         ],

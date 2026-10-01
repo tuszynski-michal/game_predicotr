@@ -6,6 +6,31 @@ last_updated: 2026-10-01
 
 # Decision Log
 
+## D-478 — dziennik linku pokazuje wyszukiwania z wykresem; wpis można usunąć (zmienia D-472)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0783.
+- **Context:** dziennik pokazywał każdy zapis (wyszukiwanie, przybliżona
+  wygrana, szczegóły planszy) z linią opisu. Operatora interesuje tylko to,
+  jaki wzór odbiorca wpisał, i jak wygląda bilans dla planszy, którą potem
+  otworzył; po przejrzeniu chce wpis usunąć.
+- **Decision:** widok dziennika w Adminie listuje wyłącznie wyszukiwania
+  (`kind=search`), po 10. Wpis pokazuje wzór 3 × 5 (około jednej trzeciej
+  szerokości) i wykres bilansu na resztę szerokości. Wykres dotyczy
+  najnowszej udanej „Przybliżonej wygranej”, którą odbiorca uruchomił po tym
+  wyszukiwaniu, a przed następnym (`followUpApproximateWin` we wpisie);
+  Admin liczy go na żądanie z bieżących danych, w stawce bazowej i złotych,
+  bo stawka odbiorcy nie jest zapisywana. Linia opisu (zakres, limit,
+  wyniki) znika z widoku. `DELETE …/queries/{eventId}` trwale usuwa wpis;
+  wyszukiwanie zabiera ze sobą swoje późniejsze zapisy aż do następnego
+  wyszukiwania tej sesji. Operacja wysokiego wpływu z audytem.
+- **Reason:** zapis nadal jest pełny i fail-closed (D-472, D-475) — zmienia
+  się tylko to, co operator widzi i co może posprzątać. Dziennik należy do
+  operatora; audyt lokalnego Admina odnotowuje usunięcie.
+- **Consequences:** wykres może różnić się od tego, co widział odbiorca,
+  jeżeli dane planszy zostały później poprawione. Usunięcia nie da się
+  cofnąć. Dziennik przechowuje wyłącznie JSON z kodami symboli; miniatury
+  wzoru to bieżące grafiki symboli z katalogu.
+
 ## D-477 — trwałe usunięcie wzorca wypłat w wersji roboczej (zmienia D-026)
 
 - **Status:** accepted, 2026-10-01; polecenie operatora, TASK-0779.

@@ -478,16 +478,26 @@ trzymają audyt i dziennik zapytań.
 ### Dziennik zapytań linku w Adminie (D-472, TASK-0771)
 
 ```text
-GET /api/v1/admin/board-search-shares/sessions/{sessionId}/queries?before=&limit=1..50
+GET /api/v1/admin/board-search-shares/sessions/{sessionId}/queries?before=&limit=1..50&kind=
 operationId: listBoardSearchShareQueries
 200: { entries: [<wpis>], nextCursor: string | null }
+kind (opcjonalne, D-478): search | approximate_win | board_detail — tylko wpisy tego rodzaju.
+
+DELETE /api/v1/admin/board-search-shares/queries/{eventId}
+operationId: deleteBoardSearchShareQuery (D-478; nagłówki operacji wysokiego wpływu,
+cel `board-search-share-query:{eventId}`)
+204; 404 BOARD_SEARCH_SHARE_QUERY_NOT_FOUND
+Wyszukiwanie usuwa też swoje późniejsze wpisy do następnego wyszukiwania sesji.
 
 GET /api/v1/admin/board-search-shares/queries/{eventId}
 operationId: getBoardSearchShareQueryReplay
 200: { event: <wpis>, search: <wpis> | null, approximateWin: <wpis> | null }
 
 <wpis> = { id, sessionId, gameId, occurredAt, kind: search|approximate_win|board_detail,
-           request, resultSummary, outcomeCode }
+           request, resultSummary, outcomeCode,
+           followUpApproximateWin: { startSequenceNumber, spinCount } | null }
+followUpApproximateWin (tylko dla search): żądanie najnowszej udanej przybliżonej
+wygranej po tym wyszukiwaniu, a przed następnym.
 ```
 
 Lista jest stronicowana kursorem `(occurredAt, id)`, od najnowszego wpisu,

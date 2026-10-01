@@ -30,7 +30,6 @@ def in_memory_game_store(monkeypatch):
 def _cells(revision, missing, *, asset_mode="legacy_file"):
     return tuple(
         ImageReviewCell(
-            observation_id=uuid4(),
             cell_index=index,
             row_index=index // 5,
             column_index=index % 5,

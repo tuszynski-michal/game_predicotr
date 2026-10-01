@@ -167,6 +167,27 @@ last_updated: 2026-09-30
   tabeli (zamiast szacowanych 4,5 GB) do czasu S5. Numeracja dalszych
   etapów przesuwa się o jeden: S5 = manifest magazynu v4 i `0132`, S6 =
   `0133`, S7 = `0134`.
+- **Reader switch (TASK-0758, S4):** czytelnicy wirtualnych plansz biorą
+  komórki z `board_render_manifests` bieżącej rewizji, a predykcje importu z
+  `recognized_boards.cells_prediction` (zgodność z obserwacjami sprawdzona
+  tylko do odczytu na bazie operatora); brak manifestu dla planszy z
+  dostępnymi komórkami jest błędem (`IMAGE_REVIEW_RENDER_MANIFEST_MISSING`).
+  Plansze `legacy_file` z rewizją > 0 (wszystkie 461 w 777) czytają cropy z
+  `crop_artifacts` rewizji i predykcje z `cells_prediction`; jedynie plansze
+  `legacy_file` na rewizji 0 (0 w bazie operatora; import polityką `legacy`
+  i fixture benchmarków) czytają obserwacje przez izolowany adapter
+  `legacy_cell_observation_adapter`. S5 usuwa adapter; warunek: 0 takich
+  plansz i brak ścieżki, która je tworzy (TASK-0760 przed S5 albo blokada
+  importu `legacy` i fixture benchmarków w S5).
+  Tożsamość obserwacji znika z kontraktu: `ImageReviewCell.observation_id`
+  i pole `observationId` odpowiedzi Reviewera są usunięte, kandydat wzorca
+  symbolu jest identyfikowany przez `cellReviewId`
+  (`image_symbol_review_cells.id`, ścieżki `…/approved-image-candidates/
+  {cell_review_id}/…`), a migracja `0132_symbol_reference_images_cell_identity`
+  usuwa `symbol_reference_images.source_observation_id` (komórka źródła =
+  `source_recognized_board_id` + `cell_index`). Numeracja dalszych etapów
+  przesuwa się ponownie: S5 = manifest v4 i `0133`, S6 = `0134`,
+  S7 = `0135`.
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu

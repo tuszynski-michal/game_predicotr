@@ -155,6 +155,9 @@ class PendingGridReinferenceHandler:
                         JobModel.game_id == job.game_id,
                         JobModel.status == JobStatus.WAITING_FOR_REVIEW,
                         ImageReviewItemModel.status == "pending",
+                        # The v1 path writes file crops; a virtual board's
+                        # revision must come with a render manifest (D-467).
+                        RecognizedBoardModel.asset_mode == "legacy_file",
                         ~_human_cell_decision_exists(job.game_id),
                     )
                     .order_by(ImageReviewItemModel.created_at, ImageReviewItemModel.id)
@@ -206,6 +209,7 @@ class PendingGridReinferenceHandler:
                     or locked.status != "pending"
                     or locked_board is None
                     or locked_board.geometry_revision != board.geometry_revision
+                    or locked_board.asset_mode != "legacy_file"
                     or _has_human_cell_decision(session, game_id=job.game_id, item_id=item.id)
                 ):
                     skipped += 1

@@ -165,7 +165,20 @@ def _add_pending_board(
             board_geometry={"source": "verified-cell-test", "quad": IN_FRAME_QUAD},
             board_relative_path=f"crops/verified-cells-{position}.png",
             board_checksum_sha256=f"{sequence:064x}",
-            cells_prediction={"cells": []},
+            # D-467: the import predictions of every cell, as the import
+            # writer stores them beside the base observations.
+            cells_prediction={
+                "cells": [
+                    {
+                        "rowIndex": index // 5,
+                        "columnIndex": index % 5,
+                        "symbolCode": "first",
+                        "confidence": 0.9,
+                        "alternatives": [{"symbolCode": "second", "confidence": 0.1}],
+                    }
+                    for index in range(15)
+                ]
+            },
             board_confidence=1.0,
             pipeline_fingerprint=PIPELINE,
             status="pending_review",

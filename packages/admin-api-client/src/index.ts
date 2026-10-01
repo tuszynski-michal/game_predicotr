@@ -1907,26 +1907,26 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     approvedSymbolReferenceCandidateAssetUrl: (
       gameId: string,
       symbolId: string,
-      observationId: string,
+      cellReviewId: string,
     ) =>
-      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/approved-image-candidates/${encodeURIComponent(observationId)}/asset`,
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/approved-image-candidates/${encodeURIComponent(cellReviewId)}/asset`,
     symbolImageAssetUrl: (gameId: string, symbolId: string) =>
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image/asset`,
     selectApprovedSymbolReferenceCandidate: (
       gameId: string,
       symbolId: string,
-      observationId: string,
+      cellReviewId: string,
       body: ApprovedSymbolReferenceSelectionCommand,
     ) =>
       selectGeneratedApprovedSymbolReferenceCandidate({
         body,
         client,
         headers: confirmedTargetHeaders(
-          `symbol-reference:${gameId}:${symbolId}:${observationId}`,
+          `symbol-reference:${gameId}:${symbolId}:${cellReviewId}`,
         ),
         path: {
+          cell_review_id: cellReviewId,
           game_id: gameId,
-          observation_id: observationId,
           symbol_id: symbolId,
         },
       }),

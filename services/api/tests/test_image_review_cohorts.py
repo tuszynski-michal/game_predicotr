@@ -154,7 +154,6 @@ def _verified_item(
     board_id = uuid4()
     cells = tuple(
         ImageReviewCell(
-            observation_id=uuid4(),
             cell_index=index,
             row_index=index // 5,
             column_index=index % 5,

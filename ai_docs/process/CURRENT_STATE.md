@@ -225,7 +225,21 @@ last_updated: 2026-10-01
   2026-10-01 02:00 UTC (API 8000/8010 wznowione; API 8110 z worktree
   `v7-t0603-v2-calibration` innej sesji wymaga scalenia v1.1). Backfill
   wykonany: 777 — 509 929 manifestów, 0 odrzuceń, partycja 6,9 GB;
-  `cf300bc1…` 26/26. TASK-0758 (przepięcie czytelników) w toku.
+  `cf300bc1…` 26/26.
+- TASK-0758 (S4) done (v1.7.113, audyt Opus PASS, P2 poprawione): wszyscy
+  czytelnicy runtime (`materialize_current_image_review_cells`, odbudowa i
+  stale-check weryfikacji symboli, projekcja board-search,
+  `pending_symbol_reinference`, rekonsyliacja plansz częściowych, kandydaci
+  wzorca symbolu) czytają manifest renderu; plansze `legacy_file` na
+  rewizji 0 wyłącznie przez `legacy_cell_observation_adapter` (S5 go
+  usuwa). Kontrakt API: `observationId` usunięte, kandydat wzorca =
+  `cellReviewId`; migracja `0132` usuwa
+  `symbol_reference_images.source_observation_id`;
+  `EXPECTED_ALEMBIC_HEAD` = `0132`. Równoważność: test PG vs `f2336115`
+  i 2 114 porównań na bazie operatora bez różnic (10 plansz V3 z maską w
+  środku: stary kod odmawiał przeliczenia, nowy liczy poprawnie). Cutover
+  `0132` opisany w zadaniu (zatrzymanie API → merge → `db:migrate` → start).
+  **Etap S4 zamknięty po cutoverze.**
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

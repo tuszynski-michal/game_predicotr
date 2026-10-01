@@ -197,18 +197,38 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   `pending_symbol_reinference`, `partial_board_reconciliation_repository`,
   `symbol_references_repository` (FK na id komórki), fixture benchmarków;
   test równoważności: dla próbki 1 000 plansz komórki zmaterializowane z
-  manifestu są identyczne z komórkami z obserwacji.
+  manifestu są identyczne z komórkami z obserwacji. Wykonanie: migracja
+  `0132` usuwa `symbol_reference_images.source_observation_id` (kandydat
+  wzorca identyfikowany przez `cellReviewId`), plansze `legacy_file` na
+  rewizji 0 czytają obserwacje wyłącznie przez izolowany adapter
+  `legacy_cell_observation_adapter` (S5 usuwa go; warunek: 0 takich plansz
+  i brak ścieżki, która je tworzy — TASK-0760 przed S5 albo blokada importu
+  `legacy` w S5), więc S5 zajmuje `0133`, S6 `0134`, S7 `0135`.
 
 ### S5 — usunięcie `cell_observations`
 
 - **TASK-0759** — manifest magazynu v4 (bez `cell_observations` i
-  `legacy_board_search_archive_*`), migracja `0132`: aktualizacja
+  `legacy_board_search_archive_*`), migracja `0133`: aktualizacja
   `game_storage_table_manifest`, `game_storage_locations`, `DROP TABLE`
   partycji (preflight: manifest S4 kompletny, 0 referencji w kodzie,
   0 FK), `game_deletion_policy_v1`, `cleanup_repository`,
   `game_partition_lifecycle`, `symbol_review_statistics`; usunięcie
   `LegacyBoardSearchArchive*` z API, OpenAPI, klienta i Admina. Próba na
   bazie `*_test`, kopia zapasowa, osobna zgoda na apply.
+  Warunek przeniesiony z S4 (TASK-0758): plansza `legacy_file` na
+  rewizji 0 ma ścieżkę i sumę cropa wyłącznie w `cell_observations`,
+  więc przed `DROP TABLE` zadanie musi zamknąć każdą ścieżkę, która taką
+  planszę tworzy. TASK-0760 (polityki importu) leży w S6, dlatego
+  TASK-0759 robi to samo: `pipeline_store` odmawia plansz niewirtualnych
+  nowym kodem błędu, polityka importu `legacy` jest zablokowana,
+  obserwacje znikają z trzech pisarzy (`pipeline_store`,
+  `virtual_grid_geometry_repository`,
+  `board_cell_geometry_pending_repository`) oraz z fixture benchmarków
+  (`real_workbench_fixture`, `workbench_acceptance`), a adapter
+  `legacy_cell_observation_adapter` i
+  `scripts/build_grid_symbol_diagnostic.py` są usuwane. Preflight
+  dodatkowo wymaga 0 plansz `legacy_file` na rewizji 0 (stan na
+  2026-10-01: 0 takich plansz, 461 plansz legacy na rewizjach 1–2).
 
 ### S6 — jeden tryb danych
 
@@ -220,7 +240,7 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
 - **TASK-0761** — konwersja 461 plansz `legacy_file` w 777 na
   `virtual_source` (skrypt z podglądem, zgoda na `--execute`; komórki z
   decyzją człowieka zachowują decyzje), zawężenie CHECK-ów `asset_mode` do
-  `virtual_source`/`none` (migracja `0133`), zawężenie enumów API pionem.
+  `virtual_source`/`none` (migracja `0134`), zawężenie enumów API pionem.
 
 ### S7 — `render_spec` poza komórkami
 
@@ -230,7 +250,7 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   `scripts/evaluate_symbol_reference_library.py`) przepięte na manifest z
   S4 przez `(recognized_board_id, geometry_revision, cell_index)`;
   komórka zachowuje `render_spec_checksum_sha256` i klucze tożsamości.
-- **TASK-0763** — migracja `0134`: kolumna `render_spec` w
+- **TASK-0763** — migracja `0135`: kolumna `render_spec` w
   `image_symbol_review_cells` usunięta; odzyskanie miejsca przez przepisanie
   partycji (`VACUUM FULL` albo swap partycji; ACCESS EXCLUSIVE, wymaga
   ok. 15 GB wolnego miejsca, okno bez zapisów, zgoda).

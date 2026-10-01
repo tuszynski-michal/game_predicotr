@@ -112,6 +112,11 @@
             "title": "Cellindex",
             "type": "integer"
           },
+          "cellReviewId": {
+            "format": "uuid",
+            "title": "Cellreviewid",
+            "type": "string"
+          },
           "cropChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Cropchecksumsha256",
@@ -121,11 +126,6 @@
             "minimum": 0.0,
             "title": "Geometryrevision",
             "type": "integer"
-          },
-          "observationId": {
-            "format": "uuid",
-            "title": "Observationid",
-            "type": "string"
           },
           "sequenceNumber": {
             "exclusiveMinimum": 0.0,
@@ -138,7 +138,7 @@
           }
         },
         "required": [
-          "observationId",
+          "cellReviewId",
           "cropChecksumSha256",
           "sequenceNumber",
           "cellIndex",
@@ -14025,18 +14025,6 @@
             "title": "Currentsymbolcode",
             "type": "string"
           },
-          "observationId": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Observationid"
-          },
           "predictedSymbolCode": {
             "maxLength": 64,
             "minLength": 1,
@@ -14051,7 +14039,6 @@
           }
         },
         "required": [
-          "observationId",
           "cellIndex",
           "rowIndex",
           "columnIndex",
@@ -32810,7 +32797,7 @@
         ]
       }
     },
-    "/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset": {
+    "/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/asset": {
       "get": {
         "operationId": "getApprovedSymbolReferenceCandidateAsset",
         "parameters": [
@@ -32836,11 +32823,11 @@
           },
           {
             "in": "path",
-            "name": "observation_id",
+            "name": "cell_review_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Observation Id",
+              "title": "Cell Review Id",
               "type": "string"
             }
           }
@@ -32886,7 +32873,7 @@
         ]
       }
     },
-    "/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection": {
+    "/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/selection": {
       "post": {
         "operationId": "selectApprovedSymbolReferenceCandidate",
         "parameters": [
@@ -32912,11 +32899,11 @@
           },
           {
             "in": "path",
-            "name": "observation_id",
+            "name": "cell_review_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Observation Id",
+              "title": "Cell Review Id",
               "type": "string"
             }
           }

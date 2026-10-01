@@ -305,9 +305,6 @@ class SymbolReferenceImageModel(Base):
     source_recognized_board_id: Mapped[UUID] = mapped_column(
         ForeignKey("recognized_boards.id", ondelete="RESTRICT"), nullable=False
     )
-    source_observation_id: Mapped[UUID] = mapped_column(
-        ForeignKey("cell_observations.id", ondelete="RESTRICT"), nullable=False
-    )
     sequence_number: Mapped[int] = mapped_column(BigInteger, nullable=False)
     cell_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     resolution_revision: Mapped[int] = mapped_column(Integer, nullable=False)

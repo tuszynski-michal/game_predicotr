@@ -468,7 +468,7 @@ def test_v1_locked_write_skips_boards_with_human_cell_decisions(
             _FakeSession(rows=((item, board, SimpleNamespace()),)),
             _FakeSession(
                 scalar=SimpleNamespace(status="pending"),
-                get=SimpleNamespace(geometry_revision=0),
+                get=SimpleNamespace(geometry_revision=0, asset_mode="legacy_file"),
             ),
         )
     )

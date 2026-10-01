@@ -173,6 +173,23 @@ _IN_FRAME_QUAD = [
 ]
 
 
+def _import_cells_prediction(symbol_code: str) -> dict[str, object]:
+    """D-467: import predictions of all 15 cells, as the import writer stores them."""
+
+    return {
+        "cells": [
+            {
+                "rowIndex": index // 5,
+                "columnIndex": index % 5,
+                "symbolCode": symbol_code,
+                "confidence": 1.0,
+                "alternatives": [{"symbolCode": symbol_code, "confidence": 1.0}],
+            }
+            for index in range(15)
+        ]
+    }
+
+
 def _database_url(database_name: str) -> URL:
     return (
         make_url(ApiSettings.from_environment().database_url)
@@ -259,7 +276,7 @@ def _add_review_projection_source(
         board_geometry={"source": "projection-test", "quad": _IN_FRAME_QUAD},
         board_relative_path=f"crops/{source_name}.png",
         board_checksum_sha256=f"{sequence_number:064x}",
-        cells_prediction={"cells": []},
+        cells_prediction=_import_cells_prediction("test"),
         board_confidence=1.0,
         pipeline_fingerprint=PIPELINE,
         status="pending_review" if status == "pending" else status,
@@ -3472,7 +3489,7 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 board_geometry={"quad": []},
                 board_relative_path="crops/board.png",
                 board_checksum_sha256="9" * 64,
-                cells_prediction={"cells": []},
+                cells_prediction=_import_cells_prediction("lemon"),
                 board_confidence=0.5,
                 pipeline_fingerprint=PIPELINE,
                 status="pending_review",

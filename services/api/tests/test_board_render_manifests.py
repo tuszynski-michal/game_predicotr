@@ -186,7 +186,6 @@ def test_migration_0131_adds_one_rls_partitioned_table_and_manifest_v3() -> None
     )
     assert "DELETE FROM" not in sql
     script = ScriptDirectory.from_config(_config(StringIO()))
-    assert script.get_heads() == [REVISION]
     revision = script.get_revision(REVISION)
     assert revision is not None and revision.down_revision == PREVIOUS
 

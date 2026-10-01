@@ -17,7 +17,10 @@ def test_expected_head_is_the_single_alembic_head() -> None:
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
 
 
-@pytest.mark.parametrize("found", (None, "0130_board_search_share_sessions", "9999_future"))
+@pytest.mark.parametrize(
+    "found",
+    (None, "0130_board_search_share_sessions", "0131_board_render_manifests", "9999_future"),
+)
 def test_guard_refuses_any_other_schema(monkeypatch: pytest.MonkeyPatch, found: str | None) -> None:
     monkeypatch.setattr(schema_readiness, "database_alembic_revision", lambda _engine: found)
     with pytest.raises(schema_readiness.AlembicHeadMismatchError) as error:

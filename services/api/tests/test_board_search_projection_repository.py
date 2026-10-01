@@ -22,8 +22,8 @@ from game_predictor_api.storage.board_search_projection_repository import (
     _current_cell_decisions,
     _payload_from_records,
 )
+from game_predictor_api.storage.legacy_cell_observation_adapter import LegacyBaseCell
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardSearchProjectionStateModel,
     ImageReviewItemModel,
@@ -81,22 +81,31 @@ def _records(
     return item, board, source, job
 
 
+def _import_predictions(
+    board: RecognizedBoardModel, predictions: dict[int, dict[str, object]]
+) -> None:
+    """D-467: import predictions live in ``cells_prediction`` (one per cell)."""
+
+    board.cells_prediction = {
+        "cells": [
+            {"rowIndex": index // 5, "columnIndex": index % 5, **prediction}
+            for index, prediction in sorted(predictions.items())
+        ],
+        "modelVersion": "test-model",
+    }
+
+
 def test_pending_projection_uses_latest_prediction_shape_and_order() -> None:
     item, board, source, job = _records(status="pending")
-    observations = tuple(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=index // 5,
-            column_index=index % 5,
-            crop_relative_path=f"cells/{index}.jpg",
-            crop_checksum_sha256=f"{index:064x}",
-            cropper_version="v19",
-            prediction={
+    _import_predictions(
+        board,
+        {
+            index: {
                 "symbolCode": "lemon" if index else "seven",
                 "alternatives": [{"symbolCode": "bell"}],
-            },
-        )
-        for index in range(15)
+            }
+            for index in range(15)
+        },
     )
 
     payload = _payload_from_records(
@@ -104,7 +113,6 @@ def test_pending_projection_uses_latest_prediction_shape_and_order() -> None:
         board=board,
         source=source,
         job=job,
-        observations=observations,
         prediction_override=None,
     )
 
@@ -120,17 +128,12 @@ def test_pending_projection_uses_latest_prediction_shape_and_order() -> None:
 
 def test_pending_projection_overlays_current_cell_decisions() -> None:
     item, board, source, job = _records(status="pending")
-    observations = tuple(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=index // 5,
-            column_index=index % 5,
-            crop_relative_path=f"cells/{index}.jpg",
-            crop_checksum_sha256=f"{index:064x}",
-            cropper_version="v19",
-            prediction={"symbolCode": "seven", "alternatives": [{"symbolCode": "bell"}]},
-        )
-        for index in range(15)
+    _import_predictions(
+        board,
+        {
+            index: {"symbolCode": "seven", "alternatives": [{"symbolCode": "bell"}]}
+            for index in range(15)
+        },
     )
 
     payload = _payload_from_records(
@@ -138,7 +141,6 @@ def test_pending_projection_overlays_current_cell_decisions() -> None:
         board=board,
         source=source,
         job=job,
-        observations=observations,
         prediction_override=None,
         cell_decisions=(
             BoardSearchCellDecision(
@@ -171,7 +173,6 @@ def test_resolved_projection_uses_human_symbols_and_discards_predictions() -> No
         board=board,
         source=source,
         job=job,
-        observations=(),
         prediction_override=({"symbolCode": "wrong", "alternatives": [{"symbolCode": "seven"}]},)
         * 15,
     )
@@ -195,7 +196,6 @@ def test_resolved_projection_preserves_unknown_as_missing_evidence() -> None:
         board=board,
         source=source,
         job=job,
-        observations=(),
         prediction_override=None,
     )
 
@@ -214,7 +214,6 @@ def test_incomplete_pending_predictions_do_not_create_search_evidence() -> None:
         board=board,
         source=source,
         job=job,
-        observations=(),
         prediction_override=(),
     )
 
@@ -224,27 +223,26 @@ def test_incomplete_pending_predictions_do_not_create_search_evidence() -> None:
 @pytest.mark.parametrize("missing", [(0, 5, 10), tuple(range(15))])
 def test_qualified_pending_projection_preserves_every_logical_position(missing) -> None:
     item, board, source, job = _records(status="pending")
+    _as_virtual(board)
     board.geometry_revision = 0
     board.geometry_qualification = GeometryQualification(
         "pending_partial", missing, True, "missing_pixels"
     ).to_dict()
     board.completeness_status = "pending_partial"
     board.unavailable_cell_indices = list(missing)
-    observations = [
-        CellObservationModel(
-            row_index=index // 5,
-            column_index=index % 5,
-            prediction={"symbolCode": f"symbol-{index}", "alternatives": []},
-        )
-        for index in range(15)
-        if index not in missing
-    ]
+    _import_predictions(
+        board,
+        {
+            index: {"symbolCode": f"symbol-{index}", "alternatives": []}
+            for index in range(15)
+            if index not in missing
+        },
+    )
     payload = _payload_from_records(
         item=item,
         board=board,
         source=source,
         job=job,
-        observations=observations,
         prediction_override=None,
     )
     assert payload is not None
@@ -252,6 +250,49 @@ def test_qualified_pending_projection_preserves_every_logical_position(missing) 
         None if i in missing else f"symbol-{i}" for i in range(15)
     )
     assert all(payload.candidate.alternative_symbol_codes[i] == () for i in missing)
+
+
+def _as_virtual(board: RecognizedBoardModel) -> None:
+    board.asset_mode = "virtual_source"
+    board.board_relative_path = None
+    board.board_checksum_sha256 = None
+    board.geometry_checksum_sha256 = "d" * 64
+
+
+def test_revision_zero_legacy_board_reads_base_cells_through_the_legacy_adapter() -> None:
+    """D-467: only a revision-0 legacy board still uses its base observations."""
+
+    item, board, source, job = _records(status="pending")
+    board.geometry_revision = 0
+    board.cells_prediction = {"cells": []}
+    cells = tuple(
+        LegacyBaseCell(
+            row_index=index // 5,
+            column_index=index % 5,
+            crop_relative_path=f"cells/{index}.png",
+            crop_checksum_sha256=f"{index:064x}",
+            cropper_version="v19",
+            prediction={"symbolCode": f"symbol-{index}", "alternatives": []},
+        )
+        for index in range(15)
+    )
+    payload = _payload_from_records(
+        item=item,
+        board=board,
+        source=source,
+        job=job,
+        prediction_override=None,
+        legacy_base_cells=cells,
+    )
+    assert payload is not None
+    assert payload.candidate.primary_symbol_codes == tuple(f"symbol-{i}" for i in range(15))
+    # Without base cells the legacy board has no search evidence.
+    assert (
+        _payload_from_records(
+            item=item, board=board, source=source, job=job, prediction_override=None
+        )
+        is None
+    )
 
 
 def _partial_board(missing: tuple[int, ...], *, geometry_revision: int):
@@ -270,24 +311,21 @@ def test_qualified_projection_ignores_observations_of_masked_positions() -> None
 
     missing = (4, 9, 14)
     item, board, source, job = _partial_board(missing, geometry_revision=0)
-    observations = [
-        CellObservationModel(
-            row_index=index // 5,
-            column_index=index % 5,
-            prediction={
-                "symbolCode": f"symbol-{index}",
-                "alternatives": [{"symbolCode": "other", "confidence": 0.1}],
-            },
-        )
+    _as_virtual(board)
+    predictions: dict[int, dict[str, object]] = {
+        index: {
+            "symbolCode": f"symbol-{index}",
+            "alternatives": [{"symbolCode": "other", "confidence": 0.1}],
+        }
         for index in range(15)
-    ]
+    }
+    _import_predictions(board, predictions)
 
     payload = _payload_from_records(
         item=item,
         board=board,
         source=source,
         job=job,
-        observations=observations,
         prediction_override=None,
     )
 
@@ -298,14 +336,15 @@ def test_qualified_projection_ignores_observations_of_masked_positions() -> None
     )
     assert all(payload.candidate.alternative_symbol_codes[i] == () for i in missing)
     assert payload.candidate.alternative_symbol_codes[0] == ("other",)
-    # A visible position without an observation still fails closed.
+    # A visible position without an import prediction still fails closed.
+    del predictions[0]
+    _import_predictions(board, predictions)
     assert (
         _payload_from_records(
             item=item,
             board=board,
             source=source,
             job=job,
-            observations=observations[1:],
             prediction_override=None,
         )
         is None
@@ -319,38 +358,31 @@ def test_qualified_legacy_revision_uses_its_own_current_crops() -> None:
 
     missing = (0, 5, 10)
     item, board, source, job = _partial_board(missing, geometry_revision=1)
-    revision = ImageBoardGeometryRevisionModel(
-        asset_mode="legacy_file",
-        virtual_render_spec=None,
-        crop_artifacts=[
-            {
-                "rowIndex": index // 5,
-                "columnIndex": index % 5,
-                "cropChecksumSha256": f"{index + 100:064x}",
-            }
-            for index in range(15)
-        ],
-    )
 
-    def observations(stale: int | None = None) -> list[CellObservationModel]:
-        return [
-            CellObservationModel(
-                row_index=index // 5,
-                column_index=index % 5,
-                crop_checksum_sha256=(
-                    "f" * 64 if index in (stale, *missing) else f"{index + 100:064x}"
-                ),
-                prediction={"symbolCode": f"symbol-{index}", "alternatives": []},
-            )
-            for index in range(15)
-        ]
+    def revision_with_crops(indices: range | list[int]) -> ImageBoardGeometryRevisionModel:
+        return ImageBoardGeometryRevisionModel(
+            asset_mode="legacy_file",
+            virtual_render_spec=None,
+            crop_artifacts=[
+                {
+                    "rowIndex": index // 5,
+                    "columnIndex": index % 5,
+                    "cropChecksumSha256": f"{index + 100:064x}",
+                }
+                for index in indices
+            ],
+        )
+
+    revision = revision_with_crops(range(15))
+    _import_predictions(
+        board, {index: {"symbolCode": f"symbol-{index}", "alternatives": []} for index in range(15)}
+    )
 
     payload = _payload_from_records(
         item=item,
         board=board,
         source=source,
         job=job,
-        observations=observations(),
         prediction_override=None,
         geometry_revision=revision,
     )
@@ -358,27 +390,26 @@ def test_qualified_legacy_revision_uses_its_own_current_crops() -> None:
     assert payload.candidate.primary_symbol_codes == tuple(
         None if i in missing else f"symbol-{i}" for i in range(15)
     )
-    # A visible observation of other pixels than the revision's crop is stale.
+    # D-467: a visible position without a current revision crop is never
+    # evidence (it replaces the former stale-observation comparison).
     assert (
         _payload_from_records(
             item=item,
             board=board,
             source=source,
             job=job,
-            observations=observations(stale=7),
             prediction_override=None,
-            geometry_revision=revision,
+            geometry_revision=revision_with_crops([i for i in range(15) if i != 7]),
         )
         is None
     )
     # Like an unqualified legacy board, a prediction revision overrides the
-    # observations of visible positions only; masked ones stay unknown.
+    # import predictions of visible positions only; masked ones stay unknown.
     overridden = _payload_from_records(
         item=item,
         board=board,
         source=source,
         job=job,
-        observations=observations(),
         prediction_override=[
             {"rowIndex": i // 5, "columnIndex": i % 5, "symbolCode": "new", "alternatives": []}
             for i in range(15)
@@ -389,7 +420,7 @@ def test_qualified_legacy_revision_uses_its_own_current_crops() -> None:
     assert overridden.candidate.primary_symbol_codes == tuple(
         None if i in missing else "new" for i in range(15)
     )
-    # The legacy observation path never applies to a virtual-source board.
+    # The legacy crop path never applies to a virtual-source board.
     board.asset_mode = "virtual_source"
     assert (
         _payload_from_records(
@@ -397,7 +428,6 @@ def test_qualified_legacy_revision_uses_its_own_current_crops() -> None:
             board=board,
             source=source,
             job=job,
-            observations=observations(),
             prediction_override=None,
             geometry_revision=revision,
         )
@@ -437,7 +467,6 @@ def test_qualified_revised_projection_never_reuses_original_pixel_predictions() 
         board=board,
         source=source,
         job=job,
-        observations=(),
         prediction_override=predictions,
         geometry_revision=revision,
     )

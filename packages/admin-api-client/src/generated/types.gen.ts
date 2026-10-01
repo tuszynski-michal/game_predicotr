@@ -70,6 +70,10 @@ export type ApprovedSymbolReferenceCandidateResponse = {
    */
   cellIndex: number;
   /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
    * Cropchecksumsha256
    */
   cropChecksumSha256: string;
@@ -77,10 +81,6 @@ export type ApprovedSymbolReferenceCandidateResponse = {
    * Geometryrevision
    */
   geometryRevision: number;
-  /**
-   * Observationid
-   */
-  observationId: string;
   /**
    * Sequencenumber
    */
@@ -7700,10 +7700,6 @@ export type OperationalImageReviewCellResponse = {
    * Currentsymbolcode
    */
   currentSymbolCode: string;
-  /**
-   * Observationid
-   */
-  observationId: string | null;
   /**
    * Predictedsymbolcode
    */
@@ -18004,12 +18000,12 @@ export type GetApprovedSymbolReferenceCandidateAssetData = {
      */
     symbol_id: string;
     /**
-     * Observation Id
+     * Cell Review Id
      */
-    observation_id: string;
+    cell_review_id: string;
   };
   query?: never;
-  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset';
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/asset';
 };
 
 export type GetApprovedSymbolReferenceCandidateAssetErrors = {
@@ -18049,12 +18045,12 @@ export type SelectApprovedSymbolReferenceCandidateData = {
      */
     symbol_id: string;
     /**
-     * Observation Id
+     * Cell Review Id
      */
-    observation_id: string;
+    cell_review_id: string;
   };
   query?: never;
-  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection';
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/selection';
 };
 
 export type SelectApprovedSymbolReferenceCandidateErrors = {

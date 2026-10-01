@@ -39,12 +39,16 @@ from game_predictor_api.domain.geometry_qualification import (
 )
 from game_predictor_api.domain.image_symbol_reviews import symbol_cell_approval_pixels_changed
 from game_predictor_api.domain.jobs import JobStatus
+from game_predictor_api.storage.current_board_cell_sources import needs_legacy_base_cells
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
 )
+from game_predictor_api.storage.legacy_cell_observation_adapter import (
+    LegacyBaseCell,
+    legacy_base_cells,
+)
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardGeometryRevisionModel,
     ImageBoardSearchCandidateModel,
@@ -889,18 +893,6 @@ def _payloads_from_rows(
     if not rows:
         return ()
     review_item_ids = [item.id for item, _board, _source, _job in rows]
-    board_ids = [board.id for _item, board, _source, _job in rows]
-    observations_by_board: dict[UUID, list[CellObservationModel]] = defaultdict(list)
-    for observation in session.scalars(
-        select(CellObservationModel)
-        .where(CellObservationModel.recognized_board_id.in_(board_ids))
-        .order_by(
-            CellObservationModel.recognized_board_id,
-            CellObservationModel.row_index,
-            CellObservationModel.column_index,
-        )
-    ):
-        observations_by_board[observation.recognized_board_id].append(observation)
 
     latest_predictions: dict[UUID, list[dict[str, object]]] = {}
     for revision in session.scalars(
@@ -936,6 +928,12 @@ def _payloads_from_rows(
             current_geometry[geometry_record.recognized_board_id] = geometry_record
 
     decisions_by_item = _current_cell_decisions(session, rows)
+    # D-467: only a revision-0 legacy board still reads its import predictions
+    # from the base observations (isolated legacy adapter, removed in S5).
+    legacy_cells = legacy_base_cells(
+        session,
+        [board.id for _item, board, _source, _job in rows if needs_legacy_base_cells(board)],
+    )
 
     payloads: list[BoardSearchProjectionPayload] = []
     for item, board, source, job in rows:
@@ -944,10 +942,10 @@ def _payloads_from_rows(
             board=board,
             source=source,
             job=job,
-            observations=observations_by_board[board.id],
             prediction_override=latest_predictions.get(item.id),
             geometry_revision=current_geometry.get(board.id),
             cell_decisions=decisions_by_item.get(item.id, ()),
+            legacy_base_cells=legacy_cells.get(board.id, ()),
         )
         if payload is not None:
             payloads.append(payload)
@@ -1082,10 +1080,10 @@ def _payload_from_records(
     board: RecognizedBoardModel,
     source: SourceImageModel,
     job: JobModel,
-    observations: Sequence[CellObservationModel],
     prediction_override: Sequence[Mapping[str, object]] | None,
     geometry_revision: ImageBoardGeometryRevisionModel | None = None,
     cell_decisions: Sequence[BoardSearchCellDecision] = (),
+    legacy_base_cells: Sequence[LegacyBaseCell] = (),
 ) -> BoardSearchProjectionPayload | None:
     if item.status not in _SEARCHABLE_STATUSES or job.game_id is None:
         return None
@@ -1113,14 +1111,20 @@ def _payload_from_records(
     else:
         if board.sequence_number is None:
             return None
+        # D-467: the import predictions are read from the board's
+        # ``cells_prediction`` (one entry per imported cell), not from the
+        # former per-cell observations.
         raw_predictions = prediction_override
         if raw_predictions is None:
-            raw_predictions = tuple(
-                cast(Mapping[str, object], observation.prediction) for observation in observations
+            import_predictions = _import_predictions_by_index(board, legacy_base_cells)
+            raw_predictions = (
+                ()
+                if import_predictions is None or set(import_predictions) != set(range(15))
+                else tuple(import_predictions[index] for index in range(15))
             )
         parsed = (
             _qualified_pending_predictions(
-                board, observations, prediction_override, geometry_revision
+                board, prediction_override, geometry_revision, legacy_base_cells
             )
             if board.geometry_qualification is not None
             else _parse_pending_predictions(raw_predictions)
@@ -1164,9 +1168,9 @@ def _payload_from_records(
 
 def _qualified_pending_predictions(
     board: RecognizedBoardModel,
-    observations: Sequence[CellObservationModel],
     predictions: Sequence[Mapping[str, object]] | None,
     revision: ImageBoardGeometryRevisionModel | None,
+    legacy_base_cells: Sequence[LegacyBaseCell] = (),
 ) -> tuple[tuple[str | None, ...], tuple[tuple[str | None, ...], ...]] | None:
     """Keep logical positions, never treat masked or superseded pixels as evidence."""
     try:
@@ -1182,8 +1186,8 @@ def _qualified_pending_predictions(
     available = set(range(15)) - unavailable
     by_index: dict[int, Mapping[str, object]] = {}
     current_specs: dict[int, object] = {}
-    # A manual legacy-file revision rewrites the cell observations to its own
-    # crops instead of carrying a virtual render manifest (TASK-0730).
+    # A manual legacy-file revision carries its own crops instead of a
+    # virtual render manifest (TASK-0730).
     legacy_crops = _legacy_revision_crops(board, revision)
     if board.geometry_revision > 0 and legacy_crops is None:
         manifest = None if revision is None else revision.virtual_render_spec
@@ -1199,22 +1203,15 @@ def _qualified_pending_predictions(
         if set(current_specs) != set(range(15)) - unavailable:
             return None
     else:
-        for observation in observations:
-            index = observation.row_index * 5 + observation.column_index
-            if (
-                index in by_index
-                or not 0 <= observation.row_index < 3
-                or not 0 <= observation.column_index < 5
-            ):
-                return None
-            if (
-                legacy_crops is not None
-                and index in available
-                and legacy_crops.get(index) != observation.crop_checksum_sha256
-            ):
-                # An observation of superseded pixels is never evidence.
-                return None
-            by_index[index] = observation.prediction
+        # D-467: the import predictions come from ``cells_prediction``.  A
+        # legacy revision must still crop every available position; a missing
+        # current crop is never evidence.
+        import_predictions = _import_predictions_by_index(board, legacy_base_cells)
+        if import_predictions is None or (
+            legacy_crops is not None and not available <= set(legacy_crops)
+        ):
+            return None
+        by_index.update(import_predictions)
         # The worker observes every position before the qualification masks
         # some of them; a masked observation is replaced by an unknown below.
         if not available <= set(by_index):
@@ -1251,6 +1248,44 @@ def _qualified_pending_predictions(
     return _parse_pending_predictions(
         tuple(empty if index in unavailable else by_index.get(index, empty) for index in range(15))
     )
+
+
+def _import_predictions_by_index(
+    board: RecognizedBoardModel,
+    legacy_base_cells: Sequence[LegacyBaseCell] = (),
+) -> dict[int, Mapping[str, object]] | None:
+    """Import predictions keyed by row-major 3 x 5 position; ``None`` if malformed.
+
+    ``cells_prediction.cells`` has one entry per imported cell, written in
+    the same transaction (and order) as the former cell observations.  A
+    revision-0 legacy board keeps reading its base observations.
+    """
+
+    if needs_legacy_base_cells(board):
+        raw_cells: object = [
+            {**cell.prediction, "rowIndex": cell.row_index, "columnIndex": cell.column_index}
+            for cell in legacy_base_cells
+        ]
+    else:
+        payload = board.cells_prediction
+        raw_cells = payload.get("cells") if isinstance(payload, Mapping) else None
+    if not isinstance(raw_cells, list):
+        return None
+    by_index: dict[int, Mapping[str, object]] = {}
+    for raw in raw_cells:
+        if not isinstance(raw, Mapping):
+            return None
+        row, column = raw.get("rowIndex"), raw.get("columnIndex")
+        if (
+            type(row) is not int
+            or type(column) is not int
+            or not 0 <= row < 3
+            or not 0 <= column < 5
+            or row * 5 + column in by_index
+        ):
+            return None
+        by_index[row * 5 + column] = cast(Mapping[str, object], raw)
+    return by_index
 
 
 def _legacy_revision_crops(

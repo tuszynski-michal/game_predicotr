@@ -136,7 +136,7 @@ test('generated client pages and selects checksum-bound approved symbol referenc
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';
   const symbolId = '22222222-2222-4222-8222-222222222222';
-  const observationId = '33333333-3333-4333-8333-333333333333';
+  const cellReviewId = '33333333-3333-4333-8333-333333333333';
   const checksum = 'a'.repeat(64);
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000',
@@ -154,7 +154,7 @@ test('generated client pages and selects checksum-bound approved symbol referenc
   await client.selectApprovedSymbolReferenceCandidate(
     gameId,
     symbolId,
-    observationId,
+    cellReviewId,
     { expectedChecksumSha256: checksum, selectedBy: 'admin-local' },
   );
 
@@ -169,11 +169,11 @@ test('generated client pages and selects checksum-bound approved symbol referenc
   );
   assert.equal(
     new URL(requests[1].url).pathname,
-    `/api/v1/admin/games/${gameId}/symbols/${symbolId}/approved-image-candidates/${observationId}/selection`,
+    `/api/v1/admin/games/${gameId}/symbols/${symbolId}/approved-image-candidates/${cellReviewId}/selection`,
   );
   assert.equal(
     requests[1].headers.get('X-Admin-Target'),
-    `symbol-reference:${gameId}:${symbolId}:${observationId}`,
+    `symbol-reference:${gameId}:${symbolId}:${cellReviewId}`,
   );
 });
 

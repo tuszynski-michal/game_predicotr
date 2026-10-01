@@ -580,8 +580,9 @@ def map_current_symbol_cell_reviews(
     """Map current operational crops into topology-bound cell-review state.
 
     ``ImageReviewItem.cells`` is already the shared representation which picks
-    base ``cell_observations`` for geometry revision zero and the newest
-    ``crop_artifacts`` for a corrected geometry.  Keeping this mapper on that
+    the current render manifest of a virtual board, the base crops of a
+    revision-zero legacy board and the newest ``crop_artifacts`` for a
+    corrected legacy geometry (D-467).  Keeping this mapper on that
     boundary prevents later backfill and write-through paths from choosing
     different crop identities.
     """

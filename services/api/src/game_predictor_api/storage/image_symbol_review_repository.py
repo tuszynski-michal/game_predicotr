@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections import Counter, defaultdict
+from collections import Counter
 from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -12,7 +12,21 @@ from threading import Event, Lock
 from typing import Any, Literal, Protocol, TypedDict, cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import String, and_, case, delete, false, func, or_, select, text
+from sqlalchemy import (
+    Integer,
+    String,
+    and_,
+    case,
+    column,
+    delete,
+    false,
+    func,
+    or_,
+    select,
+    text,
+    true,
+)
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, aliased, load_only
@@ -92,12 +106,21 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.current_board_cell_sources import (
+    NO_CELL_SOURCES,
+    CurrentBoardCellSources,
+    load_current_board_cell_source,
+    load_current_board_cell_sources,
+)
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
 )
+from game_predictor_api.storage.legacy_cell_observation_adapter import (
+    legacy_review_items_with_stale_base_crop,
+)
 from game_predictor_api.storage.models import (
-    CellObservationModel,
+    BoardRenderManifestModel,
     GameModel,
     GameSymbolModelActivationModel,
     ImageBoardGeometryRevisionModel,
@@ -2865,11 +2888,9 @@ class SymbolCellReviewWriteThroughCoordinator:
             materialize_current_image_review_cells,
         )
 
-        observations = self._session.scalars(
-            select(CellObservationModel)
-            .where(CellObservationModel.recognized_board_id == board.id)
-            .order_by(CellObservationModel.row_index, CellObservationModel.column_index)
-        ).all()
+        cell_sources = load_current_board_cell_source(
+            self._session, game_id=cast(UUID, job.game_id), board=board
+        )
         geometry = None
         if board.geometry_revision > 0:
             geometry = self._session.scalar(
@@ -2893,7 +2914,7 @@ class SymbolCellReviewWriteThroughCoordinator:
             source=source,
             queue_item=queue_item,
             job=job,
-            observations=observations,
+            cell_sources=cell_sources,
             geometry_revision=geometry,
             prediction_override=prediction_override,
         )
@@ -2901,7 +2922,7 @@ class SymbolCellReviewWriteThroughCoordinator:
             tuple(cells),
             _current_cropper_version(
                 board=board,
-                observations=observations,
+                cell_sources=cell_sources,
                 geometry=geometry,
             ),
             None if prediction is None else prediction.id,
@@ -4440,17 +4461,10 @@ class SqlAlchemyImageSymbolReviewRepository:
 
         board_ids = [board.id for _document, _item, board, _source, _queue, _job in rows]
         item_ids = [item.id for _document, item, _board, _source, _queue, _job in rows]
-        observations_by_board: dict[UUID, list[CellObservationModel]] = defaultdict(list)
-        for observation in self._session.scalars(
-            select(CellObservationModel)
-            .where(CellObservationModel.recognized_board_id.in_(board_ids))
-            .order_by(
-                CellObservationModel.recognized_board_id,
-                CellObservationModel.row_index,
-                CellObservationModel.column_index,
-            )
-        ):
-            observations_by_board[observation.recognized_board_id].append(observation)
+        cell_sources_by_board = load_current_board_cell_sources(
+            self._session,
+            ((board, document.game_id) for document, _item, board, _source, _queue, _job in rows),
+        )
         revisions_by_board: dict[UUID, ImageBoardGeometryRevisionModel] = {}
         for geometry_revision_record in self._session.scalars(
             select(ImageBoardGeometryRevisionModel)
@@ -4491,7 +4505,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                 None if prediction_revision is None else list(prediction_revision.predictions)
             )
             current_geometry = revisions_by_board.get(board.id)
-            observations = observations_by_board[board.id]
+            cell_sources = cell_sources_by_board.get(board.id, NO_CELL_SOURCES)
             try:
                 current_cells = materialize_current_image_review_cells(
                     item=item,
@@ -4499,7 +4513,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                     source=source,
                     queue_item=queue_item,
                     job=job,
-                    observations=observations,
+                    cell_sources=cell_sources,
                     geometry_revision=current_geometry,
                     prediction_override=prediction_override,
                 )
@@ -4522,7 +4536,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                     )
                 cropper_version = _current_cropper_version(
                     board=board,
-                    observations=observations,
+                    cell_sources=cell_sources,
                     geometry=current_geometry,
                 )
                 mapped = map_current_symbol_cell_reviews(
@@ -4701,6 +4715,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             )
             .where(
                 ImageBoardSearchFastDocumentModel.game_id == game_id,
+                ImageSymbolReviewCellModel.game_id == game_id,
                 ImageSymbolReviewCellModel.geometry_revision
                 != RecognizedBoardModel.geometry_revision,
                 ImageSymbolReviewCellModel.source_available.is_(True),
@@ -4711,53 +4726,83 @@ class SqlAlchemyImageSymbolReviewRepository:
         return tuple(self._session.scalars(statement))
 
     def _selected_items_with_stale_base_crop(self, game_id: UUID) -> tuple[UUID, ...]:
+        """Revision-0 review cells that no longer match their base render.
+
+        Virtual boards compare against the revision-0 render manifest
+        (D-467): a missing manifest or manifest cell is stale, like a missing
+        observation was.  Legacy revision-0 boards still compare against
+        their base observations through the isolated legacy adapter.
+        """
+
+        cell = ImageSymbolReviewCellModel
+        manifest = BoardRenderManifestModel
+        element = func.jsonb_array_elements(manifest.cells["cells"]).table_valued(
+            column("value", JSONB)
+        )
+        manifest_cells = (
+            select(
+                manifest.recognized_board_id.label("recognized_board_id"),
+                manifest.source_geometry_revision_id.label("source_geometry_revision_id"),
+                manifest.extractor_version.label("extractor_version"),
+                element.c.value["cellIndex"].astext.cast(Integer).label("cell_index"),
+                element.c.value["logicalCellKeySha256"].astext.label("logical_cell_key"),
+                element.c.value["renderSpecChecksumSha256"].astext.label(
+                    "render_spec_checksum_sha256"
+                ),
+                element.c.value["renderedPixelChecksumSha256"].astext.label(
+                    "rendered_pixel_checksum_sha256"
+                ),
+            )
+            .select_from(manifest)
+            .join(element, true())
+            .where(manifest.game_id == game_id, manifest.geometry_revision == 0)
+            .subquery("manifest_cells")
+        )
         statement = (
-            select(ImageSymbolReviewCellModel.review_item_id)
+            select(cell.review_item_id)
             .join(
                 ImageBoardSearchFastDocumentModel,
-                ImageBoardSearchFastDocumentModel.review_item_id
-                == ImageSymbolReviewCellModel.review_item_id,
+                ImageBoardSearchFastDocumentModel.review_item_id == cell.review_item_id,
             )
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == ImageSymbolReviewCellModel.recognized_board_id,
-            )
+            .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
             .outerjoin(
-                CellObservationModel,
+                manifest_cells,
                 and_(
-                    CellObservationModel.recognized_board_id
-                    == ImageSymbolReviewCellModel.recognized_board_id,
-                    CellObservationModel.row_index == ImageSymbolReviewCellModel.row_index,
-                    CellObservationModel.column_index == ImageSymbolReviewCellModel.column_index,
+                    manifest_cells.c.recognized_board_id == cell.recognized_board_id,
+                    manifest_cells.c.cell_index == cell.cell_index,
                 ),
             )
             .where(
                 ImageBoardSearchFastDocumentModel.game_id == game_id,
+                # Explicit partition key: the session role bypasses RLS, so
+                # only this predicate prunes the per-game cell partition.
+                cell.game_id == game_id,
                 RecognizedBoardModel.geometry_revision == 0,
-                ImageSymbolReviewCellModel.source_available.is_(True),
+                RecognizedBoardModel.asset_mode == "virtual_source",
+                cell.source_available.is_(True),
                 or_(
-                    CellObservationModel.id.is_(None),
-                    CellObservationModel.crop_checksum_sha256
-                    != ImageSymbolReviewCellModel.crop_checksum_sha256,
-                    CellObservationModel.crop_relative_path
-                    != ImageSymbolReviewCellModel.crop_relative_path,
-                    CellObservationModel.cropper_version
-                    != ImageSymbolReviewCellModel.cropper_version,
-                    CellObservationModel.asset_mode != ImageSymbolReviewCellModel.asset_mode,
-                    CellObservationModel.source_geometry_revision_id
-                    != ImageSymbolReviewCellModel.source_geometry_revision_id,
-                    CellObservationModel.logical_cell_key
-                    != ImageSymbolReviewCellModel.logical_cell_key,
-                    CellObservationModel.render_spec_checksum_sha256
-                    != ImageSymbolReviewCellModel.render_spec_checksum_sha256,
-                    CellObservationModel.rendered_pixel_checksum_sha256
-                    != ImageSymbolReviewCellModel.rendered_pixel_checksum_sha256,
+                    manifest_cells.c.cell_index.is_(None),
+                    # A virtual base crop is identified by its rendered pixel
+                    # checksum and has no crop path.
+                    manifest_cells.c.rendered_pixel_checksum_sha256 != cell.crop_checksum_sha256,
+                    cell.crop_relative_path.is_not(None),
+                    manifest_cells.c.extractor_version != cell.cropper_version,
+                    cell.asset_mode != "virtual_source",
+                    manifest_cells.c.source_geometry_revision_id
+                    != cell.source_geometry_revision_id,
+                    manifest_cells.c.logical_cell_key != cell.logical_cell_key,
+                    manifest_cells.c.render_spec_checksum_sha256
+                    != cell.render_spec_checksum_sha256,
+                    manifest_cells.c.rendered_pixel_checksum_sha256
+                    != cell.rendered_pixel_checksum_sha256,
                 ),
             )
             .distinct()
-            .order_by(ImageSymbolReviewCellModel.review_item_id)
+            .order_by(cell.review_item_id)
         )
-        return tuple(self._session.scalars(statement))
+        virtual_stale = tuple(self._session.scalars(statement))
+        legacy_stale = legacy_review_items_with_stale_base_crop(self._session, game_id)
+        return tuple(sorted({*virtual_stale, *legacy_stale}, key=str))
 
     def _selected_problem_items(self, game_id: UUID) -> tuple[UUID, ...]:
         return tuple(
@@ -4820,7 +4865,7 @@ class SqlAlchemyImageSymbolReviewRepository:
 def _current_cropper_version(
     *,
     board: RecognizedBoardModel,
-    observations: Sequence[CellObservationModel],
+    cell_sources: CurrentBoardCellSources,
     geometry: ImageBoardGeometryRevisionModel | None,
 ) -> str:
     if board.geometry_revision > 0:
@@ -4831,7 +4876,17 @@ def _current_cropper_version(
                 invalid_geometry_count=1,
             )
         return geometry.cropper_version
-    versions = {observation.cropper_version for observation in observations}
+    # Revision 0 (D-467): a virtual board's base cropper is its render
+    # manifest's extractor (the import writer and the backfill require
+    # ``cropper_version == extractor_version``); a legacy board's base crops
+    # are read through the isolated legacy observation adapter.
+    versions = (
+        {cell.cropper_version for cell in cell_sources.legacy_base_cells}
+        if board.asset_mode == "legacy_file"
+        else set()
+        if cell_sources.render_manifest is None
+        else {cell_sources.render_manifest.extractor_version}
+    )
     if (
         not versions
         and getattr(board, "geometry_qualification", None) is not None

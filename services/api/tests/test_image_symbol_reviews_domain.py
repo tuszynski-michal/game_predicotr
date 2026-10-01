@@ -159,7 +159,6 @@ def _current_cells(
 ) -> tuple[ImageReviewCell, ...]:
     return tuple(
         ImageReviewCell(
-            observation_id=UUID(int=index + 1),
             cell_index=index,
             row_index=index // topology.columns,
             column_index=index % topology.columns,

@@ -2532,7 +2532,7 @@ export const getApprovedSymbolReferenceCandidateAsset = <
     GetApprovedSymbolReferenceCandidateAssetErrors,
     ThrowOnError
   >({
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/asset',
     ...options,
   });
 
@@ -2554,7 +2554,7 @@ export const selectApprovedSymbolReferenceCandidate = <
     ThrowOnError
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/selection',
     ...options,
     headers: {
       'Content-Type': 'application/json',

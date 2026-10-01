@@ -59,7 +59,7 @@ def create_symbol_references_router(
         )
 
     @router.get(
-        "/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset",
+        "/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/asset",
         response_class=FileResponse,
         operation_id="getApprovedSymbolReferenceCandidateAsset",
         summary="Read one checksum-bound human-approved crop candidate",
@@ -68,12 +68,12 @@ def create_symbol_references_router(
     def get_candidate_asset(
         game_id: UUID,
         symbol_id: UUID,
-        observation_id: UUID,
+        cell_review_id: UUID,
         service: Annotated[ApprovedSymbolReferenceService, service_parameter],
     ) -> Response:
-        candidate = service.candidate(game_id, symbol_id, observation_id)
+        candidate = service.candidate(game_id, symbol_id, cell_review_id)
         if candidate.is_virtual:
-            rendered = service.virtual_candidate_asset(game_id, symbol_id, observation_id)
+            rendered = service.virtual_candidate_asset(game_id, symbol_id, cell_review_id)
             return Response(
                 content=rendered.content,
                 media_type=rendered.media_type,
@@ -113,7 +113,7 @@ def create_symbol_references_router(
         return FileResponse(path, media_type=media_type, headers={"Cache-Control": "no-store"})
 
     @router.post(
-        "/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection",
+        "/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/selection",
         response_model=SymbolResponse,
         operation_id="selectApprovedSymbolReferenceCandidate",
         summary="Persist one checksum-bound human-approved crop as a symbol reference",
@@ -122,7 +122,7 @@ def create_symbol_references_router(
     def select_candidate(
         game_id: UUID,
         symbol_id: UUID,
-        observation_id: UUID,
+        cell_review_id: UUID,
         payload: ApprovedSymbolReferenceSelectionCommand,
         service: Annotated[ApprovedSymbolReferenceService, service_parameter],
     ) -> SymbolResponse:
@@ -130,7 +130,7 @@ def create_symbol_references_router(
             service.select(
                 game_id,
                 symbol_id,
-                observation_id,
+                cell_review_id,
                 expected_checksum_sha256=payload.expected_checksum_sha256,
                 selected_by=payload.selected_by,
             )

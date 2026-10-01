@@ -1,4 +1,11 @@
-"""Physical scale and operator-planning acceptance for the M6.5 workbench."""
+"""Physical scale and operator-planning acceptance for the M6.5 workbench.
+
+Legacy-only benchmark fixture (D-467, TASK-0758): it seeds ``legacy_file``
+revision-0 boards whose base crops and predictions exist only as
+``cell_observations``; the Reviewer reads them through the isolated
+``legacy_cell_observation_adapter``.  S5 must convert or delete this fixture
+before dropping the table.
+"""
 
 from __future__ import annotations
 

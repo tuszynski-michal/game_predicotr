@@ -17,8 +17,11 @@ from uuid import UUID
 import numpy as np
 from game_predictor_api.config import get_settings
 from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.legacy_cell_observation_adapter import (
+    LegacyBaseCell,
+    legacy_base_cells_for_board,
+)
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     ImageBoardGeometryRevisionModel,
     ImageReviewItemModel,
     JobModel,
@@ -170,7 +173,7 @@ def _collect_boards(
             RecognizedBoardModel,
             SourceImageModel,
             JobModel,
-            tuple[CellObservationModel, ...],
+            tuple[LegacyBaseCell, ...],
             tuple[CellPrediction, ...],
             tuple[str, ...],
             tuple[np.ndarray, ...],
@@ -283,14 +286,11 @@ def _collect_boards(
 def _baseline_predictions(
     session: Any,
     board_id: UUID,
-) -> tuple[tuple[CellObservationModel, ...], tuple[CellPrediction, ...]] | None:
-    cells = tuple(
-        session.scalars(
-            select(CellObservationModel)
-            .where(CellObservationModel.recognized_board_id == board_id)
-            .order_by(CellObservationModel.row_index, CellObservationModel.column_index)
-        ).all()
-    )
+) -> tuple[tuple[LegacyBaseCell, ...], tuple[CellPrediction, ...]] | None:
+    # Legacy-only diagnostic (D-467): the pre-v19 baseline of a corrected
+    # legacy board exists only as its base cell observations, read through the
+    # isolated legacy adapter.  S5 removes the adapter together with this tool.
+    cells = legacy_base_cells_for_board(session, board_id)
     if len(cells) != 15 or [(cell.row_index, cell.column_index) for cell in cells] != [
         (row, column) for row in range(3) for column in range(5)
     ]:

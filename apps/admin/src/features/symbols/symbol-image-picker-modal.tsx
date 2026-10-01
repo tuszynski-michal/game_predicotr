@@ -150,13 +150,13 @@ export function SymbolImagePickerModal({
     candidate: ApprovedSymbolReferenceCandidateResponse,
   ) {
     if (selectingId !== null) return;
-    setSelectingId(candidate.observationId);
+    setSelectingId(candidate.cellReviewId);
     setMessage('');
     try {
       const result = await api.selectApprovedSymbolReferenceCandidate(
         gameId,
         symbol.id,
-        candidate.observationId,
+        candidate.cellReviewId,
         {
           expectedChecksumSha256: candidate.cropChecksumSha256,
           selectedBy: 'admin-local',
@@ -244,15 +244,15 @@ export function SymbolImagePickerModal({
           <div className="symbolImageCandidateGrid">
             {candidates.map((candidate) => {
               const unavailable = unavailableAssetIds.has(
-                candidate.observationId,
+                candidate.cellReviewId,
               );
-              const selecting = selectingId === candidate.observationId;
+              const selecting = selectingId === candidate.cellReviewId;
               return (
                 <button
                   aria-busy={selecting}
                   className="symbolImageCandidate"
                   disabled={selectingId !== null}
-                  key={candidate.observationId}
+                  key={candidate.cellReviewId}
                   onClick={() => void selectCandidate(candidate)}
                   type="button"
                 >
@@ -267,13 +267,13 @@ export function SymbolImagePickerModal({
                         height={128}
                         onError={() => {
                           setUnavailableAssetIds((current) =>
-                            new Set(current).add(candidate.observationId),
+                            new Set(current).add(candidate.cellReviewId),
                           );
                         }}
                         src={api.approvedSymbolReferenceCandidateAssetUrl(
                           gameId,
                           symbol.id,
-                          candidate.observationId,
+                          candidate.cellReviewId,
                         )}
                         unoptimized
                         width={128}

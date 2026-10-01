@@ -23,6 +23,6 @@ test('picker lists only approved candidates in pages of at most twenty and saves
 
 test('one missing crop image does not suppress other approved candidates', () => {
   assert.match(source, /unavailableAssetIds/);
-  assert.match(source, /new Set\(current\)\.add\(candidate\.observationId\)/);
+  assert.match(source, /new Set\(current\)\.add\(candidate.cellReviewId\)/);
   assert.match(source, /Plik niedostępny/);
 });

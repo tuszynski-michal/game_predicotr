@@ -3,7 +3,7 @@ from uuid import uuid4
 
 import pytest
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
-from game_predictor_api.storage.models import ImageBoardGeometryRevisionModel
+from game_predictor_api.storage.board_render_manifest_reader import CurrentBoardRenderManifest
 from game_predictor_worker.images.pending_symbol_reinference import (
     PendingSymbolReinferenceHandler,
     _available_indices,
@@ -51,12 +51,10 @@ def test_qualified_reinference_keeps_empty_slot_without_fake_records():
     )
     indices = _available_indices(qualification.to_dict(), asset_mode="virtual_source")
     assert indices == ()
-    revision = ImageBoardGeometryRevisionModel(
-        asset_mode="virtual_source", virtual_render_spec={"cells": []}
-    )
-    assert _virtual_records(observations=[], revised=revision, expected_indices=indices) == []
+    # TASK-0757 rule: a board without renderable cells has no manifest.
+    assert _virtual_records(render_manifest=None, expected_indices=indices) == []
     with pytest.raises(JobHandlerError):
-        _virtual_records(observations=[], revised=revision)
+        _virtual_records(render_manifest=None)
 
 
 def test_qualified_reinference_rejects_wrong_positions_with_same_count():
@@ -72,16 +70,20 @@ def test_qualified_reinference_rejects_wrong_positions_with_same_count():
         }
         for i in range(1, 15)
     ]
-    revision = ImageBoardGeometryRevisionModel(
-        asset_mode="virtual_source", virtual_render_spec={"cells": cells}
-    )
+    manifest = _manifest(cells)
     assert (
-        len(
-            _virtual_records(
-                observations=[], revised=revision, expected_indices=tuple(range(1, 15))
-            )
-        )
-        == 14
+        len(_virtual_records(render_manifest=manifest, expected_indices=tuple(range(1, 15)))) == 14
     )
     with pytest.raises(JobHandlerError):
-        _virtual_records(observations=[], revised=revision, expected_indices=tuple(range(14)))
+        _virtual_records(render_manifest=manifest, expected_indices=tuple(range(14)))
+
+
+def _manifest(cells, *, extractor_version="renderer"):
+    return CurrentBoardRenderManifest(
+        recognized_board_id=uuid4(),
+        geometry_revision=2,
+        source_geometry_revision_id=uuid4(),
+        extractor_version=extractor_version,
+        manifest_checksum_sha256="e" * 64,
+        cells=tuple(cells),
+    )

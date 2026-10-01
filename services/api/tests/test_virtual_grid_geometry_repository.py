@@ -12,6 +12,7 @@ from game_predictor_api.domain.geometry_qualification import GeometryQualificati
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.storage.image_grid_review_repository import _pending_row_to_item
 from game_predictor_api.storage.models import (
+    BoardRenderManifestModel,
     ImageBoardGeometryRevisionModel,
     ImageSymbolReviewCellModel,
     ImageSymbolReviewEventModel,
@@ -41,27 +42,58 @@ def test_qualified_initializer_never_resets_existing_backfill(existing) -> None:
     assert "with_for_update" not in session.get.call_args.kwargs
 
 
-def test_context_before_backfill_reads_only_immutable_observations() -> None:
+def _base_manifest(board_id: object, game_id: object, indices: range) -> BoardRenderManifestModel:
+    return BoardRenderManifestModel(
+        game_id=game_id,
+        recognized_board_id=board_id,
+        geometry_revision=0,
+        asset_mode="virtual_source",
+        source_geometry_revision_id=uuid4(),
+        extractor_version="direct-perspective-cell-v2",
+        cells={
+            "cells": [{"cellIndex": i, "renderSpec": _review_cell(i).render_spec} for i in indices]
+        },
+        manifest_checksum_sha256="a" * 64,
+    )
+
+
+def test_context_before_backfill_reads_only_the_immutable_render_manifest() -> None:
+    """D-467: before the first backfill the revision-0 specs come from the manifest."""
+
     row = _complete_current_virtual_row(backfill_status="not_started")
     row[1].geometry_revision = 0
+    game_id = uuid4()
+    row[5].game_id = game_id
     session = Mock()
-    session.scalars.side_effect = [
-        (),
-        tuple(
-            SimpleNamespace(
-                row_index=i // 5,
-                column_index=i % 5,
-                asset_mode="virtual_source",
-                render_spec=_review_cell(i).render_spec,
-            )
-            for i in range(15)
-        ),
-    ]
+    session.scalars.side_effect = [(), (_base_manifest(row[1].id, game_id, range(15)),)]
     context = SqlAlchemyVirtualGridGeometryRepository(session)._context_from_row(row)
     assert context.geometry_revision == 0
     assert context.render_configuration.output_width == 64
+    manifest_query = str(
+        session.scalars.call_args_list[1]
+        .args[0]
+        .compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
+    assert "board_render_manifests.game_id" in manifest_query
+    assert "cell_observations" not in manifest_query
     session.add.assert_not_called()
     session.flush.assert_not_called()
+
+
+@pytest.mark.parametrize("indices", (None, range(14)))
+def test_context_before_backfill_without_a_complete_manifest_fails_closed(indices) -> None:
+    row = _complete_current_virtual_row(backfill_status="not_started")
+    row[1].geometry_revision = 0
+    game_id = uuid4()
+    row[5].game_id = game_id
+    session = Mock()
+    session.scalars.side_effect = [
+        (),
+        () if indices is None else (_base_manifest(row[1].id, game_id, indices),),
+    ]
+    with pytest.raises(ImageGridReviewError) as error:
+        SqlAlchemyVirtualGridGeometryRepository(session)._context_from_row(row)
+    assert error.value.code == "IMAGE_GRID_REVIEW_CELLS_INCOMPLETE"
 
 
 @pytest.mark.parametrize("state", (None, SimpleNamespace(failure_message="invalid crop")))

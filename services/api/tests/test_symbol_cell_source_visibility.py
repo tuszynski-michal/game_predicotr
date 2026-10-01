@@ -294,6 +294,7 @@ def test_human_blurry_decision_survives_outside_and_two_recrops(monkeypatch):
 def test_actual_legacy_mapper_accepts_sparse_real_crop_revision():
     from datetime import UTC, datetime
 
+    from game_predictor_api.storage.current_board_cell_sources import NO_CELL_SOURCES
     from game_predictor_api.storage.image_review_repository import (
         materialize_current_image_review_cells,
     )
@@ -319,6 +320,20 @@ def test_actual_legacy_mapper_accepts_sparse_real_crop_revision():
         board_checksum_sha256="a" * 64,
         sequence_number=62440,
         pipeline_fingerprint="test",
+        # D-467: a legacy revision's predictions come from cells_prediction
+        # (manual resolution stores all 15 positions, crops only the visible).
+        cells_prediction={
+            "cells": [
+                {
+                    "rowIndex": i // 5,
+                    "columnIndex": i % 5,
+                    "symbolCode": "cherry",
+                    "confidence": 0.9,
+                    "alternatives": [{"symbolCode": "cherry", "confidence": 0.9}],
+                }
+                for i in range(15)
+            ]
+        },
     )
     observations = [
         SimpleNamespace(
@@ -370,7 +385,7 @@ def test_actual_legacy_mapper_accepts_sparse_real_crop_revision():
         source=source,
         queue_item=SimpleNamespace(source_order_index=0, position_index=0),
         job=SimpleNamespace(game_id=uuid4()),
-        observations=observations,
+        cell_sources=NO_CELL_SOURCES,
         geometry_revision=revision,
     )
     assert [cell.cell_index for cell in cells] == list(range(10))

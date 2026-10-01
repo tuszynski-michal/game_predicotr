@@ -198,10 +198,25 @@ class PartialBoardReconciliationRepository:
             raise ReconciliationError(
                 "RECONCILIATION_CELL_CONFLICT", "Existing logical positions are invalid."
             )
-        observations = self._board_records(game_id, "cell_observations", board["id"], limit=16)
-        if len(observations) > 15:
+        # D-467: the board's current render manifest replaces the former cell
+        # observations in the guard.  The immutable row is pinned by its
+        # checksum and provenance; no manifest means no renderable cells.
+        manifest_table = self._table(game_id, "board_render_manifests")
+        render_manifest = self._execute(
+            "SELECT jsonb_build_object('geometryRevision', m.geometry_revision, "
+            "'sourceGeometryRevisionId', m.source_geometry_revision_id, "
+            "'extractorVersion', m.extractor_version, "
+            "'manifestChecksumSha256', m.manifest_checksum_sha256, "
+            "'cellCount', jsonb_array_length(m.cells->'cells')) "
+            f"FROM {manifest_table} m WHERE game_id=:game_id "
+            "AND recognized_board_id=:id AND geometry_revision=:revision",
+            game_id=game_id,
+            id=board["id"],
+            revision=board["geometry_revision"],
+        ).scalar_one_or_none()
+        if render_manifest is not None and render_manifest["cellCount"] > 15:
             raise ReconciliationError(
-                "RECONCILIATION_CELL_CONFLICT", "Source has more than fifteen observations."
+                "RECONCILIATION_CELL_CONFLICT", "Source has more than fifteen rendered cells."
             )
         prediction_table = self._table(game_id, "image_symbol_prediction_revisions")
         predictions = self._execute(
@@ -230,7 +245,7 @@ class PartialBoardReconciliationRepository:
                 "sourceGeometry": source_geometry,
                 "manualGeometry": manual_geometry,
                 "cells": cells,
-                "observations": observations,
+                "renderManifest": render_manifest,
                 "prediction": predictions,
                 "queue": queue,
             }
@@ -245,18 +260,6 @@ class PartialBoardReconciliationRepository:
             "missingIndices": [index for index in range(15) if index not in indices],
             "sourceVisibility": list(visibility),
         }
-
-    def _board_records(self, game_id: UUID, table: str, board_id: str, *, limit: int) -> list[Any]:
-        return list(
-            self._execute(
-                f"SELECT to_jsonb(c) FROM {self._table(game_id, table)} c "
-                "WHERE game_id=:game_id AND recognized_board_id=:id "
-                "ORDER BY row_index,column_index LIMIT :limit",
-                game_id=game_id,
-                id=board_id,
-                limit=limit,
-            ).scalars()
-        )
 
     def _cells(
         self, game_id: UUID, sequence_number: int, *, lock: bool = False

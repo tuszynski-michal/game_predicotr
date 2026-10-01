@@ -56,8 +56,8 @@ class MemoryApprovedReferences:
     def list_candidates(self, *, after_key, limit, **kwargs):
         return (self.candidate,) if after_key is None else ()
 
-    def get_candidate(self, *, observation_id, **kwargs):
-        return self.candidate if observation_id == self.candidate.observation_id else None
+    def get_candidate(self, *, cell_review_id, **kwargs):
+        return self.candidate if cell_review_id == self.candidate.cell_review_id else None
 
     def get_reference(self, **kwargs):
         return self.reference
@@ -68,7 +68,6 @@ class MemoryApprovedReferences:
             symbol_id=kwargs["symbol_id"],
             source_review_item_id=self.candidate.review_item_id,
             source_recognized_board_id=self.candidate.recognized_board_id,
-            source_observation_id=self.candidate.observation_id,
             sequence_number=self.candidate.sequence_number,
             cell_index=self.candidate.cell_index,
             resolution_revision=self.candidate.resolution_revision,
@@ -93,7 +92,7 @@ class MemoryApprovedReferences:
 
 def _candidate(path: str, checksum: str) -> ApprovedSymbolReferenceCandidate:
     return ApprovedSymbolReferenceCandidate(
-        observation_id=uuid4(),
+        cell_review_id=uuid4(),
         review_item_id=uuid4(),
         recognized_board_id=uuid4(),
         sequence_number=81,
@@ -137,13 +136,13 @@ def test_read_only_api_serves_checksum_bound_approved_crop(tmp_path):
         page = client.get(f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates")
         asset = client.get(
             f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/"
-            f"{candidate.observation_id}/asset"
+            f"{candidate.cell_review_id}/asset"
         )
 
     assert page.status_code == 200
     assert page.json()["items"] == [
         {
-            "observationId": str(candidate.observation_id),
+            "cellReviewId": str(candidate.cell_review_id),
             "cropChecksumSha256": candidate.crop_checksum_sha256,
             "sequenceNumber": 81,
             "cellIndex": 7,
@@ -173,7 +172,7 @@ def test_selection_api_copies_bytes_and_serves_only_durable_reference(tmp_path):
     with TestClient(app) as client:
         response = client.post(
             f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/"
-            f"{candidate.observation_id}/selection",
+            f"{candidate.cell_review_id}/selection",
             json={"expectedChecksumSha256": candidate.crop_checksum_sha256, "selectedBy": "admin"},
         )
         reference = client.get(f"/admin/games/{game_id}/symbols/{symbol_id}/image/asset")
@@ -251,11 +250,11 @@ def test_virtual_selection_materializes_a_durable_full_resolution_png(tmp_path):
     with TestClient(app) as client:
         preview = client.get(
             f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/"
-            f"{candidate.observation_id}/asset"
+            f"{candidate.cell_review_id}/asset"
         )
         selected = client.post(
             f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/"
-            f"{candidate.observation_id}/selection",
+            f"{candidate.cell_review_id}/selection",
             json={"expectedChecksumSha256": candidate.crop_checksum_sha256, "selectedBy": "admin"},
         )
 

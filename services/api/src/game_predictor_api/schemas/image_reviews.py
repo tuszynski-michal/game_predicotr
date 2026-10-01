@@ -43,7 +43,6 @@ class OperationalImageReviewAlternativeResponse(ApiModel):
 
 
 class OperationalImageReviewCellResponse(ApiModel):
-    observation_id: UUID | None
     cell_index: int = Field(ge=0, lt=IMAGE_REVIEW_CELL_COUNT)
     row_index: int = Field(ge=0, lt=3)
     column_index: int = Field(ge=0, lt=5)
@@ -373,7 +372,6 @@ def to_operational_item_response(
         pipeline_fingerprint=item.pipeline_fingerprint,
         cells=tuple(
             OperationalImageReviewCellResponse(
-                observation_id=cell.observation_id,
                 cell_index=cell.cell_index,
                 row_index=cell.row_index,
                 column_index=cell.column_index,
@@ -485,18 +483,14 @@ def to_board_import_coverage_response(
             unnumbered_cut_board_count=report.notices.unnumbered_cut_board_count,
             failed_sources_without_range_count=report.notices.failed_sources_without_range_count,
             active_import_job_count=report.notices.active_import_job_count,
-            active_sources_without_range_count=(
-                report.notices.active_sources_without_range_count
-            ),
+            active_sources_without_range_count=(report.notices.active_sources_without_range_count),
         ),
         view=BoardImportCoverageView(report.view),
         range=(
             BoardImportCoverageRangeResponse(
                 **{
                     "from": range_from if range_from is not None else 1,
-                    "to": (
-                        range_to if range_to is not None else report.expected_layout_count
-                    ),
+                    "to": (range_to if range_to is not None else report.expected_layout_count),
                 }
             )
             if has_range

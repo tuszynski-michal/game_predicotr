@@ -43,6 +43,7 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     AdditiveVirtualGeometryContractError,
     optional_verification_outcome_value,
 )
+from game_predictor_api.storage.board_render_manifest_reader import load_current_render_manifest
 from game_predictor_api.storage.board_render_manifest_repository import add_board_render_manifest
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
@@ -1391,24 +1392,17 @@ class SqlAlchemyVirtualGridGeometryRepository:
         initial_configurations: tuple[DirectCellRenderConfiguration, ...] | None = None
         if not review_cells and expected_indices:
             if board.geometry_revision == 0:
-                observations = tuple(
-                    self._session.scalars(
-                        select(CellObservationModel)
-                        .where(CellObservationModel.recognized_board_id == board.id)
-                        .order_by(CellObservationModel.row_index, CellObservationModel.column_index)
-                    )
+                # D-467: the revision-0 render specs live in the board's
+                # render manifest (cells sorted by ``cellIndex``).
+                base_manifest = load_current_render_manifest(
+                    self._session, game_id=document.game_id, board=board
                 )
                 if (
-                    len(observations) == len(expected_indices)
-                    and {
-                        cell.row_index * topology.columns + cell.column_index
-                        for cell in observations
-                    }
-                    == expected_indices
-                    and all(cell.asset_mode == "virtual_source" for cell in observations)
+                    base_manifest is not None
+                    and set(base_manifest.cell_indices) == expected_indices
                 ):
                     initial_configurations = tuple(
-                        _configuration(cell.render_spec) for cell in observations
+                        _configuration(cell.get("renderSpec")) for cell in base_manifest.cells
                     )
             else:
                 revision = self._session.scalar(

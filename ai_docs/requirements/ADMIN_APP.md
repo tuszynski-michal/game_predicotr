@@ -469,7 +469,10 @@ i maksimum bilansu, a opisy podziałek zastępują osobne etykiety minimum i
 maksimum (TASK-0761). Najechanie
 na wykres pokazuje etykietę najbliższego punktu wypłaty albo końca zakresu z
 liczbą spinów i bilansem z jednostką („kredytów” albo „zł”, TASK-0774;
-tak samo lista przypiętych punktów); etykieta leży w pasie nad obszarem danych i łączy
+tak samo lista przypiętych punktów) oraz trzecią wartością „Wkład”
+(TASK-0778): kwotą potrzebną od zera, by opłacić spiny do tego punktu, czyli
+najgłębszym dołkiem bilansu od pierwszego spinu do punktu (reguła kafelka
+„Maksymalny wkład” ograniczona do odcinka); etykieta leży w pasie nad obszarem danych i łączy
 się z punktem kropkowaną pionową linią, więc nie zasłania linii bilansu.
 Kliknięcie przypina najbliższy punkt: jego etykieta zostaje widoczna na
 stałe w tym samym pasie. Ponowne kliknięcie punktu albo „×” na etykiecie

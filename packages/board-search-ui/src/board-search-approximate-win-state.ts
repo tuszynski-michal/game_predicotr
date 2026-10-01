@@ -231,14 +231,15 @@ export const APPROXIMATE_WIN_PIN_LIMIT = 8;
 /** Chart geometry in SVG units, shared with the label layout tests. */
 export const APPROXIMATE_WIN_CHART_WIDTH = 800;
 /**
- * Point labels in the band above the plot. The width fits
+ * Point labels in the band above the plot: three text lines (spins,
+ * balance, stake needed to get there — TASK-0778). The width fits
  * "Bilans: -123 456,5 kredytów" at the 11 px label font (a seven-digit
  * credit balance would overflow). Four rows keep the eight pins free of
  * overlap at this width (three rows are not enough); in rare layouts of two
  * full clusters the transient hover label may still fall back onto a pin.
  */
 export const APPROXIMATE_WIN_CHART_LABEL = Object.freeze({
-  height: 30,
+  height: 43,
   rowGap: 4,
   rows: 4,
   width: 172,
@@ -468,4 +469,26 @@ export function approximateWinMaximumStake(
     spinNumber = result.evaluatedSpinCount;
   }
   return { credits: -lowest, spinNumber };
+}
+
+/**
+ * Cash needed from a zero start to reach one chart point (TASK-0778): the
+ * deepest trough of the balance from the first spin up to that point, by
+ * the same rule as `approximateWinMaximumStake` limited to the prefix.
+ */
+export function approximateWinStakeToPoint(
+  rows: ApproximateWinResponse['rows'],
+  spinCost: number,
+  point: Pick<
+    ApproximateWinChartPoint,
+    'cumulativeBalanceCredits' | 'spinNumber'
+  >,
+): number {
+  let lowest = Math.min(-spinCost, point.cumulativeBalanceCredits);
+  for (const row of rows) {
+    if (row.spinNumber > point.spinNumber) continue;
+    const beforePayout = row.cumulativeBalanceCredits - row.payoutCredits;
+    if (beforePayout < lowest) lowest = beforePayout;
+  }
+  return -lowest;
 }

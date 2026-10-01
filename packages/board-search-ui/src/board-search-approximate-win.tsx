@@ -33,6 +33,7 @@ import {
   approximateWinExtremes,
   approximateWinMaximumStake,
   approximateWinPointKey,
+  approximateWinStakeToPoint,
   approximateWinRequestKey,
   filterApproximateWinRows,
   layoutApproximateWinPinLabels,
@@ -796,6 +797,9 @@ function ApproximateWinBalanceChart({
   // A chart label or pin is read on its own, so it always names the unit.
   const labelAmount = (baseCredits: number) =>
     `${amount(baseCredits)}${unitNoun(display.unit)}`;
+  // What must be in hand from zero to get as far as this point (TASK-0778).
+  const stakeLabel = (point: ApproximateWinChartPoint) =>
+    labelAmount(approximateWinStakeToPoint(rows, spinCost, point));
   const yTicks = approximateWinAxisTicks(
     plotValue(minimumBalance),
     plotValue(maximumBalance),
@@ -953,7 +957,7 @@ function ApproximateWinBalanceChart({
   }: (typeof labels)[number]) => {
     const top = chartLabelTop(placement.row);
     const left = placement.x - CHART_LABEL.width / 2;
-    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, bilans ${labelAmount(point.cumulativeBalanceCredits)}`;
+    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, bilans ${labelAmount(point.cumulativeBalanceCredits)}, potrzebny wkład ${stakeLabel(point)}`;
     return (
       <g
         className={
@@ -982,6 +986,13 @@ function ApproximateWinBalanceChart({
           y={top + 25}
         >
           Bilans: {labelAmount(point.cumulativeBalanceCredits)}
+        </text>
+        <text
+          className="boardSearchApproximateWinChartLabelStake"
+          x={left + 7}
+          y={top + 38}
+        >
+          Wkład: {stakeLabel(point)}
         </text>
         {pinned ? (
           <g
@@ -1032,7 +1043,8 @@ function ApproximateWinBalanceChart({
           Narastający bilans: rozpoznane wypłaty minus koszt wszystkich spinów.
           Między wypłatami bilans spada o koszt każdego spinu; wykres kończy się
           na ostatnim spinie zakresu. Kliknij punkt albo użyj strzałek i Enter,
-          aby go przypiąć.
+          aby go przypiąć. „Wkład” punktu to kwota potrzebna od zera, by opłacić
+          spiny do tego punktu.
         </p>
       </div>
       <div className="boardSearchApproximateWinChartCanvas">
@@ -1151,7 +1163,8 @@ function ApproximateWinBalanceChart({
               <li key={approximateWinPointKey(point)}>
                 <span>
                   {point.spinNumber.toLocaleString('pl-PL')} spinów · bilans{' '}
-                  {labelAmount(point.cumulativeBalanceCredits)}
+                  {labelAmount(point.cumulativeBalanceCredits)} · wkład{' '}
+                  {stakeLabel(point)}
                 </span>
                 <button
                   aria-label={`Odepnij punkt ${point.spinNumber.toLocaleString('pl-PL')} spinów`}

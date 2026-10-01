@@ -624,3 +624,42 @@ test('the maximum stake is the deepest trough from a zero start', async () => {
     null,
   );
 });
+
+test('the stake to a chart point is the deepest trough up to that point', async () => {
+  const { approximateWinStakeToPoint } =
+    await import('../src/board-search-approximate-win-state.ts');
+  const row = (spinNumber, payoutCredits, cumulativeBalanceCredits) => ({
+    cumulativeBalanceCredits,
+    payoutCredits,
+    spinNumber,
+  });
+  // Spin cost 100: -300 before the payout at spin 3 (+200 after), -300
+  // before the payout at spin 8 (-200 after), -600 before spin 12 (+900).
+  const rows = [row(3, 500, 200), row(8, 100, -200), row(12, 1500, 900)];
+  const at = (spinNumber, cumulativeBalanceCredits) =>
+    approximateWinStakeToPoint(rows, 100, {
+      cumulativeBalanceCredits,
+      spinNumber,
+    });
+  // Only the troughs up to the point count, not the deeper one after it.
+  assert.equal(at(3, 200), 300);
+  assert.equal(at(8, -200), 300);
+  assert.equal(at(12, 900), 600);
+  // An end point below every earlier trough is its own lowest balance.
+  assert.equal(at(20, 100), 600);
+  assert.equal(
+    approximateWinStakeToPoint(rows.slice(0, 2), 100, {
+      cumulativeBalanceCredits: -400,
+      spinNumber: 10,
+    }),
+    400,
+  );
+  // A payout on the first spin still needs that spin paid first.
+  assert.equal(
+    approximateWinStakeToPoint([row(1, 1000, 900)], 100, {
+      cumulativeBalanceCredits: 900,
+      spinNumber: 1,
+    }),
+    100,
+  );
+});

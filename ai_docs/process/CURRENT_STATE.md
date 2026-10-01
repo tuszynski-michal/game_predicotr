@@ -116,6 +116,11 @@ last_updated: 2026-10-01
   30/min. Pakiet UI 78/78, interakcje 36/36. Weryfikacja wizualna na
   instancji testowej (Admin 3010, API 8011) wykonana; audyt agentem
   pominięty (wstrzymany przez operatora 2026-10-01).
+- TASK-0778 done (2026-10-01, zgłoszenie operatora): etykieta punktu wykresu
+  i lista przypiętych punktów pokazują „Wkład” — kwotę potrzebną od zera, by
+  dojść do tego punktu (najgłębszy dołek bilansu od spinu 1 do punktu).
+  Pakiet UI 79/79, interakcje 36/36. Bez weryfikacji wizualnej: testowe API
+  8011 zostało zatrzymane przez równoległy tor.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

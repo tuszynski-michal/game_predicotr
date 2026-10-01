@@ -616,7 +616,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartLabel').textContent,
-    /2500 spinów.*Bilans: -17[\d\s,]* kredytów$/,
+    /2500 spinów.*Bilans: -17[\d\s,]* kredytów.*Wkład: [\d\s,]+ kredytów$/,
   );
   assert.ok(
     document.querySelector('.boardSearchApproximateWinChartLeader'),
@@ -647,7 +647,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartPins').textContent,
-    /2500 spinów · bilans -17[\d\s,]* kredytów/,
+    /2500 spinów · bilans -17[\d\s,]* kredytów · wkład [\d\s,]+ kredytów/,
   );
 
   // Keyboard: ArrowRight from nothing highlights the first point; Enter pins it.
@@ -869,6 +869,11 @@ test('stake and unit re-scale every amount locally without a new request', async
       .textContent,
     'Bilans: 2700 kredytów',
   );
+  const labelStake = () =>
+    document.querySelector('.boardSearchApproximateWinChartLabelStake')
+      .textContent;
+  // The stake needed to reach the point follows the stake and unit too.
+  assert.equal(labelStake(), 'Wkład: 60 kredytów');
   await choose(unitSelect, 'pln');
   assert.equal(firstPayout(), '300,00 zł');
   assert.equal(
@@ -891,6 +896,7 @@ test('stake and unit re-scale every amount locally without a new request', async
     document.querySelector('.boardSearchApproximateWinChartLabelValue')
       .textContent;
   assert.equal(labelValue(), 'Bilans: 270,00 zł');
+  assert.equal(labelStake(), 'Wkład: 6,00 zł');
   assert.equal(calls, 1, 'changing stake or unit sends no request');
   assert.equal(
     JSON.parse(

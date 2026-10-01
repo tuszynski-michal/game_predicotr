@@ -43,14 +43,27 @@ from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeom
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.storage.database import create_database_engine, create_session_factory
-from game_predictor_api.storage.schema_readiness import require_alembic_head
+from game_predictor_api.storage.schema_readiness import (
+    EXPECTED_ALEMBIC_HEAD,
+    AlembicHeadMismatchError,
+    database_alembic_revision,
+)
 from game_predictor_api.storage.virtual_grid_geometry_repository import (
     SqlAlchemyVirtualGridGeometryRepository,
 )
-from sqlalchemy import text
+from sqlalchemy import Engine, text
 from sqlalchemy.orm import Session
 
 REPORT_SCHEMA = "legacy-board-conversion-report-v1"
+# The conversion must run before migration 0135 (which refuses while a
+# legacy_file board exists), so the database may still be on the previous head.
+PREVIOUS_ALEMBIC_HEAD = "0134_drop_cell_observations_and_legacy_archive"
+
+
+def _require_schema(engine: Engine) -> None:
+    found = database_alembic_revision(engine)
+    if found not in {EXPECTED_ALEMBIC_HEAD, PREVIOUS_ALEMBIC_HEAD}:
+        raise AlembicHeadMismatchError(found)
 
 
 def _arguments(argv: list[str] | None = None) -> argparse.Namespace:
@@ -112,7 +125,7 @@ def _plan_summary(plan: LegacyConversionSourcePlan) -> dict[str, Any]:
 def _preview(settings: ApiSettings, arguments: argparse.Namespace) -> dict[str, Any]:
     engine = create_database_engine(settings)
     try:
-        require_alembic_head(engine)
+        _require_schema(engine)
         factory = create_session_factory(engine)
         started = time.monotonic()
         totals: Counter[str] = Counter()
@@ -178,7 +191,7 @@ def _preview(settings: ApiSettings, arguments: argparse.Namespace) -> dict[str, 
 def _execute(settings: ApiSettings, arguments: argparse.Namespace) -> dict[str, Any]:
     engine = create_database_engine(settings)
     try:
-        require_alembic_head(engine)
+        _require_schema(engine)
         factory = create_session_factory(engine)
         started = time.monotonic()
         totals: Counter[str] = Counter()

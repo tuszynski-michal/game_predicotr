@@ -196,6 +196,9 @@ from game_predictor_api.domain.datasets import (
     DatasetNotFoundError,
 )
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
+from game_predictor_api.domain.image_import_engine_policy import (
+    LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR,
+)
 from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
     ImageReviewError,
@@ -1253,12 +1256,18 @@ def create_app(
         or default_image_geometry_rollout_service_dependency
     )
 
+    manual_board_cell_symbol_predictor = ManualBoardCellSymbolPredictor(
+        Path(__file__).resolve().parents[4],
+        resolved_settings.artifact_root,
+    )
+
     def default_virtual_grid_geometry_service_dependency() -> Iterator[VirtualGridGeometryService]:
         with session_factory() as session:
             try:
                 yield VirtualGridGeometryService(
                     SqlAlchemyVirtualGridGeometryRepository(session),
                     resolved_settings.artifact_root,
+                    symbol_predictor=manual_board_cell_symbol_predictor,
                 )
                 session.commit()
             except BaseException:
@@ -1386,22 +1395,21 @@ def create_app(
         or default_image_import_geometry_guard_service_dependency
     )
 
-    manual_board_cell_symbol_predictor = ManualBoardCellSymbolPredictor(
-        Path(__file__).resolve().parents[4],
-        resolved_settings.artifact_root,
-    )
-
     def default_board_cell_geometry_pending_service_dependency() -> Iterator[
         BoardCellGeometryPendingService
     ]:
         with session_factory() as session:
             try:
+                # D-467 (TASK-0790): the Reviewer's manual resolution delegates
+                # to the virtual source path in the same transaction.
                 yield BoardCellGeometryPendingService(
                     SqlAlchemyBoardCellGeometryPendingRepository(session),
                     ManagedBoardCellProcessingManifestStore(resolved_settings.artifact_root),
-                    artifact_root=resolved_settings.artifact_root,
-                    previewer=ManualBoardCellGeometryPreviewer(),
-                    predictor=manual_board_cell_symbol_predictor,
+                    virtual_geometry=VirtualGridGeometryService(
+                        SqlAlchemyVirtualGridGeometryRepository(session),
+                        resolved_settings.artifact_root,
+                        symbol_predictor=manual_board_cell_symbol_predictor,
+                    ),
                 )
                 session.commit()
             except BaseException:
@@ -1803,6 +1811,7 @@ def create_app(
             "IMAGE_GRID_REVIEW_CURSOR_DIRECTION_CONFLICT",
             "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
             "IMAGE_GRID_REVIEW_GEOMETRY_REVISION_CONFLICT",
+            "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
             "IMAGE_GRID_REVIEW_SOURCE_DRIFT",
             "IMAGE_GRID_REVIEW_TOPOLOGY_CONFLICT",
             "IMAGE_GRID_REVIEW_CURRENT_OWNER_CONFLICT",
@@ -2139,10 +2148,16 @@ def create_app(
         _request: Request,
         error: RequestValidationError,
     ) -> JSONResponse:
+        error_types = {str(item["type"]) for item in error.errors()}
+        # An explicit domain refusal raised inside request validation keeps its
+        # own code (D-467: a removed legacy image engine policy).
+        explicit_codes = error_types & _EXPLICIT_VALIDATION_ERROR_CODES
         return JSONResponse(
             status_code=422,
             content={
-                "code": "VALIDATION_ERROR",
+                "code": (
+                    next(iter(explicit_codes)) if len(explicit_codes) == 1 else "VALIDATION_ERROR"
+                ),
                 "message": "Request data is invalid.",
                 "details": {
                     "errors": [
@@ -2167,6 +2182,9 @@ def create_app(
     application.openapi = local_admin_openapi  # type: ignore[method-assign]
 
     return application
+
+
+_EXPLICIT_VALIDATION_ERROR_CODES = frozenset({LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR})
 
 
 def _active_reviewer_origin(local_origin: str) -> str:

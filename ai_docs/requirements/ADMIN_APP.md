@@ -999,14 +999,14 @@ pełnych plansz i ma:
 - pokazywać gotowy staging plansz bieżącej gry jako etap poprzedzający import;
   staging nie jest elementem dropdownu ani pracą Reviewera, dopóki jawny job
   importu nie utworzy kolejki plansz,
-- dla aktywnego gotowego stagingu z raportem pokazywać przypięty silnik
-  `v20 — geometria i cropy v19`; każdy nowy import używa go bez dodatkowego
-  potwierdzenia, a v18 jest dostępny wyłącznie jako etykieta i artefakt
-  historycznych jobów,
-- start przekazuje `boardCellProcessingMode=verified_v19` w checksum-bound
-  komendzie i nie może prezentować sukcesu, jeżeli zwrócony job ma inny
-  niezmienny snapshot; nieudana geometria nie wraca do v18, lecz tworzy trwałe
-  odroczenie do końcowej korekty,
+- dla aktywnego gotowego stagingu z raportem pokazywać wirtualną politykę gry
+  (`structured_default` albo `structured_lattice_v3`); od D-467 (TASK-0790)
+  v20/v19 i v18 są wyłącznie etykietami historycznych jobów i nie są opcją
+  nowego importu,
+- start przekazuje bieżącą politykę w checksum-bound komendzie i nie może
+  prezentować sukcesu, jeżeli zwrócony job nie ma wirtualnego snapshotu tej
+  samej rewizji; nieudana geometria tworzy trwałe odroczenie do końcowej
+  korekty, rozwiązywane ścieżką wirtualną,
 - mieć własny proces i lokalny adres; panel Admin wybiera grę oraz gotowy
   import i pokazuje dla niego liczniki wszystkich, oczekujących i zakończonych
   plansz,

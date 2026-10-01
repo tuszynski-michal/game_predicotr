@@ -471,7 +471,7 @@ test('v1.2 geometry report matches only its pinned contrast profile', () => {
 test('guard replay requires exact job identity and cannot rebind v3 into v0.10.4', () => {
   const report = {
     gridProfileInferenceFingerprint: 'g'.repeat(64),
-    imageEnginePolicy: 'verified_v19',
+    imageEnginePolicy: 'structured_lattice_v3',
     imageEnginePolicyRevision: 0,
     manifestChecksumSha256: 'a'.repeat(64),
     symbolModelInferenceFingerprint: 's'.repeat(64),
@@ -678,7 +678,7 @@ test('cold-start replay matches only the pinned unclassified snapshot', () => {
   const fingerprint = 'c'.repeat(64);
   const report = {
     gridProfileInferenceFingerprint: 'g'.repeat(64),
-    imageEnginePolicy: 'verified_v19',
+    imageEnginePolicy: 'structured_lattice_v3',
     imageEnginePolicyRevision: 0,
     manifestChecksumSha256: 'a'.repeat(64),
     symbolModelInferenceFingerprint: null,
@@ -703,6 +703,7 @@ test('cold-start replay matches only the pinned unclassified snapshot', () => {
     gameId: 'game-1',
     inputPayload: {
       gridProfile: { inferenceFingerprint: 'g'.repeat(64) },
+      imageGeometryRollout: { rolloutRevision: 0 },
       sourceManifestSha256: 'a'.repeat(64),
       sourceSelectionId: 'upload-1',
       symbolModel: coldStart,
@@ -717,6 +718,24 @@ test('cold-start replay matches only the pinned unclassified snapshot', () => {
       undefined,
     ),
     true,
+  );
+  // D-467: a job without a virtual rollout snapshot ran the removed legacy
+  // engine and is never reused.
+  assert.equal(
+    imageImportJobMatchesReportIdentity(
+      {
+        ...coldRun,
+        inputPayload: {
+          ...coldRun.inputPayload,
+          imageGeometryRollout: undefined,
+        },
+      },
+      'game-1',
+      'upload-1',
+      report,
+      undefined,
+    ),
+    false,
   );
   assert.equal(
     symbolSnapshotMatchesReport(
@@ -1073,7 +1092,7 @@ test('previews and starts a recovered browser staging idempotently', async () =>
     'b'.repeat(64),
     'geometry-job-1',
     'c'.repeat(64),
-    'verified_v19',
+    'structured_lattice_v3',
   );
 
   assert.equal(started.ok, true);
@@ -1084,8 +1103,8 @@ test('previews and starts a recovered browser staging idempotently', async () =>
       'upload-1',
       {
         gameId: 'game-1',
-        boardCellProcessingMode: 'verified_v19',
-        imageEnginePolicy: 'verified_v19',
+        boardCellProcessingMode: 'structured_lattice_v3',
+        imageEnginePolicy: 'structured_lattice_v3',
         geometryManifestChecksumSha256: 'c'.repeat(64),
         geometryPreflightJobId: 'geometry-job-1',
         manifestChecksumSha256: 'a'.repeat(64),
@@ -1116,14 +1135,14 @@ test('pins the game engine policy for a ready browser staging', async () => {
     'b'.repeat(64),
     'geometry-job-v20',
     'c'.repeat(64),
-    'verified_v19',
+    'structured_lattice_v3',
   );
 
   assert.equal(result.ok, true);
-  assert.equal(command.boardCellProcessingMode, 'verified_v19');
+  assert.equal(command.boardCellProcessingMode, 'structured_lattice_v3');
 });
 
-test('pins the cold-start geometry manifest for structured shadow', async () => {
+test('pins the cold-start geometry manifest for the structured default engine', async () => {
   let command;
   const result = await startReadyBrowserImageImport(
     {
@@ -1144,12 +1163,12 @@ test('pins the cold-start geometry manifest for structured shadow', async () => 
     'b'.repeat(64),
     'geometry-job-shadow',
     'c'.repeat(64),
-    'structured_shadow',
+    'structured_default',
     2,
   );
 
   assert.equal(result.ok, true);
-  assert.equal(command.imageEnginePolicy, 'structured_shadow');
+  assert.equal(command.imageEnginePolicy, 'structured_default');
   assert.equal(command.imageEnginePolicyRevision, 2);
   assert.equal(command.geometryPreflightJobId, 'geometry-job-shadow');
   assert.equal(command.geometryManifestChecksumSha256, 'c'.repeat(64));

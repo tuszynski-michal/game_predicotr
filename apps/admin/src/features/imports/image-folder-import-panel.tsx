@@ -274,7 +274,8 @@ export function ImageFolderImportPanel({
     useState<ImageGeometryGuardResolutionManifestResponse | null>(null);
   const [enginePolicy, setEnginePolicy] =
     useState<ImageImportEnginePolicyResponse | null>(null);
-  const boardCellProcessingMode = enginePolicy?.policy ?? 'verified_v19';
+  const boardCellProcessingMode =
+    enginePolicy?.policy ?? 'structured_lattice_v3';
   const lateralCapability = enginePolicy?.geometryEngineVariants?.find(
     (candidate) => candidate.variant === LATERAL_PARTIAL_VARIANT,
   );

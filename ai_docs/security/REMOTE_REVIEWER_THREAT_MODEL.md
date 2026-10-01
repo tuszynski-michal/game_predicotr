@@ -42,6 +42,13 @@ Admina, PostgreSQL ani workera. Next.js przekazuje wyłącznie jawnie
 dozwolone odczyty kontekstu jednej sesji, operacyjne review, assety, korektę
 geometrii i decyzję planszy. Wszystkie pozostałe ścieżki zwracają `403`.
 
+Od TASK-0790 (D-467) korekta odroczonej planszy (`geometry-preview`,
+`manual-resolution`) ma tę samą trasę, metodę, allowlistę i autoryzację
+zakresu sesji (`authorize_scope`, aktor `reviewer-session:<id>`), ale API
+zapisuje wynik ścieżką wirtualną: renderuje komórki w pamięci z niezmiennego
+źródła i nie tworzy plików cropów. Koszt jednego żądania to dekodowanie
+jednego źródła i inferencja 15 komórek przypiętym modelem, jak dotąd.
+
 Zdalna ręczna selekcja współdzieli ten sam proces i tunel, ale nie tę samą
 powierzchnię uprawnień. `/manual-selection` używa wyłącznie `/selection-api`,
 osobnego cookie `gp_remote_selection_token` i stałej intencji proxy

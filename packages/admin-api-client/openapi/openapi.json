@@ -3366,8 +3366,6 @@
             "anyOf": [
               {
                 "enum": [
-                  "verified_v19",
-                  "structured_shadow",
                   "structured_default",
                   "structured_lattice_v3"
                 ],
@@ -9534,8 +9532,6 @@
       },
       "ImageImportEnginePolicy": {
         "enum": [
-          "verified_v19",
-          "structured_shadow",
           "structured_default",
           "structured_lattice_v3"
         ],
@@ -29314,7 +29310,7 @@
             "content": {
               "image/png": {}
             },
-            "description": "Five by three contact sheet of manual v19 crops"
+            "description": "Five by three contact sheet of virtual source renders"
           },
           "403": {
             "content": {
@@ -29362,7 +29358,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Preview 15 manual source-direct crops for a deferred board",
+        "summary": "Preview the virtual cells of a manual deferred-board geometry",
         "tags": [
           "board-cell-geometry"
         ]
@@ -29470,7 +29466,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Create one ordinary review item from manual deferred geometry",
+        "summary": "Resolve a deferred board as one virtual-source review item",
         "tags": [
           "board-cell-geometry"
         ]

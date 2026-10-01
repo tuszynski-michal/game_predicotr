@@ -250,7 +250,12 @@ preflighcie. Brak tego pola w historycznym preflighcie oznacza konieczność
 przygotowania nowego preflightu, nie uszkodzenie snapshotu. Dopiero obecny,
 lecz niepoprawny snapshot jest błędem jego integralności.
 
-### Jawnie przypięty adapter komórek v20
+### Jawnie przypięty adapter komórek v20 (historyczny)
+
+Od D-467 (TASK-0790) nowy job nie może przypiąć tego snapshotu, a worker
+odmawia wykonania joba bez wirtualnego rolloutu
+(`IMAGE_PIPELINE_NON_VIRTUAL_ROLLOUT_REJECTED`). Opis poniżej dotyczy
+historycznych jobów.
 
 Schema v5 może opcjonalnie zawierać snapshot
 `board-cell-processing-v20-verified-v19-v1`. Pole nie jest dodawane domyślnie:
@@ -278,6 +283,10 @@ sekwencja.
 
 ### Stan rollout'u i rollback
 
+> Nota historyczna (D-467, TASK-0790, 2026-10-01): wynik bramki i tryby
+> `historical_v18` / `verified_v19` opisują stan sprzed jednego trybu danych.
+> Od migracji `0133` import używa wyłącznie polityk wirtualnych.
+
 Cross-staging benchmark obejmujący 300 stron i 2700 plansz potwierdził jakość
 automatycznych trafień v19, ale osiągnął `2532/2700 = 93,78%` pokrycia przy
 bramce co najmniej `98%`. Z tego powodu `historical_v18` pozostaje domyślnym
@@ -293,24 +302,31 @@ zawsze zachowuje snapshot pierwotnego joba.
 ### Ręczne rozwiązanie deferred komórek
 
 Końcowy fallback nie tworzy równoległej kolejki plansz. Dla jednego
-`image_board_geometry_pending` API odczytuje niezmienny source i detekcję
-planszy oraz snapshot modelu symboli z tego samego importu. Cztery narożniki
-przechodzą przez ten sam source-direct cropper v19 co zwykła korekta. Preview
-pozostaje read-only; zapis jest dozwolony dopiero po uzyskaniu dokładnie 15
-cropów i 15 predykcji w kolejności 3 × 5.
+`image_board_geometry_pending` API odczytuje niezmienny source, detekcję
+planszy, najnowszą rewizję geometrii źródła oraz snapshot modelu symboli z tego
+samego importu. Od D-467 (TASK-0790) endpointy `geometry-preview` i
+`manual-resolution` delegują do `VirtualGridGeometryService`
+(`preview_pending_slot`, `save_pending_slot`): cztery narożniki są renderowane
+w pamięci tym samym rendererem i sumami kontrolnymi co korekta wirtualna w
+Adminie, a komórki dostępne klasyfikuje model przypięty do importu. Preview
+pozostaje read-only.
 
-Repozytorium serializuje zapis na rekordzie deferred i w jednej transakcji
-tworzy `recognized_board`, 15 `cell_observations`, `image_review_item` oraz
-`image_board_geometry_revision`. Istniejący trigger kolejki projektuje nowy
+Repozytorium wirtualne bierze blokady sekwencji, a potem wiersza źródła,
+odczytuje kontekst ponownie i w jednej transakcji tworzy rewizję geometrii
+źródła (wyprowadzoną z najnowszej; pozostałe sloty zachowują quady), planszę
+`virtual_source`, `image_review_item`, `image_board_geometry_revision` z
+`virtual_render_spec` oraz manifest renderu; nie powstają pliki cropów ani
+`cell_observations`. Docelowa rewizja kontynuuje bieżącą rewizję sekwencji
+(reguła TASK-0702, `DATA_MODEL.md`). Istniejący trigger kolejki projektuje nowy
 item we właściwe miejsce `sequence_number + position_index`; nie istnieje
-druga implementacja kolejki. Wcześniejsza materializacja planszy kończy próbę
-statusem `superseded`. Klucz idempotencji i checksumę komendy sprawdza się
-przed kosztownym preview/inferencją oraz ponownie pod blokadą zapisu.
+druga implementacja kolejki. Plansza istniejąca już na tej samej pozycji tego
+samego źródła kończy próbę statusem `superseded`; przejęcie sekwencji od
+innego importu obsługuje `create_owned_pending_review_item`. Klucz idempotencji
+i checksumę komendy sprawdza się przed renderem oraz ponownie pod blokadą
+zapisu.
 
-Artefakty ręcznych komend używają niezmiennych, command-scoped namespace'ów o
-stałej długości ścieżki zgodnej z Windows. Model ONNX jest ładowany wyłącznie z
-checksum-bound snapshotu źródłowego joba; aktualnie aktywny model gry nie może
-zmienić wyniku historycznego importu.
+Model ONNX jest ładowany wyłącznie z checksum-bound snapshotu źródłowego joba;
+aktualnie aktywny model gry nie może zmienić wyniku historycznego importu.
 
 Reviewer prezentuje trwałe wyjątki jako osobny tryb UI, ale konsumuje istniejące
 scope-bound API zamiast budować drugą projekcję domenową. Lista używa

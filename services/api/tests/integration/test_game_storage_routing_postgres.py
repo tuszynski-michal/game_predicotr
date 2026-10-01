@@ -178,7 +178,7 @@ def test_router_selects_v2_and_default_injects_exact_game(database: Engine) -> N
             text(
                 "INSERT INTO image_geometry_rollout_states "
                 "(geometry_mode,cell_asset_mode,revision,backfill_status,updated_by) "
-                "VALUES ('legacy','legacy_files',0,'not_started','test')"
+                "VALUES ('structured_lattice_v3','virtual_default',0,'not_started','test')"
             )
         )
         location = GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)

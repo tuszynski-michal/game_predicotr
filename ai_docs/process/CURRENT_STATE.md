@@ -218,7 +218,7 @@ last_updated: 2026-10-01
   konfliktów, `VACUUM (ANALYZE)`; po drodze naprawiono `complete` sklepu
   jobów dla jobów bez gry (v1.7.108). `VACUUM FULL` za zgodą: tabela
   6 804 MB → 399 MB, baza 89 → 83 GB. **Etap S3 zamknięty.**
-  Nowe TASK-0765 w planie: rola bez `SUPERUSER`/`BYPASSRLS`.
+  Nowe TASK-0795 w planie: rola bez `SUPERUSER`/`BYPASSRLS`.
 - TASK-0757 (S4) done (v1.7.111, audyt Opus FAIL→PASS): tabela
   `board_render_manifests` (manifest magazynu v3, migracja `0131`), writery
   piszą manifest obok obserwacji, strażnik `ALEMBIC_HEAD_MISMATCH`. Cutover
@@ -240,6 +240,21 @@ last_updated: 2026-10-01
   środku: stary kod odmawiał przeliczenia, nowy liczy poprawnie). Cutover
   `0132` opisany w zadaniu (zatrzymanie API → merge → `db:migrate` → start).
   **Etap S4 zamknięty po cutoverze.**
+- TASK-0790 (S6, wykonywany przed S5) done (v1.7.114, audyt Opus FAIL→PASS:
+  P1 reguła rewizji przy przejęciu sekwencji, P2 blokada źródła przy
+  wyścigu slotów, docs): ręczna rezolucja odroczonej planszy (Reviewer, ten sam endpoint
+  `manual-resolution`) deleguje do ścieżki wirtualnej
+  (`VirtualGridGeometryService.save_pending_slot`) — plansza `virtual_source`,
+  manifest renderu, predykcje przypiętego modelu, bez plików cropów i bez
+  `cell_observations`; writer importu i ręczna geometria nie piszą już
+  obserwacji; polityki `verified_v19`/`structured_shadow` usunięte
+  (`IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`), worker odmawia trybów
+  niewirtualnych; nowa gra = `structured_lattice_v3`/`virtual_default`;
+  migracja `0133_virtual_only_import_policies` (dwie gry `legacy` →
+  domyślny tryb wirtualny, CHECK-i zawężone, downgrade odmawia),
+  `EXPECTED_ALEMBIC_HEAD` = `0133`. Numeracja: S5 = `0134`, TASK-0791 =
+  `0135`, S7 = `0136`; zadania S6–S8 planu D-467 to TASK-0790–0795
+  (TASK-0760–0775 zajął tor D-470). Cutover `0133` jak `0132`.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

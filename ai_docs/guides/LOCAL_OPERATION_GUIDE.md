@@ -164,6 +164,36 @@ Wycofanie: zatrzymaj wszystkie procesy nowego kodu, z nowym kodem wykonaj
 (usuwa tabelę manifestów — dane są odtwarzalne z obserwacji do czasu S5 —
 i przywraca rejestr v1), potem uruchom stary kod.
 
+## Tylko wirtualne polityki importu i rezolucja odroczonych plansz (TASK-0790, D-467)
+
+Kod od TASK-0790 wymaga migracji `0133_virtual_only_import_policies`
+(strażnik `ALEMBIC_HEAD_MISMATCH` jak wyżej). Migracja przestawia każdy stan
+rolloutu gry w trybie `legacy` / `legacy_files` albo `structured_shadow` na
+domyślny tryb nowej gry `structured_lattice_v3` / `virtual_default`
+(rewizja + 1, postęp walidacji wyzerowany), zawęża CHECK-i trybów i nie ma
+downgrade'u (odmawia — powrót tylko z kopii zapasowej). Odmawia też
+(`IMAGE_ENGINE_POLICY_MIGRATION_BUSY`), gdy taki stan ma aktywny backfill
+walidacji. Na bazie operatora dotyczy to dwóch gier (`cf300bc1…`,
+`2a46d3a6…`, rewizja 0).
+
+Przejście: zatrzymaj API, workery i Reviewera we wszystkich checkoutach (jak
+w krokach 1–2 powyżej), scal kod, `npm run db:migrate`, sprawdź
+`npm run db:current` → `0133_virtual_only_import_policies`, uruchom usługi.
+Reviewer i API są wdrażane razem; sesja Reviewera w trakcie przejścia może
+dostać błąd 4xx/5xx i wystarczy ją odświeżyć.
+
+Zmiany zachowania:
+
+- Admin nie oferuje już `verified_v19` ani `structured_shadow`; API odrzuca
+  je kodem `IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED` (422).
+- Job importu przypięty do usuniętego silnika kończy się błędem
+  `IMAGE_PIPELINE_NON_VIRTUAL_ROLLOUT_REJECTED`, a writer odmawia planszy
+  niewirtualnej (`IMAGE_PIPELINE_NON_VIRTUAL_BOARD_REJECTED`).
+- Ręczna rezolucja odroczonej planszy w Reviewerze (ten sam przycisk i
+  endpoint `manual-resolution`) tworzy planszę `virtual_source` z manifestem
+  renderu i predykcjami modelu przypiętego do importu; nie zapisuje plików
+  cropów ani obserwacji. Podgląd pokazuje komórki renderu wirtualnego.
+
 ## Wdrożenie obsługi niepełnych plansz (TASK-0505–0509)
 
 Kod od v0.10.224 wymaga migracji `0100_manual_geometry_qualification` oraz
@@ -543,20 +573,13 @@ Admin 0.2 nie pokazuje osobnych workspace'ów `Datasety` ani `Manual review`.
 Pozostają one wewnętrznymi encjami workflow, a decyzje użytkownika prowadzą
 przez import, reguły i osobną aplikację Reviewer.
 
-### Wybór geometrii plansz v18/v20
+### Geometria plansz i odroczone pozycje
 
-Po przygotowaniu raportu i geometrii gotowego browser stagingu Admin pokazuje
-tryb cięcia komórek dla tego stagingu:
-
-- pozostaw `Historyczny v18`, aby utworzyć job z domyślnym
-  `historical_v18`,
-- wybierz `Zweryfikowany v19 (v20)` wyłącznie świadomie, potwierdź ostrzeżenie
-  i uruchom job z `verified_v19`.
-
-V20 nie jest obecnie trybem domyślnym. Benchmark osiągnął `93,78%` pokrycia
-przy wymaganych `98%`. Trafienia spełniają bramki jakości, ale pozostałe
-pozycje są odkładane do ręcznej korekty. V20 nigdy nie wraca po cichu do v18:
-pozycja tworzy dokładnie 15 cropów albo trwały deferred bez inferencji.
+Od TASK-0790 (D-467) importy używają wyłącznie wirtualnej geometrii
+(`structured_default` albo domyślnie `structured_lattice_v3`); historyczne
+tryby v18 i `verified_v19` (v20, cropy-pliki) zostały usunięte. Pozycja, dla
+której silnik nie wyznaczył pewnej siatki, jest trwale odkładana (deferred)
+do ręcznej korekty w Reviewerze.
 
 Po zakończeniu importu wybierz ten sam import w `Zatwierdzaniu plansz`. Licznik
 `Do korekty siatki` prowadzi do osobnego trybu Reviewera. Dla każdej pozycji:
@@ -569,14 +592,13 @@ Po zakończeniu importu wybierz ten sam import w `Zatwierdzaniu plansz`. Licznik
 2. Jeśli automatyczna siatka wymaga tylko drobnej korekty, kliknij planszę na
    liście po lewej (wejście w tryb edycji), a potem przeciągnij wybrany narożnik
    lub środek siatki.
-3. wygeneruj podgląd wszystkich 15 cropów,
+3. wygeneruj podgląd komórek planszy (render wirtualny ze źródła),
 4. zapisz dopiero po sprawdzeniu, że żaden symbol nie jest ucięty ani przesunięty
    do sąsiedniego pola,
 5. wróć do zwykłej kolejki i zatwierdź symbole utworzonej planszy.
 
-Snapshot działającego joba jest niezmienny. Aby wycofać użycie v20, nie wznawiaj
-ani nie przełączaj istniejącego joba. Utwórz kolejny job i wybierz
-`historical_v18`. Nie usuwaj ręcznie rekordów deferred ani artefaktów v20.
+Snapshot działającego joba jest niezmienny. Nie usuwaj ręcznie rekordów
+deferred ani historycznych artefaktów v20.
 
 Kandydat modelu symboli wytrenowany na cropach v19 został odrzucony przez
 bramkę błędów wysokiej pewności. Nie wymaga ręcznego rollbacku, ponieważ nigdy

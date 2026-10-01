@@ -17,6 +17,7 @@ from game_predictor_api.application.image_geometry_rollout import (
     ImageGeometryRolloutStatus,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.geometry_qualification import available_cell_indices
 from game_predictor_api.domain.image_geometry_v2 import (
     SEQUENCE_ATTESTATION_SCHEMA_VERSION,
     SOURCE_COORDINATE_SPACE,
@@ -39,6 +40,10 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     AdditiveVirtualGeometryContractError,
     derive_v2_render_identity_from_legacy_spec,
     verification_outcome_value,
+)
+from game_predictor_api.storage.board_render_manifest_reader import (
+    BoardRenderManifestReadError,
+    load_current_render_manifest,
 )
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
@@ -171,20 +176,6 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 "IMAGE_ENGINE_POLICY_ROLLOUT_BUSY",
                 "Finish the active virtual-geometry validation before changing the engine.",
             )
-        if target is ImageImportEnginePolicy.STRUCTURED_SHADOW:
-            source_count = int(
-                self._session.scalar(
-                    select(func.count(SourceImageModel.id))
-                    .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-                    .where(JobModel.game_id == game_id)
-                )
-                or 0
-            )
-            if source_count > 0 and state.backfill_status != "ready":
-                raise ImageGridReviewError(
-                    "IMAGE_ENGINE_POLICY_VALIDATION_REQUIRED",
-                    "Validate existing image provenance before enabling structured shadow.",
-                )
         state.geometry_mode, state.cell_asset_mode = policy_rollout_modes(target)
         state.revision += 1
         state.backfill_status = "not_started"
@@ -468,7 +459,13 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     board=board,
                     cell=observation,
                 )
-            if (
+            if not observations:
+                # D-467 (TASK-0790): boards imported or resolved after the
+                # observation writers were removed carry only a render manifest.
+                self._validate_manifest_cells(
+                    game_id=game_id, source=source, board=board, geometry=geometry
+                )
+            elif (
                 len(observations) != topology_count
                 or tuple(
                     (int(observation.row_index), int(observation.column_index))
@@ -577,6 +574,47 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             review_cell_backfill_count,
             training_cell_backfill_count,
         )
+
+    def _validate_manifest_cells(
+        self,
+        *,
+        game_id: UUID,
+        source: SourceImageModel,
+        board: RecognizedBoardModel,
+        geometry: ImageSourceGeometryRevisionModel,
+    ) -> None:
+        try:
+            manifest = load_current_render_manifest(self._session, game_id=game_id, board=board)
+        except BoardRenderManifestReadError:
+            manifest = None
+        cell_count = int(board.grid_rows or 3) * int(board.grid_columns or 5)
+        expected = available_cell_indices(
+            unavailable_cell_indices=board.unavailable_cell_indices,
+            geometry_qualification=board.geometry_qualification,
+            asset_mode=board.asset_mode,
+            cell_count=cell_count,
+        )
+        if (manifest is None and expected) or (
+            manifest is not None
+            and (
+                set(manifest.cell_indices) != expected
+                or manifest.source_geometry_revision_id != geometry.id
+                or any(
+                    not isinstance(cell.get("renderSpec"), dict)
+                    or not _is_sha256(cell.get("renderSpecChecksumSha256"))
+                    or not _is_sha256(cell.get("renderedPixelChecksumSha256"))
+                    or not _is_sha256(cell.get("logicalCellKeySha256"))
+                    or not _is_sha256(cell.get("logicalCellKeyV2Sha256"))
+                    or not _is_sha256(cell.get("renderIdentityV2Sha256"))
+                    for cell in manifest.cells
+                )
+            )
+        ):
+            self._invalid_source(
+                source,
+                "IMAGE_GEOMETRY_ROLLOUT_CELL_PROVENANCE_INVALID",
+                "A virtual board does not contain every checksum-bound virtual cell.",
+            )
 
     def _backfill_source_revisions(
         self,

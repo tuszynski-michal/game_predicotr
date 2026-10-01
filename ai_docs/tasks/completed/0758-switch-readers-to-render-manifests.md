@@ -116,7 +116,7 @@ czytały obserwacje.
   mapperze, wersji croppera, kontroli stale-base-crop, wyszukiwarce,
   przeliczaniu i diagnostyce v19. Takich plansz w bazie operatora jest 0.
   S5 usuwa adapter; warunek: 0 takich plansz i brak ścieżki, która je tworzy
-  (TASK-0760 przed S5 albo blokada importu `legacy` i fixture benchmarków w
+  (TASK-0790 przed S5 albo blokada importu `legacy` i fixture benchmarków w
   S5); wtedy mapper odmawia (`IMAGE_REVIEW_CELL_COUNT_INVALID`).
 - **Wirtualne plansze.** Komórki z manifestu bieżącej rewizji
   (`cropSampleId`, klucze v1/v2, `renderSpec`, sumy;

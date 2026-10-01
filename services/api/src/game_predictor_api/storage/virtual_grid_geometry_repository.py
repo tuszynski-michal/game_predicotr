@@ -62,11 +62,11 @@ from game_predictor_api.storage.image_review_repository import (
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
     _apply_count_deltas,
+    _bind_game_store,
     _CountedCellState,
     _verification_v2,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardGeometryPendingModel,
     ImageBoardGeometryReviewEventModel,
@@ -328,6 +328,16 @@ class SqlAlchemyVirtualGridGeometryRepository:
             game_id=base_context.game_id,
             sequence_numbers=[entry.context.sequence_number for entry in entries],
         )
+        # Two corrections of different slots of one source take different
+        # sequence locks.  Serialize them on the source row (same order as the
+        # import writer: sequences, then source) before the contexts are read
+        # again, so the loser sees the winner's source revision and conflicts
+        # instead of appending a sibling revision from a stale base.
+        self._session.execute(
+            select(SourceImageModel.id)
+            .where(SourceImageModel.id == base_context.source_image_id)
+            .with_for_update()
+        )
         locked_rows: dict[UUID, tuple[Any, ...]] = {}
         locked_pending: dict[UUID, ImageBoardGeometryPendingModel] = {}
         current_contexts: list[VirtualGridGeometryContext] = []
@@ -416,6 +426,22 @@ class SqlAlchemyVirtualGridGeometryRepository:
             expected_entries=entries,
             current_contexts=tuple(current_contexts),
         )
+        occupied = self._occupied_pending_slots(entries, locked_pending)
+        if occupied:
+            if len(entries) != 1:
+                raise ImageGridReviewError(
+                    "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
+                    "A deferred slot of this source already has a recognized board.",
+                )
+            # The same rule as the deferred writer: a board created at the
+            # position after the deferral (human or newer import) wins, and the
+            # stale deferred item is superseded instead of creating a duplicate.
+            pending = occupied[0]
+            pending.status = "superseded"
+            pending.superseded_at = created_at
+            pending.updated_at = created_at
+            self._session.flush()
+            return VirtualGridGeometrySourceSaveResult(revisions=(), created=False)
         availability_snapshot = self._availability_snapshot(entries)
         for row in locked_rows.values():
             item = row[0]
@@ -552,6 +578,28 @@ class SqlAlchemyVirtualGridGeometryRepository:
             revisions=tuple(_revision_from_model(record) for record in records),
             created=True,
         )
+
+    def _occupied_pending_slots(
+        self,
+        entries: tuple[PreparedVirtualGridGeometry, ...],
+        locked_pending: Mapping[UUID, ImageBoardGeometryPendingModel],
+    ) -> tuple[ImageBoardGeometryPendingModel, ...]:
+        occupied: list[ImageBoardGeometryPendingModel] = []
+        for entry in entries:
+            pending = locked_pending.get(entry.context.target_id)
+            if pending is None or pending.status != "pending":
+                continue
+            board_id = self._session.scalar(
+                select(RecognizedBoardModel.id)
+                .where(
+                    RecognizedBoardModel.source_image_id == pending.source_image_id,
+                    RecognizedBoardModel.position_index == pending.position_index,
+                )
+                .with_for_update()
+            )
+            if board_id is not None:
+                occupied.append(pending)
+        return tuple(occupied)
 
     def _synchronize_changed_source_items(
         self,
@@ -793,17 +841,10 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
                 "The deferred source slot changed before manual geometry was saved.",
             )
-        predictions = [
-            {
-                "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
-                "columnIndex": cell.column_index,
-                "confidence": 0.0,
-                "rowIndex": cell.row_index,
-                "symbolCode": "?",
-            }
-            for cell in entry.cells
-        ]
-        revision_number = context.geometry_revision + 1
+        cells_prediction = _pending_slot_cells_prediction(entry)
+        predictions = cast(list[dict[str, object]], cells_prediction["cells"])
+        # TASK-0702 handoff rule: continue the sequence's current revision.
+        revision_number = context.next_geometry_revision
         board = RecognizedBoardModel(
             id=context.recognized_board_id,
             source_image_id=context.source_image_id,
@@ -819,7 +860,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             geometry_checksum_sha256=entry.source_geometry_checksum_sha256,
             board_relative_path=None,
             board_checksum_sha256=None,
-            cells_prediction={"cells": predictions, "modelVersion": "manual-unclassified-v1"},
+            cells_prediction=cells_prediction,
             completeness_status="complete",
             unavailable_cell_indices=[],
             board_confidence=0.0,
@@ -836,28 +877,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
         _project_geometry_qualification(board, entry.board_geometries[context.position_index])
         self._session.add(board)
         self._session.flush()
-        for cell, prediction in zip(entry.cells, predictions, strict=True):
-            self._session.add(
-                CellObservationModel(
-                    recognized_board_id=board.id,
-                    row_index=cell.row_index,
-                    column_index=cell.column_index,
-                    asset_mode="virtual_source",
-                    source_geometry_revision_id=stored_source_geometry.id,
-                    logical_cell_key=cell.logical_cell_key,
-                    logical_cell_key_v2=cell.logical_cell_key_v2,
-                    render_identity_v2_sha256=cell.render_identity_v2_sha256,
-                    render_spec=dict(cell.render_spec),
-                    render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
-                    rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
-                    extractor_version=cell.extractor_version,
-                    crop_relative_path=None,
-                    crop_checksum_sha256=cell.crop_checksum_sha256,
-                    cropper_version=entry.cropper_version,
-                    prediction=prediction,
-                    created_at=created_at,
-                )
-            )
+        # D-467 (TASK-0790): the render manifest of the new revision (added
+        # below) is the only per-cell record; no cell observation is written.
         snapshot = {
             "assetMode": "virtual_source",
             "boardChecksumSha256": None,
@@ -1124,6 +1145,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             )
         source = self._session.get(SourceImageModel, pending.source_image_id)
         job = self._session.get(JobModel, import_job_id)
+        symbol_model = None if job is None else job.input_payload.get("symbol_model")
         geometry = self._session.scalar(
             select(ImageSourceGeometryRevisionModel)
             .where(
@@ -1159,6 +1181,11 @@ class SqlAlchemyVirtualGridGeometryRepository:
             source_image_id=source.id,
             import_job_id=import_job_id,
             job=job,
+        )
+        sequence_geometry_revision = self._sequence_cell_revision(
+            game_id=game_id,
+            sequence_number=int(pending.sequence_number),
+            lock=lock,
         )
         return VirtualGridGeometryContext(
             game_id=game_id,
@@ -1196,7 +1223,42 @@ class SqlAlchemyVirtualGridGeometryRepository:
             ),
             board_geometries=tuple(dict(value) for value in geometry.board_geometries),
             render_configuration=configuration,
+            pending_symbol_model=(
+                dict(cast(Mapping[str, object], symbol_model))
+                if isinstance(symbol_model, Mapping)
+                else None
+            ),
+            sequence_geometry_revision=sequence_geometry_revision,
         )
+
+    def _sequence_cell_revision(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        lock: bool,
+    ) -> int | None:
+        """Common revision of the sequence's 15 current cells, if any (TASK-0702).
+
+        A deferred slot can become the newest owner of a sequence whose current
+        projection belongs to another import.  The logical board then continues
+        from that projection's revision.  An incomplete or inconsistent
+        projection returns ``None`` and keeps the coordinator's fail-closed
+        validation; under ``lock`` the rows are locked so the saved revision
+        cannot drift after the sequence lock was taken.
+        """
+
+        _bind_game_store(self._session, game_id)
+        statement = select(ImageSymbolReviewCellModel.geometry_revision).where(
+            ImageSymbolReviewCellModel.game_id == game_id,
+            ImageSymbolReviewCellModel.sequence_number == sequence_number,
+        )
+        if lock:
+            statement = statement.with_for_update()
+        revisions = tuple(int(value) for value in self._session.scalars(statement))
+        if len(revisions) != 15 or len(set(revisions)) != 1:
+            return None
+        return revisions[0]
 
     def _pending_render_configuration(
         self,
@@ -1499,6 +1561,48 @@ class SqlAlchemyVirtualGridGeometryRepository:
             board_geometries=tuple(dict(value) for value in geometry.board_geometries),
             render_configuration=configurations[0],
         )
+
+
+_UNCLASSIFIED_MANUAL_MODEL_VERSION = "manual-unclassified-v1"
+
+
+def _pending_slot_cells_prediction(entry: PreparedVirtualGridGeometry) -> dict[str, object]:
+    """Predictions aligned with the rendered cells of a resolved deferred slot.
+
+    With a configured symbol predictor every rendered cell carries the pinned
+    import model's prediction; otherwise the cells stay unclassified (``?``).
+    """
+
+    prediction = entry.slot_prediction
+    if prediction is None:
+        return {
+            "cells": [
+                {
+                    "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
+                    "columnIndex": cell.column_index,
+                    "confidence": 0.0,
+                    "rowIndex": cell.row_index,
+                    "symbolCode": "?",
+                }
+                for cell in entry.cells
+            ],
+            "modelVersion": _UNCLASSIFIED_MANUAL_MODEL_VERSION,
+        }
+    by_position = {
+        (cell.get("rowIndex"), cell.get("columnIndex")): cell for cell in prediction.cells
+    }
+    if len(by_position) != len(prediction.cells) or set(by_position) != {
+        (cell.row_index, cell.column_index) for cell in entry.cells
+    }:
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_PREDICTION_CELLS_INVALID",
+            "The deferred slot predictions do not match its rendered cells.",
+        )
+    payload = prediction.to_cells_prediction()
+    payload["cells"] = [
+        dict(by_position[(cell.row_index, cell.column_index)]) for cell in entry.cells
+    ]
+    return payload
 
 
 def _configuration(value: object) -> DirectCellRenderConfiguration:

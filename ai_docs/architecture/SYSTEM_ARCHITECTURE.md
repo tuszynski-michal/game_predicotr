@@ -841,9 +841,11 @@ uruchomienia modelu keypoint.
 W odbiorze 2026-08-29 nie było kompletnego raportu 0.10. Produkcyjne tryby nie
 zostały promowane, a aliasy, legacy cropy i dual-schema pozostają. Jest to
 świadomy finalny stan bezpiecznego cutoveru, nie automatyczne zaliczenie jakości.
-Pełny rollback jest operacyjny: nowa rewizja stanu gry wraca do
-`legacy/legacy_files`, istniejące joby zachowują snapshot, a source geometry,
-canonical ownership i decyzje człowieka nie są usuwane ani przepisywane.
+Pełny rollback do `legacy/legacy_files` był operacyjny do D-467; od
+TASK-0790 (migracja `0133`) tryby legacy i shadow nie istnieją, a rollback
+silnika oznacza wybór drugiej polityki wirtualnej. Istniejące joby zachowują
+snapshot, a source geometry, canonical ownership i decyzje człowieka nie są
+usuwane ani przepisywane.
 
 TASK-0319 dodaje izolowany pakiet `images/keypoint_geometry`, lecz nie nowy
 produkcyjny pipeline. Dataset zamraża wyłącznie ręcznie zatwierdzone source
@@ -1661,11 +1663,12 @@ layoutów. Brak którejkolwiek zgodności daje `local_data_error`.
 ### Per-game image import engine policy
 
 `image_geometry_rollout_states` jest trwałym źródłem ustawienia silnika dla
-nowych importów danej gry. Warstwa HTTP udostępnia wyłącznie dwie bezpieczne
-projekcje: stabilny `legacy/legacy_files` mapowany na jawny pipeline v20/v19
-oraz produkcyjny `structured_default/virtual_default` v0.10. Historyczny
-`structured_shadow/virtual_shadow` pozostaje odtwarzalny, ale nie jest opcją
-nowego importu. Polityka i jej rewizja wchodzą do checksummy preflightu i
+nowych importów danej gry. Od D-467 (TASK-0790) warstwa HTTP udostępnia
+wyłącznie projekcje wirtualne `structured_default/virtual_default` i
+`structured_lattice_v3/virtual_default` (domyślna dla nowej gry); dawne
+`legacy/legacy_files` (v20/v19) i `structured_shadow/virtual_shadow` są
+odrzucane kodem `IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`, a worker i writer
+importu odmawiają ich wykonania. Polityka i jej rewizja wchodzą do checksummy preflightu i
 snapshotu joba; zmiana nie mutuje istniejących jobów.
 
 Browser preflight wylicza z polityki flagę `geometryPreflightRequired`.

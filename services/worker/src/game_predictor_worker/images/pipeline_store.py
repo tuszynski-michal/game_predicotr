@@ -40,7 +40,6 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.job_repository import job_from_record
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     ImageBoardGeometryPendingModel,
     ImageFileExecutionModel,
     ImageImportJobFileModel,
@@ -77,6 +76,9 @@ from .pipeline_execution import (
     continuity_issues,
     require_matching_symbol_cells,
 )
+
+NON_VIRTUAL_BOARD_WRITE_ERROR = "IMAGE_PIPELINE_NON_VIRTUAL_BOARD_REJECTED"
+"""D-467 (TASK-0790): only ``virtual_source`` boards may be projected."""
 
 
 class ImagePipelineStoreError(JobHandlerError):
@@ -364,16 +366,9 @@ class SqlAlchemyImagePipelineStore:
         model_version = cast(str, stage_results["symbol_inference"].payload["modelVersion"])
         crop_payload = stage_results["board_crops"].payload
         symbol_payload = stage_results["symbol_inference"].payload
-        virtual_shadow_crops = (
-            _boards_by_position(cast(Mapping[str, object], crop_payload["virtualShadow"]))
-            if isinstance(crop_payload.get("virtualShadow"), Mapping)
-            else {}
-        )
-        virtual_shadow_symbols = (
-            _boards_by_position(cast(Mapping[str, object], symbol_payload["virtualShadow"]))
-            if isinstance(symbol_payload.get("virtualShadow"), Mapping)
-            else {}
-        )
+        # D-467 (TASK-0790): legacy file-crop boards and cell observations are
+        # no longer written. Refuse before any row is touched.
+        _require_virtual_crop_payload(crop_payload, crops)
         with self._session_factory() as session, session.begin():
             _require_candidate_lease(
                 session,
@@ -556,7 +551,6 @@ class SqlAlchemyImagePipelineStore:
                     sequence=sequence,
                 )
                 if board is None:
-                    virtual = cropped.get("assetMode") == "virtual_source"
                     board = RecognizedBoardModel(
                         source_image_id=source.id,
                         position_index=position,
@@ -564,25 +558,15 @@ class SqlAlchemyImagePipelineStore:
                         sequence_number=cast(int | None, sequence["normalizedNumber"]),
                         sequence_confidence=float(cast(float, sequence["confidence"])),
                         board_geometry=board_geometry,
-                        asset_mode="virtual_source" if virtual else "legacy_file",
+                        asset_mode="virtual_source",
                         source_geometry_revision_id=(
-                            source_geometry.id if virtual and source_geometry is not None else None
+                            source_geometry.id if source_geometry is not None else None
                         ),
-                        geometry_engine_name=(
-                            cast(str, cropped["geometryEngineName"]) if virtual else None
-                        ),
-                        geometry_engine_version=(
-                            cast(str, cropped["geometryEngineVersion"]) if virtual else None
-                        ),
-                        geometry_checksum_sha256=(
-                            cast(str, cropped["geometryChecksumSha256"]) if virtual else None
-                        ),
-                        board_relative_path=(
-                            None if virtual else cast(str, cropped["boardRelativePath"])
-                        ),
-                        board_checksum_sha256=(
-                            None if virtual else cast(str, cropped["boardChecksumSha256"])
-                        ),
+                        geometry_engine_name=cast(str, cropped["geometryEngineName"]),
+                        geometry_engine_version=cast(str, cropped["geometryEngineVersion"]),
+                        geometry_checksum_sha256=cast(str, cropped["geometryChecksumSha256"]),
+                        board_relative_path=None,
+                        board_checksum_sha256=None,
                         cells_prediction=prediction,
                         completeness_status=completeness_status,
                         geometry_qualification=cast(
@@ -619,36 +603,20 @@ class SqlAlchemyImagePipelineStore:
                 cropper_version = cast(str, cropped["cropperVersion"])
                 require_matching_symbol_cells(cropped, symbol)
                 crop_cells = cast(Sequence[object], cropped["cells"])
-                symbol_cells = cast(Sequence[object], symbol["cells"])
-                for crop_value, prediction_value in zip(
+                for crop_value in crop_cells:
+                    _require_v2_render_identity(cast(Mapping[str, object], crop_value))
+                # The render manifest is the only per-cell record (D-467); it is
+                # idempotent and refuses a replay with different render data.
+                _ensure_import_render_manifest(
+                    session,
+                    board,
                     crop_cells,
-                    symbol_cells,
-                    strict=True,
-                ):
-                    crop = cast(Mapping[str, object], crop_value)
-                    cell_prediction = cast(Mapping[str, object], prediction_value)
-                    _upsert_cell(
-                        session,
-                        board,
-                        crop,
-                        cell_prediction,
-                        source_geometry_revision_id=(
-                            source_geometry.id if source_geometry is not None else None
-                        ),
-                        cropper_version=cropper_version,
-                        created_at=executed_at,
-                    )
-                if cropped.get("assetMode") == "virtual_source":
-                    _ensure_import_render_manifest(
-                        session,
-                        board,
-                        crop_cells,
-                        cropper_version=cropper_version,
-                        game_id=job.game_id,
-                        source_geometry_revision_id=(
-                            source_geometry.id if source_geometry is not None else None
-                        ),
-                    )
+                    cropper_version=cropper_version,
+                    game_id=job.game_id,
+                    source_geometry_revision_id=(
+                        source_geometry.id if source_geometry is not None else None
+                    ),
+                )
                 review_item, ownership_changes = _upsert_review_item(
                     session,
                     board,
@@ -672,26 +640,6 @@ class SqlAlchemyImagePipelineStore:
                             crop_board=cropped,
                             symbol_board=symbol,
                             symbol_payload=symbol_payload,
-                            created_at=executed_at,
-                        )
-                    shadow_crop = virtual_shadow_crops.get(position)
-                    shadow_symbol = virtual_shadow_symbols.get(position)
-                    if (
-                        symbol_payload.get("inferenceMode") != "unclassified"
-                        and shadow_crop is not None
-                        and shadow_symbol is not None
-                    ):
-                        _append_prediction_revision(
-                            session,
-                            game_id=job.game_id,
-                            job_id=job_id,
-                            review_item=review_item,
-                            board=board,
-                            crop_board=shadow_crop,
-                            symbol_board=shadow_symbol,
-                            symbol_payload=cast(
-                                Mapping[str, object], symbol_payload["virtualShadow"]
-                            ),
                             created_at=executed_at,
                         )
                     if completeness_status == "complete":
@@ -1357,9 +1305,7 @@ def _require_same_board(
     )
     expected_grid_rows = _optional_positive_integer(cropped.get("gridRows"))
     expected_grid_columns = _optional_positive_integer(cropped.get("gridColumns"))
-    expected_asset_mode = (
-        "virtual_source" if cropped.get("assetMode") == "virtual_source" else "legacy_file"
-    )
+    expected_asset_mode = "virtual_source"
     expected_completeness_status = cast(str, cropped.get("completenessStatus", "complete"))
     expected_unavailable = list(cast(Sequence[int], cropped.get("unavailableCellIndices", [])))
     if (
@@ -1416,29 +1362,32 @@ def _recognized_board_geometry(
     return geometry
 
 
-def _upsert_cell(
-    session: Session,
-    board: RecognizedBoardModel,
-    crop: Mapping[str, object],
-    prediction: Mapping[str, object],
-    *,
-    source_geometry_revision_id: UUID | None,
-    cropper_version: str,
-    created_at: datetime,
+def _require_virtual_crop_payload(
+    crop_payload: Mapping[str, object],
+    crops: Mapping[int, Mapping[str, object]],
 ) -> None:
-    row = cast(int, crop["rowIndex"])
-    column = cast(int, crop["columnIndex"])
-    record = session.scalar(
-        select(CellObservationModel)
-        .where(
-            CellObservationModel.recognized_board_id == board.id,
-            CellObservationModel.row_index == row,
-            CellObservationModel.column_index == column,
-        )
-        .with_for_update()
-    )
-    virtual = crop.get("assetMode") == "virtual_source"
-    v2_identity = v2_render_identity_from_spec(crop.get("renderSpec")) if virtual else None
+    """Fail the job instead of projecting a legacy file-crop board (D-467)."""
+
+    for position, cropped in crops.items():
+        cells = cropped.get("cells")
+        if (
+            crop_payload.get("assetMode") != "virtual_source"
+            or cropped.get("assetMode") != "virtual_source"
+            or not isinstance(cells, Sequence)
+            or any(
+                not isinstance(cell, Mapping) or cell.get("assetMode") != "virtual_source"
+                for cell in cells
+            )
+        ):
+            raise ImagePipelineStoreError(
+                NON_VIRTUAL_BOARD_WRITE_ERROR,
+                "Only virtual_source boards can be projected; legacy file-crop boards "
+                f"were removed (board position {position}).",
+            )
+
+
+def _require_v2_render_identity(crop: Mapping[str, object]) -> None:
+    v2_identity = v2_render_identity_from_spec(crop.get("renderSpec"))
     if v2_identity is not None and (
         crop.get("logicalCellKeyV2Sha256") != v2_identity.logical_cell_key_v2
         or crop.get("renderIdentityV2Sha256") != v2_identity.render_identity_v2_sha256
@@ -1446,62 +1395,6 @@ def _upsert_cell(
         raise ImagePipelineStoreError(
             "IMAGE_V2_RENDER_IDENTITY_CONFLICT",
             "The virtual cell payload differs from its checksummed v2 render specification.",
-        )
-    if record is None:
-        session.add(
-            CellObservationModel(
-                recognized_board_id=board.id,
-                row_index=row,
-                column_index=column,
-                asset_mode="virtual_source" if virtual else "legacy_file",
-                source_geometry_revision_id=(source_geometry_revision_id if virtual else None),
-                logical_cell_key=(cast(str, crop["logicalCellKeySha256"]) if virtual else None),
-                logical_cell_key_v2=(
-                    None if v2_identity is None else v2_identity.logical_cell_key_v2
-                ),
-                render_identity_v2_sha256=(
-                    None if v2_identity is None else v2_identity.render_identity_v2_sha256
-                ),
-                render_spec=(
-                    dict(cast(Mapping[str, object], crop["renderSpec"])) if virtual else None
-                ),
-                render_spec_checksum_sha256=(
-                    cast(str, crop["renderSpecChecksumSha256"]) if virtual else None
-                ),
-                rendered_pixel_checksum_sha256=(
-                    cast(str, crop["renderedPixelChecksumSha256"]) if virtual else None
-                ),
-                extractor_version=(cast(str, crop["extractorVersion"]) if virtual else None),
-                crop_relative_path=(None if virtual else cast(str, crop["cropRelativePath"])),
-                crop_checksum_sha256=cast(str, crop["cropChecksumSha256"]),
-                cropper_version=cropper_version,
-                prediction=dict(prediction),
-                created_at=created_at,
-            )
-        )
-        return
-    if (
-        record.asset_mode
-        != ("virtual_source" if crop.get("assetMode") == "virtual_source" else "legacy_file")
-        or record.crop_relative_path != crop.get("cropRelativePath")
-        or record.crop_checksum_sha256 != crop["cropChecksumSha256"]
-        or record.source_geometry_revision_id
-        != (source_geometry_revision_id if crop.get("assetMode") == "virtual_source" else None)
-        or record.logical_cell_key != crop.get("logicalCellKeySha256")
-        or record.logical_cell_key_v2
-        != (None if v2_identity is None else v2_identity.logical_cell_key_v2)
-        or record.render_identity_v2_sha256
-        != (None if v2_identity is None else v2_identity.render_identity_v2_sha256)
-        or canonical_json_bytes(record.render_spec) != canonical_json_bytes(crop.get("renderSpec"))
-        or record.render_spec_checksum_sha256 != crop.get("renderSpecChecksumSha256")
-        or record.rendered_pixel_checksum_sha256 != crop.get("renderedPixelChecksumSha256")
-        or record.extractor_version != crop.get("extractorVersion")
-        or record.cropper_version != cropper_version
-        or canonical_json_bytes(record.prediction) != canonical_json_bytes(prediction)
-    ):
-        raise ImagePipelineStoreError(
-            "IMAGE_CELL_OBSERVATION_CONFLICT",
-            "A cell observation already has different crop or prediction data.",
         )
 
 
@@ -1514,12 +1407,11 @@ def _ensure_import_render_manifest(
     game_id: UUID,
     source_geometry_revision_id: UUID | None,
 ) -> None:
-    """Write the revision-0 render manifest beside the cell observations (D-467).
+    """Write the revision-0 render manifest of an imported virtual board (D-467).
 
-    The manifest carries exactly the render identities written to
-    ``cell_observations`` so TASK-0758 can switch readers without a gap.
-    A board without renderable cells has no observations and gets no
-    manifest (rule: no manifest row <=> no cells).
+    Since TASK-0790 the manifest is the only per-cell import record; no
+    ``cell_observations`` row is written. A board without renderable cells
+    gets no manifest (rule: no manifest row <=> no cells).
     """
 
     if not crop_cells:
@@ -1644,10 +1536,6 @@ def _upsert_review_item(
 def _virtual_geometry_checksum(payload: Mapping[str, object]) -> str | None:
     if payload.get("assetMode") == "virtual_source":
         value = payload.get("geometryChecksumSha256")
-        return value if isinstance(value, str) else None
-    shadow = payload.get("virtualShadow")
-    if isinstance(shadow, Mapping):
-        value = shadow.get("geometryChecksumSha256")
         return value if isinstance(value, str) else None
     return None
 

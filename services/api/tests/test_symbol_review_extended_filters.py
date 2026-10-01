@@ -296,10 +296,12 @@ def test_cell_paths_bind_the_game_store() -> None:
         image_symbol_review_repository,
     )
 
+    # D-467 (TASK-0790): the deferred-board repository no longer queries cells;
+    # its legacy manual resolution moved to the virtual source path.
     expected = {
         image_symbol_review_repository: 7,
         image_symbol_review_bulk_operation_repository: 3,
-        board_cell_geometry_pending_repository: 1,
+        board_cell_geometry_pending_repository: 0,
     }
     for module, count in expected.items():
         tree = ast.parse(inspect.getsource(module))

@@ -216,7 +216,7 @@ class MemoryImageGeometryRolloutRepository:
     def __init__(self, game_id: UUID) -> None:
         self.game_id = game_id
         self.job: Job | None = None
-        self.policy = ImageImportEnginePolicy.VERIFIED_V19
+        self.policy = ImageImportEnginePolicy.STRUCTURED_LATTICE_V3
         self.revision = 0
 
     def engine_policy(self, game_id: UUID) -> ImageImportEnginePolicySnapshot:
@@ -535,17 +535,21 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
     endpoint = f"/api/v1/admin/games/{items[0].game_id}/image-import-engine-policy"
 
     current = client.get(endpoint)
-    preview = client.post(f"{endpoint}/preview", json={"targetPolicy": "structured_shadow"})
-    applied = client.put(
+    # D-467 (TASK-0790): the removed legacy policies are refused explicitly.
+    legacy_previews = [
+        client.post(f"{endpoint}/preview", json={"targetPolicy": removed})
+        for removed in ("verified_v19", "structured_shadow")
+    ]
+    legacy_update = client.put(
         endpoint,
         json={
-            "targetPolicy": "structured_shadow",
+            "targetPolicy": "verified_v19",
             "expectedRevision": 0,
-            "previewToken": preview.json()["previewToken"],
+            "previewToken": "a" * 64,
         },
     )
 
-    assert current.json()["policy"] == "verified_v19"
+    assert current.json()["policy"] == "structured_lattice_v3"
     assert current.json()["geometryEngineVariants"] == [
         {
             "variant": "structured_lattice_v4_partial_sides",
@@ -569,10 +573,11 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
             "blockerMessage": None,
         },
     ]
-    assert preview.json()["changesExistingJobs"] is False
-    assert applied.status_code == 200
-    assert applied.json()["policy"] == "structured_shadow"
-    assert applied.json()["revision"] == 1
+    for response in (*legacy_previews, legacy_update):
+        assert response.status_code == 422
+        assert [error["type"] for error in response.json()["detail"]] == [
+            "IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED"
+        ]
 
     production_preview = client.post(
         f"{endpoint}/preview", json={"targetPolicy": "structured_default"}
@@ -581,24 +586,25 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
         endpoint,
         json={
             "targetPolicy": "structured_default",
-            "expectedRevision": 1,
+            "expectedRevision": 0,
             "previewToken": production_preview.json()["previewToken"],
         },
     )
 
     assert production_preview.status_code == 200
+    assert production_preview.json()["changesExistingJobs"] is False
     assert production_preview.json()["target"]["geometryMode"] == "structured_default"
     assert production_preview.json()["target"]["cellAssetMode"] == "virtual_default"
     assert production.status_code == 200
     assert production.json()["policy"] == "structured_default"
-    assert production.json()["revision"] == 2
+    assert production.json()["revision"] == 1
 
     v3_preview = client.post(f"{endpoint}/preview", json={"targetPolicy": "structured_lattice_v3"})
     v3 = client.put(
         endpoint,
         json={
             "targetPolicy": "structured_lattice_v3",
-            "expectedRevision": 2,
+            "expectedRevision": 1,
             "previewToken": v3_preview.json()["previewToken"],
         },
     )
@@ -608,7 +614,7 @@ def test_image_import_engine_policy_requires_preview_and_is_per_game(tmp_path: P
     assert v3_preview.json()["changesExistingJobs"] is False
     assert v3.status_code == 200
     assert v3.json()["policy"] == "structured_lattice_v3"
-    assert v3.json()["revision"] == 3
+    assert v3.json()["revision"] == 2
 
 
 def test_grid_review_api_lists_keyset_page_and_serves_the_source(tmp_path: Path) -> None:

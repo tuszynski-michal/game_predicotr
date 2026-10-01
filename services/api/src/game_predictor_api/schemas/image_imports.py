@@ -35,6 +35,7 @@ from game_predictor_api.schemas.geometry_qualification import (
     GeometryQualificationPayload,
     ManualSourceGeometryPoint,
 )
+from game_predictor_api.schemas.image_geometry_rollout import reject_removed_engine_policy
 from game_predictor_api.schemas.jobs import JobResponse
 
 
@@ -634,8 +635,6 @@ class BrowserImageImportStart(ApiModel):
     )
     board_cell_processing_mode: (
         Literal[
-            "verified_v19",
-            "structured_shadow",
             "structured_default",
             "structured_lattice_v3",
         ]
@@ -643,6 +642,11 @@ class BrowserImageImportStart(ApiModel):
     ) = None
     image_engine_policy: ImageImportEnginePolicy | None = None
     image_engine_policy_revision: int | None = Field(default=None, ge=0)
+
+    # D-467 (TASK-0790): name a removed legacy engine with its explicit code.
+    _reject_removed_policy = field_validator(
+        "board_cell_processing_mode", "image_engine_policy", mode="before"
+    )(reject_removed_engine_policy)
 
 
 class BrowserImageImportStartResponse(ApiModel):

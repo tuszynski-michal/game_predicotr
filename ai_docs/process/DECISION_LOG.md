@@ -177,7 +177,7 @@ last_updated: 2026-09-30
   `legacy_file` na rewizji 0 (0 w bazie operatora; import polityką `legacy`
   i fixture benchmarków) czytają obserwacje przez izolowany adapter
   `legacy_cell_observation_adapter`. S5 usuwa adapter; warunek: 0 takich
-  plansz i brak ścieżki, która je tworzy (TASK-0760 przed S5 albo blokada
+  plansz i brak ścieżki, która je tworzy (TASK-0790 przed S5 albo blokada
   importu `legacy` i fixture benchmarków w S5).
   Tożsamość obserwacji znika z kontraktu: `ImageReviewCell.observation_id`
   i pole `observationId` odpowiedzi Reviewera są usunięte, kandydat wzorca
@@ -188,6 +188,38 @@ last_updated: 2026-09-30
   `source_recognized_board_id` + `cell_index`). Numeracja dalszych etapów
   przesuwa się ponownie: S5 = manifest v4 i `0133`, S6 = `0134`,
   S7 = `0135`.
+- **Jeden tryb danych w pisarzach (TASK-0790, S6 wykonany przed S5):**
+  żadna ścieżka zapisu nie tworzy planszy `legacy_file`, plików cropów ani
+  wierszy `cell_observations`. Ręczna rezolucja odroczonej planszy (Reviewer
+  i Admin) idzie ścieżką wirtualną `VirtualGridGeometryService.save_pending_slot`
+  → `_materialize_pending_source_slot`: plansza `virtual_source`, rewizja z
+  `virtual_render_spec`, manifest renderu, komórki weryfikacji; predykcje
+  komórek liczy model przypięty do importu (te same funkcje renderu i sum
+  kontrolnych co Admin). Endpointy Reviewera `geometry-preview` i
+  `manual-resolution` zostają (ten sam kontrakt i allowlista, autoryzacja
+  sesji bez zmian) i delegują do ścieżki wirtualnej w jednej transakcji;
+  rezolucja jednego slotu dopisuje rewizję źródła wyprowadzoną z najnowszej,
+  pozostałe sloty zachowują swoje quady; zapis bierze blokady sekwencji, potem
+  wiersza źródła i dopiero wtedy ponownie odczytuje kontekst (dwie rezolucje
+  różnych slotów jednego źródła nie budują na nieaktualnej rewizji). Reguła
+  przejęcia sekwencji z TASK-0702 obowiązuje dalej: docelowa rewizja to
+  `max(expected_geometry_revision, R) + 1`, gdzie R jest wspólną rewizją
+  bieżących 15 komórek sekwencji. Import i writer workera przyjmują
+  wyłącznie tryb wirtualny (`IMAGE_PIPELINE_NON_VIRTUAL_ROLLOUT_REJECTED`,
+  `IMAGE_PIPELINE_NON_VIRTUAL_BOARD_REJECTED`); obserwacje nie są już
+  zapisywane także dla plansz wirtualnych (manifest jest jedynym rekordem
+  komórek). Polityki `verified_v19` i `structured_shadow` są usunięte z API
+  (`IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`, 422) i Admina; domyślna polityka
+  nowej gry to `structured_lattice_v3` / `virtual_default` (ten silnik
+  przypina każdy import browserowy; `structured_default` bez wariantu nie był
+  sprawdzony na nowej grze). Migracja `0133_virtual_only_import_policies`
+  przenosi stany rolloutu `legacy` / `structured_shadow` na ten domyślny tryb
+  z podbiciem rewizji, zawęża CHECK-i trybów i domyślne wartości kolumn;
+  downgrade odmawia. Historyczne snapshoty jobów z trybem legacy pozostają
+  czytelne (raporty), ale nie wykonywalne. Numeracja: S6 = `0133`, S5 (TASK-0759)
+  = `0134`, TASK-0791 = `0135`, S7 (TASK-0793) = `0136`. Identyfikatory
+  zadań S6–S8 planu D-467 przesunięte z TASK-0760–0765 na TASK-0790–0795,
+  bo TASK-0760–0775 zajął równoległy tor D-470 (board-search-share).
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu

@@ -33,6 +33,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     resolve_manual_geometry_qualification,
     sequence_attestation_checksum_sha256,
 )
+from game_predictor_api.domain.image_import_engine_policy import default_rollout_modes
 from game_predictor_api.storage.models import (
     GameModel,
     ImageGeometryRolloutStateModel,
@@ -350,6 +351,8 @@ class SqlAlchemyImageGeometryRolloutRepository:
             query = query.where(GameModel.id > after_game_id)
         game_ids = list(self._session.execute(query).scalars())
         batch = game_ids[:limit]
+        # D-467 (TASK-0790): a missing state starts on the virtual default policy.
+        default_geometry_mode, default_cell_asset_mode = default_rollout_modes()
         if not batch:
             return GeometryRolloutBackfillStep(0, 0, after_game_id, False)
 
@@ -360,8 +363,8 @@ class SqlAlchemyImageGeometryRolloutRepository:
                     [
                         {
                             "game_id": game_id,
-                            "geometry_mode": "legacy",
-                            "cell_asset_mode": "legacy_files",
+                            "geometry_mode": default_geometry_mode,
+                            "cell_asset_mode": default_cell_asset_mode,
                             "revision": 0,
                             "backfill_status": "not_started",
                             "updated_by": _BACKFILL_ACTOR,

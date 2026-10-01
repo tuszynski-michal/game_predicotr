@@ -996,11 +996,14 @@ pełnego dowodu może zachować dane diagnostyczne, lecz nie jest finalną
 geometrią uprawniającą do renderowania komórek.
 
 `image_geometry_rollout_states` jest jednym rekordem per gra. Oddziela rollout
-geometrii (`legacy`, `structured_shadow`, `structured_review`,
-`structured_default`) od sposobu dostarczania assetów komórek
-(`legacy_files`, `virtual_shadow`, `virtual_default`) i przechowuje bounded
-checkpoint backfillu. Migracja ani backfill nie wybierają trybu nowego silnika;
-brakujący rekord jest tworzony wyłącznie jako legacy.
+geometrii od sposobu dostarczania assetów komórek i przechowuje bounded
+checkpoint backfillu. Od migracji `0133` (D-467, TASK-0790) CHECK-i
+dopuszczają wyłącznie `structured_default` / `structured_lattice_v3` oraz
+`virtual_default`; dawne stany `legacy` / `legacy_files` i
+`structured_shadow` / `structured_review` / `virtual_shadow` zostały
+przeniesione na `structured_lattice_v3` / `virtual_default` z podbiciem
+rewizji. Nowa gra i brakujący rekord dostają `structured_lattice_v3` /
+`virtual_default`.
 
 Migracja 0084 dodaje addytywne związanie gotowości walidacji:
 `validation_rollout_revision`, `validation_input_checksum_sha256` i
@@ -1654,6 +1657,17 @@ jeden w `recognized_boards`, append-only audycie geometrii, pending recordzie
 i bieżącej projekcji komórek. Brak wcześniejszych cropów zachowuje wynik
 `expected_geometry_revision + 1`; niepełna albo niespójna wcześniejsza
 projekcja pozostaje fail-closed bez częściowego zapisu.
+
+Od TASK-0790 rezolucja przechodzi ścieżką wirtualną i reguła obowiązuje w
+niej bez zmian: kontekst odroczonego slotu niesie wspólną rewizję R bieżących
+15 komórek `game_id + sequence_number` (`sequence_geometry_revision`), a
+docelowa rewizja to `max(expected_geometry_revision, R) + 1`. Ta sama liczba
+trafia do specyfikacji renderu (`geometryRevision`), `recognized_boards`,
+rekordu rewizji geometrii, manifestu renderu i `resolved_geometry_revision`.
+Pod blokadą sekwencji i wiersza źródła kontekst jest odczytywany ponownie; inna
+rewizja albo nowsza rewizja geometrii źródła kończy zapis
+`IMAGE_GRID_REVIEW_REVISION_CONFLICT`. Rezolucja nie tworzy plików cropów ani
+`cell_observations`.
 
 ### reviewer_access_sessions i reviewer_access_audit_events
 

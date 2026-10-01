@@ -135,7 +135,7 @@ $env:GAME_PREDICTOR_RUN_POSTGRES_TESTS = "1"
 
 - Audyt `claude-opus-5-5`: PASS w zakresie zadania. P2 poza zakresem: rola
   `game_predictor` jest superuserem z `BYPASSRLS`, więc RLS nie izoluje gier
-  — dopisane jako TASK-0765 w planie D-467. P3 wdrożone: link importu w
+  — dopisane jako TASK-0795 w planie D-467. P3 wdrożone: link importu w
   stanie nieterminalnym (job do ponowienia) chroni wykonanie; `VACUUM`
   kwalifikowany `public.`; runbook: wymóg wersji workera, czas podglądu,
   `lock_timeout` przy `VACUUM FULL`, `fstrim` przed `diskpart`, uwaga o

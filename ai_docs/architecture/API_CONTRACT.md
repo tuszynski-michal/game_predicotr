@@ -1766,13 +1766,25 @@ V3 jest dopuszczona wyłącznie dla `geometryMode = structured_lattice_v3` i
 zawiera `activeLatticeGeometry` z accepted-primary configiem oraz checksumą
 raportu odbiorczego. Brak lub drift snapshotu kończy replay fail-closed.
 
-Polityka silnika per gra przyjmuje `verified_v19`, historyczny
-`structured_shadow`, stabilny `structured_default` oraz odebrany
-`structured_lattice_v3`. Admin oferuje do nowych importów `verified_v19`,
-`structured_default` i `structured_lattice_v3`; dwa ostatnie korzystają z
-`cellAssetMode = virtual_default`, lecz tylko v3 używa lokalnie dopasowanej
-siatki symboli jako primary. Zmiana polityki jest preview-bound, rewizjonowana
-i nie zmienia żadnego istniejącego joba.
+Polityka silnika per gra przyjmuje od D-467 (TASK-0790) wyłącznie
+`structured_default` i `structured_lattice_v3` (domyślna polityka nowej gry);
+obie korzystają z `cellAssetMode = virtual_default`, lecz tylko v3 używa
+lokalnie dopasowanej siatki symboli jako primary. Wartości `verified_v19` i
+`structured_shadow` w `targetPolicy`, `boardCellProcessingMode` albo
+`imageEnginePolicy` dają `422` z kodem `IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`
+(w polu `code`, nie `VALIDATION_ERROR`). Snapshot joba (`geometryMode`) nadal
+dopuszcza historyczne wartości wyłącznie do odczytu starych jobów. Zmiana
+polityki jest preview-bound, rewizjonowana i nie zmienia żadnego istniejącego
+joba.
+
+Ręczna rezolucja odroczonej planszy (`geometry-preview`, `manual-resolution`
+pod `.../board-cell-geometry-pending/{pending_id}`) ma od TASK-0790 ten sam
+kontrakt wejścia i odpowiedzi, lecz zapisuje planszę `virtual_source` ścieżką
+`VirtualGridGeometryService.save_pending_slot`: podgląd to render wirtualny,
+zapis tworzy rewizję z `virtual_render_spec`, manifest renderu i komórki
+weryfikacji, bez plików cropów i `cell_observations`. Konflikty stanu ścieżki
+wirtualnej (`IMAGE_GRID_REVIEW_REVISION_CONFLICT`,
+`IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT`) są zwracane jako `409`.
 
 Dla `payout` API wykonuje wyłącznie szybki preflight i zapis joba; samo
 przeliczanie nadal wykonuje worker. Akceptowana jest tylko wersja algorytmu

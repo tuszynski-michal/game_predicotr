@@ -1929,13 +1929,13 @@ class ImageGeometryRolloutStateModel(Base):
 
     __tablename__ = "image_geometry_rollout_states"
     __table_args__ = (
+        # D-467 (TASK-0790, migration 0133): only virtual import policies.
         CheckConstraint(
-            "geometry_mode IN ('legacy', 'structured_shadow', "
-            "'structured_review', 'structured_default', 'structured_lattice_v3')",
+            "geometry_mode IN ('structured_default', 'structured_lattice_v3')",
             name="ck_image_geometry_rollout_states_geometry_mode",
         ),
         CheckConstraint(
-            "cell_asset_mode IN ('legacy_files', 'virtual_shadow', 'virtual_default')",
+            "cell_asset_mode IN ('virtual_default')",
             name="ck_image_geometry_rollout_states_asset_mode",
         ),
         CheckConstraint(
@@ -1970,13 +1970,16 @@ class ImageGeometryRolloutStateModel(Base):
         ForeignKey("games.id", ondelete="CASCADE"), primary_key=True
     )
     geometry_mode: Mapped[str] = mapped_column(
-        String(30), nullable=False, default="legacy", server_default=text("'legacy'")
+        String(30),
+        nullable=False,
+        default="structured_lattice_v3",
+        server_default=text("'structured_lattice_v3'"),
     )
     cell_asset_mode: Mapped[str] = mapped_column(
         String(30),
         nullable=False,
-        default="legacy_files",
-        server_default=text("'legacy_files'"),
+        default="virtual_default",
+        server_default=text("'virtual_default'"),
     )
     revision: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default=text("0")

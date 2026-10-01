@@ -200,12 +200,12 @@ def create_board_cell_geometry_pending_router(
         "/{pending_id}/geometry-preview",
         response_class=Response,
         operation_id="previewPendingBoardCellGeometryCorrection",
-        summary="Preview 15 manual source-direct crops for a deferred board",
+        summary="Preview the virtual cells of a manual deferred-board geometry",
         responses={
             **ERROR_RESPONSES,
             200: {
                 "content": {"image/png": {}},
-                "description": "Five by three contact sheet of manual v19 crops",
+                "description": "Five by three contact sheet of virtual source renders",
             },
         },
     )
@@ -250,7 +250,7 @@ def create_board_cell_geometry_pending_router(
         "/{pending_id}/manual-resolution",
         response_model=BoardCellGeometryManualResolutionResponse,
         operation_id="resolvePendingBoardCellGeometryManually",
-        summary="Create one ordinary review item from manual deferred geometry",
+        summary="Resolve a deferred board as one virtual-source review item",
         responses=ERROR_RESPONSES,
     )
     def resolve_pending_board_cell_geometry_manually(

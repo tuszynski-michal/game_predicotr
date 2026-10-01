@@ -21,6 +21,10 @@ from game_predictor_api.domain.catalog import (
     SymbolUsageSummary,
     stable_code_stem_from_name,
 )
+from game_predictor_api.domain.image_import_engine_policy import (
+    DEFAULT_CELL_ASSET_MODE,
+    DEFAULT_GEOMETRY_MODE,
+)
 from game_predictor_api.storage.game_data_v2_manifest_v3 import CREATE_TABLES, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleError,
@@ -140,8 +144,8 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         self._session.add(
             ImageGeometryRolloutStateModel(
                 game_id=record.id,
-                geometry_mode="legacy",
-                cell_asset_mode="legacy_files",
+                geometry_mode=DEFAULT_GEOMETRY_MODE,
+                cell_asset_mode=DEFAULT_CELL_ASSET_MODE,
                 revision=0,
                 backfill_status="not_started",
                 updated_by="system:catalog-game-create",

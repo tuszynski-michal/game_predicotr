@@ -168,7 +168,7 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   raport zajętości per gra, kompaktowanie `docker_data.vhdx` przy
   wyłączonym Dockerze).
 
-- **TASK-0765** (dopisane po audycie S3) — rola aplikacyjna bez
+- **TASK-0795** (dopisane po audycie S3) — rola aplikacyjna bez
   `SUPERUSER`/`BYPASSRLS`: lokalna rola `game_predictor` jest superuserem,
   więc RLS `game_data_v2` nie izoluje gier i każde zapytanie bez jawnego
   `game_id` czyta lub zmienia dane wszystkich gier (także ścieżki Reviewera
@@ -202,13 +202,18 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   wzorca identyfikowany przez `cellReviewId`), plansze `legacy_file` na
   rewizji 0 czytają obserwacje wyłącznie przez izolowany adapter
   `legacy_cell_observation_adapter` (S5 usuwa go; warunek: 0 takich plansz
-  i brak ścieżki, która je tworzy — TASK-0760 przed S5 albo blokada importu
+  i brak ścieżki, która je tworzy — TASK-0790 przed S5 albo blokada importu
   `legacy` w S5), więc S5 zajmuje `0133`, S6 `0134`, S7 `0135`.
+  Korekta 2026-10-01: TASK-0790 (S6) jest wykonywany przed S5 i zajmuje
+  `0133`; S5 (TASK-0759) dostaje `0134`, TASK-0791 `0135`, S7 `0136`
+  (numeracja w D-467). Identyfikatory zadań S6–S8 to TASK-0790–0795
+  (TASK-0760–0775 zajął tor D-470).
 
 ### S5 — usunięcie `cell_observations`
 
 - **TASK-0759** — manifest magazynu v4 (bez `cell_observations` i
-  `legacy_board_search_archive_*`), migracja `0133`: aktualizacja
+  `legacy_board_search_archive_*`), migracja `0134` (po TASK-0790, który
+  zajął `0133`): aktualizacja
   `game_storage_table_manifest`, `game_storage_locations`, `DROP TABLE`
   partycji (preflight: manifest S4 kompletny, 0 referencji w kodzie,
   0 FK), `game_deletion_policy_v1`, `cleanup_repository`,
@@ -218,12 +223,13 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   Warunek przeniesiony z S4 (TASK-0758): plansza `legacy_file` na
   rewizji 0 ma ścieżkę i sumę cropa wyłącznie w `cell_observations`,
   więc przed `DROP TABLE` zadanie musi zamknąć każdą ścieżkę, która taką
-  planszę tworzy. TASK-0760 (polityki importu) leży w S6, dlatego
-  TASK-0759 robi to samo: `pipeline_store` odmawia plansz niewirtualnych
-  nowym kodem błędu, polityka importu `legacy` jest zablokowana,
-  obserwacje znikają z trzech pisarzy (`pipeline_store`,
-  `virtual_grid_geometry_repository`,
-  `board_cell_geometry_pending_repository`) oraz z fixture benchmarków
+  planszę tworzy. TASK-0790 został wykonany przed S5 i już to zapewnia:
+  `pipeline_store` odmawia plansz niewirtualnych
+  (`IMAGE_PIPELINE_NON_VIRTUAL_BOARD_REJECTED`), polityka importu `legacy`
+  jest usunięta (migracja `0133`), obserwacje zniknęły z trzech pisarzy
+  (`pipeline_store`, `virtual_grid_geometry_repository`,
+  `board_cell_geometry_pending_repository`). TASK-0759 usuwa jeszcze
+  obserwacje z fixture benchmarków
   (`real_workbench_fixture`, `workbench_acceptance`), a adapter
   `legacy_cell_observation_adapter` i
   `scripts/build_grid_symbol_diagnostic.py` są usuwane. Preflight
@@ -232,32 +238,39 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
 
 ### S6 — jeden tryb danych
 
-- **TASK-0760** — ręczna rezolucja odroczonych plansz zapisuje geometrię
+- **TASK-0790** — ręczna rezolucja odroczonych plansz zapisuje geometrię
   wirtualną (jak `virtual_grid_geometry_repository`) zamiast cropów-plików;
   domyślna polityka importu nowej gry `virtual_default`; usunięcie polityk
   VERIFIED_V19 / STRUCTURED_SHADOW z workera (decyzja operatora w zadaniu,
-  jeśli któraś jest nadal potrzebna, plan wraca do korekty).
-- **TASK-0761** — konwersja 461 plansz `legacy_file` w 777 na
+  jeśli któraś jest nadal potrzebna, plan wraca do korekty). Wykonywany
+  przed S5; migracja `0133_virtual_only_import_policies` (stany rolloutu
+  `legacy`/`structured_shadow` → `structured_lattice_v3`/`virtual_default`,
+  CHECK-i trybów zawężone, downgrade odmawia). Reviewer zachowuje endpoint
+  `manual-resolution` (bez zmiany allowlisty), który deleguje do ścieżki
+  wirtualnej.
+- **TASK-0791** — konwersja 461 plansz `legacy_file` w 777 na
   `virtual_source` (skrypt z podglądem, zgoda na `--execute`; komórki z
   decyzją człowieka zachowują decyzje), zawężenie CHECK-ów `asset_mode` do
-  `virtual_source`/`none` (migracja `0134`), zawężenie enumów API pionem.
+  `virtual_source`/`none` (migracja `0135`; numeracja po przesunięciu:
+  S5 = `0134`, TASK-0791 = `0135`, S7 TASK-0793 = `0136`), zawężenie
+  enumów API pionem.
 
 ### S7 — `render_spec` poza komórkami
 
-- **TASK-0762** — odczyty `render_spec` z komórek (`get_assets` →
+- **TASK-0792** — odczyty `render_spec` z komórek (`get_assets` →
   `virtual_cell_previews`, `symbol_references_repository`,
   `symbol_cell_training_source_repository`, `virtual_grid_geometry_repository`,
   `scripts/evaluate_symbol_reference_library.py`) przepięte na manifest z
   S4 przez `(recognized_board_id, geometry_revision, cell_index)`;
   komórka zachowuje `render_spec_checksum_sha256` i klucze tożsamości.
-- **TASK-0763** — migracja `0135`: kolumna `render_spec` w
+- **TASK-0793** — migracja `0136`: kolumna `render_spec` w
   `image_symbol_review_cells` usunięta; odzyskanie miejsca przez przepisanie
   partycji (`VACUUM FULL` albo swap partycji; ACCESS EXCLUSIVE, wymaga
   ok. 15 GB wolnego miejsca, okno bez zapisów, zgoda).
 
 ### S8 — odchudzenie rewizji predykcji
 
-- **TASK-0764** — `predictions[].virtualCell` ograniczone do sum
+- **TASK-0794** — `predictions[].virtualCell` ograniczone do sum
   kontrolnych i kluczy (bez pełnego `renderSpec`); `predictions_digest`
   planów biblioteki wzorców liczony po odchudzonej postaci (wymaga
   zakończenia wszystkich przebiegów D-466 i nowego `apply-preview` dla
@@ -291,7 +304,7 @@ nadal działa.
 - S8: zmiana `predictions_digest` unieważnia manifesty w toku — tylko po
   zakończeniu przebiegów.
 - S6: jeśli polityka VERIFIED_V19 jest jeszcze potrzebna dla jakiejś gry,
-  usunięcie trzeba odłożyć (decyzja w TASK-0760).
+  usunięcie trzeba odłożyć (decyzja w TASK-0790).
 
 ## Zakres wyłączony
 
@@ -307,15 +320,15 @@ weryfikacji, migracja na dysk 2 TB (osobny runbook), historia decyzji.
 | TASK-0754 | claude-opus-5-5 | high (warunkowo) | Usunięcie gałęzi w 4 repozytoriach bez zmiany SQL dla V2; wymaga porównania zapytań. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0755 | claude-opus-5-5 | medium (warunkowo) | Jedno zapytanie i test porównawczy. | Tak: claude-opus-5-5, medium, osobny agent |
 | TASK-0756 | claude-opus-5-5 | medium (warunkowo) | Uruchomienie istniejącego joba i runbook; zapis w bazie za zgodą. | Tak: claude-opus-5-5, high, osobny agent |
-| TASK-0765 | claude-opus-5-5 | high (warunkowo) | Zmiana ról i uprawnień w bazie; wpływ na wszystkie repozytoria. | Tak: claude-opus-5-5, high, osobny agent |
+| TASK-0795 | claude-opus-5-5 | high (warunkowo) | Zmiana ról i uprawnień w bazie; wpływ na wszystkie repozytoria. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0757 | claude-opus-5-5 | high (warunkowo) | Nowa tabela, backfill 372 tys. plansz z kontrolą sum kontrolnych, zmiana writera importu. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0758 | claude-opus-5-5 | high (warunkowo) | Przepięcie centralnego mappera i 6 czytelników; test równoważności. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0759 | claude-opus-5-5 | high (warunkowo) | Manifest v4 i DROP partycji; nieodwracalne. | Tak: claude-opus-5-5, high, osobny agent |
-| TASK-0760 | claude-opus-5-5 | high (warunkowo) | Zmiana ścieżki ręcznej rezolucji i polityk importu; decyzja produktowa. | Tak: claude-opus-5-5, high, osobny agent |
-| TASK-0761 | claude-opus-5-5 | high (warunkowo) | Konwersja danych 461 plansz i zawężenie CHECK-ów oraz kontraktu API. | Tak: claude-opus-5-5, high, osobny agent |
-| TASK-0762 | claude-opus-5-5 | high (warunkowo) | Przepięcie odczytów `render_spec` z zachowaniem sum kontrolnych. | Tak: claude-opus-5-5, high, osobny agent |
-| TASK-0763 | claude-opus-5-5 | high (warunkowo) | Usunięcie kolumny i przepisanie partycji 34 GB. | Tak: claude-opus-5-5, high, osobny agent |
-| TASK-0764 | claude-opus-5-5 | high (warunkowo) | Zmiana payloadu rewizji i digestu planów biblioteki. | Tak: claude-opus-5-5, high, osobny agent |
+| TASK-0790 | claude-opus-5-5 | high (warunkowo) | Zmiana ścieżki ręcznej rezolucji i polityk importu; decyzja produktowa. | Tak: claude-opus-5-5, high, osobny agent |
+| TASK-0791 | claude-opus-5-5 | high (warunkowo) | Konwersja danych 461 plansz i zawężenie CHECK-ów oraz kontraktu API. | Tak: claude-opus-5-5, high, osobny agent |
+| TASK-0792 | claude-opus-5-5 | high (warunkowo) | Przepięcie odczytów `render_spec` z zachowaniem sum kontrolnych. | Tak: claude-opus-5-5, high, osobny agent |
+| TASK-0793 | claude-opus-5-5 | high (warunkowo) | Usunięcie kolumny i przepisanie partycji 34 GB. | Tak: claude-opus-5-5, high, osobny agent |
+| TASK-0794 | claude-opus-5-5 | high (warunkowo) | Zmiana payloadu rewizji i digestu planów biblioteki. | Tak: claude-opus-5-5, high, osobny agent |
 
 Poziomy rozumowania są warunkowe: nie da się ich ustawić z sesji, wskazują
 oczekiwaną staranność.

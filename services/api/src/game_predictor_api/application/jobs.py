@@ -40,7 +40,6 @@ from game_predictor_worker.images.page_geometry_registration import (
 from game_predictor_worker.images.partial_grid_learning import PartialGridTrainingProfile
 from game_predictor_worker.images.pipeline_contract import (
     CURRENT_NORMALIZATION_ADAPTER_VERSION,
-    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
     STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
     SYMBOL_RGB_PREPROCESSING_VERSION,
     VIRTUAL_CELL_RENDERER_VERSION,
@@ -48,7 +47,6 @@ from game_predictor_worker.images.pipeline_contract import (
     GeometryPipelineRolloutSnapshot,
     GeometryRolloutMode,
     StructuredGeometryActivationSnapshot,
-    StructuredGeometryCandidateSnapshot,
     effective_pipeline_fingerprint,
 )
 from game_predictor_worker.images.shape_geometry_v2.preflight import (
@@ -58,7 +56,6 @@ from game_predictor_worker.images.shape_geometry_v2.preflight import (
 )
 from game_predictor_worker.images.structured_geometry import (
     structured_lattice_active_config_payload,
-    structured_lattice_candidate_config_payload,
 )
 
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
@@ -69,6 +66,7 @@ from game_predictor_api.application.managed_reprocess_evidence import (
 from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.image_import_engine_policy import (
     ImageImportEnginePolicySnapshot,
+    default_rollout_modes,
     policy_from_rollout_modes,
 )
 from game_predictor_api.domain.jobs import (
@@ -479,8 +477,11 @@ class JobService:
         self, *, game_id: UUID
     ) -> ImageImportEnginePolicySnapshot:
         reference = self._repository.get_image_geometry_rollout(game_id)
-        geometry_mode = "legacy" if reference is None else reference.geometry_mode
-        cell_asset_mode = "legacy_files" if reference is None else reference.cell_asset_mode
+        default_geometry_mode, default_cell_asset_mode = default_rollout_modes()
+        geometry_mode = default_geometry_mode if reference is None else reference.geometry_mode
+        cell_asset_mode = (
+            default_cell_asset_mode if reference is None else reference.cell_asset_mode
+        )
         revision = 0 if reference is None else reference.revision
         try:
             policy = policy_from_rollout_modes(geometry_mode, cell_asset_mode)
@@ -509,48 +510,44 @@ class JobService:
     ) -> str:
         getter = getattr(self._repository, "get_image_geometry_rollout", None)
         reference = getter(game_id) if callable(getter) else None
+        default_geometry_mode, default_cell_asset_mode = default_rollout_modes()
+        policy_geometry_mode = (
+            default_geometry_mode if reference is None else reference.geometry_mode
+        )
+        policy_cell_asset_mode = (
+            default_cell_asset_mode if reference is None else reference.cell_asset_mode
+        )
+        if geometry_engine_variant is None:
+            # D-467 (TASK-0790): legacy and shadow rollout states are no longer
+            # importable; only a virtual policy can be pinned to a new job.
+            try:
+                policy_from_rollout_modes(policy_geometry_mode, policy_cell_asset_mode)
+            except ValueError as error:
+                raise JobError(
+                    "IMAGE_ENGINE_POLICY_UNSUPPORTED_STATE",
+                    "The game uses an image engine state that is not available for new imports.",
+                ) from error
+        geometry_mode = (
+            GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
+            if geometry_engine_variant is not None
+            else policy_geometry_mode
+        )
         snapshot = GeometryPipelineRolloutSnapshot(
-            geometry_mode=GeometryRolloutMode(
-                GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
-                if geometry_engine_variant is not None
-                else "legacy"
-                if reference is None
-                else reference.geometry_mode
-            ),
+            geometry_mode=GeometryRolloutMode(geometry_mode),
             cell_asset_mode=CellAssetRolloutMode(
                 CellAssetRolloutMode.VIRTUAL_DEFAULT.value
                 if geometry_engine_variant is not None
-                else "legacy_files"
-                if reference is None
-                else reference.cell_asset_mode
+                else policy_cell_asset_mode
             ),
             rollout_revision=0 if reference is None else reference.revision,
-            geometry_engine_version=(
-                STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION
-                if geometry_engine_variant is None
-                and (
-                    reference is None or reference.geometry_mode == GeometryRolloutMode.LEGACY.value
-                )
-                else STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION
-            ),
+            geometry_engine_version=STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
             virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
             preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
-            candidate_geometry=(
-                StructuredGeometryCandidateSnapshot.from_config_payload(
-                    structured_lattice_candidate_config_payload()
-                )
-                if geometry_engine_variant is None
-                and reference is not None
-                and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_SHADOW.value
-                else None
-            ),
             active_lattice_geometry=(
                 StructuredGeometryActivationSnapshot.from_config_payload(
                     structured_lattice_active_config_payload()
                 )
-                if geometry_engine_variant is not None
-                or reference is not None
-                and reference.geometry_mode == GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
+                if geometry_mode == GeometryRolloutMode.STRUCTURED_LATTICE_V3.value
                 else None
             ),
             lateral_partial_geometry=(
@@ -671,7 +668,6 @@ class JobService:
         previous_job_id: UUID | None = None,
         page_geometry_manifest: dict[str, object] | None = None,
         geometry_guard_resolution_manifest: dict[str, object] | None = None,
-        use_verified_board_cell_geometry: bool = False,
         allow_unclassified_symbol_cold_start: bool = False,
         geometry_engine_variant: GeometryEngineVariant | None = None,
     ) -> Job:
@@ -799,56 +795,16 @@ class JobService:
             effective_pipeline_fingerprint = _bind_geometry_guard_policy(
                 effective_pipeline_fingerprint
             )
-        if use_verified_board_cell_geometry:
-            topology_reference = self._repository.get_or_pin_board_topology(game_id)
-            if topology_reference is None:
-                raise JobError(
-                    "GAME_BOARD_TOPOLOGY_REQUIRED",
-                    "A rules version must define board dimensions before boards can be imported.",
-                )
-            if (topology_reference.rows, topology_reference.columns) != (3, 5):
-                raise JobError(
-                    "IMAGE_PIPELINE_TOPOLOGY_UNSUPPORTED",
-                    "The active v20 geometry adapter supports only 3x5 boards.",
-                    details={
-                        "rows": topology_reference.rows,
-                        "columns": topology_reference.columns,
-                        "topologyRulesVersionId": str(topology_reference.rules_version_id),
-                    },
-                )
-            processing_snapshot = board_cell_processing_snapshot(
-                cell_output_size=symbol_model.input_size,
-                topology=BoardCellTopology(
-                    rows=topology_reference.rows,
-                    columns=topology_reference.columns,
-                    rules_version_id=str(topology_reference.rules_version_id),
-                ),
-            )
-            configuration_fingerprint = processing_snapshot["configurationFingerprintSha256"]
-            if not isinstance(configuration_fingerprint, str):
-                raise JobError(
-                    "IMAGE_BOARD_CELL_PROCESSING_SNAPSHOT_INVALID",
-                    "The verified board-cell processing snapshot is invalid.",
-                )
-            effective_pipeline_fingerprint = hashlib.sha256(
-                f"{effective_pipeline_fingerprint}:{configuration_fingerprint}".encode("ascii")
-            ).hexdigest()
-            input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
-            input_payload["board_cell_processing"] = processing_snapshot
-        # The verified v19 board-cell path is the immutable v20 pipeline.
-        # It owns its geometry and crop snapshot in ``board_cell_processing``;
-        # querying the newer per-game virtual-geometry rollout here would both
-        # change that contract and make the historical v20 import depend on
-        # the v0.10 rollout tables.
-        if not use_verified_board_cell_geometry:
-            effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
-                game_id=game_id,
-                input_payload=input_payload,
-                effective_fingerprint=effective_pipeline_fingerprint,
-                symbol_model=symbol_model,
-                geometry_engine_variant=geometry_engine_variant,
-                lateral_partial_geometry=lateral_partial_geometry,
-            )
+        # D-467 (TASK-0790): the verified v19 (v20 file-crop) path is gone;
+        # every new image import pins a virtual geometry rollout.
+        effective_pipeline_fingerprint = self._pin_image_geometry_rollout(
+            game_id=game_id,
+            input_payload=input_payload,
+            effective_fingerprint=effective_pipeline_fingerprint,
+            symbol_model=symbol_model,
+            geometry_engine_variant=geometry_engine_variant,
+            lateral_partial_geometry=lateral_partial_geometry,
+        )
         input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
@@ -2181,13 +2137,9 @@ class JobService:
                 continue
             rollout = job.input_payload.get("image_geometry_rollout")
             if rollout is None:
-                if (
-                    engine_policy.geometry_mode != GeometryRolloutMode.LEGACY.value
-                    or engine_policy.cell_asset_mode != CellAssetRolloutMode.LEGACY_FILES.value
-                    or engine_policy.revision != 0
-                    or geometry_engine_variant is not None
-                ):
-                    continue
+                # A job without a rollout snapshot ran the removed legacy
+                # engine (D-467); it is never reusable.
+                continue
             else:
                 try:
                     snapshot = GeometryPipelineRolloutSnapshot.from_payload(rollout)

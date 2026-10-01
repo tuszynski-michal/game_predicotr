@@ -1,11 +1,8 @@
 from __future__ import annotations
 
-import hashlib
-from dataclasses import replace
 from pathlib import Path
 from uuid import uuid4
 
-import cv2
 import numpy as np
 import pytest
 from game_predictor_api.domain.symbol_model_snapshots import (
@@ -13,12 +10,10 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelStorageRoot,
     cold_start_unclassified_symbol_snapshot,
 )
-from game_predictor_worker.images.manual_board_cell_geometry_preview import (
-    ManualBoardCellGeometryPreviewer,
-)
 from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
     ManualBoardCellSymbolPredictionError,
     ManualBoardCellSymbolPredictor,
+    RenderedBoardCell,
 )
 from game_predictor_worker.images.symbol_onnx import OnnxInference
 
@@ -56,46 +51,32 @@ def _snapshot() -> SymbolModelJobSnapshot:
     )
 
 
-def _preview(tmp_path: Path):
-    rgb = np.full((420, 620, 3), 128, dtype=np.uint8)
-    encoded, payload = cv2.imencode(".png", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-    assert encoded
-    content = bytes(payload)
-    source = tmp_path / "source.png"
-    source.write_bytes(content)
-    return ManualBoardCellGeometryPreviewer().preview(
-        source_path=source,
-        expected_source_sha256=hashlib.sha256(content).hexdigest(),
-        review_item_id="pending-id",
-        source_order_index=1,
-        source_image_id="source-id",
-        source_image_relative_path="sources/source.png",
-        source_group="import-id",
-        sequence_number=64,
-        position_index=0,
-        lattice_bounds_quad=((60.0, 50.0), (560.0, 50.0), (560.0, 350.0), (60.0, 350.0)),
-        corrected_by="local-owner",
-        expected_geometry_revision=0,
-        expected_resolution_revision=0,
-        command_checksum_sha256="c" * 64,
-    )
+def _cells(size: int = 64, *, skip: frozenset[int] = frozenset()) -> list[RenderedBoardCell]:
+    return [
+        RenderedBoardCell(
+            row_index=index // 5,
+            column_index=index % 5,
+            rgb=np.full((size, size, 3), 10 * index, dtype=np.uint8),
+        )
+        for index in range(15)
+        if index not in skip
+    ]
 
 
-def test_manual_prediction_uses_exact_pinned_model_and_row_major_crops(
+def test_manual_prediction_uses_exact_pinned_model_and_row_major_renders(
     tmp_path: Path,
 ) -> None:
     snapshot = _snapshot()
     predictor = ManualBoardCellSymbolPredictor(tmp_path, tmp_path)
-    adapter = CapturingAdapter()
+    adapter = _SizedCapturingAdapter()
     predictor._cache[snapshot.inference_fingerprint] = adapter  # type: ignore[attr-defined]
 
-    result = predictor.predict(_preview(tmp_path), snapshot)
+    result = predictor.predict_rendered_cells(_cells(), snapshot)
 
     assert result.model_iteration_id == str(snapshot.iteration_id)
     assert result.model_manifest_checksum_sha256 == snapshot.manifest_checksum_sha256
     assert result.model_version == snapshot.model_version
     assert result.temperature_applied == 0.50
-    assert len(result.cells) == 15
     assert [(cell["rowIndex"], cell["columnIndex"]) for cell in result.cells] == [
         (row, column) for row in range(3) for column in range(5)
     ]
@@ -104,15 +85,24 @@ def test_manual_prediction_uses_exact_pinned_model_and_row_major_crops(
     assert adapter.inputs[0].dtype == np.float32
 
 
-def test_manual_prediction_fails_closed_for_wrong_model_input_size(tmp_path: Path) -> None:
-    preview = _preview(tmp_path)
+def test_manual_prediction_resizes_renders_to_the_pinned_model_size(tmp_path: Path) -> None:
     snapshot = _snapshot()
+    predictor = ManualBoardCellSymbolPredictor(tmp_path, tmp_path)
+    adapter = _SizedCapturingAdapter()
+    predictor._cache[snapshot.inference_fingerprint] = adapter  # type: ignore[attr-defined]
+
+    predictor.predict_rendered_cells(_cells(48), snapshot)
+
+    assert adapter.inputs[0].shape == (15, 3, 64, 64)
+
+
+def test_manual_prediction_rejects_unordered_cells(tmp_path: Path) -> None:
     predictor = ManualBoardCellSymbolPredictor(tmp_path, tmp_path)
 
     with pytest.raises(ManualBoardCellSymbolPredictionError) as error:
-        predictor.predict(preview, replace(snapshot, input_size=32))
+        predictor.predict_rendered_cells(list(reversed(_cells())), _snapshot())
 
-    assert error.value.code == "IMAGE_BOARD_CELL_MANUAL_PREDICTION_INPUT_INVALID"
+    assert error.value.code == "IMAGE_BOARD_CELL_MANUAL_PREDICTION_ORDER_INVALID"
 
 
 class _SizedCapturingAdapter(CapturingAdapter):
@@ -132,28 +122,21 @@ class _SizedCapturingAdapter(CapturingAdapter):
         )
 
 
-def test_manual_prediction_forces_declared_unavailable_cells_to_unknown(
+def test_manual_prediction_classifies_only_rendered_available_cells(
     tmp_path: Path,
 ) -> None:
     snapshot = _snapshot()
     predictor = ManualBoardCellSymbolPredictor(tmp_path, tmp_path)
     adapter = _SizedCapturingAdapter()
     predictor._cache[snapshot.inference_fingerprint] = adapter  # type: ignore[attr-defined]
-    preview = replace(_preview(tmp_path), unavailable_cell_indices=frozenset({2, 7}))
 
-    result = predictor.predict(preview, snapshot)
+    result = predictor.predict_rendered_cells(_cells(skip=frozenset({2, 7})), snapshot)
 
-    assert len(result.cells) == 15
     assert [(cell["rowIndex"], cell["columnIndex"]) for cell in result.cells] == [
-        (row, column) for row in range(3) for column in range(5)
+        (index // 5, index % 5) for index in range(15) if index not in {2, 7}
     ]
-    unavailable_cells = [cell for index, cell in enumerate(result.cells) if index in {2, 7}]
-    assert all(
-        cell["symbolCode"] == "?" and cell["confidence"] == 0.0 for cell in unavailable_cells
-    )
-    available_cells = [cell for index, cell in enumerate(result.cells) if index not in {2, 7}]
-    assert all("symbolCode" in cell for cell in available_cells)
-    # Only the 13 available cells reach the model, never a synthesized crop.
+    assert all("symbolCode" in cell for cell in result.cells)
+    # Only the 13 rendered cells reach the model, never a synthesized crop.
     assert adapter.inputs[0].shape == (13, 3, 64, 64)
 
 
@@ -163,7 +146,7 @@ def test_manual_prediction_for_cold_start_import_returns_unknown_cells_without_o
     snapshot = cold_start_unclassified_symbol_snapshot(("lemon", "seven"))
     predictor = ManualBoardCellSymbolPredictor(tmp_path, tmp_path)
 
-    result = predictor.predict(_preview(tmp_path), snapshot)
+    result = predictor.predict_rendered_cells(_cells(), snapshot)
 
     assert result.model_version == snapshot.model_version
     assert result.model_manifest_checksum_sha256 == snapshot.manifest_checksum_sha256

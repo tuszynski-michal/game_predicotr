@@ -14,7 +14,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0132_symbol_reference_images_cell_identity"
+EXPECTED_ALEMBIC_HEAD: Final = "0133_virtual_only_import_policies"
 
 
 class AlembicHeadMismatchError(RuntimeError):

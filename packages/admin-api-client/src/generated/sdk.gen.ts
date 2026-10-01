@@ -1733,7 +1733,7 @@ export const getPendingBoardCellGeometryCorrectionContext = <
   });
 
 /**
- * Preview 15 manual source-direct crops for a deferred board
+ * Preview the virtual cells of a manual deferred-board geometry
  */
 export const previewPendingBoardCellGeometryCorrection = <
   ThrowOnError extends boolean = false,
@@ -1759,7 +1759,7 @@ export const previewPendingBoardCellGeometryCorrection = <
   });
 
 /**
- * Create one ordinary review item from manual deferred geometry
+ * Resolve a deferred board as one virtual-source review item
  */
 export const resolvePendingBoardCellGeometryManually = <
   ThrowOnError extends boolean = false,

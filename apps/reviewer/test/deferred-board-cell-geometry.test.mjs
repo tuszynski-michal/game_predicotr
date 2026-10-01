@@ -265,3 +265,28 @@ test('marks stale deferred state as conflict without hiding the server error', a
   assert.equal(result.isConflict, true);
   assert.match(result.error, /deferred item changed/i);
 });
+
+test('marks stale virtual-source refusals of a deferred resolution as conflict', async () => {
+  for (const code of [
+    'IMAGE_GRID_REVIEW_REVISION_CONFLICT',
+    'IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT',
+    'IMAGE_GRID_REVIEW_ITEM_NOT_FOUND',
+  ]) {
+    const result = await resolveDeferredBoardCellGeometry(
+      {
+        resolvePendingBoardCellGeometryManually: async () => ({
+          error: { code, message: 'The virtual source slot changed.' },
+        }),
+      },
+      scope,
+      item.id,
+      deferredBoardCellGeometryResolutionCommand(
+        context,
+        deferredBoardCellGeometryCorners(context),
+        '55555555-5555-4555-8555-555555555555',
+      ),
+    );
+    assert.equal(result.ok, false);
+    assert.equal(result.isConflict, true, code);
+  }
+});

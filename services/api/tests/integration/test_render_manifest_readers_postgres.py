@@ -782,10 +782,26 @@ def test_readers_match_the_observation_readers(database: _Database, old: SimpleN
     assert old_ids == expected_stale
 
 
+def _reset_to_revision(database: _Database, revision: str) -> None:
+    """Rebuild the isolated database at ``revision``.
+
+    Migration 0133 (TASK-0790) refuses to downgrade, so a test of an older
+    migration's downgrade cannot start from head.
+    """
+
+    database.engine.dispose()
+    with database.engine.begin() as connection:
+        connection.exec_driver_sql("DROP SCHEMA IF EXISTS game_data_v2 CASCADE")
+        connection.exec_driver_sql("DROP SCHEMA public CASCADE")
+        connection.exec_driver_sql("CREATE SCHEMA public")
+    command.upgrade(database.config, revision)
+
+
 def test_migration_0132_drops_and_restores_the_reference_observation(database: _Database) -> None:
     """0132 drops ``source_observation_id``; downgrade restores it from the cell."""
 
     engine = database.engine
+    _reset_to_revision(database, "0132_symbol_reference_images_cell_identity")
     factory = create_session_factory(engine)
     seed = _seed(factory, datetime(2026, 10, 1, 12, tzinfo=UTC))
     game_id, board_id = seed.game_id, seed.boards["legacy-base"]
@@ -868,11 +884,11 @@ def test_migration_0132_drops_and_restores_the_reference_observation(database: _
             {"id": observation(9)},
         )
     with pytest.raises(Exception, match="SYMBOL_REFERENCE_OBSERVATION_MISMATCH"):
-        command.upgrade(database.config, "head")
+        command.upgrade(database.config, "0132_symbol_reference_images_cell_identity")
     with engine.begin() as connection:
         connection.execute(
             text("UPDATE game_data_v2.symbol_reference_images SET source_observation_id = :id"),
             {"id": observation(8)},
         )
-    command.upgrade(database.config, "head")
+    command.upgrade(database.config, "0132_symbol_reference_images_cell_identity")
     assert "source_observation_id" not in columns()

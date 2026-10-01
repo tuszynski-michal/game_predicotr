@@ -15,11 +15,17 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0133_virtual_only_import_policies"
 
 
 @pytest.mark.parametrize(
     "found",
-    (None, "0130_board_search_share_sessions", "0131_board_render_manifests", "9999_future"),
+    (
+        None,
+        "0131_board_render_manifests",
+        "0132_symbol_reference_images_cell_identity",
+        "9999_future",
+    ),
 )
 def test_guard_refuses_any_other_schema(monkeypatch: pytest.MonkeyPatch, found: str | None) -> None:
     monkeypatch.setattr(schema_readiness, "database_alembic_revision", lambda _engine: found)

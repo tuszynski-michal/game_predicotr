@@ -87,3 +87,43 @@ test('import wrapper sends per-run variant without changing game policy', async 
   );
   assert.deepEqual(JSON.parse(await requests[0].text()), body);
 });
+
+test('engine policy wrapper sends a virtual target and surfaces the legacy refusal', async () => {
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json(
+        {
+          code: 'IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED',
+          message: 'Request data is invalid.',
+          details: {},
+        },
+        { status: 422 },
+      );
+    },
+  });
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const preview = await client.previewImageImportEnginePolicy(gameId, {
+    targetPolicy: 'structured_lattice_v3',
+  });
+  const update = await client.updateImageImportEnginePolicy(gameId, {
+    targetPolicy: 'structured_default',
+    expectedRevision: 1,
+    previewToken: 'c'.repeat(64),
+  });
+  assert.equal(requests.length, 2);
+  assert.equal(requests[0].method, 'POST');
+  assert.match(requests[0].url, /\/image-import-engine-policy\/preview$/);
+  assert.deepEqual(JSON.parse(await requests[0].text()), {
+    targetPolicy: 'structured_lattice_v3',
+  });
+  assert.equal(requests[1].method, 'PUT');
+  assert.equal(
+    JSON.parse(await requests[1].text()).targetPolicy,
+    'structured_default',
+  );
+  assert.equal(preview.error?.code, 'IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED');
+  assert.equal(update.response.status, 422);
+});

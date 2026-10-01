@@ -1854,11 +1854,7 @@ export type BrowserImageImportStart = {
    * Boardcellprocessingmode
    */
   boardCellProcessingMode?:
-    | 'verified_v19'
-    | 'structured_shadow'
-    | 'structured_default'
-    | 'structured_lattice_v3'
-    | null;
+    'structured_default' | 'structured_lattice_v3' | null;
   /**
    * Gameid
    */
@@ -5247,10 +5243,7 @@ export type ImageGridReviewView =
  * ImageImportEnginePolicy
  */
 export type ImageImportEnginePolicy =
-  | 'verified_v19'
-  | 'structured_shadow'
-  | 'structured_default'
-  | 'structured_lattice_v3';
+  'structured_default' | 'structured_lattice_v3';
 
 /**
  * ImageImportEnginePolicyPreviewRequest
@@ -16250,7 +16243,7 @@ export type PreviewPendingBoardCellGeometryCorrectionError =
 
 export type PreviewPendingBoardCellGeometryCorrectionResponses = {
   /**
-   * Five by three contact sheet of manual v19 crops
+   * Five by three contact sheet of virtual source renders
    */
   200: unknown;
 };

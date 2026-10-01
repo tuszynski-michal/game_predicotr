@@ -63,18 +63,30 @@ def test_dual_asset_models_allow_null_paths_only_through_conditional_constraints
     assert "rendered_pixel_checksum_sha256" in provenance
 
 
-def test_virtual_geometry_tables_default_rollout_to_legacy() -> None:
+def test_virtual_geometry_tables_default_rollout_to_the_virtual_policy() -> None:
+    # D-467 (TASK-0790, migration 0133): no legacy or shadow rollout mode.
     assert ImageSourceGeometryRevisionModel.__table__.c.board_geometries.nullable is False
     assert ImageSourceGeometryRevisionModel.__table__.c.source_checksum_sha256.nullable is False
     assert ImageGeometryRolloutStateModel.__table__.c.geometry_mode.server_default is not None
     assert ImageGeometryRolloutStateModel.__table__.c.cell_asset_mode.server_default is not None
     assert (
         str(ImageGeometryRolloutStateModel.__table__.c.geometry_mode.server_default.arg)
-        == "'legacy'"
+        == "'structured_lattice_v3'"
     )
     assert (
         str(ImageGeometryRolloutStateModel.__table__.c.cell_asset_mode.server_default.arg)
-        == "'legacy_files'"
+        == "'virtual_default'"
+    )
+    constraints = {
+        constraint.name: str(constraint.sqltext)
+        for constraint in ImageGeometryRolloutStateModel.__table__.constraints
+        if constraint.name is not None and hasattr(constraint, "sqltext")
+    }
+    assert constraints["ck_image_geometry_rollout_states_geometry_mode"] == (
+        "geometry_mode IN ('structured_default', 'structured_lattice_v3')"
+    )
+    assert constraints["ck_image_geometry_rollout_states_asset_mode"] == (
+        "cell_asset_mode IN ('virtual_default')"
     )
     assert ImageSourceGeometryRevisionModel.__table__.c.topology_fingerprint_sha256.nullable
     assert ImageGeometryRolloutStateModel.__table__.c.validation_job_id.nullable

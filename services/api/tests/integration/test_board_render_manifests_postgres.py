@@ -652,8 +652,24 @@ def test_boards_without_renderable_cells_have_no_manifest(database: _Database) -
     assert set(stored) == {(seed.good, 0), (seed.partial, 0), (seed.revised, 1)}
 
 
+def _reset_to_revision(database: _Database, revision: str) -> None:
+    """Rebuild the isolated database at ``revision``.
+
+    Migration 0133 (TASK-0790) refuses to downgrade, so a test of an older
+    migration's downgrade cannot start from head.
+    """
+
+    database.engine.dispose()
+    with database.engine.begin() as connection:
+        connection.exec_driver_sql("DROP SCHEMA IF EXISTS game_data_v2 CASCADE")
+        connection.exec_driver_sql("DROP SCHEMA public CASCADE")
+        connection.exec_driver_sql("CREATE SCHEMA public")
+    command.upgrade(database.config, revision)
+
+
 def test_migration_0131_partitions_registered_games_and_downgrades(database: _Database) -> None:
     engine = database.engine
+    _reset_to_revision(database, "0132_symbol_reference_images_cell_identity")
     game_id = _provision_game(engine, "manifest-b")
     child = partition_name(game_id, "board_render_manifests")
 
@@ -690,7 +706,7 @@ def test_migration_0131_partitions_registered_games_and_downgrades(database: _Da
             == 0
         )
 
-    command.upgrade(database.config, "head")
+    command.upgrade(database.config, "0132_symbol_reference_images_cell_identity")
     exists, version, _revision = state()
     assert exists and version == "game-data-v2-manifest-v3"
     with engine.connect() as connection:

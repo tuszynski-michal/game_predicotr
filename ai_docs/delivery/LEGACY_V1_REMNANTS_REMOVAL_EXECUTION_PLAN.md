@@ -176,6 +176,15 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   bez własności tabel (migracje na roli właściciela), konfiguracja API i
   workera, test integracyjny na tej roli, audyt zapytań na `GAME_TABLES`
   bez predykatu `game_id`. Osobna decyzja operatora (zmiana ról w bazie).
+  Wykonanie 2026-10-01 (kod, bez migracji; nota TASK-0795 w D-467): rola
+  `game_predictor_app` z provisioningu `scripts/provision_database_roles.py`
+  (`db:up`, `db:roles:provision`, `db:roles:check`) zamiast migracji `0138`,
+  dwa URL-e (`GAME_PREDICTOR_DATABASE_URL` runtime,
+  `GAME_PREDICTOR_OWNER_DATABASE_URL` właściciel), sesje właściciela tylko
+  dla DDL partycji nowej gry, `VACUUM` po kompaktacji i `ANALYZE` po
+  backfillu; tryb testów PG na roli aplikacyjnej
+  (`GAME_PREDICTOR_PG_TEST_ROLE=application`) i test izolacji. Cutover na
+  bazie operatora wykonuje orkiestrator według `LOCAL_OPERATION_GUIDE.md`.
 
 ### S4 — manifest renderu per plansza
 

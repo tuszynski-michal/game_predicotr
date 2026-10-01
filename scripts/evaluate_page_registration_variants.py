@@ -375,8 +375,9 @@ def build_report(
 
 def main() -> int:
     arguments = _arguments()
+    # Operator tool: schema-owner URL (TASK-0795), same default as before.
     database_url = os.environ.get(
-        "GAME_PREDICTOR_DATABASE_URL",
+        "GAME_PREDICTOR_OWNER_DATABASE_URL",
         "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor",
     )
     report = build_report(

@@ -9,7 +9,10 @@ import time
 from uuid import UUID
 
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemyImageSymbolReviewRepository,
     SymbolCellReviewBackfillReport,
@@ -45,7 +48,7 @@ def main() -> int:
         print("--batch-size must be between 1 and 500", file=sys.stderr)
         return 2
     settings = ApiSettings.from_environment()
-    factory = create_session_factory(create_database_engine(settings))
+    factory = create_session_factory(create_maintenance_database_engine(settings))
     started = time.perf_counter()
     try:
         with factory.begin() as session:

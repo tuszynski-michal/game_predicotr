@@ -32,7 +32,10 @@ from game_predictor_api.storage.cell_render_specs import (
     CellRenderSpecKey,
     load_cell_render_specs,
 )
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_worker.images.normalization import (
     CanonicalSourceLoader,
@@ -876,7 +879,7 @@ def _read_snapshot(
             "SYMBOL_REFERENCE_POLICY_UNKNOWN", f"Unknown reference policy {reference_policy}."
         )
 
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     try:
         with engine.connect().execution_options(
             isolation_level="REPEATABLE READ", postgresql_readonly=True
@@ -1474,7 +1477,7 @@ def _compare_ratings(
 def _admin_decisions(game_id: str, cell_ids: Sequence[str]) -> dict[str, str]:
     """Read-only lookup of symbols the operator approved in Admin after the freeze."""
 
-    engine = create_database_engine(ApiSettings.from_environment())
+    engine = create_maintenance_database_engine(ApiSettings.from_environment())
     try:
         with engine.connect().execution_options(postgresql_readonly=True) as connection:
             rows = connection.execute(
@@ -2069,7 +2072,7 @@ def _apply_preview(arguments: argparse.Namespace) -> int:
         str(row["cellReviewId"]): row for row in preview["rows"] if row["proposal"] != REVIEW
     }
     settings = ApiSettings.from_environment()
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     cells: dict[str, Mapping[str, Any]] = {}
     latest: dict[str, Mapping[str, Any]] = {}
     try:
@@ -2292,7 +2295,7 @@ def _apply(arguments: argparse.Namespace, *, revert: bool = False) -> int:
     if arguments.limit_boards is not None:
         pending = pending[: int(arguments.limit_boards)]
     game_id = UUID(str(manifest["game"]["id"]))
-    engine = create_database_engine(ApiSettings.from_environment())
+    engine = create_maintenance_database_engine(ApiSettings.from_environment())
     session_factory = create_session_factory(engine)
     counts: Counter[str] = Counter()
     processed = 0
@@ -2366,7 +2369,7 @@ def _apply_verify(arguments: argparse.Namespace) -> int:
     }
     states: Counter[str] = Counter()
     reverted_checksum = revert_checksum(str(manifest["revisionChecksumSha256"]))
-    engine = create_database_engine(ApiSettings.from_environment())
+    engine = create_maintenance_database_engine(ApiSettings.from_environment())
     try:
         with engine.connect().execution_options(postgresql_readonly=True) as connection:
             for chunk in _chunks(sorted(targets), APPLY_BATCH):

@@ -234,11 +234,15 @@ def test_managed_preflight_http_never_touches_browser_files(tmp_path, monkeypatc
     service = JobService(repository, artifact_root=root)
     browser = Mock()
     browser.bind_ready_game.side_effect = AssertionError("Released browser staging accessed")
+    canonical = Mock()
+    canonical.canonical_numbers.return_value = set()
     client = TestClient(
         create_app(
             ApiSettings.from_environment({"GAME_PREDICTOR_ARTIFACT_ROOT": str(root)}),
             job_service_dependency=lambda: service,
             browser_image_selection_service_dependency=lambda: browser,
+            # A unit test never reads the local database (TASK-0795).
+            image_sequence_canonical_service_dependency=lambda: canonical,
         )
     )
     selection = source.input_payload["source_selection_id"]

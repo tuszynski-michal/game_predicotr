@@ -4769,8 +4769,10 @@ class SqlAlchemyImageSymbolReviewRepository:
             )
             .where(
                 ImageBoardSearchFastDocumentModel.game_id == game_id,
-                # Explicit partition key: the session role bypasses RLS, so
-                # only this predicate prunes the per-game cell partition.
+                # Explicit partition key: it prunes the per-game cell
+                # partition at plan time and keeps the query correct when it
+                # runs as the schema owner (RLS bypass), not only as the
+                # application role (TASK-0795).
                 cell.game_id == game_id,
                 RecognizedBoardModel.geometry_revision == 0,
                 RecognizedBoardModel.asset_mode == "virtual_source",

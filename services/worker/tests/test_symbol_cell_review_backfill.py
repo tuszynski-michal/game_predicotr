@@ -322,3 +322,87 @@ def test_handler_stops_after_three_failed_reconciliation_passes(monkeypatch: Any
         SymbolCellReviewBackfillHandler(_SessionFactory())(_Context(), job)  # type: ignore[arg-type]
 
     assert pass_count == 3
+
+
+def test_statistics_refresh_uses_the_owner_session_before_finalization_commits(
+    monkeypatch: Any,
+) -> None:
+    # TASK-0795: ANALYZE needs the schema owner; the runtime session is the
+    # application role. The owner session runs inside the finalization block.
+    game_id = uuid4()
+    events: list[str] = []
+    owner_session = object()
+
+    class _AppFactory:
+        @contextmanager
+        def begin(self) -> Iterator[object]:
+            events.append("app-begin")
+            yield object()
+            events.append("app-commit")
+
+    class _OwnerFactory:
+        @contextmanager
+        def begin(self) -> Iterator[object]:
+            events.append("owner-begin")
+            yield owner_session
+            events.append("owner-commit")
+
+    class _Repository:
+        def __init__(self, _session: object) -> None:
+            pass
+
+        def start_or_resume_backfill(self, _game_id: UUID):
+            return _report(game_id, status="rebuilding", processed=0, cells=0)
+
+        def backfill_next_batch(self, _game_id: UUID, **_options: object):
+            return SymbolCellReviewBackfillStep(
+                report=_report(game_id, status="rebuilding", processed=1, cells=15),
+                processed_review_item_count=1,
+                has_more=False,
+            )
+
+        def begin_reconciliation_pass(self, _game_id: UUID):
+            return _report(game_id, status="rebuilding", processed=1, cells=15)
+
+        def reconcile_next_batch(self, _game_id: UUID, *, batch_size: int):
+            return SymbolCellReviewReconciliationStep(
+                report=_report(game_id, status="rebuilding", processed=1, cells=15),
+                processed_review_item_count=0,
+                has_more=False,
+            )
+
+        def finalize_backfill(self, _game_id: UUID):
+            events.append("finalize")
+            return _report(game_id, status="ready", processed=1, cells=15)
+
+    analyzed: list[object] = []
+
+    def _refresh_statistics(session: object) -> tuple[str, ...]:
+        analyzed.append(session)
+        events.append("analyze")
+        return ("image_symbol_review_cells",)
+
+    monkeypatch.setattr(backfill_module, "SqlAlchemyImageSymbolReviewRepository", _Repository)
+    monkeypatch.setattr(
+        backfill_module, "refresh_symbol_review_query_statistics", _refresh_statistics
+    )
+    job = create_job(
+        JobType.IMAGE_SYMBOL_REVIEW_BACKFILL,
+        game_id=game_id,
+        input_payload={"schema_version": 1, "workflow": "image_symbol_review_backfill"},
+    )
+
+    SymbolCellReviewBackfillHandler(
+        _AppFactory(),  # type: ignore[arg-type]
+        statistics_session_factory=_OwnerFactory(),  # type: ignore[arg-type]
+    )(_Context(), job)
+
+    assert analyzed == [owner_session]
+    finalize_at = events.index("finalize")
+    assert events[finalize_at : finalize_at + 4] == [
+        "finalize",
+        "owner-begin",
+        "analyze",
+        "owner-commit",
+    ]
+    assert events[finalize_at + 4] == "app-commit"

@@ -87,7 +87,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
+    return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
@@ -279,18 +279,16 @@ def test_host_monitor_aggregates_bounded_batch_state_without_paths(
             session.commit()
 
         with session_factory() as session:
-            monitor = SqlAlchemyRemoteManualSelectionAccessRepository(
-                session
-            ).list_batch_monitors(session_id=SESSION_ID, limit=1)
+            monitor = SqlAlchemyRemoteManualSelectionAccessRepository(session).list_batch_monitors(
+                session_id=SESSION_ID, limit=1
+            )
 
         assert len(monitor) == 1
         assert monitor[0].selected_file_count == 1
         assert monitor[0].synced_file_count == 0
         assert monitor[0].failed_file_count == 1
         assert monitor[0].pending_host_action_count == 1
-        assert monitor[0].last_error_codes == (
-            "REMOTE_SELECTION_SYNTHETIC_FAILURE",
-        )
+        assert monitor[0].last_error_codes == ("REMOTE_SELECTION_SYNTHETIC_FAILURE",)
         assert "path" not in repr(monitor[0]).casefold()
     finally:
         engine.dispose()

@@ -438,8 +438,8 @@ def _write_json_atomic(path: Path, payload: dict[str, object]) -> None:
 
 def _run(args: argparse.Namespace) -> tuple[Path, bool]:
     settings = get_settings()
-    _database_preflight(settings.database_url)
-    engine = create_engine(settings.database_url, pool_pre_ping=True)
+    _database_preflight(settings.owner_database_url)
+    engine = create_engine(settings.owner_database_url, pool_pre_ping=True)
     session_factory = sessionmaker(engine, expire_on_commit=False)
     try:
         with session_factory() as session:

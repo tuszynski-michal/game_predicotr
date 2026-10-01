@@ -36,7 +36,10 @@ from game_predictor_api.storage.cell_level_verification_migration_repository imp
     CellLevelMigrationInvariantError,
     CellLevelVerificationMigrationRepository,
 )
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError
@@ -85,7 +88,7 @@ def run_preview(args: argparse.Namespace) -> int:
             "CELL_MIGRATION_OUTPUT_EXISTS", "Use a new path for each immutable preview."
         )
     settings = ApiSettings.from_environment()
-    sessions = create_session_factory(create_database_engine(settings))
+    sessions = create_session_factory(create_maintenance_database_engine(settings))
     with game_storage_scope(args.game_id), sessions.begin() as session:
         session.connection().execute(
             text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ READ ONLY")
@@ -125,7 +128,7 @@ def run_apply(args: argparse.Namespace) -> int:
     if args.limit is not None and args.limit < 1:
         raise CellLevelMigrationError("CELL_MIGRATION_LIMIT_INVALID", "The limit must be >= 1.")
     settings = ApiSettings.from_environment()
-    sessions = create_session_factory(create_database_engine(settings))
+    sessions = create_session_factory(create_maintenance_database_engine(settings))
     with game_storage_scope(game_id), sessions.begin() as session:
         CellLevelVerificationMigrationRepository(session).require_ready_game(game_id)
     selected = [

@@ -60,7 +60,7 @@ _STAGES = ("board_detection", "board_crops", "symbol_inference")
 def database() -> Iterator[Engine]:
     name = "game_predictor_task0756_" + uuid4().hex[:12] + "_test"
     assert re.fullmatch(r"game_predictor_task0756_[0-9a-f]{12}_test", name)
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     assert url.database != name
     maintenance = create_engine(
         url.set(database="postgres"),

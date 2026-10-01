@@ -42,7 +42,10 @@ from game_predictor_api.application.legacy_board_conversion import (
 from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeometryService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.schema_readiness import (
     EXPECTED_ALEMBIC_HEAD,
     AlembicHeadMismatchError,
@@ -123,7 +126,7 @@ def _plan_summary(plan: LegacyConversionSourcePlan) -> dict[str, Any]:
 
 
 def _preview(settings: ApiSettings, arguments: argparse.Namespace) -> dict[str, Any]:
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     try:
         _require_schema(engine)
         factory = create_session_factory(engine)
@@ -189,7 +192,7 @@ def _preview(settings: ApiSettings, arguments: argparse.Namespace) -> dict[str, 
 
 
 def _execute(settings: ApiSettings, arguments: argparse.Namespace) -> dict[str, Any]:
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     try:
         _require_schema(engine)
         factory = create_session_factory(engine)

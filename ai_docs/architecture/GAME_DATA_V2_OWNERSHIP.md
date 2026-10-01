@@ -1,7 +1,7 @@
 ---
 title: Game data v2 ownership manifest
 status: accepted
-last_updated: 2026-09-21
+last_updated: 2026-10-01
 ---
 
 # Własność tabel game_data_v2 — TASK-0518
@@ -206,6 +206,30 @@ Downgrade najpierw blokuje wszystkie objęte tabele i sprawdza pustkę. Jakiekol
 dane v2, location, migration lub checkpoint zatrzymują rollback; nie używa
 CASCADE. Jest odwróceniem wyłącznie pustego wdrożenia, nie rollbackiem migracji
 użytkownika. Dodatkowe nieznane zależności także blokują DROP.
+
+## Role bazy i egzekwowanie RLS — TASK-0795
+
+RLS z migracji 0106 jest wymuszone także dla właściciela tabel, ale nie działa
+dla roli `SUPERUSER`/`BYPASSRLS`. Dlatego runtime (API, worker) łączy się rolą
+aplikacyjną `game_predictor_app` bez tych atrybutów, bez własności obiektów i
+bez DDL (`GAME_PREDICTOR_DATABASE_URL`); schemat, partycje i migracje należą do
+roli właściciela (`GAME_PREDICTOR_OWNER_DATABASE_URL`). Role tworzy skrypt
+`scripts/provision_database_roles.py`, nie migracja (role są globalne w
+klastrze). Właściciela używają w runtime wyłącznie: kroki DDL lifecycle
+partycji nowej gry (każdy krok w osobnej sesji właściciela; wiersz katalogu i
+receipt w sesji aplikacyjnej), `VACUUM (ANALYZE)` po kompaktacji wyników
+pipeline i `ANALYZE` po backfillu weryfikacji symboli. Usuwanie gry
+(`GameDeletionRepository`, lifecycle `delete`) nie ma trasy runtime; jego
+wykonanie wymaga roli właściciela.
+
+Kontrakt dla zapytań roli aplikacyjnej: transakcja dotyka danych jednej gry
+po `GameStorageRouter.bind` (albo `game_storage_scope`), który ustawia
+`game_predictor.game_id` i `search_path`. Bez wiązania niekwalifikowana
+tabela gry nie istnieje w `search_path` (`42P01`), a kwalifikowana
+`game_data_v2.*` rzuca `GAME_STORAGE_SCOPE_REQUIRED` (`42501`) — nigdy pusty
+wynik. Ścieżki między grami iterują po `public.game_storage_locations` z
+osobnym wiązaniem na grę (wzorzec `load_pipeline_execution_references`).
+Szczegóły i wycofanie: D-467 (nota TASK-0795), `LOCAL_OPERATION_GUIDE.md`.
 
 ## Greenfield cutover
 

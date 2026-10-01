@@ -42,7 +42,7 @@ _EXPECTED_V1_V2_QUALIFICATION_CHECKS = {
 def database() -> Iterator[tuple[Engine, Config]]:
     name = "game_predictor_task0518_" + uuid4().hex[:12]
     assert re.fullmatch(r"game_predictor_task0518_[0-9a-f]{12}", name)
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     assert url.database != name
     maintenance = create_engine(
         url.set(database="postgres"),

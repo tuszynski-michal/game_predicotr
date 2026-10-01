@@ -83,7 +83,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     parser.add_argument("--execute", action="store_true")
     parser.add_argument("--confirm", default="")
     arguments = parser.parse_args(argv)
-    url = make_url(ApiSettings.from_environment().database_url).set(database="postgres")
+    url = make_url(ApiSettings.from_environment().owner_database_url).set(database="postgres")
     engine = create_engine(
         url,
         isolation_level="AUTOCOMMIT",

@@ -279,6 +279,8 @@ from game_predictor_api.storage.catalog_repository import (
 from game_predictor_api.storage.cleanup_repository import SqlAlchemyCleanupRepository
 from game_predictor_api.storage.database import (
     create_database_engine,
+    create_owner_database_engine,
+    create_owner_session_factory,
     create_session_factory,
 )
 from game_predictor_api.storage.dataset_repository import (
@@ -523,12 +525,21 @@ def create_app(
     )
     database_engine = create_database_engine(resolved_settings)
     session_factory = create_session_factory(database_engine)
+    # TASK-0795: schema-owner sessions only for partition DDL of a new game.
+    # NullPool: no owner connection stays open between requests.
+    owner_session_factory = create_owner_session_factory(
+        create_owner_database_engine(resolved_settings)
+    )
 
     def default_catalog_service_dependency() -> Iterator[CatalogService]:
         with session_factory() as session:
             try:
                 yield CatalogService(
-                    SqlAlchemyCatalogRepository(session, GameStorageRouter()),
+                    SqlAlchemyCatalogRepository(
+                        session,
+                        GameStorageRouter(),
+                        partition_ddl_session_factory=owner_session_factory,
+                    ),
                     shape_geometry_readiness_resolver=GlobalShapeGeometryReadinessResolver(
                         SqlAlchemyGlobalGeometryLibraryRepository(session)
                     ),

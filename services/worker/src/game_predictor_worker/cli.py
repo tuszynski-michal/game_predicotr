@@ -33,6 +33,8 @@ from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.database import (
     create_database_engine,
+    create_owner_database_engine,
+    create_owner_session_factory,
     create_session_factory,
 )
 from game_predictor_api.storage.schema_readiness import (
@@ -404,6 +406,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
             import_handler,
             image_import_handler,
         )
+        # TASK-0795: the runtime engine uses the application role (no DDL, no
+        # RLS bypass). VACUUM after pipeline compaction and ANALYZE after a
+        # symbol-review backfill are the only general-lane steps that need the
+        # schema owner; the NullPool engine opens a connection only for them.
+        owner_engine = create_owner_database_engine(settings)
         snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
         release_handler = ReleaseWorkflowHandler(
             SqlAlchemyReleaseWorkflowStore(session_factory),
@@ -437,7 +444,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 artifact_root,
             ),
             JobType.IMAGE_SYMBOL_REVIEW_BULK: SymbolCellReviewBulkHandler(session_factory),
-            JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(session_factory),
+            JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(
+                session_factory,
+                statistics_session_factory=create_owner_session_factory(owner_engine),
+            ),
             JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL: ImageGeometryRolloutBackfillHandler(
                 session_factory
             ),
@@ -454,7 +464,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             JobType.STORAGE_PIPELINE_COMPACTION: PipelineStateCompactionHandler(
                 session_factory,
                 artifact_root,
-                engine,
+                owner_engine,
             ),
         }
         execution_slot = JobExecutionSlot.GENERAL

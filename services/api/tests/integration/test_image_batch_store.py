@@ -174,7 +174,7 @@ def _import_cells_prediction(symbol_code: str) -> dict[str, object]:
 
 def _database_url(database_name: str) -> URL:
     return (
-        make_url(ApiSettings.from_environment().database_url)
+        make_url(ApiSettings.from_environment().owner_database_url)
         .set(database=database_name)
         .update_query_dict({"connect_timeout": "3"})
     )

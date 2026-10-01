@@ -42,6 +42,7 @@ from game_predictor_api.storage.board_search_approximate_win_repository import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.database import GameStorageSession
 from game_predictor_api.storage.game_data_v2_manifest_v4 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
@@ -82,7 +83,7 @@ def _quote(name: str) -> str:
 @pytest.fixture(scope="module")
 def database() -> Iterator[Engine]:
     name = "game_predictor_task0652_" + uuid4().hex[:12]
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",
@@ -403,7 +404,7 @@ def test_calculates_payout_range_across_complete_partial_and_missing_boards(
     # A fresh, unscoped session/transaction: the calculation itself must be
     # read-only, so nothing it does may depend on the fixture's own
     # transaction or write anything back.
-    with Session(database, expire_on_commit=False) as session:
+    with GameStorageSession(database, expire_on_commit=False) as session:
         before_counts = _game_owned_row_counts(session, game_id)
 
         repository = SqlAlchemyBoardSearchApproximateWinRepository(session)
@@ -617,7 +618,7 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
             )
         session.flush()
 
-    with Session(database, expire_on_commit=False) as session:
+    with GameStorageSession(database, expire_on_commit=False) as session:
         before_counts = _game_owned_row_counts(session, game_id)
         repository = SqlAlchemyBoardSearchApproximateWinRepository(session)
         detail = BoardSearchBoardDetailService(repository).detail(
@@ -654,7 +655,7 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
         assert board is not None
         board.geometry_checksum_sha256 = "e" * 64
 
-    with Session(database, expire_on_commit=False) as session:
+    with GameStorageSession(database, expire_on_commit=False) as session:
         stale = BoardSearchBoardDetailService(
             SqlAlchemyBoardSearchApproximateWinRepository(session)
         ).detail(game_id=game_id, sequence_number=5)
@@ -663,7 +664,7 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
     assert stale.view is None and stale.cells is None
     assert stale.payout_credits == 25
 
-    with Session(database, expire_on_commit=False) as session, session.begin():
+    with GameStorageSession(database, expire_on_commit=False) as session, session.begin():
         refreshed = BoardSearchBoardDetailService(
             SqlAlchemyBoardSearchApproximateWinRepository(session)
         ).refresh(game_id=game_id, sequence_number=5)
@@ -672,7 +673,7 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
     assert refreshed.detail.document_stale is False
     assert refreshed.detail.board_checksum_sha256 == "e" * 64
 
-    with Session(database, expire_on_commit=False) as session:
+    with GameStorageSession(database, expire_on_commit=False) as session:
         after = BoardSearchBoardDetailService(
             SqlAlchemyBoardSearchApproximateWinRepository(session)
         ).detail(game_id=game_id, sequence_number=5)

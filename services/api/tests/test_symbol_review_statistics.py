@@ -14,12 +14,30 @@ from sqlalchemy.exc import SQLAlchemyError
 def test_refresh_analyzes_the_complete_postgresql_symbol_review_read_model() -> None:
     session = MagicMock()
     session.get_bind.return_value.dialect.name = "postgresql"
+    session.execute.return_value.scalar_one.return_value = 0
 
     result = refresh_symbol_review_query_statistics(session)
 
     assert result == SYMBOL_REVIEW_QUERY_TABLES
     statement = str(session.execute.call_args.args[0])
-    assert statement == "ANALYZE " + ", ".join(SYMBOL_REVIEW_QUERY_TABLES)
+    # Qualified: the owner session has no data-plane search_path (TASK-0795).
+    assert statement == "ANALYZE " + ", ".join(
+        f"game_data_v2.{table}" for table in SYMBOL_REVIEW_QUERY_TABLES
+    )
+
+
+def test_refresh_refuses_a_role_that_postgresql_would_silently_skip() -> None:
+    # PostgreSQL only warns when the role may not analyze a table; the
+    # application role (TASK-0795) must fail instead of reporting a refresh.
+    session = MagicMock()
+    session.get_bind.return_value.dialect.name = "postgresql"
+    session.execute.return_value.scalar_one.return_value = 2
+
+    with pytest.raises(SymbolReviewStatisticsRefreshError) as error:
+        refresh_symbol_review_query_statistics(session)
+
+    assert error.value.code == "SYMBOL_CELL_REVIEW_STATISTICS_REFRESH_FAILED"
+    assert session.execute.call_count == 1
 
 
 def test_refresh_is_a_noop_for_non_postgresql_test_databases() -> None:

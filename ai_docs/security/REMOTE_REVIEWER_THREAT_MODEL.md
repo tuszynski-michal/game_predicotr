@@ -1,7 +1,7 @@
 ---
 title: Remote Reviewer threat model
 status: accepted
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 ---
 
 # Model zagrożeń zdalnego Reviewera
@@ -125,6 +125,7 @@ loopbacku.
 | wyciek bazy | kod i token występują tylko jako hash; kod zdalnej ręcznej selekcji może istnieć wyłącznie lokalnie w `localStorage` Admina do TTL albo revoke |
 | replay tokenu | token jest losowy, rotowany przy unlock, wygasa nie później niż sesja i jest natychmiast usuwany przy revoke |
 | dostęp do innej gry/importu | każdy review read/write porównuje scope tokenu z parametrami żądania |
+| dane innej gry przez błąd zapytania (brak predykatu `game_id`) | od TASK-0795 API i worker działają rolą `game_predictor_app` bez `SUPERUSER`/`BYPASSRLS`; wymuszone RLS `game_data_v2` ogranicza każde zapytanie do gry związanej w transakcji, a zapytanie bez związanej gry kończy się błędem (`GAME_STORAGE_SCOPE_REQUIRED` albo brak tabeli w `search_path`), nie danymi; rola nie ma DDL ani własności obiektów (`test_application_role_isolation_postgres.py`) |
 | dostęp administracyjny | publiczny proxy ma allowlistę; CRUD, eksporty, job mutations i wydania nie mają trasy |
 | spoofing aktora | backend zastępuje `resolvedBy/correctedBy` identyfikatorem sesji |
 | konflikt dwóch kart | istniejące UUID idempotencji i optimistic revision pozostają obowiązkowe |

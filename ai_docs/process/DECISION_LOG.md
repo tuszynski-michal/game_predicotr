@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 ---
 
 # Decision Log
@@ -432,6 +432,48 @@ last_updated: 2026-09-30
   render wirtualny zamiast cropu pliku; plansza z kwalifikacją częściową
   wymaga kwalifikacji (`IMAGE_GRID_REVIEW_QUALIFICATION_REQUIRED`), której
   edytor operacyjny nie wysyła.
+- **Rola aplikacyjna bez `SUPERUSER`/`BYPASSRLS` (TASK-0795, 2026-10-01, bez
+  migracji):** API i workery łączą się rolą `game_predictor_app`
+  (`LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION
+  NOINHERIT`, bez członkostwa w innych rolach i bez własności obiektów), więc
+  wymuszone RLS `game_data_v2` (`game_scope_v1`) obowiązuje także w runtime.
+  Konfiguracja: `GAME_PREDICTOR_DATABASE_URL` = rola aplikacyjna (nowa
+  wartość domyślna), `GAME_PREDICTOR_OWNER_DATABASE_URL` = właściciel
+  schematu (domyślnie lokalny właściciel na tej samej bazie; inna baza, host
+  albo port jest odrzucany). Właściciela używają Alembic, skrypty
+  utrzymaniowe (`create_maintenance_database_engine`), `db:reset:local` oraz
+  trzy jawne ścieżki runtime: kroki partycji nowej gry
+  (`SqlAlchemyCatalogRepository(partition_ddl_session_factory=…)` — wiersz
+  katalogu i receipt w sesji aplikacyjnej, każdy krok DDL w osobnej sesji
+  właściciela), `VACUUM (ANALYZE)` po kompaktacji wyników pipeline i
+  `ANALYZE` po backfillu weryfikacji symboli (silnik właściciela bez puli).
+  Rolę tworzy idempotentny skrypt `scripts/provision_database_roles.py`
+  (wołany z `db:up`, `db:migrate`, `db:reset:local`, `db:roles:provision`;
+  `--check` tylko czyta), nie migracja: role są globalne w klastrze, a
+  migracje działają też na jednorazowych bazach `*_test` tego samego
+  klastra; hasło z URL-a trafia
+  do bazy jako weryfikator SCRAM. Uprawnienia: `CONNECT`, `USAGE` na
+  `public`/`game_data_v2`, DML na tabelach (bez zapisu
+  `public.alembic_version`), `USAGE, SELECT` na sekwencjach, `EXECUTE` na
+  funkcjach, domyślne uprawnienia `FOR ROLE` właściciela dla tabel, sekwencji,
+  funkcji i schematów tworzonych później (migracje, partycje nowej gry).
+  Odrzucona alternatywa: funkcje `SECURITY DEFINER` dla DDL partycji —
+  dynamiczny DDL z nazwami z manifestu wymagałby powielenia walidacji
+  manifestu w plpgsql i dawałby roli aplikacyjnej stałą furtkę do DDL;
+  osobne krótkie połączenie właściciela w trzech nazwanych miejscach ma
+  mniejszą powierzchnię. Zapytanie bez związanej gry kończy się błędem, nie
+  pustym wynikiem: niekwalifikowane tabele ORM nie są widoczne bez
+  `search_path` ustawianego przez wiązanie (`42P01`), a kwalifikowane
+  `game_data_v2.*` rzucają `GAME_STORAGE_SCOPE_REQUIRED` (`42501`), także dla
+  pustej tabeli. `refresh_symbol_review_query_statistics` odmawia, gdy rola
+  nie jest właścicielem (PostgreSQL tylko ostrzega i pomija `ANALYZE`).
+  Znany koszt: funkcja polityki `current_game_id_v1()` jest
+  `PARALLEL UNSAFE` (plpgsql z blokiem `EXCEPTION`), więc zapytania roli
+  aplikacyjnej nie dostają równoległych workerów; pomiar na 777 (odczyt,
+  predykat polityki dodany ręcznie): liczenie oczekujących komórek wg
+  symbolu 1,4 s → 3,6 s, zapytania indeksowe bez zmian. Zmiana funkcji
+  polityki jest poza zakresem TASK-0795 (osobne zadanie z migracją).
+  Wycofanie: `GAME_PREDICTOR_DATABASE_URL` = URL właściciela i restart.
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu

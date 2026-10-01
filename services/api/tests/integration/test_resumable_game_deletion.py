@@ -54,7 +54,7 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture(scope="module")
 def database() -> Iterator[Engine]:
     name = "game_predictor_task0516_" + uuid4().hex[:12]
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",

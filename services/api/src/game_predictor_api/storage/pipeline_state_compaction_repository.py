@@ -269,8 +269,10 @@ def _game_execution_references(
     """Read one bound game store; every query is limited to ``keys``.
 
     RLS on ``game_data_v2`` does not apply to a superuser or BYPASSRLS role
-    (the local Docker role is one), so each query is also scoped explicitly to
-    ``game_id`` through the owning import job or the row's own ``game_id``.
+    (the schema owner, which maintenance scripts still use), so each query is
+    also scoped explicitly to ``game_id`` through the owning import job or the
+    row's own ``game_id``; the application role (TASK-0795) gets the same
+    rows through RLS.
     """
 
     game_link = (

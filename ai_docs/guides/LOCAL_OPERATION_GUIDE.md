@@ -116,6 +116,81 @@ Oczekuj `acceptancePassed: true` i wszystkich pól `gates` równych `true`.
 Szczegóły korpusu, coverage i ograniczeń:
 [odbiór v0.10.4](../quality/LATERAL_PARTIAL_V4_ACCEPTANCE.md).
 
+## Rola aplikacyjna bazy bez `SUPERUSER`/`BYPASSRLS` (TASK-0795, D-467)
+
+Od TASK-0795 API i workery łączą się z bazą rolą aplikacyjną
+`game_predictor_app` (`LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE
+NOREPLICATION NOINHERIT`, bez własności obiektów i bez DDL), więc wymuszone
+RLS `game_data_v2` rzeczywiście izoluje gry. Rola właściciela
+`game_predictor` (superuser z `POSTGRES_USER`) zostaje dla Alembica, skryptów
+utrzymaniowych i nielicznych kroków runtime wymagających właściciela.
+
+| Zmienna | Domyślnie | Używa |
+| --- | --- | --- |
+| `GAME_PREDICTOR_DATABASE_URL` | `postgresql+psycopg://game_predictor_app:game_predictor_app_local@127.0.0.1:5432/game_predictor` | sesje runtime API i workera |
+| `GAME_PREDICTOR_OWNER_DATABASE_URL` | właściciel `game_predictor:game_predictor_local` na bazie z `GAME_PREDICTOR_DATABASE_URL` | Alembic (`db:migrate`), skrypty `scripts/*.py`, `db:reset:local`, partycje nowej gry, `VACUUM` po kompaktacji, `ANALYZE` po backfillu weryfikacji symboli |
+
+Oba URL-e przechodzą tę samą walidację loopback; muszą wskazywać ten sam
+host, port i bazę (inaczej start kończy się `ConfigurationError`). Rolę
+tworzy i wyrównuje idempotentny skrypt `scripts/provision_database_roles.py`
+(nazwa i hasło z `GAME_PREDICTOR_DATABASE_URL`, połączenie z
+`GAME_PREDICTOR_OWNER_DATABASE_URL`, hasło wysyłane jako weryfikator
+SCRAM): `npm run db:roles:provision` (także na końcu `npm run db:up`,
+`npm run db:migrate` i `db:reset:local` — po migracji ponownie odbiera zapis
+`alembic_version`, który domyślne uprawnienia nadałyby nowej tabeli), kontrola tylko do odczytu `npm run db:roles:check` (kod 1,
+gdy rola nie istnieje albo nie spełnia kontraktu). Skrypt nadaje `CONNECT`,
+`USAGE` na `public` i `game_data_v2`, `SELECT/INSERT/UPDATE/DELETE` na
+tabelach (bez zapisu `public.alembic_version`), `USAGE, SELECT` na
+sekwencjach, `EXECUTE` na funkcjach i domyślne uprawnienia dla obiektów,
+które właściciel utworzy później (migracje, partycje nowej gry). Gdy oba URL-e
+mają tego samego użytkownika (konfiguracja wycofania), skrypt nic nie robi.
+
+Cutover (wykonuje orkiestrator; schemat bez zmian, bez migracji):
+
+1. Zaczekaj na koniec aktywnych jobów albo zatrzymaj je bezpiecznie.
+2. Zatrzymaj API, workery wszystkich lane'ów i Reviewera (także tunel) w
+   checkoutcie, z którego uruchamiasz usługi; sprawdź `netstat -ano |
+   findstr :8000` (i `:8010`), zakończ osierocone procesy `--reload`
+   (sekcja „Przejście na manifest magazynu v3” niżej).
+3. Scal kod do tego checkoutu (`npm install` niepotrzebne).
+4. `npm run db:roles:provision` — utworzenie roli i uprawnień na bazie
+   `game_predictor`; oczekuj `"status": "provisioned"` i `"compliant": true`.
+   Potem `npm run db:roles:check`.
+5. Uruchom API i workery. Start API (`ALEMBIC_HEAD_MISMATCH` nadal działa)
+   czyta `alembic_version` już rolą aplikacyjną. Sprawdzenie: w `psql`
+   rolą właściciela `SELECT usename, application_name, count(*) FROM
+   pg_stat_activity WHERE datname = 'game_predictor' GROUP BY 1, 2;` —
+   połączenia API/workera mają `usename = game_predictor_app`.
+6. Dymny test: lista gier i strona weryfikacji symboli w Adminie, wyszukiwarka
+   plansz 777, jeden job workera (np. podgląd kompaktacji). Utworzenie nowej
+   gry tworzy partycje rolą właściciela (osobne krótkie połączenie).
+
+Wpływ na inne sesje i worktree: zmiana jest w domyślnych wartościach kodu,
+więc dotyczy tylko procesów uruchomionych z kodem po scaleniu. Procesy ze
+starszych checkoutów (np. API `8110` z innego worktree) nadal łączą się rolą
+właściciela (bez izolacji RLS) do czasu scalenia i restartu; nie wymagają
+koordynacji, bo schemat się nie zmienia. Ustawienie `GAME_PREDICTOR_DATABASE_URL`
+jako zmiennej użytkownika Windows zmieniłoby wszystkie checkouty naraz — nie
+rób tego przed scaleniem kodu wszędzie (stary kod używa tej zmiennej także
+dla Alembica i skryptów).
+
+Wycofanie (bez zmian w bazie): ustaw dla procesów API i workerów
+`GAME_PREDICTOR_DATABASE_URL` na URL właściciela
+(`postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor`)
+i zrestartuj je; `db:roles:provision` wtedy nic nie robi. Rola
+`game_predictor_app` może zostać (nie ma własności obiektów); jej usunięcie
+(`DROP OWNED BY game_predictor_app; DROP ROLE game_predictor_app;` rolą
+właściciela) jest osobną decyzją.
+
+Testy PostgreSQL na roli aplikacyjnej: `$env:GAME_PREDICTOR_PG_TEST_ROLE =
+'application'` obok `GAME_PREDICTOR_RUN_POSTGRES_TESTS = '1'`. Fixture z
+`services/api/tests/integration/conftest.py` tworzy rolę
+`game_predictor_app_test_<hex>` (`NOLOGIN`), nadaje jej uprawnienia wyłącznie w
+jednorazowych bazach testowych, każda sesja `GameStorageSession` działa jako
+ta rola (`SET LOCAL ROLE`), a na końcu rola jest usuwana. Test izolacji
+`test_application_role_isolation_postgres.py` loguje się rolą
+`LOGIN` (losowe hasło, ważne godzinę, usuwana po teście).
+
 ## Przejście na manifest magazynu v3 i `board_render_manifests` (TASK-0757, D-467)
 
 Kod od TASK-0757 wymaga migracji `0131_board_render_manifests`: router
@@ -516,8 +591,10 @@ npm run db:migrate
 npm run db:current
 ```
 
-`db:up` czeka na healthcheck. Dane są zachowywane w wolumenie Dockera, więc
-zwykłe zatrzymanie bazy ich nie usuwa.
+`db:up` czeka na healthcheck i (od TASK-0795) zapewnia rolę aplikacyjną
+`game_predictor_app` z uprawnieniami (sekcja „Rola aplikacyjna bazy” wyżej);
+migracje działają rolą właściciela. Dane są zachowywane w wolumenie Dockera,
+więc zwykłe zatrzymanie bazy ich nie usuwa.
 
 W pierwszym oknie PowerShell uruchom API:
 

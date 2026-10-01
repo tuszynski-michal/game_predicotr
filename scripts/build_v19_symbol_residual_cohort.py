@@ -18,7 +18,10 @@ from uuid import UUID
 
 import numpy as np
 from game_predictor_api.config import get_settings
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.models import (
     ImageBoardGeometryRevisionModel,
     ImageReviewItemModel,
@@ -93,7 +96,7 @@ def main() -> int:
     try:
         descriptor = _load_descriptor(arguments.descriptor)
         settings = get_settings()
-        session = create_session_factory(create_database_engine(settings))()
+        session = create_session_factory(create_maintenance_database_engine(settings))()
         snapshot = SqlAlchemySymbolModelSnapshotResolver(
             session, artifact_root=settings.artifact_root
         ).resolve(game_id=descriptor.game_id)

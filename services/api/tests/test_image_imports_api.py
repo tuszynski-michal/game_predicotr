@@ -2649,6 +2649,11 @@ def test_page_source_replacement_api_blocks_accepted_geometry(
             job_service_dependency=lambda: JobService(repository),
             browser_image_selection_service_dependency=lambda: browser_service,
             image_folder_selection_service_dependency=lambda: selection_service,
+            # A unit test never reads the local database (the default
+            # dependency would open a session on GAME_PREDICTOR_DATABASE_URL).
+            image_sequence_canonical_service_dependency=lambda: ImageSequenceCanonicalService(
+                _MutableBrowserCanonicalRepository(set())
+            ),
             page_geometry_override_service_dependency=lambda: Overrides(),
         )
     )

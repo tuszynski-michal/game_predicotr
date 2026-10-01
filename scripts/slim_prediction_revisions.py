@@ -37,7 +37,7 @@ from typing import Any
 from uuid import UUID
 
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.storage.database import create_database_engine
+from game_predictor_api.storage.database import create_maintenance_database_engine
 from game_predictor_api.storage.prediction_revision_slimming import (
     PredictionRevisionSlimError,
     delete_retention_batch,
@@ -229,7 +229,7 @@ def main(argv: list[str] | None = None) -> int:
     action = "execute" if arguments.execute else "preview"
     report_dir = _report_dir(settings, arguments)
     report_dir.mkdir(parents=True, exist_ok=True)
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     try:
         _require_schema(engine, execute=arguments.execute)
         if not arguments.execute:

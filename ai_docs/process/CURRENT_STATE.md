@@ -377,6 +377,18 @@ last_updated: 2026-10-01
   Reviewer); ORM równoważny bazie po `0135`/`0136`; fixture PG przepięte na
   plansze wirtualne (`tests/integration/_virtual_board_fixtures.py`).
   Wyjątki i wyniki testów w Outcome TASK-0796. **Etap S6 zamknięty.**
+- TASK-0795 (done, v1.7.130, 2026-10-01; audyt
+  zawieszony): rola aplikacyjna `game_predictor_app` bez
+  `SUPERUSER`/`BYPASSRLS` (provisioning `scripts/provision_database_roles.py`,
+  `db:up`/`db:roles:provision`/`db:roles:check`, bez migracji), dwa URL-e
+  (`GAME_PREDICTOR_DATABASE_URL` runtime, `GAME_PREDICTOR_OWNER_DATABASE_URL`
+  Alembic/skrypty/DDL), sesje właściciela dla partycji nowej gry, `VACUUM`
+  po kompaktacji i `ANALYZE` po backfillu; test izolacji i tryb testów PG na
+  roli aplikacyjnej (`GAME_PREDICTOR_PG_TEST_ROLE=application`). Nota w
+  D-467, runbook cutover/wycofania w `LOCAL_OPERATION_GUIDE.md`. Cutover na
+  bazie `game_predictor` (utworzenie roli, restart usług) wykonuje
+  orkiestrator. Ryzyko: funkcja polityki `PARALLEL UNSAFE` — duże skany roli
+  aplikacyjnej bez równoległości (777: 1,4 s → 3,6 s); szczegóły w Outcome.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

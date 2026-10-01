@@ -89,7 +89,7 @@ def _wire(
             return outcome
 
     monkeypatch.setattr(script, "ApiSettings", SimpleNamespace(from_environment=lambda: None))
-    monkeypatch.setattr(script, "create_database_engine", lambda settings: None)
+    monkeypatch.setattr(script, "create_maintenance_database_engine", lambda settings: None)
     monkeypatch.setattr(script, "create_session_factory", lambda engine: _Sessions())
     monkeypatch.setattr(script, "game_storage_scope", lambda game_id: nullcontext())
     monkeypatch.setattr(script, "CellLevelVerificationMigrationRepository", _Repository)

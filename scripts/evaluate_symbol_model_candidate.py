@@ -12,7 +12,10 @@ from typing import Any
 from uuid import UUID
 
 from game_predictor_api.config import get_settings
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.symbol_model_snapshot_resolver import (
     SqlAlchemySymbolModelSnapshotResolver,
 )
@@ -124,7 +127,7 @@ def main() -> int:
             raise V19SymbolCandidateError(
                 "V19_CANDIDATE_DECISION_DRIFT", "Candidate decision contract changed."
             )
-        session = create_session_factory(create_database_engine(settings))()
+        session = create_session_factory(create_maintenance_database_engine(settings))()
         active = SqlAlchemySymbolModelSnapshotResolver(
             session, artifact_root=settings.artifact_root
         ).resolve(game_id=UUID(str(descriptor["gameId"])))

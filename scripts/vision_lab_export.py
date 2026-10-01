@@ -822,7 +822,7 @@ def main() -> None:
     parser.add_argument("--output-root", type=Path, required=True)
     arguments = parser.parse_args()
     settings = ApiSettings.from_environment()
-    engine = create_engine(settings.database_url, connect_args={"connect_timeout": 5})
+    engine = create_engine(settings.owner_database_url, connect_args={"connect_timeout": 5})
     try:
         result = export_snapshot(
             engine,

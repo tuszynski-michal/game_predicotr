@@ -126,7 +126,7 @@ class _Seed:
 def database() -> Iterator[_Database]:
     name = "game_predictor_task0760_" + uuid4().hex[:12] + "_test"
     assert re.fullmatch(r"game_predictor_task0760_[0-9a-f]{12}_test", name)
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     assert url.database != name
     maintenance = create_engine(
         url.set(database="postgres"),

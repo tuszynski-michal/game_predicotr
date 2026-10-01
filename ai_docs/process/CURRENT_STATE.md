@@ -130,6 +130,9 @@ last_updated: 2026-10-01
   symbolu” zwracało 500 (`FOR UPDATE` na zewnętrznym złączeniu rewizji
   geometrii); blokada kandydata ma teraz jawną listę tabel. Wymaga restartu
   API.
+- TASK-0781 done (2026-10-02, zgłoszenie operatora): kafelki symboli w
+  „Wyszukaj plansze” są kwadratowe i wypełnione cropem (paleta i pola
+  wzoru), numer skrótu ma przezroczyste tło. Tylko CSS.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

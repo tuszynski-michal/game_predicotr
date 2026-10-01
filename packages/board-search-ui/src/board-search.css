@@ -163,23 +163,26 @@
   cursor: pointer;
 }
 
+/* Square tiles: the symbol crop fills the whole tile (TASK-0781). */
 .boardSearchSymbolButton {
   position: relative;
   gap: 3px;
-  min-height: 88px;
-  padding: 6px 3px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  padding: 0;
 }
 
 .boardSearchSymbolShortcut {
   position: absolute;
   top: 4px;
   left: 4px;
+  z-index: 1;
   min-width: 16px;
   padding: 0 4px;
-  border: 1px solid var(--line-strong);
+  border: 0;
   border-radius: 4px;
-  background: var(--panel-raised);
-  color: var(--muted);
+  background: rgba(8, 14, 24, 0.4);
+  color: rgba(255, 255, 255, 0.82);
   font-family: inherit;
   font-size: 10px;
   font-weight: 800;
@@ -206,10 +209,11 @@
 }
 
 .boardSearchSymbolButton > img {
-  width: 38px;
-  height: 38px;
-  border-radius: 7px;
-  object-fit: contain;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .boardSearchSymbolButton > span,
@@ -223,6 +227,18 @@
 .boardSearchSymbolButton > span {
   font-size: 9px;
   font-weight: 800;
+}
+
+/* Over a crop the name is a soft caption along the bottom edge. */
+.boardSearchSymbolButton > img ~ span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 2px 4px;
+  background: rgba(8, 14, 24, 0.4);
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
 }
 
 .boardSearchUnknownButton > strong {
@@ -243,16 +259,25 @@
 }
 
 .boardSearchCell {
+  position: relative;
   gap: 2px;
   aspect-ratio: 1;
+  overflow: hidden;
   padding: 4px 2px;
 }
 
 .boardSearchCell > img {
-  width: min(70%, 38px);
-  aspect-ratio: 1;
-  border-radius: 9px;
-  object-fit: contain;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The crop identifies the symbol; its name stays in the accessible label. */
+.boardSearchCell > img ~ strong,
+.boardSearchCell > img ~ small {
+  display: none;
 }
 
 .boardSearchCell strong {

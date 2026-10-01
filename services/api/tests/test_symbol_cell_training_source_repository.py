@@ -146,3 +146,80 @@ def test_virtual_candidate_uses_checksum_bound_renderer_without_crop_file(
     assert candidate.asset_mode == "virtual_source"
     assert candidate.crop_relative_path is None
     assert candidate.rendered_pixel_checksum_sha256 == crop_checksum
+
+
+def test_inventory_rows_get_render_specs_from_one_manifest_read(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """D-467 S7 (TASK-0792): the inventory no longer reads the cell column."""
+
+    from game_predictor_api.storage import symbol_cell_training_source_repository as module
+
+    game_id, board_id = uuid4(), uuid4()
+    rows = (
+        {
+            "recognized_board_id": board_id,
+            "geometry_revision": 3,
+            "cell_index": 4,
+            "asset_mode": "virtual_source",
+            "render_spec_checksum_sha256": "1" * 64,
+        },
+        {
+            "recognized_board_id": str(board_id),
+            "geometry_revision": 3,
+            "cell_index": 9,
+            "asset_mode": "virtual_source",
+            "render_spec_checksum_sha256": "2" * 64,
+        },
+        {
+            "recognized_board_id": uuid4(),
+            "geometry_revision": 0,
+            "cell_index": 1,
+            "asset_mode": "legacy_file",
+            "render_spec_checksum_sha256": None,
+        },
+    )
+    calls: list[tuple[object, tuple[object, ...]]] = []
+
+    def load(_session, *, game_id, keys):  # type: ignore[no-untyped-def]
+        requested = tuple(keys)
+        calls.append((game_id, requested))
+        return {key: {"cellIndex": key.cell_index} for key in requested}
+
+    monkeypatch.setattr(module, "load_cell_render_specs", load)
+    merged = module._with_manifest_render_specs(Mock(), game_id=game_id, rows=rows)
+
+    assert [row["render_spec"] for row in merged] == [{"cellIndex": 4}, {"cellIndex": 9}, None]
+    assert [{**row, "render_spec": None} for row in merged] == [
+        {**row, "render_spec": None} for row in rows
+    ]
+    assert len(calls) == 1 and calls[0][0] == game_id
+    assert [
+        (key.recognized_board_id, key.geometry_revision, key.cell_index)  # type: ignore[attr-defined]
+        for key in calls[0][1]
+    ] == [(board_id, 3, 4), (board_id, 3, 9)]
+
+
+def test_inventory_sql_selects_no_render_spec_column(monkeypatch: pytest.MonkeyPatch) -> None:
+    from game_predictor_api.storage import symbol_cell_training_source_repository as module
+
+    session = Mock()
+    session.execute.return_value.mappings.return_value.one.return_value = {
+        "unknown_count": 0,
+        "unreadable_count": 0,
+        "grid_issue_count": 0,
+        "changed_crop_count": 0,
+    }
+    session.execute.return_value.mappings.return_value.__iter__ = lambda _self: iter(())
+    monkeypatch.setattr(module, "load_cell_render_specs", lambda *_args, **_kwargs: {})
+    repository = SqlAlchemySymbolCellTrainingSourceRepository(session, Path("."))
+
+    inventory = repository.inventory(game_id=uuid4(), lock_game=False)
+
+    assert inventory.candidates == ()
+    statements = [str(call.args[0]) for call in session.execute.call_args_list]
+    assert len(statements) == 2
+    for sql in statements:
+        assert "c.*" not in sql
+        assert "c.render_spec," not in sql and "c.render_spec\n" not in sql
+    assert "c.render_spec_checksum_sha256" in statements[1]

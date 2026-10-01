@@ -23,6 +23,10 @@ from game_predictor_api.domain.symbol_references import (
     ApprovedSymbolReferenceCandidate,
     SymbolReferenceImage,
 )
+from game_predictor_api.storage.cell_render_specs import (
+    CellRenderSpecKey,
+    load_cell_render_specs,
+)
 from game_predictor_api.storage.models import (
     GameModel,
     ImageBoardSearchFastDocumentModel,
@@ -82,7 +86,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                 cell_review_id,
             ).limit(limit)
         ).all()
-        return self._to_candidates(rows)
+        return self._to_candidates(rows, game_id=game_id)
 
     def get_candidate(
         self, *, game_id: UUID, symbol_id: UUID, cell_review_id: UUID
@@ -95,7 +99,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
         ).one_or_none()
         if row is None:
             return None
-        return self._to_candidates((row,))[0]
+        return self._to_candidates((row,), game_id=game_id)[0]
 
     def get_cell_review_candidate(
         self, *, game_id: UUID, cell_review_id: UUID
@@ -115,7 +119,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
         ).one_or_none()
         if row is None:
             return None
-        return symbol_id, self._to_candidates((row,))[0]
+        return symbol_id, self._to_candidates((row,), game_id=game_id)[0]
 
     def get_reference(self, *, game_id: UUID, symbol_id: UUID) -> SymbolReferenceImage | None:
         row = self._session.execute(
@@ -229,7 +233,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
             .where(ImageSymbolReviewCellModel.id == cell_review_id)
             .with_for_update()
         ).one_or_none()
-        return None if row is None else self._to_candidates((row,))[0]
+        return None if row is None else self._to_candidates((row,), game_id=game_id)[0]
 
     def _symbol_code(self, game_id: UUID, symbol_id: UUID) -> str:
         code = self._session.scalar(
@@ -310,7 +314,23 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
             )
         )
 
-    def _to_candidates(self, rows: Sequence[Any]) -> tuple[ApprovedSymbolReferenceCandidate, ...]:
+    def _to_candidates(
+        self, rows: Sequence[Any], *, game_id: UUID
+    ) -> tuple[ApprovedSymbolReferenceCandidate, ...]:
+        # D-467 S7 (TASK-0792): one batched manifest read for the page; the
+        # candidate query already restricts cells to the board's current
+        # revision and source geometry, so every virtual cell has a manifest.
+        keys = {
+            review_cell.id: CellRenderSpecKey(
+                recognized_board_id=review_cell.recognized_board_id,
+                geometry_revision=review_cell.geometry_revision,
+                cell_index=review_cell.cell_index,
+                render_spec_checksum_sha256=str(review_cell.render_spec_checksum_sha256),
+            )
+            for review_cell, *_ in rows
+            if review_cell.asset_mode == "virtual_source"
+        }
+        render_specs = load_cell_render_specs(self._session, game_id=game_id, keys=keys.values())
         candidates: list[ApprovedSymbolReferenceCandidate] = []
         for (
             review_cell,
@@ -337,7 +357,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                     current_source_geometry_revision_id=board.source_geometry_revision_id,
                     geometry_checksum_sha256=geometry_checksum,
                     logical_cell_key=review_cell.logical_cell_key,
-                    render_spec=review_cell.render_spec,
+                    render_spec=render_specs[keys[review_cell.id]],
                     render_spec_checksum_sha256=review_cell.render_spec_checksum_sha256,
                     rendered_pixel_checksum_sha256=review_cell.rendered_pixel_checksum_sha256,
                     extractor_version=review_cell.extractor_version,

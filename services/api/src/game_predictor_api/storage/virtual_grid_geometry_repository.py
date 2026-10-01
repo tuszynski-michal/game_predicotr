@@ -64,6 +64,10 @@ from game_predictor_api.storage.board_render_manifest_repository import add_boar
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.cell_render_specs import (
+    CellRenderSpecKey,
+    load_cell_render_specs,
+)
 from game_predictor_api.storage.image_geometry_v2_repository import (
     ImageGeometryPersistenceError,
     SourceGeometryRevisionInput,
@@ -83,6 +87,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     _verification_v2,
 )
 from game_predictor_api.storage.models import (
+    BoardRenderManifestModel,
     GameModel,
     ImageBoardGeometryPendingModel,
     ImageBoardGeometryReviewEventModel,
@@ -1871,6 +1876,36 @@ class SqlAlchemyVirtualGridGeometryRepository:
             return None
         return revisions[0]
 
+    def _review_cell_configurations(
+        self,
+        *,
+        game_id: UUID,
+        review_cells: tuple[ImageSymbolReviewCellModel, ...],
+    ) -> tuple[DirectCellRenderConfiguration, ...]:
+        """Pinned configurations of the current review cells (D-467 S7, TASK-0792).
+
+        The render specifications come from the board render manifest of each
+        cell's revision (one batched read), verified against the cell checksum.
+        """
+
+        keys: list[CellRenderSpecKey] = []
+        for cell in review_cells:
+            if cell.asset_mode != "virtual_source" or cell.render_spec_checksum_sha256 is None:
+                raise ImageGridReviewError(
+                    "IMAGE_GRID_REVIEW_RENDER_CONFIGURATION_INVALID",
+                    "A virtual review cell has no pinned render configuration.",
+                )
+            keys.append(
+                CellRenderSpecKey(
+                    recognized_board_id=cell.recognized_board_id,
+                    geometry_revision=cell.geometry_revision,
+                    cell_index=cell.cell_index,
+                    render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
+                )
+            )
+        specs = load_cell_render_specs(self._session, game_id=game_id, keys=keys)
+        return tuple(_configuration(dict(specs[key])) for key in keys)
+
     def _pending_render_configuration(
         self,
         *,
@@ -1878,26 +1913,30 @@ class SqlAlchemyVirtualGridGeometryRepository:
         import_job_id: UUID,
         job: JobModel,
     ) -> DirectCellRenderConfiguration:
+        # D-467 S7 (TASK-0792): the pinned configuration of the source's (or,
+        # failing that, the import's) current virtual cells comes from a
+        # current-revision board render manifest; only its first entry's
+        # render specification is fetched.  All cells of one import share the
+        # configuration, which ``_configuration`` validates.
+        first_render_spec = BoardRenderManifestModel.cells["cells"][0]["renderSpec"]
+        current_manifest = and_(
+            RecognizedBoardModel.id == BoardRenderManifestModel.recognized_board_id,
+            RecognizedBoardModel.geometry_revision == BoardRenderManifestModel.geometry_revision,
+        )
         render_spec = self._session.scalar(
-            select(ImageSymbolReviewCellModel.render_spec)
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == ImageSymbolReviewCellModel.recognized_board_id,
-            )
-            .where(
-                ImageSymbolReviewCellModel.asset_mode == "virtual_source",
-                RecognizedBoardModel.source_image_id == source_image_id,
-            )
-            .order_by(ImageSymbolReviewCellModel.cell_index)
+            select(first_render_spec)
+            .join(RecognizedBoardModel, current_manifest)
+            .where(RecognizedBoardModel.source_image_id == source_image_id)
+            .order_by(RecognizedBoardModel.position_index, RecognizedBoardModel.id)
             .limit(1)
         )
         if render_spec is None:
             render_spec = self._session.scalar(
-                select(ImageSymbolReviewCellModel.render_spec)
-                .where(
-                    ImageSymbolReviewCellModel.asset_mode == "virtual_source",
-                    ImageSymbolReviewCellModel.import_job_id == import_job_id,
-                )
+                select(first_render_spec)
+                .join(RecognizedBoardModel, current_manifest)
+                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+                .where(SourceImageModel.import_job_id == import_job_id)
+                .order_by(RecognizedBoardModel.id)
                 .limit(1)
             )
         if render_spec is not None:
@@ -2104,8 +2143,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "IMAGE_GRID_REVIEW_CELLS_INCOMPLETE",
                 "The current virtual board does not contain every review cell.",
             )
-        configurations = initial_configurations or tuple(
-            _configuration(cell.render_spec) for cell in review_cells
+        configurations = initial_configurations or self._review_cell_configurations(
+            game_id=rollout.game_id, review_cells=review_cells
         )
         if not configurations and board.geometry_qualification is not None:
             revision = self._session.scalar(

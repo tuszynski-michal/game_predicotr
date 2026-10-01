@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable, Iterator, Mapping
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any, cast
@@ -7,9 +8,11 @@ from unittest.mock import Mock, patch
 from uuid import uuid4
 
 import pytest
+from game_predictor_api.domain.board_render_manifests import sha256_canonical_json
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
+from game_predictor_api.storage.cell_render_specs import CellRenderSpecKey
 from game_predictor_api.storage.image_grid_review_repository import _pending_row_to_item
 from game_predictor_api.storage.models import (
     BoardRenderManifestModel,
@@ -50,9 +53,7 @@ def _base_manifest(board_id: object, game_id: object, indices: range) -> BoardRe
         asset_mode="virtual_source",
         source_geometry_revision_id=uuid4(),
         extractor_version="direct-perspective-cell-v2",
-        cells={
-            "cells": [{"cellIndex": i, "renderSpec": _review_cell(i).render_spec} for i in indices]
-        },
+        cells={"cells": [{"cellIndex": i, "renderSpec": _RENDER_SPEC} for i in indices]},
         manifest_checksum_sha256="a" * 64,
     )
 
@@ -138,18 +139,41 @@ def test_legacy_pending_materialization_keeps_deferred_backfill() -> None:
 @pytest.mark.parametrize("backfill_status", ("not_started", "rebuilding", "failed"))
 def test_current_virtual_source_context_is_not_blocked_by_another_source_backfill(
     backfill_status: str,
+    manifest_specs: list[tuple[object, tuple[CellRenderSpecKey, ...]]],
 ) -> None:
     session = Mock()
     session.scalars.return_value = tuple(_review_cell(index) for index in range(15))
     repository = SqlAlchemyVirtualGridGeometryRepository(session)
+    row = _complete_current_virtual_row(backfill_status=backfill_status)
 
-    context = repository._context_from_row(  # noqa: SLF001 - repository boundary regression
-        _complete_current_virtual_row(backfill_status=backfill_status)
-    )
+    context = repository._context_from_row(row)  # noqa: SLF001 - repository boundary regression
 
     assert context.active_board_slots == (0,)
     assert context.position_index == 0
     assert context.topology.cell_count == 15
+    assert context.render_configuration.output_width == 64
+    # D-467 S7: one batched manifest read keyed by the cells' render identity.
+    assert len(manifest_specs) == 1
+    game_id, keys = manifest_specs[0]
+    assert game_id == cast(Any, row[4]).game_id
+    assert keys == tuple(
+        CellRenderSpecKey(_REVIEW_BOARD_ID, 0, index, _RENDER_SPEC_CHECKSUM) for index in range(15)
+    )
+
+
+def test_context_rejects_a_review_cell_without_virtual_render_identity(
+    manifest_specs: list[tuple[object, tuple[CellRenderSpecKey, ...]]],
+) -> None:
+    session = Mock()
+    cells = tuple(_review_cell(index) for index in range(15))
+    cells[4].render_spec_checksum_sha256 = None
+    session.scalars.return_value = cells
+    with pytest.raises(ImageGridReviewError) as raised:
+        SqlAlchemyVirtualGridGeometryRepository(session)._context_from_row(
+            _complete_current_virtual_row(backfill_status="complete")
+        )
+    assert raised.value.code == "IMAGE_GRID_REVIEW_RENDER_CONFIGURATION_INVALID"
+    assert manifest_specs == []
 
 
 def test_current_virtual_source_context_still_rejects_incomplete_cell_projection() -> None:
@@ -175,6 +199,7 @@ def test_virtual_geometry_crop_artifacts_none_binds_as_sql_null() -> None:
 
 
 @pytest.mark.parametrize("missing", ((0, 5, 10), tuple(range(15))))
+@pytest.mark.usefixtures("manifest_specs")
 def test_qualified_context_reopens_partial_and_fully_unavailable_boards(missing) -> None:
     row = _complete_current_virtual_row(backfill_status="not_started")
     board = row[1]
@@ -189,7 +214,7 @@ def test_qualified_context_reopens_partial_and_fully_unavailable_boards(missing)
     session.scalars.return_value = tuple(
         _review_cell(index) for index in range(15) if index not in missing
     )
-    session.scalar.return_value = SimpleNamespace(virtual_render_spec=_review_cell().render_spec)
+    session.scalar.return_value = SimpleNamespace(virtual_render_spec=_RENDER_SPEC)
 
     context = SqlAlchemyVirtualGridGeometryRepository(session)._context_from_row(row)
 
@@ -200,6 +225,7 @@ def test_qualified_context_reopens_partial_and_fully_unavailable_boards(missing)
     assert "source_available IS true" in sql
 
 
+@pytest.mark.usefixtures("manifest_specs")
 def test_qualified_context_only_excludes_fully_unavailable_cells_for_v3() -> None:
     row = _complete_current_virtual_row(backfill_status="not_started")
     board = row[1]
@@ -220,7 +246,7 @@ def test_qualified_context_only_excludes_fully_unavailable_cells_for_v3() -> Non
     session.scalars.return_value = tuple(
         _review_cell(index) for index in range(15) if index not in fully_unavailable
     )
-    session.scalar.return_value = SimpleNamespace(virtual_render_spec=_review_cell().render_spec)
+    session.scalar.return_value = SimpleNamespace(virtual_render_spec=_RENDER_SPEC)
 
     context = SqlAlchemyVirtualGridGeometryRepository(session)._context_from_row(row)
 
@@ -517,22 +543,51 @@ def _complete_current_virtual_row(*, backfill_status: str) -> tuple[object, ...]
     )
 
 
+_RENDER_SPEC: dict[str, object] = {
+    "configuration": {
+        "extractorVersion": "virtual-cell-renderer-v1",
+        "preprocessingVersion": "rgb-v1",
+        "interpolation": "bilinear-v1",
+        "outputWidth": 64,
+        "outputHeight": 64,
+        "paddingFraction": 0.0,
+    }
+}
+_RENDER_SPEC_CHECKSUM = sha256_canonical_json(_RENDER_SPEC)
+_REVIEW_BOARD_ID = uuid4()
+
+
 def _review_cell(index: int = 0) -> SimpleNamespace:
+    # D-467 S7: a review cell carries only the render-spec checksum; the
+    # specification is resolved from the board render manifest.
     return SimpleNamespace(
         cell_index=index,
         geometry_revision=0,
         source_available=True,
-        render_spec={
-            "configuration": {
-                "extractorVersion": "virtual-cell-renderer-v1",
-                "preprocessingVersion": "rgb-v1",
-                "interpolation": "bilinear-v1",
-                "outputWidth": 64,
-                "outputHeight": 64,
-                "paddingFraction": 0.0,
-            }
-        },
+        asset_mode="virtual_source",
+        recognized_board_id=_REVIEW_BOARD_ID,
+        render_spec_checksum_sha256=_RENDER_SPEC_CHECKSUM,
     )
+
+
+@pytest.fixture
+def manifest_specs() -> Iterator[list[tuple[object, tuple[CellRenderSpecKey, ...]]]]:
+    """Answer the batched manifest read with ``_RENDER_SPEC`` and record each call."""
+
+    calls: list[tuple[object, tuple[CellRenderSpecKey, ...]]] = []
+
+    def load(
+        session: object, *, game_id: object, keys: Iterable[CellRenderSpecKey]
+    ) -> dict[CellRenderSpecKey, Mapping[str, object]]:
+        requested = tuple(keys)
+        calls.append((game_id, requested))
+        return {key: _RENDER_SPEC for key in requested}
+
+    with patch(
+        "game_predictor_api.storage.virtual_grid_geometry_repository.load_cell_render_specs",
+        side_effect=load,
+    ):
+        yield calls
 
 
 def _virtual_cell(index: int, *, symbol_id: object, **values: object) -> ImageSymbolReviewCellModel:
@@ -672,3 +727,33 @@ def test_every_manual_virtual_geometry_reopens_a_resolved_board(qualification: o
 
     # D-462: a resolved layout must not survive pixels that just changed.
     operational.return_value.reopen_for_symbol_cell_issue.assert_called_once()
+
+
+def test_pending_render_configuration_reads_a_current_manifest_not_cells() -> None:
+    """D-467 S7: the pinned configuration comes from a current-revision manifest."""
+
+    session = Mock()
+    session.scalar.side_effect = [_RENDER_SPEC]
+    configuration = SqlAlchemyVirtualGridGeometryRepository(session)._pending_render_configuration(
+        source_image_id=uuid4(), import_job_id=uuid4(), job=Mock()
+    )
+    assert configuration.output_width == 64
+    assert session.scalar.call_count == 1
+    sql = str(session.scalar.call_args.args[0].compile(dialect=postgresql.dialect()))
+    assert "board_render_manifests" in sql
+    assert "image_symbol_review_cells" not in sql
+    assert "recognized_boards.geometry_revision = board_render_manifests.geometry_revision" in sql
+    assert "recognized_boards.source_image_id" in sql
+
+
+def test_pending_render_configuration_falls_back_to_the_import_manifests() -> None:
+    session = Mock()
+    session.scalar.side_effect = [None, _RENDER_SPEC]
+    configuration = SqlAlchemyVirtualGridGeometryRepository(session)._pending_render_configuration(
+        source_image_id=uuid4(), import_job_id=uuid4(), job=Mock()
+    )
+    assert configuration.output_width == 64
+    fallback = str(session.scalar.call_args.args[0].compile(dialect=postgresql.dialect()))
+    assert "board_render_manifests" in fallback
+    assert "source_images.import_job_id" in fallback
+    assert "image_symbol_review_cells" not in fallback

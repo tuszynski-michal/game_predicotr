@@ -294,6 +294,15 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   `scripts/evaluate_symbol_reference_library.py`) przepięte na manifest z
   S4 przez `(recognized_board_id, geometry_revision, cell_index)`;
   komórka zachowuje `render_spec_checksum_sha256` i klucze tożsamości.
+  Wykonanie (2026-10-01, przed commitem): wspólny czytelnik
+  `storage/cell_render_specs.py` (wsadowo, kontrola sum, kody
+  `IMAGE_REVIEW_RENDER_MANIFEST_MISSING` / `…_SPEC_MISSING` /
+  `…_SPEC_MISMATCH`); przepięte `get_assets` (podgląd, atlas, PNG),
+  kandydaci wzorca, inwentarz kohort, kontekst i konfiguracja ręcznej
+  geometrii, walidacja rolloutu, skrypt ewaluacji biblioteki; strażnik
+  rekonsyliacji bez kolumny. Pisarze nadal zapisują `render_spec` (CHECK
+  komórek), kolumna w ORM odroczona z `raiseload`; TASK-0793 usuwa kolumnę,
+  CHECK i zapisy razem. Szczegóły i pomiary w Outcome zadania i D-467.
 - **TASK-0793** — migracja `0136`: kolumna `render_spec` w
   `image_symbol_review_cells` usunięta; odzyskanie miejsca przez przepisanie
   partycji (`VACUUM FULL` albo swap partycji; ACCESS EXCLUSIVE, wymaga

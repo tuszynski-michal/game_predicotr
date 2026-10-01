@@ -26,6 +26,11 @@ import cv2
 import numpy as np
 import torch
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.storage.cell_render_specs import (
+    CellRenderSpecError,
+    CellRenderSpecKey,
+    load_cell_render_specs,
+)
 from game_predictor_api.storage.database import create_database_engine, create_session_factory
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_worker.images.normalization import (
@@ -91,7 +96,9 @@ _CELL_COLUMNS = """
     c.prediction_symbol_code AS prediction_symbol_code,
     c.prediction_confidence AS prediction_confidence,
     c.rendered_pixel_checksum_sha256 AS rendered_pixel_checksum_sha256,
-    c.render_spec AS render_spec
+    c.recognized_board_id AS recognized_board_id,
+    c.geometry_revision AS geometry_revision,
+    c.render_spec_checksum_sha256 AS render_spec_checksum_sha256
 """
 
 _REFERENCE_SQL = f"""
@@ -112,7 +119,7 @@ WITH eligible AS (
     AND c.source_available = true
     AND c.quality_issue IS NULL
     AND (c.source_visibility IS NULL OR c.source_visibility = 'full')
-    AND c.render_spec IS NOT NULL
+    AND c.render_spec_checksum_sha256 IS NOT NULL
     AND c.approved_render_spec_checksum_sha256 = c.render_spec_checksum_sha256
     AND c.approved_rendered_pixel_checksum_sha256 = c.rendered_pixel_checksum_sha256
     AND s.status = 'active'
@@ -142,7 +149,7 @@ WHERE c.game_id = :game_id
   AND c.source_available = true
   AND c.quality_issue IS NULL
   AND (c.source_visibility IS NULL OR c.source_visibility = 'full')
-  AND c.render_spec IS NOT NULL
+  AND c.render_spec_checksum_sha256 IS NOT NULL
   AND c.prediction_symbol_code = ANY(:symbols)
   AND c.prediction_confidence >= :min_confidence
   AND c.prediction_confidence < :max_confidence
@@ -158,7 +165,7 @@ FROM (
            WHEN NOT c.source_available THEN 'source_unavailable'
            WHEN c.source_visibility IS NOT NULL AND c.source_visibility <> 'full'
              THEN 'visibility:' || c.source_visibility
-           WHEN c.render_spec IS NULL THEN 'render_spec_missing'
+           WHEN c.render_spec_checksum_sha256 IS NULL THEN 'render_spec_missing'
          END AS reason
   FROM game_data_v2.image_symbol_review_cells c
   WHERE c.game_id = :game_id
@@ -189,7 +196,7 @@ WITH eligible AS (
     AND c.source_available = true
     AND c.quality_issue IS NULL
     AND (c.source_visibility IS NULL OR c.source_visibility = 'full')
-    AND c.render_spec IS NOT NULL
+    AND c.render_spec_checksum_sha256 IS NOT NULL
     AND c.prediction_symbol_code IS NOT NULL
     AND c.prediction_confidence >= :min_confidence
     AND c.prediction_confidence < :max_confidence
@@ -351,6 +358,32 @@ def _quad(value: object, label: str) -> tuple[tuple[float, float], ...]:
             )
         points.append((float(point["x"]), float(point["y"])))
     return tuple(points)
+
+
+def _with_render_specs(
+    connection: Connection, game_id: str, rows: Sequence[Mapping[Any, Any]]
+) -> list[dict[str, Any]]:
+    """Attach each cell's render spec from its board render manifest (D-467 S7).
+
+    One batched, checksum-verified read; the cell column is no longer read.
+    """
+
+    keys = [
+        CellRenderSpecKey(
+            recognized_board_id=UUID(str(row["recognized_board_id"])),
+            geometry_revision=int(row["geometry_revision"]),
+            cell_index=int(row["cell_index"]),
+            render_spec_checksum_sha256=str(row["render_spec_checksum_sha256"]),
+        )
+        for row in rows
+    ]
+    try:
+        specs = load_cell_render_specs(
+            connection, game_id=UUID(game_id), keys=keys, schema="game_data_v2"
+        )
+    except CellRenderSpecError as error:
+        raise EvaluationError(error.code, error.message) from error
+    return [{**row, "render_spec": specs[key]} for row, key in zip(rows, keys, strict=True)]
 
 
 def _cell(row: Mapping[str, Any]) -> Cell:
@@ -859,21 +892,33 @@ def _read_snapshot(
                 ).mappings()
             }
             references = [
-                _cell(cast(Mapping[str, Any], row))
-                for row in connection.execute(
-                    text(_REFERENCE_SQL),
-                    {
-                        "game_id": game_id,
-                        "per_group": references_per_group,
-                        "exclude_bulk_approve": REFERENCE_POLICIES[reference_policy],
-                    },
-                ).mappings()
+                _cell(row)
+                for row in _with_render_specs(
+                    connection,
+                    game_id,
+                    connection.execute(
+                        text(_REFERENCE_SQL),
+                        {
+                            "game_id": game_id,
+                            "per_group": references_per_group,
+                            "exclude_bulk_approve": REFERENCE_POLICIES[reference_policy],
+                        },
+                    )
+                    .mappings()
+                    .all(),
+                )
             ]
             pending = [
-                _cell(cast(Mapping[str, Any], row))
-                for row in connection.execute(
-                    text(pending_sql), {"game_id": game_id, **pending_parameters}
-                ).mappings()
+                _cell(row)
+                for row in _with_render_specs(
+                    connection,
+                    game_id,
+                    connection.execute(
+                        text(pending_sql), {"game_id": game_id, **pending_parameters}
+                    )
+                    .mappings()
+                    .all(),
+                )
             ]
             not_in_scope = (
                 {

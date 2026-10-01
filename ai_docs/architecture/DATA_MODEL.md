@@ -1356,6 +1356,25 @@ symbolu, natomiast jawne rozwiązanie pola `unreadable` może zatwierdzić domen
 Indeksy wspierają przyszłe listowanie po grze/symbolu/stanie i filtrowanie
 plansz mających problem siatki.
 
+Specyfikacja renderu komórki `virtual_source` (D-467 S7, TASK-0792): komórka
+przechowuje tożsamość renderu (`recognized_board_id`, `geometry_revision`,
+`cell_index`, `render_spec_checksum_sha256`, klucze logiczne, suma pikseli),
+a pełny `renderSpec` czytelnicy biorą z `board_render_manifests.cells[]` dla
+`(game_id, recognized_board_id, geometry_revision, cellIndex)` przez wspólny
+czytelnik `storage/cell_render_specs.py` (jedno zapytanie na porcję do 2 000
+komórek, rozwinięcie tylko żądanych wpisów manifestu po stronie bazy).
+Czytelnik wymaga zgodności `renderSpecChecksumSha256` wpisu oraz kanonicznej
+sumy jego `renderSpec` z sumą komórki i odmawia jawnie:
+`IMAGE_REVIEW_RENDER_MANIFEST_MISSING` (brak manifestu rewizji komórki),
+`IMAGE_REVIEW_RENDER_SPEC_MISSING` (brak jednoznacznego wpisu komórki),
+`IMAGE_REVIEW_RENDER_SPEC_MISMATCH` (inna suma). Kolumna
+`image_symbol_review_cells.render_spec` jest do TASK-0793 wyłącznie
+zapisywana (CHECK `ck_image_symbol_review_cells_asset_provenance` nadal jej
+wymaga); w modelu ORM jest odroczona z `raiseload`, więc odczyt z bazy zgłasza
+błąd zamiast cicho czytać duplikat. TASK-0793 usuwa kolumnę, CHECK i zapisy
+razem. Zamrożone komórki kohort (`verified_training_cohort_cells.render_spec`)
+i manifest kohorty pozostają własnym, niezmiennym zapisem treningu.
+
 W `game_data_v2` ta sama tabela jest jedyną bieżącą projekcją i dodatkowo ma
 unikalność `(game_id, sequence_number, cell_index)`. Wiersz ma stabilną
 tożsamość logicznej pozycji: reprocessing i zmiana kanonicznego właściciela
@@ -2441,7 +2460,10 @@ odpowiedzialności nie są równorzędne:
 - `recognized_boards.board_geometry` jest projekcją kompatybilnościową;
 - `image_board_geometry_revisions` przechowuje komendę i audyt korekty;
 - `board_render_manifests.cells` przechowuje proweniencję renderu bieżącej
-  rewizji planszy (do `0134` także `cell_observations.render_spec`).
+  rewizji planszy (do `0134` także `cell_observations.render_spec`) i od
+  D-467 S7 (TASK-0792) jest jedynym źródłem specyfikacji renderu komórki
+  weryfikacji dla czytelników; `image_symbol_review_cells.render_spec` jest
+  wyłącznie zapisywany do czasu usunięcia kolumny (TASK-0793).
 
 Pełna mapa ról, invarianty cross-table, reguły manualnego recropu i projekt
 addytywnej korekty znajdują się w

@@ -109,11 +109,11 @@ def _render_spec() -> dict[str, object]:
 
 def test_render_identity_backfill_is_idempotent_and_conflicts_fail_closed() -> None:
     repository = SqlAlchemyImageGeometryRolloutBackfillRepository(cast(Session, object()))
+    # D-467 S7: a review cell carries no render spec; the manifest spec is passed.
     cell = SimpleNamespace(
         cell_index=0,
         row_index=0,
         column_index=0,
-        render_spec=_render_spec(),
         logical_cell_key_v2=None,
         render_identity_v2_sha256=None,
     )
@@ -124,6 +124,7 @@ def test_render_identity_backfill_is_idempotent_and_conflicts_fail_closed() -> N
         topology=BoardTopology(rows=3, columns=5),
         board=SimpleNamespace(position_index=0),
         cell=cell,
+        render_spec=_render_spec(),
     )
     second = repository._backfill_render_identity(
         source=_source(),
@@ -131,6 +132,7 @@ def test_render_identity_backfill_is_idempotent_and_conflicts_fail_closed() -> N
         topology=BoardTopology(rows=3, columns=5),
         board=SimpleNamespace(position_index=0),
         cell=cell,
+        render_spec=_render_spec(),
     )
 
     assert first == 1
@@ -146,6 +148,7 @@ def test_render_identity_backfill_is_idempotent_and_conflicts_fail_closed() -> N
             topology=BoardTopology(rows=3, columns=5),
             board=SimpleNamespace(position_index=0),
             cell=cell,
+            render_spec=_render_spec(),
         )
     assert raised.value.code == "IMAGE_V2_RENDER_IDENTITY_PERSISTENCE_MISMATCH"
 

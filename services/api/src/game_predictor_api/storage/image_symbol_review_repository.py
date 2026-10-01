@@ -106,6 +106,10 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.cell_render_specs import (
+    CellRenderSpecKey,
+    load_cell_render_specs,
+)
 from game_predictor_api.storage.current_board_cell_sources import (
     NO_CELL_SOURCES,
     CurrentBoardCellSources,
@@ -802,6 +806,36 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
             )
             .where(cell.game_id == game_id, cell.id.in_(cell_review_ids), cell.asset_mode != "none")
         ).all()
+        # D-467 S7 (TASK-0792): the render specification comes from the board
+        # render manifest of the cell's revision, verified against the cell's
+        # checksum; the cell column is no longer read.  A drifted virtual cell
+        # is rejected here, as the application layer would reject it anyway.
+        virtual_keys: dict[UUID, CellRenderSpecKey] = {}
+        for review_cell, current_geometry_revision, current_source_id, *_ in rows:
+            if review_cell.asset_mode != "virtual_source":
+                continue
+            if (
+                review_cell.geometry_revision != int(current_geometry_revision)
+                or review_cell.source_geometry_revision_id != current_source_id
+            ):
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CROP_DRIFT",
+                    "The symbol-cell crop no longer belongs to the current geometry revision.",
+                )
+            if review_cell.render_spec_checksum_sha256 is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_VIRTUAL_PROVENANCE_INVALID",
+                    "A virtual symbol review cell has no render checksum.",
+                )
+            virtual_keys[review_cell.id] = CellRenderSpecKey(
+                recognized_board_id=review_cell.recognized_board_id,
+                geometry_revision=review_cell.geometry_revision,
+                cell_index=review_cell.cell_index,
+                render_spec_checksum_sha256=review_cell.render_spec_checksum_sha256,
+            )
+        render_specs = load_cell_render_specs(
+            self._session, game_id=game_id, keys=virtual_keys.values()
+        )
         return tuple(
             SymbolCellReviewAsset(
                 cell_review_id=review_cell.id,
@@ -825,7 +859,11 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                     None if review_cell.asset_mode != "virtual_source" else geometry_checksum
                 ),
                 logical_cell_key=review_cell.logical_cell_key,
-                render_spec=review_cell.render_spec,
+                render_spec=(
+                    render_specs[virtual_keys[review_cell.id]]
+                    if review_cell.id in virtual_keys
+                    else None
+                ),
                 render_spec_checksum_sha256=review_cell.render_spec_checksum_sha256,
                 rendered_pixel_checksum_sha256=review_cell.rendered_pixel_checksum_sha256,
                 extractor_version=review_cell.extractor_version,
@@ -2480,7 +2518,13 @@ class SymbolCellReviewWriteThroughCoordinator:
                             new_geometry=cell.geometry_revision != board.geometry_revision,
                         )
                     )
-                if any(getattr(cell, key) != value for key, value in values.items()):
+                # D-467 S7: ``render_spec`` is write-only; its checksum (and the
+                # asset-mode CHECK) already decide whether the asset changed.
+                if any(
+                    getattr(cell, key) != value
+                    for key, value in values.items()
+                    if key != "render_spec"
+                ):
                     previous = _CellPreviousState.from_model(cell)
                     for key, value in values.items():
                         setattr(cell, key, value)
@@ -3935,7 +3979,8 @@ def _cell_matches_projection(
         and cell.logical_cell_key == review_cell.logical_cell_key
         and cell.logical_cell_key_v2 == review_cell.logical_cell_key_v2
         and cell.render_identity_v2_sha256 == review_cell.render_identity_v2_sha256
-        and cell.render_spec == review_cell.render_spec
+        # D-467 S7: the checksum of the canonical render specification is the
+        # comparison key; the write-only column is never read back.
         and cell.render_spec_checksum_sha256 == review_cell.render_spec_checksum_sha256
         and cell.rendered_pixel_checksum_sha256 == review_cell.rendered_pixel_checksum_sha256
         and cell.extractor_version == review_cell.extractor_version

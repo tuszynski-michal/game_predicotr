@@ -145,3 +145,57 @@ def test_rollout_validation_accepts_a_manifest_only_virtual_board(monkeypatch) -
                 game_id=uuid4(), source=source, board=board, geometry=geometry
             )
         assert error.value.code == "IMAGE_GEOMETRY_ROLLOUT_CELL_PROVENANCE_INVALID"
+
+
+def test_rollout_validation_reads_review_cell_specs_from_the_manifest(monkeypatch) -> None:
+    """D-467 S7 (TASK-0792): review cells carry only checksums; specs come batched."""
+
+    from uuid import uuid4
+
+    from game_predictor_api.storage import image_geometry_rollout_backfill_repository as module
+    from game_predictor_api.storage.cell_render_specs import (
+        RENDER_SPEC_MISMATCH,
+        CellRenderSpecError,
+    )
+
+    board_id, game_id = uuid4(), uuid4()
+    source = SimpleNamespace(id=uuid4())
+    cells = tuple(
+        SimpleNamespace(
+            cell_index=index,
+            geometry_revision=2,
+            recognized_board_id=board_id,
+            asset_mode="none" if index == 0 else "virtual_source",
+            render_spec_checksum_sha256=None if index == 0 else f"{index + 4:064x}",
+        )
+        for index in range(15)
+    )
+    calls: list[tuple[object, ...]] = []
+
+    def load(_session, *, game_id, keys):  # type: ignore[no-untyped-def]
+        requested = tuple(keys)
+        calls.append((game_id, requested))
+        return {key: {"cellIndex": key.cell_index} for key in requested}
+
+    monkeypatch.setattr(module, "load_cell_render_specs", load)
+    repository = module.SqlAlchemyImageGeometryRolloutBackfillRepository(None)  # type: ignore[arg-type]
+    specs = repository._review_cell_render_specs(
+        game_id=game_id,
+        source=source,  # type: ignore[arg-type]
+        review_cells=cells,  # type: ignore[arg-type]
+    )
+    assert specs == {index: {"cellIndex": index} for index in range(1, 15)}
+    assert len(calls) == 1 and calls[0][0] == game_id
+    assert [key.cell_index for key in calls[0][1]] == list(range(1, 15))  # type: ignore[attr-defined]
+
+    def mismatch(_session, *, game_id, keys):  # type: ignore[no-untyped-def]
+        raise CellRenderSpecError(RENDER_SPEC_MISMATCH, "mismatch", key=next(iter(keys)))
+
+    monkeypatch.setattr(module, "load_cell_render_specs", mismatch)
+    with pytest.raises(module.ImageGeometryRolloutBackfillError) as error:
+        repository._review_cell_render_specs(
+            game_id=game_id,
+            source=source,  # type: ignore[arg-type]
+            review_cells=cells,  # type: ignore[arg-type]
+        )
+    assert error.value.code == RENDER_SPEC_MISMATCH

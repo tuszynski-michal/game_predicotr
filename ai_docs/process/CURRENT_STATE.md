@@ -289,6 +289,21 @@ last_updated: 2026-10-01
   przywraca), `EXPECTED_ALEMBIC_HEAD` = `0135`, test PG
   `test_convert_legacy_boards_postgres.py`. Reszta zakresu (ścieżki v19,
   enumy API, CHECK-i ORM, fixture testów) → TASK-0796.
+  Cutover 2026-10-01 ok. 09:30 UTC: konwersja `--execute` 243 źródła /
+  461 plansz / 3 960 komórek w 57 s (0 błędów), `0135` zastosowana (CHECK
+  komórek `NOT VALID`, potem zwalidowany w tle, v1.7.119), 0 plansz
+  `legacy_file`, API wznowione. **Etap S6 zamknięty poza TASK-0796.**
+- TASK-0792 (S7) done (v1.7.120, audyt pominięty): czytelnik
+  `storage/cell_render_specs.py` (wsadowo z manifestów, weryfikacja sumą,
+  kody `IMAGE_REVIEW_RENDER_SPEC_MISSING/MISMATCH`), kolumna
+  `render_spec` komórek w ORM `deferred_raiseload`; przepięte `get_assets`
+  (podgląd/atlas/PNG), kandydaci wzorców, inwentarz kohort, konfiguracja
+  ręcznej geometrii, backfill rolloutu, strażnik rekonsyliacji
+  (`to_jsonb(c) - 'render_spec'`), skrypt ewaluacji biblioteki; pisarze
+  nadal zapisują kolumnę (CHECK) do TASK-0793. Test PG: PNG/atlas bajtowo
+  identyczne, kohorty i kandydaci bez zmian. Pomiar 777: atlas 100 komórek
+  31 ms vs 12 ms z kolumny. Na bazie operatora 7,5 mln komórek ma wpis
+  manifestu bieżącej rewizji (0 różnic sum). Bez migracji — restart usług.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

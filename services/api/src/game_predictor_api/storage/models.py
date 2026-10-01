@@ -2704,8 +2704,12 @@ class ImageSymbolReviewCellModel(Base):
     logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
     render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    # D-467 S7 (TASK-0792): write-only until TASK-0793 drops the column with
+    # its CHECK.  Readers take the render specification from the board render
+    # manifest (``storage/cell_render_specs.py``); loading the attribute from
+    # the database raises instead of silently reading the duplicate.
     render_spec: Mapped[dict[str, object] | None] = mapped_column(
-        JSONB(none_as_null=True), nullable=True
+        JSONB(none_as_null=True), nullable=True, deferred=True, deferred_raiseload=True
     )
     render_spec_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)

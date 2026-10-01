@@ -264,8 +264,12 @@ class PartialBoardReconciliationRepository:
     def _cells(
         self, game_id: UUID, sequence_number: int, *, lock: bool = False
     ) -> list[dict[str, Any]]:
+        # D-467 S7 (TASK-0792): the guard keeps the render-spec checksum but not
+        # the duplicated specification (dropped by TASK-0793), so the guard is
+        # identical before and after the column drop.
         rows = self._execute(
-            f"SELECT to_jsonb(c) FROM {self._table(game_id, 'image_symbol_review_cells')} c "
+            "SELECT to_jsonb(c) - 'render_spec' "
+            f"FROM {self._table(game_id, 'image_symbol_review_cells')} c "
             "WHERE game_id=:game_id AND sequence_number=:number ORDER BY cell_index LIMIT 16"
             + (" FOR UPDATE" if lock else ""),
             game_id=game_id,

@@ -271,6 +271,36 @@ last_updated: 2026-09-30
   `0103`/`0105`/`0106`/`0131`. Listy `cleanup_repository` i
   `symbol_review_statistics` liczą/usuwają `board_render_manifests` zamiast
   obserwacji. `EXPECTED_ALEMBIC_HEAD` = `0134`.
+- **Czytelnicy `render_spec` komórek na manifeście (TASK-0792, S7):** żaden
+  czytelnik runtime nie czyta już `image_symbol_review_cells.render_spec`.
+  Wspólny czytelnik `storage/cell_render_specs.py` zwraca `renderSpec` z
+  `board_render_manifests` dla `(game_id, recognized_board_id,
+  geometry_revision, cell_index)` komórki (wsadowo, jedno zapytanie na porcję
+  do 2 000 komórek, rozwinięcie wyłącznie żądanych wpisów manifestu w bazie) i
+  wymaga, aby zadeklarowana suma wpisu oraz kanoniczna suma jego `renderSpec`
+  były równe `render_spec_checksum_sha256` komórki; inaczej jawne kody
+  `IMAGE_REVIEW_RENDER_MANIFEST_MISSING`, `IMAGE_REVIEW_RENDER_SPEC_MISSING`,
+  `IMAGE_REVIEW_RENDER_SPEC_MISMATCH` (bez cichej podmiany, bez rezerwy na
+  kolumnę lub `virtual_render_spec`). Przepięci: `get_assets` (podgląd, atlas,
+  PNG), kandydaci wzorca symbolu, inwentarz kohort treningowych, kontekst i
+  konfiguracja ręcznej geometrii (`_pending_render_configuration` czyta
+  pierwszy wpis manifestu bieżącej rewizji planszy źródła albo importu),
+  walidacja rolloutu, `scripts/evaluate_symbol_reference_library.py`; strażnik
+  rekonsyliacji plansz częściowych pomija kolumnę (`to_jsonb(c) - 'render_spec'`,
+  więc `guardSha256` nie zmieni się przy jej usunięciu; podglądy sprzed zmiany
+  trzeba wygenerować ponownie). Porównanie komórki z projekcją używa sumy, nie
+  JSON. Pisarze nadal zapisują kolumnę, bo CHECK
+  `ck_image_symbol_review_cells_asset_provenance` jej wymaga; TASK-0793 usuwa
+  kolumnę, CHECK i zapisy w jednej migracji (`0136`). Do tego czasu kolumna w
+  ORM jest odroczona z `raiseload` (odczyt z bazy zgłasza błąd). Stan bazy
+  operatora 2026-10-01 (tylko odczyt): wszystkie 7 500 357 komórek
+  `virtual_source` (777 i `cf300bc1`) są na bieżącej rewizji planszy i mają
+  wpis manifestu tej rewizji z identyczną sumą specyfikacji, pikseli i klucza
+  logicznego; próbka 34 995 komórek ma `render_spec` równy JSONB wpisu
+  manifestu. Komórki historycznych rewizji nie występują, więc czytelnik nie
+  sięga do `image_board_geometry_revisions.virtual_render_spec`. Manifest
+  kohorty i jej komórki (`verified_training_cohort_cells.render_spec`) to
+  zamrożony zapis treningu, nie duplikat komórki — zostają.
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu

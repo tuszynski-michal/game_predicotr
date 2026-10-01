@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import NoReturn, cast
 from uuid import UUID
@@ -47,6 +48,11 @@ from game_predictor_api.storage.board_render_manifest_reader import (
 )
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.cell_render_specs import (
+    CellRenderSpecError,
+    CellRenderSpecKey,
+    load_cell_render_specs,
 )
 from game_predictor_api.storage.job_repository import job_from_record, job_record_from_domain
 from game_predictor_api.storage.models import (
@@ -474,6 +480,11 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     .order_by(ImageSymbolReviewCellModel.cell_index)
                 )
             )
+            # D-467 S7 (TASK-0792): review cells carry only the render-spec
+            # checksum; the specification itself comes from the manifest.
+            review_render_specs = self._review_cell_render_specs(
+                game_id=game_id, source=source, review_cells=review_cells
+            )
             for cell in review_cells:
                 review_cell_backfill_count += self._backfill_render_identity(
                     source=source,
@@ -481,6 +492,7 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     topology=topology,
                     board=board,
                     cell=cell,
+                    render_spec=review_render_specs.get(cell.cell_index),
                 )
             if review_cells and (
                 len(review_cells) != topology_count
@@ -494,7 +506,7 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     or not _is_sha256(cell.logical_cell_key_v2)
                     or not _is_sha256(cell.render_identity_v2_sha256)
                     or cell.verification_outcome is None
-                    or not isinstance(cell.render_spec, dict)
+                    or cell.cell_index not in review_render_specs
                     or not _is_sha256(cell.render_spec_checksum_sha256)
                     or not _is_sha256(cell.rendered_pixel_checksum_sha256)
                     or cell.crop_checksum_sha256 != cell.rendered_pixel_checksum_sha256
@@ -526,6 +538,36 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             review_cell_backfill_count,
             training_cell_backfill_count,
         )
+
+    def _review_cell_render_specs(
+        self,
+        *,
+        game_id: UUID,
+        source: SourceImageModel,
+        review_cells: tuple[ImageSymbolReviewCellModel, ...],
+    ) -> dict[int, Mapping[str, object]]:
+        """Manifest render specifications of the virtual review cells, by cell index.
+
+        Cells without virtual provenance get no entry (the caller rejects
+        them); a missing manifest or checksum mismatch rejects the source.
+        """
+
+        keys: dict[int, CellRenderSpecKey] = {}
+        for cell in review_cells:
+            checksum = cell.render_spec_checksum_sha256
+            virtual = cell.asset_mode == "virtual_source"
+            if virtual and checksum is not None and _is_sha256(checksum):
+                keys[int(cell.cell_index)] = CellRenderSpecKey(
+                    recognized_board_id=cell.recognized_board_id,
+                    geometry_revision=cell.geometry_revision,
+                    cell_index=cell.cell_index,
+                    render_spec_checksum_sha256=checksum,
+                )
+        try:
+            specs = load_cell_render_specs(self._session, game_id=game_id, keys=keys.values())
+        except CellRenderSpecError as error:
+            self._invalid_source(source, error.code, error.message)
+        return {index: specs[key] for index, key in keys.items()}
 
     def _validate_manifest_cells(
         self,
@@ -750,10 +792,18 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         topology: BoardTopology,
         board: RecognizedBoardModel,
         cell: ImageSymbolReviewCellModel | VerifiedTrainingCohortCellModel,
+        render_spec: Mapping[str, object] | None = None,
         row_index: int | None = None,
         column_index: int | None = None,
     ) -> int:
+        """Backfill the v2 identity from the cell's render specification.
+
+        A training cohort cell carries its frozen specification; a review cell
+        passes the manifest specification as ``render_spec`` (D-467 S7).
+        """
+
         if isinstance(cell, VerifiedTrainingCohortCellModel):
+            render_spec = cell.render_spec
             if row_index is None or column_index is None:
                 self._invalid_source(
                     source,
@@ -768,7 +818,7 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         cell_index = int(cell.cell_index)
         try:
             identity = derive_v2_render_identity_from_legacy_spec(
-                cell.render_spec,
+                render_spec,
                 import_job_id=source.import_job_id,
                 file_execution_key=source.file_execution_key,
                 topology_rules_version_id=geometry.topology_rules_version_id,

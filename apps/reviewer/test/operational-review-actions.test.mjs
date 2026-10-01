@@ -590,6 +590,56 @@ test('previews and saves geometry through the generated scope-bound client', asy
   assert.deepEqual(saved, { geometry, ok: true });
 });
 
+test('a stale virtual geometry revision reloads the board (D-467 S6)', async () => {
+  const command = {
+    corners: [
+      { x: 10, y: 10 },
+      { x: 510, y: 10 },
+      { x: 510, y: 310 },
+      { x: 10, y: 310 },
+    ],
+    correctedBy: 'local-admin',
+    expectedGeometryRevision: 0,
+    expectedResolutionRevision: 1,
+    idempotencyKey: '11111111-1111-4111-8111-111111111111',
+  };
+  const options = {
+    command,
+    gameId: activeGame.id,
+    importJobId: 'job-1',
+    reviewItemId: 'review-1',
+  };
+  const conflict = {
+    code: 'IMAGE_GRID_REVIEW_REVISION_CONFLICT',
+    message: 'The virtual grid review changed after it was loaded.',
+  };
+  const preview = await previewOperationalReviewGeometry(
+    { previewOperationalImageReviewGeometry: async () => ({ error: conflict }) },
+    options,
+  );
+  const saved = await saveOperationalReviewGeometry(
+    { createOperationalImageReviewGeometryRevision: async () => ({ error: conflict }) },
+    options,
+  );
+  assert.equal(preview.ok, false);
+  assert.equal(preview.isRevisionConflict, true);
+  assert.equal(saved.ok, false);
+  assert.equal(saved.isRevisionConflict, true);
+  const qualification = await saveOperationalReviewGeometry(
+    {
+      createOperationalImageReviewGeometryRevision: async () => ({
+        error: {
+          code: 'IMAGE_GRID_REVIEW_QUALIFICATION_REQUIRED',
+          message: 'The current geometry qualification cannot be discarded.',
+        },
+      }),
+    },
+    options,
+  );
+  assert.equal(qualification.ok, false);
+  assert.equal(qualification.isRevisionConflict, false);
+});
+
 test('loads and explicitly freezes immutable verified cohort history', async () => {
   const context = { gameId: activeGame.id, importJobId: 'job-1' };
   const versions = [{ boardCount: 12, version: 2 }];

@@ -49,7 +49,7 @@ def test_qualified_reinference_keeps_empty_slot_without_fake_records():
     qualification = GeometryQualification(
         "pending_partial", tuple(range(15)), True, "missing_pixels"
     )
-    indices = _available_indices(qualification.to_dict(), asset_mode="virtual_source")
+    indices = _available_indices(qualification.to_dict())
     assert indices == ()
     # TASK-0757 rule: a board without renderable cells has no manifest.
     assert _virtual_records(render_manifest=None, expected_indices=indices) == []
@@ -78,8 +78,8 @@ def test_qualified_reinference_rejects_wrong_positions_with_same_count():
         _virtual_records(render_manifest=manifest, expected_indices=tuple(range(14)))
 
 
-def test_revision_zero_legacy_board_is_refused_without_reading_records(tmp_path):
-    """D-467 S5 (TASK-0759): its base crops lived only in the dropped records."""
+def test_non_virtual_board_is_refused_without_reading_records(tmp_path):
+    """D-467 S6 (TASK-0796): only ``virtual_source`` boards have cells to re-infer."""
 
     factory = MagicMock()
     handler = PendingSymbolReinferenceHandler(factory, tmp_path, tmp_path)
@@ -91,7 +91,7 @@ def test_revision_zero_legacy_board_is_refused_without_reading_records(tmp_path)
             snapshot=MagicMock(),
             adapter=MagicMock(),
             source_loader=MagicMock(),
-            asset_mode="legacy_file",
+            asset_mode="none",
             game_id=uuid4(),
         )
     assert error.value.code == "IMAGE_SYMBOL_REINFERENCE_LEGACY_UNSUPPORTED"

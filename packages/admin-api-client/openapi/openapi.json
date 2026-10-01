@@ -8873,21 +8873,9 @@
         "additionalProperties": false,
         "properties": {
           "assetMode": {
-            "default": "legacy_file",
+            "const": "virtual_source",
             "title": "Assetmode",
             "type": "string"
-          },
-          "boardChecksumSha256": {
-            "anyOf": [
-              {
-                "pattern": "^[a-f0-9]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Boardchecksumsha256"
           },
           "cells": {
             "items": {
@@ -8934,29 +8922,10 @@
             "title": "Cropperversion",
             "type": "string"
           },
-          "decisionChecksumSha256": {
-            "anyOf": [
-              {
-                "pattern": "^[a-f0-9]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Decisionchecksumsha256"
-          },
           "geometryChecksumSha256": {
-            "anyOf": [
-              {
-                "pattern": "^[a-f0-9]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Geometrychecksumsha256"
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Geometrychecksumsha256",
+            "type": "string"
           },
           "geometryQualification": {
             "anyOf": [
@@ -9004,28 +8973,14 @@
             "type": "integer"
           },
           "sourceGeometryRevisionId": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sourcegeometryrevisionid"
+            "format": "uuid",
+            "title": "Sourcegeometryrevisionid",
+            "type": "string"
           },
           "virtualRenderSpecChecksumSha256": {
-            "anyOf": [
-              {
-                "pattern": "^[a-f0-9]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Virtualrenderspecchecksumsha256"
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Virtualrenderspecchecksumsha256",
+            "type": "string"
           }
         },
         "required": [
@@ -9035,8 +8990,11 @@
           "revision",
           "idempotencyKey",
           "commandSha256",
-          "decisionChecksumSha256",
           "corners",
+          "assetMode",
+          "sourceGeometryRevisionId",
+          "geometryChecksumSha256",
+          "virtualRenderSpecChecksumSha256",
           "cropperVersion",
           "gridRows",
           "gridColumns",
@@ -9090,6 +9048,7 @@
             "title": "Approvedgeometryrevision"
           },
           "assetMode": {
+            "const": "virtual_source",
             "title": "Assetmode",
             "type": "string"
           },
@@ -14285,18 +14244,13 @@
       },
       "OperationalImageReviewGeometryRevisionResponse": {
         "additionalProperties": false,
+        "description": "One ``virtual_source`` manual geometry revision (D-467 S6, TASK-0796).\n\nThe former v19 file-crop fields (board crop checksum, manual decision\nchecksum) are gone: the revision is bound by its source geometry and\nrender manifest checksums instead.",
         "properties": {
-          "boardChecksumSha256": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Boardchecksumsha256",
-            "type": "string"
-          },
           "cells": {
             "items": {
               "$ref": "#/components/schemas/OperationalImageReviewGeometryCellResponse"
             },
             "maxItems": 15,
-            "minItems": 15,
             "title": "Cells",
             "type": "array"
           },
@@ -14338,18 +14292,10 @@
             "title": "Cropperversion",
             "type": "string"
           },
-          "decisionChecksumSha256": {
-            "anyOf": [
-              {
-                "pattern": "^[a-f0-9]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Manual v19 decision checksum binding source, board position, versions and actor; null only for historical geometry revisions",
-            "title": "Decisionchecksumsha256"
+          "geometryChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Geometrychecksumsha256",
+            "type": "string"
           },
           "id": {
             "format": "uuid",
@@ -14375,6 +14321,16 @@
             "minimum": 1.0,
             "title": "Revision",
             "type": "integer"
+          },
+          "sourceGeometryRevisionId": {
+            "format": "uuid",
+            "title": "Sourcegeometryrevisionid",
+            "type": "string"
+          },
+          "virtualRenderSpecChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Virtualrenderspecchecksumsha256",
+            "type": "string"
           }
         },
         "required": [
@@ -14385,7 +14341,9 @@
           "idempotencyKey",
           "commandSha256",
           "corners",
-          "boardChecksumSha256",
+          "sourceGeometryRevisionId",
+          "geometryChecksumSha256",
+          "virtualRenderSpecChecksumSha256",
           "cropperVersion",
           "cells",
           "correctedBy",
@@ -22473,9 +22431,7 @@
         "additionalProperties": false,
         "properties": {
           "assetMode": {
-            "default": "legacy_file",
             "enum": [
-              "legacy_file",
               "virtual_source",
               "none"
             ],
@@ -22693,7 +22649,8 @@
           "geometryRevision",
           "cropSampleId",
           "cropChecksumSha256",
-          "boardStatus"
+          "boardStatus",
+          "assetMode"
         ],
         "title": "SymbolCellReviewListItemResponse",
         "type": "object"
@@ -23966,9 +23923,7 @@
         "additionalProperties": false,
         "properties": {
           "assetMode": {
-            "default": "legacy_file",
             "enum": [
-              "legacy_file",
               "virtual_source",
               "none"
             ],
@@ -24113,6 +24068,7 @@
           }
         },
         "required": [
+          "assetMode",
           "cellReviewId",
           "cellIndex",
           "rowIndex",
@@ -30196,7 +30152,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Render a stable WebP atlas for current legacy or virtual symbol cells",
+        "summary": "Render a stable WebP atlas for current virtual symbol cells",
         "tags": [
           "symbol-cell-reviews"
         ]
@@ -38048,7 +38004,7 @@
             "content": {
               "image/png": {}
             },
-            "description": "Five by three contact sheet of final source-direct crops"
+            "description": "Five by three contact sheet of virtual source renders"
           },
           "403": {
             "content": {
@@ -38096,7 +38052,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Preview 15 corrected v19 board-cell crops without persistence",
+        "summary": "Preview the virtual cells of a corrected board geometry without persistence",
         "tags": [
           "image-reviews"
         ]
@@ -38204,7 +38160,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Persist immutable v19 symbol-lattice geometry and reopen review",
+        "summary": "Persist a virtual-source geometry revision of one board and reopen review",
         "tags": [
           "image-reviews"
         ]

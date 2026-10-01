@@ -14,6 +14,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _virtual_board_fixtures import ensure_source_geometry, virtual_board_columns
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
@@ -99,6 +100,7 @@ def _provision_public_storage_location(session: Session, *, game_id: UUID) -> No
 
 _V2_PARTITIONED_TABLES = (
     "source_images",
+    "image_source_geometry_revisions",
     "recognized_boards",
     "image_review_items",
     "image_sequence_canonical",
@@ -214,6 +216,14 @@ def _add_complete_board(
     sequence_number: int,
     review_status: str = "pending",
 ) -> ImageReviewItemModel:
+    # D-467 S6 (TASK-0796): every board is a virtual render of its source.
+    source_geometry = ensure_source_geometry(
+        session,
+        game_id=game_id,
+        source=source,
+        sequence_range_start=sequence_number - position,
+        created_at=datetime.now(UTC),
+    )
     board = RecognizedBoardModel(
         source_image_id=source.id,
         position_index=position,
@@ -221,8 +231,7 @@ def _add_complete_board(
         sequence_number=sequence_number,
         sequence_confidence=1,
         board_geometry={},
-        board_relative_path=f"boards/{sequence_number}.jpg",
-        board_checksum_sha256="b" * 64,
+        **virtual_board_columns(source_geometry),
         cells_prediction={},
         completeness_status="complete",
         board_confidence=1,
@@ -263,6 +272,14 @@ def _add_partial_board(
     position: int,
     sequence_number: int,
 ) -> ImageReviewItemModel:
+    # D-467 S6 (TASK-0796): every board is a virtual render of its source.
+    source_geometry = ensure_source_geometry(
+        session,
+        game_id=game_id,
+        source=source,
+        sequence_range_start=sequence_number - position,
+        created_at=datetime.now(UTC),
+    )
     board = RecognizedBoardModel(
         source_image_id=source.id,
         position_index=position,
@@ -270,8 +287,7 @@ def _add_partial_board(
         sequence_number=sequence_number,
         sequence_confidence=1,
         board_geometry={},
-        board_relative_path=f"boards/{sequence_number}.jpg",
-        board_checksum_sha256="b" * 64,
+        **virtual_board_columns(source_geometry),
         cells_prediction={},
         completeness_status="pending_partial",
         unavailable_cell_indices=[0],

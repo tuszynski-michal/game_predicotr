@@ -1953,7 +1953,7 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Render a stable WebP atlas for current legacy or virtual symbol cells
+ * Render a stable WebP atlas for current virtual symbol cells
  */
 export const createSymbolCellPreviewBatch = <
   ThrowOnError extends boolean = false,
@@ -3874,7 +3874,7 @@ export const getOperationalImageReviewSourceAsset = <
   });
 
 /**
- * Preview 15 corrected v19 board-cell crops without persistence
+ * Preview the virtual cells of a corrected board geometry without persistence
  */
 export const previewOperationalImageReviewGeometry = <
   ThrowOnError extends boolean = false,
@@ -3900,7 +3900,7 @@ export const previewOperationalImageReviewGeometry = <
   });
 
 /**
- * Persist immutable v19 symbol-lattice geometry and reopen review
+ * Persist a virtual-source geometry revision of one board and reopen review
  */
 export const createOperationalImageReviewGeometryRevision = <
   ThrowOnError extends boolean = false,

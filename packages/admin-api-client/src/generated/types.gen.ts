@@ -4947,11 +4947,7 @@ export type ImageGridReviewGeometryRevisionResponse = {
   /**
    * Assetmode
    */
-  assetMode?: string;
-  /**
-   * Boardchecksumsha256
-   */
-  boardChecksumSha256?: string | null;
+  assetMode: 'virtual_source';
   /**
    * Cells
    */
@@ -4982,13 +4978,9 @@ export type ImageGridReviewGeometryRevisionResponse = {
    */
   cropperVersion: string;
   /**
-   * Decisionchecksumsha256
-   */
-  decisionChecksumSha256: string | null;
-  /**
    * Geometrychecksumsha256
    */
-  geometryChecksumSha256?: string | null;
+  geometryChecksumSha256: string;
   geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Gridcolumns
@@ -5021,11 +5013,11 @@ export type ImageGridReviewGeometryRevisionResponse = {
   /**
    * Sourcegeometryrevisionid
    */
-  sourceGeometryRevisionId?: string | null;
+  sourceGeometryRevisionId: string;
   /**
    * Virtualrenderspecchecksumsha256
    */
-  virtualRenderSpecChecksumSha256?: string | null;
+  virtualRenderSpecChecksumSha256: string;
 };
 
 /**
@@ -5050,7 +5042,7 @@ export type ImageGridReviewItemResponse = {
   /**
    * Assetmode
    */
-  assetMode: string;
+  assetMode: 'virtual_source';
   automaticFrameProposal?: AutomaticFrameGeometryProposalPayload | null;
   automaticPartialProposal?: AutomaticPartialGeometryProposalPayload | null;
   /**
@@ -7852,32 +7844,18 @@ export type OperationalImageReviewGeometryResponse = {
 
 /**
  * OperationalImageReviewGeometryRevisionResponse
+ *
+ * One ``virtual_source`` manual geometry revision (D-467 S6, TASK-0796).
+ *
+ * The former v19 file-crop fields (board crop checksum, manual decision
+ * checksum) are gone: the revision is bound by its source geometry and
+ * render manifest checksums instead.
  */
 export type OperationalImageReviewGeometryRevisionResponse = {
   /**
-   * Boardchecksumsha256
-   */
-  boardChecksumSha256: string;
-  /**
    * Cells
    */
-  cells: [
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-  ];
+  cells: Array<OperationalImageReviewGeometryCellResponse>;
   /**
    * Commandsha256
    */
@@ -7904,11 +7882,9 @@ export type OperationalImageReviewGeometryRevisionResponse = {
    */
   cropperVersion: string;
   /**
-   * Decisionchecksumsha256
-   *
-   * Manual v19 decision checksum binding source, board position, versions and actor; null only for historical geometry revisions
+   * Geometrychecksumsha256
    */
-  decisionChecksumSha256?: string | null;
+  geometryChecksumSha256: string;
   /**
    * Id
    */
@@ -7929,6 +7905,14 @@ export type OperationalImageReviewGeometryRevisionResponse = {
    * Revision
    */
   revision: number;
+  /**
+   * Sourcegeometryrevisionid
+   */
+  sourceGeometryRevisionId: string;
+  /**
+   * Virtualrenderspecchecksumsha256
+   */
+  virtualRenderSpecChecksumSha256: string;
 };
 
 /**
@@ -12490,7 +12474,7 @@ export type SymbolCellReviewListItemResponse = {
   /**
    * Assetmode
    */
-  assetMode?: 'legacy_file' | 'virtual_source' | 'none';
+  assetMode: 'virtual_source' | 'none';
   /**
    * Assignedsymbolcode
    */
@@ -13277,7 +13261,7 @@ export type UnreadableBoardReviewCellResponse = {
   /**
    * Assetmode
    */
-  assetMode?: 'legacy_file' | 'virtual_source' | 'none';
+  assetMode: 'virtual_source' | 'none';
   /**
    * Assignedsymbolcode
    */
@@ -20785,7 +20769,7 @@ export type PreviewOperationalImageReviewGeometryError =
 
 export type PreviewOperationalImageReviewGeometryResponses = {
   /**
-   * Five by three contact sheet of final source-direct crops
+   * Five by three contact sheet of virtual source renders
    */
   200: unknown;
 };

@@ -296,21 +296,17 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                 review_cell.geometry_revision == RecognizedBoardModel.geometry_revision,
                 SymbolModel.game_id == game_id,
                 SymbolModel.status == SymbolStatus.ACTIVE,
-                or_(
-                    review_cell.asset_mode == "legacy_file",
-                    and_(
-                        review_cell.asset_mode == "virtual_source",
-                        review_cell.approved_asset_mode == "virtual_source",
-                        review_cell.approved_source_geometry_revision_id
-                        == review_cell.source_geometry_revision_id,
-                        review_cell.approved_render_spec_checksum_sha256
-                        == review_cell.render_spec_checksum_sha256,
-                        review_cell.approved_rendered_pixel_checksum_sha256
-                        == review_cell.rendered_pixel_checksum_sha256,
-                        review_cell.source_geometry_revision_id
-                        == RecognizedBoardModel.source_geometry_revision_id,
-                    ),
-                ),
+                # D-467 S6 (TASK-0796): only virtual renders exist.
+                review_cell.asset_mode == "virtual_source",
+                review_cell.approved_asset_mode == "virtual_source",
+                review_cell.approved_source_geometry_revision_id
+                == review_cell.source_geometry_revision_id,
+                review_cell.approved_render_spec_checksum_sha256
+                == review_cell.render_spec_checksum_sha256,
+                review_cell.approved_rendered_pixel_checksum_sha256
+                == review_cell.rendered_pixel_checksum_sha256,
+                review_cell.source_geometry_revision_id
+                == RecognizedBoardModel.source_geometry_revision_id,
             )
         )
 
@@ -328,7 +324,6 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                 render_spec_checksum_sha256=str(review_cell.render_spec_checksum_sha256),
             )
             for review_cell, *_ in rows
-            if review_cell.asset_mode == "virtual_source"
         }
         render_specs = load_cell_render_specs(self._session, game_id=game_id, keys=keys.values())
         candidates: list[ApprovedSymbolReferenceCandidate] = []
@@ -340,28 +335,24 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
             normalized_pixel_checksum,
             geometry_checksum,
         ) in rows:
-            virtual_asset = (
-                None
-                if review_cell.asset_mode != "virtual_source"
-                else SymbolCellReviewAsset(
-                    cell_review_id=review_cell.id,
-                    crop_relative_path=None,
-                    crop_checksum_sha256=review_cell.crop_checksum_sha256,
-                    geometry_revision=review_cell.geometry_revision,
-                    current_geometry_revision=board.geometry_revision,
-                    revision=review_cell.revision,
-                    asset_mode="virtual_source",
-                    source_checksum_sha256=source_checksum,
-                    normalized_pixel_checksum_sha256=normalized_pixel_checksum,
-                    source_geometry_revision_id=review_cell.source_geometry_revision_id,
-                    current_source_geometry_revision_id=board.source_geometry_revision_id,
-                    geometry_checksum_sha256=geometry_checksum,
-                    logical_cell_key=review_cell.logical_cell_key,
-                    render_spec=render_specs[keys[review_cell.id]],
-                    render_spec_checksum_sha256=review_cell.render_spec_checksum_sha256,
-                    rendered_pixel_checksum_sha256=review_cell.rendered_pixel_checksum_sha256,
-                    extractor_version=review_cell.extractor_version,
-                )
+            virtual_asset = SymbolCellReviewAsset(
+                cell_review_id=review_cell.id,
+                crop_relative_path=None,
+                crop_checksum_sha256=review_cell.crop_checksum_sha256,
+                geometry_revision=review_cell.geometry_revision,
+                current_geometry_revision=board.geometry_revision,
+                revision=review_cell.revision,
+                asset_mode="virtual_source",
+                source_checksum_sha256=source_checksum,
+                normalized_pixel_checksum_sha256=normalized_pixel_checksum,
+                source_geometry_revision_id=review_cell.source_geometry_revision_id,
+                current_source_geometry_revision_id=board.source_geometry_revision_id,
+                geometry_checksum_sha256=geometry_checksum,
+                logical_cell_key=review_cell.logical_cell_key,
+                render_spec=render_specs[keys[review_cell.id]],
+                render_spec_checksum_sha256=review_cell.render_spec_checksum_sha256,
+                rendered_pixel_checksum_sha256=review_cell.rendered_pixel_checksum_sha256,
+                extractor_version=review_cell.extractor_version,
             )
             candidates.append(
                 ApprovedSymbolReferenceCandidate(
@@ -372,10 +363,10 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                     cell_index=review_cell.cell_index,
                     resolution_revision=item.resolution_revision,
                     geometry_revision=review_cell.geometry_revision,
-                    crop_relative_path=review_cell.crop_relative_path,
+                    crop_relative_path=None,
                     crop_checksum_sha256=review_cell.crop_checksum_sha256,
                     status=review_cell.review_state,
-                    asset_mode=review_cell.asset_mode,
+                    asset_mode="virtual_source",
                     virtual_asset=virtual_asset,
                 )
             )

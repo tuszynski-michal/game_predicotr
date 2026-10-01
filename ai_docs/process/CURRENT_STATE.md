@@ -337,7 +337,29 @@ last_updated: 2026-10-01
   podgląd/`--execute`, checkpoint, kontrola digestu v2 przed/po).
   Podgląd 777 (odczyt): 794 214 rewizji, `predictions` 10,1 GB, szacunek
   oszczędności 5–7,5 GB; retencja 10 191 rewizji zastąpionych itemów bez
-  komórek (129 MB). Wykonanie na bazie przez orkiestratora.
+  komórek (129 MB). Wykonanie na bazie 2026-10-01: `0137` zastosowana,
+  odchudzone 794 214/794 214 rewizji (ok. 110 min, digest v2 bez różnic),
+  retencja usunęła 10 191 rewizji, `VACUUM (FULL, ANALYZE)` partycji
+  rewizji 11 GB → 6,7 GB; baza `game_predictor` 38 GB (rano 90 GB).
+  Przy pierwszej próbie `VACUUM FULL` host wyczerpał pamięć (commit
+  56/65 GB: VM WSL 12,5 GB + testy agenta) i Docker Desktop zamknął się
+  awaryjnie; po restarcie Windows PostgreSQL odtworzył stan z WAL bez
+  strat, `VACUUM FULL` powtórzony. Zalecenie: `.wslconfig` z limitem
+  pamięci VM (decyzja operatora). **Etap S8 zamknięty.**
+- TASK-0796 (S6) done (v1.7.125, audyt
+  zawieszony; bez migracji — wdrożenie = restart API/workera/Reviewera):
+  korekta geometrii Reviewera (`image-review-items/{id}/geometry-preview`
+  i `.../geometry-revisions`) deleguje do `VirtualGridGeometryService`
+  (trasa, kontrakt wejścia, allowlista bez zmian; odpowiedź bez pól plików
+  cropów, z `sourceGeometryRevisionId`/`geometryChecksumSha256`/
+  `virtualRenderSpecChecksumSha256`); usunięte zapis v19, previewer plików
+  cropów workera, fallback legacy Admina, ścieżki plikowe
+  `pending_grid_reinference` (handler odmawia
+  `IMAGE_GRID_REINFERENCE_LEGACY_UNSUPPORTED`) i gałęzie `legacy_file` w
+  czytelnikach; enumy `assetMode` zawężone pionem (OpenAPI, klient, Admin,
+  Reviewer); ORM równoważny bazie po `0135`/`0136`; fixture PG przepięte na
+  plansze wirtualne (`tests/integration/_virtual_board_fixtures.py`).
+  Wyjątki i wyniki testów w Outcome TASK-0796. **Etap S6 zamknięty.**
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

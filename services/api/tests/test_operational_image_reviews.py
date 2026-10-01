@@ -8,10 +8,9 @@ from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any, cast
 from uuid import UUID, uuid4
 
-import cv2
-import numpy as np
 import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.image_review_assets import (
@@ -23,28 +22,30 @@ from game_predictor_api.application.image_reviews import (
     PendingGridReinferencePreview,
 )
 from game_predictor_api.application.reviewer_access import ReviewerAccessService
+from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridGeometryCell,
+    VirtualGridGeometryPreview,
+    VirtualGridGeometryRevision,
+    VirtualGridGeometrySaveResult,
+    VirtualGridGeometryService,
+)
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import (
     ImageReviewAction,
     ImageReviewAlternative,
     ImageReviewCell,
     ImageReviewConflictError,
     ImageReviewCounts,
-    ImageReviewGeometryArtifacts,
-    ImageReviewGeometryRevision,
     ImageReviewGridIssueView,
     ImageReviewItem,
     ImageReviewNotFoundError,
     ImageReviewPage,
     ImageReviewResolutionEvent,
     ImageReviewView,
-    ValidatedImageReviewGeometryCommand,
     ValidatedImageReviewResolution,
 )
 from game_predictor_api.main import create_app
-from game_predictor_worker.images.manual_board_cell_geometry_preview import (
-    ManualBoardCellGeometryPreviewer,
-)
 
 
 class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
@@ -62,7 +63,6 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
         self.grid_issue_review_item_ids = frozenset(grid_issue_review_item_ids)
         self.queue_version = 1 if self.items else 0
         self.events: dict[UUID, list[ImageReviewResolutionEvent]] = {}
-        self.geometry_revisions: dict[UUID, list[ImageReviewGeometryRevision]] = {}
         self.staging: dict[UUID, tuple[int, tuple[str, ...]]] = {}
 
     def require_context(self, *, game_id: UUID, import_job_id: UUID) -> None:
@@ -281,111 +281,6 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
         self.require_context(game_id=game_id, import_job_id=import_job_id)
         return tuple(self.events.get(review_item_id, ()))
 
-    def get_geometry_revision_by_idempotency(
-        self,
-        review_item_id: UUID,
-        *,
-        game_id: UUID,
-        import_job_id: UUID,
-        idempotency_key: UUID,
-    ) -> ImageReviewGeometryRevision | None:
-        self.require_context(game_id=game_id, import_job_id=import_job_id)
-        return next(
-            (
-                revision
-                for revision in self.geometry_revisions.get(review_item_id, ())
-                if revision.idempotency_key == idempotency_key
-            ),
-            None,
-        )
-
-    def save_geometry_revision(
-        self,
-        *,
-        review_item_id: UUID,
-        game_id: UUID,
-        import_job_id: UUID,
-        idempotency_key: UUID,
-        command: ValidatedImageReviewGeometryCommand,
-        artifacts: ImageReviewGeometryArtifacts,
-        created_at: datetime,
-    ) -> tuple[ImageReviewItem, ImageReviewGeometryRevision, bool]:
-        item = self.get_item(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-        )
-        assert item is not None
-        prior = self.get_geometry_revision_by_idempotency(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-            idempotency_key=idempotency_key,
-        )
-        if prior is not None:
-            return item, prior, False
-        if (
-            item.geometry_revision != command.expected_geometry_revision
-            or item.resolution_revision != command.expected_resolution_revision
-        ):
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT",
-                "The review item changed before geometry persistence.",
-            )
-        revision_number = item.geometry_revision + 1
-        revision = ImageReviewGeometryRevision(
-            id=uuid4(),
-            review_item_id=review_item_id,
-            recognized_board_id=item.recognized_board_id,
-            revision=revision_number,
-            idempotency_key=idempotency_key,
-            command_sha256=command.command_sha256,
-            decision_checksum_sha256=(
-                str(artifacts.geometry["decisionChecksumSha256"])
-                if "decisionChecksumSha256" in artifacts.geometry
-                else None
-            ),
-            corners=command.corners,
-            board_relative_path=artifacts.board_relative_path,
-            board_checksum_sha256=artifacts.board_checksum_sha256,
-            cropper_version=artifacts.cropper_version,
-            cells=artifacts.cells,
-            corrected_by=command.corrected_by,
-            created_at=created_at,
-        )
-        revised_cells = tuple(
-            replace(
-                cell,
-                crop_sample_id=hashlib.sha256(
-                    (
-                        f"{item.recognized_board_id}:{revision_number}:"
-                        f"{cell.cell_index}:{artifacts.cells[cell.cell_index].crop_checksum_sha256}"
-                    ).encode()
-                ).hexdigest(),
-                crop_relative_path=artifacts.cells[cell.cell_index].crop_relative_path,
-                crop_checksum_sha256=artifacts.cells[cell.cell_index].crop_checksum_sha256,
-                current_symbol_code=cell.predicted_symbol_code,
-            )
-            for cell in item.cells
-        )
-        updated = replace(
-            item,
-            status="pending",
-            board_relative_path=artifacts.board_relative_path,
-            board_checksum_sha256=artifacts.board_checksum_sha256,
-            geometry_revision=revision_number,
-            geometry=artifacts.geometry,
-            cells=revised_cells,
-            resolved_value=None,
-            resolved_by=None,
-            resolved_at=None,
-            resolution_revision=item.resolution_revision + 1,
-        )
-        self.geometry_revisions.setdefault(review_item_id, []).append(revision)
-        self.staging.pop(item.recognized_board_id, None)
-        self.items[review_item_id] = updated
-        return updated, revision, True
-
     def _counts(self) -> ImageReviewCounts:
         statuses = [item.status for item in self.items.values()]
         return ImageReviewCounts(
@@ -411,19 +306,14 @@ class MemoryOperationalImageReviewRepository(OperationalImageReviewRepository):
             )
         items = tuple(self.items.values())
         pending = tuple(item for item in items if item.status == "pending")
-        current = tuple(
-            item
-            for item in pending
-            if item.geometry.get("geometryVersion") == geometry_version
-            and item.geometry.get("cropperVersion") == cropper_version
-        )
+        # D-467 S6 (TASK-0796): every board is virtual; nothing is recalculable.
         return PendingGridReinferencePreview(
             game_id=game_id,
             pending_board_count=len(pending),
-            recalculable_board_count=len(pending) - len(current),
-            current_v19_board_count=len(current),
+            recalculable_board_count=0,
+            current_v19_board_count=0,
             protected_board_count=len(items) - len(pending),
-            unsupported_virtual_board_count=0,
+            unsupported_virtual_board_count=len(pending),
             pending_source_count=len(pending),
             partially_resolved_source_count=0,
             fully_resolved_source_count=len(items) - len(pending),
@@ -545,7 +435,7 @@ def _resolution_payload(
     }
 
 
-def test_pending_grid_preview_distinguishes_v19_from_recalculable_pending_boards(
+def test_pending_grid_preview_reports_no_recalculable_file_crop_boards(
     operational_review_context: tuple[
         TestClient,
         MemoryOperationalImageReviewRepository,
@@ -553,17 +443,7 @@ def test_pending_grid_preview_distinguishes_v19_from_recalculable_pending_boards
         UUID,
     ],
 ) -> None:
-    client, repository, game_id, _import_job_id = operational_review_context
-    current_id = next(iter(repository.items))
-    current = repository.items[current_id]
-    repository.items[current_id] = replace(
-        current,
-        geometry={
-            **current.geometry,
-            "cropperVersion": ("board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"),
-            "geometryVersion": "board-cell-geometry-v19-multi-point-source-direct-v1",
-        },
-    )
+    client, _repository, game_id, _import_job_id = operational_review_context
 
     response = client.get(
         f"/api/v1/admin/image-review-items/pending-grid-reinference/preview/{game_id}"
@@ -572,15 +452,18 @@ def test_pending_grid_preview_distinguishes_v19_from_recalculable_pending_boards
     assert response.status_code == 200
     payload = response.json()
     assert payload["pendingBoardCount"] == 3
-    assert payload["recalculableBoardCount"] == 2
-    assert payload["currentV19BoardCount"] == 1
+    assert payload["recalculableBoardCount"] == 0
+    assert payload["currentV19BoardCount"] == 0
     assert payload["protectedBoardCount"] == 0
-    assert payload["unsupportedVirtualBoardCount"] == 0
-    assert payload["geometryVersion"] == ("board-cell-geometry-v19-multi-point-source-direct-v1")
-    assert payload["cropperVersion"] == (
-        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
-    )
+    assert payload["unsupportedVirtualBoardCount"] == 3
     assert len(payload["auditReportChecksumSha256"]) == 64
+
+    started = client.post(f"/api/v1/admin/image-review-items/pending-grid-reinference/{game_id}")
+    assert started.status_code in {404, 409, 422}
+    assert started.json()["code"] in {
+        "IMAGE_GRID_REINFERENCE_EMPTY",
+        "IMAGE_GRID_REINFERENCE_UNAVAILABLE",
+    }
 
 
 def test_reviewer_token_enforces_scope_and_overrides_decision_actor() -> None:
@@ -650,315 +533,273 @@ def test_reviewer_token_enforces_scope_and_overrides_decision_actor() -> None:
     assert resolved.json()["event"]["resolvedBy"] == (f"reviewer-session:{created.session.id}")
 
 
-def test_geometry_preview_and_revision_reopen_without_copying_human_labels(
-    tmp_path: Path,
-) -> None:
+class RecordingVirtualGeometry:
+    """Stand-in for ``VirtualGridGeometryService`` (D-467 S6, TASK-0796).
+
+    The operational Reviewer delegates geometry preview/save to the virtual
+    path; persistence itself is covered by the PostgreSQL test
+    ``integration/test_reviewer_operational_geometry_postgres.py``.
+    """
+
+    def __init__(self, repository: MemoryOperationalImageReviewRepository) -> None:
+        self.repository = repository
+        self.preview_calls: list[dict[str, Any]] = []
+        self.save_calls: list[dict[str, Any]] = []
+        self.saved: dict[UUID, tuple[str, VirtualGridGeometryRevision]] = {}
+
+    @staticmethod
+    def _cells(board_id: UUID) -> tuple[VirtualGridGeometryCell, ...]:
+        return tuple(
+            VirtualGridGeometryCell(
+                cell_index=index,
+                row_index=index // 5,
+                column_index=index % 5,
+                crop_sample_id=hashlib.sha256(f"{board_id}:{index}".encode()).hexdigest(),
+                crop_checksum_sha256="5" * 64,
+                logical_cell_key="6" * 64,
+                logical_cell_key_v2="7" * 64,
+                render_identity_v2_sha256="8" * 64,
+                render_spec={"cellIndex": index},
+                render_spec_checksum_sha256="9" * 64,
+                rendered_pixel_checksum_sha256="5" * 64,
+                extractor_version="virtual-cell-renderer-test",
+            )
+            for index in range(15)
+        )
+
+    def preview_review_item(self, **kwargs: Any) -> VirtualGridGeometryPreview:
+        self.preview_calls.append(kwargs)
+        item = self.repository.items[kwargs["review_item_id"]]
+        return VirtualGridGeometryPreview(
+            contact_sheet_png=b"\x89PNG\r\n\x1a\nvirtual",
+            cells=self._cells(item.recognized_board_id),
+            cropper_version="virtual-cell-renderer-test",
+        )
+
+    def save_review_item(self, **kwargs: Any) -> VirtualGridGeometrySaveResult:
+        self.save_calls.append(kwargs)
+        review_item_id: UUID = kwargs["review_item_id"]
+        key: UUID = kwargs["idempotency_key"]
+        command = json.dumps(
+            {
+                "actor": kwargs["actor"],
+                "corners": [(point.x, point.y) for point in kwargs["corners"]],
+            },
+            sort_keys=True,
+        )
+        prior = self.saved.get(key)
+        if prior is not None:
+            if prior[0] != command:
+                raise ImageGridReviewError(
+                    "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",
+                    "The geometry idempotency key already represents another command.",
+                )
+            return VirtualGridGeometrySaveResult(revision=prior[1], created=False)
+        item = self.repository.items[review_item_id]
+        if (
+            item.geometry_revision != kwargs["expected_geometry_revision"]
+            or item.resolution_revision != kwargs["expected_resolution_revision"]
+        ):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
+                "The virtual grid review changed after it was loaded.",
+            )
+        revision = VirtualGridGeometryRevision(
+            id=uuid4(),
+            review_item_id=review_item_id,
+            recognized_board_id=item.recognized_board_id,
+            revision=item.geometry_revision + 1,
+            idempotency_key=key,
+            command_sha256=hashlib.sha256(command.encode()).hexdigest(),
+            corners=tuple(kwargs["corners"]),
+            source_geometry_revision_id=uuid4(),
+            geometry_checksum_sha256="a" * 64,
+            virtual_render_spec_checksum_sha256="b" * 64,
+            cropper_version="virtual-cell-renderer-test",
+            cells=self._cells(item.recognized_board_id),
+            corrected_by=str(kwargs["actor"]),
+            created_at=datetime.now(UTC),
+        )
+        self.saved[key] = (command, revision)
+        self.repository.items[review_item_id] = replace(
+            item,
+            status="pending",
+            geometry_revision=revision.revision,
+            resolution_revision=item.resolution_revision + 1,
+            resolved_value=None,
+            resolved_by=None,
+            resolved_at=None,
+        )
+        return VirtualGridGeometrySaveResult(revision=revision, created=True)
+
+
+def _geometry_context(
+    *, with_virtual: bool = True
+) -> tuple[
+    TestClient,
+    MemoryOperationalImageReviewRepository,
+    RecordingVirtualGeometry,
+    ImageReviewItem,
+    dict[str, str],
+    dict[str, str],
+    str,
+]:
     game_id = uuid4()
     import_job_id = uuid4()
-    original = _item(
-        game_id,
-        import_job_id,
-        source_order_index=0,
-        suggested_sequence_number=1,
-    )
-    rgb = np.zeros((420, 720, 3), dtype=np.uint8)
-    rgb[60:350, 90:630] = (30, 160, 220)
-    encoded, buffer = cv2.imencode(".png", cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR))
-    assert encoded
-    source_content = bytes(buffer)
-    source_relative_path = f"sources/{original.id}.png"
-    source_path = tmp_path / "data" / source_relative_path
-    source_path.parent.mkdir(parents=True)
-    source_path.write_bytes(source_content)
-    item = replace(
-        original,
-        source_relative_path=source_relative_path,
-        source_checksum_sha256=hashlib.sha256(source_content).hexdigest(),
-        queue_sequence_number=1,
-        geometry={
-            **original.geometry,
-            "sequenceSource": "filename",
-            "sequenceLabelQuad": [
-                {"x": 260, "y": 370},
-                {"x": 450, "y": 370},
-                {"x": 450, "y": 395},
-                {"x": 260, "y": 395},
-            ],
-            "sourceContextBounds": {
-                "height": 380,
-                "width": 680,
-                "x": 20,
-                "y": 20,
-            },
-        },
-        status="corrected",
-        resolved_value={
-            "action": "corrected",
-            "geometryRevision": 0,
-            "sequenceNumber": 1,
-            "symbolCodes": ["seven"] * 15,
-        },
-        resolved_by="local-admin",
-        resolved_at=datetime.now(UTC),
-        resolution_revision=1,
-        cells=tuple(replace(cell, current_symbol_code="seven") for cell in original.cells),
-    )
-    untouched = _item(
-        game_id,
-        import_job_id,
-        source_order_index=1,
-        suggested_sequence_number=2,
-    )
+    item = _item(game_id, import_job_id, source_order_index=0, suggested_sequence_number=1)
     repository = MemoryOperationalImageReviewRepository(
-        game_id=game_id,
-        import_job_id=import_job_id,
-        items=[item, untouched],
+        game_id=game_id, import_job_id=import_job_id, items=[item]
     )
-    settings = ApiSettings.from_environment({"GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path)})
+    virtual = RecordingVirtualGeometry(repository)
     service = OperationalImageReviewService(
         repository,
-        artifact_root=tmp_path,
-        board_cell_geometry_previewer=ManualBoardCellGeometryPreviewer(),
+        virtual_geometry=cast(VirtualGridGeometryService, virtual) if with_virtual else None,
     )
+    access = ReviewerAccessService("http://127.0.0.1:3001")
+    created = access.create(game_id=game_id, import_job_id=import_job_id, lifetime_minutes=60)
+    token = access.unlock(created.session.id, created.code).access_token
     client = TestClient(
         create_app(
-            settings,
+            ApiSettings.from_environment({}),
             image_review_service_dependency=lambda: service,
+            reviewer_access_service_dependency=lambda: access,
         )
     )
-    query = {"gameId": str(game_id), "importJobId": str(import_job_id)}
-    corners = [
-        {"x": 90, "y": 60},
-        {"x": 630, "y": 65},
-        {"x": 635, "y": 350},
-        {"x": 85, "y": 345},
-    ]
+    return (
+        client,
+        repository,
+        virtual,
+        item,
+        {"gameId": str(game_id), "importJobId": str(import_job_id)},
+        {"Authorization": f"Bearer {token}"},
+        f"reviewer-session:{created.session.id}",
+    )
+
+
+_CORNERS = [
+    {"x": 90, "y": 60},
+    {"x": 630, "y": 65},
+    {"x": 635, "y": 350},
+    {"x": 85, "y": 345},
+]
+
+
+def test_operational_geometry_preview_delegates_to_the_virtual_render() -> None:
+    client, _repository, virtual, item, query, headers, _actor = _geometry_context()
+
     preview = client.post(
         f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",
         params=query,
-        json={
-            "expectedGeometryRevision": 0,
-            "expectedResolutionRevision": 1,
-            "corners": corners,
-        },
+        headers=headers,
+        json={"expectedGeometryRevision": 0, "expectedResolutionRevision": 0, "corners": _CORNERS},
     )
-    assert preview.status_code == 200
-    assert preview.headers["content-type"] == "image/png"
-    assert preview.headers["x-board-cell-count"] == "15"
-    assert preview.headers["x-board-cell-preview-kind"] == "contact-sheet-5x3"
-    assert preview.headers["x-board-cell-cropper-version"] == (
-        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
-    )
-    contact_sheet = cv2.imdecode(np.frombuffer(preview.content, dtype=np.uint8), cv2.IMREAD_COLOR)
-    assert contact_sheet is not None
-    assert contact_sheet.shape[:2] == (3 * 64, 5 * 64)
-    assert not (tmp_path / "data" / "image-review-geometry").exists()
 
-    idempotency_key = uuid4()
+    assert preview.status_code == 200, preview.text
+    assert preview.headers["content-type"] == "image/png"
+    assert preview.content.startswith(b"\x89PNG")
+    assert preview.headers["x-board-cell-count"] == "15"
+    assert preview.headers["x-board-cell-cropper-version"] == "virtual-cell-renderer-test"
+    assert preview.headers["x-board-cell-preview-kind"] == "contact-sheet-5x3"
+    assert "x-board-cell-cropper-fingerprint-sha256" not in preview.headers
+    [call] = virtual.preview_calls
+    assert call["review_item_id"] == item.id
+    assert call["expected_geometry_revision"] == 0
+    assert call["expected_resolution_revision"] == 0
+    assert [(point.x, point.y) for point in call["corners"]] == [
+        (corner["x"], corner["y"]) for corner in _CORNERS
+    ]
+
+
+def test_operational_geometry_save_is_a_virtual_revision_with_reviewer_actor() -> None:
+    client, repository, virtual, item, query, headers, actor = _geometry_context()
     payload = {
-        "idempotencyKey": str(idempotency_key),
+        "idempotencyKey": str(uuid4()),
         "expectedGeometryRevision": 0,
-        "expectedResolutionRevision": 1,
-        "corners": corners,
-        "correctedBy": "local-admin",
+        "expectedResolutionRevision": 0,
+        "corners": _CORNERS,
+        "correctedBy": "spoofed-operator",
     }
+
     saved = client.post(
         f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
         params=query,
+        headers=headers,
         json=payload,
     )
 
     assert saved.status_code == 200, saved.text
     body = saved.json()
     assert body["created"] is True
-    assert body["item"]["status"] == "pending"
+    assert body["item"]["id"] == str(item.id)
     assert body["item"]["geometryRevision"] == 1
-    assert body["item"]["resolutionRevision"] == 2
-    assert body["item"]["resolvedValue"] is None
-    assert body["item"]["geometry"]["sourceContextBounds"] == {
-        "height": 380,
-        "width": 680,
-        "x": 20,
-        "y": 20,
-    }
-    assert body["item"]["geometry"]["sequenceLabelQuad"] == item.geometry["sequenceLabelQuad"]
-    assert body["item"]["geometry"]["source"] == "manual_override"
-    assert body["item"]["geometry"]["cornerSemantics"] == ("symbol-lattice-outer-bounds-5x3")
-    assert body["item"]["geometry"]["geometryVersion"] == (
-        "board-cell-geometry-v19-multi-point-source-direct-v1"
-    )
-    assert body["item"]["geometry"]["cropperVersion"] == (
-        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
-    )
-    assert body["item"]["geometry"]["sourceImageChecksumSha256"] == (item.source_checksum_sha256)
-    assert body["item"]["geometry"]["sourceOrderIndex"] == item.source_order_index
-    assert body["item"]["geometry"]["positionIndex"] == item.position_index
-    assert body["item"]["geometry"]["correctedBy"] == "local-admin"
-    assert len(body["item"]["geometry"]["cells"]) == 15
-    assert (
-        body["geometryRevision"]["decisionChecksumSha256"]
-        == (body["item"]["geometry"]["decisionChecksumSha256"])
-    )
-    assert body["geometryRevision"]["cropperVersion"] == (
-        "board-cell-crops-v19-multi-point-source-direct-fixed-padding-v1"
-    )
-    assert len(body["geometryRevision"]["cells"]) == 15
-    assert all(
-        cell["currentSymbolCode"] == cell["predictedSymbolCode"] for cell in body["item"]["cells"]
-    )
-    assert all(
-        revised["cropSampleId"] != previous.crop_sample_id
-        for revised, previous in zip(body["item"]["cells"], item.cells, strict=True)
-    )
-    persisted_cells = list(
-        (tmp_path / "data" / "image-review-board-cell-geometry-v19").rglob("*.png")
-    )
-    assert len(persisted_cells) == 15
-    assert not (tmp_path / "data" / "image-review-geometry").exists()
-    first_revision = repository.geometry_revisions[item.id][0]
-    for cell in first_revision.cells:
-        persisted = cv2.imread(str(tmp_path / "data" / cell.crop_relative_path))
-        assert persisted is not None
-        size = 64
-        expected = contact_sheet[
-            cell.row_index * size : (cell.row_index + 1) * size,
-            cell.column_index * size : (cell.column_index + 1) * size,
-        ]
-        assert np.array_equal(persisted, expected)
-    assert repository.items[untouched.id] == untouched
+    assert body["item"]["resolutionRevision"] == 1
+    revision = body["geometryRevision"]
+    assert revision["revision"] == 1
+    assert revision["correctedBy"] == actor
+    assert revision["geometryChecksumSha256"] == "a" * 64
+    assert revision["virtualRenderSpecChecksumSha256"] == "b" * 64
+    assert revision["sourceGeometryRevisionId"]
+    assert len(revision["cells"]) == 15
+    assert "decisionChecksumSha256" not in revision
+    assert "boardChecksumSha256" not in revision
+    [call] = virtual.save_calls
+    assert call["actor"] == actor
+    assert call["idempotency_key"] == UUID(str(payload["idempotencyKey"]))
 
     retry = client.post(
         f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
         params=query,
+        headers=headers,
         json=payload,
     )
     assert retry.status_code == 200
     assert retry.json()["created"] is False
-
-    reused_for_other_payload = client.post(
-        f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
-        params=query,
-        json={**payload, "correctedBy": "another-operator"},
-    )
-    assert reused_for_other_payload.status_code == 409
-    assert reused_for_other_payload.json()["code"] == "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT"
+    assert retry.json()["geometryRevision"]["id"] == revision["id"]
+    assert repository.items[item.id].geometry_revision == 1
 
     stale = client.post(
         f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
         params=query,
+        headers=headers,
         json={**payload, "idempotencyKey": str(uuid4())},
     )
     assert stale.status_code == 409
-    assert stale.json()["code"] == "IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT"
+    assert stale.json()["code"] == "IMAGE_GRID_REVIEW_REVISION_CONFLICT"
 
-    second_preview = client.post(
+
+def test_operational_geometry_requires_scope_and_configured_virtual_path() -> None:
+    client, _repository, virtual, item, query, headers, _actor = _geometry_context()
+    command = {"expectedGeometryRevision": 0, "expectedResolutionRevision": 0, "corners": _CORNERS}
+
+    foreign = client.post(
         f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",
+        params={**query, "importJobId": str(uuid4())},
+        headers=headers,
+        json=command,
+    )
+    assert foreign.status_code == 403
+    assert foreign.json()["code"] == "REVIEWER_SCOPE_FORBIDDEN"
+    missing = client.post(
+        f"/api/v1/admin/image-review-items/{uuid4()}/geometry-preview",
         params=query,
-        json={
-            "expectedGeometryRevision": 1,
-            "expectedResolutionRevision": 2,
-            "corners": corners,
-        },
+        headers=headers,
+        json=command,
     )
-    assert second_preview.status_code == 200
-    assert second_preview.headers["content-type"] == "image/png"
+    assert missing.status_code == 404
+    assert missing.json()["code"] == "IMAGE_REVIEW_ITEM_NOT_FOUND"
+    assert virtual.preview_calls == []
 
-    second_corners = [
-        {"x": 95, "y": 62},
-        {"x": 625, "y": 67},
-        {"x": 630, "y": 347},
-        {"x": 90, "y": 342},
-    ]
-    second_saved = client.post(
-        f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
-        params=query,
-        json={
-            "idempotencyKey": str(uuid4()),
-            "expectedGeometryRevision": 1,
-            "expectedResolutionRevision": 2,
-            "corners": second_corners,
-            "correctedBy": "second-owner",
-        },
+    unconfigured, _r, _v, other, other_query, other_headers, _a = _geometry_context(
+        with_virtual=False
     )
-    assert second_saved.status_code == 200, second_saved.text
-    assert second_saved.json()["geometryRevision"]["revision"] == 2
-    assert second_saved.json()["item"]["geometryRevision"] == 2
-    assert second_saved.json()["item"]["resolutionRevision"] == 3
-    assert len(repository.geometry_revisions[item.id]) == 2
-    assert repository.geometry_revisions[item.id][0] == first_revision
-    assert (
-        repository.geometry_revisions[item.id][1].decision_checksum_sha256
-        != first_revision.decision_checksum_sha256
+    unavailable = unconfigured.post(
+        f"/api/v1/admin/image-review-items/{other.id}/geometry-preview",
+        params=other_query,
+        headers=other_headers,
+        json=command,
     )
-    assert (
-        len(list((tmp_path / "data" / "image-review-board-cell-geometry-v19").rglob("*.png"))) == 30
-    )
-
-    invalid = client.post(
-        f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",
-        params=query,
-        json={
-            "expectedGeometryRevision": 2,
-            "expectedResolutionRevision": 3,
-            "corners": [
-                {"x": 90, "y": 60},
-                {"x": 630, "y": 350},
-                {"x": 630, "y": 60},
-                {"x": 90, "y": 350},
-            ],
-        },
-    )
-    assert invalid.status_code == 409
-    assert invalid.json()["code"] == "IMAGE_REVIEW_GEOMETRY_CORNERS_INVALID"
-
-
-def test_v19_geometry_preview_does_not_treat_an_unattested_suggestion_as_sequence(
-    operational_review_context: tuple[
-        TestClient,
-        MemoryOperationalImageReviewRepository,
-        UUID,
-        UUID,
-    ],
-) -> None:
-    client, repository, game_id, import_job_id = operational_review_context
-    item = next(iter(repository.items.values()))
-
-    response = client.post(
-        f"/api/v1/admin/image-review-items/{item.id}/geometry-preview",
-        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
-        json={
-            "expectedGeometryRevision": item.geometry_revision,
-            "expectedResolutionRevision": item.resolution_revision,
-            "corners": [
-                {"x": 0, "y": 0},
-                {"x": 10, "y": 0},
-                {"x": 10, "y": 10},
-                {"x": 0, "y": 10},
-            ],
-        },
-    )
-
-    assert response.status_code == 409
-    assert response.json()["code"] == "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED"
-
-    saved = client.post(
-        f"/api/v1/admin/image-review-items/{item.id}/geometry-revisions",
-        params={"gameId": str(game_id), "importJobId": str(import_job_id)},
-        json={
-            "idempotencyKey": str(uuid4()),
-            "expectedGeometryRevision": item.geometry_revision,
-            "expectedResolutionRevision": item.resolution_revision,
-            "corners": [
-                {"x": 0, "y": 0},
-                {"x": 10, "y": 0},
-                {"x": 10, "y": 10},
-                {"x": 0, "y": 10},
-            ],
-            "correctedBy": "local-admin",
-        },
-    )
-    assert saved.status_code == 409
-    assert saved.json()["code"] == "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED"
+    assert unavailable.status_code == 409
+    assert unavailable.json()["code"] == "IMAGE_REVIEW_GEOMETRY_UNAVAILABLE"
 
 
 def test_cursor_queue_is_bounded_reversible_and_scope_bound(

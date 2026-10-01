@@ -521,11 +521,6 @@ class SymbolCellReviewQueryService:
                     "SYMBOL_CELL_REVIEW_CELL_NOT_FOUND",
                     "The symbol-cell review crop does not exist in this current game scope.",
                 )
-            if asset.asset_mode != "virtual_source":
-                raise SymbolCellReviewError(
-                    "SYMBOL_CELL_REVIEW_PREVIEW_ASSET_MODE_INVALID",
-                    "The selected symbol cell still uses a legacy crop artifact.",
-                )
             if asset.revision != target.expected_revision:
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_CROP_DRIFT",
@@ -545,7 +540,7 @@ class SymbolCellReviewQueryService:
         game_id: UUID,
         targets: tuple[SymbolCellPreviewTarget, ...],
     ) -> tuple[SymbolCellReviewAsset, ...]:
-        """Validate current legacy and virtual cells for one shared atlas."""
+        """Validate current virtual cells for one shared atlas."""
 
         if not targets:
             raise SymbolCellReviewError(
@@ -578,21 +573,13 @@ class SymbolCellReviewQueryService:
                     "SYMBOL_CELL_REVIEW_CROP_DRIFT",
                     "The symbol-cell review changed after it was loaded. Reload the page.",
                 )
-            if asset.asset_mode == "virtual_source":
-                if (
-                    target.expected_render_spec_checksum_sha256 is None
-                    or asset.render_spec_checksum_sha256
-                    != target.expected_render_spec_checksum_sha256
-                ):
-                    raise SymbolCellReviewError(
-                        "SYMBOL_CELL_REVIEW_CROP_DRIFT",
-                        "The virtual symbol-cell render changed after it was loaded. "
-                        "Reload the page.",
-                    )
-            elif target.expected_render_spec_checksum_sha256 is not None:
+            if (
+                target.expected_render_spec_checksum_sha256 is None
+                or asset.render_spec_checksum_sha256 != target.expected_render_spec_checksum_sha256
+            ):
                 raise SymbolCellReviewError(
-                    "SYMBOL_CELL_REVIEW_PREVIEW_ASSET_MODE_INVALID",
-                    "A legacy symbol-cell preview must not declare virtual render provenance.",
+                    "SYMBOL_CELL_REVIEW_CROP_DRIFT",
+                    "The virtual symbol-cell render changed after it was loaded. Reload the page.",
                 )
             ordered.append(asset)
         return tuple(ordered)
@@ -622,9 +609,7 @@ class SymbolCellReviewQueryService:
                     "SYMBOL_CELL_REVIEW_CROP_DRIFT",
                     "The symbol-cell crop no longer belongs to the current geometry revision.",
                 )
-            if asset.asset_mode == "virtual_source" and (
-                asset.source_geometry_revision_id != asset.current_source_geometry_revision_id
-            ):
+            if asset.source_geometry_revision_id != asset.current_source_geometry_revision_id:
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_CROP_DRIFT",
                     "The virtual cell no longer belongs to the current source geometry revision.",

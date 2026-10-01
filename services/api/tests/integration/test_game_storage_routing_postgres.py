@@ -10,6 +10,11 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _virtual_board_fixtures import (
+    add_board_render_manifest_for,
+    ensure_source_geometry,
+    virtual_board_columns,
+)
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
@@ -47,7 +52,6 @@ from game_predictor_api.storage.image_review_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
-    ImageBoardGeometryRevisionModel,
     ImageBoardSearchCandidateModel,
     ImageFileExecutionModel,
     ImageGeometryRolloutStateModel,
@@ -481,6 +485,7 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
         for table_name in (
             "image_import_job_files",
             "source_images",
+            "image_source_geometry_revisions",
             "recognized_boards",
             "image_review_queue_states",
             "image_review_queue_items",
@@ -540,6 +545,10 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
         )
         session.add(source)
         session.flush()
+        # D-467 S6 (TASK-0796): every board is a virtual render of its source.
+        source_geometry = ensure_source_geometry(
+            session, game_id=game_id, source=source, sequence_range_start=1, created_at=now
+        )
         board = RecognizedBoardModel(
             source_image_id=source.id,
             position_index=0,
@@ -547,8 +556,7 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
             sequence_number=1,
             sequence_confidence=1.0,
             board_geometry={"source": "v2-upsert-test"},
-            board_relative_path="boards/test.png",
-            board_checksum_sha256="a" * 64,
+            **virtual_board_columns(source_geometry),
             cells_prediction={"cells": []},
             board_confidence=1.0,
             pipeline_fingerprint=pipeline_fingerprint,
@@ -659,6 +667,7 @@ def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: E
         for table_name in (
             "image_import_job_files",
             "source_images",
+            "image_source_geometry_revisions",
             "recognized_boards",
             "image_review_queue_states",
             "image_review_queue_items",
@@ -715,6 +724,10 @@ def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: E
         )
         session.add(source)
         session.flush()
+        # D-467 S6 (TASK-0796): every board is a virtual render of its source.
+        source_geometry = ensure_source_geometry(
+            session, game_id=game_id, source=source, sequence_range_start=7, created_at=now
+        )
         board = RecognizedBoardModel(
             source_image_id=source.id,
             position_index=0,
@@ -722,8 +735,7 @@ def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: E
             sequence_number=7,
             sequence_confidence=1.0,
             board_geometry={"source": "v2-grid-review-asset-test"},
-            board_relative_path="boards/grid-review.png",
-            board_checksum_sha256="d" * 64,
+            **virtual_board_columns(source_geometry),
             cells_prediction={"cells": []},
             board_confidence=1.0,
             pipeline_fingerprint=pipeline_fingerprint,
@@ -787,7 +799,6 @@ def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: E
     assert asset.review_item_id == review_item_id
     assert asset.source_relative_path == "originals/grid-review.jpg"
     assert asset.source_checksum_sha256 == source_checksum
-    assert asset.asset_mode == "legacy_file"
     with database.connect() as connection:
         assert connection.scalar(text("SELECT to_regclass('public.image_review_items') IS NULL"))
 
@@ -811,11 +822,13 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
         for table_name in (
             "image_import_job_files",
             "source_images",
+            "image_source_geometry_revisions",
             "recognized_boards",
             "image_review_queue_states",
             "image_review_items",
             "image_review_queue_items",
             "image_board_geometry_revisions",
+            "board_render_manifests",
         ):
             connection.exec_driver_sql(
                 f"CREATE TABLE game_data_v2.{table_name}_g_{game_id.hex} "
@@ -858,8 +871,11 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
         )
         session.add(source)
         session.flush()
-        # D-467 S5: a legacy board reads its crops from a manual geometry
-        # revision (revision 0 had them only in the dropped cell records).
+        # D-467 S6 (TASK-0796): a virtual board reads its current cells from
+        # the render manifest of its current (manual) geometry revision.
+        source_geometry = ensure_source_geometry(
+            session, game_id=game_id, source=source, sequence_range_start=12, created_at=now
+        )
         unknown = {
             "symbolCode": "?",
             "confidence": 0.0,
@@ -872,8 +888,7 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
             sequence_number=12,
             sequence_confidence=1.0,
             board_geometry={"source": "v2-review-asset-test"},
-            board_relative_path="boards/review.png",
-            board_checksum_sha256="d" * 64,
+            **virtual_board_columns(source_geometry),
             cells_prediction={
                 "cells": [
                     {"rowIndex": index // 5, "columnIndex": index % 5, **unknown}
@@ -900,31 +915,8 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
         )
         session.add(review)
         session.flush()
-        session.add(
-            ImageBoardGeometryRevisionModel(
-                review_item_id=review.id,
-                recognized_board_id=board.id,
-                revision=1,
-                idempotency_key=uuid4(),
-                command_sha256="e" * 64,
-                corners=[{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 6}, {"x": 0, "y": 6}],
-                geometry={"source": "v2-review-asset-test"},
-                asset_mode="legacy_file",
-                board_relative_path="boards/review.png",
-                board_checksum_sha256="d" * 64,
-                cropper_version="v2-review-asset-test",
-                crop_artifacts=[
-                    {
-                        "rowIndex": index // 5,
-                        "columnIndex": index % 5,
-                        "cropRelativePath": f"cells/review-{index}.png",
-                        "cropChecksumSha256": f"{index + 1:064x}",
-                    }
-                    for index in range(15)
-                ],
-                corrected_by="fixture",
-                created_at=now,
-            )
+        add_board_render_manifest_for(
+            session, game_id=game_id, board=board, review_item_id=review.id, created_at=now
         )
         session.flush()
         review_item_id = review.id
@@ -941,8 +933,9 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
     assert loaded.id == review_item_id
     assert loaded.game_id == game_id
     assert loaded.import_job_id == job.id
-    assert loaded.board_relative_path == "boards/review.png"
+    assert loaded.board_relative_path == "originals/review.jpg"
     assert len(loaded.cells) == 15
+    assert {cell.asset_mode for cell in loaded.cells} == {"virtual_source"}
     with factory() as session:
         service = OperationalImageReviewService(SqlAlchemyOperationalImageReviewRepository(session))
         with pytest.raises(ImageReviewNotFoundError) as wrong_job:

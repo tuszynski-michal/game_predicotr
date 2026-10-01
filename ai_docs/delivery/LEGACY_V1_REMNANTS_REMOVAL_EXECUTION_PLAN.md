@@ -285,6 +285,16 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   (`storage/models.py`) i przepięcie fixture testów jednostkowych na
   plansze wirtualne (do czasu wykonania ORM dopuszcza `legacy_file`, a baza
   operatora od `0135` już nie — świadoma, opisana rozbieżność).
+  Wykonanie 2026-10-01 (bez migracji): korekta geometrii Reviewera deleguje
+  do `VirtualGridGeometryService` (trasa, kontrakt wejścia i allowlista bez
+  zmian; odpowiedź bez pól plików cropów), usunięte zapis v19, previewer
+  plików cropów, ścieżki plikowe `pending_grid_reinference` (schema 1 i 2) i
+  gałęzie `legacy_file` w czytelnikach; enumy `assetMode` zawężone pionem
+  (OpenAPI, klient, Admin, Reviewer); ORM równoważny bazie po `0135`/`0136`;
+  fixture testów PG przepięte na plansze wirtualne (wspólna fabryka
+  `services/api/tests/integration/_virtual_board_fixtures.py`). Wyjątki i
+  szczegóły w D-467 i Outcome TASK-0796. **Etap S6 zamknięty** (po commicie
+  TASK-0796 przez orkiestratora; wdrożenie = restart usług).
 
 ### S7 — `render_spec` poza komórkami
 

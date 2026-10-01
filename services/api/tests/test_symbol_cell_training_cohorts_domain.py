@@ -38,7 +38,8 @@ def _candidate(
         cell_revision=1,
         geometry_revision=0,
         crop_sample_id=crop_sample_id,
-        crop_relative_path=f"crops/{index}.jpg",
+        # D-467 S6 (TASK-0796): a training candidate is a virtual render.
+        crop_relative_path=None,
         crop_checksum_sha256=crop_checksum,
         approved_crop_sample_id=crop_sample_id,
         approved_crop_checksum_sha256=crop_checksum,
@@ -49,6 +50,17 @@ def _candidate(
         prediction_symbol_code=predicted,
         perceptual_hash_64=index if perceptual_hash is None else perceptual_hash,
         mean_rgb=mean_rgb,
+        asset_mode="virtual_source",
+        source_geometry_revision_id=UUID(int=20_000 + index),
+        normalized_pixel_checksum_sha256=f"{index + 30_000:064x}",
+        geometry_checksum_sha256=f"{index + 40_000:064x}",
+        logical_cell_key=f"{index + 60_000:064x}",
+        logical_cell_key_v2=f"{index + 70_000:064x}",
+        render_identity_v2_sha256=f"{index + 80_000:064x}",
+        render_spec={"cellIndex": index % 15},
+        render_spec_checksum_sha256=f"{index + 90_000:064x}",
+        rendered_pixel_checksum_sha256=crop_checksum,
+        extractor_version="virtual-renderer-v1",
     )
 
 

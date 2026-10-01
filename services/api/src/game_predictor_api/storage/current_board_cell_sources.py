@@ -1,16 +1,10 @@
 """Per-board inputs of the current review-cell mapper (D-467, TASK-0758/0759).
 
 The Reviewer mapper (``materialize_current_image_review_cells``) needs, per
-board, exactly one of:
-
-* ``virtual_source``: the render manifest of the current geometry revision
-  (``board_render_manifests``); predictions come from
-  ``recognized_boards.cells_prediction`` or the newest prediction revision;
-* ``legacy_file`` at revision > 0: the current geometry revision's
-  ``crop_artifacts`` (passed separately) and ``cells_prediction``.
-
-A ``legacy_file`` board at geometry revision 0 has no cell source since S5
-(TASK-0759) dropped its per-cell import records; the mapper refuses it.
+board, the render manifest of its current geometry revision
+(``board_render_manifests``); predictions come from
+``recognized_boards.cells_prediction`` or the newest prediction revision.
+Every board is ``virtual_source`` since D-467 S6 (migration 0135, TASK-0796).
 """
 
 from __future__ import annotations
@@ -35,12 +29,6 @@ class CurrentBoardCellSources:
 
 
 NO_CELL_SOURCES = CurrentBoardCellSources()
-
-
-def is_unsupported_legacy_base_board(board: RecognizedBoardModel) -> bool:
-    """A ``legacy_file`` board at revision 0 lost its only cell source in S5."""
-
-    return board.asset_mode == "legacy_file" and board.geometry_revision == 0
 
 
 def load_current_board_cell_sources(
@@ -75,7 +63,6 @@ def load_current_board_cell_source(
 __all__ = [
     "NO_CELL_SOURCES",
     "CurrentBoardCellSources",
-    "is_unsupported_legacy_base_board",
     "load_current_board_cell_source",
     "load_current_board_cell_sources",
 ]

@@ -1173,6 +1173,26 @@ próbek zweryfikowanych kohort. Rekord `virtual_source` nie może udawać pliku:
 są obowiązkowe (od `0136` komórka weryfikacji ma tylko sumę render spec;
 specyfikacja jest w `board_render_manifests`). `legacy_file` nadal wymaga istniejących pól ścieżki i checksumy.
 
+Stan po D-467 S6 (TASK-0796, bez migracji): modele ORM odpowiadają
+`pg_get_constraintdef` po `0135`/`0136`. `recognized_boards` i
+`image_symbol_review_cells` dopuszczają wyłącznie `virtual_source` (komórki
+także `none`), a domyślne `asset_mode` w ORM i w bazie to `virtual_source`.
+`ck_image_symbol_review_cells_approved_provenance` zachowuje w bazie i w ORM
+gałąź `approved_asset_mode IS NULL OR = 'legacy_file'` (zatwierdzenie
+plikowe): na bazie operatora 2026-10-01 było 0 takich wierszy i żaden pisarz
+jej nie tworzy, ale jej usunięcie wymaga osobnej migracji. Tabele historii
+(`image_board_geometry_revisions` — 461 rekordów `legacy_file`,
+`image_symbol_review_events`, `verified_training_cohort_cells`) zachowują
+gałąź `legacy_file` i jej domyślne wartości kolumn, bo opisują przeszłość.
+Kod runtime nie zna już trybu `legacy_file`: mapper, czytelnicy assetów,
+projekcja wyszukiwarki, przeliczanie predykcji i korekta geometrii Reviewera
+odmawiają planszy/komórki niewirtualnej jawnym kodem
+(`IMAGE_REVIEW_ASSET_MODE_UNSUPPORTED`, `SYMBOL_CELL_REVIEW_ASSET_MODE_UNSUPPORTED`,
+`IMAGE_SYMBOL_REINFERENCE_LEGACY_UNSUPPORTED`,
+`IMAGE_GRID_REINFERENCE_LEGACY_UNSUPPORTED`). Wyjątek: narzędzie konwersji
+TASK-0791 (`scripts/convert_legacy_boards_to_virtual.py` i jego warstwa
+aplikacji), którego wymaga migracja `0135` przy odtwarzaniu bazy sprzed `0135`.
+
 TASK-0321 zachowuje `logical_cell_key` jako historyczny klucz
 `logical-cell-v1`, oparty na checksumie treści źródła. Nie jest on przepisywany
 ani używany jako jedyna domenowa tożsamość nowego wystąpienia. Kontrakt

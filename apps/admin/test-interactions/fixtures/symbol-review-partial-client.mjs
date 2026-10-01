@@ -65,7 +65,7 @@ export async function createPartialReviewClient() {
       id: 'full-cell',
       cellIndex: 2,
       columnIndex: 2,
-      assetMode: 'legacy_file',
+      assetMode: 'virtual_source',
       sourceVisibility: 'full',
       cropChecksumSha256: 'c'.repeat(64),
       cropSampleId: 'full-crop',

@@ -363,8 +363,7 @@ tego widoku (punkty planszy uciętej przez krawędź zdjęcia mogą wyjść poza
 wymiarów zdjęcia. Geometria bez poprawnych 15 komórek, absurdalna geometria
 (obszar powyżej 60 mln pikseli) albo brak obrazu dają `view = null`. `revision` to
 tożsamość renderu (wersja renderera, SHA-256 zdjęcia, obszar i rozmiar) —
-zmienia się także wtedy, gdy zmieni się siatka przy tej samej sumie planszy
-(np. ponowne cięcie v19 planszy `legacy_file`).
+zmienia się także wtedy, gdy zmieni się siatka przy tej samej sumie planszy.
 
 Widok (`getBoardSearchBoardView`) zwraca `image/webp` z `ETag` równym
 `revision`. Z parametrem `viewRevision` (z odpowiedzi szczegółów) odpowiedź
@@ -380,8 +379,8 @@ dowiązaniem symbolicznym jest odrzucany). Trafienie w cache nie czyta zdjęcia
 źródłowego; chybienie sprawdza bezpieczną ścieżkę i SHA-256 zdjęcia. Zdjęcie
 powyżej 100 mln pikseli nie jest dekodowane.
 
-Oba endpointy porównują bieżącą sumę tożsamości planszy (bitmapa planszy dla
-`legacy_file`, geometria dla `virtual_source`) z `boardChecksumSha256`
+Oba endpointy porównują bieżącą sumę tożsamości planszy (suma geometrii
+źródła; każda plansza jest `virtual_source` od D-467 S6) z `boardChecksumSha256`
 dokumentu. Przy niezgodności (dokument wyszukiwania sprzed późniejszej
 zmiany siatki) szczegóły zwracają `documentStale = true`, linie i wypłatę z
 dokumentu (tak samo liczy kalkulator zakresu), `view = null` i
@@ -683,12 +682,14 @@ wygaśnięcia. Atlas jest cache'em pochodnym pod `data/working/`, nie nowym
 artefaktem domenowym: TTL wynosi 24 godziny, limit wynosi 2 GiB, a render
 jednego batcha ma single-flight. Odczyt atlasu oraz rozszerzony endpoint assetu
 ponownie wiążą źródło, geometrię, render spec i checksumę pikseli; drift kończy
-się kontrolowanym konfliktem zamiast podania starego obrazu. Legacy asset nadal
-czyta swój istniejący PNG/JPEG.
+się kontrolowanym konfliktem zamiast podania starego obrazu. Od D-467 S6
+(TASK-0796) nie ma już assetów plikowych komórek: asset spoza `virtual_source`
+jest odrzucany (`SYMBOL_CELL_REVIEW_ASSET_MODE_UNSUPPORTED`), a
+`expectedRenderSpecChecksumSha256` jest wymagane.
 
-`POST .../symbol-cell-preview-batches` jest bieżącym kontraktem Admina dla obu
-trybów `legacy_file` i `virtual_source`. Każdy target wiąże rewizję i checksumę
-cropa, a źródło wirtualne dodatkowo checksumę render specu. Deterministyczny
+`POST .../symbol-cell-preview-batches` jest bieżącym kontraktem Admina dla
+komórek `virtual_source` (jedyny tryb od D-467 S6). Każdy target wiąże rewizję,
+checksumę cropa i checksumę render specu (brak = drift). Deterministyczny
 batch zawiera najwyżej 100 komórek i ma stabilny klucz niezależny od chwilowego
 viewportu. Cache pochodny ma TTL 24 godziny i limit 2 GiB; pełne pruning nie
 jest wykonywane po każdym renderze, tylko po przekroczeniu limitu. Atlas jest
@@ -701,7 +702,7 @@ zwraca tryb, wersję i SHA-256 fingerprintu renderera, `availableCount` oraz
 komórki z kompletną bieżącą proweniencją `virtual_source`. Jeśli cały batch jest
 niedostępny, `batchKey`, `atlasUrl`, check­suma i czas wygaśnięcia są `null`, a
 lista tile'ów jest pusta. Endpoint nie zapisuje danych domenowych i nie uruchamia
-joba; brak proweniencji nigdy nie powoduje fallbacku do `legacy_file`.
+joba; brak proweniencji nigdy nie powoduje fallbacku do pliku cropa.
 
 To read-only kontrakt wyłącznie lokalnego Admin API; nie jest wystawiany przez
 zdalny Reviewer ani przez token review. `symbolId=all` zwraca wszystkie bieżące
@@ -765,8 +766,10 @@ topologii, nie tylko nieczytelne.
 Każda komórka detailu zawiera opcjonalne `renderSpecChecksumSha256`, pobrane
 z bieżącej projekcji. Klient przekazuje je jako
 `expectedRenderSpecChecksumSha256` do istniejącego endpointu assetu. Jest
-wymagane dla virtual_source; legacy_file zachowuje null. Odczyt nie zmienia
-decyzji ani rewizji cropów.
+wymagane dla `virtual_source`; pozycja `none` (poza zdjęciem) ma null. Enum
+`assetMode` list weryfikacji (`SymbolCellReviewListItemResponse`,
+`UnreadableBoardReviewCellResponse`) to `virtual_source | none` i pole jest
+wymagane (TASK-0796). Odczyt nie zmienia decyzji ani rewizji cropów.
 
 Lista zwykłej weryfikacji cropów mapuje `grid_issue` i `unreadable` jako
 tymczasowy filtr techniczny `unknown`: nie zwraca ich pod historycznie
@@ -2599,21 +2602,39 @@ sprawdzają checksumę przed wysłaniem pliku.
 
 Preview geometrii przyjmuje cztery narożniki zewnętrznych granic siatki symboli
 5 × 3 w przestrzeni oryginalnego obrazu oraz expected geometry i resolution
-revision. Zwraca PNG `5 × 3` złożony z dokładnie 15 finalnych cropów
-source-direct v19 i nie zapisuje pliku ani rewizji. Cztery pochodne uchwyty
-krawędziowe nie należą do payloadu.
+revision. Od D-467 S6 (TASK-0796) trasa, kontrakt wejścia, allowlista proxy i
+autoryzacja sesji Reviewera są bez zmian, ale backend deleguje do
+`VirtualGridGeometryService` (ta sama ścieżka co korekta w Adminie): tożsamość
+źródła i topologia pochodzą z zapisanej proweniencji planszy, a odpowiedź to
+kontaktowy PNG `5 × 3` renderu wirtualnego w pamięci (nagłówki
+`X-Board-Cell-Count`, `X-Board-Cell-Cropper-Version`,
+`X-Board-Cell-Preview-Kind`; bez dawnego `X-Board-Cell-Cropper-Fingerprint-Sha256`).
+Nie powstaje plik ani rewizja.
 
-Zapis geometry revision wymaga dodatkowo UUID idempotencji i aktora. Cztery
-punkty mają tę samą semantykę `latticeBoundsQuad` co preview; backend ponownie
-wykonuje wspólną walidację v19, zapisuje dokładnie 15 finalnych cropów
-source-direct, ich ścieżki, checksumy i quady oraz ponownie otwiera review item.
-Klient nie przesyła ścieżek systemowych ani gotowych plików wyjściowych.
+Zapis geometry revision wymaga dodatkowo UUID idempotencji i aktora (sesja
+Reviewera nadpisuje `correctedBy` aktorem `reviewer-session:<id>`). Zapis to
+`save_virtual_geometry_revision` dla istniejącej planszy: najpierw replay po
+`idempotencyKey` (`created=false`, ta sama rewizja), potem CAS na
+`expectedGeometryRevision`/`expectedResolutionRevision`, append-only rewizja
+geometrii źródła i planszy `virtual_source` z manifestem renderu, podmiana
+komórek weryfikacji i ponowne otwarcie review item (zamyka się znowu, gdy
+weryfikacje komórek przetrwały — D-462). Pliki cropów nie powstają.
 
-Odpowiedź rewizji zawiera `decisionChecksumSha256`, które wiąże źródło,
-source-order, pozycję, numer, quad, wersje, oczekiwane rewizje, checksumę komendy
-i aktora. Pole może być `null` tylko podczas odczytu historycznej rewizji v1.
-Exact retry tego samego UUID zwraca `created=false`; zmieniona komenda z tym
-UUID albo zapis na nieaktualnej rewizji kończy się stabilnym konfliktem.
+Odpowiedź (`OperationalImageReviewGeometryResponse`) zachowuje kształt
+`item` + `geometryRevision` + `created`; rewizja niesie `id`, `reviewItemId`,
+`recognizedBoardId`, `revision`, `idempotencyKey`, `commandSha256`, `corners`,
+`sourceGeometryRevisionId`, `geometryChecksumSha256`,
+`virtualRenderSpecChecksumSha256`, `cropperVersion`, `cells` (do 15, z
+`cropSampleId` i `cropChecksumSha256` renderu), `correctedBy`, `createdAt`.
+Pola plików cropów v19 (`boardChecksumSha256`, `decisionChecksumSha256`) usunięto
+pionem (Reviewer ich nie czytał). Kody konfliktów: inna komenda z tym samym
+UUID → `409 IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT`, nieaktualna rewizja →
+`409 IMAGE_GRID_REVIEW_REVISION_CONFLICT` (Reviewer traktuje go jak dawne
+`IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT` i przeładowuje planszę), plansza
+`superseded` → `409 IMAGE_REVIEW_SUPERSEDED`, plansza z kwalifikacją częściową
+(edytor operacyjny nie wysyła kwalifikacji) → `422
+IMAGE_GRID_REVIEW_QUALIFICATION_REQUIRED`. Kod
+`IMAGE_REVIEW_GEOMETRY_ASSET_MODE_UNSUPPORTED` nie istnieje.
 
 ### Lokalna kolejka walidacji geometrii 0.9
 
@@ -2716,14 +2737,16 @@ pozostają kontraktem ograniczonego zdalnego Reviewera. Lokalny workflow nie
 korzysta z nich, ale nie wolno ich usunąć bez osobnego zastąpienia zdalnego
 scope'u.
 
-Dla `virtual_source` te same endpointy preview i zapisu konsumują managed
-original, bieżącą source geometry oraz przypięty render spec. Preview tworzy
-kontaktowy PNG wyłącznie w pamięci. Zapis tworzy append-only source geometry i
-board geometry revision oraz podmienia bieżącą proweniencję komórek bez
-`board_relative_path`, `crop_relative_path` i trwałych bitmap. Odpowiedź ma
-`assetMode=virtual_source`, identyfikator source geometry, geometry checksum i
-checksum wirtualnego render manifestu; legacy nadal zwraca fizyczne ścieżki i
-`decisionChecksumSha256`.
+Każda plansza jest `virtual_source` (D-467 S6), więc te endpointy preview i
+zapisu zawsze konsumują managed original, bieżącą source geometry oraz
+przypięty render spec. Preview tworzy kontaktowy PNG wyłącznie w pamięci. Zapis
+tworzy append-only source geometry i board geometry revision oraz podmienia
+bieżącą proweniencję komórek bez `board_relative_path`, `crop_relative_path` i
+trwałych bitmap. Odpowiedź ma `assetMode=virtual_source` (enum jednowartościowy;
+również `ImageGridReviewItemResponse.assetMode`), wymagane
+`sourceGeometryRevisionId`, `geometryChecksumSha256` i
+`virtualRenderSpecChecksumSha256`; pola `boardChecksumSha256` i
+`decisionChecksumSha256` usunięto (TASK-0796).
 
 Jawny pending-only recrop v19 wykorzystuje:
 
@@ -2740,10 +2763,14 @@ stron. Pozycja `pending` z istniejącą ręczną albo automatyczną geometrią v
 jest aktualna, a nie kwalifikująca do ponownego zapisu. Brak kwalifikujących
 pozycji blokuje start stabilnym `IMAGE_GRID_REINFERENCE_EMPTY`.
 
-`recalculableBoardCount` obejmuje wyłącznie `legacy_file` bez zatwierdzonej
-rewizji geometrii. Zatwierdzone siatki są chronione, a `virtual_source` jest
-raportowany osobno i nie pozwala utworzyć plikowego joba v19. Worker powtarza
-te same warunki pod blokadą bezpośrednio przed zapisem.
+Od D-467 S6 (TASK-0796) każda plansza jest `virtual_source`, więc
+`recalculableBoardCount` i `currentV19BoardCount` są zawsze `0`, a pozycje
+`pending` bez ochrony trafiają do `unsupportedVirtualBoardCount`; start kończy
+się `IMAGE_GRID_REINFERENCE_EMPTY`. Worker nie ma już ścieżek plikowych
+(schema 1 i 2): historyczny albo ponowiony job kończy się jawnym
+`IMAGE_GRID_REINFERENCE_LEGACY_UNSUPPORTED`. Kontrakt endpointów i odpowiedzi
+pozostaje bez zmian; usunięcie funkcji pionem (API, Admin, job) to osobne
+zadanie.
 
 Kontrakt odroczonej geometrii komórek wykorzystuje:
 

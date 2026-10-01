@@ -58,12 +58,14 @@ def _records(
         sequence_number=1,
         sequence_confidence=1.0,
         board_geometry={},
-        board_relative_path="boards/1.jpg",
-        board_checksum_sha256="b" * 64,
         cells_prediction={},
         board_confidence=0.9,
         pipeline_fingerprint="c" * 64,
-        asset_mode="legacy_file",
+        # D-467 S6 (TASK-0796): every board is ``virtual_source``.
+        asset_mode="virtual_source",
+        board_relative_path=None,
+        board_checksum_sha256=None,
+        geometry_checksum_sha256="d" * 64,
         status="pending_review",
     )
     item = ImageReviewItemModel(
@@ -257,38 +259,6 @@ def _as_virtual(board: RecognizedBoardModel) -> None:
     board.geometry_checksum_sha256 = "d" * 64
 
 
-def test_revision_zero_legacy_board_has_no_search_evidence() -> None:
-    """D-467 S5: a revision-0 legacy board lost its only crops with the
-    per-cell import records, so even complete import predictions are no
-    evidence; the same predictions on a revision-1 legacy board are."""
-
-    item, board, source, job = _records(status="pending")
-    board.geometry_revision = 0
-    board.cells_prediction = {
-        "cells": [
-            {
-                "rowIndex": index // 5,
-                "columnIndex": index % 5,
-                "symbolCode": f"symbol-{index}",
-                "alternatives": [],
-            }
-            for index in range(15)
-        ]
-    }
-    assert (
-        _payload_from_records(
-            item=item, board=board, source=source, job=job, prediction_override=None
-        )
-        is None
-    )
-    board.geometry_revision = 1
-    payload = _payload_from_records(
-        item=item, board=board, source=source, job=job, prediction_override=None
-    )
-    assert payload is not None
-    assert payload.candidate.primary_symbol_codes == tuple(f"symbol-{i}" for i in range(15))
-
-
 def _partial_board(missing: tuple[int, ...], *, geometry_revision: int):
     item, board, source, job = _records(status="pending")
     board.geometry_revision = geometry_revision
@@ -345,85 +315,22 @@ def test_qualified_projection_ignores_observations_of_masked_positions() -> None
     )
 
 
-def test_qualified_legacy_revision_uses_its_own_current_crops() -> None:
-    """TASK-0730: a manual legacy revision has crops, not a virtual manifest."""
+def test_board_identity_is_the_source_geometry_checksum() -> None:
+    """D-467 S6: a virtual board is identified by its source geometry."""
 
-    from game_predictor_api.storage.models import ImageBoardGeometryRevisionModel
-
-    missing = (0, 5, 10)
-    item, board, source, job = _partial_board(missing, geometry_revision=1)
-
-    def revision_with_crops(indices: range | list[int]) -> ImageBoardGeometryRevisionModel:
-        return ImageBoardGeometryRevisionModel(
-            asset_mode="legacy_file",
-            virtual_render_spec=None,
-            crop_artifacts=[
-                {
-                    "rowIndex": index // 5,
-                    "columnIndex": index % 5,
-                    "cropChecksumSha256": f"{index + 100:064x}",
-                }
-                for index in indices
-            ],
-        )
-
-    revision = revision_with_crops(range(15))
+    item, board, source, job = _records(status="pending")
     _import_predictions(
-        board, {index: {"symbolCode": f"symbol-{index}", "alternatives": []} for index in range(15)}
+        board, {index: {"symbolCode": "seven", "alternatives": []} for index in range(15)}
     )
-
     payload = _payload_from_records(
-        item=item,
-        board=board,
-        source=source,
-        job=job,
-        prediction_override=None,
-        geometry_revision=revision,
+        item=item, board=board, source=source, job=job, prediction_override=None
     )
     assert payload is not None
-    assert payload.candidate.primary_symbol_codes == tuple(
-        None if i in missing else f"symbol-{i}" for i in range(15)
-    )
-    # D-467: a visible position without a current revision crop is never
-    # evidence (it replaces the former stale-observation comparison).
+    assert payload.board_checksum_sha256 == "d" * 64
+    board.geometry_checksum_sha256 = None
     assert (
         _payload_from_records(
-            item=item,
-            board=board,
-            source=source,
-            job=job,
-            prediction_override=None,
-            geometry_revision=revision_with_crops([i for i in range(15) if i != 7]),
-        )
-        is None
-    )
-    # Like an unqualified legacy board, a prediction revision overrides the
-    # import predictions of visible positions only; masked ones stay unknown.
-    overridden = _payload_from_records(
-        item=item,
-        board=board,
-        source=source,
-        job=job,
-        prediction_override=[
-            {"rowIndex": i // 5, "columnIndex": i % 5, "symbolCode": "new", "alternatives": []}
-            for i in range(15)
-        ],
-        geometry_revision=revision,
-    )
-    assert overridden is not None
-    assert overridden.candidate.primary_symbol_codes == tuple(
-        None if i in missing else "new" for i in range(15)
-    )
-    # The legacy crop path never applies to a virtual-source board.
-    board.asset_mode = "virtual_source"
-    assert (
-        _payload_from_records(
-            item=item,
-            board=board,
-            source=source,
-            job=job,
-            prediction_override=None,
-            geometry_revision=revision,
+            item=item, board=board, source=source, job=job, prediction_override=None
         )
         is None
     )
@@ -625,7 +532,7 @@ def test_current_cell_decisions_ignore_foreign_boards_and_stale_revisions() -> N
             True,
             "full",
             geometry_revision,
-            "legacy_file",
+            "virtual_source",
             "c" * 64,
             "c" * 64,
             None,

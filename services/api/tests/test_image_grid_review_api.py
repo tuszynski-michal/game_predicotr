@@ -21,6 +21,11 @@ from game_predictor_api.application.image_grid_reviews import (
     ImageGridReviewRepository,
     ImageGridReviewService,
 )
+from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridGeometryCell,
+    VirtualGridGeometryRevision,
+    VirtualGridGeometrySaveResult,
+)
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewCounts,
@@ -39,16 +44,12 @@ from game_predictor_api.domain.image_import_engine_policy import (
     engine_policy_preview_token,
     policy_rollout_modes,
 )
-from game_predictor_api.domain.image_reviews import (
-    ImageReviewGeometryCellArtifact,
-    ImageReviewGeometryPoint,
-    ImageReviewGeometryRevision,
-)
+from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.schemas.image_grid_reviews import (
     to_image_grid_review_counts_response,
-    to_image_grid_review_geometry_response,
     to_image_grid_review_item_response,
+    to_virtual_grid_review_geometry_response,
 )
 from game_predictor_api.storage.game_storage_routing import current_game_storage_scope
 from game_predictor_api.storage.image_grid_review_repository import (
@@ -208,7 +209,7 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
         )
 
 
-class UnusedOperationalService:
+class UnusedVirtualGeometryService:
     pass
 
 
@@ -362,9 +363,8 @@ def _client(
     app.include_router(
         create_image_grid_reviews_router(
             lambda: ImageGridReviewService(repository),
-            lambda: UnusedOperationalService(),
             lambda: ImageGeometryRolloutService(rollout_repository),
-            lambda: UnusedOperationalService(),
+            lambda: UnusedVirtualGeometryService(),
             tmp_path,
         ),
         prefix="/api/v1",
@@ -791,29 +791,38 @@ def test_grid_review_api_lists_only_one_source_and_binds_cursor_scope(tmp_path: 
 
 
 def test_grid_geometry_response_uses_the_pinned_topology_for_row_major_indices() -> None:
-    revision = ImageReviewGeometryRevision(
+    board_id = uuid4()
+    revision = VirtualGridGeometryRevision(
         id=uuid4(),
         review_item_id=uuid4(),
-        recognized_board_id=uuid4(),
+        recognized_board_id=board_id,
         revision=1,
         idempotency_key=uuid4(),
         command_sha256="1" * 64,
-        decision_checksum_sha256="2" * 64,
         corners=(
             ImageReviewGeometryPoint(0, 0),
             ImageReviewGeometryPoint(80, 0),
             ImageReviewGeometryPoint(80, 20),
             ImageReviewGeometryPoint(0, 20),
         ),
-        board_relative_path="boards/board.png",
-        board_checksum_sha256="3" * 64,
+        source_geometry_revision_id=uuid4(),
+        geometry_checksum_sha256="2" * 64,
+        virtual_render_spec_checksum_sha256="3" * 64,
         cropper_version="topology-aware-test-v1",
         cells=tuple(
-            ImageReviewGeometryCellArtifact(
+            VirtualGridGeometryCell(
+                cell_index=index,
                 row_index=index // 4,
                 column_index=index % 4,
-                crop_relative_path=f"cells/{index}.png",
+                crop_sample_id=f"{index + 20:064x}",
                 crop_checksum_sha256=f"{index + 10:064x}",
+                logical_cell_key="4" * 64,
+                logical_cell_key_v2=None,
+                render_identity_v2_sha256=None,
+                render_spec={"cellIndex": index},
+                render_spec_checksum_sha256="5" * 64,
+                rendered_pixel_checksum_sha256=f"{index + 10:064x}",
+                extractor_version="virtual-test",
             )
             for index in range(8)
         ),
@@ -821,16 +830,19 @@ def test_grid_geometry_response_uses_the_pinned_topology_for_row_major_indices()
         created_at=datetime(2026, 8, 28, tzinfo=UTC),
     )
 
-    response = to_image_grid_review_geometry_response(
-        revision=revision,
+    response = to_virtual_grid_review_geometry_response(
+        VirtualGridGeometrySaveResult(revision=revision, created=True),
         grid_rows=2,
         grid_columns=4,
-        created=True,
     )
 
+    # D-467 S6 (TASK-0796): every revision is a virtual render, no crop files.
+    assert response.geometry_revision.asset_mode == "virtual_source"
+    assert response.geometry_revision.geometry_checksum_sha256 == "2" * 64
     assert response.geometry_revision.grid_rows == 2
     assert response.geometry_revision.grid_columns == 4
     assert [cell.cell_index for cell in response.geometry_revision.cells] == list(range(8))
+    assert "boardChecksumSha256" not in response.geometry_revision.model_dump(by_alias=True)
 
 
 def test_item_scoped_grid_review_routes_bind_the_query_game_storage(tmp_path: Path) -> None:

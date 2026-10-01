@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import replace
 from uuid import uuid4
 
 import pytest
@@ -10,6 +9,7 @@ from game_predictor_api.application.symbol_references import (
     ManagedSymbolReferenceArtifactStore,
 )
 from game_predictor_api.domain.catalog import CatalogConflictError, Symbol, SymbolStatus
+from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewAsset
 from game_predictor_api.domain.symbol_references import (
     ApprovedSymbolReferenceCandidate,
 )
@@ -50,17 +50,39 @@ class MemoryRepository:
 
 
 def _candidate(*, geometry_revision=0, sequence_number=1, cell_index=0):
+    # D-467 S6 (TASK-0796): an approved reference candidate is a virtual render.
+    cell_review_id = uuid4()
+    source_geometry_revision_id = uuid4()
     return ApprovedSymbolReferenceCandidate(
-        cell_review_id=uuid4(),
+        cell_review_id=cell_review_id,
         review_item_id=uuid4(),
         recognized_board_id=uuid4(),
         sequence_number=sequence_number,
         cell_index=cell_index,
         resolution_revision=1,
         geometry_revision=geometry_revision,
-        crop_relative_path=f"data/crops/{sequence_number}-{cell_index}.png",
+        crop_relative_path=None,
         crop_checksum_sha256="a" * 64,
         status="corrected",
+        asset_mode="virtual_source",
+        virtual_asset=SymbolCellReviewAsset(
+            cell_review_id=cell_review_id,
+            crop_relative_path=None,
+            crop_checksum_sha256="a" * 64,
+            geometry_revision=geometry_revision,
+            current_geometry_revision=geometry_revision,
+            asset_mode="virtual_source",
+            source_checksum_sha256="b" * 64,
+            normalized_pixel_checksum_sha256="c" * 64,
+            source_geometry_revision_id=source_geometry_revision_id,
+            current_source_geometry_revision_id=source_geometry_revision_id,
+            geometry_checksum_sha256="d" * 64,
+            logical_cell_key="e" * 64,
+            render_spec={"cellIndex": cell_index},
+            render_spec_checksum_sha256="f" * 64,
+            rendered_pixel_checksum_sha256="a" * 64,
+            extractor_version="virtual-renderer-v1",
+        ),
     )
 
 
@@ -100,17 +122,17 @@ def test_select_rejects_stale_checksum_without_calling_repository():
         )
 
 
-def test_select_copies_exact_candidate_bytes_into_content_addressed_reference(tmp_path):
+def test_select_materializes_the_virtual_render_into_a_content_addressed_reference(
+    tmp_path, monkeypatch
+):
+    from game_predictor_api.application import symbol_references as module
+
+    rendered = b"virtual-render-png"
+    monkeypatch.setattr(module, "render_virtual_symbol_cell_png", lambda **_kwargs: rendered)
     game_id, symbol_id = uuid4(), uuid4()
-    source = tmp_path / "data" / "crops" / "approved.png"
-    source.parent.mkdir(parents=True)
-    source.write_bytes(b"human-approved-crop")
-    checksum = hashlib.sha256(source.read_bytes()).hexdigest()
-    candidate = replace(
-        _candidate(),
-        crop_relative_path="data/crops/approved.png",
-        crop_checksum_sha256=checksum,
-    )
+    candidate = _candidate()
+    checksum = candidate.crop_checksum_sha256
+    rendered_checksum = hashlib.sha256(rendered).hexdigest()
     repository = MemoryRepository(game_id, (candidate,))
     service = ApprovedSymbolReferenceService(
         repository,
@@ -126,8 +148,12 @@ def test_select_copies_exact_candidate_bytes_into_content_addressed_reference(tm
     )
 
     destination = (
-        tmp_path / "data" / "symbol-references" / str(game_id) / str(symbol_id) / f"{checksum}.png"
+        tmp_path
+        / "data"
+        / "symbol-references"
+        / str(game_id)
+        / str(symbol_id)
+        / f"{rendered_checksum}.png"
     )
     assert selected.image_path == "data/reference.png"
-    assert destination.read_bytes() == source.read_bytes()
-    assert hashlib.sha256(destination.read_bytes()).hexdigest() == checksum
+    assert destination.read_bytes() == rendered

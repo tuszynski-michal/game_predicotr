@@ -811,8 +811,12 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
         # is rejected here, as the application layer would reject it anyway.
         virtual_keys: dict[UUID, CellRenderSpecKey] = {}
         for review_cell, current_geometry_revision, current_source_id, *_ in rows:
+            # D-467 S6 (TASK-0796): an image cell is always a virtual render.
             if review_cell.asset_mode != "virtual_source":
-                continue
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_ASSET_MODE_UNSUPPORTED",
+                    "Only virtual_source symbol-cell assets can be served.",
+                )
             if (
                 review_cell.geometry_revision != int(current_geometry_revision)
                 or review_cell.source_geometry_revision_id != current_source_id
@@ -844,25 +848,13 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
                 current_geometry_revision=int(current_geometry_revision),
                 revision=review_cell.revision,
                 asset_mode=review_cell.asset_mode,
-                source_checksum_sha256=(
-                    None if review_cell.asset_mode != "virtual_source" else source_checksum
-                ),
-                normalized_pixel_checksum_sha256=(
-                    None
-                    if review_cell.asset_mode != "virtual_source"
-                    else normalized_pixel_checksum
-                ),
+                source_checksum_sha256=source_checksum,
+                normalized_pixel_checksum_sha256=normalized_pixel_checksum,
                 source_geometry_revision_id=review_cell.source_geometry_revision_id,
                 current_source_geometry_revision_id=current_source_geometry_revision_id,
-                geometry_checksum_sha256=(
-                    None if review_cell.asset_mode != "virtual_source" else geometry_checksum
-                ),
+                geometry_checksum_sha256=geometry_checksum,
                 logical_cell_key=review_cell.logical_cell_key,
-                render_spec=(
-                    render_specs[virtual_keys[review_cell.id]]
-                    if review_cell.id in virtual_keys
-                    else None
-                ),
+                render_spec=render_specs[virtual_keys[review_cell.id]],
                 render_spec_checksum_sha256=review_cell.render_spec_checksum_sha256,
                 rendered_pixel_checksum_sha256=review_cell.rendered_pixel_checksum_sha256,
                 extractor_version=review_cell.extractor_version,
@@ -2941,11 +2933,7 @@ class SymbolCellReviewWriteThroughCoordinator:
         cells = materialize_current_image_review_cells(
             item=item,
             board=board,
-            source=source,
-            queue_item=queue_item,
-            job=job,
             cell_sources=cell_sources,
-            geometry_revision=geometry,
             prediction_override=prediction_override,
         )
         return (
@@ -3128,22 +3116,6 @@ def _asset_provenance_values(review_cell: ImageReviewCell) -> dict[str, object]:
     unreadable by the checksum-bound asset endpoint.
     """
 
-    if review_cell.asset_mode == "legacy_file":
-        if review_cell.crop_relative_path is None:
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
-                "A legacy symbol review cell is missing its crop path.",
-            )
-        return {
-            "asset_mode": "legacy_file",
-            "source_geometry_revision_id": None,
-            "logical_cell_key": None,
-            "logical_cell_key_v2": None,
-            "render_identity_v2_sha256": None,
-            "render_spec_checksum_sha256": None,
-            "rendered_pixel_checksum_sha256": None,
-            "extractor_version": None,
-        }
     if review_cell.asset_mode != "virtual_source" or (
         review_cell.crop_relative_path is not None
         or review_cell.source_geometry_revision_id is None
@@ -3172,8 +3144,6 @@ def _asset_provenance_values(review_cell: ImageReviewCell) -> dict[str, object]:
 def _approved_asset_provenance_from_review_cell(
     review_cell: ImageReviewCell,
 ) -> dict[str, object]:
-    if review_cell.asset_mode == "legacy_file":
-        return _empty_approved_asset_provenance()
     _asset_provenance_values(review_cell)
     return {
         "approved_asset_mode": "virtual_source",
@@ -3667,7 +3637,7 @@ def _apply_symbol_cell_review_transition(
     cell.approved_geometry_revision = (
         None if review.approved_crop is None else review.approved_crop.geometry_revision
     )
-    if review.approved_crop is None or cell.asset_mode == "legacy_file":
+    if review.approved_crop is None:
         cell.approved_asset_mode = None
         cell.approved_source_geometry_revision_id = None
         cell.approved_render_spec_checksum_sha256 = None
@@ -4527,7 +4497,7 @@ class SqlAlchemyImageSymbolReviewRepository:
         }
 
         values: list[dict[str, object]] = []
-        for document, item, board, source, queue_item, job in rows:
+        for document, item, board, source, _queue_item, _job in rows:
             prediction_revision = prediction_by_item.get(item.id)
             prediction_override = (
                 None if prediction_revision is None else list(prediction_revision.predictions)
@@ -4538,11 +4508,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                 current_cells = materialize_current_image_review_cells(
                     item=item,
                     board=board,
-                    source=source,
-                    queue_item=queue_item,
-                    job=job,
                     cell_sources=cell_sources,
-                    geometry_revision=current_geometry,
                     prediction_override=prediction_override,
                 )
                 incompatible_prediction_codes = _incompatible_prediction_codes(
@@ -4905,11 +4871,10 @@ def _current_cropper_version(
         return geometry.cropper_version
     # Revision 0 (D-467): a virtual board's base cropper is its render
     # manifest's extractor (the import writer requires ``cropper_version ==
-    # extractor_version``).  A legacy board at revision 0 has no base crops
-    # since S5 (TASK-0759) and is refused below.
+    # extractor_version``).  A board without a manifest is refused below.
     versions = (
         set()
-        if board.asset_mode == "legacy_file" or cell_sources.render_manifest is None
+        if cell_sources.render_manifest is None
         else {cell_sources.render_manifest.extractor_version}
     )
     if (

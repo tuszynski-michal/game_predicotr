@@ -71,24 +71,12 @@ def create_symbol_references_router(
         cell_review_id: UUID,
         service: Annotated[ApprovedSymbolReferenceService, service_parameter],
     ) -> Response:
-        candidate = service.candidate(game_id, symbol_id, cell_review_id)
-        if candidate.is_virtual:
-            rendered = service.virtual_candidate_asset(game_id, symbol_id, cell_review_id)
-            return Response(
-                content=rendered.content,
-                media_type=rendered.media_type,
-                headers={"Cache-Control": "no-store"},
-            )
-        path = resolve_symbol_reference_asset(
-            artifact_root,
-            candidate.crop_relative_path or "",
-            candidate.crop_checksum_sha256,
-        )
-        media_type = "image/png" if path.suffix.lower() == ".png" else "image/jpeg"
-        return FileResponse(
-            path,
-            media_type=media_type,
-            headers={"Cache-Control": "private, immutable, max-age=31536000"},
+        # D-467 S6 (TASK-0796): approved candidates are virtual renders only.
+        rendered = service.virtual_candidate_asset(game_id, symbol_id, cell_review_id)
+        return Response(
+            content=rendered.content,
+            media_type=rendered.media_type,
+            headers={"Cache-Control": "no-store"},
         )
 
     @router.get(

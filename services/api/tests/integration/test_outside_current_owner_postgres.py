@@ -6,6 +6,7 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from _virtual_board_fixtures import replace_virtual_geometry
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
@@ -44,6 +45,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
     ImageBoardSearchFastDocumentModel,
+    ImageSourceGeometryRevisionModel,
     ImageSymbolReviewCellModel,
     ImageSymbolReviewEventModel,
     ImageSymbolReviewStateModel,
@@ -52,6 +54,7 @@ from game_predictor_api.storage.models import (
 )
 from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
 from sqlalchemy import Engine, delete, func, select
+from sqlalchemy.orm.attributes import flag_modified
 from test_image_batch_store import PIPELINE, _add_review_projection_source, _image_job
 from test_symbol_source_visibility_migration import database  # noqa: F401
 
@@ -66,7 +69,8 @@ def test_outside_decisions_without_fast_document_persist_across_sessions(databas
     config.set_main_option(
         "sqlalchemy.url", database.url.render_as_string(hide_password=False).replace("%", "%%")
     )
-    command.upgrade(config, "0127_symbol_review_bulk_filter_scope")
+    # The current code writes the current schema (manifest v4, virtual boards).
+    command.upgrade(config, "head")
     sessions = create_session_factory(database)
     now = datetime.now(UTC)
     with sessions() as session:
@@ -147,23 +151,39 @@ def test_outside_decisions_without_fast_document_persist_across_sessions(databas
             version="manual-geometry-qualification-v3",
             fully_unavailable_cell_indices=(0, 1),
         ).to_dict()
-        board.board_geometry = {
-            "cells": [
-                {
-                    "rowIndex": index // 5,
-                    "columnIndex": index % 5,
-                    "sourceQuad": [
-                        {"x": x, "y": y}
-                        for x, y in (
-                            ((-20, 10), (-10, 10), (-10, 20), (-20, 20))
-                            if index in (0, 1)
-                            else ((10, 10), (20, 10), (20, 20), (10, 20))
-                        )
-                    ],
-                }
-                for index in range(15)
-            ]
-        }
+        cell_geometry = [
+            {
+                "rowIndex": index // 5,
+                "columnIndex": index % 5,
+                "sourceQuad": [
+                    {"x": x, "y": y}
+                    for x, y in (
+                        ((-20, 10), (-10, 10), (-10, 20), (-20, 20))
+                        if index in (0, 1)
+                        else ((10, 10), (20, 10), (20, 20), (10, 20))
+                    )
+                ],
+            }
+            for index in range(15)
+        ]
+        board.board_geometry = {"cells": cell_geometry}
+        # D-467 S6: a virtual board's visibility comes from its pinned source
+        # geometry slot, and its partial revision renders only cells 2-14.
+        source_geometry = session.get(
+            ImageSourceGeometryRevisionModel, board.source_geometry_revision_id
+        )
+        slots = [dict(value) for value in source_geometry.board_geometries]
+        slots[board.position_index] = {**slots[board.position_index], "cells": cell_geometry}
+        source_geometry.board_geometries = slots
+        flag_modified(source_geometry, "board_geometries")
+        replace_virtual_geometry(
+            session,
+            game_id=game.id,
+            review_item_id=review_id,
+            board_id=board_id,
+            variant="outside-partial",
+            cell_indices=tuple(range(2, 15)),
+        )
         coordinator = SymbolCellReviewWriteThroughCoordinator(session)
         assert coordinator.synchronize_after_geometry_change(
             game_id=game.id, review_item_id=review_id

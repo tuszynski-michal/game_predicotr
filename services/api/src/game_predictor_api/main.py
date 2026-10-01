@@ -13,9 +13,6 @@ from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from game_predictor_worker.images.manual_board_cell_geometry_preview import (
-    ManualBoardCellGeometryPreviewer,
-)
 from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
     ManualBoardCellSymbolPredictor,
 )
@@ -1207,10 +1204,14 @@ def create_app(
     def default_image_review_service_dependency() -> Iterator[OperationalImageReviewService]:
         with session_factory() as session:
             try:
+                # D-467 S6 (TASK-0796): the Reviewer's board geometry
+                # correction delegates to the virtual path in this session.
                 yield OperationalImageReviewService(
                     SqlAlchemyOperationalImageReviewRepository(session),
-                    artifact_root=resolved_settings.artifact_root,
-                    board_cell_geometry_previewer=ManualBoardCellGeometryPreviewer(),
+                    virtual_geometry=VirtualGridGeometryService(
+                        SqlAlchemyVirtualGridGeometryRepository(session),
+                        resolved_settings.artifact_root,
+                    ),
                     board_import_coverage_repository=SqlAlchemyBoardImportCoverageRepository(
                         session
                     ),
@@ -1809,6 +1810,10 @@ def create_app(
             "IMAGE_GRID_REVIEW_TOPOLOGY_CONFLICT",
             "IMAGE_GRID_REVIEW_CURRENT_OWNER_CONFLICT",
             "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED",
+            # The Reviewer's operational geometry contract (409 before the
+            # delegation to the virtual path, D-467 S6 / TASK-0796).
+            "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",
+            "IMAGE_REVIEW_SUPERSEDED",
         }:
             status_code = 409
         return JSONResponse(

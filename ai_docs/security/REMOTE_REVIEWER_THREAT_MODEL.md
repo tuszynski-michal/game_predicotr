@@ -49,6 +49,18 @@ zapisuje wynik ścieżką wirtualną: renderuje komórki w pamięci z niezmienne
 źródła i nie tworzy plików cropów. Koszt jednego żądania to dekodowanie
 jednego źródła i inferencja 15 komórek przypiętym modelem, jak dotąd.
 
+Od TASK-0796 (D-467 S6) to samo dotyczy korekty geometrii bieżącej planszy
+(`image-review-items/{id}/geometry-preview` i `.../geometry-revisions`):
+trasy, metody, allowlista proxy, kontrakt wejścia i autoryzacja sesji są bez
+zmian, ale API deleguje do `VirtualGridGeometryService` (render w pamięci,
+rewizja `virtual_source` z manifestem renderu, replay po `idempotencyKey`).
+Ścieżka zapisu plików cropów v19 nie istnieje, więc żądanie przez tunel nie
+może już utworzyć pliku pod artifact root. Koszt żądania to dekodowanie jednego
+źródła i render 15 komórek (bez inferencji modelu dla istniejącej planszy).
+Endpoint `.../assets/cells/{cellIndex}` pozostaje na allowliście dla zgodności
+kontraktu, ale dla planszy wirtualnej zawsze odpowiada
+`404 IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE` (żaden plik nie jest czytany).
+
 Zdalna ręczna selekcja współdzieli ten sam proces i tunel, ale nie tę samą
 powierzchnię uprawnień. `/manual-selection` używa wyłącznie `/selection-api`,
 osobnego cookie `gp_remote_selection_token` i stałej intencji proxy

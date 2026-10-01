@@ -349,7 +349,6 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
                 geometry_revision=pending.expected_geometry_revision,
                 resolution_revision=pending.expected_review_resolution_revision,
                 topology=BoardTopology(rows=3, columns=5),
-                asset_mode="virtual_source",
             )
         item, board, source, _sequence_number, _state = row
         return ImageGridReviewSourceAsset(
@@ -362,7 +361,6 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
             geometry_revision=board.geometry_revision,
             resolution_revision=item.resolution_revision,
             topology=_topology(board),
-            asset_mode=board.asset_mode,
         )
 
     def _visible_statement(self, *, review_filter: ImageGridReviewListFilter) -> Select[Any]:

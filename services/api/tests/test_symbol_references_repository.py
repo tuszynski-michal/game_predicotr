@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-from dataclasses import replace
 from datetime import UTC, datetime
 from io import BytesIO
 from unittest.mock import Mock
@@ -90,21 +89,6 @@ class MemoryApprovedReferences:
         )
 
 
-def _candidate(path: str, checksum: str) -> ApprovedSymbolReferenceCandidate:
-    return ApprovedSymbolReferenceCandidate(
-        cell_review_id=uuid4(),
-        review_item_id=uuid4(),
-        recognized_board_id=uuid4(),
-        sequence_number=81,
-        cell_index=7,
-        resolution_revision=3,
-        geometry_revision=2,
-        crop_relative_path=path,
-        crop_checksum_sha256=checksum,
-        status="corrected",
-    )
-
-
 def test_candidate_query_requires_current_individual_human_approval_not_parent_resolution():
     repository = SqlAlchemyApprovedSymbolReferenceRepository(Mock())
     statement = repository._candidate_query(game_id=uuid4(), symbol_id=uuid4())
@@ -121,14 +105,15 @@ def test_candidate_query_requires_current_individual_human_approval_not_parent_r
     assert "active" in compiled.params.values()
 
 
-def test_read_only_api_serves_checksum_bound_approved_crop(tmp_path):
-    content = b"approved-crop"
-    crop = tmp_path / "data" / "crops" / "approved.png"
-    crop.parent.mkdir(parents=True)
-    crop.write_bytes(content)
+def test_read_only_api_serves_the_virtual_render_of_an_approved_cell(tmp_path):
+    """D-467 S6 (TASK-0796): a candidate asset is always the virtual render."""
+
     game_id, symbol_id = uuid4(), uuid4()
-    candidate = _candidate("data/crops/approved.png", hashlib.sha256(content).hexdigest())
-    service = ApprovedSymbolReferenceService(MemoryApprovedReferences(game_id, candidate))
+    candidate = _virtual_candidate(tmp_path)
+    service = ApprovedSymbolReferenceService(
+        MemoryApprovedReferences(game_id, candidate),
+        ManagedSymbolReferenceArtifactStore(tmp_path),
+    )
     app = FastAPI()
     app.include_router(create_symbol_references_router(lambda: service, tmp_path))
 
@@ -146,51 +131,17 @@ def test_read_only_api_serves_checksum_bound_approved_crop(tmp_path):
             "cropChecksumSha256": candidate.crop_checksum_sha256,
             "sequenceNumber": 81,
             "cellIndex": 7,
-            "geometryRevision": 2,
-            "status": "corrected",
+            "geometryRevision": 0,
+            "status": "approved",
         }
     ]
     assert asset.status_code == 200
-    assert asset.content == content
-
-
-def test_selection_api_copies_bytes_and_serves_only_durable_reference(tmp_path):
-    content = b"approved-crop"
-    crop = tmp_path / "data" / "crops" / "approved.png"
-    crop.parent.mkdir(parents=True)
-    crop.write_bytes(content)
-    game_id, symbol_id = uuid4(), uuid4()
-    candidate = _candidate("data/crops/approved.png", hashlib.sha256(content).hexdigest())
-    repository = MemoryApprovedReferences(game_id, candidate)
-    service = ApprovedSymbolReferenceService(
-        repository,
-        ManagedSymbolReferenceArtifactStore(tmp_path),
-    )
-    app = FastAPI()
-    app.include_router(create_symbol_references_router(lambda: service, tmp_path))
-
-    with TestClient(app) as client:
-        response = client.post(
-            f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/"
-            f"{candidate.cell_review_id}/selection",
-            json={"expectedChecksumSha256": candidate.crop_checksum_sha256, "selectedBy": "admin"},
-        )
-        reference = client.get(f"/admin/games/{game_id}/symbols/{symbol_id}/image/asset")
-
-    assert response.status_code == 200
-    assert repository.selection is not None
-    assert response.json()["imagePath"] == repository.selection["image_relative_path"]
-    assert reference.status_code == 200
-    assert reference.content == content
+    assert asset.headers["content-type"] == "image/png"
 
 
 def test_cell_review_selection_sets_the_assigned_symbol_image(tmp_path):
-    content = b"approved-crop"
-    crop = tmp_path / "data" / "crops" / "approved.png"
-    crop.parent.mkdir(parents=True)
-    crop.write_bytes(content)
     game_id, symbol_id, cell_review_id = uuid4(), uuid4(), uuid4()
-    candidate = _candidate("data/crops/approved.png", hashlib.sha256(content).hexdigest())
+    candidate = _virtual_candidate(tmp_path)
     repository = MemoryApprovedReferences(game_id, candidate)
     repository.eligible_cells[cell_review_id] = symbol_id
     service = ApprovedSymbolReferenceService(
@@ -211,13 +162,15 @@ def test_cell_review_selection_sets_the_assigned_symbol_image(tmp_path):
     assert repository.selection is not None
     assert repository.selection["symbol_id"] == symbol_id
     assert response.json()["imagePath"] == repository.selection["image_relative_path"]
+    stored = (tmp_path / repository.selection["image_relative_path"]).read_bytes()
+    assert repository.selection["image_checksum_sha256"] == hashlib.sha256(stored).hexdigest()
     assert reference.status_code == 200
-    assert reference.content == content
+    assert reference.content == stored
 
 
 def test_cell_review_selection_rejects_an_ineligible_cell(tmp_path):
     game_id = uuid4()
-    candidate = _candidate("data/crops/approved.png", "a" * 64)
+    candidate = _virtual_candidate(tmp_path)
     repository = MemoryApprovedReferences(game_id, candidate)
     service = ApprovedSymbolReferenceService(
         repository,
@@ -228,7 +181,7 @@ def test_cell_review_selection_rejects_an_ineligible_cell(tmp_path):
         service.select_from_cell_review(
             game_id,
             uuid4(),
-            expected_checksum_sha256="a" * 64,
+            expected_checksum_sha256=candidate.crop_checksum_sha256,
             selected_by="admin",
         )
 
@@ -343,8 +296,12 @@ def _virtual_candidate(artifact_root):
         extractor_version="direct-perspective-cell-v1",
     )
     loader.clear()
-    return replace(
-        _candidate("data/crops/unused.png", checksum),
+    return ApprovedSymbolReferenceCandidate(
+        cell_review_id=asset.cell_review_id,
+        review_item_id=uuid4(),
+        recognized_board_id=uuid4(),
+        sequence_number=81,
+        cell_index=7,
         resolution_revision=0,
         geometry_revision=0,
         crop_relative_path=None,
@@ -385,7 +342,8 @@ def test_candidates_take_render_specs_from_one_manifest_read(monkeypatch):
             review_state="approved",
         )
 
-    virtual, legacy = cell(2, "virtual_source"), cell(3, "legacy_file")
+    # D-467 S6 (TASK-0796): the candidate query returns virtual cells only.
+    virtual, other = cell(2, "virtual_source"), cell(3, "virtual_source")
     board = SimpleNamespace(
         id=board_id,
         geometry_revision=1,
@@ -394,7 +352,7 @@ def test_candidates_take_render_specs_from_one_manifest_read(monkeypatch):
     item = SimpleNamespace(id=uuid4(), resolution_revision=1)
     rows = [
         (virtual, item, board, "a" * 64, "b" * 64, "e" * 64),
-        (legacy, item, board, "a" * 64, "b" * 64, "e" * 64),
+        (other, item, board, "a" * 64, "b" * 64, "e" * 64),
     ]
     calls = []
 
@@ -408,9 +366,12 @@ def test_candidates_take_render_specs_from_one_manifest_read(monkeypatch):
         rows, game_id=game_id
     )
 
-    assert [candidate.cell_review_id for candidate in candidates] == [virtual.id, legacy.id]
-    assert candidates[0].virtual_asset is not None
-    assert candidates[0].virtual_asset.render_spec == spec
-    assert candidates[1].virtual_asset is None
+    assert [candidate.cell_review_id for candidate in candidates] == [virtual.id, other.id]
+    for candidate in candidates:
+        assert candidate.virtual_asset is not None
+        assert candidate.virtual_asset.render_spec == spec
     assert len(calls) == 1 and calls[0][0] == game_id
-    assert [(key.recognized_board_id, key.cell_index) for key in calls[0][1]] == [(board_id, 2)]
+    assert [(key.recognized_board_id, key.cell_index) for key in calls[0][1]] == [
+        (board_id, 2),
+        (board_id, 3),
+    ]

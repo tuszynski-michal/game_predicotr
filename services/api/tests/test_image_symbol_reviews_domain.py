@@ -163,7 +163,8 @@ def _current_cells(
             row_index=index // topology.columns,
             column_index=index % topology.columns,
             crop_sample_id=_sha(1_000 + checksum_offset + index),
-            crop_relative_path=f"crops/{checksum_offset}-{index}.jpg",
+            # D-467 S6: a virtual render never names a crop file.
+            crop_relative_path=None,
             crop_checksum_sha256=_sha(2_000 + checksum_offset + index),
             predicted_symbol_code=predicted,
             confidence=0.9,

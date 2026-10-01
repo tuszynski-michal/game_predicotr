@@ -38,7 +38,6 @@ from game_predictor_api.domain.geometry_qualification import (
 )
 from game_predictor_api.domain.image_symbol_reviews import symbol_cell_approval_pixels_changed
 from game_predictor_api.domain.jobs import JobStatus
-from game_predictor_api.storage.current_board_cell_sources import is_unsupported_legacy_base_board
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -1072,11 +1071,9 @@ def _payload_from_records(
         )
         sequence_number = int(board.sequence_number)
 
-    board_identity_checksum = (
-        board.board_checksum_sha256
-        if board.asset_mode == "legacy_file"
-        else board.geometry_checksum_sha256
-    )
+    # D-467 S6: every board is ``virtual_source``; its identity is the source
+    # geometry checksum.
+    board_identity_checksum = board.geometry_checksum_sha256
     if board_identity_checksum is None:
         return None
 
@@ -1117,10 +1114,7 @@ def _qualified_pending_predictions(
     available = set(range(15)) - unavailable
     by_index: dict[int, Mapping[str, object]] = {}
     current_specs: dict[int, object] = {}
-    # A manual legacy-file revision carries its own crops instead of a
-    # virtual render manifest (TASK-0730).
-    legacy_crops = _legacy_revision_crops(board, revision)
-    if board.geometry_revision > 0 and legacy_crops is None:
+    if board.geometry_revision > 0:
         manifest = None if revision is None else revision.virtual_render_spec
         if not isinstance(manifest, Mapping) or not isinstance(manifest.get("cells"), list):
             return None
@@ -1134,13 +1128,9 @@ def _qualified_pending_predictions(
         if set(current_specs) != set(range(15)) - unavailable:
             return None
     else:
-        # D-467: the import predictions come from ``cells_prediction``.  A
-        # legacy revision must still crop every available position; a missing
-        # current crop is never evidence.
+        # D-467: the import predictions come from ``cells_prediction``.
         import_predictions = _import_predictions_by_index(board)
-        if import_predictions is None or (
-            legacy_crops is not None and not available <= set(legacy_crops)
-        ):
+        if import_predictions is None:
             return None
         by_index.update(import_predictions)
         # The worker observes every position before the qualification masks
@@ -1165,13 +1155,9 @@ def _qualified_pending_predictions(
             if index in unavailable:
                 continue
             virtual = prediction.get("virtualCell")
-            if (
-                board.geometry_revision > 0
-                and legacy_crops is None
-                and (
-                    not isinstance(virtual, Mapping)
-                    or virtual.get("renderSpecChecksumSha256") != current_specs[index]
-                )
+            if board.geometry_revision > 0 and (
+                not isinstance(virtual, Mapping)
+                or virtual.get("renderSpecChecksumSha256") != current_specs[index]
             ):
                 continue
             by_index[index] = prediction
@@ -1186,13 +1172,9 @@ def _import_predictions_by_index(
 ) -> dict[int, Mapping[str, object]] | None:
     """Import predictions keyed by row-major 3 x 5 position; ``None`` if unusable.
 
-    ``cells_prediction.cells`` has one entry per imported cell.  A revision-0
-    legacy board has no current crops since S5 (TASK-0759) dropped its
-    per-cell import records, so its predictions are no evidence.
+    ``cells_prediction.cells`` has one entry per imported cell.
     """
 
-    if is_unsupported_legacy_base_board(board):
-        return None
     payload = board.cells_prediction
     raw_cells = payload.get("cells") if isinstance(payload, Mapping) else None
     if not isinstance(raw_cells, list):
@@ -1212,41 +1194,6 @@ def _import_predictions_by_index(
             return None
         by_index[row * 5 + column] = cast(Mapping[str, object], raw)
     return by_index
-
-
-def _legacy_revision_crops(
-    board: RecognizedBoardModel,
-    revision: ImageBoardGeometryRevisionModel | None,
-) -> dict[int, str] | None:
-    """Crop checksums of a current manual legacy-file revision, else ``None``."""
-
-    if (
-        board.geometry_revision <= 0
-        or board.asset_mode != "legacy_file"
-        or revision is None
-        or revision.asset_mode != "legacy_file"
-        or revision.virtual_render_spec is not None
-        or not isinstance(revision.crop_artifacts, list)
-    ):
-        return None
-    crops: dict[int, str] = {}
-    for artifact in revision.crop_artifacts:
-        if not isinstance(artifact, Mapping):
-            return None
-        row = artifact.get("rowIndex")
-        column = artifact.get("columnIndex")
-        checksum = artifact.get("cropChecksumSha256")
-        if (
-            type(row) is not int
-            or type(column) is not int
-            or not 0 <= row < 3
-            or not 0 <= column < 5
-            or not isinstance(checksum, str)
-            or row * 5 + column in crops
-        ):
-            return None
-        crops[row * 5 + column] = checksum
-    return crops
 
 
 def _parse_pending_predictions(

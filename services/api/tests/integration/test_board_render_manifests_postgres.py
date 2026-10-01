@@ -157,7 +157,6 @@ class _Seed:
     game_id: UUID
     good: UUID
     partial: UUID
-    legacy: UUID
     revised: UUID
 
 
@@ -247,7 +246,8 @@ def _seed(factory: sessionmaker[Session], game_id: UUID) -> _Seed:
         session.add(geometry)
         session.flush()
 
-        def board(position: int, *, virtual: bool = True, **values: object) -> RecognizedBoardModel:
+        # D-467 S6 (migration 0135): every board is ``virtual_source``.
+        def board(position: int, **values: object) -> RecognizedBoardModel:
             record = RecognizedBoardModel(
                 source_image_id=source.id,
                 position_index=position,
@@ -255,13 +255,13 @@ def _seed(factory: sessionmaker[Session], game_id: UUID) -> _Seed:
                 sequence_number=position + 1,
                 sequence_confidence=1.0,
                 board_geometry={},
-                asset_mode="virtual_source" if virtual else "legacy_file",
-                source_geometry_revision_id=geometry.id if virtual else None,
-                geometry_engine_name="structured_opencv_v1" if virtual else None,
-                geometry_engine_version="structured-test-v1" if virtual else None,
-                geometry_checksum_sha256="d" * 64 if virtual else None,
-                board_relative_path=None if virtual else f"boards/{position}.png",
-                board_checksum_sha256=None if virtual else "e" * 64,
+                asset_mode="virtual_source",
+                source_geometry_revision_id=geometry.id,
+                geometry_engine_name="structured_opencv_v1",
+                geometry_engine_version="structured-test-v1",
+                geometry_checksum_sha256="d" * 64,
+                board_relative_path=None,
+                board_checksum_sha256=None,
                 cells_prediction={"cells": [], "modelVersion": "test"},
                 board_confidence=1.0,
                 pipeline_fingerprint=_FINGERPRINT,
@@ -276,7 +276,6 @@ def _seed(factory: sessionmaker[Session], game_id: UUID) -> _Seed:
 
         good = board(0)
         partial = board(2, completeness_status="pending_partial", unavailable_cell_indices=[14])
-        legacy = board(3, virtual=False)
         revised = board(4)
         review = ImageReviewItemModel(
             game_id=game_id,
@@ -323,7 +322,7 @@ def _seed(factory: sessionmaker[Session], game_id: UUID) -> _Seed:
             )
         )
         revised.geometry_revision = 1
-    return _Seed(game_id, good.id, partial.id, legacy.id, revised.id)
+    return _Seed(game_id, good.id, partial.id, revised.id)
 
 
 def _manifests(engine: Engine, game_id: UUID) -> dict[tuple[UUID, int], dict[str, object]]:

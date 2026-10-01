@@ -373,6 +373,44 @@ last_updated: 2026-09-30
   rewizji (`DATABASE_MAINTENANCE.md`); podglądy rekonsyliacji plansz
   częściowych sprzed odchudzenia trzeba wygenerować ponownie (guard zawiera
   wiersz bieżącej rewizji predykcji).
+- **Domknięcie S6: kod zna jeden tryb danych (TASK-0796, 2026-10-01, bez
+  migracji):** korekta geometrii bieżącej planszy w Reviewerze
+  (`image-review-items/{id}/geometry-preview` i `.../geometry-revisions`)
+  zachowuje trasę, kontrakt wejścia, allowlistę i autoryzację sesji, ale
+  deleguje do `VirtualGridGeometryService.preview_review_item` /
+  `save_review_item` (tożsamość źródła i topologia z zapisanej proweniencji,
+  replay po `idempotencyKey`, CAS rewizji, `save_virtual_geometry_revision`);
+  odpowiedź `OperationalImageReviewGeometryResponse` traci pola plików cropów
+  (`boardChecksumSha256`, `decisionChecksumSha256`) i zyskuje
+  `sourceGeometryRevisionId`, `geometryChecksumSha256`,
+  `virtualRenderSpecChecksumSha256`. Usunięte: zapis v19
+  (`save_geometry_revision`, `correct_geometry` v19, previewer plików cropów
+  `manual_board_cell_geometry_preview`, kod
+  `IMAGE_REVIEW_GEOMETRY_ASSET_MODE_UNSUPPORTED`), fallback legacy w Adminie
+  (`image-reviews/{id}/geometry-*`), ścieżki plikowe `pending_grid_reinference`
+  (schema 1 i 2 — oba zapisywały cropy v19 wyłącznie planszom `legacy_file`;
+  handler odmawia `IMAGE_GRID_REINFERENCE_LEGACY_UNSUPPORTED`, endpointy
+  preview/start zostają z `recalculableBoardCount = 0`), gałęzie `legacy_file`
+  w mapperze, `current_board_cell_sources`, stale-checku, wersji croppera,
+  `get_assets`/podglądach/serwowaniu plików komórek, kandydatach wzorców i
+  kohortach treningowych, projekcji wyszukiwarki, `pending_symbol_reinference`.
+  Enumy API: `ImageGridReviewItemResponse.assetMode` i
+  `ImageGridReviewGeometryRevisionResponse.assetMode` = `virtual_source`,
+  `SymbolCellReviewListItemResponse.assetMode` i
+  `UnreadableBoardReviewCellResponse.assetMode` = `virtual_source | none`
+  (wymagane). ORM równoważny bazie po `0135`/`0136` (domyślne
+  `virtual_source`); gałąź zatwierdzenia plikowego w
+  `ck_image_symbol_review_cells_approved_provenance` zostaje w bazie i ORM
+  (0 wierszy na bazie operatora; usunięcie = osobna migracja), CHECK-i
+  tabel historii zostają. Świadome wyjątki od „0 `legacy_file` w kodzie”:
+  narzędzie konwersji TASK-0791 (wymagane przez `0135` przy odtwarzaniu bazy
+  sprzed `0135`), tryby rolloutu `legacy_files` w parsowanych snapshotach
+  historycznych jobów (TASK-0790), czytelnicy zamrożonych artefaktów
+  (`symbols/training_dataset.py` dla kohort schema 1–4, laboratorium wizji
+  `symbol_snapshot`). Zmiana zachowania: korekta przez Reviewera daje teraz
+  render wirtualny zamiast cropu pliku; plansza z kwalifikacją częściową
+  wymaga kwalifikacji (`IMAGE_GRID_REVIEW_QUALIFICATION_REQUIRED`), której
+  edytor operacyjny nie wysyła.
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu

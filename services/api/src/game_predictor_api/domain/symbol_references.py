@@ -43,16 +43,13 @@ class ApprovedSymbolReferenceCandidate:
     crop_relative_path: str | None
     crop_checksum_sha256: str
     status: str
-    asset_mode: str = "legacy_file"
+    asset_mode: str = "virtual_source"
     virtual_asset: SymbolCellReviewAsset | None = None
 
     def __post_init__(self) -> None:
-        if self.asset_mode == "legacy_file":
-            if not self.crop_relative_path or self.virtual_asset is not None:
-                raise ValueError("legacy reference candidates require one crop path")
-            return
+        # D-467 S6 (TASK-0796): reference candidates are virtual renders only.
         if self.asset_mode != "virtual_source":
-            raise ValueError("asset_mode must be legacy_file or virtual_source")
+            raise ValueError("asset_mode must be virtual_source")
         if self.crop_relative_path is not None or self.virtual_asset is None:
             raise ValueError("virtual reference candidates require render provenance")
         if self.virtual_asset.asset_mode != "virtual_source":

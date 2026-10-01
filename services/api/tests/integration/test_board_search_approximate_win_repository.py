@@ -20,6 +20,11 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _virtual_board_fixtures import (
+    VIRTUAL_FIXTURE_EXTRACTOR_VERSION,
+    ensure_source_geometry,
+    virtual_board_columns,
+)
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.board_search_approximate_win import (
@@ -106,6 +111,7 @@ def database() -> Iterator[Engine]:
 # in addition to the core review chain tables every board needs.
 _V2_PARTITIONED_TABLES = (
     "source_images",
+    "image_source_geometry_revisions",
     "recognized_boards",
     "image_review_items",
     "image_sequence_canonical",
@@ -216,6 +222,14 @@ def _resolved_review_item(
     even for an accepted/corrected board (a confirmed partial reading)."""
 
     assert len(symbol_codes) == 15
+    # D-467 S6 (TASK-0796): every board is a virtual render of its source.
+    source_geometry = ensure_source_geometry(
+        session,
+        game_id=game_id,
+        source=source,
+        sequence_range_start=sequence_number - position,
+        created_at=datetime.now(UTC),
+    )
     board = RecognizedBoardModel(
         source_image_id=source.id,
         position_index=position,
@@ -223,8 +237,7 @@ def _resolved_review_item(
         sequence_number=sequence_number,
         sequence_confidence=1,
         board_geometry=board_geometry or {},
-        board_relative_path=f"boards/{sequence_number}.jpg",
-        board_checksum_sha256="b" * 64,
+        **virtual_board_columns(source_geometry),
         cells_prediction={},
         completeness_status="complete",
         board_confidence=1,
@@ -261,7 +274,8 @@ def _resolved_review_item(
             import_job_id=job.id,
             source_image_id=source.id,
             source_checksum_sha256=source.checksum_sha256,
-            board_checksum_sha256=board.board_checksum_sha256,
+            # The board identity of a virtual board is its geometry checksum.
+            board_checksum_sha256=board.geometry_checksum_sha256,
             status=status,
             resolution_revision=1,
             geometry_revision=0,
@@ -560,6 +574,8 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
         SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game_id)
         source_checksum = source.checksum_sha256
         board_id = item.recognized_board_id
+        board_record = session.get(RecognizedBoardModel, board_id)
+        assert board_record is not None
         now = datetime.now(UTC)
         # One record at the board's current geometry revision (0) and one of
         # an older crop generation that must never be offered for editing.
@@ -575,10 +591,16 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
                     row_index=0,
                     column_index=cell_index,
                     crop_sample_id=f"{cell_index + 10:064x}",
-                    crop_relative_path=f"crops/detail-{cell_index}.png",
                     crop_checksum_sha256=f"{cell_index + 20:064x}",
+                    # D-467 S6: a virtual cell (render provenance, no crop file).
+                    asset_mode="virtual_source",
+                    source_geometry_revision_id=board_record.source_geometry_revision_id,
+                    logical_cell_key=f"{cell_index + 30:064x}",
+                    render_spec_checksum_sha256=f"{cell_index + 40:064x}",
+                    rendered_pixel_checksum_sha256=f"{cell_index + 20:064x}",
+                    extractor_version=VIRTUAL_FIXTURE_EXTRACTOR_VERSION,
                     geometry_revision=geometry_revision,
-                    cropper_version="detail-test-cropper",
+                    cropper_version=VIRTUAL_FIXTURE_EXTRACTOR_VERSION,
                     prediction_symbol_code="A",
                     prediction_confidence=0.9,
                     assigned_symbol_id=symbol_id,
@@ -630,7 +652,7 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
         GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
         board = session.get(RecognizedBoardModel, board_id)
         assert board is not None
-        board.board_checksum_sha256 = "e" * 64
+        board.geometry_checksum_sha256 = "e" * 64
 
     with Session(database, expire_on_commit=False) as session:
         stale = BoardSearchBoardDetailService(

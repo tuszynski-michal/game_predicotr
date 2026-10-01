@@ -226,7 +226,8 @@ class SymbolCellReviewListItem:
     crop_checksum_sha256: str | None
     board_status: str
     prediction_confidence: float | None = None
-    asset_mode: str = "legacy_file"
+    # D-467 S6 (TASK-0796): a cell is a virtual render or an outside position.
+    asset_mode: str = "virtual_source"
     render_spec_checksum_sha256: str | None = None
     source_visibility: Literal["full", "partial", "outside"] = "full"
 
@@ -259,8 +260,8 @@ class SymbolCellReviewListItem:
             raise ValueError("crop identity must contain SHA-256 digests")
         if self.prediction_confidence is not None and not 0.0 <= self.prediction_confidence <= 1.0:
             raise ValueError("prediction_confidence must be between 0 and 1")
-        if self.asset_mode not in {"legacy_file", "virtual_source", "none"}:
-            raise ValueError("asset_mode must be legacy_file or virtual_source")
+        if self.asset_mode not in {"virtual_source", "none"}:
+            raise ValueError("asset_mode must be virtual_source or none")
         if self.asset_mode == "virtual_source" and not _is_sha256(
             self.render_spec_checksum_sha256 or ""
         ):
@@ -320,7 +321,7 @@ class SymbolCellReviewAsset:
     geometry_revision: int
     current_geometry_revision: int
     revision: int = 0
-    asset_mode: str = "legacy_file"
+    asset_mode: str = "virtual_source"
     source_checksum_sha256: str | None = None
     normalized_pixel_checksum_sha256: str | None = None
     source_geometry_revision_id: UUID | None = None
@@ -337,12 +338,8 @@ class SymbolCellReviewAsset:
             raise ValueError("crop_checksum_sha256 must be a SHA-256 digest")
         if min(self.geometry_revision, self.current_geometry_revision, self.revision) < 0:
             raise ValueError("geometry revisions cannot be negative")
-        if self.asset_mode == "legacy_file":
-            if not self.crop_relative_path:
-                raise ValueError("legacy symbol-cell assets require a crop path")
-            return
         if self.asset_mode != "virtual_source":
-            raise ValueError("asset_mode must be legacy_file or virtual_source")
+            raise ValueError("asset_mode must be virtual_source")
         required_checksums = (
             self.source_checksum_sha256,
             self.normalized_pixel_checksum_sha256,
@@ -372,7 +369,7 @@ class SymbolCellCropIdentity:
     crop_checksum_sha256: str
     geometry_revision: int
     cropper_version: str
-    asset_mode: str = "legacy_file"
+    asset_mode: str = "virtual_source"
 
     def __post_init__(self) -> None:
         if self.cell_index < 0:
@@ -385,13 +382,7 @@ class SymbolCellCropIdentity:
                 "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
                 "A symbol-cell crop identity requires SHA-256 sample and crop checksums.",
             )
-        if self.asset_mode == "legacy_file":
-            if not self.crop_relative_path or self.crop_relative_path.startswith(("/", "\\")):
-                raise SymbolCellReviewError(
-                    "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
-                    "A legacy symbol-cell crop path must be a non-empty relative path.",
-                )
-        elif self.asset_mode == "virtual_source":
+        if self.asset_mode == "virtual_source":
             if self.crop_relative_path is not None:
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
@@ -580,9 +571,8 @@ def map_current_symbol_cell_reviews(
     """Map current operational crops into topology-bound cell-review state.
 
     ``ImageReviewItem.cells`` is already the shared representation which picks
-    the current render manifest of a virtual board, the base crops of a
-    revision-zero legacy board and the newest ``crop_artifacts`` for a
-    corrected legacy geometry (D-467).  Keeping this mapper on that
+    the current render manifest of the (always ``virtual_source``) board
+    (D-467).  Keeping this mapper on that
     boundary prevents later backfill and write-through paths from choosing
     different crop identities.
     """

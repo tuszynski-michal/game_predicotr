@@ -55,7 +55,7 @@ class UnreadableBoardReviewCell:
     crop_checksum_sha256: str | None
     render_spec_checksum_sha256: str | None = None
     source_visibility: str = "full"
-    asset_mode: str = "legacy_file"
+    asset_mode: str = "virtual_source"
 
 
 @dataclass(frozen=True, slots=True)

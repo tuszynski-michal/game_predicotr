@@ -75,12 +75,7 @@ export async function previewOperationalReviewGeometry(
           result.error,
           'Nie udało się wygenerować podglądu poprawionej siatki.',
         ),
-        isRevisionConflict:
-          isApiErrorCode(result.error, 'IMAGE_REVIEW_REVISION_CONFLICT') ||
-          isApiErrorCode(
-            result.error,
-            'IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT',
-          ),
+        isRevisionConflict: isGeometryRevisionConflict(result.error),
         ok: false,
       };
     }
@@ -122,12 +117,7 @@ export async function saveOperationalReviewGeometry(
           result.error,
           'Nie udało się zapisać poprawionej geometrii.',
         ),
-        isRevisionConflict:
-          isApiErrorCode(result.error, 'IMAGE_REVIEW_REVISION_CONFLICT') ||
-          isApiErrorCode(
-            result.error,
-            'IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT',
-          ),
+        isRevisionConflict: isGeometryRevisionConflict(result.error),
         ok: false,
       };
     }
@@ -550,6 +540,19 @@ export async function freezeVerifiedCohort(
       ok: false,
     };
   }
+}
+
+/**
+ * The board changed under the operator.  Since D-467 S6 (TASK-0796) the
+ * geometry correction runs on the virtual path, whose stale-revision code is
+ * `IMAGE_GRID_REVIEW_REVISION_CONFLICT`; the older codes stay recognized.
+ */
+function isGeometryRevisionConflict(error: unknown): boolean {
+  return (
+    isApiErrorCode(error, 'IMAGE_REVIEW_REVISION_CONFLICT') ||
+    isApiErrorCode(error, 'IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT') ||
+    isApiErrorCode(error, 'IMAGE_GRID_REVIEW_REVISION_CONFLICT')
+  );
 }
 
 function isApiErrorCode(error: unknown, code: string): boolean {

@@ -300,10 +300,10 @@ test('a deferred slot saves through its manual resolution and reuses the key aft
   await act(async () => root.unmount());
 });
 
-test('commands keep a virtual board qualified and never qualify a legacy board', async () => {
+test('commands keep a qualified board qualified and leave a plain board unqualified', async () => {
   const cases = [
     {
-      board: reportedBoard({ assetMode: 'legacy_file' }),
+      board: reportedBoard(),
       expected: null,
     },
     {

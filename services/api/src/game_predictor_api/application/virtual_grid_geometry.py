@@ -411,6 +411,91 @@ class VirtualGridGeometryService:
             created_at=created_at,
         )
 
+    def preview_review_item(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        review_item_id: UUID,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+    ) -> VirtualGridGeometryPreview:
+        """Render one current board for the operational Reviewer (TASK-0796).
+
+        The Reviewer command carries only the corners and the two CAS
+        revisions; the source identity and topology are the persisted ones,
+        exactly as for a deferred slot.  The render is the same as
+        :meth:`preview` would produce for the Admin.
+        """
+
+        context = self._persisted_review_item_context(
+            game_id=game_id, import_job_id=import_job_id, review_item_id=review_item_id
+        )
+        return self.preview(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            review_item_id=review_item_id,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            expected_source_checksum_sha256=context.source_checksum_sha256,
+            expected_source_width=context.oriented_width,
+            expected_source_height=context.oriented_height,
+            expected_grid_rows=context.topology.rows,
+            expected_grid_columns=context.topology.columns,
+            corners=corners,
+        )
+
+    def save_review_item(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        review_item_id: UUID,
+        idempotency_key: UUID,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+        actor: str,
+        created_at: datetime,
+    ) -> VirtualGridGeometrySaveResult:
+        """Persist one current board's manual geometry for the Reviewer (TASK-0796).
+
+        Delegates to :meth:`save` (replay by ``idempotency_key`` first, then
+        the revision CAS and ``save_virtual_geometry_revision``), so the
+        board gets a ``virtual_source`` revision with a render manifest.
+        """
+
+        context = self._persisted_review_item_context(
+            game_id=game_id, import_job_id=import_job_id, review_item_id=review_item_id
+        )
+        return self.save(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            review_item_id=review_item_id,
+            idempotency_key=idempotency_key,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            expected_source_checksum_sha256=context.source_checksum_sha256,
+            expected_source_width=context.oriented_width,
+            expected_source_height=context.oriented_height,
+            expected_grid_rows=context.topology.rows,
+            expected_grid_columns=context.topology.columns,
+            corners=corners,
+            actor=actor,
+            created_at=created_at,
+        )
+
+    def _persisted_review_item_context(
+        self, *, game_id: UUID, import_job_id: UUID, review_item_id: UUID
+    ) -> VirtualGridGeometryContext:
+        return self._repository.virtual_geometry_context(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            review_item_id=review_item_id,
+            pending_geometry_id=None,
+        )
+
     def save_source(
         self,
         *,

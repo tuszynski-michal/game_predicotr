@@ -289,48 +289,13 @@ class ManagedSymbolReferenceArtifactStore:
         symbol_id: UUID,
         candidate: ApprovedSymbolReferenceCandidate,
     ) -> StoredSymbolReferenceAsset:
-        if candidate.is_virtual:
-            return self._materialize_virtual_candidate(
-                game_id=game_id,
-                symbol_id=symbol_id,
-                candidate=candidate,
-            )
-        source = self._resolve_source(
-            _require_legacy_crop_path(candidate),
-            candidate.crop_checksum_sha256,
+        # D-467 S6 (TASK-0796): every approved candidate is a virtual render;
+        # the reference freezes its canonical PNG.
+        return self._materialize_virtual_candidate(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            candidate=candidate,
         )
-        suffix = source.suffix.lower()
-        relative_path = (
-            f"data/symbol-references/{game_id}/{symbol_id}/{candidate.crop_checksum_sha256}{suffix}"
-        )
-        destination = self._safe_destination(relative_path)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        if destination.exists():
-            self._assert_existing_destination(destination, candidate.crop_checksum_sha256)
-            return StoredSymbolReferenceAsset(relative_path, candidate.crop_checksum_sha256)
-
-        descriptor, temporary_name = tempfile.mkstemp(dir=destination.parent, prefix=".tmp-")
-        temporary = Path(temporary_name)
-        try:
-            with source.open("rb") as input_file, os.fdopen(descriptor, "wb") as output_file:
-                digest = hashlib.sha256()
-                while chunk := input_file.read(1024 * 1024):
-                    digest.update(chunk)
-                    output_file.write(chunk)
-                output_file.flush()
-                os.fsync(output_file.fileno())
-            if digest.hexdigest() != candidate.crop_checksum_sha256:
-                raise CatalogConflictError(
-                    "SYMBOL_REFERENCE_ASSET_CHECKSUM_MISMATCH",
-                    "The approved symbol reference crop changed while it was being copied.",
-                )
-            try:
-                os.link(temporary, destination)
-            except FileExistsError:
-                self._assert_existing_destination(destination, candidate.crop_checksum_sha256)
-        finally:
-            temporary.unlink(missing_ok=True)
-        return StoredSymbolReferenceAsset(relative_path, candidate.crop_checksum_sha256)
 
     def render_virtual_candidate(
         self, *, candidate: ApprovedSymbolReferenceCandidate
@@ -382,36 +347,6 @@ class ManagedSymbolReferenceArtifactStore:
             temporary.unlink(missing_ok=True)
         return StoredSymbolReferenceAsset(relative_path, checksum)
 
-    def _resolve_source(self, relative_value: str, checksum: str) -> Path:
-        relative = _safe_relative_path(relative_value)
-        candidate_paths = [(self._artifact_root / Path(*relative.parts)).resolve()]
-        if relative.parts[0] != "data":
-            candidate_paths.append((self._data_root / Path(*relative.parts)).resolve())
-        source = next(
-            (
-                path
-                for path in candidate_paths
-                if path.is_relative_to(self._data_root) and path.is_file() and not path.is_symlink()
-            ),
-            None,
-        )
-        if source is None:
-            raise CatalogNotFoundError(
-                "SYMBOL_REFERENCE_ASSET_NOT_FOUND",
-                "The approved symbol reference crop is unavailable.",
-            )
-        if source.suffix.lower() not in {".png", ".jpg", ".jpeg"}:
-            raise CatalogConflictError(
-                "SYMBOL_REFERENCE_ASSET_TYPE_INVALID",
-                "The approved symbol reference crop must be a PNG or JPEG file.",
-            )
-        if _sha256_file(source) != checksum:
-            raise CatalogConflictError(
-                "SYMBOL_REFERENCE_ASSET_CHECKSUM_MISMATCH",
-                "The approved symbol reference crop checksum does not match.",
-            )
-        return source
-
     def _safe_destination(self, relative_value: str) -> Path:
         relative = _safe_relative_path(relative_value)
         destination = (self._artifact_root / Path(*relative.parts)).resolve()
@@ -447,15 +382,6 @@ def _safe_relative_path(value: str) -> PurePosixPath:
             "The approved symbol reference crop path is unsafe.",
         )
     return relative
-
-
-def _require_legacy_crop_path(candidate: ApprovedSymbolReferenceCandidate) -> str:
-    if candidate.crop_relative_path is None:
-        raise CatalogConflictError(
-            "SYMBOL_REFERENCE_ASSET_INVALID",
-            "A legacy symbol reference candidate requires a managed crop path.",
-        )
-    return candidate.crop_relative_path
 
 
 def _sha256_file(path: Path) -> str:

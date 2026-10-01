@@ -70,7 +70,7 @@ class SymbolCellReviewListItemResponse(ApiModel):
     crop_checksum_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
     board_status: str
     prediction_confidence: float | None = Field(default=None, ge=0, le=1)
-    asset_mode: Literal["legacy_file", "virtual_source", "none"] = "legacy_file"
+    asset_mode: Literal["virtual_source", "none"]
     source_visibility: Literal["full", "partial", "outside"] = "full"
     render_spec_checksum_sha256: str | None = Field(default=None, pattern=r"^[a-f0-9]{64}$")
 
@@ -347,7 +347,7 @@ class UnreadableBoardReviewPageResponse(ApiModel):
 
 class UnreadableBoardReviewCellResponse(ApiModel):
     source_visibility: Literal["full", "partial", "outside"] = "full"
-    asset_mode: Literal["legacy_file", "virtual_source", "none"] = "legacy_file"
+    asset_mode: Literal["virtual_source", "none"]
     cell_review_id: UUID
     cell_index: int = Field(ge=0)
     row_index: int = Field(ge=0)
@@ -499,7 +499,7 @@ def to_unreadable_board_review_detail_response(
                 source_visibility=cast(
                     Literal["full", "partial", "outside"], cell.source_visibility
                 ),
-                asset_mode=cast(Literal["legacy_file", "virtual_source", "none"], cell.asset_mode),
+                asset_mode=cast(Literal["virtual_source", "none"], cell.asset_mode),
                 cell_review_id=cell.cell_review_id,
                 cell_index=cell.cell_index,
                 row_index=cell.row_index,
@@ -684,7 +684,7 @@ def _to_item_response(item: SymbolCellReviewListItem) -> SymbolCellReviewListIte
         board_status=item.board_status,
         prediction_confidence=item.prediction_confidence,
         source_visibility=item.source_visibility,
-        asset_mode=cast(Literal["legacy_file", "virtual_source", "none"], item.asset_mode),
+        asset_mode=cast(Literal["virtual_source", "none"], item.asset_mode),
         render_spec_checksum_sha256=item.render_spec_checksum_sha256,
     )
 

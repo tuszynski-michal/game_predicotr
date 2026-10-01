@@ -14,7 +14,6 @@ from game_predictor_api.application.image_symbol_review_mutations import (
     SymbolCellReviewMutationService,
 )
 from game_predictor_api.domain.cell_level_verification_migration import validate_manifest
-from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.cell_level_verification_migration_repository import (
     CellLevelMigrationInvariantError,
     CellLevelVerificationMigrationRepository,
@@ -30,12 +29,9 @@ from game_predictor_api.storage.models import (
     ImageBoardSearchCandidateModel,
     ImageReviewItemModel,
     ImageSequenceCanonicalModel,
-    ImageSourceGeometryRevisionModel,
     ImageSymbolReviewCellModel,
     ImageSymbolReviewEventModel,
     ImageSymbolReviewStateModel,
-    RecognizedBoardModel,
-    RulesVersionModel,
     SymbolModel,
 )
 from sqlalchemy import create_engine, func, select, text
@@ -109,74 +105,17 @@ def _approve_without_write_through(cell: ImageSymbolReviewCellModel, symbol_id: 
     cell.approved_crop_checksum_sha256 = cell.crop_checksum_sha256
     cell.approved_geometry_revision = cell.geometry_revision
     cell.approved_asset_mode = cell.asset_mode
+    cell.approved_source_geometry_revision_id = cell.source_geometry_revision_id
+    cell.approved_render_spec_checksum_sha256 = cell.render_spec_checksum_sha256
+    cell.approved_rendered_pixel_checksum_sha256 = cell.rendered_pixel_checksum_sha256
     cell.revision += 1
 
 
-def _make_virtual(session: Session, game_id: UUID, review_item_id: UUID, now: datetime) -> None:
-    """Give one board's cells managed virtual-source provenance (the live case)."""
+def _approve_other_pixels(cell: ImageSymbolReviewCellModel) -> None:
+    """An approval of other pixels; a virtual approval is bound by its render."""
 
-    board = session.scalar(
-        select(RecognizedBoardModel)
-        .join(
-            ImageReviewItemModel,
-            ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
-        )
-        .where(ImageReviewItemModel.id == review_item_id)
-    )
-    assert board is not None
-    rules = RulesVersionModel(
-        game_id=game_id,
-        version=1,
-        rows=3,
-        columns=5,
-        spin_cost=0,
-        status=RulesVersionStatus.DRAFT,
-        created_at=now,
-        published_at=None,
-    )
-    session.add(rules)
-    session.flush()
-    revision = ImageSourceGeometryRevisionModel(
-        game_id=game_id,
-        source_image_id=board.source_image_id,
-        topology_rules_version_id=rules.id,
-        revision=0,
-        sequence_range_start=1,
-        sequence_range_end=6,
-        active_board_slots=[0, 1, 2, 3, 4, 5],
-        coordinate_space="exif-normalized-rgb-pixels-v1",
-        source_checksum_sha256="7" * 64,
-        normalized_pixel_checksum_sha256="b" * 64,
-        oriented_width=1920,
-        oriented_height=1080,
-        normalization_adapter_version="normalization-test-v1",
-        global_initialization={},
-        board_geometries=[{"positionIndex": slot} for slot in range(6)],
-        engine_kind="structured_opencv_v1",
-        engine_version="structured-test-v1",
-        geometry_source="auto",
-        status="needs_review",
-        geometry_checksum_sha256="d" * 64,
-        processing_time_ms=1,
-        warnings=[],
-        created_by="cell-migration-test",
-        created_at=now,
-    )
-    session.add(revision)
-    session.flush()
-    for cell in _cells(session, review_item_id):
-        cell.asset_mode = "virtual_source"
-        cell.crop_relative_path = None
-        cell.source_geometry_revision_id = revision.id
-        cell.logical_cell_key = f"{cell.cell_index + 1:064x}"
-        cell.render_spec_checksum_sha256 = "c" * 64
-        cell.rendered_pixel_checksum_sha256 = f"{cell.cell_index + 500:064x}"
-        cell.extractor_version = "virtual-cell-test-v1"
-        if cell.review_state == "approved":
-            cell.approved_asset_mode = "virtual_source"
-            cell.approved_source_geometry_revision_id = revision.id
-            cell.approved_render_spec_checksum_sha256 = "c" * 64
-            cell.approved_rendered_pixel_checksum_sha256 = cell.rendered_pixel_checksum_sha256
+    cell.approved_crop_checksum_sha256 = OTHER_PIXELS
+    cell.approved_rendered_pixel_checksum_sha256 = OTHER_PIXELS
 
 
 def _approved_total(session: Session, game_id: UUID) -> int:
@@ -254,7 +193,7 @@ def test_preview_is_applied_exactly_once_and_never_verifies_a_cell(
             # A: two verified cells; the second approval covers other pixels.
             for cell in _cells(session, stale_pending)[:2]:
                 _approve(session, game_id, cell)
-            # F: a virtual board; R10 compares its rendered pixels.
+            # F: R10 compares a virtual board's rendered pixels.
             for cell in _cells(session, virtual)[:2]:
                 _approve(session, game_id, cell)
             # C: a board resolved from 15 verifications, one on other pixels.
@@ -264,14 +203,13 @@ def test_preview_is_applied_exactly_once_and_never_verifies_a_cell(
             session.commit()
 
         with game_storage_scope(game_id), session_factory() as session:
-            _cells(session, stale_pending)[1].approved_crop_checksum_sha256 = OTHER_PIXELS
-            _cells(session, stale_accepted)[2].approved_crop_checksum_sha256 = OTHER_PIXELS
+            _approve_other_pixels(_cells(session, stale_pending)[1])
+            _approve_other_pixels(_cells(session, stale_accepted)[2])
             # B: 15/15 verified before D-462, still waiting for grid approval.
             for cell in _cells(session, complete):
                 _approve_without_write_through(cell, first_symbol_id)
             # D: a verification the search document never saw.
             _approve_without_write_through(_cells(session, stale_document)[0], first_symbol_id)
-            _make_virtual(session, game_id, virtual, now)
             session.commit()
 
         with game_storage_scope(game_id), session_factory() as session:
@@ -395,7 +333,7 @@ def test_preview_is_applied_exactly_once_and_never_verifies_a_cell(
             _approve(session, game_id, _cells(session, stale_document)[1])
             session.commit()
         with game_storage_scope(game_id), session_factory() as session:
-            _cells(session, stale_document)[1].approved_crop_checksum_sha256 = OTHER_PIXELS
+            _approve_other_pixels(_cells(session, stale_document)[1])
             session.commit()
         broken = _preview(session_factory, game_id)
         assert [board["recheckCellIndices"] for board in broken["boards"]] == [[1]]

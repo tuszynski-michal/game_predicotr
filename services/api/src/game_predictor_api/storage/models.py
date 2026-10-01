@@ -2058,11 +2058,9 @@ class RecognizedBoardModel(Base):
             "pipeline_fingerprint ~ '^[0-9a-f]{64}$'",
             name="ck_recognized_boards_pipeline_checksum",
         ),
+        # D-467 S6 (migration 0135): one data mode; equivalent to the live
+        # ``pg_get_constraintdef`` after 0135/0136.
         CheckConstraint(
-            "(asset_mode = 'legacy_file' "
-            "AND board_checksum_sha256 ~ '^[0-9a-f]{64}$' "
-            r"AND length(btrim(board_relative_path)) > 0 "
-            r"AND board_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)') OR "
             "(asset_mode = 'virtual_source' "
             "AND board_relative_path IS NULL AND board_checksum_sha256 IS NULL "
             "AND source_geometry_revision_id IS NOT NULL "
@@ -2140,7 +2138,10 @@ class RecognizedBoardModel(Base):
     sequence_confidence: Mapped[float] = mapped_column(Float, nullable=False)
     board_geometry: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     asset_mode: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="legacy_file", server_default=text("'legacy_file'")
+        String(20),
+        nullable=False,
+        default="virtual_source",
+        server_default=text("'virtual_source'"),
     )
     source_geometry_revision_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=True
@@ -2547,10 +2548,9 @@ class ImageSymbolReviewCellModel(Base):
             "crop_sample_id ~ '^[0-9a-f]{64}$' AND crop_checksum_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_symbol_review_cells_checksums",
         ),
+        # D-467 S6 (migrations 0135/0136): ``none`` or ``virtual_source`` only.
         CheckConstraint(
-            "asset_mode = 'none' OR (asset_mode = 'legacy_file' "
-            r"AND length(btrim(crop_relative_path)) > 0 "
-            r"AND crop_relative_path !~ '(^/|(^|/)\.\.(/|$)|\\)') OR "
+            "asset_mode = 'none' OR "
             "(asset_mode = 'virtual_source' AND crop_relative_path IS NULL "
             "AND source_geometry_revision_id IS NOT NULL "
             "AND logical_cell_key ~ '^[0-9a-f]{64}$' "
@@ -2615,6 +2615,10 @@ class ImageSymbolReviewCellModel(Base):
             "AND approved_source_geometry_revision_id IS NULL "
             "AND approved_render_spec_checksum_sha256 IS NULL "
             "AND approved_rendered_pixel_checksum_sha256 IS NULL) OR "
+            # Historical file-crop approval branch: still part of the live
+            # constraint after 0136 (no migration narrowed it), so the ORM
+            # mirrors it.  The operator database had 0 such rows on
+            # 2026-10-01 (TASK-0796); no writer produces it any more.
             "(approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
             "AND approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
             "AND approved_geometry_revision >= 0 "
@@ -2696,7 +2700,10 @@ class ImageSymbolReviewCellModel(Base):
     row_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     column_index: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     asset_mode: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="legacy_file", server_default=text("'legacy_file'")
+        String(20),
+        nullable=False,
+        default="virtual_source",
+        server_default=text("'virtual_source'"),
     )
     source_geometry_revision_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=True

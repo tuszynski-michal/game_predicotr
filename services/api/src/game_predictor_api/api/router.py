@@ -244,7 +244,6 @@ def create_api_router(
     router.include_router(
         create_image_grid_reviews_router(
             image_grid_review_service_dependency,
-            image_review_service_dependency,
             image_geometry_rollout_service_dependency,
             virtual_grid_geometry_service_dependency,
             settings.artifact_root,

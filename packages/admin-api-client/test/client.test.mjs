@@ -1970,8 +1970,19 @@ test('generated client previews and persists one scope-bound geometry revision',
         status: 200,
       });
     }
+    // D-467 S6 (TASK-0796): the revision is a virtual render bound by its
+    // source geometry and render manifest checksums, not by crop files.
     return Response.json(
-      { created: true, geometryRevision: {}, item: {} },
+      {
+        created: true,
+        geometryRevision: {
+          revision: 1,
+          geometryChecksumSha256: 'a'.repeat(64),
+          sourceGeometryRevisionId: '55555555-5555-4555-8555-555555555555',
+          virtualRenderSpecChecksumSha256: 'b'.repeat(64),
+        },
+        item: {},
+      },
       { status: 200 },
     );
   };
@@ -1997,6 +2008,11 @@ test('generated client previews and persists one scope-bound geometry revision',
 
   assert.equal(preview.data instanceof Blob, true);
   assert.equal(saved.data?.created, true);
+  assert.equal(
+    saved.data?.geometryRevision.virtualRenderSpecChecksumSha256,
+    'b'.repeat(64),
+  );
+  assert.equal('boardChecksumSha256' in (saved.data?.geometryRevision ?? {}), false);
   assert.deepEqual(
     requests.map((request) => new URL(request.url).pathname),
     [
@@ -2009,6 +2025,11 @@ test('generated client previews and persists one scope-bound geometry revision',
     context.gameId,
   );
   assert.deepEqual(await requests[0].clone().json(), previewCommand);
+  assert.deepEqual(await requests[1].clone().json(), {
+    ...previewCommand,
+    correctedBy: 'local-admin',
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+  });
 });
 
 test('grid review client binds keyset, source identity and topology-aware writes', async () => {

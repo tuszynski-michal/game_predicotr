@@ -12,6 +12,7 @@ from pathlib import Path
 from uuid import UUID
 
 import pytest
+from _virtual_board_fixtures import replace_virtual_geometry
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
@@ -36,8 +37,8 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
-    ImageBoardGeometryRevisionModel,
     ImageReviewItemModel,
+    ImageSourceGeometryRevisionModel,
     ImageSymbolReviewCellModel,
     ImageSymbolReviewEventModel,
     ImageSymbolReviewStateModel,
@@ -51,6 +52,7 @@ from game_predictor_api.storage.partial_board_reconciliation_repository import (
 from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
 from PIL import Image
 from sqlalchemy import Engine, delete, func, select
+from sqlalchemy.orm.attributes import flag_modified
 from test_image_batch_store import PIPELINE, _add_review_projection_source, _image_job
 from test_symbol_source_visibility_migration import database  # noqa: F401
 
@@ -144,14 +146,26 @@ def _seed_board(engine: Engine, root: Path) -> tuple[UUID, UUID, UUID, UUID]:
                 for index in range(15)
             ]
         }
-        # D-467 S5: the fixture board's crops come from its manual geometry
-        # revision, whose geometry is the one visibility is computed from.
-        revision = session.scalar(
-            select(ImageBoardGeometryRevisionModel).where(
-                ImageBoardGeometryRevisionModel.recognized_board_id == board_id
-            )
+        # D-467 S6: a virtual board's visibility comes from its pinned source
+        # geometry slot, and its partial revision renders only cells 2-14.
+        source_geometry = session.get(
+            ImageSourceGeometryRevisionModel, board.source_geometry_revision_id
         )
-        revision.geometry = board.board_geometry
+        slots = [dict(value) for value in source_geometry.board_geometries]
+        slots[board.position_index] = {
+            **slots[board.position_index],
+            "cells": board.board_geometry["cells"],
+        }
+        source_geometry.board_geometries = slots
+        flag_modified(source_geometry, "board_geometries")
+        replace_virtual_geometry(
+            session,
+            game_id=game.id,
+            review_item_id=review_id,
+            board_id=board_id,
+            variant="partial",
+            cell_indices=tuple(range(2, 15)),
+        )
         # Reproduce historical "ready" state with an incomplete cell projection.
         session.add(ImageSymbolReviewStateModel(game_id=game.id, status="ready"))
         session.commit()

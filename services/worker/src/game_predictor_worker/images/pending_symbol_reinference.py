@@ -39,7 +39,6 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.models import (
     BoardRenderManifestModel,
-    ImageBoardGeometryRevisionModel,
     ImageReviewItemModel,
     ImageSymbolPredictionRevisionModel,
     ImageSymbolReviewCellModel,
@@ -48,7 +47,6 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
 )
 from numpy.typing import NDArray
-from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -328,51 +326,29 @@ class PendingSymbolReinferenceHandler:
         adapter: LocalSymbolOnnxAdapter,
         source_loader: CanonicalSourceLoader,
         geometry_qualification: Mapping[str, object] | None = None,
-        asset_mode: str = "legacy_file",
+        asset_mode: str,
         game_id: UUID,
     ) -> tuple[list[dict[str, object]], str]:
-        render_manifest: CurrentBoardRenderManifest | None = None
-        revised = None
-        if asset_mode != "virtual_source" and geometry_revision == 0:
-            # D-467 S5 (TASK-0759): a revision-0 legacy board read its base
-            # crops from per-cell import records that no longer exist.
+        if asset_mode != "virtual_source":
+            # D-467 S6 (TASK-0796): every board is ``virtual_source``; the
+            # former file-crop boards have no cells to re-infer.
             raise JobHandlerError(
                 "IMAGE_SYMBOL_REINFERENCE_LEGACY_UNSUPPORTED",
-                "A legacy board without a manual geometry revision has no crops to re-infer.",
+                "Only virtual_source boards can be re-inferred.",
             )
         with self._session_factory() as session:
-            # D-467: a virtual board's current cells come from its render
-            # manifest; a legacy board with a manual geometry revision reads
-            # the revision's crop artifacts.
-            if asset_mode == "virtual_source":
-                record = session.get(
-                    BoardRenderManifestModel, (game_id, board_id, geometry_revision)
-                )
-                render_manifest = (
-                    None if record is None else current_render_manifest_from_record(record)
-                )
-            else:
-                revised = session.scalar(
-                    select(ImageBoardGeometryRevisionModel).where(
-                        ImageBoardGeometryRevisionModel.recognized_board_id == board_id,
-                        ImageBoardGeometryRevisionModel.revision == geometry_revision,
-                    )
-                )
-        expected_indices = _available_indices(geometry_qualification, asset_mode=asset_mode)
-        if asset_mode == "virtual_source":
-            crops = self._render_virtual_crops(
-                render_manifest=render_manifest,
-                source=source,
-                source_loader=source_loader,
-                expected_indices=expected_indices,
+            # D-467: a board's current cells come from its render manifest.
+            record = session.get(BoardRenderManifestModel, (game_id, board_id, geometry_revision))
+            render_manifest = (
+                None if record is None else current_render_manifest_from_record(record)
             )
-        else:
-            if revised is None:
-                raise JobHandlerError(
-                    "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
-                    "A pending board geometry revision is missing.",
-                )
-            crops = self._legacy_crops(revised=revised)
+        expected_indices = _available_indices(geometry_qualification)
+        crops = self._render_virtual_crops(
+            render_manifest=render_manifest,
+            source=source,
+            source_loader=source_loader,
+            expected_indices=expected_indices,
+        )
         crops.sort(key=lambda crop: (crop.row_index, crop.column_index))
         if [(crop.row_index, crop.column_index) for crop in crops] != [
             (index // 5, index % 5) for index in expected_indices
@@ -425,53 +401,6 @@ class PendingSymbolReinferenceHandler:
         manifest = json.dumps(checksums, separators=(",", ":"), ensure_ascii=True).encode()
         return output, hashlib.sha256(manifest).hexdigest()
 
-    def _legacy_crops(
-        self,
-        *,
-        revised: ImageBoardGeometryRevisionModel,
-    ) -> list[_ReinferenceCrop]:
-        raw_crops: list[tuple[str, str, int, int]] = []
-        revised_crops = revised.crop_artifacts
-        if not isinstance(revised_crops, list) or len(revised_crops) != 15:
-            raise JobHandlerError(
-                "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
-                "A pending board geometry revision does not contain 15 crops.",
-            )
-        for raw in revised_crops:
-            if not isinstance(raw, dict):
-                raise JobHandlerError(
-                    "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
-                    "A pending board geometry revision contains an invalid crop.",
-                )
-            raw_crops.append(
-                (
-                    str(raw["cropRelativePath"]),
-                    str(raw["cropChecksumSha256"]),
-                    cast(int, raw["rowIndex"]),
-                    cast(int, raw["columnIndex"]),
-                )
-            )
-        crops: list[_ReinferenceCrop] = []
-        for crop_relative_path, crop_checksum, row, column in raw_crops:
-            path = _artifact_path(self._artifact_root, crop_relative_path)
-            try:
-                with Image.open(path) as image:
-                    rgb = np.asarray(ImageOps.exif_transpose(image).convert("RGB"), dtype=np.uint8)
-            except (OSError, UnidentifiedImageError) as error:
-                raise JobHandlerError(
-                    "IMAGE_SYMBOL_REINFERENCE_CROP_UNAVAILABLE",
-                    "A pending symbol crop cannot be decoded.",
-                ) from error
-            crops.append(
-                _ReinferenceCrop(
-                    row_index=row,
-                    column_index=column,
-                    checksum_sha256=crop_checksum,
-                    rgb=rgb,
-                )
-            )
-        return crops
-
     def _render_virtual_crops(
         self,
         *,
@@ -496,24 +425,6 @@ class PendingSymbolReinferenceHandler:
             raise JobHandlerError(
                 getattr(error, "code", "IMAGE_VIRTUAL_CELL_RENDER_FAILED"), str(error)
             ) from error
-
-
-def _artifact_path(root: Path, relative_path: str) -> Path:
-    relative = PurePosixPath(relative_path)
-    if (
-        relative.is_absolute()
-        or not relative.parts
-        or any(part in {"", ".", ".."} for part in relative.parts)
-    ):
-        raise JobHandlerError(
-            "IMAGE_SYMBOL_REINFERENCE_CROP_PATH_INVALID", "A crop path is unsafe."
-        )
-    path = (root / "data" / Path(*relative.parts)).resolve()
-    if not path.is_relative_to((root / "data").resolve()):
-        raise JobHandlerError(
-            "IMAGE_SYMBOL_REINFERENCE_CROP_PATH_INVALID", "A crop path escapes storage."
-        )
-    return path
 
 
 def _managed_source_path(root: Path, checksum_sha256: str) -> Path:
@@ -618,7 +529,7 @@ def _virtual_records(
     return records
 
 
-def _available_indices(raw: Mapping[str, object] | None, *, asset_mode: str) -> tuple[int, ...]:
+def _available_indices(raw: Mapping[str, object] | None) -> tuple[int, ...]:
     if raw is None:
         return tuple(range(15))
     try:
@@ -627,8 +538,7 @@ def _available_indices(raw: Mapping[str, object] | None, *, asset_mode: str) -> 
         raise JobHandlerError("IMAGE_GEOMETRY_QUALIFICATION_INVALID", str(error)) from error
     excluded = (
         qualification.fully_unavailable_cell_indices
-        if asset_mode == "virtual_source"
-        and qualification.version == GEOMETRY_QUALIFICATION_VERSION_V3
+        if qualification.version == GEOMETRY_QUALIFICATION_VERSION_V3
         else qualification.unavailable_cell_indices
     )
     return tuple(index for index in range(15) if index not in excluded)

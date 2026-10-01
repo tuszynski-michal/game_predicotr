@@ -193,19 +193,17 @@ export function reportedBoardGeometryTarget(input: {
   const { api, item } = input;
   const reviewItemId = item.reviewItemId;
   const scope = { gameId: item.gameId, importJobId: item.importJobId };
-  const virtualSource = item.assetMode === 'virtual_source';
-  const persistedQualification = virtualSource
-    ? gridReviewQualification(item)
-    : undefined;
+  // D-467 S6: every board is `virtual_source`, so every board accepts a
+  // qualification and a partial grid.
+  const persistedQualification = gridReviewQualification(item);
   const command = (
     corners: OperationalReviewGeometryCorners,
     flags: ManualGridFlags,
   ) => {
     // A board that already carries a qualification must keep sending one
-    // (also `complete`); only managed virtual sources accept it at all.
+    // (also `complete`).
     const qualified =
-      virtualSource &&
-      (persistedQualification !== undefined || flags.partial || flags.exclude);
+      persistedQualification !== undefined || flags.partial || flags.exclude;
     return {
       ...gridReviewGeometryPreviewCommand(item, corners),
       geometryQualification: qualified
@@ -260,7 +258,7 @@ export function reportedBoardGeometryTarget(input: {
           ),
           sourceWidth: item.sourceWidth,
           suggestedCorners: copyCorners(gridReviewCorners(item)),
-          supportsPartial: virtualSource,
+          supportsPartial: true,
         },
       };
     },

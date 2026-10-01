@@ -82,12 +82,12 @@ class ImageReviewCell:
     confidence: float
     alternatives: tuple[ImageReviewAlternative, ...]
     current_symbol_code: str | None
-    # ``legacy_file`` cells name an immutable crop on disk.  Structured v0.10
-    # cells deliberately have no crop file: their exact pixels are rendered
+    # Cells deliberately have no crop file: their exact pixels are rendered
     # from the managed source and this provenance binds that render.  Keep the
     # data on the shared current-cell boundary so downstream projections do not
-    # silently fall back to a legacy path-only contract.
-    asset_mode: str = "legacy_file"
+    # silently fall back to a path-only contract.  Every board is
+    # ``virtual_source`` since D-467 S6 (TASK-0796).
+    asset_mode: str = "virtual_source"
     source_geometry_revision_id: UUID | None = None
     logical_cell_key: str | None = None
     logical_cell_key_v2: str | None = None
@@ -275,46 +275,6 @@ class ValidatedImageReviewGeometryCommand:
     corrected_by: str
     command_sha256: str
     geometry_qualification: GeometryQualification | None = None
-
-
-@dataclass(frozen=True, slots=True)
-class ImageReviewGeometryCellArtifact:
-    row_index: int
-    column_index: int
-    crop_relative_path: str
-    crop_checksum_sha256: str
-
-
-@dataclass(frozen=True, slots=True)
-class ImageReviewGeometryArtifacts:
-    geometry: Mapping[str, object]
-    board_relative_path: str
-    board_checksum_sha256: str
-    cropper_version: str
-    cells: tuple[ImageReviewGeometryCellArtifact, ...]
-
-
-@dataclass(frozen=True, slots=True)
-class ImageReviewGeometryRevision:
-    id: UUID
-    review_item_id: UUID
-    recognized_board_id: UUID
-    revision: int
-    idempotency_key: UUID
-    command_sha256: str
-    decision_checksum_sha256: str | None
-    corners: tuple[
-        ImageReviewGeometryPoint,
-        ImageReviewGeometryPoint,
-        ImageReviewGeometryPoint,
-        ImageReviewGeometryPoint,
-    ]
-    board_relative_path: str
-    board_checksum_sha256: str
-    cropper_version: str
-    cells: tuple[ImageReviewGeometryCellArtifact, ...]
-    corrected_by: str
-    created_at: datetime
 
 
 def canonical_image_review_bytes(value: object) -> bytes:
@@ -677,10 +637,7 @@ __all__ = [
     "ImageReviewCounts",
     "ImageDatasetCompleteness",
     "ImageReviewError",
-    "ImageReviewGeometryArtifacts",
-    "ImageReviewGeometryCellArtifact",
     "ImageReviewGeometryPoint",
-    "ImageReviewGeometryRevision",
     "ImageReviewGridIssueView",
     "ImageReviewItem",
     "ImageReviewNotFoundError",

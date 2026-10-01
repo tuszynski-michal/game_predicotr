@@ -131,11 +131,7 @@ class SqlAlchemyBoardSearchApproximateWinRepository:
             return None
         board, source = row
         # Same identity rule as the projection writer (`_payload_from_records`).
-        current = (
-            board.board_checksum_sha256
-            if board.asset_mode == "legacy_file"
-            else board.geometry_checksum_sha256
-        )
+        current = board.geometry_checksum_sha256
         return BoardSearchBoardViewSource(
             image_relative_path=source.relative_path,
             image_checksum_sha256=source.checksum_sha256,

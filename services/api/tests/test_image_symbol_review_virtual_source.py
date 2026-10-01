@@ -143,11 +143,7 @@ def test_virtual_source_materializer_keeps_current_render_provenance() -> None:
             geometry_revision=0,
             cells_prediction=_cells_prediction(observations),
         ),
-        source=SimpleNamespace(),
-        queue_item=SimpleNamespace(),
-        job=SimpleNamespace(),
         cell_sources=_manifest_sources(board_id, observations, source_geometry_revision_id),
-        geometry_revision=None,
     )
 
     assert len(cells) == 15
@@ -199,11 +195,7 @@ def test_partial_virtual_source_materializes_only_available_cells() -> None:
             unavailable_cell_indices=list(unavailable),
             cells_prediction=_cells_prediction(observations),
         ),
-        source=SimpleNamespace(),
-        queue_item=SimpleNamespace(),
-        job=SimpleNamespace(),
         cell_sources=_manifest_sources(board_id, observations, source_geometry_revision_id),
-        geometry_revision=None,
     )
 
     assert [cell.cell_index for cell in cells] == [
@@ -273,7 +265,6 @@ def test_operational_item_uses_complete_manual_virtual_geometry_revision() -> No
                 cells=tuple(revision_cells),
             )
         ),
-        None,
     )
 
     assert item.id == item_id
@@ -310,11 +301,7 @@ def test_approving_virtual_source_cell_persists_approved_render_provenance() -> 
             geometry_revision=0,
             cells_prediction=_cells_prediction(observations),
         ),
-        source=SimpleNamespace(),
-        queue_item=SimpleNamespace(),
-        job=SimpleNamespace(),
         cell_sources=_manifest_sources(board_id, observations, source_geometry_revision_id),
-        geometry_revision=None,
     )[0]
     review = map_current_symbol_cell_reviews(
         cells=(
@@ -328,11 +315,7 @@ def test_approving_virtual_source_cell_persists_approved_render_provenance() -> 
                     geometry_revision=0,
                     cells_prediction=_cells_prediction(observations),
                 ),
-                source=SimpleNamespace(),
-                queue_item=SimpleNamespace(),
-                job=SimpleNamespace(),
                 cell_sources=_manifest_sources(board_id, observations, source_geometry_revision_id),
-                geometry_revision=None,
             ),
         ),
         geometry_revision=0,
@@ -399,11 +382,7 @@ def test_board_without_renderable_cells_has_no_manifest_and_no_cells() -> None:
             materialize_current_image_review_cells(
                 item=SimpleNamespace(resolved_value=None),
                 board=_all_outside_board(board_id, geometry_revision=geometry_revision),
-                source=SimpleNamespace(),
-                queue_item=SimpleNamespace(),
-                job=SimpleNamespace(),
                 cell_sources=CurrentBoardCellSources(),
-                geometry_revision=None,
             )
             == ()
         )
@@ -418,8 +397,8 @@ def test_board_without_renderable_cells_has_no_manifest_and_no_cells() -> None:
     )
 
 
-def test_revision_zero_legacy_board_has_no_cell_source_after_s5() -> None:
-    """D-467 S5 (TASK-0759): its base crops lived only in the dropped records."""
+def test_non_virtual_board_has_no_cell_source() -> None:
+    """D-467 S6 (TASK-0796): only ``virtual_source`` boards have current cells."""
 
     board = SimpleNamespace(
         id=uuid4(),
@@ -434,13 +413,9 @@ def test_revision_zero_legacy_board_has_no_cell_source_after_s5() -> None:
         materialize_current_image_review_cells(
             item=SimpleNamespace(resolved_value=None),
             board=board,
-            source=SimpleNamespace(),
-            queue_item=SimpleNamespace(),
-            job=SimpleNamespace(),
             cell_sources=CurrentBoardCellSources(),
-            geometry_revision=None,
         )
-    assert error.value.code == "IMAGE_REVIEW_CELL_COUNT_INVALID"
+    assert error.value.code == "IMAGE_REVIEW_ASSET_MODE_UNSUPPORTED"
     with pytest.raises(SymbolCellReviewBackfillError):
         _current_cropper_version(board=board, cell_sources=CurrentBoardCellSources(), geometry=None)
 
@@ -461,11 +436,7 @@ def test_missing_manifest_of_a_board_with_cells_fails_closed() -> None:
         materialize_current_image_review_cells(
             item=SimpleNamespace(resolved_value=None),
             board=board,
-            source=SimpleNamespace(),
-            queue_item=SimpleNamespace(),
-            job=SimpleNamespace(),
             cell_sources=CurrentBoardCellSources(),
-            geometry_revision=None,
         )
     assert error.value.code == "IMAGE_REVIEW_RENDER_MANIFEST_MISSING"
     with pytest.raises(SymbolCellReviewBackfillError):
@@ -492,11 +463,7 @@ def test_manifest_of_another_revision_or_cell_set_is_rejected() -> None:
         return materialize_current_image_review_cells(
             item=SimpleNamespace(resolved_value=None),
             board=board,
-            source=SimpleNamespace(),
-            queue_item=SimpleNamespace(),
-            job=SimpleNamespace(),
             cell_sources=cell_sources,
-            geometry_revision=None,
         )
 
     stale_revision = SimpleNamespace(

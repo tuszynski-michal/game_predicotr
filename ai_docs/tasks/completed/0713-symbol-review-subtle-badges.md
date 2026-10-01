@@ -40,4 +40,5 @@ Bez zmian API, danych i obsługi kliknięć. Brak blokujących pytań.
 - Zmiana wyłącznie CSS: bez nowych testów deklaracji, zmian TypeScript/API/danych.
   Nie uruchamiano pełnego buildu w .next używanym przez działający proces dev.
   Wymagania i CURRENT_STATE zaktualizowane; kryteria sprawdzone.
-- Osobny commit i hash zostaną zapisane po utworzeniu commita.
+- Commit v1.7.19 / 9d55534573fe9a9345208454bab97da3cdb56e2e;
+  sprawdzono staged diff/check/stat, git show --stat i pozostały status.

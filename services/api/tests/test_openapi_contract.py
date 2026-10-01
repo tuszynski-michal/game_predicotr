@@ -101,17 +101,8 @@ def test_board_search_openapi_exposes_the_read_only_partial_pattern_contract() -
     assert operation["responses"]["200"]["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/BoardSearchResponse"
     }
-    archive_operation = schema["paths"][
-        "/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}"
-    ]["get"]
-    assert archive_operation["operationId"] == "getArchivedBoardSearchAsset"
-    archive_parameters = {
-        parameter["name"]: parameter for parameter in archive_operation["parameters"]
-    }
-    assert archive_parameters["sequence_number"]["schema"]["minimum"] == 1
-    assert archive_parameters["expectedBoardChecksumSha256"]["schema"]["pattern"] == (
-        "^[a-f0-9]{64}$"
-    )
+    # D-467 S5 (TASK-0759): the frozen board-search archive route is removed.
+    assert not any("archive-assets" in path for path in schema["paths"])
     assert set(operation["responses"]).issuperset({"404", "409", "422"})
 
 
@@ -127,10 +118,6 @@ def test_grid_review_openapi_is_topology_aware_and_checksum_bound() -> None:
             "get",
         ): "getImageGridReviewSourceAsset",
         (
-            "/api/v1/admin/image-reviews/{review_item_id}/geometry-approval",
-            "post",
-        ): "approveImageGridReviewGeometry",
-        (
             "/api/v1/admin/image-reviews/{review_item_id}/geometry-preview",
             "post",
         ): "previewImageGridReviewGeometry",
@@ -138,20 +125,25 @@ def test_grid_review_openapi_is_topology_aware_and_checksum_bound() -> None:
             "/api/v1/admin/image-reviews/{review_item_id}/geometry-revisions",
             "post",
         ): "createImageGridReviewGeometryRevision",
-        (
-            "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval",
-            "post",
-        ): "approveImageGridReviewSourceGeometry",
-        (
-            "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions",
-            "post",
-        ): "createImageGridReviewSourceGeometryRevision",
     }
     for (path, method), operation_id in expected_operations.items():
         operation = schema["paths"][path][method]
         assert operation["operationId"] == operation_id
         assert operation["tags"] == ["image-grid-reviews"]
         assert set(operation["responses"]).issuperset({"404", "409", "422"})
+    # D-462 / TASK-0727: no board, photo or whole-source approval operation.
+    operation_ids = {
+        operation["operationId"]
+        for path_item in schema["paths"].values()
+        for operation in path_item.values()
+    }
+    assert operation_ids.isdisjoint(
+        {
+            "approveImageGridReviewGeometry",
+            "approveImageGridReviewSourceGeometry",
+            "createImageGridReviewSourceGeometryRevision",
+        }
+    )
 
     command = schema["components"]["schemas"]["ImageGridReviewGeometryCommand"]
     assert "correctedBy" not in command["properties"]

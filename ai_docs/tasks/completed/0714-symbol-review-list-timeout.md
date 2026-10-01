@@ -49,6 +49,9 @@ Test konfiguracji, Ruff i kontrola ustawień w nowym procesie Python; limit każ
 
 ## Outcome
 
+Commit: `v1.7.32` / `7bb63a793ddfa589fecfe994b1e86c1ca2f3d000`.
+Staged check/stat/list i post-commit show/stat/status PASS; wcześniejsze zmiany poza commitem.
+
 Zmieniono oba domyślne limity listy, przykład środowiska i dokumentację.
 Testy konfiguracji: 41 PASS; Ruff check i format: PASS (3 pliki).
 Nowy proces potwierdził list=20000ms, counts=15000ms.

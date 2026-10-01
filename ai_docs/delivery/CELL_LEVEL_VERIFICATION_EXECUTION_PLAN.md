@@ -50,9 +50,11 @@ komórka.
 | Kalibracja geometrii | `approved_geometry_revision` | bez zmian; nie jest bramką symboli |
 
 - **R4** Jedna kolejka korekty: `image_board_geometry_pending` w stanie
-  `pending` (wszystkie) ∪ plansze z ≥1 bieżącą komórką `grid_issue`. Klucz
-  `(source_image_id, position_index)`; wiele zgłoszeń = jedna pozycja;
-  rodzeństwo ze zdjęcia nie trafia do kolejki.
+  `pending` (z propozycją automatu albo bez) dla slotów bez planszy ∪ plansze
+  z ≥1 bieżącą komórką `grid_issue`. Klucz `(source_image_id,
+  position_index)`; wiele zgłoszeń = jedna pozycja; rodzeństwo ze zdjęcia nie
+  trafia do kolejki. Odroczenie slotu, który ma już planszę bez zgłoszenia,
+  nie tworzy pozycji (jego ręczne rozwiązanie tylko by je supersedowało).
 - **R5** Zapis geometrii kończy korektę i usuwa zgłoszenia `grid_issue` tej
   planszy; nie weryfikuje symboli.
 - **R6** Po zmianie geometrii: niezmieniona tożsamość cropa zachowuje
@@ -100,19 +102,39 @@ ranking wyszukiwania, archiwum legacy, trening, usunięcie kolumn/tabel/historii
 
 ### Etap B — wspólna kolejka i ekran 3001
 
-- **T5 / TASK-0725** — widok `correction` kolejki (R4), `reportedCellIndices`,
-  zapis ograniczony do slotu dla odroczonej planszy `virtual_source`.
+- **T5 / TASK-0725** — widok `correction` kolejki (R4), `reportedCellIndices`.
+  Decyzja przy wykonaniu: nowy endpoint zapisu slotu nie jest potrzebny —
+  ekran używa istniejących zapisów jednej planszy
+  (`image-reviews/{id}/geometry-*` dla planszy zgłoszonej,
+  `board-cell-geometry-pending/{id}/manual-resolution` dla slotu odroczonego;
+  ten ostatni tworzy planszę `legacy_file`, co jest dotychczasową normą — 461
+  takich rozwiązań na zdjęciach `virtual_source`). Żaden z nich nie zmienia
+  innych plansz zdjęcia. Slot odroczony trafia do kolejki tylko bez żywej
+  planszy w slocie; inaczej jedyną pozycją slotu jest ta plansza.
 - **T6 / TASK-0726** — jeden ekran „Korekta cięcia siatki” (jedna plansza,
   zapis → następna); zmiana nazw w Adminie.
 - **T7 / TASK-0727** — usunięcie `grid-reviews` UI, endpointów szybkiej
   akceptacji, allowlisty i widoków `needs_validation`/`all`; OpenAPI + klient.
+  Decyzja przy wykonaniu: widoki `needs_validation`/`needs_correction`/`all` i
+  liczniki zostają jako diagnostyka tylko do odczytu (konsument: podsumowanie
+  importu w Adminie); usunięto trzy endpointy mutacji, metody aplikacji i
+  repozytorium akceptacji, moduł `grid-reviews` Reviewera i przełącznik
+  trybów. `VirtualGridGeometryService.save_source` zostaje dla
+  `reverify_777_grids.py`, bez endpointu HTTP. Skutek zamierzony: kalibracja
+  siatek nie dostaje już próbek „zatwierdzona bez korekty” (rewizja 0);
+  próbki pochodzą wyłącznie z geometrii zapisanych przez człowieka.
 
 ### Etap C — migracja i odbiór
 
 - **T8 / TASK-0728** — preview i (po zgodzie) apply: backfill projekcji dla
   plansz z decyzjami człowieka, 456 komórek do ponownej weryfikacji,
-  domknięcie plansz 15/15; zero nowych weryfikacji.
-- **T9 / TASK-0729** — odbiór całości.
+  domknięcie plansz 15/15; zero nowych weryfikacji. Preview 2026-09-29 (gra
+  `777`): 37 779 dokumentów do odświeżenia, 456 komórek / 113 plansz do
+  ponownej weryfikacji, w tym 3 plansze `accepted` do ponownego otwarcia,
+  0 domknięć. Apply po zgodzie operatora: 37 782 plansz bez dryfu i błędów.
+- **T9 / TASK-0729** — odbiór całości. Wykonany 2026-09-30: kontrolny
+  preview po apply pusty, scenariusze 1–9 z dowodami w zadaniu; plan
+  zakończony.
 
 Szczegóły tasków etapu A są w plikach zadań. Taski etapów B i C zostaną
 rozpisane według TASK_TEMPLATE przed ich uruchomieniem.
@@ -144,8 +166,9 @@ rozpisane według TASK_TEMPLATE przed ich uruchomieniem.
 
 ## 5. Ryzyka
 
-- Zapis rewizji źródła `virtual_source` może zmienić tożsamość renderu
-  rodzeństwa (bramka testowa T5 przed T6).
+- Zapis całego źródła `virtual_source` ponownie otwiera rozstrzygnięte plansze
+  rodzeństwa (od TASK-0724); ekran 3001 go nie używa (TASK-0725/0727), zostaje
+  tylko dla `scripts/reverify_777_grids.py`.
 - Więcej plansz trafi do layoutów bez akceptacji siatki — zamierzone (R2).
 - Dodatkowy upsert projekcji na planszę w jobie masowym.
 - Brudny worktree (m.in. TASK-0720) — commity zawierają wyłącznie hunki taska.
@@ -172,7 +195,7 @@ subagenta nie da się ustawić jawnie z sesji — rekomendacja warunkowa.
 | T2 / TASK-0722 | claude-opus-5-5 | high | Projekcja współdzielona przez dwa widoki, synchronizacja w transakcji mutacji. | Tak: claude-opus-5-5, high |
 | T3 / TASK-0723 | claude-opus-5-5 | high | Zmiana bramki domenowej wpływa na layouty i snapshot. | Tak: claude-opus-5-5, high |
 | T4 / TASK-0724 | claude-opus-5-5 | high | Ryzyko utraty lub fałszywego zachowania weryfikacji na dwóch ścieżkach geometrii. | Tak: claude-opus-5-5, high |
-| T5 / TASK-0725 | claude-opus-5-5 | high | Kontrakt API, deduplikacja i zapis slotu `virtual_source`. | Tak: claude-opus-5-5, high |
+| T5 / TASK-0725 | claude-opus-5-5 | high | Kontrakt API i deduplikacja slotu. | Tak: claude-opus-5-5, high |
 | T6 / TASK-0726 | claude-opus-5-5 | high | UI na istniejącym edytorze, kontrakt z T5. | Tak: claude-opus-5-5, high |
 | T7 / TASK-0727 | claude-opus-5-5 | high | Usunięcie kodu i endpointów z kontrolą konsumentów. | Tak: claude-opus-5-5, high |
 | T8 / TASK-0728 | claude-opus-5-5 | high | Operacja na żywych danych z preview i zgodą. | Tak: claude-opus-5-5, high |

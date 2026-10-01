@@ -28,7 +28,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v1 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v4 import GAME_TABLES, VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -47,7 +47,7 @@ from game_predictor_api.storage.image_review_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
-    CellObservationModel,
+    ImageBoardGeometryRevisionModel,
     ImageBoardSearchCandidateModel,
     ImageFileExecutionModel,
     ImageGeometryRolloutStateModel,
@@ -92,7 +92,9 @@ def database() -> Iterator[Engine]:
     with maintenance.connect() as connection:
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
     try:
-        command.upgrade(config, "0106_game_storage_routing_fence")
+        # The runtime router accepts only the current storage manifest (v3
+        # since 0131), so the routing fence is exercised on the head schema.
+        command.upgrade(config, "head")
         yield engine
     finally:
         engine.dispose()
@@ -103,23 +105,6 @@ def database() -> Iterator[Engine]:
             assert active == 0
             connection.exec_driver_sql(f'DROP DATABASE "{name}"')
         maintenance.dispose()
-
-
-def _upgrade_database_to_head(database: Engine) -> None:
-    """Advance a `database`-fixture instance past its pinned migration 0106.
-
-    Use this only in a test whose ORM models read/write columns added by a
-    migration after 0106 (e.g. `games.shape_geometry_configuration`,
-    `image_page_geometry_overrides.board_frame_quads`) — most tests in this
-    file intentionally stay pinned and must not call this.
-    """
-
-    config = Config(str(Path(__file__).resolve().parents[4] / "alembic.ini"))
-    config.set_main_option(
-        "sqlalchemy.url",
-        database.url.render_as_string(hide_password=False).replace("%", "%%"),
-    )
-    command.upgrade(config, "head")
 
 
 def _game(connection: object, *, code: str) -> UUID:
@@ -193,7 +178,7 @@ def test_router_selects_v2_and_default_injects_exact_game(database: Engine) -> N
             text(
                 "INSERT INTO image_geometry_rollout_states "
                 "(geometry_mode,cell_asset_mode,revision,backfill_status,updated_by) "
-                "VALUES ('legacy','legacy_files',0,'not_started','test')"
+                "VALUES ('structured_lattice_v3','virtual_default',0,'not_started','test')"
             )
         )
         location = GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.WRITE)
@@ -268,8 +253,6 @@ def test_operational_review_repository_binds_v2_before_game_owned_read(database:
 def test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session(database: Engine) -> None:
     """A saved correction must survive reopening the report after V2 cutover."""
 
-    _upgrade_database_to_head(database)
-
     with database.begin() as connection:
         game_id = _game(connection, code="geometry-snapshot-v2")
         connection.execute(
@@ -319,15 +302,8 @@ def test_page_geometry_snapshot_reads_v2_in_a_new_unscoped_session(database: Eng
 
     assert snapshot[source_checksum]["decisionChecksumSha256"] == saved.decision_checksum_sha256
     with database.connect() as connection:
-        assert (
-            connection.scalar(
-                text(
-                    "SELECT count(*) FROM public.image_page_geometry_overrides "
-                    "WHERE game_id=:game_id"
-                ),
-                {"game_id": game_id},
-            )
-            == 0
+        assert connection.scalar(
+            text("SELECT to_regclass('public.image_page_geometry_overrides') IS NULL")
         )
 
 
@@ -372,15 +348,9 @@ def test_import_policy_reads_v2_rollout_in_a_new_unscoped_session(database: Engi
     assert policy.policy.value == "structured_lattice_v3"
     assert policy.revision == 1
     with database.connect() as connection:
-        assert (
-            connection.scalar(
-                text(
-                    "SELECT count(*) FROM public.image_geometry_rollout_states "
-                    "WHERE game_id=:game_id"
-                ),
-                {"game_id": game_id},
-            )
-            == 0
+        # 0125 removed the legacy public copy; nothing can be written there.
+        assert connection.scalar(
+            text("SELECT to_regclass('public.image_geometry_rollout_states') IS NULL")
         )
 
 
@@ -443,7 +413,9 @@ def test_image_batch_registration_uses_v2_composite_identity(database: Engine) -
 
     with database.connect() as connection:
         assert connection.scalar(text("SELECT count(*) FROM public.image_file_executions")) == 2
-        assert connection.scalar(text("SELECT count(*) FROM public.image_import_job_files")) == 0
+        assert connection.scalar(
+            text("SELECT to_regclass('public.image_import_job_files') IS NULL")
+        )
         rows = connection.execute(
             text(
                 "SELECT game_id, job_id, file_execution_key, order_index "
@@ -655,9 +627,8 @@ def test_board_search_candidate_upsert_uses_v2_composite_identity(database: Engi
         ).one()
         assert fast_document.known_evidence_positions == [str(index) for index in range(15)]
         assert fast_document.primary_symbol_mobile_codes == [3] * 15
-        assert (
-            connection.scalar(text("SELECT count(*) FROM public.image_board_search_candidates"))
-            == 0
+        assert connection.scalar(
+            text("SELECT to_regclass('public.image_board_search_candidates') IS NULL")
         )
 
 
@@ -671,8 +642,6 @@ def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: E
     bound the scope, so `require_game` read the empty `public` schema and
     always raised `IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE`.
     """
-
-    _upgrade_database_to_head(database)
 
     now = datetime(2026, 9, 14, tzinfo=UTC)
     source_checksum = "e" * 64
@@ -820,13 +789,7 @@ def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: E
     assert asset.source_checksum_sha256 == source_checksum
     assert asset.asset_mode == "legacy_file"
     with database.connect() as connection:
-        assert (
-            connection.scalar(
-                text("SELECT count(*) FROM public.image_review_items WHERE id=:review_item_id"),
-                {"review_item_id": review_item_id},
-            )
-            == 0
-        )
+        assert connection.scalar(text("SELECT to_regclass('public.image_review_items') IS NULL"))
 
 
 def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
@@ -849,10 +812,10 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
             "image_import_job_files",
             "source_images",
             "recognized_boards",
-            "cell_observations",
             "image_review_queue_states",
             "image_review_items",
             "image_review_queue_items",
+            "image_board_geometry_revisions",
         ):
             connection.exec_driver_sql(
                 f"CREATE TABLE game_data_v2.{table_name}_g_{game_id.hex} "
@@ -895,6 +858,13 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
         )
         session.add(source)
         session.flush()
+        # D-467 S5: a legacy board reads its crops from a manual geometry
+        # revision (revision 0 had them only in the dropped cell records).
+        unknown = {
+            "symbolCode": "?",
+            "confidence": 0.0,
+            "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
+        }
         board = RecognizedBoardModel(
             source_image_id=source.id,
             position_index=0,
@@ -904,10 +874,16 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
             board_geometry={"source": "v2-review-asset-test"},
             board_relative_path="boards/review.png",
             board_checksum_sha256="d" * 64,
-            cells_prediction={"cells": []},
+            cells_prediction={
+                "cells": [
+                    {"rowIndex": index // 5, "columnIndex": index % 5, **unknown}
+                    for index in range(15)
+                ]
+            },
             board_confidence=1.0,
             pipeline_fingerprint=pipeline_fingerprint,
             status="pending_review",
+            geometry_revision=1,
             created_at=now,
         )
         session.add(board)
@@ -924,23 +900,33 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
         )
         session.add(review)
         session.flush()
-        session.add_all(
-            CellObservationModel(
+        session.add(
+            ImageBoardGeometryRevisionModel(
+                review_item_id=review.id,
                 recognized_board_id=board.id,
-                row_index=index // 5,
-                column_index=index % 5,
-                crop_relative_path=f"cells/review-{index}.png",
-                crop_checksum_sha256=f"{index + 1:064x}",
+                revision=1,
+                idempotency_key=uuid4(),
+                command_sha256="e" * 64,
+                corners=[{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 6}, {"x": 0, "y": 6}],
+                geometry={"source": "v2-review-asset-test"},
+                asset_mode="legacy_file",
+                board_relative_path="boards/review.png",
+                board_checksum_sha256="d" * 64,
                 cropper_version="v2-review-asset-test",
-                prediction={
-                    "symbolCode": "?",
-                    "confidence": 0.0,
-                    "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
-                },
+                crop_artifacts=[
+                    {
+                        "rowIndex": index // 5,
+                        "columnIndex": index % 5,
+                        "cropRelativePath": f"cells/review-{index}.png",
+                        "cropChecksumSha256": f"{index + 1:064x}",
+                    }
+                    for index in range(15)
+                ],
+                corrected_by="fixture",
                 created_at=now,
             )
-            for index in range(15)
         )
+        session.flush()
         review_item_id = review.id
 
     # Asset endpoints begin in a fresh session and carry gameId only in query.
@@ -967,13 +953,7 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
             )
     assert wrong_job.value.code == "IMAGE_REVIEW_ITEM_NOT_FOUND"
     with database.connect() as connection:
-        assert (
-            connection.scalar(
-                text("SELECT count(*) FROM public.image_review_items WHERE id=:review_item_id"),
-                {"review_item_id": review_item_id},
-            )
-            == 0
-        )
+        assert connection.scalar(text("SELECT to_regclass('public.image_review_items') IS NULL"))
 
 
 def test_write_status_generation_and_transaction_lock_are_fail_closed(database: Engine) -> None:

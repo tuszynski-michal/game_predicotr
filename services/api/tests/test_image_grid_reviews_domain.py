@@ -10,7 +10,6 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewListFilter,
     ImageGridReviewState,
     ImageGridReviewView,
-    approve_image_grid_review,
     decode_image_grid_review_cursor,
     derive_image_grid_review,
     encode_image_grid_review_cursor,
@@ -50,32 +49,6 @@ def test_grid_queue_state_is_derived_with_correction_priority() -> None:
     assert correction.state is ImageGridReviewState.NEEDS_CORRECTION
     assert validation.state is ImageGridReviewState.NEEDS_VALIDATION
     assert approved.state is ImageGridReviewState.APPROVED
-
-
-def test_grid_approval_is_revision_bound_and_rejects_unfixed_grid_issues() -> None:
-    topology = BoardTopology(rows=3, columns=5)
-    review = derive_image_grid_review(
-        topology=topology,
-        geometry_revision=3,
-        approved_geometry_revision=2,
-        cell_quality_issues=_issues(topology),
-    )
-    transition = approve_image_grid_review(review)
-
-    assert transition.changed is True
-    assert transition.review.state is ImageGridReviewState.APPROVED
-    assert transition.review.approved_geometry_revision == 3
-
-    needs_correction = derive_image_grid_review(
-        topology=topology,
-        geometry_revision=3,
-        approved_geometry_revision=2,
-        cell_quality_issues=_issues(topology, SymbolCellQualityIssue.GRID_ISSUE),
-    )
-    with pytest.raises(ImageGridReviewError) as error:
-        approve_image_grid_review(needs_correction)
-
-    assert error.value.code == "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED"
 
 
 def test_grid_review_cursor_is_bound_to_game_view_import_and_direction() -> None:

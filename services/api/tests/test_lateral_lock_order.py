@@ -64,6 +64,8 @@ def test_worker_mixed_protected_and_auto_locks_all_sequences_before_source_and_s
             assert "FOR UPDATE" in sql
             events.append("source")
             return source
+        if "FROM image_source_geometry_revisions" in sql:
+            return NS(id=uuid4())
         return None
 
     session.scalar.side_effect = scalar
@@ -86,13 +88,16 @@ def test_worker_mixed_protected_and_auto_locks_all_sequences_before_source_and_s
     )
     monkeypatch.setattr(worker, "SymbolCellReviewWriteThroughCoordinator", lambda _: coordinator)
     boards = [{"positionIndex": index, "confidence": 0.99} for index in range(2)]
+    # D-467 (TASK-0790): only virtual_source boards can be projected.
     crops = [
         {
             **board,
+            "assetMode": "virtual_source",
             "cells": [],
-            "boardRelativePath": "board.jpg",
-            "boardChecksumSha256": "c" * 64,
             "cropperVersion": "test",
+            "geometryChecksumSha256": "d" * 64,
+            "geometryEngineName": "structured_opencv_v1",
+            "geometryEngineVersion": "test",
         }
         for board in boards
     ]
@@ -102,7 +107,13 @@ def test_worker_mixed_protected_and_auto_locks_all_sequences_before_source_and_s
     ]
     stages = {
         "board_detection": NS(payload={"boards": boards}),
-        "board_crops": NS(payload={"boards": crops}),
+        "board_crops": NS(
+            payload={
+                "assetMode": "virtual_source",
+                "boards": crops,
+                "geometryChecksumSha256": "d" * 64,
+            }
+        ),
         "sequence_ocr": NS(payload={"boards": sequences}),
         "symbol_inference": NS(
             payload={
@@ -131,6 +142,7 @@ def test_editor_entrypoint_reserves_sequence_before_source_row_query(monkeypatch
         position_index=0,
         pending_geometry_id=None,
         review_item_id=uuid4(),
+        source_image_id=uuid4(),
     )
     prepared = NS(entries=[NS(context=context, command=NS(geometry_qualification=None))])
     monkeypatch.setattr(

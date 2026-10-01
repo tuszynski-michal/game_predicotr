@@ -56,8 +56,8 @@ class MemoryApprovedReferences:
     def list_candidates(self, *, after_key, limit, **kwargs):
         return (self.candidate,) if after_key is None else ()
 
-    def get_candidate(self, *, observation_id, **kwargs):
-        return self.candidate if observation_id == self.candidate.observation_id else None
+    def get_candidate(self, *, cell_review_id, **kwargs):
+        return self.candidate if cell_review_id == self.candidate.cell_review_id else None
 
     def get_reference(self, **kwargs):
         return self.reference
@@ -68,7 +68,6 @@ class MemoryApprovedReferences:
             symbol_id=kwargs["symbol_id"],
             source_review_item_id=self.candidate.review_item_id,
             source_recognized_board_id=self.candidate.recognized_board_id,
-            source_observation_id=self.candidate.observation_id,
             sequence_number=self.candidate.sequence_number,
             cell_index=self.candidate.cell_index,
             resolution_revision=self.candidate.resolution_revision,
@@ -93,7 +92,7 @@ class MemoryApprovedReferences:
 
 def _candidate(path: str, checksum: str) -> ApprovedSymbolReferenceCandidate:
     return ApprovedSymbolReferenceCandidate(
-        observation_id=uuid4(),
+        cell_review_id=uuid4(),
         review_item_id=uuid4(),
         recognized_board_id=uuid4(),
         sequence_number=81,
@@ -137,13 +136,13 @@ def test_read_only_api_serves_checksum_bound_approved_crop(tmp_path):
         page = client.get(f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates")
         asset = client.get(
             f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/"
-            f"{candidate.observation_id}/asset"
+            f"{candidate.cell_review_id}/asset"
         )
 
     assert page.status_code == 200
     assert page.json()["items"] == [
         {
-            "observationId": str(candidate.observation_id),
+            "cellReviewId": str(candidate.cell_review_id),
             "cropChecksumSha256": candidate.crop_checksum_sha256,
             "sequenceNumber": 81,
             "cellIndex": 7,
@@ -173,7 +172,7 @@ def test_selection_api_copies_bytes_and_serves_only_durable_reference(tmp_path):
     with TestClient(app) as client:
         response = client.post(
             f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/"
-            f"{candidate.observation_id}/selection",
+            f"{candidate.cell_review_id}/selection",
             json={"expectedChecksumSha256": candidate.crop_checksum_sha256, "selectedBy": "admin"},
         )
         reference = client.get(f"/admin/games/{game_id}/symbols/{symbol_id}/image/asset")
@@ -251,11 +250,11 @@ def test_virtual_selection_materializes_a_durable_full_resolution_png(tmp_path):
     with TestClient(app) as client:
         preview = client.get(
             f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/"
-            f"{candidate.observation_id}/asset"
+            f"{candidate.cell_review_id}/asset"
         )
         selected = client.post(
             f"/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/"
-            f"{candidate.observation_id}/selection",
+            f"{candidate.cell_review_id}/selection",
             json={"expectedChecksumSha256": candidate.crop_checksum_sha256, "selectedBy": "admin"},
         )
 
@@ -354,3 +353,64 @@ def _virtual_candidate(artifact_root):
         asset_mode="virtual_source",
         virtual_asset=asset,
     )
+
+
+def test_candidates_take_render_specs_from_one_manifest_read(monkeypatch):
+    """D-467 S7 (TASK-0792): candidates resolve the spec from the board manifest."""
+
+    from types import SimpleNamespace
+
+    from game_predictor_api.storage import symbol_references_repository as module
+
+    game_id, board_id = uuid4(), uuid4()
+    spec = {"schemaVersion": "fixture", "cellIndex": 2}
+    spec_checksum = hashlib.sha256(canonical_json_bytes(spec)).hexdigest()
+
+    def cell(index, asset_mode):
+        return SimpleNamespace(
+            id=uuid4(),
+            asset_mode=asset_mode,
+            recognized_board_id=board_id,
+            geometry_revision=1,
+            cell_index=index,
+            crop_checksum_sha256="c" * 64,
+            crop_relative_path=None if asset_mode == "virtual_source" else "data/crops/x.png",
+            revision=0,
+            source_geometry_revision_id=uuid4(),
+            logical_cell_key="d" * 64,
+            render_spec_checksum_sha256=spec_checksum if asset_mode == "virtual_source" else None,
+            rendered_pixel_checksum_sha256="c" * 64,
+            extractor_version="virtual-renderer-v1",
+            sequence_number=7,
+            review_state="approved",
+        )
+
+    virtual, legacy = cell(2, "virtual_source"), cell(3, "legacy_file")
+    board = SimpleNamespace(
+        id=board_id,
+        geometry_revision=1,
+        source_geometry_revision_id=virtual.source_geometry_revision_id,
+    )
+    item = SimpleNamespace(id=uuid4(), resolution_revision=1)
+    rows = [
+        (virtual, item, board, "a" * 64, "b" * 64, "e" * 64),
+        (legacy, item, board, "a" * 64, "b" * 64, "e" * 64),
+    ]
+    calls = []
+
+    def load(_session, *, game_id, keys):
+        requested = tuple(keys)
+        calls.append((game_id, requested))
+        return {key: spec for key in requested}
+
+    monkeypatch.setattr(module, "load_cell_render_specs", load)
+    candidates = SqlAlchemyApprovedSymbolReferenceRepository(Mock())._to_candidates(
+        rows, game_id=game_id
+    )
+
+    assert [candidate.cell_review_id for candidate in candidates] == [virtual.id, legacy.id]
+    assert candidates[0].virtual_asset is not None
+    assert candidates[0].virtual_asset.render_spec == spec
+    assert candidates[1].virtual_asset is None
+    assert len(calls) == 1 and calls[0][0] == game_id
+    assert [(key.recognized_board_id, key.cell_index) for key in calls[0][1]] == [(board_id, 2)]

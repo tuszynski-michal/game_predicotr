@@ -138,7 +138,7 @@ testów i kontroli jakości zmienionego frontendu.
 
 - Brak; ewentualny odbiór na żywych danych gry 777 pozostaje osobnym zakresem.
 
-Commit `v1.7.38` — hash do dopisania po kontroli indeksu.
+Commit `v1.7.38` / `e7efc6acef70eb0af89533063fdf4bc298d1f6f4`.
 
 ## Przypisanie modeli do zadań
 

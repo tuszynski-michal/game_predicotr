@@ -70,7 +70,8 @@ class ImageReviewAlternative:
 
 @dataclass(frozen=True, slots=True)
 class ImageReviewCell:
-    observation_id: UUID | None
+    # The cell identity is ``(recognized_board_id, cell_index)`` of the owning
+    # review item; the former per-cell import record id was removed (D-467).
     cell_index: int
     row_index: int
     column_index: int

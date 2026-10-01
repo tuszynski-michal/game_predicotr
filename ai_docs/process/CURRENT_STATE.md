@@ -1,10 +1,334 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-09-29
+last_updated: 2026-10-01
 ---
 
 # Current State
+
+### D-470 / D-471 — „Przybliżona wygrana”: linie, wykres, stawki; udostępnianie online (w toku)
+
+- Plan `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` zaakceptowany
+  2026-09-30; operator zlecił zapis planu i etap A (TASK-0760–0764). Etap B
+  (TASK-0765–0770, udostępnianie online) wymaga osobnego polecenia.
+- Praca w worktree `worktrees/board-search-share`, gałąź
+  `feat/board-search-share` od `v1.7.81` / `f3340b3b`. Numery TASK-0760+
+  i D-470+ zostawiają zapas dla równoległego toru biblioteki symboli.
+- TASK-0760 done: plan, D-470, D-471, `ADMIN_APP.md`, pliki zadań 0761–0770.
+- 2026-09-30 operator dodał do etapu B dziennik zapytań linku i odtworzenie
+  zapytania w Adminie: D-472, R5 planu, TASK-0771 (wykonywany przed
+  TASK-0770).
+  Commit `v1.7.82` / `2a5fb165`.
+- TASK-0761 done: siatka wykresu bilansu i przypinane punkty z etykietami w
+  pasie nad wykresem (mysz i klawiatura, limit 8). 631 testów Admina, 23
+  testy interakcji, audyt PASS w drugim cyklu.
+  Commit `v1.7.83` / `76f11042`.
+- TASK-0762 done: stawka (1,20–20 zł) i jednostka (kredyty/złote) w
+  „Przybliżonej wygranej”, przeliczenie lokalne na groszach (D-470). 642
+  testy Admina, 25 testów interakcji, audyt PASS w drugim cyklu.
+  Commit `v1.7.84` / `de566f23`.
+- TASK-0763 done: API szczegółów planszy z liniami wypłat (ten sam ewaluator,
+  linia tylko od lewej) i przyciętego widoku WebP z cache i rewizją widoku.
+  Audyt PASS w drugim cyklu.
+  Commit `v1.7.86` / `b78a018d`.
+- TASK-0764 done: modal planszy z liniami wypłat z kolumny akcji tabeli,
+  legenda z przełącznikiem każdej linii, schemat 3 × 5 bez zdjęcia. Audyt
+  PASS w drugim cyklu.
+- 2026-09-30 operator zlecił etap A2: poprawianie symbolu pola z okna planszy
+  (D-473, R6, TASK-0772).
+- TASK-0772 done: tryb „Popraw symbole” w oknie planszy zapisuje decyzję
+  pola istniejącym `applySymbolCellReviewDecision`; linie odświeżają się od
+  razu, tabela po zamknięciu okna. Audyt PASS w drugim cyklu.
+- TASK-0773 (D-474): okno planszy nie kończy się błędem dla nieaktualnego
+  odczytu wyszukiwarki (88 260 plansz gry 7 sprzed późniejszej rewizji
+  geometrii); pokazuje linie na schemacie i pozwala odświeżyć jedną planszę.
+  Masowe odświeżenie i przyczyna źródłowa — osobne zadanie, wymaga zgody.
+- Lokalna instancja do odbioru: Admin `http://127.0.0.1:3010`, API
+  `127.0.0.1:8010` z worktree (`v1.7.88` pozwala Adminowi łączyć się z
+  innym portem API przez `NEXT_PUBLIC_ADMIN_API_BASE_URL`); instancja
+  główna 3000/8000 bez zmian.
+- Etap A zakończony i odebrany; 2026-09-30 operator zlecił poprawki
+  (TASK-0773) i etap B (TASK-0765–0771, potem TASK-0770).
+- Lokalna instancja testowa Reviewera z worktree: `127.0.0.1:3011`
+  (dev, bez tunelu, proxy do API 8010).
+- TASK-0765 done: wyszukiwarka żyje w pakiecie
+  `packages/board-search-ui` (`BoardSearchDataSource` = podzbiór klienta
+  Admin API, mutacje opcjonalne); Admin używa cienkiego opakowania;
+  karuzela pokazuje przycięty widok serwera, pełne zdjęcie tylko awaryjnie.
+  Po scaleniu potrzebne `npm install` (nowe dowiązanie workspace). Audyt
+  PASS w pierwszym cyklu.
+- TASK-0774 done (zgłoszenie operatora): etykiety punktów wykresu bilansu i
+  lista przypiętych punktów podają jednostkę („kredytów” / „zł”); etykiety
+  szersze, pas ma 4 wiersze.
+- TASK-0766 done: sesje udostępniania (migracja `0130`, serwis z kodem
+  PBKDF2, rotacją tokenu, blokadą po 5 błędach i limitem 5 aktywnych, Admin
+  API create/list/revoke jako operacje wysokiego wpływu, flaga
+  `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED`). Migracja nie była uruchamiana
+  na bazie deweloperskiej — przed odbiorem etapu B wymaga zgody operatora.
+  Audyt PASS w pierwszym cyklu.
+- TASK-0767 done: publiczne trasy udostępnienia (`/board-search-shares`:
+  unlock, kontekst, symbole, wyszukiwanie, zakres, szczegóły, widok) tylko
+  przez proxy Reviewera z cookie sesji, bez identyfikatorów wewnętrznych,
+  z limitami i dziennikiem zapytań fail-closed (D-475: osobna transakcja
+  zatwierdzana przed wysłaniem danych).
+- TASK-0768 done: Reviewer `/board-search?share=<id>` z bramką kodu i
+  informacją o zapisie zapytań, proxy `/board-search-api` z allowlistą,
+  własnym cookie i CSP, adapter z cache klienta; lokalna instancja testowa
+  Reviewera `127.0.0.1:3011` (bez tunelu).
+- TASK-0769 done: panel „Udostępnij online” w nagłówku „Wyszukaj plansze”
+  (tworzenie, link i kod z kopiowaniem, lista aktywnych i zakończonych,
+  dwustopniowe zatrzymanie, kod tylko w pamięci przeglądarki).
+- TASK-0771 done: dziennik zapytań linku w panelu (mini-plansza, wynik,
+  stronicowanie) i „Odtwórz w wyszukiwarce” (`?boardSearchReplay=`): ten
+  sam wzór z polami `?`, zakres i limit, plansza startowa, zakres spinów i
+  okno planszy.
+- TASK-0770 done: model zagrożeń (nowa powierzchnia, lista kontrolna,
+  incydent), przewodnik operatora, testy bramki (allowlista = OpenAPI,
+  rozdział ciasteczek), odbiór na lokalnym buildzie produkcyjnym Reviewera.
+- 2026-09-30 operator scalił gałąź biblioteki symboli; migracja
+  udostępnień przenumerowana na `0130` po ich `0129` (`v1.7.101`) i za
+  zgodą operatora wykonana na bazie deweloperskiej (head
+  `0130_board_search_share_sessions`).
+- TASK-0775 done (`v1.7.102`): Reviewer uruchamiany przez kontroler tunelu
+  dostaje adres API, które go uruchomiło (wcześniej API na `8010` startowało
+  Reviewera proxy-ującego do `8000`).
+- Odbiór końcowy etapu B wykonany za zgodą operatora na testowej instancji
+  z worktree (Admin 3010, API 8010): utworzenie linku uruchomiło produkcyjnego
+  Reviewera i Quick Tunnel; odbiorca odblokował link, wyszukał plansze z
+  przyciętymi widokami, policzył zakres i otworzył okno planszy (bez
+  poprawiania pól); dziennik zapytań i odtworzenie w Adminie działają; przez
+  publiczny adres bramka 200, błędny kod 401 z zapisanym licznikiem, trasa
+  Admina 403. Po odbiorze oba linki testowe zatrzymane i tunel wyłączony.
+- 2026-09-30 scalono `v1.1-vision-lab-hybrid-geometry` (`v1.7.88`, tor
+  biblioteki symboli i D-467) do `feat/board-search-share`; konflikty tylko
+  w `README.md` i `DECISION_LOG.md` (obie sekcje zachowane). Po scaleniu:
+  testy API udostępnień i bezpieczeństwa 69/69, migracje `0129`+`0130` na
+  świeżej bazie 12/12, Admin 597/597, Reviewer 192/192, pakiet UI 38/38.
+- TASK-0776 done (2026-10-01, zgłoszenie operatora): kafelek „Maksymalny
+  wkład” w podsumowaniu „Przybliżonej wygranej” — najgłębszy dołek bilansu
+  od zera (spin opłacany przed wypłatą), z numerem spinu, skalowany stawką.
+- **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
+  `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
+  `npm run reviewer:build`. Push i merge nie były wykonywane.
+
+### D-464 — biblioteka wzorców symboli, etap A (w toku)
+
+- Plan `ai_docs/delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md`
+  zaakceptowany 2026-09-29; operator zlecił zapis planu i etap A
+  (TASK-0740, TASK-0741) dla ośmiu symboli gry `777`. Praca w worktree
+  `worktrees/symbol-reference-library`, gałąź `feat/symbol-reference-library`
+  (przeniesiona na `v1.1-vision-lab-hybrid-geometry` 2026-09-30 jako
+  `feat/symbol-reference-library-port`, zadania przenumerowane na 0740+).
+- Etap A jest odczytowy: bez zapisu w bazie, bez zmian API, UI i modelu.
+  Etapy B i C wymagają osobnego polecenia.
+- Commit planu: `v1.7.67` / `04e8f30d`.
+- TASK-0740 done: skrypt `scripts/evaluate_symbol_reference_library.py`
+  i moduł `symbols/reference_library.py`. Na 2 706 zweryfikowanych komórkach
+  pewne propozycje pokrywają 80,5% ze zgodnością 99,5%; aktywny model na tej
+  wybiórczej próbie 12,7%. Raport:
+  `ai_docs/quality/SYMBOL_REFERENCE_LIBRARY_STAGE_A.md`. 20 testów, Ruff,
+  mypy i niezależny audyt PASS.
+  Commit `v1.7.68` / `21740374`.
+- TASK-0741 done: narzędzia `v1.7.69` / `93aa76dd`. Ślepa ocena operatora
+  200/200: pewne propozycje 161 (pokrycie 82,6%), zgodność 99,4%, każdy
+  symbol ≥ 96,7%; aktywny model na tych komórkach 73,8%. **Bramka etapu A
+  PASS.** Etap A zakończony; STOP na granicy etapu.
+  Commit `v1.7.70` / `d2fea13f`.
+- D-465: rozpoznawalny, częściowo zasłonięty symbol dostaje klasę;
+  zatwierdzenia masowe (`approve` z `operation_id`) nie są wzorcami.
+  Operator potwierdził `f083d112` i `cf7f29d9` jako Wiśnia.
+- TASK-0742 done (zamiast etapu B, na polecenie operatora): polityka
+  `no-bulk-approve-v2` (T1 99,5% przy 79,1%, ślepa próbka 100% po
+  poprawkach) i odczytowy podgląd dla 11 864 oczekujących Arbuz < 80%:
+  lokalny widok `artifacts/symbol-reference-library/preview-arbuz/preview.html`
+  w worktree. Pasmo 0–60% bez ślepej oceny. Nic nie zapisano w bazie.
+  Etap B nieuruchomiony. Commit `v1.7.71` / `9dec1578`.
+- TASK-0743 done: podpowiedź dwóch kandydatów dla komórek przeglądu
+  (38/38 trafień na ślepej próbce) i biblioteka do 40 wzorców na grupę
+  (ślepa próbka 90,3% pokrycia przy 100% zgodności; T1 87,8% / 99,7%).
+  Podgląd: `artifacts/symbol-reference-library/preview-arbuz-g40/preview.html`
+  w worktree. Stara predykcja modelu pozostaje nietknięta jako rezerwa.
+- D-466 (etap B, 2026-09-30): operator zlecił przeprowadzenie całego procesu
+  (T3 → T4 → T5 → B1) bez swojego udziału, z audytem `claude-fable-5-1` po
+  każdym zadaniu.
+- TASK-0744 (T3) done: moduł `symbols/reference_library_writer.py`
+  (`apply_board`, `revert_board`) i podkomendy `apply-preview`, `apply`,
+  `apply-revert`, `apply-verify`. Manifest Arbuz < 60%: sha256
+  `1e4be8ce…`, 2 703 plansze, 2 918 komórek (2 621 potwierdzeń, 297 zmian).
+  Nic jeszcze nie zapisano w bazie. Audyt Fable: FAIL (P2) → poprawki → PASS.
+  Nie uruchamiać `apply` równolegle z weryfikacją w Adminie ani z jobem
+  przeliczania predykcji.
+- TASK-0745 (T4) done: API listy, pomijania, liczników i operacji masowych
+  weryfikacji symboli przyjmuje `predictionSource` (`reference_library` —
+  komórka przepisana przez bibliotekę, `model`) oraz `changedFrom` /
+  `changedTo` (`updated_at`, włącznie, ze strefą). OpenAPI, klient i wrapper
+  zaktualizowane. Audyt Fable: PASS → FAIL (P2: korelacja `EXISTS`) →
+  poprawka → PASS.
+- TASK-0746 (T5) done: Admin → Weryfikacja symboli ma grupę „Źródło
+  predykcji” (Wszystkie / Nowy algorytm / Stary model) i „Data zmiany
+  komórki” (Od–Do, „Od dziś 00:00”, „Zastosuj zakres”, „Wyczyść”). Audyt
+  Fable PASS, P3 częściowo wdrożone.
+- TASK-0748 (B1) done 2026-09-30 00:08–00:27 UTC: 2 703 plansze Arbuz
+  < 60%, 2 917 komórek z predykcją biblioteki (2 621 potwierdzeń Arbuz,
+  296 zmian symbolu), 1 komórka kanarka cofnięta testowo (`apply-revert`),
+  377 bez pewnej propozycji przy modelu. 0 błędów, 0 `stale`. Komórki nadal
+  `pending`; przegląd w Adminie filtrem „Nowy algorytm”.
+- TASK-0749 (B2) done 2026-09-30 00:35–03:48 UTC: symbole 1–8, oczekujące
+  z predykcją modelu i pewnością ≤ 80%: 60 276 komórek na 54 914 planszach z
+  predykcją biblioteki, 0 błędów, 1 plansza `stale`. Razem z B1: 63 193
+  komórki „Nowy algorytm”, wszystkie nadal `pending`; 8 313 komórek bez
+  pewnej propozycji zostało przy modelu. Komórki > 80% i inne symbole bez
+  zmian. Poprawki narzędzia `v1.7.79`, `v1.7.80` (audyt Opus PASS).
+- TASK-0751 done: Admin → Weryfikacja symboli ma przedział pewności
+  „80–<99%” (bez komórek ≥ 99% i bez predykcji biblioteki 0,99).
+- TASK-0750 (B3) done 2026-09-30 05:25–20:01 UTC: pasmo 80–99% dla symboli
+  1–8: 297 894 komórki na 226 623 planszach z predykcją biblioteki, 0
+  błędów, 1 plansza `stale`. Łącznie z B1/B2: 361 082 oczekujących komórek
+  „Nowy algorytm”, 284 240 wersji; 37 060 komórek 80–99% bez pewnej
+  propozycji zostało przy modelu. Komórki ≥ 99% nieruszane (decyzja
+  operatora). Przebiegi zapisu zakończone — S3–S8 planu D-467 odblokowane.
+
+### D-467 — usunięcie pozostałości V1/legacy (w toku)
+
+- Plan `ai_docs/delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md`
+  (S1–S8) zaakceptowany 2026-09-30 po inwentaryzacji: `cell_observations`
+  28 GB, `render_spec` powielony w komórkach 19 GB, wyniki pipeline 6,8 GB
+  z nieuruchomioną retencją, żywy tryb `legacy_file` (461 plansz 777),
+  martwe gałęzie `uses_current_projection`. Migracja `0125` jest już
+  zastosowana na bazie operatora; plan D-448 zamknięty.
+- TASK-0752 (S1) done: migracja `0129` (osierocone funkcje triggerów),
+  skrypt baz `diag_*`, usunięte narzędzia legacy/v0.9, dokumenty
+  zaktualizowane. Audyt Opus PASS. Za zgodą operatora 2026-09-30: `0129`
+  zastosowana na bazie (`alembic_version` = `0129`), 3 bazy `diag_*` usunięte.
+- TASK-0753 (S1) done: `scripts/clean_scratch_dirs.ps1` (podgląd 54
+  katalogi, 252 MB). Audyt Opus PASS. Wykonane za zgodą operatora
+  2026-09-30: 54 katalogi usunięte, 11 nieczytelnych usunięte z
+  podniesieniem UAC; root bez katalogów scratch.
+- TASK-0754 (S2) done: usunięte gałęzie `uses_current_projection=False`,
+  `_uses_logical_current_cell_identity`, `_prediction_confidence_expression`
+  i `_base_visible_statement`; jawne `_bind_game_store` zachowuje wiązanie
+  magazynu; SQL ścieżki V2 identyczny bajt w bajt (102 sekcje). Audyt Opus
+  PASS.
+- TASK-0755 (S2) done: bramka usuwania symbolu liczy bieżące predykcje z
+  komórek V2 zamiast skanu `cell_observations` (świadome zawężenie, nota w
+  D-467). Audyt Opus PASS. **Etap S2 zamknięty.**
+- TASK-0756 (S3) kod i runbook done (audyt Opus PASS): kompaktacja wyników
+  pipeline przepisana na V2 (wykluczenia per gra, fail-closed, jawny filtr
+  `game_id`, bo rola bazy ma `BYPASSRLS`), test izolowany, runbook
+  `guides/DATABASE_MAINTENANCE.md`. Podgląd na bazie operatora: 56 710
+  wykonań, ok. 6,0 GB do zwolnienia (manifest `20feadcd…`). Za zgodą
+  operatora 2026-09-30 job `21f933c0…` wykonany: 56 710 wpisów, 0
+  konfliktów, `VACUUM (ANALYZE)`; po drodze naprawiono `complete` sklepu
+  jobów dla jobów bez gry (v1.7.108). `VACUUM FULL` za zgodą: tabela
+  6 804 MB → 399 MB, baza 89 → 83 GB. **Etap S3 zamknięty.**
+  Nowe TASK-0795 w planie: rola bez `SUPERUSER`/`BYPASSRLS`.
+- TASK-0757 (S4) done (v1.7.111, audyt Opus FAIL→PASS): tabela
+  `board_render_manifests` (manifest magazynu v3, migracja `0131`), writery
+  piszą manifest obok obserwacji, strażnik `ALEMBIC_HEAD_MISMATCH`. Cutover
+  2026-10-01 02:00 UTC (API 8000/8010 wznowione; API 8110 z worktree
+  `v7-t0603-v2-calibration` innej sesji wymaga scalenia v1.1). Backfill
+  wykonany: 777 — 509 929 manifestów, 0 odrzuceń, partycja 6,9 GB;
+  `cf300bc1…` 26/26.
+- TASK-0758 (S4) done (v1.7.113, audyt Opus PASS, P2 poprawione): wszyscy
+  czytelnicy runtime (`materialize_current_image_review_cells`, odbudowa i
+  stale-check weryfikacji symboli, projekcja board-search,
+  `pending_symbol_reinference`, rekonsyliacja plansz częściowych, kandydaci
+  wzorca symbolu) czytają manifest renderu; plansze `legacy_file` na
+  rewizji 0 wyłącznie przez `legacy_cell_observation_adapter` (S5 go
+  usuwa). Kontrakt API: `observationId` usunięte, kandydat wzorca =
+  `cellReviewId`; migracja `0132` usuwa
+  `symbol_reference_images.source_observation_id`;
+  `EXPECTED_ALEMBIC_HEAD` = `0132`. Równoważność: test PG vs `f2336115`
+  i 2 114 porównań na bazie operatora bez różnic (10 plansz V3 z maską w
+  środku: stary kod odmawiał przeliczenia, nowy liczy poprawnie). Cutover
+  `0132` opisany w zadaniu (zatrzymanie API → merge → `db:migrate` → start).
+  **Etap S4 zamknięty po cutoverze.**
+- TASK-0790 (S6, wykonywany przed S5) done (v1.7.114, audyt Opus FAIL→PASS:
+  P1 reguła rewizji przy przejęciu sekwencji, P2 blokada źródła przy
+  wyścigu slotów, docs): ręczna rezolucja odroczonej planszy (Reviewer, ten sam endpoint
+  `manual-resolution`) deleguje do ścieżki wirtualnej
+  (`VirtualGridGeometryService.save_pending_slot`) — plansza `virtual_source`,
+  manifest renderu, predykcje przypiętego modelu, bez plików cropów i bez
+  `cell_observations`; writer importu i ręczna geometria nie piszą już
+  obserwacji; polityki `verified_v19`/`structured_shadow` usunięte
+  (`IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`), worker odmawia trybów
+  niewirtualnych; nowa gra = `structured_lattice_v3`/`virtual_default`;
+  migracja `0133_virtual_only_import_policies` (dwie gry `legacy` →
+  domyślny tryb wirtualny, CHECK-i zawężone, downgrade odmawia),
+  `EXPECTED_ALEMBIC_HEAD` = `0133`. Numeracja: S5 = `0134`, TASK-0791 =
+  `0135`, S7 = `0136`; zadania S6–S8 planu D-467 to TASK-0790–0795
+  (TASK-0760–0775 zajął tor D-470). Cutover `0133` jak `0132`.
+- TASK-0759 (S5) done (v1.7.115, audyt Opus FAIL→PASS: martwy test
+  importował usunięty model): manifest magazynu v4 (63 tabele gry, bez `cell_observations` i
+  `legacy_board_search_archive_*`), migracja
+  `0134_drop_cell_observations_and_legacy_archive` (preflight z jawnymi
+  kodami, rejestr i lokalizacje v4, `DROP TABLE` partycji z `pg_inherits` w
+  jednej transakcji, downgrade odmawia; downgrade `0132` odmawia po `0134`),
+  `EXPECTED_ALEMBIC_HEAD` = `0134`. Usunięte: modele ORM trzech tabel,
+  adapter legacy, tryb `legacy_archive` wyszukiwarki pionem (endpoint
+  `archive-assets`, OpenAPI, klient, wrapper, `board-search-ui`), backfill
+  manifestów, diagnostyka addytywna, skrypty historyczne i fixture
+  benchmarku M6.5 (z `m65:workbench:*`). Cutover `0134` wykonany
+  2026-10-01 08:25 UTC za zgodą operatora (preflight powtórzony: 7 656 207
+  wierszy = zrzut, 0 blokerów): baza `game_predictor` 90 GB → 61 GB,
+  3 lokalizacje na v4 (rewizja 3), rejestr v4 107 wierszy, API 8000/8010
+  wznowione i sprawdzone na liście komórek 777. Kopia tabeli:
+  `C:\game_predictor_backup\cell_observations-20261001-0404.dump` (4,37 GB).
+  Wolne miejsce na C: bez zmian (24 GB), bo `docker_data.vhdx` (133,5 GB
+  pliku vs 68 GB danych) nie maleje bez kompaktowania przy zatrzymanym
+  Dockerze (runbook `DATABASE_MAINTENANCE.md`). Przy cutoverze wykryto
+  osierocone dzieci `multiprocessing` starych instancji uvicorn `--reload`
+  nasłuchujące na 8000 ze starym kodem (przyczyna przejściowych 500);
+  usunięte, zasada w `LOCAL_OPERATION_GUIDE.md`. **Etap S5 zamknięty.**
+- TASK-0791 (S6) done (v1.7.117; audyt pominięty — operator 2026-10-01
+  zawiesił audyty per zadanie; implementer Opus przerwany, dokończone przez
+  orkiestratora): skrypt
+  `scripts/convert_legacy_boards_to_virtual.py` (podgląd na bazie operatora:
+  243 źródła, 461 plansz, 3 960 komórek z decyzją, 183 zatwierdzone,
+  0 problemów; render 3 źródeł w pamięci OK), ścieżka
+  `prepare_legacy_conversion` / `convert_legacy_source` (renderer bieżącej
+  wersji, decyzje bez zmian, kontrola driftu), migracja `0135` (CHECK-i
+  plansz i komórek bez `legacy_file`, odmowa przed konwersją, downgrade
+  przywraca), `EXPECTED_ALEMBIC_HEAD` = `0135`, test PG
+  `test_convert_legacy_boards_postgres.py`. Reszta zakresu (ścieżki v19,
+  enumy API, CHECK-i ORM, fixture testów) → TASK-0796.
+  Cutover 2026-10-01 ok. 09:30 UTC: konwersja `--execute` 243 źródła /
+  461 plansz / 3 960 komórek w 57 s (0 błędów), `0135` zastosowana (CHECK
+  komórek `NOT VALID`, potem zwalidowany w tle, v1.7.119), 0 plansz
+  `legacy_file`, API wznowione. **Etap S6 zamknięty poza TASK-0796.**
+- TASK-0792 (S7) done (v1.7.120, audyt pominięty): czytelnik
+  `storage/cell_render_specs.py` (wsadowo z manifestów, weryfikacja sumą,
+  kody `IMAGE_REVIEW_RENDER_SPEC_MISSING/MISMATCH`), kolumna
+  `render_spec` komórek w ORM `deferred_raiseload`; przepięte `get_assets`
+  (podgląd/atlas/PNG), kandydaci wzorców, inwentarz kohort, konfiguracja
+  ręcznej geometrii, backfill rolloutu, strażnik rekonsyliacji
+  (`to_jsonb(c) - 'render_spec'`), skrypt ewaluacji biblioteki; pisarze
+  nadal zapisują kolumnę (CHECK) do TASK-0793. Test PG: PNG/atlas bajtowo
+  identyczne, kohorty i kandydaci bez zmian. Pomiar 777: atlas 100 komórek
+  31 ms vs 12 ms z kolumny. Na bazie operatora 7,5 mln komórek ma wpis
+  manifestu bieżącej rewizji (0 różnic sum). Bez migracji — restart usług.
+- TASK-0793 (S7) done (v1.7.121, audyt pominięty): migracja
+  `0136_drop_cell_render_spec` (preflight po manifestach, oba CHECK-i
+  komórek bez `render_spec` jako `NOT VALID`, `DROP COLUMN` na rodzicu,
+  downgrade odmawia), ORM/pisarze/eksport vision-lab bez kolumny (eksport
+  dołącza `board_render_manifests`), `EXPECTED_ALEMBIC_HEAD` = `0136`,
+  testy PG migracji i czytelników. Na bazie operatora (odczyt): 0 komórek
+  bez manifestu, 7 500 390 komórek spełnia nowe CHECK-i; partycja 777 =
+  6,7 GB wierszy + 18 GB TOAST + 8,5 GB indeksów. Cutover i `VACUUM FULL`
+  wykonuje orkiestrator (runbook `DATABASE_MAINTENANCE.md` 2.6).
+  Cutover 2026-10-01 ok. 10:50 UTC: `0136` zastosowana, oba CHECK-i
+  zwalidowane, `VACUUM (FULL, ANALYZE)` partycji 777: 34 GB → 11 GB
+  (wiersze 6,5 GB), baza 61 GB → 39 GB. **Etap S7 zamknięty.**
+- TASK-0794 (S8) done (v1.7.122, audyt pominięty): `virtualCell` rewizji
+  predykcji bez `renderSpec` (`slim-v2`, walidacja ORM), digest v2 po
+  odchudzonej projekcji, kolumna `legacy_predictions_sha256` (migracja
+  `0137`, downgrade odmawia po wypełnieniu), `apply`/`revert` biblioteki
+  akceptują v2/v1/legacy, `apply-preview` zapisuje `predictionsDigestVersion: 2`;
+  skrypt `scripts/slim_prediction_revisions.py` (`--mode slim|retention`,
+  podgląd/`--execute`, checkpoint, kontrola digestu v2 przed/po).
+  Podgląd 777 (odczyt): 794 214 rewizji, `predictions` 10,1 GB, szacunek
+  oszczędności 5–7,5 GB; retencja 10 191 rewizji zastąpionych itemów bez
+  komórek (129 MB). Wykonanie na bazie przez orkiestratora.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 
@@ -32,16 +356,98 @@ last_updated: 2026-09-29
   operatora w nowej sesji V2, potem profil, raport walidacji i adopcja. V7
   pozostaje zablokowane.
 
-### D-462 — weryfikacja per komórka, etap A (w toku)
+### D-462 — weryfikacja per komórka, etap A (ukończony)
 
 - Plan `ai_docs/delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md`
   zaakceptowany 2026-09-29 z P1–P4; operator zlecił wyłącznie etap A
   (TASK-0721–0724). Etapy B/C wymagają osobnego polecenia, a zapis danych
   TASK-0728 dodatkowej zgody po preview.
-- TASK-0721 done: D-462, plan, zadania 0722–0724, reguła docelowa w
-  `ADMIN_APP.md`. Zachowanie kodu jeszcze się nie zmieniło — zweryfikowane
-  komórki plansz `pending` nadal nie zasilają wyszukiwania (T2), a domknięcie
-  wymaga akceptacji geometrii (T3).
+- TASK-0721 done — commit `v1.7.49` / `27ce1d90`: D-462, plan, zadania
+  0722–0724, reguła docelowa w `ADMIN_APP.md`.
+- TASK-0722 done: zweryfikowana komórka planszy `pending` zasila
+  `Wyszukaj planszę` i „Przybliżoną wygraną” od razu po zapisie (pojedyncza
+  decyzja i job masowy), zgłoszone problemy są brakiem dowodu, akceptacja
+  innych pikseli nie jest dowodem (R10). Projekcja jest synchronizowana po
+  każdej zmianie wierszy komórek; Admin przelicza wynik po ponownym otwarciu
+  sekcji. Istniejące nieaktualne dokumenty (≈18,5 tys. plansz) odświeży
+  dopiero TASK-0728 za zgodą. Domknięcie planszy nadal wymaga akceptacji
+  geometrii (T3), a `grid_issue` przetrwa zapis geometrii do T4.
+- TASK-0722 commit `v1.7.51` / `a323e2a1`.
+- TASK-0723 done: komplet zweryfikowanych komórek domyka planszę bez
+  akceptacji geometrii (canonical i staging layoutu), akceptacja innych
+  pikseli nie domyka (R10), automatyczne przecięcie v1/v2 pomija plansze z
+  decyzją człowieka na komórce, podgląd przeliczenia liczy je jako chronione.
+  Opt-in test `close_and_reopen` w `test_image_batch_store.py` pozostaje
+  czerwony (od HEAD) i przechodzi do TASK-0724.
+- TASK-0723 commit `v1.7.52` / `f14603bb`.
+- TASK-0724 done: po zapisie geometrii weryfikację zachowują wyłącznie
+  komórki o identycznych zatwierdzonych pikselach (akceptacja przepięta),
+  pozostałe wracają do `pending` z etykietą człowieka jako podpowiedzią;
+  zapis geometrii usuwa zgłoszenia `grid_issue` planszy (także
+  `virtual_source`), każdy ręczny zapis ponownie otwiera rozstrzygniętą
+  planszę i domyka ją z komórek. Test `close_and_reopen` jest znowu zielony.
+- Etap A ukończony. Etapy B i C wymagają polecenia operatora; zapis danych
+  TASK-0728 (≈18,5 tys. dokumentów wyszukiwania, 456 komórek na
+  nieaktualnych cropach, domknięcie plansz 15/15) wymaga osobnej zgody po
+  preview.
+- TASK-0724 commit `v1.7.53` / `fa7228b8`.
+- Etap B (polecenie operatora 2026-09-29, główny checkout, gałąź
+  `v1.1-vision-lab-hybrid-geometry`). TASK-0725 done: API kolejki siatek ma
+  widok `correction` (plansze ze zgłoszeniem `Zła siatka` ∪ odroczone sloty
+  bez planszy, jedna pozycja na slot, `reportedCellIndices`,
+  `counts.correction`); zapis korekty używa istniejących ścieżek jednej
+  planszy.
+- TASK-0725 commit `v1.7.54` / `1bb37684`.
+- TASK-0726 done: port 3001 pokazuje wyłącznie ekran „Korekta cięcia siatki”
+  (jedna plansza naraz z kolejki `correction`, zapis i następna plansza,
+  wyróżnione zgłoszone pola); bez zakładek i walidacji gotowych siatek.
+  Admin kieruje do tej kolejki. Stare moduły i endpointy zatwierdzania siatek
+  usuwa TASK-0727.
+- TASK-0726 commit `v1.7.55` / `4e5dccc6`.
+- TASK-0727 done: usunięto zatwierdzanie siatki planszy i zdjęcia oraz zapis
+  całego zdjęcia przez HTTP (endpointy, metody aplikacji i repozytorium,
+  allowlista originu 3001, OpenAPI, klient, moduł `grid-reviews` Reviewera).
+  Widoki `needs_validation`/`needs_correction`/`all` zostają jako diagnostyka
+  tylko do odczytu. Etap B zakończony; etap C (TASK-0728) wymaga osobnej
+  decyzji operatora, a apply dopiero po preview i zgodzie.
+- TASK-0727 commit `v1.7.56` / `7fd01d92`.
+- Etap C (polecenie operatora 2026-09-29: „zatrzymaj się po podglądzie”).
+  TASK-0728 blocked na zgodę: skrypt `migrate_cell_level_verification.py`
+  (`preview`/`apply`) gotowy; preview gry `777` tylko do odczytu
+  (`artifacts/cell-level-migration/preview-777.json`, `previewSha256`
+  `dca87df2…5e78`): odświeżenie 37 779 dokumentów wyszukiwania, 456 komórek
+  / 113 plansz wraca do weryfikacji, 3 plansze `accepted` (sekwencje 81,
+  104, 106) zostaną ponownie otwarte, 0 domknięć. Apply nie był uruchomiony.
+- TASK-0728 commit `v1.7.57` / `4f74aaf0`. Po zgodzie operatora apply na grze
+  `777` (10 porcji, `artifacts/cell-level-migration/apply-777-*.json`):
+  37 782 plansz `applied`, 0 dryfu i błędów; 456 komórek wróciło do
+  `Weryfikacji symboli` z etykietą człowieka jako podpowiedzią; plansze 81,
+  104 i 106 są znowu `pending` (poza layoutem do ponownej weryfikacji); 0
+  nowych weryfikacji (zatwierdzonych 73 378 = 73 834 − 456); dokumenty
+  wyszukiwania odświeżone. TASK-0728 done; następny TASK-0729 (odbiór).
+- TASK-0728 zapis apply: commit `v1.7.58` / `bc0b0da0`.
+- TASK-0729 done: kontrolny preview po apply pusty (0 pozycji na 37 894
+  planszach), scenariusze 1–9 potwierdzone testami i odczytem żywych danych;
+  kolejka korekty gry `777` = 119 plansz ze zgłoszeniem `Zła siatka`, gra
+  `mumie` = 10 odroczonych slotów. Plan D-462 (etapy A–C) zakończony.
+- TASK-0729 commit `v1.7.59` / `8837b03c`.
+- TASK-0730 done (polecenie operatora 2026-09-30): 108 plansz
+  `pending_partial` gry `777` nie miało dokumentu wyszukiwania (obserwacje
+  pól zamaskowanych, ręczne rewizje `legacy_file` bez manifestu). Po
+  poprawce projekcji i odświeżeniu (preview → apply 108 plansz) gra ma
+  500 000 dokumentów na 500 000 pozycji; plansze niepełne liczą w
+  „Przybliżonej wygranej” potwierdzoną wygraną (prefix-stop). Następny krok:
+  plan snapshotu mobilnego z plansz niepełnych i niezweryfikowanych.
+- TASK-0730 commit `v1.7.60` / `05eaa5cc`.
+- Plan `ai_docs/delivery/APPROXIMATE_MOBILE_SNAPSHOT_EXECUTION_PLAN.md`
+  (status `proposed`, proponowana D-463): przybliżony dataset i snapshot v5
+  ze wszystkich plansz (projekcja wyszukiwania, klasy dowodu, wypłata
+  prefix-stop, dopasowanie tolerancyjne w aplikacji). Commit `v1.7.61` /
+  `80c15e55`. Operator 2026-09-30: plan odłożony na później (status
+  `deferred`, D-463 nieprzyjęta); Q2 = do 2 różnic, Q3 = `missing` tylko w
+  podsumowaniu. Zmian webowych nie trzeba: po TASK-0730 „Przybliżona
+  wygrana” obejmuje wszystkie pozycje, koszt każdego spinu i potwierdzone
+  minimum plansz niepełnych.
 - Commit `v1.7.47` / `31cb54ca`: quad siatki w fixture'ach opt-in suite
   PostgreSQL. Pozostały dryf asercji tej suite jest poza zakresem (osobne
   zadanie).
@@ -65,6 +471,8 @@ last_updated: 2026-09-29
 
 ### V3 — przyszła brama skali, bez zadania w bieżącym pilocie
 
+- Zapis dokumentacyjny: commit `v1.7.42` /
+  `798e92a8a913d62c9cea4a3775c96859530aeb4e`.
 - Obecnie sprawdzamy, czy geometria, cięcie i symbole w ogóle działają;
   jakość 100% oraz magazyn na masową skalę nie są kryterium tego pilota.
   Po pilocie możliwy nowy zbiór i trening obu modeli od początku.
@@ -75,6 +483,63 @@ last_updated: 2026-09-29
   wdrożenie i wymaga osobnego planu skalowania. Nie uruchomiono takiego
   pomiaru, migracji, treningu ani wdrożenia.
 
+### Laboratorium — przegląd przypisanych cropów
+
+- Commit `v1.7.41` / `0bb9bb04b62fb66ad9d3e574d599fdfb4ce7972b`.
+- Pod poczekalnią wybór symbolu pokazuje aktualne, ręcznie przypisane cropy
+  z nazwą zdjęcia, planszą i polem; widok jest tylko do odczytu, do 500
+  miniatur na stronie. Drift etykiety kieruje crop z powrotem do poczekalni.
+- Backend 8 testów, klient 14, UI 57, Ruff, ESLint, TypeScript, OpenAPI i
+  build PASS. Kontrola Mypy nieukończona: pierwsza próba nie miała ścieżki
+  modułów API, a druga nie zwróciła wyniku przez 60 s i została przerwana.
+  API 8102 i panel 3102 uruchomione ponownie (PID nasłuchu 3308/19212),
+  oba HTTP 200; żywy odczyt `view=assigned` HTTP 200. T06b nadal blocked;
+  decyzji operatora ani treningu nie uruchamiano.
+
+### Poczekalnia — do 500 cropów na stronie
+
+- Commit `v1.7.40` / `8a4001b0a9a5aa21627c0014adfb16960ccd97af`.
+- UI składa stronę do 500 miniatur z żądań po maksymalnie 30, w jednym
+  przewijanym panelu. Jeden atomowy zapis pozostaje ograniczony do 30
+  świadomie wybranych cropów; backend i OpenAPI bez zmian.
+- Klient 14 testów, UI 56 testów, lint, typy i produkcyjny build PASS.
+  Read-only próba Blazing: 433/433 cropów w 15 żądaniach; nowy panel 3102
+  PID 33480 odpowiada 200. Nie zapisano decyzji operatora ani danych.
+
+### Poprawka równoległych odczytów symboli
+
+- Commit `v1.7.39` / `50545fdbbf33933a50ff3a354edf3f980a598026`.
+- Odtworzono błąd na żywym API: równoległe pobranie dwóch wersji słownika
+  777 dawało 200/409 `ANNOTATION_STORE_BUSY`. UI odczytuje je kolejno;
+  backend ponawia krótką kolizję odczytu z ograniczeniem do 3 s. Zapisy
+  i dane niezmienione.
+- 12 testów backendu i 55 UI PASS, Ruff check/format, Mypy scoped,
+  ESLint, TypeScript i produkcyjny build PASS. Po kontrolowanym restarcie
+  API 8102 i panelu 3102 pięć par równoległych żądań dało wyłącznie 200.
+  W chwili odbioru: API 3856, UI 20008. T06b nadal blocked.
+
+### Porządek brancha 2026-09-30
+
+- TASK-0720 commit `v1.7.63` / `c8ddec9e`.
+- `v1.7.64` / `da8470db`: `next-env.d.ts` nie jest wersjonowany (Next 16
+  zapisuje go inaczej dla `dev` i `build`), odtwarza go `next typegen` w
+  `pretypecheck` Admina, Reviewera i Vision Lab; ignorowane są też lokalne
+  logi `tmp-*.out/err`, `work/` i nieczytelne katalogi tymczasowe pytest.
+- `v1.7.65` / `abc177b9`: zmiany UI z 2026-09-29 zatwierdzone przez
+  operatora — przybliżenie 100–700% i zamykanie kliknięciem w tło w oknie
+  źródła Weryfikacji symboli, wyłączone masowe „Zatwierdź”, ramka kart 2 px,
+  wyłączony zapis całej planszy w Vision Lab (testy dopasowane).
+- Dokumentacja Vision Lab (D-461, T11–T13) i dopisane hashe wcześniejszych
+  commitów zatwierdzone razem z tym wpisem.
+
+### TASK-0720 — „Przybliżona wygrana”: filtr, tooltip i zakres 100 000
+
+- Ukończone: tabela z kolumnami Spin, Plansza, Wypłata, Bilans narastająco
+  (~10 wierszy), lokalny suwak minimalnej wypłaty (tylko tabela, bez
+  żądania), wykres narastającego bilansu z tooltipem; zakres wygranej do
+  100 000 spinów (API, OpenAPI, Admin). Pomiar na grze `777`: 100 000 spinów
+  liczy się ~17,5 s. Admin 615 testów, lint, typecheck, `openapi:check` PASS.
+
 ### TASK-0719 — „Przybliżona wygrana”: przewijalna tabela i wykres
 
 - Ukończone: osobne rozszerzenie klienta Admina, bez zmiany endpointu,
@@ -84,18 +549,41 @@ last_updated: 2026-09-29
   lekki wykres SVG narastających rozpoznanych wypłat według numeru spinu;
   pokazuje jawny pusty stan bez generowania danych.
 - Admin: 611 testów jednostkowych, 49 interakcji, ESLint, TypeScript i build
-  Next PASS. Commit `v1.7.38` — hash do dopisania po kontroli indeksu.
+  Next PASS. Commit `v1.7.38` / `e7efc6acef70eb0af89533063fdf4bc298d1f6f4`.
+
+### Etykiety gier w laboratorium — osobna poprawka UI
+
+- Commit `v1.7.37` / `ed59403a7be163eda2a6a3cea9aaf0bbfc06b41a`.
+- Stary snapshot zachowuje identyfikatory i nazwy źródłowych katalogów;
+  panel 3102 pokazuje `777`, `blazing`, `gang`, `mumie`, `reels`, `treasure`
+  zgodnie z `game_predictor_traning_set`. To nie jest migracja danych.
+- 55 testów UI PASS, lint i typecheck PASS. Pierwsza próba dev nie weszła:
+  port 3102 zajmował stary `next start` PID 4964. Potwierdzono to w logu
+  `EADDRINUSE`, zatrzymano wyłącznie ten proces, wykonano produkcyjny build
+  i uruchomiono nowy `next start` PID 30552. Obie trasy 200; serwowany bundle
+  `/symbols` zawiera nowe etykiety. Nie zmieniono siatek, symboli ani podziału.
+
+### D-461 — istniejąca gra v1.1 może być oceniona przez v3
+
+- Operator wymaga równoległego, niezależnego porównania starego silnika i v3
+  na tym samym zdjęciu istniejącej gry, np. `777 v1.1`. Wydanie gry nie jest
+  przełącznikiem silnika; historyczna rola źródła nie blokuje inferencji.
+- Kontrakt zapisano w wymaganiach, architekturze, planie i T11–T13. V3 ma
+  pozostać review/shadow, z własnym wynikiem i wersją, bez nadpisania v1.1
+  lub decyzji człowieka. Brak mapowania symboli nie blokuje geometrii.
+- To doprecyzowanie przyszłej integracji, nie jej wykonanie: T06b i dalszy
+  etap C są nadal niedokończone, T11–T13 nieuruchomione, pilot v3 nie został
+  promowany. Usuwanie v1.1 wymaga osobnej decyzji po parowanym odbiorze.
 
 ### TASK-0718 — Uzupełnienie sześciu plansz 777
 
-- Operator wskazał sześć plansz 225930, 225933, 225939, 225942, 225948,
-  225957. Preview SHA `7753a0d911b0503cac957d1540e6a7e02d15ef70a1d7c12e7cd86ade333f9da9`.
+- Commit `v1.7.35` / `1406f0344d4f40464001daf364523fef06b7f64a`.
+- Operator wskazał sześć plansz 225930, 225933, 225939, 225942, 225948, 225957. Preview SHA `7753a0d911b0503cac957d1540e6a7e02d15ef70a1d7c12e7cd86ade333f9da9`.
   Wspólna projekcja uzupełniła 13 pozycji `outside`; teraz każda ma 15.
 - Kontrolne ponowienie sześciu transakcji: 6× `replayed=True`, bez duplikatów.
   Odczyt bazy: 90 pozycji / 13 `outside`. Nie ponawiano wcześniejszej operacji
   zbiorczej użytkownika ani nie zmieniano innych plansz.
 
-### TASK-0716 — etykietowanie całej planszy
 ### TASK-0717 — poczekalnia cropów symboli
 
 - Operator potwierdził: grupa to istniejący symbol Słownika gry, bez nowej
@@ -108,9 +596,12 @@ last_updated: 2026-09-29
   Backend 38, UI 53, klient 12 testów PASS; lint/typy/OpenAPI/build PASS.
   QA na żywo: Blazing 450 cropów, 30 widocznych, odświeżenie, nawigacja,
   brak fałszywego toastu, 390 px bez przepełnienia i przyciski 44 px.
-  Bez etykietowania za operatora i bez treningu. Commit/hash po kontroli
-  indeksu; Windows restart i fizyczny Android nietestowane.
+  Bez etykietowania za operatora i bez treningu. Commit `v1.7.36` /
+  `8fa1e25991cc0af1905034d40dcb0065d5f6a552`; staged check/stat/list
+  i post-commit show/stat/status PASS, 25 plików. Windows restart i fizyczny
+  Android nietestowane.
 
+### TASK-0716 — etykietowanie całej planszy
 
 - Operator zamówił planszę z siatką i 15 kompaktowymi wyborami symboli
   zamiast pojedynczej komórki. Założenie: jeden jawny atomowy zapis kompletu,
@@ -126,7 +617,9 @@ last_updated: 2026-09-29
   brak poziomego przepełnienia przy 390 px. API/UI odświeżone; brak treningu
   i zmian oznaczeń operatora. Fizyczny Android i restart Windows nietestowane.
 - Task 0716 done w completed; końcowe QA i review rozmiaru numerów PASS.
-  Osobny commit po kontroli indeksu. API launcher PID 24616, UI PID 11488.
+  Commit `v1.7.34` / `9d22c13b93c195b28732ceb1f7cfab274145bb87`.
+  Staged check/stat/list i post-commit show/stat/status PASS; 23 pliki,
+  zastane zmiany poza commitem. API launcher PID 24616, UI PID 11488.
 
 ### TASK-0715 — słownik laboratorium z samą nazwą
 
@@ -136,13 +629,16 @@ last_updated: 2026-09-29
 - Wąska poprawka UI i testów, bez zmian API, danych, importu dawnych etykiet
   ani treningu. Wykonawca i niezależny audyt: Terra high, końcowy PASS bez
   P0–P2 po korekcie regexu UUID w teście. 42/42 testy, lint, typecheck,
-  format i build PASS. Task 0715 done w completed; commit po kontroli indeksu.
+  format i build PASS. Task 0715 done w completed; commit `v1.7.33` /
+  `5e415acc9a56ae450fb440357eb60d3074245693`. Staged check/stat/list oraz
+  post-commit show/stat/status PASS; dziewięć plików, cudze zmiany poza commitem.
 - Nowy proces lokalnego UI22592 odpowiada HTTP200 na3102; API bez restartu.
   Browser QA: jedno pole Nazwa po dodaniu klasy, brak ID/Kod; bez zapisu
   danych ani odświeżania karty operatora. Fizyczny Android/OSrestart nietestowane.
 
 ### TASK-0714 — Limit listy symboli 20 sekund
 
+- Commit `v1.7.32` / `7bb63a793ddfa589fecfe994b1e86c1ca2f3d000`.
 - Na polecenie operatora domyślny limit SQL listy zwiększony z 5000 do 20000 ms.
   Liczniki nadal 15000 ms; nadpisania środowiska zachowane.
 - Testy konfiguracji 41 PASS, Ruff check/format PASS. Nowy proces potwierdził
@@ -154,8 +650,10 @@ last_updated: 2026-09-29
 - Operator uruchomił C (T06–T09). D-458 rozdzieliło budowę narzędzi T06a
   od rzeczywistego zbioru T06b, bez osłabienia bramek. T06a done,
   nadrzędne TASK-0671 blocked i pozostaje w aktywnych zadaniach.
-  Osobny commit T06a: do zapisania po kontroli indeksu; bazowy HEAD
-  v1.7.30 / 4072dd53a260677e60a24c49f870e7ef1a58c093.
+  Osobny commit T06a: `v1.7.31` /
+  `3c90363a825e160c41e2118c5a112d8be914d1b8`. Staged check/stat/list
+  oraz show/stat/status PASS; 39 plików, cudze zmiany wyłączone.
+  Pełny hash dopisany do Outcome i CURRENT_STATE po commicie.
 - Wykonawca Sol medium, niezależny Sol medium: końcowy audyt PASS,
   bez P0–P2 po dwóch cyklach poprawek. Niezależnie 73 backend,
   40 UI i 10 klienta PASS; lint/typy/OpenAPI/build PASS. Backup/restore
@@ -540,6 +1038,8 @@ last_updated: 2026-09-29
   tło 22%; spójna oprawa numeru/jakości. Prettier i kompilacja Next dev PASS,
   wizualny odbiór na cropach oraz otwieranie źródła planszy 20/pola 4 PASS.
 - Zmiana CSS bez danych/API; zastane zmiany innych torów poza commitem.
+- Commit v1.7.19 / 9d55534573fe9a9345208454bab97da3cdb56e2e;
+  hash dopisany po commicie, kontrola show/stat/status PASS.
 
 ### Wznowienie etapu B — kontrola danych geometrii
 
@@ -643,7 +1143,8 @@ last_updated: 2026-09-29
   nowe API9860/Admin23576/general39752 gotowe, lab PID4200/12968 bez zmian.
   Live API, niezależny audyt danych/liczników/usług i browserQA PASS.
   UI20 kafelków outside, bezpieczne akcje, kontekst źródła/siatki poprawny;
-  bez zapisywania decyzji podczas QA. Osobny commit przygotowuje root.
+  bez zapisywania decyzji podczas QA. Commit v1.7.17 /
+  57e703acb16d435e03521b6ddd02d9857bfa5c72; sprawdzono show/stat/status.
   Audyt innych gier:26plansz/390full/0braków oraz pusta gra testowa.
   Znane13braków na6 planszach777 poza pilotem potwierdzone odczytowo,
   bez uzupełnienia. Raport:PARTIAL_BOARD_SYMBOL_REVIEW_ROLLOUT.md.
@@ -826,6 +1327,8 @@ last_updated: 2026-09-29
 
 ### TASK-0707 — odroczona siatka: dopasowanie i preview po puszczeniu
 
+- Commit `v1.7.4` — `be27ec553d0a9acf418cd809d8b4bcef9ba82cc5`.
+  Hash dopisany po commicie; następny patch v1.7.5 po potwierdzeniu historii.
 - Zakończono: checkbox zastąpiony dopasowaniem kadru po release. Podczas
   gestu kadr stały; preview automatyczny po nim, po wejściu i zmianie kwalifikacji.
   Obraz jako stan powiązany z URL, redraw przy montażu canvasa. Numer żądania
@@ -1301,7 +1804,7 @@ last_updated: 2026-09-29
 - Zgłoszenie użytkownika (poza planem „Przybliżona wygrana”): dla gry 777
   (`virtual_source`) endpoint `/assets/board` z założenia projektowego
   serwuje CAŁE zdjęcie źródłowe (`storage/image_review_repository.py::
-  _item_from_records`, gałąź `virtual_source`: „Structured boards
+_item_from_records`, gałąź `virtual_source`: „Structured boards
   deliberately have no persistent board bitmap. The Reviewer displays a
   bounded source context for this mode.”) — świadoma decyzja
   architektoniczna, nie błąd. Karuzela „Wyszukaj plansze” nie miała żadnego
@@ -1310,7 +1813,7 @@ last_updated: 2026-09-29
 - **Zero zmian backendu**: `OperationalImageReviewItemResponse` (już
   wystawiony, wcześniej niewykorzystywany w tym miejscu endpoint
   `getOperationalImageReviewItem`) już zawiera pole `geometry: dict[str,
-  object]` — surowe `recognized_boards.board_geometry` JSONB z quadem
+object]` — surowe `recognized_boards.board_geometry` JSONB z quadem
   (`sourceQuad`/`quad`, 4 punkty `{x,y}` w pikselach zdjęcia źródłowego).
 - Nowe czyste funkcje w `board-search-results-state.ts`:
   `parseBoardCropQuad` (bezpieczne, fail-closed wyodrębnienie quadu z
@@ -1330,7 +1833,7 @@ last_updated: 2026-09-29
   Naprawiono też fałszywe klienty w istniejących testach
   `board-search-limit.test.mjs`/`board-search-approximate-win.test.mjs`
   (nowy wymagany stub `getOperationalImageReviewItem`). Pełny `npm run
-  test` Admina 589/589, `test:geometry` 40/40, `typecheck`/`lint` czyste (4
+test` Admina 589/589, `test:geometry` 40/40, `typecheck`/`lint` czyste (4
   istniejące, niezwiązane ostrzeżenia bez zmian).
 - Nienaprawione: brak odbioru na żywych danych gry 777 (bez zgody na
   uruchomienie API/Admina — decyzja użytkownika wcześniej w tej samej
@@ -1346,7 +1849,7 @@ last_updated: 2026-09-29
   `ai_docs/architecture/API_CONTRACT.md` (pełny kontrakt endpointu
   `GET .../board-search/approximate-win`) i
   `ai_docs/requirements/ALGORITHMS.md` (nowe `## D. Przybliżona wygrana w
-  Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
+Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   dolnym ograniczeniem — właściwość istniejącego `payout-v3-unknown-prefix-stop`,
   nie nowy algorytm).
 - Nowy wpis **D-446** w `DECISION_LOG.md`, zbierający całą serię
@@ -1392,10 +1895,10 @@ last_updated: 2026-09-29
   `board-search-approximate-win.tsx`. `board-search-workspace.tsx`
   renderuje nowy komponent pod istniejącą karuzelą wyników.
 - **Napotkana i naprawiona nowa reguła lintera** `react-hooks/
-  set-state-in-effect` (blokuje bezpośrednie `setState` w ciele efektu) —
+set-state-in-effect` (blokuje bezpośrednie `setState` w ciele efektu) —
   naprawione tym samym wzorcem `queueMicrotask(() => setState(...))`, jaki
   już istnieje w `missing-boards-section.tsx`. Bez tej poprawki `npm run
-  lint` kończy się błędem, nie ostrzeżeniem.
+lint` kończy się błędem, nie ostrzeżeniem.
 - Testy: 14 nowych stanu + 8 nowych interakcji jsdom (w tym: spóźniona
   odpowiedź nie nadpisuje nowszej; zwinięcie w trakcie ładowania nie
   crashuje; ponowne rozwinięcie z tym samym kluczem nie odpytuje serwera
@@ -1409,7 +1912,7 @@ last_updated: 2026-09-29
   istnieją jako pliki.
 - Nowy endpoint (tylko odczyt, ten sam router co wyszukiwanie plansz):
   `GET /api/v1/admin/games/{gameId}/board-search/approximate-win
-  ?startSequenceNumber=&spinCount=1..10000`. Łączy TASK-0650
+?startSequenceNumber=&spinCount=1..10000`. Łączy TASK-0650
   (`PreparedPayoutEvaluator` z `RulesPayoutConfiguration` — dodano pole
   `version: int`) i TASK-0651 (czysty kalkulator zakresu) z realnymi
   danymi projekcji wyszukiwania plansz.
@@ -1458,7 +1961,7 @@ last_updated: 2026-09-29
   payout/koszt/bilans, wiersze z payoutem > 0, fingerprint danych). Moduł
   jest w pełni czysty: zero I/O, zero importu SQLAlchemy/FastAPI/
   `game_predictor_worker` (zweryfikowane grepem) — przyjmuje `evaluate:
-  Callable[[Sequence[int]], int]` jako wstrzykniętą zależność; realne
+Callable[[Sequence[int]], int]` jako wstrzykniętą zależność; realne
   `PreparedPayoutEvaluator.evaluate` (TASK-0650) zostanie podłączone dopiero
   w serwisie aplikacyjnym TASK-0652. Wyjątek z `evaluate` (np. symbol spoza
   aktywnych reguł, D6) propaguje się niezłapany — cała kalkulacja zakresu
@@ -1497,7 +2000,7 @@ last_updated: 2026-09-29
   `load_rules_payout_configuration(session, rules_version_id)` — konfiguracja
   jednej wersji reguł niezależna od datasetu (rows/columns/spin_cost,
   symbole, paylines, payout_symbols, payout_rules). `SqlAlchemyPayoutStore.
-  load_source` korzysta z niej zamiast duplikować zapytania; zwraca
+load_source` korzysta z niej zamiast duplikować zapytania; zwraca
   identyczny `PayoutSource` co przed refaktorem.
 - Cel: TASK-0651/0652 (kalkulator „Przybliżonej wygranej” w Adminie) będą
   mogły ocenić do 10 000 plansz jednej opublikowanej wersji reguł bez
@@ -1512,7 +2015,7 @@ last_updated: 2026-09-29
   `ruff format --check`/`mypy --strict` czyste dla zmienionych plików.
 - **Znaleziony, niezwiązany pre-existing czerwony test** (nie naprawiony,
   zgłoszony jako osobna sugestia): `services/api/tests/integration/
-  test_payout_store.py::test_payout_store_loads_versioned_source_and_upserts_without_duplicates`
+test_payout_store.py::test_payout_store_loads_versioned_source_and_upserts_without_duplicates`
   failuje `NotNullViolation` na `dataset_versions.expected_layout_count` —
   fikstura testu nie ustawia tej kolumny, dziś `NOT NULL`. Potwierdzone jako
   sprzed TASK-0650 przez tymczasowy `git stash` i ponowne uruchomienie na
@@ -1628,7 +2131,7 @@ last_updated: 2026-09-29
   aktywnych gier (np. 777) za nieużywane. `_operation_guard` (wspólny
   punkt wejścia preview i `--execute`) teraz jako pierwszy krok sprawdza
   `SELECT count(*) FROM public.game_storage_locations WHERE store_schema
-  <> 'public'`; wynik > 0 → odmowa (`LEGACY_GC_REFUSED_PER_GAME_STORAGE_PRESENT`,
+<> 'public'`; wynik > 0 → odmowa (`LEGACY_GC_REFUSED_PER_GAME_STORAGE_PRESENT`,
   kod wyjścia 2), zanim powstanie jakikolwiek plik preview/detail lub
   zacznie się skan.
 - Testy: 2 nowe w `services/api/tests/test_legacy_game_managed_asset_gc_preview.py`
@@ -1761,7 +2264,7 @@ last_updated: 2026-09-29
   zgłoszonego wcześniej jako drobny, osobny lint warning. Przy naprawie
   wyszło na jaw coś poważniejszego: ten sam plik importował też
   `adjacentManualNavigationStep` i miał test (`'up and down arrows move by
-  one configured navigation step'`) z asercjami zgodnymi ze **starym**
+one configured navigation step'`) z asercjami zgodnymi ze **starym**
   (free-form, `v0.10.387`) zachowaniem tej funkcji
   (`adjacentManualNavigationStep(20, 1) === 21`, `(50, 1) === 51`) —
   bezpośrednio sprzecznymi z naprawą z TASK-0635/D-441 (która przywróciła
@@ -1794,7 +2297,7 @@ last_updated: 2026-09-29
 - Zgłoszony przez użytkownika bug znaleziony przy okazji weryfikacji
   TASK-0633/TASK-0634: `npm run test --workspace @game-predictor/manual-image-selection-core`
   miał 1 czerwony test (`offers contiguous one-to-ten image navigation
-  steps`, `21 !== 20`), wcześniej opisany jako „przedsesyjny i niepowiązany”
+steps`, `21 !== 20`), wcześniej opisany jako „przedsesyjny i niepowiązany”
   i zgłoszony jako osobny chip. Po zbadaniu okazał się realną regresją, nie
   szumem — cofnięty i naprawiony w tym tasku.
 - Przyczyna (`git log -p` na `packages/manual-image-selection-core/src/index.ts`):
@@ -1826,7 +2329,7 @@ last_updated: 2026-09-29
   (pierwsze tylko wybiera — DA-4) startuje nowy rodzaj przeciągania
   `dragging.kind === 'boardMove'` w
   `page-geometry-correction-panel.tsx`; czysta `translateBoardQuad(quad, dx,
-  dy, bounds)` przesuwa wszystkie 4 narożniki o ten sam wektor, ograniczając
+dy, bounds)` przesuwa wszystkie 4 narożniki o ten sam wektor, ograniczając
   **wektor** (nie punkty osobno), więc kształt planszy nigdy się nie
   zniekształca — w przeciwieństwie do przeciągania pojedynczego narożnika.
 - `bounds` to dokładnie te same granice, które `updatePoint` już stosuje dla
@@ -1839,7 +2342,7 @@ last_updated: 2026-09-29
   (czysta konwersja, jawny `rect`) + cienki wrapper — potrzebne, bo origin
   ruchu liczy się z `pointerdown` na `<polygon>` (inny `currentTarget` niż
   `<svg>`). `beginDrag`'s typ zawężony przez `Exclude<..., {kind:
-  'boardMove'}>`, bo ten wariant nie ma `pointIndex`. Kursor `move` na
+'boardMove'}>`, bo ten wariant nie ma `pointIndex`. Kursor `move` na
   wybranej planszy (`globals.css`, `.pageGeometryBoardSelected`).
 - Testy: 4 nowe w `page-geometry-qualification.test.mjs` (przesunięcie o
   stały wektor, inne plansze bez zmian; pierwszy klik tylko wybiera;
@@ -2066,7 +2569,7 @@ last_updated: 2026-09-29
   `TASK-0631`). Wystawia HTTP nad domeną/repozytorium z TASK-0629:
   `GET /api/v1/admin/image-review-items/board-import-coverage/{gameId}`
   (`operation_id=getBoardImportCoverage`), query `view/from/to/
-  afterSequenceNumber/limit`. `dataset-completeness` zostaje bez zmian
+afterSequenceNumber/limit`. `dataset-completeness` zostaje bez zmian
   (DU-2).
 - `OperationalImageReviewService.board_import_coverage`: 404 dla nieznanej
   gry, 422 dla `from > to` i dla braku skonfigurowanego repozytorium
@@ -2085,7 +2588,7 @@ last_updated: 2026-09-29
 - Testy: 7/7 nowych (`test_board_import_coverage_api.py`), 60/60
   `admin-api-client` (w tym nowy wrapper i oba testy driftu),
   `openapi:generate`/`openapi:check` przechodzą. Pełny `pytest
-  services/api/tests`: 1393 passed (+1 vs poprzedni stan), 21 failed — **z
+services/api/tests`: 1393 passed (+1 vs poprzedni stan), 21 failed — **z
   procesu weryfikacji potwierdzono, że wszystkie 21 są przedsesyjne i
   niepowiązane** (odtworzone identycznie na czystym `git stash` do commitu
   `v0.10.399`), w tym dwa już znane z D-438 oraz jeden stały
@@ -2094,7 +2597,7 @@ last_updated: 2026-09-29
   (brak `minItems` w niepowiązanym schemacie grid-review).
 - **Uwaga o współbieżności:** w trakcie tego taska na tej samej gałęzi
   pojawił się z zewnątrz (nie z tej sesji) commit `v0.10.399 - fix 0122
-  retry on canonical index predicate` — poprawka idempotencji migracji
+retry on canonical index predicate` — poprawka idempotencji migracji
   `0122` (TASK-0629) plus nowy
   `services/api/tests/integration/test_board_import_coverage_migration.py`.
   Nie koliduje z tym taskiem; osobna sesja/użytkownik pracuje równolegle
@@ -2161,7 +2664,7 @@ last_updated: 2026-09-29
 - Testy: `test_image_symbol_review_query_storage.py` zaktualizowany (nowa
   asercja SQL `quality_issue = 'blurry'`, poprawiony oczekiwany delta count).
   `pytest services/api/tests/test_image_symbol_review*.py
-  test_board_import_coverage.py` (98 passed w dotkniętym obszarze), ruff
+test_board_import_coverage.py` (98 passed w dotkniętym obszarze), ruff
   czysty. 2 niepowiązane baseline-failure
   (`test_qualified_cell_reconciliation.py`,
   `test_v09_schema_backfill_repository.py`, `SimpleNamespace.asset_mode`)
@@ -2182,7 +2685,7 @@ last_updated: 2026-09-29
   task). `symbolReviewCardBadge()`
   (`apps/admin/src/features/symbol-reviews/symbol-review-workspace.tsx`)
   pokazuje teraz badge `Poza kadrem · ?` (pending) / `Poza kadrem · ? ·
-  poza uczeniem` (approved) dla kart z `qualityIssue === 'partial_visibility'`
+poza uczeniem` (approved) dla kart z `qualityIssue === 'partial_visibility'`
   — wzorem istniejących gałęzi dla `grid_issue`/`blurry`/`unreadable`.
   Żadnych zmian typów: `qualityIssue` w wygenerowanym kliencie OpenAPI to
   zwykłe `string | null`, nie literal union. `assignmentSource` pozostaje
@@ -2208,7 +2711,7 @@ last_updated: 2026-09-29
   `virtual_source` z kwalifikacją v3) faktycznie trafia do Weryfikacji
   symboli jako wymuszony „nierozpoznany" — `assignedSymbolId = null`,
   nowy `qualityIssue = "partial_visibility"`, `assignmentSource =
-  "geometry_partial"`, `reviewState = pending`, podpowiedź modelu
+"geometry_partial"`, `reviewState = pending`, podpowiedź modelu
   (kod + pewność) nadal zapisana. To jest kompletne domknięcie oryginalnego
   zgłoszenia użytkownika: komórki z kolumny wychodzącej poza kadr na
   „niepełnej planszy" są teraz widoczne w sekcji `symbolId=unknown`.
@@ -2238,11 +2741,11 @@ last_updated: 2026-09-29
   Jedyna migracja: `0121_partial_visibility_quality_issue` (rozszerza 3
   CHECK CONSTRAINT o nowe wartości enum, żadnej nowej kolumny).
 - Pełna regresja: worker (34 failed — identyczne z baseline, niezwiązane)
-  + 1708 passed, 9 skipped; API (21 failed — identyczne z baseline) + 1364
-  passed, 3 skipped. Ruff czysty; mypy 69 błędów — identyczny zestaw jak
-  przed zmianami. `npm run openapi:check` przechodzi bez zmian (brak zmiany
-  kontraktu HTTP — pola `qualityIssue`/`assignmentSource` to zwykłe `str`,
-  nie `Literal`).
+  - 1708 passed, 9 skipped; API (21 failed — identyczne z baseline) + 1364
+    passed, 3 skipped. Ruff czysty; mypy 69 błędów — identyczny zestaw jak
+    przed zmianami. `npm run openapi:check` przechodzi bez zmian (brak zmiany
+    kontraktu HTTP — pola `qualityIssue`/`assignmentSource` to zwykłe `str`,
+    nie `Literal`).
 - Decyzja: `DECISION_LOG.md` D-436.
 
 ### TASK-0626 — GeometryQualification v3 i podłączenie pipeline'u workera, T2/A–D (D-435)
@@ -2348,7 +2851,7 @@ last_updated: 2026-09-29
   zielone bez zmiany istniejących asercji (refaktor `list_items` zachowuje
   zachowanie 1:1). `symbol-review-workspace-contract.test.mjs` zaktualizowany
   — świadoma zmiana kontraktu (stara asercja `while (pageNumber !==
-  targetPageNumber)` zastąpiona nową, opisującą skip-based jump). Wszystkie
+targetPageNumber)` zastąpiona nową, opisującą skip-based jump). Wszystkie
   539 testów `@game-predictor/admin` i 59 `@game-predictor/admin-api-client`
   zielone. Ruff, mypy (bez nowych błędów — baseline 79 potwierdzony
   `git stash`), typecheck i lint obu workspace'ów czyste.
@@ -2362,7 +2865,7 @@ last_updated: 2026-09-29
 - Zgłoszenie: użytkownik wykonał ręczną korektę geometrii na stagingu
   `a139379b` (odbiór T1/T2), uruchomił import i dostał
   `IMAGE_PAGE_GEOMETRY_INVALID: Qualified manual page evidence is
-  incomplete.` (job `562b0cd1-b9dd-4fa5-83d7-2b4908333fab`, `failed`,
+incomplete.` (job `562b0cd1-b9dd-4fa5-83d7-2b4908333fab`, `failed`,
   2952/2952 progress, 0 success).
 - Przyczyna (potwierdzona, pre-existing, **niezwiązana z T1/T2**): w
   `production_workflow.py::_detect_structured_geometry` routing kierujący
@@ -3437,6 +3940,7 @@ last_updated: 2026-09-29
   pełną wysokość i powód `crop_too_tall`, więc wymaga review. Checksum stanu
   wejściowego przed i po pozostał
   `6efcd4edbcc4d6f3d8b6e30fd5f42c98a5855becc916f1f3a0eead72d711a616`.
+
 ### TASK-0559 — inkrementalne i wznawialne tworzenie geometrii siatek
 
 - Preflight geometrii przypina najnowszy zgodny manifest tej samej gry,
@@ -3597,7 +4101,7 @@ last_updated: 2026-09-29
 
 - Automatyczne ostrzeżenia nie są już kopiowane do wyboru ręcznej poprawki.
   Pozostają w filtrze `Niepewne`, natomiast border, licznik i przycisk `Popraw
-  zaznaczone` korzystają wyłącznie z kliknięć operatora zapisanych w
+zaznaczone` korzystają wyłącznie z kliknięć operatora zapisanych w
   `correctionFileNames`.
 - `Zaznacz wszystkie` i `Odznacz wszystkie` są osobnymi, jednocześnie
   widocznymi przyciskami działającymi na bieżącym filtrze. Ukryte wybory są
@@ -4422,7 +4926,7 @@ last_updated: 2026-09-29
 ### TASK-0501 — jednoznaczna mapa modeli dla tasków planu
 
 - Ostatnią sekcją każdego planu jest teraz tabela `Przypisanie modeli do
-  zadań`, zawierająca dla każdego taska dokładny model, reasoning, uzasadnienie
+zadań`, zawierająca dla każdego taska dokładny model, reasoning, uzasadnienie
   i wymagany dodatkowy review.
 - Ogólne rekomendacje oraz skróty „ten sam model” i „jak wyżej” nie spełniają
   standardu. Plan bez numerowanych tasków otrzymuje jeden wiersz dla całego
@@ -4551,7 +5055,7 @@ last_updated: 2026-09-29
   `Kontynuuj z ręczną korektą`. Powstaje nowy idempotentny run z tymi samymi
   managed originals, manifestem strony i snapshotami modeli, bez uploadu.
 - Raport rozdziela postęp zdjęć od liczników siatek. Rozwiń `Siatki i ręczna
-  korekta`, następnie `Popraw siatki`, aby otworzyć pełne źródła do edycji.
+korekta`, następnie `Popraw siatki`, aby otworzyć pełne źródła do edycji.
 - Nie uruchomiono importu, nie zmieniono istniejących jobów i nie restartowano
   usług. Migracja bazy nie jest potrzebna. Usługi muszą korzystać z nowego kodu.
 - Testy i ograniczenia odbioru opisuje Outcome TASK-0491.
@@ -5369,7 +5873,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Lokalny ekran `Zatwierdzanie cięcia siatki` otwiera obraz źródłowy domyślnie
   przy 100% zgodnie z późniejszą zmianą TASK-0437.
 - Kliknięcie widocznej siatki wybiera jej planszę. W trybie `Wyznacz plansze
-  osobno` kliknięcie innej siatki tylko przełącza aktywny szkic; nie przesuwa
+osobno` kliknięcie innej siatki tylko przełącza aktywny szkic; nie przesuwa
   punktów i nie zapisuje rewizji.
 - Hit-test korzysta z geometrii aktualnie rysowanej na canvasie, w tym z
   niezapisanych przesuniętych szkiców, zamiast ze starego automatycznego quada.
@@ -5560,7 +6064,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 - Drugi dialog jest fail-fast z czytelną instrukcją zamknięcia pierwszego;
   lock zwalnia się po anulowaniu, sukcesie i rozpoznanym konflikcie natywnego
   pickera. Wywołanie zachowuje binding `window`, co eliminuje `Illegal
-  invocation`.
+invocation`.
 
 ### Produkcyjny import structured z przypiętym preflightem — TASK-0390
 
@@ -6507,7 +7011,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   siatki aktualizuje wszystkie cropy danej planszy przed jej ponownym
   otwarciem, więc canonical nie usuwa pozostałych targetów z tej samej partii.
 - Od `v0.8.25` operacyjny Reviewer udostępnia rozłączny widok `Do poprawy
-  siatki`. Wykorzystuje on `EXISTS` po aktualnych `pending` komórkach z
+siatki`. Wykorzystuje on `EXISTS` po aktualnych `pending` komórkach z
   `has_grid_issue`, więc jedna plansza z wieloma oznaczeniami występuje tylko
   raz, a terminalne pozycje nie wyciekają do listy. Odpowiedź zwraca licznik
   plansz wymagających korekty; kursor schema v3 wiąże także filtr i nie może
@@ -6659,8 +7163,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
   status `rebuilding/failed` ma później blokować mylące puste wyniki API.
 - Od `v0.8.4` dostępny jest read-only endpoint
   `GET /api/v1/admin/games/{gameId}/board-search`. Przyjmuje powtarzalne
-  `cell={0..14}:{symbolCode}`, scope `all_searchable/approved_only` i limit do
-  100. Prowadzi przez backendową walidację aktywnego katalogu symboli, nie
+  `cell={0..14}:{symbolCode}`, scope `all_searchable/approved_only` i limit do 100. Prowadzi przez backendową walidację aktywnego katalogu symboli, nie
   zwraca obrazów binarnych i blokuje odczyt, dopóki projekcja gry nie ma stanu
   `ready`. Wygenerowany klient Admina udostępnia typowane `searchGameBoards`.
 - Od `v0.8.5` zakładka wybranej gry zawiera `Wyszukaj plansze`. Lokalne
@@ -7663,7 +8166,7 @@ się od `v0.6.0`; jego pierwszy pion dotyczy workspace’ów `Gry` i
 
 - Poza kontrolkami formularza `ArrowDown` wybiera następną skonfigurowaną
   wartość skoku, a `ArrowUp` poprzednią. Przykładowo `2 → 3`, natomiast `7 →
-  10`; wartości krańcowe pozostają przy `1` i `20`.
+10`; wartości krańcowe pozostają przy `1` i `20`.
 - Ustawienie nadal trafia do istniejącego stanu sesji i serializowanej kolejki
   IndexedDB. Nie zmienia zdjęcia, zakresu ani śladu uczenia.
 - Walidacja: `225/225` testów Admina, typecheck, produkcyjny build i celowany
@@ -10100,6 +10603,7 @@ OpenCV oraz usunięto niepotrzebne wyciszenia mypy.
 Pełny `python:typecheck` przechodzi dla 470 plików źródłowych, Ruff jest zielony,
 a 70 skoncentrowanych testów API, workera, storage i geometrii przechodzi.
 Nie zmieniono API, OpenAPI, schematu bazy, UI ani polityki storage.
+
 ### TASK-0331 — bezpieczny silnik importu per gra
 
 Dodano trwałą politykę nowych importów osobno dla każdej gry. Stabilny preset

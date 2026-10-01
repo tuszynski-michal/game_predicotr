@@ -40,6 +40,10 @@ from game_predictor_api.domain.symbol_cell_training_cohorts import (
 from game_predictor_api.domain.verified_training_cohorts import (
     SymbolCellTrainingExclusionCounts,
 )
+from game_predictor_api.storage.cell_render_specs import (
+    CellRenderSpecKey,
+    load_cell_render_specs,
+)
 from game_predictor_api.storage.models import GameModel, SymbolModel
 
 _SOURCE_SAMPLE_CAP = 64
@@ -75,12 +79,24 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 "The selected training cohort game does not exist.",
             )
         exclusions = self._exclusion_counts(game_id)
-        rows = tuple(
+        selected = tuple(
             self._session.execute(
                 text(
                     """
                 WITH eligible AS (
-                  SELECT c.*, s.code AS symbol_code,
+                  -- D-467 S7: explicit columns; the render specification is
+                  -- read from the board render manifest below, not the cell.
+                  SELECT c.id, c.game_id, c.import_job_id, c.review_item_id, c.recognized_board_id,
+                         c.sequence_number, c.cell_index, c.revision, c.asset_mode,
+                         c.source_geometry_revision_id, c.logical_cell_key,
+                         c.logical_cell_key_v2, c.render_identity_v2_sha256,
+                         c.render_spec_checksum_sha256, c.rendered_pixel_checksum_sha256,
+                         c.extractor_version, c.crop_sample_id, c.crop_relative_path,
+                         c.crop_checksum_sha256, c.geometry_revision, c.cropper_version,
+                         c.prediction_symbol_code, c.assigned_symbol_id,
+                         c.approved_crop_sample_id, c.approved_crop_checksum_sha256,
+                         c.approved_geometry_revision,
+                         s.code AS symbol_code,
                          rb.source_image_id AS source_image_id,
                          rb.geometry_revision AS current_geometry_revision,
                          rb.source_geometry_revision_id AS current_source_geometry_revision_id,
@@ -143,6 +159,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 },
             ).mappings()
         )
+        rows = _with_manifest_render_specs(self._session, game_id=game_id, rows=selected)
         worker_count = min(
             _MAX_DESCRIPTOR_WORKERS,
             max(1, os.cpu_count() or 1),
@@ -177,7 +194,16 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 text(
                     """
                 WITH current_cells AS (
-                  SELECT c.*, s.status AS symbol_status
+                  SELECT c.quality_issue, c.assigned_symbol_id, c.review_state,
+                         c.crop_sample_id, c.crop_checksum_sha256, c.geometry_revision,
+                         c.asset_mode, c.source_geometry_revision_id,
+                         c.render_spec_checksum_sha256, c.rendered_pixel_checksum_sha256,
+                         c.approved_crop_sample_id, c.approved_crop_checksum_sha256,
+                         c.approved_geometry_revision, c.approved_asset_mode,
+                         c.approved_source_geometry_revision_id,
+                         c.approved_render_spec_checksum_sha256,
+                         c.approved_rendered_pixel_checksum_sha256,
+                         s.status AS symbol_status
                   FROM image_symbol_review_cells c
                   JOIN image_board_search_fast_documents d
                     ON d.game_id = c.game_id
@@ -377,6 +403,40 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 "A persisted candidate failed the shared training-eligibility predicate.",
             )
         return candidate
+
+
+def _with_manifest_render_specs(
+    session: Session,
+    *,
+    game_id: UUID,
+    rows: Sequence[Mapping[Any, Any]],
+) -> tuple[Mapping[str, Any], ...]:
+    """Attach the manifest render specification to every virtual row (D-467 S7).
+
+    One batched manifest read for the whole inventory; a missing manifest or a
+    checksum mismatch aborts the inventory (``CellRenderSpecError``) instead of
+    silently excluding the cell.
+    """
+
+    keys = {
+        index: CellRenderSpecKey(
+            recognized_board_id=_uuid(row["recognized_board_id"]),
+            geometry_revision=int(row["geometry_revision"]),
+            cell_index=int(row["cell_index"]),
+            render_spec_checksum_sha256=str(row["render_spec_checksum_sha256"]),
+        )
+        for index, row in enumerate(rows)
+        if row.get("asset_mode") == "virtual_source"
+    }
+    specs = load_cell_render_specs(session, game_id=game_id, keys=keys.values())
+    return tuple(
+        {**row, "render_spec": specs[keys[index]] if index in keys else None}
+        for index, row in enumerate(rows)
+    )
+
+
+def _uuid(value: object) -> UUID:
+    return value if isinstance(value, UUID) else UUID(str(value))
 
 
 def _visual_descriptor(content: bytes) -> tuple[int, tuple[int, int, int]]:

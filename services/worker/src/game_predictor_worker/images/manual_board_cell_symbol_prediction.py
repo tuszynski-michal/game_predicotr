@@ -1,20 +1,25 @@
-"""Inference for one checksum-bound manual v19 board-cell correction."""
+"""Inference for the rendered cells of one manually resolved deferred board.
+
+Since D-467 (TASK-0790) a deferred board is resolved only through the virtual
+source path: its cells are rendered in memory from the immutable source and
+classified with exactly the symbol model pinned to the originating import.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 
-import cv2
 import numpy as np
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
 )
+from numpy.typing import NDArray
 
-from .manual_board_cell_geometry_preview import ManualBoardCellGeometryPreview
 from .symbol_model_release import SymbolModelReleaseError, build_symbol_predictions
-from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
+from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError, preprocess_rgb_batch
 
 
 class ManualBoardCellSymbolPredictionError(ValueError):
@@ -32,6 +37,15 @@ class ManualBoardCellSymbolPrediction:
     cells: tuple[dict[str, object], ...]
 
 
+@dataclass(frozen=True, slots=True)
+class RenderedBoardCell:
+    """One rendered, available board cell in row-major order."""
+
+    row_index: int
+    column_index: int
+    rgb: NDArray[np.uint8]
+
+
 class ManualBoardCellSymbolPredictor:
     """Use exactly the model snapshot pinned to the originating import."""
 
@@ -40,109 +54,87 @@ class ManualBoardCellSymbolPredictor:
         self._artifact_root = artifact_root.resolve()
         self._cache: dict[str, LocalSymbolOnnxAdapter] = {}
 
-    def predict(
+    def predict_rendered_cells(
         self,
-        preview: ManualBoardCellGeometryPreview,
+        cells: Sequence[RenderedBoardCell],
         snapshot: SymbolModelJobSnapshot,
     ) -> ManualBoardCellSymbolPrediction:
-        if len(preview.cells) != 15 or preview.cell_output_size != snapshot.input_size:
-            raise ManualBoardCellSymbolPredictionError(
-                "IMAGE_BOARD_CELL_MANUAL_PREDICTION_INPUT_INVALID",
-                "Manual geometry must provide exactly 15 crops at the pinned model size.",
-            )
-        tensors: list[np.ndarray] = []
-        expected_order = [(row, column) for row in range(3) for column in range(5)]
-        if [(cell.row_index, cell.column_index) for cell in preview.cells] != expected_order:
+        """Classify exactly the given cells; unavailable cells are never rendered.
+
+        The result has one prediction per input cell, in the input order, like
+        the import pipeline's predictions of a virtual board.
+        """
+
+        positions = [(cell.row_index, cell.column_index) for cell in cells]
+        if positions != sorted(positions) or len(set(positions)) != len(positions):
             raise ManualBoardCellSymbolPredictionError(
                 "IMAGE_BOARD_CELL_MANUAL_PREDICTION_ORDER_INVALID",
-                "Manual geometry crops are not complete row-major input.",
+                "Manual geometry cells are not unique row-major input.",
             )
-        if snapshot.inference_mode == "unclassified":
-            return self._unclassified(snapshot)
-        # Cells the operator declared unavailable (outside the photographed
-        # frame) skip inference entirely and are forced to "?" below, instead
-        # of feeding a synthesized/black-padded crop to the model.
-        unavailable = preview.unavailable_cell_indices
-        available = [
-            (index, cell) for index, cell in enumerate(preview.cells) if index not in unavailable
-        ]
-        for _, cell in available:
-            encoded = np.frombuffer(cell.png, dtype=np.uint8)
-            bgr = cv2.imdecode(encoded, cv2.IMREAD_COLOR)
-            if bgr is None or bgr.shape[:2] != (snapshot.input_size, snapshot.input_size):
-                raise ManualBoardCellSymbolPredictionError(
-                    "IMAGE_BOARD_CELL_MANUAL_PREDICTION_DECODE_FAILED",
-                    "A manual geometry crop cannot be decoded at the pinned model size.",
-                )
-            rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
-            normalized = rgb.astype(np.float32).transpose(2, 0, 1) / 255.0
-            tensors.append(((normalized - 0.5) / 0.5).astype(np.float32))
+        temperature = max(0.50, snapshot.temperature)
+        if snapshot.inference_mode == "unclassified" or not cells:
+            # A cold-start import has no ONNX model; mirror the import pipeline's
+            # "?" cells instead of loading the placeholder artifact path.
+            return self._result(
+                snapshot,
+                temperature,
+                tuple(
+                    {
+                        "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
+                        "columnIndex": column,
+                        "confidence": 0.0,
+                        "rowIndex": row,
+                        "symbolCode": "?",
+                    }
+                    for row, column in positions
+                ),
+            )
         try:
-            predictions = (
-                build_symbol_predictions(
-                    self._adapter(snapshot).infer(np.stack(tensors).astype(np.float32)).logits,
-                    temperature=max(0.50, snapshot.temperature),
-                    class_codes=snapshot.class_codes,
-                    alternative_limit=3,
+            inference = self._adapter(snapshot).infer(
+                preprocess_rgb_batch(
+                    [cell.rgb for cell in cells],
+                    input_size=snapshot.input_size,
                 )
-                if available
-                else ()
+            )
+            predictions = build_symbol_predictions(
+                inference.logits,
+                temperature=temperature,
+                class_codes=snapshot.class_codes,
+                alternative_limit=3,
             )
         except (SymbolOnnxError, SymbolModelReleaseError) as error:
             raise ManualBoardCellSymbolPredictionError(
                 f"IMAGE_{error.code}",
                 str(error),
             ) from error
-        predicted_by_index = {
-            index: prediction for (index, _), prediction in zip(available, predictions, strict=True)
-        }
-        return ManualBoardCellSymbolPrediction(
-            model_iteration_id=None
-            if snapshot.iteration_id is None
-            else str(snapshot.iteration_id),
-            model_manifest_checksum_sha256=snapshot.manifest_checksum_sha256,
-            model_version=snapshot.model_version,
-            temperature_applied=max(0.50, snapshot.temperature),
-            cells=tuple(
-                {
-                    "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
-                    "columnIndex": index % 5,
-                    "confidence": 0.0,
-                    "rowIndex": index // 5,
-                    "symbolCode": "?",
-                }
-                if index in unavailable
-                else {
-                    **predicted_by_index[index].to_dict(),
-                    "columnIndex": index % 5,
-                    "rowIndex": index // 5,
-                }
-                for index in range(15)
+        if len(predictions) != len(cells):
+            raise ManualBoardCellSymbolPredictionError(
+                "IMAGE_BOARD_CELL_MANUAL_PREDICTION_COUNT_INVALID",
+                "The pinned model returned a different number of predictions.",
+            )
+        return self._result(
+            snapshot,
+            temperature,
+            tuple(
+                {**prediction.to_dict(), "columnIndex": column, "rowIndex": row}
+                for (row, column), prediction in zip(positions, predictions, strict=True)
             ),
         )
 
     @staticmethod
-    def _unclassified(snapshot: SymbolModelJobSnapshot) -> ManualBoardCellSymbolPrediction:
-        # A cold-start import has no ONNX model; mirror the import pipeline's
-        # "?" cells instead of loading the placeholder artifact path.
+    def _result(
+        snapshot: SymbolModelJobSnapshot,
+        temperature: float,
+        cells: tuple[dict[str, object], ...],
+    ) -> ManualBoardCellSymbolPrediction:
         return ManualBoardCellSymbolPrediction(
             model_iteration_id=None
             if snapshot.iteration_id is None
             else str(snapshot.iteration_id),
             model_manifest_checksum_sha256=snapshot.manifest_checksum_sha256,
             model_version=snapshot.model_version,
-            temperature_applied=max(0.50, snapshot.temperature),
-            cells=tuple(
-                {
-                    "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
-                    "columnIndex": column,
-                    "confidence": 0.0,
-                    "rowIndex": row,
-                    "symbolCode": "?",
-                }
-                for row in range(3)
-                for column in range(5)
-            ),
+            temperature_applied=temperature,
+            cells=cells,
         )
 
     def _adapter(self, snapshot: SymbolModelJobSnapshot) -> LocalSymbolOnnxAdapter:
@@ -181,4 +173,5 @@ __all__ = [
     "ManualBoardCellSymbolPrediction",
     "ManualBoardCellSymbolPredictionError",
     "ManualBoardCellSymbolPredictor",
+    "RenderedBoardCell",
 ]

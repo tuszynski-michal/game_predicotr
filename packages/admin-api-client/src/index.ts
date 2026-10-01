@@ -4,8 +4,6 @@ import {
   activateGridProfile as activateGeneratedGridProfile,
   activateSymbolModel as activateGeneratedSymbolModel,
   applySymbolCellReviewDecision as applyGeneratedSymbolCellReviewDecision,
-  approveImageGridReviewGeometry as approveGeneratedImageGridReviewGeometry,
-  approveImageGridReviewSourceGeometry as approveGeneratedImageGridReviewSourceGeometry,
   approveManualImageSelection as approveGeneratedManualImageSelection,
   continueImageSelectionWithoutImage as continueGeneratedImageSelectionWithoutImage,
   confirmImageSelectionGroupRange as confirmGeneratedImageSelectionGroupRange,
@@ -40,7 +38,6 @@ import {
   createGridCalibrationCandidate as createGeneratedGridCalibrationCandidate,
   createImageSelection as createGeneratedImageSelection,
   createImageGridReviewGeometryRevision as createGeneratedImageGridReviewGeometryRevision,
-  createImageGridReviewSourceGeometryRevision as createGeneratedImageGridReviewSourceGeometryRevision,
   createSymbolCellPreviewBatch as createGeneratedSymbolCellPreviewBatch,
   createVirtualCellPreviewBatch as createGeneratedVirtualCellPreviewBatch,
   createNextCuratedImageImportBatch as createGeneratedNextCuratedImageImportBatch,
@@ -67,6 +64,9 @@ import {
   createRulesDraftFromPublished as createGeneratedRulesDraftFromPublished,
   createRulesVersion as createGeneratedRulesVersion,
   createReviewerSession as createGeneratedReviewerSession,
+  createBoardSearchShareSession as createGeneratedBoardSearchShareSession,
+  getBoardSearchShareQueryReplay as getGeneratedBoardSearchShareQueryReplay,
+  listBoardSearchShareQueries as listGeneratedBoardSearchShareQueries,
   createRemoteManualSelectionSession as createGeneratedRemoteManualSelectionSession,
   createSymbol as createGeneratedSymbol,
   createSymbolTraining as createGeneratedSymbolTraining,
@@ -81,8 +81,9 @@ import {
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
   getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
-  getArchivedBoardSearchAsset as getGeneratedArchivedBoardSearchAsset,
   getBoardSearchApproximateWin as getGeneratedBoardSearchApproximateWin,
+  getBoardSearchBoardDetail as getGeneratedBoardSearchBoardDetail,
+  refreshBoardSearchBoardDocument as refreshGeneratedBoardSearchBoardDocument,
   getImageImportEnginePolicy as getGeneratedImageImportEnginePolicy,
   previewImageImportEnginePolicy as previewGeneratedImageImportEnginePolicy,
   updateImageImportEnginePolicy as updateGeneratedImageImportEnginePolicy,
@@ -167,6 +168,7 @@ import {
   listReviewItems as listGeneratedReviewItems,
   listReviewResolutions as listGeneratedReviewResolutions,
   listReviewerWorkAssignments as listGeneratedReviewerWorkAssignments,
+  listBoardSearchShareSessions as listGeneratedBoardSearchShareSessions,
   listRemoteManualSelectionSessions as listGeneratedRemoteManualSelectionSessions,
   listSemiAutomaticFilenameRangeVerifications as listGeneratedSemiAutomaticFilenameRangeVerifications,
   listSemiAutomaticImageSelections as listGeneratedSemiAutomaticImageSelections,
@@ -214,6 +216,7 @@ import {
   retryImageJobFile as retryGeneratedImageJobFile,
   pauseSemiAutomaticImageSelection as pauseGeneratedSemiAutomaticImageSelection,
   revokeReviewerSession as revokeGeneratedReviewerSession,
+  revokeBoardSearchShareSession as revokeGeneratedBoardSearchShareSession,
   revokeRemoteManualSelectionSession as revokeGeneratedRemoteManualSelectionSession,
   reopenRemoteManualSelectionBatch as reopenGeneratedRemoteManualSelectionBatch,
   resolveReviewItem as resolveGeneratedReviewItem,
@@ -280,10 +283,7 @@ import type {
   CuratedImageImportBatchCreate,
   CuratedImageImportSourceCreate,
   ImageJobFileRetryRequest,
-  ImageGridReviewApprovalCommand,
-  ImageGridReviewSourceApprovalCommand,
   ImageGridReviewGeometryCommand,
-  ImageGridReviewSourceGeometryCommand,
   ImageGridReviewGeometryPreviewCommand,
   ImageGridReviewView,
   ImageImportEnginePolicyPreviewRequest,
@@ -342,6 +342,7 @@ import type {
   ReviewerSessionUnlockResponse,
   ReviewerWorkActionCommand,
   ReviewerWorkOpenCommand,
+  BoardSearchShareCreate,
   RemoteManualSelectionSessionCreate,
   RemoteSelectionReopenCommand,
   RemoteSelectionRecoveryStatusResponse,
@@ -351,6 +352,7 @@ import type {
   SymbolModelActivationAction,
   SymbolModelActivationCommand,
   SymbolCellReviewFilterState,
+  SymbolCellReviewPredictionSource,
   SymbolCellReviewAction,
   SymbolCellReviewBulkOperationRequest,
   SymbolCellReviewBulkOperationResponse,
@@ -394,6 +396,11 @@ import type {
 export type {
   ApproximateWinCompletenessResponse,
   ApproximateWinResponse,
+  BoardSearchBoardCellResponse,
+  BoardSearchBoardDetailResponse,
+  BoardSearchBoardViewResponse,
+  BoardSearchLineMatchResponse,
+  BoardSearchViewPointResponse,
   ApproximateWinRowResponse,
   ApproximateWinRulesResponse,
   ApproximateWinSummaryResponse,
@@ -493,13 +500,7 @@ export type {
   ImageImportEnginePolicyUpdateRequest,
   ImageFolderImportResponse,
   ImageFolderSelectionResponse,
-  ImageGridReviewApprovalCommand,
-  ImageGridReviewApprovalResponse,
-  ImageGridReviewSourceApprovalCommand,
-  ImageGridReviewSourceApprovalResponse,
   ImageGridReviewGeometryCommand,
-  ImageGridReviewSourceGeometryCommand,
-  ImageGridReviewSourceGeometryResponse,
   ImageGridReviewGeometryPreviewCommand,
   ImageGridReviewGeometryResponse,
   ImageGridReviewItemResponse,
@@ -645,6 +646,7 @@ export type {
   SymbolCellReviewMutationRequest,
   SymbolCellReviewMutationResponse,
   SymbolCellReviewPageResponse,
+  SymbolCellReviewPredictionSource,
   SymbolCellReviewSkipResponse,
   SymbolCellPreviewBatchRequest,
   VirtualCellPreviewBatchRequest,
@@ -705,6 +707,16 @@ export type {
   ReviewerWorkHeartbeatResponse,
   ReviewerWorkOpenCommand,
   ReviewerWorkOpenedResponse,
+  BoardSearchShareCreate,
+  BoardSearchShareCreatedResponse,
+  BoardSearchShareSessionListResponse,
+  BoardSearchSharePublicContextResponse,
+  BoardSearchShareQueryEntryResponse,
+  BoardSearchShareQueryPageResponse,
+  BoardSearchShareQueryReplayResponse,
+  BoardSearchSharePublicSearchResponse,
+  BoardSearchSharePublicSymbolResponse,
+  BoardSearchShareSessionResponse,
   RemoteManualSelectionSessionCreate,
   ReviewerWorkOverviewResponse,
   RemoteManualSelectionBaseCapabilityResponse,
@@ -813,7 +825,32 @@ export interface ListOperationalImageReviewItemsOptions extends OperationalImage
   readonly limit?: number;
 }
 
-export interface ListSymbolCellReviewsOptions {
+/** Optional filters by prediction source and change time (D-466). */
+export interface SymbolCellReviewExtendedFilterOptions {
+  readonly predictionSource?: SymbolCellReviewPredictionSource;
+  /** Inclusive lower bound of the cell's last change, ISO 8601 with an offset. */
+  readonly changedFrom?: string;
+  /** Inclusive upper bound of the cell's last change, ISO 8601 with an offset. */
+  readonly changedTo?: string;
+}
+
+function symbolCellReviewExtendedFilterQuery(
+  options: SymbolCellReviewExtendedFilterOptions,
+): SymbolCellReviewExtendedFilterOptions {
+  return {
+    ...(options.predictionSource === undefined
+      ? {}
+      : { predictionSource: options.predictionSource }),
+    ...(options.changedFrom === undefined
+      ? {}
+      : { changedFrom: options.changedFrom }),
+    ...(options.changedTo === undefined
+      ? {}
+      : { changedTo: options.changedTo }),
+  };
+}
+
+export interface ListSymbolCellReviewsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly gameId: string;
   readonly symbolId: string | 'unknown' | 'outside' | 'all';
   readonly state?: SymbolCellReviewFilterState;
@@ -825,7 +862,7 @@ export interface ListSymbolCellReviewsOptions {
   readonly signal?: AbortSignal;
 }
 
-export interface SkipSymbolCellReviewsOptions {
+export interface SkipSymbolCellReviewsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly gameId: string;
   readonly symbolId: string | 'unknown' | 'outside' | 'all';
   readonly count: number;
@@ -837,7 +874,7 @@ export interface SkipSymbolCellReviewsOptions {
   readonly signal?: AbortSignal;
 }
 
-export interface GetSymbolCellReviewCountsOptions {
+export interface GetSymbolCellReviewCountsOptions extends SymbolCellReviewExtendedFilterOptions {
   readonly catalogRevision: number;
   readonly gameId: string;
   readonly maxConfidence?: number;
@@ -899,8 +936,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getHealth: () => getGeneratedHealth({ client }),
-    createV7LabelGeometryCalibrationSession: (body: V7LabelGeometrySessionCreate) =>
-      createGeneratedV7LabelGeometryCalibrationSession({ body, client }),
+    createV7LabelGeometryCalibrationSession: (
+      body: V7LabelGeometrySessionCreate,
+    ) => createGeneratedV7LabelGeometryCalibrationSession({ body, client }),
     getV7LabelGeometryCalibrationSession: (sessionId: string) =>
       getGeneratedV7LabelGeometryCalibrationSession({
         client,
@@ -943,7 +981,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { session_id: sessionId, source_id: sourceId },
         query: { expectedSourceChecksumSha256 },
       }),
-    listV7LabelGeometryProfiles: () => listGeneratedV7LabelGeometryProfiles({ client }),
+    listV7LabelGeometryProfiles: () =>
+      listGeneratedV7LabelGeometryProfiles({ client }),
     getV7LabelGeometryProfile: (profileFingerprint: string) =>
       getGeneratedV7LabelGeometryProfile({
         client,
@@ -951,7 +990,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     createV7LabelGeometryValidationReport: (body: V7ValidationReportCreate) =>
       createGeneratedV7LabelGeometryValidationReport({ body, client }),
-    listV7LabelGeometryAdoptions: () => listGeneratedV7LabelGeometryAdoptions({ client }),
+    listV7LabelGeometryAdoptions: () =>
+      listGeneratedV7LabelGeometryAdoptions({ client }),
     createV7LabelGeometryAdoption: (body: V7LabelGeometryAdoptionCreate) =>
       createGeneratedV7LabelGeometryAdoption({ body, client }),
     getSemiAutomaticImageSelectionCapabilities: () =>
@@ -1128,6 +1168,50 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       revokeGeneratedReviewerSession({
         client,
         headers: confirmedTargetHeaders(`reviewer-session:${sessionId}`),
+        path: { session_id: sessionId },
+      }),
+    /** Create one online read-only board-search share link (D-471). */
+    createBoardSearchShareSession: (body: BoardSearchShareCreate) =>
+      createGeneratedBoardSearchShareSession({
+        body,
+        client,
+        headers: confirmedTargetHeaders('board-search-share-session:new'),
+      }),
+    listBoardSearchShareSessions: (
+      options: { readonly gameId?: string; readonly limit?: number } = {},
+    ) =>
+      listGeneratedBoardSearchShareSessions({
+        client,
+        query: {
+          ...(options.gameId === undefined ? {} : { gameId: options.gameId }),
+          limit: options.limit ?? 100,
+        },
+      }),
+    /** One share link's query log, newest first, 50 per page (D-472). */
+    listBoardSearchShareQueries: (
+      sessionId: string,
+      options: { readonly before?: string; readonly limit?: number } = {},
+    ) =>
+      listGeneratedBoardSearchShareQueries({
+        client,
+        path: { session_id: sessionId },
+        query: {
+          ...(options.before === undefined ? {} : { before: options.before }),
+          limit: options.limit ?? 50,
+        },
+      }),
+    /** A query log entry with what is needed to replay it in the Admin. */
+    getBoardSearchShareQueryReplay: (eventId: string) =>
+      getGeneratedBoardSearchShareQueryReplay({
+        client,
+        path: { event_id: eventId },
+      }),
+    revokeBoardSearchShareSession: (sessionId: string) =>
+      revokeGeneratedBoardSearchShareSession({
+        client,
+        headers: confirmedTargetHeaders(
+          `board-search-share-session:${sessionId}`,
+        ),
         path: { session_id: sessionId },
       }),
     selectRemoteManualSelectionHostBase: () =>
@@ -1433,7 +1517,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body: file,
         client,
         headers: {
-          ...confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
+          ...confirmedTargetHeaders(
+            `image-import:${gameId}:page-source-replacement`,
+          ),
           'X-Game-Id': gameId,
           'X-Source-Checksum-Sha256': sourceChecksumSha256,
           'X-Source-Relative-Path': sourceRelativePath,
@@ -1457,8 +1543,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           replacementChecksumSha256,
         },
         client,
-        headers: confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
-        path: { upload_id: uploadId, replacement_upload_id: replacementUploadId },
+        headers: confirmedTargetHeaders(
+          `image-import:${gameId}:page-source-replacement`,
+        ),
+        path: {
+          upload_id: uploadId,
+          replacement_upload_id: replacementUploadId,
+        },
       }),
     discardBrowserPageGeometrySourceReplacement: (
       uploadId: string,
@@ -1468,8 +1559,13 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       discardGeneratedBrowserPageGeometrySourceReplacement({
         body: { gameId },
         client,
-        headers: confirmedTargetHeaders(`image-import:${gameId}:page-source-replacement`),
-        path: { upload_id: uploadId, replacement_upload_id: replacementUploadId },
+        headers: confirmedTargetHeaders(
+          `image-import:${gameId}:page-source-replacement`,
+        ),
+        path: {
+          upload_id: uploadId,
+          replacement_upload_id: replacementUploadId,
+        },
       }),
     cancelBrowserImageSelection: (uploadId: string) =>
       cancelGeneratedBrowserImageSelection({
@@ -1810,26 +1906,26 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     approvedSymbolReferenceCandidateAssetUrl: (
       gameId: string,
       symbolId: string,
-      observationId: string,
+      cellReviewId: string,
     ) =>
-      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/approved-image-candidates/${encodeURIComponent(observationId)}/asset`,
+      `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/approved-image-candidates/${encodeURIComponent(cellReviewId)}/asset`,
     symbolImageAssetUrl: (gameId: string, symbolId: string) =>
       `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/symbols/${encodeURIComponent(symbolId)}/image/asset`,
     selectApprovedSymbolReferenceCandidate: (
       gameId: string,
       symbolId: string,
-      observationId: string,
+      cellReviewId: string,
       body: ApprovedSymbolReferenceSelectionCommand,
     ) =>
       selectGeneratedApprovedSymbolReferenceCandidate({
         body,
         client,
         headers: confirmedTargetHeaders(
-          `symbol-reference:${gameId}:${symbolId}:${observationId}`,
+          `symbol-reference:${gameId}:${symbolId}:${cellReviewId}`,
         ),
         path: {
+          cell_review_id: cellReviewId,
           game_id: gameId,
-          observation_id: observationId,
           symbol_id: symbolId,
         },
       }),
@@ -1880,16 +1976,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
       }),
-    getArchivedBoardSearchAsset: (
-      gameId: string,
-      sequenceNumber: number,
-      expectedBoardChecksumSha256: string,
-    ) =>
-      getGeneratedArchivedBoardSearchAsset({
-        client,
-        path: { game_id: gameId, sequence_number: sequenceNumber },
-        query: { expectedBoardChecksumSha256 },
-      }),
     getBoardSearchApproximateWin: (
       gameId: string,
       options: GetBoardSearchApproximateWinOptions,
@@ -1902,13 +1988,29 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           spinCount: options.spinCount,
         },
       }),
-    archivedBoardSearchAssetUrl: (
+    getBoardSearchBoardDetail: (gameId: string, sequenceNumber: number) =>
+      getGeneratedBoardSearchBoardDetail({
+        client,
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+      }),
+    /** Rebuild one board's stale search document (TASK-0773). */
+    refreshBoardSearchBoardDocument: (gameId: string, sequenceNumber: number) =>
+      refreshGeneratedBoardSearchBoardDocument({
+        client,
+        path: { game_id: gameId, sequence_number: sequenceNumber },
+      }),
+    /** Checksum-bound cropped WebP view of one board (D-470); immutable. */
+    boardSearchBoardViewUrl: (
       gameId: string,
       sequenceNumber: number,
       expectedBoardChecksumSha256: string,
+      viewRevision?: string,
     ) => {
+      // With `viewRevision` (from the board detail) the image is immutable;
+      // without it the browser revalidates by ETag.
       const query = new URLSearchParams({ expectedBoardChecksumSha256 });
-      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/board-search/archive-assets/${sequenceNumber}?${query.toString()}`;
+      if (viewRevision !== undefined) query.set('viewRevision', viewRevision);
+      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/board-search/boards/${sequenceNumber}/view?${query.toString()}`;
     },
     getImageSequenceSourceSelection: (gameId: string, sequenceNumber: number) =>
       getGeneratedImageSequenceSourceSelection({
@@ -2288,26 +2390,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       });
       return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-reviews/${encodeURIComponent(reviewItemId)}/source-asset?${query.toString()}`;
     },
-    approveImageGridReviewGeometry: (
-      reviewItemId: string,
-      gameId: string,
-      body: ImageGridReviewApprovalCommand,
-    ) =>
-      approveGeneratedImageGridReviewGeometry({
-        body,
-        client,
-        path: { review_item_id: reviewItemId },
-        query: { gameId },
-      }),
-    approveImageGridReviewSourceGeometry: (
-      gameId: string,
-      body: ImageGridReviewSourceApprovalCommand,
-    ) =>
-      approveGeneratedImageGridReviewSourceGeometry({
-        body,
-        client,
-        path: { game_id: gameId },
-      }),
     previewImageGridReviewGeometry: (
       reviewItemId: string,
       context: ImageGridReviewContext,
@@ -2328,17 +2410,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         body,
         client,
         path: { review_item_id: reviewItemId },
-        query: context,
-      }),
-    createImageGridReviewSourceGeometryRevision: (
-      gameId: string,
-      context: ImageGridReviewContext,
-      body: ImageGridReviewSourceGeometryCommand,
-    ) =>
-      createGeneratedImageGridReviewSourceGeometryRevision({
-        body,
-        client,
-        path: { game_id: gameId },
         query: context,
       }),
     getSymbolCellReviewProjectionStatus: (gameId: string) =>
@@ -2374,6 +2445,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.minConfidence === undefined
             ? {}
             : { minConfidence: options.minConfidence }),
+          ...symbolCellReviewExtendedFilterQuery(options),
         },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
@@ -2397,6 +2469,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.minConfidence === undefined
             ? {}
             : { minConfidence: options.minConfidence }),
+          ...symbolCellReviewExtendedFilterQuery(options),
         },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
@@ -2414,6 +2487,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.minConfidence === undefined
             ? {}
             : { minConfidence: options.minConfidence }),
+          ...symbolCellReviewExtendedFilterQuery(options),
         },
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),

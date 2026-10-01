@@ -181,16 +181,30 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "revoke-remote-manual-selection-session",
         "remote-manual-selection-session:{session_id}",
     ),
+    # D-471: a share link exposes one game's board search online.
+    (
+        "POST",
+        "/api/v1/admin/board-search-shares/sessions",
+    ): HighImpactOperation(
+        "create-board-search-share-session",
+        "board-search-share-session:new",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/board-search-shares/sessions/{session_id}/revoke",
+    ): HighImpactOperation(
+        "revoke-board-search-share-session",
+        "board-search-share-session:{session_id}",
+    ),
 }
 
 _REVIEWER_MUTATION_PATTERNS = tuple(
     re.compile(pattern)
     for pattern in (
-        r"^/api/v1/admin/image-reviews/[^/]+/geometry-approval$",
+        # D-462: the local Reviewer corrects one board at a time; there is
+        # no geometry approval and no whole-source save (TASK-0727).
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-revisions$",
-        r"^/api/v1/admin/games/[^/]+/grid-reviews/source-geometry-approval$",
-        r"^/api/v1/admin/games/[^/]+/grid-reviews/source-geometry-revisions$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-revisions$",
         r"^/api/v1/admin/image-review-items/[^/]+/resolution$",

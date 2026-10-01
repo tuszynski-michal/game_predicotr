@@ -416,6 +416,9 @@ class ProductionImageImportWorkflow:
         )
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
+        # D-467 (TASK-0790): a job pinned to the removed legacy (file-crop) or
+        # shadow engine fails before any source, board or observation write.
+        _require_virtual_geometry_rollout(_geometry_rollout_snapshot(job))
         manifest = self._original_store.load_or_create_manifest(
             job,
             source_directory=_source_directory(job),
@@ -2995,6 +2998,24 @@ def _legacy_geometry_rollout_snapshot() -> GeometryPipelineRolloutSnapshot:
         virtual_renderer_version=VIRTUAL_CELL_RENDERER_VERSION,
         preprocessing_version=SYMBOL_RGB_PREPROCESSING_VERSION,
     )
+
+
+NON_VIRTUAL_ROLLOUT_ERROR = "IMAGE_PIPELINE_NON_VIRTUAL_ROLLOUT_REJECTED"
+
+
+def _require_virtual_geometry_rollout(rollout: GeometryPipelineRolloutSnapshot) -> None:
+    """Only virtual-default rollouts may run an import (D-467, TASK-0790).
+
+    Historical snapshots of the removed ``legacy`` and ``structured_shadow``
+    modes stay parseable for reports, but they can no longer write boards.
+    """
+
+    if rollout.cell_asset_mode is not CellAssetRolloutMode.VIRTUAL_DEFAULT:
+        raise JobHandlerError(
+            NON_VIRTUAL_ROLLOUT_ERROR,
+            "This import is pinned to a removed legacy image engine; only virtual "
+            "geometry imports can run.",
+        )
 
 
 def _geometry_rollout_snapshot(job: Job) -> GeometryPipelineRolloutSnapshot:

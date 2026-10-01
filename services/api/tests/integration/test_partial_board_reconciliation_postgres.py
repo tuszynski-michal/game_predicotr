@@ -36,6 +36,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
+    ImageBoardGeometryRevisionModel,
     ImageReviewItemModel,
     ImageSymbolReviewCellModel,
     ImageSymbolReviewEventModel,
@@ -68,7 +69,7 @@ def _upgrade(engine: Engine) -> None:
 
 
 def _seed_board(engine: Engine, root: Path) -> tuple[UUID, UUID, UUID, UUID]:
-    """A current partial board has real source bytes, 15 observations, no fastdoc."""
+    """A current partial board has real source bytes, 15 revision-1 crops, no fastdoc."""
     root.mkdir(parents=True, exist_ok=True)
     path = root / "source.png"
     Image.new("RGB", (1920, 1080), (120, 80, 30)).save(path)
@@ -143,6 +144,14 @@ def _seed_board(engine: Engine, root: Path) -> tuple[UUID, UUID, UUID, UUID]:
                 for index in range(15)
             ]
         }
+        # D-467 S5: the fixture board's crops come from its manual geometry
+        # revision, whose geometry is the one visibility is computed from.
+        revision = session.scalar(
+            select(ImageBoardGeometryRevisionModel).where(
+                ImageBoardGeometryRevisionModel.recognized_board_id == board_id
+            )
+        )
+        revision.geometry = board.board_geometry
         # Reproduce historical "ready" state with an incomplete cell projection.
         session.add(ImageSymbolReviewStateModel(game_id=game.id, status="ready"))
         session.commit()

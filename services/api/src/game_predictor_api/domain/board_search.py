@@ -27,8 +27,10 @@ class BoardSearchScope(StrEnum):
 
 
 class BoardSearchAssetMode(StrEnum):
+    """Read model behind a search result.  Only the operational projection
+    remains; the frozen board-search archive was removed in D-467 S5."""
+
     OPERATIONAL_REVIEW = "operational_review"
-    LEGACY_ARCHIVE = "legacy_archive"
 
 
 class BoardSearchError(ValueError):
@@ -72,6 +74,64 @@ class BoardSearchCandidate:
             raise ValueError("candidate alternatives exceed the ranking contract")
 
 
+class BoardSearchCellEvidence(StrEnum):
+    """How one human cell decision changes pending board evidence (D-462)."""
+
+    VERIFIED = "verified"
+    WITHHELD = "withheld"
+
+
+@dataclass(frozen=True, slots=True)
+class BoardSearchCellDecision:
+    """A current per-cell decision that overrides the model's suggestion.
+
+    ``VERIFIED`` carries the human symbol, or ``None`` for a logical ``?``;
+    ``WITHHELD`` marks a reported quality problem whose pixels are no evidence.
+    """
+
+    cell_index: int
+    evidence: BoardSearchCellEvidence
+    symbol_code: str | None = None
+
+    def __post_init__(self) -> None:
+        if not 0 <= self.cell_index < BOARD_SEARCH_CELL_COUNT:
+            raise ValueError("cell decision index is outside the 3 by 5 board")
+        if self.evidence is BoardSearchCellEvidence.WITHHELD and self.symbol_code is not None:
+            raise ValueError("a withheld cell cannot carry a symbol")
+
+
+def apply_board_search_cell_decisions(
+    *,
+    primary_symbol_codes: Sequence[str | None],
+    alternative_symbol_codes: Sequence[Sequence[str | None]],
+    decisions: Iterable[BoardSearchCellDecision],
+) -> tuple[tuple[str | None, ...], tuple[tuple[str | None, ...], ...]]:
+    """Overlay verified cells on a pending board's model evidence.
+
+    A verified cell is exact evidence without alternatives, independent of the
+    remaining cells and of any board, grid or photo approval.  A withheld cell
+    has no evidence at all.  Cells without a decision keep the prediction.
+    """
+
+    if (
+        len(primary_symbol_codes) != BOARD_SEARCH_CELL_COUNT
+        or len(alternative_symbol_codes) != BOARD_SEARCH_CELL_COUNT
+    ):
+        raise ValueError("cell decisions apply only to a complete 3 by 5 board")
+    primary = list(primary_symbol_codes)
+    alternatives = [tuple(values) for values in alternative_symbol_codes]
+    seen: set[int] = set()
+    for decision in decisions:
+        if decision.cell_index in seen:
+            raise ValueError("a board cannot have two decisions for one cell")
+        seen.add(decision.cell_index)
+        primary[decision.cell_index] = (
+            decision.symbol_code if decision.evidence is BoardSearchCellEvidence.VERIFIED else None
+        )
+        alternatives[decision.cell_index] = ()
+    return tuple(primary), tuple(alternatives)
+
+
 @dataclass(frozen=True, slots=True)
 class BoardSearchScore:
     score: float
@@ -111,17 +171,8 @@ class BoardSearchResult:
             self.recognized_board_id,
             self.import_job_id,
         )
-        if self.asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW:
-            if any(value is None for value in operational_ids):
-                raise ValueError("Operational board-search results require operational IDs")
-        elif any(value is not None for value in operational_ids):
-            raise ValueError("Archived board-search results cannot expose operational IDs")
-
-
-@dataclass(frozen=True, slots=True)
-class BoardSearchArchiveAssetReference:
-    relative_path: str
-    checksum_sha256: str
+        if any(value is None for value in operational_ids):
+            raise ValueError("Operational board-search results require operational IDs")
 
 
 @dataclass(frozen=True, slots=True)
@@ -398,9 +449,10 @@ __all__ = [
     "BOARD_SEARCH_ALGORITHM_VERSION",
     "BOARD_SEARCH_ALTERNATIVE_WEIGHTS",
     "BOARD_SEARCH_CELL_COUNT",
-    "BoardSearchArchiveAssetReference",
     "BoardSearchAssetMode",
     "BoardSearchCandidate",
+    "BoardSearchCellDecision",
+    "BoardSearchCellEvidence",
     "BoardSearchError",
     "BoardSearchDocumentSelection",
     "BoardSearchProjectionPayload",
@@ -409,6 +461,7 @@ __all__ = [
     "BoardSearchScope",
     "BoardSearchScore",
     "RankedBoardSearchCandidate",
+    "apply_board_search_cell_decisions",
     "rank_board_search_candidates",
     "select_board_search_document",
     "score_board_search_candidate",

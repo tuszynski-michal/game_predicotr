@@ -49,6 +49,15 @@ export function createSymbolReviewBulkCommand(
               kind: 'filter',
               maxConfidence: selection.snapshot.maxConfidence,
               minConfidence: selection.snapshot.minConfidence,
+              ...(selection.snapshot.predictionSource === undefined
+                ? {}
+                : { predictionSource: selection.snapshot.predictionSource }),
+              ...(selection.snapshot.changedFrom === undefined
+                ? {}
+                : { changedFrom: selection.snapshot.changedFrom }),
+              ...(selection.snapshot.changedTo === undefined
+                ? {}
+                : { changedTo: selection.snapshot.changedTo }),
               state: selection.snapshot.state,
               symbolId: selection.snapshot.symbolId,
             },

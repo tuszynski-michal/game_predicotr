@@ -43,7 +43,7 @@ def test_ready_projection_remains_available_during_marked_reconciliation(monkeyp
             game_id=_args[2],
             store_schema=GameStorageSchema.V2,
             generation=2,
-            manifest_version="game-data-v2-manifest-v1",
+            manifest_version="game-data-v2-manifest-v4",
             status=GameStorageStatus.ACTIVE,
             revision=1,
         ),
@@ -53,7 +53,6 @@ def test_ready_projection_remains_available_during_marked_reconciliation(monkeyp
     catalog = repository.require_ready_game(uuid4())
     assert catalog.catalog_revision == 17
     assert catalog.storage_generation == 2
-    assert catalog.uses_current_projection is True
 
 
 def test_mutation_remains_available_during_marked_reconciliation() -> None:

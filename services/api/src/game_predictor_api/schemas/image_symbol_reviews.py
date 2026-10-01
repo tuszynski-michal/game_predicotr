@@ -6,7 +6,7 @@ from datetime import datetime
 from typing import Annotated, Literal, cast
 from uuid import UUID
 
-from pydantic import Field, model_validator
+from pydantic import AwareDatetime, Field, model_validator
 
 from game_predictor_api.application.image_symbol_review_backfill import (
     SymbolCellReviewProjectionStart,
@@ -35,6 +35,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewFilterState,
     SymbolCellReviewListItem,
     SymbolCellReviewPage,
+    SymbolCellReviewPredictionSource,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -198,6 +199,9 @@ class SymbolCellReviewBulkFilterSelectionRequest(ApiModel):
     state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.ALL
     min_confidence: float | None = Field(default=None, ge=0, le=1)
     max_confidence: float | None = Field(default=None, ge=0, le=1)
+    prediction_source: SymbolCellReviewPredictionSource | None = None
+    changed_from: AwareDatetime | None = None
+    changed_to: AwareDatetime | None = None
     catalog_revision: int = Field(ge=0)
     excluded_cell_review_ids: tuple[UUID, ...] = Field(
         default=(),
@@ -212,6 +216,12 @@ class SymbolCellReviewBulkFilterSelectionRequest(ApiModel):
             and self.min_confidence > self.max_confidence
         ):
             raise ValueError("minConfidence cannot be greater than maxConfidence.")
+        if (
+            self.changed_from is not None
+            and self.changed_to is not None
+            and self.changed_from > self.changed_to
+        ):
+            raise ValueError("changedFrom cannot be later than changedTo.")
         return self
 
 
@@ -594,6 +604,9 @@ def to_symbol_cell_review_bulk_request(
             state=selection.state,
             min_confidence=selection.min_confidence,
             max_confidence=selection.max_confidence,
+            prediction_source=selection.prediction_source,
+            changed_from=selection.changed_from,
+            changed_to=selection.changed_to,
             catalog_revision=selection.catalog_revision,
             excluded_cell_review_ids=selection.excluded_cell_review_ids,
         ),

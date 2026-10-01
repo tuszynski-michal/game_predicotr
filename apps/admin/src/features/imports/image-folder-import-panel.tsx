@@ -274,7 +274,8 @@ export function ImageFolderImportPanel({
     useState<ImageGeometryGuardResolutionManifestResponse | null>(null);
   const [enginePolicy, setEnginePolicy] =
     useState<ImageImportEnginePolicyResponse | null>(null);
-  const boardCellProcessingMode = enginePolicy?.policy ?? 'verified_v19';
+  const boardCellProcessingMode =
+    enginePolicy?.policy ?? 'structured_lattice_v3';
   const lateralCapability = enginePolicy?.geometryEngineVariants?.find(
     (candidate) => candidate.variant === LATERAL_PARTIAL_VARIANT,
   );
@@ -1656,8 +1657,7 @@ export function ImageFolderImportPanel({
                     <p className="curatedImportStatus">
                       Ten staging nie wymaga ponownego importu. Weryfikacja
                       symboli nie zmienia statusu importu plansz. Brakujące
-                      geometrie popraw w „Zatwierdzanie cięcia siatki” →
-                      „Niepełne siatki do ręcznej korekty”.
+                      geometrie popraw w „Korekta cięcia siatki”.
                     </p>
                   ) : null}
                   {active && preflight !== null ? (

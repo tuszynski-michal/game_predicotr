@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import contextlib
 import hashlib
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, cast
+from unittest.mock import MagicMock
 from uuid import uuid4
 
 import cv2
@@ -23,11 +26,14 @@ from game_predictor_worker.images.board_cell_geometry_crops import (
 )
 from game_predictor_worker.images.pending_grid_reinference import (
     PendingGridReinferenceHandler,
+    _human_cell_decision_exists,
     _is_current_v19_geometry,
     _pending_projection_matches,
     _PendingBoardSnapshot,
     _V19NeedsReview,
 )
+from sqlalchemy import select
+from sqlalchemy.dialects import postgresql
 
 
 class _CheckpointCapture:
@@ -350,3 +356,138 @@ def test_v2_does_not_rewrite_an_existing_matching_v19_revision() -> None:
     }
 
     assert _is_current_v19_geometry(geometry)
+
+
+def test_v1_and_v2_candidates_exclude_boards_with_human_cell_decisions() -> None:
+    game_id = uuid4()
+    sql = str(
+        select(ImageReviewItemModel.id)
+        .where(~_human_cell_decision_exists(game_id))
+        .compile(dialect=postgresql.dialect(), compile_kwargs={"literal_binds": True})
+    )
+
+    # D-462 R9: any approved, reported or human-assigned cell protects the board.
+    assert "NOT (EXISTS" in sql
+    assert "image_symbol_review_cells.review_item_id = image_review_items.id" in sql
+    assert "'approved'" in sql
+    assert "'grid_issue'" in sql
+    assert "'human'" in sql and "'board_decision'" in sql
+    assert str(game_id).replace("-", "") in sql.replace("-", "")
+
+
+class _FakeSession:
+    """Minimal locked-write session: fixed lock results, records every add."""
+
+    def __init__(self, *, scalar: object = None, get: object = None, rows: tuple = ()) -> None:
+        self._scalar = scalar
+        self._get = get
+        self._rows = rows
+        self.added: list[object] = []
+
+    def __enter__(self) -> _FakeSession:
+        return self
+
+    def __exit__(self, *_exc: object) -> None:
+        return None
+
+    def begin(self) -> contextlib.AbstractContextManager[None]:
+        return contextlib.nullcontext()
+
+    def scalar(self, _statement: object) -> object:
+        return self._scalar
+
+    def get(self, *_args: object, **_kwargs: object) -> object:
+        return self._get
+
+    def execute(self, _statement: object) -> Any:
+        rows = self._rows
+        return SimpleNamespace(tuples=lambda: SimpleNamespace(all=lambda: list(rows)))
+
+    def add(self, row: object) -> None:
+        self.added.append(row)
+
+    def flush(self) -> None:
+        return None
+
+
+def _snapshot() -> _PendingBoardSnapshot:
+    return _PendingBoardSnapshot(
+        review_item_id=uuid4(),
+        resolution_revision=0,
+        recognized_board_id=uuid4(),
+        geometry_revision=0,
+        source_image_id=uuid4(),
+        import_job_id=uuid4(),
+        source_order_index=0,
+        sequence_number=1,
+        position_index=0,
+        board_geometry={"quad": []},
+        board_relative_path="board.png",
+        board_checksum_sha256="b" * 64,
+        source_relative_path="source.jpg",
+        source_checksum_sha256="a" * 64,
+        source_width=100,
+        source_height=100,
+    )
+
+
+@pytest.mark.parametrize(("human_decision", "expected"), [(True, "skipped"), (False, "current")])
+def test_v2_locked_write_skips_boards_with_human_cell_decisions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, human_decision: bool, expected: str
+) -> None:
+    module = "game_predictor_worker.images.pending_grid_reinference"
+    monkeypatch.setattr(f"{module}._pending_projection_matches", lambda *_a, **_k: True)
+    monkeypatch.setattr(f"{module}._is_current_v19_geometry", lambda _geometry: True)
+    monkeypatch.setattr(f"{module}._has_human_cell_decision", lambda *_a, **_k: human_decision)
+    session = _FakeSession(
+        scalar=SimpleNamespace(game_id=uuid4()),
+        get=SimpleNamespace(board_geometry={}),
+    )
+    handler = PendingGridReinferenceHandler(cast(Any, lambda: session), tmp_path)
+
+    result = handler._commit_v19_refresh(
+        _snapshot(), prepared=cast(Any, MagicMock()), configuration_fingerprint="f"
+    )
+
+    # D-462 R9: a human decision on any cell keeps the board's pixels.
+    assert result == expected
+    assert session.added == []
+
+
+def test_v1_locked_write_skips_boards_with_human_cell_decisions(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    module = "game_predictor_worker.images.pending_grid_reinference"
+    monkeypatch.setattr(f"{module}._profile_from_payload", lambda _job: ({}, "fingerprint"))
+    monkeypatch.setattr(f"{module}._cell_output_size_from_payload", lambda _job: 64)
+    monkeypatch.setattr(f"{module}._has_human_cell_decision", lambda *_a, **_k: True)
+    item = SimpleNamespace(id=uuid4())
+    board = SimpleNamespace(id=uuid4(), position_index=0, geometry_revision=0)
+    sessions = iter(
+        (
+            _FakeSession(rows=((item, board, SimpleNamespace()),)),
+            _FakeSession(
+                scalar=SimpleNamespace(status="pending"),
+                get=SimpleNamespace(geometry_revision=0, asset_mode="legacy_file"),
+            ),
+        )
+    )
+    opened: list[_FakeSession] = []
+
+    def session_factory() -> _FakeSession:
+        session = next(sessions)
+        opened.append(session)
+        return session
+
+    handler = PendingGridReinferenceHandler(cast(Any, session_factory), tmp_path)
+    monkeypatch.setattr(
+        handler, "_refresh_board", lambda *_a, **_k: ({"quad": []}, "board.png", "c" * 64, [])
+    )
+    capture = _CheckpointCapture()
+
+    handler._run_v1(cast(Any, capture), cast(Any, SimpleNamespace(game_id=uuid4())))
+
+    assert capture.payload is not None
+    assert capture.payload["processed"] == 0
+    assert capture.payload["skippedConcurrentResolution"] == 1
+    assert all(session.added == [] for session in opened)

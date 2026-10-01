@@ -350,7 +350,6 @@ class MemorySymbolCellReviewRepository:
         return SymbolCellReviewCatalogState(
             catalog_revision=17,
             storage_generation=1,
-            uses_current_projection=False,
         )
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None:
@@ -1568,6 +1567,65 @@ def test_list_endpoint_binds_confidence_filter_to_keyset_cursor(tmp_path: Path) 
     assert invalid_scope.json()["code"] == "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID"
 
 
+def test_list_endpoint_passes_prediction_source_and_changed_range(tmp_path: Path) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    items = tuple(
+        _item(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            sequence_number=index,
+            cell_index=0,
+            review_item_id=UUID(int=index),
+        )
+        for index in (1, 2)
+    )
+    repository = MemorySymbolCellReviewRepository(game_id=game_id, symbol_id=symbol_id, items=items)
+    params: dict[str, str | int] = {
+        "symbolId": str(symbol_id),
+        "limit": 1,
+        "predictionSource": "reference_library",
+        "changedFrom": "2026-09-30T00:00:00+02:00",
+        "changedTo": "2026-09-30T23:59:59+02:00",
+    }
+
+    with _client(repository, artifact_root=tmp_path) as client:
+        first = client.get(f"/api/v1/admin/games/{game_id}/symbol-cell-reviews", params=params)
+        review_filter = repository.filters[-1]
+        cross_scope = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "afterCursor": first.json()["nextCursor"]},
+        )
+        counts = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-review-counts",
+            params={
+                **{key: value for key, value in params.items() if key != "limit"},
+                "catalogRevision": first.json()["catalogRevision"],
+            },
+        )
+        counts_filter = repository.filters[-1]
+        naive = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "changedFrom": "2026-09-30T00:00:00"},
+        )
+        unknown_source = client.get(
+            f"/api/v1/admin/games/{game_id}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "predictionSource": "other"},
+        )
+
+    assert first.status_code == 200
+    assert review_filter.prediction_source is not None
+    assert review_filter.prediction_source.value == "reference_library"
+    assert review_filter.changed_from is not None
+    assert review_filter.changed_from.utcoffset() is not None
+    assert review_filter.changed_to is not None
+    assert cross_scope.status_code == 409
+    assert cross_scope.json()["code"] == "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID"
+    assert counts.status_code == 200
+    assert counts_filter.prediction_source is not None
+    assert naive.status_code == 422
+    assert unknown_source.status_code == 422
+
+
 def test_list_endpoint_supports_unknown_and_rejects_cross_scope_cursor(tmp_path: Path) -> None:
     game_id, symbol_id = uuid4(), uuid4()
     unknown = _item(
@@ -2134,6 +2192,53 @@ def test_bulk_operation_endpoints_are_local_actor_bound_and_idempotent(tmp_path:
     assert selection is not None
     assert selection.min_confidence == 0.5
     assert selection.max_confidence == 0.8
+
+
+def test_bulk_filter_selection_carries_prediction_source_and_changed_range(
+    tmp_path: Path,
+) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    reviews = MemorySymbolCellReviewRepository(game_id=game_id, symbol_id=symbol_id, items=())
+    bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
+    selection = {
+        "kind": "filter",
+        "symbolId": str(symbol_id),
+        "state": "pending",
+        "catalogRevision": 17,
+        "excludedCellReviewIds": [],
+        "predictionSource": "reference_library",
+        "changedFrom": "2026-09-30T00:00:00+02:00",
+        "changedTo": "2026-09-30T23:59:59.999999+02:00",
+    }
+    url = f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview"
+
+    with _client(reviews, artifact_root=tmp_path, bulk_repository=bulk) as client:
+        preview = client.post(url, json={"action": "approve", "selection": selection})
+        reversed_range = client.post(
+            url,
+            json={
+                "action": "approve",
+                "selection": {**selection, "changedTo": "2026-09-29T00:00:00+02:00"},
+            },
+        )
+        naive = client.post(
+            url,
+            json={
+                "action": "approve",
+                "selection": {**selection, "changedFrom": "2026-09-30T00:00:00"},
+            },
+        )
+
+    assert preview.status_code == 200
+    filter_selection = bulk.requests[0].filter_selection
+    assert filter_selection is not None
+    assert filter_selection.prediction_source is not None
+    assert filter_selection.prediction_source.value == "reference_library"
+    assert filter_selection.changed_from is not None
+    assert filter_selection.changed_from.utcoffset() is not None
+    assert filter_selection.changed_to is not None
+    assert reversed_range.status_code == 422
+    assert naive.status_code == 422
 
 
 def test_bulk_operation_rejects_approval_of_unknown_filter(tmp_path: Path) -> None:

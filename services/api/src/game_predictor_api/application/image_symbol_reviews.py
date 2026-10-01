@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -21,6 +22,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewListFilter,
     SymbolCellReviewListItem,
     SymbolCellReviewPage,
+    SymbolCellReviewPredictionSource,
     decode_symbol_cell_review_cursor,
     encode_symbol_cell_review_cursor,
 )
@@ -46,7 +48,6 @@ class SymbolCellReviewCatalogState:
 
     catalog_revision: int
     storage_generation: int
-    uses_current_projection: bool
 
 
 class SymbolCellReviewQueryRepository(Protocol):
@@ -136,6 +137,9 @@ class SymbolCellReviewQueryService:
         before_cursor: str | None,
         min_confidence: float | None = None,
         max_confidence: float | None = None,
+        prediction_source: SymbolCellReviewPredictionSource | None = None,
+        changed_from: datetime | None = None,
+        changed_to: datetime | None = None,
         limit: int = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
         include_all_symbols: bool = False,
         outside_only: bool = False,
@@ -152,6 +156,9 @@ class SymbolCellReviewQueryService:
                 before_cursor=before_cursor,
                 min_confidence=min_confidence,
                 max_confidence=max_confidence,
+                prediction_source=prediction_source,
+                changed_from=changed_from,
+                changed_to=changed_to,
                 limit=limit,
                 include_all_symbols=include_all_symbols,
                 outside_only=outside_only,
@@ -167,6 +174,9 @@ class SymbolCellReviewQueryService:
         before_cursor: str | None,
         min_confidence: float | None,
         max_confidence: float | None,
+        prediction_source: SymbolCellReviewPredictionSource | None,
+        changed_from: datetime | None,
+        changed_to: datetime | None,
         limit: int,
         include_all_symbols: bool,
         outside_only: bool,
@@ -193,11 +203,13 @@ class SymbolCellReviewQueryService:
             state=state,
             min_confidence=min_confidence,
             max_confidence=max_confidence,
+            prediction_source=prediction_source,
+            changed_from=changed_from,
+            changed_to=changed_to,
             include_all_symbols=include_all_symbols,
             outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
-            uses_current_projection=catalog.uses_current_projection,
         )
         after_key = (
             decode_symbol_cell_review_cursor(
@@ -257,6 +269,9 @@ class SymbolCellReviewQueryService:
         before_cursor: str | None,
         min_confidence: float | None = None,
         max_confidence: float | None = None,
+        prediction_source: SymbolCellReviewPredictionSource | None = None,
+        changed_from: datetime | None = None,
+        changed_to: datetime | None = None,
         count: int,
         include_all_symbols: bool = False,
         outside_only: bool = False,
@@ -273,6 +288,9 @@ class SymbolCellReviewQueryService:
                 before_cursor=before_cursor,
                 min_confidence=min_confidence,
                 max_confidence=max_confidence,
+                prediction_source=prediction_source,
+                changed_from=changed_from,
+                changed_to=changed_to,
                 count=count,
                 include_all_symbols=include_all_symbols,
                 outside_only=outside_only,
@@ -288,6 +306,9 @@ class SymbolCellReviewQueryService:
         before_cursor: str | None,
         min_confidence: float | None,
         max_confidence: float | None,
+        prediction_source: SymbolCellReviewPredictionSource | None,
+        changed_from: datetime | None,
+        changed_to: datetime | None,
         count: int,
         include_all_symbols: bool,
         outside_only: bool,
@@ -319,11 +340,13 @@ class SymbolCellReviewQueryService:
             state=state,
             min_confidence=min_confidence,
             max_confidence=max_confidence,
+            prediction_source=prediction_source,
+            changed_from=changed_from,
+            changed_to=changed_to,
             include_all_symbols=include_all_symbols,
             outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
-            uses_current_projection=catalog.uses_current_projection,
         )
         after_key = (
             decode_symbol_cell_review_cursor(
@@ -371,6 +394,9 @@ class SymbolCellReviewQueryService:
         expected_catalog_revision: int,
         min_confidence: float | None = None,
         max_confidence: float | None = None,
+        prediction_source: SymbolCellReviewPredictionSource | None = None,
+        changed_from: datetime | None = None,
+        changed_to: datetime | None = None,
         include_all_symbols: bool = False,
         outside_only: bool = False,
     ) -> SymbolCellReviewCountSnapshot:
@@ -385,6 +411,9 @@ class SymbolCellReviewQueryService:
                 expected_catalog_revision=expected_catalog_revision,
                 min_confidence=min_confidence,
                 max_confidence=max_confidence,
+                prediction_source=prediction_source,
+                changed_from=changed_from,
+                changed_to=changed_to,
                 include_all_symbols=include_all_symbols,
                 outside_only=outside_only,
             )
@@ -398,6 +427,9 @@ class SymbolCellReviewQueryService:
         expected_catalog_revision: int,
         min_confidence: float | None,
         max_confidence: float | None,
+        prediction_source: SymbolCellReviewPredictionSource | None,
+        changed_from: datetime | None,
+        changed_to: datetime | None,
         include_all_symbols: bool,
         outside_only: bool,
     ) -> SymbolCellReviewCountSnapshot:
@@ -413,11 +445,13 @@ class SymbolCellReviewQueryService:
             state=state,
             min_confidence=min_confidence,
             max_confidence=max_confidence,
+            prediction_source=prediction_source,
+            changed_from=changed_from,
+            changed_to=changed_to,
             include_all_symbols=include_all_symbols,
             outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
-            uses_current_projection=catalog.uses_current_projection,
         )
         if catalog.catalog_revision != expected_catalog_revision:
             raise SymbolCellReviewError(

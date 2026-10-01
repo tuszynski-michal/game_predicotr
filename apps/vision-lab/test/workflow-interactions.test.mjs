@@ -260,12 +260,10 @@ test('whole-board component requires all images, preserves selection after reloa
     await act(async () => {
       for (const img of oldImages) img.onLoad();
     });
-    assert.equal(button(root, 'Zapisz wszystkie 15 pól').props.disabled, false);
-    await act(async () =>
-      button(root, 'Zapisz wszystkie 15 pól').props.onClick(),
-    );
-    assert.equal(requests.length, 1);
-    assert.equal(requests[0].cells.length, 15);
+    // Saving the whole board is switched off: the button stays disabled even
+    // with every image loaded and every field chosen, and nothing is sent.
+    assert.equal(button(root, 'Zapisz wszystkie 15 pól').props.disabled, true);
+    assert.equal(requests.length, 0);
     await act(async () =>
       button(root, 'Odczytaj planszę ponownie').props.onClick(),
     );
@@ -283,7 +281,7 @@ test('whole-board component requires all images, preserves selection after reloa
     await act(async () => {
       for (const img of root.root.findAllByType('img')) img.props.onLoad();
     });
-    assert.equal(button(root, 'Zapisz wszystkie 15 pól').props.disabled, false);
+    assert.equal(button(root, 'Zapisz wszystkie 15 pól').props.disabled, true);
     await act(async () => root.root.findAllByType('img')[0].props.onError());
     assert.equal(errors.length, 1);
     assert.equal(button(root, 'Zapisz wszystkie 15 pól').props.disabled, true);

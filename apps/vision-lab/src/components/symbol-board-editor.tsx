@@ -289,9 +289,7 @@ export function SymbolBoardEditor({
           )}
           {!failed && !ready && <p>Wczytywanie obrazów planszy…</p>}
           <button
-            disabled={
-              !ready || !preview.dictionary?.version || choices.some((c) => !c)
-            }
+            disabled={true}
             onClick={() => {
               try {
                 void onSubmit(

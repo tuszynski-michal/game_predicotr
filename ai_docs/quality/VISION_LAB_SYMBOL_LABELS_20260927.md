@@ -15,6 +15,8 @@ lub etykiet symboli. Akceptacja geometrii nie zastępuje tych decyzji.
 
 Wykonawca: `gpt-6-sol`, `medium`. Niezależny audytor:
 `gpt-6-sol`, `medium`. Pełny audyt kodu i końcowy odbiór UI PASS.
+Commit: `v1.7.31` / `3c90363a825e160c41e2118c5a112d8be914d1b8`.
+Kontrola indeksu oraz show/stat/status po commicie PASS; cudze zmiany zachowane.
 
 ## Audyt przed implementacją
 

@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from threading import Barrier
@@ -12,9 +11,6 @@ from uuid import UUID, uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
-from game_predictor_api.application.board_cell_geometry_pending import (
-    BoardCellGeometryManualResolutionProjection,
-)
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
 from game_predictor_api.application.image_reviews import OperationalImageReviewService
@@ -33,10 +29,6 @@ from game_predictor_api.application.unreadable_board_reviews import (
     UnreadableBoardReviewView,
 )
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.domain.board_cell_geometry_pending import (
-    BoardCellGeometryPendingReason,
-    BoardCellProcessingManifestV1,
-)
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewError,
@@ -62,10 +54,6 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewListFilter,
 )
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType, create_job
-from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
-from game_predictor_api.storage.board_cell_geometry_pending_repository import (
-    SqlAlchemyBoardCellGeometryPendingRepository,
-)
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -96,15 +84,12 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
-    CellObservationModel,
-    ImageBoardGeometryPendingModel,
     ImageBoardGeometryReviewEventModel,
     ImageBoardGeometryRevisionModel,
     ImageBoardSearchFastDocumentModel,
     ImageFileExecutionModel,
     ImageImportJobFileModel,
     ImageLayoutStagingRowModel,
-    ImagePipelineStageResultModel,
     ImageReviewItemModel,
     ImageReviewQueueItemModel,
     ImageReviewQueueStateModel,
@@ -123,9 +108,6 @@ from game_predictor_api.storage.models import (
 )
 from game_predictor_api.storage.pending_sequence_ownership import (
     create_owned_pending_review_item,
-)
-from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
-    ManualBoardCellSymbolPrediction,
 )
 from game_predictor_worker.images.orchestration import (
     ImageStageExecutionResult,
@@ -171,6 +153,23 @@ _IN_FRAME_QUAD = [
     {"x": 600, "y": 400},
     {"x": 100, "y": 400},
 ]
+
+
+def _import_cells_prediction(symbol_code: str) -> dict[str, object]:
+    """D-467: import predictions of all 15 cells, as the import writer stores them."""
+
+    return {
+        "cells": [
+            {
+                "rowIndex": index // 5,
+                "columnIndex": index % 5,
+                "symbolCode": symbol_code,
+                "confidence": 1.0,
+                "alternatives": [{"symbolCode": symbol_code, "confidence": 1.0}],
+            }
+            for index in range(15)
+        ]
+    }
 
 
 def _database_url(database_name: str) -> URL:
@@ -259,10 +258,14 @@ def _add_review_projection_source(
         board_geometry={"source": "projection-test", "quad": _IN_FRAME_QUAD},
         board_relative_path=f"crops/{source_name}.png",
         board_checksum_sha256=f"{sequence_number:064x}",
-        cells_prediction={"cells": []},
+        cells_prediction=_import_cells_prediction("test"),
         board_confidence=1.0,
         pipeline_fingerprint=PIPELINE,
         status="pending_review" if status == "pending" else status,
+        # D-467 S5 (TASK-0759): a legacy board's base crops live in its
+        # manual geometry revision; revision 0 had them only in the dropped
+        # per-cell import records.
+        geometry_revision=1,
         created_at=created_at,
     )
     session.add(board)
@@ -288,23 +291,33 @@ def _add_review_projection_source(
     )
     session.add(review)
     session.flush()
-    session.add_all(
-        CellObservationModel(
+    session.add(
+        ImageBoardGeometryRevisionModel(
+            review_item_id=review.id,
             recognized_board_id=board.id,
-            row_index=index // 5,
-            column_index=index % 5,
-            crop_relative_path=f"crops/{source_name}-{index}.png",
-            crop_checksum_sha256=f"{sequence_number * 100 + index:064x}",
+            revision=1,
+            idempotency_key=uuid4(),
+            command_sha256=f"{sequence_number:064x}",
+            corners=[{"x": 0, "y": 0}, {"x": 100, "y": 0}, {"x": 100, "y": 60}, {"x": 0, "y": 60}],
+            geometry={"source": "projection-test", "quad": _IN_FRAME_QUAD},
+            asset_mode="legacy_file",
+            board_relative_path=f"crops/{source_name}.png",
+            board_checksum_sha256=f"{sequence_number:064x}",
             cropper_version="projection-test-cropper",
-            prediction={
-                "symbolCode": "test",
-                "confidence": 1.0,
-                "alternatives": [{"symbolCode": "test", "confidence": 1.0}],
-            },
+            crop_artifacts=[
+                {
+                    "rowIndex": index // 5,
+                    "columnIndex": index % 5,
+                    "cropRelativePath": f"crops/{source_name}-{index}.png",
+                    "cropChecksumSha256": f"{sequence_number * 100 + index:064x}",
+                }
+                for index in range(15)
+            ],
+            corrected_by="projection-test",
             created_at=created_at,
         )
-        for index in range(15)
     )
+    session.flush()
     return review.id, board.id
 
 
@@ -479,16 +492,9 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
                 status="pending",
                 created_at=now,
             )
-            for observation in session.scalars(
-                select(CellObservationModel)
-                .where(CellObservationModel.recognized_board_id == _pending_board_id)
-                .order_by(CellObservationModel.row_index, CellObservationModel.column_index)
-            ):
-                observation.prediction = {
-                    "symbolCode": "?",
-                    "confidence": 1.0,
-                    "alternatives": [{"symbolCode": "?", "confidence": 1.0}],
-                }
+            pending_board = session.get(RecognizedBoardModel, _pending_board_id)
+            assert pending_board is not None
+            pending_board.cells_prediction = _import_cells_prediction("?")
             _set_complete_resolution(
                 session,
                 review_item_id=base_review_id,
@@ -507,12 +513,12 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             )
             corrected_board = session.get(RecognizedBoardModel, corrected_board_id)
             assert corrected_board is not None
-            corrected_board.geometry_revision = 1
+            corrected_board.geometry_revision = 2
             session.add(
                 ImageBoardGeometryRevisionModel(
                     review_item_id=corrected_review_id,
                     recognized_board_id=corrected_board_id,
-                    revision=1,
+                    revision=2,
                     idempotency_key=uuid4(),
                     command_sha256="3" * 64,
                     corners=[
@@ -539,8 +545,8 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
                 )
             )
             for sequence_number, review_item_id, board_id, status, geometry_revision in (
-                (1, base_review_id, base_board_id, "accepted", 0),
-                (2, corrected_review_id, corrected_board_id, "corrected", 1),
+                (1, base_review_id, base_board_id, "accepted", 1),
+                (2, corrected_review_id, corrected_board_id, "corrected", 2),
             ):
                 board = session.get(RecognizedBoardModel, board_id)
                 assert board is not None
@@ -633,7 +639,7 @@ def test_symbol_cell_backfill_persists_current_base_and_corrected_geometry_crops
             assert all(
                 cell.assigned_symbol_id == symbol.id for cell in base_cells + corrected_cells
             )
-            assert [cell.geometry_revision for cell in corrected_cells] == [1] * 15
+            assert [cell.geometry_revision for cell in corrected_cells] == [2] * 15
             assert [cell.cropper_version for cell in corrected_cells] == [
                 "corrected-cropper-v1"
             ] * 15
@@ -1177,21 +1183,8 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             assert finished.report.status == "ready"
             session.commit()
 
+        # D-462: no grid approval precedes closing the board from its cells.
         with game_storage_scope(game.id), session_factory() as session:
-            assert SymbolCellReviewWriteThroughCoordinator(session).approve_current_geometry(
-                game_id=game.id,
-                review_item_id=review_item_id,
-                expected_geometry_revision=0,
-                actor="grid-reviewer",
-                approved_at=now + timedelta(seconds=1),
-            )
-            assert not SymbolCellReviewWriteThroughCoordinator(session).approve_current_geometry(
-                game_id=game.id,
-                review_item_id=review_item_id,
-                expected_geometry_revision=0,
-                actor="grid-reviewer",
-                approved_at=now + timedelta(seconds=2),
-            )
             service = SymbolCellReviewMutationService(
                 SqlAlchemySymbolCellReviewMutationRepository(session)
             )
@@ -1464,15 +1457,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 import_job_id=job.id,
             )
             assert current is not None
-            with pytest.raises(ImageGridReviewError) as blocked_approval:
-                SymbolCellReviewWriteThroughCoordinator(session).approve_current_geometry(
-                    game_id=game.id,
-                    review_item_id=review_item_id,
-                    expected_geometry_revision=current.geometry_revision,
-                    actor="grid-issue-reviewer",
-                    approved_at=now + timedelta(seconds=30),
-                )
-            assert blocked_approval.value.code == "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED"
+            labels_before = {cell.cell_index: cell.assigned_symbol_id for cell in cells}
             geometry_command = validate_image_review_geometry_command(
                 corners=(
                     ImageReviewGeometryPoint(1, 1),
@@ -1513,16 +1498,31 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 .where(ImageSymbolReviewCellModel.review_item_id == review_item_id)
                 .order_by(ImageSymbolReviewCellModel.cell_index)
             ).all()
-            assert [
-                cell.cell_index for cell in refreshed_cells if cell.review_state == "pending"
-            ] == [
-                1,
-                2,
-            ]
+            # D-462 R5/R6: every crop changed, so every verification needs a new
+            # check; human labels stay as pending suggestions with the old
+            # approval as history, and no grid report survives the new geometry.
+            assert all(cell.review_state == "pending" for cell in refreshed_cells)
+            saved_geometry_page = operational_repository.list_items(
+                game_id=game.id,
+                import_job_id=job.id,
+                view=ImageReviewView.ALL,
+                grid_issue_view=ImageReviewGridIssueView.NEEDS_GRID_FIX,
+                after_key=None,
+                before_key=None,
+                expected_queue_version=None,
+                sequence_number=None,
+                resume_at_first_pending=False,
+                limit=10,
+            )
+            # R5: the saved geometry removes the board from "Do poprawy siatki".
+            assert saved_geometry_page.needs_grid_fix_count == 0
+            assert all(cell.quality_issue is None for cell in refreshed_cells)
             assert all(
-                cell.review_state == "approved"
-                and cell.approved_geometry_revision == 0
-                and cell.geometry_revision == 1
+                cell.assignment_source == "human"
+                and cell.assigned_symbol_id is not None
+                and cell.assigned_symbol_id == labels_before[cell.cell_index]
+                and cell.approved_geometry_revision == 1
+                and cell.geometry_revision == 2
                 for cell in refreshed_cells
                 if cell.cell_index not in {1, 2}
             )
@@ -1543,7 +1543,7 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
             assert recropped.review_state == "approved"
             assert recropped.approved_crop_sample_id == recropped.crop_sample_id
             assert recropped.approved_crop_checksum_sha256 == recropped.crop_checksum_sha256
-            assert recropped.approved_geometry_revision == recropped.geometry_revision == 1
+            assert recropped.approved_geometry_revision == recropped.geometry_revision == 2
             cleared_grid_issue_page = operational_repository.list_items(
                 game_id=game.id,
                 import_job_id=job.id,
@@ -1588,6 +1588,33 @@ def test_symbol_cell_mutations_close_and_reopen_one_board_atomically(
                 actor="symbol-cell-operator",
             )
             assert unreadable_result.board_status == "pending"
+            session.flush()
+            # D-462 R6: the recrop changed every crop, so the remaining labels
+            # need a new check before the board can close.
+            for rechecked in session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                    ImageSymbolReviewCellModel.cell_index >= 3,
+                )
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            ).all():
+                assert (
+                    SymbolCellReviewMutationService(
+                        SqlAlchemySymbolCellReviewMutationRepository(session)
+                    )
+                    .approve(
+                        game_id=game.id,
+                        cell_review_id=rechecked.id,
+                        expected_revision=rechecked.revision,
+                        expected_geometry_revision=rechecked.geometry_revision,
+                        expected_crop_sample_id=rechecked.crop_sample_id,
+                        expected_crop_checksum_sha256=rechecked.crop_checksum_sha256,
+                        actor="symbol-cell-operator",
+                    )
+                    .board_status
+                    == "pending"
+                )
             session.flush()
 
             unreadable_service = UnreadableBoardReviewService(
@@ -1773,15 +1800,6 @@ def test_symbol_cell_bulk_operation_is_idempotent_and_resumes_board_batches(
             backfill.start_or_resume_backfill(game.id)
             assert backfill.backfill_next_batch(game.id, batch_size=50).has_more is False
             assert backfill.backfill_next_batch(game.id, batch_size=50).report.status == "ready"
-            coordinator = SymbolCellReviewWriteThroughCoordinator(session)
-            for review_item_id in (first_review_item_id, second_review_item_id):
-                assert coordinator.approve_current_geometry(
-                    game_id=game.id,
-                    review_item_id=review_item_id,
-                    expected_geometry_revision=0,
-                    actor="grid-reviewer",
-                    approved_at=now + timedelta(seconds=1),
-                )
             cells = session.scalars(
                 select(ImageSymbolReviewCellModel)
                 .where(ImageSymbolReviewCellModel.game_id == game.id)
@@ -2159,275 +2177,6 @@ def test_symbol_cell_backfill_fails_closed_when_an_active_board_has_no_sequence(
         engine.dispose()
 
 
-def test_manual_deferred_geometry_materializes_one_complete_review_projection(
-    isolated_image_batch_database: URL,
-) -> None:
-    command.upgrade(_migration_config(isolated_image_batch_database), "head")
-    engine = create_engine(isolated_image_batch_database, pool_pre_ping=True)
-    session_factory = create_session_factory(engine)
-    image_store = SqlAlchemyImageBatchStore(session_factory)
-    now = datetime(2026, 8, 23, 12, tzinfo=UTC)
-    symbol_model = bootstrap_symbol_model_snapshot()
-
-    try:
-        with session_factory() as session:
-            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
-                code="manual-deferred-geometry",
-                name="Manual deferred geometry",
-                status=GameStatus.ACTIVE,
-            )
-            job = SqlAlchemyJobRepository(session).add_job(
-                create_job(
-                    JobType.IMPORT,
-                    game_id=game.id,
-                    input_payload={
-                        "import_kind": "image_directory",
-                        "pipeline_fingerprint": PIPELINE,
-                        "schema_version": 5,
-                        "symbol_model": symbol_model.to_payload(),
-                    },
-                    created_at=now,
-                )
-            )
-            session.commit()
-
-        execution = image_store.register_file(
-            job.id,
-            source_checksum_sha256="1" * 64,
-            pipeline_fingerprint=PIPELINE,
-            source_relative_path="originals/seq_64-72.png",
-            order_index=7,
-            registered_at=now,
-        )
-        with game_storage_scope(game.id), session_factory() as session, session.begin():
-            source = SourceImageModel(
-                import_job_id=job.id,
-                file_execution_key=execution.file_execution_key,
-                relative_path="originals/seq_64-72.png",
-                checksum_sha256="1" * 64,
-                width=620,
-                height=420,
-                status="processing",
-                created_at=now,
-            )
-            session.add(source)
-            session.flush()
-            session.add(
-                ImagePipelineStageResultModel(
-                    file_execution_key=execution.file_execution_key,
-                    stage="board_detection",
-                    adapter_version="integration-board-detection-v1",
-                    result_payload={
-                        "boards": [
-                            {
-                                "confidence": 0.73,
-                                "geometry": {
-                                    "quad": [
-                                        {"x": 60.0, "y": 50.0},
-                                        {"x": 560.0, "y": 50.0},
-                                        {"x": 560.0, "y": 350.0},
-                                        {"x": 60.0, "y": 350.0},
-                                    ]
-                                },
-                                "positionIndex": 0,
-                            }
-                        ]
-                    },
-                    created_at=now,
-                )
-            )
-            manifest = BoardCellProcessingManifestV1(
-                game_id=game.id,
-                import_job_id=job.id,
-                source_image_id=source.id,
-                source_checksum_sha256=source.checksum_sha256,
-                source_relative_path=source.relative_path,
-                position_index=0,
-                sequence_number=64,
-                pipeline_fingerprint_sha256=PIPELINE,
-                estimator_version="board-cell-geometry-v20",
-                estimator_fingerprint_sha256="2" * 64,
-                cropper_version="board-cell-crops-v19",
-                cropper_fingerprint_sha256="3" * 64,
-                expected_geometry_revision=0,
-                expected_review_resolution_revision=0,
-            )
-            repository = SqlAlchemyBoardCellGeometryPendingRepository(session)
-            pending, created = repository.defer(
-                manifest=manifest,
-                reason_code=BoardCellGeometryPendingReason.INCOMPLETE_LATTICE,
-                manifest_relative_path=(
-                    f"image-board-cell-processing-v1/{manifest.checksum_sha256}.json"
-                ),
-            )
-            assert created is True
-            geometry_command = validate_image_review_geometry_command(
-                corners=(
-                    ImageReviewGeometryPoint(x=60, y=50),
-                    ImageReviewGeometryPoint(x=560, y=50),
-                    ImageReviewGeometryPoint(x=560, y=350),
-                    ImageReviewGeometryPoint(x=60, y=350),
-                ),
-                expected_geometry_revision=0,
-                expected_resolution_revision=0,
-                corrected_by="integration-owner",
-            )
-            artifacts = ImageReviewGeometryArtifacts(
-                geometry={
-                    "commandChecksumSha256": geometry_command.command_sha256,
-                    "cropperVersion": "board-cell-crops-v19",
-                    "expectedGeometryRevision": 0,
-                    "expectedResolutionRevision": 0,
-                    "positionIndex": 0,
-                    "sequenceNumber": 64,
-                    "source": "manual_override",
-                    "sourceGroup": str(job.id),
-                    "sourceImageChecksumSha256": source.checksum_sha256,
-                    "sourceImageId": str(source.id),
-                    "sourceImageRelativePath": source.relative_path,
-                },
-                board_relative_path=source.relative_path,
-                board_checksum_sha256=source.checksum_sha256,
-                cropper_version="board-cell-crops-v19",
-                cells=tuple(
-                    ImageReviewGeometryCellArtifact(
-                        row_index=index // 5,
-                        column_index=index % 5,
-                        crop_relative_path=f"manual/cell-{index}.png",
-                        crop_checksum_sha256=f"{index + 100:064x}",
-                    )
-                    for index in range(15)
-                ),
-            )
-            prediction = ManualBoardCellSymbolPrediction(
-                model_iteration_id=None,
-                model_manifest_checksum_sha256=symbol_model.manifest_checksum_sha256,
-                model_version=symbol_model.model_version,
-                temperature_applied=symbol_model.temperature,
-                cells=tuple(
-                    {
-                        "alternatives": [
-                            {
-                                "confidence": 1.0,
-                                "symbolCode": symbol_model.class_codes[0],
-                            }
-                        ],
-                        "columnIndex": index % 5,
-                        "confidence": 1.0,
-                        "rowIndex": index // 5,
-                        "symbolCode": symbol_model.class_codes[0],
-                    }
-                    for index in range(15)
-                ),
-            )
-            projection = BoardCellGeometryManualResolutionProjection(
-                idempotency_key=uuid4(),
-                command=geometry_command,
-                command_sha256="4" * 64,
-                artifacts=artifacts,
-                prediction=prediction,
-                model_inference_fingerprint=symbol_model.inference_fingerprint,
-                board_confidence=0.73,
-            )
-            result = repository.materialize_manual_resolution(
-                pending.id,
-                game_id=game.id,
-                import_job_id=job.id,
-                expected_manifest_checksum_sha256=manifest.checksum_sha256,
-                projection=projection,
-                created_at=now,
-            )
-            assert result is not None and result.created is True
-            replay = repository.materialize_manual_resolution(
-                pending.id,
-                game_id=game.id,
-                import_job_id=job.id,
-                expected_manifest_checksum_sha256=manifest.checksum_sha256,
-                projection=projection,
-                created_at=now,
-            )
-            assert replay is not None and replay.created is False
-            assert replay.review_item_id == result.review_item_id
-            review_item_id = result.review_item_id
-
-            concurrent_manifest = replace(
-                manifest,
-                position_index=1,
-                sequence_number=65,
-            )
-            concurrent_pending, _ = repository.defer(
-                manifest=concurrent_manifest,
-                reason_code=BoardCellGeometryPendingReason.RESIDUAL_TOO_HIGH,
-                manifest_relative_path=(
-                    f"image-board-cell-processing-v1/{concurrent_manifest.checksum_sha256}.json"
-                ),
-            )
-            session.add(
-                RecognizedBoardModel(
-                    source_image_id=source.id,
-                    position_index=1,
-                    sequence_number_raw="65",
-                    sequence_number=65,
-                    sequence_confidence=1.0,
-                    board_geometry={"source": "concurrent-human"},
-                    board_relative_path=source.relative_path,
-                    board_checksum_sha256=source.checksum_sha256,
-                    cells_prediction={"cells": []},
-                    board_confidence=1.0,
-                    pipeline_fingerprint=PIPELINE,
-                    geometry_revision=1,
-                    status="corrected",
-                    created_at=now,
-                )
-            )
-            session.flush()
-            human_wins = repository.materialize_manual_resolution(
-                concurrent_pending.id,
-                game_id=game.id,
-                import_job_id=job.id,
-                expected_manifest_checksum_sha256=concurrent_manifest.checksum_sha256,
-                projection=projection,
-                created_at=now,
-            )
-            assert human_wins is not None
-            assert human_wins.created is False
-            assert human_wins.pending.status.value == "superseded"
-
-        with game_storage_scope(game.id), session_factory() as session:
-            pending_row = session.get(ImageBoardGeometryPendingModel, pending.id)
-            assert pending_row is not None
-            assert pending_row.status == "resolved"
-            assert pending_row.resolved_geometry_revision == 1
-            board = session.get(RecognizedBoardModel, pending_row.recognized_board_id)
-            assert board is not None
-            assert board.sequence_number == 64
-            assert board.board_confidence == 0.73
-            assert board.geometry_revision == 1
-            assert (
-                session.scalar(
-                    select(func.count())
-                    .select_from(CellObservationModel)
-                    .where(CellObservationModel.recognized_board_id == board.id)
-                )
-                == 15
-            )
-            review = session.get(ImageReviewItemModel, review_item_id)
-            assert review is not None and review.status == "pending"
-            revision = session.scalar(
-                select(ImageBoardGeometryRevisionModel).where(
-                    ImageBoardGeometryRevisionModel.review_item_id == review_item_id
-                )
-            )
-            assert revision is not None and revision.revision == 1
-            queue_item = session.get(ImageReviewQueueItemModel, review_item_id)
-            assert queue_item is not None and queue_item.status == "pending"
-            queue_state = session.get(ImageReviewQueueStateModel, job.id)
-            assert queue_state is not None
-            assert queue_state.total_count == queue_state.pending_count == 1
-    finally:
-        engine.dispose()
-
-
 def _seed_historical_review_queue(
     connection: Connection,
     *,
@@ -2789,6 +2538,12 @@ def test_image_review_queue_projection_tracks_durable_v2_state(
         with game_storage_scope(game.id), session_factory() as session:
             removable_review = session.get(ImageReviewItemModel, middle_review_id)
             assert removable_review is not None
+            # The fixture's base geometry revision (D-467 S5) references the item.
+            session.execute(
+                delete(ImageBoardGeometryRevisionModel).where(
+                    ImageBoardGeometryRevisionModel.review_item_id == middle_review_id
+                )
+            )
             session.delete(removable_review)
             session.commit()
 
@@ -3460,10 +3215,12 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 board_geometry={"quad": []},
                 board_relative_path="crops/board.png",
                 board_checksum_sha256="9" * 64,
-                cells_prediction={"cells": []},
+                cells_prediction=_import_cells_prediction("lemon"),
                 board_confidence=0.5,
                 pipeline_fingerprint=PIPELINE,
                 status="pending_review",
+                # D-467 S5: base crops come from a manual geometry revision.
+                geometry_revision=1,
                 created_at=now,
             )
             session.add(board)
@@ -3479,22 +3236,37 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 created_at=now,
             )
             session.add(review)
-            session.add_all(
-                CellObservationModel(
+            session.flush()
+            session.add(
+                ImageBoardGeometryRevisionModel(
+                    review_item_id=review.id,
                     recognized_board_id=board.id,
-                    row_index=index // 5,
-                    column_index=index % 5,
-                    crop_relative_path=f"crops/board-{index}.png",
-                    crop_checksum_sha256=f"{index + 1:064x}",
+                    revision=1,
+                    idempotency_key=uuid4(),
+                    command_sha256="5" * 64,
+                    corners=[
+                        {"x": 0, "y": 0},
+                        {"x": 100, "y": 0},
+                        {"x": 100, "y": 100},
+                        {"x": 0, "y": 100},
+                    ],
+                    geometry={"quad": []},
+                    asset_mode="legacy_file",
+                    board_relative_path="crops/board.png",
+                    board_checksum_sha256="9" * 64,
                     cropper_version="cropper-v1",
-                    prediction={
-                        "symbolCode": "lemon",
-                        "confidence": 1.0,
-                        "alternatives": [{"symbolCode": "lemon", "confidence": 1.0}],
-                    },
+                    crop_artifacts=[
+                        {
+                            "rowIndex": index // 5,
+                            "columnIndex": index % 5,
+                            "cropRelativePath": f"crops/board-{index}.png",
+                            "cropChecksumSha256": f"{index + 1:064x}",
+                        }
+                        for index in range(15)
+                    ],
+                    corrected_by="integration-owner",
                     created_at=now,
                 )
-                for index in range(15)
             )
             session.commit()
 
@@ -3575,7 +3347,7 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 expected_revision=1,
                 action=ImageReviewAction.CORRECTED,
                 sequence_number=2,
-                geometry_revision=0,
+                geometry_revision=1,
                 cells=cells,
                 rejection_reason=None,
                 resolved_by="local-admin",
@@ -3591,7 +3363,7 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 expected_revision=1,
                 action=ImageReviewAction.CORRECTED,
                 sequence_number=2,
-                geometry_revision=0,
+                geometry_revision=1,
                 cells=cells,
                 rejection_reason=None,
                 resolved_by="local-admin",
@@ -3607,7 +3379,7 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 expected_revision=2,
                 action=ImageReviewAction.CORRECTED,
                 sequence_number=3,
-                geometry_revision=0,
+                geometry_revision=1,
                 cells=cells,
                 rejection_reason=None,
                 resolved_by="local-admin",
@@ -3622,7 +3394,7 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                     ImageReviewGeometryPoint(91, 91),
                     ImageReviewGeometryPoint(1, 91),
                 ),
-                expected_geometry_revision=0,
+                expected_geometry_revision=1,
                 expected_resolution_revision=3,
                 corrected_by="local-admin",
             )
@@ -3661,9 +3433,9 @@ def test_image_batch_store_reuses_execution_and_fences_checkpoint(
                 )
             )
             assert geometry_created is True
-            assert geometry_revision.revision == 1
+            assert geometry_revision.revision == 2
             assert reopened.status == "pending"
-            assert reopened.geometry_revision == 1
+            assert reopened.geometry_revision == 2
             assert reopened.resolution_revision == 4
             assert all(
                 current_cell.crop_sample_id != reopened.cells[index].crop_sample_id
@@ -3878,7 +3650,8 @@ def test_pending_reinference_excludes_cancelled_imports(
                         crop_sample_id=f"{index * 1000:064x}",
                         crop_relative_path=f"crops/scope-{index}-0.png",
                         crop_checksum_sha256=f"{index * 1000 + 1:064x}",
-                        geometry_revision=0,
+                        # The fixture board's current (base) geometry revision.
+                        geometry_revision=1,
                         cropper_version="projection-test-cropper",
                         prediction_symbol_code=None,
                         prediction_confidence=None,

@@ -14,6 +14,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query, Request
 from fastapi.responses import FileResponse, Response
 from PIL import Image, UnidentifiedImageError
+from pydantic import AwareDatetime
 from starlette.concurrency import run_in_threadpool
 
 from game_predictor_api.application.image_symbol_review_backfill import (
@@ -45,6 +46,7 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
+    SymbolCellReviewPredictionSource,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.image_symbol_reviews import (
@@ -500,6 +502,11 @@ def create_image_symbol_reviews_router(
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
         min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+        prediction_source: Annotated[
+            SymbolCellReviewPredictionSource | None, Query(alias="predictionSource")
+        ] = None,
+        changed_from: Annotated[AwareDatetime | None, Query(alias="changedFrom")] = None,
+        changed_to: Annotated[AwareDatetime | None, Query(alias="changedTo")] = None,
         limit: Annotated[int, Query(ge=1, le=2500)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPageResponse:
         parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
@@ -516,6 +523,9 @@ def create_image_symbol_reviews_router(
                     before_cursor=before_cursor,
                     min_confidence=min_confidence,
                     max_confidence=max_confidence,
+                    prediction_source=prediction_source,
+                    changed_from=changed_from,
+                    changed_to=changed_to,
                     limit=limit,
                     include_all_symbols=include_all_symbols,
                     outside_only=outside_only,
@@ -541,6 +551,11 @@ def create_image_symbol_reviews_router(
         before_cursor: Annotated[str | None, Query(alias="beforeCursor")] = None,
         min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+        prediction_source: Annotated[
+            SymbolCellReviewPredictionSource | None, Query(alias="predictionSource")
+        ] = None,
+        changed_from: Annotated[AwareDatetime | None, Query(alias="changedFrom")] = None,
+        changed_to: Annotated[AwareDatetime | None, Query(alias="changedTo")] = None,
     ) -> SymbolCellReviewSkipResponse:
         parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_skip_response(
@@ -556,6 +571,9 @@ def create_image_symbol_reviews_router(
                     before_cursor=before_cursor,
                     min_confidence=min_confidence,
                     max_confidence=max_confidence,
+                    prediction_source=prediction_source,
+                    changed_from=changed_from,
+                    changed_to=changed_to,
                     count=count,
                     include_all_symbols=include_all_symbols,
                     outside_only=outside_only,
@@ -579,6 +597,11 @@ def create_image_symbol_reviews_router(
         state: SymbolCellReviewFilterState = SymbolCellReviewFilterState.PENDING,
         min_confidence: Annotated[float | None, Query(alias="minConfidence", ge=0, le=1)] = None,
         max_confidence: Annotated[float | None, Query(alias="maxConfidence", ge=0, le=1)] = None,
+        prediction_source: Annotated[
+            SymbolCellReviewPredictionSource | None, Query(alias="predictionSource")
+        ] = None,
+        changed_from: Annotated[AwareDatetime | None, Query(alias="changedFrom")] = None,
+        changed_to: Annotated[AwareDatetime | None, Query(alias="changedTo")] = None,
     ) -> SymbolCellReviewCountSnapshotResponse:
         parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_count_snapshot_response(
@@ -593,6 +616,9 @@ def create_image_symbol_reviews_router(
                     expected_catalog_revision=catalog_revision,
                     min_confidence=min_confidence,
                     max_confidence=max_confidence,
+                    prediction_source=prediction_source,
+                    changed_from=changed_from,
+                    changed_to=changed_to,
                     include_all_symbols=include_all_symbols,
                     outside_only=outside_only,
                 ),

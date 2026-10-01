@@ -11,16 +11,25 @@ from datetime import datetime
 from pathlib import Path
 from uuid import UUID, uuid4
 
-from sqlalchemy import Text, cast, exists, func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import Text, cast, exists, func, select, text
+from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_api.domain.pipeline_state_compaction import (
     DISPOSABLE_STAGE_PAYLOADS,
     PIPELINE_COMPACTION_SCHEMA,
+    GameExecutionReferences,
+    PipelineExecutionReferences,
     PipelineStageDigest,
     canonical_json_bytes,
     manifest_checksum,
+    merge_game_execution_references,
     terminal_manifest_payload,
+)
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+    GameStorageStatus,
+    game_storage_scope,
 )
 from game_predictor_api.storage.models import (
     ImageBoardGeometryPendingModel,
@@ -35,6 +44,7 @@ from game_predictor_api.storage.models import (
 # The preview retains only compact digests. A larger keyset window avoids
 # hundreds of repeated PostgreSQL round-trips while keeping memory bounded.
 PREVIEW_PAGE_SIZE = 2_000
+ACTIVE_IMPORT_JOB_STATUSES = ("created", "processing")
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,9 +59,25 @@ class PipelineCompactionPreview:
     cutoff_at: datetime
 
 
+@dataclass(frozen=True, slots=True)
+class _CandidateExecution:
+    file_execution_key: str
+    source_checksum_sha256: str
+    pipeline_fingerprint: str
+    status: str
+    updated_at: datetime
+
+
 class SqlAlchemyPipelineStateCompactionRepository:
-    def __init__(self, session: Session, artifact_root: Path) -> None:
-        self._session = session
+    """Build the immutable preview from global executions and per-game guards.
+
+    Candidates come from the shared ``public`` execution tables. Import links,
+    source images and board geometry are game-owned V2 partitions (D-374), so
+    their guards run per game store in a separately bound transaction.
+    """
+
+    def __init__(self, session_factory: sessionmaker[Session], artifact_root: Path) -> None:
+        self._session_factory = session_factory
         self._artifact_root = artifact_root.resolve()
 
     def create_preview(self, *, cutoff_at: datetime) -> PipelineCompactionPreview:
@@ -73,32 +99,46 @@ class SqlAlchemyPipelineStateCompactionRepository:
             entries_path = Path(entries_file.name)
             after_key: str | None = None
             while True:
-                executions = self._candidate_page(cutoff_at=cutoff_at, after_key=after_key)
+                with self._session_factory() as session, session.begin():
+                    executions = _candidate_page(session, cutoff_at=cutoff_at, after_key=after_key)
                 if not executions:
                     break
-                keys = tuple(item.file_execution_key for item in executions)
-                stages_by_key = self._stages(keys)
-                source_ids, board_ids = self._final_ids(keys)
-                for execution in executions:
-                    stages = stages_by_key.get(execution.file_execution_key, ())
+                references = load_pipeline_execution_references(
+                    self._session_factory,
+                    tuple(item.file_execution_key for item in executions),
+                )
+                selected = tuple(
+                    item
+                    for item in executions
+                    if item.file_execution_key in references.compactable_keys
+                )
+                stages_by_key: dict[str, tuple[PipelineStageDigest, ...]] = {}
+                if selected:
+                    with self._session_factory() as session, session.begin():
+                        stages_by_key = load_pipeline_stage_digests(
+                            session, tuple(item.file_execution_key for item in selected)
+                        )
+                for execution in selected:
+                    key = execution.file_execution_key
+                    stages = stages_by_key.get(key, ())
                     if not any(item.stage in DISPOSABLE_STAGE_PAYLOADS for item in stages):
                         continue
                     payload = terminal_manifest_payload(
-                        file_execution_key=execution.file_execution_key,
+                        file_execution_key=key,
                         source_checksum_sha256=execution.source_checksum_sha256,
                         pipeline_fingerprint=execution.pipeline_fingerprint,
                         execution_status=execution.status,
                         execution_updated_at=execution.updated_at,
                         stages=stages,
-                        source_image_ids=source_ids.get(execution.file_execution_key, ()),
-                        recognized_board_ids=board_ids.get(execution.file_execution_key, ()),
+                        source_image_ids=references.source_image_ids.get(key, ()),
+                        recognized_board_ids=references.recognized_board_ids.get(key, ()),
                     )
                     disposable = tuple(
                         item for item in stages if item.stage in DISPOSABLE_STAGE_PAYLOADS
                     )
                     disposable_bytes = sum(item.payload_bytes for item in disposable)
                     entry = {
-                        "fileExecutionKey": execution.file_execution_key,
+                        "fileExecutionKey": key,
                         "executionUpdatedAt": execution.updated_at.isoformat(),
                         "terminalManifestChecksumSha256": manifest_checksum(payload),
                         "terminalManifest": payload,
@@ -139,87 +179,162 @@ class SqlAlchemyPipelineStateCompactionRepository:
             cutoff_at=cutoff_at,
         )
 
-    def _candidate_page(
-        self, *, cutoff_at: datetime, after_key: str | None
-    ) -> tuple[ImageFileExecutionModel, ...]:
-        active_job = exists(
-            select(ImageImportJobFileModel.file_execution_key)
-            .join(JobModel, JobModel.id == ImageImportJobFileModel.job_id)
-            .where(
-                ImageImportJobFileModel.file_execution_key
-                == ImageFileExecutionModel.file_execution_key,
-                JobModel.status.in_(("created", "processing")),
-            )
-        )
-        failed_link = exists(
-            select(ImageImportJobFileModel.file_execution_key).where(
-                ImageImportJobFileModel.file_execution_key
-                == ImageFileExecutionModel.file_execution_key,
-                ImageImportJobFileModel.workflow_status == "failed",
-            )
-        )
-        unresolved_geometry = exists(
-            select(ImageBoardGeometryPendingModel.id)
-            .join(
-                SourceImageModel,
-                SourceImageModel.id == ImageBoardGeometryPendingModel.source_image_id,
-            )
-            .where(
-                SourceImageModel.file_execution_key == ImageFileExecutionModel.file_execution_key,
-                ImageBoardGeometryPendingModel.status != "resolved",
-            )
-        )
-        has_disposable = exists(
-            select(ImagePipelineStageResultModel.file_execution_key).where(
-                ImagePipelineStageResultModel.file_execution_key
-                == ImageFileExecutionModel.file_execution_key,
-                ImagePipelineStageResultModel.stage.in_(DISPOSABLE_STAGE_PAYLOADS),
-            )
-        )
-        statement = (
-            select(ImageFileExecutionModel)
-            .where(
-                ImageFileExecutionModel.updated_at <= cutoff_at,
-                ImageFileExecutionModel.status.in_(("waiting_for_review", "completed")),
-                ~active_job,
-                ~failed_link,
-                ~unresolved_geometry,
-                has_disposable,
-            )
-            .order_by(ImageFileExecutionModel.file_execution_key)
-            .limit(PREVIEW_PAGE_SIZE)
-        )
-        if after_key is not None:
-            statement = statement.where(ImageFileExecutionModel.file_execution_key > after_key)
-        return tuple(self._session.scalars(statement).all())
 
-    def _stages(self, keys: tuple[str, ...]) -> dict[str, tuple[PipelineStageDigest, ...]]:
-        return load_pipeline_stage_digests(self._session, keys)
+def _candidate_page(
+    session: Session, *, cutoff_at: datetime, after_key: str | None
+) -> tuple[_CandidateExecution, ...]:
+    """Page global executions only; game-owned guards run per game store."""
 
-    def _final_ids(
-        self, keys: tuple[str, ...]
-    ) -> tuple[dict[str, tuple[str, ...]], dict[str, tuple[str, ...]]]:
-        sources: dict[str, list[str]] = {key: [] for key in keys}
-        boards: dict[str, list[str]] = {key: [] for key in keys}
-        rows = self._session.execute(
-            select(SourceImageModel.file_execution_key, SourceImageModel.id).where(
-                SourceImageModel.file_execution_key.in_(keys)
-            )
+    has_disposable = exists(
+        select(ImagePipelineStageResultModel.file_execution_key).where(
+            ImagePipelineStageResultModel.file_execution_key
+            == ImageFileExecutionModel.file_execution_key,
+            ImagePipelineStageResultModel.stage.in_(DISPOSABLE_STAGE_PAYLOADS),
+        )
+    )
+    statement = (
+        select(
+            ImageFileExecutionModel.file_execution_key,
+            ImageFileExecutionModel.source_checksum_sha256,
+            ImageFileExecutionModel.pipeline_fingerprint,
+            ImageFileExecutionModel.status,
+            ImageFileExecutionModel.updated_at,
+        )
+        .where(
+            ImageFileExecutionModel.updated_at <= cutoff_at,
+            ImageFileExecutionModel.status.in_(("waiting_for_review", "completed")),
+            has_disposable,
+        )
+        .order_by(ImageFileExecutionModel.file_execution_key)
+        .limit(PREVIEW_PAGE_SIZE)
+    )
+    if after_key is not None:
+        statement = statement.where(ImageFileExecutionModel.file_execution_key > after_key)
+    return tuple(
+        _CandidateExecution(
+            file_execution_key=str(key),
+            source_checksum_sha256=str(source_checksum),
+            pipeline_fingerprint=str(fingerprint),
+            status=str(status),
+            updated_at=updated_at,
+        )
+        for key, source_checksum, fingerprint, status, updated_at in session.execute(
+            statement
         ).all()
-        source_to_key = {source_id: key for key, source_id in rows}
-        for key, source_id in rows:
-            sources[key].append(str(source_id))
-        if source_to_key:
-            for source_id, board_id in self._session.execute(
-                select(RecognizedBoardModel.source_image_id, RecognizedBoardModel.id).where(
-                    RecognizedBoardModel.source_image_id.in_(tuple(source_to_key))
+    )
+
+
+def load_pipeline_execution_references(
+    session_factory: sessionmaker[Session],
+    keys: tuple[str, ...],
+) -> PipelineExecutionReferences:
+    """Evaluate game-owned guards for global executions, one game store at a time.
+
+    One transaction may bind only one game store
+    (``GameStorageRouter._require_same_binding``), so every registered game
+    gets a fresh session with a READ binding. Games that are not ``active``
+    are read too and protect every key they own; results are merged
+    fail-closed by :func:`merge_game_execution_references`.
+    """
+
+    if not keys:
+        return merge_game_execution_references(())
+    with session_factory() as session, session.begin():
+        registry = session.execute(
+            text("SELECT game_id, status FROM public.game_storage_locations ORDER BY game_id")
+        ).all()
+    games: list[GameExecutionReferences] = []
+    for raw_game_id, raw_status in registry:
+        game_id = raw_game_id if isinstance(raw_game_id, UUID) else UUID(str(raw_game_id))
+        with (
+            game_storage_scope(game_id),
+            session_factory() as session,
+            session.begin(),
+        ):
+            GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ)
+            games.append(
+                _game_execution_references(
+                    session,
+                    game_id,
+                    keys,
+                    storage_active=str(raw_status) == GameStorageStatus.ACTIVE.value,
                 )
-            ).all():
-                boards[source_to_key[source_id]].append(str(board_id))
-        return (
-            {key: tuple(value) for key, value in sources.items()},
-            {key: tuple(value) for key, value in boards.items()},
+            )
+    return merge_game_execution_references(games)
+
+
+def _game_execution_references(
+    session: Session, game_id: UUID, keys: tuple[str, ...], *, storage_active: bool
+) -> GameExecutionReferences:
+    """Read one bound game store; every query is limited to ``keys``.
+
+    RLS on ``game_data_v2`` does not apply to a superuser or BYPASSRLS role
+    (the local Docker role is one), so each query is also scoped explicitly to
+    ``game_id`` through the owning import job or the row's own ``game_id``.
+    """
+
+    game_link = (
+        select(ImageImportJobFileModel.file_execution_key)
+        .join(JobModel, JobModel.id == ImageImportJobFileModel.job_id)
+        .where(
+            JobModel.game_id == game_id,
+            ImageImportJobFileModel.file_execution_key.in_(keys),
         )
+        .distinct()
+    )
+    game_source = (
+        select(SourceImageModel.file_execution_key, SourceImageModel.id)
+        .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+        .where(
+            JobModel.game_id == game_id,
+            SourceImageModel.file_execution_key.in_(keys),
+        )
+    )
+    linked = session.scalars(game_link).all()
+    source_rows = session.execute(game_source).all()
+    active_job = session.scalars(
+        game_link.where(JobModel.status.in_(ACTIVE_IMPORT_JOB_STATUSES))
+    ).all()
+    # A failed link, or a link that never reached a terminal workflow state (its job may
+    # be retried and would recompute the stages), protects the execution.
+    unsettled_link = session.scalars(
+        game_link.where(
+            ImageImportJobFileModel.workflow_status.not_in(("waiting_for_review", "completed"))
+        )
+    ).all()
+    unresolved_geometry = session.scalars(
+        select(SourceImageModel.file_execution_key)
+        .join(
+            ImageBoardGeometryPendingModel,
+            ImageBoardGeometryPendingModel.source_image_id == SourceImageModel.id,
+        )
+        .where(
+            ImageBoardGeometryPendingModel.game_id == game_id,
+            SourceImageModel.file_execution_key.in_(keys),
+            ImageBoardGeometryPendingModel.status != "resolved",
+        )
+        .distinct()
+    ).all()
+    sources: dict[str, list[str]] = {}
+    source_to_key: dict[UUID, str] = {}
+    for key, source_id in source_rows:
+        sources.setdefault(key, []).append(str(source_id))
+        source_to_key[source_id] = key
+    boards: dict[str, list[str]] = {}
+    if source_to_key:
+        for source_id, board_id in session.execute(
+            select(RecognizedBoardModel.source_image_id, RecognizedBoardModel.id).where(
+                RecognizedBoardModel.source_image_id.in_(tuple(source_to_key))
+            )
+        ).all():
+            boards.setdefault(source_to_key[source_id], []).append(str(board_id))
+    return GameExecutionReferences(
+        storage_active=storage_active,
+        owned_keys=frozenset((*linked, *sources)),
+        blocked_keys=frozenset((*active_job, *unsettled_link, *unresolved_geometry)),
+        source_image_ids={key: tuple(value) for key, value in sources.items()},
+        recognized_board_ids={key: tuple(value) for key, value in boards.items()},
+    )
 
 
 def _file_sha256(path: Path) -> str:
@@ -266,7 +381,9 @@ def load_pipeline_stage_digests(
 
 
 __all__ = [
+    "ACTIVE_IMPORT_JOB_STATUSES",
     "PipelineCompactionPreview",
     "SqlAlchemyPipelineStateCompactionRepository",
+    "load_pipeline_execution_references",
     "load_pipeline_stage_digests",
 ]

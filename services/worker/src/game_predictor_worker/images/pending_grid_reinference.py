@@ -29,12 +29,13 @@ from game_predictor_api.storage.models import (
     ImageBoardGeometryRevisionModel,
     ImageImportJobFileModel,
     ImageReviewItemModel,
+    ImageSymbolReviewCellModel,
     JobModel,
     RecognizedBoardModel,
     SourceImageModel,
 )
 from PIL import Image, ImageOps, UnidentifiedImageError
-from sqlalchemy import and_, select
+from sqlalchemy import ColumnElement, and_, exists, or_, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from game_predictor_worker.jobs.runtime import JobExecutionContext, JobHandlerError
@@ -154,6 +155,10 @@ class PendingGridReinferenceHandler:
                         JobModel.game_id == job.game_id,
                         JobModel.status == JobStatus.WAITING_FOR_REVIEW,
                         ImageReviewItemModel.status == "pending",
+                        # The v1 path writes file crops; a virtual board's
+                        # revision must come with a render manifest (D-467).
+                        RecognizedBoardModel.asset_mode == "legacy_file",
+                        ~_human_cell_decision_exists(job.game_id),
                     )
                     .order_by(ImageReviewItemModel.created_at, ImageReviewItemModel.id)
                 )
@@ -204,6 +209,8 @@ class PendingGridReinferenceHandler:
                     or locked.status != "pending"
                     or locked_board is None
                     or locked_board.geometry_revision != board.geometry_revision
+                    or locked_board.asset_mode != "legacy_file"
+                    or _has_human_cell_decision(session, game_id=job.game_id, item_id=item.id)
                 ):
                     skipped += 1
                 else:
@@ -401,6 +408,7 @@ class PendingGridReinferenceHandler:
                     ImageReviewItemModel.status == "pending",
                     RecognizedBoardModel.asset_mode == "legacy_file",
                     RecognizedBoardModel.approved_geometry_revision.is_(None),
+                    ~_human_cell_decision_exists(game_id),
                 )
                 .order_by(
                     ImageImportJobFileModel.order_index,
@@ -561,6 +569,10 @@ class PendingGridReinferenceHandler:
                 snapshot,
                 item=locked_item,
                 board=locked_board,
+            ) or _has_human_cell_decision(
+                session,
+                game_id=locked_item.game_id if locked_item is not None else None,
+                item_id=snapshot.review_item_id,
             ):
                 return "skipped"
             assert locked_board is not None
@@ -829,6 +841,54 @@ def _v19_geometry_payload(
         if value is not None:
             payload[key] = value
     return payload
+
+
+def _human_cell_decision_exists(game_id: UUID) -> ColumnElement[bool]:
+    """Any human decision on a current cell of the correlated review item.
+
+    D-462 R9: verification belongs to the cells, so an automatic recrop must
+    never replace pixels a human has approved, relabelled or reported.  The
+    board-level geometry approval is no longer the protection.
+    """
+
+    cell = ImageSymbolReviewCellModel
+    return exists(
+        select(cell.id).where(
+            cell.game_id == game_id,
+            cell.review_item_id == ImageReviewItemModel.id,
+            or_(
+                cell.review_state == "approved",
+                cell.quality_issue == "grid_issue",
+                cell.assignment_source.in_(("human", "board_decision")),
+            ),
+        )
+    )
+
+
+def _has_human_cell_decision(
+    session: Session,
+    *,
+    game_id: UUID | None,
+    item_id: UUID,
+) -> bool:
+    cell = ImageSymbolReviewCellModel
+    return bool(
+        session.scalar(
+            select(
+                exists(
+                    select(cell.id).where(
+                        *(() if game_id is None else (cell.game_id == game_id,)),
+                        cell.review_item_id == item_id,
+                        or_(
+                            cell.review_state == "approved",
+                            cell.quality_issue == "grid_issue",
+                            cell.assignment_source.in_(("human", "board_decision")),
+                        ),
+                    )
+                )
+            )
+        )
+    )
 
 
 def _pending_projection_matches(

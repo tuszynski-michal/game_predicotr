@@ -55,6 +55,7 @@ export function SymbolReviewSourceModal({
       if (objectUrl !== null) URL.revokeObjectURL(objectUrl);
     };
   }, [api, gameId, item, attempt]);
+  const [zoom, setZoom] = useState(100);
   const points = state?.cells.flat() ?? [];
   const minX = Math.min(0, ...points.map((p) => p.x));
   const minY = Math.min(0, ...points.map((p) => p.y));
@@ -68,6 +69,11 @@ export function SymbolReviewSourceModal({
       onCancel={(event) => {
         event.preventDefault();
         onClose();
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
       }}
     >
       <div className="symbolImagePickerCard">
@@ -117,34 +123,60 @@ export function SymbolReviewSourceModal({
               onError={() => setError('Nie można odczytać obrazu źródłowego.')}
             />
             {size !== null ? (
-              <svg
-                role="img"
-                aria-label={`Zdjęcie z siatką planszy ${item.sequenceNumber}, wyróżnione pole ${item.cellIndex + 1}`}
-                viewBox={`${minX} ${minY} ${maxX - minX} ${maxY - minY}`}
-                style={{
-                  width: '100%',
-                  maxHeight: '65vh',
-                  background: '#14202d',
-                }}
-              >
-                <image
-                  href={state.url}
-                  x="0"
-                  y="0"
-                  width={size.width}
-                  height={size.height}
-                />
-                {state.cells.map((cell, index) => (
-                  <polygon
-                    key={index}
-                    points={cell.map((p) => `${p.x},${p.y}`).join(' ')}
-                    fill={index === item.cellIndex ? '#ffb30055' : 'none'}
-                    stroke={index === item.cellIndex ? '#ffb300' : '#00d4ff'}
-                    strokeWidth={index === item.cellIndex ? 4 : 1.5}
-                    vectorEffect="non-scaling-stroke"
+              <>
+                <label className="symbolImagePickerZoom">
+                  Przybliżenie
+                  <input
+                    max={700}
+                    min={100}
+                    onChange={(event) => setZoom(Number(event.target.value))}
+                    step={10}
+                    type="range"
+                    value={zoom}
                   />
-                ))}
-              </svg>
+                  <span>{zoom}%</span>
+                </label>
+                <div
+                  style={{
+                    overflow: 'auto',
+                    maxHeight: '65vh',
+                    background: '#14202d',
+                    borderRadius: 10,
+                  }}
+                >
+                  <svg
+                    role="img"
+                    aria-label={`Zdjęcie z siatką planszy ${item.sequenceNumber}, wyróżnione pole ${item.cellIndex + 1}`}
+                    viewBox={`${minX} ${minY} ${maxX - minX} ${maxY - minY}`}
+                    style={{
+                      width: `${zoom}%`,
+                      height: 'auto',
+                      display: 'block',
+                      background: '#14202d',
+                    }}
+                  >
+                    <image
+                      href={state.url}
+                      x="0"
+                      y="0"
+                      width={size.width}
+                      height={size.height}
+                    />
+                    {state.cells.map((cell, index) => (
+                      <polygon
+                        key={index}
+                        points={cell.map((p) => `${p.x},${p.y}`).join(' ')}
+                        fill={index === item.cellIndex ? '#ffb30055' : 'none'}
+                        stroke={
+                          index === item.cellIndex ? '#ffb300' : '#00d4ff'
+                        }
+                        strokeWidth={1}
+                        vectorEffect="non-scaling-stroke"
+                      />
+                    ))}
+                  </svg>
+                </div>
+              </>
             ) : null}
           </>
         ) : null}

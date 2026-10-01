@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-09-29
+last_updated: 2026-10-01
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -115,6 +115,260 @@ Powtórzenie bramki bez odczytu bazy:
 Oczekuj `acceptancePassed: true` i wszystkich pól `gates` równych `true`.
 Szczegóły korpusu, coverage i ograniczeń:
 [odbiór v0.10.4](../quality/LATERAL_PARTIAL_V4_ACCEPTANCE.md).
+
+## Przejście na manifest magazynu v3 i `board_render_manifests` (TASK-0757, D-467)
+
+Kod od TASK-0757 wymaga migracji `0131_board_render_manifests`: router
+magazynu gry akceptuje wyłącznie wersję `game-data-v2-manifest-v3`. Stary kod
+nie działa na nowym schemacie, a nowy na starym. API (`npm run api:dev`) i
+worker (`worker:*`) sprawdzają przy starcie `alembic_version` jednym `SELECT`
+i przy niezgodności kończą się błędem `ALEMBIC_HEAD_MISMATCH` zamiast psuć
+każde żądanie danych gry.
+
+Przejście (cutover). Strażnik `ALEMBIC_HEAD_MISMATCH` działa tylko przy
+świeżym starcie procesu: `api:dev --reload` przeładowuje wyłącznie proces
+potomny, a już działające API i workery nie są sprawdzane po migracji —
+dlatego kroki 1–2 są obowiązkowe:
+
+1. Zaczekaj na zakończenie aktywnych jobów (import, backfille, biblioteka
+   wzorców) albo zatrzymaj je bezpiecznie.
+2. Zatrzymaj API, workery wszystkich lane'ów i Reviewera we **wszystkich**
+   checkoutach i worktree (także tunel Reviewera). Migracja bierze
+   `LOCK ... ACCESS EXCLUSIVE` na `public.game_storage_locations` z
+   `lock_timeout = 5s`; aktywna transakcja innego procesu powoduje błąd
+   migracji (nic nie zostaje zmienione, można powtórzyć po zatrzymaniu).
+   Na Windows zatrzymanie samego procesu nadrzędnego uvicorn `--reload`
+   (`Stop-Process`, `taskkill` bez `/T`) zostawia proces potomny
+   `python.exe -c "from multiprocessing.spawn …"`, który dalej nasłuchuje na
+   tym samym porcie ze starym kodem; Windows dopuszcza kilku słuchaczy na
+   `127.0.0.1:8000`, więc żądania trafiają na przemian do starego i nowego
+   procesu (objaw: `/health` 200, a dane gry raz 200, raz 500
+   `GAME_STORAGE_LOCATION_INVALID` lub `ALEMBIC_HEAD_MISMATCH`). Po
+   zatrzymaniu sprawdź `netstat -ano | findstr :8000` i zakończ każdy
+   wymieniony PID (`taskkill /PID <pid> /T /F`) przed startem nowego kodu.
+3. Scal kod (merge) do checkoutu, z którego uruchamiasz usługi.
+4. `npm run db:migrate`, potem `npm run db:current` → `0131_board_render_manifests`.
+   Migracja odmówi (`GAME_STORAGE_LIFECYCLE_IN_PROGRESS`,
+   `GAME_STORAGE_LOCATION_BUSY`), jeśli trwa provisionowanie lub usuwanie gry.
+5. Uruchom usługi nowego kodu.
+6. Backfill manifestów z `cell_observations` wykonano 2026-10-01 (777 i
+   `cf300bc1…`, TASK-0757). Skrypt `scripts/backfill_board_render_manifests.py`
+   został usunięty w TASK-0759 razem z tabelą obserwacji (źródłem rewizji 0);
+   manifesty piszą wyłącznie writery importu i ręcznej geometrii.
+
+Wycofanie do `0130` nie jest już możliwe po `0134` (TASK-0759): migracja
+`0134` usuwa obserwacje i odmawia downgrade'u.
+
+## Tylko wirtualne polityki importu i rezolucja odroczonych plansz (TASK-0790, D-467)
+
+Kod od TASK-0790 wymaga migracji `0133_virtual_only_import_policies`
+(strażnik `ALEMBIC_HEAD_MISMATCH` jak wyżej). Migracja przestawia każdy stan
+rolloutu gry w trybie `legacy` / `legacy_files` albo `structured_shadow` na
+domyślny tryb nowej gry `structured_lattice_v3` / `virtual_default`
+(rewizja + 1, postęp walidacji wyzerowany), zawęża CHECK-i trybów i nie ma
+downgrade'u (odmawia — powrót tylko z kopii zapasowej). Odmawia też
+(`IMAGE_ENGINE_POLICY_MIGRATION_BUSY`), gdy taki stan ma aktywny backfill
+walidacji. Na bazie operatora dotyczy to dwóch gier (`cf300bc1…`,
+`2a46d3a6…`, rewizja 0).
+
+Przejście: zatrzymaj API, workery i Reviewera we wszystkich checkoutach (jak
+w krokach 1–2 powyżej), scal kod, `npm run db:migrate`, sprawdź
+`npm run db:current` → `0133_virtual_only_import_policies`, uruchom usługi.
+Reviewer i API są wdrażane razem; sesja Reviewera w trakcie przejścia może
+dostać błąd 4xx/5xx i wystarczy ją odświeżyć.
+
+Zmiany zachowania:
+
+- Admin nie oferuje już `verified_v19` ani `structured_shadow`; API odrzuca
+  je kodem `IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED` (422).
+- Job importu przypięty do usuniętego silnika kończy się błędem
+  `IMAGE_PIPELINE_NON_VIRTUAL_ROLLOUT_REJECTED`, a writer odmawia planszy
+  niewirtualnej (`IMAGE_PIPELINE_NON_VIRTUAL_BOARD_REJECTED`).
+- Ręczna rezolucja odroczonej planszy w Reviewerze (ten sam przycisk i
+  endpoint `manual-resolution`) tworzy planszę `virtual_source` z manifestem
+  renderu i predykcjami modelu przypiętego do importu; nie zapisuje plików
+  cropów ani obserwacji. Podgląd pokazuje komórki renderu wirtualnego.
+
+## Tylko wirtualne plansze: konwersja `legacy_file` i migracja `0135` (TASK-0791, D-467 S6)
+
+Kod od TASK-0791 wymaga migracji `0135_virtual_only_asset_modes` (strażnik
+`ALEMBIC_HEAD_MISMATCH` jak wyżej). Migracja odmawia
+(`LEGACY_FILE_BOARDS_PRESENT` / `LEGACY_FILE_CELLS_PRESENT`), dopóki w bazie
+jest jakakolwiek plansza albo komórka `legacy_file`, więc kolejność cutoveru
+to: zatrzymanie usług (jak wyżej, z kontrolą osieroconych procesów) → merge →
+konwersja → `npm run db:migrate` → start.
+
+Konwersja (tylko z checkoutu, którego `artifacts/` zawiera oryginały zdjęć;
+inaczej `IMAGE_REVIEW_ASSET_NOT_FOUND`):
+
+```powershell
+$env:PYTHONPATH = "services/worker/src;services/api/src"
+# podgląd tylko do odczytu; --render-sources renderuje N źródeł w pamięci
+.\.venv\Scripts\python.exe scripts/convert_legacy_boards_to_virtual.py --game-id <uuid> --preview --render-sources 3
+# wykonanie: jedno źródło na transakcję, wznawialne (skonwertowane plansze
+# nie są już legacy_file); --max-seconds kończy porcję, kolejne wywołanie
+# kontynuuje; kod wyjścia 2, gdy jakieś źródło zostało pominięte z problemem
+.\.venv\Scripts\python.exe scripts/convert_legacy_boards_to_virtual.py --game-id <uuid> --execute --max-seconds 100
+```
+
+Raport JSON trafia do `artifacts/data/exports/legacy-board-conversion/<gra>/`.
+Po konwersji `SELECT count(*) FROM game_data_v2.recognized_boards WHERE
+asset_mode = 'legacy_file'` musi dać 0 dla każdej gry; wtedy `db:migrate`.
+Migracja dodaje CHECK komórek jako `NOT VALID` (walidacja 7,5 mln wierszy
+nie mieści się w budżecie 120 s); po starcie usług zwaliduj go w tle,
+blokada `SHARE UPDATE EXCLUSIVE` nie wstrzymuje zapisów:
+
+```sql
+SET statement_timeout = '1800s';
+ALTER TABLE game_data_v2.image_symbol_review_cells
+  VALIDATE CONSTRAINT ck_image_symbol_review_cells_asset_provenance;
+```
+Wycofanie: `alembic downgrade 0134_…` przywraca dawne CHECK-i, ale
+skonwertowanych plansz nie cofa (nowa rewizja wirtualna zostaje; dawna
+rewizja `legacy_file` jest nadal w `image_board_geometry_revisions`).
+Po `0136` (niżej) downgrade poniżej `0136` nie jest już możliwy.
+
+## Usunięcie `render_spec` z komórek weryfikacji: migracja `0136` (TASK-0793, D-467 S7)
+
+Kod od TASK-0793 wymaga migracji `0136_drop_cell_render_spec` (strażnik
+`ALEMBIC_HEAD_MISMATCH`); kod sprzed niej nie działa na `0136` (zapisuje
+kolumnę, której już nie ma). Kolejność cutoveru jak dla `0134`:
+
+1. Zakończ albo bezpiecznie zatrzymaj joby; zatrzymaj API, workery
+   (wszystkie lane'y) i Reviewera we **wszystkich** checkoutach i worktree;
+   sprawdź osierocone dzieci `uvicorn --reload` na portach API (sekcja
+   `0134` niżej) i zakończ je.
+2. Merge kodu.
+3. `npm run db:migrate`, potem `npm run db:current` =
+   `0136_drop_cell_render_spec`. Migracja bierze `ACCESS EXCLUSIVE` na
+   komórkach (`lock_timeout = 5s` — aktywna transakcja kończy ją błędem bez
+   zmian, można powtórzyć), sprawdza manifesty (ok. 7 s na 777) i odmawia
+   `CELL_RENDER_MANIFEST_MISSING: N virtual review cells …`, gdy któraś
+   komórka `virtual_source` nie ma manifestu renderu swojej rewizji (wtedy
+   nic nie zmienia — zgłoś przed ponowieniem). `DROP COLUMN` jest
+   natychmiastowe (tylko katalog); miejsce zwalnia dopiero przepisanie
+   partycji (`DATABASE_MAINTENANCE.md`).
+4. Start usług; kontrola: lista komórek 777 w Adminie, podgląd atlasu i
+   PNG wzorca.
+5. W tle (blokada `SHARE UPDATE EXCLUSIVE`, zapisy działają) zwaliduj oba
+   CHECK-i dodane jako `NOT VALID`:
+
+```sql
+SET statement_timeout = '1800s';
+ALTER TABLE game_data_v2.image_symbol_review_cells
+  VALIDATE CONSTRAINT ck_image_symbol_review_cells_asset_provenance;
+ALTER TABLE game_data_v2.image_symbol_review_cells
+  VALIDATE CONSTRAINT ck_image_symbol_review_cells_source_asset;
+-- oba wiersze muszą mieć convalidated = t
+SELECT conname, convalidated FROM pg_constraint
+WHERE conrelid = 'game_data_v2.image_symbol_review_cells'::regclass
+  AND conname IN ('ck_image_symbol_review_cells_asset_provenance',
+                  'ck_image_symbol_review_cells_source_asset');
+```
+
+`ck_image_symbol_review_cells_source_asset` był `NOT VALID` od `0126`; jego
+walidacja jest pierwszą pełną kontrolą starych pozycji `outside` — błąd
+walidacji nie cofa migracji, ale wymaga zgłoszenia przed kolejnym krokiem.
+
+Wycofanie: brak (`CELL_RENDER_SPEC_DROP_IRREVERSIBLE`). Specyfikacje renderu
+są w `board_render_manifests`; odtworzenie kolumny byłoby backfillem, nie
+downgradem. Przed `db:migrate` zrób kopię zapasową (`DATABASE_MAINTENANCE.md`).
+
+## Odchudzenie rewizji predykcji: migracja `0137` i skrypt (TASK-0794, D-467 S8)
+
+Kod od TASK-0794 wymaga migracji `0137_prediction_revisions_slim` (strażnik
+`ALEMBIC_HEAD_MISMATCH`) i pisze rewizje predykcji bez
+`virtualCell.renderSpec`. Cutover jak dla `0136`: zatrzymanie wszystkich
+procesów we wszystkich checkoutach (z kontrolą osieroconych dzieci
+`uvicorn --reload`) → merge → `npm run db:migrate` (`npm run db:current` =
+`0137_prediction_revisions_slim`; tylko nowa kolumna, bez przepisywania
+danych, `lock_timeout = 5s`) → start. Żaden przebieg `apply` biblioteki
+wzorców nie może trwać w trakcie cutoveru ani odchudzania.
+
+Odchudzenie istniejących rewizji (po starcie, w tle; blokuje tylko wiersze
+bieżącej porcji):
+
+```powershell
+$env:PYTHONPATH = "services/worker/src;services/api/src"
+# podgląd tylko do odczytu (działa też na 0136): liczby, bajty, próbka
+.\.venv\Scripts\python.exe scripts/slim_prediction_revisions.py --game-id <uuid> --preview
+# wykonanie porcjami po 500; --max-seconds kończy wywołanie, kolejne
+# kontynuuje od checkpointu; kod 2 = przerwane albo błąd (raport JSON)
+.\.venv\Scripts\python.exe scripts/slim_prediction_revisions.py --game-id <uuid> --execute --max-seconds 100
+# retencja rewizji zastąpionych review items bez komórek (bez kotwic biblioteki)
+.\.venv\Scripts\python.exe scripts/slim_prediction_revisions.py --game-id <uuid> --mode retention --preview
+.\.venv\Scripts\python.exe scripts/slim_prediction_revisions.py --game-id <uuid> --mode retention --execute
+```
+
+Raporty i `slim-checkpoint.json` trafiają do
+`artifacts/data/exports/prediction-revision-slim/<gra>/`. `--execute`
+powtarzaj, aż raport ma `completed: true`; kolejne wywołanie zwraca
+`scanned: 0`. Kontrola po zakończeniu:
+
+```sql
+SELECT count(*) FILTER (WHERE legacy_predictions_sha256 IS NULL) AS left,
+       pg_size_pretty(sum(pg_column_size(predictions))::bigint) AS stored
+FROM game_data_v2.image_symbol_prediction_revisions WHERE game_id = '<uuid>';
+```
+
+Błąd `PREDICTION_REVISION_SLIM_DIGEST_DRIFT` / `…_VERIFY_FAILED` wycofuje
+całą porcję (nic nie zapisano) — zgłoś przed ponowieniem. Miejsce zwalnia
+`VACUUM (FULL, ANALYZE)` partycji rewizji (`DATABASE_MAINTENANCE.md` 2.7).
+Wycofanie: `alembic downgrade 0136_…` usuwa kolumnę tylko, dopóki skrypt jej
+nie wypełnił (`PREDICTION_REVISION_LEGACY_DIGEST_PRESENT`); odchudzonych
+rewizji nie da się przywrócić z bazy (pełna specyfikacja bieżącej rewizji
+jest w manifeście renderu, starszych rewizji geometrii 0 — tylko w kopii
+zapasowej).
+
+## Manifest magazynu v4: usunięcie `cell_observations` i archiwum wyszukiwarki (TASK-0759, D-467 S5)
+
+Kod od TASK-0759 wymaga migracji `0134_drop_cell_observations_and_legacy_archive`
+(strażnik `ALEMBIC_HEAD_MISMATCH` jak wyżej): router i provisioning gry
+akceptują wyłącznie `game-data-v2-manifest-v4`. Migracja jest
+**nieodwracalna** — usuwa tabelę `cell_observations` (na bazie operatora ok.
+7,66 mln wierszy, 28 GB) oraz puste tabele `legacy_board_search_archive_*`
+razem z partycjami, a downgrade odmawia (`CELL_OBSERVATIONS_DROP_IRREVERSIBLE`).
+Jedyną kopią obserwacji jest zrzut
+`C:\game_predictor_backup\cell_observations-20261001-0404.dump`
+(`pg_restore` tylko do bazy pomocniczej).
+
+Przed migracją (osobna zgoda operatora, okno bez zapisów):
+
+1. Zatrzymaj API, workery wszystkich lane'ów i Reviewera we wszystkich
+   checkoutach i worktree (jak w krokach 1–2 przejścia na v3).
+2. Scal kod, potem `npm run db:migrate` i `npm run db:current` →
+   `0134_drop_cell_observations_and_legacy_archive`.
+3. Uruchom usługi nowego kodu.
+
+Preflight migracji (każda odmowa nic nie zmienia, można poprawić stan i
+powtórzyć): `GAME_STORAGE_LIFECYCLE_IN_PROGRESS` / `GAME_STORAGE_LOCATION_BUSY`
+(provisionowanie lub usuwanie gry w toku), `GAME_STORAGE_MANIFEST_UNEXPECTED`
+(lokalizacja nie jest na v3), `GAME_STORAGE_DROP_TABLE_UNEXPECTED`,
+`GAME_STORAGE_DROP_FOREIGN_KEY_PRESENT` (klucz obcy spoza usuwanych tabel),
+`CELL_OBSERVATIONS_LEGACY_REVISION_ZERO_PRESENT` (plansza `legacy_file` na
+rewizji 0), `BOARD_RENDER_MANIFEST_MISSING` (plansza `virtual_source` z
+dostępnymi komórkami bez manifestu bieżącej rewizji) i
+`LEGACY_BOARD_SEARCH_ARCHIVE_NOT_EMPTY`. Migracja bierze `lock_timeout = 5s`
+na rejestrze lokalizacji, usuwanych tabelach oraz `SHARE` na
+`recognized_boards` i `board_render_manifests`.
+
+Po migracji `DROP TABLE` oddaje pliki partycji od razu (bez `VACUUM FULL`);
+sprawdź `pg_database_size` i wolne miejsce, a plik `docker_data.vhdx` zmniejsz
+według `ai_docs/guides/DATABASE_MAINTENANCE.md` (sekcja 3).
+
+Zmiany zachowania i usunięte narzędzia:
+
+- Wyszukiwarka plansz ma jedno źródło (`operational_review`); endpoint
+  `GET …/board-search/archive-assets/{sequenceNumber}` zwraca 404.
+- Plansza `legacy_file` na rewizji 0 (na bazie operatora: 0) nie jest
+  czytana: Reviewer `IMAGE_REVIEW_CELL_COUNT_INVALID`, wyszukiwarka ją
+  pomija, przeliczanie predykcji `IMAGE_SYMBOL_REINFERENCE_LEGACY_UNSUPPORTED`.
+- Usunięte skrypty: `scripts/backfill_board_render_manifests.py`,
+  `scripts/build_grid_symbol_diagnostic.py`,
+  `scripts/build_legacy_board_search_archive.py`,
+  `scripts/prepare_m65_real_workbench.py`,
+  `scripts/run_m65_workbench_acceptance.py` oraz wpisy npm
+  `m65:workbench:prepare|check|acceptance`.
 
 ## Wdrożenie obsługi niepełnych plansz (TASK-0505–0509)
 
@@ -495,20 +749,13 @@ Admin 0.2 nie pokazuje osobnych workspace'ów `Datasety` ani `Manual review`.
 Pozostają one wewnętrznymi encjami workflow, a decyzje użytkownika prowadzą
 przez import, reguły i osobną aplikację Reviewer.
 
-### Wybór geometrii plansz v18/v20
+### Geometria plansz i odroczone pozycje
 
-Po przygotowaniu raportu i geometrii gotowego browser stagingu Admin pokazuje
-tryb cięcia komórek dla tego stagingu:
-
-- pozostaw `Historyczny v18`, aby utworzyć job z domyślnym
-  `historical_v18`,
-- wybierz `Zweryfikowany v19 (v20)` wyłącznie świadomie, potwierdź ostrzeżenie
-  i uruchom job z `verified_v19`.
-
-V20 nie jest obecnie trybem domyślnym. Benchmark osiągnął `93,78%` pokrycia
-przy wymaganych `98%`. Trafienia spełniają bramki jakości, ale pozostałe
-pozycje są odkładane do ręcznej korekty. V20 nigdy nie wraca po cichu do v18:
-pozycja tworzy dokładnie 15 cropów albo trwały deferred bez inferencji.
+Od TASK-0790 (D-467) importy używają wyłącznie wirtualnej geometrii
+(`structured_default` albo domyślnie `structured_lattice_v3`); historyczne
+tryby v18 i `verified_v19` (v20, cropy-pliki) zostały usunięte. Pozycja, dla
+której silnik nie wyznaczył pewnej siatki, jest trwale odkładana (deferred)
+do ręcznej korekty w Reviewerze.
 
 Po zakończeniu importu wybierz ten sam import w `Zatwierdzaniu plansz`. Licznik
 `Do korekty siatki` prowadzi do osobnego trybu Reviewera. Dla każdej pozycji:
@@ -521,14 +768,13 @@ Po zakończeniu importu wybierz ten sam import w `Zatwierdzaniu plansz`. Licznik
 2. Jeśli automatyczna siatka wymaga tylko drobnej korekty, kliknij planszę na
    liście po lewej (wejście w tryb edycji), a potem przeciągnij wybrany narożnik
    lub środek siatki.
-3. wygeneruj podgląd wszystkich 15 cropów,
+3. wygeneruj podgląd komórek planszy (render wirtualny ze źródła),
 4. zapisz dopiero po sprawdzeniu, że żaden symbol nie jest ucięty ani przesunięty
    do sąsiedniego pola,
 5. wróć do zwykłej kolejki i zatwierdź symbole utworzonej planszy.
 
-Snapshot działającego joba jest niezmienny. Aby wycofać użycie v20, nie wznawiaj
-ani nie przełączaj istniejącego joba. Utwórz kolejny job i wybierz
-`historical_v18`. Nie usuwaj ręcznie rekordów deferred ani artefaktów v20.
+Snapshot działającego joba jest niezmienny. Nie usuwaj ręcznie rekordów
+deferred ani historycznych artefaktów v20.
 
 Kandydat modelu symboli wytrenowany na cropach v19 został odrzucony przez
 bramkę błędów wysokiej pewności. Nie wymaga ręcznego rollbacku, ponieważ nigdy
@@ -556,11 +802,13 @@ npm run reviewer:build
 
 Następnie:
 
-1. w Adminie otwórz `Zatwierdzanie`,
+1. w Adminie otwórz `Korekta cięcia siatki`,
 2. wybierz aktywną grę i jej import zdjęć,
 3. kliknij `Otwórz lokalnie`,
 4. Reviewer uruchomi się pod `http://127.0.0.1:3001` i od razu otworzy wybrany
-   import bez tunelu oraz kodu w widoku `Zatwierdzanie cięcia siatki`.
+   import bez tunelu oraz kodu w widoku `Korekta cięcia siatki` — jedna
+   plansza naraz z kolejki plansz odrzuconych przez algorytm albo zgłoszonych
+   jako `Zła siatka` (D-462).
 
 Lokalny widok geometrii jest obowiązującym workflowem i nie ma zmiennej
 przywracającej poprzedni ekran. Sekcja nie tworzy linków online, assignmentów,
@@ -570,18 +818,12 @@ dokładny URL wybranej gry i importu. Dzięki ponownej nawigacji karta nie
 pozostaje na `ERR_CONNECTION_REFUSED`, gdy port 3001 był zatrzymany przed
 kliknięciem.
 
-Po aktualizacji do 0.9 wykonaj migracje i resumowalny backfill przy wyłączonych
-API, workerze, Adminie i Reviewerze:
-
-```powershell
-.venv\Scripts\python.exe scripts\report_v09_storage_cleanup.py --label before --output .runtime\v09-storage-cleanup-before.json
-.venv\Scripts\python.exe -m alembic upgrade head
-.venv\Scripts\python.exe scripts\backfill_v09_schema.py --game-id <GAME_UUID> --batch-size 200
-.venv\Scripts\python.exe scripts\report_v09_storage_cleanup.py --label after --output .runtime\v09-storage-cleanup-after.json
-```
-
-Backfill zapisuje checkpoint w `.runtime` i można go bezpiecznie wznowić.
-Nie uruchamiaj `VACUUM FULL` jako części aktualizacji.
+Aktualizacja do 0.9 (raport zajętości i resumowalny backfill schematu) jest
+procedurą historyczną: jej skrypty `report_v09_storage_cleanup.py` i
+`backfill_v09_schema.py` usunięto w TASK-0752 (D-467), bo wszystkie gry są w
+magazynie V2. Migracje wykonuje się jak zawsze przez `alembic upgrade head`
+przy wyłączonych API, workerze, Adminie i Reviewerze. Nie uruchamiaj
+`VACUUM FULL` jako części aktualizacji.
 
 ## Kontrola zajętości i pierwsze czyszczenie storage
 
@@ -632,7 +874,8 @@ Kompakcja usuwa tylko odtwarzalne późne payloady i uruchamia
 `VACUUM (ANALYZE)`. Zwolnione strony stają się dostępne do ponownego użycia
 przez PostgreSQL, ale rozmiar pliku VHDX nie musi się zmniejszyć. `VACUUM FULL`,
 zatrzymanie Dockera i kompaktowanie `docker_data.vhdx` nie są częścią GC i
-wymagają osobnej, jawnej operacji operatorskiej.
+wymagają osobnej, jawnej operacji operatorskiej. Procedury opisuje
+[runbook utrzymania bazy](DATABASE_MAINTENANCE.md).
 
 Po odbiorze pierwszego cleanupu automatyczne GC jest domyślnie aktywne.
 `GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY=true` służy do jego jawnego,
@@ -863,10 +1106,37 @@ decyzji i kopii danych.
 - build Android trwa długo — nie uruchamiaj drugiego builda. Poczekaj na
   zakończenie kontrolowanego procesu Gradle albo sprawdź jego ostatni błąd.
 
+## Udostępnienie wyszukiwarki plansz online
+
+Link daje drugiej osobie tylko do odczytu kopię sekcji „Wyszukaj plansze”
+razem z „Przybliżoną wygraną” dla jednej gry (D-471). Wymaga tego samego
+produkcyjnego Reviewera i Quick Tunnel co zdalna ręczna selekcja (sekcja
+niżej): jednorazowo `npm run reviewer:remote:setup` i `npm run reviewer:build`,
+bez `reviewer:dev`. Migracja bazy musi być na `head`
+(`npm run db:migrate`; tabela sesji udostępnień pochodzi z
+`0130_board_search_share_sessions`).
+
+1. W Adminie otwórz grę, rozwiń „Wyszukaj plansze” i kliknij „Udostępnij
+   online”.
+2. Podaj etykietę (opcjonalnie), czas dostępu (1/4/8/24 h, domyślnie 8 h) i
+   kliknij „Utwórz link”. Pierwsze użycie uruchamia publiczny adres Reviewera
+   (do około minuty).
+3. Wyślij link i kod osobnymi wiadomościami. Kod jest pokazywany i
+   pamiętany tylko w tej przeglądarce Admina.
+4. „Dziennik zapytań” przy linku pokazuje, co odbiorca wyszukiwał i liczył;
+   „Odtwórz w wyszukiwarce” powtarza zapytanie w Twoim Adminie.
+5. Po zakończeniu kliknij „Zatrzymaj” (dwa kliknięcia) i zatrzymaj tunel, gdy
+   nic innego nie jest udostępnione.
+
+Najwyżej 5 linków może być aktywnych jednocześnie; 5 błędnych kodów blokuje
+link. Odbiorca po wygaśnięciu albo zatrzymaniu widzi ekran zakończenia.
+Wyłącznik: `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED=false` (API i
+Reviewer).
+
 ## Czasowy link HTTPS do zdalnej ręcznej selekcji
 
 Ten tryb dotyczy wyłącznie purpose-scoped zdalnej ręcznej selekcji zdjęć.
-Nie udostępnia ekranu `Zatwierdzanie cięcia siatki`, który jest wyłącznie
+Nie udostępnia ekranu `Korekta cięcia siatki`, który jest wyłącznie
 lokalny. Admin, API, PostgreSQL i worker pozostają na `127.0.0.1`. Nie
 konfiguruj przekierowania portów routera.
 

@@ -65,6 +65,8 @@ Stan kolejki wynika z `storage/image_grid_review_repository.py::_state_expressio
 5. **Ścieżki zapisu — wyłącznie istniejące serwisy** (te same co Reviewer):
    - zatwierdzenie: `application/image_grid_reviews.py::ImageGridReviewService.approve_source`
      z podzbiorem pewnych plansz zdjęcia (jedna transakcja na zdjęcie);
+     **D-462/TASK-0727:** metoda usunięta, zatwierdzenie siatki nie jest już
+     warunkiem niczego — przy przepisaniu TASK-0645/0646 ten krok odpada;
    - sloty odroczone: `application/virtual_grid_geometry.py::VirtualGridGeometryService.save_source`.
      **Fakt z kodu:** `save_source` wymaga komend dla wszystkich aktywnych
      slotów zdjęcia i tworzy nową zatwierdzoną rewizję dla każdego z nich

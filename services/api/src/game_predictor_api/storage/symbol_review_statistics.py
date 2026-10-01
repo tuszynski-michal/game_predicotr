@@ -10,7 +10,7 @@ SYMBOL_REVIEW_QUERY_TABLES = (
     "image_symbol_review_cells",
     "image_board_search_fast_documents",
     "recognized_boards",
-    "cell_observations",
+    "board_render_manifests",
     "image_symbol_prediction_revisions",
 )
 

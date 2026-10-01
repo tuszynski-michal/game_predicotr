@@ -473,6 +473,12 @@ pozwala wybrać `structured_default` / `virtual_default`; 95–98% pozostaje w
 `legacy` / `legacy_files`. Brak raportu albo niegotowa walidacja proweniencji
 nie zmienia bieżącego trybu i nie jest traktowana jak wynik poniżej 95%.
 
+Od D-467 (TASK-0790) tryby `legacy` / `legacy_files`, `structured_shadow` i
+`structured_review` / `virtual_shadow` nie są już stanem gry: migracja `0133`
+przeniosła je na `structured_lattice_v3` / `virtual_default` i zawęziła
+CHECK-i trybów. Opisana wyżej ocena cutoveru jest historyczna i nie zmienia
+stanu rolloutu.
+
 Odbiór TASK-0318 nie znalazł kompletnego raportu 0.10, dlatego nie promuje
 żadnej gry ani domyślnego silnika. Stare cropy, aliasy Reviewera i ścieżki
 legacy pozostają wymaganym rollbackiem. Szczegóły dowodów i procedura są w
@@ -735,10 +741,14 @@ prowadzi do `superseded`; automat nie nadpisuje decyzji. Sam kontrakt nie
 aktywuje v19 w pełnym imporcie i nie zmienia historycznego v18.
 
 Przypięty kontrakt pełnego importu
-`board-cell-processing-v20-verified-v19-v1` integruje ten fallback z workerem
-i jest domyślnym pipeline'em nowych importów. Żądanie startu domyślnie używa
-`boardCellProcessingMode=verified_v19`; klient Admina przekazuje tę wartość
-jawnie, a brak pola w API również wybiera v19.
+`board-cell-processing-v20-verified-v19-v1` integrował ten fallback z
+workerem i był domyślnym pipeline'em nowych importów do TASK-0790. Od D-467
+(TASK-0790) API odrzuca `boardCellProcessingMode=verified_v19` kodem
+`IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`, a historyczne snapshoty v20 są tylko
+czytelne: worker odmawia ich wykonania
+(`IMAGE_PIPELINE_NON_VIRTUAL_ROLLOUT_REJECTED`), a writer nie przyjmuje planszy
+`legacy_file` (`IMAGE_PIPELINE_NON_VIRTUAL_BOARD_REJECTED`). Opis poniżej
+dotyczy historycznych jobów v20.
 Snapshot przypina wersje i fingerprinty estymatora, progów, croppera oraz
 niezmienny manifest cross-staging benchmarku. Fingerprint joba obejmuje cały
 snapshot, więc wyników v18 i v20 nie można współdzielić przypadkiem.
@@ -763,18 +773,21 @@ Deferrals są odtwarzane z niezmiennych stage results po restarcie workera oraz
 przy job-local rehydration współdzielonego file execution. Exact replay jest
 idempotentny, a kontrola rewizji zachowuje zasadę human-wins. Historyczny
 benchmark `93,78%` pozostaje audytowalny, lecz właściciel podjął odrębną
-decyzję operacyjną o domyślnym użyciu v19 do czasu jej odwołania.
+decyzję operacyjną o domyślnym użyciu v19 do czasu jej odwołania. Decyzję
+odwołał D-467 (TASK-0790): odroczenia nowych importów powstają wyłącznie w
+ścieżce wirtualnej.
 
-Admin pokazuje v20/v19 dla aktywnego, gotowego browser stagingu po przygotowaniu
-raportu i geometrii strony. Każdy nowy staging zaczyna w `verified_v19`, bez
-staging-local potwierdzenia. Komenda startu zawsze zawiera ten tryb, a odpowiedź
-idempotentnego startu jest uznawana za sukces tylko wtedy, gdy niezmienny
-snapshot joba odpowiada v20/v19. Historyczne v18 nie są automatycznym fallbackiem.
+Od TASK-0790 Admin oferuje dla gotowego browser stagingu wyłącznie wirtualne
+polityki gry (`structured_default`, `structured_lattice_v3`). Komenda startu
+przekazuje bieżącą politykę, a odpowiedź idempotentnego startu jest sukcesem
+tylko wtedy, gdy niezmienny snapshot joba zawiera wirtualny rollout tej samej
+rewizji; job bez snapshotu rolloutu (historyczny v18/v20) nigdy nie jest
+ponownie używany. Etykiety v18 i v20/v19 zostają wyłącznie dla historycznych
+jobów.
 
-Ścieżka `verified_v19` jest samowystarczalnym, przypiętym kontraktem v20 i nie
-odczytuje stanu `image_geometry_rollout_states` z równoległego rolloutu 0.10.
-Ten rollout dotyczy wyłącznie importów, które nie wybrały jawnie v20/v19; nie
-może blokować ani zmieniać geometrii i cropów joba v20.
+Historycznie ścieżka `verified_v19` była samowystarczalnym, przypiętym
+kontraktem v20 i nie odczytywała stanu `image_geometry_rollout_states`. Po
+TASK-0790 każdy nowy import przypina wirtualny rollout gry.
 
 Usunięcie nieużywanego browser stagingu obejmuje jego puste próby preflightu i
 importu, aby nie pozostawały w selektorach operacyjnych. „Nieużywany” oznacza
@@ -1638,15 +1651,17 @@ oddzielone od ręcznych override'ów i wymagające potwierdzenia. Istniejąca ma
 
 - Każda gra ma serwerowe, rewizjonowane ustawienie używane wyłącznie przy
   tworzeniu nowych importów.
-- Dla nowych importów dostępne są dwa presety operatorskie: `verified_v19`
-  oraz `structured_default`. Drugi zapisuje geometrię i cropy jako bieżące
-  `virtual_default`; historyczny `structured_shadow` pozostaje czytelny i
-  odtwarzalny, ale nie jest oferowany jako aktywny silnik.
+- Dla nowych importów dostępne są wyłącznie wirtualne presety
+  `structured_default` i `structured_lattice_v3` (domyślny stan nowej gry);
+  oba zapisują geometrię i komórki jako `virtual_default`. Od D-467
+  (TASK-0790) `verified_v19` i `structured_shadow` są odrzucane kodem
+  `IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`; historyczne snapshoty jobów z tymi
+  trybami pozostają czytelne, ale nie są wykonywalne.
 - Preflight zawiera nazwę i rewizję polityki. Zmiana ustawienia po preflighcie
   wymaga przygotowania nowego raportu.
 - Raport jawnie zwraca `geometryPreflightRequired`. Oba presety operatorskie
-  wymagają checksum-bound manifestu geometrii; v19 używa go w swoim pipeline,
-  a v0.10 zachowuje go jako niezmienną proweniencję źródła. Nowa gra może
+  wymagają checksum-bound manifestu geometrii; v0.10 zachowuje go jako
+  niezmienną proweniencję źródła. Nowa gra może
   utworzyć pierwszy preflight bez historycznego profilu,
   niezależnie od wybranego presetu: źródła trafiają wtedy do korekty, a
   zapisana ręcznie

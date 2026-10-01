@@ -89,6 +89,13 @@ implementacyjnym.
   zaakceptowane przejście na V2-only; DDL wymaga odrębnej zgody operacyjnej.
 - [Cell-level verification plan](delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md)
   — weryfikacja per komórka i jedna kolejka korekty cięcia siatki (D-462).
+- [Symbol reference library plan](delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md)
+  — propozycje symboli z biblioteki zweryfikowanych komórek (D-464).
+- [Board search share plan](delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md)
+  — modal linii wypłat, wykres, stawki i udostępnianie online (D-470, D-471).
+- [Legacy V1 remnants removal plan](delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md)
+  — manifest renderu per plansza, usunięcie `cell_observations`, gałęzi V1
+  i trybu `legacy_file`, retencja pipeline (D-467, S1–S8).
 - [V2 readiness remediation plan](delivery/V2_READINESS_REMEDIATION_PLAN.md) —
   naprawy po `no-go` T08 oraz blokująca propozycja decyzji TASK-0698.
 - [Version 0.1 release plan](delivery/VERSION_0_1_RELEASE_PLAN.md)
@@ -127,6 +134,9 @@ implementacyjnym.
 
 - [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
+- [Utrzymanie bazy danych](guides/DATABASE_MAINTENANCE.md) — raport
+  zajętości, VACUUM po dużych przebiegach, kompaktacja wyników pipeline,
+  kompaktowanie `docker_data.vhdx`, kopia i migracja danych na inny dysk.
 - [Usunięcie legacy public game store](guides/LEGACY_PUBLIC_STORE_REMOVAL.md)
   — preflight, odrębne approval, apply i postflight migracji `0125`.
 - [Eksport snapshotu do laboratorium wizji](guides/VISION_LAB_EXPORT.md) —

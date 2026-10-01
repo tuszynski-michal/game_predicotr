@@ -31,7 +31,9 @@ class ApprovedSymbolReferenceCandidate:
     operator selects it as the durable catalog reference.
     """
 
-    observation_id: UUID
+    # ``image_symbol_review_cells.id`` of the approved current cell (D-467:
+    # replaces the former per-cell import record id).
+    cell_review_id: UUID
     review_item_id: UUID
     recognized_board_id: UUID
     sequence_number: int
@@ -62,13 +64,13 @@ class ApprovedSymbolReferenceCandidate:
 
     @property
     def cursor_key(self) -> tuple[int, int, int, str]:
-        """Stable order: corrected geometry, sequence, cell, observation."""
+        """Stable order: corrected geometry, sequence, cell, cell review."""
 
         return (
             0 if self.geometry_revision > 0 else 1,
             self.sequence_number,
             self.cell_index,
-            str(self.observation_id),
+            str(self.cell_review_id),
         )
 
 
@@ -85,7 +87,6 @@ class SymbolReferenceImage:
     symbol_id: UUID
     source_review_item_id: UUID
     source_recognized_board_id: UUID
-    source_observation_id: UUID
     sequence_number: int
     cell_index: int
     resolution_revision: int
@@ -111,9 +112,7 @@ def decode_approved_symbol_reference_cursor(
     value: str, *, game_id: UUID, symbol_id: UUID
 ) -> tuple[int, int, int, str]:
     try:
-        payload = json.loads(
-            urlsafe_b64decode(value + "=" * (-len(value) % 4)).decode("utf-8")
-        )
+        payload = json.loads(urlsafe_b64decode(value + "=" * (-len(value) % 4)).decode("utf-8"))
         key = payload["key"]
         if (
             payload["gameId"] != str(game_id)

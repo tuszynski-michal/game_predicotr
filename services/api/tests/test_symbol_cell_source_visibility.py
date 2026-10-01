@@ -63,8 +63,8 @@ def test_corrected_footprints_override_old_board_outline():
 
 def _coordinator(monkeypatch, *, asset_mode="virtual_source"):
     monkeypatch.setattr(
-        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
-        lambda *_: True,
+        "game_predictor_api.storage.image_symbol_review_repository._bind_game_store",
+        lambda *_: None,
     )
     rows, events = [], []
     session = Mock()
@@ -117,6 +117,7 @@ def _coordinator(monkeypatch, *, asset_mode="virtual_source"):
         return_value=SimpleNamespace(failure_message=None, count_projection_status="unavailable")
     )
     coordinator._touch_catalog_revision = Mock()
+    coordinator._refresh_search_projection = Mock()
     coordinator._review_row = Mock(return_value=(item, board, source, Mock(), Mock()))
     coordinator._current_cells = Mock(
         return_value=(_cells(1, (0,), asset_mode=asset_mode), "cropper-v1", None, None)
@@ -137,6 +138,8 @@ def test_outside_position_retry_and_new_pixels_preserve_human_label(monkeypatch,
         monkeypatch, asset_mode=asset_mode
     )
     assert coordinator.synchronize_after_geometry_change(**args)
+    # D-462 R8: changed cell rows refresh the board's search evidence.
+    coordinator._refresh_search_projection.assert_called_with(args["review_item_id"])
     assert len(rows) == 15
     outside = next(row for row in rows if row.cell_index == 0)
     assert outside.source_visibility == "outside" and outside.crop_sample_id is None
@@ -159,11 +162,38 @@ def test_outside_position_retry_and_new_pixels_preserve_human_label(monkeypatch,
     assert coordinator.synchronize_after_geometry_change(**args)
     assert len(rows) == 15
     assert outside.source_available and outside.source_visibility == "full"
-    assert outside.assigned_symbol_id == symbol_id and outside.quality_issue == "unreadable"
+    # D-462 R6: new pixels need a new check; the human label stays as a
+    # pending suggestion, while pixel-bound flags do not carry over.
+    assert outside.assigned_symbol_id == symbol_id and outside.quality_issue is None
+    assert outside.assignment_source == "human"
     assert outside.review_state == "pending" and outside.approved_crop_sample_id is None
     count = len(events)
     assert not coordinator.synchronize_for_backfill_reconciliation(**args)
     assert len(events) == count
+
+
+def test_outside_grid_report_lasts_until_a_new_geometry(monkeypatch):
+    coordinator, board, rows, _events, symbol_id, args = _coordinator(monkeypatch)
+    assert coordinator.synchronize_after_geometry_change(**args)
+    outside = next(row for row in rows if row.cell_index == 0)
+    outside.assigned_symbol_id, outside.assignment_source = symbol_id, "human"
+    outside.quality_issue, outside.verification_outcome = "grid_issue", "grid_issue"
+
+    # R7: an unrelated synchronization keeps the report.
+    coordinator.synchronize_for_backfill_reconciliation(**args)
+    assert outside.quality_issue == "grid_issue"
+
+    # R5: a newly saved geometry resolves it; the logical label stays.
+    board.geometry_revision = 2
+    coordinator._current_cells.return_value = (
+        _cells(2, (0,), asset_mode="virtual_source"),
+        "cropper-v1",
+        None,
+        None,
+    )
+    assert coordinator.synchronize_after_geometry_change(**args)
+    assert outside.quality_issue is None and outside.review_state == "pending"
+    assert outside.assigned_symbol_id == symbol_id
 
 
 def test_projection_error_propagates_to_transaction_owner(monkeypatch):
@@ -253,7 +283,9 @@ def test_human_blurry_decision_survives_outside_and_two_recrops(monkeypatch):
         )
         coordinator.synchronize_after_geometry_change(**args)
         assert cell.source_visibility == "full" and cell.review_state == "pending"
-        assert cell.assigned_symbol_id == symbol_id and cell.quality_issue == "blurry"
+        # D-462 R6: the label survives as a suggestion; `blurry` described the
+        # old pixels, and the old approval stays only as history.
+        assert cell.assigned_symbol_id == symbol_id and cell.quality_issue is None
         assert cell.approved_crop_checksum_sha256 == old_approval
         _symbol_cell_review_from_model(cell, symbol_code_by_id={symbol_id: "cherry"})
         assert not coordinator.synchronize_for_backfill_reconciliation(**args)
@@ -262,6 +294,7 @@ def test_human_blurry_decision_survives_outside_and_two_recrops(monkeypatch):
 def test_actual_legacy_mapper_accepts_sparse_real_crop_revision():
     from datetime import UTC, datetime
 
+    from game_predictor_api.storage.current_board_cell_sources import NO_CELL_SOURCES
     from game_predictor_api.storage.image_review_repository import (
         materialize_current_image_review_cells,
     )
@@ -287,6 +320,20 @@ def test_actual_legacy_mapper_accepts_sparse_real_crop_revision():
         board_checksum_sha256="a" * 64,
         sequence_number=62440,
         pipeline_fingerprint="test",
+        # D-467: a legacy revision's predictions come from cells_prediction
+        # (manual resolution stores all 15 positions, crops only the visible).
+        cells_prediction={
+            "cells": [
+                {
+                    "rowIndex": i // 5,
+                    "columnIndex": i % 5,
+                    "symbolCode": "cherry",
+                    "confidence": 0.9,
+                    "alternatives": [{"symbolCode": "cherry", "confidence": 0.9}],
+                }
+                for i in range(15)
+            ]
+        },
     )
     observations = [
         SimpleNamespace(
@@ -338,7 +385,7 @@ def test_actual_legacy_mapper_accepts_sparse_real_crop_revision():
         source=source,
         queue_item=SimpleNamespace(source_order_index=0, position_index=0),
         job=SimpleNamespace(game_id=uuid4()),
-        observations=observations,
+        cell_sources=NO_CELL_SOURCES,
         geometry_revision=revision,
     )
     assert [cell.cell_index for cell in cells] == list(range(10))

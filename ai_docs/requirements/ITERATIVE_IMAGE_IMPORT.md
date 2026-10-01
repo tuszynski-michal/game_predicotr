@@ -94,6 +94,12 @@ decyzji. Warianty v1/v2 zachowują własne snapshoty oraz replay.
 
 ## Aktywny kontrakt geometrii komórek v18/v20
 
+> Nota historyczna (D-467, TASK-0790, 2026-10-01): poniższy opis trybów
+> `historical_v18` i `verified_v19` dotyczy etapu sprzed jednego trybu danych.
+> Od migracji `0133` dostępne są wyłącznie polityki wirtualne
+> (`structured_default`, `structured_lattice_v3`); import plansz z plikami
+> cropów nie istnieje.
+
 Domyślny import nadal używa historycznego
 `board-cell-crops-v18-source-direct-validated-v1`. Następca
 `board-cell-processing-v20-verified-v19-v1` jest dostępny wyłącznie jako jawny,

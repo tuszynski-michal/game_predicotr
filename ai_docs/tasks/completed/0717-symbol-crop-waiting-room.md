@@ -201,7 +201,9 @@ Root: build Next PASS; runtime API/UI 8102/3102 PASS, Blazing 450 kandydatów,
 390 px: brak poziomego przepełnienia, kontrolki 44 px. Nie zapisano żadnej
 decyzji operatora. Pre-code i końcowy niezależny audyt `gpt-6-sol/medium`:
 PASS bez otwartych P0–P2. Fizyczny restart Windows i Android nietestowane.
-Commit i hash do dopisania po kontroli indeksu.
+Commit `v1.7.36` / `8fa1e25991cc0af1905034d40dcb0065d5f6a552`.
+Staged diff check/stat/list i post-commit show/stat/status PASS; 25 plików,
+zastane cudze zmiany pozostały poza commitem.
 
 ## Przypisanie modeli do zadań
 

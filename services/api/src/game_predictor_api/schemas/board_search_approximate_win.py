@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import Field
 
 from game_predictor_api.application.board_search_approximate_win import ApproximateWinCalculation
+from game_predictor_api.application.board_search_board_detail import BoardSearchBoardDetail
 from game_predictor_api.domain.board_search import BoardSearchAssetMode
 from game_predictor_api.schemas.catalog import ApiModel
 
@@ -104,11 +105,163 @@ def to_approximate_win_response(
     )
 
 
+class BoardSearchLineMatchResponse(ApiModel):
+    payline_id: str
+    payline_code: str
+    payline_name: str
+    payline_display_order: int = Field(ge=0)
+    row_path: tuple[int, ...]
+    symbol_code: str
+    matched_length: int = Field(ge=1)
+    matched_cells: tuple[int, ...]
+    joker_cells: tuple[int, ...]
+    payout_credits: int = Field(gt=0)
+
+
+class BoardSearchViewPointResponse(ApiModel):
+    x: float
+    y: float
+
+
+class BoardSearchBoardViewResponse(ApiModel):
+    """Size of the cropped view and cell polygons in its 0–1 coordinates."""
+
+    width: int = Field(ge=1)
+    height: int = Field(ge=1)
+    revision: str = Field(pattern=r"^[a-f0-9]{64}$")
+    cell_polygons: tuple[tuple[BoardSearchViewPointResponse, ...], ...] | None = Field(
+        min_length=15, max_length=15
+    )
+
+
+class BoardSearchBoardCellResponse(ApiModel):
+    """One cell's review record: the checksum-bound target of
+    `applySymbolCellReviewDecision` (D-473)."""
+
+    cell_index: int = Field(ge=0, le=14)
+    cell_review_id: UUID
+    revision: int = Field(ge=0)
+    geometry_revision: int = Field(ge=0)
+    crop_sample_id: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    crop_checksum_sha256: str | None = Field(pattern=r"^[a-f0-9]{64}$")
+    review_state: str
+    quality_issue: str | None
+    assigned_symbol_code: str | None
+
+
+class BoardSearchBoardDetailResponse(ApiModel):
+    game_id: UUID
+    sequence_number: int = Field(ge=1)
+    board_status: str
+    board_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    data_source: BoardSearchAssetMode
+    rules: ApproximateWinRulesResponse
+    symbol_codes: tuple[str | None, ...]
+    payout_credits: int = Field(ge=0)
+    payout_kind: Literal["exact", "confirmed_minimum", "none"]
+    matches: tuple[BoardSearchLineMatchResponse, ...]
+    view: BoardSearchBoardViewResponse | None
+    document_stale: bool = Field(
+        description=(
+            "True when the board changed after its search document was written; "
+            "lines then come from the older reading and no view or cells are given."
+        )
+    )
+    cells: tuple[BoardSearchBoardCellResponse, ...] | None = Field(
+        description=(
+            "Editable cell review records of a pending operational board; "
+            "null for resolved and archive boards."
+        )
+    )
+
+
+class BoardSearchBoardRefreshResponse(ApiModel):
+    """Outcome of rebuilding one board's search document (TASK-0773)."""
+
+    document_removed: bool = Field(
+        description="The rebuild left no search document at this sequence position."
+    )
+    detail: BoardSearchBoardDetailResponse | None
+
+
+def to_board_search_board_detail_response(
+    detail: BoardSearchBoardDetail,
+) -> BoardSearchBoardDetailResponse:
+    return BoardSearchBoardDetailResponse(
+        game_id=detail.game_id,
+        sequence_number=detail.sequence_number,
+        board_status=detail.board_status,
+        board_checksum_sha256=detail.board_checksum_sha256,
+        data_source=detail.data_source,
+        rules=ApproximateWinRulesResponse(
+            rules_version_id=detail.rules_version_id,
+            rules_version=detail.rules_version,
+            spin_cost=detail.spin_cost,
+            algorithm_version=detail.algorithm_version,
+        ),
+        symbol_codes=detail.symbol_codes,
+        payout_credits=detail.payout_credits,
+        payout_kind=detail.payout_kind,
+        matches=tuple(
+            BoardSearchLineMatchResponse(
+                payline_id=match.payline_id,
+                payline_code=match.payline_code,
+                payline_name=match.payline_name,
+                payline_display_order=match.payline_display_order,
+                row_path=match.row_path,
+                symbol_code=match.symbol_code,
+                matched_length=match.matched_length,
+                matched_cells=match.matched_cells,
+                joker_cells=match.joker_cells,
+                payout_credits=match.payout_credits,
+            )
+            for match in detail.matches
+        ),
+        view=None
+        if detail.view is None
+        else BoardSearchBoardViewResponse(
+            width=detail.view.width,
+            height=detail.view.height,
+            revision=detail.view.revision,
+            cell_polygons=None
+            if detail.view.cell_polygons is None
+            else tuple(
+                tuple(BoardSearchViewPointResponse(x=x, y=y) for x, y in polygon)
+                for polygon in detail.view.cell_polygons
+            ),
+        ),
+        document_stale=detail.document_stale,
+        cells=None
+        if detail.cells is None
+        else tuple(
+            BoardSearchBoardCellResponse(
+                cell_index=cell.cell_index,
+                cell_review_id=cell.cell_review_id,
+                revision=cell.revision,
+                geometry_revision=cell.geometry_revision,
+                crop_sample_id=cell.crop_sample_id,
+                crop_checksum_sha256=cell.crop_checksum_sha256,
+                review_state=cell.review_state,
+                quality_issue=cell.quality_issue,
+                assigned_symbol_code=cell.assigned_symbol_code,
+            )
+            for cell in detail.cells
+        ),
+    )
+
+
 __all__ = [
     "ApproximateWinCompletenessResponse",
+    "BoardSearchBoardCellResponse",
+    "BoardSearchBoardDetailResponse",
+    "BoardSearchBoardRefreshResponse",
+    "BoardSearchBoardViewResponse",
+    "BoardSearchLineMatchResponse",
+    "BoardSearchViewPointResponse",
     "ApproximateWinResponse",
     "ApproximateWinRowResponse",
     "ApproximateWinRulesResponse",
     "ApproximateWinSummaryResponse",
     "to_approximate_win_response",
+    "to_board_search_board_detail_response",
 ]

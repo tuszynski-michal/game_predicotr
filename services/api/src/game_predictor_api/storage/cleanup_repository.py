@@ -431,8 +431,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             "SELECT id FROM image_source_geometry_revisions WHERE source_image_id IN :source_ids",
             source_ids=source_ids,
         )
-        observation_ids = self._ids(
-            "SELECT id FROM cell_observations WHERE recognized_board_id IN :board_ids",
+        render_manifest_count = self._count(
+            "SELECT count(*) FROM board_render_manifests WHERE recognized_board_id IN :board_ids",
             board_ids=board_ids,
         )
         cohort_ids = tuple(
@@ -509,7 +509,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             board_ids=board_ids,
             review_item_ids=review_item_ids,
             cell_review_ids=cell_review_ids,
-            observation_ids=observation_ids,
+            render_manifest_count=render_manifest_count,
             source_geometry_ids=source_geometry_ids,
             cohort_ids=cohort_ids,
             model_ids=model_ids,
@@ -592,7 +592,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             CleanupCount("source_geometry_revisions", len(scope.source_geometry_ids)),
             CleanupCount("recognized_boards", len(scope.board_ids)),
             CleanupCount("image_review_items", len(scope.review_item_ids)),
-            CleanupCount("cell_observations", len(scope.observation_ids)),
+            CleanupCount("board_render_manifests", scope.render_manifest_count),
             CleanupCount("symbol_review_cells", len(scope.cell_review_ids)),
             CleanupCount("canonical_sequences", len(scope.selected_sequences)),
             CleanupCount("training_cohorts", len(scope.cohort_ids)),
@@ -643,14 +643,6 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 "CROSS JOIN LATERAL jsonb_array_elements(geometry.crop_artifacts) crop(value) "
                 "WHERE geometry.recognized_board_id IN :board_ids "
                 "AND crop.value->>'cropRelativePath' IS NOT NULL",
-                board_ids=board_ids,
-            )
-        )
-        paths.update(
-            self._paths(
-                "SELECT crop_relative_path FROM cell_observations "
-                "WHERE recognized_board_id IN :board_ids "
-                "AND crop_relative_path IS NOT NULL",
                 board_ids=board_ids,
             )
         )
@@ -828,8 +820,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             review_item_ids=scope.review_item_ids,
         )
         self._delete(
-            "DELETE FROM cell_observations WHERE id IN :observation_ids",
-            observation_ids=scope.observation_ids,
+            "DELETE FROM board_render_manifests WHERE recognized_board_id IN :board_ids",
+            board_ids=scope.board_ids,
         )
         self._delete(
             "DELETE FROM recognized_boards WHERE id IN :board_ids", board_ids=scope.board_ids
@@ -941,7 +933,7 @@ class _BoardSourceScope:
     board_ids: tuple[UUID, ...]
     review_item_ids: tuple[UUID, ...]
     cell_review_ids: tuple[UUID, ...]
-    observation_ids: tuple[UUID, ...]
+    render_manifest_count: int
     source_geometry_ids: tuple[UUID, ...]
     cohort_ids: tuple[UUID, ...]
     model_ids: tuple[UUID, ...]
@@ -1088,10 +1080,6 @@ WITH refs(path, game_id) AS (
   SELECT b.board_relative_path, j.game_id FROM recognized_boards b
     JOIN source_images s ON s.id = b.source_image_id JOIN jobs j ON j.id = s.import_job_id
   UNION ALL
-  SELECT c.crop_relative_path, j.game_id FROM cell_observations c
-    JOIN recognized_boards b ON b.id = c.recognized_board_id
-    JOIN source_images s ON s.id = b.source_image_id JOIN jobs j ON j.id = s.import_job_id
-  UNION ALL
   SELECT g.board_relative_path, j.game_id FROM image_board_geometry_revisions g
     JOIN recognized_boards b ON b.id = g.recognized_board_id
     JOIN source_images s ON s.id = b.source_image_id JOIN jobs j ON j.id = s.import_job_id
@@ -1171,7 +1159,7 @@ _GAME_RESET_STATEMENTS = (
     """DELETE FROM image_review_items WHERE recognized_board_id IN
        (SELECT b.id FROM recognized_boards b JOIN source_images s ON s.id = b.source_image_id
         JOIN jobs j ON j.id = s.import_job_id WHERE j.game_id = :game_id)""",
-    """DELETE FROM cell_observations WHERE recognized_board_id IN
+    """DELETE FROM board_render_manifests WHERE recognized_board_id IN
        (SELECT b.id FROM recognized_boards b JOIN source_images s ON s.id = b.source_image_id
         JOIN jobs j ON j.id = s.import_job_id WHERE j.game_id = :game_id)""",
     """DELETE FROM recognized_boards WHERE source_image_id IN

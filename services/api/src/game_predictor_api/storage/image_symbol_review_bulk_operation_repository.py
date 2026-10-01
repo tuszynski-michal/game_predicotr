@@ -6,12 +6,10 @@ from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import cast as typing_cast
 from uuid import UUID, uuid4
 
-from sqlalchemy import Float, Select, and_, cast, func, insert, literal, select
+from sqlalchemy import Select, func, insert, literal, select
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.sql import ColumnElement
 
 from game_predictor_api.application.image_symbol_review_bulk_operations import (
     SymbolCellReviewBulkFilterSelection,
@@ -37,18 +35,16 @@ from game_predictor_api.domain.image_symbol_reviews import (
 from game_predictor_api.domain.jobs import Job, JobType, create_job
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewMutationRepository,
+    _bind_game_store,
     _count_semantics_current,
     _logical_cell_visible_clause,
     _symbol_scope_filter_clause,
-    _uses_logical_current_cell_identity,
+    extended_symbol_cell_review_filter_clauses,
     symbol_cell_review_projection_is_available,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
-    ImageBoardSearchFastDocumentModel,
-    ImageSymbolPredictionRevisionModel,
     ImageSymbolReviewBulkOperationModel,
     ImageSymbolReviewBulkTargetModel,
     ImageSymbolReviewCellModel,
@@ -244,10 +240,10 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
                 selection=request.filter_selection,
                 current_catalog_revision=int(state.catalog_revision),
             )
+            _bind_game_store(self._session, game_id)
             visible_cells = _visible_cells_statement(
                 game_id=game_id,
                 selection=request.filter_selection,
-                uses_current_projection=_uses_logical_current_cell_identity(self._session, game_id),
             ).with_only_columns(
                 ImageSymbolReviewCellModel.id,
                 ImageSymbolReviewCellModel.review_item_id,
@@ -272,14 +268,12 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
     ) -> tuple[_FrozenTarget, ...]:
         assert request.explicit_targets is not None
         requested = {target.cell_review_id: target for target in request.explicit_targets}
+        _bind_game_store(self._session, game_id)
         rows = tuple(
             self._session.scalars(
-                _visible_cells_statement(
-                    game_id=game_id,
-                    uses_current_projection=_uses_logical_current_cell_identity(
-                        self._session, game_id
-                    ),
-                ).where(ImageSymbolReviewCellModel.id.in_(tuple(requested)))
+                _visible_cells_statement(game_id=game_id).where(
+                    ImageSymbolReviewCellModel.id.in_(tuple(requested))
+                )
             )
         )
         actual = {row.id: row for row in rows}
@@ -322,11 +316,8 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
         selection: SymbolCellReviewBulkFilterSelection,
     ) -> None:
         cell = ImageSymbolReviewCellModel
-        visible_cells = _visible_cells_statement(
-            game_id=game_id,
-            selection=selection,
-            uses_current_projection=_uses_logical_current_cell_identity(self._session, game_id),
-        )
+        _bind_game_store(self._session, game_id)
+        visible_cells = _visible_cells_statement(game_id=game_id, selection=selection)
         target_columns = (
             "operation_id",
             "cell_review_id",
@@ -681,28 +672,18 @@ def _visible_cells_statement(
     *,
     game_id: UUID,
     selection: SymbolCellReviewBulkFilterSelection | None = None,
-    uses_current_projection: bool = False,
 ) -> Select[tuple[ImageSymbolReviewCellModel]]:
+    """Current V2 cells of one game at the board's current geometry, optionally filtered."""
+
     cell = ImageSymbolReviewCellModel
-    document = ImageBoardSearchFastDocumentModel
-    statement = select(cell)
-    if not uses_current_projection:
-        statement = statement.join(
-            document,
-            and_(
-                document.game_id == cell.game_id,
-                document.sequence_number == cell.sequence_number,
-                document.review_item_id == cell.review_item_id,
-                document.recognized_board_id == cell.recognized_board_id,
-                document.import_job_id == cell.import_job_id,
-            ),
+    statement = (
+        select(cell)
+        .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
+        .where(
+            cell.game_id == game_id,
+            cell.geometry_revision == RecognizedBoardModel.geometry_revision,
+            _logical_cell_visible_clause(),
         )
-    statement = statement.join(
-        RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id
-    ).where(
-        cell.game_id == game_id,
-        cell.geometry_revision == RecognizedBoardModel.geometry_revision,
-        _logical_cell_visible_clause(),
     )
     if selection is None:
         return statement
@@ -712,52 +693,21 @@ def _visible_cells_statement(
         state=selection.state,
         outside_only=selection.outside_only,
         include_all_symbols=selection.include_all_symbols,
+        prediction_source=selection.prediction_source,
+        changed_from=selection.changed_from,
+        changed_to=selection.changed_to,
     )
     statement = statement.where(_symbol_scope_filter_clause(review_filter))
+    statement = statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))
     if selection.state is not SymbolCellReviewFilterState.ALL:
         statement = statement.where(cell.review_state == selection.state.value)
-    if selection.min_confidence is not None or selection.max_confidence is not None:
-        if uses_current_projection:
-            confidence = typing_cast(ColumnElement[float | None], cell.prediction_confidence)
-        else:
-            observation = CellObservationModel
-            statement = statement.outerjoin(
-                ImageSymbolPredictionRevisionModel,
-                ImageSymbolPredictionRevisionModel.id == cell.prediction_revision_id,
-            ).outerjoin(
-                observation,
-                and_(
-                    observation.recognized_board_id == cell.recognized_board_id,
-                    observation.row_index == cell.row_index,
-                    observation.column_index == cell.column_index,
-                ),
-            )
-            confidence = _prediction_confidence_expression()
-        if selection.min_confidence is not None:
-            statement = statement.where(confidence >= selection.min_confidence)
-        if selection.max_confidence is not None:
-            statement = statement.where(confidence <= selection.max_confidence)
+    if selection.min_confidence is not None:
+        statement = statement.where(cell.prediction_confidence >= selection.min_confidence)
+    if selection.max_confidence is not None:
+        statement = statement.where(cell.prediction_confidence <= selection.max_confidence)
     if selection.excluded_cell_review_ids:
         statement = statement.where(cell.id.not_in(selection.excluded_cell_review_ids))
     return statement
-
-
-def _prediction_confidence_expression() -> ColumnElement[float | None]:
-    """Use the same persisted confidence sources as the bounded list API."""
-
-    cell = ImageSymbolReviewCellModel
-    revision = ImageSymbolPredictionRevisionModel
-    observation = CellObservationModel
-    return typing_cast(
-        ColumnElement[float | None],
-        func.coalesce(
-            cast(
-                revision.predictions.op("->")(cell.cell_index).op("->>")("confidence"),
-                Float(),
-            ),
-            cast(observation.prediction.op("->>")("confidence"), Float()),
-        ),
-    )
 
 
 def _frozen_target(cell: ImageSymbolReviewCellModel) -> _FrozenTarget:

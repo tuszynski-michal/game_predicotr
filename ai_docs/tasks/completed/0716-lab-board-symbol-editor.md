@@ -205,7 +205,9 @@ Trwałość stanu i retry sprawdzono w nowym procesie oraz backup/restore;
 nie wykonano restartu całego Windows ani testu na fizycznym Androidzie.
 Następny krok operatora: zatwierdzić słownik gry, wybrać zdjęcie/planszę,
 uzupełnić komplet symboli i jawnie zapisać. T06b pozostaje osobnym zakresem.
-Commit: do uzupełnienia po końcowej kontroli indeksu.
+Commit `v1.7.34` / `9d22c13b93c195b28732ceb1f7cfab274145bb87`.
+Staged check/stat/list oraz post-commit show/stat/status PASS; 23 pliki.
+Zastane zmiany pozostawiono poza commitem; hash dopisano po commicie.
 
 ## Przypisanie modeli do zadań
 

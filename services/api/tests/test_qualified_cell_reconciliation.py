@@ -20,17 +20,16 @@ from game_predictor_api.storage.models import (
 
 
 @pytest.fixture(autouse=True)
-def v2_current_positions(monkeypatch):
+def in_memory_game_store(monkeypatch):
     monkeypatch.setattr(
-        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
-        lambda *_: True,
+        "game_predictor_api.storage.image_symbol_review_repository._bind_game_store",
+        lambda *_: None,
     )
 
 
 def _cells(revision, missing, *, asset_mode="legacy_file"):
     return tuple(
         ImageReviewCell(
-            observation_id=uuid4(),
             cell_index=index,
             row_index=index // 5,
             column_index=index % 5,
@@ -124,6 +123,7 @@ def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_ap
         return_value=SimpleNamespace(failure_message=None, count_projection_status="unavailable")
     )
     coordinator._touch_catalog_revision = Mock()
+    coordinator._refresh_search_projection = Mock()
     coordinator._review_row = Mock(
         return_value=(
             SimpleNamespace(id=review_id, status="pending", resolved_value=None),
@@ -237,6 +237,7 @@ def test_partially_visible_virtual_source_cells_are_forced_unknown_and_never_tra
         return_value=SimpleNamespace(failure_message=None, count_projection_status="uninitialized")
     )
     coordinator._touch_catalog_revision = Mock()
+    coordinator._refresh_search_projection = Mock()
     coordinator._review_row = Mock(
         return_value=(
             SimpleNamespace(id=review_id, status="pending", resolved_value=None),

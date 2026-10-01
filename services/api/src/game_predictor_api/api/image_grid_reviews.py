@@ -1,4 +1,4 @@
-"""Local Admin HTTP surface for grid validation."""
+"""Local Admin HTTP surface for the grid correction queue."""
 
 import logging
 from collections.abc import Callable
@@ -44,24 +44,13 @@ from game_predictor_api.schemas.image_geometry_rollout import (
     to_image_import_engine_policy_response,
 )
 from game_predictor_api.schemas.image_grid_reviews import (
-    ImageGridReviewApprovalCommand,
-    ImageGridReviewApprovalResponse,
     ImageGridReviewGeometryCommand,
     ImageGridReviewGeometryPreviewCommand,
     ImageGridReviewGeometryResponse,
     ImageGridReviewPageResponse,
-    ImageGridReviewSourceApprovalCommand,
-    ImageGridReviewSourceApprovalResponse,
-    ImageGridReviewSourceGeometryCommand,
-    ImageGridReviewSourceGeometryResponse,
-    to_image_grid_review_approval_response,
     to_image_grid_review_geometry_response,
     to_image_grid_review_page_response,
-    to_image_grid_review_source_approval_response,
-    to_image_grid_review_source_approval_targets,
     to_virtual_grid_review_geometry_response,
-    to_virtual_grid_review_source_geometry_commands,
-    to_virtual_grid_review_source_geometry_response,
 )
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
@@ -207,7 +196,7 @@ def create_image_grid_reviews_router(
         "/image-reviews/{review_item_id}/source-asset",
         response_class=FileResponse,
         operation_id="getImageGridReviewSourceAsset",
-        summary="Read one current checksum-bound source image for grid validation",
+        summary="Read one current checksum-bound source image for grid correction",
         responses=ERROR_RESPONSES,
     )
     def get_image_grid_review_source_asset(
@@ -240,56 +229,6 @@ def create_image_grid_reviews_router(
                 error.code,
             )
             raise
-
-    @router.post(
-        "/image-reviews/{review_item_id}/geometry-approval",
-        response_model=ImageGridReviewApprovalResponse,
-        operation_id="approveImageGridReviewGeometry",
-        summary="Approve one exact current board geometry revision",
-        responses=ERROR_RESPONSES,
-    )
-    def approve_image_grid_review_geometry(
-        review_item_id: UUID,
-        payload: ImageGridReviewApprovalCommand,
-        service: Annotated[ImageGridReviewService, service_parameter],
-        game_id: Annotated[UUID, Query(alias="gameId")],
-    ) -> ImageGridReviewApprovalResponse:
-        with game_storage_scope(game_id):
-            return to_image_grid_review_approval_response(
-                service.approve(
-                    game_id=game_id,
-                    review_item_id=review_item_id,
-                    expected_resolution_revision=payload.expected_resolution_revision,
-                    expected_geometry_revision=payload.expected_geometry_revision,
-                    expected_source_checksum_sha256=payload.expected_source_checksum_sha256,
-                    expected_source_width=payload.expected_source_width,
-                    expected_source_height=payload.expected_source_height,
-                    expected_grid_rows=payload.expected_grid_rows,
-                    expected_grid_columns=payload.expected_grid_columns,
-                    actor=_LOCAL_ADMIN_ACTOR,
-                )
-            )
-
-    @router.post(
-        "/games/{game_id}/grid-reviews/source-geometry-approval",
-        response_model=ImageGridReviewSourceApprovalResponse,
-        operation_id="approveImageGridReviewSourceGeometry",
-        summary="Atomically approve every current board geometry of one source image",
-        responses=ERROR_RESPONSES,
-    )
-    def approve_image_grid_review_source_geometry(
-        game_id: UUID,
-        payload: ImageGridReviewSourceApprovalCommand,
-        service: Annotated[ImageGridReviewService, service_parameter],
-    ) -> ImageGridReviewSourceApprovalResponse:
-        return to_image_grid_review_source_approval_response(
-            service.approve_source(
-                game_id=game_id,
-                source_image_id=payload.source_image_id,
-                targets=to_image_grid_review_source_approval_targets(payload),
-                actor=_LOCAL_ADMIN_ACTOR,
-            )
-        )
 
     @router.post(
         "/image-reviews/{review_item_id}/geometry-preview",
@@ -376,7 +315,7 @@ def create_image_grid_reviews_router(
         "/image-reviews/{review_item_id}/geometry-revisions",
         response_model=ImageGridReviewGeometryResponse,
         operation_id="createImageGridReviewGeometryRevision",
-        summary="Persist and approve one topology-aware geometry revision",
+        summary="Persist one topology-aware geometry revision of one board",
         responses=ERROR_RESPONSES,
     )
     def create_image_grid_review_geometry_revision(
@@ -440,46 +379,6 @@ def create_image_grid_reviews_router(
                 grid_columns=source.topology.columns,
                 created=created,
             )
-
-    @router.post(
-        "/games/{game_id}/grid-reviews/source-geometry-revisions",
-        response_model=ImageGridReviewSourceGeometryResponse,
-        operation_id="createImageGridReviewSourceGeometryRevision",
-        summary="Atomically persist and approve manual geometry for every board of one source",
-        responses=ERROR_RESPONSES,
-    )
-    def create_image_grid_review_source_geometry_revision(
-        game_id: UUID,
-        payload: ImageGridReviewSourceGeometryCommand,
-        virtual_service: Annotated[
-            VirtualGridGeometryService,
-            virtual_geometry_service_parameter,
-        ],
-        import_job_id: Annotated[UUID, Query(alias="importJobId")],
-    ) -> ImageGridReviewSourceGeometryResponse:
-        target_ids = tuple(
-            target.pending_geometry_id or target.review_item_id for target in payload.targets
-        )
-        if len(set(target_ids)) != len(target_ids):
-            raise ImageGridReviewError(
-                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_DUPLICATE",
-                "Manual source geometry cannot repeat a board target.",
-            )
-        first_target = payload.targets[0]
-        result = virtual_service.save_source(
-            game_id=game_id,
-            import_job_id=import_job_id,
-            commands=to_virtual_grid_review_source_geometry_commands(payload),
-            idempotency_key=payload.idempotency_key,
-            actor=_LOCAL_ADMIN_ACTOR,
-            created_at=datetime.now(UTC),
-        )
-        return to_virtual_grid_review_source_geometry_response(
-            result,
-            source_image_id=payload.source_image_id,
-            grid_rows=first_target.expected_grid_rows,
-            grid_columns=first_target.expected_grid_columns,
-        )
 
     return router
 

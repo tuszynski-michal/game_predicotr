@@ -7,10 +7,15 @@ import {
   isSymbolReviewPageSize,
   MAX_SYMBOL_REVIEW_CACHED_PAGES,
   MAX_SYMBOL_REVIEW_PAGE_SIZE,
+  parseSymbolReviewChangeRange,
   parseSymbolReviewPageNumber,
   SYMBOL_REVIEW_PAGE_SIZES,
   symbolReviewConfidenceRange,
+  symbolReviewExtendedFilters,
   symbolReviewFiltersReady,
+  symbolReviewIsoToLocalDateTime,
+  symbolReviewLocalDateTimeToIso,
+  symbolReviewStartOfDayLocal,
   symbolReviewPageRange,
   symbolReviewWorkspaceReducer,
 } from '../src/features/symbol-reviews/symbol-review-state.ts';
@@ -172,6 +177,11 @@ test('maps non-overlapping confidence ranges to the API range snapshot', () => {
     maxConfidence: 0.9999999999999999,
     minConfidence: 0.8,
   });
+  assert.deepEqual(symbolReviewConfidenceRange('from_80_to_99'), {
+    maxConfidence: 0.9899999999999999,
+    minConfidence: 0.8,
+  });
+  assert.ok(symbolReviewConfidenceRange('from_80_to_99').maxConfidence < 0.99);
   assert.deepEqual(symbolReviewConfidenceRange('from_60_to_80'), {
     maxConfidence: 0.7999999999999999,
     minConfidence: 0.6,
@@ -179,4 +189,64 @@ test('maps non-overlapping confidence ranges to the API range snapshot', () => {
   assert.deepEqual(symbolReviewConfidenceRange('below_60'), {
     maxConfidence: 0.5999999999999999,
   });
+});
+
+test('extended filters are sent only when set', () => {
+  assert.deepEqual(
+    symbolReviewExtendedFilters({
+      changedFrom: null,
+      changedTo: null,
+      predictionSource: 'all',
+    }),
+    {},
+  );
+  assert.deepEqual(
+    symbolReviewExtendedFilters({
+      changedFrom: '2026-09-29T22:00:00.000Z',
+      changedTo: null,
+      predictionSource: 'model',
+    }),
+    { changedFrom: '2026-09-29T22:00:00.000Z', predictionSource: 'model' },
+  );
+});
+
+test('change range converts local minutes to inclusive instants', () => {
+  const from = symbolReviewLocalDateTimeToIso('2026-09-30T00:00', 'from');
+  const to = symbolReviewLocalDateTimeToIso('2026-09-30T23:59', 'to');
+
+  assert.equal(from, new Date(2026, 8, 30, 0, 0).toISOString());
+  assert.equal(
+    to,
+    new Date(2026, 8, 30, 23, 59, 59, 999).toISOString().replace('Z', '999Z'),
+  );
+  assert.equal(symbolReviewIsoToLocalDateTime(to), '2026-09-30T23:59');
+  assert.equal(symbolReviewIsoToLocalDateTime(from), '2026-09-30T00:00');
+  assert.equal(symbolReviewIsoToLocalDateTime(null), '');
+  assert.equal(symbolReviewLocalDateTimeToIso('2026-09-30', 'from'), null);
+  assert.equal(
+    symbolReviewLocalDateTimeToIso('2026-09-30T00:00:42', 'from'),
+    from,
+  );
+  assert.equal(
+    symbolReviewStartOfDayLocal(new Date(2026, 8, 30, 15, 42)),
+    '2026-09-30T00:00',
+  );
+});
+
+test('change range rejects incomplete and reversed bounds', () => {
+  assert.deepEqual(parseSymbolReviewChangeRange('', ''), {
+    changedFrom: null,
+    changedTo: null,
+    ok: true,
+  });
+  assert.equal(parseSymbolReviewChangeRange('2026-09-30', '').ok, false);
+  assert.equal(
+    parseSymbolReviewChangeRange('2026-09-30T10:00', '2026-09-30T09:00').ok,
+    false,
+  );
+  const sameMinute = parseSymbolReviewChangeRange(
+    '2026-09-30T10:00',
+    '2026-09-30T10:00',
+  );
+  assert.equal(sameMinute.ok, true);
 });

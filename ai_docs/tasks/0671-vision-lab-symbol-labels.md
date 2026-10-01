@@ -54,7 +54,7 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 - [x] T06a: pusty bootstrap, niezmienne wersje słownika, dokładna tożsamość cropa, drift, CAS/retry, restart i backup/restore pokryte testami; dotychczasowe dane geometrii pozostają zgodne.
 - [x] T06a: nowe trasy mają generowany kontrakt, zamknięte proxy, test żądania i ochronę holdoutów przed dekodowaniem.
 - [ ] T06b: rzeczywiste zatwierdzenia i raport kwalifikacji; brak danych nie jest raportowany jako ukończenie zbioru.
-- [ ] Audyt przypisanym modelem nie pozostawia P0–P2; zmiana ma osobny commit, Outcome i CURRENT_STATE.
+- [x] T06a: audyt przypisanym modelem nie pozostawia P0–P2; zmiana ma osobny commit, Outcome i CURRENT_STATE. T06b nadal nieodebrane.
 
 ## Technical notes
 
@@ -86,11 +86,49 @@ Po teście wykonaj lint/typecheck zmienionych modułów i wymagane kontrole kont
 
 ## Outcome
 
+Osobny przegląd przypisanych cropów (T06b bez zmiany): commit `v1.7.41` /
+`0bb9bb04b62fb66ad9d3e574d599fdfb4ce7972b`. Filtrowany odczyt
+istniejącego `lab_queue` pokazuje tylko aktualne zatwierdzenia wybranego
+symbolu; chronione źródła i stare decyzje nie są udostępniane. Panel ma
+miniatury, źródło i pozycję, do 500 na stronie; brak zapisów danych.
+Backend 8, klient 14, UI 57 testów PASS; Ruff, ESLint, TypeScript, OpenAPI
+i build PASS. Mypy nieukończone: błędna ścieżka importu w pierwszej próbie,
+druga przerwana po 60 s bez wyniku. API i panel uruchomione ponownie;
+HTTP 200 oraz żywy odczyt `view=assigned` HTTP 200. T06b nadal
+zablokowane kwalifikacją zbioru.
+
+Osobne udogodnienie poczekalni (T06b bez zmiany): commit `v1.7.40` /
+`8a4001b0a9a5aa21627c0014adfb16960ccd97af`. Jedna przewijana strona
+do 500 cropów składana z żądań po 30; zapis nadal maksymalnie 30.
+Klient 14 testów, UI 56 testów, lint/typy/build PASS. Read-only sprawdzenie
+Blazing: 433/433 cropów w 15 żądaniach. Panel 3102 przebudowany i
+uruchomiony; nie zmieniono etykiet ani geometrii operatora.
+
+Osobna poprawka odczytu (T06b bez zmiany): commit `v1.7.39` /
+`50545fdbbf33933a50ff3a354edf3f980a598026`. Równoległe pobranie dwóch
+wersji słownika odtwarzało 200/409 `ANNOTATION_STORE_BUSY`; po zmianie
+pięć par zwróciło wyłącznie 200. Testy backendu 12 PASS i UI 55 PASS;
+Ruff check/format, Mypy scoped, ESLint, TypeScript i build PASS.
+Kontrolowany restart API 8102 i UI 3102; zapisów danych nie wykonano.
+
+Osobna poprawka etykiet gier panelu (bez zmiany zakresu T06b): commit
+`v1.7.37` / `ed59403a7be163eda2a6a3cea9aaf0bbfc06b41a`; zachowano
+identyfikatory snapshotu i zapisane decyzje. Testy UI 55/55, lint i
+typecheck PASS. Pierwsza próba uruchomienia dev nie weszła (`EADDRINUSE`):
+stary `next start` PID 4964 nadal obsługiwał port 3102. Po potwierdzeniu
+tożsamości procesu zatrzymano tylko ten panel, wykonano produkcyjny build
+i uruchomiono `next start` PID 30552. `/` i `/symbols` odpowiadają 200;
+serwowany bundle `/symbols` zawiera mapowanie nazwy `treasure`.
+T06b pozostaje zablokowane.
+
 T06a odebrane technicznie 2026-09-27. Wykonawca Sol medium, niezależny
 audyt Sol medium PASS bez otwartych P0–P2. Pre-code zamknął trzy P2;
 audyt implementacji zamknął trzy dalsze P2 w dwóch cyklach. Drobna P3
-responsywności poprawiona i odebrana osobno. Commit T06a: do zapisania
-po kontroli indeksu; bazowy HEAD v1.7.30 / 4072dd53a260677e60a24c49f870e7ef1a58c093.
+responsywności poprawiona i odebrana osobno. Commit T06a:
+`v1.7.31` / `3c90363a825e160c41e2118c5a112d8be914d1b8`.
+Staged check/stat/list oraz post-commit show/stat/status PASS; 39 plików.
+Cudze fragmenty CURRENT_STATE i pozostałe cudze pliki wyłączone z commita.
+Pełny hash zapisano po commicie, zgodnie z cyklem repozytorium.
 
 Preflight wykazał brak słowników i etykiet w snapshotcie folderowym.
 D-458 rozdziela narzędzia T06a od rzeczywistych danych T06b, bez osłabienia

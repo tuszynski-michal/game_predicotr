@@ -21,7 +21,11 @@ from game_predictor_api.domain.catalog import (
     SymbolUsageSummary,
     stable_code_stem_from_name,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v1 import CREATE_TABLES
+from game_predictor_api.domain.image_import_engine_policy import (
+    DEFAULT_CELL_ASSET_MODE,
+    DEFAULT_GEOMETRY_MODE,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v4 import CREATE_TABLES, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleError,
     GamePartitionLifecycleKind,
@@ -33,7 +37,6 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageStatus,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     GameSymbolModelActivationModel,
     ImageGeometryRolloutStateModel,
@@ -141,8 +144,8 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         self._session.add(
             ImageGeometryRolloutStateModel(
                 game_id=record.id,
-                geometry_mode="legacy",
-                cell_asset_mode="legacy_files",
+                geometry_mode=DEFAULT_GEOMETRY_MODE,
+                cell_asset_mode=DEFAULT_CELL_ASSET_MODE,
                 revision=0,
                 backfill_status="not_started",
                 updated_by="system:catalog-game-create",
@@ -354,7 +357,10 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         resolved_symbols = ImageReviewItemModel.resolved_value["symbolCodes"].contains(
             [symbol_code]
         )
-        predicted_symbol = CellObservationModel.prediction["symbolCode"].as_string()
+        # Predictions are counted on the current V2 cell projection instead of the per-cell
+        # observation history (D-467): current predictions only, so superseded boards and
+        # predictions overwritten by a later revision no longer block deletion.
+        cell = ImageSymbolReviewCellModel
         return SymbolUsageSummary(
             rules=_count(
                 self._session,
@@ -364,21 +370,16 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             ),
             pending_board_predictions=_count(
                 self._session,
-                select(CellObservationModel.id)
-                .join(
-                    RecognizedBoardModel,
-                    RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
-                )
-                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                select(cell.id)
                 .join(
                     ImageReviewItemModel,
-                    ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+                    (ImageReviewItemModel.game_id == cell.game_id)
+                    & (ImageReviewItemModel.id == cell.review_item_id),
                 )
                 .where(
-                    JobModel.game_id == game_id,
+                    cell.game_id == game_id,
                     ImageReviewItemModel.status == "pending",
-                    predicted_symbol == symbol_code,
+                    cell.prediction_symbol_code == symbol_code,
                 ),
             ),
             resolved_board_decisions=_count(
@@ -398,14 +399,9 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             ),
             observation_predictions=_count(
                 self._session,
-                select(CellObservationModel.id)
-                .join(
-                    RecognizedBoardModel,
-                    RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
-                )
-                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-                .where(JobModel.game_id == game_id, predicted_symbol == symbol_code),
+                select(cell.id).where(
+                    cell.game_id == game_id, cell.prediction_symbol_code == symbol_code
+                ),
             ),
             symbol_cell_assignments=_count(
                 self._session,
@@ -482,9 +478,7 @@ def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> G
         expected_layout_count=record.expected_layout_count,
         created_at=record.created_at,
         updated_at=record.updated_at,
-        storage_version=(
-            storage.storage_version if storage is not None else "game-data-v2-manifest-v1"
-        ),
+        storage_version=(storage.storage_version if storage is not None else VERSION),
         storage_schema=(storage.store_schema.value if storage is not None else "game_data_v2"),
         storage_generation=(storage.generation if storage is not None else 2),
         storage_status=(storage.status.value if storage is not None else "active"),

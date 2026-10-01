@@ -14,6 +14,7 @@ import json
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
 from uuid import UUID
@@ -76,6 +77,16 @@ class SymbolCellReviewFilterState(StrEnum):
     PENDING = "pending"
 
 
+class SymbolCellReviewPredictionSource(StrEnum):
+    """Which writer produced a cell's current prediction (D-466)."""
+
+    REFERENCE_LIBRARY = "reference_library"
+    MODEL = "model"
+
+
+REFERENCE_LIBRARY_PREDICTION_MODEL_VERSION = "symbol-reference-library-v1"
+
+
 class SymbolCellReviewCursorDirection(StrEnum):
     AFTER = "after"
     BEFORE = "before"
@@ -114,8 +125,18 @@ class SymbolCellReviewListFilter:
     include_all_symbols: bool = False
     model_cohort_id: UUID | None = None
     storage_generation: int = 1
-    uses_current_projection: bool = False
     outside_only: bool = False
+    prediction_source: SymbolCellReviewPredictionSource | None = None
+    changed_from: datetime | None = None
+    changed_to: datetime | None = None
+
+    @property
+    def has_extended_filters(self) -> bool:
+        return (
+            self.prediction_source is not None
+            or self.changed_from is not None
+            or self.changed_to is not None
+        )
 
     def __post_init__(self) -> None:
         if self.outside_only:
@@ -161,6 +182,21 @@ class SymbolCellReviewListFilter:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_CONFIDENCE_RANGE_INVALID",
                 "min_confidence cannot be greater than max_confidence.",
+            )
+        for name, moment in (("changed_from", self.changed_from), ("changed_to", self.changed_to)):
+            if moment is not None and moment.tzinfo is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CHANGED_RANGE_INVALID",
+                    f"{name} must include a time zone.",
+                )
+        if (
+            self.changed_from is not None
+            and self.changed_to is not None
+            and self.changed_from > self.changed_to
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_CHANGED_RANGE_INVALID",
+                "changed_from cannot be later than changed_to.",
             )
 
 
@@ -544,8 +580,9 @@ def map_current_symbol_cell_reviews(
     """Map current operational crops into topology-bound cell-review state.
 
     ``ImageReviewItem.cells`` is already the shared representation which picks
-    base ``cell_observations`` for geometry revision zero and the newest
-    ``crop_artifacts`` for a corrected geometry.  Keeping this mapper on that
+    the current render manifest of a virtual board, the base crops of a
+    revision-zero legacy board and the newest ``crop_artifacts`` for a
+    corrected legacy geometry (D-467).  Keeping this mapper on that
     boundary prevents later backfill and write-through paths from choosing
     different crop identities.
     """
@@ -834,68 +871,96 @@ def invalidate_symbol_cell_reviews_for_geometry(
         unavailable_cell_indices=unavailable_cell_indices,
     )
     by_index = {review.cell_index: review for review in existing_reviews}
+    human_sources = {SymbolCellAssignmentSource.HUMAN, SymbolCellAssignmentSource.BOARD_DECISION}
     updated: list[SymbolCellReview] = []
     for current in mapped:
         previous = by_index.get(current.cell_index)
         if previous is None:
             updated.append(current)
             continue
-        if qualified:
-            if (
-                current.cell_index in unchanged_available_indices
-                and current.crop.crop_checksum_sha256 == previous.crop.crop_checksum_sha256
-                and previous.quality_issue is not SymbolCellQualityIssue.GRID_ISSUE
-            ):
+        available = not qualified or current.cell_index in unchanged_available_indices
+        current_pixels = current.crop.crop_checksum_sha256
+        history = previous.approved_crop
+        if history is None and previous.review_state is SymbolCellReviewState.APPROVED:
+            history = _current_crop_approval(previous)
+        suggestion = replace(
+            current,
+            assigned_symbol_code=previous.assigned_symbol_code,
+            assignment_source=previous.assignment_source,
+            approved_crop=history,
+            revision=previous.revision + 1,
+        )
+        if previous.review_state is SymbolCellReviewState.APPROVED:
+            # D-462 R6/R10: only the approved pixels decide. A verification of
+            # the current pixels is kept and rebound to the new identity; an
+            # approval of other pixels becomes a pending suggestion.
+            approved_pixels = (
+                previous.crop.crop_checksum_sha256
+                if previous.approved_crop is None
+                else previous.approved_crop.crop_checksum_sha256
+            )
+            if available and approved_pixels == current_pixels:
                 updated.append(
                     replace(
                         previous,
                         crop=current.crop,
-                        approved_crop=(
-                            _current_crop_approval(current)
-                            if previous.review_state is SymbolCellReviewState.APPROVED
-                            else previous.approved_crop
-                        ),
+                        approved_crop=_current_crop_approval(current),
                         revision=previous.revision + 1,
                     )
                 )
-                continue
-            old_approval = previous.approved_crop
-            if old_approval is None and previous.review_state is SymbolCellReviewState.APPROVED:
-                old_approval = _current_crop_approval(previous)
-            updated.append(
-                replace(current, approved_crop=old_approval, revision=previous.revision + 1)
-            )
+            else:
+                updated.append(suggestion)
             continue
+        same_pixels = available and previous.crop.crop_checksum_sha256 == current_pixels
+        human_label = previous.assignment_source in human_sources
         if previous.quality_issue is SymbolCellQualityIssue.GRID_ISSUE:
-            updated.append(replace(current, revision=previous.revision + 1))
-            continue
-        if previous.review_state is SymbolCellReviewState.APPROVED:
-            approved_crop = previous.approved_crop or _current_crop_approval(previous)
+            # R5: a saved geometry resolves the report. The reported label is
+            # a suggestion only for the same pixels.
             updated.append(
-                replace(
-                    current,
-                    assigned_symbol_code=previous.assigned_symbol_code,
-                    review_state=SymbolCellReviewState.APPROVED,
-                    quality_issue=previous.quality_issue,
-                    assignment_source=previous.assignment_source,
-                    approved_crop=approved_crop,
-                    revision=previous.revision + 1,
-                )
+                suggestion
+                if same_pixels and human_label
+                else replace(current, approved_crop=history, revision=previous.revision + 1)
             )
             continue
-        if previous.quality_issue is SymbolCellQualityIssue.UNREADABLE:
+        if human_label:
+            # A pending human decision (e.g. `unreadable`) describes its
+            # pixels: it stays for the same pixels and becomes a suggestion
+            # without pixel-bound flags for new ones.
             updated.append(
-                replace(
-                    current,
-                    assigned_symbol_code=previous.assigned_symbol_code,
-                    quality_issue=SymbolCellQualityIssue.UNREADABLE,
-                    assignment_source=previous.assignment_source,
-                    revision=previous.revision + 1,
-                )
+                replace(previous, crop=current.crop, revision=previous.revision + 1)
+                if same_pixels
+                else suggestion
             )
             continue
-        updated.append(replace(current, revision=previous.revision + 1))
+        # A model suggestion follows the current prediction.
+        updated.append(replace(current, approved_crop=history, revision=previous.revision + 1))
     return tuple(updated)
+
+
+def symbol_cell_approval_pixels_changed(
+    *,
+    asset_mode: str | None,
+    crop_checksum_sha256: str | None,
+    approved_crop_checksum_sha256: str | None,
+    rendered_pixel_checksum_sha256: str | None,
+    approved_rendered_pixel_checksum_sha256: str | None,
+) -> bool:
+    """Whether an approval was given to other pixels than the current ones.
+
+    D-462 R10: only the approved pixels decide; a new geometry revision that
+    renders identical pixels keeps the verification.  An approval without any
+    pixel identity (a logical position without an image, D-451) never changed.
+    """
+
+    if (
+        asset_mode == "virtual_source"
+        and approved_rendered_pixel_checksum_sha256 is not None
+        and rendered_pixel_checksum_sha256 is not None
+    ):
+        return approved_rendered_pixel_checksum_sha256 != rendered_pixel_checksum_sha256
+    if approved_crop_checksum_sha256 is None:
+        return False
+    return approved_crop_checksum_sha256 != crop_checksum_sha256
 
 
 def derive_symbol_cell_board_resolution(
@@ -903,17 +968,21 @@ def derive_symbol_cell_board_resolution(
     reviews: Sequence[SymbolCellReview],
     active_symbol_codes: Iterable[str],
     topology: BoardTopology = LEGACY_IMAGE_BOARD_TOPOLOGY,
-    geometry_approved: bool = True,
+    stale_approval_cell_indices: frozenset[int] = frozenset(),
 ) -> SymbolCellBoardResolution | None:
-    """Return a full-board decision only from approved geometry and labels.
+    """Return a full-board decision derived solely from the current cells.
 
-    ``None`` means that the parent board must stay open because of pending
-    labels, a grid issue or unapproved geometry. A manually approved unknown
-    label completes the logical board but always makes its decision corrected.
+    D-462: the board is a container; approving its geometry is no condition.
+    ``None`` means that the parent board stays open because a label is pending,
+    a grid issue is reported, a position lacks full source pixels, or an
+    approval covers other pixels than the current ones
+    (``stale_approval_cell_indices``, see
+    ``symbol_cell_approval_pixels_changed``). A manually approved unknown label
+    completes the logical board but always makes its decision corrected.
     """
 
     _validate_complete_symbol_cell_reviews(reviews, topology=topology)
-    if not geometry_approved or any(review.source_visibility != "full" for review in reviews):
+    if stale_approval_cell_indices or any(review.source_visibility != "full" for review in reviews):
         return None
     active = _normalized_active_symbols(active_symbol_codes)
     ordered = tuple(sorted(reviews, key=lambda review: review.cell_index))
@@ -952,6 +1021,25 @@ def is_symbol_cell_training_eligible(
     )
 
 
+def utc_isoformat(value: datetime) -> str:
+    """One spelling per instant, so the same range in another offset keeps its cursor."""
+
+    return value.astimezone(UTC).isoformat()
+
+
+def _extended_filter_payload(review_filter: SymbolCellReviewListFilter) -> dict[str, str]:
+    """Only set filters enter a cursor, so cursors of unfiltered lists keep their bytes."""
+
+    payload: dict[str, str] = {}
+    if review_filter.prediction_source is not None:
+        payload["predictionSource"] = review_filter.prediction_source.value
+    if review_filter.changed_from is not None:
+        payload["changedFrom"] = utc_isoformat(review_filter.changed_from)
+    if review_filter.changed_to is not None:
+        payload["changedTo"] = utc_isoformat(review_filter.changed_to)
+    return payload
+
+
 def encode_symbol_cell_review_cursor(
     *,
     review_filter: SymbolCellReviewListFilter,
@@ -966,6 +1054,7 @@ def encode_symbol_cell_review_cursor(
         "key": [key[0], key[1], str(key[2])],
         "maxConfidence": review_filter.max_confidence,
         "minConfidence": review_filter.min_confidence,
+        **_extended_filter_payload(review_filter),
         "state": review_filter.state.value,
         "storageGeneration": review_filter.storage_generation,
         "symbolId": _symbol_cell_review_filter_scope(review_filter),
@@ -1002,6 +1091,12 @@ def decode_symbol_cell_review_cursor(
         parsed_model_cohort_id = (
             None if payload.get("modelCohortId") is None else UUID(payload["modelCohortId"])
         )
+        # Older cursors omit the extended filters; absence means "not filtered".
+        parsed_extended = {
+            key: payload.get(key)
+            for key in ("predictionSource", "changedFrom", "changedTo")
+            if payload.get(key) is not None
+        }
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
@@ -1028,6 +1123,7 @@ def decode_symbol_cell_review_cursor(
         or parsed_max_confidence != review_filter.max_confidence
         or parsed_storage_generation != review_filter.storage_generation
         or parsed_model_cohort_id != review_filter.model_cohort_id
+        or parsed_extended != _extended_filter_payload(review_filter)
     ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",
@@ -1194,4 +1290,5 @@ __all__ = [
     "mark_symbol_cell_unreadable",
     "reassign_symbol_cell_review",
     "resolve_unreadable_symbol_cell_review",
+    "symbol_cell_approval_pixels_changed",
 ]

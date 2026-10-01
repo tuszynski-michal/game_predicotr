@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import functools
 import json
 import os
 import subprocess
@@ -138,15 +139,26 @@ def ensure_online_reviewer_ingress(
     return started
 
 
+REVIEWER_INTERNAL_API_ORIGIN_VARIABLE: Final = "REVIEWER_INTERNAL_API_ORIGIN"
+
+
 def _run_command(
     command: Sequence[str],
     working_directory: Path,
     timeout_seconds: float,
+    *,
+    environment_overrides: Mapping[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
+    environment = _normalized_subprocess_environment(os.environ)
+    # The Reviewer started by the controller inherits this environment; an
+    # API on a non-default port must point it at itself, but an explicit
+    # operator setting wins.
+    for name, value in (environment_overrides or {}).items():
+        environment.setdefault(name, value)
     return subprocess.run(
         command,
         cwd=working_directory,
-        env=_normalized_subprocess_environment(os.environ),
+        env=environment,
         check=False,
         stderr=subprocess.DEVNULL,
         stdout=subprocess.DEVNULL,
@@ -163,11 +175,17 @@ class ReviewerIngressService:
         project_root: Path,
         *,
         powershell_executable: str = "powershell.exe",
-        runner: CommandRunner = _run_command,
+        runner: CommandRunner | None = None,
         request_id_factory: Callable[[], UUID] = uuid4,
+        api_origin: str | None = None,
     ) -> None:
         self._project_root = project_root.resolve()
         self._powershell_executable = powershell_executable
+        if runner is None:
+            overrides = (
+                {} if api_origin is None else {REVIEWER_INTERNAL_API_ORIGIN_VARIABLE: api_origin}
+            )
+            runner = functools.partial(_run_command, environment_overrides=overrides)
         self._runner = runner
         self._request_id_factory = request_id_factory
         self._lock = threading.Lock()

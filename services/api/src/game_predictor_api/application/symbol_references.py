@@ -72,7 +72,7 @@ class ApprovedSymbolReferenceRepository(Protocol):
     ) -> Sequence[ApprovedSymbolReferenceCandidate]: ...
 
     def get_candidate(
-        self, *, game_id: UUID, symbol_id: UUID, observation_id: UUID
+        self, *, game_id: UUID, symbol_id: UUID, cell_review_id: UUID
     ) -> ApprovedSymbolReferenceCandidate | None: ...
 
     def get_cell_review_candidate(
@@ -147,13 +147,13 @@ class ApprovedSymbolReferenceService:
         )
 
     def candidate(
-        self, game_id: UUID, symbol_id: UUID, observation_id: UUID
+        self, game_id: UUID, symbol_id: UUID, cell_review_id: UUID
     ) -> ApprovedSymbolReferenceCandidate:
         self._require_game(game_id)
         candidate = self._repository.get_candidate(
             game_id=game_id,
             symbol_id=symbol_id,
-            observation_id=observation_id,
+            cell_review_id=cell_review_id,
         )
         if candidate is None:
             raise CatalogNotFoundError(
@@ -176,9 +176,9 @@ class ApprovedSymbolReferenceService:
         self,
         game_id: UUID,
         symbol_id: UUID,
-        observation_id: UUID,
+        cell_review_id: UUID,
     ) -> RenderedSymbolReferenceCandidate:
-        candidate = self.candidate(game_id, symbol_id, observation_id)
+        candidate = self.candidate(game_id, symbol_id, cell_review_id)
         if not candidate.is_virtual:
             raise CatalogConflictError(
                 "SYMBOL_REFERENCE_CANDIDATE_ASSET_MODE_INVALID",
@@ -195,7 +195,7 @@ class ApprovedSymbolReferenceService:
         self,
         game_id: UUID,
         symbol_id: UUID,
-        observation_id: UUID,
+        cell_review_id: UUID,
         *,
         expected_checksum_sha256: str,
         selected_by: str,
@@ -207,7 +207,7 @@ class ApprovedSymbolReferenceService:
                 "SYMBOL_REFERENCE_ACTOR_INVALID",
                 "selectedBy must contain 1-200 non-whitespace characters.",
             )
-        candidate = self.candidate(game_id, symbol_id, observation_id)
+        candidate = self.candidate(game_id, symbol_id, cell_review_id)
         if candidate.crop_checksum_sha256 != checksum:
             raise CatalogConflictError(
                 "SYMBOL_REFERENCE_CANDIDATE_STALE",
@@ -261,7 +261,7 @@ class ApprovedSymbolReferenceService:
         return self.select(
             game_id,
             symbol_id,
-            candidate.observation_id,
+            candidate.cell_review_id,
             expected_checksum_sha256=expected_checksum_sha256,
             selected_by=selected_by,
         )

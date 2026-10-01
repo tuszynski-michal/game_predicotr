@@ -210,6 +210,8 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
         "virtual-geometry-rollout-snapshot-v3",
         "virtual-geometry-rollout-snapshot-v4",
     ]
+    # Historical job snapshots keep the removed legacy/shadow modes readable
+    # (D-467, TASK-0790); new jobs can pin only virtual modes.
     geometry_mode: Literal[
         "legacy",
         "structured_shadow",

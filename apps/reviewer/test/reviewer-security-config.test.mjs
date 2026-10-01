@@ -44,3 +44,27 @@ test('remote manual selection CSP permits only same-origin transport', async () 
     );
   }
 });
+
+test('the online board-search share has its own same-origin CSP', async () => {
+  const rules = await nextConfig.headers();
+  const globalRule = rules.find((rule) =>
+    rule.source.includes('?!manual-selection'),
+  );
+  assert.match(globalRule?.source ?? '', /board-search\(\?:\/\|\$\)/);
+  assert.match(globalRule?.source ?? '', /board-search-api\(\?:\/\|\$\)/);
+  for (const source of ['/board-search', '/board-search-api/:path*']) {
+    const rule = rules.find((candidate) => candidate.source === source);
+    assert.ok(rule, `${source} must have a dedicated CSP`);
+    const policy = rule.headers.find(
+      (header) => header.key === 'Content-Security-Policy',
+    )?.value;
+    assert.match(policy, /connect-src 'self'/);
+    assert.match(policy, /img-src 'self' data: blob:/);
+    assert.doesNotMatch(policy, /127\.0\.0\.1:8000/);
+    assert.match(policy, /frame-ancestors 'none'/);
+    assert.equal(
+      rule.headers.find((header) => header.key === 'Referrer-Policy')?.value,
+      'no-referrer',
+    );
+  }
+});

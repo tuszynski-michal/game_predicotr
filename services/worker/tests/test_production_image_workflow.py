@@ -249,12 +249,16 @@ def test_systemic_geometry_guard_fails_before_file_registration(
         "_symbol_model_snapshot",
         "_grid_profile_snapshot",
         "_page_registration_profile_snapshot",
-        "_geometry_rollout_snapshot",
     ):
         monkeypatch.setattr(
             f"game_predictor_worker.images.production_workflow.{helper_name}",
             lambda _job: None,
         )
+    # D-467 (TASK-0790): only a virtual rollout passes the import gate.
+    monkeypatch.setattr(
+        "game_predictor_worker.images.production_workflow._geometry_rollout_snapshot",
+        lambda _job: SimpleNamespace(cell_asset_mode=CellAssetRolloutMode.VIRTUAL_DEFAULT),
+    )
     monkeypatch.setattr(
         "game_predictor_worker.images.production_workflow.ProductionImageStageAdapterSuite",
         lambda *_args, **_kwargs: SimpleNamespace(),

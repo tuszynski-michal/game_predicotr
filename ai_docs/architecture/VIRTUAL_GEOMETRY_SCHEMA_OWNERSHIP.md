@@ -281,7 +281,7 @@ staje się drugim właścicielem semantycznym.
 | `image_source_geometry_revisions` | Niezmienny snapshot topologii, attested range, aktywnych slotów i finalnych quadów wszystkich slotów danej rewizji źródła | kanoniczny właściciel bajtów geometrii wirtualnej |
 | `recognized_boards` | Bieżąca plansza dla jednego slotu oraz selektor `source_geometry_revision_id + position_index`; status i rewizja workflow | materializowana projekcja bieżącego wyboru |
 | `image_board_geometry_revisions` | Append-only komenda/audyt ręcznej korekty, rewizja planszy i historyczny manifest assetów | historia decyzji; nie właściciel virtual quada |
-| `cell_observations` | Niezmienna obserwacja pipeline'u, predykcja oraz dokładny render spec/crop provenance | wynik i proweniencja renderu |
+| `cell_observations` (usunięta w `0134`, D-467 S5; zastępuje ją `board_render_manifests`) | Niezmienna obserwacja pipeline'u, predykcja oraz dokładny render spec/crop provenance | wynik i proweniencja renderu (historycznie) |
 | `image_symbol_review_cells` | Bieżąca decyzja człowieka, jakość i proweniencja zatwierdzonego cropa | projekcja operacyjna review |
 | `image_symbol_review_events` | Append-only historia decyzji i zmian cropa | audyt review |
 | `image_geometry_rollout_states` | Bieżąca polityka rolloutu gry oraz bounded checkpoint jej walidacji/backfillu | stan operacyjny, nie geometria |

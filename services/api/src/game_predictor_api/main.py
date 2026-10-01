@@ -3,9 +3,10 @@
 import json
 import logging
 from collections.abc import Callable, Iterator
+from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import Annotated, Any
+from typing import Annotated, Any, Final
 from urllib.parse import urlparse
 from uuid import UUID
 
@@ -16,6 +17,7 @@ from fastapi.responses import JSONResponse
 from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
     ManualBoardCellSymbolPredictor,
 )
+from sqlalchemy.orm import Session
 
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.router import create_api_router
@@ -228,6 +230,7 @@ from game_predictor_api.domain.remote_manual_selections import (
     RemoteManualSelectionError,
 )
 from game_predictor_api.domain.reviewer_work_assignments import (
+    ReviewerWorkAssignment,
     ReviewerWorkAssignmentConflictError,
     ReviewerWorkAssignmentError,
 )
@@ -278,6 +281,7 @@ from game_predictor_api.storage.catalog_repository import (
 )
 from game_predictor_api.storage.cleanup_repository import SqlAlchemyCleanupRepository
 from game_predictor_api.storage.database import (
+    create_cross_game_owner_session_factory,
     create_database_engine,
     create_owner_database_engine,
     create_owner_session_factory,
@@ -286,11 +290,15 @@ from game_predictor_api.storage.database import (
 from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
+from game_predictor_api.storage.game_entity_locator import (
+    GameEntityLocator,
+    bind_located_game,
+)
 from game_predictor_api.storage.game_partition_lifecycle import GamePartitionLifecycleError
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageRouter,
     GameStorageRoutingError,
-    game_id_from_path,
+    game_id_from_request,
     game_storage_scope,
 )
 from game_predictor_api.storage.global_geometry_library_repository import (
@@ -369,6 +377,7 @@ from game_predictor_api.storage.reviewer_access_repository import (
     SqlAlchemyReviewerAccessRepository,
 )
 from game_predictor_api.storage.reviewer_work_assignment_repository import (
+    OtherGamesOnlineAssignments,
     SqlAlchemyReviewerWorkAssignmentRepository,
 )
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
@@ -402,6 +411,76 @@ from game_predictor_api.storage.worker_lane_repository import (
 )
 
 LOGGER = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True, slots=True)
+class _GameEntityRoute:
+    """A route that names a game-owned row only by its global id (TASK-0797)."""
+
+    path_prefix: str
+    path_parameter: str
+    table: str
+    column: str
+    # False: the row may legitimately not exist yet (browser staging that has
+    # no retention record); the request then continues unscoped.
+    required: bool = True
+
+
+_GAME_ENTITY_ROUTES: Final = (
+    _GameEntityRoute(
+        "/api/v1/admin/dataset-versions/", "dataset_version_id", "dataset_versions", "id"
+    ),
+    _GameEntityRoute("/api/v1/admin/image-selections/", "run_id", "image_selection_runs", "id"),
+    _GameEntityRoute(
+        "/api/v1/admin/image-imports/curated-sources/",
+        "source_id",
+        "curated_image_import_sources",
+        "id",
+    ),
+    _GameEntityRoute(
+        "/api/v1/admin/image-imports/browser-selections/",
+        "upload_id",
+        "browser_selection_retention_states",
+        "upload_id",
+        required=False,
+    ),
+    _GameEntityRoute("/api/v1/admin/review-batches/", "review_batch_id", "review_batches", "id"),
+    _GameEntityRoute("/api/v1/admin/review-items/", "review_item_id", "review_items", "id"),
+    _GameEntityRoute(
+        "/api/v1/admin/review-feedback-exports/",
+        "feedback_export_id",
+        "review_feedback_exports",
+        "id",
+    ),
+)
+
+
+def _assign_request_entity_game(
+    session: Session, request: Request, locator: GameEntityLocator
+) -> None:
+    """Route ``session`` to the game that owns the row named by the request path.
+
+    A request already scoped to a game (path or ``gameId``) keeps that game: a
+    row of another game is then invisible and reported as not found.
+    """
+
+    for route in _GAME_ENTITY_ROUTES:
+        raw = request.path_params.get(route.path_parameter)
+        if raw is None or not request.url.path.startswith(route.path_prefix):
+            continue
+        try:
+            value = raw if isinstance(raw, UUID) else UUID(str(raw))
+        except ValueError:
+            return
+        if bind_located_game(session, locator, route.table, route.column, value):
+            return
+        if route.required:
+            raise GameStorageRoutingError(
+                "GAME_SCOPED_RESOURCE_NOT_FOUND",
+                "The requested resource does not exist in any game.",
+                details={route.path_parameter: str(value)},
+            )
+        return
 
 
 def _loopback_api_origin(host: str, port: int) -> str:
@@ -525,11 +604,14 @@ def create_app(
     )
     database_engine = create_database_engine(resolved_settings)
     session_factory = create_session_factory(database_engine)
+    # TASK-0797: routes that name only a game-owned row id find its game here.
+    game_entity_locator = GameEntityLocator(session_factory)
     # TASK-0795: schema-owner sessions only for partition DDL of a new game.
     # NullPool: no owner connection stays open between requests.
-    owner_session_factory = create_owner_session_factory(
-        create_owner_database_engine(resolved_settings)
-    )
+    owner_engine = create_owner_database_engine(resolved_settings)
+    owner_session_factory = create_owner_session_factory(owner_engine)
+    # TASK-0797: mobile releases span games (see CrossGameOwnerSession).
+    cross_game_owner_session_factory = create_cross_game_owner_session_factory(owner_engine)
 
     def default_catalog_service_dependency() -> Iterator[CatalogService]:
         with session_factory() as session:
@@ -678,9 +760,16 @@ def create_app(
         or default_board_search_board_view_service_dependency
     )
 
-    def default_cleanup_service_dependency() -> Iterator[CleanupService]:
-        with session_factory() as session:
-            repository = SqlAlchemyCleanupRepository(session)
+    def default_cleanup_service_dependency(request: Request) -> Iterator[CleanupService]:
+        # A mobile release references several games; its cleanup runs on the
+        # cross-game owner session, game cleanups stay game-bound (TASK-0797).
+        factory = (
+            cross_game_owner_session_factory
+            if request.url.path.startswith("/api/v1/admin/mobile-releases/")
+            else session_factory
+        )
+        with factory() as session:
+            repository = SqlAlchemyCleanupRepository(session, cross_game_owner_session_factory)
             artifact_store = ManagedCleanupArtifactStore(resolved_settings.artifact_root)
             service = CleanupService(repository, artifact_store)
             committed = False
@@ -830,9 +919,10 @@ def create_app(
 
     resolved_rules_dependency = rules_service_dependency or default_rules_service_dependency
 
-    def default_dataset_service_dependency() -> Iterator[DatasetService]:
+    def default_dataset_service_dependency(request: Request) -> Iterator[DatasetService]:
         with session_factory() as session:
             try:
+                _assign_request_entity_game(session, request, game_entity_locator)
                 yield DatasetService(SqlAlchemyDatasetRepository(session))
                 session.commit()
             except BaseException:
@@ -886,9 +976,12 @@ def create_app(
         worker_lane_status_service_dependency or default_worker_lane_status_service_dependency
     )
 
-    def default_image_selection_service_dependency() -> Iterator[ImageSelectionService]:
+    def default_image_selection_service_dependency(
+        request: Request,
+    ) -> Iterator[ImageSelectionService]:
         with session_factory() as session:
             try:
+                _assign_request_entity_game(session, request, game_entity_locator)
                 yield ImageSelectionService(
                     SqlAlchemyImageSelectionRepository(session),
                     artifact_root=resolved_settings.artifact_root,
@@ -1132,11 +1225,12 @@ def create_app(
         or default_image_sequence_canonical_service_dependency
     )
 
-    def default_iterative_image_import_service_dependency() -> Iterator[
-        IterativeImageImportService
-    ]:
+    def default_iterative_image_import_service_dependency(
+        request: Request,
+    ) -> Iterator[IterativeImageImportService]:
         with session_factory() as session:
             try:
+                _assign_request_entity_game(session, request, game_entity_locator)
                 image_selection_service = ImageSelectionService(
                     SqlAlchemyImageSelectionRepository(session),
                     artifact_root=resolved_settings.artifact_root,
@@ -1387,11 +1481,12 @@ def create_app(
         or default_page_geometry_override_service_dependency
     )
 
-    def default_image_import_geometry_guard_service_dependency() -> Iterator[
-        ImageImportGeometryGuardService
-    ]:
+    def default_image_import_geometry_guard_service_dependency(
+        request: Request,
+    ) -> Iterator[ImageImportGeometryGuardService]:
         with session_factory() as session:
             try:
+                _assign_request_entity_game(session, request, game_entity_locator)
                 yield ImageImportGeometryGuardService(
                     SqlAlchemyImageImportGeometryGuardRepository(session),
                     resolved_settings.artifact_root,
@@ -1446,7 +1541,7 @@ def create_app(
     )
 
     def default_mobile_release_service_dependency() -> Iterator[MobileReleaseService]:
-        with session_factory() as session:
+        with cross_game_owner_session_factory() as session:
             try:
                 yield MobileReleaseService(SqlAlchemyMobileReleaseRepository(session))
                 session.commit()
@@ -1458,10 +1553,11 @@ def create_app(
         mobile_release_service_dependency or default_mobile_release_service_dependency
     )
 
-    def default_review_service_dependency() -> Iterator[ReviewService]:
+    def default_review_service_dependency(request: Request) -> Iterator[ReviewService]:
         with session_factory() as session:
             try:
-                yield ReviewService(SqlAlchemyReviewRepository(session))
+                _assign_request_entity_game(session, request, game_entity_locator)
+                yield ReviewService(SqlAlchemyReviewRepository(session, session_factory))
                 session.commit()
             except BaseException:
                 session.rollback()
@@ -1469,15 +1565,18 @@ def create_app(
 
     resolved_review_dependency = review_service_dependency or default_review_service_dependency
 
+    def reviewer_access_service(session: Session) -> ReviewerAccessService:
+        return ReviewerAccessService(
+            lambda: _active_reviewer_origin(
+                resolved_settings.reviewer_origin,
+            ),
+            SqlAlchemyReviewerAccessRepository(session, game_entity_locator),
+        )
+
     def default_reviewer_access_service_dependency() -> Iterator[ReviewerAccessService]:
         with session_factory() as session:
             try:
-                yield ReviewerAccessService(
-                    lambda: _active_reviewer_origin(
-                        resolved_settings.reviewer_origin,
-                    ),
-                    SqlAlchemyReviewerAccessRepository(session),
-                )
+                yield reviewer_access_service(session)
                 session.commit()
             except ReviewerAccessError:
                 # Failed unlock attempts and the fifth-attempt lock are
@@ -1501,6 +1600,44 @@ def create_app(
         lambda: reviewer_ingress_service
     )
 
+    other_games_online = OtherGamesOnlineAssignments(session_factory, game_entity_locator)
+
+    def recover_other_games_online(current_game_id: UUID | None) -> None:
+        # TASK-0797: one transaction reads one game; each other game's expired
+        # online leases are recovered (and their access sessions revoked) in
+        # that game's own short transaction.
+        for game_id in game_entity_locator.registered_games():
+            if game_id == current_game_id:
+                continue
+            with game_storage_scope(game_id), session_factory() as side_session:
+                try:
+                    access = reviewer_access_service(side_session)
+
+                    def revoke(
+                        assignment: ReviewerWorkAssignment,
+                        access: ReviewerAccessService = access,
+                    ) -> None:
+                        if assignment.reviewer_access_session_id is not None:
+                            access.revoke(assignment.reviewer_access_session_id)
+
+                    ReviewerWorkAssignmentService(
+                        SqlAlchemyReviewerWorkAssignmentRepository(
+                            side_session, game_entity_locator
+                        )
+                    ).recover_expired_online(before_expire=revoke)
+                    side_session.commit()
+                except GameStorageRoutingError as error:
+                    # A game under storage maintenance is read-only; its
+                    # expired leases are recovered on a later request. Its
+                    # unexpired leases still count for the cap and the tunnel.
+                    side_session.rollback()
+                    LOGGER.warning(
+                        "Skipped Reviewer lease recovery of game %s: %s", game_id, error.code
+                    )
+                except BaseException:
+                    side_session.rollback()
+                    raise
+
     def default_reviewer_work_lifecycle_service_dependency() -> Iterator[
         ReviewerWorkLifecycleService
     ]:
@@ -1508,15 +1645,15 @@ def create_app(
             try:
                 yield ReviewerWorkLifecycleService(
                     ReviewerWorkAssignmentService(
-                        SqlAlchemyReviewerWorkAssignmentRepository(session)
+                        SqlAlchemyReviewerWorkAssignmentRepository(
+                            session,
+                            game_entity_locator,
+                            other_games_online=other_games_online,
+                        )
                     ),
-                    ReviewerAccessService(
-                        lambda: _active_reviewer_origin(
-                            resolved_settings.reviewer_origin,
-                        ),
-                        SqlAlchemyReviewerAccessRepository(session),
-                    ),
+                    reviewer_access_service(session),
                     reviewer_ingress_service,
+                    recover_other_games=recover_other_games_online,
                 )
                 session.commit()
             except BaseException:
@@ -1545,7 +1682,7 @@ def create_app(
     async def bind_game_storage_request(
         request: Request, call_next: Callable[[Request], Any]
     ) -> Any:
-        game_id = game_id_from_path(request.url.path)
+        game_id = game_id_from_request(request.url.path, request.query_params)
         if game_id is None:
             return await call_next(request)
         with game_storage_scope(game_id):
@@ -1699,12 +1836,13 @@ def create_app(
         error: GameStorageRoutingError,
     ) -> JSONResponse:
         status_code = 409
-        if error.code == "GAME_NOT_FOUND":
+        if error.code in {"GAME_NOT_FOUND", "GAME_SCOPED_RESOURCE_NOT_FOUND"}:
             status_code = 404
         elif error.code in {
             "GAME_STORAGE_LOCATION_INVALID",
             "GAME_STORAGE_SESSION_SCOPE_CONFLICT",
             "GAME_STORAGE_TABLE_NOT_OWNED",
+            "GAME_SCOPED_RESOURCE_AMBIGUOUS",
         }:
             status_code = 500
         return JSONResponse(

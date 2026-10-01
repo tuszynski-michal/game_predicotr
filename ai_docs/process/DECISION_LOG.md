@@ -499,6 +499,49 @@ last_updated: 2026-10-01
   symbolu 1,4 s → 3,6 s, zapytania indeksowe bez zmian. Zmiana funkcji
   polityki jest poza zakresem TASK-0795 (osobne zadanie z migracją).
   Wycofanie: `GAME_PREDICTOR_DATABASE_URL` = URL właściciela i restart.
+- **Ścieżki bez związanej gry i równoległa polityka RLS (TASK-0797,
+  2026-10-01, migracja `0138`):** sonda wszystkich 288 operacji OpenAPI na
+  roli aplikacyjnej (`test_unbound_game_route_probe_postgres.py`) wykazała
+  53 trasy kończące się `42P01`/`42501` bez wiązania gry (od `0125` także dla
+  właściciela). Zasady: (1) gra żądania z `/games/{id}/` albo z parametru
+  `gameId`/`game_id` tras `/api/v1/admin/` i `/api/v1/reviewer/` wiąże całe
+  żądanie (`game_id_from_request`); trasy publicznego udostępnienia i zdalnej
+  selekcji nadal biorą grę wyłącznie z własnej sesji; (2) trasa, która zna
+  tylko globalny identyfikator wiersza gry (wersja datasetu, przebieg
+  selekcji, źródło kuratorskie, staging przeglądarkowy, partie i itemy
+  przeglądu M5, sesja i przydział Reviewera), znajduje jego grę odczytami
+  związanymi kolejno z każdą grą (`GameEntityLocator`) i przypisuje ją sesji
+  (`assign_session_game`); brak gry = `404 GAME_SCOPED_RESOURCE_NOT_FOUND`
+  (staging bez rekordu retencji idzie dalej bez gry); (3) listy i kontrole
+  obejmujące wiele gier (podgląd storage GC, lista partii M5, przydziały
+  online Reviewera) czytają każdą grę w osobnej związanej sesji; (4) agregaty
+  wielu gier — wydanie mobilne (tworzenie, build, snapshot, payouty wydania,
+  sprzątanie wydania) oraz kontrole bezpieczeństwa sprzątania gry
+  (współdzielone pliki, wykonania i wydania wielogrowe) — używają jawnej
+  sesji właściciela `CrossGameOwnerSession` (superuser, `game_data_v2` w
+  `search_path`, routing per instrukcja z bramą zapisu, przełączanie gry
+  zamiast odmowy). Znaleziono dwie ścieżki zależne od obejścia RLS po
+  cutoverze TASK-0795 (ciche zawężenie do jednej gry): limit i zatrzymanie
+  wspólnego tunelu Reviewera liczyły przydziały online tylko bieżącej gry
+  (tunel mógł zostać zatrzymany mimo aktywnego przydziału innej gry) oraz
+  wykrywanie plików współdzielonych przy resecie gry (`_GAME_ARTIFACTS_SQL`)
+  i współdzielonych wykonań przy usuwaniu źródeł nie widziało innych gier
+  (ryzyko usunięcia pliku używanego przez inną grę); obie naprawione.
+  Uwierzytelnienie Reviewera: wariant bez nowych obiektów bazy (iteracja po
+  grach z RLS) zamiast tabeli indeksowej `token_hash → game_id` w `public`
+  albo funkcji `SECURITY DEFINER` — uzasadnienie w modelu zagrożeń.
+  `SHOW data_directory` w metrykach projekcji weryfikacji (wymaga superusera)
+  działa w savepoincie, bo odmowa przerywała transakcję startu projekcji.
+  Migracja `0138_rls_policy_function_parallel_safe`: `current_game_id_v1()`
+  jako `STABLE PARALLEL SAFE` plpgsql bez bloku `EXCEPTION` (kształt uuid
+  sprawdzany wyrażeniem regularnym; brak ustawienia nadal
+  `GAME_STORAGE_SCOPE_REQUIRED`, zły uuid `GAME_STORAGE_SCOPE_INVALID`, oba
+  `42501`), polityki bez zmian; `ck_image_symbol_review_cells_approved_provenance`
+  bez gałęzi `legacy_file` (preflight `CELL_APPROVED_LEGACY_PROVENANCE_PRESENT`,
+  `NOT VALID` + `VALIDATE` w runbooku); downgrade przywraca obie wersje.
+  `EXPECTED_ALEMBIC_HEAD` = `0138`. Usunięty test `test_resumable_game_deletion.py`:
+  testował jednorazowe usunięcie gry z magazynu `public` (usuniętego w
+  `0125`), dla którego nie ma trasy; usuwanie gry V2 testuje lifecycle.
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu

@@ -100,6 +100,7 @@ from game_predictor_api.schemas.image_imports import (
     PageGeometryRegistrationDiagnostics,
 )
 from game_predictor_api.schemas.jobs import JobResponse
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 
 def _image_import_preflight_checksum(
@@ -2345,12 +2346,15 @@ def create_image_imports_router(
         payload: CuratedImageImportSourceCreate,
         service: Annotated[IterativeImageImportService, iterative_import_parameter],
     ) -> CuratedImageImportSourceResponse:
-        return CuratedImageImportSourceResponse.from_domain(
-            service.register_source(
-                game_id=payload.game_id,
-                image_selection_run_id=payload.image_selection_run_id,
+        # TASK-0797: the game is named only in the body; bind it before the
+        # selection run (a game table) is read.
+        with game_storage_scope(payload.game_id):
+            return CuratedImageImportSourceResponse.from_domain(
+                service.register_source(
+                    game_id=payload.game_id,
+                    image_selection_run_id=payload.image_selection_run_id,
+                )
             )
-        )
 
     @router.get(
         "/curated-sources",

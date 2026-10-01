@@ -231,6 +231,16 @@ wynik. Ścieżki między grami iterują po `public.game_storage_locations` z
 osobnym wiązaniem na grę (wzorzec `load_pipeline_execution_references`).
 Szczegóły i wycofanie: D-467 (nota TASK-0795), `LOCAL_OPERATION_GUIDE.md`.
 
+TASK-0797 uzupełnia kontrakt: gra żądania API pochodzi ze ścieżki
+`/games/{id}/` albo z parametru `gameId`/`game_id` tras Admina i Reviewera;
+trasa nazywająca tylko globalny identyfikator wiersza gry znajduje grę
+odczytami związanymi kolejno z każdą grą (`GameEntityLocator`, bez kopii
+mapowania poza magazynem gry); agregaty wielu gier (wydanie mobilne z
+buildem, snapshotem i payoutami, kontrole współdzielonych plików i wykonań
+przy sprzątaniu gry) używają jawnej sesji właściciela `CrossGameOwnerSession`.
+Funkcja polityki `current_game_id_v1()` jest od `0138` `PARALLEL SAFE`
+(bez zmiany polityk i zachowania błędów).
+
 ## Greenfield cutover
 
 TASK-0525 zastosował migracje 0105–0110 po audycie pustego katalogu. Nowa gra

@@ -422,6 +422,22 @@ last_updated: 2026-10-01
   bazie `game_predictor` (utworzenie roli, restart usług) wykonuje
   orkiestrator. Ryzyko: funkcja polityki `PARALLEL UNSAFE` — duże skany roli
   aplikacyjnej bez równoległości (777: 1,4 s → 3,6 s); szczegóły w Outcome.
+- TASK-0795 wdrożone 2026-10-01: rola `game_predictor_app` utworzona
+  (`db:roles:provision`), API 8000/8010 łączą się nią (`pg_stat_activity`).
+- TASK-0797 done (v1.7.135, audyt pominięty): sonda 288 tras OpenAPI na
+  roli bez `BYPASSRLS` — 53 trasy kończyły się błędem braku związanej gry
+  (m.in. `dataset-versions`, `image-selections`, `curated-sources`,
+  `review-batches`/`review-items`, storage GC, wydania mobilne, unlock i
+  przydziały Reviewera), po zmianach 0. Gra wiązana z żądania (ścieżka albo
+  `gameId`) przed sprawdzeniem tokenu Reviewera; `GameEntityLocator` dla
+  identyfikatorów wierszy; `CrossGameOwnerSession` dla agregatów wielu gier
+  (wydania, kontrole współdzielenia przy sprzątaniu). Naprawione trzy
+  ścieżki zależne od obejścia RLS (limit przydziałów i tunel Reviewera,
+  kontrole sprzątania gry, metryki startu projekcji). Migracja `0138`:
+  `current_game_id_v1()` jako `PARALLEL SAFE` (liczenie komórek 777
+  3,6 s → ok. 1,8 s wg pomiaru przybliżonego) i CHECK zatwierdzeń bez
+  `legacy_file`. Zmiany API: nieznana gra w `gameId` → 404, token innej
+  gry → 401, nowy kod `GAME_SCOPED_RESOURCE_NOT_FOUND`.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

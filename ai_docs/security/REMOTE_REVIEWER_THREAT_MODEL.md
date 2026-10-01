@@ -61,6 +61,31 @@ Endpoint `.../assets/cells/{cellIndex}` pozostaje na allowliście dla zgodności
 kontraktu, ale dla planszy wirtualnej zawsze odpowiada
 `404 IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE` (żaden plik nie jest czytany).
 
+Od TASK-0797 (D-467) wyszukanie sesji Reviewera po tokenie i po
+identyfikatorze sesji działa na roli aplikacyjnej (RLS `game_data_v2`,
+tabela `reviewer_access_sessions` jest tabelą gry). Trasa, która nazywa grę
+(`/games/{id}/` w ścieżce albo parametr `gameId`/`game_id` tras `/admin/` i
+`/reviewer/`), wiąże tę grę dla całego żądania, zanim zależność sprawdzi
+token: token innej gry jest wtedy niewidoczny i kończy się
+`401 REVIEWER_TOKEN_INVALID` (wcześniej sesję znajdowano i odrzucano
+`403 REVIEWER_SCOPE_FORBIDDEN`; żadna odpowiedź nie zdradza, że sesja
+istnieje w innej grze). Trasy bez gry (`unlock`, `context/games`,
+`context/jobs`, revoke i heartbeat/close przydziałów) szukają gry sesji
+kolejno w każdej zarejestrowanej grze, w osobnej krótkiej transakcji
+związanej z tą grą (`GameEntityLocator`), a zapytanie zawiera jawny predykat
+gry. Odrzucone warianty: tabela indeksowa `token_hash → game_id` w `public`
+(kopia skrótów i mapowania poza RLS, którą trzeba utrzymywać spójną przy
+każdym unlock, revoke i blokadzie) oraz funkcja `SECURITY DEFINER` zwracająca
+grę dla skrótu (obiekt z uprawnieniami właściciela omijający RLS, wyrocznia
+„czy taki skrót istnieje” dla każdego, kto może ją wywołać). Wybrany wariant
+nie dodaje żadnego obiektu bazy ani uprzywilejowanej ścieżki; kosztem jest
+liczba zapytań proporcjonalna do liczby gier (dziś 3) na trasach bez gry.
+Porównanie skrótów w stałym czasie zostaje. Licznik błędnych kodów i blokada
+po 5 próbach dotyczą sesji niezależnie od podanej gry: z cudzym `gameId`
+sesja jest niewidoczna (`404 REVIEWER_SESSION_NOT_FOUND`) i kod w ogóle nie
+jest sprawdzany, więc cudza gra nie daje nielimitowanych prób (test
+`test_reviewer_session_application_role_postgres.py`).
+
 Zdalna ręczna selekcja współdzieli ten sam proces i tunel, ale nie tę samą
 powierzchnię uprawnień. `/manual-selection` używa wyłącznie `/selection-api`,
 osobnego cookie `gp_remote_selection_token` i stałej intencji proxy
@@ -125,6 +150,7 @@ loopbacku.
 | wyciek bazy | kod i token występują tylko jako hash; kod zdalnej ręcznej selekcji może istnieć wyłącznie lokalnie w `localStorage` Admina do TTL albo revoke |
 | replay tokenu | token jest losowy, rotowany przy unlock, wygasa nie później niż sesja i jest natychmiast usuwany przy revoke |
 | dostęp do innej gry/importu | każdy review read/write porównuje scope tokenu z parametrami żądania |
+| token Reviewera użyty z inną grą (`gameId`, ścieżka) | od TASK-0797 gra żądania jest wiązana przed wyszukaniem tokenu; sesja innej gry jest niewidoczna (`401`), bez informacji o jej istnieniu |
 | dane innej gry przez błąd zapytania (brak predykatu `game_id`) | od TASK-0795 API i worker działają rolą `game_predictor_app` bez `SUPERUSER`/`BYPASSRLS`; wymuszone RLS `game_data_v2` ogranicza każde zapytanie do gry związanej w transakcji, a zapytanie bez związanej gry kończy się błędem (`GAME_STORAGE_SCOPE_REQUIRED` albo brak tabeli w `search_path`), nie danymi; rola nie ma DDL ani własności obiektów (`test_application_role_isolation_postgres.py`) |
 | dostęp administracyjny | publiczny proxy ma allowlistę; CRUD, eksporty, job mutations i wydania nie mają trasy |
 | spoofing aktora | backend zastępuje `resolvedBy/correctedBy` identyfikatorem sesji |

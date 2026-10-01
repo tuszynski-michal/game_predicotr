@@ -10,9 +10,6 @@ and dropped at teardown. It gets privileges only inside the test database.
 from __future__ import annotations
 
 import os
-import re
-import secrets
-import time
 from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
@@ -20,8 +17,7 @@ from typing import cast
 from uuid import UUID, uuid4
 
 import pytest
-from alembic import command
-from alembic.config import Config
+from _application_role_database import application_role_database
 from fastapi.testclient import TestClient
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.main import create_app
@@ -29,32 +25,22 @@ from game_predictor_api.storage.database import (
     create_database_engine,
     create_session_factory,
 )
-from game_predictor_api.storage.database_roles import (
-    ApplicationRoleSpec,
-    describe_application_role,
-    provision_application_role,
-)
+from game_predictor_api.storage.database_roles import describe_application_role
 from game_predictor_api.storage.game_data_v2_manifest_v4 import CREATE_TABLES
-from game_predictor_api.storage.game_partition_lifecycle import (
-    GamePartitionLifecycleKind,
-    GamePartitionLifecycleRepository,
-    partition_name,
-)
+from game_predictor_api.storage.game_partition_lifecycle import partition_name
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.models import ImageGeometryRolloutStateModel
 from game_predictor_api.storage.schema_readiness import require_alembic_head
-from sqlalchemy import Engine, create_engine, select, text
-from sqlalchemy.engine import URL, make_url
+from sqlalchemy import Engine, select, text
+from sqlalchemy.engine import URL
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
-from sqlalchemy.pool import NullPool
 
 pytestmark = pytest.mark.skipif(
     os.environ.get("GAME_PREDICTOR_RUN_POSTGRES_TESTS") != "1",
     reason="Explicit isolated PostgreSQL tests only",
 )
 
-_ALEMBIC_INI = Path(__file__).resolve().parents[4] / "alembic.ini"
 _INSUFFICIENT_PRIVILEGE = "42501"
 
 
@@ -70,110 +56,20 @@ class _Isolated:
     game_b: UUID
 
 
-def _provision_game(engine: Engine, code: str) -> UUID:
-    game_id = uuid4()
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                """INSERT INTO public.games (id, code, name, status, expected_layout_count)
-                VALUES (:id, :code, :name, 'draft', 500000)"""
-            ),
-            {"id": game_id, "code": code, "name": code},
-        )
-    with Session(engine) as session, session.begin():
-        operation_id = (
-            GamePartitionLifecycleRepository(session)
-            .start_or_resume(game_id=game_id, kind=GamePartitionLifecycleKind.PROVISION)
-            .operation_id
-        )
-    for _ in range(len(CREATE_TABLES) + 2):
-        with Session(engine) as session, session.begin():
-            receipt = GamePartitionLifecycleRepository(session).run_next(operation_id)
-        if receipt.status == "done":
-            return game_id
-    raise AssertionError("provisioning did not reach done")
-
-
 @pytest.fixture(scope="module")
 def isolated() -> Iterator[_Isolated]:
     # One database per module: every test leaves games A and B unchanged.
-    suffix = uuid4().hex[:12]
-    name = f"game_predictor_t0795_{suffix}_test"
-    role = f"game_predictor_app_test_{suffix}"
-    assert re.fullmatch(r"game_predictor_t0795_[0-9a-f]{12}_test", name)
-    assert re.fullmatch(r"game_predictor_app_test_[0-9a-f]{12}", role)
-    base = make_url(ApiSettings.from_environment().owner_database_url)
-    assert base.database != name
-    owner_url = base.set(database=name)
-    password = secrets.token_urlsafe(24)
-    app_url = owner_url.set(username=role, password=password)
-    maintenance = create_engine(
-        base.set(database="postgres"),
-        isolation_level="AUTOCOMMIT",
-        poolclass=NullPool,
-        connect_args={"connect_timeout": 5, "options": "-c statement_timeout=10000"},
-    )
-    owner_engine = create_engine(owner_url, poolclass=NullPool, connect_args={"connect_timeout": 5})
-    app_engine = create_engine(app_url, poolclass=NullPool, connect_args={"connect_timeout": 5})
-    with maintenance.connect() as connection:
-        connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
-    try:
-        config = Config(str(_ALEMBIC_INI))
-        config.set_main_option(
-            "sqlalchemy.url", owner_url.render_as_string(hide_password=False).replace("%", "%%")
-        )
-        command.upgrade(config, "head")
-        game_a = _provision_game(owner_engine, "t0795-a")
-        game_b = _provision_game(owner_engine, "t0795-b")
-        with owner_engine.begin() as connection:
-            owner_role = str(connection.execute(text("SELECT current_user")).scalar_one())
-            provision_application_role(
-                connection, ApplicationRoleSpec(role_name=role, password=password)
-            )
-            # A leaked test credential expires on its own even if teardown fails.
-            connection.exec_driver_sql(
-                f"ALTER ROLE \"{role}\" VALID UNTIL '{_one_hour_from_now(connection)}'"
-            )
+    with application_role_database("t0795", ("t0795-a", "t0795-b")) as database:
         yield _Isolated(
-            owner_engine=owner_engine,
-            app_engine=app_engine,
-            owner_url=owner_url,
-            app_url=app_url,
-            role=role,
-            owner_role=owner_role,
-            game_a=game_a,
-            game_b=game_b,
+            owner_engine=database.owner_engine,
+            app_engine=database.app_engine,
+            owner_url=database.owner_url,
+            app_url=database.app_url,
+            role=database.role,
+            owner_role=database.owner_role,
+            game_a=database.games["t0795-a"],
+            game_b=database.games["t0795-b"],
         )
-    finally:
-        app_engine.dispose()
-        owner_engine.dispose()
-        try:
-            with maintenance.connect() as connection:
-                active = -1
-                for _attempt in range(50):
-                    active = connection.execute(
-                        text("SELECT count(*) FROM pg_stat_activity WHERE datname=:name"),
-                        {"name": name},
-                    ).scalar_one()
-                    if active == 0:
-                        break
-                    time.sleep(0.1)
-                assert active == 0, "Refusing DROP while a test connection remains"
-                connection.exec_driver_sql(f'DROP DATABASE "{name}"')
-        finally:
-            with maintenance.connect() as connection:
-                connection.exec_driver_sql(f'DROP ROLE IF EXISTS "{role}"')
-            maintenance.dispose()
-
-
-def _one_hour_from_now(connection: object) -> str:
-    from sqlalchemy.engine import Connection
-
-    return str(
-        cast(Connection, connection)
-        .execute(text("SELECT to_char(now() + interval '1 hour', 'YYYY-MM-DD HH24:MI:SSOF')"))
-        .scalar_one()
-    )
 
 
 def _sqlstate(error: DBAPIError) -> str | None:

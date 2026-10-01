@@ -7,7 +7,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -23,6 +23,7 @@ from game_predictor_api.domain.jobs import (
     create_job,
 )
 from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 from .job_repository import SqlAlchemyJobRepository
 from .models import (
@@ -43,19 +44,25 @@ class SqlAlchemyStorageGcRepository:
         if not execution_keys:
             return {}
         grouped: dict[str, set[str]] = defaultdict(set)
-        with self._session_factory() as session:
-            for offset in range(0, len(execution_keys), 5_000):
-                batch = execution_keys[offset : offset + 5_000]
-                rows = session.execute(
-                    select(
-                        ImageImportJobFileModel.file_execution_key,
-                        JobModel.status,
+        # TASK-0797: import links are game data; each game is read in its own
+        # RLS-bound session and the statuses are merged.
+        for game_id in self._games():
+            with game_storage_scope(game_id), self._session_factory() as session:
+                for offset in range(0, len(execution_keys), 5_000):
+                    batch = execution_keys[offset : offset + 5_000]
+                    rows = session.execute(
+                        select(
+                            ImageImportJobFileModel.file_execution_key,
+                            JobModel.status,
+                        )
+                        .join(JobModel, JobModel.id == ImageImportJobFileModel.job_id)
+                        .where(
+                            JobModel.game_id == game_id,
+                            ImageImportJobFileModel.file_execution_key.in_(batch),
+                        )
                     )
-                    .join(JobModel, JobModel.id == ImageImportJobFileModel.job_id)
-                    .where(ImageImportJobFileModel.file_execution_key.in_(batch))
-                )
-                for key, status in rows:
-                    grouped[key].add(status.value)
+                    for key, status in rows:
+                        grouped[key].add(status.value)
         return {
             key: tuple(sorted(statuses))
             for key, statuses in grouped.items()
@@ -74,9 +81,27 @@ class SqlAlchemyStorageGcRepository:
             )
             return None if row is None else _run(row)
 
-    def browser_staging_sources(self) -> Sequence[BrowserStagingGcSource]:
+    def _games(self) -> tuple[UUID, ...]:
         with self._session_factory() as session:
-            states = session.scalars(select(BrowserSelectionRetentionModel)).all()
+            rows = session.execute(
+                text("SELECT game_id FROM public.game_storage_locations ORDER BY game_id")
+            ).all()
+            session.rollback()
+        return tuple(row[0] if isinstance(row[0], UUID) else UUID(str(row[0])) for row in rows)
+
+    def browser_staging_sources(self) -> Sequence[BrowserStagingGcSource]:
+        states: list[BrowserSelectionRetentionModel] = []
+        # TASK-0797: retention states are game data, read one game at a time.
+        for game_id in self._games():
+            with game_storage_scope(game_id), self._session_factory() as session:
+                states.extend(
+                    session.scalars(
+                        select(BrowserSelectionRetentionModel).where(
+                            BrowserSelectionRetentionModel.game_id == game_id
+                        )
+                    ).all()
+                )
+        with self._session_factory() as session:
             jobs = session.scalars(
                 select(JobModel).where(
                     JobModel.job_type.in_((JobType.IMPORT, JobType.VALIDATE))

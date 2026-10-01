@@ -222,22 +222,31 @@ class SqlAlchemySymbolCellReviewBackfillRepository:
     def _storage_metrics(self) -> tuple[int | None, int | None, int | None]:
         if self._session.bind is None or self._session.bind.dialect.name != "postgresql":
             return None, None, None
+        # Diagnostics only. Each read runs in a savepoint: a refused statement
+        # must not abort the caller's transaction (TASK-0797: the application
+        # role may not read ``data_directory``, which needs superuser or
+        # pg_read_all_settings; the job then records no free-space baseline).
         try:
-            table_bytes = int(
-                self._session.scalar(
-                    text("SELECT pg_relation_size('image_symbol_review_cells')")
+            with self._session.begin_nested():
+                table_bytes = int(
+                    self._session.scalar(
+                        text("SELECT pg_relation_size('image_symbol_review_cells')")
+                    )
+                    or 0
                 )
-                or 0
-            )
-            index_bytes = int(
-                self._session.scalar(
-                    text("SELECT pg_indexes_size('image_symbol_review_cells')")
+                index_bytes = int(
+                    self._session.scalar(
+                        text("SELECT pg_indexes_size('image_symbol_review_cells')")
+                    )
+                    or 0
                 )
-                or 0
-            )
-            data_directory = self._session.scalar(text("SHOW data_directory"))
         except (SQLAlchemyError, ValueError):
             return None, None, None
+        try:
+            with self._session.begin_nested():
+                data_directory = self._session.scalar(text("SHOW data_directory"))
+        except SQLAlchemyError:
+            data_directory = None
         try:
             free_bytes = (
                 None

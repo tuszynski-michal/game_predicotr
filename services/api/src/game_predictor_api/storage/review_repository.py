@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import UTC, datetime
 from typing import cast
 from uuid import UUID
@@ -26,6 +26,12 @@ from game_predictor_api.domain.reviews import (
     ValidatedReviewSelection,
     canonical_review_bytes,
 )
+from game_predictor_api.storage.game_entity_locator import (
+    GameEntityLocator,
+    assign_game_if_unscoped,
+    session_is_scoped,
+)
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.models import (
     GameModel,
     ReviewBatchModel,
@@ -37,10 +43,19 @@ from game_predictor_api.storage.models import (
 
 
 class SqlAlchemyReviewRepository(ReviewRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        session_factory: Callable[[], Session] | None = None,
+    ) -> None:
         self._session = session
+        # TASK-0797: the batch list spans games; each game is read in its own
+        # RLS-bound session when a factory is available.
+        self._session_factory = session_factory
 
     def get_active_symbol_codes(self, game_id: UUID) -> Sequence[str] | None:
+        # The batch import names its game here, before any game table read.
+        assign_game_if_unscoped(self._session, game_id)
         if self._session.get(GameModel, game_id) is None:
             return None
         return tuple(
@@ -55,17 +70,27 @@ class SqlAlchemyReviewRepository(ReviewRepository):
         )
 
     def list_review_batches(self) -> list[ReviewBatch]:
-        return [
-            _to_review_batch(record)
-            for record in self._session.scalars(
-                select(ReviewBatchModel)
-                .order_by(
-                    ReviewBatchModel.created_at.desc(),
-                    ReviewBatchModel.id.desc(),
-                )
-                .limit(50)
+        statement = (
+            select(ReviewBatchModel)
+            .order_by(
+                ReviewBatchModel.created_at.desc(),
+                ReviewBatchModel.id.desc(),
             )
-        ]
+            .limit(50)
+        )
+        if self._session_factory is None or session_is_scoped(self._session):
+            return [_to_review_batch(record) for record in self._session.scalars(statement)]
+        batches: list[ReviewBatch] = []
+        for game_id in GameEntityLocator(self._session_factory).registered_games():
+            with game_storage_scope(game_id), self._session_factory() as session:
+                batches.extend(
+                    _to_review_batch(record)
+                    for record in session.scalars(
+                        statement.where(ReviewBatchModel.game_id == game_id)
+                    )
+                )
+        batches.sort(key=lambda batch: (batch.created_at, batch.id), reverse=True)
+        return batches[:50]
 
     def get_review_batch(self, review_batch_id: UUID) -> ReviewBatch | None:
         record = self._session.get(ReviewBatchModel, review_batch_id)

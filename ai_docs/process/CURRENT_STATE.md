@@ -6,6 +6,23 @@ last_updated: 2026-10-01
 
 # Current State
 
+### Hybrydowy silnik siatek V3 — plan do akceptacji (2026-10-01)
+
+- Plan `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` ma status
+  `proposed`; uzupełnia etap D planu Vision Lab (T10). Zawiera pięć decyzji
+  do potwierdzenia przez operatora (geometria produkcyjna 777 jako dane
+  uczące, budżet treningu, kolejność etapów, metryka nadrzędna, bramka
+  kompletności zdjęcia w aplikacji).
+- Nadrzędna reguła planu: jednostką geometrii jest zdjęcie; żadna plansza
+  zdjęcia nie jest cięta na symbole, dopóki wszystkie oczekiwane plansze
+  nie mają poprawnej siatki (etap V3-0: TASK-0806 raport i kolejka zdjęć
+  niekompletnych, TASK-0807 egzekwowanie w pipeline). Dalej V3-A dane
+  (TASK-0800, 0801), V3-B `neural_grid` i `hybrid_v3` (TASK-0802, 0803),
+  V3-C ocena (TASK-0804), V3-D shadow (TASK-0805).
+- Bez decyzji wolno wykonać tylko zadania odczytowe TASK-0806 i TASK-0800.
+  Pliki zadań powstają przy uruchomieniu etapu. Numery TASK-0800–0807 są
+  zarezerwowane dla tego planu.
+
 ### D-470 / D-471 — „Przybliżona wygrana”: linie, wykres, stawki; udostępnianie online (w toku)
 
 - Plan `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` zaakceptowany

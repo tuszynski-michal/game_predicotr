@@ -16,7 +16,7 @@ def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
     assert (
-        schema_readiness.EXPECTED_ALEMBIC_HEAD == "0134_drop_cell_observations_and_legacy_archive"
+        schema_readiness.EXPECTED_ALEMBIC_HEAD == "0135_virtual_only_asset_modes"
     )
 
 

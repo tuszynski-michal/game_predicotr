@@ -246,6 +246,21 @@ class VirtualGridGeometrySourceSaveResult:
     created: bool
 
 
+@dataclass(frozen=True, slots=True)
+class LegacyConversionTarget:
+    """One ``legacy_file`` board rendered from its current corners (TASK-0791).
+
+    ``context.geometry_revision`` is the board's current revision and
+    ``context.sequence_geometry_revision`` the common revision of its
+    sequence's current cells, so ``context.next_geometry_revision`` follows
+    the TASK-0702 rule ``max(N, R) + 1``.
+    """
+
+    context: VirtualGridGeometryContext
+    corners: tuple[ImageReviewGeometryPoint, ...]
+    geometry_qualification: GeometryQualification | None
+
+
 class VirtualGridGeometryRepository(Protocol):
     def virtual_geometry_replay(
         self, *, context: VirtualGridGeometryContext, idempotency_key: UUID
@@ -757,6 +772,78 @@ class VirtualGridGeometryService:
                 "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
                 "A partial source correction may contain only one deferred slot.",
             )
+        return self._render_source_entries(prepared_inputs, predict=predict)
+
+    def prepare_legacy_conversion(
+        self,
+        targets: Sequence[LegacyConversionTarget],
+        *,
+        actor: str,
+    ) -> PreparedVirtualGridGeometrySource:
+        """Render ``legacy_file`` boards of one source exactly as manual geometry.
+
+        D-467 S6 (TASK-0791): the conversion keeps each board's current corners
+        and qualification and renders its cells through the same source loader,
+        renderer, render manifest and checksums as a manual virtual geometry
+        save.  The caller owns the contexts (they describe a legacy board, which
+        the regular context reader refuses) and the persistence.
+        """
+
+        if not targets:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_EMPTY",
+                "A legacy conversion requires at least one board of the source.",
+            )
+        prepared_inputs: list[
+            tuple[VirtualGridGeometryContext, ValidatedImageReviewGeometryCommand, SourceQuad]
+        ] = []
+        for target in targets:
+            context = target.context
+            corners = target.corners
+            qualification = target.geometry_qualification
+            quad = SourceQuad(
+                corners=cast(
+                    tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                    tuple(SourcePoint(x=point.x, y=point.y) for point in corners),
+                )
+            )
+            if qualification is not None:
+                try:
+                    qualification = resolve_manual_geometry_qualification(
+                        quad=quad,
+                        source=SourceImageBounds(context.oriented_width, context.oriented_height),
+                        topology=context.topology,
+                        qualification=qualification,
+                    )
+                except ImageGeometryContractError as error:
+                    raise ImageGridReviewError(error.code, str(error)) from error
+            command = validate_image_review_geometry_command(
+                corners=tuple(corners),
+                expected_geometry_revision=context.geometry_revision,
+                expected_resolution_revision=context.resolution_revision,
+                corrected_by=actor,
+                geometry_qualification=qualification,
+            )
+            prepared_inputs.append((context, command, quad))
+        prepared_inputs.sort(key=lambda value: value[0].position_index)
+        _require_source_batch_context(base_context=prepared_inputs[0][0], values=prepared_inputs)
+        prepared, _renders = self._render_source_entries(prepared_inputs, predict=False)
+        return prepared
+
+    def _render_source_entries(
+        self,
+        prepared_inputs: Sequence[
+            tuple[VirtualGridGeometryContext, ValidatedImageReviewGeometryCommand, SourceQuad]
+        ],
+        *,
+        predict: bool,
+    ) -> tuple[
+        PreparedVirtualGridGeometrySource,
+        dict[UUID, tuple[VirtualCellRender, ...]],
+    ]:
+        """Render validated slots of one source once and assemble the revision."""
+
+        base_context = prepared_inputs[0][0]
 
         from game_predictor_worker.images.normalization import (
             CanonicalSourceLoader,
@@ -1417,6 +1504,7 @@ def _contact_sheet_png(
 
 
 __all__ = [
+    "LegacyConversionTarget",
     "PreparedVirtualGridGeometry",
     "PreparedVirtualGridGeometrySource",
     "VirtualGridGeometryCell",

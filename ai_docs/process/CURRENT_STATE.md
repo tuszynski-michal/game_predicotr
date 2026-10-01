@@ -277,6 +277,18 @@ last_updated: 2026-10-01
   osierocone dzieci `multiprocessing` starych instancji uvicorn `--reload`
   nasłuchujące na 8000 ze starym kodem (przyczyna przejściowych 500);
   usunięte, zasada w `LOCAL_OPERATION_GUIDE.md`. **Etap S5 zamknięty.**
+- TASK-0791 (S6) done (v1.7.117; audyt pominięty — operator 2026-10-01
+  zawiesił audyty per zadanie; implementer Opus przerwany, dokończone przez
+  orkiestratora): skrypt
+  `scripts/convert_legacy_boards_to_virtual.py` (podgląd na bazie operatora:
+  243 źródła, 461 plansz, 3 960 komórek z decyzją, 183 zatwierdzone,
+  0 problemów; render 3 źródeł w pamięci OK), ścieżka
+  `prepare_legacy_conversion` / `convert_legacy_source` (renderer bieżącej
+  wersji, decyzje bez zmian, kontrola driftu), migracja `0135` (CHECK-i
+  plansz i komórek bez `legacy_file`, odmowa przed konwersją, downgrade
+  przywraca), `EXPECTED_ALEMBIC_HEAD` = `0135`, test PG
+  `test_convert_legacy_boards_postgres.py`. Reszta zakresu (ścieżki v19,
+  enumy API, CHECK-i ORM, fixture testów) → TASK-0796.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

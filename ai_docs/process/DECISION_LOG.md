@@ -188,6 +188,23 @@ last_updated: 2026-09-30
   `source_recognized_board_id` + `cell_index`). Numeracja dalszych etapów
   przesuwa się ponownie: S5 = manifest v4 i `0133`, S6 = `0134`,
   S7 = `0135`.
+- **Konwersja plansz `legacy_file` (TASK-0791, S6, 2026-10-01):** 461 plansz
+  777 (rewizje 1–2, 3 960 komórek z decyzjami) przechodzi na
+  `virtual_source` skryptem `scripts/convert_legacy_boards_to_virtual.py`:
+  te same narożniki renderowane ścieżką ręcznej geometrii wirtualnej,
+  rewizja `max(N, R) + 1`, manifest renderu, dopisana rewizja geometrii
+  źródła; decyzje komórek (`assigned_symbol_id`, źródło, stan, jakość,
+  weryfikacja, aktor) bez zmian, zatwierdzenie przepięte na nowy render
+  tych samych narożników, zdarzenie `geometry_invalidated` na każdej
+  komórce. Konwersja przypina bieżącą wersję renderera (`…-v4`) przy
+  pozostałych parametrach z komórek źródła, bo podbicia v1→v4 (TASK-0663)
+  nie zmieniły pikseli, a renderer odrzuca inne przypięcie. Historyczne
+  rekordy rewizji `legacy_file` zostają. Migracja
+  `0135_virtual_only_asset_modes` zawęża CHECK-i plansz i komórek po
+  konwersji (odmowa, gdy plansza legacy istnieje; downgrade przywraca).
+  Zakres przeniesiony do TASK-0796: ścieżki v19, enumy API, CHECK-i w
+  modelach ORM i fixture testów (do tego czasu ORM jest luźniejszy niż
+  baza).
 - **Jeden tryb danych w pisarzach (TASK-0790, S6 wykonany przed S5):**
   żadna ścieżka zapisu nie tworzy planszy `legacy_file`, plików cropów ani
   wierszy `cell_observations`. Ręczna rezolucja odroczonej planszy (Reviewer

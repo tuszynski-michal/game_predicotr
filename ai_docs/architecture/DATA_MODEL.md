@@ -1108,12 +1108,12 @@ ponownej kompakcji po rerunie bez nadpisywania wcześniejszego manifestu.
 | sequence_number | bigint nullable | wyłącznie cyfrowa sugestia |
 | sequence_confidence | float | 0..1 |
 | board_geometry | JSONB | quad i provenance geometrii |
-| asset_mode | varchar | `legacy_file` albo aktywny per rollout `virtual_source` |
+| asset_mode | varchar | od `0135` (D-467 S6, TASK-0791) wyłącznie `virtual_source`; `legacy_file` tylko w historycznych rekordach `image_board_geometry_revisions` |
 | source_geometry_revision_id | UUID nullable | FK append-only geometrii źródła |
 | geometry_engine_name/version | varchar nullable | wymagane dla wirtualnego wyniku |
 | geometry_checksum_sha256 | varchar(64) nullable | wiąże dokładną geometrię |
-| board_relative_path | varchar nullable | wymagane tylko dla `legacy_file` |
-| board_checksum_sha256 | varchar(64) nullable | wymagane tylko dla `legacy_file` |
+| board_relative_path | varchar nullable | od `0135` zawsze `NULL` (dawniej plik planszy `legacy_file`) |
+| board_checksum_sha256 | varchar(64) nullable | od `0135` zawsze `NULL` |
 | cells_prediction | JSONB | model, 15 predykcji i alternatywy |
 | board_confidence | float | 0..1 |
 | pipeline_fingerprint | varchar(64) | pełne provenance |
@@ -1136,6 +1136,10 @@ Specyfikację renderu bieżącej rewizji wirtualnej planszy przechowuje
 `board_render_manifests`, predykcje importu `recognized_boards.cells_prediction`,
 a cropy planszy `legacy_file` jej ręczna rewizja geometrii (`crop_artifacts`).
 Plansza `legacy_file` na rewizji 0 nie ma już źródła komórek i jest odrzucana.
+Od `0135` (TASK-0791) plansz `legacy_file` nie ma: 461 plansz z 777 zostało
+skonwertowanych na `virtual_source` (nowa rewizja z tymi samymi narożnikami,
+manifest renderu, decyzje komórek bez zmian); ich dawne rekordy rewizji
+`legacy_file` zostają jako historia.
 Poniższy opis dotyczy schematu sprzed `0134`.
 
 | Pole | Typ | Uwagi |

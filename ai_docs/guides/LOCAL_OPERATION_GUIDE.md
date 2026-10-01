@@ -189,6 +189,35 @@ Zmiany zachowania:
   renderu i predykcjami modelu przypiętego do importu; nie zapisuje plików
   cropów ani obserwacji. Podgląd pokazuje komórki renderu wirtualnego.
 
+## Tylko wirtualne plansze: konwersja `legacy_file` i migracja `0135` (TASK-0791, D-467 S6)
+
+Kod od TASK-0791 wymaga migracji `0135_virtual_only_asset_modes` (strażnik
+`ALEMBIC_HEAD_MISMATCH` jak wyżej). Migracja odmawia
+(`LEGACY_FILE_BOARDS_PRESENT` / `LEGACY_FILE_CELLS_PRESENT`), dopóki w bazie
+jest jakakolwiek plansza albo komórka `legacy_file`, więc kolejność cutoveru
+to: zatrzymanie usług (jak wyżej, z kontrolą osieroconych procesów) → merge →
+konwersja → `npm run db:migrate` → start.
+
+Konwersja (tylko z checkoutu, którego `artifacts/` zawiera oryginały zdjęć;
+inaczej `IMAGE_REVIEW_ASSET_NOT_FOUND`):
+
+```powershell
+$env:PYTHONPATH = "services/worker/src;services/api/src"
+# podgląd tylko do odczytu; --render-sources renderuje N źródeł w pamięci
+.\.venv\Scripts\python.exe scripts/convert_legacy_boards_to_virtual.py --game-id <uuid> --preview --render-sources 3
+# wykonanie: jedno źródło na transakcję, wznawialne (skonwertowane plansze
+# nie są już legacy_file); --max-seconds kończy porcję, kolejne wywołanie
+# kontynuuje; kod wyjścia 2, gdy jakieś źródło zostało pominięte z problemem
+.\.venv\Scripts\python.exe scripts/convert_legacy_boards_to_virtual.py --game-id <uuid> --execute --max-seconds 100
+```
+
+Raport JSON trafia do `artifacts/data/exports/legacy-board-conversion/<gra>/`.
+Po konwersji `SELECT count(*) FROM game_data_v2.recognized_boards WHERE
+asset_mode = 'legacy_file'` musi dać 0 dla każdej gry; wtedy `db:migrate`.
+Wycofanie: `alembic downgrade 0134_…` przywraca dawne CHECK-i, ale
+skonwertowanych plansz nie cofa (nowa rewizja wirtualna zostaje; dawna
+rewizja `legacy_file` jest nadal w `image_board_geometry_revisions`).
+
 ## Manifest magazynu v4: usunięcie `cell_observations` i archiwum wyszukiwarki (TASK-0759, D-467 S5)
 
 Kod od TASK-0759 wymaga migracji `0134_drop_cell_observations_and_legacy_archive`

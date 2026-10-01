@@ -265,7 +265,26 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   decyzją człowieka zachowują decyzje), zawężenie CHECK-ów `asset_mode` do
   `virtual_source`/`none` (migracja `0135`; numeracja po przesunięciu:
   S5 = `0134`, TASK-0791 = `0135`, S7 TASK-0793 = `0136`), zawężenie
-  enumów API pionem.
+  enumów API pionem. Wykonanie 2026-10-01 (TASK-0791 zawężone, reszta w
+  TASK-0796): skrypt `scripts/convert_legacy_boards_to_virtual.py`
+  (ścieżka `VirtualGridGeometryService.prepare_legacy_conversion` →
+  `convert_legacy_source`, jedno źródło na transakcję, kolejność blokad
+  sekwencje → źródło → plansze; renderer bieżącej wersji kontraktu przy
+  pozostałych parametrach źródła; decyzje komórek bez zmian, kontrola
+  `LEGACY_CONVERSION_DECISION_DRIFT`; historyczne rekordy rewizji
+  `legacy_file` zostają), migracja `0135_virtual_only_asset_modes`
+  (odmowa przy planszy lub komórce `legacy_file`, CHECK-i plansz i komórek
+  bez gałęzi legacy, domyślne `virtual_source`, downgrade przywraca).
+- **TASK-0796** (dopisane 2026-10-01, reszta zakresu TASK-0791) —
+  usunięcie ścieżek plików cropów v19 (korekta geometrii Reviewera
+  `createOperationalImageReviewGeometryRevision` → delegacja do ścieżki
+  wirtualnej albo usunięcie, `pending_grid_reinference._run_v1`, gałęzie
+  `legacy_file` w mapperze, stale-check, projekcji wyszukiwarki,
+  `pending_symbol_reinference`, `get_assets`), zawężenie enumów API
+  `assetMode` / `cellAssetMode` pionem, zawężenie CHECK-ów w modelach ORM
+  (`storage/models.py`) i przepięcie fixture testów jednostkowych na
+  plansze wirtualne (do czasu wykonania ORM dopuszcza `legacy_file`, a baza
+  operatora od `0135` już nie — świadoma, opisana rozbieżność).
 
 ### S7 — `render_spec` poza komórkami
 
@@ -338,6 +357,7 @@ weryfikacji, migracja na dysk 2 TB (osobny runbook), historia decyzji.
 | TASK-0759 | claude-opus-5-5 | high (warunkowo) | Manifest v4 i DROP partycji; nieodwracalne. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0790 | claude-opus-5-5 | high (warunkowo) | Zmiana ścieżki ręcznej rezolucji i polityk importu; decyzja produktowa. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0791 | claude-opus-5-5 | high (warunkowo) | Konwersja danych 461 plansz i zawężenie CHECK-ów oraz kontraktu API. | Tak: claude-opus-5-5, high, osobny agent |
+| TASK-0796 | claude-opus-5-5 | high (warunkowo) | Usunięcie ścieżek v19 i zawężenie enumów API oraz modeli ORM; dotyka Reviewera przez tunel. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0792 | claude-opus-5-5 | high (warunkowo) | Przepięcie odczytów `render_spec` z zachowaniem sum kontrolnych. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0793 | claude-opus-5-5 | high (warunkowo) | Usunięcie kolumny i przepisanie partycji 34 GB. | Tak: claude-opus-5-5, high, osobny agent |
 | TASK-0794 | claude-opus-5-5 | high (warunkowo) | Zmiana payloadu rewizji i digestu planów biblioteki. | Tak: claude-opus-5-5, high, osobny agent |

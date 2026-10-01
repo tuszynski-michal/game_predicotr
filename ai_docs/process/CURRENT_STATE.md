@@ -172,6 +172,9 @@ last_updated: 2026-10-01
   wkładem i „kasą na maszynie”; bez radia zakresu (zawsze wszystkie
   plansze) i bez statusu w nagłówku wyników; szersze okno planszy. Tylko
   UI; po scaleniu potrzebny `npm run reviewer:build` dla linku.
+- TASK-0785 done (2026-10-02, zgłoszenie operatora): usunięty baner
+  „Plansza startowa … nie jest jeszcze zatwierdzona” w „Przybliżonej
+  wygranej” — przy wyszukiwaniu po wszystkich planszach pojawiał się stale.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

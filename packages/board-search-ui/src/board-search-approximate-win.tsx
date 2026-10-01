@@ -460,12 +460,6 @@ function ApproximateWinResultView({
   return (
     <>
       <div className="boardSearchApproximateWinSummaryHeader">
-        {result.startBoardStatus === 'pending' ? (
-          <p className="feedbackBanner" role="status">
-            Plansza startowa #{result.startSequenceNumber} nie jest jeszcze
-            zatwierdzona — jej pozycja w sekwencji może się jeszcze zmienić.
-          </p>
-        ) : null}
         {result.wrappedAtSequenceEnd ? (
           <p className="feedbackBanner" role="status">
             Zakres przechodzi przez koniec sekwencji (

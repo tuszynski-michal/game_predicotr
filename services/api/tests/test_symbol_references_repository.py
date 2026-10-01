@@ -105,6 +105,22 @@ def test_candidate_query_requires_current_individual_human_approval_not_parent_r
     assert "active" in compiled.params.values()
 
 
+def test_selection_lock_never_targets_the_outer_joined_geometry_revision():
+    # TASK-0780: a bare FOR UPDATE fails on PostgreSQL with "cannot be
+    # applied to the nullable side of an outer join".
+    statement = SqlAlchemyApprovedSymbolReferenceRepository(Mock())._locked_candidate_statement(
+        game_id=uuid4(), symbol_id=uuid4(), cell_review_id=uuid4()
+    )
+    sql = str(statement.compile(dialect=postgresql.dialect()))
+    lock = sql[sql.rindex("FOR UPDATE") :]
+
+    assert "LEFT OUTER JOIN image_source_geometry_revisions" in sql
+    assert lock.startswith("FOR UPDATE OF ")
+    assert "image_symbol_review_cells" in lock
+    assert "symbols" in lock
+    assert "image_source_geometry_revisions" not in lock
+
+
 def test_read_only_api_serves_the_virtual_render_of_an_approved_cell(tmp_path):
     """D-467 S6 (TASK-0796): a candidate asset is always the virtual render."""
 

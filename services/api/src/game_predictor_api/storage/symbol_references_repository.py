@@ -229,11 +229,30 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
     ) -> ApprovedSymbolReferenceCandidate | None:
         self._symbol_code(game_id, symbol_id)
         row = self._session.execute(
-            self._candidate_query(game_id=game_id, symbol_id=symbol_id)
-            .where(ImageSymbolReviewCellModel.id == cell_review_id)
-            .with_for_update()
+            self._locked_candidate_statement(
+                game_id=game_id, symbol_id=symbol_id, cell_review_id=cell_review_id
+            )
         ).one_or_none()
         return None if row is None else self._to_candidates((row,), game_id=game_id)[0]
+
+    def _locked_candidate_statement(
+        self, *, game_id: UUID, symbol_id: UUID, cell_review_id: UUID
+    ) -> Any:
+        # PostgreSQL rejects a bare FOR UPDATE here: the source geometry
+        # revision is outer-joined. Lock the mutable rows that decide
+        # eligibility; the revision row is immutable.
+        return (
+            self._candidate_query(game_id=game_id, symbol_id=symbol_id)
+            .where(ImageSymbolReviewCellModel.id == cell_review_id)
+            .with_for_update(
+                of=[
+                    ImageSymbolReviewCellModel,
+                    ImageReviewItemModel,
+                    RecognizedBoardModel,
+                    SymbolModel,
+                ]
+            )
+        )
 
     def _symbol_code(self, game_id: UUID, symbol_id: UUID) -> str:
         code = self._session.scalar(

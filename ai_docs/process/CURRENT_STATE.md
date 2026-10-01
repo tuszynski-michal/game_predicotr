@@ -126,6 +126,10 @@ last_updated: 2026-10-01
   `DELETE …/paylines/{id}/permanent` fizycznie usuwa wzorzec wersji roboczej
   i zwalnia kod oraz ścieżkę (archiwizacja ich nie zwalniała). Bez migracji.
   Po scaleniu potrzebny restart API i Admina.
+- TASK-0780 done (2026-10-01, zgłoszenie operatora): „Ustaw jako grafikę
+  symbolu” zwracało 500 (`FOR UPDATE` na zewnętrznym złączeniu rewizji
+  geometrii); blokada kandydata ma teraz jawną listę tabel. Wymaga restartu
+  API.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

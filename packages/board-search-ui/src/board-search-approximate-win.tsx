@@ -10,7 +10,6 @@ import {
   type KeyboardEvent,
   type MouseEvent,
   type PointerEvent,
-  type SyntheticEvent,
   useEffect,
   useRef,
   useState,
@@ -79,21 +78,34 @@ interface BoardSearchApproximateWinProps {
     readonly boardSequenceNumber: number | null;
   } | null;
   readonly onReplayNotice?: (notice: string) => void;
+  /**
+   * Identity of the current search pattern (D-476): a new pattern clears the
+   * chosen stake, so an old stake is never applied to a new search.
+   */
+  readonly searchKey: string;
   readonly selectedResult: BoardSearchResultResponse | null;
   /** Game symbols for the fallback board schema in the payline modal. */
   readonly symbols?: readonly SymbolResponse[];
 }
+
+/** The chosen stake for one search pattern; `null` until the operator picks. */
+type StakeChoice = {
+  readonly searchKey: string;
+  readonly stakeGrosze: number | null;
+};
+
+/** Debounce for the calculation while browsing results (D-476). */
+const CALCULATION_DELAY_MS = 400;
 
 export function BoardSearchApproximateWin({
   client: api,
   gameId,
   onReplayNotice,
   replay = null,
+  searchKey,
   selectedResult,
   symbols = [],
 }: BoardSearchApproximateWinProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const detailsRef = useRef<HTMLDetailsElement>(null);
   const appliedReplayId = useRef<string | null>(null);
   const [boardRequest, setBoardRequest] = useState<{
     readonly id: string;
@@ -108,13 +120,28 @@ export function BoardSearchApproximateWin({
     APPROXIMATE_WIN_IDLE_STATE,
   );
   const requestIdRef = useRef(0);
-  const [display, setDisplay] = useState<ApproximateWinDisplay>(
-    loadApproximateWinDisplay,
+  const [unit, setUnit] = useState<ApproximateWinAmountUnit>(
+    () => loadApproximateWinDisplay().unit,
   );
+  const [stakeChoice, setStakeChoice] = useState<StakeChoice | null>(null);
+  // The spin cost of the last result keeps the stake list usable while a
+  // new calculation is loading.
+  const [knownSpinCost, setKnownSpinCost] = useState<number | null>(null);
+  // With no spin cost there is no stake to choose: złote are credits / 10.
+  const stakeChosen =
+    (knownSpinCost !== null && knownSpinCost <= 0) ||
+    (stakeChoice !== null && stakeChoice.searchKey === searchKey);
+  const display: ApproximateWinDisplay = {
+    stakeGrosze:
+      stakeChoice !== null && stakeChoice.searchKey === searchKey
+        ? stakeChoice.stakeGrosze
+        : null,
+    unit,
+  };
 
-  function changeDisplay(next: ApproximateWinDisplay) {
-    setDisplay(next);
-    saveApproximateWinDisplay(next);
+  function changeUnit(next: ApproximateWinAmountUnit) {
+    setUnit(next);
+    saveApproximateWinDisplay({ stakeGrosze: null, unit: next });
   }
 
   const resultIdentity = selectedResult
@@ -153,6 +180,7 @@ export function BoardSearchApproximateWin({
           });
           return;
         }
+        setKnownSpinCost(data.rules.spinCost);
         setState({ key, kind: 'ready', result: data });
       })
       .catch(() => {
@@ -168,7 +196,7 @@ export function BoardSearchApproximateWin({
   }
 
   useEffect(() => {
-    if (!shouldRequestApproximateWin({ isOpen, requestKey, state })) {
+    if (!shouldRequestApproximateWin({ isOpen: true, requestKey, state })) {
       return;
     }
     if (requestKey === null || selectedResult === null) {
@@ -176,12 +204,19 @@ export function BoardSearchApproximateWin({
     }
     const key = requestKey;
     const sequenceNumber = selectedResult.sequenceNumber;
-    queueMicrotask(() => runCalculation(key, sequenceNumber));
-    // Re-run only when the open state or the (board, range) key changes;
-    // `state` is read for the guard above but must not itself retrigger
-    // this effect, or every setState here would immediately refire it.
+    // The section is always open (D-476): browsing results must not fire a
+    // calculation per keystroke, so the request waits for the selection to
+    // settle; a superseded request is dropped by its id.
+    const timeout = window.setTimeout(
+      () => runCalculation(key, sequenceNumber),
+      CALCULATION_DELAY_MS,
+    );
+    return () => window.clearTimeout(timeout);
+    // Re-run only when the (board, range) key changes; `state` is read for
+    // the guard above but must not itself retrigger this effect, or every
+    // setState here would immediately refire it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, requestKey]);
+  }, [requestKey]);
 
   useEffect(() => {
     if (replay === null || appliedReplayId.current === replay.id) return;
@@ -191,15 +226,16 @@ export function BoardSearchApproximateWin({
       setRangeInput(String(request.spinCount));
       setRange(request.spinCount);
       setRangeError(null);
+      // The recipient's stake is not recorded (D-472): show the base stake.
+      setStakeChoice({ searchKey, stakeGrosze: null });
       setBoardRequest(
         request.boardSequenceNumber === null
           ? null
           : { id: request.id, sequenceNumber: request.boardSequenceNumber },
       );
-      const details = detailsRef.current;
-      if (details !== null && !details.open) details.open = true;
-      setIsOpen(true);
     });
+    // The search key of the replayed pattern is already current here.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replay]);
 
   function commitRange() {
@@ -213,31 +249,19 @@ export function BoardSearchApproximateWin({
     setRange(parsed.value);
   }
 
-  function handleToggle(event: SyntheticEvent<HTMLDetailsElement>) {
-    const open = event.currentTarget.open;
-    if (!open) {
-      // D-462: a verified symbol changes the payout without a new selection,
-      // so collapsing drops the result and reopening always recalculates.
-      // Bumping the request id also discards a response still in flight.
-      requestIdRef.current += 1;
-      setState(APPROXIMATE_WIN_IDLE_STATE);
-    }
-    setIsOpen(open);
-  }
-
   const visibleResult = visibleApproximateWinResult(state, requestKey);
   const showError = state.kind === 'error' && state.key === requestKey;
   const showLoading = state.kind === 'loading' && state.key === requestKey;
+  const spinCost = visibleResult?.rules.spinCost ?? knownSpinCost;
 
   return (
-    <details
+    <section
+      aria-labelledby="approximateWinHeading"
       className="boardSearchApproximateWin"
-      onToggle={handleToggle}
-      ref={detailsRef}
     >
-      <summary>Przybliżona wygrana</summary>
+      <h2 id="approximateWinHeading">Przybliżona wygrana</h2>
       <div className="boardSearchApproximateWinBody">
-        <div className="boardSearchApproximateWinRange">
+        <div className="boardSearchApproximateWinControls">
           <label>
             <span>Zakres wygranej</span>
             <input
@@ -258,9 +282,19 @@ export function BoardSearchApproximateWin({
               value={rangeInput}
             />
           </label>
-          <small>
+          <ApproximateWinDisplayControls
+            display={display}
+            onStakeChange={(stakeGrosze) =>
+              setStakeChoice({ searchKey, stakeGrosze })
+            }
+            onUnitChange={changeUnit}
+            spinCost={spinCost}
+            stakeChosen={stakeChosen}
+          />
+          <small className="boardSearchApproximateWinControlsHint">
             Liczba kolejnych spinów po wybranej planszy (S+1…S+N), niezależna od
-            „Liczby wyników”.
+            „Liczby wyników”. Stawka jest wybierana osobno dla każdego
+            wyszukanego wzoru.
           </small>
         </div>
         {rangeError ? (
@@ -301,12 +335,18 @@ export function BoardSearchApproximateWin({
           </>
         ) : null}
 
-        {visibleResult ? (
+        {visibleResult && !stakeChosen ? (
+          <p className="boardSearchApproximateWinStakePrompt" role="status">
+            Wybierz stawkę, aby zobaczyć wynik dla planszy #
+            {visibleResult.startSequenceNumber}.
+          </p>
+        ) : null}
+
+        {visibleResult && stakeChosen ? (
           <ApproximateWinResultView
             api={api}
             display={display}
             gameId={gameId}
-            onDisplayChange={changeDisplay}
             onRecalculate={() =>
               requestKey !== null && selectedResult !== null
                 ? runCalculation(requestKey, selectedResult.sequenceNumber)
@@ -326,7 +366,7 @@ export function BoardSearchApproximateWin({
           />
         ) : null}
       </div>
-    </details>
+    </section>
   );
 }
 
@@ -353,7 +393,6 @@ function ApproximateWinResultView({
   display,
   gameId,
   onBoardRequestHandled,
-  onDisplayChange,
   onRecalculate,
   result,
   symbols,
@@ -369,7 +408,6 @@ function ApproximateWinResultView({
   ) => void;
   readonly display: ApproximateWinDisplay;
   readonly gameId: string;
-  readonly onDisplayChange: (display: ApproximateWinDisplay) => void;
   readonly onRecalculate: () => void;
   readonly result: ApproximateWinResponse;
   readonly symbols: readonly SymbolResponse[];
@@ -427,11 +465,6 @@ function ApproximateWinResultView({
           Reguły v{result.rules.rulesVersion} · koszt spinu {amount(spinCost)}
           {unitNoun(display.unit)}
         </p>
-        <ApproximateWinDisplayControls
-          display={display}
-          onDisplayChange={onDisplayChange}
-          spinCost={spinCost}
-        />
         {result.startBoardStatus === 'pending' ? (
           <p className="feedbackBanner" role="status">
             Plansza startowa #{result.startSequenceNumber} nie jest jeszcze
@@ -509,6 +542,11 @@ function ApproximateWinResultView({
         </>
       ) : (
         <>
+          <ApproximateWinBalanceChart
+            display={display}
+            key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
+            result={result}
+          />
           <ApproximateWinTableFilter
             formatAmount={(credits) =>
               `${amount(credits)}${unitNoun(display.unit)}`
@@ -584,11 +622,6 @@ function ApproximateWinResultView({
               symbols={symbols}
             />
           ) : null}
-          <ApproximateWinBalanceChart
-            display={display}
-            key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
-            result={result}
-          />
         </>
       )}
     </>
@@ -597,38 +630,46 @@ function ApproximateWinResultView({
 
 function ApproximateWinDisplayControls({
   display,
-  onDisplayChange,
+  onStakeChange,
+  onUnitChange,
   spinCost,
+  stakeChosen,
 }: {
   readonly display: ApproximateWinDisplay;
-  readonly onDisplayChange: (display: ApproximateWinDisplay) => void;
-  readonly spinCost: number;
+  readonly onStakeChange: (stakeGrosze: number | null) => void;
+  readonly onUnitChange: (unit: ApproximateWinAmountUnit) => void;
+  /** Unknown until the first result of this game arrived. */
+  readonly spinCost: number | null;
+  readonly stakeChosen: boolean;
 }) {
-  const options = approximateWinStakeOptions(spinCost);
-  const stake = effectiveApproximateWinStakeGrosze(display, spinCost);
-  const stakeDisabled = spinCost <= 0;
+  const options = spinCost === null ? [] : approximateWinStakeOptions(spinCost);
+  const stakeDisabled = spinCost === null || spinCost <= 0;
+  const stake =
+    spinCost === null
+      ? null
+      : effectiveApproximateWinStakeGrosze(display, spinCost);
   return (
-    <div className="boardSearchApproximateWinDisplay">
+    <>
       <label>
         <span>Stawka</span>
         <select
           aria-describedby={
             stakeDisabled ? undefined : 'approximateWinStakeHint'
           }
+          aria-label="Stawka"
           disabled={stakeDisabled}
           onChange={(event) => {
             const grosze = Number(event.currentTarget.value);
             const option = options.find((item) => item.grosze === grosze);
-            onDisplayChange({
-              ...display,
-              // The base option follows the game's spin cost, not a fixed amount.
-              stakeGrosze:
-                option === undefined || option.isBase ? null : grosze,
-            });
+            if (option === undefined) return;
+            // The base option follows the game's spin cost, not a fixed amount.
+            onStakeChange(option.isBase ? null : grosze);
           }}
-          value={stakeDisabled ? '' : String(stake)}
+          value={stakeDisabled || !stakeChosen ? '' : String(stake)}
         >
-          {stakeDisabled ? <option value="">—</option> : null}
+          <option disabled={!stakeDisabled} value="">
+            {stakeDisabled ? '—' : 'wybierz stawkę'}
+          </option>
           {options.map((option) => (
             <option key={option.grosze} value={String(option.grosze)}>
               {option.label}
@@ -639,31 +680,32 @@ function ApproximateWinDisplayControls({
       <label>
         <span>Jednostka</span>
         <select
+          aria-label="Jednostka"
           onChange={(event) =>
-            onDisplayChange({
-              ...display,
-              unit: event.currentTarget.value === 'pln' ? 'pln' : 'credits',
-            })
+            onUnitChange(
+              event.currentTarget.value === 'pln' ? 'pln' : 'credits',
+            )
           }
           value={display.unit}
         >
-          <option value="credits">kredyty</option>
           <option value="pln">złote</option>
+          <option value="credits">kredyty</option>
         </select>
       </label>
-      {stakeDisabled ? (
+      {spinCost !== null && spinCost <= 0 ? (
         <p className="feedbackBanner" role="status">
           Koszt spinu opublikowanych reguł wynosi 0, więc stawki nie da się
           przeliczyć. Złote są liczone jako kredyty / 10.
         </p>
-      ) : (
+      ) : null}
+      {stakeChosen && stake !== null && spinCost !== null && spinCost > 0 ? (
         <small id="approximateWinStakeHint">
           Stawka {formatZloty(stake)} · mnożnik{' '}
           {approximateWinStakeMultiplier(display, spinCost)} · 1 zł = 10
           kredytów
         </small>
-      )}
-    </div>
+      ) : null}
+    </>
   );
 }
 

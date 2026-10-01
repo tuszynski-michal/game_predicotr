@@ -103,7 +103,8 @@ function deferred() {
 
 async function settle() {
   await act(async () => {
-    await new Promise((resolve) => setTimeout(resolve, 0));
+    // Long enough for the calculation debounce across `eventually`'s retries.
+    await new Promise((resolve) => setTimeout(resolve, 15));
   });
 }
 
@@ -182,11 +183,43 @@ async function click(node) {
   );
 }
 
-async function toggleDetails(details, open) {
-  await act(async () => {
-    details.open = open;
-    details.dispatchEvent(new dom.window.Event('toggle'));
-  });
+/**
+ * The section is static (D-476): "opening" it means waiting for the result
+ * and pinning the historic view the assertions below were written for —
+ * the base stake in credits. The default unit itself is złote (own test).
+ */
+async function toggleDetails(_section, open) {
+  if (!open) return;
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const stake = document.querySelector('select[aria-label="Stawka"]');
+    if (stake !== null && !stake.disabled) break;
+    if (
+      stake !== null &&
+      stake.disabled &&
+      document.querySelector('.boardSearchApproximateWin tbody tr') !== null
+    ) {
+      break;
+    }
+    await settle();
+  }
+  const stake = document.querySelector('select[aria-label="Stawka"]');
+  if (stake !== null && !stake.disabled && stake.value === '') {
+    const base = [...stake.options].find((option) =>
+      option.textContent.includes('(bazowa)'),
+    );
+    assert.ok(base, 'a base stake option exists');
+    await act(async () => {
+      stake.value = base.value;
+      stake.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    });
+  }
+  const unit = document.querySelector('select[aria-label="Jednostka"]');
+  if (unit !== null && unit.value !== 'credits') {
+    await act(async () => {
+      unit.value = 'credits';
+      unit.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+    });
+  }
 }
 
 function makeClient({ searchImpl, approximateWinImpl }) {
@@ -224,7 +257,7 @@ async function renderWorkspaceWithResults(client) {
   return root;
 }
 
-test('collapsed section issues no requests even while switching candidates', async () => {
+test('the static section waits for the selection to settle before calculating', async () => {
   const approximateWinCalls = [];
   const client = makeClient({
     approximateWinImpl: async (_gameId, options) => {
@@ -236,22 +269,80 @@ test('collapsed section issues no requests even while switching candidates', asy
     }),
   });
   const root = await renderWorkspaceWithResults(client);
+  assert.ok(approximateWinDetails(), 'the section renders without opening');
+  assert.equal(approximateWinDetails().tagName, 'SECTION');
 
-  const details = approximateWinDetails();
-  assert.equal(details.open, false);
-
+  // Moving on right away cancels the pending calculation for board #10.
   await click(
     [...document.querySelectorAll('button')].find((node) =>
       node.textContent.includes('Następna'),
     ),
   );
+  await eventually(() => approximateWinCalls.length === 1, 'one request');
   await settle();
-
-  assert.equal(approximateWinCalls.length, 0);
+  assert.deepEqual(
+    approximateWinCalls.map((call) => call.startSequenceNumber),
+    [19],
+  );
   await act(async () => root.unmount());
 });
 
-test('first expansion calculates for the currently selected board with the default range', async () => {
+test('the result stays hidden until a stake is chosen; złote is the default unit', async (context) => {
+  context.after(() => dom.window.localStorage.clear());
+  const client = makeClient({
+    approximateWinImpl: async (_gameId, options) => ({
+      data: approximateWinResponse(options.startSequenceNumber, {
+        summary: {
+          balanceCredits: -500,
+          recognizedPayoutCredits: 0,
+          spinCostCredits: 500,
+        },
+      }),
+    }),
+    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+  });
+  const root = await renderWorkspaceWithResults(client);
+  await eventually(
+    () => document.querySelector('.boardSearchApproximateWinStakePrompt'),
+    'prompt to choose a stake',
+  );
+  assert.equal(
+    document.querySelector('.boardSearchApproximateWin .importMetric'),
+    null,
+  );
+  const stake = selectByLabel('Stawka');
+  assert.equal(stake.value, '');
+  assert.equal(selectByLabel('Jednostka').value, 'pln');
+  await act(async () => {
+    stake.value = '200';
+    stake.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  await eventually(
+    () => document.querySelector('.boardSearchApproximateWin .importMetric'),
+    'result after choosing the stake',
+  );
+  assert.equal(
+    document.querySelector('.boardSearchApproximateWin .importMetric dd')
+      .textContent,
+    '0,00 zł',
+  );
+  // The range, stake and unit controls sit in one row.
+  const controls = document.querySelector('.boardSearchApproximateWinControls');
+  assert.ok(controls.querySelector('input[aria-label^="Zakres wygranej"]'));
+  assert.ok(controls.querySelector('select[aria-label="Stawka"]'));
+  assert.ok(controls.querySelector('select[aria-label="Jednostka"]'));
+
+  // A new pattern clears the stake again; the same pattern keeps it.
+  await click(symbolButton());
+  await click(searchButton());
+  await eventually(
+    () => document.querySelector('.boardSearchApproximateWinStakePrompt'),
+    'a new pattern asks for the stake again',
+  );
+  await act(async () => root.unmount());
+});
+
+test('the selected board is calculated right away with the default range', async () => {
   const approximateWinCalls = [];
   const client = makeClient({
     approximateWinImpl: async (_gameId, options) => {
@@ -275,7 +366,7 @@ test('first expansion calculates for the currently selected board with the defau
   await act(async () => root.unmount());
 });
 
-test('changing the selected board while open refreshes the result', async () => {
+test('changing the selected board refreshes the result', async () => {
   const approximateWinCalls = [];
   const client = makeClient({
     approximateWinImpl: async (_gameId, options) => {
@@ -369,6 +460,8 @@ test('a stale response for a superseded board never overwrites the current resul
 
   // Resolve the newer (second) request first, then the stale first one.
   secondBoard.resolve({ data: approximateWinResponse(19) });
+  // The stake can only be chosen once a result (and its spin cost) arrived.
+  await toggleDetails(approximateWinDetails(), true);
   await eventually(
     () => document.body.textContent.includes('Plansza startowa #19'),
     'second board result should render',
@@ -382,72 +475,7 @@ test('a stale response for a superseded board never overwrites the current resul
   await act(async () => root.unmount());
 });
 
-test('collapsing while loading does not crash; reopening recalculates from current data', async () => {
-  const pending = deferred();
-  const calls = [];
-  const client = makeClient({
-    approximateWinImpl: async (_gameId, options) => {
-      calls.push(options);
-      return calls.length === 1
-        ? await pending.promise
-        : { data: approximateWinResponse(10) };
-    },
-    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
-  });
-  const root = await renderWorkspaceWithResults(client);
-
-  const details = approximateWinDetails();
-  await toggleDetails(details, true);
-  await eventually(() => calls.length === 1, 'request started');
-
-  await toggleDetails(details, false);
-  // The discarded in-flight response describes another board; it must never
-  // render after the section was collapsed.
-  pending.resolve({ data: approximateWinResponse(99) });
-  await settle();
-
-  await toggleDetails(details, true);
-  // D-462: symbols verified meanwhile can change the payout for the same
-  // (board, range) key, so reopening always issues a fresh request.
-  await eventually(() => calls.length === 2, 'reopening recalculates');
-  await eventually(
-    () => document.body.textContent.includes('Plansza startowa #10'),
-    'fresh result should render on reopen',
-  );
-  await settle();
-  assert.equal(calls.length, 2);
-  assert.ok(!document.body.textContent.includes('Plansza startowa #99'));
-
-  await act(async () => root.unmount());
-});
-
-test('reopening after a ready result recalculates exactly once', async () => {
-  const calls = [];
-  const client = makeClient({
-    approximateWinImpl: async (_gameId, options) => {
-      calls.push(options);
-      return { data: approximateWinResponse(10) };
-    },
-    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
-  });
-  const root = await renderWorkspaceWithResults(client);
-
-  const details = approximateWinDetails();
-  await toggleDetails(details, true);
-  await eventually(
-    () => document.body.textContent.includes('Plansza startowa #10'),
-    'first result renders',
-  );
-  await toggleDetails(details, false);
-  await toggleDetails(details, true);
-  await eventually(() => calls.length === 2, 'reopening recalculates');
-  await settle();
-  assert.equal(calls.length, 2);
-
-  await act(async () => root.unmount());
-});
-
-test('without a selected result, opening shows a message and issues no request', async () => {
+test('without a selected result the section shows a message and issues no request', async () => {
   const approximateWinCalls = [];
   const client = makeClient({
     approximateWinImpl: async (_gameId, options) => {
@@ -818,7 +846,7 @@ test('stake and unit re-scale every amount locally without a new request', async
   assert.equal(firstPayout(), '3000');
   assert.deepEqual(metrics(), ['3300', '600', '2700', '60']);
   assert.match(
-    document.querySelector('.boardSearchApproximateWinDisplay').textContent,
+    document.querySelector('.boardSearchApproximateWinControls').textContent,
     /mnożnik 3/,
   );
   // The chart label names the unit and follows the stake.
@@ -872,7 +900,7 @@ test('stake and unit re-scale every amount locally without a new request', async
     ).unit,
     'pln',
   );
-  // Choosing the base option stores `null`, so it follows the spin cost.
+  // The stake itself is never stored: it is chosen per search (D-476).
   await choose(stakeSelect, '200');
   assert.equal(
     JSON.parse(
@@ -926,7 +954,7 @@ test('a zero spin cost disables the stake and keeps złote at credits / 10', asy
   );
   assert.equal(selectByLabel('Stawka').disabled, true);
   assert.match(
-    document.querySelector('.boardSearchApproximateWinDisplay').textContent,
+    document.querySelector('.boardSearchApproximateWinControls').textContent,
     /Koszt spinu opublikowanych reguł wynosi 0/,
   );
   const unit = selectByLabel('Jednostka');

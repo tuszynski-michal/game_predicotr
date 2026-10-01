@@ -542,7 +542,7 @@ GET  /api/v1/board-search-shares/boards/{sequenceNumber}/view
   `Cache-Control: private, immutable, max-age=86400`; widok bez rewizji:
   `private, no-cache` z `ETag`/`304`.
 - Limity na sesję (w procesie API): 120 żądań JSON/min, 600 obrazów/min,
-  10 kalkulacji zakresu/min i jedna naraz → `429
+  30 kalkulacji zakresu/min (sekcja liczy każdą wybraną planszę, D-476) i jedna naraz → `429
   BOARD_SEARCH_SHARE_RATE_LIMITED`.
 
 Dziennik zapytań (R5): `search`, `approximate-win` i `boards/{n}` zapisują

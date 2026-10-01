@@ -74,7 +74,7 @@ class BoardSearchShareRequestKind(StrEnum):
 _DEFAULT_LIMITS_PER_MINUTE = {
     BoardSearchShareRequestKind.JSON: 120,
     BoardSearchShareRequestKind.IMAGE: 600,
-    BoardSearchShareRequestKind.APPROXIMATE_WIN: 10,
+    BoardSearchShareRequestKind.APPROXIMATE_WIN: 30,
 }
 
 

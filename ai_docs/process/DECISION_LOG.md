@@ -6,6 +6,25 @@ last_updated: 2026-09-30
 
 # Decision Log
 
+## D-476 — „Przybliżona wygrana” statyczna, stawka wybierana per wzór, złote domyślnie
+
+- **Status:** accepted, 2026-10-01; polecenie operatora, TASK-0777. Zmienia
+  zachowanie sekcji z D-446/D-462 (domyślnie zwinięta, liczy po rozwinięciu).
+- **Context:** operator po każdym wyszukaniu rozwijał sekcję i poprawiał
+  stawkę; stawka zapamiętana z poprzedniej planszy bywała zła dla nowej.
+- **Decision:** sekcja jest statyczna i liczy od razu dla wybranej planszy
+  (żądanie po ustaleniu wyboru na ~0,4 s; spóźnione odpowiedzi odrzucane jak
+  dotąd). Zakres wygranej, stawka i jednostka w jednym wierszu; jednostka
+  domyślnie złote (pamiętana), stawka nie jest pamiętana i musi być wybrana
+  dla każdego nowego wzoru — do wyboru wynik jest ukryty, choć policzony.
+  Domyślna liczba wyników 15; zakres wyszukiwania w sekcji wyników i jego
+  zmiana powtarza wyszukiwanie z zachowaniem wyboru. Wykres nad tabelą,
+  tabela ~20 wierszy. Limit kalkulacji odbiorcy linku 10 → 30/min, bo
+  każda wybrana plansza jest liczona; limit jednej kalkulacji naraz zostaje.
+- **Consequences:** korekta pola z okna planszy nadal przelicza zakres po
+  zamknięciu okna (D-462), tylko bez ścieżki „zwiń i rozwiń”. Przy koszcie
+  spinu 0 stawki nie ma i wynik jest widoczny od razu.
+
 ## D-475 — zapis dziennika zapytań linku w osobnej transakcji (uzupełnia D-472)
 
 - **Status:** accepted, 2026-09-30; TASK-0767 (audyt).

@@ -458,17 +458,12 @@
   background: var(--panel-raised);
 }
 
-.boardSearchApproximateWin summary {
+.boardSearchApproximateWin > h2 {
+  margin: 0;
   padding: 14px 18px;
-  color: var(--muted);
-  cursor: pointer;
+  border-bottom: 1px solid var(--line);
   font-size: 13px;
   font-weight: 800;
-}
-
-.boardSearchApproximateWin[open] summary {
-  border-bottom: 1px solid var(--line);
-  color: var(--text);
 }
 
 .boardSearchApproximateWinBody {
@@ -477,14 +472,15 @@
   padding: 16px 18px 20px;
 }
 
-.boardSearchApproximateWinRange {
+/* Range, stake and unit on one line (D-476). */
+.boardSearchApproximateWinControls {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
   gap: 8px 14px;
 }
 
-.boardSearchApproximateWinRange label {
+.boardSearchApproximateWinControls label {
   display: grid;
   gap: 4px;
   color: var(--text);
@@ -492,14 +488,33 @@
   font-weight: 700;
 }
 
-.boardSearchApproximateWinRange input {
+.boardSearchApproximateWinControls input {
   width: 120px;
 }
 
-.boardSearchApproximateWinRange small {
+.boardSearchApproximateWinControls select {
+  min-width: 150px;
+}
+
+.boardSearchApproximateWinControls small,
+.boardSearchApproximateWinControls .feedbackBanner {
   flex-basis: 100%;
   color: var(--muted);
   font-size: 11px;
+}
+
+.boardSearchApproximateWinControls #approximateWinStakeHint {
+  flex-basis: auto;
+  align-self: center;
+  font-size: 12px;
+}
+
+.boardSearchApproximateWinStakePrompt {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
 }
 
 .boardSearchApproximateWinSummaryHeader {
@@ -511,8 +526,9 @@
   margin: 0;
 }
 
+/* About twenty rows visible before scrolling (D-476). */
 .boardSearchApproximateWin .importRowsTableWrap {
-  max-block-size: 360px;
+  max-block-size: 720px;
   overflow: auto;
 }
 
@@ -712,31 +728,6 @@
   inline-size: 22px;
   block-size: 0;
   border-top-width: 4px;
-}
-
-.boardSearchApproximateWinDisplay {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 8px 14px;
-  margin-top: 6px;
-}
-
-.boardSearchApproximateWinDisplay label {
-  display: grid;
-  gap: 4px;
-  color: var(--text);
-  font-size: 12px;
-  font-weight: 700;
-}
-
-.boardSearchApproximateWinDisplay small {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.boardSearchApproximateWinDisplay .feedbackBanner {
-  flex-basis: 100%;
 }
 
 .boardSearchApproximateWinFilter {

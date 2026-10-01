@@ -234,7 +234,7 @@ Lista kontrolna odbioru etapu B (dowody to testy w repozytorium):
 | izolacja celu sesji: gra tylko z sesji, token innej sesji czyta tylko swoją grę, parametr gry odrzucony | `services/api/tests/test_board_search_share_public_api.py` |
 | cookie i pochodzenie: atrybuty cookie, `Sec-Fetch-Site`/`Origin` dla unlock, rozdział cookie trzech powierzchni | `board-search-share-proxy.test.mjs`, `test-interactions/review-api-share-cookie.test.mjs` |
 | kod i token: PBKDF2, kod zwracany raz, rotacja tokenu, blokada po 5 błędach, unieważnienie i wygaśnięcie | `test_board_search_share_access.py`, integracja PostgreSQL |
-| limity: 120 JSON/min, 600 obrazów/min, 10 kalkulacji/min i jedna naraz, 5 aktywnych linków | `test_board_search_share_public_api.py` (wartości domyślne, 429 dla JSON, obrazów i zakresu, jedna kalkulacja naraz), `test_board_search_share_access*.py` |
+| limity: 120 JSON/min, 600 obrazów/min, 30 kalkulacji/min i jedna naraz, 5 aktywnych linków | `test_board_search_share_public_api.py` (wartości domyślne, 429 dla JSON, obrazów i zakresu, jedna kalkulacja naraz), `test_board_search_share_access*.py` |
 | redakcja odpowiedzi: brak identyfikatorów przeglądu, planszy, importu, rekordów pól, ścieżek i sekretów (API i drugi filtr w proxy); `gameId` i `rulesVersionId` w odpowiedziach zakresu i szczegółów są dozwolone (nie są sekretami) | rekurencyjne testy kluczy w API i proxy, test schematów OpenAPI |
 | stabilne błędy HTTP (`401/403/404/409/422/429/503`) | testy API tras publicznych i administracyjnych |
 | dziennik zapytań: jeden wpis na wykonane zapytanie z pełnym wzorem (także `?`), wpis błędu, fail-closed, brak IP i nagłówków, brak publicznego odczytu | testy API, integracja PostgreSQL, test bramki OpenAPI |

@@ -241,7 +241,6 @@ test('a range replay selects the start board and opens the range; a detail opens
   });
   await eventually(() => calls.range.length === 1, 'range calculated');
   assert.deepEqual(calls.range[0], { spinCount: 250, startSequenceNumber: 12 });
-  assert.equal(document.querySelector('.boardSearchApproximateWin').open, true);
   assert.equal(
     document.querySelector(
       'input[aria-label="Zakres wygranej — liczba kolejnych spinów"]',
@@ -284,10 +283,6 @@ test('a missing start board or an inactive symbol is reported instead of guessed
     { cellIndex: 1, symbolCode: null },
   ]);
   assert.equal(calls.range.length, 0);
-  assert.equal(
-    document.querySelector('.boardSearchApproximateWin').open,
-    false,
-  );
   await act(async () => root.unmount());
 });
 

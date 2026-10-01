@@ -287,7 +287,7 @@ Odpowiedzi publiczne nie zawierają `reviewItemId`, `recognizedBoardId`,
 `importJobId`, ścieżek ani identyfikatorów jobów.
 
 Limity na sesję (proponowane): 120 żądań JSON/min, 600 obrazów/min,
-10 kalkulacji zakresu/min i jedna kalkulacja naraz; przekroczenie daje
+30 kalkulacji zakresu/min (po D-476) i jedna kalkulacja naraz; przekroczenie daje
 `429 BOARD_SEARCH_SHARE_RATE_LIMITED`. Maks. 5 aktywnych sesji.
 
 ### 4.4 Model danych (proponowany, migracja Alembic)

@@ -120,6 +120,9 @@ export function BoardSearchWorkspace({
     String(BOARD_SEARCH_LIMIT_DEFAULT),
   );
   const [limitError, setLimitError] = useState<string | null>(null);
+  // Identity of the last searched pattern; the approximate win keeps its
+  // stake per pattern (D-476).
+  const [searchKey, setSearchKey] = useState('');
   const symbolsRequestId = useRef(0);
   const searchRequestId = useRef(0);
   const composerRef = useRef<HTMLDivElement>(null);
@@ -228,7 +231,19 @@ export function BoardSearchWorkspace({
   }
 
   function changeScope(nextScope: BoardSearchScope) {
+    if (nextScope === scope) return;
     setScope(nextScope);
+    // The scope lives with the results (D-476): changing it repeats the
+    // search for the same pattern and keeps the selected board when it is
+    // still among the results.
+    if (
+      resultsState !== null &&
+      searchState.kind !== 'loading' &&
+      selectedCells.length > 0
+    ) {
+      runSearch({ preserveSelection: true, scope: nextScope });
+      return;
+    }
     setSearchState({ kind: 'idle' });
     setResultsState(null);
   }
@@ -254,12 +269,16 @@ export function BoardSearchWorkspace({
     const effectiveScope = options.scope ?? scope;
     const preserveSelection = options.preserveSelection ?? false;
     const requestId = ++searchRequestId.current;
+    const patternCells = patternBoardSearchCells(searchEditor);
+    const patternKey = patternCells
+      .map((cell) => `${cell.cellIndex}:${cell.symbolCode ?? '?'}`)
+      .join('|');
     setSearchState({ kind: 'loading' });
     void api
       .searchGameBoards(gameId, {
         // `?` cells are sent too: scoring ignores them, the share log keeps
         // the whole pattern (D-472).
-        cells: patternBoardSearchCells(searchEditor),
+        cells: patternCells,
         limit: effectiveLimit,
         scope: effectiveScope,
       })
@@ -280,6 +299,7 @@ export function BoardSearchWorkspace({
           return;
         }
         setSearchState({ kind: 'ready', result: data });
+        setSearchKey(patternKey);
         if (options.onResults !== undefined) {
           const fresh = createBoardSearchResultsState(data.results);
           setResultsState(fresh);
@@ -450,6 +470,35 @@ export function BoardSearchWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replay?.id, symbolsState]);
 
+  const scopeControls = (
+    <fieldset
+      className="boardSearchScope"
+      disabled={searchState.kind === 'loading'}
+    >
+      <legend>Zakres wyszukiwania</legend>
+      <label>
+        <input
+          checked={scope === 'all_searchable'}
+          name="board-search-scope"
+          onChange={() => changeScope('all_searchable')}
+          type="radio"
+        />
+        Wszystkie plansze
+      </label>
+      <span>zatwierdzone, oczekujące i niepełne</span>
+      <label>
+        <input
+          checked={scope === 'approved_only'}
+          name="board-search-scope"
+          onChange={() => changeScope('approved_only')}
+          type="radio"
+        />
+        Tylko zatwierdzone
+      </label>
+      <span>accepted i corrected</span>
+    </fieldset>
+  );
+
   return (
     <section aria-label="Wyszukaj plansze" className="boardSearchWorkspace">
       <header className="pageHeader boardSearchHeader">
@@ -493,33 +542,6 @@ export function BoardSearchWorkspace({
           {limitError}
         </p>
       ) : null}
-
-      <fieldset
-        className="boardSearchScope"
-        disabled={searchState.kind === 'loading'}
-      >
-        <legend>Zakres wyszukiwania</legend>
-        <label>
-          <input
-            checked={scope === 'all_searchable'}
-            name="board-search-scope"
-            onChange={() => changeScope('all_searchable')}
-            type="radio"
-          />
-          Wszystkie plansze
-        </label>
-        <span>zatwierdzone, oczekujące i niepełne</span>
-        <label>
-          <input
-            checked={scope === 'approved_only'}
-            name="board-search-scope"
-            onChange={() => changeScope('approved_only')}
-            type="radio"
-          />
-          Tylko zatwierdzone
-        </label>
-        <span>accepted i corrected</span>
-      </fieldset>
 
       {symbolsState === 'loading' ? (
         <p className="boardSearchFeedback" role="status">
@@ -727,6 +749,7 @@ export function BoardSearchWorkspace({
         <>
           <BoardSearchResults
             client={api}
+            filters={scopeControls}
             gameId={gameId}
             onStateChange={setResultsState}
             state={resultsState}
@@ -734,6 +757,7 @@ export function BoardSearchWorkspace({
           <BoardSearchApproximateWin
             client={api}
             gameId={gameId}
+            searchKey={searchKey}
             onReplayNotice={(notice) =>
               setReplayNotices((current) => [...current, notice])
             }

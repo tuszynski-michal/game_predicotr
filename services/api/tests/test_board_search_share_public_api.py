@@ -613,7 +613,7 @@ def test_default_limits_and_range_calculation_limit(tmp_path: Path) -> None:
     assert _DEFAULT_LIMITS_PER_MINUTE == {
         BoardSearchShareRequestKind.JSON: 120,
         BoardSearchShareRequestKind.IMAGE: 600,
-        BoardSearchShareRequestKind.APPROXIMATE_WIN: 10,
+        BoardSearchShareRequestKind.APPROXIMATE_WIN: 30,
     }
     harness = _harness(
         tmp_path,

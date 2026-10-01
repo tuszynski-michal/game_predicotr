@@ -19,8 +19,9 @@ export const APPROXIMATE_WIN_STAKES_GROSZE: readonly number[] = Object.freeze([
   120, 200, 400, 600, 1000, 2000,
 ]);
 
+/** Złote by default (D-476); a stake is chosen per search, never remembered. */
 export const APPROXIMATE_WIN_DEFAULT_DISPLAY: ApproximateWinDisplay =
-  Object.freeze({ stakeGrosze: null, unit: 'credits' });
+  Object.freeze({ stakeGrosze: null, unit: 'pln' });
 
 export const APPROXIMATE_WIN_DISPLAY_STORAGE_KEY =
   'game-predictor-approximate-win-display-v1';
@@ -194,7 +195,10 @@ function browserStorage(): StorageLike | null {
   }
 }
 
-/** Read the remembered view preference; anything invalid means defaults. */
+/**
+ * Read the remembered unit; anything invalid means defaults. The stake is
+ * never restored: it must be chosen for each search pattern (D-476).
+ */
 export function loadApproximateWinDisplay(
   storage: StorageLike | null = browserStorage(),
 ): ApproximateWinDisplay {
@@ -208,16 +212,8 @@ export function loadApproximateWinDisplay(
     }
     const record = parsed as Record<string, unknown>;
     const unit =
-      record.unit === 'pln' || record.unit === 'credits'
-        ? record.unit
-        : 'credits';
-    const stakeGrosze =
-      typeof record.stakeGrosze === 'number' &&
-      Number.isSafeInteger(record.stakeGrosze) &&
-      record.stakeGrosze > 0
-        ? record.stakeGrosze
-        : null;
-    return { stakeGrosze, unit };
+      record.unit === 'pln' || record.unit === 'credits' ? record.unit : 'pln';
+    return { stakeGrosze: null, unit };
   } catch {
     return APPROXIMATE_WIN_DEFAULT_DISPLAY;
   }

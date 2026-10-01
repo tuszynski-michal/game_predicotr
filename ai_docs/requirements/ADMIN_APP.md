@@ -386,8 +386,11 @@ operacyjnego jako fallback. Częściowe albo nieudane archiwum blokuje odczyt te
 gry zamiast mieszać dwa źródła.
 
 Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
-wyników” nad panelem, domyślnie 5, w zakresie 1–100 (istniejący limit
-techniczny endpointu). Zmiana liczby wyników nigdy nie zmienia dopasowania,
+wyników” nad panelem, domyślnie 15 (D-476), w zakresie 1–100 (istniejący
+limit techniczny endpointu). Zakres wyszukiwania („Wszystkie plansze” /
+„Tylko zatwierdzone”) jest pokazywany w sekcji wyników, pod nagłówkiem
+karuzeli; jego zmiana przy widocznych wynikach powtarza wyszukiwanie tego
+samego wzoru i zachowuje wybraną planszę, jeżeli nadal jest w wynikach. Zmiana liczby wyników nigdy nie zmienia dopasowania,
 rankingu ani zakresu wygranej opisanego niżej — to dwa niezależne parametry.
 Jeżeli wybrana plansza pozostaje w nowych wynikach, wybór jest zachowywany;
 w przeciwnym razie operator jednoznacznie wraca do pierwszego wyniku.
@@ -403,15 +406,26 @@ i tej samej definicji pełnego cyklu z zawijaniem co mobilna prognoza celu.
 „Zakres wygranej” (domyślnie 2 500, maksymalnie 100 000) jest niezależny od
 „Liczby wyników”.
 
-Sekcja jest domyślnie zwinięta i nie liczy niczego, dopóki operator jej nie
-rozwinie — przeglądanie kandydatów wyszukiwania przy zwiniętej sekcji nie
-uruchamia żadnej kalkulacji. Pierwsze rozwinięcie liczy dla aktualnie
-wybranej planszy; zmiana wybranej planszy albo zatwierdzonego zakresu przy
-otwartej sekcji automatycznie odświeża wynik. Zmiana zakresu wymaga
-zatwierdzenia (Enter albo utrata fokusu) — samo wpisywanie cyfr nie wysyła
-żądania. Spóźniona odpowiedź dla wcześniej wybranej planszy nigdy nie
-nadpisuje wyniku aktualnie wybranej. Bez wybranego wyniku wyszukiwania
-kalkulacja się nie uruchamia.
+Sekcja jest statyczna jak wyniki wyszukiwania (D-476): nie zwija się i
+liczy od razu dla aktualnie wybranej planszy, gdy tylko pojawią się wyniki;
+zmiana wybranej planszy albo zatwierdzonego zakresu automatycznie odświeża
+wynik, przy czym żądanie wychodzi dopiero, gdy wybór ustali się na ok. 0,4 s
+(szybkie przeglądanie karuzeli nie wysyła żądania na każdą planszę). Zmiana
+zakresu wymaga zatwierdzenia (Enter albo utrata fokusu) — samo wpisywanie
+cyfr nie wysyła żądania. Spóźniona odpowiedź dla wcześniej wybranej planszy
+nigdy nie nadpisuje wyniku aktualnie wybranej. Bez wybranego wyniku
+wyszukiwania kalkulacja się nie uruchamia.
+
+Kontrolki „Zakres wygranej”, „Stawka” i „Jednostka” stoją w jednym wierszu
+nad wynikiem. Jednostka jest domyślnie w złotych i jest pamiętana w
+przeglądarce. Stawka nie jest pamiętana: po każdym wyszukaniu nowego wzoru
+lista stawek wraca do „wybierz stawkę”, a podsumowanie, wykres i tabela są
+ukryte do czasu jej wyboru (kalkulacja biegnie w tle, więc wynik pojawia
+się od razu po wyborze). Zmiana planszy w obrębie tego samego wzoru,
+zmiana zakresu, limitu albo zakresu wyszukiwania zachowują stawkę.
+Odtworzenie z dziennika udostępnień (D-472) wybiera stawkę bazową, bo stawka
+odbiorcy nie jest znana. Przy koszcie spinu 0 stawki nie ma i wynik jest
+pokazywany bez wyboru.
 
 Wynik rozróżnia dla każdej pozycji zakresu trzy rozłączne kategorie:
 kompletna (wszystkie 15 symboli znanych), częściowa (co najmniej jeden
@@ -438,13 +452,14 @@ Wypłata, Bilans narastająco i kolumnie akcji bez widocznego nagłówka
 (przycisk „Pokaż planszę”, D-470, TASK-0764) — również wtedy, gdy bilans
 narastający pozostaje ujemny; wypłata planszy częściowej jest oznaczona jako potwierdzone
 minimum. Wszystkie wiersze jednej odpowiedzi mieszczą się w pionowo
-przewijalnym obszarze o wysokości około 10 wierszy; nagłówki kolumn pozostają
-widoczne podczas przewijania, a interfejs nie ma paginacji ani stopki zmiany
-strony. Suwak „Minimalna wypłata w tabeli” (od zera do najwyższej wypłaty
+przewijalnym obszarze o wysokości około 20 wierszy (D-476); nagłówki kolumn
+pozostają widoczne podczas przewijania, a interfejs nie ma paginacji ani
+stopki zmiany strony. Suwak „Minimalna wypłata w tabeli” (od zera do najwyższej wypłaty
 bieżącej odpowiedzi, z widoczną wartością) filtruje lokalnie wyłącznie
 widoczne wiersze tabeli: nie wysyła żądania i nie zmienia podsumowania ani
-wykresu. Pod tabelą jest wykres SVG narastającego bilansu (rozpoznane
-wypłaty minus koszt wszystkich spinów) względem numeru spinu. Zaczyna się od
+wykresu. Nad suwakiem i tabelą jest wykres SVG narastającego bilansu
+(rozpoznane wypłaty minus koszt wszystkich spinów) względem numeru spinu
+(D-476: wykres przed tabelą). Zaczyna się od
 zera, między wypłatami pokazuje spadek bilansu o koszt spinów (punkt tuż
 przed każdą wypłatą), kończy się na ostatnim spinie zakresu bilansem z
 podsumowania i ma przerywaną linię zera, gdy bilans ją przecina. Wykres ma

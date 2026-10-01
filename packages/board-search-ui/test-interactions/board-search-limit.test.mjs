@@ -148,7 +148,7 @@ async function renderWorkspace(client) {
   return root;
 }
 
-test('the first search defaults to a limit of 5', async () => {
+test('the first search defaults to a limit of 15', async () => {
   const calls = [];
   const client = makeClient(async (_gameId, options) => {
     calls.push(options);
@@ -156,11 +156,11 @@ test('the first search defaults to a limit of 5', async () => {
   });
   const root = await renderWorkspace(client);
 
-  assert.equal(limitInput().value, '5');
+  assert.equal(limitInput().value, '15');
   await click(symbolButton());
   await click(searchButton());
   await eventually(() => calls.length === 1, 'search should have run once');
-  assert.equal(calls[0].limit, 5);
+  assert.equal(calls[0].limit, 15);
   await act(async () => root.unmount());
 });
 

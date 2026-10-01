@@ -107,6 +107,15 @@ last_updated: 2026-10-01
 - TASK-0776 done (2026-10-01, zgłoszenie operatora): kafelek „Maksymalny
   wkład” w podsumowaniu „Przybliżonej wygranej” — najgłębszy dołek bilansu
   od zera (spin opłacany przed wypłatą), z numerem spinu, skalowany stawką.
+- TASK-0777 done (2026-10-01, zgłoszenie operatora, D-476): „Przybliżona
+  wygrana” jest sekcją statyczną liczoną od razu po wyszukaniu (żądanie po
+  ustaleniu wyboru na 0,4 s); zakres, stawka i jednostka w jednym wierszu;
+  złote domyślnie; stawka wybierana dla każdego nowego wzoru (do wyboru
+  wynik ukryty); limit wyników 15; zakres wyszukiwania w sekcji wyników;
+  wykres nad tabelą, tabela ~20 wierszy; limit kalkulacji odbiorcy linku
+  30/min. Pakiet UI 78/78, interakcje 36/36. Weryfikacja wizualna na
+  instancji testowej (Admin 3010, API 8011) wykonana; audyt agentem
+  pominięty (wstrzymany przez operatora 2026-10-01).
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

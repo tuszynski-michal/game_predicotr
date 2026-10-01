@@ -56,16 +56,16 @@ test('R1 examples: stake scales payouts and the spin cost linearly', () => {
 });
 
 test('the base stake with credits reproduces the previous display exactly', () => {
-  for (const credits of [0, 5, 100, 1234, -17_500, 2_500_000]) {
-    assert.equal(
-      text(credits, APPROXIMATE_WIN_DEFAULT_DISPLAY),
-      credits.toLocaleString('pl-PL'),
-    );
-    assert.equal(
-      text(credits, APPROXIMATE_WIN_DEFAULT_DISPLAY, 20),
-      credits.toLocaleString('pl-PL'),
-    );
+  const credits = { stakeGrosze: null, unit: 'credits' };
+  for (const value of [0, 5, 100, 1234, -17_500, 2_500_000]) {
+    assert.equal(text(value, credits), value.toLocaleString('pl-PL'));
+    assert.equal(text(value, credits, 20), value.toLocaleString('pl-PL'));
   }
+  // Złote are the default unit (D-476); no stake is remembered.
+  assert.deepEqual(APPROXIMATE_WIN_DEFAULT_DISPLAY, {
+    stakeGrosze: null,
+    unit: 'pln',
+  });
 });
 
 test('roundDivideHalfAwayFromZero rounds halves away from zero without floats', () => {
@@ -135,8 +135,12 @@ test('the preference survives storage and invalid values mean defaults', () => {
     loadApproximateWinDisplay(storage),
     APPROXIMATE_WIN_DEFAULT_DISPLAY,
   );
-  saveApproximateWinDisplay(stake(600, 'pln'), storage);
-  assert.deepEqual(loadApproximateWinDisplay(storage), stake(600, 'pln'));
+  // Only the unit survives: a stake is chosen for each search (D-476).
+  saveApproximateWinDisplay(stake(600, 'credits'), storage);
+  assert.deepEqual(loadApproximateWinDisplay(storage), {
+    stakeGrosze: null,
+    unit: 'credits',
+  });
   values.set(APPROXIMATE_WIN_DISPLAY_STORAGE_KEY, '{not json');
   assert.deepEqual(
     loadApproximateWinDisplay(storage),

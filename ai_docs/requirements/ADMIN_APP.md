@@ -388,6 +388,18 @@ recognized board, importu lub joba. Admin wybiera adres obrazu według jawnego
 operacyjnego jako fallback. Częściowe albo nieudane archiwum blokuje odczyt tej
 gry zamiast mieszać dwa źródła.
 
+**D-479 (TASK-0784) — obowiązuje ponad starszymi opisami tej sekcji.**
+Wyszukiwanie zawsze obejmuje wszystkie plansze; radio „Zakres wyszukiwania”
+nie istnieje. Nagłówek wyników pokazuje dopasowanie i numer planszy, bez
+statusu. W „Przybliżonej wygranej” tytułem sekcji jest „Plansza startowa #N
+· X spinów”; nie ma kafelków podsumowania (rozpoznane wypłaty, koszt spinów,
+bilans, maksymalny wkład) ani wiersza „Reguły v… · koszt spinu”. „Bilans”
+nazywa się „kasa na czysto”, „wypłata” — „wygrana” (termin „linie wypłat”
+zostaje). Etykieta punktu wykresu i lista przypiętych punktów podają: spiny,
+kasę na czysto, wkład (na czerwono) i „kasę na maszynie” = wkład + kasa na
+czysto. Okno „Pokaż planszę” ma do 1500 px szerokości i wykorzystuje całą
+szerokość dialogu.
+
 Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
 wyników” nad panelem, domyślnie 15 (D-476), w zakresie 1–100 (istniejący
 limit techniczny endpointu). Zakres wyszukiwania („Wszystkie plansze” /
@@ -1016,9 +1028,9 @@ cięcia, manifest geometrii stron, test ochronny, wersja modelu symboli,
 wynik pipeline'u) została usunięta z tego widoku; pozostaje dostępna w
 zakładce Joby.
 
-### Sekcja „Kompletność siatek zdjęć” w Import plansz (D-479, TASK-0806)
+### Sekcja „Kompletność siatek zdjęć” w Import plansz (D-484, TASK-0806)
 
-Jednostką geometrii jest zdjęcie źródłowe (D-479). Sekcja, pod „Brakującymi
+Jednostką geometrii jest zdjęcie źródłowe (D-484). Sekcja, pod „Brakującymi
 planszami”, pokazuje, ile zdjęć gry ma komplet poprawnych siatek, a ile nie, i
 listuje zdjęcia niekompletne. Jest wyłącznie widokiem do odczytu: niczego nie
 zapisuje i nie zmienia pipeline'u; siatki poprawia się w istniejącej kolejce

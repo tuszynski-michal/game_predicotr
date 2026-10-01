@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0137_prediction_revisions_slim"
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0138_rls_policy_function_parallel_safe"
 
 
 @pytest.mark.parametrize(

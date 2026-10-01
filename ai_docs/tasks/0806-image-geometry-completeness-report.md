@@ -19,7 +19,7 @@ niekompletnych z podglądem całego zdjęcia i naniesionymi siatkami — bez
 
 ## Context
 
-D-479: jednostką geometrii jest zdjęcie. Dotąd pipeline traktował każdą
+D-484: jednostką geometrii jest zdjęcie. Dotąd pipeline traktował każdą
 planszę osobno, więc braki siatek na części zdjęć wychodziły dopiero w
 weryfikacji symboli. To zadanie daje widok tylko do odczytu; egzekwowanie
 bramki w pipeline to TASK-0807 i **nie** należy do tego zadania.
@@ -54,9 +54,9 @@ operatora (2026-10-01).
 - `AGENTS.md`
 - `ai_docs/process/CURRENT_STATE.md` (sekcja planu V3)
 - `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` (reguły, etap V3-0)
-- `ai_docs/process/DECISION_LOG.md` (D-479, D-449, D-462)
+- `ai_docs/process/DECISION_LOG.md` (D-484, D-449, D-462)
 - `ai_docs/requirements/IMAGE_INGESTION.md` (sekcja „Kompletność geometrii
-  zdjęcia — D-479” oraz opis `image_board_geometry_pending`)
+  zdjęcia — D-484” oraz opis `image_board_geometry_pending`)
 - `ai_docs/requirements/ADMIN_APP.md` (panel importu zdjęć)
 
 ## Scope
@@ -104,7 +104,7 @@ operatora (2026-10-01).
 
 ## Technical notes
 
-### Definicje (źródło prawdy: D-479)
+### Definicje (źródło prawdy: D-484)
 
 Bieżąca rewizja geometrii źródła zdjęcia = wiersz
 `image_source_geometry_revisions` o największym `revision` dla
@@ -270,7 +270,7 @@ orkiestratora.
 ### Changed
 
 - Domena: `services/api/src/game_predictor_api/domain/image_geometry_completeness.py`
-  — czyste `classify_position` / `classify_image` (tabele stanów z D-479),
+  — czyste `classify_position` / `classify_image` (tabele stanów z D-484),
   `extract_position_quad` (czworokąt z `symbolGridQuad`, potem `finalQuad`; brak
   zamiast wymyślonej siatki), kursor listy `(relative_path, id)` i walidowane
   progi sygnału jakości (`LowQualityThresholds`).

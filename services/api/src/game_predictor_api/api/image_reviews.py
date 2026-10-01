@@ -165,7 +165,7 @@ def create_image_reviews_router(
         "/geometry-completeness/{game_id}",
         response_model=ImageGeometryCompletenessResponse,
         operation_id="getImageGeometryCompleteness",
-        summary="Count complete and incomplete source images of a game or import (D-479)",
+        summary="Count complete and incomplete source images of a game or import (D-484)",
         responses=ERROR_RESPONSES,
     )
     def get_image_geometry_completeness(
@@ -181,7 +181,7 @@ def create_image_reviews_router(
         "/geometry-completeness/{game_id}/incomplete-images",
         response_model=IncompleteGeometryImagePageResponse,
         operation_id="listIncompleteGeometryImages",
-        summary="List one page of source images without a complete set of grids (D-479)",
+        summary="List one page of source images without a complete set of grids (D-484)",
         responses=ERROR_RESPONSES,
     )
     def list_incomplete_geometry_images(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from uuid import UUID
 
@@ -19,6 +19,17 @@ from game_predictor_api.domain.reviewer_work_assignments import (
     ReviewerWorkAssignmentConflictError,
     ReviewerWorkAssignmentType,
 )
+from game_predictor_api.storage.game_entity_locator import (
+    GameEntityLocator,
+    bind_located_game,
+    session_is_scoped,
+)
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+    GameStorageRoutingError,
+    game_storage_scope,
+)
 from game_predictor_api.storage.models import (
     ImageReviewItemModel,
     JobModel,
@@ -27,12 +38,31 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
 )
 
+_ASSIGNMENTS_TABLE = "reviewer_work_assignments"
+
 
 class SqlAlchemyReviewerWorkAssignmentRepository(ReviewerWorkAssignmentRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        locator: GameEntityLocator | None = None,
+        *,
+        other_games_online: Callable[[UUID | None], Sequence[ReviewerWorkAssignment]] | None = None,
+    ) -> None:
         self._session = session
+        # TASK-0797: heartbeat/close name only the assignment id; the locator
+        # binds the owning game first. Online capacity and the shared tunnel
+        # span all games, which the application role sees only one game at a
+        # time; ``other_games_online`` reads the remaining games.
+        self._locator = locator
+        self._other_games_online = other_games_online
 
     def lock_scope(self, game_id: UUID, import_job_id: UUID) -> bool:
+        if not session_is_scoped(self._session):
+            try:
+                GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
+            except GameStorageRoutingError:
+                return False
         job = self._session.scalar(
             select(JobModel)
             .where(
@@ -99,6 +129,10 @@ class SqlAlchemyReviewerWorkAssignmentRepository(ReviewerWorkAssignmentRepositor
         return _to_assignment(record)
 
     def get_for_update(self, assignment_id: UUID) -> ReviewerWorkAssignment | None:
+        if not bind_located_game(
+            self._session, self._locator, _ASSIGNMENTS_TABLE, "id", assignment_id
+        ):
+            return None
         record = self._session.scalar(
             select(ReviewerWorkAssignmentModel)
             .where(ReviewerWorkAssignmentModel.id == assignment_id)
@@ -107,6 +141,10 @@ class SqlAlchemyReviewerWorkAssignmentRepository(ReviewerWorkAssignmentRepositor
         return None if record is None else _to_assignment(record)
 
     def get(self, assignment_id: UUID) -> ReviewerWorkAssignment | None:
+        if not bind_located_game(
+            self._session, self._locator, _ASSIGNMENTS_TABLE, "id", assignment_id
+        ):
+            return None
         record = self._session.get(ReviewerWorkAssignmentModel, assignment_id)
         return None if record is None else _to_assignment(record)
 
@@ -193,23 +231,78 @@ class SqlAlchemyReviewerWorkAssignmentRepository(ReviewerWorkAssignmentRepositor
         self._session.execute(select(func.pg_advisory_xact_lock(0x47505245, 0x56494557)))
         yield
 
+    def list_active_online_all_games(self) -> Sequence[ReviewerWorkAssignment]:
+        """Open online assignments of every game (the shared tunnel and the cap).
+
+        The bound game's rows come from this transaction; other games are read
+        in their own READ-bound sessions. Every capacity mutation takes the
+        global advisory lock first, so those reads cannot race a decision.
+        """
+
+        own = self.list_active_online()
+        if self._other_games_online is None:
+            return own
+        current = GameStorageRouter.bound_game_id(self._session)
+        return (*own, *self._other_games_online(current))
+
     def list_active_online(self) -> Sequence[ReviewerWorkAssignment]:
+        """Open online assignments of the bound game only (locked for update)."""
+
+        statement = select(ReviewerWorkAssignmentModel).where(
+            ReviewerWorkAssignmentModel.assignment_type == ReviewerWorkAssignmentType.ONLINE.value,
+            ReviewerWorkAssignmentModel.closed_at.is_(None),
+        )
+        current = GameStorageRouter.bound_game_id(self._session)
+        if current is not None:
+            # Explicit, so a schema-owner session (RLS bypass) sees the same rows.
+            statement = statement.where(ReviewerWorkAssignmentModel.game_id == current)
         return tuple(
             _to_assignment(record)
             for record in self._session.scalars(
-                select(ReviewerWorkAssignmentModel)
-                .where(
-                    ReviewerWorkAssignmentModel.assignment_type
-                    == ReviewerWorkAssignmentType.ONLINE.value,
-                    ReviewerWorkAssignmentModel.closed_at.is_(None),
-                )
-                .order_by(
+                statement.order_by(
                     ReviewerWorkAssignmentModel.created_at,
                     ReviewerWorkAssignmentModel.id,
-                )
-                .with_for_update()
+                ).with_for_update()
             )
         )
+
+
+class OtherGamesOnlineAssignments:
+    """Read open online assignments of every game except one (TASK-0797).
+
+    Each game is read in its own short READ-bound session, so the application
+    role's RLS stays in force; the rows are not locked (the caller holds the
+    global online-capacity advisory lock that every mutation takes).
+    """
+
+    def __init__(self, session_factory: Callable[[], Session], locator: GameEntityLocator) -> None:
+        self._session_factory = session_factory
+        self._locator = locator
+
+    def __call__(self, exclude_game_id: UUID | None) -> Sequence[ReviewerWorkAssignment]:
+        found: list[ReviewerWorkAssignment] = []
+        for game_id in self._locator.registered_games():
+            if game_id == exclude_game_id:
+                continue
+            # Its own scope: the caller's request scope must not rebind it.
+            with game_storage_scope(game_id), self._session_factory() as session:
+                try:
+                    GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ)
+                except GameStorageRoutingError:
+                    continue
+                found.extend(
+                    _to_assignment(record)
+                    for record in session.scalars(
+                        select(ReviewerWorkAssignmentModel).where(
+                            ReviewerWorkAssignmentModel.game_id == game_id,
+                            ReviewerWorkAssignmentModel.assignment_type
+                            == ReviewerWorkAssignmentType.ONLINE.value,
+                            ReviewerWorkAssignmentModel.closed_at.is_(None),
+                        )
+                    )
+                )
+                session.rollback()
+        return tuple(found)
 
 
 def _to_assignment(record: ReviewerWorkAssignmentModel) -> ReviewerWorkAssignment:
@@ -231,4 +324,4 @@ def _to_assignment(record: ReviewerWorkAssignmentModel) -> ReviewerWorkAssignmen
     )
 
 
-__all__ = ["SqlAlchemyReviewerWorkAssignmentRepository"]
+__all__ = ["OtherGamesOnlineAssignments", "SqlAlchemyReviewerWorkAssignmentRepository"]

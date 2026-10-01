@@ -1,4 +1,4 @@
-"""OpenAPI schemas of the D-479 geometry completeness report (TASK-0806)."""
+"""OpenAPI schemas of the D-484 geometry completeness report (TASK-0806)."""
 
 from __future__ import annotations
 

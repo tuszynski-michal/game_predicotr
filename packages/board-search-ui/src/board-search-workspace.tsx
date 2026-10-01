@@ -111,7 +111,6 @@ export function BoardSearchWorkspace({
   const [editor, setEditor] = useState(createBoardSearchEditorState);
   const [entryOrder, setEntryOrder] =
     useState<BoardSearchEntryOrder>('columns');
-  const [scope, setScope] = useState<BoardSearchScope>('all_searchable');
   const [searchState, setSearchState] = useState<SearchState>({ kind: 'idle' });
   const [resultsState, setResultsState] =
     useState<BoardSearchResultsState | null>(null);
@@ -230,31 +229,12 @@ export function BoardSearchWorkspace({
     setResultsState(null);
   }
 
-  function changeScope(nextScope: BoardSearchScope) {
-    if (nextScope === scope) return;
-    setScope(nextScope);
-    // The scope lives with the results (D-476): changing it repeats the
-    // search for the same pattern and keeps the selected board when it is
-    // still among the results.
-    if (
-      resultsState !== null &&
-      searchState.kind !== 'loading' &&
-      selectedCells.length > 0
-    ) {
-      runSearch({ preserveSelection: true, scope: nextScope });
-      return;
-    }
-    setSearchState({ kind: 'idle' });
-    setResultsState(null);
-  }
-
   function runSearch(
     options: {
       readonly limit?: number;
       readonly preserveSelection?: boolean;
-      /** Replay: the pattern and scope to search with right away. */
+      /** Replay: the pattern to search with right away. */
       readonly editor?: typeof editor;
-      readonly scope?: BoardSearchScope;
       readonly onResults?: (state: BoardSearchResultsState) => void;
     } = {},
   ) {
@@ -266,7 +246,6 @@ export function BoardSearchWorkspace({
       return;
     }
     const effectiveLimit = options.limit ?? limit;
-    const effectiveScope = options.scope ?? scope;
     const preserveSelection = options.preserveSelection ?? false;
     const requestId = ++searchRequestId.current;
     const patternCells = patternBoardSearchCells(searchEditor);
@@ -280,7 +259,8 @@ export function BoardSearchWorkspace({
         // the whole pattern (D-472).
         cells: patternCells,
         limit: effectiveLimit,
-        scope: effectiveScope,
+        // Always every searchable board (TASK-0784): the scope choice is gone.
+        scope: 'all_searchable',
       })
       .then((result) => {
         if (requestId !== searchRequestId.current) {
@@ -401,7 +381,6 @@ export function BoardSearchWorkspace({
         `Symbol „${code}” nie jest już aktywny — w jego miejscu jest ?.`,
     );
     setEditor(nextEditor);
-    setScope(request.scope);
     setLimit(request.limit);
     setLimitInput(String(request.limit));
     setLimitError(null);
@@ -448,7 +427,6 @@ export function BoardSearchWorkspace({
           spinCount: range.spinCount,
         });
       },
-      scope: request.scope,
     });
   }
 
@@ -469,35 +447,6 @@ export function BoardSearchWorkspace({
     // Applied once per replay id, as soon as the symbols are known.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [replay?.id, symbolsState]);
-
-  const scopeControls = (
-    <fieldset
-      className="boardSearchScope"
-      disabled={searchState.kind === 'loading'}
-    >
-      <legend>Zakres wyszukiwania</legend>
-      <label>
-        <input
-          checked={scope === 'all_searchable'}
-          name="board-search-scope"
-          onChange={() => changeScope('all_searchable')}
-          type="radio"
-        />
-        Wszystkie plansze
-      </label>
-      <span>zatwierdzone, oczekujące i niepełne</span>
-      <label>
-        <input
-          checked={scope === 'approved_only'}
-          name="board-search-scope"
-          onChange={() => changeScope('approved_only')}
-          type="radio"
-        />
-        Tylko zatwierdzone
-      </label>
-      <span>accepted i corrected</span>
-    </fieldset>
-  );
 
   return (
     <section aria-label="Wyszukaj plansze" className="boardSearchWorkspace">
@@ -749,7 +698,6 @@ export function BoardSearchWorkspace({
         <>
           <BoardSearchResults
             client={api}
-            filters={scopeControls}
             gameId={gameId}
             onStateChange={setResultsState}
             state={resultsState}

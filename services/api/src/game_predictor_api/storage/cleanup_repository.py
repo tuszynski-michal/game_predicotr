@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import cast
 from uuid import UUID
@@ -31,8 +32,17 @@ from game_predictor_api.storage.models import (
 
 
 class SqlAlchemyCleanupRepository(CleanupRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self,
+        session: Session,
+        cross_game_session_factory: Callable[[], Session] | None = None,
+    ) -> None:
         self._session = session
+        # TASK-0797: the game session reads one game (application role, RLS).
+        # The safety checks that must see *other* games (shared artifacts,
+        # shared executions, multi-game releases) read through the cross-game
+        # schema-owner session; without it they would silently see nothing.
+        self._cross_game_session_factory = cross_game_session_factory
 
     def release_snapshot(
         self,
@@ -134,7 +144,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             game_id=game_id,
         ):
             blockers.append("ACTIVE_REVIEWER_SESSION")
-        if self._count(
+        if self._cross_game_count(
             """
             SELECT count(*)
             FROM mobile_release_games target
@@ -299,10 +309,15 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         return tuple(CleanupCount(str(name), int(value or 0)) for name, value in row.items())
 
     def _game_artifacts(self, game_id: UUID) -> tuple[tuple[str, ...], int]:
-        rows = self._session.execute(
-            text(_GAME_ARTIFACTS_SQL),
-            {"game_id": game_id},
-        ).mappings()
+        # "shared" must see references of every game, or files still used by
+        # another game would be deleted (TASK-0797).
+        with self._cross_game_reader() as session:
+            rows = tuple(
+                session.execute(
+                    text(_GAME_ARTIFACTS_SQL),
+                    {"game_id": game_id},
+                ).mappings()
+            )
         deleted: list[str] = []
         retained = 0
         for row in rows:
@@ -545,7 +560,7 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             game_id=scope.game_id,
         ):
             blockers.append("ACTIVE_REVIEWER_SESSION")
-        if scope.release_ids and self._count(
+        if scope.release_ids and self._cross_game_count(
             """
             SELECT count(*) FROM mobile_release_games target
             WHERE target.mobile_release_id IN :release_ids
@@ -874,6 +889,21 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
                 {"execution_keys": scope.execution_keys},
             )
         )
+        # Links of other games keep an execution alive; this game's session
+        # cannot see them (TASK-0797), the cross-game owner reader can.
+        if self._cross_game_session_factory is not None and scope.execution_keys:
+            with self._cross_game_reader() as session:
+                shared_execution_keys.update(
+                    session.scalars(
+                        self._bound_statement(
+                            "SELECT DISTINCT file_execution_key FROM image_import_job_files "
+                            "WHERE file_execution_key IN :execution_keys "
+                            "AND game_id <> :other_than",
+                            {"execution_keys": scope.execution_keys},
+                        ),
+                        {"execution_keys": scope.execution_keys, "other_than": scope.game_id},
+                    )
+                )
         unshared_execution_keys = tuple(
             key for key in scope.execution_keys if key not in shared_execution_keys
         )
@@ -897,6 +927,27 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         return tuple(
             self._session.scalars(self._bound_statement(statement, parameters), parameters)
         )
+
+    @contextmanager
+    def _cross_game_reader(self) -> Iterator[Session]:
+        if self._cross_game_session_factory is None:
+            yield self._session
+            return
+        with self._cross_game_session_factory() as session:
+            try:
+                yield session
+            finally:
+                session.rollback()
+
+    def _cross_game_count(self, statement: str, **parameters: object) -> int:
+        if self._cross_game_session_factory is None:
+            return self._count(statement, **parameters)
+        if any(isinstance(value, tuple) and not value for value in parameters.values()):
+            return 0
+        with self._cross_game_reader() as session:
+            return int(
+                session.scalar(self._bound_statement(statement, parameters), parameters) or 0
+            )
 
     def _paths(self, statement: str, **parameters: object) -> tuple[str, ...]:
         if any(isinstance(value, tuple) and not value for value in parameters.values()):

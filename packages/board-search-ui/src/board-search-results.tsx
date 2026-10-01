@@ -4,13 +4,7 @@
 /* eslint-disable @next/next/no-img-element */
 
 import type { BoardSearchResponse } from '@game-predictor/admin-api-client';
-import {
-  type KeyboardEvent,
-  type ReactNode,
-  useEffect,
-  useRef,
-  useState,
-} from 'react';
+import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
 import type { BoardSearchDataSource } from './board-search-data-source';
 import {
@@ -33,8 +27,6 @@ type BoardSearchResult = BoardSearchResponse['results'][number];
 
 interface BoardSearchResultsProps {
   readonly client: BoardSearchResultsClient;
-  /** Search filters shown with the results (scope radios, D-476). */
-  readonly filters?: ReactNode;
   readonly gameId: string;
   readonly state: BoardSearchResultsState;
   readonly onStateChange: (state: BoardSearchResultsState) => void;
@@ -42,7 +34,6 @@ interface BoardSearchResultsProps {
 
 export function BoardSearchResults({
   client: api,
-  filters,
   gameId,
   onStateChange,
   state,
@@ -79,7 +70,6 @@ export function BoardSearchResults({
     return (
       <section className="boardSearchResults" aria-live="polite">
         <h2>Wyniki wyszukiwania</h2>
-        {filters}
         <p>Żadna plansza nie ma dodatniego dopasowania do wskazanego wzoru.</p>
       </section>
     );
@@ -105,16 +95,11 @@ export function BoardSearchResults({
             <dd>{current.score.score.toFixed(1)}%</dd>
           </div>
           <div>
-            <dt>Status</dt>
-            <dd>{statusLabel(current.status)}</dd>
-          </div>
-          <div>
             <dt>Plansza</dt>
             <dd>#{current.sequenceNumber}</dd>
           </div>
         </dl>
       </header>
-      {filters}
 
       <BoardCrop
         api={api}
@@ -354,17 +339,4 @@ function FullPhotoCrop({
       />
     </div>
   );
-}
-
-function statusLabel(status: string): string {
-  switch (status) {
-    case 'accepted':
-      return 'Zatwierdzona';
-    case 'corrected':
-      return 'Poprawiona';
-    case 'pending':
-      return 'Oczekuje';
-    default:
-      return status;
-  }
 }

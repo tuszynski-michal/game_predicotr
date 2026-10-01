@@ -16,7 +16,7 @@ last_updated: 2026-10-01
   z T05 z kosztem braku planszy równym 1. Miary pomocnicze: odzysk plansz,
   NME p95, zgodność symboli po cięciu. Metryka i tolerancje są zamrażane
   przed pierwszym treningiem; model wybiera się wyłącznie na walidacji.
-- **Reason:** D-479 czyni zdjęcie jednostką pracy — jedna zła plansza
+- **Reason:** D-484 czyni zdjęcie jednostką pracy — jedna zła plansza
   wstrzymuje całe zdjęcie, więc średnia per plansza nie opisuje kosztu
   operatora.
 - **Consequences:** raporty runów i raport porównawczy TASK-0804 podają tę
@@ -66,7 +66,7 @@ last_updated: 2026-10-01
   powielać jej błędy; o przydatności rozstrzyga odsetek błędów z przeglądu
   operatora w TASK-0801 oraz pomiar na poziomie G.
 
-## D-479 — kompletność geometrii zdjęcia jest bramką przed cięciem na symbole
+## D-484 — kompletność geometrii zdjęcia jest bramką przed cięciem na symbole
 
 - **Status:** accepted, 2026-10-01; decyzja operatora (decyzja 5 planu V3)
   po zgłoszeniu: import 777 przeszedł, plansze z siatką trafiły do
@@ -94,6 +94,30 @@ last_updated: 2026-10-01
   zachowanie odroczonej geometrii (`image_board_geometry_pending`), w którym
   pozostałe plansze zdjęcia szły dalej. Raport: TASK-0806; egzekwowanie:
   TASK-0807.
+## D-479 — „Przybliżona wygrana” bez kafelków i wyboru zakresu; nazwy operatora (zmienia D-476)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0784.
+- **Context:** operator korzysta z wykresu i tabeli. Kafelki podsumowania,
+  wiersz reguł, radio zakresu wyszukiwania i status planszy w wynikach nie
+  były używane, a nazwy „bilans” i „wypłata” nie odpowiadały temu, jak
+  operator liczy pieniądze.
+- **Decision:** w „Przybliżonej wygranej” i oknie planszy „bilans” nazywa
+  się „kasa na czysto”, a „wypłata” — „wygrana” (termin „linie wypłat”
+  zostaje). Etykieta punktu wykresu ma cztery wiersze: spiny, kasa na
+  czysto, wkład (na czerwono) i „kasa na maszynie” = wkład + kasa na
+  czysto. Cztery kafelki podsumowania i wiersz „Reguły v… · koszt spinu”
+  są usunięte. Tytułem sekcji jest „Plansza startowa #N · X spinów” (bez
+  zakresu numerów plansz). Radio „Zakres wyszukiwania” jest usunięte:
+  wyszukiwanie zawsze obejmuje wszystkie plansze (`all_searchable`), także
+  przy odtworzeniu wpisu dziennika zapisanego z `approved_only`. Nagłówek
+  wyników pokazuje dopasowanie i numer planszy, bez statusu. Okno planszy
+  zajmuje do 1500 px szerokości.
+- **Reason:** mniej elementów nad wykresem i nazwy zgodne z językiem
+  operatora. Parametr `scope` zostaje w API; zmienia się tylko to, co wysyła
+  wspólny interfejs (Admin i udostępniony link).
+- **Consequences:** suma wygranych, koszt spinów i maksymalny wkład całego
+  zakresu nie są już pokazywane jako osobne liczby — wkład i kasę widać na
+  wybranym punkcie wykresu. Odbiorca linku też nie wybiera już zakresu.
 
 ## D-478 — dziennik linku pokazuje wyszukiwania z wykresem; wpis można usunąć (zmienia D-472)
 
@@ -588,6 +612,49 @@ last_updated: 2026-10-01
   symbolu 1,4 s → 3,6 s, zapytania indeksowe bez zmian. Zmiana funkcji
   polityki jest poza zakresem TASK-0795 (osobne zadanie z migracją).
   Wycofanie: `GAME_PREDICTOR_DATABASE_URL` = URL właściciela i restart.
+- **Ścieżki bez związanej gry i równoległa polityka RLS (TASK-0797,
+  2026-10-01, migracja `0138`):** sonda wszystkich 288 operacji OpenAPI na
+  roli aplikacyjnej (`test_unbound_game_route_probe_postgres.py`) wykazała
+  53 trasy kończące się `42P01`/`42501` bez wiązania gry (od `0125` także dla
+  właściciela). Zasady: (1) gra żądania z `/games/{id}/` albo z parametru
+  `gameId`/`game_id` tras `/api/v1/admin/` i `/api/v1/reviewer/` wiąże całe
+  żądanie (`game_id_from_request`); trasy publicznego udostępnienia i zdalnej
+  selekcji nadal biorą grę wyłącznie z własnej sesji; (2) trasa, która zna
+  tylko globalny identyfikator wiersza gry (wersja datasetu, przebieg
+  selekcji, źródło kuratorskie, staging przeglądarkowy, partie i itemy
+  przeglądu M5, sesja i przydział Reviewera), znajduje jego grę odczytami
+  związanymi kolejno z każdą grą (`GameEntityLocator`) i przypisuje ją sesji
+  (`assign_session_game`); brak gry = `404 GAME_SCOPED_RESOURCE_NOT_FOUND`
+  (staging bez rekordu retencji idzie dalej bez gry); (3) listy i kontrole
+  obejmujące wiele gier (podgląd storage GC, lista partii M5, przydziały
+  online Reviewera) czytają każdą grę w osobnej związanej sesji; (4) agregaty
+  wielu gier — wydanie mobilne (tworzenie, build, snapshot, payouty wydania,
+  sprzątanie wydania) oraz kontrole bezpieczeństwa sprzątania gry
+  (współdzielone pliki, wykonania i wydania wielogrowe) — używają jawnej
+  sesji właściciela `CrossGameOwnerSession` (superuser, `game_data_v2` w
+  `search_path`, routing per instrukcja z bramą zapisu, przełączanie gry
+  zamiast odmowy). Znaleziono dwie ścieżki zależne od obejścia RLS po
+  cutoverze TASK-0795 (ciche zawężenie do jednej gry): limit i zatrzymanie
+  wspólnego tunelu Reviewera liczyły przydziały online tylko bieżącej gry
+  (tunel mógł zostać zatrzymany mimo aktywnego przydziału innej gry) oraz
+  wykrywanie plików współdzielonych przy resecie gry (`_GAME_ARTIFACTS_SQL`)
+  i współdzielonych wykonań przy usuwaniu źródeł nie widziało innych gier
+  (ryzyko usunięcia pliku używanego przez inną grę); obie naprawione.
+  Uwierzytelnienie Reviewera: wariant bez nowych obiektów bazy (iteracja po
+  grach z RLS) zamiast tabeli indeksowej `token_hash → game_id` w `public`
+  albo funkcji `SECURITY DEFINER` — uzasadnienie w modelu zagrożeń.
+  `SHOW data_directory` w metrykach projekcji weryfikacji (wymaga superusera)
+  działa w savepoincie, bo odmowa przerywała transakcję startu projekcji.
+  Migracja `0138_rls_policy_function_parallel_safe`: `current_game_id_v1()`
+  jako `STABLE PARALLEL SAFE` plpgsql bez bloku `EXCEPTION` (kształt uuid
+  sprawdzany wyrażeniem regularnym; brak ustawienia nadal
+  `GAME_STORAGE_SCOPE_REQUIRED`, zły uuid `GAME_STORAGE_SCOPE_INVALID`, oba
+  `42501`), polityki bez zmian; `ck_image_symbol_review_cells_approved_provenance`
+  bez gałęzi `legacy_file` (preflight `CELL_APPROVED_LEGACY_PROVENANCE_PRESENT`,
+  `NOT VALID` + `VALIDATE` w runbooku); downgrade przywraca obie wersje.
+  `EXPECTED_ALEMBIC_HEAD` = `0138`. Usunięty test `test_resumable_game_deletion.py`:
+  testował jednorazowe usunięcie gry z magazynu `public` (usuniętego w
+  `0125`), dla którego nie ma trasy; usuwanie gry V2 testuje lifecycle.
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu

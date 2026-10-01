@@ -3692,7 +3692,7 @@ export const getImageDatasetCompleteness = <
   });
 
 /**
- * Count complete and incomplete source images of a game or import (D-479)
+ * Count complete and incomplete source images of a game or import (D-484)
  */
 export const getImageGeometryCompleteness = <
   ThrowOnError extends boolean = false,
@@ -3713,7 +3713,7 @@ export const getImageGeometryCompleteness = <
   });
 
 /**
- * List one page of source images without a complete set of grids (D-479)
+ * List one page of source images without a complete set of grids (D-484)
  */
 export const listIncompleteGeometryImages = <
   ThrowOnError extends boolean = false,

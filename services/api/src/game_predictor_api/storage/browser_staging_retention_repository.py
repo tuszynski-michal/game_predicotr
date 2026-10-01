@@ -15,6 +15,7 @@ from game_predictor_api.application.browser_staging_retention import (
     ManagedOriginalsHandoff,
 )
 from game_predictor_api.domain.jobs import JobConflictError
+from game_predictor_api.storage.game_entity_locator import GameEntityLocator
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 
 from .models import (
@@ -179,6 +180,15 @@ class SqlAlchemyBrowserStagingRetentionRepository:
                 )
                 if game_id is not None:
                     game_ids.add(game_id)
+                if not game_ids:
+                    # TASK-0797: no job names the game; the retention record
+                    # (game data) is found through per-game RLS-bound reads.
+                    located = GameEntityLocator(self._session_factory).locate(
+                        "browser_selection_retention_states", "upload_id", upload_id
+                    )
+                    if located is None:
+                        return
+                    game_ids.add(located)
                 if len(game_ids) > 1:
                     raise JobConflictError(
                         "IMAGE_FOLDER_SELECTION_GAME_MISMATCH",

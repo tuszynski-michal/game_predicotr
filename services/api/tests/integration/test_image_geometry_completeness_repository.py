@@ -1,4 +1,4 @@
-"""Isolated PostgreSQL coverage of the D-479 geometry completeness report (TASK-0806).
+"""Isolated PostgreSQL coverage of the D-484 geometry completeness report (TASK-0806).
 
 Builds a game routed to ``game_data_v2`` with one source image per state and
 the edge cases the definition names (older revisions, closed pending rows,

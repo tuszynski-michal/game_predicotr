@@ -2615,17 +2615,8 @@ class ImageSymbolReviewCellModel(Base):
             "AND approved_source_geometry_revision_id IS NULL "
             "AND approved_render_spec_checksum_sha256 IS NULL "
             "AND approved_rendered_pixel_checksum_sha256 IS NULL) OR "
-            # Historical file-crop approval branch: still part of the live
-            # constraint after 0136 (no migration narrowed it), so the ORM
-            # mirrors it.  The operator database had 0 such rows on
-            # 2026-10-01 (TASK-0796); no writer produces it any more.
-            "(approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
-            "AND approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
-            "AND approved_geometry_revision >= 0 "
-            "AND (approved_asset_mode IS NULL OR approved_asset_mode = 'legacy_file') "
-            "AND approved_source_geometry_revision_id IS NULL "
-            "AND approved_render_spec_checksum_sha256 IS NULL "
-            "AND approved_rendered_pixel_checksum_sha256 IS NULL) OR "
+            # The historical file-crop approval branch was removed by
+            # 0138 (TASK-0797): an approval is always a virtual render.
             "(approved_crop_sample_id ~ '^[0-9a-f]{64}$' "
             "AND approved_crop_checksum_sha256 ~ '^[0-9a-f]{64}$' "
             "AND approved_geometry_revision >= 0 "

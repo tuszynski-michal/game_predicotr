@@ -22,7 +22,7 @@ last_updated: 2026-10-01
 
 - 2026-10-01 operator zaakceptował wszystkie pięć decyzji planu
   `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` (status
-  `accepted`): D-479 bramka kompletności zdjęcia (wymaganie w
+  `accepted`): D-484 bramka kompletności zdjęcia (wymaganie w
   `IMAGE_INGESTION.md`), D-480 geometria produkcyjna 777 jako dane uczące,
   D-481 budżet treningu, D-482 etap D bez etapu C, D-483 metryka nadrzędna.
   Operator uruchomił etap V3-0 (TASK-0806, potem TASK-0807); po etapie STOP.
@@ -186,6 +186,12 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   pokazuje tylko wyszukiwania — wzór 3 × 5 i wykres bilansu planszy, którą
   odbiorca otworzył; bez linii opisu; wpis można usunąć
   (`DELETE …/queries/{id}`). Bez migracji; wymaga restartu API.
+- TASK-0784 done (2026-10-02, zgłoszenie operatora, D-479): „Przybliżona
+  wygrana” bez kafelków i wiersza reguł, tytuł „Plansza startowa #N · X
+  spinów”, nazwy „kasa na czysto” / „wygrana”, etykieta punktu z czerwonym
+  wkładem i „kasą na maszynie”; bez radia zakresu (zawsze wszystkie
+  plansze) i bez statusu w nagłówku wyników; szersze okno planszy. Tylko
+  UI; po scaleniu potrzebny `npm run reviewer:build` dla linku.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.
@@ -442,6 +448,22 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   bazie `game_predictor` (utworzenie roli, restart usług) wykonuje
   orkiestrator. Ryzyko: funkcja polityki `PARALLEL UNSAFE` — duże skany roli
   aplikacyjnej bez równoległości (777: 1,4 s → 3,6 s); szczegóły w Outcome.
+- TASK-0795 wdrożone 2026-10-01: rola `game_predictor_app` utworzona
+  (`db:roles:provision`), API 8000/8010 łączą się nią (`pg_stat_activity`).
+- TASK-0797 done (v1.7.135, audyt pominięty): sonda 288 tras OpenAPI na
+  roli bez `BYPASSRLS` — 53 trasy kończyły się błędem braku związanej gry
+  (m.in. `dataset-versions`, `image-selections`, `curated-sources`,
+  `review-batches`/`review-items`, storage GC, wydania mobilne, unlock i
+  przydziały Reviewera), po zmianach 0. Gra wiązana z żądania (ścieżka albo
+  `gameId`) przed sprawdzeniem tokenu Reviewera; `GameEntityLocator` dla
+  identyfikatorów wierszy; `CrossGameOwnerSession` dla agregatów wielu gier
+  (wydania, kontrole współdzielenia przy sprzątaniu). Naprawione trzy
+  ścieżki zależne od obejścia RLS (limit przydziałów i tunel Reviewera,
+  kontrole sprzątania gry, metryki startu projekcji). Migracja `0138`:
+  `current_game_id_v1()` jako `PARALLEL SAFE` (liczenie komórek 777
+  3,6 s → ok. 1,8 s wg pomiaru przybliżonego) i CHECK zatwierdzeń bez
+  `legacy_file`. Zmiany API: nieznana gra w `gameId` → 404, token innej
+  gry → 401, nowy kod `GAME_SCOPED_RESOURCE_NOT_FOUND`.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

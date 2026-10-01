@@ -7415,7 +7415,7 @@ div.imageJobInlineError {
   font-size: 12px;
 }
 
-/* D-479 geometry completeness section (TASK-0806). */
+/* D-484 geometry completeness section (TASK-0806). */
 .geometryScopeControls {
   grid-template-columns: max-content minmax(170px, 1fr);
 }

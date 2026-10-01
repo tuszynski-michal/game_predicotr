@@ -1,4 +1,4 @@
-"""D-479 geometry completeness of one source image (pure classification).
+"""D-484 geometry completeness of one source image (pure classification).
 
 The unit of geometry is the source image. The expected boards of an image are
 the ``active_board_slots`` of its current source geometry revision; each
@@ -81,7 +81,7 @@ class GeometryPositionClassification:
 
 
 def classify_position(facts: GeometryPositionFacts) -> GeometryPositionClassification:
-    """Classify one expected position; the first matching rule wins (D-479)."""
+    """Classify one expected position; the first matching rule wins (D-484)."""
 
     if not facts.board_exists:
         if facts.deferred_reason_code is not None:
@@ -121,7 +121,7 @@ def classify_image(
 
 
 def expected_sequence_number(sequence_range_start: int, position_index: int) -> int:
-    """Sequence number of position ``p`` in a source revision (D-479)."""
+    """Sequence number of position ``p`` in a source revision (D-484)."""
 
     return sequence_range_start + position_index
 

@@ -10,7 +10,10 @@ from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.jobs import JobService
-from game_predictor_api.application.mobile_releases import MobileReleaseService
+from game_predictor_api.application.mobile_releases import (
+    CURRENT_ALGORITHM_VERSION,
+    MobileReleaseService,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.datasets import DatasetVersionStatus
@@ -21,7 +24,10 @@ from game_predictor_api.domain.mobile_releases import (
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
-from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.database import (
+    create_cross_game_owner_session_factory,
+    create_session_factory,
+)
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.mobile_release_repository import (
@@ -218,7 +224,7 @@ def _seed_complete_release_source(session: Session, game_id: UUID) -> MobileRele
                 dataset_version_id=dataset_id,
                 rules_version_id=rules_id,
                 sequence_number=sequence_number,
-                algorithm_version="payout-v2",
+                algorithm_version=CURRENT_ALGORITHM_VERSION,
                 total_payout=20 + sequence_number,
                 audit_path=f"payout-audits/release-{sequence_number}.jsonl",
                 calculated_at=created_at,
@@ -240,16 +246,19 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
     command.upgrade(_migration_config(isolated_release_workflow_database), "head")
     engine = create_engine(isolated_release_workflow_database, pool_pre_ping=True)
     session_factory = create_session_factory(engine)
+    # Production wiring (TASK-0797): the release build spans games and runs on
+    # the cross-game schema-owner session (worker CLI, API release service).
+    release_factory = create_cross_game_owner_session_factory(engine)
     artifact_root = tmp_path / "artifacts"
-    payout_store = SqlAlchemyPayoutStore(session_factory)
+    payout_store = SqlAlchemyPayoutStore(release_factory)
     android_builder = _DeterministicAndroidBuilder(artifact_root)
     handler = ReleaseWorkflowHandler(
-        SqlAlchemyReleaseWorkflowStore(session_factory),
+        SqlAlchemyReleaseWorkflowStore(release_factory),
         _PayoutMustNotRun(),  # type: ignore[arg-type]
         PayoutReadinessService(payout_store),
         ProductionSnapshotArtifactPublisher(
             ProductionSnapshotGenerator(
-                SqlAlchemyProductionSnapshotStore(session_factory),
+                SqlAlchemyProductionSnapshotStore(release_factory),
                 batch_size=1,
             ),
             artifact_root,
@@ -278,7 +287,7 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
 
         release_ids = []
         for version in ("m3.4-integration.1", "m3.4-integration.2"):
-            with Session(engine, expire_on_commit=False) as session, session.begin():
+            with release_factory() as session, session.begin():
                 service = MobileReleaseService(SqlAlchemyMobileReleaseRepository(session))
                 release = service.create_mobile_release(
                     version=version,
@@ -288,7 +297,7 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
                 release_ids.append(release.id)
 
             execution_result = worker.run_once()
-            with Session(engine) as session:
+            with release_factory() as session:
                 persisted_job = SqlAlchemyJobRepository(session).get_job(build_job.id)
             assert persisted_job is not None
             assert execution_result is JobExecutionResult.COMPLETED, (
@@ -296,7 +305,7 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
                 persisted_job.error_message,
             )
 
-            with Session(engine) as session:
+            with release_factory() as session:
                 completed = SqlAlchemyMobileReleaseRepository(session).get_mobile_release(
                     release.id
                 )
@@ -307,7 +316,7 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
             assert completed.apk_path is not None
             assert completed.apk_checksum is not None
 
-        with Session(engine) as session:
+        with release_factory() as session:
             repository = SqlAlchemyMobileReleaseRepository(session)
             first = repository.get_mobile_release(release_ids[0])
             second = repository.get_mobile_release(release_ids[1])
@@ -332,7 +341,7 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
             second.version
         )
 
-        with Session(engine, expire_on_commit=False) as session, session.begin():
+        with release_factory() as session, session.begin():
             service = MobileReleaseService(SqlAlchemyMobileReleaseRepository(session))
             cancelled_release = service.create_mobile_release(
                 version="m3.4-integration.cancelled",
@@ -341,12 +350,12 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
             cancelled_job = service.start_mobile_release_build(cancelled_release.id)
 
         def request_cancellation() -> None:
-            with Session(engine) as session, session.begin():
+            with release_factory() as session, session.begin():
                 JobService(SqlAlchemyJobRepository(session)).cancel_job(cancelled_job.id)
 
         android_builder.before_return = request_cancellation
         cancellation_result = worker.run_once()
-        with Session(engine) as session:
+        with release_factory() as session:
             persisted_cancelled_job = SqlAlchemyJobRepository(session).get_job(cancelled_job.id)
         assert persisted_cancelled_job is not None
         assert cancellation_result is JobExecutionResult.CANCELLED, (
@@ -354,7 +363,7 @@ def test_postgres_release_workflow_keeps_previous_release_immutable(
             persisted_cancelled_job.error_code,
             persisted_cancelled_job.error_message,
         )
-        with Session(engine) as session:
+        with release_factory() as session:
             cancelled = SqlAlchemyMobileReleaseRepository(session).get_mobile_release(
                 cancelled_release.id
             )

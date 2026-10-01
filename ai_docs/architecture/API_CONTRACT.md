@@ -2496,7 +2496,7 @@ oknie `1..expectedLayoutCount` — nie jest z nim identyczny przy numerach poza
 zakresem.
 
 TASK-0806 dodaje do tego samego routera raport kompletności geometrii zdjęć
-(D-479) — wyłącznie odczyt, bez migracji i bez zapisu:
+(D-484) — wyłącznie odczyt, bez migracji i bez zapisu:
 
 ```text
 GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}?importJobId=
@@ -2509,7 +2509,7 @@ GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/low-quality-
 pozycje to `active_board_slots` najnowszej rewizji geometrii źródła, a stan
 pozycji (`ok | uncertain | partial | missing | deferred`) i zdjęcia (`complete |
 incomplete_missing | incomplete_partial | incomplete_uncertain |
-no_source_geometry`) wynika z reguł D-479 (`ADMIN_APP.md`, sekcja „Kompletność
+no_source_geometry`) wynika z reguł D-484 (`ADMIN_APP.md`, sekcja „Kompletność
 siatek zdjęć”). Opcjonalny `importJobId` zawęża wynik do jednego importu tej
 gry; import cudzej gry daje `404 IMAGE_GEOMETRY_COMPLETENESS_IMPORT_NOT_FOUND`,
 nieznana gra `404 IMAGE_REVIEW_GAME_NOT_FOUND`.

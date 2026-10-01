@@ -231,18 +231,18 @@ export const APPROXIMATE_WIN_PIN_LIMIT = 8;
 /** Chart geometry in SVG units, shared with the label layout tests. */
 export const APPROXIMATE_WIN_CHART_WIDTH = 800;
 /**
- * Point labels in the band above the plot: three text lines (spins,
- * balance, stake needed to get there — TASK-0778). The width fits
+ * Point labels in the band above the plot: four text lines (spins,
+ * net cash, stake needed to get there, cash on the machine — TASK-0784). The width fits
  * "Bilans: -123 456,5 kredytów" at the 11 px label font (a seven-digit
  * credit balance would overflow). Four rows keep the eight pins free of
  * overlap at this width (three rows are not enough); in rare layouts of two
  * full clusters the transient hover label may still fall back onto a pin.
  */
 export const APPROXIMATE_WIN_CHART_LABEL = Object.freeze({
-  height: 43,
+  height: 56,
   rowGap: 4,
   rows: 4,
-  width: 172,
+  width: 182,
 });
 /** Label layout bounds: the chart width minus a 4-unit margin per side. */
 export const APPROXIMATE_WIN_CHART_LABEL_LAYOUT = Object.freeze({
@@ -435,46 +435,11 @@ export function formatApproximateWinCredits(value: number): string {
   return value.toLocaleString('pl-PL');
 }
 
-export interface ApproximateWinMaximumStake {
-  /** Cash needed from a zero start to pay every spin up to the lowest point. */
-  readonly credits: number;
-  /** The spin at which the balance is lowest (first occurrence). */
-  readonly spinNumber: number;
-}
-
-/**
- * The deepest trough of the cumulative balance when starting from zero
- * (TASK-0776). Each spin is paid before its payout, so the trough before a
- * payout is `cumulativeBalance - payout`; the end of the range counts too.
- * At least one spin's cost is always needed.
- */
-export function approximateWinMaximumStake(
-  result: Pick<ApproximateWinResponse, 'evaluatedSpinCount' | 'rows'> & {
-    readonly summary: Pick<ApproximateWinResponse['summary'], 'balanceCredits'>;
-    readonly rules: Pick<ApproximateWinResponse['rules'], 'spinCost'>;
-  },
-): ApproximateWinMaximumStake | null {
-  if (result.evaluatedSpinCount < 1) return null;
-  let lowest = -result.rules.spinCost;
-  let spinNumber = 1;
-  for (const row of result.rows) {
-    const beforePayout = row.cumulativeBalanceCredits - row.payoutCredits;
-    if (beforePayout < lowest) {
-      lowest = beforePayout;
-      spinNumber = row.spinNumber;
-    }
-  }
-  if (result.summary.balanceCredits < lowest) {
-    lowest = result.summary.balanceCredits;
-    spinNumber = result.evaluatedSpinCount;
-  }
-  return { credits: -lowest, spinNumber };
-}
-
 /**
  * Cash needed from a zero start to reach one chart point (TASK-0778): the
  * deepest trough of the balance from the first spin up to that point, by
- * the same rule as `approximateWinMaximumStake` limited to the prefix.
+ * trough rule: each spin is paid before its payout, so the trough before
+ * a payout is `cumulativeBalance - payout`; at least one spin's cost is needed.
  */
 export function approximateWinStakeToPoint(
   rows: ApproximateWinResponse['rows'],
@@ -491,4 +456,22 @@ export function approximateWinStakeToPoint(
     if (beforePayout < lowest) lowest = beforePayout;
   }
   return -lowest;
+}
+
+/**
+ * Cash on the machine at a chart point (TASK-0784): the stake put in to get
+ * there plus the net cash (the cumulative balance) at that point.
+ */
+export function approximateWinMachineCashAtPoint(
+  rows: ApproximateWinResponse['rows'],
+  spinCost: number,
+  point: Pick<
+    ApproximateWinChartPoint,
+    'cumulativeBalanceCredits' | 'spinNumber'
+  >,
+): number {
+  return (
+    approximateWinStakeToPoint(rows, spinCost, point) +
+    point.cumulativeBalanceCredits
+  );
 }

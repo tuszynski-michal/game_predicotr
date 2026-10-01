@@ -1,4 +1,4 @@
-/** Pure state helpers of the D-479 geometry completeness section (TASK-0806). */
+/** Pure state helpers of the D-484 geometry completeness section (TASK-0806). */
 
 export type GeometryImageStateName =
   | 'complete'

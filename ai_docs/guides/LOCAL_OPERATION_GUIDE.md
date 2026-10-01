@@ -191,6 +191,41 @@ ta rola (`SET LOCAL ROLE`), a na końcu rola jest usuwana. Test izolacji
 `test_application_role_isolation_postgres.py` loguje się rolą
 `LOGIN` (losowe hasło, ważne godzinę, usuwana po teście).
 
+## Migracja `0138`: równoległa funkcja polityki RLS i ścieżki bez gry (TASK-0797, D-467)
+
+Kod TASK-0797 wymaga `0138_rls_policy_function_parallel_safe`
+(`EXPECTED_ALEMBIC_HEAD`; stary kod nie wystartuje na nowej bazie i odwrotnie).
+Migracja podmienia funkcję `game_data_v2.current_game_id_v1()` (polityki bez
+zmian) i zawęża `ck_image_symbol_review_cells_approved_provenance` (bez
+gałęzi `legacy_file`, `NOT VALID`). Bierze `ACCESS EXCLUSIVE` na komórkach
+weryfikacji z `lock_timeout = 5s`; preflight liczy komórki z zatwierdzeniem
+plikowym (baza operatora 2026-10-01: 0) i przy jakimkolwiek odmawia
+`CELL_APPROVED_LEGACY_PROVENANCE_PRESENT` bez zmian.
+
+1. Zaczekaj na koniec jobów albo zatrzymaj je bezpiecznie; zatrzymaj API
+   (`8000`, `8010`, …), workery i Reviewera z tunelem; sprawdź
+   `netstat -ano | findstr :8000` (osierocone procesy `--reload`).
+2. Scal kod; `npm run db:migrate` (po migracji uruchamia też
+   `db:roles:provision`), `npm run db:current` →
+   `0138_rls_policy_function_parallel_safe`.
+3. Walidacja nowego CHECK-a (skan partycji, `SHARE UPDATE EXCLUSIVE`, zapisy
+   mogą trwać), rolą właściciela:
+   `ALTER TABLE game_data_v2.image_symbol_review_cells VALIDATE CONSTRAINT ck_image_symbol_review_cells_approved_provenance;`
+4. Kontrola: `SELECT proparallel FROM pg_proc WHERE proname = 'current_game_id_v1';`
+   → `s`; uruchom usługi i sprawdź listę komórek 777, Reviewera z tokenem i
+   podgląd storage GC.
+
+Wycofanie: zatrzymanie usług, `alembic downgrade 0137_prediction_revisions_slim`
+rolą właściciela (przywraca poprzednią funkcję i szerszy CHECK; każdy wiersz
+nowego CHECK-a spełnia stary), kod sprzed TASK-0797.
+
+Zmiany zachowania: trasa `/api/v1/admin/…` lub `/api/v1/reviewer/…` z
+parametrem `gameId` (albo `game_id`) działa w zakresie tej gry; trasa, która
+nazywa tylko identyfikator wiersza gry, znajduje jego grę (nieistniejący
+identyfikator → `404 GAME_SCOPED_RESOURCE_NOT_FOUND`); wydania mobilne i
+kontrole współdzielonych plików przy sprzątaniu gry działają sesją
+właściciela (`CrossGameOwnerSession`).
+
 ## Przejście na manifest magazynu v3 i `board_render_manifests` (TASK-0757, D-467)
 
 Kod od TASK-0757 wymaga migracji `0131_board_render_manifests`: router

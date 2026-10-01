@@ -3327,7 +3327,7 @@ test('getBoardImportCoverage passes gameId as path and options as query params',
   });
 });
 
-test('geometry completeness wrappers pass gameId as path and filters as query params (D-479)', async () => {
+test('geometry completeness wrappers pass gameId as path and filters as query params (D-484)', async () => {
   const requests = [];
   const gameId = '33333333-3333-4333-8333-333333333333';
   const importJobId = '44444444-4444-4444-8444-444444444444';

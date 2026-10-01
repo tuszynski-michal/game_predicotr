@@ -6,7 +6,7 @@ last_updated: 2026-10-01
 
 # Hybrydowy silnik siatek V3
 
-Plan zaakceptowany przez operatora 2026-10-01 (D-479–D-483). Uzupełnia etap
+Plan zaakceptowany przez operatora 2026-10-01 (D-480–D-484). Uzupełnia etap
 D (`T10`, TASK-0675) i poprzedza etap E zaakceptowanego
 [VISION_LAB_EXECUTION_PLAN.md](VISION_LAB_EXECUTION_PLAN.md) (D-447). Nie
 zmienia etapu C (symbole, T06b–T09), który pozostaje zablokowany i nie jest
@@ -153,7 +153,7 @@ automatycznej aktywacji.
 ## Decyzje operatora
 
 Wszystkie pięć zaakceptowane 2026-10-01: 1 → D-480, 2 → D-481, 3 → D-482,
-4 → D-483, 5 → D-479. Treść obowiązującą zawiera `DECISION_LOG.md`; poniżej
+4 → D-483, 5 → D-484. Treść obowiązującą zawiera `DECISION_LOG.md`; poniżej
 brzmienie z propozycji.
 
 1. **Geometria produkcyjna jako dane uczące.** Zatwierdzone plansze 777

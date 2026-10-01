@@ -6,7 +6,7 @@ last_updated: 2026-10-01
 
 # Import i rozpoznawanie zdjęć
 
-## Kompletność geometrii zdjęcia — D-479
+## Kompletność geometrii zdjęcia — D-484
 
 Jednostką geometrii jest zdjęcie źródłowe, nie plansza. Oczekiwaną liczbę
 plansz zdjęcia wyznacza `active_board_slots` bieżącej rewizji geometrii

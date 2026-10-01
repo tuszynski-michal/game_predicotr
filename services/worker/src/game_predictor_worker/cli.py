@@ -32,6 +32,7 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.database import (
+    create_cross_game_owner_session_factory,
     create_database_engine,
     create_owner_database_engine,
     create_owner_session_factory,
@@ -411,11 +412,16 @@ def main(arguments: Sequence[str] | None = None) -> int:
         # symbol-review backfill are the only general-lane steps that need the
         # schema owner; the NullPool engine opens a connection only for them.
         owner_engine = create_owner_database_engine(settings)
-        snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
+        # TASK-0797: a release build spans the games of one mobile release in
+        # one transaction, which a game-bound application-role session cannot
+        # do; its stores run on the cross-game schema-owner session.
+        release_session_factory = create_cross_game_owner_session_factory(owner_engine)
+        release_payout_store = SqlAlchemyPayoutStore(release_session_factory)
+        snapshot_store = SqlAlchemyProductionSnapshotStore(release_session_factory)
         release_handler = ReleaseWorkflowHandler(
-            SqlAlchemyReleaseWorkflowStore(session_factory),
-            payout_handler,
-            PayoutReadinessService(payout_store),
+            SqlAlchemyReleaseWorkflowStore(release_session_factory),
+            PayoutBatchHandler(release_payout_store, JsonlPayoutAuditWriter(artifact_root)),
+            PayoutReadinessService(release_payout_store),
             ProductionSnapshotArtifactPublisher(
                 ProductionSnapshotGenerator(snapshot_store),
                 artifact_root,

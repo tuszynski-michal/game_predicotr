@@ -148,7 +148,7 @@ function rangeInput() {
 
 function minimumPayoutInput() {
   const current = document.querySelector(
-    'input[aria-label="Minimalna wypłata w tabeli"]',
+    'input[aria-label="Minimalna wygrana w tabeli"]',
   );
   assert.ok(current);
   return current;
@@ -306,9 +306,11 @@ test('the result stays hidden until a stake is chosen; złote is the default uni
     () => document.querySelector('.boardSearchApproximateWinStakePrompt'),
     'prompt to choose a stake',
   );
+  assert.equal(document.querySelector('.boardSearchApproximateWinChart'), null);
+  // The section title names the start board and the range (TASK-0784).
   assert.equal(
-    document.querySelector('.boardSearchApproximateWin .importMetric'),
-    null,
+    document.querySelector('#approximateWinHeading').textContent,
+    'Plansza startowa #10 · 2500 spinów',
   );
   const stake = selectByLabel('Stawka');
   assert.equal(stake.value, '');
@@ -318,13 +320,17 @@ test('the result stays hidden until a stake is chosen; złote is the default uni
     stake.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
   });
   await eventually(
-    () => document.querySelector('.boardSearchApproximateWin .importMetric'),
+    () => document.querySelector('.boardSearchApproximateWinChart'),
     'result after choosing the stake',
   );
+  // The summary tiles and the rules line are gone (TASK-0784).
   assert.equal(
-    document.querySelector('.boardSearchApproximateWin .importMetric dd')
-      .textContent,
-    '0,00 zł',
+    document.querySelector('.boardSearchApproximateWin .importMetric'),
+    null,
+  );
+  assert.doesNotMatch(
+    document.querySelector('.boardSearchApproximateWin').textContent,
+    /Reguły v|koszt spinu/,
   );
   // The range, stake and unit controls sit in one row.
   const controls = document.querySelector('.boardSearchApproximateWinControls');
@@ -550,18 +556,15 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   assert.ok(document.querySelector('.boardSearchApproximateWinChart svg'));
   assert.match(
     document.querySelector('.boardSearchApproximateWinChart').textContent,
-    /Bilans według liczby spinów/,
+    /Kasa na czysto według liczby spinów/,
   );
   assert.deepEqual(
     [...document.querySelectorAll('.boardSearchApproximateWin thead th')].map(
       (node) => node.textContent,
     ),
-    ['Spin', 'Plansza', 'Wypłata', 'Bilans narastająco', 'Akcje'],
+    ['Spin', 'Plansza', 'Wygrana', 'Kasa na czysto', 'Akcje'],
   );
 
-  const summaryBefore = document.querySelector(
-    '.boardSearchApproximateWin .importMetrics',
-  ).textContent;
   const chartBefore = document
     .querySelector('.boardSearchApproximateWinChartSeries')
     .getAttribute('points');
@@ -574,13 +577,8 @@ test('renders every payout row in one scrollable table and shows its cumulative-
     'the slider should filter visible payout rows locally',
   );
   await settle();
-  // The filter is local: no new calculation, same summary and chart.
+  // The filter is local: no new calculation, same chart.
   assert.equal(approximateWinCalls, callsBefore);
-  assert.equal(
-    document.querySelector('.boardSearchApproximateWin .importMetrics')
-      .textContent,
-    summaryBefore,
-  );
   assert.equal(
     document
       .querySelector('.boardSearchApproximateWinChartSeries')
@@ -616,7 +614,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartLabel').textContent,
-    /2500 spinów.*Bilans: -17[\d\s,]* kredytów.*Wkład: [\d\s,]+ kredytów$/,
+    /2500 spinów.*Kasa na czysto: -17[\d\s,]* kredytów.*Wkład: [\d\s,]+ kredytów.*Kasa na maszynie: 0 kredytów$/,
   );
   assert.ok(
     document.querySelector('.boardSearchApproximateWinChartLeader'),
@@ -647,7 +645,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartPins').textContent,
-    /2500 spinów · bilans -17[\d\s,]* kredytów · wkład [\d\s,]+ kredytów/,
+    /2500 spinów · kasa na\s+czysto -17[\d\s,]* kredytów · wkład [\d\s,]+ kredytów · kasa na maszynie 0 kredytów/,
   );
 
   // Keyboard: ArrowRight from nothing highlights the first point; Enter pins it.
@@ -744,7 +742,7 @@ test('shows an explicit empty chart state when the range has no payouts', async 
 
   assert.match(
     document.querySelector('.boardSearchApproximateWinChart').textContent,
-    /Wykres pojawi się po rozpoznaniu pierwszej wypłaty/,
+    /Wykres pojawi się po rozpoznaniu pierwszej wygranej/,
   );
   await act(async () => root.unmount());
 });
@@ -804,21 +802,8 @@ test('stake and unit re-scale every amount locally without a new request', async
     document.querySelector(
       '.boardSearchApproximateWin tbody tr td:nth-child(3)',
     ).textContent;
-  const metrics = () =>
-    [
-      ...document.querySelectorAll(
-        '.boardSearchApproximateWin .importMetric dd',
-      ),
-    ].map((node) => node.childNodes[0].textContent);
   // Base stake (spin cost 20 credits = 2 zł) in credits: unchanged view.
-  // The maximum stake is the first spin's cost: it is paid before its payout.
   assert.equal(firstPayout(), '100');
-  assert.deepEqual(metrics(), ['1100', '200', '900', '20']);
-  assert.match(
-    document.querySelector('.boardSearchApproximateWinStakeMetric small')
-      .textContent,
-    /spin 1\)/,
-  );
 
   await act(async () => setInputValue(minimumPayoutInput(), '500'));
   await eventually(
@@ -844,7 +829,6 @@ test('stake and unit re-scale every amount locally without a new request', async
     1,
   );
   assert.equal(firstPayout(), '3000');
-  assert.deepEqual(metrics(), ['3300', '600', '2700', '60']);
   assert.match(
     document.querySelector('.boardSearchApproximateWinControls').textContent,
     /mnożnik 3/,
@@ -867,13 +851,17 @@ test('stake and unit re-scale every amount locally without a new request', async
   assert.equal(
     document.querySelector('.boardSearchApproximateWinChartLabelValue')
       .textContent,
-    'Bilans: 2700 kredytów',
+    'Kasa na czysto: 2700 kredytów',
   );
   const labelStake = () =>
     document.querySelector('.boardSearchApproximateWinChartLabelStake')
       .textContent;
   // The stake needed to reach the point follows the stake and unit too.
   assert.equal(labelStake(), 'Wkład: 60 kredytów');
+  const labelMachine = () =>
+    document.querySelector('.boardSearchApproximateWinChartLabelMachine')
+      .textContent;
+  assert.equal(labelMachine(), 'Kasa na maszynie: 2760 kredytów');
   await choose(unitSelect, 'pln');
   assert.equal(firstPayout(), '300,00 zł');
   assert.equal(
@@ -881,12 +869,6 @@ test('stake and unit re-scale every amount locally without a new request', async
     1,
     'the threshold survives a unit change',
   );
-  assert.deepEqual(metrics(), [
-    '330,00 zł',
-    '60,00 zł',
-    '270,00 zł',
-    '6,00 zł',
-  ]);
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartGrid')?.parentElement
       .textContent ?? '',
@@ -895,8 +877,9 @@ test('stake and unit re-scale every amount locally without a new request', async
   const labelValue = () =>
     document.querySelector('.boardSearchApproximateWinChartLabelValue')
       .textContent;
-  assert.equal(labelValue(), 'Bilans: 270,00 zł');
+  assert.equal(labelValue(), 'Kasa na czysto: 270,00 zł');
   assert.equal(labelStake(), 'Wkład: 6,00 zł');
+  assert.equal(labelMachine(), 'Kasa na maszynie: 276,00 zł');
   assert.equal(calls, 1, 'changing stake or unit sends no request');
   assert.equal(
     JSON.parse(
@@ -1741,7 +1724,7 @@ test('a stale board shows its lines on the schema and can be refreshed in place'
   );
   assert.match(
     document.querySelector('.boardSearchBoardLinesDialog').textContent,
-    /Po odświeżeniu: wypłata 60/,
+    /Po odświeżeniu: wygrana 60/,
   );
   const before = rangeCalls;
   await click(dialogButton('Zamknij'));

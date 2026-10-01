@@ -1,4 +1,4 @@
-"""Read-only SQLAlchemy repository of the D-479 geometry completeness report.
+"""Read-only SQLAlchemy repository of the D-484 geometry completeness report.
 
 The unit is the source image. Its expected boards are the
 ``active_board_slots`` of the newest ``image_source_geometry_revisions`` row

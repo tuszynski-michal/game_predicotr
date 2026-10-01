@@ -20,7 +20,7 @@ dziewiątej tworzy wszystkie 135 jedną operacją.
 
 ## Context
 
-D-479. Dziś plansza z siatką idzie dalej niezależnie od pozostałych plansz
+D-484. Dziś plansza z siatką idzie dalej niezależnie od pozostałych plansz
 zdjęcia, a plansza bez siatki staje się wierszem
 `image_board_geometry_pending`. TASK-0806 dał raport tylko do odczytu; to
 zadanie egzekwuje regułę.
@@ -52,8 +52,8 @@ operatora (2026-10-01).
 - `AGENTS.md`
 - `ai_docs/process/CURRENT_STATE.md` (sekcja planu V3, sekcje D-462 i D-467)
 - `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md`
-- `ai_docs/process/DECISION_LOG.md` (D-479, D-449, D-462, D-467)
-- `ai_docs/requirements/IMAGE_INGESTION.md` (sekcja D-479, odroczona
+- `ai_docs/process/DECISION_LOG.md` (D-484, D-449, D-462, D-467)
+- `ai_docs/requirements/IMAGE_INGESTION.md` (sekcja D-484, odroczona
   geometria, `pending_partial`)
 - `ai_docs/architecture/DATA_MODEL.md`,
   `ai_docs/architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md`

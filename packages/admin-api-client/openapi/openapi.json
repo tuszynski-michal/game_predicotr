@@ -37970,7 +37970,7 @@
             "description": "Validation error"
           }
         },
-        "summary": "Count complete and incomplete source images of a game or import (D-479)",
+        "summary": "Count complete and incomplete source images of a game or import (D-484)",
         "tags": [
           "image-reviews"
         ]
@@ -38094,7 +38094,7 @@
             "description": "Validation error"
           }
         },
-        "summary": "List one page of source images without a complete set of grids (D-479)",
+        "summary": "List one page of source images without a complete set of grids (D-484)",
         "tags": [
           "image-reviews"
         ]

@@ -201,18 +201,18 @@ test('a search replay sets the same pattern, scope and limit and searches once',
       { cellIndex: 6, symbolCode: 'lemon' },
     ],
     limit: 7,
-    scope: 'approved_only',
+    // A recorded `approved_only` scope is ignored (TASK-0784).
+    scope: 'all_searchable',
   });
   assert.equal(
     document.querySelector('input[aria-label="Liczba wyników wyszukiwania"]')
       .value,
     '7',
   );
+  // The scope choice is gone (TASK-0784): every search covers all boards.
   assert.equal(
-    document
-      .querySelector('input[name="board-search-scope"]:checked')
-      .parentElement.textContent.trim(),
-    'Tylko zatwierdzone',
+    document.querySelector('input[name="board-search-scope"]'),
+    null,
   );
   assert.ok(
     document.querySelector(

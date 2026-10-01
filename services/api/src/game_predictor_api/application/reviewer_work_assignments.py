@@ -51,6 +51,8 @@ class ReviewerWorkAssignmentRepository(Protocol):
 
     def list_active_online(self) -> Sequence[ReviewerWorkAssignment]: ...
 
+    def list_active_online_all_games(self) -> Sequence[ReviewerWorkAssignment]: ...
+
 
 class InMemoryReviewerWorkAssignmentRepository:
     """Deterministic assignment store used by focused lifecycle tests."""
@@ -165,6 +167,9 @@ class InMemoryReviewerWorkAssignmentRepository:
                 )
             )
 
+    def list_active_online_all_games(self) -> Sequence[ReviewerWorkAssignment]:
+        return self.list_active_online()
+
 
 MAX_ACTIVE_ONLINE_REVIEWER_ASSIGNMENTS = 3
 
@@ -224,7 +229,8 @@ class ReviewerWorkAssignmentService:
                 before_expire=before_expire,
             )
             if assignment_type is ReviewerWorkAssignmentType.ONLINE:
-                active_online = self._repository.list_active_online()
+                # The cap and the shared tunnel span every game (TASK-0797).
+                active_online = self._unexpired_online_all_games(now)
                 if len(active_online) >= MAX_ACTIVE_ONLINE_REVIEWER_ASSIGNMENTS:
                     raise ReviewerWorkAssignmentConflictError(
                         "REVIEWER_ASSIGNMENT_ONLINE_LIMIT_REACHED",
@@ -247,7 +253,7 @@ class ReviewerWorkAssignmentService:
                     created_at=now,
                 )
                 return self._repository.add(candidate)
-            if not self._repository.list_active_online() and after_last_online_close is not None:
+            if after_last_online_close is not None and not self._unexpired_online_all_games(now):
                 after_last_online_close()
             candidate = create_reviewer_work_assignment(
                 game_id=game_id,
@@ -406,9 +412,8 @@ class ReviewerWorkAssignmentService:
             )
             if assignment.assignment_type is ReviewerWorkAssignmentType.ONLINE:
                 self._recover_expired_online(now=now, before_expire=before_expire)
-                if (
-                    not self._repository.list_active_online()
-                    and after_last_online_close is not None
+                if after_last_online_close is not None and not self._unexpired_online_all_games(
+                    now
                 ):
                     after_last_online_close()
             return persisted
@@ -420,11 +425,12 @@ class ReviewerWorkAssignmentService:
         after_last_online_close: Callable[[], None] | None = None,
     ) -> Sequence[ReviewerWorkAssignment]:
         with self._repository.lock_online_capacity():
+            now = self._now()
             expired = self._recover_expired_online(
-                now=self._now(),
+                now=now,
                 before_expire=before_expire,
             )
-            if not self._repository.list_active_online() and after_last_online_close is not None:
+            if after_last_online_close is not None and not self._unexpired_online_all_games(now):
                 after_last_online_close()
             return expired
 
@@ -436,6 +442,20 @@ class ReviewerWorkAssignmentService:
         return tuple(
             assignment
             for assignment in self._repository.list_active_for_game(game_id)
+            if assignment.lease_expires_at > now
+        )
+
+    def _unexpired_online_all_games(self, now: datetime) -> tuple[ReviewerWorkAssignment, ...]:
+        """Online assignments of every game whose lease has not expired.
+
+        Expired leases of the bound game were just recovered; expired leases of
+        other games are recovered in their own transactions (lifecycle) and
+        must neither hold the shared tunnel open nor consume the cap.
+        """
+
+        return tuple(
+            assignment
+            for assignment in self._repository.list_active_online_all_games()
             if assignment.lease_expires_at > now
         )
 

@@ -554,77 +554,6 @@ test('approximateWinAxisTicks can keep a whole-number step and rejects unusable 
   assert.ok(ticks.length >= 2 && ticks.length <= 1001);
 });
 
-test('the maximum stake is the deepest trough from a zero start', async () => {
-  const { approximateWinMaximumStake } =
-    await import('../src/board-search-approximate-win-state.ts');
-  const row = (spinNumber, payoutCredits, cumulativeBalanceCredits) => ({
-    cumulativeBalanceCredits,
-    payoutCredits,
-    spinNumber,
-  });
-  // Spin cost 100: paid 300 by spin 3, payout 500 there (+200), then the
-  // balance falls to -300 before spin 8's payout of 100 (-200) and the
-  // range ends at -400: the end of the range is the deepest point.
-  assert.deepEqual(
-    approximateWinMaximumStake({
-      evaluatedSpinCount: 10,
-      rows: [row(3, 500, 200), row(8, 100, -200)],
-      rules: { spinCost: 100 },
-      summary: { balanceCredits: -400 },
-    }),
-    { credits: 400, spinNumber: 10 },
-  );
-  // A payout on the first spin still needs that spin paid first.
-  assert.deepEqual(
-    approximateWinMaximumStake({
-      evaluatedSpinCount: 3,
-      rows: [row(1, 1000, 900)],
-      rules: { spinCost: 100 },
-      summary: { balanceCredits: 700 },
-    }),
-    { credits: 100, spinNumber: 1 },
-  );
-  // Without payouts everything paid in is the stake.
-  assert.deepEqual(
-    approximateWinMaximumStake({
-      evaluatedSpinCount: 4,
-      rows: [],
-      rules: { spinCost: 25 },
-      summary: { balanceCredits: -100 },
-    }),
-    { credits: 100, spinNumber: 4 },
-  );
-  // The trough before a payout beats a milder end balance.
-  assert.deepEqual(
-    approximateWinMaximumStake({
-      evaluatedSpinCount: 10,
-      rows: [row(6, 900, 300), row(9, 100, 100)],
-      rules: { spinCost: 100 },
-      summary: { balanceCredits: 0 },
-    }),
-    { credits: 600, spinNumber: 6 },
-  );
-  // An equal trough later (end balance -600 again) keeps the earlier spin.
-  assert.deepEqual(
-    approximateWinMaximumStake({
-      evaluatedSpinCount: 12,
-      rows: [row(6, 900, 300), row(9, 100, 100)],
-      rules: { spinCost: 100 },
-      summary: { balanceCredits: -600 },
-    }),
-    { credits: 600, spinNumber: 6 },
-  );
-  assert.equal(
-    approximateWinMaximumStake({
-      evaluatedSpinCount: 0,
-      rows: [],
-      rules: { spinCost: 100 },
-      summary: { balanceCredits: 0 },
-    }),
-    null,
-  );
-});
-
 test('the stake to a chart point is the deepest trough up to that point', async () => {
   const { approximateWinStakeToPoint } =
     await import('../src/board-search-approximate-win-state.ts');
@@ -662,4 +591,26 @@ test('the stake to a chart point is the deepest trough up to that point', async 
     }),
     100,
   );
+});
+
+test('cash on the machine is the stake put in plus the net cash', async () => {
+  const { approximateWinMachineCashAtPoint } =
+    await import('../src/board-search-approximate-win-state.ts');
+  const row = (spinNumber, payoutCredits, cumulativeBalanceCredits) => ({
+    cumulativeBalanceCredits,
+    payoutCredits,
+    spinNumber,
+  });
+  const rows = [row(3, 500, 200), row(8, 100, -200)];
+  const at = (spinNumber, cumulativeBalanceCredits) =>
+    approximateWinMachineCashAtPoint(rows, 100, {
+      cumulativeBalanceCredits,
+      spinNumber,
+    });
+  // Stake 300 to reach spin 3, net +200: 500 on the machine.
+  assert.equal(at(3, 200), 500);
+  // Stake 300, net -200: 100 left on the machine.
+  assert.equal(at(8, -200), 100);
+  // At the deepest point everything put in is gone.
+  assert.equal(at(12, -600), 0);
 });

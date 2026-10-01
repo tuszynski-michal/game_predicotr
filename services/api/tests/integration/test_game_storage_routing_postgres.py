@@ -26,7 +26,6 @@ from game_predictor_api.domain.board_search import (
     BoardSearchCandidate,
     BoardSearchProjectionPayload,
 )
-from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewNotFoundError
 from game_predictor_api.domain.jobs import JobType, create_job
 from game_predictor_api.storage.board_search_projection_repository import (
@@ -779,15 +778,18 @@ def test_grid_review_source_asset_reads_v2_in_a_new_unscoped_session(database: E
         board_search_repository.reconcile_sequence(game_id, 7)
 
     # Asset endpoints begin in a fresh session and carry gameId only in query.
+    # Without the game scope the read fails closed: since 0125 there is no
+    # public copy to read, so the game table is not even on the search_path
+    # (TASK-0797; the API binds ``gameId`` for the whole request).
     with factory() as session:
         service = ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session))
-        with pytest.raises(ImageGridReviewError) as unscoped:
+        with pytest.raises(DBAPIError) as unscoped:
             service.source_asset(
                 game_id=game_id,
                 review_item_id=review_item_id,
                 expected_source_checksum_sha256=source_checksum,
             )
-    assert unscoped.value.code == "IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE"
+    assert getattr(unscoped.value.orig, "sqlstate", None) == "42P01"
 
     with game_storage_scope(game_id), factory() as session:
         service = ImageGridReviewService(SqlAlchemyImageGridReviewRepository(session))

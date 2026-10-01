@@ -38,7 +38,29 @@ last_updated: 2026-10-01
   `ai_docs/tasks/0807-image-geometry-completeness-gate.md`. TASK-0807
   kończy się migracją zweryfikowaną na bazach `*_test`; migracja bazy
   deweloperskiej wymaga osobnej zgody i skoordynowanego przejścia.
-- Akceptacja planu, decyzje i pliki zadań: commit `v1.7.135`.
+- Akceptacja planu, decyzje i pliki zadań: commit `v1.7.135` / `ef5e4079`
+  (numer sprzed scalenia; na gałęzi integracyjnej `v1.7.135` to TASK-0797).
+- TASK-0806 done (`v1.7.136` / `0bcbff63`): raport kompletności geometrii
+  zdjęć tylko do odczytu — trzy endpointy pod
+  `/admin/image-review-items/geometry-completeness/{gameId}` (liczniki,
+  lista zdjęć niekompletnych, sygnał niskiej jakości symboli) i sekcja
+  „Kompletność siatek zdjęć” w „Import plansz”. Stan 777 z raportu: 56 812
+  zdjęć, 56 413 kompletnych, 399 niekompletnych (94 z brakującą planszą, 60
+  z planszą częściową, 237 z siatką niepotwierdzoną, 8 bez geometrii
+  źródła); pozycje: 1 703 niepotwierdzone, 108 częściowych, 842 brakujące,
+  0 odroczonych. Odbiór w przeglądarce na instancji worktree (Admin
+  `127.0.0.1:3020`, API `127.0.0.1:8020`).
+- `v1.7.137` / `a6426f3f`: scalenie gałęzi integracyjnej (migracja `0138`,
+  TASK-0784, TASK-0797). Decyzja bramki kompletności ma numer **D-484**
+  (D-479 zajął tor „Przybliżonej wygranej”); pozostałe decyzje planu to
+  D-480–D-483.
+- Otwarte po TASK-0806, do decyzji operatora przy STOP V3-0: (1) 1 703
+  plansze na 240 zdjęciach wskazują starą automatyczną rewizję
+  `needs_review`, choć zdjęcie ma nowszą ręczną rewizję `accepted`
+  (`system:legacy-board-conversion-v1`) — dziś liczone jako niepotwierdzone;
+  (2) plansze o statusie `rejected` (10 390) liczą się jak plansze z siatką;
+  (3) 99 zdjęć bez żadnej planszy nie ma podglądu pliku w liście.
+- Następne: TASK-0807 (bramka w pipeline, migracja `0139`).
 
 Stan sprzed akceptacji (zachowany dla kontekstu):
 

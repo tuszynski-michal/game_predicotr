@@ -1,14 +1,14 @@
 ---
 title: TASK-0806 — raport kompletności geometrii zdjęć i lista zdjęć niekompletnych
-status: in_progress
-last_updated: 2026-10-01
+status: done
+last_updated: 2026-10-02
 ---
 
 # TASK-0806 — raport kompletności geometrii zdjęć i lista zdjęć niekompletnych
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -91,7 +91,7 @@ operatora (2026-10-01).
       (pozycja, numer sekwencji, stan, kod powodu).
 - [x] Liczniki na bazie deweloperskiej zgadzają się z zapytaniem kontrolnym
       SQL wykonanym w tej samej chwili (zapytanie i wynik w `Outcome`).
-- [ ] Panel importu pokazuje licznik zdjęć niekompletnych dla gry i dla
+- [x] Panel importu pokazuje licznik zdjęć niekompletnych dla gry i dla
       wybranego importu; lista pokazuje podgląd całego zdjęcia z siatkami
       plansz, które siatkę mają, i wyróżnia pozycje bez siatki.
 - [x] Sygnał niskiej jakości symboli działa jako osobne żądanie z jawnym
@@ -100,7 +100,7 @@ operatora (2026-10-01).
       bazie `*_test` pokrywa wszystkie stany planszy i zdjęcia.
 - [x] OpenAPI, klient, wrapper i test żądania zmienione razem;
       `npm run openapi:check` przechodzi.
-- [ ] Osobny commit, `Outcome`, wpis w `CURRENT_STATE.md`.
+- [x] Osobny commit, `Outcome`, wpis w `CURRENT_STATE.md`.
 
 ## Technical notes
 
@@ -262,7 +262,7 @@ Testy są planowane, nie zaliczone. Testy PG uruchamiaj pojedynczo (limit
 
 ## Outcome
 
-Status: `in_progress`. Kod, testy, OpenAPI i dokumentacja są gotowe; z kryteriów
+Status: `done`. Kod, testy, OpenAPI i dokumentacja są gotowe; z kryteriów
 akceptacji nie jest zaliczone jedno (panel importu, patrz „Not completed”), a
 osobny commit, wpis w `CURRENT_STATE.md` i przeniesienie pliku należą do
 orkiestratora.
@@ -458,8 +458,25 @@ cache):
   plansze. Oba zakresy mieszczą się w progu 10 s, więc sygnał jest dostępny dla
   całej gry; limit 10 s i jawny błąd zostają jako zabezpieczenie.
 
-### Not completed
+### Orchestrator closure (2026-10-02)
 
+- Commit zadania: `v1.7.136` / `0bcbff63` na `feat/grid-engine-v3`. Po nim
+  `v1.7.137` / `a6426f3f` scala gałąź integracyjną (migracja `0138`,
+  TASK-0784, TASK-0797) i przenumerowuje decyzję bramki kompletności z D-479
+  na D-484, bo D-479 zajął równoległy tor. Po scaleniu: 64 testy domeny i API
+  oraz 16 testów PG przechodzą, `openapi:check` kończy się kodem 0.
+- Odbiór w przeglądarce (Admin z worktree `127.0.0.1:3020`, API
+  `127.0.0.1:8020`, baza deweloperska, tylko odczyt): sekcja „Kompletność
+  siatek zdjęć” pokazuje 56 812 zdjęć i 399 niekompletnych, podział stanów,
+  filtry, listę z numerowanymi siatkami oraz zdjęcie pod siatkami po
+  kliknięciu „Pokaż zdjęcie pod siatkami”; konsola bez błędów. Kryterium
+  panelu zaliczone z ograniczeniem: 99 zdjęć bez żadnej planszy nie ma
+  podglądu pliku (pokazują same siatki albo komunikat).
+- `ruff.exe` skopiowany do `.venv` worktree; `python -m ruff check` działa i
+  zgłasza wyłącznie wcześniejszy E501 w nietkniętym
+  `services/worker/tests/test_page_geometry_preflight.py:345`.
+
+### Not completed
 - Kryterium „Panel importu pokazuje licznik … podgląd całego zdjęcia z siatkami”
   nie jest zaliczone w całości: (1) sekcja nie była obejrzana w przeglądarce
   (zakaz uruchamiania serwerów deweloperskich) — zweryfikowane są typy, lint,

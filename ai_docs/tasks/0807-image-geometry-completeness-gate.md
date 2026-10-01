@@ -30,8 +30,25 @@ zadanie egzekwuje regułę.
 - TASK-0806 ukończony: klasyfikacja pozycji i zdjęcia w
   `domain/image_geometry_completeness.py` jest jedynym źródłem definicji —
   to zadanie jej używa, nie kopiuje.
-- Fakt: head Alembic na gałęzi to `0137`; przed dodaniem migracji sprawdź
-  numer na `v1.1-vision-lab-hybrid-geometry` (inne tory mogły dodać `0138`).
+- Fakt: po scaleniu `v1.7.137` head Alembic na gałęzi i na bazie
+  deweloperskiej to `0138_rls_policy_function_parallel_safe`; nowa migracja
+  dostaje numer `0139`. Przed commitem sprawdź numer na
+  `v1.1-vision-lab-hybrid-geometry` (inny tor mógł zająć `0139`).
+- Fakt z TASK-0806 (777): 399 zdjęć niekompletnych; 1 703 plansze na 240
+  zdjęciach wskazują starą automatyczną rewizję `needs_review` przy nowszej
+  ręcznej rewizji `accepted` zdjęcia. To zadanie **nie** przepina tych
+  plansz i nie zmienia definicji — pozostają `uncertain`; decyzja należy do
+  operatora przy STOP V3-0. Plansze `rejected` liczą się jak w TASK-0806.
+- Fakt z TASK-0806: żaden endpoint zasobu źródłowego nie przyjmuje
+  `source_image_id`; lista używa `previewReviewItemId`, więc zdjęcia bez
+  planszy nie mają podglądu. To zadanie dodaje odczyt pliku źródłowego po
+  `source_image_id` (ta sama walidacja ścieżki i sumy kontrolnej co
+  istniejące endpointy zasobów; bez drugiego mechanizmu serwowania).
+- Fakt: SQL liczników w
+  `storage/image_geometry_completeness_repository.py` powiela reguły
+  klasyfikatora domenowego (testy PG pilnują zgodności). Przeliczanie stanu
+  jednego zdjęcia ma używać klasyfikatora domenowego na pozycjach tego
+  zdjęcia; backfill może używać agregacji SQL.
 - Fakt: migracja na bazie deweloperskiej **nie** należy do zadania. Wymaga
   osobnej zgody operatora i skoordynowanego przejścia (zatrzymanie API i
   workerów wszystkich checkoutów → merge → migracja → start;

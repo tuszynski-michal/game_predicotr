@@ -13,8 +13,11 @@ from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
-from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v1 import CREATE_TABLES
+from game_predictor_api.storage.database import (
+    GameStorageSession,
+    create_owner_session_factory,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v4 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
@@ -38,7 +41,7 @@ pytestmark = pytest.mark.skipif(
 def lifecycle_database() -> Iterator[Engine]:
     name = "game_predictor_task0523_" + uuid4().hex[:12]
     assert re.fullmatch(r"game_predictor_task0523_[0-9a-f]{12}", name)
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",
@@ -267,7 +270,13 @@ def test_greenfield_catalog_create_provisions_v2_before_return(
     )
 
     with factory() as session:
-        game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
+        # Production wiring (TASK-0795): partition DDL runs in schema-owner
+        # sessions while the catalog session may be the application role.
+        repository = SqlAlchemyCatalogRepository(
+            session,
+            partition_ddl_session_factory=create_owner_session_factory(lifecycle_database),
+        )
+        game = CatalogService(repository).create_game(
             code="greenfield-game",
             name="Greenfield game",
             status=GameStatus.DRAFT,
@@ -303,17 +312,14 @@ def test_greenfield_catalog_create_provisions_v2_before_return(
             ),
             {"game_id": game.id},
         )
-        legacy_state = connection.scalar(
-            text(
-                """SELECT count(*) FROM public.image_geometry_rollout_states
-                WHERE game_id=:game_id"""
-            ),
-            {"game_id": game.id},
+        # Migration 0125 removed the legacy public copy; no public fallback.
+        legacy_table = connection.scalar(
+            text("SELECT to_regclass('public.image_geometry_rollout_states')")
         )
     assert tuple(map(str, location)) == ("game_data_v2", "2", "active")
     assert partition_count == len(CREATE_TABLES)
     assert geometry_state == 1
-    assert legacy_state == 0
+    assert legacy_table is None
 
     # A new, unscoped session must resolve the catalog-created game back to
     # the V2 parent instead of the historical public copy.

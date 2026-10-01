@@ -14,6 +14,7 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _virtual_board_fixtures import ensure_source_geometry, virtual_board_columns
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
@@ -21,13 +22,12 @@ from game_predictor_api.domain.board_import_coverage import MissingReason
 from game_predictor_api.storage.board_import_coverage_repository import (
     SqlAlchemyBoardImportCoverageRepository,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v1 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v4 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardGeometryPendingModel,
     ImageFileExecutionModel,
@@ -55,7 +55,7 @@ def _quote(name: str) -> str:
 @pytest.fixture(scope="module")
 def database() -> Iterator[Engine]:
     name = "game_predictor_task0629_" + uuid4().hex[:12]
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",
@@ -100,8 +100,8 @@ def _provision_public_storage_location(session: Session, *, game_id: UUID) -> No
 
 _V2_PARTITIONED_TABLES = (
     "source_images",
+    "image_source_geometry_revisions",
     "recognized_boards",
-    "cell_observations",
     "image_review_items",
     "image_sequence_canonical",
     "image_import_job_files",
@@ -216,6 +216,14 @@ def _add_complete_board(
     sequence_number: int,
     review_status: str = "pending",
 ) -> ImageReviewItemModel:
+    # D-467 S6 (TASK-0796): every board is a virtual render of its source.
+    source_geometry = ensure_source_geometry(
+        session,
+        game_id=game_id,
+        source=source,
+        sequence_range_start=sequence_number - position,
+        created_at=datetime.now(UTC),
+    )
     board = RecognizedBoardModel(
         source_image_id=source.id,
         position_index=position,
@@ -223,8 +231,7 @@ def _add_complete_board(
         sequence_number=sequence_number,
         sequence_confidence=1,
         board_geometry={},
-        board_relative_path=f"boards/{sequence_number}.jpg",
-        board_checksum_sha256="b" * 64,
+        **virtual_board_columns(source_geometry),
         cells_prediction={},
         completeness_status="complete",
         board_confidence=1,
@@ -233,18 +240,6 @@ def _add_complete_board(
     )
     session.add(board)
     session.flush()
-    session.add_all(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=n // 5,
-            column_index=n % 5,
-            crop_relative_path=f"cells/{sequence_number}_{n}.jpg",
-            crop_checksum_sha256="c" * 64,
-            cropper_version="fixture",
-            prediction={},
-        )
-        for n in range(15)
-    )
     item = ImageReviewItemModel(
         game_id=game_id,
         import_job_id=job.id,
@@ -277,6 +272,14 @@ def _add_partial_board(
     position: int,
     sequence_number: int,
 ) -> ImageReviewItemModel:
+    # D-467 S6 (TASK-0796): every board is a virtual render of its source.
+    source_geometry = ensure_source_geometry(
+        session,
+        game_id=game_id,
+        source=source,
+        sequence_range_start=sequence_number - position,
+        created_at=datetime.now(UTC),
+    )
     board = RecognizedBoardModel(
         source_image_id=source.id,
         position_index=position,
@@ -284,8 +287,7 @@ def _add_partial_board(
         sequence_number=sequence_number,
         sequence_confidence=1,
         board_geometry={},
-        board_relative_path=f"boards/{sequence_number}.jpg",
-        board_checksum_sha256="b" * 64,
+        **virtual_board_columns(source_geometry),
         cells_prediction={},
         completeness_status="pending_partial",
         unavailable_cell_indices=[0],
@@ -295,18 +297,6 @@ def _add_partial_board(
     )
     session.add(board)
     session.flush()
-    session.add_all(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=n // 5,
-            column_index=n % 5,
-            crop_relative_path=f"cells/{sequence_number}_{n}.jpg",
-            crop_checksum_sha256="c" * 64,
-            cropper_version="fixture",
-            prediction={},
-        )
-        for n in range(15)
-    )
     item = ImageReviewItemModel(
         game_id=game_id,
         import_job_id=job.id,

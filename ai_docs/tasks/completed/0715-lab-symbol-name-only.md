@@ -104,7 +104,9 @@ restartować usług bez sprawdzenia stanu. Nie zmieniać semantyki istniejącej 
 Formularz wymaga wyłącznie nazwy. Generowany typ DictionaryEntry pozostaje
 źródłem kontraktu; helper nadaje UUID i kod tylko przy dodaniu. Istniejące
 tożsamości, jawne wersje i retry pozostają bez zmian. Pusta nazwa daje toast.
-Commit: do zapisania po kontroli indeksu; ostatni potwierdzony HEAD v1.7.32.
+Commit `v1.7.33` / `5e415acc9a56ae450fb440357eb60d3074245693`.
+Staged check/stat/list oraz post-commit show/stat/status PASS; dziewięć plików.
+Zastane zmiany poza commitem; pełny hash dopisano po commicie.
 
 ### Verification results
 

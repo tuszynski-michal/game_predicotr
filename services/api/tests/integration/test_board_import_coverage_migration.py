@@ -53,7 +53,7 @@ def _quote(name: str) -> str:
 @pytest.fixture(scope="module")
 def migrated() -> Iterator[tuple[Engine, Config]]:
     name = "game_predictor_task0629_mig_" + uuid4().hex[:12]
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",

@@ -31,7 +31,7 @@ T11–T12 done; test końcowy nietknięty podczas wyboru. Przed kodowaniem ponow
 - `AGENTS.md`, `ai_docs/README.md`, `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (T13 — test końcowy i raport)
 - `ai_docs/requirements/VISION_LAB.md`, `ai_docs/architecture/VISION_LAB.md`
-- `ai_docs/process/DECISION_LOG.md` (D-447)
+- `ai_docs/process/DECISION_LOG.md` (D-447, D-453, D-461)
 
 ## Scope
 
@@ -44,6 +44,7 @@ Aktywacja domyślna modelu, push, merge, wdrożenie, niezwiązane refaktory i ni
 ## Acceptance criteria
 
 - [ ] Raport jakości i ryzyk; dalsze strojenie po teście wymaga nowego niezależnego potwierdzenia; kandydat pozostaje review/shadow.
+- [ ] Raport zawiera parowane porównanie starego silnika i v3 na istniejącej grze `777 v1.1`: ten sam SHA obrazu, zgodna numeracja plansz, osobne wersje/wyniki, jawne braki i pomyłki, brak nadpisania oraz możliwość pozostania przy v1.1.
 - [ ] Audyt przypisanym modelem nie pozostawia P0–P2; zmiana ma osobny commit, Outcome i CURRENT_STATE.
 
 ## Technical notes

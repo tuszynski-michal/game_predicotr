@@ -136,7 +136,6 @@ class ImageGridReviewSourceAsset:
     geometry_revision: int
     resolution_revision: int
     topology: BoardTopology
-    asset_mode: str = "legacy_file"
 
 
 def derive_image_grid_review(

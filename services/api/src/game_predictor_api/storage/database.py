@@ -5,6 +5,7 @@ from uuid import UUID
 
 from sqlalchemy import Engine, create_engine, event
 from sqlalchemy.orm import ORMExecuteState, Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.storage.game_storage_routing import (
@@ -14,6 +15,8 @@ from game_predictor_api.storage.game_storage_routing import (
 )
 
 _DATABASE_CONNECT_TIMEOUT_SECONDS = 5
+# Marks sessions opened by ``create_owner_session_factory``.
+OWNER_SESSION_INFO_KEY = "game_predictor_owner_session_v1"
 
 
 class GameStorageSession(Session):
@@ -98,10 +101,48 @@ def _clear_finished_game_route(session: Session, transaction: object) -> None:
 
 
 def create_database_engine(settings: ApiSettings, *, echo: bool = False) -> Engine:
-    """Create an engine without opening a database connection."""
+    """Create the runtime (application role) engine without connecting.
+
+    TASK-0795: this role has no SUPERUSER/BYPASSRLS, so every game table read
+    or write must bind its game first (``GameStorageRouter``). An unbound
+    statement fails: unqualified game tables are not on the search_path and
+    qualified ``game_data_v2`` tables raise ``GAME_STORAGE_SCOPE_REQUIRED``.
+    """
 
     return create_engine(
         settings.database_url,
+        connect_args={"connect_timeout": _DATABASE_CONNECT_TIMEOUT_SECONDS},
+        echo=echo,
+        pool_pre_ping=True,
+    )
+
+
+def create_owner_database_engine(settings: ApiSettings, *, echo: bool = False) -> Engine:
+    """Create the schema-owner engine for the explicit DDL/maintenance paths.
+
+    Only partition lifecycle steps and planner/space maintenance (``ANALYZE``,
+    ``VACUUM``) use it at runtime; data-plane reads and writes never do.
+    Without a pool no owner connection outlives its short maintenance step.
+    """
+
+    return create_engine(
+        settings.owner_database_url,
+        connect_args={"connect_timeout": _DATABASE_CONNECT_TIMEOUT_SECONDS},
+        echo=echo,
+        poolclass=NullPool,
+    )
+
+
+def create_maintenance_database_engine(settings: ApiSettings, *, echo: bool = False) -> Engine:
+    """Create a pooled schema-owner engine for operator maintenance scripts.
+
+    TASK-0795: scripts (rebuilds, conversions, slimming, exports, audits) keep
+    running as the schema owner, exactly as before the application role. They
+    are operator tools on the loopback machine, not request-serving runtime.
+    """
+
+    return create_engine(
+        settings.owner_database_url,
         connect_args={"connect_timeout": _DATABASE_CONNECT_TIMEOUT_SECONDS},
         echo=echo,
         pool_pre_ping=True,
@@ -112,3 +153,13 @@ def create_session_factory(engine: Engine) -> sessionmaker[Session]:
     """Create the transaction boundary used by future repositories."""
 
     return sessionmaker(bind=engine, class_=GameStorageSession, expire_on_commit=False)
+
+
+def create_owner_session_factory(engine: Engine) -> sessionmaker[Session]:
+    """Plain sessions for owner-only control-plane steps (no data-plane routing)."""
+
+    return sessionmaker(
+        bind=engine,
+        expire_on_commit=False,
+        info={OWNER_SESSION_INFO_KEY: True},
+    )

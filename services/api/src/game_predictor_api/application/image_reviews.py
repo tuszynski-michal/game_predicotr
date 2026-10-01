@@ -2,11 +2,9 @@
 
 from __future__ import annotations
 
-import math
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Protocol
 from uuid import UUID
 
@@ -14,19 +12,14 @@ from game_predictor_worker.images.board_cell_geometry_activation import (
     ACCEPTED_AUDIT_REPORT_CHECKSUM_SHA256,
 )
 from game_predictor_worker.images.board_cell_geometry_contract import (
-    BOARD_CELL_COORDINATE_SPACE,
-    BOARD_CELL_CORNER_SEMANTICS,
     BOARD_CELL_GEOMETRY_VERSION,
 )
 from game_predictor_worker.images.board_cell_geometry_crops import CROPPER_VERSION
-from game_predictor_worker.images.manual_board_cell_geometry_preview import (
-    ManualBoardCellGeometryPreview,
-    ManualBoardCellGeometryPreviewer,
-    ManualBoardCellGeometryPreviewError,
-)
 
-from game_predictor_api.application.image_review_assets import (
-    resolve_operational_source_asset,
+from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridGeometryPreview,
+    VirtualGridGeometryRevision,
+    VirtualGridGeometryService,
 )
 from game_predictor_api.domain.board_import_coverage import BoardImportCoverageView
 from game_predictor_api.domain.image_reviews import (
@@ -36,10 +29,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
     ImageReviewCounts,
     ImageReviewError,
-    ImageReviewGeometryArtifacts,
-    ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
-    ImageReviewGeometryRevision,
     ImageReviewGridIssueView,
     ImageReviewItem,
     ImageReviewNotFoundError,
@@ -48,11 +38,9 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewResolutionEvent,
     ImageReviewView,
     ImageSequenceSourceSelection,
-    ValidatedImageReviewGeometryCommand,
     ValidatedImageReviewResolution,
     decode_image_review_cursor,
     encode_image_review_cursor,
-    validate_image_review_geometry_command,
     validate_image_review_resolution,
 )
 from game_predictor_api.storage.board_import_coverage_repository import (
@@ -198,27 +186,6 @@ class OperationalImageReviewRepository(Protocol):
         import_job_id: UUID,
     ) -> Sequence[ImageReviewResolutionEvent]: ...
 
-    def get_geometry_revision_by_idempotency(
-        self,
-        review_item_id: UUID,
-        *,
-        game_id: UUID,
-        import_job_id: UUID,
-        idempotency_key: UUID,
-    ) -> ImageReviewGeometryRevision | None: ...
-
-    def save_geometry_revision(
-        self,
-        *,
-        review_item_id: UUID,
-        game_id: UUID,
-        import_job_id: UUID,
-        idempotency_key: UUID,
-        command: ValidatedImageReviewGeometryCommand,
-        artifacts: ImageReviewGeometryArtifacts,
-        created_at: datetime,
-    ) -> tuple[ImageReviewItem, ImageReviewGeometryRevision, bool]: ...
-
 
 class BoardImportCoverageRepository(Protocol):
     def board_import_coverage(
@@ -238,13 +205,13 @@ class OperationalImageReviewService:
         self,
         repository: OperationalImageReviewRepository,
         *,
-        artifact_root: Path | None = None,
-        board_cell_geometry_previewer: ManualBoardCellGeometryPreviewer | None = None,
+        virtual_geometry: VirtualGridGeometryService | None = None,
         board_import_coverage_repository: BoardImportCoverageRepository | None = None,
     ) -> None:
         self._repository = repository
-        self._artifact_root = artifact_root
-        self._board_cell_geometry_previewer = board_cell_geometry_previewer
+        # D-467 S6 (TASK-0796): manual geometry of a current board is always
+        # a ``virtual_source`` revision written by the shared virtual path.
+        self._virtual_geometry = virtual_geometry
         self._board_import_coverage_repository = board_import_coverage_repository
 
     def list_items(
@@ -660,23 +627,25 @@ class OperationalImageReviewService:
         expected_geometry_revision: int,
         expected_resolution_revision: int,
         corners: Sequence[ImageReviewGeometryPoint],
-    ) -> ManualBoardCellGeometryPreview:
-        command = validate_image_review_geometry_command(
-            corners=corners,
-            expected_geometry_revision=expected_geometry_revision,
-            expected_resolution_revision=expected_resolution_revision,
-            corrected_by="local-admin-preview",
-        )
-        item = self.get_item(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-        )
-        self._require_current_geometry_command(item, command)
-        return self._validated_board_cell_geometry_preview(
-            item=item,
-            command=command,
-        )
+    ) -> VirtualGridGeometryPreview:
+        """Render the cells a manual geometry would persist (D-467 S6, TASK-0796).
+
+        The operational Reviewer keeps its route and command; the preview is
+        the virtual render of :class:`VirtualGridGeometryService`, the same
+        one the Admin grid correction shows.
+        """
+
+        virtual_geometry = self._require_virtual_geometry()
+        with game_storage_scope(game_id):
+            self.get_item(review_item_id, game_id=game_id, import_job_id=import_job_id)
+            return virtual_geometry.preview_review_item(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                review_item_id=review_item_id,
+                expected_geometry_revision=expected_geometry_revision,
+                expected_resolution_revision=expected_resolution_revision,
+                corners=corners,
+            )
 
     def correct_geometry(
         self,
@@ -689,316 +658,39 @@ class OperationalImageReviewService:
         expected_resolution_revision: int,
         corners: Sequence[ImageReviewGeometryPoint],
         corrected_by: str,
-    ) -> tuple[ImageReviewItem, ImageReviewGeometryRevision, bool]:
-        command = validate_image_review_geometry_command(
-            corners=corners,
-            expected_geometry_revision=expected_geometry_revision,
-            expected_resolution_revision=expected_resolution_revision,
-            corrected_by=corrected_by,
-        )
-        prior = self._repository.get_geometry_revision_by_idempotency(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-            idempotency_key=idempotency_key,
-        )
-        if prior is not None:
-            if prior.command_sha256 != command.command_sha256:
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",
-                    "The geometry idempotency key already represents another command.",
-                )
-            return (
-                self.get_item(
-                    review_item_id,
-                    game_id=game_id,
-                    import_job_id=import_job_id,
-                ),
-                prior,
-                False,
-            )
-        item = self.get_item(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-        )
-        self._require_current_geometry_command(item, command)
-        preview = self._validated_board_cell_geometry_preview(
-            item=item,
-            command=command,
-        )
-        previewer, artifact_root = self._require_board_cell_geometry_preview_dependencies()
-        try:
-            persisted = previewer.persist(
-                preview=preview,
-                managed_data_root=artifact_root.resolve() / "data",
-                revision=item.geometry_revision + 1,
-            )
-        except ManualBoardCellGeometryPreviewError as error:
-            raise ImageReviewConflictError(error.code, str(error)) from error
-        artifacts = ImageReviewGeometryArtifacts(
-            geometry={
-                "cellOutputSize": persisted.cell_output_size,
-                "cells": [
-                    {
-                        "columnIndex": cell.column_index,
-                        "cropChecksumSha256": cell.checksum_sha256,
-                        "paddedSourceQuad": _quad_dict(cell.padded_source_quad),
-                        "rowIndex": cell.row_index,
-                        "sourceQuad": _quad_dict(cell.source_quad),
-                    }
-                    for cell in persisted.cells
-                ],
-                "commandChecksumSha256": persisted.command_checksum_sha256,
-                "coordinateSpace": BOARD_CELL_COORDINATE_SPACE,
-                "cornerSemantics": BOARD_CELL_CORNER_SEMANTICS,
-                "correctedBy": persisted.corrected_by,
-                "cropperFingerprintSha256": persisted.cropper_fingerprint_sha256,
-                "cropperVersion": persisted.cropper_version,
-                "decisionChecksumSha256": persisted.decision_checksum_sha256,
-                "expectedGeometryRevision": persisted.expected_geometry_revision,
-                "expectedResolutionRevision": persisted.expected_resolution_revision,
-                "geometryVersion": BOARD_CELL_GEOMETRY_VERSION,
-                "imageHeight": persisted.image_height,
-                "imageWidth": persisted.image_width,
-                "latticeBoundsQuad": _quad_dict(persisted.lattice_bounds_quad),
-                "manualGeometryVersion": persisted.manual_geometry_version,
-                "positionIndex": persisted.position_index,
-                "reviewItemId": persisted.review_item_id,
-                "sequenceNumber": persisted.sequence_number,
-                "source": "manual_override",
-                "sourceGroup": persisted.source_group,
-                "sourceImageChecksumSha256": persisted.source_image_checksum_sha256,
-                "sourceImageId": persisted.source_image_id,
-                "sourceImageRelativePath": persisted.source_image_relative_path,
-                "sourceOrderIndex": persisted.source_order_index,
-                **_retained_review_context(
-                    item.geometry,
-                    image_width=persisted.image_width,
-                    image_height=persisted.image_height,
-                ),
-            },
-            board_relative_path=item.board_relative_path,
-            board_checksum_sha256=item.board_checksum_sha256,
-            cropper_version=persisted.cropper_version,
-            cells=tuple(
-                ImageReviewGeometryCellArtifact(
-                    row_index=cell.row_index,
-                    column_index=cell.column_index,
-                    crop_relative_path=cell.relative_path,
-                    crop_checksum_sha256=cell.checksum_sha256,
-                )
-                for cell in persisted.cells
-            ),
-        )
-        return self._repository.save_geometry_revision(
-            review_item_id=review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-            idempotency_key=idempotency_key,
-            command=command,
-            artifacts=artifacts,
-            created_at=datetime.now(UTC),
-        )
+    ) -> tuple[ImageReviewItem, VirtualGridGeometryRevision, bool]:
+        """Persist a ``virtual_source`` geometry revision of one current board.
 
-    @staticmethod
-    def _require_current_geometry_command(
-        item: ImageReviewItem,
-        command: ValidatedImageReviewGeometryCommand,
-    ) -> None:
-        if item.geometry_revision != command.expected_geometry_revision:
+        Delegates to ``VirtualGridGeometryService.save_review_item`` in the
+        same session (replay by ``idempotency_key``, revision CAS, render
+        manifest, reopened cells), then reloads the review item for the
+        unchanged ``OperationalImageReviewGeometryResponse`` shape.
+        """
+
+        virtual_geometry = self._require_virtual_geometry()
+        with game_storage_scope(game_id):
+            self.get_item(review_item_id, game_id=game_id, import_job_id=import_job_id)
+            result = virtual_geometry.save_review_item(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                review_item_id=review_item_id,
+                idempotency_key=idempotency_key,
+                expected_geometry_revision=expected_geometry_revision,
+                expected_resolution_revision=expected_resolution_revision,
+                corners=corners,
+                actor=corrected_by,
+                created_at=datetime.now(UTC),
+            )
+            item = self.get_item(review_item_id, game_id=game_id, import_job_id=import_job_id)
+        return item, result.revision, result.created
+
+    def _require_virtual_geometry(self) -> VirtualGridGeometryService:
+        if self._virtual_geometry is None:
             raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT",
-                "The selected geometry revision is no longer current.",
+                "IMAGE_REVIEW_GEOMETRY_UNAVAILABLE",
+                "Manual board geometry is not configured.",
             )
-        if item.resolution_revision != command.expected_resolution_revision:
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_REVISION_CONFLICT",
-                "The operational review item changed after it was loaded.",
-            )
-
-    def _validated_board_cell_geometry_preview(
-        self,
-        *,
-        item: ImageReviewItem,
-        command: ValidatedImageReviewGeometryCommand,
-    ) -> ManualBoardCellGeometryPreview:
-        sequence_number = item.queue_sequence_number
-        if sequence_number is None and item.geometry.get("sequenceSource") == "filename":
-            sequence_number = item.suggested_sequence_number
-        if sequence_number is None:
-            raise ImageReviewConflictError(
-                "BOARD_CELL_GEOMETRY_PREVIEW_SEQUENCE_UNRESOLVED",
-                "Board-cell geometry requires an unambiguous sequence number.",
-            )
-        previewer, artifact_root = self._require_board_cell_geometry_preview_dependencies()
-        source = resolve_operational_source_asset(item, artifact_root)
-        try:
-            return previewer.preview(
-                source_path=source.path,
-                expected_source_sha256=item.source_checksum_sha256,
-                review_item_id=str(item.id),
-                source_order_index=item.source_order_index,
-                source_image_id=str(item.source_image_id),
-                source_image_relative_path=item.source_relative_path,
-                source_group=str(item.import_job_id),
-                sequence_number=sequence_number,
-                position_index=item.position_index,
-                lattice_bounds_quad=(
-                    (float(command.corners[0].x), float(command.corners[0].y)),
-                    (float(command.corners[1].x), float(command.corners[1].y)),
-                    (float(command.corners[2].x), float(command.corners[2].y)),
-                    (float(command.corners[3].x), float(command.corners[3].y)),
-                ),
-                corrected_by=command.corrected_by,
-                expected_geometry_revision=command.expected_geometry_revision,
-                expected_resolution_revision=command.expected_resolution_revision,
-                command_checksum_sha256=command.command_sha256,
-            )
-        except ManualBoardCellGeometryPreviewError as error:
-            raise ImageReviewConflictError(error.code, str(error)) from error
-
-    def _require_board_cell_geometry_preview_dependencies(
-        self,
-    ) -> tuple[ManualBoardCellGeometryPreviewer, Path]:
-        if self._board_cell_geometry_previewer is None or self._artifact_root is None:
-            raise ImageReviewConflictError(
-                "BOARD_CELL_GEOMETRY_PREVIEW_UNAVAILABLE",
-                "The v19 board-cell geometry preview is not configured.",
-            )
-        return self._board_cell_geometry_previewer, self._artifact_root
-
-
-def _retained_review_context(
-    geometry: Mapping[str, object],
-    *,
-    image_width: int,
-    image_height: int,
-) -> dict[str, object]:
-    retained: dict[str, object] = {}
-    display_asset_kind = geometry.get("displayAssetKind")
-    if display_asset_kind == "source_context":
-        retained["displayAssetKind"] = display_asset_kind
-    for key in (
-        "attestedRangeEnd",
-        "attestedRangeStart",
-        "sequenceLabelQuad",
-        "sequenceSource",
-    ):
-        value = geometry.get(key)
-        if value is not None:
-            retained[key] = value
-    bounds = _parse_source_context_bounds(
-        geometry.get("sourceContextBounds"),
-        image_width=image_width,
-        image_height=image_height,
-    )
-    if bounds is None:
-        bounds = _derive_source_context_bounds(
-            geometry,
-            image_width=image_width,
-            image_height=image_height,
-        )
-    if bounds is not None:
-        retained["sourceContextBounds"] = bounds
-    return retained
-
-
-def _parse_source_context_bounds(
-    value: object,
-    *,
-    image_width: int,
-    image_height: int,
-) -> dict[str, int] | None:
-    if not isinstance(value, Mapping):
-        return None
-    try:
-        x = round(float(value["x"]))
-        y = round(float(value["y"]))
-        width = round(float(value["width"]))
-        height = round(float(value["height"]))
-    except (KeyError, TypeError, ValueError, OverflowError):
-        return None
-    if x < 0 or y < 0 or width <= 0 or height <= 0:
-        return None
-    bounded_x = min(image_width - 1, x)
-    bounded_y = min(image_height - 1, y)
-    right = min(image_width, bounded_x + width)
-    bottom = min(image_height, bounded_y + height)
-    return {
-        "height": max(1, bottom - bounded_y),
-        "width": max(1, right - bounded_x),
-        "x": bounded_x,
-        "y": bounded_y,
-    }
-
-
-def _derive_source_context_bounds(
-    geometry: Mapping[str, object],
-    *,
-    image_width: int,
-    image_height: int,
-) -> dict[str, int] | None:
-    board = _parse_geometry_points(
-        geometry.get("latticeBoundsQuad")
-        or geometry.get("sourceQuad")
-        or geometry.get("quad")
-        or geometry.get("corners")
-    )
-    if board is None:
-        return None
-    label = _parse_geometry_points(geometry.get("sequenceLabelQuad"))
-    points = board + (label or ())
-    xs = [point[0] for point in points]
-    ys = [point[1] for point in points]
-    board_width = max(
-        1,
-        max(point[0] for point in board) - min(point[0] for point in board),
-    )
-    board_height = max(
-        1,
-        max(point[1] for point in board) - min(point[1] for point in board),
-    )
-    horizontal_padding = max(12, round(board_width * 0.1))
-    top_padding = max(12, round(board_height * 0.12))
-    bottom_padding = max(
-        12,
-        round(board_height * (0.12 if label is not None else 0.55)),
-    )
-    x = max(0, int(min(xs) - horizontal_padding))
-    y = max(0, int(min(ys) - top_padding))
-    right = min(image_width, int(max(xs) + horizontal_padding + 0.999999))
-    bottom = min(image_height, int(max(ys) + bottom_padding + 0.999999))
-    return {
-        "height": max(1, bottom - y),
-        "width": max(1, right - x),
-        "x": x,
-        "y": y,
-    }
-
-
-def _parse_geometry_points(value: object) -> tuple[tuple[float, float], ...] | None:
-    if not isinstance(value, list | tuple) or len(value) != 4:
-        return None
-    parsed: list[tuple[float, float]] = []
-    for raw_point in value:
-        if not isinstance(raw_point, Mapping):
-            return None
-        try:
-            x = float(raw_point["x"])
-            y = float(raw_point["y"])
-        except (KeyError, TypeError, ValueError, OverflowError):
-            return None
-        if not math.isfinite(x) or not math.isfinite(y) or x < 0 or y < 0:
-            return None
-        parsed.append((x, y))
-    return tuple(parsed)
-
-
-def _quad_dict(
-    quad: Sequence[tuple[float, float]],
-) -> list[dict[str, float]]:
-    return [{"x": float(point[0]), "y": float(point[1])} for point in quad]
+        return self._virtual_geometry
 
 
 __all__ = [

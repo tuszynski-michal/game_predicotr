@@ -250,8 +250,8 @@ reguły pracy etapami i D-447, a **nie uruchamia A**.
 | C | [TASK-0674](../tasks/0674-vision-lab-validation.md) | Walidacja i zamrożenie modelu/progów przed testem. |
 | D | [TASK-0675](../tasks/0675-vision-lab-neural-grid.md) | Warunkowa sieć pełnych węzłów; brak danych daje konkretny plan anotacji. |
 | E | [TASK-0676](../tasks/0676-vision-lab-geometry-integration.md) | Review/shadow tylko 5 × 3, 3 × 3 jawnie nieobsługiwane w aplikacji. |
-| E | [TASK-0677](../tasks/0677-vision-lab-symbol-integration.md) | ONNX, pochodzenie i mapowanie; dopiero teraz przepięcie handlera na wspólny rdzeń. |
-| E | [TASK-0678](../tasks/0678-vision-lab-final-acceptance.md) | Zamrożony test, niewidziana gra, restart i raport bez automatycznej aktywacji. |
+| E | [TASK-0677](../tasks/0677-vision-lab-symbol-integration.md) | ONNX, pochodzenie i mapowanie także istniejącej gry v1.1; dopiero teraz przepięcie handlera na wspólny rdzeń. |
+| E | [TASK-0678](../tasks/0678-vision-lab-final-acceptance.md) | Zamrożony test, niewidziana gra, równoległe porównanie `777 v1.1`/v3, restart i raport bez automatycznej aktywacji. |
 
 **STOP A:** galeria, manifest, kandydaci gry testowej, cele anotacji per gra,
 lista pobrań i budżet B; koszt czasu jest wstępny. **STOP B:** wynik hybrydy,
@@ -259,6 +259,16 @@ rzeczywisty czas anotacji i błędy. **STOP C:** raport walidacji i rekomendacja
 **STOP D:** kandydat lub raport brakujących danych. **STOP E:** kandydat
 review/shadow i ograniczenia. Każdy etap wymaga jawnego uruchomienia. Przed
 wydatkiem lub operacją poza zatwierdzonym zakresem następuje stop.
+
+D-461 doprecyzowuje etap E: T11 ma umożliwić uruchomienie geometrii v3
+równolegle z dotychczasowym wynikiem dla tego samego zdjęcia gry `777 v1.1`,
+bez wybierania silnika przez wydanie gry i bez zapisu v3 jako wyniku v1.1.
+T12 rozszerzy to porównanie o symbole dopiero przy istniejącym zatwierdzonym
+mapowaniu gry. T13 sprawdzi obie ścieżki na tym samym SHA obrazu, ich
+oddzielne wersje/wyniki oraz brak nadpisania starego rezultatu i decyzji
+człowieka. Rola `comparison_only` ogranicza kwalifikację źródła do nauki,
+nie inferencję. Brak mapowania symboli nie blokuje geometrii. Żaden z tych
+tasków nie usuwa v1.1 ani nie promuje v3; to wymaga późniejszej decyzji.
 
 ### Brama skali przed wdrożeniem v3 — nie jest zadaniem obecnego pilota
 
@@ -339,6 +349,7 @@ badany, a wynik małej próby jest wstępny.
 | Wczesny podgląd | T02, T05 | Galeria przed treningiem, potem pierwszy checkpoint. |
 | Obie topologie w labie | T02–T05, T10 | 24/16 węzłów i właściwe cropy. |
 | Integracja tylko 5 × 3 | T11–T13 | 3 × 3 odrzucone bez modyfikacji danych. |
+| Niezależne porównanie v1.1/v3 | T11–T13 | D-461: ten sam SHA zdjęcia `777 v1.1`, osobne wyniki i wersje, brak nadpisania; geometria dostępna bez mapowania symboli. |
 | Pochodzenie etykiet | P00, T06, T12 | Typ decyzji, SHA cropa, mapowanie gry. |
 | Geometria 777 i brak przecieku | T01, T03, T09, T13 | D-453: nowe ręczne siatki, jawna kwalifikacja, pochodzenie i rozłączne rodziny; bez zatwierdzania symboli. |
 | Refleksy i kolor | T07, T12, T13 | Wiśnia–winogrono, per klasa, test zmiany barwy. |

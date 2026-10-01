@@ -26,6 +26,7 @@ from uuid import UUID, uuid4
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 from game_predictor_api.storage.models import (
+    BoardRenderManifestModel,
     GameModel,
     ImageBoardGeometryReviewEventModel,
     ImageBoardGeometryRevisionModel,
@@ -64,6 +65,10 @@ _TABLES: dict[str, Table] = {
             ImageSourceGeometryRevisionModel,
             ImagePageGeometryOverrideModel,
             RecognizedBoardModel,
+            # D-467 S7 (TASK-0793): since migration 0136 a review cell row no
+            # longer carries ``render_spec``; the render specification of a
+            # virtual crop is exported with its board render manifest.
+            BoardRenderManifestModel,
             ImageReviewItemModel,
             ImageBoardGeometryRevisionModel,
             ImageBoardGeometryReviewEventModel,
@@ -306,6 +311,11 @@ def _freeze_game(
         "recognized_boards", _TABLES["recognized_boards"].c.source_image_id.in_(source_ids)
     )
     board_ids = _identities(boards)
+    take(
+        "board_render_manifests",
+        (_TABLES["board_render_manifests"].c.game_id == game_id)
+        & _TABLES["board_render_manifests"].c.recognized_board_id.in_(board_ids),
+    )
     review_items = take(
         "image_review_items", _TABLES["image_review_items"].c.recognized_board_id.in_(board_ids)
     )
@@ -812,7 +822,7 @@ def main() -> None:
     parser.add_argument("--output-root", type=Path, required=True)
     arguments = parser.parse_args()
     settings = ApiSettings.from_environment()
-    engine = create_engine(settings.database_url, connect_args={"connect_timeout": 5})
+    engine = create_engine(settings.owner_database_url, connect_args={"connect_timeout": 5})
     try:
         result = export_snapshot(
             engine,

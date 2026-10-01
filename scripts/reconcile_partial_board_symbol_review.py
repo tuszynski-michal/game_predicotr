@@ -22,7 +22,10 @@ from game_predictor_api.domain.partial_board_reconciliation import (
     ReconciliationError,
     validate_manifest,
 )
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.partial_board_reconciliation_repository import (
     PartialBoardReconciliationRepository,
@@ -70,7 +73,7 @@ def write_report(path: Path, report: dict[str, Any]) -> None:
 def main() -> int:
     args = arguments()
     settings = ApiSettings.from_environment()
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     sessions = create_session_factory(engine)
     roots = args.source_root or [settings.artifact_root / "data"]
     try:

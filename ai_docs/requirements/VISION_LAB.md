@@ -127,6 +127,16 @@ wydajności i trwałości dla przewidywanej liczby gier, zdjęć, plansz i crop�
 Brak tego dowodu albo wynik przekraczający możliwości magazynu lub workera
 blokuje wdrożenie, nawet gdy mały pilot jakościowy wypadnie dobrze.
 
+Istniejąca gra i jej wydanie, np. `777 v1.1`, mogą być ocenione przez nowy
+silnik v3 bez zmiany tożsamości gry i bez migracji starych wyników. Operator
+może uruchomić na tym samym zdjęciu stary silnik i v3, a następnie porównać
+oddzielne wyniki geometrii, cropów i (po ukończeniu etapu symboli) symboli.
+Wynik wskazuje silnik i wersję modelu; v3 pozostaje review/shadow i nie
+nadpisuje v1.1 ani zatwierdzeń człowieka. Brak mapowania symboli danej gry
+ogranicza porównanie symboli, lecz nie może blokować samej geometrii v3.
+Historyczna rola źródła danych nie może być używana jako blokada inferencji;
+zasady dopuszczenia do treningu i etykietowania pozostają osobne (D-461).
+
 D-453 zastępuje ograniczenie D-447 `comparison_only` wyłącznie dla geometrii
 historycznego 777: te zdjęcia mają uczestniczyć w uczeniu modelu, aby obsługiwał
 przyszłe podobne zdjęcia. Referencją są nowe ręcznie zatwierdzone siatki

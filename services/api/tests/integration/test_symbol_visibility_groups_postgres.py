@@ -111,7 +111,6 @@ def test_all_eight_symbols_unknown_and_outside_partition_real_rows(database: Eng
                 state=SymbolCellReviewFilterState.ALL,
                 include_all_symbols=scope == "all",
                 outside_only=scope == "outside",
-                uses_current_projection=True,
                 storage_generation=2,
             )
             conditions = [_logical_cell_visible_clause()]

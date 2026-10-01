@@ -112,6 +112,11 @@
             "title": "Cellindex",
             "type": "integer"
           },
+          "cellReviewId": {
+            "format": "uuid",
+            "title": "Cellreviewid",
+            "type": "string"
+          },
           "cropChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Cropchecksumsha256",
@@ -121,11 +126,6 @@
             "minimum": 0.0,
             "title": "Geometryrevision",
             "type": "integer"
-          },
-          "observationId": {
-            "format": "uuid",
-            "title": "Observationid",
-            "type": "string"
           },
           "sequenceNumber": {
             "exclusiveMinimum": 0.0,
@@ -138,7 +138,7 @@
           }
         },
         "required": [
-          "observationId",
+          "cellReviewId",
           "cropChecksumSha256",
           "sequenceNumber",
           "cellIndex",
@@ -1743,12 +1743,360 @@
         "type": "string"
       },
       "BoardSearchAssetMode": {
+        "description": "Read model behind a search result.  Only the operational projection\nremains; the frozen board-search archive was removed in D-467 S5.",
         "enum": [
-          "operational_review",
-          "legacy_archive"
+          "operational_review"
         ],
         "title": "BoardSearchAssetMode",
         "type": "string"
+      },
+      "BoardSearchBoardCellResponse": {
+        "additionalProperties": false,
+        "description": "One cell's review record: the checksum-bound target of\n`applySymbolCellReviewDecision` (D-473).",
+        "properties": {
+          "assignedSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedsymbolcode"
+          },
+          "cellIndex": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "cellReviewId": {
+            "format": "uuid",
+            "title": "Cellreviewid",
+            "type": "string"
+          },
+          "cropChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropchecksumsha256"
+          },
+          "cropSampleId": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropsampleid"
+          },
+          "geometryRevision": {
+            "minimum": 0.0,
+            "title": "Geometryrevision",
+            "type": "integer"
+          },
+          "qualityIssue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualityissue"
+          },
+          "reviewState": {
+            "title": "Reviewstate",
+            "type": "string"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "cellReviewId",
+          "revision",
+          "geometryRevision",
+          "cropSampleId",
+          "cropChecksumSha256",
+          "reviewState",
+          "qualityIssue",
+          "assignedSymbolCode"
+        ],
+        "title": "BoardSearchBoardCellResponse",
+        "type": "object"
+      },
+      "BoardSearchBoardDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Boardchecksumsha256",
+            "type": "string"
+          },
+          "boardStatus": {
+            "title": "Boardstatus",
+            "type": "string"
+          },
+          "cells": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/BoardSearchBoardCellResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Editable cell review records of a pending operational board; null for resolved and archive boards.",
+            "title": "Cells"
+          },
+          "dataSource": {
+            "$ref": "#/components/schemas/BoardSearchAssetMode"
+          },
+          "documentStale": {
+            "description": "True when the board changed after its search document was written; lines then come from the older reading and no view or cells are given.",
+            "title": "Documentstale",
+            "type": "boolean"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchLineMatchResponse"
+            },
+            "title": "Matches",
+            "type": "array"
+          },
+          "payoutCredits": {
+            "minimum": 0.0,
+            "title": "Payoutcredits",
+            "type": "integer"
+          },
+          "payoutKind": {
+            "enum": [
+              "exact",
+              "confirmed_minimum",
+              "none"
+            ],
+            "title": "Payoutkind",
+            "type": "string"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ApproximateWinRulesResponse"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "symbolCodes": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Symbolcodes",
+            "type": "array"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchBoardViewResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "gameId",
+          "sequenceNumber",
+          "boardStatus",
+          "boardChecksumSha256",
+          "dataSource",
+          "rules",
+          "symbolCodes",
+          "payoutCredits",
+          "payoutKind",
+          "matches",
+          "view",
+          "documentStale",
+          "cells"
+        ],
+        "title": "BoardSearchBoardDetailResponse",
+        "type": "object"
+      },
+      "BoardSearchBoardRefreshResponse": {
+        "additionalProperties": false,
+        "description": "Outcome of rebuilding one board's search document (TASK-0773).",
+        "properties": {
+          "detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchBoardDetailResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "documentRemoved": {
+            "description": "The rebuild left no search document at this sequence position.",
+            "title": "Documentremoved",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "documentRemoved",
+          "detail"
+        ],
+        "title": "BoardSearchBoardRefreshResponse",
+        "type": "object"
+      },
+      "BoardSearchBoardViewResponse": {
+        "additionalProperties": false,
+        "description": "Size of the cropped view and cell polygons in its 0–1 coordinates.",
+        "properties": {
+          "cellPolygons": {
+            "anyOf": [
+              {
+                "items": {
+                  "items": {
+                    "$ref": "#/components/schemas/BoardSearchViewPointResponse"
+                  },
+                  "type": "array"
+                },
+                "maxItems": 15,
+                "minItems": 15,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cellpolygons"
+          },
+          "height": {
+            "minimum": 1.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "revision": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Revision",
+            "type": "string"
+          },
+          "width": {
+            "minimum": 1.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "width",
+          "height",
+          "revision",
+          "cellPolygons"
+        ],
+        "title": "BoardSearchBoardViewResponse",
+        "type": "object"
+      },
+      "BoardSearchLineMatchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "jokerCells": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Jokercells",
+            "type": "array"
+          },
+          "matchedCells": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Matchedcells",
+            "type": "array"
+          },
+          "matchedLength": {
+            "minimum": 1.0,
+            "title": "Matchedlength",
+            "type": "integer"
+          },
+          "paylineCode": {
+            "title": "Paylinecode",
+            "type": "string"
+          },
+          "paylineDisplayOrder": {
+            "minimum": 0.0,
+            "title": "Paylinedisplayorder",
+            "type": "integer"
+          },
+          "paylineId": {
+            "title": "Paylineid",
+            "type": "string"
+          },
+          "paylineName": {
+            "title": "Paylinename",
+            "type": "string"
+          },
+          "payoutCredits": {
+            "exclusiveMinimum": 0.0,
+            "title": "Payoutcredits",
+            "type": "integer"
+          },
+          "rowPath": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Rowpath",
+            "type": "array"
+          },
+          "symbolCode": {
+            "title": "Symbolcode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "paylineId",
+          "paylineCode",
+          "paylineName",
+          "paylineDisplayOrder",
+          "rowPath",
+          "symbolCode",
+          "matchedLength",
+          "matchedCells",
+          "jokerCells",
+          "payoutCredits"
+        ],
+        "title": "BoardSearchLineMatchResponse",
+        "type": "object"
       },
       "BoardSearchResponse": {
         "additionalProperties": false,
@@ -1915,6 +2263,538 @@
           "unknownCount"
         ],
         "title": "BoardSearchScoreResponse",
+        "type": "object"
+      },
+      "BoardSearchShareCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "maxLength": 200,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "lifetimeMinutes": {
+            "default": 480,
+            "maximum": 1440.0,
+            "minimum": 5.0,
+            "title": "Lifetimeminutes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId"
+        ],
+        "title": "BoardSearchShareCreate",
+        "type": "object"
+      },
+      "BoardSearchShareCreatedResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "accessCode": {
+            "description": "Shown once; only its hash is stored.",
+            "title": "Accesscode",
+            "type": "string"
+          },
+          "session": {
+            "$ref": "#/components/schemas/BoardSearchShareSessionResponse"
+          }
+        },
+        "required": [
+          "session",
+          "accessCode"
+        ],
+        "title": "BoardSearchShareCreatedResponse",
+        "type": "object"
+      },
+      "BoardSearchSharePublicContextResponse": {
+        "additionalProperties": false,
+        "description": "What the recipient sees about their access; no internal identities.",
+        "properties": {
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "gameName": {
+            "title": "Gamename",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "label",
+          "gameName",
+          "expiresAt"
+        ],
+        "title": "BoardSearchSharePublicContextResponse",
+        "type": "object"
+      },
+      "BoardSearchSharePublicSearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "queryCellCount": {
+            "maximum": 15.0,
+            "minimum": 1.0,
+            "title": "Querycellcount",
+            "type": "integer"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchSharePublicSearchResultResponse"
+            },
+            "maxItems": 100,
+            "title": "Results",
+            "type": "array"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BoardSearchScope"
+          }
+        },
+        "required": [
+          "scope",
+          "queryCellCount",
+          "results"
+        ],
+        "title": "BoardSearchSharePublicSearchResponse",
+        "type": "object"
+      },
+      "BoardSearchSharePublicSearchResultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Boardchecksumsha256",
+            "type": "string"
+          },
+          "score": {
+            "$ref": "#/components/schemas/BoardSearchScoreResponse"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sequenceNumber",
+          "status",
+          "boardChecksumSha256",
+          "score"
+        ],
+        "title": "BoardSearchSharePublicSearchResultResponse",
+        "type": "object"
+      },
+      "BoardSearchSharePublicSymbolResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "displayOrder": {
+            "title": "Displayorder",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "imageRevision": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Checksum of the symbol image for its immutable URL; null without an image.",
+            "title": "Imagerevision"
+          },
+          "isWildcard": {
+            "title": "Iswildcard",
+            "type": "boolean"
+          },
+          "mobileCode": {
+            "title": "Mobilecode",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "nameEn": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nameen"
+          },
+          "namePl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Namepl"
+          },
+          "status": {
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "mobileCode",
+          "code",
+          "name",
+          "namePl",
+          "nameEn",
+          "isWildcard",
+          "displayOrder",
+          "status",
+          "imageRevision"
+        ],
+        "title": "BoardSearchSharePublicSymbolResponse",
+        "type": "object"
+      },
+      "BoardSearchShareQueryEntryResponse": {
+        "additionalProperties": false,
+        "description": "One recorded query of a share link (D-472); never an IP or header.",
+        "properties": {
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "search",
+              "approximate_win",
+              "board_detail"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "title": "Occurredat",
+            "type": "string"
+          },
+          "outcomeCode": {
+            "title": "Outcomecode",
+            "type": "string"
+          },
+          "request": {
+            "additionalProperties": true,
+            "title": "Request",
+            "type": "object"
+          },
+          "resultSummary": {
+            "additionalProperties": true,
+            "title": "Resultsummary",
+            "type": "object"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "sessionId",
+          "gameId",
+          "occurredAt",
+          "kind",
+          "request",
+          "resultSummary",
+          "outcomeCode"
+        ],
+        "title": "BoardSearchShareQueryEntryResponse",
+        "type": "object"
+      },
+      "BoardSearchShareQueryPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchShareQueryEntryResponse"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pass as `before` for the next, older page; null on the last page.",
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "entries",
+          "nextCursor"
+        ],
+        "title": "BoardSearchShareQueryPageResponse",
+        "type": "object"
+      },
+      "BoardSearchShareQueryReplayResponse": {
+        "additionalProperties": false,
+        "description": "The entry plus the nearest earlier successful search (and, for a\nboard detail, range) of the same link, to reproduce it in the Admin.",
+        "properties": {
+          "approximateWin": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchShareQueryEntryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "event": {
+            "$ref": "#/components/schemas/BoardSearchShareQueryEntryResponse"
+          },
+          "search": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchShareQueryEntryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "event",
+          "search",
+          "approximateWin"
+        ],
+        "title": "BoardSearchShareQueryReplayResponse",
+        "type": "object"
+      },
+      "BoardSearchShareSessionListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "sessions": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchShareSessionResponse"
+            },
+            "title": "Sessions",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sessions"
+        ],
+        "title": "BoardSearchShareSessionListResponse",
+        "type": "object"
+      },
+      "BoardSearchShareSessionResponse": {
+        "additionalProperties": false,
+        "description": "One share session as the owner sees it; never contains secrets.",
+        "properties": {
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "expiresAt": {
+            "format": "date-time",
+            "title": "Expiresat",
+            "type": "string"
+          },
+          "failedAttempts": {
+            "title": "Failedattempts",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Label"
+          },
+          "lastUnlockedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lastunlockedat"
+          },
+          "lockedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lockedat"
+          },
+          "ready": {
+            "description": "The session is active and the public Reviewer ingress is online.",
+            "title": "Ready",
+            "type": "boolean"
+          },
+          "revokedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Revokedat"
+          },
+          "sessionId": {
+            "format": "uuid",
+            "title": "Sessionid",
+            "type": "string"
+          },
+          "shareUrl": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The link for the recipient (without the code) while `ready`.",
+            "title": "Shareurl"
+          },
+          "status": {
+            "enum": [
+              "active",
+              "locked",
+              "expired",
+              "revoked"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sessionId",
+          "gameId",
+          "label",
+          "status",
+          "failedAttempts",
+          "createdAt",
+          "expiresAt",
+          "lockedAt",
+          "revokedAt",
+          "lastUnlockedAt",
+          "ready",
+          "shareUrl"
+        ],
+        "title": "BoardSearchShareSessionResponse",
+        "type": "object"
+      },
+      "BoardSearchShareUnlock": {
+        "additionalProperties": false,
+        "properties": {
+          "accessCode": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Accesscode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "accessCode"
+        ],
+        "title": "BoardSearchShareUnlock",
+        "type": "object"
+      },
+      "BoardSearchViewPointResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "BoardSearchViewPointResponse",
         "type": "object"
       },
       "BoardSourceCleanupCommandRequest": {
@@ -2486,8 +3366,6 @@
             "anyOf": [
               {
                 "enum": [
-                  "verified_v19",
-                  "structured_shadow",
                   "structured_default",
                   "structured_lattice_v3"
                 ],
@@ -7995,21 +8873,9 @@
         "additionalProperties": false,
         "properties": {
           "assetMode": {
-            "default": "legacy_file",
+            "const": "virtual_source",
             "title": "Assetmode",
             "type": "string"
-          },
-          "boardChecksumSha256": {
-            "anyOf": [
-              {
-                "pattern": "^[a-f0-9]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Boardchecksumsha256"
           },
           "cells": {
             "items": {
@@ -8056,29 +8922,10 @@
             "title": "Cropperversion",
             "type": "string"
           },
-          "decisionChecksumSha256": {
-            "anyOf": [
-              {
-                "pattern": "^[a-f0-9]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Decisionchecksumsha256"
-          },
           "geometryChecksumSha256": {
-            "anyOf": [
-              {
-                "pattern": "^[a-f0-9]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Geometrychecksumsha256"
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Geometrychecksumsha256",
+            "type": "string"
           },
           "geometryQualification": {
             "anyOf": [
@@ -8126,28 +8973,14 @@
             "type": "integer"
           },
           "sourceGeometryRevisionId": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Sourcegeometryrevisionid"
+            "format": "uuid",
+            "title": "Sourcegeometryrevisionid",
+            "type": "string"
           },
           "virtualRenderSpecChecksumSha256": {
-            "anyOf": [
-              {
-                "pattern": "^[a-f0-9]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Virtualrenderspecchecksumsha256"
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Virtualrenderspecchecksumsha256",
+            "type": "string"
           }
         },
         "required": [
@@ -8157,8 +8990,11 @@
           "revision",
           "idempotencyKey",
           "commandSha256",
-          "decisionChecksumSha256",
           "corners",
+          "assetMode",
+          "sourceGeometryRevisionId",
+          "geometryChecksumSha256",
+          "virtualRenderSpecChecksumSha256",
           "cropperVersion",
           "gridRows",
           "gridColumns",
@@ -8212,6 +9048,7 @@
             "title": "Approvedgeometryrevision"
           },
           "assetMode": {
+            "const": "virtual_source",
             "title": "Assetmode",
             "type": "string"
           },
@@ -8654,8 +9491,6 @@
       },
       "ImageImportEnginePolicy": {
         "enum": [
-          "verified_v19",
-          "structured_shadow",
           "structured_default",
           "structured_lattice_v3"
         ],
@@ -13145,18 +13980,6 @@
             "title": "Currentsymbolcode",
             "type": "string"
           },
-          "observationId": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Observationid"
-          },
           "predictedSymbolCode": {
             "maxLength": 64,
             "minLength": 1,
@@ -13171,7 +13994,6 @@
           }
         },
         "required": [
-          "observationId",
           "cellIndex",
           "rowIndex",
           "columnIndex",
@@ -13422,18 +14244,13 @@
       },
       "OperationalImageReviewGeometryRevisionResponse": {
         "additionalProperties": false,
+        "description": "One ``virtual_source`` manual geometry revision (D-467 S6, TASK-0796).\n\nThe former v19 file-crop fields (board crop checksum, manual decision\nchecksum) are gone: the revision is bound by its source geometry and\nrender manifest checksums instead.",
         "properties": {
-          "boardChecksumSha256": {
-            "pattern": "^[a-f0-9]{64}$",
-            "title": "Boardchecksumsha256",
-            "type": "string"
-          },
           "cells": {
             "items": {
               "$ref": "#/components/schemas/OperationalImageReviewGeometryCellResponse"
             },
             "maxItems": 15,
-            "minItems": 15,
             "title": "Cells",
             "type": "array"
           },
@@ -13475,18 +14292,10 @@
             "title": "Cropperversion",
             "type": "string"
           },
-          "decisionChecksumSha256": {
-            "anyOf": [
-              {
-                "pattern": "^[a-f0-9]{64}$",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Manual v19 decision checksum binding source, board position, versions and actor; null only for historical geometry revisions",
-            "title": "Decisionchecksumsha256"
+          "geometryChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Geometrychecksumsha256",
+            "type": "string"
           },
           "id": {
             "format": "uuid",
@@ -13512,6 +14321,16 @@
             "minimum": 1.0,
             "title": "Revision",
             "type": "integer"
+          },
+          "sourceGeometryRevisionId": {
+            "format": "uuid",
+            "title": "Sourcegeometryrevisionid",
+            "type": "string"
+          },
+          "virtualRenderSpecChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Virtualrenderspecchecksumsha256",
+            "type": "string"
           }
         },
         "required": [
@@ -13522,7 +14341,9 @@
           "idempotencyKey",
           "commandSha256",
           "corners",
-          "boardChecksumSha256",
+          "sourceGeometryRevisionId",
+          "geometryChecksumSha256",
+          "virtualRenderSpecChecksumSha256",
           "cropperVersion",
           "cells",
           "correctedBy",
@@ -21130,6 +21951,30 @@
             "title": "Catalogrevision",
             "type": "integer"
           },
+          "changedFrom": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changedfrom"
+          },
+          "changedTo": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changedto"
+          },
           "excludedCellReviewIds": {
             "default": [],
             "items": {
@@ -21170,6 +22015,16 @@
               }
             ],
             "title": "Minconfidence"
+          },
+          "predictionSource": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SymbolCellReviewPredictionSource"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "state": {
             "$ref": "#/components/schemas/SymbolCellReviewFilterState",
@@ -21576,9 +22431,7 @@
         "additionalProperties": false,
         "properties": {
           "assetMode": {
-            "default": "legacy_file",
             "enum": [
-              "legacy_file",
               "virtual_source",
               "none"
             ],
@@ -21796,7 +22649,8 @@
           "geometryRevision",
           "cropSampleId",
           "cropChecksumSha256",
-          "boardStatus"
+          "boardStatus",
+          "assetMode"
         ],
         "title": "SymbolCellReviewListItemResponse",
         "type": "object"
@@ -22006,6 +22860,15 @@
         ],
         "title": "SymbolCellReviewPageResponse",
         "type": "object"
+      },
+      "SymbolCellReviewPredictionSource": {
+        "description": "Which writer produced a cell's current prediction (D-466).",
+        "enum": [
+          "reference_library",
+          "model"
+        ],
+        "title": "SymbolCellReviewPredictionSource",
+        "type": "string"
       },
       "SymbolCellReviewProjectionStartResponse": {
         "additionalProperties": false,
@@ -23073,9 +23936,7 @@
         "additionalProperties": false,
         "properties": {
           "assetMode": {
-            "default": "legacy_file",
             "enum": [
-              "legacy_file",
               "virtual_source",
               "none"
             ],
@@ -23220,6 +24081,7 @@
           }
         },
         "required": [
+          "assetMode",
           "cellReviewId",
           "cellIndex",
           "rowIndex",
@@ -24974,6 +25836,391 @@
   },
   "openapi": "3.1.0",
   "paths": {
+    "/api/v1/admin/board-search-shares/queries/{event_id}": {
+      "get": {
+        "operationId": "getBoardSearchShareQueryReplay",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "event_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Event Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareQueryReplayResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Read one query log entry with what is needed to replay it",
+        "tags": [
+          "board-search-shares"
+        ]
+      }
+    },
+    "/api/v1/admin/board-search-shares/sessions": {
+      "get": {
+        "operationId": "listBoardSearchShareSessions",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gameid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareSessionListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List board-search share sessions without secrets",
+        "tags": [
+          "board-search-shares"
+        ]
+      },
+      "post": {
+        "operationId": "createBoardSearchShareSession",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardSearchShareCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareCreatedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Create one online read-only board-search share link",
+        "tags": [
+          "board-search-shares"
+        ]
+      }
+    },
+    "/api/v1/admin/board-search-shares/sessions/{session_id}/queries": {
+      "get": {
+        "operationId": "listBoardSearchShareQueries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareQueryPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Read a share link's query log, newest first (D-472)",
+        "tags": [
+          "board-search-shares"
+        ]
+      }
+    },
+    "/api/v1/admin/board-search-shares/sessions/{session_id}/revoke": {
+      "post": {
+        "operationId": "revokeBoardSearchShareSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareSessionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Immediately stop one board-search share link",
+        "tags": [
+          "board-search-shares"
+        ]
+      }
+    },
     "/api/v1/admin/dataset-versions/{dataset_version_id}": {
       "delete": {
         "operationId": "archiveDatasetVersion",
@@ -25834,7 +27081,7 @@
             "name": "spinCount",
             "required": true,
             "schema": {
-              "maximum": 10000,
+              "maximum": 100000,
               "minimum": 1,
               "title": "Spincount",
               "type": "integer"
@@ -25870,7 +27117,7 @@
                 }
               }
             },
-            "description": "Board-search projection/archive not ready, no published rules, an invalid rules configuration, a board symbol outside the active rules, or a starting board outside the game's sequence"
+            "description": "Board-search projection not ready, no published rules, an invalid rules configuration, a board symbol outside the active rules, or a starting board outside the game's sequence"
           },
           "422": {
             "content": {
@@ -25889,9 +27136,170 @@
         ]
       }
     },
-    "/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}": {
+    "/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}": {
       "get": {
-        "operationId": "getArchivedBoardSearchAsset",
+        "operationId": "getBoardSearchBoardDetail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchBoardDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or board-search document not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid path parameters"
+          }
+        },
+        "summary": "Winning paylines and cropped-view cell polygons of one board",
+        "tags": [
+          "board-search"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/refresh": {
+      "post": {
+        "operationId": "refreshBoardSearchBoardDocument",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchBoardRefreshResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or board-search document not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid path parameters"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Rebuild one board's search document from its current records",
+        "tags": [
+          "board-search"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/view": {
+      "get": {
+        "operationId": "getBoardSearchBoardView",
         "parameters": [
           {
             "in": "path",
@@ -25922,6 +27330,39 @@
               "title": "Expectedboardchecksumsha256",
               "type": "string"
             }
+          },
+          {
+            "in": "query",
+            "name": "viewRevision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-f0-9]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Viewrevision"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
           }
         ],
         "responses": {
@@ -25936,7 +27377,7 @@
                 }
               }
             },
-            "description": "Game not found"
+            "description": "Game or board-search document not found"
           },
           "409": {
             "content": {
@@ -25946,7 +27387,7 @@
                 }
               }
             },
-            "description": "Board-search projection not ready"
+            "description": "Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
           },
           "422": {
             "content": {
@@ -25956,10 +27397,10 @@
                 }
               }
             },
-            "description": "Invalid partial board query"
+            "description": "Invalid path parameters"
           }
         },
-        "summary": "Read one checksum-bound board image from a frozen search archive",
+        "summary": "Read the checksum-bound cropped WebP view of one board",
         "tags": [
           "board-search"
         ]
@@ -27762,7 +29203,7 @@
             "content": {
               "image/png": {}
             },
-            "description": "Five by three contact sheet of manual v19 crops"
+            "description": "Five by three contact sheet of virtual source renders"
           },
           "403": {
             "content": {
@@ -27810,7 +29251,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Preview 15 manual source-direct crops for a deferred board",
+        "summary": "Preview the virtual cells of a manual deferred-board geometry",
         "tags": [
           "board-cell-geometry"
         ]
@@ -27918,7 +29359,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Create one ordinary review item from manual deferred geometry",
+        "summary": "Resolve a deferred board as one virtual-source review item",
         "tags": [
           "board-cell-geometry"
         ]
@@ -28724,7 +30165,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Render a stable WebP atlas for current legacy or virtual symbol cells",
+        "summary": "Render a stable WebP atlas for current virtual symbol cells",
         "tags": [
           "symbol-cell-reviews"
         ]
@@ -28876,6 +30317,56 @@
                 }
               ],
               "title": "Maxconfidence"
+            }
+          },
+          {
+            "in": "query",
+            "name": "predictionSource",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SymbolCellReviewPredictionSource"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Predictionsource"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedfrom"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedto"
             }
           }
         ],
@@ -29434,6 +30925,56 @@
               ],
               "title": "Maxconfidence"
             }
+          },
+          {
+            "in": "query",
+            "name": "predictionSource",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SymbolCellReviewPredictionSource"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Predictionsource"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedfrom"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedto"
+            }
           }
         ],
         "responses": {
@@ -29592,6 +31133,56 @@
                 }
               ],
               "title": "Maxconfidence"
+            }
+          },
+          {
+            "in": "query",
+            "name": "predictionSource",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SymbolCellReviewPredictionSource"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Predictionsource"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedFrom",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedfrom"
+            }
+          },
+          {
+            "in": "query",
+            "name": "changedTo",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date-time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Changedto"
             }
           },
           {
@@ -31095,7 +32686,7 @@
         ]
       }
     },
-    "/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset": {
+    "/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/asset": {
       "get": {
         "operationId": "getApprovedSymbolReferenceCandidateAsset",
         "parameters": [
@@ -31121,11 +32712,11 @@
           },
           {
             "in": "path",
-            "name": "observation_id",
+            "name": "cell_review_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Observation Id",
+              "title": "Cell Review Id",
               "type": "string"
             }
           }
@@ -31171,7 +32762,7 @@
         ]
       }
     },
-    "/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection": {
+    "/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/selection": {
       "post": {
         "operationId": "selectApprovedSymbolReferenceCandidate",
         "parameters": [
@@ -31197,11 +32788,11 @@
           },
           {
             "in": "path",
-            "name": "observation_id",
+            "name": "cell_review_id",
             "required": true,
             "schema": {
               "format": "uuid",
-              "title": "Observation Id",
+              "title": "Cell Review Id",
               "type": "string"
             }
           }
@@ -36426,7 +38017,7 @@
             "content": {
               "image/png": {}
             },
-            "description": "Five by three contact sheet of final source-direct crops"
+            "description": "Five by three contact sheet of virtual source renders"
           },
           "403": {
             "content": {
@@ -36474,7 +38065,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Preview 15 corrected v19 board-cell crops without persistence",
+        "summary": "Preview the virtual cells of a corrected board geometry without persistence",
         "tags": [
           "image-reviews"
         ]
@@ -36582,7 +38173,7 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Persist immutable v19 symbol-lattice geometry and reopen review",
+        "summary": "Persist a virtual-source geometry revision of one board and reopen review",
         "tags": [
           "image-reviews"
         ]
@@ -43331,6 +44922,104 @@
         ]
       }
     },
+    "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent": {
+      "delete": {
+        "operationId": "deletePayline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rules_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rules Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "payline_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payline Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Permanently delete draft payline",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
     "/api/v1/admin/rules-versions/{rules_version_id}/payout-rules": {
       "get": {
         "operationId": "listPayoutRules",
@@ -46131,6 +47820,1144 @@
         "summary": "List health and resource budgets for local worker lanes",
         "tags": [
           "worker-lanes"
+        ]
+      }
+    },
+    "/api/v1/board-search-shares/approximate-win": {
+      "get": {
+        "operationId": "getBoardSearchShareApproximateWin",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "startSequenceNumber",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Startsequencenumber",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "spinCount",
+            "required": true,
+            "schema": {
+              "maximum": 100000,
+              "minimum": 1,
+              "title": "Spincount",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gp_board_search_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gp Board Search Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApproximateWinResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "Calculate the approximate win for a range of the shared game",
+        "tags": [
+          "board-search-share-public"
+        ]
+      }
+    },
+    "/api/v1/board-search-shares/boards/{sequence_number}": {
+      "get": {
+        "operationId": "getBoardSearchShareBoardDetail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gp_board_search_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gp Board Search Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchBoardDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "Winning paylines of one board of the shared game (no cell records)",
+        "tags": [
+          "board-search-share-public"
+        ]
+      }
+    },
+    "/api/v1/board-search-shares/boards/{sequence_number}/view": {
+      "get": {
+        "operationId": "getBoardSearchShareBoardView",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "expectedBoardChecksumSha256",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Expectedboardchecksumsha256",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "viewRevision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "pattern": "^[a-f0-9]{64}$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Viewrevision"
+            }
+          },
+          {
+            "in": "header",
+            "name": "If-None-Match",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "If-None-Match"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gp_board_search_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gp Board Search Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "Read the checksum-bound cropped view of one board of the shared game",
+        "tags": [
+          "board-search-share-public"
+        ]
+      }
+    },
+    "/api/v1/board-search-shares/context": {
+      "get": {
+        "operationId": "getBoardSearchShareContext",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gp_board_search_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gp Board Search Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchSharePublicContextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "Read the authenticated share context",
+        "tags": [
+          "board-search-share-public"
+        ]
+      }
+    },
+    "/api/v1/board-search-shares/search": {
+      "get": {
+        "operationId": "searchBoardSearchShareBoards",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "cell",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cell"
+            }
+          },
+          {
+            "in": "query",
+            "name": "scope",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/BoardSearchScope",
+              "default": "all_searchable"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 100,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gp_board_search_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gp Board Search Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchSharePublicSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "Find boards of the shared game by a partial symbol pattern",
+        "tags": [
+          "board-search-share-public"
+        ]
+      }
+    },
+    "/api/v1/board-search-shares/sessions/{session_id}/unlock": {
+      "post": {
+        "operationId": "unlockBoardSearchShareSession",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardSearchShareUnlock"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchSharePublicContextResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "Exchange a share link's access code for a session cookie",
+        "tags": [
+          "board-search-share-public"
+        ]
+      }
+    },
+    "/api/v1/board-search-shares/symbols": {
+      "get": {
+        "operationId": "listBoardSearchShareSymbols",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gp_board_search_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gp Board Search Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/BoardSearchSharePublicSymbolResponse"
+                  },
+                  "title": "Response Listboardsearchsharesymbols",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "List the shared game's symbols",
+        "tags": [
+          "board-search-share-public"
+        ]
+      }
+    },
+    "/api/v1/board-search-shares/symbols/{symbol_id}/image": {
+      "get": {
+        "operationId": "getBoardSearchShareSymbolImage",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "symbol_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Symbol Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "revision",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-f0-9]{64}$",
+              "title": "Revision",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gp_board_search_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gp Board Search Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "Read one checksum-bound symbol image of the shared game",
+        "tags": [
+          "board-search-share-public"
         ]
       }
     },

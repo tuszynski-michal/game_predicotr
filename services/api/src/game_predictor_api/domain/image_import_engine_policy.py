@@ -1,4 +1,11 @@
-"""Safe per-game policy for creating new image-import jobs."""
+"""Safe per-game policy for creating new image-import jobs.
+
+D-467 (TASK-0790): only virtual policies remain.  ``verified_v19`` (legacy
+geometry with file crops) and ``structured_shadow`` (legacy primary with a
+virtual shadow) were removed; a request naming them is rejected with
+``IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED``.  A new game starts on
+``structured_lattice_v3``, the engine every browser import pins.
+"""
 
 from __future__ import annotations
 
@@ -10,10 +17,18 @@ from uuid import UUID
 
 
 class ImageImportEnginePolicy(StrEnum):
-    VERIFIED_V19 = "verified_v19"
-    STRUCTURED_SHADOW = "structured_shadow"
     STRUCTURED_DEFAULT = "structured_default"
     STRUCTURED_LATTICE_V3 = "structured_lattice_v3"
+
+
+DEFAULT_IMAGE_IMPORT_ENGINE_POLICY = ImageImportEnginePolicy.STRUCTURED_LATTICE_V3
+"""Policy of a game without a rollout state (and of every new game)."""
+
+LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR = "IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED"
+"""Explicit code returned when a request names a removed legacy policy."""
+
+REMOVED_IMAGE_IMPORT_ENGINE_POLICIES = frozenset({"verified_v19", "structured_shadow"})
+"""Former policy values; kept only to recognize and reject them explicitly."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,13 +49,19 @@ class ImageImportEnginePolicyPreview:
 
 
 def policy_rollout_modes(policy: ImageImportEnginePolicy) -> tuple[str, str]:
-    if policy is ImageImportEnginePolicy.VERIFIED_V19:
-        return "legacy", "legacy_files"
-    if policy is ImageImportEnginePolicy.STRUCTURED_SHADOW:
-        return "structured_shadow", "virtual_shadow"
     if policy is ImageImportEnginePolicy.STRUCTURED_LATTICE_V3:
         return "structured_lattice_v3", "virtual_default"
     return "structured_default", "virtual_default"
+
+
+def default_rollout_modes() -> tuple[str, str]:
+    """Rollout modes of a game that has no explicit policy yet."""
+
+    return policy_rollout_modes(DEFAULT_IMAGE_IMPORT_ENGINE_POLICY)
+
+
+DEFAULT_GEOMETRY_MODE, DEFAULT_CELL_ASSET_MODE = default_rollout_modes()
+"""Rollout state columns of a new game (also the 0133 migration target)."""
 
 
 def policy_from_rollout_modes(
@@ -48,10 +69,6 @@ def policy_from_rollout_modes(
     cell_asset_mode: str,
 ) -> ImageImportEnginePolicy:
     pair = (geometry_mode, cell_asset_mode)
-    if pair == ("legacy", "legacy_files"):
-        return ImageImportEnginePolicy.VERIFIED_V19
-    if pair == ("structured_shadow", "virtual_shadow"):
-        return ImageImportEnginePolicy.STRUCTURED_SHADOW
     if pair == ("structured_default", "virtual_default"):
         return ImageImportEnginePolicy.STRUCTURED_DEFAULT
     if pair == ("structured_lattice_v3", "virtual_default"):
@@ -85,9 +102,15 @@ def engine_policy_preview_token(
 
 
 __all__ = [
+    "DEFAULT_CELL_ASSET_MODE",
+    "DEFAULT_GEOMETRY_MODE",
+    "DEFAULT_IMAGE_IMPORT_ENGINE_POLICY",
+    "LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR",
+    "REMOVED_IMAGE_IMPORT_ENGINE_POLICIES",
     "ImageImportEnginePolicy",
     "ImageImportEnginePolicyPreview",
     "ImageImportEnginePolicySnapshot",
+    "default_rollout_modes",
     "engine_policy_preview_token",
     "policy_from_rollout_modes",
     "policy_rollout_modes",

@@ -66,13 +66,18 @@ import {
   DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
   findCachedSymbolReviewPage,
   isSymbolReviewPageSize,
+  parseSymbolReviewChangeRange,
   parseSymbolReviewPageNumber,
   SYMBOL_REVIEW_PAGE_SIZES,
   symbolReviewConfidenceRange,
+  symbolReviewExtendedFilters,
   symbolReviewFiltersReady,
+  symbolReviewIsoToLocalDateTime,
   symbolReviewPageRange,
+  symbolReviewStartOfDayLocal,
   symbolReviewWorkspaceReducer,
   type SymbolReviewFilters,
+  type SymbolReviewPredictionSourceFilter,
   type SymbolReviewPagePosition,
 } from './symbol-review-state';
 import {
@@ -109,9 +114,12 @@ type SymbolReviewOperationDialog =
   | { readonly error: string; readonly kind: 'error' };
 
 const INITIAL_FILTERS: SymbolReviewFilters = {
+  changedFrom: null,
+  changedTo: null,
   confidence: 'all',
   gameId: null,
   pageSize: DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
+  predictionSource: 'all',
   state: 'all',
   symbolId: null,
 };
@@ -193,6 +201,11 @@ export function SymbolReviewWorkspace({
   const [deselectedCellIds, setDeselectedCellIds] = useState<
     ReadonlySet<string>
   >(() => new Set());
+  const [changeRangeDraft, setChangeRangeDraft] = useState({
+    from: '',
+    to: '',
+  });
+  const [changeRangeError, setChangeRangeError] = useState('');
   const [pendingFilters, setPendingFilters] =
     useState<SymbolReviewFilters | null>(null);
   const [operationDialog, setOperationDialog] =
@@ -390,6 +403,30 @@ export function SymbolReviewWorkspace({
       applyFilters(nextFilters);
     },
     [applyFilters, selectedCount],
+  );
+
+  const applyChangeRange = useCallback(
+    (draft: { readonly from: string; readonly to: string }) => {
+      const range = parseSymbolReviewChangeRange(draft.from, draft.to);
+      if (!range.ok) {
+        setChangeRangeError(range.error);
+        return;
+      }
+      setChangeRangeError('');
+      const current = filtersRef.current;
+      if (
+        current.changedFrom === range.changedFrom &&
+        current.changedTo === range.changedTo
+      ) {
+        return;
+      }
+      requestFilterChange({
+        ...current,
+        changedFrom: range.changedFrom,
+        changedTo: range.changedTo,
+      });
+    },
+    [requestFilterChange],
   );
 
   useEffect(() => {
@@ -600,6 +637,7 @@ export function SymbolReviewWorkspace({
       gameId: pageFilters.gameId,
       maxConfidence: pageFilters.maxConfidence,
       minConfidence: pageFilters.minConfidence,
+      ...symbolReviewExtendedFilters(filters),
       state: pageFilters.state,
       symbolId: pageFilters.symbolId,
       signal: controller.signal,
@@ -1440,6 +1478,21 @@ export function SymbolReviewWorkspace({
           </label>
           <label>
             <input
+              checked={filters.confidence === 'from_80_to_99'}
+              disabled={interactionBusy}
+              name="symbol-review-confidence"
+              onChange={() =>
+                requestFilterChange({
+                  ...filters,
+                  confidence: 'from_80_to_99',
+                })
+              }
+              type="radio"
+            />
+            80–&lt;99%
+          </label>
+          <label>
+            <input
               checked={filters.confidence === 'from_60_to_80'}
               disabled={interactionBusy}
               name="symbol-review-confidence"
@@ -1466,6 +1519,110 @@ export function SymbolReviewWorkspace({
             Poniżej 60%
           </label>
         </fieldset>
+        <fieldset>
+          <legend>Źródło predykcji</legend>
+          {PREDICTION_SOURCE_OPTIONS.map((option) => (
+            <label key={option.value}>
+              <input
+                checked={filters.predictionSource === option.value}
+                disabled={interactionBusy}
+                name="symbol-review-prediction-source"
+                onChange={() =>
+                  requestFilterChange({
+                    ...filters,
+                    predictionSource: option.value,
+                  })
+                }
+                type="radio"
+              />
+              {option.label}
+            </label>
+          ))}
+        </fieldset>
+        <fieldset className={styles.changeRange}>
+          <legend>
+            Data zmiany komórki
+            {filters.changedFrom !== null || filters.changedTo !== null
+              ? ` (aktywny: ${changeRangeLabel(filters)})`
+              : ''}
+          </legend>
+          <label>
+            Od
+            <input
+              aria-label="Data zmiany od"
+              disabled={interactionBusy}
+              onChange={(event) => {
+                const from = event.currentTarget.value;
+                setChangeRangeDraft((current) => ({ ...current, from }));
+                setChangeRangeError('');
+              }}
+              type="datetime-local"
+              value={changeRangeDraft.from}
+            />
+          </label>
+          <label>
+            Do
+            <input
+              aria-label="Data zmiany do"
+              disabled={interactionBusy}
+              onChange={(event) => {
+                const to = event.currentTarget.value;
+                setChangeRangeDraft((current) => ({ ...current, to }));
+                setChangeRangeError('');
+              }}
+              type="datetime-local"
+              value={changeRangeDraft.to}
+            />
+          </label>
+          <div className={styles.changeRangeActions}>
+            <button
+              className="secondaryButton"
+              disabled={interactionBusy}
+              onClick={() => {
+                const draft = {
+                  from: symbolReviewStartOfDayLocal(new Date()),
+                  to: '',
+                };
+                setChangeRangeDraft(draft);
+                applyChangeRange(draft);
+              }}
+              type="button"
+            >
+              Od dziś 00:00
+            </button>
+            <button
+              className="secondaryButton"
+              disabled={interactionBusy}
+              onClick={() => applyChangeRange(changeRangeDraft)}
+              type="button"
+            >
+              Zastosuj zakres
+            </button>
+            <button
+              className="secondaryButton"
+              disabled={
+                interactionBusy ||
+                (filters.changedFrom === null &&
+                  filters.changedTo === null &&
+                  changeRangeDraft.from === '' &&
+                  changeRangeDraft.to === '')
+              }
+              onClick={() => {
+                const draft = { from: '', to: '' };
+                setChangeRangeDraft(draft);
+                applyChangeRange(draft);
+              }}
+              type="button"
+            >
+              Wyczyść
+            </button>
+          </div>
+          {changeRangeError === '' ? null : (
+            <p className={styles.changeRangeError} role="alert">
+              {changeRangeError}
+            </p>
+          )}
+        </fieldset>
         <div className={styles.filterActions}>
           <button
             aria-pressed={fullscreen}
@@ -1486,7 +1643,6 @@ export function SymbolReviewWorkspace({
       {projectionStatus?.status === 'ready' && currentPage !== null ? (
         <SymbolReviewSelectionToolbar
           busy={interactionBusy}
-          canApprove={selection.kind === 'explicit' && !selectedWithoutImage}
           hasNoImageSelection={selectedWithoutImage}
           canSelectVisible={currentItems.length > 0}
           hasActiveSymbols={symbols.length > 0}
@@ -1722,7 +1878,16 @@ export function SymbolReviewWorkspace({
       ) : null}
       {pendingFilters !== null ? (
         <SymbolReviewFilterChangeDialog
-          onCancel={() => setPendingFilters(null)}
+          onCancel={() => {
+            setPendingFilters(null);
+            // The draft was prefilled for the cancelled change; show the applied range again.
+            setChangeRangeDraft({
+              from: symbolReviewIsoToLocalDateTime(
+                filtersRef.current.changedFrom,
+              ),
+              to: symbolReviewIsoToLocalDateTime(filtersRef.current.changedTo),
+            });
+          }}
           onConfirm={() => {
             applyFilters(pendingFilters);
             setPendingFilters(null);
@@ -1917,7 +2082,6 @@ function symbolReviewCardBadge(
 
 function SymbolReviewSelectionToolbar({
   busy,
-  canApprove,
   hasNoImageSelection,
   canSelectVisible,
   hasActiveSymbols,
@@ -1938,7 +2102,6 @@ function SymbolReviewSelectionToolbar({
   readOnly,
 }: {
   readonly busy: boolean;
-  readonly canApprove: boolean;
   readonly hasNoImageSelection: boolean;
   readonly canSetSymbolImage: boolean;
   readonly onSetSymbolImage: () => void;
@@ -1986,8 +2149,9 @@ function SymbolReviewSelectionToolbar({
       <div className={styles.toolbarActions}>
         <button
           className="primaryButton"
-          disabled={actionsDisabled || !canApprove}
+          disabled={true}
           onClick={onApprove}
+          title="Masowe zatwierdzanie jest obecnie wyłączone."
           type="button"
         >
           Zatwierdź
@@ -2365,7 +2529,33 @@ function symbolReviewFilterScope(
     filters.state,
     filters.minConfidence ?? null,
     filters.maxConfidence ?? null,
+    filters.predictionSource ?? null,
+    filters.changedFrom ?? null,
+    filters.changedTo ?? null,
   ]);
+}
+
+const PREDICTION_SOURCE_OPTIONS: readonly {
+  readonly label: string;
+  readonly value: SymbolReviewPredictionSourceFilter;
+}[] = [
+  { label: 'Wszystkie', value: 'all' },
+  { label: 'Nowy algorytm (biblioteka wzorców)', value: 'reference_library' },
+  { label: 'Stary model', value: 'model' },
+];
+
+function changeRangeLabel(
+  filters: Pick<SymbolReviewFilters, 'changedFrom' | 'changedTo'>,
+): string {
+  const from = symbolReviewIsoToLocalDateTime(filters.changedFrom).replace(
+    'T',
+    ' ',
+  );
+  const to = symbolReviewIsoToLocalDateTime(filters.changedTo).replace(
+    'T',
+    ' ',
+  );
+  return `${from === '' ? '…' : from} – ${to === '' ? '…' : to}`;
 }
 
 function formatBytes(value: number | null | undefined): string {
@@ -2412,6 +2602,7 @@ function asPageFilters(
     gameId: filters.gameId,
     limit: filters.pageSize,
     ...confidenceRange,
+    ...symbolReviewExtendedFilters(filters),
     state: filters.state,
     symbolId: filters.symbolId,
   };

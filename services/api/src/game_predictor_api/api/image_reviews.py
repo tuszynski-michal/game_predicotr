@@ -345,12 +345,12 @@ def create_image_reviews_router(
         "/{review_item_id}/geometry-preview",
         response_class=Response,
         operation_id="previewOperationalImageReviewGeometry",
-        summary="Preview 15 corrected v19 board-cell crops without persistence",
+        summary="Preview the virtual cells of a corrected board geometry without persistence",
         responses={
             **ERROR_RESPONSES,
             200: {
                 "content": {"image/png": {}},
-                "description": "Five by three contact sheet of final source-direct crops",
+                "description": "Five by three contact sheet of virtual source renders",
             },
         },
     )
@@ -383,7 +383,6 @@ def create_image_reviews_router(
             headers={
                 "Cache-Control": "no-store",
                 "X-Board-Cell-Count": str(len(preview.cells)),
-                "X-Board-Cell-Cropper-Fingerprint-Sha256": (preview.cropper_fingerprint_sha256),
                 "X-Board-Cell-Cropper-Version": preview.cropper_version,
                 "X-Board-Cell-Preview-Kind": "contact-sheet-5x3",
             },
@@ -393,7 +392,7 @@ def create_image_reviews_router(
         "/{review_item_id}/geometry-revisions",
         response_model=OperationalImageReviewGeometryResponse,
         operation_id="createOperationalImageReviewGeometryRevision",
-        summary="Persist immutable v19 symbol-lattice geometry and reopen review",
+        summary="Persist a virtual-source geometry revision of one board and reopen review",
         responses=ERROR_RESPONSES,
     )
     def create_operational_image_review_geometry_revision(

@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from game_predictor_api.api.image_grid_reviews import _require_expected_source
+from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_qualification import (
     GEOMETRY_QUALIFICATION_VERSION,
     GEOMETRY_QUALIFICATION_VERSION_V1,
@@ -18,7 +19,6 @@ from game_predictor_api.domain.geometry_qualification import (
     partially_visible_cell_indices,
     qualification_from_geometry,
 )
-from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.page_geometry_overrides import ImagePageGeometryOverride
 from game_predictor_api.schemas.geometry_qualification import GeometryQualificationPayload
 from game_predictor_api.schemas.image_grid_reviews import ImageGridReviewGeometryPreviewCommand
@@ -335,9 +335,15 @@ def test_guard_database_projection_roundtrips_complete_exclusion() -> None:
     assert result.unavailable_cell_indices == ()
 
 
-def test_legacy_grid_writer_cannot_silently_discard_qualification() -> None:
+def test_qualified_grid_command_reaches_the_virtual_writer() -> None:
+    """D-467 S6 (TASK-0796): every board is ``virtual_source``, so a qualified
+    command is only checked against the persisted source identity."""
+
     service = Mock()
-    service.source_asset.return_value.asset_mode = "legacy_file"
+    source = service.source_asset.return_value
+    source.source_width = 320
+    source.source_height = 320
+    source.topology = BoardTopology(rows=3, columns=5)
     command = ImageGridReviewGeometryPreviewCommand.model_validate(
         {
             "expectedGeometryRevision": 0,
@@ -351,9 +357,7 @@ def test_legacy_grid_writer_cannot_silently_discard_qualification() -> None:
             "geometryQualification": GeometryQualification().to_dict(),
         }
     )
-    with pytest.raises(ImageGridReviewError) as error:
-        _require_expected_source(service, uuid4(), uuid4(), command)
-    assert error.value.code == "IMAGE_GRID_REVIEW_QUALIFICATION_UNSUPPORTED"
+    assert _require_expected_source(service, uuid4(), uuid4(), command) is source
     service.source_asset.assert_called_once()
 
 

@@ -254,6 +254,11 @@ test('source modal uses current geometry, blocks workspace shortcuts and closes 
       document.querySelector('dialog svg').getAttribute('viewBox'),
       /^-150 0 650 300$/,
     );
+    const zoomInput = document.querySelector('dialog input[type="range"]');
+    assert.ok(zoomInput, 'zoom range input exists');
+    assert.equal(zoomInput.min, '100');
+    assert.equal(zoomInput.max, '700');
+    assert.equal(zoomInput.value, '100');
     await act(async () =>
       window.dispatchEvent(
         new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
@@ -261,6 +266,10 @@ test('source modal uses current geometry, blocks workspace shortcuts and closes 
     );
     assert.equal(calls.decisions.length, 0);
     await click(button('Zamknij podgląd źródła'));
+    assert.equal(document.querySelector('dialog'), null);
+    await click(button('Źródło'));
+    await eventually(() => document.querySelector('dialog img'));
+    await click(document.querySelector('dialog'));
     assert.equal(document.querySelector('dialog'), null);
   } finally {
     await act(async () => root.unmount());
@@ -356,6 +365,37 @@ test('retained blurry option cannot turn an outside assignment into an image act
       document.body.textContent,
       /Symbol został zmieniony i oznaczony jako niewyraźny/,
     );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('approve button stays disabled even for visible crops with a valid selection', async () => {
+  const { root } = await mount();
+  try {
+    await choose(1, 'all');
+    await eventually(() =>
+      buttons().some(
+        (x) =>
+          x.getAttribute('aria-label') ===
+          'Zaznacz crop z planszy 62287, pozycja 1/3',
+      ),
+    );
+    const selectPosition = (position) =>
+      buttons().find(
+        (x) =>
+          x.getAttribute('aria-label') ===
+          `Zaznacz crop z planszy 62287, pozycja 1/${position}`,
+      );
+    await click(selectPosition(3));
+    assert.equal(button('Zatwierdź').disabled, true);
+    await act(async () =>
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: '1', bubbles: true }),
+      ),
+    );
+    assert.equal(button('Zatwierdź').disabled, true);
+    assert.equal(button('Zastosuj zmianę').disabled, false);
   } finally {
     await act(async () => root.unmount());
   }

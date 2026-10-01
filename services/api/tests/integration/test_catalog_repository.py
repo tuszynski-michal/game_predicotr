@@ -55,7 +55,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
+    return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
@@ -288,6 +288,29 @@ def test_catalog_repository_uses_real_constraints(
             with pytest.raises(RulesConflictError) as error:
                 rules_service.update_rules_version(first_rules.id, columns=6)
             assert error.value.code == "RULES_DIMENSIONS_IN_USE"
+            # D-477: a permanent delete frees the code and the row path.
+            disposable = rules_service.create_payline(
+                first_rules.id,
+                code="line-disposable",
+                name="Disposable",
+                row_path=[2, 2, 2, 2, 2],
+                display_order=90,
+                is_active=False,
+            )
+            rules_service.delete_payline(first_rules.id, disposable.id)
+            session.flush()
+            assert disposable.id not in {
+                payline.id for payline in rules_service.list_paylines(first_rules.id)
+            }
+            recreated = rules_service.create_payline(
+                first_rules.id,
+                code="line-disposable",
+                name="Disposable",
+                row_path=[2, 2, 2, 2, 2],
+                display_order=90,
+                is_active=True,
+            )
+            rules_service.delete_payline(first_rules.id, recreated.id)
             session.commit()
 
             with pytest.raises(RulesConflictError) as error:

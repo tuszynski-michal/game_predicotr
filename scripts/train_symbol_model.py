@@ -16,7 +16,10 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
 )
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.symbol_model_snapshot_resolver import (
     SqlAlchemySymbolModelSnapshotResolver,
 )
@@ -119,7 +122,7 @@ def main() -> int:
                 "The pinned residual evaluation does not authorize retraining.",
             )
         settings = get_settings()
-        session = create_session_factory(create_database_engine(settings))()
+        session = create_session_factory(create_maintenance_database_engine(settings))()
         snapshot = SqlAlchemySymbolModelSnapshotResolver(
             session, artifact_root=settings.artifact_root
         ).resolve(game_id=game_id)

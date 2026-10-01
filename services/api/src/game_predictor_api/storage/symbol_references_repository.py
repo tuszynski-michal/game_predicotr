@@ -23,8 +23,11 @@ from game_predictor_api.domain.symbol_references import (
     ApprovedSymbolReferenceCandidate,
     SymbolReferenceImage,
 )
+from game_predictor_api.storage.cell_render_specs import (
+    CellRenderSpecKey,
+    load_cell_render_specs,
+)
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardSearchFastDocumentModel,
     ImageReviewItemModel,
@@ -56,7 +59,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
     ) -> Sequence[ApprovedSymbolReferenceCandidate]:
         self._symbol_code(game_id, symbol_id)
         query = self._candidate_query(game_id=game_id, symbol_id=symbol_id)
-        geometry_priority, sequence_number, cell_index, observation_id = _order_columns()
+        geometry_priority, sequence_number, cell_index, cell_review_id = _order_columns()
         if after_key is not None:
             query = query.where(
                 or_(
@@ -71,7 +74,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                         geometry_priority == after_key[0],
                         sequence_number == after_key[1],
                         cell_index == after_key[2],
-                        observation_id > after_key[3],
+                        cell_review_id > after_key[3],
                     ),
                 )
             )
@@ -80,23 +83,23 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                 geometry_priority,
                 sequence_number,
                 cell_index,
-                observation_id,
+                cell_review_id,
             ).limit(limit)
         ).all()
-        return self._to_candidates(rows)
+        return self._to_candidates(rows, game_id=game_id)
 
     def get_candidate(
-        self, *, game_id: UUID, symbol_id: UUID, observation_id: UUID
+        self, *, game_id: UUID, symbol_id: UUID, cell_review_id: UUID
     ) -> ApprovedSymbolReferenceCandidate | None:
         self._symbol_code(game_id, symbol_id)
         row = self._session.execute(
             self._candidate_query(game_id=game_id, symbol_id=symbol_id).where(
-                CellObservationModel.id == observation_id
+                ImageSymbolReviewCellModel.id == cell_review_id
             )
         ).one_or_none()
         if row is None:
             return None
-        return self._to_candidates((row,))[0]
+        return self._to_candidates((row,), game_id=game_id)[0]
 
     def get_cell_review_candidate(
         self, *, game_id: UUID, cell_review_id: UUID
@@ -116,7 +119,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
         ).one_or_none()
         if row is None:
             return None
-        return symbol_id, self._to_candidates((row,))[0]
+        return symbol_id, self._to_candidates((row,), game_id=game_id)[0]
 
     def get_reference(self, *, game_id: UUID, symbol_id: UUID) -> SymbolReferenceImage | None:
         row = self._session.execute(
@@ -150,7 +153,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
         current = self._locked_current_candidate(
             game_id=game_id,
             symbol_id=symbol_id,
-            observation_id=candidate.observation_id,
+            cell_review_id=candidate.cell_review_id,
         )
         if (
             current is None
@@ -179,7 +182,6 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                 game_id=game_id,
                 source_review_item_id=current.review_item_id,
                 source_recognized_board_id=current.recognized_board_id,
-                source_observation_id=current.observation_id,
                 sequence_number=current.sequence_number,
                 cell_index=current.cell_index,
                 resolution_revision=current.resolution_revision,
@@ -193,7 +195,6 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
             reference.game_id = game_id
             reference.source_review_item_id = current.review_item_id
             reference.source_recognized_board_id = current.recognized_board_id
-            reference.source_observation_id = current.observation_id
             reference.sequence_number = current.sequence_number
             reference.cell_index = current.cell_index
             reference.resolution_revision = current.resolution_revision
@@ -224,15 +225,34 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
         *,
         game_id: UUID,
         symbol_id: UUID,
-        observation_id: UUID,
+        cell_review_id: UUID,
     ) -> ApprovedSymbolReferenceCandidate | None:
         self._symbol_code(game_id, symbol_id)
         row = self._session.execute(
-            self._candidate_query(game_id=game_id, symbol_id=symbol_id)
-            .where(CellObservationModel.id == observation_id)
-            .with_for_update()
+            self._locked_candidate_statement(
+                game_id=game_id, symbol_id=symbol_id, cell_review_id=cell_review_id
+            )
         ).one_or_none()
-        return None if row is None else self._to_candidates((row,))[0]
+        return None if row is None else self._to_candidates((row,), game_id=game_id)[0]
+
+    def _locked_candidate_statement(
+        self, *, game_id: UUID, symbol_id: UUID, cell_review_id: UUID
+    ) -> Any:
+        # PostgreSQL rejects a bare FOR UPDATE here: the source geometry
+        # revision is outer-joined. Lock the mutable rows that decide
+        # eligibility; the revision row is immutable.
+        return (
+            self._candidate_query(game_id=game_id, symbol_id=symbol_id)
+            .where(ImageSymbolReviewCellModel.id == cell_review_id)
+            .with_for_update(
+                of=[
+                    ImageSymbolReviewCellModel,
+                    ImageReviewItemModel,
+                    RecognizedBoardModel,
+                    SymbolModel,
+                ]
+            )
+        )
 
     def _symbol_code(self, game_id: UUID, symbol_id: UUID) -> str:
         code = self._session.scalar(
@@ -254,20 +274,11 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
         return (
             select(
                 review_cell,
-                CellObservationModel,
                 ImageReviewItemModel,
                 RecognizedBoardModel,
                 SourceImageModel.checksum_sha256,
                 ImageSourceGeometryRevisionModel.normalized_pixel_checksum_sha256,
                 ImageSourceGeometryRevisionModel.geometry_checksum_sha256,
-            )
-            .join(
-                CellObservationModel,
-                and_(
-                    CellObservationModel.recognized_board_id == review_cell.recognized_board_id,
-                    CellObservationModel.row_index == review_cell.row_index,
-                    CellObservationModel.column_index == review_cell.column_index,
-                ),
             )
             .join(ImageReviewItemModel, ImageReviewItemModel.id == review_cell.review_item_id)
             .join(
@@ -304,71 +315,77 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
                 review_cell.geometry_revision == RecognizedBoardModel.geometry_revision,
                 SymbolModel.game_id == game_id,
                 SymbolModel.status == SymbolStatus.ACTIVE,
-                or_(
-                    review_cell.asset_mode == "legacy_file",
-                    and_(
-                        review_cell.asset_mode == "virtual_source",
-                        review_cell.approved_asset_mode == "virtual_source",
-                        review_cell.approved_source_geometry_revision_id
-                        == review_cell.source_geometry_revision_id,
-                        review_cell.approved_render_spec_checksum_sha256
-                        == review_cell.render_spec_checksum_sha256,
-                        review_cell.approved_rendered_pixel_checksum_sha256
-                        == review_cell.rendered_pixel_checksum_sha256,
-                        review_cell.source_geometry_revision_id
-                        == RecognizedBoardModel.source_geometry_revision_id,
-                    ),
-                ),
+                # D-467 S6 (TASK-0796): only virtual renders exist.
+                review_cell.asset_mode == "virtual_source",
+                review_cell.approved_asset_mode == "virtual_source",
+                review_cell.approved_source_geometry_revision_id
+                == review_cell.source_geometry_revision_id,
+                review_cell.approved_render_spec_checksum_sha256
+                == review_cell.render_spec_checksum_sha256,
+                review_cell.approved_rendered_pixel_checksum_sha256
+                == review_cell.rendered_pixel_checksum_sha256,
+                review_cell.source_geometry_revision_id
+                == RecognizedBoardModel.source_geometry_revision_id,
             )
         )
 
-    def _to_candidates(self, rows: Sequence[Any]) -> tuple[ApprovedSymbolReferenceCandidate, ...]:
+    def _to_candidates(
+        self, rows: Sequence[Any], *, game_id: UUID
+    ) -> tuple[ApprovedSymbolReferenceCandidate, ...]:
+        # D-467 S7 (TASK-0792): one batched manifest read for the page; the
+        # candidate query already restricts cells to the board's current
+        # revision and source geometry, so every virtual cell has a manifest.
+        keys = {
+            review_cell.id: CellRenderSpecKey(
+                recognized_board_id=review_cell.recognized_board_id,
+                geometry_revision=review_cell.geometry_revision,
+                cell_index=review_cell.cell_index,
+                render_spec_checksum_sha256=str(review_cell.render_spec_checksum_sha256),
+            )
+            for review_cell, *_ in rows
+        }
+        render_specs = load_cell_render_specs(self._session, game_id=game_id, keys=keys.values())
         candidates: list[ApprovedSymbolReferenceCandidate] = []
         for (
             review_cell,
-            observation,
             item,
             board,
             source_checksum,
             normalized_pixel_checksum,
             geometry_checksum,
         ) in rows:
-            virtual_asset = (
-                None
-                if review_cell.asset_mode != "virtual_source"
-                else SymbolCellReviewAsset(
-                    cell_review_id=review_cell.id,
-                    crop_relative_path=None,
-                    crop_checksum_sha256=review_cell.crop_checksum_sha256,
-                    geometry_revision=review_cell.geometry_revision,
-                    current_geometry_revision=board.geometry_revision,
-                    revision=review_cell.revision,
-                    asset_mode="virtual_source",
-                    source_checksum_sha256=source_checksum,
-                    normalized_pixel_checksum_sha256=normalized_pixel_checksum,
-                    source_geometry_revision_id=review_cell.source_geometry_revision_id,
-                    current_source_geometry_revision_id=board.source_geometry_revision_id,
-                    geometry_checksum_sha256=geometry_checksum,
-                    logical_cell_key=review_cell.logical_cell_key,
-                    render_spec=review_cell.render_spec,
-                    render_spec_checksum_sha256=review_cell.render_spec_checksum_sha256,
-                    rendered_pixel_checksum_sha256=review_cell.rendered_pixel_checksum_sha256,
-                    extractor_version=review_cell.extractor_version,
-                )
+            virtual_asset = SymbolCellReviewAsset(
+                cell_review_id=review_cell.id,
+                crop_relative_path=None,
+                crop_checksum_sha256=review_cell.crop_checksum_sha256,
+                geometry_revision=review_cell.geometry_revision,
+                current_geometry_revision=board.geometry_revision,
+                revision=review_cell.revision,
+                asset_mode="virtual_source",
+                source_checksum_sha256=source_checksum,
+                normalized_pixel_checksum_sha256=normalized_pixel_checksum,
+                source_geometry_revision_id=review_cell.source_geometry_revision_id,
+                current_source_geometry_revision_id=board.source_geometry_revision_id,
+                geometry_checksum_sha256=geometry_checksum,
+                logical_cell_key=review_cell.logical_cell_key,
+                render_spec=render_specs[keys[review_cell.id]],
+                render_spec_checksum_sha256=review_cell.render_spec_checksum_sha256,
+                rendered_pixel_checksum_sha256=review_cell.rendered_pixel_checksum_sha256,
+                extractor_version=review_cell.extractor_version,
             )
             candidates.append(
                 ApprovedSymbolReferenceCandidate(
-                    observation_id=observation.id,
+                    cell_review_id=review_cell.id,
                     review_item_id=item.id,
                     recognized_board_id=board.id,
                     sequence_number=int(review_cell.sequence_number),
                     cell_index=review_cell.cell_index,
                     resolution_revision=item.resolution_revision,
                     geometry_revision=review_cell.geometry_revision,
-                    crop_relative_path=review_cell.crop_relative_path,
+                    crop_relative_path=None,
                     crop_checksum_sha256=review_cell.crop_checksum_sha256,
                     status=review_cell.review_state,
-                    asset_mode=review_cell.asset_mode,
+                    asset_mode="virtual_source",
                     virtual_asset=virtual_asset,
                 )
             )
@@ -379,8 +396,10 @@ def _order_columns() -> tuple[Any, Any, Any, Any]:
     geometry_priority = case((ImageSymbolReviewCellModel.geometry_revision > 0, 0), else_=1)
     sequence_number = ImageSymbolReviewCellModel.sequence_number
     cell_index = ImageSymbolReviewCellModel.cell_index
-    observation_id = CellObservationModel.id.cast(String)
-    return geometry_priority, sequence_number, cell_index, observation_id
+    # The identity tie-breaker is the review cell id (D-467); a logical
+    # position (sequence, cell) has one current review cell per game.
+    cell_review_id = ImageSymbolReviewCellModel.id.cast(String)
+    return geometry_priority, sequence_number, cell_index, cell_review_id
 
 
 def _to_reference(record: SymbolReferenceImageModel) -> SymbolReferenceImage:
@@ -388,7 +407,6 @@ def _to_reference(record: SymbolReferenceImageModel) -> SymbolReferenceImage:
         symbol_id=record.symbol_id,
         source_review_item_id=record.source_review_item_id,
         source_recognized_board_id=record.source_recognized_board_id,
-        source_observation_id=record.source_observation_id,
         sequence_number=int(record.sequence_number),
         cell_index=record.cell_index,
         resolution_revision=record.resolution_revision,

@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
@@ -13,6 +14,8 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
+    SymbolCellReviewPredictionSource,
+    utc_isoformat,
 )
 
 MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS = 10_000
@@ -75,6 +78,9 @@ class SymbolCellReviewBulkFilterSelection:
     excluded_cell_review_ids: tuple[UUID, ...] = ()
     outside_only: bool = False
     include_all_symbols: bool = False
+    prediction_source: SymbolCellReviewPredictionSource | None = None
+    changed_from: datetime | None = None
+    changed_to: datetime | None = None
 
     def __post_init__(self) -> None:
         if (self.outside_only or self.include_all_symbols) and (
@@ -113,6 +119,21 @@ class SymbolCellReviewBulkFilterSelection:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_BULK_CONFIDENCE_RANGE_INVALID",
                 "min_confidence cannot be greater than max_confidence.",
+            )
+        for name, moment in (("changed_from", self.changed_from), ("changed_to", self.changed_to)):
+            if moment is not None and moment.tzinfo is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_BULK_CHANGED_RANGE_INVALID",
+                    f"{name} must include a time zone.",
+                )
+        if (
+            self.changed_from is not None
+            and self.changed_to is not None
+            and self.changed_from > self.changed_to
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_BULK_CHANGED_RANGE_INVALID",
+                "changed_from cannot be later than changed_to.",
             )
         if len(self.excluded_cell_review_ids) > MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS:
             raise SymbolCellReviewError(
@@ -222,6 +243,31 @@ class SymbolCellReviewBulkRequest:
                 "kind": "filter",
                 "maxConfidence": self.filter_selection.max_confidence,
                 "minConfidence": self.filter_selection.min_confidence,
+                # Only set extended filters enter the fingerprint of older requests unchanged.
+                **{
+                    key: value
+                    for key, value in (
+                        (
+                            "predictionSource",
+                            None
+                            if self.filter_selection.prediction_source is None
+                            else self.filter_selection.prediction_source.value,
+                        ),
+                        (
+                            "changedFrom",
+                            None
+                            if self.filter_selection.changed_from is None
+                            else utc_isoformat(self.filter_selection.changed_from),
+                        ),
+                        (
+                            "changedTo",
+                            None
+                            if self.filter_selection.changed_to is None
+                            else utc_isoformat(self.filter_selection.changed_to),
+                        ),
+                    )
+                    if value is not None
+                },
                 "state": self.filter_selection.state.value,
                 "symbolId": (
                     "outside"

@@ -22,7 +22,7 @@ from sqlalchemy.orm import Session
 def audit(game_id: UUID) -> dict[str, object]:
     settings = ApiSettings.from_environment()
     engine = create_engine(
-        settings.database_url,
+        settings.owner_database_url,
         connect_args={
             "connect_timeout": 5,
             "options": "-c statement_timeout=15000 -c default_transaction_read_only=on",

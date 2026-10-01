@@ -66,6 +66,9 @@ import type {
   ContinueImageSelectionWithoutImageData,
   ContinueImageSelectionWithoutImageErrors,
   ContinueImageSelectionWithoutImageResponses,
+  CreateBoardSearchShareSessionData,
+  CreateBoardSearchShareSessionErrors,
+  CreateBoardSearchShareSessionResponses,
   CreateBrowserImageSelectionData,
   CreateBrowserImageSelectionErrors,
   CreateBrowserImageSelectionResponses,
@@ -171,6 +174,9 @@ import type {
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
+  DeletePaylineData,
+  DeletePaylineErrors,
+  DeletePaylineResponses,
   DeleteSemiAutomaticFilenameVerificationHistoryData,
   DeleteSemiAutomaticFilenameVerificationHistoryErrors,
   DeleteSemiAutomaticFilenameVerificationHistoryResponses,
@@ -213,15 +219,36 @@ import type {
   GetApprovedSymbolReferenceCandidateAssetData,
   GetApprovedSymbolReferenceCandidateAssetErrors,
   GetApprovedSymbolReferenceCandidateAssetResponses,
-  GetArchivedBoardSearchAssetData,
-  GetArchivedBoardSearchAssetErrors,
-  GetArchivedBoardSearchAssetResponses,
   GetBoardImportCoverageData,
   GetBoardImportCoverageErrors,
   GetBoardImportCoverageResponses,
   GetBoardSearchApproximateWinData,
   GetBoardSearchApproximateWinErrors,
   GetBoardSearchApproximateWinResponses,
+  GetBoardSearchBoardDetailData,
+  GetBoardSearchBoardDetailErrors,
+  GetBoardSearchBoardDetailResponses,
+  GetBoardSearchBoardViewData,
+  GetBoardSearchBoardViewErrors,
+  GetBoardSearchBoardViewResponses,
+  GetBoardSearchShareApproximateWinData,
+  GetBoardSearchShareApproximateWinErrors,
+  GetBoardSearchShareApproximateWinResponses,
+  GetBoardSearchShareBoardDetailData,
+  GetBoardSearchShareBoardDetailErrors,
+  GetBoardSearchShareBoardDetailResponses,
+  GetBoardSearchShareBoardViewData,
+  GetBoardSearchShareBoardViewErrors,
+  GetBoardSearchShareBoardViewResponses,
+  GetBoardSearchShareContextData,
+  GetBoardSearchShareContextErrors,
+  GetBoardSearchShareContextResponses,
+  GetBoardSearchShareQueryReplayData,
+  GetBoardSearchShareQueryReplayErrors,
+  GetBoardSearchShareQueryReplayResponses,
+  GetBoardSearchShareSymbolImageData,
+  GetBoardSearchShareSymbolImageErrors,
+  GetBoardSearchShareSymbolImageResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
@@ -435,6 +462,15 @@ import type {
   ListApprovedSymbolReferenceCandidatesData,
   ListApprovedSymbolReferenceCandidatesErrors,
   ListApprovedSymbolReferenceCandidatesResponses,
+  ListBoardSearchShareQueriesData,
+  ListBoardSearchShareQueriesErrors,
+  ListBoardSearchShareQueriesResponses,
+  ListBoardSearchShareSessionsData,
+  ListBoardSearchShareSessionsErrors,
+  ListBoardSearchShareSessionsResponses,
+  ListBoardSearchShareSymbolsData,
+  ListBoardSearchShareSymbolsErrors,
+  ListBoardSearchShareSymbolsResponses,
   ListBrowserPageGeometryReviewSourcesData,
   ListBrowserPageGeometryReviewSourcesErrors,
   ListBrowserPageGeometryReviewSourcesResponses,
@@ -653,6 +689,9 @@ import type {
   RecoverImageSelectionRangesData,
   RecoverImageSelectionRangesErrors,
   RecoverImageSelectionRangesResponses,
+  RefreshBoardSearchBoardDocumentData,
+  RefreshBoardSearchBoardDocumentErrors,
+  RefreshBoardSearchBoardDocumentResponses,
   RefreshImageStorageInventoryData,
   RefreshImageStorageInventoryErrors,
   RefreshImageStorageInventoryResponses,
@@ -707,6 +746,9 @@ import type {
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
+  RevokeBoardSearchShareSessionData,
+  RevokeBoardSearchShareSessionErrors,
+  RevokeBoardSearchShareSessionResponses,
   RevokeRemoteManualSelectionSessionData,
   RevokeRemoteManualSelectionSessionErrors,
   RevokeRemoteManualSelectionSessionResponses,
@@ -725,6 +767,9 @@ import type {
   SealImageGeometryGuardResolutionManifestData,
   SealImageGeometryGuardResolutionManifestErrors,
   SealImageGeometryGuardResolutionManifestResponses,
+  SearchBoardSearchShareBoardsData,
+  SearchBoardSearchShareBoardsErrors,
+  SearchBoardSearchShareBoardsResponses,
   SearchGameBoardsData,
   SearchGameBoardsErrors,
   SearchGameBoardsResponses,
@@ -785,6 +830,9 @@ import type {
   TakeoverRemoteManualSelectionWriterLeaseData,
   TakeoverRemoteManualSelectionWriterLeaseErrors,
   TakeoverRemoteManualSelectionWriterLeaseResponses,
+  UnlockBoardSearchShareSessionData,
+  UnlockBoardSearchShareSessionErrors,
+  UnlockBoardSearchShareSessionResponses,
   UnlockRemoteManualSelectionSessionData,
   UnlockRemoteManualSelectionSessionErrors,
   UnlockRemoteManualSelectionSessionResponses,
@@ -837,6 +885,114 @@ export type Options<
    */
   meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Read one query log entry with what is needed to replay it
+ */
+export const getBoardSearchShareQueryReplay = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareQueryReplayData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareQueryReplayResponses,
+  GetBoardSearchShareQueryReplayErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareQueryReplayResponses,
+    GetBoardSearchShareQueryReplayErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/queries/{event_id}',
+    ...options,
+  });
+
+/**
+ * List board-search share sessions without secrets
+ */
+export const listBoardSearchShareSessions = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListBoardSearchShareSessionsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareSessionsResponses,
+  ListBoardSearchShareSessionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchShareSessionsResponses,
+    ListBoardSearchShareSessionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/board-search-shares/sessions', ...options });
+
+/**
+ * Create one online read-only board-search share link
+ */
+export const createBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  CreateBoardSearchShareSessionResponses,
+  CreateBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateBoardSearchShareSessionResponses,
+    CreateBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read a share link's query log, newest first (D-472)
+ */
+export const listBoardSearchShareQueries = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListBoardSearchShareQueriesData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareQueriesResponses,
+  ListBoardSearchShareQueriesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListBoardSearchShareQueriesResponses,
+    ListBoardSearchShareQueriesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/queries',
+    ...options,
+  });
+
+/**
+ * Immediately stop one board-search share link
+ */
+export const revokeBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RevokeBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  RevokeBoardSearchShareSessionResponses,
+  RevokeBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeBoardSearchShareSessionResponses,
+    RevokeBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/revoke',
+    ...options,
+  });
 
 /**
  * Archive a published dataset version
@@ -1049,23 +1205,62 @@ export const getBoardSearchApproximateWin = <
   });
 
 /**
- * Read one checksum-bound board image from a frozen search archive
+ * Winning paylines and cropped-view cell polygons of one board
  */
-export const getArchivedBoardSearchAsset = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<GetArchivedBoardSearchAssetData, ThrowOnError>,
+export const getBoardSearchBoardDetail = <ThrowOnError extends boolean = false>(
+  options: Options<GetBoardSearchBoardDetailData, ThrowOnError>,
 ): RequestResult<
-  GetArchivedBoardSearchAssetResponses,
-  GetArchivedBoardSearchAssetErrors,
+  GetBoardSearchBoardDetailResponses,
+  GetBoardSearchBoardDetailErrors,
   ThrowOnError
 > =>
   (options.client ?? client).get<
-    GetArchivedBoardSearchAssetResponses,
-    GetArchivedBoardSearchAssetErrors,
+    GetBoardSearchBoardDetailResponses,
+    GetBoardSearchBoardDetailErrors,
     ThrowOnError
   >({
-    url: '/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}',
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Rebuild one board's search document from its current records
+ */
+export const refreshBoardSearchBoardDocument = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RefreshBoardSearchBoardDocumentData, ThrowOnError>,
+): RequestResult<
+  RefreshBoardSearchBoardDocumentResponses,
+  RefreshBoardSearchBoardDocumentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RefreshBoardSearchBoardDocumentResponses,
+    RefreshBoardSearchBoardDocumentErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/refresh',
+    ...options,
+  });
+
+/**
+ * Read the checksum-bound cropped WebP view of one board
+ */
+export const getBoardSearchBoardView = <ThrowOnError extends boolean = false>(
+  options: Options<GetBoardSearchBoardViewData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchBoardViewResponses,
+  GetBoardSearchBoardViewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchBoardViewResponses,
+    GetBoardSearchBoardViewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/view',
     ...options,
   });
 
@@ -1517,7 +1712,7 @@ export const getPendingBoardCellGeometryCorrectionContext = <
   });
 
 /**
- * Preview 15 manual source-direct crops for a deferred board
+ * Preview the virtual cells of a manual deferred-board geometry
  */
 export const previewPendingBoardCellGeometryCorrection = <
   ThrowOnError extends boolean = false,
@@ -1543,7 +1738,7 @@ export const previewPendingBoardCellGeometryCorrection = <
   });
 
 /**
- * Create one ordinary review item from manual deferred geometry
+ * Resolve a deferred board as one virtual-source review item
  */
 export const resolvePendingBoardCellGeometryManually = <
   ThrowOnError extends boolean = false,
@@ -1761,7 +1956,7 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Render a stable WebP atlas for current legacy or virtual symbol cells
+ * Render a stable WebP atlas for current virtual symbol cells
  */
 export const createSymbolCellPreviewBatch = <
   ThrowOnError extends boolean = false,
@@ -2316,7 +2511,7 @@ export const getApprovedSymbolReferenceCandidateAsset = <
     GetApprovedSymbolReferenceCandidateAssetErrors,
     ThrowOnError
   >({
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/asset',
     ...options,
   });
 
@@ -2338,7 +2533,7 @@ export const selectApprovedSymbolReferenceCandidate = <
     ThrowOnError
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/selection',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -3682,7 +3877,7 @@ export const getOperationalImageReviewSourceAsset = <
   });
 
 /**
- * Preview 15 corrected v19 board-cell crops without persistence
+ * Preview the virtual cells of a corrected board geometry without persistence
  */
 export const previewOperationalImageReviewGeometry = <
   ThrowOnError extends boolean = false,
@@ -3708,7 +3903,7 @@ export const previewOperationalImageReviewGeometry = <
   });
 
 /**
- * Persist immutable v19 symbol-lattice geometry and reopen review
+ * Persist a virtual-source geometry revision of one board and reopen review
  */
 export const createOperationalImageReviewGeometryRevision = <
   ThrowOnError extends boolean = false,
@@ -5498,6 +5693,22 @@ export const updatePayline = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Permanently delete draft payline
+ */
+export const deletePayline = <ThrowOnError extends boolean = false>(
+  options: Options<DeletePaylineData, ThrowOnError>,
+): RequestResult<DeletePaylineResponses, DeletePaylineErrors, ThrowOnError> =>
+  (options.client ?? client).delete<
+    DeletePaylineResponses,
+    DeletePaylineErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent',
+    ...options,
+  });
+
+/**
  * List rules-version payout rules
  */
 export const listPayoutRules = <ThrowOnError extends boolean = false>(
@@ -6318,6 +6529,166 @@ export const listWorkerLanes = <ThrowOnError extends boolean = false>(
     unknown,
     ThrowOnError
   >({ url: '/api/v1/admin/worker-lanes', ...options });
+
+/**
+ * Calculate the approximate win for a range of the shared game
+ */
+export const getBoardSearchShareApproximateWin = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareApproximateWinData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareApproximateWinResponses,
+  GetBoardSearchShareApproximateWinErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareApproximateWinResponses,
+    GetBoardSearchShareApproximateWinErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/approximate-win', ...options });
+
+/**
+ * Winning paylines of one board of the shared game (no cell records)
+ */
+export const getBoardSearchShareBoardDetail = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareBoardDetailData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareBoardDetailResponses,
+  GetBoardSearchShareBoardDetailErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareBoardDetailResponses,
+    GetBoardSearchShareBoardDetailErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/boards/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Read the checksum-bound cropped view of one board of the shared game
+ */
+export const getBoardSearchShareBoardView = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareBoardViewData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareBoardViewResponses,
+  GetBoardSearchShareBoardViewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareBoardViewResponses,
+    GetBoardSearchShareBoardViewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/boards/{sequence_number}/view',
+    ...options,
+  });
+
+/**
+ * Read the authenticated share context
+ */
+export const getBoardSearchShareContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetBoardSearchShareContextData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareContextResponses,
+  GetBoardSearchShareContextErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetBoardSearchShareContextResponses,
+    GetBoardSearchShareContextErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/context', ...options });
+
+/**
+ * Find boards of the shared game by a partial symbol pattern
+ */
+export const searchBoardSearchShareBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<SearchBoardSearchShareBoardsData, ThrowOnError>,
+): RequestResult<
+  SearchBoardSearchShareBoardsResponses,
+  SearchBoardSearchShareBoardsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    SearchBoardSearchShareBoardsResponses,
+    SearchBoardSearchShareBoardsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/search', ...options });
+
+/**
+ * Exchange a share link's access code for a session cookie
+ */
+export const unlockBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UnlockBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  UnlockBoardSearchShareSessionResponses,
+  UnlockBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    UnlockBoardSearchShareSessionResponses,
+    UnlockBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/sessions/{session_id}/unlock',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List the shared game's symbols
+ */
+export const listBoardSearchShareSymbols = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListBoardSearchShareSymbolsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareSymbolsResponses,
+  ListBoardSearchShareSymbolsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchShareSymbolsResponses,
+    ListBoardSearchShareSymbolsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/symbols', ...options });
+
+/**
+ * Read one checksum-bound symbol image of the shared game
+ */
+export const getBoardSearchShareSymbolImage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareSymbolImageData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareSymbolImageResponses,
+  GetBoardSearchShareSymbolImageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareSymbolImageResponses,
+    GetBoardSearchShareSymbolImageErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/symbols/{symbol_id}/image',
+    ...options,
+  });
 
 /**
  * Get API health

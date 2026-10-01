@@ -10,6 +10,12 @@ from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
+from _virtual_board_fixtures import (
+    add_board_render_manifest_for,
+    ensure_source_geometry,
+    save_manual_virtual_geometry,
+    virtual_board_columns,
+)
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.catalog import CatalogService
@@ -24,15 +30,8 @@ from game_predictor_api.application.image_symbol_review_mutations import (
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewView
-from game_predictor_api.domain.image_reviews import (
-    ImageReviewGeometryArtifacts,
-    ImageReviewGeometryCellArtifact,
-    ImageReviewGeometryPoint,
-    validate_image_review_geometry_command,
-)
 from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewAction
 from game_predictor_api.domain.jobs import JobStatus, JobType, create_job
-from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -56,17 +55,14 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     ImageBoardGeometryPendingModel,
     ImageBoardSearchFastDocumentModel,
     ImageLayoutStagingRowModel,
     ImageReviewItemModel,
     ImageSequenceCanonicalModel,
-    ImageSourceGeometryRevisionModel,
     ImageSymbolReviewCellModel,
     JobModel,
     RecognizedBoardModel,
-    RulesVersionModel,
     SourceImageModel,
 )
 from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
@@ -93,7 +89,7 @@ pytestmark = pytest.mark.skipif(
 
 def _database_url(database_name: str) -> URL:
     return (
-        make_url(ApiSettings.from_environment().database_url)
+        make_url(ApiSettings.from_environment().owner_database_url)
         .set(database=database_name)
         .update_query_dict({"connect_timeout": "3"})
     )
@@ -153,6 +149,14 @@ def _add_pending_board(
     )
     session.add(source)
     session.flush()
+    source_geometry = ensure_source_geometry(
+        session,
+        game_id=job.game_id,
+        source=source,
+        sequence_range_start=1,
+        created_at=created_at,
+        quad=IN_FRAME_QUAD,
+    )
     first_review_id: UUID | None = None
     for position in (0, *sibling_positions):
         sequence = position + 1
@@ -163,9 +167,22 @@ def _add_pending_board(
             sequence_number=sequence,
             sequence_confidence=1.0,
             board_geometry={"source": "verified-cell-test", "quad": IN_FRAME_QUAD},
-            board_relative_path=f"crops/verified-cells-{position}.png",
-            board_checksum_sha256=f"{sequence:064x}",
-            cells_prediction={"cells": []},
+            # D-467 S6: a virtual board on its first manual revision; the
+            # import predictions of every cell stay in ``cells_prediction``.
+            geometry_revision=1,
+            **virtual_board_columns(source_geometry),
+            cells_prediction={
+                "cells": [
+                    {
+                        "rowIndex": index // 5,
+                        "columnIndex": index % 5,
+                        "symbolCode": "first",
+                        "confidence": 0.9,
+                        "alternatives": [{"symbolCode": "second", "confidence": 0.1}],
+                    }
+                    for index in range(15)
+                ]
+            },
             board_confidence=1.0,
             pipeline_fingerprint=PIPELINE,
             status="pending_review",
@@ -185,24 +202,15 @@ def _add_pending_board(
         )
         session.add(review)
         session.flush()
-        first_review_id = first_review_id or review.id
-        session.add_all(
-            CellObservationModel(
-                recognized_board_id=board.id,
-                row_index=index // 5,
-                column_index=index % 5,
-                crop_relative_path=f"crops/verified-cells-{position}-{index}.png",
-                crop_checksum_sha256=f"{1000 * position + 100 + index:064x}",
-                cropper_version="verified-cell-cropper",
-                prediction={
-                    "symbolCode": "first",
-                    "confidence": 0.9,
-                    "alternatives": [{"symbolCode": "second", "confidence": 0.1}],
-                },
-                created_at=created_at,
-            )
-            for index in range(15)
+        add_board_render_manifest_for(
+            session,
+            game_id=job.game_id,
+            board=board,
+            review_item_id=review.id,
+            created_at=created_at,
+            corrected_by="fixture",
         )
+        first_review_id = first_review_id or review.id
     assert first_review_id is not None
     return first_review_id
 
@@ -418,38 +426,14 @@ def test_verified_cells_reach_search_while_the_board_stays_pending(
             operational = SqlAlchemyOperationalImageReviewRepository(session)
             current = operational.get_item(review_item_id, game_id=game_id, import_job_id=job_id)
             assert current is not None
-            geometry_command = validate_image_review_geometry_command(
-                corners=(
-                    ImageReviewGeometryPoint(1, 1),
-                    ImageReviewGeometryPoint(91, 1),
-                    ImageReviewGeometryPoint(91, 91),
-                    ImageReviewGeometryPoint(1, 91),
-                ),
-                expected_geometry_revision=current.geometry_revision,
-                expected_resolution_revision=current.resolution_revision,
-                corrected_by="grid-reviewer",
-            )
-            operational.save_geometry_revision(
-                review_item_id=review_item_id,
+            save_manual_virtual_geometry(
+                session,
                 game_id=game_id,
                 import_job_id=job_id,
-                idempotency_key=uuid4(),
-                command=geometry_command,
-                artifacts=ImageReviewGeometryArtifacts(
-                    geometry={"source": "verified-cell-recrop", "quad": IN_FRAME_QUAD},
-                    board_relative_path="corrected/verified-cells.png",
-                    board_checksum_sha256="d" * 64,
-                    cropper_version="verified-cell-recrop",
-                    cells=tuple(
-                        ImageReviewGeometryCellArtifact(
-                            row_index=index // 5,
-                            column_index=index % 5,
-                            crop_relative_path=f"corrected/verified-cells-{index}.png",
-                            crop_checksum_sha256=f"{7000 + index:064x}",
-                        )
-                        for index in range(15)
-                    ),
-                ),
+                review_item_id=review_item_id,
+                board_id=current.recognized_board_id,
+                actor="grid-reviewer",
+                variant="verified-cell-recrop",
                 created_at=now + timedelta(minutes=1),
             )
             session.commit()
@@ -534,37 +518,15 @@ def test_fifteen_verified_cells_close_the_board_without_geometry_approval(
                 seed.review_item_id, game_id=seed.game_id, import_job_id=seed.job_id
             )
             assert identical is not None
-            operational.save_geometry_revision(
-                review_item_id=seed.review_item_id,
+            save_manual_virtual_geometry(
+                session,
                 game_id=seed.game_id,
                 import_job_id=seed.job_id,
-                idempotency_key=uuid4(),
-                command=validate_image_review_geometry_command(
-                    corners=(
-                        ImageReviewGeometryPoint(1, 1),
-                        ImageReviewGeometryPoint(91, 1),
-                        ImageReviewGeometryPoint(91, 91),
-                        ImageReviewGeometryPoint(1, 91),
-                    ),
-                    expected_geometry_revision=identical.geometry_revision,
-                    expected_resolution_revision=identical.resolution_revision,
-                    corrected_by="grid-reviewer",
-                ),
-                artifacts=ImageReviewGeometryArtifacts(
-                    geometry={"source": "identical-recrop", "quad": IN_FRAME_QUAD},
-                    board_relative_path="corrected/identical-recrop.png",
-                    board_checksum_sha256="d" * 64,
-                    cropper_version="verified-cell-cropper",
-                    cells=tuple(
-                        ImageReviewGeometryCellArtifact(
-                            row_index=index // 5,
-                            column_index=index % 5,
-                            crop_relative_path=f"corrected/identical-{index}.png",
-                            crop_checksum_sha256=f"{100 + index:064x}",
-                        )
-                        for index in range(15)
-                    ),
-                ),
+                review_item_id=seed.review_item_id,
+                board_id=board_id,
+                actor="grid-reviewer",
+                # A new render of the same pixels (D-462 R10).
+                variant="",
                 created_at=now + timedelta(minutes=1),
             )
             session.commit()
@@ -586,37 +548,15 @@ def test_fifteen_verified_cells_close_the_board_without_geometry_approval(
                 seed.review_item_id, game_id=seed.game_id, import_job_id=seed.job_id
             )
             assert current is not None
-            operational.save_geometry_revision(
-                review_item_id=seed.review_item_id,
+            save_manual_virtual_geometry(
+                session,
                 game_id=seed.game_id,
                 import_job_id=seed.job_id,
-                idempotency_key=uuid4(),
-                command=validate_image_review_geometry_command(
-                    corners=(
-                        ImageReviewGeometryPoint(1, 1),
-                        ImageReviewGeometryPoint(91, 1),
-                        ImageReviewGeometryPoint(91, 91),
-                        ImageReviewGeometryPoint(1, 91),
-                    ),
-                    expected_geometry_revision=current.geometry_revision,
-                    expected_resolution_revision=current.resolution_revision,
-                    corrected_by="grid-reviewer",
-                ),
-                artifacts=ImageReviewGeometryArtifacts(
-                    geometry={"source": "partial-recrop", "quad": IN_FRAME_QUAD},
-                    board_relative_path="corrected/partial-recrop.png",
-                    board_checksum_sha256="e" * 64,
-                    cropper_version="verified-cell-cropper",
-                    cells=tuple(
-                        ImageReviewGeometryCellArtifact(
-                            row_index=index // 5,
-                            column_index=index % 5,
-                            crop_relative_path=f"corrected/partial-recrop-{index}.png",
-                            crop_checksum_sha256=f"{(9000 if index == 0 else 100) + index:064x}",
-                        )
-                        for index in range(15)
-                    ),
-                ),
+                review_item_id=seed.review_item_id,
+                board_id=board_id,
+                actor="grid-reviewer",
+                variant="partial-recrop",
+                changed_cells=(0,),
                 created_at=now + timedelta(minutes=2),
             )
             session.commit()
@@ -628,7 +568,7 @@ def test_fifteen_verified_cells_close_the_board_without_geometry_approval(
             assert all(cell.review_state == "approved" for cell in cells[1:])
             assert all(
                 cell.approved_crop_checksum_sha256 == cell.crop_checksum_sha256
-                and cell.approved_geometry_revision == cell.geometry_revision == 2
+                and cell.approved_geometry_revision == cell.geometry_revision == 3
                 for cell in cells[1:]
             )
             review = session.get(ImageReviewItemModel, seed.review_item_id)
@@ -675,8 +615,10 @@ def test_an_approval_of_other_pixels_keeps_the_board_open(
             cells = _cells(session, seed.review_item_id)
             for cell in cells[:14]:
                 assert approve(session, cell) == "pending"
-            # Simulate an approval that was given to other pixels.
+            # Simulate an approval that was given to other pixels (a virtual
+            # cell's approval is bound by its rendered pixels).
             cells[0].approved_crop_checksum_sha256 = "f" * 64
+            cells[0].approved_rendered_pixel_checksum_sha256 = "f" * 64
             session.flush()
             assert approve(session, cells[14]) == "pending"
             session.commit()
@@ -685,6 +627,9 @@ def test_an_approval_of_other_pixels_keeps_the_board_open(
             cells = _cells(session, seed.review_item_id)
             # Same pixels under another sample identity: still a verification.
             cells[0].approved_crop_checksum_sha256 = cells[0].crop_checksum_sha256
+            cells[0].approved_rendered_pixel_checksum_sha256 = cells[
+                0
+            ].rendered_pixel_checksum_sha256
             cells[0].approved_crop_sample_id = "e" * 64
             session.flush()
             assert SymbolCellReviewWriteThroughCoordinator(session).synchronize_board_from_cells(
@@ -785,48 +730,8 @@ def test_correction_queue_lists_one_reported_board_per_slot(
                 .where(ImageReviewItemModel.id == seed.review_item_id)
             )
             assert board is not None
-            source = session.get(SourceImageModel, board.source_image_id)
-            assert source is not None
-            rules = RulesVersionModel(
-                game_id=seed.game_id,
-                version=1,
-                rows=3,
-                columns=5,
-                spin_cost=0,
-                status=RulesVersionStatus.DRAFT,
-                created_at=now,
-                published_at=None,
-            )
-            session.add(rules)
-            session.flush()
-            session.add(
-                ImageSourceGeometryRevisionModel(
-                    game_id=seed.game_id,
-                    source_image_id=source.id,
-                    topology_rules_version_id=rules.id,
-                    revision=0,
-                    sequence_range_start=1,
-                    sequence_range_end=3,
-                    active_board_slots=[0, 1, 2],
-                    coordinate_space="exif-normalized-rgb-pixels-v1",
-                    source_checksum_sha256=source.checksum_sha256,
-                    normalized_pixel_checksum_sha256="b" * 64,
-                    oriented_width=1920,
-                    oriented_height=1080,
-                    normalization_adapter_version="normalization-test-v1",
-                    global_initialization={},
-                    board_geometries=[{"positionIndex": slot} for slot in range(3)],
-                    engine_kind="structured_opencv_v1",
-                    engine_version="structured-test-v1",
-                    geometry_source="auto",
-                    status="needs_review",
-                    geometry_checksum_sha256="d" * 64,
-                    processing_time_ms=1,
-                    warnings=[],
-                    created_by="correction-queue-test",
-                    created_at=now,
-                )
-            )
+            # The photo's source geometry (slots 0-8) comes from the virtual
+            # board fixture.
             # Scenario 3: the algorithm rejected slot 2 only.
             deferred_slot(session, board, 2)
             assert correction_page(session) == (

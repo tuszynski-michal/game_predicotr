@@ -25,6 +25,10 @@ from game_predictor_api.domain.image_geometry_v2 import (
 )
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
+from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
+from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
+    ManualBoardCellSymbolPrediction,
+)
 from game_predictor_worker.images.normalization import CanonicalSourceLoader
 from game_predictor_worker.images.virtual_cell_extraction import (
     VIRTUAL_CELL_INTERPOLATION_VERSION,
@@ -524,3 +528,250 @@ def _cell_corners(position_index: int) -> tuple[ImageReviewGeometryPoint, ...]:
         ImageReviewGeometryPoint(x=left + 38, y=top + 24),
         ImageReviewGeometryPoint(x=left, y=top + 24),
     )
+
+
+class RecordingSymbolPredictor:
+    """Pinned-model stand-in: one deterministic prediction per rendered cell."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[tuple[tuple[int, int], ...], str]] = []
+
+    def predict_rendered_cells(self, cells, snapshot):  # type: ignore[no-untyped-def]
+        positions = tuple((cell.row_index, cell.column_index) for cell in cells)
+        self.calls.append((positions, snapshot.model_version))
+        return ManualBoardCellSymbolPrediction(
+            model_iteration_id=None,
+            model_manifest_checksum_sha256=snapshot.manifest_checksum_sha256,
+            model_version=snapshot.model_version,
+            temperature_applied=0.5,
+            cells=tuple(
+                {
+                    "alternatives": [{"confidence": 1.0, "symbolCode": "seven"}],
+                    "columnIndex": column,
+                    "confidence": 0.9,
+                    "rowIndex": row,
+                    "symbolCode": "seven",
+                }
+                for row, column in positions
+            ),
+        )
+
+
+def _deferred_source(
+    tmp_path: Path,
+    *,
+    predictor: RecordingSymbolPredictor | None = None,
+) -> tuple[
+    VirtualGridGeometryService,
+    MemoryVirtualGridGeometryRepository,
+    tuple[VirtualGridGeometryContext, ...],
+]:
+    base_service, context = _fixture(tmp_path)
+    repository = base_service._repository  # noqa: SLF001 - application port fixture
+    assert isinstance(repository, MemoryVirtualGridGeometryRepository)
+    board_geometries = tuple(
+        {
+            "positionIndex": position,
+            "sequenceNumber": 1234 + position,
+            "finalQuad": None if position == 5 else {"existing": position},
+        }
+        for position in range(9)
+    )
+    contexts = tuple(
+        replace(
+            context,
+            review_item_id=None if position == 5 else uuid4(),
+            recognized_board_id=uuid4(),
+            pending_geometry_id=uuid4() if position == 5 else None,
+            position_index=position,
+            sequence_number=1234 + position,
+            sequence_range_start=1234,
+            sequence_range_end=1242,
+            active_board_slots=tuple(range(9)),
+            board_geometries=board_geometries,
+            pending_symbol_model=(
+                bootstrap_symbol_model_snapshot().to_payload() if position == 5 else None
+            ),
+        )
+        for position in range(9)
+    )
+    repository.contexts = {entry.target_id: entry for entry in contexts}
+    service = VirtualGridGeometryService(
+        repository,
+        tmp_path,
+        symbol_predictor=predictor,  # type: ignore[arg-type]
+    )
+    return service, repository, contexts
+
+
+def test_pending_slot_save_resolves_only_the_deferred_slot_with_pinned_predictions(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    predictor = RecordingSymbolPredictor()
+    service, repository, contexts = _deferred_source(tmp_path, predictor=predictor)
+    deferred = contexts[5]
+    assert deferred.pending_geometry_id is not None
+    key = uuid4()
+    kwargs = dict(
+        game_id=deferred.game_id,
+        import_job_id=deferred.import_job_id,
+        pending_geometry_id=deferred.pending_geometry_id,
+        idempotency_key=key,
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        corners=_cell_corners(5),
+        actor="reviewer-session:test",
+        created_at=datetime(2026, 10, 1, tzinfo=UTC),
+    )
+
+    result = service.save_pending_slot(**kwargs)
+
+    assert result.created is True
+    assert len(result.revisions) == 1 and len(repository.saved) == 1
+    prepared = repository.saved[0]
+    assert prepared.context.target_id == deferred.pending_geometry_id
+    # The other eight slots keep their current quads; only slot 5 changes.
+    assert [geometry.get("finalQuad") for geometry in prepared.board_geometries[:5]] == [
+        {"existing": position} for position in range(5)
+    ]
+    assert prepared.board_geometries[5]["geometrySource"] == "manual"
+    assert prepared.virtual_render_spec["assetMode"] == "virtual_source"
+    assert len(prepared.cells) == 15
+    assert prepared.slot_prediction is not None
+    assert [(cell["rowIndex"], cell["columnIndex"]) for cell in prepared.slot_prediction.cells] == [
+        (cell.row_index, cell.column_index) for cell in prepared.cells
+    ]
+    assert prepared.slot_prediction.model_version == bootstrap_symbol_model_snapshot().model_version
+    assert len(predictor.calls) == 1
+    assert not any(path.suffix == ".png" for path in (tmp_path / "data").rglob("*"))
+
+    repository.replays[(deferred.target_id, key)] = result.revisions[0]
+    monkeypatch.setattr(
+        service, "_prepare_source", lambda **_: pytest.fail("Retry must not render")
+    )
+    replay = service.save_pending_slot(**kwargs)
+    assert replay.created is False and replay.revisions == result.revisions
+    with pytest.raises(ImageGridReviewError, match="another command"):
+        service.save_pending_slot(**{**kwargs, "corners": _cell_corners(4)})
+
+
+def test_pending_slot_preview_renders_without_prediction_or_persistence(tmp_path: Path) -> None:
+    predictor = RecordingSymbolPredictor()
+    service, repository, contexts = _deferred_source(tmp_path, predictor=predictor)
+    deferred = contexts[5]
+    assert deferred.pending_geometry_id is not None
+
+    preview = service.preview_pending_slot(
+        game_id=deferred.game_id,
+        import_job_id=deferred.import_job_id,
+        pending_geometry_id=deferred.pending_geometry_id,
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        corners=_cell_corners(5),
+    )
+
+    assert preview.contact_sheet_png.startswith(b"\x89PNG")
+    assert len(preview.cells) == 15
+    assert predictor.calls == [] and repository.saved == []
+
+
+def test_pending_slot_save_rejects_a_stale_revision(tmp_path: Path) -> None:
+    service, _repository, contexts = _deferred_source(tmp_path)
+    deferred = contexts[5]
+    assert deferred.pending_geometry_id is not None
+
+    with pytest.raises(ImageGridReviewError) as error:
+        service.save_pending_slot(
+            game_id=deferred.game_id,
+            import_job_id=deferred.import_job_id,
+            pending_geometry_id=deferred.pending_geometry_id,
+            idempotency_key=uuid4(),
+            expected_geometry_revision=1,
+            expected_resolution_revision=0,
+            corners=_cell_corners(5),
+            actor="reviewer-session:test",
+            created_at=datetime(2026, 10, 1, tzinfo=UTC),
+        )
+
+    assert error.value.code == "IMAGE_GRID_REVIEW_REVISION_CONFLICT"
+
+
+def test_partial_source_correction_accepts_only_one_deferred_slot(tmp_path: Path) -> None:
+    service, _repository, contexts = _deferred_source(tmp_path)
+    current = contexts[4]
+
+    with pytest.raises(ImageGridReviewError) as error:
+        service._prepare_source(  # noqa: SLF001 - guard of the partial source path
+            game_id=current.game_id,
+            import_job_id=current.import_job_id,
+            commands=(
+                VirtualGridGeometrySourceCommand(
+                    review_item_id=current.review_item_id,
+                    pending_geometry_id=None,
+                    expected_geometry_revision=0,
+                    expected_resolution_revision=0,
+                    expected_source_checksum_sha256=current.source_checksum_sha256,
+                    expected_source_width=current.oriented_width,
+                    expected_source_height=current.oriented_height,
+                    expected_grid_rows=3,
+                    expected_grid_columns=5,
+                    corners=_cell_corners(4),
+                ),
+            ),
+            actor="reviewer-session:test",
+            require_complete_source=False,
+        )
+
+    assert error.value.code == "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT"
+
+
+def test_pending_slot_without_predictor_stays_unclassified(tmp_path: Path) -> None:
+    service, repository, contexts = _deferred_source(tmp_path)
+    deferred = contexts[5]
+    assert deferred.pending_geometry_id is not None
+
+    service.save_pending_slot(
+        game_id=deferred.game_id,
+        import_job_id=deferred.import_job_id,
+        pending_geometry_id=deferred.pending_geometry_id,
+        idempotency_key=uuid4(),
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        corners=_cell_corners(5),
+        actor="local-admin",
+        created_at=datetime(2026, 10, 1, tzinfo=UTC),
+    )
+
+    assert repository.saved[0].slot_prediction is None
+
+
+@pytest.mark.parametrize(
+    ("pinned", "sequence", "expected"),
+    ((0, None, 1), (3, None, 4), (0, 1, 2), (3, 1, 4), (1, 5, 6)),
+)
+def test_pending_slot_continues_the_sequence_revision(
+    tmp_path: Path, pinned: int, sequence: int | None, expected: int
+) -> None:
+    """TASK-0702 handoff rule on the virtual path: max(pinned, current) + 1."""
+
+    service, repository, contexts = _deferred_source(tmp_path)
+    deferred = replace(contexts[5], geometry_revision=pinned, sequence_geometry_revision=sequence)
+    assert deferred.pending_geometry_id is not None
+    repository.contexts[deferred.target_id] = deferred
+
+    service.save_pending_slot(
+        game_id=deferred.game_id,
+        import_job_id=deferred.import_job_id,
+        pending_geometry_id=deferred.pending_geometry_id,
+        idempotency_key=uuid4(),
+        expected_geometry_revision=pinned,
+        expected_resolution_revision=0,
+        corners=_cell_corners(5),
+        actor="reviewer-session:test",
+        created_at=datetime(2026, 10, 1, tzinfo=UTC),
+    )
+
+    assert deferred.next_geometry_revision == expected
+    prepared = repository.saved[0]
+    assert {cell.render_spec.get("geometryRevision") for cell in prepared.cells} == {expected}

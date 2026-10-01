@@ -18,10 +18,11 @@ from game_predictor_api.application.image_reviews import (
     OperationalImageReviewRepository,
     PendingGridReinferencePreview,
 )
-from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.board_render_manifests import (
+    crop_sample_id as manifest_crop_sample_id,
+)
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.geometry_qualification import available_cell_indices
-from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_ALTERNATIVES,
     ImageDatasetCompleteness,
@@ -29,10 +30,6 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewCell,
     ImageReviewConflictError,
     ImageReviewCounts,
-    ImageReviewGeometryArtifacts,
-    ImageReviewGeometryCellArtifact,
-    ImageReviewGeometryPoint,
-    ImageReviewGeometryRevision,
     ImageReviewGridIssueView,
     ImageReviewItem,
     ImageReviewNotFoundError,
@@ -41,10 +38,8 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewView,
     ImageSequenceSourceCandidate,
     ImageSequenceSourceSelection,
-    ValidatedImageReviewGeometryCommand,
     ValidatedImageReviewResolution,
     canonical_image_review_bytes,
-    crop_sample_id,
     validate_image_review_resolution,
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
@@ -53,18 +48,21 @@ from game_predictor_api.domain.verified_training_cohorts import (
     VerifiedTrainingReviewState,
     require_pending_model_prediction_target,
 )
+from game_predictor_api.storage.board_render_manifest_reader import CurrentBoardRenderManifest
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.current_board_cell_sources import (
+    NO_CELL_SOURCES,
+    CurrentBoardCellSources,
+    load_current_board_cell_sources,
 )
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
-    ImageBoardGeometryReviewEventModel,
-    ImageBoardGeometryRevisionModel,
     ImageLayoutStagingRowModel,
     ImageReviewItemModel,
     ImageReviewQueueItemModel,
@@ -1537,256 +1535,6 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             ).all()
         )
 
-    def get_geometry_revision_by_idempotency(
-        self,
-        review_item_id: UUID,
-        *,
-        game_id: UUID,
-        import_job_id: UUID,
-        idempotency_key: UUID,
-    ) -> ImageReviewGeometryRevision | None:
-        self._bind(game_id, intent=GameStorageIntent.READ)
-        if (
-            self.get_item(
-                review_item_id,
-                game_id=game_id,
-                import_job_id=import_job_id,
-            )
-            is None
-        ):
-            return None
-        record = self._session.scalar(
-            select(ImageBoardGeometryRevisionModel).where(
-                ImageBoardGeometryRevisionModel.review_item_id == review_item_id,
-                ImageBoardGeometryRevisionModel.idempotency_key == idempotency_key,
-            )
-        )
-        return _geometry_revision_from_record(record) if record is not None else None
-
-    def save_geometry_revision(
-        self,
-        *,
-        review_item_id: UUID,
-        game_id: UUID,
-        import_job_id: UUID,
-        idempotency_key: UUID,
-        command: ValidatedImageReviewGeometryCommand,
-        artifacts: ImageReviewGeometryArtifacts,
-        created_at: datetime,
-    ) -> tuple[ImageReviewItem, ImageReviewGeometryRevision, bool]:
-        self._bind(game_id, intent=GameStorageIntent.WRITE)
-        self._acquire_review_sequence_locks(
-            game_id=game_id,
-            review_item_id=review_item_id,
-            requested_sequence_number=None,
-        )
-        locked = self.get_item(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-            for_update=True,
-        )
-        if locked is None:
-            raise ImageReviewNotFoundError(
-                "IMAGE_REVIEW_ITEM_NOT_FOUND",
-                "The operational review item does not exist in this game and job.",
-            )
-        prior = self._session.scalar(
-            select(ImageBoardGeometryRevisionModel).where(
-                ImageBoardGeometryRevisionModel.review_item_id == review_item_id,
-                ImageBoardGeometryRevisionModel.idempotency_key == idempotency_key,
-            )
-        )
-        if prior is not None:
-            if prior.command_sha256 != command.command_sha256:
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",
-                    "The geometry idempotency key already represents another command.",
-                )
-            return locked, _geometry_revision_from_record(prior), False
-        if locked.status == "superseded":
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_SUPERSEDED",
-                "A superseded source cannot be reopened or replace the canonical decision.",
-            )
-        if (
-            locked.geometry_revision != command.expected_geometry_revision
-            or locked.resolution_revision != command.expected_resolution_revision
-        ):
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT",
-                "The review item changed before corrected geometry was persisted.",
-            )
-        item_record = self._session.get(
-            ImageReviewItemModel,
-            review_item_id,
-            with_for_update=True,
-        )
-        board = self._session.get(
-            RecognizedBoardModel,
-            locked.recognized_board_id,
-            with_for_update=True,
-        )
-        if item_record is None or board is None:
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_PROJECTION_MISSING",
-                "The corrected geometry projection is incomplete.",
-            )
-        topology = BoardTopology(
-            rows=board.grid_rows or 3,
-            columns=board.grid_columns or 5,
-        )
-        if len(artifacts.cells) != topology.cell_count or [
-            (cell.row_index, cell.column_index) for cell in artifacts.cells
-        ] != [(row, column) for row in range(topology.rows) for column in range(topology.columns)]:
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_CELLS_INVALID",
-                "Corrected geometry must contain every configured row-major crop artifact.",
-            )
-        revision = board.geometry_revision + 1
-        revised_geometry = dict(artifacts.geometry)
-        for retained_key in (
-            "sequenceLabelQuad",
-            "sourceContextBounds",
-            "attestedRangeStart",
-            "attestedRangeEnd",
-            "sequenceSource",
-        ):
-            retained_value = board.board_geometry.get(retained_key)
-            if retained_value is not None and retained_key not in revised_geometry:
-                revised_geometry[retained_key] = retained_value
-        record = ImageBoardGeometryRevisionModel(
-            review_item_id=review_item_id,
-            recognized_board_id=board.id,
-            revision=revision,
-            idempotency_key=idempotency_key,
-            command_sha256=command.command_sha256,
-            corners=[{"x": point.x, "y": point.y} for point in command.corners],
-            geometry=revised_geometry,
-            board_relative_path=artifacts.board_relative_path,
-            board_checksum_sha256=artifacts.board_checksum_sha256,
-            cropper_version=artifacts.cropper_version,
-            crop_artifacts=[
-                {
-                    "columnIndex": cell.column_index,
-                    "cropChecksumSha256": cell.crop_checksum_sha256,
-                    "cropRelativePath": cell.crop_relative_path,
-                    "rowIndex": cell.row_index,
-                }
-                for cell in artifacts.cells
-            ],
-            corrected_by=command.corrected_by,
-            created_at=created_at,
-        )
-        self._session.add(record)
-        previous_status = item_record.status
-        previous_resolved = cast(Mapping[str, object] | None, item_record.resolved_value)
-        previous_sequence = (
-            previous_resolved.get("sequenceNumber") if previous_resolved is not None else None
-        )
-        if (
-            previous_status in {"accepted", "corrected"}
-            and isinstance(previous_sequence, int)
-            and not isinstance(previous_sequence, bool)
-        ):
-            self._session.execute(
-                delete(ImageSequenceCanonicalModel).where(
-                    ImageSequenceCanonicalModel.game_id == game_id,
-                    ImageSequenceCanonicalModel.sequence_number == previous_sequence,
-                    ImageSequenceCanonicalModel.review_item_id == review_item_id,
-                )
-            )
-        item_record.status = "pending"
-        item_record.resolved_value = cast(Any, null())
-        item_record.resolved_by = None
-        item_record.resolved_at = None
-        item_record.resolution_revision += 1
-        previous_approved_geometry_revision = board.approved_geometry_revision
-        board.geometry_revision = revision
-        board.approved_geometry_revision = revision
-        board.geometry_approved_at = created_at
-        board.geometry_approved_by = command.corrected_by
-        board.board_geometry = revised_geometry
-        board.board_relative_path = artifacts.board_relative_path
-        board.board_checksum_sha256 = artifacts.board_checksum_sha256
-        board.status = "pending_review"
-        self._session.add(
-            ImageBoardGeometryReviewEventModel(
-                review_item_id=review_item_id,
-                recognized_board_id=board.id,
-                geometry_revision=revision,
-                grid_rows=topology.rows,
-                grid_columns=topology.columns,
-                board_checksum_sha256=artifacts.board_checksum_sha256,
-                action="geometry_saved",
-                previous_approved_geometry_revision=previous_approved_geometry_revision,
-                approved_geometry_revision=revision,
-                actor=command.corrected_by,
-                created_at=created_at,
-            )
-        )
-        self._session.execute(
-            delete(ImageLayoutStagingRowModel).where(
-                ImageLayoutStagingRowModel.import_job_id == import_job_id,
-                ImageLayoutStagingRowModel.recognized_board_id == board.id,
-            )
-        )
-        self._session.add(
-            ImageReviewResolutionEventModel(
-                review_item_id=review_item_id,
-                revision=item_record.resolution_revision,
-                idempotency_key=uuid5(
-                    NAMESPACE_URL,
-                    f"image-review-geometry-reopen:{idempotency_key}",
-                ),
-                action="reopened",
-                command_sha256=command.command_sha256,
-                resolved_value={
-                    "action": "reopened",
-                    "geometryRevision": revision,
-                    "previousStatus": previous_status,
-                },
-                resolved_by=command.corrected_by,
-                created_at=created_at,
-            )
-        )
-        source = self._session.get(
-            SourceImageModel,
-            board.source_image_id,
-            with_for_update=True,
-        )
-        if source is not None:
-            source.status = "waiting_for_review"
-            source.processed_at = created_at
-        self._session.flush()
-        projection = SqlAlchemyBoardSearchProjectionRepository(self._session)
-        projection.sync_review_item(review_item_id)
-        if isinstance(previous_sequence, int) and not isinstance(previous_sequence, bool):
-            projection.sync_sequence_candidates(game_id, previous_sequence)
-        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
-        coordinator.synchronize_after_geometry_change(
-            game_id=game_id,
-            review_item_id=review_item_id,
-            actor=command.corrected_by,
-        )
-        coordinator.synchronize_board_from_cells(
-            game_id=game_id,
-            review_item_id=review_item_id,
-            actor=command.corrected_by,
-        )
-        coordinator.synchronize_after_projection_change(game_id=game_id)
-        updated = self.get_item(
-            review_item_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-        )
-        if updated is None:
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_PROJECTION_MISSING",
-                "The corrected geometry projection cannot be reloaded.",
-            )
-        return updated, _geometry_revision_from_record(record), True
-
     def reopen_for_symbol_cell_issue(
         self,
         *,
@@ -1955,45 +1703,24 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         return [by_code[code] for code in symbol_codes]
 
     def _items_from_rows(self, rows: Sequence[ReviewRow]) -> tuple[ImageReviewItem, ...]:
-        board_ids = [board.id for _item, board, _source, _queue_item, _job in rows]
-        observations_by_board: dict[UUID, list[CellObservationModel]] = defaultdict(list)
-        if board_ids:
-            observations = self._session.scalars(
-                select(CellObservationModel)
-                .where(CellObservationModel.recognized_board_id.in_(board_ids))
-                .order_by(
-                    CellObservationModel.recognized_board_id,
-                    CellObservationModel.row_index,
-                    CellObservationModel.column_index,
-                )
-            ).all()
-            for observation in observations:
-                observations_by_board[observation.recognized_board_id].append(observation)
-        revisions_by_board: dict[UUID, ImageBoardGeometryRevisionModel] = {}
+        cell_sources = load_current_board_cell_sources(
+            self._session,
+            ((board, cast(UUID, job.game_id)) for _item, board, _source, _queue_item, job in rows),
+        )
         predictions_by_item: dict[UUID, list[dict[str, object]]] = {}
-        if board_ids:
-            for revision in self._session.scalars(
-                select(ImageBoardGeometryRevisionModel)
-                .where(ImageBoardGeometryRevisionModel.recognized_board_id.in_(board_ids))
+        item_ids = [item.id for item, _board, _source, _queue_item, _job in rows]
+        if item_ids:
+            for symbol_revision in self._session.scalars(
+                select(ImageSymbolPredictionRevisionModel)
+                .where(ImageSymbolPredictionRevisionModel.review_item_id.in_(item_ids))
                 .order_by(
-                    ImageBoardGeometryRevisionModel.recognized_board_id,
-                    ImageBoardGeometryRevisionModel.revision,
+                    ImageSymbolPredictionRevisionModel.review_item_id,
+                    ImageSymbolPredictionRevisionModel.created_at,
                 )
             ).all():
-                revisions_by_board[revision.recognized_board_id] = revision
-            item_ids = [item.id for item, _board, _source, _queue_item, _job in rows]
-            if item_ids:
-                for symbol_revision in self._session.scalars(
-                    select(ImageSymbolPredictionRevisionModel)
-                    .where(ImageSymbolPredictionRevisionModel.review_item_id.in_(item_ids))
-                    .order_by(
-                        ImageSymbolPredictionRevisionModel.review_item_id,
-                        ImageSymbolPredictionRevisionModel.created_at,
-                    )
-                ).all():
-                    predictions_by_item[symbol_revision.review_item_id] = list(
-                        symbol_revision.predictions
-                    )
+                predictions_by_item[symbol_revision.review_item_id] = list(
+                    symbol_revision.predictions
+                )
         return tuple(
             _item_from_records(
                 item,
@@ -2001,8 +1728,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 source,
                 queue_item,
                 job,
-                observations_by_board[board.id],
-                revisions_by_board.get(board.id),
+                cell_sources.get(board.id, NO_CELL_SOURCES),
                 predictions_by_item.get(item.id),
             )
             for item, board, source, queue_item, job in rows
@@ -2126,8 +1852,6 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
             select(
                 SourceImageModel.id,
                 ImageReviewItemModel.status,
-                RecognizedBoardModel.board_geometry,
-                RecognizedBoardModel.asset_mode,
                 RecognizedBoardModel.approved_geometry_revision,
                 human_cell_decision,
             )
@@ -2145,15 +1869,14 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         ).all()
         source_statuses: dict[UUID, set[str]] = defaultdict(set)
         pending_board_count = 0
-        recalculable_board_count = 0
-        current_v19_board_count = 0
         protected_board_count = 0
         unsupported_virtual_board_count = 0
+        # D-467 S6 (TASK-0796): the v19 file-crop recalculation only applied
+        # to the former file-crop boards; every board is ``virtual_source`` now, so
+        # nothing is recalculable and the job refuses to run.
         for (
             source_id,
             status,
-            board_geometry,
-            asset_mode,
             approved_geometry_revision,
             has_human_cell_decision,
         ) in rows:
@@ -2162,15 +1885,8 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 pending_board_count += 1
                 if approved_geometry_revision is not None or has_human_cell_decision:
                     protected_board_count += 1
-                elif asset_mode == "virtual_source":
-                    unsupported_virtual_board_count += 1
-                elif (
-                    board_geometry.get("geometryVersion") == geometry_version
-                    and board_geometry.get("cropperVersion") == cropper_version
-                ):
-                    current_v19_board_count += 1
                 else:
-                    recalculable_board_count += 1
+                    unsupported_virtual_board_count += 1
             else:
                 protected_board_count += 1
         pending_sources = sum("pending" in statuses for statuses in source_statuses.values())
@@ -2183,8 +1899,8 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         return PendingGridReinferencePreview(
             game_id=game_id,
             pending_board_count=pending_board_count,
-            recalculable_board_count=recalculable_board_count,
-            current_v19_board_count=current_v19_board_count,
+            recalculable_board_count=0,
+            current_v19_board_count=0,
             protected_board_count=protected_board_count,
             unsupported_virtual_board_count=unsupported_virtual_board_count,
             pending_source_count=pending_sources,
@@ -2455,190 +2171,26 @@ def _item_from_records(
     source: SourceImageModel,
     queue_item: ImageReviewQueueItemModel,
     job: JobModel,
-    observations: Sequence[CellObservationModel],
-    geometry_revision: ImageBoardGeometryRevisionModel | None,
+    cell_sources: CurrentBoardCellSources,
     prediction_override: Sequence[Mapping[str, object]] | None = None,
 ) -> ImageReviewItem:
-    if board.asset_mode == "virtual_source":
-        virtual_cells = _virtual_current_cells_from_records(
-            item=item,
-            board=board,
-            observations=observations,
-            geometry_revision=geometry_revision,
-            prediction_override=prediction_override,
-        )
-        return _review_item_from_current_cells(
-            item=item,
-            board=board,
-            source=source,
-            queue_item=queue_item,
-            job=job,
-            cells=virtual_cells,
-            # Structured boards deliberately have no persistent board bitmap.
-            # The Reviewer displays a bounded source context for this mode.
-            board_relative_path=source.relative_path,
-            board_checksum_sha256=source.checksum_sha256,
-        )
-    expected_indices = set(
-        available_cell_indices(
-            unavailable_cell_indices=(),
-            geometry_qualification=getattr(board, "geometry_qualification", None),
-            asset_mode="legacy_file",
-        )
+    virtual_cells = _virtual_current_cells_from_records(
+        item=item,
+        board=board,
+        render_manifest=cell_sources.render_manifest,
+        prediction_override=prediction_override,
     )
-    observation_indices = {
-        observation.row_index * 5 + observation.column_index for observation in observations
-    }
-    if len(observation_indices) != len(observations) or observation_indices not in (
-        expected_indices,
-        set(range(15)),
-    ):
-        raise ImageReviewConflictError(
-            "IMAGE_REVIEW_CELL_COUNT_INVALID",
-            "The operational review item must contain exactly 15 cell observations.",
-        )
-    resolved = cast(Mapping[str, object] | None, item.resolved_value)
-    raw_symbols = resolved.get("symbolCodes") if resolved is not None else None
-    resolved_symbols = (
-        tuple(cast(Sequence[str], raw_symbols))
-        if isinstance(raw_symbols, list | tuple) and len(raw_symbols) == 15
-        else None
-    )
-    cells: list[ImageReviewCell] = []
-    revised_cells: dict[int, Mapping[str, object]] = {}
-    if board.geometry_revision > 0:
-        if (
-            geometry_revision is None
-            or geometry_revision.revision != board.geometry_revision
-            or geometry_revision.crop_artifacts is None
-            or len(geometry_revision.crop_artifacts) not in (len(expected_indices), 15)
-        ):
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
-                "The current manual geometry revision is incomplete.",
-            )
-        revised_cells = {
-            cast(int, raw["rowIndex"]) * 5 + cast(int, raw["columnIndex"]): raw
-            for raw in geometry_revision.crop_artifacts
-        }
-        if set(revised_cells) not in (expected_indices, set(range(15))):
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
-                "The current manual geometry cells are not complete row-major crops.",
-            )
-    for ordinal, observation in enumerate(observations):
-        index = observation.row_index * 5 + observation.column_index
-        if index != sorted(observation_indices)[ordinal]:
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_CELL_ORDER_INVALID",
-                "The operational review cells are not a complete row-major board.",
-            )
-        if index not in expected_indices:
-            continue
-        prediction = (
-            prediction_override[index]
-            if prediction_override is not None and len(prediction_override) == 15
-            else cast(Mapping[str, object], observation.prediction)
-        )
-        symbol_code = prediction.get("symbolCode")
-        confidence = prediction.get("confidence")
-        raw_alternatives = prediction.get("alternatives")
-        if (
-            not isinstance(symbol_code, str)
-            or not isinstance(confidence, int | float)
-            or isinstance(confidence, bool)
-            or not isinstance(raw_alternatives, list | tuple)
-            or not 1 <= len(raw_alternatives) <= MAX_IMAGE_REVIEW_ALTERNATIVES
-        ):
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_PREDICTION_INVALID",
-                "A cell prediction does not match the operational review contract.",
-            )
-        alternatives: list[ImageReviewAlternative] = []
-        for raw in raw_alternatives:
-            if not isinstance(raw, Mapping):
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_PREDICTION_INVALID",
-                    "A symbol alternative is invalid.",
-                )
-            alternative_code = raw.get("symbolCode")
-            alternative_confidence = raw.get("confidence")
-            if (
-                not isinstance(alternative_code, str)
-                or not isinstance(alternative_confidence, int | float)
-                or isinstance(alternative_confidence, bool)
-            ):
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_PREDICTION_INVALID",
-                    "A symbol alternative is invalid.",
-                )
-            alternatives.append(
-                ImageReviewAlternative(
-                    symbol_code=alternative_code,
-                    confidence=float(alternative_confidence),
-                )
-            )
-        revised = revised_cells.get(index)
-        base_crop_relative_path = observation.crop_relative_path
-        if revised is None and base_crop_relative_path is None:
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
-                "Virtual cell assets are not active in the legacy review mapper.",
-            )
-        crop_relative_path = (
-            cast(str, revised["cropRelativePath"])
-            if revised is not None
-            else cast(str, base_crop_relative_path)
-        )
-        crop_checksum_sha256 = (
-            cast(str, revised["cropChecksumSha256"])
-            if revised is not None
-            else observation.crop_checksum_sha256
-        )
-        cropper_version = (
-            geometry_revision.cropper_version
-            if geometry_revision is not None and revised is not None
-            else observation.cropper_version
-        )
-        sample_id = crop_sample_id(
-            recognized_board_id=board.id,
-            row_index=observation.row_index,
-            column_index=observation.column_index,
-            cropper_version=cropper_version,
-            crop_relative_path=crop_relative_path,
-            crop_checksum_sha256=crop_checksum_sha256,
-        )
-        cells.append(
-            ImageReviewCell(
-                observation_id=observation.id,
-                cell_index=index,
-                row_index=observation.row_index,
-                column_index=observation.column_index,
-                crop_sample_id=sample_id,
-                crop_relative_path=crop_relative_path,
-                crop_checksum_sha256=crop_checksum_sha256,
-                predicted_symbol_code=symbol_code,
-                confidence=float(confidence),
-                alternatives=tuple(alternatives),
-                current_symbol_code=(
-                    resolved_symbols[index] if resolved_symbols is not None else symbol_code
-                ),
-            )
-        )
-    if board.board_relative_path is None or board.board_checksum_sha256 is None:
-        raise ImageReviewConflictError(
-            "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
-            "Virtual board assets are not active in the legacy review mapper.",
-        )
     return _review_item_from_current_cells(
         item=item,
         board=board,
         source=source,
         queue_item=queue_item,
         job=job,
-        cells=tuple(cells),
-        board_relative_path=board.board_relative_path,
-        board_checksum_sha256=board.board_checksum_sha256,
+        cells=virtual_cells,
+        # Structured boards deliberately have no persistent board bitmap.
+        # The Reviewer displays a bounded source context for this mode.
+        board_relative_path=source.relative_path,
+        board_checksum_sha256=source.checksum_sha256,
     )
 
 
@@ -2690,58 +2242,58 @@ def materialize_current_image_review_cells(
     *,
     item: ImageReviewItemModel,
     board: RecognizedBoardModel,
-    source: SourceImageModel,
-    queue_item: ImageReviewQueueItemModel,
-    job: JobModel,
-    observations: Sequence[CellObservationModel],
-    geometry_revision: ImageBoardGeometryRevisionModel | None,
+    cell_sources: CurrentBoardCellSources,
     prediction_override: Sequence[Mapping[str, object]] | None = None,
 ) -> tuple[ImageReviewCell, ...]:
     """Expose the Reviewer-selected current crop identities to internal writers.
 
-    The operational Reviewer owns the only implementation choosing base
-    observations or the current geometry revision.  Backfills and later
-    write-through projections must call this adapter instead of reconstructing
-    a second, subtly divergent choice of the 15 crops.
+    The operational Reviewer owns the only implementation choosing the
+    current cells.  Backfills and later write-through projections must call
+    this adapter instead of reconstructing a second, subtly divergent choice
+    of the 15 crops.  ``cell_sources`` comes from
+    ``load_current_board_cell_sources`` (the render manifest of the board's
+    current geometry revision; every board is ``virtual_source`` since D-467
+    S6).
     """
 
-    if board.asset_mode == "virtual_source":
-        return _virtual_current_cells_from_records(
-            item=item,
-            board=board,
-            observations=observations,
-            geometry_revision=geometry_revision,
-            prediction_override=prediction_override,
-        )
-    return _item_from_records(
-        item,
-        board,
-        source,
-        queue_item,
-        job,
-        observations,
-        geometry_revision,
-        prediction_override,
-    ).cells
+    return _virtual_current_cells_from_records(
+        item=item,
+        board=board,
+        render_manifest=cell_sources.render_manifest,
+        prediction_override=prediction_override,
+    )
+
+
+_UNKNOWN_PREDICTION: Mapping[str, object] = {
+    "symbolCode": "?",
+    "confidence": 0.0,
+    "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
+}
 
 
 def _virtual_current_cells_from_records(
     *,
     item: ImageReviewItemModel,
     board: RecognizedBoardModel,
-    observations: Sequence[CellObservationModel],
-    geometry_revision: ImageBoardGeometryRevisionModel | None,
+    render_manifest: CurrentBoardRenderManifest | None,
     prediction_override: Sequence[Mapping[str, object]] | None,
 ) -> tuple[ImageReviewCell, ...]:
     """Materialize structured v0.10 cells without inventing crop files.
 
-    The operational Reviewer still exposes its legacy board asset separately,
-    but internal consumers need only the exact current cell identities.  A
-    virtual board's cell can be rendered again from managed source provenance,
-    so requiring ``crop_relative_path`` here incorrectly rejects valid v0.10
-    imports during the symbol-review backfill.
+    Render identities come from the board's render manifest at its current
+    geometry revision (D-467); the import predictions come from
+    ``recognized_boards.cells_prediction`` (one entry per imported cell,
+    written in the same transaction as the former cell observations).  A
+    virtual cell is rendered again from managed source provenance, so no
+    ``crop_relative_path`` is required.  Every board is ``virtual_source``
+    since D-467 S6 (migration 0135); anything else is refused explicitly.
     """
 
+    if board.asset_mode != "virtual_source":
+        raise ImageReviewConflictError(
+            "IMAGE_REVIEW_ASSET_MODE_UNSUPPORTED",
+            "Only virtual_source boards have current review cells.",
+        )
     rows = board.grid_rows or 3
     columns = board.grid_columns or 5
     cell_count = rows * columns
@@ -2759,15 +2311,18 @@ def _virtual_current_cells_from_records(
     )
     qualified = getattr(board, "geometry_qualification", None) is not None
     qualified_revision = qualified and board.geometry_revision > 0
+    # A qualified revision carries its own unknown predictions; the import
+    # predictions describe superseded pixels and are not read for it.
+    base_predictions = {} if qualified_revision else _cells_prediction_by_index(board, columns)
     if (
         completeness_status == "complete"
-        and (unavailable or (not qualified_revision and len(observations) != cell_count))
+        and (unavailable or (not qualified_revision and len(base_predictions) != cell_count))
     ) or (
         completeness_status == "pending_partial"
         and (
             not 1 <= len(unavailable) <= (cell_count if qualified else cell_count - 1)
             or unavailable != tuple(sorted(set(unavailable)))
-            or (not qualified_revision and len(observations) != len(available_indices))
+            or (not qualified_revision and len(base_predictions) != len(available_indices))
         )
     ):
         raise ImageReviewConflictError(
@@ -2783,113 +2338,84 @@ def _virtual_current_cells_from_records(
         and all(value is None or isinstance(value, str) for value in raw_symbols)
     ):
         resolved_symbols = tuple(cast(str | None, value) for value in raw_symbols)
-    revised_cells = _virtual_geometry_cells(
+    manifest_cells = _virtual_manifest_cells(
         board=board,
-        geometry_revision=geometry_revision,
+        render_manifest=render_manifest,
         cell_count=cell_count,
+        available_indices=available_indices,
     )
-    cells: list[ImageReviewCell] = []
-    observations_by_index = {
-        observation.row_index * columns + observation.column_index: observation
-        for observation in observations
-    }
-    if len(observations_by_index) != len(observations) or (
-        not qualified_revision and tuple(observations_by_index) != available_indices
-    ):
+    if not qualified_revision and tuple(sorted(base_predictions)) != available_indices:
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_CELL_ORDER_INVALID",
             "The original observations are not the declared row-major sequence.",
         )
+    cells: list[ImageReviewCell] = []
     for ordinal, expected_index in enumerate(available_indices):
-        observation = observations_by_index.get(expected_index)
-        if (observation is None and not qualified_revision) or (
-            observation is not None and observation.asset_mode != "virtual_source"
-        ):
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_CELL_ORDER_INVALID",
-                "The virtual review cells do not match the declared row-major availability mask.",
-            )
         prediction = (
             prediction_override[ordinal]
             if prediction_override is not None
             and len(prediction_override) == len(available_indices)
-            else {
-                "symbolCode": "?",
-                "confidence": 0.0,
-                "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
-            }
+            else _UNKNOWN_PREDICTION
             if qualified_revision
-            else cast(
-                Mapping[str, object], observation.prediction if observation is not None else {}
-            )
+            else base_predictions[expected_index]
         )
-        revision_cell = revised_cells.get(expected_index)
+        manifest_cell = manifest_cells.get(expected_index)
         if qualified_revision:
             provenance = prediction.get("virtualCell")
             if (
-                revision_cell is None
+                manifest_cell is None
                 or not isinstance(provenance, Mapping)
                 or provenance.get("renderSpecChecksumSha256")
-                != revision_cell.get("renderSpecChecksumSha256")
+                != manifest_cell.get("renderSpecChecksumSha256")
                 or prediction.get("rowIndex") != expected_index // columns
                 or prediction.get("columnIndex") != expected_index % columns
             ):
-                prediction = {
-                    "symbolCode": "?",
-                    "confidence": 0.0,
-                    "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
-                }
+                prediction = _UNKNOWN_PREDICTION
         symbol_code, confidence, alternatives = _validated_cell_prediction(prediction)
-        if revision_cell is None:
-            if observation is None or qualified_revision:
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
-                    "The qualified current cell has no render provenance.",
-                )
-            sample_id = hashlib.sha256(
-                canonical_json_bytes(
-                    {
-                        "assetMode": "virtual_source",
-                        "recognizedBoardId": str(board.id),
-                        "renderSpecChecksumSha256": observation.render_spec_checksum_sha256,
-                    }
-                )
-            ).hexdigest()
-            crop_checksum = observation.crop_checksum_sha256
-            source_geometry_revision_id = observation.source_geometry_revision_id
-            logical_cell_key = observation.logical_cell_key
-            logical_cell_key_v2 = observation.logical_cell_key_v2
-            render_identity_v2_sha256 = observation.render_identity_v2_sha256
-            render_spec = observation.render_spec
-            render_spec_checksum = observation.render_spec_checksum_sha256
-            rendered_pixel_checksum = observation.rendered_pixel_checksum_sha256
-            extractor_version = observation.extractor_version
-        else:
-            if geometry_revision is None:
-                raise ImageReviewConflictError(
-                    "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
-                    "The current virtual geometry revision is missing.",
-                )
-            sample_id = cast(str, revision_cell["cropSampleId"])
-            crop_checksum = cast(str, revision_cell["renderedPixelChecksumSha256"])
-            source_geometry_revision_id = geometry_revision.source_geometry_revision_id
-            logical_cell_key = cast(str, revision_cell["logicalCellKeySha256"])
-            logical_cell_key_v2 = cast(str | None, revision_cell.get("logicalCellKeyV2Sha256"))
-            render_identity_v2_sha256 = cast(
-                str | None, revision_cell.get("renderIdentityV2Sha256")
+        if manifest_cell is None or render_manifest is None:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
+                "The current cell has no render provenance.",
             )
-            render_spec = dict(cast(Mapping[str, object], revision_cell["renderSpec"]))
-            render_spec_checksum = cast(str, revision_cell["renderSpecChecksumSha256"])
-            rendered_pixel_checksum = cast(str, revision_cell["renderedPixelChecksumSha256"])
-            extractor_version = geometry_revision.cropper_version
-        if not _valid_virtual_cell_provenance(
-            source_geometry_revision_id=source_geometry_revision_id,
-            logical_cell_key=logical_cell_key,
-            render_spec=render_spec,
-            render_spec_checksum_sha256=render_spec_checksum,
-            rendered_pixel_checksum_sha256=rendered_pixel_checksum,
-            extractor_version=extractor_version,
-            crop_checksum_sha256=crop_checksum,
+        sample_id = manifest_cell.get("cropSampleId")
+        render_spec_checksum = manifest_cell.get("renderSpecChecksumSha256")
+        if board.geometry_revision == 0 and (
+            not isinstance(render_spec_checksum, str)
+            or sample_id
+            != manifest_crop_sample_id(
+                recognized_board_id=board.id,
+                render_spec_checksum_sha256=render_spec_checksum,
+            )
+        ):
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
+                "The base render manifest cell has a foreign crop sample identity.",
+            )
+        crop_checksum = manifest_cell.get("renderedPixelChecksumSha256")
+        source_geometry_revision_id = render_manifest.source_geometry_revision_id
+        logical_cell_key = manifest_cell.get("logicalCellKeySha256")
+        logical_cell_key_v2 = manifest_cell.get("logicalCellKeyV2Sha256")
+        render_identity_v2_sha256 = manifest_cell.get("renderIdentityV2Sha256")
+        render_spec = dict(cast(Mapping[str, object], manifest_cell["renderSpec"]))
+        rendered_pixel_checksum = manifest_cell.get("renderedPixelChecksumSha256")
+        extractor_version = render_manifest.extractor_version
+        if (
+            not isinstance(sample_id, str)
+            or not isinstance(crop_checksum, str)
+            or not isinstance(logical_cell_key, str)
+            or not isinstance(render_spec_checksum, str)
+            or not isinstance(rendered_pixel_checksum, str)
+            or not isinstance(logical_cell_key_v2, str | None)
+            or not isinstance(render_identity_v2_sha256, str | None)
+            or not _valid_virtual_cell_provenance(
+                source_geometry_revision_id=source_geometry_revision_id,
+                logical_cell_key=logical_cell_key,
+                render_spec=render_spec,
+                render_spec_checksum_sha256=render_spec_checksum,
+                rendered_pixel_checksum_sha256=rendered_pixel_checksum,
+                extractor_version=extractor_version,
+                crop_checksum_sha256=crop_checksum,
+            )
         ):
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
@@ -2897,7 +2423,6 @@ def _virtual_current_cells_from_records(
             )
         cells.append(
             ImageReviewCell(
-                observation_id=observation.id if observation is not None else None,
                 cell_index=expected_index,
                 row_index=expected_index // columns,
                 column_index=expected_index % columns,
@@ -2926,48 +2451,68 @@ def _virtual_current_cells_from_records(
     return tuple(cells)
 
 
-def _virtual_geometry_cells(
+def _cells_prediction_by_index(
+    board: RecognizedBoardModel, columns: int
+) -> dict[int, Mapping[str, object]]:
+    """Import predictions keyed by cell index (one entry per imported cell)."""
+
+    payload = board.cells_prediction
+    raw_cells = payload.get("cells") if isinstance(payload, Mapping) else None
+    if not isinstance(raw_cells, list):
+        return {}
+    by_index: dict[int, Mapping[str, object]] = {}
+    for raw in raw_cells:
+        row = raw.get("rowIndex") if isinstance(raw, Mapping) else None
+        column = raw.get("columnIndex") if isinstance(raw, Mapping) else None
+        if (
+            not isinstance(raw, Mapping)
+            or not isinstance(row, int)
+            or isinstance(row, bool)
+            or not isinstance(column, int)
+            or isinstance(column, bool)
+            or row < 0
+            or not 0 <= column < columns
+        ):
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_PREDICTION_INVALID",
+                "A board cell prediction has no valid row-major position.",
+            )
+        index = row * columns + column
+        if index in by_index:
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_CELL_ORDER_INVALID",
+                "The original observations are not the declared row-major sequence.",
+            )
+        by_index[index] = cast(Mapping[str, object], raw)
+    return by_index
+
+
+def _virtual_manifest_cells(
     *,
     board: RecognizedBoardModel,
-    geometry_revision: ImageBoardGeometryRevisionModel | None,
+    render_manifest: CurrentBoardRenderManifest | None,
     cell_count: int,
+    available_indices: tuple[int, ...],
 ) -> dict[int, Mapping[str, object]]:
-    if board.geometry_revision == 0:
-        return {}
-    if (
-        geometry_revision is None
-        or geometry_revision.revision != board.geometry_revision
-        or geometry_revision.asset_mode != "virtual_source"
-        or not isinstance(geometry_revision.virtual_render_spec, Mapping)
-    ):
-        raise ImageReviewConflictError(
-            "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
-            "The current virtual geometry revision is incomplete.",
-        )
-    raw_cells = geometry_revision.virtual_render_spec.get("cells")
-    expected_indices = set(range(cell_count))
-    if getattr(board, "geometry_qualification", None) is not None:
-        expected_indices = set(
-            available_cell_indices(
-                unavailable_cell_indices=board.unavailable_cell_indices,
-                geometry_qualification=board.geometry_qualification,
-                asset_mode=board.asset_mode,
-                cell_count=cell_count,
-            )
-        )
-    if not isinstance(raw_cells, list | tuple) or len(raw_cells) != len(expected_indices):
-        raise ImageReviewConflictError(
-            "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
-            "The current virtual geometry revision does not contain every cell render.",
-        )
-    cells: dict[int, Mapping[str, object]] = {}
-    for raw in raw_cells:
-        if not isinstance(raw, Mapping) or not isinstance(raw.get("cellIndex"), int):
+    """Cells of the current-revision manifest; no manifest <=> no cells."""
+
+    if render_manifest is None:
+        if available_indices:
             raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
-                "A current virtual geometry cell is invalid.",
+                "IMAGE_REVIEW_RENDER_MANIFEST_MISSING",
+                "The current virtual board has no render manifest for its geometry revision.",
             )
-        cells[cast(int, raw["cellIndex"])] = raw
+        return {}
+    if render_manifest.geometry_revision != board.geometry_revision:
+        raise ImageReviewConflictError(
+            "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
+            "The render manifest does not describe the current geometry revision.",
+        )
+    expected_indices = set(available_indices)
+    if board.geometry_revision > 0 and getattr(board, "geometry_qualification", None) is None:
+        # A manual revision without qualification renders every cell.
+        expected_indices = set(range(cell_count))
+    cells = render_manifest.cells_by_index()
     if set(cells) != expected_indices:
         raise ImageReviewConflictError(
             "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
@@ -3095,64 +2640,6 @@ def _superseded_resolved_value(
     if attempted_action is not None:
         value["attemptedAction"] = attempted_action
     return value
-
-
-def _geometry_revision_from_record(
-    record: ImageBoardGeometryRevisionModel,
-) -> ImageReviewGeometryRevision:
-    if (
-        record.crop_artifacts is None
-        or record.board_relative_path is None
-        or record.board_checksum_sha256 is None
-    ):
-        raise ImageReviewConflictError(
-            "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
-            "Virtual geometry assets are not active in the legacy review mapper.",
-        )
-    try:
-        corners = cast(
-            tuple[
-                ImageReviewGeometryPoint,
-                ImageReviewGeometryPoint,
-                ImageReviewGeometryPoint,
-                ImageReviewGeometryPoint,
-            ],
-            tuple(ImageReviewGeometryPoint(x=point["x"], y=point["y"]) for point in record.corners),
-        )
-        cells = tuple(
-            ImageReviewGeometryCellArtifact(
-                row_index=cast(int, cell["rowIndex"]),
-                column_index=cast(int, cell["columnIndex"]),
-                crop_relative_path=cast(str, cell["cropRelativePath"]),
-                crop_checksum_sha256=cast(str, cell["cropChecksumSha256"]),
-            )
-            for cell in record.crop_artifacts
-        )
-    except (KeyError, TypeError) as error:
-        raise ImageReviewConflictError(
-            "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
-            "A persisted geometry revision is invalid.",
-        ) from error
-    return ImageReviewGeometryRevision(
-        id=record.id,
-        review_item_id=record.review_item_id,
-        recognized_board_id=record.recognized_board_id,
-        revision=record.revision,
-        idempotency_key=record.idempotency_key,
-        command_sha256=record.command_sha256,
-        decision_checksum_sha256=(
-            cast(str, record.geometry["decisionChecksumSha256"])
-            if isinstance(record.geometry.get("decisionChecksumSha256"), str)
-            else None
-        ),
-        corners=corners,
-        board_relative_path=record.board_relative_path,
-        board_checksum_sha256=record.board_checksum_sha256,
-        cropper_version=record.cropper_version,
-        cells=cells,
-        corrected_by=record.corrected_by,
-        created_at=record.created_at,
-    )
 
 
 __all__ = [

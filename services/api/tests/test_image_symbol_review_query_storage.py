@@ -171,26 +171,9 @@ def test_counts_use_conditional_aggregates_without_per_cell_geometry_lookup() ->
     sql = _compiled(repository._count_statement(review_filter=review_filter))
 
     assert sql.count("count(*) FILTER") == 2
-    assert "image_board_search_fast_documents" in sql
+    assert "image_board_search_fast_documents" not in sql
     assert "recognized_boards" not in sql
     assert "GROUP BY" not in sql
-
-
-def test_list_keeps_the_current_geometry_guard() -> None:
-    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
-    review_filter = SymbolCellReviewListFilter(
-        game_id=UUID(int=1),
-        symbol_id=None,
-        state=SymbolCellReviewFilterState.ALL,
-        include_all_symbols=True,
-    )
-
-    sql = _compiled(repository._list_statement(review_filter=review_filter))
-
-    assert "JOIN recognized_boards" in sql
-    assert (
-        "image_symbol_review_cells.geometry_revision = recognized_boards.geometry_revision" in sql
-    )
 
 
 def test_v2_list_uses_only_the_current_projection_and_materialized_confidence() -> None:
@@ -200,7 +183,6 @@ def test_v2_list_uses_only_the_current_projection_and_materialized_confidence() 
         symbol_id=UUID(int=2),
         state=SymbolCellReviewFilterState.PENDING,
         min_confidence=0.4,
-        uses_current_projection=True,
         storage_generation=2,
     )
 
@@ -221,7 +203,6 @@ def test_v2_seek_orders_by_the_stable_cell_projection_identity() -> None:
         symbol_id=None,
         state=SymbolCellReviewFilterState.ALL,
         include_all_symbols=True,
-        uses_current_projection=True,
         storage_generation=2,
     )
 
@@ -249,7 +230,6 @@ def test_v2_basic_counts_use_the_exact_projection_without_cell_sql() -> None:
         game_id=UUID(int=1),
         symbol_id=None,
         state=SymbolCellReviewFilterState.ALL,
-        uses_current_projection=True,
         storage_generation=2,
     )
 
@@ -273,7 +253,6 @@ def test_v2_basic_counts_are_unavailable_during_reconstruction() -> None:
         symbol_id=None,
         state=SymbolCellReviewFilterState.ALL,
         include_all_symbols=True,
-        uses_current_projection=True,
         storage_generation=2,
     )
 
@@ -348,11 +327,11 @@ def test_count_statement_preserves_symbol_quality_and_confidence_filters() -> No
     # game-wide "unknown" bucket instead.
     assert "image_symbol_review_cells.quality_issue NOT IN ('grid_issue', 'unreadable')" in sql
     assert "image_symbol_review_cells.review_state = 'pending'" in sql
-    assert "image_symbol_prediction_revisions" in sql
-    assert "cell_observations" in sql
-    assert "JOIN recognized_boards" in sql
-    assert ">= 0.4" in sql
-    assert "<= 0.8" in sql
+    assert "image_symbol_prediction_revisions" not in sql
+    assert "cell_observations" not in sql
+    assert "recognized_boards" not in sql
+    assert "image_symbol_review_cells.prediction_confidence >= 0.4" in sql
+    assert "image_symbol_review_cells.prediction_confidence <= 0.8" in sql
 
 
 def test_count_statement_preserves_unknown_and_active_cohort_filters() -> None:
@@ -376,7 +355,7 @@ def test_count_statement_preserves_unknown_and_active_cohort_filters() -> None:
     assert "image_symbol_review_cells.assigned_symbol_id IS NULL" in unknown_sql
     assert "image_symbol_review_cells.quality_issue IN ('grid_issue', 'unreadable')" in unknown_sql
     assert "JOIN verified_training_cohort_cells" in cohort_sql
-    assert "JOIN recognized_boards" in cohort_sql
+    assert "recognized_boards" not in cohort_sql
     assert "image_symbol_review_cells.review_state = 'approved'" in cohort_sql
 
 

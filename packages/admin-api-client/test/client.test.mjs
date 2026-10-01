@@ -136,7 +136,7 @@ test('generated client pages and selects checksum-bound approved symbol referenc
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';
   const symbolId = '22222222-2222-4222-8222-222222222222';
-  const observationId = '33333333-3333-4333-8333-333333333333';
+  const cellReviewId = '33333333-3333-4333-8333-333333333333';
   const checksum = 'a'.repeat(64);
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000',
@@ -154,7 +154,7 @@ test('generated client pages and selects checksum-bound approved symbol referenc
   await client.selectApprovedSymbolReferenceCandidate(
     gameId,
     symbolId,
-    observationId,
+    cellReviewId,
     { expectedChecksumSha256: checksum, selectedBy: 'admin-local' },
   );
 
@@ -169,11 +169,11 @@ test('generated client pages and selects checksum-bound approved symbol referenc
   );
   assert.equal(
     new URL(requests[1].url).pathname,
-    `/api/v1/admin/games/${gameId}/symbols/${symbolId}/approved-image-candidates/${observationId}/selection`,
+    `/api/v1/admin/games/${gameId}/symbols/${symbolId}/approved-image-candidates/${cellReviewId}/selection`,
   );
   assert.equal(
     requests[1].headers.get('X-Admin-Target'),
-    `symbol-reference:${gameId}:${symbolId}:${observationId}`,
+    `symbol-reference:${gameId}:${symbolId}:${cellReviewId}`,
   );
 });
 
@@ -1474,6 +1474,7 @@ test('generated client sends zero-based payline CRUD requests', async () => {
     displayOrder: 5,
   });
   await client.archivePayline(rulesVersionId, paylineId);
+  await client.deletePayline(rulesVersionId, paylineId);
 
   assert.equal(created.data?.id, paylineId);
   assert.equal(
@@ -1485,6 +1486,15 @@ test('generated client sends zero-based payline CRUD requests', async () => {
     `/api/v1/admin/rules-versions/${rulesVersionId}/paylines/${paylineId}`,
   );
   assert.equal(requests[2].method, 'DELETE');
+  assert.equal(requests[3].method, 'DELETE');
+  assert.equal(
+    new URL(requests[3].url).pathname,
+    `/api/v1/admin/rules-versions/${rulesVersionId}/paylines/${paylineId}/permanent`,
+  );
+  assert.equal(
+    requests[3].headers.get('X-Admin-Target'),
+    `payline:${paylineId}`,
+  );
   assert.deepEqual(await requests[0].clone().json(), {
     code: 'line-v',
     displayOrder: 10,
@@ -2007,8 +2017,19 @@ test('generated client previews and persists one scope-bound geometry revision',
         status: 200,
       });
     }
+    // D-467 S6 (TASK-0796): the revision is a virtual render bound by its
+    // source geometry and render manifest checksums, not by crop files.
     return Response.json(
-      { created: true, geometryRevision: {}, item: {} },
+      {
+        created: true,
+        geometryRevision: {
+          revision: 1,
+          geometryChecksumSha256: 'a'.repeat(64),
+          sourceGeometryRevisionId: '55555555-5555-4555-8555-555555555555',
+          virtualRenderSpecChecksumSha256: 'b'.repeat(64),
+        },
+        item: {},
+      },
       { status: 200 },
     );
   };
@@ -2034,6 +2055,14 @@ test('generated client previews and persists one scope-bound geometry revision',
 
   assert.equal(preview.data instanceof Blob, true);
   assert.equal(saved.data?.created, true);
+  assert.equal(
+    saved.data?.geometryRevision.virtualRenderSpecChecksumSha256,
+    'b'.repeat(64),
+  );
+  assert.equal(
+    'boardChecksumSha256' in (saved.data?.geometryRevision ?? {}),
+    false,
+  );
   assert.deepEqual(
     requests.map((request) => new URL(request.url).pathname),
     [
@@ -2046,6 +2075,11 @@ test('generated client previews and persists one scope-bound geometry revision',
     context.gameId,
   );
   assert.deepEqual(await requests[0].clone().json(), previewCommand);
+  assert.deepEqual(await requests[1].clone().json(), {
+    ...previewCommand,
+    correctedBy: 'local-admin',
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+  });
 });
 
 test('grid review client binds keyset, source identity and topology-aware writes', async () => {
@@ -2505,6 +2539,56 @@ test('symbol cell review client forwards abort signals for list and count reads'
   countsController.abort();
   assert.equal(requests[0].signal.aborted, true);
   assert.equal(requests[1].signal.aborted, true);
+});
+
+test('symbol cell review client sends prediction source and change range only when set', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        catalogRevision: 2,
+        counts: { allCount: 1, approvedCount: 0, pendingCount: 1 },
+        items: [],
+        nextCursor: null,
+        previousCursor: null,
+        skippedCount: 0,
+      });
+    },
+  });
+  const filters = {
+    changedFrom: '2026-09-30T00:00:00+02:00',
+    changedTo: '2026-09-30T23:59:59+02:00',
+    predictionSource: 'reference_library',
+  };
+
+  await client.listSymbolCellReviews({ gameId, symbolId: 'all', ...filters });
+  await client.skipSymbolCellReviews({
+    count: 5,
+    gameId,
+    symbolId: 'all',
+    ...filters,
+  });
+  await client.getSymbolCellReviewCounts({
+    catalogRevision: 2,
+    gameId,
+    symbolId: 'all',
+    ...filters,
+  });
+  await client.listSymbolCellReviews({ gameId, symbolId: 'all' });
+
+  for (const request of requests.slice(0, 3)) {
+    const url = new URL(request.url);
+    assert.equal(url.searchParams.get('predictionSource'), 'reference_library');
+    assert.equal(url.searchParams.get('changedFrom'), filters.changedFrom);
+    assert.equal(url.searchParams.get('changedTo'), filters.changedTo);
+  }
+  const unfiltered = new URL(requests[3].url);
+  assert.equal(unfiltered.searchParams.has('predictionSource'), false);
+  assert.equal(unfiltered.searchParams.has('changedFrom'), false);
+  assert.equal(unfiltered.searchParams.has('changedTo'), false);
 });
 
 test('symbol cell review client reads and starts durable projection preparation', async () => {
@@ -3011,6 +3095,58 @@ test('getBoardSearchApproximateWin passes gameId as path and options as query pa
   assert.equal(result.data.evaluatedSpinCount, 0);
 });
 
+test('getBoardSearchBoardDetail and the board view URL use the board-search paths', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000/',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        boardChecksumSha256: 'c'.repeat(64),
+        boardStatus: 'accepted',
+        dataSource: 'operational_review',
+        gameId,
+        matches: [],
+        payoutCredits: 0,
+        payoutKind: 'none',
+        rules: {
+          algorithmVersion: 'payout-v3-unknown-prefix-stop',
+          rulesVersion: 1,
+          rulesVersionId: '22222222-2222-4222-8222-222222222222',
+          spinCost: 100,
+        },
+        sequenceNumber: 42,
+        symbolCodes: Array.from({ length: 15 }, () => null),
+        view: null,
+      });
+    },
+  });
+
+  const result = await client.getBoardSearchBoardDetail(gameId, 42);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/boards/42`,
+  );
+  assert.equal(result.data.payoutKind, 'none');
+  await client.refreshBoardSearchBoardDocument(gameId, 42);
+  assert.equal(requests[1].method, 'POST');
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/boards/42/refresh`,
+  );
+  assert.equal(
+    client.boardSearchBoardViewUrl(gameId, 42, 'c'.repeat(64)),
+    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/board-search/boards/42/view?expectedBoardChecksumSha256=${'c'.repeat(64)}`,
+  );
+  assert.equal(
+    client.boardSearchBoardViewUrl(gameId, 42, 'c'.repeat(64), 'd'.repeat(64)),
+    `http://127.0.0.1:8000/api/v1/admin/games/${gameId}/board-search/boards/42/view?expectedBoardChecksumSha256=${'c'.repeat(64)}&viewRevision=${'d'.repeat(64)}`,
+  );
+});
+
 test('board search builds only a scoped board-crop asset URL for a result', () => {
   const client = createAdminApiClient({
     baseUrl: 'http://127.0.0.1:8000/',
@@ -3027,15 +3163,9 @@ test('board search builds only a scoped board-crop asset URL for a result', () =
     'http://127.0.0.1:8000/api/v1/admin/image-review-items/22222222-2222-4222-8222-222222222222/assets/board?gameId=11111111-1111-4111-8111-111111111111&importJobId=33333333-3333-4333-8333-333333333333',
   );
 
-  assert.equal(
-    client.archivedBoardSearchAssetUrl(
-      '11111111-1111-4111-8111-111111111111',
-      45163,
-      'a'.repeat(64),
-    ),
-    'http://127.0.0.1:8000/api/v1/admin/games/11111111-1111-4111-8111-111111111111/board-search/archive-assets/45163?expectedBoardChecksumSha256=' +
-      'a'.repeat(64),
-  );
+  // D-467 S5: the frozen board-search archive and its asset route are gone.
+  assert.equal('archivedBoardSearchAssetUrl' in client, false);
+  assert.equal('getArchivedBoardSearchAsset' in client, false);
 });
 
 test('label geometry calibration client uses local-admin typed operations and canonical assets', async () => {
@@ -3319,4 +3449,121 @@ test('listImageGridReviews requests the single correction queue (D-462)', async 
   assert.equal(url.searchParams.get('view'), 'correction');
   assert.equal(url.searchParams.get('importJobId'), importJobId);
   assert.equal(url.searchParams.get('limit'), '1');
+});
+
+test('board-search share wrappers use the share paths and confirmed targets', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const sessionId = '22222222-2222-4222-8222-222222222222';
+  const session = {
+    createdAt: '2026-09-30T10:00:00Z',
+    expiresAt: '2026-09-30T18:00:00Z',
+    failedAttempts: 0,
+    gameId,
+    label: null,
+    lastUnlockedAt: null,
+    lockedAt: null,
+    ready: true,
+    revokedAt: null,
+    sessionId,
+    shareUrl: `https://share.trycloudflare.com/board-search?share=${sessionId}`,
+    status: 'active',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      const url = new URL(request.url);
+      if (request.method === 'GET') {
+        return Response.json({ sessions: [session] });
+      }
+      if (url.pathname.endsWith('/revoke')) {
+        return Response.json({ ...session, status: 'revoked' });
+      }
+      return Response.json(
+        { accessCode: 'ABCD-EFGH', session },
+        { status: 201 },
+      );
+    },
+  });
+
+  const created = await client.createBoardSearchShareSession({
+    gameId,
+    label: 'Dla Ani',
+    lifetimeMinutes: 480,
+  });
+  await client.listBoardSearchShareSessions({ gameId });
+  await client.listBoardSearchShareSessions();
+  await client.revokeBoardSearchShareSession(sessionId);
+
+  assert.equal(created.data?.accessCode, 'ABCD-EFGH');
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['POST', '/api/v1/admin/board-search-shares/sessions'],
+      ['GET', '/api/v1/admin/board-search-shares/sessions'],
+      ['GET', '/api/v1/admin/board-search-shares/sessions'],
+      [
+        'POST',
+        `/api/v1/admin/board-search-shares/sessions/${sessionId}/revoke`,
+      ],
+    ],
+  );
+  assert.equal(
+    requests[0].headers.get('X-Admin-Target'),
+    'board-search-share-session:new',
+  );
+  assert.equal(
+    requests[3].headers.get('X-Admin-Target'),
+    `board-search-share-session:${sessionId}`,
+  );
+  assert.equal(new URL(requests[1].url).searchParams.get('gameId'), gameId);
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '100');
+  assert.equal(new URL(requests[2].url).searchParams.has('gameId'), false);
+  assert.deepEqual(await requests[0].clone().json(), {
+    gameId,
+    label: 'Dla Ani',
+    lifetimeMinutes: 480,
+  });
+});
+
+test('board-search share query log wrappers use their Admin paths', async () => {
+  const requests = [];
+  const sessionId = '22222222-2222-4222-8222-222222222222';
+  const eventId = '33333333-3333-4333-8333-333333333333';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json(
+        new URL(request.url).pathname.includes('/queries/')
+          ? { approximateWin: null, event: {}, search: null }
+          : { entries: [], nextCursor: null },
+      );
+    },
+  });
+  await client.listBoardSearchShareQueries(sessionId);
+  await client.listBoardSearchShareQueries(sessionId, {
+    before: 'abc',
+    limit: 10,
+  });
+  await client.getBoardSearchShareQueryReplay(eventId);
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'GET',
+        `/api/v1/admin/board-search-shares/sessions/${sessionId}/queries`,
+      ],
+      [
+        'GET',
+        `/api/v1/admin/board-search-shares/sessions/${sessionId}/queries`,
+      ],
+      ['GET', `/api/v1/admin/board-search-shares/queries/${eventId}`],
+    ],
+  );
+  assert.equal(new URL(requests[0].url).searchParams.get('limit'), '50');
+  assert.equal(new URL(requests[0].url).searchParams.has('before'), false);
+  assert.equal(new URL(requests[1].url).searchParams.get('before'), 'abc');
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '10');
 });

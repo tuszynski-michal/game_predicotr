@@ -540,7 +540,7 @@ def _looks_like_absolute_windows_path(value: str) -> bool:
 
 
 def default_database_url() -> str:
-    return str(ApiSettings.from_environment().database_url)
+    return str(ApiSettings.from_environment().owner_database_url)
 
 
 __all__ = [

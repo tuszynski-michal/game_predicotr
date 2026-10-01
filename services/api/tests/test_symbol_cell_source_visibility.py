@@ -63,8 +63,8 @@ def test_corrected_footprints_override_old_board_outline():
 
 def _coordinator(monkeypatch, *, asset_mode="virtual_source"):
     monkeypatch.setattr(
-        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
-        lambda *_: True,
+        "game_predictor_api.storage.image_symbol_review_repository._bind_game_store",
+        lambda *_: None,
     )
     rows, events = [], []
     session = Mock()
@@ -132,7 +132,8 @@ def _coordinator(monkeypatch, *, asset_mode="virtual_source"):
     )
 
 
-@pytest.mark.parametrize("asset_mode", ["virtual_source", "legacy_file"])
+# D-467 S6 (TASK-0796): every board is ``virtual_source``.
+@pytest.mark.parametrize("asset_mode", ["virtual_source"])
 def test_outside_position_retry_and_new_pixels_preserve_human_label(monkeypatch, asset_mode):
     coordinator, board, rows, events, symbol_id, args = _coordinator(
         monkeypatch, asset_mode=asset_mode
@@ -204,28 +205,6 @@ def test_projection_error_propagates_to_transaction_owner(monkeypatch):
     assert rows == []
 
 
-@pytest.mark.parametrize("sequence", [62287, 62404, 62440])
-def test_legacy_full_crop_set_with_old_partial_mask_projects_all_positions(monkeypatch, sequence):
-    coordinator, board, rows, _events, _symbol, args = _coordinator(
-        monkeypatch, asset_mode="legacy_file"
-    )
-    board.sequence_number = sequence
-    board.geometry_qualification = GeometryQualification(
-        "pending_partial", (0,), True, "missing_pixels"
-    ).to_dict()
-    board.board_geometry["cells"][0]["sourceQuad"] = _quad(-2, 10, 20, 20)
-    coordinator._current_cells.return_value = (
-        _cells(1, (), asset_mode="legacy_file"),
-        "cropper-v1",
-        None,
-        None,
-    )
-    assert coordinator.synchronize_after_geometry_change(**args)
-    assert len(rows) == 15
-    partial = next(row for row in rows if row.cell_index == 0)
-    assert partial.source_visibility == "partial" and partial.assigned_symbol_id is None
-
-
 def test_human_blurry_decision_survives_outside_and_two_recrops(monkeypatch):
     from game_predictor_api.domain.image_symbol_reviews import mark_symbol_cell_blurry
     from game_predictor_api.storage.image_symbol_review_repository import (
@@ -291,87 +270,20 @@ def test_human_blurry_decision_survives_outside_and_two_recrops(monkeypatch):
         assert not coordinator.synchronize_for_backfill_reconciliation(**args)
 
 
-def test_actual_legacy_mapper_accepts_sparse_real_crop_revision():
-    from datetime import UTC, datetime
+def test_mapper_refuses_a_non_virtual_board():
+    """D-467 S6 (TASK-0796): the file-crop mapper is gone; no silent fallback."""
 
+    from game_predictor_api.domain.image_reviews import ImageReviewConflictError
+    from game_predictor_api.storage.current_board_cell_sources import NO_CELL_SOURCES
     from game_predictor_api.storage.image_review_repository import (
         materialize_current_image_review_cells,
     )
 
-    missing = tuple(range(10, 15))
-    board = SimpleNamespace(
-        id=uuid4(),
-        asset_mode="legacy_file",
-        grid_rows=3,
-        grid_columns=5,
-        geometry_revision=1,
-        geometry_qualification=GeometryQualification(
-            "pending_partial",
-            missing,
-            True,
-            "missing_pixels",
-            version="manual-geometry-qualification-v3",
-            fully_unavailable_cell_indices=missing,
-        ).to_dict(),
-        source_image_id=uuid4(),
-        board_geometry={},
-        board_relative_path="source.png",
-        board_checksum_sha256="a" * 64,
-        sequence_number=62440,
-        pipeline_fingerprint="test",
-    )
-    observations = [
-        SimpleNamespace(
-            id=uuid4(),
-            row_index=i // 5,
-            column_index=i % 5,
-            crop_relative_path=f"crops/{i}.png",
-            crop_checksum_sha256=f"{i:064x}",
-            cropper_version="test",
-            prediction={
-                "symbolCode": "cherry",
-                "confidence": 0.9,
-                "alternatives": [{"symbolCode": "cherry", "confidence": 0.9}],
-            },
+    board = SimpleNamespace(id=uuid4(), asset_mode="legacy_file", geometry_revision=1)
+    with pytest.raises(ImageReviewConflictError) as refused:
+        materialize_current_image_review_cells(
+            item=SimpleNamespace(resolved_value=None),
+            board=board,
+            cell_sources=NO_CELL_SOURCES,
         )
-        for i in range(10)
-    ]
-    revision = SimpleNamespace(
-        revision=1,
-        cropper_version="test",
-        crop_artifacts=[
-            {
-                "rowIndex": o.row_index,
-                "columnIndex": o.column_index,
-                "cropRelativePath": o.crop_relative_path,
-                "cropChecksumSha256": o.crop_checksum_sha256,
-            }
-            for o in observations
-        ],
-    )
-    item = SimpleNamespace(
-        id=uuid4(),
-        status="pending",
-        resolved_value=None,
-        resolved_by=None,
-        resolved_at=None,
-        resolution_revision=0,
-        created_at=datetime.now(UTC),
-    )
-    source = SimpleNamespace(
-        id=board.source_image_id,
-        import_job_id=uuid4(),
-        relative_path="source.png",
-        checksum_sha256="b" * 64,
-    )
-    cells = materialize_current_image_review_cells(
-        item=item,
-        board=board,
-        source=source,
-        queue_item=SimpleNamespace(source_order_index=0, position_index=0),
-        job=SimpleNamespace(game_id=uuid4()),
-        observations=observations,
-        geometry_revision=revision,
-    )
-    assert [cell.cell_index for cell in cells] == list(range(10))
-    assert all(cell.crop_relative_path and cell.crop_checksum_sha256 for cell in cells)
+    assert refused.value.code == "IMAGE_REVIEW_ASSET_MODE_UNSUPPORTED"

@@ -8,6 +8,7 @@ import {
   markPaylineArchived,
   nextPaylineDisplayOrder,
   paylineToDraft,
+  removePayline,
   selectPaylineCell,
   upsertPayline,
   validatePaylineDraft,
@@ -106,6 +107,10 @@ test('presents one-based rows and keeps archived records in canonical order', ()
     ['earlier', payline.id],
   );
   assert.equal(archived[1].isActive, false);
+  assert.deepEqual(
+    removePayline(inserted, payline.id).map((item) => item.id),
+    ['earlier'],
+  );
   assert.equal(inserted[1].isActive, true);
   assert.equal(paylineToDraft(payline).code, 'line-v');
 });

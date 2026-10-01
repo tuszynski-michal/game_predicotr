@@ -13,7 +13,10 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.models import GameModel
 from sqlalchemy import select
 
@@ -30,14 +33,14 @@ def _game_ids(arguments: argparse.Namespace) -> tuple[UUID, ...]:
     if arguments.game_id is not None:
         return (arguments.game_id,)
     settings = ApiSettings.from_environment()
-    factory = create_session_factory(create_database_engine(settings))
+    factory = create_session_factory(create_maintenance_database_engine(settings))
     with factory() as session:
         return tuple(session.scalars(select(GameModel.id).order_by(GameModel.id)).all())
 
 
 def _rebuild(game_ids: Sequence[UUID]) -> list[dict[str, object]]:
     settings = ApiSettings.from_environment()
-    factory = create_session_factory(create_database_engine(settings))
+    factory = create_session_factory(create_maintenance_database_engine(settings))
     reports: list[dict[str, object]] = []
     for game_id in game_ids:
         with factory.begin() as session:

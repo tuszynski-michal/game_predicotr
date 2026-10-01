@@ -73,7 +73,9 @@ exitcode, checksum i poprawny odczyt katalogu archiwum.
 
 ## Outcome
 
-Operacje i odbiór zakończone; osobny commit wykonuje root po kontroli staged.
+Operacje i odbiór zakończone. Commit `v1.7.17` /
+`57e703acb16d435e03521b6ddd02d9857bfa5c72`; po commicie sprawdzono
+`git show --stat` i pozostały status. Hash dopisany po utworzeniu commita.
 Preflight: Alembic0125, brak aktywnych jobów i transakcji
 aplikacyjnych, baza90.77GB z indeksami,108GB wolnego miejsca. Niezależny
 audyt preflightu PASS. Zatrzymano wyłącznie main API8000, Admin3000 oraz

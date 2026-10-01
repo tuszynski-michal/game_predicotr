@@ -25,7 +25,7 @@ pytestmark = pytest.mark.skipif(
 def database() -> Iterator[Engine]:
     """Only this uniquely named database is changed or removed."""
     name = "game_predictor_task0708_" + uuid4().hex[:12]
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",

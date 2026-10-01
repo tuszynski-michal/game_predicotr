@@ -57,7 +57,11 @@ eksporter wykonuje atomową zmianę nazwy na tym samym wolumenie.
 Gotowy katalog ma nazwę równą `snapshotId`. `manifest.json` zawiera
 checksumy wszystkich plików. `frozen_identity.json` przechowuje ID i
 fingerprinty wierszy. `records/<gameId>/*.jsonl` zawiera pełne wiersze
-powiązanych tabel, `images/` kopie źródeł, a `assets/` kopie istniejących
+powiązanych tabel (od migracji `0136`, TASK-0793, wiersze
+`image_symbol_review_cells` nie mają pola `render_spec`; specyfikacja renderu
+wirtualnego cropa jest w `board_render_manifests.jsonl` dla
+`(recognized_board_id, geometry_revision, cellIndex)` komórki, powiązana
+sumą `render_spec_checksum_sha256`), `images/` kopie źródeł, a `assets/` kopie istniejących
 plansz i cropów z rewizji. `approved_labels.json` jest konserwatywną projekcją
 aktualnych zatwierdzeń przypiętych do tego samego cropa i geometrii,
 aktywnego symbolu oraz obecnego właściciela sekwencji. Projekcja obejmuje

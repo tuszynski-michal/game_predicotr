@@ -1078,3 +1078,51 @@ a:focus-visible {
   color: var(--danger);
   font-size: 12px;
 }
+
+/* D-471: online board-search share. */
+.boardSearchShareNotice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.boardSearchShareForm {
+  display: grid;
+  gap: 12px;
+}
+
+.boardSearchShareForm label {
+  display: grid;
+  gap: 6px;
+}
+
+.boardSearchShareForm input {
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.boardSearchShareApp {
+  display: grid;
+  gap: 16px;
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+.boardSearchShareHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px 16px;
+}
+
+.boardSearchShareHeader p[role='status'] {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}

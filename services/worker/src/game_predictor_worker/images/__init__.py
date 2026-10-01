@@ -67,15 +67,6 @@ from .grid_calibration import (
     build_profile_document,
     profile_document_bytes,
 )
-from .manual_board_cell_geometry_preview import (
-    MANUAL_BOARD_CELL_GEOMETRY_PREVIEW_VERSION,
-    MANUAL_BOARD_CELL_GEOMETRY_VERSION,
-    ManualBoardCellGeometryArtifacts,
-    ManualBoardCellGeometryPreview,
-    ManualBoardCellGeometryPreviewer,
-    ManualBoardCellGeometryPreviewError,
-    manual_board_cell_geometry_decision_checksum,
-)
 from .normalization import (
     CANONICAL_SOURCE_LOADER_VERSION,
     RGB_PIXEL_CHECKSUM_VERSION,
@@ -242,15 +233,8 @@ __all__ = [
     "GridCalibrationError",
     "GridCalibrationProfiles",
     "INTERPOLATION_VERSION",
-    "MANUAL_BOARD_CELL_GEOMETRY_VERSION",
-    "MANUAL_BOARD_CELL_GEOMETRY_PREVIEW_VERSION",
-    "ManualBoardCellGeometryArtifacts",
-    "ManualBoardCellGeometryPreview",
-    "ManualBoardCellGeometryPreviewError",
-    "ManualBoardCellGeometryPreviewer",
     "MAX_VIRTUAL_CELLS_PER_BATCH",
     "RGB_PIXEL_CHECKSUM_VERSION",
-    "manual_board_cell_geometry_decision_checksum",
     "PerspectiveBoardCellCropperV2",
     "PerspectiveBoardCellCropperV2Calibrated",
     "PROFILE_SET_VERSION",

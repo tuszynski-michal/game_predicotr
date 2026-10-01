@@ -1,10 +1,20 @@
 ---
 title: Usunięcie legacy magazynu gier ze schematu public
-status: accepted
-last_updated: 2026-09-26
+status: completed
+last_updated: 2026-09-30
 ---
 
 # `game_data_v2` jako jedyny magazyn danych gier
+
+> **Stan 2026-09-30 (D-467, S1):** migracja `0125` jest zastosowana na bazie
+> operatora (`alembic_version` = `0128`, 0 relacji game-owned w `public`,
+> 42 tabele katalogu/control/shared). Narzędzia jednorazowe tego planu
+> (`scripts/audit_legacy_public_game_store.py`, `preview_legacy_game_cleanup.py`,
+> `delete_legacy_game_resumable.py`, `preview_legacy_game_managed_asset_gc.py`,
+> `backfill_v09_schema.py`, `report_v09_storage_cleanup.py`) i ich testy
+> zostały usunięte w TASK-0752; dowody T01–T07 pozostają w `quality/` i w
+> historii Git. Osierocone funkcje triggerów legacy usuwa migracja `0129`.
+> Dalsze porządki: `LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md`.
 
 ## Stan obecny, cel i granice
 

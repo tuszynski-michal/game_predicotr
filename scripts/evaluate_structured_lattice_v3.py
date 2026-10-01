@@ -20,7 +20,10 @@ from game_predictor_api.domain.image_geometry_v2 import (
     SourceQuad,
     canonical_json_bytes,
 )
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.models import (
     ImageBoardGeometryRevisionModel,
     ImageSourceGeometryRevisionModel,
@@ -198,7 +201,7 @@ def _external_golden(settings: Any) -> dict[str, object]:
 
 def build_report() -> dict[str, object]:
     settings = get_settings()
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     session = create_session_factory(engine)()
     started = time.perf_counter()
     try:

@@ -44,6 +44,9 @@ from game_predictor_api.domain.image_reviews import (
 )
 
 if TYPE_CHECKING:
+    from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
+        ManualBoardCellSymbolPredictor,
+    )
     from game_predictor_worker.images.virtual_cell_extraction import (
         VirtualCellRender,
     )
@@ -85,6 +88,28 @@ class VirtualGridGeometryContext:
     global_initialization: Mapping[str, object] | None
     board_geometries: tuple[Mapping[str, object], ...]
     render_configuration: DirectCellRenderConfiguration
+    # Symbol model pinned to the import of a still-deferred slot; its rendered
+    # cells are classified with exactly this model (D-467, TASK-0790).
+    pending_symbol_model: Mapping[str, object] | None = None
+    # Common revision of the 15 current symbol cells of the slot's
+    # ``game_id + sequence_number`` when a deferred slot takes over a sequence
+    # already owned by another board (TASK-0702 handoff rule, DATA_MODEL).
+    sequence_geometry_revision: int | None = None
+
+    @property
+    def next_geometry_revision(self) -> int:
+        """Revision of the next manual geometry of this slot.
+
+        A deferred slot pins its own source revision, but when it becomes the
+        newest owner of a sequence whose current cells are on revision R, the
+        logical 3 x 5 board continues from R: the write uses ``max(pinned, R)
+        + 1`` so it never reuses a revision of the previous owner.
+        """
+
+        floor = self.geometry_revision
+        if self.sequence_geometry_revision is not None:
+            floor = max(floor, self.sequence_geometry_revision)
+        return floor + 1
 
     @property
     def target_id(self) -> UUID:
@@ -122,6 +147,26 @@ class VirtualGridGeometryCell:
 
 
 @dataclass(frozen=True, slots=True)
+class VirtualSlotPrediction:
+    """Pinned-model predictions of the rendered cells of a deferred slot."""
+
+    model_iteration_id: str | None
+    model_manifest_checksum_sha256: str
+    model_version: str
+    temperature_applied: float
+    cells: tuple[Mapping[str, object], ...]
+
+    def to_cells_prediction(self) -> dict[str, object]:
+        return {
+            "cells": [dict(cell) for cell in self.cells],
+            "modelIterationId": self.model_iteration_id,
+            "modelManifestChecksumSha256": self.model_manifest_checksum_sha256,
+            "modelVersion": self.model_version,
+            "temperatureApplied": self.temperature_applied,
+        }
+
+
+@dataclass(frozen=True, slots=True)
 class PreparedVirtualGridGeometry:
     command: ValidatedImageReviewGeometryCommand
     context: VirtualGridGeometryContext
@@ -132,6 +177,7 @@ class PreparedVirtualGridGeometry:
     virtual_render_spec_checksum_sha256: str
     cells: tuple[VirtualGridGeometryCell, ...]
     cropper_version: str
+    slot_prediction: VirtualSlotPrediction | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -200,6 +246,21 @@ class VirtualGridGeometrySourceSaveResult:
     created: bool
 
 
+@dataclass(frozen=True, slots=True)
+class LegacyConversionTarget:
+    """One ``legacy_file`` board rendered from its current corners (TASK-0791).
+
+    ``context.geometry_revision`` is the board's current revision and
+    ``context.sequence_geometry_revision`` the common revision of its
+    sequence's current cells, so ``context.next_geometry_revision`` follows
+    the TASK-0702 rule ``max(N, R) + 1``.
+    """
+
+    context: VirtualGridGeometryContext
+    corners: tuple[ImageReviewGeometryPoint, ...]
+    geometry_qualification: GeometryQualification | None
+
+
 class VirtualGridGeometryRepository(Protocol):
     def virtual_geometry_replay(
         self, *, context: VirtualGridGeometryContext, idempotency_key: UUID
@@ -234,9 +295,16 @@ class VirtualGridGeometryRepository(Protocol):
 class VirtualGridGeometryService:
     """Render manual virtual crops once and persist metadata-only provenance."""
 
-    def __init__(self, repository: VirtualGridGeometryRepository, artifact_root: Path) -> None:
+    def __init__(
+        self,
+        repository: VirtualGridGeometryRepository,
+        artifact_root: Path,
+        *,
+        symbol_predictor: ManualBoardCellSymbolPredictor | None = None,
+    ) -> None:
         self._repository = repository
         self._artifact_root = artifact_root.resolve()
+        self._symbol_predictor = symbol_predictor
 
     def preview(
         self,
@@ -343,6 +411,91 @@ class VirtualGridGeometryService:
             created_at=created_at,
         )
 
+    def preview_review_item(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        review_item_id: UUID,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+    ) -> VirtualGridGeometryPreview:
+        """Render one current board for the operational Reviewer (TASK-0796).
+
+        The Reviewer command carries only the corners and the two CAS
+        revisions; the source identity and topology are the persisted ones,
+        exactly as for a deferred slot.  The render is the same as
+        :meth:`preview` would produce for the Admin.
+        """
+
+        context = self._persisted_review_item_context(
+            game_id=game_id, import_job_id=import_job_id, review_item_id=review_item_id
+        )
+        return self.preview(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            review_item_id=review_item_id,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            expected_source_checksum_sha256=context.source_checksum_sha256,
+            expected_source_width=context.oriented_width,
+            expected_source_height=context.oriented_height,
+            expected_grid_rows=context.topology.rows,
+            expected_grid_columns=context.topology.columns,
+            corners=corners,
+        )
+
+    def save_review_item(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        review_item_id: UUID,
+        idempotency_key: UUID,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+        actor: str,
+        created_at: datetime,
+    ) -> VirtualGridGeometrySaveResult:
+        """Persist one current board's manual geometry for the Reviewer (TASK-0796).
+
+        Delegates to :meth:`save` (replay by ``idempotency_key`` first, then
+        the revision CAS and ``save_virtual_geometry_revision``), so the
+        board gets a ``virtual_source`` revision with a render manifest.
+        """
+
+        context = self._persisted_review_item_context(
+            game_id=game_id, import_job_id=import_job_id, review_item_id=review_item_id
+        )
+        return self.save(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            review_item_id=review_item_id,
+            idempotency_key=idempotency_key,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            expected_source_checksum_sha256=context.source_checksum_sha256,
+            expected_source_width=context.oriented_width,
+            expected_source_height=context.oriented_height,
+            expected_grid_rows=context.topology.rows,
+            expected_grid_columns=context.topology.columns,
+            corners=corners,
+            actor=actor,
+            created_at=created_at,
+        )
+
+    def _persisted_review_item_context(
+        self, *, game_id: UUID, import_job_id: UUID, review_item_id: UUID
+    ) -> VirtualGridGeometryContext:
+        return self._repository.virtual_geometry_context(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            review_item_id=review_item_id,
+            pending_geometry_id=None,
+        )
+
     def save_source(
         self,
         *,
@@ -363,7 +516,7 @@ class VirtualGridGeometryService:
         )
         if replay is not None:
             return VirtualGridGeometrySourceSaveResult(revisions=replay, created=False)
-        prepared = self._prepare_source(
+        prepared, _renders = self._prepare_source(
             game_id=game_id,
             import_job_id=import_job_id,
             commands=commands,
@@ -373,6 +526,135 @@ class VirtualGridGeometryService:
             prepared=prepared,
             idempotency_key=idempotency_key,
             created_at=created_at,
+        )
+
+    def preview_pending_slot(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        pending_geometry_id: UUID,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+        geometry_qualification: GeometryQualification | None = None,
+        actor: str = "local-admin-preview",
+    ) -> VirtualGridGeometryPreview:
+        """Render one deferred slot from its source, exactly as a save would."""
+
+        command = self._pending_slot_command(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            pending_geometry_id=pending_geometry_id,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            corners=corners,
+            geometry_qualification=geometry_qualification,
+        )
+        prepared, renders = self._prepare_source(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            commands=(command,),
+            actor=actor,
+            require_complete_source=False,
+            predict=False,
+        )
+        entry = prepared.entries[0]
+        return VirtualGridGeometryPreview(
+            contact_sheet_png=_contact_sheet_png(
+                renders[entry.context.target_id],
+                entry.context.topology,
+                qualification=entry.command.geometry_qualification,
+                configuration=entry.context.render_configuration,
+            ),
+            cells=entry.cells,
+            cropper_version=entry.cropper_version,
+        )
+
+    def save_pending_slot(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        pending_geometry_id: UUID,
+        idempotency_key: UUID,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+        actor: str,
+        created_at: datetime,
+        geometry_qualification: GeometryQualification | None = None,
+    ) -> VirtualGridGeometrySourceSaveResult:
+        """Resolve one deferred slot as a ``virtual_source`` board (D-467).
+
+        Unlike :meth:`save_source` the other slots of the source keep their
+        current geometry: the new source revision is derived from the latest
+        one and only the deferred slot's quad changes.  The repository locks
+        and re-checks that exact snapshot, so a concurrent change conflicts.
+        """
+
+        command = self._pending_slot_command(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            pending_geometry_id=pending_geometry_id,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            corners=corners,
+            geometry_qualification=geometry_qualification,
+        )
+        replay = self._find_replay(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            commands=(command,),
+            idempotency_key=idempotency_key,
+            actor=actor,
+        )
+        if replay is not None:
+            return VirtualGridGeometrySourceSaveResult(revisions=replay, created=False)
+        prepared, _renders = self._prepare_source(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            commands=(command,),
+            actor=actor,
+            require_complete_source=False,
+        )
+        return self._repository.save_virtual_source_geometry_revision(
+            prepared=prepared,
+            idempotency_key=idempotency_key,
+            created_at=created_at,
+        )
+
+    def _pending_slot_command(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        pending_geometry_id: UUID,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+        geometry_qualification: GeometryQualification | None,
+    ) -> VirtualGridGeometrySourceCommand:
+        # The deferred item's processing manifest already pins the source
+        # checksum; the source identity therefore comes from persistence.
+        context = self._repository.virtual_geometry_context(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            review_item_id=None,
+            pending_geometry_id=pending_geometry_id,
+        )
+        return VirtualGridGeometrySourceCommand(
+            review_item_id=None,
+            pending_geometry_id=pending_geometry_id,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            expected_source_checksum_sha256=context.source_checksum_sha256,
+            expected_source_width=context.oriented_width,
+            expected_source_height=context.oriented_height,
+            expected_grid_rows=context.topology.rows,
+            expected_grid_columns=context.topology.columns,
+            corners=tuple(corners),
+            geometry_qualification=geometry_qualification,
         )
 
     def _find_replay(
@@ -467,7 +749,12 @@ class VirtualGridGeometryService:
         import_job_id: UUID,
         commands: Sequence[VirtualGridGeometrySourceCommand],
         actor: str,
-    ) -> PreparedVirtualGridGeometrySource:
+        require_complete_source: bool = True,
+        predict: bool = True,
+    ) -> tuple[
+        PreparedVirtualGridGeometrySource,
+        dict[UUID, tuple[VirtualCellRender, ...]],
+    ]:
         """Render every source slot once, then assemble one immutable revision.
 
         A source image can contain at most nine logical boards.  Loading and
@@ -475,6 +762,10 @@ class VirtualGridGeometryService:
         source-geometry revisions from stale base geometry.  This path validates
         all client identities first, canonicalizes the source once, and produces
         one board-geometries document containing every requested quad.
+
+        ``require_complete_source=False`` is reserved for one deferred slot
+        (``save_pending_slot``): it is rendered against the latest source
+        revision and the other slots keep their current quads.
         """
 
         if not commands:
@@ -552,11 +843,92 @@ class VirtualGridGeometryService:
         actual_positions = tuple(
             context.position_index for context, _command, _quad in prepared_inputs
         )
-        if actual_positions != expected_positions:
+        if require_complete_source and actual_positions != expected_positions:
             raise ImageGridReviewError(
                 "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
                 "Manual source geometry requires every active source slot in row-major order.",
             )
+        if not require_complete_source and (
+            len(prepared_inputs) != 1
+            or prepared_inputs[0][0].pending_geometry_id is None
+            or prepared_inputs[0][0].review_item_id is not None
+        ):
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
+                "A partial source correction may contain only one deferred slot.",
+            )
+        return self._render_source_entries(prepared_inputs, predict=predict)
+
+    def prepare_legacy_conversion(
+        self,
+        targets: Sequence[LegacyConversionTarget],
+        *,
+        actor: str,
+    ) -> PreparedVirtualGridGeometrySource:
+        """Render ``legacy_file`` boards of one source exactly as manual geometry.
+
+        D-467 S6 (TASK-0791): the conversion keeps each board's current corners
+        and qualification and renders its cells through the same source loader,
+        renderer, render manifest and checksums as a manual virtual geometry
+        save.  The caller owns the contexts (they describe a legacy board, which
+        the regular context reader refuses) and the persistence.
+        """
+
+        if not targets:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SOURCE_TARGETS_EMPTY",
+                "A legacy conversion requires at least one board of the source.",
+            )
+        prepared_inputs: list[
+            tuple[VirtualGridGeometryContext, ValidatedImageReviewGeometryCommand, SourceQuad]
+        ] = []
+        for target in targets:
+            context = target.context
+            corners = target.corners
+            qualification = target.geometry_qualification
+            quad = SourceQuad(
+                corners=cast(
+                    tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+                    tuple(SourcePoint(x=point.x, y=point.y) for point in corners),
+                )
+            )
+            if qualification is not None:
+                try:
+                    qualification = resolve_manual_geometry_qualification(
+                        quad=quad,
+                        source=SourceImageBounds(context.oriented_width, context.oriented_height),
+                        topology=context.topology,
+                        qualification=qualification,
+                    )
+                except ImageGeometryContractError as error:
+                    raise ImageGridReviewError(error.code, str(error)) from error
+            command = validate_image_review_geometry_command(
+                corners=tuple(corners),
+                expected_geometry_revision=context.geometry_revision,
+                expected_resolution_revision=context.resolution_revision,
+                corrected_by=actor,
+                geometry_qualification=qualification,
+            )
+            prepared_inputs.append((context, command, quad))
+        prepared_inputs.sort(key=lambda value: value[0].position_index)
+        _require_source_batch_context(base_context=prepared_inputs[0][0], values=prepared_inputs)
+        prepared, _renders = self._render_source_entries(prepared_inputs, predict=False)
+        return prepared
+
+    def _render_source_entries(
+        self,
+        prepared_inputs: Sequence[
+            tuple[VirtualGridGeometryContext, ValidatedImageReviewGeometryCommand, SourceQuad]
+        ],
+        *,
+        predict: bool,
+    ) -> tuple[
+        PreparedVirtualGridGeometrySource,
+        dict[UUID, tuple[VirtualCellRender, ...]],
+    ]:
+        """Render validated slots of one source once and assemble the revision."""
+
+        base_context = prepared_inputs[0][0]
 
         from game_predictor_worker.images.normalization import (
             CanonicalSourceLoader,
@@ -600,7 +972,7 @@ class VirtualGridGeometryService:
                     ),
                     topology=context.topology,
                     topology_rules_version_id=context.topology_rules_version_id,
-                    geometry_revision=context.geometry_revision + 1,
+                    geometry_revision=context.next_geometry_revision,
                     geometry_version=VIRTUAL_MANUAL_GEOMETRY_VERSION,
                     engine_kind=GeometryEngineKind.MANUAL_V1,
                     symbol_grid_quad=quad,
@@ -695,12 +1067,69 @@ class VirtualGridGeometryService:
                     ).hexdigest(),
                     cells=cells,
                     cropper_version=VirtualCellRenderer.version,
+                    slot_prediction=(
+                        self._predict_pending_slot(context, rendered_by_item[context.target_id])
+                        if predict
+                        else None
+                    ),
                 )
             )
-        return PreparedVirtualGridGeometrySource(
-            entries=tuple(entries),
-            source_geometry_checksum_sha256=source_geometry_checksum,
-            board_geometries=board_geometries,
+        return (
+            PreparedVirtualGridGeometrySource(
+                entries=tuple(entries),
+                source_geometry_checksum_sha256=source_geometry_checksum,
+                board_geometries=board_geometries,
+            ),
+            rendered_by_item,
+        )
+
+    def _predict_pending_slot(
+        self,
+        context: VirtualGridGeometryContext,
+        renders: Sequence[VirtualCellRender],
+    ) -> VirtualSlotPrediction | None:
+        """Classify a still-deferred slot with its import's pinned model."""
+
+        if (
+            self._symbol_predictor is None
+            or context.review_item_id is not None
+            or context.pending_symbol_model is None
+        ):
+            return None
+        from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
+            ManualBoardCellSymbolPredictionError,
+            RenderedBoardCell,
+        )
+
+        from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
+
+        try:
+            snapshot = SymbolModelJobSnapshot.from_payload(context.pending_symbol_model)
+        except (TypeError, ValueError) as error:
+            raise ImageGridReviewError(
+                "IMAGE_SYMBOL_MODEL_SNAPSHOT_INVALID",
+                "The deferred slot's import has an invalid pinned symbol model.",
+            ) from error
+        try:
+            prediction = self._symbol_predictor.predict_rendered_cells(
+                tuple(
+                    RenderedBoardCell(
+                        row_index=render.row_index,
+                        column_index=render.column_index,
+                        rgb=render.rgb,
+                    )
+                    for render in sorted(renders, key=lambda value: value.cell_index)
+                ),
+                snapshot,
+            )
+        except ManualBoardCellSymbolPredictionError as error:
+            raise ImageGridReviewError(error.code, str(error)) from error
+        return VirtualSlotPrediction(
+            model_iteration_id=prediction.model_iteration_id,
+            model_manifest_checksum_sha256=prediction.model_manifest_checksum_sha256,
+            model_version=prediction.model_version,
+            temperature_applied=prediction.temperature_applied,
+            cells=tuple(prediction.cells),
         )
 
     def _prepare(
@@ -1160,6 +1589,7 @@ def _contact_sheet_png(
 
 
 __all__ = [
+    "LegacyConversionTarget",
     "PreparedVirtualGridGeometry",
     "PreparedVirtualGridGeometrySource",
     "VirtualGridGeometryCell",
@@ -1171,4 +1601,5 @@ __all__ = [
     "VirtualGridGeometrySourceCommand",
     "VirtualGridGeometrySourceSaveResult",
     "VirtualGridGeometryService",
+    "VirtualSlotPrediction",
 ]

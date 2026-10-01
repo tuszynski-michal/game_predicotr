@@ -100,7 +100,7 @@ export async function previewDeferredBoardCellGeometry(
     if (result.error !== undefined || !(result.data instanceof Blob)) {
       return failure(
         result.error,
-        'Nie udało się wygenerować podglądu 15 cropów.',
+        'Nie udało się wygenerować podglądu komórek planszy.',
       );
     }
     return { blob: result.data, ok: true };
@@ -169,6 +169,11 @@ function isDeferredGeometryConflict(error: unknown): boolean {
       code === 'IMAGE_BOARD_CELL_PENDING_REVISION_CONFLICT' ||
       code === 'IMAGE_BOARD_CELL_PENDING_RESOLUTION_CONFLICT' ||
       code === 'IMAGE_BOARD_CELL_PENDING_NOT_EDITABLE' ||
-      code === 'IMAGE_BOARD_CELL_PENDING_NOT_FOUND')
+      code === 'IMAGE_BOARD_CELL_PENDING_NOT_FOUND' ||
+      // D-467: the resolution is persisted by the virtual source path, whose
+      // stale-state refusals also require reloading the deferred item.
+      code === 'IMAGE_GRID_REVIEW_REVISION_CONFLICT' ||
+      code === 'IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT' ||
+      code === 'IMAGE_GRID_REVIEW_ITEM_NOT_FOUND')
   );
 }

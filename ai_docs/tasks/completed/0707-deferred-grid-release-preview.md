@@ -45,6 +45,9 @@ testowy ograniczony do 120 sekund. Odbiór nie zapisuje danych użytkownika.
 
 ## Outcome
 
+Commit `v1.7.4` — `be27ec553d0a9acf418cd809d8b4bcef9ba82cc5`.
+Hash dopisany po commicie zgodnie z AGENTS.md, pozostaje lokalnym uzupełnieniem.
+
 ### Changed
 
 - Snapshot viewportu/rect/pointer ID na czas gestu; dopasowanie dopiero po

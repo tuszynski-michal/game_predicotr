@@ -56,3 +56,15 @@ examples/imgs/*
 .codex-task-*/
 test-temp-*/
 TEMP PLAN V2 GEOMETRY.md
+
+# Next.js rewrites next-env.d.ts differently for dev and build; `next typegen`
+# (pretypecheck) recreates it, so it is not versioned.
+next-env.d.ts
+
+# Local agent logs and scratch work (not part of the product)
+tmp-*.out
+tmp-*.err
+work/
+# Unreadable pytest temp roots left by earlier runs
+t07-pytest-*/
+t6?/

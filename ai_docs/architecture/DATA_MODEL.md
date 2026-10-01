@@ -204,6 +204,18 @@ utworzeniu wszystkich partycji i przed atomową aktywacją location.
 Pełna mapa własności, zależności, kontrakt create/migrate/delete i ograniczenia
 rollbacku: [GAME_DATA_V2_OWNERSHIP.md](GAME_DATA_V2_OWNERSHIP.md).
 
+Wersje manifestu magazynu (D-467): `game-data-v2-manifest-v3` (migracja
+`0131`) dodał `board_render_manifests` (66 tabel gry).
+`game-data-v2-manifest-v4` (migracja `0134`, TASK-0759) usuwa z niego
+`cell_observations`, `legacy_board_search_archive_documents` i
+`legacy_board_search_archive_states` (63 tabele gry, jawna zamrożona lista w
+`storage/game_data_v2_manifest_v4.py`). `0134` w jednej transakcji z preflightem
+(manifest v3 każdej lokalizacji, brak FK do usuwanych tabel, 0 plansz
+`legacy_file` na rewizji 0, 0 plansz `virtual_source` z dostępnymi komórkami
+bez manifestu bieżącej rewizji, puste archiwum) dopisuje rejestr v4,
+przestawia lokalizacje na v4 i usuwa partycje (z `pg_inherits`) oraz tabele
+nadrzędne; downgrade odmawia. Router i provisioning akceptują wyłącznie v4.
+
 ## game_deletion_operations / game_deletion_batches — TASK-0516
 
 Maintenance-only receipt nie ma FK do `games`, dlatego przeżywa usunięcie gry.
@@ -996,11 +1008,14 @@ pełnego dowodu może zachować dane diagnostyczne, lecz nie jest finalną
 geometrią uprawniającą do renderowania komórek.
 
 `image_geometry_rollout_states` jest jednym rekordem per gra. Oddziela rollout
-geometrii (`legacy`, `structured_shadow`, `structured_review`,
-`structured_default`) od sposobu dostarczania assetów komórek
-(`legacy_files`, `virtual_shadow`, `virtual_default`) i przechowuje bounded
-checkpoint backfillu. Migracja ani backfill nie wybierają trybu nowego silnika;
-brakujący rekord jest tworzony wyłącznie jako legacy.
+geometrii od sposobu dostarczania assetów komórek i przechowuje bounded
+checkpoint backfillu. Od migracji `0133` (D-467, TASK-0790) CHECK-i
+dopuszczają wyłącznie `structured_default` / `structured_lattice_v3` oraz
+`virtual_default`; dawne stany `legacy` / `legacy_files` i
+`structured_shadow` / `structured_review` / `virtual_shadow` zostały
+przeniesione na `structured_lattice_v3` / `virtual_default` z podbiciem
+rewizji. Nowa gra i brakujący rekord dostają `structured_lattice_v3` /
+`virtual_default`.
 
 Migracja 0084 dodaje addytywne związanie gotowości walidacji:
 `validation_rollout_revision`, `validation_input_checksum_sha256` i
@@ -1093,12 +1108,12 @@ ponownej kompakcji po rerunie bez nadpisywania wcześniejszego manifestu.
 | sequence_number | bigint nullable | wyłącznie cyfrowa sugestia |
 | sequence_confidence | float | 0..1 |
 | board_geometry | JSONB | quad i provenance geometrii |
-| asset_mode | varchar | `legacy_file` albo aktywny per rollout `virtual_source` |
+| asset_mode | varchar | od `0135` (D-467 S6, TASK-0791) wyłącznie `virtual_source`; `legacy_file` tylko w historycznych rekordach `image_board_geometry_revisions` |
 | source_geometry_revision_id | UUID nullable | FK append-only geometrii źródła |
 | geometry_engine_name/version | varchar nullable | wymagane dla wirtualnego wyniku |
 | geometry_checksum_sha256 | varchar(64) nullable | wiąże dokładną geometrię |
-| board_relative_path | varchar nullable | wymagane tylko dla `legacy_file` |
-| board_checksum_sha256 | varchar(64) nullable | wymagane tylko dla `legacy_file` |
+| board_relative_path | varchar nullable | od `0135` zawsze `NULL` (dawniej plik planszy `legacy_file`) |
+| board_checksum_sha256 | varchar(64) nullable | od `0135` zawsze `NULL` |
 | cells_prediction | JSONB | model, 15 predykcji i alternatywy |
 | board_confidence | float | 0..1 |
 | pipeline_fingerprint | varchar(64) | pełne provenance |
@@ -1114,7 +1129,18 @@ wersjonowanej decyzji review wraz z aktorem i rewizją; nie nadpisuje surowej
 odpowiedzi OCR. Brak ręcznej decyzji pozwala pozostawić lukę i doładować kolejne
 zdjęcia.
 
-### cell_observations
+### cell_observations (usunięta w migracji `0134`)
+
+Tabela historyczna: usunięta w D-467 S5 (TASK-0759, manifest magazynu v4).
+Specyfikację renderu bieżącej rewizji wirtualnej planszy przechowuje
+`board_render_manifests`, predykcje importu `recognized_boards.cells_prediction`,
+a cropy planszy `legacy_file` jej ręczna rewizja geometrii (`crop_artifacts`).
+Plansza `legacy_file` na rewizji 0 nie ma już źródła komórek i jest odrzucana.
+Od `0135` (TASK-0791) plansz `legacy_file` nie ma: 461 plansz z 777 zostało
+skonwertowanych na `virtual_source` (nowa rewizja z tymi samymi narożnikami,
+manifest renderu, decyzje komórek bez zmian); ich dawne rekordy rewizji
+`legacy_file` zostają jako historia.
+Poniższy opis dotyczy schematu sprzed `0134`.
 
 | Pole | Typ | Uwagi |
 |---|---|---|
@@ -1144,7 +1170,28 @@ Migracja 0082 dodaje ten sam warunkowy kontrakt proweniencji do bieżącej
 projekcji `image_symbol_review_cells`, append-only eventów, rewizji geometrii i
 próbek zweryfikowanych kohort. Rekord `virtual_source` nie może udawać pliku:
 ścieżka jest `NULL`, a source geometry, logical key, render spec i pixel SHA-256
-są obowiązkowe. `legacy_file` nadal wymaga istniejących pól ścieżki i checksumy.
+są obowiązkowe (od `0136` komórka weryfikacji ma tylko sumę render spec;
+specyfikacja jest w `board_render_manifests`). `legacy_file` nadal wymaga istniejących pól ścieżki i checksumy.
+
+Stan po D-467 S6 (TASK-0796, bez migracji): modele ORM odpowiadają
+`pg_get_constraintdef` po `0135`/`0136`. `recognized_boards` i
+`image_symbol_review_cells` dopuszczają wyłącznie `virtual_source` (komórki
+także `none`), a domyślne `asset_mode` w ORM i w bazie to `virtual_source`.
+`ck_image_symbol_review_cells_approved_provenance` zachowuje w bazie i w ORM
+gałąź `approved_asset_mode IS NULL OR = 'legacy_file'` (zatwierdzenie
+plikowe): na bazie operatora 2026-10-01 było 0 takich wierszy i żaden pisarz
+jej nie tworzy, ale jej usunięcie wymaga osobnej migracji. Tabele historii
+(`image_board_geometry_revisions` — 461 rekordów `legacy_file`,
+`image_symbol_review_events`, `verified_training_cohort_cells`) zachowują
+gałąź `legacy_file` i jej domyślne wartości kolumn, bo opisują przeszłość.
+Kod runtime nie zna już trybu `legacy_file`: mapper, czytelnicy assetów,
+projekcja wyszukiwarki, przeliczanie predykcji i korekta geometrii Reviewera
+odmawiają planszy/komórki niewirtualnej jawnym kodem
+(`IMAGE_REVIEW_ASSET_MODE_UNSUPPORTED`, `SYMBOL_CELL_REVIEW_ASSET_MODE_UNSUPPORTED`,
+`IMAGE_SYMBOL_REINFERENCE_LEGACY_UNSUPPORTED`,
+`IMAGE_GRID_REINFERENCE_LEGACY_UNSUPPORTED`). Wyjątek: narzędzie konwersji
+TASK-0791 (`scripts/convert_legacy_boards_to_virtual.py` i jego warstwa
+aplikacji), którego wymaga migracja `0135` przy odtwarzaniu bazy sprzed `0135`.
 
 TASK-0321 zachowuje `logical_cell_key` jako historyczny klucz
 `logical-cell-v1`, oparty na checksumie treści źródła. Nie jest on przepisywany
@@ -1329,6 +1376,31 @@ symbolu, natomiast jawne rozwiązanie pola `unreadable` może zatwierdzić domen
 `pending`.
 Indeksy wspierają przyszłe listowanie po grze/symbolu/stanie i filtrowanie
 plansz mających problem siatki.
+
+Specyfikacja renderu komórki `virtual_source` (D-467 S7, TASK-0792): komórka
+przechowuje tożsamość renderu (`recognized_board_id`, `geometry_revision`,
+`cell_index`, `render_spec_checksum_sha256`, klucze logiczne, suma pikseli),
+a pełny `renderSpec` czytelnicy biorą z `board_render_manifests.cells[]` dla
+`(game_id, recognized_board_id, geometry_revision, cellIndex)` przez wspólny
+czytelnik `storage/cell_render_specs.py` (jedno zapytanie na porcję do 2 000
+komórek, rozwinięcie tylko żądanych wpisów manifestu po stronie bazy).
+Czytelnik wymaga zgodności `renderSpecChecksumSha256` wpisu oraz kanonicznej
+sumy jego `renderSpec` z sumą komórki i odmawia jawnie:
+`IMAGE_REVIEW_RENDER_MANIFEST_MISSING` (brak manifestu rewizji komórki),
+`IMAGE_REVIEW_RENDER_SPEC_MISSING` (brak jednoznacznego wpisu komórki),
+`IMAGE_REVIEW_RENDER_SPEC_MISMATCH` (inna suma). Migracja
+`0136_drop_cell_render_spec` (TASK-0793) usunęła kolumnę
+`image_symbol_review_cells.render_spec` (z rodzica i wszystkich partycji) po
+preflighcie `CELL_RENDER_MANIFEST_MISSING` (każda komórka `virtual_source`
+musi mieć manifest swojej rewizji). CHECK-i
+`ck_image_symbol_review_cells_asset_provenance` (gałąź `virtual_source` bez
+`jsonb_typeof(render_spec)`) i `ck_image_symbol_review_cells_source_asset`
+(gałąź `none` bez `render_spec IS NULL`) są dodane `NOT VALID` i walidowane
+runbookiem; downgrade odmawia (`CELL_RENDER_SPEC_DROP_IRREVERSIBLE`). Miejsce
+po kolumnie zwalnia przepisanie partycji (`DATABASE_MAINTENANCE.md` 2.6).
+Eksport laboratorium wizji niesie manifesty (`board_render_manifests.jsonl`)
+zamiast pola komórki. Zamrożone komórki kohort (`verified_training_cohort_cells.render_spec`)
+i manifest kohorty pozostają własnym, niezmiennym zapisem treningu.
 
 W `game_data_v2` ta sama tabela jest jedyną bieżącą projekcją i dodatkowo ma
 unikalność `(game_id, sequence_number, cell_index)`. Wiersz ma stabilną
@@ -1654,6 +1726,17 @@ jeden w `recognized_boards`, append-only audycie geometrii, pending recordzie
 i bieżącej projekcji komórek. Brak wcześniejszych cropów zachowuje wynik
 `expected_geometry_revision + 1`; niepełna albo niespójna wcześniejsza
 projekcja pozostaje fail-closed bez częściowego zapisu.
+
+Od TASK-0790 rezolucja przechodzi ścieżką wirtualną i reguła obowiązuje w
+niej bez zmian: kontekst odroczonego slotu niesie wspólną rewizję R bieżących
+15 komórek `game_id + sequence_number` (`sequence_geometry_revision`), a
+docelowa rewizja to `max(expected_geometry_revision, R) + 1`. Ta sama liczba
+trafia do specyfikacji renderu (`geometryRevision`), `recognized_boards`,
+rekordu rewizji geometrii, manifestu renderu i `resolved_geometry_revision`.
+Pod blokadą sekwencji i wiersza źródła kontekst jest odczytywany ponownie; inna
+rewizja albo nowsza rewizja geometrii źródła kończy zapis
+`IMAGE_GRID_REVIEW_REVISION_CONFLICT`. Rezolucja nie tworzy plików cropów ani
+`cell_observations`.
 
 ### reviewer_access_sessions i reviewer_access_audit_events
 
@@ -2120,6 +2203,35 @@ Image import job zapisuje przypięte `model_iteration_id`, manifest SHA-256 i
 fingerprint inferencji. Aktywacja innej wersji podczas joba nie zmienia tego
 snapshotu.
 
+Bieżąca tabela operacyjna to `game_data_v2.image_symbol_prediction_revisions`
+(`review_item_id`, `recognized_board_id`, `source_job_id`,
+`model_iteration_id`, `model_version`, `model_checksum_sha256`,
+`crop_manifest_checksum_sha256`, `predictions` JSONB,
+`legacy_predictions_sha256`, `created_at`; unikalność
+`(review_item_id, model_checksum_sha256, crop_manifest_checksum_sha256)`).
+`predictions` to lista wpisów komórek (`rowIndex`, `columnIndex`,
+`symbolCode`, `confidence`, `alternatives`, opcjonalnie `referenceLibrary`
+biblioteki wzorców i `virtualCell`). Od D-467 S8 (TASK-0794, kształt
+`slim-v2`) `virtualCell` niesie tylko sumy i klucze renderu
+(`cropChecksumSha256`, `extractorVersion`, `logicalCellKeySha256`, opcjonalnie
+`logicalCellKeyV2Sha256` i `renderIdentityV2Sha256`, `renderSpecChecksumSha256`,
+`renderedPixelChecksumSha256`); pełny `renderSpec` jest w
+`board_render_manifests`. Model ORM odrzuca zapis z `virtualCell.renderSpec`
+(`PREDICTION_REVISION_RENDER_SPEC_PRESENT`). Istniejące rewizje odchudza
+`scripts/slim_prediction_revisions.py`, który przed usunięciem `renderSpec`
+zapisuje w `legacy_predictions_sha256` (migracja `0137`, CHECK formatu SHA-256)
+digest v1 pełnej listy; rewizja już odchudzona dostaje tam digest v1 = v2
+(znacznik przetworzenia). Rewizja predykcji starszej rewizji geometrii 0
+(sprzed zmiany geometrii planszy) traci pełną specyfikację renderu —
+zostają sumy i klucze; żaden czytelnik runtime jej nie używa.
+Digesty biblioteki wzorców (D-466): v1 = sha256 kanonicznego JSON
+zapisanej listy, v2 = sha256 kanonicznego JSON listy bez
+`virtualCell.renderSpec` (ta sama wartość dla postaci pełnej i odchudzonej).
+`apply` i `apply-revert` akceptują w manifeście v2, v1 bieżącej postaci albo
+`legacy_predictions_sha256`. Retencja tego samego skryptu (`--mode
+retention`) usuwa rewizje zastąpionych review items bez komórek, których
+item nie ma rewizji biblioteki (kotwice `apply-revert` zostają).
+
 ## SQLite — snapshot mobilny
 
 Snapshot jest generowany, nie migrowany przez mobile jako baza robocza. Minimalny logiczny schemat:
@@ -2373,6 +2485,10 @@ deterministycznie z kandydatów i fast documents. Obrazy nadal są assetami
 filesystemu powiązanymi przez `review_item_id` i checksumę; żadna z tych tabel
 nie przechowuje JPEG-a.
 
+Tabele archiwum opisane w dwóch kolejnych akapitach zostały usunięte
+w migracji `0134` (D-467 S5, TASK-0759; nigdy nie miały wierszy), razem z
+trybem `legacy_archive` wyszukiwarki. Opis zostaje jako historia.
+
 Od migracji 0098 gra przeznaczona do odchudzenia może mieć niezależny,
 zamrożony read model `legacy_board_search_archive_documents`. Klucz pozostaje
 `(game_id, sequence_number)`, a dokument kopiuje wyłącznie status, bezpośrednią
@@ -2399,7 +2515,11 @@ odpowiedzialności nie są równorzędne:
   bieżącą geometrię pojedynczej planszy;
 - `recognized_boards.board_geometry` jest projekcją kompatybilnościową;
 - `image_board_geometry_revisions` przechowuje komendę i audyt korekty;
-- `cell_observations.render_spec` przechowuje proweniencję renderu cropa.
+- `board_render_manifests.cells` przechowuje proweniencję renderu bieżącej
+  rewizji planszy (do `0134` także `cell_observations.render_spec`) i od
+  D-467 S7 (TASK-0792) jest jedynym źródłem specyfikacji renderu komórki
+  weryfikacji; kolumna `image_symbol_review_cells.render_spec` została
+  usunięta migracją `0136` (TASK-0793).
 
 Pełna mapa ról, invarianty cross-table, reguły manualnego recropu i projekt
 addytywnej korekty znajdują się w

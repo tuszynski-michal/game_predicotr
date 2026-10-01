@@ -27,8 +27,10 @@ class BoardSearchScope(StrEnum):
 
 
 class BoardSearchAssetMode(StrEnum):
+    """Read model behind a search result.  Only the operational projection
+    remains; the frozen board-search archive was removed in D-467 S5."""
+
     OPERATIONAL_REVIEW = "operational_review"
-    LEGACY_ARCHIVE = "legacy_archive"
 
 
 class BoardSearchError(ValueError):
@@ -169,17 +171,8 @@ class BoardSearchResult:
             self.recognized_board_id,
             self.import_job_id,
         )
-        if self.asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW:
-            if any(value is None for value in operational_ids):
-                raise ValueError("Operational board-search results require operational IDs")
-        elif any(value is not None for value in operational_ids):
-            raise ValueError("Archived board-search results cannot expose operational IDs")
-
-
-@dataclass(frozen=True, slots=True)
-class BoardSearchArchiveAssetReference:
-    relative_path: str
-    checksum_sha256: str
+        if any(value is None for value in operational_ids):
+            raise ValueError("Operational board-search results require operational IDs")
 
 
 @dataclass(frozen=True, slots=True)
@@ -456,7 +449,6 @@ __all__ = [
     "BOARD_SEARCH_ALGORITHM_VERSION",
     "BOARD_SEARCH_ALTERNATIVE_WEIGHTS",
     "BOARD_SEARCH_CELL_COUNT",
-    "BoardSearchArchiveAssetReference",
     "BoardSearchAssetMode",
     "BoardSearchCandidate",
     "BoardSearchCellDecision",

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal, cast
 from uuid import UUID
 
 from pydantic import Field, model_validator
@@ -19,10 +19,6 @@ from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewSlotKind,
     ImageGridReviewState,
     ImageGridReviewView,
-)
-from game_predictor_api.domain.image_reviews import (
-    ImageReviewGeometryRevision,
-    crop_sample_id,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.geometry_qualification import (
@@ -100,7 +96,8 @@ class ImageGridReviewItemResponse(ApiModel):
     review_uncertainty_reason: str | None = None
     local_lattice_status: str | None = None
     local_lattice_version: str | None = None
-    asset_mode: str
+    # D-467 S6 (TASK-0796): every recognized board is ``virtual_source``.
+    asset_mode: Literal["virtual_source"]
     geometry_engine_name: str | None
     geometry_engine_version: str | None
     board_confidence: float = Field(ge=0, le=1)
@@ -184,18 +181,16 @@ class ImageGridReviewGeometryRevisionResponse(ApiModel):
     revision: int = Field(ge=1)
     idempotency_key: UUID
     command_sha256: Sha256
-    decision_checksum_sha256: Sha256 | None
     corners: tuple[
         OperationalImageReviewGeometryPoint,
         OperationalImageReviewGeometryPoint,
         OperationalImageReviewGeometryPoint,
         OperationalImageReviewGeometryPoint,
     ]
-    asset_mode: str = "legacy_file"
-    board_checksum_sha256: Sha256 | None = None
-    source_geometry_revision_id: UUID | None = None
-    geometry_checksum_sha256: Sha256 | None = None
-    virtual_render_spec_checksum_sha256: Sha256 | None = None
+    asset_mode: Literal["virtual_source"]
+    source_geometry_revision_id: UUID
+    geometry_checksum_sha256: Sha256
+    virtual_render_spec_checksum_sha256: Sha256
     cropper_version: str
     grid_rows: int = Field(gt=0)
     grid_columns: int = Field(gt=0)
@@ -263,7 +258,8 @@ def to_image_grid_review_item_response(
         symbol_grid_quad=_optional_geometry_quad(symbol_grid_quad),
         local_lattice_status=_optional_text(geometry.get("localLatticeStatus")),
         local_lattice_version=_optional_text(geometry.get("localLatticeVersion")),
-        asset_mode=item.asset_mode,
+        # Pydantic still validates the literal at runtime (fail closed).
+        asset_mode=cast(Literal["virtual_source"], item.asset_mode),
         geometry_engine_name=item.geometry_engine_name,
         geometry_engine_version=item.geometry_engine_version,
         board_confidence=item.board_confidence,
@@ -335,68 +331,6 @@ def to_image_grid_review_page_response(
     )
 
 
-def to_image_grid_review_geometry_response(
-    *,
-    revision: ImageReviewGeometryRevision,
-    grid_rows: int,
-    grid_columns: int,
-    created: bool,
-) -> ImageGridReviewGeometryResponse:
-    return ImageGridReviewGeometryResponse(
-        geometry_revision=ImageGridReviewGeometryRevisionResponse(
-            id=revision.id,
-            review_item_id=revision.review_item_id,
-            recognized_board_id=revision.recognized_board_id,
-            revision=revision.revision,
-            idempotency_key=revision.idempotency_key,
-            command_sha256=revision.command_sha256,
-            decision_checksum_sha256=revision.decision_checksum_sha256,
-            corners=(
-                OperationalImageReviewGeometryPoint(
-                    x=revision.corners[0].x, y=revision.corners[0].y
-                ),
-                OperationalImageReviewGeometryPoint(
-                    x=revision.corners[1].x, y=revision.corners[1].y
-                ),
-                OperationalImageReviewGeometryPoint(
-                    x=revision.corners[2].x, y=revision.corners[2].y
-                ),
-                OperationalImageReviewGeometryPoint(
-                    x=revision.corners[3].x, y=revision.corners[3].y
-                ),
-            ),
-            board_checksum_sha256=revision.board_checksum_sha256,
-            asset_mode="legacy_file",
-            source_geometry_revision_id=None,
-            geometry_checksum_sha256=None,
-            virtual_render_spec_checksum_sha256=None,
-            cropper_version=revision.cropper_version,
-            grid_rows=grid_rows,
-            grid_columns=grid_columns,
-            cells=tuple(
-                ImageGridReviewGeometryCellResponse(
-                    cell_index=cell.row_index * grid_columns + cell.column_index,
-                    row_index=cell.row_index,
-                    column_index=cell.column_index,
-                    crop_sample_id=crop_sample_id(
-                        recognized_board_id=revision.recognized_board_id,
-                        row_index=cell.row_index,
-                        column_index=cell.column_index,
-                        cropper_version=revision.cropper_version,
-                        crop_relative_path=cell.crop_relative_path,
-                        crop_checksum_sha256=cell.crop_checksum_sha256,
-                    ),
-                    crop_checksum_sha256=cell.crop_checksum_sha256,
-                )
-                for cell in revision.cells
-            ),
-            corrected_by=revision.corrected_by,
-            created_at=revision.created_at,
-        ),
-        created=created,
-    )
-
-
 def to_virtual_grid_review_geometry_response(
     result: VirtualGridGeometrySaveResult,
     *,
@@ -417,7 +351,6 @@ def to_virtual_grid_review_geometry_response(
             revision=revision.revision,
             idempotency_key=revision.idempotency_key,
             command_sha256=revision.command_sha256,
-            decision_checksum_sha256=None,
             corners=(
                 OperationalImageReviewGeometryPoint(
                     x=revision.corners[0].x,
@@ -437,7 +370,6 @@ def to_virtual_grid_review_geometry_response(
                 ),
             ),
             asset_mode="virtual_source",
-            board_checksum_sha256=None,
             source_geometry_revision_id=revision.source_geometry_revision_id,
             geometry_checksum_sha256=revision.geometry_checksum_sha256,
             virtual_render_spec_checksum_sha256=(revision.virtual_render_spec_checksum_sha256),
@@ -468,7 +400,6 @@ __all__ = [
     "ImageGridReviewGeometryPreviewCommand",
     "ImageGridReviewItemResponse",
     "ImageGridReviewPageResponse",
-    "to_image_grid_review_geometry_response",
     "to_image_grid_review_page_response",
     "to_virtual_grid_review_geometry_response",
 ]

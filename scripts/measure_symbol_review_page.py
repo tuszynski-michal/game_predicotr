@@ -25,7 +25,10 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewFilterState,
     SymbolCellReviewListItem,
 )
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewQueryRepository,
 )
@@ -117,7 +120,7 @@ def _render_page(
 def main() -> int:
     args = _parse_args()
     settings = ApiSettings.from_environment()
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     session_factory = create_session_factory(engine)
     try:
         with session_factory() as session:

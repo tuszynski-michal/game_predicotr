@@ -37,7 +37,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.database import (
-    create_database_engine,
+    create_maintenance_database_engine,
     create_session_factory,
 )
 from game_predictor_api.storage.models import (
@@ -234,7 +234,7 @@ def main() -> int:
     if not 1 <= arguments.query_size <= 15:
         raise ValueError("--query-size must be between 1 and 15.")
     settings = ApiSettings.from_environment()
-    factory = create_session_factory(create_database_engine(settings))
+    factory = create_session_factory(create_maintenance_database_engine(settings))
     try:
         with factory() as session:
             report = run_benchmark(

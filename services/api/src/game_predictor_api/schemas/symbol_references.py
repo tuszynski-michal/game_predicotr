@@ -11,7 +11,7 @@ from game_predictor_api.schemas.catalog import ApiModel
 
 
 class ApprovedSymbolReferenceCandidateResponse(ApiModel):
-    observation_id: UUID
+    cell_review_id: UUID
     crop_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
     sequence_number: int = Field(gt=0)
     cell_index: int = Field(ge=0, le=14)
@@ -34,8 +34,7 @@ def to_approved_symbol_reference_candidate_page_response(
 ) -> ApprovedSymbolReferenceCandidatePageResponse:
     return ApprovedSymbolReferenceCandidatePageResponse(
         items=tuple(
-            ApprovedSymbolReferenceCandidateResponse.model_validate(item)
-            for item in page.items
+            ApprovedSymbolReferenceCandidateResponse.model_validate(item) for item in page.items
         ),
         next_cursor=page.next_cursor,
     )

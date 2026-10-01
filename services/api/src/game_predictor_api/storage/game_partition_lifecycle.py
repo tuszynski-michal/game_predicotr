@@ -15,7 +15,11 @@ from sqlalchemy import text
 from sqlalchemy.engine import Connection
 from sqlalchemy.orm import Session
 
-from game_predictor_api.storage.game_data_v2_manifest_v1 import (
+from game_predictor_api.domain.image_import_engine_policy import (
+    DEFAULT_CELL_ASSET_MODE,
+    DEFAULT_GEOMETRY_MODE,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v4 import (
     CREATE_TABLES,
     DELETE_TABLES,
     SCHEMA,
@@ -377,11 +381,16 @@ class GamePartitionLifecycleRepository:
             text(
                 """INSERT INTO game_data_v2.image_geometry_rollout_states
                 (game_id, geometry_mode, cell_asset_mode, revision, backfill_status, updated_by)
-                VALUES (:game_id, 'legacy', 'legacy_files', 0, 'not_started',
+                VALUES (:game_id, :geometry_mode, :cell_asset_mode, 0, 'not_started',
                         'system:catalog-game-create')
                 ON CONFLICT (game_id) DO NOTHING"""
             ),
-            {"game_id": game_id},
+            {
+                "game_id": game_id,
+                # D-467 (TASK-0790): a new game starts on the virtual default policy.
+                "geometry_mode": DEFAULT_GEOMETRY_MODE,
+                "cell_asset_mode": DEFAULT_CELL_ASSET_MODE,
+            },
         )
 
     def _close_writes_for_delete(self, game_id: UUID) -> None:

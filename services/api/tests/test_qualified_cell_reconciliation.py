@@ -20,17 +20,16 @@ from game_predictor_api.storage.models import (
 
 
 @pytest.fixture(autouse=True)
-def v2_current_positions(monkeypatch):
+def in_memory_game_store(monkeypatch):
     monkeypatch.setattr(
-        "game_predictor_api.storage.image_symbol_review_repository._uses_logical_current_cell_identity",
-        lambda *_: True,
+        "game_predictor_api.storage.image_symbol_review_repository._bind_game_store",
+        lambda *_: None,
     )
 
 
-def _cells(revision, missing, *, asset_mode="legacy_file"):
+def _cells(revision, missing, *, asset_mode="virtual_source"):
     return tuple(
         ImageReviewCell(
-            observation_id=uuid4(),
             cell_index=index,
             row_index=index // 5,
             column_index=index % 5,
@@ -60,6 +59,31 @@ def _cells(revision, missing, *, asset_mode="legacy_file"):
         for index in range(15)
         if index not in missing
     )
+
+
+def _cell_geometry(outside):
+    """Source-slot cell footprints in a 100 x 100 source; ``outside`` are off-frame."""
+
+    def quad(x0, y0, x1, y1):
+        return [{"x": x0, "y": y0}, {"x": x1, "y": y0}, {"x": x1, "y": y1}, {"x": x0, "y": y1}]
+
+    return {
+        "cells": [
+            {
+                "rowIndex": index // 5,
+                "columnIndex": index % 5,
+                "sourceQuad": quad(-20, 10, -10, 20)
+                if index in outside
+                else quad(
+                    10 + (index % 5) * 15,
+                    10 + (index // 5) * 15,
+                    20 + (index % 5) * 15,
+                    20 + (index // 5) * 15,
+                ),
+            }
+            for index in range(15)
+        ]
+    }
 
 
 def _install_pinned_geometry_records(session, board, source):
@@ -114,7 +138,9 @@ def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_ap
         grid_columns=5,
         sequence_number=1,
         geometry_revision=0,
-        asset_mode="legacy_file",
+        # D-467 S6 (TASK-0796): every board is ``virtual_source``.
+        asset_mode="virtual_source",
+        board_geometry=_cell_geometry(()),
         geometry_qualification=None,
         unavailable_cell_indices=[],
         completeness_status="complete",
@@ -159,6 +185,8 @@ def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_ap
         board.geometry_qualification = GeometryQualification(
             "pending_partial", missing, True, "missing_pixels"
         ).to_dict()
+        # A virtual board's visibility comes from its pinned source slot.
+        board.board_geometry = _cell_geometry(missing)
         coordinator._current_cells.return_value = (
             _cells(revision, missing),
             "cropper-v1",

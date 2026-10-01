@@ -14,7 +14,9 @@ $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..'))
 $composePath = Join-Path $repositoryRoot 'infra\docker\compose.yaml'
 $pythonPath = Join-Path $repositoryRoot '.venv\Scripts\python.exe'
 $defaultDatabaseUrl = 'postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor'
-$configuredDatabaseUrl = [Environment]::GetEnvironmentVariable('GAME_PREDICTOR_DATABASE_URL')
+# TASK-0795: the reset runs DDL, so it uses the schema owner URL, never the
+# application-role runtime URL (GAME_PREDICTOR_DATABASE_URL).
+$configuredDatabaseUrl = [Environment]::GetEnvironmentVariable('GAME_PREDICTOR_OWNER_DATABASE_URL')
 $databaseUrl = if ([string]::IsNullOrWhiteSpace($configuredDatabaseUrl)) {
     $defaultDatabaseUrl
 }
@@ -26,7 +28,7 @@ try {
     $parsedDatabaseUrl = [System.Uri]$databaseUrl
 }
 catch {
-    throw 'GAME_PREDICTOR_DATABASE_URL is not a valid local PostgreSQL URL.'
+    throw 'GAME_PREDICTOR_OWNER_DATABASE_URL is not a valid local PostgreSQL URL.'
 }
 
 $databaseName = $parsedDatabaseUrl.AbsolutePath.TrimStart('/')
@@ -82,6 +84,11 @@ try {
         exit $LASTEXITCODE
     }
     & $pythonPath -m alembic upgrade head
+    if ($LASTEXITCODE -ne 0) {
+        exit $LASTEXITCODE
+    }
+    # Re-grant the application role on the recreated schema (TASK-0795).
+    & $pythonPath scripts/provision_database_roles.py
     if ($LASTEXITCODE -ne 0) {
         exit $LASTEXITCODE
     }

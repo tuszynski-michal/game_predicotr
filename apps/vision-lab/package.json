@@ -8,6 +8,7 @@
     "start": "next start --hostname 127.0.0.1 --port 3102",
     "build": "next build",
     "lint": "eslint .",
+    "pretypecheck": "next typegen",
     "typecheck": "tsc --noEmit",
     "test": "node --experimental-strip-types --test test/*.test.mjs"
   },

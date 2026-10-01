@@ -69,7 +69,7 @@ def test_apply_reports_all_blockers_and_limits_new_attempts(tmp_path, monkeypatc
     )
     engine, sessions = Mock(), Mock()
     sessions.begin.side_effect = lambda: nullcontext(Mock())
-    monkeypatch.setattr(module, "create_database_engine", lambda *_: engine)
+    monkeypatch.setattr(module, "create_maintenance_database_engine", lambda *_: engine)
     monkeypatch.setattr(module, "create_session_factory", lambda *_: sessions)
     calls = []
 

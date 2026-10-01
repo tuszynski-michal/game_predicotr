@@ -9,19 +9,38 @@ from game_predictor_worker.images.lateral_partial_contract import (
     LateralPartialContractError,
     require_geometry_engine_variant_available,
 )
-from pydantic import Field
+from pydantic import Field, field_validator
+from pydantic_core import PydanticCustomError
 
 from game_predictor_api.application.image_geometry_rollout import (
     ImageGeometryRolloutStart,
     ImageGeometryRolloutStatus,
 )
 from game_predictor_api.domain.image_import_engine_policy import (
+    LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR,
+    REMOVED_IMAGE_IMPORT_ENGINE_POLICIES,
     ImageImportEnginePolicy,
     ImageImportEnginePolicyPreview,
     ImageImportEnginePolicySnapshot,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.jobs import JobResponse
+
+
+def reject_removed_engine_policy(value: object) -> object:
+    """Reject a removed legacy policy with its explicit code (D-467, TASK-0790).
+
+    Without this hook a removed value would only fail the enum with a generic
+    ``enum`` validation error; the error type becomes the response ``code``.
+    """
+
+    if isinstance(value, str) and value in REMOVED_IMAGE_IMPORT_ENGINE_POLICIES:
+        raise PydanticCustomError(
+            LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR,
+            "The image engine policy {policy} was removed; only virtual policies remain.",
+            {"policy": value},
+        )
+    return value
 
 
 class ImageGeometryRolloutStatusResponse(ApiModel):
@@ -67,6 +86,10 @@ class ImageImportEnginePolicyResponse(ApiModel):
 class ImageImportEnginePolicyPreviewRequest(ApiModel):
     target_policy: ImageImportEnginePolicy
 
+    _reject_removed_policy = field_validator("target_policy", mode="before")(
+        reject_removed_engine_policy
+    )
+
 
 class ImageImportEnginePolicyPreviewResponse(ApiModel):
     current: ImageImportEnginePolicyResponse
@@ -79,6 +102,10 @@ class ImageImportEnginePolicyUpdateRequest(ApiModel):
     target_policy: ImageImportEnginePolicy
     expected_revision: int = Field(ge=0)
     preview_token: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+    _reject_removed_policy = field_validator("target_policy", mode="before")(
+        reject_removed_engine_policy
+    )
 
 
 def to_image_import_engine_policy_response(
@@ -171,4 +198,5 @@ __all__ = [
     "to_image_geometry_rollout_status_response",
     "to_image_import_engine_policy_preview_response",
     "to_image_import_engine_policy_response",
+    "reject_removed_engine_policy",
 ]

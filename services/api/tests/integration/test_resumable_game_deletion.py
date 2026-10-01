@@ -31,7 +31,6 @@ from game_predictor_api.storage.game_deletion_repository import (
     select_owned_batch,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageFileExecutionModel,
     ImageImportJobFileModel,
@@ -55,7 +54,7 @@ pytestmark = pytest.mark.skipif(
 @pytest.fixture(scope="module")
 def database() -> Iterator[Engine]:
     name = "game_predictor_task0516_" + uuid4().hex[:12]
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",
@@ -154,18 +153,6 @@ def add_sources(session: Session, game: str) -> UUID:
                     status="pending",
                     snapshot={},
                 )
-            )
-            session.add_all(
-                CellObservationModel(
-                    recognized_board_id=board.id,
-                    row_index=n // 5,
-                    column_index=n % 5,
-                    crop_relative_path=f"cells/{number}_{n}.jpg",
-                    crop_checksum_sha256="c" * 64,
-                    cropper_version="fixture",
-                    prediction={},
-                )
-                for n in range(15)
             )
     return job.id
 

@@ -225,6 +225,18 @@ def test_cleanup_operations_require_the_exact_destructive_target() -> None:
     assert remote_revoke_operation is not None
     assert remote_revoke_operation.action == "revoke-remote-manual-selection-session"
     assert remote_revoke_target == f"remote-manual-selection-session:{job_id}"
+    share_create_operation, share_create_target = match_high_impact_operation(
+        "POST", "/api/v1/admin/board-search-shares/sessions"
+    )
+    share_revoke_operation, share_revoke_target = match_high_impact_operation(
+        "POST", f"/api/v1/admin/board-search-shares/sessions/{job_id}/revoke"
+    )
+    assert share_create_operation is not None
+    assert share_create_operation.action == "create-board-search-share-session"
+    assert share_create_target == "board-search-share-session:new"
+    assert share_revoke_operation is not None
+    assert share_revoke_operation.action == "revoke-board-search-share-session"
+    assert share_revoke_target == f"board-search-share-session:{job_id}"
 
 
 def test_openapi_publishes_intent_and_exact_target_confirmation(tmp_path: Path) -> None:

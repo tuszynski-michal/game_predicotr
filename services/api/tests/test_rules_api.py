@@ -192,6 +192,9 @@ class MemoryRulesRepository(RulesRepository):
         self.paylines[payline.id] = payline
         return payline
 
+    def delete_payline(self, rules_version_id: UUID, payline_id: UUID) -> None:
+        del self.paylines[payline_id]
+
     def payout_configuration_fits_columns(
         self,
         rules_version_id: UUID,
@@ -529,6 +532,29 @@ def test_payline_crud_uses_zero_based_paths_and_archive_only_delete() -> None:
         )
         assert reactivated.json()["isActive"] is True
 
+        # D-477: the permanent delete removes the record and frees its
+        # code and row path for a new payline.
+        permanent = (
+            f"/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent"
+        )
+        assert client.delete(permanent).status_code == 204
+        assert UUID(payline_id) not in repository.paylines
+        missing = client.delete(permanent)
+        assert missing.status_code == 404
+        assert missing.json()["code"] == "PAYLINE_NOT_FOUND"
+        recreated = client.post(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/paylines",
+            json={
+                "code": "line-v",
+                "name": "V",
+                "rowPath": [2, 1, 0, 1, 2],
+                "displayOrder": 10,
+                "isActive": True,
+            },
+        )
+        assert recreated.status_code == 201
+        payline_id = recreated.json()["id"]
+
 
 def test_payline_api_reports_duplicate_invalid_and_immutable_errors() -> None:
     game_id = uuid4()
@@ -587,6 +613,12 @@ def test_payline_api_reports_duplicate_invalid_and_immutable_errors() -> None:
         )
         assert immutable.status_code == 409
         assert immutable.json()["code"] == "RULES_VERSION_IMMUTABLE"
+        immutable_delete = client.delete(
+            f"/api/v1/admin/rules-versions/{rules_version_id}/paylines/{first['id']}/permanent"
+        )
+        assert immutable_delete.status_code == 409
+        assert immutable_delete.json()["code"] == "RULES_VERSION_IMMUTABLE"
+        assert UUID(first["id"]) in repository.paylines
 
 
 def test_symbol_configuration_and_payout_crud_contract() -> None:

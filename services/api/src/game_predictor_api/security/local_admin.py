@@ -67,6 +67,10 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ): HighImpactOperation("archive-payline", "payline:{payline_id}"),
     (
         "DELETE",
+        "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent",
+    ): HighImpactOperation("delete-payline", "payline:{payline_id}"),
+    (
+        "DELETE",
         "/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}",
     ): HighImpactOperation("archive-payout-rule", "payout-rule:{payout_rule_id}"),
     (
@@ -180,6 +184,21 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ): HighImpactOperation(
         "revoke-remote-manual-selection-session",
         "remote-manual-selection-session:{session_id}",
+    ),
+    # D-471: a share link exposes one game's board search online.
+    (
+        "POST",
+        "/api/v1/admin/board-search-shares/sessions",
+    ): HighImpactOperation(
+        "create-board-search-share-session",
+        "board-search-share-session:new",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/board-search-shares/sessions/{session_id}/revoke",
+    ): HighImpactOperation(
+        "revoke-board-search-share-session",
+        "board-search-share-session:{session_id}",
     ),
 }
 

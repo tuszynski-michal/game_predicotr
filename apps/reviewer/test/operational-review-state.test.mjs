@@ -62,7 +62,6 @@ function reviewItem() {
       cropChecksumSha256: `${cellIndex}`.padStart(64, '0'),
       cropSampleId: `sample-${cellIndex}`,
       currentSymbolCode: 'symbol-1',
-      observationId: `observation-${cellIndex}`,
       predictedSymbolCode: 'symbol-1',
       rowIndex: Math.floor(cellIndex / 5),
     })),

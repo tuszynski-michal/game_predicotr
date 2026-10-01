@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-09-29
+last_updated: 2026-09-30
 ---
 
 # Wymagania modułu administracyjnego
@@ -111,7 +111,10 @@ Administrator może:
 - wybrać najwyżej jedną komórkę w każdej kolumnie,
 - zapisać wzór dopiero po wybraniu dokładnie jednej komórki we wszystkich kolumnach,
 - zobaczyć istniejące wzorce w tabeli, po jednym wzorze w wierszu,
-- edytować, archiwizować lub usunąć nieopublikowany wzór.
+- edytować, archiwizować lub usunąć nieopublikowany wzór. „Archiwizuj”
+  wyłącza wzorzec, ale zostawia jego kod i ścieżkę zajęte; „Usuń” (D-477) po
+  potwierdzeniu „Usuń trwale” kasuje go z wersji roboczej i pozwala dodać nowy
+  wzorzec z tym samym kodem albo ścieżką.
 
 Walidacja:
 
@@ -386,8 +389,11 @@ operacyjnego jako fallback. Częściowe albo nieudane archiwum blokuje odczyt te
 gry zamiast mieszać dwa źródła.
 
 Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
-wyników” nad panelem, domyślnie 5, w zakresie 1–100 (istniejący limit
-techniczny endpointu). Zmiana liczby wyników nigdy nie zmienia dopasowania,
+wyników” nad panelem, domyślnie 15 (D-476), w zakresie 1–100 (istniejący
+limit techniczny endpointu). Zakres wyszukiwania („Wszystkie plansze” /
+„Tylko zatwierdzone”) jest pokazywany w sekcji wyników, pod nagłówkiem
+karuzeli; jego zmiana przy widocznych wynikach powtarza wyszukiwanie tego
+samego wzoru i zachowuje wybraną planszę, jeżeli nadal jest w wynikach. Zmiana liczby wyników nigdy nie zmienia dopasowania,
 rankingu ani zakresu wygranej opisanego niżej — to dwa niezależne parametry.
 Jeżeli wybrana plansza pozostaje w nowych wynikach, wybór jest zachowywany;
 w przeciwnym razie operator jednoznacznie wraca do pierwszego wyniku.
@@ -400,18 +406,29 @@ oszacowanie payoutu dla `N` kolejnych pozycji sekwencji po wybranej planszy
 `S` (zakres `S+1…S+N`; `S` nigdy nie wchodzi do wyniku), używając tego
 samego kalkulatora payoutu co wydania mobilne (`payout-v3-unknown-prefix-stop`)
 i tej samej definicji pełnego cyklu z zawijaniem co mobilna prognoza celu.
-„Zakres wygranej” (domyślnie 2 500, maksymalnie 10 000) jest niezależny od
+„Zakres wygranej” (domyślnie 2 500, maksymalnie 100 000) jest niezależny od
 „Liczby wyników”.
 
-Sekcja jest domyślnie zwinięta i nie liczy niczego, dopóki operator jej nie
-rozwinie — przeglądanie kandydatów wyszukiwania przy zwiniętej sekcji nie
-uruchamia żadnej kalkulacji. Pierwsze rozwinięcie liczy dla aktualnie
-wybranej planszy; zmiana wybranej planszy albo zatwierdzonego zakresu przy
-otwartej sekcji automatycznie odświeża wynik. Zmiana zakresu wymaga
-zatwierdzenia (Enter albo utrata fokusu) — samo wpisywanie cyfr nie wysyła
-żądania. Spóźniona odpowiedź dla wcześniej wybranej planszy nigdy nie
-nadpisuje wyniku aktualnie wybranej. Bez wybranego wyniku wyszukiwania
-kalkulacja się nie uruchamia.
+Sekcja jest statyczna jak wyniki wyszukiwania (D-476): nie zwija się i
+liczy od razu dla aktualnie wybranej planszy, gdy tylko pojawią się wyniki;
+zmiana wybranej planszy albo zatwierdzonego zakresu automatycznie odświeża
+wynik, przy czym żądanie wychodzi dopiero, gdy wybór ustali się na ok. 0,4 s
+(szybkie przeglądanie karuzeli nie wysyła żądania na każdą planszę). Zmiana
+zakresu wymaga zatwierdzenia (Enter albo utrata fokusu) — samo wpisywanie
+cyfr nie wysyła żądania. Spóźniona odpowiedź dla wcześniej wybranej planszy
+nigdy nie nadpisuje wyniku aktualnie wybranej. Bez wybranego wyniku
+wyszukiwania kalkulacja się nie uruchamia.
+
+Kontrolki „Zakres wygranej”, „Stawka” i „Jednostka” stoją w jednym wierszu
+nad wynikiem. Jednostka jest domyślnie w złotych i jest pamiętana w
+przeglądarce. Stawka nie jest pamiętana: po każdym wyszukaniu nowego wzoru
+lista stawek wraca do „wybierz stawkę”, a podsumowanie, wykres i tabela są
+ukryte do czasu jej wyboru (kalkulacja biegnie w tle, więc wynik pojawia
+się od razu po wyborze). Zmiana planszy w obrębie tego samego wzoru,
+zmiana zakresu, limitu albo zakresu wyszukiwania zachowują stawkę.
+Odtworzenie z dziennika udostępnień (D-472) wybiera stawkę bazową, bo stawka
+odbiorcy nie jest znana. Przy koszcie spinu 0 stawki nie ma i wynik jest
+pokazywany bez wyboru.
 
 Wynik rozróżnia dla każdej pozycji zakresu trzy rozłączne kategorie:
 kompletna (wszystkie 15 symboli znanych), częściowa (co najmniej jeden
@@ -425,16 +442,49 @@ na planszy spoza aktywnych symboli opublikowanej wersji reguł przerywa całą
 kalkulację zakresu jako błąd, zamiast po cichu pominąć jedną planszę.
 
 Podsumowanie pokazuje osobno: rozpoznane wypłaty, koszt spinów (suma
-kosztu wszystkich spinów zakresu, również brakujących) i bilans
-(wypłaty minus koszt) — nigdy nie nazywane „zyskiem”. Tabela wyników
-zawiera wyłącznie spiny z dodatnią wypłatą, ze wskazaną sumą narastającą
-wypłat, kosztów i bilansu — również wtedy, gdy bilans narastający
-pozostaje ujemny. Wszystkie wiersze jednej odpowiedzi mieszczą się w pionowo
-przewijalnym obszarze o wysokości około 20 wierszy; nagłówki kolumn pozostają
-widoczne podczas przewijania, a interfejs nie ma paginacji ani stopki zmiany
-strony. Pod tabelą jest wykres SVG narastających rozpoznanych wypłat względem
-numeru spinu. Zaczyna się od zera i jasno wskazuje, że punkty danych dotyczą
-wyłącznie spinów z dodatnią wypłatą. Puste wyniki (brak jakiejkolwiek dodatniej
+kosztu wszystkich spinów zakresu, również brakujących), bilans
+(wypłaty minus koszt) — nigdy nie nazywane „zyskiem” — oraz „Maksymalny
+wkład” (TASK-0776): ile gotówki trzeba mieć, zaczynając od zera, aby opłacić
+spiny aż do najniższego punktu bilansu w zakresie. Każdy spin jest płacony
+przed swoją wypłatą, więc dołek przed wypłatą to bilans narastający minus ta
+wypłata; liczy się też koniec zakresu, a wkład nigdy nie jest mniejszy niż
+koszt jednego spinu. Kafelek podaje numer spinu najniższego bilansu i skaluje
+się ze stawką oraz jednostką jak pozostałe kwoty (D-470). Tabela wyników
+zawiera wyłącznie spiny z dodatnią wypłatą w kolumnach: Spin, Plansza,
+Wypłata, Bilans narastająco i kolumnie akcji bez widocznego nagłówka
+(przycisk „Pokaż planszę”, D-470, TASK-0764) — również wtedy, gdy bilans
+narastający pozostaje ujemny; wypłata planszy częściowej jest oznaczona jako potwierdzone
+minimum. Wszystkie wiersze jednej odpowiedzi mieszczą się w pionowo
+przewijalnym obszarze o wysokości około 20 wierszy (D-476); nagłówki kolumn
+pozostają widoczne podczas przewijania, a interfejs nie ma paginacji ani
+stopki zmiany strony. Suwak „Minimalna wypłata w tabeli” (od zera do najwyższej wypłaty
+bieżącej odpowiedzi, z widoczną wartością) filtruje lokalnie wyłącznie
+widoczne wiersze tabeli: nie wysyła żądania i nie zmienia podsumowania ani
+wykresu. Nad suwakiem i tabelą jest wykres SVG narastającego bilansu
+(rozpoznane wypłaty minus koszt wszystkich spinów) względem numeru spinu
+(D-476: wykres przed tabelą). Zaczyna się od
+zera, między wypłatami pokazuje spadek bilansu o koszt spinów (punkt tuż
+przed każdą wypłatą), kończy się na ostatnim spinie zakresu bilansem z
+podsumowania i ma przerywaną linię zera, gdy bilans ją przecina. Wykres ma
+siatkę poziomą i pionową z „okrągłymi” podziałkami (kroki 1/2/5 × 10ⁿ)
+opisanymi na osiach; oś Y sięga do skrajnych podziałek obejmujących minimum
+i maksimum bilansu, a opisy podziałek zastępują osobne etykiety minimum i
+maksimum (TASK-0761). Najechanie
+na wykres pokazuje etykietę najbliższego punktu wypłaty albo końca zakresu z
+liczbą spinów i bilansem z jednostką („kredytów” albo „zł”, TASK-0774;
+tak samo lista przypiętych punktów) oraz trzecią wartością „Wkład”
+(TASK-0778): kwotą potrzebną od zera, by opłacić spiny do tego punktu, czyli
+najgłębszym dołkiem bilansu od pierwszego spinu do punktu (reguła kafelka
+„Maksymalny wkład” ograniczona do odcinka); etykieta leży w pasie nad obszarem danych i łączy
+się z punktem kropkowaną pionową linią, więc nie zasłania linii bilansu.
+Kliknięcie przypina najbliższy punkt: jego etykieta zostaje widoczna na
+stałe w tym samym pasie. Ponowne kliknięcie punktu albo „×” na etykiecie
+odpina go, „Wyczyść punkty” odpina wszystkie. Można przypiąć najwyżej 8
+punktów; kolejne kliknięcie pokazuje komunikat i nie usuwa starszego
+punktu. Etykiety nie nachodzą na siebie: gdy brakuje miejsca nad punktem,
+etykieta przesuwa się w bok, a linia prowadząca się łamie. Wykres obsługuje
+klawiaturę: strzałki wybierają punkt, Enter albo spacja przypina lub odpina.
+Przypięcia znikają, gdy wynik dotyczy innej planszy albo zakresu. Puste wyniki (brak jakiejkolwiek dodatniej
 wypłaty) nadal pokazują poprawne podsumowanie i kompletność danych, z
 zastrzeżeniem że przy niepełnych danych nie można wykluczyć niewykrytej
 wygranej; wykres pokazuje wtedy komunikat zamiast sztucznych danych. Liczniki
@@ -449,6 +499,102 @@ zachowuje wynik tylko dopóki sekcja pozostaje otwarta dla tego samego wyboru;
 zwinięcie sekcji odrzuca wynik (także spóźnioną odpowiedź), więc ponowne
 otwarcie zawsze liczy od nowa i uwzględnia symbole zweryfikowane w
 międzyczasie (D-462, TASK-0722).
+
+**Stawka i jednostka (D-470, TASK-0762).** Nagłówek wyniku (poza
+nagłówkiem zwijania sekcji) ma kontrolki
+„Stawka” (1,20 zł, 2 zł, 4 zł, 6 zł, 10 zł, 20 zł) i „Jednostka” (kredyty
+albo złote). `1 zł = 10 kredytów`; stawką bazową jest koszt spinu
+opublikowanych reguł (dziś 100 kredytów = 10 zł); stawka bazowa spoza listy
+pojawia się jako dodatkowa opcja „bazowa”. Wybrana stawka skaluje
+wypłaty i koszt spinu mnożnikiem `stawka / stawka bazowa`, np. 1 000
+kredytów wypłaty przy stawce 10 zł to 600 kredytów (60 zł) przy stawce
+6 zł. Przeliczenie obejmuje podsumowanie, koszt spinu w nagłówku, kolumny
+tabeli, próg suwaka, osie i etykiety wykresu oraz legendę modala planszy.
+Jest wykonywane lokalnie, bez żądania do API, na liczbach całkowitych z
+jednym zaokrągleniem do grosza na wartości końcowej. Nagłówek pokazuje
+mnożnik. Domyślnie obowiązuje stawka bazowa i jednostka „kredyty”, więc
+ekran bez zmiany ustawień wygląda jak wcześniej. Wybór jest zapamiętany w
+przeglądarce jako preferencja widoku. Próg suwaka jest zachowywany przy
+zmianie stawki i jednostki. Koszt spinu równy zero wyłącza wybór stawki z
+komunikatem; jednostka „złote” pozostaje dostępna w kursie `kredyty / 10`.
+
+**Podgląd planszy z liniami (D-470, TASK-0763–0764).** Przycisk w kolumnie
+akcji otwiera modal z przyciętym widokiem wybranej planszy i narysowanymi
+wygrywającymi liniami. Linie i ich wypłaty pochodzą z tego samego
+ewaluatora i tej samej opublikowanej wersji reguł co wiersz tabeli: każda
+linia liczy się wyłącznie od lewej krawędzi i kończy na pierwszej nieznanej
+komórce, więc plansza przycięta z lewej strony nie pokazuje żadnej linii,
+a nieznane pola są oznaczone `?`. Każda linia ma stały kolor według
+kolejności linii wypłat; pola z jokerem mają dodatkowy znacznik. Legenda
+ma przełącznik widoczności dla każdej linii osobno oraz „Pokaż wszystkie”
+i „Ukryj wszystkie”, a każdy wpis podaje nazwę linii, symbol, długość i
+wypłatę w wybranej stawce i jednostce. Gdy suma wypłat linii różni się od
+wypłaty wiersza albo wynik dotyczy innej wersji reguł, modal pokazuje
+komunikat i „Przelicz ponownie” zamiast niespójnego rysunku; przycisk
+zamyka modal i liczy zakres od nowa. Błąd pobrania planszy pokazuje
+komunikat z „Spróbuj ponownie”. Brak zdjęcia albo siatki pól nie blokuje modala:
+pokazuje schemat 3 × 5 z ikon symboli z tymi samymi liniami.
+
+**Nieaktualny odczyt planszy (TASK-0773).** Gdy siatka planszy zmieniła się
+po zapisaniu jej odczytu w wyszukiwarce, modal nie pokazuje błędu: rysuje
+linie i wypłatę ze starego odczytu (tak samo liczy tabela) na schemacie 3 × 5
+z ostrzeżeniem i przyciskiem „Odśwież odczyt tej planszy”. Odświeżenie
+przebudowuje odczyt tej jednej planszy z bieżącej siatki i symboli (bez
+zmiany decyzji ludzi); potem wraca zdjęcie i poprawianie pól, a zamknięcie
+okna przelicza tabelę.
+
+**Poprawianie symbolu pola (D-473, TASK-0772).** Dla planszy oczekującej
+modal ma tryb „Popraw symbole”: kliknięcie pola otwiera paletę symboli gry
+oraz „Nieczytelny” i „Zła siatka”. Wybór zapisuje decyzję człowieka dla pola
+tak samo jak „Weryfikacja symboli” (ten sam symbol zatwierdza pole, inny je
+przepisuje) i od razu zmienia linie w oknie. „Nieczytelny” czyni pole `?`,
+więc linia oparta na błędnie rozpoznanym symbolu kończy się przed nim.
+Konflikt z równoległą zmianą pokazuje komunikat i odświeża planszę. Po
+zapisanej zmianie zamknięcie okna przelicza tabelę i bilans. Plansze
+zatwierdzone i archiwalne nie mają edycji. Poza tym trybem modal jest
+wyłącznie do odczytu.
+
+### Udostępnianie wyszukiwania online
+
+**D-471 (etap B planu `BOARD_SEARCH_SHARE_EXECUTION_PLAN.md`; panel
+TASK-0769, aplikacja odbiorcy w Reviewerze TASK-0768).** Przycisk
+„Udostępnij online” w nagłówku sekcji „Wyszukaj plansze” tworzy link do kopii tej sekcji razem z „Przybliżoną wygraną” dla
+bieżącej gry. Operator podaje etykietę i czas dostępu (1 h, 4 h, 8 h albo
+24 h; domyślnie 8 h). Po utworzeniu widzi link i 8-znakowy kod wejścia
+(`XXXX-XXXX`), może je skopiować osobno i zatrzymać sesję z potwierdzeniem.
+Link nie zawiera kodu. Kod jest przechowywany wyłącznie lokalnie w
+przeglądarce Admina do wygaśnięcia albo zatrzymania sesji; w innej
+przeglądarce panel pokazuje link bez kodu. Panel listuje aktywne linki gry
+(ostatnie otwarcie, czas wygaśnięcia) i osobno zakończone (wygasłe,
+zatrzymane, zablokowane po 5 błędnych kodach). Utworzenie linku uruchamia
+publiczny adres Reviewera; gdy się nie uda, panel pokazuje czytelny błąd i
+nie tworzy linku.
+
+Odbiorca po podaniu kodu ma te same funkcje co operator: liczbę wyników,
+zakres wyszukiwania, paletę symboli, edycję wzoru, karuzelę wyników,
+„Przybliżoną wygraną” z tabelą, wykresem, stawką i modalem linii. Dostęp
+jest tylko do odczytu i obejmuje jedną grę. Obrazy są przycięte do planszy
+i zmniejszone. Odbiorca nie widzi panelu udostępniania ani identyfikatorów
+wewnętrznych. Po wygaśnięciu albo zatrzymaniu sesji aplikacja pokazuje
+czytelny ekran zakończenia.
+
+**Dziennik zapytań i odtworzenie (D-472, TASK-0771).** Każde zapytanie
+odbiorcy o dane (wyszukiwanie, przybliżona wygrana, szczegóły planszy) jest
+zapisywane z czasem, parametrami i skrótem wyniku, bez adresu IP. Bramka
+kodu informuje odbiorcę o zapisie. W panelu udostępniania operator rozwija
+„Dziennik zapytań” wybranego linku (aktywnego albo zakończonego) i widzi go
+od najnowszego wpisu, po 50 („Starsze zapytania”): godzinę, rodzaj, wzór jako
+mini-planszę 3 × 5 z ikonami symboli, zakres wyszukiwania i liczbę wyników
+albo planszę startową i zakres spinów oraz wynik. Przycisk „Odtwórz w
+wyszukiwarce” otwiera „Wyszukaj plansze” tej gry z tym samym wzorem, zakresem
+i liczbą wyników (także pola `?`) i od razu uruchamia wyszukiwanie; adres
+Admina zawiera wtedy jednorazowo `?boardSearchReplay=<id wpisu>`, a wpis
+innej gry przełącza na tę grę. Dla wpisu przybliżonej
+wygranej odtworzenie używa najbliższego wcześniejszego wyszukiwania tej
+sesji, wybiera planszę startową i zakres spinów i rozwija „Przybliżoną
+wygraną”; dla szczegółów planszy dodatkowo otwiera modal. Symbol, który nie
+jest już aktywny, trafia do wzoru jako `?` z ostrzeżeniem. Stawka i jednostka
+odbiorcy nie są znane serwerowi i nie są odtwarzane.
 
 ### Korekta cięcia siatki
 
@@ -499,7 +645,7 @@ stabilny `code`, kolejny `mobileCode` i początkowy `displayOrder`. Edycja
 nazwy nie może zmienić `code` ani `mobileCode`.
 
 Operator zmienia kolejność symboli przyciskami „↑/↓” w wierszu katalogu
-(TASK-0730). Przesunięcie zamienia symbol z sąsiadem i przenumerowuje całą
+(TASK-0782). Przesunięcie zamienia symbol z sąsiadem i przenumerowuje całą
 listę na `0..n-1`, zapisując `displayOrder` przez `PATCH` symbolu tylko dla
 zmienionych pozycji. Zapisy są sekwencyjne i nieatomowe; po błędzie panel
 pokazuje komunikat i wczytuje rzeczywistą kolejność z API. Kolejność steruje
@@ -889,14 +1035,14 @@ pełnych plansz i ma:
 - pokazywać gotowy staging plansz bieżącej gry jako etap poprzedzający import;
   staging nie jest elementem dropdownu ani pracą Reviewera, dopóki jawny job
   importu nie utworzy kolejki plansz,
-- dla aktywnego gotowego stagingu z raportem pokazywać przypięty silnik
-  `v20 — geometria i cropy v19`; każdy nowy import używa go bez dodatkowego
-  potwierdzenia, a v18 jest dostępny wyłącznie jako etykieta i artefakt
-  historycznych jobów,
-- start przekazuje `boardCellProcessingMode=verified_v19` w checksum-bound
-  komendzie i nie może prezentować sukcesu, jeżeli zwrócony job ma inny
-  niezmienny snapshot; nieudana geometria nie wraca do v18, lecz tworzy trwałe
-  odroczenie do końcowej korekty,
+- dla aktywnego gotowego stagingu z raportem pokazywać wirtualną politykę gry
+  (`structured_default` albo `structured_lattice_v3`); od D-467 (TASK-0790)
+  v20/v19 i v18 są wyłącznie etykietami historycznych jobów i nie są opcją
+  nowego importu,
+- start przekazuje bieżącą politykę w checksum-bound komendzie i nie może
+  prezentować sukcesu, jeżeli zwrócony job nie ma wirtualnego snapshotu tej
+  samej rewizji; nieudana geometria tworzy trwałe odroczenie do końcowej
+  korekty, rozwiązywane ścieżką wirtualną,
 - mieć własny proces i lokalny adres; panel Admin wybiera grę oraz gotowy
   import i pokazuje dla niego liczniki wszystkich, oczekujących i zakończonych
   plansz,

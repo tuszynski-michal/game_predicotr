@@ -17,7 +17,9 @@ target_metadata = Base.metadata
 
 def _configure_database_url() -> None:
     if not config.get_main_option("sqlalchemy.url").strip():
-        database_url = ApiSettings.from_environment().database_url
+        # TASK-0795: migrations run as the schema owner, never as the
+        # application role that API and worker use at runtime.
+        database_url = ApiSettings.from_environment().owner_database_url
         config.set_main_option("sqlalchemy.url", database_url.replace("%", "%%"))
 
 

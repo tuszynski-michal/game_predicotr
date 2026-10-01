@@ -7,14 +7,12 @@ from datetime import timedelta
 from pathlib import Path
 from typing import Annotated, Any
 from urllib.parse import urlparse
+from uuid import UUID
 
 from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from game_predictor_worker.images.manual_board_cell_geometry_preview import (
-    ManualBoardCellGeometryPreviewer,
-)
 from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
     ManualBoardCellSymbolPredictor,
 )
@@ -28,6 +26,20 @@ from game_predictor_api.application.board_cell_geometry_pending import (
 from game_predictor_api.application.board_search import BoardSearchService
 from game_predictor_api.application.board_search_approximate_win import (
     BoardSearchApproximateWinService,
+)
+from game_predictor_api.application.board_search_board_detail import (
+    BoardSearchBoardDetailService,
+    BoardSearchBoardViewCache,
+    BoardSearchBoardViewService,
+)
+from game_predictor_api.application.board_search_share_access import (
+    BoardSearchShareAccessService,
+    assert_board_search_share_ready,
+)
+from game_predictor_api.application.board_search_share_queries import (
+    BoardSearchShareQueryLog,
+    BoardSearchShareQueryLogService,
+    BoardSearchShareRateLimiter,
 )
 from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.cleanup import (
@@ -156,6 +168,15 @@ from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeom
 from game_predictor_api.application.worker_lanes import WorkerLaneStatusService
 from game_predictor_api.config import ApiSettings, get_settings
 from game_predictor_api.domain.board_search import BoardSearchError
+from game_predictor_api.domain.board_search_shares import (
+    BoardSearchShareAuthenticationError,
+    BoardSearchShareAuthorizationError,
+    BoardSearchShareConflictError,
+    BoardSearchShareError,
+    BoardSearchShareNotFoundError,
+    BoardSearchShareRateLimitError,
+    BoardSearchShareUnavailableError,
+)
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
     CatalogError,
@@ -172,6 +193,9 @@ from game_predictor_api.domain.datasets import (
     DatasetNotFoundError,
 )
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
+from game_predictor_api.domain.image_import_engine_policy import (
+    LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR,
+)
 from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
     ImageReviewError,
@@ -239,6 +263,13 @@ from game_predictor_api.storage.board_search_approximate_win_repository import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.board_search_share_query_repository import (
+    SqlAlchemyBoardSearchShareQueryLog,
+    SqlAlchemyBoardSearchShareQueryRepository,
+)
+from game_predictor_api.storage.board_search_share_repository import (
+    SqlAlchemyBoardSearchShareRepository,
+)
 from game_predictor_api.storage.browser_staging_retention_repository import (
     SqlAlchemyBrowserStagingRetentionRepository,
 )
@@ -248,6 +279,8 @@ from game_predictor_api.storage.catalog_repository import (
 from game_predictor_api.storage.cleanup_repository import SqlAlchemyCleanupRepository
 from game_predictor_api.storage.database import (
     create_database_engine,
+    create_owner_database_engine,
+    create_owner_session_factory,
     create_session_factory,
 )
 from game_predictor_api.storage.dataset_repository import (
@@ -371,12 +404,24 @@ from game_predictor_api.storage.worker_lane_repository import (
 LOGGER = logging.getLogger(__name__)
 
 
+def _loopback_api_origin(host: str, port: int) -> str:
+    """`http://host:port` with an IPv6 loopback in brackets."""
+
+    return f"http://[{host}]:{port}" if ":" in host else f"http://{host}:{port}"
+
+
 def create_app(
     settings: ApiSettings | None = None,
     *,
     catalog_service_dependency: Callable[..., object] | None = None,
     board_search_service_dependency: Callable[..., object] | None = None,
     board_search_approximate_win_service_dependency: Callable[..., object] | None = None,
+    board_search_board_detail_service_dependency: Callable[..., object] | None = None,
+    board_search_board_view_service_dependency: Callable[..., object] | None = None,
+    board_search_share_access_service_dependency: Callable[..., object] | None = None,
+    board_search_share_query_log: BoardSearchShareQueryLog | None = None,
+    board_search_share_query_log_service_dependency: Callable[..., object] | None = None,
+    board_search_share_rate_limiter: BoardSearchShareRateLimiter | None = None,
     cleanup_service_dependency: Callable[..., object] | None = None,
     rules_service_dependency: Callable[..., object] | None = None,
     dataset_service_dependency: Callable[..., object] | None = None,
@@ -429,6 +474,9 @@ def create_app(
             catalog_service_dependency,
             board_search_service_dependency,
             board_search_approximate_win_service_dependency,
+            board_search_board_detail_service_dependency,
+            board_search_board_view_service_dependency,
+            board_search_share_access_service_dependency,
             cleanup_service_dependency,
             rules_service_dependency,
             dataset_service_dependency,
@@ -477,12 +525,21 @@ def create_app(
     )
     database_engine = create_database_engine(resolved_settings)
     session_factory = create_session_factory(database_engine)
+    # TASK-0795: schema-owner sessions only for partition DDL of a new game.
+    # NullPool: no owner connection stays open between requests.
+    owner_session_factory = create_owner_session_factory(
+        create_owner_database_engine(resolved_settings)
+    )
 
     def default_catalog_service_dependency() -> Iterator[CatalogService]:
         with session_factory() as session:
             try:
                 yield CatalogService(
-                    SqlAlchemyCatalogRepository(session, GameStorageRouter()),
+                    SqlAlchemyCatalogRepository(
+                        session,
+                        GameStorageRouter(),
+                        partition_ddl_session_factory=owner_session_factory,
+                    ),
                     shape_geometry_readiness_resolver=GlobalShapeGeometryReadinessResolver(
                         SqlAlchemyGlobalGeometryLibraryRepository(session)
                     ),
@@ -523,6 +580,102 @@ def create_app(
     resolved_board_search_approximate_win_dependency = (
         board_search_approximate_win_service_dependency
         or default_board_search_approximate_win_service_dependency
+    )
+
+    def default_board_search_board_detail_service_dependency() -> Iterator[
+        BoardSearchBoardDetailService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchBoardDetailService(
+                    SqlAlchemyBoardSearchApproximateWinRepository(session),
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_board_detail_dependency = (
+        board_search_board_detail_service_dependency
+        or default_board_search_board_detail_service_dependency
+    )
+    board_search_board_view_cache = BoardSearchBoardViewCache(resolved_settings.artifact_root)
+
+    def board_search_share_readiness(game_id: UUID) -> None:
+        # Its own session: the readiness read binds game data routing, which
+        # must not leak into the control-plane session that writes the share.
+        with session_factory() as readiness_session:
+            try:
+                assert_board_search_share_ready(
+                    SqlAlchemyBoardSearchApproximateWinRepository(readiness_session), game_id
+                )
+            finally:
+                readiness_session.rollback()
+
+    def default_board_search_share_access_service_dependency() -> Iterator[
+        BoardSearchShareAccessService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchShareAccessService(
+                    SqlAlchemyBoardSearchShareRepository(session),
+                    readiness=board_search_share_readiness,
+                    enabled=resolved_settings.board_search_share_enabled,
+                )
+                session.commit()
+            except BoardSearchShareError:
+                # Failed codes and lockouts are security state and must
+                # survive the error response.
+                session.commit()
+                raise
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_share_access_dependency = (
+        board_search_share_access_service_dependency
+        or default_board_search_share_access_service_dependency
+    )
+
+    def default_board_search_share_query_log_service_dependency() -> Iterator[
+        BoardSearchShareQueryLogService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchShareQueryLogService(
+                    SqlAlchemyBoardSearchShareQueryRepository(session)
+                )
+            finally:
+                session.rollback()
+
+    resolved_board_search_share_query_log_service_dependency = (
+        board_search_share_query_log_service_dependency
+        or default_board_search_share_query_log_service_dependency
+    )
+    resolved_board_search_share_query_log = (
+        board_search_share_query_log or SqlAlchemyBoardSearchShareQueryLog(session_factory)
+    )
+    resolved_board_search_share_rate_limiter = (
+        board_search_share_rate_limiter or BoardSearchShareRateLimiter()
+    )
+
+    def default_board_search_board_view_service_dependency() -> Iterator[
+        BoardSearchBoardViewService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchBoardViewService(
+                    SqlAlchemyBoardSearchApproximateWinRepository(session),
+                    board_search_board_view_cache,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_board_view_dependency = (
+        board_search_board_view_service_dependency
+        or default_board_search_board_view_service_dependency
     )
 
     def default_cleanup_service_dependency() -> Iterator[CleanupService]:
@@ -1062,10 +1215,14 @@ def create_app(
     def default_image_review_service_dependency() -> Iterator[OperationalImageReviewService]:
         with session_factory() as session:
             try:
+                # D-467 S6 (TASK-0796): the Reviewer's board geometry
+                # correction delegates to the virtual path in this session.
                 yield OperationalImageReviewService(
                     SqlAlchemyOperationalImageReviewRepository(session),
-                    artifact_root=resolved_settings.artifact_root,
-                    board_cell_geometry_previewer=ManualBoardCellGeometryPreviewer(),
+                    virtual_geometry=VirtualGridGeometryService(
+                        SqlAlchemyVirtualGridGeometryRepository(session),
+                        resolved_settings.artifact_root,
+                    ),
                     board_import_coverage_repository=SqlAlchemyBoardImportCoverageRepository(
                         session
                     ),
@@ -1110,12 +1267,18 @@ def create_app(
         or default_image_geometry_rollout_service_dependency
     )
 
+    manual_board_cell_symbol_predictor = ManualBoardCellSymbolPredictor(
+        Path(__file__).resolve().parents[4],
+        resolved_settings.artifact_root,
+    )
+
     def default_virtual_grid_geometry_service_dependency() -> Iterator[VirtualGridGeometryService]:
         with session_factory() as session:
             try:
                 yield VirtualGridGeometryService(
                     SqlAlchemyVirtualGridGeometryRepository(session),
                     resolved_settings.artifact_root,
+                    symbol_predictor=manual_board_cell_symbol_predictor,
                 )
                 session.commit()
             except BaseException:
@@ -1243,22 +1406,21 @@ def create_app(
         or default_image_import_geometry_guard_service_dependency
     )
 
-    manual_board_cell_symbol_predictor = ManualBoardCellSymbolPredictor(
-        Path(__file__).resolve().parents[4],
-        resolved_settings.artifact_root,
-    )
-
     def default_board_cell_geometry_pending_service_dependency() -> Iterator[
         BoardCellGeometryPendingService
     ]:
         with session_factory() as session:
             try:
+                # D-467 (TASK-0790): the Reviewer's manual resolution delegates
+                # to the virtual source path in the same transaction.
                 yield BoardCellGeometryPendingService(
                     SqlAlchemyBoardCellGeometryPendingRepository(session),
                     ManagedBoardCellProcessingManifestStore(resolved_settings.artifact_root),
-                    artifact_root=resolved_settings.artifact_root,
-                    previewer=ManualBoardCellGeometryPreviewer(),
-                    predictor=manual_board_cell_symbol_predictor,
+                    virtual_geometry=VirtualGridGeometryService(
+                        SqlAlchemyVirtualGridGeometryRepository(session),
+                        resolved_settings.artifact_root,
+                        symbol_predictor=manual_board_cell_symbol_predictor,
+                    ),
                 )
                 session.commit()
             except BaseException:
@@ -1330,7 +1492,11 @@ def create_app(
         reviewer_access_service_dependency or default_reviewer_access_service_dependency
     )
     project_root = Path(__file__).resolve().parents[4]
-    reviewer_ingress_service = ReviewerIngressService(project_root)
+    reviewer_ingress_service = ReviewerIngressService(
+        project_root,
+        # The Reviewer it starts must proxy to this API, whatever its port.
+        api_origin=_loopback_api_origin(resolved_settings.host, resolved_settings.port),
+    )
     resolved_reviewer_ingress_dependency = reviewer_ingress_service_dependency or (
         lambda: reviewer_ingress_service
     )
@@ -1466,6 +1632,18 @@ def create_app(
             resolved_remote_manual_selection_transfer_dependency,
             resolved_remote_manual_selection_recovery_dependency,
             resolved_settings.artifact_root,
+            board_search_board_detail_service_dependency=(
+                resolved_board_search_board_detail_dependency
+            ),
+            board_search_board_view_service_dependency=resolved_board_search_board_view_dependency,
+            board_search_share_access_service_dependency=(
+                resolved_board_search_share_access_dependency
+            ),
+            board_search_share_query_log_service_dependency=(
+                resolved_board_search_share_query_log_service_dependency
+            ),
+            board_search_share_query_log=resolved_board_search_share_query_log,
+            board_search_share_rate_limiter=resolved_board_search_share_rate_limiter,
         )
     )
     if not custom_service_dependency_supplied:
@@ -1554,11 +1732,6 @@ def create_app(
         if error.code == "GAME_NOT_FOUND":
             status_code = 404
         elif error.code in {
-            "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
-            "BOARD_SEARCH_ARCHIVE_ASSET_REVISION_CONFLICT",
-            "BOARD_SEARCH_ARCHIVE_ASSET_PATH_UNSAFE",
-            "BOARD_SEARCH_ARCHIVE_ASSET_MEDIA_TYPE_UNSUPPORTED",
-            "BOARD_SEARCH_ARCHIVE_ASSET_CHECKSUM_DRIFT",
             "BOARD_SEARCH_PROJECTION_INCOMPLETE",
             # TASK-0652 approximate-win range calculator: the starting board
             # is out of the game's sequence, or the range cannot be
@@ -1568,9 +1741,21 @@ def create_app(
             "APPROXIMATE_WIN_RULES_NOT_PUBLISHED",
             "APPROXIMATE_WIN_RULES_INVALID",
             "APPROXIMATE_WIN_BOARD_SYMBOL_OUTSIDE_RULES",
+            # D-470 board detail and view: the board changed since the search
+            # document was written, or its source image no longer matches.
+            "BOARD_SEARCH_BOARD_REVISION_CONFLICT",
+            "BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED",
+            "BOARD_SEARCH_BOARD_VIEW_CACHE_UNSAFE",
+            "BOARD_SEARCH_BOARD_VIEW_SOURCE_PATH_UNSAFE",
+            "BOARD_SEARCH_BOARD_VIEW_SOURCE_MEDIA_TYPE_UNSUPPORTED",
+            "BOARD_SEARCH_BOARD_VIEW_SOURCE_CHECKSUM_DRIFT",
         }:
             status_code = 409
-        elif error.code == "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND":
+        elif error.code in {
+            "BOARD_SEARCH_BOARD_NOT_FOUND",
+            "BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE",
+            "BOARD_SEARCH_BOARD_VIEW_SOURCE_NOT_FOUND",
+        }:
             status_code = 404
         # "APPROXIMATE_WIN_SPIN_COUNT_INVALID" and any other/unknown code
         # fall through to the 422 default (malformed query parameters).
@@ -1631,10 +1816,15 @@ def create_app(
             "IMAGE_GRID_REVIEW_CURSOR_DIRECTION_CONFLICT",
             "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
             "IMAGE_GRID_REVIEW_GEOMETRY_REVISION_CONFLICT",
+            "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
             "IMAGE_GRID_REVIEW_SOURCE_DRIFT",
             "IMAGE_GRID_REVIEW_TOPOLOGY_CONFLICT",
             "IMAGE_GRID_REVIEW_CURRENT_OWNER_CONFLICT",
             "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED",
+            # The Reviewer's operational geometry contract (409 before the
+            # delegation to the virtual path, D-467 S6 / TASK-0796).
+            "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",
+            "IMAGE_REVIEW_SUPERSEDED",
         }:
             status_code = 409
         return JSONResponse(
@@ -1814,6 +2004,29 @@ def create_app(
             },
         )
 
+    @application.exception_handler(BoardSearchShareError)
+    async def handle_board_search_share_error(
+        _request: Request,
+        error: BoardSearchShareError,
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, BoardSearchShareNotFoundError):
+            status_code = 404
+        elif isinstance(error, BoardSearchShareAuthenticationError):
+            status_code = 401
+        elif isinstance(error, BoardSearchShareAuthorizationError):
+            status_code = 403
+        elif isinstance(error, BoardSearchShareConflictError):
+            status_code = 409
+        elif isinstance(error, BoardSearchShareRateLimitError):
+            status_code = 429
+        elif isinstance(error, BoardSearchShareUnavailableError):
+            status_code = 503
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
     @application.exception_handler(RemoteManualSelectionError)
     async def handle_remote_manual_selection_error(
         _request: Request,
@@ -1944,10 +2157,16 @@ def create_app(
         _request: Request,
         error: RequestValidationError,
     ) -> JSONResponse:
+        error_types = {str(item["type"]) for item in error.errors()}
+        # An explicit domain refusal raised inside request validation keeps its
+        # own code (D-467: a removed legacy image engine policy).
+        explicit_codes = error_types & _EXPLICIT_VALIDATION_ERROR_CODES
         return JSONResponse(
             status_code=422,
             content={
-                "code": "VALIDATION_ERROR",
+                "code": (
+                    next(iter(explicit_codes)) if len(explicit_codes) == 1 else "VALIDATION_ERROR"
+                ),
                 "message": "Request data is invalid.",
                 "details": {
                     "errors": [
@@ -1972,6 +2191,9 @@ def create_app(
     application.openapi = local_admin_openapi  # type: ignore[method-assign]
 
     return application
+
+
+_EXPLICIT_VALIDATION_ERROR_CODES = frozenset({LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR})
 
 
 def _active_reviewer_origin(local_origin: str) -> str:

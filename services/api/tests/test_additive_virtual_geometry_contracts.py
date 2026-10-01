@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from types import SimpleNamespace
-from typing import cast
 from uuid import UUID
 
 import pytest
@@ -25,10 +23,6 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     v2_render_identity_from_spec,
     verification_outcome_value,
 )
-from game_predictor_api.storage.additive_virtual_geometry_diagnostics import (
-    SqlAlchemyAdditiveVirtualGeometryDiagnostics,
-)
-from sqlalchemy.orm import Session
 
 SYMBOL_ID = UUID("10000000-0000-0000-0000-000000000001")
 
@@ -184,46 +178,3 @@ def test_ambiguous_legacy_state_stays_nullable_for_diagnostics() -> None:
     )
 
     assert verification is None
-
-
-class _DiagnosticSession:
-    def __init__(self, batches: list[list[object]]) -> None:
-        self._batches = iter(batches)
-
-    def scalars(self, _statement: object) -> list[object]:
-        return next(self._batches)
-
-
-def test_bounded_diagnostics_separates_ready_and_ambiguous_history() -> None:
-    ready_id = UUID("20000000-0000-0000-0000-000000000001")
-    ambiguous_id = UUID("20000000-0000-0000-0000-000000000002")
-    review_rows = [
-        SimpleNamespace(
-            id=ready_id,
-            review_state="pending",
-            quality_issue=None,
-            assigned_symbol_id=SYMBOL_ID,
-            prediction_symbol_code="cherry",
-            assignment_source="model",
-            asset_mode="legacy_file",
-            render_spec=None,
-        ),
-        SimpleNamespace(
-            id=ambiguous_id,
-            review_state="approved",
-            quality_issue=None,
-            assigned_symbol_id=None,
-            prediction_symbol_code=None,
-            assignment_source="human",
-            asset_mode="legacy_file",
-            render_spec=None,
-        ),
-    ]
-    session = _DiagnosticSession([[], [], review_rows, []])
-
-    report = SqlAlchemyAdditiveVirtualGeometryDiagnostics(cast(Session, session)).inspect(limit=10)
-
-    assert report.ready_count == 1
-    assert report.ambiguous_count == 1
-    assert report.truncated is False
-    assert [sample.record_id for sample in report.samples] == [ready_id, ambiguous_id]

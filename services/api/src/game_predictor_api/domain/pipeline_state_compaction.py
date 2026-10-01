@@ -80,12 +80,74 @@ def manifest_checksum(payload: Mapping[str, object]) -> str:
     return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
 
+@dataclass(frozen=True, slots=True)
+class GameExecutionReferences:
+    """Global file executions that one game store references or protects.
+
+    ``owned_keys`` are executions linked from the game's import associations or
+    source images. ``blocked_keys`` are executions the game still needs: an
+    active import job, a failed association or unresolved board geometry.
+    """
+
+    storage_active: bool
+    owned_keys: frozenset[str]
+    blocked_keys: frozenset[str]
+    source_image_ids: Mapping[str, tuple[str, ...]]
+    recognized_board_ids: Mapping[str, tuple[str, ...]]
+
+
+@dataclass(frozen=True, slots=True)
+class PipelineExecutionReferences:
+    """Merged per-game view used for both the preview and the worker re-check."""
+
+    compactable_keys: frozenset[str]
+    source_image_ids: Mapping[str, tuple[str, ...]]
+    recognized_board_ids: Mapping[str, tuple[str, ...]]
+
+
+def merge_game_execution_references(
+    games: Sequence[GameExecutionReferences],
+) -> PipelineExecutionReferences:
+    """Fail closed: compact only keys owned by a game and blocked by none.
+
+    A key referenced by no game store is orphaned and stays. Any game that is
+    not ``active`` (migrating, deleting, blocked) protects every key it owns.
+    """
+
+    owned: set[str] = set()
+    blocked: set[str] = set()
+    for game in games:
+        owned.update(game.owned_keys)
+        blocked.update(game.blocked_keys)
+        if not game.storage_active:
+            blocked.update(game.owned_keys)
+    compactable = frozenset(owned - blocked)
+    return PipelineExecutionReferences(
+        compactable_keys=compactable,
+        source_image_ids={
+            key: tuple(
+                sorted(value for game in games for value in game.source_image_ids.get(key, ()))
+            )
+            for key in compactable
+        },
+        recognized_board_ids={
+            key: tuple(
+                sorted(value for game in games for value in game.recognized_board_ids.get(key, ()))
+            )
+            for key in compactable
+        },
+    )
+
+
 __all__ = [
     "DISPOSABLE_STAGE_PAYLOADS",
     "PIPELINE_COMPACTION_SCHEMA",
+    "GameExecutionReferences",
+    "PipelineExecutionReferences",
     "PipelineStageDigest",
     "canonical_json_bytes",
     "manifest_checksum",
+    "merge_game_execution_references",
     "stage_digest",
     "terminal_manifest_payload",
 ]

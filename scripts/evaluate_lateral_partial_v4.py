@@ -38,7 +38,10 @@ from game_predictor_api.domain.image_geometry_v2 import (
     derive_virtual_cells,
     unavailable_source_cell_indices,
 )
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.models import ImagePageGeometryOverrideModel
 from game_predictor_worker.images.board_cell_geometry_contract import LEGACY_BOARD_CELL_TOPOLOGY
 from game_predictor_worker.images.geometry import Point
@@ -135,7 +138,7 @@ def _load_rgb(path: Path, checksum: str, width: int, height: int) -> np.ndarray[
 
 def freeze_corpus(output: Path) -> dict[str, object]:
     settings = get_settings()
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     session = create_session_factory(engine)()
     try:
         rows = session.scalars(

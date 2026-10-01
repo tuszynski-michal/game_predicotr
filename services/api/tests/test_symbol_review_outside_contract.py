@@ -184,10 +184,10 @@ def test_partial_visibility_excludes_training_even_without_a_quality_flag() -> N
     crop = SymbolCellCropIdentity(
         cell_index=4,
         geometry_revision=3,
-        cropper_version="v19",
+        cropper_version="structured-v0.10",
         crop_sample_id="a" * 64,
         crop_checksum_sha256="b" * 64,
-        crop_relative_path="cell.png",
+        crop_relative_path=None,
     )
     review = replace(
         outside(),

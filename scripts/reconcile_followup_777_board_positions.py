@@ -13,7 +13,10 @@ from game_predictor_api.domain.partial_board_reconciliation import (
     build_manifest,
     validate_manifest,
 )
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -38,7 +41,7 @@ def main() -> None:
         parser.error("Apply requires --preview and --preview-sha256.")
 
     settings = ApiSettings.from_environment()
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     sessions = create_session_factory(engine)
     roots = [settings.artifact_root / "data"]
     try:

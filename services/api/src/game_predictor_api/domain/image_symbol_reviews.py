@@ -14,6 +14,7 @@ import json
 import re
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass, replace
+from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Literal
 from uuid import UUID
@@ -76,6 +77,16 @@ class SymbolCellReviewFilterState(StrEnum):
     PENDING = "pending"
 
 
+class SymbolCellReviewPredictionSource(StrEnum):
+    """Which writer produced a cell's current prediction (D-466)."""
+
+    REFERENCE_LIBRARY = "reference_library"
+    MODEL = "model"
+
+
+REFERENCE_LIBRARY_PREDICTION_MODEL_VERSION = "symbol-reference-library-v1"
+
+
 class SymbolCellReviewCursorDirection(StrEnum):
     AFTER = "after"
     BEFORE = "before"
@@ -114,8 +125,18 @@ class SymbolCellReviewListFilter:
     include_all_symbols: bool = False
     model_cohort_id: UUID | None = None
     storage_generation: int = 1
-    uses_current_projection: bool = False
     outside_only: bool = False
+    prediction_source: SymbolCellReviewPredictionSource | None = None
+    changed_from: datetime | None = None
+    changed_to: datetime | None = None
+
+    @property
+    def has_extended_filters(self) -> bool:
+        return (
+            self.prediction_source is not None
+            or self.changed_from is not None
+            or self.changed_to is not None
+        )
 
     def __post_init__(self) -> None:
         if self.outside_only:
@@ -162,6 +183,21 @@ class SymbolCellReviewListFilter:
                 "SYMBOL_CELL_REVIEW_CONFIDENCE_RANGE_INVALID",
                 "min_confidence cannot be greater than max_confidence.",
             )
+        for name, moment in (("changed_from", self.changed_from), ("changed_to", self.changed_to)):
+            if moment is not None and moment.tzinfo is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_CHANGED_RANGE_INVALID",
+                    f"{name} must include a time zone.",
+                )
+        if (
+            self.changed_from is not None
+            and self.changed_to is not None
+            and self.changed_from > self.changed_to
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_CHANGED_RANGE_INVALID",
+                "changed_from cannot be later than changed_to.",
+            )
 
 
 @dataclass(frozen=True, slots=True)
@@ -190,7 +226,8 @@ class SymbolCellReviewListItem:
     crop_checksum_sha256: str | None
     board_status: str
     prediction_confidence: float | None = None
-    asset_mode: str = "legacy_file"
+    # D-467 S6 (TASK-0796): a cell is a virtual render or an outside position.
+    asset_mode: str = "virtual_source"
     render_spec_checksum_sha256: str | None = None
     source_visibility: Literal["full", "partial", "outside"] = "full"
 
@@ -223,8 +260,8 @@ class SymbolCellReviewListItem:
             raise ValueError("crop identity must contain SHA-256 digests")
         if self.prediction_confidence is not None and not 0.0 <= self.prediction_confidence <= 1.0:
             raise ValueError("prediction_confidence must be between 0 and 1")
-        if self.asset_mode not in {"legacy_file", "virtual_source", "none"}:
-            raise ValueError("asset_mode must be legacy_file or virtual_source")
+        if self.asset_mode not in {"virtual_source", "none"}:
+            raise ValueError("asset_mode must be virtual_source or none")
         if self.asset_mode == "virtual_source" and not _is_sha256(
             self.render_spec_checksum_sha256 or ""
         ):
@@ -284,7 +321,7 @@ class SymbolCellReviewAsset:
     geometry_revision: int
     current_geometry_revision: int
     revision: int = 0
-    asset_mode: str = "legacy_file"
+    asset_mode: str = "virtual_source"
     source_checksum_sha256: str | None = None
     normalized_pixel_checksum_sha256: str | None = None
     source_geometry_revision_id: UUID | None = None
@@ -301,12 +338,8 @@ class SymbolCellReviewAsset:
             raise ValueError("crop_checksum_sha256 must be a SHA-256 digest")
         if min(self.geometry_revision, self.current_geometry_revision, self.revision) < 0:
             raise ValueError("geometry revisions cannot be negative")
-        if self.asset_mode == "legacy_file":
-            if not self.crop_relative_path:
-                raise ValueError("legacy symbol-cell assets require a crop path")
-            return
         if self.asset_mode != "virtual_source":
-            raise ValueError("asset_mode must be legacy_file or virtual_source")
+            raise ValueError("asset_mode must be virtual_source")
         required_checksums = (
             self.source_checksum_sha256,
             self.normalized_pixel_checksum_sha256,
@@ -336,7 +369,7 @@ class SymbolCellCropIdentity:
     crop_checksum_sha256: str
     geometry_revision: int
     cropper_version: str
-    asset_mode: str = "legacy_file"
+    asset_mode: str = "virtual_source"
 
     def __post_init__(self) -> None:
         if self.cell_index < 0:
@@ -349,13 +382,7 @@ class SymbolCellCropIdentity:
                 "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
                 "A symbol-cell crop identity requires SHA-256 sample and crop checksums.",
             )
-        if self.asset_mode == "legacy_file":
-            if not self.crop_relative_path or self.crop_relative_path.startswith(("/", "\\")):
-                raise SymbolCellReviewError(
-                    "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
-                    "A legacy symbol-cell crop path must be a non-empty relative path.",
-                )
-        elif self.asset_mode == "virtual_source":
+        if self.asset_mode == "virtual_source":
             if self.crop_relative_path is not None:
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
@@ -544,8 +571,8 @@ def map_current_symbol_cell_reviews(
     """Map current operational crops into topology-bound cell-review state.
 
     ``ImageReviewItem.cells`` is already the shared representation which picks
-    base ``cell_observations`` for geometry revision zero and the newest
-    ``crop_artifacts`` for a corrected geometry.  Keeping this mapper on that
+    the current render manifest of the (always ``virtual_source``) board
+    (D-467).  Keeping this mapper on that
     boundary prevents later backfill and write-through paths from choosing
     different crop identities.
     """
@@ -984,6 +1011,25 @@ def is_symbol_cell_training_eligible(
     )
 
 
+def utc_isoformat(value: datetime) -> str:
+    """One spelling per instant, so the same range in another offset keeps its cursor."""
+
+    return value.astimezone(UTC).isoformat()
+
+
+def _extended_filter_payload(review_filter: SymbolCellReviewListFilter) -> dict[str, str]:
+    """Only set filters enter a cursor, so cursors of unfiltered lists keep their bytes."""
+
+    payload: dict[str, str] = {}
+    if review_filter.prediction_source is not None:
+        payload["predictionSource"] = review_filter.prediction_source.value
+    if review_filter.changed_from is not None:
+        payload["changedFrom"] = utc_isoformat(review_filter.changed_from)
+    if review_filter.changed_to is not None:
+        payload["changedTo"] = utc_isoformat(review_filter.changed_to)
+    return payload
+
+
 def encode_symbol_cell_review_cursor(
     *,
     review_filter: SymbolCellReviewListFilter,
@@ -998,6 +1044,7 @@ def encode_symbol_cell_review_cursor(
         "key": [key[0], key[1], str(key[2])],
         "maxConfidence": review_filter.max_confidence,
         "minConfidence": review_filter.min_confidence,
+        **_extended_filter_payload(review_filter),
         "state": review_filter.state.value,
         "storageGeneration": review_filter.storage_generation,
         "symbolId": _symbol_cell_review_filter_scope(review_filter),
@@ -1034,6 +1081,12 @@ def decode_symbol_cell_review_cursor(
         parsed_model_cohort_id = (
             None if payload.get("modelCohortId") is None else UUID(payload["modelCohortId"])
         )
+        # Older cursors omit the extended filters; absence means "not filtered".
+        parsed_extended = {
+            key: payload.get(key)
+            for key in ("predictionSource", "changedFrom", "changedTo")
+            if payload.get(key) is not None
+        }
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_INVALID",
@@ -1060,6 +1113,7 @@ def decode_symbol_cell_review_cursor(
         or parsed_max_confidence != review_filter.max_confidence
         or parsed_storage_generation != review_filter.storage_generation
         or parsed_model_cohort_id != review_filter.model_cohort_id
+        or parsed_extended != _extended_filter_payload(review_filter)
     ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID",

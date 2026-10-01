@@ -32,6 +32,7 @@ import {
   approximateWinAxisTicks,
   approximateWinChartPoints,
   approximateWinExtremes,
+  approximateWinMaximumStake,
   approximateWinPointKey,
   approximateWinRequestKey,
   filterApproximateWinRows,
@@ -404,6 +405,7 @@ function ApproximateWinResultView({
   };
   const spinCost = result.rules.spinCost;
   const amount = approximateWinAmountFormatter(display, spinCost);
+  const maximumStake = approximateWinMaximumStake(result);
   const hasIncompleteData =
     result.completeness.partialBoardCount > 0 ||
     result.completeness.missingBoardCount > 0;
@@ -457,6 +459,18 @@ function ApproximateWinResultView({
         <div className="importMetric">
           <dt>Bilans</dt>
           <dd>{amount(result.summary.balanceCredits)}</dd>
+        </div>
+        <div className="importMetric boardSearchApproximateWinStakeMetric">
+          <dt>Maksymalny wkład</dt>
+          <dd>
+            {maximumStake === null ? '—' : amount(maximumStake.credits)}
+            {maximumStake !== null ? (
+              <small>
+                tyle trzeba mieć od zera, by opłacić spiny do najniższego
+                bilansu (spin {maximumStake.spinNumber.toLocaleString('pl-PL')})
+              </small>
+            ) : null}
+          </dd>
         </div>
       </dl>
 

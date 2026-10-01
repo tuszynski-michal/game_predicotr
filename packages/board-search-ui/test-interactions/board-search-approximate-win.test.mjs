@@ -781,10 +781,16 @@ test('stake and unit re-scale every amount locally without a new request', async
       ...document.querySelectorAll(
         '.boardSearchApproximateWin .importMetric dd',
       ),
-    ].map((node) => node.textContent);
+    ].map((node) => node.childNodes[0].textContent);
   // Base stake (spin cost 20 credits = 2 zł) in credits: unchanged view.
+  // The maximum stake is the first spin's cost: it is paid before its payout.
   assert.equal(firstPayout(), '100');
-  assert.deepEqual(metrics(), ['1100', '200', '900']);
+  assert.deepEqual(metrics(), ['1100', '200', '900', '20']);
+  assert.match(
+    document.querySelector('.boardSearchApproximateWinStakeMetric small')
+      .textContent,
+    /spin 1\)/,
+  );
 
   await act(async () => setInputValue(minimumPayoutInput(), '500'));
   await eventually(
@@ -810,7 +816,7 @@ test('stake and unit re-scale every amount locally without a new request', async
     1,
   );
   assert.equal(firstPayout(), '3000');
-  assert.deepEqual(metrics(), ['3300', '600', '2700']);
+  assert.deepEqual(metrics(), ['3300', '600', '2700', '60']);
   assert.match(
     document.querySelector('.boardSearchApproximateWinDisplay').textContent,
     /mnożnik 3/,
@@ -842,7 +848,12 @@ test('stake and unit re-scale every amount locally without a new request', async
     1,
     'the threshold survives a unit change',
   );
-  assert.deepEqual(metrics(), ['330,00 zł', '60,00 zł', '270,00 zł']);
+  assert.deepEqual(metrics(), [
+    '330,00 zł',
+    '60,00 zł',
+    '270,00 zł',
+    '6,00 zł',
+  ]);
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartGrid')?.parentElement
       .textContent ?? '',

@@ -104,6 +104,9 @@ last_updated: 2026-10-01
   w `README.md` i `DECISION_LOG.md` (obie sekcje zachowane). Po scaleniu:
   testy API udostępnień i bezpieczeństwa 69/69, migracje `0129`+`0130` na
   świeżej bazie 12/12, Admin 597/597, Reviewer 192/192, pakiet UI 38/38.
+- TASK-0776 done (2026-10-01, zgłoszenie operatora): kafelek „Maksymalny
+  wkład” w podsumowaniu „Przybliżonej wygranej” — najgłębszy dołek bilansu
+  od zera (spin opłacany przed wypłatą), z numerem spinu, skalowany stawką.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

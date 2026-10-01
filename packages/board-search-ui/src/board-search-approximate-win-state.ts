@@ -433,3 +433,39 @@ export function filterApproximateWinRows(
 export function formatApproximateWinCredits(value: number): string {
   return value.toLocaleString('pl-PL');
 }
+
+export interface ApproximateWinMaximumStake {
+  /** Cash needed from a zero start to pay every spin up to the lowest point. */
+  readonly credits: number;
+  /** The spin at which the balance is lowest (first occurrence). */
+  readonly spinNumber: number;
+}
+
+/**
+ * The deepest trough of the cumulative balance when starting from zero
+ * (TASK-0776). Each spin is paid before its payout, so the trough before a
+ * payout is `cumulativeBalance - payout`; the end of the range counts too.
+ * At least one spin's cost is always needed.
+ */
+export function approximateWinMaximumStake(
+  result: Pick<ApproximateWinResponse, 'evaluatedSpinCount' | 'rows'> & {
+    readonly summary: Pick<ApproximateWinResponse['summary'], 'balanceCredits'>;
+    readonly rules: Pick<ApproximateWinResponse['rules'], 'spinCost'>;
+  },
+): ApproximateWinMaximumStake | null {
+  if (result.evaluatedSpinCount < 1) return null;
+  let lowest = -result.rules.spinCost;
+  let spinNumber = 1;
+  for (const row of result.rows) {
+    const beforePayout = row.cumulativeBalanceCredits - row.payoutCredits;
+    if (beforePayout < lowest) {
+      lowest = beforePayout;
+      spinNumber = row.spinNumber;
+    }
+  }
+  if (result.summary.balanceCredits < lowest) {
+    lowest = result.summary.balanceCredits;
+    spinNumber = result.evaluatedSpinCount;
+  }
+  return { credits: -lowest, spinNumber };
+}

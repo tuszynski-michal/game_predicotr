@@ -425,8 +425,14 @@ na planszy spoza aktywnych symboli opublikowanej wersji reguł przerywa całą
 kalkulację zakresu jako błąd, zamiast po cichu pominąć jedną planszę.
 
 Podsumowanie pokazuje osobno: rozpoznane wypłaty, koszt spinów (suma
-kosztu wszystkich spinów zakresu, również brakujących) i bilans
-(wypłaty minus koszt) — nigdy nie nazywane „zyskiem”. Tabela wyników
+kosztu wszystkich spinów zakresu, również brakujących), bilans
+(wypłaty minus koszt) — nigdy nie nazywane „zyskiem” — oraz „Maksymalny
+wkład” (TASK-0776): ile gotówki trzeba mieć, zaczynając od zera, aby opłacić
+spiny aż do najniższego punktu bilansu w zakresie. Każdy spin jest płacony
+przed swoją wypłatą, więc dołek przed wypłatą to bilans narastający minus ta
+wypłata; liczy się też koniec zakresu, a wkład nigdy nie jest mniejszy niż
+koszt jednego spinu. Kafelek podaje numer spinu najniższego bilansu i skaluje
+się ze stawką oraz jednostką jak pozostałe kwoty (D-470). Tabela wyników
 zawiera wyłącznie spiny z dodatnią wypłatą w kolumnach: Spin, Plansza,
 Wypłata, Bilans narastająco i kolumnie akcji bez widocznego nagłówka
 (przycisk „Pokaż planszę”, D-470, TASK-0764) — również wtedy, gdy bilans

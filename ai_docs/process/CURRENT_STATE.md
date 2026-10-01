@@ -80,7 +80,14 @@ last_updated: 2026-10-01
   bazy: 63 tabele gry partycjonowane `LIST (game_id)`, 3 gry × 63 partycje,
   RLS na wszystkich, zapytanie jednej gry dotyka tylko jej partycji; żadna
   zmiana schematu nie jest potrzebna dla izolacji.
-- Następne: TASK-0807 (bramka w pipeline, migracja `0139`), potem TASK-0809.
+- 2026-10-02 operator: osobna baza PostgreSQL per gra odrzucona (partycje
+  wystarczają); potwierdzony tor TASK-0808 → TASK-0807 → TASK-0809; zgoda
+  na migrację `0139`, backfill i potrzebne zatrzymanie usług na bazie
+  deweloperskiej przy STOP V3-0. Usunięcie duplikatu `7d10ae0a` nie zostało
+  zlecone.
+- Następne: TASK-0808 (stany `superseded` / `import_failed`, podgląd po
+  zdjęciu), TASK-0807 (bramka, przepinanie plansz, migracja `0139`),
+  TASK-0809 (izolacja per gra).
 
 Stan sprzed akceptacji (zachowany dla kontekstu):
 

@@ -34,26 +34,51 @@ zadanie egzekwuje regułę.
   deweloperskiej to `0138_rls_policy_function_parallel_safe`; nowa migracja
   dostaje numer `0139`. Przed commitem sprawdź numer na
   `v1.1-vision-lab-hybrid-geometry` (inny tor mógł zająć `0139`).
-- Fakt z TASK-0806 (777): 399 zdjęć niekompletnych; 1 703 plansze na 240
-  zdjęciach wskazują starą automatyczną rewizję `needs_review` przy nowszej
-  ręcznej rewizji `accepted` zdjęcia. To zadanie **nie** przepina tych
-  plansz i nie zmienia definicji — pozostają `uncertain`; decyzja należy do
-  operatora przy STOP V3-0. Plansze `rejected` liczą się jak w TASK-0806.
-- Fakt z TASK-0806: żaden endpoint zasobu źródłowego nie przyjmuje
-  `source_image_id`; lista używa `previewReviewItemId`, więc zdjęcia bez
-  planszy nie mają podglądu. To zadanie dodaje odczyt pliku źródłowego po
-  `source_image_id` (ta sama walidacja ścieżki i sumy kontrolnej co
-  istniejące endpointy zasobów; bez drugiego mechanizmu serwowania).
+- TASK-0808 ukończony: stany `superseded` i `import_failed` oraz odczyt
+  pliku po `source_image_id` już istnieją; to zadanie ich nie powtarza.
+  Mapowanie stanu trwałego: `complete` → `geometry_complete`;
+  `incomplete_*` → `geometry_incomplete`; `superseded`, `import_failed`,
+  `no_source_geometry` → `NULL` (zdjęcie poza bramką: nie ma żywych plansz
+  do cięcia).
+- Decyzja operatora 2026-10-02 („przepnij i tak powinno się dziać”): 449
+  żywych plansz na 79 zdjęciach wskazuje starą automatyczną rewizję źródła
+  `needs_review`, choć konwersja legacy (2026-10-01,
+  `system:legacy-board-conversion-v1`,
+  `storage/virtual_grid_geometry_repository.py`) zapisała zdjęciu nowszą
+  ręczną rewizję `accepted`. To zadanie:
+  1. wprowadza regułę: zapis nowej rewizji geometrii źródła zdjęcia
+     przepina na nią (`recognized_boards.source_geometry_revision_id`)
+     wszystkie żywe plansze tego zdjęcia, których pozycja jest w nowej
+     rewizji — w tej samej transakcji; prześledź wszystkie miejsca
+     zapisujące `ImageSourceGeometryRevisionModel` i ustal, które już to
+     robią;
+  2. w backfillu przepina istniejące żywe plansze wskazujące rewizję
+     starszą niż najnowsza rewizja zdjęcia.
+  Przepięcie jest dozwolone tylko wtedy, gdy geometria planszy (quad i
+  siatka komórek, z których powstał manifest renderu) jest identyczna z
+  wpisem tej pozycji w nowej rewizji; inaczej plansza zostaje bez zmian i
+  trafia do raportu rozbieżności — przepięcie nie może zmienić cropów ani
+  unieważnić decyzji człowieka. Zanim zakodujesz, sprawdź na bazie
+  deweloperskiej (tylko `SELECT`), ile z 449 plansz spełnia ten warunek, co
+  dokładnie zapisała konwersja legacy dla pozycji nieobjętych konwersją i
+  jakie kolumny komórek (`source_geometry_revision_id`,
+  `approved_source_geometry_revision_id`, manifest renderu) muszą pójść
+  razem z planszą, żeby nie złamać CHECK-ów i kluczy obcych. Jeżeli
+  identyczności nie da się wykazać dla większości, zatrzymaj się i zgłoś.
+  1 254 plansze `rejected` na starych rewizjach zostają bez zmian.
 - Fakt: SQL liczników w
   `storage/image_geometry_completeness_repository.py` powiela reguły
   klasyfikatora domenowego (testy PG pilnują zgodności). Przeliczanie stanu
   jednego zdjęcia ma używać klasyfikatora domenowego na pozycjach tego
   zdjęcia; backfill może używać agregacji SQL.
-- Fakt: migracja na bazie deweloperskiej **nie** należy do zadania. Wymaga
-  osobnej zgody operatora i skoordynowanego przejścia (zatrzymanie API i
-  workerów wszystkich checkoutów → merge → migracja → start;
-  `ai_docs/guides/LOCAL_OPERATION_GUIDE.md`). Zadanie kończy się migracją
-  zweryfikowaną na bazach `*_test` i opisanym krokiem operatorskim.
+- Fakt: wykonawca zadania **nie** uruchamia migracji ani backfillu na bazie
+  deweloperskiej. Zadanie kończy się migracją i backfillem zweryfikowanymi
+  na bazach `*_test`, trybem podglądu backfillu (bez zapisu, z licznikami)
+  i opisanym krokiem operatorskim. Operator zgodził się 2026-10-02 na
+  migrację, backfill i zatrzymanie usług; przejście wykonuje orkiestrator
+  po commicie zadania (zatrzymanie API i workerów wszystkich checkoutów →
+  merge → migracja → podgląd backfillu → backfill → start;
+  `ai_docs/guides/LOCAL_OPERATION_GUIDE.md`).
 
 ## Recommended execution
 
@@ -143,8 +168,9 @@ w `Outcome` i w przewodniku pełną kolejność przejścia. Jeżeli kolumny na
 `source_images` okażą się niemożliwe bez przebudowy manifestu, a osobna
 tabela gry jest tańsza, zatrzymaj się i zgłoś wybór przed implementacją.
 
-Mapowanie z klasyfikacji TASK-0806: `complete` → `geometry_complete`;
-każdy `incomplete_*` → `geometry_incomplete`; `no_source_geometry` → `NULL`.
+Mapowanie z klasyfikacji TASK-0806/0808: `complete` → `geometry_complete`;
+każdy `incomplete_*` → `geometry_incomplete`; `superseded`,
+`import_failed`, `no_source_geometry` → `NULL`.
 `geometry_exception` ustawia wyłącznie operator.
 
 ### Przeliczanie

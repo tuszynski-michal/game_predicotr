@@ -227,7 +227,23 @@ Każdy etap wymaga jawnego uruchomienia; po etapie STOP z raportem.
   chwili (kontrola 2026-10-01 przy starcie etapu: 56 816 zdjęć, 56 710 z
   kompletem rozpoznanych plansz, 99 bez plansz, 7 niepełnych, 4 z otwartą
   odroczoną geometrią); test PG; kontrakt pionem (OpenAPI, klient, test).
+- **TASK-0808 — raport: pozycje zastąpione, nieudane importy, podgląd po
+  zdjęciu (tylko odczyt; dodane 2026-10-02 po ustaleniach z TASK-0806,
+  wykonywane przed TASK-0807).** Plansza `rejected` nie jest planszą z
+  siatką; pozycja bez żywej planszy, której numer sekwencji ma żywy element
+  review na innym zdjęciu gry, jest `superseded` i nie czyni zdjęcia
+  niekompletnym (dziś 10 389 plansz zduplikowanego importu `7d10ae0a`);
+  zdjęcie bez plansz z nieudanym plikiem importu ma stan `import_failed` z
+  kodem błędu albo `superseded`, gdy ten sam SHA jest zaimportowany
+  poprawnie; odczyt pliku źródłowego po `source_image_id`. Kryteria:
+  liczniki zgodne z zapytaniem kontrolnym, test PG nowych stanów, kontrakt
+  pionem, brak zapisu.
 - **TASK-0807 — egzekwowanie bramki w pipeline (wymaga decyzji 5).**
+  Uzupełnienie 2026-10-02 (polecenie operatora): zapis nowej rewizji
+  geometrii źródła zdjęcia przepina na nią wszystkie żywe plansze tego
+  zdjęcia; backfill przepina 449 istniejących plansz po konwersji legacy.
+  Operator zgodził się 2026-10-02 na migrację, backfill i potrzebne
+  zatrzymanie usług na bazie deweloperskiej przy STOP V3-0.
   Stan zdjęcia `geometry_complete | geometry_incomplete |
   geometry_exception` (proponowany, kolumna albo tabela gry przez
   Alembic); writer importu i ręczna geometria przeliczają go w tej samej
@@ -410,6 +426,7 @@ wznowienia audytów; obecnie audyty są zawieszone decyzją operatora.
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
 | TASK-0806 | claude-sonnet-5-5 | high | Raport i widok tylko do odczytu na istniejących tabelach; kontrakt pionem. | Zawieszony; przy wznowieniu claude-opus-5-5, medium |
+| TASK-0808 | claude-sonnet-5-5 | high | Rozszerzenie istniejącego pionu tylko do odczytu o stany i jeden endpoint zasobu według gotowych wzorców. | Zawieszony; przy wznowieniu claude-opus-5-5, medium |
 | TASK-0807 | claude-opus-5-5 | high | Zmiana przepływu importu i materializacji komórek, migracja stanu zdjęcia, backfill. | Zawieszony; przy wznowieniu claude-opus-5-5, high |
 | TASK-0809 | claude-sonnet-5-5 | high | Testy i raport bez zmian schematu na istniejącym lifecycle magazynu gry; ryzyko ograniczone do poprawności asercji planu zapytania. | Zawieszony; przy wznowieniu claude-opus-5-5, medium |
 | TASK-0800 | claude-sonnet-5-5 | high | Eksport tylko do odczytu według istniejącego wzorca; ryzyko ograniczone do poprawności liczności. | Zawieszony; przy wznowieniu claude-opus-5-5, medium |

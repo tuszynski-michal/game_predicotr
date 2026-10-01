@@ -6,7 +6,10 @@ import type {
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
-import type { ValidatedSymbolDraft } from './symbol-catalog-state.ts';
+import type {
+  SymbolDisplayOrderChange,
+  ValidatedSymbolDraft,
+} from './symbol-catalog-state.ts';
 
 export type SymbolsClient = Pick<
   AdminApiClient,
@@ -115,4 +118,42 @@ function symbolDeleteBlockers(
       ? [`${label}: ${count}`]
       : [];
   });
+}
+
+export type ReorderSymbolsResult =
+  { readonly ok: true } | { readonly error: string; readonly ok: false };
+
+/**
+ * Saves displayOrder changes one symbol at a time and stops at the first
+ * failure. The writes are not atomic, so the caller reloads the list from the
+ * API afterwards to show the persisted order.
+ */
+export async function reorderSymbols(
+  api: SymbolsClient,
+  gameId: string,
+  changes: readonly SymbolDisplayOrderChange[],
+): Promise<ReorderSymbolsResult> {
+  for (const change of changes) {
+    try {
+      const result = await api.updateSymbol(gameId, change.symbolId, {
+        displayOrder: change.displayOrder,
+      } satisfies SymbolUpdate);
+      if (result.error !== undefined || result.data === undefined) {
+        return {
+          error: apiErrorMessage(
+            result.error,
+            'Nie udało się zapisać kolejności symboli.',
+          ),
+          ok: false,
+        };
+      }
+    } catch {
+      return {
+        error:
+          'Połączenie z lokalnym Admin API zostało przerwane. Kolejność mogła zostać zapisana częściowo.',
+        ok: false,
+      };
+    }
+  }
+  return { ok: true };
 }

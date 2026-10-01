@@ -328,6 +328,59 @@ def test_manual_symbol_creation_assigns_stable_identity_and_resolves_name_collis
     assert (first.json()["displayOrder"], second.json()["displayOrder"]) == (0, 1)
 
 
+def test_symbol_patch_changes_display_order_and_rejects_invalid_values() -> None:
+    repository = MemoryCatalogRepository()
+
+    with _client(repository) as client:
+        game_id = client.post(
+            "/api/v1/admin/games",
+            json={"code": "game-1", "name": "Game 1"},
+        ).json()["id"]
+        star_id = client.post(
+            f"/api/v1/admin/games/{game_id}/symbols",
+            json={"name": "Star"},
+        ).json()["id"]
+        seven_id = client.post(
+            f"/api/v1/admin/games/{game_id}/symbols",
+            json={"name": "Seven"},
+        ).json()["id"]
+
+        moved_seven = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{seven_id}",
+            json={"displayOrder": 0},
+        )
+        moved_star = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{star_id}",
+            json={"displayOrder": 1},
+        )
+        renamed = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{star_id}",
+            json={"name": "Gwiazda"},
+        )
+        listed = client.get(f"/api/v1/admin/games/{game_id}/symbols")
+        negative = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{star_id}",
+            json={"displayOrder": -1},
+        )
+        explicit_null = client.patch(
+            f"/api/v1/admin/games/{game_id}/symbols/{star_id}",
+            json={"displayOrder": None},
+        )
+
+    assert moved_seven.status_code == 200
+    assert moved_seven.json()["displayOrder"] == 0
+    assert moved_star.status_code == 200
+    assert moved_star.json()["displayOrder"] == 1
+    assert renamed.status_code == 200
+    assert renamed.json()["displayOrder"] == 1
+    assert [item["id"] for item in listed.json()] == [seven_id, star_id]
+    assert negative.status_code == 422
+    assert negative.json()["code"] == "VALIDATION_ERROR"
+    assert explicit_null.status_code == 422
+    assert explicit_null.json()["code"] == "VALIDATION_ERROR"
+    assert repository.symbols[UUID(star_id)].display_order == 1
+
+
 def test_delete_reports_each_durable_usage_blocker() -> None:
     repository = MemoryCatalogRepository()
     usage_fields = (

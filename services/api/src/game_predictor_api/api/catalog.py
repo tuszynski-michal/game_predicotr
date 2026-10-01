@@ -179,6 +179,7 @@ def create_catalog_router(
                 symbol_id,
                 name=payload.name,
                 is_wildcard=payload.is_wildcard,
+                display_order=payload.display_order,
             )
         )
 

@@ -119,12 +119,13 @@ class SymbolCreate(ApiModel):
 class SymbolUpdate(ApiModel):
     name: str | None = Field(default=None, min_length=1, max_length=200)
     is_wildcard: bool | None = None
+    display_order: int | None = Field(default=None, ge=0, le=2_147_483_647)
 
     @model_validator(mode="after")
     def require_change(self) -> Self:
         if not self.model_fields_set:
             raise ValueError("At least one field must be provided.")
-        for field_name in ("name", "is_wildcard"):
+        for field_name in ("name", "is_wildcard", "display_order"):
             if field_name in self.model_fields_set and getattr(self, field_name) is None:
                 raise ValueError(f"{_to_camel(field_name)} cannot be null.")
         return self

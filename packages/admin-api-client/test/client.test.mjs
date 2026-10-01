@@ -1565,6 +1565,43 @@ test('generated client sends symbol minimum and payout rule requests', async () 
   assert.equal(requests[3].method, 'DELETE');
 });
 
+test('generated client sends a catalog symbol displayOrder update', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const symbolId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        code: 'SEVEN',
+        displayOrder: 6,
+        gameId,
+        id: symbolId,
+        imagePath: null,
+        isWildcard: false,
+        mobileCode: 8,
+        name: '7',
+        nameEn: null,
+        namePl: null,
+        status: 'active',
+      });
+    },
+  });
+
+  const result = await client.updateSymbol(gameId, symbolId, {
+    displayOrder: 6,
+  });
+
+  assert.equal(result.data?.displayOrder, 6);
+  assert.equal(requests[0].method, 'PATCH');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    `/api/v1/admin/games/${gameId}/symbols/${symbolId}`,
+  );
+  assert.deepEqual(await requests[0].clone().json(), { displayOrder: 6 });
+});
+
 test('generated client sends rules publication workflow requests', async () => {
   const requests = [];
   const rulesVersionId = '33333333-3333-4333-8333-333333333333';

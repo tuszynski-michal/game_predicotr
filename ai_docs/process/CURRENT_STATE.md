@@ -6,6 +6,18 @@ last_updated: 2026-10-01
 
 # Current State
 
+### TASK-0782 — zmiana kolejności symboli w katalogu (done)
+
+- Gałąź `feat/symbol-display-order` (worktree `worktrees/symbol-display-order`)
+  od `v1.7.56`. `PATCH` symbolu przyjmuje `displayOrder`; katalog symboli w
+  Adminie ma przyciski „↑/↓”, które przenumerowują listę `0..n-1`. Skróty 1–9
+  weryfikacji symboli i wyszukiwarki plansz podążają za kolejnością. Operator
+  zamienia „7” i „gwiazdę” w grze 777 w panelu; snapshot mobilny dostanie nową
+  kolejność przy kolejnym `snapshot:generate`.
+- Commit `v1.7.57` / `5ab34453` na gałęzi `feat/symbol-display-order`
+  (numer sprzed scalenia; zadanie przenumerowane z 0730 z powodu kolizji).
+  Scalone do `v1.1-vision-lab-hybrid-geometry` commitem `v1.7.132`.
+
 ### Hybrydowy silnik siatek V3 — plan do akceptacji (2026-10-01)
 
 - Plan `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` ma status

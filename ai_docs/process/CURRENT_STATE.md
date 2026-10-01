@@ -85,9 +85,16 @@ last_updated: 2026-10-01
   na migrację `0139`, backfill i potrzebne zatrzymanie usług na bazie
   deweloperskiej przy STOP V3-0. Usunięcie duplikatu `7d10ae0a` nie zostało
   zlecone.
-- Następne: TASK-0808 (stany `superseded` / `import_failed`, podgląd po
-  zdjęciu), TASK-0807 (bramka, przepinanie plansz, migracja `0139`),
-  TASK-0809 (izolacja per gra).
+- TASK-0808 done (`v1.7.141`): plansza `rejected` nie jest planszą z
+  siatką; stany `superseded` (pozycja i zdjęcie) oraz `import_failed`;
+  odczyt pliku źródłowego po `source_image_id`
+  (`GET …/geometry-completeness/{gameId}/images/{sourceImageId}/source`);
+  `previewReviewItemId` usunięte z listy. Stan 777: 56 812 zdjęć, 55 423
+  kompletne, 136 niekompletnych (60 z planszą częściową, 76 z siatką
+  niepotwierdzoną — 449 pozycji), 1 253 zastąpione nowszym importem
+  (11 232 pozycje), 0 brakujących, 0 `import_failed`.
+- Następne: TASK-0807 (bramka, przepinanie plansz, migracja), TASK-0809
+  (izolacja per gra).
 
 Stan sprzed akceptacji (zachowany dla kontekstu):
 

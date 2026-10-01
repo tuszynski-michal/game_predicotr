@@ -55,6 +55,7 @@ from game_predictor_api.storage.board_import_coverage_repository import (
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.image_geometry_completeness_repository import (
     GeometryCompletenessReport,
+    GeometrySourceImageAsset,
     IncompleteGeometryImagePage,
     LowQualityBoardsReport,
 )
@@ -234,6 +235,10 @@ class ImageGeometryCompletenessRepository(Protocol):
         thresholds: LowQualityThresholds,
         limit: int = MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
     ) -> LowQualityBoardsReport | None: ...
+
+    def source_image_asset(
+        self, game_id: UUID, source_image_id: UUID
+    ) -> GeometrySourceImageAsset | None: ...
 
 
 def _geometry_completeness_game_not_found() -> ImageReviewNotFoundError:
@@ -650,6 +655,17 @@ class OperationalImageReviewService:
         if report is None:
             raise _geometry_completeness_game_not_found()
         return report
+
+    def geometry_source_image(
+        self,
+        game_id: UUID,
+        source_image_id: UUID,
+    ) -> GeometrySourceImageAsset:
+        repository = self._require_geometry_completeness_repository()
+        asset = repository.source_image_asset(game_id, source_image_id)
+        if asset is None:
+            raise _geometry_completeness_game_not_found()
+        return asset
 
     def _require_geometry_completeness_repository(self) -> ImageGeometryCompletenessRepository:
         if self._geometry_completeness_repository is None:

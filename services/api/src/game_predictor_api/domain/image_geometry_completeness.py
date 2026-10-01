@@ -3,7 +3,9 @@
 The unit of geometry is the source image. The expected boards of an image are
 the ``active_board_slots`` of its current source geometry revision; each
 expected position is classified from a handful of plain facts, and the image
-is classified from its positions. No SQLAlchemy, no I/O.
+is classified from its positions. A *live* board is a ``recognized_boards``
+row that is not ``rejected``; a rejected board never proves a correct grid.
+No SQLAlchemy, no I/O.
 
 The SQL in ``storage.image_geometry_completeness_repository`` counts the same
 states in aggregate; the PostgreSQL tests of that module assert that both
@@ -42,6 +44,9 @@ class GeometryPositionState(StrEnum):
     PARTIAL = "partial"
     MISSING = "missing"
     DEFERRED = "deferred"
+    # No live board, but the sequence number lives on a review item of another
+    # image of the game: the position is covered, not a gap (TASK-0808).
+    SUPERSEDED = "superseded"
 
 
 class GeometryImageState(StrEnum):
@@ -52,6 +57,22 @@ class GeometryImageState(StrEnum):
     INCOMPLETE_PARTIAL = "incomplete_partial"
     INCOMPLETE_UNCERTAIN = "incomplete_uncertain"
     NO_SOURCE_GEOMETRY = "no_source_geometry"
+    # Replaced by a newer import (every expected position is superseded, or a
+    # file with the same checksum has live boards); not a gap (TASK-0808).
+    SUPERSEDED = "superseded"
+    # No live board and the import of the file failed (TASK-0808).
+    IMPORT_FAILED = "import_failed"
+
+
+# Image states that still need attention: the default list ("all incomplete").
+# ``complete`` and ``superseded`` images are never incomplete (TASK-0808).
+INCOMPLETE_IMAGE_STATES: Final = (
+    GeometryImageState.INCOMPLETE_MISSING,
+    GeometryImageState.INCOMPLETE_PARTIAL,
+    GeometryImageState.INCOMPLETE_UNCERTAIN,
+    GeometryImageState.IMPORT_FAILED,
+    GeometryImageState.NO_SOURCE_GEOMETRY,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -64,6 +85,10 @@ class GeometryPositionFacts:
     geometry revision the board points to (not of the image's newest one).
     ``deferred_reason_code`` is the reason of an open
     ``image_board_geometry_pending`` row for the position, if any.
+    ``board_exists`` means a *live* board (not ``rejected``) is at the position.
+    ``sequence_live_elsewhere`` means the position's sequence number has a live
+    review item (``pending``/``accepted``/``corrected``) on another image of the
+    same game.
     """
 
     position_index: int
@@ -72,6 +97,7 @@ class GeometryPositionFacts:
     geometry_approved: bool = False
     source_revision_accepted: bool = False
     deferred_reason_code: str | None = None
+    sequence_live_elsewhere: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -84,6 +110,8 @@ def classify_position(facts: GeometryPositionFacts) -> GeometryPositionClassific
     """Classify one expected position; the first matching rule wins (D-484)."""
 
     if not facts.board_exists:
+        if facts.sequence_live_elsewhere:
+            return GeometryPositionClassification(GeometryPositionState.SUPERSEDED)
         if facts.deferred_reason_code is not None:
             return GeometryPositionClassification(
                 GeometryPositionState.DEFERRED, facts.deferred_reason_code
@@ -105,12 +133,37 @@ def classify_image(
     position_states: Iterable[GeometryPositionState],
     *,
     has_source_geometry: bool,
+    has_live_boards: bool = True,
+    checksum_twin_has_live_boards: bool = False,
+    import_file_failed: bool = False,
 ) -> GeometryImageState:
-    """Classify an image from the states of all its expected positions."""
+    """Classify an image from the states of all its expected positions.
 
+    ``has_live_boards`` is about the whole image (any live board at any
+    position). ``checksum_twin_has_live_boards`` means another image of the
+    game with the same ``checksum_sha256`` has live boards;
+    ``import_file_failed`` is ``workflow_status = 'failed'`` of the image's
+    import file. The first matching rule wins (TASK-0808): ``superseded``
+    (every expected position superseded, or no live board and a checksum twin
+    with live boards), ``import_failed``, ``no_source_geometry``, then the
+    gap states. ``superseded`` positions are skipped there, so an image whose
+    positions are ``ok`` or ``superseded`` (at least one ``ok``) is complete.
+    """
+
+    states = list(position_states)
+    if (
+        has_source_geometry
+        and states
+        and all(state is GeometryPositionState.SUPERSEDED for state in states)
+    ):
+        return GeometryImageState.SUPERSEDED
+    if not has_live_boards:
+        if checksum_twin_has_live_boards:
+            return GeometryImageState.SUPERSEDED
+        if import_file_failed:
+            return GeometryImageState.IMPORT_FAILED
     if not has_source_geometry:
         return GeometryImageState.NO_SOURCE_GEOMETRY
-    states = set(position_states)
     if GeometryPositionState.MISSING in states or GeometryPositionState.DEFERRED in states:
         return GeometryImageState.INCOMPLETE_MISSING
     if GeometryPositionState.PARTIAL in states:
@@ -222,6 +275,7 @@ class LowQualityThresholds:
 __all__ = [
     "DEFAULT_LOW_QUALITY_MAX_CONFIDENCE",
     "DEFAULT_LOW_QUALITY_MIN_CELLS",
+    "INCOMPLETE_IMAGE_STATES",
     "MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE",
     "MAX_LOW_QUALITY_BOARDS",
     "MAX_LOW_QUALITY_MIN_CELLS",

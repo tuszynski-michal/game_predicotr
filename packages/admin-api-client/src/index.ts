@@ -102,6 +102,7 @@ import {
   getBoardImportCoverage as getGeneratedBoardImportCoverage,
   getImageDatasetCompleteness as getGeneratedImageDatasetCompleteness,
   getImageGeometryCompleteness as getGeneratedImageGeometryCompleteness,
+  getImageGeometryCompletenessSourceAsset as getGeneratedImageGeometryCompletenessSourceAsset,
   getImageGeometryLowQualityBoards as getGeneratedImageGeometryLowQualityBoards,
   listIncompleteGeometryImages as listGeneratedIncompleteGeometryImages,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
@@ -841,6 +842,7 @@ export interface GetImageGeometryCompletenessOptions {
 export interface ListIncompleteGeometryImagesOptions {
   readonly gameId: string;
   readonly importJobId?: string;
+  // `complete` is never listed; `superseded` only when asked for explicitly.
   readonly imageState?: Exclude<GeometryImageState, 'complete'>;
   readonly afterCursor?: string;
   readonly limit?: number;
@@ -2046,6 +2048,14 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             : { afterCursor: options.afterCursor }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
+      }),
+    getImageGeometryCompletenessSourceAsset: (
+      gameId: string,
+      sourceImageId: string,
+    ) =>
+      getGeneratedImageGeometryCompletenessSourceAsset({
+        client,
+        path: { game_id: gameId, source_image_id: sourceImageId },
       }),
     getImageGeometryLowQualityBoards: (
       options: GetImageGeometryLowQualityBoardsOptions,

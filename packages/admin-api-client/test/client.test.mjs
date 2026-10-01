@@ -3350,6 +3350,10 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
     afterCursor: 'abc_-=',
     limit: 25,
   });
+  await client.listIncompleteGeometryImages({
+    gameId,
+    imageState: 'superseded',
+  });
   await client.getImageGeometryLowQualityBoards({ gameId });
   await client.getImageGeometryLowQualityBoards({
     gameId,
@@ -3359,11 +3363,10 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
     limit: 20,
   });
 
-  assert.equal(requests.length, 6);
+  assert.equal(requests.length, 7);
   const base = `/api/v1/admin/image-review-items/geometry-completeness/${gameId}`;
-  const [report, reportImport, list, listFull, low, lowFull] = requests.map(
-    (request) => new URL(request.url),
-  );
+  const [report, reportImport, list, listFull, listSuperseded, low, lowFull] =
+    requests.map((request) => new URL(request.url));
   assert.equal(report.pathname, base);
   assert.equal(report.search, '');
   assert.equal(reportImport.pathname, base);
@@ -3378,6 +3381,9 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
     afterCursor: 'abc_-=',
     limit: '25',
   });
+  assert.deepEqual(Object.fromEntries(listSuperseded.searchParams.entries()), {
+    imageState: 'superseded',
+  });
   assert.equal(low.pathname, `${base}/low-quality-boards`);
   assert.equal(low.search, '');
   assert.deepEqual(Object.fromEntries(lowFull.searchParams.entries()), {
@@ -3387,6 +3393,36 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
     limit: '20',
   });
   for (const request of requests) assert.equal(request.method, 'GET');
+});
+
+test('geometry completeness source image is read by source image id, not by a review item (TASK-0808)', async () => {
+  const requests = [];
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const sourceImageId = '99999999-9999-4999-8999-999999999999';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return new Response(new Uint8Array([1, 2, 3]), {
+        headers: { 'content-type': 'image/jpeg' },
+      });
+    },
+  });
+
+  const result = await client.getImageGeometryCompletenessSourceAsset(
+    gameId,
+    sourceImageId,
+  );
+
+  assert.equal(requests.length, 1);
+  const url = new URL(requests[0].url);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    url.pathname,
+    `/api/v1/admin/image-review-items/geometry-completeness/${gameId}/images/${sourceImageId}/source`,
+  );
+  assert.equal(url.search, '');
+  assert.ok(result.data instanceof Blob);
 });
 
 test('geometry review sources response carries automaticPageProposal through the wrapper unchanged', async () => {

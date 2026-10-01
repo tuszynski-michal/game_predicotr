@@ -36,6 +36,10 @@ class GeometryCompletenessImageCountsResponse(ApiModel):
     incomplete_partial: int = Field(ge=0)
     incomplete_uncertain: int = Field(ge=0)
     no_source_geometry: int = Field(ge=0)
+    # Newer import covers the image (TASK-0808); never counted as incomplete.
+    superseded: int = Field(ge=0)
+    # Image without a live board whose import file failed (TASK-0808).
+    import_failed: int = Field(ge=0)
 
 
 class GeometryCompletenessPositionCountResponse(ApiModel):
@@ -83,9 +87,8 @@ class IncompleteGeometryImageResponse(ApiModel):
     expected_board_count: int | None = Field(ge=1, le=9)
     oriented_width: int | None = Field(ge=1)
     oriented_height: int | None = Field(ge=1)
-    # Review item that serves the whole-image preview through the existing
-    # source-asset endpoint; ``None`` when the image has no recognized board.
-    preview_review_item_id: UUID | None
+    # Error code of the failed import file of the image (``None`` when it did not fail).
+    import_error_code: str | None
     positions: tuple[GeometryCompletenessPositionResponse, ...] = Field(max_length=9)
 
 
@@ -136,6 +139,8 @@ def to_geometry_completeness_response(
             incomplete_partial=report.images.incomplete_partial,
             incomplete_uncertain=report.images.incomplete_uncertain,
             no_source_geometry=report.images.no_source_geometry,
+            superseded=report.images.superseded,
+            import_failed=report.images.import_failed,
         ),
         expected_board_count=report.expected_board_count,
         positions=tuple(
@@ -178,7 +183,7 @@ def to_incomplete_geometry_image_page_response(
                 expected_board_count=image.expected_board_count,
                 oriented_width=image.oriented_width,
                 oriented_height=image.oriented_height,
-                preview_review_item_id=image.preview_review_item_id,
+                import_error_code=image.import_error_code,
                 positions=tuple(
                     GeometryCompletenessPositionResponse(
                         position_index=position.position_index,

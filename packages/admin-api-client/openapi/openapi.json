@@ -6317,6 +6317,11 @@
             "title": "Complete",
             "type": "integer"
           },
+          "importFailed": {
+            "minimum": 0.0,
+            "title": "Importfailed",
+            "type": "integer"
+          },
           "incomplete": {
             "minimum": 0.0,
             "title": "Incomplete",
@@ -6342,6 +6347,11 @@
             "title": "Nosourcegeometry",
             "type": "integer"
           },
+          "superseded": {
+            "minimum": 0.0,
+            "title": "Superseded",
+            "type": "integer"
+          },
           "total": {
             "minimum": 0.0,
             "title": "Total",
@@ -6355,7 +6365,9 @@
           "incompleteMissing",
           "incompletePartial",
           "incompleteUncertain",
-          "noSourceGeometry"
+          "noSourceGeometry",
+          "superseded",
+          "importFailed"
         ],
         "title": "GeometryCompletenessImageCountsResponse",
         "type": "object"
@@ -6564,7 +6576,9 @@
           "incomplete_missing",
           "incomplete_partial",
           "incomplete_uncertain",
-          "no_source_geometry"
+          "no_source_geometry",
+          "superseded",
+          "import_failed"
         ],
         "title": "GeometryImageState",
         "type": "string"
@@ -6643,7 +6657,8 @@
           "uncertain",
           "partial",
           "missing",
-          "deferred"
+          "deferred",
+          "superseded"
         ],
         "title": "GeometryPositionState",
         "type": "string"
@@ -12539,6 +12554,17 @@
           "imageState": {
             "$ref": "#/components/schemas/GeometryImageState"
           },
+          "importErrorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importerrorcode"
+          },
           "importJobId": {
             "format": "uuid",
             "title": "Importjobid",
@@ -12575,18 +12601,6 @@
             "maxItems": 9,
             "title": "Positions",
             "type": "array"
-          },
-          "previewReviewItemId": {
-            "anyOf": [
-              {
-                "format": "uuid",
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Previewreviewitemid"
           },
           "relativePath": {
             "minLength": 1,
@@ -12652,7 +12666,7 @@
           "expectedBoardCount",
           "orientedWidth",
           "orientedHeight",
-          "previewReviewItemId",
+          "importErrorCode",
           "positions"
         ],
         "title": "IncompleteGeometryImageResponse",
@@ -37971,6 +37985,72 @@
           }
         },
         "summary": "Count complete and incomplete source images of a game or import (D-484)",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/source": {
+      "get": {
+        "operationId": "getImageGeometryCompletenessSourceAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_image_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Image Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read the checksum-bound source image of any image of a game (D-484)",
         "tags": [
           "image-reviews"
         ]

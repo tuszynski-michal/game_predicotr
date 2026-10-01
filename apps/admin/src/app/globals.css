@@ -7485,6 +7485,10 @@ div.imageJobInlineError {
   color: var(--danger);
 }
 
+.geometryTone-muted {
+  color: var(--muted);
+}
+
 .geometryPositionList {
   display: flex;
   flex-wrap: wrap;

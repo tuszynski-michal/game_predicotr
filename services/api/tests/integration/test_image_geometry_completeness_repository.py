@@ -1,10 +1,12 @@
-"""Isolated PostgreSQL coverage of the D-484 geometry completeness report (TASK-0806).
+"""Isolated PostgreSQL coverage of the D-484 geometry completeness report (TASK-0806, 0808).
 
 Builds a game routed to ``game_data_v2`` with one source image per state and
 the edge cases the definition names (older revisions, closed pending rows,
 boards outside the current slots) directly through the ORM, then reads it back
-through ``SqlAlchemyImageGeometryCompletenessRepository``. The repository is
-read-only: every call below also runs in a ``READ ONLY`` transaction.
+through ``SqlAlchemyImageGeometryCompletenessRepository``. A second world covers
+the TASK-0808 states (rejected boards, superseded positions and images, failed
+imports, checksum twins) in a game of its own. The repository is read-only:
+every call below also runs in a ``READ ONLY`` transaction.
 """
 
 from __future__ import annotations
@@ -156,35 +158,62 @@ class _Builder:
     order: int = 0
 
     def source(
-        self, job: JobModel, relative_path: str, *, status: str = "waiting_for_review"
+        self,
+        job: JobModel,
+        relative_path: str,
+        *,
+        status: str = "waiting_for_review",
+        checksum: str | None = None,
+        pipeline: str = "b" * 64,
+        failed_code: str | None = None,
     ) -> SourceImageModel:
-        checksum = uuid4().hex * 2
+        """A source image with its import file; ``failed_code`` makes the file ``failed``.
+
+        An explicit ``checksum`` shared by two images makes them checksum twins; the
+        second one needs another ``pipeline`` fingerprint (one execution per pair).
+        """
+
+        execution_key = uuid4().hex * 2
+        checksum = checksum or execution_key
+        failure = (
+            {
+                "failed_stage": "image_geometry",
+                "error_code": failed_code,
+                "error_message": "fixture failure",
+                "last_failed_at": datetime.now(UTC),
+            }
+            if failed_code is not None
+            else {}
+        )
+        workflow_status = "failed" if failed_code is not None else "waiting_for_review"
         self.session.add(
             ImageFileExecutionModel(
-                file_execution_key=checksum,
+                file_execution_key=execution_key,
                 source_checksum_sha256=checksum,
-                pipeline_fingerprint="b" * 64,
+                pipeline_fingerprint=pipeline,
                 checkpoint_payload={},
-                status="waiting_for_review",
-                review_required=True,
+                status=workflow_status,
+                review_required=failed_code is None,
+                **failure,
             )
         )
         self.session.flush()
         self.session.add(
             ImageImportJobFileModel(
                 job_id=job.id,
-                file_execution_key=checksum,
+                file_execution_key=execution_key,
                 order_index=self.order,
                 source_relative_path=relative_path,
                 workflow_checkpoint_payload={},
-                workflow_status="waiting_for_review",
-                review_required=True,
+                workflow_status=workflow_status,
+                review_required=failed_code is None,
+                **failure,
             )
         )
         self.order += 1
         source = SourceImageModel(
             import_job_id=job.id,
-            file_execution_key=checksum,
+            file_execution_key=execution_key,
             relative_path=relative_path,
             checksum_sha256=checksum,
             width=1080,
@@ -267,6 +296,7 @@ class _Builder:
         geometry_revision: int = 0,
         approved_revision: int | None = None,
         item_status: str | None = "pending",
+        board_status: str = "pending_review",
     ) -> RecognizedBoardModel:
         sequence_number = geometry.sequence_range_start + position
         approval = (
@@ -294,7 +324,7 @@ class _Builder:
             board_confidence=1,
             pipeline_fingerprint="b" * 64,
             geometry_revision=geometry_revision,
-            status="pending_review",
+            status=board_status,
             **approval,
         )
         self.session.add(board)
@@ -612,11 +642,13 @@ def test_report_counts_every_image_state_and_position_state(
         images.incomplete_uncertain,
         images.no_source_geometry,
     ) == (11, 4, 7, 2, 1, 3, 1)
+    assert (images.superseded, images.import_failed) == (0, 0)
     assert report.expected_board_count == 80
     assert {(p.state, p.reason_code): p.count for p in report.positions} == {
         (GeometryPositionState.OK, None): 56,
         (GeometryPositionState.UNCERTAIN, None): 19,
         (GeometryPositionState.PARTIAL, None): 1,
+        (GeometryPositionState.SUPERSEDED, None): 0,
         (GeometryPositionState.MISSING, None): 3,
         (GeometryPositionState.DEFERRED, "residual_too_high"): 1,
     }
@@ -748,34 +780,19 @@ def test_stale_pointer_shows_the_grid_of_the_revision_the_board_was_cut_from(
     assert all(p.quad is not None and p.quad[0][0] < 1000 for p in g.positions)
 
 
-def test_preview_review_item_is_a_board_item_and_prefers_a_non_superseded_one(
+def test_listed_images_carry_no_import_error_code_when_their_file_did_not_fail(
     database: Engine, world: _World
 ) -> None:
     with Session(database) as session:
         page = SqlAlchemyImageGeometryCompletenessRepository(session).incomplete_images(
             world.game_id
         )
-        assert page is not None
-        by_name = {image.relative_path: image for image in page.images}
-        stale = by_name["g_stale_pointer.jpg"]
-        assert stale.preview_review_item_id is not None
-        GameStorageRouter().bind(session, world.game_id, intent=GameStorageIntent.READ)
-        status, position = session.execute(
-            text(
-                "SELECT ri.status, b.position_index FROM image_review_items ri "
-                "JOIN recognized_boards b "
-                "ON b.game_id = ri.game_id AND b.id = ri.recognized_board_id "
-                "WHERE ri.game_id = :game_id AND ri.id = :id"
-            ),
-            {"game_id": world.game_id, "id": stale.preview_review_item_id},
-        ).one()
 
-    # position 0 holds the superseded item; the pending one of position 1 is preferred
-    assert (status, position) == ("pending", 1)
-    assert by_name["e_no_geometry.jpg"].preview_review_item_id is None
+    assert page is not None
+    assert all(image.import_error_code is None for image in page.images)
+    by_name = {image.relative_path: image for image in page.images}
     assert by_name["e_no_geometry.jpg"].positions == ()
     assert by_name["e_no_geometry.jpg"].expected_board_count is None
-    assert by_name["b_missing.jpg"].preview_review_item_id is not None
 
 
 def test_state_filter_import_filter_and_stable_pagination(database: Engine, world: _World) -> None:
@@ -921,7 +938,9 @@ def test_low_quality_timeout_raises_a_domain_error_instead_of_an_empty_result(
     assert error.value.details == {"timeoutMs": 200}
 
 
-def test_every_query_runs_in_a_read_only_transaction(database: Engine, world: _World) -> None:
+def test_every_query_runs_in_a_read_only_transaction(
+    database: Engine, world: _World, supersession: _SupersessionWorld
+) -> None:
     """A write anywhere in the repository would raise ``ReadOnlySqlTransaction``."""
 
     with Session(database) as session:
@@ -935,3 +954,475 @@ def test_every_query_runs_in_a_read_only_transaction(database: Engine, world: _W
             is not None
         )
         session.rollback()
+
+    for game_id in (supersession.game_id, supersession.other_game_id):
+        with Session(database) as session:
+            session.execute(text("SET TRANSACTION READ ONLY"))
+            repository = SqlAlchemyImageGeometryCompletenessRepository(session)
+            assert repository.completeness_report(game_id) is not None
+            for state in (None, GeometryImageState.SUPERSEDED, GeometryImageState.IMPORT_FAILED):
+                assert repository.incomplete_images(game_id, image_state=state) is not None
+            image_id = next(iter(supersession.images.values()), None)
+            if game_id == supersession.game_id and image_id is not None:
+                assert repository.source_image_asset(game_id, image_id) is not None
+            session.rollback()
+
+
+# --------------------------------------------------------------------------------------
+# TASK-0808: rejected boards, superseded positions and images, failed imports, twins.
+# --------------------------------------------------------------------------------------
+
+FAILED_STAGE_EXECUTION = "IMAGE_STAGE_EXECUTION_FAILED"
+FAILED_RESULT_INVALID = "IMAGE_STAGE_RESULT_INVALID"
+FAILED_VIRTUAL_SUPPORT = "IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE"
+REJECTED = "rejected"
+
+
+@dataclass(slots=True)
+class _SupersessionWorld:
+    game_id: UUID
+    other_game_id: UUID
+    job_old: UUID
+    job_new: UUID
+    images: dict[str, UUID]
+    other_image: UUID
+
+
+@pytest.fixture(scope="module")
+def supersession(database: Engine, world: _World) -> _SupersessionWorld:
+    """Game C: the old import holds the ``s*`` images, the newer one the ``d*`` covers.
+
+    ``world.other_game_id`` (game B) owns a live review item for sequence number 100.
+    """
+
+    images: dict[str, UUID] = {}
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        game = GameModel(code="geo-c", name="Geometry C", expected_layout_count=100000)
+        session.add(game)
+        session.flush()
+        _provision_v2_storage_location(session, game_id=game.id)
+        build = _Builder(session, game.id)
+        old = _import_job(session, game_id=game.id)
+        new = _import_job(session, game_id=game.id)
+
+        def add(
+            name: str,
+            job: JobModel,
+            *,
+            checksum: str | None = None,
+            pipeline: str = "b" * 64,
+            failed_code: str | None = None,
+            status: str = "waiting_for_review",
+        ) -> SourceImageModel:
+            source = build.source(
+                job,
+                name,
+                status=status,
+                checksum=checksum,
+                pipeline=pipeline,
+                failed_code=failed_code,
+            )
+            images[name] = source.id
+            return source
+
+        def rejected_boards(
+            source: SourceImageModel, revision: ImageSourceGeometryRevisionModel, positions: range
+        ) -> None:
+            for position in positions:
+                build.board(
+                    source,
+                    revision,
+                    position,
+                    item_status="superseded",
+                    board_status=REJECTED,
+                )
+
+        def live_boards(
+            source: SourceImageModel,
+            revision: ImageSourceGeometryRevisionModel,
+            positions: range,
+            *,
+            item_status: str = "pending",
+        ) -> None:
+            for position in positions:
+                build.board(source, revision, position, item_status=item_status)
+
+        # s01: every board rejected; every sequence number lives on d01 -> superseded image.
+        s01 = add("s01_rejected_all_covered.jpg", old)
+        rejected_boards(s01, build.revision(s01, revision=0, range_start=1000), range(9))
+        d01 = add("d01_cover_1000.jpg", new)
+        live_boards(d01, build.revision(d01, revision=0, range_start=1000), range(9))
+
+        # s02: 7 ok + 2 rejected positions covered by accepted / corrected items -> complete.
+        s02 = add("s02_mixed_complete.jpg", old)
+        s02_rev = build.revision(s02, revision=0, range_start=2000)
+        live_boards(s02, s02_rev, range(7))
+        rejected_boards(s02, s02_rev, range(7, 9))
+        d02 = add("d02_cover_2007.jpg", new)
+        d02_rev = build.revision(d02, revision=0, range_start=2007, slots=2)
+        build.board(d02, d02_rev, 0, item_status="accepted")
+        build.board(d02, d02_rev, 1, item_status="corrected")
+
+        # s03: 7 ok, one rejected position covered elsewhere, one rejected and uncovered.
+        s03 = add("s03_mixed_missing.jpg", old)
+        s03_rev = build.revision(s03, revision=0, range_start=3000)
+        live_boards(s03, s03_rev, range(7))
+        rejected_boards(s03, s03_rev, range(7, 9))
+        d03 = add("d03_cover_3007.jpg", new)
+        live_boards(d03, build.revision(d03, revision=0, range_start=3007, slots=1), range(1))
+
+        # s04: every board rejected, nothing live elsewhere -> plain missing.
+        s04 = add("s04_rejected_uncovered.jpg", old)
+        rejected_boards(s04, build.revision(s04, revision=0, range_start=4000), range(9))
+
+        # s05: failed import, no board, no twin, numbers not covered -> import_failed.
+        s05 = add("s05_failed_no_twin.jpg", old, failed_code=FAILED_STAGE_EXECUTION)
+        build.revision(s05, revision=0, range_start=5000)
+
+        # s06: failed import whose content was imported again (checksum twin d06) -> superseded,
+        # although its own sequence numbers are not covered.
+        twin_checksum = _sha("twin-with-revision")
+        s06 = add(
+            "s06_failed_with_twin.jpg",
+            old,
+            checksum=twin_checksum,
+            failed_code=FAILED_RESULT_INVALID,
+        )
+        build.revision(s06, revision=0, range_start=6000)
+        d06 = add("d06_twin.jpg", new, checksum=twin_checksum, pipeline="c" * 64)
+        live_boards(d06, build.revision(d06, revision=0, range_start=6100), range(9))
+
+        # s07: failed import without any source geometry and a checksum twin -> superseded.
+        twin_checksum_2 = _sha("twin-without-revision")
+        add(
+            "s07_failed_no_revision_twin.jpg",
+            old,
+            checksum=twin_checksum_2,
+            failed_code=FAILED_RESULT_INVALID,
+        )
+        d07 = add("d07_twin.jpg", new, checksum=twin_checksum_2, pipeline="c" * 64)
+        live_boards(d07, build.revision(d07, revision=0, range_start=7100), range(9))
+
+        # s08: failed import without source geometry and no twin -> import_failed, not
+        # no_source_geometry.
+        add("s08_failed_no_revision_no_twin.jpg", old, failed_code=FAILED_VIRTUAL_SUPPORT)
+
+        # s09: every board rejected; sequence number 100 lives only in the OTHER game.
+        s09 = add("s09_other_game_sequence.jpg", old)
+        rejected_boards(s09, build.revision(s09, revision=0, range_start=100), range(9))
+
+        # s10: a superseded position wins over an open pending row; the uncovered one stays
+        # deferred.
+        s10 = add("s10_superseded_beats_deferred.jpg", old)
+        s10_rev = build.revision(s10, revision=0, range_start=8000)
+        live_boards(s10, s10_rev, range(7))
+        build.pending(s10, 7, 8007, status="pending", reason="residual_too_high")
+        build.pending(s10, 8, 8008, status="pending", reason="incomplete_lattice")
+        d10 = add("d10_cover_8007.jpg", new)
+        live_boards(d10, build.revision(d10, revision=0, range_start=8007, slots=1), range(1))
+
+        # s11: the numbers are held only by non-live review items elsewhere -> missing.
+        s11 = add("s11_covered_by_a_rejected_item.jpg", old)
+        rejected_boards(s11, build.revision(s11, revision=0, range_start=9000), range(9))
+        d11 = add("d11_rejected_items_9000.jpg", new)
+        live_boards(
+            d11, build.revision(d11, revision=0, range_start=9000), range(9), item_status="rejected"
+        )
+
+        # s12: no source geometry, no boards, a file that did not fail.
+        add("s12_no_geometry.jpg", old, status="processing")
+
+        # s14: failed file, but live boards exist -> the failure is irrelevant.
+        s14 = add("s14_failed_with_boards.jpg", old, failed_code=FAILED_STAGE_EXECUTION)
+        live_boards(s14, build.revision(s14, revision=0, range_start=10000), range(9))
+
+        game_id, old_id, new_id = game.id, old.id, new.id
+
+    return _SupersessionWorld(
+        game_id=game_id,
+        other_game_id=world.other_game_id,
+        job_old=old_id,
+        job_new=new_id,
+        images=images,
+        other_image=world.images["z_other_game.jpg"],
+    )
+
+
+def _list_all(
+    repository: SqlAlchemyImageGeometryCompletenessRepository,
+    game_id: UUID,
+    state: GeometryImageState | None = None,
+) -> list[repository_module.IncompleteGeometryImage]:
+    page = repository.incomplete_images(game_id, image_state=state, limit=100)
+    assert page is not None and page.next_cursor is None
+    return list(page.images)
+
+
+def _states(image: repository_module.IncompleteGeometryImage) -> list[GeometryPositionState]:
+    return [position.state for position in image.positions]
+
+
+def test_rejected_and_superseded_images_are_counted_separately_from_gaps(
+    database: Engine, supersession: _SupersessionWorld
+) -> None:
+    with Session(database) as session:
+        report = SqlAlchemyImageGeometryCompletenessRepository(session).completeness_report(
+            supersession.game_id
+        )
+
+    assert report is not None
+    images = report.images
+    assert (images.total, images.complete, images.superseded, images.import_failed) == (20, 9, 3, 2)
+    assert (
+        images.incomplete_missing,
+        images.incomplete_partial,
+        images.incomplete_uncertain,
+        images.no_source_geometry,
+    ) == (5, 0, 0, 1)
+    # superseded images are not incomplete; import_failed and no_source_geometry are
+    assert images.incomplete == 20 - 9 - 3 == 8
+    assert report.expected_board_count == 130
+    assert {(p.state, p.reason_code): p.count for p in report.positions} == {
+        (GeometryPositionState.OK, None): 70,
+        (GeometryPositionState.UNCERTAIN, None): 0,
+        (GeometryPositionState.PARTIAL, None): 0,
+        (GeometryPositionState.SUPERSEDED, None): 13,
+        (GeometryPositionState.MISSING, None): 46,
+        (GeometryPositionState.DEFERRED, "incomplete_lattice"): 1,
+    }
+    assert sum(p.count for p in report.positions) == report.expected_board_count
+    statuses = {(s.image_state, s.source_status): s.count for s in report.source_statuses}
+    assert statuses[(GeometryImageState.NO_SOURCE_GEOMETRY, "processing")] == 1
+    assert statuses[(GeometryImageState.IMPORT_FAILED, "waiting_for_review")] == 2
+    assert sum(statuses.values()) == images.total
+
+
+def test_report_scoped_to_one_import_still_finds_the_checksum_twin_in_the_other_import(
+    database: Engine, supersession: _SupersessionWorld
+) -> None:
+    with Session(database) as session:
+        repository = SqlAlchemyImageGeometryCompletenessRepository(session)
+        old = repository.completeness_report(
+            supersession.game_id, import_job_id=supersession.job_old
+        )
+        new = repository.completeness_report(
+            supersession.game_id, import_job_id=supersession.job_new
+        )
+
+    assert old is not None and new is not None
+    assert (old.images.total, old.images.superseded, old.images.import_failed) == (13, 3, 2)
+    assert (new.images.total, new.images.complete, new.images.superseded) == (7, 7, 0)
+    assert new.images.incomplete == 0
+
+
+def test_default_list_holds_gaps_and_failed_imports_but_not_superseded_or_complete_images(
+    database: Engine, supersession: _SupersessionWorld
+) -> None:
+    with Session(database) as session:
+        listed = _list_all(
+            SqlAlchemyImageGeometryCompletenessRepository(session), supersession.game_id
+        )
+
+    assert [(image.relative_path, image.image_state) for image in listed] == [
+        ("s03_mixed_missing.jpg", GeometryImageState.INCOMPLETE_MISSING),
+        ("s04_rejected_uncovered.jpg", GeometryImageState.INCOMPLETE_MISSING),
+        ("s05_failed_no_twin.jpg", GeometryImageState.IMPORT_FAILED),
+        ("s08_failed_no_revision_no_twin.jpg", GeometryImageState.IMPORT_FAILED),
+        ("s09_other_game_sequence.jpg", GeometryImageState.INCOMPLETE_MISSING),
+        ("s10_superseded_beats_deferred.jpg", GeometryImageState.INCOMPLETE_MISSING),
+        ("s11_covered_by_a_rejected_item.jpg", GeometryImageState.INCOMPLETE_MISSING),
+        ("s12_no_geometry.jpg", GeometryImageState.NO_SOURCE_GEOMETRY),
+    ]
+    codes = {image.relative_path: image.import_error_code for image in listed}
+    assert codes["s05_failed_no_twin.jpg"] == FAILED_STAGE_EXECUTION
+    assert codes["s08_failed_no_revision_no_twin.jpg"] == FAILED_VIRTUAL_SUPPORT
+    assert codes["s03_mixed_missing.jpg"] is None
+    assert codes["s12_no_geometry.jpg"] is None
+
+
+def test_the_superseded_filter_lists_replaced_images_with_their_positions_and_error_code(
+    database: Engine, supersession: _SupersessionWorld
+) -> None:
+    with Session(database) as session:
+        listed = _list_all(
+            SqlAlchemyImageGeometryCompletenessRepository(session),
+            supersession.game_id,
+            GeometryImageState.SUPERSEDED,
+        )
+
+    by_name = {image.relative_path: image for image in listed}
+    assert list(by_name) == [
+        "s01_rejected_all_covered.jpg",
+        "s06_failed_with_twin.jpg",
+        "s07_failed_no_revision_twin.jpg",
+    ]
+    s01, s06, s07 = by_name.values()
+    # rule 1: every expected position is covered by a live item on another image
+    assert _states(s01) == [GeometryPositionState.SUPERSEDED] * 9
+    assert all(position.recognized_board_id is None for position in s01.positions)
+    assert s01.import_error_code is None
+    # rule 2: no live board and a checksum twin; the positions themselves are plain gaps
+    assert _states(s06) == [GeometryPositionState.MISSING] * 9
+    assert s06.import_error_code == FAILED_RESULT_INVALID
+    assert (s07.positions, s07.expected_board_count, s07.source_revision) == ((), None, None)
+    assert s07.import_error_code == FAILED_RESULT_INVALID
+
+
+def test_import_failed_and_no_source_geometry_filters(
+    database: Engine, supersession: _SupersessionWorld
+) -> None:
+    with Session(database) as session:
+        repository = SqlAlchemyImageGeometryCompletenessRepository(session)
+        failed = _list_all(repository, supersession.game_id, GeometryImageState.IMPORT_FAILED)
+        no_geometry = _list_all(
+            repository, supersession.game_id, GeometryImageState.NO_SOURCE_GEOMETRY
+        )
+
+    assert [image.relative_path for image in failed] == [
+        "s05_failed_no_twin.jpg",
+        "s08_failed_no_revision_no_twin.jpg",
+    ]
+    assert [image.relative_path for image in no_geometry] == ["s12_no_geometry.jpg"]
+
+
+def test_position_states_of_rejected_boards_depend_on_a_live_sequence_elsewhere(
+    database: Engine, supersession: _SupersessionWorld
+) -> None:
+    with Session(database) as session:
+        listed = _list_all(
+            SqlAlchemyImageGeometryCompletenessRepository(session), supersession.game_id
+        )
+
+    by_name = {image.relative_path: image for image in listed}
+    ok, superseded, missing = (
+        GeometryPositionState.OK,
+        GeometryPositionState.SUPERSEDED,
+        GeometryPositionState.MISSING,
+    )
+    # rejected board + live item elsewhere -> superseded; without one -> missing
+    s03 = by_name["s03_mixed_missing.jpg"]
+    assert _states(s03) == [ok] * 7 + [superseded, missing]
+    assert [position.recognized_board_id is None for position in s03.positions[7:]] == [True, True]
+    assert _states(by_name["s04_rejected_uncovered.jpg"]) == [missing] * 9
+    # a review item that is not live (rejected) elsewhere does not cover the number
+    assert _states(by_name["s11_covered_by_a_rejected_item.jpg"]) == [missing] * 9
+    # a sequence number that is live only in ANOTHER game never supersedes a position
+    s09 = by_name["s09_other_game_sequence.jpg"]
+    assert s09.positions[0].sequence_number == 100
+    assert _states(s09) == [missing] * 9
+    # a superseded position wins over an open pending row; the uncovered one stays deferred
+    s10 = by_name["s10_superseded_beats_deferred.jpg"]
+    assert _states(s10)[7:] == [superseded, GeometryPositionState.DEFERRED]
+    assert [position.reason_code for position in s10.positions[7:]] == [None, "incomplete_lattice"]
+    # the grid of the current revision is still drawn for a position whose board was rejected
+    assert all(position.quad is not None for position in s03.positions)
+
+
+def test_a_mixed_image_with_superseded_positions_and_ok_boards_is_complete(
+    database: Engine, supersession: _SupersessionWorld
+) -> None:
+    with Session(database) as session:
+        repository = SqlAlchemyImageGeometryCompletenessRepository(session)
+        everything = {
+            image.relative_path
+            for state in (None, GeometryImageState.SUPERSEDED)
+            for image in _list_all(repository, supersession.game_id, state)
+        }
+
+    # 7 ok + 2 superseded is complete: in no list; 7 ok + 1 superseded + 1 missing is not
+    assert "s02_mixed_complete.jpg" not in everything
+    assert "s03_mixed_missing.jpg" in everything
+    assert "s14_failed_with_boards.jpg" not in everything
+
+
+def test_sql_and_the_pure_classifier_agree_on_the_new_states(
+    database: Engine, supersession: _SupersessionWorld
+) -> None:
+    with Session(database) as session:
+        repository = SqlAlchemyImageGeometryCompletenessRepository(session)
+        report = repository.completeness_report(supersession.game_id)
+        listed = [
+            *_list_all(repository, supersession.game_id),
+            *_list_all(repository, supersession.game_id, GeometryImageState.SUPERSEDED),
+        ]
+        assert report is not None
+        GameStorageRouter().bind(session, supersession.game_id, intent=GameStorageIntent.READ)
+        non_ok: dict[tuple[GeometryPositionState, str | None], int] = {}
+        for image in listed:
+            live, twin = session.execute(
+                text(
+                    "SELECT (SELECT count(*) FROM recognized_boards b "
+                    "        WHERE b.game_id = :g AND b.source_image_id = s.id "
+                    "          AND b.status <> 'rejected'), "
+                    "  EXISTS (SELECT 1 FROM source_images t JOIN recognized_boards tb "
+                    "          ON tb.game_id = t.game_id AND tb.source_image_id = t.id "
+                    "          WHERE t.game_id = :g AND t.id <> s.id "
+                    "            AND t.checksum_sha256 = s.checksum_sha256 "
+                    "            AND tb.status <> 'rejected') "
+                    "FROM source_images s WHERE s.game_id = :g AND s.id = :id"
+                ),
+                {"g": supersession.game_id, "id": image.source_image_id},
+            ).one()
+            assert image.image_state is classify_image(
+                _states(image),
+                has_source_geometry=image.source_revision is not None,
+                has_live_boards=live > 0,
+                checksum_twin_has_live_boards=bool(twin),
+                import_file_failed=image.import_error_code is not None,
+            ), image.relative_path
+            for position in image.positions:
+                if position.state is not GeometryPositionState.OK:
+                    key = (position.state, position.reason_code)
+                    non_ok[key] = non_ok.get(key, 0) + 1
+
+    # s02 is the one complete image that holds non-ok positions (2 superseded) and is in no list
+    non_ok[(GeometryPositionState.SUPERSEDED, None)] += 2
+    assert non_ok == {
+        (p.state, p.reason_code): p.count
+        for p in report.positions
+        if p.state is not GeometryPositionState.OK and p.count
+    }
+
+
+def test_the_second_game_does_not_change_the_first_games_superseded_result(
+    database: Engine, world: _World, supersession: _SupersessionWorld
+) -> None:
+    """Sequence 100 is live in game B only: game C's s09 stays a gap, B stays untouched."""
+
+    with Session(database) as session:
+        other = SqlAlchemyImageGeometryCompletenessRepository(session).completeness_report(
+            supersession.other_game_id
+        )
+    with Session(database) as session:
+        first = SqlAlchemyImageGeometryCompletenessRepository(session).completeness_report(
+            world.game_id
+        )
+
+    assert other is not None and first is not None
+    assert (other.images.total, other.images.superseded, other.images.import_failed) == (1, 0, 0)
+    assert (first.images.total, first.images.superseded, first.images.import_failed) == (11, 0, 0)
+
+
+def test_source_image_asset_is_keyed_by_the_source_image_and_bound_to_its_game(
+    database: Engine, world: _World, supersession: _SupersessionWorld
+) -> None:
+    image_id = supersession.images["s05_failed_no_twin.jpg"]
+    with Session(database) as session:
+        repository = SqlAlchemyImageGeometryCompletenessRepository(session)
+        asset = repository.source_image_asset(supersession.game_id, image_id)
+        # an image without any recognized board still has its file
+        assert asset is not None
+        assert (asset.source_image_id, asset.relative_path) == (
+            image_id,
+            "s05_failed_no_twin.jpg",
+        )
+        assert len(asset.checksum_sha256) == 64
+        # another game's image and an unknown identifier are 404, an unknown game is None
+        with pytest.raises(ImageReviewNotFoundError) as foreign:
+            repository.source_image_asset(supersession.game_id, supersession.other_image)
+        with pytest.raises(ImageReviewNotFoundError) as unknown:
+            repository.source_image_asset(supersession.game_id, uuid4())
+        assert repository.source_image_asset(uuid4(), image_id) is None
+
+    code = "IMAGE_GEOMETRY_COMPLETENESS_SOURCE_IMAGE_NOT_FOUND"
+    assert foreign.value.code == unknown.value.code == code

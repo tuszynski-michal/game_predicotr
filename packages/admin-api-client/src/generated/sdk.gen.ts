@@ -281,6 +281,9 @@ import type {
   GetImageGeometryCompletenessData,
   GetImageGeometryCompletenessErrors,
   GetImageGeometryCompletenessResponses,
+  GetImageGeometryCompletenessSourceAssetData,
+  GetImageGeometryCompletenessSourceAssetErrors,
+  GetImageGeometryCompletenessSourceAssetResponses,
   GetImageGeometryGuardSourceAssetData,
   GetImageGeometryGuardSourceAssetErrors,
   GetImageGeometryGuardSourceAssetResponses,
@@ -3709,6 +3712,27 @@ export const getImageGeometryCompleteness = <
     ThrowOnError
   >({
     url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * Read the checksum-bound source image of any image of a game (D-484)
+ */
+export const getImageGeometryCompletenessSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryCompletenessSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryCompletenessSourceAssetResponses,
+  GetImageGeometryCompletenessSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryCompletenessSourceAssetResponses,
+    GetImageGeometryCompletenessSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/source',
     ...options,
   });
 

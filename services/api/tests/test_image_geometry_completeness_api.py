@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import hashlib
+from dataclasses import replace
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import UUID, uuid4
 
 import pytest
@@ -17,7 +20,10 @@ from game_predictor_api.domain.image_geometry_completeness import (
     LowQualityThresholds,
     encode_geometry_image_cursor,
 )
-from game_predictor_api.domain.image_reviews import ImageReviewConflictError
+from game_predictor_api.domain.image_reviews import (
+    ImageReviewConflictError,
+    ImageReviewNotFoundError,
+)
 from game_predictor_api.main import create_app
 from game_predictor_api.storage.image_geometry_completeness_repository import (
     GeometryCompletenessReport,
@@ -25,6 +31,7 @@ from game_predictor_api.storage.image_geometry_completeness_repository import (
     GeometryImagePosition,
     GeometryImageSourceStatusCount,
     GeometryPositionCount,
+    GeometrySourceImageAsset,
     IncompleteGeometryImage,
     IncompleteGeometryImagePage,
     LowQualityBoard,
@@ -35,7 +42,7 @@ COMPUTED_AT = datetime(2026, 10, 1, 12, 0, 0, tzinfo=UTC)
 IMAGE_ID = UUID(int=11)
 JOB_ID = UUID(int=22)
 BOARD_ID = UUID(int=33)
-ITEM_ID = UUID(int=44)
+OTHER_GAME_IMAGE_ID = UUID(int=55)
 
 
 class _NoopOperationalRepository(OperationalImageReviewRepository):
@@ -47,6 +54,7 @@ class _CompletenessRepository:
         self.game_id = uuid4()
         self.calls: list[tuple[str, dict[str, object]]] = []
         self.timeout = False
+        self.assets: dict[UUID, GeometrySourceImageAsset] = {}
 
     def completeness_report(
         self, game_id: UUID, *, import_job_id: UUID | None = None
@@ -58,16 +66,19 @@ class _CompletenessRepository:
             game_id=game_id,
             import_job_id=import_job_id,
             images=GeometryImageCounts(
-                total=10,
+                total=14,
                 complete=6,
                 incomplete_missing=1,
                 incomplete_partial=1,
                 incomplete_uncertain=1,
                 no_source_geometry=1,
+                import_failed=1,
+                superseded=2,
             ),
             expected_board_count=81,
             positions=(
                 GeometryPositionCount(GeometryPositionState.OK, None, 77),
+                GeometryPositionCount(GeometryPositionState.SUPERSEDED, None, 18),
                 GeometryPositionCount(GeometryPositionState.MISSING, None, 2),
                 GeometryPositionCount(GeometryPositionState.DEFERRED, "residual_too_high", 1),
                 GeometryPositionCount(GeometryPositionState.PARTIAL, None, 1),
@@ -124,7 +135,7 @@ class _CompletenessRepository:
                     expected_board_count=2,
                     oriented_width=1080,
                     oriented_height=652,
-                    preview_review_item_id=ITEM_ID,
+                    import_error_code="IMAGE_STAGE_EXECUTION_FAILED",
                     positions=(
                         GeometryImagePosition(
                             position_index=0,
@@ -147,6 +158,20 @@ class _CompletenessRepository:
             ),
             next_cursor=GeometryImageCursor("folder/seq_1-9.jpg", IMAGE_ID),
         )
+
+    def source_image_asset(
+        self, game_id: UUID, source_image_id: UUID
+    ) -> GeometrySourceImageAsset | None:
+        self.calls.append(("sourceAsset", {"gameId": game_id, "sourceImageId": source_image_id}))
+        if game_id != self.game_id:
+            return None
+        asset = self.assets.get(source_image_id)
+        if asset is None:
+            raise ImageReviewNotFoundError(
+                "IMAGE_GEOMETRY_COMPLETENESS_SOURCE_IMAGE_NOT_FOUND",
+                "The selected source image does not belong to this game.",
+            )
+        return asset
 
     def low_quality_boards(
         self,
@@ -196,10 +221,15 @@ class _CompletenessRepository:
         )
 
 
-def _client(repository: _CompletenessRepository | None) -> TestClient:
+def _client(
+    repository: _CompletenessRepository | None, artifact_root: Path | None = None
+) -> TestClient:
+    settings = ApiSettings.from_environment({})
+    if artifact_root is not None:
+        settings = replace(settings, artifact_root=artifact_root)
     return TestClient(
         create_app(
-            ApiSettings.from_environment({}),
+            settings,
             image_review_service_dependency=lambda: OperationalImageReviewService(
                 _NoopOperationalRepository(),
                 geometry_completeness_repository=repository,
@@ -221,17 +251,20 @@ def test_report_returns_counters_by_image_state_position_state_and_source_status
     assert body["gameId"] == str(repository.game_id)
     assert body["importJobId"] is None
     assert body["images"] == {
-        "total": 10,
+        "total": 14,
         "complete": 6,
-        "incomplete": 4,
+        "incomplete": 6,
         "incompleteMissing": 1,
         "incompletePartial": 1,
         "incompleteUncertain": 1,
         "noSourceGeometry": 1,
+        "superseded": 2,
+        "importFailed": 1,
     }
     assert body["expectedBoardCount"] == 81
     assert body["positions"] == [
         {"state": "ok", "reasonCode": None, "count": 77},
+        {"state": "superseded", "reasonCode": None, "count": 18},
         {"state": "missing", "reasonCode": None, "count": 2},
         {"state": "deferred", "reasonCode": "residual_too_high", "count": 1},
         {"state": "partial", "reasonCode": None, "count": 1},
@@ -272,7 +305,7 @@ def test_report_returns_409_when_the_repository_is_not_configured() -> None:
     assert response.json()["code"] == "IMAGE_GEOMETRY_COMPLETENESS_UNAVAILABLE"
 
 
-def test_list_returns_images_with_positions_quads_and_the_preview_item() -> None:
+def test_list_returns_images_with_positions_quads_and_the_import_error_code() -> None:
     repository = _CompletenessRepository()
     response = _client(repository).get(_url(repository.game_id, "/incomplete-images"))
 
@@ -293,7 +326,7 @@ def test_list_returns_images_with_positions_quads_and_the_preview_item() -> None
         "expectedBoardCount": 2,
         "orientedWidth": 1080,
         "orientedHeight": 652,
-        "previewReviewItemId": str(ITEM_ID),
+        "importErrorCode": "IMAGE_STAGE_EXECUTION_FAILED",
         "positions": [
             {
                 "positionIndex": 0,
@@ -357,6 +390,18 @@ def test_list_rejects_a_limit_outside_one_to_one_hundred(limit: int) -> None:
 
     assert response.status_code == 422
     assert repository.calls == []
+
+
+@pytest.mark.parametrize("state", ["superseded", "import_failed", "no_source_geometry"])
+def test_list_accepts_the_new_image_states_as_filters(state: str) -> None:
+    repository = _CompletenessRepository()
+    response = _client(repository).get(
+        _url(repository.game_id, "/incomplete-images"), params={"imageState": state}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["imageState"] == state
+    assert repository.calls[-1][1]["imageState"] == GeometryImageState(state)
 
 
 def test_list_rejects_the_complete_state_filter() -> None:
@@ -486,3 +531,98 @@ def test_low_quality_returns_404_for_an_unknown_game() -> None:
     response = _client(_CompletenessRepository()).get(_url(uuid4(), "/low-quality-boards"))
 
     assert response.status_code == 404
+
+
+def _source_url(game_id: UUID, source_image_id: UUID) -> str:
+    return _url(game_id, f"/images/{source_image_id}/source")
+
+
+def test_source_asset_serves_the_checksum_bound_file_of_any_image_of_the_game(
+    tmp_path: Path,
+) -> None:
+    repository = _CompletenessRepository()
+    content = b"geometry-completeness-source-image"
+    path = tmp_path / "data" / "originals" / "ab" / "photo.jpg"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(content)
+    repository.assets[IMAGE_ID] = GeometrySourceImageAsset(
+        source_image_id=IMAGE_ID,
+        relative_path="originals/ab/photo.jpg",
+        checksum_sha256=hashlib.sha256(content).hexdigest(),
+    )
+
+    response = _client(repository, tmp_path).get(_source_url(repository.game_id, IMAGE_ID))
+
+    assert response.status_code == 200
+    assert response.content == content
+    assert response.headers["content-type"] == "image/jpeg"
+    assert response.headers["cache-control"] == "private, immutable, max-age=31536000"
+    assert repository.calls == [
+        ("sourceAsset", {"gameId": repository.game_id, "sourceImageId": IMAGE_ID})
+    ]
+
+
+def test_source_asset_fails_closed_on_checksum_drift(tmp_path: Path) -> None:
+    repository = _CompletenessRepository()
+    path = tmp_path / "data" / "photo.png"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"original")
+    repository.assets[IMAGE_ID] = GeometrySourceImageAsset(
+        source_image_id=IMAGE_ID,
+        relative_path="photo.png",
+        checksum_sha256=hashlib.sha256(b"original").hexdigest(),
+    )
+    client = _client(repository, tmp_path)
+    assert client.get(_source_url(repository.game_id, IMAGE_ID)).status_code == 200
+
+    path.write_bytes(b"changed")
+    drifted = client.get(_source_url(repository.game_id, IMAGE_ID))
+
+    assert drifted.status_code == 404
+    assert drifted.json()["code"] == "IMAGE_REVIEW_ASSET_CHECKSUM_DRIFT"
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "code"),
+    [
+        ("../escape.png", "IMAGE_REVIEW_ASSET_PATH_UNSAFE"),
+        ("missing.png", "IMAGE_REVIEW_ASSET_NOT_FOUND"),
+        ("document.pdf", "IMAGE_REVIEW_ASSET_MEDIA_TYPE_UNSUPPORTED"),
+    ],
+)
+def test_source_asset_rejects_unsafe_missing_and_unsupported_files(
+    tmp_path: Path, relative_path: str, code: str
+) -> None:
+    repository = _CompletenessRepository()
+    (tmp_path / "data").mkdir()
+    (tmp_path / "data" / "document.pdf").write_bytes(b"pdf")
+    repository.assets[IMAGE_ID] = GeometrySourceImageAsset(
+        IMAGE_ID, relative_path, hashlib.sha256(b"pdf").hexdigest()
+    )
+
+    response = _client(repository, tmp_path).get(_source_url(repository.game_id, IMAGE_ID))
+
+    assert response.status_code == 404
+    assert response.json()["code"] == code
+
+
+def test_source_asset_returns_404_for_an_image_of_another_game_or_an_unknown_one(
+    tmp_path: Path,
+) -> None:
+    repository = _CompletenessRepository()
+    client = _client(repository, tmp_path)
+
+    unknown_image = client.get(_source_url(repository.game_id, OTHER_GAME_IMAGE_ID))
+    unknown_game = client.get(_source_url(uuid4(), IMAGE_ID))
+
+    assert unknown_image.status_code == 404
+    assert unknown_image.json()["code"] == "IMAGE_GEOMETRY_COMPLETENESS_SOURCE_IMAGE_NOT_FOUND"
+    assert unknown_game.status_code == 404
+    assert unknown_game.json()["code"] == "IMAGE_REVIEW_GAME_NOT_FOUND"
+
+
+def test_source_asset_returns_409_when_the_repository_is_not_configured() -> None:
+    response = _client(None).get(_source_url(uuid4(), IMAGE_ID))
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "IMAGE_GEOMETRY_COMPLETENESS_UNAVAILABLE"

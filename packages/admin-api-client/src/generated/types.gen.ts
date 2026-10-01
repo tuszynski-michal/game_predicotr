@@ -3487,6 +3487,10 @@ export type GeometryCompletenessImageCountsResponse = {
    */
   complete: number;
   /**
+   * Importfailed
+   */
+  importFailed: number;
+  /**
    * Incomplete
    */
   incomplete: number;
@@ -3506,6 +3510,10 @@ export type GeometryCompletenessImageCountsResponse = {
    * Nosourcegeometry
    */
   noSourceGeometry: number;
+  /**
+   * Superseded
+   */
+  superseded: number;
   /**
    * Total
    */
@@ -3633,7 +3641,9 @@ export type GeometryImageState =
   | 'incomplete_missing'
   | 'incomplete_partial'
   | 'incomplete_uncertain'
-  | 'no_source_geometry';
+  | 'no_source_geometry'
+  | 'superseded'
+  | 'import_failed';
 
 /**
  * GeometryLowQualityBoardResponse
@@ -3679,7 +3689,7 @@ export type GeometryLowQualityBoardResponse = {
  * State of one expected board position of a source image.
  */
 export type GeometryPositionState =
-  'ok' | 'uncertain' | 'partial' | 'missing' | 'deferred';
+  'ok' | 'uncertain' | 'partial' | 'missing' | 'deferred' | 'superseded';
 
 /**
  * GeometryQualificationPayload
@@ -6923,6 +6933,10 @@ export type IncompleteGeometryImageResponse = {
   expectedBoardCount: number | null;
   imageState: GeometryImageState;
   /**
+   * Importerrorcode
+   */
+  importErrorCode: string | null;
+  /**
    * Importjobid
    */
   importJobId: string;
@@ -6938,10 +6952,6 @@ export type IncompleteGeometryImageResponse = {
    * Positions
    */
   positions: Array<GeometryCompletenessPositionResponse>;
-  /**
-   * Previewreviewitemid
-   */
-  previewReviewItemId: string | null;
   /**
    * Relativepath
    */
@@ -20698,6 +20708,47 @@ export type GetImageGeometryCompletenessResponses = {
 
 export type GetImageGeometryCompletenessResponse =
   GetImageGeometryCompletenessResponses[keyof GetImageGeometryCompletenessResponses];
+
+export type GetImageGeometryCompletenessSourceAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Source Image Id
+     */
+    source_image_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/source';
+};
+
+export type GetImageGeometryCompletenessSourceAssetErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageGeometryCompletenessSourceAssetError =
+  GetImageGeometryCompletenessSourceAssetErrors[keyof GetImageGeometryCompletenessSourceAssetErrors];
+
+export type GetImageGeometryCompletenessSourceAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type ListIncompleteGeometryImagesData = {
   body?: never;

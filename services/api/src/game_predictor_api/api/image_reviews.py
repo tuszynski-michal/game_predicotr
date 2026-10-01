@@ -13,6 +13,7 @@ from game_predictor_api.api.reviewer_security import (
 )
 from game_predictor_api.application.image_review_assets import (
     OperationalReviewAsset,
+    resolve_geometry_completeness_source_asset,
     resolve_operational_board_asset,
     resolve_operational_cell_asset,
     resolve_operational_source_asset,
@@ -663,6 +664,25 @@ def create_image_reviews_router(
             import_job_id=import_job_id,
         )
         return image_response(resolve_operational_source_asset(item, artifact_root))
+
+    @router.get(
+        "/geometry-completeness/{game_id}/images/{source_image_id}/source",
+        response_class=FileResponse,
+        operation_id="getImageGeometryCompletenessSourceAsset",
+        summary="Read the checksum-bound source image of any image of a game (D-484)",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_geometry_completeness_source_asset(
+        game_id: UUID,
+        source_image_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> FileResponse:
+        return image_response(
+            resolve_geometry_completeness_source_asset(
+                service.geometry_source_image(game_id, source_image_id),
+                artifact_root,
+            )
+        )
 
     @router.get(
         "/{review_item_id}/assets/board",

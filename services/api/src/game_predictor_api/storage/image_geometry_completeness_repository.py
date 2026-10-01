@@ -25,6 +25,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.image_geometry_completeness import (
+    INCOMPLETE_IMAGE_STATES,
     MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
     GeometryImageCursor,
     GeometryImageState,
@@ -50,19 +51,50 @@ from game_predictor_api.storage.models import GameModel, JobModel
 LOW_QUALITY_STATEMENT_TIMEOUT_MS = 10_000
 _QUERY_CANCELED_SQLSTATE = "57014"
 
+
+def _sequence_live_elsewhere(sequence_number: str, image_id: str) -> str:
+    """SQL predicate: the sequence number has a live review item on another image."""
+
+    return f"""EXISTS (
+      SELECT 1
+      FROM image_review_items ri
+      JOIN recognized_boards rb ON rb.game_id = ri.game_id AND rb.id = ri.recognized_board_id
+      WHERE ri.game_id = :game_id
+        AND ri.sequence_number = {sequence_number}
+        AND ri.status IN ('pending', 'accepted', 'corrected')
+        AND rb.source_image_id <> {image_id}
+    )"""
+
+
 # Shared prefix of every statement: the images in scope, their current source
 # revision and per-image board counts over the *expected* positions only (a
 # board outside the current revision's slots never counts).
 #
-# A complete board is ``uncertain`` unless a human approved its current
-# geometry (``approved_geometry_revision = geometry_revision``) or the source
-# revision it points to is ``accepted``. A deferred position is a missing one
-# with an open pending row; ``_DEFERRED_BY_REASON_SQL`` splits it out.
-_IMAGE_STATES_CTE = """
+# Only *live* boards count (``status <> 'rejected'``): a rejected board is no
+# evidence of a correct grid (TASK-0808). A complete board is ``uncertain``
+# unless a human approved its current geometry
+# (``approved_geometry_revision = geometry_revision``) or the source revision
+# it points to is ``accepted``.
+#
+# An expected position without a live board is a *gap*. A gap is
+# ``superseded`` when its sequence number (``sequence_range_start`` + position)
+# has a live review item on another image of the game; the lookup runs only for
+# the gaps of images that miss boards, through the
+# ``(game_id, sequence_number, status)`` index. A gap that is not superseded and
+# has an open ``image_board_geometry_pending`` row is deferred
+# (``_DEFERRED_BY_REASON_SQL`` splits it out), otherwise missing.
+#
+# An image is ``superseded`` when it has a source revision and all its expected
+# positions are superseded gaps, or when it has no live board and another image
+# of the game with the same ``checksum_sha256`` has live boards; it is
+# ``import_failed`` when it has no live board and its import file failed (rules
+# in ``domain.image_geometry_completeness.classify_image``).
+_IMAGE_STATES_CTE = f"""
 WITH images AS (
-  SELECT s.id, s.import_job_id, s.relative_path, s.status, s.oriented_width, s.oriented_height
+  SELECT s.id, s.import_job_id, s.relative_path, s.status, s.oriented_width, s.oriented_height,
+    s.checksum_sha256, s.file_execution_key
   FROM source_images s
-  WHERE s.game_id = :game_id{import_filter}
+  WHERE s.game_id = :game_id{{import_filter}}
 ), current_revision AS (
   SELECT DISTINCT ON (r.source_image_id)
     r.source_image_id, r.id, r.revision, r.sequence_range_start, r.sequence_range_end,
@@ -73,21 +105,62 @@ WITH images AS (
   ORDER BY r.source_image_id, r.revision DESC
 ), board_counts AS (
   SELECT b.source_image_id,
-    count(*) AS n_boards,
-    count(*) FILTER (WHERE b.completeness_status = 'pending_partial') AS n_partial,
+    count(*) AS n_live,
+    count(*) FILTER (WHERE b.position_index = ANY (c.active_board_slots)) AS n_boards,
     count(*) FILTER (
-      WHERE b.completeness_status = 'complete'
+      WHERE b.position_index = ANY (c.active_board_slots)
+        AND b.completeness_status = 'pending_partial'
+    ) AS n_partial,
+    count(*) FILTER (
+      WHERE b.position_index = ANY (c.active_board_slots)
+        AND b.completeness_status = 'complete'
         AND NOT (b.approved_geometry_revision IS NOT NULL
                  AND b.approved_geometry_revision = b.geometry_revision)
         AND p.status IS DISTINCT FROM 'accepted'
     ) AS n_uncertain
   FROM recognized_boards b
-  JOIN current_revision c
-    ON c.source_image_id = b.source_image_id AND b.position_index = ANY (c.active_board_slots)
+  JOIN images i ON i.id = b.source_image_id
+  LEFT JOIN current_revision c ON c.source_image_id = b.source_image_id
   LEFT JOIN image_source_geometry_revisions p
     ON p.game_id = b.game_id AND p.id = b.source_geometry_revision_id
-  WHERE b.game_id = :game_id
+  WHERE b.game_id = :game_id AND b.status <> 'rejected'
   GROUP BY b.source_image_id
+), gaps AS (
+  SELECT c.source_image_id, slot.position_index,
+    c.sequence_range_start + slot.position_index AS sequence_number
+  FROM current_revision c
+  LEFT JOIN board_counts bc ON bc.source_image_id = c.source_image_id
+  CROSS JOIN LATERAL unnest(c.active_board_slots) AS slot(position_index)
+  WHERE cardinality(c.active_board_slots) > COALESCE(bc.n_boards, 0)
+    AND NOT EXISTS (
+      SELECT 1 FROM recognized_boards b
+      WHERE b.game_id = :game_id
+        AND b.source_image_id = c.source_image_id
+        AND b.position_index = slot.position_index
+        AND b.status <> 'rejected'
+    )
+), gap_states AS (
+  SELECT g.source_image_id, g.position_index,
+    {_sequence_live_elsewhere("g.sequence_number", "g.source_image_id")} AS superseded
+  FROM gaps g
+), gap_counts AS (
+  SELECT source_image_id, count(*) FILTER (WHERE superseded) AS n_superseded
+  FROM gap_states
+  GROUP BY source_image_id
+), checksum_twins AS (
+  SELECT DISTINCT i.id AS source_image_id
+  FROM images i
+  JOIN source_images t
+    ON t.game_id = :game_id AND t.checksum_sha256 = i.checksum_sha256 AND t.id <> i.id
+  WHERE NOT EXISTS (SELECT 1 FROM board_counts bc WHERE bc.source_image_id = i.id)
+    AND EXISTS (
+      SELECT 1 FROM recognized_boards b
+      WHERE b.game_id = :game_id AND b.source_image_id = t.id AND b.status <> 'rejected'
+    )
+), failed_files AS (
+  SELECT f.job_id, f.file_execution_key, f.error_code
+  FROM image_import_job_files f
+  WHERE f.game_id = :game_id AND f.workflow_status = 'failed'
 ), image_states AS (
   SELECT i.id, i.import_job_id, i.relative_path, i.status AS source_status,
     c.revision AS source_revision,
@@ -98,9 +171,16 @@ WITH images AS (
     COALESCE(bc.n_boards, 0) AS n_boards,
     COALESCE(bc.n_partial, 0) AS n_partial,
     COALESCE(bc.n_uncertain, 0) AS n_uncertain,
+    COALESCE(gc.n_superseded, 0) AS n_superseded,
+    ff.error_code AS import_error_code,
     CASE
+      WHEN c.source_image_id IS NOT NULL
+        AND COALESCE(gc.n_superseded, 0) = cardinality(c.active_board_slots) THEN 'superseded'
+      WHEN bc.source_image_id IS NULL AND tw.source_image_id IS NOT NULL THEN 'superseded'
+      WHEN bc.source_image_id IS NULL AND ff.error_code IS NOT NULL THEN 'import_failed'
       WHEN c.source_image_id IS NULL THEN 'no_source_geometry'
-      WHEN cardinality(c.active_board_slots) > COALESCE(bc.n_boards, 0) THEN 'incomplete_missing'
+      WHEN cardinality(c.active_board_slots)
+           > COALESCE(bc.n_boards, 0) + COALESCE(gc.n_superseded, 0) THEN 'incomplete_missing'
       WHEN bc.n_partial > 0 THEN 'incomplete_partial'
       WHEN bc.n_uncertain > 0 THEN 'incomplete_uncertain'
       ELSE 'complete'
@@ -108,6 +188,10 @@ WITH images AS (
   FROM images i
   LEFT JOIN current_revision c ON c.source_image_id = i.id
   LEFT JOIN board_counts bc ON bc.source_image_id = i.id
+  LEFT JOIN gap_counts gc ON gc.source_image_id = i.id
+  LEFT JOIN checksum_twins tw ON tw.source_image_id = i.id
+  LEFT JOIN failed_files ff
+    ON ff.job_id = i.import_job_id AND ff.file_execution_key = i.file_execution_key
 )
 """
 
@@ -119,20 +203,31 @@ SELECT image_state, source_status,
   COALESCE(sum(expected_boards), 0) AS expected_positions,
   COALESCE(sum(n_boards), 0) AS board_positions,
   COALESCE(sum(n_partial), 0) AS partial_positions,
-  COALESCE(sum(n_uncertain), 0) AS uncertain_positions
+  COALESCE(sum(n_uncertain), 0) AS uncertain_positions,
+  COALESCE(sum(n_superseded), 0) AS superseded_positions
 FROM image_states
 GROUP BY image_state, source_status
 ORDER BY image_state, source_status
 """
 )
 
-_DEFERRED_BY_REASON_SQL = (
-    _IMAGE_STATES_CTE
-    + """
+_DEFERRED_SEQUENCE_LIVE_ELSEWHERE_SQL = _sequence_live_elsewhere(
+    "c.sequence_range_start + g.position_index", "g.source_image_id"
+)
+
+# Open pending rows are few, so deferred positions are counted straight from
+# them instead of through the per-image board aggregation of the shared prefix.
+_DEFERRED_BY_REASON_SQL = f"""
 SELECT g.reason_code, count(*) AS positions
 FROM image_board_geometry_pending g
-JOIN current_revision c
-  ON c.source_image_id = g.source_image_id AND g.position_index = ANY (c.active_board_slots)
+JOIN source_images s ON s.game_id = :game_id AND s.id = g.source_image_id{{import_filter}}
+JOIN LATERAL (
+  SELECT r.sequence_range_start, r.active_board_slots
+  FROM image_source_geometry_revisions r
+  WHERE r.game_id = :game_id AND r.source_image_id = g.source_image_id
+  ORDER BY r.revision DESC
+  LIMIT 1
+) c ON g.position_index = ANY (c.active_board_slots)
 WHERE g.game_id = :game_id
   AND g.status = 'pending'
   AND NOT EXISTS (
@@ -140,28 +235,35 @@ WHERE g.game_id = :game_id
     WHERE b.game_id = g.game_id
       AND b.source_image_id = g.source_image_id
       AND b.position_index = g.position_index
+      AND b.status <> 'rejected'
   )
+  AND NOT {_DEFERRED_SEQUENCE_LIVE_ELSEWHERE_SQL}
 GROUP BY g.reason_code
 ORDER BY g.reason_code
 """
-)
 
 _LIST_SQL = (
     _IMAGE_STATES_CTE
     + """
 SELECT id, import_job_id, relative_path, source_status, image_state, source_revision,
-  sequence_range_start, sequence_range_end, expected_boards, oriented_width, oriented_height
+  sequence_range_start, sequence_range_end, expected_boards, oriented_width, oriented_height,
+  import_error_code
 FROM image_states
-WHERE image_state <> 'complete'{state_filter}{cursor_filter}
+WHERE {state_filter}{cursor_filter}
 ORDER BY relative_path, id
 LIMIT :row_limit
 """
 )
 
+_POSITION_SEQUENCE_LIVE_ELSEWHERE_SQL = _sequence_live_elsewhere(
+    "c.sequence_range_start + slot.position_index", "c.source_image_id"
+)
+
 # Positions of the images on one page. ``geometry_entry`` is the entry of the
 # revision the board was cut from (the grid the pipeline used), or of the
-# current revision when the position has no board.
-_POSITIONS_SQL = """
+# current revision when the position has no live board. A rejected board is
+# not a board here (TASK-0808).
+_POSITIONS_SQL = f"""
 WITH current_revision AS (
   SELECT DISTINCT ON (r.source_image_id)
     r.source_image_id, r.sequence_range_start, r.active_board_slots, r.board_geometries
@@ -189,27 +291,18 @@ SELECT c.source_image_id, slot.position_index,
       c.board_geometries, '$[*] ? (@.positionIndex == $position)',
       jsonb_build_object('position', slot.position_index))
   ) AS geometry_entry,
-  c.sequence_range_start
+  c.sequence_range_start,
+  b.id IS NULL AND {_POSITION_SEQUENCE_LIVE_ELSEWHERE_SQL} AS sequence_live_elsewhere
 FROM current_revision c
 CROSS JOIN LATERAL unnest(c.active_board_slots) AS slot(position_index)
 LEFT JOIN recognized_boards b
   ON b.game_id = :game_id AND b.source_image_id = c.source_image_id
-  AND b.position_index = slot.position_index
+  AND b.position_index = slot.position_index AND b.status <> 'rejected'
 LEFT JOIN image_source_geometry_revisions p
   ON p.game_id = :game_id AND p.id = b.source_geometry_revision_id
 LEFT JOIN pending g
   ON g.source_image_id = c.source_image_id AND g.position_index = slot.position_index
 ORDER BY c.source_image_id, slot.position_index
-"""
-
-# One review item of any board of the image: the existing source-asset endpoint
-# is keyed by a review item, and an image without a recognized board has none.
-_PREVIEW_ITEMS_SQL = """
-SELECT DISTINCT ON (b.source_image_id) b.source_image_id, ri.id AS review_item_id
-FROM recognized_boards b
-JOIN image_review_items ri ON ri.game_id = b.game_id AND ri.recognized_board_id = b.id
-WHERE b.game_id = :game_id AND b.source_image_id = ANY (:image_ids)
-ORDER BY b.source_image_id, (ri.status = 'superseded'), b.position_index, ri.id
 """
 
 _LOW_QUALITY_SQL = """
@@ -245,10 +338,13 @@ class GeometryImageCounts:
     incomplete_partial: int
     incomplete_uncertain: int
     no_source_geometry: int
+    import_failed: int
+    superseded: int
 
     @property
     def incomplete(self) -> int:
-        return self.total - self.complete
+        # ``superseded`` images are covered by a newer import: not a gap.
+        return self.total - self.complete - self.superseded
 
 
 @dataclass(frozen=True, slots=True)
@@ -299,7 +395,8 @@ class IncompleteGeometryImage:
     expected_board_count: int | None
     oriented_width: int | None
     oriented_height: int | None
-    preview_review_item_id: UUID | None
+    # Error code of the failed import file of the image, if its file failed.
+    import_error_code: str | None
     positions: tuple[GeometryImagePosition, ...]
 
 
@@ -310,6 +407,15 @@ class IncompleteGeometryImagePage:
     image_state: GeometryImageState | None
     images: tuple[IncompleteGeometryImage, ...]
     next_cursor: GeometryImageCursor | None
+
+
+@dataclass(frozen=True, slots=True)
+class GeometrySourceImageAsset:
+    """Stored path and checksum of one source image (the file is served elsewhere)."""
+
+    source_image_id: UUID
+    relative_path: str
+    checksum_sha256: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -355,7 +461,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
 
         image_counter: Counter[GeometryImageState] = Counter()
         source_statuses: list[GeometryImageSourceStatusCount] = []
-        expected = board_positions = partial = uncertain = 0
+        expected = board_positions = partial = uncertain = superseded = 0
         for (
             state,
             source_status,
@@ -364,6 +470,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
             boards,
             n_partial,
             n_uncertain,
+            n_superseded,
         ) in rows:
             image_state = GeometryImageState(state)
             image_counter[image_state] += int(images)
@@ -374,6 +481,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
             board_positions += int(boards)
             partial += int(n_partial)
             uncertain += int(n_uncertain)
+            superseded += int(n_superseded)
 
         deferred_by_reason = [(str(reason), int(count)) for reason, count in deferred_rows]
         deferred_total = sum(count for _, count in deferred_by_reason)
@@ -383,10 +491,11 @@ class SqlAlchemyImageGeometryCompletenessRepository:
             ),
             GeometryPositionCount(GeometryPositionState.UNCERTAIN, None, uncertain),
             GeometryPositionCount(GeometryPositionState.PARTIAL, None, partial),
+            GeometryPositionCount(GeometryPositionState.SUPERSEDED, None, superseded),
             GeometryPositionCount(
                 GeometryPositionState.MISSING,
                 None,
-                expected - board_positions - deferred_total,
+                expected - board_positions - superseded - deferred_total,
             ),
             *(
                 GeometryPositionCount(GeometryPositionState.DEFERRED, reason, count)
@@ -404,6 +513,8 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 incomplete_partial=image_counter[GeometryImageState.INCOMPLETE_PARTIAL],
                 incomplete_uncertain=image_counter[GeometryImageState.INCOMPLETE_UNCERTAIN],
                 no_source_geometry=image_counter[GeometryImageState.NO_SOURCE_GEOMETRY],
+                import_failed=image_counter[GeometryImageState.IMPORT_FAILED],
+                superseded=image_counter[GeometryImageState.SUPERSEDED],
             ),
             expected_board_count=expected,
             positions=tuple(positions),
@@ -434,9 +545,13 @@ class SqlAlchemyImageGeometryCompletenessRepository:
             return None
         params = self._scope_params(game_id, import_job_id)
         params["row_limit"] = limit + 1
-        state_filter = ""
-        if image_state is not None:
-            state_filter = " AND image_state = :image_state"
+        # The default list is "all incomplete": complete and superseded images
+        # are left out unless the superseded state is asked for explicitly.
+        if image_state is None:
+            states = ", ".join(f"'{state.value}'" for state in INCOMPLETE_IMAGE_STATES)
+            state_filter = f"image_state IN ({states})"
+        else:
+            state_filter = "image_state = :image_state"
             params["image_state"] = image_state.value
         cursor_filter = ""
         if after is not None:
@@ -457,7 +572,6 @@ class SqlAlchemyImageGeometryCompletenessRepository:
         page_rows = rows[:limit]
         image_ids = [row[0] for row in page_rows]
         positions_by_image = self._positions(game_id, image_ids)
-        preview_items = self._preview_review_items(game_id, image_ids)
 
         images = tuple(
             IncompleteGeometryImage(
@@ -472,7 +586,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 expected_board_count=None if row[8] is None else int(row[8]),
                 oriented_width=None if row[9] is None else int(row[9]),
                 oriented_height=None if row[10] is None else int(row[10]),
-                preview_review_item_id=preview_items.get(row[0]),
+                import_error_code=None if row[11] is None else str(row[11]),
                 positions=positions_by_image.get(row[0], ()),
             )
             for row in page_rows
@@ -488,6 +602,31 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 if has_more and last is not None
                 else None
             ),
+        )
+
+    def source_image_asset(
+        self, game_id: UUID, source_image_id: UUID
+    ) -> GeometrySourceImageAsset | None:
+        """Path and checksum of one source image of the game; ``None`` for an unknown game."""
+
+        if not self._bind(game_id, None):
+            return None
+        row = self._session.execute(
+            text(
+                "SELECT s.relative_path, s.checksum_sha256 FROM source_images s "
+                "WHERE s.game_id = :game_id AND s.id = :source_image_id"
+            ),
+            {"game_id": game_id, "source_image_id": source_image_id},
+        ).first()
+        if row is None:
+            raise ImageReviewNotFoundError(
+                "IMAGE_GEOMETRY_COMPLETENESS_SOURCE_IMAGE_NOT_FOUND",
+                "The selected source image does not belong to this game.",
+            )
+        return GeometrySourceImageAsset(
+            source_image_id=source_image_id,
+            relative_path=str(row[0]),
+            checksum_sha256=str(row[1]),
         )
 
     def low_quality_boards(
@@ -612,6 +751,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                     geometry_approved=bool(row[4]),
                     source_revision_accepted=bool(row[5]),
                     deferred_reason_code=None if row[6] is None else str(row[6]),
+                    sequence_live_elsewhere=bool(row[9]),
                 )
             )
             grouped.setdefault(image_id, []).append(
@@ -626,14 +766,6 @@ class SqlAlchemyImageGeometryCompletenessRepository:
             )
         return {image_id: tuple(positions) for image_id, positions in grouped.items()}
 
-    def _preview_review_items(self, game_id: UUID, image_ids: Sequence[UUID]) -> dict[UUID, UUID]:
-        if not image_ids:
-            return {}
-        rows = self._session.execute(
-            text(_PREVIEW_ITEMS_SQL), {"game_id": game_id, "image_ids": list(image_ids)}
-        ).all()
-        return {row[0]: row[1] for row in rows}
-
 
 __all__ = [
     "LOW_QUALITY_STATEMENT_TIMEOUT_MS",
@@ -642,6 +774,7 @@ __all__ = [
     "GeometryImagePosition",
     "GeometryImageSourceStatusCount",
     "GeometryPositionCount",
+    "GeometrySourceImageAsset",
     "IncompleteGeometryImage",
     "IncompleteGeometryImagePage",
     "LowQualityBoard",

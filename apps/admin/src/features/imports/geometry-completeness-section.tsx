@@ -12,9 +12,11 @@ import {
   DEFAULT_LOW_QUALITY_MAX_CONFIDENCE,
   DEFAULT_LOW_QUALITY_MIN_CELLS,
   INCOMPLETE_IMAGE_STATES,
+  LISTED_IMAGE_STATES,
   errorCodeOf,
   formatPercent,
   geometryImageStateLabel,
+  geometryImportErrorLabel,
   geometryPositionLabel,
   geometryPositionTone,
   geometryScopeImportId,
@@ -25,7 +27,7 @@ import {
   quadCentre,
   quadSvgPoints,
   type GeometryImportOption,
-  type IncompleteImageStateName,
+  type ListedImageStateName,
 } from './geometry-completeness-state';
 
 const PAGE_LIMIT = 25;
@@ -33,7 +35,7 @@ const LOW_QUALITY_LIMIT = 50;
 const POLL_INTERVAL_MS = 15_000;
 
 type Scope = 'game' | 'import';
-type StateFilter = 'all' | IncompleteImageStateName;
+type StateFilter = 'all' | ListedImageStateName;
 type PreviewStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface GeometryCompletenessSectionProps {
@@ -186,8 +188,17 @@ export function GeometryCompletenessSection({
   });
   const processingWithoutGeometry = (activeReport?.sourceStatuses ?? []).filter(
     (entry) =>
-      entry.sourceStatus === 'processing' && entry.imageState !== 'complete',
+      entry.sourceStatus === 'processing' &&
+      entry.imageState !== 'complete' &&
+      entry.imageState !== 'superseded',
   );
+  const supersededImages = activeReport?.images.superseded ?? 0;
+  const supersededPositions =
+    activeReport?.positions.find((position) => position.state === 'superseded')
+      ?.count ?? 0;
+  const listVisible =
+    activeReport !== null &&
+    (activeReport.images.incomplete > 0 || supersededImages > 0);
   const processingCount = processingWithoutGeometry.reduce(
     (sum, entry) => sum + entry.count,
     0,
@@ -210,8 +221,9 @@ export function GeometryCompletenessSection({
           <p>
             Zdjęcie jest kompletne, gdy każda oczekiwana plansza ma siatkę
             zatwierdzoną przez człowieka albo zaakceptowaną przez silnik bez
-            zastrzeżeń. Widok tylko do odczytu; siatki poprawiasz w kolejce
-            siatek.
+            zastrzeżeń. Plansze odrzucone nie są dowodem poprawnej siatki, a
+            zdjęcia zastąpione nowszym importem nie są brakami. Widok tylko do
+            odczytu; siatki poprawiasz w kolejce siatek.
           </p>
         </div>
         <button
@@ -314,6 +326,12 @@ export function GeometryCompletenessSection({
                 </dd>
               </div>
             ) : null}
+            <div className="importMetric">
+              <dt>Zastąpione nowszym importem</dt>
+              <dd>
+                {(activeReport?.images.superseded ?? 0).toLocaleString('pl-PL')}
+              </dd>
+            </div>
           </dl>
 
           {activeReport !== null && activeReport.images.incomplete > 0 ? (
@@ -335,19 +353,34 @@ export function GeometryCompletenessSection({
           ) : null}
           {activeReport !== null &&
           activeReport.positions.some(
-            (position) => position.state !== 'ok' && position.count > 0,
+            (position) =>
+              position.state !== 'ok' &&
+              position.state !== 'superseded' &&
+              position.count > 0,
           ) ? (
             <p className="importSubsectionHeader">
               Plansze bez poprawnej siatki:{' '}
               {activeReport.positions
                 .filter(
-                  (position) => position.state !== 'ok' && position.count > 0,
+                  (position) =>
+                    position.state !== 'ok' &&
+                    position.state !== 'superseded' &&
+                    position.count > 0,
                 )
                 .map(
                   (position) =>
                     `${geometryPositionLabel(position.state, position.reasonCode)} ${position.count.toLocaleString('pl-PL')}`,
                 )
                 .join(' · ')}
+            </p>
+          ) : null}
+          {supersededImages > 0 || supersededPositions > 0 ? (
+            <p className="importSubsectionHeader">
+              Zastąpione nowszym importem, więc nie są brakami:{' '}
+              {supersededImages.toLocaleString('pl-PL')} zdjęć,{' '}
+              {supersededPositions.toLocaleString('pl-PL')} pozycji. Lista
+              domyślna ich nie zawiera; filtr „
+              {geometryImageStateLabel('superseded')}” je pokazuje.
             </p>
           ) : null}
 
@@ -358,11 +391,13 @@ export function GeometryCompletenessSection({
           ) : null}
           {state === 'all-complete' ? (
             <p className="importEmptyState">
-              Wszystkie zdjęcia mają komplet poprawnych siatek.
+              {supersededImages > 0
+                ? 'Wszystkie pozostałe zdjęcia mają komplet poprawnych siatek.'
+                : 'Wszystkie zdjęcia mają komplet poprawnych siatek.'}
             </p>
           ) : null}
 
-          {activeReport !== null && activeReport.images.incomplete > 0 ? (
+          {listVisible ? (
             <>
               <div
                 aria-label="Filtr stanu zdjęcia"
@@ -376,7 +411,7 @@ export function GeometryCompletenessSection({
                 >
                   Wszystkie
                 </button>
-                {INCOMPLETE_IMAGE_STATES.map((name) => (
+                {LISTED_IMAGE_STATES.map((name) => (
                   <button
                     aria-pressed={stateFilter === name}
                     key={name}
@@ -398,7 +433,7 @@ export function GeometryCompletenessSection({
               ) : null}
               {!listLoading && listError === null && images.length === 0 ? (
                 <p className="importEmptyState">
-                  Brak niekompletnych zdjęć w wybranym stanie.
+                  Brak zdjęć w wybranym stanie.
                 </p>
               ) : null}
 
@@ -438,7 +473,7 @@ export function GeometryCompletenessSection({
 
 function imageStateCount(
   report: ImageGeometryCompletenessResponse,
-  state: IncompleteImageStateName,
+  state: ListedImageStateName,
 ): number {
   switch (state) {
     case 'incomplete_missing':
@@ -447,8 +482,12 @@ function imageStateCount(
       return report.images.incompletePartial;
     case 'incomplete_uncertain':
       return report.images.incompleteUncertain;
+    case 'import_failed':
+      return report.images.importFailed;
     case 'no_source_geometry':
       return report.images.noSourceGeometry;
+    case 'superseded':
+      return report.images.superseded;
   }
 }
 
@@ -478,12 +517,11 @@ function GeometryImageItem({ api, gameId, image }: GeometryImageItemProps) {
   );
 
   async function showPhoto() {
-    if (image.previewReviewItemId === null) return;
     setStatus('loading');
     try {
-      const asset = await api.getOperationalImageReviewSourceAsset(
-        image.previewReviewItemId,
-        { gameId, importJobId: image.importJobId },
+      const asset = await api.getImageGeometryCompletenessSourceAsset(
+        gameId,
+        image.sourceImageId,
       );
       if (asset.error !== undefined || !(asset.data instanceof Blob)) {
         setStatus('error');
@@ -520,6 +558,11 @@ function GeometryImageItem({ api, gameId, image }: GeometryImageItemProps) {
           ? ` · oczekiwane plansze: ${image.expectedBoardCount}`
           : ''}
       </span>
+      {image.importErrorCode !== null ? (
+        <span className="geometryTone-danger">
+          Błąd importu pliku: {geometryImportErrorLabel(image.importErrorCode)}
+        </span>
+      ) : null}
 
       {canDraw ? (
         <svg
@@ -567,7 +610,16 @@ function GeometryImageItem({ api, gameId, image }: GeometryImageItemProps) {
         </svg>
       ) : null}
 
-      {image.previewReviewItemId !== null && canDraw && photoUrl === null ? (
+      {!canDraw && photoUrl !== null ? (
+        // eslint-disable-next-line @next/next/no-img-element -- a blob URL of the checksum-bound source image
+        <img
+          alt={`Zdjęcie ${image.relativePath}`}
+          className="geometryPreview"
+          src={photoUrl}
+        />
+      ) : null}
+
+      {photoUrl === null ? (
         <button
           aria-busy={status === 'loading'}
           className="secondaryButton"
@@ -581,12 +633,6 @@ function GeometryImageItem({ api, gameId, image }: GeometryImageItemProps) {
       {status === 'error' ? (
         <small className="geometryTone-danger">
           Zdjęcie źródłowe jest niedostępne.
-        </small>
-      ) : null}
-      {image.previewReviewItemId === null ? (
-        <small>
-          Zdjęcie nie ma jeszcze żadnej rozpoznanej planszy, więc nie ma dla
-          niego zasobu podglądu w tym widoku.
         </small>
       ) : null}
 
@@ -619,6 +665,7 @@ function GeometryImageItem({ api, gameId, image }: GeometryImageItemProps) {
 }
 
 function imageTone(image: IncompleteGeometryImageResponse): string {
+  if (image.imageState === 'superseded') return 'muted';
   return image.imageState === 'incomplete_uncertain' ||
     image.imageState === 'incomplete_partial'
     ? 'warning'

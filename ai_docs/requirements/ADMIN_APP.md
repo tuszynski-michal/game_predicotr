@@ -1028,7 +1028,7 @@ cięcia, manifest geometrii stron, test ochronny, wersja modelu symboli,
 wynik pipeline'u) została usunięta z tego widoku; pozostaje dostępna w
 zakładce Joby.
 
-### Sekcja „Kompletność siatek zdjęć” w Import plansz (D-484, TASK-0806)
+### Sekcja „Kompletność siatek zdjęć” w Import plansz (D-484, TASK-0806, TASK-0808)
 
 Jednostką geometrii jest zdjęcie źródłowe (D-484). Sekcja, pod „Brakującymi
 planszami”, pokazuje, ile zdjęć gry ma komplet poprawnych siatek, a ile nie, i
@@ -1043,40 +1043,61 @@ ten sam przepis liczy SQL raportu):
 - oczekiwane pozycje zdjęcia to `active_board_slots` jego najnowszej rewizji
   geometrii źródła; numer sekwencji pozycji `p` to `sequence_range_start + p`;
   plansze poza tymi pozycjami (np. ze starszej, dłuższej rewizji) nie liczą się,
-- pozycja jest `ok`, gdy plansza istnieje, jest kompletna i jej geometria jest
-  zatwierdzona przez człowieka (`approved_geometry_revision = geometry_revision`)
-  albo rewizja źródła, na którą plansza wskazuje, ma status `accepted`;
-  `uncertain` — kompletna plansza bez żadnego z tych dowodów; `partial` —
-  plansza `pending_partial`; `missing` — brak planszy; `deferred` — brak planszy
-  i otwarty (`pending`) wiersz odroczonej geometrii (z kodem powodu),
-- zdjęcie jest `complete`, gdy wszystkie pozycje są `ok`; inaczej
-  `incomplete_missing` (jest pozycja `missing`/`deferred`), `incomplete_partial`
-  albo `incomplete_uncertain`; zdjęcie bez żadnej rewizji geometrii źródła ma
-  własny stan `no_source_geometry` (oczekiwana liczba plansz jest nieznana).
+- „żywa plansza” to `recognized_boards.status <> 'rejected'`; plansza odrzucona
+  nie jest dowodem poprawnej siatki, więc pozycja z samą planszą odrzuconą nie
+  ma żywej planszy. „Żywy element review” to `image_review_items.status` w
+  `pending | accepted | corrected`,
+- pozycja (pierwsza pasująca reguła): `superseded` — brak żywej planszy, a numer
+  sekwencji pozycji ma żywy element review na innym zdjęciu tej samej gry
+  (numer żywy tylko w innej grze nie wystarcza); `deferred` — brak żywej
+  planszy i otwarty (`pending`) wiersz odroczonej geometrii (z kodem powodu);
+  `missing` — brak żywej planszy, pozostałe przypadki; dla żywej planszy: `ok`,
+  gdy jest kompletna, a jej geometria jest zatwierdzona przez człowieka
+  (`approved_geometry_revision = geometry_revision`) albo rewizja źródła, na
+  którą plansza wskazuje, ma status `accepted`; `uncertain` — kompletna plansza
+  bez żadnego z tych dowodów; `partial` — plansza `pending_partial`,
+- zdjęcie (pierwsza pasująca reguła): `superseded` — ma rewizję źródła i
+  wszystkie oczekiwane pozycje są `superseded`, albo nie ma żadnej żywej planszy,
+  a inne zdjęcie tej gry z tym samym `checksum_sha256` ma żywe plansze;
+  `import_failed` — brak żywej planszy i plik importu zdjęcia ma
+  `workflow_status = 'failed'` (kod z `image_import_job_files.error_code`);
+  `no_source_geometry` — brak jakiejkolwiek rewizji geometrii źródła (oczekiwana
+  liczba plansz jest nieznana); `complete` — każda pozycja `ok` albo
+  `superseded`, co najmniej jedna `ok`; inaczej `incomplete_missing` (jest
+  pozycja `missing`/`deferred`), `incomplete_partial` albo
+  `incomplete_uncertain` (pozycje `superseded` są tam pomijane). Zdjęcia
+  `superseded` i `complete` nie są niekompletne; `import_failed` i
+  `no_source_geometry` mają własne liczniki i filtry, a lista domyślna („Wszystkie”)
+  obejmuje stany `incomplete_*`, `import_failed` i `no_source_geometry`.
   Zdjęć w statusie `processing` nie pomijamy: wchodzą do liczników i do linii
-  „w tym N zdjęć w przetwarzaniu”.
+  „w tym N zdjęć w przetwarzaniu” (o ile nie są `superseded`).
 
 Zachowanie:
 
 - liczniki: zdjęcia w grze, niekompletne w grze i — po wybraniu przełącznika
-  „Wybrany import” — niekompletne w imporcie; linia stanów zdjęć (brakuje
-  plansz / plansza częściowa / siatka niepotwierdzona / bez geometrii źródła) i
-  linia „Plansze bez poprawnej siatki” z podziałem pozycji na stany i powody
-  odroczenia,
-- filtr stanu zdjęcia (`Wszystkie` + cztery stany niekompletne) i lista po 25
-  zdjęć z przyciskiem „Pokaż więcej zdjęć”, kursor keyset po
+  „Wybrany import” — niekompletne w imporcie, osobny licznik zdjęć „Zastąpione
+  nowszym importem”; linia stanów zdjęć (brakuje plansz / plansza częściowa /
+  siatka niepotwierdzona / import nieudany / bez geometrii źródła) i linia
+  „Plansze bez poprawnej siatki” z podziałem pozycji na stany i powody
+  odroczenia; pozycje i zdjęcia `superseded` nie są brakami, więc mają własną
+  linię („Zastąpione nowszym importem, więc nie są brakami”) i nie wchodzą do
+  liczby niekompletnych ani do listy domyślnej,
+- filtr stanu zdjęcia (`Wszystkie`, pięć stanów wymagających uwagi i
+  „Zastąpione nowszym importem”, żeby zdjęcia zastąpione dało się obejrzeć) i
+  lista po 25 zdjęć z przyciskiem „Pokaż więcej zdjęć”, kursor keyset po
   `(relativePath, sourceImageId)`,
 - każde zdjęcie pokazuje ścieżkę, status zdjęcia, zakres numerów, oczekiwaną
-  liczbę plansz oraz SVG o wymiarach zdjęcia (`exif-normalized-rgb-pixels-v1`)
+  liczbę plansz, kod błędu pliku importu (`importErrorCode`, gdy plik się nie
+  powiódł) oraz SVG o wymiarach zdjęcia (`exif-normalized-rgb-pixels-v1`)
   z naniesionymi siatkami plansz: kolor zielony `ok`, żółty `uncertain` i
-  `partial`, czerwony linią przerywaną pozycje bez poprawnej siatki; pozycje
-  bez czworokąta są dodatkowo opisane tekstem „bez siatki”. Czworokąt pochodzi z
-  rewizji, z której plansza została pocięta (a dla pozycji bez planszy z rewizji
-  bieżącej); nic nie jest zgadywane,
-- przycisk „Pokaż zdjęcie pod siatkami” pobiera zdjęcie istniejącym endpointem
-  `getOperationalImageReviewSourceAsset` przez element review jednej z plansz
-  zdjęcia; zdjęcie bez żadnej rozpoznanej planszy nie ma takiego elementu, więc
-  pokazuje tylko siatki i komunikat,
+  `partial`, czerwony linią przerywaną pozycje bez poprawnej siatki, szary
+  pozycje `superseded`; pozycje bez czworokąta są dodatkowo opisane tekstem „bez
+  siatki”. Czworokąt pochodzi z rewizji, z której plansza została pocięta (a dla
+  pozycji bez żywej planszy z rewizji bieżącej); nic nie jest zgadywane,
+- przycisk „Pokaż zdjęcie pod siatkami” jest dostępny dla każdego zdjęcia gry,
+  także bez żadnej planszy czy rewizji geometrii: pobiera plik endpointem
+  `getImageGeometryCompletenessSourceAsset` kluczowanym `sourceImageId`
+  (zdjęcie bez wymiarów lub siatek pokazuje się jako zwykły obraz),
 - „Plansze z niską jakością symboli” to osobne, jawnie uruchamiane zapytanie
   (przycisk; nigdy przy ładowaniu ani w odświeżaniu): plansze, na których co
   najmniej `minCells` (domyślnie 5) widocznych pól bez decyzji człowieka

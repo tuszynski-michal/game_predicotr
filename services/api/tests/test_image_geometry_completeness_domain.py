@@ -5,6 +5,7 @@ from uuid import UUID
 
 import pytest
 from game_predictor_api.domain.image_geometry_completeness import (
+    INCOMPLETE_IMAGE_STATES,
     GeometryImageCursor,
     GeometryImageState,
     GeometryPositionFacts,
@@ -24,6 +25,7 @@ UNCERTAIN = GeometryPositionState.UNCERTAIN
 PARTIAL = GeometryPositionState.PARTIAL
 MISSING = GeometryPositionState.MISSING
 DEFERRED = GeometryPositionState.DEFERRED
+SUPERSEDED = GeometryPositionState.SUPERSEDED
 
 
 def _board(
@@ -103,6 +105,50 @@ def test_unknown_completeness_status_is_never_ok() -> None:
     )
 
 
+def test_position_without_a_live_board_and_a_live_sequence_elsewhere_is_superseded() -> None:
+    # a ``rejected`` board is not a live board, so the repository passes board_exists=False
+    result = classify_position(
+        GeometryPositionFacts(position_index=2, board_exists=False, sequence_live_elsewhere=True)
+    )
+
+    assert result.state is SUPERSEDED
+    assert result.reason_code is None
+
+
+def test_position_without_a_live_board_and_without_a_live_sequence_elsewhere_is_missing() -> None:
+    result = classify_position(
+        GeometryPositionFacts(position_index=2, board_exists=False, sequence_live_elsewhere=False)
+    )
+
+    assert result.state is MISSING
+
+
+def test_superseded_outranks_an_open_pending_row() -> None:
+    result = classify_position(
+        GeometryPositionFacts(
+            position_index=2,
+            board_exists=False,
+            deferred_reason_code="residual_too_high",
+            sequence_live_elsewhere=True,
+        )
+    )
+
+    assert result.state is SUPERSEDED
+    assert result.reason_code is None
+
+
+def test_a_live_board_is_classified_by_its_geometry_whatever_exists_elsewhere() -> None:
+    facts = GeometryPositionFacts(
+        position_index=0,
+        board_exists=True,
+        completeness_status="complete",
+        source_revision_accepted=True,
+        sequence_live_elsewhere=True,
+    )
+
+    assert classify_position(facts).state is OK
+
+
 def test_nine_ok_positions_make_a_complete_image() -> None:
     assert classify_image([OK] * 9, has_source_geometry=True) is GeometryImageState.COMPLETE
 
@@ -152,6 +198,112 @@ def test_missing_outranks_partial_which_outranks_uncertain() -> None:
 
 def test_image_without_source_geometry_has_its_own_state() -> None:
     assert classify_image([], has_source_geometry=False) is GeometryImageState.NO_SOURCE_GEOMETRY
+
+
+def test_image_with_every_position_superseded_is_superseded() -> None:
+    assert (
+        classify_image([SUPERSEDED] * 9, has_source_geometry=True, has_live_boards=False)
+        is GeometryImageState.SUPERSEDED
+    )
+    assert (
+        classify_image([SUPERSEDED] * 4, has_source_geometry=True, has_live_boards=False)
+        is GeometryImageState.SUPERSEDED
+    )
+
+
+def test_seven_ok_and_two_superseded_positions_make_a_complete_image() -> None:
+    assert (
+        classify_image([OK] * 7 + [SUPERSEDED] * 2, has_source_geometry=True)
+        is GeometryImageState.COMPLETE
+    )
+
+
+def test_seven_ok_one_superseded_and_one_missing_is_incomplete_missing() -> None:
+    assert (
+        classify_image([OK] * 7 + [SUPERSEDED, MISSING], has_source_geometry=True)
+        is GeometryImageState.INCOMPLETE_MISSING
+    )
+
+
+def test_superseded_positions_are_skipped_by_the_partial_and_uncertain_states() -> None:
+    assert (
+        classify_image([OK] * 6 + [SUPERSEDED, SUPERSEDED, PARTIAL], has_source_geometry=True)
+        is GeometryImageState.INCOMPLETE_PARTIAL
+    )
+    assert (
+        classify_image([OK] * 6 + [SUPERSEDED, SUPERSEDED, UNCERTAIN], has_source_geometry=True)
+        is GeometryImageState.INCOMPLETE_UNCERTAIN
+    )
+
+
+def test_image_without_live_boards_and_a_checksum_twin_is_superseded() -> None:
+    assert (
+        classify_image(
+            [MISSING] * 9,
+            has_source_geometry=True,
+            has_live_boards=False,
+            checksum_twin_has_live_boards=True,
+            import_file_failed=True,
+        )
+        is GeometryImageState.SUPERSEDED
+    )
+    assert (
+        classify_image(
+            [],
+            has_source_geometry=False,
+            has_live_boards=False,
+            checksum_twin_has_live_boards=True,
+        )
+        is GeometryImageState.SUPERSEDED
+    )
+
+
+def test_failed_import_without_live_boards_and_without_a_twin_is_import_failed() -> None:
+    assert (
+        classify_image(
+            [MISSING] * 9,
+            has_source_geometry=True,
+            has_live_boards=False,
+            import_file_failed=True,
+        )
+        is GeometryImageState.IMPORT_FAILED
+    )
+    assert (
+        classify_image(
+            [], has_source_geometry=False, has_live_boards=False, import_file_failed=True
+        )
+        is GeometryImageState.IMPORT_FAILED
+    )
+
+
+def test_a_twin_or_a_failed_file_changes_nothing_for_an_image_with_live_boards() -> None:
+    assert (
+        classify_image(
+            [OK] * 9,
+            has_source_geometry=True,
+            checksum_twin_has_live_boards=True,
+            import_file_failed=True,
+        )
+        is GeometryImageState.COMPLETE
+    )
+
+
+def test_image_without_live_boards_and_without_a_twin_or_failure_keeps_the_old_states() -> None:
+    assert (
+        classify_image([MISSING] * 9, has_source_geometry=True, has_live_boards=False)
+        is GeometryImageState.INCOMPLETE_MISSING
+    )
+    assert (
+        classify_image([], has_source_geometry=False, has_live_boards=False)
+        is GeometryImageState.NO_SOURCE_GEOMETRY
+    )
+
+
+def test_the_default_list_holds_the_states_that_still_need_attention() -> None:
+    assert set(INCOMPLETE_IMAGE_STATES) == set(GeometryImageState) - {
+        GeometryImageState.COMPLETE,
+        GeometryImageState.SUPERSEDED,
+    }
 
 
 def test_expected_sequence_number_offsets_the_range_start_by_the_position() -> None:

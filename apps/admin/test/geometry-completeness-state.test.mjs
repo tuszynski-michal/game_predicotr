@@ -4,9 +4,11 @@ import test from 'node:test';
 
 import {
   INCOMPLETE_IMAGE_STATES,
+  LISTED_IMAGE_STATES,
   errorCodeOf,
   formatPercent,
   geometryImageStateLabel,
+  geometryImportErrorLabel,
   geometryPositionLabel,
   geometryPositionTone,
   geometryScopeImportId,
@@ -72,10 +74,16 @@ test('section state: empty game, all complete and incomplete lists', () => {
 });
 
 test('every image and position state has a Polish label', () => {
-  for (const state of INCOMPLETE_IMAGE_STATES) {
+  for (const state of LISTED_IMAGE_STATES) {
     assert.notEqual(geometryImageStateLabel(state), state);
   }
   assert.equal(geometryImageStateLabel('complete'), 'Kompletne');
+  assert.equal(geometryImageStateLabel('import_failed'), 'Import nieudany');
+  assert.equal(
+    geometryImageStateLabel('superseded'),
+    'Zastąpione nowszym importem',
+  );
+  assert.match(geometryPositionLabel('superseded', null), /^Zastąpiona/);
   assert.equal(geometryImageStateLabel('future_state'), 'future_state');
   assert.equal(geometryPositionLabel('missing', null), 'Brak siatki');
   assert.equal(
@@ -89,8 +97,43 @@ test('every image and position state has a Polish label', () => {
   assert.equal(geometrySourceStatusLabel('processing'), 'w przetwarzaniu');
 });
 
+test('the default list holds the states that need attention; superseded is a filter of its own', () => {
+  assert.deepEqual(
+    [...INCOMPLETE_IMAGE_STATES],
+    [
+      'incomplete_missing',
+      'incomplete_partial',
+      'incomplete_uncertain',
+      'import_failed',
+      'no_source_geometry',
+    ],
+  );
+  assert.ok(!INCOMPLETE_IMAGE_STATES.includes('superseded'));
+  assert.deepEqual(
+    [...LISTED_IMAGE_STATES],
+    [...INCOMPLETE_IMAGE_STATES, 'superseded'],
+  );
+});
+
+test('import errors keep their code and gain a Polish meaning when it is known', () => {
+  assert.equal(
+    geometryImportErrorLabel('IMAGE_STAGE_EXECUTION_FAILED'),
+    'etap przetwarzania zakończył się błędem (IMAGE_STAGE_EXECUTION_FAILED)',
+  );
+  assert.match(
+    geometryImportErrorLabel('IMAGE_STAGE_RESULT_INVALID'),
+    /IMAGE_STAGE_RESULT_INVALID/,
+  );
+  assert.match(
+    geometryImportErrorLabel('IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE'),
+    /IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE/,
+  );
+  assert.equal(geometryImportErrorLabel('SOMETHING_NEW'), 'SOMETHING_NEW');
+});
+
 test('positions without a grid are marked danger, uncertain ones warning', () => {
   assert.equal(geometryPositionTone('ok'), 'ok');
+  assert.equal(geometryPositionTone('superseded'), 'muted');
   assert.equal(geometryPositionTone('uncertain'), 'warning');
   assert.equal(geometryPositionTone('partial'), 'warning');
   assert.equal(geometryPositionTone('missing'), 'danger');
@@ -193,7 +236,10 @@ test('the section uses the generated-client wrappers and runs the quality query 
   assert.match(sectionSource, /api\.getImageGeometryCompleteness/);
   assert.match(sectionSource, /api\.listIncompleteGeometryImages/);
   assert.match(sectionSource, /api\.getImageGeometryLowQualityBoards/);
-  assert.match(sectionSource, /api\.getOperationalImageReviewSourceAsset/);
+  // the preview is keyed by the source image, so every image has one (TASK-0808)
+  assert.match(sectionSource, /api\.getImageGeometryCompletenessSourceAsset/);
+  assert.doesNotMatch(sectionSource, /previewReviewItemId/);
+  assert.doesNotMatch(sectionSource, /getOperationalImageReviewSourceAsset/);
   // the quality query is a button handler, never part of loading or polling
   const loadReports = sectionSource.slice(
     sectionSource.indexOf('const loadReports'),

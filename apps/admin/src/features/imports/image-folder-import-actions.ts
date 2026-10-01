@@ -40,7 +40,7 @@ export type ImageFolderImportClient = Pick<
   | 'getImageGeometryCompleteness'
   | 'listIncompleteGeometryImages'
   | 'getImageGeometryLowQualityBoards'
-  | 'getOperationalImageReviewSourceAsset'
+  | 'getImageGeometryCompletenessSourceAsset'
   | 'getImageSequenceSourceSelection'
   | 'registerCuratedImageImportSource'
   | 'listCuratedImageImportSources'

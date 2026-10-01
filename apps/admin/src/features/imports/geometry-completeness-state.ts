@@ -1,19 +1,25 @@
-/** Pure state helpers of the D-484 geometry completeness section (TASK-0806). */
+/** Pure state helpers of the D-484 geometry completeness section (TASK-0806, 0808). */
 
 export type GeometryImageStateName =
   | 'complete'
   | 'incomplete_missing'
   | 'incomplete_partial'
   | 'incomplete_uncertain'
-  | 'no_source_geometry';
+  | 'no_source_geometry'
+  | 'import_failed'
+  | 'superseded';
 
 export type GeometryPositionStateName =
-  'ok' | 'uncertain' | 'partial' | 'missing' | 'deferred';
+  'ok' | 'uncertain' | 'partial' | 'missing' | 'deferred' | 'superseded';
 
+/** States that still need attention: the "all incomplete" list (never `superseded`). */
 export type IncompleteImageStateName = Exclude<
   GeometryImageStateName,
-  'complete'
+  'complete' | 'superseded'
 >;
+
+/** States the list can be filtered by: the incomplete ones and `superseded`. */
+export type ListedImageStateName = IncompleteImageStateName | 'superseded';
 
 const IMAGE_STATE_LABELS: Readonly<Record<GeometryImageStateName, string>> = {
   complete: 'Kompletne',
@@ -21,6 +27,8 @@ const IMAGE_STATE_LABELS: Readonly<Record<GeometryImageStateName, string>> = {
   incomplete_partial: 'Plansza częściowa',
   incomplete_uncertain: 'Siatka niepotwierdzona',
   no_source_geometry: 'Bez geometrii źródła',
+  import_failed: 'Import nieudany',
+  superseded: 'Zastąpione nowszym importem',
 };
 
 const POSITION_STATE_LABELS: Readonly<
@@ -31,6 +39,14 @@ const POSITION_STATE_LABELS: Readonly<
   partial: 'Plansza częściowa',
   missing: 'Brak siatki',
   deferred: 'Siatka odroczona',
+  superseded: 'Zastąpiona (numer jest w innym zdjęciu)',
+};
+
+const IMPORT_ERROR_LABELS: Readonly<Record<string, string>> = {
+  IMAGE_STAGE_EXECUTION_FAILED: 'etap przetwarzania zakończył się błędem',
+  IMAGE_STAGE_RESULT_INVALID: 'etap przetwarzania zwrócił nieprawidłowy wynik',
+  IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE:
+    'niepełne wsparcie źródła pól planszy',
 };
 
 const DEFERRED_REASON_LABELS: Readonly<Record<string, string>> = {
@@ -54,7 +70,14 @@ export const INCOMPLETE_IMAGE_STATES: readonly IncompleteImageStateName[] = [
   'incomplete_missing',
   'incomplete_partial',
   'incomplete_uncertain',
+  'import_failed',
   'no_source_geometry',
+];
+
+/** Filter tabs of the list: the incomplete states, then the replaced images. */
+export const LISTED_IMAGE_STATES: readonly ListedImageStateName[] = [
+  ...INCOMPLETE_IMAGE_STATES,
+  'superseded',
 ];
 
 export function geometryImageStateLabel(state: string): string {
@@ -73,6 +96,12 @@ export function geometrySourceStatusLabel(status: string): string {
   return SOURCE_STATUS_LABELS[status] ?? status;
 }
 
+/** Error code of a failed import file with its meaning, when the code is known. */
+export function geometryImportErrorLabel(code: string): string {
+  const label = IMPORT_ERROR_LABELS[code];
+  return label === undefined ? code : `${label} (${code})`;
+}
+
 /** Label of one position state, with the deferral reason when there is one. */
 export function geometryPositionLabel(
   state: string,
@@ -84,11 +113,15 @@ export function geometryPositionLabel(
     : `${label} (${geometryReasonLabel(reasonCode)})`;
 }
 
-export type GeometryPositionTone = 'ok' | 'warning' | 'danger';
+export type GeometryPositionTone = 'ok' | 'warning' | 'danger' | 'muted';
 
-/** Tone of a position in the preview: positions without a grid are `danger`. */
+/**
+ * Tone of a position in the preview: positions without a grid are `danger`;
+ * superseded ones are covered by another image, so they are only `muted`.
+ */
 export function geometryPositionTone(state: string): GeometryPositionTone {
   if (state === 'ok') return 'ok';
+  if (state === 'superseded') return 'muted';
   if (state === 'uncertain' || state === 'partial') return 'warning';
   return 'danger';
 }
@@ -101,6 +134,7 @@ export interface GeometrySectionInput {
   readonly error: string | null;
   readonly hasStaleData: boolean;
   readonly totalImages: number;
+  /** Images that still need attention; superseded and complete ones are not counted. */
   readonly incompleteImages: number;
 }
 

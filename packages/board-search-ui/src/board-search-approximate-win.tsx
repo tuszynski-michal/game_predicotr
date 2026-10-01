@@ -56,6 +56,7 @@ import {
   approximateWinStakeOptions,
   effectiveApproximateWinStakeGrosze,
   formatApproximateWinAmount,
+  formatApproximateWinWholeAmount,
   formatApproximateWinAxisValue,
   formatZloty,
   loadApproximateWinDisplay,
@@ -388,6 +389,19 @@ function approximateWinAmountFormatter(
     );
 }
 
+/** Like the amount formatter, but whole złote / whole credits (TASK-0787). */
+function approximateWinWholeAmountFormatter(
+  display: ApproximateWinDisplay,
+  spinCost: number,
+) {
+  const stake = effectiveApproximateWinStakeGrosze(display, spinCost);
+  return (baseCredits: number, unit: ApproximateWinAmountUnit = display.unit) =>
+    formatApproximateWinWholeAmount(
+      scaleApproximateWinAmountAtStake(baseCredits, stake, spinCost),
+      unit,
+    );
+}
+
 function unitNoun(unit: ApproximateWinAmountUnit): string {
   return unit === 'credits' ? ' kredytów' : '';
 }
@@ -448,6 +462,7 @@ function ApproximateWinResultView({
   };
   const spinCost = result.rules.spinCost;
   const amount = approximateWinAmountFormatter(display, spinCost);
+  const whole = approximateWinWholeAmountFormatter(display, spinCost);
   const hasIncompleteData =
     result.completeness.partialBoardCount > 0 ||
     result.completeness.missingBoardCount > 0;
@@ -539,12 +554,12 @@ function ApproximateWinResultView({
                     <td>{row.spinNumber.toLocaleString('pl-PL')}</td>
                     <td>#{row.sequenceNumber}</td>
                     <td>
-                      {amount(row.payoutCredits)}
+                      {whole(row.payoutCredits)}
                       {row.payoutKind === 'confirmed_minimum'
                         ? ' · częściowa (potwierdzone minimum)'
                         : ''}
                     </td>
-                    <td>{amount(row.cumulativeBalanceCredits)}</td>
+                    <td>{whole(row.cumulativeBalanceCredits)}</td>
                     <td>
                       <button
                         aria-label={`Pokaż planszę #${row.sequenceNumber} z liniami wypłat`}
@@ -769,12 +784,16 @@ export function ApproximateWinBalanceChart({
   // A chart label or pin is read on its own, so it always names the unit.
   const labelAmount = (baseCredits: number) =>
     `${amount(baseCredits)}${unitNoun(display.unit)}`;
+  const whole = approximateWinWholeAmountFormatter(display, spinCost);
+  const wholeLabel = (baseCredits: number) =>
+    `${whole(baseCredits)}${unitNoun(display.unit)}`;
   // What must be in hand from zero to get as far as this point (TASK-0778).
   const stakeLabel = (point: ApproximateWinChartPoint) =>
     labelAmount(approximateWinStakeToPoint(rows, spinCost, point));
-  // Stake plus net cash: what is on the machine at this point (TASK-0784).
-  const machineLabel = (point: ApproximateWinChartPoint) =>
-    labelAmount(approximateWinMachineCashAtPoint(rows, spinCost, point));
+  // Stake plus net cash is what is on the machine, always in whole credits
+  // whatever the unit (TASK-0787).
+  const creditsLabel = (point: ApproximateWinChartPoint) =>
+    whole(approximateWinMachineCashAtPoint(rows, spinCost, point), 'credits');
   const yTicks = approximateWinAxisTicks(
     plotValue(minimumBalance),
     plotValue(maximumBalance),
@@ -959,7 +978,7 @@ export function ApproximateWinBalanceChart({
     point,
   }: (typeof labels)[number]) => {
     const { left, top } = placement;
-    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, kasa na czysto ${labelAmount(point.cumulativeBalanceCredits)}, wkład ${stakeLabel(point)}, kasa na maszynie ${machineLabel(point)}`;
+    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, kasa na czysto ${wholeLabel(point.cumulativeBalanceCredits)}, wkład ${stakeLabel(point)}, kredyty ${creditsLabel(point)}`;
     return (
       <g
         className={
@@ -979,29 +998,22 @@ export function ApproximateWinBalanceChart({
           x={left}
           y={top}
         />
-        <text x={left + 7} y={top + 12}>
+        <text x={left + 6} y={top + 14}>
           {point.spinNumber.toLocaleString('pl-PL')} spinów
         </text>
         <text
-          className="boardSearchApproximateWinChartLabelValue"
-          x={left + 7}
-          y={top + 25}
-        >
-          Kasa na czysto: {labelAmount(point.cumulativeBalanceCredits)}
-        </text>
-        <text
           className="boardSearchApproximateWinChartLabelStake"
-          x={left + 7}
-          y={top + 38}
+          textAnchor="end"
+          x={left + CHART_LABEL.width - 6}
+          y={top + 14}
         >
-          Wkład: {stakeLabel(point)}
+          wkład: {stakeLabel(point)}
         </text>
-        <text
-          className="boardSearchApproximateWinChartLabelMachine"
-          x={left + 7}
-          y={top + 51}
-        >
-          Kasa na maszynie: {machineLabel(point)}
+        <text x={left + 6} y={top + 27}>
+          Kasa na czysto: {wholeLabel(point.cumulativeBalanceCredits)}
+        </text>
+        <text x={left + 6} y={top + 40}>
+          Kredyty: {creditsLabel(point)}
         </text>
         {pinned ? (
           <g
@@ -1025,11 +1037,11 @@ export function ApproximateWinBalanceChart({
               height={16}
               width={16}
               x={left + CHART_LABEL.width - 19}
-              y={top + 3}
+              y={top + CHART_LABEL.height - 19}
             />
             <text
               x={left + CHART_LABEL.width - 11}
-              y={top + 15}
+              y={top + CHART_LABEL.height - 7}
               textAnchor="middle"
             >
               ×
@@ -1050,7 +1062,8 @@ export function ApproximateWinBalanceChart({
           Między wygranymi spada o koszt każdego spinu; wykres kończy się na
           ostatnim spinie zakresu. Kliknij punkt albo użyj strzałek i Enter, aby
           go przypiąć. „Wkład” to kwota potrzebna od zera, by opłacić spiny do
-          tego punktu; „Kasa na maszynie” to wkład plus kasa na czysto.
+          tego punktu; „Kredyty” to wkład plus kasa na czysto, w pełnych
+          kredytach.
         </p>
       </div>
       <div className="boardSearchApproximateWinChartCanvas">
@@ -1169,12 +1182,12 @@ export function ApproximateWinBalanceChart({
             {pinnedPoints.map((point) => (
               <li key={approximateWinPointKey(point)}>
                 <span>
-                  {point.spinNumber.toLocaleString('pl-PL')} spinów · kasa na
-                  czysto {labelAmount(point.cumulativeBalanceCredits)} ·{' '}
+                  {point.spinNumber.toLocaleString('pl-PL')} spinów ·{' '}
                   <span className="boardSearchApproximateWinStake">
-                    wkład {stakeLabel(point)}
+                    wkład: {stakeLabel(point)}
                   </span>{' '}
-                  · kasa na maszynie {machineLabel(point)}
+                  · kasa na czysto {wholeLabel(point.cumulativeBalanceCredits)}{' '}
+                  · kredyty {creditsLabel(point)}
                 </span>
                 <button
                   aria-label={`Odepnij punkt ${point.spinNumber.toLocaleString('pl-PL')} spinów`}

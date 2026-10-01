@@ -231,13 +231,13 @@ export const APPROXIMATE_WIN_PIN_LIMIT = 6;
 /** Chart geometry in SVG units, shared with the label layout tests. */
 export const APPROXIMATE_WIN_CHART_WIDTH = 800;
 /**
- * Point labels drawn on the plot itself (TASK-0786): four text lines (spins,
- * net cash, stake needed to get there, cash on the machine). The width fits
- * "Kasa na maszynie: -123 456,5 kredytów" at the 11 px label font.
+ * Point labels drawn on the plot itself (TASK-0786): spins and stake on the
+ * first line, net cash and credits below (TASK-0787). The width fits
+ * "1 435 spinów" and "wkład: 388,50 zł" side by side at the 11 px font.
  */
 export const APPROXIMATE_WIN_CHART_LABEL = Object.freeze({
-  height: 56,
-  width: 200,
+  height: 44,
+  width: 190,
 });
 
 /** Stable identity of a chart point: a payout and its preceding drop share a spin. */

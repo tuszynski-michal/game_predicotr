@@ -796,11 +796,6 @@
   stroke: var(--accent);
 }
 
-.boardSearchApproximateWinChart text.boardSearchApproximateWinChartLabelValue {
-  fill: var(--text);
-  font-weight: 700;
-}
-
 .boardSearchApproximateWinChartUnpin {
   cursor: pointer;
 }

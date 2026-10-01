@@ -179,6 +179,10 @@ last_updated: 2026-10-01
   wykresu bilansu są rysowane na samym wykresie (obok punktu, z przerywaną
   linią), a nie w pasie nad nim; obszar danych zajmuje całą wysokość
   wykresu (340 zamiast 190 jednostek). Limit przypiętych punktów 8 → 6.
+- TASK-0787 done (2026-10-02, zgłoszenie operatora): tooltip wykresu węższy
+  i niższy — „378 spinów” i „wkład: X” w jednej linii, pod nimi „Kasa na
+  czysto” i „Kredyty” (dawniej „Kasa na maszynie”, zawsze pełne kredyty);
+  bez pogrubień; wygrana i kasa na czysto zaokrąglane do pełnych złotych.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

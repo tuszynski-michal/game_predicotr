@@ -154,6 +154,24 @@ export function formatApproximateWinAmount(
   });
 }
 
+/**
+ * Whole-number amount for the table and the chart tooltip (TASK-0787):
+ * złote are rounded to a whole złoty, credits to a whole credit. Credits are
+ * always whole in the game, so they never carry decimals.
+ */
+export function formatApproximateWinWholeAmount(
+  grosze: number,
+  unit: ApproximateWinAmountUnit,
+): string {
+  if (unit === 'pln') {
+    // Half away from zero, like every other amount here (-123,5 → -124).
+    const zloty = roundDivideHalfAwayFromZero(grosze, 100) + 0;
+    return `${zloty.toLocaleString('pl-PL', { maximumFractionDigits: 0 })} zł`;
+  }
+  const credits = roundDivideHalfAwayFromZero(grosze, GROSZE_PER_CREDIT) + 0;
+  return credits.toLocaleString('pl-PL', { maximumFractionDigits: 0 });
+}
+
 /** Axis tick text for a value already in the chosen unit. */
 export function formatApproximateWinAxisValue(
   value: number,

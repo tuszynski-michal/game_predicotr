@@ -10,6 +10,7 @@ import {
   approximateWinStakeOptions,
   effectiveApproximateWinStakeGrosze,
   formatApproximateWinAmount,
+  formatApproximateWinWholeAmount,
   loadApproximateWinDisplay,
   roundDivideHalfAwayFromZero,
   saveApproximateWinDisplay,
@@ -179,4 +180,19 @@ test('the stake resolution is cheap enough for every chart point', () => {
     scaleApproximateWinAmount(index, stake(600), 100);
   }
   assert.ok(performance.now() - started < 500);
+});
+
+test('whole amounts round złote to a złoty and credits to a credit', () => {
+  assert.equal(formatApproximateWinWholeAmount(12_345, 'pln'), '123 zł');
+  assert.equal(formatApproximateWinWholeAmount(12_350, 'pln'), '124 zł');
+  assert.equal(formatApproximateWinWholeAmount(-12_350, 'pln'), '-124 zł');
+  // A negative value that rounds to zero is a plain zero, never "-0".
+  assert.equal(formatApproximateWinWholeAmount(-20, 'pln'), '0 zł');
+  assert.equal(formatApproximateWinWholeAmount(27_604, 'credits'), '2760');
+  assert.equal(formatApproximateWinWholeAmount(27_605, 'credits'), '2761');
+  assert.equal(formatApproximateWinWholeAmount(-4, 'credits'), '0');
+  assert.equal(
+    formatApproximateWinWholeAmount(1_234_560, 'credits'),
+    '123 456',
+  );
 });

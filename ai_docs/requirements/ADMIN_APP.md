@@ -408,6 +408,14 @@ przerywana linia. Gdy obok brakuje miejsca, etykieta trafia dalej od punktu.
 Obszar danych zajmuje całą wysokość wykresu. Można przypiąć najwyżej 6
 punktów.
 
+**TASK-0787 — tooltip wykresu (zmienia powyższe).** Etykieta punktu ma trzy
+linie, bez pogrubień, jedną czcionką: „378 spinów” po lewej i „wkład: X” na
+czerwono po prawej (jedna linia), niżej „Kasa na czysto: X” i „Kredyty: N”.
+„Kredyty” (dawniej „Kasa na maszynie”, wkład + kasa na czysto) są zawsze w
+pełnych kredytach, niezależnie od wybranej jednostki. „Wygrana” i „Kasa na
+czysto” w tabeli i w etykiecie są zaokrąglane do pełnych złotych (kredyty nie
+mają części dziesiętnych); wkład zachowuje grosze.
+
 Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
 wyników” nad panelem, domyślnie 15 (D-476), w zakresie 1–100 (istniejący
 limit techniczny endpointu). Zakres wyszukiwania („Wszystkie plansze” /

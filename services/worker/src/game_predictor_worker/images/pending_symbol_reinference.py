@@ -111,7 +111,7 @@ class _PersistedVirtualCell:
                 "extractorVersion": self.extractor_version,
                 "logicalCellKeySha256": self.logical_cell_key_sha256,
                 "logicalCellKeyV2Sha256": self.logical_cell_key_v2_sha256,
-                "renderSpec": dict(self.render_spec),
+                # Slim shape (D-467 S8, TASK-0794): no renderSpec copy.
                 "renderSpecChecksumSha256": self.render_spec_checksum_sha256,
                 "renderedPixelChecksumSha256": self.rendered_pixel_checksum_sha256,
             },

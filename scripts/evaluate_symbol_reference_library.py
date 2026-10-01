@@ -26,6 +26,7 @@ import cv2
 import numpy as np
 import torch
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.prediction_revisions import PREDICTIONS_DIGEST_VERSION
 from game_predictor_api.storage.cell_render_specs import (
     CellRenderSpecError,
     CellRenderSpecKey,
@@ -2177,6 +2178,10 @@ def _apply_preview(arguments: argparse.Namespace) -> int:
     )
     manifest = {
         "format": APPLY_MANIFEST_FORMAT,
+        # TASK-0794: ``predictionsSha256`` is the v2 digest (slim projection);
+        # manifests without this field carry v1 digests, which ``apply`` and
+        # ``apply-revert`` still accept through ``legacy_predictions_sha256``.
+        "predictionsDigestVersion": PREDICTIONS_DIGEST_VERSION,
         "writerModelVersion": WRITER_MODEL_VERSION,
         "revisionChecksumSha256": revision_checksum,
         "game": preview["game"],

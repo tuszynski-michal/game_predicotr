@@ -1629,7 +1629,8 @@ def _append_prediction_revision(
                             )
                             else {}
                         ),
-                        "renderSpec": cast(Mapping[str, object], crop_value)["renderSpec"],
+                        # Slim shape (D-467 S8, TASK-0794): the render
+                        # specification itself is in the board render manifest.
                         "renderSpecChecksumSha256": cast(Mapping[str, object], crop_value)[
                             "renderSpecChecksumSha256"
                         ],

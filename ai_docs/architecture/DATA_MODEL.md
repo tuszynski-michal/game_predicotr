@@ -2183,6 +2183,35 @@ Image import job zapisuje przypięte `model_iteration_id`, manifest SHA-256 i
 fingerprint inferencji. Aktywacja innej wersji podczas joba nie zmienia tego
 snapshotu.
 
+Bieżąca tabela operacyjna to `game_data_v2.image_symbol_prediction_revisions`
+(`review_item_id`, `recognized_board_id`, `source_job_id`,
+`model_iteration_id`, `model_version`, `model_checksum_sha256`,
+`crop_manifest_checksum_sha256`, `predictions` JSONB,
+`legacy_predictions_sha256`, `created_at`; unikalność
+`(review_item_id, model_checksum_sha256, crop_manifest_checksum_sha256)`).
+`predictions` to lista wpisów komórek (`rowIndex`, `columnIndex`,
+`symbolCode`, `confidence`, `alternatives`, opcjonalnie `referenceLibrary`
+biblioteki wzorców i `virtualCell`). Od D-467 S8 (TASK-0794, kształt
+`slim-v2`) `virtualCell` niesie tylko sumy i klucze renderu
+(`cropChecksumSha256`, `extractorVersion`, `logicalCellKeySha256`, opcjonalnie
+`logicalCellKeyV2Sha256` i `renderIdentityV2Sha256`, `renderSpecChecksumSha256`,
+`renderedPixelChecksumSha256`); pełny `renderSpec` jest w
+`board_render_manifests`. Model ORM odrzuca zapis z `virtualCell.renderSpec`
+(`PREDICTION_REVISION_RENDER_SPEC_PRESENT`). Istniejące rewizje odchudza
+`scripts/slim_prediction_revisions.py`, który przed usunięciem `renderSpec`
+zapisuje w `legacy_predictions_sha256` (migracja `0137`, CHECK formatu SHA-256)
+digest v1 pełnej listy; rewizja już odchudzona dostaje tam digest v1 = v2
+(znacznik przetworzenia). Rewizja predykcji starszej rewizji geometrii 0
+(sprzed zmiany geometrii planszy) traci pełną specyfikację renderu —
+zostają sumy i klucze; żaden czytelnik runtime jej nie używa.
+Digesty biblioteki wzorców (D-466): v1 = sha256 kanonicznego JSON
+zapisanej listy, v2 = sha256 kanonicznego JSON listy bez
+`virtualCell.renderSpec` (ta sama wartość dla postaci pełnej i odchudzonej).
+`apply` i `apply-revert` akceptują w manifeście v2, v1 bieżącej postaci albo
+`legacy_predictions_sha256`. Retencja tego samego skryptu (`--mode
+retention`) usuwa rewizje zastąpionych review items bez komórek, których
+item nie ma rewizji biblioteki (kotwice `apply-revert` zostają).
+
 ## SQLite — snapshot mobilny
 
 Snapshot jest generowany, nie migrowany przez mobile jako baza robocza. Minimalny logiczny schemat:

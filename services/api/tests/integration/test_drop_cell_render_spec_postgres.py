@@ -155,6 +155,13 @@ def test_migration_0136_drops_the_cell_render_spec(
     command.upgrade(database.config, _BEFORE)
     with engine.begin() as connection:
         connection.exec_driver_sql(_SHIM)
+        # The current ORM maps legacy_predictions_sha256 (migration 0137,
+        # TASK-0794); this pre-0137 schema gets the column on the test
+        # database only.
+        connection.exec_driver_sql(
+            "ALTER TABLE game_data_v2.image_symbol_prediction_revisions "
+            "ADD COLUMN legacy_predictions_sha256 varchar(64)"
+        )
     game_id = _provision_game(engine, "task0793-drop")
     factory = _factory(engine)
     seed = _seed(factory, game_id, artifact_root, label="task0793-source", slot_count=2)

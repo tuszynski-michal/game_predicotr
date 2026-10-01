@@ -215,6 +215,13 @@ def test_conversion_restores_the_virtual_render_and_keeps_decisions(
         connection.exec_driver_sql(
             f"ALTER TABLE {_CELLS} ALTER COLUMN render_spec SET DEFAULT '{{}}'::jsonb"
         )
+        # The current ORM maps legacy_predictions_sha256 (migration 0137,
+        # TASK-0794); this pre-0137 schema gets the column on the test
+        # database only.
+        connection.exec_driver_sql(
+            "ALTER TABLE game_data_v2.image_symbol_prediction_revisions "
+            "ADD COLUMN legacy_predictions_sha256 varchar(64)"
+        )
     game_id = _provision_game(database.engine, "task0791-convert")
     factory: sessionmaker[Session] = _factory(database.engine)
     seed = _seed(factory, game_id, artifact_root, label="legacy-source", slot_count=2)

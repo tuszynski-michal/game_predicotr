@@ -313,6 +313,19 @@ last_updated: 2026-10-01
   bez manifestu, 7 500 390 komórek spełnia nowe CHECK-i; partycja 777 =
   6,7 GB wierszy + 18 GB TOAST + 8,5 GB indeksów. Cutover i `VACUUM FULL`
   wykonuje orkiestrator (runbook `DATABASE_MAINTENANCE.md` 2.6).
+  Cutover 2026-10-01 ok. 10:50 UTC: `0136` zastosowana, oba CHECK-i
+  zwalidowane, `VACUUM (FULL, ANALYZE)` partycji 777: 34 GB → 11 GB
+  (wiersze 6,5 GB), baza 61 GB → 39 GB. **Etap S7 zamknięty.**
+- TASK-0794 (S8) done (v1.7.122, audyt pominięty): `virtualCell` rewizji
+  predykcji bez `renderSpec` (`slim-v2`, walidacja ORM), digest v2 po
+  odchudzonej projekcji, kolumna `legacy_predictions_sha256` (migracja
+  `0137`, downgrade odmawia po wypełnieniu), `apply`/`revert` biblioteki
+  akceptują v2/v1/legacy, `apply-preview` zapisuje `predictionsDigestVersion: 2`;
+  skrypt `scripts/slim_prediction_revisions.py` (`--mode slim|retention`,
+  podgląd/`--execute`, checkpoint, kontrola digestu v2 przed/po).
+  Podgląd 777 (odczyt): 794 214 rewizji, `predictions` 10,1 GB, szacunek
+  oszczędności 5–7,5 GB; retencja 10 191 rewizji zastąpionych itemów bez
+  komórek (129 MB). Wykonanie na bazie przez orkiestratora.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

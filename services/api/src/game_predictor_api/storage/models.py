@@ -27,7 +27,7 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, validates
 
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.datasets import DatasetVersionStatus
@@ -38,6 +38,7 @@ from game_predictor_api.domain.image_selections import (
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
+from game_predictor_api.domain.prediction_revisions import require_slim_predictions
 from game_predictor_api.domain.reviews import (
     ReviewItemStatus,
     ReviewResolutionAction,
@@ -5179,7 +5180,15 @@ class ReviewFeedbackExportModel(Base):
 
 
 class ImageSymbolPredictionRevisionModel(Base):
-    """Append-only predictions produced by explicit pending-only inference."""
+    """Append-only predictions produced by explicit pending-only inference.
+
+    ``predictions`` has the slim shape (D-467 S8, TASK-0794): a virtual cell
+    entry carries checksums and keys in ``virtualCell``, never the full
+    ``renderSpec`` (validated on assignment).  ``legacy_predictions_sha256``
+    keeps the pre-slimming v1 digest of a revision slimmed by
+    ``scripts/slim_prediction_revisions.py`` (reference-library manifests
+    written before TASK-0794 carry that digest).
+    """
 
     __tablename__ = "image_symbol_prediction_revisions"
     __table_args__ = (
@@ -5190,6 +5199,10 @@ class ImageSymbolPredictionRevisionModel(Base):
         CheckConstraint(
             "crop_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_image_symbol_prediction_revisions_crop_manifest",
+        ),
+        CheckConstraint(
+            "legacy_predictions_sha256 IS NULL OR legacy_predictions_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_image_symbol_prediction_revisions_legacy_digest",
         ),
         UniqueConstraint(
             "review_item_id",
@@ -5224,9 +5237,17 @@ class ImageSymbolPredictionRevisionModel(Base):
     model_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     crop_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     predictions: Mapped[list[dict[str, object]]] = mapped_column(JSONB, nullable=False)
+    legacy_predictions_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
+
+    @validates("predictions")
+    def _validate_predictions(
+        self, _key: str, value: list[dict[str, object]]
+    ) -> list[dict[str, object]]:
+        require_slim_predictions(value)
+        return value
 
 
 class ImageSequenceCanonicalModel(Base):

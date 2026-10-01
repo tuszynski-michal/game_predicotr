@@ -324,6 +324,36 @@ last_updated: 2026-09-30
   zapisów (`DATABASE_MAINTENANCE.md` 2.6) — wykonuje orkiestrator za zgodą.
   Testy PG plansz `legacy_file` sprzed `0135` (konwersja) budują teraz
   schemat `0134` na świeżej bazie zamiast downgrade'u z głowy.
+- **Odchudzenie rewizji predykcji (TASK-0794, S8, migracja `0137`):**
+  `predictions[].virtualCell` ma kształt `slim-v2` — tylko sumy i klucze
+  renderu, bez kopii `renderSpec` (ok. 2,5 KB na komórkę); pisarze
+  (`pipeline_store`, `pending_symbol_reinference`, `apply`/`apply-revert`
+  biblioteki) piszą tę postać, a model ORM odrzuca zapis z `renderSpec`
+  (`PREDICTION_REVISION_RENDER_SPEC_PRESENT`). Czytelnicy runtime
+  (`image_review_repository`, `board_search_projection_repository`)
+  porównywali już tylko `renderSpecChecksumSha256`. Migracja
+  `0137_prediction_revisions_slim` dodaje nullable
+  `legacy_predictions_sha256` (CHECK formatu, walidowany od razu; downgrade
+  odmawia `PREDICTION_REVISION_LEGACY_DIGEST_PRESENT`, gdy jakaś wartość
+  istnieje), `EXPECTED_ALEMBIC_HEAD` = `0137`. Istniejące rewizje odchudza
+  wznawialny `scripts/slim_prediction_revisions.py` (podgląd tylko do
+  odczytu, `--execute` porcjami po `id` z checkpointem, digest v1 do kolumny
+  legacy, kontrola digestu v2 przed i po zapisie w tej samej transakcji,
+  raport bajtów `pg_column_size`); `crop_manifest_checksum_sha256` i
+  `model_checksum_sha256` bez zmian. Świadoma utrata: rewizja predykcji
+  starszej rewizji geometrii 0 traci pełny `renderSpec` (zostają sumy i
+  klucze; manifest renderu ma tylko bieżącą rewizję) — brak konsumenta
+  runtime. Retencja (`--mode retention`) usuwa rewizje zastąpionych review
+  items bez komórek, do których nie wskazuje żadna komórka i których item
+  nie ma rewizji biblioteki (kotwice `apply-revert` zostają). Podgląd na
+  bazie operatora (tylko odczyt, 2026-10-01, `0136`): 794 214 rewizji 777,
+  `predictions` 10,1 GB (`pg_column_size`), w próbce 2 000 rewizji 100% z
+  `renderSpec`, 0 różnic digestu v2; szacunek oszczędności 5,2 GB (stosunek
+  rozmiarów po zlib) do 7,5 GB (bez kompresji); retencja: 10 191 rewizji
+  (10 191 items), 129 MB. Miejsce wraca po `VACUUM (FULL, ANALYZE)` partycji
+  rewizji (`DATABASE_MAINTENANCE.md`); podglądy rekonsyliacji plansz
+  częściowych sprzed odchudzenia trzeba wygenerować ponownie (guard zawiera
+  wiersz bieżącej rewizji predykcji).
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu
@@ -360,6 +390,18 @@ last_updated: 2026-09-30
   podglądzie i jawnej zgodzie operatora; pierwszy: Arbuz poniżej 60%.
   Zgoda na pierwszy przebieg: polecenie operatora z 2026-09-30, by
   przeprowadzić cały proces (T3–T5, B1) bez jego udziału.
+- **Digest v2 (TASK-0794, D-467 S8, 2026-10-01):** `predictionsSha256` w
+  manifeście `apply-preview` jest od TASK-0794 digestem v2 — sha256
+  kanonicznego JSON listy predykcji bez `virtualCell.renderSpec` (ta sama
+  wartość dla rewizji pełnej i odchudzonej); manifest niesie
+  `predictionsDigestVersion: 2`. Manifesty zakończonych przebiegów (B1–B3,
+  bez tego pola) niosą digest v1 pełnej postaci; skrypt odchudzania zapisuje
+  go w `image_symbol_prediction_revisions.legacy_predictions_sha256` tuż
+  przed usunięciem `renderSpec`. `apply` i `apply-revert` akceptują v2,
+  v1 bieżącej postaci albo kolumnę legacy, więc kotwice `apply-revert`
+  przebiegów B1–B3 działają po odchudzeniu. `apply` zapisuje nową rewizję w
+  postaci odchudzonej; `apply-revert` przywraca odchudzoną kopię poprzedniej
+  rewizji (ten sam digest v2).
 
 ## D-465 — dobór wzorców symboli: zasłonięcia i zatwierdzenia masowe
 

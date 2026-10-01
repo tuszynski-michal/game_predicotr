@@ -274,6 +274,52 @@ Wycofanie: brak (`CELL_RENDER_SPEC_DROP_IRREVERSIBLE`). Specyfikacje renderu
 są w `board_render_manifests`; odtworzenie kolumny byłoby backfillem, nie
 downgradem. Przed `db:migrate` zrób kopię zapasową (`DATABASE_MAINTENANCE.md`).
 
+## Odchudzenie rewizji predykcji: migracja `0137` i skrypt (TASK-0794, D-467 S8)
+
+Kod od TASK-0794 wymaga migracji `0137_prediction_revisions_slim` (strażnik
+`ALEMBIC_HEAD_MISMATCH`) i pisze rewizje predykcji bez
+`virtualCell.renderSpec`. Cutover jak dla `0136`: zatrzymanie wszystkich
+procesów we wszystkich checkoutach (z kontrolą osieroconych dzieci
+`uvicorn --reload`) → merge → `npm run db:migrate` (`npm run db:current` =
+`0137_prediction_revisions_slim`; tylko nowa kolumna, bez przepisywania
+danych, `lock_timeout = 5s`) → start. Żaden przebieg `apply` biblioteki
+wzorców nie może trwać w trakcie cutoveru ani odchudzania.
+
+Odchudzenie istniejących rewizji (po starcie, w tle; blokuje tylko wiersze
+bieżącej porcji):
+
+```powershell
+$env:PYTHONPATH = "services/worker/src;services/api/src"
+# podgląd tylko do odczytu (działa też na 0136): liczby, bajty, próbka
+.\.venv\Scripts\python.exe scripts/slim_prediction_revisions.py --game-id <uuid> --preview
+# wykonanie porcjami po 500; --max-seconds kończy wywołanie, kolejne
+# kontynuuje od checkpointu; kod 2 = przerwane albo błąd (raport JSON)
+.\.venv\Scripts\python.exe scripts/slim_prediction_revisions.py --game-id <uuid> --execute --max-seconds 100
+# retencja rewizji zastąpionych review items bez komórek (bez kotwic biblioteki)
+.\.venv\Scripts\python.exe scripts/slim_prediction_revisions.py --game-id <uuid> --mode retention --preview
+.\.venv\Scripts\python.exe scripts/slim_prediction_revisions.py --game-id <uuid> --mode retention --execute
+```
+
+Raporty i `slim-checkpoint.json` trafiają do
+`artifacts/data/exports/prediction-revision-slim/<gra>/`. `--execute`
+powtarzaj, aż raport ma `completed: true`; kolejne wywołanie zwraca
+`scanned: 0`. Kontrola po zakończeniu:
+
+```sql
+SELECT count(*) FILTER (WHERE legacy_predictions_sha256 IS NULL) AS left,
+       pg_size_pretty(sum(pg_column_size(predictions))::bigint) AS stored
+FROM game_data_v2.image_symbol_prediction_revisions WHERE game_id = '<uuid>';
+```
+
+Błąd `PREDICTION_REVISION_SLIM_DIGEST_DRIFT` / `…_VERIFY_FAILED` wycofuje
+całą porcję (nic nie zapisano) — zgłoś przed ponowieniem. Miejsce zwalnia
+`VACUUM (FULL, ANALYZE)` partycji rewizji (`DATABASE_MAINTENANCE.md` 2.7).
+Wycofanie: `alembic downgrade 0136_…` usuwa kolumnę tylko, dopóki skrypt jej
+nie wypełnił (`PREDICTION_REVISION_LEGACY_DIGEST_PRESENT`); odchudzonych
+rewizji nie da się przywrócić z bazy (pełna specyfikacja bieżącej rewizji
+jest w manifeście renderu, starszych rewizji geometrii 0 — tylko w kopii
+zapasowej).
+
 ## Manifest magazynu v4: usunięcie `cell_observations` i archiwum wyszukiwarki (TASK-0759, D-467 S5)
 
 Kod od TASK-0759 wymaga migracji `0134_drop_cell_observations_and_legacy_archive`

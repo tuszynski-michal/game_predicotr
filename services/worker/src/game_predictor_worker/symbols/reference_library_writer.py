@@ -3,18 +3,30 @@
 One board is written per transaction through the existing prediction-revision
 mechanism, so the current human-decision rules of the symbol-cell projection
 apply unchanged. Nothing here approves a cell.
+
+``canonical_json`` and the digests are re-exported from
+``domain.prediction_revisions`` (TASK-0794): ``predictions_digest`` is v2 (slim
+projection, the same value for a full and a slimmed revision) and new
+manifests carry it; ``predictions_digest_v1`` is what manifests written
+before TASK-0794 carry.  ``apply`` and ``revert`` accept either.
 """
 
 from __future__ import annotations
 
 import copy
 import hashlib
-import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
 
+from game_predictor_api.domain.prediction_revisions import (
+    canonical_json,
+    predictions_digest,
+    predictions_digest_v1,
+    predictions_match,
+    slim_predictions,
+)
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
@@ -64,14 +76,6 @@ class BoardPlan:
     prediction_revision_id: UUID
     predictions_sha256: str
     targets: tuple[TargetCell, ...]
-
-
-def canonical_json(value: object) -> bytes:
-    return json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()
-
-
-def predictions_digest(predictions: Sequence[Mapping[str, Any]]) -> str:
-    return hashlib.sha256(canonical_json(list(predictions))).hexdigest()
 
 
 def _cell_index(entry: Mapping[str, Any], columns: int) -> int:
@@ -316,7 +320,11 @@ def apply_board(
         return "already_applied"
     if latest.id != plan.prediction_revision_id:
         return "stale:prediction_revision_changed"
-    if predictions_digest(latest.predictions) != plan.predictions_sha256:
+    if not predictions_match(
+        latest.predictions,
+        legacy_predictions_sha256=latest.legacy_predictions_sha256,
+        expected_sha256=plan.predictions_sha256,
+    ):
         return "stale:predictions_changed"
     if _snapshot_exists(
         session,
@@ -356,7 +364,7 @@ def apply_board(
             model_version=MODEL_VERSION,
             model_checksum_sha256=library_checksum_sha256,
             crop_manifest_checksum_sha256=latest.crop_manifest_checksum_sha256,
-            predictions=rewrite_predictions(latest.predictions, plan.targets),
+            predictions=slim_predictions(rewrite_predictions(latest.predictions, plan.targets)),
         ),
         expected_symbols={target.cell_review_id: target.new_symbol for target in plan.targets},
     )
@@ -390,7 +398,11 @@ def revert_board(
     ):
         return "stale:not_current_library_revision"
     previous = session.get(ImageSymbolPredictionRevisionModel, plan.prediction_revision_id)
-    if previous is None or predictions_digest(previous.predictions) != plan.predictions_sha256:
+    if previous is None or not predictions_match(
+        previous.predictions,
+        legacy_predictions_sha256=previous.legacy_predictions_sha256,
+        expected_sha256=plan.predictions_sha256,
+    ):
         return "stale:previous_revision_changed"
     if _snapshot_exists(
         session,
@@ -426,8 +438,28 @@ def revert_board(
             model_version=previous.model_version,
             model_checksum_sha256=checksum,
             crop_manifest_checksum_sha256=latest.crop_manifest_checksum_sha256,
-            predictions=copy.deepcopy(previous.predictions),
+            # A revision written before TASK-0794 may still be full; the
+            # restored copy has the slim shape (same v2 digest).
+            predictions=slim_predictions(previous.predictions),
         ),
         expected_symbols=expected_symbols,
     )
     return "reverted"
+
+
+__all__ = [
+    "ACTOR",
+    "LIBRARY_CONFIDENCE",
+    "MODEL_VERSION",
+    "TARGET_QUALITY_CHANGED",
+    "BoardPlan",
+    "ReferenceLibraryWriteError",
+    "TargetCell",
+    "apply_board",
+    "canonical_json",
+    "predictions_digest",
+    "predictions_digest_v1",
+    "revert_board",
+    "revert_checksum",
+    "rewrite_predictions",
+]

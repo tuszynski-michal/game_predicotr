@@ -517,7 +517,9 @@ class _PredictionRevisionSession:
         self.added.append(value)
 
 
-def test_virtual_prediction_revision_keeps_full_render_provenance() -> None:
+def test_virtual_prediction_revision_keeps_slim_render_provenance() -> None:
+    # D-467 S8 (TASK-0794): checksums and keys only; the render specification
+    # stays in the board render manifest.
     session = _PredictionRevisionSession()
     review_item_id = uuid4()
     board_id = uuid4()
@@ -571,7 +573,6 @@ def test_virtual_prediction_revision_keeps_full_render_provenance() -> None:
         "logicalCellKeySha256": crops[0]["logicalCellKeySha256"],
         "logicalCellKeyV2Sha256": crops[0]["logicalCellKeyV2Sha256"],
         "renderIdentityV2Sha256": crops[0]["renderIdentityV2Sha256"],
-        "renderSpec": {"cellIndex": 0},
         "renderSpecChecksumSha256": crops[0]["renderSpecChecksumSha256"],
         "renderedPixelChecksumSha256": crops[0]["renderedPixelChecksumSha256"],
     }

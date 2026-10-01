@@ -284,6 +284,35 @@ przebudowane), baza mniejsza o ok. 19–22 GB. Przerwanie `VACUUM FULL` (np.
 utrata połączenia) wycofuje przepisanie i zostawia starą kopię bez zmian;
 wtedy można je powtórzyć. Plik `docker_data.vhdx` nie maleje sam — sekcja 3.
 
+### 2.7. Po odchudzeniu rewizji predykcji: przepisanie partycji (TASK-0794)
+
+`scripts/slim_prediction_revisions.py --execute` zapisuje nowe, mniejsze
+wersje `predictions`; stare wersje TOAST zostają jako martwe miejsce do
+przepisania partycji. Stan przed (2026-10-01, partycja 777
+`game_data_v2.gpv2_bfc4f9495c14_495aa1afbdfc`): wiersze 236 MB, TOAST
+10 GB, indeksy 400 MB, razem 11 GB; `predictions` 10,1 GB wg
+`pg_column_size`. Podgląd skryptu szacuje 5,2–7,5 GB oszczędności.
+
+Warunki: skrypt zakończony (`completed: true`, `legacy_predictions_sha256 IS
+NULL` = 0), retencja wykonana albo świadomie pominięta, okno bez zapisów
+(`ACCESS EXCLUSIVE`: weryfikacja symboli, przeliczanie predykcji i
+`apply` biblioteki stoją; szacunkowo 5–15 min), wolne miejsce w bazie na
+nową kopię (przyjmij 6 GB + 5 GB zapasu), kopia zapasowa. Pomiar przed i
+po:
+
+```powershell
+docker exec game-predictor-postgres-1 psql -U game_predictor -d game_predictor -c "SELECT pg_size_pretty(pg_relation_size(oid)) AS heap, pg_size_pretty(pg_relation_size(reltoastrelid)) AS toast, pg_size_pretty(pg_indexes_size(oid)) AS indexes, pg_size_pretty(pg_total_relation_size(oid)) AS total FROM pg_class WHERE oid = 'game_data_v2.gpv2_bfc4f9495c14_495aa1afbdfc'::regclass"
+```
+
+Przepisanie (osobny terminal, nie przerywać; przerwanie wycofuje je bez
+zmian):
+
+```powershell
+docker exec game-predictor-postgres-1 psql -U game_predictor -d game_predictor -c "SET lock_timeout = '5s'" -c "SET statement_timeout = 0" -c "VACUUM (FULL, ANALYZE, VERBOSE) game_data_v2.gpv2_bfc4f9495c14_495aa1afbdfc"
+```
+
+Plik `docker_data.vhdx` nie maleje sam — sekcja 3.
+
 ## 3. Kompaktowanie `docker_data.vhdx`
 
 Plik VHDX rośnie, ale sam się nie zmniejsza. Kompaktowanie odzyskuje bloki

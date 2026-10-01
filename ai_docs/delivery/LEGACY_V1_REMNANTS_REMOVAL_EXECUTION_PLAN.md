@@ -324,6 +324,13 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   zakończenia wszystkich przebiegów D-466 i nowego `apply-preview` dla
   kolejnych); retencja rewizji zastąpionych review items bez komórek;
   bez usuwania kotwic `apply-revert`.
+  Wykonanie (2026-10-01, przed commitem): kształt `slim-v2` w pisarzach i
+  walidacji ORM, digest v2 z kolumną `legacy_predictions_sha256` (migracja
+  `0137`) dla manifestów v1 zakończonych przebiegów, skrypt
+  `scripts/slim_prediction_revisions.py` (odchudzanie i retencja, podgląd,
+  `--execute` porcjami z checkpointem). Podgląd na bazie operatora: 794 214
+  rewizji, ok. 5,2–7,5 GB do odzyskania, retencja 10 191 rewizji / 129 MB.
+  Wykonanie skryptu i `VACUUM FULL` — orkiestrator za zgodą.
 
 ## Mapa wymaganie → zadanie → kryterium
 

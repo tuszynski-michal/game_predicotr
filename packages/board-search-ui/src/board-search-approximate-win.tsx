@@ -978,7 +978,7 @@ export function ApproximateWinBalanceChart({
     point,
   }: (typeof labels)[number]) => {
     const { left, top } = placement;
-    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, kasa na czysto ${wholeLabel(point.cumulativeBalanceCredits)}, wkład ${stakeLabel(point)}, kredyty ${creditsLabel(point)}`;
+    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, kasa na czysto ${wholeLabel(point.cumulativeBalanceCredits)}, wkład ${stakeLabel(point)}, kredyty maszyna ${creditsLabel(point)}`;
     return (
       <g
         className={
@@ -1013,7 +1013,7 @@ export function ApproximateWinBalanceChart({
           Kasa na czysto: {wholeLabel(point.cumulativeBalanceCredits)}
         </text>
         <text x={left + 6} y={top + 40}>
-          Kredyty: {creditsLabel(point)}
+          Kredyty maszyna: {creditsLabel(point)}
         </text>
         {pinned ? (
           <g
@@ -1062,7 +1062,7 @@ export function ApproximateWinBalanceChart({
           Między wygranymi spada o koszt każdego spinu; wykres kończy się na
           ostatnim spinie zakresu. Kliknij punkt albo użyj strzałek i Enter, aby
           go przypiąć. „Wkład” to kwota potrzebna od zera, by opłacić spiny do
-          tego punktu; „Kredyty” to wkład plus kasa na czysto, w pełnych
+          tego punktu; „Kredyty maszyna” to wkład plus kasa na czysto, w pełnych
           kredytach.
         </p>
       </div>
@@ -1187,7 +1187,7 @@ export function ApproximateWinBalanceChart({
                     wkład: {stakeLabel(point)}
                   </span>{' '}
                   · kasa na czysto {wholeLabel(point.cumulativeBalanceCredits)}{' '}
-                  · kredyty {creditsLabel(point)}
+                  · kredyty maszyna {creditsLabel(point)}
                 </span>
                 <button
                   aria-label={`Odepnij punkt ${point.spinNumber.toLocaleString('pl-PL')} spinów`}

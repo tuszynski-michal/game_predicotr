@@ -621,7 +621,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   assert.equal(spinsLine, '2500 spinów');
   assert.match(stakeLine, /^wkład: [\d\s,]+ kredytów$/);
   assert.match(cashLine, /^Kasa na czysto: -17[\d\s]* kredytów$/);
-  assert.equal(creditsLine, 'Kredyty: 0');
+  assert.equal(creditsLine, 'Kredyty maszyna: 0');
   assert.ok(
     document.querySelector('.boardSearchApproximateWinChartLeader'),
     'the label is connected to its point by a dotted leader line',
@@ -651,7 +651,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartPins').textContent,
-    /2500 spinów · wkład: [\d\s,]+ kredytów · kasa na czysto -17[\d\s]* kredytów · kredyty 0/,
+    /2500 spinów · wkład: [\d\s,]+ kredytów · kasa na czysto -17[\d\s]* kredytów · kredyty maszyna 0/,
   );
 
   // Keyboard: ArrowRight from nothing highlights the first point; Enter pins it.
@@ -862,7 +862,7 @@ test('stake and unit re-scale every amount locally without a new request', async
   // The stake needed to get there follows the stake and unit too.
   assert.equal(labelLine(1), 'wkład: 60 kredytów');
   // Credits are the machine cash in whole credits whatever the unit.
-  assert.equal(labelLine(3), 'Kredyty: 2760');
+  assert.equal(labelLine(3), 'Kredyty maszyna: 2760');
   await choose(unitSelect, 'pln');
   assert.equal(firstPayout(), '300 zł');
   assert.equal(
@@ -877,7 +877,7 @@ test('stake and unit re-scale every amount locally without a new request', async
   );
   assert.equal(labelLine(2), 'Kasa na czysto: 270 zł');
   assert.equal(labelLine(1), 'wkład: 6,00 zł');
-  assert.equal(labelLine(3), 'Kredyty: 2760');
+  assert.equal(labelLine(3), 'Kredyty maszyna: 2760');
   assert.equal(calls, 1, 'changing stake or unit sends no request');
   assert.equal(
     JSON.parse(

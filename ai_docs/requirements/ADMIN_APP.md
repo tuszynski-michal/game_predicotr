@@ -400,6 +400,14 @@ kasę na czysto, wkład (na czerwono) i „kasę na maszynie” = wkład + kasa 
 czysto. Okno „Pokaż planszę” ma do 1500 px szerokości i wykorzystuje całą
 szerokość dialogu.
 
+**TASK-0786 — obowiązuje ponad starszymi opisami wykresu.** Etykiety punktów
+(najechanego i przypiętych) są rysowane na obszarze danych wykresu, nie w
+pasie nad nim: obok punktu — z lewej albo prawej, nad albo pod — tam, gdzie
+nie zasłaniają linii wykresu ani innej etykiety; z punktem łączy je
+przerywana linia. Gdy obok brakuje miejsca, etykieta trafia dalej od punktu.
+Obszar danych zajmuje całą wysokość wykresu. Można przypiąć najwyżej 6
+punktów.
+
 Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
 wyników” nad panelem, domyślnie 15 (D-476), w zakresie 1–100 (istniejący
 limit techniczny endpointu). Zakres wyszukiwania („Wszystkie plansze” /

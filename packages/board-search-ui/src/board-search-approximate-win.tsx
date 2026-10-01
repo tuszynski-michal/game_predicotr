@@ -21,7 +21,6 @@ import type { BoardSearchDataSource } from './board-search-data-source';
 
 import {
   APPROXIMATE_WIN_CHART_LABEL,
-  APPROXIMATE_WIN_CHART_LABEL_LAYOUT,
   APPROXIMATE_WIN_CHART_WIDTH,
   APPROXIMATE_WIN_IDLE_STATE,
   APPROXIMATE_WIN_PIN_LIMIT,
@@ -37,7 +36,7 @@ import {
   approximateWinStakeToPoint,
   approximateWinRequestKey,
   filterApproximateWinRows,
-  layoutApproximateWinPinLabels,
+  layoutApproximateWinPointLabels,
   moveApproximateWinHighlight,
   parseApproximateWinRange,
   shouldRequestApproximateWin,
@@ -803,26 +802,56 @@ export function ApproximateWinBalanceChart({
     .join(' ');
 
   const pinnedKeys = new Set(pinnedPoints.map(approximateWinPointKey));
-  const layoutOptions = APPROXIMATE_WIN_CHART_LABEL_LAYOUT;
-  const pinPlacements = layoutApproximateWinPinLabels(
-    pinnedPoints.map((point) => ({
-      key: approximateWinPointKey(point),
-      x: toX(point.spinNumber),
-    })),
+  // Labels sit on the plot (TASK-0786); samples of the series line let the
+  // layout keep them off the line where there is room.
+  const obstacles: { x: number; y: number }[] = [];
+  for (let index = 0; index < points.length; index += 1) {
+    const x = toX(points[index].spinNumber);
+    const y = toY(points[index].cumulativeBalanceCredits);
+    const previous = points[index - 1];
+    if (previous !== undefined) {
+      const fromX = toX(previous.spinNumber);
+      const fromY = toY(previous.cumulativeBalanceCredits);
+      const steps = Math.min(
+        40,
+        Math.ceil(Math.hypot(x - fromX, y - fromY) / 12),
+      );
+      for (let step = 1; step < steps; step += 1) {
+        obstacles.push({
+          x: fromX + ((x - fromX) * step) / steps,
+          y: fromY + ((y - fromY) * step) / steps,
+        });
+      }
+    }
+    obstacles.push({ x, y });
+  }
+  const layoutOptions = {
+    area: {
+      maxX: chartRight,
+      maxY: chartBottom - 2,
+      minX: chartLeft + 2,
+      minY: chartTop,
+    },
+    height: CHART_LABEL.height,
+    obstacles,
+    width: CHART_LABEL.width,
+  };
+  const labelRequest = (point: ApproximateWinChartPoint) => ({
+    key: approximateWinPointKey(point),
+    x: toX(point.spinNumber),
+    y: toY(point.cumulativeBalanceCredits),
+  });
+  const pinPlacements = layoutApproximateWinPointLabels(
+    pinnedPoints.map(labelRequest),
     layoutOptions,
   );
   const hoverPlacement =
     hoveredPoint !== null &&
     !pinnedKeys.has(approximateWinPointKey(hoveredPoint))
-      ? layoutApproximateWinPinLabels(
-          [
-            {
-              key: approximateWinPointKey(hoveredPoint),
-              x: toX(hoveredPoint.spinNumber),
-            },
-          ],
-          { ...layoutOptions, reserved: pinPlacements },
-        )[0]
+      ? layoutApproximateWinPointLabels([labelRequest(hoveredPoint)], {
+          ...layoutOptions,
+          reserved: pinPlacements,
+        })[0]
       : undefined;
   const pointByKey = new Map(
     labelPoints.map((point) => [approximateWinPointKey(point), point]),
@@ -903,19 +932,17 @@ export function ApproximateWinBalanceChart({
     return point === undefined ? [] : [{ pinned, placement, point }];
   });
   // Leaders and markers are drawn first so no leader crosses a label box.
-  const renderLeader = ({
-    pinned,
-    placement,
-    point,
-  }: (typeof labels)[number]) => {
-    const top = chartLabelTop(placement.row);
-    const pointY = toY(point.cumulativeBalanceCredits);
+  const renderLeader = ({ pinned, placement }: (typeof labels)[number]) => {
+    const { left, pointX, pointY, top } = placement;
+    // The leader ends at the nearest edge of the label box.
+    const anchorX = Math.min(left + CHART_LABEL.width, Math.max(left, pointX));
+    const anchorY = Math.min(top + CHART_LABEL.height, Math.max(top, pointY));
     return (
       <g key={`leader:${pinned ? 'pin' : 'hover'}:${placement.key}`}>
         <polyline
           className="boardSearchApproximateWinChartLeader"
           fill="none"
-          points={`${placement.x},${top + CHART_LABEL.height} ${placement.pointX},${chartTop} ${placement.pointX},${pointY}`}
+          points={`${anchorX},${anchorY} ${pointX},${pointY}`}
         />
         <circle
           className="boardSearchApproximateWinChartMarker"
@@ -931,8 +958,7 @@ export function ApproximateWinBalanceChart({
     placement,
     point,
   }: (typeof labels)[number]) => {
-    const top = chartLabelTop(placement.row);
-    const left = placement.x - CHART_LABEL.width / 2;
+    const { left, top } = placement;
     const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, kasa na czysto ${labelAmount(point.cumulativeBalanceCredits)}, wkład ${stakeLabel(point)}, kasa na maszynie ${machineLabel(point)}`;
     return (
       <g
@@ -942,7 +968,7 @@ export function ApproximateWinBalanceChart({
             : 'boardSearchApproximateWinChartLabel'
         }
         key={`${pinned ? 'pin' : 'hover'}:${placement.key}`}
-        // A shifted label sits above another point; clicking it must not
+        // A label sits over other points; clicking it must not
         // toggle whichever point is nearest to the pointer.
         onClick={(event) => event.stopPropagation()}
       >
@@ -1180,22 +1206,11 @@ export function ApproximateWinBalanceChart({
 
 const CHART_WIDTH = APPROXIMATE_WIN_CHART_WIDTH;
 const CHART_LABEL = APPROXIMATE_WIN_CHART_LABEL;
-const CHART_LABEL_BAND =
-  CHART_LABEL.rows * (CHART_LABEL.height + CHART_LABEL.rowGap) + 8;
+/** The plot takes the whole chart; labels are drawn on it (TASK-0786). */
 const CHART_FRAME = {
-  chartBottom: CHART_LABEL_BAND + 190,
+  chartBottom: 12 + 340,
   chartLeft: 72,
   chartRight: CHART_WIDTH - 18,
-  chartTop: CHART_LABEL_BAND,
+  chartTop: 12,
 } as const;
 const CHART_HEIGHT = CHART_FRAME.chartBottom + 36;
-
-/** Top of a label box; row 0 sits directly above the plot. */
-function chartLabelTop(row: number): number {
-  return (
-    CHART_LABEL_BAND -
-    8 -
-    (row + 1) * (CHART_LABEL.height + CHART_LABEL.rowGap) +
-    CHART_LABEL.rowGap
-  );
-}

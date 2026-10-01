@@ -175,6 +175,10 @@ last_updated: 2026-10-01
 - TASK-0785 done (2026-10-02, zgłoszenie operatora): usunięty baner
   „Plansza startowa … nie jest jeszcze zatwierdzona” w „Przybliżonej
   wygranej” — przy wyszukiwaniu po wszystkich planszach pojawiał się stale.
+- TASK-0786 done (2026-10-02, zgłoszenie operatora): etykiety punktów
+  wykresu bilansu są rysowane na samym wykresie (obok punktu, z przerywaną
+  linią), a nie w pasie nad nim; obszar danych zajmuje całą wysokość
+  wykresu (340 zamiast 190 jednostek). Limit przypiętych punktów 8 → 6.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

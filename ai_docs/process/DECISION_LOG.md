@@ -301,6 +301,29 @@ last_updated: 2026-09-30
   sięga do `image_board_geometry_revisions.virtual_render_spec`. Manifest
   kohorty i jej komórki (`verified_training_cohort_cells.render_spec`) to
   zamrożony zapis treningu, nie duplikat komórki — zostają.
+- **Usunięcie kolumny `render_spec` komórek (TASK-0793, S7, migracja `0136`):**
+  `0136_drop_cell_render_spec` w jednej transakcji (`lock_timeout` 5 s,
+  `statement_timeout` 120 s, `ACCESS EXCLUSIVE` na komórkach, `SHARE` na
+  manifestach) sprawdza, że każda komórka `virtual_source` ma manifest renderu
+  swojej `(game, board, geometry_revision)` (anti-join po PK manifestu, bez
+  rozwijania JSONB; na bazie operatora 0 braków, ok. 7 s), inaczej
+  `CELL_RENDER_MANIFEST_MISSING`; podmienia `ck_image_symbol_review_cells_asset_provenance`
+  i `ck_image_symbol_review_cells_source_asset` na wersje bez kolumny (obie
+  `NOT VALID`, walidacja runbookiem; 7 500 390 wierszy operatora spełnia oba
+  nowe wyrażenia — sprawdzone tylko do odczytu) i wykonuje `DROP COLUMN
+  render_spec` na rodzicu. Downgrade odmawia
+  (`CELL_RENDER_SPEC_DROP_IRREVERSIBLE`): specyfikacje są w manifestach, a
+  odtworzenie kolumny byłoby backfillem. `EXPECTED_ALEMBIC_HEAD` = `0136`.
+  ORM, pisarze (`_asset_provenance_values`, `_apply_cell_projection`, pozycje
+  `outside` z `flag_modified`, `_replace_current_cells`, `_convert_current_cells`)
+  i strażnik rekonsyliacji nie znają już kolumny. Eksport laboratorium wizji
+  (`scripts/vision_lab_export.py`) niesie wiersze `board_render_manifests`
+  plansz eksportu, bo wiersz komórki stracił pole (ta sama wersja eksportera;
+  konsument `symbol_snapshot` pola nie czytał). Miejsce (TOAST 18 GB partycji
+  777) zwalnia przepisanie partycji `VACUUM (FULL, ANALYZE)` w oknie bez
+  zapisów (`DATABASE_MAINTENANCE.md` 2.6) — wykonuje orkiestrator za zgodą.
+  Testy PG plansz `legacy_file` sprzed `0135` (konwersja) budują teraz
+  schemat `0134` na świeżej bazie zamiast downgrade'u z głowy.
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu

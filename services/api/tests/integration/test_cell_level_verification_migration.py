@@ -169,7 +169,6 @@ def _make_virtual(session: Session, game_id: UUID, review_item_id: UUID, now: da
         cell.crop_relative_path = None
         cell.source_geometry_revision_id = revision.id
         cell.logical_cell_key = f"{cell.cell_index + 1:064x}"
-        cell.render_spec = {"cellIndex": cell.cell_index}
         cell.render_spec_checksum_sha256 = "c" * 64
         cell.rendered_pixel_checksum_sha256 = f"{cell.cell_index + 500:064x}"
         cell.extractor_version = "virtual-cell-test-v1"

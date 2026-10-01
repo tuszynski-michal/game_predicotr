@@ -1170,7 +1170,8 @@ Migracja 0082 dodaje ten sam warunkowy kontrakt proweniencji do bieżącej
 projekcji `image_symbol_review_cells`, append-only eventów, rewizji geometrii i
 próbek zweryfikowanych kohort. Rekord `virtual_source` nie może udawać pliku:
 ścieżka jest `NULL`, a source geometry, logical key, render spec i pixel SHA-256
-są obowiązkowe. `legacy_file` nadal wymaga istniejących pól ścieżki i checksumy.
+są obowiązkowe (od `0136` komórka weryfikacji ma tylko sumę render spec;
+specyfikacja jest w `board_render_manifests`). `legacy_file` nadal wymaga istniejących pól ścieżki i checksumy.
 
 TASK-0321 zachowuje `logical_cell_key` jako historyczny klucz
 `logical-cell-v1`, oparty na checksumie treści źródła. Nie jest on przepisywany
@@ -1367,12 +1368,18 @@ Czytelnik wymaga zgodności `renderSpecChecksumSha256` wpisu oraz kanonicznej
 sumy jego `renderSpec` z sumą komórki i odmawia jawnie:
 `IMAGE_REVIEW_RENDER_MANIFEST_MISSING` (brak manifestu rewizji komórki),
 `IMAGE_REVIEW_RENDER_SPEC_MISSING` (brak jednoznacznego wpisu komórki),
-`IMAGE_REVIEW_RENDER_SPEC_MISMATCH` (inna suma). Kolumna
-`image_symbol_review_cells.render_spec` jest do TASK-0793 wyłącznie
-zapisywana (CHECK `ck_image_symbol_review_cells_asset_provenance` nadal jej
-wymaga); w modelu ORM jest odroczona z `raiseload`, więc odczyt z bazy zgłasza
-błąd zamiast cicho czytać duplikat. TASK-0793 usuwa kolumnę, CHECK i zapisy
-razem. Zamrożone komórki kohort (`verified_training_cohort_cells.render_spec`)
+`IMAGE_REVIEW_RENDER_SPEC_MISMATCH` (inna suma). Migracja
+`0136_drop_cell_render_spec` (TASK-0793) usunęła kolumnę
+`image_symbol_review_cells.render_spec` (z rodzica i wszystkich partycji) po
+preflighcie `CELL_RENDER_MANIFEST_MISSING` (każda komórka `virtual_source`
+musi mieć manifest swojej rewizji). CHECK-i
+`ck_image_symbol_review_cells_asset_provenance` (gałąź `virtual_source` bez
+`jsonb_typeof(render_spec)`) i `ck_image_symbol_review_cells_source_asset`
+(gałąź `none` bez `render_spec IS NULL`) są dodane `NOT VALID` i walidowane
+runbookiem; downgrade odmawia (`CELL_RENDER_SPEC_DROP_IRREVERSIBLE`). Miejsce
+po kolumnie zwalnia przepisanie partycji (`DATABASE_MAINTENANCE.md` 2.6).
+Eksport laboratorium wizji niesie manifesty (`board_render_manifests.jsonl`)
+zamiast pola komórki. Zamrożone komórki kohort (`verified_training_cohort_cells.render_spec`)
 i manifest kohorty pozostają własnym, niezmiennym zapisem treningu.
 
 W `game_data_v2` ta sama tabela jest jedyną bieżącą projekcją i dodatkowo ma
@@ -2462,8 +2469,8 @@ odpowiedzialności nie są równorzędne:
 - `board_render_manifests.cells` przechowuje proweniencję renderu bieżącej
   rewizji planszy (do `0134` także `cell_observations.render_spec`) i od
   D-467 S7 (TASK-0792) jest jedynym źródłem specyfikacji renderu komórki
-  weryfikacji dla czytelników; `image_symbol_review_cells.render_spec` jest
-  wyłącznie zapisywany do czasu usunięcia kolumny (TASK-0793).
+  weryfikacji; kolumna `image_symbol_review_cells.render_spec` została
+  usunięta migracją `0136` (TASK-0793).
 
 Pełna mapa ról, invarianty cross-table, reguły manualnego recropu i projekt
 addytywnej korekty znajdują się w

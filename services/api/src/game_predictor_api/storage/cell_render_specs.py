@@ -1,13 +1,13 @@
 """Cell render specifications read from board render manifests (D-467 S7, TASK-0792).
 
-``image_symbol_review_cells.render_spec`` duplicates, per cell, the
-``renderSpec`` that ``board_render_manifests`` already stores once per board
-revision.  Every runtime reader that needs a cell's full render specification
+A review cell stores only the identity of its render
+(``render_spec_checksum_sha256`` and the logical keys); the full
+``renderSpec`` is stored once per board revision in ``board_render_manifests``
+(the former per-cell copy was dropped by migration ``0136``, TASK-0793).
+Every runtime reader that needs a cell's full render specification
 (preview/atlas, symbol reference candidates, training cohorts, manual
 geometry configuration, rollout validation, evaluation scripts) resolves it
-here from the manifest of ``(recognized_board_id, geometry_revision)``.  The
-cell keeps only ``render_spec_checksum_sha256`` and its identity keys; the
-column itself is removed by TASK-0793.
+here from the manifest of ``(recognized_board_id, geometry_revision)``.
 
 Rules (fail closed, no silent substitution):
 

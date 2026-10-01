@@ -240,6 +240,50 @@ planisty dla tabel weryfikacji symboli odświeża `refresh_symbol_review_query_s
 przy następnym pełnym przebudowaniu projekcji (lista tabel zawiera teraz
 `board_render_manifests` zamiast `cell_observations`).
 
+### 2.6. Po migracji `0136`: przepisanie partycji komórek (TASK-0793)
+
+`0136` usuwa kolumnę `image_symbol_review_cells.render_spec` tylko z
+katalogu: stare wiersze i ich TOAST zostają na dysku, dopóki partycja nie
+zostanie przepisana. Stan przed migracją (2026-10-01, partycja 777
+`game_data_v2.gpv2_bfc4f9495c14_08b43e8e744d`): wiersze 6,7 GB, TOAST 18 GB,
+indeksy 8,5 GB, razem 34 GB; partycje `cf300bc1…` (2 MB) i `2a46d3a6…`
+(0,2 MB) nie wymagają przepisania.
+
+Przepisanie wykonuje się raz, po cutoverze `0136` i walidacji CHECK-ów
+(`LOCAL_OPERATION_GUIDE.md`), w oknie bez zapisów i odczytów komórek:
+
+- `VACUUM FULL` bierze `ACCESS EXCLUSIVE` na partycji: weryfikacja symboli,
+  wyszukiwarka i joby stoją przez cały czas przepisania (szacunkowo
+  10–30 min). Zatrzymaj API (wszystkie porty), Admin, Reviewer i workery we
+  wszystkich checkoutach.
+- Wolne miejsce wewnątrz bazy (VHDX) musi pomieścić nową kopię: ok. rozmiar
+  wierszy + indeksów po usunięciu kolumny, przyjmij 15 GB + 5 GB zapasu.
+  Stara kopia (34 GB) jest zwalniana dopiero na końcu. Sprawdź wolne miejsce
+  Dockera (`docker system df`, `Get-PSDrive C`) i nie zaczynaj przy mniej niż
+  20 GB.
+- Zrób kopię zapasową przed oknem (sekcja 4).
+
+Pomiar przed:
+
+```powershell
+docker exec game-predictor-postgres-1 psql -U game_predictor -d game_predictor -c "SELECT pg_size_pretty(pg_relation_size('game_data_v2.gpv2_bfc4f9495c14_08b43e8e744d')) AS heap, pg_size_pretty(pg_relation_size(reltoastrelid)) AS toast, pg_size_pretty(pg_indexes_size('game_data_v2.gpv2_bfc4f9495c14_08b43e8e744d')) AS indexes, pg_size_pretty(pg_total_relation_size('game_data_v2.gpv2_bfc4f9495c14_08b43e8e744d')) AS total FROM pg_class WHERE oid = 'game_data_v2.gpv2_bfc4f9495c14_08b43e8e744d'::regclass"
+docker exec game-predictor-postgres-1 psql -U game_predictor -d game_predictor -c "SELECT pg_size_pretty(pg_database_size('game_predictor'))"
+```
+
+Przepisanie (`lock_timeout` przerywa próbę, gdy jakikolwiek proces trzyma
+partycję; `statement_timeout = 0`, bo przepisanie trwa długo — komenda jest
+jedynym procesem w oknie, uruchom ją w osobnym terminalu i nie przerywaj):
+
+```powershell
+docker exec game-predictor-postgres-1 psql -U game_predictor -d game_predictor -c "SET lock_timeout = '5s'" -c "SET statement_timeout = 0" -c "VACUUM (FULL, ANALYZE, VERBOSE) game_data_v2.gpv2_bfc4f9495c14_08b43e8e744d"
+```
+
+Pomiar po: te same zapytania co przed. Oczekiwane: TOAST bliski 0, razem ok.
+12–15 GB (wiersze bez wskaźników TOAST i martwych krotek, indeksy
+przebudowane), baza mniejsza o ok. 19–22 GB. Przerwanie `VACUUM FULL` (np.
+utrata połączenia) wycofuje przepisanie i zostawia starą kopię bez zmian;
+wtedy można je powtórzyć. Plik `docker_data.vhdx` nie maleje sam — sekcja 3.
+
 ## 3. Kompaktowanie `docker_data.vhdx`
 
 Plik VHDX rośnie, ale sam się nie zmniejsza. Kompaktowanie odzyskuje bloki

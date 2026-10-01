@@ -1112,7 +1112,6 @@ class SqlAlchemyVirtualGridGeometryRepository:
             cell.logical_cell_key = rendered.logical_cell_key
             cell.logical_cell_key_v2 = rendered.logical_cell_key_v2
             cell.render_identity_v2_sha256 = rendered.render_identity_v2_sha256
-            cell.render_spec = dict(rendered.render_spec)
             cell.render_spec_checksum_sha256 = rendered.render_spec_checksum_sha256
             cell.rendered_pixel_checksum_sha256 = rendered.rendered_pixel_checksum_sha256
             cell.extractor_version = rendered.extractor_version
@@ -1632,7 +1631,6 @@ class SqlAlchemyVirtualGridGeometryRepository:
             cell.logical_cell_key = rendered.logical_cell_key
             cell.logical_cell_key_v2 = rendered.logical_cell_key_v2
             cell.render_identity_v2_sha256 = rendered.render_identity_v2_sha256
-            cell.render_spec = dict(rendered.render_spec)
             cell.render_spec_checksum_sha256 = rendered.render_spec_checksum_sha256
             cell.rendered_pixel_checksum_sha256 = rendered.rendered_pixel_checksum_sha256
             cell.extractor_version = rendered.extractor_version

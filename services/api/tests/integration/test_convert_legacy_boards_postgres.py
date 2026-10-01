@@ -7,6 +7,13 @@ no manifest) with human decisions on the cells — the same shape the 461 boards
 of game 777 had.  The conversion must bring the board back to the virtual
 render of the same corners while keeping every decision, and migration 0135
 must refuse before and pass after the conversion.
+
+Migration ``0136`` (TASK-0793) dropped ``image_symbol_review_cells.render_spec``
+and refuses to downgrade, so the test builds the ``0134`` schema on a fresh
+database instead of downgrading from head.  The current writers no longer set
+the column, which the ``0134``/``0135`` CHECK still requires for virtual
+cells; a column default of ``'{}'`` stands in for the former writer value on
+this test database only.  The test ends by upgrading to head.
 """
 
 from __future__ import annotations
@@ -55,6 +62,7 @@ pytestmark = pytest.mark.skipif(
 
 _PREVIOUS_HEAD = "0134_drop_cell_observations_and_legacy_archive"
 _HEAD = "0135_virtual_only_asset_modes"
+_DROP_RENDER_SPEC = "0136_drop_cell_render_spec"
 _CELLS = "game_data_v2.image_symbol_review_cells"
 
 
@@ -196,7 +204,17 @@ def test_conversion_restores_the_virtual_render_and_keeps_decisions(
     tmp_path: Path,
 ) -> None:
     artifact_root = tmp_path / "artifacts"
-    command.downgrade(database.config, _PREVIOUS_HEAD)
+    # 0136 refuses to downgrade: reach 0134 on a fresh schema.
+    database.engine.dispose()
+    with database.engine.begin() as connection:
+        connection.exec_driver_sql("DROP SCHEMA IF EXISTS game_data_v2 CASCADE")
+        connection.exec_driver_sql("DROP SCHEMA public CASCADE")
+        connection.exec_driver_sql("CREATE SCHEMA public")
+    command.upgrade(database.config, _PREVIOUS_HEAD)
+    with database.engine.begin() as connection:
+        connection.exec_driver_sql(
+            f"ALTER TABLE {_CELLS} ALTER COLUMN render_spec SET DEFAULT '{{}}'::jsonb"
+        )
     game_id = _provision_game(database.engine, "task0791-convert")
     factory: sessionmaker[Session] = _factory(database.engine)
     seed = _seed(factory, game_id, artifact_root, label="legacy-source", slot_count=2)
@@ -378,3 +396,19 @@ def test_conversion_restores_the_virtual_render_and_keeps_decisions(
         ).scalar_one()
     assert "legacy_file" in restored
     command.upgrade(database.config, _HEAD)
+
+    # 0136 drops the column; the converted cells keep their render identity.
+    command.upgrade(database.config, _DROP_RENDER_SPEC)
+    with game_storage_scope(game_id), factory() as session:
+        assert _cell_provenance(session, game_id, board_id) == provenance
+        assert _decisions(session, game_id, board_id) == decisions_after
+        assert (
+            session.execute(
+                text(
+                    """SELECT count(*) FROM information_schema.columns
+                    WHERE table_schema = 'game_data_v2' AND column_name = 'render_spec'
+                      AND table_name LIKE '%image_symbol_review_cells%'"""
+                )
+            ).scalar_one()
+            == 0
+        )

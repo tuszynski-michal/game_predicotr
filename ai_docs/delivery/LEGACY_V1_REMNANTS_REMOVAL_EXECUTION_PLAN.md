@@ -307,6 +307,14 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   `image_symbol_review_cells` usunięta; odzyskanie miejsca przez przepisanie
   partycji (`VACUUM FULL` albo swap partycji; ACCESS EXCLUSIVE, wymaga
   ok. 15 GB wolnego miejsca, okno bez zapisów, zgoda).
+  Wykonanie (2026-10-01, przed commitem): migracja `0136_drop_cell_render_spec`
+  (preflight `CELL_RENDER_MANIFEST_MISSING`, oba CHECK-i bez kolumny jako
+  `NOT VALID`, `DROP COLUMN`, downgrade odmawia
+  `CELL_RENDER_SPEC_DROP_IRREVERSIBLE`), ORM i pisarze bez kolumny, eksport
+  laboratorium z manifestami, runbooki: cutover i walidacja CHECK-ów w
+  `LOCAL_OPERATION_GUIDE.md`, przepisanie partycji 777 w
+  `DATABASE_MAINTENANCE.md` 2.6. Migracja i `VACUUM FULL` na bazie
+  operatora — orkiestrator, osobna zgoda.
 
 ### S8 — odchudzenie rewizji predykcji
 

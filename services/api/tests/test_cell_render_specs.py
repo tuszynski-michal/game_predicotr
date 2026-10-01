@@ -215,20 +215,21 @@ def test_verified_spec_equals_the_cell_column_it_replaces() -> None:
     assert sha256_canonical_json(spec) == sha256_canonical_json(column)
 
 
-def test_cell_render_spec_column_is_write_only_for_the_orm() -> None:
-    """Loading a review cell never reads the duplicated column; access raises."""
+def test_review_cell_model_has_no_render_spec_column() -> None:
+    """Migration 0136 (TASK-0793) dropped the per-cell copy; only the checksum stays."""
 
     import re
 
     from game_predictor_api.storage.models import ImageSymbolReviewCellModel
-    from sqlalchemy import inspect, select
+    from sqlalchemy import Table, inspect, select
     from sqlalchemy.dialects import postgresql
 
-    prop = inspect(ImageSymbolReviewCellModel).attrs["render_spec"]
-    assert prop.deferred is True
-    assert ("raiseload", True) in prop.strategy_key
+    table = cast(Table, ImageSymbolReviewCellModel.__table__)
+    assert "render_spec" not in table.c
+    assert "render_spec_checksum_sha256" in table.c
+    assert "render_spec" not in inspect(ImageSymbolReviewCellModel).attrs
     sql = str(select(ImageSymbolReviewCellModel).compile(dialect=postgresql.dialect()))
     assert re.search(r"\.render_spec\b(?!_)", sql) is None
-    assert "image_symbol_review_cells.render_spec_checksum_sha256" in sql
-    # Writers still set it (the cell CHECK requires it until TASK-0793).
-    assert ImageSymbolReviewCellModel(render_spec={"a": 1}).render_spec == {"a": 1}
+    for constraint in table.constraints:
+        sqltext = str(getattr(constraint, "sqltext", ""))
+        assert re.search(r"\brender_spec\b(?!_)", sqltext) is None, constraint.name

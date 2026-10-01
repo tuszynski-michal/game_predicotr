@@ -160,12 +160,8 @@ def test_virtual_source_materializer_keeps_current_render_provenance() -> None:
         "logical_cell_key": _sha(2_000),
         "logical_cell_key_v2": _sha(3_000),
         "render_identity_v2_sha256": _sha(4_000),
-        "render_spec": {
-            "cellIndex": 0,
-            "columnIndex": 0,
-            "rowIndex": 0,
-            "schemaVersion": "virtual-cell-render-spec-v1",
-        },
+        # D-467 S7 (TASK-0793): the cell persists only the checksum; the
+        # specification stays in the board render manifest.
         "render_spec_checksum_sha256": hashlib.sha256(
             canonical_json_bytes(
                 {

@@ -30,7 +30,6 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, aliased, load_only
-from sqlalchemy.orm.attributes import flag_modified
 from sqlalchemy.sql import ColumnElement, Select
 
 from game_predictor_api.application.image_reviews import OperationalImageReviewService
@@ -2491,7 +2490,6 @@ class SymbolCellReviewWriteThroughCoordinator:
                     crop_sample_id=None,
                     crop_checksum_sha256=None,
                     crop_relative_path=None,
-                    render_spec=None,
                     render_spec_checksum_sha256=None,
                     rendered_pixel_checksum_sha256=None,
                     render_identity_v2_sha256=None,
@@ -2518,19 +2516,10 @@ class SymbolCellReviewWriteThroughCoordinator:
                             new_geometry=cell.geometry_revision != board.geometry_revision,
                         )
                     )
-                # D-467 S7: ``render_spec`` is write-only; its checksum (and the
-                # asset-mode CHECK) already decide whether the asset changed.
-                if any(
-                    getattr(cell, key) != value
-                    for key, value in values.items()
-                    if key != "render_spec"
-                ):
+                if any(getattr(cell, key) != value for key, value in values.items()):
                     previous = _CellPreviousState.from_model(cell)
                     for key, value in values.items():
                         setattr(cell, key, value)
-                    # Historical JSON null decodes to Python None too. Force a
-                    # SQL NULL write when removing an existing image asset.
-                    flag_modified(cell, "render_spec")
                     cell.revision += 1
                     cell.last_reviewed_by = actor
                     self._append_event(
@@ -3151,7 +3140,6 @@ def _asset_provenance_values(review_cell: ImageReviewCell) -> dict[str, object]:
             "logical_cell_key": None,
             "logical_cell_key_v2": None,
             "render_identity_v2_sha256": None,
-            "render_spec": None,
             "render_spec_checksum_sha256": None,
             "rendered_pixel_checksum_sha256": None,
             "extractor_version": None,
@@ -3175,7 +3163,6 @@ def _asset_provenance_values(review_cell: ImageReviewCell) -> dict[str, object]:
         "logical_cell_key": review_cell.logical_cell_key,
         "logical_cell_key_v2": review_cell.logical_cell_key_v2,
         "render_identity_v2_sha256": review_cell.render_identity_v2_sha256,
-        "render_spec": dict(review_cell.render_spec),
         "render_spec_checksum_sha256": review_cell.render_spec_checksum_sha256,
         "rendered_pixel_checksum_sha256": review_cell.rendered_pixel_checksum_sha256,
         "extractor_version": review_cell.extractor_version,
@@ -4032,7 +4019,6 @@ def _apply_cell_projection(
     cell.logical_cell_key = review_cell.logical_cell_key
     cell.logical_cell_key_v2 = review_cell.logical_cell_key_v2
     cell.render_identity_v2_sha256 = review_cell.render_identity_v2_sha256
-    cell.render_spec = None if review_cell.render_spec is None else dict(review_cell.render_spec)
     cell.render_spec_checksum_sha256 = review_cell.render_spec_checksum_sha256
     cell.rendered_pixel_checksum_sha256 = review_cell.rendered_pixel_checksum_sha256
     cell.extractor_version = review_cell.extractor_version

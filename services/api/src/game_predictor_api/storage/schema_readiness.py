@@ -14,7 +14,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0135_virtual_only_asset_modes"
+EXPECTED_ALEMBIC_HEAD: Final = "0136_drop_cell_render_spec"
 
 
 class AlembicHeadMismatchError(RuntimeError):

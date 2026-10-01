@@ -51,7 +51,7 @@ from game_predictor_api.storage.models import (
     RecognizedBoardModel,
 )
 from game_predictor_worker.images.orchestration_store import SqlAlchemyImageBatchStore
-from sqlalchemy import Engine, delete, func, select, text, update
+from sqlalchemy import Engine, delete, func, select
 from test_image_batch_store import PIPELINE, _add_review_projection_source, _image_job
 from test_symbol_source_visibility_migration import database  # noqa: F401
 
@@ -135,12 +135,6 @@ def test_outside_decisions_without_fast_document_persist_across_sessions(databas
         outside = cells[0]
         outside_id = outside.id
         second_outside_id = cells[1].id
-        # Historical ORM None was JSON null, which must be cleared to SQL NULL.
-        session.execute(
-            update(ImageSymbolReviewCellModel)
-            .where(ImageSymbolReviewCellModel.id == outside_id)
-            .values(render_spec=text("'null'::jsonb"))
-        )
         session.expire_all()
         board = session.get(RecognizedBoardModel, board_id)
         board.completeness_status = "pending_partial"

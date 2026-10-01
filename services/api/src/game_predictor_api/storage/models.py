@@ -2527,7 +2527,7 @@ class ImageSymbolReviewCellModel(Base):
             "(asset_mode = 'none' AND source_visibility IS NOT DISTINCT FROM 'outside' "
             "AND NOT source_available AND crop_sample_id IS NULL "
             "AND crop_checksum_sha256 IS NULL AND crop_relative_path IS NULL "
-            "AND render_spec IS NULL AND render_spec_checksum_sha256 IS NULL "
+            "AND render_spec_checksum_sha256 IS NULL "
             "AND rendered_pixel_checksum_sha256 IS NULL AND render_identity_v2_sha256 IS NULL "
             "AND logical_cell_key IS NULL AND logical_cell_key_v2 IS NULL "
             "AND extractor_version IS NULL "
@@ -2553,7 +2553,6 @@ class ImageSymbolReviewCellModel(Base):
             "(asset_mode = 'virtual_source' AND crop_relative_path IS NULL "
             "AND source_geometry_revision_id IS NOT NULL "
             "AND logical_cell_key ~ '^[0-9a-f]{64}$' "
-            "AND jsonb_typeof(render_spec) = 'object' "
             "AND render_spec_checksum_sha256 ~ '^[0-9a-f]{64}$' "
             "AND rendered_pixel_checksum_sha256 ~ '^[0-9a-f]{64}$' "
             "AND length(btrim(extractor_version)) > 0)",
@@ -2704,13 +2703,9 @@ class ImageSymbolReviewCellModel(Base):
     logical_cell_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
     logical_cell_key_v2: Mapped[str | None] = mapped_column(String(64), nullable=True)
     render_identity_v2_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    # D-467 S7 (TASK-0792): write-only until TASK-0793 drops the column with
-    # its CHECK.  Readers take the render specification from the board render
-    # manifest (``storage/cell_render_specs.py``); loading the attribute from
-    # the database raises instead of silently reading the duplicate.
-    render_spec: Mapped[dict[str, object] | None] = mapped_column(
-        JSONB(none_as_null=True), nullable=True, deferred=True, deferred_raiseload=True
-    )
+    # D-467 S7 (TASK-0793, migration 0136): the cell keeps only the checksum
+    # of its render specification; the specification itself lives in the
+    # board render manifest (``storage/cell_render_specs.py``).
     render_spec_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     rendered_pixel_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
     extractor_version: Mapped[str | None] = mapped_column(String(150), nullable=True)

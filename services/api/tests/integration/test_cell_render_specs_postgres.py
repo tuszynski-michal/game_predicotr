@@ -1,11 +1,12 @@
-"""D-467 S7 (TASK-0792): every reader of a cell render spec uses the board manifest.
+"""D-467 S7 (TASK-0792/0793): every reader of a cell render spec uses the board manifest.
 
 Runs on a dedicated ``*_test`` database only (fixture from the TASK-0790
 test).  Two deferred slots of one real source are resolved through the
 Reviewer endpoint: a full board and a partial board cut by the left source
-edge.  The cell column ``render_spec`` is still written (the cell CHECK
-requires it until TASK-0793), so the test compares every switched reader with
-the value the former code read from that column:
+edge.  Since migration ``0136`` (TASK-0793) the cells have no ``render_spec``
+column; the reference is the manifest entry of each cell read independently
+in SQL and bound to the cell by ``render_spec_checksum_sha256`` (TASK-0792
+compared the same readers with the former column, 0 differences):
 
 - ``get_assets`` returns the same specification; the preview atlas and the
   full-resolution PNG render byte-identical pixels;
@@ -34,6 +35,7 @@ from game_predictor_api.application.virtual_cell_previews import (
     symbol_cell_preview_renderer_version,
 )
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.board_render_manifests import sha256_canonical_json
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.symbol_cell_training_cohorts import (
     build_symbol_cell_training_manifest,
@@ -193,19 +195,46 @@ def _approve(
     )
 
 
-def _column_specs(session: Session, game_id: UUID) -> dict[UUID, dict[str, object]]:
-    """What the former readers read: the per-cell column (still written)."""
+def _manifest_specs(
+    session: Session, game_id: UUID
+) -> dict[UUID, tuple[UUID, int, dict[str, object]]]:
+    """Reference: each virtual cell's manifest entry, independent of the reader.
 
-    return {
-        row.id: cast(dict[str, object], row.render_spec)
-        for row in session.execute(
+    Returns ``cell id -> (board id, cell index, renderSpec)``; the entry's
+    canonical checksum must equal the cell's ``render_spec_checksum_sha256``.
+    """
+
+    assert (
+        session.execute(
             text(
-                f"""SELECT id, render_spec FROM {_CELLS}
-                WHERE game_id = :game_id AND asset_mode = 'virtual_source'"""
-            ),
-            {"game_id": game_id},
-        )
-    }
+                """SELECT count(*) FROM information_schema.columns
+                WHERE table_schema = 'game_data_v2'
+                  AND table_name = 'image_symbol_review_cells'
+                  AND column_name = 'render_spec'"""
+            )
+        ).scalar_one()
+        == 0
+    )
+    expected: dict[UUID, tuple[UUID, int, dict[str, object]]] = {}
+    for row in session.execute(
+        text(
+            f"""SELECT c.id, c.recognized_board_id, c.cell_index,
+                   c.render_spec_checksum_sha256, entry -> 'renderSpec' AS spec
+            FROM {_CELLS} c
+            JOIN game_data_v2.board_render_manifests m
+              ON m.game_id = c.game_id AND m.recognized_board_id = c.recognized_board_id
+             AND m.geometry_revision = c.geometry_revision
+            CROSS JOIN LATERAL jsonb_array_elements(m.cells -> 'cells') AS entry
+            WHERE c.game_id = :game_id AND c.asset_mode = 'virtual_source'
+              AND (entry ->> 'cellIndex')::int = c.cell_index"""
+        ),
+        {"game_id": game_id},
+    ):
+        spec = cast(dict[str, object], row.spec)
+        assert sha256_canonical_json(spec) == row.render_spec_checksum_sha256
+        assert row.id not in expected
+        expected[row.id] = (row.recognized_board_id, row.cell_index, spec)
+    return expected
 
 
 def test_switched_readers_reproduce_the_cell_column_from_the_manifest(
@@ -237,7 +266,8 @@ def test_switched_readers_reproduce_the_cell_column_from_the_manifest(
         _approve(session, game_id, boards[1][0], symbol_id, _APPROVED_PARTIAL)
 
     with game_storage_scope(game_id), factory() as session:
-        column = _column_specs(session, game_id)
+        references = _manifest_specs(session, game_id)
+        column = {cell_id: spec for cell_id, (_b, _i, spec) in references.items()}
         # Full board: 15 virtual cells; partial board: 9 (6 positions outside).
         assert len(column) == 15 + 15 - len(_PARTIAL_MASK)
         approved_ids = {
@@ -249,7 +279,7 @@ def test_switched_readers_reproduce_the_cell_column_from_the_manifest(
         }
         assert len(approved_ids) == len(_APPROVED_FULL) + len(_APPROVED_PARTIAL)
 
-        # get_assets: same specification as the column, from one batched read.
+        # get_assets: the manifest specification, from one batched read.
         repository = SqlAlchemySymbolCellReviewQueryRepository(session)
         assets = repository.get_assets(game_id=game_id, cell_review_ids=tuple(column))
         assert {asset.cell_review_id for asset in assets} == set(column)
@@ -281,8 +311,8 @@ def test_switched_readers_reproduce_the_cell_column_from_the_manifest(
         assert batch.atlas_checksum_sha256 == atlas_new.batch.atlas_checksum_sha256
 
         # Symbol reference candidates: same cells, same specification.
-        references = SqlAlchemyApprovedSymbolReferenceRepository(session)
-        candidates = references.list_candidates(
+        reference_repository = SqlAlchemyApprovedSymbolReferenceRepository(session)
+        candidates = reference_repository.list_candidates(
             game_id=game_id, symbol_id=symbol_id, after_key=None, limit=50
         )
         assert {candidate.cell_review_id for candidate in candidates} == approved_ids
@@ -329,15 +359,9 @@ def test_switched_readers_reproduce_the_cell_column_from_the_manifest(
                 review_item_id=review_item_id,
                 pending_geometry_id=None,
             )
-            first = session.execute(
-                text(
-                    f"""SELECT render_spec FROM {_CELLS}
-                    WHERE game_id = :g AND recognized_board_id = :b
-                      AND asset_mode = 'virtual_source'
-                    ORDER BY cell_index LIMIT 1"""
-                ),
-                {"g": game_id, "b": board_id},
-            ).scalar_one()
+            first = min(
+                (index, spec) for board, index, spec in references.values() if board == board_id
+            )[1]
             assert context.render_configuration == _configuration(first)
 
     # Fail closed: a cell whose checksum differs from its manifest entry.

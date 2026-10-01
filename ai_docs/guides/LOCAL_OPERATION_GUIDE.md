@@ -226,6 +226,53 @@ ALTER TABLE game_data_v2.image_symbol_review_cells
 Wycofanie: `alembic downgrade 0134_…` przywraca dawne CHECK-i, ale
 skonwertowanych plansz nie cofa (nowa rewizja wirtualna zostaje; dawna
 rewizja `legacy_file` jest nadal w `image_board_geometry_revisions`).
+Po `0136` (niżej) downgrade poniżej `0136` nie jest już możliwy.
+
+## Usunięcie `render_spec` z komórek weryfikacji: migracja `0136` (TASK-0793, D-467 S7)
+
+Kod od TASK-0793 wymaga migracji `0136_drop_cell_render_spec` (strażnik
+`ALEMBIC_HEAD_MISMATCH`); kod sprzed niej nie działa na `0136` (zapisuje
+kolumnę, której już nie ma). Kolejność cutoveru jak dla `0134`:
+
+1. Zakończ albo bezpiecznie zatrzymaj joby; zatrzymaj API, workery
+   (wszystkie lane'y) i Reviewera we **wszystkich** checkoutach i worktree;
+   sprawdź osierocone dzieci `uvicorn --reload` na portach API (sekcja
+   `0134` niżej) i zakończ je.
+2. Merge kodu.
+3. `npm run db:migrate`, potem `npm run db:current` =
+   `0136_drop_cell_render_spec`. Migracja bierze `ACCESS EXCLUSIVE` na
+   komórkach (`lock_timeout = 5s` — aktywna transakcja kończy ją błędem bez
+   zmian, można powtórzyć), sprawdza manifesty (ok. 7 s na 777) i odmawia
+   `CELL_RENDER_MANIFEST_MISSING: N virtual review cells …`, gdy któraś
+   komórka `virtual_source` nie ma manifestu renderu swojej rewizji (wtedy
+   nic nie zmienia — zgłoś przed ponowieniem). `DROP COLUMN` jest
+   natychmiastowe (tylko katalog); miejsce zwalnia dopiero przepisanie
+   partycji (`DATABASE_MAINTENANCE.md`).
+4. Start usług; kontrola: lista komórek 777 w Adminie, podgląd atlasu i
+   PNG wzorca.
+5. W tle (blokada `SHARE UPDATE EXCLUSIVE`, zapisy działają) zwaliduj oba
+   CHECK-i dodane jako `NOT VALID`:
+
+```sql
+SET statement_timeout = '1800s';
+ALTER TABLE game_data_v2.image_symbol_review_cells
+  VALIDATE CONSTRAINT ck_image_symbol_review_cells_asset_provenance;
+ALTER TABLE game_data_v2.image_symbol_review_cells
+  VALIDATE CONSTRAINT ck_image_symbol_review_cells_source_asset;
+-- oba wiersze muszą mieć convalidated = t
+SELECT conname, convalidated FROM pg_constraint
+WHERE conrelid = 'game_data_v2.image_symbol_review_cells'::regclass
+  AND conname IN ('ck_image_symbol_review_cells_asset_provenance',
+                  'ck_image_symbol_review_cells_source_asset');
+```
+
+`ck_image_symbol_review_cells_source_asset` był `NOT VALID` od `0126`; jego
+walidacja jest pierwszą pełną kontrolą starych pozycji `outside` — błąd
+walidacji nie cofa migracji, ale wymaga zgłoszenia przed kolejnym krokiem.
+
+Wycofanie: brak (`CELL_RENDER_SPEC_DROP_IRREVERSIBLE`). Specyfikacje renderu
+są w `board_render_manifests`; odtworzenie kolumny byłoby backfillem, nie
+downgradem. Przed `db:migrate` zrób kopię zapasową (`DATABASE_MAINTENANCE.md`).
 
 ## Manifest magazynu v4: usunięcie `cell_observations` i archiwum wyszukiwarki (TASK-0759, D-467 S5)
 

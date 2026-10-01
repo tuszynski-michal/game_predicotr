@@ -304,6 +304,15 @@ last_updated: 2026-10-01
   identyczne, kohorty i kandydaci bez zmian. Pomiar 777: atlas 100 komórek
   31 ms vs 12 ms z kolumny. Na bazie operatora 7,5 mln komórek ma wpis
   manifestu bieżącej rewizji (0 różnic sum). Bez migracji — restart usług.
+- TASK-0793 (S7) done (v1.7.121, audyt pominięty): migracja
+  `0136_drop_cell_render_spec` (preflight po manifestach, oba CHECK-i
+  komórek bez `render_spec` jako `NOT VALID`, `DROP COLUMN` na rodzicu,
+  downgrade odmawia), ORM/pisarze/eksport vision-lab bez kolumny (eksport
+  dołącza `board_render_manifests`), `EXPECTED_ALEMBIC_HEAD` = `0136`,
+  testy PG migracji i czytelników. Na bazie operatora (odczyt): 0 komórek
+  bez manifestu, 7 500 390 komórek spełnia nowe CHECK-i; partycja 777 =
+  6,7 GB wierszy + 18 GB TOAST + 8,5 GB indeksów. Cutover i `VACUUM FULL`
+  wykonuje orkiestrator (runbook `DATABASE_MAINTENANCE.md` 2.6).
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

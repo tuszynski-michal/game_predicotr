@@ -1,17 +1,17 @@
 ---
 title: Hybrydowy silnik siatek V3 — plan wykonawczy (dane produkcyjne, sieć węzłów, bramka zgodności)
-status: proposed
+status: accepted
 last_updated: 2026-10-01
 ---
 
 # Hybrydowy silnik siatek V3
 
-Plan do akceptacji operatora. Uzupełnia etap D (`T10`, TASK-0675) i
-poprzedza etap E zaakceptowanego
+Plan zaakceptowany przez operatora 2026-10-01 (D-479–D-483). Uzupełnia etap
+D (`T10`, TASK-0675) i poprzedza etap E zaakceptowanego
 [VISION_LAB_EXECUTION_PLAN.md](VISION_LAB_EXECUTION_PLAN.md) (D-447). Nie
 zmienia etapu C (symbole, T06b–T09), który pozostaje zablokowany i nie jest
-warunkiem geometrii (D-461). Do czasu akceptacji wolno wykonywać wyłącznie
-zadania tylko do odczytu oznaczone niżej jako „bez decyzji”.
+warunkiem geometrii (D-461, D-482). Każdy etap wymaga jawnego uruchomienia;
+2026-10-01 operator uruchomił etap V3-0.
 
 ## Stan obecny
 
@@ -150,9 +150,11 @@ automatycznej aktywacji.
   zadanie kończy się własnym przeglądem diffu, commitem, Outcome i wpisem
   w `CURRENT_STATE.md`.
 
-## Decyzje do potwierdzenia przez operatora
+## Decyzje operatora
 
-Numery nadaje `DECISION_LOG.md` przy akceptacji.
+Wszystkie pięć zaakceptowane 2026-10-01: 1 → D-480, 2 → D-481, 3 → D-482,
+4 → D-483, 5 → D-479. Treść obowiązującą zawiera `DECISION_LOG.md`; poniżej
+brzmienie z propozycji.
 
 1. **Geometria produkcyjna jako dane uczące.** Zatwierdzone plansze 777
    (poziom S) i plansze po filtrze zgodności symboli (B) mogą być targetami
@@ -194,8 +196,10 @@ Każdy etap wymaga jawnego uruchomienia; po etapie STOP z raportem.
   całego zdjęcia i naniesionymi siatkami, licznik w panelu importu.
   Źródła prawdy: `image_source_geometry_revisions.active_board_slots`,
   `recognized_boards`, `image_board_geometry_pending`, stan komórek.
-  Kryteria: liczby zgodne z kontrolą (dziś 56 709 kompletnych, 91 bez
-  plansz, 4 niepełne); test PG; kontrakt pionem (OpenAPI, klient, test).
+  Kryteria: liczby zgodne z zapytaniem kontrolnym wykonanym w tej samej
+  chwili (kontrola 2026-10-01 przy starcie etapu: 56 816 zdjęć, 56 710 z
+  kompletem rozpoznanych plansz, 99 bez plansz, 7 niepełnych, 4 z otwartą
+  odroczoną geometrią); test PG; kontrakt pionem (OpenAPI, klient, test).
 - **TASK-0807 — egzekwowanie bramki w pipeline (wymaga decyzji 5).**
   Stan zdjęcia `geometry_complete | geometry_incomplete |
   geometry_exception` (proponowany, kolumna albo tabela gry przez

@@ -18,10 +18,31 @@ last_updated: 2026-10-01
   (numer sprzed scalenia; zadanie przenumerowane z 0730 z powodu kolizji).
   Scalone do `v1.1-vision-lab-hybrid-geometry` commitem `v1.7.132`.
 
-### Hybrydowy silnik siatek V3 — plan do akceptacji (2026-10-01)
+### Hybrydowy silnik siatek V3 — plan zaakceptowany, etap V3-0 w toku (2026-10-01)
 
-- Plan `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` ma status
-  `proposed`; uzupełnia etap D planu Vision Lab (T10). Zawiera pięć decyzji
+- 2026-10-01 operator zaakceptował wszystkie pięć decyzji planu
+  `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` (status
+  `accepted`): D-479 bramka kompletności zdjęcia (wymaganie w
+  `IMAGE_INGESTION.md`), D-480 geometria produkcyjna 777 jako dane uczące,
+  D-481 budżet treningu, D-482 etap D bez etapu C, D-483 metryka nadrzędna.
+  Operator uruchomił etap V3-0 (TASK-0806, potem TASK-0807); po etapie STOP.
+- Praca w worktree `worktrees/grid-engine-v3`, gałąź `feat/grid-engine-v3`
+  od `v1.7.134` / `a6f8635f`. `.venv` worktree to cienkie środowisko z
+  plikiem `.pth` wskazującym pakiety głównego checkoutu i edytowalną
+  instalacją kodu worktree (obejście zamiast pełnej instalacji zależności).
+- Kontrola bazy 2026-10-01 (777): 56 816 zdjęć, 56 710 z kompletem
+  rozpoznanych plansz, 99 bez plansz (`processing`), 7 niepełnych; plansze
+  z automatyczną rewizją `needs_review` bez zatwierdzenia: 1 729,
+  `pending_partial`: 108.
+- Pliki zadań: `ai_docs/tasks/0806-image-geometry-completeness-report.md`,
+  `ai_docs/tasks/0807-image-geometry-completeness-gate.md`. TASK-0807
+  kończy się migracją zweryfikowaną na bazach `*_test`; migracja bazy
+  deweloperskiej wymaga osobnej zgody i skoordynowanego przejścia.
+- Akceptacja planu, decyzje i pliki zadań: commit `v1.7.135`.
+
+Stan sprzed akceptacji (zachowany dla kontekstu):
+
+- Plan uzupełnia etap D planu Vision Lab (T10). Zawierał pięć decyzji
   do potwierdzenia przez operatora (geometria produkcyjna 777 jako dane
   uczące, budżet treningu, kolejność etapów, metryka nadrzędna, bramka
   kompletności zdjęcia w aplikacji).
@@ -31,8 +52,7 @@ last_updated: 2026-10-01
   niekompletnych, TASK-0807 egzekwowanie w pipeline). Dalej V3-A dane
   (TASK-0800, 0801), V3-B `neural_grid` i `hybrid_v3` (TASK-0802, 0803),
   V3-C ocena (TASK-0804), V3-D shadow (TASK-0805).
-- Bez decyzji wolno wykonać tylko zadania odczytowe TASK-0806 i TASK-0800.
-  Pliki zadań powstają przy uruchomieniu etapu. Numery TASK-0800–0807 są
+- Pliki zadań powstają przy uruchomieniu etapu. Numery TASK-0800–0807 są
   zarezerwowane dla tego planu.
 
 ### D-470 / D-471 — „Przybliżona wygrana”: linie, wykres, stawki; udostępnianie online (w toku)

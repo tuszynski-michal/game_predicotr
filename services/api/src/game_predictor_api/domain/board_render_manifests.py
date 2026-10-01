@@ -4,8 +4,9 @@ A manifest document has exactly the shape of
 ``image_board_geometry_revisions.virtual_render_spec``: an object with a
 ``cells`` array whose entries carry ``cellIndex`` and ``renderSpec`` plus the
 checksummed cell identities.  Revision-0 manifests are built from the import
-cell payload (or, for the backfill, from ``cell_observations``); revisions
-above zero are exact copies of the geometry revision's ``virtual_render_spec``.
+cell payload (the TASK-0757 backfill built the historical ones from the
+per-cell import records dropped in S5); revisions above zero are exact
+copies of the geometry revision's ``virtual_render_spec``.
 
 The manifest checksum is ``sha256(canonical_json(document))``.  For a copied
 geometry revision it therefore equals ``virtual_render_spec_checksum_sha256``.

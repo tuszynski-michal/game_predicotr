@@ -37,13 +37,12 @@ from game_predictor_api.storage.board_search_approximate_win_repository import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v3 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v4 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardSearchCandidateModel,
     ImageBoardSearchFastDocumentModel,
@@ -108,7 +107,6 @@ def database() -> Iterator[Engine]:
 _V2_PARTITIONED_TABLES = (
     "source_images",
     "recognized_boards",
-    "cell_observations",
     "image_review_items",
     "image_sequence_canonical",
     "image_import_job_files",
@@ -235,18 +233,6 @@ def _resolved_review_item(
     )
     session.add(board)
     session.flush()
-    session.add_all(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=n // 5,
-            column_index=n % 5,
-            crop_relative_path=f"cells/{sequence_number}_{n}.jpg",
-            crop_checksum_sha256="c" * 64,
-            cropper_version="fixture",
-            prediction={},
-        )
-        for n in range(15)
-    )
     item = ImageReviewItemModel(
         game_id=game_id,
         import_job_id=job.id,

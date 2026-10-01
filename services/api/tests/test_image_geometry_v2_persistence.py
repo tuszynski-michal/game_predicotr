@@ -9,7 +9,6 @@ from game_predictor_api.storage.image_geometry_v2_repository import (
     SqlAlchemyImageSourceGeometryRepository,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     ImageGeometryRolloutStateModel,
     ImageSourceGeometryRevisionModel,
     ImageSymbolReviewCellModel,
@@ -47,20 +46,7 @@ def _source_geometry_input() -> SourceGeometryRevisionInput:
 
 def test_dual_asset_models_allow_null_paths_only_through_conditional_constraints() -> None:
     assert RecognizedBoardModel.__table__.c.board_relative_path.nullable is True
-    assert CellObservationModel.__table__.c.crop_relative_path.nullable is True
     assert ImageSymbolReviewCellModel.__table__.c.crop_relative_path.nullable is True
-
-    observation_constraints = {
-        constraint.name: str(constraint.sqltext)
-        for constraint in CellObservationModel.__table__.constraints
-        if constraint.name is not None and hasattr(constraint, "sqltext")
-    }
-    provenance = observation_constraints["ck_cell_observations_asset_provenance"]
-    assert "asset_mode = 'legacy_file'" in provenance
-    assert "asset_mode = 'virtual_source'" in provenance
-    assert "crop_relative_path IS NULL" in provenance
-    assert "render_spec_checksum_sha256" in provenance
-    assert "rendered_pixel_checksum_sha256" in provenance
 
 
 def test_virtual_geometry_tables_default_rollout_to_the_virtual_policy() -> None:

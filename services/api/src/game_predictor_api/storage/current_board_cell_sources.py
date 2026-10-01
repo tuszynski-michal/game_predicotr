@@ -1,4 +1,4 @@
-"""Per-board inputs of the current review-cell mapper (D-467, TASK-0758).
+"""Per-board inputs of the current review-cell mapper (D-467, TASK-0758/0759).
 
 The Reviewer mapper (``materialize_current_image_review_cells``) needs, per
 board, exactly one of:
@@ -7,9 +7,10 @@ board, exactly one of:
   (``board_render_manifests``); predictions come from
   ``recognized_boards.cells_prediction`` or the newest prediction revision;
 * ``legacy_file`` at revision > 0: the current geometry revision's
-  ``crop_artifacts`` (passed separately) and ``cells_prediction``;
-* ``legacy_file`` at revision 0: the base cells of the isolated legacy
-  observation adapter (removed in S5).
+  ``crop_artifacts`` (passed separately) and ``cells_prediction``.
+
+A ``legacy_file`` board at geometry revision 0 has no cell source since S5
+(TASK-0759) dropped its per-cell import records; the mapper refuses it.
 """
 
 from __future__ import annotations
@@ -25,23 +26,20 @@ from game_predictor_api.storage.board_render_manifest_reader import (
     CurrentBoardRenderManifest,
     load_current_render_manifests,
 )
-from game_predictor_api.storage.legacy_cell_observation_adapter import (
-    LegacyBaseCell,
-    legacy_base_cells,
-)
 from game_predictor_api.storage.models import RecognizedBoardModel
 
 
 @dataclass(frozen=True, slots=True)
 class CurrentBoardCellSources:
     render_manifest: CurrentBoardRenderManifest | None = None
-    legacy_base_cells: tuple[LegacyBaseCell, ...] = ()
 
 
 NO_CELL_SOURCES = CurrentBoardCellSources()
 
 
-def needs_legacy_base_cells(board: RecognizedBoardModel) -> bool:
+def is_unsupported_legacy_base_board(board: RecognizedBoardModel) -> bool:
+    """A ``legacy_file`` board at revision 0 lost its only cell source in S5."""
+
     return board.asset_mode == "legacy_file" and board.geometry_revision == 0
 
 
@@ -59,16 +57,10 @@ def load_current_board_cell_sources(
         manifests.update(
             load_current_render_manifests(session, game_id=game_id, boards=game_boards)
         )
-    all_boards = [board for game_boards in boards_by_game.values() for board in game_boards]
-    legacy = legacy_base_cells(
-        session, [board.id for board in all_boards if needs_legacy_base_cells(board)]
-    )
     return {
-        board.id: CurrentBoardCellSources(
-            render_manifest=manifests.get(board.id),
-            legacy_base_cells=legacy.get(board.id, ()),
-        )
-        for board in all_boards
+        board.id: CurrentBoardCellSources(render_manifest=manifests.get(board.id))
+        for game_boards in boards_by_game.values()
+        for board in game_boards
     }
 
 
@@ -83,7 +75,7 @@ def load_current_board_cell_source(
 __all__ = [
     "NO_CELL_SOURCES",
     "CurrentBoardCellSources",
+    "is_unsupported_legacy_base_board",
     "load_current_board_cell_source",
     "load_current_board_cell_sources",
-    "needs_legacy_base_cells",
 ]

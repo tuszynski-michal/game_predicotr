@@ -135,7 +135,6 @@ def create_api_router(
         create_board_search_router(
             board_search_service_dependency,
             board_search_approximate_win_service_dependency,
-            artifact_root,
             board_detail_service_dependency=board_search_board_detail_service_dependency,
             board_view_service_dependency=board_search_board_view_service_dependency,
         )

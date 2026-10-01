@@ -22,13 +22,11 @@ from game_predictor_api.storage.board_search_projection_repository import (
     _current_cell_decisions,
     _payload_from_records,
 )
-from game_predictor_api.storage.legacy_cell_observation_adapter import LegacyBaseCell
 from game_predictor_api.storage.models import (
     GameModel,
     ImageBoardSearchProjectionStateModel,
     ImageReviewItemModel,
     JobModel,
-    LegacyBoardSearchArchiveStateModel,
     RecognizedBoardModel,
     SourceImageModel,
 )
@@ -259,40 +257,36 @@ def _as_virtual(board: RecognizedBoardModel) -> None:
     board.geometry_checksum_sha256 = "d" * 64
 
 
-def test_revision_zero_legacy_board_reads_base_cells_through_the_legacy_adapter() -> None:
-    """D-467: only a revision-0 legacy board still uses its base observations."""
+def test_revision_zero_legacy_board_has_no_search_evidence() -> None:
+    """D-467 S5: a revision-0 legacy board lost its only crops with the
+    per-cell import records, so even complete import predictions are no
+    evidence; the same predictions on a revision-1 legacy board are."""
 
     item, board, source, job = _records(status="pending")
     board.geometry_revision = 0
-    board.cells_prediction = {"cells": []}
-    cells = tuple(
-        LegacyBaseCell(
-            row_index=index // 5,
-            column_index=index % 5,
-            crop_relative_path=f"cells/{index}.png",
-            crop_checksum_sha256=f"{index:064x}",
-            cropper_version="v19",
-            prediction={"symbolCode": f"symbol-{index}", "alternatives": []},
-        )
-        for index in range(15)
-    )
-    payload = _payload_from_records(
-        item=item,
-        board=board,
-        source=source,
-        job=job,
-        prediction_override=None,
-        legacy_base_cells=cells,
-    )
-    assert payload is not None
-    assert payload.candidate.primary_symbol_codes == tuple(f"symbol-{i}" for i in range(15))
-    # Without base cells the legacy board has no search evidence.
+    board.cells_prediction = {
+        "cells": [
+            {
+                "rowIndex": index // 5,
+                "columnIndex": index % 5,
+                "symbolCode": f"symbol-{index}",
+                "alternatives": [],
+            }
+            for index in range(15)
+        ]
+    }
     assert (
         _payload_from_records(
             item=item, board=board, source=source, job=job, prediction_override=None
         )
         is None
     )
+    board.geometry_revision = 1
+    payload = _payload_from_records(
+        item=item, board=board, source=source, job=job, prediction_override=None
+    )
+    assert payload is not None
+    assert payload.candidate.primary_symbol_codes == tuple(f"symbol-{i}" for i in range(15))
 
 
 def _partial_board(missing: tuple[int, ...], *, geometry_revision: int):
@@ -487,17 +481,15 @@ def test_rebuild_writes_fast_documents_directly_from_candidates() -> None:
     assert "image_board_search_documents" not in sql
 
 
-def _search_session(*, archive_status: str | None) -> MagicMock:
+def _search_session(*, projection_status: str = "ready") -> MagicMock:
     session = MagicMock()
 
     def get(model: object, _identity: object) -> object | None:
         if model is GameModel:
             return object()
-        if model is LegacyBoardSearchArchiveStateModel:
-            return None if archive_status is None else SimpleNamespace(status=archive_status)
         if model is ImageBoardSearchProjectionStateModel:
             return SimpleNamespace(
-                status="ready",
+                status=projection_status,
                 candidate_count=1,
                 document_count=1,
                 skipped_review_item_count=0,
@@ -515,29 +507,8 @@ def _search_session(*, archive_status: str | None) -> MagicMock:
     return session
 
 
-def test_ready_archive_search_does_not_join_operational_review_tables() -> None:
-    session = _search_session(archive_status="ready")
-    repository = SqlAlchemyBoardSearchProjectionRepository(session)
-
-    assert (
-        repository.search(
-            game_id=UUID(int=2),
-            query=(BoardSearchQueryCell(0, "cherry"),),
-            scope=BoardSearchScope.ALL_SEARCHABLE,
-            limit=10,
-        )
-        == ()
-    )
-
-    sql = str(session.execute.call_args_list[1].args[0].compile(dialect=postgresql.dialect()))
-    assert "legacy_board_search_archive_documents" in sql
-    assert "image_board_search_fast_documents" not in sql
-    assert "image_review_items" not in sql
-    assert "recognized_boards" not in sql
-
-
-def test_missing_archive_preserves_operational_fast_document_search() -> None:
-    session = _search_session(archive_status=None)
+def test_search_reads_only_the_operational_fast_documents() -> None:
+    session = _search_session()
     repository = SqlAlchemyBoardSearchProjectionRepository(session)
 
     assert (
@@ -552,11 +523,11 @@ def test_missing_archive_preserves_operational_fast_document_search() -> None:
 
     sql = str(session.execute.call_args_list[1].args[0].compile(dialect=postgresql.dialect()))
     assert "image_board_search_fast_documents" in sql
-    assert "legacy_board_search_archive_documents" not in sql
+    assert "archive" not in sql
 
 
-def test_partial_archive_fails_closed_instead_of_falling_back() -> None:
-    session = _search_session(archive_status="building")
+def test_unready_projection_fails_closed() -> None:
+    session = _search_session(projection_status="building")
     repository = SqlAlchemyBoardSearchProjectionRepository(session)
 
     with pytest.raises(BoardSearchError) as error:
@@ -566,7 +537,7 @@ def test_partial_archive_fails_closed_instead_of_falling_back() -> None:
             scope=BoardSearchScope.ALL_SEARCHABLE,
             limit=10,
         )
-    assert error.value.code == "BOARD_SEARCH_ARCHIVE_INCOMPLETE"
+    assert error.value.code == "BOARD_SEARCH_PROJECTION_INCOMPLETE"
     session.execute.assert_not_called()
 
 

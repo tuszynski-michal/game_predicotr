@@ -149,9 +149,9 @@ def assert_board_search_share_ready(
     game_id: UUID,
 ) -> None:
     """A share opens the whole board search section, so it needs the same
-    data as the Admin section: a ready projection or archive (the empty
-    range read raises the same readiness errors as a search) and published
-    rules for the approximate win."""
+    data as the Admin section: a ready projection (the empty range read
+    raises the same readiness error as a search) and published rules for
+    the approximate win."""
 
     repository.range_documents(game_id=game_id, first_sequence_number=1, last_sequence_number=0)
     if repository.latest_published_rules(game_id) is None:

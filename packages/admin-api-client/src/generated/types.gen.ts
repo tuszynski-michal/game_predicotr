@@ -987,8 +987,11 @@ export type BoardImportCoverageView = 'missing' | 'added';
 
 /**
  * BoardSearchAssetMode
+ *
+ * Read model behind a search result.  Only the operational projection
+ * remains; the frozen board-search archive was removed in D-467 S5.
  */
-export type BoardSearchAssetMode = 'operational_review' | 'legacy_archive';
+export type BoardSearchAssetMode = 'operational_review';
 
 /**
  * BoardSearchBoardCellResponse
@@ -15059,7 +15062,7 @@ export type GetBoardSearchApproximateWinErrors = {
    */
   404: ErrorResponse;
   /**
-   * Board-search projection/archive not ready, no published rules, an invalid rules configuration, a board symbol outside the active rules, or a starting board outside the game's sequence
+   * Board-search projection not ready, no published rules, an invalid rules configuration, a board symbol outside the active rules, or a starting board outside the game's sequence
    */
   409: ErrorResponse;
   /**
@@ -15080,52 +15083,6 @@ export type GetBoardSearchApproximateWinResponses = {
 
 export type GetBoardSearchApproximateWinResponse =
   GetBoardSearchApproximateWinResponses[keyof GetBoardSearchApproximateWinResponses];
-
-export type GetArchivedBoardSearchAssetData = {
-  body?: never;
-  path: {
-    /**
-     * Game Id
-     */
-    game_id: string;
-    /**
-     * Sequence Number
-     */
-    sequence_number: number;
-  };
-  query: {
-    /**
-     * Expectedboardchecksumsha256
-     */
-    expectedBoardChecksumSha256: string;
-  };
-  url: '/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}';
-};
-
-export type GetArchivedBoardSearchAssetErrors = {
-  /**
-   * Game not found
-   */
-  404: ErrorResponse;
-  /**
-   * Board-search projection not ready
-   */
-  409: ErrorResponse;
-  /**
-   * Invalid partial board query
-   */
-  422: ErrorResponse;
-};
-
-export type GetArchivedBoardSearchAssetError =
-  GetArchivedBoardSearchAssetErrors[keyof GetArchivedBoardSearchAssetErrors];
-
-export type GetArchivedBoardSearchAssetResponses = {
-  /**
-   * Successful Response
-   */
-  200: unknown;
-};
 
 export type GetBoardSearchBoardDetailData = {
   body?: never;
@@ -15149,7 +15106,7 @@ export type GetBoardSearchBoardDetailErrors = {
    */
   404: ErrorResponse;
   /**
-   * Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
+   * Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
    */
   409: ErrorResponse;
   /**
@@ -15197,7 +15154,7 @@ export type RefreshBoardSearchBoardDocumentErrors = {
    */
   404: ErrorResponse;
   /**
-   * Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
+   * Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
    */
   409: ErrorResponse;
   /**
@@ -15256,7 +15213,7 @@ export type GetBoardSearchBoardViewErrors = {
    */
   404: ErrorResponse;
   /**
-   * Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
+   * Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
    */
   409: ErrorResponse;
   /**

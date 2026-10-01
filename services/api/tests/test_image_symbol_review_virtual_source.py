@@ -422,6 +422,33 @@ def test_board_without_renderable_cells_has_no_manifest_and_no_cells() -> None:
     )
 
 
+def test_revision_zero_legacy_board_has_no_cell_source_after_s5() -> None:
+    """D-467 S5 (TASK-0759): its base crops lived only in the dropped records."""
+
+    board = SimpleNamespace(
+        id=uuid4(),
+        asset_mode="legacy_file",
+        geometry_revision=0,
+        geometry_qualification=None,
+        completeness_status="complete",
+        unavailable_cell_indices=[],
+        cells_prediction=_cells_prediction(_virtual_observations(uuid4(), uuid4())),
+    )
+    with pytest.raises(ImageReviewConflictError) as error:
+        materialize_current_image_review_cells(
+            item=SimpleNamespace(resolved_value=None),
+            board=board,
+            source=SimpleNamespace(),
+            queue_item=SimpleNamespace(),
+            job=SimpleNamespace(),
+            cell_sources=CurrentBoardCellSources(),
+            geometry_revision=None,
+        )
+    assert error.value.code == "IMAGE_REVIEW_CELL_COUNT_INVALID"
+    with pytest.raises(SymbolCellReviewBackfillError):
+        _current_cropper_version(board=board, cell_sources=CurrentBoardCellSources(), geometry=None)
+
+
 def test_missing_manifest_of_a_board_with_cells_fails_closed() -> None:
     board_id = uuid4()
     source_geometry_revision_id = uuid4()

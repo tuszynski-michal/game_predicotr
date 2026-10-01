@@ -68,7 +68,6 @@ from game_predictor_api.storage.game_storage_routing import GameStorageIntent, G
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
 )
-from game_predictor_api.storage.legacy_cell_observation_adapter import LegacyBaseCell
 from game_predictor_api.storage.models import (
     GameModel,
     ImageBoardGeometryReviewEventModel,
@@ -2501,54 +2500,38 @@ def _item_from_records(
     )
     # D-467: a legacy board with a geometry revision reads its crops from the
     # revision's ``crop_artifacts`` and its predictions from
-    # ``cells_prediction``; only a revision-0 legacy board still needs the base
-    # observations (isolated adapter, removed in S5).
-    base_cells: dict[int, LegacyBaseCell] = {}
-    revised_cells: dict[int, Mapping[str, object]] = {}
-    if board.geometry_revision > 0:
-        if (
-            geometry_revision is None
-            or geometry_revision.revision != board.geometry_revision
-            or geometry_revision.crop_artifacts is None
-            or len(geometry_revision.crop_artifacts) not in (len(expected_indices), 15)
-        ):
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
-                "The current manual geometry revision is incomplete.",
-            )
-        revised_cells = {
-            cast(int, raw["rowIndex"]) * 5 + cast(int, raw["columnIndex"]): raw
-            for raw in geometry_revision.crop_artifacts
-        }
-        if set(revised_cells) not in (expected_indices, set(range(15))):
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
-                "The current manual geometry cells are not complete row-major crops.",
-            )
-        emitted_indices = sorted(expected_indices)
-        board_predictions = (
-            {}
-            if prediction_override is not None and len(prediction_override) == 15
-            else _cells_prediction_by_index(board, columns=5)
+    # ``cells_prediction``.  A revision-0 legacy board read its base crops from
+    # per-cell import records that S5 (TASK-0759) dropped, so it is refused.
+    if board.geometry_revision == 0:
+        raise ImageReviewConflictError(
+            "IMAGE_REVIEW_CELL_COUNT_INVALID",
+            "A legacy board without a manual geometry revision has no cell source.",
         )
-    else:
-        legacy_cells = cell_sources.legacy_base_cells
-        base_cells = {cell.row_index * 5 + cell.column_index: cell for cell in legacy_cells}
-        if len(base_cells) != len(legacy_cells) or set(base_cells) not in (
-            expected_indices,
-            set(range(15)),
-        ):
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_CELL_COUNT_INVALID",
-                "The operational review item must contain exactly 15 cell observations.",
-            )
-        if [cell.row_index * 5 + cell.column_index for cell in legacy_cells] != sorted(base_cells):
-            raise ImageReviewConflictError(
-                "IMAGE_REVIEW_CELL_ORDER_INVALID",
-                "The operational review cells are not a complete row-major board.",
-            )
-        emitted_indices = [index for index in sorted(base_cells) if index in expected_indices]
-        board_predictions = {index: cell.prediction for index, cell in base_cells.items()}
+    if (
+        geometry_revision is None
+        or geometry_revision.revision != board.geometry_revision
+        or geometry_revision.crop_artifacts is None
+        or len(geometry_revision.crop_artifacts) not in (len(expected_indices), 15)
+    ):
+        raise ImageReviewConflictError(
+            "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
+            "The current manual geometry revision is incomplete.",
+        )
+    revised_cells: dict[int, Mapping[str, object]] = {
+        cast(int, raw["rowIndex"]) * 5 + cast(int, raw["columnIndex"]): raw
+        for raw in geometry_revision.crop_artifacts
+    }
+    if set(revised_cells) not in (expected_indices, set(range(15))):
+        raise ImageReviewConflictError(
+            "IMAGE_REVIEW_GEOMETRY_PROJECTION_INVALID",
+            "The current manual geometry cells are not complete row-major crops.",
+        )
+    emitted_indices = sorted(expected_indices)
+    board_predictions = (
+        {}
+        if prediction_override is not None and len(prediction_override) == 15
+        else _cells_prediction_by_index(board, columns=5)
+    )
     cells: list[ImageReviewCell] = []
     for index in emitted_indices:
         row_index, column_index = divmod(index, 5)
@@ -2563,28 +2546,14 @@ def _item_from_records(
             )
         symbol_code, confidence, alternatives = _validated_cell_prediction(prediction)
         revised = revised_cells.get(index)
-        base = base_cells.get(index)
-        base_crop_relative_path = None if base is None else base.crop_relative_path
-        if revised is None and base_crop_relative_path is None:
+        if revised is None:
             raise ImageReviewConflictError(
                 "IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE",
                 "Virtual cell assets are not active in the legacy review mapper.",
             )
-        crop_relative_path = (
-            cast(str, revised["cropRelativePath"])
-            if revised is not None
-            else cast(str, base_crop_relative_path)
-        )
-        crop_checksum_sha256 = (
-            cast(str, revised["cropChecksumSha256"])
-            if revised is not None
-            else cast(LegacyBaseCell, base).crop_checksum_sha256
-        )
-        cropper_version = (
-            geometry_revision.cropper_version
-            if geometry_revision is not None and revised is not None
-            else cast(LegacyBaseCell, base).cropper_version
-        )
+        crop_relative_path = cast(str, revised["cropRelativePath"])
+        crop_checksum_sha256 = cast(str, revised["cropChecksumSha256"])
+        cropper_version = geometry_revision.cropper_version
         sample_id = crop_sample_id(
             recognized_board_id=board.id,
             row_index=row_index,
@@ -2687,8 +2656,7 @@ def materialize_current_image_review_cells(
     current cells.  Backfills and later write-through projections must call
     this adapter instead of reconstructing a second, subtly divergent choice
     of the 15 crops.  ``cell_sources`` comes from
-    ``load_current_board_cell_sources`` (render manifest for virtual boards,
-    legacy base cells for revision-0 legacy boards).
+    ``load_current_board_cell_sources`` (render manifest for virtual boards).
     """
 
     if board.asset_mode == "virtual_source":

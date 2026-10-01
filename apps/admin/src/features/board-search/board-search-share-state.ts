@@ -52,8 +52,6 @@ const SHARE_ERRORS: Readonly<Record<string, string>> = {
     'Udostępnianie online jest wyłączone na tym komputerze (GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED).',
   BOARD_SEARCH_PROJECTION_INCOMPLETE:
     'Wyszukiwarka tej gry nie jest jeszcze gotowa, więc nie ma czego udostępnić.',
-  BOARD_SEARCH_ARCHIVE_INCOMPLETE:
-    'Archiwum wyszukiwarki tej gry nie jest gotowe, więc nie ma czego udostępnić.',
   APPROXIMATE_WIN_RULES_NOT_PUBLISHED:
     'Gra nie ma opublikowanych reguł, więc przybliżona wygrana nie zadziała online.',
   REVIEWER_INGRESS_NOT_READY:

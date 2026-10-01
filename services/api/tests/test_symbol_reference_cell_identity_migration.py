@@ -40,6 +40,10 @@ def test_migration_0132_downgrade_restores_the_column_from_the_cell_or_refuses()
     output = StringIO()
     command.downgrade(_config(output), f"{REVISION}:{PREVIOUS}", sql=True)
     sql = output.getvalue()
+    # TASK-0759: once migration 0134 dropped the observations, refuse first.
+    assert "to_regclass('game_data_v2.cell_observations') IS NULL" in sql
+    assert sql.index("SYMBOL_REFERENCE_OBSERVATIONS_DROPPED") < sql.index("LOCK TABLE")
+    assert sql.index("SYMBOL_REFERENCE_OBSERVATIONS_DROPPED") < sql.index("ADD COLUMN")
     assert "ADD COLUMN source_observation_id UUID" in sql
     assert "o.row_index = r.cell_index / 5" in sql and "o.column_index = r.cell_index % 5" in sql
     assert sql.index("SYMBOL_REFERENCE_OBSERVATION_UNRECOVERABLE") < sql.index("SET NOT NULL")

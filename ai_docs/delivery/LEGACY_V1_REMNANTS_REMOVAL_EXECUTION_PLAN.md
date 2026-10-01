@@ -235,6 +235,18 @@ wyników pipeline i narzędzia sprzątania. Docelowo ok. 60 GB mniej z 87 GB.
   `scripts/build_grid_symbol_diagnostic.py` są usuwane. Preflight
   dodatkowo wymaga 0 plansz `legacy_file` na rewizji 0 (stan na
   2026-10-01: 0 takich plansz, 461 plansz legacy na rewizjach 1–2).
+  Wykonanie (TASK-0759, implementacja przed audytem): manifest v4 (jawna
+  zamrożona lista 63 tabel gry), migracja `0134` z preflightem (kody w
+  D-467), rejestr i lokalizacje v4 oraz `DROP TABLE` partycji z
+  `pg_inherits` w jednej transakcji, downgrade odmawia; downgrade `0132`
+  odmawia po `0134`. Usunięte: modele ORM trzech tabel, adapter legacy,
+  tryb `legacy_archive` wyszukiwarki pionem (API, OpenAPI, klient, wrapper,
+  `board-search-ui`, Admin), backfill manifestów, diagnostyka addytywna,
+  skrypty historyczne i fixture benchmarku M6.5 (usunięte, nie przepięte —
+  uzasadnienie w Outcome zadania). `game_deletion_policy_v1` i manifesty
+  v1/v3 zostają jako zamrożone wejścia historycznych migracji. Wykonanie
+  `0134` na bazie operatora: osobna zgoda, runbook w
+  `LOCAL_OPERATION_GUIDE.md`.
 
 ### S6 — jeden tryb danych
 

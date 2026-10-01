@@ -116,9 +116,6 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
 )
-from game_predictor_api.storage.legacy_cell_observation_adapter import (
-    legacy_review_items_with_stale_base_crop,
-)
 from game_predictor_api.storage.models import (
     BoardRenderManifestModel,
     GameModel,
@@ -4729,9 +4726,10 @@ class SqlAlchemyImageSymbolReviewRepository:
         """Revision-0 review cells that no longer match their base render.
 
         Virtual boards compare against the revision-0 render manifest
-        (D-467): a missing manifest or manifest cell is stale, like a missing
-        observation was.  Legacy revision-0 boards still compare against
-        their base observations through the isolated legacy adapter.
+        (D-467): a missing manifest or manifest cell is stale.  Legacy boards
+        have no revision-0 base since S5 (TASK-0759) dropped their per-cell
+        import records; the mapper refuses such a board, so only the virtual
+        comparison remains.
         """
 
         cell = ImageSymbolReviewCellModel
@@ -4800,9 +4798,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             .distinct()
             .order_by(cell.review_item_id)
         )
-        virtual_stale = tuple(self._session.scalars(statement))
-        legacy_stale = legacy_review_items_with_stale_base_crop(self._session, game_id)
-        return tuple(sorted({*virtual_stale, *legacy_stale}, key=str))
+        return tuple(self._session.scalars(statement))
 
     def _selected_problem_items(self, game_id: UUID) -> tuple[UUID, ...]:
         return tuple(
@@ -4877,14 +4873,12 @@ def _current_cropper_version(
             )
         return geometry.cropper_version
     # Revision 0 (D-467): a virtual board's base cropper is its render
-    # manifest's extractor (the import writer and the backfill require
-    # ``cropper_version == extractor_version``); a legacy board's base crops
-    # are read through the isolated legacy observation adapter.
+    # manifest's extractor (the import writer requires ``cropper_version ==
+    # extractor_version``).  A legacy board at revision 0 has no base crops
+    # since S5 (TASK-0759) and is refused below.
     versions = (
-        {cell.cropper_version for cell in cell_sources.legacy_base_cells}
-        if board.asset_mode == "legacy_file"
-        else set()
-        if cell_sources.render_manifest is None
+        set()
+        if board.asset_mode == "legacy_file" or cell_sources.render_manifest is None
         else {cell_sources.render_manifest.extractor_version}
     )
     if (

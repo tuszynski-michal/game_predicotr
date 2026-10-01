@@ -16,7 +16,6 @@ from sqlalchemy.sql.elements import ColumnElement
 from game_predictor_api.domain.board_search import (
     BOARD_SEARCH_ALTERNATIVE_WEIGHTS,
     BOARD_SEARCH_CELL_COUNT,
-    BoardSearchArchiveAssetReference,
     BoardSearchAssetMode,
     BoardSearchCandidate,
     BoardSearchCellDecision,
@@ -39,14 +38,10 @@ from game_predictor_api.domain.geometry_qualification import (
 )
 from game_predictor_api.domain.image_symbol_reviews import symbol_cell_approval_pixels_changed
 from game_predictor_api.domain.jobs import JobStatus
-from game_predictor_api.storage.current_board_cell_sources import needs_legacy_base_cells
+from game_predictor_api.storage.current_board_cell_sources import is_unsupported_legacy_base_board
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
-)
-from game_predictor_api.storage.legacy_cell_observation_adapter import (
-    LegacyBaseCell,
-    legacy_base_cells,
 )
 from game_predictor_api.storage.models import (
     GameModel,
@@ -59,8 +54,6 @@ from game_predictor_api.storage.models import (
     ImageSymbolPredictionRevisionModel,
     ImageSymbolReviewCellModel,
     JobModel,
-    LegacyBoardSearchArchiveDocumentModel,
-    LegacyBoardSearchArchiveStateModel,
     RecognizedBoardModel,
     SourceImageModel,
     SymbolModel,
@@ -351,18 +344,6 @@ class SqlAlchemyBoardSearchProjectionRepository:
         if self._session.get(GameModel, game_id) is None:
             raise BoardSearchError("GAME_NOT_FOUND", "The selected game does not exist.")
         document, asset_mode = self._document_source(game_id)
-        identity_columns: tuple[Any, Any, Any]
-        identity_sort: Any
-        if asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW:
-            identity_columns = (
-                document.review_item_id,
-                document.recognized_board_id,
-                document.import_job_id,
-            )
-            identity_sort = document.review_item_id
-        else:
-            identity_columns = (literal(None), literal(None), literal(None))
-            identity_sort = document.board_checksum_sha256
         active_mobile_codes: dict[str, int] = {
             code: int(mobile_code)
             for code, mobile_code in self._session.execute(
@@ -416,7 +397,9 @@ class SqlAlchemyBoardSearchProjectionRepository:
         )
         statement = (
             select(
-                *identity_columns,
+                document.review_item_id,
+                document.recognized_board_id,
+                document.import_job_id,
                 document.sequence_number,
                 document.status,
                 document.board_checksum_sha256,
@@ -435,7 +418,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 mismatch.asc(),
                 status_priority.asc(),
                 document.sequence_number.asc(),
-                identity_sort.asc(),
+                document.review_item_id.asc(),
             )
             .limit(limit)
         )
@@ -473,28 +456,21 @@ class SqlAlchemyBoardSearchProjectionRepository:
             ) in self._session.execute(statement).all()
         )
 
-    def _document_source(self, game_id: UUID) -> tuple[type[Any], BoardSearchAssetMode]:
-        """Resolve which read model backs board-search reads for a game: the
-        live operational projection, or (once fully migrated) a frozen
-        legacy archive. Shared by `search()` and the approximate-win range
-        reader so both stay consistent about which source is authoritative
-        and raise the same readiness errors.
+    def _document_source(
+        self, game_id: UUID
+    ) -> tuple[type[ImageBoardSearchFastDocumentModel], BoardSearchAssetMode]:
+        """Resolve the read model behind board-search reads for a game: the
+        live operational projection (the frozen legacy archive was removed in
+        D-467 S5). Shared by `search()`, the approximate-win range reader and
+        the board detail so all raise the same readiness error.
         """
-        archive_state = self._session.get(LegacyBoardSearchArchiveStateModel, game_id)
-        if archive_state is None:
-            state = self.state_for_game(game_id)
-            if state is None or state.status != "ready":
-                raise BoardSearchError(
-                    "BOARD_SEARCH_PROJECTION_INCOMPLETE",
-                    "The board-search projection is not ready for this game.",
-                )
-            return ImageBoardSearchFastDocumentModel, BoardSearchAssetMode.OPERATIONAL_REVIEW
-        if archive_state.status != "ready":
+        state = self.state_for_game(game_id)
+        if state is None or state.status != "ready":
             raise BoardSearchError(
-                "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
-                "The frozen board-search archive is not ready for this game.",
+                "BOARD_SEARCH_PROJECTION_INCOMPLETE",
+                "The board-search projection is not ready for this game.",
             )
-        return LegacyBoardSearchArchiveDocumentModel, BoardSearchAssetMode.LEGACY_ARCHIVE
+        return ImageBoardSearchFastDocumentModel, BoardSearchAssetMode.OPERATIONAL_REVIEW
 
     def range_documents(
         self,
@@ -565,47 +541,13 @@ class SqlAlchemyBoardSearchProjectionRepository:
         record = self._session.get(document, (game_id, sequence_number))
         if record is None:
             return asset_mode, None
-        operational = asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW
         return asset_mode, BoardSearchBoardDocument(
             sequence_number=int(record.sequence_number),
             status=record.status,
             board_checksum_sha256=record.board_checksum_sha256,
             mobile_codes=tuple(record.primary_symbol_mobile_codes),
             asset_mode=asset_mode,
-            review_item_id=record.review_item_id if operational else None,
-            archive_relative_path=None if operational else record.board_relative_path,
-        )
-
-    def archive_asset(
-        self,
-        *,
-        game_id: UUID,
-        sequence_number: int,
-        expected_checksum_sha256: str,
-    ) -> BoardSearchArchiveAssetReference:
-        state = self._session.get(LegacyBoardSearchArchiveStateModel, game_id)
-        if state is None or state.status != "ready":
-            raise BoardSearchError(
-                "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
-                "The frozen board-search archive is not ready for this game.",
-            )
-        document = self._session.get(
-            LegacyBoardSearchArchiveDocumentModel,
-            (game_id, sequence_number),
-        )
-        if document is None:
-            raise BoardSearchError(
-                "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND",
-                "The archived board image does not exist.",
-            )
-        if document.board_checksum_sha256 != expected_checksum_sha256:
-            raise BoardSearchError(
-                "BOARD_SEARCH_ARCHIVE_ASSET_REVISION_CONFLICT",
-                "The archived board image revision has changed.",
-            )
-        return BoardSearchArchiveAssetReference(
-            relative_path=document.board_relative_path,
-            checksum_sha256=document.board_checksum_sha256,
+            review_item_id=record.review_item_id,
         )
 
     def reconcile_review_item(self, review_item_id: UUID) -> None:
@@ -928,12 +870,6 @@ def _payloads_from_rows(
             current_geometry[geometry_record.recognized_board_id] = geometry_record
 
     decisions_by_item = _current_cell_decisions(session, rows)
-    # D-467: only a revision-0 legacy board still reads its import predictions
-    # from the base observations (isolated legacy adapter, removed in S5).
-    legacy_cells = legacy_base_cells(
-        session,
-        [board.id for _item, board, _source, _job in rows if needs_legacy_base_cells(board)],
-    )
 
     payloads: list[BoardSearchProjectionPayload] = []
     for item, board, source, job in rows:
@@ -945,7 +881,6 @@ def _payloads_from_rows(
             prediction_override=latest_predictions.get(item.id),
             geometry_revision=current_geometry.get(board.id),
             cell_decisions=decisions_by_item.get(item.id, ()),
-            legacy_base_cells=legacy_cells.get(board.id, ()),
         )
         if payload is not None:
             payloads.append(payload)
@@ -1083,7 +1018,6 @@ def _payload_from_records(
     prediction_override: Sequence[Mapping[str, object]] | None,
     geometry_revision: ImageBoardGeometryRevisionModel | None = None,
     cell_decisions: Sequence[BoardSearchCellDecision] = (),
-    legacy_base_cells: Sequence[LegacyBaseCell] = (),
 ) -> BoardSearchProjectionPayload | None:
     if item.status not in _SEARCHABLE_STATUSES or job.game_id is None:
         return None
@@ -1116,16 +1050,14 @@ def _payload_from_records(
         # former per-cell observations.
         raw_predictions = prediction_override
         if raw_predictions is None:
-            import_predictions = _import_predictions_by_index(board, legacy_base_cells)
+            import_predictions = _import_predictions_by_index(board)
             raw_predictions = (
                 ()
                 if import_predictions is None or set(import_predictions) != set(range(15))
                 else tuple(import_predictions[index] for index in range(15))
             )
         parsed = (
-            _qualified_pending_predictions(
-                board, prediction_override, geometry_revision, legacy_base_cells
-            )
+            _qualified_pending_predictions(board, prediction_override, geometry_revision)
             if board.geometry_qualification is not None
             else _parse_pending_predictions(raw_predictions)
         )
@@ -1170,7 +1102,6 @@ def _qualified_pending_predictions(
     board: RecognizedBoardModel,
     predictions: Sequence[Mapping[str, object]] | None,
     revision: ImageBoardGeometryRevisionModel | None,
-    legacy_base_cells: Sequence[LegacyBaseCell] = (),
 ) -> tuple[tuple[str | None, ...], tuple[tuple[str | None, ...], ...]] | None:
     """Keep logical positions, never treat masked or superseded pixels as evidence."""
     try:
@@ -1206,7 +1137,7 @@ def _qualified_pending_predictions(
         # D-467: the import predictions come from ``cells_prediction``.  A
         # legacy revision must still crop every available position; a missing
         # current crop is never evidence.
-        import_predictions = _import_predictions_by_index(board, legacy_base_cells)
+        import_predictions = _import_predictions_by_index(board)
         if import_predictions is None or (
             legacy_crops is not None and not available <= set(legacy_crops)
         ):
@@ -1252,23 +1183,18 @@ def _qualified_pending_predictions(
 
 def _import_predictions_by_index(
     board: RecognizedBoardModel,
-    legacy_base_cells: Sequence[LegacyBaseCell] = (),
 ) -> dict[int, Mapping[str, object]] | None:
-    """Import predictions keyed by row-major 3 x 5 position; ``None`` if malformed.
+    """Import predictions keyed by row-major 3 x 5 position; ``None`` if unusable.
 
-    ``cells_prediction.cells`` has one entry per imported cell, written in
-    the same transaction (and order) as the former cell observations.  A
-    revision-0 legacy board keeps reading its base observations.
+    ``cells_prediction.cells`` has one entry per imported cell.  A revision-0
+    legacy board has no current crops since S5 (TASK-0759) dropped its
+    per-cell import records, so its predictions are no evidence.
     """
 
-    if needs_legacy_base_cells(board):
-        raw_cells: object = [
-            {**cell.prediction, "rowIndex": cell.row_index, "columnIndex": cell.column_index}
-            for cell in legacy_base_cells
-        ]
-    else:
-        payload = board.cells_prediction
-        raw_cells = payload.get("cells") if isinstance(payload, Mapping) else None
+    if is_unsupported_legacy_base_board(board):
+        return None
+    payload = board.cells_prediction
+    raw_cells = payload.get("cells") if isinstance(payload, Mapping) else None
     if not isinstance(raw_cells, list):
         return None
     by_index: dict[int, Mapping[str, object]] = {}
@@ -1487,11 +1413,7 @@ def _payload_from_candidate(
 
 
 def _search_score_expressions(
-    candidate: (
-        type[ImageBoardSearchCandidateModel]
-        | type[ImageBoardSearchFastDocumentModel]
-        | type[LegacyBoardSearchArchiveDocumentModel]
-    ),
+    candidate: (type[ImageBoardSearchCandidateModel] | type[ImageBoardSearchFastDocumentModel]),
     query: Sequence[BoardSearchQueryCell],
     *,
     mobile_codes_by_cell: Mapping[int, int],
@@ -1582,9 +1504,7 @@ def _search_score_expressions(
 
 
 def _positive_evidence_expression(
-    document: (
-        type[ImageBoardSearchFastDocumentModel] | type[LegacyBoardSearchArchiveDocumentModel]
-    ),
+    document: type[ImageBoardSearchFastDocumentModel],
     query: Sequence[BoardSearchQueryCell],
     *,
     mobile_codes_by_cell: Mapping[int, int],

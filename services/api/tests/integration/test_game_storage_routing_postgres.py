@@ -28,7 +28,7 @@ from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v3 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v4 import GAME_TABLES, VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -47,7 +47,7 @@ from game_predictor_api.storage.image_review_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
-    CellObservationModel,
+    ImageBoardGeometryRevisionModel,
     ImageBoardSearchCandidateModel,
     ImageFileExecutionModel,
     ImageGeometryRolloutStateModel,
@@ -812,10 +812,10 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
             "image_import_job_files",
             "source_images",
             "recognized_boards",
-            "cell_observations",
             "image_review_queue_states",
             "image_review_items",
             "image_review_queue_items",
+            "image_board_geometry_revisions",
         ):
             connection.exec_driver_sql(
                 f"CREATE TABLE game_data_v2.{table_name}_g_{game_id.hex} "
@@ -858,6 +858,13 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
         )
         session.add(source)
         session.flush()
+        # D-467 S5: a legacy board reads its crops from a manual geometry
+        # revision (revision 0 had them only in the dropped cell records).
+        unknown = {
+            "symbolCode": "?",
+            "confidence": 0.0,
+            "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
+        }
         board = RecognizedBoardModel(
             source_image_id=source.id,
             position_index=0,
@@ -867,10 +874,16 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
             board_geometry={"source": "v2-review-asset-test"},
             board_relative_path="boards/review.png",
             board_checksum_sha256="d" * 64,
-            cells_prediction={"cells": []},
+            cells_prediction={
+                "cells": [
+                    {"rowIndex": index // 5, "columnIndex": index % 5, **unknown}
+                    for index in range(15)
+                ]
+            },
             board_confidence=1.0,
             pipeline_fingerprint=pipeline_fingerprint,
             status="pending_review",
+            geometry_revision=1,
             created_at=now,
         )
         session.add(board)
@@ -887,23 +900,33 @@ def test_operational_review_item_reads_v2_in_a_new_unscoped_session(
         )
         session.add(review)
         session.flush()
-        session.add_all(
-            CellObservationModel(
+        session.add(
+            ImageBoardGeometryRevisionModel(
+                review_item_id=review.id,
                 recognized_board_id=board.id,
-                row_index=index // 5,
-                column_index=index % 5,
-                crop_relative_path=f"cells/review-{index}.png",
-                crop_checksum_sha256=f"{index + 1:064x}",
+                revision=1,
+                idempotency_key=uuid4(),
+                command_sha256="e" * 64,
+                corners=[{"x": 0, "y": 0}, {"x": 10, "y": 0}, {"x": 10, "y": 6}, {"x": 0, "y": 6}],
+                geometry={"source": "v2-review-asset-test"},
+                asset_mode="legacy_file",
+                board_relative_path="boards/review.png",
+                board_checksum_sha256="d" * 64,
                 cropper_version="v2-review-asset-test",
-                prediction={
-                    "symbolCode": "?",
-                    "confidence": 0.0,
-                    "alternatives": [{"symbolCode": "?", "confidence": 0.0}],
-                },
+                crop_artifacts=[
+                    {
+                        "rowIndex": index // 5,
+                        "columnIndex": index % 5,
+                        "cropRelativePath": f"cells/review-{index}.png",
+                        "cropChecksumSha256": f"{index + 1:064x}",
+                    }
+                    for index in range(15)
+                ],
+                corrected_by="fixture",
                 created_at=now,
             )
-            for index in range(15)
         )
+        session.flush()
         review_item_id = review.id
 
     # Asset endpoints begin in a fresh session and carry gameId only in query.

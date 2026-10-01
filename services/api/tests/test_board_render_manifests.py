@@ -255,58 +255,10 @@ def test_manual_geometry_writer_adds_the_revision_manifest_in_the_same_session()
     assert error.value.code == "BOARD_RENDER_MANIFEST_REVISION_CHECKSUM_MISMATCH"
 
 
-def test_rollout_backfill_refuses_to_mutate_observations_behind_a_manifest(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
+def test_writers_skip_boards_without_renderable_cells() -> None:
     from types import SimpleNamespace
     from unittest.mock import Mock
 
-    from game_predictor_api.domain.board_topology import BoardTopology
-    from game_predictor_api.storage import image_geometry_rollout_backfill_repository as module
-    from game_predictor_api.storage.models import CellObservationModel
-
-    monkeypatch.setattr(
-        module,
-        "derive_v2_render_identity_from_legacy_spec",
-        lambda *_args, **_kwargs: SimpleNamespace(
-            logical_cell_key_v2="a" * 64, render_identity_v2_sha256="b" * 64
-        ),
-    )
-    source = SimpleNamespace(id=uuid4(), import_job_id=uuid4(), file_execution_key="k")
-    geometry = SimpleNamespace(topology_rules_version_id=uuid4())
-    board = SimpleNamespace(id=BOARD_ID, position_index=0)
-
-    def call(manifest_revision: int | None) -> tuple[int, CellObservationModel]:
-        session = Mock()
-        session.scalar.return_value = manifest_revision
-        cell = CellObservationModel(row_index=0, column_index=1, render_spec={})
-        updated = module.SqlAlchemyImageGeometryRolloutBackfillRepository(
-            session
-        )._backfill_render_identity(
-            source=source,  # type: ignore[arg-type]
-            geometry=geometry,  # type: ignore[arg-type]
-            topology=BoardTopology(rows=3, columns=5),
-            board=board,  # type: ignore[arg-type]
-            cell=cell,
-        )
-        return updated, cell
-
-    updated, cell = call(None)
-    assert updated == 1 and cell.logical_cell_key_v2 == "a" * 64
-    with pytest.raises(module.ImageGeometryRolloutBackfillError) as error:
-        call(0)
-    assert error.value.code == "BOARD_RENDER_MANIFEST_PRESENT"
-
-
-def test_writers_and_backfill_skip_boards_without_renderable_cells() -> None:
-    from types import SimpleNamespace
-    from unittest.mock import Mock
-
-    from game_predictor_api.storage.board_render_manifest_backfill import (
-        _Board,
-        _NoCells,
-        _prepare_zero_board,
-    )
     from game_predictor_api.storage.models import ImageBoardGeometryRevisionModel
     from game_predictor_api.storage.virtual_grid_geometry_repository import (
         SqlAlchemyVirtualGridGeometryRepository,
@@ -333,69 +285,6 @@ def test_writers_and_backfill_skip_boards_without_renderable_cells() -> None:
     )
     SqlAlchemyVirtualGridGeometryRepository(session)._add_render_manifest(record, game_id=uuid4())
     assert session.method_calls == []
-
-    def board(unavailable: tuple[int, ...]) -> _Board:
-        return _Board(
-            id=BOARD_ID,
-            geometry_revision=0,
-            asset_mode="virtual_source",
-            rows=3,
-            columns=5,
-            unavailable_cell_indices=unavailable,
-            geometry_qualification=None,
-        )
-
-    assert isinstance(_prepare_zero_board(board(tuple(range(15))), []), _NoCells)
-    missing = _prepare_zero_board(board(()), [])
-    assert not isinstance(missing, _NoCells)
-    assert missing.code == "BOARD_RENDER_MANIFEST_OBSERVATIONS_MISSING"  # type: ignore[union-attr]
-
-
-@pytest.mark.parametrize(
-    ("column", "value"),
-    (("cropper_version", "other-cropper"), ("crop_checksum_sha256", "0" * 64)),
-)
-def test_backfill_refuses_crop_provenance_that_differs_from_the_render(
-    column: str, value: str
-) -> None:
-    from game_predictor_api.storage.board_render_manifest_backfill import (
-        _Board,
-        _prepare_zero_board,
-    )
-
-    rows = []
-    for index in range(15):
-        cell = _cell(index)
-        row: dict[str, object] = {
-            "row_index": index // 5,
-            "column_index": index % 5,
-            "asset_mode": "virtual_source",
-            "source_geometry_revision_id": BOARD_ID,
-            "logical_cell_key": cell.logical_cell_key,
-            "logical_cell_key_v2": cell.logical_cell_key_v2,
-            "render_identity_v2_sha256": cell.render_identity_v2_sha256,
-            "render_spec": dict(cell.render_spec),
-            "render_spec_checksum_sha256": cell.render_spec_checksum_sha256,
-            "rendered_pixel_checksum_sha256": cell.rendered_pixel_checksum_sha256,
-            "extractor_version": "x",
-            "cropper_version": "x",
-            "crop_checksum_sha256": cell.rendered_pixel_checksum_sha256,
-        }
-        rows.append(row)
-    board = _Board(
-        id=BOARD_ID,
-        geometry_revision=0,
-        asset_mode="virtual_source",
-        rows=3,
-        columns=5,
-        unavailable_cell_indices=(),
-        geometry_qualification=None,
-    )
-    assert not hasattr(_prepare_zero_board(board, rows), "code")
-    rows[4][column] = value
-    refused = _prepare_zero_board(board, rows)
-    assert refused.code == "BOARD_RENDER_MANIFEST_CROP_PROVENANCE_MISMATCH"  # type: ignore[union-attr]
-    assert refused.cell_index == 4  # type: ignore[union-attr]
 
 
 def test_import_writer_requires_extractor_equal_to_cropper_version() -> None:

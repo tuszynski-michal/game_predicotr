@@ -58,7 +58,6 @@ DEFAULT_BOARD_VIEW_CACHE_BYTES = 512 * 1024 * 1024
 _VIEW_WEBP_QUALITY = 80
 _VIEW_FILL = (20, 32, 45)
 _VIEW_MAX_SOURCE_PIXELS = 100_000_000
-_EXIF_ORIENTATION = 0x0112
 
 
 class BoardSearchBoardDetailRepository(Protocol):
@@ -155,59 +154,25 @@ def _checked_view_source(
 
 def _prepare_view(
     source: BoardSearchBoardViewSource,
-    asset_mode: BoardSearchAssetMode,
-    artifact_root: Path | None,
-) -> tuple[BoardViewCrop | None, BoardSearchBoardView] | None:
+) -> tuple[BoardViewCrop, BoardSearchBoardView] | None:
     """Crop and view metadata for one board, or `None` without a usable view.
 
-    Operational boards need a saved grid (their view is a crop of the photo).
-    Archive boards are already single-board images: the view is the whole
-    image, resized, with no cell polygons; its size comes from the header.
+    An operational board needs a saved grid: its view is a crop of the photo.
     """
 
-    if asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW:
-        if source.geometry is None:
-            return None
-        quads = board_cell_quads(source.geometry)
-        crop = None if quads is None else board_view_crop(quads)
-        if quads is None or crop is None:
-            return None
-        revision = board_view_revision(source.image_checksum_sha256, crop)
-        return crop, board_view(quads, crop, revision=revision)
-    if artifact_root is None:
+    if source.geometry is None:
         return None
-    try:
-        image = resolve_board_search_image(
-            source.image_relative_path,
-            source.image_checksum_sha256,
-            artifact_root,
-            code_prefix="BOARD_SEARCH_BOARD_VIEW_SOURCE",
-            verify_checksum=False,
-        )
-        with Image.open(image.path) as opened:
-            width, height = opened.size
-            if opened.getexif().get(_EXIF_ORIENTATION, 1) in {5, 6, 7, 8}:
-                width, height = height, width
-    except (BoardSearchError, OSError, UnidentifiedImageError, Image.DecompressionBombError):
+    quads = board_cell_quads(source.geometry)
+    crop = None if quads is None else board_view_crop(quads)
+    if quads is None or crop is None:
         return None
-    view_width, view_height = resized_view_size(width, height)
-    return None, BoardSearchBoardView(
-        width=view_width,
-        height=view_height,
-        revision=board_view_revision(source.image_checksum_sha256, None),
-        cell_polygons=None,
-    )
+    revision = board_view_revision(source.image_checksum_sha256, crop)
+    return crop, board_view(quads, crop, revision=revision)
 
 
 class BoardSearchBoardDetailService:
-    def __init__(
-        self,
-        repository: BoardSearchBoardDetailRepository,
-        *,
-        artifact_root: Path | None = None,
-    ) -> None:
+    def __init__(self, repository: BoardSearchBoardDetailRepository) -> None:
         self._repository = repository
-        self._artifact_root = artifact_root
 
     def detail(
         self,
@@ -277,21 +242,12 @@ class BoardSearchBoardDetailService:
         # symbols belong to an older grid: no photo, no cell editing, and the
         # modal offers to refresh this one board (TASK-0773).
         stale = _is_stale(source, document)
-        prepared = (
-            None
-            if source is None or stale
-            else _prepare_view(source, document.asset_mode, self._artifact_root)
-        )
+        prepared = None if source is None or stale else _prepare_view(source)
         view = None if prepared is None else prepared[1]
         # Only a pending operational board is corrected cell by cell (D-462,
         # D-473); resolved boards read the whole-board decision instead.
         cells: tuple[BoardSearchBoardCell, ...] | None = None
-        if (
-            include_cells
-            and document.asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW
-            and document.status == "pending"
-            and not stale
-        ):
+        if include_cells and document.status == "pending" and not stale:
             records = self._repository.board_cells(game_id=game_id, document=document)
             # Correction needs one current record per logical cell; a partial
             # set (e.g. mid-backfill) is offered as not editable.
@@ -323,17 +279,12 @@ class BoardSearchBoardDetailService:
 
         Uses the same projection sync the system runs after every cell or
         geometry decision, scoped to one board; it never changes a human
-        decision. Only operational documents can be rebuilt.
+        decision.
         """
 
         if sequence_number < 1:
             raise _board_not_found()
         document = _load_document(self._repository, game_id, sequence_number)
-        if document.asset_mode is not BoardSearchAssetMode.OPERATIONAL_REVIEW:
-            raise BoardSearchError(
-                "BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED",
-                "Only operational board-search documents can be refreshed.",
-            )
         self._repository.refresh_board_document(game_id=game_id, document=document)
         # The rebuild may legitimately leave no document at this position
         # (the board left the searchable states or moved in the sequence).
@@ -497,15 +448,13 @@ class BoardSearchBoardViewService:
                 "BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE",
                 "No image is available for this board.",
             )
-        crop: BoardViewCrop | None = None
-        if document.asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW:
-            prepared = _prepare_view(source, document.asset_mode, None)
-            if prepared is None:
-                raise BoardSearchError(
-                    "BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE",
-                    "The board has no saved grid to crop its view from.",
-                )
-            crop = prepared[0]
+        prepared = _prepare_view(source)
+        if prepared is None:
+            raise BoardSearchError(
+                "BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE",
+                "The board has no saved grid to crop its view from.",
+            )
+        crop = prepared[0]
         key = board_view_revision(source.image_checksum_sha256, crop)
         if expected_view_revision is not None and expected_view_revision != key:
             # The grid (and so the crop) changed since the detail was read.

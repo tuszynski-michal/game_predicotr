@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
-from pathlib import Path
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
@@ -78,18 +77,15 @@ def _document(
     codes: tuple[int | None, ...],
     *,
     sequence_number: int = 42,
-    asset_mode: BoardSearchAssetMode = BoardSearchAssetMode.OPERATIONAL_REVIEW,
     status: str = "pending",
 ) -> BoardSearchBoardDocument:
-    operational = asset_mode is BoardSearchAssetMode.OPERATIONAL_REVIEW
     return BoardSearchBoardDocument(
         sequence_number=sequence_number,
         status=status,
         board_checksum_sha256="c" * 64,
         mobile_codes=codes,
-        asset_mode=asset_mode,
-        review_item_id=_REVIEW_ITEM_ID if operational else None,
-        archive_relative_path=None if operational else "archive/board.png",
+        asset_mode=BoardSearchAssetMode.OPERATIONAL_REVIEW,
+        review_item_id=_REVIEW_ITEM_ID,
     )
 
 
@@ -123,13 +119,6 @@ class MemoryBoardDetailRepository:
     def board_view_source(
         self, *, game_id: UUID, document: BoardSearchBoardDocument
     ) -> BoardSearchBoardViewSource | None:
-        if document.asset_mode is BoardSearchAssetMode.LEGACY_ARCHIVE:
-            return BoardSearchBoardViewSource(
-                image_relative_path="archive/board.png",
-                image_checksum_sha256=document.board_checksum_sha256,
-                geometry=None,
-                current_board_checksum_sha256=document.board_checksum_sha256,
-            )
         return BoardSearchBoardViewSource(
             image_relative_path="imports/source.jpg",
             image_checksum_sha256="d" * 64,
@@ -343,32 +332,11 @@ def test_refresh_that_removes_the_document_is_reported_not_a_404() -> None:
     assert response.json() == {"documentRemoved": True, "detail": None}
 
 
-def test_refresh_refuses_archive_boards_and_missing_documents() -> None:
-    archive = MemoryBoardDetailRepository(
-        document=_document((A,) * 15, asset_mode=BoardSearchAssetMode.LEGACY_ARCHIVE),
-        configuration=_configuration(),
-    )
-    response = _client(archive).post(
-        f"/api/v1/admin/games/{_GAME_ID}/board-search/boards/42/refresh"
-    )
-    assert response.status_code == 409
-    assert response.json()["code"] == "BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED"
+def test_refresh_of_a_missing_document_is_not_found() -> None:
     missing = _client(
         MemoryBoardDetailRepository(document=None, configuration=_configuration())
     ).post(f"/api/v1/admin/games/{_GAME_ID}/board-search/boards/42/refresh")
     assert missing.status_code == 404
-
-
-def test_archive_board_has_no_cell_polygons() -> None:
-    body = _get(
-        MemoryBoardDetailRepository(
-            document=_document((A,) * 15, asset_mode=BoardSearchAssetMode.LEGACY_ARCHIVE),
-            configuration=_configuration(),
-        )
-    ).json()
-    assert body["dataSource"] == "legacy_archive"
-    assert body["view"] is None
-    assert len(body["matches"]) == 2
 
 
 def test_saved_cell_quads_win_over_the_derived_lattice() -> None:
@@ -406,25 +374,6 @@ def test_view_crop_is_independent_of_the_image_and_downscales_large_boards() -> 
     assert (crop.width, crop.height) == (1280, 640)
     view = board_view(quads, crop, revision="r")
     assert view.cell_polygons[0][0] == (round(800 / 5600, 6), round(400 / 2800, 6))
-
-
-def test_archive_board_with_an_image_has_a_view_without_polygons(tmp_path: Path) -> None:
-    from PIL import Image
-
-    image_path = tmp_path / "data" / "archive" / "board.png"
-    image_path.parent.mkdir(parents=True)
-    Image.new("RGB", (2560, 1536), (0, 0, 0)).save(image_path, format="PNG")
-    repository = MemoryBoardDetailRepository(
-        document=_document((A,) * 15, asset_mode=BoardSearchAssetMode.LEGACY_ARCHIVE),
-        configuration=_configuration(),
-    )
-    detail = BoardSearchBoardDetailService(repository, artifact_root=tmp_path).detail(
-        game_id=_GAME_ID, sequence_number=42
-    )
-    assert detail.view is not None
-    assert (detail.view.width, detail.view.height) == (1280, 768)
-    assert detail.view.cell_polygons is None
-    assert len(detail.view.revision) == 64
 
 
 def test_unknown_game_is_not_found_over_http() -> None:
@@ -477,17 +426,12 @@ def test_pending_board_exposes_its_cell_review_records_for_correction() -> None:
     }
 
 
-def test_resolved_and_archive_boards_have_no_editable_cells() -> None:
+def test_resolved_boards_have_no_editable_cells() -> None:
     accepted = MemoryBoardDetailRepository(
         document=_document((A,) * 15, status="accepted"), configuration=_configuration()
     )
     assert _get(accepted).json()["cells"] is None
     assert getattr(accepted, "cell_reads", 0) == 0
-    archive = MemoryBoardDetailRepository(
-        document=_document((A,) * 15, asset_mode=BoardSearchAssetMode.LEGACY_ARCHIVE),
-        configuration=_configuration(),
-    )
-    assert _get(archive).json()["cells"] is None
 
 
 def test_a_partial_set_of_cell_records_is_not_offered_for_correction() -> None:

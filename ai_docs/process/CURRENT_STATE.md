@@ -255,6 +255,19 @@ last_updated: 2026-10-01
   `EXPECTED_ALEMBIC_HEAD` = `0133`. Numeracja: S5 = `0134`, TASK-0791 =
   `0135`, S7 = `0136`; zadania S6–S8 planu D-467 to TASK-0790–0795
   (TASK-0760–0775 zajął tor D-470). Cutover `0133` jak `0132`.
+- TASK-0759 (S5) w toku — implementacja gotowa do audytu, bez commita:
+  manifest magazynu v4 (63 tabele gry, bez `cell_observations` i
+  `legacy_board_search_archive_*`), migracja
+  `0134_drop_cell_observations_and_legacy_archive` (preflight z jawnymi
+  kodami, rejestr i lokalizacje v4, `DROP TABLE` partycji z `pg_inherits` w
+  jednej transakcji, downgrade odmawia; downgrade `0132` odmawia po `0134`),
+  `EXPECTED_ALEMBIC_HEAD` = `0134`. Usunięte: modele ORM trzech tabel,
+  adapter legacy, tryb `legacy_archive` wyszukiwarki pionem (endpoint
+  `archive-assets`, OpenAPI, klient, wrapper, `board-search-ui`), backfill
+  manifestów, diagnostyka addytywna, skrypty historyczne i fixture
+  benchmarku M6.5 (z `m65:workbench:*`). Migracja nie była uruchamiana na
+  bazie operatora — cutover po audycie i commicie za zgodą (runbook
+  `LOCAL_OPERATION_GUIDE.md`, kopia `C:\game_predictor_backup\cell_observations-20261001-0404.dump`).
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

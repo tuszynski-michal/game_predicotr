@@ -14,7 +14,7 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus
 from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v3 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v4 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,

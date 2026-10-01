@@ -90,7 +90,6 @@ async function renderWorkspace(searchImpl) {
     root.render(
       React.createElement(BoardSearchWorkspace, {
         client: {
-          archivedBoardSearchAssetUrl: () => 'http://127.0.0.1:8000/a.jpg',
           boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
           getOperationalImageReviewItem: async () => ({
             data: { geometry: {} },

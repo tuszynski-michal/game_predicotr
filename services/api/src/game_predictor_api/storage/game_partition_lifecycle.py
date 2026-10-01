@@ -19,7 +19,7 @@ from game_predictor_api.domain.image_import_engine_policy import (
     DEFAULT_CELL_ASSET_MODE,
     DEFAULT_GEOMETRY_MODE,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v3 import (
+from game_predictor_api.storage.game_data_v2_manifest_v4 import (
     CREATE_TABLES,
     DELETE_TABLES,
     SCHEMA,

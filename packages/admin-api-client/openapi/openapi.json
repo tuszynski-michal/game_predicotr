@@ -1743,9 +1743,9 @@
         "type": "string"
       },
       "BoardSearchAssetMode": {
+        "description": "Read model behind a search result.  Only the operational projection\nremains; the frozen board-search archive was removed in D-467 S5.",
         "enum": [
-          "operational_review",
-          "legacy_archive"
+          "operational_review"
         ],
         "title": "BoardSearchAssetMode",
         "type": "string"
@@ -27148,7 +27148,7 @@
                 }
               }
             },
-            "description": "Board-search projection/archive not ready, no published rules, an invalid rules configuration, a board symbol outside the active rules, or a starting board outside the game's sequence"
+            "description": "Board-search projection not ready, no published rules, an invalid rules configuration, a board symbol outside the active rules, or a starting board outside the game's sequence"
           },
           "422": {
             "content": {
@@ -27162,82 +27162,6 @@
           }
         },
         "summary": "Calculate a careful, read-only lower-bound payout estimate for a sequence range",
-        "tags": [
-          "board-search"
-        ]
-      }
-    },
-    "/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}": {
-      "get": {
-        "operationId": "getArchivedBoardSearchAsset",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "game_id",
-            "required": true,
-            "schema": {
-              "format": "uuid",
-              "title": "Game Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "path",
-            "name": "sequence_number",
-            "required": true,
-            "schema": {
-              "minimum": 1,
-              "title": "Sequence Number",
-              "type": "integer"
-            }
-          },
-          {
-            "in": "query",
-            "name": "expectedBoardChecksumSha256",
-            "required": true,
-            "schema": {
-              "pattern": "^[a-f0-9]{64}$",
-              "title": "Expectedboardchecksumsha256",
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Game not found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Board-search projection not ready"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            },
-            "description": "Invalid partial board query"
-          }
-        },
-        "summary": "Read one checksum-bound board image from a frozen search archive",
         "tags": [
           "board-search"
         ]
@@ -27297,7 +27221,7 @@
                 }
               }
             },
-            "description": "Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
+            "description": "Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
           },
           "422": {
             "content": {
@@ -27380,7 +27304,7 @@
                 }
               }
             },
-            "description": "Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
+            "description": "Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
           },
           "422": {
             "content": {
@@ -27494,7 +27418,7 @@
                 }
               }
             },
-            "description": "Projection/archive not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
+            "description": "Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written"
           },
           "422": {
             "content": {

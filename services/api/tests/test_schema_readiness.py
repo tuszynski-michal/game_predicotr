@@ -15,7 +15,9 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0133_virtual_only_import_policies"
+    assert (
+        schema_readiness.EXPECTED_ALEMBIC_HEAD == "0134_drop_cell_observations_and_legacy_archive"
+    )
 
 
 @pytest.mark.parametrize(
@@ -24,6 +26,7 @@ def test_expected_head_is_the_single_alembic_head() -> None:
         None,
         "0131_board_render_manifests",
         "0132_symbol_reference_images_cell_identity",
+        "0133_virtual_only_import_policies",
         "9999_future",
     ),
 )

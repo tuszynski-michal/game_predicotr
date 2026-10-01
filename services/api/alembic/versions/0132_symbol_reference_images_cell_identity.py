@@ -10,8 +10,9 @@ blocked by the foreign key.
 
 Upgrade refuses when an existing row's observation is not the observation at
 its recorded ``(board, cell_index)``: only then would downgrade be unable to
-restore it.  Downgrade restores the column from ``cell_observations`` (which
-still exist until S5) and refuses when any row cannot be restored.
+restore it.  Downgrade restores the column from ``cell_observations`` and
+refuses when any row cannot be restored, or when migration 0134 (S5) has
+already dropped the observations (``SYMBOL_REFERENCE_OBSERVATIONS_DROPPED``).
 """
 
 from collections.abc import Sequence
@@ -57,6 +58,14 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.execute("SET LOCAL lock_timeout = '5s'")
     op.execute("SET LOCAL statement_timeout = '120s'")
+    # Migration 0134 (D-467 S5) drops the observations this downgrade restores
+    # the column from; without them the column cannot be rebuilt.
+    op.execute(f"""DO $guard$ BEGIN
+        IF to_regclass('{OBSERVATIONS}') IS NULL THEN
+            RAISE EXCEPTION 'SYMBOL_REFERENCE_OBSERVATIONS_DROPPED: cell observations no longer '
+                'exist (migration 0134); source_observation_id cannot be restored';
+        END IF;
+    END $guard$""")
     op.execute(f"LOCK TABLE {TABLE} IN ACCESS EXCLUSIVE MODE")
     op.execute(f"ALTER TABLE {TABLE} ADD COLUMN source_observation_id UUID")
     op.execute(f"""UPDATE {TABLE} AS r SET source_observation_id = o.id

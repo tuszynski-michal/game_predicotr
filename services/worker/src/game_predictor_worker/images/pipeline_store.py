@@ -1409,8 +1409,8 @@ def _ensure_import_render_manifest(
 ) -> None:
     """Write the revision-0 render manifest of an imported virtual board (D-467).
 
-    Since TASK-0790 the manifest is the only per-cell import record; no
-    ``cell_observations`` row is written. A board without renderable cells
+    Since TASK-0790 the manifest is the only per-cell import record (the V1
+    observation table was dropped in S5, TASK-0759). A board without renderable cells
     gets no manifest (rule: no manifest row <=> no cells).
     """
 

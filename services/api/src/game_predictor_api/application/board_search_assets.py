@@ -1,4 +1,4 @@
-"""Fail-closed filesystem resolution for frozen board-search assets."""
+"""Fail-closed filesystem resolution for checksum-bound board-search images."""
 
 from __future__ import annotations
 
@@ -8,32 +8,16 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Final
 
-from game_predictor_api.domain.board_search import (
-    BoardSearchArchiveAssetReference,
-    BoardSearchError,
-)
+from game_predictor_api.domain.board_search import BoardSearchError
 
 _IMAGE_MEDIA_TYPES: Final = frozenset({"image/jpeg", "image/png", "image/webp"})
 _HASH_CHUNK_BYTES: Final = 1024 * 1024
 
 
 @dataclass(frozen=True, slots=True)
-class BoardSearchArchiveAsset:
+class BoardSearchImageAsset:
     path: Path
     media_type: str
-
-
-def resolve_board_search_archive_asset(
-    reference: BoardSearchArchiveAssetReference,
-    artifact_root: Path,
-) -> BoardSearchArchiveAsset:
-    return resolve_board_search_image(
-        reference.relative_path,
-        reference.checksum_sha256,
-        artifact_root,
-        code_prefix="BOARD_SEARCH_ARCHIVE_ASSET",
-        subject="archived board image",
-    )
 
 
 def resolve_board_search_image(
@@ -44,7 +28,7 @@ def resolve_board_search_image(
     code_prefix: str,
     subject: str = "board image",
     verify_checksum: bool = True,
-) -> BoardSearchArchiveAsset:
+) -> BoardSearchImageAsset:
     """Resolve one checksum-bound image under `artifact_root/data`.
 
     `code_prefix` names the error family (`<prefix>_PATH_UNSAFE`,
@@ -80,7 +64,7 @@ def resolve_board_search_image(
             f"{code_prefix}_CHECKSUM_DRIFT",
             f"The {subject} checksum differs from persistence.",
         )
-    return BoardSearchArchiveAsset(path=candidate, media_type=media_type)
+    return BoardSearchImageAsset(path=candidate, media_type=media_type)
 
 
 def _sha256(path: Path) -> str:
@@ -92,7 +76,6 @@ def _sha256(path: Path) -> str:
 
 
 __all__ = [
-    "BoardSearchArchiveAsset",
-    "resolve_board_search_archive_asset",
+    "BoardSearchImageAsset",
     "resolve_board_search_image",
 ]

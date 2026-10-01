@@ -78,6 +78,26 @@ def test_qualified_reinference_rejects_wrong_positions_with_same_count():
         _virtual_records(render_manifest=manifest, expected_indices=tuple(range(14)))
 
 
+def test_revision_zero_legacy_board_is_refused_without_reading_records(tmp_path):
+    """D-467 S5 (TASK-0759): its base crops lived only in the dropped records."""
+
+    factory = MagicMock()
+    handler = PendingSymbolReinferenceHandler(factory, tmp_path, tmp_path)
+    with pytest.raises(JobHandlerError) as error:
+        handler._infer_board(
+            uuid4(),
+            0,
+            source=MagicMock(),
+            snapshot=MagicMock(),
+            adapter=MagicMock(),
+            source_loader=MagicMock(),
+            asset_mode="legacy_file",
+            game_id=uuid4(),
+        )
+    assert error.value.code == "IMAGE_SYMBOL_REINFERENCE_LEGACY_UNSUPPORTED"
+    factory.assert_not_called()
+
+
 def _manifest(cells, *, extractor_version="renderer"):
     return CurrentBoardRenderManifest(
         recognized_board_id=uuid4(),

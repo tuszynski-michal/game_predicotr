@@ -1,6 +1,6 @@
 """Explicit, pending-only symbol prediction refresh.
 
-The handler never mutates the original cell observations.  It writes an
+The handler never mutates the import predictions.  It writes an
 append-only revision and checks the review row again under a database lock so
 that a concurrent human resolution always wins.
 """
@@ -36,10 +36,6 @@ from game_predictor_api.storage.board_search_projection_repository import (
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
-)
-from game_predictor_api.storage.legacy_cell_observation_adapter import (
-    LegacyBaseCell,
-    legacy_base_cells_for_board,
 )
 from game_predictor_api.storage.models import (
     BoardRenderManifestModel,
@@ -336,12 +332,18 @@ class PendingSymbolReinferenceHandler:
         game_id: UUID,
     ) -> tuple[list[dict[str, object]], str]:
         render_manifest: CurrentBoardRenderManifest | None = None
-        legacy_cells: tuple[LegacyBaseCell, ...] = ()
         revised = None
+        if asset_mode != "virtual_source" and geometry_revision == 0:
+            # D-467 S5 (TASK-0759): a revision-0 legacy board read its base
+            # crops from per-cell import records that no longer exist.
+            raise JobHandlerError(
+                "IMAGE_SYMBOL_REINFERENCE_LEGACY_UNSUPPORTED",
+                "A legacy board without a manual geometry revision has no crops to re-infer.",
+            )
         with self._session_factory() as session:
             # D-467: a virtual board's current cells come from its render
-            # manifest; only a revision-0 legacy board still reads its base
-            # crops through the isolated legacy observation adapter.
+            # manifest; a legacy board with a manual geometry revision reads
+            # the revision's crop artifacts.
             if asset_mode == "virtual_source":
                 record = session.get(
                     BoardRenderManifestModel, (game_id, board_id, geometry_revision)
@@ -349,15 +351,13 @@ class PendingSymbolReinferenceHandler:
                 render_manifest = (
                     None if record is None else current_render_manifest_from_record(record)
                 )
-            elif geometry_revision > 0:
+            else:
                 revised = session.scalar(
                     select(ImageBoardGeometryRevisionModel).where(
                         ImageBoardGeometryRevisionModel.recognized_board_id == board_id,
                         ImageBoardGeometryRevisionModel.revision == geometry_revision,
                     )
                 )
-            else:
-                legacy_cells = legacy_base_cells_for_board(session, board_id)
         expected_indices = _available_indices(geometry_qualification, asset_mode=asset_mode)
         if asset_mode == "virtual_source":
             crops = self._render_virtual_crops(
@@ -367,12 +367,12 @@ class PendingSymbolReinferenceHandler:
                 expected_indices=expected_indices,
             )
         else:
-            if revised is None and len(legacy_cells) != len(expected_indices):
+            if revised is None:
                 raise JobHandlerError(
                     "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
-                    "A pending board does not contain 15 immutable crops.",
+                    "A pending board geometry revision is missing.",
                 )
-            crops = self._legacy_crops(legacy_cells=legacy_cells, revised=revised)
+            crops = self._legacy_crops(revised=revised)
         crops.sort(key=lambda crop: (crop.row_index, crop.column_index))
         if [(crop.row_index, crop.column_index) for crop in crops] != [
             (index // 5, index % 5) for index in expected_indices
@@ -428,46 +428,29 @@ class PendingSymbolReinferenceHandler:
     def _legacy_crops(
         self,
         *,
-        legacy_cells: Sequence[LegacyBaseCell],
-        revised: ImageBoardGeometryRevisionModel | None,
+        revised: ImageBoardGeometryRevisionModel,
     ) -> list[_ReinferenceCrop]:
         raw_crops: list[tuple[str, str, int, int]] = []
-        if revised is not None:
-            revised_crops = revised.crop_artifacts
-            if not isinstance(revised_crops, list) or len(revised_crops) != 15:
+        revised_crops = revised.crop_artifacts
+        if not isinstance(revised_crops, list) or len(revised_crops) != 15:
+            raise JobHandlerError(
+                "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
+                "A pending board geometry revision does not contain 15 crops.",
+            )
+        for raw in revised_crops:
+            if not isinstance(raw, dict):
                 raise JobHandlerError(
                     "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
-                    "A pending board geometry revision does not contain 15 crops.",
+                    "A pending board geometry revision contains an invalid crop.",
                 )
-            for raw in revised_crops:
-                if not isinstance(raw, dict):
-                    raise JobHandlerError(
-                        "IMAGE_SYMBOL_REINFERENCE_CELLS_INCOMPLETE",
-                        "A pending board geometry revision contains an invalid crop.",
-                    )
-                raw_crops.append(
-                    (
-                        str(raw["cropRelativePath"]),
-                        str(raw["cropChecksumSha256"]),
-                        cast(int, raw["rowIndex"]),
-                        cast(int, raw["columnIndex"]),
-                    )
+            raw_crops.append(
+                (
+                    str(raw["cropRelativePath"]),
+                    str(raw["cropChecksumSha256"]),
+                    cast(int, raw["rowIndex"]),
+                    cast(int, raw["columnIndex"]),
                 )
-        else:
-            for cell in legacy_cells:
-                if cell.crop_relative_path is None:
-                    raise JobHandlerError(
-                        "IMAGE_SYMBOL_REINFERENCE_VIRTUAL_ASSET_UNAVAILABLE",
-                        "Virtual cell assets are not active in the legacy reinference job.",
-                    )
-                raw_crops.append(
-                    (
-                        cell.crop_relative_path,
-                        cell.crop_checksum_sha256,
-                        cell.row_index,
-                        cell.column_index,
-                    )
-                )
+            )
         crops: list[_ReinferenceCrop] = []
         for crop_relative_path, crop_checksum, row, column in raw_crops:
             path = _artifact_path(self._artifact_root, crop_relative_path)

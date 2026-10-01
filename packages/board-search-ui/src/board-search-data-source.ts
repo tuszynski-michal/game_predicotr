@@ -54,7 +54,6 @@ export type BoardSearchDataSource = {
   Pick<
     AdminApiClient,
     | 'applySymbolCellReviewDecision'
-    | 'archivedBoardSearchAssetUrl'
     | 'getOperationalImageReviewItem'
     | 'operationalImageReviewBoardAssetUrl'
     | 'refreshBoardSearchBoardDocument'

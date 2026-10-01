@@ -81,7 +81,6 @@ import {
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
   getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
-  getArchivedBoardSearchAsset as getGeneratedArchivedBoardSearchAsset,
   getBoardSearchApproximateWin as getGeneratedBoardSearchApproximateWin,
   getBoardSearchBoardDetail as getGeneratedBoardSearchBoardDetail,
   refreshBoardSearchBoardDocument as refreshGeneratedBoardSearchBoardDocument,
@@ -1977,16 +1976,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
       }),
-    getArchivedBoardSearchAsset: (
-      gameId: string,
-      sequenceNumber: number,
-      expectedBoardChecksumSha256: string,
-    ) =>
-      getGeneratedArchivedBoardSearchAsset({
-        client,
-        path: { game_id: gameId, sequence_number: sequenceNumber },
-        query: { expectedBoardChecksumSha256 },
-      }),
     getBoardSearchApproximateWin: (
       gameId: string,
       options: GetBoardSearchApproximateWinOptions,
@@ -2022,14 +2011,6 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       const query = new URLSearchParams({ expectedBoardChecksumSha256 });
       if (viewRevision !== undefined) query.set('viewRevision', viewRevision);
       return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/board-search/boards/${sequenceNumber}/view?${query.toString()}`;
-    },
-    archivedBoardSearchAssetUrl: (
-      gameId: string,
-      sequenceNumber: number,
-      expectedBoardChecksumSha256: string,
-    ) => {
-      const query = new URLSearchParams({ expectedBoardChecksumSha256 });
-      return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/games/${encodeURIComponent(gameId)}/board-search/archive-assets/${sequenceNumber}?${query.toString()}`;
     },
     getImageSequenceSourceSelection: (gameId: string, sequenceNumber: number) =>
       getGeneratedImageSequenceSourceSelection({

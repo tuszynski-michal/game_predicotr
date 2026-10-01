@@ -204,6 +204,18 @@ utworzeniu wszystkich partycji i przed atomową aktywacją location.
 Pełna mapa własności, zależności, kontrakt create/migrate/delete i ograniczenia
 rollbacku: [GAME_DATA_V2_OWNERSHIP.md](GAME_DATA_V2_OWNERSHIP.md).
 
+Wersje manifestu magazynu (D-467): `game-data-v2-manifest-v3` (migracja
+`0131`) dodał `board_render_manifests` (66 tabel gry).
+`game-data-v2-manifest-v4` (migracja `0134`, TASK-0759) usuwa z niego
+`cell_observations`, `legacy_board_search_archive_documents` i
+`legacy_board_search_archive_states` (63 tabele gry, jawna zamrożona lista w
+`storage/game_data_v2_manifest_v4.py`). `0134` w jednej transakcji z preflightem
+(manifest v3 każdej lokalizacji, brak FK do usuwanych tabel, 0 plansz
+`legacy_file` na rewizji 0, 0 plansz `virtual_source` z dostępnymi komórkami
+bez manifestu bieżącej rewizji, puste archiwum) dopisuje rejestr v4,
+przestawia lokalizacje na v4 i usuwa partycje (z `pg_inherits`) oraz tabele
+nadrzędne; downgrade odmawia. Router i provisioning akceptują wyłącznie v4.
+
 ## game_deletion_operations / game_deletion_batches — TASK-0516
 
 Maintenance-only receipt nie ma FK do `games`, dlatego przeżywa usunięcie gry.
@@ -1117,7 +1129,14 @@ wersjonowanej decyzji review wraz z aktorem i rewizją; nie nadpisuje surowej
 odpowiedzi OCR. Brak ręcznej decyzji pozwala pozostawić lukę i doładować kolejne
 zdjęcia.
 
-### cell_observations
+### cell_observations (usunięta w migracji `0134`)
+
+Tabela historyczna: usunięta w D-467 S5 (TASK-0759, manifest magazynu v4).
+Specyfikację renderu bieżącej rewizji wirtualnej planszy przechowuje
+`board_render_manifests`, predykcje importu `recognized_boards.cells_prediction`,
+a cropy planszy `legacy_file` jej ręczna rewizja geometrii (`crop_artifacts`).
+Plansza `legacy_file` na rewizji 0 nie ma już źródła komórek i jest odrzucana.
+Poniższy opis dotyczy schematu sprzed `0134`.
 
 | Pole | Typ | Uwagi |
 |---|---|---|
@@ -2387,6 +2406,10 @@ deterministycznie z kandydatów i fast documents. Obrazy nadal są assetami
 filesystemu powiązanymi przez `review_item_id` i checksumę; żadna z tych tabel
 nie przechowuje JPEG-a.
 
+Tabele archiwum opisane w dwóch kolejnych akapitach zostały usunięte
+w migracji `0134` (D-467 S5, TASK-0759; nigdy nie miały wierszy), razem z
+trybem `legacy_archive` wyszukiwarki. Opis zostaje jako historia.
+
 Od migracji 0098 gra przeznaczona do odchudzenia może mieć niezależny,
 zamrożony read model `legacy_board_search_archive_documents`. Klucz pozostaje
 `(game_id, sequence_number)`, a dokument kopiuje wyłącznie status, bezpośrednią
@@ -2413,7 +2436,8 @@ odpowiedzialności nie są równorzędne:
   bieżącą geometrię pojedynczej planszy;
 - `recognized_boards.board_geometry` jest projekcją kompatybilnościową;
 - `image_board_geometry_revisions` przechowuje komendę i audyt korekty;
-- `cell_observations.render_spec` przechowuje proweniencję renderu cropa.
+- `board_render_manifests.cells` przechowuje proweniencję renderu bieżącej
+  rewizji planszy (do `0134` także `cell_observations.render_spec`).
 
 Pełna mapa ról, invarianty cross-table, reguły manualnego recropu i projekt
 addytywnej korekty znajdują się w

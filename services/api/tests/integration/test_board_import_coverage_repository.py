@@ -21,13 +21,12 @@ from game_predictor_api.domain.board_import_coverage import MissingReason
 from game_predictor_api.storage.board_import_coverage_repository import (
     SqlAlchemyBoardImportCoverageRepository,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v3 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v4 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardGeometryPendingModel,
     ImageFileExecutionModel,
@@ -101,7 +100,6 @@ def _provision_public_storage_location(session: Session, *, game_id: UUID) -> No
 _V2_PARTITIONED_TABLES = (
     "source_images",
     "recognized_boards",
-    "cell_observations",
     "image_review_items",
     "image_sequence_canonical",
     "image_import_job_files",
@@ -233,18 +231,6 @@ def _add_complete_board(
     )
     session.add(board)
     session.flush()
-    session.add_all(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=n // 5,
-            column_index=n % 5,
-            crop_relative_path=f"cells/{sequence_number}_{n}.jpg",
-            crop_checksum_sha256="c" * 64,
-            cropper_version="fixture",
-            prediction={},
-        )
-        for n in range(15)
-    )
     item = ImageReviewItemModel(
         game_id=game_id,
         import_job_id=job.id,
@@ -295,18 +281,6 @@ def _add_partial_board(
     )
     session.add(board)
     session.flush()
-    session.add_all(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=n // 5,
-            column_index=n % 5,
-            crop_relative_path=f"cells/{sequence_number}_{n}.jpg",
-            crop_checksum_sha256="c" * 64,
-            cropper_version="fixture",
-            prediction={},
-        )
-        for n in range(15)
-    )
     item = ImageReviewItemModel(
         game_id=game_id,
         import_job_id=job.id,

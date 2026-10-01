@@ -72,7 +72,6 @@ class ViewRepository:
             mobile_codes=(1,) * 15,
             asset_mode=self._asset_mode,
             review_item_id=uuid4(),
-            archive_relative_path=None,
         )
 
     def board_view_source(
@@ -221,23 +220,6 @@ def test_view_fails_closed(
             game_id=_GAME_ID, sequence_number=7, expected_board_checksum_sha256=expected_checksum
         )
     assert raised.value.code == code
-
-
-def test_archive_view_is_resized_without_cropping(tmp_path: Path) -> None:
-    checksum = _write_source(tmp_path, "archive/board.png")
-    service = _service(
-        tmp_path,
-        ViewRepository(
-            image_relative_path="archive/board.png",
-            image_checksum=checksum,
-            asset_mode=BoardSearchAssetMode.LEGACY_ARCHIVE,
-        ),
-    )
-    asset = service.view(
-        game_id=_GAME_ID, sequence_number=7, expected_board_checksum_sha256=_CHECKSUM
-    )
-    with Image.open(io.BytesIO(asset.content)) as image:
-        assert image.size == (1280, 640)
 
 
 def test_view_endpoint_serves_an_immutable_webp_and_maps_errors(tmp_path: Path) -> None:

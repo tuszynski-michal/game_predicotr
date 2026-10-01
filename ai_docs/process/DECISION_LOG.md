@@ -220,6 +220,40 @@ last_updated: 2026-09-30
   = `0134`, TASK-0791 = `0135`, S7 (TASK-0793) = `0136`. Identyfikatory
   zadań S6–S8 planu D-467 przesunięte z TASK-0760–0765 na TASK-0790–0795,
   bo TASK-0760–0775 zajął równoległy tor D-470 (board-search-share).
+- **Usunięcie `cell_observations` i archiwum wyszukiwarki (TASK-0759, S5):**
+  manifest magazynu `game-data-v2-manifest-v4` (jawna zamrożona lista 63
+  tabel gry) nie zawiera `cell_observations`,
+  `legacy_board_search_archive_documents` ani `legacy_board_search_archive_states`;
+  router i provisioning akceptują wyłącznie v4. Migracja
+  `0134_drop_cell_observations_and_legacy_archive` w jednej transakcji:
+  preflight z jawnymi kodami (lifecycle/lokalizacja zajęta, lokalizacja inna
+  niż v3, brak lub niepartycjonowana tabela, klucz obcy spoza usuwanych
+  tabel, plansza `legacy_file` na rewizji 0, plansza `virtual_source` z
+  dostępnymi komórkami bez manifestu bieżącej rewizji, niepuste archiwum),
+  rejestr v4, lokalizacje v3 → v4 z podbiciem `revision`, `DROP TABLE`
+  partycji wyliczonych z `pg_inherits`, potem tabel nadrzędnych; nazwy
+  zamrożone w migracji; downgrade odmawia
+  (`CELL_OBSERVATIONS_DROP_IRREVERSIBLE`), a downgrade `0132` odmawia
+  (`SYMBOL_REFERENCE_OBSERVATIONS_DROPPED`), gdy obserwacji już nie ma.
+  Stan backfillu manifestów był plikiem (checkpoint), nie wierszem bazy, więc
+  preflight „brak plansz bez manifestu” zastępuje kontrolę backfillu w toku.
+  Kod: adapter `legacy_cell_observation_adapter`, modele ORM trzech tabel,
+  backfill manifestów (moduł i skrypt), diagnostyka addytywnej geometrii,
+  `scripts/build_grid_symbol_diagnostic.py`,
+  `scripts/build_legacy_board_search_archive.py` oraz fixture benchmarku M6.5
+  (`real_workbench_fixture`, `workbench_acceptance`, skrypty i wpisy
+  `m65:workbench:*`) są usunięte. Plansza `legacy_file` na rewizji 0 nie ma
+  źródła komórek: mapper odmawia (`IMAGE_REVIEW_CELL_COUNT_INVALID`),
+  wyszukiwarka ją pomija, przeliczanie predykcji zwraca
+  `IMAGE_SYMBOL_REINFERENCE_LEGACY_UNSUPPORTED`; walidacja rolloutu czyta
+  wyłącznie manifest. Tryb `legacy_archive` wyszukiwarki usunięty pionem
+  (enum `BoardSearchAssetMode` = `operational_review`, endpoint
+  `archive-assets`, OpenAPI, klient, wrapper, pakiet `board-search-ui`,
+  komunikat Admina); supersedes D-369. `game_deletion_policy_v1` i manifesty
+  v1/v3 pozostają niezmienione jako zamrożone wejścia migracji
+  `0103`/`0105`/`0106`/`0131`. Listy `cleanup_repository` i
+  `symbol_review_statistics` liczą/usuwają `board_render_manifests` zamiast
+  obserwacji. `EXPECTED_ALEMBIC_HEAD` = `0134`.
 - **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
   inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
   operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu
@@ -10384,7 +10418,9 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 
 ## D-369 — Archiwum wyszukiwania nie zależy od operacyjnego review
 
-- **Status:** accepted
+- **Status:** superseded by D-467 (TASK-0759, migracja `0134`: archiwum nigdy
+  nie zostało zbudowane — 0 wierszy — i zostało usunięte razem z trybem
+  `legacy_archive`); wcześniej accepted
 - **Date:** 2026-09-07
 - **Decision:** zachowywany zakres starej gry może zostać zamrożony w
   `legacy_board_search_archive_documents`. Dokument ma bezpośrednią ścieżkę i

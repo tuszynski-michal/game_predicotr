@@ -114,6 +114,8 @@ Stan 2026-09-30 (odczyt): baza 89 GB, gra `7` 83 GB w `game_data_v2`;
 największe tabele `image_symbol_review_cells` 34 GB, `cell_observations` 28 GB,
 `image_symbol_prediction_revisions` 11 GB,
 `public.image_pipeline_stage_results` 6,8 GB (z tego `board_crops` 5,36 GB).
+Migracja `0134` (TASK-0759, D-467 S5) usuwa `cell_observations` w całości —
+patrz sekcja 2.5.
 
 ## 2. Kolejność po dużych przebiegach zapisu
 
@@ -220,6 +222,23 @@ wykonują zapisów (`lock_timeout` przerywa próbę, jeśli tabela jest w użyci
 `VACUUM FULL` dużych tabel `game_data_v2` (np. 34 GB komórek) wymaga
 osobnego planu: przy 43 GB wolnego miejsca na `C:` (2026-09-30) nie ma
 bezpiecznego zapasu.
+
+### 2.5. Po migracji `0134` (usunięcie `cell_observations`)
+
+`DROP TABLE` partycji usuwa ich pliki natychmiast — `VACUUM` ani
+`VACUUM FULL` nie są potrzebne dla usuniętych tabel. Po cutoverze:
+
+```powershell
+docker exec game-predictor-postgres-1 psql -U game_predictor -d game_predictor -c "SELECT pg_size_pretty(pg_database_size('game_predictor'))"
+docker exec game-predictor-postgres-1 psql -U game_predictor -d game_predictor -c "SELECT to_regclass('game_data_v2.cell_observations') IS NULL AS dropped"
+Get-PSDrive C
+```
+
+Oczekiwany spadek rozmiaru bazy to ok. 28 GB. Miejsce na dysku Windows
+zwalnia dopiero kompaktowanie `docker_data.vhdx` (sekcja 3). Statystyki
+planisty dla tabel weryfikacji symboli odświeża `refresh_symbol_review_query_statistics`
+przy następnym pełnym przebudowaniu projekcji (lista tabel zawiera teraz
+`board_render_manifests` zamiast `cell_observations`).
 
 ## 3. Kompaktowanie `docker_data.vhdx`
 

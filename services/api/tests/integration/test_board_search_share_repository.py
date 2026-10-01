@@ -263,7 +263,7 @@ def test_query_log_writes_commit_under_the_game_storage_route(database: Engine) 
         SqlAlchemyBoardSearchShareQueryLog,
     )
     from game_predictor_api.storage.database import create_session_factory
-    from game_predictor_api.storage.game_data_v2_manifest_v3 import VERSION
+    from game_predictor_api.storage.game_data_v2_manifest_v4 import VERSION
 
     game_id = _game(database)
     with Session(database) as session:

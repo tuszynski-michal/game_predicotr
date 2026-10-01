@@ -50,8 +50,6 @@ from game_predictor_api.storage.board_search_projection_repository import (
 )
 from game_predictor_api.storage.job_repository import job_from_record, job_record_from_domain
 from game_predictor_api.storage.models import (
-    BoardRenderManifestModel,
-    CellObservationModel,
     GameModel,
     ImageBoardGeometryRevisionModel,
     ImageBoardSearchFastDocumentModel,
@@ -403,6 +401,8 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 "IMAGE_GEOMETRY_ROLLOUT_SOURCE_PROVENANCE_INVALID",
                 "A virtual source has incomplete canonical coordinate metadata.",
             )
+        # D-467 S5 (TASK-0759): per-cell import records no longer exist, so the
+        # former observation identity backfill always counts zero.
         observation_backfill_count = 0
         for board in virtual_boards:
             geometry = self._session.get(
@@ -439,59 +439,11 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     "A virtual board does not match its source geometry topology.",
                 )
             topology_count = int(board.grid_rows or 3) * int(board.grid_columns or 5)
-            observations = tuple(
-                self._session.scalars(
-                    select(CellObservationModel)
-                    .where(CellObservationModel.recognized_board_id == board.id)
-                    .order_by(CellObservationModel.row_index, CellObservationModel.column_index)
-                )
+            # D-467: the render manifest of the current revision is the only
+            # record of a virtual board's cells.
+            self._validate_manifest_cells(
+                game_id=game_id, source=source, board=board, geometry=geometry
             )
-            expected_coordinates = tuple(
-                (row_index, column_index)
-                for row_index in range(int(board.grid_rows or 3))
-                for column_index in range(int(board.grid_columns or 5))
-            )
-            for observation in observations:
-                observation_backfill_count += self._backfill_render_identity(
-                    source=source,
-                    geometry=geometry,
-                    topology=topology,
-                    board=board,
-                    cell=observation,
-                )
-            if not observations:
-                # D-467 (TASK-0790): boards imported or resolved after the
-                # observation writers were removed carry only a render manifest.
-                self._validate_manifest_cells(
-                    game_id=game_id, source=source, board=board, geometry=geometry
-                )
-            elif (
-                len(observations) != topology_count
-                or tuple(
-                    (int(observation.row_index), int(observation.column_index))
-                    for observation in observations
-                )
-                != expected_coordinates
-                or any(
-                    observation.asset_mode != "virtual_source"
-                    or observation.source_geometry_revision_id != geometry.id
-                    or observation.crop_relative_path is not None
-                    or not _is_sha256(observation.logical_cell_key)
-                    or not _is_sha256(observation.logical_cell_key_v2)
-                    or not _is_sha256(observation.render_identity_v2_sha256)
-                    or not isinstance(observation.render_spec, dict)
-                    or not _is_sha256(observation.render_spec_checksum_sha256)
-                    or not _is_sha256(observation.rendered_pixel_checksum_sha256)
-                    or observation.crop_checksum_sha256
-                    != observation.rendered_pixel_checksum_sha256
-                    for observation in observations
-                )
-            ):
-                self._invalid_source(
-                    source,
-                    "IMAGE_GEOMETRY_ROLLOUT_CELL_PROVENANCE_INVALID",
-                    "A virtual board does not contain every checksum-bound virtual cell.",
-                )
             if board.geometry_revision > 0:
                 revision = self._session.scalar(
                     select(ImageBoardGeometryRevisionModel).where(
@@ -797,7 +749,7 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         geometry: ImageSourceGeometryRevisionModel,
         topology: BoardTopology,
         board: RecognizedBoardModel,
-        cell: CellObservationModel | ImageSymbolReviewCellModel | VerifiedTrainingCohortCellModel,
+        cell: ImageSymbolReviewCellModel | VerifiedTrainingCohortCellModel,
         row_index: int | None = None,
         column_index: int | None = None,
     ) -> int:
@@ -813,11 +765,7 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         else:
             resolved_row = int(cell.row_index) if row_index is None else row_index
             resolved_column = int(cell.column_index) if column_index is None else column_index
-        cell_index = (
-            resolved_row * topology.columns + resolved_column
-            if isinstance(cell, CellObservationModel)
-            else int(cell.cell_index)
-        )
+        cell_index = int(cell.cell_index)
         try:
             identity = derive_v2_render_identity_from_legacy_spec(
                 cell.render_spec,
@@ -835,14 +783,6 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         current = (cell.logical_cell_key_v2, cell.render_identity_v2_sha256)
         expected = (identity.logical_cell_key_v2, identity.render_identity_v2_sha256)
         if current == (None, None):
-            if isinstance(cell, CellObservationModel) and self._has_render_manifest(board):
-                # D-467: a manifest already snapshots this board's observation
-                # identities; this historical tool must not diverge from it.
-                self._invalid_source(
-                    source,
-                    "BOARD_RENDER_MANIFEST_PRESENT",
-                    "The board already has a render manifest; observations are immutable.",
-                )
             cell.logical_cell_key_v2, cell.render_identity_v2_sha256 = expected
             return 1
         if current != expected:
@@ -852,16 +792,6 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 "A persisted v2 render identity differs from immutable render inputs.",
             )
         return 0
-
-    def _has_render_manifest(self, board: RecognizedBoardModel) -> bool:
-        return (
-            self._session.scalar(
-                select(BoardRenderManifestModel.geometry_revision)
-                .where(BoardRenderManifestModel.recognized_board_id == board.id)
-                .limit(1)
-            )
-            is not None
-        )
 
     def _status(
         self,
@@ -978,30 +908,6 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             .limit(1)
         )
         if source_revision is not None:
-            return True
-        observation = self._session.scalar(
-            select(CellObservationModel.id)
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
-            )
-            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-            .join(
-                ImageBoardSearchFastDocumentModel,
-                ImageBoardSearchFastDocumentModel.recognized_board_id == RecognizedBoardModel.id,
-            )
-            .where(
-                JobModel.game_id == game_id,
-                CellObservationModel.asset_mode == "virtual_source",
-                or_(
-                    CellObservationModel.logical_cell_key_v2.is_(None),
-                    CellObservationModel.render_identity_v2_sha256.is_(None),
-                ),
-            )
-            .limit(1)
-        )
-        if observation is not None:
             return True
         review_cell = self._session.scalar(
             select(ImageSymbolReviewCellModel.id)

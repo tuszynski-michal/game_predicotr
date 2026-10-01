@@ -581,7 +581,6 @@ def create_app(
             try:
                 yield BoardSearchBoardDetailService(
                     SqlAlchemyBoardSearchApproximateWinRepository(session),
-                    artifact_root=resolved_settings.artifact_root,
                 )
                 session.commit()
             except BaseException:
@@ -1721,11 +1720,6 @@ def create_app(
         if error.code == "GAME_NOT_FOUND":
             status_code = 404
         elif error.code in {
-            "BOARD_SEARCH_ARCHIVE_INCOMPLETE",
-            "BOARD_SEARCH_ARCHIVE_ASSET_REVISION_CONFLICT",
-            "BOARD_SEARCH_ARCHIVE_ASSET_PATH_UNSAFE",
-            "BOARD_SEARCH_ARCHIVE_ASSET_MEDIA_TYPE_UNSUPPORTED",
-            "BOARD_SEARCH_ARCHIVE_ASSET_CHECKSUM_DRIFT",
             "BOARD_SEARCH_PROJECTION_INCOMPLETE",
             # TASK-0652 approximate-win range calculator: the starting board
             # is out of the game's sequence, or the range cannot be
@@ -1746,7 +1740,6 @@ def create_app(
         }:
             status_code = 409
         elif error.code in {
-            "BOARD_SEARCH_ARCHIVE_ASSET_NOT_FOUND",
             "BOARD_SEARCH_BOARD_NOT_FOUND",
             "BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE",
             "BOARD_SEARCH_BOARD_VIEW_SOURCE_NOT_FOUND",

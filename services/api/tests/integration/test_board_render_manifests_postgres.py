@@ -1,7 +1,9 @@
-"""TASK-0757: board render manifest table, migration 0131 and resumable backfill.
+"""TASK-0757: board render manifest table, its writers and migration 0131.
 
 Runs on a dedicated ``*_test`` database only.  The game is provisioned through
 the real partition lifecycle, so every row lives in ``game_data_v2`` under RLS.
+The resumable backfill from cell observations was removed with the table in
+D-467 S5 (TASK-0759); the writers are the only producers of manifests.
 """
 
 from __future__ import annotations
@@ -24,13 +26,8 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.board_render_manifests import sha256_canonical_json
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.rules import RulesVersionStatus
-from game_predictor_api.storage.board_render_manifest_backfill import (
-    BackfillBatchResult,
-    preview_counts,
-    run_game,
-)
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v3 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v4 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
@@ -38,7 +35,6 @@ from game_predictor_api.storage.game_partition_lifecycle import (
 )
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     ImageBoardGeometryRevisionModel,
     ImageFileExecutionModel,
     ImageImportJobFileModel,
@@ -160,40 +156,9 @@ def _spec(board: str, index: int) -> dict[str, object]:
 class _Seed:
     game_id: UUID
     good: UUID
-    bad: UUID
     partial: UUID
     legacy: UUID
     revised: UUID
-
-
-def _observation(
-    board: RecognizedBoardModel,
-    label: str,
-    index: int,
-    source_geometry_id: UUID,
-    *,
-    checksum_override: str | None = None,
-) -> CellObservationModel:
-    spec = _spec(label, index)
-    pixel = _sha(f"{label}:px:{index}")
-    return CellObservationModel(
-        recognized_board_id=board.id,
-        row_index=index // 5,
-        column_index=index % 5,
-        asset_mode="virtual_source",
-        source_geometry_revision_id=source_geometry_id,
-        logical_cell_key=_sha(f"{label}:key:{index}"),
-        logical_cell_key_v2=_sha(f"{label}:key2:{index}"),
-        render_identity_v2_sha256=_sha(f"{label}:id2:{index}"),
-        render_spec=spec,
-        render_spec_checksum_sha256=checksum_override or sha256_canonical_json(spec),
-        rendered_pixel_checksum_sha256=pixel,
-        extractor_version="virtual-cell-renderer-test-v1",
-        crop_relative_path=None,
-        crop_checksum_sha256=pixel,
-        cropper_version="virtual-cell-renderer-test-v1",
-        prediction={"symbolCode": "A", "confidence": 0.9, "alternatives": []},
-    )
 
 
 def _seed(factory: sessionmaker[Session], game_id: UUID) -> _Seed:
@@ -310,24 +275,9 @@ def _seed(factory: sessionmaker[Session], game_id: UUID) -> _Seed:
             return record
 
         good = board(0)
-        bad = board(1)
         partial = board(2, completeness_status="pending_partial", unavailable_cell_indices=[14])
         legacy = board(3, virtual=False)
         revised = board(4)
-        for index in range(15):
-            session.add(_observation(good, "good", index, geometry.id))
-            session.add(
-                _observation(
-                    bad,
-                    "bad",
-                    index,
-                    geometry.id,
-                    checksum_override=("f" * 64 if index == 7 else None),
-                )
-            )
-            session.add(_observation(revised, "revised", index, geometry.id))
-            if index != 14:
-                session.add(_observation(partial, "partial", index, geometry.id))
         review = ImageReviewItemModel(
             game_id=game_id,
             import_job_id=job.id,
@@ -373,7 +323,7 @@ def _seed(factory: sessionmaker[Session], game_id: UUID) -> _Seed:
             )
         )
         revised.geometry_revision = 1
-    return _Seed(game_id, good.id, bad.id, partial.id, legacy.id, revised.id)
+    return _Seed(game_id, good.id, partial.id, legacy.id, revised.id)
 
 
 def _manifests(engine: Engine, game_id: UUID) -> dict[tuple[UUID, int], dict[str, object]]:
@@ -392,88 +342,7 @@ def _manifests(engine: Engine, game_id: UUID) -> dict[tuple[UUID, int], dict[str
         }
 
 
-def test_backfill_builds_verified_manifests_once_and_reports_refusals(
-    database: _Database,
-) -> None:
-    engine = database.engine
-    game_id = _provision_game(engine, "manifest-a")
-    factory = _factory(engine)
-    seed = _seed(factory, game_id)
-
-    with Session(engine) as session, session.begin():
-        before = preview_counts(session, game_id)
-    assert before["boards_total"] == 5
-    assert before["legacy_boards"] == 1
-    assert before["revision_zero_boards"] == 3
-    assert before["revision_zero_to_build"] == 3
-    assert before["revision_positive_to_copy"] == 1
-    assert before["revision_zero_without_observations"] == 0
-
-    batches: list[BackfillBatchResult] = []
-    last, exhausted = run_game(
-        factory, game_id, after_board_id=None, batch_size=2, on_batch=batches.append
-    )
-    assert exhausted and last is not None
-    totals: dict[str, int] = {}
-    for batch in batches:
-        for name, value in batch.counts.items():
-            totals[name] = totals.get(name, 0) + value
-    assert totals == {
-        "built_revision_zero": 2,
-        "copied": 1,
-        "legacy_skipped": 1,
-        "refused": 1,
-    }
-    refused = [board for batch in batches for board in batch.refused]
-    assert [(board.recognized_board_id, board.code, board.cell_index) for board in refused] == [
-        (seed.bad, "BOARD_RENDER_MANIFEST_CELL_CHECKSUM_MISMATCH", 7)
-    ]
-
-    stored = _manifests(engine, game_id)
-    assert set(stored) == {(seed.good, 0), (seed.partial, 0), (seed.revised, 1)}
-    for row in stored.values():
-        # The JSONB round trip keeps the canonical checksum byte-exact.
-        assert sha256_canonical_json(row["cells"]) == row["manifest_checksum_sha256"]
-    good_cells = cast(dict[str, list[dict[str, object]]], stored[(seed.good, 0)]["cells"])
-    assert [cell["cellIndex"] for cell in good_cells["cells"]] == list(range(15))
-    assert good_cells["cells"][3]["renderSpec"] == _spec("good", 3)
-    partial_cells = cast(dict[str, list[dict[str, object]]], stored[(seed.partial, 0)]["cells"])
-    assert [cell["cellIndex"] for cell in partial_cells["cells"]] == list(range(14))
-    assert stored[(seed.revised, 1)]["extractor_version"] == "virtual-cell-renderer-test-v2"
-
-    # A second full run is a no-op: existing manifests are skipped unread.
-    second: list[BackfillBatchResult] = []
-    run_game(factory, game_id, after_board_id=None, batch_size=10, on_batch=second.append)
-    assert sum(batch.counts["existing_skipped"] for batch in second) == 3
-    assert (
-        sum(batch.counts["built_revision_zero"] + batch.counts["copied"] for batch in second) == 0
-    )
-    assert _manifests(engine, game_id) == stored
-
-    # Resume from a checkpoint cursor processes only later boards.
-    ordered = sorted([seed.good, seed.bad, seed.partial, seed.legacy, seed.revised])
-    resumed: list[BackfillBatchResult] = []
-    run_game(factory, game_id, after_board_id=ordered[3], batch_size=10, on_batch=resumed.append)
-    assert sum(batch.scanned for batch in resumed) == 1
-
-    with Session(engine) as session, session.begin():
-        after = preview_counts(session, game_id)
-    assert after["revision_zero_to_build"] == 1  # the refused board
-    assert after["revision_positive_to_copy"] == 0
-
-    # Board deletion cascades to its manifests (cleanup deletes boards).
-    with game_storage_scope(game_id), factory.begin() as session:
-        session.execute(
-            text("DELETE FROM cell_observations WHERE recognized_board_id = :board"),
-            {"board": seed.good},
-        )
-        session.execute(
-            text("DELETE FROM recognized_boards WHERE id = :board"), {"board": seed.good}
-        )
-    assert (seed.good, 0) not in _manifests(engine, game_id)
-
-
-def test_import_writer_and_backfill_build_the_same_manifest(database: _Database) -> None:
+def test_import_writer_manifest_is_idempotent_and_cascades(database: _Database) -> None:
     from game_predictor_worker.images.pipeline_store import (
         ImagePipelineStoreError,
         _ensure_import_render_manifest,
@@ -534,21 +403,19 @@ def test_import_writer_and_backfill_build_the_same_manifest(database: _Database)
             )
         assert conflict.value.code == "BOARD_RENDER_MANIFEST_CONFLICT"
     written = _manifests(engine, game_id)[(seed.good, 0)]
+    # The JSONB round trip keeps the canonical checksum byte-exact.
+    assert sha256_canonical_json(written["cells"]) == written["manifest_checksum_sha256"]
+    good_cells = cast(dict[str, list[dict[str, object]]], written["cells"])
+    assert [cell["cellIndex"] for cell in good_cells["cells"]] == list(range(15))
+    assert good_cells["cells"][3]["renderSpec"] == _spec("good", 3)
+    assert written["extractor_version"] == "virtual-cell-renderer-test-v1"
 
-    # The backfill from the same board's observations yields a byte-identical manifest.
-    with engine.begin() as connection:
-        connection.execute(
-            text(
-                "DELETE FROM game_data_v2.board_render_manifests "
-                "WHERE game_id = :game_id AND recognized_board_id = :board"
-            ),
-            {"game_id": game_id, "board": seed.good},
+    # Board deletion cascades to its manifests (cleanup deletes boards).
+    with game_storage_scope(game_id), factory.begin() as session:
+        session.execute(
+            text("DELETE FROM recognized_boards WHERE id = :board"), {"board": seed.good}
         )
-    run_game(factory, game_id, after_board_id=None, batch_size=50)
-    rebuilt = _manifests(engine, game_id)[(seed.good, 0)]
-    assert rebuilt["manifest_checksum_sha256"] == written["manifest_checksum_sha256"]
-    assert rebuilt["cells"] == written["cells"]
-    assert rebuilt["extractor_version"] == written["extractor_version"]
+    assert (seed.good, 0) not in _manifests(engine, game_id)
 
 
 def test_boards_without_renderable_cells_have_no_manifest(database: _Database) -> None:
@@ -642,14 +509,9 @@ def test_boards_without_renderable_cells_have_no_manifest(database: _Database) -
         manual.geometry_revision = 1
         empty_ids = {imported.id, manual.id}
 
-    batches: list[BackfillBatchResult] = []
-    run_game(factory, game_id, after_board_id=None, batch_size=50, on_batch=batches.append)
-    assert sum(batch.counts["no_cells_skipped"] for batch in batches) == 2
-    refused = {board.recognized_board_id for batch in batches for board in batch.refused}
-    assert refused == {seed.bad}
+    # Rule: no manifest row <=> no renderable cells.
     stored = _manifests(engine, game_id)
     assert not {board_id for board_id, _revision in stored} & empty_ids
-    assert set(stored) == {(seed.good, 0), (seed.partial, 0), (seed.revised, 1)}
 
 
 def _reset_to_revision(database: _Database, revision: str) -> None:
@@ -668,9 +530,31 @@ def _reset_to_revision(database: _Database, revision: str) -> None:
 
 
 def test_migration_0131_partitions_registered_games_and_downgrades(database: _Database) -> None:
+    """0131 partitions every registered store and moves the registry v1 -> v3.
+
+    Current code provisions games with manifest v4 (TASK-0759), so the store
+    registered before 0131 is written directly, as the v1 lifecycle left it.
+    """
+
     engine = database.engine
-    _reset_to_revision(database, "0132_symbol_reference_images_cell_identity")
-    game_id = _provision_game(engine, "manifest-b")
+    _reset_to_revision(database, "0130_board_search_share_sessions")
+    game_id = uuid4()
+    with engine.begin() as connection:
+        connection.execute(
+            text(
+                """INSERT INTO public.games (id, code, name, status, expected_layout_count)
+                VALUES (:id, 'manifest-b', 'manifest-b', 'draft', 500000)"""
+            ),
+            {"id": game_id},
+        )
+        connection.execute(
+            text(
+                "INSERT INTO public.game_storage_locations "
+                "(game_id, store_schema, generation, manifest_version, status, revision) "
+                "VALUES (:id, 'game_data_v2', 2, 'game-data-v2-manifest-v1', 'active', 0)"
+            ),
+            {"id": game_id},
+        )
     child = partition_name(game_id, "board_render_manifests")
 
     def state() -> tuple[bool, str, int]:
@@ -688,8 +572,9 @@ def test_migration_0131_partitions_registered_games_and_downgrades(database: _Da
             ).one()
         return bool(exists), str(version), int(revision)
 
+    command.upgrade(database.config, "0131_board_render_manifests")
     exists, version, revision = state()
-    assert exists and version == "game-data-v2-manifest-v3"
+    assert exists and version == "game-data-v2-manifest-v3" and revision == 1
 
     command.downgrade(database.config, "0130_board_search_share_sessions")
     exists, version, downgraded_revision = state()
@@ -706,7 +591,7 @@ def test_migration_0131_partitions_registered_games_and_downgrades(database: _Da
             == 0
         )
 
-    command.upgrade(database.config, "0132_symbol_reference_images_cell_identity")
+    command.upgrade(database.config, "0131_board_render_manifests")
     exists, version, _revision = state()
     assert exists and version == "game-data-v2-manifest-v3"
     with engine.connect() as connection:
@@ -725,11 +610,3 @@ def test_migration_0131_partitions_registered_games_and_downgrades(database: _Da
         ).one()
     assert rls is True
     assert tuple(registered) == ("game", True)
-
-    # A game provisioned after the upgrade gets the partition from the lifecycle.
-    later = _provision_game(engine, "manifest-c")
-    with engine.connect() as connection:
-        assert connection.execute(
-            text("SELECT to_regclass(:name) IS NOT NULL"),
-            {"name": f"game_data_v2.{partition_name(later, 'board_render_manifests')}"},
-        ).scalar_one()

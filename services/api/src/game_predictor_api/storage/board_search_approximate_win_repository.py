@@ -112,19 +112,9 @@ class SqlAlchemyBoardSearchApproximateWinRepository:
     ) -> BoardSearchBoardViewSource | None:
         """Pixels and saved geometry behind one search document.
 
-        The archive holds a single-board image and no cell geometry. An
-        operational document points at the current review item; its board's
-        identity checksum is compared with the document by the caller.
+        An operational document points at the current review item; its
+        board's identity checksum is compared with the document by the caller.
         """
-        if document.asset_mode is BoardSearchAssetMode.LEGACY_ARCHIVE:
-            if document.archive_relative_path is None:
-                return None
-            return BoardSearchBoardViewSource(
-                image_relative_path=document.archive_relative_path,
-                image_checksum_sha256=document.board_checksum_sha256,
-                geometry=None,
-                current_board_checksum_sha256=document.board_checksum_sha256,
-            )
         if document.review_item_id is None:
             return None
         GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)

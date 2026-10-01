@@ -48,7 +48,6 @@ class BoardSearchBoardDocument:
     mobile_codes: tuple[int | None, ...]
     asset_mode: BoardSearchAssetMode
     review_item_id: UUID | None
-    archive_relative_path: str | None
 
 
 @dataclass(frozen=True, slots=True)

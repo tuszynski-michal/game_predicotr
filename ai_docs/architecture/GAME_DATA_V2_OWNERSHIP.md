@@ -51,7 +51,7 @@ opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 |---|---|---|
 | `alembic_version` | shared | — |
 | `browser_selection_retention_states` | game | `games`, `jobs` |
-| `cell_observations` | game | `image_source_geometry_revisions`, `recognized_boards` |
+| `cell_observations` (usunięta w `0134`, poza manifestem v4) | game | `image_source_geometry_revisions`, `recognized_boards` |
 | `cleanup_operations` | shared | — |
 | `curated_image_import_batches` | game | `curated_image_import_sources`, `jobs` |
 | `curated_image_import_sources` | game | `games`, `image_selection_runs` |
@@ -110,8 +110,8 @@ opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 | `layout_import_rows` | game | `jobs` |
 | `layout_payouts` | game | `layouts`, `rules_versions` |
 | `layouts` | game | `dataset_versions` |
-| `legacy_board_search_archive_documents` | game | `games` |
-| `legacy_board_search_archive_states` | game | `games` |
+| `legacy_board_search_archive_documents` (usunięta w `0134`) | game | `games` |
+| `legacy_board_search_archive_states` (usunięta w `0134`) | game | `games` |
 | `legacy_game_operational_cleanup_receipts` | shared | `games` |
 | `mobile_release_games` | game | `dataset_versions`, `games`, `mobile_releases`, `rules_versions` |
 | `mobile_releases` | shared | `jobs` |
@@ -145,7 +145,7 @@ opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 | `storage_gc_runs` | shared | `jobs` |
 | `storage_usage_snapshots` | shared | — |
 | `symbol_model_iterations` | game | `games`, `jobs`, `verified_training_cohorts` |
-| `symbol_reference_images` | game | `cell_observations`, `games`, `image_review_items`, `recognized_boards`, `symbols` |
+| `symbol_reference_images` | game | `games`, `image_review_items`, `recognized_boards`, `symbols` (FK do `cell_observations` usunięty w `0132`) |
 | `symbols` | catalog | `games` |
 | `verified_training_cohort_cells` | game | `image_review_items`, `image_source_geometry_revisions`, `image_symbol_review_cells`, `recognized_boards`, `source_images`, `verified_training_cohorts` |
 | `verified_training_cohort_items` | game | `image_review_items`, `jobs`, `recognized_boards`, `source_images`, `verified_training_cohorts` |

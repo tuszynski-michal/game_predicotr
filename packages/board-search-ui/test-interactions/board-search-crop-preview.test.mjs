@@ -137,7 +137,6 @@ async function fireImageLoad(img, width, height) {
 
 function makeClient({ geometryImpl, searchImpl, viewUrls = [] }) {
   return {
-    archivedBoardSearchAssetUrl: () => 'http://127.0.0.1:8000/archive.jpg',
     boardSearchBoardViewUrl: (gameIdArgument, sequenceNumber, checksum) => {
       viewUrls.push([gameIdArgument, sequenceNumber, checksum]);
       return `http://127.0.0.1:8000/view-${sequenceNumber}.webp`;
@@ -253,40 +252,6 @@ test('a failed geometry fetch never blocks the search result; the full image sti
   await act(async () => root.unmount());
 });
 
-test('legacy_archive results never fetch board geometry', async () => {
-  const geometryCalls = [];
-  const client = makeClient({
-    geometryImpl: async (...args) => {
-      geometryCalls.push(args);
-      return { data: { geometry: { sourceQuad: quad } } };
-    },
-    searchImpl: async () => ({
-      data: {
-        results: [
-          boardResult(10, {
-            assetMode: 'legacy_archive',
-            importJobId: null,
-            recognizedBoardId: null,
-            reviewItemId: null,
-          }),
-        ],
-      },
-    }),
-  });
-  const root = await renderWorkspace(client);
-  await failView();
-
-  await settle();
-  assert.match(boardImage().src, /archive\.jpg$/);
-  await fireImageLoad(boardImage(), 1000, 600);
-  await settle();
-
-  assert.equal(geometryCalls.length, 0);
-  assert.equal(document.querySelector('.boardSearchBoardAssetFrame'), null);
-
-  await act(async () => root.unmount());
-});
-
 test('switching to the next result replaces the crop instead of keeping the previous board geometry', async () => {
   const quadForSequence = {
     10: quad,
@@ -378,7 +343,6 @@ test('without a full-photo fallback a failed view shows the asset error', async 
     geometryImpl: async () => ({ data: { geometry: { sourceQuad: quad } } }),
     searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
   });
-  delete client.archivedBoardSearchAssetUrl;
   delete client.getOperationalImageReviewItem;
   delete client.operationalImageReviewBoardAssetUrl;
   const root = await renderWorkspace(client);

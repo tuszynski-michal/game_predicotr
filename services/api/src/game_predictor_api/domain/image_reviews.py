@@ -71,7 +71,7 @@ class ImageReviewAlternative:
 @dataclass(frozen=True, slots=True)
 class ImageReviewCell:
     # The cell identity is ``(recognized_board_id, cell_index)`` of the owning
-    # review item; the former ``cell_observations`` id was removed (D-467).
+    # review item; the former per-cell import record id was removed (D-467).
     cell_index: int
     row_index: int
     column_index: int

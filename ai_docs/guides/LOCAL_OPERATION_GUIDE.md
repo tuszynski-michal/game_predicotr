@@ -120,10 +120,10 @@ Szczegóły korpusu, coverage i ograniczeń:
 
 Kod od TASK-0757 wymaga migracji `0131_board_render_manifests`: router
 magazynu gry akceptuje wyłącznie wersję `game-data-v2-manifest-v3`. Stary kod
-nie działa na nowym schemacie, a nowy na starym. API (`npm run api:dev`),
-worker (`worker:*`) i `scripts/backfill_board_render_manifests.py` sprawdzają
-przy starcie `alembic_version` jednym `SELECT` i przy niezgodności kończą się
-błędem `ALEMBIC_HEAD_MISMATCH` zamiast psuć każde żądanie danych gry.
+nie działa na nowym schemacie, a nowy na starym. API (`npm run api:dev`) i
+worker (`worker:*`) sprawdzają przy starcie `alembic_version` jednym `SELECT`
+i przy niezgodności kończą się błędem `ALEMBIC_HEAD_MISMATCH` zamiast psuć
+każde żądanie danych gry.
 
 Przejście (cutover). Strażnik `ALEMBIC_HEAD_MISMATCH` działa tylko przy
 świeżym starcie procesu: `api:dev --reload` przeładowuje wyłącznie proces
@@ -142,27 +142,13 @@ dlatego kroki 1–2 są obowiązkowe:
    Migracja odmówi (`GAME_STORAGE_LIFECYCLE_IN_PROGRESS`,
    `GAME_STORAGE_LOCATION_BUSY`), jeśli trwa provisionowanie lub usuwanie gry.
 5. Uruchom usługi nowego kodu.
-6. Backfill manifestów (osobna zgoda, dla każdej gry, np. 777 i
-   `cf300bc1-c0c1-4bf9-b607-4c4e1e4f031c`):
+6. Backfill manifestów z `cell_observations` wykonano 2026-10-01 (777 i
+   `cf300bc1…`, TASK-0757). Skrypt `scripts/backfill_board_render_manifests.py`
+   został usunięty w TASK-0759 razem z tabelą obserwacji (źródłem rewizji 0);
+   manifesty piszą wyłącznie writery importu i ręcznej geometrii.
 
-   ```powershell
-   .\.venv\Scripts\python.exe scripts\backfill_board_render_manifests.py `
-     --game-id <uuid> --preview --sample-boards 100
-   .\.venv\Scripts\python.exe scripts\backfill_board_render_manifests.py `
-     --game-id <uuid> --execute --max-seconds 100
-   ```
-
-   `--execute` jest wznawialny (checkpoint w
-   `artifacts\data\exports\board-render-manifest-backfill\<gra>\`), odmawia
-   startu i zatrzymuje się po porcji, gdy na dysku z `docker_data.vhdx` jest
-   mniej niż `--min-free-gb` (domyślnie 10 GB). Dla 777 tabela zajmie ok.
-   13–17 GB, do tego WAL; po zakończeniu `VACUUM (ANALYZE)` tabeli
-   (`ai_docs/guides/DATABASE_MAINTENANCE.md`).
-
-Wycofanie: zatrzymaj wszystkie procesy nowego kodu, z nowym kodem wykonaj
-`.\.venv\Scripts\python.exe -m alembic downgrade 0130_board_search_share_sessions`
-(usuwa tabelę manifestów — dane są odtwarzalne z obserwacji do czasu S5 —
-i przywraca rejestr v1), potem uruchom stary kod.
+Wycofanie do `0130` nie jest już możliwe po `0134` (TASK-0759): migracja
+`0134` usuwa obserwacje i odmawia downgrade'u.
 
 ## Tylko wirtualne polityki importu i rezolucja odroczonych plansz (TASK-0790, D-467)
 
@@ -193,6 +179,56 @@ Zmiany zachowania:
   endpoint `manual-resolution`) tworzy planszę `virtual_source` z manifestem
   renderu i predykcjami modelu przypiętego do importu; nie zapisuje plików
   cropów ani obserwacji. Podgląd pokazuje komórki renderu wirtualnego.
+
+## Manifest magazynu v4: usunięcie `cell_observations` i archiwum wyszukiwarki (TASK-0759, D-467 S5)
+
+Kod od TASK-0759 wymaga migracji `0134_drop_cell_observations_and_legacy_archive`
+(strażnik `ALEMBIC_HEAD_MISMATCH` jak wyżej): router i provisioning gry
+akceptują wyłącznie `game-data-v2-manifest-v4`. Migracja jest
+**nieodwracalna** — usuwa tabelę `cell_observations` (na bazie operatora ok.
+7,66 mln wierszy, 28 GB) oraz puste tabele `legacy_board_search_archive_*`
+razem z partycjami, a downgrade odmawia (`CELL_OBSERVATIONS_DROP_IRREVERSIBLE`).
+Jedyną kopią obserwacji jest zrzut
+`C:\game_predictor_backup\cell_observations-20261001-0404.dump`
+(`pg_restore` tylko do bazy pomocniczej).
+
+Przed migracją (osobna zgoda operatora, okno bez zapisów):
+
+1. Zatrzymaj API, workery wszystkich lane'ów i Reviewera we wszystkich
+   checkoutach i worktree (jak w krokach 1–2 przejścia na v3).
+2. Scal kod, potem `npm run db:migrate` i `npm run db:current` →
+   `0134_drop_cell_observations_and_legacy_archive`.
+3. Uruchom usługi nowego kodu.
+
+Preflight migracji (każda odmowa nic nie zmienia, można poprawić stan i
+powtórzyć): `GAME_STORAGE_LIFECYCLE_IN_PROGRESS` / `GAME_STORAGE_LOCATION_BUSY`
+(provisionowanie lub usuwanie gry w toku), `GAME_STORAGE_MANIFEST_UNEXPECTED`
+(lokalizacja nie jest na v3), `GAME_STORAGE_DROP_TABLE_UNEXPECTED`,
+`GAME_STORAGE_DROP_FOREIGN_KEY_PRESENT` (klucz obcy spoza usuwanych tabel),
+`CELL_OBSERVATIONS_LEGACY_REVISION_ZERO_PRESENT` (plansza `legacy_file` na
+rewizji 0), `BOARD_RENDER_MANIFEST_MISSING` (plansza `virtual_source` z
+dostępnymi komórkami bez manifestu bieżącej rewizji) i
+`LEGACY_BOARD_SEARCH_ARCHIVE_NOT_EMPTY`. Migracja bierze `lock_timeout = 5s`
+na rejestrze lokalizacji, usuwanych tabelach oraz `SHARE` na
+`recognized_boards` i `board_render_manifests`.
+
+Po migracji `DROP TABLE` oddaje pliki partycji od razu (bez `VACUUM FULL`);
+sprawdź `pg_database_size` i wolne miejsce, a plik `docker_data.vhdx` zmniejsz
+według `ai_docs/guides/DATABASE_MAINTENANCE.md` (sekcja 3).
+
+Zmiany zachowania i usunięte narzędzia:
+
+- Wyszukiwarka plansz ma jedno źródło (`operational_review`); endpoint
+  `GET …/board-search/archive-assets/{sequenceNumber}` zwraca 404.
+- Plansza `legacy_file` na rewizji 0 (na bazie operatora: 0) nie jest
+  czytana: Reviewer `IMAGE_REVIEW_CELL_COUNT_INVALID`, wyszukiwarka ją
+  pomija, przeliczanie predykcji `IMAGE_SYMBOL_REINFERENCE_LEGACY_UNSUPPORTED`.
+- Usunięte skrypty: `scripts/backfill_board_render_manifests.py`,
+  `scripts/build_grid_symbol_diagnostic.py`,
+  `scripts/build_legacy_board_search_archive.py`,
+  `scripts/prepare_m65_real_workbench.py`,
+  `scripts/run_m65_workbench_acceptance.py` oraz wpisy npm
+  `m65:workbench:prepare|check|acceptance`.
 
 ## Wdrożenie obsługi niepełnych plansz (TASK-0505–0509)
 

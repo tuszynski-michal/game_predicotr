@@ -46,11 +46,13 @@ from game_predictor_api.domain.symbol_model_snapshots import (
     cold_start_unclassified_symbol_snapshot,
 )
 from game_predictor_api.main import create_app
+from game_predictor_api.storage import game_data_v2_manifest_v3 as manifest_v3
+from game_predictor_api.storage import game_partition_lifecycle
 from game_predictor_api.storage.board_cell_geometry_pending_repository import (
     SqlAlchemyBoardCellGeometryPendingRepository,
 )
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v3 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v4 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,
@@ -173,7 +175,8 @@ def _provision_game(engine: Engine, code: str) -> UUID:
             .start_or_resume(game_id=game_id, kind=GamePartitionLifecycleKind.PROVISION)
             .operation_id
         )
-    for _ in range(len(CREATE_TABLES) + 2):
+    # Headroom for the 66-table v3 lifecycle pinned by the 0133 migration test.
+    for _ in range(len(CREATE_TABLES) + 8):
         with Session(engine) as session, session.begin():
             receipt = GamePartitionLifecycleRepository(session).run_next(operation_id)
         if receipt.status == "done":
@@ -421,13 +424,16 @@ def _state(session: Session, pending_id: UUID) -> dict[str, Any]:
         ),
         {"game_id": pending.game_id, "board_id": board.id, "revision": board.geometry_revision},
     ).one_or_none()
-    observations = session.execute(
-        text(
-            """SELECT count(*) FROM game_data_v2.cell_observations
-            WHERE game_id = :game_id AND recognized_board_id = :board_id"""
-        ),
-        {"game_id": pending.game_id, "board_id": board.id},
-    ).scalar_one()
+    # D-467 S5 (TASK-0759): the per-cell import record table no longer
+    # exists, so no writer can add a record (-1 would mean it reappeared).
+    observations = (
+        0
+        if session.execute(
+            text("SELECT to_regclass('game_data_v2.cell_observations')")
+        ).scalar_one()
+        is None
+        else -1
+    )
     review_cells = session.execute(
         text(
             """SELECT cell_index, render_spec_checksum_sha256, asset_mode
@@ -754,7 +760,7 @@ def _rollout_rows(engine: Engine) -> dict[UUID, tuple[str, str, int, str, str]]:
 
 
 def test_migration_0133_moves_legacy_rollout_states_and_refuses_downgrade(
-    database: _Database,
+    database: _Database, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     # Upgrade and downgrade 0133 is refused, so reach 0132 on a fresh database.
     database.engine.dispose()
@@ -763,10 +769,16 @@ def test_migration_0133_moves_legacy_rollout_states_and_refuses_downgrade(
         connection.exec_driver_sql("DROP SCHEMA public CASCADE")
         connection.exec_driver_sql("CREATE SCHEMA public")
     command.upgrade(database.config, "0132_symbol_reference_images_cell_identity")
-    legacy_a = _provision_game(database.engine, "task0760-legacy-a")
-    legacy_b = _provision_game(database.engine, "task0760-legacy-b")
-    shadow = _provision_game(database.engine, "task0760-shadow")
-    virtual = _provision_game(database.engine, "task0760-virtual")
+    # Current code provisions storage manifest v4 (TASK-0759); a game at 0132
+    # is provisioned as the v3 lifecycle did.
+    with monkeypatch.context() as patch:
+        patch.setattr(game_partition_lifecycle, "VERSION", manifest_v3.VERSION)
+        patch.setattr(game_partition_lifecycle, "CREATE_TABLES", manifest_v3.CREATE_TABLES)
+        patch.setattr(game_partition_lifecycle, "DELETE_TABLES", manifest_v3.DELETE_TABLES)
+        legacy_a = _provision_game(database.engine, "task0760-legacy-a")
+        legacy_b = _provision_game(database.engine, "task0760-legacy-b")
+        shadow = _provision_game(database.engine, "task0760-shadow")
+        virtual = _provision_game(database.engine, "task0760-virtual")
     _set_rollout(database.engine, legacy_a, "legacy", "legacy_files", "not_started")
     _set_rollout(database.engine, legacy_b, "legacy", "legacy_files", "processing")
     _set_rollout(database.engine, shadow, "structured_shadow", "virtual_shadow", "ready")

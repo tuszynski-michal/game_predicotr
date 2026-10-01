@@ -48,6 +48,10 @@ osobnej kohorty po ustabilizowaniu v19.
 
 ## Kontrakt diagnostyki
 
+Skrypt został usunięty w TASK-0759 (D-467 S5) razem z tabelą
+`cell_observations`, z której czytał bazowe cropy; poniższy opis i komendy
+są historyczne i nie dają się już odtworzyć.
+
 Skrypt `scripts/build_grid_symbol_diagnostic.py`:
 
 - odczytuje wyłącznie `accepted/corrected` z ręczną rewizją v19,

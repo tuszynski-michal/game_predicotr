@@ -191,7 +191,6 @@ async function toggleDetails(details, open) {
 
 function makeClient({ searchImpl, approximateWinImpl }) {
   return {
-    archivedBoardSearchAssetUrl: () => 'http://127.0.0.1:8000/archive.jpg',
     boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
     getBoardSearchApproximateWin: approximateWinImpl,
     // No quad in `geometry`: the crop-preview feature (TASK-0655) falls back

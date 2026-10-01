@@ -56,8 +56,8 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     ImageBoardGeometryPendingModel,
+    ImageBoardGeometryRevisionModel,
     ImageBoardSearchFastDocumentModel,
     ImageLayoutStagingRowModel,
     ImageReviewItemModel,
@@ -165,8 +165,9 @@ def _add_pending_board(
             board_geometry={"source": "verified-cell-test", "quad": IN_FRAME_QUAD},
             board_relative_path=f"crops/verified-cells-{position}.png",
             board_checksum_sha256=f"{sequence:064x}",
-            # D-467: the import predictions of every cell, as the import
-            # writer stores them beside the base observations.
+            # D-467: the import predictions of every cell.  Since S5 a legacy
+            # board's crops come from its manual geometry revision (below).
+            geometry_revision=1,
             cells_prediction={
                 "cells": [
                     {
@@ -198,24 +199,39 @@ def _add_pending_board(
         )
         session.add(review)
         session.flush()
-        first_review_id = first_review_id or review.id
-        session.add_all(
-            CellObservationModel(
+        session.add(
+            ImageBoardGeometryRevisionModel(
+                review_item_id=review.id,
                 recognized_board_id=board.id,
-                row_index=index // 5,
-                column_index=index % 5,
-                crop_relative_path=f"crops/verified-cells-{position}-{index}.png",
-                crop_checksum_sha256=f"{1000 * position + 100 + index:064x}",
+                revision=1,
+                idempotency_key=uuid4(),
+                command_sha256=f"{sequence:064x}",
+                corners=[
+                    {"x": 0, "y": 0},
+                    {"x": 100, "y": 0},
+                    {"x": 100, "y": 60},
+                    {"x": 0, "y": 60},
+                ],
+                geometry={"source": "verified-cell-test", "quad": IN_FRAME_QUAD},
+                asset_mode="legacy_file",
+                board_relative_path=f"crops/verified-cells-{position}.png",
+                board_checksum_sha256=f"{sequence:064x}",
                 cropper_version="verified-cell-cropper",
-                prediction={
-                    "symbolCode": "first",
-                    "confidence": 0.9,
-                    "alternatives": [{"symbolCode": "second", "confidence": 0.1}],
-                },
+                crop_artifacts=[
+                    {
+                        "rowIndex": index // 5,
+                        "columnIndex": index % 5,
+                        "cropRelativePath": f"crops/verified-cells-{position}-{index}.png",
+                        "cropChecksumSha256": f"{1000 * position + 100 + index:064x}",
+                    }
+                    for index in range(15)
+                ],
+                corrected_by="fixture",
                 created_at=created_at,
             )
-            for index in range(15)
         )
+        session.flush()
+        first_review_id = first_review_id or review.id
     assert first_review_id is not None
     return first_review_id
 
@@ -641,7 +657,7 @@ def test_fifteen_verified_cells_close_the_board_without_geometry_approval(
             assert all(cell.review_state == "approved" for cell in cells[1:])
             assert all(
                 cell.approved_crop_checksum_sha256 == cell.crop_checksum_sha256
-                and cell.approved_geometry_revision == cell.geometry_revision == 2
+                and cell.approved_geometry_revision == cell.geometry_revision == 3
                 for cell in cells[1:]
             )
             review = session.get(ImageReviewItemModel, seed.review_item_id)

@@ -510,7 +510,8 @@ samym trwałym jobie zapis managed originals, rejestrację plików oraz adaptery
 `discovery` → `normalization` → `board_detection` → `board_crops` →
 `sequence_ocr` → `symbol_inference`. Wyniki tworzą job-scoped projekcje
 `source_images`, `recognized_boards`, `cell_observations` i
-`image_review_items`. Checkpoint źródła oraz checkpoint per plik umożliwiają
+`image_review_items` (od TASK-0790 zamiast obserwacji powstaje manifest
+renderu `board_render_manifests`; tabela obserwacji usunięta w `0134`). Checkpoint źródła oraz checkpoint per plik umożliwiają
 wznowienie po restarcie workera bez ponownego uploadu i bez nadpisywania
 ukończonych etapów. OCR numerów jednej strony jest wykonywany jako jeden batch
 od jednego do dziewięciu cropów.
@@ -587,8 +588,8 @@ etapów; wynik jest walidowany przed zapisem.
 
 Automatyczne wyniki są zapisywane globalnie w
 `image_pipeline_stage_results`, natomiast `source_images`,
-`recognized_boards`, 15 `cell_observations` i `image_review_items` są
-projekcjami konkretnego joba. Projekcja po `symbol_inference` zawsze ma status
+`recognized_boards`, manifest renderu (do TASK-0790: 15 `cell_observations`)
+i `image_review_items` są projekcjami konkretnego joba. Projekcja po `symbol_inference` zawsze ma status
 `pending_review`. Dopiero atomowa decyzja całej planszy materializuje
 `image_layout_staging_rows`; rejected nie tworzy layoutu. Walidacja ciągłości
 raportuje luki i duplikaty bez modyfikowania raw OCR ani zaakceptowanego numeru.

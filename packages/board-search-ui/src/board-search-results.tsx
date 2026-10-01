@@ -19,7 +19,6 @@ import {
 
 type BoardSearchResultsClient = Pick<
   BoardSearchDataSource,
-  | 'archivedBoardSearchAssetUrl'
   | 'boardSearchBoardViewUrl'
   | 'getOperationalImageReviewItem'
   | 'operationalImageReviewBoardAssetUrl'
@@ -178,15 +177,6 @@ function boardSearchFullAssetUrl(
   gameId: string,
   result: BoardSearchResult,
 ): string | null {
-  if (result.assetMode === 'legacy_archive') {
-    return (
-      api.archivedBoardSearchAssetUrl?.(
-        gameId,
-        result.sequenceNumber,
-        result.boardChecksumSha256,
-      ) ?? null
-    );
-  }
   if (result.reviewItemId === null || result.importJobId === null) {
     return null;
   }
@@ -257,10 +247,8 @@ function FullPhotoCrop({
   readonly result: BoardSearchResult;
 }) {
   const [failed, setFailed] = useState(false);
-  // Only `operational_review` boards can be the whole source photo (virtual
-  // geometry storage has no persistent per-board bitmap); `legacy_archive`
-  // already serves a single-board image, so it never needs this and never
-  // issues the extra request.
+  // The whole source photo is framed with the board's saved geometry
+  // (virtual geometry storage has no persistent per-board bitmap).
   const [quad, setQuad] = useState<ReturnType<typeof parseBoardCropQuad>>(null);
   const [naturalSize, setNaturalSize] = useState<{
     readonly width: number;
@@ -277,7 +265,6 @@ function FullPhotoCrop({
     // setState in the effect body for no behavioural benefit.
     const getReviewItem = api.getOperationalImageReviewItem;
     if (
-      result.assetMode !== 'operational_review' ||
       result.reviewItemId === null ||
       result.importJobId === null ||
       getReviewItem === undefined

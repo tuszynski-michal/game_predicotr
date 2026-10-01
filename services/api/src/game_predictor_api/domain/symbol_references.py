@@ -32,7 +32,7 @@ class ApprovedSymbolReferenceCandidate:
     """
 
     # ``image_symbol_review_cells.id`` of the approved current cell (D-467:
-    # replaces the former ``cell_observations`` id).
+    # replaces the former per-cell import record id).
     cell_review_id: UUID
     review_item_id: UUID
     recognized_board_id: UUID

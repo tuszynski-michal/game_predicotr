@@ -229,21 +229,15 @@ zwraca danych binarnych. Ten szczegół nie zmienia OpenAPI, lecz gwarantuje, ż
 endpoint zachowuje kontrakt czasu odpowiedzi także dla częstych symboli, dla
 których indeks tokenowy nie zmniejsza wystarczająco liczby kandydatów.
 
-Wynik zawiera `assetMode=operational_review|legacy_archive`. Dla trybu
-operacyjnego identyfikatory `reviewItemId`, `recognizedBoardId` i `importJobId`
-są wymagane. Dla zamrożonego archiwum wszystkie trzy są `null`, ponieważ ich
-rekordy mogą zostać później usunięte. Obraz archiwalny jest odczytywany przez:
-
-```text
-GET /api/v1/admin/games/{gameId}/board-search/archive-assets/{sequenceNumber}
-  ?expectedBoardChecksumSha256={sha256}
-```
-
-Endpoint sprawdza stan `ready`, dokładną checksumę dokumentu, bezpieczną
-ścieżkę wewnątrz zarządzanego `artifact_root/data`, typ obrazu oraz SHA-256
-pliku. Brak, drift albo częściowy stan nie korzysta z operacyjnego fallbacku.
-Gry bez stanu archiwum nadal używają dotychczasowego fast documentu oraz
-operacyjnego assetu bez zmiany semantyki.
+Wynik zawiera `assetMode=operational_review` (jedyna wartość enumu
+`BoardSearchAssetMode`) oraz wymagane w Admin API identyfikatory
+`reviewItemId`, `recognizedBoardId` i `importJobId`. Pola pozostają w
+schemacie jako nullable, bo publiczna powierzchnia udostępniania (D-471) je
+zeruje. Zamrożone archiwum wyszukiwarki (`legacy_archive`, endpoint
+`GET …/board-search/archive-assets/{sequenceNumber}`, tabele
+`legacy_board_search_archive_*`, kod `BOARD_SEARCH_ARCHIVE_*`) zostało
+usunięte w D-467 S5 (TASK-0759, migracja `0134`); trasa nie istnieje (404) i
+nie ma jej w OpenAPI.
 
 Algorytm `partial-board-ranking-v2-unknown-missing-evidence` traktuje zapisane
 `NULL`/`?` analogicznie: zero punktów i zero twardych niedopasowań. Remisy są
@@ -264,8 +258,7 @@ nie wchodzi do wyniku), zawijając cyklicznie z `N` do `1` na tej samej
 zasadzie co pełny cykl mobilnej prognozy celu
 (`evaluatedSpinCount = min(N, sequenceLength − 1)`); `sequenceLength` to
 `games.expected_layout_count`. Czyta to samo źródło co wyszukiwanie
-(`image_board_search_fast_documents` albo zamrożone archiwum, zależnie od
-stanu gry) w co najwyżej dwóch zapytaniach zakresowych (dwa tylko gdy zakres
+(`image_board_search_fast_documents`) w co najwyżej dwóch zapytaniach zakresowych (dwa tylko gdy zakres
 przechodzi przez koniec sekwencji), plus jedno dodatkowe zapytanie o status
 planszy startowej. Payout liczony jest tym samym kalkulatorem co wydania
 mobilne (`payout-v3-unknown-prefix-stop`) na podstawie najnowszej
@@ -281,7 +274,7 @@ requestedSpinCount
 evaluatedSpinCount
 sequenceLength
 wrappedAtSequenceEnd    # true, gdy zakres przeszedł przez granicę L → 1
-dataSource              # "operational_review"|"legacy_archive"
+dataSource              # "operational_review"
 dataFingerprintSha256
 rules: { rulesVersionId, rulesVersion, spinCost, algorithmVersion }
 summary: { recognizedPayoutCredits, spinCostCredits, balanceCredits }
@@ -301,8 +294,8 @@ wywoływane dla takiej pozycji). Narastające sumy w każdym wierszu obejmują
 wszystkie wcześniejsze spiny zakresu, również te bez własnego wiersza
 (przegrane i brakujące).
 
-Błędy: `404 GAME_NOT_FOUND`; `409 BOARD_SEARCH_PROJECTION_INCOMPLETE` /
-`BOARD_SEARCH_ARCHIVE_INCOMPLETE` (to samo źródło co wyszukiwanie);
+Błędy: `404 GAME_NOT_FOUND`; `409 BOARD_SEARCH_PROJECTION_INCOMPLETE`
+(to samo źródło co wyszukiwanie);
 `409 APPROXIMATE_WIN_START_OUT_OF_RANGE` (`startSequenceNumber` poza
 `1..sequenceLength`); `409 APPROXIMATE_WIN_RULES_NOT_PUBLISHED` (gra bez
 opublikowanej wersji reguł); `409 APPROXIMATE_WIN_RULES_INVALID` (reguły o
@@ -336,7 +329,7 @@ Odpowiedź szczegółów:
 
 ```text
 gameId, sequenceNumber, boardStatus, boardChecksumSha256
-dataSource              # "operational_review"|"legacy_archive"
+dataSource              # "operational_review"
 rules: { rulesVersionId, rulesVersion, spinCost, algorithmVersion }
 symbolCodes[15]         # kod symbolu albo null dla „?”
 payoutCredits           # suma, przy stawce bazowej
@@ -355,8 +348,8 @@ cells: null | [15]:     # D-473: rekordy weryfikacji pól do poprawki
 `cells` jest zwracane wyłącznie dla planszy operacyjnej ze statusem
 `pending`, z rekordami `image_symbol_review_cells` tej planszy i jej
 bieżącej rewizji geometrii (reguła jak w projekcji wyszukiwania), i tylko
-gdy jest ich dokładnie 15. Plansze zatwierdzone, archiwum i niepełny zestaw
-dają `cells = null`. Każdy element jest celem istniejącego
+gdy jest ich dokładnie 15. Plansze zatwierdzone i niepełny zestaw dają
+`cells = null`. Każdy element jest celem istniejącego
 `POST .../symbol-cell-reviews/{cellReviewId}/decision`
 (`applySymbolCellReviewDecision`) z polami `expected*` przepisanymi z
 rekordu. Publiczna powierzchnia udostępniania (D-471) nie może zwracać
@@ -368,9 +361,7 @@ strony, dłuższy bok najwyżej 1280 px; `cellPolygons` są we współrzędnych 
 tego widoku (punkty planszy uciętej przez krawędź zdjęcia mogą wyjść poza
 0–1). Obszar poza zdjęciem jest wypełniony tłem, dlatego widok nie zależy od
 wymiarów zdjęcia. Geometria bez poprawnych 15 komórek, absurdalna geometria
-(obszar powyżej 60 mln pikseli) albo brak obrazu dają `view = null`. Archiwum
-przechowuje obraz jednej planszy, ale nie geometrię komórek: `view` ma
-rozmiar pomniejszonego obrazu i `cellPolygons = null`. `revision` to
+(obszar powyżej 60 mln pikseli) albo brak obrazu dają `view = null`. `revision` to
 tożsamość renderu (wersja renderera, SHA-256 zdjęcia, obszar i rozmiar) —
 zmienia się także wtedy, gdy zmieni się siatka przy tej samej sumie planszy
 (np. ponowne cięcie v19 planszy `legacy_file`).
@@ -379,8 +370,8 @@ Widok (`getBoardSearchBoardView`) zwraca `image/webp` z `ETag` równym
 `revision`. Z parametrem `viewRevision` (z odpowiedzi szczegółów) odpowiedź
 ma `Cache-Control: private, immutable, max-age=31536000`, a niezgodny
 `viewRevision` daje `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT`; bez niego
-`private, no-cache` z rewalidacją (`If-None-Match` → `304`). Dla planszy
-operacyjnej to przycięty widok, dla archiwum pomniejszony obraz planszy.
+`private, no-cache` z rewalidacją (`If-None-Match` → `304`). Widok jest
+przyciętym kadrem zdjęcia wokół planszy.
 Plik jest trzymany w jednorazowym cache `artifact_root/data/working/
 board-search-views-v1/` (klucz: wersja renderera, SHA-256 zdjęcia, obszar i
 rozmiar; zapis atomowy przez plik tymczasowy, jeden render dla równoległych
@@ -413,13 +404,13 @@ tej pozycji nie ma już dokumentu (plansza wyszła ze stanów wyszukiwalnych
 albo zmieniła pozycję), wynik jest zapisany i zwracany jako
 `documentRemoved = true`, a nie jako 404. Nie zmienia żadnej decyzji
 człowieka; powtórzenie zmienia tylko `updated_at` wierszy projekcji.
-Archiwum: `409 BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED`; brak dokumentu przed
-przebudową: `404 BOARD_SEARCH_BOARD_NOT_FOUND`.
+Dokument bez elementu przeglądu: `409 BOARD_SEARCH_BOARD_REFRESH_UNSUPPORTED`;
+brak dokumentu przed przebudową: `404 BOARD_SEARCH_BOARD_NOT_FOUND`.
 
 Błędy: `404 GAME_NOT_FOUND`, `404 BOARD_SEARCH_BOARD_NOT_FOUND` (brak
 dokumentu), `404 BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE` (brak obrazu, geometrii
 albo obrazu nie da się zdekodować), `404 BOARD_SEARCH_BOARD_VIEW_SOURCE_NOT_FOUND`;
-`409` jak w kalkulatorze zakresu (projekcja/archiwum, reguły, symbol spoza
+`409` jak w kalkulatorze zakresu (projekcja, reguły, symbol spoza
 reguł), `409 BOARD_SEARCH_BOARD_REVISION_CONFLICT` (tylko widok),
 `409 BOARD_SEARCH_BOARD_VIEW_SOURCE_PATH_UNSAFE` /
 `_MEDIA_TYPE_UNSUPPORTED` / `_CHECKSUM_DRIFT`,
@@ -455,8 +446,8 @@ wszystko bez zapisu (czas życia, etykieta, gotowość gry, limit), dopiero
 potem uruchamia wspólny tunel Reviewera (`ensure_online_reviewer_ingress`) i
 zapisuje sesję. Gotowość: gra istnieje (`404 GAME_NOT_FOUND`), ma
 przydzielony magazyn danych (`409 GAME_STORAGE_LOCATION_MISSING`), gotową
-projekcję albo archiwum wyszukiwarki (`409 BOARD_SEARCH_PROJECTION_INCOMPLETE`
-/ `BOARD_SEARCH_ARCHIVE_INCOMPLETE`) i opublikowane reguły
+projekcję wyszukiwarki (`409 BOARD_SEARCH_PROJECTION_INCOMPLETE`) i
+opublikowane reguły
 (`409 APPROXIMATE_WIN_RULES_NOT_PUBLISHED`). Najwyżej 5 aktywnych sesji
 (niewygasłych, nieunieważnionych, niezablokowanych), sprawdzane pod blokadą
 transakcyjną: `409 BOARD_SEARCH_SHARE_ACTIVE_LIMIT`.

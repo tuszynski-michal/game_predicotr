@@ -203,6 +203,10 @@ def test_rules_openapi_exposes_server_versioned_draft_operations() -> None:
             "delete",
         ): "archivePayline",
         (
+            "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent",
+            "delete",
+        ): "deletePayline",
+        (
             "/api/v1/admin/rules-versions/{rules_version_id}/symbols",
             "get",
         ): "listRulesVersionSymbols",

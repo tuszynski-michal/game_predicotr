@@ -111,7 +111,10 @@ Administrator może:
 - wybrać najwyżej jedną komórkę w każdej kolumnie,
 - zapisać wzór dopiero po wybraniu dokładnie jednej komórki we wszystkich kolumnach,
 - zobaczyć istniejące wzorce w tabeli, po jednym wzorze w wierszu,
-- edytować, archiwizować lub usunąć nieopublikowany wzór.
+- edytować, archiwizować lub usunąć nieopublikowany wzór. „Archiwizuj”
+  wyłącza wzorzec, ale zostawia jego kod i ścieżkę zajęte; „Usuń” (D-477) po
+  potwierdzeniu „Usuń trwale” kasuje go z wersji roboczej i pozwala dodać nowy
+  wzorzec z tym samym kodem albo ścieżką.
 
 Walidacja:
 

@@ -6,6 +6,27 @@ last_updated: 2026-09-30
 
 # Decision Log
 
+## D-477 — trwałe usunięcie wzorca wypłat w wersji roboczej (zmienia D-026)
+
+- **Status:** accepted, 2026-10-01; polecenie operatora, TASK-0779.
+- **Context:** D-026 dopuszczało tylko archiwizację (`is_active = false`).
+  Zarchiwizowany wzorzec nadal zajmuje kod i `row_path`, więc operator nie
+  mógł dodać poprawionego wzorca w jego miejsce (`DUPLICATE_PAYLINE`,
+  `PAYLINE_CODE_ALREADY_EXISTS`).
+- **Decision:** `DELETE /rules-versions/{id}/paylines/{paylineId}/permanent`
+  fizycznie usuwa wzorzec, wyłącznie w wersji o statusie `draft`; zwalnia kod
+  i ścieżkę. Operacja wysokiego wpływu (`delete-payline`, nagłówki
+  potwierdzenia i audyt jak przy archiwizacji). Dotychczasowe `DELETE`
+  bez sufiksu pozostaje archiwizacją. Admin pokazuje „Usuń” z dwustopniowym
+  potwierdzeniem obok „Archiwizuj”.
+- **Reason:** audyt z D-026 dotyczy opublikowanych wersji, a te pozostają
+  niezmienne (`RULES_VERSION_IMMUTABLE`); wersja robocza nie jest jeszcze
+  podstawą żadnych obliczeń ani snapshotu. Żadna tabela nie wskazuje na
+  `paylines.id`.
+- **Consequences:** usunięcia nie da się cofnąć — wzorzec trzeba dodać
+  ponownie. Wersja robocza utworzona z opublikowanej ma własne kopie
+  wzorców, więc usunięcie nie zmienia wersji źródłowej.
+
 ## D-476 — „Przybliżona wygrana” statyczna, stawka wybierana per wzór, złote domyślnie
 
 - **Status:** accepted, 2026-10-01; polecenie operatora, TASK-0777. Zmienia

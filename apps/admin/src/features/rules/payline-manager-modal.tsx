@@ -15,6 +15,7 @@ import {
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   archivePayline,
+  deletePayline,
   type PaylinesClient,
   savePayline,
 } from '@/features/rules/payline-actions';
@@ -25,6 +26,7 @@ import {
   markPaylineArchived,
   type PaylineDraft,
   paylineToDraft,
+  removePayline,
   selectPaylineCell,
   upsertPayline,
   validatePaylineDraft,
@@ -61,6 +63,10 @@ export function PaylineManagerModal({
     null,
   );
   const [archivingId, setArchivingId] = useState<string | null>(null);
+  const [deleteCandidateId, setDeleteCandidateId] = useState<string | null>(
+    null,
+  );
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const loadRequestId = useRef(0);
   const mutationInProgress = useRef(false);
   const canMutate = rulesVersion.status === 'draft';
@@ -105,6 +111,7 @@ export function PaylineManagerModal({
     setFormError('');
     setFeedback('');
     setArchiveCandidateId(null);
+    setDeleteCandidateId(null);
     setEditor({ mode: 'create' });
   }
 
@@ -113,6 +120,7 @@ export function PaylineManagerModal({
     setFormError('');
     setFeedback('');
     setArchiveCandidateId(null);
+    setDeleteCandidateId(null);
     setEditor({ mode: 'edit', payline });
   }
 
@@ -173,6 +181,23 @@ export function PaylineManagerModal({
     setFeedback(`Zarchiwizowano wzór „${payline.code}”.`);
   }
 
+  async function confirmDelete(payline: PaylineResponse) {
+    if (mutationInProgress.current || !canMutate) return;
+    mutationInProgress.current = true;
+    setDeletingId(payline.id);
+    setLoadError('');
+    const result = await deletePayline(api, rulesVersion.id, payline.id);
+    mutationInProgress.current = false;
+    setDeletingId(null);
+    if (!result.ok) {
+      setLoadError(result.error);
+      return;
+    }
+    setPaylines((current) => removePayline(current, payline.id));
+    setDeleteCandidateId(null);
+    setFeedback(`Usunięto wzór „${payline.code}”.`);
+  }
+
   return (
     <dialog
       aria-labelledby="payline-manager-title"
@@ -198,7 +223,9 @@ export function PaylineManagerModal({
           <button
             aria-label="Zamknij modal wzorców"
             className="iconButton"
-            disabled={isSubmitting || archivingId !== null}
+            disabled={
+              isSubmitting || archivingId !== null || deletingId !== null
+            }
             onClick={onClose}
             type="button"
           >
@@ -294,6 +321,28 @@ export function PaylineManagerModal({
                               : 'Potwierdź'}
                           </button>
                         </>
+                      ) : deleteCandidateId === payline.id ? (
+                        <>
+                          <span className="immutableLabel">Usunąć trwale?</span>
+                          <button
+                            className="textButton"
+                            disabled={deletingId === payline.id}
+                            onClick={() => setDeleteCandidateId(null)}
+                            type="button"
+                          >
+                            Anuluj
+                          </button>
+                          <button
+                            className="dangerButton"
+                            disabled={deletingId === payline.id}
+                            onClick={() => void confirmDelete(payline)}
+                            type="button"
+                          >
+                            {deletingId === payline.id
+                              ? 'Usuwanie…'
+                              : 'Usuń trwale'}
+                          </button>
+                        </>
                       ) : canMutate ? (
                         <>
                           <button
@@ -306,12 +355,25 @@ export function PaylineManagerModal({
                           {payline.isActive ? (
                             <button
                               className="textButton"
-                              onClick={() => setArchiveCandidateId(payline.id)}
+                              onClick={() => {
+                                setDeleteCandidateId(null);
+                                setArchiveCandidateId(payline.id);
+                              }}
                               type="button"
                             >
                               Archiwizuj
                             </button>
                           ) : null}
+                          <button
+                            className="textButton"
+                            onClick={() => {
+                              setArchiveCandidateId(null);
+                              setDeleteCandidateId(payline.id);
+                            }}
+                            type="button"
+                          >
+                            Usuń
+                          </button>
                         </>
                       ) : (
                         <span className="immutableLabel">Odczyt</span>

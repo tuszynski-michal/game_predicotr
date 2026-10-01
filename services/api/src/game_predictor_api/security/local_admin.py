@@ -67,6 +67,10 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ): HighImpactOperation("archive-payline", "payline:{payline_id}"),
     (
         "DELETE",
+        "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent",
+    ): HighImpactOperation("delete-payline", "payline:{payline_id}"),
+    (
+        "DELETE",
         "/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}",
     ): HighImpactOperation("archive-payout-rule", "payout-rule:{payout_rule_id}"),
     (

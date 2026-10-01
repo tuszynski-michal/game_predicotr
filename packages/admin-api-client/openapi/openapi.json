@@ -44909,6 +44909,104 @@
         ]
       }
     },
+    "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent": {
+      "delete": {
+        "operationId": "deletePayline",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rules_version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Rules Version Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "payline_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Payline Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Rules state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Permanently delete draft payline",
+        "tags": [
+          "rules"
+        ]
+      }
+    },
     "/api/v1/admin/rules-versions/{rules_version_id}/payout-rules": {
       "get": {
         "operationId": "listPayoutRules",

@@ -1152,6 +1152,7 @@ POST   /api/v1/admin/rules-versions/{rulesVersionId}/paylines
 GET    /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}
 PATCH  /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}
 DELETE /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}
+DELETE /api/v1/admin/rules-versions/{rulesVersionId}/paylines/{paylineId}/permanent
 ```
 
 ### POST `/api/v1/admin/rules-versions/{rulesVersionId}/paylines`
@@ -1179,6 +1180,11 @@ przyjmuje `code`, ale pozwala zmienić `name`, `rowPath`, `displayOrder` oraz
 `isActive` wyłącznie w drafcie. DELETE jest idempotentną archiwizacją
 `isActive = false`; nie zwalnia kodu ani `rowPath`. GET pozostaje dostępny dla
 każdego statusu wersji.
+
+`DELETE …/permanent` (D-477) fizycznie usuwa wzorzec wersji roboczej i zwalnia
+jego kod oraz `rowPath`; zwraca `204`, dla nieistniejącego wzorca
+`PAYLINE_NOT_FOUND`, a poza draftem `RULES_VERSION_IMMUTABLE`. Wymaga
+nagłówków operacji wysokiego wpływu z celem `payline:{paylineId}`.
 
 Zmiana liczby kolumn draftu z istniejącą payline zwraca
 `RULES_DIMENSIONS_IN_USE`. Zmniejszenie liczby rzędów zwraca ten sam konflikt,

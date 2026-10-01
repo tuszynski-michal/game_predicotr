@@ -11,6 +11,7 @@ import {
   archiveDatasetVersion as archiveGeneratedDatasetVersion,
   archiveGame as archiveGeneratedGame,
   archivePayline as archiveGeneratedPayline,
+  deletePayline as deleteGeneratedPayline,
   archivePayoutRule as archiveGeneratedPayoutRule,
   archiveRulesVersion as archiveGeneratedRulesVersion,
   deleteSymbol as deleteGeneratedSymbol,
@@ -3013,6 +3014,15 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     archivePayline: (rulesVersionId: string, paylineId: string) =>
       archiveGeneratedPayline({
+        client,
+        headers: confirmedTargetHeaders(`payline:${paylineId}`),
+        path: {
+          payline_id: paylineId,
+          rules_version_id: rulesVersionId,
+        },
+      }),
+    deletePayline: (rulesVersionId: string, paylineId: string) =>
+      deleteGeneratedPayline({
         client,
         headers: confirmedTargetHeaders(`payline:${paylineId}`),
         path: {

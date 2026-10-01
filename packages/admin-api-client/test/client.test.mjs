@@ -1474,6 +1474,7 @@ test('generated client sends zero-based payline CRUD requests', async () => {
     displayOrder: 5,
   });
   await client.archivePayline(rulesVersionId, paylineId);
+  await client.deletePayline(rulesVersionId, paylineId);
 
   assert.equal(created.data?.id, paylineId);
   assert.equal(
@@ -1485,6 +1486,15 @@ test('generated client sends zero-based payline CRUD requests', async () => {
     `/api/v1/admin/rules-versions/${rulesVersionId}/paylines/${paylineId}`,
   );
   assert.equal(requests[2].method, 'DELETE');
+  assert.equal(requests[3].method, 'DELETE');
+  assert.equal(
+    new URL(requests[3].url).pathname,
+    `/api/v1/admin/rules-versions/${rulesVersionId}/paylines/${paylineId}/permanent`,
+  );
+  assert.equal(
+    requests[3].headers.get('X-Admin-Target'),
+    `payline:${paylineId}`,
+  );
   assert.deepEqual(await requests[0].clone().json(), {
     code: 'line-v',
     displayOrder: 10,
@@ -2012,7 +2022,10 @@ test('generated client previews and persists one scope-bound geometry revision',
     saved.data?.geometryRevision.virtualRenderSpecChecksumSha256,
     'b'.repeat(64),
   );
-  assert.equal('boardChecksumSha256' in (saved.data?.geometryRevision ?? {}), false);
+  assert.equal(
+    'boardChecksumSha256' in (saved.data?.geometryRevision ?? {}),
+    false,
+  );
   assert.deepEqual(
     requests.map((request) => new URL(request.url).pathname),
     [

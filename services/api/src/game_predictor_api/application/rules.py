@@ -101,6 +101,8 @@ class RulesRepository(Protocol):
 
     def save_payline(self, payline: Payline) -> Payline: ...
 
+    def delete_payline(self, rules_version_id: UUID, payline_id: UUID) -> None: ...
+
     def payout_configuration_fits_columns(
         self,
         rules_version_id: UUID,
@@ -365,6 +367,21 @@ class RulesService:
             payline_id,
             is_active=False,
         )
+
+    def delete_payline(
+        self,
+        rules_version_id: UUID,
+        payline_id: UUID,
+    ) -> None:
+        """Physically remove a payline from a draft (D-477).
+
+        Unlike archiving, this frees the stable code and the row path.
+        """
+
+        rules_version = self._get_locked_rules_version(rules_version_id)
+        ensure_draft(rules_version)
+        self.get_payline(rules_version_id, payline_id)
+        self._repository.delete_payline(rules_version_id, payline_id)
 
     def list_rules_version_symbols(
         self,

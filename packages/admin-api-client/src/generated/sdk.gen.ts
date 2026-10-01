@@ -174,6 +174,9 @@ import type {
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
+  DeletePaylineData,
+  DeletePaylineErrors,
+  DeletePaylineResponses,
   DeleteSemiAutomaticFilenameVerificationHistoryData,
   DeleteSemiAutomaticFilenameVerificationHistoryErrors,
   DeleteSemiAutomaticFilenameVerificationHistoryResponses,
@@ -5687,6 +5690,22 @@ export const updatePayline = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Permanently delete draft payline
+ */
+export const deletePayline = <ThrowOnError extends boolean = false>(
+  options: Options<DeletePaylineData, ThrowOnError>,
+): RequestResult<DeletePaylineResponses, DeletePaylineErrors, ThrowOnError> =>
+  (options.client ?? client).delete<
+    DeletePaylineResponses,
+    DeletePaylineErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent',
+    ...options,
   });
 
 /**

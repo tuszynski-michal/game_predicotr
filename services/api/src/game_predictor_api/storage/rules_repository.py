@@ -295,6 +295,13 @@ class SqlAlchemyRulesRepository(RulesRepository):
         self._flush_or_raise_conflict()
         return _to_payline(record)
 
+    def delete_payline(self, rules_version_id: UUID, payline_id: UUID) -> None:
+        record = self._session.get(PaylineModel, payline_id)
+        if record is None or record.rules_version_id != rules_version_id:
+            raise RuntimeError("Payline disappeared during a rules transaction.")
+        self._session.delete(record)
+        self._session.flush()
+
     def payout_configuration_fits_columns(
         self,
         rules_version_id: UUID,

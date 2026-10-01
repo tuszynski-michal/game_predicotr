@@ -121,6 +121,11 @@ last_updated: 2026-10-01
   dojść do tego punktu (najgłębszy dołek bilansu od spinu 1 do punktu).
   Pakiet UI 79/79, interakcje 36/36. Bez weryfikacji wizualnej: testowe API
   8011 zostało zatrzymane przez równoległy tor.
+- TASK-0779 done (2026-10-01, zgłoszenie operatora, D-477): w modalu
+  „Wzorce wypłat” jest „Usuń” z potwierdzeniem; nowe
+  `DELETE …/paylines/{id}/permanent` fizycznie usuwa wzorzec wersji roboczej
+  i zwalnia kod oraz ścieżkę (archiwizacja ich nie zwalniała). Bez migracji.
+  Po scaleniu potrzebny restart API i Admina.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

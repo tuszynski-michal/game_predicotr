@@ -24492,6 +24492,57 @@ export type UpdatePaylineResponses = {
 export type UpdatePaylineResponse =
   UpdatePaylineResponses[keyof UpdatePaylineResponses];
 
+export type DeletePaylineData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+    /**
+     * Payline Id
+     */
+    payline_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent';
+};
+
+export type DeletePaylineErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DeletePaylineError = DeletePaylineErrors[keyof DeletePaylineErrors];
+
+export type DeletePaylineResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type DeletePaylineResponse =
+  DeletePaylineResponses[keyof DeletePaylineResponses];
+
 export type ListPayoutRulesData = {
   body?: never;
   path: {

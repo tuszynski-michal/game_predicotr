@@ -11,8 +11,10 @@ table's CHECK is untouched.
 Upgrade refuses (``LEGACY_FILE_BOARDS_PRESENT`` / ``LEGACY_FILE_CELLS_PRESENT``)
 while a ``legacy_file`` board or cell exists: run the conversion first.  The
 statements run on the partitioned parents, so every per-game partition
-receives the same constraint names; adding a CHECK validates the existing
-rows (a few seconds on the operator database).
+receives the same constraint names.  The board CHECK is validated on add;
+the cell CHECK is added ``NOT VALID`` (its predecessor was too) and validated
+afterwards by the runbook, because validating 7.5 M rows exceeds the
+120 s statement budget of a migration.
 
 Downgrade restores the previous constraint definitions and defaults; it does
 not change any row.
@@ -66,9 +68,10 @@ NEW_CELL_CHECK = f"asset_mode = 'none' OR {_VIRTUAL_CELL}"
 OLD_CELL_CHECK = f"asset_mode = 'none' OR {_LEGACY_CELL} OR {_VIRTUAL_CELL}"
 
 
-def _swap_check(table: str, name: str, expression: str) -> None:
+def _swap_check(table: str, name: str, expression: str, *, validate: bool) -> None:
     op.execute(f"ALTER TABLE {table} DROP CONSTRAINT {name}")
-    op.execute(f"ALTER TABLE {table} ADD CONSTRAINT {name} CHECK ({expression})")
+    suffix = "" if validate else " NOT VALID"
+    op.execute(f"ALTER TABLE {table} ADD CONSTRAINT {name} CHECK ({expression}){suffix}")
 
 
 def upgrade() -> None:
@@ -86,8 +89,13 @@ def upgrade() -> None:
                 'with scripts/convert_legacy_boards_to_virtual.py before this migration';
         END IF;
     END $guard$""")
-    _swap_check(BOARDS, BOARD_CHECK, NEW_BOARD_CHECK)
-    _swap_check(CELLS, CELL_PROVENANCE_CHECK, NEW_CELL_CHECK)
+    _swap_check(BOARDS, BOARD_CHECK, NEW_BOARD_CHECK, validate=True)
+    # The cell constraint is added NOT VALID like its predecessor: validating
+    # 7.5 M rows with a JSONB predicate takes minutes on the operator database,
+    # the guard above already proved that no legacy_file cell exists, and the
+    # runbook validates it afterwards with ``ALTER TABLE ... VALIDATE CONSTRAINT``
+    # (SHARE UPDATE EXCLUSIVE, no write block).
+    _swap_check(CELLS, CELL_PROVENANCE_CHECK, NEW_CELL_CHECK, validate=False)
     op.execute(f"ALTER TABLE {BOARDS} ALTER COLUMN asset_mode SET DEFAULT 'virtual_source'")
     op.execute(f"ALTER TABLE {CELLS} ALTER COLUMN asset_mode SET DEFAULT 'virtual_source'")
 
@@ -97,7 +105,7 @@ def downgrade() -> None:
     op.execute("SET LOCAL statement_timeout = '120s'")
     op.execute(f"LOCK TABLE {BOARDS} IN ACCESS EXCLUSIVE MODE")
     op.execute(f"LOCK TABLE {CELLS} IN ACCESS EXCLUSIVE MODE")
-    _swap_check(BOARDS, BOARD_CHECK, OLD_BOARD_CHECK)
-    _swap_check(CELLS, CELL_PROVENANCE_CHECK, OLD_CELL_CHECK)
+    _swap_check(BOARDS, BOARD_CHECK, OLD_BOARD_CHECK, validate=True)
+    _swap_check(CELLS, CELL_PROVENANCE_CHECK, OLD_CELL_CHECK, validate=False)
     op.execute(f"ALTER TABLE {BOARDS} ALTER COLUMN asset_mode SET DEFAULT 'legacy_file'")
     op.execute(f"ALTER TABLE {CELLS} ALTER COLUMN asset_mode SET DEFAULT 'legacy_file'")

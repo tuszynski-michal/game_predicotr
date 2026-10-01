@@ -214,6 +214,15 @@ $env:PYTHONPATH = "services/worker/src;services/api/src"
 Raport JSON trafia do `artifacts/data/exports/legacy-board-conversion/<gra>/`.
 Po konwersji `SELECT count(*) FROM game_data_v2.recognized_boards WHERE
 asset_mode = 'legacy_file'` musi dać 0 dla każdej gry; wtedy `db:migrate`.
+Migracja dodaje CHECK komórek jako `NOT VALID` (walidacja 7,5 mln wierszy
+nie mieści się w budżecie 120 s); po starcie usług zwaliduj go w tle,
+blokada `SHARE UPDATE EXCLUSIVE` nie wstrzymuje zapisów:
+
+```sql
+SET statement_timeout = '1800s';
+ALTER TABLE game_data_v2.image_symbol_review_cells
+  VALIDATE CONSTRAINT ck_image_symbol_review_cells_asset_provenance;
+```
 Wycofanie: `alembic downgrade 0134_…` przywraca dawne CHECK-i, ale
 skonwertowanych plansz nie cofa (nowa rewizja wirtualna zostaje; dawna
 rewizja `legacy_file` jest nadal w `image_board_geometry_revisions`).

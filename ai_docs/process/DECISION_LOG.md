@@ -6,6 +6,31 @@ last_updated: 2026-10-01
 
 # Decision Log
 
+## D-479 — „Przybliżona wygrana” bez kafelków i wyboru zakresu; nazwy operatora (zmienia D-476)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0784.
+- **Context:** operator korzysta z wykresu i tabeli. Kafelki podsumowania,
+  wiersz reguł, radio zakresu wyszukiwania i status planszy w wynikach nie
+  były używane, a nazwy „bilans” i „wypłata” nie odpowiadały temu, jak
+  operator liczy pieniądze.
+- **Decision:** w „Przybliżonej wygranej” i oknie planszy „bilans” nazywa
+  się „kasa na czysto”, a „wypłata” — „wygrana” (termin „linie wypłat”
+  zostaje). Etykieta punktu wykresu ma cztery wiersze: spiny, kasa na
+  czysto, wkład (na czerwono) i „kasa na maszynie” = wkład + kasa na
+  czysto. Cztery kafelki podsumowania i wiersz „Reguły v… · koszt spinu”
+  są usunięte. Tytułem sekcji jest „Plansza startowa #N · X spinów” (bez
+  zakresu numerów plansz). Radio „Zakres wyszukiwania” jest usunięte:
+  wyszukiwanie zawsze obejmuje wszystkie plansze (`all_searchable`), także
+  przy odtworzeniu wpisu dziennika zapisanego z `approved_only`. Nagłówek
+  wyników pokazuje dopasowanie i numer planszy, bez statusu. Okno planszy
+  zajmuje do 1500 px szerokości.
+- **Reason:** mniej elementów nad wykresem i nazwy zgodne z językiem
+  operatora. Parametr `scope` zostaje w API; zmienia się tylko to, co wysyła
+  wspólny interfejs (Admin i udostępniony link).
+- **Consequences:** suma wygranych, koszt spinów i maksymalny wkład całego
+  zakresu nie są już pokazywane jako osobne liczby — wkład i kasę widać na
+  wybranym punkcie wykresu. Odbiorca linku też nie wybiera już zakresu.
+
 ## D-478 — dziennik linku pokazuje wyszukiwania z wykresem; wpis można usunąć (zmienia D-472)
 
 - **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0783.

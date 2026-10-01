@@ -32,8 +32,8 @@ import {
   approximateWinAxisTicks,
   approximateWinChartPoints,
   approximateWinExtremes,
-  approximateWinMaximumStake,
   approximateWinPointKey,
+  approximateWinMachineCashAtPoint,
   approximateWinStakeToPoint,
   approximateWinRequestKey,
   filterApproximateWinRows,
@@ -261,7 +261,11 @@ export function BoardSearchApproximateWin({
       aria-labelledby="approximateWinHeading"
       className="boardSearchApproximateWin"
     >
-      <h2 id="approximateWinHeading">Przybliżona wygrana</h2>
+      <h2 id="approximateWinHeading">
+        {visibleResult
+          ? `Plansza startowa #${visibleResult.startSequenceNumber} · ${visibleResult.evaluatedSpinCount.toLocaleString('pl-PL')} spinów`
+          : 'Przybliżona wygrana'}
+      </h2>
       <div className="boardSearchApproximateWinBody">
         <div className="boardSearchApproximateWinControls">
           <label>
@@ -359,7 +363,7 @@ export function BoardSearchApproximateWin({
               setBoardRequest(null);
               if (!found) {
                 onReplayNotice?.(
-                  `Plansza #${sequenceNumber} nie ma wypłaty w tym zakresie, więc jej okna nie otwarto.`,
+                  `Plansza #${sequenceNumber} nie ma wygranej w tym zakresie, więc jej okna nie otwarto.`,
                 );
               }
             }}
@@ -445,7 +449,6 @@ function ApproximateWinResultView({
   };
   const spinCost = result.rules.spinCost;
   const amount = approximateWinAmountFormatter(display, spinCost);
-  const maximumStake = approximateWinMaximumStake(result);
   const hasIncompleteData =
     result.completeness.partialBoardCount > 0 ||
     result.completeness.missingBoardCount > 0;
@@ -457,16 +460,6 @@ function ApproximateWinResultView({
   return (
     <>
       <div className="boardSearchApproximateWinSummaryHeader">
-        <p className="eyebrow">
-          Plansza startowa #{result.startSequenceNumber} ·{' '}
-          {result.evaluatedSpinCount.toLocaleString('pl-PL')} spinów (#
-          {result.startSequenceNumber + 1}…#
-          {result.startSequenceNumber + result.evaluatedSpinCount})
-        </p>
-        <p>
-          Reguły v{result.rules.rulesVersion} · koszt spinu {amount(spinCost)}
-          {unitNoun(display.unit)}
-        </p>
         {result.startBoardStatus === 'pending' ? (
           <p className="feedbackBanner" role="status">
             Plansza startowa #{result.startSequenceNumber} nie jest jeszcze
@@ -482,33 +475,6 @@ function ApproximateWinResultView({
         ) : null}
       </div>
 
-      <dl className="importMetrics">
-        <div className="importMetric">
-          <dt>Rozpoznane wypłaty</dt>
-          <dd>{amount(result.summary.recognizedPayoutCredits)}</dd>
-        </div>
-        <div className="importMetric">
-          <dt>Koszt spinów</dt>
-          <dd>{amount(result.summary.spinCostCredits)}</dd>
-        </div>
-        <div className="importMetric">
-          <dt>Bilans</dt>
-          <dd>{amount(result.summary.balanceCredits)}</dd>
-        </div>
-        <div className="importMetric boardSearchApproximateWinStakeMetric">
-          <dt>Maksymalny wkład</dt>
-          <dd>
-            {maximumStake === null ? '—' : amount(maximumStake.credits)}
-            {maximumStake !== null ? (
-              <small>
-                tyle trzeba mieć od zera, by opłacić spiny do najniższego
-                bilansu (spin {maximumStake.spinNumber.toLocaleString('pl-PL')})
-              </small>
-            ) : null}
-          </dd>
-        </div>
-      </dl>
-
       <p className="importSubsectionHeader">
         {result.completeness.completeBoardCount.toLocaleString('pl-PL')} plansz
         kompletnych,{' '}
@@ -521,7 +487,7 @@ function ApproximateWinResultView({
       {hasIncompleteData ? (
         <p className="feedbackBanner" role="status">
           Wynik opiera się wyłącznie na dostępnych i rozpoznanych symbolach.
-          Brakujące lub niepotwierdzone wypłaty nie są doliczane, ale koszt
+          Brakujące lub niepotwierdzone wygrane nie są doliczane, ale koszt
           każdego spinu pozostaje uwzględniony. To ostrożne oszacowanie według
           zapisanych danych, a nie statystyczna prognoza ani gwarancja
           rzeczywistej wygranej.
@@ -531,7 +497,7 @@ function ApproximateWinResultView({
       {result.rows.length === 0 ? (
         <>
           <p className="importEmptyState">
-            W analizowanym zakresie nie ma rozpoznanej wypłaty.
+            W analizowanym zakresie nie ma rozpoznanej wygranej.
             {hasIncompleteData
               ? ' Przy niepełnych danych nie można wykluczyć niewykrytej wygranej.'
               : ''}
@@ -567,8 +533,8 @@ function ApproximateWinResultView({
                 <tr>
                   <th>Spin</th>
                   <th>Plansza</th>
-                  <th>Wypłata</th>
-                  <th>Bilans narastająco</th>
+                  <th>Wygrana</th>
+                  <th>Kasa na czysto</th>
                   <th>
                     <span className="boardSearchVisuallyHidden">Akcje</span>
                   </th>
@@ -606,7 +572,7 @@ function ApproximateWinResultView({
           </div>
           {visibleRows.length === 0 ? (
             <p className="importEmptyState">
-              Brak wypłat spełniających wybrany próg.
+              Brak wygranych spełniających wybrany próg.
             </p>
           ) : null}
           {linesRow !== null ? (
@@ -726,10 +692,10 @@ function ApproximateWinTableFilter({
   return (
     <label className="boardSearchApproximateWinFilter">
       <span>
-        Pokaż wypłaty od <output>{formatAmount(value)}</output>
+        Pokaż wygrane od <output>{formatAmount(value)}</output>
       </span>
       <input
-        aria-label="Minimalna wypłata w tabeli"
+        aria-label="Minimalna wygrana w tabeli"
         max={maximumPayoutCredits}
         min={0}
         onChange={(event) =>
@@ -762,7 +728,7 @@ export function ApproximateWinBalanceChart({
   const headingId = `${instanceId}-heading`;
   const descriptionId = `${instanceId}-description`;
   const labelling = compact
-    ? { 'aria-label': 'Bilans według liczby spinów' }
+    ? { 'aria-label': 'Kasa na czysto według liczby spinów' }
     : { 'aria-labelledby': headingId };
   const [hoveredPoint, setHoveredPoint] =
     useState<ApproximateWinChartPoint | null>(null);
@@ -774,9 +740,11 @@ export function ApproximateWinBalanceChart({
   if (rows.length === 0) {
     return (
       <section {...labelling} className="boardSearchApproximateWinChart">
-        {compact ? null : <h3 id={headingId}>Bilans według liczby spinów</h3>}
+        {compact ? null : (
+          <h3 id={headingId}>Kasa na czysto według liczby spinów</h3>
+        )}
         <p className="importEmptyState">
-          Wykres pojawi się po rozpoznaniu pierwszej wypłaty w tym zakresie.
+          Wykres pojawi się po rozpoznaniu pierwszej wygranej w tym zakresie.
         </p>
       </section>
     );
@@ -811,6 +779,9 @@ export function ApproximateWinBalanceChart({
   // What must be in hand from zero to get as far as this point (TASK-0778).
   const stakeLabel = (point: ApproximateWinChartPoint) =>
     labelAmount(approximateWinStakeToPoint(rows, spinCost, point));
+  // Stake plus net cash: what is on the machine at this point (TASK-0784).
+  const machineLabel = (point: ApproximateWinChartPoint) =>
+    labelAmount(approximateWinMachineCashAtPoint(rows, spinCost, point));
   const yTicks = approximateWinAxisTicks(
     plotValue(minimumBalance),
     plotValue(maximumBalance),
@@ -968,7 +939,7 @@ export function ApproximateWinBalanceChart({
   }: (typeof labels)[number]) => {
     const top = chartLabelTop(placement.row);
     const left = placement.x - CHART_LABEL.width / 2;
-    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, bilans ${labelAmount(point.cumulativeBalanceCredits)}, potrzebny wkład ${stakeLabel(point)}`;
+    const description = `${point.spinNumber.toLocaleString('pl-PL')} spinów, kasa na czysto ${labelAmount(point.cumulativeBalanceCredits)}, wkład ${stakeLabel(point)}, kasa na maszynie ${machineLabel(point)}`;
     return (
       <g
         className={
@@ -996,7 +967,7 @@ export function ApproximateWinBalanceChart({
           x={left + 7}
           y={top + 25}
         >
-          Bilans: {labelAmount(point.cumulativeBalanceCredits)}
+          Kasa na czysto: {labelAmount(point.cumulativeBalanceCredits)}
         </text>
         <text
           className="boardSearchApproximateWinChartLabelStake"
@@ -1004,6 +975,13 @@ export function ApproximateWinBalanceChart({
           y={top + 38}
         >
           Wkład: {stakeLabel(point)}
+        </text>
+        <text
+          className="boardSearchApproximateWinChartLabelMachine"
+          x={left + 7}
+          y={top + 51}
+        >
+          Kasa na maszynie: {machineLabel(point)}
         </text>
         {pinned ? (
           <g
@@ -1046,20 +1024,20 @@ export function ApproximateWinBalanceChart({
   return (
     <section {...labelling} className="boardSearchApproximateWinChart">
       <div hidden={compact}>
-        <h3 id={headingId}>Bilans według liczby spinów</h3>
+        <h3 id={headingId}>Kasa na czysto według liczby spinów</h3>
         <p>
-          Narastający bilans: rozpoznane wypłaty minus koszt wszystkich spinów.
-          Między wypłatami bilans spada o koszt każdego spinu; wykres kończy się
-          na ostatnim spinie zakresu. Kliknij punkt albo użyj strzałek i Enter,
-          aby go przypiąć. „Wkład” punktu to kwota potrzebna od zera, by opłacić
-          spiny do tego punktu.
+          Kasa na czysto: rozpoznane wygrane minus koszt wszystkich spinów.
+          Między wygranymi spada o koszt każdego spinu; wykres kończy się na
+          ostatnim spinie zakresu. Kliknij punkt albo użyj strzałek i Enter, aby
+          go przypiąć. „Wkład” to kwota potrzebna od zera, by opłacić spiny do
+          tego punktu; „Kasa na maszynie” to wkład plus kasa na czysto.
         </p>
       </div>
       <div className="boardSearchApproximateWinChartCanvas">
         <svg
           ref={svgRef}
           aria-describedby={descriptionId}
-          aria-label="Wykres narastającego bilansu według liczby spinów"
+          aria-label="Wykres kasy na czysto według liczby spinów"
           onClick={handleClick}
           onKeyDown={handleKeyDown}
           onPointerLeave={() => setHoveredPoint(null)}
@@ -1071,7 +1049,8 @@ export function ApproximateWinBalanceChart({
         >
           <desc id={descriptionId}>
             Od zera do {finalPoint.spinNumber.toLocaleString('pl-PL')} spinów,
-            bilans końcowy {amount(finalPoint.cumulativeBalanceCredits)}
+            kasa na czysto na końcu{' '}
+            {amount(finalPoint.cumulativeBalanceCredits)}
             {unitNoun(display.unit)}, minimum {amount(minimumBalance)}, maksimum{' '}
             {amount(maximumBalance)}.
           </desc>
@@ -1170,9 +1149,12 @@ export function ApproximateWinBalanceChart({
             {pinnedPoints.map((point) => (
               <li key={approximateWinPointKey(point)}>
                 <span>
-                  {point.spinNumber.toLocaleString('pl-PL')} spinów · bilans{' '}
-                  {labelAmount(point.cumulativeBalanceCredits)} · wkład{' '}
-                  {stakeLabel(point)}
+                  {point.spinNumber.toLocaleString('pl-PL')} spinów · kasa na
+                  czysto {labelAmount(point.cumulativeBalanceCredits)} ·{' '}
+                  <span className="boardSearchApproximateWinStake">
+                    wkład {stakeLabel(point)}
+                  </span>{' '}
+                  · kasa na maszynie {machineLabel(point)}
                 </span>
                 <button
                   aria-label={`Odepnij punkt ${point.spinNumber.toLocaleString('pl-PL')} spinów`}

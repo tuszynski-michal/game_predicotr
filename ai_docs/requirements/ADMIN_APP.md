@@ -388,6 +388,18 @@ recognized board, importu lub joba. Admin wybiera adres obrazu według jawnego
 operacyjnego jako fallback. Częściowe albo nieudane archiwum blokuje odczyt tej
 gry zamiast mieszać dwa źródła.
 
+**D-479 (TASK-0784) — obowiązuje ponad starszymi opisami tej sekcji.**
+Wyszukiwanie zawsze obejmuje wszystkie plansze; radio „Zakres wyszukiwania”
+nie istnieje. Nagłówek wyników pokazuje dopasowanie i numer planszy, bez
+statusu. W „Przybliżonej wygranej” tytułem sekcji jest „Plansza startowa #N
+· X spinów”; nie ma kafelków podsumowania (rozpoznane wypłaty, koszt spinów,
+bilans, maksymalny wkład) ani wiersza „Reguły v… · koszt spinu”. „Bilans”
+nazywa się „kasa na czysto”, „wypłata” — „wygrana” (termin „linie wypłat”
+zostaje). Etykieta punktu wykresu i lista przypiętych punktów podają: spiny,
+kasę na czysto, wkład (na czerwono) i „kasę na maszynie” = wkład + kasa na
+czysto. Okno „Pokaż planszę” ma do 1500 px szerokości i wykorzystuje całą
+szerokość dialogu.
+
 Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
 wyników” nad panelem, domyślnie 15 (D-476), w zakresie 1–100 (istniejący
 limit techniczny endpointu). Zakres wyszukiwania („Wszystkie plansze” /

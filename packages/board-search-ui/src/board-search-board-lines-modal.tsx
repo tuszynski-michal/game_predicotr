@@ -275,7 +275,7 @@ export function BoardSearchBoardLinesModal({
           <>
             <p className="feedbackBanner">
               Siatka tej planszy zmieniła się po zapisaniu odczytu wyszukiwarki.
-              Linie i wypłata pochodzą ze starego odczytu (tak samo liczy
+              Linie i wygrana pochodzą ze starego odczytu (tak samo liczy
               tabela), dlatego pokazano je na schemacie bez zdjęcia. Odśwież
               odczyt, aby policzyć planszę z bieżącej siatki i móc poprawiać
               pola.
@@ -292,7 +292,7 @@ export function BoardSearchBoardLinesModal({
         ) : (
           <p className="feedbackBanner">
             Siatka tej planszy zmieniła się po zapisaniu odczytu wyszukiwarki.
-            Linie i wypłata pochodzą ze starego odczytu (tak samo liczy tabela),
+            Linie i wygrana pochodzą ze starego odczytu (tak samo liczy tabela),
             dlatego pokazano je na schemacie bez zdjęcia.
           </p>
         )}
@@ -428,7 +428,7 @@ export function BoardSearchBoardLinesModal({
       ) : null}
       {edited ? (
         <p className="boardSearchBoardLinesNote">
-          Tabela i bilans zostaną przeliczone po zamknięciu okna.
+          Tabela i kasa na czysto zostaną przeliczone po zamknięciu okna.
         </p>
       ) : null}
     </>
@@ -457,9 +457,9 @@ export function BoardSearchBoardLinesModal({
             <p>
               {edited && !refreshing && detail !== null
                 ? correctionSaved
-                  ? 'Po poprawce: wypłata '
-                  : 'Po odświeżeniu: wypłata '
-                : 'Wypłata '}
+                  ? 'Po poprawce: wygrana '
+                  : 'Po odświeżeniu: wygrana '
+                : 'Wygrana '}
               {formatAmount(
                 edited && !refreshing && detail !== null
                   ? detail.payoutCredits
@@ -515,7 +515,7 @@ export function BoardSearchBoardLinesModal({
             <p className="feedbackBanner feedbackBannerError">
               {consistency.reason === 'rules'
                 ? 'Reguły wypłat zmieniły się od obliczenia tabeli.'
-                : 'Wypłata tej planszy zmieniła się od obliczenia tabeli.'}{' '}
+                : 'Wygrana tej planszy zmieniła się od obliczenia tabeli.'}{' '}
               Linie nie zostały narysowane, aby nie pokazać niespójnego wyniku.
             </p>
             <button

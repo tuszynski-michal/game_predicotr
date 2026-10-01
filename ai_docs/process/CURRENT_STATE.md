@@ -166,6 +166,12 @@ last_updated: 2026-10-01
   pokazuje tylko wyszukiwania — wzór 3 × 5 i wykres bilansu planszy, którą
   odbiorca otworzył; bez linii opisu; wpis można usunąć
   (`DELETE …/queries/{id}`). Bez migracji; wymaga restartu API.
+- TASK-0784 done (2026-10-02, zgłoszenie operatora, D-479): „Przybliżona
+  wygrana” bez kafelków i wiersza reguł, tytuł „Plansza startowa #N · X
+  spinów”, nazwy „kasa na czysto” / „wygrana”, etykieta punktu z czerwonym
+  wkładem i „kasą na maszynie”; bez radia zakresu (zawsze wszystkie
+  plansze) i bez statusu w nagłówku wyników; szersze okno planszy. Tylko
+  UI; po scaleniu potrzebny `npm run reviewer:build` dla linku.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

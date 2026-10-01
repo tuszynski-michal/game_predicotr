@@ -183,6 +183,8 @@ last_updated: 2026-10-01
   i niższy — „378 spinów” i „wkład: X” w jednej linii, pod nimi „Kasa na
   czysto” i „Kredyty” (dawniej „Kasa na maszynie”, zawsze pełne kredyty);
   bez pogrubień; wygrana i kasa na czysto zaokrąglane do pełnych złotych.
+- TASK-0788 done (2026-10-02, zgłoszenie operatora): zdjęcie planszy w oknie
+  „Pokaż planszę” ma najwyżej 800 px szerokości. Tylko CSS.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.

@@ -564,7 +564,8 @@
 }
 
 .boardSearchBoardLinesDialog {
-  width: min(1500px, calc(100vw - 32px));
+  /* 800px board + 300px legend + gaps and padding. */
+  width: min(1180px, calc(100vw - 32px));
   max-height: calc(100vh - 32px);
 }
 
@@ -576,7 +577,8 @@
 
 .boardSearchBoardLines {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(220px, 300px);
+  /* The board image is at most 800px wide (TASK-0788). */
+  grid-template-columns: minmax(0, 800px) minmax(220px, 300px);
   gap: 18px;
   align-items: start;
 }
@@ -594,6 +596,7 @@
 
 .boardSearchBoardLinesCanvas svg {
   inline-size: 100%;
+  max-inline-size: 800px;
   block-size: auto;
   max-block-size: 76vh;
   border-radius: 10px;

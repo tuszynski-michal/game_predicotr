@@ -397,8 +397,8 @@ bilans, maksymalny wkład) ani wiersza „Reguły v… · koszt spinu”. „Bil
 nazywa się „kasa na czysto”, „wypłata” — „wygrana” (termin „linie wypłat”
 zostaje). Etykieta punktu wykresu i lista przypiętych punktów podają: spiny,
 kasę na czysto, wkład (na czerwono) i „kasę na maszynie” = wkład + kasa na
-czysto. Okno „Pokaż planszę” ma do 1500 px szerokości i wykorzystuje całą
-szerokość dialogu.
+czysto. Okno „Pokaż planszę” ma do 1180 px szerokości; zdjęcie planszy w nim ma
+najwyżej 800 px (TASK-0788), obok jest legenda linii.
 
 **TASK-0786 — obowiązuje ponad starszymi opisami wykresu.** Etykiety punktów
 (najechanego i przypiętych) są rysowane na obszarze danych wykresu, nie w

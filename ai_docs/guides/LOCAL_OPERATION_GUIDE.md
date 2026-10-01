@@ -137,6 +137,15 @@ dlatego kroki 1–2 są obowiązkowe:
    `LOCK ... ACCESS EXCLUSIVE` na `public.game_storage_locations` z
    `lock_timeout = 5s`; aktywna transakcja innego procesu powoduje błąd
    migracji (nic nie zostaje zmienione, można powtórzyć po zatrzymaniu).
+   Na Windows zatrzymanie samego procesu nadrzędnego uvicorn `--reload`
+   (`Stop-Process`, `taskkill` bez `/T`) zostawia proces potomny
+   `python.exe -c "from multiprocessing.spawn …"`, który dalej nasłuchuje na
+   tym samym porcie ze starym kodem; Windows dopuszcza kilku słuchaczy na
+   `127.0.0.1:8000`, więc żądania trafiają na przemian do starego i nowego
+   procesu (objaw: `/health` 200, a dane gry raz 200, raz 500
+   `GAME_STORAGE_LOCATION_INVALID` lub `ALEMBIC_HEAD_MISMATCH`). Po
+   zatrzymaniu sprawdź `netstat -ano | findstr :8000` i zakończ każdy
+   wymieniony PID (`taskkill /PID <pid> /T /F`) przed startem nowego kodu.
 3. Scal kod (merge) do checkoutu, z którego uruchamiasz usługi.
 4. `npm run db:migrate`, potem `npm run db:current` → `0131_board_render_manifests`.
    Migracja odmówi (`GAME_STORAGE_LIFECYCLE_IN_PROGRESS`,

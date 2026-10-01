@@ -122,6 +122,33 @@ automatycznej aktywacji.
   jest odsetek zdjęć, na których wszystkie oczekiwane plansze mają
   poprawną siatkę (zdjęcie zaliczone tylko przy komplecie), obok miar
   per plansza.
+- **Izolacja danych per gra (wymaganie operatora 2026-10-02).** Dane jednej
+  gry nie mogą leżeć w tabeli wspólnej z inną grą. Stan zweryfikowany na
+  bazie deweloperskiej (tylko `SELECT`): wszystkie 63 tabele danych gry w
+  `game_data_v2` są partycjonowane `LIST (game_id)`, każda gra ma własną
+  fizyczną partycję z własnymi indeksami (3 gry × 63 = 189 tabel), RLS jest
+  włączone na wszystkich 63, a zapytanie z `game_id` jednej gry dotyka
+  wyłącznie jej partycji (plan zapytania o komórki gry `mumie` używa tylko
+  partycji tej gry; 7,5 mln komórek 777 nie jest czytane). W `public`
+  zostają tylko katalog (`games`, `jobs`, `symbols`, reguły) i małe tabele
+  współdzielone. Nowa gra dostaje komplet partycji przy tworzeniu
+  (`GAME_DATA_V2_OWNERSHIP.md`, „Greenfield cutover”). Plan V3 tego nie
+  zmienia i nie może osłabić:
+  - każda nowa tabela V3 z wierszem per zdjęcie, plansza albo komórka jest
+    tabelą gry (partycja `LIST (game_id)`, RLS, nowa wersja manifestu
+    magazynu); tabela wspólna z takimi wierszami jest zabroniona;
+  - każde nowe zapytanie filtruje po `game_id` i działa po
+    `GameStorageRouter.bind`; zapytanie między grami wymaga osobnego
+    wiązania na grę;
+  - model siatek jest osobnym artefaktem (plik ONNX z fingerprintem i
+    wersją), wspólnym dla gier, poza tabelami danych gry; baza trzyma tylko
+    wskazanie aktywnej wersji per gra. Dane uczące (manifesty, kopie
+    obrazów, podziały, checkpointy) żyją w katalogu laboratorium poza bazą
+    produkcyjną i nie rosną razem z tabelami gry;
+  - osobna baza PostgreSQL per gra nie jest wprowadzana: partycja daje ten
+    sam koszt zapytania, a osobna baza zerwałaby klucze obce do katalogu
+    (`games`, `jobs`, `symbols`, reguły) i wymagałaby drugiego mechanizmu
+    routingu. Zmiana tej decyzji wymaga pomiaru i osobnego planu.
 - Topologia 5 × 3 (24 węzły). 3 × 3 pozostaje w labie bez zmian i poza tym
   planem.
 - Dane produkcyjne czytamy tylko do odczytu, rolą właściciela, przez
@@ -215,6 +242,23 @@ Każdy etap wymaga jawnego uruchomienia; po etapie STOP z raportem.
   pojawia się jedną operacją; wyjątek dopuszcza 8/9; brak regresji dla
   zdjęć kompletnych. **STOP V3-0:** raport kompletności 777 i działająca
   bramka.
+
+- **TASK-0809 — kontrola izolacji per gra i gotowości na nową grę (bez
+  zmian schematu; dodane 2026-10-02 na polecenie operatora).** Test PG na
+  bazie `*_test`: utworzenie nowej gry istniejącym lifecycle → komplet
+  partycji i aktywna lokalizacja; import jednego zdjęcia do nowej gry przy
+  drugiej, dużej grze w tej samej bazie; asercja planu zapytania
+  (`EXPLAIN`), że raport kompletności, bramka, materializacja komórek i
+  wyszukiwarka nowej gry nie dotykają partycji innej gry; test strażniczy
+  odrzucający tabelę ORM z kolumnami `source_image_id`,
+  `recognized_board_id` albo `review_item_id` poza manifestem gry. Raport
+  tylko do odczytu z bazy deweloperskiej: rozmiary partycji per gra,
+  tabele współdzielone rosnące z liczbą zdjęć
+  (`image_pipeline_stage_results`, `image_pipeline_terminal_manifests`,
+  `image_file_executions`) i ocena, czy wymagają podziału. Kryteria:
+  wszystkie cztery ścieżki przycinają partycje; lista odstępstw albo jej
+  brak w `ai_docs/quality/`; każda proponowana zmiana schematu zgłoszona
+  operatorowi przed wykonaniem. Wykonywane przed STOP V3-0.
 
 ### Etap V3-A — dane (bez treningu)
 
@@ -325,6 +369,7 @@ Każdy etap wymaga jawnego uruchomienia; po etapie STOP z raportem.
 | Dane wybiera i kontroluje operator | TASK-0801 | przegląd 600 plansz, odsetek błędów etykiet |
 | Brak przecieku i nietknięte holdouty | TASK-0801, 0804 | test rozłączności rodzin; jeden odczyt holdoutów |
 | Bez wpływu na produkcję | wszystkie | tylko odczyt bazy; shadow dopiero w V3-D |
+| Dane każdej gry osobno; nowa gra działa od pierwszego importu | TASK-0809, 0807, 0805 | test PG nowej gry; `EXPLAIN` bez partycji innej gry; test strażniczy manifestu |
 
 ## Odbiór całego przepływu
 
@@ -366,6 +411,7 @@ wznowienia audytów; obecnie audyty są zawieszone decyzją operatora.
 |---|---|---|---|---|
 | TASK-0806 | claude-sonnet-5-5 | high | Raport i widok tylko do odczytu na istniejących tabelach; kontrakt pionem. | Zawieszony; przy wznowieniu claude-opus-5-5, medium |
 | TASK-0807 | claude-opus-5-5 | high | Zmiana przepływu importu i materializacji komórek, migracja stanu zdjęcia, backfill. | Zawieszony; przy wznowieniu claude-opus-5-5, high |
+| TASK-0809 | claude-sonnet-5-5 | high | Testy i raport bez zmian schematu na istniejącym lifecycle magazynu gry; ryzyko ograniczone do poprawności asercji planu zapytania. | Zawieszony; przy wznowieniu claude-opus-5-5, medium |
 | TASK-0800 | claude-sonnet-5-5 | high | Eksport tylko do odczytu według istniejącego wzorca; ryzyko ograniczone do poprawności liczności. | Zawieszony; przy wznowieniu claude-opus-5-5, medium |
 | TASK-0801 | claude-opus-5-5 | high | Polityka podziału, przeciek rodzin i filtr jakości etykiet decydują o wiarygodności całego wyniku. | Zawieszony; przy wznowieniu claude-opus-5-5, high |
 | TASK-0802 | claude-opus-5-5 | high | Architektura dwóch stopni, trening, ONNX i kontrakt silnika. | Zawieszony; przy wznowieniu claude-opus-5-5, high |

@@ -60,7 +60,27 @@ last_updated: 2026-10-01
   (`system:legacy-board-conversion-v1`) — dziś liczone jako niepotwierdzone;
   (2) plansze o statusie `rejected` (10 390) liczą się jak plansze z siatką;
   (3) 99 zdjęć bez żadnej planszy nie ma podglądu pliku w liście.
-- Następne: TASK-0807 (bramka w pipeline, migracja `0139`).
+- 2026-10-02: wykonawca TASK-0807 został przerwany razem z sesją i nie
+  zostawił zmian (worktree czysty); zadanie pozostaje `todo`.
+- 2026-10-02, ustalenia z bazy (tylko `SELECT`) do pytań operatora:
+  (1) z 1 703 plansz na starej rewizji 449 to żywe plansze na 79 zdjęciach
+  po konwersji legacy z 2026-10-01 (operator polecił je przepiąć na
+  najnowszą rewizję zdjęcia i utrzymać tę regułę), a 1 254 to plansze
+  odrzucone; (2) 10 389 z 10 390 plansz `rejected` należy do zduplikowanego
+  importu `7d10ae0a` (zastąpione przez `pending_sequence_replaced_by_newer_import`,
+  każdy numer ma żywą planszę gdzie indziej, bez komórek); (3) 99 zdjęć bez
+  plansz to nieudane pliki importu (88 `IMAGE_STAGE_EXECUTION_FAILED`, 6
+  `IMAGE_STAGE_RESULT_INVALID`, 5
+  `IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE`); pliki istnieją, 73 mają
+  ten sam SHA zaimportowany poprawnie w innym imporcie. Propozycja czekająca
+  na potwierdzenie operatora: raport nie liczy pozycji zastąpionych nowszym
+  importem, pokazuje kod błędu importu, podgląd po `source_image_id`.
+- 2026-10-02: do planu dodano regułę izolacji danych per gra i TASK-0809
+  (kontrola izolacji i gotowości na nową grę, bez zmian schematu). Kontrola
+  bazy: 63 tabele gry partycjonowane `LIST (game_id)`, 3 gry × 63 partycje,
+  RLS na wszystkich, zapytanie jednej gry dotyka tylko jej partycji; żadna
+  zmiana schematu nie jest potrzebna dla izolacji.
+- Następne: TASK-0807 (bramka w pipeline, migracja `0139`), potem TASK-0809.
 
 Stan sprzed akceptacji (zachowany dla kontekstu):
 

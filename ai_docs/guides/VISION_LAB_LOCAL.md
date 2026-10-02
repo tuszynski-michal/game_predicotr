@@ -564,6 +564,38 @@ poziom z przedziałem Wilsona 95%):
 .\.venv\Scripts\python.exe -m game_predictor_worker.vision_lab.label_review report --review $review
 ```
 
+Runda druga przeglądu (TASK-0814): ponowna ocena plansz „zła” (opcjonalnie także „nie
+da się ocenić”) z trzecią oceną „lekko nacięta”. Dane rundy leżą w tym samym
+katalogu przeglądu w osobnych plikach (`round2.json`, `round2-history.jsonl`,
+`round2-decisions.json`, `round2-summary.json`); pliki pierwszej rundy (`sample.json`,
+`crops/`, `history.jsonl`, `decisions.json`) są tylko czytane. Zestaw pozycji
+zamraża `round2-prepare` na podstawie `history.jsonl` w chwili przygotowania;
+ponowne przygotowanie kończy się błędem `LABEL_REVIEW_ROUND2_EXISTS`, a `--force`
+odkłada stare pliki rundy jako `*.superseded-<czas UTC>` (nic nie kasuje).
+
+```powershell
+$py = '.\.venv\Scripts\python.exe'; $m = 'game_predictor_worker.vision_lab.label_review'
+& $py -m $m round2-prepare --review $review                          # tylko „zła”
+& $py -m $m round2-prepare --review $review --include bad-unreadable # „zła” i „nie da się ocenić”
+$round2 = Start-Process -FilePath $py -ArgumentList @(
+  '-m', $m, 'round2-serve', '--review', ('"' + $review + '"'), '--port', '8104'
+) -WindowStyle Hidden -PassThru
+& $py -m $m round2-report --review $review                           # raport łączony
+```
+
+Strona `http://127.0.0.1:8104` (tylko `127.0.0.1`): `G`/`1` dobra, `L`/`2` lekko
+nacięta, `Z`/`3` zła, `N`/`4` nie da się ocenić, `→` pomiń, `←` wstecz, `U` cofnij,
+`H` siatka, `S` podsumowanie. Reguła: dobra — linie w przerwach między symbolami albo
+minimalnie zahaczają o brzeg; lekko nacięta — symbol w pełni rozpoznawalny, ale linia
+wyraźnie go nacina; zła — przesunięcie lub przechył siatki, część sąsiedniego symbolu w
+komórce, zła liczba kolumn lub rzędów, nie ta plansza. Raport łączony (`round2-summary.json`):
+dla pozycji z rundą drugą obowiązuje jej ocena (nieocenione jeszcze w rundzie drugiej
+zachowują zamrożoną ocenę pierwszej), dla pozostałych bieżąca ocena pierwszej rundy.
+Per poziom: odsetek luźny = zła / (dobra + lekko nacięta + zła), odsetek ścisły =
+(zła + lekko nacięta) / (dobra + lekko nacięta + zła), „nie da się ocenić” i pozycje bez
+oceny poza mianownikiem, przedziały Wilsona 95% dla obu odsetków oraz liczba pozycji
+pierwszej rundy bez oceny (`firstRoundUndecided`).
+
 ## Sieć `neural_grid` — runy treningowe (TASK-0802)
 
 Silnik `neural_grid` (dwa stopnie: ekran 768 px → quady plansz, plansza 320 × 192

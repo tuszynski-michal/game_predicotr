@@ -124,3 +124,150 @@ def test_label_review_population_matches_filter(tmp_path: Path) -> None:
         collector.add(row)
     population = review.review_population(collector.images())
     assert len(population["S"]) == 28 and len(population["B"]) == 28
+
+
+# --- Second round (TASK-0814) ---------------------------------------------------------
+
+FIRST_ROUND_FILES = ("sample.json", "history.jsonl", "decisions.json")
+
+
+def first_round_state(output: Path) -> dict[str, bytes]:
+    files = {name: (output / name).read_bytes() for name in FIRST_ROUND_FILES}
+    files.update({f"crops/{p.name}": p.read_bytes() for p in sorted((output / "crops").iterdir())})
+    return files
+
+
+def judged_first_round(tmp_path: Path) -> tuple[Path, list[str]]:
+    output, _data = prepared(tmp_path)
+    store = review.ReviewStore(output)
+    ids = [str(item["itemId"]) for item in store.sample["items"]]
+    for revision, (item_id, decision) in enumerate(
+        zip(ids, ["bad", "good", "unreadable", "bad", "good", "bad"], strict=True)
+    ):
+        store.decide(item_id, decision, revision)
+    return output, ids
+
+
+def test_round2_selection_frozen_and_never_overwritten(tmp_path: Path) -> None:
+    output, ids = judged_first_round(tmp_path)
+    before = first_round_state(output)
+    round_two = review.prepare_round2(output, ("bad",), log=lambda _m: None)
+    assert round_two["itemIds"] == [ids[0], ids[3], ids[5]]
+    assert first_round_state(output) == before  # preparing only reads the first round
+    with pytest.raises(ValueError, match="ROUND2_EXISTS"):
+        review.prepare_round2(output, ("bad", "unreadable"), log=lambda _m: None)
+    # Later first-round changes do not change the frozen set.
+    store = review.ReviewStore(output)
+    store.decide(ids[0], "good", store.revision)
+    assert review.Round2Store(output).round["itemIds"] == round_two["itemIds"]
+    # Forcing supersedes (keeps the old file) and picks up "unreadable" too.
+    forced = review.prepare_round2(output, ("bad", "unreadable"), force=True, log=lambda _m: None)
+    assert forced["itemIds"] == [ids[2], ids[3], ids[5]]
+    assert list(output.glob("round2.json.superseded-*"))
+    with pytest.raises(ValueError, match="INCLUDE_INVALID"):
+        review.prepare_round2(output, ("unreadable",), force=True, log=lambda _m: None)
+
+
+def test_round2_empty_selection_stops(tmp_path: Path) -> None:
+    output, _data = prepared(tmp_path)
+    with pytest.raises(ValueError, match="ROUND2_EMPTY"):
+        review.prepare_round2(output, ("bad",), log=lambda _m: None)
+    assert not (output / "round2.json").exists()
+
+
+def test_round2_decisions_undo_resume_and_first_round_untouched(tmp_path: Path) -> None:
+    output, ids = judged_first_round(tmp_path)
+    review.prepare_round2(output, ("bad",), log=lambda _m: None)
+    before = first_round_state(output)
+    store = review.Round2Store(output)
+    first, second, third = ids[0], ids[3], ids[5]
+    store.decide(first, "slight", 0)
+    store.decide(second, "good", 1)
+    store.decide(second, None, 2)
+    store.decide(third, "unreadable", 3)
+    with pytest.raises(review.RevisionConflictError):
+        store.decide(third, "bad", 3)
+    with pytest.raises(KeyError):
+        store.decide(ids[1], "bad", 4)  # not a round-two item
+    with pytest.raises(ValueError, match="DECISION_INVALID"):
+        store.decide(third, "maybe", 4)
+    resumed = review.Round2Store(output)
+    assert resumed.decisions == {first: "slight", third: "unreadable"} and resumed.revision == 4
+    decisions = json.loads((output / "round2-decisions.json").read_bytes())
+    assert decisions["decisions"] == resumed.decisions and decisions["revision"] == 4
+    history = (output / "round2-history.jsonl").read_bytes().splitlines()
+    assert [json.loads(line)["decision"] for line in history] == [
+        "slight",
+        "good",
+        None,
+        "unreadable",
+    ]
+    with (output / "round2-history.jsonl").open("ab") as stream:
+        stream.write(b'{"revision": 5, "item')
+    assert review.Round2Store(output).revision == 4  # torn line dropped
+    review.Round2Store(output).write_summary()
+    assert first_round_state(output) == before
+
+
+def test_round2_combined_summary_strict_and_loose() -> None:
+    items = [
+        {"itemId": f"{i}", "level": "S" if i < 6 else "B", "imageId": "x", "recognizedBoardId": "y"}
+        for i in range(10)
+    ]
+    first = {"0": "bad", "1": "bad", "2": "bad", "3": "good", "4": "unreadable", "6": "bad"}
+    first.update({"7": "good", "8": "good"})  # "5" and "9" have no first-round grade
+    frozen = {"0": "bad", "1": "bad", "2": "bad", "6": "bad"}
+    summary = review.summarize_combined(
+        items, first, frozen, {"0": "slight", "1": "good", "2": "bad"}
+    )
+    s, b = summary["levels"]["S"], summary["levels"]["B"]
+    assert (s["good"], s["slight"], s["bad"], s["unreadable"]) == (2, 1, 1, 1)
+    assert s["firstRoundUndecided"] == 1 and s["judged"] == 4
+    assert s["looseRate"] == 0.25 and s["strictRate"] == 0.5
+    low, high = review.wilson_interval(2, 4) or (0.0, 0.0)
+    assert s["strictWilson95"] == [low, high]
+    # Round-two item 6 is pending: it keeps its frozen first-round grade "bad".
+    assert b["round2Pending"] == 1 and b["bad"] == 1 and b["good"] == 2
+    assert b["looseRate"] == 1 / 3 and b["strictRate"] == 1 / 3
+    assert summary["firstRoundUndecided"] == 2 and summary["round2Decided"] == 3
+    assert [i["itemId"] for i in summary["slightItems"]] == ["0"]
+    assert [i["itemId"] for i in summary["badItems"]] == ["2", "6"]
+
+
+def test_round2_api_page_and_report(tmp_path: Path) -> None:
+    output, ids = judged_first_round(tmp_path)
+    review.prepare_round2(output, ("bad",), log=lambda _m: None)
+    store = review.Round2Store(output)
+    client = TestClient(review.create_round2_app(store, 8104), base_url="http://127.0.0.1:8104")
+    page = client.get("/").text
+    assert "runda druga" in page and "lekko nacięta" in page and 'decide("slight")' in page
+    assert "lekko" not in review.PAGE  # the first-round page is unchanged
+    state = client.get("/api/state").json()
+    assert [item["itemId"] for item in state["items"]] == [ids[0], ids[3], ids[5]]
+    assert "level" not in state["items"][0]
+    assert client.get("/" + state["items"][0]["crop"]).status_code == 200
+    outside = Path(review.ReviewStore(output).items[ids[1]]["crop"]).name
+    assert client.get(f"/crops/{outside}").status_code == 404
+    body = {"itemId": ids[0], "decision": "slight", "baseRevision": 0}
+    assert client.post("/api/decisions", json=body).status_code == 403
+    headers = {"Origin": "http://127.0.0.1:8104"}
+    assert client.post("/api/decisions", json=body, headers=headers).status_code == 200
+    assert client.post("/api/decisions", json=body, headers=headers).status_code == 409
+    foreign = {"itemId": ids[1], "decision": "bad", "baseRevision": 1}
+    assert client.post("/api/decisions", json=foreign, headers=headers).status_code == 404
+    assert client.get("/api/summary").json()["round2Decided"] == 1
+    wrong_host = TestClient(review.create_round2_app(store, 8104), base_url="http://127.0.0.1:8103")
+    assert wrong_host.get("/api/state").status_code == 403
+    report = review.Round2Store(output).write_summary()
+    assert json.loads((output / "round2-summary.json").read_bytes())["levels"] == report["levels"]
+
+
+def test_round2_cli_prepare_and_report(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    output, _ids = judged_first_round(tmp_path)
+    review.main(["round2-prepare", "--review", str(output), "--include", "bad-unreadable"])
+    assert len(json.loads((output / "round2.json").read_bytes())["itemIds"]) == 4
+    with pytest.raises(ValueError, match="ROUND2_EXISTS"):
+        review.main(["round2-prepare", "--review", str(output)])
+    capsys.readouterr()
+    review.main(["round2-report", "--review", str(output)])
+    assert json.loads(capsys.readouterr().out)["round2Items"] == 4

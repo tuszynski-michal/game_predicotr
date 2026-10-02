@@ -644,6 +644,437 @@ load().then(() => { index = firstUndecided(0); render(); });
 """
 
 
+# --- Second round (TASK-0814) -------------------------------------------------------
+#
+# Re-judges the boards the operator marked ``bad`` (optionally also ``unreadable``) in
+# the first round with a third grade, ``slight`` ("slightly clipped"). It lives in the
+# same review directory in its own files; the first-round files (``sample.json``,
+# ``crops/``, ``history.jsonl``, ``decisions.json``) are only ever read. The item set is
+# frozen into ``round2.json`` when the round is prepared.
+
+ROUND2_SCHEMA: Final = "production-geometry-label-review-round2-v1"
+ROUND2_DECISIONS_SCHEMA: Final = "production-geometry-label-review-round2-decisions-v1"
+ROUND2_SUMMARY_SCHEMA: Final = "production-geometry-label-review-combined-summary-v1"
+ROUND2_DECISIONS: Final = ("good", "slight", "bad", "unreadable")
+ROUND2_INCLUDE: Final = ("bad", "unreadable")
+ROUND2_DEFAULT_PORT: Final = 8104
+
+_ROUND2: Final = "round2.json"
+_ROUND2_HISTORY: Final = "round2-history.jsonl"
+_ROUND2_DECISIONS: Final = "round2-decisions.json"
+_ROUND2_SUMMARY: Final = "round2-summary.json"
+
+
+def read_first_round(root: Path, sample: Mapping[str, Any]) -> tuple[dict[str, str], int]:
+    """Current first-round decisions replayed from ``history.jsonl``, strictly read-only.
+
+    The first-round server may still be appending; only complete lines are used and a torn
+    last line is ignored (never truncated here).
+    """
+
+    decisions: dict[str, str] = {}
+    revision = 0
+    path = root / _HISTORY
+    if not path.exists():
+        return decisions, revision
+    complete, _, _torn = path.read_bytes().rpartition(b"\n")
+    known = {str(item["itemId"]) for item in sample["items"]}
+    for line in complete.split(b"\n") if complete else []:
+        event = json.loads(line)
+        if event.get("sampleId") != sample["sampleId"]:
+            raise ValueError("LABEL_REVIEW_HISTORY_FOREIGN_SAMPLE")
+        if event.get("revision") != revision + 1 or event.get("itemId") not in known:
+            raise ValueError("LABEL_REVIEW_HISTORY_CORRUPT")
+        decision = event.get("decision")
+        if decision is None:
+            decisions.pop(event["itemId"], None)
+        elif decision in DECISIONS:
+            decisions[event["itemId"]] = decision
+        else:
+            raise ValueError("LABEL_REVIEW_DECISION_INVALID")
+        revision = event["revision"]
+    return decisions, revision
+
+
+def prepare_round2(
+    root: Path,
+    include: Sequence[str] = ("bad",),
+    force: bool = False,
+    log: Callable[[str], None] = print,
+) -> dict[str, Any]:
+    """Freeze the round-two item set from the current first-round decisions.
+
+    Refuses to overwrite an existing round unless ``force``; ``force`` moves the old
+    round-two files aside (``*.superseded-<utc>``) instead of deleting them.
+    """
+
+    if "bad" not in include or not set(include) <= set(ROUND2_INCLUDE):
+        raise ValueError("LABEL_REVIEW_ROUND2_INCLUDE_INVALID")
+    sample = verify_sample(root)
+    target = root / _ROUND2
+    if target.exists() and not force:
+        raise ValueError("LABEL_REVIEW_ROUND2_EXISTS")
+    first, revision = read_first_round(root, sample)
+    wanted = set(include)
+    frozen = {
+        str(item["itemId"]): first[str(item["itemId"])]
+        for item in sample["items"]
+        if first.get(str(item["itemId"])) in wanted
+    }
+    if not frozen:
+        raise ValueError("LABEL_REVIEW_ROUND2_EMPTY")
+    identity = {
+        "schemaVersion": ROUND2_SCHEMA,
+        "sampleId": sample["sampleId"],
+        "include": sorted(wanted),
+        "firstRoundRevision": revision,
+        "firstRoundDecisions": frozen,
+    }
+    round_id = hashlib.sha256(dumps(identity)).hexdigest()
+    if target.exists():
+        stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+        for name in (_ROUND2, _ROUND2_HISTORY, _ROUND2_DECISIONS, _ROUND2_SUMMARY):
+            if (root / name).exists():
+                os.replace(root / name, root / f"{name}.superseded-{stamp}")
+    round_two = {
+        **identity,
+        "roundId": round_id,
+        "createdAt": datetime.now(UTC).isoformat(timespec="seconds"),
+        "itemIds": list(frozen),
+    }
+    _atomic_write(target, dumps(round_two))
+    log(f"round two frozen: {len(frozen)} items (include {sorted(wanted)}, round1 rev {revision})")
+    return round_two
+
+
+def verify_round2(root: Path, sample: Mapping[str, Any]) -> dict[str, Any]:
+    round_two: dict[str, Any] = json.loads((root / _ROUND2).read_bytes())
+    if round_two.get("schemaVersion") != ROUND2_SCHEMA:
+        raise ValueError("LABEL_REVIEW_ROUND2_UNSUPPORTED")
+    identity = {
+        key: round_two[key]
+        for key in (
+            "schemaVersion",
+            "sampleId",
+            "include",
+            "firstRoundRevision",
+            "firstRoundDecisions",
+        )
+    }
+    if hashlib.sha256(dumps(identity)).hexdigest() != round_two["roundId"]:
+        raise ValueError("LABEL_REVIEW_ROUND2_IDENTITY_MISMATCH")
+    if round_two["sampleId"] != sample["sampleId"]:
+        raise ValueError("LABEL_REVIEW_ROUND2_FOREIGN_SAMPLE")
+    return round_two
+
+
+def summarize_combined(
+    items: Sequence[Mapping[str, Any]],
+    first_round: Mapping[str, str],
+    frozen: Mapping[str, str],
+    round_two: Mapping[str, str],
+) -> dict[str, Any]:
+    """Per level: the round-two grade where the item is in round two and judged there, the
+    frozen first-round grade for round-two items not judged yet, the current first-round
+    grade for all other items."""
+
+    levels: dict[str, dict[str, Any]] = {}
+    for level in sorted({str(item["level"]) for item in items}):
+        level_items = [item for item in items if item["level"] == level]
+        counts = dict.fromkeys(ROUND2_DECISIONS, 0)
+        pending = first_round_undecided = 0
+        for item in level_items:
+            item_id = str(item["itemId"])
+            if item_id in frozen:
+                grade = round_two.get(item_id)
+                if grade is None:
+                    pending += 1
+                    grade = frozen[item_id]
+            else:
+                grade = first_round.get(item_id)
+                if grade is None:
+                    first_round_undecided += 1
+                    continue
+            counts[grade] += 1
+        judged = counts["good"] + counts["slight"] + counts["bad"]
+        strict_failures = counts["slight"] + counts["bad"]
+        loose = wilson_interval(counts["bad"], judged)
+        strict = wilson_interval(strict_failures, judged)
+        levels[level] = {
+            "items": len(level_items),
+            **counts,
+            "judged": judged,
+            "round2Items": sum(1 for item in level_items if str(item["itemId"]) in frozen),
+            "round2Pending": pending,
+            "firstRoundUndecided": first_round_undecided,
+            "looseRate": counts["bad"] / judged if judged else None,
+            "looseWilson95": list(loose) if loose else None,
+            "strictRate": strict_failures / judged if judged else None,
+            "strictWilson95": list(strict) if strict else None,
+        }
+    return {
+        "schemaVersion": ROUND2_SUMMARY_SCHEMA,
+        "definition": (
+            "looseRate = bad / (good + slight + bad); strictRate = (bad + slight) / "
+            "(good + slight + bad); 'unreadable' and undecided items are outside the "
+            "denominator; round-two grade overrides the first round, round-two items not "
+            "judged yet keep their frozen first-round grade; Wilson score 95%, z = 1.96"
+        ),
+        "levels": levels,
+        "round2Items": len(frozen),
+        "round2Decided": len(round_two),
+        "firstRoundUndecided": sum(v["firstRoundUndecided"] for v in levels.values()),
+        "slightItems": [
+            {"itemId": i["itemId"], "level": i["level"], "imageId": i["imageId"]}
+            for i in items
+            if round_two.get(str(i["itemId"])) == "slight"
+        ],
+        "badItems": [
+            {"itemId": i["itemId"], "level": i["level"], "imageId": i["imageId"]}
+            for i in items
+            if (
+                round_two.get(str(i["itemId"]))
+                or (frozen.get(str(i["itemId"])) or first_round.get(str(i["itemId"])))
+            )
+            == "bad"
+        ],
+    }
+
+
+class Round2Store:
+    """Round-two grades; ``round2-history.jsonl`` is the source of truth."""
+
+    def __init__(self, root: Path) -> None:
+        self.root = root
+        self.sample = verify_sample(root)
+        self.round = verify_round2(root, self.sample)
+        by_id = {str(item["itemId"]): item for item in self.sample["items"]}
+        self.items = {item_id: by_id[item_id] for item_id in self.round["itemIds"]}
+        self.lock = threading.Lock()
+        self.decisions: dict[str, str] = {}
+        self.revision = 0
+        self._load()
+
+    def _load(self) -> None:
+        path = self.root / _ROUND2_HISTORY
+        if not path.exists():
+            self._write_decisions()
+            return
+        complete, _, torn = path.read_bytes().rpartition(b"\n")
+        if torn:
+            with path.open("r+b") as stream:
+                stream.truncate(len(complete) + 1 if complete else 0)
+                stream.flush()
+                os.fsync(stream.fileno())
+        for line in complete.split(b"\n") if complete else []:
+            event = json.loads(line)
+            if event.get("roundId") != self.round["roundId"]:
+                raise ValueError("LABEL_REVIEW_HISTORY_FOREIGN_ROUND")
+            if event.get("revision") != self.revision + 1 or event.get("itemId") not in self.items:
+                raise ValueError("LABEL_REVIEW_HISTORY_CORRUPT")
+            self._apply(event["itemId"], event.get("decision"))
+            self.revision = event["revision"]
+        self._write_decisions()
+
+    def _apply(self, item_id: str, decision: str | None) -> None:
+        if decision is None:
+            self.decisions.pop(item_id, None)
+        elif decision in ROUND2_DECISIONS:
+            self.decisions[item_id] = decision
+        else:
+            raise ValueError("LABEL_REVIEW_DECISION_INVALID")
+
+    def _write_decisions(self) -> None:
+        _atomic_write(
+            self.root / _ROUND2_DECISIONS,
+            dumps(
+                {
+                    "schemaVersion": ROUND2_DECISIONS_SCHEMA,
+                    "sampleId": self.sample["sampleId"],
+                    "roundId": self.round["roundId"],
+                    "revision": self.revision,
+                    "decisions": dict(sorted(self.decisions.items())),
+                }
+            ),
+        )
+
+    def decide(self, item_id: str, decision: str | None, base_revision: int) -> None:
+        with self.lock:
+            if item_id not in self.items:
+                raise KeyError(item_id)
+            if decision is not None and decision not in ROUND2_DECISIONS:
+                raise ValueError("LABEL_REVIEW_DECISION_INVALID")
+            if base_revision != self.revision:
+                raise RevisionConflictError("LABEL_REVIEW_REVISION_CONFLICT")
+            event = {
+                "revision": self.revision + 1,
+                "roundId": self.round["roundId"],
+                "itemId": item_id,
+                "decision": decision,
+                "previous": self.decisions.get(item_id),
+                "at": datetime.now(UTC).isoformat(timespec="seconds"),
+            }
+            with (self.root / _ROUND2_HISTORY).open("ab") as stream:
+                stream.write(dumps(event))
+                stream.flush()
+                os.fsync(stream.fileno())
+            self._apply(item_id, decision)
+            self.revision += 1
+            self._write_decisions()
+
+    def summary(self) -> dict[str, Any]:
+        with self.lock:
+            first, first_revision = read_first_round(self.root, self.sample)
+            result = summarize_combined(
+                self.sample["items"],
+                first,
+                self.round["firstRoundDecisions"],
+                self.decisions,
+            )
+            result.update(
+                sampleId=self.sample["sampleId"],
+                roundId=self.round["roundId"],
+                revision=self.revision,
+                firstRoundRevision=first_revision,
+                include=self.round["include"],
+            )
+            return result
+
+    def write_summary(self) -> dict[str, Any]:
+        result = self.summary()
+        _atomic_write(self.root / _ROUND2_SUMMARY, dumps(result))
+        return result
+
+    def state(self) -> dict[str, Any]:
+        with self.lock:
+            return {
+                "sampleId": self.sample["sampleId"],
+                "roundId": self.round["roundId"],
+                "revision": self.revision,
+                "decisions": dict(self.decisions),
+                "items": [
+                    {
+                        "itemId": item["itemId"],
+                        "crop": item["crop"],
+                        "width": item["cropWidth"],
+                        "height": item["cropHeight"],
+                        "nodes": item["cropNodes"],
+                    }
+                    for item in self.items.values()
+                ],
+            }
+
+
+def create_round2_app(store: Round2Store, port: int = ROUND2_DEFAULT_PORT) -> FastAPI:
+    application = FastAPI(
+        title="Label review round two", docs_url=None, redoc_url=None, openapi_url=None
+    )
+    application.add_middleware(LoopbackBoundary, port=port)
+    crops = {Path(str(item["crop"])).name for item in store.items.values()}
+
+    @application.get("/", response_class=HTMLResponse)
+    def page() -> str:
+        return PAGE_ROUND2
+
+    @application.get("/api/state")
+    def state() -> dict[str, Any]:
+        return store.state()
+
+    @application.get("/api/summary")
+    def summary() -> dict[str, Any]:
+        return store.summary()
+
+    @application.post("/api/decisions")
+    def decide(body: DecisionRequest) -> dict[str, Any]:
+        try:
+            store.decide(body.itemId, body.decision, body.baseRevision)
+        except KeyError as error:
+            raise HTTPException(404, "ITEM_NOT_FOUND") from error
+        except RevisionConflictError as error:
+            raise HTTPException(409, str(error)) from error
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from error
+        return store.state()
+
+    @application.get("/crops/{name}")
+    def crop(name: str) -> Response:
+        if not _CROP_NAME.match(name) or name not in crops:
+            raise HTTPException(404, "CROP_NOT_FOUND")
+        path = store.root / "crops" / name
+        if not path.is_file():
+            raise HTTPException(404, "CROP_NOT_FOUND")
+        return Response(
+            path.read_bytes(),
+            media_type="image/jpeg",
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
+
+    return application
+
+
+def _derive_round2_page(page: str) -> str:
+    """Round-two page: the first-round page with four grades and the grading rule."""
+
+    def swap(text: str, old: str, new: str) -> str:
+        if text.count(old) != 1:
+            raise AssertionError(f"round-two page anchor missing: {old[:40]!r}")
+        return text.replace(old, new)
+
+    page = swap(
+        page,
+        "<title>Przegląd etykiet siatek</title>",
+        "<title>Przegląd etykiet siatek (runda 2)</title>",
+    )
+    page = swap(
+        page,
+        "<strong>Przegląd etykiet siatek 5 × 3</strong>",
+        "<strong>Przegląd etykiet siatek 5 × 3 — runda druga</strong>",
+    )
+    page = swap(
+        page,
+        ".good { color:var(--good); }",
+        ".slight { color:#c26a00; } .good { color:var(--good); }",
+    )
+    page = swap(
+        page,
+        "<main>",
+        '<section style="padding:0 16px 8px;max-width:1200px;margin:0 auto" class="muted">'
+        "<b>Dobra</b>: linie w przerwach między symbolami albo minimalnie zahaczają o brzeg. "
+        "<b>Lekko nacięta</b>: symbol w pełni rozpoznawalny, ale linia wyraźnie go nacina. "
+        "<b>Zła</b>: przesunięcie lub przechył siatki, część sąsiedniego symbolu w komórce, "
+        "zła liczba kolumn lub rzędów, nie ta plansza."
+        "</section>\n<main>",
+    )
+    page = swap(
+        page,
+        "<footer><span><kbd>G</kbd>/<kbd>1</kbd> dobra</span>"
+        "<span><kbd>Z</kbd>/<kbd>2</kbd> zła</span>\n"
+        "<span><kbd>N</kbd>/<kbd>3</kbd> nie da się ocenić</span>",
+        "<footer><span><kbd>G</kbd>/<kbd>1</kbd> dobra</span>"
+        "<span><kbd>L</kbd>/<kbd>2</kbd> lekko nacięta</span>"
+        "<span><kbd>Z</kbd>/<kbd>3</kbd> zła</span>\n"
+        "<span><kbd>N</kbd>/<kbd>4</kbd> nie da się ocenić</span>",
+    )
+    page = swap(
+        page,
+        'const LABELS = {good: "dobra", bad: "zła", unreadable: "nie da się ocenić"};',
+        'const LABELS = {good: "dobra", slight: "lekko nacięta", bad: "zła", '
+        'unreadable: "nie da się ocenić"};',
+    )
+    page = swap(
+        page,
+        '  else if (key === "z" || key === "2") decide("bad");\n'
+        '  else if (key === "n" || key === "3") decide("unreadable");\n',
+        '  else if (key === "l" || key === "2") decide("slight");\n'
+        '  else if (key === "z" || key === "3") decide("bad");\n'
+        '  else if (key === "n" || key === "4") decide("unreadable");\n',
+    )
+    return page
+
+
+PAGE_ROUND2: Final = _derive_round2_page(PAGE)
+
+
 def main(argv: Sequence[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n", 1)[0])
     commands = parser.add_subparsers(dest="command", required=True)
@@ -652,7 +1083,36 @@ def main(argv: Sequence[str] | None = None) -> None:
     serve.add_argument("--port", type=int, default=DEFAULT_PORT)
     report = commands.add_parser("report", help="write and print summary.json")
     report.add_argument("--review", type=Path, required=True)
+    prepare2 = commands.add_parser("round2-prepare", help="freeze the round-two item set")
+    prepare2.add_argument("--review", type=Path, required=True)
+    prepare2.add_argument(
+        "--include",
+        choices=("bad", "bad-unreadable"),
+        default="bad",
+        help="first-round grades that enter round two",
+    )
+    prepare2.add_argument("--force", action="store_true", help="supersede an existing round two")
+    serve2 = commands.add_parser("round2-serve", help="round-two page on 127.0.0.1")
+    serve2.add_argument("--review", type=Path, required=True)
+    serve2.add_argument("--port", type=int, default=ROUND2_DEFAULT_PORT)
+    report2 = commands.add_parser("round2-report", help="write and print round2-summary.json")
+    report2.add_argument("--review", type=Path, required=True)
     arguments = parser.parse_args(argv)
+    if arguments.command == "round2-prepare":
+        include = ("bad", "unreadable") if arguments.include == "bad-unreadable" else ("bad",)
+        prepare_round2(arguments.review.resolve(), include, arguments.force)
+        return
+    if arguments.command in {"round2-serve", "round2-report"}:
+        store2 = Round2Store(arguments.review.resolve())
+        if arguments.command == "round2-report":
+            print(json.dumps(store2.write_summary(), indent=2, ensure_ascii=False))
+            return
+        import uvicorn
+
+        uvicorn.run(
+            create_round2_app(store2, arguments.port), host="127.0.0.1", port=arguments.port
+        )
+        return
     store = ReviewStore(arguments.review.resolve())
     if arguments.command == "report":
         print(json.dumps(store.write_summary(), indent=2, ensure_ascii=False))

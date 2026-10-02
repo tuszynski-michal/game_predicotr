@@ -121,11 +121,18 @@ last_updated: 2026-10-01
   `ai_docs/quality/PER_GAME_ISOLATION_20261002.md`. Tabele współdzielone
   pipeline (ok. 0,6 GB) bez podziału. CHECK wyjątku poprawiony na odporny
   na `NULL` przed wdrożeniem.
-- STOP V3-0, do wykonania: zatrzymanie API `8000` → scalenie
-  `feat/grid-engine-v3` do `v1.1-vision-lab-hybrid-geometry` →
-  `npm run db:migrate` → podgląd i wykonanie backfillu → start API.
-  Operator wyraził zgodę 2026-10-02; próba orkiestratora została
-  zablokowana przez uprawnienia sesji (zmiana zasobów współdzielonych).
+- **STOP V3-0 osiągnięty 2026-10-02.** Scalenie `v1.7.148` / `fa29cd76` do
+  `v1.1-vision-lab-hybrid-geometry`, migracja `0139` zastosowana na bazie
+  deweloperskiej, backfill 777 wykonany: 55 499 `geometry_complete`, 60
+  `geometry_incomplete`, 1 253 poza bramką, 449 plansz przepiętych na
+  najnowszą rewizję źródła, 0 nieprzepinalnych. TASK-0807 done. API `8000`
+  i Admin `3000` działają z nowym kodem.
+- Do zrobienia przez operatora: 60 zdjęć ze 108 planszami częściowymi czeka
+  w kolejce „Kompletność siatek zdjęć” na wyjątek albo uzupełnienie siatek.
+- Otwarte: 19 testów PG nieprzechodzących niezależnie od etapu
+  (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
+  niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga
+  jawnego uruchomienia.
 
 Stan sprzed akceptacji (zachowany dla kontekstu):
 

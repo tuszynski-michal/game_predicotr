@@ -1,6 +1,6 @@
 ---
 title: TASK-0807 — bramka kompletności geometrii zdjęcia w pipeline
-status: in_progress
+status: done
 last_updated: 2026-10-02
 ---
 
@@ -8,9 +8,7 @@ last_updated: 2026-10-02
 
 ## Status
 
-`in_progress` — kod, testy i dokumentacja gotowe; do decyzji orkiestratora:
-adaptacja dokumentów wyszukiwarki (kryterium 1) i niezielony
-`db:baseline:verify` (wyłącznie błędy sprzed zadania). Szczegóły w `Outcome`.
+`done` — wdrożone na bazie deweloperskiej 2026-10-02 (zamknięcie orkiestratora w `Outcome`).
 
 ## Goal
 
@@ -131,7 +129,7 @@ operatora (2026-10-01).
 
 ## Acceptance criteria
 
-- [ ] Test PG: import zdjęcia z 8/9 poprawnych siatek → stan
+- [x] Test PG: import zdjęcia z 8/9 poprawnych siatek → stan
       `geometry_incomplete`, 0 komórek weryfikacji i 0 dokumentów
       wyszukiwarki dla tego zdjęcia; raport importu podaje jawny powód.
       (Spełnione z adaptacją: 0 komórek, 0 kandydatów i 0 dokumentów z
@@ -154,7 +152,7 @@ operatora (2026-10-01).
       `db:baseline:verify` jest czerwony przez 19 testów czerwonych także na
       `HEAD` — patrz „Verification results”.)
 - [x] Kontrakt pionem (OpenAPI, klient, wrapper, test żądania).
-- [ ] Osobny commit, `Outcome`, `CURRENT_STATE.md`. (`Outcome` wypełniony;
+- [x] Osobny commit, `Outcome`, `CURRENT_STATE.md`. (`Outcome` wypełniony;
       commit i `CURRENT_STATE.md` należą do orkiestratora.)
 
 ## Technical notes
@@ -501,8 +499,32 @@ Wszystkie komendy z katalogu worktree, wyniki rzeczywiste.
   kontrolnym SQL (te same liczby). 1 254 plansze `rejected` na starych
   rewizjach nie są dotykane.
 
-### Not completed
+### Orchestrator closure (2026-10-02)
 
+- Kryterium 1 zaliczone w brzmieniu D-485: plansza wstrzymanego zdjęcia nie
+  ma komórek, a jej dokument sekwencji zostaje bez dowodu symboli.
+  Kryterium `db:baseline:verify` pozostaje niezaliczone: 19 testów nie
+  przechodzi także przed zadaniem — osobne zadanie porządkowe.
+- CHECK `ck_source_images_geometry_exception` uodporniony na `NULL` przed
+  wdrożeniem (`v1.7.146`, ustalenie TASK-0809).
+- Wdrożenie za zgodą operatora: API `8000` zatrzymane, scalenie
+  `v1.7.148` / `fa29cd76` do `v1.1-vision-lab-hybrid-geometry`,
+  `npm run db:migrate` → `0139_source_image_geometry_completeness (head)`.
+- Backfill 777: podgląd i wykonanie dały ten sam wynik w 92 s — 56 812
+  zdjęć: 55 499 `geometry_complete`, 60 `geometry_incomplete` (plansze
+  częściowe, wszystkie mają komórki), 1 253 poza bramką; 449 plansz
+  przepiętych, 0 nieprzepinalnych; `notEvaluated = 0`. Raporty w
+  `artifacts/data/exports/image-geometry-completeness/`.
+- Kontrola po wykonaniu (`SELECT`): na starszej rewizji źródła zostały
+  wyłącznie 1 254 plansze `rejected`; liczba komórek bez zmian (7 500 390,
+  7 499 886 z przypisanym symbolem); brak komórek o rewizji źródła innej niż
+  plansza.
+- API `8000` i Admin `3000` uruchomione ponownie z głównego checkoutu;
+  raport przez API: 55 499 kompletnych, 60 niekompletnych, 0 wstrzymanych
+  plansz. Kolejka w Adminie pokazuje stan bramki i akcję „Dopuść
+  wyjątkiem…” dla 60 zdjęć; konsola bez błędów. Wyjątków nie nadawano.
+
+### Not completed
 - Migracja i backfill na bazie deweloperskiej (poza zakresem; krok
   orkiestratora — `LOCAL_OPERATION_GUIDE.md`, sekcja „Migracja `0139`”).
 - Widok Admina nie był oglądany w przeglądarce (zakaz uruchamiania serwerów);

@@ -2531,7 +2531,9 @@ class SymbolCellReviewWriteThroughCoordinator:
                 geometry_revision=board.geometry_revision,
                 cropper_version=cropper_version,
                 topology=topology,
-                unavailable_cell_indices=tuple(board.unavailable_cell_indices)
+                # Partially visible cells are declared unavailable but still
+                # rendered; only the fully outside ones have no current crop.
+                unavailable_cell_indices=_fully_unavailable_cell_indices(board)
                 if qualified
                 else None,
                 unchanged_available_indices=frozenset(
@@ -3380,6 +3382,20 @@ def _board_topology(board: RecognizedBoardModel) -> BoardTopology:
     return BoardTopology(
         rows=board.grid_rows or 3,
         columns=board.grid_columns or 5,
+    )
+
+
+def _fully_unavailable_cell_indices(board: RecognizedBoardModel) -> tuple[int, ...]:
+    """Cells without a current crop; partially visible cells are still rendered."""
+
+    available = available_cell_indices(
+        unavailable_cell_indices=board.unavailable_cell_indices,
+        geometry_qualification=board.geometry_qualification,
+        asset_mode=board.asset_mode,
+        cell_count=_board_topology(board).cell_count,
+    )
+    return tuple(
+        index for index in range(_board_topology(board).cell_count) if index not in available
     )
 
 
@@ -4708,7 +4724,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                     cropper_version=cropper_version,
                     topology=_board_topology(board),
                     unavailable_cell_indices=(
-                        tuple(board.unavailable_cell_indices)
+                        _fully_unavailable_cell_indices(board)
                         if board.geometry_qualification is not None
                         else None
                     ),

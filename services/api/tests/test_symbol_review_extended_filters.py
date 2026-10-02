@@ -298,8 +298,10 @@ def test_cell_paths_bind_the_game_store() -> None:
 
     # D-467 (TASK-0790): the deferred-board repository no longer queries cells;
     # its legacy manual resolution moved to the virtual source path.
+    # D-488 (TASK-0820/0821): the grid-correction symbol repository reads the
+    # current cells and the active symbols, one bind each.
     expected = {
-        image_symbol_review_repository: 7,
+        image_symbol_review_repository: 9,
         image_symbol_review_bulk_operation_repository: 3,
         board_cell_geometry_pending_repository: 0,
     }

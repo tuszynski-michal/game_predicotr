@@ -40,6 +40,10 @@ def _references(payload: dict[str, Any], catalog: Catalog) -> set[str]:
         raise ValueError("REBASE_GEOMETRY_QUALIFICATIONS_UNSUPPORTED")
     if state.families or state.split is not None or state.split_stale:
         raise ValueError("REBASE_FAMILIES_OR_SPLIT_UNSUPPORTED")
+    if state.assisted_photos or any(
+        isinstance(event, dict) and "assisted_photo" in event for event in payload["history"]
+    ):
+        raise ValueError("REBASE_ASSISTED_PHOTOS_UNSUPPORTED")
     references: set[str] = set()
 
     def check_review(review: PhotoReview) -> None:

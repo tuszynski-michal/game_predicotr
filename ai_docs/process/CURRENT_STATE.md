@@ -385,6 +385,17 @@ last_updated: 2026-10-02
 - 2026-10-02 operator: run 2 (preset B) zostaje; run 3 ma przygotować sieć
   do gry Mumie (nowe ustawienie — wymaga kompletnych siatek Mumii, zmiany
   roli Mumii w D-456 i zgody na wagi startowe; czeka na decyzje operatora).
+- D-490 (2026-10-02): run 3 = nowy preset D (777 + Mumie, Blazing, Gang,
+  wagi ImageNet); zmiana D-456; wymagania symboli premium Mumii zapisane.
+- TASK-0824 done (`v1.7.170`): wspomagana anotacja kompletnych zdjęć labu —
+  strona `http://127.0.0.1:8105` (start:
+  `scripts\vision_lab_assisted_annotation.ps1 -Action Start`), zapis przez
+  istniejący magazyn anotacji (`assisted_photos`), propozycje sieci runu 1
+  dla 319 zdjęć (Mumie 236, Blazing 37, Gang 46; 9 propozycji na każdym
+  zdjęciu Mumii i Blazing, Gang słabszy), eksport kompletnych zdjęć z
+  adapterem do czytnika `neural_grid`. **Czeka na operatora:** przegląd i
+  korekta siatek (Mumie pierwsze). Następne zadania: snapshot łączony i
+  preset D (po anotacji), ocena runu 2, TASK-0804.
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

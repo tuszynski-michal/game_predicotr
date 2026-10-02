@@ -156,6 +156,71 @@ class FrozenSplit(Contract):
     exclusions: dict[str, str]
 
 
+AssistedOrigin = Literal["proposal_unchanged", "proposal_corrected", "manual"]
+AssistedAction = Literal[
+    "accept_board",
+    "revoke_board",
+    "remove_board",
+    "dismiss_proposal",
+    "restore_proposal",
+    "complete_photo",
+]
+
+
+class AssistedBoard(Contract):
+    """The latest D-490 workflow decision for one board slot of a photo.
+
+    The record owns the slot only while ``annotation_revision`` equals the revision of
+    the stored annotation; any other writer (the T03 editor) takes the slot back.
+    """
+
+    board_index: int = Field(ge=0, le=8)
+    status: Literal["accepted", "revoked", "removed"]
+    origin: AssistedOrigin
+    annotation_revision: int = Field(ge=1)
+    proposal_set_id: str = ""
+    proposal_id: str = ""
+    proposal_sha256: str = ""
+    max_corner_shift_px: float = Field(default=0, ge=0)
+    actor: str
+    decided_at: str
+
+
+class AssistedPhoto(Contract):
+    """Completeness of a whole photo (D-484, D-490) bound to its board revisions."""
+
+    source_id: str
+    source_sha256: str
+    boards: dict[str, AssistedBoard] = Field(default_factory=dict)
+    dismissed_proposal_ids: list[str] = Field(default_factory=list, max_length=200)
+    confirmed_board_count: int | None = Field(default=None, ge=1, le=9)
+    completed_board_revisions: dict[str, int] = Field(default_factory=dict)
+    active_ms: int = Field(default=0, ge=0)
+    actor: str = ""
+    decided_at: str = ""
+    completed_at: str = ""
+
+
+class AssistedRequest(Mutation):
+    """One explicit operator decision of the assisted complete-photo workflow."""
+
+    action: AssistedAction
+    source_id: str
+    source_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    board_index: int | None = Field(default=None, ge=0, le=8)
+    expected_board_revision: int = Field(default=0, ge=0)
+    origin: AssistedOrigin | None = None
+    proposal_set_id: str = Field(default="", max_length=64)
+    proposal_id: str = Field(default="", max_length=200)
+    proposal_sha256: str = Field(default="", max_length=64)
+    max_corner_shift_px: float = Field(default=0, ge=0)
+    nodes: list[Point] = Field(default_factory=list, max_length=24)
+    confirmed_board_count: int | None = Field(default=None, ge=1, le=9)
+    expected_board_revisions: dict[str, int] = Field(default_factory=dict)
+    activity_intervals_ms: list[int] = Field(default_factory=list, max_length=10000)
+    correction_count: int = Field(default=0, ge=0, le=10000)
+
+
 class AnnotationState(Contract):
     snapshot_id: str
     revision: int = 0
@@ -166,6 +231,7 @@ class AnnotationState(Contract):
     split_stale: bool = False
     photo_reviews: dict[str, PhotoReview] = Field(default_factory=dict)
     geometry_qualifications: dict[str, StoredGeometryQualification] = Field(default_factory=dict)
+    assisted_photos: dict[str, AssistedPhoto] = Field(default_factory=dict)
 
 
 class BackupResult(Contract):

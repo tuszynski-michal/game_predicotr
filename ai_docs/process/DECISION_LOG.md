@@ -6,6 +6,54 @@ last_updated: 2026-10-02
 
 # Decision Log
 
+## D-490 — run 3 sieci siatek przygotowuje nowe gry: Mumie, Blazing i Gang w treningu, wagi startowe (zmienia D-456 i ustawienia D-481)
+
+- **Status:** accepted, 2026-10-02; decyzje operatora po wyniku runu 1
+  `neural_grid`.
+- **Decision:**
+  1. Run 2 (preset B) zostaje dokończony. Preset C nie będzie uruchamiany.
+     Trzeci run budżetu D-481 używa nowego presetu D: trening łączny na
+     snapshocie produkcyjnym 777 i na kompletnych zdjęciach gier Mumie,
+     Blazing i Gang z laboratorium, z wagami startowymi ImageNet dla
+     `MobileNetV3-Large` (jednorazowe pobranie z repozytorium wag PyTorch,
+     zgoda operatora). Preset D i jego fingerprint są zapisywane przed runem.
+  2. Zmiana D-456: Mumie, Blazing i Gang mogą być danymi uczącymi geometrii.
+     Część kompletnych zdjęć każdej z tych gier jest odkładana do oceny i
+     nie wchodzi do treningu. Reels (`final_test`) i Treasure
+     (`unseen_game`) pozostają nietknięte jako test gry niewidzianej.
+     Dotychczasowe wyniki pilota D-456 (T05) pozostają przypisane do starego
+     podziału.
+  3. Zdjęcie laboratorium wchodzi do treningu albo oceny tylko z kompletem
+     siatek wszystkich plansz (D-484). Siatki powstają z propozycji sieci
+     runu 1 poprawianych i akceptowanych przez operatora; propozycja bez
+     akceptacji operatora nie jest etykietą.
+- **Reason:** sieć uczona wyłącznie na 777 osiągnęła pułap wyznaczony przez
+  błędy etykiet; następną grą produktu są Mumie, więc pozostały budżet ma
+  służyć uogólnieniu, a nie dokładności na 777.
+- **Consequences:** ocena runu 3 jest raportowana osobno dla 777 i dla
+  każdej nowej gry; warunkiem jest brak pogorszenia na 777. Praca operatora:
+  przegląd i korekta siatek na ok. 290 zdjęciach laboratorium.
+- **Skutek dla pilota D-456 (przyjęty):** pierwszy zapis siatki we
+  wspomaganej anotacji (TASK-0824) oznacza zamrożony podział D-456 jako
+  `split_stale` (istniejąca reguła magazynu anotacji dla każdego zapisu
+  geometrii). Obiekt podziału, manifesty i wyniki T05 pozostają bez zmian,
+  ale kolejne runy labu na manifeście D-456 zwrócą `RUN_DATA_DRIFT`. Jest to
+  zamierzone: `hybrid` z T05 jest zastąpiony przez `neural_grid`, a nowe
+  runy używają snapshotów produkcyjnych i nowego podziału.
+- **Wymaganie zapisane do planu symboli (D-489), nie do siatek:** w grze
+  Mumie symbol premium rozpoznaje się po złotej ramce wokół komórki; wygrana
+  premium zależy od liczby symboli premium na planszy niezależnie od
+  pozycji, obok 5 linii wypłat liczonych jak w 777. Wycinek komórki musi
+  obejmować ramkę. Doprecyzowania operatora (2026-10-02): premium może być
+  każdy symbol gry; o tym, czy symbol jest premium, decyduje wyłącznie
+  obecność ramki na danej planszy (czas trwania trybu nie jest regułą);
+  złota rama wokół całej planszy na części klatek to prawdopodobnie
+  animacja przejścia, nie cecha układu; gra ma przy tworzeniu przełącznik
+  „premium”, a wypłaty premium (liczba sztuk → wartość) są definiowane w
+  osobnej zakładce obok zwykłych wypłat; inne warianty premium dla innych
+  gier — później, jeżeli będą potrzebne. Otwarte (operator weryfikuje): czy
+  symbol premium liczy się jednocześnie w liniach jako zwykły symbol.
+
 ## D-489 — symbole dla silnika V3 są wybierane i uczone od nowa, bez dotychczasowych etykiet
 
 - **Status:** accepted, 2026-10-02; polecenie operatora w trakcie etapu V3-B.

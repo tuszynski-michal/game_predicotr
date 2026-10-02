@@ -75,6 +75,13 @@
             "title": "Annotations",
             "type": "object"
           },
+          "assisted_photos": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AssistedPhoto"
+            },
+            "title": "Assisted Photos",
+            "type": "object"
+          },
           "families": {
             "additionalProperties": {
               "$ref": "#/components/schemas/StoredFamily"
@@ -137,7 +144,8 @@
           "split",
           "split_stale",
           "photo_reviews",
-          "geometry_qualifications"
+          "geometry_qualifications",
+          "assisted_photos"
         ],
         "title": "AnnotationState",
         "type": "object"
@@ -159,6 +167,168 @@
           "sha256"
         ],
         "title": "Artifact",
+        "type": "object"
+      },
+      "AssistedBoard": {
+        "additionalProperties": false,
+        "description": "The latest D-490 workflow decision for one board slot of a photo.\n\nThe record owns the slot only while ``annotation_revision`` equals the revision of\nthe stored annotation; any other writer (the T03 editor) takes the slot back.",
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "annotation_revision": {
+            "minimum": 1.0,
+            "title": "Annotation Revision",
+            "type": "integer"
+          },
+          "board_index": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "decided_at": {
+            "title": "Decided At",
+            "type": "string"
+          },
+          "max_corner_shift_px": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Max Corner Shift Px",
+            "type": "number"
+          },
+          "origin": {
+            "enum": [
+              "proposal_unchanged",
+              "proposal_corrected",
+              "manual"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "proposal_id": {
+            "default": "",
+            "title": "Proposal Id",
+            "type": "string"
+          },
+          "proposal_set_id": {
+            "default": "",
+            "title": "Proposal Set Id",
+            "type": "string"
+          },
+          "proposal_sha256": {
+            "default": "",
+            "title": "Proposal Sha256",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "accepted",
+              "revoked",
+              "removed"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "board_index",
+          "status",
+          "origin",
+          "annotation_revision",
+          "proposal_set_id",
+          "proposal_id",
+          "proposal_sha256",
+          "max_corner_shift_px",
+          "actor",
+          "decided_at"
+        ],
+        "title": "AssistedBoard",
+        "type": "object"
+      },
+      "AssistedPhoto": {
+        "additionalProperties": false,
+        "description": "Completeness of a whole photo (D-484, D-490) bound to its board revisions.",
+        "properties": {
+          "active_ms": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Active Ms",
+            "type": "integer"
+          },
+          "actor": {
+            "default": "",
+            "title": "Actor",
+            "type": "string"
+          },
+          "boards": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/AssistedBoard"
+            },
+            "title": "Boards",
+            "type": "object"
+          },
+          "completed_at": {
+            "default": "",
+            "title": "Completed At",
+            "type": "string"
+          },
+          "completed_board_revisions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Completed Board Revisions",
+            "type": "object"
+          },
+          "confirmed_board_count": {
+            "anyOf": [
+              {
+                "maximum": 9.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Confirmed Board Count"
+          },
+          "decided_at": {
+            "default": "",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "dismissed_proposal_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 200,
+            "title": "Dismissed Proposal Ids",
+            "type": "array"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_sha256",
+          "boards",
+          "dismissed_proposal_ids",
+          "confirmed_board_count",
+          "completed_board_revisions",
+          "active_ms",
+          "actor",
+          "decided_at",
+          "completed_at"
+        ],
+        "title": "AssistedPhoto",
         "type": "object"
       },
       "BackupRequest": {

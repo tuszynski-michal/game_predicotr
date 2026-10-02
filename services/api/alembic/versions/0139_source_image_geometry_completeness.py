@@ -50,7 +50,9 @@ EVALUATED_CHECK_EXPRESSION = (
 EXCEPTION_CHECK = "ck_source_images_geometry_exception"
 EXCEPTION_CHECK_EXPRESSION = (
     "(geometry_completeness_status = 'geometry_exception' "
+    "AND geometry_exception_reason IS NOT NULL "
     "AND length(btrim(geometry_exception_reason)) > 0 "
+    "AND geometry_exception_by IS NOT NULL "
     "AND length(btrim(geometry_exception_by)) > 0 "
     "AND geometry_exception_at IS NOT NULL) OR "
     "(geometry_completeness_status IS DISTINCT FROM 'geometry_exception' "

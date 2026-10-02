@@ -18,10 +18,14 @@ from game_predictor_api.schemas.catalog import ApiModel
 
 
 class GridCorrectionCellSymbolPayload(ApiModel):
-    """One symbol the operator assigns to a cell while saving its grid (D-488)."""
+    """One symbol the operator assigns to a cell while saving its grid (D-488).
+
+    A ``null`` ``symbolId`` means the operator cannot tell the symbol: the cell
+    is marked unreadable and left for a later review, never guessed.
+    """
 
     cell_index: int = Field(ge=0)
-    symbol_id: UUID
+    symbol_id: UUID | None
 
     def to_domain(self) -> VirtualGridCellSymbol:
         return VirtualGridCellSymbol(cell_index=self.cell_index, symbol_id=self.symbol_id)

@@ -1,10 +1,10 @@
 ---
-title: TASK-0824 — komenda trwałego usunięcia zarchiwizowanej gry V2
+title: TASK-0826 — komenda trwałego usunięcia zarchiwizowanej gry V2
 status: done
 last_updated: 2026-10-02
 ---
 
-# TASK-0824 — komenda trwałego usunięcia zarchiwizowanej gry V2
+# TASK-0826 — komenda trwałego usunięcia zarchiwizowanej gry V2
 
 ## Status
 

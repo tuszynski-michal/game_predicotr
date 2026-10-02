@@ -1902,10 +1902,13 @@ class SqlAlchemyGridCorrectionSymbolRepository:
         *,
         game_id: UUID,
         review_item_id: UUID,
-        symbol_id_by_cell_index: Mapping[int, UUID],
+        symbol_id_by_cell_index: Mapping[int, UUID | None],
         actor: str,
     ) -> int:
         """Approve the operator's symbols on the board's exact current crops.
+
+        A ``None`` symbol is the operator's "cannot tell": that crop is marked
+        unreadable (pending, no label) instead of being approved.
 
         Runs in the caller's transaction, after the geometry write.  A cell
         without a current reviewable crop is an error: nothing may be skipped
@@ -1934,7 +1937,11 @@ class SqlAlchemyGridCorrectionSymbolRepository:
             SymbolCellReviewMutationCommand(
                 game_id=game_id,
                 cell_review_id=cell.id,
-                action=SymbolCellReviewAction.REASSIGN,
+                action=(
+                    SymbolCellReviewAction.MARK_UNREADABLE
+                    if symbol_id_by_cell_index[index] is None
+                    else SymbolCellReviewAction.REASSIGN
+                ),
                 expected_revision=int(cell.revision),
                 expected_geometry_revision=int(cell.geometry_revision),
                 expected_crop_sample_id=cell.crop_sample_id,

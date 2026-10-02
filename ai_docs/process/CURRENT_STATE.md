@@ -6,7 +6,17 @@ last_updated: 2026-10-02
 
 # Current State
 
-### TASK-0824 — trwałe usunięcie zarchiwizowanej gry V2 (done)
+### TASK-0825 — opcja „Nie wiem” w palecie symboli korekty siatki (done, D-488)
+
+- Paleta ma przycisk „? Nie wiem”: pole zasłonięte lub widoczne we fragmencie można
+  zapisać bez zgadywania. `cellSymbols[].symbolId = null` oznacza komórkę jako
+  nieczytelną (`mark_unreadable`, oczekująca, bez etykiety); symbol dalej daje
+  `reassign`. Kafelek pokazuje „?”, „Usuń wybór” przywraca podpowiedź.
+- Zmiana kontraktu API (nullowalny `symbolId`), OpenAPI i klient wygenerowane.
+- Testy API 42/42, interakcje Reviewera 12/12, typecheck, lint i `check:generated`
+  czyste. **Brak odbioru na żywo**: wymagany restart API i `reviewer:build`.
+
+### TASK-0826 — trwałe usunięcie zarchiwizowanej gry V2 (done)
 
 - Na prośbę operatora (2026-10-02) usunięto z bazy deweloperskiej dwie testowe,
   zarchiwizowane gry „Mumie” (`mums`, `mums-test-1`): partycje `game_data_v2`,
@@ -18,7 +28,7 @@ last_updated: 2026-10-02
 - Na dysku pozostały niereferencjonowane pliki obu gier (ok. 8 MB w
   `imports/browser-selections` i jeden manifest geometrii); lista w Outcome
   zadania. Scalono do `v1.1-vision-lab-hybrid-geometry` jako `v1.7.168`
-  (numer zadania zmieniony z TASK-0812 na TASK-0824, bo 0812 zajęte).
+  (numer zadania zmieniony z TASK-0812 na TASK-0826, bo 0812 i 0824 zajęte).
 
 ### TASK-0822 — klikalne kafelki i wybór symbolu w korekcie siatki (done, D-488)
 

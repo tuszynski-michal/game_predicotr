@@ -6881,7 +6881,7 @@
       },
       "GridCorrectionCellSymbolPayload": {
         "additionalProperties": false,
-        "description": "One symbol the operator assigns to a cell while saving its grid (D-488).",
+        "description": "One symbol the operator assigns to a cell while saving its grid (D-488).\n\nA ``null`` ``symbolId`` means the operator cannot tell the symbol: the cell\nis marked unreadable and left for a later review, never guessed.",
         "properties": {
           "cellIndex": {
             "minimum": 0.0,
@@ -6889,9 +6889,16 @@
             "type": "integer"
           },
           "symbolId": {
-            "format": "uuid",
-            "title": "Symbolid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolid"
           }
         },
         "required": [

@@ -53,6 +53,7 @@ class SqlAlchemyLayoutImportStagingStore:
         statement = insert(LayoutImportRowModel).values(values)
         statement = statement.on_conflict_do_update(
             index_elements=[
+                "game_id",
                 LayoutImportRowModel.job_id,
                 LayoutImportRowModel.line_number,
             ],
@@ -226,6 +227,7 @@ class SqlAlchemyLayoutImportStagingStore:
         statement = insert(LayoutImportNormalizedRowModel).values(values)
         statement = statement.on_conflict_do_update(
             index_elements=[
+                "game_id",
                 LayoutImportNormalizedRowModel.validation_job_id,
                 LayoutImportNormalizedRowModel.line_number,
             ],

@@ -728,3 +728,114 @@ test('discard blocks a delayed local deletion from racing with flush or a new an
     });
   }
 });
+
+test('starting a new session forgets only the local view of a drift-blocked V1 session', async () => {
+  const forgotten = [];
+  const created = [];
+  const initialView = {
+    activePositionIndex: 0,
+    activeSourceId: sourceA.sourceId,
+    cropAssessment: 'contained',
+    manifestFingerprint: 'f'.repeat(64),
+    queueStoppedReason: null,
+    sessionId,
+    updatedAt: '2026-09-21T00:00:00.000Z',
+  };
+  const newSessionId = '22222222-2222-4222-8222-222222222222';
+  const store = {
+    appendOperation: async () => {},
+    discardPending: async () => {},
+    forgetSession: async (id) => forgotten.push(id),
+    load: async () => ({
+      queue: { confirmedRevision: 0, pending: [], stoppedReason: null },
+      view: initialView,
+    }),
+    loadMostRecent: async () => initialView,
+    removeHead: async () => {},
+    saveView: async () => {},
+  };
+  const client = {
+    createV7LabelGeometryCalibrationSession: async (body) => {
+      created.push(body);
+      return {
+        data: {
+          ...session(0),
+          geometryFamilyId: 'standard_3x3_numeric_labels_v2',
+          sessionId: newSessionId,
+        },
+      };
+    },
+    createV7LabelGeometryProfile: async () => {
+      throw new Error('unexpected profile');
+    },
+    exportV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected export');
+    },
+    getV7LabelGeometryCalibrationSession: async () => ({
+      data: { ...session(106), status: 'blocked_source_drift' },
+    }),
+    getV7LabelGeometryCalibrationSourceAsset: async () => ({
+      data: new Blob(['a']),
+    }),
+    mutateV7LabelGeometryCalibrationSession: async () => {
+      throw new Error('unexpected mutation');
+    },
+  };
+  const previousConfirm = globalThis.confirm;
+  Object.defineProperty(globalThis, 'confirm', {
+    configurable: true,
+    value: () => true,
+  });
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () =>
+      root.render(
+        React.createElement(V7LabelGeometryCalibrationWorkspace, {
+          apiBaseUrl: 'http://127.0.0.1:8000',
+          client,
+          localStore: store,
+        }),
+      ),
+    );
+    await eventually(
+      () => document.body.textContent.includes('Rewizja 106 · tryb V1'),
+      'the blocked V1 session should be restored',
+    );
+    await act(async () =>
+      button('Zacznij nową sesję').dispatchEvent(
+        new dom.window.MouseEvent('click', { bubbles: true }),
+      ),
+    );
+    await eventually(
+      () => document.body.textContent.includes('Utwórz sesję kalibracji'),
+      'the setup screen should replace the forgotten session',
+    );
+    assert.deepEqual(forgotten, [sessionId]);
+    const checkboxes = [...document.querySelectorAll('input[type="checkbox"]')];
+    assert.deepEqual(
+      checkboxes.map((node) => node.checked),
+      [true, true],
+    );
+    await act(async () =>
+      button('Utwórz sesję kalibracji').dispatchEvent(
+        new dom.window.MouseEvent('click', { bubbles: true }),
+      ),
+    );
+    await eventually(
+      () => document.body.textContent.includes('Rewizja 0 · tryb V2'),
+      'the new V2 session should open',
+    );
+    assert.deepEqual(created, [
+      {
+        corpusCaseIds: ['small_777', 'occluded_777'],
+        geometryFamilyId: 'standard_3x3_numeric_labels_v2',
+      },
+    ]);
+  } finally {
+    await act(async () => root.unmount());
+    Object.defineProperty(globalThis, 'confirm', {
+      configurable: true,
+      value: previousConfirm,
+    });
+  }
+});

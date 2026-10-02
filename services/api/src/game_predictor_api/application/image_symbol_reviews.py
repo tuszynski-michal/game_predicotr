@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Protocol
 from uuid import UUID
 
@@ -21,13 +22,14 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewListFilter,
     SymbolCellReviewListItem,
     SymbolCellReviewPage,
+    SymbolCellReviewPredictionSource,
     decode_symbol_cell_review_cursor,
     encode_symbol_cell_review_cursor,
 )
 
 DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE = 500
 MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE = 2_500
-DEFAULT_SYMBOL_CELL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS = 5_000
+DEFAULT_SYMBOL_CELL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS = 20_000
 DEFAULT_SYMBOL_CELL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS = 15_000
 
 
@@ -46,7 +48,6 @@ class SymbolCellReviewCatalogState:
 
     catalog_revision: int
     storage_generation: int
-    uses_current_projection: bool
 
 
 class SymbolCellReviewQueryRepository(Protocol):
@@ -136,8 +137,12 @@ class SymbolCellReviewQueryService:
         before_cursor: str | None,
         min_confidence: float | None = None,
         max_confidence: float | None = None,
+        prediction_source: SymbolCellReviewPredictionSource | None = None,
+        changed_from: datetime | None = None,
+        changed_to: datetime | None = None,
         limit: int = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
         include_all_symbols: bool = False,
+        outside_only: bool = False,
     ) -> SymbolCellReviewPage:
         with self._repository.bounded_read(
             timeout_ms=self._page_statement_timeout_ms,
@@ -151,8 +156,12 @@ class SymbolCellReviewQueryService:
                 before_cursor=before_cursor,
                 min_confidence=min_confidence,
                 max_confidence=max_confidence,
+                prediction_source=prediction_source,
+                changed_from=changed_from,
+                changed_to=changed_to,
                 limit=limit,
                 include_all_symbols=include_all_symbols,
+                outside_only=outside_only,
             )
 
     def _list(
@@ -165,8 +174,12 @@ class SymbolCellReviewQueryService:
         before_cursor: str | None,
         min_confidence: float | None,
         max_confidence: float | None,
+        prediction_source: SymbolCellReviewPredictionSource | None,
+        changed_from: datetime | None,
+        changed_to: datetime | None,
         limit: int,
         include_all_symbols: bool,
+        outside_only: bool,
     ) -> SymbolCellReviewPage:
         if not 1 <= limit <= MAX_SYMBOL_CELL_REVIEW_PAGE_SIZE:
             raise SymbolCellReviewError(
@@ -190,10 +203,13 @@ class SymbolCellReviewQueryService:
             state=state,
             min_confidence=min_confidence,
             max_confidence=max_confidence,
+            prediction_source=prediction_source,
+            changed_from=changed_from,
+            changed_to=changed_to,
             include_all_symbols=include_all_symbols,
+            outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
-            uses_current_projection=catalog.uses_current_projection,
         )
         after_key = (
             decode_symbol_cell_review_cursor(
@@ -253,8 +269,12 @@ class SymbolCellReviewQueryService:
         before_cursor: str | None,
         min_confidence: float | None = None,
         max_confidence: float | None = None,
+        prediction_source: SymbolCellReviewPredictionSource | None = None,
+        changed_from: datetime | None = None,
+        changed_to: datetime | None = None,
         count: int,
         include_all_symbols: bool = False,
+        outside_only: bool = False,
     ) -> str | None:
         with self._repository.bounded_read(
             timeout_ms=self._page_statement_timeout_ms,
@@ -268,8 +288,12 @@ class SymbolCellReviewQueryService:
                 before_cursor=before_cursor,
                 min_confidence=min_confidence,
                 max_confidence=max_confidence,
+                prediction_source=prediction_source,
+                changed_from=changed_from,
+                changed_to=changed_to,
                 count=count,
                 include_all_symbols=include_all_symbols,
+                outside_only=outside_only,
             )
 
     def _skip(
@@ -282,8 +306,12 @@ class SymbolCellReviewQueryService:
         before_cursor: str | None,
         min_confidence: float | None,
         max_confidence: float | None,
+        prediction_source: SymbolCellReviewPredictionSource | None,
+        changed_from: datetime | None,
+        changed_to: datetime | None,
         count: int,
         include_all_symbols: bool,
+        outside_only: bool,
     ) -> str | None:
         if count < 1:
             raise SymbolCellReviewError(
@@ -312,10 +340,13 @@ class SymbolCellReviewQueryService:
             state=state,
             min_confidence=min_confidence,
             max_confidence=max_confidence,
+            prediction_source=prediction_source,
+            changed_from=changed_from,
+            changed_to=changed_to,
             include_all_symbols=include_all_symbols,
+            outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
-            uses_current_projection=catalog.uses_current_projection,
         )
         after_key = (
             decode_symbol_cell_review_cursor(
@@ -363,7 +394,11 @@ class SymbolCellReviewQueryService:
         expected_catalog_revision: int,
         min_confidence: float | None = None,
         max_confidence: float | None = None,
+        prediction_source: SymbolCellReviewPredictionSource | None = None,
+        changed_from: datetime | None = None,
+        changed_to: datetime | None = None,
         include_all_symbols: bool = False,
+        outside_only: bool = False,
     ) -> SymbolCellReviewCountSnapshot:
         with self._repository.bounded_read(
             timeout_ms=self._counts_statement_timeout_ms,
@@ -376,7 +411,11 @@ class SymbolCellReviewQueryService:
                 expected_catalog_revision=expected_catalog_revision,
                 min_confidence=min_confidence,
                 max_confidence=max_confidence,
+                prediction_source=prediction_source,
+                changed_from=changed_from,
+                changed_to=changed_to,
                 include_all_symbols=include_all_symbols,
+                outside_only=outside_only,
             )
 
     def _counts(
@@ -388,7 +427,11 @@ class SymbolCellReviewQueryService:
         expected_catalog_revision: int,
         min_confidence: float | None,
         max_confidence: float | None,
+        prediction_source: SymbolCellReviewPredictionSource | None,
+        changed_from: datetime | None,
+        changed_to: datetime | None,
         include_all_symbols: bool,
+        outside_only: bool,
     ) -> SymbolCellReviewCountSnapshot:
         catalog = self._repository.require_ready_game(game_id)
         model_cohort_id = (
@@ -402,10 +445,13 @@ class SymbolCellReviewQueryService:
             state=state,
             min_confidence=min_confidence,
             max_confidence=max_confidence,
+            prediction_source=prediction_source,
+            changed_from=changed_from,
+            changed_to=changed_to,
             include_all_symbols=include_all_symbols,
+            outside_only=outside_only,
             model_cohort_id=model_cohort_id,
             storage_generation=catalog.storage_generation,
-            uses_current_projection=catalog.uses_current_projection,
         )
         if catalog.catalog_revision != expected_catalog_revision:
             raise SymbolCellReviewError(
@@ -475,11 +521,6 @@ class SymbolCellReviewQueryService:
                     "SYMBOL_CELL_REVIEW_CELL_NOT_FOUND",
                     "The symbol-cell review crop does not exist in this current game scope.",
                 )
-            if asset.asset_mode != "virtual_source":
-                raise SymbolCellReviewError(
-                    "SYMBOL_CELL_REVIEW_PREVIEW_ASSET_MODE_INVALID",
-                    "The selected symbol cell still uses a legacy crop artifact.",
-                )
             if asset.revision != target.expected_revision:
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_CROP_DRIFT",
@@ -499,7 +540,7 @@ class SymbolCellReviewQueryService:
         game_id: UUID,
         targets: tuple[SymbolCellPreviewTarget, ...],
     ) -> tuple[SymbolCellReviewAsset, ...]:
-        """Validate current legacy and virtual cells for one shared atlas."""
+        """Validate current virtual cells for one shared atlas."""
 
         if not targets:
             raise SymbolCellReviewError(
@@ -532,21 +573,13 @@ class SymbolCellReviewQueryService:
                     "SYMBOL_CELL_REVIEW_CROP_DRIFT",
                     "The symbol-cell review changed after it was loaded. Reload the page.",
                 )
-            if asset.asset_mode == "virtual_source":
-                if (
-                    target.expected_render_spec_checksum_sha256 is None
-                    or asset.render_spec_checksum_sha256
-                    != target.expected_render_spec_checksum_sha256
-                ):
-                    raise SymbolCellReviewError(
-                        "SYMBOL_CELL_REVIEW_CROP_DRIFT",
-                        "The virtual symbol-cell render changed after it was loaded. "
-                        "Reload the page.",
-                    )
-            elif target.expected_render_spec_checksum_sha256 is not None:
+            if (
+                target.expected_render_spec_checksum_sha256 is None
+                or asset.render_spec_checksum_sha256 != target.expected_render_spec_checksum_sha256
+            ):
                 raise SymbolCellReviewError(
-                    "SYMBOL_CELL_REVIEW_PREVIEW_ASSET_MODE_INVALID",
-                    "A legacy symbol-cell preview must not declare virtual render provenance.",
+                    "SYMBOL_CELL_REVIEW_CROP_DRIFT",
+                    "The virtual symbol-cell render changed after it was loaded. Reload the page.",
                 )
             ordered.append(asset)
         return tuple(ordered)
@@ -576,9 +609,7 @@ class SymbolCellReviewQueryService:
                     "SYMBOL_CELL_REVIEW_CROP_DRIFT",
                     "The symbol-cell crop no longer belongs to the current geometry revision.",
                 )
-            if asset.asset_mode == "virtual_source" and (
-                asset.source_geometry_revision_id != asset.current_source_geometry_revision_id
-            ):
+            if asset.source_geometry_revision_id != asset.current_source_geometry_revision_id:
                 raise SymbolCellReviewError(
                     "SYMBOL_CELL_REVIEW_CROP_DRIFT",
                     "The virtual cell no longer belongs to the current source geometry revision.",

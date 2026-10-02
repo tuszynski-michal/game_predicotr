@@ -94,6 +94,12 @@ decyzji. Warianty v1/v2 zachowują własne snapshoty oraz replay.
 
 ## Aktywny kontrakt geometrii komórek v18/v20
 
+> Nota historyczna (D-467, TASK-0790, 2026-10-01): poniższy opis trybów
+> `historical_v18` i `verified_v19` dotyczy etapu sprzed jednego trybu danych.
+> Od migracji `0133` dostępne są wyłącznie polityki wirtualne
+> (`structured_default`, `structured_lattice_v3`); import plansz z plikami
+> cropów nie istnieje.
+
 Domyślny import nadal używa historycznego
 `board-cell-crops-v18-source-direct-validated-v1`. Następca
 `board-cell-processing-v20-verified-v19-v1` jest dostępny wyłącznie jako jawny,
@@ -123,6 +129,13 @@ joba. Snapshot już utworzonego joba jest niezmienny i nie może zostać
 przełączony w locie między v18 i v20.
 
 ## Reviewer i jakość obrazu
+
+- W kolejce niepełnych siatek pojedynczej planszy kadr pozostaje nieruchomy
+  przez cały gest przeciągania narożnika lub wnętrza siatki. Dopiero puszczenie
+  dopasowuje kadr do końcowej geometrii i automatycznie odświeża 15 cropów.
+  Checkbox przesuwania nie jest wymagany. Podgląd nie zapisuje decyzji;
+  zapis geometrii pozostaje jawną akcją z aktualnym podglądem.
+  Każda kolejna plansza pokazuje zdjęcie bez dodatkowego kliknięcia.
 
 - Prawy podgląd pokazuje natywny fragment oryginalnego zdjęcia obejmujący
   planszę oraz obszar numeru sekwencji.

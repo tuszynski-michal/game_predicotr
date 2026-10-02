@@ -1,0 +1,877 @@
+/*
+ * Board search section (Admin "Wyszukaj plansze" and the online share copy).
+ * Relies on the host app's design tokens (--panel, --line, --muted, …) and
+ * base classes (primaryButton, secondaryButton, feedbackBanner, eyebrow, …).
+ */
+
+.boardSearchWorkspace {
+  display: grid;
+  gap: 18px;
+}
+
+.boardSearchHeader {
+  margin-bottom: 0;
+}
+
+.boardSearchResultLimit {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-raised);
+}
+
+.boardSearchResultLimit label {
+  display: grid;
+  gap: 4px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.boardSearchResultLimit input {
+  width: 90px;
+}
+
+.boardSearchComposer {
+  display: grid;
+  grid-template-columns: minmax(270px, 0.62fr) minmax(390px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+.boardSearchPalette,
+.boardSearchPattern {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-raised);
+}
+
+.boardSearchPalette header,
+.boardSearchPattern header {
+  display: grid;
+  gap: 4px;
+}
+
+.boardSearchPalette h2,
+.boardSearchPattern h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 17px;
+}
+
+.boardSearchPalette p,
+.boardSearchPattern p,
+.boardSearchFeedback,
+.boardSearchEmptyPalette {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.boardSearchEntryOrder {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel);
+}
+
+.boardSearchEntryOrder legend {
+  padding: 0 4px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.boardSearchEntryOrder label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.boardSearchEntryOrder small {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.boardSearchPaletteGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.boardSearchSymbolButton,
+.boardSearchCell {
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  min-width: 0;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* Square tiles: the symbol crop fills the whole tile (TASK-0781). */
+.boardSearchSymbolButton {
+  position: relative;
+  gap: 3px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  padding: 0;
+}
+
+.boardSearchSymbolShortcut {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  z-index: 1;
+  min-width: 16px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 4px;
+  background: rgba(8, 14, 24, 0.4);
+  color: rgba(255, 255, 255, 0.82);
+  font-family: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  line-height: 16px;
+  text-align: center;
+}
+
+.boardSearchShortcutHint kbd {
+  padding: 0 3px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.boardSearchSymbolButton:hover,
+.boardSearchSymbolButton:focus-visible,
+.boardSearchCell:hover,
+.boardSearchCell:focus-visible {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(121, 196, 255, 0.16);
+}
+
+.boardSearchSymbolButton > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.boardSearchSymbolButton > span,
+.boardSearchCell strong {
+  overflow: hidden;
+  max-width: 100%;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.boardSearchSymbolButton > span {
+  font-size: 9px;
+  font-weight: 800;
+}
+
+/* Over a crop the name is a soft caption along the bottom edge. */
+.boardSearchSymbolButton > img ~ span {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  padding: 2px 4px;
+  background: rgba(8, 14, 24, 0.4);
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+}
+
+.boardSearchUnknownButton > strong {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.boardSearchCell small {
+  color: var(--muted);
+  font-size: 8px;
+}
+
+.boardSearchGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(42px, 56px));
+  gap: 7px;
+  width: fit-content;
+}
+
+.boardSearchCell {
+  position: relative;
+  gap: 2px;
+  aspect-ratio: 1;
+  overflow: hidden;
+  padding: 4px 2px;
+}
+
+.boardSearchCell > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* The crop identifies the symbol; its name stays in the accessible label. */
+.boardSearchCell > img ~ strong,
+.boardSearchCell > img ~ small {
+  display: none;
+}
+
+.boardSearchCell strong {
+  font-size: 9px;
+}
+
+.boardSearchCellSelected {
+  border-color: var(--accent);
+  box-shadow:
+    inset 0 0 0 1px var(--accent),
+    0 0 0 3px rgba(121, 196, 255, 0.16);
+}
+
+.boardSearchActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  justify-content: flex-end;
+}
+
+.boardSearchActions .primaryButton {
+  margin-left: auto;
+}
+
+.boardSearchResults {
+  display: grid;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--panel-raised);
+  outline: none;
+}
+
+.boardSearchResults:focus-visible {
+  box-shadow: 0 0 0 3px rgba(112, 225, 180, 0.2);
+}
+
+.boardSearchResults > header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.boardSearchResults h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+}
+
+.boardSearchResultMetrics,
+.boardSearchEvidence {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.boardSearchResultMetrics {
+  min-width: min(100%, 360px);
+}
+
+.boardSearchResultMetrics div,
+.boardSearchEvidence div {
+  display: grid;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(7, 16, 29, 0.46);
+}
+
+.boardSearchResultMetrics dt,
+.boardSearchEvidence dt {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.boardSearchResultMetrics dd,
+.boardSearchEvidence dd {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.boardSearchBoardAsset {
+  display: block;
+  width: min(100%, 900px);
+  max-height: min(68vh, 760px);
+  margin-inline: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #050a12;
+  object-fit: contain;
+}
+
+.boardSearchBoardAssetFrame {
+  position: relative;
+  overflow: hidden;
+  width: min(100%, 900px);
+  max-height: min(68vh, 760px);
+  margin-inline: auto;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  background: #050a12;
+}
+
+.boardSearchBoardAssetFrame .boardSearchBoardAssetCropped {
+  position: absolute;
+  max-width: none;
+  max-height: none;
+  border: none;
+  border-radius: 0;
+  margin: 0;
+  object-fit: fill;
+}
+
+.boardSearchBoardAssetError {
+  display: grid;
+  min-height: 260px;
+  place-items: center;
+  padding: 20px;
+  border: 1px dashed var(--danger);
+  border-radius: 12px;
+  color: var(--muted);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.boardSearchEvidence {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.boardSearchResultNavigation {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 12px;
+}
+
+.boardSearchResultNavigation > span {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+
+@media (max-width: 860px) {
+  .boardSearchComposer {
+    grid-template-columns: 1fr;
+  }
+
+  .boardSearchResults > header {
+    display: grid;
+  }
+}
+
+@media (max-width: 520px) {
+  .boardSearchPaletteGrid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .boardSearchGrid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    width: 100%;
+  }
+
+  .boardSearchActions .primaryButton {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .boardSearchResultMetrics,
+  .boardSearchEvidence {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .boardSearchResultNavigation {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .boardSearchResultNavigation > span {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+}
+
+.boardSearchApproximateWin {
+  margin-top: 4px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-raised);
+}
+
+.boardSearchApproximateWin > h2 {
+  margin: 0;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.boardSearchApproximateWinBody {
+  display: grid;
+  gap: 14px;
+  padding: 16px 18px 20px;
+}
+
+/* Range, stake and unit on one line (D-476). */
+.boardSearchApproximateWinControls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px 14px;
+}
+
+.boardSearchApproximateWinControls label {
+  display: grid;
+  gap: 4px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.boardSearchApproximateWinControls input {
+  width: 120px;
+}
+
+.boardSearchApproximateWinControls select {
+  min-width: 150px;
+}
+
+.boardSearchApproximateWinControls small,
+.boardSearchApproximateWinControls .feedbackBanner {
+  flex-basis: 100%;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.boardSearchApproximateWinControls #approximateWinStakeHint {
+  flex-basis: auto;
+  align-self: center;
+  font-size: 12px;
+}
+
+.boardSearchApproximateWinStakePrompt {
+  margin: 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--line);
+  border-radius: 10px;
+  color: var(--muted);
+}
+
+.boardSearchApproximateWinSummaryHeader {
+  display: grid;
+  gap: 4px;
+}
+
+.boardSearchApproximateWinSummaryHeader p {
+  margin: 0;
+}
+
+/* About twenty rows visible before scrolling (D-476). */
+.boardSearchApproximateWin .importRowsTableWrap {
+  max-block-size: 720px;
+  overflow: auto;
+}
+
+.boardSearchApproximateWin .importRowsTable th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--panel-raised);
+}
+
+.boardSearchApproximateWinChart {
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px;
+  background: var(--panel);
+}
+
+.boardSearchApproximateWinChart h3,
+.boardSearchApproximateWinChart p {
+  margin: 0;
+}
+
+.boardSearchApproximateWinChart h3 {
+  color: var(--text);
+  font-size: 13px;
+}
+
+.boardSearchApproximateWinChart p {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.boardSearchApproximateWinChart svg {
+  inline-size: 100%;
+  block-size: auto;
+  min-block-size: 180px;
+  color: var(--muted);
+}
+
+.boardSearchVisuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.boardSearchBoardLinesDialog {
+  /* 800px board + 300px legend + gaps and padding. */
+  width: min(1180px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+}
+
+/* The shared picker card is capped at 920px; the board uses the whole
+   dialog (TASK-0784). */
+.boardSearchBoardLinesDialog .symbolImagePickerCard {
+  width: 100%;
+}
+
+.boardSearchBoardLines {
+  display: grid;
+  /* The board image is at most 800px wide (TASK-0788). */
+  grid-template-columns: minmax(0, 800px) minmax(220px, 300px);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 860px) {
+  .boardSearchBoardLines {
+    grid-template-columns: 1fr;
+  }
+}
+
+.boardSearchBoardLinesCanvas {
+  display: grid;
+  gap: 8px;
+}
+
+.boardSearchBoardLinesCanvas svg {
+  inline-size: 100%;
+  max-inline-size: 800px;
+  block-size: auto;
+  max-block-size: 76vh;
+  border-radius: 10px;
+  background: #14202d;
+}
+
+.boardSearchBoardLinesSchemaCell polygon {
+  fill: var(--panel);
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.boardSearchBoardLinesSchemaCell text {
+  fill: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchBoardLinesUnknown polygon {
+  fill: rgb(0 0 0 / 55%);
+  stroke: none;
+}
+
+.boardSearchBoardLinesUnknown text {
+  fill: var(--muted);
+  font-weight: 700;
+}
+
+.boardSearchBoardLinesJoker circle {
+  fill: rgb(0 0 0 / 70%);
+  stroke-width: 2;
+}
+
+.boardSearchBoardLinesJoker text {
+  fill: #ffffff;
+  font-weight: 700;
+}
+
+.boardSearchBoardLinesNote {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchBoardLinesLegend {
+  display: grid;
+  gap: 10px;
+  font-size: 12px;
+}
+
+.boardSearchBoardLinesLegend ul {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.boardSearchBoardLinesLegend label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.boardSearchBoardLinesLegendActions {
+  display: flex;
+  gap: 12px;
+}
+
+.boardSearchBoardCellTarget {
+  fill: transparent;
+  stroke: rgb(255 255 255 / 45%);
+  stroke-dasharray: 5 4;
+  stroke-width: 1.5;
+  cursor: pointer;
+}
+
+.boardSearchBoardCellTarget:hover,
+.boardSearchBoardCellTarget:focus-visible {
+  fill: rgb(255 255 255 / 12%);
+  stroke: #ffffff;
+  outline: none;
+}
+
+.boardSearchBoardCellTargetSelected {
+  fill: rgb(255 210 63 / 22%);
+  stroke: #ffd23f;
+  stroke-dasharray: none;
+  stroke-width: 3;
+}
+
+.boardSearchBoardCellCorrection {
+  display: grid;
+  gap: 8px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--line);
+}
+
+.boardSearchBoardCellPalette {
+  display: grid;
+  gap: 8px;
+}
+
+.boardSearchBoardCellPalette p {
+  margin: 0;
+}
+
+.boardSearchBoardCellPaletteGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(76px, 1fr));
+  gap: 6px;
+}
+
+.boardSearchBoardCellPaletteActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.boardSearchBoardLinesSwatch {
+  flex: none;
+  inline-size: 22px;
+  block-size: 0;
+  border-top-width: 4px;
+}
+
+.boardSearchApproximateWinFilter {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.boardSearchApproximateWinFilter output {
+  color: var(--accent);
+}
+
+.boardSearchApproximateWinFilter input {
+  accent-color: var(--accent);
+}
+
+.boardSearchApproximateWinChart line.boardSearchApproximateWinChartZero {
+  stroke: var(--muted);
+  stroke-dasharray: 4 4;
+}
+
+.boardSearchApproximateWinChart line {
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.boardSearchApproximateWinChart polyline.boardSearchApproximateWinChartSeries {
+  stroke: var(--accent);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 3;
+}
+
+.boardSearchApproximateWinChart text {
+  fill: currentColor;
+  font-size: 11px;
+}
+
+.boardSearchApproximateWinChart svg:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.boardSearchApproximateWinChart .boardSearchApproximateWinChartGrid line {
+  stroke: var(--line);
+  stroke-width: 1;
+  opacity: 0.7;
+}
+
+.boardSearchApproximateWinChart line.boardSearchApproximateWinChartAxis {
+  stroke: var(--line-strong);
+}
+
+.boardSearchApproximateWinChart polyline.boardSearchApproximateWinChartLeader {
+  stroke: var(--muted);
+  stroke-dasharray: 2 3;
+  stroke-width: 1;
+}
+
+.boardSearchApproximateWinChartMarker {
+  fill: var(--panel-raised);
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.boardSearchApproximateWinChartLabel > rect {
+  fill: var(--panel-raised);
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.boardSearchApproximateWinChartLabelPinned > rect {
+  stroke: var(--accent);
+}
+
+.boardSearchApproximateWinChartUnpin {
+  cursor: pointer;
+}
+
+.boardSearchApproximateWinChartUnpin rect {
+  fill: transparent;
+}
+
+.boardSearchApproximateWinChartUnpin:hover rect,
+.boardSearchApproximateWinChartUnpin:focus-visible rect {
+  fill: var(--line);
+}
+
+.boardSearchApproximateWinChartUnpin:focus-visible rect {
+  stroke: var(--accent);
+  stroke-width: 2;
+}
+
+.boardSearchApproximateWinChartUnpin:focus {
+  outline: none;
+}
+
+.boardSearchApproximateWinChartPins {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.boardSearchApproximateWinChartPins ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchApproximateWinChartPins li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.boardSearchHeaderActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.boardSearchReplayNotices {
+  display: grid;
+  gap: 6px;
+}
+
+.boardSearchApproximateWinStakeMetric dd {
+  display: grid;
+  gap: 4px;
+}
+
+.boardSearchApproximateWinStakeMetric small {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 1.3;
+}
+
+.boardSearchApproximateWinChart text.boardSearchApproximateWinChartLabelStake,
+.boardSearchApproximateWinStake {
+  color: var(--danger, #ff8a8a);
+  fill: var(--danger, #ff8a8a);
+}

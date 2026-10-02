@@ -13,22 +13,26 @@ from game_predictor_api.application.image_reviews import (
     OperationalImageReviewPage,
     PendingGridReinferencePreview,
 )
+from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeometryRevision
 from game_predictor_api.domain.board_import_coverage import BoardImportCoverageView
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_reviews import (
     IMAGE_REVIEW_CELL_COUNT,
     MAX_IMAGE_REVIEW_ALTERNATIVES,
     ImageDatasetCompleteness,
     ImageReviewAction,
     ImageReviewCounts,
-    ImageReviewGeometryRevision,
     ImageReviewGridIssueView,
     ImageReviewItem,
     ImageReviewResolutionEvent,
     ImageReviewView,
     ImageSequenceSourceSelection,
-    crop_sample_id,
 )
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.geometry_qualification import (
+    GeometryQualificationPayload,
+    ManualSourceGeometryPoint,
+)
 from game_predictor_api.storage.board_import_coverage_repository import (
     BoardImportCoverageReport,
 )
@@ -43,7 +47,6 @@ class OperationalImageReviewAlternativeResponse(ApiModel):
 
 
 class OperationalImageReviewCellResponse(ApiModel):
-    observation_id: UUID | None
     cell_index: int = Field(ge=0, lt=IMAGE_REVIEW_CELL_COUNT)
     row_index: int = Field(ge=0, lt=3)
     column_index: int = Field(ge=0, lt=5)
@@ -72,9 +75,19 @@ class OperationalImageReviewItemResponse(ApiModel):
     board_checksum_sha256: Sha256
     geometry_revision: int = Field(ge=0)
     geometry: dict[str, object]
+    geometry_qualification: GeometryQualificationPayload | None = Field(
+        default=None,
+        description="Persisted manual qualification of the current board geometry (TASK-0798)",
+    )
+    source_width: int | None = Field(
+        default=None, gt=0, description="Oriented width of the source the corners refer to"
+    )
+    source_height: int | None = Field(
+        default=None, gt=0, description="Oriented height of the source the corners refer to"
+    )
     pipeline_fingerprint: Sha256
     cells: tuple[OperationalImageReviewCellResponse, ...] = Field(
-        min_length=IMAGE_REVIEW_CELL_COUNT,
+        min_length=0,
         max_length=IMAGE_REVIEW_CELL_COUNT,
     )
     resolved_value: dict[str, object] | None
@@ -82,6 +95,16 @@ class OperationalImageReviewItemResponse(ApiModel):
     resolved_at: datetime | None
     resolution_revision: int = Field(ge=0)
     created_at: datetime
+
+
+def _client_qualification(
+    raw: object,
+) -> GeometryQualificationPayload | None:
+    if raw is None:
+        return None
+    return GeometryQualificationPayload.model_validate(
+        GeometryQualification.from_dict(raw).to_client_dict()
+    )
 
 
 class OperationalImageReviewCountsResponse(ApiModel):
@@ -295,13 +318,29 @@ class OperationalImageReviewGeometryPreviewCommand(ApiModel):
     expected_geometry_revision: int = Field(ge=0)
     expected_resolution_revision: int = Field(ge=0)
     corners: tuple[
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ] = Field(
-        description="Source-image outer corners of the 5 by 3 symbol lattice in row-major winding"
+        description=(
+            "Source-image outer corners of the 5 by 3 symbol lattice in row-major winding; "
+            "negative coordinates require an explicitly partial qualification"
+        )
     )
+    geometry_qualification: GeometryQualificationPayload | None = None
+
+    @model_validator(mode="after")
+    def validate_signed_corners(self) -> Self:
+        # TASK-0798: the same rule as the grid correction queue; the source
+        # editing bounds themselves are enforced by the virtual geometry domain.
+        partial = (
+            self.geometry_qualification is not None
+            and self.geometry_qualification.completeness_status == "pending_partial"
+        )
+        if not partial and any(point.x < 0 or point.y < 0 for point in self.corners):
+            raise ValueError("signed corners require explicitly partial geometry")
+        return self
 
 
 class OperationalImageReviewGeometryCommand(OperationalImageReviewGeometryPreviewCommand):
@@ -318,29 +357,32 @@ class OperationalImageReviewGeometryCellResponse(ApiModel):
 
 
 class OperationalImageReviewGeometryRevisionResponse(ApiModel):
+    """One ``virtual_source`` manual geometry revision (D-467 S6, TASK-0796).
+
+    The former v19 file-crop fields (board crop checksum, manual decision
+    checksum) are gone: the revision is bound by its source geometry and
+    render manifest checksums instead.
+    """
+
     id: UUID
     review_item_id: UUID
     recognized_board_id: UUID
     revision: int = Field(ge=1)
     idempotency_key: UUID
     command_sha256: Sha256
-    decision_checksum_sha256: Sha256 | None = Field(
-        default=None,
-        description=(
-            "Manual v19 decision checksum binding source, board position, versions and actor; "
-            "null only for historical geometry revisions"
-        ),
-    )
+    # Signed: a partial board may extend past the photo (TASK-0798).
     corners: tuple[
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ]
-    board_checksum_sha256: Sha256
+    geometry_qualification: GeometryQualificationPayload | None = None
+    source_geometry_revision_id: UUID
+    geometry_checksum_sha256: Sha256
+    virtual_render_spec_checksum_sha256: Sha256
     cropper_version: str
     cells: tuple[OperationalImageReviewGeometryCellResponse, ...] = Field(
-        min_length=IMAGE_REVIEW_CELL_COUNT,
         max_length=IMAGE_REVIEW_CELL_COUNT,
     )
     corrected_by: str
@@ -370,10 +412,12 @@ def to_operational_item_response(
         board_checksum_sha256=item.board_checksum_sha256,
         geometry_revision=item.geometry_revision,
         geometry=dict(item.geometry),
+        geometry_qualification=_client_qualification(item.geometry_qualification),
+        source_width=item.source_width,
+        source_height=item.source_height,
         pipeline_fingerprint=item.pipeline_fingerprint,
         cells=tuple(
             OperationalImageReviewCellResponse(
-                observation_id=cell.observation_id,
                 cell_index=cell.cell_index,
                 row_index=cell.row_index,
                 column_index=cell.column_index,
@@ -485,18 +529,14 @@ def to_board_import_coverage_response(
             unnumbered_cut_board_count=report.notices.unnumbered_cut_board_count,
             failed_sources_without_range_count=report.notices.failed_sources_without_range_count,
             active_import_job_count=report.notices.active_import_job_count,
-            active_sources_without_range_count=(
-                report.notices.active_sources_without_range_count
-            ),
+            active_sources_without_range_count=(report.notices.active_sources_without_range_count),
         ),
         view=BoardImportCoverageView(report.view),
         range=(
             BoardImportCoverageRangeResponse(
                 **{
                     "from": range_from if range_from is not None else 1,
-                    "to": (
-                        range_to if range_to is not None else report.expected_layout_count
-                    ),
+                    "to": (range_to if range_to is not None else report.expected_layout_count),
                 }
             )
             if has_range
@@ -593,7 +633,7 @@ def to_operational_event_response(
 
 
 def to_operational_geometry_revision_response(
-    revision: ImageReviewGeometryRevision,
+    revision: VirtualGridGeometryRevision,
 ) -> OperationalImageReviewGeometryRevisionResponse:
     return OperationalImageReviewGeometryRevisionResponse(
         id=revision.id,
@@ -602,28 +642,29 @@ def to_operational_geometry_revision_response(
         revision=revision.revision,
         idempotency_key=revision.idempotency_key,
         command_sha256=revision.command_sha256,
-        decision_checksum_sha256=revision.decision_checksum_sha256,
         corners=(
-            OperationalImageReviewGeometryPoint(x=revision.corners[0].x, y=revision.corners[0].y),
-            OperationalImageReviewGeometryPoint(x=revision.corners[1].x, y=revision.corners[1].y),
-            OperationalImageReviewGeometryPoint(x=revision.corners[2].x, y=revision.corners[2].y),
-            OperationalImageReviewGeometryPoint(x=revision.corners[3].x, y=revision.corners[3].y),
+            ManualSourceGeometryPoint(x=revision.corners[0].x, y=revision.corners[0].y),
+            ManualSourceGeometryPoint(x=revision.corners[1].x, y=revision.corners[1].y),
+            ManualSourceGeometryPoint(x=revision.corners[2].x, y=revision.corners[2].y),
+            ManualSourceGeometryPoint(x=revision.corners[3].x, y=revision.corners[3].y),
         ),
-        board_checksum_sha256=revision.board_checksum_sha256,
+        geometry_qualification=(
+            None
+            if revision.geometry_qualification is None
+            else GeometryQualificationPayload.model_validate(
+                revision.geometry_qualification.to_client_dict()
+            )
+        ),
+        source_geometry_revision_id=revision.source_geometry_revision_id,
+        geometry_checksum_sha256=revision.geometry_checksum_sha256,
+        virtual_render_spec_checksum_sha256=revision.virtual_render_spec_checksum_sha256,
         cropper_version=revision.cropper_version,
         cells=tuple(
             OperationalImageReviewGeometryCellResponse(
-                cell_index=cell.row_index * 5 + cell.column_index,
+                cell_index=cell.cell_index,
                 row_index=cell.row_index,
                 column_index=cell.column_index,
-                crop_sample_id=crop_sample_id(
-                    recognized_board_id=revision.recognized_board_id,
-                    row_index=cell.row_index,
-                    column_index=cell.column_index,
-                    cropper_version=revision.cropper_version,
-                    crop_relative_path=cell.crop_relative_path,
-                    crop_checksum_sha256=cell.crop_checksum_sha256,
-                ),
+                crop_sample_id=cell.crop_sample_id,
                 crop_checksum_sha256=cell.crop_checksum_sha256,
             )
             for cell in revision.cells

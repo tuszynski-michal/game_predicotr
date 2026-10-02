@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
 from io import BytesIO
-from pathlib import Path, PurePosixPath
+from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
@@ -40,6 +39,10 @@ from game_predictor_api.domain.symbol_cell_training_cohorts import (
 from game_predictor_api.domain.verified_training_cohorts import (
     SymbolCellTrainingExclusionCounts,
 )
+from game_predictor_api.storage.cell_render_specs import (
+    CellRenderSpecKey,
+    load_cell_render_specs,
+)
 from game_predictor_api.storage.models import GameModel, SymbolModel
 
 _SOURCE_SAMPLE_CAP = 64
@@ -51,7 +54,6 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
     def __init__(self, session: Session, artifact_root: Path) -> None:
         self._session = session
         self._artifact_root = artifact_root.resolve()
-        self._managed_root = self._artifact_root / "data"
 
     def active_symbol_codes(self, game_id: UUID) -> tuple[str, ...]:
         return tuple(
@@ -75,12 +77,24 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 "The selected training cohort game does not exist.",
             )
         exclusions = self._exclusion_counts(game_id)
-        rows = tuple(
+        selected = tuple(
             self._session.execute(
                 text(
                     """
                 WITH eligible AS (
-                  SELECT c.*, s.code AS symbol_code,
+                  -- D-467 S7: explicit columns; the render specification is
+                  -- read from the board render manifest below, not the cell.
+                  SELECT c.id, c.game_id, c.import_job_id, c.review_item_id, c.recognized_board_id,
+                         c.sequence_number, c.cell_index, c.revision, c.asset_mode,
+                         c.source_geometry_revision_id, c.logical_cell_key,
+                         c.logical_cell_key_v2, c.render_identity_v2_sha256,
+                         c.render_spec_checksum_sha256, c.rendered_pixel_checksum_sha256,
+                         c.extractor_version, c.crop_sample_id, c.crop_relative_path,
+                         c.crop_checksum_sha256, c.geometry_revision, c.cropper_version,
+                         c.prediction_symbol_code, c.assigned_symbol_id,
+                         c.approved_crop_sample_id, c.approved_crop_checksum_sha256,
+                         c.approved_geometry_revision,
+                         s.code AS symbol_code,
                          rb.source_image_id AS source_image_id,
                          rb.geometry_revision AS current_geometry_revision,
                          rb.source_geometry_revision_id AS current_source_geometry_revision_id,
@@ -105,23 +119,20 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                    AND d.review_item_id = c.review_item_id
                   WHERE c.game_id = :game_id
                     AND c.source_available = true
+                    AND (c.source_visibility IS NULL OR c.source_visibility = 'full')
                     AND c.geometry_revision = rb.geometry_revision
                     AND c.review_state = 'approved'
                     AND c.quality_issue IS NULL
                     AND c.approved_crop_sample_id = c.crop_sample_id
                     AND c.approved_crop_checksum_sha256 = c.crop_checksum_sha256
                     AND c.approved_geometry_revision = c.geometry_revision
-                    AND (
-                      (c.asset_mode = 'legacy_file'
-                       AND coalesce(c.approved_asset_mode, 'legacy_file') = 'legacy_file')
-                      OR
-                      (c.asset_mode = 'virtual_source'
-                       AND c.approved_asset_mode = 'virtual_source'
-                       AND c.approved_source_geometry_revision_id = c.source_geometry_revision_id
-                       AND c.approved_render_spec_checksum_sha256 = c.render_spec_checksum_sha256
-                       AND c.approved_rendered_pixel_checksum_sha256 =
-                           c.rendered_pixel_checksum_sha256)
-                    )
+                    -- D-467 S6 (TASK-0796): only virtual renders exist.
+                    AND c.asset_mode = 'virtual_source'
+                    AND c.approved_asset_mode = 'virtual_source'
+                    AND c.approved_source_geometry_revision_id = c.source_geometry_revision_id
+                    AND c.approved_render_spec_checksum_sha256 = c.render_spec_checksum_sha256
+                    AND c.approved_rendered_pixel_checksum_sha256 =
+                        c.rendered_pixel_checksum_sha256
                     AND s.status = 'active'
                 ), pooled AS (
                   SELECT *, row_number() OVER (
@@ -142,6 +153,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 },
             ).mappings()
         )
+        rows = _with_manifest_render_specs(self._session, game_id=game_id, rows=selected)
         worker_count = min(
             _MAX_DESCRIPTOR_WORKERS,
             max(1, os.cpu_count() or 1),
@@ -176,7 +188,16 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 text(
                     """
                 WITH current_cells AS (
-                  SELECT c.*, s.status AS symbol_status
+                  SELECT c.quality_issue, c.assigned_symbol_id, c.review_state,
+                         c.crop_sample_id, c.crop_checksum_sha256, c.geometry_revision,
+                         c.asset_mode, c.source_geometry_revision_id,
+                         c.render_spec_checksum_sha256, c.rendered_pixel_checksum_sha256,
+                         c.approved_crop_sample_id, c.approved_crop_checksum_sha256,
+                         c.approved_geometry_revision, c.approved_asset_mode,
+                         c.approved_source_geometry_revision_id,
+                         c.approved_render_spec_checksum_sha256,
+                         c.approved_rendered_pixel_checksum_sha256,
+                         s.status AS symbol_status
                   FROM image_symbol_review_cells c
                   JOIN image_board_search_fast_documents d
                     ON d.game_id = c.game_id
@@ -185,6 +206,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                   LEFT JOIN symbols s ON s.id = c.assigned_symbol_id
                   WHERE c.game_id = :game_id
                     AND c.source_available = true
+                    AND (c.source_visibility IS NULL OR c.source_visibility = 'full')
                 )
                 SELECT
                   count(*) FILTER (
@@ -202,7 +224,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                         approved_crop_sample_id IS DISTINCT FROM crop_sample_id
                         OR approved_crop_checksum_sha256 IS DISTINCT FROM crop_checksum_sha256
                         OR approved_geometry_revision IS DISTINCT FROM geometry_revision
-                        OR coalesce(approved_asset_mode, 'legacy_file') IS DISTINCT FROM asset_mode
+                        OR approved_asset_mode IS DISTINCT FROM asset_mode
                         OR (
                           asset_mode = 'virtual_source'
                           AND (
@@ -256,56 +278,35 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
         self, values: Mapping[str, Any], *, allow_cached: bool
     ) -> ApprovedSymbolCellCandidate:
         expected = str(values["crop_checksum_sha256"])
-        asset_mode = str(values.get("asset_mode", "legacy_file"))
-        relative: PurePosixPath | None = None
-        if asset_mode == "legacy_file":
-            relative_text = str(values["crop_relative_path"])
-            relative = PurePosixPath(relative_text)
-            if relative.is_absolute() or ".." in relative.parts or "\\" in relative_text:
-                raise ImageReviewConflictError(
-                    "SYMBOL_CELL_TRAINING_CROP_UNSAFE",
-                    "An approved symbol crop has an unsafe managed path.",
-                )
-            path = self._managed_root.joinpath(*relative.parts).resolve()
-            if not path.is_relative_to(self._managed_root) or path.is_symlink():
-                raise ImageReviewConflictError(
-                    "SYMBOL_CELL_TRAINING_CROP_UNSAFE",
-                    "An approved symbol crop is outside managed storage.",
-                )
-            perceptual_hash, mean_rgb = (
-                _cached_verified_visual_descriptor(str(path), expected)
-                if allow_cached
-                else _verified_visual_descriptor(path, expected)
-            )
-        elif asset_mode == "virtual_source":
-            asset = _virtual_asset(values)
-            perceptual_hash, mean_rgb = (
-                _cached_verified_virtual_visual_descriptor(
-                    str(self._artifact_root),
-                    str(asset.cell_review_id),
-                    asset.revision,
-                    asset.geometry_revision,
-                    asset.current_geometry_revision,
-                    str(asset.source_geometry_revision_id),
-                    str(asset.current_source_geometry_revision_id),
-                    str(asset.source_checksum_sha256),
-                    str(asset.normalized_pixel_checksum_sha256),
-                    str(asset.geometry_checksum_sha256),
-                    str(asset.logical_cell_key),
-                    json.dumps(asset.render_spec, separators=(",", ":"), sort_keys=True),
-                    str(asset.render_spec_checksum_sha256),
-                    str(asset.rendered_pixel_checksum_sha256),
-                    str(asset.extractor_version),
-                    expected,
-                )
-                if allow_cached
-                else _verified_virtual_visual_descriptor(self._artifact_root, asset, expected)
-            )
-        else:
+        asset_mode = str(values["asset_mode"])
+        if asset_mode != "virtual_source":
             raise ImageReviewConflictError(
                 "SYMBOL_CELL_TRAINING_CROP_INVALID",
                 "An approved symbol crop has an unsupported asset mode.",
             )
+        asset = _virtual_asset(values)
+        perceptual_hash, mean_rgb = (
+            _cached_verified_virtual_visual_descriptor(
+                str(self._artifact_root),
+                str(asset.cell_review_id),
+                asset.revision,
+                asset.geometry_revision,
+                asset.current_geometry_revision,
+                str(asset.source_geometry_revision_id),
+                str(asset.current_source_geometry_revision_id),
+                str(asset.source_checksum_sha256),
+                str(asset.normalized_pixel_checksum_sha256),
+                str(asset.geometry_checksum_sha256),
+                str(asset.logical_cell_key),
+                json.dumps(asset.render_spec, separators=(",", ":"), sort_keys=True),
+                str(asset.render_spec_checksum_sha256),
+                str(asset.rendered_pixel_checksum_sha256),
+                str(asset.extractor_version),
+                expected,
+            )
+            if allow_cached
+            else _verified_virtual_visual_descriptor(self._artifact_root, asset, expected)
+        )
         candidate = ApprovedSymbolCellCandidate(
             cell_review_id=values["id"],
             review_item_id=values["review_item_id"],
@@ -319,7 +320,7 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
             cell_revision=int(values["revision"]),
             geometry_revision=int(values["geometry_revision"]),
             crop_sample_id=str(values["crop_sample_id"]),
-            crop_relative_path=None if relative is None else relative.as_posix(),
+            crop_relative_path=None,
             crop_checksum_sha256=expected,
             approved_crop_sample_id=str(values["approved_crop_sample_id"]),
             approved_crop_checksum_sha256=str(values["approved_crop_checksum_sha256"]),
@@ -375,6 +376,40 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 "A persisted candidate failed the shared training-eligibility predicate.",
             )
         return candidate
+
+
+def _with_manifest_render_specs(
+    session: Session,
+    *,
+    game_id: UUID,
+    rows: Sequence[Mapping[Any, Any]],
+) -> tuple[Mapping[str, Any], ...]:
+    """Attach the manifest render specification to every virtual row (D-467 S7).
+
+    One batched manifest read for the whole inventory; a missing manifest or a
+    checksum mismatch aborts the inventory (``CellRenderSpecError``) instead of
+    silently excluding the cell.
+    """
+
+    keys = {
+        index: CellRenderSpecKey(
+            recognized_board_id=_uuid(row["recognized_board_id"]),
+            geometry_revision=int(row["geometry_revision"]),
+            cell_index=int(row["cell_index"]),
+            render_spec_checksum_sha256=str(row["render_spec_checksum_sha256"]),
+        )
+        for index, row in enumerate(rows)
+        if row.get("asset_mode") == "virtual_source"
+    }
+    specs = load_cell_render_specs(session, game_id=game_id, keys=keys.values())
+    return tuple(
+        {**row, "render_spec": specs[keys[index]] if index in keys else None}
+        for index, row in enumerate(rows)
+    )
+
+
+def _uuid(value: object) -> UUID:
+    return value if isinstance(value, UUID) else UUID(str(value))
 
 
 def _visual_descriptor(content: bytes) -> tuple[int, tuple[int, int, int]]:
@@ -493,31 +528,6 @@ def _cached_verified_virtual_visual_descriptor(
     return _verified_virtual_visual_descriptor(
         Path(artifact_root_text), asset, expected_checksum_sha256
     )
-
-
-def _verified_visual_descriptor(
-    path: Path, expected_checksum_sha256: str
-) -> tuple[int, tuple[int, int, int]]:
-    try:
-        content = path.read_bytes()
-    except OSError as error:
-        raise ImageReviewConflictError(
-            "SYMBOL_CELL_TRAINING_CROP_MISSING",
-            "An approved symbol crop cannot be read.",
-        ) from error
-    if hashlib.sha256(content).hexdigest() != expected_checksum_sha256:
-        raise ImageReviewConflictError(
-            "SYMBOL_CELL_TRAINING_CROP_CHANGED",
-            "An approved symbol crop differs from its persisted checksum.",
-        )
-    return _visual_descriptor(content)
-
-
-@lru_cache(maxsize=32_768)
-def _cached_verified_visual_descriptor(
-    path_text: str, expected_checksum_sha256: str
-) -> tuple[int, tuple[int, int, int]]:
-    return _verified_visual_descriptor(Path(path_text), expected_checksum_sha256)
 
 
 __all__ = ["SqlAlchemySymbolCellTrainingSourceRepository"]

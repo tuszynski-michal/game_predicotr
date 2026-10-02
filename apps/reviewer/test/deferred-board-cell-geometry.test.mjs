@@ -71,6 +71,7 @@ test('binds deferred preview and resolution to manifest and both revisions', () 
     expectedGeometryRevision: 2,
     expectedManifestChecksumSha256: 'a'.repeat(64),
     expectedResolutionRevision: 3,
+    geometryQualification: null,
   });
   const command = deferredBoardCellGeometryResolutionCommand(
     context,
@@ -86,6 +87,48 @@ test('binds deferred preview and resolution to manifest and both revisions', () 
   assert.equal(
     deferredBoardCellGeometryReasonLabel('incomplete_lattice'),
     'Niepełna siatka symboli',
+  );
+});
+
+test('embeds a partial-board qualification for declared unavailable cells', () => {
+  const corners = deferredBoardCellGeometryCorners(context);
+  const flags = {
+    exclude: false,
+    includeInPartialGridTraining: false,
+    manualUnavailable: [0, 5],
+    partial: true,
+  };
+
+  const preview = deferredBoardCellGeometryPreviewCommand(
+    context,
+    corners,
+    flags,
+  );
+  assert.deepEqual(preview.geometryQualification, {
+    completenessStatus: 'pending_partial',
+    excludeFromGeometryTraining: true,
+    exclusionReason: 'missing_pixels',
+    includeInPartialGridTraining: false,
+    unavailableCellIndices: [0, 5],
+    version: 'manual-geometry-qualification-v2',
+  });
+
+  const resolution = deferredBoardCellGeometryResolutionCommand(
+    context,
+    corners,
+    '55555555-5555-4555-8555-555555555555',
+    flags,
+  );
+  assert.deepEqual(
+    resolution.geometryQualification,
+    preview.geometryQualification,
+  );
+
+  assert.throws(() =>
+    deferredBoardCellGeometryPreviewCommand(context, corners, {
+      ...flags,
+      manualUnavailable: [],
+    }),
   );
 });
 
@@ -221,4 +264,29 @@ test('marks stale deferred state as conflict without hiding the server error', a
   assert.equal(result.ok, false);
   assert.equal(result.isConflict, true);
   assert.match(result.error, /deferred item changed/i);
+});
+
+test('marks stale virtual-source refusals of a deferred resolution as conflict', async () => {
+  for (const code of [
+    'IMAGE_GRID_REVIEW_REVISION_CONFLICT',
+    'IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT',
+    'IMAGE_GRID_REVIEW_ITEM_NOT_FOUND',
+  ]) {
+    const result = await resolveDeferredBoardCellGeometry(
+      {
+        resolvePendingBoardCellGeometryManually: async () => ({
+          error: { code, message: 'The virtual source slot changed.' },
+        }),
+      },
+      scope,
+      item.id,
+      deferredBoardCellGeometryResolutionCommand(
+        context,
+        deferredBoardCellGeometryCorners(context),
+        '55555555-5555-4555-8555-555555555555',
+      ),
+    );
+    assert.equal(result.ok, false);
+    assert.equal(result.isConflict, true, code);
+  }
 });

@@ -100,6 +100,7 @@ from game_predictor_api.schemas.image_imports import (
     PageGeometryRegistrationDiagnostics,
 )
 from game_predictor_api.schemas.jobs import JobResponse
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 
 def _image_import_preflight_checksum(
@@ -972,13 +973,9 @@ def create_image_imports_router(
             and existing.input_payload.get("source_exclusions", {}) != source_exclusions
         ):
             rerun = True
-        requested_v19 = (
-            payload.geometry_engine_variant is None
-            and preflight.image_engine_policy is ImageImportEnginePolicy.VERIFIED_V19
-        )
-        if existing is not None and (
-            (existing.input_payload.get("board_cell_processing") is not None) != requested_v19
-        ):
+        # D-467 (TASK-0790): the verified_v19 legacy engine is gone, so a
+        # reusable job never carries a v20 board-cell processing snapshot.
+        if existing is not None and existing.input_payload.get("board_cell_processing") is not None:
             rerun = True
         geometry_manifest = _geometry_manifest_descriptor(
             job_service=job_service,
@@ -1157,7 +1154,6 @@ def create_image_imports_router(
                     page_geometry_manifest=geometry_manifest,
                     geometry_guard_resolution_manifest=resolution_manifest,
                     geometry_engine_variant=payload.geometry_engine_variant,
-                    use_verified_board_cell_geometry=requested_v19,
                     allow_unclassified_symbol_cold_start=(
                         preflight.unclassified_cold_start_allowed
                         and current_unclassified_cold_start_allowed
@@ -2350,12 +2346,15 @@ def create_image_imports_router(
         payload: CuratedImageImportSourceCreate,
         service: Annotated[IterativeImageImportService, iterative_import_parameter],
     ) -> CuratedImageImportSourceResponse:
-        return CuratedImageImportSourceResponse.from_domain(
-            service.register_source(
-                game_id=payload.game_id,
-                image_selection_run_id=payload.image_selection_run_id,
+        # TASK-0797: the game is named only in the body; bind it before the
+        # selection run (a game table) is read.
+        with game_storage_scope(payload.game_id):
+            return CuratedImageImportSourceResponse.from_domain(
+                service.register_source(
+                    game_id=payload.game_id,
+                    image_selection_run_id=payload.image_selection_run_id,
+                )
             )
-        )
 
     @router.get(
         "/curated-sources",

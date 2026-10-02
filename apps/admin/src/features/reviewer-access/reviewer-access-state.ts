@@ -64,11 +64,12 @@ export function hasReviewerWork(
   gridReviewCounts: ImageGridReviewPageResponse['counts'] | null,
   deferredGeometryCounts: BoardCellGeometryJobCountsResponse | null,
 ): boolean {
+  // D-462: the local Reviewer only corrects grids, so there is work only
+  // when the single correction queue is not empty.
   return (
     gridReviewCounts !== null &&
     deferredGeometryCounts !== null &&
-    (gridReviewTotal(gridReviewCounts) > 0 ||
-      deferredGeometryCounts.pending > 0)
+    (gridReviewCounts.correction ?? 0) > 0
   );
 }
 

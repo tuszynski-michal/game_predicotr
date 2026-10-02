@@ -1,13 +1,13 @@
 ---
 title: TASK-0646 — Gra 777: ścieżka execute reweryfikacji siatek
-status: todo
+status: blocked
 ---
 
 # TASK-0646 — Ścieżka `execute` (bez uruchomienia na żywych danych)
 
 ## Status
 
-`todo`
+`blocked` — zależy od przepisania TASK-0645 po osobnej decyzji. D-447 nie upoważnia do uzupełniania slotów historycznego 777 siecią.
 
 ## Goal
 
@@ -31,7 +31,7 @@ Zapisywać decyzje „pewne” z TASK-0645 wyłącznie przez istniejące serwisy
 ## Scope
 
 - Podkomenda `execute` wymagająca `--confirm-game-id` równego `--game-id`.
-- Plansze pewne: `ImageGridReviewService.approve_source` z podzbiorem pewnych plansz zdjęcia; oczekiwane tożsamości (rewizje, checksum, wymiary, topologia) z odczytu w tej samej iteracji.
+- Plansze pewne (uwaga: D-462/TASK-0727 usunął `approve_source`; zatwierdzenie siatki nie jest już warunkiem niczego, więc przy przepisaniu ten krok odpada): `ImageGridReviewService.approve_source` z podzbiorem pewnych plansz zdjęcia; oczekiwane tożsamości (rewizje, checksum, wymiary, topologia) z odczytu w tej samej iteracji.
 - Zdjęcia `resolvable`: `VirtualGridGeometryService.save_source` z komendami dla wszystkich slotów (odroczone → quad weryfikatora; rodzeństwo → bieżący `symbolGridQuad` zaokrąglony do int).
 - Aktor `system:grid-reverify-777-v1`; idempotencja `uuid5(NAMESPACE_URL, "grid-reverify-777-v1:{source_image_id}:{source_geometry_revision_id}")`.
 - Sesja i commit per zdjęcie jak w `services/api/src/game_predictor_api/main.py` (`default_image_grid_review_service_dependency`, `default_virtual_grid_geometry_service_dependency`), w `game_storage_scope(game_id)`.

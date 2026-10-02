@@ -1,13 +1,13 @@
 ---
 title: TASK-0652 — Sieć siatek v3: ocena shadow i kalibracja pewności
-status: todo
+status: blocked
 ---
 
 # TASK-0652 — Ocena shadow na zbiorze złotym
 
 ## Status
 
-`todo`
+`blocked` — plan zastąpiony przez `ai_docs/delivery/VISION_LAB_EXECUTION_PLAN.md` (D-447); ocena to TASK-0674/TASK-0678. Numer koliduje z ukończoną serią „Przybliżona wygrana”; identyfikuj plik pełną ścieżką.
 
 ## Goal
 

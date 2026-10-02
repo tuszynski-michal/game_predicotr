@@ -1,7 +1,7 @@
 ---
 title: Remote Reviewer threat model
 status: accepted
-last_updated: 2026-08-25
+last_updated: 2026-10-01
 ---
 
 # Model zagrożeń zdalnego Reviewera
@@ -42,6 +42,56 @@ Admina, PostgreSQL ani workera. Next.js przekazuje wyłącznie jawnie
 dozwolone odczyty kontekstu jednej sesji, operacyjne review, assety, korektę
 geometrii i decyzję planszy. Wszystkie pozostałe ścieżki zwracają `403`.
 
+Od TASK-0790 (D-467) korekta odroczonej planszy (`geometry-preview`,
+`manual-resolution`) ma tę samą trasę, metodę, allowlistę i autoryzację
+zakresu sesji (`authorize_scope`, aktor `reviewer-session:<id>`), ale API
+zapisuje wynik ścieżką wirtualną: renderuje komórki w pamięci z niezmiennego
+źródła i nie tworzy plików cropów. Koszt jednego żądania to dekodowanie
+jednego źródła i inferencja 15 komórek przypiętym modelem, jak dotąd.
+
+Od TASK-0796 (D-467 S6) to samo dotyczy korekty geometrii bieżącej planszy
+(`image-review-items/{id}/geometry-preview` i `.../geometry-revisions`):
+trasy, metody, allowlista proxy, kontrakt wejścia i autoryzacja sesji są bez
+zmian, ale API deleguje do `VirtualGridGeometryService` (render w pamięci,
+rewizja `virtual_source` z manifestem renderu, replay po `idempotencyKey`).
+Ścieżka zapisu plików cropów v19 nie istnieje, więc żądanie przez tunel nie
+może już utworzyć pliku pod artifact root. Koszt żądania to dekodowanie jednego
+źródła i render 15 komórek (bez inferencji modelu dla istniejącej planszy).
+Endpoint `.../assets/cells/{cellIndex}` pozostaje na allowliście dla zgodności
+kontraktu, ale dla planszy wirtualnej zawsze odpowiada
+`404 IMAGE_REVIEW_VIRTUAL_ASSET_UNAVAILABLE` (żaden plik nie jest czytany).
+Od TASK-0798 te same trasy przyjmują opcjonalną kwalifikację częściową i
+narożniki ze znakiem (bez nowych tras i bez zmian allowlisty). Ujemna
+współrzędna bez kwalifikacji `pending_partial` to `422` walidacji, a granice
+edycji względem zdjęcia (`require_manual_edit_bounds`) i maskę brakujących pól
+liczy domena geometrii wirtualnej, więc żądanie przez tunel nie poszerza
+obszaru renderu poza dotychczasowe granice korekty w Adminie.
+
+Od TASK-0797 (D-467) wyszukanie sesji Reviewera po tokenie i po
+identyfikatorze sesji działa na roli aplikacyjnej (RLS `game_data_v2`,
+tabela `reviewer_access_sessions` jest tabelą gry). Trasa, która nazywa grę
+(`/games/{id}/` w ścieżce albo parametr `gameId`/`game_id` tras `/admin/` i
+`/reviewer/`), wiąże tę grę dla całego żądania, zanim zależność sprawdzi
+token: token innej gry jest wtedy niewidoczny i kończy się
+`401 REVIEWER_TOKEN_INVALID` (wcześniej sesję znajdowano i odrzucano
+`403 REVIEWER_SCOPE_FORBIDDEN`; żadna odpowiedź nie zdradza, że sesja
+istnieje w innej grze). Trasy bez gry (`unlock`, `context/games`,
+`context/jobs`, revoke i heartbeat/close przydziałów) szukają gry sesji
+kolejno w każdej zarejestrowanej grze, w osobnej krótkiej transakcji
+związanej z tą grą (`GameEntityLocator`), a zapytanie zawiera jawny predykat
+gry. Odrzucone warianty: tabela indeksowa `token_hash → game_id` w `public`
+(kopia skrótów i mapowania poza RLS, którą trzeba utrzymywać spójną przy
+każdym unlock, revoke i blokadzie) oraz funkcja `SECURITY DEFINER` zwracająca
+grę dla skrótu (obiekt z uprawnieniami właściciela omijający RLS, wyrocznia
+„czy taki skrót istnieje” dla każdego, kto może ją wywołać). Wybrany wariant
+nie dodaje żadnego obiektu bazy ani uprzywilejowanej ścieżki; kosztem jest
+liczba zapytań proporcjonalna do liczby gier (dziś 3) na trasach bez gry.
+Porównanie skrótów w stałym czasie zostaje. Licznik błędnych kodów i blokada
+po 5 próbach dotyczą sesji niezależnie od podanej gry: z cudzym `gameId`
+sesja jest niewidoczna (`404 REVIEWER_SESSION_NOT_FOUND`) i kod w ogóle nie
+jest sprawdzany, więc cudza gra nie daje nielimitowanych prób (test
+`test_reviewer_session_application_role_postgres.py`).
+
 Zdalna ręczna selekcja współdzieli ten sam proces i tunel, ale nie tę samą
 powierzchnię uprawnień. `/manual-selection` używa wyłącznie `/selection-api`,
 osobnego cookie `gp_remote_selection_token` i stałej intencji proxy
@@ -61,6 +111,30 @@ przeglądarka łączy się bezpośrednio z Admin API na `127.0.0.1`; zdalny komp
 interpretuje taki adres jako własny loopback i nie uzyskuje dostępu do API
 właściciela. Publiczny host z parametrami trybu lokalnego pozostaje za bramką
 sesji i kodu.
+
+### Udostępniona wyszukiwarka plansz (D-471, D-472, D-475)
+
+Trzecia powierzchnia tego samego procesu i tunelu: `/board-search?share=<id>`
+z proxy `/board-search-api`. Jest wyłącznie do odczytu i obejmuje jedną grę
+wybraną przy tworzeniu linku w Adminie. Odbiorca ma własne cookie
+`gp_board_search_token` (`HttpOnly`, `Secure`, `SameSite=Strict`,
+`Path=/board-search-api`) i stałą intencję proxy `reviewer-board-search-v1`
+(nagłówek `X-Board-Search-Share-Proxy`). Zamknięta allowlista to: unlock
+kodem, kontekst, symbole, obraz symbolu z sumą, wyszukiwanie, przybliżona
+wygrana, szczegóły planszy i przycięty widok planszy — wyłącznie `GET` poza
+unlockiem, z dokładnymi parametrami. Brak poprawiania pól, odświeżania
+odczytu, pełnych zdjęć, tras Admina i odczytu dziennika zapytań. Cookie
+udostępnienia nie autoryzuje `/review-api` ani `/selection-api`, a ich cookie
+nie autoryzują `/board-search-api` (testy w obu kierunkach). API bierze grę
+wyłącznie z sesji; parametr gry w zapytaniu jest odrzucany.
+
+Każde wykonane zapytanie o dane (wyszukiwanie, zakres, szczegóły planszy)
+zostawia jeden wpis dziennika; żądanie odrzucone przy walidacji parametrów
+(`422`, bez odczytu danych) nie jest zapytaniem i nie jest zapisywane (czas, parametry, skrót wyniku, kod wyniku) bez adresu
+IP i nagłówków. Wpis jest zatwierdzany przed wysłaniem danych; jeżeli nie da
+się go zapisać, odbiorca dostaje `503` bez danych. Bramka kodu informuje o
+zapisie przed podaniem kodu. Dziennik czyta tylko właściciel w Adminie na
+loopbacku.
 
 ## Chronione zasoby i aktorzy
 
@@ -82,6 +156,8 @@ sesji i kodu.
 | wyciek bazy | kod i token występują tylko jako hash; kod zdalnej ręcznej selekcji może istnieć wyłącznie lokalnie w `localStorage` Admina do TTL albo revoke |
 | replay tokenu | token jest losowy, rotowany przy unlock, wygasa nie później niż sesja i jest natychmiast usuwany przy revoke |
 | dostęp do innej gry/importu | każdy review read/write porównuje scope tokenu z parametrami żądania |
+| token Reviewera użyty z inną grą (`gameId`, ścieżka) | od TASK-0797 gra żądania jest wiązana przed wyszukaniem tokenu; sesja innej gry jest niewidoczna (`401`), bez informacji o jej istnieniu |
+| dane innej gry przez błąd zapytania (brak predykatu `game_id`) | od TASK-0795 API i worker działają rolą `game_predictor_app` bez `SUPERUSER`/`BYPASSRLS`; wymuszone RLS `game_data_v2` ogranicza każde zapytanie do gry związanej w transakcji, a zapytanie bez związanej gry kończy się błędem (`GAME_STORAGE_SCOPE_REQUIRED` albo brak tabeli w `search_path`), nie danymi; rola nie ma DDL ani własności obiektów (`test_application_role_isolation_postgres.py`) |
 | dostęp administracyjny | publiczny proxy ma allowlistę; CRUD, eksporty, job mutations i wydania nie mają trasy |
 | spoofing aktora | backend zastępuje `resolvedBy/correctedBy` identyfikatorem sesji |
 | konflikt dwóch kart | istniejące UUID idempotencji i optimistic revision pozostają obowiązkowe |
@@ -193,6 +269,26 @@ lokalnego high-impact targetu, a heartbeat nie przyjmuje lease tokenu od
 przeglądarki. Legacy globalne endpointy ingressu nie są używane przez zwykły
 przepływ sekcji zatwierdzania.
 
+## Bramka bezpieczeństwa udostępnionej wyszukiwarki (TASK-0770)
+
+Lista kontrolna odbioru etapu B (dowody to testy w repozytorium):
+
+| Kontrola | Dowód |
+|---|---|
+| allowlista proxy równa publicznym trasom OpenAPI, trasy Admina niedostępne | `apps/reviewer/test/board-search-share-security-gate.test.mjs`, `board-search-share-proxy.test.mjs` |
+| izolacja celu sesji: gra tylko z sesji, token innej sesji czyta tylko swoją grę, parametr gry odrzucony | `services/api/tests/test_board_search_share_public_api.py` |
+| cookie i pochodzenie: atrybuty cookie, `Sec-Fetch-Site`/`Origin` dla unlock, rozdział cookie trzech powierzchni | `board-search-share-proxy.test.mjs`, `test-interactions/review-api-share-cookie.test.mjs` |
+| kod i token: PBKDF2, kod zwracany raz, rotacja tokenu, blokada po 5 błędach, unieważnienie i wygaśnięcie | `test_board_search_share_access.py`, integracja PostgreSQL |
+| limity: 120 JSON/min, 600 obrazów/min, 30 kalkulacji/min i jedna naraz, 5 aktywnych linków | `test_board_search_share_public_api.py` (wartości domyślne, 429 dla JSON, obrazów i zakresu, jedna kalkulacja naraz), `test_board_search_share_access*.py` |
+| redakcja odpowiedzi: brak identyfikatorów przeglądu, planszy, importu, rekordów pól, ścieżek i sekretów (API i drugi filtr w proxy); `gameId` i `rulesVersionId` w odpowiedziach zakresu i szczegółów są dozwolone (nie są sekretami) | rekurencyjne testy kluczy w API i proxy, test schematów OpenAPI |
+| stabilne błędy HTTP (`401/403/404/409/422/429/503`) | testy API tras publicznych i administracyjnych |
+| dziennik zapytań: jeden wpis na wykonane zapytanie z pełnym wzorem (także `?`), wpis błędu, fail-closed, brak IP i nagłówków, brak publicznego odczytu | testy API, integracja PostgreSQL, test bramki OpenAPI |
+| informacja dla odbiorcy o zapisie zapytań przed kodem | bramka kodu Reviewera (odbiór ręczny) |
+| lokalny build produkcyjny Reviewera: osobny CSP bez adresu API, trasy spoza allowlisty `403` | odbiór na `next start` (TASK-0770) |
+
+Poza bramką (wymaga osobnej zgody operatora): uruchomienie publicznego
+Quick Tunnel i test z drugiego urządzenia.
+
 ## Bramka bezpieczeństwa TASK-0289
 
 Formalna bramka ma osiem obowiązkowych kontroli: zamkniętą allowlistę zgodną z
@@ -226,6 +322,20 @@ grupie ani pozostawiać tunelu uruchomionego bez aktywnej sesji.
 4. Utwórz nową sesję i nowy link dopiero po ustaleniu przyczyny.
 5. Audyt `reviewer_access_audit_events` zachowuje utworzenie, błędne próby,
    unlock, blokadę i revoke bez sekretów.
+
+### Incydent z linkiem udostępnionej wyszukiwarki
+
+1. W Adminie w „Wyszukaj plansze” → „Udostępnij online” kliknij `Zatrzymaj`
+   przy linku (działa także bez działającego tunelu); odbiorca traci dostęp
+   przy następnym żądaniu.
+2. Jeżeli nie ma innych aktywnych udostępnień, zatrzymaj tunel
+   (`npm run reviewer:remote:stop`).
+3. Awaryjnie ustaw `GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED=false` dla API i
+   Reviewera i uruchom je ponownie: tworzenie, odblokowanie i dostęp są
+   wtedy wyłączone (lista i zatrzymanie linków działają).
+4. `board_search_share_audit_events` zachowuje utworzenie, błędne kody,
+   blokadę, odblokowania i zatrzymanie bez sekretów, a
+   `board_search_share_query_events` — co odbiorca oglądał.
 
 ## Zaakceptowany transport
 

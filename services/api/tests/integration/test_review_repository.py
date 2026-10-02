@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 from collections.abc import Iterator, Mapping, Sequence
+from contextlib import ExitStack
 from pathlib import Path
 from typing import Any, cast
 from uuid import uuid4
@@ -11,6 +12,7 @@ from uuid import uuid4
 import pytest
 from alembic import command
 from alembic.config import Config
+from game_predictor_api.application.catalog import CatalogService
 from game_predictor_api.application.reviews import ReviewService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
@@ -18,8 +20,10 @@ from game_predictor_api.domain.reviews import (
     ReviewItemStatus,
     ReviewResolutionAction,
 )
+from game_predictor_api.storage.catalog_repository import SqlAlchemyCatalogRepository
+from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.models import (
-    GameModel,
     ReviewBatchModel,
     ReviewFeedbackExportModel,
     ReviewItemModel,
@@ -31,7 +35,6 @@ from game_predictor_api.storage.review_repository import (
 )
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.engine import URL, make_url
-from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -45,7 +48,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
+    return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
@@ -77,7 +80,10 @@ def isolated_review_database() -> Iterator[URL]:
 
 
 def _report() -> tuple[dict[str, object], str]:
-    content = REPORT_PATH.read_bytes()
+    # The committed report is canonical LF JSON (git stores it as LF), but
+    # ``* text=auto`` with ``core.autocrlf=true`` checks it out with CRLF on
+    # Windows. Hash the committed bytes, not the checkout's line endings.
+    content = REPORT_PATH.read_bytes().replace(b"\r\n", b"\n")
     value: Any = json.loads(content)
     assert isinstance(value, dict)
     return value, hashlib.sha256(content).hexdigest()
@@ -92,14 +98,17 @@ def test_review_repository_persists_idempotent_immutable_batch(
     symbol_codes = tuple(str(value) for value in cast(Sequence[object], report["classes"]))
 
     try:
-        with Session(engine, expire_on_commit=False) as session:
-            game = GameModel(
+        with ExitStack() as stack:
+            # Review batches are game-owned (D-448, migration 0125): the game
+            # is provisioned by the catalog lifecycle and every transaction
+            # of the session is bound to its game_data_v2 store.
+            session = stack.enter_context(create_session_factory(engine)())
+            game = CatalogService(SqlAlchemyCatalogRepository(session)).create_game(
                 code="review-game",
                 name="Review game",
                 status=GameStatus.ACTIVE,
             )
-            session.add(game)
-            session.flush()
+            stack.enter_context(game_storage_scope(game.id))
             session.add_all(
                 [
                     SymbolModel(

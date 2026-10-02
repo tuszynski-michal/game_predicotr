@@ -1,0 +1,9 @@
+# Install CUDA wheels with constraints-vision-lab.txt first, then this file.
+fastapi==0.139.2
+uvicorn==0.51.0
+numpy==2.4.6
+opencv-python-headless==4.13.0.92
+Pillow==12.3.0
+onnx==1.22.0
+onnxruntime==1.28.0
+onnxscript==0.7.1

@@ -1,19 +1,16 @@
 import type {
+  SymbolCellReviewBulkExplicitTargetRequest,
+  SymbolCellReviewExtendedFilterOptions,
   SymbolCellReviewFilterState,
   SymbolCellReviewListItemResponse,
 } from '@game-predictor/admin-api-client';
 
 export const MAX_EXPLICIT_SYMBOL_REVIEW_SELECTION = 10_000;
 
-export interface SymbolReviewExplicitTarget {
-  readonly cellReviewId: string;
-  readonly expectedCropChecksumSha256: string;
-  readonly expectedCropSampleId: string;
-  readonly expectedGeometryRevision: number;
-  readonly expectedRevision: number;
-}
+export type SymbolReviewExplicitTarget =
+  Readonly<SymbolCellReviewBulkExplicitTargetRequest>;
 
-export interface SymbolReviewFilterSelectionSnapshot {
+export interface SymbolReviewFilterSelectionSnapshot extends SymbolCellReviewExtendedFilterOptions {
   readonly catalogRevision: number;
   readonly gameId: string;
   readonly matchedCount: number;

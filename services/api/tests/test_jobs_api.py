@@ -36,7 +36,6 @@ from game_predictor_worker.images.board_cell_geometry_contract import (
 )
 from game_predictor_worker.images.board_cell_geometry_crops import CROPPER_VERSION
 from game_predictor_worker.images.pipeline_contract import (
-    STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION,
     STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION,
 )
 from game_predictor_worker.semi_automatic_selection.range_only_ocr import (
@@ -488,42 +487,31 @@ def test_curated_image_import_job_preserves_selection_run_provenance(
     assert len(str(symbol_model["inferenceFingerprint"])) == 64
 
 
-def test_verified_v19_full_import_is_pinned_to_the_job(tmp_path: Path) -> None:
+def test_game_without_rollout_state_pins_the_virtual_default_policy(tmp_path: Path) -> None:
+    # D-467 (TASK-0790): the verified v19 (v20 file-crop) import path is gone; a
+    # game without an explicit policy imports with the virtual default.
     _client_value, game_id, service, _repository = _client(tmp_path)
     source = tmp_path / "curated"
     source.mkdir()
 
-    historical = service.create_image_import_job(
+    job = service.create_image_import_job(
         game_id=game_id,
         selection_id=uuid4(),
         source_directory=source,
-        source_display_name="historical",
+        source_display_name="default",
         pipeline_fingerprint="a" * 64,
-    )
-    pinned = service.create_image_import_job(
-        game_id=game_id,
-        selection_id=uuid4(),
-        source_directory=source,
-        source_display_name="v20",
-        pipeline_fingerprint="a" * 64,
-        use_verified_board_cell_geometry=True,
     )
 
-    assert "board_cell_processing" not in historical.input_payload
-    processing = pinned.input_payload["board_cell_processing"]
+    rollout = job.input_payload["image_geometry_rollout"]
+    assert isinstance(rollout, dict)
+    assert rollout["geometryMode"] == "structured_lattice_v3"
+    assert rollout["cellAssetMode"] == "virtual_default"
+    assert rollout["rolloutRevision"] == 0
+    assert rollout["geometryEngineVersion"] == STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION
+    processing = job.input_payload["board_cell_processing"]
     assert isinstance(processing, dict)
-    assert processing["activationVersion"] == "board-cell-processing-v20-verified-v19-v1"
-    assert processing["rolloutMode"] == "default_v19"
-    assert processing["gridRows"] == 3
-    assert processing["gridColumns"] == 5
     assert processing["topologyRulesVersionId"] == str(_repository.topology_rules_version_id)
-    assert "image_geometry_rollout" not in pinned.input_payload
-    assert (
-        pinned.input_payload["pipeline_fingerprint"]
-        != historical.input_payload["pipeline_fingerprint"]
-    )
-    response = JobResponse.from_domain(pinned).model_dump(mode="json", by_alias=True)
-    assert response["inputPayload"]["boardCellProcessing"] == processing
+    assert job.input_payload["pipeline_fingerprint"] != "a" * 64
 
 
 def test_new_browser_import_pins_systemic_geometry_guard_policy(tmp_path: Path) -> None:
@@ -544,7 +532,6 @@ def test_new_browser_import_pins_systemic_geometry_guard_policy(tmp_path: Path) 
             "relativePath": "data/page-geometry-manifests/test.json",
             "preflightJobId": str(uuid4()),
         },
-        use_verified_board_cell_geometry=True,
     )
 
     assert job.input_payload["schema_version"] == 7
@@ -705,53 +692,52 @@ def test_per_game_virtual_geometry_rollout_is_immutably_pinned_to_new_jobs(
     _client_value, game_id, service, repository = _client(tmp_path)
     source = tmp_path / "curated"
     source.mkdir()
-    historical = service.create_image_import_job(
-        game_id=game_id,
-        selection_id=uuid4(),
-        source_directory=source,
-        source_display_name="legacy",
-        pipeline_fingerprint="a" * 64,
-    )
+    for removed_geometry, removed_assets in (
+        ("legacy", "legacy_files"),
+        ("structured_shadow", "virtual_shadow"),
+    ):
+        repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
+            geometry_mode=removed_geometry,
+            cell_asset_mode=removed_assets,
+            revision=7,
+        )
+        with pytest.raises(JobError) as refused:
+            service.create_image_import_job(
+                game_id=game_id,
+                selection_id=uuid4(),
+                source_directory=source,
+                source_display_name="removed",
+                pipeline_fingerprint="a" * 64,
+            )
+        assert refused.value.code == "IMAGE_ENGINE_POLICY_UNSUPPORTED_STATE"
+
     repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
-        geometry_mode="structured_shadow",
-        cell_asset_mode="virtual_shadow",
+        geometry_mode="structured_default",
+        cell_asset_mode="virtual_default",
         revision=7,
     )
-
-    shadow = service.create_image_import_job(
+    structured_default = service.create_image_import_job(
         game_id=game_id,
         selection_id=uuid4(),
         source_directory=source,
-        source_display_name="shadow",
+        source_display_name="structured-default",
         pipeline_fingerprint="a" * 64,
     )
-
-    legacy_rollout = historical.input_payload["image_geometry_rollout"]
-    shadow_rollout = shadow.input_payload["image_geometry_rollout"]
-    assert isinstance(legacy_rollout, dict)
-    assert isinstance(shadow_rollout, dict)
-    assert legacy_rollout["geometryMode"] == "legacy"
-    assert legacy_rollout["geometryEngineVersion"] == (STRUCTURED_OPENCV_INDEPENDENT_BOARD_VERSION)
-    assert historical.input_payload["source_pipeline_fingerprint"] == "a" * 64
-    assert shadow_rollout["geometryMode"] == "structured_shadow"
-    assert shadow_rollout["cellAssetMode"] == "virtual_shadow"
-    assert shadow_rollout["rolloutRevision"] == 7
-    assert shadow_rollout["geometryEngineVersion"] == (STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION)
-    assert shadow_rollout["schemaVersion"] == "virtual-geometry-rollout-snapshot-v2"
-    candidate_geometry = shadow_rollout["candidateGeometry"]
-    assert isinstance(candidate_geometry, dict)
-    assert candidate_geometry["config"]["activationAllowed"] is False
-    assert candidate_geometry["config"]["maturity"] == "experimental_measurement_only"
-    assert candidate_geometry["config"]["configVersion"] == (
-        "structured-lattice-candidate-v3-config-v1"
-    )
-    assert "board_cell_processing" in shadow.input_payload
-    assert (
-        shadow.input_payload["pipeline_fingerprint"]
-        != historical.input_payload["pipeline_fingerprint"]
-    )
-    response = JobResponse.from_domain(shadow).model_dump(mode="json", by_alias=True)
-    assert response["inputPayload"]["imageGeometryRollout"] == shadow_rollout
+    default_rollout = structured_default.input_payload["image_geometry_rollout"]
+    assert isinstance(default_rollout, dict)
+    assert default_rollout["geometryMode"] == "structured_default"
+    assert default_rollout["cellAssetMode"] == "virtual_default"
+    assert default_rollout["rolloutRevision"] == 7
+    assert default_rollout["geometryEngineVersion"] == STRUCTURED_OPENCV_PINNED_PREFLIGHT_VERSION
+    assert "candidateGeometry" not in default_rollout
+    assert "activeLatticeGeometry" not in default_rollout
+    assert "board_cell_processing" in structured_default.input_payload
+    response = JobResponse.from_domain(structured_default).model_dump(mode="json", by_alias=True)
+    assert {
+        key: value
+        for key, value in response["inputPayload"]["imageGeometryRollout"].items()
+        if value is not None
+    } == default_rollout
 
     repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
         geometry_mode="structured_lattice_v3",
@@ -775,18 +761,21 @@ def test_per_game_virtual_geometry_rollout_is_immutably_pinned_to_new_jobs(
     assert activation["config"]["activationAllowed"] is True
     assert activation["config"]["maturity"] == "accepted_primary"
     assert len(activation["config"]["acceptanceReportChecksumSha256"]) == 64
+    assert (
+        active.input_payload["pipeline_fingerprint"]
+        != structured_default.input_payload["pipeline_fingerprint"]
+    )
 
 
-def test_verified_v20_import_requires_rules_and_supported_topology(tmp_path: Path) -> None:
+def test_virtual_import_requires_rules_and_supported_topology(tmp_path: Path) -> None:
     _client_value, game_id, service, repository = _client(tmp_path)
     source = tmp_path / "curated"
     source.mkdir()
     common = {
         "game_id": game_id,
         "source_directory": source,
-        "source_display_name": "v20",
+        "source_display_name": "virtual",
         "pipeline_fingerprint": "a" * 64,
-        "use_verified_board_cell_geometry": True,
     }
 
     repository.board_topology = None

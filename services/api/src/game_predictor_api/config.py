@@ -5,18 +5,24 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
 from pathlib import Path
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
 
 _LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+# TASK-0795: API and worker runtime connect as the application role
+# (NOSUPERUSER NOBYPASSRLS), so the game_data_v2 row-level security isolates
+# games. The owner role runs Alembic, maintenance scripts and the few explicit
+# DDL/maintenance paths (partition provisioning, VACUUM/ANALYZE).
 _DEFAULT_DATABASE_URL = (
-    "postgresql+psycopg://game_predictor:game_predictor_local@127.0.0.1:5432/game_predictor"
+    "postgresql+psycopg://game_predictor_app:game_predictor_app_local@127.0.0.1:5432/game_predictor"
 )
+# The local schema owner created by POSTGRES_USER in infra/docker/compose.yaml.
+_DEFAULT_OWNER_CREDENTIALS = "game_predictor:game_predictor_local"
 _DEFAULT_IMPORT_MAX_BYTES = 1024 * 1024 * 1024
 _DEFAULT_BROWSER_LAYOUT_IMPORT_MAX_BYTES = 20 * 1024 * 1024 * 1024
 _DEFAULT_IMAGE_SELECTION_MAX_BYTES = 128 * 1024 * 1024 * 1024
 _DEFAULT_REMOTE_SELECTION_MAX_FILE_BYTES = 32 * 1024 * 1024
 _DEFAULT_REMOTE_SELECTION_MAX_SESSION_BYTES = 20 * 1024 * 1024 * 1024
-_DEFAULT_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS = 5_000
+_DEFAULT_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS = 20_000
 _DEFAULT_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS = 15_000
 _DEFAULT_REVIEW_CROP_ROOT = Path("artifacts/m5-reviewed-manual-merge-v16-full-preflight")
 _DEFAULT_REVIEW_SOURCE_ROOT = Path("examples/imgs")
@@ -35,6 +41,10 @@ class ApiSettings:
     admin_origin: str
     reviewer_origin: str = "http://127.0.0.1:3001"
     database_url: str = field(default=_DEFAULT_DATABASE_URL, repr=False)
+    # None means "the same URL as database_url": a directly constructed
+    # settings object (tests) can never point its owner paths at another
+    # database than its runtime sessions.
+    configured_owner_database_url: str | None = field(default=None, repr=False)
     artifact_root: Path = field(default_factory=lambda: Path("artifacts").resolve())
     import_root: Path = field(default_factory=lambda: Path("imports").resolve())
     v7_label_geometry_runtime_root: Path = field(default_factory=lambda: Path(".runtime").resolve())
@@ -61,6 +71,7 @@ class ApiSettings:
     remote_selection_materialization_max_attempts: int = 5
     remote_selection_materialization_max_actions_per_cycle: int = 4
     remote_selection_recovery_enabled: bool = True
+    board_search_share_enabled: bool = True
     remote_selection_recovery_limit: int = 100
     symbol_review_page_statement_timeout_ms: int = _DEFAULT_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS
     symbol_review_counts_statement_timeout_ms: int = (
@@ -68,6 +79,20 @@ class ApiSettings:
     )
     application_name: str = "Game Predictor Admin API"
     version: str = "0.1.0"
+
+    def __post_init__(self) -> None:
+        if self.configured_owner_database_url is not None:
+            _require_same_database(self.database_url, self.configured_owner_database_url)
+
+    @property
+    def owner_database_url(self) -> str:
+        """URL of the role that owns the schema (Alembic, maintenance, DDL paths)."""
+
+        return self.configured_owner_database_url or self.database_url
+
+    @property
+    def uses_separate_owner_role(self) -> bool:
+        return _url_username(self.owner_database_url) != _url_username(self.database_url)
 
     @classmethod
     def from_environment(
@@ -91,6 +116,15 @@ class ApiSettings:
         )
         database_url = _parse_local_database_url(
             source.get("GAME_PREDICTOR_DATABASE_URL", _DEFAULT_DATABASE_URL)
+        )
+        # Without an explicit owner URL the owner is the default local owner
+        # on the runtime URL's database, so the two can never diverge.
+        owner_database_url = _parse_local_database_url(
+            source.get(
+                "GAME_PREDICTOR_OWNER_DATABASE_URL",
+                _with_credentials(database_url, _DEFAULT_OWNER_CREDENTIALS),
+            ),
+            variable_name="GAME_PREDICTOR_OWNER_DATABASE_URL",
         )
         artifact_root_value = source.get("GAME_PREDICTOR_ARTIFACT_ROOT", "artifacts").strip()
         if not artifact_root_value:
@@ -236,6 +270,12 @@ class ApiSettings:
             raise ConfigurationError(
                 "GAME_PREDICTOR_REMOTE_SELECTION_RECOVERY_LIMIT cannot exceed 1000."
             )
+        # D-471: a kill switch for online board-search sharing. Only "true"
+        # (case and surrounding spaces ignored) enables it; any other value
+        # disables it instead of failing startup.
+        board_search_share_enabled = _parse_boolean_fail_closed(
+            source.get("GAME_PREDICTOR_BOARD_SEARCH_SHARE_ENABLED", "true")
+        )
         symbol_review_page_statement_timeout_ms = _parse_positive_integer(
             source.get(
                 "GAME_PREDICTOR_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS",
@@ -256,6 +296,7 @@ class ApiSettings:
             admin_origin=admin_origin,
             reviewer_origin=reviewer_origin,
             database_url=database_url,
+            configured_owner_database_url=owner_database_url,
             artifact_root=artifact_root,
             import_root=import_root,
             v7_label_geometry_runtime_root=v7_runtime_root,
@@ -294,6 +335,7 @@ class ApiSettings:
                 remote_selection_materialization_max_actions_per_cycle
             ),
             remote_selection_recovery_enabled=remote_selection_recovery_enabled,
+            board_search_share_enabled=board_search_share_enabled,
             remote_selection_recovery_limit=remote_selection_recovery_limit,
             symbol_review_page_statement_timeout_ms=(symbol_review_page_statement_timeout_ms),
             symbol_review_counts_statement_timeout_ms=(symbol_review_counts_statement_timeout_ms),
@@ -328,6 +370,10 @@ def _parse_boolean(value: str, *, variable_name: str) -> bool:
     if candidate == "false":
         return False
     raise ConfigurationError(f"{variable_name} must be true or false.")
+
+
+def _parse_boolean_fail_closed(value: str) -> bool:
+    return value.strip().lower() == "true"
 
 
 def _parse_local_root(value: str, *, variable_name: str) -> Path:
@@ -368,37 +414,66 @@ def _parse_loopback_origin(
     return f"http://{hostname}{port_suffix}"
 
 
-def _parse_local_database_url(value: str) -> str:
+def _parse_local_database_url(
+    value: str, *, variable_name: str = "GAME_PREDICTOR_DATABASE_URL"
+) -> str:
     candidate = value.strip()
     parsed = urlsplit(candidate)
     if parsed.scheme != "postgresql+psycopg":
-        raise ConfigurationError(
-            "GAME_PREDICTOR_DATABASE_URL must use the postgresql+psycopg driver."
-        )
+        raise ConfigurationError(f"{variable_name} must use the postgresql+psycopg driver.")
     if parsed.hostname not in _LOOPBACK_HOSTS:
-        raise ConfigurationError("GAME_PREDICTOR_DATABASE_URL must use a loopback host.")
+        raise ConfigurationError(f"{variable_name} must use a loopback host.")
     if parsed.username is None or parsed.password is None:
-        raise ConfigurationError(
-            "GAME_PREDICTOR_DATABASE_URL must contain a username and password."
-        )
+        raise ConfigurationError(f"{variable_name} must contain a username and password.")
 
     database_name = parsed.path.removeprefix("/")
     if not database_name or "/" in database_name:
-        raise ConfigurationError(
-            "GAME_PREDICTOR_DATABASE_URL must contain exactly one database name."
-        )
+        raise ConfigurationError(f"{variable_name} must contain exactly one database name.")
     if parsed.query or parsed.fragment:
-        raise ConfigurationError("GAME_PREDICTOR_DATABASE_URL cannot contain a query or fragment.")
+        raise ConfigurationError(f"{variable_name} cannot contain a query or fragment.")
 
     try:
         database_port = parsed.port
     except ValueError as error:
-        raise ConfigurationError("GAME_PREDICTOR_DATABASE_URL contains an invalid port.") from error
+        raise ConfigurationError(f"{variable_name} contains an invalid port.") from error
 
     if database_port is None:
-        raise ConfigurationError("GAME_PREDICTOR_DATABASE_URL must contain an explicit port.")
+        raise ConfigurationError(f"{variable_name} must contain an explicit port.")
 
     return candidate
+
+
+def _with_credentials(value: str, credentials: str) -> str:
+    parsed = urlsplit(value)
+    host_and_port = parsed.netloc.rpartition("@")[2]
+    return urlunsplit(parsed._replace(netloc=f"{credentials}@{host_and_port}"))
+
+
+def _url_username(value: str) -> str | None:
+    return urlsplit(value).username
+
+
+def _database_target(value: str) -> tuple[str | None, int | None, str]:
+    parsed = urlsplit(value)
+    try:
+        port = parsed.port
+    except ValueError:
+        port = None
+    host = parsed.hostname
+    # Both spellings of the IPv4 loopback reach the same local server.
+    if host == "localhost":
+        host = "127.0.0.1"
+    return host, port, parsed.path.removeprefix("/")
+
+
+def _require_same_database(application_url: str, owner_url: str) -> None:
+    """Keep runtime and owner connections on one database (TASK-0795)."""
+
+    if _database_target(application_url) != _database_target(owner_url):
+        raise ConfigurationError(
+            "GAME_PREDICTOR_OWNER_DATABASE_URL must target the same host, port and "
+            "database as GAME_PREDICTOR_DATABASE_URL."
+        )
 
 
 @lru_cache(maxsize=1)

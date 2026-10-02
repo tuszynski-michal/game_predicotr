@@ -72,7 +72,7 @@ class VirtualCellPreviewTarget:
 
 @dataclass(frozen=True, slots=True)
 class SymbolCellPreviewTarget:
-    """One current cell identity for a shared legacy/virtual preview atlas."""
+    """One current cell identity for a shared virtual preview atlas."""
 
     cell_review_id: UUID
     expected_revision: int
@@ -298,25 +298,20 @@ class VirtualCellPreviewService:
         atlas = Image.new("RGB", (columns * preview_size, rows * preview_size), color=(0, 0, 0))
         try:
             for index, asset in enumerate(assets):
-                if asset.asset_mode == "virtual_source":
-                    frame = frames.get(asset.source_checksum_sha256 or "")
-                    if frame is None:
-                        source_path = _managed_virtual_source_path(self._artifact_root, asset)
-                        frame = loader.load(
-                            source_path,
-                            expected_source_checksum_sha256=_required(asset.source_checksum_sha256),
-                        )
-                        frames[_required(asset.source_checksum_sha256)] = frame
-                    preview = _render_virtual_preview(
-                        asset=asset,
-                        frame=frame,
-                        preview_size=preview_size,
+                # D-467 S6 (TASK-0796): every asset is a virtual render.
+                frame = frames.get(asset.source_checksum_sha256 or "")
+                if frame is None:
+                    source_path = _managed_virtual_source_path(self._artifact_root, asset)
+                    frame = loader.load(
+                        source_path,
+                        expected_source_checksum_sha256=_required(asset.source_checksum_sha256),
                     )
-                else:
-                    preview = self._render_legacy_preview(
-                        asset=asset,
-                        preview_size=preview_size,
-                    )
+                    frames[_required(asset.source_checksum_sha256)] = frame
+                preview = _render_virtual_preview(
+                    asset=asset,
+                    frame=frame,
+                    preview_size=preview_size,
+                )
                 x = (index % columns) * preview_size
                 y = (index // columns) * preview_size
                 atlas.paste(preview, (x, y))
@@ -354,60 +349,6 @@ class VirtualCellPreviewService:
             ),
             content=content,
         )
-
-    def _render_legacy_preview(
-        self,
-        *,
-        asset: SymbolCellReviewAsset,
-        preview_size: int,
-    ) -> Image.Image:
-        relative_value = _required(asset.crop_relative_path)
-        relative = Path(relative_value.replace("/", os.sep))
-        if relative.is_absolute() or any(part in {"", ".", ".."} for part in relative.parts):
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_ASSET_INVALID",
-                "The symbol-cell crop path is unsafe.",
-            )
-        data_root = (self._artifact_root / "data").resolve()
-        candidates = [(self._artifact_root / relative).resolve()]
-        if relative.parts[0] != "data":
-            candidates.append((data_root / relative).resolve())
-        path = next(
-            (
-                candidate
-                for candidate in candidates
-                if candidate.is_relative_to(data_root)
-                and candidate.is_file()
-                and not candidate.is_symlink()
-            ),
-            None,
-        )
-        if path is None:
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_ASSET_NOT_FOUND",
-                "The current symbol-cell crop is unavailable.",
-            )
-        content = path.read_bytes()
-        if hashlib.sha256(content).hexdigest() != asset.crop_checksum_sha256:
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_ASSET_CHECKSUM_MISMATCH",
-                "The current symbol-cell crop bytes do not match their checksum.",
-            )
-        try:
-            with Image.open(BytesIO(content)) as source:
-                image = source.convert("RGB")
-                # Atlas tiles have a fixed square viewport.  Resizing the current crop
-                # directly keeps the complete symbol visible while avoiding the black
-                # letterbox that the legacy ``thumbnail`` canvas added around it.
-                return image.resize(
-                    (preview_size, preview_size),
-                    Image.Resampling.LANCZOS,
-                )
-        except OSError as error:
-            raise SymbolCellReviewError(
-                "SYMBOL_CELL_REVIEW_ASSET_INVALID",
-                "The current symbol-cell crop cannot be rendered as a thumbnail.",
-            ) from error
 
     def _read_cached(
         self,

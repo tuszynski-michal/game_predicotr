@@ -7,6 +7,8 @@ from uuid import UUID
 
 import pytest
 from game_predictor_api.domain.board_search import (
+    BoardSearchCellDecision,
+    BoardSearchCellEvidence,
     BoardSearchError,
     BoardSearchQueryCell,
     BoardSearchScope,
@@ -16,15 +18,15 @@ from game_predictor_api.domain.jobs import JobStatus
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
     _candidate_values,
+    _cell_decision,
+    _current_cell_decisions,
     _payload_from_records,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardSearchProjectionStateModel,
     ImageReviewItemModel,
     JobModel,
-    LegacyBoardSearchArchiveStateModel,
     RecognizedBoardModel,
     SourceImageModel,
 )
@@ -56,12 +58,14 @@ def _records(
         sequence_number=1,
         sequence_confidence=1.0,
         board_geometry={},
-        board_relative_path="boards/1.jpg",
-        board_checksum_sha256="b" * 64,
         cells_prediction={},
         board_confidence=0.9,
         pipeline_fingerprint="c" * 64,
-        asset_mode="legacy_file",
+        # D-467 S6 (TASK-0796): every board is ``virtual_source``.
+        asset_mode="virtual_source",
+        board_relative_path=None,
+        board_checksum_sha256=None,
+        geometry_checksum_sha256="d" * 64,
         status="pending_review",
     )
     item = ImageReviewItemModel(
@@ -77,22 +81,31 @@ def _records(
     return item, board, source, job
 
 
+def _import_predictions(
+    board: RecognizedBoardModel, predictions: dict[int, dict[str, object]]
+) -> None:
+    """D-467: import predictions live in ``cells_prediction`` (one per cell)."""
+
+    board.cells_prediction = {
+        "cells": [
+            {"rowIndex": index // 5, "columnIndex": index % 5, **prediction}
+            for index, prediction in sorted(predictions.items())
+        ],
+        "modelVersion": "test-model",
+    }
+
+
 def test_pending_projection_uses_latest_prediction_shape_and_order() -> None:
     item, board, source, job = _records(status="pending")
-    observations = tuple(
-        CellObservationModel(
-            recognized_board_id=board.id,
-            row_index=index // 5,
-            column_index=index % 5,
-            crop_relative_path=f"cells/{index}.jpg",
-            crop_checksum_sha256=f"{index:064x}",
-            cropper_version="v19",
-            prediction={
+    _import_predictions(
+        board,
+        {
+            index: {
                 "symbolCode": "lemon" if index else "seven",
                 "alternatives": [{"symbolCode": "bell"}],
-            },
-        )
-        for index in range(15)
+            }
+            for index in range(15)
+        },
     )
 
     payload = _payload_from_records(
@@ -100,7 +113,6 @@ def test_pending_projection_uses_latest_prediction_shape_and_order() -> None:
         board=board,
         source=source,
         job=job,
-        observations=observations,
         prediction_override=None,
     )
 
@@ -112,6 +124,41 @@ def test_pending_projection_uses_latest_prediction_shape_and_order() -> None:
     values = _candidate_values(payload, {"seven": 1, "lemon": 2, "bell": 3})
     assert cast(list[int | None], values["primary_symbol_mobile_codes"])[:2] == [1, 2]
     assert cast(list[int | None], values["alternative_rank_1_mobile_codes"])[:2] == [3, 3]
+
+
+def test_pending_projection_overlays_current_cell_decisions() -> None:
+    item, board, source, job = _records(status="pending")
+    _import_predictions(
+        board,
+        {
+            index: {"symbolCode": "seven", "alternatives": [{"symbolCode": "bell"}]}
+            for index in range(15)
+        },
+    )
+
+    payload = _payload_from_records(
+        item=item,
+        board=board,
+        source=source,
+        job=job,
+        prediction_override=None,
+        cell_decisions=(
+            BoardSearchCellDecision(
+                cell_index=0,
+                evidence=BoardSearchCellEvidence.VERIFIED,
+                symbol_code="lemon",
+            ),
+            BoardSearchCellDecision(cell_index=1, evidence=BoardSearchCellEvidence.WITHHELD),
+        ),
+    )
+
+    assert payload is not None
+    assert payload.candidate.status == "pending"
+    assert payload.candidate.primary_symbol_codes[:3] == ("lemon", None, "seven")
+    assert payload.candidate.alternative_symbol_codes[:3] == ((), (), ("bell",))
+    assert "1" not in payload.known_evidence_positions
+    values = _candidate_values(payload, {"seven": 1, "lemon": 2, "bell": 3})
+    assert cast(list[int | None], values["primary_symbol_mobile_codes"])[:3] == [2, None, 1]
 
 
 def test_resolved_projection_uses_human_symbols_and_discards_predictions() -> None:
@@ -126,7 +173,6 @@ def test_resolved_projection_uses_human_symbols_and_discards_predictions() -> No
         board=board,
         source=source,
         job=job,
-        observations=(),
         prediction_override=({"symbolCode": "wrong", "alternatives": [{"symbolCode": "seven"}]},)
         * 15,
     )
@@ -150,7 +196,6 @@ def test_resolved_projection_preserves_unknown_as_missing_evidence() -> None:
         board=board,
         source=source,
         job=job,
-        observations=(),
         prediction_override=None,
     )
 
@@ -169,7 +214,6 @@ def test_incomplete_pending_predictions_do_not_create_search_evidence() -> None:
         board=board,
         source=source,
         job=job,
-        observations=(),
         prediction_override=(),
     )
 
@@ -179,27 +223,26 @@ def test_incomplete_pending_predictions_do_not_create_search_evidence() -> None:
 @pytest.mark.parametrize("missing", [(0, 5, 10), tuple(range(15))])
 def test_qualified_pending_projection_preserves_every_logical_position(missing) -> None:
     item, board, source, job = _records(status="pending")
+    _as_virtual(board)
     board.geometry_revision = 0
     board.geometry_qualification = GeometryQualification(
         "pending_partial", missing, True, "missing_pixels"
     ).to_dict()
     board.completeness_status = "pending_partial"
     board.unavailable_cell_indices = list(missing)
-    observations = [
-        CellObservationModel(
-            row_index=index // 5,
-            column_index=index % 5,
-            prediction={"symbolCode": f"symbol-{index}", "alternatives": []},
-        )
-        for index in range(15)
-        if index not in missing
-    ]
+    _import_predictions(
+        board,
+        {
+            index: {"symbolCode": f"symbol-{index}", "alternatives": []}
+            for index in range(15)
+            if index not in missing
+        },
+    )
     payload = _payload_from_records(
         item=item,
         board=board,
         source=source,
         job=job,
-        observations=observations,
         prediction_override=None,
     )
     assert payload is not None
@@ -207,6 +250,90 @@ def test_qualified_pending_projection_preserves_every_logical_position(missing) 
         None if i in missing else f"symbol-{i}" for i in range(15)
     )
     assert all(payload.candidate.alternative_symbol_codes[i] == () for i in missing)
+
+
+def _as_virtual(board: RecognizedBoardModel) -> None:
+    board.asset_mode = "virtual_source"
+    board.board_relative_path = None
+    board.board_checksum_sha256 = None
+    board.geometry_checksum_sha256 = "d" * 64
+
+
+def _partial_board(missing: tuple[int, ...], *, geometry_revision: int):
+    item, board, source, job = _records(status="pending")
+    board.geometry_revision = geometry_revision
+    board.geometry_qualification = GeometryQualification(
+        "pending_partial", missing, True, "missing_pixels"
+    ).to_dict()
+    board.completeness_status = "pending_partial"
+    board.unavailable_cell_indices = list(missing)
+    return item, board, source, job
+
+
+def test_qualified_projection_ignores_observations_of_masked_positions() -> None:
+    """TASK-0730: the worker observes all 15 positions before masking some."""
+
+    missing = (4, 9, 14)
+    item, board, source, job = _partial_board(missing, geometry_revision=0)
+    _as_virtual(board)
+    predictions: dict[int, dict[str, object]] = {
+        index: {
+            "symbolCode": f"symbol-{index}",
+            "alternatives": [{"symbolCode": "other", "confidence": 0.1}],
+        }
+        for index in range(15)
+    }
+    _import_predictions(board, predictions)
+
+    payload = _payload_from_records(
+        item=item,
+        board=board,
+        source=source,
+        job=job,
+        prediction_override=None,
+    )
+
+    assert payload is not None
+    # A board cut on the right keeps its visible left reels as evidence.
+    assert payload.candidate.primary_symbol_codes == tuple(
+        None if i in missing else f"symbol-{i}" for i in range(15)
+    )
+    assert all(payload.candidate.alternative_symbol_codes[i] == () for i in missing)
+    assert payload.candidate.alternative_symbol_codes[0] == ("other",)
+    # A visible position without an import prediction still fails closed.
+    del predictions[0]
+    _import_predictions(board, predictions)
+    assert (
+        _payload_from_records(
+            item=item,
+            board=board,
+            source=source,
+            job=job,
+            prediction_override=None,
+        )
+        is None
+    )
+
+
+def test_board_identity_is_the_source_geometry_checksum() -> None:
+    """D-467 S6: a virtual board is identified by its source geometry."""
+
+    item, board, source, job = _records(status="pending")
+    _import_predictions(
+        board, {index: {"symbolCode": "seven", "alternatives": []} for index in range(15)}
+    )
+    payload = _payload_from_records(
+        item=item, board=board, source=source, job=job, prediction_override=None
+    )
+    assert payload is not None
+    assert payload.board_checksum_sha256 == "d" * 64
+    board.geometry_checksum_sha256 = None
+    assert (
+        _payload_from_records(
+            item=item, board=board, source=source, job=job, prediction_override=None
+        )
+        is None
+    )
 
 
 def test_qualified_revised_projection_never_reuses_original_pixel_predictions() -> None:
@@ -241,7 +368,6 @@ def test_qualified_revised_projection_never_reuses_original_pixel_predictions() 
         board=board,
         source=source,
         job=job,
-        observations=(),
         prediction_override=predictions,
         geometry_revision=revision,
     )
@@ -262,17 +388,15 @@ def test_rebuild_writes_fast_documents_directly_from_candidates() -> None:
     assert "image_board_search_documents" not in sql
 
 
-def _search_session(*, archive_status: str | None) -> MagicMock:
+def _search_session(*, projection_status: str = "ready") -> MagicMock:
     session = MagicMock()
 
     def get(model: object, _identity: object) -> object | None:
         if model is GameModel:
             return object()
-        if model is LegacyBoardSearchArchiveStateModel:
-            return None if archive_status is None else SimpleNamespace(status=archive_status)
         if model is ImageBoardSearchProjectionStateModel:
             return SimpleNamespace(
-                status="ready",
+                status=projection_status,
                 candidate_count=1,
                 document_count=1,
                 skipped_review_item_count=0,
@@ -290,29 +414,8 @@ def _search_session(*, archive_status: str | None) -> MagicMock:
     return session
 
 
-def test_ready_archive_search_does_not_join_operational_review_tables() -> None:
-    session = _search_session(archive_status="ready")
-    repository = SqlAlchemyBoardSearchProjectionRepository(session)
-
-    assert (
-        repository.search(
-            game_id=UUID(int=2),
-            query=(BoardSearchQueryCell(0, "cherry"),),
-            scope=BoardSearchScope.ALL_SEARCHABLE,
-            limit=10,
-        )
-        == ()
-    )
-
-    sql = str(session.execute.call_args_list[1].args[0].compile(dialect=postgresql.dialect()))
-    assert "legacy_board_search_archive_documents" in sql
-    assert "image_board_search_fast_documents" not in sql
-    assert "image_review_items" not in sql
-    assert "recognized_boards" not in sql
-
-
-def test_missing_archive_preserves_operational_fast_document_search() -> None:
-    session = _search_session(archive_status=None)
+def test_search_reads_only_the_operational_fast_documents() -> None:
+    session = _search_session()
     repository = SqlAlchemyBoardSearchProjectionRepository(session)
 
     assert (
@@ -327,11 +430,11 @@ def test_missing_archive_preserves_operational_fast_document_search() -> None:
 
     sql = str(session.execute.call_args_list[1].args[0].compile(dialect=postgresql.dialect()))
     assert "image_board_search_fast_documents" in sql
-    assert "legacy_board_search_archive_documents" not in sql
+    assert "archive" not in sql
 
 
-def test_partial_archive_fails_closed_instead_of_falling_back() -> None:
-    session = _search_session(archive_status="building")
+def test_unready_projection_fails_closed() -> None:
+    session = _search_session(projection_status="building")
     repository = SqlAlchemyBoardSearchProjectionRepository(session)
 
     with pytest.raises(BoardSearchError) as error:
@@ -341,5 +444,120 @@ def test_partial_archive_fails_closed_instead_of_falling_back() -> None:
             scope=BoardSearchScope.ALL_SEARCHABLE,
             limit=10,
         )
-    assert error.value.code == "BOARD_SEARCH_ARCHIVE_INCOMPLETE"
+    assert error.value.code == "BOARD_SEARCH_PROJECTION_INCOMPLETE"
+    session.execute.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    ("state", "expected"),
+    [
+        # A verified cell is exact evidence, including a logical `?`.
+        (dict(review_state="approved", symbol_code="lemon"), ("verified", "lemon")),
+        (
+            dict(review_state="approved", quality_issue="blurry", symbol_code="bell"),
+            ("verified", "bell"),
+        ),
+        (dict(review_state="approved", quality_issue="unreadable"), ("verified", None)),
+        # R10: an approval of other pixels than the current ones is no evidence.
+        (dict(review_state="approved", symbol_code="lemon", approval_pixels_changed=True), None),
+        # Reported pending problems withhold the model suggestion.
+        (dict(quality_issue="grid_issue"), ("withheld", None)),
+        (dict(quality_issue="unreadable"), ("withheld", None)),
+        (dict(quality_issue="partial_visibility"), ("withheld", None)),
+        (dict(quality_issue="blurry"), None),
+        (dict(), None),
+        # Without source pixels only an approved logical `outside` is evidence.
+        (
+            dict(
+                review_state="approved",
+                symbol_code="seven",
+                has_source_pixels=False,
+                is_outside=True,
+            ),
+            ("verified", "seven"),
+        ),
+        (dict(has_source_pixels=False, is_outside=True), ("withheld", None)),
+        (
+            dict(
+                review_state="approved",
+                symbol_code="seven",
+                has_source_pixels=False,
+                is_outside=True,
+                approval_pixels_changed=True,
+            ),
+            ("withheld", None),
+        ),
+        (
+            dict(review_state="approved", symbol_code="seven", has_source_pixels=False),
+            ("withheld", None),
+        ),
+    ],
+)
+def test_cell_decision_classifies_current_rows_for_pending_search(
+    state: dict[str, object], expected: tuple[str, str | None] | None
+) -> None:
+    arguments: dict[str, object] = {
+        "cell_index": 4,
+        "review_state": "pending",
+        "quality_issue": None,
+        "has_source_pixels": True,
+        "is_outside": False,
+        "approval_pixels_changed": False,
+        "symbol_code": None,
+    }
+    arguments.update(state)
+
+    decision = _cell_decision(**arguments)  # type: ignore[arg-type]
+
+    if expected is None:
+        assert decision is None
+    else:
+        assert decision is not None
+        assert decision.cell_index == 4
+        assert (decision.evidence.value, decision.symbol_code) == expected
+
+
+def test_current_cell_decisions_ignore_foreign_boards_and_stale_revisions() -> None:
+    item, board, source, job = _records(status="pending")
+    board.geometry_revision = 2
+    other_board = UUID(int=99)
+
+    def row(cell_index: int, recognized_board_id: UUID, geometry_revision: int) -> tuple:
+        return (
+            item.id,
+            recognized_board_id,
+            cell_index,
+            "approved",
+            None,
+            True,
+            "full",
+            geometry_revision,
+            "virtual_source",
+            "c" * 64,
+            "c" * 64,
+            None,
+            None,
+            "lemon",
+        )
+
+    session = MagicMock()
+    session.execute.return_value.tuples.return_value = [
+        row(0, board.id, 2),
+        row(1, other_board, 2),
+        row(2, board.id, 1),
+    ]
+
+    decisions = _current_cell_decisions(session, ((item, board, source, job),))
+
+    assert [decision.cell_index for decision in decisions[item.id]] == [0]
+
+
+def test_current_cell_decisions_skip_resolved_items_without_querying() -> None:
+    item, board, source, job = _records(
+        status="corrected",
+        resolved_value={"sequenceNumber": 1, "symbolCodes": ["seven"] * 15},
+    )
+    session = MagicMock()
+
+    assert _current_cell_decisions(session, ((item, board, source, job),)) == {}
     session.execute.assert_not_called()

@@ -83,6 +83,7 @@ test('exposes only unlock, scoped context and operational review routes', () => 
     ['GET', 'correction-context'],
     ['GET', 'source'],
     ['POST', 'geometry-preview'],
+    ['POST', 'geometry-symbol-preview'],
     ['POST', 'manual-resolution'],
   ]) {
     const path =

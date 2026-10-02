@@ -206,7 +206,7 @@ class SqlAlchemyWorkerJobStore:
             _record_browser_staging_board_status(session, updated, updated_at=completed_at)
             _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
-            SqlAlchemyBoardSearchProjectionRepository(session).reconcile_import_job(job_id)
+            _reconcile_board_search(session, updated)
             return updated
 
     def fail(
@@ -240,7 +240,7 @@ class SqlAlchemyWorkerJobStore:
             _record_browser_staging_board_status(session, updated, updated_at=failed_at)
             _synchronize_bulk_operation_terminal_state(session, updated)
             session.flush()
-            SqlAlchemyBoardSearchProjectionRepository(session).reconcile_import_job(job_id)
+            _reconcile_board_search(session, updated)
             return updated
 
     def pause_for_review(
@@ -269,10 +269,11 @@ class SqlAlchemyWorkerJobStore:
             apply_job_to_record(record, updated)
             _record_browser_staging_board_status(session, updated, updated_at=paused_at)
             session.flush()
-            projection = SqlAlchemyBoardSearchProjectionRepository(session)
-            projection.reconcile_import_job(job_id)
+            _reconcile_board_search(session, updated)
             if updated.status is JobStatus.WAITING_FOR_REVIEW and updated.game_id is not None:
-                projection.mark_live_projection_ready(updated.game_id)
+                SqlAlchemyBoardSearchProjectionRepository(session).mark_live_projection_ready(
+                    updated.game_id
+                )
             return updated
 
     def defer_for_storage(
@@ -352,6 +353,20 @@ def _locked_job(session: Session, job_id: UUID) -> JobModel:
 def _validate_lease_duration(lease_duration: timedelta) -> None:
     if lease_duration <= timedelta(0):
         raise ValueError("lease_duration must be positive.")
+
+
+def _reconcile_board_search(session: Session, job: Job) -> None:
+    """Refresh the board-search documents of the job's game once it settles.
+
+    Board-search candidates live in the per-game store, so the session is bound
+    to that game first; a job without a game (storage inventory, pipeline
+    compaction) has no candidates and nothing to refresh.
+    """
+
+    if job.game_id is None:
+        return
+    GameStorageRouter().bind(session, job.game_id, intent=GameStorageIntent.WRITE)
+    SqlAlchemyBoardSearchProjectionRepository(session).reconcile_import_job(job.id)
 
 
 def _record_browser_staging_board_status(

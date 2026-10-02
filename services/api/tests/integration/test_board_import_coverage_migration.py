@@ -3,6 +3,14 @@
 Guards the two failure modes found on the dev database: the canonical
 ``pg_get_indexdef`` predicate must be recognised as our own index on retry,
 and the partitioned ``game_data_v2`` parents must not use CONCURRENTLY.
+
+The migration's own behaviour is exercised on the reversible range
+``0121`` <-> ``0122``: later migrations are deliberately irreversible
+(``0125`` drops the public game store per D-448, ``0133``-``0136`` refuse a
+downgrade per D-467), so a ``head`` -> ``0121`` cycle no longer exists. The
+``head`` state is asserted separately: only the ``game_data_v2`` indexes
+remain, because ``0125`` dropped ``public.image_review_items`` and
+``public.recognized_boards`` together with their indexes.
 """
 
 from __future__ import annotations
@@ -25,6 +33,7 @@ pytestmark = pytest.mark.skipif(
 )
 
 PREVIOUS = "0121_partial_visibility_quality_issue"
+MIGRATION = "0122_board_import_coverage_indexes"
 PENDING_PARTIAL = "((completeness_status)::text = 'pending_partial'::text)"
 EXPECTED = {
     ("public", "ix_image_review_items_game_sequence_status"): (
@@ -53,7 +62,7 @@ def _quote(name: str) -> str:
 @pytest.fixture(scope="module")
 def migrated() -> Iterator[tuple[Engine, Config]]:
     name = "game_predictor_task0629_mig_" + uuid4().hex[:12]
-    url = make_url(ApiSettings.from_environment().database_url)
+    url = make_url(ApiSettings.from_environment().owner_database_url)
     maintenance = create_engine(
         url.set(database="postgres"),
         isolation_level="AUTOCOMMIT",
@@ -73,7 +82,7 @@ def migrated() -> Iterator[tuple[Engine, Config]]:
             "sqlalchemy.url",
             url.set(database=name).render_as_string(hide_password=False).replace("%", "%%"),
         )
-        command.upgrade(config, "head")
+        command.upgrade(config, MIGRATION)
         yield engine, config
     finally:
         engine.dispose()
@@ -114,7 +123,7 @@ def test_downgrade_removes_indexes_and_upgrade_restores_them(
     engine, config = migrated
     command.downgrade(config, PREVIOUS)
     assert _indexes(engine) == {}
-    command.upgrade(config, "head")
+    command.upgrade(config, MIGRATION)
     _assert_all_present(engine)
 
 
@@ -137,7 +146,7 @@ def test_retry_after_partial_run_reuses_committed_public_indexes(
                 "ON public.recognized_boards (id) WHERE completeness_status = 'pending_partial'"
             )
         )
-    command.upgrade(config, "head")
+    command.upgrade(config, MIGRATION)
     _assert_all_present(engine)
 
 
@@ -155,11 +164,20 @@ def test_foreign_index_with_same_name_is_a_conflict(migrated: tuple[Engine, Conf
             RuntimeError,
             match="BOARD_IMPORT_COVERAGE_INDEX_NAME_CONFLICT: ix_recognized_boards_pending_partial",
         ):
-            command.upgrade(config, "head")
+            command.upgrade(config, MIGRATION)
     finally:
         with engine.connect() as connection:
             connection.execute(
                 text("DROP INDEX IF EXISTS public.ix_recognized_boards_pending_partial")
             )
-        command.upgrade(config, "head")
+        command.upgrade(config, MIGRATION)
     _assert_all_present(engine)
+
+
+def test_head_keeps_only_the_game_data_v2_indexes(migrated: tuple[Engine, Config]) -> None:
+    # Runs last: it moves the shared database past the irreversible 0125/0133-0136.
+    engine, config = migrated
+    command.upgrade(config, "head")
+    assert _indexes(engine) == {
+        key: (definition, True) for key, definition in EXPECTED.items() if key[0] == "game_data_v2"
+    }

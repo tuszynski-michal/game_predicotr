@@ -43,6 +43,9 @@ last_updated: 2026-08-12
 | Panel przygotowania Android release | `requirements/ADMIN_APP.md`, `architecture/API_CONTRACT.md` | M3 |
 | Ręczne dostarczenie danych | `delivery/ROADMAP.md` | M4 |
 | Zdjęcia z telefonu i perspektywa | `requirements/IMAGE_INGESTION.md` | M5 |
+| Laboratorium geometrii 5 × 3 i 3 × 3 | `requirements/VISION_LAB.md`, `architecture/VISION_LAB.md`, D-447 | TASK-0665–0675 |
+| Zatwierdzenie `lab_human_approved` i tożsamość cropa | `requirements/VISION_LAB.md`, `requirements/SUPERVISED_MODEL_IMPROVEMENT.md`, D-447 | TASK-0665, TASK-0671, TASK-0677 |
+| Integracja kandydata review/shadow tylko 5 × 3 | `requirements/VISION_LAB.md`, `delivery/VISION_LAB_EXECUTION_PLAN.md`, D-261 | TASK-0676–0678 |
 | 9 layoutów na zdjęciu | `requirements/IMAGE_INGESTION.md` | M5 |
 | OCR numeru pod layoutem | `requirements/IMAGE_INGESTION.md` | M5 |
 | Około 100 próbek na symbol | `requirements/IMAGE_INGESTION.md` | M6 |
@@ -87,7 +90,8 @@ last_updated: 2026-08-12
 - wersja 0.3: `delivery/VERSION_0_3_EXECUTION_PLAN.md`,
 - wersja 0.4: `delivery/VERSION_0_4_EXECUTION_PLAN.md`,
 - wersja 0.5: `delivery/VERSION_0_5_EXECUTION_PLAN.md`,
-- wersja 0.6: `delivery/VERSION_0_6_EXECUTION_PLAN.md`.
+- wersja 0.6: `delivery/VERSION_0_6_EXECUTION_PLAN.md`,
+- laboratorium wizji: `delivery/VISION_LAB_EXECUTION_PLAN.md`.
 
 Plany wykonawcze mapują wymagania na kolejność podetapów, zadania i bramki, ale
 nie zastępują dokumentów źródła prawdy wskazanych w tabeli.

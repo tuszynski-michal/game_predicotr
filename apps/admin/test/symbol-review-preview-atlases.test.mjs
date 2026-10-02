@@ -135,3 +135,58 @@ test('reports unavailable structured v0.10 cells without a legacy fallback', asy
     ['cell-0', 'cell-1'],
   );
 });
+
+test('outside positions do not request an atlas and do not break a mixed batch', async () => {
+  const outside = {
+    ...items(1)[0],
+    id: 'outside',
+    assetMode: 'none',
+    cropChecksumSha256: null,
+  };
+  const calls = [];
+  const api = {
+    createSymbolCellPreviewBatch: async (_game, body) => {
+      calls.push(body.cells);
+      return {
+        data: {
+          batchKey: null,
+          rendererVersion: 'v1',
+          rendererFingerprintSha256: 'a'.repeat(64),
+          tiles: [],
+          unavailableCellReviewIds: [],
+        },
+      };
+    },
+  };
+  assert.equal(
+    (
+      await loadSymbolReviewPreviewAtlases(
+        api,
+        'game',
+        [outside],
+        null,
+        'current',
+        () => {},
+      )
+    ).ok,
+    true,
+  );
+  assert.equal(calls.length, 0);
+  assert.equal(
+    (
+      await loadSymbolReviewPreviewAtlases(
+        api,
+        'game',
+        [...items(2), outside],
+        null,
+        'current',
+        () => {},
+      )
+    ).ok,
+    true,
+  );
+  assert.deepEqual(
+    calls[0].map((cell) => cell.cellReviewId),
+    ['cell-0', 'cell-1'],
+  );
+});

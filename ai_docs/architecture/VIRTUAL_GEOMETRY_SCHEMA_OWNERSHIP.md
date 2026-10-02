@@ -6,6 +6,22 @@ last_updated: 2026-09-22
 
 # Virtual geometry schema ownership
 
+## Aktualna geometria uzupełnienia pozycji — TASK-0711
+
+Resolver `pinned_visibility_geometry` jest wspólny dla odczytowego preview
+i write-through kolejki symboli. Dla virtual wybiera dokładnie rewizję
+wskazaną przez `recognized_boards.source_geometry_revision_id`, sprawdza
+checksumę geometrii, źródło, jego SHA/wymiary oraz slot i numer sekwencji.
+Nie wybiera najnowszej globalnie rewizji i nie używa starej kopii quada
+z recognized board. Dla legacy po ręcznej korekcie wybiera geometry payload
+bieżącego `image_board_geometry_revisions`; przed korektą geometrię planszy.
+Niezgodność pochodzenia zatrzymuje operację bez zgadywania widoczności.
+
+Preview działa także przed migracją 0126: historyczne `source_visibility`
+odczytywane jako nieznane nie jest podstawą oceny. Klasyfikacja wymaga
+rzeczywistych bajtów źródła zgodnych z SHA, rozmiaru po EXIF oraz przecięcia
+aktualnego wieloboku z obrazem. Nie są tworzone ani renderowane nowe piksele.
+
 ## Niezależny odbiór acceptance shared shape v2 — TASK-0610
 
 Lokalny evaluator G08 jest jedynym właścicielem odczytu acceptance i nie ma
@@ -265,7 +281,7 @@ staje się drugim właścicielem semantycznym.
 | `image_source_geometry_revisions` | Niezmienny snapshot topologii, attested range, aktywnych slotów i finalnych quadów wszystkich slotów danej rewizji źródła | kanoniczny właściciel bajtów geometrii wirtualnej |
 | `recognized_boards` | Bieżąca plansza dla jednego slotu oraz selektor `source_geometry_revision_id + position_index`; status i rewizja workflow | materializowana projekcja bieżącego wyboru |
 | `image_board_geometry_revisions` | Append-only komenda/audyt ręcznej korekty, rewizja planszy i historyczny manifest assetów | historia decyzji; nie właściciel virtual quada |
-| `cell_observations` | Niezmienna obserwacja pipeline'u, predykcja oraz dokładny render spec/crop provenance | wynik i proweniencja renderu |
+| `cell_observations` (usunięta w `0134`, D-467 S5; zastępuje ją `board_render_manifests`) | Niezmienna obserwacja pipeline'u, predykcja oraz dokładny render spec/crop provenance | wynik i proweniencja renderu (historycznie) |
 | `image_symbol_review_cells` | Bieżąca decyzja człowieka, jakość i proweniencja zatwierdzonego cropa | projekcja operacyjna review |
 | `image_symbol_review_events` | Append-only historia decyzji i zmian cropa | audyt review |
 | `image_geometry_rollout_states` | Bieżąca polityka rolloutu gry oraz bounded checkpoint jej walidacji/backfillu | stan operacyjny, nie geometria |

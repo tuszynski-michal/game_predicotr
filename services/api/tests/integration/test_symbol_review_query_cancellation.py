@@ -21,7 +21,7 @@ pytestmark = pytest.mark.skipif(
 
 def test_disconnect_cancel_stops_postgres_and_keeps_the_connection_reusable() -> None:
     engine = create_engine(
-        ApiSettings.from_environment().database_url,
+        ApiSettings.from_environment().owner_database_url,
         pool_size=1,
         max_overflow=0,
         pool_pre_ping=True,

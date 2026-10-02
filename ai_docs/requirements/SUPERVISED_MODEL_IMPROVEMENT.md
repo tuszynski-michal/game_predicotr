@@ -41,6 +41,10 @@ której użytkownik zapisał rozstrzygnięcie `accepted`, `corrected` lub
 
 ## Zakres per gra
 
+Osobne laboratorium (`VISION_LAB.md`, D-447) może używać
+`lab_human_approved` z pełną tożsamością cropa. Istniejąca kohorta DB nadal
+kwalifikuje wyłącznie zatwierdzenia DB według poniższych reguł.
+
 Model, kohorta treningowa, metryki i aktywna wersja są przypisane do jednej
 gry. Dane różnych gier nie są łączone bez nowej decyzji architektonicznej,
 ponieważ gry mogą mieć inne katalogi symboli i inne warunki obrazu.

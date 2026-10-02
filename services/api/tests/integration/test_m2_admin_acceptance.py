@@ -25,7 +25,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
+    return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
@@ -102,25 +102,27 @@ def test_complete_m2_admin_flow_uses_only_public_http_contracts(
                 == []
             )
 
+            # Since v0.8.13 (67a6187a, manual symbol catalog) the create
+            # contract takes only name and isWildcard; the API assigns the
+            # next mobile code, code and display order and starts the symbol
+            # active without an image.
             symbols = []
             for number in range(1, 13):
-                symbols.append(
-                    _json(
-                        client.post(
-                            f"/api/v1/admin/games/{game_id}/symbols",
-                            json={
-                                "mobileCode": number,
-                                "code": f"S{number}",
-                                "name": ("Joker" if number == 12 else f"Symbol {number}"),
-                                "imagePath": f"symbols/m2-game/s{number}.png",
-                                "isWildcard": number == 12,
-                                "displayOrder": number * 10,
-                                "status": "active",
-                            },
-                        ),
-                        201,
-                    )
+                symbol = _json(
+                    client.post(
+                        f"/api/v1/admin/games/{game_id}/symbols",
+                        json={
+                            "name": ("Joker" if number == 12 else f"Symbol {number}"),
+                            "isWildcard": number == 12,
+                        },
+                    ),
+                    201,
                 )
+                assert symbol["mobileCode"] == number
+                assert symbol["displayOrder"] == number - 1
+                assert symbol["status"] == "active"
+                assert symbol["imagePath"] is None
+                symbols.append(symbol)
             assert (
                 len(
                     _json(

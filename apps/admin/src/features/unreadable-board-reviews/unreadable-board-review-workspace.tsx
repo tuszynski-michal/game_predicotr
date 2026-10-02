@@ -313,17 +313,19 @@ export function UnreadableBoardReviewWorkspace({ apiBaseUrl, gameId }: Props) {
                 >
                   <div className={styles.imageFrame}>
                     {/* The API already returns a checksum-bound 100 px thumbnail. */}
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      alt={`Pole ${cell.rowIndex + 1}/${cell.columnIndex + 1}`}
-                      loading="lazy"
-                      src={api.symbolCellReviewAssetUrl(
-                        gameId,
-                        cell.cellReviewId,
-                        cell.cropChecksumSha256,
-                        cell.renderSpecChecksumSha256,
-                      )}
-                    />
+                    {cell.cropChecksumSha256 === null ? null : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        alt={`Pole ${cell.rowIndex + 1}/${cell.columnIndex + 1}`}
+                        loading="lazy"
+                        src={api.symbolCellReviewAssetUrl(
+                          gameId,
+                          cell.cellReviewId,
+                          cell.cropChecksumSha256,
+                          cell.renderSpecChecksumSha256,
+                        )}
+                      />
+                    )}
                     {unreadable ? (
                       <>
                         <span

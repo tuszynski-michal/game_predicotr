@@ -2,41 +2,78 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime
 from typing import Any, cast
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session
 
+from game_predictor_api.application.legacy_board_conversion import (
+    LegacyConversionBoardPlan,
+    LegacyConversionBoardResult,
+    LegacyConversionSourcePlan,
+    LegacyConversionSourceResult,
+)
 from game_predictor_api.application.virtual_grid_geometry import (
+    LegacyConversionTarget,
     PreparedVirtualGridGeometry,
     PreparedVirtualGridGeometrySource,
+    VirtualGridCellSymbol,
+    VirtualGridCellSymbolSuggestion,
     VirtualGridGeometryCell,
     VirtualGridGeometryContext,
     VirtualGridGeometryRevision,
     VirtualGridGeometrySaveResult,
     VirtualGridGeometrySourceSaveResult,
 )
+from game_predictor_api.domain.board_render_manifests import (
+    BoardRenderManifestError,
+    revision_render_manifest,
+)
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.geometry_qualification import (
     GeometryQualification,
+    GeometryQualificationError,
     available_cell_indices,
 )
-from game_predictor_api.domain.image_geometry_v2 import DirectCellRenderConfiguration
+from game_predictor_api.domain.image_geometry_v2 import (
+    DirectCellRenderConfiguration,
+    ImageGeometryContractError,
+    SourceImageBounds,
+    SourcePoint,
+    SourceQuad,
+    resolve_manual_geometry_qualification,
+    unavailable_source_cell_indices,
+)
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
-from game_predictor_api.domain.image_symbol_reviews import SymbolCellAssignmentSource
+from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellAssignmentSource,
+    SymbolCellQualityIssue,
+    SymbolCellReviewState,
+    symbol_cell_approval_pixels_changed,
+)
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     AdditiveVirtualGeometryContractError,
     optional_verification_outcome_value,
-    verification_outcome_value,
 )
+from game_predictor_api.storage.board_render_manifest_reader import load_current_render_manifest
+from game_predictor_api.storage.board_render_manifest_repository import add_board_render_manifest
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.cell_render_specs import (
+    CellRenderSpecKey,
+    load_cell_render_specs,
+)
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    recompute_source_image_geometry_completeness,
+    repoint_live_boards_to_newest_source_revision,
+    withheld_review_item_ids,
 )
 from game_predictor_api.storage.image_geometry_v2_repository import (
     ImageGeometryPersistenceError,
@@ -50,12 +87,15 @@ from game_predictor_api.storage.image_review_repository import (
     acquire_image_sequence_locks,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
+    SqlAlchemyGridCorrectionSymbolRepository,
     SymbolCellReviewWriteThroughCoordinator,
     _apply_count_deltas,
+    _bind_game_store,
     _CountedCellState,
+    _verification_v2,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
+    BoardRenderManifestModel,
     GameModel,
     ImageBoardGeometryPendingModel,
     ImageBoardGeometryReviewEventModel,
@@ -124,6 +164,38 @@ class SqlAlchemyVirtualGridGeometryRepository:
         )
         return self._context_from_row(row)
 
+    def assign_cell_symbols(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        cell_symbols: Sequence[VirtualGridCellSymbol],
+        actor: str,
+    ) -> int:
+        return SqlAlchemyGridCorrectionSymbolRepository(self._session).assign(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            symbol_id_by_cell_index={value.cell_index: value.symbol_id for value in cell_symbols},
+            actor=actor,
+        )
+
+    def current_cell_symbols(
+        self, *, game_id: UUID, review_item_id: UUID
+    ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
+        return tuple(
+            VirtualGridCellSymbolSuggestion(
+                cell_index=cell_index, symbol_id=symbol_id, origin=origin
+            )
+            for cell_index, symbol_id, origin in SqlAlchemyGridCorrectionSymbolRepository(
+                self._session
+            ).current_symbols(game_id=game_id, review_item_id=review_item_id)
+        )
+
+    def active_symbol_ids_by_code(self, *, game_id: UUID) -> Mapping[str, UUID]:
+        return SqlAlchemyGridCorrectionSymbolRepository(self._session).active_symbol_ids_by_code(
+            game_id=game_id
+        )
+
     def save_virtual_geometry_revision(
         self,
         *,
@@ -176,7 +248,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "IMAGE_REVIEW_SUPERSEDED",
                 "A superseded source cannot receive a manual virtual geometry revision.",
             )
-        self._reopen_qualified_revision(prepared, idempotency_key, created_at)
+        self._reopen_resolved_revision(prepared, idempotency_key, created_at)
         try:
             stored_source_geometry = SqlAlchemyImageSourceGeometryRepository(self._session).append(
                 SourceGeometryRevisionInput(
@@ -232,6 +304,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             created_at=created_at,
         )
         self._session.add(record)
+        self._add_render_manifest(record, game_id=context.game_id)
         previous_approved_geometry_revision = board.approved_geometry_revision
         board.geometry_revision = revision_number
         board.approved_geometry_revision = revision_number
@@ -268,8 +341,20 @@ class SqlAlchemyVirtualGridGeometryRepository:
         )
         source.processed_at = created_at
         self._session.flush()
-        SymbolCellReviewWriteThroughCoordinator(self._session).synchronize_after_cell_mutation(
-            game_id=context.game_id
+        self._settle_source_geometry(
+            game_id=context.game_id,
+            source_image_id=context.source_image_id,
+            new_source_revision=stored_source_geometry.created,
+            actor=prepared.command.corrected_by,
+        )
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        coordinator.synchronize_after_cell_mutation(game_id=context.game_id)
+        # D-462 R2: the reopened board closes again when every verification
+        # survived the new geometry.
+        coordinator.synchronize_board_from_cells(
+            game_id=context.game_id,
+            review_item_id=_require_review_item_id(context),
+            actor=prepared.command.corrected_by,
         )
         self._reconcile_availability(availability_snapshot)
         return VirtualGridGeometrySaveResult(
@@ -309,6 +394,16 @@ class SqlAlchemyVirtualGridGeometryRepository:
             self._session,
             game_id=base_context.game_id,
             sequence_numbers=[entry.context.sequence_number for entry in entries],
+        )
+        # Two corrections of different slots of one source take different
+        # sequence locks.  Serialize them on the source row (same order as the
+        # import writer: sequences, then source) before the contexts are read
+        # again, so the loser sees the winner's source revision and conflicts
+        # instead of appending a sibling revision from a stale base.
+        self._session.execute(
+            select(SourceImageModel.id)
+            .where(SourceImageModel.id == base_context.source_image_id)
+            .with_for_update()
         )
         locked_rows: dict[UUID, tuple[Any, ...]] = {}
         locked_pending: dict[UUID, ImageBoardGeometryPendingModel] = {}
@@ -398,6 +493,22 @@ class SqlAlchemyVirtualGridGeometryRepository:
             expected_entries=entries,
             current_contexts=tuple(current_contexts),
         )
+        occupied = self._occupied_pending_slots(entries, locked_pending)
+        if occupied:
+            if len(entries) != 1:
+                raise ImageGridReviewError(
+                    "IMAGE_GRID_REVIEW_SOURCE_SLOT_CONFLICT",
+                    "A deferred slot of this source already has a recognized board.",
+                )
+            # The same rule as the deferred writer: a board created at the
+            # position after the deferral (human or newer import) wins, and the
+            # stale deferred item is superseded instead of creating a duplicate.
+            pending = occupied[0]
+            pending.status = "superseded"
+            pending.superseded_at = created_at
+            pending.updated_at = created_at
+            self._session.flush()
+            return VirtualGridGeometrySourceSaveResult(revisions=(), created=False)
         availability_snapshot = self._availability_snapshot(entries)
         for row in locked_rows.values():
             item = row[0]
@@ -409,7 +520,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
 
         for entry in entries:
             if entry.context.review_item_id is not None:
-                self._reopen_qualified_revision(entry, idempotency_key, created_at)
+                self._reopen_resolved_revision(entry, idempotency_key, created_at)
 
         try:
             stored_source_geometry = SqlAlchemyImageSourceGeometryRepository(self._session).append(
@@ -477,6 +588,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 created_at=created_at,
             )
             self._session.add(record)
+            self._add_render_manifest(record, game_id=entry.context.game_id)
             previous_approved_geometry_revision = board.approved_geometry_revision
             board.geometry_revision = revision_number
             board.approved_geometry_revision = revision_number
@@ -513,16 +625,666 @@ class SqlAlchemyVirtualGridGeometryRepository:
         assert source is not None
         source.processed_at = created_at
         self._session.flush()
+        self._settle_source_geometry(
+            game_id=base_context.game_id,
+            source_image_id=base_context.source_image_id,
+            new_source_revision=stored_source_geometry.created,
+            affected_board_ids=self._board_ids_of_items(changed_review_item_ids),
+            actor=entries[0].command.corrected_by,
+        )
         self._synchronize_changed_source_items(
             game_id=base_context.game_id,
             changed_review_item_ids=changed_review_item_ids,
             qualified_review_item_ids=qualified_review_item_ids,
             actor=entries[0].command.corrected_by,
         )
+        # D-462 R2: reopened boards close again from their surviving cells.
+        coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
+        for entry in entries:
+            if entry.context.review_item_id is not None:
+                coordinator.synchronize_board_from_cells(
+                    game_id=base_context.game_id,
+                    review_item_id=entry.context.review_item_id,
+                    actor=entry.command.corrected_by,
+                )
         self._reconcile_availability(availability_snapshot)
         return VirtualGridGeometrySourceSaveResult(
             revisions=tuple(_revision_from_model(record) for record in records),
             created=True,
+        )
+
+    # -- D-467 S6 (TASK-0791): legacy_file -> virtual_source conversion -------
+
+    def legacy_conversion_source_ids(self, *, game_id: UUID) -> tuple[UUID, ...]:
+        """Sources of the game that still own a ``legacy_file`` board, ordered."""
+
+        _bind_game_store(self._session, game_id)
+        return tuple(
+            self._session.scalars(
+                select(RecognizedBoardModel.source_image_id)
+                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                .where(
+                    JobModel.game_id == game_id,
+                    RecognizedBoardModel.asset_mode == _LEGACY_ASSET_MODE,
+                )
+                .group_by(RecognizedBoardModel.source_image_id)
+                .order_by(RecognizedBoardModel.source_image_id)
+            )
+        )
+
+    def legacy_conversion_plan(
+        self, *, game_id: UUID, source_image_id: UUID, lock: bool
+    ) -> LegacyConversionSourcePlan:
+        """Describe every ``legacy_file`` board of one source as a virtual target.
+
+        Under ``lock`` the lock order of the virtual writers is kept: sequence
+        advisory locks, then the source row, then boards, review items and
+        cells.  The board list is read again after the locks, so a concurrent
+        conversion of the same source finds nothing left (idempotent).
+        """
+
+        _bind_game_store(self._session, game_id)
+        if lock:
+            sequences = self._legacy_board_sequences(
+                game_id=game_id, source_image_id=source_image_id
+            )
+            acquire_image_sequence_locks(self._session, game_id=game_id, sequence_numbers=sequences)
+            self._session.execute(
+                select(SourceImageModel.id)
+                .where(SourceImageModel.id == source_image_id)
+                .with_for_update()
+            )
+        statement = (
+            select(RecognizedBoardModel)
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .where(
+                JobModel.game_id == game_id,
+                RecognizedBoardModel.source_image_id == source_image_id,
+                RecognizedBoardModel.asset_mode == _LEGACY_ASSET_MODE,
+            )
+            .order_by(RecognizedBoardModel.position_index)
+        )
+        if lock:
+            statement = statement.with_for_update(of=RecognizedBoardModel)
+        boards = tuple(self._session.scalars(statement))
+        if not boards:
+            return LegacyConversionSourcePlan(
+                game_id=game_id, source_image_id=source_image_id, boards=()
+            )
+        source = self._session.get(SourceImageModel, source_image_id)
+        assert source is not None
+        job = self._session.get(JobModel, source.import_job_id)
+        geometry = self._session.scalar(
+            select(ImageSourceGeometryRevisionModel)
+            .where(
+                ImageSourceGeometryRevisionModel.game_id == game_id,
+                ImageSourceGeometryRevisionModel.source_image_id == source_image_id,
+            )
+            .order_by(ImageSourceGeometryRevisionModel.revision.desc())
+            .limit(1)
+        )
+        source_problems = _legacy_source_problems(source, job, geometry, game_id=game_id)
+        configuration: DirectCellRenderConfiguration | None = None
+        if not source_problems and job is not None:
+            from game_predictor_worker.images.pipeline_contract import (
+                VIRTUAL_CELL_RENDERER_VERSION,
+            )
+
+            try:
+                # Output size, padding, preprocessing and interpolation follow
+                # the source's current virtual cells; the extractor pin is the
+                # renderer of this code, because the renderer refuses any
+                # other pin and the converted revision is a new render anyway
+                # (TASK-0663 bumped the contract version without changing
+                # pixels; previews verify the stored checksums).
+                configuration = replace(
+                    self._pending_render_configuration(
+                        source_image_id=source.id, import_job_id=source.import_job_id, job=job
+                    ),
+                    extractor_version=VIRTUAL_CELL_RENDERER_VERSION,
+                )
+            except ImageGridReviewError:
+                source_problems = ("LEGACY_CONVERSION_RENDER_CONFIGURATION_INVALID",)
+        return LegacyConversionSourcePlan(
+            game_id=game_id,
+            source_image_id=source_image_id,
+            boards=tuple(
+                self._legacy_board_plan(
+                    board,
+                    game_id=game_id,
+                    source=source,
+                    geometry=None if source_problems else geometry,
+                    configuration=configuration,
+                    source_problems=source_problems,
+                    lock=lock,
+                )
+                for board in boards
+            ),
+        )
+
+    def convert_legacy_source(
+        self,
+        *,
+        plan: LegacyConversionSourcePlan,
+        prepared: PreparedVirtualGridGeometrySource,
+        actor: str,
+        created_at: datetime,
+    ) -> LegacyConversionSourceResult:
+        """Persist the conversion of one locked source (TASK-0791).
+
+        The same records as a manual virtual geometry save are written: one
+        appended source geometry revision, per board a ``virtual_source``
+        revision with ``virtual_render_spec``, its render manifest and the
+        board's virtual provenance.  Unlike a manual save the review item is
+        not reopened, the geometry approval is not changed and current cell
+        decisions are carried over unchanged (see ``_convert_current_cells``).
+        """
+
+        entries_by_board = {entry.context.recognized_board_id: entry for entry in prepared.entries}
+        boards = {board.recognized_board_id: board for board in plan.boards}
+        if set(entries_by_board) != set(boards) or not prepared.entries:
+            raise ImageGridReviewError(
+                "LEGACY_CONVERSION_TARGETS_CHANGED",
+                "The rendered legacy boards differ from the locked conversion plan.",
+            )
+        base_context = prepared.entries[0].context
+        try:
+            stored_source_geometry = SqlAlchemyImageSourceGeometryRepository(self._session).append(
+                SourceGeometryRevisionInput(
+                    game_id=base_context.game_id,
+                    source_image_id=base_context.source_image_id,
+                    topology_rules_version_id=base_context.topology_rules_version_id,
+                    sequence_range_start=base_context.sequence_range_start,
+                    sequence_range_end=base_context.sequence_range_end,
+                    active_board_slots=base_context.active_board_slots,
+                    source_checksum_sha256=base_context.source_checksum_sha256,
+                    normalized_pixel_checksum_sha256=(
+                        base_context.normalized_pixel_checksum_sha256
+                    ),
+                    oriented_width=base_context.oriented_width,
+                    oriented_height=base_context.oriented_height,
+                    normalization_adapter_version=base_context.normalization_adapter_version,
+                    global_initialization=(
+                        None
+                        if base_context.global_initialization is None
+                        else dict(base_context.global_initialization)
+                    ),
+                    board_geometries=tuple(dict(value) for value in prepared.board_geometries),
+                    engine_kind="manual_v1",
+                    engine_version="manual-source-geometry-v1",
+                    geometry_source="manual",
+                    status="accepted",
+                    geometry_checksum_sha256=prepared.source_geometry_checksum_sha256,
+                    processing_time_ms=None,
+                    warnings=(),
+                    created_by=actor,
+                )
+            )
+        except ImageGeometryPersistenceError as error:
+            raise ImageGridReviewError(error.code, str(error)) from error
+
+        results: list[LegacyConversionBoardResult] = []
+        changed_cells = False
+        for entry in sorted(prepared.entries, key=lambda value: value.context.position_index):
+            context = entry.context
+            board_plan = boards[context.recognized_board_id]
+            board = self._session.get(RecognizedBoardModel, context.recognized_board_id)
+            if (
+                board is None
+                or board.asset_mode != _LEGACY_ASSET_MODE
+                or board.geometry_revision != board_plan.geometry_revision
+                or context.review_item_id is None
+            ):
+                raise ImageGridReviewError(
+                    "LEGACY_CONVERSION_TARGETS_CHANGED",
+                    "A legacy board changed before its conversion was persisted.",
+                )
+            previous_revision = int(board.geometry_revision)
+            revision_number = context.next_geometry_revision
+            record = self._geometry_revision_record(
+                entry=entry,
+                review_item_id=context.review_item_id,
+                recognized_board_id=board.id,
+                revision_number=revision_number,
+                source_geometry_revision_id=stored_source_geometry.id,
+                idempotency_key=uuid5(NAMESPACE_URL, f"{_LEGACY_CONVERSION_KEY_PREFIX}:{board.id}"),
+                created_at=created_at,
+            )
+            geometry = _retain_legacy_board_context(entry.board_geometry, board.board_geometry)
+            record.geometry = geometry
+            self._session.add(record)
+            self._add_render_manifest(record, game_id=context.game_id)
+            board.asset_mode = "virtual_source"
+            board.board_relative_path = None
+            board.board_checksum_sha256 = None
+            board.board_geometry = geometry
+            _project_geometry_qualification(
+                board, prepared.board_geometries[context.position_index]
+            )
+            board.source_geometry_revision_id = stored_source_geometry.id
+            board.geometry_checksum_sha256 = prepared.source_geometry_checksum_sha256
+            board.geometry_engine_name = "manual_v1"
+            board.geometry_engine_version = "manual-source-geometry-v1"
+            board.geometry_revision = revision_number
+            # The approval state of the geometry is carried over: a board whose
+            # geometry was approved keeps that approval on the same corners.
+            if board.approved_geometry_revision == previous_revision:
+                board.approved_geometry_revision = revision_number
+            self._session.flush()
+            converted, preserved = self._convert_current_cells(
+                context=context,
+                entry=entry,
+                previous_revision=previous_revision,
+                revision_number=revision_number,
+                source_geometry_revision_id=stored_source_geometry.id,
+                actor=actor,
+            )
+            changed_cells = changed_cells or converted > 0
+            results.append(
+                LegacyConversionBoardResult(
+                    recognized_board_id=board.id,
+                    review_item_id=context.review_item_id,
+                    previous_geometry_revision=previous_revision,
+                    geometry_revision=revision_number,
+                    converted_cell_count=converted,
+                    preserved_decision_cell_count=preserved,
+                    render_manifest_written=bool(entry.cells),
+                )
+            )
+        self._session.flush()
+        projection = SqlAlchemyBoardSearchProjectionRepository(self._session)
+        for result in results:
+            # D-462 R8: the search document's board identity changes from the
+            # file checksum to the source geometry checksum.
+            projection.sync_review_item(result.review_item_id)
+        if changed_cells:
+            SymbolCellReviewWriteThroughCoordinator(self._session).synchronize_after_cell_mutation(
+                game_id=plan.game_id
+            )
+        self._session.flush()
+        self._settle_source_geometry(
+            game_id=plan.game_id,
+            source_image_id=plan.source_image_id,
+            new_source_revision=stored_source_geometry.created,
+            actor=actor,
+        )
+        return LegacyConversionSourceResult(
+            source_image_id=plan.source_image_id,
+            source_geometry_revision_id=stored_source_geometry.id,
+            boards=tuple(results),
+        )
+
+    def _legacy_board_sequences(self, *, game_id: UUID, source_image_id: UUID) -> set[int]:
+        sequences: set[int] = set()
+        for board_sequence, item_sequence, resolved in self._session.execute(
+            select(
+                RecognizedBoardModel.sequence_number,
+                ImageReviewItemModel.sequence_number,
+                ImageReviewItemModel.resolved_value,
+            )
+            .outerjoin(
+                ImageReviewItemModel,
+                ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .where(
+                JobModel.game_id == game_id,
+                RecognizedBoardModel.source_image_id == source_image_id,
+                RecognizedBoardModel.asset_mode == _LEGACY_ASSET_MODE,
+            )
+        ):
+            for value in (
+                board_sequence,
+                item_sequence,
+                resolved.get("sequenceNumber") if isinstance(resolved, Mapping) else None,
+            ):
+                if isinstance(value, int) and not isinstance(value, bool) and value > 0:
+                    sequences.add(value)
+        return sequences
+
+    def _legacy_board_plan(
+        self,
+        board: RecognizedBoardModel,
+        *,
+        game_id: UUID,
+        source: SourceImageModel,
+        geometry: ImageSourceGeometryRevisionModel | None,
+        configuration: DirectCellRenderConfiguration | None,
+        source_problems: tuple[str, ...],
+        lock: bool,
+    ) -> LegacyConversionBoardPlan:
+        problems: list[str] = list(source_problems)
+        item_statement = select(ImageReviewItemModel).where(
+            ImageReviewItemModel.recognized_board_id == board.id
+        )
+        if lock:
+            item_statement = item_statement.with_for_update()
+        item = self._session.scalar(item_statement)
+        sequence_number: int | None = None
+        if item is None:
+            problems.append("LEGACY_CONVERSION_REVIEW_ITEM_MISSING")
+        else:
+            sequence_number = item.sequence_number or board.sequence_number
+        if sequence_number is None:
+            problems.append("LEGACY_CONVERSION_SEQUENCE_MISSING")
+        record = self._session.scalar(
+            select(ImageBoardGeometryRevisionModel).where(
+                ImageBoardGeometryRevisionModel.recognized_board_id == board.id,
+                ImageBoardGeometryRevisionModel.revision == board.geometry_revision,
+            )
+        )
+        corners = _legacy_corners(record)
+        if corners is None:
+            problems.append("LEGACY_CONVERSION_REVISION_MISSING")
+        cells = tuple(
+            self._session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(
+                    ImageSymbolReviewCellModel.game_id == game_id,
+                    ImageSymbolReviewCellModel.recognized_board_id == board.id,
+                )
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+            )
+        )
+        if cells and (
+            item is None
+            or [int(cell.cell_index) for cell in cells] != list(range(15))
+            or any(
+                cell.review_item_id != item.id
+                or cell.geometry_revision != board.geometry_revision
+                or cell.asset_mode != _LEGACY_ASSET_MODE
+                for cell in cells
+            )
+        ):
+            problems.append("LEGACY_CONVERSION_CELLS_INCOMPLETE")
+        qualification: GeometryQualification | None = None
+        if board.geometry_qualification is not None:
+            try:
+                qualification = GeometryQualification.from_dict(board.geometry_qualification)
+            except GeometryQualificationError:
+                problems.append("LEGACY_CONVERSION_QUALIFICATION_INVALID")
+        sequence_geometry_revision = (
+            None
+            if sequence_number is None
+            else self._sequence_cell_revision(
+                game_id=game_id, sequence_number=sequence_number, lock=lock
+            )
+        )
+        if (
+            geometry is not None
+            and sequence_number is not None
+            and (
+                board.position_index not in geometry.active_board_slots
+                or geometry.sequence_range_start + board.position_index != sequence_number
+            )
+        ):
+            problems.append("LEGACY_CONVERSION_SOURCE_GEOMETRY_INVALID")
+        target: LegacyConversionTarget | None = None
+        if (
+            not problems
+            and item is not None
+            and geometry is not None
+            and configuration is not None
+            and corners is not None
+            and sequence_number is not None
+        ):
+            context = VirtualGridGeometryContext(
+                game_id=game_id,
+                import_job_id=source.import_job_id,
+                review_item_id=item.id,
+                recognized_board_id=board.id,
+                pending_geometry_id=None,
+                source_image_id=source.id,
+                file_execution_key=source.file_execution_key,
+                position_index=int(board.position_index),
+                sequence_number=int(sequence_number),
+                source_relative_path=source.relative_path,
+                source_checksum_sha256=source.checksum_sha256,
+                raw_width=int(cast(int, source.raw_width)),
+                raw_height=int(cast(int, source.raw_height)),
+                oriented_width=int(cast(int, source.oriented_width)),
+                oriented_height=int(cast(int, source.oriented_height)),
+                exif_orientation=source.exif_orientation,
+                normalized_pixel_checksum_sha256=cast(str, source.normalized_pixel_checksum_sha256),
+                normalization_adapter_version=cast(str, source.normalization_adapter_version),
+                pipeline_fingerprint=board.pipeline_fingerprint,
+                resolution_revision=int(item.resolution_revision),
+                geometry_revision=int(board.geometry_revision),
+                topology=BoardTopology(rows=board.grid_rows or 3, columns=board.grid_columns or 5),
+                topology_rules_version_id=geometry.topology_rules_version_id,
+                source_geometry_revision_id=geometry.id,
+                source_geometry_revision=int(geometry.revision),
+                sequence_range_start=int(geometry.sequence_range_start),
+                sequence_range_end=int(geometry.sequence_range_end),
+                active_board_slots=tuple(int(value) for value in geometry.active_board_slots),
+                global_initialization=(
+                    None
+                    if geometry.global_initialization is None
+                    else dict(geometry.global_initialization)
+                ),
+                board_geometries=tuple(dict(value) for value in geometry.board_geometries),
+                render_configuration=configuration,
+                sequence_geometry_revision=sequence_geometry_revision,
+            )
+            problems.extend(
+                _legacy_render_problems(context, corners, qualification, owns_cells=bool(cells))
+            )
+            if not problems:
+                target = LegacyConversionTarget(
+                    context=context, corners=corners, geometry_qualification=qualification
+                )
+        human_sources = {
+            SymbolCellAssignmentSource.HUMAN.value,
+            SymbolCellAssignmentSource.BOARD_DECISION.value,
+        }
+        return LegacyConversionBoardPlan(
+            recognized_board_id=board.id,
+            review_item_id=None if item is None else item.id,
+            source_image_id=source.id,
+            item_status=None if item is None else item.status,
+            sequence_number=sequence_number,
+            geometry_revision=int(board.geometry_revision),
+            sequence_geometry_revision=sequence_geometry_revision,
+            owned_cell_count=len(cells),
+            assigned_cell_count=sum(cell.assigned_symbol_id is not None for cell in cells),
+            human_decision_cell_count=sum(
+                cell.review_state == SymbolCellReviewState.APPROVED.value
+                or cell.assignment_source in human_sources
+                for cell in cells
+            ),
+            approved_cell_count=sum(
+                cell.review_state == SymbolCellReviewState.APPROVED.value for cell in cells
+            ),
+            target=target,
+            problems=tuple(dict.fromkeys(problems)),
+        )
+
+    def _convert_current_cells(
+        self,
+        *,
+        context: VirtualGridGeometryContext,
+        entry: PreparedVirtualGridGeometry,
+        previous_revision: int,
+        revision_number: int,
+        source_geometry_revision_id: UUID,
+        actor: str,
+    ) -> tuple[int, int]:
+        """Move a converted board's current cells to their virtual render.
+
+        Decision rule (TASK-0791, documented in D-467): the conversion keeps
+        the corners, so it is not a geometry change.  Unlike
+        ``_recheck_after_virtual_recrop`` (D-462 R5/R6, which returns an
+        approval of other pixels to verification) every human decision stays:
+        ``assigned_symbol_id``, ``assignment_source``, ``review_state``,
+        ``quality_issue``, ``verification_outcome``/``verified_symbol_id_v2``
+        and ``last_reviewed_by``/``last_reviewed_at``.  An approval is rebound
+        to the new render of the same corners (``approved_*``), a pending
+        cell's historical approval columns stay as history.  Every cell gets
+        a ``geometry_invalidated`` event with both provenances.
+        """
+
+        cells = tuple(
+            self._session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(
+                    ImageSymbolReviewCellModel.game_id == context.game_id,
+                    ImageSymbolReviewCellModel.review_item_id == context.review_item_id,
+                    ImageSymbolReviewCellModel.recognized_board_id == context.recognized_board_id,
+                )
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+                .with_for_update()
+            )
+        )
+        if not cells:
+            return 0, 0
+        rendered_by_index = {cell.cell_index: cell for cell in entry.cells}
+        if (
+            [int(cell.cell_index) for cell in cells] != list(range(context.topology.cell_count))
+            or set(rendered_by_index) != {int(cell.cell_index) for cell in cells}
+            or any(
+                cell.asset_mode != _LEGACY_ASSET_MODE or cell.geometry_revision != previous_revision
+                for cell in cells
+            )
+        ):
+            raise ImageGridReviewError(
+                "LEGACY_CONVERSION_CELLS_INCOMPLETE",
+                "A converted legacy board must own every current cell of its revision.",
+            )
+        count_state = self._session.get(
+            ImageSymbolReviewStateModel, context.game_id, with_for_update=True
+        )
+        count_before = tuple(_CountedCellState.from_model(cell) for cell in cells)
+        decisions_before = tuple(_cell_decision(cell) for cell in cells)
+        human_sources = {
+            SymbolCellAssignmentSource.HUMAN.value,
+            SymbolCellAssignmentSource.BOARD_DECISION.value,
+        }
+        preserved = 0
+        for cell in cells:
+            rendered = rendered_by_index[int(cell.cell_index)]
+            previous = _event_previous(cell)
+            cell.asset_mode = "virtual_source"
+            cell.source_geometry_revision_id = source_geometry_revision_id
+            cell.logical_cell_key = rendered.logical_cell_key
+            cell.logical_cell_key_v2 = rendered.logical_cell_key_v2
+            cell.render_identity_v2_sha256 = rendered.render_identity_v2_sha256
+            cell.render_spec_checksum_sha256 = rendered.render_spec_checksum_sha256
+            cell.rendered_pixel_checksum_sha256 = rendered.rendered_pixel_checksum_sha256
+            cell.extractor_version = rendered.extractor_version
+            cell.crop_sample_id = rendered.crop_sample_id
+            cell.crop_relative_path = None
+            cell.crop_checksum_sha256 = rendered.crop_checksum_sha256
+            cell.geometry_revision = revision_number
+            cell.cropper_version = entry.cropper_version
+            if cell.review_state == SymbolCellReviewState.APPROVED.value:
+                cell.approved_crop_sample_id = cell.crop_sample_id
+                cell.approved_crop_checksum_sha256 = cell.crop_checksum_sha256
+                cell.approved_geometry_revision = cell.geometry_revision
+                cell.approved_asset_mode = cell.asset_mode
+                cell.approved_source_geometry_revision_id = cell.source_geometry_revision_id
+                cell.approved_render_spec_checksum_sha256 = cell.render_spec_checksum_sha256
+                cell.approved_rendered_pixel_checksum_sha256 = cell.rendered_pixel_checksum_sha256
+            if (
+                cell.review_state == SymbolCellReviewState.APPROVED.value
+                or cell.assignment_source in human_sources
+            ):
+                preserved += 1
+            cell.revision += 1
+            self._session.add(
+                ImageSymbolReviewEventModel(
+                    cell_review_id=cell.id,
+                    review_item_id=cell.review_item_id,
+                    logical_cell_key=cell.logical_cell_key,
+                    previous_logical_cell_key_v2=previous["logical_cell_key_v2"],
+                    logical_cell_key_v2=cell.logical_cell_key_v2,
+                    previous_render_identity_v2_sha256=previous["render_identity_v2_sha256"],
+                    render_identity_v2_sha256=cell.render_identity_v2_sha256,
+                    previous_asset_mode=previous["asset_mode"],
+                    asset_mode=cell.asset_mode,
+                    previous_source_geometry_revision_id=previous["source_geometry_revision_id"],
+                    source_geometry_revision_id=cell.source_geometry_revision_id,
+                    previous_render_spec_checksum_sha256=previous["render_spec_checksum_sha256"],
+                    render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
+                    previous_rendered_pixel_checksum_sha256=previous[
+                        "rendered_pixel_checksum_sha256"
+                    ],
+                    rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
+                    extractor_version=cell.extractor_version,
+                    crop_sample_id=cell.crop_sample_id,
+                    crop_checksum_sha256=cell.crop_checksum_sha256,
+                    geometry_revision=cell.geometry_revision,
+                    cell_revision=cell.revision,
+                    action="geometry_invalidated",
+                    previous_assigned_symbol_id=previous["assigned_symbol_id"],
+                    assigned_symbol_id=cell.assigned_symbol_id,
+                    previous_review_state=previous["review_state"],
+                    review_state=cell.review_state,
+                    previous_quality_issue=previous["quality_issue"],
+                    quality_issue=cell.quality_issue,
+                    previous_verification_outcome=previous["verification_outcome"],
+                    verification_outcome=cell.verification_outcome,
+                    previous_verified_symbol_id_v2=previous["verified_symbol_id_v2"],
+                    verified_symbol_id_v2=cell.verified_symbol_id_v2,
+                    previous_approved_crop_sample_id=previous["approved_crop_sample_id"],
+                    approved_crop_sample_id=cell.approved_crop_sample_id,
+                    previous_approved_crop_checksum_sha256=previous[
+                        "approved_crop_checksum_sha256"
+                    ],
+                    approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
+                    previous_approved_geometry_revision=previous["approved_geometry_revision"],
+                    approved_geometry_revision=cell.approved_geometry_revision,
+                    operation_id=None,
+                    actor=actor,
+                )
+            )
+        if tuple(_cell_decision(cell) for cell in cells) != decisions_before:
+            raise ImageGridReviewError(
+                "LEGACY_CONVERSION_DECISION_DRIFT",
+                "The legacy conversion must not change a human cell decision.",
+            )
+        if count_state is not None:
+            _apply_count_deltas(
+                count_state,
+                before=count_before,
+                after=tuple(_CountedCellState.from_model(cell) for cell in cells),
+            )
+        return len(cells), preserved
+
+    def _occupied_pending_slots(
+        self,
+        entries: tuple[PreparedVirtualGridGeometry, ...],
+        locked_pending: Mapping[UUID, ImageBoardGeometryPendingModel],
+    ) -> tuple[ImageBoardGeometryPendingModel, ...]:
+        occupied: list[ImageBoardGeometryPendingModel] = []
+        for entry in entries:
+            pending = locked_pending.get(entry.context.target_id)
+            if pending is None or pending.status != "pending":
+                continue
+            board_id = self._session.scalar(
+                select(RecognizedBoardModel.id)
+                .where(
+                    RecognizedBoardModel.source_image_id == pending.source_image_id,
+                    RecognizedBoardModel.position_index == pending.position_index,
+                )
+                .with_for_update()
+            )
+            if board_id is not None:
+                occupied.append(pending)
+        return tuple(occupied)
+
+    def _board_ids_of_items(self, review_item_ids: Iterable[UUID]) -> set[UUID]:
+        ids = set(review_item_ids)
+        if not ids:
+            return set()
+        return set(
+            self._session.scalars(
+                select(ImageReviewItemModel.recognized_board_id).where(
+                    ImageReviewItemModel.id.in_(ids)
+                )
+            )
         )
 
     def _synchronize_changed_source_items(
@@ -552,7 +1314,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "Qualified geometry could not reconcile its current symbol projection.",
             )
 
-    def _reopen_qualified_revision(
+    def _reopen_resolved_revision(
         self,
         prepared: PreparedVirtualGridGeometry,
         idempotency_key: UUID,
@@ -560,8 +1322,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
     ) -> None:
         # Reopen while the old selector/render is still coherent. Keeping a
         # resolved layout would publish symbols whose pixels have just changed.
-        if prepared.command.geometry_qualification is None:
-            return
+        # D-462: this applies to every manual geometry, qualified or not; the
+        # board closes again from its cells if every verification survives.
         context = prepared.context
         SqlAlchemyOperationalImageReviewRepository(self._session).reopen_for_symbol_cell_issue(
             review_item_id=_require_review_item_id(context),
@@ -682,6 +1444,45 @@ class SqlAlchemyVirtualGridGeometryRepository:
             created_at=created_at,
         )
 
+    def _add_render_manifest(
+        self, record: ImageBoardGeometryRevisionModel, *, game_id: UUID
+    ) -> None:
+        """Persist the revision's render manifest in the same transaction (D-467).
+
+        A revision without renderable cells (every cell outside the source)
+        gets no manifest row: no manifest row <=> no cells.
+        """
+
+        if isinstance(record.virtual_render_spec, dict) and record.virtual_render_spec.get(
+            "cells"
+        ) in ([], ()):
+            return
+        if (
+            record.virtual_render_spec is None
+            or record.virtual_render_spec_checksum_sha256 is None
+            or record.source_geometry_revision_id is None
+        ):
+            raise ImageGridReviewError(
+                "BOARD_RENDER_MANIFEST_PROVENANCE_INVALID",
+                "A virtual geometry revision needs a render spec and source geometry.",
+            )
+        try:
+            manifest = revision_render_manifest(
+                recognized_board_id=record.recognized_board_id,
+                geometry_revision=record.revision,
+                virtual_render_spec=record.virtual_render_spec,
+                virtual_render_spec_checksum_sha256=record.virtual_render_spec_checksum_sha256,
+            )
+        except BoardRenderManifestError as error:
+            raise ImageGridReviewError(error.code, error.message) from error
+        add_board_render_manifest(
+            self._session,
+            game_id=game_id,
+            manifest=manifest,
+            source_geometry_revision_id=record.source_geometry_revision_id,
+            extractor_version=record.cropper_version,
+        )
+
     def _append_geometry_event(
         self,
         *,
@@ -726,17 +1527,10 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "IMAGE_GRID_REVIEW_REVISION_CONFLICT",
                 "The deferred source slot changed before manual geometry was saved.",
             )
-        predictions = [
-            {
-                "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
-                "columnIndex": cell.column_index,
-                "confidence": 0.0,
-                "rowIndex": cell.row_index,
-                "symbolCode": "?",
-            }
-            for cell in entry.cells
-        ]
-        revision_number = context.geometry_revision + 1
+        cells_prediction = _pending_slot_cells_prediction(entry)
+        predictions = cast(list[dict[str, object]], cells_prediction["cells"])
+        # TASK-0702 handoff rule: continue the sequence's current revision.
+        revision_number = context.next_geometry_revision
         board = RecognizedBoardModel(
             id=context.recognized_board_id,
             source_image_id=context.source_image_id,
@@ -752,7 +1546,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             geometry_checksum_sha256=entry.source_geometry_checksum_sha256,
             board_relative_path=None,
             board_checksum_sha256=None,
-            cells_prediction={"cells": predictions, "modelVersion": "manual-unclassified-v1"},
+            cells_prediction=cells_prediction,
             completeness_status="complete",
             unavailable_cell_indices=[],
             board_confidence=0.0,
@@ -769,28 +1563,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
         _project_geometry_qualification(board, entry.board_geometries[context.position_index])
         self._session.add(board)
         self._session.flush()
-        for cell, prediction in zip(entry.cells, predictions, strict=True):
-            self._session.add(
-                CellObservationModel(
-                    recognized_board_id=board.id,
-                    row_index=cell.row_index,
-                    column_index=cell.column_index,
-                    asset_mode="virtual_source",
-                    source_geometry_revision_id=stored_source_geometry.id,
-                    logical_cell_key=cell.logical_cell_key,
-                    logical_cell_key_v2=cell.logical_cell_key_v2,
-                    render_identity_v2_sha256=cell.render_identity_v2_sha256,
-                    render_spec=dict(cell.render_spec),
-                    render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
-                    rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
-                    extractor_version=cell.extractor_version,
-                    crop_relative_path=None,
-                    crop_checksum_sha256=cell.crop_checksum_sha256,
-                    cropper_version=entry.cropper_version,
-                    prediction=prediction,
-                    created_at=created_at,
-                )
-            )
+        # D-467 (TASK-0790): the render manifest of the new revision (added
+        # below) is the only per-cell record; no cell observation is written.
         snapshot = {
             "assetMode": "virtual_source",
             "boardChecksumSha256": None,
@@ -832,6 +1606,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             created_at=created_at,
         )
         self._session.add(record)
+        self._add_render_manifest(record, game_id=context.game_id)
         self._append_geometry_event(
             entry=entry,
             review_item_id=review.id,
@@ -888,6 +1663,15 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 .with_for_update()
             )
         )
+        if not cells and self._geometry_withheld(context):
+            # D-484 (TASK-0807): the board of an image the geometry gate does
+            # not admit was never cut; there is nothing to recrop. Its cells
+            # are cut from the new revision once the image is admitted.
+            self._session.flush()
+            SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(
+                _require_review_item_id(context)
+            )
+            return
         if len(cells) != context.topology.cell_count or tuple(
             int(cell.cell_index) for cell in cells
         ) != tuple(range(context.topology.cell_count)):
@@ -917,12 +1701,16 @@ class SqlAlchemyVirtualGridGeometryRepository:
         }
         for cell, rendered in zip(cells, prepared.cells, strict=True):
             previous = _event_previous(cell)
+            pixels_changed = (
+                cell.rendered_pixel_checksum_sha256 != rendered.rendered_pixel_checksum_sha256
+                if cell.rendered_pixel_checksum_sha256 is not None
+                else cell.crop_checksum_sha256 != rendered.crop_checksum_sha256
+            )
             cell.asset_mode = "virtual_source"
             cell.source_geometry_revision_id = source_geometry_revision_id
             cell.logical_cell_key = rendered.logical_cell_key
             cell.logical_cell_key_v2 = rendered.logical_cell_key_v2
             cell.render_identity_v2_sha256 = rendered.render_identity_v2_sha256
-            cell.render_spec = dict(rendered.render_spec)
             cell.render_spec_checksum_sha256 = rendered.render_spec_checksum_sha256
             cell.rendered_pixel_checksum_sha256 = rendered.rendered_pixel_checksum_sha256
             cell.extractor_version = rendered.extractor_version
@@ -931,16 +1719,19 @@ class SqlAlchemyVirtualGridGeometryRepository:
             cell.crop_checksum_sha256 = rendered.crop_checksum_sha256
             cell.geometry_revision = revision_number
             cell.cropper_version = prepared.cropper_version
-            _reset_grid_issue_after_virtual_recrop(
+            _recheck_after_virtual_recrop(
                 cell,
+                pixels_changed=pixels_changed,
                 active_symbol_ids_by_code=active_symbol_ids_by_code,
             )
             try:
-                verification = verification_outcome_value(
+                # The same mapping as the write-through: a pending human
+                # suggestion after a recrop is `requires_review` (D-462 R6).
+                verification = _verification_v2(
                     review_state=cell.review_state,
                     quality_issue=cell.quality_issue,
                     assigned_symbol_id=cell.assigned_symbol_id,
-                    prediction_present=cell.prediction_symbol_code not in {None, "?"},
+                    prediction_symbol_code=cell.prediction_symbol_code,
                     assignment_source=cell.assignment_source,
                 )
             except AdditiveVirtualGeometryContractError as error:
@@ -1003,6 +1794,60 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 before=count_before,
                 after=tuple(_CountedCellState.from_model(cell) for cell in cells),
             )
+        # D-462 R8: search evidence is read from these cell rows; refresh it
+        # after they changed, in the same transaction.
+        self._session.flush()
+        SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(
+            _require_review_item_id(context)
+        )
+
+    def _geometry_withheld(self, context: VirtualGridGeometryContext) -> bool:
+        review_item_id = _require_review_item_id(context)
+        board = self._session.get(RecognizedBoardModel, context.recognized_board_id)
+        source = self._session.get(SourceImageModel, context.source_image_id)
+        if board is None or source is None:
+            return False
+        return review_item_id in withheld_review_item_ids(
+            self._session, context.game_id, ((review_item_id, board, source),)
+        )
+
+    def _settle_source_geometry(
+        self,
+        *,
+        game_id: UUID,
+        source_image_id: UUID,
+        new_source_revision: bool,
+        affected_board_ids: Iterable[UUID] = (),
+        actor: str,
+    ) -> None:
+        """Rules of a geometry write on one source image (TASK-0807, D-484).
+
+        A new source revision re-points the image's other live boards whose
+        geometry it repeats; then the image's gate status is recomputed in this
+        transaction (an image that became admitted is cut right away), and so
+        are the images of boards whose ownership the write changed.
+        """
+
+        if new_source_revision:
+            repoint_live_boards_to_newest_source_revision(self._session, game_id, source_image_id)
+        recompute_source_image_geometry_completeness(
+            self._session, game_id, source_image_id, actor=actor
+        )
+        other_boards = set(affected_board_ids)
+        if other_boards:
+            other_images = {
+                image_id
+                for image_id in self._session.scalars(
+                    select(RecognizedBoardModel.source_image_id).where(
+                        RecognizedBoardModel.id.in_(other_boards)
+                    )
+                )
+                if image_id != source_image_id
+            }
+            for image_id in sorted(other_images, key=str):
+                recompute_source_image_geometry_completeness(
+                    self._session, game_id, image_id, actor=actor
+                )
 
     def _pending_context(
         self,
@@ -1042,6 +1887,7 @@ class SqlAlchemyVirtualGridGeometryRepository:
             )
         source = self._session.get(SourceImageModel, pending.source_image_id)
         job = self._session.get(JobModel, import_job_id)
+        symbol_model = None if job is None else job.input_payload.get("symbol_model")
         geometry = self._session.scalar(
             select(ImageSourceGeometryRevisionModel)
             .where(
@@ -1077,6 +1923,11 @@ class SqlAlchemyVirtualGridGeometryRepository:
             source_image_id=source.id,
             import_job_id=import_job_id,
             job=job,
+        )
+        sequence_geometry_revision = self._sequence_cell_revision(
+            game_id=game_id,
+            sequence_number=int(pending.sequence_number),
+            lock=lock,
         )
         return VirtualGridGeometryContext(
             game_id=game_id,
@@ -1114,7 +1965,72 @@ class SqlAlchemyVirtualGridGeometryRepository:
             ),
             board_geometries=tuple(dict(value) for value in geometry.board_geometries),
             render_configuration=configuration,
+            pending_symbol_model=(
+                dict(cast(Mapping[str, object], symbol_model))
+                if isinstance(symbol_model, Mapping)
+                else None
+            ),
+            sequence_geometry_revision=sequence_geometry_revision,
         )
+
+    def _sequence_cell_revision(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        lock: bool,
+    ) -> int | None:
+        """Common revision of the sequence's 15 current cells, if any (TASK-0702).
+
+        A deferred slot can become the newest owner of a sequence whose current
+        projection belongs to another import.  The logical board then continues
+        from that projection's revision.  An incomplete or inconsistent
+        projection returns ``None`` and keeps the coordinator's fail-closed
+        validation; under ``lock`` the rows are locked so the saved revision
+        cannot drift after the sequence lock was taken.
+        """
+
+        _bind_game_store(self._session, game_id)
+        statement = select(ImageSymbolReviewCellModel.geometry_revision).where(
+            ImageSymbolReviewCellModel.game_id == game_id,
+            ImageSymbolReviewCellModel.sequence_number == sequence_number,
+        )
+        if lock:
+            statement = statement.with_for_update()
+        revisions = tuple(int(value) for value in self._session.scalars(statement))
+        if len(revisions) != 15 or len(set(revisions)) != 1:
+            return None
+        return revisions[0]
+
+    def _review_cell_configurations(
+        self,
+        *,
+        game_id: UUID,
+        review_cells: tuple[ImageSymbolReviewCellModel, ...],
+    ) -> tuple[DirectCellRenderConfiguration, ...]:
+        """Pinned configurations of the current review cells (D-467 S7, TASK-0792).
+
+        The render specifications come from the board render manifest of each
+        cell's revision (one batched read), verified against the cell checksum.
+        """
+
+        keys: list[CellRenderSpecKey] = []
+        for cell in review_cells:
+            if cell.asset_mode != "virtual_source" or cell.render_spec_checksum_sha256 is None:
+                raise ImageGridReviewError(
+                    "IMAGE_GRID_REVIEW_RENDER_CONFIGURATION_INVALID",
+                    "A virtual review cell has no pinned render configuration.",
+                )
+            keys.append(
+                CellRenderSpecKey(
+                    recognized_board_id=cell.recognized_board_id,
+                    geometry_revision=cell.geometry_revision,
+                    cell_index=cell.cell_index,
+                    render_spec_checksum_sha256=cell.render_spec_checksum_sha256,
+                )
+            )
+        specs = load_cell_render_specs(self._session, game_id=game_id, keys=keys)
+        return tuple(_configuration(dict(specs[key])) for key in keys)
 
     def _pending_render_configuration(
         self,
@@ -1123,26 +2039,30 @@ class SqlAlchemyVirtualGridGeometryRepository:
         import_job_id: UUID,
         job: JobModel,
     ) -> DirectCellRenderConfiguration:
+        # D-467 S7 (TASK-0792): the pinned configuration of the source's (or,
+        # failing that, the import's) current virtual cells comes from a
+        # current-revision board render manifest; only its first entry's
+        # render specification is fetched.  All cells of one import share the
+        # configuration, which ``_configuration`` validates.
+        first_render_spec = BoardRenderManifestModel.cells["cells"][0]["renderSpec"]
+        current_manifest = and_(
+            RecognizedBoardModel.id == BoardRenderManifestModel.recognized_board_id,
+            RecognizedBoardModel.geometry_revision == BoardRenderManifestModel.geometry_revision,
+        )
         render_spec = self._session.scalar(
-            select(ImageSymbolReviewCellModel.render_spec)
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == ImageSymbolReviewCellModel.recognized_board_id,
-            )
-            .where(
-                ImageSymbolReviewCellModel.asset_mode == "virtual_source",
-                RecognizedBoardModel.source_image_id == source_image_id,
-            )
-            .order_by(ImageSymbolReviewCellModel.cell_index)
+            select(first_render_spec)
+            .join(RecognizedBoardModel, current_manifest)
+            .where(RecognizedBoardModel.source_image_id == source_image_id)
+            .order_by(RecognizedBoardModel.position_index, RecognizedBoardModel.id)
             .limit(1)
         )
         if render_spec is None:
             render_spec = self._session.scalar(
-                select(ImageSymbolReviewCellModel.render_spec)
-                .where(
-                    ImageSymbolReviewCellModel.asset_mode == "virtual_source",
-                    ImageSymbolReviewCellModel.import_job_id == import_job_id,
-                )
+                select(first_render_spec)
+                .join(RecognizedBoardModel, current_manifest)
+                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+                .where(SourceImageModel.import_job_id == import_job_id)
+                .order_by(RecognizedBoardModel.id)
                 .limit(1)
             )
         if render_spec is not None:
@@ -1310,24 +2230,17 @@ class SqlAlchemyVirtualGridGeometryRepository:
         initial_configurations: tuple[DirectCellRenderConfiguration, ...] | None = None
         if not review_cells and expected_indices:
             if board.geometry_revision == 0:
-                observations = tuple(
-                    self._session.scalars(
-                        select(CellObservationModel)
-                        .where(CellObservationModel.recognized_board_id == board.id)
-                        .order_by(CellObservationModel.row_index, CellObservationModel.column_index)
-                    )
+                # D-467: the revision-0 render specs live in the board's
+                # render manifest (cells sorted by ``cellIndex``).
+                base_manifest = load_current_render_manifest(
+                    self._session, game_id=document.game_id, board=board
                 )
                 if (
-                    len(observations) == len(expected_indices)
-                    and {
-                        cell.row_index * topology.columns + cell.column_index
-                        for cell in observations
-                    }
-                    == expected_indices
-                    and all(cell.asset_mode == "virtual_source" for cell in observations)
+                    base_manifest is not None
+                    and set(base_manifest.cell_indices) == expected_indices
                 ):
                     initial_configurations = tuple(
-                        _configuration(cell.render_spec) for cell in observations
+                        _configuration(cell.get("renderSpec")) for cell in base_manifest.cells
                     )
             else:
                 revision = self._session.scalar(
@@ -1356,8 +2269,8 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 "IMAGE_GRID_REVIEW_CELLS_INCOMPLETE",
                 "The current virtual board does not contain every review cell.",
             )
-        configurations = initial_configurations or tuple(
-            _configuration(cell.render_spec) for cell in review_cells
+        configurations = initial_configurations or self._review_cell_configurations(
+            game_id=rollout.game_id, review_cells=review_cells
         )
         if not configurations and board.geometry_qualification is not None:
             revision = self._session.scalar(
@@ -1424,6 +2337,169 @@ class SqlAlchemyVirtualGridGeometryRepository:
             board_geometries=tuple(dict(value) for value in geometry.board_geometries),
             render_configuration=configurations[0],
         )
+
+
+_UNCLASSIFIED_MANUAL_MODEL_VERSION = "manual-unclassified-v1"
+
+# The historical file-crop mode converted by TASK-0791 (D-467 S6).  After
+# migration 0135 no board or review cell can carry it; the conversion is the
+# only reader of the value outside historical migrations.
+_LEGACY_ASSET_MODE = "legacy_file"
+_LEGACY_CONVERSION_KEY_PREFIX = "legacy-board-conversion-v1"
+# Board context the Reviewer reads from ``board_geometry`` (sequence label,
+# source context, filename sequence) that the source slot does not carry.
+_RETAINED_LEGACY_BOARD_KEYS = (
+    "attestedRangeEnd",
+    "attestedRangeStart",
+    "displayAssetKind",
+    "sequenceLabelQuad",
+    "sequenceSource",
+    "sourceContextBounds",
+)
+
+
+def _legacy_source_problems(
+    source: SourceImageModel,
+    job: JobModel | None,
+    geometry: ImageSourceGeometryRevisionModel | None,
+    *,
+    game_id: UUID,
+) -> tuple[str, ...]:
+    if geometry is None:
+        return ("LEGACY_CONVERSION_SOURCE_GEOMETRY_MISSING",)
+    if (
+        job is None
+        or job.game_id != game_id
+        or source.raw_width is None
+        or source.raw_height is None
+        or source.oriented_width is None
+        or source.oriented_height is None
+        or source.normalized_pixel_checksum_sha256 is None
+        or source.normalization_adapter_version is None
+    ):
+        return ("LEGACY_CONVERSION_SOURCE_METADATA_INCOMPLETE",)
+    if geometry.source_checksum_sha256 != source.checksum_sha256 or list(
+        geometry.active_board_slots
+    ) != list(range(len(geometry.board_geometries))):
+        return ("LEGACY_CONVERSION_SOURCE_GEOMETRY_INVALID",)
+    return ()
+
+
+def _legacy_corners(
+    record: ImageBoardGeometryRevisionModel | None,
+) -> tuple[ImageReviewGeometryPoint, ...] | None:
+    if record is None or record.asset_mode != _LEGACY_ASSET_MODE:
+        return None
+    raw = record.corners
+    if not isinstance(raw, list) or len(raw) != 4:
+        return None
+    points: list[ImageReviewGeometryPoint] = []
+    for point in raw:
+        if (
+            not isinstance(point, dict)
+            or type(point.get("x")) is not int
+            or type(point.get("y")) is not int
+        ):
+            return None
+        points.append(ImageReviewGeometryPoint(x=int(point["x"]), y=int(point["y"])))
+    return tuple(points)
+
+
+def _legacy_render_problems(
+    context: VirtualGridGeometryContext,
+    corners: tuple[ImageReviewGeometryPoint, ...],
+    qualification: GeometryQualification | None,
+    *,
+    owns_cells: bool,
+) -> tuple[str, ...]:
+    """Pure geometry checks that the in-memory render would otherwise fail late."""
+
+    quad = SourceQuad(
+        corners=cast(
+            tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
+            tuple(SourcePoint(x=point.x, y=point.y) for point in corners),
+        )
+    )
+    bounds = SourceImageBounds(context.oriented_width, context.oriented_height)
+    try:
+        if qualification is None:
+            if unavailable_source_cell_indices(quad, source=bounds, topology=context.topology):
+                return ("LEGACY_CONVERSION_PARTIAL_UNDECLARED",)
+            return ()
+        resolved = resolve_manual_geometry_qualification(
+            quad=quad, source=bounds, topology=context.topology, qualification=qualification
+        )
+    except ImageGeometryContractError:
+        return ("LEGACY_CONVERSION_QUALIFICATION_INVALID",)
+    if owns_cells and resolved.fully_unavailable_cell_indices:
+        # The cell would lose its render; that is a decision for an operator,
+        # not for an asset-mode conversion.
+        return ("LEGACY_CONVERSION_CELL_OUTSIDE_SOURCE",)
+    return ()
+
+
+def _retain_legacy_board_context(
+    geometry: Mapping[str, object], previous: Mapping[str, object]
+) -> dict[str, object]:
+    value = dict(geometry)
+    for key in _RETAINED_LEGACY_BOARD_KEYS:
+        if key not in value and previous.get(key) is not None:
+            value[key] = previous[key]
+    return value
+
+
+def _cell_decision(cell: ImageSymbolReviewCellModel) -> tuple[object, ...]:
+    return (
+        cell.assigned_symbol_id,
+        cell.assignment_source,
+        cell.review_state,
+        cell.quality_issue,
+        cell.verification_outcome,
+        cell.verified_symbol_id_v2,
+        cell.last_reviewed_by,
+        cell.last_reviewed_at,
+        cell.source_available,
+        cell.source_visibility,
+    )
+
+
+def _pending_slot_cells_prediction(entry: PreparedVirtualGridGeometry) -> dict[str, object]:
+    """Predictions aligned with the rendered cells of a resolved deferred slot.
+
+    With a configured symbol predictor every rendered cell carries the pinned
+    import model's prediction; otherwise the cells stay unclassified (``?``).
+    """
+
+    prediction = entry.slot_prediction
+    if prediction is None:
+        return {
+            "cells": [
+                {
+                    "alternatives": [{"confidence": 1.0, "symbolCode": "?"}],
+                    "columnIndex": cell.column_index,
+                    "confidence": 0.0,
+                    "rowIndex": cell.row_index,
+                    "symbolCode": "?",
+                }
+                for cell in entry.cells
+            ],
+            "modelVersion": _UNCLASSIFIED_MANUAL_MODEL_VERSION,
+        }
+    by_position = {
+        (cell.get("rowIndex"), cell.get("columnIndex")): cell for cell in prediction.cells
+    }
+    if len(by_position) != len(prediction.cells) or set(by_position) != {
+        (cell.row_index, cell.column_index) for cell in entry.cells
+    }:
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_PREDICTION_CELLS_INVALID",
+            "The deferred slot predictions do not match its rendered cells.",
+        )
+    payload = prediction.to_cells_prediction()
+    payload["cells"] = [
+        dict(by_position[(cell.row_index, cell.column_index)]) for cell in entry.cells
+    ]
+    return payload
 
 
 def _configuration(value: object) -> DirectCellRenderConfiguration:
@@ -1555,16 +2631,53 @@ def _project_geometry_qualification(
     board.unavailable_cell_indices = list(qualification.unavailable_cell_indices)
 
 
-def _reset_grid_issue_after_virtual_recrop(
+def _recheck_after_virtual_recrop(
     cell: ImageSymbolReviewCellModel,
     *,
+    pixels_changed: bool,
     active_symbol_ids_by_code: dict[str, UUID],
 ) -> None:
-    if cell.quality_issue != "grid_issue":
+    """Apply D-462 R5/R6 to a cell that already carries its new render.
+
+    A saved geometry resolves a grid report. A verification survives only for
+    the same pixels, and its approval is then rebound to the current render;
+    otherwise the human label stays as a pending suggestion, the old approval
+    remains as history and pixel-bound flags do not carry over.
+    """
+
+    human_sources = {
+        SymbolCellAssignmentSource.HUMAN.value,
+        SymbolCellAssignmentSource.BOARD_DECISION.value,
+    }
+    if cell.quality_issue == SymbolCellQualityIssue.GRID_ISSUE.value:
+        cell.quality_issue = None
+        if pixels_changed or cell.assignment_source not in human_sources:
+            cell.assignment_source = SymbolCellAssignmentSource.MODEL.value
+            cell.assigned_symbol_id = active_symbol_ids_by_code.get(
+                cell.prediction_symbol_code or ""
+            )
         return
-    cell.quality_issue = None
-    cell.assignment_source = SymbolCellAssignmentSource.MODEL.value
-    cell.assigned_symbol_id = active_symbol_ids_by_code.get(cell.prediction_symbol_code or "")
+    if cell.review_state == SymbolCellReviewState.APPROVED.value:
+        if symbol_cell_approval_pixels_changed(
+            asset_mode=cell.asset_mode,
+            crop_checksum_sha256=cell.crop_checksum_sha256,
+            approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
+            rendered_pixel_checksum_sha256=cell.rendered_pixel_checksum_sha256,
+            approved_rendered_pixel_checksum_sha256=cell.approved_rendered_pixel_checksum_sha256,
+        ):
+            cell.review_state = SymbolCellReviewState.PENDING.value
+            cell.quality_issue = None
+            return
+        cell.approved_crop_sample_id = cell.crop_sample_id
+        cell.approved_crop_checksum_sha256 = cell.crop_checksum_sha256
+        cell.approved_geometry_revision = cell.geometry_revision
+        cell.approved_asset_mode = cell.asset_mode
+        cell.approved_source_geometry_revision_id = cell.source_geometry_revision_id
+        cell.approved_render_spec_checksum_sha256 = cell.render_spec_checksum_sha256
+        cell.approved_rendered_pixel_checksum_sha256 = cell.rendered_pixel_checksum_sha256
+        return
+    if pixels_changed and cell.assignment_source in human_sources:
+        cell.quality_issue = None
 
 
 def _revision_from_model(

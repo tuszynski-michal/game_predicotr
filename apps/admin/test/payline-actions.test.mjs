@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   archivePayline,
+  deletePayline,
   savePayline,
 } from '../src/features/rules/payline-actions.ts';
 
@@ -26,6 +27,7 @@ function createClient(overrides = {}) {
   return {
     archivePayline: async () => ({ data: undefined }),
     createPayline: async () => ({ data: savedPayline }),
+    deletePayline: async () => ({ data: undefined }),
     listPaylines: async () => ({ data: [] }),
     updatePayline: async () => ({ data: savedPayline }),
     ...overrides,
@@ -144,4 +146,45 @@ test('blocks a create before the API call when automatic display order would ove
       'Nie można nadać automatycznej kolejności: osiągnięto maksymalną liczbę wzorców.',
     ok: false,
   });
+});
+
+test('deletes permanently through the typed boundary and maps failures', async () => {
+  let deletedId;
+  const success = await deletePayline(
+    createClient({
+      deletePayline: async (_rulesVersionId, paylineId) => {
+        deletedId = paylineId;
+        return { data: undefined };
+      },
+    }),
+    rulesVersionId,
+    savedPayline.id,
+  );
+  const immutable = await deletePayline(
+    createClient({
+      deletePayline: async () => ({
+        error: {
+          code: 'RULES_VERSION_IMMUTABLE',
+          message: 'Only a draft rules version can be changed.',
+        },
+      }),
+    }),
+    rulesVersionId,
+    savedPayline.id,
+  );
+  const offline = await deletePayline(
+    createClient({
+      deletePayline: async () => {
+        throw new Error('offline');
+      },
+    }),
+    rulesVersionId,
+    savedPayline.id,
+  );
+
+  assert.equal(deletedId, savedPayline.id);
+  assert.deepEqual(success, { ok: true });
+  assert.equal(immutable.ok, false);
+  assert.equal(offline.ok, false);
+  assert.match(offline.error, /Usunięcie nie zostało potwierdzone/);
 });

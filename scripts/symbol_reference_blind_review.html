@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="pl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'none'; img-src data: blob:; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>Ślepa ocena symboli</title>
+<style>
+:root { --bg: #f6f6f4; --fg: #1d1d1b; --muted: #6b6b66; --card: #ffffff;
+  --line: #d8d8d2; --accent: #1f6f4a; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161615; --fg: #ecece8; --muted: #a3a39c; --card: #212120;
+    --line: #3a3a37; --accent: #5fc28f; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.4 system-ui, sans-serif; }
+main { max-width: 980px; margin: 0 auto; padding: 16px; }
+header { display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+  justify-content: space-between; }
+h1 { font-size: 20px; margin: 0; }
+.muted { color: var(--muted); font-size: 13px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  padding: 16px; margin-top: 12px; }
+.images { display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }
+figure { margin: 0; }
+figure img { display: block; image-rendering: pixelated; border: 1px solid var(--line);
+  max-width: 100%; height: auto; }
+figcaption { color: var(--muted); font-size: 13px; margin-top: 4px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+button { font: inherit; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--line);
+  background: var(--card); color: var(--fg); cursor: pointer; }
+button.state { color: var(--muted); }
+button.chosen { border-color: var(--accent); outline: 2px solid var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Ślepa ocena symboli</h1>
+    <span class="muted" id="progress"></span>
+  </header>
+  <p class="muted">Wybierz symbol widoczny w zaznaczonym polu. Klawisze cyfr wybierają symbole,
+    N — nieczytelny, Z — zasłonięty, S — zła siatka; strzałki zmieniają komórkę. Zamrożenie
+    __FROZEN__. Postęp zapisuje się w tej przeglądarce; na końcu pobierz plik ocen.</p>
+  <section class="card">
+    <div class="images">
+      <figure><img id="crop" width="192" height="192" alt="Wycinek komórki">
+        <figcaption>Wycinek</figcaption></figure>
+      <figure><img id="context" width="224" height="224" alt="Komórka na planszy">
+        <figcaption>Położenie na planszy</figcaption></figure>
+    </div>
+    <div class="row" id="options"></div>
+    <div class="row">
+      <button id="prev">← Poprzednia</button>
+      <button id="next">Następna →</button>
+      <button id="nextEmpty">Następna bez oceny</button>
+      <button id="export">Pobierz oceny</button>
+    </div>
+    <p class="muted" id="cellId"></p>
+  </section>
+</main>
+<script>
+const DATA = __PAYLOAD__;
+const KEY = "symbol-blind-" + DATA.frozenSha256;
+let ratings = {};
+try { ratings = JSON.parse(localStorage.getItem(KEY) || "{}") || {}; } catch (e) { ratings = {}; }
+let index = 0;
+const byId = (id) => document.getElementById(id);
+function save() { try { localStorage.setItem(KEY, JSON.stringify(ratings)); } catch (e) {} }
+function render() {
+  const item = DATA.items[index];
+  byId("crop").src = item.crop;
+  byId("context").src = item.context;
+  byId("cellId").textContent = "Komórka " + (index + 1) + " / " + DATA.items.length;
+  const done = DATA.items.filter((x) => ratings[x.id]).length;
+  byId("progress").textContent = "Ocenione: " + done + " / " + DATA.items.length;
+  const box = byId("options");
+  box.textContent = "";
+  DATA.options.forEach((option, i) => {
+    const button = document.createElement("button");
+    button.textContent = (option.key ? option.key + ". " : "") + option.name;
+    if (DATA.states.includes(option.code)) button.classList.add("state");
+    if (ratings[item.id] === option.code) button.classList.add("chosen");
+    button.addEventListener("click", () => choose(option.code));
+    box.appendChild(button);
+  });
+}
+function choose(code) {
+  ratings[DATA.items[index].id] = code;
+  save();
+  if (index < DATA.items.length - 1) index += 1;
+  render();
+}
+byId("prev").addEventListener("click", () => { if (index > 0) index -= 1; render(); });
+byId("next").addEventListener("click", () => {
+  if (index < DATA.items.length - 1) index += 1;
+  render();
+});
+byId("nextEmpty").addEventListener("click", () => {
+  const next = DATA.items.findIndex((x) => !ratings[x.id]);
+  if (next >= 0) { index = next; render(); }
+});
+byId("export").addEventListener("click", () => {
+  const content = { format: DATA.format, frozenSha256: DATA.frozenSha256, ratings };
+  const blob = new Blob([JSON.stringify(content, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "blind-ratings-" + DATA.frozenSha256.slice(0, 12) + ".json";
+  link.click();
+});
+document.addEventListener("keydown", (event) => {
+  // Held keys and browser shortcuts (for example Ctrl+0) must never rate a cell.
+  if (event.repeat || event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.key === "ArrowLeft") { byId("prev").click(); return; }
+  if (event.key === "ArrowRight") { byId("next").click(); return; }
+  const option = DATA.options.find((x) => x.key && x.key === event.key.toUpperCase());
+  if (option) choose(option.code);
+});
+render();
+</script>
+</body>
+</html>

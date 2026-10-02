@@ -1,10 +1,1332 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-09-25
+last_updated: 2026-10-02
 ---
 
 # Decision Log
+
+## D-488 — korekta cięcia siatki może zatwierdzić symbole wskazane przez operatora (zmienia D-462)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, plan
+  `ai_docs/delivery/GRID_CORRECTION_SYMBOLS_EXECUTION_PLAN.md`.
+- **Decision:** zapis geometrii z ekranu „Korekta cięcia siatki” może zawierać
+  symbole narzucone przez operatora dla wybranych pól. Każde takie pole jest
+  zatwierdzane jako decyzja człowieka (`approved`, `assignment_source = human`)
+  dla dokładnie nowego cropa, w tej samej transakcji co geometria.
+- **Supersedes:** fragment D-462 „zapis geometrii … nie weryfikuje symboli” —
+  nadal obowiązuje dla pól, których operator nie wskazał: wracają do
+  Weryfikacji symboli na dotychczasowych zasadach.
+- **Rationale:** operator widzi nowy crop w chwili korekty i potrafi go
+  rozpoznać; ponowne szukanie tej samej komórki w Weryfikacji symboli jest
+  zbędne.
+- **Safety:** używana jest wyłącznie istniejąca akcja `REASSIGN`; błąd
+  przypisania wycofuje cały zapis. Pola bez pikseli nie są przypisywane.
+  Podpowiedzi symboli w podglądzie niczego nie zapisują.
+## D-487 — dziennik linku zapisuje stawkę wybraną przez odbiorcę (zmienia D-472 i D-478)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0817.
+- **Context:** D-478 rysowało wykres dziennika w stawce bazowej, bo stawka
+  jest wybierana w przeglądarce odbiorcy po obliczeniu zakresu i nie trafiała
+  do API. Operator widział więc wykresy niezgodne z tym, co oglądał odbiorca.
+- **Decision:** strona linku zgłasza każdą parę (zakres, stawka), którą
+  pokazuje odbiorcy, przez `GET /board-search-shares/approximate-win/stake`.
+  API zapisuje ją jako wpis rodzaju `approximate_win` z `stakeGrosze`
+  (`null` = stawka bazowa) i pustym skrótem wyniku; niczego nie liczy.
+  Wykres w dzienniku jest rysowany w tej stawce, z podpisem kwoty. Wpisy
+  sprzed tej decyzji nie mają stawki: wykres zostaje w stawce bazowej z
+  podpisem „stawka nieznana”.
+- **Reason:** osobny rodzaj wpisu wymagałby migracji ograniczenia
+  `ck_bss_query_kind` i skoordynowanego przejścia wszystkich instancji API;
+  wpis zakresu ze stawką nie zmienia schematu i sam staje się
+  `followUpApproximateWin` wyszukiwania. Trasa jest odczytem `GET`, jak
+  wszystkie zapisywane zapytania tej powierzchni, więc proxy pozostaje
+  listą dozwolonych tras odczytu.
+- **Alternatives rejected:** stawka jako parametr kalkulacji zakresu
+  (stawka jest wybierana po kalkulacji, więc wymuszałaby ponowne liczenie);
+  nowy rodzaj wpisu z migracją.
+- **Consequences:** publiczna powierzchnia ma dziewiątą trasę (bramka
+  bezpieczeństwa Reviewera zaktualizowana). Zgłoszenie stawki jest
+  nieblokujące: gdy się nie powiedzie, odbiorca nic nie traci, a wykres
+  operatora zostaje przy starszej albo nieznanej stawce. Wpis stawki bez
+  wcześniejszej kalkulacji jest możliwy (API nie sprawdza, czy zakres był
+  liczony) i dla Admina znaczy tylko „zakres i stawka do narysowania”.
+
+## D-486 — dziennik linku grupuje wyszukiwania tego samego wzoru (zmienia D-478)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0816.
+- **Context:** odbiorca wraca do tego samego wzoru; każde wyszukiwanie było
+  osobnym wpisem dziennika, więc lista rosła powtórzeniami.
+- **Decision:** widok dziennika pokazuje jeden wpis na wzór 3 × 5 w ramach
+  linku (klucz: `request.cells`; zakres i limit wyszukiwania nie rozdzielają
+  grupy). Wpis stoi w miejscu najnowszego wyszukiwania wzoru i wymienia czasy
+  wszystkich jego wyszukiwań po przecinku. Wykres pochodzi z najnowszego
+  wyszukiwania wzoru, po którym odbiorca otworzył „Przybliżoną wygraną” —
+  także gdy plansza startowa albo zakres różniły się między wyszukiwaniami.
+  „Usuń” usuwa wszystkie wyszukiwania wzoru wraz z ich wpisami następczymi.
+- **Reason:** operatora interesuje, jakie wzory odbiorca sprawdzał i kiedy,
+  a nie każde powtórzenie osobno. Zapis dziennika (D-472, D-475) się nie
+  zmienia — grupowanie jest wyłącznie odczytem.
+- **Consequences:** starsze wykresy tego samego wzoru nie są widoczne w
+  dzienniku (zostają w danych do czasu usunięcia grupy). Grupowanie liczy
+  API z najwyżej 10 000 najnowszych wyszukiwań linku.
+
+## D-485 — bramka kompletności: stan trwały zdjęcia, dokument sekwencji bez dowodu symboli, przepinanie plansz (uzupełnia D-484)
+
+- **Status:** accepted, 2026-10-02; rozstrzygnięcia wykonawcze TASK-0807
+  podjęte przez orkiestratora na podstawie pełnomocnictwa operatora z
+  2026-10-02 („decyzję podejmujesz autonomicznie”) i jego polecenia
+  przepinania plansz.
+- **Decision:**
+  1. `source_images` ma trwały stan `geometry_complete`,
+     `geometry_incomplete`, `geometry_exception` albo `NULL` (zdjęcie poza
+     bramką: nieocenione, zastąpione nowszym importem, nieudany import, bez
+     geometrii źródła) — migracja `0139`. Stan przelicza każda operacja
+     zmieniająca planszę, jej geometrię, żywotność albo odroczoną geometrię,
+     w tej samej transakcji.
+  2. Plansza zdjęcia niedopuszczonego nie dostaje komórek weryfikacji
+     symboli. Jej dokument w projekcji wyszukiwarki **zostaje**, ale bez
+     dowodu symboli, więc wyszukiwarka jej nie zwraca. Dokument jest
+     jednocześnie rejestrem właściciela numeru sekwencji, z którego
+     korzysta korekta siatek w Reviewerze i kolejka siatek; jego usunięcie
+     uniemożliwiłoby poprawienie wstrzymanego zdjęcia. Powód wstrzymania
+     jest jawny (`SOURCE_IMAGE_GEOMETRY_INCOMPLETE`, licznik
+     `gate.withheldBoards`).
+  3. Bramka blokuje wyłącznie nową materializację. Plansze, które już mają
+     komórki, są nadal utrzymywane; istniejące komórki, decyzje człowieka i
+     dokumenty nie są usuwane ani unieważniane.
+  4. Zapis nowej rewizji geometrii źródła zdjęcia przepina na nią żywe
+     plansze tego zdjęcia, ale tylko gdy wpis pozycji jest identyczny w obu
+     rewizjach, topologia i sumy kontrolne źródła są te same, plansza ma
+     `geometry_revision = 0`, a jej manifest i komórki wskazują starą
+     rewizję i żadna komórka nie należy do kohorty treningowej. Razem z
+     planszą przechodzą wskaźniki manifestu renderu i komórek; piksele,
+     specyfikacje renderu, identyfikatory cropów, decyzje i zdarzenia się
+     nie zmieniają. Plansza niespełniająca warunków zostaje i trafia do
+     raportu.
+  5. Plansza częściowa (`pending_partial`) nigdy nie liczy się jako
+     poprawna siatka; zdjęcie z taką planszą wymaga wyjątku operatora
+     (D-449, D-484). Backfill nie nadaje wyjątków w imieniu operatora.
+  6. Wycofanie wyjątku po decyzji człowieka na komórce zdjęcia jest
+     odrzucane (`IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT`).
+  7. Ręczna korekta planszy bez komórek na zdjęciu niedopuszczonym nie
+     wykonuje ponownego cięcia; komórki powstają po dopuszczeniu zdjęcia.
+- **Consequences:** po backfillu 777 w kolejce zostaje 60 zdjęć ze 108
+  planszami częściowymi (wszystkie mają już komórki); operator nadaje im
+  wyjątki albo uzupełnia siatki. Wycofanie migracji jest odmawiane, gdy
+  istnieje wyjątek operatora.
+
+## D-483 — metryka nadrzędna silnika siatek: odsetek zdjęć kompletnych i poprawnych
+
+- **Status:** accepted, 2026-10-01; decyzja operatora przy akceptacji
+  `GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` (decyzja 4 planu).
+- **Decision:** silnik siatek 5 × 3 ocenia się najpierw odsetkiem zdjęć, na
+  których wszystkie oczekiwane plansze mają siatkę w tolerancji (zdjęcie
+  zaliczone tylko przy komplecie). Druga w kolejności jest miara image-macro
+  z T05 z kosztem braku planszy równym 1. Miary pomocnicze: odzysk plansz,
+  NME p95, zgodność symboli po cięciu. Metryka i tolerancje są zamrażane
+  przed pierwszym treningiem; model wybiera się wyłącznie na walidacji.
+- **Reason:** D-484 czyni zdjęcie jednostką pracy — jedna zła plansza
+  wstrzymuje całe zdjęcie, więc średnia per plansza nie opisuje kosztu
+  operatora.
+- **Consequences:** raporty runów i raport porównawczy TASK-0804 podają tę
+  miarę jako pierwszą; wynik T05 pozostaje porównywalny przez drugą miarę.
+
+## D-482 — etap D (sieć węzłów) rusza bez ukończenia etapu C (symbole)
+
+- **Status:** accepted, 2026-10-01; decyzja operatora (decyzja 3 planu V3).
+- **Decision:** T10 / TASK-0675 dla geometrii 5 × 3, realizowany jako
+  TASK-0802, nie wymaga ukończenia T09 ani STOP C planu Vision Lab. Etap C
+  (T06b–T09) pozostaje zablokowany i bez zmian.
+- **Reason:** geometria nie zależy od modeli symboli (D-461), a brakujące i
+  błędne siatki są dziś głównym źródłem pracy ręcznej.
+- **Consequences:** warunek wejścia „T09 uzasadnia T10” w TASK-0675 jest
+  zastąpiony dla topologii 5 × 3; topologia 3 × 3 pozostaje poza planem V3.
+
+## D-481 — budżet treningu geometrii V3: do 3 runów po 4 godziny GPU na zadanie modelu
+
+- **Status:** accepted, 2026-10-01; decyzja operatora (decyzja 2 planu V3).
+- **Decision:** zadanie modelu planu V3 (TASK-0802) może wykonać do trzech
+  runów, każdy do 4 godzin GPU, z presetem i fingerprintem zapisanymi przed
+  pierwszym runem. Kolejne runy wymagają nowej zgody. Smoke do 50 kroków bez
+  zmian. Zastępuje limit „jeden trening do 20 epok lub 30 minut” z T05/T10
+  wyłącznie dla zadań planu V3.
+- **Reason:** T05 zakończył się na 200 krokach i 90 siatkach; sieć widząca
+  cały ekran na tysiącach zdjęć nie zmieści się w 30 minutach.
+- **Consequences:** budżet jest trwały w protokole runów (przerwany run nie
+  odzyskuje budżetu). Trening nie biegnie równolegle z ciężkimi operacjami
+  bazy (limit 8 GB VM WSL).
+
+## D-480 — zatwierdzona geometria produkcyjna 777 jako dane uczące geometrii (zmienia D-453)
+
+- **Status:** accepted, 2026-10-01; decyzja operatora (decyzja 1 planu V3).
+- **Decision:** plansze 777 z zatwierdzoną geometrią w `game_data_v2`
+  (poziom S: zatwierdzone po reweryfikacji `system:grid-reverify-777-v1`)
+  oraz plansze z automatyczną geometrią po filtrze zgodności symboli
+  (poziom B) mogą być targetami treningu geometrii. Poziom G (ręczne siatki
+  labu, rezolucje Reviewera, korekty `local-admin`) służy do oceny i nigdy
+  nie jest jedynym źródłem treningu. Zastępuje ograniczenie D-453 „referencją
+  są wyłącznie nowe ręczne geometrie laboratorium” w zakresie treningu.
+- **Boundaries:** dane produkcyjne czyta wyłącznie eksporter, tylko do
+  odczytu; laboratorium nadal nie importuje `storage` ani `psycopg` (D-447).
+  Role źródeł, bramki symboli i holdouty D-456 (walidacja Mumie, `final_test`
+  Reels, `unseen_game` Treasure) pozostają bez zmian. Zdjęcie użyte w
+  treningu, jego rodzina i pochodne nie mogą być niezależnym testem.
+- **Consequences:** etykiety S pochodzą z hybrydowej reweryfikacji i mogą
+  powielać jej błędy; o przydatności rozstrzyga odsetek błędów z przeglądu
+  operatora w TASK-0801 oraz pomiar na poziomie G.
+
+## D-484 — kompletność geometrii zdjęcia jest bramką przed cięciem na symbole
+
+- **Status:** accepted, 2026-10-01; decyzja operatora (decyzja 5 planu V3)
+  po zgłoszeniu: import 777 przeszedł, plansze z siatką trafiły do
+  weryfikacji symboli, a braki siatek na części zdjęć wyszły dopiero później.
+- **Decision:** jednostką geometrii jest zdjęcie źródłowe. Zdjęcie ma
+  oczekiwaną liczbę plansz (`active_board_slots` bieżącej rewizji geometrii
+  źródła). Dopóki każda oczekiwana plansza nie ma poprawnej siatki
+  (zaakceptowanej przez silnik bez zastrzeżeń albo zatwierdzonej przez
+  człowieka), żadna plansza tego zdjęcia nie jest cięta na symbole, nie
+  trafia do weryfikacji symboli ani do wyszukiwarki. Zdjęcie niekompletne ma
+  jawny stan i trafia do kolejki siatek całym zdjęciem. Wyjątek (plansza
+  poza kadrem, kwalifikacja częściowa D-449) wymaga jawnej decyzji operatora
+  dla konkretnego zdjęcia, zapisanej z autorem i powodem. Każdy import i
+  przebieg silnika raportuje zdjęcia kompletne i niekompletne przed pracą
+  nad symbolami.
+- **Scope:** nowe importy i ponowne przebiegi. Istniejące dane 777 są
+  oceniane raportem; wykonana materializacja komórek i decyzje człowieka
+  nie są cofane.
+- **Reason:** błąd siatki wykryty przy symbolach kosztuje poprawianie
+  pojedynczych komórek i unieważnia cropy (`geometry_invalidated`); wykryty
+  zaraz po imporcie kosztuje jedną korektę siatki i daje świeże przykłady
+  do poprawy silnika.
+- **Consequences:** jedna trudna plansza wstrzymuje symbole całego zdjęcia —
+  koszt świadomy, łagodzony wyjątkiem operatora. Zmienia dotychczasowe
+  zachowanie odroczonej geometrii (`image_board_geometry_pending`), w którym
+  pozostałe plansze zdjęcia szły dalej. Raport: TASK-0806; egzekwowanie:
+  TASK-0807.
+## D-479 — „Przybliżona wygrana” bez kafelków i wyboru zakresu; nazwy operatora (zmienia D-476)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0784.
+- **Context:** operator korzysta z wykresu i tabeli. Kafelki podsumowania,
+  wiersz reguł, radio zakresu wyszukiwania i status planszy w wynikach nie
+  były używane, a nazwy „bilans” i „wypłata” nie odpowiadały temu, jak
+  operator liczy pieniądze.
+- **Decision:** w „Przybliżonej wygranej” i oknie planszy „bilans” nazywa
+  się „kasa na czysto”, a „wypłata” — „wygrana” (termin „linie wypłat”
+  zostaje). Etykieta punktu wykresu ma cztery wiersze: spiny, kasa na
+  czysto, wkład (na czerwono) i „kasa na maszynie” = wkład + kasa na
+  czysto. Cztery kafelki podsumowania i wiersz „Reguły v… · koszt spinu”
+  są usunięte. Tytułem sekcji jest „Plansza startowa #N · X spinów” (bez
+  zakresu numerów plansz). Radio „Zakres wyszukiwania” jest usunięte:
+  wyszukiwanie zawsze obejmuje wszystkie plansze (`all_searchable`), także
+  przy odtworzeniu wpisu dziennika zapisanego z `approved_only`. Nagłówek
+  wyników pokazuje dopasowanie i numer planszy, bez statusu. Okno planszy
+  zajmuje do 1500 px szerokości.
+- **Reason:** mniej elementów nad wykresem i nazwy zgodne z językiem
+  operatora. Parametr `scope` zostaje w API; zmienia się tylko to, co wysyła
+  wspólny interfejs (Admin i udostępniony link).
+- **Consequences:** suma wygranych, koszt spinów i maksymalny wkład całego
+  zakresu nie są już pokazywane jako osobne liczby — wkład i kasę widać na
+  wybranym punkcie wykresu. Odbiorca linku też nie wybiera już zakresu.
+
+## D-478 — dziennik linku pokazuje wyszukiwania z wykresem; wpis można usunąć (zmienia D-472)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0783.
+- **Context:** dziennik pokazywał każdy zapis (wyszukiwanie, przybliżona
+  wygrana, szczegóły planszy) z linią opisu. Operatora interesuje tylko to,
+  jaki wzór odbiorca wpisał, i jak wygląda bilans dla planszy, którą potem
+  otworzył; po przejrzeniu chce wpis usunąć.
+- **Decision:** widok dziennika w Adminie listuje wyłącznie wyszukiwania
+  (`kind=search`), po 10. Wpis pokazuje wzór 3 × 5 (około jednej trzeciej
+  szerokości) i wykres bilansu na resztę szerokości. Wykres dotyczy
+  najnowszej udanej „Przybliżonej wygranej”, którą odbiorca uruchomił po tym
+  wyszukiwaniu, a przed następnym (`followUpApproximateWin` we wpisie);
+  Admin liczy go na żądanie z bieżących danych, w stawce bazowej i złotych,
+  bo stawka odbiorcy nie jest zapisywana. Linia opisu (zakres, limit,
+  wyniki) znika z widoku. `DELETE …/queries/{eventId}` trwale usuwa wpis;
+  wyszukiwanie zabiera ze sobą swoje późniejsze zapisy aż do następnego
+  wyszukiwania tej sesji. Operacja wysokiego wpływu z audytem.
+- **Reason:** zapis nadal jest pełny i fail-closed (D-472, D-475) — zmienia
+  się tylko to, co operator widzi i co może posprzątać. Dziennik należy do
+  operatora; audyt lokalnego Admina odnotowuje usunięcie.
+- **Consequences:** wykres może różnić się od tego, co widział odbiorca,
+  jeżeli dane planszy zostały później poprawione. Usunięcia nie da się
+  cofnąć. Dziennik przechowuje wyłącznie JSON z kodami symboli; miniatury
+  wzoru to bieżące grafiki symboli z katalogu.
+
+## D-477 — trwałe usunięcie wzorca wypłat w wersji roboczej (zmienia D-026)
+
+- **Status:** accepted, 2026-10-01; polecenie operatora, TASK-0779.
+- **Context:** D-026 dopuszczało tylko archiwizację (`is_active = false`).
+  Zarchiwizowany wzorzec nadal zajmuje kod i `row_path`, więc operator nie
+  mógł dodać poprawionego wzorca w jego miejsce (`DUPLICATE_PAYLINE`,
+  `PAYLINE_CODE_ALREADY_EXISTS`).
+- **Decision:** `DELETE /rules-versions/{id}/paylines/{paylineId}/permanent`
+  fizycznie usuwa wzorzec, wyłącznie w wersji o statusie `draft`; zwalnia kod
+  i ścieżkę. Operacja wysokiego wpływu (`delete-payline`, nagłówki
+  potwierdzenia i audyt jak przy archiwizacji). Dotychczasowe `DELETE`
+  bez sufiksu pozostaje archiwizacją. Admin pokazuje „Usuń” z dwustopniowym
+  potwierdzeniem obok „Archiwizuj”.
+- **Reason:** audyt z D-026 dotyczy opublikowanych wersji, a te pozostają
+  niezmienne (`RULES_VERSION_IMMUTABLE`); wersja robocza nie jest jeszcze
+  podstawą żadnych obliczeń ani snapshotu. Żadna tabela nie wskazuje na
+  `paylines.id`.
+- **Consequences:** usunięcia nie da się cofnąć — wzorzec trzeba dodać
+  ponownie. Wersja robocza utworzona z opublikowanej ma własne kopie
+  wzorców, więc usunięcie nie zmienia wersji źródłowej.
+
+## D-476 — „Przybliżona wygrana” statyczna, stawka wybierana per wzór, złote domyślnie
+
+- **Status:** accepted, 2026-10-01; polecenie operatora, TASK-0777. Zmienia
+  zachowanie sekcji z D-446/D-462 (domyślnie zwinięta, liczy po rozwinięciu).
+- **Context:** operator po każdym wyszukaniu rozwijał sekcję i poprawiał
+  stawkę; stawka zapamiętana z poprzedniej planszy bywała zła dla nowej.
+- **Decision:** sekcja jest statyczna i liczy od razu dla wybranej planszy
+  (żądanie po ustaleniu wyboru na ~0,4 s; spóźnione odpowiedzi odrzucane jak
+  dotąd). Zakres wygranej, stawka i jednostka w jednym wierszu; jednostka
+  domyślnie złote (pamiętana), stawka nie jest pamiętana i musi być wybrana
+  dla każdego nowego wzoru — do wyboru wynik jest ukryty, choć policzony.
+  Domyślna liczba wyników 15; zakres wyszukiwania w sekcji wyników i jego
+  zmiana powtarza wyszukiwanie z zachowaniem wyboru. Wykres nad tabelą,
+  tabela ~20 wierszy. Limit kalkulacji odbiorcy linku 10 → 30/min, bo
+  każda wybrana plansza jest liczona; limit jednej kalkulacji naraz zostaje.
+- **Consequences:** korekta pola z okna planszy nadal przelicza zakres po
+  zamknięciu okna (D-462), tylko bez ścieżki „zwiń i rozwiń”. Przy koszcie
+  spinu 0 stawki nie ma i wynik jest widoczny od razu.
+
+## D-475 — zapis dziennika zapytań linku w osobnej transakcji (uzupełnia D-472)
+
+- **Status:** accepted, 2026-09-30; TASK-0767 (audyt).
+- **Context:** D-472 i plan R5 mówiły o zapisie wpisu „w tej samej
+  transakcji co odczyt”. Odczyty udostępnionej wyszukiwarki idą sesjami
+  przypiętymi do magazynu gry (`game_data_v2`), a dziennik jest tabelą
+  sterującą w `public`; jedna transakcja wymagałaby wiązania zapisu z każdym
+  serwisem odczytu.
+- **Decision:** wpis jest zapisywany w osobnej, krótkiej transakcji, która
+  jest zatwierdzana, zanim odpowiedź z danymi opuści API. Żądanie, którego
+  wpisu nie da się zbudować (kształt, rozmiar), jest odrzucane przed
+  odczytem (`422 BOARD_SEARCH_SHARE_QUERY_INVALID`); nieudany zapis daje
+  `503 BOARD_SEARCH_SHARE_QUERY_LOG_UNAVAILABLE` bez danych; nieudany odczyt
+  jest zapisywany z kodem błędu. Gwarancja fail-closed z D-472 („brak danych
+  bez śladu”) jest zachowana. Skutek: gdy magazyn gry jest niezapisywalny
+  (migracja, blokada), udostępnienie odpowiada 503, bo wpis wiąże się z grą.
+- **Alternatives rejected:** jedna transakcja odczytu i zapisu (sprzężenie
+  wszystkich serwisów odczytu z tabelą sterującą); zapis po wysłaniu
+  odpowiedzi (dane bez śladu przy awarii).
+
+## D-474 — nieaktualny odczyt planszy w oknie linii i odświeżenie jednej planszy
+
+- **Status:** accepted, 2026-09-30; zgłoszenie operatora (plansza #67755),
+  TASK-0773. Zmienia zachowanie szczegółów planszy z D-470.
+- **Context:** 88 260 z 500 000 dokumentów wyszukiwania gry 7 pochodzi
+  sprzed późniejszej rewizji geometrii planszy i nie zostało odświeżone.
+- **Decision:** szczegóły planszy przy niezgodnej sumie tożsamości nie
+  zwracają 409, tylko `documentStale = true` z liniami i wypłatą z dokumentu
+  (tak samo liczy tabela), bez widoku i pól do poprawki. Widok nadal zwraca
+  409. Admin może przebudować dokument jednej pozycji
+  (`refreshBoardSearchBoardDocument`) tą samą synchronizacją projekcji, którą
+  system uruchamia po każdej decyzji; nie zmienia to decyzji ludzi.
+  Przebudowa, która usuwa dokument, jest zapisywana i raportowana.
+- **Out of scope:** masowe odświeżenie wszystkich nieaktualnych dokumentów
+  (osobna operacja z podglądem i zgodą) i naprawa ścieżki, która pominęła
+  synchronizację.
+
+## D-473 — poprawianie symbolu pola z okna planszy „Przybliżonej wygranej”
+
+- **Status:** accepted, 2026-09-30; polecenie operatora po odbiorze etapu A
+  planu `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` (R6,
+  TASK-0772).
+- **Decision:** okno planszy z liniami wypłat ma tryb „Popraw symbole”. Klik
+  w pole i wybór symbolu zapisuje decyzję człowieka dla pola istniejącym
+  `applySymbolCellReviewDecision` (`approve`, `reassign`,
+  `mark_unreadable`, `mark_grid_issue`). Decyzja od razu zasila projekcję
+  wyszukiwania (D-462), więc linie, tabela i bilans liczą się z poprawionych
+  danych. „Nieczytelny” czyni pole nieznanym — linia kończy się przed nim.
+- **Scope:** tylko plansze oczekujące z rekordami weryfikacji pól bieżącej
+  geometrii; plansze zatwierdzone i archiwum bez edycji.
+- **Rejected:** lokalny przełącznik pomijający linię w obliczeniu (nie
+  poprawia danych i rozjeżdża się z wyszukiwarką).
+
+## D-472 — dziennik zapytań udostępnionego linku i odtworzenie w Adminie
+
+- **Status:** accepted, 2026-09-30; dopisek operatora do planu
+  `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` (R5, TASK-0771,
+  etap B). Rozszerza D-471.
+- **Decision:** serwer zapisuje każde publiczne zapytanie o dane
+  udostępnionej wyszukiwarki (wyszukiwanie, przybliżona wygrana, szczegóły
+  planszy): czas, rodzaj, parametry potrzebne do odtworzenia (pełny wzór z
+  polami `?`, zakres, liczba wyników, plansza startowa, zakres spinów) i
+  skrót wyniku. Zapis jest w tej samej transakcji co odczyt; bez wpisu
+  odbiorca nie dostaje danych.
+- **Privacy:** bez adresu IP i nagłówków przeglądarki; bramka kodu informuje
+  odbiorcę o zapisie. Stawka i jednostka są liczone w przeglądarce i nie są
+  zapisywane. Brak automatycznej retencji; usuwanie wymaga osobnej decyzji.
+- **Admin:** dziennik wybranej sesji (najnowsze najpierw, po 50) z przyciskiem
+  „Odtwórz w wyszukiwarce”, który przez `?boardSearchReplay=<eventId>`
+  wypełnia wzór, zakres i liczbę wyników i uruchamia wyszukiwanie; wpis
+  przybliżonej wygranej odtwarza najbliższe wcześniejsze wyszukiwanie tej
+  sesji, planszę startową i zakres spinów.
+
+## D-471 — udostępnianie „Wyszukaj plansze” online przez link z kodem
+
+- **Status:** accepted, 2026-09-30; plan
+  `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` (etap B,
+  TASK-0765–0770). Wdrożenie wymaga osobnego polecenia etapu B.
+- **Decision:** operator tworzy w Adminie link do kopii sekcji
+  „Wyszukaj plansze” razem z „Przybliżoną wygraną”. Nowy cel sesji
+  `board-search-share` ma własną tabelę, cookie i prefiks proxy w Reviewerze
+  za istniejącym Cloudflare Quick Tunnelem. Sesja jest przypięta do jednej
+  gry, tylko do odczytu, dla jednego odbiorcy naraz (nowe odblokowanie
+  rotuje token). Link nie zawiera kodu; kod ma 8 znaków (`XXXX-XXXX`,
+  istniejący generator, PBKDF2, 5 prób). Czas dostępu 1 h / 4 h / 8 h /
+  24 h, domyślnie 8 h. Admin, API i baza pozostają na loopbacku.
+- **Data exposure:** odbiorca widzi symbole, wyniki wyszukiwania, wypłaty i
+  przycięte widoki plansz wybranej gry. Odpowiedzi publiczne nie zawierają
+  identyfikatorów review, planszy, importu, jobów ani ścieżek.
+- **Images:** serwer renderuje przycięty widok planszy (obrys + 20%,
+  dłuższy bok maks. 1280 px, WebP) z cache plikowym; ten sam widok zastępuje
+  w Adminie pobieranie całego zdjęcia i kadrowanie CSS.
+- **Rejected:** wystawienie Admina, osobna aplikacja z drugim tunelem,
+  hosting w chmurze, kod w adresie linku, rozszerzenie
+  `reviewer_access_sessions` o nowy cel.
+
+## D-470 — stawka, złote i linie wypłat w „Przybliżonej wygranej”
+
+- **Status:** accepted, 2026-09-30; plan
+  `ai_docs/delivery/BOARD_SEARCH_SHARE_EXECUTION_PLAN.md` (TASK-0762 —
+  stawka i złote; TASK-0763–0764 — linie wypłat).
+- **Decision:** `1 zł = 10 kredytów`. Stawka bazowa to koszt spinu
+  opublikowanych reguł (dziś 100 kredytów = 10 zł). Dozwolone stawki:
+  1,20 zł, 2 zł, 4 zł, 6 zł, 10 zł i 20 zł; stawka bazowa spoza tej listy
+  pojawia się jako dodatkowa opcja „bazowa”. Mnożnik `stawka / stawka
+  bazowa` skaluje wypłaty i koszt spinu, więc także bilans. Operator
+  potwierdził liniowość: 4 winogrona dają 1 000 kredytów przy stawce 10 zł
+  i 600 kredytów przy stawce 6 zł.
+- **Arithmetic:** przeliczenie wykonuje klient na liczbach całkowitych
+  (`kredyty × stawka_gr / koszt_spinu` daje grosze; zaokrąglenie z ilorazu
+  i reszty, bez liczb zmiennoprzecinkowych), z jednym zaokrągleniem
+  do grosza (połówki od zera) na wartości końcowej. API i kalkulator liczą
+  dalej w kredytach przy stawce bazowej (D-446 bez zmian).
+- **Lines:** podgląd linii wypłaty w modalu używa tego samego ewaluatora
+  `payout-v3-unknown-prefix-stop` co suma w tabeli. Linia liczy się
+  wyłącznie od lewej krawędzi i kończy na pierwszej nieznanej komórce;
+  plansza przycięta z lewej nie daje żadnej linii.
+
+## D-467 — usunięcie pozostałości V1/legacy: manifest renderu per plansza zamiast `cell_observations`
+
+- **Status:** accepted, 2026-09-30; polecenie operatora po inwentaryzacji
+  tylko do odczytu („wyrzuć wszystko, co jest legacy / V1”).
+- **Decision:** aplikacja i baza mają być V2-only bez danych i kodu z ery
+  V1. Specyfikację renderu przechowuje jedna tabela per plansza
+  (`board_render_manifests`, proponowana) w kształcie
+  `virtual_render_spec.cells`; `cell_observations` zostaje usunięta po
+  przepięciu wszystkich czytelników; `render_spec` w komórkach weryfikacji
+  zostaje tylko jako suma kontrolna; gałęzie `uses_current_projection=False`
+  i inne ścieżki istniejące dla magazynu `public` są usuwane; `legacy_file`
+  przestaje być trybem docelowym (ręczna rezolucja odroczonych plansz zapisuje
+  geometrię wirtualną, nowe gry domyślnie `virtual_default`, 461 plansz 777
+  konwertowane); retencja wyników pipeline (`storage_pipeline_compaction`)
+  jest uruchamiana. Plan:
+  `ai_docs/delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md` (S1–S8).
+- **Rejected:** wyliczanie specyfikacji renderu w locie z geometrii
+  źródłowej (sumy kontrolne muszą zgadzać się bajt w bajt); usuwanie
+  zastąpionych rewizji predykcji będących kotwicami `apply-revert` (D-466).
+- **Deletion gate (TASK-0755):** bramka usuwania symbolu
+  (`SYMBOL_DELETE_BLOCKED`) liczy bieżące predykcje komórek V2
+  (`prediction_symbol_code`), nie historyczne obserwacje z importu; plansze
+  zastąpione i predykcje nadpisane nowszą rewizją nie blokują usunięcia.
+  Zabezpieczeniem pozostają fail-closed liczniki kohort, iteracji i
+  aktywacji modelu.
+- **Render manifest (TASK-0757, S4):** nowa tabela gry wymaga nowej wersji
+  zamrożonego manifestu magazynu, więc S4 wprowadza
+  `game-data-v2-manifest-v3` (tabele gry v1 + `board_render_manifests`,
+  66 tabel) i migrację `0131_board_render_manifests` (partycja per gra, RLS,
+  rejestr i CHECK lokalizacji v1 → v3). Router akceptuje tylko v3, dlatego
+  API, worker i skrypt backfillu przy starcie porównują `alembic_version`
+  z głową kodu (`ALEMBIC_HEAD_MISMATCH`); przejście wymaga zatrzymania
+  wszystkich procesów (runbook w `LOCAL_OPERATION_GUIDE.md`). Tabela ma poza
+  proponowanymi kolumnami `source_geometry_revision_id` i `extractor_version`
+  (czytelnicy revision 0 ich potrzebują, a po S5 nie będzie obserwacji);
+  `cells` ma pełny kształt `virtual_render_spec` (z sumami i kluczami
+  komórek), dla revision > 0 jest jego kopią 1:1. Zakres: tylko bieżąca
+  rewizja każdej wirtualnej planszy; brak manifestu ⇔ brak renderowalnych
+  komórek. Writery piszą manifest obok obserwacji; obserwacje usuwa dopiero
+  S5. Pomiar na 777: ok. 45 KB kanonicznego JSON na planszę, ok. 13–17 GB
+  tabeli (zamiast szacowanych 4,5 GB) do czasu S5. Numeracja dalszych
+  etapów przesuwa się o jeden: S5 = manifest magazynu v4 i `0132`, S6 =
+  `0133`, S7 = `0134`.
+- **Reader switch (TASK-0758, S4):** czytelnicy wirtualnych plansz biorą
+  komórki z `board_render_manifests` bieżącej rewizji, a predykcje importu z
+  `recognized_boards.cells_prediction` (zgodność z obserwacjami sprawdzona
+  tylko do odczytu na bazie operatora); brak manifestu dla planszy z
+  dostępnymi komórkami jest błędem (`IMAGE_REVIEW_RENDER_MANIFEST_MISSING`).
+  Plansze `legacy_file` z rewizją > 0 (wszystkie 461 w 777) czytają cropy z
+  `crop_artifacts` rewizji i predykcje z `cells_prediction`; jedynie plansze
+  `legacy_file` na rewizji 0 (0 w bazie operatora; import polityką `legacy`
+  i fixture benchmarków) czytają obserwacje przez izolowany adapter
+  `legacy_cell_observation_adapter`. S5 usuwa adapter; warunek: 0 takich
+  plansz i brak ścieżki, która je tworzy (TASK-0790 przed S5 albo blokada
+  importu `legacy` i fixture benchmarków w S5).
+  Tożsamość obserwacji znika z kontraktu: `ImageReviewCell.observation_id`
+  i pole `observationId` odpowiedzi Reviewera są usunięte, kandydat wzorca
+  symbolu jest identyfikowany przez `cellReviewId`
+  (`image_symbol_review_cells.id`, ścieżki `…/approved-image-candidates/
+  {cell_review_id}/…`), a migracja `0132_symbol_reference_images_cell_identity`
+  usuwa `symbol_reference_images.source_observation_id` (komórka źródła =
+  `source_recognized_board_id` + `cell_index`). Numeracja dalszych etapów
+  przesuwa się ponownie: S5 = manifest v4 i `0133`, S6 = `0134`,
+  S7 = `0135`.
+- **Konwersja plansz `legacy_file` (TASK-0791, S6, 2026-10-01):** 461 plansz
+  777 (rewizje 1–2, 3 960 komórek z decyzjami) przechodzi na
+  `virtual_source` skryptem `scripts/convert_legacy_boards_to_virtual.py`:
+  te same narożniki renderowane ścieżką ręcznej geometrii wirtualnej,
+  rewizja `max(N, R) + 1`, manifest renderu, dopisana rewizja geometrii
+  źródła; decyzje komórek (`assigned_symbol_id`, źródło, stan, jakość,
+  weryfikacja, aktor) bez zmian, zatwierdzenie przepięte na nowy render
+  tych samych narożników, zdarzenie `geometry_invalidated` na każdej
+  komórce. Konwersja przypina bieżącą wersję renderera (`…-v4`) przy
+  pozostałych parametrach z komórek źródła, bo podbicia v1→v4 (TASK-0663)
+  nie zmieniły pikseli, a renderer odrzuca inne przypięcie. Historyczne
+  rekordy rewizji `legacy_file` zostają. Migracja
+  `0135_virtual_only_asset_modes` zawęża CHECK-i plansz i komórek po
+  konwersji (odmowa, gdy plansza legacy istnieje; downgrade przywraca).
+  Zakres przeniesiony do TASK-0796: ścieżki v19, enumy API, CHECK-i w
+  modelach ORM i fixture testów (do tego czasu ORM jest luźniejszy niż
+  baza).
+- **Jeden tryb danych w pisarzach (TASK-0790, S6 wykonany przed S5):**
+  żadna ścieżka zapisu nie tworzy planszy `legacy_file`, plików cropów ani
+  wierszy `cell_observations`. Ręczna rezolucja odroczonej planszy (Reviewer
+  i Admin) idzie ścieżką wirtualną `VirtualGridGeometryService.save_pending_slot`
+  → `_materialize_pending_source_slot`: plansza `virtual_source`, rewizja z
+  `virtual_render_spec`, manifest renderu, komórki weryfikacji; predykcje
+  komórek liczy model przypięty do importu (te same funkcje renderu i sum
+  kontrolnych co Admin). Endpointy Reviewera `geometry-preview` i
+  `manual-resolution` zostają (ten sam kontrakt i allowlista, autoryzacja
+  sesji bez zmian) i delegują do ścieżki wirtualnej w jednej transakcji;
+  rezolucja jednego slotu dopisuje rewizję źródła wyprowadzoną z najnowszej,
+  pozostałe sloty zachowują swoje quady; zapis bierze blokady sekwencji, potem
+  wiersza źródła i dopiero wtedy ponownie odczytuje kontekst (dwie rezolucje
+  różnych slotów jednego źródła nie budują na nieaktualnej rewizji). Reguła
+  przejęcia sekwencji z TASK-0702 obowiązuje dalej: docelowa rewizja to
+  `max(expected_geometry_revision, R) + 1`, gdzie R jest wspólną rewizją
+  bieżących 15 komórek sekwencji. Import i writer workera przyjmują
+  wyłącznie tryb wirtualny (`IMAGE_PIPELINE_NON_VIRTUAL_ROLLOUT_REJECTED`,
+  `IMAGE_PIPELINE_NON_VIRTUAL_BOARD_REJECTED`); obserwacje nie są już
+  zapisywane także dla plansz wirtualnych (manifest jest jedynym rekordem
+  komórek). Polityki `verified_v19` i `structured_shadow` są usunięte z API
+  (`IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`, 422) i Admina; domyślna polityka
+  nowej gry to `structured_lattice_v3` / `virtual_default` (ten silnik
+  przypina każdy import browserowy; `structured_default` bez wariantu nie był
+  sprawdzony na nowej grze). Migracja `0133_virtual_only_import_policies`
+  przenosi stany rolloutu `legacy` / `structured_shadow` na ten domyślny tryb
+  z podbiciem rewizji, zawęża CHECK-i trybów i domyślne wartości kolumn;
+  downgrade odmawia. Historyczne snapshoty jobów z trybem legacy pozostają
+  czytelne (raporty), ale nie wykonywalne. Numeracja: S6 = `0133`, S5 (TASK-0759)
+  = `0134`, TASK-0791 = `0135`, S7 (TASK-0793) = `0136`. Identyfikatory
+  zadań S6–S8 planu D-467 przesunięte z TASK-0760–0765 na TASK-0790–0795,
+  bo TASK-0760–0775 zajął równoległy tor D-470 (board-search-share).
+- **Usunięcie `cell_observations` i archiwum wyszukiwarki (TASK-0759, S5):**
+  manifest magazynu `game-data-v2-manifest-v4` (jawna zamrożona lista 63
+  tabel gry) nie zawiera `cell_observations`,
+  `legacy_board_search_archive_documents` ani `legacy_board_search_archive_states`;
+  router i provisioning akceptują wyłącznie v4. Migracja
+  `0134_drop_cell_observations_and_legacy_archive` w jednej transakcji:
+  preflight z jawnymi kodami (lifecycle/lokalizacja zajęta, lokalizacja inna
+  niż v3, brak lub niepartycjonowana tabela, klucz obcy spoza usuwanych
+  tabel, plansza `legacy_file` na rewizji 0, plansza `virtual_source` z
+  dostępnymi komórkami bez manifestu bieżącej rewizji, niepuste archiwum),
+  rejestr v4, lokalizacje v3 → v4 z podbiciem `revision`, `DROP TABLE`
+  partycji wyliczonych z `pg_inherits`, potem tabel nadrzędnych; nazwy
+  zamrożone w migracji; downgrade odmawia
+  (`CELL_OBSERVATIONS_DROP_IRREVERSIBLE`), a downgrade `0132` odmawia
+  (`SYMBOL_REFERENCE_OBSERVATIONS_DROPPED`), gdy obserwacji już nie ma.
+  Stan backfillu manifestów był plikiem (checkpoint), nie wierszem bazy, więc
+  preflight „brak plansz bez manifestu” zastępuje kontrolę backfillu w toku.
+  Kod: adapter `legacy_cell_observation_adapter`, modele ORM trzech tabel,
+  backfill manifestów (moduł i skrypt), diagnostyka addytywnej geometrii,
+  `scripts/build_grid_symbol_diagnostic.py`,
+  `scripts/build_legacy_board_search_archive.py` oraz fixture benchmarku M6.5
+  (`real_workbench_fixture`, `workbench_acceptance`, skrypty i wpisy
+  `m65:workbench:*`) są usunięte. Plansza `legacy_file` na rewizji 0 nie ma
+  źródła komórek: mapper odmawia (`IMAGE_REVIEW_CELL_COUNT_INVALID`),
+  wyszukiwarka ją pomija, przeliczanie predykcji zwraca
+  `IMAGE_SYMBOL_REINFERENCE_LEGACY_UNSUPPORTED`; walidacja rolloutu czyta
+  wyłącznie manifest. Tryb `legacy_archive` wyszukiwarki usunięty pionem
+  (enum `BoardSearchAssetMode` = `operational_review`, endpoint
+  `archive-assets`, OpenAPI, klient, wrapper, pakiet `board-search-ui`,
+  komunikat Admina); supersedes D-369. `game_deletion_policy_v1` i manifesty
+  v1/v3 pozostają niezmienione jako zamrożone wejścia migracji
+  `0103`/`0105`/`0106`/`0131`. Listy `cleanup_repository` i
+  `symbol_review_statistics` liczą/usuwają `board_render_manifests` zamiast
+  obserwacji. `EXPECTED_ALEMBIC_HEAD` = `0134`.
+- **Czytelnicy `render_spec` komórek na manifeście (TASK-0792, S7):** żaden
+  czytelnik runtime nie czyta już `image_symbol_review_cells.render_spec`.
+  Wspólny czytelnik `storage/cell_render_specs.py` zwraca `renderSpec` z
+  `board_render_manifests` dla `(game_id, recognized_board_id,
+  geometry_revision, cell_index)` komórki (wsadowo, jedno zapytanie na porcję
+  do 2 000 komórek, rozwinięcie wyłącznie żądanych wpisów manifestu w bazie) i
+  wymaga, aby zadeklarowana suma wpisu oraz kanoniczna suma jego `renderSpec`
+  były równe `render_spec_checksum_sha256` komórki; inaczej jawne kody
+  `IMAGE_REVIEW_RENDER_MANIFEST_MISSING`, `IMAGE_REVIEW_RENDER_SPEC_MISSING`,
+  `IMAGE_REVIEW_RENDER_SPEC_MISMATCH` (bez cichej podmiany, bez rezerwy na
+  kolumnę lub `virtual_render_spec`). Przepięci: `get_assets` (podgląd, atlas,
+  PNG), kandydaci wzorca symbolu, inwentarz kohort treningowych, kontekst i
+  konfiguracja ręcznej geometrii (`_pending_render_configuration` czyta
+  pierwszy wpis manifestu bieżącej rewizji planszy źródła albo importu),
+  walidacja rolloutu, `scripts/evaluate_symbol_reference_library.py`; strażnik
+  rekonsyliacji plansz częściowych pomija kolumnę (`to_jsonb(c) - 'render_spec'`,
+  więc `guardSha256` nie zmieni się przy jej usunięciu; podglądy sprzed zmiany
+  trzeba wygenerować ponownie). Porównanie komórki z projekcją używa sumy, nie
+  JSON. Pisarze nadal zapisują kolumnę, bo CHECK
+  `ck_image_symbol_review_cells_asset_provenance` jej wymaga; TASK-0793 usuwa
+  kolumnę, CHECK i zapisy w jednej migracji (`0136`). Do tego czasu kolumna w
+  ORM jest odroczona z `raiseload` (odczyt z bazy zgłasza błąd). Stan bazy
+  operatora 2026-10-01 (tylko odczyt): wszystkie 7 500 357 komórek
+  `virtual_source` (777 i `cf300bc1`) są na bieżącej rewizji planszy i mają
+  wpis manifestu tej rewizji z identyczną sumą specyfikacji, pikseli i klucza
+  logicznego; próbka 34 995 komórek ma `render_spec` równy JSONB wpisu
+  manifestu. Komórki historycznych rewizji nie występują, więc czytelnik nie
+  sięga do `image_board_geometry_revisions.virtual_render_spec`. Manifest
+  kohorty i jej komórki (`verified_training_cohort_cells.render_spec`) to
+  zamrożony zapis treningu, nie duplikat komórki — zostają.
+- **Usunięcie kolumny `render_spec` komórek (TASK-0793, S7, migracja `0136`):**
+  `0136_drop_cell_render_spec` w jednej transakcji (`lock_timeout` 5 s,
+  `statement_timeout` 120 s, `ACCESS EXCLUSIVE` na komórkach, `SHARE` na
+  manifestach) sprawdza, że każda komórka `virtual_source` ma manifest renderu
+  swojej `(game, board, geometry_revision)` (anti-join po PK manifestu, bez
+  rozwijania JSONB; na bazie operatora 0 braków, ok. 7 s), inaczej
+  `CELL_RENDER_MANIFEST_MISSING`; podmienia `ck_image_symbol_review_cells_asset_provenance`
+  i `ck_image_symbol_review_cells_source_asset` na wersje bez kolumny (obie
+  `NOT VALID`, walidacja runbookiem; 7 500 390 wierszy operatora spełnia oba
+  nowe wyrażenia — sprawdzone tylko do odczytu) i wykonuje `DROP COLUMN
+  render_spec` na rodzicu. Downgrade odmawia
+  (`CELL_RENDER_SPEC_DROP_IRREVERSIBLE`): specyfikacje są w manifestach, a
+  odtworzenie kolumny byłoby backfillem. `EXPECTED_ALEMBIC_HEAD` = `0136`.
+  ORM, pisarze (`_asset_provenance_values`, `_apply_cell_projection`, pozycje
+  `outside` z `flag_modified`, `_replace_current_cells`, `_convert_current_cells`)
+  i strażnik rekonsyliacji nie znają już kolumny. Eksport laboratorium wizji
+  (`scripts/vision_lab_export.py`) niesie wiersze `board_render_manifests`
+  plansz eksportu, bo wiersz komórki stracił pole (ta sama wersja eksportera;
+  konsument `symbol_snapshot` pola nie czytał). Miejsce (TOAST 18 GB partycji
+  777) zwalnia przepisanie partycji `VACUUM (FULL, ANALYZE)` w oknie bez
+  zapisów (`DATABASE_MAINTENANCE.md` 2.6) — wykonuje orkiestrator za zgodą.
+  Testy PG plansz `legacy_file` sprzed `0135` (konwersja) budują teraz
+  schemat `0134` na świeżej bazie zamiast downgrade'u z głowy.
+- **Odchudzenie rewizji predykcji (TASK-0794, S8, migracja `0137`):**
+  `predictions[].virtualCell` ma kształt `slim-v2` — tylko sumy i klucze
+  renderu, bez kopii `renderSpec` (ok. 2,5 KB na komórkę); pisarze
+  (`pipeline_store`, `pending_symbol_reinference`, `apply`/`apply-revert`
+  biblioteki) piszą tę postać, a model ORM odrzuca zapis z `renderSpec`
+  (`PREDICTION_REVISION_RENDER_SPEC_PRESENT`). Czytelnicy runtime
+  (`image_review_repository`, `board_search_projection_repository`)
+  porównywali już tylko `renderSpecChecksumSha256`. Migracja
+  `0137_prediction_revisions_slim` dodaje nullable
+  `legacy_predictions_sha256` (CHECK formatu, walidowany od razu; downgrade
+  odmawia `PREDICTION_REVISION_LEGACY_DIGEST_PRESENT`, gdy jakaś wartość
+  istnieje), `EXPECTED_ALEMBIC_HEAD` = `0137`. Istniejące rewizje odchudza
+  wznawialny `scripts/slim_prediction_revisions.py` (podgląd tylko do
+  odczytu, `--execute` porcjami po `id` z checkpointem, digest v1 do kolumny
+  legacy, kontrola digestu v2 przed i po zapisie w tej samej transakcji,
+  raport bajtów `pg_column_size`); `crop_manifest_checksum_sha256` i
+  `model_checksum_sha256` bez zmian. Świadoma utrata: rewizja predykcji
+  starszej rewizji geometrii 0 traci pełny `renderSpec` (zostają sumy i
+  klucze; manifest renderu ma tylko bieżącą rewizję) — brak konsumenta
+  runtime. Retencja (`--mode retention`) usuwa rewizje zastąpionych review
+  items bez komórek, do których nie wskazuje żadna komórka i których item
+  nie ma rewizji biblioteki (kotwice `apply-revert` zostają). Podgląd na
+  bazie operatora (tylko odczyt, 2026-10-01, `0136`): 794 214 rewizji 777,
+  `predictions` 10,1 GB (`pg_column_size`), w próbce 2 000 rewizji 100% z
+  `renderSpec`, 0 różnic digestu v2; szacunek oszczędności 5,2 GB (stosunek
+  rozmiarów po zlib) do 7,5 GB (bez kompresji); retencja: 10 191 rewizji
+  (10 191 items), 129 MB. Miejsce wraca po `VACUUM (FULL, ANALYZE)` partycji
+  rewizji (`DATABASE_MAINTENANCE.md`); podglądy rekonsyliacji plansz
+  częściowych sprzed odchudzenia trzeba wygenerować ponownie (guard zawiera
+  wiersz bieżącej rewizji predykcji).
+- **Domknięcie S6: kod zna jeden tryb danych (TASK-0796, 2026-10-01, bez
+  migracji):** korekta geometrii bieżącej planszy w Reviewerze
+  (`image-review-items/{id}/geometry-preview` i `.../geometry-revisions`)
+  zachowuje trasę, kontrakt wejścia, allowlistę i autoryzację sesji, ale
+  deleguje do `VirtualGridGeometryService.preview_review_item` /
+  `save_review_item` (tożsamość źródła i topologia z zapisanej proweniencji,
+  replay po `idempotencyKey`, CAS rewizji, `save_virtual_geometry_revision`);
+  odpowiedź `OperationalImageReviewGeometryResponse` traci pola plików cropów
+  (`boardChecksumSha256`, `decisionChecksumSha256`) i zyskuje
+  `sourceGeometryRevisionId`, `geometryChecksumSha256`,
+  `virtualRenderSpecChecksumSha256`. Usunięte: zapis v19
+  (`save_geometry_revision`, `correct_geometry` v19, previewer plików cropów
+  `manual_board_cell_geometry_preview`, kod
+  `IMAGE_REVIEW_GEOMETRY_ASSET_MODE_UNSUPPORTED`), fallback legacy w Adminie
+  (`image-reviews/{id}/geometry-*`), ścieżki plikowe `pending_grid_reinference`
+  (schema 1 i 2 — oba zapisywały cropy v19 wyłącznie planszom `legacy_file`;
+  handler odmawia `IMAGE_GRID_REINFERENCE_LEGACY_UNSUPPORTED`, endpointy
+  preview/start zostają z `recalculableBoardCount = 0`), gałęzie `legacy_file`
+  w mapperze, `current_board_cell_sources`, stale-checku, wersji croppera,
+  `get_assets`/podglądach/serwowaniu plików komórek, kandydatach wzorców i
+  kohortach treningowych, projekcji wyszukiwarki, `pending_symbol_reinference`.
+  Enumy API: `ImageGridReviewItemResponse.assetMode` i
+  `ImageGridReviewGeometryRevisionResponse.assetMode` = `virtual_source`,
+  `SymbolCellReviewListItemResponse.assetMode` i
+  `UnreadableBoardReviewCellResponse.assetMode` = `virtual_source | none`
+  (wymagane). ORM równoważny bazie po `0135`/`0136` (domyślne
+  `virtual_source`); gałąź zatwierdzenia plikowego w
+  `ck_image_symbol_review_cells_approved_provenance` zostaje w bazie i ORM
+  (0 wierszy na bazie operatora; usunięcie = osobna migracja), CHECK-i
+  tabel historii zostają. Świadome wyjątki od „0 `legacy_file` w kodzie”:
+  narzędzie konwersji TASK-0791 (wymagane przez `0135` przy odtwarzaniu bazy
+  sprzed `0135`), tryby rolloutu `legacy_files` w parsowanych snapshotach
+  historycznych jobów (TASK-0790), czytelnicy zamrożonych artefaktów
+  (`symbols/training_dataset.py` dla kohort schema 1–4, laboratorium wizji
+  `symbol_snapshot`). Zmiana zachowania: korekta przez Reviewera daje teraz
+  render wirtualny zamiast cropu pliku; plansza z kwalifikacją częściową
+  wymaga kwalifikacji (`IMAGE_GRID_REVIEW_QUALIFICATION_REQUIRED`), której
+  edytor operacyjny nie wysyła.
+- **Rola aplikacyjna bez `SUPERUSER`/`BYPASSRLS` (TASK-0795, 2026-10-01, bez
+  migracji):** API i workery łączą się rolą `game_predictor_app`
+  (`LOGIN NOSUPERUSER NOBYPASSRLS NOCREATEDB NOCREATEROLE NOREPLICATION
+  NOINHERIT`, bez członkostwa w innych rolach i bez własności obiektów), więc
+  wymuszone RLS `game_data_v2` (`game_scope_v1`) obowiązuje także w runtime.
+  Konfiguracja: `GAME_PREDICTOR_DATABASE_URL` = rola aplikacyjna (nowa
+  wartość domyślna), `GAME_PREDICTOR_OWNER_DATABASE_URL` = właściciel
+  schematu (domyślnie lokalny właściciel na tej samej bazie; inna baza, host
+  albo port jest odrzucany). Właściciela używają Alembic, skrypty
+  utrzymaniowe (`create_maintenance_database_engine`), `db:reset:local` oraz
+  trzy jawne ścieżki runtime: kroki partycji nowej gry
+  (`SqlAlchemyCatalogRepository(partition_ddl_session_factory=…)` — wiersz
+  katalogu i receipt w sesji aplikacyjnej, każdy krok DDL w osobnej sesji
+  właściciela), `VACUUM (ANALYZE)` po kompaktacji wyników pipeline i
+  `ANALYZE` po backfillu weryfikacji symboli (silnik właściciela bez puli).
+  Rolę tworzy idempotentny skrypt `scripts/provision_database_roles.py`
+  (wołany z `db:up`, `db:migrate`, `db:reset:local`, `db:roles:provision`;
+  `--check` tylko czyta), nie migracja: role są globalne w klastrze, a
+  migracje działają też na jednorazowych bazach `*_test` tego samego
+  klastra; hasło z URL-a trafia
+  do bazy jako weryfikator SCRAM. Uprawnienia: `CONNECT`, `USAGE` na
+  `public`/`game_data_v2`, DML na tabelach (bez zapisu
+  `public.alembic_version`), `USAGE, SELECT` na sekwencjach, `EXECUTE` na
+  funkcjach, domyślne uprawnienia `FOR ROLE` właściciela dla tabel, sekwencji,
+  funkcji i schematów tworzonych później (migracje, partycje nowej gry).
+  Odrzucona alternatywa: funkcje `SECURITY DEFINER` dla DDL partycji —
+  dynamiczny DDL z nazwami z manifestu wymagałby powielenia walidacji
+  manifestu w plpgsql i dawałby roli aplikacyjnej stałą furtkę do DDL;
+  osobne krótkie połączenie właściciela w trzech nazwanych miejscach ma
+  mniejszą powierzchnię. Zapytanie bez związanej gry kończy się błędem, nie
+  pustym wynikiem: niekwalifikowane tabele ORM nie są widoczne bez
+  `search_path` ustawianego przez wiązanie (`42P01`), a kwalifikowane
+  `game_data_v2.*` rzucają `GAME_STORAGE_SCOPE_REQUIRED` (`42501`), także dla
+  pustej tabeli. `refresh_symbol_review_query_statistics` odmawia, gdy rola
+  nie jest właścicielem (PostgreSQL tylko ostrzega i pomija `ANALYZE`).
+  Znany koszt: funkcja polityki `current_game_id_v1()` jest
+  `PARALLEL UNSAFE` (plpgsql z blokiem `EXCEPTION`), więc zapytania roli
+  aplikacyjnej nie dostają równoległych workerów; pomiar na 777 (odczyt,
+  predykat polityki dodany ręcznie): liczenie oczekujących komórek wg
+  symbolu 1,4 s → 3,6 s, zapytania indeksowe bez zmian. Zmiana funkcji
+  polityki jest poza zakresem TASK-0795 (osobne zadanie z migracją).
+  Wycofanie: `GAME_PREDICTOR_DATABASE_URL` = URL właściciela i restart.
+- **Ścieżki bez związanej gry i równoległa polityka RLS (TASK-0797,
+  2026-10-01, migracja `0138`):** sonda wszystkich 288 operacji OpenAPI na
+  roli aplikacyjnej (`test_unbound_game_route_probe_postgres.py`) wykazała
+  53 trasy kończące się `42P01`/`42501` bez wiązania gry (od `0125` także dla
+  właściciela). Zasady: (1) gra żądania z `/games/{id}/` albo z parametru
+  `gameId`/`game_id` tras `/api/v1/admin/` i `/api/v1/reviewer/` wiąże całe
+  żądanie (`game_id_from_request`); trasy publicznego udostępnienia i zdalnej
+  selekcji nadal biorą grę wyłącznie z własnej sesji; (2) trasa, która zna
+  tylko globalny identyfikator wiersza gry (wersja datasetu, przebieg
+  selekcji, źródło kuratorskie, staging przeglądarkowy, partie i itemy
+  przeglądu M5, sesja i przydział Reviewera), znajduje jego grę odczytami
+  związanymi kolejno z każdą grą (`GameEntityLocator`) i przypisuje ją sesji
+  (`assign_session_game`); brak gry = `404 GAME_SCOPED_RESOURCE_NOT_FOUND`
+  (staging bez rekordu retencji idzie dalej bez gry); (3) listy i kontrole
+  obejmujące wiele gier (podgląd storage GC, lista partii M5, przydziały
+  online Reviewera) czytają każdą grę w osobnej związanej sesji; (4) agregaty
+  wielu gier — wydanie mobilne (tworzenie, build, snapshot, payouty wydania,
+  sprzątanie wydania) oraz kontrole bezpieczeństwa sprzątania gry
+  (współdzielone pliki, wykonania i wydania wielogrowe) — używają jawnej
+  sesji właściciela `CrossGameOwnerSession` (superuser, `game_data_v2` w
+  `search_path`, routing per instrukcja z bramą zapisu, przełączanie gry
+  zamiast odmowy). Znaleziono dwie ścieżki zależne od obejścia RLS po
+  cutoverze TASK-0795 (ciche zawężenie do jednej gry): limit i zatrzymanie
+  wspólnego tunelu Reviewera liczyły przydziały online tylko bieżącej gry
+  (tunel mógł zostać zatrzymany mimo aktywnego przydziału innej gry) oraz
+  wykrywanie plików współdzielonych przy resecie gry (`_GAME_ARTIFACTS_SQL`)
+  i współdzielonych wykonań przy usuwaniu źródeł nie widziało innych gier
+  (ryzyko usunięcia pliku używanego przez inną grę); obie naprawione.
+  Uwierzytelnienie Reviewera: wariant bez nowych obiektów bazy (iteracja po
+  grach z RLS) zamiast tabeli indeksowej `token_hash → game_id` w `public`
+  albo funkcji `SECURITY DEFINER` — uzasadnienie w modelu zagrożeń.
+  `SHOW data_directory` w metrykach projekcji weryfikacji (wymaga superusera)
+  działa w savepoincie, bo odmowa przerywała transakcję startu projekcji.
+  Migracja `0138_rls_policy_function_parallel_safe`: `current_game_id_v1()`
+  jako `STABLE PARALLEL SAFE` plpgsql bez bloku `EXCEPTION` (kształt uuid
+  sprawdzany wyrażeniem regularnym; brak ustawienia nadal
+  `GAME_STORAGE_SCOPE_REQUIRED`, zły uuid `GAME_STORAGE_SCOPE_INVALID`, oba
+  `42501`), polityki bez zmian; `ck_image_symbol_review_cells_approved_provenance`
+  bez gałęzi `legacy_file` (preflight `CELL_APPROVED_LEGACY_PROVENANCE_PRESENT`,
+  `NOT VALID` + `VALIDATE` w runbooku); downgrade przywraca obie wersje.
+  `EXPECTED_ALEMBIC_HEAD` = `0138`. Usunięty test `test_resumable_game_deletion.py`:
+  testował jednorazowe usunięcie gry z magazynu `public` (usuniętego w
+  `0125`), dla którego nie ma trasy; usuwanie gry V2 testuje lifecycle.
+- **Safety:** każdy DROP, `--execute` i przepisanie partycji po świeżym
+  inventory, próbie na bazie `*_test`, kopii zapasowej i osobnej zgodzie
+  operatora (wzorzec D-448). S3–S8 dopiero po zakończeniu przebiegów zapisu
+  biblioteki wzorców. Migracja `0125` została już zastosowana na bazie
+  operatora (`alembic_version` = `0128`); plan D-448 jest zamknięty.
+
+## D-466 — nowa wersja predykcji z biblioteki wzorców dla oczekujących komórek
+
+- **Status:** accepted, 2026-09-29; decyzja operatora po podglądzie
+  TASK-0743 (warianty filtrów i zapisu wybrane przez operatora).
+- **Decision:** dla oczekujących komórek z przypisaniem od modelu biblioteka
+  wzorców zapisuje nową wersję predykcji istniejącym mechanizmem
+  przeliczania predykcji (`image_symbol_prediction_revisions`,
+  `model_version = symbol-reference-library-v1`). Zapisywane są tylko komórki
+  z pewną propozycją (R7), również gdy potwierdza ona dotychczasowy symbol.
+  Komórki do przeglądu zachowują predykcję modelu. Komórki zatwierdzone,
+  z decyzją człowieka lub z flagą jakości nie są zmieniane.
+- **Supersedes:** reguły R1–R2 planu D-464 w zakresie etapu B: propozycja
+  zmienia predykcję i grupę oczekującej komórki. Decyzja człowieka nadal
+  jest jedynym źródłem weryfikacji (D-462); zapis nie zatwierdza komórek.
+- **Recovery:** poprzednia wersja predykcji pozostaje w historii wersji;
+  każdy przebieg ma podgląd z sumą kontrolną i raport. `apply-revert`
+  przywraca predykcje modelu nową wersją (kopia poprzedniej, suma
+  `sha256("revert:" + suma przebiegu)`) dla wskazanych plansz albo całego
+  przebiegu; zrevertowana plansza nie wraca do biblioteki w tym samym
+  zakresie przebiegu.
+- **Filters:** weryfikacja symboli otrzymuje filtr źródła predykcji (nowy
+  algorytm / stary model) i zakres dat zmiany komórki (od–do). „Nowy
+  algorytm” oznacza komórkę, której wpis w bieżącej wersji predykcji
+  biblioteka przepisała (klucz `referenceLibrary`); wersja biblioteki
+  obejmuje całą planszę, a pozostałe komórki planszy są „starym modelem”.
+  Zapis planszy zmienia `updated_at` wszystkich jej komórek.
+- **Execution:** przebieg per symbol modelu i pasmo pewności, zawsze po
+  podglądzie i jawnej zgodzie operatora; pierwszy: Arbuz poniżej 60%.
+  Zgoda na pierwszy przebieg: polecenie operatora z 2026-09-30, by
+  przeprowadzić cały proces (T3–T5, B1) bez jego udziału.
+- **Digest v2 (TASK-0794, D-467 S8, 2026-10-01):** `predictionsSha256` w
+  manifeście `apply-preview` jest od TASK-0794 digestem v2 — sha256
+  kanonicznego JSON listy predykcji bez `virtualCell.renderSpec` (ta sama
+  wartość dla rewizji pełnej i odchudzonej); manifest niesie
+  `predictionsDigestVersion: 2`. Manifesty zakończonych przebiegów (B1–B3,
+  bez tego pola) niosą digest v1 pełnej postaci; skrypt odchudzania zapisuje
+  go w `image_symbol_prediction_revisions.legacy_predictions_sha256` tuż
+  przed usunięciem `renderSpec`. `apply` i `apply-revert` akceptują v2,
+  v1 bieżącej postaci albo kolumnę legacy, więc kotwice `apply-revert`
+  przebiegów B1–B3 działają po odchudzeniu. `apply` zapisuje nową rewizję w
+  postaci odchudzonej; `apply-revert` przywraca odchudzoną kopię poprzedniej
+  rewizji (ten sam digest v2).
+
+## D-465 — dobór wzorców symboli: zasłonięcia i zatwierdzenia masowe
+
+- **Status:** accepted, 2026-09-29; odpowiedzi operatora na pytania O1 i O2
+  planu biblioteki wzorców (D-464).
+- **Occlusion:** symbol częściowo zasłonięty (dłoń, przycisk nawigacji) lub
+  lekko przycięty, ale rozpoznawalny, otrzymuje klasę symbolu. Stan
+  nieczytelny, zasłonięty albo zła siatka oznacza komórkę, w której symbolu
+  nie da się rozpoznać. Reguła obowiązuje w ślepej ocenie i przy doborze
+  wzorców biblioteki.
+- **Bulk approvals:** zatwierdzenia masowe akceptujące predykcję modelu
+  (ostatnie zdarzenie `approve` lub `reassign` komórki jest `approve` z
+  `operation_id`, m.in. 48 698 komórek z 2026-09-28) nie są wzorcami
+  biblioteki ani danymi treningowymi. Operator oglądał je pobieżnie i
+  mogą zawierać błędy. Przeniesienie do innego symbolu (`reassign`), także
+  masowe, pozostaje decyzją operatora i jest wzorcem.
+- **Versioning:** polityka wzorców `no-bulk-approve-v2` jest domyślna dla
+  nowych pomiarów; poprzednia `all-human-v1` pozostaje dostępna do
+  odtworzenia wyników T1/T2.
+- **Corrections:** operator potwierdził, że w ślepej ocenie komórki
+  `f083d112` i `cf7f29d9` to Wiśnia (pomyłki wyboru). Oryginalny plik ocen
+  pozostaje niezmieniony; poprawki są osobnym plikiem.
+- **Boundary:** decyzja nie zmienia danych w bazie, stanu komórek ani
+  historii zdarzeń. Etap B pozostaje nieuruchomiony; operator zlecił zamiast
+  niego odczytowy podgląd zmian dla predykcji Arbuz poniżej 80%.
+- **Library size (TASK-0743):** domyślnie do 40 wzorców na grupę
+  (symbol, import, zgodność z modelem) zamiast 15, zgodnie z zapowiedzią
+  operatorowi, bo pomiar nie obniżył zgodności (T1 99,5% → 99,7%, ślepa
+  próbka 100% → 100%, pokrycie 79,1% → 87,8% i 80,6% → 90,3%). Wartość
+  jest zapisywana w raportach i dostępna parametrem.
+- **Hints:** komórka do przeglądu otrzymuje podpowiedź dwóch kandydatów z
+  sumy wag obu opisów. Podpowiedź nie jest propozycją ani decyzją.
+
+## D-464 — propozycje symboli z biblioteki zweryfikowanych komórek
+
+- **Status:** accepted, 2026-09-29; operator zaakceptował plan
+  `ai_docs/delivery/SYMBOL_REFERENCE_LIBRARY_EXECUTION_PLAN.md` i zlecił
+  wyłącznie etap A dla ośmiu symboli gry `777`, w osobnym worktree.
+- **Decision:** oczekująca komórka może otrzymać propozycję symbolu wyliczoną
+  z podobieństwa do komórek zweryfikowanych przez operatora. Propozycja jest
+  osobnym, wersjonowanym wynikiem. Nie zmienia decyzji operatora, stanu
+  komórki ani predykcji aktywnego modelu i nie jest zatwierdzeniem.
+- **Evidence:** wzorcem jest wyłącznie komórka `approved` z decyzją człowieka,
+  pełną widocznością, bez flagi jakości i z tożsamością pikseli akceptacji
+  równą bieżącej. Reguła pewności (7 z 7 głosów w dwóch opisach i zgodność
+  opisów) została ustalona przed pomiarem.
+- **Boundary:** etap A jest odczytowy i nie zapisuje niczego w bazie. Zapis
+  propozycji, API i UI należą do etapu B, ponowny trening do etapu C; oba
+  wymagają osobnego polecenia. Bramka etapu A to ślepa ocena operatora.
+- **Open:** traktowanie zasłoniętych symboli oraz komórek z zatwierdzenia
+  masowego 2026-09-28 rozstrzyga D-465.
+- **Numbering:** gałąź `codex/symbol-split-pilot` ma własne, inne decyzje o
+  numerach D-462 i D-463. Ten wpis używa numeracji gałęzi bazowej.
+
+## D-463 — ponowne TASK-0603 kalibruje etykiety V2 na obu nagraniach 777
+
+- **Status:** accepted, 2026-09-29; operator polecił wycofać poprzednią
+  konfigurację kalibracji i wybrał tryb V2 dla obu katalogów 777.
+- **Decision:** nowa sesja T0603 używa `standard_3x3_numeric_labels_v2` i
+  osobnego ignorowanego manifestu
+  `.runtime/v7-label-geometry-calibration-t0603-v2.local.json`. Grupa ujęć
+  oznacza nagranie: `small_777` = `A`, `occluded_777` = `B`; z zasłoniętych
+  kadrów wchodzą wyłącznie pełne numery. Admin tworzy nowe sesje w V2,
+  domyślnie z obu katalogów, i przed profilem wymaga, aby każde źródło z
+  punktami miało pięć pełnych numerów w dwóch wierszach i dwóch kolumnach.
+  Zastępuje to część D-420 i planu V2, według której nowa sesja zaczynała od
+  samego `small_777`.
+- **Rationale:** pomiar tylko do odczytu na punktach sesji `482cbe56…`
+  pokazał dokładne kliknięcia (V1 w obrębie jednego katalogu p95 `0,0045` i
+  `0,0143`). Porażka p95 `0,2255` wynikała z połączenia dwóch kadrowań w
+  statycznym V1, a niespójne nazwy grup nie opisywały nagrań. Katalog
+  `small_777` to jedno nagranie, więc samodzielnie nie daje dwóch
+  niezależnych grup ujęć.
+- **Safety:** stara sesja (V1, `blocked_source_drift`) pozostaje na serwerze
+  do audytu; Admin zapomina wyłącznie jej lokalny widok i kolejkę. Manifest V1
+  T0603, progi (5 SHA, 2 grupy, `contained`, p95 `<= 0,04`), holdout
+  `reels_test` i blokada V7 nie zmieniają się. Profil powstaje tylko z
+  anotacji operatora.
+
+## D-462 — weryfikacja per komórka bez zatwierdzania planszy i siatki
+
+- **Status:** accepted, 2026-09-29; polecenie operatora i zaakceptowany plan
+  `ai_docs/delivery/CELL_LEVEL_VERIFICATION_EXECUTION_PLAN.md` wraz z
+  rekomendacjami P1–P4. Wdrażana etapami: A (TASK-0722–0724), B (kolejka i
+  ekran 3001), C (migracja danych). Do wdrożenia danego etapu kod działa
+  według dotychczasowych reguł opisanych w planie (B1–B6).
+- **Decision:** źródłem prawdy jest pojedyncza komórka
+  (`image_symbol_review_cells`). Dowodem jest komórka `approved`, której
+  zatwierdzone piksele są bieżącymi pikselami albo której akceptacja nie ma
+  tożsamości pikseli (logiczna pozycja bez obrazu, D-451). Komórka `approved`,
+  dla której tożsamość pikseli akceptacji jest różna od bieżącej
+  (`virtual_source`: `approved_rendered_pixel_checksum_sha256` ≠
+  `rendered_pixel_checksum_sha256`; pozostałe: `approved_crop_checksum_sha256`
+  ≠ `crop_checksum_sha256`), nie jest dowodem, dopóki nie zostanie
+  ponownie zweryfikowana; sam numer rewizji geometrii o tym nie decyduje. Decyzja całej planszy
+  (`assignment_source = board_decision`) jest zbiorem takich decyzji komórek.
+  Dowód od razu zasila kalkulacje działające na pojedynczych komórkach:
+  wyszukiwanie plansz i „Przybliżoną wygraną”. Komórki bez dowodu nadal
+  dostarczają predykcję modelu (P1), z wyjątkiem pól ze zgłoszonym problemem
+  (`grid_issue`, oczekujące `unreadable`, `partial_visibility`), pól bez
+  pikseli źródła bez ręcznej decyzji (zatwierdzone `outside` jest dowodem)
+  oraz zatwierdzonego `?`, które są brakiem dowodu.
+- **Board status:** status planszy jest wyliczany z komórek. Komplet dowodów,
+  pełna widoczność i jednoznaczna sekwencja domykają planszę automatycznie;
+  zatwierdzenie geometrii nie jest warunkiem. Kalkulacje wymagające całej
+  planszy (layout, dataset, snapshot mobilny, target) korzystają wyłącznie z
+  planszy domkniętej; brakujących symboli się nie dopowiada, a
+  `pending_partial` nie tworzy pełnego layoutu (D-451, P4).
+- **Geometry:** zapis geometrii kończy ręczną korektę i usuwa zgłoszenia
+  `grid_issue` tej planszy, ale nie weryfikuje symboli. Komórka o
+  niezmienionej tożsamości cropa zachowuje weryfikację (akceptacja jest
+  przepinana na bieżącą rewizję); zmieniony crop wraca do `pending` z
+  poprzednim symbolem człowieka jako podpowiedzią, a poprzednia akceptacja
+  pozostaje w audycie. Korekta jednej planszy nie zmienia geometrii, cropów
+  ani weryfikacji innych plansz zdjęcia. `approved_geometry_revision`
+  pozostaje wyłącznie znacznikiem geometrii zapisanej lub zakwalifikowanej
+  przez człowieka dla kalibracji; automatyczne przecięcie pomija każdą
+  planszę z decyzją człowieka na komórce.
+- **Reports:** `Zła siatka` na zweryfikowanej komórce cofa weryfikację tylko
+  tej komórki (`pending` + `grid_issue`) i zachowuje informację, która
+  komórka zgłosiła problem; `Zatwierdź` na komórce z `grid_issue` wycofuje
+  zgłoszenie. Stan „zweryfikowana i zgłoszona” nie istnieje.
+- **Freshness:** każda zmiana wiersza komórki (decyzja, cofnięcie, zmiana
+  symbolu, flaga, przecięcie, odświeżenie predykcji) aktualizuje projekcję
+  wyszukiwania planszy w tej samej transakcji; Admin nie używa ponownie wyniku
+  „Przybliżonej wygranej” po ponownym otwarciu sekcji.
+- **Correction queue:** jedna kolejka ręcznej korekty obejmuje odroczone
+  geometrie `pending` oraz plansze z bieżącym `grid_issue`, jedna pozycja na
+  slot planszy; Reviewer 3001 pokazuje jedną planszę naraz, bez walidacji
+  gotowych siatek.
+- **Supersedes:** regułę „Walidacji cięcia siatki 0.9”, w której zatwierdzenie
+  geometrii poprzedza rozstrzygnięcie planszy, oraz zasadę, że zmieniony crop
+  zachowuje `approved` z proweniencją poprzednich pikseli.
+- **Boundary:** bez DDL i bez usuwania historii. Zdalny Reviewer pozostaje bez
+  zmian (P3). Istniejące dane przechodzą na nowe reguły wyłącznie przez preview
+  i jawnie zatwierdzony apply (TASK-0728); 456 komórek zatwierdzonych na
+  zmienionym cropie wróci do weryfikacji (P2), a do tego czasu nie są dowodem.
+  Żadna komórka nie staje się zweryfikowana tylko dlatego, że wcześniej
+  zatwierdzono planszę, siatkę lub zdjęcie. Ponowne otwarcie planszy przez
+  walidację ciągłości importu (`synchronize_after_board_reopened`) nadal
+  resetuje komórki — to znane ryzyko do osobnego rozstrzygnięcia.
+
+## D-461 — niezależny przebieg v3 dla istniejącej gry v1.1
+
+- **Status:** accepted, 2026-09-28; operator chce uruchamiać v3 także dla
+  istniejącej gry, np. `777 v1.1`, i porównywać wynik z dotychczasowym silnikiem.
+- **Decision:** tożsamość i wydanie gry nie wybierają automatycznie silnika.
+  Ten sam niezmienny obraz może otrzymać dwa oddzielne, oznaczone wyniki:
+  dotychczasowy v1.1 oraz kandydat v3. V3 korzysta z obrazu, topologii,
+  jawnego kontekstu gry do mapowania symboli i własnego wersjonowanego modelu;
+  nie importuje starych predykcji, geometrii ani reguł silnika v1.1.
+  `comparison_only` opisuje kwalifikację źródła do etykiet/treningu, nie jest
+  zakazem inferencji lub porównania na istniejącej grze.
+- **Comparison:** obie ścieżki zachowują osobne identyfikatory runu, wersje
+  silnika/modelu, geometrię, cropy, symbole i błędy. Widok porównuje je na
+  tym samym SHA obrazu oraz odpowiadających sobie pozycjach plansz; brak
+  dopasowania jest jawny, nie jest sukcesem. Wynik v3 pozostaje review/shadow,
+  nie nadpisuje ręcznych decyzji, starego wyniku ani ustawienia gry.
+- **Boundary:** decyzja nie odblokowuje treningu symboli historycznego 777,
+  nie zmienia zamrożonych podziałów ani nie promuje obecnego pilota (walidacja
+  nie wykazała poprawy). Włączenie v3 jako domyślnego silnika lub usunięcie
+  v1.1 wymaga osobnego odbioru jakości i jawnej decyzji operatora.
+
+## D-460 — wyliczana poczekalnia cropów bez nowej hierarchii symboli
+
+- **Status:** accepted, 2026-09-28; operator potwierdził, że grupa oznacza
+  istniejący symbol słownika, np. „cytryna”, bez dodatkowej encji aplikacji.
+- **Decision:** cropy z aktualnych zaakceptowanych geometrii są pokazywane
+  stronicowaną poczekalnią. „Nieprzypisany” oznacza brak decyzji albo jej
+  wycofanie, a nie `unknown`; jawnie ocenione aktualne stany nie wracają.
+  Drift geometrii, renderera lub słownika daje osobne „Do ponownej oceny”.
+  Widok jest pochodny, bez trwałej flagi i bez kopii PNG przed zapisem.
+- **Assignment:** operator może przypisać 1–30 widocznych cropów do jednej
+  zatwierdzonej klasy jednym atomowym żądaniem. To jawne zatwierdzenie tylko
+  wskazanych pikseli; nie dopuszcza próbek automatycznie do treningu.
+- **Boundary:** chronione role i holdout przed pikselami, stare requesty
+  symboli bez zmian. TASK-0717 nie importuje nowych zdjęć ani nie omija
+  ograniczeń rebase/freeze obecnego snapshotu.
+
+## D-459 — atomowe etykietowanie całej planszy w laboratorium
+
+- **Status:** accepted, 2026-09-27; techniczna realizacja żądania operatora,
+  aby wybierać wszystkie 15 symboli w jednym widoku planszy z siatką.
+- **Decision:** addytywne warianty lab_board w POST /symbol-crops i
+  label_board_decide w POST /symbols. Jeden spójny podgląd pod blokadami,
+  wszystkie dokładne bindingi sprawdzone przed publikacją, jeden atomowy
+  zapis decyzji wszystkich komórek, jedna rewizja i receipt. Poprzednie
+  requesty pozostają zgodne. Szczegóły i pre-code audit w TASK-0716.
+- **UI:** plansza z rzeczywistymi liniami siatki, poniżej cropy i kompaktowe
+  selecty row-major; jeden jawny zapis kompletu, bez autopredykcji i autosave.
+  Istniejące aktualne wybory odczytywane, nieaktualne wymagają ponownej decyzji.
+- **Boundary:** zachowane T06a, historia i pojedyncze decision_id per komórka,
+  role/holdouty, geometrie i bramki treningu. Zgoda nie obejmuje etykietowania
+  za operatora, importu starych etykiet ani treningu. Bez nowego serwera/DB.
+
+## D-458 — rozdzielenie narzędzi T06 od kwalifikacji zbioru symboli
+
+- **Status:** accepted, 2026-09-27; techniczne doprecyzowanie jawnie
+  uruchomionego etapu C. Nie zmienia polityki danych ani zgód operatora.
+- **Context:** snapshot folderowy nie zawiera słowników i zatwierdzeń
+  symboli. Literalne wymaganie gotowych słowników przed budową narzędzi
+  ich zatwierdzania uniemożliwia bootstrap.
+- **Decision:** T06a dostarcza narzędzia, izolowany magazyn symboli i
+  adapter zweryfikowanego eksportu DB. Może startować z pustym słownikiem.
+  T06b obejmuje rzeczywisty kwalifikowany zbiór. Samo ukończenie T06a nie
+  zamyka T06, T03 ani warunków wejścia do T07.
+- **Data boundary:** zatwierdzenie geometrii nie jest etykietą symbolu.
+  D-453 i D-456 pozostają geometryczne. Brak zatwierdzeń, pochodzenia lub
+  symbolowego podziału danych nie może zostać zastąpiony fixture, predykcją,
+  nazwą pliku albo podziałem całymi grami. Holdouty pozostają chronione.
+- **Persistence:** osobny magazyn symboli nie przepisuje istniejącego
+  stanu geometrii, receipts ani fingerprintów. Decyzja etykiety wiąże
+  dokładny crop i wersję słownika; drift wymaga nowego zatwierdzenia.
+- **Completion:** każdy podtask ma audyt i commit; T06 pozostaje aktywne
+  przy braku rzeczywistych danych. T07–T09 nie omijają tej zależności.
+  Szczegółowy kontrakt T06a wymaga niezależnego PASS przed kodowaniem.
+
+## D-457 — techniczny kontrakt pierwszej hybrydy D-456
+
+- **Status:** accepted, 2026-09-27; doprecyzowanie techniczne w granicach
+  zleconego B, odebrane pre-code przez Astra medium po zamknięciu3P2.
+  Nie jest dodatkową zgodą na trening
+  poza budżetem D-456 ani na aktywację.
+- **Decision:** pierwszy pilot to obrazowe propozycje BaselineEngine oraz
+  MobileNetV3-Small poprawiający cztery narożniki cropu propozycji. Zamrożony
+  backbone ImageNet i uczony head ograniczają liczbę parametrów przy32zdjęciach
+  development. Homografia daje pełną siatkę5×3. Nie jest to detektor odzyskujący
+  wszystkie pominięte plansze; braki propozycji należą do raportowanego błędu.
+- **Labels:** ręczne węzły służą matchingowi, targetowi i ocenie, nigdy
+  inferencyjnemu wejściu/cropowi. Nieoznaczone pozycje są unknown, nie absent.
+  Brak uczciwych negatives wyłącza presence-head. Nie wymusza się9plansz.
+- **Evaluation:** wybór checkpointu na zamrożonej validation, z kosztem1
+  dla brakujących/nieważnych wyników i średnią per zdjęcie. Pełny protokół,
+  hiperparametry, wersje i testy zapisuje TASK-0670 przed wynikami runu.
+  Wszystkie predykcje wymagają review; gate uncalibrated, bez autoapprove.
+- **Publication:** ONNX najlepszego ukończonego checkpointu z parity,
+  atomowymi artefaktami, SHA i fencing T04. Galeria wybiera model opcjonalnie
+  przez istniejący endpoint geometrii; brak wyboru zachowuje baseline.
+  Final_test/unseen blokowane przed dekodowaniem także w podglądzie pilota.
+- **Reproducibility:** kanoniczny protocol_digest wiąże preset i pełny SHA
+  pretrained z runem/checkpointem/publikacją/inferencją, z ochroną dawnych
+  receipts przy pominiętej opcji. Smoke i train startują niezależnie z tego
+  samego pretrained oraz seeda, bez przenoszenia uczonych wag smoke.
+- **Boundaries:** jeden smoke<=50kroków i jeden train<=20epok/1800s,
+  limit obejmuje walidację/eksport/parity/publikację. Przekroczenie zachowuje
+  checkpoint i zatrzymuje pracę bez nowego runu/resetu budżetu. Bez dodatkowego
+  tuningu. Brak użytecznych par jest jawnym blockerem,
+  nie zgodą na zmianę architektury lub kolejne eksperymenty.
+
+## D-456 — pilotaż geometrii 5 × 3 z podziałem całymi grami
+
+- **Status:** accepted, 2026-09-27. Po wyjaśnieniu zakresu generalizacji
+  operator polecił „tak, leć z tym co masz”, zatwierdzając zaproponowany
+  pilot całymi grami bez pomiaru czasu i dalszą realizację etapu B.
+- **Decision:** osobna jawna polityka `lab-geometry-whole-game-pilot-v1`
+  zastępuje dla tego pilota wymóg verified rodzin oraz measurement
+  konserwatywnym przydziałem wszystkich źródeł każdej gry do jednej części.
+  Rodziny pozostają unresolved. Nie deklaruje się niezależności nagrań
+  wewnątrz gry ani nie tworzy nowych zgód. Pełny graf SHA/rodzin/pochodnych
+  nadal kontroluje konflikty pomiędzy częściami, także poza kohortą.
+- **Frozen selection:** development: 777, blazing zd, gang zd; validation:
+  mumie wybrane; final_test: reels; unseen_game: tresure zd. Wybór dokonany
+  przed wynikami modelu, według nazw i wymogu uczenia historycznego 777.
+  Aktualna kohorta: 63 zaakceptowane zdjęcia, 180 pełnych geometrii 5 × 3;
+  90/30/30/30 siatek. Nazwy trzeba jednoznacznie rozwiązać do ID katalogu.
+  Brak jednoznaczności, konflikt grafu lub zmiana danych zatrzymują freeze.
+- **Boundaries:** D-453/D-455, aktualne SHA, kwalifikacje wybranych 777,
+  pełne ręczne geometrie i akceptacje pozostają wymagane. Symbole poza
+  zakresem. T03k zamraża manifest, podział i wyłączenia po audycie, z backupem
+  i idempotencją. Stare polityki zachowują wszystkie poprzednie bramki.
+- **Evaluation:** tylko pilot transferu 5 × 3 pomiędzy grami; bez obietnicy
+  jakości produkcyjnej, 3 × 3, reprezentatywności nagrań ani redukcji czasu
+  o 30%. T05 używa development/validation; final_test i unseen pozostają
+  zamrożone do późniejszego końcowego odbioru, nie do strojenia.
+- **Execution:** ukończone T03k z nieprzestarzałym splitem wystarcza do T04
+  i T05 w tym pilocie, choć pełny protokół rodzin/pomiaru T03 jest odroczony.
+  Budżet T05 nadal do 50 kroków próbnych i jeden trening do 20 epok lub
+  30 minut. STOP B bez automatycznego uruchamiania C, aktywacji lub push.
+
+## D-455 — kwalifikacja targetów 777 bez kwalifikowania kontekstu
+
+- **Status:** accepted, jawna zgoda operatora 2026-09-27 na korektę reguły
+  blokującej 11 zatwierdzonych zdjęć przez 19 niezatwierdzonych członków
+  tych samych trzech kandydatów rodzin. Nie jest to zatwierdzenie rodzin.
+- **Decision:** nowa, jawnie wybierana polityka geometry-only z niepustą
+  kohortą wymaga kwalifikacji D-453 od każdego wybranego targetu 777.
+  Niewybrany jednoznaczny historyczny folder 777 o roli comparison_only
+  może pozostawać wyłącznie kontekstem pełnego grafu bez własnej kwalifikacji.
+  Nie otrzymuje targetu, przypisania, anotacji ani akceptacji za operatora.
+- **Boundaries:** wyjątek nie obejmuje DB, V2, innych comparison_only ani
+  wybranego źródła. Tożsamość historycznego 777 jest sprawdzana równie ściśle
+  jak w D-453. Cały komponent nadal wymaga zweryfikowanego pochodzenia;
+  SHA, rodziny, pochodne, unseen i measurement obejmują cały katalog.
+- **Compatibility:** domyślne requesty, brak kohorty oraz istniejące frozen
+  splity zachowują D-454. Nowa wersja polityki ma osobne jawne pole requestu,
+  usuwane z fingerprintu przy None dla zachowania starych receipts.
+  Nowa wersja nie wymaga skutecznej kwalifikacji niewybranego kontekstu 777,
+  lecz nadal wiąże pełne fingerprints i wykrywa zmianę grafu/metadanych.
+- **Execution:** T03j, spójne backend/OpenAPI/generated client/wrapper/testy,
+  Sol medium i niezależny audyt Astra medium. Zmiana nie rozstrzyga innych
+  braków pochodzenia ani pomiaru i sama nie uruchamia treningu.
+
+## D-454 — jawna kohorta geometrii nie usuwa powiązań źródeł
+
+- **Status:** accepted, techniczne doprecyzowanie T03f w autonomicznej
+  kontynuacji etapu B (2026-09-27), po audycie kontraktu Astra medium.
+- **Decision:** opcjonalny wybór źródeł geometrii ogranicza wyłącznie targety
+  i przypisania przykładów. Graf SHA, rodzin i pochodnych nadal obejmuje cały
+  katalog, w tym nieanotowane aliasy i przechodnie mosty poza kohortą.
+  Alias nie otrzymuje skopiowanej zgody, anotacji ani pozycji treningowej.
+- **Boundaries:** bramki ról/D-453 i zweryfikowanego pochodzenia obowiązują
+  cały komponent; aktualna akceptacja i pełny ręczny target obowiązują wybrane
+  źródła. Gry, unseen i niezależność grup pomiarowych ocenia się na pełnych
+  komponentach. Wybór kohorty nie potwierdza rodzin ani nie zamyka T03.
+- **Durability:** nowa wersja splitu wiąże kohortę, wszystkie komponenty,
+  pełne metadane źródeł, rodziny i kwalifikacje członków niedata.
+  Odczyt kontroluje także skuteczność kwalifikacji niewybranych członków,
+  od których zależą zakwalifikowane komponenty. Zmiany dają stale, nie
+  ciche przeliczenie. Pominięcie kohorty zachowuje stare reguły, fingerprints
+  i receipts. Pełny kontrakt i regresje: TASK-0668/T03f.
+
+## D-453 — historyczne zdjęcia 777 dopuszczone do uczenia geometrii
+
+- **Status:** accepted, jawna decyzja użytkownika w kontynuacji T03 (2026-09-27).
+- **Decision:** historyczne zdjęcia 777 mogą służyć do uczenia geometrii
+  przyszłych podobnych zdjęć. Referencją są nowe, ręcznie zatwierdzone
+  geometrie laboratorium, nie dawne geometrie silnika v1.1. Decyzja zastępuje
+  zakaz treningu historycznego 777 z D-447 wyłącznie w zakresie geometrii.
+  Historyczne pochodzenie pozostaje prawdziwe; nie oznaczamy tych zdjęć
+  jako 777 V2. Nie zmienia się produkcyjny workflow historycznych importów.
+- **Boundaries:** zgoda na geometrię nie zatwierdza symboli, nie włącza etapu C
+  ani nie gwarantuje jakości na przyszłych zdjęciach. Dawne geometrie v1.1
+  nie zastępują nowych referencji w treningu ani w jego ocenie. Zdjęcie
+  wykorzystane do treningu oraz jego rodzina i pochodne nie mogą jednocześnie
+  stanowić niezależnego testu. Zmiana cropa wymaga geometrii zgodnej z nowym
+  obrazem i aktualnej akceptacji, bez przenoszenia zgody na inne piksele.
+- **Source declaration:** dla pozostałych pięciu gier użytkownik deklaruje,
+  że zdjęcia z `C:\Users\tuszy\Documents\game_predictor_traning_set` pochodzą
+  spoza zakresów/folderów nagrań wykorzystanych do dotychczasowych siatek.
+  Część zdjęć pochodzi z odległych brzegów nagrań. To deklaracja operatora,
+  nie ustalenie niezależności na podstawie nazw. Początek i koniec tego samego
+  nagrania pozostają jedną rodziną; różne foldery mogą zawierać jego wycinki.
+  T03 musi powiązać deklarację z konkretnymi źródłami i rodzinami oraz
+  sprawdzić konflikty duplikatów i pochodnych przed zamrożeniem podziału.
+- **Execution state (T03e):** mechanizm jawnej geometry-only kwalifikacji
+  zapisuje decyzję z SHA i mapą rewizji w istniejącym AnnotationStore,
+  z lock/CAS/receipt/history. CLI domyślnie wykonuje preview; apply jest
+  osobnym krokiem, a role `comparison_only` i pochodzenie pozostają bez zmian.
+  Obsługiwany jest jednoznaczny historyczny folder 777; źródła DB i V2 nie
+  uzyskują kwalifikacji tym mechanizmem. Jawny purpose geometry w splicie
+  dopuszcza kwalifikacje i przechowuje osobne pełne ręczne targety; domyślny
+  legacy zachowuje poprzednie zachowanie. Reguły rodzin/pomiaru nie są pomijane.
+  Po addytywnym imporcie/rebase T03g, osobny T03h zastosował decyzję dla
+  11 zaakceptowanych zdjęć / 30 siatek na nowym store, z backupem, rewizją
+  260 i idempotentnym retry. Geometrie, akceptacje, role i symbole bez zmian.
+  Rebase jawnie odrzuca nowy typ decyzji: dalsze przenoszenie wymaga osobnego
+  bezpiecznego rozszerzenia, nie ręcznego usuwania kwalifikacji lub historii.
+  T04/T05 nadal wymagają ukończenia bramki danych T03.
+
+## D-452 — atomowe pokwitowania uzupełnienia pozycji pilota
+
+- **Status:** accepted, techniczna realizacja T4 / TASK-0711 (2026-09-27).
+- Podgląd jest niezmiennym, wersjonowanym dokumentem z SHA, dokładną listą
+  70 numerów, bieżącym właścicielem, źródłem i decyzjami operatora. Brak
+  historycznej kolumny widoczności oznacza brak oceny, nigdy outside.
+- Widoczność w preview i wspólnym writerze korzysta z tego samego resolvera.
+  Virtual używa przypiętej `source_geometry_revision_id` i jej slotu;
+  legacy aktualnej rewizji ręcznej. Późniejsza, nieprzyjęta rewizja źródła
+  ani stara kopia quada nie zastępuje przyjętej geometrii.
+- Nowa publiczna tabela `partial_board_reconciliation_receipts` jest
+  control plane operacji, nie kolejką jobów ani partycją danych obrazu.
+  Migracja 0128, jawna klasyfikacja SHARED w manifest v2 i FK gry
+  `ON DELETE CASCADE`; zamrożona lista partycji pozostaje bez zmian.
+- Klucz `(game_id, preview_sha256, sequence_number)` wiąże wynik z wejściem.
+  Projekcja 15 pozycji, ochrona decyzji, liczniki i receipt są w jednej
+  transakcji. Po utracie odpowiedzi retry odczytuje receipt, bez ponownego
+  zapisu i bez nadpisania późniejszych decyzji człowieka.
+- Apply sprawdza pełny manifest przed receipt, używa routingu i blokad
+  sequence → source → owner/board/cells → state. Różnica źródła, rewizji,
+  właściciela lub decyzji zatrzymuje daną planszę. Jedna komenda wykonuje
+  maksymalnie pięć nowych prób. Plik raportu nie pełni roli checkpointu.
+- Narzędzie nie modyfikuje manifestów importu, nie uruchamia predykcji
+  ani treningu. Produkcyjne migracje, wdrożenie, apply i odbudowa liczników
+  pozostają oddzielnie zlecanym krokiem danych według zaakceptowanego planu.
+
+## D-451 — każda pozycja niepełnej planszy dostępna w weryfikacji symboli
+
+- **Status:** accepted, jawne zlecenie użytkownika 2026-09-27.
+- **Plan:** PARTIAL_BOARD_SYMBOL_REVIEW_EXECUTION_PLAN.md, TASK-0708–0711.
+- **Decision:** wszystkie 15 logicznych pozycji planszy 3 × 5 pozostają
+  dostępne operatorowi. Trwała dostępność obrazu full/partial/outside jest
+  niezależna od wyniku rozpoznania. Klasyfikacja używa przecięcia wieloboku
+  pola z rzeczywistym obrazem; cztery rogi poza obrazem nie dowodzą outside.
+- Partial rozpoczyna jako Nierozpoznany (?), outside jako Poza zdjęciem.
+  Outside nie otrzymuje fikcyjnego cropa, checksumy ani predykcji. Operator
+  może przypisać symbol lub oznaczyć Nieczytelny. Po przypisaniu pozycja
+  należy wyłącznie do grupy rzeczywistego symbolu (oraz Wszystkich),
+  zachowując badge Poza zdjęciem. Bez przypisania pozostaje w outside.
+- Informacja o niepełnych/brakujących pikselach pozostaje po ręcznej
+  decyzji i wyklucza taki materiał z uczenia symboli. Niepełność zdjęcia
+  nie oznacza braku dostępnych pozycji weryfikacji.
+- Ta decyzja zastępuje wykluczanie logicznych pozycji outside opisane
+  w D-434/D-435 i wykluczanie maski legacy_file w D-449. Historia źródeł
+  i decyzje operatora pozostają chronione. Schemat zmieniany przez Alembic;
+  historyczne rekordy wymagają oceny rzeczywistej geometrii, nie samej maski.
+- Kod i podgląd naprawy zlecone. Produkcyjne uzupełnienie po osobnym
+  zleceniu kroku danych, zgodnie z T4; brak zgody na destrukcyjne operacje.
+
+## D-450 — przegląd zdjęcia jako dodatkowa bramka laboratoryjna
+
+- **Zakres zgody operatora (wznowienie B):** akceptacje dotyczą geometrii,
+  nie poprawności symboli. Zdjęcia mogą mieć niepoprawne symbole/etykiety,
+  a ręczne geometrie pojedyncze pomyłki. Etap B nie używa niezatwierdzonych
+  etykiet symboli jako targetów; etap C zachowuje osobne bramki. Kontrola
+  techniczna geometrii nie udaje oceny wizualnej. Błędna geometria wymaga
+  korekty i nowej akceptacji, bez automatycznego nadpisywania zapisów.
+- **Doprecyzowanie 2026-09-27:** szybki przegląd pokazuje pełne zdjęcie
+  i wszystkie zapisane siatki, Zatwierdź/Odrzuć, potem następne po sukcesie.
+  Odrzucenie dotyczy zdjęcia (osobne `rejected`, domyślnie false), nie oznacza
+  każdej geometrii jako błędnej. Trafia do Do poprawy; zapis geometrii nie
+  usuwa tej flagi, jawny accept ją usuwa przy zachowaniu istniejących bramek.
+  Reject unieważnia akceptację/split, zachowuje siatki i podlega tym samym
+  SHA/rewizjom/CAS/receipts/history. Kolejka pomija rozstrzygnięte zdjęcia.
+- **Status:** accepted (TASK-0668/T03d, jawne polecenie użytkownika).
+- **Date:** 2026-09-27.
+- **Decision:** akceptacja zdjęcia wiąże SHA źródła i mapę rewizji wszystkich
+  zapisanych pozycji; dotyczy niepustego zbioru obecnych pełnych geometrii.
+  Szkice/lokalizacje nie są promowane. Nie wymaga dziewięciu plansz.
+  Oznaczenia do poprawy pozostają oddzielne od istniejących zgód geometrii.
+  Zapis oznaczonej pozycji daje stan do ponownego sprawdzenia; accept zamyka
+  te uwagi tylko dla obecnych full/present. Needs_correction oraz poprawka
+  zapisana wyłącznie jako szkic/lokalizacja blokują accept. Withdraw wycofuje
+  błędne zgłoszenie bez akceptowania zdjęcia; brak dodatkowego resolve.
+- **Invalidation:** każdy zapis geometrii zdjęcia lub oznaczenie do poprawy
+  unieważnia akceptację tylko tego zdjęcia oraz oznacza istniejący split stale.
+  Zmiana innego zdjęcia nie cofa tej akceptacji. Stare dane są nieprzejrzane,
+  zachowują autorów, historię i approval poszczególnych geometrii.
+- **Boundary:** dodatkowa bramka freeze/split, bez osłabienia pochodzenia rodzin,
+  roli 777 ani reguł zatwierdzeń. Brak treningu i automatycznej akceptacji danych.
+
+## D-449 — niepełna plansza w odroczonej korekcie geometrii komórek (opt-in, bez osłabienia współdzielonego croppera)
+
+- **Status:** accepted (TASK-0693).
+- **Date:** 2026-09-26.
+- **Context:** zgłoszenie użytkownika — na ekranie „Weryfikacja plansz”, w
+  kolejce „Niepełne siatki do ręcznej korekty” (`DeferredBoardCellGeometryEditor`),
+  operator nie mógł oznaczyć planszy jako niepełnej ani przesunąć rogów poza
+  realne zdjęcie, mimo że dwa pozostałe edytory geometrii (Admin „Korekta
+  geometrii strony”, Reviewer „Walidacja gotowych siatek”) już to obsługują
+  przez istniejący `GeometryQualification`.
+- **Decision:** `derive_board_cell_quads`/`_parse_quad`
+  (`board_cell_geometry_contract.py`) i `BoardCellGeometrySourceDirectCropper.crop`
+  (`board_cell_geometry_crops.py`) — współdzielony, produkcyjny pipeline
+  używany też przez automatyczną detekcję (`production_workflow.py`,
+  `board_cell_geometry_estimator.py`, `lattice_refinement_v3.py`,
+  `pending_grid_reinference.py`) — dostają wyłącznie **opcjonalne, domyślnie
+  nieaktywne** parametry (`bounded: bool = True`,
+  `unavailable_cell_indices: frozenset[int] = frozenset()`). Żaden istniejący
+  wywołujący nie przekazuje nowych argumentów, więc automatyczna detekcja i
+  wszystkie inne przepływy pozostają bit-identyczne (zweryfikowane pełnym
+  przebiegiem ich testów bez zmiany asercji). Tylko
+  `ManualBoardCellGeometryPreviewer` (ręczny Reviewer flow) przekazuje
+  `unavailable_cell_indices` pochodzące z jawnie zaznaczonego checkboxa
+  „Niepełna plansza”. `cv2.warpPerspective`'s istniejący
+  `borderMode=BORDER_CONSTANT` już toleruje quad poza obrazem — nie trzeba
+  syntezować pikseli ręcznie, tylko zdjąć bramkę `_quad_has_full_source_support`
+  dla jawnie zadeklarowanych indeksów; taka komórka dostaje `synthesized=true`
+  w metadanych (dopisywane tylko gdy `true`, więc kompletne plansze mają
+  bajtowo identyczny JSON co przed zmianą).
+- **Scope:** board pozostaje `asset_mode=legacy_file` (realne pliki cropów na
+  dysku) — **nie** replikuje się `asset_mode='virtual_source'` ani v3
+  `fully_unavailable_cell_indices` z `virtual_grid_geometry.py`. Wystarczy v2
+  `GeometryQualification`: zadeklarowane niedostępne komórki są w pełni
+  wykluczone (`available_cell_indices()`'s zachowanie dla trybów innych niż
+  `virtual_source`), a `ManualBoardCellSymbolPredictor` wymusza dla nich „?”
+  zamiast wysyłać syntezowany crop do modelu.
+- **Not done:** integracyjny test repozytorium (`materialize_manual_resolution`
+  z `pending_partial` na żywej Postgresie) nie został dodany — istniejący
+  test tej rodziny (`test_manual_deferred_geometry_materializes_one_complete_review_projection`)
+  failuje identycznie z i bez tej zmiany (`relation "source_images" does not
+  exist`), prawdopodobnie efekt niedawnych commitów „legacy public store
+  removal” (v0.10.447–450); to osobny, przedsesyjny blocker poza zakresem
+  TASK-0693.
+
+## D-447 — laboratoryjne zatwierdzenia i plan wizji
+
+- **Późniejsza zmiana:** D-453 dopuszcza historyczne zdjęcia 777 do uczenia
+  geometrii z nowymi zatwierdzeniami lab; poniższy zakaz jest stanem sprzed
+  tej decyzji. Pozostałe granice D-447 pozostają w mocy.
+- **Status:** accepted (P00 / TASK-0665).
+- **Date:** 2026-09-25.
+- **Decision:** lokalne laboratorium może używać osobnych zatwierdzeń
+  `lab_human_approved`. Decyzja człowieka wiąże grę, wersję słownika, obraz
+  źródłowy i SHA-256, planszę, komórkę, rewizję geometrii, dokładny crop i
+  SHA-256, etykietę, rewizję zatwierdzenia i czas. Zmiana geometrii albo
+  cropa wyłącza próbkę z treningu do ponownego zatwierdzenia. Predykcja
+  modelu nie jest decyzją człowieka. Zatwierdzenie lab nie udaje DB review;
+  istniejące reguły kwalifikacji DB pozostają bez zmian.
+- **Integration:** gra bez rekordu DB ma lokalną tożsamość i zatwierdzony
+  słownik. Rejestracja modelu wymaga jawnego mapowania gry i symboli; brak
+  mapowania blokuje wyłącznie jej integrację.
+- **Doprecyzowanie 2026-09-26:** użytkownik dostarczył folder zdjęć do
+  testowania modelu. T02 przyjmuje snapshot plikowy z lokalnymi tożsamościami
+  obok snapshotu DB. Zarządzane kopie i SHA-256 zachowują pochodzenie bez
+  tworzenia rekordów bazy ani zatwierdzeń. Materiał do podglądu nie uzyskuje
+  automatycznie kwalifikacji do treningu; nazwa folderu/prefiks nie dowodzi
+  niezależności rodzin. Historyczne `777` pozostaje porównawcze.
+- **Scope:** lab obejmuje 5 × 3 i 3 × 3, integracja aplikacji tylko 5 × 3.
+  Historyczne 777 jest `comparison_only`; 777 V2 wymaga pozytywnego dowodu
+  pochodzenia. TASK-0645–0647 nie otrzymują w tym projekcie uzupełniania
+  slotów siecią. TASK-0611 jest poza zakresem.
+- **Process:** etapowe wykonanie ma właścicielską regułę w `AGENTS.md`; sama
+  tabela modeli nie deleguje pracy. D-261 i D-262 pozostają bramkami
+  późniejszej aktywacji oraz odniesieniem do starego eksperymentu.
 
 ## D-446 — „Przybliżona wygrana” w Adminie: dolne ograniczenie z payout-v3, bez cache serwerowego
 
@@ -98,9 +1420,18 @@ last_updated: 2026-09-25
 - **Compatibility:** brak zmian schematu, API i OpenAPI; istniejące
   zdarzenia plansz z cropem bez zmian.
 
+## D-448 — `game_data_v2` jako jedyny magazyn game-owned; `public` zachowuje catalog/control/shared
+
+- **Status:** accepted (P00 / TASK-0679; osobna zgoda na T09 nadal jest wymagana).
+- **Date:** 2026-09-25.
+- **Decision:** w PostgreSQL `game_data_v2` jest jedynym fizycznym data plane relacji game-owned z zamrożonego manifestu v1. `public` nie jest fallbackiem tych danych; pozostaje właścicielem katalogu (`games`, `symbols`, reguł, `paylines`, `payout_rules`), globalnych `jobs`, registry storage i tabel shared/control. Po auditach i testach planowana migracja `0125_remove_legacy_public_game_store` usunie dokładnie 65 pustych, historycznych kopii game-owned przez statyczną listę i `DROP TABLE ... RESTRICT`, bez `CASCADE`. Downgrade ma odmówić, ponieważ nie potrafi bezstratnie odtworzyć ewentualnych danych historycznych.
+- **Rationale:** TASK-0525 potwierdził greenfield V2 jako aktywną ścieżkę, a D-440 pokazała, że pominięty bind może po cichu czytać pusty `public`. Dwie fizyczne kopie zwiększają ryzyko regresji i mylą granicę własności.
+- **Compatibility:** decyzja nie usuwa katalogu, shared/control plane, partycji V2 ani nie zmienia active location trzech istniejących gier. Zmiana API/OpenAPI nastąpi tylko, gdy T02 wykryje faktycznie eksponowany legacy kontrakt, w jednym spójnym pionie.
+- **Safety:** przed DDL wymagane są read-only inventory aktualne dla chwili operacji, izolowany test PostgreSQL, review i jawna zgoda użytkownika obejmująca dokładny raport. Nieużywana, niepusta lub zewnętrznie zależna tabela, aktywna migracja/job, lock, drift albo timeout zatrzymują operację. Brak automatycznego DDL, migracji danych, dual-write, GC ani pozornego rollbacku.
+
 ## D-443 — skrypt legacy GC odmawia skanu, jeśli jakakolwiek gra ma magazyn per-game (V2)
 
-- **Status:** accepted (TASK-0640, T4 planu D-442, wykonane na wyraźną,
+- **Status:** superseded by D-467 (skrypt usunięty w TASK-0752, 2026-09-30); wcześniej accepted (TASK-0640, T4 planu D-442, wykonane na wyraźną,
   osobną zgodę użytkownika).
 - **Date:** 2026-09-24.
 - **Decision:** `scripts/preview_legacy_game_managed_asset_gc.py`'s
@@ -6355,6 +7686,18 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   numerów pozostałych plansz; metadane źródła są zachowywane przy zapisie geometrii.
 - **Consequences:** zwykłe importy OCR pozostają bez blokady, a poświadczone
   importy są jednoznaczne dla operatora i audytu.
+- **Zmiana 2026-10-02 (TASK-0798, D-467 S6, D-462):** od konwersji TASK-0791
+  każda plansza jest `virtual_source`, a jej numer jest przypięty do slotu
+  geometrii źródła (początek zakresu `seq_*` + pozycja planszy); komórki
+  weryfikacji symboli są kluczowane tym numerem. Decyzja `accepted`/`corrected`
+  z innym numerem przestała być zwykłą korektą: write-through komórek odrzucał
+  ją wyjątkiem (`500`) po roszczeniu kanonicznym. Teraz jest odrzucana przed
+  zapisem kodem `409 IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE` z pełnym
+  wycofaniem; błędną nazwę pliku poprawia ponowny import pod właściwą nazwą
+  `seq_*` (albo odrzucenie planszy). Przeniesienie planszy z jej komórkami i
+  decyzjami pod inny numer wymagałoby zmiany modelu sekwencji i komórek
+  (D-462) i nie jest częścią tej zmiany. Pole numeru i akcja odblokowania w
+  Reviewerze zostają; odmowa pokazuje komunikat bez utraty szkicu.
 
 ## D-199 — Kanoniczne sekwencje są idempotentne między importami
 
@@ -9610,7 +10953,9 @@ stan `ready` nie obiecywał read modelu bez używalnego planu zapytania.
 
 ## D-369 — Archiwum wyszukiwania nie zależy od operacyjnego review
 
-- **Status:** accepted
+- **Status:** superseded by D-467 (TASK-0759, migracja `0134`: archiwum nigdy
+  nie zostało zbudowane — 0 wierszy — i zostało usunięte razem z trybem
+  `legacy_archive`); wcześniej accepted
 - **Date:** 2026-09-07
 - **Decision:** zachowywany zakres starej gry może zostać zamrożony w
   `legacy_board_search_archive_documents`. Dokument ma bezpośrednią ścieżkę i

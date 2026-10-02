@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import NoReturn, cast
 from uuid import UUID
@@ -17,6 +18,7 @@ from game_predictor_api.application.image_geometry_rollout import (
     ImageGeometryRolloutStatus,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.geometry_qualification import available_cell_indices
 from game_predictor_api.domain.image_geometry_v2 import (
     SEQUENCE_ATTESTATION_SCHEMA_VERSION,
     SOURCE_COORDINATE_SPACE,
@@ -40,12 +42,20 @@ from game_predictor_api.storage.additive_virtual_geometry_contracts import (
     derive_v2_render_identity_from_legacy_spec,
     verification_outcome_value,
 )
+from game_predictor_api.storage.board_render_manifest_reader import (
+    BoardRenderManifestReadError,
+    load_current_render_manifest,
+)
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.cell_render_specs import (
+    CellRenderSpecError,
+    CellRenderSpecKey,
+    load_cell_render_specs,
+)
 from game_predictor_api.storage.job_repository import job_from_record, job_record_from_domain
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     ImageBoardGeometryRevisionModel,
     ImageBoardSearchFastDocumentModel,
@@ -170,20 +180,6 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 "IMAGE_ENGINE_POLICY_ROLLOUT_BUSY",
                 "Finish the active virtual-geometry validation before changing the engine.",
             )
-        if target is ImageImportEnginePolicy.STRUCTURED_SHADOW:
-            source_count = int(
-                self._session.scalar(
-                    select(func.count(SourceImageModel.id))
-                    .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-                    .where(JobModel.game_id == game_id)
-                )
-                or 0
-            )
-            if source_count > 0 and state.backfill_status != "ready":
-                raise ImageGridReviewError(
-                    "IMAGE_ENGINE_POLICY_VALIDATION_REQUIRED",
-                    "Validate existing image provenance before enabling structured shadow.",
-                )
         state.geometry_mode, state.cell_asset_mode = policy_rollout_modes(target)
         state.revision += 1
         state.backfill_status = "not_started"
@@ -411,6 +407,8 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                 "IMAGE_GEOMETRY_ROLLOUT_SOURCE_PROVENANCE_INVALID",
                 "A virtual source has incomplete canonical coordinate metadata.",
             )
+        # D-467 S5 (TASK-0759): per-cell import records no longer exist, so the
+        # former observation identity backfill always counts zero.
         observation_backfill_count = 0
         for board in virtual_boards:
             geometry = self._session.get(
@@ -447,53 +445,11 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     "A virtual board does not match its source geometry topology.",
                 )
             topology_count = int(board.grid_rows or 3) * int(board.grid_columns or 5)
-            observations = tuple(
-                self._session.scalars(
-                    select(CellObservationModel)
-                    .where(CellObservationModel.recognized_board_id == board.id)
-                    .order_by(CellObservationModel.row_index, CellObservationModel.column_index)
-                )
+            # D-467: the render manifest of the current revision is the only
+            # record of a virtual board's cells.
+            self._validate_manifest_cells(
+                game_id=game_id, source=source, board=board, geometry=geometry
             )
-            expected_coordinates = tuple(
-                (row_index, column_index)
-                for row_index in range(int(board.grid_rows or 3))
-                for column_index in range(int(board.grid_columns or 5))
-            )
-            for observation in observations:
-                observation_backfill_count += self._backfill_render_identity(
-                    source=source,
-                    geometry=geometry,
-                    topology=topology,
-                    board=board,
-                    cell=observation,
-                )
-            if (
-                len(observations) != topology_count
-                or tuple(
-                    (int(observation.row_index), int(observation.column_index))
-                    for observation in observations
-                )
-                != expected_coordinates
-                or any(
-                    observation.asset_mode != "virtual_source"
-                    or observation.source_geometry_revision_id != geometry.id
-                    or observation.crop_relative_path is not None
-                    or not _is_sha256(observation.logical_cell_key)
-                    or not _is_sha256(observation.logical_cell_key_v2)
-                    or not _is_sha256(observation.render_identity_v2_sha256)
-                    or not isinstance(observation.render_spec, dict)
-                    or not _is_sha256(observation.render_spec_checksum_sha256)
-                    or not _is_sha256(observation.rendered_pixel_checksum_sha256)
-                    or observation.crop_checksum_sha256
-                    != observation.rendered_pixel_checksum_sha256
-                    for observation in observations
-                )
-            ):
-                self._invalid_source(
-                    source,
-                    "IMAGE_GEOMETRY_ROLLOUT_CELL_PROVENANCE_INVALID",
-                    "A virtual board does not contain every checksum-bound virtual cell.",
-                )
             if board.geometry_revision > 0:
                 revision = self._session.scalar(
                     select(ImageBoardGeometryRevisionModel).where(
@@ -524,6 +480,11 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     .order_by(ImageSymbolReviewCellModel.cell_index)
                 )
             )
+            # D-467 S7 (TASK-0792): review cells carry only the render-spec
+            # checksum; the specification itself comes from the manifest.
+            review_render_specs = self._review_cell_render_specs(
+                game_id=game_id, source=source, review_cells=review_cells
+            )
             for cell in review_cells:
                 review_cell_backfill_count += self._backfill_render_identity(
                     source=source,
@@ -531,6 +492,7 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     topology=topology,
                     board=board,
                     cell=cell,
+                    render_spec=review_render_specs.get(cell.cell_index),
                 )
             if review_cells and (
                 len(review_cells) != topology_count
@@ -544,7 +506,7 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
                     or not _is_sha256(cell.logical_cell_key_v2)
                     or not _is_sha256(cell.render_identity_v2_sha256)
                     or cell.verification_outcome is None
-                    or not isinstance(cell.render_spec, dict)
+                    or cell.cell_index not in review_render_specs
                     or not _is_sha256(cell.render_spec_checksum_sha256)
                     or not _is_sha256(cell.rendered_pixel_checksum_sha256)
                     or cell.crop_checksum_sha256 != cell.rendered_pixel_checksum_sha256
@@ -576,6 +538,77 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             review_cell_backfill_count,
             training_cell_backfill_count,
         )
+
+    def _review_cell_render_specs(
+        self,
+        *,
+        game_id: UUID,
+        source: SourceImageModel,
+        review_cells: tuple[ImageSymbolReviewCellModel, ...],
+    ) -> dict[int, Mapping[str, object]]:
+        """Manifest render specifications of the virtual review cells, by cell index.
+
+        Cells without virtual provenance get no entry (the caller rejects
+        them); a missing manifest or checksum mismatch rejects the source.
+        """
+
+        keys: dict[int, CellRenderSpecKey] = {}
+        for cell in review_cells:
+            checksum = cell.render_spec_checksum_sha256
+            virtual = cell.asset_mode == "virtual_source"
+            if virtual and checksum is not None and _is_sha256(checksum):
+                keys[int(cell.cell_index)] = CellRenderSpecKey(
+                    recognized_board_id=cell.recognized_board_id,
+                    geometry_revision=cell.geometry_revision,
+                    cell_index=cell.cell_index,
+                    render_spec_checksum_sha256=checksum,
+                )
+        try:
+            specs = load_cell_render_specs(self._session, game_id=game_id, keys=keys.values())
+        except CellRenderSpecError as error:
+            self._invalid_source(source, error.code, error.message)
+        return {index: specs[key] for index, key in keys.items()}
+
+    def _validate_manifest_cells(
+        self,
+        *,
+        game_id: UUID,
+        source: SourceImageModel,
+        board: RecognizedBoardModel,
+        geometry: ImageSourceGeometryRevisionModel,
+    ) -> None:
+        try:
+            manifest = load_current_render_manifest(self._session, game_id=game_id, board=board)
+        except BoardRenderManifestReadError:
+            manifest = None
+        cell_count = int(board.grid_rows or 3) * int(board.grid_columns or 5)
+        expected = available_cell_indices(
+            unavailable_cell_indices=board.unavailable_cell_indices,
+            geometry_qualification=board.geometry_qualification,
+            asset_mode=board.asset_mode,
+            cell_count=cell_count,
+        )
+        if (manifest is None and expected) or (
+            manifest is not None
+            and (
+                set(manifest.cell_indices) != expected
+                or manifest.source_geometry_revision_id != geometry.id
+                or any(
+                    not isinstance(cell.get("renderSpec"), dict)
+                    or not _is_sha256(cell.get("renderSpecChecksumSha256"))
+                    or not _is_sha256(cell.get("renderedPixelChecksumSha256"))
+                    or not _is_sha256(cell.get("logicalCellKeySha256"))
+                    or not _is_sha256(cell.get("logicalCellKeyV2Sha256"))
+                    or not _is_sha256(cell.get("renderIdentityV2Sha256"))
+                    for cell in manifest.cells
+                )
+            )
+        ):
+            self._invalid_source(
+                source,
+                "IMAGE_GEOMETRY_ROLLOUT_CELL_PROVENANCE_INVALID",
+                "A virtual board does not contain every checksum-bound virtual cell.",
+            )
 
     def _backfill_source_revisions(
         self,
@@ -758,11 +791,19 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         geometry: ImageSourceGeometryRevisionModel,
         topology: BoardTopology,
         board: RecognizedBoardModel,
-        cell: CellObservationModel | ImageSymbolReviewCellModel | VerifiedTrainingCohortCellModel,
+        cell: ImageSymbolReviewCellModel | VerifiedTrainingCohortCellModel,
+        render_spec: Mapping[str, object] | None = None,
         row_index: int | None = None,
         column_index: int | None = None,
     ) -> int:
+        """Backfill the v2 identity from the cell's render specification.
+
+        A training cohort cell carries its frozen specification; a review cell
+        passes the manifest specification as ``render_spec`` (D-467 S7).
+        """
+
         if isinstance(cell, VerifiedTrainingCohortCellModel):
+            render_spec = cell.render_spec
             if row_index is None or column_index is None:
                 self._invalid_source(
                     source,
@@ -774,14 +815,10 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
         else:
             resolved_row = int(cell.row_index) if row_index is None else row_index
             resolved_column = int(cell.column_index) if column_index is None else column_index
-        cell_index = (
-            resolved_row * topology.columns + resolved_column
-            if isinstance(cell, CellObservationModel)
-            else int(cell.cell_index)
-        )
+        cell_index = int(cell.cell_index)
         try:
             identity = derive_v2_render_identity_from_legacy_spec(
-                cell.render_spec,
+                render_spec,
                 import_job_id=source.import_job_id,
                 file_execution_key=source.file_execution_key,
                 topology_rules_version_id=geometry.topology_rules_version_id,
@@ -921,30 +958,6 @@ class SqlAlchemyImageGeometryRolloutBackfillRepository:
             .limit(1)
         )
         if source_revision is not None:
-            return True
-        observation = self._session.scalar(
-            select(CellObservationModel.id)
-            .join(
-                RecognizedBoardModel,
-                RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
-            )
-            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-            .join(
-                ImageBoardSearchFastDocumentModel,
-                ImageBoardSearchFastDocumentModel.recognized_board_id == RecognizedBoardModel.id,
-            )
-            .where(
-                JobModel.game_id == game_id,
-                CellObservationModel.asset_mode == "virtual_source",
-                or_(
-                    CellObservationModel.logical_cell_key_v2.is_(None),
-                    CellObservationModel.render_identity_v2_sha256.is_(None),
-                ),
-            )
-            .limit(1)
-        )
-        if observation is not None:
             return True
         review_cell = self._session.scalar(
             select(ImageSymbolReviewCellModel.id)

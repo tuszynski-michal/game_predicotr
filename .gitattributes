@@ -6,3 +6,5 @@
 *.jpeg binary
 *.db binary
 *.sqlite binary
+# Checksum-bound test artifacts must be byte-identical on every platform.
+ai_docs/quality/*.json text eol=lf

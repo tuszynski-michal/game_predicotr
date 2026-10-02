@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-09-25
+last_updated: 2026-10-01
 ---
 
 # Wymagania modułu administracyjnego
@@ -111,7 +111,10 @@ Administrator może:
 - wybrać najwyżej jedną komórkę w każdej kolumnie,
 - zapisać wzór dopiero po wybraniu dokładnie jednej komórki we wszystkich kolumnach,
 - zobaczyć istniejące wzorce w tabeli, po jednym wzorze w wierszu,
-- edytować, archiwizować lub usunąć nieopublikowany wzór.
+- edytować, archiwizować lub usunąć nieopublikowany wzór. „Archiwizuj”
+  wyłącza wzorzec, ale zostawia jego kod i ścieżkę zajęte; „Usuń” (D-477) po
+  potwierdzeniu „Usuń trwale” kasuje go z wersji roboczej i pozwala dodać nowy
+  wzorzec z tym samym kodem albo ścieżką.
 
 Walidacja:
 
@@ -368,6 +371,15 @@ jest raportowany jako brak danych. Wyniki zachowują deterministyczną kolejnoś
 score, liczba exact, ważone alternatywy, mniej sprzeczności, zatwierdzony status,
 `sequence_number` i stabilna tożsamość źródła.
 
+Dowód planszy oczekującej (D-462, TASK-0722): komórka zweryfikowana w
+`Weryfikacji symboli` jest pewnym symbolem bez alternatyw od chwili zapisu
+decyzji — pojedynczej albo z joba masowego — niezależnie od pozostałych
+komórek i od zatwierdzenia planszy, siatki lub zdjęcia. Komórka ze zgłoszonym
+problemem (`Zła siatka`, oczekujący `Nieczytelny`, `Poza kadrem`) oraz
+zatwierdzone `?` są brakiem dowodu. Zatwierdzenie dotyczące innych pikseli
+niż bieżące nie jest dowodem do ponownej weryfikacji. Pozostałe komórki
+korzystają z predykcji modelu. Tę samą projekcję czyta „Przybliżona wygrana”.
+
 Gra może zostać przełączona na zamrożone archiwum wyszukiwania dopiero po
 pełnym, checksumowanym backfillu. Wynik archiwalny zachowuje ten sam ranking i
 obraz całej planszy, ale nie ujawnia ani nie wymaga identyfikatora review,
@@ -376,9 +388,40 @@ recognized board, importu lub joba. Admin wybiera adres obrazu według jawnego
 operacyjnego jako fallback. Częściowe albo nieudane archiwum blokuje odczyt tej
 gry zamiast mieszać dwa źródła.
 
+**D-479 (TASK-0784) — obowiązuje ponad starszymi opisami tej sekcji.**
+Wyszukiwanie zawsze obejmuje wszystkie plansze; radio „Zakres wyszukiwania”
+nie istnieje. Nagłówek wyników pokazuje dopasowanie i numer planszy, bez
+statusu. W „Przybliżonej wygranej” tytułem sekcji jest „Plansza startowa #N
+· X spinów”; nie ma kafelków podsumowania (rozpoznane wypłaty, koszt spinów,
+bilans, maksymalny wkład) ani wiersza „Reguły v… · koszt spinu”. „Bilans”
+nazywa się „kasa na czysto”, „wypłata” — „wygrana” (termin „linie wypłat”
+zostaje). Etykieta punktu wykresu i lista przypiętych punktów podają: spiny,
+kasę na czysto, wkład (na czerwono) i „kasę na maszynie” = wkład + kasa na
+czysto. Okno „Pokaż planszę” ma do 1180 px szerokości; zdjęcie planszy w nim ma
+najwyżej 800 px (TASK-0788), obok jest legenda linii.
+
+**TASK-0786 — obowiązuje ponad starszymi opisami wykresu.** Etykiety punktów
+(najechanego i przypiętych) są rysowane na obszarze danych wykresu, nie w
+pasie nad nim: obok punktu — z lewej albo prawej, nad albo pod — tam, gdzie
+nie zasłaniają linii wykresu ani innej etykiety; z punktem łączy je
+przerywana linia. Gdy obok brakuje miejsca, etykieta trafia dalej od punktu.
+Obszar danych zajmuje całą wysokość wykresu. Można przypiąć najwyżej 6
+punktów.
+
+**TASK-0787 — tooltip wykresu (zmienia powyższe).** Etykieta punktu ma trzy
+linie, bez pogrubień, jedną czcionką: „378 spinów” po lewej i „wkład: X” na
+czerwono po prawej (jedna linia), niżej „Kasa na czysto: X” i „Kredyty maszyna: N”.
+„Kredyty maszyna” (dawniej „Kasa na maszynie”, wkład + kasa na czysto) są zawsze w
+pełnych kredytach, niezależnie od wybranej jednostki. „Wygrana” i „Kasa na
+czysto” w tabeli i w etykiecie są zaokrąglane do pełnych złotych (kredyty nie
+mają części dziesiętnych); wkład zachowuje grosze.
+
 Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
-wyników” nad panelem, domyślnie 5, w zakresie 1–100 (istniejący limit
-techniczny endpointu). Zmiana liczby wyników nigdy nie zmienia dopasowania,
+wyników” nad panelem, domyślnie 15 (D-476), w zakresie 1–100 (istniejący
+limit techniczny endpointu). Zakres wyszukiwania („Wszystkie plansze” /
+„Tylko zatwierdzone”) jest pokazywany w sekcji wyników, pod nagłówkiem
+karuzeli; jego zmiana przy widocznych wynikach powtarza wyszukiwanie tego
+samego wzoru i zachowuje wybraną planszę, jeżeli nadal jest w wynikach. Zmiana liczby wyników nigdy nie zmienia dopasowania,
 rankingu ani zakresu wygranej opisanego niżej — to dwa niezależne parametry.
 Jeżeli wybrana plansza pozostaje w nowych wynikach, wybór jest zachowywany;
 w przeciwnym razie operator jednoznacznie wraca do pierwszego wyniku.
@@ -391,18 +434,30 @@ oszacowanie payoutu dla `N` kolejnych pozycji sekwencji po wybranej planszy
 `S` (zakres `S+1…S+N`; `S` nigdy nie wchodzi do wyniku), używając tego
 samego kalkulatora payoutu co wydania mobilne (`payout-v3-unknown-prefix-stop`)
 i tej samej definicji pełnego cyklu z zawijaniem co mobilna prognoza celu.
-„Zakres wygranej” (domyślnie 1000, maksymalnie 10 000) jest niezależny od
+„Zakres wygranej” (domyślnie 2 500, maksymalnie 100 000) jest niezależny od
 „Liczby wyników”.
 
-Sekcja jest domyślnie zwinięta i nie liczy niczego, dopóki operator jej nie
-rozwinie — przeglądanie kandydatów wyszukiwania przy zwiniętej sekcji nie
-uruchamia żadnej kalkulacji. Pierwsze rozwinięcie liczy dla aktualnie
-wybranej planszy; zmiana wybranej planszy albo zatwierdzonego zakresu przy
-otwartej sekcji automatycznie odświeża wynik. Zmiana zakresu wymaga
-zatwierdzenia (Enter albo utrata fokusu) — samo wpisywanie cyfr nie wysyła
-żądania. Spóźniona odpowiedź dla wcześniej wybranej planszy nigdy nie
-nadpisuje wyniku aktualnie wybranej. Bez wybranego wyniku wyszukiwania
-kalkulacja się nie uruchamia.
+Sekcja jest statyczna jak wyniki wyszukiwania (D-476): nie zwija się i
+liczy od razu dla aktualnie wybranej planszy, gdy tylko pojawią się wyniki;
+zmiana wybranej planszy albo zatwierdzonego zakresu automatycznie odświeża
+wynik, przy czym żądanie wychodzi dopiero, gdy wybór ustali się na ok. 0,4 s
+(szybkie przeglądanie karuzeli nie wysyła żądania na każdą planszę). Zmiana
+zakresu wymaga zatwierdzenia (Enter albo utrata fokusu) — samo wpisywanie
+cyfr nie wysyła żądania. Spóźniona odpowiedź dla wcześniej wybranej planszy
+nigdy nie nadpisuje wyniku aktualnie wybranej. Bez wybranego wyniku
+wyszukiwania kalkulacja się nie uruchamia.
+
+Kontrolki „Zakres wygranej”, „Stawka” i „Jednostka” stoją w jednym wierszu
+nad wynikiem. Jednostka jest domyślnie w złotych i jest pamiętana w
+przeglądarce. Stawka nie jest pamiętana: po każdym wyszukaniu nowego wzoru
+lista stawek wraca do „wybierz stawkę”, a podsumowanie, wykres i tabela są
+ukryte do czasu jej wyboru (kalkulacja biegnie w tle, więc wynik pojawia
+się od razu po wyborze). Zmiana planszy w obrębie tego samego wzoru,
+zmiana zakresu, limitu albo zakresu wyszukiwania zachowują stawkę.
+Odtworzenie z dziennika udostępnień (D-472) wybiera stawkę bazową; stawka
+odbiorcy jest widoczna na wykresie w dzienniku linku (D-487), ale odtworzenie
+jej nie przenosi. Przy koszcie spinu 0 stawki nie ma i wynik jest
+pokazywany bez wyboru.
 
 Wynik rozróżnia dla każdej pozycji zakresu trzy rozłączne kategorie:
 kompletna (wszystkie 15 symboli znanych), częściowa (co najmniej jeden
@@ -416,92 +471,231 @@ na planszy spoza aktywnych symboli opublikowanej wersji reguł przerywa całą
 kalkulację zakresu jako błąd, zamiast po cichu pominąć jedną planszę.
 
 Podsumowanie pokazuje osobno: rozpoznane wypłaty, koszt spinów (suma
-kosztu wszystkich spinów zakresu, również brakujących) i bilans
-(wypłaty minus koszt) — nigdy nie nazywane „zyskiem”. Tabela wyników
-zawiera wyłącznie spiny z dodatnią wypłatą, ze wskazaną sumą narastającą
-wypłat, kosztów i bilansu — również wtedy, gdy bilans narastający
-pozostaje ujemny. Puste wyniki (brak jakiejkolwiek dodatniej wypłaty) nadal
-pokazują poprawne podsumowanie i kompletność danych, z zastrzeżeniem że przy
-niepełnych danych nie można wykluczyć niewykrytej wygranej. Liczniki
+kosztu wszystkich spinów zakresu, również brakujących), bilans
+(wypłaty minus koszt) — nigdy nie nazywane „zyskiem” — oraz „Maksymalny
+wkład” (TASK-0776): ile gotówki trzeba mieć, zaczynając od zera, aby opłacić
+spiny aż do najniższego punktu bilansu w zakresie. Każdy spin jest płacony
+przed swoją wypłatą, więc dołek przed wypłatą to bilans narastający minus ta
+wypłata; liczy się też koniec zakresu, a wkład nigdy nie jest mniejszy niż
+koszt jednego spinu. Kafelek podaje numer spinu najniższego bilansu i skaluje
+się ze stawką oraz jednostką jak pozostałe kwoty (D-470). Tabela wyników
+zawiera wyłącznie spiny z dodatnią wypłatą w kolumnach: Spin, Plansza,
+Wypłata, Bilans narastająco i kolumnie akcji bez widocznego nagłówka
+(przycisk „Pokaż planszę”, D-470, TASK-0764) — również wtedy, gdy bilans
+narastający pozostaje ujemny; wypłata planszy częściowej jest oznaczona jako potwierdzone
+minimum. Wszystkie wiersze jednej odpowiedzi mieszczą się w pionowo
+przewijalnym obszarze o wysokości około 20 wierszy (D-476); nagłówki kolumn
+pozostają widoczne podczas przewijania, a interfejs nie ma paginacji ani
+stopki zmiany strony. Suwak „Minimalna wypłata w tabeli” (od zera do najwyższej wypłaty
+bieżącej odpowiedzi, z widoczną wartością) filtruje lokalnie wyłącznie
+widoczne wiersze tabeli: nie wysyła żądania i nie zmienia podsumowania ani
+wykresu. Nad suwakiem i tabelą jest wykres SVG narastającego bilansu
+(rozpoznane wypłaty minus koszt wszystkich spinów) względem numeru spinu
+(D-476: wykres przed tabelą). Zaczyna się od
+zera, między wypłatami pokazuje spadek bilansu o koszt spinów (punkt tuż
+przed każdą wypłatą), kończy się na ostatnim spinie zakresu bilansem z
+podsumowania i ma przerywaną linię zera, gdy bilans ją przecina. Wykres ma
+siatkę poziomą i pionową z „okrągłymi” podziałkami (kroki 1/2/5 × 10ⁿ)
+opisanymi na osiach; oś Y sięga do skrajnych podziałek obejmujących minimum
+i maksimum bilansu, a opisy podziałek zastępują osobne etykiety minimum i
+maksimum (TASK-0761). Najechanie
+na wykres pokazuje etykietę najbliższego punktu wypłaty albo końca zakresu z
+liczbą spinów i bilansem z jednostką („kredytów” albo „zł”, TASK-0774;
+tak samo lista przypiętych punktów) oraz trzecią wartością „Wkład”
+(TASK-0778): kwotą potrzebną od zera, by opłacić spiny do tego punktu, czyli
+najgłębszym dołkiem bilansu od pierwszego spinu do punktu (reguła kafelka
+„Maksymalny wkład” ograniczona do odcinka); etykieta leży w pasie nad obszarem danych i łączy
+się z punktem kropkowaną pionową linią, więc nie zasłania linii bilansu.
+Kliknięcie przypina najbliższy punkt: jego etykieta zostaje widoczna na
+stałe w tym samym pasie. Ponowne kliknięcie punktu albo „×” na etykiecie
+odpina go, „Wyczyść punkty” odpina wszystkie. Można przypiąć najwyżej 8
+punktów; kolejne kliknięcie pokazuje komunikat i nie usuwa starszego
+punktu. Etykiety nie nachodzą na siebie: gdy brakuje miejsca nad punktem,
+etykieta przesuwa się w bok, a linia prowadząca się łamie. Wykres obsługuje
+klawiaturę: strzałki wybierają punkt, Enter albo spacja przypina lub odpina.
+Przypięcia znikają, gdy wynik dotyczy innej planszy albo zakresu. Puste wyniki (brak jakiejkolwiek dodatniej
+wypłaty) nadal pokazują poprawne podsumowanie i kompletność danych, z
+zastrzeżeniem że przy niepełnych danych nie można wykluczyć niewykrytej
+wygranej; wykres pokazuje wtedy komunikat zamiast sztucznych danych. Liczniki
 kompletności (kompletne/częściowe/brakujące) sumują się do liczby ocenianych
 pozycji, niezależnie od liczby zdjęć czy rewizji jednej planszy.
 
 Kalkulacja jest operacją wyłącznie do odczytu: nie zapisuje oszacowań jako
 rozpoznanych symboli, zatwierdzeń ani danych treningowych, nie pobiera
 zdjęć ani nie uruchamia ponownego rozpoznawania. Nie ma cache serwerowego —
-każde nowe (gra, plansza, zakres) jest liczone od nowa; klient jedynie
-zachowuje w pamięci wynik dla ostatniego niezmienionego wyboru w ramach
-jednej sesji przeglądarki.
+każde żądanie jest liczone od nowa z bieżącej projekcji wyszukiwania. Klient
+zachowuje wynik tylko dopóki sekcja pozostaje otwarta dla tego samego wyboru;
+zwinięcie sekcji odrzuca wynik (także spóźnioną odpowiedź), więc ponowne
+otwarcie zawsze liczy od nowa i uwzględnia symbole zweryfikowane w
+międzyczasie (D-462, TASK-0722).
 
-### Walidacja cięcia siatki 0.9
+**Stawka i jednostka (D-470, TASK-0762).** Nagłówek wyniku (poza
+nagłówkiem zwijania sekcji) ma kontrolki
+„Stawka” (1,20 zł, 2 zł, 4 zł, 6 zł, 10 zł, 20 zł) i „Jednostka” (kredyty
+albo złote). `1 zł = 10 kredytów`; stawką bazową jest koszt spinu
+opublikowanych reguł (dziś 100 kredytów = 10 zł); stawka bazowa spoza listy
+pojawia się jako dodatkowa opcja „bazowa”. Wybrana stawka skaluje
+wypłaty i koszt spinu mnożnikiem `stawka / stawka bazowa`, np. 1 000
+kredytów wypłaty przy stawce 10 zł to 600 kredytów (60 zł) przy stawce
+6 zł. Przeliczenie obejmuje podsumowanie, koszt spinu w nagłówku, kolumny
+tabeli, próg suwaka, osie i etykiety wykresu oraz legendę modala planszy.
+Jest wykonywane lokalnie, bez żądania do API, na liczbach całkowitych z
+jednym zaokrągleniem do grosza na wartości końcowej. Nagłówek pokazuje
+mnożnik. Domyślnie obowiązuje stawka bazowa i jednostka „kredyty”, więc
+ekran bez zmiany ustawień wygląda jak wcześniej. Wybór jest zapamiętany w
+przeglądarce jako preferencja widoku. Próg suwaka jest zachowywany przy
+zmianie stawki i jednostki. Koszt spinu równy zero wyłącza wybór stawki z
+komunikatem; jednostka „złote” pozostaje dostępna w kursie `kredyty / 10`.
 
-Docelowy workflow geometrii korzysta z jednej kolejki całej gry z widokami
-`Do walidacji`, `Do poprawy` i `Wszystkie` oraz opcjonalnym zawężeniem do
-importu. Każdy logiczny numer planszy występuje najwyżej raz: źródłem pozycji
-jest bieżący właściciel szybkiej projekcji wyszukiwania, a nie suma stagingów.
+**Podgląd planszy z liniami (D-470, TASK-0763–0764).** Przycisk w kolumnie
+akcji otwiera modal z przyciętym widokiem wybranej planszy i narysowanymi
+wygrywającymi liniami. Linie i ich wypłaty pochodzą z tego samego
+ewaluatora i tej samej opublikowanej wersji reguł co wiersz tabeli: każda
+linia liczy się wyłącznie od lewej krawędzi i kończy na pierwszej nieznanej
+komórce, więc plansza przycięta z lewej strony nie pokazuje żadnej linii,
+a nieznane pola są oznaczone `?`. Każda linia ma stały kolor według
+kolejności linii wypłat; pola z jokerem mają dodatkowy znacznik. Legenda
+ma przełącznik widoczności dla każdej linii osobno oraz „Pokaż wszystkie”
+i „Ukryj wszystkie”, a każdy wpis podaje nazwę linii, symbol, długość i
+wypłatę w wybranej stawce i jednostce. Gdy suma wypłat linii różni się od
+wypłaty wiersza albo wynik dotyczy innej wersji reguł, modal pokazuje
+komunikat i „Przelicz ponownie” zamiast niespójnego rysunku; przycisk
+zamyka modal i liczy zakres od nowa. Błąd pobrania planszy pokazuje
+komunikat z „Spróbuj ponownie”. Brak zdjęcia albo siatki pól nie blokuje modala:
+pokazuje schemat 3 × 5 z ikon symboli z tymi samymi liniami.
 
-Lista jest pobierana bounded keysetem. Szybkie zatwierdzenie zawsze dotyczy
-dokładnej rewizji decyzji i geometrii, checksummy oraz wymiarów źródła i
-przypiętej topologii. Zmiana któregokolwiek elementu po załadowaniu ekranu
-powoduje czytelny konflikt i wymaga odświeżenia pozycji. Źródło obrazu jest
-checksum-bound i nie ujawnia ścieżki systemowej.
+**Nieaktualny odczyt planszy (TASK-0773).** Gdy siatka planszy zmieniła się
+po zapisaniu jej odczytu w wyszukiwarce, modal nie pokazuje błędu: rysuje
+linie i wypłatę ze starego odczytu (tak samo liczy tabela) na schemacie 3 × 5
+z ostrzeżeniem i przyciskiem „Odśwież odczyt tej planszy”. Odświeżenie
+przebudowuje odczyt tej jednej planszy z bieżącej siatki i symboli (bez
+zmiany decyzji ludzi); potem wraca zdjęcie i poprawianie pól, a zamknięcie
+okna przelicza tabelę.
 
-Preview oraz zapis korekty otrzymują cztery narożniki w przestrzeni obrazu
-źródłowego i topologię gry. Liczba zwracanych cropów wynika z `rows × columns`,
-nie ze stałej 15. Autor decyzji pochodzi z lokalnego, uwierzytelnionego
-kontekstu Admin API.
+**Poprawianie symbolu pola (D-473, TASK-0772).** Dla planszy oczekującej
+modal ma tryb „Popraw symbole”: kliknięcie pola otwiera paletę symboli gry
+oraz „Nieczytelny” i „Zła siatka”. Wybór zapisuje decyzję człowieka dla pola
+tak samo jak „Weryfikacja symboli” (ten sam symbol zatwierdza pole, inny je
+przepisuje) i od razu zmienia linie w oknie. „Nieczytelny” czyni pole `?`,
+więc linia oparta na błędnie rozpoznanym symbolu kończy się przed nim.
+Konflikt z równoległą zmianą pokazuje komunikat i odświeża planszę. Po
+zapisanej zmianie zamknięcie okna przelicza tabelę i bilans. Plansze
+zatwierdzone i archiwalne nie mają edycji. Poza tym trybem modal jest
+wyłącznie do odczytu.
 
-Lokalny Reviewer otwiera domyślnie ekran `Zatwierdzanie cięcia siatki` z jednym
-  oryginalnym obrazem i stale widocznym canvasowym overlayem. Obraz otwiera się
-  domyślnie przy powiększeniu 100%. Naciśnięcie widocznej siatki wybiera
-  odpowiadającą jej planszę, a ten sam gest może od razu przeciągnąć narożnik lub
-  cały quad, bez osobnego przycisku i bez przełącznika widoczności overlayu. Szkic obejmuje cały
-komplet aktywnych plansz źródła, dlatego przełączenie planszy nie usuwa
-wcześniejszej korekty. Hit-test zawsze odpowiada geometrii aktualnie rysowanej
-na overlayu, także po lokalnym przesunięciu. Filtry mają kolejność `Do
-walidacji`, `Do poprawy`, `Wszystkie`. `Enter`, `F` i główny przycisk
-zatwierdzają bieżącą geometrię i przechodzą do następnego rekordu. Jeżeli jedno
-źródło zawiera wiele aktywnych plansz, `Zatwierdź całe zdjęcie` wysyła jeden
-checksum- i revision-bound rozkaz: bez zmian zatwierdza bieżący komplet, a z
-aktywnym szkicem atomowo zapisuje i zatwierdza geometrię wszystkich plansz albo
-nie zapisuje żadnej. `Enter` i `F` wykonują dokładnie tę samą akcję co główny
-przycisk. Korekta pozwala wskazać kolejno LT, PT, PD i LD,
-przeciągać narożniki lub całą siatkę, cofać punkt, resetować szkic oraz obejrzeć
-dynamiczne `rows × columns` cropy przed atomowym zapisem i zatwierdzeniem
-rewizji. Wstrzymanie edycji zachowuje kompletny albo częściowy szkic oraz panel
-A/B; ponowne wejście kontynuuje ten szkic. Do czasu zapisu albo jawnego resetu
-zwykłe zatwierdzenie i nawigacja są zablokowane.
-Dla `virtual_source` przycisk `Wyznacz plansze osobno` prowadzi przez cztery
-narożniki każdej aktywnej planszy w kolejności
-row-major; zapis jest dostępny dopiero po komplecie wszystkich slotów i tworzy
-jedną rewizję geometrii źródła. Lokalny szkic każdego slotu pozostaje widoczny
-po przełączeniu planszy oraz po wstrzymaniu i wznowieniu tego trybu, ale nie
-jest trwałą rewizją przed wspólnym zapisem. Ekran nie pozwala edytować symboli
-i nie zapisuje JPEG-a z overlayem. Globalny backfill rolloutu może być w toku,
-nie rozpocząć się albo zostać zablokowany przez inne źródło; sam w sobie nie
-blokuje lokalnej korekty kompletnego bieżącego źródła. Przed zapisem backend
-nadal checksum-bound waliduje dokładnie to źródło, jego topologię, rewizje,
-render spec oraz komplet komórek, więc niepełna proweniencja konkretnej planszy
-pozostaje fail-closed.
-Lokalny origin Reviewera dostaje wyłącznie scope-bound ścieżki szybkiego
-zatwierdzania i wspólnego zapisu geometrii źródła; nie otrzymuje dostępu do
-pozostałych mutacji panelu Admina. `127.0.0.1`, `localhost` i `[::1]` są
-równoważne wyłącznie jako spelling tego samego skonfigurowanego originu HTTP i
-portu lokalnego Reviewera; inny port oraz każdy origin LAN/publiczny pozostają
-odrzucone.
+### Udostępnianie wyszukiwania online
 
-Nowy workflow jest obowiązującym lokalnym widokiem. Zdalna sesja Reviewera
-zachowuje wąsko ograniczoną ścieżkę operacyjną i nie otrzymuje game-wide
-endpointów administracyjnych. Lokalny Reviewer nie ma już przełącznika powrotu
-do poprzedniego widoku; rollback polega na wyłączeniu nowych mutacji i
-zachowaniu danych 0.9, nie na uruchomieniu starego lokalnego UI.
+**D-471 (etap B planu `BOARD_SEARCH_SHARE_EXECUTION_PLAN.md`; panel
+TASK-0769, aplikacja odbiorcy w Reviewerze TASK-0768).** Przycisk
+„Udostępnij online” w nagłówku sekcji „Wyszukaj plansze” tworzy link do kopii tej sekcji razem z „Przybliżoną wygraną” dla
+bieżącej gry. Operator podaje etykietę i czas dostępu (1 h, 4 h, 8 h albo
+24 h; domyślnie 8 h). Po utworzeniu widzi link i 8-znakowy kod wejścia
+(`XXXX-XXXX`), może je skopiować osobno i zatrzymać sesję z potwierdzeniem.
+Link nie zawiera kodu. Kod jest przechowywany wyłącznie lokalnie w
+przeglądarce Admina do wygaśnięcia albo zatrzymania sesji; w innej
+przeglądarce panel pokazuje link bez kodu. Panel listuje aktywne linki gry
+(ostatnie otwarcie, czas wygaśnięcia) i osobno zakończone (wygasłe,
+zatrzymane, zablokowane po 5 błędnych kodach). Utworzenie linku uruchamia
+publiczny adres Reviewera; gdy się nie uda, panel pokazuje czytelny błąd i
+nie tworzy linku.
+
+Odbiorca po podaniu kodu ma te same funkcje co operator: liczbę wyników,
+zakres wyszukiwania, paletę symboli, edycję wzoru, karuzelę wyników,
+„Przybliżoną wygraną” z tabelą, wykresem, stawką i modalem linii. Dostęp
+jest tylko do odczytu i obejmuje jedną grę. Obrazy są przycięte do planszy
+i zmniejszone. Odbiorca nie widzi panelu udostępniania ani identyfikatorów
+wewnętrznych. Po wygaśnięciu albo zatrzymaniu sesji aplikacja pokazuje
+czytelny ekran zakończenia.
+
+**Dziennik zapytań i odtworzenie (D-472, TASK-0771).** Każde zapytanie
+odbiorcy o dane (wyszukiwanie, przybliżona wygrana, szczegóły planszy) jest
+zapisywane z czasem, parametrami i skrótem wyniku, bez adresu IP. Bramka
+kodu informuje odbiorcę o zapisie. W panelu udostępniania operator rozwija
+„Dziennik zapytań” wybranego linku (aktywnego albo zakończonego) i widzi
+same wyszukiwania (D-478), od najnowszego, po 10 („Starsze wyszukiwania”):
+godzinę, wzór jako planszę 3 × 5 z grafikami symboli (około jednej trzeciej
+szerokości wpisu) oraz — jeżeli odbiorca po tym wyszukiwaniu uruchomił
+„Przybliżoną wygraną” — wykres bilansu tej planszy i zakresu na resztę
+szerokości, liczony w Adminie w stawce bazowej i złotych. Wpisy przybliżonej
+wygranej i szczegółów planszy nie są osobnymi pozycjami, a linia opisu
+(zakres, limit, wyniki) nie jest pokazywana. „Usuń” z potwierdzeniem „Usuń
+wpis” trwale kasuje wyszukiwanie razem z jego późniejszymi zapisami. Przycisk „Odtwórz w
+wyszukiwarce” otwiera „Wyszukaj plansze” tej gry z tym samym wzorem, zakresem
+i liczbą wyników (także pola `?`) i od razu uruchamia wyszukiwanie; adres
+Admina zawiera wtedy jednorazowo `?boardSearchReplay=<id wpisu>`, a wpis
+innej gry przełącza na tę grę. Dla wpisu przybliżonej
+wygranej odtworzenie używa najbliższego wcześniejszego wyszukiwania tej
+sesji, wybiera planszę startową i zakres spinów i rozwija „Przybliżoną
+wygraną”; dla szczegółów planszy dodatkowo otwiera modal. Symbol, który nie
+jest już aktywny, trafia do wzoru jako `?` z ostrzeżeniem. Stawka i jednostka
+odbiorcy nie są znane serwerowi i nie są odtwarzane.
+
+### Korekta cięcia siatki
+
+**D-462 (TASK-0726):** lokalny Reviewer na porcie 3001 jest jednym ekranem
+ręcznej korekty cięcia siatki. Zastąpił workflow „Walidacji cięcia siatki 0.9”
+(widoki `Do walidacji`, `Do poprawy`, `Wszystkie`, całe zdjęcie z dziewięcioma
+planszami i `Zatwierdź całe zdjęcie`). Nie ma osobnego zatwierdzania
+poprawności planszy, zdjęcia, siatki ani kompletu symboli.
+
+Kolejka jest jedna (`GET .../grid-reviews?view=correction`, `API_CONTRACT.md`):
+plansze, których geometrii algorytm nie wyznaczył albo ją odrzucił
+(odroczona geometria `pending`), oraz plansze z co najmniej jedną komórką
+zgłoszoną w `Weryfikacji symboli` jako `Zła siatka`. Jeden slot planszy
+występuje raz niezależnie od liczby zgłoszeń; zgłoszenie jednej planszy nie
+kieruje do korekty innych plansz tego samego zdjęcia. Kolejka jest zawężona do
+importu wybranego w Adminie.
+
+Ekran pokazuje dokładnie jedną planszę i jej siatkę: wycinek oryginału wokół
+planszy z czterema narożnikami, numer planszy, pozycję na stronie oraz powód
+(odroczenie algorytmu albo zgłoszone pola, wyróżnione także w podglądzie
+cropów). Operator przeciąga narożniki albo całą siatkę, ogląda aktualny
+podgląd 15 cropów, zapisuje i automatycznie przechodzi do następnej planszy.
+Licznik `Do korekty` oraz przyciski `Poprzednia` / `Pomiń na razie` służą
+wyłącznie nawigacji. `Niepełna plansza` jest dostępna dla slotów odroczonych i
+plansz `virtual_source`; plansza z zapisaną kwalifikacją geometrii otwiera się
+z nią i zapis ją zachowuje (także `complete`).
+
+Zapis geometrii kończy zadanie korekty. Usuwa zgłoszenia `Zła siatka` tej
+planszy; komórki o zmienionym wycinku wracają do zwykłej `Weryfikacji symboli`
+z dotychczasową etykietą jako podpowiedzią, a komórki o niezmienionych
+pikselach zachowują weryfikację (D-462 R5/R6). Zapis dotyczy wyłącznie tej
+jednej planszy.
+
+**D-488 (TASK-0820–0822):** podgląd pokazuje jeden zestaw 15 kafelków.
+Kafelek z pikselami (także pole częściowo widoczne) jest klikalny; pod
+podglądem jest paleta aktywnych symboli gry w kolejności katalogu. Kafelek
+pokazuje podpowiedź symbolu — dla planszy zgłoszonej symbol zapisany w bazie,
+dla planszy odroczonej predykcję modelu dla bieżącego cięcia — albo symbol
+wybrany przez operatora. Zapis siatki zatwierdza wyłącznie pola z wybranym
+symbolem (decyzja człowieka dla nowego cropa, w tej samej transakcji co
+geometria); pozostałe pola trafiają do `Weryfikacji symboli` jak dotąd. Pole
+bez pikseli nie jest klikalne. Błąd zapisu symboli wycofuje cały zapis.
+
+Admin nazywa sekcję uruchamiającą Reviewer „Korekta cięcia siatki” i pokazuje
+liczbę plansz do korekty dla wybranego importu oraz liczbę geometrii
+odroczonych przez algorytm. „Otwórz lokalnie” jest aktywne tylko przy
+niepustej kolejce; pusta kolejka ma jawny komunikat. Lokalny origin Reviewera korzysta ze scope-bound ścieżek listy
+kolejki, źródła oraz podglądu i zapisu geometrii jednej planszy; ścieżki
+dawnej walidacji (zatwierdzanie planszy i zdjęcia, zapis całego zdjęcia)
+usunął TASK-0727. Inny port oraz każdy origin LAN/publiczny pozostają
+odrzucone. Zdalna sesja Reviewera nie otrzymuje tych ścieżek.
 
 ### Katalog symboli i grafiki referencyjne
 
 Katalog symboli jest definiowany ręcznie dla każdej gry. Formularz utworzenia
 wymaga wyłącznie nazwy i oznaczenia Jokera; Admin API pod blokadą gry nadaje
-stabilny `code`, kolejny `mobileCode` i `displayOrder`. Edycja nazwy nie może
-zmienić żadnego z tych identyfikatorów.
+stabilny `code`, kolejny `mobileCode` i początkowy `displayOrder`. Edycja
+nazwy nie może zmienić `code` ani `mobileCode`.
+
+Operator zmienia kolejność symboli przyciskami „↑/↓” w wierszu katalogu
+(TASK-0782). Przesunięcie zamienia symbol z sąsiadem i przenumerowuje całą
+listę na `0..n-1`, zapisując `displayOrder` przez `PATCH` symbolu tylko dla
+zmienionych pozycji. Zapisy są sekwencyjne i nieatomowe; po błędzie panel
+pokazuje komunikat i wczytuje rzeczywistą kolejność z API. Kolejność steruje
+skrótami cyfrowymi weryfikacji symboli i wyszukiwarki plansz oraz kolejnością
+symboli w kolejnym snapshocie mobilnym; nie zmienia kodów, sygnatur, reguł ani
+sumy wypłat.
 
 Kafel symbolu bez zatwierdzonej grafiki pokazuje `?`. Kliknięcie kafla zawsze
 otwiera picker cropów, który pokazuje aktualne cropy komórek zatwierdzone przez
@@ -520,10 +714,55 @@ jest aktywną grafiką. Brak zatwierdzonych wystąpień pokazuje komunikat
 
 ### Weryfikacja symboli
 
+**D-462 — weryfikacja per komórka (reguła docelowa, wdrażana w etapie A).**
+Weryfikowana jest pojedyncza komórka, nie plansza ani zdjęcie. Od TASK-0722
+zatwierdzona komórka wchodzi do `Wyszukaj planszę` i „Przybliżonej wygranej”
+zaraz po zapisie decyzji, niezależnie od stanu pozostałych komórek, problemów
+cięcia innych pól oraz zatwierdzenia planszy, siatki lub zdjęcia. Od
+TASK-0723 komplet zweryfikowanych komórek planszy z pełną widocznością i
+jednoznaczną sekwencją domyka ją automatycznie — bez osobnego zatwierdzenia —
+i dopiero wtedy plansza trafia do layoutów, snapshotu i targetu. Zgłoszenie
+`Zła siatka` cofa weryfikację wyłącznie tej komórki. Od TASK-0724 zapis nowej
+geometrii usuwa zgłoszenia `Zła siatka` tej planszy i wymaga ponownej
+weryfikacji wyłącznie komórek o zmienionych pikselach; ich dotychczasowa
+etykieta jest widoczna jako podpowiedź, a komórki o niezmienionych pikselach
+pozostają zweryfikowane. Szczegóły: `DECISION_LOG.md` D-462.
+
+**D-451 / TASK-0710:** wybór grupy obejmuje także `Poza zdjęciem`.
+To grupa logicznych pól bez obrazu i bez przypisanego symbolu; po ręcznym
+przypisaniu pole pojawia się wyłącznie pod wybranym symbolem oraz we Wszystkich.
+Kafelek pokazuje „Brak obrazu pola”, numer planszy i pozycję. Badge „Poza
+zdjęciem” albo „Częściowy obraz” pozostaje niezależnie od decyzji; oznaczenia
+Nieczytelny/Zła siatka/Niewyraźny są zachowane obok widoczności.
+Zaznaczanie, skróty wyboru symbolu, Enter i Nieczytelny obejmują również pola
+bez obrazu. Nie można dla nich zatwierdzić cropa ani ustawić grafiki symbolu;
+nie uruchamiają podglądów atlasu ani filtrowania pewności predykcji.
+
+Przycisk `Źródło` ma postać kompaktowego badge przy prawym dolnym rogu (TASK-0713).
+Oznaczenia źródła, jakości i numeru mają cienką ramkę, mocno przezroczyste
+tło i minimalny odstęp od krawędzi, aby nie zasłaniały wycinka. Przycisk otwiera
+wyłącznie do odczytu całe zdjęcie z zapisaną siatką i wyróżnionym polem,
+także poza granicami zdjęcia. Podgląd sprawdza właściciela
+i rewizję geometrii oraz checksumę zdjęcia; zmiana rewizji wymaga odświeżenia.
+Pierwszeństwo mają zapisane footprinty komórek, następnie aktualna siatka.
+Brak geometrii nie tworzy zastępczej siatki. Zamknięcie nie zapisuje decyzji.
+
+W imporcie „Niepełne zdjęcie” opisuje kompletność źródła, a nie liczbę
+dostępnych pozycji Weryfikacji symboli. Historyczne braki mogą wymagać
+uzupełnienia. Stan stagingu oddzielnie wskazuje import, odroczoną korektę
+geometrii i późniejszą weryfikację symboli; błąd przetwarzania nie jest
+przedstawiany jako ukończona weryfikacja.
+
 `Weryfikacja symboli` jest osobnym, wyłącznie lokalnym obszarem głównej
 nawigacji Admina. Operator wybiera grę oraz zakres symbolu: wszystkie symbole,
 jeden aktywny symbol albo nierozpoznane `?`, a także radio `Stan weryfikacji`:
 `Wszystkie`, `Oczekujące`, `Zatwierdzone` albo `Kohorta aktywnego modelu`.
+Radio `Pewność rozpoznania` wybiera `Wszystkie`, `Dokładnie 100%`,
+`80–<100%`, `60–<80%` albo `Poniżej 60%`. Pierwszy wariant nie zawęża listy,
+a pozostałe tworzą rozłączne przedziały: odpowiednio `1.0`, od `0.8` do
+wartości niższej niż `1.0`, od `0.6` do wartości niższej niż `0.8` oraz
+wartości niższe niż `0.6`; wybór zmienia keyset, liczniki i jawne targety
+kolejnej operacji.
 Ostatni wariant pokazuje wyłącznie bieżące, zatwierdzone cropy należące do
 niezmiennej kohorty modelu wskazanego przez najnowszą aktywację wybranej gry.
 Crop zmieniony od zamrożenia kohorty jest wykluczony; brak aktywnego modelu daje
@@ -626,11 +865,28 @@ odrzucone jakościowo cropy o różnych dozwolonych mutacjach.
 Jawne zaznaczenie pozostaje aktywne przy przejściu między keysetowymi stronami,
 więc operator może zbudować jeden job z kilku stron wybranego rozmiaru. Czyści je
 wyłącznie jawna akcja, zmiana filtra albo skuteczne przekazanie operacji.
+Karta odznaczona kliknięciem ma czerwone obramowanie do czasu ponownego
+zaznaczenia, wyczyszczenia zaznaczenia, zmiany filtra albo przekazania operacji;
+jest to wyłącznie lokalna wskazówka wizualna i nie zmienia targetów joba.
 Zmiana filtra przy zaznaczeniu wymaga potwierdzenia i czyści selection. Wysłana
 operacja masowa przechodzi do tła: jej dokładne widoczne targety pozostają
 wyszarzone ze spinnerem, ale operator może przejść na inną stronę i uruchomić
 kolejną niezależną operację. Zablokowane pozostają wyłącznie targety już wysłane
 oraz krótki foreground start/preview bieżącej decyzji.
+
+**TASK-0709 / D-451:** istniejący filtr `symbolId` obejmuje także `outside`.
+Pozycja bez obrazu i bez symbolu należy do „Poza zdjęciem”, także z oznaczeniem
+Nieczytelny. Po przypisaniu należy wyłącznie do grupy symbolu oraz Wszystkich.
+`sourceVisibility` (`full`, `partial`, `outside`) jest niezależne od decyzji;
+przypisane `partial_visibility` pozostaje w grupie symbolu. Outside nie ma
+predykcji ani pewności; jego zakres pomija filtr pewności. Wariant `assetMode=none`
+zwraca jawne null dla identyfikatorów obrazu. Zmiana symbolu, Nieczytelny i Zła
+siatka zachowują kontrolę rewizji pozycji i geometrii; zatwierdzanie obrazu,
+Niewyraźny i wybór grafiki wymagają rzeczywistych pikseli. Oznaczenie Nieczytelny
+może być rozwiązane jako logiczny symbol lub unknown bez zatwierdzenia cropa.
+Niepełne źródło pozostaje `pending_partial` po decyzjach dotyczących symboli.
+Podgląd istniejącego szczegółu planszy zwraca 0–15 rzeczywistych cropów oraz
+pełne zdjęcie i geometrię; logiczna kolejka weryfikacji nadal ma 15 pozycji.
 
 Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
 symbol`, checkbox `Niewyraźny` i jednoliniowe akcje `Nieczytelny / Zła siatka`.
@@ -659,22 +915,27 @@ liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
 `Zatwierdź` działa wyłącznie dla jawnie zaznaczonych cropów; walidacja backendu
 nadal odrzuca próbę zatwierdzenia nierozpoznanego przypisania.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
-polling każdej operacji nie wysyła nakładających się requestów. Pełny sukces
-usuwa jej targety z aktualnie wyświetlanej strony bez ponownego zapytania i bez
-uzupełniania strony kolejnymi rekordami. Ukryty target pozostawia w
-wirtualizowanej siatce niewidoczne miejsce tej samej wielkości do następnej
-nawigacji, dzięki czemu pozostałe karty nie zmieniają wiersza, nie są
-demontowane i zachowują już wyświetlony atlas. Konflikt lub częściowy błąd pozostawia
-targety widoczne, ponieważ zbiorcza odpowiedź nie wskazuje bezpiecznie ich
-indywidualnego wyniku. Ponowna nawigacja naturalnie pobiera aktualny keyset.
-Lokalne ukrycie targetu nie może ponownie uruchamiać ładowania atlasów ani
-usuwać gotowych miniaturek pozostałych kart. Pamięciowa mapa tile obejmuje
+polling każdej operacji nie wysyła nakładających się requestów. Po końcowym
+wyniku Admin nie odświeża automatycznie bieżącej strony ani jej atlasów:
+zachowuje pozycję operatora, a dokładne wysłane targety pozostają przygaszone
+i nieaktywne. Operator może jawnie wybrać `Odśwież cropy`, aby pobrać aktualny
+stan ograniczonej strony, unieważnić jej cache oraz odblokować te targety.
+Jeżeli odczyt strony utknie lub wymaga ponowienia, akcja `Ponów pobieranie
+cropów` anuluje wyłącznie ten odczyt i zachowuje aktywną stronę, atlas oraz
+lokalne zaznaczenia; widok nie zasłania poprzednio pobranych cropów podczas
+ponowienia.
+Nie zakłada, że każda decyzja usuwa pole z grupy:
+outside bez przypisania po Nieczytelny pozostaje w Poza zdjęciem, a pole
+przypisane w tej samej grupie lub Wszystkich nadal jest widoczne. Backend
+wyznacza aktualną jakość, przynależność i rewizję także po częściowym wyniku.
+Pamięciowa mapa tile obejmuje
 wyłącznie aktywną stronę i jest czyszczona natychmiast przy zmianie strony,
 filtra albo gry; odtwarzalny cache HTTP/serwera pozostaje niezależny.
 Jedna jawnie zaznaczona karta jest wyjątkiem od workflow masowego: Admin wysyła
 bezpośrednią, checksum-bound decyzję i nie tworzy joba. Po sukcesie czyści
-zaznaczenie, pokazuje krótki komunikat i usuwa kartę bez uzupełniania strony;
-po konflikcie przywraca kartę oraz pokazuje błąd. Dwa lub więcej jawnych cropów
+zaznaczenie, pokazuje krótki komunikat i odczytuje bieżącą stronę. Po konflikcie
+lub utracie odpowiedzi również odczytuje stan, zamiast zgadywać wynik zapisu.
+Dwa lub więcej jawnych cropów
 z bieżącej strony nadal korzysta z preview i trwałego joba. Toast nie zasłania
 toolbara: jest stały około 50 px od lewego i dolnego brzegu viewportu.
 
@@ -688,6 +949,16 @@ przywraca zwykły układ. Poza polami tekstowymi i selectami działają skróty:
 `Enter` wykonuje `Zastosuj zmianę` dla zaznaczonych cropów (z uwzględnieniem
 `Niewyraźny`) albo potwierdza otwarty preview operacji masowej, a `Esc`
 zamyka preview.
+
+Przycisk `Ustaw jako grafikę symbolu` (TASK-0692) jest aktywny, gdy zaznaczony
+jest dokładnie jeden crop. Jeżeli w `Zmień symbol` wybrano symbol, crop jest
+najpierw przypisany do niego i zatwierdzony (`reassign`); w przeciwnym razie
+zatwierdzany jest bieżący symbol (`approve`). Następnie crop zostaje grafiką
+symbolu — tą samą, którą ustawia picker w sekcji `Symbole`, widoczną w
+miniaturze `Symbole` i palecie `Wyszukaj plansze`. Opcja `Niewyraźny` blokuje
+akcję. Jeżeli zatwierdzenie się udało, a ustawienie grafiki nie, komunikat
+mówi to wprost, a zatwierdzenie zostaje. Użycie grafiki w wydaniu mobilnym
+jest osobnym, niewykonanym jeszcze zakresem.
 
 ### Weryfikacja symbolu na planszy
 
@@ -784,6 +1055,107 @@ cięcia, manifest geometrii stron, test ochronny, wersja modelu symboli,
 wynik pipeline'u) została usunięta z tego widoku; pozostaje dostępna w
 zakładce Joby.
 
+### Sekcja „Kompletność siatek zdjęć” w Import plansz (D-484, TASK-0806, TASK-0808, TASK-0807)
+
+Jednostką geometrii jest zdjęcie źródłowe (D-484). Sekcja, pod „Brakującymi
+planszami”, pokazuje, ile zdjęć gry ma komplet poprawnych siatek, a ile nie, i
+listuje zdjęcia niekompletne. Od TASK-0807 jest kolejką siatek bramki D-484:
+zakładka domyślna „Kolejka siatek” pokazuje zdjęcia ze stanem zapisanym w
+bazie `geometry_incomplete` (`completenessStatus`), a „Wyjątki operatora” —
+zdjęcia `geometry_exception`. Siatki poprawia się w istniejącej korekcie siatek
+(Reviewer, przycisk „Popraw siatki w Reviewerze” otwiera lokalnego Reviewera
+dla importu zdjęcia). Korzysta z `GET .../geometry-completeness/{gameId}`,
+`.../incomplete-images`, `.../low-quality-boards` oraz
+`POST`/`DELETE .../images/{sourceImageId}/exception`.
+
+Definicje (zapisane w czystej funkcji `domain/image_geometry_completeness.py`,
+ten sam przepis liczy SQL raportu):
+
+- oczekiwane pozycje zdjęcia to `active_board_slots` jego najnowszej rewizji
+  geometrii źródła; numer sekwencji pozycji `p` to `sequence_range_start + p`;
+  plansze poza tymi pozycjami (np. ze starszej, dłuższej rewizji) nie liczą się,
+- „żywa plansza” to `recognized_boards.status <> 'rejected'`; plansza odrzucona
+  nie jest dowodem poprawnej siatki, więc pozycja z samą planszą odrzuconą nie
+  ma żywej planszy. „Żywy element review” to `image_review_items.status` w
+  `pending | accepted | corrected`,
+- pozycja (pierwsza pasująca reguła): `superseded` — brak żywej planszy, a numer
+  sekwencji pozycji ma żywy element review na innym zdjęciu tej samej gry
+  (numer żywy tylko w innej grze nie wystarcza); `deferred` — brak żywej
+  planszy i otwarty (`pending`) wiersz odroczonej geometrii (z kodem powodu);
+  `missing` — brak żywej planszy, pozostałe przypadki; dla żywej planszy: `ok`,
+  gdy jest kompletna, a jej geometria jest zatwierdzona przez człowieka
+  (`approved_geometry_revision = geometry_revision`) albo rewizja źródła, na
+  którą plansza wskazuje, ma status `accepted`; `uncertain` — kompletna plansza
+  bez żadnego z tych dowodów; `partial` — plansza `pending_partial`,
+- zdjęcie (pierwsza pasująca reguła): `superseded` — ma rewizję źródła i
+  wszystkie oczekiwane pozycje są `superseded`, albo nie ma żadnej żywej planszy,
+  a inne zdjęcie tej gry z tym samym `checksum_sha256` ma żywe plansze;
+  `import_failed` — brak żywej planszy i plik importu zdjęcia ma
+  `workflow_status = 'failed'` (kod z `image_import_job_files.error_code`);
+  `no_source_geometry` — brak jakiejkolwiek rewizji geometrii źródła (oczekiwana
+  liczba plansz jest nieznana); `complete` — każda pozycja `ok` albo
+  `superseded`, co najmniej jedna `ok`; inaczej `incomplete_missing` (jest
+  pozycja `missing`/`deferred`), `incomplete_partial` albo
+  `incomplete_uncertain` (pozycje `superseded` są tam pomijane). Zdjęcia
+  `superseded` i `complete` nie są niekompletne; `import_failed` i
+  `no_source_geometry` mają własne liczniki i filtry, a lista domyślna („Wszystkie”)
+  obejmuje stany `incomplete_*`, `import_failed` i `no_source_geometry`.
+  Zdjęć w statusie `processing` nie pomijamy: wchodzą do liczników i do linii
+  „w tym N zdjęć w przetwarzaniu” (o ile nie są `superseded`).
+
+Zachowanie:
+
+- liczniki: zdjęcia w grze, niekompletne w grze i — po wybraniu przełącznika
+  „Wybrany import” — niekompletne w imporcie, osobny licznik zdjęć „Zastąpione
+  nowszym importem”; linia stanów zdjęć (brakuje plansz / plansza częściowa /
+  siatka niepotwierdzona / import nieudany / bez geometrii źródła) i linia
+  „Plansze bez poprawnej siatki” z podziałem pozycji na stany i powody
+  odroczenia; pozycje i zdjęcia `superseded` nie są brakami, więc mają własną
+  linię („Zastąpione nowszym importem, więc nie są brakami”) i nie wchodzą do
+  liczby niekompletnych ani do listy domyślnej,
+- filtr stanu zdjęcia (`Wszystkie`, pięć stanów wymagających uwagi i
+  „Zastąpione nowszym importem”, żeby zdjęcia zastąpione dało się obejrzeć) i
+  lista po 25 zdjęć z przyciskiem „Pokaż więcej zdjęć”, kursor keyset po
+  `(relativePath, sourceImageId)`,
+- każde zdjęcie pokazuje ścieżkę, status zdjęcia, zakres numerów, oczekiwaną
+  liczbę plansz, kod błędu pliku importu (`importErrorCode`, gdy plik się nie
+  powiódł) oraz SVG o wymiarach zdjęcia (`exif-normalized-rgb-pixels-v1`)
+  z naniesionymi siatkami plansz: kolor zielony `ok`, żółty `uncertain` i
+  `partial`, czerwony linią przerywaną pozycje bez poprawnej siatki, szary
+  pozycje `superseded`; pozycje bez czworokąta są dodatkowo opisane tekstem „bez
+  siatki”. Czworokąt pochodzi z rewizji, z której plansza została pocięta (a dla
+  pozycji bez żywej planszy z rewizji bieżącej); nic nie jest zgadywane,
+- przycisk „Pokaż zdjęcie pod siatkami” jest dostępny dla każdego zdjęcia gry,
+  także bez żadnej planszy czy rewizji geometrii: pobiera plik endpointem
+  `getImageGeometryCompletenessSourceAsset` kluczowanym `sourceImageId`
+  (zdjęcie bez wymiarów lub siatek pokazuje się jako zwykły obraz),
+- „Plansze z niską jakością symboli” to osobne, jawnie uruchamiane zapytanie
+  (przycisk; nigdy przy ładowaniu ani w odświeżaniu): plansze, na których co
+  najmniej `minCells` (domyślnie 5) widocznych pól bez decyzji człowieka
+  (`review_state = pending`) ma pewność predykcji `≤ maxConfidence` (domyślnie
+  80 %). Zakres to wybrany import albo cała gra; przekroczenie limitu 10 s daje
+  jawny błąd z podpowiedzią zawężenia do importu, nigdy pusty wynik,
+- odświeżanie: przy wejściu, po `Odśwież status` panelu (`refreshToken`) i po
+  zmianie zakresu/filtra; co 15 s odświeżane są wyłącznie liczniki i tylko gdy
+  trwa aktywny import tej gry.
+
+Bramka (TASK-0807):
+
+- liczniki bramki ze stanu w bazie: „Kolejka siatek (wstrzymane)”, „Wyjątki
+  operatora”, „Plansze wstrzymane przed cięciem” z powodem
+  `SOURCE_IMAGE_GEOMETRY_INCOMPLETE` i „Nieocenione przez bramkę” (zdjęcia
+  sprzed backfillu, które działają jak przed wdrożeniem bramki),
+- każde zdjęcie listy pokazuje stan bramki z bazy, powód wstrzymania i — dla
+  wyjątku — powód, autora i czas; zakładki stanów wyliczanych w locie
+  („Wszystkie niekompletne” i stany zdjęcia) zostają do diagnozy,
+- „Dopuść wyjątkiem…” (tylko dla zdjęcia `geometry_incomplete`) wymaga powodu
+  (1–1000 znaków) i jest operacją wysokiego wpływu; po zapisie plansze `ok` i
+  częściowe z zatwierdzoną kwalifikacją są cięte od razu. „Wycofaj wyjątek”
+  (po potwierdzeniu) przywraca kolejkę bez usuwania komórek; po decyzji
+  człowieka na komórkach zdjęcia API odmawia z czytelnym komunikatem,
+- filtr działa w zapisie, nie w UI: plansze wstrzymane nie mają komórek
+  weryfikacji ani dowodów symboli w wyszukiwarce, a lista tylko je pokazuje.
+
 ### Minimalistyczne stanowisko zatwierdzania
 
 Operacyjne review dużego importu używa `image_review_items`, a nie ograniczonego
@@ -808,14 +1180,14 @@ pełnych plansz i ma:
 - pokazywać gotowy staging plansz bieżącej gry jako etap poprzedzający import;
   staging nie jest elementem dropdownu ani pracą Reviewera, dopóki jawny job
   importu nie utworzy kolejki plansz,
-- dla aktywnego gotowego stagingu z raportem pokazywać przypięty silnik
-  `v20 — geometria i cropy v19`; każdy nowy import używa go bez dodatkowego
-  potwierdzenia, a v18 jest dostępny wyłącznie jako etykieta i artefakt
-  historycznych jobów,
-- start przekazuje `boardCellProcessingMode=verified_v19` w checksum-bound
-  komendzie i nie może prezentować sukcesu, jeżeli zwrócony job ma inny
-  niezmienny snapshot; nieudana geometria nie wraca do v18, lecz tworzy trwałe
-  odroczenie do końcowej korekty,
+- dla aktywnego gotowego stagingu z raportem pokazywać wirtualną politykę gry
+  (`structured_default` albo `structured_lattice_v3`); od D-467 (TASK-0790)
+  v20/v19 i v18 są wyłącznie etykietami historycznych jobów i nie są opcją
+  nowego importu,
+- start przekazuje bieżącą politykę w checksum-bound komendzie i nie może
+  prezentować sukcesu, jeżeli zwrócony job nie ma wirtualnego snapshotu tej
+  samej rewizji; nieudana geometria tworzy trwałe odroczenie do końcowej
+  korekty, rozwiązywane ścieżką wirtualną,
 - mieć własny proces i lokalny adres; panel Admin wybiera grę oraz gotowy
   import i pokazuje dla niego liczniki wszystkich, oczekujących i zakończonych
   plansz,
@@ -966,6 +1338,31 @@ przeładowanie bez nadpisania wyniku człowieka. Skuteczny zapis usuwa wyjątek 
 domyślnej kolejki `pending`, przechodzi do następnego wyjątku i tworzy zwykły
 item do zatwierdzenia symboli w istniejącej kolejce; nie powstaje druga trwała
 kolejka plansz.
+
+Gdy fizyczne zdjęcie przycina planszę, checkbox „Niepełna plansza” (TASK-0693)
+odblokowuje szary obszar poza realnymi pikselami — operator przeciąga tam
+narożniki, żeby poprawnie ekstrapolować siatkę, i jawnie zaznacza, których z 15
+pól naprawdę nie ma na zdjęciu. Zaznaczone pola pomijają rygor pełnego pokrycia
+źródła wyłącznie dla siebie (reszta planszy nadal wymaga kompletnych cropów)
+i po zapisie dostają wymuszony symbol „?” zamiast trafiać do modelu; plansza
+jest wykluczona z uczenia geometrii (`geometryQualification`,
+`completenessStatus=pending_partial`), tak jak w pozostałych dwóch edytorach
+geometrii. Board zostaje `asset_mode=legacy_file` — ta ścieżka nie generuje
+wirtualnych, częściowo widocznych cropów jak `virtual_source`.
+
+W tym samym edytorze operator może przesunąć widok źródła wyłącznie po jawnym
+zaznaczeniu checkboxa „Aktywne przesuwanie”, chwytając tło canvasu poza
+uchwytami narożników, oraz użyć akcji „Wycentruj widok na siatce”. Checkbox
+jest domyślnie wyłączony dla każdej wczytanej planszy, więc zwykły gest poza
+uchwytem nie porusza zdjęcia. Ruch zmienia wyłącznie lokalny viewport
+prezentacji: cztery narożniki, kwalifikacja, podgląd, klucz idempotencji i zapis
+pozostają w niezmienionych współrzędnych oryginalnego zdjęcia. Viewport jest
+ponownie centrowany także po zmianie narożnika, aby aktualna siatka nie znikała
+poza canvasem. W trybie „Niepełna plansza” może obejmować obszar poza zdjęciem,
+widoczny jako szare tło. Nie tworzy to brakujących pikseli. Według D-451
+pozycja rzeczywiście poza kadrem zachowuje trwałe `outside` i bez przypisania
+trafia do grupy „Poza zdjęciem”. Ręczne przypisanie przenosi ją do grupy
+symbolu, zachowując brak obrazu i badge.
 
 Po jawnym poleceniu właściciela, przykładowo po 1000 albo 3000 zweryfikowanych
 planszach, panel pozwala zamrozić nową kohortę feedbacku. Sam licznik nie

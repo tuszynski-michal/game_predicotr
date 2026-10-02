@@ -67,6 +67,10 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
     ): HighImpactOperation("archive-payline", "payline:{payline_id}"),
     (
         "DELETE",
+        "/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent",
+    ): HighImpactOperation("delete-payline", "payline:{payline_id}"),
+    (
+        "DELETE",
         "/api/v1/admin/rules-versions/{rules_version_id}/payout-rules/{payout_rule_id}",
     ): HighImpactOperation("archive-payout-rule", "payout-rule:{payout_rule_id}"),
     (
@@ -181,21 +185,63 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "revoke-remote-manual-selection-session",
         "remote-manual-selection-session:{session_id}",
     ),
+    # D-471: a share link exposes one game's board search online.
+    (
+        "POST",
+        "/api/v1/admin/board-search-shares/sessions",
+    ): HighImpactOperation(
+        "create-board-search-share-session",
+        "board-search-share-session:new",
+    ),
+    (
+        "POST",
+        "/api/v1/admin/board-search-shares/sessions/{session_id}/revoke",
+    ): HighImpactOperation(
+        "revoke-board-search-share-session",
+        "board-search-share-session:{session_id}",
+    ),
+    (
+        "DELETE",
+        "/api/v1/admin/board-search-shares/queries/{event_id}",
+    ): HighImpactOperation(
+        "delete-board-search-share-query",
+        "board-search-share-query:{event_id}",
+    ),
+    # D-484 (TASK-0807): an operator exception admits an incomplete image to
+    # symbol cutting; withdrawing it is a decision about the same image.
+    (
+        "POST",
+        "/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/"
+        "{source_image_id}/exception",
+    ): HighImpactOperation(
+        "set-source-image-geometry-exception",
+        "source-image-geometry-exception:{source_image_id}",
+    ),
+    (
+        "DELETE",
+        "/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/"
+        "{source_image_id}/exception",
+    ): HighImpactOperation(
+        "withdraw-source-image-geometry-exception",
+        "source-image-geometry-exception:{source_image_id}",
+    ),
 }
 
 _REVIEWER_MUTATION_PATTERNS = tuple(
     re.compile(pattern)
     for pattern in (
-        r"^/api/v1/admin/image-reviews/[^/]+/geometry-approval$",
+        # D-462: the local Reviewer corrects one board at a time; there is
+        # no geometry approval and no whole-source save (TASK-0727).
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-reviews/[^/]+/geometry-revisions$",
-        r"^/api/v1/admin/games/[^/]+/grid-reviews/source-geometry-approval$",
-        r"^/api/v1/admin/games/[^/]+/grid-reviews/source-geometry-revisions$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-preview$",
         r"^/api/v1/admin/image-review-items/[^/]+/geometry-revisions$",
         r"^/api/v1/admin/image-review-items/[^/]+/resolution$",
         r"^/api/v1/admin/games/[^/]+/image-imports/[^/]+/"
         r"board-cell-geometry-pending/[^/]+/geometry-preview$",
+        # D-488: a read-only symbol prediction for the previewed cut.
+        r"^/api/v1/admin/games/[^/]+/image-imports/[^/]+/"
+        r"board-cell-geometry-pending/[^/]+/geometry-symbol-preview$",
         r"^/api/v1/admin/games/[^/]+/image-imports/[^/]+/"
         r"board-cell-geometry-pending/[^/]+/manual-resolution$",
     )
@@ -316,8 +362,7 @@ class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
         origin = request.headers.get("origin")
         normalized_origin = origin.rstrip("/") if origin is not None else None
         reviewer_origin_allowed = (
-            normalized_origin in self._reviewer_origins
-            and _matches_reviewer_mutation_path(path)
+            normalized_origin in self._reviewer_origins and _matches_reviewer_mutation_path(path)
         )
         if (
             normalized_origin is not None

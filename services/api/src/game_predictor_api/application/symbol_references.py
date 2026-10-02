@@ -72,8 +72,12 @@ class ApprovedSymbolReferenceRepository(Protocol):
     ) -> Sequence[ApprovedSymbolReferenceCandidate]: ...
 
     def get_candidate(
-        self, *, game_id: UUID, symbol_id: UUID, observation_id: UUID
+        self, *, game_id: UUID, symbol_id: UUID, cell_review_id: UUID
     ) -> ApprovedSymbolReferenceCandidate | None: ...
+
+    def get_cell_review_candidate(
+        self, *, game_id: UUID, cell_review_id: UUID
+    ) -> tuple[UUID, ApprovedSymbolReferenceCandidate] | None: ...
 
     def get_reference(self, *, game_id: UUID, symbol_id: UUID) -> SymbolReferenceImage | None: ...
 
@@ -143,13 +147,13 @@ class ApprovedSymbolReferenceService:
         )
 
     def candidate(
-        self, game_id: UUID, symbol_id: UUID, observation_id: UUID
+        self, game_id: UUID, symbol_id: UUID, cell_review_id: UUID
     ) -> ApprovedSymbolReferenceCandidate:
         self._require_game(game_id)
         candidate = self._repository.get_candidate(
             game_id=game_id,
             symbol_id=symbol_id,
-            observation_id=observation_id,
+            cell_review_id=cell_review_id,
         )
         if candidate is None:
             raise CatalogNotFoundError(
@@ -172,9 +176,9 @@ class ApprovedSymbolReferenceService:
         self,
         game_id: UUID,
         symbol_id: UUID,
-        observation_id: UUID,
+        cell_review_id: UUID,
     ) -> RenderedSymbolReferenceCandidate:
-        candidate = self.candidate(game_id, symbol_id, observation_id)
+        candidate = self.candidate(game_id, symbol_id, cell_review_id)
         if not candidate.is_virtual:
             raise CatalogConflictError(
                 "SYMBOL_REFERENCE_CANDIDATE_ASSET_MODE_INVALID",
@@ -191,7 +195,7 @@ class ApprovedSymbolReferenceService:
         self,
         game_id: UUID,
         symbol_id: UUID,
-        observation_id: UUID,
+        cell_review_id: UUID,
         *,
         expected_checksum_sha256: str,
         selected_by: str,
@@ -203,7 +207,7 @@ class ApprovedSymbolReferenceService:
                 "SYMBOL_REFERENCE_ACTOR_INVALID",
                 "selectedBy must contain 1-200 non-whitespace characters.",
             )
-        candidate = self.candidate(game_id, symbol_id, observation_id)
+        candidate = self.candidate(game_id, symbol_id, cell_review_id)
         if candidate.crop_checksum_sha256 != checksum:
             raise CatalogConflictError(
                 "SYMBOL_REFERENCE_CANDIDATE_STALE",
@@ -229,6 +233,39 @@ class ApprovedSymbolReferenceService:
             image_checksum_sha256=stored_asset.checksum_sha256,
         )
 
+    def select_from_cell_review(
+        self,
+        game_id: UUID,
+        cell_review_id: UUID,
+        *,
+        expected_checksum_sha256: str,
+        selected_by: str,
+    ) -> Symbol:
+        """Use one approved Symbol Verification crop as its symbol's reference.
+
+        The cell must already satisfy every picker eligibility rule: approved
+        exact crop, current geometry, no quality issue and an active symbol.
+        """
+
+        self._require_game(game_id)
+        resolved = self._repository.get_cell_review_candidate(
+            game_id=game_id, cell_review_id=cell_review_id
+        )
+        if resolved is None:
+            raise CatalogConflictError(
+                "SYMBOL_REFERENCE_CELL_NOT_ELIGIBLE",
+                "Only an approved current crop without a quality issue can become "
+                "the symbol image.",
+            )
+        symbol_id, candidate = resolved
+        return self.select(
+            game_id,
+            symbol_id,
+            candidate.cell_review_id,
+            expected_checksum_sha256=expected_checksum_sha256,
+            selected_by=selected_by,
+        )
+
     def _require_game(self, game_id: UUID) -> None:
         if not self._repository.game_exists(game_id):
             raise CatalogNotFoundError(
@@ -252,48 +289,13 @@ class ManagedSymbolReferenceArtifactStore:
         symbol_id: UUID,
         candidate: ApprovedSymbolReferenceCandidate,
     ) -> StoredSymbolReferenceAsset:
-        if candidate.is_virtual:
-            return self._materialize_virtual_candidate(
-                game_id=game_id,
-                symbol_id=symbol_id,
-                candidate=candidate,
-            )
-        source = self._resolve_source(
-            _require_legacy_crop_path(candidate),
-            candidate.crop_checksum_sha256,
+        # D-467 S6 (TASK-0796): every approved candidate is a virtual render;
+        # the reference freezes its canonical PNG.
+        return self._materialize_virtual_candidate(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            candidate=candidate,
         )
-        suffix = source.suffix.lower()
-        relative_path = (
-            f"data/symbol-references/{game_id}/{symbol_id}/{candidate.crop_checksum_sha256}{suffix}"
-        )
-        destination = self._safe_destination(relative_path)
-        destination.parent.mkdir(parents=True, exist_ok=True)
-        if destination.exists():
-            self._assert_existing_destination(destination, candidate.crop_checksum_sha256)
-            return StoredSymbolReferenceAsset(relative_path, candidate.crop_checksum_sha256)
-
-        descriptor, temporary_name = tempfile.mkstemp(dir=destination.parent, prefix=".tmp-")
-        temporary = Path(temporary_name)
-        try:
-            with source.open("rb") as input_file, os.fdopen(descriptor, "wb") as output_file:
-                digest = hashlib.sha256()
-                while chunk := input_file.read(1024 * 1024):
-                    digest.update(chunk)
-                    output_file.write(chunk)
-                output_file.flush()
-                os.fsync(output_file.fileno())
-            if digest.hexdigest() != candidate.crop_checksum_sha256:
-                raise CatalogConflictError(
-                    "SYMBOL_REFERENCE_ASSET_CHECKSUM_MISMATCH",
-                    "The approved symbol reference crop changed while it was being copied.",
-                )
-            try:
-                os.link(temporary, destination)
-            except FileExistsError:
-                self._assert_existing_destination(destination, candidate.crop_checksum_sha256)
-        finally:
-            temporary.unlink(missing_ok=True)
-        return StoredSymbolReferenceAsset(relative_path, candidate.crop_checksum_sha256)
 
     def render_virtual_candidate(
         self, *, candidate: ApprovedSymbolReferenceCandidate
@@ -345,36 +347,6 @@ class ManagedSymbolReferenceArtifactStore:
             temporary.unlink(missing_ok=True)
         return StoredSymbolReferenceAsset(relative_path, checksum)
 
-    def _resolve_source(self, relative_value: str, checksum: str) -> Path:
-        relative = _safe_relative_path(relative_value)
-        candidate_paths = [(self._artifact_root / Path(*relative.parts)).resolve()]
-        if relative.parts[0] != "data":
-            candidate_paths.append((self._data_root / Path(*relative.parts)).resolve())
-        source = next(
-            (
-                path
-                for path in candidate_paths
-                if path.is_relative_to(self._data_root) and path.is_file() and not path.is_symlink()
-            ),
-            None,
-        )
-        if source is None:
-            raise CatalogNotFoundError(
-                "SYMBOL_REFERENCE_ASSET_NOT_FOUND",
-                "The approved symbol reference crop is unavailable.",
-            )
-        if source.suffix.lower() not in {".png", ".jpg", ".jpeg"}:
-            raise CatalogConflictError(
-                "SYMBOL_REFERENCE_ASSET_TYPE_INVALID",
-                "The approved symbol reference crop must be a PNG or JPEG file.",
-            )
-        if _sha256_file(source) != checksum:
-            raise CatalogConflictError(
-                "SYMBOL_REFERENCE_ASSET_CHECKSUM_MISMATCH",
-                "The approved symbol reference crop checksum does not match.",
-            )
-        return source
-
     def _safe_destination(self, relative_value: str) -> Path:
         relative = _safe_relative_path(relative_value)
         destination = (self._artifact_root / Path(*relative.parts)).resolve()
@@ -410,15 +382,6 @@ def _safe_relative_path(value: str) -> PurePosixPath:
             "The approved symbol reference crop path is unsafe.",
         )
     return relative
-
-
-def _require_legacy_crop_path(candidate: ApprovedSymbolReferenceCandidate) -> str:
-    if candidate.crop_relative_path is None:
-        raise CatalogConflictError(
-            "SYMBOL_REFERENCE_ASSET_INVALID",
-            "A legacy symbol reference candidate requires a managed crop path.",
-        )
-    return candidate.crop_relative_path
 
 
 def _sha256_file(path: Path) -> str:

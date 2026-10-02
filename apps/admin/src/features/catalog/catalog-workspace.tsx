@@ -16,6 +16,13 @@ import {
   parseAdminNavigation,
   serializeAdminNavigation,
 } from '@/features/catalog/admin-navigation-state';
+import {
+  type BoardSearchReplayHandoff,
+  BOARD_SEARCH_REPLAY_PARAMETER,
+  boardSearchReplayPlan,
+  consumeBoardSearchReplay,
+  readBoardSearchReplayParameter,
+} from '@/features/board-search/board-search-replay-state';
 import { BoardSearchWorkspace } from '@/features/board-search/board-search-workspace';
 import { BoardSourceCleanupControl } from '@/features/cleanup/board-source-cleanup-control';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
@@ -113,8 +120,9 @@ const GAME_SECTION_OPTIONS: readonly {
   },
   {
     id: 'reviews',
-    title: 'Zatwierdzanie cięcia siatki',
-    description: 'Walidacja i korekta geometrii plansz w aplikacji Reviewer.',
+    title: 'Korekta cięcia siatki',
+    description:
+      'Ręczna korekta siatki jednej planszy naraz w aplikacji Reviewer.',
   },
   {
     id: 'unreadable-symbols',
@@ -142,6 +150,9 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
   const [imageSelectionHandoff, setImageSelectionHandoff] =
     useState<ImageSelectionHandoffResponse | null>(null);
   const navigationRef = useRef(navigation);
+  const [replayEventId, setReplayEventId] = useState<string | null>(null);
+  const [boardSearchReplay, setBoardSearchReplay] =
+    useState<BoardSearchReplayHandoff | null>(null);
   const sectionHeaderRefs = useRef<
     Partial<Record<GameSection, HTMLButtonElement | null>>
   >({});
@@ -153,6 +164,7 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
   useEffect(() => {
     const restoreFromUrl = () => {
       setNavigation(parseAdminNavigation(window.location.search));
+      setReplayEventId(readBoardSearchReplayParameter(window.location.search));
     };
     restoreFromUrl();
     window.addEventListener('popstate', restoreFromUrl);
@@ -172,6 +184,76 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
     },
     [],
   );
+
+  // D-472: `?boardSearchReplay=<eventId>` opens the entry's game and board
+  // search and reproduces the query; the parameter is consumed once.
+  useEffect(() => {
+    if (replayEventId === null) return;
+    let cancelled = false;
+    const eventId = replayEventId;
+    void api
+      .getBoardSearchShareQueryReplay(eventId)
+      .then((result) => {
+        if (cancelled) return;
+        const url = new URL(window.location.href);
+        url.searchParams.delete(BOARD_SEARCH_REPLAY_PARAMETER);
+        const data = result.data;
+        if (result.error !== undefined || data === undefined) {
+          window.history.replaceState(
+            null,
+            '',
+            `${url.pathname}${url.search}${url.hash}`,
+          );
+          setReplayEventId(null);
+          const gameId = navigationRef.current.gameId;
+          if (gameId !== null) {
+            setBoardSearchReplay({
+              gameId,
+              message:
+                'Nie udało się wczytać zapytania do odtworzenia (wpis nie istnieje albo Admin API nie odpowiada).',
+              plan: null,
+            });
+          }
+          return;
+        }
+        const replay = boardSearchReplayPlan(data, String(Date.now()));
+        setBoardSearchReplay({
+          gameId: data.event.gameId,
+          message: replay.kind === 'no_search' ? replay.message : null,
+          plan: replay.kind === 'plan' ? replay.plan : null,
+        });
+        setReplayEventId(null);
+        const next = {
+          ...navigationRef.current,
+          gameId: data.event.gameId,
+          section: 'board-search' as const,
+          workspace: 'games' as const,
+        };
+        setNavigation(next);
+        const search = serializeAdminNavigation(url.search, next);
+        window.history.replaceState(
+          null,
+          '',
+          `${url.pathname}${search}${url.hash}`,
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setReplayEventId(null);
+        const gameId = navigationRef.current.gameId;
+        if (gameId !== null) {
+          setBoardSearchReplay({
+            gameId,
+            message:
+              'Połączenie z lokalnym Admin API zostało przerwane podczas wczytywania zapytania do odtworzenia.',
+            plan: null,
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, replayEventId]);
 
   const handleGamesLoaded = useCallback(
     (loadedGames: readonly GameResponse[]) => {
@@ -374,6 +456,21 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
                             key={activeGame.id}
+                            replay={
+                              boardSearchReplay?.gameId === activeGame.id
+                                ? boardSearchReplay.plan
+                                : null
+                            }
+                            replayMessage={
+                              boardSearchReplay?.gameId === activeGame.id
+                                ? boardSearchReplay.message
+                                : null
+                            }
+                            onReplayApplied={(id) =>
+                              setBoardSearchReplay((current) =>
+                                consumeBoardSearchReplay(current, id),
+                              )
+                            }
                           />
                         ) : null}
                         {expanded && section.id === 'rules' ? (

@@ -1,13 +1,13 @@
 ---
 title: TASK-0647 — Gra 777: przebieg reweryfikacji siatek na żywych danych
-status: todo
+status: blocked
 ---
 
 # TASK-0647 — Przebieg na żywych danych i odbiór
 
 ## Status
 
-`todo`
+`blocked` — zależy od osobnej decyzji i TASK-0645/0646; D-447 nie upoważnia do uzupełniania slotów historycznego 777 siecią ani do zapisu na żywych danych.
 
 ## Goal
 

@@ -1,7 +1,7 @@
 ---
 title: Game data v2 ownership manifest
 status: accepted
-last_updated: 2026-09-21
+last_updated: 2026-10-01
 ---
 
 # Własność tabel game_data_v2 — TASK-0518
@@ -51,7 +51,7 @@ opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 |---|---|---|
 | `alembic_version` | shared | — |
 | `browser_selection_retention_states` | game | `games`, `jobs` |
-| `cell_observations` | game | `image_source_geometry_revisions`, `recognized_boards` |
+| `cell_observations` (usunięta w `0134`, poza manifestem v4) | game | `image_source_geometry_revisions`, `recognized_boards` |
 | `cleanup_operations` | shared | — |
 | `curated_image_import_batches` | game | `curated_image_import_sources`, `jobs` |
 | `curated_image_import_sources` | game | `games`, `image_selection_runs` |
@@ -110,8 +110,8 @@ opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 | `layout_import_rows` | game | `jobs` |
 | `layout_payouts` | game | `layouts`, `rules_versions` |
 | `layouts` | game | `dataset_versions` |
-| `legacy_board_search_archive_documents` | game | `games` |
-| `legacy_board_search_archive_states` | game | `games` |
+| `legacy_board_search_archive_documents` (usunięta w `0134`) | game | `games` |
+| `legacy_board_search_archive_states` (usunięta w `0134`) | game | `games` |
 | `legacy_game_operational_cleanup_receipts` | shared | `games` |
 | `mobile_release_games` | game | `dataset_versions`, `games`, `mobile_releases`, `rules_versions` |
 | `mobile_releases` | shared | `jobs` |
@@ -145,7 +145,7 @@ opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 | `storage_gc_runs` | shared | `jobs` |
 | `storage_usage_snapshots` | shared | — |
 | `symbol_model_iterations` | game | `games`, `jobs`, `verified_training_cohorts` |
-| `symbol_reference_images` | game | `cell_observations`, `games`, `image_review_items`, `recognized_boards`, `symbols` |
+| `symbol_reference_images` | game | `games`, `image_review_items`, `recognized_boards`, `symbols` (FK do `cell_observations` usunięty w `0132`) |
 | `symbols` | catalog | `games` |
 | `verified_training_cohort_cells` | game | `image_review_items`, `image_source_geometry_revisions`, `image_symbol_review_cells`, `recognized_boards`, `source_images`, `verified_training_cohorts` |
 | `verified_training_cohort_items` | game | `image_review_items`, `jobs`, `recognized_boards`, `source_images`, `verified_training_cohorts` |
@@ -206,6 +206,40 @@ Downgrade najpierw blokuje wszystkie objęte tabele i sprawdza pustkę. Jakiekol
 dane v2, location, migration lub checkpoint zatrzymują rollback; nie używa
 CASCADE. Jest odwróceniem wyłącznie pustego wdrożenia, nie rollbackiem migracji
 użytkownika. Dodatkowe nieznane zależności także blokują DROP.
+
+## Role bazy i egzekwowanie RLS — TASK-0795
+
+RLS z migracji 0106 jest wymuszone także dla właściciela tabel, ale nie działa
+dla roli `SUPERUSER`/`BYPASSRLS`. Dlatego runtime (API, worker) łączy się rolą
+aplikacyjną `game_predictor_app` bez tych atrybutów, bez własności obiektów i
+bez DDL (`GAME_PREDICTOR_DATABASE_URL`); schemat, partycje i migracje należą do
+roli właściciela (`GAME_PREDICTOR_OWNER_DATABASE_URL`). Role tworzy skrypt
+`scripts/provision_database_roles.py`, nie migracja (role są globalne w
+klastrze). Właściciela używają w runtime wyłącznie: kroki DDL lifecycle
+partycji nowej gry (każdy krok w osobnej sesji właściciela; wiersz katalogu i
+receipt w sesji aplikacyjnej), `VACUUM (ANALYZE)` po kompaktacji wyników
+pipeline i `ANALYZE` po backfillu weryfikacji symboli. Usuwanie gry
+(`GameDeletionRepository`, lifecycle `delete`) nie ma trasy runtime; jego
+wykonanie wymaga roli właściciela.
+
+Kontrakt dla zapytań roli aplikacyjnej: transakcja dotyka danych jednej gry
+po `GameStorageRouter.bind` (albo `game_storage_scope`), który ustawia
+`game_predictor.game_id` i `search_path`. Bez wiązania niekwalifikowana
+tabela gry nie istnieje w `search_path` (`42P01`), a kwalifikowana
+`game_data_v2.*` rzuca `GAME_STORAGE_SCOPE_REQUIRED` (`42501`) — nigdy pusty
+wynik. Ścieżki między grami iterują po `public.game_storage_locations` z
+osobnym wiązaniem na grę (wzorzec `load_pipeline_execution_references`).
+Szczegóły i wycofanie: D-467 (nota TASK-0795), `LOCAL_OPERATION_GUIDE.md`.
+
+TASK-0797 uzupełnia kontrakt: gra żądania API pochodzi ze ścieżki
+`/games/{id}/` albo z parametru `gameId`/`game_id` tras Admina i Reviewera;
+trasa nazywająca tylko globalny identyfikator wiersza gry znajduje grę
+odczytami związanymi kolejno z każdą grą (`GameEntityLocator`, bez kopii
+mapowania poza magazynem gry); agregaty wielu gier (wydanie mobilne z
+buildem, snapshotem i payoutami, kontrole współdzielonych plików i wykonań
+przy sprzątaniu gry) używają jawnej sesji właściciela `CrossGameOwnerSession`.
+Funkcja polityki `current_game_id_v1()` jest od `0138` `PARALLEL SAFE`
+(bez zmiany polityk i zachowania błędów).
 
 ## Greenfield cutover
 

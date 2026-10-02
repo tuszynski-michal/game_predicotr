@@ -1,13 +1,13 @@
 ---
 title: TASK-0603 — Rzeczywista kalibracja geometrii etykiet 777 V7
-status: blocked
+status: in_progress
 ---
 
 # TASK-0603 — Rzeczywista kalibracja geometrii etykiet 777 V7
 
 ## Status
 
-`blocked`
+`in_progress` — wznowione 2026-09-29 w trybie V2; czeka na anotacje operatora.
 
 ## Goal
 
@@ -16,6 +16,45 @@ Przygotować trwały, bezpieczny przepływ do ręcznej kalibracji etykiet liczbo
 ## Context
 
 TASK-0602 udostępnił trwały ekran anotacji, lecz rzeczywisty korpus nie był jeszcze gotowy do użycia jako źródło jednej rodziny geometrii. Profil nie może być tworzony z punktów odgadniętych przez implementację ani z danych holdoutu.
+
+## Ponowne wykonanie w trybie V2 (2026-09-29, D-463)
+
+Operator polecił wycofać poprzednią konfigurację i wykonać zadanie od nowa.
+Pomiar tylko do odczytu na zapisanych punktach sesji
+`482cbe56-a14b-4082-bb52-2943a504020a` wykazał, że kliknięcia były dokładne
+(V1 w obrębie jednego katalogu: p95 `0,0045` i `0,0143`). Wynik `0,2255`
+powstał z połączenia dwóch nagrań o różnym kadrowaniu w statycznej rodzinie
+V1. Dodatkowo nazwy grup były niespójne (`przejście A` i `przejście-A`,
+`-C`, `-d`, `-f`), jedno zdjęcie nie miało grupy, a sesja ma status
+`blocked_source_drift` po zmianie katalogu `reels_test`.
+
+Zakres wznowienia:
+
+- Stara sesja zostaje na serwerze wyłącznie do audytu. Nie jest usuwana ani
+  wznawiana; Admin może jedynie zapomnieć jej lokalny widok.
+- Nowy, ignorowany manifest
+  `.runtime/v7-label-geometry-calibration-t0603-v2.local.json` przypina
+  `small_777` i `occluded_777` do `standard_3x3_numeric_labels_v2`.
+  Manifest V1 T0603 pozostaje niezmieniony.
+- Admin tworzy nowe sesje w trybie V2 i domyślnie zaznacza oba katalogi.
+  Ma przycisk `Zacznij nową sesję` oraz ostrzeżenie o zdjęciach, których
+  punkty nie tworzą lokalnej siatki (min. 5 pełnych numerów w 2 wierszach i
+  2 kolumnach).
+- Grupa ujęć odpowiada nagraniu: `A` = katalog `777` (nagranie `302200`),
+  `B` = katalog `777 - przysłoniete częściowo plansze` (nagranie `45164`).
+- Progi 5 SHA, 2 grup, `contained` i p95 `<= 0,04` bez zmian.
+
+Kryteria odbioru wznowienia:
+
+- [x] Nowy manifest V2 obejmuje oba case'y 777 jako `calibration`; API
+  odrzuca V1 dla tych case'ów, `rells_big` (development) i `reels_test`
+  (holdout).
+- [x] UI tworzy sesję V2 z obu katalogów, a porzucenie starej sesji nie
+  zmienia danych serwera.
+- [x] Gotowość V2 blokuje profil, gdy którekolwiek oznaczone zdjęcie nie
+  tworzy lokalnej siatki.
+- [ ] Operator oznacza punkty według `LOCAL_OPERATION_GUIDE.md`; serwer
+  tworzy profil `passed` albo zwraca jawny powód odrzucenia.
 
 ## Dependencies / entry conditions
 
@@ -133,6 +172,26 @@ Zadanie kończy się po testach, self-audycie, review Astra Medium, poprawie ka�
   wyłącznie istniejące wcześniej ostrzeżenie `<img>` poza zakresem taska, a
   pytest jedno ostrzeżenie deprecacji Starlette.
 - Końcowy review Astra Medium nie znalazł uwag P0–P2.
+
+### Wznowienie V2 — przygotowanie (2026-09-29)
+
+- Zmienione pliki: gotowość, lokalny store i ekran kalibracji w
+  `apps/admin/src/features/v7-label-geometry/`, testy kontraktu, gotowości i
+  interakcji, `LOCAL_OPERATION_GUIDE.md`, wymagania `IMAGE_SELECTION.md`,
+  plan V2, `DECISION_LOG.md` (D-463) i `CURRENT_STATE.md`. Lokalny, ignorowany
+  manifest `.runtime/v7-label-geometry-calibration-t0603-v2.local.json`.
+- Próba na tymczasowym runtime (poza `.runtime`): sesja V2 obejmuje 374
+  źródła (`small_777` 131, `occluded_777` 243), wszystkie w V2; utworzenie
+  13,7 s. V1 dla `small_777` → `V7_CALIBRATION_GEOMETRY_FAMILY_CONFLICT`,
+  `rells_big` → `V7_CALIBRATION_CASE_SPLIT_FORBIDDEN`, `reels_test` →
+  `V7_CALIBRATION_HOLDOUT_FORBIDDEN`. Pojedyncza mutacja trwa ok. 7 s, bo
+  serwer za każdym razem ponownie sprawdza inwentarz korpusu; UI pokazuje
+  punkt od razu z trwałej kolejki.
+- Diagnostyka tylko do odczytu na starych 61 punktach `contained`: V2 dla obu
+  katalogów daje p95 `0,0354`. To nie jest profil ani odbiór: stare grupy są
+  niepoprawne, a sesja jest zablokowana driftem.
+- Testy: Admin 16 testów V7 (`test/v7-label-geometry-*`), 7 testów interakcji
+  ekranu, `tsc --noEmit` i ESLint zmienionych plików PASS.
 
 ### Poprzednia blokada i wznowienie
 

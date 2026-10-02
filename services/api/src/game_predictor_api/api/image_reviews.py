@@ -13,6 +13,7 @@ from game_predictor_api.api.reviewer_security import (
 )
 from game_predictor_api.application.image_review_assets import (
     OperationalReviewAsset,
+    resolve_geometry_completeness_source_asset,
     resolve_operational_board_asset,
     resolve_operational_cell_asset,
     resolve_operational_source_asset,
@@ -26,6 +27,16 @@ from game_predictor_api.application.reviewer_access import (
     ReviewerAccessSession,
 )
 from game_predictor_api.domain.board_import_coverage import BoardImportCoverageView
+from game_predictor_api.domain.image_geometry_completeness import (
+    DEFAULT_LOW_QUALITY_MAX_CONFIDENCE,
+    DEFAULT_LOW_QUALITY_MIN_CELLS,
+    MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
+    MAX_LOW_QUALITY_MIN_CELLS,
+    GeometryImageState,
+    LowQualityThresholds,
+    SourceImageGeometryStatus,
+    decode_geometry_image_cursor,
+)
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_PAGE_SIZE,
     ImageReviewGeometryPoint,
@@ -35,6 +46,17 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.domain.jobs import JobError
 from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.image_geometry_completeness import (
+    ImageGeometryCompletenessResponse,
+    ImageGeometryLowQualityBoardsResponse,
+    IncompleteGeometryImagePageResponse,
+    SourceImageGeometryExceptionCommand,
+    SourceImageGeometryExceptionResponse,
+    to_geometry_completeness_response,
+    to_geometry_low_quality_boards_response,
+    to_incomplete_geometry_image_page_response,
+    to_source_image_geometry_exception_response,
+)
 from game_predictor_api.schemas.image_reviews import (
     BoardImportCoverageResponse,
     CanonicalImageReviewPageResponse,
@@ -65,6 +87,8 @@ from game_predictor_api.schemas.image_reviews import (
 from game_predictor_api.schemas.jobs import JobResponse
 
 OperationalImageReviewServiceDependency = Callable[..., object]
+# Author of an operator geometry exception set from the local Admin (TASK-0807).
+_LOCAL_ADMIN_ACTOR = "local-admin"
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     404: {"model": ErrorResponse, "description": "Operational review resource not found"},
     409: {"model": ErrorResponse, "description": "Operational review conflict"},
@@ -140,6 +164,119 @@ def create_image_reviews_router(
                 range_from=range_from,
                 range_to=range_to,
                 after_sequence_number=after_sequence_number,
+                limit=limit,
+            )
+        )
+
+    @router.get(
+        "/geometry-completeness/{game_id}",
+        response_model=ImageGeometryCompletenessResponse,
+        operation_id="getImageGeometryCompleteness",
+        summary="Count complete and incomplete source images of a game or import (D-484)",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_geometry_completeness(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
+    ) -> ImageGeometryCompletenessResponse:
+        return to_geometry_completeness_response(
+            service.geometry_completeness(game_id, import_job_id=import_job_id)
+        )
+
+    @router.get(
+        "/geometry-completeness/{game_id}/incomplete-images",
+        response_model=IncompleteGeometryImagePageResponse,
+        operation_id="listIncompleteGeometryImages",
+        summary="List one page of source images without a complete set of grids (D-484)",
+        responses=ERROR_RESPONSES,
+    )
+    def list_incomplete_geometry_images(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
+        image_state: Annotated[GeometryImageState | None, Query(alias="imageState")] = None,
+        completeness_status: Annotated[
+            SourceImageGeometryStatus | None, Query(alias="completenessStatus")
+        ] = None,
+        after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
+        limit: Annotated[int, Query(ge=1, le=MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE)] = 25,
+    ) -> IncompleteGeometryImagePageResponse:
+        return to_incomplete_geometry_image_page_response(
+            service.incomplete_geometry_images(
+                game_id,
+                import_job_id=import_job_id,
+                image_state=image_state,
+                after=(
+                    None if after_cursor is None else decode_geometry_image_cursor(after_cursor)
+                ),
+                limit=limit,
+                completeness_status=completeness_status,
+            )
+        )
+
+    @router.post(
+        "/geometry-completeness/{game_id}/images/{source_image_id}/exception",
+        response_model=SourceImageGeometryExceptionResponse,
+        operation_id="setSourceImageGeometryException",
+        summary="Admit an incomplete source image to symbol cutting by an operator exception",
+        responses=ERROR_RESPONSES,
+    )
+    def set_source_image_geometry_exception(
+        game_id: UUID,
+        source_image_id: UUID,
+        command: SourceImageGeometryExceptionCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> SourceImageGeometryExceptionResponse:
+        return to_source_image_geometry_exception_response(
+            service.set_geometry_exception(
+                game_id,
+                source_image_id,
+                reason=command.reason,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        )
+
+    @router.delete(
+        "/geometry-completeness/{game_id}/images/{source_image_id}/exception",
+        response_model=SourceImageGeometryExceptionResponse,
+        operation_id="withdrawSourceImageGeometryException",
+        summary="Withdraw the geometry exception of a source image before human decisions",
+        responses=ERROR_RESPONSES,
+    )
+    def withdraw_source_image_geometry_exception(
+        game_id: UUID,
+        source_image_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> SourceImageGeometryExceptionResponse:
+        return to_source_image_geometry_exception_response(
+            service.withdraw_geometry_exception(game_id, source_image_id, actor=_LOCAL_ADMIN_ACTOR)
+        )
+
+    @router.get(
+        "/geometry-completeness/{game_id}/low-quality-boards",
+        response_model=ImageGeometryLowQualityBoardsResponse,
+        operation_id="getImageGeometryLowQualityBoards",
+        summary="List boards with many unreviewed low-confidence symbol cells",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_geometry_low_quality_boards(
+        game_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
+        max_confidence: Annotated[float, Query(alias="maxConfidence", ge=0, le=1)] = (
+            DEFAULT_LOW_QUALITY_MAX_CONFIDENCE
+        ),
+        min_cells: Annotated[
+            int, Query(alias="minCells", ge=1, le=MAX_LOW_QUALITY_MIN_CELLS)
+        ] = DEFAULT_LOW_QUALITY_MIN_CELLS,
+        limit: Annotated[int, Query(ge=1, le=MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE)] = 50,
+    ) -> ImageGeometryLowQualityBoardsResponse:
+        return to_geometry_low_quality_boards_response(
+            service.geometry_low_quality_boards(
+                game_id,
+                import_job_id=import_job_id,
+                thresholds=LowQualityThresholds(max_confidence=max_confidence, min_cells=min_cells),
                 limit=limit,
             )
         )
@@ -345,12 +482,12 @@ def create_image_reviews_router(
         "/{review_item_id}/geometry-preview",
         response_class=Response,
         operation_id="previewOperationalImageReviewGeometry",
-        summary="Preview 15 corrected v19 board-cell crops without persistence",
+        summary="Preview the virtual cells of a corrected board geometry without persistence",
         responses={
             **ERROR_RESPONSES,
             200: {
                 "content": {"image/png": {}},
-                "description": "Five by three contact sheet of final source-direct crops",
+                "description": "Five by three contact sheet of virtual source renders",
             },
         },
     )
@@ -376,6 +513,11 @@ def create_image_reviews_router(
             corners=tuple(
                 ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
             ),
+            geometry_qualification=(
+                None
+                if payload.geometry_qualification is None
+                else payload.geometry_qualification.to_domain()
+            ),
         )
         return Response(
             content=preview.contact_sheet_png,
@@ -383,7 +525,6 @@ def create_image_reviews_router(
             headers={
                 "Cache-Control": "no-store",
                 "X-Board-Cell-Count": str(len(preview.cells)),
-                "X-Board-Cell-Cropper-Fingerprint-Sha256": (preview.cropper_fingerprint_sha256),
                 "X-Board-Cell-Cropper-Version": preview.cropper_version,
                 "X-Board-Cell-Preview-Kind": "contact-sheet-5x3",
             },
@@ -393,7 +534,7 @@ def create_image_reviews_router(
         "/{review_item_id}/geometry-revisions",
         response_model=OperationalImageReviewGeometryResponse,
         operation_id="createOperationalImageReviewGeometryRevision",
-        summary="Persist immutable v19 symbol-lattice geometry and reopen review",
+        summary="Persist a virtual-source geometry revision of one board and reopen review",
         responses=ERROR_RESPONSES,
     )
     def create_operational_image_review_geometry_revision(
@@ -423,6 +564,11 @@ def create_image_reviews_router(
             expected_resolution_revision=payload.expected_resolution_revision,
             corners=tuple(
                 ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
+            ),
+            geometry_qualification=(
+                None
+                if payload.geometry_qualification is None
+                else payload.geometry_qualification.to_domain()
             ),
             corrected_by=reviewer_actor or payload.corrected_by,
         )
@@ -576,6 +722,25 @@ def create_image_reviews_router(
             import_job_id=import_job_id,
         )
         return image_response(resolve_operational_source_asset(item, artifact_root))
+
+    @router.get(
+        "/geometry-completeness/{game_id}/images/{source_image_id}/source",
+        response_class=FileResponse,
+        operation_id="getImageGeometryCompletenessSourceAsset",
+        summary="Read the checksum-bound source image of any image of a game (D-484)",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_geometry_completeness_source_asset(
+        game_id: UUID,
+        source_image_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> FileResponse:
+        return image_response(
+            resolve_geometry_completeness_source_asset(
+                service.geometry_source_image(game_id, source_image_id),
+                artifact_root,
+            )
+        )
 
     @router.get(
         "/{review_item_id}/assets/board",

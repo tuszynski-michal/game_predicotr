@@ -1,5 +1,6 @@
 import os
 from collections.abc import Iterator
+from contextlib import ExitStack
 from pathlib import Path
 from uuid import uuid4
 
@@ -32,15 +33,16 @@ from game_predictor_api.domain.rules import (
 from game_predictor_api.storage.catalog_repository import (
     SqlAlchemyCatalogRepository,
 )
+from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.dataset_repository import (
     SqlAlchemyDatasetRepository,
 )
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
 from game_predictor_api.storage.models import LayoutModel
 from game_predictor_api.storage.rules_repository import SqlAlchemyRulesRepository
 from sqlalchemy import create_engine, inspect, select
 from sqlalchemy.engine import URL, make_url
-from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -53,7 +55,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
+    return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
@@ -94,13 +96,16 @@ def test_symbol_localized_names_survive_real_database_round_trip(
         columns = {column["name"] for column in inspect(engine).get_columns("symbols")}
         assert {"name_pl", "name_en"} <= columns
 
-        with Session(engine, expire_on_commit=False) as session:
+        session_factory = create_session_factory(engine)
+        with ExitStack() as stack:
+            session = stack.enter_context(session_factory())
             service = CatalogService(SqlAlchemyCatalogRepository(session))
             game = service.create_game(
                 code="localized-game",
                 name="Localized Game",
                 status=GameStatus.ACTIVE,
             )
+            stack.enter_context(game_storage_scope(game.id))
             symbol = service.create_symbol(
                 game.id,
                 mobile_code=1,
@@ -140,29 +145,37 @@ def test_catalog_repository_uses_real_constraints(
     try:
         assert {
             "alembic_version",
-            "dataset_versions",
             "games",
             "jobs",
-            "layout_import_rows",
-            "layout_import_normalized_rows",
-            "layouts",
-            "layout_payouts",
-            "mobile_release_games",
             "mobile_releases",
             "paylines",
             "payout_rules",
             "rules_versions",
             "rules_version_symbols",
             "symbols",
-        } <= set(inspect(engine).get_table_names())
+        } <= set(inspect(engine).get_table_names(schema="public"))
+        game_tables = {
+            "dataset_versions",
+            "layout_import_rows",
+            "layout_import_normalized_rows",
+            "layouts",
+            "layout_payouts",
+            "mobile_release_games",
+        }
+        assert game_tables <= set(inspect(engine).get_table_names(schema="game_data_v2"))
+        assert game_tables.isdisjoint(inspect(engine).get_table_names(schema="public"))
 
-        with Session(engine, expire_on_commit=False) as session:
+        session_factory = create_session_factory(engine)
+        with ExitStack() as stack:
+            session = stack.enter_context(session_factory())
             service = CatalogService(SqlAlchemyCatalogRepository(session))
             game = service.create_game(
                 code="game-1",
                 name="Game 1",
                 status=GameStatus.ACTIVE,
+                expected_layout_count=1000,
             )
+            stack.enter_context(game_storage_scope(game.id))
             job_service = JobService(SqlAlchemyJobRepository(session))
             job_payload: dict[str, object] = {
                 "schema_version": 1,
@@ -275,6 +288,29 @@ def test_catalog_repository_uses_real_constraints(
             with pytest.raises(RulesConflictError) as error:
                 rules_service.update_rules_version(first_rules.id, columns=6)
             assert error.value.code == "RULES_DIMENSIONS_IN_USE"
+            # D-477: a permanent delete frees the code and the row path.
+            disposable = rules_service.create_payline(
+                first_rules.id,
+                code="line-disposable",
+                name="Disposable",
+                row_path=[2, 2, 2, 2, 2],
+                display_order=90,
+                is_active=False,
+            )
+            rules_service.delete_payline(first_rules.id, disposable.id)
+            session.flush()
+            assert disposable.id not in {
+                payline.id for payline in rules_service.list_paylines(first_rules.id)
+            }
+            recreated = rules_service.create_payline(
+                first_rules.id,
+                code="line-disposable",
+                name="Disposable",
+                row_path=[2, 2, 2, 2, 2],
+                display_order=90,
+                is_active=True,
+            )
+            rules_service.delete_payline(first_rules.id, recreated.id)
             session.commit()
 
             with pytest.raises(RulesConflictError) as error:
@@ -494,7 +530,7 @@ def test_catalog_repository_uses_real_constraints(
             assert archived.published_at == published.published_at
             session.commit()
 
-        with Session(engine, expire_on_commit=False) as session:
+        with game_storage_scope(game.id), session_factory() as session:
             service = CatalogService(SqlAlchemyCatalogRepository(session))
             with pytest.raises(CatalogConflictError) as game_conflict:
                 service.create_game(

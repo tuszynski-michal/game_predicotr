@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 from game_predictor_api.api.image_grid_reviews import _require_expected_source
+from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_qualification import (
     GEOMETRY_QUALIFICATION_VERSION,
     GEOMETRY_QUALIFICATION_VERSION_V1,
@@ -18,7 +19,6 @@ from game_predictor_api.domain.geometry_qualification import (
     partially_visible_cell_indices,
     qualification_from_geometry,
 )
-from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.page_geometry_overrides import ImagePageGeometryOverride
 from game_predictor_api.schemas.geometry_qualification import GeometryQualificationPayload
 from game_predictor_api.schemas.image_grid_reviews import ImageGridReviewGeometryPreviewCommand
@@ -153,12 +153,12 @@ def test_available_cell_indices_excludes_only_fully_unavailable_for_virtual_sour
         geometry_qualification=v3,
         asset_mode="virtual_source",
     ) == frozenset(range(15)) - {0, 5, 10}
-    # legacy_file boards still exclude the whole declared mask (DA-4).
+    # D-451: real partial crops have identical semantics in both asset modes.
     assert available_cell_indices(
         unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
         geometry_qualification=v3,
         asset_mode="legacy_file",
-    ) == frozenset(range(15)) - {0, 1, 5, 6, 10, 11}
+    ) == frozenset(range(15)) - {0, 5, 10}
     # v1/v2 (or no qualification at all) always fall back to the full mask.
     v2 = GeometryQualification(
         "pending_partial", (0, 1), True, "missing_pixels", version=GEOMETRY_QUALIFICATION_VERSION
@@ -190,15 +190,12 @@ def test_partially_visible_cell_indices_is_the_declared_minus_fully_unavailable_
         geometry_qualification=v3,
         asset_mode="virtual_source",
     ) == {1, 6, 11}
-    # DA-4: never for legacy_file, even with the same v3 qualification.
-    assert (
-        partially_visible_cell_indices(
-            unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
-            geometry_qualification=v3,
-            asset_mode="legacy_file",
-        )
-        == frozenset()
-    )
+    # D-451: legacy files retain the same visible fragments as virtual assets.
+    assert partially_visible_cell_indices(
+        unavailable_cell_indices=(0, 1, 5, 6, 10, 11),
+        geometry_qualification=v3,
+        asset_mode="legacy_file",
+    ) == frozenset({1, 6, 11})
     # v1/v2 has no fully-unavailable split, so nothing is "merely partial".
     v2 = GeometryQualification(
         "pending_partial", (0, 1), True, "missing_pixels", version=GEOMETRY_QUALIFICATION_VERSION
@@ -338,9 +335,15 @@ def test_guard_database_projection_roundtrips_complete_exclusion() -> None:
     assert result.unavailable_cell_indices == ()
 
 
-def test_legacy_grid_writer_cannot_silently_discard_qualification() -> None:
+def test_qualified_grid_command_reaches_the_virtual_writer() -> None:
+    """D-467 S6 (TASK-0796): every board is ``virtual_source``, so a qualified
+    command is only checked against the persisted source identity."""
+
     service = Mock()
-    service.source_asset.return_value.asset_mode = "legacy_file"
+    source = service.source_asset.return_value
+    source.source_width = 320
+    source.source_height = 320
+    source.topology = BoardTopology(rows=3, columns=5)
     command = ImageGridReviewGeometryPreviewCommand.model_validate(
         {
             "expectedGeometryRevision": 0,
@@ -354,9 +357,7 @@ def test_legacy_grid_writer_cannot_silently_discard_qualification() -> None:
             "geometryQualification": GeometryQualification().to_dict(),
         }
     )
-    with pytest.raises(ImageGridReviewError) as error:
-        _require_expected_source(service, uuid4(), uuid4(), command)
-    assert error.value.code == "IMAGE_GRID_REVIEW_QUALIFICATION_UNSUPPORTED"
+    assert _require_expected_source(service, uuid4(), uuid4(), command) is source
     service.source_asset.assert_called_once()
 
 

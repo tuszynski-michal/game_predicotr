@@ -333,6 +333,8 @@ def start_worker(
     environment.update(
         {
             "GAME_PREDICTOR_DATABASE_URL": database_url.render_as_string(hide_password=False),
+            # The disposable database has only the owner role (TASK-0795).
+            "GAME_PREDICTOR_OWNER_DATABASE_URL": database_url.render_as_string(hide_password=False),
             "GAME_PREDICTOR_IMPORT_ROOT": str(root / "imports"),
             "GAME_PREDICTOR_ARTIFACT_ROOT": str(root / "artifacts"),
             "GAME_PREDICTOR_WORKER_THREAD_BUDGET": str(budget),
@@ -566,7 +568,7 @@ def main() -> int:
     root.mkdir(parents=True)
     import_root = root / "imports"
     import_root.mkdir()
-    database_url = make_url(ApiSettings.from_environment().database_url).set(
+    database_url = make_url(ApiSettings.from_environment().owner_database_url).set(
         database=f"game_predictor_concurrent_{run_id}"
     )
     state = AcceptanceState(started_at=time.monotonic())

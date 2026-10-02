@@ -1,6 +1,8 @@
 import type {
+  SymbolCellReviewExtendedFilterOptions,
   SymbolCellReviewFilterState,
   SymbolCellReviewPageResponse,
+  SymbolCellReviewPredictionSource,
 } from '@game-predictor/admin-api-client';
 
 export const DEFAULT_SYMBOL_REVIEW_PAGE_SIZE = 500;
@@ -11,7 +13,17 @@ export const MAX_SYMBOL_REVIEW_CACHED_PAGES = 3;
 
 export type SymbolReviewPageSize = (typeof SYMBOL_REVIEW_PAGE_SIZES)[number];
 
-export type SymbolReviewConfidenceFilter = 'all' | 'high' | 'low' | 'medium';
+export type SymbolReviewConfidenceFilter =
+  | 'all'
+  | 'below_60'
+  | 'from_60_to_80'
+  | 'from_80_to_99'
+  | 'from_80_to_100'
+  | 'exact_100';
+
+/** Which writer produced the cell's current prediction (D-466). */
+export type SymbolReviewPredictionSourceFilter =
+  'all' | SymbolCellReviewPredictionSource;
 
 export interface SymbolReviewPageRange {
   readonly end: number;
@@ -19,8 +31,13 @@ export interface SymbolReviewPageRange {
 }
 
 export interface SymbolReviewFilters {
+  /** Inclusive lower bound of the cell's last change, ISO 8601 in UTC. */
+  readonly changedFrom: string | null;
+  /** Inclusive upper bound of the cell's last change, ISO 8601 in UTC. */
+  readonly changedTo: string | null;
   readonly confidence: SymbolReviewConfidenceFilter;
   readonly gameId: string | null;
+  readonly predictionSource: SymbolReviewPredictionSourceFilter;
   readonly pageSize: number;
   readonly state: SymbolCellReviewFilterState;
   readonly symbolId: string | 'all' | 'unknown' | null;
@@ -82,15 +99,107 @@ export function symbolReviewConfidenceRange(
   confidence: SymbolReviewConfidenceFilter,
 ): { readonly maxConfidence?: number; readonly minConfidence?: number } {
   switch (confidence) {
-    case 'low':
-      return { maxConfidence: 0.499_999 };
-    case 'medium':
-      return { maxConfidence: 0.799_999, minConfidence: 0.5 };
-    case 'high':
-      return { minConfidence: 0.8 };
+    case 'exact_100':
+      return { maxConfidence: 1, minConfidence: 1 };
+    case 'from_80_to_99':
+      // Model predictions below 99%; reference-library predictions (0.99) stay out.
+      return { maxConfidence: 0.99 - Number.EPSILON / 2, minConfidence: 0.8 };
+    case 'from_80_to_100':
+      return { maxConfidence: 1 - Number.EPSILON / 2, minConfidence: 0.8 };
+    case 'from_60_to_80':
+      return { maxConfidence: 0.8 - Number.EPSILON / 2, minConfidence: 0.6 };
+    case 'below_60':
+      return { maxConfidence: 0.6 - Number.EPSILON / 2 };
     default:
       return {};
   }
+}
+
+export function symbolReviewExtendedFilters(
+  filters: Pick<
+    SymbolReviewFilters,
+    'changedFrom' | 'changedTo' | 'predictionSource'
+  >,
+): SymbolCellReviewExtendedFilterOptions {
+  return {
+    ...(filters.predictionSource === 'all'
+      ? {}
+      : { predictionSource: filters.predictionSource }),
+    ...(filters.changedFrom === null
+      ? {}
+      : { changedFrom: filters.changedFrom }),
+    ...(filters.changedTo === null ? {} : { changedTo: filters.changedTo }),
+  };
+}
+
+const LOCAL_DATE_TIME =
+  /^(\d{4}-\d{2}-\d{2}T\d{2}:\d{2})(?::\d{2}(?:\.\d+)?)?$/u;
+
+/**
+ * Converts a `datetime-local` value (local time, minute precision) to an ISO
+ * instant. The upper bound covers the whole selected minute, to the microsecond.
+ */
+export function symbolReviewLocalDateTimeToIso(
+  value: string,
+  bound: 'from' | 'to',
+): string | null {
+  // Seconds (a pasted value or another input step) are cut to the minute.
+  const minute = LOCAL_DATE_TIME.exec(value)?.[1];
+  if (minute === undefined) return null;
+  const time = new Date(minute).getTime();
+  if (!Number.isFinite(time)) return null;
+  if (bound === 'from') return new Date(time).toISOString();
+  // The API compares microsecond timestamps inclusively; cover the whole minute.
+  return new Date(time + 59_999).toISOString().replace(/Z$/u, '999Z');
+}
+
+/** Converts an ISO instant back to a `datetime-local` value in local time. */
+export function symbolReviewIsoToLocalDateTime(value: string | null): string {
+  if (value === null) return '';
+  const date = new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
+  const pad = (part: number) => String(part).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(
+    date.getDate(),
+  )}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** Local midnight of the given day as a `datetime-local` value. */
+export function symbolReviewStartOfDayLocal(now: Date): string {
+  return symbolReviewIsoToLocalDateTime(
+    new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString(),
+  );
+}
+
+export type SymbolReviewChangeRangeResult =
+  | {
+      readonly changedFrom: string | null;
+      readonly changedTo: string | null;
+      readonly ok: true;
+    }
+  | { readonly error: string; readonly ok: false };
+
+/** Validates the draft `datetime-local` bounds of the change-date filter. */
+export function parseSymbolReviewChangeRange(
+  from: string,
+  to: string,
+): SymbolReviewChangeRangeResult {
+  const changedFrom =
+    from === '' ? null : symbolReviewLocalDateTimeToIso(from, 'from');
+  const changedTo = to === '' ? null : symbolReviewLocalDateTimeToIso(to, 'to');
+  if (
+    (from !== '' && changedFrom === null) ||
+    (to !== '' && changedTo === null)
+  ) {
+    return { error: 'Podaj pełną datę i godzinę.', ok: false };
+  }
+  if (changedFrom !== null && changedTo !== null && changedFrom > changedTo) {
+    return {
+      error: 'Początek zakresu musi być przed jego końcem.',
+      ok: false,
+    };
+  }
+  return { changedFrom, changedTo, ok: true };
 }
 
 export function findCachedSymbolReviewPage(

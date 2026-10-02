@@ -153,6 +153,9 @@ class MemoryRulesRepository(RulesRepository):
         self.paylines[payline.id] = payline
         return payline
 
+    def delete_payline(self, rules_version_id: UUID, payline_id: UUID) -> None:
+        del self.paylines[payline_id]
+
     def payout_configuration_fits_columns(
         self,
         rules_version_id: UUID,

@@ -24,12 +24,6 @@ import type {
   ApplySymbolCellReviewDecisionData,
   ApplySymbolCellReviewDecisionErrors,
   ApplySymbolCellReviewDecisionResponses,
-  ApproveImageGridReviewGeometryData,
-  ApproveImageGridReviewGeometryErrors,
-  ApproveImageGridReviewGeometryResponses,
-  ApproveImageGridReviewSourceGeometryData,
-  ApproveImageGridReviewSourceGeometryErrors,
-  ApproveImageGridReviewSourceGeometryResponses,
   ApproveManualImageSelectionData,
   ApproveManualImageSelectionErrors,
   ApproveManualImageSelectionResponses,
@@ -72,6 +66,9 @@ import type {
   ContinueImageSelectionWithoutImageData,
   ContinueImageSelectionWithoutImageErrors,
   ContinueImageSelectionWithoutImageResponses,
+  CreateBoardSearchShareSessionData,
+  CreateBoardSearchShareSessionErrors,
+  CreateBoardSearchShareSessionResponses,
   CreateBrowserImageSelectionData,
   CreateBrowserImageSelectionErrors,
   CreateBrowserImageSelectionResponses,
@@ -93,9 +90,6 @@ import type {
   CreateImageGridReviewGeometryRevisionData,
   CreateImageGridReviewGeometryRevisionErrors,
   CreateImageGridReviewGeometryRevisionResponses,
-  CreateImageGridReviewSourceGeometryRevisionData,
-  CreateImageGridReviewSourceGeometryRevisionErrors,
-  CreateImageGridReviewSourceGeometryRevisionResponses,
   CreateImageSelectionData,
   CreateImageSelectionErrors,
   CreateImageSelectionResponses,
@@ -171,6 +165,9 @@ import type {
   DecideSemiAutomaticFilenameRangeVerificationData,
   DecideSemiAutomaticFilenameRangeVerificationErrors,
   DecideSemiAutomaticFilenameRangeVerificationResponses,
+  DeleteBoardSearchShareQueryData,
+  DeleteBoardSearchShareQueryErrors,
+  DeleteBoardSearchShareQueryResponses,
   DeleteBoardSourceRangesData,
   DeleteBoardSourceRangesErrors,
   DeleteBoardSourceRangesResponses,
@@ -180,6 +177,9 @@ import type {
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
+  DeletePaylineData,
+  DeletePaylineErrors,
+  DeletePaylineResponses,
   DeleteSemiAutomaticFilenameVerificationHistoryData,
   DeleteSemiAutomaticFilenameVerificationHistoryErrors,
   DeleteSemiAutomaticFilenameVerificationHistoryResponses,
@@ -222,15 +222,36 @@ import type {
   GetApprovedSymbolReferenceCandidateAssetData,
   GetApprovedSymbolReferenceCandidateAssetErrors,
   GetApprovedSymbolReferenceCandidateAssetResponses,
-  GetArchivedBoardSearchAssetData,
-  GetArchivedBoardSearchAssetErrors,
-  GetArchivedBoardSearchAssetResponses,
   GetBoardImportCoverageData,
   GetBoardImportCoverageErrors,
   GetBoardImportCoverageResponses,
   GetBoardSearchApproximateWinData,
   GetBoardSearchApproximateWinErrors,
   GetBoardSearchApproximateWinResponses,
+  GetBoardSearchBoardDetailData,
+  GetBoardSearchBoardDetailErrors,
+  GetBoardSearchBoardDetailResponses,
+  GetBoardSearchBoardViewData,
+  GetBoardSearchBoardViewErrors,
+  GetBoardSearchBoardViewResponses,
+  GetBoardSearchShareApproximateWinData,
+  GetBoardSearchShareApproximateWinErrors,
+  GetBoardSearchShareApproximateWinResponses,
+  GetBoardSearchShareBoardDetailData,
+  GetBoardSearchShareBoardDetailErrors,
+  GetBoardSearchShareBoardDetailResponses,
+  GetBoardSearchShareBoardViewData,
+  GetBoardSearchShareBoardViewErrors,
+  GetBoardSearchShareBoardViewResponses,
+  GetBoardSearchShareContextData,
+  GetBoardSearchShareContextErrors,
+  GetBoardSearchShareContextResponses,
+  GetBoardSearchShareQueryReplayData,
+  GetBoardSearchShareQueryReplayErrors,
+  GetBoardSearchShareQueryReplayResponses,
+  GetBoardSearchShareSymbolImageData,
+  GetBoardSearchShareSymbolImageErrors,
+  GetBoardSearchShareSymbolImageResponses,
   GetBrowserImageSelectionData,
   GetBrowserImageSelectionErrors,
   GetBrowserImageSelectionResponses,
@@ -257,12 +278,24 @@ import type {
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
+  GetImageGeometryCompletenessData,
+  GetImageGeometryCompletenessErrors,
+  GetImageGeometryCompletenessResponses,
+  GetImageGeometryCompletenessSourceAssetData,
+  GetImageGeometryCompletenessSourceAssetErrors,
+  GetImageGeometryCompletenessSourceAssetResponses,
   GetImageGeometryGuardSourceAssetData,
   GetImageGeometryGuardSourceAssetErrors,
   GetImageGeometryGuardSourceAssetResponses,
+  GetImageGeometryLowQualityBoardsData,
+  GetImageGeometryLowQualityBoardsErrors,
+  GetImageGeometryLowQualityBoardsResponses,
   GetImageGeometryRolloutStatusData,
   GetImageGeometryRolloutStatusErrors,
   GetImageGeometryRolloutStatusResponses,
+  GetImageGridReviewCorrectionSymbolsData,
+  GetImageGridReviewCorrectionSymbolsErrors,
+  GetImageGridReviewCorrectionSymbolsResponses,
   GetImageGridReviewSourceAssetData,
   GetImageGridReviewSourceAssetErrors,
   GetImageGridReviewSourceAssetResponses,
@@ -444,6 +477,15 @@ import type {
   ListApprovedSymbolReferenceCandidatesData,
   ListApprovedSymbolReferenceCandidatesErrors,
   ListApprovedSymbolReferenceCandidatesResponses,
+  ListBoardSearchShareQueriesData,
+  ListBoardSearchShareQueriesErrors,
+  ListBoardSearchShareQueriesResponses,
+  ListBoardSearchShareSessionsData,
+  ListBoardSearchShareSessionsErrors,
+  ListBoardSearchShareSessionsResponses,
+  ListBoardSearchShareSymbolsData,
+  ListBoardSearchShareSymbolsErrors,
+  ListBoardSearchShareSymbolsResponses,
   ListBrowserPageGeometryReviewSourcesData,
   ListBrowserPageGeometryReviewSourcesErrors,
   ListBrowserPageGeometryReviewSourcesResponses,
@@ -485,6 +527,9 @@ import type {
   ListImageSelectionsData,
   ListImageSelectionsErrors,
   ListImageSelectionsResponses,
+  ListIncompleteGeometryImagesData,
+  ListIncompleteGeometryImagesErrors,
+  ListIncompleteGeometryImagesResponses,
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
@@ -626,6 +671,9 @@ import type {
   PreviewPendingBoardCellGeometryCorrectionData,
   PreviewPendingBoardCellGeometryCorrectionErrors,
   PreviewPendingBoardCellGeometryCorrectionResponses,
+  PreviewPendingBoardCellGeometrySymbolsData,
+  PreviewPendingBoardCellGeometrySymbolsErrors,
+  PreviewPendingBoardCellGeometrySymbolsResponses,
   PreviewPendingGridReinferenceData,
   PreviewPendingGridReinferenceErrors,
   PreviewPendingGridReinferenceResponses,
@@ -659,9 +707,15 @@ import type {
   PutRemoteManualSelectionFileContentData,
   PutRemoteManualSelectionFileContentErrors,
   PutRemoteManualSelectionFileContentResponses,
+  RecordBoardSearchShareApproximateWinStakeData,
+  RecordBoardSearchShareApproximateWinStakeErrors,
+  RecordBoardSearchShareApproximateWinStakeResponses,
   RecoverImageSelectionRangesData,
   RecoverImageSelectionRangesErrors,
   RecoverImageSelectionRangesResponses,
+  RefreshBoardSearchBoardDocumentData,
+  RefreshBoardSearchBoardDocumentErrors,
+  RefreshBoardSearchBoardDocumentResponses,
   RefreshImageStorageInventoryData,
   RefreshImageStorageInventoryErrors,
   RefreshImageStorageInventoryResponses,
@@ -716,6 +770,9 @@ import type {
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
+  RevokeBoardSearchShareSessionData,
+  RevokeBoardSearchShareSessionErrors,
+  RevokeBoardSearchShareSessionResponses,
   RevokeRemoteManualSelectionSessionData,
   RevokeRemoteManualSelectionSessionErrors,
   RevokeRemoteManualSelectionSessionResponses,
@@ -734,6 +791,9 @@ import type {
   SealImageGeometryGuardResolutionManifestData,
   SealImageGeometryGuardResolutionManifestErrors,
   SealImageGeometryGuardResolutionManifestResponses,
+  SearchBoardSearchShareBoardsData,
+  SearchBoardSearchShareBoardsErrors,
+  SearchBoardSearchShareBoardsResponses,
   SearchGameBoardsData,
   SearchGameBoardsErrors,
   SearchGameBoardsResponses,
@@ -749,6 +809,12 @@ import type {
   SelectSemiAutomaticImageSelectionSourceFolderData,
   SelectSemiAutomaticImageSelectionSourceFolderErrors,
   SelectSemiAutomaticImageSelectionSourceFolderResponses,
+  SelectSymbolReferenceFromCellReviewData,
+  SelectSymbolReferenceFromCellReviewErrors,
+  SelectSymbolReferenceFromCellReviewResponses,
+  SetSourceImageGeometryExceptionData,
+  SetSourceImageGeometryExceptionErrors,
+  SetSourceImageGeometryExceptionResponses,
   SkipSymbolCellReviewsData,
   SkipSymbolCellReviewsErrors,
   SkipSymbolCellReviewsResponses,
@@ -791,6 +857,9 @@ import type {
   TakeoverRemoteManualSelectionWriterLeaseData,
   TakeoverRemoteManualSelectionWriterLeaseErrors,
   TakeoverRemoteManualSelectionWriterLeaseResponses,
+  UnlockBoardSearchShareSessionData,
+  UnlockBoardSearchShareSessionErrors,
+  UnlockBoardSearchShareSessionResponses,
   UnlockRemoteManualSelectionSessionData,
   UnlockRemoteManualSelectionSessionErrors,
   UnlockRemoteManualSelectionSessionResponses,
@@ -824,6 +893,9 @@ import type {
   UploadManualImageSelectionFileData,
   UploadManualImageSelectionFileErrors,
   UploadManualImageSelectionFileResponses,
+  WithdrawSourceImageGeometryExceptionData,
+  WithdrawSourceImageGeometryExceptionErrors,
+  WithdrawSourceImageGeometryExceptionResponses,
 } from './types.gen';
 
 export type Options<
@@ -843,6 +915,136 @@ export type Options<
    */
   meta?: keyof ClientMeta extends never ? Record<string, unknown> : ClientMeta;
 };
+
+/**
+ * Delete one query log entry; a search takes its follow-up entries with it
+ */
+export const deleteBoardSearchShareQuery = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeleteBoardSearchShareQueryData, ThrowOnError>,
+): RequestResult<
+  DeleteBoardSearchShareQueryResponses,
+  DeleteBoardSearchShareQueryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    DeleteBoardSearchShareQueryResponses,
+    DeleteBoardSearchShareQueryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/queries/{event_id}',
+    ...options,
+  });
+
+/**
+ * Read one query log entry with what is needed to replay it
+ */
+export const getBoardSearchShareQueryReplay = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareQueryReplayData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareQueryReplayResponses,
+  GetBoardSearchShareQueryReplayErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareQueryReplayResponses,
+    GetBoardSearchShareQueryReplayErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/queries/{event_id}',
+    ...options,
+  });
+
+/**
+ * List board-search share sessions without secrets
+ */
+export const listBoardSearchShareSessions = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListBoardSearchShareSessionsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareSessionsResponses,
+  ListBoardSearchShareSessionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchShareSessionsResponses,
+    ListBoardSearchShareSessionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/board-search-shares/sessions', ...options });
+
+/**
+ * Create one online read-only board-search share link
+ */
+export const createBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreateBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  CreateBoardSearchShareSessionResponses,
+  CreateBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateBoardSearchShareSessionResponses,
+    CreateBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read a share link's query log, newest first (D-472)
+ */
+export const listBoardSearchShareQueries = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListBoardSearchShareQueriesData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareQueriesResponses,
+  ListBoardSearchShareQueriesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListBoardSearchShareQueriesResponses,
+    ListBoardSearchShareQueriesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/queries',
+    ...options,
+  });
+
+/**
+ * Immediately stop one board-search share link
+ */
+export const revokeBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RevokeBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  RevokeBoardSearchShareSessionResponses,
+  RevokeBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeBoardSearchShareSessionResponses,
+    RevokeBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/revoke',
+    ...options,
+  });
 
 /**
  * Archive a published dataset version
@@ -1055,23 +1257,62 @@ export const getBoardSearchApproximateWin = <
   });
 
 /**
- * Read one checksum-bound board image from a frozen search archive
+ * Winning paylines and cropped-view cell polygons of one board
  */
-export const getArchivedBoardSearchAsset = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<GetArchivedBoardSearchAssetData, ThrowOnError>,
+export const getBoardSearchBoardDetail = <ThrowOnError extends boolean = false>(
+  options: Options<GetBoardSearchBoardDetailData, ThrowOnError>,
 ): RequestResult<
-  GetArchivedBoardSearchAssetResponses,
-  GetArchivedBoardSearchAssetErrors,
+  GetBoardSearchBoardDetailResponses,
+  GetBoardSearchBoardDetailErrors,
   ThrowOnError
 > =>
   (options.client ?? client).get<
-    GetArchivedBoardSearchAssetResponses,
-    GetArchivedBoardSearchAssetErrors,
+    GetBoardSearchBoardDetailResponses,
+    GetBoardSearchBoardDetailErrors,
     ThrowOnError
   >({
-    url: '/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}',
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Rebuild one board's search document from its current records
+ */
+export const refreshBoardSearchBoardDocument = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RefreshBoardSearchBoardDocumentData, ThrowOnError>,
+): RequestResult<
+  RefreshBoardSearchBoardDocumentResponses,
+  RefreshBoardSearchBoardDocumentErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RefreshBoardSearchBoardDocumentResponses,
+    RefreshBoardSearchBoardDocumentErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/refresh',
+    ...options,
+  });
+
+/**
+ * Read the checksum-bound cropped WebP view of one board
+ */
+export const getBoardSearchBoardView = <ThrowOnError extends boolean = false>(
+  options: Options<GetBoardSearchBoardViewData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchBoardViewResponses,
+  GetBoardSearchBoardViewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchBoardViewResponses,
+    GetBoardSearchBoardViewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/view',
     ...options,
   });
 
@@ -1338,61 +1579,6 @@ export const listImageGridReviews = <ThrowOnError extends boolean = false>(
   >({ url: '/api/v1/admin/games/{game_id}/grid-reviews', ...options });
 
 /**
- * Atomically approve every current board geometry of one source image
- */
-export const approveImageGridReviewSourceGeometry = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<ApproveImageGridReviewSourceGeometryData, ThrowOnError>,
-): RequestResult<
-  ApproveImageGridReviewSourceGeometryResponses,
-  ApproveImageGridReviewSourceGeometryErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).post<
-    ApproveImageGridReviewSourceGeometryResponses,
-    ApproveImageGridReviewSourceGeometryErrors,
-    ThrowOnError
-  >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
- * Atomically persist and approve manual geometry for every board of one source
- */
-export const createImageGridReviewSourceGeometryRevision = <
-  ThrowOnError extends boolean = false,
->(
-  options: Options<
-    CreateImageGridReviewSourceGeometryRevisionData,
-    ThrowOnError
-  >,
-): RequestResult<
-  CreateImageGridReviewSourceGeometryRevisionResponses,
-  CreateImageGridReviewSourceGeometryRevisionErrors,
-  ThrowOnError
-> =>
-  (options.client ?? client).post<
-    CreateImageGridReviewSourceGeometryRevisionResponses,
-    CreateImageGridReviewSourceGeometryRevisionErrors,
-    ThrowOnError
-  >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions',
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-  });
-
-/**
  * Get bounded virtual-geometry rollout validation status
  */
 export const getImageGeometryRolloutStatus = <
@@ -1578,7 +1764,7 @@ export const getPendingBoardCellGeometryCorrectionContext = <
   });
 
 /**
- * Preview 15 manual source-direct crops for a deferred board
+ * Preview the virtual cells of a manual deferred-board geometry
  */
 export const previewPendingBoardCellGeometryCorrection = <
   ThrowOnError extends boolean = false,
@@ -1604,7 +1790,33 @@ export const previewPendingBoardCellGeometryCorrection = <
   });
 
 /**
- * Create one ordinary review item from manual deferred geometry
+ * Predict the symbols of the virtual cells of a manual deferred-board geometry
+ */
+export const previewPendingBoardCellGeometrySymbols = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPendingBoardCellGeometrySymbolsData, ThrowOnError>,
+): RequestResult<
+  PreviewPendingBoardCellGeometrySymbolsResponses,
+  PreviewPendingBoardCellGeometrySymbolsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPendingBoardCellGeometrySymbolsResponses,
+    PreviewPendingBoardCellGeometrySymbolsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-symbol-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Resolve a deferred board as one virtual-source review item
  */
 export const resolvePendingBoardCellGeometryManually = <
   ThrowOnError extends boolean = false,
@@ -1822,7 +2034,7 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   });
 
 /**
- * Render a stable WebP atlas for current legacy or virtual symbol cells
+ * Render a stable WebP atlas for current virtual symbol cells
  */
 export const createSymbolCellPreviewBatch = <
   ThrowOnError extends boolean = false,
@@ -2074,6 +2286,32 @@ export const applySymbolCellReviewDecision = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Persist one approved Symbol Verification crop as its symbol reference
+ */
+export const selectSymbolReferenceFromCellReview = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SelectSymbolReferenceFromCellReviewData, ThrowOnError>,
+): RequestResult<
+  SelectSymbolReferenceFromCellReviewResponses,
+  SelectSymbolReferenceFromCellReviewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SelectSymbolReferenceFromCellReviewResponses,
+    SelectSymbolReferenceFromCellReviewErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/symbol-reference',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -2351,7 +2589,7 @@ export const getApprovedSymbolReferenceCandidateAsset = <
     GetApprovedSymbolReferenceCandidateAssetErrors,
     ThrowOnError
   >({
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/asset',
     ...options,
   });
 
@@ -2373,7 +2611,7 @@ export const selectApprovedSymbolReferenceCandidate = <
     ThrowOnError
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection',
+    url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/selection',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -3498,6 +3736,138 @@ export const getImageDatasetCompleteness = <
   });
 
 /**
+ * Count complete and incomplete source images of a game or import (D-484)
+ */
+export const getImageGeometryCompleteness = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryCompletenessData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryCompletenessResponses,
+  GetImageGeometryCompletenessErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryCompletenessResponses,
+    GetImageGeometryCompletenessErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * Withdraw the geometry exception of a source image before human decisions
+ */
+export const withdrawSourceImageGeometryException = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<WithdrawSourceImageGeometryExceptionData, ThrowOnError>,
+): RequestResult<
+  WithdrawSourceImageGeometryExceptionResponses,
+  WithdrawSourceImageGeometryExceptionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    WithdrawSourceImageGeometryExceptionResponses,
+    WithdrawSourceImageGeometryExceptionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception',
+    ...options,
+  });
+
+/**
+ * Admit an incomplete source image to symbol cutting by an operator exception
+ */
+export const setSourceImageGeometryException = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetSourceImageGeometryExceptionData, ThrowOnError>,
+): RequestResult<
+  SetSourceImageGeometryExceptionResponses,
+  SetSourceImageGeometryExceptionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SetSourceImageGeometryExceptionResponses,
+    SetSourceImageGeometryExceptionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read the checksum-bound source image of any image of a game (D-484)
+ */
+export const getImageGeometryCompletenessSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryCompletenessSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryCompletenessSourceAssetResponses,
+  GetImageGeometryCompletenessSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryCompletenessSourceAssetResponses,
+    GetImageGeometryCompletenessSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/source',
+    ...options,
+  });
+
+/**
+ * List one page of source images without a complete set of grids (D-484)
+ */
+export const listIncompleteGeometryImages = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListIncompleteGeometryImagesData, ThrowOnError>,
+): RequestResult<
+  ListIncompleteGeometryImagesResponses,
+  ListIncompleteGeometryImagesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListIncompleteGeometryImagesResponses,
+    ListIncompleteGeometryImagesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/incomplete-images',
+    ...options,
+  });
+
+/**
+ * List boards with many unreviewed low-confidence symbol cells
+ */
+export const getImageGeometryLowQualityBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryLowQualityBoardsData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryLowQualityBoardsResponses,
+  GetImageGeometryLowQualityBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryLowQualityBoardsResponses,
+    GetImageGeometryLowQualityBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/low-quality-boards',
+    ...options,
+  });
+
+/**
  * Preview pending-only grid and crop recalculation
  */
 export const previewPendingGridReinference = <
@@ -3717,7 +4087,7 @@ export const getOperationalImageReviewSourceAsset = <
   });
 
 /**
- * Preview 15 corrected v19 board-cell crops without persistence
+ * Preview the virtual cells of a corrected board geometry without persistence
  */
 export const previewOperationalImageReviewGeometry = <
   ThrowOnError extends boolean = false,
@@ -3743,7 +4113,7 @@ export const previewOperationalImageReviewGeometry = <
   });
 
 /**
- * Persist immutable v19 symbol-lattice geometry and reopen review
+ * Persist a virtual-source geometry revision of one board and reopen review
  */
 export const createOperationalImageReviewGeometryRevision = <
   ThrowOnError extends boolean = false,
@@ -3823,29 +4193,24 @@ export const listOperationalImageReviewResolutionEvents = <
   });
 
 /**
- * Approve one exact current board geometry revision
+ * Read the symbols stored on the current cells of one board under correction
  */
-export const approveImageGridReviewGeometry = <
+export const getImageGridReviewCorrectionSymbols = <
   ThrowOnError extends boolean = false,
 >(
-  options: Options<ApproveImageGridReviewGeometryData, ThrowOnError>,
+  options: Options<GetImageGridReviewCorrectionSymbolsData, ThrowOnError>,
 ): RequestResult<
-  ApproveImageGridReviewGeometryResponses,
-  ApproveImageGridReviewGeometryErrors,
+  GetImageGridReviewCorrectionSymbolsResponses,
+  GetImageGridReviewCorrectionSymbolsErrors,
   ThrowOnError
 > =>
-  (options.client ?? client).post<
-    ApproveImageGridReviewGeometryResponses,
-    ApproveImageGridReviewGeometryErrors,
+  (options.client ?? client).get<
+    GetImageGridReviewCorrectionSymbolsResponses,
+    GetImageGridReviewCorrectionSymbolsErrors,
     ThrowOnError
   >({
-    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
-    url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-approval',
+    url: '/api/v1/admin/image-reviews/{review_item_id}/correction-symbols',
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
   });
 
 /**
@@ -3875,7 +4240,7 @@ export const previewImageGridReviewGeometry = <
   });
 
 /**
- * Persist and approve one topology-aware geometry revision
+ * Persist one topology-aware geometry revision of one board
  */
 export const createImageGridReviewGeometryRevision = <
   ThrowOnError extends boolean = false,
@@ -3901,7 +4266,7 @@ export const createImageGridReviewGeometryRevision = <
   });
 
 /**
- * Read one current checksum-bound source image for grid validation
+ * Read one current checksum-bound source image for grid correction
  */
 export const getImageGridReviewSourceAsset = <
   ThrowOnError extends boolean = false,
@@ -5559,6 +5924,22 @@ export const updatePayline = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Permanently delete draft payline
+ */
+export const deletePayline = <ThrowOnError extends boolean = false>(
+  options: Options<DeletePaylineData, ThrowOnError>,
+): RequestResult<DeletePaylineResponses, DeletePaylineErrors, ThrowOnError> =>
+  (options.client ?? client).delete<
+    DeletePaylineResponses,
+    DeletePaylineErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent',
+    ...options,
+  });
+
+/**
  * List rules-version payout rules
  */
 export const listPayoutRules = <ThrowOnError extends boolean = false>(
@@ -6379,6 +6760,184 @@ export const listWorkerLanes = <ThrowOnError extends boolean = false>(
     unknown,
     ThrowOnError
   >({ url: '/api/v1/admin/worker-lanes', ...options });
+
+/**
+ * Calculate the approximate win for a range of the shared game
+ */
+export const getBoardSearchShareApproximateWin = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareApproximateWinData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareApproximateWinResponses,
+  GetBoardSearchShareApproximateWinErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareApproximateWinResponses,
+    GetBoardSearchShareApproximateWinErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/approximate-win', ...options });
+
+/**
+ * Record the stake the recipient views a calculated range at (D-487)
+ */
+export const recordBoardSearchShareApproximateWinStake = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RecordBoardSearchShareApproximateWinStakeData, ThrowOnError>,
+): RequestResult<
+  RecordBoardSearchShareApproximateWinStakeResponses,
+  RecordBoardSearchShareApproximateWinStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    RecordBoardSearchShareApproximateWinStakeResponses,
+    RecordBoardSearchShareApproximateWinStakeErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/approximate-win/stake', ...options });
+
+/**
+ * Winning paylines of one board of the shared game (no cell records)
+ */
+export const getBoardSearchShareBoardDetail = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareBoardDetailData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareBoardDetailResponses,
+  GetBoardSearchShareBoardDetailErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareBoardDetailResponses,
+    GetBoardSearchShareBoardDetailErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/boards/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Read the checksum-bound cropped view of one board of the shared game
+ */
+export const getBoardSearchShareBoardView = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareBoardViewData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareBoardViewResponses,
+  GetBoardSearchShareBoardViewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareBoardViewResponses,
+    GetBoardSearchShareBoardViewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/boards/{sequence_number}/view',
+    ...options,
+  });
+
+/**
+ * Read the authenticated share context
+ */
+export const getBoardSearchShareContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetBoardSearchShareContextData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareContextResponses,
+  GetBoardSearchShareContextErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetBoardSearchShareContextResponses,
+    GetBoardSearchShareContextErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/context', ...options });
+
+/**
+ * Find boards of the shared game by a partial symbol pattern
+ */
+export const searchBoardSearchShareBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<SearchBoardSearchShareBoardsData, ThrowOnError>,
+): RequestResult<
+  SearchBoardSearchShareBoardsResponses,
+  SearchBoardSearchShareBoardsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    SearchBoardSearchShareBoardsResponses,
+    SearchBoardSearchShareBoardsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/search', ...options });
+
+/**
+ * Exchange a share link's access code for a session cookie
+ */
+export const unlockBoardSearchShareSession = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UnlockBoardSearchShareSessionData, ThrowOnError>,
+): RequestResult<
+  UnlockBoardSearchShareSessionResponses,
+  UnlockBoardSearchShareSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    UnlockBoardSearchShareSessionResponses,
+    UnlockBoardSearchShareSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/sessions/{session_id}/unlock',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List the shared game's symbols
+ */
+export const listBoardSearchShareSymbols = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<ListBoardSearchShareSymbolsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareSymbolsResponses,
+  ListBoardSearchShareSymbolsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListBoardSearchShareSymbolsResponses,
+    ListBoardSearchShareSymbolsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/symbols', ...options });
+
+/**
+ * Read one checksum-bound symbol image of the shared game
+ */
+export const getBoardSearchShareSymbolImage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareSymbolImageData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareSymbolImageResponses,
+  GetBoardSearchShareSymbolImageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareSymbolImageResponses,
+    GetBoardSearchShareSymbolImageErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/symbols/{symbol_id}/image',
+    ...options,
+  });
 
 /**
  * Get API health

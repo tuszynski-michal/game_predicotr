@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
@@ -21,10 +22,15 @@ from game_predictor_api.domain.catalog import (
     SymbolUsageSummary,
     stable_code_stem_from_name,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v1 import CREATE_TABLES
+from game_predictor_api.domain.image_import_engine_policy import (
+    DEFAULT_CELL_ASSET_MODE,
+    DEFAULT_GEOMETRY_MODE,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v4 import CREATE_TABLES, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleError,
     GamePartitionLifecycleKind,
+    GamePartitionLifecycleReceipt,
     GamePartitionLifecycleRepository,
 )
 from game_predictor_api.storage.game_storage_routing import (
@@ -33,7 +39,6 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageStatus,
 )
 from game_predictor_api.storage.models import (
-    CellObservationModel,
     GameModel,
     GameSymbolModelActivationModel,
     ImageGeometryRolloutStateModel,
@@ -67,9 +72,23 @@ _CONFLICTS = {
 
 
 class SqlAlchemyCatalogRepository(CatalogRepository):
-    def __init__(self, session: Session, storage_router: GameStorageRouter | None = None) -> None:
+    def __init__(
+        self,
+        session: Session,
+        storage_router: GameStorageRouter | None = None,
+        *,
+        partition_ddl_session_factory: Callable[[], Session] | None = None,
+    ) -> None:
         self._session = session
-        self._storage_router = storage_router
+        # PostgreSQL game creation is never a catalog-only operation: the
+        # router drives the bounded V2 partition lifecycle before returning.
+        # Non-PostgreSQL test adapters retain the router's virtual V2 behavior.
+        self._storage_router = storage_router or GameStorageRouter()
+        # TASK-0795: the runtime session uses the application role, which has
+        # no DDL rights. Each partition DDL step (CREATE TABLE ... PARTITION
+        # OF, ANALYZE) then runs in its own schema-owner session. The catalog
+        # row and the lifecycle receipt stay in the caller's session.
+        self._partition_ddl_session_factory = partition_ddl_session_factory
 
     def list_games(self) -> list[Game]:
         records = self._session.scalars(
@@ -138,8 +157,8 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         self._session.add(
             ImageGeometryRolloutStateModel(
                 game_id=record.id,
-                geometry_mode="legacy",
-                cell_asset_mode="legacy_files",
+                geometry_mode=DEFAULT_GEOMETRY_MODE,
+                cell_asset_mode=DEFAULT_CELL_ASSET_MODE,
                 revision=0,
                 backfill_status="not_started",
                 updated_by="system:catalog-game-create",
@@ -159,24 +178,20 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         operation_id = receipt.operation_id
         self._session.commit()
         for _ in range(len(CREATE_TABLES) + 2):
-            try:
-                receipt = GamePartitionLifecycleRepository(self._session).run_next(operation_id)
-            except GamePartitionLifecycleError:
-                # Domain drift is deliberately persisted as `blocked`; the
-                # outer request rollback must not erase that diagnostic.
-                self._session.commit()
-                raise
-            self._session.commit()
+            receipt = self._run_partition_step(operation_id)
             if receipt.status == "done":
                 location = self._storage_router.describe(self._session, record.id)
-                if (
-                    location.status is not GameStorageStatus.ACTIVE
-                    or not location.write_available
-                ):
+                if location.status is not GameStorageStatus.ACTIVE or not location.write_available:
                     raise RuntimeError("Provisioned game storage did not become writable.")
                 self._session.refresh(record)
                 return _to_game(record, location)
         raise RuntimeError("Game partition provisioning exceeded the frozen manifest bound.")
+
+    def _run_partition_step(self, operation_id: UUID) -> GamePartitionLifecycleReceipt:
+        if self._partition_ddl_session_factory is None:
+            return _run_partition_step_in(self._session, operation_id)
+        with self._partition_ddl_session_factory() as ddl_session:
+            return _run_partition_step_in(ddl_session, operation_id)
 
     def _is_resumable_create(
         self,
@@ -354,7 +369,10 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         resolved_symbols = ImageReviewItemModel.resolved_value["symbolCodes"].contains(
             [symbol_code]
         )
-        predicted_symbol = CellObservationModel.prediction["symbolCode"].as_string()
+        # Predictions are counted on the current V2 cell projection instead of the per-cell
+        # observation history (D-467): current predictions only, so superseded boards and
+        # predictions overwritten by a later revision no longer block deletion.
+        cell = ImageSymbolReviewCellModel
         return SymbolUsageSummary(
             rules=_count(
                 self._session,
@@ -364,21 +382,16 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             ),
             pending_board_predictions=_count(
                 self._session,
-                select(CellObservationModel.id)
-                .join(
-                    RecognizedBoardModel,
-                    RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
-                )
-                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+                select(cell.id)
                 .join(
                     ImageReviewItemModel,
-                    ImageReviewItemModel.recognized_board_id == RecognizedBoardModel.id,
+                    (ImageReviewItemModel.game_id == cell.game_id)
+                    & (ImageReviewItemModel.id == cell.review_item_id),
                 )
                 .where(
-                    JobModel.game_id == game_id,
+                    cell.game_id == game_id,
                     ImageReviewItemModel.status == "pending",
-                    predicted_symbol == symbol_code,
+                    cell.prediction_symbol_code == symbol_code,
                 ),
             ),
             resolved_board_decisions=_count(
@@ -398,14 +411,9 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             ),
             observation_predictions=_count(
                 self._session,
-                select(CellObservationModel.id)
-                .join(
-                    RecognizedBoardModel,
-                    RecognizedBoardModel.id == CellObservationModel.recognized_board_id,
-                )
-                .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
-                .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
-                .where(JobModel.game_id == game_id, predicted_symbol == symbol_code),
+                select(cell.id).where(
+                    cell.game_id == game_id, cell.prediction_symbol_code == symbol_code
+                ),
             ),
             symbol_cell_assignments=_count(
                 self._session,
@@ -482,9 +490,9 @@ def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> G
         expected_layout_count=record.expected_layout_count,
         created_at=record.created_at,
         updated_at=record.updated_at,
-        storage_version=(storage.storage_version if storage is not None else "legacy-public-v1"),
-        storage_schema=(storage.store_schema.value if storage is not None else "public"),
-        storage_generation=(storage.generation if storage is not None else 1),
+        storage_version=(storage.storage_version if storage is not None else VERSION),
+        storage_schema=(storage.store_schema.value if storage is not None else "game_data_v2"),
+        storage_generation=(storage.generation if storage is not None else 2),
         storage_status=(storage.status.value if storage is not None else "active"),
         storage_write_available=(storage.write_available if storage is not None else True),
         shape_geometry_configuration=(
@@ -493,6 +501,18 @@ def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> G
             else GameShapeGeometryConfiguration(record.shape_geometry_configuration)
         ),
     )
+
+
+def _run_partition_step_in(session: Session, operation_id: UUID) -> GamePartitionLifecycleReceipt:
+    try:
+        receipt = GamePartitionLifecycleRepository(session).run_next(operation_id)
+    except GamePartitionLifecycleError:
+        # Domain drift is deliberately persisted as `blocked`; the outer
+        # request rollback must not erase that diagnostic.
+        session.commit()
+        raise
+    session.commit()
+    return receipt
 
 
 def _next_symbol_code(name: str, existing_codes: tuple[str, ...]) -> str:

@@ -51,9 +51,11 @@ class UnreadableBoardReviewCell:
     quality_issue: str | None
     revision: int
     geometry_revision: int
-    crop_sample_id: str
-    crop_checksum_sha256: str
+    crop_sample_id: str | None
+    crop_checksum_sha256: str | None
     render_spec_checksum_sha256: str | None = None
+    source_visibility: str = "full"
+    asset_mode: str = "virtual_source"
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,8 +89,8 @@ class ResolveUnreadableCellCommand:
     cell_index: int
     expected_revision: int
     expected_geometry_revision: int
-    expected_crop_sample_id: str
-    expected_crop_checksum_sha256: str
+    expected_crop_sample_id: str | None
+    expected_crop_checksum_sha256: str | None
     target_symbol_id: UUID | None
     actor: str
 
@@ -100,8 +102,8 @@ class SaveUnreadableBoardCellCommand:
     cell_index: int
     expected_revision: int
     expected_geometry_revision: int
-    expected_crop_sample_id: str
-    expected_crop_checksum_sha256: str
+    expected_crop_sample_id: str | None
+    expected_crop_checksum_sha256: str | None
     target_symbol_id: UUID | None
 
 
@@ -215,8 +217,8 @@ class UnreadableBoardReviewService:
         cell_index: int,
         expected_revision: int,
         expected_geometry_revision: int,
-        expected_crop_sample_id: str,
-        expected_crop_checksum_sha256: str,
+        expected_crop_sample_id: str | None,
+        expected_crop_checksum_sha256: str | None,
         target_symbol_id: UUID | None,
         actor: str,
     ) -> SymbolCellReviewMutationResult:

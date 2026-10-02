@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from unittest.mock import Mock
 from uuid import uuid4
 
+import pytest
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_reviews import ImageReviewCell
 from game_predictor_api.domain.image_symbol_reviews import approve_symbol_cell_review
@@ -18,10 +19,17 @@ from game_predictor_api.storage.models import (
 )
 
 
-def _cells(revision, missing, *, asset_mode="legacy_file"):
+@pytest.fixture(autouse=True)
+def in_memory_game_store(monkeypatch):
+    monkeypatch.setattr(
+        "game_predictor_api.storage.image_symbol_review_repository._bind_game_store",
+        lambda *_: None,
+    )
+
+
+def _cells(revision, missing, *, asset_mode="virtual_source"):
     return tuple(
         ImageReviewCell(
-            observation_id=uuid4(),
             cell_index=index,
             row_index=index // 5,
             column_index=index % 5,
@@ -53,6 +61,60 @@ def _cells(revision, missing, *, asset_mode="legacy_file"):
     )
 
 
+def _cell_geometry(outside):
+    """Source-slot cell footprints in a 100 x 100 source; ``outside`` are off-frame."""
+
+    def quad(x0, y0, x1, y1):
+        return [{"x": x0, "y": y0}, {"x": x1, "y": y0}, {"x": x1, "y": y1}, {"x": x0, "y": y1}]
+
+    return {
+        "cells": [
+            {
+                "rowIndex": index // 5,
+                "columnIndex": index % 5,
+                "sourceQuad": quad(-20, 10, -10, 20)
+                if index in outside
+                else quad(
+                    10 + (index % 5) * 15,
+                    10 + (index // 5) * 15,
+                    20 + (index % 5) * 15,
+                    20 + (index // 5) * 15,
+                ),
+            }
+            for index in range(15)
+        ]
+    }
+
+
+def _install_pinned_geometry_records(session, board, source):
+    """Provide the adopted revision records required by the production resolver."""
+    source.id = uuid4()
+    source.checksum_sha256 = "a" * 64
+    source.oriented_width = source.oriented_height = 100
+    board.source_geometry_revision_id = uuid4()
+    board.geometry_checksum_sha256 = "b" * 64
+    board.position_index = 0
+    session.get.side_effect = lambda *_: SimpleNamespace(
+        id=board.source_geometry_revision_id,
+        source_image_id=source.id,
+        source_checksum_sha256=source.checksum_sha256,
+        geometry_checksum_sha256=board.geometry_checksum_sha256,
+        oriented_width=100,
+        oriented_height=100,
+        board_geometries=[
+            dict(
+                getattr(board, "board_geometry", {}),
+                positionIndex=0,
+                sequenceNumber=board.sequence_number,
+            )
+        ],
+    )
+    session.scalar.side_effect = lambda *_: SimpleNamespace(
+        revision=board.geometry_revision,
+        geometry=getattr(board, "board_geometry", None),
+    )
+
+
 def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_approval():
     game_id, review_id, board_id, symbol_id = (uuid4() for _ in range(4))
     rows, events = [], []
@@ -76,23 +138,31 @@ def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_ap
         grid_columns=5,
         sequence_number=1,
         geometry_revision=0,
+        # D-467 S6 (TASK-0796): every board is ``virtual_source``.
+        asset_mode="virtual_source",
+        board_geometry=_cell_geometry(()),
         geometry_qualification=None,
         unavailable_cell_indices=[],
         completeness_status="complete",
     )
     coordinator = SymbolCellReviewWriteThroughCoordinator(session)
-    coordinator._state_if_initialized = Mock(return_value=SimpleNamespace(failure_message=None))
+    coordinator._state_if_initialized = Mock(
+        return_value=SimpleNamespace(failure_message=None, count_projection_status="unavailable")
+    )
     coordinator._touch_catalog_revision = Mock()
+    coordinator._refresh_search_projection = Mock()
     coordinator._review_row = Mock(
         return_value=(
             SimpleNamespace(id=review_id, status="pending", resolved_value=None),
             board,
-            SimpleNamespace(import_job_id=uuid4()),
+            # TASK-0807: NULL = not evaluated by the geometry gate (pre-gate behaviour).
+            SimpleNamespace(import_job_id=uuid4(), geometry_completeness_status=None),
             Mock(),
             Mock(),
         )
     )
     coordinator._current_cells = Mock(return_value=(_cells(0, ()), "cropper-v1", None, None))
+    _install_pinned_geometry_records(session, board, coordinator._review_row.return_value[2])
     assert coordinator.synchronize_after_prediction_refresh(
         game_id=game_id, review_item_id=review_id
     )
@@ -116,6 +186,8 @@ def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_ap
         board.geometry_qualification = GeometryQualification(
             "pending_partial", missing, True, "missing_pixels"
         ).to_dict()
+        # A virtual board's visibility comes from its pinned source slot.
+        board.board_geometry = _cell_geometry(missing)
         coordinator._current_cells.return_value = (
             _cells(revision, missing),
             "cropper-v1",
@@ -195,11 +267,13 @@ def test_partially_visible_virtual_source_cells_are_forced_unknown_and_never_tra
         return_value=SimpleNamespace(failure_message=None, count_projection_status="uninitialized")
     )
     coordinator._touch_catalog_revision = Mock()
+    coordinator._refresh_search_projection = Mock()
     coordinator._review_row = Mock(
         return_value=(
             SimpleNamespace(id=review_id, status="pending", resolved_value=None),
             board,
-            SimpleNamespace(import_job_id=uuid4()),
+            # TASK-0807: NULL = not evaluated by the geometry gate (pre-gate behaviour).
+            SimpleNamespace(import_job_id=uuid4(), geometry_completeness_status=None),
             Mock(),
             Mock(),
         )
@@ -208,14 +282,41 @@ def test_partially_visible_virtual_source_cells_are_forced_unknown_and_never_tra
     # ones -- exactly what production_workflow.py now generates (T2/D).
     current_cells = _cells(0, fully_unavailable, asset_mode="virtual_source")
     coordinator._current_cells = Mock(return_value=(current_cells, "cropper-v1", None, None))
+    board.board_geometry = {
+        "cells": [
+            {
+                "rowIndex": index // 5,
+                "columnIndex": index % 5,
+                "sourceQuad": [
+                    {"x": x, "y": y}
+                    for x, y in (
+                        ((-20, 10), (-10, 10), (-10, 20), (-20, 20))
+                        if index in fully_unavailable
+                        else ((-2, 10), (10, 10), (10, 20), (-2, 20))
+                        if index in partially_visible
+                        else ((10, 10), (20, 10), (20, 20), (10, 20))
+                    )
+                ],
+            }
+            for index in range(15)
+        ]
+    }
+    source = coordinator._review_row.return_value[2]
+    source.width, source.height = 100, 100
+    source.oriented_width, source.oriented_height = 100, 100
+    _install_pinned_geometry_records(session, board, source)
 
     assert coordinator.synchronize_after_prediction_refresh(
         game_id=game_id, review_item_id=review_id
     )
 
-    assert len(rows) == 12
+    assert len(rows) == 15
     by_index = {row.cell_index: row for row in rows}
-    assert set(by_index) == set(range(15)) - set(fully_unavailable)
+    assert set(by_index) == set(range(15))
+    for index in fully_unavailable:
+        assert by_index[index].source_visibility == "outside"
+        assert by_index[index].crop_sample_id is None
+        assert by_index[index].crop_checksum_sha256 is None
     for index in partially_visible:
         row = by_index[index]
         assert row.assigned_symbol_id is None

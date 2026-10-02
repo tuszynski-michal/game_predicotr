@@ -23,7 +23,10 @@ from uuid import UUID, uuid5
 
 import numpy as np
 from game_predictor_api.config import get_settings
-from game_predictor_api.storage.database import create_database_engine, create_session_factory
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.models import (
     ImageBoardGeometryPendingModel,
@@ -664,7 +667,7 @@ def _observation_payload(observation: VerifierObservation) -> dict[str, object]:
 
 def calibrate(*, game_id: UUID, sample_sources: int, seed: int, output_dir: Path) -> Path:
     settings = get_settings()
-    engine = _read_only_engine(create_database_engine(settings))
+    engine = _read_only_engine(create_maintenance_database_engine(settings))
     session_factory = create_session_factory(engine)
     started = time.perf_counter()
     try:
@@ -863,7 +866,7 @@ def review_sheet(
     import io
 
     settings = get_settings()
-    engine = _read_only_engine(create_database_engine(settings))
+    engine = _read_only_engine(create_maintenance_database_engine(settings))
     session_factory = create_session_factory(engine)
     try:
         with game_storage_scope(game_id), session_factory() as session:
@@ -1004,7 +1007,7 @@ def v3_sample(*, game_id: UUID, per_category: int, seed: int, output_dir: Path) 
     from game_predictor_worker.images.screen_layout_v3 import BoardStatus, detect_screen_layout_v3
 
     settings = get_settings()
-    engine = _read_only_engine(create_database_engine(settings))
+    engine = _read_only_engine(create_maintenance_database_engine(settings))
     session_factory = create_session_factory(engine)
     try:
         with game_storage_scope(game_id), session_factory() as session:
@@ -1613,7 +1616,7 @@ def hybrid_sample(
     import cv2
 
     settings = get_settings()
-    engine = _read_only_engine(create_database_engine(settings))
+    engine = _read_only_engine(create_maintenance_database_engine(settings))
     session_factory = create_session_factory(engine)
     try:
         with game_storage_scope(game_id), session_factory() as session:
@@ -1927,7 +1930,7 @@ def dry_run(
     if (target / "decisions.json").exists():
         return target / "index.html"
     settings = get_settings()
-    engine = _read_only_engine(create_database_engine(settings))
+    engine = _read_only_engine(create_maintenance_database_engine(settings))
     session_factory = create_session_factory(engine)
     try:
         with game_storage_scope(game_id), session_factory() as session:
@@ -2176,7 +2179,7 @@ def dry_run_all(*, game_id: UUID, output_dir: Path, tau_cell: float, min_ecc: fl
     import html
 
     settings = get_settings()
-    engine = _read_only_engine(create_database_engine(settings))
+    engine = _read_only_engine(create_maintenance_database_engine(settings))
     session_factory = create_session_factory(engine)
     try:
         with game_storage_scope(game_id), session_factory() as session:
@@ -2337,7 +2340,7 @@ def execute(
             if logged.get("result") in ("written", "replay"):
                 done.add(int(logged["previewNumber"]))
     settings = get_settings()
-    engine = create_database_engine(settings)
+    engine = create_maintenance_database_engine(settings)
     session_factory = create_session_factory(engine)
     counts: dict[str, int] = {}
     processed = 0

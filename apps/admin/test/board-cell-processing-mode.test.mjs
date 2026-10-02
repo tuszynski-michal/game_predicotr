@@ -21,12 +21,7 @@ function imageImportJob(boardCellProcessing, imageGeometryRollout) {
   };
 }
 
-test('retains labels for historical import policies', () => {
-  assert.match(boardCellProcessingModeLabel('verified_v19'), /v20/);
-  assert.equal(
-    boardCellProcessingModeLabel('structured_shadow'),
-    'v0.10 — historyczny tryb pomiarowy',
-  );
+test('offers labels only for the virtual import policies', () => {
   assert.equal(
     boardCellProcessingModeLabel('structured_default'),
     'v0.10 v2 — stabilny silnik strukturalny',
@@ -59,11 +54,11 @@ test('labels each persisted import with its pinned board processing engine', () 
   );
   assert.equal(
     boardCellProcessingJobLabel(verified),
-    'v20 — geometria i cropy v19',
+    'v20 — geometria i cropy v19 (usunięty)',
   );
   assert.equal(
     boardCellProcessingJobLabel(shadow),
-    '0.10 — nowy silnik w cieniu · primary v20/v19',
+    '0.10 — nowy silnik w cieniu · primary v20/v19 (usunięty)',
   );
   assert.equal(
     boardCellProcessingJobLabel(structuredDefault),
@@ -75,7 +70,7 @@ test('labels each persisted import with its pinned board processing engine', () 
   );
 });
 
-test('rejects a returned job whose immutable snapshot differs from the game policy', () => {
+test('a returned job matches only its own virtual policy', () => {
   const historical = imageImportJob(undefined);
   const verified = imageImportJob({
     activationVersion: VERIFIED_V19_ACTIVATION_VERSION,
@@ -91,33 +86,19 @@ test('rejects a returned job whose immutable snapshot differs from the game poli
     geometryMode: 'structured_lattice_v3',
   });
 
-  assert.equal(
-    jobMatchesBoardCellProcessingMode(historical, 'verified_v19'),
-    false,
-  );
-  assert.equal(
-    jobMatchesBoardCellProcessingMode(verified, 'verified_v19'),
-    true,
-  );
-  assert.equal(
-    jobMatchesBoardCellProcessingMode(shadow, 'verified_v19'),
-    false,
-  );
-  assert.equal(
-    jobMatchesBoardCellProcessingMode(verified, 'structured_shadow'),
-    false,
-  );
-  assert.equal(
-    jobMatchesBoardCellProcessingMode(shadow, 'structured_shadow'),
-    true,
-  );
+  for (const legacy of [historical, verified, shadow]) {
+    assert.equal(
+      jobMatchesBoardCellProcessingMode(legacy, 'structured_default'),
+      false,
+    );
+    assert.equal(
+      jobMatchesBoardCellProcessingMode(legacy, 'structured_lattice_v3'),
+      false,
+    );
+  }
   assert.equal(
     jobMatchesBoardCellProcessingMode(structuredDefault, 'structured_default'),
     true,
-  );
-  assert.equal(
-    jobMatchesBoardCellProcessingMode(shadow, 'structured_default'),
-    false,
   );
   assert.equal(
     jobMatchesBoardCellProcessingMode(structuredV3, 'structured_lattice_v3'),

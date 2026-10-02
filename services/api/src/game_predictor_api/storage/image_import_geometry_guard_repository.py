@@ -17,12 +17,14 @@ from game_predictor_api.domain.image_import_geometry_guard import (
     ImageGeometryGuardScope,
 )
 from game_predictor_api.domain.jobs import JobConflictError, JobStatus, JobType
+from game_predictor_api.storage.game_entity_locator import assign_game_if_unscoped
 from game_predictor_api.storage.models import (
     BrowserSelectionRetentionModel,
     ImageImportGeometryGuardDecisionModel,
     ImageImportGeometryGuardResolutionManifestModel,
     JobModel,
 )
+from game_predictor_api.storage.partition_constraints import resolve_unique_constraint_name
 
 
 class SqlAlchemyImageImportGeometryGuardRepository:
@@ -36,6 +38,8 @@ class SqlAlchemyImageImportGeometryGuardRepository:
         browser_selection_id: UUID,
         guard_job_id: UUID,
     ) -> ImageGeometryGuardScope | None:
+        # TASK-0797: guard routes name their game only in the request body.
+        assign_game_if_unscoped(self._session, game_id)
         row = self._session.execute(
             select(JobModel, BrowserSelectionRetentionModel)
             .join(
@@ -125,7 +129,10 @@ class SqlAlchemyImageImportGeometryGuardRepository:
             with self._session.begin_nested():
                 return self._add_decisions(values)
         except IntegrityError as error:
-            if getattr(getattr(error.orig, "diag", None), "constraint_name", None) not in {
+            constraint = resolve_unique_constraint_name(
+                self._session, error, ImageImportGeometryGuardDecisionModel.__table__
+            )
+            if constraint is None or constraint not in {
                 "uq_image_import_guard_decisions_revision",
                 "uq_image_import_guard_decisions_checksum",
             }:

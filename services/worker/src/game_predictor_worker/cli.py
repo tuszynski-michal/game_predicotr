@@ -32,8 +32,15 @@ from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
 from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.database import (
+    create_cross_game_owner_session_factory,
     create_database_engine,
+    create_owner_database_engine,
+    create_owner_session_factory,
     create_session_factory,
+)
+from game_predictor_api.storage.schema_readiness import (
+    AlembicHeadMismatchError,
+    require_alembic_head,
 )
 from game_predictor_api.storage.worker_lane_repository import SqlAlchemyWorkerLaneRepository
 
@@ -286,6 +293,11 @@ def main(arguments: Sequence[str] | None = None) -> int:
             return 0
         finally:
             engine.dispose()
+    try:
+        require_alembic_head(engine)
+    except AlembicHeadMismatchError:
+        engine.dispose()
+        raise
     store = SqlAlchemyWorkerJobStore(session_factory)
     artifact_root = options.artifact_root.resolve()
     handlers: dict[JobType, JobHandler]
@@ -395,11 +407,21 @@ def main(arguments: Sequence[str] | None = None) -> int:
             import_handler,
             image_import_handler,
         )
-        snapshot_store = SqlAlchemyProductionSnapshotStore(session_factory)
+        # TASK-0795: the runtime engine uses the application role (no DDL, no
+        # RLS bypass). VACUUM after pipeline compaction and ANALYZE after a
+        # symbol-review backfill are the only general-lane steps that need the
+        # schema owner; the NullPool engine opens a connection only for them.
+        owner_engine = create_owner_database_engine(settings)
+        # TASK-0797: a release build spans the games of one mobile release in
+        # one transaction, which a game-bound application-role session cannot
+        # do; its stores run on the cross-game schema-owner session.
+        release_session_factory = create_cross_game_owner_session_factory(owner_engine)
+        release_payout_store = SqlAlchemyPayoutStore(release_session_factory)
+        snapshot_store = SqlAlchemyProductionSnapshotStore(release_session_factory)
         release_handler = ReleaseWorkflowHandler(
-            SqlAlchemyReleaseWorkflowStore(session_factory),
-            payout_handler,
-            PayoutReadinessService(payout_store),
+            SqlAlchemyReleaseWorkflowStore(release_session_factory),
+            PayoutBatchHandler(release_payout_store, JsonlPayoutAuditWriter(artifact_root)),
+            PayoutReadinessService(release_payout_store),
             ProductionSnapshotArtifactPublisher(
                 ProductionSnapshotGenerator(snapshot_store),
                 artifact_root,
@@ -428,7 +450,10 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 artifact_root,
             ),
             JobType.IMAGE_SYMBOL_REVIEW_BULK: SymbolCellReviewBulkHandler(session_factory),
-            JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(session_factory),
+            JobType.IMAGE_SYMBOL_REVIEW_BACKFILL: SymbolCellReviewBackfillHandler(
+                session_factory,
+                statistics_session_factory=create_owner_session_factory(owner_engine),
+            ),
             JobType.IMAGE_GEOMETRY_ROLLOUT_BACKFILL: ImageGeometryRolloutBackfillHandler(
                 session_factory
             ),
@@ -445,7 +470,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
             JobType.STORAGE_PIPELINE_COMPACTION: PipelineStateCompactionHandler(
                 session_factory,
                 artifact_root,
-                engine,
+                owner_engine,
             ),
         }
         execution_slot = JobExecutionSlot.GENERAL

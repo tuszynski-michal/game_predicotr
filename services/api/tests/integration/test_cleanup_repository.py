@@ -1,8 +1,10 @@
 import os
 from collections.abc import Iterator
 from pathlib import Path
+from uuid import UUID
 
 import pytest
+from _application_role_database import provision_game
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.application.cleanup import CleanupService
@@ -14,6 +16,11 @@ from game_predictor_api.domain.jobs import JobStatus, JobType
 from game_predictor_api.domain.mobile_releases import MobileReleaseStatus
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.cleanup_repository import SqlAlchemyCleanupRepository
+from game_predictor_api.storage.database import (
+    create_cross_game_owner_session_factory,
+    create_session_factory,
+)
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
 from game_predictor_api.storage.models import (
     CleanupOperationModel,
     DatasetVersionModel,
@@ -40,7 +47,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
+    return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
@@ -78,16 +85,19 @@ class RecordingArtifacts:
         self.deleted = paths
 
 
-def _add_game_source(session: Session, code: str) -> tuple[GameModel, DatasetVersionModel]:
-    game = GameModel(code=code, name=code, status=GameStatus.ACTIVE)
-    session.add(game)
+def _add_game_source(session: Session, game_id: UUID) -> tuple[GameModel, DatasetVersionModel]:
+    # TASK-0797: game data lives in V2 partitions provisioned by the owner
+    # lifecycle (no public fallback store since 0125).
+    game = session.get(GameModel, game_id)
+    assert game is not None
+    game.status = GameStatus.ACTIVE
     session.flush()
     symbol = SymbolModel(
         game_id=game.id,
         mobile_code=1,
         code="S1",
         name="Symbol 1",
-        image_path=f"symbols/{code}/s1.png",
+        image_path=f"symbols/{game.code}/s1.png",
         is_wildcard=False,
         display_order=1,
         status=SymbolStatus.ACTIVE,
@@ -130,10 +140,13 @@ def test_game_reset_preserves_game_jobs_and_other_game(
 ) -> None:
     command.upgrade(_migration_config(isolated_cleanup_database), "head")
     engine = create_engine(isolated_cleanup_database, pool_pre_ping=True)
+    release_factory = create_cross_game_owner_session_factory(engine)
+    target_id = provision_game(engine, "target-game")
+    other_id = provision_game(engine, "other-game")
     try:
-        with Session(engine, expire_on_commit=False) as session:
-            target_game, target_dataset = _add_game_source(session, "target-game")
-            other_game, _other_dataset = _add_game_source(session, "other-game")
+        with release_factory() as session:
+            target_game, target_dataset = _add_game_source(session, target_id)
+            other_game, _other_dataset = _add_game_source(session, other_id)
             target_rules = session.scalar(
                 select(RulesVersionModel).where(RulesVersionModel.game_id == target_game.id)
             )
@@ -165,17 +178,26 @@ def test_game_reset_preserves_game_jobs_and_other_game(
             session.commit()
 
             artifacts = RecordingArtifacts()
-            service = CleanupService(SqlAlchemyCleanupRepository(session), artifacts)
-            preview = service.preview_game_reset(target_game.id)
-            result = service.reset_game(
-                target_game.id,
-                CleanupCommand(
-                    preview_token=preview.preview_token,
-                    confirmation_target=str(target_game.id),
-                    confirmed=True,
-                ),
-            )
-            session.commit()
+            # Production wiring: the game reset runs in a session bound to the
+            # game (application role in the PG application-role mode); only the
+            # cross-game safety checks read through the owner session.
+            with (
+                game_storage_scope(target_game.id),
+                create_session_factory(engine)() as game_session,
+            ):
+                service = CleanupService(
+                    SqlAlchemyCleanupRepository(game_session, release_factory), artifacts
+                )
+                preview = service.preview_game_reset(target_game.id)
+                result = service.reset_game(
+                    target_game.id,
+                    CleanupCommand(
+                        preview_token=preview.preview_token,
+                        confirmation_target=str(target_game.id),
+                        confirmed=True,
+                    ),
+                )
+                game_session.commit()
 
             assert result.kind == "game_layout_data"
             assert session.get(GameModel, target_game.id) is not None
@@ -224,9 +246,12 @@ def test_release_delete_preserves_selected_game_and_records_receipt(
 ) -> None:
     command.upgrade(_migration_config(isolated_cleanup_database), "head")
     engine = create_engine(isolated_cleanup_database, pool_pre_ping=True)
+    release_factory = create_cross_game_owner_session_factory(engine)
+    game_id = provision_game(engine, "release-game")
     try:
-        with Session(engine, expire_on_commit=False) as session:
-            game, dataset = _add_game_source(session, "release-game")
+        # Production wiring: release cleanup runs on the cross-game owner session.
+        with release_factory() as session:
+            game, dataset = _add_game_source(session, game_id)
             rules = session.scalar(
                 select(RulesVersionModel).where(RulesVersionModel.game_id == game.id)
             )
@@ -255,7 +280,9 @@ def test_release_delete_preserves_selected_game_and_records_receipt(
             session.commit()
 
             artifacts = RecordingArtifacts()
-            service = CleanupService(SqlAlchemyCleanupRepository(session), artifacts)
+            service = CleanupService(
+                SqlAlchemyCleanupRepository(session, release_factory), artifacts
+            )
             preview = service.preview_release(release.id)
             service.delete_release(
                 release.id,

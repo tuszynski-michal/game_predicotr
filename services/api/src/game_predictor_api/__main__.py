@@ -8,7 +8,19 @@ from pathlib import Path
 
 import uvicorn
 
-from game_predictor_api.config import get_settings
+from game_predictor_api.config import ApiSettings, get_settings
+from game_predictor_api.storage.database import create_database_engine
+from game_predictor_api.storage.schema_readiness import require_alembic_head
+
+
+def require_database_schema(settings: ApiSettings) -> None:
+    """Refuse to serve against a schema other than this code's Alembic head."""
+
+    engine = create_database_engine(settings)
+    try:
+        require_alembic_head(engine)
+    finally:
+        engine.dispose()
 
 
 def main(argv: Sequence[str] | None = None) -> None:
@@ -20,6 +32,7 @@ def main(argv: Sequence[str] | None = None) -> None:
     )
     arguments = parser.parse_args(argv)
     settings = get_settings()
+    require_database_schema(settings)
     uvicorn.run(
         "game_predictor_api.main:app",
         host=settings.host,

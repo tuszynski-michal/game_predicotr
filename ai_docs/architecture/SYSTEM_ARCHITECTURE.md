@@ -510,7 +510,8 @@ samym trwałym jobie zapis managed originals, rejestrację plików oraz adaptery
 `discovery` → `normalization` → `board_detection` → `board_crops` →
 `sequence_ocr` → `symbol_inference`. Wyniki tworzą job-scoped projekcje
 `source_images`, `recognized_boards`, `cell_observations` i
-`image_review_items`. Checkpoint źródła oraz checkpoint per plik umożliwiają
+`image_review_items` (od TASK-0790 zamiast obserwacji powstaje manifest
+renderu `board_render_manifests`; tabela obserwacji usunięta w `0134`). Checkpoint źródła oraz checkpoint per plik umożliwiają
 wznowienie po restarcie workera bez ponownego uploadu i bez nadpisywania
 ukończonych etapów. OCR numerów jednej strony jest wykonywany jako jeden batch
 od jednego do dziewięciu cropów.
@@ -587,8 +588,8 @@ etapów; wynik jest walidowany przed zapisem.
 
 Automatyczne wyniki są zapisywane globalnie w
 `image_pipeline_stage_results`, natomiast `source_images`,
-`recognized_boards`, 15 `cell_observations` i `image_review_items` są
-projekcjami konkretnego joba. Projekcja po `symbol_inference` zawsze ma status
+`recognized_boards`, manifest renderu (do TASK-0790: 15 `cell_observations`)
+i `image_review_items` są projekcjami konkretnego joba. Projekcja po `symbol_inference` zawsze ma status
 `pending_review`. Dopiero atomowa decyzja całej planszy materializuje
 `image_layout_staging_rows`; rejected nie tworzy layoutu. Walidacja ciągłości
 raportuje luki i duplikaty bez modyfikowania raw OCR ani zaakceptowanego numeru.
@@ -841,9 +842,11 @@ uruchomienia modelu keypoint.
 W odbiorze 2026-08-29 nie było kompletnego raportu 0.10. Produkcyjne tryby nie
 zostały promowane, a aliasy, legacy cropy i dual-schema pozostają. Jest to
 świadomy finalny stan bezpiecznego cutoveru, nie automatyczne zaliczenie jakości.
-Pełny rollback jest operacyjny: nowa rewizja stanu gry wraca do
-`legacy/legacy_files`, istniejące joby zachowują snapshot, a source geometry,
-canonical ownership i decyzje człowieka nie są usuwane ani przepisywane.
+Pełny rollback do `legacy/legacy_files` był operacyjny do D-467; od
+TASK-0790 (migracja `0133`) tryby legacy i shadow nie istnieją, a rollback
+silnika oznacza wybór drugiej polityki wirtualnej. Istniejące joby zachowują
+snapshot, a source geometry, canonical ownership i decyzje człowieka nie są
+usuwane ani przepisywane.
 
 TASK-0319 dodaje izolowany pakiet `images/keypoint_geometry`, lecz nie nowy
 produkcyjny pipeline. Dataset zamraża wyłącznie ręcznie zatwierdzone source
@@ -1661,11 +1664,12 @@ layoutów. Brak którejkolwiek zgodności daje `local_data_error`.
 ### Per-game image import engine policy
 
 `image_geometry_rollout_states` jest trwałym źródłem ustawienia silnika dla
-nowych importów danej gry. Warstwa HTTP udostępnia wyłącznie dwie bezpieczne
-projekcje: stabilny `legacy/legacy_files` mapowany na jawny pipeline v20/v19
-oraz produkcyjny `structured_default/virtual_default` v0.10. Historyczny
-`structured_shadow/virtual_shadow` pozostaje odtwarzalny, ale nie jest opcją
-nowego importu. Polityka i jej rewizja wchodzą do checksummy preflightu i
+nowych importów danej gry. Od D-467 (TASK-0790) warstwa HTTP udostępnia
+wyłącznie projekcje wirtualne `structured_default/virtual_default` i
+`structured_lattice_v3/virtual_default` (domyślna dla nowej gry); dawne
+`legacy/legacy_files` (v20/v19) i `structured_shadow/virtual_shadow` są
+odrzucane kodem `IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`, a worker i writer
+importu odmawiają ich wykonania. Polityka i jej rewizja wchodzą do checksummy preflightu i
 snapshotu joba; zmiana nie mutuje istniejących jobów.
 
 Browser preflight wylicza z polityki flagę `geometryPreflightRequired`.

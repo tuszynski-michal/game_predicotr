@@ -1,13 +1,13 @@
 ---
 title: TASK-0645 — Gra 777: reguła decyzji i pełny dry-run reweryfikacji siatek
-status: todo
+status: blocked
 ---
 
 # TASK-0645 — Reguła decyzji i dry-run (read-only)
 
 ## Status
 
-`todo`
+`blocked` — D-445 wstrzymała stary weryfikator; D-447 i `VISION_LAB_EXECUTION_PLAN.md` nie dostarczają uzupełniania slotów historycznego 777 siecią. Wznowienie wymaga osobnej decyzji i korekty tego planu.
 
 ## Goal
 

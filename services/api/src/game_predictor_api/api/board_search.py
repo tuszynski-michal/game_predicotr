@@ -1,21 +1,20 @@
 """Read-only API for deterministic partial-board search."""
 
 from collections.abc import Callable
-from pathlib import Path
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, Query, Response
 from fastapi import Path as ApiPath
-from fastapi.responses import FileResponse
 
 from game_predictor_api.application.board_search import BoardSearchService
 from game_predictor_api.application.board_search_approximate_win import (
     APPROXIMATE_WIN_SPIN_COUNT_MAX,
     BoardSearchApproximateWinService,
 )
-from game_predictor_api.application.board_search_assets import (
-    resolve_board_search_archive_asset,
+from game_predictor_api.application.board_search_board_detail import (
+    BoardSearchBoardDetailService,
+    BoardSearchBoardViewService,
 )
 from game_predictor_api.domain.board_search import (
     BoardSearchError,
@@ -29,7 +28,10 @@ from game_predictor_api.schemas.board_search import (
 )
 from game_predictor_api.schemas.board_search_approximate_win import (
     ApproximateWinResponse,
+    BoardSearchBoardDetailResponse,
+    BoardSearchBoardRefreshResponse,
     to_approximate_win_response,
+    to_board_search_board_detail_response,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 
@@ -45,7 +47,7 @@ APPROXIMATE_WIN_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     409: {
         "model": ErrorResponse,
         "description": (
-            "Board-search projection/archive not ready, no published rules, an "
+            "Board-search projection not ready, no published rules, an "
             "invalid rules configuration, a board symbol outside the active "
             "rules, or a starting board outside the game's sequence"
         ),
@@ -54,14 +56,32 @@ APPROXIMATE_WIN_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
 }
 
 
+BOARD_DETAIL_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
+    404: {"model": ErrorResponse, "description": "Game or board-search document not found"},
+    409: {
+        "model": ErrorResponse,
+        "description": (
+            "Projection not ready, no or invalid published rules, a board "
+            "symbol outside the rules, or the board changed since the search "
+            "document was written"
+        ),
+    },
+    422: {"model": ErrorResponse, "description": "Invalid path parameters"},
+}
+
+
 def create_board_search_router(
     service_dependency: BoardSearchServiceDependency,
     approximate_win_service_dependency: BoardSearchApproximateWinServiceDependency,
-    artifact_root: Path,
+    *,
+    board_detail_service_dependency: Callable[..., object],
+    board_view_service_dependency: Callable[..., object],
 ) -> APIRouter:
     router = APIRouter(prefix="/admin/games", tags=["board-search"])
     service_parameter = Depends(service_dependency)
     approximate_win_service_parameter = Depends(approximate_win_service_dependency)
+    board_detail_service_parameter = Depends(board_detail_service_dependency)
+    board_view_service_parameter = Depends(board_view_service_dependency)
 
     @router.get(
         "/{game_id}/board-search",
@@ -92,34 +112,6 @@ def create_board_search_router(
         )
 
     @router.get(
-        "/{game_id}/board-search/archive-assets/{sequence_number}",
-        response_class=FileResponse,
-        operation_id="getArchivedBoardSearchAsset",
-        summary="Read one checksum-bound board image from a frozen search archive",
-        responses=ERROR_RESPONSES,
-    )
-    def get_archived_board_search_asset(
-        game_id: UUID,
-        sequence_number: Annotated[int, ApiPath(ge=1)],
-        service: Annotated[BoardSearchService, service_parameter],
-        expected_checksum_sha256: Annotated[
-            str,
-            Query(alias="expectedBoardChecksumSha256", pattern=r"^[a-f0-9]{64}$"),
-        ],
-    ) -> FileResponse:
-        reference = service.archive_asset(
-            game_id=game_id,
-            sequence_number=sequence_number,
-            expected_checksum_sha256=expected_checksum_sha256,
-        )
-        asset = resolve_board_search_archive_asset(reference, artifact_root)
-        return FileResponse(
-            asset.path,
-            media_type=asset.media_type,
-            headers={"Cache-Control": "private, immutable, max-age=31536000"},
-        )
-
-    @router.get(
         "/{game_id}/board-search/approximate-win",
         response_model=ApproximateWinResponse,
         operation_id="getBoardSearchApproximateWin",
@@ -141,6 +133,85 @@ def create_board_search_router(
             requested_spin_count=spin_count,
         )
         return to_approximate_win_response(calculation)
+
+    @router.get(
+        "/{game_id}/board-search/boards/{sequence_number}",
+        response_model=BoardSearchBoardDetailResponse,
+        operation_id="getBoardSearchBoardDetail",
+        summary="Winning paylines and cropped-view cell polygons of one board",
+        responses=BOARD_DETAIL_ERROR_RESPONSES,
+    )
+    def get_board_search_board_detail(
+        game_id: UUID,
+        sequence_number: Annotated[int, ApiPath(ge=1)],
+        service: Annotated[BoardSearchBoardDetailService, board_detail_service_parameter],
+    ) -> BoardSearchBoardDetailResponse:
+        return to_board_search_board_detail_response(
+            service.detail(game_id=game_id, sequence_number=sequence_number)
+        )
+
+    @router.post(
+        "/{game_id}/board-search/boards/{sequence_number}/refresh",
+        response_model=BoardSearchBoardRefreshResponse,
+        operation_id="refreshBoardSearchBoardDocument",
+        summary="Rebuild one board's search document from its current records",
+        responses=BOARD_DETAIL_ERROR_RESPONSES,
+    )
+    def refresh_board_search_board_document(
+        game_id: UUID,
+        sequence_number: Annotated[int, ApiPath(ge=1)],
+        service: Annotated[BoardSearchBoardDetailService, board_detail_service_parameter],
+    ) -> BoardSearchBoardRefreshResponse:
+        result = service.refresh(game_id=game_id, sequence_number=sequence_number)
+        return BoardSearchBoardRefreshResponse(
+            document_removed=result.document_removed,
+            detail=None
+            if result.detail is None
+            else to_board_search_board_detail_response(result.detail),
+        )
+
+    @router.get(
+        "/{game_id}/board-search/boards/{sequence_number}/view",
+        response_class=Response,
+        operation_id="getBoardSearchBoardView",
+        summary="Read the checksum-bound cropped WebP view of one board",
+        responses=BOARD_DETAIL_ERROR_RESPONSES,
+    )
+    def get_board_search_board_view(
+        game_id: UUID,
+        sequence_number: Annotated[int, ApiPath(ge=1)],
+        service: Annotated[BoardSearchBoardViewService, board_view_service_parameter],
+        expected_checksum_sha256: Annotated[
+            str,
+            Query(alias="expectedBoardChecksumSha256", pattern=r"^[a-f0-9]{64}$"),
+        ],
+        view_revision: Annotated[
+            str | None,
+            Query(alias="viewRevision", pattern=r"^[a-f0-9]{64}$"),
+        ] = None,
+        if_none_match: Annotated[str | None, Header(alias="If-None-Match")] = None,
+    ) -> Response:
+        asset = service.view(
+            game_id=game_id,
+            sequence_number=sequence_number,
+            expected_board_checksum_sha256=expected_checksum_sha256,
+            expected_view_revision=view_revision,
+        )
+        etag = f'"{asset.revision}"'
+        # Only a URL naming the exact view revision may be cached forever;
+        # without it the browser revalidates, so a changed grid is never
+        # paired with a stale image.
+        headers = {
+            "Cache-Control": "private, immutable, max-age=31536000"
+            if view_revision is not None
+            else "private, no-cache",
+            "ETag": etag,
+        }
+        if if_none_match is not None and etag in {
+            value.strip() for value in if_none_match.split(",")
+        }:
+            return Response(status_code=304, headers=headers)
+        return Response(content=asset.content, media_type=asset.media_type, headers=headers)
 
     return router
 
@@ -170,4 +241,11 @@ def _parse_cells(values: list[str]) -> tuple[BoardSearchQueryCell, ...]:
     return tuple(parsed)
 
 
-__all__ = ["create_board_search_router"]
+def parse_board_search_cells(values: list[str]) -> tuple[BoardSearchQueryCell, ...]:
+    """Parse `cellIndex:symbolCode|?` query values (also used by the online
+    share surface, D-471)."""
+
+    return _parse_cells(values)
+
+
+__all__ = ["create_board_search_router", "parse_board_search_cells"]

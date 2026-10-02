@@ -27,6 +27,16 @@ zadanie odwołuje się do nich jawnie.
 - Z użytkownikiem komunikuj się i przedstawiaj plany po polsku, chyba że
   poprosi inaczej. Instrukcje zapisuj w języku edytowanego dokumentu; nie
   tłumacz przy okazji identyfikatorów, kodu ani istniejącej dokumentacji.
+- Odpowiedzi w czacie pisz w stylu `caveman lite`, aby ograniczyć zużycie
+  tokenów: bez wstępów, grzeczności, powtórzeń i asekuracji; pełne, zwięzłe
+  zdania; jedna myśl na zdanie; bez narracji przed wywołaniami narzędzi. Styl
+  dotyczy tylko rozmowy z użytkownikiem i pozostaje po polsku. Kod, komendy,
+  identyfikatory, cytowane błędy, dokumentację, komunikaty commitów, treść
+  tasków, `Outcome` i wpisy `DECISION_LOG.md` pisz normalnym stylem. Wyjdź ze
+  stylu przy ostrzeżeniach bezpieczeństwa, potwierdzaniu operacji
+  nieodwracalnych i wieloetapowych instrukcjach, w których skrót groziłby
+  błędnym odczytem, a także na prośbę „stop caveman” lub „normal mode”.
+  Agent z dostępnym skillem `caveman` uruchamia go z poziomem `lite`.
 - Ostatnią sekcją każdego planu musi być `Przypisanie modeli do zadań` z
   kompletną tabelą `Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy
 review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
@@ -35,9 +45,12 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
   `ai_docs/process/PLAN_STANDARD.md`.
 
 - Nie rozszerzaj zakresu zadania bez wyraźnej potrzeby.
-- Implementuj wyłącznie task wskazany przez użytkownika. Nie rozpoczynaj
-  kolejnego taska, nawet jeżeli jego zależności są gotowe, bez osobnego
-  polecenia użytkownika.
+- Domyślnie implementuj wyłącznie task wskazany przez użytkownika. Wyraźne
+  polecenie uruchomienia etapu zaakceptowanego planu obejmuje wszystkie jego
+  taski w kolejności planu oraz delegowanie wykonawców i audytorów według
+  tabeli modeli. Sama tabela nie jest zgodą na delegowanie. Dla planu bez
+  etapów obowiązuje zatrzymanie po tasku, chyba że użytkownik wyraźnie
+  polecił wykonanie całego planu.
 - Przed kodowaniem ponownie przeczytaj aktywny task oraz odpowiadające mu
   fragmenty zaakceptowanego planu. Jeżeli zakres taska i plan są sprzeczne,
   zgłoś konflikt przed implementacją.
@@ -72,13 +85,20 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 
 - Każdy ukończony task otrzymuje osobny commit. Niezależna poprawka błędu
   wykonana przed taskiem również wymaga osobnego commita.
-- Numer następnego commita wyznacz z najnowszego wersjonowanego commita w
-  bieżącym torze. Każdy kolejny commit zwiększa patch o jeden.
+- Dla pierwszego commita w bieżącym torze sprawdź historię aktualnego brancha
+  (`git log`) i ustal wersję na podstawie najnowszego wersjonowanego commita na
+  tym branchu. Nie zakładaj wersji z nazwy brancha ani nie używaj przykładowej
+  lub zapamiętanej wersji, takiej jak `v1.1`.
+- Każdy następny commit zwiększa patch o jeden względem poprzedniego commita w
+  tym torze. Po każdym commicie zapisz jego pełną wersję i hash w sekcji
+  `Outcome` aktywnego zadania oraz w `ai_docs/process/CURRENT_STATE.md`.
+  Przy kontynuacji odczytaj ten zapis i potwierdź go z historią bieżącego
+  brancha; w razie rozbieżności obowiązuje rzeczywisty commit na branchu.
 - Numer patch jest przypisany do kolejności commitów, nie do liczby zadań w
   commicie. Nie wolno ponownie użyć ani pominąć numeru bez jawnej decyzji
   użytkownika.
-- Komunikat commita zaczyna się od pełnej bieżącej wersji `vX.Y.N`; po niej może
-  zawierać krótki opis zakresu.
+- Komunikat commita ma format `vX.Y.N - {opis}`: zaczyna się od pełnej bieżącej
+  wersji ustalonej dla brancha, po której następuje krótki opis zakresu.
 - Przed commitem sprawdź `git diff --cached --check`, staged statystykę i listę
   staged plików. Po commicie sprawdź `git show --stat` oraz pozostały
   `git status`.
@@ -177,8 +197,14 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
    - jakie są następne kroki lub ryzyka.
 7. Porównaj rezultat punkt po punkcie z Definition of Done taska oraz jego
    zaakceptowanym planem.
-8. Po raporcie zatrzymaj się. Kontynuuj wyłącznie po osobnym poleceniu
-   użytkownika wskazującym następny task.
+8. Po raporcie zatrzymaj się, chyba że użytkownik wyraźnie uruchomił cały
+   etap albo cały plan bez etapów. Wtedy po audycie, osobnym commicie,
+   Outcome i aktualizacji CURRENT_STATE.md każdego taska kontynuuj do końca
+   zleconego zakresu. Zatrzymaj się na końcu etapu albo przy sprzeczności
+   wymagań, koniecznej decyzji, niedostępnym modelu/reasoning, nierozwiązanych
+   uwagach P0–P2 po dwóch cyklach poprawek lub przed operacją czy kosztem poza
+   zatwierdzonym zakresem. Nie wykonuj automatycznego push, merge, aktywacji
+   modelu ani wdrożenia.
 
 ## Hierarchia źródeł prawdy
 

@@ -40,8 +40,11 @@ test('launcher exposes only the import-scoped local grid review control', async 
   assert.match(source, /Przejdź do Importu plansz/);
   assert.match(source, /gridReviewTotal\(gridReviewCounts\) === 0/);
   assert.match(source, /Geometria plansz ze stron 3×3/);
-  assert.match(source, /3×3 do korekty obrysu/);
-  assert.match(source, /Niepełne siatki symboli 3×5 do ręcznej korekty/);
+  // D-462: one correction queue instead of validation and correction views.
+  assert.match(source, /Korekta cięcia siatki/);
+  assert.match(source, /Plansze do korekty cięcia siatki/);
+  assert.match(source, /view: 'correction'/);
+  assert.doesNotMatch(source, /do walidacji|Zatwierdzanie cięcia siatki/);
   assert.match(
     source,
     /hasReviewerWork\(gridReviewCounts, deferredGeometryCounts\)/,

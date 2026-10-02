@@ -28,8 +28,8 @@ class SymbolCellReviewMutationCommand:
     action: SymbolCellReviewAction
     expected_revision: int
     expected_geometry_revision: int
-    expected_crop_sample_id: str
-    expected_crop_checksum_sha256: str
+    expected_crop_sample_id: str | None
+    expected_crop_checksum_sha256: str | None
     target_symbol_id: UUID | None
     actor: str
     operation_id: UUID | None = None
@@ -41,8 +41,12 @@ class SymbolCellReviewMutationCommand:
                 "SYMBOL_CELL_REVIEW_REVISION_INVALID",
                 "Expected crop and geometry revisions cannot be negative.",
             )
-        if not _is_sha256(self.expected_crop_sample_id) or not _is_sha256(
-            self.expected_crop_checksum_sha256
+        if (
+            self.expected_crop_sample_id is not None
+            or self.expected_crop_checksum_sha256 is not None
+        ) and (
+            not _is_sha256(self.expected_crop_sample_id)
+            or not _is_sha256(self.expected_crop_checksum_sha256)
         ):
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_CROP_IDENTITY_INVALID",
@@ -124,8 +128,8 @@ class SymbolCellReviewMutationService:
         cell_review_id: UUID,
         expected_revision: int,
         expected_geometry_revision: int,
-        expected_crop_sample_id: str,
-        expected_crop_checksum_sha256: str,
+        expected_crop_sample_id: str | None,
+        expected_crop_checksum_sha256: str | None,
         actor: str,
     ) -> SymbolCellReviewMutationResult:
         return self._apply(
@@ -149,8 +153,8 @@ class SymbolCellReviewMutationService:
         cell_review_id: UUID,
         expected_revision: int,
         expected_geometry_revision: int,
-        expected_crop_sample_id: str,
-        expected_crop_checksum_sha256: str,
+        expected_crop_sample_id: str | None,
+        expected_crop_checksum_sha256: str | None,
         target_symbol_id: UUID,
         actor: str,
     ) -> SymbolCellReviewMutationResult:
@@ -175,8 +179,8 @@ class SymbolCellReviewMutationService:
         cell_review_id: UUID,
         expected_revision: int,
         expected_geometry_revision: int,
-        expected_crop_sample_id: str,
-        expected_crop_checksum_sha256: str,
+        expected_crop_sample_id: str | None,
+        expected_crop_checksum_sha256: str | None,
         actor: str,
     ) -> SymbolCellReviewMutationResult:
         return self._apply(
@@ -200,8 +204,8 @@ class SymbolCellReviewMutationService:
         cell_review_id: UUID,
         expected_revision: int,
         expected_geometry_revision: int,
-        expected_crop_sample_id: str,
-        expected_crop_checksum_sha256: str,
+        expected_crop_sample_id: str | None,
+        expected_crop_checksum_sha256: str | None,
         actor: str,
     ) -> SymbolCellReviewMutationResult:
         return self._apply(
@@ -225,8 +229,8 @@ class SymbolCellReviewMutationService:
         cell_review_id: UUID,
         expected_revision: int,
         expected_geometry_revision: int,
-        expected_crop_sample_id: str,
-        expected_crop_checksum_sha256: str,
+        expected_crop_sample_id: str | None,
+        expected_crop_checksum_sha256: str | None,
         target_symbol_id: UUID | None = None,
         actor: str,
     ) -> SymbolCellReviewMutationResult:
@@ -251,8 +255,12 @@ class SymbolCellReviewMutationService:
         return self._repository.apply_mutation(command)
 
 
-def _is_sha256(value: str) -> bool:
-    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+def _is_sha256(value: str | None) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 __all__ = [

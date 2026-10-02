@@ -28,6 +28,7 @@ function createClient(overrides = {}) {
   return {
     archiveRulesVersion: async () => ({ data: undefined }),
     archivePayline: async () => ({ data: undefined }),
+    deletePayline: async () => ({ data: undefined }),
     createRulesVersion: async () => ({ data: savedRulesVersion }),
     createRulesDraftFromPublished: async () => ({
       data: {

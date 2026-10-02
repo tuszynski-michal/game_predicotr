@@ -127,6 +127,30 @@
   white-space: nowrap;
 }
 
+.filters fieldset.changeRange {
+  grid-template-columns: minmax(0, 14rem) minmax(0, 14rem) auto;
+}
+
+.filters fieldset.changeRange label {
+  display: grid;
+  gap: 4px;
+}
+
+.changeRangeActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 6px;
+}
+
+.changeRangeError {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--danger);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
 .summary {
   display: flex;
   align-items: center;
@@ -178,8 +202,20 @@
   border-color: var(--accent);
 }
 
+.cardDeselected {
+  box-shadow: 0 0 0 2px rgb(220 38 38 / 65%);
+}
+
+.cardDeselected .cardToggle::after {
+  border-color: rgb(248 113 113);
+}
+
 .cardPending {
   opacity: 0.45;
+}
+
+.cardSettled {
+  opacity: 0.6;
 }
 
 .cardToggle {
@@ -200,16 +236,47 @@
   cursor: progress;
 }
 
+.cardSettled .cardToggle:disabled {
+  cursor: not-allowed;
+}
+
 .cardToggle:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: -3px;
+}
+
+.sourceContextButton {
+  position: absolute;
+  bottom: 1px;
+  right: 1px;
+  z-index: 2;
+  min-width: 0;
+  min-height: 0;
+  padding: 1px 4px;
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  color: white;
+  background: rgb(5 11 20 / 22%);
+  font-size: 0.65rem;
+  line-height: 1.2;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
+  cursor: pointer;
+}
+
+.sourceContextButton:hover {
+  background: rgb(5 11 20 / 35%);
+}
+
+.sourceContextButton:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 .cardToggle::after {
   position: absolute;
   z-index: 1;
   inset: 0;
-  border: 1px solid var(--line);
+  border: 2px solid var(--line);
   border-radius: 10px;
   content: '';
   pointer-events: none;
@@ -256,17 +323,19 @@
 
 .cardBadge {
   position: absolute;
-  top: 4px;
-  right: 4px;
-  max-width: calc(100% - 8px);
-  padding: 2px 5px;
+  top: 1px;
+  right: 1px;
+  max-width: calc(100% - 2px);
+  padding: 1px 4px;
   overflow: hidden;
-  border-radius: 6px;
-  background: rgb(5 11 20 / 86%);
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(5 11 20 / 22%);
   color: var(--text);
   font-size: 0.62rem;
   font-weight: 800;
   line-height: 1.2;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
   text-overflow: ellipsis;
   white-space: nowrap;
   pointer-events: none;
@@ -275,16 +344,18 @@
 .sequenceNumber {
   position: absolute;
   z-index: 2;
-  bottom: 3px;
-  left: 3px;
+  bottom: 1px;
+  left: 1px;
   padding: 1px 4px;
-  border-radius: 4px;
-  background: rgb(5 11 20 / 55%);
+  border: 1px solid rgb(255 255 255 / 20%);
+  border-radius: 999px;
+  background: rgb(5 11 20 / 22%);
   color: #fff;
   font-size: 0.65rem;
   font-variant-numeric: tabular-nums;
   font-weight: 800;
   line-height: 1.2;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 90%);
   pointer-events: none;
 }
 
@@ -541,6 +612,10 @@
 
   .filters fieldset {
     grid-column: auto;
+  }
+
+  .filters fieldset.changeRange {
+    grid-template-columns: 1fr;
   }
 
   .summary,

@@ -40,22 +40,26 @@ import {
 } from './v7-label-geometry-calibration-store.ts';
 import {
   calculateV7LabelGeometryCalibrationReadiness,
+  V7_LABEL_GEOMETRY_DYNAMIC_FAMILY_ID,
   V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION,
+  V7_LABEL_GEOMETRY_MINIMUM_DYNAMIC_POINTS_PER_SOURCE,
   V7_LABEL_GEOMETRY_MINIMUM_SOURCES_PER_POSITION,
 } from './v7-label-geometry-calibration-readiness.ts';
 
-const GEOMETRY_FAMILY_ID = 'standard_3x3_numeric_labels_v1';
+// New sessions use the dynamic V2 family (D-463). Existing V1 sessions keep
+// their own family from the server response.
+const GEOMETRY_FAMILY_ID = V7_LABEL_GEOMETRY_DYNAMIC_FAMILY_ID;
 const CALIBRATION_CASES = [
   {
     id: 'small_777',
-    label: '777 — pełne kadry podstawowe',
+    label: '777 — pełne kadry (pierwsze nagranie, Ujęcie A)',
   },
   {
     id: 'occluded_777',
-    label: '777 — trudne kadry (opcjonalnie, nie do podstawowej kalibracji)',
+    label: '777 — częściowo zasłonięte plansze (drugie nagranie, Ujęcie B)',
   },
 ] as const;
-const DEFAULT_CALIBRATION_CASE_IDS = ['small_777'] as const;
+const DEFAULT_CALIBRATION_CASE_IDS = ['small_777', 'occluded_777'] as const;
 const CAPTURE_GROUP_OPTIONS = [
   { id: 'A', label: 'Ujęcie A' },
   { id: 'B', label: 'Ujęcie B' },
@@ -90,6 +94,7 @@ type CalibrationLocalStore = Pick<
   V7LabelGeometryCalibrationLocalStore,
   | 'appendOperation'
   | 'discardPending'
+  | 'forgetSession'
   | 'load'
   | 'loadMostRecent'
   | 'removeHead'
@@ -963,6 +968,49 @@ export function V7LabelGeometryCalibrationWorkspace({
     }
   };
 
+  const startNewSession = async () => {
+    const currentSession = sessionRef.current;
+    if (
+      currentSession === null ||
+      queueRef.current.pending.length > 0 ||
+      flushingRef.current ||
+      !globalThis.confirm(
+        'Zamknąć tę sesję w przeglądarce i przygotować nową? Punkty tej sesji zostaną na serwerze do audytu, ale nie będą użyte w nowej.',
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setError('');
+    try {
+      await withQueueTransition(async () => {
+        if (sessionRef.current?.sessionId !== currentSession.sessionId) {
+          throw new Error('V7_LABEL_GEOMETRY_SESSION_CHANGED');
+        }
+        await viewTransitionRef.current;
+        await store.forgetSession(currentSession.sessionId);
+        replaceQueue(EMPTY_QUEUE);
+        viewRef.current = null;
+        setView(null);
+        replaceAsset(null);
+        replaceSession(null);
+      });
+      setUnavailableMode(false);
+      setSelectedCaseIds(DEFAULT_CALIBRATION_CASE_IDS);
+      setFeedback(
+        'Poprzednia sesja pozostaje na serwerze do audytu. Wybierz materiały i utwórz nową sesję.',
+      );
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : 'Nie udało się zamknąć lokalnego widoku sesji.',
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const exportSession = async (profile: boolean) => {
     if (
       session === null ||
@@ -1033,6 +1081,7 @@ export function V7LabelGeometryCalibrationWorkspace({
         ? null
         : calculateV7LabelGeometryCalibrationReadiness({
             captureGroups: session.captureGroups,
+            geometryFamilyId: session.geometryFamilyId,
             slots: session.slots,
             sources: session.sources,
           }),
@@ -1054,7 +1103,9 @@ export function V7LabelGeometryCalibrationWorkspace({
           </p>
         </div>
         <span className="semiAutomaticSelectionCapability loading">
-          {session === null ? 'Nowa sesja' : `Rewizja ${session.revision}`}
+          {session === null
+            ? 'Nowa sesja'
+            : `Rewizja ${session.revision} · ${familyLabel(session.geometryFamilyId)}`}
         </span>
       </header>
 
@@ -1075,6 +1126,9 @@ export function V7LabelGeometryCalibrationWorkspace({
           <p>
             Dostępne są wyłącznie materiały calibration 777. Holdout reels_test
             pozostaje niewidoczny i zarezerwowany do późniejszego odbioru.
+            Nowa sesja używa trybu V2: każde oznaczane zdjęcie potrzebuje co
+            najmniej {V7_LABEL_GEOMETRY_MINIMUM_DYNAMIC_POINTS_PER_SOURCE}{' '}
+            pełnych numerów w dwóch wierszach i dwóch kolumnach.
           </p>
           <div className="v7LabelGeometryCaseList">
             {CALIBRATION_CASES.map((item) => (
@@ -1188,6 +1242,14 @@ export function V7LabelGeometryCalibrationWorkspace({
               >
                 Porzuć niepotwierdzone
               </button>
+              <button
+                className="secondaryButton"
+                disabled={queue.pending.length > 0 || busy || syncing}
+                onClick={() => void startNewSession()}
+                type="button"
+              >
+                Zacznij nową sesję
+              </button>
             </div>
           </div>
 
@@ -1233,6 +1295,19 @@ export function V7LabelGeometryCalibrationWorkspace({
                 i {V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION} grup
                 ujęć z pełnym cropem. Serwer sprawdzi jeszcze residual p95.
               </p>
+              {readiness.incompleteLatticeSourceIds.length > 0 ? (
+                <p className="v7LabelGeometryNotice" role="alert">
+                  Zdjęcia z za małą siatką:{' '}
+                  {readiness.incompleteLatticeSourceIds
+                    .map((sourceId) => sourceLabel(session, sourceId))
+                    .join(', ')}
+                  . Każde oznaczane zdjęcie potrzebuje co najmniej{' '}
+                  {V7_LABEL_GEOMETRY_MINIMUM_DYNAMIC_POINTS_PER_SOURCE} pełnych
+                  numerów w dwóch wierszach i dwóch kolumnach. Dodaj brakujące
+                  pełne numery albo wycofaj to zdjęcie, oznaczając każdy jego
+                  punkt jako zasłonięty.
+                </p>
+              ) : null}
               <div className="v7LabelGeometryReadinessGrid">
                 {readiness.positions.map((position) => (
                   <div
@@ -1403,6 +1478,23 @@ function sourceExists(
     sourceId !== null &&
     session.sources.some((source) => source.sourceId === sourceId)
   );
+}
+
+function sourceLabel(
+  session: V7LabelGeometrySessionResponse,
+  sourceId: string,
+): string {
+  const index = session.sources.findIndex((source) => source.sourceId === sourceId);
+  const source = session.sources[index];
+  return source === undefined
+    ? sourceId
+    : `${source.corpusCaseId} · źródło ${index + 1}`;
+}
+
+function familyLabel(geometryFamilyId: string): string {
+  return geometryFamilyId === V7_LABEL_GEOMETRY_DYNAMIC_FAMILY_ID
+    ? 'tryb V2'
+    : 'tryb V1';
 }
 
 function slotLabel(slot: V7LabelGeometrySlotResponse | undefined): string {

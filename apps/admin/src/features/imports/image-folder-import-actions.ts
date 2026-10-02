@@ -37,6 +37,12 @@ export type ImageFolderImportClient = Pick<
   | 'sealImageGeometryGuardResolutionManifest'
   | 'cancelBrowserImageSelection'
   | 'getBoardImportCoverage'
+  | 'getImageGeometryCompleteness'
+  | 'listIncompleteGeometryImages'
+  | 'getImageGeometryLowQualityBoards'
+  | 'getImageGeometryCompletenessSourceAsset'
+  | 'setSourceImageGeometryException'
+  | 'withdrawSourceImageGeometryException'
   | 'getImageSequenceSourceSelection'
   | 'registerCuratedImageImportSource'
   | 'listCuratedImageImportSources'
@@ -273,15 +279,12 @@ export function imageImportJobMatchesReportIdentity(
   const symbol = payload.symbolModel;
   const grid = payload.gridProfile;
   const symbolMatches = symbolSnapshotMatchesReport(symbol, report);
+  // D-467: every reusable import pins a virtual rollout snapshot.
   const rolloutMatches =
-    (typeof rollout === 'object' &&
-      rollout !== null &&
-      (rollout as Record<string, unknown>).rolloutRevision ===
-        report.imageEnginePolicyRevision) ||
-    (rollout === undefined &&
-      report.imageEnginePolicy === 'verified_v19' &&
-      report.imageEnginePolicyRevision === 0 &&
-      variant === undefined);
+    typeof rollout === 'object' &&
+    rollout !== null &&
+    (rollout as Record<string, unknown>).rolloutRevision ===
+      report.imageEnginePolicyRevision;
   return (
     job.gameId === gameId &&
     payload.sourceSelectionId === uploadId &&

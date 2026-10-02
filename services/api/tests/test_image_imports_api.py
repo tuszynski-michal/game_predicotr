@@ -1347,7 +1347,7 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
             == preflight["gridProfileInferenceFingerprint"]
         )
         current_policy = job_service.current_image_import_engine_policy(game_id=game_id)
-        assert current_policy.policy is ImageImportEnginePolicy.VERIFIED_V19
+        assert current_policy.policy is ImageImportEnginePolicy.STRUCTURED_LATTICE_V3
         assert (
             started_job.input_payload["image_geometry_rollout"]["geometryMode"]
             == "structured_lattice_v3"
@@ -1390,7 +1390,7 @@ def test_first_browser_import_can_materialize_unclassified_crops_without_a_model
     assert replayed.json()["existingImportJob"]["id"] == started.json()["job"]["id"]
 
 
-def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
+def test_structured_default_cold_start_bootstraps_required_geometry_preflight(
     tmp_path: Path,
 ) -> None:
     class RetentionGuard:
@@ -1411,8 +1411,8 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
     game_id = uuid4()
     repository = MemoryJobRepository(game_id)
     repository.image_geometry_rollout = ImageGeometryRolloutJobReference(
-        geometry_mode="structured_shadow",
-        cell_asset_mode="virtual_shadow",
+        geometry_mode="structured_default",
+        cell_asset_mode="virtual_default",
         revision=1,
     )
     selection_service = ImageFolderSelectionService(lambda: None, clock=lambda: NOW)
@@ -1478,7 +1478,7 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
         )
         assert preflight.status_code == 200
         report = preflight.json()
-        assert report["imageEnginePolicy"] == "structured_shadow"
+        assert report["imageEnginePolicy"] == "structured_default"
         assert report["imageEnginePolicyRevision"] == 1
         assert report["geometryPreflightRequired"] is True
 
@@ -1488,9 +1488,9 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
                 "gameId": str(game_id),
                 "manifestChecksumSha256": report["manifestChecksumSha256"],
                 "preflightChecksumSha256": report["preflightChecksumSha256"],
-                "imageEnginePolicy": "structured_shadow",
+                "imageEnginePolicy": "structured_default",
                 "imageEnginePolicyRevision": 1,
-                "boardCellProcessingMode": "structured_shadow",
+                "boardCellProcessingMode": "structured_default",
             },
         )
         geometry = client.post(
@@ -1589,9 +1589,9 @@ def test_structured_shadow_cold_start_bootstraps_required_geometry_preflight(
                 "preflightChecksumSha256": report["preflightChecksumSha256"],
                 "geometryPreflightJobId": str(geometry_job_id),
                 "geometryManifestChecksumSha256": geometry_checksum,
-                "imageEnginePolicy": "structured_shadow",
+                "imageEnginePolicy": "structured_default",
                 "imageEnginePolicyRevision": 1,
-                "boardCellProcessingMode": "structured_shadow",
+                "boardCellProcessingMode": "structured_default",
             },
         )
 
@@ -2649,6 +2649,11 @@ def test_page_source_replacement_api_blocks_accepted_geometry(
             job_service_dependency=lambda: JobService(repository),
             browser_image_selection_service_dependency=lambda: browser_service,
             image_folder_selection_service_dependency=lambda: selection_service,
+            # A unit test never reads the local database (the default
+            # dependency would open a session on GAME_PREDICTOR_DATABASE_URL).
+            image_sequence_canonical_service_dependency=lambda: ImageSequenceCanonicalService(
+                _MutableBrowserCanonicalRepository(set())
+            ),
             page_geometry_override_service_dependency=lambda: Overrides(),
         )
     )

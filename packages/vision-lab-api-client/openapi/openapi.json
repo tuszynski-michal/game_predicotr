@@ -1,0 +1,4585 @@
+{
+  "components": {
+    "schemas": {
+      "AnnotationRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "draft",
+              "approve_location",
+              "approve_full"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "activity_intervals_ms": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 10000,
+            "title": "Activity Intervals Ms",
+            "type": "array"
+          },
+          "actor": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "annotation": {
+            "$ref": "#/components/schemas/GeometryAnnotation-Input"
+          },
+          "correction_count": {
+            "default": 0,
+            "maximum": 10000.0,
+            "minimum": 0.0,
+            "title": "Correction Count",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "reviewed_all_nodes": {
+            "default": false,
+            "title": "Reviewed All Nodes",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "actor",
+          "annotation",
+          "action"
+        ],
+        "title": "AnnotationRequest",
+        "type": "object"
+      },
+      "AnnotationState": {
+        "additionalProperties": false,
+        "properties": {
+          "annotations": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/GeometryAnnotation-Output"
+            },
+            "title": "Annotations",
+            "type": "object"
+          },
+          "families": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StoredFamily"
+            },
+            "title": "Families",
+            "type": "object"
+          },
+          "geometry_qualifications": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/StoredGeometryQualification"
+            },
+            "title": "Geometry Qualifications",
+            "type": "object"
+          },
+          "photo_reviews": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/PhotoReview"
+            },
+            "title": "Photo Reviews",
+            "type": "object"
+          },
+          "revision": {
+            "default": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "snapshot_id": {
+            "title": "Snapshot Id",
+            "type": "string"
+          },
+          "split": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FrozenSplit"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "split_stale": {
+            "default": false,
+            "title": "Split Stale",
+            "type": "boolean"
+          },
+          "timings": {
+            "items": {
+              "$ref": "#/components/schemas/Timing"
+            },
+            "title": "Timings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "snapshot_id",
+          "revision",
+          "annotations",
+          "families",
+          "timings",
+          "split",
+          "split_stale",
+          "photo_reviews",
+          "geometry_qualifications"
+        ],
+        "title": "AnnotationState",
+        "type": "object"
+      },
+      "Artifact": {
+        "additionalProperties": false,
+        "properties": {
+          "relative_path": {
+            "title": "Relative Path",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "relative_path",
+          "sha256"
+        ],
+        "title": "Artifact",
+        "type": "object"
+      },
+      "BackupRequest": {
+        "additionalProperties": false,
+        "description": "An explicit JSON request, required by the local mutation boundary.",
+        "properties": {},
+        "title": "BackupRequest",
+        "type": "object"
+      },
+      "BackupResult": {
+        "additionalProperties": false,
+        "properties": {
+          "backup_id": {
+            "title": "Backup Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "backup_id",
+          "revision"
+        ],
+        "title": "BackupResult",
+        "type": "object"
+      },
+      "Board-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/Cell-Input"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Input"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "position_index": {
+            "title": "Position Index",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "complete",
+              "partial",
+              "needs_review",
+              "absent",
+              "occluded",
+              "unreadable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position_index",
+          "status",
+          "nodes"
+        ],
+        "title": "Board",
+        "type": "object"
+      },
+      "Board-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/Cell-Output"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Output"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "position_index": {
+            "title": "Position Index",
+            "type": "integer"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "complete",
+              "partial",
+              "needs_review",
+              "absent",
+              "occluded",
+              "unreadable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "position_index",
+          "status",
+          "nodes",
+          "reasons",
+          "cells"
+        ],
+        "title": "Board",
+        "type": "object"
+      },
+      "BoardCellDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "unknown",
+              "unreadable",
+              "grid_issue"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/CropBinding-Input"
+          },
+          "symbol_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol Id"
+          }
+        },
+        "required": [
+          "binding",
+          "action"
+        ],
+        "title": "BoardCellDecision",
+        "type": "object"
+      },
+      "BoardCellPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "binding": {
+            "$ref": "#/components/schemas/CropBinding-Output"
+          },
+          "current": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SymbolRow"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "png_base64": {
+            "title": "Png Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "binding",
+          "png_base64",
+          "current"
+        ],
+        "title": "BoardCellPreview",
+        "type": "object"
+      },
+      "BoardReviewIssue": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "board_revision": {
+            "title": "Board Revision",
+            "type": "integer"
+          },
+          "decided_at": {
+            "title": "Decided At",
+            "type": "string"
+          },
+          "note": {
+            "default": "",
+            "title": "Note",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "needs_correction",
+              "needs_review"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "note",
+          "board_revision",
+          "actor",
+          "decided_at"
+        ],
+        "title": "BoardReviewIssue",
+        "type": "object"
+      },
+      "Cell-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "outside_source",
+              "geometry_invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "status"
+        ],
+        "title": "Cell",
+        "type": "object"
+      },
+      "Cell-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Asset Id"
+          },
+          "index": {
+            "title": "Index",
+            "type": "integer"
+          },
+          "status": {
+            "enum": [
+              "available",
+              "outside_source",
+              "geometry_invalid"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "index",
+          "asset_id",
+          "status"
+        ],
+        "title": "Cell",
+        "type": "object"
+      },
+      "CropBinding-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "byte_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Byte Sha256",
+            "type": "string"
+          },
+          "catalog_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Catalog Digest",
+            "type": "string"
+          },
+          "cell_index": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cell Index",
+            "type": "integer"
+          },
+          "crop_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Crop Id",
+            "type": "string"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "geometry_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Geometry Digest",
+            "type": "string"
+          },
+          "geometry_revision": {
+            "minimum": 1.0,
+            "title": "Geometry Revision",
+            "type": "integer"
+          },
+          "height": {
+            "const": 96,
+            "default": 96,
+            "title": "Height",
+            "type": "integer"
+          },
+          "pixel_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Pixel Sha256",
+            "type": "string"
+          },
+          "quad": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Input"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Quad",
+            "type": "array"
+          },
+          "render_spec": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Render Spec",
+            "type": "object"
+          },
+          "render_spec_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Render Spec Digest",
+            "type": "string"
+          },
+          "renderer_version": {
+            "const": "lab-symbol-crop-rgb96-v1",
+            "title": "Renderer Version",
+            "type": "string"
+          },
+          "snapshot_manifest_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Snapshot Manifest Id",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Input"
+          },
+          "width": {
+            "const": 96,
+            "default": 96,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "snapshot_manifest_id",
+          "catalog_digest",
+          "game_id",
+          "source_id",
+          "source_sha256",
+          "board_index",
+          "geometry_revision",
+          "geometry_digest",
+          "topology",
+          "cell_index",
+          "quad",
+          "renderer_version",
+          "render_spec",
+          "render_spec_digest",
+          "pixel_sha256",
+          "byte_sha256",
+          "crop_id"
+        ],
+        "title": "CropBinding",
+        "type": "object"
+      },
+      "CropBinding-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "byte_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Byte Sha256",
+            "type": "string"
+          },
+          "catalog_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Catalog Digest",
+            "type": "string"
+          },
+          "cell_index": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cell Index",
+            "type": "integer"
+          },
+          "crop_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Crop Id",
+            "type": "string"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "geometry_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Geometry Digest",
+            "type": "string"
+          },
+          "geometry_revision": {
+            "minimum": 1.0,
+            "title": "Geometry Revision",
+            "type": "integer"
+          },
+          "height": {
+            "const": 96,
+            "default": 96,
+            "title": "Height",
+            "type": "integer"
+          },
+          "pixel_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Pixel Sha256",
+            "type": "string"
+          },
+          "quad": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Output"
+            },
+            "maxItems": 4,
+            "minItems": 4,
+            "title": "Quad",
+            "type": "array"
+          },
+          "render_spec": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Render Spec",
+            "type": "object"
+          },
+          "render_spec_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Render Spec Digest",
+            "type": "string"
+          },
+          "renderer_version": {
+            "const": "lab-symbol-crop-rgb96-v1",
+            "title": "Renderer Version",
+            "type": "string"
+          },
+          "snapshot_manifest_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Snapshot Manifest Id",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Output"
+          },
+          "width": {
+            "const": 96,
+            "default": 96,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "snapshot_manifest_id",
+          "catalog_digest",
+          "game_id",
+          "source_id",
+          "source_sha256",
+          "board_index",
+          "geometry_revision",
+          "geometry_digest",
+          "topology",
+          "cell_index",
+          "quad",
+          "renderer_version",
+          "render_spec",
+          "render_spec_digest",
+          "width",
+          "height",
+          "pixel_sha256",
+          "byte_sha256",
+          "crop_id"
+        ],
+        "title": "CropBinding",
+        "type": "object"
+      },
+      "DbCropPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "byte_sha256": {
+            "title": "Byte Sha256",
+            "type": "string"
+          },
+          "crop_bytes_base64": {
+            "title": "Crop Bytes Base64",
+            "type": "string"
+          },
+          "dictionary": {
+            "$ref": "#/components/schemas/DictionaryView"
+          },
+          "kind": {
+            "const": "db_approved",
+            "default": "db_approved",
+            "title": "Kind",
+            "type": "string"
+          },
+          "media_type": {
+            "title": "Media Type",
+            "type": "string"
+          },
+          "origin": {
+            "const": "db_approved",
+            "default": "db_approved",
+            "title": "Origin",
+            "type": "string"
+          },
+          "provenance": {
+            "additionalProperties": true,
+            "title": "Provenance",
+            "type": "object"
+          },
+          "read_only": {
+            "const": true,
+            "default": true,
+            "title": "Read Only",
+            "type": "boolean"
+          },
+          "sample_id": {
+            "title": "Sample Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "origin",
+          "read_only",
+          "sample_id",
+          "provenance",
+          "byte_sha256",
+          "media_type",
+          "crop_bytes_base64",
+          "dictionary"
+        ],
+        "title": "DbCropPreview",
+        "type": "object"
+      },
+      "DbCropRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "db_approved",
+            "title": "Kind",
+            "type": "string"
+          },
+          "sample_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sample Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "sample_id"
+        ],
+        "title": "DbCropRequest",
+        "type": "object"
+      },
+      "DetectRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "preview_board": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Board-Input"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "run_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{32}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Run Id"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Input"
+          }
+        },
+        "required": [
+          "source_id"
+        ],
+        "title": "DetectRequest",
+        "type": "object"
+      },
+      "DictionaryApprove": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Digest",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "op": {
+            "const": "dictionary_approve",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "version": {
+            "minimum": 1.0,
+            "title": "Version",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "game_id",
+          "version",
+          "digest"
+        ],
+        "title": "DictionaryApprove",
+        "type": "object"
+      },
+      "DictionaryDraft": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "base_version": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Base Version"
+          },
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/DictionaryEntry"
+            },
+            "maxItems": 256,
+            "title": "Entries",
+            "type": "array"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "op": {
+            "const": "dictionary_draft",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "game_id",
+          "entries"
+        ],
+        "title": "DictionaryDraft",
+        "type": "object"
+      },
+      "DictionaryEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "code": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Code",
+            "type": "string"
+          },
+          "display_name": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Display Name",
+            "type": "string"
+          },
+          "id": {
+            "pattern": "^[A-Za-z0-9_-]{1,64}$",
+            "title": "Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "code",
+          "display_name"
+        ],
+        "title": "DictionaryEntry",
+        "type": "object"
+      },
+      "DictionaryPage": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/DictionaryView"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "read_token": {
+            "title": "Read Token",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "revision",
+          "read_token"
+        ],
+        "title": "DictionaryPage",
+        "type": "object"
+      },
+      "DictionaryView": {
+        "additionalProperties": false,
+        "properties": {
+          "active": {
+            "default": false,
+            "title": "Active",
+            "type": "boolean"
+          },
+          "approved_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Approved At"
+          },
+          "digest": {
+            "title": "Digest",
+            "type": "string"
+          },
+          "entries": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/DictionaryEntry"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Entries"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "origin": {
+            "default": "lab",
+            "enum": [
+              "lab",
+              "db_snapshot"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "draft",
+              "approved",
+              "snapshot"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "version": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Version"
+          }
+        },
+        "required": [
+          "origin",
+          "game_id",
+          "version",
+          "digest",
+          "status",
+          "approved_at",
+          "active",
+          "entries"
+        ],
+        "title": "DictionaryView",
+        "type": "object"
+      },
+      "FamilyDecision": {
+        "additionalProperties": false,
+        "properties": {
+          "checksum_reviewed": {
+            "default": false,
+            "title": "Checksum Reviewed",
+            "type": "boolean"
+          },
+          "declaration": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Declaration",
+            "type": "string"
+          },
+          "evidence": {
+            "maxLength": 2000,
+            "minLength": 5,
+            "title": "Evidence",
+            "type": "string"
+          },
+          "family_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Family Id",
+            "type": "string"
+          },
+          "provenance": {
+            "default": "unresolved",
+            "enum": [
+              "unresolved",
+              "verified",
+              "777_v2_verified"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "related_source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Related Source Ids",
+            "type": "array"
+          },
+          "similarity_reviewed": {
+            "default": false,
+            "title": "Similarity Reviewed",
+            "type": "boolean"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Source Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_ids",
+          "family_id",
+          "evidence"
+        ],
+        "title": "FamilyDecision",
+        "type": "object"
+      },
+      "FamilyRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/FamilyDecision"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "actor",
+          "decision"
+        ],
+        "title": "FamilyRequest",
+        "type": "object"
+      },
+      "FrozenSplit": {
+        "additionalProperties": false,
+        "properties": {
+          "annotation_fingerprints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Annotation Fingerprints",
+            "type": "object"
+          },
+          "assignments": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Assignments",
+            "type": "object"
+          },
+          "exclusions": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Exclusions",
+            "type": "object"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "game_partitions": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "enum": [
+                    "development",
+                    "validation",
+                    "final_test",
+                    "unseen_game"
+                  ],
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Partitions"
+          },
+          "geometry_qualification_fingerprints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Geometry Qualification Fingerprints",
+            "type": "object"
+          },
+          "geometry_source_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometry Source Ids"
+          },
+          "geometry_target_fingerprints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Geometry Target Fingerprints",
+            "type": "object"
+          },
+          "leakage_component_fingerprints": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Leakage Component Fingerprints",
+            "type": "object"
+          },
+          "leakage_components": {
+            "additionalProperties": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "title": "Leakage Components",
+            "type": "object"
+          },
+          "measurement": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Measurement",
+            "type": "object"
+          },
+          "policy_version": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "lab-geometry-split-v1",
+              "lab-geometry-cohort-split-v1",
+              "lab-geometry-cohort-777-targets-v2",
+              "lab-geometry-whole-game-pilot-v1"
+            ],
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "purpose": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "geometry"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "seed": {
+            "title": "Seed",
+            "type": "integer"
+          },
+          "unseen_game_id": {
+            "title": "Unseen Game Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "purpose",
+          "policy_version",
+          "game_partitions",
+          "geometry_source_ids",
+          "leakage_components",
+          "leakage_component_fingerprints",
+          "geometry_qualification_fingerprints",
+          "geometry_target_fingerprints",
+          "fingerprint",
+          "revision",
+          "unseen_game_id",
+          "seed",
+          "assignments",
+          "measurement",
+          "annotation_fingerprints",
+          "exclusions"
+        ],
+        "title": "FrozenSplit",
+        "type": "object"
+      },
+      "GeometryAnnotation-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "default": "",
+            "title": "Actor",
+            "type": "string"
+          },
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "corners": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Input"
+            },
+            "maxItems": 4,
+            "title": "Corners",
+            "type": "array"
+          },
+          "decided_at": {
+            "default": "",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "full_approved": {
+            "default": false,
+            "title": "Full Approved",
+            "type": "boolean"
+          },
+          "geometry_sha256": {
+            "default": "",
+            "title": "Geometry Sha256",
+            "type": "string"
+          },
+          "location_approved": {
+            "default": false,
+            "title": "Location Approved",
+            "type": "boolean"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Input"
+            },
+            "maxItems": 24,
+            "title": "Nodes",
+            "type": "array"
+          },
+          "presence": {
+            "default": "present",
+            "enum": [
+              "present",
+              "absent",
+              "occluded",
+              "unreadable"
+            ],
+            "title": "Presence",
+            "type": "string"
+          },
+          "revision": {
+            "default": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "default": "",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Input"
+          }
+        },
+        "required": [
+          "source_id",
+          "board_index",
+          "topology"
+        ],
+        "title": "GeometryAnnotation",
+        "type": "object"
+      },
+      "GeometryAnnotation-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "default": "",
+            "title": "Actor",
+            "type": "string"
+          },
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "corners": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Output"
+            },
+            "maxItems": 4,
+            "title": "Corners",
+            "type": "array"
+          },
+          "decided_at": {
+            "default": "",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "full_approved": {
+            "default": false,
+            "title": "Full Approved",
+            "type": "boolean"
+          },
+          "geometry_sha256": {
+            "default": "",
+            "title": "Geometry Sha256",
+            "type": "string"
+          },
+          "location_approved": {
+            "default": false,
+            "title": "Location Approved",
+            "type": "boolean"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Output"
+            },
+            "maxItems": 24,
+            "title": "Nodes",
+            "type": "array"
+          },
+          "presence": {
+            "default": "present",
+            "enum": [
+              "present",
+              "absent",
+              "occluded",
+              "unreadable"
+            ],
+            "title": "Presence",
+            "type": "string"
+          },
+          "revision": {
+            "default": 0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "default": "",
+            "title": "Source Sha256",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Output"
+          }
+        },
+        "required": [
+          "source_id",
+          "board_index",
+          "topology",
+          "presence",
+          "corners",
+          "nodes",
+          "revision",
+          "source_sha256",
+          "location_approved",
+          "full_approved",
+          "geometry_sha256",
+          "actor",
+          "decided_at"
+        ],
+        "title": "GeometryAnnotation",
+        "type": "object"
+      },
+      "GeometryResult": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "items": {
+              "$ref": "#/components/schemas/Board-Output"
+            },
+            "title": "Boards",
+            "type": "array"
+          },
+          "height": {
+            "default": 0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "model_version": {
+            "title": "Model Version",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "status": {
+            "enum": [
+              "detected",
+              "failed",
+              "unsupported",
+              "invalid_image"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Output"
+          },
+          "width": {
+            "default": 0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "source_id",
+          "topology",
+          "model_version",
+          "status",
+          "boards",
+          "reasons",
+          "width",
+          "height"
+        ],
+        "title": "GeometryResult",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "LabBoardPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "board_png_base64": {
+            "title": "Board Png Base64",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/BoardCellPreview"
+            },
+            "maxItems": 15,
+            "minItems": 9,
+            "title": "Cells",
+            "type": "array"
+          },
+          "dictionary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DictionaryView"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "height": {
+            "maximum": 960.0,
+            "minimum": 1.0,
+            "title": "Height",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "lab_board",
+            "default": "lab_board",
+            "title": "Kind",
+            "type": "string"
+          },
+          "nodes": {
+            "items": {
+              "$ref": "#/components/schemas/Point-Output"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Output"
+          },
+          "width": {
+            "maximum": 960.0,
+            "minimum": 1.0,
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "revision",
+          "dictionary",
+          "topology",
+          "board_png_base64",
+          "width",
+          "height",
+          "nodes",
+          "cells"
+        ],
+        "title": "LabBoardPreview",
+        "type": "object"
+      },
+      "LabBoardRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "expected_geometry_revision": {
+            "minimum": 1.0,
+            "title": "Expected Geometry Revision",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "lab_board",
+            "title": "Kind",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "source_id",
+          "board_index",
+          "expected_geometry_revision"
+        ],
+        "title": "LabBoardRequest",
+        "type": "object"
+      },
+      "LabCropPreview": {
+        "additionalProperties": false,
+        "properties": {
+          "binding": {
+            "$ref": "#/components/schemas/CropBinding-Output"
+          },
+          "kind": {
+            "const": "lab_cell",
+            "default": "lab_cell",
+            "title": "Kind",
+            "type": "string"
+          },
+          "png_base64": {
+            "title": "Png Base64",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "binding",
+          "png_base64"
+        ],
+        "title": "LabCropPreview",
+        "type": "object"
+      },
+      "LabCropRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "board_index": {
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Board Index",
+            "type": "integer"
+          },
+          "cell_index": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cell Index",
+            "type": "integer"
+          },
+          "expected_geometry_revision": {
+            "minimum": 1.0,
+            "title": "Expected Geometry Revision",
+            "type": "integer"
+          },
+          "kind": {
+            "const": "lab_cell",
+            "title": "Kind",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "source_id",
+          "board_index",
+          "cell_index",
+          "expected_geometry_revision"
+        ],
+        "title": "LabCropRequest",
+        "type": "object"
+      },
+      "LabQueueItem": {
+        "additionalProperties": false,
+        "properties": {
+          "binding": {
+            "$ref": "#/components/schemas/CropBinding-Output"
+          },
+          "png_base64": {
+            "title": "Png Base64",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          },
+          "status": {
+            "enum": [
+              "unassigned",
+              "requires_review",
+              "assigned"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "binding",
+          "png_base64",
+          "status",
+          "reason"
+        ],
+        "title": "LabQueueItem",
+        "type": "object"
+      },
+      "LabQueuePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LabQueueItem"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "lab_queue",
+            "default": "lab_queue",
+            "title": "Kind",
+            "type": "string"
+          },
+          "read_token": {
+            "title": "Read Token",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "kind",
+          "items",
+          "total",
+          "revision",
+          "read_token"
+        ],
+        "title": "LabQueuePreview",
+        "type": "object"
+      },
+      "LabQueueRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "kind": {
+            "const": "lab_queue",
+            "title": "Kind",
+            "type": "string"
+          },
+          "limit": {
+            "default": 30,
+            "maximum": 30.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "offset": {
+            "default": 0,
+            "minimum": 0.0,
+            "title": "Offset",
+            "type": "integer"
+          },
+          "read_token": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Read Token"
+          },
+          "symbol_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol Id"
+          },
+          "view": {
+            "default": "pending",
+            "enum": [
+              "pending",
+              "assigned"
+            ],
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "game_id"
+        ],
+        "title": "LabQueueRequest",
+        "type": "object"
+      },
+      "LabelBoardDecide": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/BoardCellDecision"
+            },
+            "maxItems": 15,
+            "minItems": 9,
+            "title": "Cells",
+            "type": "array"
+          },
+          "dictionary_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Dictionary Digest",
+            "type": "string"
+          },
+          "dictionary_version": {
+            "minimum": 1.0,
+            "title": "Dictionary Version",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "op": {
+            "const": "label_board_decide",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "dictionary_version",
+          "dictionary_digest",
+          "cells"
+        ],
+        "title": "LabelBoardDecide",
+        "type": "object"
+      },
+      "LabelCellsDecide": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "bindings": {
+            "items": {
+              "$ref": "#/components/schemas/CropBinding-Input"
+            },
+            "maxItems": 30,
+            "minItems": 1,
+            "title": "Bindings",
+            "type": "array"
+          },
+          "dictionary_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Dictionary Digest",
+            "type": "string"
+          },
+          "dictionary_version": {
+            "minimum": 1.0,
+            "title": "Dictionary Version",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "op": {
+            "const": "label_cells_decide",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "symbol_id": {
+            "title": "Symbol Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "dictionary_version",
+          "dictionary_digest",
+          "symbol_id",
+          "bindings"
+        ],
+        "title": "LabelCellsDecide",
+        "type": "object"
+      },
+      "LabelDecide": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "unknown",
+              "unreadable",
+              "grid_issue"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/CropBinding-Input"
+          },
+          "dictionary_digest": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Dictionary Digest",
+            "type": "string"
+          },
+          "dictionary_version": {
+            "minimum": 1.0,
+            "title": "Dictionary Version",
+            "type": "integer"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "op": {
+            "const": "label_decide",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "symbol_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol Id"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "binding",
+          "dictionary_version",
+          "dictionary_digest",
+          "action"
+        ],
+        "title": "LabelDecide",
+        "type": "object"
+      },
+      "LabelWithdraw": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "decision_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Decision Id",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "op": {
+            "const": "label_withdraw",
+            "title": "Op",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "decision_id"
+        ],
+        "title": "LabelWithdraw",
+        "type": "object"
+      },
+      "PhotoReview": {
+        "additionalProperties": false,
+        "properties": {
+          "accepted_board_revisions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Accepted Board Revisions",
+            "type": "object"
+          },
+          "actor": {
+            "default": "",
+            "title": "Actor",
+            "type": "string"
+          },
+          "decided_at": {
+            "default": "",
+            "title": "Decided At",
+            "type": "string"
+          },
+          "issues": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/BoardReviewIssue"
+            },
+            "title": "Issues",
+            "type": "object"
+          },
+          "rejected": {
+            "default": false,
+            "title": "Rejected",
+            "type": "boolean"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_sha256",
+          "rejected",
+          "accepted_board_revisions",
+          "issues",
+          "actor",
+          "decided_at"
+        ],
+        "title": "PhotoReview",
+        "type": "object"
+      },
+      "PhotoReviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "mark",
+              "withdraw",
+              "accept",
+              "reject"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "actor": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "board_indices": {
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 101,
+            "title": "Board Indices",
+            "type": "array"
+          },
+          "expected_board_revisions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Expected Board Revisions",
+            "type": "object"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "maxLength": 64,
+            "minLength": 64,
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "actor",
+          "action",
+          "source_id",
+          "source_sha256",
+          "expected_board_revisions"
+        ],
+        "title": "PhotoReviewRequest",
+        "type": "object"
+      },
+      "Point-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "provenance": {
+            "default": "baseline_proposal",
+            "enum": [
+              "baseline_proposal",
+              "human",
+              "model"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "Point",
+        "type": "object"
+      },
+      "Point-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "provenance": {
+            "default": "baseline_proposal",
+            "enum": [
+              "baseline_proposal",
+              "human",
+              "model"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y",
+          "provenance"
+        ],
+        "title": "Point",
+        "type": "object"
+      },
+      "RunMutation": {
+        "additionalProperties": false,
+        "properties": {
+          "expected_attempt": {
+            "minimum": 1.0,
+            "title": "Expected Attempt",
+            "type": "integer"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Request Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_attempt"
+        ],
+        "title": "RunMutation",
+        "type": "object"
+      },
+      "RunPage": {
+        "additionalProperties": false,
+        "properties": {
+          "runs": {
+            "items": {
+              "$ref": "#/components/schemas/RunState"
+            },
+            "title": "Runs",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "runs",
+          "total"
+        ],
+        "title": "RunPage",
+        "type": "object"
+      },
+      "RunState": {
+        "additionalProperties": false,
+        "properties": {
+          "artifacts": {
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Artifact"
+            },
+            "title": "Artifacts",
+            "type": "object"
+          },
+          "attempt": {
+            "default": 1,
+            "title": "Attempt",
+            "type": "integer"
+          },
+          "attempt_deadline": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Attempt Deadline"
+          },
+          "attempts": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "title": "Attempts",
+            "type": "array"
+          },
+          "best_epoch": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best Epoch"
+          },
+          "cancel_requested": {
+            "default": false,
+            "title": "Cancel Requested",
+            "type": "boolean"
+          },
+          "checkpoint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Artifact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "checkpoint_epoch": {
+            "default": 0,
+            "title": "Checkpoint Epoch",
+            "type": "integer"
+          },
+          "conservative_seconds": {
+            "default": 0,
+            "title": "Conservative Seconds",
+            "type": "number"
+          },
+          "created_at": {
+            "title": "Created At",
+            "type": "number"
+          },
+          "diagnostics": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Diagnostics",
+            "type": "array"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "fence": {
+            "default": 1,
+            "title": "Fence",
+            "type": "integer"
+          },
+          "fingerprint": {
+            "title": "Fingerprint",
+            "type": "string"
+          },
+          "heartbeat_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Heartbeat At"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "last_accounted_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Accounted At"
+          },
+          "launch_deadline": {
+            "title": "Launch Deadline",
+            "type": "number"
+          },
+          "lease": {
+            "title": "Lease",
+            "type": "string"
+          },
+          "pid": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pid"
+          },
+          "process_created": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Process Created"
+          },
+          "report": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Artifact"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "request": {
+            "$ref": "#/components/schemas/StartRunRequest-Output"
+          },
+          "reserved_steps": {
+            "default": 0,
+            "title": "Reserved Steps",
+            "type": "integer"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "status": {
+            "default": "queued",
+            "enum": [
+              "queued",
+              "running",
+              "succeeded",
+              "failed",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "used_seconds": {
+            "default": 0,
+            "title": "Used Seconds",
+            "type": "number"
+          }
+        },
+        "required": [
+          "id",
+          "request",
+          "fingerprint",
+          "status",
+          "attempt",
+          "fence",
+          "lease",
+          "created_at",
+          "launch_deadline",
+          "pid",
+          "process_created",
+          "heartbeat_at",
+          "started_at",
+          "last_accounted_at",
+          "attempt_deadline",
+          "used_seconds",
+          "conservative_seconds",
+          "reserved_steps",
+          "cancel_requested",
+          "checkpoint",
+          "checkpoint_epoch",
+          "report",
+          "artifacts",
+          "best_epoch",
+          "error",
+          "diagnostics",
+          "attempts"
+        ],
+        "title": "RunState",
+        "type": "object"
+      },
+      "Source": {
+        "additionalProperties": false,
+        "properties": {
+          "asset_id": {
+            "title": "Asset Id",
+            "type": "string"
+          },
+          "duplicate_count": {
+            "default": 1,
+            "title": "Duplicate Count",
+            "type": "integer"
+          },
+          "family_candidate": {
+            "title": "Family Candidate",
+            "type": "string"
+          },
+          "family_verified": {
+            "default": false,
+            "title": "Family Verified",
+            "type": "boolean"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "game_name": {
+            "title": "Game Name",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "role": {
+            "enum": [
+              "data",
+              "comparison_only",
+              "777_v2_declared"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "sha256": {
+            "title": "Sha256",
+            "type": "string"
+          },
+          "source_kind": {
+            "enum": [
+              "folder",
+              "database"
+            ],
+            "title": "Source Kind",
+            "type": "string"
+          },
+          "training_eligible": {
+            "const": false,
+            "default": false,
+            "title": "Training Eligible",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "game_id",
+          "game_name",
+          "filename",
+          "sha256",
+          "asset_id",
+          "source_kind",
+          "family_candidate",
+          "family_verified",
+          "role",
+          "training_eligible",
+          "duplicate_count"
+        ],
+        "title": "Source",
+        "type": "object"
+      },
+      "SourcePage": {
+        "additionalProperties": false,
+        "properties": {
+          "games": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Games",
+            "type": "object"
+          },
+          "sources": {
+            "items": {
+              "$ref": "#/components/schemas/Source"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sources",
+          "total",
+          "games"
+        ],
+        "title": "SourcePage",
+        "type": "object"
+      },
+      "SplitRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "difficulties": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "title": "Difficulties",
+            "type": "object"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "game_partitions": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "enum": [
+                    "development",
+                    "validation",
+                    "final_test",
+                    "unseen_game"
+                  ],
+                  "type": "string"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Game Partitions"
+          },
+          "geometry_policy": {
+            "anyOf": [
+              {
+                "enum": [
+                  "lab-geometry-cohort-777-targets-v2",
+                  "lab-geometry-whole-game-pilot-v1"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometry Policy"
+          },
+          "geometry_source_ids": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "maxItems": 10000,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometry Source Ids"
+          },
+          "measurement_source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Measurement Source Ids",
+            "type": "array"
+          },
+          "purpose": {
+            "default": "legacy",
+            "enum": [
+              "legacy",
+              "geometry"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "unseen_game_id": {
+            "title": "Unseen Game Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "actor",
+          "unseen_game_id",
+          "seed"
+        ],
+        "title": "SplitRequest",
+        "type": "object"
+      },
+      "StartRunRequest-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/TrainingConfiguration-Input"
+          },
+          "manifest_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifest Id",
+            "type": "string"
+          },
+          "model_version": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Model Version",
+            "type": "string"
+          },
+          "preprocessing_version": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Preprocessing Version",
+            "type": "string"
+          },
+          "protocol_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol Digest"
+          },
+          "purpose": {
+            "enum": [
+              "smoke",
+              "train"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Input"
+          }
+        },
+        "required": [
+          "request_id",
+          "manifest_id",
+          "model_version",
+          "preprocessing_version",
+          "seed",
+          "purpose",
+          "configuration"
+        ],
+        "title": "StartRunRequest",
+        "type": "object"
+      },
+      "StartRunRequest-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/TrainingConfiguration-Output"
+          },
+          "manifest_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Manifest Id",
+            "type": "string"
+          },
+          "model_version": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Model Version",
+            "type": "string"
+          },
+          "preprocessing_version": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Preprocessing Version",
+            "type": "string"
+          },
+          "protocol_digest": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Protocol Digest"
+          },
+          "purpose": {
+            "enum": [
+              "smoke",
+              "train"
+            ],
+            "title": "Purpose",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 100,
+            "minLength": 8,
+            "pattern": "^[a-zA-Z0-9_-]+$",
+            "title": "Request Id",
+            "type": "string"
+          },
+          "seed": {
+            "maximum": 2147483647.0,
+            "minimum": 0.0,
+            "title": "Seed",
+            "type": "integer"
+          },
+          "topology": {
+            "$ref": "#/components/schemas/Topology-Output"
+          }
+        },
+        "required": [
+          "request_id",
+          "manifest_id",
+          "model_version",
+          "preprocessing_version",
+          "protocol_digest",
+          "topology",
+          "seed",
+          "purpose",
+          "configuration"
+        ],
+        "title": "StartRunRequest",
+        "type": "object"
+      },
+      "StoredFamily": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "checksum_reviewed": {
+            "default": false,
+            "title": "Checksum Reviewed",
+            "type": "boolean"
+          },
+          "decided_at": {
+            "title": "Decided At",
+            "type": "string"
+          },
+          "declaration": {
+            "default": "",
+            "maxLength": 2000,
+            "title": "Declaration",
+            "type": "string"
+          },
+          "evidence": {
+            "maxLength": 2000,
+            "minLength": 5,
+            "title": "Evidence",
+            "type": "string"
+          },
+          "family_id": {
+            "maxLength": 100,
+            "minLength": 1,
+            "title": "Family Id",
+            "type": "string"
+          },
+          "provenance": {
+            "default": "unresolved",
+            "enum": [
+              "unresolved",
+              "verified",
+              "777_v2_verified"
+            ],
+            "title": "Provenance",
+            "type": "string"
+          },
+          "related_source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "title": "Related Source Ids",
+            "type": "array"
+          },
+          "similarity_reviewed": {
+            "default": false,
+            "title": "Similarity Reviewed",
+            "type": "boolean"
+          },
+          "source_ids": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 10000,
+            "minItems": 1,
+            "title": "Source Ids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "source_ids",
+          "family_id",
+          "evidence",
+          "related_source_ids",
+          "provenance",
+          "declaration",
+          "checksum_reviewed",
+          "similarity_reviewed",
+          "actor",
+          "decided_at"
+        ],
+        "title": "StoredFamily",
+        "type": "object"
+      },
+      "StoredGeometryQualification": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "decided_at": {
+            "title": "Decided At",
+            "type": "string"
+          },
+          "decision_reference": {
+            "const": "D-453",
+            "title": "Decision Reference",
+            "type": "string"
+          },
+          "expected_board_revisions": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Expected Board Revisions",
+            "type": "object"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "policy_version": {
+            "const": "historical-777-lab-geometry-v1",
+            "title": "Policy Version",
+            "type": "string"
+          },
+          "purpose": {
+            "const": "geometry",
+            "title": "Purpose",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "source_sha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Source Sha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "source_sha256",
+          "expected_board_revisions",
+          "policy_version",
+          "decision_reference",
+          "purpose",
+          "game_id",
+          "actor",
+          "decided_at",
+          "revision"
+        ],
+        "title": "StoredGeometryQualification",
+        "type": "object"
+      },
+      "SymbolPage": {
+        "additionalProperties": false,
+        "properties": {
+          "availability": {
+            "title": "Availability",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SymbolRow"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "read_token": {
+            "title": "Read Token",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "total": {
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "items",
+          "total",
+          "revision",
+          "read_token",
+          "availability"
+        ],
+        "title": "SymbolPage",
+        "type": "object"
+      },
+      "SymbolResult": {
+        "additionalProperties": false,
+        "properties": {
+          "decision_ids": {
+            "items": {
+              "pattern": "^[a-f0-9]{64}$",
+              "type": "string"
+            },
+            "title": "Decision Ids",
+            "type": "array"
+          },
+          "label_valid": {
+            "default": false,
+            "title": "Label Valid",
+            "type": "boolean"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "replayed": {
+            "default": false,
+            "title": "Replayed",
+            "type": "boolean"
+          },
+          "request_id": {
+            "title": "Request Id",
+            "type": "string"
+          },
+          "result_id": {
+            "title": "Result Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "trainable": {
+            "const": false,
+            "default": false,
+            "title": "Trainable",
+            "type": "boolean"
+          },
+          "training_blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Training Blockers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label_valid",
+          "reasons",
+          "training_blockers",
+          "trainable",
+          "revision",
+          "request_id",
+          "result_id",
+          "replayed",
+          "decision_ids"
+        ],
+        "title": "SymbolResult",
+        "type": "object"
+      },
+      "SymbolRow": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "board_id": {
+            "title": "Board Id",
+            "type": "string"
+          },
+          "cell_index": {
+            "title": "Cell Index",
+            "type": "integer"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "label_valid": {
+            "default": false,
+            "title": "Label Valid",
+            "type": "boolean"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "title": "Metadata",
+            "type": "object"
+          },
+          "origin": {
+            "enum": [
+              "lab_human_approved",
+              "db_approved"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "sample_id": {
+            "title": "Sample Id",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          },
+          "symbol_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol Id"
+          },
+          "trainable": {
+            "const": false,
+            "default": false,
+            "title": "Trainable",
+            "type": "boolean"
+          },
+          "training_blockers": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Training Blockers",
+            "type": "array"
+          }
+        },
+        "required": [
+          "label_valid",
+          "reasons",
+          "training_blockers",
+          "trainable",
+          "sample_id",
+          "origin",
+          "game_id",
+          "source_id",
+          "board_id",
+          "cell_index",
+          "symbol_id",
+          "action",
+          "metadata"
+        ],
+        "title": "SymbolRow",
+        "type": "object"
+      },
+      "Timing": {
+        "additionalProperties": false,
+        "properties": {
+          "active_ms": {
+            "title": "Active Ms",
+            "type": "integer"
+          },
+          "corrections": {
+            "title": "Corrections",
+            "type": "integer"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "source_id": {
+            "title": "Source Id",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source_id",
+          "game_id",
+          "active_ms",
+          "corrections"
+        ],
+        "title": "Timing",
+        "type": "object"
+      },
+      "TimingReport": {
+        "additionalProperties": false,
+        "properties": {
+          "active_ms": {
+            "title": "Active Ms",
+            "type": "integer"
+          },
+          "estimated_remaining_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Estimated Remaining Ms"
+          },
+          "game_id": {
+            "title": "Game Id",
+            "type": "string"
+          },
+          "measured_sources": {
+            "title": "Measured Sources",
+            "type": "integer"
+          },
+          "target_sources": {
+            "title": "Target Sources",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "game_id",
+          "measured_sources",
+          "active_ms",
+          "estimated_remaining_ms",
+          "target_sources"
+        ],
+        "title": "TimingReport",
+        "type": "object"
+      },
+      "Topology-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "default": 5,
+            "enum": [
+              3,
+              5
+            ],
+            "title": "Columns",
+            "type": "integer"
+          },
+          "rows": {
+            "const": 3,
+            "default": 3,
+            "title": "Rows",
+            "type": "integer"
+          }
+        },
+        "title": "Topology",
+        "type": "object"
+      },
+      "Topology-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "columns": {
+            "default": 5,
+            "enum": [
+              3,
+              5
+            ],
+            "title": "Columns",
+            "type": "integer"
+          },
+          "rows": {
+            "const": 3,
+            "default": 3,
+            "title": "Rows",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "columns",
+          "rows"
+        ],
+        "title": "Topology",
+        "type": "object"
+      },
+      "TrainingConfiguration-Input": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_size": {
+            "default": 8,
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Batch Size",
+            "type": "integer"
+          },
+          "epochs": {
+            "default": 20,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Epochs",
+            "type": "integer"
+          },
+          "learning_rate": {
+            "default": 0.001,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Learning Rate",
+            "type": "number"
+          },
+          "max_seconds": {
+            "default": 1800,
+            "maximum": 1800.0,
+            "minimum": 1.0,
+            "title": "Max Seconds",
+            "type": "number"
+          },
+          "max_steps": {
+            "default": 10000,
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Max Steps",
+            "type": "integer"
+          }
+        },
+        "title": "TrainingConfiguration",
+        "type": "object"
+      },
+      "TrainingConfiguration-Output": {
+        "additionalProperties": false,
+        "properties": {
+          "batch_size": {
+            "default": 8,
+            "maximum": 64.0,
+            "minimum": 1.0,
+            "title": "Batch Size",
+            "type": "integer"
+          },
+          "epochs": {
+            "default": 20,
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Epochs",
+            "type": "integer"
+          },
+          "learning_rate": {
+            "default": 0.001,
+            "exclusiveMinimum": 0.0,
+            "maximum": 1.0,
+            "title": "Learning Rate",
+            "type": "number"
+          },
+          "max_seconds": {
+            "default": 1800,
+            "maximum": 1800.0,
+            "minimum": 1.0,
+            "title": "Max Seconds",
+            "type": "number"
+          },
+          "max_steps": {
+            "default": 10000,
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Max Steps",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "epochs",
+          "batch_size",
+          "learning_rate",
+          "max_steps",
+          "max_seconds"
+        ],
+        "title": "TrainingConfiguration",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "Vision Lab API",
+    "version": "1.0.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/annotations": {
+      "get": {
+        "operationId": "get_annotations",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Annotations"
+      },
+      "post": {
+        "operationId": "save_annotation",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/AnnotationRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/PhotoReviewRequest"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Annotation"
+      }
+    },
+    "/assets/{asset_id}": {
+      "get": {
+        "operationId": "get_asset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "asset_id",
+            "required": true,
+            "schema": {
+              "title": "Asset Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              },
+              "image/jpeg": {}
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Asset"
+      }
+    },
+    "/backups": {
+      "post": {
+        "operationId": "create_backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Backup"
+      }
+    },
+    "/families": {
+      "post": {
+        "operationId": "save_family",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FamilyRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Save Family"
+      }
+    },
+    "/geometry": {
+      "post": {
+        "operationId": "detect_geometry",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DetectRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GeometryResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Geometry"
+      }
+    },
+    "/runs": {
+      "get": {
+        "operationId": "list_training_runs",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Training Runs"
+      },
+      "post": {
+        "operationId": "start_training_run",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StartRunRequest-Input"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Start Training Run"
+      }
+    },
+    "/runs/{run_id}": {
+      "get": {
+        "operationId": "get_training_run",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Training Run"
+      }
+    },
+    "/runs/{run_id}/cancel": {
+      "post": {
+        "operationId": "cancel_training_run",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunMutation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Cancel Training Run"
+      }
+    },
+    "/runs/{run_id}/retry": {
+      "post": {
+        "operationId": "retry_training_run",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RunMutation"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retry Training Run"
+      }
+    },
+    "/sources": {
+      "get": {
+        "operationId": "list_sources",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "game",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourcePage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Sources"
+      }
+    },
+    "/splits": {
+      "post": {
+        "operationId": "freeze_split",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SplitRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AnnotationState"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Freeze Split"
+      }
+    },
+    "/symbol-backups": {
+      "post": {
+        "operationId": "create_symbol_backup",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BackupRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Backup"
+      }
+    },
+    "/symbol-crops": {
+      "post": {
+        "operationId": "preview_symbol_crop",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "db_approved": "#/components/schemas/DbCropRequest",
+                    "lab_board": "#/components/schemas/LabBoardRequest",
+                    "lab_cell": "#/components/schemas/LabCropRequest",
+                    "lab_queue": "#/components/schemas/LabQueueRequest"
+                  },
+                  "propertyName": "kind"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/LabCropRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DbCropRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabBoardRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabQueueRequest"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/LabCropPreview"
+                    },
+                    {
+                      "$ref": "#/components/schemas/DbCropPreview"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LabBoardPreview"
+                    },
+                    {
+                      "$ref": "#/components/schemas/LabQueuePreview"
+                    }
+                  ],
+                  "title": "Response Preview Symbol Crop"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview"
+      }
+    },
+    "/symbol-dictionaries": {
+      "get": {
+        "operationId": "list_symbol_dictionaries",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "read_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Read Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Dictionaries"
+      }
+    },
+    "/symbol-dictionaries/{game_id}/{version}": {
+      "get": {
+        "operationId": "get_symbol_dictionary",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version",
+            "required": true,
+            "schema": {
+              "title": "Version",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DictionaryView"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Dictionary"
+      }
+    },
+    "/symbols": {
+      "get": {
+        "operationId": "list_symbol_labels",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "game_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Game Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "source_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Source Id"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "read_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Read Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolPage"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Labels"
+      },
+      "post": {
+        "operationId": "save_symbol_decision",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "discriminator": {
+                  "mapping": {
+                    "dictionary_approve": "#/components/schemas/DictionaryApprove",
+                    "dictionary_draft": "#/components/schemas/DictionaryDraft",
+                    "label_board_decide": "#/components/schemas/LabelBoardDecide",
+                    "label_cells_decide": "#/components/schemas/LabelCellsDecide",
+                    "label_decide": "#/components/schemas/LabelDecide",
+                    "label_withdraw": "#/components/schemas/LabelWithdraw"
+                  },
+                  "propertyName": "op"
+                },
+                "oneOf": [
+                  {
+                    "$ref": "#/components/schemas/DictionaryDraft"
+                  },
+                  {
+                    "$ref": "#/components/schemas/DictionaryApprove"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabelDecide"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabelWithdraw"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabelBoardDecide"
+                  },
+                  {
+                    "$ref": "#/components/schemas/LabelCellsDecide"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolResult"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Mutate"
+      }
+    },
+    "/timings": {
+      "get": {
+        "operationId": "get_timings",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/TimingReport"
+                  },
+                  "title": "Response Get Timings",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Get Timings"
+      }
+    }
+  }
+}

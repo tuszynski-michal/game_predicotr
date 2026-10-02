@@ -5,6 +5,7 @@ from __future__ import annotations
 import hashlib
 import json
 from dataclasses import dataclass
+from datetime import datetime
 from enum import StrEnum
 from typing import Protocol
 from uuid import UUID
@@ -13,6 +14,8 @@ from game_predictor_api.domain.image_symbol_reviews import (
     SymbolCellReviewAction,
     SymbolCellReviewError,
     SymbolCellReviewFilterState,
+    SymbolCellReviewPredictionSource,
+    utc_isoformat,
 )
 
 MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS = 10_000
@@ -43,8 +46,8 @@ class SymbolCellReviewBulkExplicitTarget:
     cell_review_id: UUID
     expected_revision: int
     expected_geometry_revision: int
-    expected_crop_sample_id: str
-    expected_crop_checksum_sha256: str
+    expected_crop_sample_id: str | None
+    expected_crop_checksum_sha256: str | None
 
     def __post_init__(self) -> None:
         if self.expected_revision < 0 or self.expected_geometry_revision < 0:
@@ -52,8 +55,12 @@ class SymbolCellReviewBulkExplicitTarget:
                 "SYMBOL_CELL_REVIEW_BULK_TARGET_REVISION_INVALID",
                 "Expected crop and geometry revisions cannot be negative.",
             )
-        if not _is_sha256(self.expected_crop_sample_id) or not _is_sha256(
-            self.expected_crop_checksum_sha256
+        if (
+            self.expected_crop_sample_id is not None
+            or self.expected_crop_checksum_sha256 is not None
+        ) and (
+            not _is_sha256(self.expected_crop_sample_id)
+            or not _is_sha256(self.expected_crop_checksum_sha256)
         ):
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_BULK_TARGET_CROP_INVALID",
@@ -69,8 +76,22 @@ class SymbolCellReviewBulkFilterSelection:
     min_confidence: float | None = None
     max_confidence: float | None = None
     excluded_cell_review_ids: tuple[UUID, ...] = ()
+    outside_only: bool = False
+    include_all_symbols: bool = False
+    prediction_source: SymbolCellReviewPredictionSource | None = None
+    changed_from: datetime | None = None
+    changed_to: datetime | None = None
 
     def __post_init__(self) -> None:
+        if (self.outside_only or self.include_all_symbols) and (
+            self.symbol_id is not None or (self.outside_only and self.include_all_symbols)
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_SYMBOL_FILTER_INVALID", "Conflicting symbol scopes."
+            )
+        if self.outside_only:
+            object.__setattr__(self, "min_confidence", None)
+            object.__setattr__(self, "max_confidence", None)
         if self.catalog_revision < 0:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_BULK_CATALOG_REVISION_INVALID",
@@ -98,6 +119,21 @@ class SymbolCellReviewBulkFilterSelection:
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_BULK_CONFIDENCE_RANGE_INVALID",
                 "min_confidence cannot be greater than max_confidence.",
+            )
+        for name, moment in (("changed_from", self.changed_from), ("changed_to", self.changed_to)):
+            if moment is not None and moment.tzinfo is None:
+                raise SymbolCellReviewError(
+                    "SYMBOL_CELL_REVIEW_BULK_CHANGED_RANGE_INVALID",
+                    f"{name} must include a time zone.",
+                )
+        if (
+            self.changed_from is not None
+            and self.changed_to is not None
+            and self.changed_from > self.changed_to
+        ):
+            raise SymbolCellReviewError(
+                "SYMBOL_CELL_REVIEW_BULK_CHANGED_RANGE_INVALID",
+                "changed_from cannot be later than changed_to.",
             )
         if len(self.excluded_cell_review_ids) > MAX_EXPLICIT_SYMBOL_CELL_REVIEW_TARGETS:
             raise SymbolCellReviewError(
@@ -207,9 +243,38 @@ class SymbolCellReviewBulkRequest:
                 "kind": "filter",
                 "maxConfidence": self.filter_selection.max_confidence,
                 "minConfidence": self.filter_selection.min_confidence,
+                # Only set extended filters enter the fingerprint of older requests unchanged.
+                **{
+                    key: value
+                    for key, value in (
+                        (
+                            "predictionSource",
+                            None
+                            if self.filter_selection.prediction_source is None
+                            else self.filter_selection.prediction_source.value,
+                        ),
+                        (
+                            "changedFrom",
+                            None
+                            if self.filter_selection.changed_from is None
+                            else utc_isoformat(self.filter_selection.changed_from),
+                        ),
+                        (
+                            "changedTo",
+                            None
+                            if self.filter_selection.changed_to is None
+                            else utc_isoformat(self.filter_selection.changed_to),
+                        ),
+                    )
+                    if value is not None
+                },
                 "state": self.filter_selection.state.value,
                 "symbolId": (
-                    "unknown"
+                    "outside"
+                    if self.filter_selection.outside_only
+                    else "all"
+                    if self.filter_selection.include_all_symbols
+                    else "unknown"
                     if self.filter_selection.symbol_id is None
                     else str(self.filter_selection.symbol_id)
                 ),
@@ -316,6 +381,7 @@ def _validate_unknown_approval(request: SymbolCellReviewBulkRequest) -> None:
         request.action is SymbolCellReviewAction.APPROVE
         and request.filter_selection is not None
         and request.filter_selection.symbol_id is None
+        and not request.filter_selection.include_all_symbols
     ):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_BULK_UNKNOWN_APPROVAL_FORBIDDEN",
@@ -323,8 +389,12 @@ def _validate_unknown_approval(request: SymbolCellReviewBulkRequest) -> None:
         )
 
 
-def _is_sha256(value: str) -> bool:
-    return len(value) == 64 and all(character in "0123456789abcdef" for character in value)
+def _is_sha256(value: str | None) -> bool:
+    return (
+        isinstance(value, str)
+        and len(value) == 64
+        and all(character in "0123456789abcdef" for character in value)
+    )
 
 
 __all__ = [

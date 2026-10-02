@@ -1544,8 +1544,13 @@ potwierdzonej sesji. Po restarcie ten sam marker jest odtwarzany z kolejki,
 a konflikt rewizji, drift źródła lub porzucenie kolejki nie może zamienić go w
 potwierdzoną adnotację.
 
-Nowa sesja proponuje tylko pełne kadry `small_777`; trudne kadry są opcjonalne
-i jasno oznaczone. Capture group jest wyborem `A`, `B` albo `C`. Widok pamięta
+Nowa sesja jest tworzona w rodzinie V2 i domyślnie obejmuje oba nagrania 777
+(D-463): `small_777` jako grupę `A` i `occluded_777` jako grupę `B`. Capture
+group jest wyborem `A`, `B` albo `C` i oznacza nagranie, nie kolejność
+kliknięć. Każde źródło z punktami V2 musi mieć co najmniej pięć pełnych
+numerów w dwóch wierszach i dwóch kolumnach; Admin pokazuje źródła, które tego
+nie spełniają. Operator może zapomnieć lokalny widok starej sesji i utworzyć
+nową; sesja serwera pozostaje niezmieniona do audytu. Widok pamięta
 wyłącznie stan interakcji i ograniczony cache canonical PNG bieżącego źródła
 oraz sąsiadów — maksymalnie trzy obrazy i 64 MiB. Nie zapisuje blobów, ścieżek
 ani danych obrazu do IndexedDB; każdy pobrany asset pozostaje związany z ID

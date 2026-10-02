@@ -7,13 +7,14 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
+from _application_role_database import provision_game
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import GameStatus, SymbolStatus
 from game_predictor_api.domain.datasets import DatasetVersionStatus
 from game_predictor_api.domain.rules import RulesVersionStatus
-from game_predictor_api.storage.database import create_session_factory
+from game_predictor_api.storage.database import create_cross_game_owner_session_factory
 from game_predictor_api.storage.models import (
     DatasetVersionModel,
     GameModel,
@@ -33,7 +34,6 @@ from game_predictor_worker.snapshots import (
 )
 from sqlalchemy import create_engine
 from sqlalchemy.engine import URL, make_url
-from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -46,7 +46,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def _database_url(database_name: str) -> URL:
-    return make_url(ApiSettings.from_environment().database_url).set(database=database_name)
+    return make_url(ApiSettings.from_environment().owner_database_url).set(database=database_name)
 
 
 def _migration_config(database_url: URL) -> Config:
@@ -84,9 +84,11 @@ def test_postgres_source_generates_exact_version_production_snapshot(
 ) -> None:
     command.upgrade(_migration_config(isolated_snapshot_database), "head")
     engine = create_engine(isolated_snapshot_database, pool_pre_ping=True)
-    session_factory = create_session_factory(engine)
+    # Production wiring (TASK-0797): release snapshots span games and run on
+    # the cross-game schema-owner session; game data lives in V2 partitions.
+    session_factory = create_cross_game_owner_session_factory(engine)
     store = SqlAlchemyProductionSnapshotStore(session_factory)
-    game_id = uuid4()
+    game_id = provision_game(engine, "production-game")
     rules_id = uuid4()
     dataset_id = uuid4()
     ordinary_id = uuid4()
@@ -95,15 +97,11 @@ def test_postgres_source_generates_exact_version_production_snapshot(
     selection = SnapshotGameSelection(dataset_id, rules_id, "payout-v2")
 
     try:
-        with Session(engine) as session, session.begin():
-            session.add(
-                GameModel(
-                    id=game_id,
-                    code="production-game",
-                    name="Production game",
-                    status=GameStatus.ACTIVE,
-                )
-            )
+        with session_factory() as session, session.begin():
+            game = session.get(GameModel, game_id)
+            assert game is not None
+            game.name = "Production game"
+            game.status = GameStatus.ACTIVE
             session.flush()
             session.add_all(
                 [
@@ -169,6 +167,8 @@ def test_postgres_source_generates_exact_version_production_snapshot(
                     rows=1,
                     columns=2,
                     signature_cell_width=2,
+                    # V2 dataset versions require it (NOT NULL since 0105).
+                    expected_layout_count=2,
                     layout_count=2,
                     status=DatasetVersionStatus.PUBLISHED,
                     generation_seed=123,

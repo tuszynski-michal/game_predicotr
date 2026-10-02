@@ -248,6 +248,97 @@ def test_v19_cropper_rejects_dimension_drift_and_invalid_rgb() -> None:
     assert raised.value.code == "BOARD_CELL_CROP_INVALID_IMAGE"
 
 
+def _axis_aligned_partial_geometry() -> tuple[np.ndarray, BoardCellGeometryEntry]:
+    """A board stretched 3x vertically so only its bottom row (10-14) exceeds a
+    700px-tall source."""
+    board, _ = _canonical_board()
+    source = np.full((700, 900, 3), (8, 8, 12), dtype=np.uint8)
+    canonical = np.asarray(((0, 0), (500, 0), (500, 300), (0, 300)), dtype=np.float32)
+    bounds = ((100.0, 50.0), (600.0, 50.0), (600.0, 950.0), (100.0, 950.0))
+    transform = cv2.getPerspectiveTransform(canonical, np.asarray(bounds, dtype=np.float32))
+    warped = cv2.warpPerspective(
+        board, transform, (source.shape[1], source.shape[0]), flags=cv2.INTER_LINEAR
+    )
+    support = cv2.warpPerspective(
+        np.full(board.shape[:2], 255, dtype=np.uint8),
+        transform,
+        (source.shape[1], source.shape[0]),
+        flags=cv2.INTER_NEAREST,
+    )
+    source[support > 0] = warped[support > 0]
+    cells = derive_board_cell_quads(
+        bounds,
+        source_image_width=source.shape[1],
+        source_image_height=source.shape[0],
+        bounded=False,
+    )
+    evidence = BoardCellGeometryEvidence(
+        kind="human_reviewed",
+        estimator_version="test-owner-review-v1",
+        thresholds_version="test-owner-review-thresholds-v1",
+        locator_version=None,
+        homography_version=None,
+        candidate_center_count=0,
+        reliable_center_count=0,
+        inlier_count=0,
+        inlier_slots=(),
+        inlier_p95_residual_px=None,
+        decision_checksum_sha256="d" * 64,
+    )
+    geometry = BoardCellGeometryEntry(
+        source_order_index=0,
+        image_id="synthetic-partial-source",
+        source_image_checksum_sha256="b" * 64,
+        source_image_relative_path="synthetic-partial.jpg",
+        source_image_width=source.shape[1],
+        source_image_height=source.shape[0],
+        source_group="synthetic",
+        condition_tags=("manual-override",),
+        sequence_number=1,
+        position_index=0,
+        lattice_bounds_quad=bounds,
+        cells=cells,
+        evidence=evidence,
+    )
+    return source, geometry
+
+
+def test_v19_cropper_tolerates_declared_unavailable_cells_outside_source() -> None:
+    source, geometry = _axis_aligned_partial_geometry()
+    cropper = BoardCellGeometrySourceDirectCropper(cell_output_size=90)
+
+    result = cropper.crop(source, geometry, unavailable_cell_indices=frozenset(range(10, 15)))
+
+    assert result.status == "cropped"
+    assert len(result.cells) == 15
+    synthesized = {index for index, cell in enumerate(result.cells) if cell.synthesized}
+    assert synthesized == set(range(10, 15))
+    for index, cell in enumerate(result.cells):
+        assert cell.rgb.shape == (90, 90, 3)
+        assert cell.metadata_dict().get("synthesized") is (True if index in synthesized else None)
+
+
+def test_v19_cropper_still_rejects_undeclared_cells_outside_source() -> None:
+    source, geometry = _axis_aligned_partial_geometry()
+    cropper = BoardCellGeometrySourceDirectCropper(cell_output_size=90)
+
+    # Only declaring 10-13 unavailable while 14 is also out of frame must still fail closed.
+    result = cropper.crop(source, geometry, unavailable_cell_indices=frozenset(range(10, 14)))
+
+    assert result.status == "needs_review"
+    assert result.cells == ()
+    assert result.review_reasons == ("BOARD_CELL_CROP_SOURCE_SUPPORT_INCOMPLETE",)
+
+
+def test_v19_cropper_rejects_out_of_range_unavailable_index() -> None:
+    source, geometry = _axis_aligned_partial_geometry()
+    cropper = BoardCellGeometrySourceDirectCropper(cell_output_size=90)
+
+    with pytest.raises(BoardCellGeometryCropError) as raised:
+        cropper.crop(source, geometry, unavailable_cell_indices=frozenset({99}))
+    assert raised.value.code == "BOARD_CELL_CROP_UNAVAILABLE_INDEX_INVALID"
+
+
 def test_v19_real_geometry_corpus_produces_complete_supported_crops() -> None:
     representative = ROOT / "examples" / "imgs" / "5983122166590934317.jpg"
     if not representative.is_file():

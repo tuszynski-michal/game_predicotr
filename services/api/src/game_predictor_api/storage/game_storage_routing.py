@@ -15,15 +15,14 @@ from sqlalchemy import text
 from sqlalchemy.engine import RowMapping
 from sqlalchemy.orm import Session
 
-from game_predictor_api.storage.game_data_v2_manifest_v1 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v4 import GAME_TABLES, VERSION
 
-LEGACY_STORAGE_VERSION: Final = "legacy-public-v1"
 _GAME_PATH_PATTERN: Final = compile_pattern(r"(?:^|/)games/([0-9a-fA-F-]{36})(?:/|$)")
+_QUERY_SCOPED_PREFIXES: Final = ("/api/v1/admin/", "/api/v1/reviewer/")
 _CURRENT_SCOPE: ContextVar[GameStorageScope | None] = ContextVar("game_storage_scope", default=None)
 
 
 class GameStorageSchema(StrEnum):
-    PUBLIC = "public"
     V2 = "game_data_v2"
 
 
@@ -60,8 +59,6 @@ class GameStorageLocation:
 
     @property
     def storage_version(self) -> str:
-        if self.store_schema is GameStorageSchema.PUBLIC:
-            return LEGACY_STORAGE_VERSION
         return self.manifest_version
 
     @property
@@ -103,6 +100,29 @@ def game_id_from_path(path: str) -> UUID | None:
         return None
 
 
+def game_id_from_request(path: str, query: Mapping[str, str]) -> UUID | None:
+    """Game of one API request: the path, else the ``gameId``/``game_id`` query.
+
+    TASK-0797: Admin and Reviewer routes such as ``image-review-items`` name
+    their game only in ``gameId``. Without binding it first, a session that
+    reads a game table (including the Reviewer token lookup that runs before
+    the handler) fails on the application role. Public share and remote
+    selection routes take their game from their own session only and are
+    never scoped by a caller-supplied parameter.
+    """
+
+    game_id = game_id_from_path(path)
+    if game_id is not None or not path.startswith(_QUERY_SCOPED_PREFIXES):
+        return game_id
+    raw = query.get("gameId") or query.get("game_id")
+    if raw is None:
+        return None
+    try:
+        return UUID(raw)
+    except ValueError:
+        return None
+
+
 class GameStorageRouter:
     """Resolve and pin a game's physical store for one database transaction."""
 
@@ -113,7 +133,7 @@ class GameStorageRouter:
     def describe(self, session: Session, game_id: UUID) -> GameStorageLocation:
         connection = session.connection()
         if connection.dialect.name != "postgresql":
-            return self._legacy(game_id)
+            return self._in_memory_v2(game_id)
         row = (
             connection.exec_driver_sql(
                 """
@@ -135,7 +155,7 @@ class GameStorageRouter:
             return {}
         connection = session.connection()
         if connection.dialect.name != "postgresql":
-            return {game_id: self._legacy(game_id) for game_id in game_ids}
+            return {game_id: self._in_memory_v2(game_id) for game_id in game_ids}
         rows = connection.execute(
             text(
                 """
@@ -148,23 +168,6 @@ class GameStorageRouter:
         ).mappings()
         found = {UUID(str(row["game_id"])): row for row in rows}
         return {game_id: self._from_row(game_id, found.get(game_id)) for game_id in game_ids}
-
-    def register_legacy(self, session: Session, game_id: UUID) -> GameStorageLocation:
-        """Retain the offline test adapter; PostgreSQL is V2-only after cutover."""
-
-        connection = session.connection()
-        if connection.dialect.name == "postgresql":
-            raise GameStorageRoutingError(
-                "GAME_STORAGE_LEGACY_WRITE_DISABLED",
-                "New PostgreSQL games must use provisioned V2 storage.",
-                details={"gameId": str(game_id)},
-            )
-        return self.bind(
-            session,
-            game_id,
-            intent=GameStorageIntent.WRITE,
-            expected_generation=1,
-        )
 
     def bind(
         self,
@@ -208,6 +211,15 @@ class GameStorageRouter:
         return location
 
     @classmethod
+    def bound_game_id(cls, session: Session) -> UUID | None:
+        """Game bound to the session's current transaction, if any."""
+
+        if session.info.get(cls._TRANSACTION_KEY) is not session.get_transaction():
+            return None
+        location = session.info.get(cls._SESSION_KEY)
+        return location.game_id if isinstance(location, GameStorageLocation) else None
+
+    @classmethod
     def clear_session_binding(cls, session: Session) -> None:
         """Forget transaction-local routing state after commit or rollback."""
 
@@ -231,7 +243,7 @@ class GameStorageRouter:
     ) -> GameStorageLocation:
         connection = session.connection()
         if connection.dialect.name != "postgresql":
-            return self._legacy(game_id)
+            return self._in_memory_v2(game_id)
         # A write keeps a shared row lock until commit. Cutover changes the
         # registry row and therefore requires an incompatible exclusive lock.
         lock = " FOR SHARE" if lock_for_write else ""
@@ -270,8 +282,8 @@ class GameStorageRouter:
         connection = session.connection()
         if connection.dialect.name != "postgresql":
             return
-        # Covers the legacy fallback where no registry row exists yet. A
-        # cutover must take pg_advisory_xact_lock with the same derived key.
+        # Coordinates writes with a registry location change. A cutover must
+        # take pg_advisory_xact_lock with the same derived key.
         connection.exec_driver_sql(
             "SELECT pg_advisory_xact_lock_shared(hashtextextended(%s, 519))",
             (str(game_id),),
@@ -295,15 +307,7 @@ class GameStorageRouter:
                 "The game storage registry row is invalid.",
                 details={"gameId": str(game_id)},
             ) from error
-        generation_matches_schema = (schema is GameStorageSchema.PUBLIC and generation == 1) or (
-            schema is GameStorageSchema.V2 and generation >= 2
-        )
-        if (
-            generation < 1
-            or revision < 0
-            or manifest_version != VERSION
-            or not generation_matches_schema
-        ):
+        if generation < 2 or revision < 0 or manifest_version != VERSION:
             raise GameStorageRoutingError(
                 "GAME_STORAGE_LOCATION_INVALID",
                 "The game storage registry row is invalid.",
@@ -324,11 +328,17 @@ class GameStorageRouter:
         )
 
     @staticmethod
-    def _legacy(game_id: UUID) -> GameStorageLocation:
+    def _in_memory_v2(game_id: UUID) -> GameStorageLocation:
+        """V2-shaped adapter for non-PostgreSQL unit tests only.
+
+        It deliberately does not model a physical schema switch or a legacy
+        public store. PostgreSQL always resolves the durable registry row.
+        """
+
         return GameStorageLocation(
             game_id=game_id,
-            store_schema=GameStorageSchema.PUBLIC,
-            generation=1,
+            store_schema=GameStorageSchema.V2,
+            generation=2,
             manifest_version=VERSION,
             status=GameStorageStatus.ACTIVE,
             revision=0,
@@ -395,11 +405,7 @@ class GameStorageRouter:
         connection = session.connection()
         if connection.dialect.name != "postgresql":
             return
-        search_path = (
-            "public, pg_catalog"
-            if location.store_schema is GameStorageSchema.PUBLIC
-            else "game_data_v2, public, pg_catalog"
-        )
+        search_path = "game_data_v2, public, pg_catalog"
         connection.exec_driver_sql("SELECT set_config('search_path', %s, true)", (search_path,))
         connection.exec_driver_sql(
             "SELECT set_config('game_predictor.game_id', %s, true)",
@@ -412,7 +418,6 @@ class GameStorageRouter:
 
 
 __all__ = [
-    "LEGACY_STORAGE_VERSION",
     "GameStorageIntent",
     "GameStorageLocation",
     "GameStorageRouter",
@@ -422,5 +427,6 @@ __all__ = [
     "GameStorageStatus",
     "current_game_storage_scope",
     "game_id_from_path",
+    "game_id_from_request",
     "game_storage_scope",
 ]

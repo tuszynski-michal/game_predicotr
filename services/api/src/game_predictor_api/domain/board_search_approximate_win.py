@@ -25,8 +25,7 @@ from dataclasses import dataclass
 from game_predictor_api.domain.board_search import BOARD_SEARCH_CELL_COUNT, BoardSearchError
 
 # Reuse the same 3x5 cell count as partial board search: both read the same
-# `image_board_search_fast_documents` / `legacy_board_search_archive_documents`
-# projection.
+# `image_board_search_fast_documents` projection.
 APPROXIMATE_WIN_CELL_COUNT = BOARD_SEARCH_CELL_COUNT
 
 _UNKNOWN_MOBILE_CODE = 0

@@ -70,6 +70,10 @@ export type ApprovedSymbolReferenceCandidateResponse = {
    */
   cellIndex: number;
   /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
    * Cropchecksumsha256
    */
   cropChecksumSha256: string;
@@ -77,10 +81,6 @@ export type ApprovedSymbolReferenceCandidateResponse = {
    * Geometryrevision
    */
   geometryRevision: number;
-  /**
-   * Observationid
-   */
-  observationId: string;
   /**
    * Sequencenumber
    */
@@ -510,10 +510,10 @@ export type BoardCellGeometryManualPreviewCommand = {
    * Corners
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedgeometryrevision
@@ -527,6 +527,7 @@ export type BoardCellGeometryManualPreviewCommand = {
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
+  geometryQualification?: GeometryQualificationPayload | null;
 };
 
 /**
@@ -534,13 +535,17 @@ export type BoardCellGeometryManualPreviewCommand = {
  */
 export type BoardCellGeometryManualResolutionCommand = {
   /**
+   * Cellsymbols
+   */
+  cellSymbols?: Array<GridCorrectionCellSymbolPayload>;
+  /**
    * Corners
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Correctedby
@@ -558,6 +563,7 @@ export type BoardCellGeometryManualResolutionCommand = {
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Idempotencykey
    */
@@ -985,8 +991,212 @@ export type BoardImportCoverageView = 'missing' | 'added';
 
 /**
  * BoardSearchAssetMode
+ *
+ * Read model behind a search result.  Only the operational projection
+ * remains; the frozen board-search archive was removed in D-467 S5.
  */
-export type BoardSearchAssetMode = 'operational_review' | 'legacy_archive';
+export type BoardSearchAssetMode = 'operational_review';
+
+/**
+ * BoardSearchBoardCellResponse
+ *
+ * One cell's review record: the checksum-bound target of
+ * `applySymbolCellReviewDecision` (D-473).
+ */
+export type BoardSearchBoardCellResponse = {
+  /**
+   * Assignedsymbolcode
+   */
+  assignedSymbolCode: string | null;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Cellreviewid
+   */
+  cellReviewId: string;
+  /**
+   * Cropchecksumsha256
+   */
+  cropChecksumSha256: string | null;
+  /**
+   * Cropsampleid
+   */
+  cropSampleId: string | null;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  /**
+   * Qualityissue
+   */
+  qualityIssue: string | null;
+  /**
+   * Reviewstate
+   */
+  reviewState: string;
+  /**
+   * Revision
+   */
+  revision: number;
+};
+
+/**
+ * BoardSearchBoardDetailResponse
+ */
+export type BoardSearchBoardDetailResponse = {
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256: string;
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Cells
+   *
+   * Editable cell review records of a pending operational board; null for resolved and archive boards.
+   */
+  cells: Array<BoardSearchBoardCellResponse> | null;
+  dataSource: BoardSearchAssetMode;
+  /**
+   * Documentstale
+   *
+   * True when the board changed after its search document was written; lines then come from the older reading and no view or cells are given.
+   */
+  documentStale: boolean;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Matches
+   */
+  matches: Array<BoardSearchLineMatchResponse>;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits: number;
+  /**
+   * Payoutkind
+   */
+  payoutKind: 'exact' | 'confirmed_minimum' | 'none';
+  rules: ApproximateWinRulesResponse;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Symbolcodes
+   */
+  symbolCodes: Array<string | null>;
+  view: BoardSearchBoardViewResponse | null;
+};
+
+/**
+ * BoardSearchBoardRefreshResponse
+ *
+ * Outcome of rebuilding one board's search document (TASK-0773).
+ */
+export type BoardSearchBoardRefreshResponse = {
+  detail: BoardSearchBoardDetailResponse | null;
+  /**
+   * Documentremoved
+   *
+   * The rebuild left no search document at this sequence position.
+   */
+  documentRemoved: boolean;
+};
+
+/**
+ * BoardSearchBoardViewResponse
+ *
+ * Size of the cropped view and cell polygons in its 0–1 coordinates.
+ */
+export type BoardSearchBoardViewResponse = {
+  /**
+   * Cellpolygons
+   */
+  cellPolygons:
+    | [
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+        Array<BoardSearchViewPointResponse>,
+      ]
+    | null;
+  /**
+   * Height
+   */
+  height: number;
+  /**
+   * Revision
+   */
+  revision: string;
+  /**
+   * Width
+   */
+  width: number;
+};
+
+/**
+ * BoardSearchLineMatchResponse
+ */
+export type BoardSearchLineMatchResponse = {
+  /**
+   * Jokercells
+   */
+  jokerCells: Array<number>;
+  /**
+   * Matchedcells
+   */
+  matchedCells: Array<number>;
+  /**
+   * Matchedlength
+   */
+  matchedLength: number;
+  /**
+   * Paylinecode
+   */
+  paylineCode: string;
+  /**
+   * Paylinedisplayorder
+   */
+  paylineDisplayOrder: number;
+  /**
+   * Paylineid
+   */
+  paylineId: string;
+  /**
+   * Paylinename
+   */
+  paylineName: string;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits: number;
+  /**
+   * Rowpath
+   */
+  rowPath: Array<number>;
+  /**
+   * Symbolcode
+   */
+  symbolCode: string;
+};
 
 /**
  * BoardSearchResponse
@@ -1072,6 +1282,341 @@ export type BoardSearchScoreResponse = {
    * Weightedalternativescore
    */
   weightedAlternativeScore: number;
+};
+
+/**
+ * BoardSearchShareCreate
+ */
+export type BoardSearchShareCreate = {
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Label
+   */
+  label?: string | null;
+  /**
+   * Lifetimeminutes
+   */
+  lifetimeMinutes?: number;
+};
+
+/**
+ * BoardSearchShareCreatedResponse
+ */
+export type BoardSearchShareCreatedResponse = {
+  /**
+   * Accesscode
+   *
+   * Shown once; only its hash is stored.
+   */
+  accessCode: string;
+  session: BoardSearchShareSessionResponse;
+};
+
+/**
+ * BoardSearchSharePublicContextResponse
+ *
+ * What the recipient sees about their access; no internal identities.
+ */
+export type BoardSearchSharePublicContextResponse = {
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Gamename
+   */
+  gameName: string;
+  /**
+   * Label
+   */
+  label: string | null;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * BoardSearchSharePublicSearchResponse
+ */
+export type BoardSearchSharePublicSearchResponse = {
+  /**
+   * Querycellcount
+   */
+  queryCellCount: number;
+  /**
+   * Results
+   */
+  results: Array<BoardSearchSharePublicSearchResultResponse>;
+  scope: BoardSearchScope;
+};
+
+/**
+ * BoardSearchSharePublicSearchResultResponse
+ */
+export type BoardSearchSharePublicSearchResultResponse = {
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256: string;
+  score: BoardSearchScoreResponse;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * BoardSearchSharePublicSymbolResponse
+ */
+export type BoardSearchSharePublicSymbolResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Displayorder
+   */
+  displayOrder: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Imagerevision
+   *
+   * Checksum of the symbol image for its immutable URL; null without an image.
+   */
+  imageRevision: string | null;
+  /**
+   * Iswildcard
+   */
+  isWildcard: boolean;
+  /**
+   * Mobilecode
+   */
+  mobileCode: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Nameen
+   */
+  nameEn: string | null;
+  /**
+   * Namepl
+   */
+  namePl: string | null;
+  /**
+   * Status
+   */
+  status: string;
+};
+
+/**
+ * BoardSearchShareQueryEntryResponse
+ *
+ * One recorded query of a share link (D-472); never an IP or header.
+ */
+export type BoardSearchShareQueryEntryResponse = {
+  /**
+   * Followupapproximatewin
+   *
+   * For a search: the request (`startSequenceNumber`, `spinCount`) of the newest successful range calculation made before the next search. `stakeGrosze` is present when the recipient's stake was recorded (null: the base stake).
+   */
+  followUpApproximateWin?: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Kind
+   */
+  kind: 'search' | 'approximate_win' | 'board_detail';
+  /**
+   * Occurredat
+   */
+  occurredAt: string;
+  /**
+   * Occurrencetimes
+   *
+   * When this query was made, newest first. A search listed with `groupByPattern` carries every search of the same pattern.
+   */
+  occurrenceTimes: Array<string>;
+  /**
+   * Outcomecode
+   */
+  outcomeCode: string;
+  /**
+   * Request
+   */
+  request: {
+    [key: string]: unknown;
+  };
+  /**
+   * Resultsummary
+   */
+  resultSummary: {
+    [key: string]: unknown;
+  };
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * BoardSearchShareQueryKind
+ */
+export type BoardSearchShareQueryKind =
+  'search' | 'approximate_win' | 'board_detail';
+
+/**
+ * BoardSearchShareQueryPageResponse
+ */
+export type BoardSearchShareQueryPageResponse = {
+  /**
+   * Entries
+   */
+  entries: Array<BoardSearchShareQueryEntryResponse>;
+  /**
+   * Nextcursor
+   *
+   * Pass as `before` for the next, older page; null on the last page.
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * BoardSearchShareQueryReplayResponse
+ *
+ * The entry plus the nearest earlier successful search (and, for a
+ * board detail, range) of the same link, to reproduce it in the Admin.
+ */
+export type BoardSearchShareQueryReplayResponse = {
+  approximateWin: BoardSearchShareQueryEntryResponse | null;
+  event: BoardSearchShareQueryEntryResponse;
+  search: BoardSearchShareQueryEntryResponse | null;
+};
+
+/**
+ * BoardSearchShareSessionListResponse
+ */
+export type BoardSearchShareSessionListResponse = {
+  /**
+   * Sessions
+   */
+  sessions: Array<BoardSearchShareSessionResponse>;
+};
+
+/**
+ * BoardSearchShareSessionResponse
+ *
+ * One share session as the owner sees it; never contains secrets.
+ */
+export type BoardSearchShareSessionResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Failedattempts
+   */
+  failedAttempts: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Label
+   */
+  label: string | null;
+  /**
+   * Lastunlockedat
+   */
+  lastUnlockedAt: string | null;
+  /**
+   * Lockedat
+   */
+  lockedAt: string | null;
+  /**
+   * Ready
+   *
+   * The session is active and the public Reviewer ingress is online.
+   */
+  ready: boolean;
+  /**
+   * Revokedat
+   */
+  revokedAt: string | null;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Shareurl
+   *
+   * The link for the recipient (without the code) while `ready`.
+   */
+  shareUrl: string | null;
+  /**
+   * Status
+   */
+  status: 'active' | 'locked' | 'expired' | 'revoked';
+};
+
+/**
+ * BoardSearchShareStakeRecordedResponse
+ *
+ * Acknowledges a recorded stake choice (D-487); carries no data.
+ */
+export type BoardSearchShareStakeRecordedResponse = {
+  /**
+   * Recorded
+   */
+  recorded?: true;
+};
+
+/**
+ * BoardSearchShareUnlock
+ */
+export type BoardSearchShareUnlock = {
+  /**
+   * Accesscode
+   */
+  accessCode: string;
+};
+
+/**
+ * BoardSearchViewPointResponse
+ */
+export type BoardSearchViewPointResponse = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
 };
 
 /**
@@ -1348,11 +1893,7 @@ export type BrowserImageImportStart = {
    * Boardcellprocessingmode
    */
   boardCellProcessingMode?:
-    | 'verified_v19'
-    | 'structured_shadow'
-    | 'structured_default'
-    | 'structured_lattice_v3'
-    | null;
+    'structured_default' | 'structured_lattice_v3' | null;
   /**
    * Gameid
    */
@@ -2960,6 +3501,128 @@ export type GeometryCohortResponse = {
 };
 
 /**
+ * GeometryCompletenessImageCountsResponse
+ */
+export type GeometryCompletenessImageCountsResponse = {
+  /**
+   * Complete
+   */
+  complete: number;
+  /**
+   * Importfailed
+   */
+  importFailed: number;
+  /**
+   * Incomplete
+   */
+  incomplete: number;
+  /**
+   * Incompletemissing
+   */
+  incompleteMissing: number;
+  /**
+   * Incompletepartial
+   */
+  incompletePartial: number;
+  /**
+   * Incompleteuncertain
+   */
+  incompleteUncertain: number;
+  /**
+   * Nosourcegeometry
+   */
+  noSourceGeometry: number;
+  /**
+   * Superseded
+   */
+  superseded: number;
+  /**
+   * Total
+   */
+  total: number;
+};
+
+/**
+ * GeometryCompletenessPointResponse
+ *
+ * A point in ``exif-normalized-rgb-pixels-v1`` source pixels.
+ */
+export type GeometryCompletenessPointResponse = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
+};
+
+/**
+ * GeometryCompletenessPositionCountResponse
+ */
+export type GeometryCompletenessPositionCountResponse = {
+  /**
+   * Count
+   */
+  count: number;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string | null;
+  state: GeometryPositionState;
+};
+
+/**
+ * GeometryCompletenessPositionResponse
+ */
+export type GeometryCompletenessPositionResponse = {
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Quad
+   */
+  quad?:
+    | [
+        GeometryCompletenessPointResponse,
+        GeometryCompletenessPointResponse,
+        GeometryCompletenessPointResponse,
+        GeometryCompletenessPointResponse,
+      ]
+    | null;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string | null;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string | null;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  state: GeometryPositionState;
+};
+
+/**
+ * GeometryCompletenessSourceStatusCountResponse
+ */
+export type GeometryCompletenessSourceStatusCountResponse = {
+  /**
+   * Count
+   */
+  count: number;
+  imageState: GeometryImageState;
+  /**
+   * Sourcestatus
+   */
+  sourceStatus: string;
+};
+
+/**
  * GeometryEngineVariant
  */
 export type GeometryEngineVariant =
@@ -2989,6 +3652,102 @@ export type GeometryEngineVariantCapabilityResponse = {
   label: string;
   variant: GeometryEngineVariant;
 };
+
+/**
+ * GeometryGateCountsResponse
+ *
+ * Persisted gate state of the images in scope (TASK-0807).
+ */
+export type GeometryGateCountsResponse = {
+  /**
+   * Geometrycomplete
+   */
+  geometryComplete: number;
+  /**
+   * Geometryexception
+   */
+  geometryException: number;
+  /**
+   * Geometryincomplete
+   */
+  geometryIncomplete: number;
+  /**
+   * Notevaluated
+   */
+  notEvaluated: number;
+  /**
+   * Outsidegate
+   */
+  outsideGate: number;
+  /**
+   * Withheldboards
+   */
+  withheldBoards: number;
+  /**
+   * Withheldreasoncode
+   */
+  withheldReasonCode: string;
+};
+
+/**
+ * GeometryImageState
+ *
+ * State of a source image as a whole.
+ */
+export type GeometryImageState =
+  | 'complete'
+  | 'incomplete_missing'
+  | 'incomplete_partial'
+  | 'incomplete_uncertain'
+  | 'no_source_geometry'
+  | 'superseded'
+  | 'import_failed';
+
+/**
+ * GeometryLowQualityBoardResponse
+ */
+export type GeometryLowQualityBoardResponse = {
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Lowcellcount
+   */
+  lowCellCount: number;
+  /**
+   * Minconfidence
+   */
+  minConfidence: number;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number | null;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * GeometryPositionState
+ *
+ * State of one expected board position of a source image.
+ */
+export type GeometryPositionState =
+  'ok' | 'uncertain' | 'partial' | 'missing' | 'deferred' | 'superseded';
 
 /**
  * GeometryQualificationPayload
@@ -3063,6 +3822,52 @@ export type GridCalibrationProfileResponse = {
    * Status
    */
   status: string;
+};
+
+/**
+ * GridCorrectionCellSymbolPayload
+ *
+ * One symbol the operator assigns to a cell while saving its grid (D-488).
+ */
+export type GridCorrectionCellSymbolPayload = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Symbolid
+   */
+  symbolId: string;
+};
+
+/**
+ * GridCorrectionCellSymbolSuggestionResponse
+ */
+export type GridCorrectionCellSymbolSuggestionResponse = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Origin
+   */
+  origin: 'assigned' | 'predicted';
+  /**
+   * Symbolid
+   */
+  symbolId: string | null;
+};
+
+/**
+ * GridCorrectionSymbolsResponse
+ *
+ * Symbols known for the cells of one board under grid correction (D-488).
+ */
+export type GridCorrectionSymbolsResponse = {
+  /**
+   * Cells
+   */
+  cells: Array<GridCorrectionCellSymbolSuggestionResponse>;
 };
 
 /**
@@ -3474,6 +4279,38 @@ export type ImageFolderSelectionResponse = {
    * Supportedfilecount
    */
   supportedFileCount?: number;
+};
+
+/**
+ * ImageGeometryCompletenessResponse
+ */
+export type ImageGeometryCompletenessResponse = {
+  /**
+   * Computedat
+   */
+  computedAt: string;
+  /**
+   * Expectedboardcount
+   */
+  expectedBoardCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  gate: GeometryGateCountsResponse;
+  images: GeometryCompletenessImageCountsResponse;
+  /**
+   * Importjobid
+   */
+  importJobId: string | null;
+  /**
+   * Positions
+   */
+  positions: Array<GeometryCompletenessPositionCountResponse>;
+  /**
+   * Sourcestatuses
+   */
+  sourceStatuses: Array<GeometryCompletenessSourceStatusCountResponse>;
 };
 
 /**
@@ -3999,6 +4836,40 @@ export type ImageGeometryGuardResolutionManifestResponse = {
 };
 
 /**
+ * ImageGeometryLowQualityBoardsResponse
+ */
+export type ImageGeometryLowQualityBoardsResponse = {
+  /**
+   * Boards
+   */
+  boards: Array<GeometryLowQualityBoardResponse>;
+  /**
+   * Computedat
+   */
+  computedAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Importjobid
+   */
+  importJobId: string | null;
+  /**
+   * Maxconfidence
+   */
+  maxConfidence: number;
+  /**
+   * Mincells
+   */
+  minCells: number;
+  /**
+   * Totalboards
+   */
+  totalBoards: number;
+};
+
+/**
  * ImageGeometryRolloutBackfillJobPayload
  */
 export type ImageGeometryRolloutBackfillJobPayload = {
@@ -4261,51 +5132,6 @@ export type ImageGeometrySystemicGuardPolicyJobPayload = {
 };
 
 /**
- * ImageGridReviewApprovalCommand
- */
-export type ImageGridReviewApprovalCommand = {
-  /**
-   * Expectedgeometryrevision
-   */
-  expectedGeometryRevision: number;
-  /**
-   * Expectedgridcolumns
-   */
-  expectedGridColumns: number;
-  /**
-   * Expectedgridrows
-   */
-  expectedGridRows: number;
-  /**
-   * Expectedresolutionrevision
-   */
-  expectedResolutionRevision: number;
-  /**
-   * Expectedsourcechecksumsha256
-   */
-  expectedSourceChecksumSha256: string;
-  /**
-   * Expectedsourceheight
-   */
-  expectedSourceHeight: number;
-  /**
-   * Expectedsourcewidth
-   */
-  expectedSourceWidth: number;
-};
-
-/**
- * ImageGridReviewApprovalResponse
- */
-export type ImageGridReviewApprovalResponse = {
-  /**
-   * Changed
-   */
-  changed: boolean;
-  item: ImageGridReviewItemResponse;
-};
-
-/**
  * ImageGridReviewCountsResponse
  */
 export type ImageGridReviewCountsResponse = {
@@ -4317,6 +5143,10 @@ export type ImageGridReviewCountsResponse = {
    * Confirmedpartialgrids
    */
   confirmedPartialGrids?: number;
+  /**
+   * Correction
+   */
+  correction?: number;
   /**
    * Fullgrids
    */
@@ -4373,6 +5203,10 @@ export type ImageGridReviewGeometryCellResponse = {
  * ImageGridReviewGeometryCommand
  */
 export type ImageGridReviewGeometryCommand = {
+  /**
+   * Cellsymbols
+   */
+  cellSymbols?: Array<GridCorrectionCellSymbolPayload>;
   /**
    * Corners
    *
@@ -4483,11 +5317,7 @@ export type ImageGridReviewGeometryRevisionResponse = {
   /**
    * Assetmode
    */
-  assetMode?: string;
-  /**
-   * Boardchecksumsha256
-   */
-  boardChecksumSha256?: string | null;
+  assetMode: 'virtual_source';
   /**
    * Cells
    */
@@ -4518,13 +5348,9 @@ export type ImageGridReviewGeometryRevisionResponse = {
    */
   cropperVersion: string;
   /**
-   * Decisionchecksumsha256
-   */
-  decisionChecksumSha256: string | null;
-  /**
    * Geometrychecksumsha256
    */
-  geometryChecksumSha256?: string | null;
+  geometryChecksumSha256: string;
   geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Gridcolumns
@@ -4557,11 +5383,11 @@ export type ImageGridReviewGeometryRevisionResponse = {
   /**
    * Sourcegeometryrevisionid
    */
-  sourceGeometryRevisionId?: string | null;
+  sourceGeometryRevisionId: string;
   /**
    * Virtualrenderspecchecksumsha256
    */
-  virtualRenderSpecChecksumSha256?: string | null;
+  virtualRenderSpecChecksumSha256: string;
 };
 
 /**
@@ -4586,7 +5412,7 @@ export type ImageGridReviewItemResponse = {
   /**
    * Assetmode
    */
-  assetMode: string;
+  assetMode: 'virtual_source';
   automaticFrameProposal?: AutomaticFrameGeometryProposalPayload | null;
   automaticPartialProposal?: AutomaticPartialGeometryProposalPayload | null;
   /**
@@ -4663,6 +5489,10 @@ export type ImageGridReviewItemResponse = {
    * Recognizedboardid
    */
   recognizedBoardId: string | null;
+  /**
+   * Reportedcellindices
+   */
+  reportedCellIndices?: Array<number>;
   /**
    * Resolutionrevision
    */
@@ -4763,166 +5593,6 @@ export type ImageGridReviewPageResponse = {
 export type ImageGridReviewSlotKind = 'current_review' | 'deferred_geometry';
 
 /**
- * ImageGridReviewSourceApprovalCommand
- */
-export type ImageGridReviewSourceApprovalCommand = {
-  /**
-   * Sourceimageid
-   */
-  sourceImageId: string;
-  /**
-   * Targets
-   */
-  targets: Array<ImageGridReviewSourceApprovalTargetRequest>;
-};
-
-/**
- * ImageGridReviewSourceApprovalResponse
- */
-export type ImageGridReviewSourceApprovalResponse = {
-  /**
-   * Approvedreviewitemids
-   */
-  approvedReviewItemIds: Array<string>;
-  /**
-   * Changedcount
-   */
-  changedCount: number;
-  /**
-   * Sourceimageid
-   */
-  sourceImageId: string;
-};
-
-/**
- * ImageGridReviewSourceApprovalTargetRequest
- */
-export type ImageGridReviewSourceApprovalTargetRequest = {
-  /**
-   * Expectedgeometryrevision
-   */
-  expectedGeometryRevision: number;
-  /**
-   * Expectedgridcolumns
-   */
-  expectedGridColumns: number;
-  /**
-   * Expectedgridrows
-   */
-  expectedGridRows: number;
-  /**
-   * Expectedresolutionrevision
-   */
-  expectedResolutionRevision: number;
-  /**
-   * Expectedsourcechecksumsha256
-   */
-  expectedSourceChecksumSha256: string;
-  /**
-   * Expectedsourceheight
-   */
-  expectedSourceHeight: number;
-  /**
-   * Expectedsourcewidth
-   */
-  expectedSourceWidth: number;
-  /**
-   * Reviewitemid
-   */
-  reviewItemId: string;
-};
-
-/**
- * ImageGridReviewSourceGeometryCommand
- */
-export type ImageGridReviewSourceGeometryCommand = {
-  /**
-   * Idempotencykey
-   */
-  idempotencyKey: string;
-  /**
-   * Sourceimageid
-   */
-  sourceImageId: string;
-  /**
-   * Targets
-   */
-  targets: Array<ImageGridReviewSourceGeometryTargetCommand>;
-};
-
-/**
- * ImageGridReviewSourceGeometryResponse
- */
-export type ImageGridReviewSourceGeometryResponse = {
-  /**
-   * Created
-   */
-  created: boolean;
-  /**
-   * Geometryrevisions
-   */
-  geometryRevisions: Array<ImageGridReviewGeometryRevisionResponse>;
-  /**
-   * Sourceimageid
-   */
-  sourceImageId: string;
-};
-
-/**
- * ImageGridReviewSourceGeometryTargetCommand
- */
-export type ImageGridReviewSourceGeometryTargetCommand = {
-  /**
-   * Corners
-   *
-   * Source-image outer corners in row-major winding
-   */
-  corners: [
-    ManualSourceGeometryPoint,
-    ManualSourceGeometryPoint,
-    ManualSourceGeometryPoint,
-    ManualSourceGeometryPoint,
-  ];
-  /**
-   * Expectedgeometryrevision
-   */
-  expectedGeometryRevision: number;
-  /**
-   * Expectedgridcolumns
-   */
-  expectedGridColumns: number;
-  /**
-   * Expectedgridrows
-   */
-  expectedGridRows: number;
-  /**
-   * Expectedresolutionrevision
-   */
-  expectedResolutionRevision: number;
-  /**
-   * Expectedsourcechecksumsha256
-   */
-  expectedSourceChecksumSha256: string;
-  /**
-   * Expectedsourceheight
-   */
-  expectedSourceHeight: number;
-  /**
-   * Expectedsourcewidth
-   */
-  expectedSourceWidth: number;
-  geometryQualification?: GeometryQualificationPayload | null;
-  /**
-   * Pendinggeometryid
-   */
-  pendingGeometryId?: string | null;
-  /**
-   * Reviewitemid
-   */
-  reviewItemId?: string | null;
-};
-
-/**
  * ImageGridReviewState
  */
 export type ImageGridReviewState =
@@ -4932,16 +5602,13 @@ export type ImageGridReviewState =
  * ImageGridReviewView
  */
 export type ImageGridReviewView =
-  'needs_validation' | 'needs_correction' | 'all';
+  'needs_validation' | 'needs_correction' | 'all' | 'correction';
 
 /**
  * ImageImportEnginePolicy
  */
 export type ImageImportEnginePolicy =
-  | 'verified_v19'
-  | 'structured_shadow'
-  | 'structured_default'
-  | 'structured_lattice_v3';
+  'structured_default' | 'structured_lattice_v3';
 
 /**
  * ImageImportEnginePolicyPreviewRequest
@@ -6343,6 +7010,106 @@ export type ImportJobPayload = {
 };
 
 /**
+ * IncompleteGeometryImagePageResponse
+ */
+export type IncompleteGeometryImagePageResponse = {
+  completenessStatus: SourceImageGeometryStatus | null;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  imageState: GeometryImageState | null;
+  /**
+   * Images
+   */
+  images: Array<IncompleteGeometryImageResponse>;
+  /**
+   * Importjobid
+   */
+  importJobId: string | null;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * IncompleteGeometryImageResponse
+ */
+export type IncompleteGeometryImageResponse = {
+  /**
+   * Completenessevaluatedat
+   */
+  completenessEvaluatedAt: string | null;
+  completenessStatus: SourceImageGeometryStatus | null;
+  /**
+   * Exceptionat
+   */
+  exceptionAt: string | null;
+  /**
+   * Exceptionby
+   */
+  exceptionBy: string | null;
+  /**
+   * Exceptionreason
+   */
+  exceptionReason: string | null;
+  /**
+   * Expectedboardcount
+   */
+  expectedBoardCount: number | null;
+  /**
+   * Gatereasoncode
+   */
+  gateReasonCode: string | null;
+  imageState: GeometryImageState;
+  /**
+   * Importerrorcode
+   */
+  importErrorCode: string | null;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  /**
+   * Orientedheight
+   */
+  orientedHeight: number | null;
+  /**
+   * Orientedwidth
+   */
+  orientedWidth: number | null;
+  /**
+   * Positions
+   */
+  positions: Array<GeometryCompletenessPositionResponse>;
+  /**
+   * Relativepath
+   */
+  relativePath: string;
+  /**
+   * Sequencerangeend
+   */
+  sequenceRangeEnd: number | null;
+  /**
+   * Sequencerangestart
+   */
+  sequenceRangeStart: number | null;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Sourcerevision
+   */
+  sourceRevision: number | null;
+  /**
+   * Sourcestatus
+   */
+  sourceStatus: string;
+};
+
+/**
  * JobErrorResponse
  */
 export type JobErrorResponse = {
@@ -7392,10 +8159,6 @@ export type OperationalImageReviewCellResponse = {
    */
   currentSymbolCode: string;
   /**
-   * Observationid
-   */
-  observationId: string | null;
-  /**
    * Predictedsymbolcode
    */
   predictedSymbolCode: string;
@@ -7472,13 +8235,13 @@ export type OperationalImageReviewGeometryCommand = {
   /**
    * Corners
    *
-   * Source-image outer corners of the 5 by 3 symbol lattice in row-major winding
+   * Source-image outer corners of the 5 by 3 symbol lattice in row-major winding; negative coordinates require an explicitly partial qualification
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Correctedby
@@ -7492,6 +8255,7 @@ export type OperationalImageReviewGeometryCommand = {
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Idempotencykey
    */
@@ -7519,13 +8283,13 @@ export type OperationalImageReviewGeometryPreviewCommand = {
   /**
    * Corners
    *
-   * Source-image outer corners of the 5 by 3 symbol lattice in row-major winding
+   * Source-image outer corners of the 5 by 3 symbol lattice in row-major winding; negative coordinates require an explicitly partial qualification
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedgeometryrevision
@@ -7535,6 +8299,7 @@ export type OperationalImageReviewGeometryPreviewCommand = {
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
+  geometryQualification?: GeometryQualificationPayload | null;
 };
 
 /**
@@ -7551,32 +8316,18 @@ export type OperationalImageReviewGeometryResponse = {
 
 /**
  * OperationalImageReviewGeometryRevisionResponse
+ *
+ * One ``virtual_source`` manual geometry revision (D-467 S6, TASK-0796).
+ *
+ * The former v19 file-crop fields (board crop checksum, manual decision
+ * checksum) are gone: the revision is bound by its source geometry and
+ * render manifest checksums instead.
  */
 export type OperationalImageReviewGeometryRevisionResponse = {
   /**
-   * Boardchecksumsha256
-   */
-  boardChecksumSha256: string;
-  /**
    * Cells
    */
-  cells: [
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-    OperationalImageReviewGeometryCellResponse,
-  ];
+  cells: Array<OperationalImageReviewGeometryCellResponse>;
   /**
    * Commandsha256
    */
@@ -7585,10 +8336,10 @@ export type OperationalImageReviewGeometryRevisionResponse = {
    * Corners
    */
   corners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Correctedby
@@ -7603,11 +8354,10 @@ export type OperationalImageReviewGeometryRevisionResponse = {
    */
   cropperVersion: string;
   /**
-   * Decisionchecksumsha256
-   *
-   * Manual v19 decision checksum binding source, board position, versions and actor; null only for historical geometry revisions
+   * Geometrychecksumsha256
    */
-  decisionChecksumSha256?: string | null;
+  geometryChecksumSha256: string;
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Id
    */
@@ -7628,6 +8378,14 @@ export type OperationalImageReviewGeometryRevisionResponse = {
    * Revision
    */
   revision: number;
+  /**
+   * Sourcegeometryrevisionid
+   */
+  sourceGeometryRevisionId: string;
+  /**
+   * Virtualrenderspecchecksumsha256
+   */
+  virtualRenderSpecChecksumSha256: string;
 };
 
 /**
@@ -7641,23 +8399,7 @@ export type OperationalImageReviewItemResponse = {
   /**
    * Cells
    */
-  cells: [
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-    OperationalImageReviewCellResponse,
-  ];
+  cells: Array<OperationalImageReviewCellResponse>;
   /**
    * Createdat
    */
@@ -7672,6 +8414,10 @@ export type OperationalImageReviewItemResponse = {
   geometry: {
     [key: string]: unknown;
   };
+  /**
+   * Persisted manual qualification of the current board geometry (TASK-0798)
+   */
+  geometryQualification?: GeometryQualificationPayload | null;
   /**
    * Geometryrevision
    */
@@ -7723,9 +8469,21 @@ export type OperationalImageReviewItemResponse = {
    */
   sourceChecksumSha256: string;
   /**
+   * Sourceheight
+   *
+   * Oriented height of the source the corners refer to
+   */
+  sourceHeight?: number | null;
+  /**
    * Sourceorderindex
    */
   sourceOrderIndex: number;
+  /**
+   * Sourcewidth
+   *
+   * Oriented width of the source the corners refer to
+   */
+  sourceWidth?: number | null;
   /**
    * Status
    */
@@ -9526,11 +10284,11 @@ export type ResolveUnreadableCellRequest = {
   /**
    * Expectedcropchecksumsha256
    */
-  expectedCropChecksumSha256: string;
+  expectedCropChecksumSha256: string | null;
   /**
    * Expectedcropsampleid
    */
-  expectedCropSampleId: string;
+  expectedCropSampleId: string | null;
   /**
    * Expectedgeometryrevision
    */
@@ -10678,11 +11436,11 @@ export type SaveUnreadableBoardCellRequest = {
   /**
    * Expectedcropchecksumsha256
    */
-  expectedCropChecksumSha256: string;
+  expectedCropChecksumSha256: string | null;
   /**
    * Expectedcropsampleid
    */
-  expectedCropSampleId: string;
+  expectedCropSampleId: string | null;
   /**
    * Expectedgeometryrevision
    */
@@ -11479,6 +12237,59 @@ export type SnapshotJobPayload = {
 };
 
 /**
+ * SourceImageGeometryExceptionCommand
+ *
+ * Operator exception of one incomplete image (D-484, TASK-0807).
+ */
+export type SourceImageGeometryExceptionCommand = {
+  /**
+   * Reason
+   */
+  reason: string;
+};
+
+/**
+ * SourceImageGeometryExceptionResponse
+ */
+export type SourceImageGeometryExceptionResponse = {
+  completenessStatus: SourceImageGeometryStatus | null;
+  /**
+   * Exceptionat
+   */
+  exceptionAt: string | null;
+  /**
+   * Exceptionby
+   */
+  exceptionBy: string | null;
+  /**
+   * Exceptionreason
+   */
+  exceptionReason: string | null;
+  imageState: GeometryImageState;
+  /**
+   * Materializedreviewitemcount
+   */
+  materializedReviewItemCount: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * SourceImageGeometryStatus
+ *
+ * Persisted ``source_images.geometry_completeness_status`` (TASK-0807).
+ *
+ * ``NULL`` in storage means *not evaluated* (before the backfill) or *outside
+ * the gate* (``superseded``, ``import_failed``, ``no_source_geometry``: the
+ * image has no live board to cut). ``geometry_exception`` is set only by an
+ * operator.
+ */
+export type SourceImageGeometryStatus =
+  'geometry_complete' | 'geometry_incomplete' | 'geometry_exception';
+
+/**
  * StorageGcJobPayload
  */
 export type StorageGcJobPayload = {
@@ -11937,11 +12748,11 @@ export type SymbolCellReviewBulkExplicitTargetRequest = {
   /**
    * Expectedcropchecksumsha256
    */
-  expectedCropChecksumSha256: string;
+  expectedCropChecksumSha256: string | null;
   /**
    * Expectedcropsampleid
    */
-  expectedCropSampleId: string;
+  expectedCropSampleId: string | null;
   /**
    * Expectedgeometryrevision
    */
@@ -11961,6 +12772,14 @@ export type SymbolCellReviewBulkFilterSelectionRequest = {
    */
   catalogRevision: number;
   /**
+   * Changedfrom
+   */
+  changedFrom?: string | null;
+  /**
+   * Changedto
+   */
+  changedTo?: string | null;
+  /**
    * Excludedcellreviewids
    */
   excludedCellReviewIds?: Array<string>;
@@ -11976,11 +12795,12 @@ export type SymbolCellReviewBulkFilterSelectionRequest = {
    * Minconfidence
    */
   minConfidence?: number | null;
+  predictionSource?: SymbolCellReviewPredictionSource | null;
   state?: SymbolCellReviewFilterState;
   /**
    * Symbolid
    */
-  symbolId: string | 'unknown';
+  symbolId: string | 'unknown' | 'outside' | 'all';
 };
 
 /**
@@ -12196,7 +13016,7 @@ export type SymbolCellReviewListItemResponse = {
   /**
    * Assetmode
    */
-  assetMode?: 'legacy_file' | 'virtual_source';
+  assetMode: 'virtual_source' | 'none';
   /**
    * Assignedsymbolcode
    */
@@ -12228,11 +13048,11 @@ export type SymbolCellReviewListItemResponse = {
   /**
    * Cropchecksumsha256
    */
-  cropChecksumSha256: string;
+  cropChecksumSha256: string | null;
   /**
    * Cropsampleid
    */
-  cropSampleId: string;
+  cropSampleId: string | null;
   /**
    * Geometryrevision
    */
@@ -12293,6 +13113,10 @@ export type SymbolCellReviewListItemResponse = {
    * Sequencenumber
    */
   sequenceNumber: number;
+  /**
+   * Sourcevisibility
+   */
+  sourceVisibility?: 'full' | 'partial' | 'outside';
 };
 
 /**
@@ -12303,11 +13127,11 @@ export type SymbolCellReviewMutationRequest = {
   /**
    * Expectedcropchecksumsha256
    */
-  expectedCropChecksumSha256: string;
+  expectedCropChecksumSha256: string | null;
   /**
    * Expectedcropsampleid
    */
-  expectedCropSampleId: string;
+  expectedCropSampleId: string | null;
   /**
    * Expectedgeometryrevision
    */
@@ -12397,6 +13221,13 @@ export type SymbolCellReviewPageResponse = {
    */
   previousCursor: string | null;
 };
+
+/**
+ * SymbolCellReviewPredictionSource
+ *
+ * Which writer produced a cell's current prediction (D-466).
+ */
+export type SymbolCellReviewPredictionSource = 'reference_library' | 'model';
 
 /**
  * SymbolCellReviewProjectionStartResponse
@@ -12956,6 +13787,10 @@ export type SymbolTrainingJobPayload = {
  */
 export type SymbolUpdate = {
   /**
+   * Displayorder
+   */
+  displayOrder?: number | null;
+  /**
    * Iswildcard
    */
   isWildcard?: boolean | null;
@@ -12969,6 +13804,10 @@ export type SymbolUpdate = {
  * UnreadableBoardReviewCellResponse
  */
 export type UnreadableBoardReviewCellResponse = {
+  /**
+   * Assetmode
+   */
+  assetMode: 'virtual_source' | 'none';
   /**
    * Assignedsymbolcode
    */
@@ -12996,11 +13835,11 @@ export type UnreadableBoardReviewCellResponse = {
   /**
    * Cropchecksumsha256
    */
-  cropChecksumSha256: string;
+  cropChecksumSha256: string | null;
   /**
    * Cropsampleid
    */
-  cropSampleId: string;
+  cropSampleId: string | null;
   /**
    * Geometryrevision
    */
@@ -13029,6 +13868,10 @@ export type UnreadableBoardReviewCellResponse = {
    * Rowindex
    */
   rowIndex: number;
+  /**
+   * Sourcevisibility
+   */
+  sourceVisibility?: 'full' | 'partial' | 'outside';
 };
 
 /**
@@ -14057,6 +14900,275 @@ export type WorkerLaneStatusResponse = {
   workerVersion: string | null;
 };
 
+export type DeleteBoardSearchShareQueryData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Event Id
+     */
+    event_id: string;
+  };
+  query?: {
+    /**
+     * Wholepattern
+     *
+     * For a search: delete every search of the same pattern.
+     */
+    wholePattern?: boolean;
+  };
+  url: '/api/v1/admin/board-search-shares/queries/{event_id}';
+};
+
+export type DeleteBoardSearchShareQueryErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type DeleteBoardSearchShareQueryError =
+  DeleteBoardSearchShareQueryErrors[keyof DeleteBoardSearchShareQueryErrors];
+
+export type DeleteBoardSearchShareQueryResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type DeleteBoardSearchShareQueryResponse =
+  DeleteBoardSearchShareQueryResponses[keyof DeleteBoardSearchShareQueryResponses];
+
+export type GetBoardSearchShareQueryReplayData = {
+  body?: never;
+  path: {
+    /**
+     * Event Id
+     */
+    event_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/board-search-shares/queries/{event_id}';
+};
+
+export type GetBoardSearchShareQueryReplayErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetBoardSearchShareQueryReplayError =
+  GetBoardSearchShareQueryReplayErrors[keyof GetBoardSearchShareQueryReplayErrors];
+
+export type GetBoardSearchShareQueryReplayResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareQueryReplayResponse;
+};
+
+export type GetBoardSearchShareQueryReplayResponse =
+  GetBoardSearchShareQueryReplayResponses[keyof GetBoardSearchShareQueryReplayResponses];
+
+export type ListBoardSearchShareSessionsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Gameid
+     */
+    gameId?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/board-search-shares/sessions';
+};
+
+export type ListBoardSearchShareSessionsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListBoardSearchShareSessionsError =
+  ListBoardSearchShareSessionsErrors[keyof ListBoardSearchShareSessionsErrors];
+
+export type ListBoardSearchShareSessionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareSessionListResponse;
+};
+
+export type ListBoardSearchShareSessionsResponse =
+  ListBoardSearchShareSessionsResponses[keyof ListBoardSearchShareSessionsResponses];
+
+export type CreateBoardSearchShareSessionData = {
+  body: BoardSearchShareCreate;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/board-search-shares/sessions';
+};
+
+export type CreateBoardSearchShareSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type CreateBoardSearchShareSessionError =
+  CreateBoardSearchShareSessionErrors[keyof CreateBoardSearchShareSessionErrors];
+
+export type CreateBoardSearchShareSessionResponses = {
+  /**
+   * Successful Response
+   */
+  201: BoardSearchShareCreatedResponse;
+};
+
+export type CreateBoardSearchShareSessionResponse =
+  CreateBoardSearchShareSessionResponses[keyof CreateBoardSearchShareSessionResponses];
+
+export type ListBoardSearchShareQueriesData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: {
+    /**
+     * Before
+     */
+    before?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Kind
+     */
+    kind?: BoardSearchShareQueryKind | null;
+    /**
+     * Groupbypattern
+     *
+     * With `kind=search`: one entry per searched pattern.
+     */
+    groupByPattern?: boolean;
+  };
+  url: '/api/v1/admin/board-search-shares/sessions/{session_id}/queries';
+};
+
+export type ListBoardSearchShareQueriesErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ListBoardSearchShareQueriesError =
+  ListBoardSearchShareQueriesErrors[keyof ListBoardSearchShareQueriesErrors];
+
+export type ListBoardSearchShareQueriesResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareQueryPageResponse;
+};
+
+export type ListBoardSearchShareQueriesResponse =
+  ListBoardSearchShareQueriesResponses[keyof ListBoardSearchShareQueriesResponses];
+
+export type RevokeBoardSearchShareSessionData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/board-search-shares/sessions/{session_id}/revoke';
+};
+
+export type RevokeBoardSearchShareSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RevokeBoardSearchShareSessionError =
+  RevokeBoardSearchShareSessionErrors[keyof RevokeBoardSearchShareSessionErrors];
+
+export type RevokeBoardSearchShareSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareSessionResponse;
+};
+
+export type RevokeBoardSearchShareSessionResponse =
+  RevokeBoardSearchShareSessionResponses[keyof RevokeBoardSearchShareSessionResponses];
+
 export type ArchiveDatasetVersionData = {
   body?: never;
   headers: {
@@ -14541,7 +15653,7 @@ export type GetBoardSearchApproximateWinErrors = {
    */
   404: ErrorResponse;
   /**
-   * Board-search projection/archive not ready, no published rules, an invalid rules configuration, a board symbol outside the active rules, or a starting board outside the game's sequence
+   * Board-search projection not ready, no published rules, an invalid rules configuration, a board symbol outside the active rules, or a starting board outside the game's sequence
    */
   409: ErrorResponse;
   /**
@@ -14563,8 +15675,106 @@ export type GetBoardSearchApproximateWinResponses = {
 export type GetBoardSearchApproximateWinResponse =
   GetBoardSearchApproximateWinResponses[keyof GetBoardSearchApproximateWinResponses];
 
-export type GetArchivedBoardSearchAssetData = {
+export type GetBoardSearchBoardDetailData = {
   body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}';
+};
+
+export type GetBoardSearchBoardDetailErrors = {
+  /**
+   * Game or board-search document not found
+   */
+  404: ErrorResponse;
+  /**
+   * Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid path parameters
+   */
+  422: ErrorResponse;
+};
+
+export type GetBoardSearchBoardDetailError =
+  GetBoardSearchBoardDetailErrors[keyof GetBoardSearchBoardDetailErrors];
+
+export type GetBoardSearchBoardDetailResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchBoardDetailResponse;
+};
+
+export type GetBoardSearchBoardDetailResponse =
+  GetBoardSearchBoardDetailResponses[keyof GetBoardSearchBoardDetailResponses];
+
+export type RefreshBoardSearchBoardDocumentData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/refresh';
+};
+
+export type RefreshBoardSearchBoardDocumentErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or board-search document not found
+   */
+  404: ErrorResponse;
+  /**
+   * Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid path parameters
+   */
+  422: ErrorResponse;
+};
+
+export type RefreshBoardSearchBoardDocumentError =
+  RefreshBoardSearchBoardDocumentErrors[keyof RefreshBoardSearchBoardDocumentErrors];
+
+export type RefreshBoardSearchBoardDocumentResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchBoardRefreshResponse;
+};
+
+export type RefreshBoardSearchBoardDocumentResponse =
+  RefreshBoardSearchBoardDocumentResponses[keyof RefreshBoardSearchBoardDocumentResponses];
+
+export type GetBoardSearchBoardViewData = {
+  body?: never;
+  headers?: {
+    /**
+     * If-None-Match
+     */
+    'If-None-Match'?: string | null;
+  };
   path: {
     /**
      * Game Id
@@ -14580,29 +15790,33 @@ export type GetArchivedBoardSearchAssetData = {
      * Expectedboardchecksumsha256
      */
     expectedBoardChecksumSha256: string;
+    /**
+     * Viewrevision
+     */
+    viewRevision?: string | null;
   };
-  url: '/api/v1/admin/games/{game_id}/board-search/archive-assets/{sequence_number}';
+  url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}/view';
 };
 
-export type GetArchivedBoardSearchAssetErrors = {
+export type GetBoardSearchBoardViewErrors = {
   /**
-   * Game not found
+   * Game or board-search document not found
    */
   404: ErrorResponse;
   /**
-   * Board-search projection not ready
+   * Projection not ready, no or invalid published rules, a board symbol outside the rules, or the board changed since the search document was written
    */
   409: ErrorResponse;
   /**
-   * Invalid partial board query
+   * Invalid path parameters
    */
   422: ErrorResponse;
 };
 
-export type GetArchivedBoardSearchAssetError =
-  GetArchivedBoardSearchAssetErrors[keyof GetArchivedBoardSearchAssetErrors];
+export type GetBoardSearchBoardViewError =
+  GetBoardSearchBoardViewErrors[keyof GetBoardSearchBoardViewErrors];
 
-export type GetArchivedBoardSearchAssetResponses = {
+export type GetBoardSearchBoardViewResponses = {
   /**
    * Successful Response
    */
@@ -15168,99 +16382,6 @@ export type ListImageGridReviewsResponses = {
 export type ListImageGridReviewsResponse =
   ListImageGridReviewsResponses[keyof ListImageGridReviewsResponses];
 
-export type ApproveImageGridReviewSourceGeometryData = {
-  body: ImageGridReviewSourceApprovalCommand;
-  path: {
-    /**
-     * Game Id
-     */
-    game_id: string;
-  };
-  query?: never;
-  url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval';
-};
-
-export type ApproveImageGridReviewSourceGeometryErrors = {
-  /**
-   * Local Admin security guard rejected the request
-   */
-  403: ErrorResponse;
-  /**
-   * Current grid review resource not found
-   */
-  404: ErrorResponse;
-  /**
-   * Grid review cursor or revision conflict
-   */
-  409: ErrorResponse;
-  /**
-   * Invalid grid review command
-   */
-  422: ErrorResponse;
-};
-
-export type ApproveImageGridReviewSourceGeometryError =
-  ApproveImageGridReviewSourceGeometryErrors[keyof ApproveImageGridReviewSourceGeometryErrors];
-
-export type ApproveImageGridReviewSourceGeometryResponses = {
-  /**
-   * Successful Response
-   */
-  200: ImageGridReviewSourceApprovalResponse;
-};
-
-export type ApproveImageGridReviewSourceGeometryResponse =
-  ApproveImageGridReviewSourceGeometryResponses[keyof ApproveImageGridReviewSourceGeometryResponses];
-
-export type CreateImageGridReviewSourceGeometryRevisionData = {
-  body: ImageGridReviewSourceGeometryCommand;
-  path: {
-    /**
-     * Game Id
-     */
-    game_id: string;
-  };
-  query: {
-    /**
-     * Importjobid
-     */
-    importJobId: string;
-  };
-  url: '/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions';
-};
-
-export type CreateImageGridReviewSourceGeometryRevisionErrors = {
-  /**
-   * Local Admin security guard rejected the request
-   */
-  403: ErrorResponse;
-  /**
-   * Current grid review resource not found
-   */
-  404: ErrorResponse;
-  /**
-   * Grid review cursor or revision conflict
-   */
-  409: ErrorResponse;
-  /**
-   * Invalid grid review command
-   */
-  422: ErrorResponse;
-};
-
-export type CreateImageGridReviewSourceGeometryRevisionError =
-  CreateImageGridReviewSourceGeometryRevisionErrors[keyof CreateImageGridReviewSourceGeometryRevisionErrors];
-
-export type CreateImageGridReviewSourceGeometryRevisionResponses = {
-  /**
-   * Successful Response
-   */
-  200: ImageGridReviewSourceGeometryResponse;
-};
-
-export type CreateImageGridReviewSourceGeometryRevisionResponse =
-  CreateImageGridReviewSourceGeometryRevisionResponses[keyof CreateImageGridReviewSourceGeometryRevisionResponses];
-
 export type GetImageGeometryRolloutStatusData = {
   body?: never;
   path: {
@@ -15670,10 +16791,62 @@ export type PreviewPendingBoardCellGeometryCorrectionError =
 
 export type PreviewPendingBoardCellGeometryCorrectionResponses = {
   /**
-   * Five by three contact sheet of manual v19 crops
+   * Five by three contact sheet of virtual source renders
    */
   200: unknown;
 };
+
+export type PreviewPendingBoardCellGeometrySymbolsData = {
+  body: BoardCellGeometryManualPreviewCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-symbol-preview';
+};
+
+export type PreviewPendingBoardCellGeometrySymbolsErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewPendingBoardCellGeometrySymbolsError =
+  PreviewPendingBoardCellGeometrySymbolsErrors[keyof PreviewPendingBoardCellGeometrySymbolsErrors];
+
+export type PreviewPendingBoardCellGeometrySymbolsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionSymbolsResponse;
+};
+
+export type PreviewPendingBoardCellGeometrySymbolsResponse =
+  PreviewPendingBoardCellGeometrySymbolsResponses[keyof PreviewPendingBoardCellGeometrySymbolsResponses];
 
 export type ResolvePendingBoardCellGeometryManuallyData = {
   body: BoardCellGeometryManualResolutionCommand;
@@ -16225,6 +17398,18 @@ export type GetSymbolCellReviewCountsData = {
      * Maxconfidence
      */
     maxConfidence?: number | null;
+    /**
+     * Predictionsource
+     */
+    predictionSource?: SymbolCellReviewPredictionSource | null;
+    /**
+     * Changedfrom
+     */
+    changedFrom?: string | null;
+    /**
+     * Changedto
+     */
+    changedTo?: string | null;
   };
   url: '/api/v1/admin/games/{game_id}/symbol-cell-review-counts';
 };
@@ -16511,6 +17696,18 @@ export type SkipSymbolCellReviewsData = {
      * Maxconfidence
      */
     maxConfidence?: number | null;
+    /**
+     * Predictionsource
+     */
+    predictionSource?: SymbolCellReviewPredictionSource | null;
+    /**
+     * Changedfrom
+     */
+    changedFrom?: string | null;
+    /**
+     * Changedto
+     */
+    changedTo?: string | null;
   };
   url: '/api/v1/admin/games/{game_id}/symbol-cell-review-skip';
 };
@@ -16577,6 +17774,18 @@ export type ListSymbolCellReviewsData = {
      * Maxconfidence
      */
     maxConfidence?: number | null;
+    /**
+     * Predictionsource
+     */
+    predictionSource?: SymbolCellReviewPredictionSource | null;
+    /**
+     * Changedfrom
+     */
+    changedFrom?: string | null;
+    /**
+     * Changedto
+     */
+    changedTo?: string | null;
     /**
      * Limit
      */
@@ -16718,6 +17927,54 @@ export type ApplySymbolCellReviewDecisionResponses = {
 
 export type ApplySymbolCellReviewDecisionResponse =
   ApplySymbolCellReviewDecisionResponses[keyof ApplySymbolCellReviewDecisionResponses];
+
+export type SelectSymbolReferenceFromCellReviewData = {
+  body: ApprovedSymbolReferenceSelectionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Cell Review Id
+     */
+    cell_review_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/symbol-cell-reviews/{cell_review_id}/symbol-reference';
+};
+
+export type SelectSymbolReferenceFromCellReviewErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game, symbol, or crop not found
+   */
+  404: ErrorResponse;
+  /**
+   * Candidate cursor conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SelectSymbolReferenceFromCellReviewError =
+  SelectSymbolReferenceFromCellReviewErrors[keyof SelectSymbolReferenceFromCellReviewErrors];
+
+export type SelectSymbolReferenceFromCellReviewResponses = {
+  /**
+   * Successful Response
+   */
+  200: SymbolResponse;
+};
+
+export type SelectSymbolReferenceFromCellReviewResponse =
+  SelectSymbolReferenceFromCellReviewResponses[keyof SelectSymbolReferenceFromCellReviewResponses];
 
 export type ListSymbolModelIterationsData = {
   body?: never;
@@ -17336,12 +18593,12 @@ export type GetApprovedSymbolReferenceCandidateAssetData = {
      */
     symbol_id: string;
     /**
-     * Observation Id
+     * Cell Review Id
      */
-    observation_id: string;
+    cell_review_id: string;
   };
   query?: never;
-  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/asset';
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/asset';
 };
 
 export type GetApprovedSymbolReferenceCandidateAssetErrors = {
@@ -17381,12 +18638,12 @@ export type SelectApprovedSymbolReferenceCandidateData = {
      */
     symbol_id: string;
     /**
-     * Observation Id
+     * Cell Review Id
      */
-    observation_id: string;
+    cell_review_id: string;
   };
   query?: never;
-  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{observation_id}/selection';
+  url: '/api/v1/admin/games/{game_id}/symbols/{symbol_id}/approved-image-candidates/{cell_review_id}/selection';
 };
 
 export type SelectApprovedSymbolReferenceCandidateErrors = {
@@ -19675,6 +20932,314 @@ export type GetImageDatasetCompletenessResponses = {
 export type GetImageDatasetCompletenessResponse =
   GetImageDatasetCompletenessResponses[keyof GetImageDatasetCompletenessResponses];
 
+export type GetImageGeometryCompletenessData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Importjobid
+     */
+    importJobId?: string | null;
+  };
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}';
+};
+
+export type GetImageGeometryCompletenessErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageGeometryCompletenessError =
+  GetImageGeometryCompletenessErrors[keyof GetImageGeometryCompletenessErrors];
+
+export type GetImageGeometryCompletenessResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGeometryCompletenessResponse;
+};
+
+export type GetImageGeometryCompletenessResponse =
+  GetImageGeometryCompletenessResponses[keyof GetImageGeometryCompletenessResponses];
+
+export type WithdrawSourceImageGeometryExceptionData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Source Image Id
+     */
+    source_image_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception';
+};
+
+export type WithdrawSourceImageGeometryExceptionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type WithdrawSourceImageGeometryExceptionError =
+  WithdrawSourceImageGeometryExceptionErrors[keyof WithdrawSourceImageGeometryExceptionErrors];
+
+export type WithdrawSourceImageGeometryExceptionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceImageGeometryExceptionResponse;
+};
+
+export type WithdrawSourceImageGeometryExceptionResponse =
+  WithdrawSourceImageGeometryExceptionResponses[keyof WithdrawSourceImageGeometryExceptionResponses];
+
+export type SetSourceImageGeometryExceptionData = {
+  body: SourceImageGeometryExceptionCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Source Image Id
+     */
+    source_image_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception';
+};
+
+export type SetSourceImageGeometryExceptionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SetSourceImageGeometryExceptionError =
+  SetSourceImageGeometryExceptionErrors[keyof SetSourceImageGeometryExceptionErrors];
+
+export type SetSourceImageGeometryExceptionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceImageGeometryExceptionResponse;
+};
+
+export type SetSourceImageGeometryExceptionResponse =
+  SetSourceImageGeometryExceptionResponses[keyof SetSourceImageGeometryExceptionResponses];
+
+export type GetImageGeometryCompletenessSourceAssetData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Source Image Id
+     */
+    source_image_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/source';
+};
+
+export type GetImageGeometryCompletenessSourceAssetErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageGeometryCompletenessSourceAssetError =
+  GetImageGeometryCompletenessSourceAssetErrors[keyof GetImageGeometryCompletenessSourceAssetErrors];
+
+export type GetImageGeometryCompletenessSourceAssetResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ListIncompleteGeometryImagesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Importjobid
+     */
+    importJobId?: string | null;
+    /**
+     * Imagestate
+     */
+    imageState?: GeometryImageState | null;
+    /**
+     * Completenessstatus
+     */
+    completenessStatus?: SourceImageGeometryStatus | null;
+    /**
+     * Aftercursor
+     */
+    afterCursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/incomplete-images';
+};
+
+export type ListIncompleteGeometryImagesErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListIncompleteGeometryImagesError =
+  ListIncompleteGeometryImagesErrors[keyof ListIncompleteGeometryImagesErrors];
+
+export type ListIncompleteGeometryImagesResponses = {
+  /**
+   * Successful Response
+   */
+  200: IncompleteGeometryImagePageResponse;
+};
+
+export type ListIncompleteGeometryImagesResponse =
+  ListIncompleteGeometryImagesResponses[keyof ListIncompleteGeometryImagesResponses];
+
+export type GetImageGeometryLowQualityBoardsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Importjobid
+     */
+    importJobId?: string | null;
+    /**
+     * Maxconfidence
+     */
+    maxConfidence?: number;
+    /**
+     * Mincells
+     */
+    minCells?: number;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/low-quality-boards';
+};
+
+export type GetImageGeometryLowQualityBoardsErrors = {
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageGeometryLowQualityBoardsError =
+  GetImageGeometryLowQualityBoardsErrors[keyof GetImageGeometryLowQualityBoardsErrors];
+
+export type GetImageGeometryLowQualityBoardsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ImageGeometryLowQualityBoardsResponse;
+};
+
+export type GetImageGeometryLowQualityBoardsResponse =
+  GetImageGeometryLowQualityBoardsResponses[keyof GetImageGeometryLowQualityBoardsResponses];
+
 export type PreviewPendingGridReinferenceData = {
   body?: never;
   path: {
@@ -20171,7 +21736,7 @@ export type PreviewOperationalImageReviewGeometryError =
 
 export type PreviewOperationalImageReviewGeometryResponses = {
   /**
-   * Five by three contact sheet of final source-direct crops
+   * Five by three contact sheet of virtual source renders
    */
   200: unknown;
 };
@@ -20333,8 +21898,8 @@ export type ListOperationalImageReviewResolutionEventsResponses = {
 export type ListOperationalImageReviewResolutionEventsResponse =
   ListOperationalImageReviewResolutionEventsResponses[keyof ListOperationalImageReviewResolutionEventsResponses];
 
-export type ApproveImageGridReviewGeometryData = {
-  body: ImageGridReviewApprovalCommand;
+export type GetImageGridReviewCorrectionSymbolsData = {
+  body?: never;
   path: {
     /**
      * Review Item Id
@@ -20347,14 +21912,10 @@ export type ApproveImageGridReviewGeometryData = {
      */
     gameId: string;
   };
-  url: '/api/v1/admin/image-reviews/{review_item_id}/geometry-approval';
+  url: '/api/v1/admin/image-reviews/{review_item_id}/correction-symbols';
 };
 
-export type ApproveImageGridReviewGeometryErrors = {
-  /**
-   * Local Admin security guard rejected the request
-   */
-  403: ErrorResponse;
+export type GetImageGridReviewCorrectionSymbolsErrors = {
   /**
    * Current grid review resource not found
    */
@@ -20369,18 +21930,18 @@ export type ApproveImageGridReviewGeometryErrors = {
   422: ErrorResponse;
 };
 
-export type ApproveImageGridReviewGeometryError =
-  ApproveImageGridReviewGeometryErrors[keyof ApproveImageGridReviewGeometryErrors];
+export type GetImageGridReviewCorrectionSymbolsError =
+  GetImageGridReviewCorrectionSymbolsErrors[keyof GetImageGridReviewCorrectionSymbolsErrors];
 
-export type ApproveImageGridReviewGeometryResponses = {
+export type GetImageGridReviewCorrectionSymbolsResponses = {
   /**
    * Successful Response
    */
-  200: ImageGridReviewApprovalResponse;
+  200: GridCorrectionSymbolsResponse;
 };
 
-export type ApproveImageGridReviewGeometryResponse =
-  ApproveImageGridReviewGeometryResponses[keyof ApproveImageGridReviewGeometryResponses];
+export type GetImageGridReviewCorrectionSymbolsResponse =
+  GetImageGridReviewCorrectionSymbolsResponses[keyof GetImageGridReviewCorrectionSymbolsResponses];
 
 export type PreviewImageGridReviewGeometryData = {
   body: ImageGridReviewGeometryPreviewCommand;
@@ -23943,6 +25504,57 @@ export type UpdatePaylineResponses = {
 export type UpdatePaylineResponse =
   UpdatePaylineResponses[keyof UpdatePaylineResponses];
 
+export type DeletePaylineData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Rules Version Id
+     */
+    rules_version_id: string;
+    /**
+     * Payline Id
+     */
+    payline_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/rules-versions/{rules_version_id}/paylines/{payline_id}/permanent';
+};
+
+export type DeletePaylineErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Rules state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DeletePaylineError = DeletePaylineErrors[keyof DeletePaylineErrors];
+
+export type DeletePaylineResponses = {
+  /**
+   * Successful Response
+   */
+  204: void;
+};
+
+export type DeletePaylineResponse =
+  DeletePaylineResponses[keyof DeletePaylineResponses];
+
 export type ListPayoutRulesData = {
   body?: never;
   path: {
@@ -25502,6 +27114,587 @@ export type ListWorkerLanesResponses = {
 
 export type ListWorkerLanesResponse =
   ListWorkerLanesResponses[keyof ListWorkerLanesResponses];
+
+export type GetBoardSearchShareApproximateWinData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query: {
+    /**
+     * Startsequencenumber
+     */
+    startSequenceNumber: number;
+    /**
+     * Spincount
+     */
+    spinCount: number;
+  };
+  url: '/api/v1/board-search-shares/approximate-win';
+};
+
+export type GetBoardSearchShareApproximateWinErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareApproximateWinError =
+  GetBoardSearchShareApproximateWinErrors[keyof GetBoardSearchShareApproximateWinErrors];
+
+export type GetBoardSearchShareApproximateWinResponses = {
+  /**
+   * Successful Response
+   */
+  200: ApproximateWinResponse;
+};
+
+export type GetBoardSearchShareApproximateWinResponse =
+  GetBoardSearchShareApproximateWinResponses[keyof GetBoardSearchShareApproximateWinResponses];
+
+export type RecordBoardSearchShareApproximateWinStakeData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query: {
+    /**
+     * Startsequencenumber
+     */
+    startSequenceNumber: number;
+    /**
+     * Spincount
+     */
+    spinCount: number;
+    /**
+     * Stakegrosze
+     *
+     * Omitted: the base stake of the published rules.
+     */
+    stakeGrosze?: number | null;
+  };
+  url: '/api/v1/board-search-shares/approximate-win/stake';
+};
+
+export type RecordBoardSearchShareApproximateWinStakeErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type RecordBoardSearchShareApproximateWinStakeError =
+  RecordBoardSearchShareApproximateWinStakeErrors[keyof RecordBoardSearchShareApproximateWinStakeErrors];
+
+export type RecordBoardSearchShareApproximateWinStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareStakeRecordedResponse;
+};
+
+export type RecordBoardSearchShareApproximateWinStakeResponse =
+  RecordBoardSearchShareApproximateWinStakeResponses[keyof RecordBoardSearchShareApproximateWinStakeResponses];
+
+export type GetBoardSearchShareBoardDetailData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/board-search-shares/boards/{sequence_number}';
+};
+
+export type GetBoardSearchShareBoardDetailErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareBoardDetailError =
+  GetBoardSearchShareBoardDetailErrors[keyof GetBoardSearchShareBoardDetailErrors];
+
+export type GetBoardSearchShareBoardDetailResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchBoardDetailResponse;
+};
+
+export type GetBoardSearchShareBoardDetailResponse =
+  GetBoardSearchShareBoardDetailResponses[keyof GetBoardSearchShareBoardDetailResponses];
+
+export type GetBoardSearchShareBoardViewData = {
+  body?: never;
+  headers?: {
+    /**
+     * If-None-Match
+     */
+    'If-None-Match'?: string | null;
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query: {
+    /**
+     * Expectedboardchecksumsha256
+     */
+    expectedBoardChecksumSha256: string;
+    /**
+     * Viewrevision
+     */
+    viewRevision?: string | null;
+  };
+  url: '/api/v1/board-search-shares/boards/{sequence_number}/view';
+};
+
+export type GetBoardSearchShareBoardViewErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareBoardViewError =
+  GetBoardSearchShareBoardViewErrors[keyof GetBoardSearchShareBoardViewErrors];
+
+export type GetBoardSearchShareBoardViewResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetBoardSearchShareContextData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/board-search-shares/context';
+};
+
+export type GetBoardSearchShareContextErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareContextError =
+  GetBoardSearchShareContextErrors[keyof GetBoardSearchShareContextErrors];
+
+export type GetBoardSearchShareContextResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicContextResponse;
+};
+
+export type GetBoardSearchShareContextResponse =
+  GetBoardSearchShareContextResponses[keyof GetBoardSearchShareContextResponses];
+
+export type SearchBoardSearchShareBoardsData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Cell
+     */
+    cell?: Array<string> | null;
+    scope?: BoardSearchScope;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/board-search-shares/search';
+};
+
+export type SearchBoardSearchShareBoardsErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type SearchBoardSearchShareBoardsError =
+  SearchBoardSearchShareBoardsErrors[keyof SearchBoardSearchShareBoardsErrors];
+
+export type SearchBoardSearchShareBoardsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicSearchResponse;
+};
+
+export type SearchBoardSearchShareBoardsResponse =
+  SearchBoardSearchShareBoardsResponses[keyof SearchBoardSearchShareBoardsResponses];
+
+export type UnlockBoardSearchShareSessionData = {
+  body: BoardSearchShareUnlock;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/board-search-shares/sessions/{session_id}/unlock';
+};
+
+export type UnlockBoardSearchShareSessionErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type UnlockBoardSearchShareSessionError =
+  UnlockBoardSearchShareSessionErrors[keyof UnlockBoardSearchShareSessionErrors];
+
+export type UnlockBoardSearchShareSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicContextResponse;
+};
+
+export type UnlockBoardSearchShareSessionResponse =
+  UnlockBoardSearchShareSessionResponses[keyof UnlockBoardSearchShareSessionResponses];
+
+export type ListBoardSearchShareSymbolsData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/board-search-shares/symbols';
+};
+
+export type ListBoardSearchShareSymbolsErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type ListBoardSearchShareSymbolsError =
+  ListBoardSearchShareSymbolsErrors[keyof ListBoardSearchShareSymbolsErrors];
+
+export type ListBoardSearchShareSymbolsResponses = {
+  /**
+   * Response Listboardsearchsharesymbols
+   *
+   * Successful Response
+   */
+  200: Array<BoardSearchSharePublicSymbolResponse>;
+};
+
+export type ListBoardSearchShareSymbolsResponse =
+  ListBoardSearchShareSymbolsResponses[keyof ListBoardSearchShareSymbolsResponses];
+
+export type GetBoardSearchShareSymbolImageData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query: {
+    /**
+     * Revision
+     */
+    revision: string;
+  };
+  url: '/api/v1/board-search-shares/symbols/{symbol_id}/image';
+};
+
+export type GetBoardSearchShareSymbolImageErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetBoardSearchShareSymbolImageError =
+  GetBoardSearchShareSymbolImageErrors[keyof GetBoardSearchShareSymbolImageErrors];
+
+export type GetBoardSearchShareSymbolImageResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
 
 export type GetHealthData = {
   body?: never;

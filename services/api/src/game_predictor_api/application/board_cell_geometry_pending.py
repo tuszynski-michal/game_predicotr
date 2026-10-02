@@ -1,9 +1,14 @@
-"""Application contract for deferred board-cell geometry work."""
+"""Application contract for deferred board-cell geometry work.
+
+D-467 (TASK-0790): a deferred board is resolved manually only through the
+virtual source path (``VirtualGridGeometryService.save_pending_slot``), the
+same path as the Admin source correction.  The result is one ``virtual_source``
+board with a render manifest; no file crops and no cell observations exist.
+"""
 
 from __future__ import annotations
 
 import base64
-import hashlib
 import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -12,23 +17,12 @@ from pathlib import Path
 from typing import Protocol
 from uuid import UUID, uuid4
 
-from game_predictor_worker.images.board_cell_geometry_contract import (
-    BOARD_CELL_COORDINATE_SPACE,
-    BOARD_CELL_CORNER_SEMANTICS,
-    BOARD_CELL_GEOMETRY_VERSION,
+from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridCellSymbol,
+    VirtualGridCellSymbolSuggestion,
+    VirtualGridGeometryPreview,
+    VirtualGridGeometryService,
 )
-from game_predictor_worker.images.manual_board_cell_geometry_preview import (
-    ManualBoardCellGeometryArtifacts,
-    ManualBoardCellGeometryPreview,
-    ManualBoardCellGeometryPreviewer,
-    ManualBoardCellGeometryPreviewError,
-)
-from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
-    ManualBoardCellSymbolPrediction,
-    ManualBoardCellSymbolPredictionError,
-    ManualBoardCellSymbolPredictor,
-)
-
 from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryJobCounts,
     BoardCellGeometryPendingReason,
@@ -37,12 +31,10 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     ImageBoardGeometryPending,
     board_cell_processing_artifact_relative_path,
 )
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import (
-    ImageReviewGeometryArtifacts,
-    ImageReviewGeometryCellArtifact,
     ImageReviewGeometryPoint,
-    ValidatedImageReviewGeometryCommand,
-    canonical_image_review_bytes,
     validate_image_review_geometry_command,
 )
 from game_predictor_api.domain.jobs import JobConflictError, JobError, JobNotFoundError
@@ -67,17 +59,6 @@ class BoardCellGeometryCorrectionContext:
     board_geometry: Mapping[str, object]
     board_confidence: float
     symbol_model: SymbolModelJobSnapshot
-
-
-@dataclass(frozen=True, slots=True)
-class BoardCellGeometryManualResolutionProjection:
-    idempotency_key: UUID
-    command: ValidatedImageReviewGeometryCommand
-    command_sha256: str
-    artifacts: ImageReviewGeometryArtifacts
-    prediction: ManualBoardCellSymbolPrediction
-    model_inference_fingerprint: str
-    board_confidence: float
 
 
 @dataclass(frozen=True, slots=True)
@@ -127,26 +108,6 @@ class BoardCellGeometryPendingRepository(Protocol):
         import_job_id: UUID,
     ) -> BoardCellGeometryCorrectionContext | None: ...
 
-    def materialize_manual_resolution(
-        self,
-        pending_id: UUID,
-        *,
-        game_id: UUID,
-        import_job_id: UUID,
-        expected_manifest_checksum_sha256: str,
-        projection: BoardCellGeometryManualResolutionProjection,
-        created_at: datetime,
-    ) -> BoardCellGeometryManualResolution | None: ...
-
-    def manual_resolution_by_idempotency(
-        self,
-        pending_id: UUID,
-        *,
-        game_id: UUID,
-        import_job_id: UUID,
-        idempotency_key: UUID,
-    ) -> tuple[str, BoardCellGeometryManualResolution] | None: ...
-
 
 class BoardCellProcessingManifestStore(Protocol):
     def put(self, manifest: BoardCellProcessingManifestV1) -> str: ...
@@ -190,15 +151,11 @@ class BoardCellGeometryPendingService:
         repository: BoardCellGeometryPendingRepository,
         manifest_store: BoardCellProcessingManifestStore,
         *,
-        artifact_root: Path | None = None,
-        previewer: ManualBoardCellGeometryPreviewer | None = None,
-        predictor: ManualBoardCellSymbolPredictor | None = None,
+        virtual_geometry: VirtualGridGeometryService | None = None,
     ) -> None:
         self._repository = repository
         self._manifest_store = manifest_store
-        self._artifact_root = None if artifact_root is None else artifact_root.resolve()
-        self._previewer = previewer
-        self._predictor = predictor
+        self._virtual_geometry = virtual_geometry
 
     def defer(
         self,
@@ -310,8 +267,10 @@ class BoardCellGeometryPendingService:
         expected_resolution_revision: int,
         corners: Sequence[ImageReviewGeometryPoint],
         corrected_by: str = "local-admin-preview",
-        allow_resolved: bool = False,
-    ) -> ManualBoardCellGeometryPreview:
+        geometry_qualification: GeometryQualification | None = None,
+    ) -> VirtualGridGeometryPreview:
+        """Contact sheet of the virtual cells a resolution would persist."""
+
         context = self.correction_context(
             pending_id,
             game_id=game_id,
@@ -322,40 +281,68 @@ class BoardCellGeometryPendingService:
             expected_manifest_checksum_sha256=expected_manifest_checksum_sha256,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
-            allow_resolved=allow_resolved,
         )
-        command = validate_image_review_geometry_command(
+        validate_image_review_geometry_command(
             corners=corners,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=corrected_by,
+            geometry_qualification=geometry_qualification,
         )
-        previewer, artifact_root = self._manual_dependencies()
-        source_path = _managed_source_path(artifact_root, context.pending.source_relative_path)
-        try:
-            return previewer.preview(
-                source_path=source_path,
-                expected_source_sha256=context.pending.source_checksum_sha256,
-                review_item_id=str(context.pending.id),
-                source_order_index=context.source_order_index,
-                source_image_id=str(context.pending.source_image_id),
-                source_image_relative_path=context.pending.source_relative_path,
-                source_group=str(context.pending.import_job_id),
-                sequence_number=context.pending.sequence_number,
-                position_index=context.pending.position_index,
-                lattice_bounds_quad=(
-                    (float(command.corners[0].x), float(command.corners[0].y)),
-                    (float(command.corners[1].x), float(command.corners[1].y)),
-                    (float(command.corners[2].x), float(command.corners[2].y)),
-                    (float(command.corners[3].x), float(command.corners[3].y)),
-                ),
-                corrected_by=command.corrected_by,
-                expected_geometry_revision=command.expected_geometry_revision,
-                expected_resolution_revision=command.expected_resolution_revision,
-                command_checksum_sha256=command.command_sha256,
-            )
-        except ManualBoardCellGeometryPreviewError as error:
-            raise JobConflictError(error.code, str(error)) from error
+        return self._require_virtual_geometry().preview_pending_slot(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            pending_geometry_id=pending_id,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            corners=corners,
+            geometry_qualification=geometry_qualification,
+            actor=corrected_by,
+        )
+
+    def preview_manual_symbols(
+        self,
+        pending_id: UUID,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        expected_manifest_checksum_sha256: str,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+        corrected_by: str = "local-admin-preview",
+        geometry_qualification: GeometryQualification | None = None,
+    ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
+        """Model symbols of the cells a resolution would persist (D-488)."""
+
+        context = self.correction_context(
+            pending_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        self._require_pending_command(
+            context,
+            expected_manifest_checksum_sha256=expected_manifest_checksum_sha256,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+        )
+        validate_image_review_geometry_command(
+            corners=corners,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            corrected_by=corrected_by,
+            geometry_qualification=geometry_qualification,
+        )
+        return self._require_virtual_geometry().preview_pending_slot_symbols(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            pending_geometry_id=pending_id,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            corners=corners,
+            geometry_qualification=geometry_qualification,
+            actor=corrected_by,
+        )
 
     def resolve_manual(
         self,
@@ -370,7 +357,16 @@ class BoardCellGeometryPendingService:
         corners: Sequence[ImageReviewGeometryPoint],
         corrected_by: str,
         resolved_at: datetime,
+        geometry_qualification: GeometryQualification | None = None,
+        cell_symbols: Sequence[VirtualGridCellSymbol] = (),
     ) -> BoardCellGeometryManualResolution:
+        """Persist the deferred board as one ``virtual_source`` board (D-467).
+
+        A retry with the same idempotency key and command returns the stored
+        revision with ``created=False``; the same key with another command is
+        an idempotency conflict.
+        """
+
         context = self.correction_context(
             pending_id,
             game_id=game_id,
@@ -383,105 +379,64 @@ class BoardCellGeometryPendingService:
             expected_resolution_revision=expected_resolution_revision,
             allow_resolved=True,
         )
-        command = validate_image_review_geometry_command(
+        validate_image_review_geometry_command(
             corners=corners,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=corrected_by,
+            geometry_qualification=geometry_qualification,
         )
-        resolution_command_sha256 = _manual_resolution_command_sha256(
-            pending_id=pending_id,
-            manifest_checksum_sha256=expected_manifest_checksum_sha256,
-            geometry_command_sha256=command.command_sha256,
-            model_inference_fingerprint=context.symbol_model.inference_fingerprint,
-        )
-        prior = self._repository.manual_resolution_by_idempotency(
-            pending_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-            idempotency_key=idempotency_key,
-        )
-        if prior is not None:
-            prior_checksum, resolution = prior
-            if prior_checksum != resolution_command_sha256:
+        try:
+            result = self._require_virtual_geometry().save_pending_slot(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                pending_geometry_id=pending_id,
+                idempotency_key=idempotency_key,
+                expected_geometry_revision=expected_geometry_revision,
+                expected_resolution_revision=expected_resolution_revision,
+                corners=corners,
+                actor=corrected_by,
+                created_at=resolved_at,
+                geometry_qualification=geometry_qualification,
+                cell_symbols=cell_symbols,
+            )
+        except ImageGridReviewError as error:
+            # Keep the deferred-resolution error contract of the Reviewer.
+            if error.code == "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT":
                 raise JobConflictError(
                     "IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT",
                     "The idempotency key already represents another manual correction.",
-                )
-            return resolution
-        if context.pending.status is BoardCellGeometryPendingStatus.RESOLVED:
-            raise JobConflictError(
-                "IMAGE_BOARD_CELL_PENDING_RESOLUTION_CONFLICT",
-                "The deferred geometry item was already resolved by another command.",
-            )
-        preview = self.preview_manual_resolution(
-            pending_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-            expected_manifest_checksum_sha256=expected_manifest_checksum_sha256,
-            expected_geometry_revision=expected_geometry_revision,
-            expected_resolution_revision=expected_resolution_revision,
-            corners=corners,
-            corrected_by=corrected_by,
-            allow_resolved=True,
-        )
-        previewer, artifact_root = self._manual_dependencies()
-        if self._predictor is None:
-            raise JobError(
-                "IMAGE_BOARD_CELL_MANUAL_PREDICTION_UNAVAILABLE",
-                "Manual deferred geometry symbol inference is not configured.",
-            )
-        try:
-            prediction = self._predictor.predict(preview, context.symbol_model)
-            persisted = previewer.persist(
-                preview=preview,
-                managed_data_root=artifact_root / "data",
-                revision=expected_geometry_revision + 1,
-                namespace_discriminator=preview.decision_checksum_sha256,
-            )
-        except (
-            ManualBoardCellGeometryPreviewError,
-            ManualBoardCellSymbolPredictionError,
-        ) as error:
-            raise JobConflictError(error.code, str(error)) from error
-        geometry = _manual_geometry_payload(context, persisted)
-        artifacts = ImageReviewGeometryArtifacts(
-            geometry=geometry,
-            board_relative_path=context.pending.source_relative_path,
-            board_checksum_sha256=context.pending.source_checksum_sha256,
-            cropper_version=persisted.cropper_version,
-            cells=tuple(
-                ImageReviewGeometryCellArtifact(
-                    row_index=cell.row_index,
-                    column_index=cell.column_index,
-                    crop_relative_path=cell.relative_path,
-                    crop_checksum_sha256=cell.checksum_sha256,
-                )
-                for cell in persisted.cells
-            ),
-        )
-        value = self._repository.materialize_manual_resolution(
-            pending_id,
-            game_id=game_id,
-            import_job_id=import_job_id,
-            expected_manifest_checksum_sha256=expected_manifest_checksum_sha256,
-            projection=BoardCellGeometryManualResolutionProjection(
-                idempotency_key=idempotency_key,
-                command=command,
-                command_sha256=resolution_command_sha256,
-                artifacts=artifacts,
-                prediction=prediction,
-                model_inference_fingerprint=context.symbol_model.inference_fingerprint,
-                board_confidence=context.board_confidence,
-            ),
-            created_at=resolved_at,
-        )
-        if value is None:
+                ) from error
+            if (
+                context.pending.status is BoardCellGeometryPendingStatus.RESOLVED
+                and error.code == "IMAGE_GRID_REVIEW_REVISION_CONFLICT"
+            ):
+                raise JobConflictError(
+                    "IMAGE_BOARD_CELL_PENDING_RESOLUTION_CONFLICT",
+                    "The deferred geometry item was already resolved by another command.",
+                ) from error
+            raise
+        pending = self._repository.get(pending_id)
+        if pending is None:
             raise JobNotFoundError(
                 "IMAGE_BOARD_CELL_PENDING_NOT_FOUND",
                 "The deferred board-cell geometry item no longer exists.",
             )
-        return value
+        if not result.revisions:
+            # A board appeared at the position after deferral; it wins.
+            return BoardCellGeometryManualResolution(
+                pending=pending,
+                review_item_id=pending.review_item_id,
+                geometry_revision=None,
+                created=False,
+            )
+        revision = result.revisions[0]
+        return BoardCellGeometryManualResolution(
+            pending=pending,
+            review_item_id=revision.review_item_id,
+            geometry_revision=revision.revision,
+            created=result.created,
+        )
 
     @staticmethod
     def _require_pending_command(
@@ -514,102 +469,13 @@ class BoardCellGeometryPendingService:
                 "The deferred geometry item is no longer editable.",
             )
 
-    def _manual_dependencies(self) -> tuple[ManualBoardCellGeometryPreviewer, Path]:
-        if self._previewer is None or self._artifact_root is None:
+    def _require_virtual_geometry(self) -> VirtualGridGeometryService:
+        if self._virtual_geometry is None:
             raise JobError(
                 "IMAGE_BOARD_CELL_MANUAL_PREVIEW_UNAVAILABLE",
-                "Manual deferred board-cell geometry preview is not configured.",
+                "Manual deferred board geometry is not configured.",
             )
-        return self._previewer, self._artifact_root
-
-
-def _managed_source_path(artifact_root: Path, relative_path: str) -> Path:
-    normalized = relative_path.replace("\\", "/")
-    if normalized.startswith("/") or any(part in {"", ".", ".."} for part in normalized.split("/")):
-        raise JobError(
-            "IMAGE_BOARD_CELL_SOURCE_PATH_INVALID",
-            "The deferred geometry source path is unsafe.",
-        )
-    relative = Path(*normalized.split("/"))
-    data_root = (artifact_root / "data").resolve()
-    candidate = (data_root / relative).resolve()
-    if not candidate.is_relative_to(data_root):
-        raise JobError(
-            "IMAGE_BOARD_CELL_SOURCE_PATH_INVALID",
-            "The deferred geometry source path is unsafe.",
-        )
-    return candidate
-
-
-def _manual_geometry_payload(
-    context: BoardCellGeometryCorrectionContext,
-    persisted: ManualBoardCellGeometryArtifacts,
-) -> dict[str, object]:
-    geometry = dict(context.board_geometry)
-    geometry.update(
-        {
-            "cellOutputSize": persisted.cell_output_size,
-            "cells": [
-                {
-                    "columnIndex": cell.column_index,
-                    "cropChecksumSha256": cell.checksum_sha256,
-                    "paddedSourceQuad": [
-                        {"x": round(x, 4), "y": round(y, 4)} for x, y in cell.padded_source_quad
-                    ],
-                    "rowIndex": cell.row_index,
-                    "sourceQuad": [
-                        {"x": round(x, 4), "y": round(y, 4)} for x, y in cell.source_quad
-                    ],
-                }
-                for cell in persisted.cells
-            ],
-            "commandChecksumSha256": persisted.command_checksum_sha256,
-            "coordinateSpace": BOARD_CELL_COORDINATE_SPACE,
-            "cornerSemantics": BOARD_CELL_CORNER_SEMANTICS,
-            "correctedBy": persisted.corrected_by,
-            "cropperFingerprintSha256": persisted.cropper_fingerprint_sha256,
-            "cropperVersion": persisted.cropper_version,
-            "decisionChecksumSha256": persisted.decision_checksum_sha256,
-            "expectedGeometryRevision": persisted.expected_geometry_revision,
-            "expectedResolutionRevision": persisted.expected_resolution_revision,
-            "geometryVersion": BOARD_CELL_GEOMETRY_VERSION,
-            "imageHeight": persisted.image_height,
-            "imageWidth": persisted.image_width,
-            "latticeBoundsQuad": [
-                {"x": round(x, 4), "y": round(y, 4)} for x, y in persisted.lattice_bounds_quad
-            ],
-            "manualGeometryVersion": persisted.manual_geometry_version,
-            "positionIndex": persisted.position_index,
-            "sequenceNumber": persisted.sequence_number,
-            "sequenceSource": "filename",
-            "source": "manual_override",
-            "sourceGroup": persisted.source_group,
-            "sourceImageChecksumSha256": persisted.source_image_checksum_sha256,
-            "sourceImageId": persisted.source_image_id,
-            "sourceImageRelativePath": persisted.source_image_relative_path,
-            "sourceOrderIndex": persisted.source_order_index,
-        }
-    )
-    return geometry
-
-
-def _manual_resolution_command_sha256(
-    *,
-    pending_id: UUID,
-    manifest_checksum_sha256: str,
-    geometry_command_sha256: str,
-    model_inference_fingerprint: str,
-) -> str:
-    return hashlib.sha256(
-        canonical_image_review_bytes(
-            {
-                "geometryCommandSha256": geometry_command_sha256,
-                "manifestChecksumSha256": manifest_checksum_sha256,
-                "modelInferenceFingerprint": model_inference_fingerprint,
-                "pendingId": str(pending_id),
-            }
-        )
-    ).hexdigest()
+        return self._virtual_geometry
 
 
 def encode_board_cell_pending_cursor(key: BoardCellPendingOrderKey) -> str:
@@ -636,7 +502,6 @@ def decode_board_cell_pending_cursor(value: str) -> BoardCellPendingOrderKey:
 __all__ = [
     "BoardCellGeometryCorrectionContext",
     "BoardCellGeometryManualResolution",
-    "BoardCellGeometryManualResolutionProjection",
     "BoardCellGeometryPendingPage",
     "BoardCellGeometryPendingRepository",
     "BoardCellGeometryPendingService",

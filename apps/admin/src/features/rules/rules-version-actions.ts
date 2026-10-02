@@ -18,6 +18,7 @@ export type RulesVersionsClient = Pick<
   | 'archivePayline'
   | 'createPayline'
   | 'createPayoutRule'
+  | 'deletePayline'
   | 'listGames'
   | 'listDatasetVersions'
   | 'listJobs'

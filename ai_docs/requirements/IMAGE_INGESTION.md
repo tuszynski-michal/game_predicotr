@@ -1,10 +1,44 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-09-24
+last_updated: 2026-10-01
 ---
 
 # Import i rozpoznawanie zdjęć
+
+## Kompletność geometrii zdjęcia — D-484
+
+Jednostką geometrii jest zdjęcie źródłowe, nie plansza. Oczekiwaną liczbę
+plansz zdjęcia wyznacza `active_board_slots` bieżącej rewizji geometrii
+źródła (zakres numerów sekwencji; dla 777 zwykle 9).
+
+Plansza ma poprawną siatkę, gdy istnieje jako kompletna rozpoznana plansza
+i jej geometria jest zaakceptowana przez silnik bez zastrzeżeń albo
+zatwierdzona przez człowieka. Zdjęcie jest kompletne, gdy wszystkie
+oczekiwane plansze mają poprawną siatkę.
+
+- Dopóki zdjęcie nie jest kompletne, żadna jego plansza nie jest cięta na
+  symbole, nie trafia do weryfikacji symboli ani do wyszukiwarki. Pominięcie
+  ma jawny powód; plansze dołączają po skompletowaniu zdjęcia.
+- Zdjęcie niekompletne trafia do kolejki siatek całym zdjęciem.
+- Wyjątek (plansza fizycznie poza kadrem, kwalifikacja częściowa) wymaga
+  decyzji operatora dla konkretnego zdjęcia, zapisanej z autorem i powodem;
+  dopiero wtedy dostępne plansze idą do cięcia.
+- Każdy import i każdy przebieg silnika pokazuje liczbę zdjęć kompletnych i
+  niekompletnych oraz listę zdjęć z brakującymi albo niepewnymi siatkami,
+  zanim zacznie się praca nad symbolami. Licznik jest widoczny w panelu
+  importu.
+- Reguła dotyczy nowych importów i ponownych przebiegów. Dane istniejące
+  przed wdrożeniem dostają stan z raportu; wykonana praca nie jest cofana.
+
+Doprecyzowania D-485: plansza wstrzymanego zdjęcia zachowuje dokument
+numeru sekwencji w projekcji wyszukiwarki, ale bez dowodu symboli, więc nie
+jest wyszukiwalna; bramka blokuje tylko nową materializację i nie usuwa
+istniejących komórek ani decyzji; pozycje zastąpione nowszym importem nie
+są brakami; plansza częściowa wymaga wyjątku operatora.
+
+Raport i lista: TASK-0806, TASK-0808. Egzekwowanie w pipeline: TASK-0807. Plan:
+`ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md`.
 
 ## Testowy silnik geometrii V1.2 — TASK-0613
 
@@ -349,6 +383,9 @@ z checksumą stage result; drift kończy się fail-closed.
   komórkę; nie materializuje pośredniej planszy ani trwałego cropa;
 - wynik zawiera RGB, logiczny klucz komórki, content-addressed render spec,
   wersję extractora i checksumę dokładnych pikseli;
+- ręczna korekta geometrii zawsze tworzy nowe rendery, dlatego zapisuje wersję
+  bieżącego renderera, a nie wersję przypiętą w dotychczasowych komórkach
+  planszy; pozostałe pola konfiguracji renderu pozostają przypięte;
 - wariant bezpośredni musi pozostać pikselowo zgodny z historycznym v19 przy
   tej samej geometrii, paddingu, interpolacji i rozmiarze wyjścia;
 - warianty native-bbox i rectified-board są wyłącznie diagnostyczne i nie mogą
@@ -472,6 +509,12 @@ pozwala wybrać `structured_default` / `virtual_default`; 95–98% pozostaje w
 `structured_review` / `virtual_shadow`, a wynik poniżej 95% utrzymuje
 `legacy` / `legacy_files`. Brak raportu albo niegotowa walidacja proweniencji
 nie zmienia bieżącego trybu i nie jest traktowana jak wynik poniżej 95%.
+
+Od D-467 (TASK-0790) tryby `legacy` / `legacy_files`, `structured_shadow` i
+`structured_review` / `virtual_shadow` nie są już stanem gry: migracja `0133`
+przeniosła je na `structured_lattice_v3` / `virtual_default` i zawęziła
+CHECK-i trybów. Opisana wyżej ocena cutoveru jest historyczna i nie zmienia
+stanu rolloutu.
 
 Odbiór TASK-0318 nie znalazł kompletnego raportu 0.10, dlatego nie promuje
 żadnej gry ani domyślnego silnika. Stare cropy, aliasy Reviewera i ścieżki
@@ -735,10 +778,14 @@ prowadzi do `superseded`; automat nie nadpisuje decyzji. Sam kontrakt nie
 aktywuje v19 w pełnym imporcie i nie zmienia historycznego v18.
 
 Przypięty kontrakt pełnego importu
-`board-cell-processing-v20-verified-v19-v1` integruje ten fallback z workerem
-i jest domyślnym pipeline'em nowych importów. Żądanie startu domyślnie używa
-`boardCellProcessingMode=verified_v19`; klient Admina przekazuje tę wartość
-jawnie, a brak pola w API również wybiera v19.
+`board-cell-processing-v20-verified-v19-v1` integrował ten fallback z
+workerem i był domyślnym pipeline'em nowych importów do TASK-0790. Od D-467
+(TASK-0790) API odrzuca `boardCellProcessingMode=verified_v19` kodem
+`IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`, a historyczne snapshoty v20 są tylko
+czytelne: worker odmawia ich wykonania
+(`IMAGE_PIPELINE_NON_VIRTUAL_ROLLOUT_REJECTED`), a writer nie przyjmuje planszy
+`legacy_file` (`IMAGE_PIPELINE_NON_VIRTUAL_BOARD_REJECTED`). Opis poniżej
+dotyczy historycznych jobów v20.
 Snapshot przypina wersje i fingerprinty estymatora, progów, croppera oraz
 niezmienny manifest cross-staging benchmarku. Fingerprint joba obejmuje cały
 snapshot, więc wyników v18 i v20 nie można współdzielić przypadkiem.
@@ -763,18 +810,21 @@ Deferrals są odtwarzane z niezmiennych stage results po restarcie workera oraz
 przy job-local rehydration współdzielonego file execution. Exact replay jest
 idempotentny, a kontrola rewizji zachowuje zasadę human-wins. Historyczny
 benchmark `93,78%` pozostaje audytowalny, lecz właściciel podjął odrębną
-decyzję operacyjną o domyślnym użyciu v19 do czasu jej odwołania.
+decyzję operacyjną o domyślnym użyciu v19 do czasu jej odwołania. Decyzję
+odwołał D-467 (TASK-0790): odroczenia nowych importów powstają wyłącznie w
+ścieżce wirtualnej.
 
-Admin pokazuje v20/v19 dla aktywnego, gotowego browser stagingu po przygotowaniu
-raportu i geometrii strony. Każdy nowy staging zaczyna w `verified_v19`, bez
-staging-local potwierdzenia. Komenda startu zawsze zawiera ten tryb, a odpowiedź
-idempotentnego startu jest uznawana za sukces tylko wtedy, gdy niezmienny
-snapshot joba odpowiada v20/v19. Historyczne v18 nie są automatycznym fallbackiem.
+Od TASK-0790 Admin oferuje dla gotowego browser stagingu wyłącznie wirtualne
+polityki gry (`structured_default`, `structured_lattice_v3`). Komenda startu
+przekazuje bieżącą politykę, a odpowiedź idempotentnego startu jest sukcesem
+tylko wtedy, gdy niezmienny snapshot joba zawiera wirtualny rollout tej samej
+rewizji; job bez snapshotu rolloutu (historyczny v18/v20) nigdy nie jest
+ponownie używany. Etykiety v18 i v20/v19 zostają wyłącznie dla historycznych
+jobów.
 
-Ścieżka `verified_v19` jest samowystarczalnym, przypiętym kontraktem v20 i nie
-odczytuje stanu `image_geometry_rollout_states` z równoległego rolloutu 0.10.
-Ten rollout dotyczy wyłącznie importów, które nie wybrały jawnie v20/v19; nie
-może blokować ani zmieniać geometrii i cropów joba v20.
+Historycznie ścieżka `verified_v19` była samowystarczalnym, przypiętym
+kontraktem v20 i nie odczytywała stanu `image_geometry_rollout_states`. Po
+TASK-0790 każdy nowy import przypina wirtualny rollout gry.
 
 Usunięcie nieużywanego browser stagingu obejmuje jego puste próby preflightu i
 importu, aby nie pozostawały w selektorach operacyjnych. „Nieużywany” oznacza
@@ -1512,7 +1562,13 @@ layoutów nadal jest zablokowany.
 ### Przyrostowe importy `seq_*`
 
 Po decyzji `accepted` albo `corrected` numer sekwencji jest kanoniczny w
-obrębie gry. Import pliku `seq_<start>-<end>.jpg` korzysta z snapshotu tej
+obrębie gry. Numer planszy `virtual_source` (od D-467 S6 każdej planszy)
+wynika ze slotu jej geometrii źródła — początku zakresu `seq_*` i pozycji
+planszy — i nie zmienia się decyzją przeglądu: `accepted`/`corrected` z innym
+numerem jest odrzucane (`IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE`, TASK-0798),
+a błędną nazwę pliku poprawia ponowny import pod właściwą nazwą (albo
+odrzucenie planszy). Ręczna korekta numeru w review dotyczy wyłącznie planszy
+bez numeru przypiętego do geometrii źródła. Import pliku `seq_<start>-<end>.jpg` korzysta z snapshotu tej
 projekcji: kompletne zakresy są pomijane, częściowe generują wyłącznie brakujące
 plansze, a inne źródło tego samego numeru pozostaje alternatywą audytową.
 Kolejka review jest niezależna od pojedynczego joba i porządkuje oczekujące
@@ -1638,15 +1694,17 @@ oddzielone od ręcznych override'ów i wymagające potwierdzenia. Istniejąca ma
 
 - Każda gra ma serwerowe, rewizjonowane ustawienie używane wyłącznie przy
   tworzeniu nowych importów.
-- Dla nowych importów dostępne są dwa presety operatorskie: `verified_v19`
-  oraz `structured_default`. Drugi zapisuje geometrię i cropy jako bieżące
-  `virtual_default`; historyczny `structured_shadow` pozostaje czytelny i
-  odtwarzalny, ale nie jest oferowany jako aktywny silnik.
+- Dla nowych importów dostępne są wyłącznie wirtualne presety
+  `structured_default` i `structured_lattice_v3` (domyślny stan nowej gry);
+  oba zapisują geometrię i komórki jako `virtual_default`. Od D-467
+  (TASK-0790) `verified_v19` i `structured_shadow` są odrzucane kodem
+  `IMAGE_ENGINE_POLICY_LEGACY_UNSUPPORTED`; historyczne snapshoty jobów z tymi
+  trybami pozostają czytelne, ale nie są wykonywalne.
 - Preflight zawiera nazwę i rewizję polityki. Zmiana ustawienia po preflighcie
   wymaga przygotowania nowego raportu.
 - Raport jawnie zwraca `geometryPreflightRequired`. Oba presety operatorskie
-  wymagają checksum-bound manifestu geometrii; v19 używa go w swoim pipeline,
-  a v0.10 zachowuje go jako niezmienną proweniencję źródła. Nowa gra może
+  wymagają checksum-bound manifestu geometrii; v0.10 zachowuje go jako
+  niezmienną proweniencję źródła. Nowa gra może
   utworzyć pierwszy preflight bez historycznego profilu,
   niezależnie od wybranego presetu: źródła trafiają wtedy do korekty, a
   zapisana ręcznie
@@ -1808,29 +1866,29 @@ przy 15/15 niedostępnych polach. Legacy assets odmawiają nowej kwalifikacji
 zamiast zapisywać ją częściowo. Historyczne żądania i manifesty bez nowych
 pól działają bez zmian.
 
-**Sprostowanie D-434/D-435/D-436 (TASK-0625, TASK-0626, TASK-0627):** komórka
-w pełni poza kadrem (4/4 rogi quada) nadal nie otrzymuje sztucznego obrazu i
-nigdy nie jest materializowana. Komórka w masce `unavailableCellIndices`,
-ale z choć jednym rogiem w kadrze — częściowo widoczna, w tym przypadek
-ręcznego wykluczenia komórki w pełni mieszczącej się w kadrze — jest
-renderowana (`VirtualCell.partially_visible`) z brakującą częścią
-wypełnioną czarno (`cv2.BORDER_CONSTANT`, bez nowej matematyki
-przycinania) **i trafia do Weryfikacji symboli jako wymuszony
-„nierozpoznany" (`assignedSymbolId = null`, `qualityIssue =
-partial_visibility`, `assignmentSource = geometry_partial`), niezależnie od
-predykcji modelu — podpowiedź modelu (kod + pewność) nadal jest zapisana.
-Trwale wykluczona z treningu (`quality_issue` niezerowy), nawet po ręcznym
-przypisaniu symbolu przez operatora** — tylko `unreadable` i
-`partial_visibility` przeżywają decyzję etykietującą operatora; pozostałe
-`quality_issue` są czyszczone. `GeometryQualification` w wersji v3
-(backend-only; operator nadal zgłasza tylko v1/v2) niesie osobno policzone
-`fullyUnavailableCellIndices` (w pełni niedostępne) w ramach
-`unavailableCellIndices` (zadeklarowane); wszystkie miejsca rekoncyliujące
-liczbę komórek planszy (rekoncyliacja recenzji, backfill, reinferencja
-pending) używają pierwszego zamiast drugiego dla plansz `virtual_source`
-w wersji v3 — dla `legacy_file` i wierszy v1/v2 zachowanie jest bez zmian
-(pełna maska nadal wyklucza cały render).
+**D-451 / TASK-0708 — komplet logicznych pozycji:** plansza 3 × 5 ma 15
+rekordów weryfikacji, także gdy fragment lub całość siatki leży poza zdjęciem.
+`source_visibility` opisuje niezależnie `full`, `partial`, `outside`.
+Całkowity brak obrazu wynika z braku przecięcia wieloboku komórki z obszarem
+zdjęcia; cztery narożniki poza kadrem nie wystarczają do pominięcia pola.
+Częściowy obraz trafia początkowo do nierozpoznanych, zachowuje rzeczywiste
+piksele i oznaczenie `partial_visibility`. Operator może nadać etykietę.
+Pole `outside` ma logiczną pozycję i rewizję, ale nie ma obrazu, predykcji,
+identyfikatora cropa ani checksummy. Plikowy i wirtualny zapis stosują tę samą
+regułę. Grupa i filtr „Poza zdjęciem” są rozszerzeniem weryfikacji, a nie katalogu
+symboli; po przypisaniu pole należy do wybranego symbolu i zachowuje badge.
 
+Historyczne rekordy mają początkowo `source_visibility = NULL`; migracja nie
+zgaduje widoczności na podstawie maski. Ocena używa aktualnych footprintów
+komórek lub poprawionej siatki oraz wymiarów znormalizowanego źródła. Stara
+ramka planszy nie zastępuje poprawionej geometrii. Brak wymaganego widocznego
+cropa kończy zapis błędem; nie jest reinterpretowany jako `outside`.
+
+Zmiana geometrii zachowuje etykietę i oznaczenie jakości człowieka, ale
+wymaga ponownego zatwierdzenia nowych pikseli. Poprzednie zatwierdzenie
+pozostaje historią. Brak obrazu nigdy nie daje próbki treningowej. Plansza,
+pozycje kolejki i liczniki należą do jednej transakcji; błąd projekcji przerywa
+zapis. Ponowienie tego samego wejścia zachowuje identyfikatory i decyzje.
 Nowe kohorty geometrii i kotwice wykluczają niepełne oraz ręcznie wykluczone
 sloty. Nie oznacza to odtrenowania aktywnego modelu ani automatycznego
 wykluczenia widocznych, niezależnie zatwierdzonych symboli. Zmienione piksele

@@ -15,6 +15,16 @@ from game_predictor_api.application.reviewer_access import (
     ReviewerAccessSession,
 )
 from game_predictor_api.domain.jobs import JobStatus, JobType
+from game_predictor_api.storage.game_entity_locator import (
+    GameEntityLocator,
+    bind_located_game,
+    session_is_scoped,
+)
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+    GameStorageRoutingError,
+)
 from game_predictor_api.storage.models import (
     ImageReviewItemModel,
     JobModel,
@@ -24,12 +34,23 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
 )
 
+_SESSIONS_TABLE = "reviewer_access_sessions"
+
 
 class SqlAlchemyReviewerAccessRepository(ReviewerAccessRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, locator: GameEntityLocator | None = None) -> None:
         self._session = session
+        # TASK-0797: unlock, revoke and token authentication on routes that do
+        # not name a game find the session's game first (per-game RLS-bound
+        # reads); a request already scoped to a game looks only there.
+        self._locator = locator
 
     def scope_exists(self, game_id: UUID, import_job_id: UUID) -> bool:
+        if not session_is_scoped(self._session):
+            try:
+                GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
+            except GameStorageRoutingError:
+                return False
         record = self._session.scalar(
             select(JobModel.id).where(
                 JobModel.id == import_job_id,
@@ -78,6 +99,8 @@ class SqlAlchemyReviewerAccessRepository(ReviewerAccessRepository):
         return _to_session(record)
 
     def get_for_update(self, session_id: UUID) -> ReviewerAccessSession | None:
+        if not bind_located_game(self._session, self._locator, _SESSIONS_TABLE, "id", session_id):
+            return None
         record = self._session.scalar(
             select(ReviewerAccessSessionModel)
             .where(ReviewerAccessSessionModel.id == session_id)
@@ -86,6 +109,10 @@ class SqlAlchemyReviewerAccessRepository(ReviewerAccessRepository):
         return None if record is None else _to_session(record)
 
     def find_by_token_hash(self, token_hash: bytes) -> ReviewerAccessSession | None:
+        if not bind_located_game(
+            self._session, self._locator, _SESSIONS_TABLE, "token_hash", token_hash
+        ):
+            return None
         record = self._session.scalar(
             select(ReviewerAccessSessionModel).where(
                 ReviewerAccessSessionModel.token_hash == token_hash

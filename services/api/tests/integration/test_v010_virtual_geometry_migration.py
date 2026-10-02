@@ -9,12 +9,8 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.storage.image_geometry_v2_repository import (
-    SqlAlchemyImageGeometryRolloutRepository,
-)
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.engine import URL, make_url
-from sqlalchemy.orm import Session
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -57,7 +53,7 @@ def isolated_v010_database() -> Iterator[URL]:
         maintenance_engine.dispose()
 
 
-def test_v010_virtual_geometry_upgrade_backfill_and_downgrade(
+def test_v010_virtual_geometry_upgrade_defaults_and_downgrade(
     isolated_v010_database: URL,
 ) -> None:
     config = _migration_config(isolated_v010_database)
@@ -81,6 +77,15 @@ def test_v010_virtual_geometry_upgrade_backfill_and_downgrade(
             if column["name"] == "crop_relative_path"
         )["nullable"]
 
+        # The 0082 rollout table starts a game on the 0082-era defaults. The
+        # repository's bounded backfill (SqlAlchemyImageGeometryRolloutRepository
+        # .backfill_legacy_states) is no longer run on this schema: since D-467
+        # (TASK-0790, 102a6c8f) it writes ``structured_lattice_v3`` /
+        # ``virtual_default``, which the 0082 CHECK does not admit (0095 adds
+        # the mode), and since D-448 (migration 0125) the table exists only per
+        # game in ``game_data_v2``. A new game's rollout state is created by the
+        # partition lifecycle; see test_game_partition_lifecycle_postgres.py::
+        # test_greenfield_catalog_create_provisions_v2_before_return.
         with engine.begin() as connection:
             connection.execute(
                 text(
@@ -92,25 +97,22 @@ def test_v010_virtual_geometry_upgrade_backfill_and_downgrade(
                     for index, game_id in enumerate(game_ids)
                 ],
             )
-
-        with Session(engine) as session:
-            repository = SqlAlchemyImageGeometryRolloutRepository(session)
-            first = repository.backfill_legacy_states(limit=2)
-            session.commit()
-            assert first.processed_game_count == 2
-            assert first.inserted_state_count == 2
-            assert first.has_more is True
-
-            second = repository.backfill_legacy_states(after_game_id=first.last_game_id, limit=2)
-            session.commit()
-            assert second.processed_game_count == 1
-            assert second.inserted_state_count == 1
-            assert second.has_more is False
-            assert repository.get(game_ids[-1]) is not None
-
-            retry = repository.backfill_legacy_states(limit=2)
-            session.commit()
-            assert retry.inserted_state_count == 0
+            connection.execute(
+                text(
+                    "INSERT INTO image_geometry_rollout_states (game_id, updated_by) "
+                    "VALUES (:game_id, 'test')"
+                ),
+                [{"game_id": game_id} for game_id in game_ids],
+            )
+            states = connection.execute(
+                text(
+                    "SELECT geometry_mode, cell_asset_mode, revision, backfill_status "
+                    "FROM image_geometry_rollout_states ORDER BY game_id"
+                )
+            ).all()
+            assert [tuple(state) for state in states] == [
+                ("legacy", "legacy_files", 0, "not_started")
+            ] * len(game_ids)
 
         with engine.begin() as connection:
             connection.execute(text("DELETE FROM image_geometry_rollout_states"))

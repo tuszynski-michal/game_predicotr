@@ -113,6 +113,11 @@ def test_postgres_report_has_exact_counts_bounded_groups_and_filtered_rows(
                 code="import-report-game",
                 name="Import report game",
                 status=GameStatus.ACTIVE,
+                # Publication first requires the valid row count to equal the
+                # game expectation (LAYOUT_IMPORT_EXPECTED_COUNT_MISMATCH,
+                # bc1e47a9); both imports below have exactly 4 valid rows, so
+                # the report blockers are what the first publication hits.
+                expected_layout_count=4,
             )
             stack.enter_context(game_storage_scope(game.id))
             first_symbol = catalog.create_symbol(
@@ -353,6 +358,8 @@ def test_postgres_report_has_exact_counts_bounded_groups_and_filtered_rows(
                 rows=1,
                 columns=2,
                 signature_cell_width=1,
+                # NOT NULL since migration 0022 (bc1e47a9).
+                expected_layout_count=4,
                 layout_count=4,
                 status=DatasetVersionStatus.STAGING,
                 generation_seed=1,

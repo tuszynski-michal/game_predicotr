@@ -260,6 +260,57 @@ def test_restartable_provision_and_delete_keep_other_game_isolated(
     assert second_partition_count == len(CREATE_TABLES)
 
 
+def test_archived_game_deletion_script_previews_and_deletes_only_that_game(
+    lifecycle_database: Engine,
+) -> None:
+    import importlib.util
+
+    path = Path(__file__).resolve().parents[4] / "scripts" / "delete_archived_v2_game.py"
+    spec = importlib.util.spec_from_file_location("delete_archived_v2_game", path)
+    assert spec is not None and spec.loader is not None
+    script = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(script)
+
+    archived, kept = uuid4(), uuid4()
+    _insert_game(lifecycle_database, archived, "archived")
+    _insert_game(lifecycle_database, kept, "kept")
+    _run_to_done(lifecycle_database, archived, GamePartitionLifecycleKind.PROVISION)
+    _run_to_done(lifecycle_database, kept, GamePartitionLifecycleKind.PROVISION)
+
+    with Session(lifecycle_database) as session:
+        draft_preview = script.build_preview(session, archived)
+    assert [blocker["code"] for blocker in draft_preview["blockers"]] == ["GAME_NOT_ARCHIVED"]
+
+    with lifecycle_database.begin() as connection:
+        connection.execute(
+            text("UPDATE public.games SET status = 'archived' WHERE id = :id"), {"id": archived}
+        )
+    with Session(lifecycle_database) as session:
+        preview = script.build_preview(session, archived)
+    assert preview["blockers"] == []
+    assert preview["partitions"]["existing"] == len(CREATE_TABLES)
+    assert preview["confirmation"] == f"DELETE GAME archived {archived}"
+
+    result = script.execute_deletion(lifecycle_database, archived)
+    assert result["status"] == "done"
+    assert script.execute_deletion(lifecycle_database, archived)["status"] == "done"
+
+    with lifecycle_database.connect() as connection:
+        games = set(connection.execute(text("SELECT id FROM public.games")).scalars())
+        archived_partitions = connection.execute(
+            text(
+                """SELECT count(*) FROM pg_class child
+                JOIN pg_namespace n ON n.oid=child.relnamespace
+                WHERE n.nspname='game_data_v2' AND child.relname LIKE :prefix"""
+            ),
+            {"prefix": f"gpv2_{archived.hex[:12]}_%"},
+        ).scalar_one()
+    assert games == {kept}
+    assert archived_partitions == 0
+    with Session(lifecycle_database) as session:
+        assert script.build_preview(session, kept)["partitions"]["existing"] == len(CREATE_TABLES)
+
+
 def test_greenfield_catalog_create_provisions_v2_before_return(
     lifecycle_database: Engine,
 ) -> None:

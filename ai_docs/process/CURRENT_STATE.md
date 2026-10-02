@@ -6,6 +6,20 @@ last_updated: 2026-10-02
 
 # Current State
 
+### TASK-0824 — trwałe usunięcie zarchiwizowanej gry V2 (done)
+
+- Na prośbę operatora (2026-10-02) usunięto z bazy deweloperskiej dwie testowe,
+  zarchiwizowane gry „Mumie” (`mums`, `mums-test-1`): partycje `game_data_v2`,
+  symbole, wersje zasad, zadania i rekordy gier. W bazie pozostaje jedna gra:
+  777 (`draft`), nienaruszona (63 partycje, 590 zadań).
+- Nowa komenda `scripts/delete_archived_v2_game.py` (podgląd tylko do odczytu,
+  blokady, potwierdzenie + SHA, wznawianie) nad istniejącym lifecycle `delete`;
+  opis w `LOCAL_OPERATION_GUIDE.md`. Admin nadal tylko archiwizuje.
+- Na dysku pozostały niereferencjonowane pliki obu gier (ok. 8 MB w
+  `imports/browser-selections` i jeden manifest geometrii); lista w Outcome
+  zadania. Scalono do `v1.1-vision-lab-hybrid-geometry` jako `v1.7.168`
+  (numer zadania zmieniony z TASK-0812 na TASK-0824, bo 0812 zajęte).
+
 ### TASK-0822 — klikalne kafelki i wybór symbolu w korekcie siatki (done, D-488)
 
 - Ekran „Korekta cięcia siatki” (Reviewer 3001): kafelek podglądu z pikselami

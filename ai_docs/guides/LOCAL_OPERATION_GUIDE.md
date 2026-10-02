@@ -1241,6 +1241,34 @@ Nie używa historycznych downgrade'ów, dlatego reset nie zależy od zawartości
 starych rekordów. Nie usuwa zdjęć źródłowych, APK, snapshotów SQLite, klucza
 podpisu ani innych plików z repozytorium.
 
+## Trwałe usunięcie zarchiwizowanej gry (TASK-0824)
+
+Panel Admin tylko archiwizuje grę. Trwałe usunięcie jednej zarchiwizowanej gry
+V2 wykonuje komenda utrzymaniowa; bez `--execute` jedynie czyta bazę:
+
+```powershell
+$env:PYTHONPATH = "services/api/src"
+.venv\Scripts\python.exe scripts\delete_archived_v2_game.py --game-id <UUID gry>
+```
+
+Podgląd pokazuje liczby rekordów, blokady, ścieżki plików gry oraz
+`confirmation` i `previewSha256`. Gra nie może być w statusie `draft` ani
+`active`, mieć zadań `created`/`processing`, należeć do wydania mobilnego ani
+mieć rekordów w tabelach, których mechanizm nie czyści (np. sesje udostępniania
+wyszukiwarki). Wykonanie jest nieodwracalne i wymaga obu wartości z podglądu:
+
+```powershell
+.venv\Scripts\python.exe scripts\delete_archived_v2_game.py --game-id <UUID gry> `
+  --execute --expected-preview-sha256 "<previewSha256>" --confirmation "<confirmation>"
+```
+
+Komenda usuwa partycje gry w `game_data_v2` (jedna tabela na transakcję, limit
+blokady 2 s), a na końcu symbole, wersje zasad, zadania, lokalizację magazynu i
+rekord gry. Kod wyjścia 2 oznacza limit blokady albo czasu: ponów tę samą
+komendę, operacja wznawia się od checkpointu (`--expected-preview-sha256` nie
+jest wtedy sprawdzany). Komenda nie usuwa plików: katalogi źródłowe i manifesty
+wymienione w `filesLeftOnDisk` pozostają na dysku.
+
 ## Zatrzymywanie usług
 
 - API, Admin, worker i Reviewer: `Ctrl+C` w ich oknach PowerShell.

@@ -396,6 +396,21 @@ last_updated: 2026-10-02
   adapterem do czytnika `neural_grid`. **Czeka na operatora:** przegląd i
   korekta siatek (Mumie pierwsze). Następne zadania: snapshot łączony i
   preset D (po anotacji), ocena runu 2, TASK-0804.
+- Run 2 `neural_grid` (preset B, `ff03b1d7…f31d`) zakończony: najlepsza
+  runda 9, development 92,2% zdjęć kompletnych i poprawnych, 0 fałszywych
+  plansz — bez różnicy względem runu 1 (92,3%). Ocena i eksport runu 2 do
+  wykonania przed TASK-0804.
+- D-490 zmienione 2026-10-02: Blazing i Gang wypadają z tej tury; run 3 to
+  iteracyjne doszkalanie modelu runu 1 na Mumiach w łącznym budżecie 4 h.
+- TASK-0825 done (`v1.7.172`): preset D (doszkalanie, fingerprint
+  `b94a9627…cbd9`), komenda
+  `python -m game_predictor_worker.vision_lab.neural_grid_finetune iterate`,
+  holdout Mumii (co piąte zdjęcie według skrótu SHA, trwały), strażnik 777
+  (development ≥ run 1 − 0,5 pkt proc.), nowe propozycje po każdej
+  iteracji bez restartu strony, automatyczne zamykanie zdjęć, kolejka tylko
+  Mumii. Stan anotacji przy starcie pętli: 10 zdjęć Mumii kompletnych
+  (śr. 165 s na zdjęcie); z 90 propozycji runu 1 operator przyjął bez zmian
+  14%, poprawił 86% (mediana przesunięcia narożnika 5 px).
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

@@ -38,12 +38,16 @@ ALLOWED_ROLES: Final = frozenset({"training", "development"})
 FORBIDDEN_ROLES: Final = frozenset({"gold", "final_test", "unseen_game", "validation"})
 
 PRESET_NAMES: Final = ("A", "B", "C")
+# D-490 (TASK-0825): the third budget run is the iterative Mumie fine-tune of run 1.
+FINETUNE_PRESET: Final = "D"
 PRESET_DIRECTORY: Final = Path(__file__).with_name("neural_grid_presets")
 # Frozen before run 1 (TASK-0802). A changed preset file no longer matches its entry.
+# D was frozen before the first fine-tune iteration (TASK-0825).
 FROZEN_PRESET_FINGERPRINTS: Final = {
     "A": "027b5db151b7094e06e69f6910d705a944312afe4341d37ebbc72c1782f0701d",
     "B": "658b3b529cb332016a15d953d7d2387d6adf35eeb9d5ad2b3660f341928b7da7",
     "C": "d54490696c341a18f7c0cf1c4ce0d2773ba935089de60de93ec46b4dd402b1e3",
+    "D": "b94a9627df4c2d0886b43776f1a80b406de5d124c36c997ada2b5f93c5d1cbd9",
 }
 
 # Frozen metric definition (D-483), shared by evaluator, presets and the report.
@@ -163,9 +167,57 @@ class SchedulePreset(Contract):
     max_run_seconds: Literal[14400] = 14400
 
 
+PRETRAINED_NONE: Final = "none-imagenet-weights-not-available-offline"
+PRETRAINED_RUN1: Final = "run1-43933ac8-best-round3-weights"
+
+
+class FinetuneInit(Contract):
+    """Pinned start weights of the fine-tune: the exported best state of run 1."""
+
+    run_id: str = Field(pattern=r"^[a-f0-9]{32}$")
+    preset: Literal["A", "B", "C"]
+    preset_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
+    best_round: int = Field(ge=1)
+    checkpoint_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    export_directory: str
+    weights_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    development_evaluation: str
+    development_photos: int = Field(ge=1)
+    development_photo_complete_correct_rate: float = Field(ge=0, le=1)
+    development_image_macro: float = Field(ge=0, le=1)
+
+
+class FinetunePreset(Contract):
+    """Iteration settings of preset D (D-490 amendment of 2026-10-02, TASK-0825)."""
+
+    version: Literal["neural-grid-finetune-v1"] = "neural-grid-finetune-v1"
+    decision_reference: Literal["D-490"] = "D-490"
+    game: Literal["mumie"] = "mumie"
+    init: FinetuneInit
+    mumie_images_per_batch: int = Field(ge=1, le=63)
+    reference_sample: str
+    holdout_every: int = Field(ge=2, le=20)
+    holdout_key: str
+    train_seconds_per_mumie_photo: float = Field(gt=0)
+    iteration_train_seconds_min: float = Field(gt=0)
+    iteration_train_seconds_max: float = Field(gt=0, le=3600)
+    candidates_per_iteration: int = Field(ge=1, le=8)
+    development_max_drop: float = Field(ge=0, le=0.05)
+    holdout_min_photos: int = Field(ge=1)
+    iteration_overhead_seconds: float = Field(gt=0)
+    parity_images: int = Field(ge=1, le=64)
+    proposal_threads: int = Field(ge=1, le=4)
+
+    @model_validator(mode="after")
+    def ordered_bounds(self) -> Self:
+        if self.iteration_train_seconds_min > self.iteration_train_seconds_max:
+            raise ValueError("NEURAL_GRID_FINETUNE_BOUNDS_INVALID")
+        return self
+
+
 class Preset(Contract):
     version: Literal["neural-grid-preset-v1"] = "neural-grid-preset-v1"
-    name: Literal["A", "B", "C"]
+    name: Literal["A", "B", "C", "D"]
     hypothesis: str
     model_version: Literal["neural-grid-v1"] = "neural-grid-v1"
     preprocessing_version: Literal["neural-grid-screen768-board320x192-v1"] = (
@@ -175,9 +227,9 @@ class Preset(Contract):
     backbone: Literal["torchvision-mobilenet_v3_large-features-fpn-stride4"] = (
         "torchvision-mobilenet_v3_large-features-fpn-stride4"
     )
-    pretrained: Literal["none-imagenet-weights-not-available-offline"] = (
-        "none-imagenet-weights-not-available-offline"
-    )
+    pretrained: Literal[
+        "none-imagenet-weights-not-available-offline", "run1-43933ac8-best-round3-weights"
+    ] = "none-imagenet-weights-not-available-offline"
     snapshot_policy: Literal["production-geometry-split-v2"] = "production-geometry-split-v2"
     screen: ScreenPreset
     board: BoardPreset
@@ -186,16 +238,23 @@ class Preset(Contract):
     optimization: OptimizationPreset
     schedule: SchedulePreset
     metrics: dict[str, Any]
+    # Only the fine-tune preset D has this section; A/B/C files do not carry it.
+    finetune: FinetunePreset | None = None
 
     @model_validator(mode="after")
     def frozen_metrics(self) -> Self:
         if self.metrics != METRIC_DEFINITION:
             raise ValueError("NEURAL_GRID_METRIC_DEFINITION_MISMATCH")
+        finetune = self.name == FINETUNE_PRESET
+        if finetune != (self.finetune is not None) or finetune != (
+            self.pretrained == PRETRAINED_RUN1
+        ):
+            raise ValueError("NEURAL_GRID_FINETUNE_PRESET_INVALID")
         return self
 
 
 def preset_path(name: str) -> Path:
-    if name not in PRESET_NAMES:
+    if name not in PRESET_NAMES and name != FINETUNE_PRESET:
         raise ValueError("NEURAL_GRID_PRESET_UNKNOWN")
     return PRESET_DIRECTORY / f"{name}.json"
 
@@ -228,9 +287,15 @@ class NeuralGridConfiguration(TrainingConfiguration):
     max_seconds: float = Field(ge=1, le=MAX_RUN_SECONDS)
 
 
+def finetune_settings(preset: Preset) -> FinetunePreset:
+    if preset.name != FINETUNE_PRESET or preset.finetune is None:
+        raise ValueError("NEURAL_GRID_FINETUNE_PRESET_REQUIRED")
+    return preset.finetune
+
+
 class NeuralGridRunRequest(StartRunRequest):
     configuration: NeuralGridConfiguration
-    preset: Literal["A", "B", "C"]
+    preset: Literal["A", "B", "C", "D"]
     preset_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
 
     @model_validator(mode="after")
@@ -313,7 +378,9 @@ def admit_run(data: dict[str, Any], request: StartRunRequest) -> None:
 
     Every started training run counts, whatever its final status (interrupted, failed or
     cancelled runs do not return budget); resuming a run is a new attempt of the same run
-    and is not admitted here. Smoke runs do not count. One training run per preset.
+    and is not admitted here. Smoke runs do not count. One training run per preset. The
+    iterative fine-tune (preset D) is one run: each iteration is a new attempt of it, so
+    its iterations share the run's durable ``used_seconds`` and 4-hour limit.
     """
 
     if request.purpose != "train":

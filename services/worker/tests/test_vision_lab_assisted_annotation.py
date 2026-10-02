@@ -556,3 +556,203 @@ def test_loopback_page_and_api(tmp_path):
         client.post("/api/decisions", json=reels_body, headers=WRITE).json()["detail"]
         == "ASSISTED_SOURCE_NOT_IN_QUEUE"
     )
+
+
+# --- TASK-0825: automatic completion, closing finished photos, proposal generations ---------
+
+
+def accept_all(workspace, source_id, auto=True, skip=()):
+    view = assisted.photo_view(workspace.state(), workspace.catalog, workspace.proposals, source_id)
+    state = None
+    for index, proposal in enumerate(view["proposals"]):
+        if index in skip:
+            continue
+        state = decide(
+            workspace,
+            action="accept_board",
+            source_id=source_id,
+            board_index=index,
+            origin="proposal_unchanged",
+            proposal_id=proposal["proposal_id"],
+            auto_complete=auto,
+        )
+    return state
+
+
+def test_photo_closes_automatically_only_when_every_board_is_accepted(tmp_path):
+    catalog, store, training, bundle = lab(tmp_path)
+    proposals = publish(tmp_path, catalog, store, training, bundle)
+    workspace = assisted.Workspace(catalog, store.root, proposals.root)
+    item, view = first_photo(workspace)
+    source = catalog.sources[item["source_id"]]
+    first, second = (p["proposal_id"] for p in view["proposals"])
+    body = {
+        "action": "accept_board",
+        "source_id": source.id,
+        "board_index": 0,
+        "origin": "proposal_unchanged",
+        "proposal_id": first,
+        "auto_complete": True,
+    }
+    state = workspace.state()
+    state, closed = workspace.decide_with_auto(
+        assisted.Decision(request_id="auto-accept-1", expected_revision=state.revision, **body)
+    )
+    # The second proposal is still undecided: the photo stays open.
+    assert not closed and not assisted.photo_complete(state, source)
+    assert assisted.completion_readiness(state, catalog, workspace.proposals, source.id) == (
+        None,
+        "ASSISTED_PROPOSAL_UNDECIDED",
+    )
+    state, closed = workspace.decide_with_auto(
+        assisted.Decision(
+            request_id="auto-accept-2",
+            expected_revision=state.revision,
+            **{**body, "board_index": 1, "proposal_id": second},
+        )
+    )
+    assert closed and assisted.photo_complete(state, source)
+    assert state.assisted_photos[source.id].confirmed_board_count == 2  # = accepted boards
+    assert state.photo_reviews[source.id].accepted_board_revisions == {"0": 1, "1": 1}
+    # A lost response replays both receipts; nothing is completed twice.
+    again, closed_again = workspace.decide_with_auto(
+        assisted.Decision(
+            request_id="auto-accept-2",
+            expected_revision=state.revision - 2,
+            **{**body, "board_index": 1, "proposal_id": second},
+        )
+    )
+    assert again.revision == state.revision and not closed_again
+    # A revoked acceptance reopens the photo and blocks the automatic completion.
+    state = decide(
+        workspace,
+        action="revoke_board",
+        source_id=source.id,
+        board_index=1,
+        expected_board_revision=1,
+    )
+    assert not assisted.photo_complete(state, source)
+    assert assisted.completion_readiness(state, catalog, workspace.proposals, source.id)[1] == (
+        "ASSISTED_BOARD_NOT_ACCEPTED"
+    )
+    # The page asks for no automatic completion while it holds unsaved boards.
+    second_item, _ = first_photo(workspace, 1)
+    state = accept_all(workspace, second_item["source_id"], auto=False)
+    assert not assisted.photo_complete(state, catalog.sources[second_item["source_id"]])
+    # The explicit count confirmation stays available as a correction.
+    state = decide(
+        workspace,
+        action="complete_photo",
+        source_id=second_item["source_id"],
+        confirmed_board_count=2,
+        expected_board_revisions=board_revisions(state, second_item["source_id"]),
+    )
+    assert assisted.photo_complete(state, catalog.sources[second_item["source_id"]])
+
+
+def test_close_finished_photos_preview_then_apply(tmp_path):
+    catalog, store, training, bundle = lab(tmp_path)
+    lab_photo = source_of(catalog, "mumie", "p3")
+    lab_full(store, lab_photo.id, 0, QUADS[0])
+    lab_full(store, lab_photo.id, 1, QUADS[1])
+    proposals = publish(tmp_path, catalog, store, training, bundle)
+    workspace = assisted.Workspace(catalog, store.root, proposals.root)
+    finished, _ = first_photo(workspace, 0)
+    partial, _ = first_photo(workspace, 1)
+    revoked, _ = first_photo(workspace, 2)
+    accept_all(workspace, finished["source_id"], auto=False)
+    accept_all(workspace, partial["source_id"], auto=False, skip={1})
+    accept_all(workspace, revoked["source_id"], auto=False)
+    decide(
+        workspace,
+        action="revoke_board",
+        source_id=revoked["source_id"],
+        board_index=0,
+        expected_board_revision=1,
+    )
+    before = (store.root / "state.json").read_bytes()
+    preview = assisted.close_finished_photos(store, catalog, workspace.proposals, apply=False)
+    assert (store.root / "state.json").read_bytes() == before  # the preview writes nothing
+    by_source = {row["source_id"]: row for row in preview}
+    assert by_source[finished["source_id"]]["status"] == "ready"
+    assert by_source[finished["source_id"]]["boards"] == 2
+    assert by_source[partial["source_id"]]["reason"] == "ASSISTED_PROPOSAL_UNDECIDED"
+    assert by_source[revoked["source_id"]]["reason"] == "ASSISTED_BOARD_NOT_ACCEPTED"
+    # Earlier lab work alone is not an operator decision of this workflow.
+    assert by_source[lab_photo.id]["reason"] == "ASSISTED_NO_WORKFLOW_ACCEPTANCE"
+    applied = assisted.close_finished_photos(store, catalog, workspace.proposals, apply=True)
+    assert [row["status"] for row in applied if row["status"] != "skipped"] == ["closed"]
+    state = store.read()
+    assert assisted.photo_complete(state, catalog.sources[finished["source_id"]])
+    assert state.assisted_photos[finished["source_id"]].actor == "operator-auto-close"
+    assert not assisted.photo_complete(state, catalog.sources[revoked["source_id"]])
+    # Idempotent: a second run finds nothing to close.
+    again = assisted.close_finished_photos(store, catalog, workspace.proposals, apply=True)
+    assert not [row for row in again if row["status"] in ("closed", "ready")]
+
+
+def test_new_proposal_generation_keeps_provenance_and_reloads(tmp_path):
+    catalog, store, training, bundle = lab(tmp_path)
+    proposals = publish(tmp_path, catalog, store, training, bundle)
+    workspace = assisted.Workspace(catalog, store.root, tmp_path / "proposals", games=("mumie",))
+    queue = assisted.queue_view(workspace.state(), catalog, workspace.proposals)
+    assert queue["total"] == 3 and set(queue["games"]) == {"mumie"}
+    assert queue["hidden_games"] == ["blazing", "gang"]
+    done, _ = first_photo(workspace, 0)
+    started, _ = first_photo(workspace, 1)
+    accept_all(workspace, done["source_id"])
+    state = accept_all(workspace, started["source_id"], auto=False, skip={1})
+    old_id = state.assisted_photos[started["source_id"]].boards["0"].proposal_id
+    incomplete = [
+        item
+        for item in workspace.proposals.items
+        if not assisted.photo_complete(state, catalog.sources[item["source_id"]])
+    ]
+    moved = FakeEngine()
+    newer = assisted.generate_proposals(
+        catalog,
+        state,
+        None,
+        bundle,
+        tmp_path / "proposals",
+        engine=moved,
+        log=lambda _: None,
+        items=incomplete,
+        generation=1,
+        supersedes=proposals.set_id,
+        model={"run_id": "r", "iteration": 1},
+    )
+    assert moved.calls == 2  # only the photos that are still incomplete
+    # The running page picks the new set up without a restart.
+    merged = workspace.refresh_proposals()
+    assert merged.set_id == newer.name and merged.sets == (proposals.set_id, newer.name)
+    assert [item["queue_index"] for item in merged.items] == [0, 1, 2]
+    assert merged.by_source[done["source_id"]]["proposal_generation"] == 0
+    view = assisted.photo_view(workspace.state(), catalog, merged, started["source_id"])
+    assert view["proposal_generation"] == 1
+    fresh = [p for p in view["proposals"] if p["covered_by"] is None]
+    assert len(fresh) == 1 and fresh[0]["proposal_id"].startswith(
+        f"{started['source_id'][:16]}.g1-"
+    )
+    state = decide(
+        workspace,
+        action="accept_board",
+        source_id=started["source_id"],
+        board_index=1,
+        origin="proposal_unchanged",
+        proposal_id=fresh[0]["proposal_id"],
+        auto_complete=True,
+    )
+    record = state.assisted_photos[started["source_id"]]
+    assert assisted.photo_complete(state, catalog.sources[started["source_id"]])
+    # Each accepted board keeps the set it came from.
+    assert record.boards["0"].proposal_id == old_id
+    assert record.boards["0"].proposal_set_id == proposals.set_id
+    assert record.boards["1"].proposal_set_id == newer.name
+    rows = assisted.export_rows(catalog, state, merged)
+    sets = {b["proposalSetId"] for row in rows for b in row["boards"]}
+    assert sets == {proposals.set_id, newer.name}
+    with pytest.raises(ValueError, match="GENERATION_INVALID"):
+        assisted.generate_proposals(
+            catalog, state, None, bundle, tmp_path / "other", engine=moved, items=incomplete
+        )

@@ -278,3 +278,125 @@ $m = 'game_predictor_worker.vision_lab.neural_grid_runs'
   też różnicę węzłów przed dopasowaniem.
 - Płótno treningowe 768 × 576 zakłada zdjęcia poziome; zdjęcie pionowe
   działa w inferencji (dynamiczny rozmiar), ale nie było w treningu.
+
+## Run 3 (preset D): iteracyjne doszkalanie na Mumiach (TASK-0825, D-490)
+
+Zmiana zakresu D-490 z 2026-10-02: trzeci run budżetu D-481 nie jest presetem C
+ani treningiem od wag ImageNet, tylko serią krótkich doszkoleń najlepszego stanu
+runu 1 na zdjęciach Mumii akceptowanych porcjami przez operatora. Preset D i jego
+fingerprint zapisano w repozytorium przed pierwszą iteracją; presety A/B/C i ich
+runy są nietknięte.
+
+### Preset D (zamrożony przed pierwszą iteracją)
+
+Plik `vision_lab/neural_grid_presets/D.json`, fingerprint
+`b94a9627df4c2d0886b43776f1a80b406de5d124c36c997ada2b5f93c5d1cbd9`
+(`FROZEN_PRESET_FINGERPRINTS["D"]`).
+
+| Parametr | Wartość | Uzasadnienie |
+|---|---|---|
+| wagi startowe | eksport runu 1 `exports/2cd19738367121e6-round3/weights.pt`, SHA-256 `19b8d138…80f9`, runda 3, checkpoint `2cd19738…83fe8` | najlepszy stan runu 1 (development 554/600 = 92,33%); suma i pochodzenie sprawdzane przed startem iteracji 1; bez pobierania wag |
+| architektura, ekran, plansza, dopasowanie, próg dekodowania | jak A/B | te same wagi i ten sam silnik ONNX |
+| augmentacje | pełne B | notatka techniczna zadania; ręka i odblask to znane błędy |
+| LR, rozgrzewka, koniec | 1e-4, 5%, 10% LR (kosinus w obrębie iteracji) | rząd 1e-4 przy 10–100 zdjęciach ogranicza przeuczenie; każda iteracja ma nowy AdamW |
+| wsad | 12 zdjęć: 4 Mumie + 8 z roli `training` 777 (losowanie ze zwracaniem), 4 wycinki plansz na zdjęcie | rozmiar jak A/B (RTX 4050 6 GB); przewaga 777 w każdym wsadzie chroni przed zapomnieniem 777 |
+| czas treningu iteracji | 60 s × liczba zdjęć treningowych Mumii, w granicach 300–900 s | do 15 min; przy 8 zdjęciach 480 s — mniej powtórzeń tych samych zdjęć, więcej iteracji z budżetu |
+| kandydaci | 3 równe odcinki; po każdym ocena 600 zdjęć development 777 i holdoutu Mumii | wybór stanu bez osobnego zbioru walidacyjnego |
+| wybór stanu | dopuszczalny: development 777 nie niżej niż run 1 − 0,5 pkt proc. (≥ 91,83%); spośród dopuszczalnych maksimum odsetka zdjęć kompletnych i poprawnych holdoutu Mumii (remis: niższe image-macro holdoutu, wyższy development, wcześniejszy kandydat); holdout < 3 zdjęć → ostatni dopuszczalny; brak dopuszczalnego → stan poprzedni bez zmian (bez eksportu i propozycji) | notatka techniczna zadania |
+| holdout | co piąte zakończone zdjęcie według klucza `sha256('TASK-0825-mumie-holdout-v1:' + SHA-256 źródła)` | deterministyczny, niezależny od kolejności klikania, trwały |
+| harmonogram | najwyżej 16 iteracji, limit runu 14 400 s, rezerwa 60 s, szacowany narzut iteracji 420 s, minimalny trening iteracji 240 s | 14 400 / 900 = 16 |
+| ziarno | 825001 (+ numer iteracji) | |
+
+### Protokół i budżet (egzekwowane kodem)
+
+- Run 3 to **jeden** run `RunManager` z presetem D w katalogu
+  `neural-grid-runs` (ten sam co runy 1 i 2). `admit_run` liczy go jak każdy run
+  `train`: po A, B i D nie da się założyć czwartego runu (`NEURAL_GRID_RUN_BUDGET_EXHAUSTED`),
+  a drugi run D jest odrzucany (`NEURAL_GRID_PRESET_ALREADY_RUN`).
+- Iteracja = próba (attempt) tego runu: iteracja 1 tworzy run, każda następna jest
+  wznowieniem (`retry_run`). `used_seconds` przechodzi między próbami bez zmian, więc
+  limit 14 400 s obejmuje wszystkie iteracje razem: kontrakt runu, planowanie czasu
+  iteracji z trwałego `used_seconds` (komenda odmawia nowej iteracji, gdy po narzucie
+  zostaje mniej niż 240 s treningu), odmowa heartbeatu/checkpointu po limicie w
+  `RunManager` i watchdog procesu. Czas liczy się od claim (zegar ścienny, z
+  ładowaniem danych i oceną).
+- Zakończona iteracja kończy próbę statusem `cancelled` z
+  `NEURAL_GRID_ITERATION_COMPLETE` i zostawia własny checkpoint (`checkpoint_epoch` =
+  numer iteracji, `bestState` = wybrany kandydat, historia wszystkich iteracji) oraz
+  własny raport próby. Ostatnia dopuszczalna iteracja (16.) kończy run `succeeded`.
+- Przerwanie: proces zabity w trakcie treningu → po 60 s `failed/RUN_LEASE_EXPIRED`
+  (czas naliczony konserwatywnie, bez zwrotu); ponowne `iterate` wznawia tę samą
+  iterację od checkpointu poprzedniej (nowa próba), nie planuje nowej. Ponowne
+  `iterate` po wytrenowaniu nie trenuje drugi raz — kontynuuje od eksportu,
+  propozycji albo raportu (stan w `neural-grid-runs\finetune-D\ledger.json`).
+- Smoke (`--smoke`): osobny ledger `finetune-D-smoke`, run `smoke` (≤ 50 kroków:
+  2 kandydatów × 20 kroków, ocena 24 zdjęć development), nie liczy się do budżetu.
+
+### Dane iteracji i holdout Mumii
+
+- Tylko zamknięte zdjęcia Mumii z magazynu anotacji (D-484). Eksport czyta stan przez
+  krótką blokadę magazynu (kopia bajtów pod blokadą, parsowanie po zwolnieniu) — strona
+  operatora pracuje dalej.
+- Przydział ról: nowe zamknięte zdjęcia są numerowane po wszystkich wcześniejszych w
+  kolejności klucza; co piąty numer to `holdout`. Przydział zapisany w ledgerze nie
+  zmienia się (także po ponownym otwarciu zdjęcia). Holdout trafia do snapshotu
+  iteracji wyłącznie z rolą `development`; worker odmawia treningu, gdy zdjęcie z
+  rejestru holdoutu jest wśród zdjęć treningowych (`NEURAL_GRID_HOLDOUT_IN_TRAINING`).
+- 777: snapshot v2 przez strażnik ról (`training` do mieszania, `development` do
+  oceny); rola `gold` nie jest czytana. Reels i Treasure nie są czytane.
+- Komenda odmawia iteracji bez zmian w danych (`NEURAL_GRID_FINETUNE_NO_NEW_PHOTOS`),
+  żeby nie wydawać budżetu na te same zdjęcia.
+
+### Pomiar po iteracji (raport `iterations\NN\report.json` i `report.md`)
+
+1. Holdout Mumii: metryki D-483 względem siatek operatora dla stanu przed iteracją i
+   wybranego stanu (z ostrzeżeniem przy < 3 zdjęciach).
+2. Development 777 (600 zdjęć): wybrany stan, różnica w pkt proc. względem runu 1
+   (92,33%), dopuszczalny spadek 0,5 pkt proc.
+3. Trafność propozycji ostatniej porcji (zdjęcia zamknięte od poprzedniej iteracji):
+   udział plansz przyjętych bez zmian, poprawionych i narysowanych ręcznie, podział na
+   zbiory propozycji (model, który je wygenerował), przesunięcie narożników przy
+   poprawkach, czas aktywny na zdjęcie.
+4. Wszyscy kandydaci iteracji, reguła wyboru, czas treningu, kroki, zużyty i pozostały
+   budżet, ścieżki eksportu ONNX i nowego zbioru propozycji.
+
+Nowe propozycje są osobnym, niezmiennym zbiorem (`generation` = numer iteracji,
+`supersedes`, `model` z runem, iteracją i sumą wag) tylko dla zdjęć Mumii jeszcze
+niezamkniętych. Strona pokazuje dla każdego zdjęcia najnowszy zbiór, który je
+obejmuje; zaakceptowane plansze zachowują identyfikator swojego zbioru (identyfikatory
+propozycji nowych zbiorów mają prefiks zbioru).
+
+### Komendy
+
+```powershell
+$env:PYTHONPATH = 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\services\worker\src'
+$py = 'C:\Users\tuszy\Documents\game_predicotr\.venv-vision-lab\Scripts\python.exe'
+$f = 'game_predictor_worker.vision_lab.neural_grid_finetune'
+& $py -m $f status                 # ledger, budżet runu 3, holdout, iteracje
+& $py -m $f iterate                # jedna iteracja (czeka na trening; ponowienie = wznowienie)
+& $py -m $f iterate --no-wait      # tylko start treningu; dokończenie: iterate jeszcze raz
+```
+
+### Wyniki
+
+**Smoke (GPU, 2026-10-02 20:26–20:33, po zakończeniu runu 2; katalogi tymczasowe,
+kopia magazynu z rewizji 378, kopia zbioru propozycji).** Run smoke
+`cf04f19d779c459ab87727be5e844350` (poza budżetem): 10 zamkniętych zdjęć Mumii → 8
+treningowych, 2 holdout; wagi startowe z eksportu runu 1 (suma sprawdzona); 2 × 20 =
+40 kroków (zarezerwowane ≤ 50), 174 s z claim (start procesów ładowania ok. 100 s,
+potem 2,46 kroku/s); strata łączna 0,47 → 0,31; checkpoint iteracji 1
+(`checkpoint_epoch` 1), próba zakończona `cancelled/NEURAL_GRID_ITERATION_COMPLETE`.
+Eksport ONNX wybranego stanu: parity PASS (8 zdjęć, 72 plansze, surowe ≤ 1,1e-6,
+węzły 0,0011 px). Nowy zbiór propozycji `generation` 1 dla 226 niezamkniętych zdjęć
+Mumii w 55 s (CPU, 4 wątki), identyfikatory z prefiksem zbioru. Raport: holdout 2/2
+przed i po (image-macro 0,0063 → 0,0059); development 777 na 24 zdjęciach smoke 22/24
+(nieporównywalne z 600 zdjęciami runu 1); trafność propozycji runu 1 na 10 zdjęciach
+(90 plansz): 14% bez zmian, 86% poprawionych (przesunięcie narożnika: mediana 5,0 px,
+p95 9,3 px), 0% ręcznie; czas aktywny średnio 165 s/zdjęcie. Strona na 8106 z kopią
+(tylko Mumie) pokazała nowy zbiór dla zdjęć niezamkniętych i zbiór bazowy dla
+zamkniętych.
+
+Wniosek z pomiaru trafności: operator poprawia prawie każdą propozycję runu 1 o kilka
+pikseli — właśnie tę miarę ma obniżać doszkalanie.
+
+Iteracje runu 3: nieuruchomione (start po pierwszej porcji operatora).

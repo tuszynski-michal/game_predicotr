@@ -71,7 +71,8 @@ dl.keys dt { white-space:nowrap; } dl.keys dd { margin:0; }
       <dt><kbd>X</kbd> / <kbd>Delete</kbd></dt><dd>odrzuć propozycję / usuń planszę</dd>
       <dt><kbd>R</kbd></dt><dd>cofnij akceptację planszy</dd>
       <dt><kbd>U</kbd> / <kbd>Ctrl+Z</kbd></dt><dd>cofnij ostatnie przesunięcie narożnika</dd>
-      <dt><kbd>C</kbd></dt><dd>wpisz liczbę plansz; <kbd>Enter</kbd> zatwierdza zdjęcie</dd>
+      <dt><kbd>C</kbd></dt><dd>korekta: wpisz liczbę plansz; <kbd>Enter</kbd> zatwierdza zdjęcie
+        (zwykle niepotrzebne – zdjęcie zamyka się samo po akceptacji ostatniej planszy)</dd>
       <dt><kbd>Spacja</kbd> / <kbd>PageDown</kbd></dt><dd>następne zdjęcie</dd>
       <dt><kbd>PageUp</kbd></dt><dd>poprzednie zdjęcie</dd>
       <dt><kbd>J</kbd></dt><dd>następne niekompletne zdjęcie</dd>
@@ -347,14 +348,17 @@ function renderPanel() {
   $("photoState").textContent = photo.complete ? "kompletne" : "niekompletne";
   $("photoState").className = "badge " + (photo.complete ? "ok" : "warn");
   $("pos").textContent = `Zdjęcie ${index + 1} / ${photo.total} · ${GAMES[photo.game]}`;
-  $("file").textContent = photo.filename + (photo.training_set_files.length ? "  ←  " + photo.training_set_files.join(", ") : "  (wcześniejsza anotacja labu)");
+  $("file").textContent = photo.filename + (photo.training_set_files.length ? "  ←  " + photo.training_set_files.join(", ") : "  (wcześniejsza anotacja labu)") +
+    (photo.proposal_generation ? `  · propozycje po doszkoleniu, iteracja ${photo.proposal_generation}` : "  · propozycje runu 1");
   $("retry").hidden = !pending;
   renderProgress();
 }
 function renderProgress() {
   if (!queue) return;
   const parts = Object.entries(queue.games).map(([k, g]) => `${GAMES[k]} ${g.complete}/${g.total}`);
-  $("progress").textContent = `Kompletne: ${queue.complete}/${queue.total} · ` + parts.join(" · ");
+  const hidden = (queue.hidden_games || []).map((k) => GAMES[k]);
+  $("progress").textContent = `Kompletne: ${queue.complete}/${queue.total} · ` + parts.join(" · ") +
+    (hidden.length ? ` · ukryte: ${hidden.join(", ")}` : "");
   const t = queue.timing;
   $("timing").textContent = `Na tym zdjęciu: ${fmt((photo ? photo.active_ms : 0) + unsentMs())} · ` +
     `średnio: ${fmt(t.mean_active_ms)} (n=${t.complete_photos}) · pierwsze 10: ${fmt(t.first_ten_mean_active_ms)}`;
@@ -493,7 +497,15 @@ async function acceptBoard() {
   } else {
     body.origin = "manual"; body.corners = it.corners;
   }
-  if (await send(body)) say(`Zaakceptowano pozycję ${body.board_index + 1} (${ORIGINS[body.origin]}).`, "ok");
+  // Close the photo automatically only when nothing unsaved is left on the page.
+  body.auto_complete = !items.some((o) => o !== it && (o.kind === "new" || (o.edited && o.kind !== "dismissed")));
+  if (!(await send(body))) return;
+  const accepted = `Zaakceptowano pozycję ${body.board_index + 1} (${ORIGINS[body.origin]}).`;
+  if (photo.auto_completed) {
+    await loadQueue();
+    say(`${accepted} Wszystkie plansze zaakceptowane – zdjęcie zamknięte automatycznie (${photo.confirmed_board_count} plansz, zdjęcie ${index + 1}). Korekta: wróć do niego i cofnij akceptację (R) albo wpisz liczbę (C).`, "ok");
+    await nextIncomplete(true);
+  } else say(accepted, "ok");
 }
 async function revokeBoard() {
   const it = current();

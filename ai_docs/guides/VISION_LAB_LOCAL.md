@@ -762,3 +762,64 @@ propozycji). Ten sam stan daje ten sam identyfikator. Funkcja
 `assisted_annotation.write_reader_snapshot` zamienia wiersze na katalog w formacie
 `production-geometry-snapshot-v1` czytany przez `neural_grid_data.load_samples`;
 podział na trening i odłożoną ocenę należy do następnego zadania.
+
+### Automatyczne zamykanie, tylko Mumie, nowe propozycje (TASK-0825)
+
+- **Zamykanie samoczynne.** Po akceptacji (`A`) planszy strona zamyka zdjęcie, gdy
+  operator zaakceptował wszystkie jego plansze: każda zapisana plansza ma pełną
+  akceptację (bez cofniętej akceptacji i bez szkicu), każda pokazana propozycja jest
+  odrzucona, użyta albo przykryta zapisaną planszą, a co najmniej jedna plansza
+  została zaakceptowana w tym narzędziu. Liczba plansz = liczba zaakceptowanych;
+  strona przechodzi do następnego niekompletnego zdjęcia. Strona nie zamyka zdjęcia,
+  gdy trzyma niezapisaną nową albo przesuniętą planszę. `C` zostaje jako korekta
+  (np. po cofnięciu akceptacji `R`).
+- **Jednorazowe zamknięcie wcześniejszej pracy** (zdjęcia z kompletem akceptacji bez
+  potwierdzonej liczby): najpierw podgląd, potem zapis.
+
+  ```powershell
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\vision_lab_assisted_annotation.ps1 -Action CloseFinished
+  powershell -NoProfile -ExecutionPolicy Bypass -File scripts\vision_lab_assisted_annotation.ps1 -Action CloseFinished -Apply
+  ```
+
+  Każde zdjęcie jest sprawdzane na bieżącym stanie tuż przed zapisem (praca operatora
+  w tym czasie nie zostanie nadpisana); autor zapisu `operator-auto-close`. Zdjęcia
+  wyłącznie z wcześniejszą pracą labu (`ASSISTED_NO_WORKFLOW_ACCEPTANCE`) nie są
+  zamykane.
+- **Tylko Mumie.** Skrypt domyślnie uruchamia stronę, status, eksport i zamykanie z
+  `-Games mumie`: kolejka i liczniki obejmują tylko Mumie, nagłówek pokazuje „ukryte:
+  Blazing, Gang”. Dane tych gier pozostają w magazynie i propozycjach bez zmian
+  (`-Games mumie,blazing,gang` przywraca pełną kolejkę).
+- **Nowe propozycje po doszkoleniu.** Katalog propozycji może zawierać kilka zbiorów:
+  zbiór bazowy runu 1 i zbiory iteracji doszkalania (pole `generation`). Działająca
+  strona wczytuje nowy zbiór przy następnym odświeżeniu kolejki lub zdjęcia (bez
+  restartu); dla zdjęcia pokazuje najnowszy zbiór, który je obejmuje (pod nazwą pliku:
+  „propozycje po doszkoleniu, iteracja N” albo „propozycje runu 1”). Zaakceptowane
+  wcześniej plansze zachowują identyfikator swojego zbioru.
+
+## Iteracyjne doszkalanie `neural_grid` na Mumiach — run 3 (TASK-0825, D-490)
+
+Run 3 budżetu D-481 to jeden run z presetem D (doszkalanie najlepszego stanu runu 1)
+podzielony na iteracje. Jedna komenda wykonuje iterację: eksport zamkniętych zdjęć
+Mumii → trwały przydział holdoutu (co piąte zdjęcie) → snapshot iteracji →
+doszkolenie na GPU (odłączony worker, 300–900 s treningu) → ocena (holdout Mumii,
+600 zdjęć development 777) → eksport ONNX → nowe propozycje dla zdjęć jeszcze
+niezamkniętych → raport. Wszystkie iteracje razem mieszczą się w 14 400 s (kod
+odmawia iteracji, gdy budżet się kończy); czwartego runu nie da się uruchomić.
+
+```powershell
+$env:PYTHONPATH = 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\services\worker\src'
+$py = 'C:\Users\tuszy\Documents\game_predicotr\.venv-vision-lab\Scripts\python.exe'
+$f = 'game_predictor_worker.vision_lab.neural_grid_finetune'
+& $py -m $f status            # budżet runu 3, holdout, wyniki iteracji
+& $py -m $f iterate           # jedna iteracja; po przerwaniu ta sama komenda wznawia
+& $py -m $f iterate --smoke --root <katalog_tymczasowy> --annotations <kopia_magazynu> --proposals <kopia_propozycji>
+```
+
+Wymagania przed iteracją: żaden inny run nie jest aktywny (`RUN_BUSY`), są nowe
+zamknięte zdjęcia Mumii (inaczej `NEURAL_GRID_FINETUNE_NO_NEW_PHOTOS`). Strona
+anotacji może działać w tym czasie: eksport czyta magazyn przez krótką blokadę, a nowy
+zbiór propozycji strona wczyta sama. Wyniki: `neural-grid-runs\finetune-D\iterations\NN\report.md`
+(po polsku) i `report.json`; ledger z przydziałem holdoutu:
+`neural-grid-runs\finetune-D\ledger.json`; eksport ONNX iteracji:
+`neural-grid-runs\<run>\exports\iterationNN-<checkpoint>`. Szczegóły presetu, budżetu i
+pomiaru: `ai_docs/quality/GRID_V3_NEURAL_GRID_RUNS_20261002.md`, sekcja „Run 3”.

@@ -33,6 +33,19 @@ last_updated: 2026-10-02
 - **Consequences:** ocena runu 3 jest raportowana osobno dla 777 i dla
   każdej nowej gry; warunkiem jest brak pogorszenia na 777. Praca operatora:
   przegląd i korekta siatek na ok. 290 zdjęciach laboratorium.
+- **Zmiana zakresu tego samego dnia (operator, 2026-10-02):** Blazing i Gang
+  wypadają z tej tury (brak czasu operatora); run 3 dotyczy wyłącznie Mumii
+  obok 777. Zamiast jednego treningu od wag ImageNet run 3 jest
+  **iteracyjnym doszkalaniem** modelu runu 1: operator akceptuje porcję
+  zdjęć Mumii (pierwsza ok. 10), sieć jest krótko doszkalana na 777 i
+  dotychczasowych zdjęciach Mumii, propozycje dla pozostałych zdjęć są
+  generowane od nowa, operator robi kolejną porcję. Wszystkie doszkolenia
+  mieszczą się łącznie w 4 godzinach GPU trzeciego runu (D-481); ustawienia
+  doszkalania i ich fingerprint są zapisane przed pierwszą iteracją. Wagi z
+  internetu nie są pobierane. Co piąte zaakceptowane zdjęcie Mumii jest
+  odkładane do oceny i nie wchodzi do doszkalania. Narzędzie anotacji
+  zamyka zdjęcie automatycznie, gdy wszystkie jego plansze są
+  zaakceptowane.
 - **Skutek dla pilota D-456 (przyjęty):** pierwszy zapis siatki we
   wspomaganej anotacji (TASK-0824) oznacza zamrożony podział D-456 jako
   `split_stale` (istniejąca reguła magazynu anotacji dla każdego zapisu

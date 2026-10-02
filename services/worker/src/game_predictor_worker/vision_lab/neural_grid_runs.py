@@ -36,6 +36,7 @@ from game_predictor_worker.training_core.runtime import TrainingInterrupted
 
 from .annotations import read_checked
 from .neural_grid_protocol import (
+    FINETUNE_PRESET,
     MODEL_VERSION,
     NeuralGridRunRequest,
     NeuralGridRunState,
@@ -197,6 +198,15 @@ def execute(manager: RunManager, run_id: str, lease: Token) -> None:
         from .run_worker import validate_runtime
 
         validate_runtime()
+        if getattr(run.request, "preset", None) == FINETUNE_PRESET:
+            # TASK-0825: one attempt = one fine-tune iteration of the single run D. A
+            # finished iteration that is not the last ends the attempt as cancelled with
+            # NEURAL_GRID_ITERATION_COMPLETE; the next iteration is a resume (new attempt,
+            # same durable used_seconds and 4-hour limit).
+            from .neural_grid_finetune import run_iteration_attempt
+
+            run_iteration_attempt(manager, run_id, lease)
+            return
         from .neural_grid_training import train_run
 
         metrics = train_run(manager, run_id, lease)

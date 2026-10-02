@@ -5,19 +5,26 @@
 .DESCRIPTION
   Start runs the loopback page http://127.0.0.1:<Port> as a hidden background process
   (Python from the repository .venv) and waits at most 60 s for readiness. Decisions are
-  written only to the existing lab annotation store; proposals are read from the single
-  proposal set under <LabRoot>\assisted-annotation\proposals. Stop ends exactly the
+  written only to the existing lab annotation store; proposals are read from the proposal
+  sets under <LabRoot>\assisted-annotation\proposals (one base set plus fine-tune sets). Stop ends exactly the
   processes whose command line is this page on this port. Status prints progress.
   Export writes the create-only list of complete photos to
   <LabRoot>\assisted-annotation\exports.
+  CloseFinished (TASK-0825) previews the photos whose boards are all accepted but which
+  were never confirmed; with -Apply it closes them (count = accepted boards).
+  -Games limits the queue and counters (default: mumie; Blazing and Gang stay untouched).
+  The page shows the newest proposal set (fine-tune iterations) without a restart.
 #>
 param(
-  [ValidateSet('Start', 'Stop', 'Status', 'Export')]
+  [ValidateSet('Start', 'Stop', 'Status', 'Export', 'CloseFinished')]
   [string]$Action = 'Start',
   [string]$LabRoot = 'C:\Users\tuszy\Documents\game_predictor_vision_data',
   [string]$SnapshotId = '0cdc0770b3535596fdbfa0a8f403cbf32d6a8b134fb52047f5a1f7bda33772c2',
   [string]$Annotations = '',
   [string]$Proposals = '',
+  [ValidateSet('mumie', 'blazing', 'gang')]
+  [string[]]$Games = @('mumie'),
+  [switch]$Apply,
   [int]$Port = 8105
 )
 $ErrorActionPreference = 'Stop'
@@ -29,7 +36,7 @@ if (-not $Annotations) { $Annotations = Join-Path $LabRoot "annotations\$Snapsho
 if (-not $Proposals) { $Proposals = Join-Path $work 'proposals' }
 $module = 'game_predictor_worker.vision_lab.assisted_annotation'
 $common = @('--snapshot', ('"' + $snapshot + '"'), '--annotations', ('"' + $Annotations + '"'),
-  '--proposals', ('"' + $Proposals + '"'))
+  '--proposals', ('"' + $Proposals + '"'), '--games') + $Games
 
 function Get-PageProcess {
   Get-CimInstance Win32_Process -Filter "Name='python.exe'" | Where-Object {
@@ -80,6 +87,11 @@ switch ($Action) {
     "Zatrzymano procesów: $($found.Count)"
   }
   'Status' { Invoke-Module (@('status') + $common) 120000 }
+  'CloseFinished' {
+    $closeArgs = @('close-finished') + $common
+    if ($Apply) { $closeArgs += '--apply' }
+    Invoke-Module $closeArgs 300000
+  }
   'Export' {
     Invoke-Module (@('export') + $common + @('--output', ('"' + (Join-Path $work 'exports') + '"'))) 300000
   }

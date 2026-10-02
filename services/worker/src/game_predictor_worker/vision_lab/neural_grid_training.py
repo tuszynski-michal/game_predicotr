@@ -256,6 +256,8 @@ def train_run(manager: RunManager, run_id: str, lease: Token) -> dict[str, Any]:
     if not isinstance(request, NeuralGridRunRequest):
         raise ValueError("NEURAL_GRID_REQUEST_INVALID")
     preset = validate_request(request)
+    if preset.finetune is not None:
+        raise ValueError("NEURAL_GRID_FINETUNE_REQUIRES_ITERATION")  # TASK-0825 path only
     if not torch.cuda.is_available():
         raise ValueError("RUN_GPU_UNAVAILABLE")  # no CPU fallback (TASK-0802)
     device = "cuda"

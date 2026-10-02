@@ -24,6 +24,7 @@ import {
   copyCorners,
   deferredBoardGeometryTarget,
 } from './board-geometry-correction-target';
+import { gridCellsWithoutPixels } from './board-geometry-correction-state';
 import type { DeferredBoardCellGeometryClient } from './deferred-board-cell-geometry-actions';
 import {
   deferredBoardCellGeometryIdempotency,
@@ -43,6 +44,14 @@ import {
 } from './operational-review-state';
 
 type LoadState = 'error' | 'loading' | 'ready';
+
+/** One active symbol the operator can assign to a previewed cell (D-486). */
+export interface CorrectionSymbol {
+  readonly id: string;
+  readonly label: string;
+}
+
+const NO_SYMBOLS: readonly CorrectionSymbol[] = [];
 
 export function DeferredBoardCellGeometryEditor({
   api,
@@ -82,19 +91,23 @@ export function DeferredBoardCellGeometryEditor({
 /**
  * Corrects the grid of exactly one board (D-462): a deferred slot or a
  * current board with `Zła siatka` reports. Saving the geometry finishes the
- * correction; it never approves symbols, the board or its photo.
+ * correction; it never approves the board or its photo. With `symbols` and a
+ * target that supports them, the operator may assign a symbol to a previewed
+ * cell; only those cells are approved by the save (D-486).
  */
 export function BoardGeometryCorrectionEditor({
   canvasLabel = 'Plansza z edytowalną siatką 5 na 3',
   onConflict,
   onSaved,
   saveLabel = 'Zapisz geometrię i dalej',
+  symbols = NO_SYMBOLS,
   target,
 }: {
   readonly canvasLabel?: string;
   readonly onConflict: (message: string) => Promise<void>;
   readonly onSaved: (reviewItemId: string | null) => Promise<void>;
   readonly saveLabel?: string;
+  readonly symbols?: readonly CorrectionSymbol[];
   readonly target: BoardGeometryCorrectionTarget;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -137,6 +150,18 @@ export function BoardGeometryCorrectionEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [flags, setFlags] = useState<ManualGridFlags>(completeManualGridFlags);
+  // D-486: symbols the operator assigned, the cell being edited and the
+  // read-only suggestions of the previewed cut.
+  const [chosenSymbols, setChosenSymbols] = useState<
+    Readonly<Record<number, string>>
+  >({});
+  const [selectedCell, setSelectedCell] = useState<number | null>(null);
+  const [suggestedSymbols, setSuggestedSymbols] = useState<{
+    readonly key: string;
+    readonly byCell: Readonly<Record<number, string | null>>;
+  } | null>(null);
+  const [symbolNotice, setSymbolNotice] = useState('');
+  const canAssignSymbols = symbols.length > 0 && target.symbols !== undefined;
   const allowOutsideSource = flags.partial;
   const commandKey = useMemo(() => {
     if (context === null || corners === null) return '';
@@ -499,6 +524,43 @@ export function BoardGeometryCorrectionEditor({
     return () => window.clearTimeout(timer);
   }, [contextState, dragging, loadingSource, previewIsCurrent, refreshPreview]);
 
+  useEffect(() => {
+    if (
+      !canAssignSymbols ||
+      !previewIsCurrent ||
+      corners === null ||
+      target.symbols === undefined ||
+      suggestedSymbols?.key === commandKey
+    )
+      return;
+    let active = true;
+    const requestedKey = commandKey;
+    void target.symbols(corners, flags).then((result) => {
+      if (!active || requestedKey !== currentCommandKeyRef.current) return;
+      // A failed suggestion never blocks the correction or the save.
+      setSymbolNotice(result.ok ? '' : result.error);
+      setSuggestedSymbols({
+        byCell: result.ok
+          ? Object.fromEntries(
+              result.cells.map((cell) => [cell.cellIndex, cell.symbolId]),
+            )
+          : {},
+        key: requestedKey,
+      });
+    });
+    return () => {
+      active = false;
+    };
+  }, [
+    canAssignSymbols,
+    commandKey,
+    corners,
+    flags,
+    previewIsCurrent,
+    suggestedSymbols,
+    target,
+  ]);
+
   async function saveGeometry() {
     if (
       context === null ||
@@ -520,6 +582,14 @@ export function BoardGeometryCorrectionEditor({
       corners,
       flags,
       idempotency.idempotencyKey,
+      canAssignSymbols
+        ? Object.entries(chosenSymbols)
+            .map(([cellIndex, symbolId]) => ({
+              cellIndex: Number(cellIndex),
+              symbolId,
+            }))
+            .filter((cell) => !withoutPixels.includes(cell.cellIndex))
+        : undefined,
     );
     setSaving(false);
     if (!result.ok) {
@@ -531,6 +601,16 @@ export function BoardGeometryCorrectionEditor({
     clearPreview();
     await onSaved(result.reviewItemId);
   }
+
+  // Cells with no area inside the photo have no crop to label.
+  const withoutPixels =
+    context === null || corners === null
+      ? []
+      : gridCellsWithoutPixels(
+          corners,
+          context.sourceWidth,
+          context.sourceHeight,
+        );
 
   function updateCanvasGesture(event: ReactPointerEvent<HTMLCanvasElement>) {
     const gesture = gestureRef.current;
@@ -689,6 +769,19 @@ export function BoardGeometryCorrectionEditor({
           context.sourceWidth,
           context.sourceHeight,
         );
+  const symbolLabel = (symbolId: string | null | undefined) =>
+    symbols.find((symbol) => symbol.id === symbolId)?.label ?? null;
+  const currentSuggestions =
+    suggestedSymbols?.key === commandKey ? suggestedSymbols.byCell : {};
+  const assignSymbol = (symbolId: string | null) => {
+    if (selectedCell === null) return;
+    setChosenSymbols((current) => {
+      const next = { ...current };
+      if (symbolId === null) delete next[selectedCell];
+      else next[selectedCell] = symbolId;
+      return next;
+    });
+  };
 
   return (
     <div className="deferredGeometryEditor">
@@ -858,29 +951,108 @@ export function BoardGeometryCorrectionEditor({
                 // TASK-0798: a field outside the photo has no render; the
                 // tile says so instead of showing an empty crop.
                 const missing = unavailable.includes(index);
+                const label = reported
+                  ? `Crop ${index + 1} — zgłoszona zła siatka`
+                  : missing
+                    ? `Crop ${index + 1} — poza zdjęciem`
+                    : `Crop ${index + 1}`;
+                const style = {
+                  backgroundImage: `url("${previewUrl}")`,
+                  backgroundPosition: `${column * 25}% ${row * 50}%`,
+                  backgroundSize: '500% 300%',
+                  opacity: missing ? 0.3 : undefined,
+                  outline: reported ? '3px solid #b42318' : undefined,
+                };
+                if (!canAssignSymbols || withoutPixels.includes(index)) {
+                  return (
+                    <div
+                      aria-label={label}
+                      key={index}
+                      role="img"
+                      style={style}
+                    />
+                  );
+                }
+                const chosen = symbolLabel(chosenSymbols[index]);
+                const suggested = symbolLabel(currentSuggestions[index]);
                 return (
-                  <div
+                  <button
                     aria-label={
-                      reported
-                        ? `Crop ${index + 1} — zgłoszona zła siatka`
-                        : missing
-                          ? `Crop ${index + 1} — poza zdjęciem`
-                          : `Crop ${index + 1}`
+                      chosen !== null
+                        ? `${label} — wybrany symbol: ${chosen}`
+                        : suggested !== null
+                          ? `${label} — podpowiedź: ${suggested}`
+                          : label
                     }
+                    aria-pressed={selectedCell === index}
+                    className="operationalReviewGeometryCropButton"
+                    disabled={saving}
                     key={index}
-                    role="img"
+                    onClick={() =>
+                      setSelectedCell(selectedCell === index ? null : index)
+                    }
                     style={{
-                      backgroundImage: `url("${previewUrl}")`,
-                      backgroundPosition: `${column * 25}% ${row * 50}%`,
-                      backgroundSize: '500% 300%',
-                      opacity: missing ? 0.3 : undefined,
-                      outline: reported ? '3px solid #b42318' : undefined,
+                      ...style,
+                      // A partly visible cell stays readable while assigning.
+                      opacity: missing ? 0.6 : undefined,
                     }}
-                  />
+                    type="button"
+                  >
+                    {chosen !== null ? (
+                      <strong>{chosen}</strong>
+                    ) : suggested !== null ? (
+                      <span>{suggested}</span>
+                    ) : null}
+                  </button>
                 );
               })}
             </div>
           )}
+          {canAssignSymbols && previewUrl !== null ? (
+            <div
+              aria-label="Symbol wybranego pola"
+              className="operationalReviewGeometrySymbolPicker"
+              role="group"
+            >
+              <p>
+                {selectedCell === null
+                  ? 'Kliknij kafelek, aby narzucić jego symbol. Pogrubiona etykieta to Twój wybór, zwykła — podpowiedź. Zapis zatwierdzi tylko wybrane pola.'
+                  : `Pole ${selectedCell + 1}: wybierz symbol.`}
+              </p>
+              <div>
+                {symbols.map((symbol) => (
+                  <button
+                    aria-pressed={
+                      selectedCell !== null &&
+                      chosenSymbols[selectedCell] === symbol.id
+                    }
+                    className="secondaryButton"
+                    disabled={selectedCell === null || saving}
+                    key={symbol.id}
+                    onClick={() => assignSymbol(symbol.id)}
+                    type="button"
+                  >
+                    {symbol.label}
+                  </button>
+                ))}
+                <button
+                  className="textButton"
+                  disabled={
+                    selectedCell === null ||
+                    saving ||
+                    chosenSymbols[selectedCell] === undefined
+                  }
+                  onClick={() => assignSymbol(null)}
+                  type="button"
+                >
+                  Usuń wybór
+                </button>
+              </div>
+              {symbolNotice ? (
+                <p className="mutedText">{symbolNotice}</p>
+              ) : null}
+            </div>
+          ) : null}
         </section>
       </div>
 

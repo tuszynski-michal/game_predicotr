@@ -1,6 +1,6 @@
 ---
 title: Plan — symbole w korekcie cięcia siatki
-status: accepted
+status: completed
 last_updated: 2026-10-02
 ---
 

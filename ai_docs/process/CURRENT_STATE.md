@@ -6,6 +6,22 @@ last_updated: 2026-10-02
 
 # Current State
 
+### TASK-0819 — klikalne kafelki i wybór symbolu w korekcie siatki (done, D-486)
+
+- Ekran „Korekta cięcia siatki” (Reviewer 3001): kafelek podglądu z pikselami
+  jest przyciskiem, pod podglądem jest paleta aktywnych symboli gry. Kafelek
+  pokazuje podpowiedź (kursywa) albo wybór operatora (pogrubienie, zielone
+  tło); „Usuń wybór” cofa wybór. Zapis siatki wysyła wyłącznie wybrane pola
+  (`cellSymbols`); pola bez pikseli nie są klikalne.
+- Podpowiedzi są pobierane po każdym aktualnym podglądzie; ich błąd nie
+  blokuje korekty ani zapisu. Dialog korekty w przeglądzie operacyjnym nie ma
+  palety (poza zakresem planu).
+- Testy: interakcje Reviewera 11/11 (2 nowe), jednostkowe 200/200 (1 nowy),
+  typecheck i lint czyste.
+- **Brak odbioru na żywo.** Po scaleniu wymagany restart API i
+  `npm run reviewer:build`. Plan
+  `GRID_CORRECTION_SYMBOLS_EXECUTION_PLAN.md` jest wykonany w całości.
+
 ### TASK-0818 — podpowiedzi symboli dla cięcia w korekcie siatki (done, D-486)
 
 - `GET /admin/image-reviews/{reviewItemId}/correction-symbols`

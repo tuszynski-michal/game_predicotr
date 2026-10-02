@@ -655,11 +655,21 @@ wyłącznie nawigacji. `Niepełna plansza` jest dostępna dla slotów odroczonyc
 plansz `virtual_source`; plansza z zapisaną kwalifikacją geometrii otwiera się
 z nią i zapis ją zachowuje (także `complete`).
 
-Zapis geometrii kończy zadanie korekty i nie weryfikuje symboli. Usuwa
-zgłoszenia `Zła siatka` tej planszy; komórki o zmienionym wycinku wracają do
-zwykłej `Weryfikacji symboli` z dotychczasową etykietą jako podpowiedzią, a
-komórki o niezmienionych pikselach zachowują weryfikację (D-462 R5/R6).
-Zapis dotyczy wyłącznie tej jednej planszy.
+Zapis geometrii kończy zadanie korekty. Usuwa zgłoszenia `Zła siatka` tej
+planszy; komórki o zmienionym wycinku wracają do zwykłej `Weryfikacji symboli`
+z dotychczasową etykietą jako podpowiedzią, a komórki o niezmienionych
+pikselach zachowują weryfikację (D-462 R5/R6). Zapis dotyczy wyłącznie tej
+jednej planszy.
+
+**D-486 (TASK-0817–0819):** podgląd pokazuje jeden zestaw 15 kafelków.
+Kafelek z pikselami (także pole częściowo widoczne) jest klikalny; pod
+podglądem jest paleta aktywnych symboli gry w kolejności katalogu. Kafelek
+pokazuje podpowiedź symbolu — dla planszy zgłoszonej symbol zapisany w bazie,
+dla planszy odroczonej predykcję modelu dla bieżącego cięcia — albo symbol
+wybrany przez operatora. Zapis siatki zatwierdza wyłącznie pola z wybranym
+symbolem (decyzja człowieka dla nowego cropa, w tej samej transakcji co
+geometria); pozostałe pola trafiają do `Weryfikacji symboli` jak dotąd. Pole
+bez pikseli nie jest klikalne. Błąd zapisu symboli wycofuje cały zapis.
 
 Admin nazywa sekcję uruchamiającą Reviewer „Korekta cięcia siatki” i pokazuje
 liczbę plansz do korekty dla wybranego importu oraz liczbę geometrii

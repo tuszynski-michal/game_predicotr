@@ -1,6 +1,6 @@
 ---
 title: Klikalne kafelki i wybór symbolu w korekcie siatki
-status: todo
+status: done
 last_updated: 2026-10-02
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-02
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -48,9 +48,9 @@ TASK-0817 i TASK-0818 wykonane.
 
 ## Acceptance criteria
 
-- [ ] Kafelek z pikselami jest klikalny; pole poza zdjęciem nie.
-- [ ] Wybrany symbol jest widoczny na kafelku i trafia do komendy zapisu.
-- [ ] Cel bez obsługi symboli (operacyjny) nie pokazuje palety.
+- [x] Kafelek z pikselami jest klikalny; pole poza zdjęciem nie.
+- [x] Wybrany symbol jest widoczny na kafelku i trafia do komendy zapisu.
+- [x] Cel bez obsługi symboli (operacyjny) nie pokazuje palety.
 
 ## Technical notes
 
@@ -81,4 +81,31 @@ npm run typecheck --workspace @game-predictor/reviewer; npm run lint --workspace
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- `BoardGeometryCorrectionEditor`: kafelki-przyciski, paleta symboli, stan
+  wyboru i podpowiedzi; `gridCellsWithoutPixels` wyznacza pola nieklikalne.
+- `BoardGeometryCorrectionTarget.symbols` dla celu odroczonego i zgłoszonego;
+  workspace pobiera katalog (`listSymbols`) i przekazuje go edytorowi.
+- Style w `apps/admin/src/app/globals.css` (importowane przez Reviewer).
+
+### Verification results
+
+- `npm run test:geometry --workspace @game-predictor/reviewer`: 11/11.
+- `npm run test --workspace @game-predictor/reviewer`: 200/200.
+- `typecheck` i `lint` Reviewera czyste; Prettier czysty dla zmienionych plików.
+
+### Not completed
+
+- Brak odbioru na żywym Reviewerze (usługi operatora działają z głównego
+  checkoutu; wymagany restart API i przebudowa Reviewera).
+- Etykiety pozostają przy indeksach pól po przesunięciu siatki — operator
+  widzi je na kafelkach przed zapisem.
+
+### Documentation updates
+
+- `ADMIN_APP.md` („Korekta cięcia siatki”), `CURRENT_STATE.md`, plan.
+
+### Recommended next task
+
+- Odbiór na żywo; ewentualnie skróty 1–9 i obrazy symboli w palecie.

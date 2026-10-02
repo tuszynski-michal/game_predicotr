@@ -170,7 +170,8 @@ last_updated: 2026-10-01
   rodziny źródeł (katalog joba importu; nagrania nie da się odtworzyć z
   danych). Raport:
   `ai_docs/quality/GRID_V3_PRODUCTION_GEOMETRY_INVENTORY_20261002.md`.
-- TASK-0801 done (`v1.7.154`): snapshot
+- TASK-0801 done (`v1.7.155` / `9df424c5`; numer `v1.7.154` pominięty
+  omyłkowo przez orkiestratora, nie istnieje commit o tym numerze): snapshot
   `game_predictor_vision_data\production-geometry-snapshots\3ff448c6…727d`
   (1,83 GB, 6 700 zdjęć, polityka `production-geometry-split-v1`, ziarno
   801): trening 6 000 zdjęć (3 000 S + 3 000 B, 54 000 plansz, 21 rodzin,

@@ -1,7 +1,7 @@
 ---
 title: Lokalne laboratorium wizji — galeria
 status: active
-last_updated: 2026-09-28
+last_updated: 2026-10-02
 ---
 
 # Laboratorium wizji — galeria i anotacje
@@ -488,3 +488,64 @@ Poprawna etykieta nie oznacza jeszcze dopuszczenia do treningu. T06b wymaga
 osobnej kontroli pochodzenia i podziału symboli. Historyczne 777 oraz gry
 zamrożone jako holdout nie otrzymują zgody symbolowej przez wcześniejsze
 zatwierdzenie siatek. Nie obchodź komunikatu blokady przez zmianę roli.
+
+## Snapshot treningowy geometrii produkcyjnej i przegląd etykiet (TASK-0801)
+
+Snapshot buduje skrypt `scripts/vision_lab_production_snapshot.py` z manifestu
+kandydatów TASK-0800 (`VISION_LAB_EXPORT.md`). Skrypt nie łączy się z bazą, a
+zdjęcia czyta tylko do odczytu z `<artifact-root>\data`. Najpierw podgląd (nic nie
+kopiuje ani nie zapisuje; liczności, rozmiar kopii, blokady), potem budowa:
+
+```powershell
+$candidates = 'C:\Users\tuszy\Documents\game_predictor_vision_data\production-geometry\production-geometry-777-20261002\candidates.jsonl'
+$artifacts = 'C:\Users\tuszy\Documents\game_predicotr\artifacts'
+$out = 'C:\Users\tuszy\Documents\game_predictor_vision_data\production-geometry-snapshots'
+$p = Start-Process -FilePath '.\.venv\Scripts\python.exe' -ArgumentList @(
+  'scripts/vision_lab_production_snapshot.py', 'preview', '--candidates', ('"' + $candidates + '"'),
+  '--artifact-root', ('"' + $artifacts + '"'), '--output-root', ('"' + $out + '"'), '--seed', '801'
+) -PassThru -NoNewWindow
+if (-not $p.WaitForExit(300000)) { $p.Kill($true); throw 'Preview timeout 300 s' }
+```
+
+Zamiana `preview` na `build` (limit 900 s) kopiuje zdjęcia po kontroli SHA-256 i
+publikuje atomowo `<output-root>\<snapshotId>`. Kod wyjścia 2 oznacza blokadę
+(za mało zdjęć w roli, pusta pula, udział rodziny ponad limit albo kopia ponad
+`--max-copy-gib`, domyślnie 3); wtedy nic nie jest kopiowane. Ponowne uruchomienie
+z tym samym ziarnem i wejściem daje ten sam ID, weryfikuje opublikowany katalog i
+niczego w nim nie zmienia. Opublikowany snapshot z 2026-10-02:
+`3ff448c620a71f3a28e467cfdfeb77c7e46325e73ca25eaabcb35a56e0b7727d` (6 000 trening,
+600 development, 102 zdjęcia złote); liczności i reguły podziału opisuje
+`ai_docs/quality/GRID_V3_TRAINING_SNAPSHOT_20261002.md`. Nie zmieniaj plików w
+katalogu snapshotu: kontrola sum kontrolnych odrzuci go.
+
+Przegląd etykiet: 600 plansz (300 S i 300 B, ziarno 801) przygotowano w
+`C:\Users\tuszy\Documents\game_predictor_vision_data\production-geometry-snapshots\label-review-seed801`
+(polecenie `label-review` tego samego skryptu z `--output`). Uruchom stronę
+przeglądu jako kontrolowany proces w tle:
+
+```powershell
+$review = 'C:\Users\tuszy\Documents\game_predictor_vision_data\production-geometry-snapshots\label-review-seed801'
+$labReview = Start-Process -FilePath '.\.venv\Scripts\python.exe' -ArgumentList @(
+  '-m', 'game_predictor_worker.vision_lab.label_review', 'serve', '--review', ('"' + $review + '"')
+) -WindowStyle Hidden -PassThru
+"Review PID: $($labReview.Id)"
+```
+
+Otwórz `http://127.0.0.1:8103`. Klawisze: `G`/`1` dobra, `Z`/`2` zła, `N`/`3` nie
+da się ocenić, `→` pomiń, `←` wstecz, `U` cofnij decyzję bieżącej planszy, `H`
+ukryj/pokaż siatkę, `S` podsumowanie. Oceniaj, czy siatka 5 × 3 leży na planszy
+(linie między symbolami, wszystkie 15 pól na właściwych symbolach); strona nie
+pokazuje poziomu S/B. Każda decyzja trafia od razu do `history.jsonl` i
+`decisions.json` w katalogu przeglądu, więc zamknięcie strony lub procesu niczego
+nie traci, a ponowne uruchomienie wraca do pierwszej nieocenionej planszy. Port
+8103 musi być wolny; serwer słucha tylko na `127.0.0.1`. Zatrzymanie w tej samej
+sesji: `Stop-Process -Id $labReview.Id`, a następnie sprawdź
+`Get-CimInstance Win32_Process -Filter "Name='python.exe'"` pod kątem procesu
+potomnego `label_review` (launcher venv uruchamia drugi proces Pythona).
+
+Raport odsetka błędów (zapisuje `summary.json`; odsetek „zła” wśród dobra + zła per
+poziom z przedziałem Wilsona 95%):
+
+```powershell
+.\.venv\Scripts\python.exe -m game_predictor_worker.vision_lab.label_review report --review $review
+```

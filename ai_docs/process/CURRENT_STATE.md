@@ -170,6 +170,24 @@ last_updated: 2026-10-01
   rodziny źródeł (katalog joba importu; nagrania nie da się odtworzyć z
   danych). Raport:
   `ai_docs/quality/GRID_V3_PRODUCTION_GEOMETRY_INVENTORY_20261002.md`.
+- TASK-0801 done (`v1.7.154`): snapshot
+  `game_predictor_vision_data\production-geometry-snapshots\3ff448c6…727d`
+  (1,83 GB, 6 700 zdjęć, polityka `production-geometry-split-v1`, ziarno
+  801): trening 6 000 zdjęć (3 000 S + 3 000 B, 54 000 plansz, 21 rodzin,
+  największa 8,7%), development 600 zdjęć z trzech całych rodzin, zbiór
+  złoty 102 zdjęcia / 459 plansz G. Filtr zgodności symboli odrzucił 5 669
+  zdjęć. Rozłączność i determinizm potwierdzone testami i niezależnym
+  skryptem. **Ograniczenie:** wszystkie plansze G leżą w rodzinach widzianych
+  w treningu (podzbiór „rodzina niewidziana” jest pusty); rodziny
+  developmentu to sąsiednie wycinki tego samego długiego nagrania co część
+  rodzin treningowych. Raport:
+  `ai_docs/quality/GRID_V3_TRAINING_SNAPSHOT_20261002.md`.
+- **STOP V3-A (2026-10-02).** Czeka na operatora: przegląd 600 plansz (300 S
+  + 300 B, ślepy) w narzędziu `label_review` na `http://127.0.0.1:8103`
+  (katalog `production-geometry-snapshots\label-review-seed801`); wynik —
+  odsetek błędnych etykiet z przedziałem Wilsona — rozstrzyga, czy S i B
+  nadają się do treningu. Następny etap V3-B (TASK-0802, TASK-0803) wymaga
+  jawnego uruchomienia.
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

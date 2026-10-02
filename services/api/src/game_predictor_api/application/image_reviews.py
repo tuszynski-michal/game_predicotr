@@ -28,6 +28,7 @@ from game_predictor_api.domain.image_geometry_completeness import (
     GeometryImageCursor,
     GeometryImageState,
     LowQualityThresholds,
+    SourceImageGeometryStatus,
 )
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_PAGE_SIZE,
@@ -59,6 +60,9 @@ from game_predictor_api.storage.image_geometry_completeness_repository import (
     GeometrySourceImageAsset,
     IncompleteGeometryImagePage,
     LowQualityBoardsReport,
+)
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    SourceImageGeometryException,
 )
 
 
@@ -226,6 +230,7 @@ class ImageGeometryCompletenessRepository(Protocol):
         image_state: GeometryImageState | None = None,
         after: GeometryImageCursor | None = None,
         limit: int = MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
+        completeness_status: SourceImageGeometryStatus | None = None,
     ) -> IncompleteGeometryImagePage | None: ...
 
     def low_quality_boards(
@@ -240,6 +245,18 @@ class ImageGeometryCompletenessRepository(Protocol):
     def source_image_asset(
         self, game_id: UUID, source_image_id: UUID
     ) -> GeometrySourceImageAsset | None: ...
+
+
+class ImageGeometryCompletenessStateRepository(Protocol):
+    """Operator exception of the D-484 gate (TASK-0807)."""
+
+    def set_exception(
+        self, game_id: UUID, source_image_id: UUID, *, reason: str, actor: str
+    ) -> SourceImageGeometryException | None: ...
+
+    def withdraw_exception(
+        self, game_id: UUID, source_image_id: UUID, *, actor: str
+    ) -> SourceImageGeometryException | None: ...
 
 
 def _geometry_completeness_game_not_found() -> ImageReviewNotFoundError:
@@ -257,6 +274,9 @@ class OperationalImageReviewService:
         virtual_geometry: VirtualGridGeometryService | None = None,
         board_import_coverage_repository: BoardImportCoverageRepository | None = None,
         geometry_completeness_repository: ImageGeometryCompletenessRepository | None = None,
+        geometry_completeness_state_repository: (
+            ImageGeometryCompletenessStateRepository | None
+        ) = None,
     ) -> None:
         self._repository = repository
         # D-467 S6 (TASK-0796): manual geometry of a current board is always
@@ -264,6 +284,7 @@ class OperationalImageReviewService:
         self._virtual_geometry = virtual_geometry
         self._board_import_coverage_repository = board_import_coverage_repository
         self._geometry_completeness_repository = geometry_completeness_repository
+        self._geometry_completeness_state_repository = geometry_completeness_state_repository
 
     def list_items(
         self,
@@ -610,6 +631,7 @@ class OperationalImageReviewService:
         image_state: GeometryImageState | None,
         after: GeometryImageCursor | None,
         limit: int,
+        completeness_status: SourceImageGeometryStatus | None = None,
     ) -> IncompleteGeometryImagePage:
         repository = self._require_geometry_completeness_repository()
         if not 1 <= limit <= MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE:
@@ -628,6 +650,7 @@ class OperationalImageReviewService:
             image_state=image_state,
             after=after,
             limit=limit,
+            completeness_status=completeness_status,
         )
         if page is None:
             raise _geometry_completeness_game_not_found()
@@ -667,6 +690,45 @@ class OperationalImageReviewService:
         if asset is None:
             raise _geometry_completeness_game_not_found()
         return asset
+
+    def set_geometry_exception(
+        self,
+        game_id: UUID,
+        source_image_id: UUID,
+        *,
+        reason: str,
+        actor: str,
+    ) -> SourceImageGeometryException:
+        """Admit an incomplete image by an operator decision (D-484, TASK-0807)."""
+
+        repository = self._require_geometry_completeness_state_repository()
+        value = repository.set_exception(game_id, source_image_id, reason=reason, actor=actor)
+        if value is None:
+            raise _geometry_completeness_game_not_found()
+        return value
+
+    def withdraw_geometry_exception(
+        self,
+        game_id: UUID,
+        source_image_id: UUID,
+        *,
+        actor: str,
+    ) -> SourceImageGeometryException:
+        repository = self._require_geometry_completeness_state_repository()
+        value = repository.withdraw_exception(game_id, source_image_id, actor=actor)
+        if value is None:
+            raise _geometry_completeness_game_not_found()
+        return value
+
+    def _require_geometry_completeness_state_repository(
+        self,
+    ) -> ImageGeometryCompletenessStateRepository:
+        if self._geometry_completeness_state_repository is None:
+            raise ImageReviewConflictError(
+                "IMAGE_GEOMETRY_COMPLETENESS_UNAVAILABLE",
+                "Image geometry completeness is not configured.",
+            )
+        return self._geometry_completeness_state_repository
 
     def _require_geometry_completeness_repository(self) -> ImageGeometryCompletenessRepository:
         if self._geometry_completeness_repository is None:

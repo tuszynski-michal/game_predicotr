@@ -42,6 +42,9 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
 )
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    withheld_review_item_ids,
+)
 from game_predictor_api.storage.models import (
     GameModel,
     ImageBoardGeometryRevisionModel,
@@ -70,6 +73,9 @@ class BoardSearchProjectionRebuildResult:
     candidate_count: int
     document_count: int
     skipped_review_item_count: int
+    # D-484 (TASK-0807): pending boards of incomplete images projected without
+    # symbol evidence (reason ``SOURCE_IMAGE_GEOMETRY_INCOMPLETE``).
+    geometry_withheld_review_item_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -91,10 +97,19 @@ ReviewProjectionRow = tuple[
 
 
 class SqlAlchemyBoardSearchProjectionRepository:
-    """Maintains only compact data; board crop bytes stay in the artifact root."""
+    """Maintains only compact data; board crop bytes stay in the artifact root.
+
+    D-484 (TASK-0807): a pending board that the geometry gate withholds (its
+    image is incomplete and it was never cut into cells) keeps its candidate
+    and sequence document -- the current-owner registry the Reviewer's grid
+    correction and the cell backfill rely on -- but without any symbol
+    evidence, so board search never matches it. The withheld items of the
+    last operations are in ``geometry_withheld_review_item_ids``.
+    """
 
     def __init__(self, session: Session) -> None:
         self._session = session
+        self.geometry_withheld_review_item_ids: set[UUID] = set()
 
     def upsert_candidate(self, payload: BoardSearchProjectionPayload) -> None:
         self.upsert_candidates((payload,))
@@ -168,6 +183,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
             payloads = _payloads_from_rows(
                 self._session,
                 (cast(ReviewProjectionRow, row),),
+                withheld_sink=self.geometry_withheld_review_item_ids,
             )
             if not payloads:
                 self.remove_candidate(review_item_id)
@@ -638,6 +654,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
 
         candidate_count = 0
         skipped_count = 0
+        withheld: set[UUID] = set()
         last_review_item_id: UUID | None = None
         while True:
             review_item_ids = self._session.scalars(
@@ -679,7 +696,7 @@ class SqlAlchemyBoardSearchProjectionRepository:
                 .order_by(ImageReviewItemModel.id)
             ).all()
             batch = tuple(cast(ReviewProjectionRow, row) for row in rows)
-            payloads = _payloads_from_rows(self._session, batch)
+            payloads = _payloads_from_rows(self._session, batch, withheld_sink=withheld)
             candidate_count += len(payloads)
             skipped_count += len(batch) - len(payloads)
             self.upsert_candidates(payloads)
@@ -699,7 +716,9 @@ class SqlAlchemyBoardSearchProjectionRepository:
             candidate_count=candidate_count,
             document_count=document_count,
             skipped_review_item_count=skipped_count,
+            geometry_withheld_review_item_count=len(withheld),
         )
+        self.geometry_withheld_review_item_ids.update(withheld)
         self._mark_ready(game_id, result)
         return result
 
@@ -830,10 +849,24 @@ class SqlAlchemyBoardSearchProjectionRepository:
 def _payloads_from_rows(
     session: Session,
     rows: Sequence[ReviewProjectionRow],
+    *,
+    withheld_sink: set[UUID] | None = None,
 ) -> tuple[BoardSearchProjectionPayload, ...]:
     if not rows:
         return ()
     review_item_ids = [item.id for item, _board, _source, _job in rows]
+    # D-484 (TASK-0807): the same gate predicate as the symbol-cell write-through.
+    pending_by_game: dict[UUID, list[tuple[UUID, RecognizedBoardModel, SourceImageModel]]] = (
+        defaultdict(list)
+    )
+    for item, board, source, job in rows:
+        if item.status == "pending" and job.game_id is not None:
+            pending_by_game[job.game_id].append((item.id, board, source))
+    withheld: set[UUID] = set()
+    for game_id, gate_rows in pending_by_game.items():
+        withheld.update(withheld_review_item_ids(session, game_id, gate_rows))
+    if withheld_sink is not None:
+        withheld_sink.update(withheld)
 
     latest_predictions: dict[UUID, list[dict[str, object]]] = {}
     for revision in session.scalars(
@@ -880,6 +913,7 @@ def _payloads_from_rows(
             prediction_override=latest_predictions.get(item.id),
             geometry_revision=current_geometry.get(board.id),
             cell_decisions=decisions_by_item.get(item.id, ()),
+            withhold_evidence=item.id in withheld,
         )
         if payload is not None:
             payloads.append(payload)
@@ -1017,6 +1051,7 @@ def _payload_from_records(
     prediction_override: Sequence[Mapping[str, object]] | None,
     geometry_revision: ImageBoardGeometryRevisionModel | None = None,
     cell_decisions: Sequence[BoardSearchCellDecision] = (),
+    withhold_evidence: bool = False,
 ) -> BoardSearchProjectionPayload | None:
     if item.status not in _SEARCHABLE_STATUSES or job.game_id is None:
         return None
@@ -1069,6 +1104,11 @@ def _payload_from_records(
             alternative_symbol_codes=parsed[1],
             decisions=cell_decisions,
         )
+        if withhold_evidence:
+            # D-484: the board stays the sequence's current owner, but none
+            # of its machine-cut symbols reaches search before admission.
+            primary = (None,) * BOARD_SEARCH_CELL_COUNT
+            alternatives = ((),) * BOARD_SEARCH_CELL_COUNT
         sequence_number = int(board.sequence_number)
 
     # D-467 S6: every board is ``virtual_source``; its identity is the source

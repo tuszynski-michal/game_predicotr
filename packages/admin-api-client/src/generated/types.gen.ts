@@ -3632,6 +3632,42 @@ export type GeometryEngineVariantCapabilityResponse = {
 };
 
 /**
+ * GeometryGateCountsResponse
+ *
+ * Persisted gate state of the images in scope (TASK-0807).
+ */
+export type GeometryGateCountsResponse = {
+  /**
+   * Geometrycomplete
+   */
+  geometryComplete: number;
+  /**
+   * Geometryexception
+   */
+  geometryException: number;
+  /**
+   * Geometryincomplete
+   */
+  geometryIncomplete: number;
+  /**
+   * Notevaluated
+   */
+  notEvaluated: number;
+  /**
+   * Outsidegate
+   */
+  outsideGate: number;
+  /**
+   * Withheldboards
+   */
+  withheldBoards: number;
+  /**
+   * Withheldreasoncode
+   */
+  withheldReasonCode: string;
+};
+
+/**
  * GeometryImageState
  *
  * State of a source image as a whole.
@@ -4193,6 +4229,7 @@ export type ImageGeometryCompletenessResponse = {
    * Gameid
    */
   gameId: string;
+  gate: GeometryGateCountsResponse;
   images: GeometryCompletenessImageCountsResponse;
   /**
    * Importjobid
@@ -6904,6 +6941,7 @@ export type ImportJobPayload = {
  * IncompleteGeometryImagePageResponse
  */
 export type IncompleteGeometryImagePageResponse = {
+  completenessStatus: SourceImageGeometryStatus | null;
   /**
    * Gameid
    */
@@ -6928,9 +6966,30 @@ export type IncompleteGeometryImagePageResponse = {
  */
 export type IncompleteGeometryImageResponse = {
   /**
+   * Completenessevaluatedat
+   */
+  completenessEvaluatedAt: string | null;
+  completenessStatus: SourceImageGeometryStatus | null;
+  /**
+   * Exceptionat
+   */
+  exceptionAt: string | null;
+  /**
+   * Exceptionby
+   */
+  exceptionBy: string | null;
+  /**
+   * Exceptionreason
+   */
+  exceptionReason: string | null;
+  /**
    * Expectedboardcount
    */
   expectedBoardCount: number | null;
+  /**
+   * Gatereasoncode
+   */
+  gateReasonCode: string | null;
   imageState: GeometryImageState;
   /**
    * Importerrorcode
@@ -12104,6 +12163,59 @@ export type SnapshotJobPayload = {
    */
   schemaVersion?: 1;
 };
+
+/**
+ * SourceImageGeometryExceptionCommand
+ *
+ * Operator exception of one incomplete image (D-484, TASK-0807).
+ */
+export type SourceImageGeometryExceptionCommand = {
+  /**
+   * Reason
+   */
+  reason: string;
+};
+
+/**
+ * SourceImageGeometryExceptionResponse
+ */
+export type SourceImageGeometryExceptionResponse = {
+  completenessStatus: SourceImageGeometryStatus | null;
+  /**
+   * Exceptionat
+   */
+  exceptionAt: string | null;
+  /**
+   * Exceptionby
+   */
+  exceptionBy: string | null;
+  /**
+   * Exceptionreason
+   */
+  exceptionReason: string | null;
+  imageState: GeometryImageState;
+  /**
+   * Materializedreviewitemcount
+   */
+  materializedReviewItemCount: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * SourceImageGeometryStatus
+ *
+ * Persisted ``source_images.geometry_completeness_status`` (TASK-0807).
+ *
+ * ``NULL`` in storage means *not evaluated* (before the backfill) or *outside
+ * the gate* (``superseded``, ``import_failed``, ``no_source_geometry``: the
+ * image has no live board to cut). ``geometry_exception`` is set only by an
+ * operator.
+ */
+export type SourceImageGeometryStatus =
+  'geometry_complete' | 'geometry_incomplete' | 'geometry_exception';
 
 /**
  * StorageGcJobPayload
@@ -20728,6 +20840,110 @@ export type GetImageGeometryCompletenessResponses = {
 export type GetImageGeometryCompletenessResponse =
   GetImageGeometryCompletenessResponses[keyof GetImageGeometryCompletenessResponses];
 
+export type WithdrawSourceImageGeometryExceptionData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Source Image Id
+     */
+    source_image_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception';
+};
+
+export type WithdrawSourceImageGeometryExceptionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type WithdrawSourceImageGeometryExceptionError =
+  WithdrawSourceImageGeometryExceptionErrors[keyof WithdrawSourceImageGeometryExceptionErrors];
+
+export type WithdrawSourceImageGeometryExceptionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceImageGeometryExceptionResponse;
+};
+
+export type WithdrawSourceImageGeometryExceptionResponse =
+  WithdrawSourceImageGeometryExceptionResponses[keyof WithdrawSourceImageGeometryExceptionResponses];
+
+export type SetSourceImageGeometryExceptionData = {
+  body: SourceImageGeometryExceptionCommand;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Source Image Id
+     */
+    source_image_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception';
+};
+
+export type SetSourceImageGeometryExceptionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Operational review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Operational review conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SetSourceImageGeometryExceptionError =
+  SetSourceImageGeometryExceptionErrors[keyof SetSourceImageGeometryExceptionErrors];
+
+export type SetSourceImageGeometryExceptionResponses = {
+  /**
+   * Successful Response
+   */
+  200: SourceImageGeometryExceptionResponse;
+};
+
+export type SetSourceImageGeometryExceptionResponse =
+  SetSourceImageGeometryExceptionResponses[keyof SetSourceImageGeometryExceptionResponses];
+
 export type GetImageGeometryCompletenessSourceAssetData = {
   body?: never;
   path: {
@@ -20786,6 +21002,10 @@ export type ListIncompleteGeometryImagesData = {
      * Imagestate
      */
     imageState?: GeometryImageState | null;
+    /**
+     * Completenessstatus
+     */
+    completenessStatus?: SourceImageGeometryStatus | null;
     /**
      * Aftercursor
      */

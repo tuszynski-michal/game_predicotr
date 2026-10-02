@@ -983,6 +983,62 @@ Pola współrzędnych 0.10 są all-or-none: rekord historyczny może nie mieć
 kompletny opis i checksumę. Bounded backfill TASK-0308 nie zgaduje EXIF ani nie
 dekoduje historycznych źródeł.
 
+#### Bramka kompletności geometrii (D-484, TASK-0807, migracja `0139`)
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| geometry_completeness_status | varchar(24) nullable | `geometry_complete`, `geometry_incomplete`, `geometry_exception`; `NULL` = nieocenione albo poza bramką |
+| geometry_completeness_evaluated_at | timestamptz nullable | ustawiane przy każdej ocenie, także gdy stan pozostaje `NULL` |
+| geometry_exception_reason | text nullable | powód wyjątku operatora |
+| geometry_exception_by | varchar(200) nullable | autor wyjątku |
+| geometry_exception_at | timestamptz nullable | chwila wyjątku |
+
+CHECK-i: dozwolone wartości statusu; status niepusty ⇒ `evaluated_at`
+niepuste; trzy pola wyjątku niepuste (powód i autor po `btrim`) wtedy i tylko
+wtedy, gdy status to `geometry_exception`. Indeksy częściowe:
+`(game_id, geometry_completeness_status, relative_path, id)` dla zdjęć
+`geometry_incomplete`/`geometry_exception` (kolejka) i `(game_id, id)` dla
+`geometry_completeness_evaluated_at IS NULL` (backfill). Kolumny są dodane na
+rodzicu partycjonowanym; lifecycle partycji porównuje kolumny z rodzicem, a
+zamrożony manifest magazynu (v4) wymienia tabele, nie kolumny, więc nie
+zmienia się.
+
+Mapowanie z klasyfikatora `domain/image_geometry_completeness.py` (jedyna
+definicja): `complete` → `geometry_complete`; `incomplete_*` →
+`geometry_incomplete`; `superseded`, `import_failed`, `no_source_geometry` →
+`NULL` (zdjęcie nie ma żywej planszy do cięcia). Status liczy
+`recompute_source_image_geometry_completeness` (moduł
+`storage/image_geometry_completeness_state_repository.py`) w transakcji
+każdego zapisu, który tworzy albo zmienia planszę, jej geometrię, zatwierdzenie
+geometrii, żywość (`rejected`) albo wiersz `image_board_geometry_pending`;
+błąd przeliczenia wycofuje zapis. Wyjątek operatora zostaje przy każdym
+przeliczeniu, dopóki zdjęcie nie stanie się kompletne (wtedy
+`geometry_complete` i pola wyjątku są czyszczone).
+
+Bramka: plansza aktywnego elementu review jest *wstrzymana*, gdy jej zdjęcie
+ma status `geometry_incomplete` (albo `geometry_exception`, a jej pozycja nie
+jest `ok` ani częściową planszą z zatwierdzoną kwalifikacją, D-449) i
+plansza nie ma jeszcze żadnej komórki weryfikacji. Wstrzymana plansza nie
+dostaje komórek `image_symbol_review_cells` (write-through i backfill), a jej
+kandydat wyszukiwarki i dokument sekwencji powstają bez dowodów symboli
+(rejestr właściciela sekwencji, którego używa korekta siatki Reviewera,
+pozostaje). Status `NULL` zachowuje zachowanie sprzed bramki. Istniejące
+komórki, decyzje i dokumenty nie są usuwane ani unieważniane. Przejście
+`geometry_incomplete` → dopuszczone materializuje w tej samej transakcji
+wszystkie aktywne plansze zdjęcia istniejącym write-through.
+
+Nowa rewizja geometrii źródła zdjęcia przepina na siebie żywe plansze tego
+zdjęcia wskazujące starszą rewizję, gdy wpis pozycji (czworokąt i siatka, z
+których powstał manifest renderu) jest identyczny, plansza nie ma własnej
+rewizji geometrii (`geometry_revision = 0`), a manifest bieżącej rewizji,
+komórki i suma geometrii planszy wskazują starą rewizję. Razem z planszą
+przechodzą: `recognized_boards.source_geometry_revision_id` i
+`geometry_checksum_sha256`, `board_render_manifests.source_geometry_revision_id`
+oraz `image_symbol_review_cells.source_geometry_revision_id` i
+`approved_source_geometry_revision_id` (tylko gdy wskazywały starą rewizję).
+Piksele, specyfikacje renderu, tożsamości cropów, decyzje i zdarzenia zostają
+bez zmian; plansza z innym wpisem zostaje i trafia do raportu z kodem powodu.
+
 ### image_source_geometry_revisions i image_geometry_rollout_states
 
 `image_source_geometry_revisions` jest append-only historią geometrii całej

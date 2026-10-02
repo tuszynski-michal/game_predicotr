@@ -2582,6 +2582,49 @@ transakcyjny `statement_timeout` 10 s; jego przekroczenie to `409
 IMAGE_GEOMETRY_LOW_QUALITY_TIMEOUT` (z `details.timeoutMs`), nigdy pusty wynik.
 Progi poza zakresem dają `422`.
 
+TASK-0807 (bramka D-484) dodaje stan zapisany w bazie i wyjątek operatora:
+
+```text
+GET    /api/v1/admin/image-review-items/geometry-completeness/{gameId}/incomplete-images?completenessStatus=
+POST   /api/v1/admin/image-review-items/geometry-completeness/{gameId}/images/{sourceImageId}/exception
+DELETE /api/v1/admin/image-review-items/geometry-completeness/{gameId}/images/{sourceImageId}/exception
+```
+
+Raport ma pole `gate{geometryComplete, geometryIncomplete, geometryException,
+outsideGate, notEvaluated, withheldBoards, withheldReasonCode}` liczone z
+`source_images.geometry_completeness_status` w zakresie gry albo importu:
+`outsideGate` to zdjęcia ocenione bez żywej planszy do cięcia (status `NULL`),
+`notEvaluated` — jeszcze bez oceny (przed backfillem), `withheldBoards` — żywe
+plansze aktywnych elementów review bez komórek weryfikacji na zdjęciach
+`geometry_incomplete`/`geometry_exception`, wstrzymane z powodem
+`withheldReasonCode = SOURCE_IMAGE_GEOMETRY_INCOMPLETE`. Element listy ma
+dodatkowo `completenessStatus | null`, `completenessEvaluatedAt | null`,
+`gateReasonCode | null` (`SOURCE_IMAGE_GEOMETRY_INCOMPLETE` dla zdjęcia
+wstrzymanego), `exceptionReason | null`, `exceptionBy | null`, `exceptionAt |
+null`; strona ma `completenessStatus | null`. Parametr `completenessStatus`
+(`geometry_incomplete | geometry_exception`; `geometry_complete` daje `422
+IMAGE_GEOMETRY_COMPLETENESS_STATUS_INVALID`) wybiera zdjęcia po stanie z bazy —
+to kolejka siatek; `imageState` może ją dodatkowo zawęzić.
+
+`POST .../exception` (`setSourceImageGeometryException`, body `{reason}` o
+długości `1..1000`) i `DELETE .../exception`
+(`withdrawSourceImageGeometryException`) są operacjami wysokiego wpływu:
+wymagają `X-Admin-Confirmation: confirmed` i `X-Admin-Target:
+source-image-geometry-exception:{sourceImageId}` i trafiają do audytu Admina.
+Autorem wyjątku jest `local-admin`. Odpowiedź: `sourceImageId,
+completenessStatus | null, imageState, exceptionReason | null, exceptionBy |
+null, exceptionAt | null, materializedReviewItemCount`. Wyjątek jest dozwolony
+tylko dla zdjęcia, które po przeliczeniu ma stan `geometry_incomplete` (`409
+IMAGE_GEOMETRY_EXCEPTION_NOT_INCOMPLETE`); ponowienie z tym samym powodem jest
+idempotentne, z innym — `409 IMAGE_GEOMETRY_EXCEPTION_ALREADY_SET`. W tej samej
+transakcji tnie plansze `ok` i częściowe z zatwierdzoną kwalifikacją (D-449).
+Wycofanie przelicza stan (zwykle z powrotem `geometry_incomplete`), niczego nie
+usuwa i jest odrzucane po decyzji człowieka na komórkach zdjęcia (`409
+IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT`) albo bez wyjątku (`409
+IMAGE_GEOMETRY_EXCEPTION_NOT_SET`). Zdjęcie innej gry: `404
+IMAGE_GEOMETRY_SOURCE_IMAGE_NOT_FOUND`; nieznana gra: `404
+IMAGE_REVIEW_GAME_NOT_FOUND`; pusty powód: `422`.
+
 Lista źródeł zwraca stabilny ranking zaakceptowanych plansz tej samej sekwencji,
 jawne metryki jakości, provenance, automatyczny rank i aktualny wybór. Komenda
 override przyjmuje `reviewItemId` albo `null` do powrotu do wyboru

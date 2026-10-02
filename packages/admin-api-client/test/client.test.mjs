@@ -3470,6 +3470,55 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
   for (const request of requests) assert.equal(request.method, 'GET');
 });
 
+test('geometry gate queue filter and operator exception use confirmed Admin requests (TASK-0807)', async () => {
+  const requests = [];
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  const sourceImageId = '99999999-9999-4999-8999-999999999999';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  await client.listIncompleteGeometryImages({
+    gameId,
+    completenessStatus: 'geometry_incomplete',
+  });
+  await client.setSourceImageGeometryException(
+    gameId,
+    sourceImageId,
+    'Plansza 9 poza kadrem',
+  );
+  await client.withdrawSourceImageGeometryException(gameId, sourceImageId);
+
+  assert.equal(requests.length, 3);
+  const [list, setRequest, withdrawRequest] = requests;
+  const base = `/api/v1/admin/image-review-items/geometry-completeness/${gameId}`;
+  assert.deepEqual(
+    Object.fromEntries(new URL(list.url).searchParams.entries()),
+    { completenessStatus: 'geometry_incomplete' },
+  );
+  for (const request of [setRequest, withdrawRequest]) {
+    assert.equal(
+      new URL(request.url).pathname,
+      `${base}/images/${sourceImageId}/exception`,
+    );
+    assert.equal(request.headers.get('X-Admin-Confirmation'), 'confirmed');
+    assert.equal(
+      request.headers.get('X-Admin-Target'),
+      `source-image-geometry-exception:${sourceImageId}`,
+    );
+    assert.equal(request.headers.get('X-Admin-Intent'), 'local-owner');
+  }
+  assert.equal(setRequest.method, 'POST');
+  assert.deepEqual(await setRequest.json(), {
+    reason: 'Plansza 9 poza kadrem',
+  });
+  assert.equal(withdrawRequest.method, 'DELETE');
+});
+
 test('geometry completeness source image is read by source image id, not by a review item (TASK-0808)', async () => {
   const requests = [];
   const gameId = '33333333-3333-4333-8333-333333333333';

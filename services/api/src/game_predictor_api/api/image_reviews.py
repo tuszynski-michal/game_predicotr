@@ -34,6 +34,7 @@ from game_predictor_api.domain.image_geometry_completeness import (
     MAX_LOW_QUALITY_MIN_CELLS,
     GeometryImageState,
     LowQualityThresholds,
+    SourceImageGeometryStatus,
     decode_geometry_image_cursor,
 )
 from game_predictor_api.domain.image_reviews import (
@@ -49,9 +50,12 @@ from game_predictor_api.schemas.image_geometry_completeness import (
     ImageGeometryCompletenessResponse,
     ImageGeometryLowQualityBoardsResponse,
     IncompleteGeometryImagePageResponse,
+    SourceImageGeometryExceptionCommand,
+    SourceImageGeometryExceptionResponse,
     to_geometry_completeness_response,
     to_geometry_low_quality_boards_response,
     to_incomplete_geometry_image_page_response,
+    to_source_image_geometry_exception_response,
 )
 from game_predictor_api.schemas.image_reviews import (
     BoardImportCoverageResponse,
@@ -83,6 +87,8 @@ from game_predictor_api.schemas.image_reviews import (
 from game_predictor_api.schemas.jobs import JobResponse
 
 OperationalImageReviewServiceDependency = Callable[..., object]
+# Author of an operator geometry exception set from the local Admin (TASK-0807).
+_LOCAL_ADMIN_ACTOR = "local-admin"
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     404: {"model": ErrorResponse, "description": "Operational review resource not found"},
     409: {"model": ErrorResponse, "description": "Operational review conflict"},
@@ -190,6 +196,9 @@ def create_image_reviews_router(
         service: Annotated[OperationalImageReviewService, service_parameter],
         import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
         image_state: Annotated[GeometryImageState | None, Query(alias="imageState")] = None,
+        completeness_status: Annotated[
+            SourceImageGeometryStatus | None, Query(alias="completenessStatus")
+        ] = None,
         after_cursor: Annotated[str | None, Query(alias="afterCursor")] = None,
         limit: Annotated[int, Query(ge=1, le=MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE)] = 25,
     ) -> IncompleteGeometryImagePageResponse:
@@ -202,7 +211,46 @@ def create_image_reviews_router(
                     None if after_cursor is None else decode_geometry_image_cursor(after_cursor)
                 ),
                 limit=limit,
+                completeness_status=completeness_status,
             )
+        )
+
+    @router.post(
+        "/geometry-completeness/{game_id}/images/{source_image_id}/exception",
+        response_model=SourceImageGeometryExceptionResponse,
+        operation_id="setSourceImageGeometryException",
+        summary="Admit an incomplete source image to symbol cutting by an operator exception",
+        responses=ERROR_RESPONSES,
+    )
+    def set_source_image_geometry_exception(
+        game_id: UUID,
+        source_image_id: UUID,
+        command: SourceImageGeometryExceptionCommand,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> SourceImageGeometryExceptionResponse:
+        return to_source_image_geometry_exception_response(
+            service.set_geometry_exception(
+                game_id,
+                source_image_id,
+                reason=command.reason,
+                actor=_LOCAL_ADMIN_ACTOR,
+            )
+        )
+
+    @router.delete(
+        "/geometry-completeness/{game_id}/images/{source_image_id}/exception",
+        response_model=SourceImageGeometryExceptionResponse,
+        operation_id="withdrawSourceImageGeometryException",
+        summary="Withdraw the geometry exception of a source image before human decisions",
+        responses=ERROR_RESPONSES,
+    )
+    def withdraw_source_image_geometry_exception(
+        game_id: UUID,
+        source_image_id: UUID,
+        service: Annotated[OperationalImageReviewService, service_parameter],
+    ) -> SourceImageGeometryExceptionResponse:
+        return to_source_image_geometry_exception_response(
+            service.withdraw_geometry_exception(game_id, source_image_id, actor=_LOCAL_ADMIN_ACTOR)
         )
 
     @router.get(

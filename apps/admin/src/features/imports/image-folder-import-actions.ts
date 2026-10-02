@@ -41,6 +41,8 @@ export type ImageFolderImportClient = Pick<
   | 'listIncompleteGeometryImages'
   | 'getImageGeometryLowQualityBoards'
   | 'getImageGeometryCompletenessSourceAsset'
+  | 'setSourceImageGeometryException'
+  | 'withdrawSourceImageGeometryException'
   | 'getImageSequenceSourceSelection'
   | 'registerCuratedImageImportSource'
   | 'listCuratedImageImportSources'

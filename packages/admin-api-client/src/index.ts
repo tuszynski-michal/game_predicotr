@@ -105,6 +105,8 @@ import {
   getImageGeometryCompletenessSourceAsset as getGeneratedImageGeometryCompletenessSourceAsset,
   getImageGeometryLowQualityBoards as getGeneratedImageGeometryLowQualityBoards,
   listIncompleteGeometryImages as listGeneratedIncompleteGeometryImages,
+  setSourceImageGeometryException as setGeneratedSourceImageGeometryException,
+  withdrawSourceImageGeometryException as withdrawGeneratedSourceImageGeometryException,
   getImageSequenceSourceSelection as getGeneratedImageSequenceSourceSelection,
   getImageStorageInventory as getGeneratedImageStorageInventory,
   getStorageGcRun as getGeneratedStorageGcRun,
@@ -260,6 +262,7 @@ import type {
   ApproximateWinSummaryResponse,
   BoardImportCoverageView,
   GeometryImageState,
+  SourceImageGeometryStatus,
   ReprocessManagedImageImportData,
   BrowserImageSelectionCreate,
   BrowserImageUploadPlanResponse,
@@ -550,6 +553,7 @@ export type {
   GeometryCompletenessPositionCountResponse,
   GeometryCompletenessPositionResponse,
   GeometryCompletenessSourceStatusCountResponse,
+  GeometryGateCountsResponse,
   GeometryImageState,
   GeometryLowQualityBoardResponse,
   GeometryPositionState,
@@ -557,6 +561,8 @@ export type {
   ImageGeometryLowQualityBoardsResponse,
   IncompleteGeometryImagePageResponse,
   IncompleteGeometryImageResponse,
+  SourceImageGeometryExceptionResponse,
+  SourceImageGeometryStatus,
   ImageDiagnosticExportResponse,
   ImageJobFileErrorResponse,
   ImageJobFileResponse,
@@ -844,6 +850,11 @@ export interface ListIncompleteGeometryImagesOptions {
   readonly importJobId?: string;
   // `complete` is never listed; `superseded` only when asked for explicitly.
   readonly imageState?: Exclude<GeometryImageState, 'complete'>;
+  // The gate queue (TASK-0807): images by their persisted status.
+  readonly completenessStatus?: Exclude<
+    SourceImageGeometryStatus,
+    'geometry_complete'
+  >;
   readonly afterCursor?: string;
   readonly limit?: number;
 }
@@ -2043,11 +2054,40 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.imageState === undefined
             ? {}
             : { imageState: options.imageState }),
+          ...(options.completenessStatus === undefined
+            ? {}
+            : { completenessStatus: options.completenessStatus }),
           ...(options.afterCursor === undefined
             ? {}
             : { afterCursor: options.afterCursor }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
+      }),
+    /** D-484: admits an incomplete image to symbol cutting (high impact). */
+    setSourceImageGeometryException: (
+      gameId: string,
+      sourceImageId: string,
+      reason: string,
+    ) =>
+      setGeneratedSourceImageGeometryException({
+        body: { reason },
+        client,
+        headers: confirmedTargetHeaders(
+          `source-image-geometry-exception:${sourceImageId}`,
+        ),
+        path: { game_id: gameId, source_image_id: sourceImageId },
+      }),
+    /** Withdraws an exception before any human cell decision (high impact). */
+    withdrawSourceImageGeometryException: (
+      gameId: string,
+      sourceImageId: string,
+    ) =>
+      withdrawGeneratedSourceImageGeometryException({
+        client,
+        headers: confirmedTargetHeaders(
+          `source-image-geometry-exception:${sourceImageId}`,
+        ),
+        path: { game_id: gameId, source_image_id: sourceImageId },
       }),
     getImageGeometryCompletenessSourceAsset: (
       gameId: string,

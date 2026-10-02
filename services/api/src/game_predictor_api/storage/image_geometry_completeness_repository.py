@@ -1,5 +1,10 @@
 """Read-only SQLAlchemy repository of the D-484 geometry completeness report.
 
+Since TASK-0807 the report also carries the persisted gate state of each image
+(``source_images.geometry_completeness_status`` and the operator exception),
+written by ``storage.image_geometry_completeness_state_repository``; the list
+can select the gate queue by that persisted status.
+
 The unit is the source image. Its expected boards are the
 ``active_board_slots`` of the newest ``image_source_geometry_revisions`` row
 (the *current* revision); the state of each expected position comes from the
@@ -15,7 +20,7 @@ Nothing here writes: every statement is a ``SELECT`` (plus a transaction-local
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID
@@ -27,12 +32,15 @@ from sqlalchemy.orm import Session
 from game_predictor_api.domain.image_geometry_completeness import (
     INCOMPLETE_IMAGE_STATES,
     MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
+    SOURCE_IMAGE_GEOMETRY_INCOMPLETE,
     GeometryImageCursor,
     GeometryImageState,
     GeometryPositionFacts,
     GeometryPositionState,
     LowQualityThresholds,
     Quad,
+    SourceImageGeometryStatus,
+    classify_image,
     classify_position,
     expected_sequence_number,
     extract_position_quad,
@@ -92,7 +100,9 @@ def _sequence_live_elsewhere(sequence_number: str, image_id: str) -> str:
 _IMAGE_STATES_CTE = f"""
 WITH images AS (
   SELECT s.id, s.import_job_id, s.relative_path, s.status, s.oriented_width, s.oriented_height,
-    s.checksum_sha256, s.file_execution_key
+    s.checksum_sha256, s.file_execution_key, s.geometry_completeness_status,
+    s.geometry_completeness_evaluated_at, s.geometry_exception_reason, s.geometry_exception_by,
+    s.geometry_exception_at
   FROM source_images s
   WHERE s.game_id = :game_id{{import_filter}}
 ), current_revision AS (
@@ -173,6 +183,9 @@ WITH images AS (
     COALESCE(bc.n_uncertain, 0) AS n_uncertain,
     COALESCE(gc.n_superseded, 0) AS n_superseded,
     ff.error_code AS import_error_code,
+    i.geometry_completeness_status AS persisted_status,
+    i.geometry_completeness_evaluated_at, i.geometry_exception_reason, i.geometry_exception_by,
+    i.geometry_exception_at,
     CASE
       WHEN c.source_image_id IS NOT NULL
         AND COALESCE(gc.n_superseded, 0) = cardinality(c.active_board_slots) THEN 'superseded'
@@ -247,7 +260,8 @@ _LIST_SQL = (
     + """
 SELECT id, import_job_id, relative_path, source_status, image_state, source_revision,
   sequence_range_start, sequence_range_end, expected_boards, oriented_width, oriented_height,
-  import_error_code
+  import_error_code, persisted_status, geometry_completeness_evaluated_at,
+  geometry_exception_reason, geometry_exception_by, geometry_exception_at
 FROM image_states
 WHERE {state_filter}{cursor_filter}
 ORDER BY relative_path, id
@@ -303,6 +317,72 @@ LEFT JOIN image_source_geometry_revisions p
 LEFT JOIN pending g
   ON g.source_image_id = c.source_image_id AND g.position_index = slot.position_index
 ORDER BY c.source_image_id, slot.position_index
+"""
+
+# Image-level facts of ``classify_image`` for a batch of images (TASK-0807).
+# The checksum twin is looked up only for images without a live board, with
+# one hash join per batch instead of one game-wide scan per image.
+_IMAGE_FACTS_SQL = """
+WITH batch AS (
+  SELECT s.id, s.checksum_sha256, s.import_job_id, s.file_execution_key,
+    EXISTS (
+      SELECT 1 FROM image_source_geometry_revisions r
+      WHERE r.game_id = :game_id AND r.source_image_id = s.id
+    ) AS has_source_geometry,
+    EXISTS (
+      SELECT 1 FROM recognized_boards b
+      WHERE b.game_id = :game_id AND b.source_image_id = s.id AND b.status <> 'rejected'
+    ) AS has_live_boards
+  FROM source_images s
+  WHERE s.game_id = :game_id AND s.id = ANY (:image_ids)
+), twins AS (
+  SELECT DISTINCT i.id
+  FROM batch i
+  JOIN source_images t
+    ON t.game_id = :game_id AND t.checksum_sha256 = i.checksum_sha256 AND t.id <> i.id
+  WHERE NOT i.has_live_boards
+    AND EXISTS (
+      SELECT 1 FROM recognized_boards b
+      WHERE b.game_id = :game_id AND b.source_image_id = t.id AND b.status <> 'rejected'
+    )
+)
+SELECT i.id, i.has_source_geometry, i.has_live_boards,
+  tw.id IS NOT NULL AS checksum_twin_has_live_boards,
+  NOT i.has_live_boards AND EXISTS (
+    SELECT 1 FROM image_import_job_files f
+    WHERE f.game_id = :game_id AND f.job_id = i.import_job_id
+      AND f.file_execution_key = i.file_execution_key AND f.workflow_status = 'failed'
+  ) AS import_file_failed
+FROM batch i
+LEFT JOIN twins tw ON tw.id = i.id
+"""
+
+# Persisted gate state (TASK-0807): images per status, evaluated or not.
+_GATE_COUNTS_SQL = """
+SELECT s.geometry_completeness_status, s.geometry_completeness_evaluated_at IS NOT NULL,
+  count(*)
+FROM source_images s
+WHERE s.game_id = :game_id{import_filter}
+GROUP BY 1, 2
+"""
+
+# Boards the gate withholds: live boards with an active review item and no
+# symbol cell, on images that are incomplete or admitted by an exception (an
+# admitted board of an exception image is cut when the exception is set).
+_GATE_WITHHELD_BOARDS_SQL = """
+SELECT count(*)
+FROM source_images s
+JOIN recognized_boards b
+  ON b.game_id = s.game_id AND b.source_image_id = s.id AND b.status <> 'rejected'
+JOIN image_review_items ri
+  ON ri.game_id = b.game_id AND ri.recognized_board_id = b.id
+  AND ri.status IN ('pending', 'accepted', 'corrected')
+WHERE s.game_id = :game_id{import_filter}
+  AND s.geometry_completeness_status IN ('geometry_incomplete', 'geometry_exception')
+  AND NOT EXISTS (
+    SELECT 1 FROM image_symbol_review_cells c
+    WHERE c.game_id = :game_id AND c.review_item_id = ri.id
+  )
 """
 
 _LOW_QUALITY_SQL = """
@@ -362,6 +442,25 @@ class GeometryPositionCount:
 
 
 @dataclass(frozen=True, slots=True)
+class GeometryGateCounts:
+    """Persisted gate state of the images in scope (TASK-0807).
+
+    ``outside_gate`` images were evaluated and have no live board to cut
+    (superseded, failed import, no source geometry); ``not_evaluated`` images
+    still wait for the backfill. ``withheld_boards`` are not cut with the
+    reason ``SOURCE_IMAGE_GEOMETRY_INCOMPLETE``.
+    """
+
+    geometry_complete: int
+    geometry_incomplete: int
+    geometry_exception: int
+    outside_gate: int
+    not_evaluated: int
+    withheld_boards: int
+    withheld_reason_code: str = SOURCE_IMAGE_GEOMETRY_INCOMPLETE
+
+
+@dataclass(frozen=True, slots=True)
 class GeometryCompletenessReport:
     game_id: UUID
     import_job_id: UUID | None
@@ -370,6 +469,7 @@ class GeometryCompletenessReport:
     positions: tuple[GeometryPositionCount, ...]
     source_statuses: tuple[GeometryImageSourceStatusCount, ...]
     computed_at: datetime
+    gate: GeometryGateCounts | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -398,6 +498,18 @@ class IncompleteGeometryImage:
     # Error code of the failed import file of the image, if its file failed.
     import_error_code: str | None
     positions: tuple[GeometryImagePosition, ...]
+    # Persisted gate state (TASK-0807); ``None`` = not evaluated / outside.
+    completeness_status: SourceImageGeometryStatus | None = None
+    completeness_evaluated_at: datetime | None = None
+    exception_reason: str | None = None
+    exception_by: str | None = None
+    exception_at: datetime | None = None
+
+    @property
+    def gate_reason_code(self) -> str | None:
+        if self.completeness_status is SourceImageGeometryStatus.GEOMETRY_INCOMPLETE:
+            return SOURCE_IMAGE_GEOMETRY_INCOMPLETE
+        return None
 
 
 @dataclass(frozen=True, slots=True)
@@ -407,6 +519,7 @@ class IncompleteGeometryImagePage:
     image_state: GeometryImageState | None
     images: tuple[IncompleteGeometryImage, ...]
     next_cursor: GeometryImageCursor | None
+    completeness_status: SourceImageGeometryStatus | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -503,6 +616,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
             ),
         ]
         total_images = sum(image_counter.values())
+        gate = self._gate_counts(params, import_filter)
         return GeometryCompletenessReport(
             game_id=game_id,
             import_job_id=import_job_id,
@@ -520,6 +634,31 @@ class SqlAlchemyImageGeometryCompletenessRepository:
             positions=tuple(positions),
             source_statuses=tuple(source_statuses),
             computed_at=datetime.now(UTC),
+            gate=gate,
+        )
+
+    def _gate_counts(self, params: dict[str, object], import_filter: str) -> GeometryGateCounts:
+        counts: Counter[str] = Counter()
+        not_evaluated = 0
+        for status, evaluated, count in self._session.execute(
+            text(_GATE_COUNTS_SQL.format(import_filter=import_filter)), params
+        ):
+            if not evaluated:
+                not_evaluated += int(count)
+            else:
+                counts["null" if status is None else str(status)] += int(count)
+        withheld = int(
+            self._session.execute(
+                text(_GATE_WITHHELD_BOARDS_SQL.format(import_filter=import_filter)), params
+            ).scalar_one()
+        )
+        return GeometryGateCounts(
+            geometry_complete=counts[SourceImageGeometryStatus.GEOMETRY_COMPLETE.value],
+            geometry_incomplete=counts[SourceImageGeometryStatus.GEOMETRY_INCOMPLETE.value],
+            geometry_exception=counts[SourceImageGeometryStatus.GEOMETRY_EXCEPTION.value],
+            outside_gate=counts["null"],
+            not_evaluated=not_evaluated,
+            withheld_boards=withheld,
         )
 
     def incomplete_images(
@@ -530,6 +669,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
         image_state: GeometryImageState | None = None,
         after: GeometryImageCursor | None = None,
         limit: int = MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
+        completeness_status: SourceImageGeometryStatus | None = None,
     ) -> IncompleteGeometryImagePage | None:
         if not 1 <= limit <= MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE:
             raise ImageReviewError(
@@ -541,16 +681,30 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 "IMAGE_GEOMETRY_COMPLETENESS_STATE_INVALID",
                 "The incomplete image list cannot be filtered by the complete state.",
             )
+        if completeness_status is SourceImageGeometryStatus.GEOMETRY_COMPLETE:
+            raise ImageReviewError(
+                "IMAGE_GEOMETRY_COMPLETENESS_STATUS_INVALID",
+                "The image queue cannot be filtered by the complete status.",
+            )
         if not self._bind(game_id, import_job_id):
             return None
         params = self._scope_params(game_id, import_job_id)
         params["row_limit"] = limit + 1
+        import_filter = self._import_filter(import_job_id)
         # The default list is "all incomplete": complete and superseded images
         # are left out unless the superseded state is asked for explicitly.
-        if image_state is None:
+        # The gate queue (TASK-0807) selects by the persisted status instead;
+        # the classified state then only narrows it further.
+        if completeness_status is not None:
+            import_filter += " AND s.geometry_completeness_status = :completeness_status"
+            params["completeness_status"] = completeness_status.value
+            state_filter = "true"
+        elif image_state is None:
             states = ", ".join(f"'{state.value}'" for state in INCOMPLETE_IMAGE_STATES)
             state_filter = f"image_state IN ({states})"
         else:
+            state_filter = "true"
+        if image_state is not None:
             state_filter = "image_state = :image_state"
             params["image_state"] = image_state.value
         cursor_filter = ""
@@ -561,7 +715,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
         rows = self._session.execute(
             text(
                 _LIST_SQL.format(
-                    import_filter=self._import_filter(import_job_id),
+                    import_filter=import_filter,
                     state_filter=state_filter,
                     cursor_filter=cursor_filter,
                 )
@@ -588,6 +742,13 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 oriented_height=None if row[10] is None else int(row[10]),
                 import_error_code=None if row[11] is None else str(row[11]),
                 positions=positions_by_image.get(row[0], ()),
+                completeness_status=(
+                    None if row[12] is None else SourceImageGeometryStatus(str(row[12]))
+                ),
+                completeness_evaluated_at=row[13],
+                exception_reason=None if row[14] is None else str(row[14]),
+                exception_by=None if row[15] is None else str(row[15]),
+                exception_at=row[16],
             )
             for row in page_rows
         )
@@ -602,6 +763,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 if has_more and last is not None
                 else None
             ),
+            completeness_status=completeness_status,
         )
 
     def source_image_asset(
@@ -767,9 +929,70 @@ class SqlAlchemyImageGeometryCompletenessRepository:
         return {image_id: tuple(positions) for image_id, positions in grouped.items()}
 
 
+def classify_source_images(
+    session: Session,
+    game_id: UUID,
+    image_ids: Sequence[UUID],
+    *,
+    accepted_board_overrides: Mapping[UUID, bool] | None = None,
+) -> dict[UUID, GeometryImageState]:
+    """Classify a batch of images with the domain classifier (TASK-0807).
+
+    The single source of the D-484 definition: the same position facts as the
+    list (``_POSITIONS_SQL``) and the image facts of ``classify_image``. The
+    caller has bound the session to ``game_id``. ``accepted_board_overrides``
+    replaces ``source_revision_accepted`` of the given boards; the read-only
+    backfill preview uses it to classify as if a re-pointing had happened.
+    Unknown ids are absent from the result.
+    """
+
+    if not image_ids:
+        return {}
+    ids = list(dict.fromkeys(image_ids))
+    overrides = accepted_board_overrides or {}
+    # Connection-level execution: the session's textual-SQL event would treat
+    # these reads as writes, which a read-only preview transaction refuses.
+    connection = session.connection()
+    position_rows = connection.execute(
+        text(_POSITIONS_SQL), {"game_id": game_id, "image_ids": ids}
+    ).all()
+    states_by_image: dict[UUID, list[GeometryPositionState]] = {}
+    for row in position_rows:
+        board_id = row[2]
+        accepted = bool(row[5])
+        if board_id is not None and board_id in overrides:
+            accepted = overrides[board_id]
+        states_by_image.setdefault(row[0], []).append(
+            classify_position(
+                GeometryPositionFacts(
+                    position_index=int(row[1]),
+                    board_exists=board_id is not None,
+                    completeness_status=None if row[3] is None else str(row[3]),
+                    geometry_approved=bool(row[4]),
+                    source_revision_accepted=accepted,
+                    deferred_reason_code=None if row[6] is None else str(row[6]),
+                    sequence_live_elsewhere=bool(row[9]),
+                )
+            ).state
+        )
+    result: dict[UUID, GeometryImageState] = {}
+    for image_id, has_source_geometry, has_live, twin, failed in connection.execute(
+        text(_IMAGE_FACTS_SQL), {"game_id": game_id, "image_ids": ids}
+    ):
+        result[image_id] = classify_image(
+            states_by_image.get(image_id, ()),
+            has_source_geometry=bool(has_source_geometry),
+            has_live_boards=bool(has_live),
+            checksum_twin_has_live_boards=bool(twin),
+            import_file_failed=bool(failed),
+        )
+    return result
+
+
 __all__ = [
     "LOW_QUALITY_STATEMENT_TIMEOUT_MS",
     "GeometryCompletenessReport",
+    "GeometryGateCounts",
     "GeometryImageCounts",
     "GeometryImagePosition",
     "GeometryImageSourceStatusCount",
@@ -780,4 +1003,5 @@ __all__ = [
     "LowQualityBoard",
     "LowQualityBoardsReport",
     "SqlAlchemyImageGeometryCompletenessRepository",
+    "classify_source_images",
 ]

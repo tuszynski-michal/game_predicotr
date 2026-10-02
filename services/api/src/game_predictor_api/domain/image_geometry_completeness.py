@@ -179,6 +179,115 @@ def expected_sequence_number(sequence_range_start: int, position_index: int) -> 
     return sequence_range_start + position_index
 
 
+# -- D-484 gate (TASK-0807): persisted state of one source image -------------
+
+SOURCE_IMAGE_GEOMETRY_INCOMPLETE: Final = "SOURCE_IMAGE_GEOMETRY_INCOMPLETE"
+"""Reason code of a board withheld from symbol cutting and search."""
+
+MAX_GEOMETRY_EXCEPTION_REASON_LENGTH: Final = 1000
+MAX_GEOMETRY_EXCEPTION_ACTOR_LENGTH: Final = 200
+
+
+class SourceImageGeometryStatus(StrEnum):
+    """Persisted ``source_images.geometry_completeness_status`` (TASK-0807).
+
+    ``NULL`` in storage means *not evaluated* (before the backfill) or *outside
+    the gate* (``superseded``, ``import_failed``, ``no_source_geometry``: the
+    image has no live board to cut). ``geometry_exception`` is set only by an
+    operator.
+    """
+
+    GEOMETRY_COMPLETE = "geometry_complete"
+    GEOMETRY_INCOMPLETE = "geometry_incomplete"
+    GEOMETRY_EXCEPTION = "geometry_exception"
+
+
+ADMITTED_SOURCE_IMAGE_STATUSES: Final = frozenset(
+    {SourceImageGeometryStatus.GEOMETRY_COMPLETE, SourceImageGeometryStatus.GEOMETRY_EXCEPTION}
+)
+
+
+def persisted_status_for(state: GeometryImageState) -> SourceImageGeometryStatus | None:
+    """Map a classified image state to its persisted status (TASK-0807)."""
+
+    if state is GeometryImageState.COMPLETE:
+        return SourceImageGeometryStatus.GEOMETRY_COMPLETE
+    if state in {
+        GeometryImageState.INCOMPLETE_MISSING,
+        GeometryImageState.INCOMPLETE_PARTIAL,
+        GeometryImageState.INCOMPLETE_UNCERTAIN,
+    }:
+        return SourceImageGeometryStatus.GEOMETRY_INCOMPLETE
+    # superseded, import_failed, no_source_geometry: outside the gate.
+    return None
+
+
+def recomputed_status(
+    *,
+    current: SourceImageGeometryStatus | None,
+    state: GeometryImageState,
+) -> SourceImageGeometryStatus | None:
+    """New persisted status after a recompute.
+
+    An operator exception is kept by every recompute unless the image became
+    complete; then the exception is replaced by ``geometry_complete`` (the
+    caller clears the exception fields).
+    """
+
+    computed = persisted_status_for(state)
+    if (
+        current is SourceImageGeometryStatus.GEOMETRY_EXCEPTION
+        and computed is not SourceImageGeometryStatus.GEOMETRY_COMPLETE
+    ):
+        return SourceImageGeometryStatus.GEOMETRY_EXCEPTION
+    return computed
+
+
+def is_admitted_status(status: SourceImageGeometryStatus | None) -> bool:
+    """``NULL`` keeps the pre-gate behaviour; ``incomplete`` is the only block."""
+
+    return status is not SourceImageGeometryStatus.GEOMETRY_INCOMPLETE
+
+
+def geometry_gate_withholds_board(
+    *,
+    image_status: SourceImageGeometryStatus | None,
+    position_state: GeometryPositionState,
+    qualified_partial_approved: bool,
+    has_cells: bool,
+) -> bool:
+    """Whether the D-484 gate withholds one board from symbol cutting and search.
+
+    The gate only blocks *new* materialization: a board that already has
+    symbol-review cells keeps them and keeps being maintained (historical
+    work is never undone). A ``NULL`` image status keeps the behaviour from
+    before the gate. Under an operator exception only boards whose position
+    is ``ok`` and partial boards with an approved manual qualification
+    (D-449) are cut; ``uncertain`` boards stay withheld.
+    """
+
+    if has_cells or image_status is None:
+        return False
+    if image_status is SourceImageGeometryStatus.GEOMETRY_COMPLETE:
+        return False
+    if image_status is SourceImageGeometryStatus.GEOMETRY_EXCEPTION:
+        if position_state is GeometryPositionState.OK:
+            return False
+        return not (position_state is GeometryPositionState.PARTIAL and qualified_partial_approved)
+    return True
+
+
+def require_geometry_exception_reason(reason: str) -> str:
+    value = reason.strip()
+    if not value or len(value) > MAX_GEOMETRY_EXCEPTION_REASON_LENGTH:
+        raise ImageReviewError(
+            "IMAGE_GEOMETRY_EXCEPTION_REASON_INVALID",
+            "A geometry exception requires a reason of 1 to "
+            f"{MAX_GEOMETRY_EXCEPTION_REASON_LENGTH} characters.",
+        )
+    return value
+
+
 Point = tuple[float, float]
 Quad = tuple[Point, Point, Point, Point]
 
@@ -273,12 +382,16 @@ class LowQualityThresholds:
 
 
 __all__ = [
+    "ADMITTED_SOURCE_IMAGE_STATUSES",
     "DEFAULT_LOW_QUALITY_MAX_CONFIDENCE",
     "DEFAULT_LOW_QUALITY_MIN_CELLS",
     "INCOMPLETE_IMAGE_STATES",
     "MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE",
+    "MAX_GEOMETRY_EXCEPTION_ACTOR_LENGTH",
+    "MAX_GEOMETRY_EXCEPTION_REASON_LENGTH",
     "MAX_LOW_QUALITY_BOARDS",
     "MAX_LOW_QUALITY_MIN_CELLS",
+    "SOURCE_IMAGE_GEOMETRY_INCOMPLETE",
     "GeometryImageCursor",
     "GeometryImageState",
     "GeometryPositionClassification",
@@ -287,10 +400,16 @@ __all__ = [
     "LowQualityThresholds",
     "Point",
     "Quad",
+    "SourceImageGeometryStatus",
     "classify_image",
     "classify_position",
     "decode_geometry_image_cursor",
     "encode_geometry_image_cursor",
     "expected_sequence_number",
     "extract_position_quad",
+    "geometry_gate_withholds_board",
+    "is_admitted_status",
+    "persisted_status_for",
+    "recomputed_status",
+    "require_geometry_exception_reason",
 ]

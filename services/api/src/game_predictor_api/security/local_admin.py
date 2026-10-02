@@ -207,6 +207,24 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "delete-board-search-share-query",
         "board-search-share-query:{event_id}",
     ),
+    # D-484 (TASK-0807): an operator exception admits an incomplete image to
+    # symbol cutting; withdrawing it is a decision about the same image.
+    (
+        "POST",
+        "/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/"
+        "{source_image_id}/exception",
+    ): HighImpactOperation(
+        "set-source-image-geometry-exception",
+        "source-image-geometry-exception:{source_image_id}",
+    ),
+    (
+        "DELETE",
+        "/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/"
+        "{source_image_id}/exception",
+    ): HighImpactOperation(
+        "withdraw-source-image-geometry-exception",
+        "source-image-geometry-exception:{source_image_id}",
+    ),
 }
 
 _REVIEWER_MUTATION_PATTERNS = tuple(
@@ -341,8 +359,7 @@ class LocalAdminSecurityMiddleware(BaseHTTPMiddleware):
         origin = request.headers.get("origin")
         normalized_origin = origin.rstrip("/") if origin is not None else None
         reviewer_origin_allowed = (
-            normalized_origin in self._reviewer_origins
-            and _matches_reviewer_mutation_path(path)
+            normalized_origin in self._reviewer_origins and _matches_reviewer_mutation_path(path)
         )
         if (
             normalized_origin is not None

@@ -80,6 +80,110 @@ export const LISTED_IMAGE_STATES: readonly ListedImageStateName[] = [
   'superseded',
 ];
 
+// -- D-484 gate (TASK-0807): persisted status of an image -------------------
+
+export type GeometryCompletenessStatusName =
+  'geometry_complete' | 'geometry_incomplete' | 'geometry_exception';
+
+const COMPLETENESS_STATUS_LABELS: Readonly<
+  Record<GeometryCompletenessStatusName, string>
+> = {
+  geometry_complete: 'Dopuszczone do cięcia (komplet siatek)',
+  geometry_incomplete: 'Wstrzymane – czeka na siatki',
+  geometry_exception: 'Dopuszczone wyjątkiem operatora',
+};
+
+const GATE_REASON_LABELS: Readonly<Record<string, string>> = {
+  SOURCE_IMAGE_GEOMETRY_INCOMPLETE:
+    'zdjęcie nie ma kompletu poprawnych siatek, więc jego plansze nie są cięte na symbole i nie trafiają do wyszukiwarki',
+};
+
+const GEOMETRY_EXCEPTION_ERRORS: Readonly<Record<string, string>> = {
+  IMAGE_GEOMETRY_EXCEPTION_NOT_INCOMPLETE:
+    'Wyjątek można ustawić tylko dla zdjęcia wstrzymanego przez bramkę.',
+  IMAGE_GEOMETRY_EXCEPTION_ALREADY_SET:
+    'Zdjęcie ma już wyjątek z innym powodem.',
+  IMAGE_GEOMETRY_EXCEPTION_NOT_SET: 'Zdjęcie nie ma wyjątku do wycofania.',
+  IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT:
+    'Wyjątku nie można wycofać: na komórkach tego zdjęcia są już decyzje człowieka.',
+  IMAGE_GEOMETRY_EXCEPTION_REASON_INVALID: 'Podaj powód wyjątku.',
+};
+
+export const MAX_GEOMETRY_EXCEPTION_REASON_LENGTH = 1000;
+
+/** Queue tabs read the persisted status; the other tabs classify on the fly. */
+export type GeometryQueueFilter = 'queue' | 'exceptions';
+
+export const GEOMETRY_QUEUE_FILTERS: readonly GeometryQueueFilter[] = [
+  'queue',
+  'exceptions',
+];
+
+const QUEUE_FILTER_LABELS: Readonly<Record<GeometryQueueFilter, string>> = {
+  queue: 'Kolejka siatek',
+  exceptions: 'Wyjątki operatora',
+};
+
+export function geometryQueueFilterLabel(filter: GeometryQueueFilter): string {
+  return QUEUE_FILTER_LABELS[filter];
+}
+
+/** Persisted status a queue tab selects. */
+export function geometryQueueFilterStatus(
+  filter: GeometryQueueFilter,
+): Exclude<GeometryCompletenessStatusName, 'geometry_complete'> {
+  return filter === 'queue' ? 'geometry_incomplete' : 'geometry_exception';
+}
+
+export function geometryCompletenessStatusLabel(status: string | null): string {
+  if (status === null) return 'Nieocenione przez bramkę';
+  return (
+    COMPLETENESS_STATUS_LABELS[status as GeometryCompletenessStatusName] ??
+    status
+  );
+}
+
+export function geometryGateReasonLabel(code: string): string {
+  const label = GATE_REASON_LABELS[code];
+  return label === undefined ? code : `${label} (${code})`;
+}
+
+export function canSetGeometryException(status: string | null): boolean {
+  return status === 'geometry_incomplete';
+}
+
+export function canWithdrawGeometryException(status: string | null): boolean {
+  return status === 'geometry_exception';
+}
+
+export type GeometryExceptionReasonResult =
+  | { readonly ok: true; readonly reason: string }
+  | { readonly ok: false; readonly error: string };
+
+/** The reason is required (D-484: an exception has an author and a reason). */
+export function validateGeometryExceptionReason(
+  value: string,
+): GeometryExceptionReasonResult {
+  const reason = value.trim();
+  if (reason.length === 0) {
+    return { ok: false, error: 'Podaj powód wyjątku.' };
+  }
+  if (reason.length > MAX_GEOMETRY_EXCEPTION_REASON_LENGTH) {
+    return {
+      ok: false,
+      error: `Powód może mieć najwyżej ${MAX_GEOMETRY_EXCEPTION_REASON_LENGTH} znaków.`,
+    };
+  }
+  return { ok: true, reason };
+}
+
+export function geometryExceptionErrorMessage(code: string | null): string {
+  return (
+    (code === null ? undefined : GEOMETRY_EXCEPTION_ERRORS[code]) ??
+    'Nie udało się zmienić wyjątku zdjęcia.'
+  );
+}
+
 export function geometryImageStateLabel(state: string): string {
   return IMAGE_STATE_LABELS[state as GeometryImageStateName] ?? state;
 }

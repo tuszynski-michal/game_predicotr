@@ -1044,14 +1044,18 @@ cięcia, manifest geometrii stron, test ochronny, wersja modelu symboli,
 wynik pipeline'u) została usunięta z tego widoku; pozostaje dostępna w
 zakładce Joby.
 
-### Sekcja „Kompletność siatek zdjęć” w Import plansz (D-484, TASK-0806, TASK-0808)
+### Sekcja „Kompletność siatek zdjęć” w Import plansz (D-484, TASK-0806, TASK-0808, TASK-0807)
 
 Jednostką geometrii jest zdjęcie źródłowe (D-484). Sekcja, pod „Brakującymi
 planszami”, pokazuje, ile zdjęć gry ma komplet poprawnych siatek, a ile nie, i
-listuje zdjęcia niekompletne. Jest wyłącznie widokiem do odczytu: niczego nie
-zapisuje i nie zmienia pipeline'u; siatki poprawia się w istniejącej kolejce
-siatek (Reviewer). Korzysta z `GET .../geometry-completeness/{gameId}`,
-`.../incomplete-images` i `.../low-quality-boards`.
+listuje zdjęcia niekompletne. Od TASK-0807 jest kolejką siatek bramki D-484:
+zakładka domyślna „Kolejka siatek” pokazuje zdjęcia ze stanem zapisanym w
+bazie `geometry_incomplete` (`completenessStatus`), a „Wyjątki operatora” —
+zdjęcia `geometry_exception`. Siatki poprawia się w istniejącej korekcie siatek
+(Reviewer, przycisk „Popraw siatki w Reviewerze” otwiera lokalnego Reviewera
+dla importu zdjęcia). Korzysta z `GET .../geometry-completeness/{gameId}`,
+`.../incomplete-images`, `.../low-quality-boards` oraz
+`POST`/`DELETE .../images/{sourceImageId}/exception`.
 
 Definicje (zapisane w czystej funkcji `domain/image_geometry_completeness.py`,
 ten sam przepis liczy SQL raportu):
@@ -1123,6 +1127,23 @@ Zachowanie:
 - odświeżanie: przy wejściu, po `Odśwież status` panelu (`refreshToken`) i po
   zmianie zakresu/filtra; co 15 s odświeżane są wyłącznie liczniki i tylko gdy
   trwa aktywny import tej gry.
+
+Bramka (TASK-0807):
+
+- liczniki bramki ze stanu w bazie: „Kolejka siatek (wstrzymane)”, „Wyjątki
+  operatora”, „Plansze wstrzymane przed cięciem” z powodem
+  `SOURCE_IMAGE_GEOMETRY_INCOMPLETE` i „Nieocenione przez bramkę” (zdjęcia
+  sprzed backfillu, które działają jak przed wdrożeniem bramki),
+- każde zdjęcie listy pokazuje stan bramki z bazy, powód wstrzymania i — dla
+  wyjątku — powód, autora i czas; zakładki stanów wyliczanych w locie
+  („Wszystkie niekompletne” i stany zdjęcia) zostają do diagnozy,
+- „Dopuść wyjątkiem…” (tylko dla zdjęcia `geometry_incomplete`) wymaga powodu
+  (1–1000 znaków) i jest operacją wysokiego wpływu; po zapisie plansze `ok` i
+  częściowe z zatwierdzoną kwalifikacją są cięte od razu. „Wycofaj wyjątek”
+  (po potwierdzeniu) przywraca kolejkę bez usuwania komórek; po decyzji
+  człowieka na komórkach zdjęcia API odmawia z czytelnym komunikatem,
+- filtr działa w zapisie, nie w UI: plansze wstrzymane nie mają komórek
+  weryfikacji ani dowodów symboli w wyszukiwarce, a lista tylko je pokazuje.
 
 ### Minimalistyczne stanowisko zatwierdzania
 

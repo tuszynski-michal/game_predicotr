@@ -58,6 +58,9 @@ from game_predictor_api.storage.current_board_cell_sources import (
     load_current_board_cell_sources,
 )
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    recompute_source_image_geometry_completeness,
+)
 from game_predictor_api.storage.image_symbol_review_repository import (
     SymbolCellReviewWriteThroughCoordinator,
 )
@@ -172,6 +175,9 @@ def acquire_image_sequence_locks(
 class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepository):
     def __init__(self, session: Session) -> None:
         self._session = session
+        # D-484 (TASK-0807): sources whose board liveness (``rejected``) changed
+        # in this unit of work; their geometry gate status is recomputed.
+        self._liveness_changed_source_ids: set[UUID] = set()
 
     def _bind(self, game_id: UUID, *, intent: GameStorageIntent) -> None:
         """Route every direct operational-review access before its first game table."""
@@ -1140,6 +1146,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         self._session.flush()
         self._refresh_source_states(affected_source_ids, processed_at=resolved_at)
         self._session.flush()
+        self._recompute_liveness_changes(game_id, actor=resolution.resolved_by)
         projection = SqlAlchemyBoardSearchProjectionRepository(self._session)
         projection.sync_review_item(review_item_id)
         if isinstance(resolution.sequence_number, int) and not isinstance(
@@ -1317,6 +1324,7 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         )
         self._refresh_source_states({source.id}, processed_at=resolved_at)
         self._session.flush()
+        self._recompute_liveness_changes(game_id, actor=resolution.resolved_by)
         SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(item.id)
         updated = self.get_item(
             item.id,
@@ -1436,8 +1444,8 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         self._session.add(event)
         return event
 
-    @staticmethod
     def _apply_review_outcome(
+        self,
         *,
         item: ImageReviewItemModel,
         board: RecognizedBoardModel,
@@ -1452,7 +1460,20 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
         item.resolved_by = resolved_by
         item.resolved_at = resolved_at
         item.resolution_revision = revision
-        board.status = "rejected" if status == "superseded" else status
+        board_status = "rejected" if status == "superseded" else status
+        if (board.status == "rejected") != (board_status == "rejected"):
+            self._liveness_changed_source_ids.add(board.source_image_id)
+        board.status = board_status
+
+    def _recompute_liveness_changes(self, game_id: UUID, *, actor: str) -> None:
+        """A board that became (non-)live changes its image's geometry state."""
+
+        source_ids = sorted(self._liveness_changed_source_ids, key=str)
+        self._liveness_changed_source_ids.clear()
+        for source_id in source_ids:
+            recompute_source_image_geometry_completeness(
+                self._session, game_id, source_id, actor=actor
+            )
 
     def _add_alternative_source(
         self,

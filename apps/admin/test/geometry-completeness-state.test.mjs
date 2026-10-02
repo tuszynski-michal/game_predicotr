@@ -3,14 +3,22 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 
 import {
+  GEOMETRY_QUEUE_FILTERS,
   INCOMPLETE_IMAGE_STATES,
   LISTED_IMAGE_STATES,
+  canSetGeometryException,
+  canWithdrawGeometryException,
   errorCodeOf,
   formatPercent,
+  geometryCompletenessStatusLabel,
+  geometryExceptionErrorMessage,
+  geometryGateReasonLabel,
   geometryImageStateLabel,
   geometryImportErrorLabel,
   geometryPositionLabel,
   geometryPositionTone,
+  geometryQueueFilterLabel,
+  geometryQueueFilterStatus,
   geometryScopeImportId,
   geometrySectionState,
   geometrySourceStatusLabel,
@@ -18,6 +26,7 @@ import {
   parseLowQualityThresholds,
   quadCentre,
   quadSvgPoints,
+  validateGeometryExceptionReason,
 } from '../src/features/imports/geometry-completeness-state.ts';
 
 const sectionSource = readFileSync(
@@ -250,4 +259,56 @@ test('the section uses the generated-client wrappers and runs the quality query 
   // polling is gated by an active import and only refreshes the counters
   assert.match(sectionSource, /if \(!importActive\) return;/);
   assert.match(sectionSource, /loadReports\(\{ silent: true \}\)/);
+});
+
+test('gate queue: persisted statuses, reasons and exception rules have Polish texts (TASK-0807)', () => {
+  assert.deepEqual(GEOMETRY_QUEUE_FILTERS, ['queue', 'exceptions']);
+  assert.equal(geometryQueueFilterStatus('queue'), 'geometry_incomplete');
+  assert.equal(geometryQueueFilterStatus('exceptions'), 'geometry_exception');
+  assert.equal(geometryQueueFilterLabel('queue'), 'Kolejka siatek');
+  for (const status of [
+    'geometry_complete',
+    'geometry_incomplete',
+    'geometry_exception',
+  ]) {
+    assert.notEqual(geometryCompletenessStatusLabel(status), status);
+  }
+  assert.equal(
+    geometryCompletenessStatusLabel(null),
+    'Nieocenione przez bramkę',
+  );
+  assert.match(
+    geometryGateReasonLabel('SOURCE_IMAGE_GEOMETRY_INCOMPLETE'),
+    /nie są cięte na symbole.*\(SOURCE_IMAGE_GEOMETRY_INCOMPLETE\)$/,
+  );
+  assert.equal(canSetGeometryException('geometry_incomplete'), true);
+  assert.equal(canSetGeometryException('geometry_exception'), false);
+  assert.equal(canSetGeometryException(null), false);
+  assert.equal(canWithdrawGeometryException('geometry_exception'), true);
+  assert.equal(canWithdrawGeometryException('geometry_complete'), false);
+  assert.deepEqual(validateGeometryExceptionReason('  poza kadrem '), {
+    ok: true,
+    reason: 'poza kadrem',
+  });
+  assert.equal(validateGeometryExceptionReason('   ').ok, false);
+  assert.equal(validateGeometryExceptionReason('x'.repeat(1001)).ok, false);
+  assert.match(
+    geometryExceptionErrorMessage(
+      'IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT',
+    ),
+    /decyzje człowieka/,
+  );
+  assert.equal(
+    geometryExceptionErrorMessage(null),
+    'Nie udało się zmienić wyjątku zdjęcia.',
+  );
+});
+
+test('the section reads the gate queue from the database and changes exceptions through the client', () => {
+  assert.match(sectionSource, /useState<StateFilter>\('queue'\)/);
+  assert.match(sectionSource, /completenessStatus:/);
+  assert.match(sectionSource, /api\.setSourceImageGeometryException/);
+  assert.match(sectionSource, /api\.withdrawSourceImageGeometryException/);
+  assert.match(sectionSource, /startLocalReviewerProcess\(api\)/);
+  assert.doesNotMatch(sectionSource, /Widok tylko do\s+odczytu/);
 });

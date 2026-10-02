@@ -61,6 +61,9 @@ def _rebuild(game_ids: Sequence[UUID]) -> list[dict[str, object]]:
                 "candidateCount": result.candidate_count,
                 "documentCount": result.document_count,
                 "skippedReviewItemCount": result.skipped_review_item_count,
+                # D-484 (TASK-0807): pending boards of incomplete images are
+                # projected without symbol evidence.
+                "geometryWithheldReviewItemCount": result.geometry_withheld_review_item_count,
             }
         )
     return reports

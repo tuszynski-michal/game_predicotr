@@ -29,6 +29,9 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
 )
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.domain.symbol_model_snapshots import SymbolModelJobSnapshot
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    recompute_source_image_geometry_completeness,
+)
 from game_predictor_api.storage.models import (
     ImageBoardGeometryPendingModel,
     ImageImportJobFileModel,
@@ -152,6 +155,10 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
         )
         self._session.add(row)
         self._session.flush()
+        # D-484 (TASK-0807): an open deferred slot keeps the image incomplete.
+        recompute_source_image_geometry_completeness(
+            self._session, manifest.game_id, manifest.source_image_id
+        )
         return _to_domain(row), True
 
     def get(self, pending_id: UUID) -> ImageBoardGeometryPending | None:
@@ -297,6 +304,9 @@ class SqlAlchemyBoardCellGeometryPendingRepository:
             row.resolved_at = now
         row.updated_at = now
         self._session.flush()
+        recompute_source_image_geometry_completeness(
+            self._session, row.game_id, row.source_image_id
+        )
         return _to_domain(row)
 
     def correction_context(

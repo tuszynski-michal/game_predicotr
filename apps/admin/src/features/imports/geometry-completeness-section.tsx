@@ -7,18 +7,34 @@ import type {
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import {
+  buildPreparedLocalReviewUrl,
+  closePreparedLocalReviewerWindow,
+  navigatePreparedLocalReviewerWindow,
+  prepareLocalReviewerWindow,
+} from '../reviewer-access/reviewer-local-window';
+import { startLocalReviewerProcess } from '../reviewer-access/reviewer-local-start';
 import type { ImageFolderImportClient } from './image-folder-import-actions';
 import {
   DEFAULT_LOW_QUALITY_MAX_CONFIDENCE,
   DEFAULT_LOW_QUALITY_MIN_CELLS,
+  GEOMETRY_QUEUE_FILTERS,
   INCOMPLETE_IMAGE_STATES,
   LISTED_IMAGE_STATES,
+  MAX_GEOMETRY_EXCEPTION_REASON_LENGTH,
+  canSetGeometryException,
+  canWithdrawGeometryException,
   errorCodeOf,
   formatPercent,
+  geometryCompletenessStatusLabel,
+  geometryExceptionErrorMessage,
+  geometryGateReasonLabel,
   geometryImageStateLabel,
   geometryImportErrorLabel,
   geometryPositionLabel,
   geometryPositionTone,
+  geometryQueueFilterLabel,
+  geometryQueueFilterStatus,
   geometryScopeImportId,
   geometrySectionState,
   geometrySourceStatusLabel,
@@ -26,7 +42,9 @@ import {
   parseLowQualityThresholds,
   quadCentre,
   quadSvgPoints,
+  validateGeometryExceptionReason,
   type GeometryImportOption,
+  type GeometryQueueFilter,
   type ListedImageStateName,
 } from './geometry-completeness-state';
 
@@ -35,7 +53,9 @@ const LOW_QUALITY_LIMIT = 50;
 const POLL_INTERVAL_MS = 15_000;
 
 type Scope = 'game' | 'import';
-type StateFilter = 'all' | ListedImageStateName;
+// The queue tabs read the persisted gate status (TASK-0807); the state tabs
+// classify the images on the fly (TASK-0806/0808).
+type StateFilter = 'all' | ListedImageStateName | GeometryQueueFilter;
 type PreviewStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface GeometryCompletenessSectionProps {
@@ -56,7 +76,7 @@ export function GeometryCompletenessSection({
 }: GeometryCompletenessSectionProps) {
   const [scope, setScope] = useState<Scope>('game');
   const [importId, setImportId] = useState('');
-  const [stateFilter, setStateFilter] = useState<StateFilter>('all');
+  const [stateFilter, setStateFilter] = useState<StateFilter>('queue');
   const [gameReport, setGameReport] =
     useState<ImageGeometryCompletenessResponse | null>(null);
   const [importReport, setImportReport] =
@@ -115,10 +135,18 @@ export function GeometryCompletenessSection({
       const requestId = ++listRequestRef.current;
       setListLoading(true);
       try {
+        const queueFilter = isQueueFilter(stateFilter) ? stateFilter : null;
         const result = await api.listIncompleteGeometryImages({
           afterCursor: afterCursor ?? undefined,
+          completenessStatus:
+            queueFilter === null
+              ? undefined
+              : geometryQueueFilterStatus(queueFilter),
           gameId,
-          imageState: stateFilter === 'all' ? undefined : stateFilter,
+          imageState:
+            stateFilter === 'all' || isQueueFilter(stateFilter)
+              ? undefined
+              : stateFilter,
           importJobId: selectedImportId,
           limit: PAGE_LIMIT,
         });
@@ -196,9 +224,12 @@ export function GeometryCompletenessSection({
   const supersededPositions =
     activeReport?.positions.find((position) => position.state === 'superseded')
       ?.count ?? 0;
+  const gate = activeReport?.gate ?? null;
   const listVisible =
     activeReport !== null &&
-    (activeReport.images.incomplete > 0 || supersededImages > 0);
+    (activeReport.images.incomplete > 0 ||
+      supersededImages > 0 ||
+      (gate !== null && gate.geometryIncomplete + gate.geometryException > 0));
   const processingCount = processingWithoutGeometry.reduce(
     (sum, entry) => sum + entry.count,
     0,
@@ -222,8 +253,10 @@ export function GeometryCompletenessSection({
             Zdjęcie jest kompletne, gdy każda oczekiwana plansza ma siatkę
             zatwierdzoną przez człowieka albo zaakceptowaną przez silnik bez
             zastrzeżeń. Plansze odrzucone nie są dowodem poprawnej siatki, a
-            zdjęcia zastąpione nowszym importem nie są brakami. Widok tylko do
-            odczytu; siatki poprawiasz w kolejce siatek.
+            zdjęcia zastąpione nowszym importem nie są brakami. Bramka D-484
+            wstrzymuje cięcie na symbole i wyszukiwarkę dla zdjęć bez kompletu
+            siatek; kolejka siatek pokazuje stan zapisany w bazie. Siatki
+            poprawiasz w Reviewerze, a wyjątek dopuszcza zdjęcie mimo braków.
           </p>
         </div>
         <button
@@ -334,6 +367,42 @@ export function GeometryCompletenessSection({
             </div>
           </dl>
 
+          {gate !== null ? (
+            <>
+              <dl className="importMetrics geometryMetrics">
+                <div className="importMetric">
+                  <dt>Kolejka siatek (wstrzymane)</dt>
+                  <dd>{gate.geometryIncomplete.toLocaleString('pl-PL')}</dd>
+                </div>
+                <div className="importMetric">
+                  <dt>Wyjątki operatora</dt>
+                  <dd>{gate.geometryException.toLocaleString('pl-PL')}</dd>
+                </div>
+                <div className="importMetric">
+                  <dt>Plansze wstrzymane przed cięciem</dt>
+                  <dd>{gate.withheldBoards.toLocaleString('pl-PL')}</dd>
+                </div>
+                <div className="importMetric">
+                  <dt>Nieocenione przez bramkę</dt>
+                  <dd>{gate.notEvaluated.toLocaleString('pl-PL')}</dd>
+                </div>
+              </dl>
+              {gate.withheldBoards > 0 ? (
+                <p className="importSubsectionHeader">
+                  Powód wstrzymania:{' '}
+                  {geometryGateReasonLabel(gate.withheldReasonCode)}.
+                </p>
+              ) : null}
+              {gate.notEvaluated > 0 ? (
+                <p className="importSubsectionHeader">
+                  {gate.notEvaluated.toLocaleString('pl-PL')} zdjęć nie ma
+                  jeszcze stanu bramki (sprzed backfillu); działają jak przed
+                  wdrożeniem bramki.
+                </p>
+              ) : null}
+            </>
+          ) : null}
+
           {activeReport !== null && activeReport.images.incomplete > 0 ? (
             <p className="importSubsectionHeader">
               {INCOMPLETE_IMAGE_STATES.map((name) => ({
@@ -404,12 +473,22 @@ export function GeometryCompletenessSection({
                 className="operationalReviewViewTabs geometryFilterTabs"
                 role="group"
               >
+                {GEOMETRY_QUEUE_FILTERS.map((filter) => (
+                  <button
+                    aria-pressed={stateFilter === filter}
+                    key={filter}
+                    onClick={() => setStateFilter(filter)}
+                    type="button"
+                  >
+                    {geometryQueueFilterLabel(filter)}
+                  </button>
+                ))}
                 <button
                   aria-pressed={stateFilter === 'all'}
                   onClick={() => setStateFilter('all')}
                   type="button"
                 >
-                  Wszystkie
+                  Wszystkie niekompletne
                 </button>
                 {LISTED_IMAGE_STATES.map((name) => (
                   <button
@@ -444,6 +523,7 @@ export function GeometryCompletenessSection({
                     gameId={gameId}
                     image={image}
                     key={image.sourceImageId}
+                    onChanged={refresh}
                   />
                 ))}
               </ul>
@@ -471,6 +551,10 @@ export function GeometryCompletenessSection({
   );
 }
 
+function isQueueFilter(filter: StateFilter): filter is GeometryQueueFilter {
+  return (GEOMETRY_QUEUE_FILTERS as readonly string[]).includes(filter);
+}
+
 function imageStateCount(
   report: ImageGeometryCompletenessResponse,
   state: ListedImageStateName,
@@ -495,9 +579,16 @@ interface GeometryImageItemProps {
   readonly api: ImageFolderImportClient;
   readonly gameId: string;
   readonly image: IncompleteGeometryImageResponse;
+  /** Refreshes the counters and the queue after a gate decision. */
+  readonly onChanged: () => void;
 }
 
-function GeometryImageItem({ api, gameId, image }: GeometryImageItemProps) {
+function GeometryImageItem({
+  api,
+  gameId,
+  image,
+  onChanged,
+}: GeometryImageItemProps) {
   const [status, setStatus] = useState<PreviewStatus>('idle');
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const photoUrlRef = useRef<string | null>(null);
@@ -563,6 +654,12 @@ function GeometryImageItem({ api, gameId, image }: GeometryImageItemProps) {
           Błąd importu pliku: {geometryImportErrorLabel(image.importErrorCode)}
         </span>
       ) : null}
+      <GeometryGateControls
+        api={api}
+        gameId={gameId}
+        image={image}
+        onChanged={onChanged}
+      />
 
       {canDraw ? (
         <svg
@@ -670,6 +767,213 @@ function imageTone(image: IncompleteGeometryImageResponse): string {
     image.imageState === 'incomplete_partial'
     ? 'warning'
     : 'danger';
+}
+
+interface GeometryGateControlsProps {
+  readonly api: ImageFolderImportClient;
+  readonly gameId: string;
+  readonly image: IncompleteGeometryImageResponse;
+  readonly onChanged: () => void;
+}
+
+/** Persisted gate status, the operator exception and the grid correction link. */
+function GeometryGateControls({
+  api,
+  gameId,
+  image,
+  onChanged,
+}: GeometryGateControlsProps) {
+  const [reason, setReason] = useState('');
+  const [formOpen, setFormOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const lock = useRef(false);
+  const status = image.completenessStatus;
+
+  async function setException() {
+    const validated = validateGeometryExceptionReason(reason);
+    if (!validated.ok) {
+      setError(validated.error);
+      return;
+    }
+    if (lock.current) return;
+    lock.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await api.setSourceImageGeometryException(
+        gameId,
+        image.sourceImageId,
+        validated.reason,
+      );
+      if (result.error !== undefined || !result.data) {
+        setError(geometryExceptionErrorMessage(errorCodeOf(result.error)));
+        return;
+      }
+      setFormOpen(false);
+      setReason('');
+      onChanged();
+    } catch {
+      setError(geometryExceptionErrorMessage(null));
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function withdrawException() {
+    if (lock.current) return;
+    if (
+      !window.confirm(
+        'Wycofać wyjątek? Zdjęcie wróci do kolejki siatek; komórki pozostaną bez zmian.',
+      )
+    ) {
+      return;
+    }
+    lock.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await api.withdrawSourceImageGeometryException(
+        gameId,
+        image.sourceImageId,
+      );
+      if (result.error !== undefined || !result.data) {
+        setError(geometryExceptionErrorMessage(errorCodeOf(result.error)));
+        return;
+      }
+      onChanged();
+    } catch {
+      setError(geometryExceptionErrorMessage(null));
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+
+  async function correctGrids() {
+    if (lock.current) return;
+    const input = { gameId, importJobId: image.importJobId };
+    const base = buildPreparedLocalReviewUrl(window.location.href, input);
+    if (!base) {
+      setError('Korekta siatek jest dostępna tylko w lokalnym Adminie.');
+      return;
+    }
+    const popup = prepareLocalReviewerWindow(
+      window.location.href,
+      input,
+      (url, target) => window.open(url, target),
+    );
+    lock.current = true;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await startLocalReviewerProcess(api);
+      if (!result.ok) {
+        closePreparedLocalReviewerWindow(popup);
+        setError(result.error);
+        return;
+      }
+      if (!popup || !navigatePreparedLocalReviewerWindow(popup, base)) {
+        setError(
+          'Przeglądarka zablokowała otwarcie Reviewera. Zezwól na nowe okno i spróbuj ponownie.',
+        );
+      }
+    } finally {
+      lock.current = false;
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="geometryGateControls">
+      <span>
+        Bramka: {geometryCompletenessStatusLabel(status)}
+        {image.gateReasonCode !== null
+          ? ` · ${geometryGateReasonLabel(image.gateReasonCode)}`
+          : ''}
+      </span>
+      {status === 'geometry_exception' ? (
+        <span>
+          Wyjątek: {image.exceptionReason}
+          {image.exceptionBy !== null ? ` · ${image.exceptionBy}` : ''}
+          {image.exceptionAt !== null
+            ? ` · ${new Date(image.exceptionAt).toLocaleString('pl-PL')}`
+            : ''}
+        </span>
+      ) : null}
+      <div className="importSourceControls">
+        {status === 'geometry_incomplete' ? (
+          <button
+            className="secondaryButton"
+            disabled={busy}
+            onClick={() => void correctGrids()}
+            type="button"
+          >
+            Popraw siatki w Reviewerze
+          </button>
+        ) : null}
+        {canSetGeometryException(status) && !formOpen ? (
+          <button
+            className="secondaryButton"
+            disabled={busy}
+            onClick={() => setFormOpen(true)}
+            type="button"
+          >
+            Dopuść wyjątkiem…
+          </button>
+        ) : null}
+        {canWithdrawGeometryException(status) ? (
+          <button
+            className="secondaryButton"
+            disabled={busy}
+            onClick={() => void withdrawException()}
+            type="button"
+          >
+            {busy ? 'Zapisywanie…' : 'Wycofaj wyjątek'}
+          </button>
+        ) : null}
+      </div>
+      {formOpen ? (
+        <div className="importSourceControls">
+          <label>
+            <span>Powód wyjątku (np. plansza poza kadrem)</span>
+            <input
+              maxLength={MAX_GEOMETRY_EXCEPTION_REASON_LENGTH}
+              onChange={(event) => setReason(event.currentTarget.value)}
+              type="text"
+              value={reason}
+            />
+          </label>
+          <button
+            aria-busy={busy}
+            className="secondaryButton"
+            disabled={busy}
+            onClick={() => void setException()}
+            type="button"
+          >
+            {busy ? 'Zapisywanie…' : 'Dopuść zdjęcie do cięcia'}
+          </button>
+          <button
+            className="secondaryButton"
+            disabled={busy}
+            onClick={() => {
+              setFormOpen(false);
+              setError(null);
+            }}
+            type="button"
+          >
+            Anuluj
+          </button>
+        </div>
+      ) : null}
+      {error !== null ? (
+        <p className="feedbackBanner feedbackBannerError" role="alert">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
 }
 
 interface LowQualityBlockProps {

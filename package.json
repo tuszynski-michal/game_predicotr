@@ -50,6 +50,7 @@
     "format": "prettier --write \"*.{css,js,json,md,mjs,ts,tsx,yaml,yml}\" \"apps/**/*.{css,js,json,md,mjs,ts,tsx,yaml,yml}\" \"infra/**/*.{css,js,json,md,mjs,ts,tsx,yaml,yml}\" \"packages/**/*.{css,js,json,md,mjs,ts,tsx,yaml,yml}\"",
     "format:check": "prettier --check \"*.{css,js,json,md,mjs,ts,tsx,yaml,yml}\" \"apps/**/*.{css,js,json,md,mjs,ts,tsx,yaml,yml}\" \"infra/**/*.{css,js,json,md,mjs,ts,tsx,yaml,yml}\" \"packages/**/*.{css,js,json,md,mjs,ts,tsx,yaml,yml}\"",
     "fixture:validate": ".venv\\Scripts\\python.exe scripts/validate_m1_fixture.py",
+    "images:geometry-completeness:backfill": ".venv\\Scripts\\python.exe scripts/backfill_image_geometry_completeness.py",
     "m35:dataset:generate": ".venv\\Scripts\\python.exe scripts/generate_m35_benchmark_dataset.py",
     "m35:dataset:validate": ".venv\\Scripts\\python.exe scripts/validate_m35_benchmark_dataset.py",
     "m35:apk:build": ".venv\\Scripts\\python.exe scripts/build_m35_benchmark_apk.py",

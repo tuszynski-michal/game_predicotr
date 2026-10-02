@@ -7515,6 +7515,12 @@ div.imageJobInlineError {
   border-top: 1px solid var(--line);
 }
 
+/* D-484 gate (TASK-0807): status, exception and correction of one image. */
+.geometryGateControls {
+  display: grid;
+  gap: 6px;
+}
+
 .geometryLowQualityControls {
   grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) max-content;
 }

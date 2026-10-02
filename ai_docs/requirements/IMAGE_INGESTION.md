@@ -31,7 +31,13 @@ oczekiwane plansze mają poprawną siatkę.
 - Reguła dotyczy nowych importów i ponownych przebiegów. Dane istniejące
   przed wdrożeniem dostają stan z raportu; wykonana praca nie jest cofana.
 
-Raport i lista: TASK-0806. Egzekwowanie w pipeline: TASK-0807. Plan:
+Doprecyzowania D-485: plansza wstrzymanego zdjęcia zachowuje dokument
+numeru sekwencji w projekcji wyszukiwarki, ale bez dowodu symboli, więc nie
+jest wyszukiwalna; bramka blokuje tylko nową materializację i nie usuwa
+istniejących komórek ani decyzji; pozycje zastąpione nowszym importem nie
+są brakami; plansza częściowa wymaga wyjątku operatora.
+
+Raport i lista: TASK-0806, TASK-0808. Egzekwowanie w pipeline: TASK-0807. Plan:
 `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md`.
 
 ## Testowy silnik geometrii V1.2 — TASK-0613

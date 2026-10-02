@@ -29,6 +29,9 @@ from uuid import UUID
 import pytest
 from alembic import command
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    SqlAlchemyImageGeometryCompletenessStateRepository,
+)
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewQueryRepository,
 )
@@ -162,10 +165,25 @@ def test_migration_0136_drops_the_cell_render_spec(
             "ALTER TABLE game_data_v2.image_symbol_prediction_revisions "
             "ADD COLUMN legacy_predictions_sha256 varchar(64)"
         )
+        # Likewise the geometry gate columns of migration 0139 (TASK-0807).
+        connection.exec_driver_sql(
+            "ALTER TABLE game_data_v2.source_images "
+            "ADD COLUMN geometry_completeness_status varchar(24), "
+            "ADD COLUMN geometry_completeness_evaluated_at timestamptz, "
+            "ADD COLUMN geometry_exception_reason text, "
+            "ADD COLUMN geometry_exception_by varchar(200), "
+            "ADD COLUMN geometry_exception_at timestamptz"
+        )
     game_id = _provision_game(engine, "task0793-drop")
     factory = _factory(engine)
     seed = _seed(factory, game_id, artifact_root, label="task0793-source", slot_count=2)
     _resolve_full_and_partial(database, artifact_root, seed)
+    # TASK-0807 (D-484): a full and a partial board leave the image
+    # incomplete; an operator exception admits it so both boards are cut.
+    with game_storage_scope(game_id), factory.begin() as session:
+        SqlAlchemyImageGeometryCompletenessStateRepository(session).set_exception(
+            game_id, seed.source_image_id, reason="partial board", actor="task-0807"
+        )
     with game_storage_scope(game_id), factory() as session:
         boards = _boards(session, game_id)
     full_board = boards[0][0]
@@ -232,6 +250,10 @@ def test_migration_0136_drops_the_cell_render_spec(
     later_root = tmp_path / "later"
     later_seed = _seed(factory, later, later_root, label="task0793-later", slot_count=2)
     _resolve_full_and_partial(database, later_root, later_seed)
+    with game_storage_scope(later), factory.begin() as session:
+        SqlAlchemyImageGeometryCompletenessStateRepository(session).set_exception(
+            later, later_seed.source_image_id, reason="partial board", actor="task-0807"
+        )
     later_rows = _cell_rows(engine, later)
     assert len(later_rows) == 30
     assert sum(1 for row in later_rows if row[3] == "virtual_source") == 15 + 9

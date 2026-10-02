@@ -1,4 +1,8 @@
-"""OpenAPI schemas of the D-484 geometry completeness report (TASK-0806)."""
+"""OpenAPI schemas of the D-484 geometry completeness report (TASK-0806).
+
+TASK-0807 adds the persisted gate state (counts, per-image status and operator
+exception) and the exception command and response.
+"""
 
 from __future__ import annotations
 
@@ -9,15 +13,21 @@ from pydantic import Field
 
 from game_predictor_api.domain.image_geometry_completeness import (
     MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
+    MAX_GEOMETRY_EXCEPTION_REASON_LENGTH,
     GeometryImageState,
     GeometryPositionState,
+    SourceImageGeometryStatus,
     encode_geometry_image_cursor,
 )
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.storage.image_geometry_completeness_repository import (
     GeometryCompletenessReport,
+    GeometryGateCounts,
     IncompleteGeometryImagePage,
     LowQualityBoardsReport,
+)
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    SourceImageGeometryException,
 )
 
 
@@ -54,6 +64,21 @@ class GeometryCompletenessSourceStatusCountResponse(ApiModel):
     count: int = Field(ge=1)
 
 
+class GeometryGateCountsResponse(ApiModel):
+    """Persisted gate state of the images in scope (TASK-0807)."""
+
+    geometry_complete: int = Field(ge=0)
+    geometry_incomplete: int = Field(ge=0)
+    geometry_exception: int = Field(ge=0)
+    # Evaluated, but no live board to cut (superseded, failed import, no geometry).
+    outside_gate: int = Field(ge=0)
+    # Not evaluated yet (waiting for the state backfill).
+    not_evaluated: int = Field(ge=0)
+    # Boards not cut into symbol cells and without search evidence.
+    withheld_boards: int = Field(ge=0)
+    withheld_reason_code: str = Field(min_length=1)
+
+
 class ImageGeometryCompletenessResponse(ApiModel):
     game_id: UUID
     import_job_id: UUID | None
@@ -61,6 +86,7 @@ class ImageGeometryCompletenessResponse(ApiModel):
     expected_board_count: int = Field(ge=0)
     positions: tuple[GeometryCompletenessPositionCountResponse, ...]
     source_statuses: tuple[GeometryCompletenessSourceStatusCountResponse, ...]
+    gate: GeometryGateCountsResponse
     computed_at: datetime
 
 
@@ -90,16 +116,42 @@ class IncompleteGeometryImageResponse(ApiModel):
     # Error code of the failed import file of the image (``None`` when it did not fail).
     import_error_code: str | None
     positions: tuple[GeometryCompletenessPositionResponse, ...] = Field(max_length=9)
+    # Persisted gate state (TASK-0807); ``None`` = not evaluated or outside the gate.
+    completeness_status: SourceImageGeometryStatus | None
+    completeness_evaluated_at: datetime | None
+    # ``SOURCE_IMAGE_GEOMETRY_INCOMPLETE`` while the gate withholds the image.
+    gate_reason_code: str | None
+    exception_reason: str | None
+    exception_by: str | None
+    exception_at: datetime | None
 
 
 class IncompleteGeometryImagePageResponse(ApiModel):
     game_id: UUID
     import_job_id: UUID | None
     image_state: GeometryImageState | None
+    completeness_status: SourceImageGeometryStatus | None
     images: tuple[IncompleteGeometryImageResponse, ...] = Field(
         max_length=MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE
     )
     next_cursor: str | None
+
+
+class SourceImageGeometryExceptionCommand(ApiModel):
+    """Operator exception of one incomplete image (D-484, TASK-0807)."""
+
+    reason: str = Field(min_length=1, max_length=MAX_GEOMETRY_EXCEPTION_REASON_LENGTH)
+
+
+class SourceImageGeometryExceptionResponse(ApiModel):
+    source_image_id: UUID
+    completeness_status: SourceImageGeometryStatus | None
+    image_state: GeometryImageState
+    exception_reason: str | None
+    exception_by: str | None
+    exception_at: datetime | None
+    # Active boards cut and projected by this operation (0 for a withdrawal).
+    materialized_review_item_count: int = Field(ge=0)
 
 
 class GeometryLowQualityBoardResponse(ApiModel):
@@ -123,6 +175,27 @@ class ImageGeometryLowQualityBoardsResponse(ApiModel):
         max_length=MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE
     )
     computed_at: datetime
+
+
+def _gate_counts_response(gate: GeometryGateCounts | None) -> GeometryGateCountsResponse:
+    if gate is None:
+        gate = GeometryGateCounts(
+            geometry_complete=0,
+            geometry_incomplete=0,
+            geometry_exception=0,
+            outside_gate=0,
+            not_evaluated=0,
+            withheld_boards=0,
+        )
+    return GeometryGateCountsResponse(
+        geometry_complete=gate.geometry_complete,
+        geometry_incomplete=gate.geometry_incomplete,
+        geometry_exception=gate.geometry_exception,
+        outside_gate=gate.outside_gate,
+        not_evaluated=gate.not_evaluated,
+        withheld_boards=gate.withheld_boards,
+        withheld_reason_code=gate.withheld_reason_code,
+    )
 
 
 def to_geometry_completeness_response(
@@ -159,6 +232,7 @@ def to_geometry_completeness_response(
             )
             for item in report.source_statuses
         ),
+        gate=_gate_counts_response(report.gate),
         computed_at=report.computed_at,
     )
 
@@ -170,6 +244,7 @@ def to_incomplete_geometry_image_page_response(
         game_id=page.game_id,
         import_job_id=page.import_job_id,
         image_state=page.image_state,
+        completeness_status=page.completeness_status,
         images=tuple(
             IncompleteGeometryImageResponse(
                 source_image_id=image.source_image_id,
@@ -202,12 +277,32 @@ def to_incomplete_geometry_image_page_response(
                     )
                     for position in image.positions
                 ),
+                completeness_status=image.completeness_status,
+                completeness_evaluated_at=image.completeness_evaluated_at,
+                gate_reason_code=image.gate_reason_code,
+                exception_reason=image.exception_reason,
+                exception_by=image.exception_by,
+                exception_at=image.exception_at,
             )
             for image in page.images
         ),
         next_cursor=(
             None if page.next_cursor is None else encode_geometry_image_cursor(page.next_cursor)
         ),
+    )
+
+
+def to_source_image_geometry_exception_response(
+    value: SourceImageGeometryException,
+) -> SourceImageGeometryExceptionResponse:
+    return SourceImageGeometryExceptionResponse(
+        source_image_id=value.source_image_id,
+        completeness_status=value.status,
+        image_state=value.image_state,
+        exception_reason=value.reason,
+        exception_by=value.exception_by,
+        exception_at=value.exception_at,
+        materialized_review_item_count=value.materialized_review_item_count,
     )
 
 
@@ -243,12 +338,16 @@ __all__ = [
     "GeometryCompletenessPositionCountResponse",
     "GeometryCompletenessPositionResponse",
     "GeometryCompletenessSourceStatusCountResponse",
+    "GeometryGateCountsResponse",
     "GeometryLowQualityBoardResponse",
     "ImageGeometryCompletenessResponse",
     "ImageGeometryLowQualityBoardsResponse",
     "IncompleteGeometryImagePageResponse",
     "IncompleteGeometryImageResponse",
+    "SourceImageGeometryExceptionCommand",
+    "SourceImageGeometryExceptionResponse",
     "to_geometry_completeness_response",
     "to_geometry_low_quality_boards_response",
     "to_incomplete_geometry_image_page_response",
+    "to_source_image_geometry_exception_response",
 ]

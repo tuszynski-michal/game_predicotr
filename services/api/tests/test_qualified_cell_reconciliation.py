@@ -155,7 +155,8 @@ def test_qualified_reconciliation_keeps_ids_history_and_never_transfers_pixel_ap
         return_value=(
             SimpleNamespace(id=review_id, status="pending", resolved_value=None),
             board,
-            SimpleNamespace(import_job_id=uuid4()),
+            # TASK-0807: NULL = not evaluated by the geometry gate (pre-gate behaviour).
+            SimpleNamespace(import_job_id=uuid4(), geometry_completeness_status=None),
             Mock(),
             Mock(),
         )
@@ -271,7 +272,8 @@ def test_partially_visible_virtual_source_cells_are_forced_unknown_and_never_tra
         return_value=(
             SimpleNamespace(id=review_id, status="pending", resolved_value=None),
             board,
-            SimpleNamespace(import_job_id=uuid4()),
+            # TASK-0807: NULL = not evaluated by the geometry gate (pre-gate behaviour).
+            SimpleNamespace(import_job_id=uuid4(), geometry_completeness_status=None),
             Mock(),
             Mock(),
         )

@@ -18,6 +18,7 @@ from game_predictor_api.domain.image_geometry_completeness import (
     GeometryImageState,
     GeometryPositionState,
     LowQualityThresholds,
+    SourceImageGeometryStatus,
     encode_geometry_image_cursor,
 )
 from game_predictor_api.domain.image_reviews import (
@@ -27,6 +28,7 @@ from game_predictor_api.domain.image_reviews import (
 from game_predictor_api.main import create_app
 from game_predictor_api.storage.image_geometry_completeness_repository import (
     GeometryCompletenessReport,
+    GeometryGateCounts,
     GeometryImageCounts,
     GeometryImagePosition,
     GeometryImageSourceStatusCount,
@@ -36,6 +38,9 @@ from game_predictor_api.storage.image_geometry_completeness_repository import (
     IncompleteGeometryImagePage,
     LowQualityBoard,
     LowQualityBoardsReport,
+)
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    SourceImageGeometryException,
 )
 
 COMPUTED_AT = datetime(2026, 10, 1, 12, 0, 0, tzinfo=UTC)
@@ -92,6 +97,14 @@ class _CompletenessRepository:
                 ),
             ),
             computed_at=COMPUTED_AT,
+            gate=GeometryGateCounts(
+                geometry_complete=6,
+                geometry_incomplete=3,
+                geometry_exception=1,
+                outside_gate=3,
+                not_evaluated=1,
+                withheld_boards=17,
+            ),
         )
 
     def incomplete_images(
@@ -102,6 +115,7 @@ class _CompletenessRepository:
         image_state: GeometryImageState | None = None,
         after: GeometryImageCursor | None = None,
         limit: int = 100,
+        completeness_status: SourceImageGeometryStatus | None = None,
     ) -> IncompleteGeometryImagePage | None:
         self.calls.append(
             (
@@ -112,6 +126,7 @@ class _CompletenessRepository:
                     "imageState": image_state,
                     "after": after,
                     "limit": limit,
+                    "completenessStatus": completeness_status,
                 },
             )
         )
@@ -154,9 +169,12 @@ class _CompletenessRepository:
                             quad=None,
                         ),
                     ),
+                    completeness_status=SourceImageGeometryStatus.GEOMETRY_INCOMPLETE,
+                    completeness_evaluated_at=COMPUTED_AT,
                 ),
             ),
             next_cursor=GeometryImageCursor("folder/seq_1-9.jpg", IMAGE_ID),
+            completeness_status=completeness_status,
         )
 
     def source_image_asset(
@@ -221,8 +239,67 @@ class _CompletenessRepository:
         )
 
 
+class _StateRepository:
+    """Fake operator-exception repository (TASK-0807)."""
+
+    def __init__(self, game_id: UUID) -> None:
+        self.game_id = game_id
+        self.calls: list[tuple[str, dict[str, object]]] = []
+        self.error: Exception | None = None
+
+    def set_exception(
+        self, game_id: UUID, source_image_id: UUID, *, reason: str, actor: str
+    ) -> SourceImageGeometryException | None:
+        self.calls.append(
+            (
+                "set",
+                {
+                    "gameId": game_id,
+                    "sourceImageId": source_image_id,
+                    "reason": reason,
+                    "actor": actor,
+                },
+            )
+        )
+        if game_id != self.game_id:
+            return None
+        if self.error is not None:
+            raise self.error
+        return SourceImageGeometryException(
+            source_image_id=source_image_id,
+            status=SourceImageGeometryStatus.GEOMETRY_EXCEPTION,
+            image_state=GeometryImageState.INCOMPLETE_MISSING,
+            reason=reason,
+            exception_by=actor,
+            exception_at=COMPUTED_AT,
+            materialized_review_item_count=8,
+        )
+
+    def withdraw_exception(
+        self, game_id: UUID, source_image_id: UUID, *, actor: str
+    ) -> SourceImageGeometryException | None:
+        self.calls.append(
+            ("withdraw", {"gameId": game_id, "sourceImageId": source_image_id, "actor": actor})
+        )
+        if game_id != self.game_id:
+            return None
+        if self.error is not None:
+            raise self.error
+        return SourceImageGeometryException(
+            source_image_id=source_image_id,
+            status=SourceImageGeometryStatus.GEOMETRY_INCOMPLETE,
+            image_state=GeometryImageState.INCOMPLETE_MISSING,
+            reason=None,
+            exception_by=None,
+            exception_at=None,
+            materialized_review_item_count=0,
+        )
+
+
 def _client(
-    repository: _CompletenessRepository | None, artifact_root: Path | None = None
+    repository: _CompletenessRepository | None,
+    artifact_root: Path | None = None,
+    state_repository: _StateRepository | None = None,
 ) -> TestClient:
     settings = ApiSettings.from_environment({})
     if artifact_root is not None:
@@ -233,9 +310,21 @@ def _client(
             image_review_service_dependency=lambda: OperationalImageReviewService(
                 _NoopOperationalRepository(),
                 geometry_completeness_repository=repository,
+                geometry_completeness_state_repository=state_repository,
             ),
-        )
+        ),
+        base_url="http://127.0.0.1:8000",
+        client=("127.0.0.1", 42001),
     )
+
+
+def _exception_headers(source_image_id: UUID) -> dict[str, str]:
+    return {
+        "Origin": "http://127.0.0.1:3000",
+        "X-Admin-Intent": "local-owner",
+        "X-Admin-Confirmation": "confirmed",
+        "X-Admin-Target": f"source-image-geometry-exception:{source_image_id}",
+    }
 
 
 def _url(game_id: UUID, suffix: str = "") -> str:
@@ -274,6 +363,16 @@ def test_report_returns_counters_by_image_state_position_state_and_source_status
         {"imageState": "no_source_geometry", "sourceStatus": "processing", "count": 1},
     ]
     assert body["computedAt"] == "2026-10-01T12:00:00Z"
+    # TASK-0807: the persisted gate state and the explicit withholding reason.
+    assert body["gate"] == {
+        "geometryComplete": 6,
+        "geometryIncomplete": 3,
+        "geometryException": 1,
+        "outsideGate": 3,
+        "notEvaluated": 1,
+        "withheldBoards": 17,
+        "withheldReasonCode": "SOURCE_IMAGE_GEOMETRY_INCOMPLETE",
+    }
     assert repository.calls == [("report", {"gameId": repository.game_id, "importJobId": None})]
 
 
@@ -312,6 +411,7 @@ def test_list_returns_images_with_positions_quads_and_the_import_error_code() ->
     assert response.status_code == 200
     body = response.json()
     assert body["imageState"] is None
+    assert body["completenessStatus"] is None
     assert body["nextCursor"] is not None
     [image] = body["images"]
     assert image == {
@@ -350,6 +450,12 @@ def test_list_returns_images_with_positions_quads_and_the_import_error_code() ->
                 "quad": None,
             },
         ],
+        "completenessStatus": "geometry_incomplete",
+        "completenessEvaluatedAt": "2026-10-01T12:00:00Z",
+        "gateReasonCode": "SOURCE_IMAGE_GEOMETRY_INCOMPLETE",
+        "exceptionReason": None,
+        "exceptionBy": None,
+        "exceptionAt": None,
     }
     assert repository.calls[-1][1]["limit"] == 25
 
@@ -377,8 +483,113 @@ def test_list_passes_filters_cursor_and_limit_to_the_repository() -> None:
             "imageState": GeometryImageState.INCOMPLETE_PARTIAL,
             "after": GeometryImageCursor("a/b.jpg", IMAGE_ID),
             "limit": 10,
+            "completenessStatus": None,
         },
     )
+
+
+@pytest.mark.parametrize("status", ["geometry_incomplete", "geometry_exception"])
+def test_list_selects_the_gate_queue_by_the_persisted_status(status: str) -> None:
+    repository = _CompletenessRepository()
+    response = _client(repository).get(
+        _url(repository.game_id, "/incomplete-images"), params={"completenessStatus": status}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["completenessStatus"] == status
+    assert repository.calls[-1][1]["completenessStatus"] == SourceImageGeometryStatus(status)
+
+
+def test_list_rejects_an_unknown_persisted_status() -> None:
+    repository = _CompletenessRepository()
+    response = _client(repository).get(
+        _url(repository.game_id, "/incomplete-images"), params={"completenessStatus": "done"}
+    )
+
+    assert response.status_code == 422
+    assert repository.calls == []
+
+
+def test_exception_is_a_confirmed_high_impact_operation_with_a_required_reason() -> None:
+    repository = _CompletenessRepository()
+    state = _StateRepository(repository.game_id)
+    client = _client(repository, state_repository=state)
+    url = _url(repository.game_id, f"/images/{IMAGE_ID}/exception")
+
+    unconfirmed = client.post(
+        url,
+        headers={"Origin": "http://127.0.0.1:3000", "X-Admin-Intent": "local-owner"},
+        json={"reason": "Plansza 9 poza kadrem"},
+    )
+    empty_reason = client.post(url, headers=_exception_headers(IMAGE_ID), json={"reason": ""})
+    assert state.calls == []
+    response = client.post(
+        url, headers=_exception_headers(IMAGE_ID), json={"reason": "Plansza 9 poza kadrem"}
+    )
+
+    assert unconfirmed.status_code == 403
+    assert unconfirmed.json()["code"] == "ADMIN_CONFIRMATION_REQUIRED"
+    assert empty_reason.status_code == 422
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "sourceImageId": str(IMAGE_ID),
+        "completenessStatus": "geometry_exception",
+        "imageState": "incomplete_missing",
+        "exceptionReason": "Plansza 9 poza kadrem",
+        "exceptionBy": "local-admin",
+        "exceptionAt": "2026-10-01T12:00:00Z",
+        "materializedReviewItemCount": 8,
+    }
+    assert state.calls == [
+        (
+            "set",
+            {
+                "gameId": repository.game_id,
+                "sourceImageId": IMAGE_ID,
+                "reason": "Plansza 9 poza kadrem",
+                "actor": "local-admin",
+            },
+        )
+    ]
+
+
+def test_exception_withdrawal_and_domain_errors_pass_through() -> None:
+    repository = _CompletenessRepository()
+    state = _StateRepository(repository.game_id)
+    client = _client(repository, state_repository=state)
+    url = _url(repository.game_id, f"/images/{IMAGE_ID}/exception")
+
+    withdrawn = client.delete(url, headers=_exception_headers(IMAGE_ID))
+    unknown_game = client.delete(
+        _url(uuid4(), f"/images/{IMAGE_ID}/exception"), headers=_exception_headers(IMAGE_ID)
+    )
+    state.error = ImageReviewConflictError(
+        "IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT", "Human decisions exist."
+    )
+    refused = client.delete(url, headers=_exception_headers(IMAGE_ID))
+
+    assert withdrawn.status_code == 200, withdrawn.text
+    assert withdrawn.json()["completenessStatus"] == "geometry_incomplete"
+    assert withdrawn.json()["exceptionReason"] is None
+    assert unknown_game.status_code == 404
+    assert refused.status_code == 409
+    assert refused.json()["code"] == "IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT"
+    assert state.calls[0] == (
+        "withdraw",
+        {"gameId": repository.game_id, "sourceImageId": IMAGE_ID, "actor": "local-admin"},
+    )
+
+
+def test_exception_returns_409_when_the_state_repository_is_not_configured() -> None:
+    repository = _CompletenessRepository()
+    response = _client(repository).post(
+        _url(repository.game_id, f"/images/{IMAGE_ID}/exception"),
+        headers=_exception_headers(IMAGE_ID),
+        json={"reason": "Wyjątek"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["code"] == "IMAGE_GEOMETRY_COMPLETENESS_UNAVAILABLE"
 
 
 @pytest.mark.parametrize("limit", [0, 101])

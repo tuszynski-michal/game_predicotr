@@ -803,6 +803,9 @@ import type {
   SelectSymbolReferenceFromCellReviewData,
   SelectSymbolReferenceFromCellReviewErrors,
   SelectSymbolReferenceFromCellReviewResponses,
+  SetSourceImageGeometryExceptionData,
+  SetSourceImageGeometryExceptionErrors,
+  SetSourceImageGeometryExceptionResponses,
   SkipSymbolCellReviewsData,
   SkipSymbolCellReviewsErrors,
   SkipSymbolCellReviewsResponses,
@@ -881,6 +884,9 @@ import type {
   UploadManualImageSelectionFileData,
   UploadManualImageSelectionFileErrors,
   UploadManualImageSelectionFileResponses,
+  WithdrawSourceImageGeometryExceptionData,
+  WithdrawSourceImageGeometryExceptionErrors,
+  WithdrawSourceImageGeometryExceptionResponses,
 } from './types.gen';
 
 export type Options<
@@ -3713,6 +3719,54 @@ export const getImageGeometryCompleteness = <
   >({
     url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}',
     ...options,
+  });
+
+/**
+ * Withdraw the geometry exception of a source image before human decisions
+ */
+export const withdrawSourceImageGeometryException = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<WithdrawSourceImageGeometryExceptionData, ThrowOnError>,
+): RequestResult<
+  WithdrawSourceImageGeometryExceptionResponses,
+  WithdrawSourceImageGeometryExceptionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    WithdrawSourceImageGeometryExceptionResponses,
+    WithdrawSourceImageGeometryExceptionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception',
+    ...options,
+  });
+
+/**
+ * Admit an incomplete source image to symbol cutting by an operator exception
+ */
+export const setSourceImageGeometryException = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetSourceImageGeometryExceptionData, ThrowOnError>,
+): RequestResult<
+  SetSourceImageGeometryExceptionResponses,
+  SetSourceImageGeometryExceptionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SetSourceImageGeometryExceptionResponses,
+    SetSourceImageGeometryExceptionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

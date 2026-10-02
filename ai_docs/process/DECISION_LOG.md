@@ -6,6 +6,51 @@ last_updated: 2026-10-01
 
 # Decision Log
 
+## D-485 — bramka kompletności: stan trwały zdjęcia, dokument sekwencji bez dowodu symboli, przepinanie plansz (uzupełnia D-484)
+
+- **Status:** accepted, 2026-10-02; rozstrzygnięcia wykonawcze TASK-0807
+  podjęte przez orkiestratora na podstawie pełnomocnictwa operatora z
+  2026-10-02 („decyzję podejmujesz autonomicznie”) i jego polecenia
+  przepinania plansz.
+- **Decision:**
+  1. `source_images` ma trwały stan `geometry_complete`,
+     `geometry_incomplete`, `geometry_exception` albo `NULL` (zdjęcie poza
+     bramką: nieocenione, zastąpione nowszym importem, nieudany import, bez
+     geometrii źródła) — migracja `0139`. Stan przelicza każda operacja
+     zmieniająca planszę, jej geometrię, żywotność albo odroczoną geometrię,
+     w tej samej transakcji.
+  2. Plansza zdjęcia niedopuszczonego nie dostaje komórek weryfikacji
+     symboli. Jej dokument w projekcji wyszukiwarki **zostaje**, ale bez
+     dowodu symboli, więc wyszukiwarka jej nie zwraca. Dokument jest
+     jednocześnie rejestrem właściciela numeru sekwencji, z którego
+     korzysta korekta siatek w Reviewerze i kolejka siatek; jego usunięcie
+     uniemożliwiłoby poprawienie wstrzymanego zdjęcia. Powód wstrzymania
+     jest jawny (`SOURCE_IMAGE_GEOMETRY_INCOMPLETE`, licznik
+     `gate.withheldBoards`).
+  3. Bramka blokuje wyłącznie nową materializację. Plansze, które już mają
+     komórki, są nadal utrzymywane; istniejące komórki, decyzje człowieka i
+     dokumenty nie są usuwane ani unieważniane.
+  4. Zapis nowej rewizji geometrii źródła zdjęcia przepina na nią żywe
+     plansze tego zdjęcia, ale tylko gdy wpis pozycji jest identyczny w obu
+     rewizjach, topologia i sumy kontrolne źródła są te same, plansza ma
+     `geometry_revision = 0`, a jej manifest i komórki wskazują starą
+     rewizję i żadna komórka nie należy do kohorty treningowej. Razem z
+     planszą przechodzą wskaźniki manifestu renderu i komórek; piksele,
+     specyfikacje renderu, identyfikatory cropów, decyzje i zdarzenia się
+     nie zmieniają. Plansza niespełniająca warunków zostaje i trafia do
+     raportu.
+  5. Plansza częściowa (`pending_partial`) nigdy nie liczy się jako
+     poprawna siatka; zdjęcie z taką planszą wymaga wyjątku operatora
+     (D-449, D-484). Backfill nie nadaje wyjątków w imieniu operatora.
+  6. Wycofanie wyjątku po decyzji człowieka na komórce zdjęcia jest
+     odrzucane (`IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT`).
+  7. Ręczna korekta planszy bez komórek na zdjęciu niedopuszczonym nie
+     wykonuje ponownego cięcia; komórki powstają po dopuszczeniu zdjęcia.
+- **Consequences:** po backfillu 777 w kolejce zostaje 60 zdjęć ze 108
+  planszami częściowymi (wszystkie mają już komórki); operator nadaje im
+  wyjątki albo uzupełnia siatki. Wycofanie migracji jest odmawiane, gdy
+  istnieje wyjątek operatora.
+
 ## D-483 — metryka nadrzędna silnika siatek: odsetek zdjęć kompletnych i poprawnych
 
 - **Status:** accepted, 2026-10-01; decyzja operatora przy akceptacji

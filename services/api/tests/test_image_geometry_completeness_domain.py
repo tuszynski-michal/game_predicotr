@@ -6,17 +6,24 @@ from uuid import UUID
 import pytest
 from game_predictor_api.domain.image_geometry_completeness import (
     INCOMPLETE_IMAGE_STATES,
+    SOURCE_IMAGE_GEOMETRY_INCOMPLETE,
     GeometryImageCursor,
     GeometryImageState,
     GeometryPositionFacts,
     GeometryPositionState,
     LowQualityThresholds,
+    SourceImageGeometryStatus,
     classify_image,
     classify_position,
     decode_geometry_image_cursor,
     encode_geometry_image_cursor,
     expected_sequence_number,
     extract_position_quad,
+    geometry_gate_withholds_board,
+    is_admitted_status,
+    persisted_status_for,
+    recomputed_status,
+    require_geometry_exception_reason,
 )
 from game_predictor_api.domain.image_reviews import ImageReviewError
 
@@ -391,3 +398,95 @@ def test_low_quality_thresholds_reject_out_of_range_values(
         LowQualityThresholds(max_confidence=max_confidence, min_cells=min_cells)
 
     assert error.value.code == "IMAGE_GEOMETRY_LOW_QUALITY_THRESHOLD_INVALID"
+
+
+# -- D-484 gate (TASK-0807) ---------------------------------------------------
+
+COMPLETE_STATUS = SourceImageGeometryStatus.GEOMETRY_COMPLETE
+INCOMPLETE_STATUS = SourceImageGeometryStatus.GEOMETRY_INCOMPLETE
+EXCEPTION_STATUS = SourceImageGeometryStatus.GEOMETRY_EXCEPTION
+
+
+@pytest.mark.parametrize(
+    ("state", "status"),
+    [
+        (GeometryImageState.COMPLETE, COMPLETE_STATUS),
+        (GeometryImageState.INCOMPLETE_MISSING, INCOMPLETE_STATUS),
+        (GeometryImageState.INCOMPLETE_PARTIAL, INCOMPLETE_STATUS),
+        (GeometryImageState.INCOMPLETE_UNCERTAIN, INCOMPLETE_STATUS),
+        (GeometryImageState.SUPERSEDED, None),
+        (GeometryImageState.IMPORT_FAILED, None),
+        (GeometryImageState.NO_SOURCE_GEOMETRY, None),
+    ],
+)
+def test_every_image_state_maps_to_one_persisted_status(
+    state: GeometryImageState, status: SourceImageGeometryStatus | None
+) -> None:
+    assert persisted_status_for(state) is status
+    assert recomputed_status(current=None, state=state) is status
+
+
+def test_a_recompute_keeps_an_exception_until_the_image_is_complete() -> None:
+    for state in GeometryImageState:
+        expected = COMPLETE_STATUS if state is GeometryImageState.COMPLETE else EXCEPTION_STATUS
+        assert recomputed_status(current=EXCEPTION_STATUS, state=state) is expected
+    assert (
+        recomputed_status(current=COMPLETE_STATUS, state=GeometryImageState.INCOMPLETE_UNCERTAIN)
+        is INCOMPLETE_STATUS
+    )
+
+
+def test_only_an_incomplete_status_is_not_admitted() -> None:
+    assert is_admitted_status(None)
+    assert is_admitted_status(COMPLETE_STATUS)
+    assert is_admitted_status(EXCEPTION_STATUS)
+    assert not is_admitted_status(INCOMPLETE_STATUS)
+
+
+@pytest.mark.parametrize(
+    ("image_status", "position_state", "qualified", "has_cells", "withheld"),
+    [
+        # NULL (not evaluated) keeps the behaviour from before the gate.
+        (None, MISSING, False, False, False),
+        (None, UNCERTAIN, False, False, False),
+        (COMPLETE_STATUS, OK, False, False, False),
+        (INCOMPLETE_STATUS, OK, False, False, True),
+        (INCOMPLETE_STATUS, UNCERTAIN, False, False, True),
+        (INCOMPLETE_STATUS, PARTIAL, True, False, True),
+        # Existing cells are never undone: the gate only blocks new ones.
+        (INCOMPLETE_STATUS, OK, False, True, False),
+        (INCOMPLETE_STATUS, UNCERTAIN, False, True, False),
+        # Exception: ok and approved qualified partial boards are cut (D-449).
+        (EXCEPTION_STATUS, OK, False, False, False),
+        (EXCEPTION_STATUS, PARTIAL, True, False, False),
+        (EXCEPTION_STATUS, PARTIAL, False, False, True),
+        (EXCEPTION_STATUS, UNCERTAIN, False, False, True),
+        (EXCEPTION_STATUS, MISSING, False, False, True),
+        (EXCEPTION_STATUS, UNCERTAIN, False, True, False),
+    ],
+)
+def test_gate_withholds_only_uncut_boards_of_images_that_are_not_admitted(
+    image_status: SourceImageGeometryStatus | None,
+    position_state: GeometryPositionState,
+    qualified: bool,
+    has_cells: bool,
+    withheld: bool,
+) -> None:
+    assert (
+        geometry_gate_withholds_board(
+            image_status=image_status,
+            position_state=position_state,
+            qualified_partial_approved=qualified,
+            has_cells=has_cells,
+        )
+        is withheld
+    )
+
+
+def test_exception_reason_is_required_and_bounded() -> None:
+    assert require_geometry_exception_reason("  Plansza poza kadrem ") == "Plansza poza kadrem"
+    for value in ("", "   ", "x" * 1001):
+        with pytest.raises(ImageReviewError) as error:
+            require_geometry_exception_reason(value)
+        assert error.value.code == "IMAGE_GEOMETRY_EXCEPTION_REASON_INVALID"
+    assert SOURCE_IMAGE_GEOMETRY_INCOMPLETE == "SOURCE_IMAGE_GEOMETRY_INCOMPLETE"

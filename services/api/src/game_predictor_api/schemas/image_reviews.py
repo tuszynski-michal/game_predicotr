@@ -15,6 +15,7 @@ from game_predictor_api.application.image_reviews import (
 )
 from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeometryRevision
 from game_predictor_api.domain.board_import_coverage import BoardImportCoverageView
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_reviews import (
     IMAGE_REVIEW_CELL_COUNT,
     MAX_IMAGE_REVIEW_ALTERNATIVES,
@@ -28,6 +29,10 @@ from game_predictor_api.domain.image_reviews import (
     ImageSequenceSourceSelection,
 )
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.geometry_qualification import (
+    GeometryQualificationPayload,
+    ManualSourceGeometryPoint,
+)
 from game_predictor_api.storage.board_import_coverage_repository import (
     BoardImportCoverageReport,
 )
@@ -70,6 +75,16 @@ class OperationalImageReviewItemResponse(ApiModel):
     board_checksum_sha256: Sha256
     geometry_revision: int = Field(ge=0)
     geometry: dict[str, object]
+    geometry_qualification: GeometryQualificationPayload | None = Field(
+        default=None,
+        description="Persisted manual qualification of the current board geometry (TASK-0798)",
+    )
+    source_width: int | None = Field(
+        default=None, gt=0, description="Oriented width of the source the corners refer to"
+    )
+    source_height: int | None = Field(
+        default=None, gt=0, description="Oriented height of the source the corners refer to"
+    )
     pipeline_fingerprint: Sha256
     cells: tuple[OperationalImageReviewCellResponse, ...] = Field(
         min_length=0,
@@ -80,6 +95,16 @@ class OperationalImageReviewItemResponse(ApiModel):
     resolved_at: datetime | None
     resolution_revision: int = Field(ge=0)
     created_at: datetime
+
+
+def _client_qualification(
+    raw: object,
+) -> GeometryQualificationPayload | None:
+    if raw is None:
+        return None
+    return GeometryQualificationPayload.model_validate(
+        GeometryQualification.from_dict(raw).to_client_dict()
+    )
 
 
 class OperationalImageReviewCountsResponse(ApiModel):
@@ -293,13 +318,29 @@ class OperationalImageReviewGeometryPreviewCommand(ApiModel):
     expected_geometry_revision: int = Field(ge=0)
     expected_resolution_revision: int = Field(ge=0)
     corners: tuple[
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ] = Field(
-        description="Source-image outer corners of the 5 by 3 symbol lattice in row-major winding"
+        description=(
+            "Source-image outer corners of the 5 by 3 symbol lattice in row-major winding; "
+            "negative coordinates require an explicitly partial qualification"
+        )
     )
+    geometry_qualification: GeometryQualificationPayload | None = None
+
+    @model_validator(mode="after")
+    def validate_signed_corners(self) -> Self:
+        # TASK-0798: the same rule as the grid correction queue; the source
+        # editing bounds themselves are enforced by the virtual geometry domain.
+        partial = (
+            self.geometry_qualification is not None
+            and self.geometry_qualification.completeness_status == "pending_partial"
+        )
+        if not partial and any(point.x < 0 or point.y < 0 for point in self.corners):
+            raise ValueError("signed corners require explicitly partial geometry")
+        return self
 
 
 class OperationalImageReviewGeometryCommand(OperationalImageReviewGeometryPreviewCommand):
@@ -329,12 +370,14 @@ class OperationalImageReviewGeometryRevisionResponse(ApiModel):
     revision: int = Field(ge=1)
     idempotency_key: UUID
     command_sha256: Sha256
+    # Signed: a partial board may extend past the photo (TASK-0798).
     corners: tuple[
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ]
+    geometry_qualification: GeometryQualificationPayload | None = None
     source_geometry_revision_id: UUID
     geometry_checksum_sha256: Sha256
     virtual_render_spec_checksum_sha256: Sha256
@@ -369,6 +412,9 @@ def to_operational_item_response(
         board_checksum_sha256=item.board_checksum_sha256,
         geometry_revision=item.geometry_revision,
         geometry=dict(item.geometry),
+        geometry_qualification=_client_qualification(item.geometry_qualification),
+        source_width=item.source_width,
+        source_height=item.source_height,
         pipeline_fingerprint=item.pipeline_fingerprint,
         cells=tuple(
             OperationalImageReviewCellResponse(
@@ -597,10 +643,17 @@ def to_operational_geometry_revision_response(
         idempotency_key=revision.idempotency_key,
         command_sha256=revision.command_sha256,
         corners=(
-            OperationalImageReviewGeometryPoint(x=revision.corners[0].x, y=revision.corners[0].y),
-            OperationalImageReviewGeometryPoint(x=revision.corners[1].x, y=revision.corners[1].y),
-            OperationalImageReviewGeometryPoint(x=revision.corners[2].x, y=revision.corners[2].y),
-            OperationalImageReviewGeometryPoint(x=revision.corners[3].x, y=revision.corners[3].y),
+            ManualSourceGeometryPoint(x=revision.corners[0].x, y=revision.corners[0].y),
+            ManualSourceGeometryPoint(x=revision.corners[1].x, y=revision.corners[1].y),
+            ManualSourceGeometryPoint(x=revision.corners[2].x, y=revision.corners[2].y),
+            ManualSourceGeometryPoint(x=revision.corners[3].x, y=revision.corners[3].y),
+        ),
+        geometry_qualification=(
+            None
+            if revision.geometry_qualification is None
+            else GeometryQualificationPayload.model_validate(
+                revision.geometry_qualification.to_client_dict()
+            )
         ),
         source_geometry_revision_id=revision.source_geometry_revision_id,
         geometry_checksum_sha256=revision.geometry_checksum_sha256,

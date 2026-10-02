@@ -27,7 +27,7 @@ export function gridReviewCorners(
     );
     if (symbolGrid !== null) return symbolGrid;
   }
-  const parsed = parseCorners(item.geometry, allowSignedCoordinates);
+  const parsed = parseGeometryCorners(item.geometry, allowSignedCoordinates);
   if (parsed !== null) return parsed;
   const insetX = Math.max(1, Math.round(item.sourceWidth * 0.1));
   const insetY = Math.max(1, Math.round(item.sourceHeight * 0.1));
@@ -71,7 +71,11 @@ export function gridReviewGeometryPreviewCommand(
   };
 }
 
-function parseCorners(
+/**
+ * Corners of a persisted board geometry (lattice bounds first). Signed
+ * coordinates are accepted only for a board that is explicitly partial.
+ */
+export function parseGeometryCorners(
   geometry: Readonly<Record<string, unknown>>,
   allowSignedCoordinates = false,
 ): OperationalReviewGeometryCorners | null {

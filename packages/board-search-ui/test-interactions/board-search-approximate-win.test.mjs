@@ -612,10 +612,16 @@ test('renders every payout row in one scrollable table and shows its cumulative-
       document.querySelector('.boardSearchApproximateWinChartLabel') !== null,
     'hovering the chart should show a label in the band above the plot',
   );
-  assert.match(
-    document.querySelector('.boardSearchApproximateWinChartLabel').textContent,
-    /2500 spinów.*Kasa na czysto: -17[\d\s,]* kredytów.*Wkład: [\d\s,]+ kredytów.*Kasa na maszynie: 0 kredytów$/,
-  );
+  // Spins and stake on the first line, then net cash and credits.
+  const labelLines = () =>
+    [
+      ...document.querySelectorAll('.boardSearchApproximateWinChartLabel text'),
+    ].map((node) => node.textContent);
+  const [spinsLine, stakeLine, cashLine, creditsLine] = labelLines();
+  assert.equal(spinsLine, '2500 spinów');
+  assert.match(stakeLine, /^wkład: [\d\s,]+ kredytów$/);
+  assert.match(cashLine, /^Kasa na czysto: -17[\d\s]* kredytów$/);
+  assert.equal(creditsLine, 'Kredyty maszyna: 0');
   assert.ok(
     document.querySelector('.boardSearchApproximateWinChartLeader'),
     'the label is connected to its point by a dotted leader line',
@@ -645,7 +651,7 @@ test('renders every payout row in one scrollable table and shows its cumulative-
   );
   assert.match(
     document.querySelector('.boardSearchApproximateWinChartPins').textContent,
-    /2500 spinów · kasa na\s+czysto -17[\d\s,]* kredytów · wkład [\d\s,]+ kredytów · kasa na maszynie 0 kredytów/,
+    /2500 spinów · wkład: [\d\s,]+ kredytów · kasa na czysto -17[\d\s]* kredytów · kredyty maszyna 0/,
   );
 
   // Keyboard: ArrowRight from nothing highlights the first point; Enter pins it.
@@ -848,22 +854,17 @@ test('stake and unit re-scale every amount locally without a new request', async
       document.querySelector('.boardSearchApproximateWinChartLabel') !== null,
     'hovering shows a label',
   );
-  assert.equal(
-    document.querySelector('.boardSearchApproximateWinChartLabelValue')
-      .textContent,
-    'Kasa na czysto: 2700 kredytów',
-  );
-  const labelStake = () =>
-    document.querySelector('.boardSearchApproximateWinChartLabelStake')
-      .textContent;
-  // The stake needed to reach the point follows the stake and unit too.
-  assert.equal(labelStake(), 'Wkład: 60 kredytów');
-  const labelMachine = () =>
-    document.querySelector('.boardSearchApproximateWinChartLabelMachine')
-      .textContent;
-  assert.equal(labelMachine(), 'Kasa na maszynie: 2760 kredytów');
+  const labelLine = (index) =>
+    [...document.querySelectorAll('.boardSearchApproximateWinChartLabel text')][
+      index
+    ].textContent;
+  assert.equal(labelLine(2), 'Kasa na czysto: 2700 kredytów');
+  // The stake needed to get there follows the stake and unit too.
+  assert.equal(labelLine(1), 'wkład: 60 kredytów');
+  // Credits are the machine cash in whole credits whatever the unit.
+  assert.equal(labelLine(3), 'Kredyty maszyna: 2760');
   await choose(unitSelect, 'pln');
-  assert.equal(firstPayout(), '300,00 zł');
+  assert.equal(firstPayout(), '300 zł');
   assert.equal(
     document.querySelectorAll('.boardSearchApproximateWin tbody tr').length,
     1,
@@ -874,12 +875,9 @@ test('stake and unit re-scale every amount locally without a new request', async
       .textContent ?? '',
     /zł/,
   );
-  const labelValue = () =>
-    document.querySelector('.boardSearchApproximateWinChartLabelValue')
-      .textContent;
-  assert.equal(labelValue(), 'Kasa na czysto: 270,00 zł');
-  assert.equal(labelStake(), 'Wkład: 6,00 zł');
-  assert.equal(labelMachine(), 'Kasa na maszynie: 276,00 zł');
+  assert.equal(labelLine(2), 'Kasa na czysto: 270 zł');
+  assert.equal(labelLine(1), 'wkład: 6,00 zł');
+  assert.equal(labelLine(3), 'Kredyty maszyna: 2760');
   assert.equal(calls, 1, 'changing stake or unit sends no request');
   assert.equal(
     JSON.parse(
@@ -955,7 +953,7 @@ test('a zero spin cost disables the stake and keeps złote at credits / 10', asy
     document.querySelector(
       '.boardSearchApproximateWin tbody tr td:nth-child(3)',
     ).textContent,
-    '50,00 zł',
+    '50 zł',
   );
   await act(async () => root.unmount());
 });

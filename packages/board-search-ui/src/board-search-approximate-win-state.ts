@@ -226,30 +226,18 @@ export function approximateWinAxisTicks(
   return ticks;
 }
 
-export const APPROXIMATE_WIN_PIN_LIMIT = 8;
+export const APPROXIMATE_WIN_PIN_LIMIT = 6;
 
 /** Chart geometry in SVG units, shared with the label layout tests. */
 export const APPROXIMATE_WIN_CHART_WIDTH = 800;
 /**
- * Point labels in the band above the plot: four text lines (spins,
- * net cash, stake needed to get there, cash on the machine — TASK-0784). The width fits
- * "Bilans: -123 456,5 kredytów" at the 11 px label font (a seven-digit
- * credit balance would overflow). Four rows keep the eight pins free of
- * overlap at this width (three rows are not enough); in rare layouts of two
- * full clusters the transient hover label may still fall back onto a pin.
+ * Point labels drawn on the plot itself (TASK-0786): spins and stake on the
+ * first line, net cash and credits below (TASK-0787). The width fits
+ * "1 435 spinów" and "wkład: 388,50 zł" side by side at the 11 px font.
  */
 export const APPROXIMATE_WIN_CHART_LABEL = Object.freeze({
-  height: 56,
-  rowGap: 4,
-  rows: 4,
-  width: 182,
-});
-/** Label layout bounds: the chart width minus a 4-unit margin per side. */
-export const APPROXIMATE_WIN_CHART_LABEL_LAYOUT = Object.freeze({
-  labelWidth: APPROXIMATE_WIN_CHART_LABEL.width,
-  maxX: APPROXIMATE_WIN_CHART_WIDTH - 4,
-  minX: 4,
-  rows: APPROXIMATE_WIN_CHART_LABEL.rows,
+  height: 44,
+  width: 190,
 });
 
 /** Stable identity of a chart point: a payout and its preceding drop share a spin. */
@@ -321,103 +309,161 @@ export function moveApproximateWinHighlight(
 
 export interface ApproximateWinLabelRequest {
   readonly key: string;
-  /** Horizontal position of the point the label describes. */
+  /** Position of the point the label describes. */
   readonly x: number;
+  readonly y: number;
 }
 
 export interface ApproximateWinLabelPlacement {
   readonly key: string;
-  /** Row of the label band, 0 = nearest to the plot. */
-  readonly row: number;
-  /** Centre of the label; differs from `pointX` when the label was shifted. */
-  readonly x: number;
+  /** Top-left corner of the label box. */
+  readonly left: number;
+  readonly top: number;
   readonly pointX: number;
+  readonly pointY: number;
+}
+
+export interface ApproximateWinLabelArea {
+  readonly maxX: number;
+  readonly maxY: number;
+  readonly minX: number;
+  readonly minY: number;
 }
 
 /**
- * Place labels in the band above the plot without overlap. Each label takes
- * the first row that is free at its point; when no row is free there, it is
- * shifted sideways to the nearest free slot in the row needing the smallest
- * shift, and the caller draws a bent leader line. Only when no slot exists
- * at all does a label overlap (row 0 at its point).
+ * Place labels on the plot (TASK-0786). Each label is tried beside its
+ * point (left or right, above or below), then further away, then anywhere
+ * on a coarse grid. A position never leaves `area`; among the candidates the
+ * one that overlaps no other label wins, then the one covering the fewest
+ * `obstacles` (samples of the series line), then the one nearest the point.
+ * The caller joins the label and its point with a dashed leader, so a label
+ * does not have to sit right above its point. Only when the area is full
+ * does a label overlap another one.
  */
-export function layoutApproximateWinPinLabels(
+export function layoutApproximateWinPointLabels(
   labels: readonly ApproximateWinLabelRequest[],
   options: {
+    readonly area: ApproximateWinLabelArea;
     readonly gap?: number;
-    readonly labelWidth: number;
-    readonly maxX: number;
-    readonly minX: number;
+    readonly height: number;
+    readonly obstacles?: readonly { readonly x: number; readonly y: number }[];
     /** Labels already placed (e.g. pins) that the new labels must avoid. */
     readonly reserved?: readonly ApproximateWinLabelPlacement[];
-    readonly rows: number;
+    readonly width: number;
   },
 ): readonly ApproximateWinLabelPlacement[] {
+  const { area, height, width } = options;
   const gap = options.gap ?? 4;
-  const half = options.labelWidth / 2;
-  const lowest = options.minX + half;
-  const highest = options.maxX - half;
-  const occupied: { left: number; right: number }[][] = Array.from(
-    { length: options.rows },
-    () => [],
+  const obstacles = options.obstacles ?? [];
+  const maxLeft = Math.max(area.minX, area.maxX - width);
+  const maxTop = Math.max(area.minY, area.maxY - height);
+  const clampLeft = (value: number) =>
+    Math.min(maxLeft, Math.max(area.minX, value));
+  const clampTop = (value: number) =>
+    Math.min(maxTop, Math.max(area.minY, value));
+  const placed: { left: number; top: number }[] = (options.reserved ?? []).map(
+    ({ left, top }) => ({ left, top }),
   );
-  for (const placement of options.reserved ?? []) {
-    occupied[placement.row]?.push({
-      left: placement.x - half,
-      right: placement.x + half,
-    });
+  // The grid step keeps a full label plus the gap between grid neighbours.
+  const grid: { left: number; top: number }[] = [];
+  for (let top = area.minY; top <= maxTop + 1e-9; top += (height + gap) / 2) {
+    for (let left = area.minX; left <= maxLeft + 1e-9; left += 24) {
+      grid.push({ left, top });
+    }
   }
-  // Side candidates are computed from the neighbouring slot, so the
-  // comparison needs a tolerance or float noise rejects an exact fit.
-  const tolerance = 1e-6;
-  const isFree = (row: number, centre: number) =>
-    centre >= lowest - tolerance &&
-    centre <= highest + tolerance &&
-    occupied[row].every(
-      (slot) =>
-        centre + half + gap <= slot.left + tolerance ||
-        centre - half - gap >= slot.right - tolerance,
-    );
   const ordered = [...labels].sort(
-    (left, right) => left.x - right.x || left.key.localeCompare(right.key),
+    (first, second) =>
+      first.x - second.x ||
+      first.y - second.y ||
+      first.key.localeCompare(second.key),
   );
   const placements: ApproximateWinLabelPlacement[] = [];
   for (const label of ordered) {
-    const desired = Math.min(highest, Math.max(lowest, label.x));
-    let best: { row: number; x: number } | null = null;
-    for (let row = 0; row < options.rows; row += 1) {
-      if (isFree(row, desired)) {
-        best = { row, x: desired };
-        break;
-      }
-    }
-    if (best === null) {
-      for (let row = 0; row < options.rows; row += 1) {
-        const candidates = occupied[row].flatMap((slot) => [
-          slot.left - gap - half,
-          slot.right + gap + half,
-        ]);
-        for (const candidate of candidates) {
-          if (!isFree(row, candidate)) continue;
-          if (
-            best === null ||
-            Math.abs(candidate - desired) < Math.abs(best.x - desired)
-          ) {
-            best = { row, x: candidate };
-          }
+    const candidates: { left: number; top: number }[] = [];
+    for (const distance of [10, 34, 70]) {
+      for (const left of [
+        label.x + distance,
+        label.x - distance - width,
+        label.x - width / 2,
+      ]) {
+        for (const top of [
+          label.y - distance - height,
+          label.y + distance,
+          label.y - height / 2,
+        ]) {
+          candidates.push({ left: clampLeft(left), top: clampTop(top) });
         }
       }
     }
-    const placed = best ?? { row: 0, x: desired };
-    occupied[placed.row].push({
-      left: placed.x - half,
-      right: placed.x + half,
-    });
+    // Slots flush against the labels already placed and the area edges.
+    const lefts = [area.minX, maxLeft];
+    const tops = [area.minY, maxTop];
+    for (const other of placed) {
+      lefts.push(
+        other.left - width - gap,
+        other.left + width + gap,
+        other.left,
+      );
+      tops.push(other.top - height - gap, other.top + height + gap, other.top);
+    }
+    for (const left of lefts) {
+      for (const top of tops) {
+        candidates.push({ left: clampLeft(left), top: clampTop(top) });
+      }
+    }
+    candidates.push(...grid);
+    let best: { left: number; top: number } | null = null;
+    let bestScore = Number.POSITIVE_INFINITY;
+    for (const candidate of candidates) {
+      const right = candidate.left + width;
+      const bottom = candidate.top + height;
+      // A label must not hide its own point.
+      const coversPoint =
+        label.x > candidate.left - 3 &&
+        label.x < right + 3 &&
+        label.y > candidate.top - 3 &&
+        label.y < bottom + 3;
+      let overlaps = 0;
+      for (const other of placed) {
+        if (
+          candidate.left < other.left + width + gap - 1e-9 &&
+          other.left < right + gap - 1e-9 &&
+          candidate.top < other.top + height + gap - 1e-9 &&
+          other.top < bottom + gap - 1e-9
+        ) {
+          overlaps += 1;
+        }
+      }
+      let covered = 0;
+      for (const obstacle of obstacles) {
+        if (
+          obstacle.x >= candidate.left &&
+          obstacle.x <= right &&
+          obstacle.y >= candidate.top &&
+          obstacle.y <= bottom
+        ) {
+          covered += 1;
+        }
+      }
+      const distance = Math.hypot(
+        candidate.left + width / 2 - label.x,
+        candidate.top + height / 2 - label.y,
+      );
+      const score =
+        overlaps * 1e9 + (coversPoint ? 1e7 : 0) + covered * 1e3 + distance;
+      if (score < bestScore) {
+        best = candidate;
+        bestScore = score;
+      }
+    }
+    const chosen = best ?? { left: clampLeft(label.x), top: clampTop(label.y) };
+    placed.push(chosen);
     placements.push({
       key: label.key,
+      left: chosen.left,
       pointX: label.x,
-      row: placed.row,
-      x: placed.x,
+      pointY: label.y,
+      top: chosen.top,
     });
   }
   return placements;

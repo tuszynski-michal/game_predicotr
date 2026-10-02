@@ -1553,7 +1553,13 @@ layoutów nadal jest zablokowany.
 ### Przyrostowe importy `seq_*`
 
 Po decyzji `accepted` albo `corrected` numer sekwencji jest kanoniczny w
-obrębie gry. Import pliku `seq_<start>-<end>.jpg` korzysta z snapshotu tej
+obrębie gry. Numer planszy `virtual_source` (od D-467 S6 każdej planszy)
+wynika ze slotu jej geometrii źródła — początku zakresu `seq_*` i pozycji
+planszy — i nie zmienia się decyzją przeglądu: `accepted`/`corrected` z innym
+numerem jest odrzucane (`IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE`, TASK-0798),
+a błędną nazwę pliku poprawia ponowny import pod właściwą nazwą (albo
+odrzucenie planszy). Ręczna korekta numeru w review dotyczy wyłącznie planszy
+bez numeru przypiętego do geometrii źródła. Import pliku `seq_<start>-<end>.jpg` korzysta z snapshotu tej
 projekcji: kompletne zakresy są pomijane, częściowe generują wyłącznie brakujące
 plansze, a inne źródło tego samego numeru pozostaje alternatywą audytową.
 Kolejka review jest niezależna od pojedynczego joba i porządkuje oczekujące

@@ -977,6 +977,10 @@ class SqlAlchemyOperationalImageReviewRepository(OperationalImageReviewRepositor
                 "IMAGE_REVIEW_PROJECTION_MISSING",
                 "The operational review projection is incomplete.",
             )
+        if resolution.action.value != "rejected":
+            _require_source_attested_sequence(
+                board=board, sequence_number=cast(int, resolution.sequence_number)
+            )
         revision = item_record.resolution_revision + 1
         affected_source_ids = {source.id}
         if resolution.action.value == "rejected":
@@ -2235,6 +2239,13 @@ def _review_item_from_current_cells(
         resolved_at=item.resolved_at,
         resolution_revision=item.resolution_revision,
         created_at=item.created_at,
+        geometry_qualification=(
+            None
+            if board.geometry_qualification is None
+            else dict(cast(Mapping[str, object], board.geometry_qualification))
+        ),
+        source_width=source.oriented_width or source.width,
+        source_height=source.oriented_height or source.height,
     )
 
 
@@ -2621,6 +2632,31 @@ def _current_board_identity_checksum(board: RecognizedBoardModel) -> str:
             "The current board identity checksum is unavailable.",
         )
     return checksum
+
+
+def _require_source_attested_sequence(*, board: RecognizedBoardModel, sequence_number: int) -> None:
+    """Refuse a whole-board decision that moves a virtual board to another number.
+
+    A ``virtual_source`` board's number belongs to its pinned source geometry
+    slot (``seq_*`` range start plus the board position) and the symbol-cell
+    projection is keyed by it (D-462).  Moving the decision to another number
+    would leave the slot, the logical cells and the canonical claim
+    disagreeing, so it is refused before any write (TASK-0798); the number is
+    corrected at its source: a correctly named ``seq_*`` import, or the
+    board is rejected.
+    """
+
+    if board.asset_mode == "virtual_source" and board.sequence_number != sequence_number:
+        raise ImageReviewConflictError(
+            "IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE",
+            "The board number comes from its source geometry (the seq_* range and the "
+            "board position), so a board decision cannot move it to another sequence. "
+            "Import the source again under the correct seq_* name, or reject this board.",
+            details={
+                "boardSequenceNumber": board.sequence_number,
+                "requestedSequenceNumber": sequence_number,
+            },
+        )
 
 
 def _superseded_resolved_value(

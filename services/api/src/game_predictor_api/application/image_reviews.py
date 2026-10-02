@@ -22,6 +22,7 @@ from game_predictor_api.application.virtual_grid_geometry import (
     VirtualGridGeometryService,
 )
 from game_predictor_api.domain.board_import_coverage import BoardImportCoverageView
+from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_geometry_completeness import (
     MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
     GeometryImageCursor,
@@ -763,6 +764,7 @@ class OperationalImageReviewService:
         expected_geometry_revision: int,
         expected_resolution_revision: int,
         corners: Sequence[ImageReviewGeometryPoint],
+        geometry_qualification: GeometryQualification | None = None,
     ) -> VirtualGridGeometryPreview:
         """Render the cells a manual geometry would persist (D-467 S6, TASK-0796).
 
@@ -781,6 +783,7 @@ class OperationalImageReviewService:
                 expected_geometry_revision=expected_geometry_revision,
                 expected_resolution_revision=expected_resolution_revision,
                 corners=corners,
+                geometry_qualification=geometry_qualification,
             )
 
     def correct_geometry(
@@ -794,6 +797,7 @@ class OperationalImageReviewService:
         expected_resolution_revision: int,
         corners: Sequence[ImageReviewGeometryPoint],
         corrected_by: str,
+        geometry_qualification: GeometryQualification | None = None,
     ) -> tuple[ImageReviewItem, VirtualGridGeometryRevision, bool]:
         """Persist a ``virtual_source`` geometry revision of one current board.
 
@@ -814,6 +818,7 @@ class OperationalImageReviewService:
                 expected_geometry_revision=expected_geometry_revision,
                 expected_resolution_revision=expected_resolution_revision,
                 corners=corners,
+                geometry_qualification=geometry_qualification,
                 actor=corrected_by,
                 created_at=datetime.now(UTC),
             )

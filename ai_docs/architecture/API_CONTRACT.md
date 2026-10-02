@@ -2662,6 +2662,18 @@ Accepted/corrected tworzy append-only event i idempotentny staging row;
 rejected wymaga powodu. Edycja kompletnej planszy używa tego samego kontraktu i
 tworzy kolejną rewizję.
 
+Numer planszy `virtual_source` jest przypięty do slotu jej geometrii źródła
+(`seq_*`: początek zakresu + pozycja planszy), a komórki weryfikacji symboli
+są kluczowane tym numerem (D-462). Accepted/corrected z `sequenceNumber`
+innym niż numer planszy (`suggestedSequenceNumber`) zwraca przed jakimkolwiek
+zapisem `409 IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE` z
+`details.boardSequenceNumber` i `details.requestedSequenceNumber`; item,
+eventy, staging i roszczenie kanoniczne pozostają bez zmian (TASK-0798).
+Wcześniej ta sama komenda kończyła się `500` (`ValueError` ze sprawdzenia slotu
+w write-through komórek). Właściwa droga to ponowny import zdjęcia pod
+poprawną nazwą `seq_*` albo odrzucenie planszy. Reviewer pokazuje komunikat i
+zachowuje szkic decyzji.
+
 Odpowiedź resolution zawiera zapisany item i event, `created`, a także
 autorytatywne `counts` oraz `queueVersion` odczytane z trwałej projekcji po
 zapisie. Zmiana statusu sąsiedniej pozycji nie unieważnia komendy bieżącego
@@ -2708,7 +2720,15 @@ sprawdzają checksumę przed wysłaniem pliku.
 
 Preview geometrii przyjmuje cztery narożniki zewnętrznych granic siatki symboli
 5 × 3 w przestrzeni oryginalnego obrazu oraz expected geometry i resolution
-revision. Od D-467 S6 (TASK-0796) trasa, kontrakt wejścia, allowlista proxy i
+revision. Od TASK-0798 komenda przyjmuje też opcjonalne
+`geometryQualification` (ten sam `GeometryQualificationPayload` co kolejka
+korekty siatki) i narożniki ze znakiem (`ManualSourceGeometryPoint`): ujemne
+współrzędne wymagają kwalifikacji `pending_partial` (inaczej `422` walidacji),
+a granice edycji źródła i obowiązkową deklarację częściowości sprawdza domena
+geometrii wirtualnej. Item operacyjny niesie `geometryQualification`
+(zapisana kwalifikacja planszy, projekcja klienta v1/v2) oraz `sourceWidth` i
+`sourceHeight` (zorientowane wymiary źródła), z których edytor buduje
+kwalifikację. Od D-467 S6 (TASK-0796) trasa, kontrakt wejścia, allowlista proxy i
 autoryzacja sesji Reviewera są bez zmian, ale backend deleguje do
 `VirtualGridGeometryService` (ta sama ścieżka co korekta w Adminie): tożsamość
 źródła i topologia pochodzą z zapisanej proweniencji planszy, a odpowiedź to
@@ -2731,15 +2751,17 @@ Odpowiedź (`OperationalImageReviewGeometryResponse`) zachowuje kształt
 `recognizedBoardId`, `revision`, `idempotencyKey`, `commandSha256`, `corners`,
 `sourceGeometryRevisionId`, `geometryChecksumSha256`,
 `virtualRenderSpecChecksumSha256`, `cropperVersion`, `cells` (do 15, z
-`cropSampleId` i `cropChecksumSha256` renderu), `correctedBy`, `createdAt`.
+`cropSampleId` i `cropChecksumSha256` renderu), `correctedBy`, `createdAt`
+oraz `geometryQualification` (TASK-0798); `corners` są ze znakiem.
 Pola plików cropów v19 (`boardChecksumSha256`, `decisionChecksumSha256`) usunięto
 pionem (Reviewer ich nie czytał). Kody konfliktów: inna komenda z tym samym
 UUID → `409 IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT`, nieaktualna rewizja →
 `409 IMAGE_GRID_REVIEW_REVISION_CONFLICT` (Reviewer traktuje go jak dawne
 `IMAGE_REVIEW_GEOMETRY_REVISION_CONFLICT` i przeładowuje planszę), plansza
-`superseded` → `409 IMAGE_REVIEW_SUPERSEDED`, plansza z kwalifikacją częściową
-(edytor operacyjny nie wysyła kwalifikacji) → `422
-IMAGE_GRID_REVIEW_QUALIFICATION_REQUIRED`. Kod
+`superseded` → `409 IMAGE_REVIEW_SUPERSEDED`, komenda bez kwalifikacji dla
+planszy, która ją ma → `422 IMAGE_GRID_REVIEW_QUALIFICATION_REQUIRED` (od
+TASK-0798 edytor operacyjny używa wspólnego edytora kolejki korekty i zawsze
+wysyła kwalifikację planszy już zakwalifikowanej). Kod
 `IMAGE_REVIEW_GEOMETRY_ASSET_MODE_UNSUPPORTED` nie istnieje.
 
 ### Lokalna kolejka walidacji geometrii 0.9

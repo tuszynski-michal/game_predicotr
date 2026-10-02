@@ -7576,6 +7576,18 @@ grami`, `Wersje Android` i `Joby`. Trzecia zakładka pokazuje listę, postęp i
   numerów pozostałych plansz; metadane źródła są zachowywane przy zapisie geometrii.
 - **Consequences:** zwykłe importy OCR pozostają bez blokady, a poświadczone
   importy są jednoznaczne dla operatora i audytu.
+- **Zmiana 2026-10-02 (TASK-0798, D-467 S6, D-462):** od konwersji TASK-0791
+  każda plansza jest `virtual_source`, a jej numer jest przypięty do slotu
+  geometrii źródła (początek zakresu `seq_*` + pozycja planszy); komórki
+  weryfikacji symboli są kluczowane tym numerem. Decyzja `accepted`/`corrected`
+  z innym numerem przestała być zwykłą korektą: write-through komórek odrzucał
+  ją wyjątkiem (`500`) po roszczeniu kanonicznym. Teraz jest odrzucana przed
+  zapisem kodem `409 IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE` z pełnym
+  wycofaniem; błędną nazwę pliku poprawia ponowny import pod właściwą nazwą
+  `seq_*` (albo odrzucenie planszy). Przeniesienie planszy z jej komórkami i
+  decyzjami pod inny numer wymagałoby zmiany modelu sekwencji i komórek
+  (D-462) i nie jest częścią tej zmiany. Pole numeru i akcja odblokowania w
+  Reviewerze zostają; odmowa pokazuje komunikat bez utraty szkicu.
 
 ## D-199 — Kanoniczne sekwencje są idempotentne między importami
 

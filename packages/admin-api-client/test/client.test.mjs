@@ -2082,6 +2082,81 @@ test('generated client previews and persists one scope-bound geometry revision',
   });
 });
 
+test('operational geometry commands carry a partial qualification and signed corners (TASK-0798)', async () => {
+  const requests = [];
+  const reviewItemId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const qualification = {
+    completenessStatus: 'pending_partial',
+    excludeFromGeometryTraining: true,
+    exclusionReason: 'missing_pixels',
+    unavailableCellIndices: [0, 1, 5, 6, 10, 11],
+    version: 'manual-geometry-qualification-v1',
+  };
+  const command = {
+    corners: [
+      { x: -200, y: 50 },
+      { x: 300, y: 50 },
+      { x: 300, y: 350 },
+      { x: -200, y: 350 },
+    ],
+    expectedGeometryRevision: 1,
+    expectedResolutionRevision: 0,
+    geometryQualification: qualification,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      if (new URL(request.url).pathname.endsWith('/geometry-preview')) {
+        return new Response(new Blob(['png']), { status: 200 });
+      }
+      return Response.json(
+        {
+          created: true,
+          geometryRevision: {
+            corners: command.corners,
+            geometryQualification: qualification,
+            revision: 2,
+          },
+          item: { geometryQualification: qualification, sourceWidth: 620 },
+        },
+        { status: 200 },
+      );
+    },
+  });
+
+  await client.previewOperationalImageReviewGeometry(
+    reviewItemId,
+    context,
+    command,
+  );
+  const saved = await client.createOperationalImageReviewGeometryRevision(
+    reviewItemId,
+    context,
+    {
+      ...command,
+      correctedBy: 'local-admin',
+      idempotencyKey: '44444444-4444-4444-8444-444444444444',
+    },
+  );
+
+  assert.deepEqual(await requests[0].clone().json(), command);
+  assert.deepEqual(await requests[1].clone().json(), {
+    ...command,
+    correctedBy: 'local-admin',
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+  });
+  assert.equal(
+    saved.data?.geometryRevision.geometryQualification?.completenessStatus,
+    'pending_partial',
+  );
+  assert.equal(saved.data?.item.sourceWidth, 620);
+});
+
 test('grid review client binds keyset, source identity and topology-aware writes', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

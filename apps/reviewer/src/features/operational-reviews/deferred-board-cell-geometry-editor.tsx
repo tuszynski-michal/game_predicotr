@@ -88,11 +88,13 @@ export function BoardGeometryCorrectionEditor({
   canvasLabel = 'Plansza z edytowalną siatką 5 na 3',
   onConflict,
   onSaved,
+  saveLabel = 'Zapisz geometrię i dalej',
   target,
 }: {
   readonly canvasLabel?: string;
   readonly onConflict: (message: string) => Promise<void>;
   readonly onSaved: (reviewItemId: string | null) => Promise<void>;
+  readonly saveLabel?: string;
   readonly target: BoardGeometryCorrectionTarget;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -855,12 +857,17 @@ export function BoardGeometryCorrectionEditor({
                   const row = Math.floor(index / 5);
                   const column = index % 5;
                   const reported = context.reportedCellIndices.includes(index);
+                  // TASK-0798: a field outside the photo has no render; the
+                  // tile says so instead of showing an empty crop.
+                  const missing = unavailable.includes(index);
                   return (
                     <div
                       aria-label={
                         reported
                           ? `Crop ${index + 1} — zgłoszona zła siatka`
-                          : `Crop ${index + 1}`
+                          : missing
+                            ? `Crop ${index + 1} — poza zdjęciem`
+                            : `Crop ${index + 1}`
                       }
                       key={index}
                       role="img"
@@ -868,6 +875,7 @@ export function BoardGeometryCorrectionEditor({
                         backgroundImage: `url("${previewUrl}")`,
                         backgroundPosition: `${column * 25}% ${row * 50}%`,
                         backgroundSize: '500% 300%',
+                        opacity: missing ? 0.3 : undefined,
                         outline: reported ? '3px solid #b42318' : undefined,
                       }}
                     />
@@ -893,7 +901,7 @@ export function BoardGeometryCorrectionEditor({
           onClick={() => void saveGeometry()}
           type="button"
         >
-          {saving ? 'Zapisywanie…' : 'Zapisz geometrię i dalej'}
+          {saving ? 'Zapisywanie…' : saveLabel}
         </button>
       </div>
     </div>

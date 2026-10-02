@@ -93,6 +93,13 @@ last_updated: 2026-10-01
   kompletne, 136 niekompletnych (60 z planszą częściową, 76 z siatką
   niepotwierdzoną — 449 pozycji), 1 253 zastąpione nowszym importem
   (11 232 pozycje), 0 brakujących, 0 `import_failed`.
+- 2026-10-02: na gałęzi integracyjnej istniała równoległa korekta planu
+  (`v1.7.141` / `06584ad7`: 777 poza zakresem, bramka tylko w labie, budżet
+  30 minut, status `proposed`). Operator rozstrzygnął sprzeczność:
+  obowiązuje wersja planu z tej gałęzi (`accepted`, D-480–D-484, bramka w
+  pipeline produkcyjnym, TASK-0806–0809); korekta jest zastąpiona przy
+  scaleniu `v1.7.144`. Pozostałe okna nie pracują już nad V3; gałąź
+  integracyjna jest wolna do wdrożenia.
 - Następne: TASK-0807 (bramka, przepinanie plansz, migracja), TASK-0809
   (izolacja per gra).
 
@@ -248,6 +255,21 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   wkładem i „kasą na maszynie”; bez radia zakresu (zawsze wszystkie
   plansze) i bez statusu w nagłówku wyników; szersze okno planszy. Tylko
   UI; po scaleniu potrzebny `npm run reviewer:build` dla linku.
+- TASK-0785 done (2026-10-02, zgłoszenie operatora): usunięty baner
+  „Plansza startowa … nie jest jeszcze zatwierdzona” w „Przybliżonej
+  wygranej” — przy wyszukiwaniu po wszystkich planszach pojawiał się stale.
+- TASK-0786 done (2026-10-02, zgłoszenie operatora): etykiety punktów
+  wykresu bilansu są rysowane na samym wykresie (obok punktu, z przerywaną
+  linią), a nie w pasie nad nim; obszar danych zajmuje całą wysokość
+  wykresu (340 zamiast 190 jednostek). Limit przypiętych punktów 8 → 6.
+- TASK-0787 done (2026-10-02, zgłoszenie operatora): tooltip wykresu węższy
+  i niższy — „378 spinów” i „wkład: X” w jednej linii, pod nimi „Kasa na
+  czysto” i „Kredyty” (dawniej „Kasa na maszynie”, zawsze pełne kredyty);
+  bez pogrubień; wygrana i kasa na czysto zaokrąglane do pełnych złotych.
+- TASK-0788 done (2026-10-02, zgłoszenie operatora): zdjęcie planszy w oknie
+  „Pokaż planszę” ma najwyżej 800 px szerokości. Tylko CSS.
+- TASK-0789 done (2026-10-02, zgłoszenie operatora): wiersz „Kredyty” w
+  tooltipie wykresu nazywa się „Kredyty maszyna”.
 - **Etap B zakończony i odebrany; STOP.** Po scaleniu gałęzi potrzebne
   `npm install` (nowy pakiet workspace `@game-predictor/board-search-ui`) i
   `npm run reviewer:build`. Push i merge nie były wykonywane.
@@ -520,6 +542,19 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   3,6 s → ok. 1,8 s wg pomiaru przybliżonego) i CHECK zatwierdzeń bez
   `legacy_file`. Zmiany API: nieznana gra w `gameId` → 404, token innej
   gry → 401, nowy kod `GAME_SCOPED_RESOURCE_NOT_FOUND`.
+- TASK-0797 wdrożone 2026-10-01: migracja `0138` zastosowana, CHECK
+  zatwierdzeń zwalidowany, API na nowym kodzie.
+- TASK-0798 done (v1.7.143, audyt pominięty): rozstrzygnięcie Reviewera
+  `corrected` z innym numerem sekwencji niż numer planszy kończyło się 500
+  (`Pinned source geometry slot does not own the current sequence`) —
+  teraz jawna odmowa `409 IMAGE_REVIEW_SEQUENCE_PINNED_BY_SOURCE` przed
+  jakimkolwiek zapisem (numer planszy wynika ze slotu geometrii źródła,
+  D-462; nota pod D-198); edytor operacyjny Reviewera używa wspólnego
+  `BoardGeometryCorrectionEditor` i wysyła kwalifikację częściową
+  (kontrakt pionem, allowlista bez nowych tras). Znane, nienaprawione:
+  `image_symbol_review_states.cell_count` przy zamianie pełnej planszy w
+  częściową w grze przed finalizacją backfillu (nie dotyczy 777); pole
+  „korekta numeru” w Reviewerze zostaje do decyzji operatora.
 
 ### TASK-0603 — ponowna kalibracja etykiet 777 w trybie V2 (w toku)
 

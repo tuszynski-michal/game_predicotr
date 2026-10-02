@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
-  APPROXIMATE_WIN_CHART_LABEL_LAYOUT,
+  APPROXIMATE_WIN_CHART_LABEL,
   APPROXIMATE_WIN_PIN_LIMIT,
   APPROXIMATE_WIN_RANGE_DEFAULT,
   APPROXIMATE_WIN_RANGE_MAX,
@@ -13,7 +13,7 @@ import {
   approximateWinRequestKey,
   filterApproximateWinRows,
   formatApproximateWinCredits,
-  layoutApproximateWinPinLabels,
+  layoutApproximateWinPointLabels,
   moveApproximateWinHighlight,
   parseApproximateWinRange,
   shouldRequestApproximateWin,
@@ -337,9 +337,9 @@ test('toggleApproximateWinPinnedPoint pins, unpins and keeps spin order', () => 
 });
 
 test('toggleApproximateWinPinnedPoint refuses a pin beyond the limit without dropping one', () => {
-  assert.equal(APPROXIMATE_WIN_PIN_LIMIT, 8);
+  assert.equal(APPROXIMATE_WIN_PIN_LIMIT, 6);
   let pins = [];
-  for (let spin = 1; spin <= 8; spin += 1) {
+  for (let spin = 1; spin <= 6; spin += 1) {
     pins = toggleApproximateWinPinnedPoint(pins, pinPoint(spin)).pins;
   }
   const refused = toggleApproximateWinPinnedPoint(pins, pinPoint(99));
@@ -347,124 +347,7 @@ test('toggleApproximateWinPinnedPoint refuses a pin beyond the limit without dro
   assert.equal(refused.pins, pins);
   const unpinned = toggleApproximateWinPinnedPoint(pins, pinPoint(3));
   assert.equal(unpinned.limitReached, false);
-  assert.equal(unpinned.pins.length, 7);
-});
-
-// The chart's real label geometry, so the layout is tested at its width.
-const layoutOptions = APPROXIMATE_WIN_CHART_LABEL_LAYOUT;
-const labelWidth = layoutOptions.labelWidth;
-
-function assertNoOverlap(placements, width = labelWidth, gap = 4) {
-  for (const a of placements) {
-    assert.ok(
-      a.x - width / 2 >= layoutOptions.minX - 1e-9 &&
-        a.x + width / 2 <= layoutOptions.maxX + 1e-9,
-    );
-    for (const b of placements) {
-      if (a === b || a.row !== b.row) continue;
-      assert.ok(
-        Math.abs(a.x - b.x) >= width + gap - 1e-9,
-        `labels ${a.key} and ${b.key} overlap in row ${a.row}`,
-      );
-    }
-  }
-}
-
-test('layoutApproximateWinPinLabels stacks labels of the same point into rows', () => {
-  const placements = layoutApproximateWinPinLabels(
-    [
-      { key: 'a', x: 400 },
-      { key: 'b', x: 400 },
-    ],
-    layoutOptions,
-  );
-  assert.deepEqual(
-    placements.map((placement) => [placement.key, placement.row, placement.x]),
-    [
-      ['a', 0, 400],
-      ['b', 1, 400],
-    ],
-  );
-  assertNoOverlap(placements);
-});
-
-test('layoutApproximateWinPinLabels keeps an edge label inside the chart', () => {
-  const [placement] = layoutApproximateWinPinLabels(
-    [{ key: 'edge', x: 795 }],
-    layoutOptions,
-  );
-  assert.equal(placement.x, layoutOptions.maxX - labelWidth / 2);
-  assert.equal(placement.pointX, 795);
-});
-
-test('layoutApproximateWinPinLabels fits nine labels of one point without overlap', () => {
-  const labels = Array.from({ length: 9 }, (_, index) => ({
-    key: `p${index}`,
-    x: 400,
-  }));
-  const placements = layoutApproximateWinPinLabels(labels, layoutOptions);
-  assert.equal(placements.length, 9);
-  assertNoOverlap(placements);
-  assert.ok(placements.some((placement) => placement.x !== placement.pointX));
-});
-
-test('layoutApproximateWinPinLabels places a hover label around reserved pins', () => {
-  const pins = layoutApproximateWinPinLabels(
-    Array.from({ length: 8 }, (_, index) => ({ key: `p${index}`, x: 790 })),
-    layoutOptions,
-  );
-  const [hover] = layoutApproximateWinPinLabels([{ key: 'h', x: 790 }], {
-    ...layoutOptions,
-    reserved: pins,
-  });
-  assertNoOverlap([...pins, hover]);
-  assert.deepEqual(
-    pins,
-    layoutApproximateWinPinLabels(
-      Array.from({ length: 8 }, (_, index) => ({ key: `p${index}`, x: 790 })),
-      layoutOptions,
-    ),
-  );
-});
-
-test('layoutApproximateWinPinLabels fits clustered pins at the chart label width', () => {
-  // Regression (TASK-0774): with three rows the pin at 658 overlapped.
-  const pins = layoutApproximateWinPinLabels(
-    [198, 217, 246, 507, 537, 556, 657, 658].map((x, index) => ({
-      key: `p${index}`,
-      x,
-    })),
-    layoutOptions,
-  );
-  assertNoOverlap(pins);
-  const [hover] = layoutApproximateWinPinLabels([{ key: 'h', x: 600 }], {
-    ...layoutOptions,
-    reserved: pins,
-  });
-  assertNoOverlap([...pins, hover]);
-});
-
-test('layoutApproximateWinPinLabels never overlaps eight pins and a hover label', () => {
-  // Deterministic pseudo-random pin sets across the whole chart.
-  let seed = 7;
-  const random = () => {
-    seed = (seed * 48271) % 2147483647;
-    return seed / 2147483647;
-  };
-  for (let trial = 0; trial < 3000; trial += 1) {
-    const pins = layoutApproximateWinPinLabels(
-      Array.from({ length: 8 }, (_, index) => ({
-        key: `p${index}`,
-        x: 72 + random() * 710,
-      })),
-      layoutOptions,
-    );
-    const [hover] = layoutApproximateWinPinLabels(
-      [{ key: 'h', x: 72 + random() * 710 }],
-      { ...layoutOptions, reserved: pins },
-    );
-    assertNoOverlap([...pins, hover]);
-  }
+  assert.equal(unpinned.pins.length, 5);
 });
 
 test('moveApproximateWinHighlight skips drop points and stops at the ends', () => {
@@ -504,39 +387,6 @@ test('moveApproximateWinHighlight skips drop points and stops at the ends', () =
     'start:0',
   );
   assert.equal(moveApproximateWinHighlight([], null, 1), null);
-});
-
-test('layoutApproximateWinPinLabels never overlaps labels at fractional positions', () => {
-  const toX = (spin) => 72 + (spin / 2500) * 710;
-  const sameX = layoutApproximateWinPinLabels(
-    Array.from({ length: 9 }, (_, index) => ({
-      key: `p${index}`,
-      x: 72 + (1234 / 10000) * 710,
-    })),
-    layoutOptions,
-  );
-  assertNoOverlap(sameX);
-  // Deterministic pseudo-random clusters: 8 pins plus a hover label.
-  let seed = 7;
-  const random = () => {
-    seed = (seed * 1103515245 + 12345) % 2147483648;
-    return seed / 2147483648;
-  };
-  for (let run = 0; run < 2000; run += 1) {
-    const centre = random() * 2500;
-    const pins = layoutApproximateWinPinLabels(
-      Array.from({ length: 8 }, (_, index) => ({
-        key: `p${index}`,
-        x: toX(Math.min(2500, centre + random() * 60)),
-      })),
-      layoutOptions,
-    );
-    const hover = layoutApproximateWinPinLabels(
-      [{ key: 'h', x: toX(Math.min(2500, centre + random() * 60)) }],
-      { ...layoutOptions, reserved: pins },
-    );
-    assertNoOverlap([...pins, ...hover]);
-  }
 });
 
 test('approximateWinAxisTicks can keep a whole-number step and rejects unusable ranges', () => {
@@ -613,4 +463,108 @@ test('cash on the machine is the stake put in plus the net cash', async () => {
   assert.equal(at(8, -200), 100);
   // At the deepest point everything put in is gone.
   assert.equal(at(12, -600), 0);
+});
+
+// The chart's real label geometry and plot area (TASK-0786).
+const labelLayout = {
+  area: { maxX: 782, maxY: 350, minX: 74, minY: 12 },
+  height: APPROXIMATE_WIN_CHART_LABEL.height,
+  width: APPROXIMATE_WIN_CHART_LABEL.width,
+};
+
+function assertLabelsFit(placements, { allowOverlap = false } = {}) {
+  const { area, height, width } = labelLayout;
+  for (const a of placements) {
+    assert.ok(a.left >= area.minX - 1e-9 && a.left + width <= area.maxX + 1e-9);
+    assert.ok(a.top >= area.minY - 1e-9 && a.top + height <= area.maxY + 1e-9);
+    if (allowOverlap) continue;
+    for (const b of placements) {
+      if (a === b) continue;
+      const apart =
+        Math.abs(a.left - b.left) >= width + 4 - 1e-9 ||
+        Math.abs(a.top - b.top) >= height + 4 - 1e-9;
+      assert.ok(apart, `labels ${a.key} and ${b.key} overlap`);
+    }
+  }
+}
+
+test('layoutApproximateWinPointLabels puts a label beside its point, on the plot', () => {
+  const [placement] = layoutApproximateWinPointLabels(
+    [{ key: 'a', x: 400, y: 180 }],
+    labelLayout,
+  );
+  assertLabelsFit([placement]);
+  assert.equal(placement.pointX, 400);
+  assert.equal(placement.pointY, 180);
+  // Near the point, but never on top of it.
+  const { height, width } = labelLayout;
+  const covers =
+    400 > placement.left &&
+    400 < placement.left + width &&
+    180 > placement.top &&
+    180 < placement.top + height;
+  assert.equal(covers, false);
+  assert.ok(
+    Math.hypot(
+      placement.left + width / 2 - 400,
+      placement.top + height / 2 - 180,
+    ) < 200,
+  );
+});
+
+test('layoutApproximateWinPointLabels keeps corner points inside the plot', () => {
+  const placements = layoutApproximateWinPointLabels(
+    [
+      { key: 'tl', x: 74, y: 12 },
+      { key: 'tr', x: 782, y: 12 },
+      { key: 'bl', x: 74, y: 350 },
+      { key: 'br', x: 782, y: 350 },
+    ],
+    labelLayout,
+  );
+  assertLabelsFit(placements);
+});
+
+test('layoutApproximateWinPointLabels steers clear of the series line when there is room', () => {
+  // A flat line through the middle: the label goes above or below it.
+  const obstacles = Array.from({ length: 60 }, (_, index) => ({
+    x: 74 + index * 12,
+    y: 180,
+  }));
+  const [placement] = layoutApproximateWinPointLabels(
+    [{ key: 'a', x: 400, y: 180 }],
+    { ...labelLayout, obstacles },
+  );
+  const { height } = labelLayout;
+  assert.ok(placement.top + height < 180 || placement.top > 180);
+});
+
+test('layoutApproximateWinPointLabels never overlaps six pins and a hover label', () => {
+  let seed = 7;
+  const random = () => {
+    seed = (seed * 48271) % 2147483647;
+    return seed / 2147483647;
+  };
+  const anywhere = () => ({ x: 74 + random() * 708, y: 12 + random() * 338 });
+  for (let trial = 0; trial < 1500; trial += 1) {
+    // Half of the trials cluster the points, as pins on one peak do.
+    const centre = anywhere();
+    const near = () => ({
+      x: Math.min(782, centre.x + random() * 30),
+      y: Math.min(350, centre.y + random() * 30),
+    });
+    const pick = trial % 2 === 0 ? anywhere : near;
+    const pins = layoutApproximateWinPointLabels(
+      Array.from({ length: 6 }, (_, index) => ({
+        key: `p${index}`,
+        ...pick(),
+      })),
+      labelLayout,
+    );
+    const [hover] = layoutApproximateWinPointLabels([{ key: 'h', ...pick() }], {
+      ...labelLayout,
+      reserved: pins,
+    });
+    assertLabelsFit([...pins, hover]);
+  }
 });

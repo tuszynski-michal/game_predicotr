@@ -397,8 +397,24 @@ bilans, maksymalny wkład) ani wiersza „Reguły v… · koszt spinu”. „Bil
 nazywa się „kasa na czysto”, „wypłata” — „wygrana” (termin „linie wypłat”
 zostaje). Etykieta punktu wykresu i lista przypiętych punktów podają: spiny,
 kasę na czysto, wkład (na czerwono) i „kasę na maszynie” = wkład + kasa na
-czysto. Okno „Pokaż planszę” ma do 1500 px szerokości i wykorzystuje całą
-szerokość dialogu.
+czysto. Okno „Pokaż planszę” ma do 1180 px szerokości; zdjęcie planszy w nim ma
+najwyżej 800 px (TASK-0788), obok jest legenda linii.
+
+**TASK-0786 — obowiązuje ponad starszymi opisami wykresu.** Etykiety punktów
+(najechanego i przypiętych) są rysowane na obszarze danych wykresu, nie w
+pasie nad nim: obok punktu — z lewej albo prawej, nad albo pod — tam, gdzie
+nie zasłaniają linii wykresu ani innej etykiety; z punktem łączy je
+przerywana linia. Gdy obok brakuje miejsca, etykieta trafia dalej od punktu.
+Obszar danych zajmuje całą wysokość wykresu. Można przypiąć najwyżej 6
+punktów.
+
+**TASK-0787 — tooltip wykresu (zmienia powyższe).** Etykieta punktu ma trzy
+linie, bez pogrubień, jedną czcionką: „378 spinów” po lewej i „wkład: X” na
+czerwono po prawej (jedna linia), niżej „Kasa na czysto: X” i „Kredyty maszyna: N”.
+„Kredyty maszyna” (dawniej „Kasa na maszynie”, wkład + kasa na czysto) są zawsze w
+pełnych kredytach, niezależnie od wybranej jednostki. „Wygrana” i „Kasa na
+czysto” w tabeli i w etykiecie są zaokrąglane do pełnych złotych (kredyty nie
+mają części dziesiętnych); wkład zachowuje grosze.
 
 Liczba zwracanych wyników jest jawnym parametrem operatora: input „Liczba
 wyników” nad panelem, domyślnie 15 (D-476), w zakresie 1–100 (istniejący

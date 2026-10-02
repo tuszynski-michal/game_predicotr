@@ -243,6 +243,7 @@ def test_operational_item_uses_complete_manual_virtual_geometry_revision() -> No
             geometry_revision=1,
             sequence_number=42,
             board_geometry={"displayAssetKind": "source_context"},
+            geometry_qualification=None,
             pipeline_fingerprint=_sha(10_000),
             cells_prediction=_cells_prediction(observations),
         ),
@@ -251,6 +252,10 @@ def test_operational_item_uses_complete_manual_virtual_geometry_revision() -> No
             import_job_id=import_job_id,
             relative_path="originals/source.jpg",
             checksum_sha256=_sha(10_001),
+            width=640,
+            height=480,
+            oriented_width=640,
+            oriented_height=480,
         ),
         SimpleNamespace(source_order_index=3, position_index=2),
         SimpleNamespace(game_id=game_id),
@@ -275,6 +280,9 @@ def test_operational_item_uses_complete_manual_virtual_geometry_revision() -> No
         _sha(5_000 + index) for index in range(15)
     ]
     assert all(cell.asset_mode == "virtual_source" for cell in item.cells)
+    # TASK-0798: the operational editor gets the qualification and source size.
+    assert item.geometry_qualification is None
+    assert (item.source_width, item.source_height) == (640, 480)
 
 
 def test_virtual_board_identity_uses_geometry_checksum() -> None:

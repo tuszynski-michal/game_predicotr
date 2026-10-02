@@ -1,10 +1,41 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-01
+last_updated: 2026-10-02
 ---
 
 # Current State
+
+### TASK-0814 — hurtowe odświeżenie nieaktualnych odczytów wyszukiwarki (done)
+
+- 2026-10-02 operator zgłosił, że „Pokaż planszę” dla #486288 pokazywało
+  schemat z domyślnymi grafikami symboli zamiast zdjęcia do czasu ręcznego
+  „Odśwież odczyt tej planszy”. Przyczyna: odczyt wyszukiwarki zapisany przed
+  bieżącą siatką planszy (`documentStale`, TASK-0773). Gra 777 miała 62 142
+  takich plansz (wszystkie `pending`) z 499 997.
+- Nowy `scripts/refresh_stale_board_search_documents.py --game-id …` liczy
+  je bez zapisu, a z `--apply` odświeża każdą tą samą synchronizacją co
+  przycisk w oknie, partiami po jednej transakcji; ponowne uruchomienie
+  wznawia pracę. Commit `v1.7.158` / `cd36d0a2`.
+- Wynik uruchomienia na bazie deweloperskiej (2026-10-02): próba 200 plansz
+  i pełny przebieg 61 942 — razem 62 142 odświeżone, 0 usuniętych z
+  wyszukiwarki, 0 nadal nieaktualnych; kontrolny podgląd po przebiegu: 0.
+- Przyczyna zaległości: jednorazowa ponowna weryfikacja siatek 777 z
+  2026-09-25 (`system:grid-reverify-777-v1`), wykonana zanim zapis siatki
+  zaczął synchronizować projekcję wyszukiwarki (`v1.7.51`, 2026-09-29;
+  przepinanie sąsiednich plansz — `v1.7.145`). Żadna nieaktualna plansza nie
+  miała siatki zapisanej po 2026-09-25, więc poprawka kodu nie była potrzebna.
+
+### TASK-0815 — plansze „częściowa (potwierdzone minimum)” do korekty siatki (done)
+
+- Decyzja operatora 2026-10-02: plansze z nieznanymi polami oznaczonymi
+  `unreadable` albo `partial_visibility` trafiają do kolejki „korekta cięcia
+  siatki”. `scripts/route_partial_boards_to_grid_correction.py` (podgląd,
+  `--apply`) zgłasza te pola jako „zła siatka” istniejącą decyzją pola.
+  Commit `v1.7.159` / `104f9d81`.
+- 777: skierowano 219 plansz (179 + 40), 0 pominiętych; kolejka korekty ma
+  331 plansz w 20 importach. 7 plansz bez rekordu pola pozostało bez zmian.
+  Skierowanie jest jednorazowe; nowe przypadki wymagają ponownego uruchomienia.
 
 ### TASK-0782 — zmiana kolejności symboli w katalogu (done)
 

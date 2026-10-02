@@ -2,7 +2,7 @@
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -68,13 +68,13 @@ review if the apply leaves documents stale after a refresh.
 
 ## Acceptance criteria
 
-- [ ] Preview performs no writes and reports the stale count and a sample.
-- [ ] Apply refreshes each stale board exactly like the modal button,
+- [x] Preview performs no writes and reports the stale count and a sample.
+- [x] Apply refreshes each stale board exactly like the modal button,
       commits per batch and survives interruption (re-run continues).
-- [ ] A board still stale after its refresh is reported, not looped on.
-- [ ] Isolated PostgreSQL test: a stale document is selected, refreshed and
+- [x] A board still stale after its refresh is reported, not looped on.
+- [x] Isolated PostgreSQL test: a stale document is selected, refreshed and
       no longer selected; a fresh one is never touched.
-- [ ] After apply on 777 the stale count is 0 (or the residue is explained).
+- [x] After apply on 777 the stale count is 0 (or the residue is explained).
 
 ## Technical notes
 
@@ -124,4 +124,34 @@ npm run python:typecheck
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- `stale_document_sequence_numbers` (repository), `BoardSearchStaleDocumentRefresh`
+  (application) and `scripts/refresh_stale_board_search_documents.py`.
+  The refresh lives in its own service class instead of
+  `BoardSearchBoardDetailService`, so existing detail fakes keep their contract.
+- Commit `v1.7.158` / `cd36d0a2`.
+
+### Verification results
+
+- Unit tests 5/5; isolated PostgreSQL test 3/3 (one new); detail/view tests
+  39 passed, 1 skipped (symlinks); Ruff clean; mypy reports nothing for the
+  changed files (67 pre-existing errors elsewhere).
+- 777 on the development database: preview 62 142; trial 200 + full run
+  61 942 = 62 142 refreshed, 0 removed, 0 still stale, 5 966 s; preview
+  afterwards 0. Boards #374 and #1321 show the photo again.
+
+### Root cause
+
+- All stale documents came from the one-off grid reverify of 2026-09-25
+  (`system:grid-reverify-777-v1`), run before the geometry save synchronised
+  the search projection (`v1.7.51`, `v1.7.145`). No stale document had a
+  grid saved later, so no writer fix was needed.
+
+### Not completed
+
+- Nothing.
+
+### Recommended next task
+
+- None.

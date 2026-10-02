@@ -210,7 +210,7 @@ def test_virtual_preview_renders_all_cells_without_persisting_png(tmp_path: Path
 
 
 @pytest.mark.parametrize("all_missing", [False, True])
-def test_qualified_partial_preview_keeps_slots_without_rendering_missing_pixels(
+def test_qualified_partial_preview_renders_partially_visible_masked_cells(
     tmp_path: Path, all_missing: bool
 ) -> None:
     service, context = _fixture(tmp_path)
@@ -233,8 +233,9 @@ def test_qualified_partial_preview_keeps_slots_without_rendering_missing_pixels(
         geometry_qualification=qualification,
     )
     preview = service.preview(**kwargs)
-    assert len(preview.cells) == (0 if all_missing else 12)
-    assert not {cell.cell_index for cell in preview.cells} & {0, 5, 10}
+    # Masked cells that keep real source pixels are still rendered for manual
+    # review (D-434, D-435); only cells fully outside the photo have no render.
+    assert [cell.cell_index for cell in preview.cells] == list(range(15))
     assert preview.contact_sheet_png.startswith(b"\x89PNG")
     service.save(**kwargs, idempotency_key=uuid4(), actor="operator", created_at=datetime.now(UTC))
     prepared = service._repository.saved[0]

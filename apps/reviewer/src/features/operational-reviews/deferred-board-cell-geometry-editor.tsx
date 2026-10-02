@@ -845,44 +845,41 @@ export function BoardGeometryCorrectionEditor({
               Ustaw narożniki i wygeneruj aktualny podgląd przed zapisem.
             </p>
           ) : (
-            <>
-              {/* Checksum-bound Blob URL zwrócony przez lokalny backend. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt="Kontaktowy podgląd 15 cropów" src={previewUrl} />
-              <div
-                aria-label="Podgląd 15 cropów planszy"
-                className="operationalReviewGeometryCrops"
-              >
-                {Array.from({ length: 15 }, (_, index) => {
-                  const row = Math.floor(index / 5);
-                  const column = index % 5;
-                  const reported = context.reportedCellIndices.includes(index);
-                  // TASK-0798: a field outside the photo has no render; the
-                  // tile says so instead of showing an empty crop.
-                  const missing = unavailable.includes(index);
-                  return (
-                    <div
-                      aria-label={
-                        reported
-                          ? `Crop ${index + 1} — zgłoszona zła siatka`
-                          : missing
-                            ? `Crop ${index + 1} — poza zdjęciem`
-                            : `Crop ${index + 1}`
-                      }
-                      key={index}
-                      role="img"
-                      style={{
-                        backgroundImage: `url("${previewUrl}")`,
-                        backgroundPosition: `${column * 25}% ${row * 50}%`,
-                        backgroundSize: '500% 300%',
-                        opacity: missing ? 0.3 : undefined,
-                        outline: reported ? '3px solid #b42318' : undefined,
-                      }}
-                    />
-                  );
-                })}
-              </div>
-            </>
+            // Checksum-bound Blob URL zwrócony przez lokalny backend; każdy
+            // kafelek pokazuje swój fragment tego jednego arkusza.
+            <div
+              aria-label="Podgląd 15 cropów planszy"
+              className="operationalReviewGeometryCrops"
+            >
+              {Array.from({ length: 15 }, (_, index) => {
+                const row = Math.floor(index / 5);
+                const column = index % 5;
+                const reported = context.reportedCellIndices.includes(index);
+                // TASK-0798: a field outside the photo has no render; the
+                // tile says so instead of showing an empty crop.
+                const missing = unavailable.includes(index);
+                return (
+                  <div
+                    aria-label={
+                      reported
+                        ? `Crop ${index + 1} — zgłoszona zła siatka`
+                        : missing
+                          ? `Crop ${index + 1} — poza zdjęciem`
+                          : `Crop ${index + 1}`
+                    }
+                    key={index}
+                    role="img"
+                    style={{
+                      backgroundImage: `url("${previewUrl}")`,
+                      backgroundPosition: `${column * 25}% ${row * 50}%`,
+                      backgroundSize: '500% 300%',
+                      opacity: missing ? 0.3 : undefined,
+                      outline: reported ? '3px solid #b42318' : undefined,
+                    }}
+                  />
+                );
+              })}
+            </div>
           )}
         </section>
       </div>

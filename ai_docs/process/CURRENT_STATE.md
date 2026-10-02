@@ -6,6 +6,22 @@ last_updated: 2026-10-02
 
 # Current State
 
+### TASK-0816 — podgląd korekty siatki dla niepełnych plansz, jeden widok cropów (done)
+
+- Zgłoszenie operatora: podgląd niepełnej planszy kończył się
+  `IMAGE_GRID_REVIEW_VIRTUAL_CELLS_INCOMPLETE`. Kontrola arkusza podglądu
+  wymagała braku renderu dla każdego pola z maski, a renderer od D-434/D-435
+  zachowuje pola częściowo widoczne. Teraz wymagane są tylko pola spoza maski;
+  pola z maski mogą mieć render. Dwa czerwone testy podglądu częściowego
+  opisywały stare zachowanie i zostały zaktualizowane.
+- Reviewer pokazuje jeden widok cropów (kafelki); usunięto zdublowany obraz
+  zbiorczy bez odstępów.
+- Testy API korekty siatki 50/50, interakcje geometrii Reviewera 9/9,
+  typecheck i lint Reviewera czyste. Wymagany restart API i przebudowa
+  Reviewera; brak odbioru na żywo.
+- Otwarte: przypisywanie symboli w korekcie siatki (klikalne kafelki, podgląd
+  predykcji) wymaga planu i zmiany D-462 — korekta dziś nie zatwierdza symboli.
+
 ### TASK-0815 — ręczna korekta siatki po bumpie kontraktu renderera (done)
 
 - Zgłoszenie operatora: każda zmiana siatki w „Korekcie cięcia siatki” kończyła

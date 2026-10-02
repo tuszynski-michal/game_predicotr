@@ -1582,8 +1582,12 @@ def _contact_sheet_png(
     qualification: GeometryQualification | None = None,
     configuration: DirectCellRenderConfiguration | None = None,
 ) -> bytes:
+    # The mask also lists partially visible cells, which the renderer keeps
+    # for manual review; only cells outside the mask are mandatory here.
     missing = set(qualification.unavailable_cell_indices) if qualification else set()
-    if {render.cell_index for render in renders} != set(range(topology.cell_count)) - missing:
+    every_cell = set(range(topology.cell_count))
+    rendered = {render.cell_index for render in renders}
+    if not every_cell - missing <= rendered <= every_cell:
         raise ImageGridReviewError(
             "IMAGE_GRID_REVIEW_VIRTUAL_CELLS_INCOMPLETE",
             "The virtual geometry preview is missing configured board cells.",

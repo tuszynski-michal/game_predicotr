@@ -72,6 +72,7 @@ test('only the read-only share routes and the unlock are public', () => {
     ['GET', `/api/v1/board-search-shares/symbols/${sessionId}/image`],
     ['GET', '/api/v1/board-search-shares/search'],
     ['GET', '/api/v1/board-search-shares/approximate-win'],
+    ['GET', '/api/v1/board-search-shares/approximate-win/stake'],
     ['GET', '/api/v1/board-search-shares/boards/42'],
     ['GET', '/api/v1/board-search-shares/boards/42/view'],
   ];
@@ -115,6 +116,9 @@ test('routes outside the allowlist or with extra parameters are 403 without an u
     `/symbols/${sessionId}/image`,
     `/symbols/${sessionId}/image?revision=${sha}&x=1`,
     '/approximate-win?startSequenceNumber=1',
+    '/approximate-win/stake?startSequenceNumber=1&stakeGrosze=200',
+    '/approximate-win/stake?startSequenceNumber=1&spinCount=5&stakeGrosze=0',
+    '/approximate-win/stake?startSequenceNumber=1&spinCount=5&unit=pln',
     '/boards/42/view',
     `/boards/42/view?expectedBoardChecksumSha256=${sha}&expectedBoardChecksumSha256=${sha}`,
   ]) {

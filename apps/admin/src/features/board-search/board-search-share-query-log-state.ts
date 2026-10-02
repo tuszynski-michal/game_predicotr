@@ -44,6 +44,11 @@ export function boardSearchQueryOccurrenceTimes(entry: {
 export interface BoardSearchQueryRange {
   readonly spinCount: number;
   readonly startSequenceNumber: number;
+  /**
+   * The stake the recipient viewed the range at (D-487): grosze, `null` for
+   * the base stake, `undefined` when it was not recorded (older entries).
+   */
+  readonly stakeGrosze: number | null | undefined;
 }
 
 /** The range the recipient opened after a search, when one was recorded. */
@@ -52,13 +57,21 @@ export function boardSearchQueryFollowUpRange(entry: {
 }): BoardSearchQueryRange | null {
   const request = entry.followUpApproximateWin;
   if (request === null || request === undefined) return null;
-  const { spinCount, startSequenceNumber } = request;
+  const { spinCount, stakeGrosze, startSequenceNumber } = request;
+  const stake =
+    typeof stakeGrosze === 'number' &&
+    Number.isInteger(stakeGrosze) &&
+    stakeGrosze > 0
+      ? stakeGrosze
+      : stakeGrosze === null
+        ? null
+        : undefined;
   return typeof spinCount === 'number' &&
     Number.isInteger(spinCount) &&
     spinCount > 0 &&
     typeof startSequenceNumber === 'number' &&
     Number.isInteger(startSequenceNumber)
-    ? { spinCount, startSequenceNumber }
+    ? { spinCount, stakeGrosze: stake, startSequenceNumber }
     : null;
 }
 

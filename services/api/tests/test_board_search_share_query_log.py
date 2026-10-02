@@ -466,3 +466,31 @@ def test_http_grouped_list_and_whole_pattern_delete() -> None:
         assert client.delete(path, params={"wholePattern": "true"}).status_code == 204
         left = client.get(base).json()["entries"]
         assert [entry["id"] for entry in left] == [str(only_b.id)]
+
+
+def test_the_follow_up_of_a_search_carries_the_recorded_stake() -> None:
+    """D-487: a stake entry is a range entry, so the newest one after a
+    search is its follow-up and brings the stake to the chart."""
+
+    search = _search(1, "0:A")
+    calculated = _event(
+        BoardSearchShareQueryKind.APPROXIMATE_WIN,
+        2,
+        request={"startSequenceNumber": 7, "spinCount": 100},
+    )
+    stake = _event(
+        BoardSearchShareQueryKind.APPROXIMATE_WIN,
+        3,
+        request={"startSequenceNumber": 7, "spinCount": 100, "stakeGrosze": 200},
+    )
+    service = BoardSearchShareQueryLogService(MemoryQueryRepository([search, calculated, stake]))
+
+    page = service.list(
+        session_id=SESSION, kind=BoardSearchShareQueryKind.SEARCH, group_by_pattern=True
+    )
+
+    assert page.entries[0].follow_up_approximate_win == {
+        "startSequenceNumber": 7,
+        "spinCount": 100,
+        "stakeGrosze": 200,
+    }

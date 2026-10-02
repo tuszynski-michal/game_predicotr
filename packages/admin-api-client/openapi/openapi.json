@@ -2512,7 +2512,7 @@
                 "type": "null"
               }
             ],
-            "description": "For a search: the request (`startSequenceNumber`, `spinCount`) of the newest successful range calculation made before the next search.",
+            "description": "For a search: the request (`startSequenceNumber`, `spinCount`) of the newest successful range calculation made before the next search. `stakeGrosze` is present when the recipient's stake was recorded (null: the base stake).",
             "title": "Followupapproximatewin"
           },
           "gameId": {
@@ -2792,6 +2792,20 @@
           "shareUrl"
         ],
         "title": "BoardSearchShareSessionResponse",
+        "type": "object"
+      },
+      "BoardSearchShareStakeRecordedResponse": {
+        "additionalProperties": false,
+        "description": "Acknowledges a recorded stake choice (D-487); carries no data.",
+        "properties": {
+          "recorded": {
+            "const": true,
+            "default": true,
+            "title": "Recorded",
+            "type": "boolean"
+          }
+        },
+        "title": "BoardSearchShareStakeRecordedResponse",
         "type": "object"
       },
       "BoardSearchShareUnlock": {
@@ -49659,6 +49673,172 @@
           }
         },
         "summary": "Calculate the approximate win for a range of the shared game",
+        "tags": [
+          "board-search-share-public"
+        ]
+      }
+    },
+    "/api/v1/board-search-shares/approximate-win/stake": {
+      "get": {
+        "operationId": "recordBoardSearchShareApproximateWinStake",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "startSequenceNumber",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Startsequencenumber",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "spinCount",
+            "required": true,
+            "schema": {
+              "maximum": 100000,
+              "minimum": 1,
+              "title": "Spincount",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Omitted: the base stake of the published rules.",
+            "in": "query",
+            "name": "stakeGrosze",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 10000000,
+                  "minimum": 1,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Omitted: the base stake of the published rules.",
+              "title": "Stakegrosze"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gp_board_search_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gp Board Search Token"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareStakeRecordedResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "Record the stake the recipient views a calculated range at (D-487)",
         "tags": [
           "board-search-share-public"
         ]

@@ -12,6 +12,7 @@ import type {
 import {
   ApproximateWinBalanceChart,
   type BoardSearchDataSource,
+  formatZloty,
 } from '@game-predictor/board-search-ui';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 
@@ -48,8 +49,6 @@ type LogState =
 
 /** Each entry draws a chart, so the pages are short. */
 const PAGE_SIZE = 10;
-/** The recipient's stake is not recorded (D-472): base stake, in złote. */
-const CHART_DISPLAY = { stakeGrosze: null, unit: 'pln' } as const;
 
 /**
  * One share link's searches (D-472, D-478), newest first: the pattern the
@@ -379,7 +378,18 @@ function QueryChart({
   readonly range: BoardSearchQueryRange;
 }) {
   const [state, setState] = useState<ChartState>({ kind: 'loading' });
-  const { spinCount, startSequenceNumber } = range;
+  const { spinCount, stakeGrosze, startSequenceNumber } = range;
+  // The chart is drawn at the recipient's stake when it was recorded
+  // (D-487); an entry without one falls back to the base stake.
+  const stakeCaption =
+    stakeGrosze === undefined
+      ? 'stawka nieznana (wykres w stawce bazowej)'
+      : stakeGrosze === null
+        ? state.kind === 'ready'
+          ? // 1 credit is 10 grosze, so the base stake is the spin cost.
+            `stawka bazowa (${formatZloty(state.result.rules.spinCost * 10)})`
+          : 'stawka bazowa'
+        : `stawka ${formatZloty(stakeGrosze)}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -421,7 +431,7 @@ function QueryChart({
     <div className="boardSearchShareQueryChart">
       <p className="boardSearchShareQueryChartCaption">
         Plansza #{startSequenceNumber.toLocaleString('pl-PL')} ·{' '}
-        {spinCount.toLocaleString('pl-PL')} spinów · stawka bazowa
+        {spinCount.toLocaleString('pl-PL')} spinów · {stakeCaption}
       </p>
       {state.kind === 'loading' ? (
         <p role="status">Liczenie wykresu…</p>
@@ -432,7 +442,7 @@ function QueryChart({
       ) : (
         <ApproximateWinBalanceChart
           compact
-          display={CHART_DISPLAY}
+          display={{ stakeGrosze: stakeGrosze ?? null, unit: 'pln' }}
           result={state.result}
         />
       )}

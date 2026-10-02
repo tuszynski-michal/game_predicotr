@@ -1426,7 +1426,7 @@ export type BoardSearchShareQueryEntryResponse = {
   /**
    * Followupapproximatewin
    *
-   * For a search: the request (`startSequenceNumber`, `spinCount`) of the newest successful range calculation made before the next search.
+   * For a search: the request (`startSequenceNumber`, `spinCount`) of the newest successful range calculation made before the next search. `stakeGrosze` is present when the recipient's stake was recorded (null: the base stake).
    */
   followUpApproximateWin?: {
     [key: string]: unknown;
@@ -1577,6 +1577,18 @@ export type BoardSearchShareSessionResponse = {
    * Status
    */
   status: 'active' | 'locked' | 'expired' | 'revoked';
+};
+
+/**
+ * BoardSearchShareStakeRecordedResponse
+ *
+ * Acknowledges a recorded stake choice (D-487); carries no data.
+ */
+export type BoardSearchShareStakeRecordedResponse = {
+  /**
+   * Recorded
+   */
+  recorded?: true;
 };
 
 /**
@@ -27017,6 +27029,78 @@ export type GetBoardSearchShareApproximateWinResponses = {
 
 export type GetBoardSearchShareApproximateWinResponse =
   GetBoardSearchShareApproximateWinResponses[keyof GetBoardSearchShareApproximateWinResponses];
+
+export type RecordBoardSearchShareApproximateWinStakeData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query: {
+    /**
+     * Startsequencenumber
+     */
+    startSequenceNumber: number;
+    /**
+     * Spincount
+     */
+    spinCount: number;
+    /**
+     * Stakegrosze
+     *
+     * Omitted: the base stake of the published rules.
+     */
+    stakeGrosze?: number | null;
+  };
+  url: '/api/v1/board-search-shares/approximate-win/stake';
+};
+
+export type RecordBoardSearchShareApproximateWinStakeErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type RecordBoardSearchShareApproximateWinStakeError =
+  RecordBoardSearchShareApproximateWinStakeErrors[keyof RecordBoardSearchShareApproximateWinStakeErrors];
+
+export type RecordBoardSearchShareApproximateWinStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareStakeRecordedResponse;
+};
+
+export type RecordBoardSearchShareApproximateWinStakeResponse =
+  RecordBoardSearchShareApproximateWinStakeResponses[keyof RecordBoardSearchShareApproximateWinStakeResponses];
 
 export type GetBoardSearchShareBoardDetailData = {
   body?: never;

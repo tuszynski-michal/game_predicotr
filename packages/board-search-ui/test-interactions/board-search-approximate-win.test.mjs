@@ -348,6 +348,60 @@ test('the result stays hidden until a stake is chosen; złote is the default uni
   await act(async () => root.unmount());
 });
 
+test('a share data source is told the stake of every range shown, once each', async (context) => {
+  context.after(() => dom.window.localStorage.clear());
+  const reported = [];
+  const client = {
+    ...makeClient({
+      approximateWinImpl: async (_gameId, options) => ({
+        data: approximateWinResponse(options.startSequenceNumber),
+      }),
+      searchImpl: async () => ({
+        data: { results: [boardResult(10), boardResult(20)] },
+      }),
+    }),
+    // D-487: only the online share adapter has this member.
+    recordBoardSearchApproximateWinStake: async (_gameId, options) => {
+      reported.push(options);
+      return { data: undefined };
+    },
+  };
+  const root = await renderWorkspaceWithResults(client);
+  await eventually(
+    () => document.querySelector('.boardSearchApproximateWinStakePrompt'),
+    'prompt to choose a stake',
+  );
+  // A calculated range without a chosen stake reports nothing.
+  assert.deepEqual(reported, []);
+  const stake = selectByLabel('Stawka');
+  // Any stake other than the base one is reported as its amount in grosze.
+  const other = [...stake.options].find(
+    (option) => option.value !== '' && !option.textContent.includes('(bazowa)'),
+  );
+  assert.ok(other, 'a non-base stake option exists');
+  const stakeGrosze = Number(other.value);
+  await act(async () => {
+    stake.value = other.value;
+    stake.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  await eventually(() => reported.length === 1, 'stake of the first range');
+  assert.deepEqual(reported[0], {
+    spinCount: 2500,
+    stakeGrosze,
+    startSequenceNumber: 10,
+  });
+  // The next board of the same pattern keeps the stake: its range is
+  // reported too.
+  const next = [...document.querySelectorAll('button')].find((button) =>
+    button.textContent.includes('Następna'),
+  );
+  await click(next);
+  await eventually(() => reported.length === 2, 'stake of the second range');
+  assert.equal(reported[1].startSequenceNumber, 20);
+  assert.equal(reported[1].stakeGrosze, stakeGrosze);
+  await act(async () => root.unmount());
+});
+
 test('the selected board is calculated right away with the default range', async () => {
   const approximateWinCalls = [];
   const client = makeClient({

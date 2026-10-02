@@ -454,8 +454,9 @@ lista stawek wraca do „wybierz stawkę”, a podsumowanie, wykres i tabela są
 ukryte do czasu jej wyboru (kalkulacja biegnie w tle, więc wynik pojawia
 się od razu po wyborze). Zmiana planszy w obrębie tego samego wzoru,
 zmiana zakresu, limitu albo zakresu wyszukiwania zachowują stawkę.
-Odtworzenie z dziennika udostępnień (D-472) wybiera stawkę bazową, bo stawka
-odbiorcy nie jest znana. Przy koszcie spinu 0 stawki nie ma i wynik jest
+Odtworzenie z dziennika udostępnień (D-472) wybiera stawkę bazową; stawka
+odbiorcy jest widoczna na wykresie w dzienniku linku (D-487), ale odtworzenie
+jej nie przenosi. Przy koszcie spinu 0 stawki nie ma i wynik jest
 pokazywany bez wyboru.
 
 Wynik rozróżnia dla każdej pozycji zakresu trzy rozłączne kategorie:

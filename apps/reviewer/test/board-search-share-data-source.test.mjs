@@ -197,3 +197,32 @@ test('gate helpers format the remaining time and map error codes', () => {
   );
   assert.match(shareErrorMessage(undefined), /Nie udało się/);
 });
+
+test('a stake choice is reported for its range; the base stake has no parameter', async () => {
+  const { calls, dataSource } = source((path) =>
+    path.includes('startSequenceNumber=9')
+      ? { body: { code: 'BOARD_SEARCH_SHARE_RATE_LIMITED' }, status: 429 }
+      : { body: { recorded: true } },
+  );
+  const chosen = await dataSource.recordBoardSearchApproximateWinStake(
+    'shared',
+    { spinCount: 100, stakeGrosze: 200, startSequenceNumber: 7 },
+  );
+  const base = await dataSource.recordBoardSearchApproximateWinStake('shared', {
+    spinCount: 100,
+    stakeGrosze: null,
+    startSequenceNumber: 7,
+  });
+  const refused = await dataSource.recordBoardSearchApproximateWinStake(
+    'shared',
+    { spinCount: 100, stakeGrosze: 200, startSequenceNumber: 9 },
+  );
+  assert.deepEqual(calls, [
+    '/approximate-win/stake?spinCount=100&startSequenceNumber=7&stakeGrosze=200',
+    '/approximate-win/stake?spinCount=100&startSequenceNumber=7',
+    '/approximate-win/stake?spinCount=100&startSequenceNumber=9&stakeGrosze=200',
+  ]);
+  assert.equal(chosen.error, undefined);
+  assert.equal(base.error, undefined);
+  assert.notEqual(refused.error, undefined);
+});

@@ -6,6 +6,15 @@ last_updated: 2026-10-02
 
 # Current State
 
+### TASK-0817 — stawka odbiorcy na wykresach dziennika linku (done)
+
+- D-487: strona linku zgłasza stawkę każdego pokazanego zakresu
+  (`GET …/approximate-win/stake`), API zapisuje ją jako wpis zakresu ze
+  `stakeGrosze`, a wykres w dzienniku Admina jest rysowany w tej stawce.
+  Bez migracji. Starsze wpisy: „stawka nieznana (wykres w stawce bazowej)”.
+- Do działania u odbiorców potrzebne są przebudowany Reviewer
+  (`npm run reviewer:build`) i restart API po scaleniu.
+
 ### TASK-0816 — dziennik linku grupuje te same wzory (done)
 
 - D-486: `listBoardSearchShareQueries` z `groupByPattern=true` zwraca jeden

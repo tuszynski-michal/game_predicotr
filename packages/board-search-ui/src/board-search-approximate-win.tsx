@@ -66,7 +66,7 @@ import {
 
 type ApproximateWinClient = Pick<
   BoardSearchDataSource,
-  'getBoardSearchApproximateWin'
+  'getBoardSearchApproximateWin' | 'recordBoardSearchApproximateWinStake'
 > &
   BoardLinesClient;
 
@@ -252,6 +252,41 @@ export function BoardSearchApproximateWin({
   }
 
   const visibleResult = visibleApproximateWinResult(state, requestKey);
+  // D-487: the link's owner sees the stake the recipient views each range
+  // at, so every (range, stake) pair shown is reported once. Best effort:
+  // a lost report only leaves that chart at an older or unknown stake.
+  const recordStake = api.recordBoardSearchApproximateWinStake;
+  const reportedStake = useRef<string | null>(null);
+  const shownStake =
+    visibleResult !== null &&
+    visibleResult.rules.spinCost > 0 &&
+    stakeChoice !== null &&
+    stakeChoice.searchKey === searchKey
+      ? {
+          spinCount: visibleResult.requestedSpinCount,
+          stakeGrosze: stakeChoice.stakeGrosze,
+          startSequenceNumber: visibleResult.startSequenceNumber,
+        }
+      : null;
+  const shownStakeKey =
+    shownStake === null
+      ? null
+      : `${shownStake.startSequenceNumber}:${shownStake.spinCount}:${shownStake.stakeGrosze ?? 'base'}`;
+  useEffect(() => {
+    if (
+      recordStake === undefined ||
+      shownStake === null ||
+      shownStakeKey === reportedStake.current
+    ) {
+      return;
+    }
+    reportedStake.current = shownStakeKey;
+    void Promise.resolve(recordStake(gameId, shownStake)).catch(
+      () => undefined,
+    );
+    // `shownStakeKey` stands for `shownStake`; the client is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shownStakeKey]);
   const showError = state.kind === 'error' && state.key === requestKey;
   const showLoading = state.kind === 'loading' && state.key === requestKey;
   const spinCost = visibleResult?.rules.spinCost ?? knownSpinCost;

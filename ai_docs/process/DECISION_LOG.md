@@ -6,6 +6,35 @@ last_updated: 2026-10-02
 
 # Decision Log
 
+## D-487 — dziennik linku zapisuje stawkę wybraną przez odbiorcę (zmienia D-472 i D-478)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0817.
+- **Context:** D-478 rysowało wykres dziennika w stawce bazowej, bo stawka
+  jest wybierana w przeglądarce odbiorcy po obliczeniu zakresu i nie trafiała
+  do API. Operator widział więc wykresy niezgodne z tym, co oglądał odbiorca.
+- **Decision:** strona linku zgłasza każdą parę (zakres, stawka), którą
+  pokazuje odbiorcy, przez `GET /board-search-shares/approximate-win/stake`.
+  API zapisuje ją jako wpis rodzaju `approximate_win` z `stakeGrosze`
+  (`null` = stawka bazowa) i pustym skrótem wyniku; niczego nie liczy.
+  Wykres w dzienniku jest rysowany w tej stawce, z podpisem kwoty. Wpisy
+  sprzed tej decyzji nie mają stawki: wykres zostaje w stawce bazowej z
+  podpisem „stawka nieznana”.
+- **Reason:** osobny rodzaj wpisu wymagałby migracji ograniczenia
+  `ck_bss_query_kind` i skoordynowanego przejścia wszystkich instancji API;
+  wpis zakresu ze stawką nie zmienia schematu i sam staje się
+  `followUpApproximateWin` wyszukiwania. Trasa jest odczytem `GET`, jak
+  wszystkie zapisywane zapytania tej powierzchni, więc proxy pozostaje
+  listą dozwolonych tras odczytu.
+- **Alternatives rejected:** stawka jako parametr kalkulacji zakresu
+  (stawka jest wybierana po kalkulacji, więc wymuszałaby ponowne liczenie);
+  nowy rodzaj wpisu z migracją.
+- **Consequences:** publiczna powierzchnia ma dziewiątą trasę (bramka
+  bezpieczeństwa Reviewera zaktualizowana). Zgłoszenie stawki jest
+  nieblokujące: gdy się nie powiedzie, odbiorca nic nie traci, a wykres
+  operatora zostaje przy starszej albo nieznanej stawce. Wpis stawki bez
+  wcześniejszej kalkulacji jest możliwy (API nie sprawdza, czy zakres był
+  liczony) i dla Admina znaczy tylko „zakres i stawka do narysowania”.
+
 ## D-486 — dziennik linku grupuje wyszukiwania tego samego wzoru (zmienia D-478)
 
 - **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0816.

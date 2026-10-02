@@ -500,7 +500,7 @@ operationId: getBoardSearchShareQueryReplay
 
 <wpis> = { id, sessionId, gameId, occurredAt, kind: search|approximate_win|board_detail,
            request, resultSummary, outcomeCode,
-           followUpApproximateWin: { startSequenceNumber, spinCount } | null,
+           followUpApproximateWin: { startSequenceNumber, spinCount, stakeGrosze? } | null,
            occurrenceTimes: [datetime] }
 followUpApproximateWin (tylko dla search): żądanie najnowszej udanej przybliżonej
 wygranej po tym wyszukiwaniu, a przed następnym. We wpisie grupowym: z
@@ -538,6 +538,8 @@ GET  /api/v1/board-search-shares/symbols
 GET  /api/v1/board-search-shares/symbols/{symbolId}/image?revision={sha256}
 GET  /api/v1/board-search-shares/search?cell=&scope=&limit=
 GET  /api/v1/board-search-shares/approximate-win?startSequenceNumber=&spinCount=
+GET  /api/v1/board-search-shares/approximate-win/stake
+     ?startSequenceNumber=&spinCount=&stakeGrosze=
 GET  /api/v1/board-search-shares/boards/{sequenceNumber}
 GET  /api/v1/board-search-shares/boards/{sequenceNumber}/view
      ?expectedBoardChecksumSha256=&viewRevision=
@@ -552,6 +554,10 @@ GET  /api/v1/board-search-shares/boards/{sequenceNumber}/view
   `boards/{n}` zawsze ma `cells = null` (D-473) i nie ma odświeżania. Oba
   kształty Admina zawierają `gameId` i `rulesVersionId`: to nie są sekrety,
   a wspólny UI porównuje `rulesVersionId` przy spójności okna planszy.
+- `approximate-win/stake` (D-487, `recordBoardSearchShareApproximateWinStake`)
+  niczego nie liczy: zapisuje stawkę, w której odbiorca ogląda policzony
+  zakres, i zwraca `{ recorded: true }`. `stakeGrosze` 1..10 000 000; brak
+  parametru oznacza stawkę bazową. Liczy się do limitu żądań JSON.
 - Wzór: najwyżej 15 komórek po najwyżej 67 znaków (`indeks:kod`); dłuższy
   albo liczniejszy daje `422 BOARD_SEARCH_SHARE_QUERY_INVALID` bez odczytu i
   bez wpisu.
@@ -569,6 +575,10 @@ stabilny kod błędu). Wzór wyszukiwania jest zapisany w całości, także z
 polami `?` przesłanymi przez klienta. Wpis jest zatwierdzany w osobnej
 krótkiej transakcji zanim odpowiedź z danymi opuści API (D-475); gdy zapis się nie
 uda, odpowiedź to `503 BOARD_SEARCH_SHARE_QUERY_LOG_UNAVAILABLE` bez danych.
+Zapis stawki (D-487) to wpis rodzaju `approximate_win` z
+`request = { startSequenceNumber, spinCount, stakeGrosze: int | null }` i
+pustym skrótem wyniku; jako najnowszy wpis zakresu po wyszukiwaniu staje się
+jego `followUpApproximateWin`, więc Admin dostaje stawkę razem z zakresem.
 Nieprawidłowe parametry (`422`) nie są zapytaniami o dane i nie są
 zapisywane. Odblokowanie, kontekst, symbole i obrazy nie trafiają do
 dziennika. Nie są zapisywane adresy IP ani nagłówki przeglądarki.

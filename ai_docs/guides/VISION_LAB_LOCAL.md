@@ -641,3 +641,124 @@ odmawiają pracy, gdy jakiś run jest aktywny. Po przeniesieniu kodu do główne
 checkoutu ustaw `PYTHONPATH` na `services\worker\src` tego checkoutu; ścieżka kodu
 dla wznowień jest zapisana w `settings.json` katalogu runów (`pythonpath`). Wyniki,
 metryki i presety opisuje `ai_docs/quality/GRID_V3_NEURAL_GRID_RUNS_20261002.md`.
+## Bramka `hybrid_v3` — kalibracja (TASK-0803)
+
+`hybrid_v3` (`vision_lab/hybrid_v3_engine.py`, logika w `hybrid_v3_gate.py`) łączy
+siatki odniesienia (wejście zdjęcia: w aplikacji wynik silnika produkcyjnego, w labie
+etykiety snapshotu) z siatkami `neural_grid` pod kontraktem `GeometryEngine`. Plansza
+jest `confident` (`status: complete`) tylko przy zgodności quadów i węzłów obu źródeł;
+każda inna dostaje `needs_review` z powodem `HYBRID_V3_*`; plansza tylko z sieci nigdy
+nie jest pewna. Zdjęcie jest pewne tylko, gdy wszystkie plansze są pewne i liczby plansz
+obu źródeł są równe (pierwszy powód wyniku: `HYBRID_V3_PHOTO_CONFIDENT` albo
+`HYBRID_V3_PHOTO_NEEDS_REVIEW`). Wynik służy wyłącznie do review/shadow (D-461).
+
+Kalibracja progów czyta tylko rolę `development` (inna rola, także `training`, kończy
+się `RoleForbiddenError` przed otwarciem snapshotu), używa eksportu ONNX na CPU i zapisuje
+wyniki w nowym katalogu obok runu; siatka progów i reguła wyboru są stałymi w
+`hybrid_v3_calibration.py`. Nie wymaga GPU i może działać równolegle z treningiem (4 wątki
+CPU, ok. 2,5 min na 600 zdjęć).
+
+```powershell
+$env:PYTHONPATH = 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\services\worker\src'
+$r = 'C:\Users\tuszy\Documents\game_predictor_vision_data\neural-grid-runs\<run_id>'
+.\.venv\Scripts\python.exe -m game_predictor_worker.vision_lab.hybrid_v3_calibration `
+  --bundle "$r\exports\<katalog_eksportu>" --output "$r\hybrid-v3-calibration" --threads 4 `
+  --evaluation "$r\evaluations\<plik_ewaluacji>.json"   # --reuse-network: bez ponownej inferencji
+```
+
+Wynik, krzywą pokrycie–błąd i znaczenie liczb opisuje
+`ai_docs/quality/GRID_V3_HYBRID_GATE_20261002.md`. Progi wybrane dla runu 1 są w
+`hybrid_v3_engine.RUN1_DEVELOPMENT_THRESHOLDS`; inny model wymaga nowej kalibracji.
+
+## Kompletne zdjęcia Mumie, Blazing i Gang z propozycjami sieci (TASK-0824, D-490)
+
+Osobna strona `http://127.0.0.1:8105` (tylko `127.0.0.1`) służy do przeglądu zdjęć
+gier Mumie, Blazing i Gang z propozycjami siatek sieci `neural_grid` runu 1. Zapis
+idzie wyłącznie do istniejącego magazynu anotacji labu (blokada, rewizja CAS,
+potwierdzenia, historia); nie ma równoległego magazynu. Reels i Treasure są
+wyłączone (strażnik w kolejce, w generatorze propozycji, na stronie i w zapisie).
+
+Start i zatrzymanie z katalogu repozytorium (jedna komenda, proces w tle):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\vision_lab_assisted_annotation.ps1 -Action Start
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\vision_lab_assisted_annotation.ps1 -Action Stop
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\vision_lab_assisted_annotation.ps1 -Action Status
+```
+
+Start czeka najwyżej 60 s na gotowość i wypisuje adres; zajęty port 8105 albo
+działająca już strona nie uruchamia drugiej kopii. Stop kończy wyłącznie procesy tej
+strony na tym porcie (także proces potomny launchera venv). Logi:
+`<LAB>\assisted-annotation\logs`. Nie uruchamiaj równolegle API labu 8102 piszącego do
+tego samego magazynu — zapis jest chroniony blokadą, ale druga strona zgłosi
+„Magazyn anotacji zajęty” albo konflikt rewizji.
+
+Kolejka: najpierw Mumie, potem Blazing i Gang. Obejmuje zdjęcia folderu
+`game_predictor_traning_set\{mumie,blazing,gang}` (dopasowane po SHA-256 do źródeł
+katalogu labu; identyfikatory i rodziny pochodzą z katalogu) oraz wcześniej
+anotowane zdjęcia labu tych gier. Propozycje leżą w niezmiennym artefakcie
+`<LAB>\assisted-annotation\proposals\<id>\proposals.json` (suma kontrolna, wersja
+modelu, katalog eksportu ONNX) i **nie są etykietami**. Ponowne wygenerowanie
+(`python -m game_predictor_worker.vision_lab.assisted_annotation proposals ...`,
+CPU, najwyżej 4 wątki, ok. 0,3 s na zdjęcie) odmawia nadpisania istniejącego zbioru.
+
+Na zdjęciu: pomarańczowa przerywana siatka to propozycja sieci, zielona —
+zaakceptowana, ciemnozielona z literą `L` — wcześniejsza praca w labie
+(zablokowana; zmiana tylko w edytorze T03), żółta — cofnięta akceptacja, różowa —
+zmieniona albo nowa. Liczba na planszy to numer pozycji 1–9 (rzędami, od lewej);
+dla propozycji i nowych plansz jest wyliczany z układu, a przy „?” albo kolizji
+ustaw go klawiszem `1`–`9`. Propozycja pokrywająca zapisaną planszę jest ukryta.
+
+| Klawisz | Działanie |
+|---|---|
+| `A` / `Enter` | akceptuj zaznaczoną planszę (zapis pełnej siatki) |
+| `Tab` / `Shift+Tab` | następna / poprzednia plansza |
+| przeciągnięcie narożnika | korekta; siatka 5 × 3 liczona projekcyjnie z 4 narożników |
+| `1`–`9` | numer pozycji nowej planszy lub propozycji |
+| `N` | nowa plansza: kliknij 4 narożniki w kolejności LG, PG, PD, LD (`Esc` przerywa) |
+| `X` / `Delete` | odrzuć propozycję / usuń planszę zaakceptowaną w tym przepływie |
+| `R` | cofnij akceptację planszy |
+| `U` / `Ctrl+Z` | cofnij ostatnie przesunięcie narożnika |
+| `C`, liczba, `Enter` | potwierdź liczbę plansz i zatwierdź zdjęcie |
+| `Spacja` / `PageDown`, `PageUp` | następne / poprzednie zdjęcie |
+| `J` | następne niekompletne zdjęcie |
+| `Z` | powiększenie zaznaczonej planszy / całe zdjęcie |
+| `H` | ukryj / pokaż siatki |
+| `O` | pokaż odrzucone propozycje (`X` na odrzuconej przywraca) |
+| `Y` | ponów identyczne żądanie po utracie odpowiedzi |
+
+Pochodzenie każdej zaakceptowanej siatki jest zapisane: propozycja bez zmian,
+propozycja poprawiona (z identyfikatorem i sumą propozycji oraz przesunięciem
+narożników) albo narysowana ręcznie; plansze sprzed tego przepływu mają pochodzenie
+„wcześniejsza praca w labie”. Zdjęcie jest **kompletne** dopiero po wpisaniu liczby
+plansz równej liczbie zaakceptowanych siatek, gdy żadna plansza nie ma cofniętej
+akceptacji (D-484). Zatwierdzenie wiąże rewizje wszystkich plansz i obejmuje
+akceptację zdjęcia T03d; cofnięcie akceptacji, usunięcie, dodanie planszy albo zmiana
+w edytorze T03 cofa kompletność. Plansza częściowo poza kadrem nie przejdzie zapisu
+(`GEOMETRY_OUTSIDE_SOURCE`) — takie zdjęcie pomiń (`Spacja`), wyjątek D-484 wymaga
+osobnej decyzji. Dodanie planszy do wcześniej zaakceptowanego zdjęcia labu unieważnia
+jego akceptację T03d do czasu zatwierdzenia kompletu.
+
+Każda decyzja jest od razu trwała; zamknięcie przeglądarki lub zatrzymanie strony
+traci tylko niezaakceptowane przesunięcia narożników. Strona wraca do ostatniego
+zdjęcia. Nagłówek pokazuje licznik kompletnych zdjęć na grę, czas aktywny na
+bieżącym zdjęciu (przerwy powyżej 30 s nie są liczone), średni czas na kompletne
+zdjęcie i średnią z pierwszych 10. Uwaga: pierwszy zapis w magazynie oznacza
+zamrożony podział pilota D-456 jako `split_stale` (zachowanie magazynu przy każdej
+zmianie geometrii); podział, manifesty i wyniki T05 pozostają bez zmian, lecz runy
+labu na manifeście D-456 zwrócą `RUN_DATA_DRIFT`.
+
+Eksport kompletnych zdjęć dla snapshotu treningowego runu 3:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File scripts\vision_lab_assisted_annotation.ps1 -Action Export
+```
+
+Tworzy (bez nadpisywania) `<LAB>\assisted-annotation\exports\<export_id>\` z
+`complete-photos.jsonl` (zdjęcie → plansze w kolejności czytania → 24 węzły, quad,
+pozycja, pochodzenie, rewizje, gra, rodzina, SHA-256 źródła, wymiary po EXIF) i
+`manifest.json` (sumy kontrolne, liczności na grę, rewizja magazynu, zbiór
+propozycji). Ten sam stan daje ten sam identyfikator. Funkcja
+`assisted_annotation.write_reader_snapshot` zamienia wiersze na katalog w formacie
+`production-geometry-snapshot-v1` czytany przez `neural_grid_data.load_samples`;
+podział na trening i odłożoną ocenę należy do następnego zadania.

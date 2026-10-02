@@ -50,6 +50,12 @@ export type AnnotationState = {
         [key: string]: GeometryAnnotationOutput;
     };
     /**
+     * Assisted Photos
+     */
+    assisted_photos: {
+        [key: string]: AssistedPhoto;
+    };
+    /**
      * Families
      */
     families: {
@@ -98,6 +104,109 @@ export type Artifact = {
      * Sha256
      */
     sha256: string;
+};
+
+/**
+ * AssistedBoard
+ *
+ * The latest D-490 workflow decision for one board slot of a photo.
+ *
+ * The record owns the slot only while ``annotation_revision`` equals the revision of
+ * the stored annotation; any other writer (the T03 editor) takes the slot back.
+ */
+export type AssistedBoard = {
+    /**
+     * Actor
+     */
+    actor: string;
+    /**
+     * Annotation Revision
+     */
+    annotation_revision: number;
+    /**
+     * Board Index
+     */
+    board_index: number;
+    /**
+     * Decided At
+     */
+    decided_at: string;
+    /**
+     * Max Corner Shift Px
+     */
+    max_corner_shift_px: number;
+    /**
+     * Origin
+     */
+    origin: 'proposal_unchanged' | 'proposal_corrected' | 'manual';
+    /**
+     * Proposal Id
+     */
+    proposal_id: string;
+    /**
+     * Proposal Set Id
+     */
+    proposal_set_id: string;
+    /**
+     * Proposal Sha256
+     */
+    proposal_sha256: string;
+    /**
+     * Status
+     */
+    status: 'accepted' | 'revoked' | 'removed';
+};
+
+/**
+ * AssistedPhoto
+ *
+ * Completeness of a whole photo (D-484, D-490) bound to its board revisions.
+ */
+export type AssistedPhoto = {
+    /**
+     * Active Ms
+     */
+    active_ms: number;
+    /**
+     * Actor
+     */
+    actor: string;
+    /**
+     * Boards
+     */
+    boards: {
+        [key: string]: AssistedBoard;
+    };
+    /**
+     * Completed At
+     */
+    completed_at: string;
+    /**
+     * Completed Board Revisions
+     */
+    completed_board_revisions: {
+        [key: string]: number;
+    };
+    /**
+     * Confirmed Board Count
+     */
+    confirmed_board_count: number | null;
+    /**
+     * Decided At
+     */
+    decided_at: string;
+    /**
+     * Dismissed Proposal Ids
+     */
+    dismissed_proposal_ids: Array<string>;
+    /**
+     * Source Id
+     */
+    source_id: string;
+    /**
+     * Source Sha256
+     */
+    source_sha256: string;
 };
 
 /**

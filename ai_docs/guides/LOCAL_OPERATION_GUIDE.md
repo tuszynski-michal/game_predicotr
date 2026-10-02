@@ -1241,7 +1241,7 @@ Nie używa historycznych downgrade'ów, dlatego reset nie zależy od zawartości
 starych rekordów. Nie usuwa zdjęć źródłowych, APK, snapshotów SQLite, klucza
 podpisu ani innych plików z repozytorium.
 
-## Trwałe usunięcie zarchiwizowanej gry (TASK-0824)
+## Trwałe usunięcie zarchiwizowanej gry (TASK-0826)
 
 Panel Admin tylko archiwizuje grę. Trwałe usunięcie jednej zarchiwizowanej gry
 V2 wykonuje komenda utrzymaniowa; bez `--execute` jedynie czyta bazę:

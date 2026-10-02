@@ -15,6 +15,7 @@ from typing import Any
 from .annotation_contracts import (
     AnnotationRequest,
     AnnotationState,
+    AssistedRequest,
     BackupResult,
     FamilyRequest,
     GeometryQualificationRequest,
@@ -238,7 +239,8 @@ class AnnotationStore:
         | FamilyRequest
         | SplitRequest
         | PhotoReviewRequest
-        | GeometryQualificationRequest,
+        | GeometryQualificationRequest
+        | AssistedRequest,
     ) -> AnnotationState:
         with exclusive(self.root):
             payload = self._load()
@@ -264,8 +266,16 @@ class AnnotationStore:
             if not request.actor.strip():
                 raise ValueError("ACTOR_REQUIRED")
             now = datetime.now(UTC).isoformat()
+            assisted_board: int | None = None
+            assisted_review = False
             if isinstance(request, AnnotationRequest):
                 self._annotate(state, request, now)
+            elif isinstance(request, AssistedRequest):
+                from .assisted_annotation import apply_assisted
+
+                assisted_board, assisted_review = apply_assisted(
+                    state, self.catalog, request, now, self._annotate
+                )
             elif isinstance(request, PhotoReviewRequest):
                 source = self.catalog.sources.get(request.source_id)
                 if source is None:
@@ -302,6 +312,10 @@ class AnnotationStore:
                         annotation_key(request.annotation.source_id, request.annotation.board_index)
                     ].model_dump()
                     if isinstance(request, AnnotationRequest)
+                    else state.annotations[
+                        annotation_key(request.source_id, assisted_board)
+                    ].model_dump()
+                    if isinstance(request, AssistedRequest) and assisted_board is not None
                     else None,
                     "family": state.families[request.decision.source_ids[0]].model_dump()
                     if isinstance(request, FamilyRequest)
@@ -309,6 +323,12 @@ class AnnotationStore:
                     **(
                         {"photo_review": state.photo_reviews[request.source_id].model_dump()}
                         if isinstance(request, PhotoReviewRequest)
+                        or (isinstance(request, AssistedRequest) and assisted_review)
+                        else {}
+                    ),
+                    **(
+                        {"assisted_photo": state.assisted_photos[request.source_id].model_dump()}
+                        if isinstance(request, AssistedRequest)
                         else {}
                     ),
                     **(

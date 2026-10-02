@@ -16,7 +16,7 @@ last_updated: 2026-10-02
 - Testy API 42/42, interakcje Reviewera 12/12, typecheck, lint i `check:generated`
   czyste. **Brak odbioru na żywo**: wymagany restart API i `reviewer:build`.
 
-### TASK-0824 — trwałe usunięcie zarchiwizowanej gry V2 (done)
+### TASK-0826 — trwałe usunięcie zarchiwizowanej gry V2 (done)
 
 - Na prośbę operatora (2026-10-02) usunięto z bazy deweloperskiej dwie testowe,
   zarchiwizowane gry „Mumie” (`mums`, `mums-test-1`): partycje `game_data_v2`,
@@ -28,7 +28,7 @@ last_updated: 2026-10-02
 - Na dysku pozostały niereferencjonowane pliki obu gier (ok. 8 MB w
   `imports/browser-selections` i jeden manifest geometrii); lista w Outcome
   zadania. Scalono do `v1.1-vision-lab-hybrid-geometry` jako `v1.7.168`
-  (numer zadania zmieniony z TASK-0812 na TASK-0824, bo 0812 zajęte).
+  (numer zadania zmieniony z TASK-0812 na TASK-0826, bo 0812 i 0824 zajęte).
 
 ### TASK-0822 — klikalne kafelki i wybór symbolu w korekcie siatki (done, D-488)
 
@@ -381,6 +381,31 @@ last_updated: 2026-10-02
   0,0008 px, CPU 0,18 s na zdjęcie (4 wątki). **Run 2 (preset B)**
   `ff03b1d7…f31d` uruchomiony 2026-10-02 ok. 16:50 na polecenie operatora
   (trzy runy); run 3 (preset C) po nim.
+- TASK-0803 done (`v1.7.168`): `hybrid_v3` — bramka zgodności siatek
+  odniesienia i `neural_grid` (plansza `confident` tylko przy zgodności;
+  plansza tylko z sieci nigdy). Kalibracja na development dla modelu runu 1:
+  IoU 0,90, tolerancja węzłów 0,04, reszta 0,005 → 90,3% zdjęć `confident`
+  (B 98,0%, S 82,7%), 7 błędnych plansz `confident` względem etykiety
+  (0,13%; wszystkie na S). Z 49 plansz S uznanych przez metrykę za błędne
+  bramka kieruje do przeglądu 42. Ograniczenia: na B odniesienie = etykieta
+  (mierzy zgodność), na S brak pierwotnego wyniku silnika produkcyjnego —
+  propozycja dopisania go eksporterem przed TASK-0804; progi związane z
+  modelem runu 1, do powtórzenia po kolejnych runach. Raport:
+  `ai_docs/quality/GRID_V3_HYBRID_GATE_20261002.md`.
+- 2026-10-02 operator: run 2 (preset B) zostaje; run 3 ma przygotować sieć
+  do gry Mumie (nowe ustawienie — wymaga kompletnych siatek Mumii, zmiany
+  roli Mumii w D-456 i zgody na wagi startowe; czeka na decyzje operatora).
+- D-490 (2026-10-02): run 3 = nowy preset D (777 + Mumie, Blazing, Gang,
+  wagi ImageNet); zmiana D-456; wymagania symboli premium Mumii zapisane.
+- TASK-0824 done (`v1.7.170`): wspomagana anotacja kompletnych zdjęć labu —
+  strona `http://127.0.0.1:8105` (start:
+  `scripts\vision_lab_assisted_annotation.ps1 -Action Start`), zapis przez
+  istniejący magazyn anotacji (`assisted_photos`), propozycje sieci runu 1
+  dla 319 zdjęć (Mumie 236, Blazing 37, Gang 46; 9 propozycji na każdym
+  zdjęciu Mumii i Blazing, Gang słabszy), eksport kompletnych zdjęć z
+  adapterem do czytnika `neural_grid`. **Czeka na operatora:** przegląd i
+  korekta siatek (Mumie pierwsze). Następne zadania: snapshot łączony i
+  preset D (po anotacji), ocena runu 2, TASK-0804.
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

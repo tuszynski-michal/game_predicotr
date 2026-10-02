@@ -40,6 +40,7 @@ from game_predictor_api.storage.models import (
     ReviewResolutionModel,
     SymbolModel,
 )
+from game_predictor_api.storage.partition_constraints import resolve_unique_constraint_name
 
 
 class SqlAlchemyReviewRepository(ReviewRepository):
@@ -127,16 +128,23 @@ class SqlAlchemyReviewRepository(ReviewRepository):
             item_count=len(selection.item_snapshots),
             source_report=dict(selection.source_report),
         )
-        self._session.add(record)
         try:
-            self._session.flush()
-            self._session.add_all(
-                [_review_item_record(record.id, snapshot) for snapshot in selection.item_snapshots]
-            )
-            self._session.flush()
+            # The savepoint keeps the transaction usable so that the violated
+            # index can be resolved through the catalog (partition-aware).
+            with self._session.begin_nested():
+                self._session.add(record)
+                self._session.flush()
+                self._session.add_all(
+                    [
+                        _review_item_record(record.id, snapshot)
+                        for snapshot in selection.item_snapshots
+                    ]
+                )
+                self._session.flush()
         except IntegrityError as error:
-            diagnostic = getattr(error.orig, "diag", None)
-            constraint_name = getattr(diagnostic, "constraint_name", None)
+            constraint_name = resolve_unique_constraint_name(
+                self._session, error, ReviewBatchModel.__table__
+            )
             if constraint_name == "uq_review_batches_source_report_sha256":
                 raise ReviewConflictError(
                     "REVIEW_REPORT_IMPORT_RACE",

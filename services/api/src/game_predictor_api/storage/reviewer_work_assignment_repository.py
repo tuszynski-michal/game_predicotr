@@ -37,6 +37,7 @@ from game_predictor_api.storage.models import (
     ReviewerWorkAssignmentModel,
     SourceImageModel,
 )
+from game_predictor_api.storage.partition_constraints import resolve_unique_constraint_name
 
 _ASSIGNMENTS_TABLE = "reviewer_work_assignments"
 
@@ -111,11 +112,16 @@ class SqlAlchemyReviewerWorkAssignmentRepository(ReviewerWorkAssignmentRepositor
             created_at=assignment.created_at,
             updated_at=assignment.updated_at,
         )
-        self._session.add(record)
         try:
-            self._session.flush()
+            # The savepoint keeps the transaction usable so that the violated
+            # index can be resolved through the catalog (partition-aware).
+            with self._session.begin_nested():
+                self._session.add(record)
+                self._session.flush()
         except IntegrityError as error:
-            constraint = getattr(getattr(error.orig, "diag", None), "constraint_name", None)
+            constraint = resolve_unique_constraint_name(
+                self._session, error, ReviewerWorkAssignmentModel.__table__
+            )
             if constraint == "uq_reviewer_work_assignments_active_import":
                 raise ReviewerWorkAssignmentConflictError(
                     "REVIEWER_ASSIGNMENT_ALREADY_ACTIVE",

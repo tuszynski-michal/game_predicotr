@@ -78,13 +78,12 @@ def test_v010_virtual_geometry_upgrade_defaults_and_downgrade(
         )["nullable"]
 
         # The 0082 rollout table starts a game on the 0082-era defaults. The
-        # repository's bounded backfill (SqlAlchemyImageGeometryRolloutRepository
-        # .backfill_legacy_states) is no longer run on this schema: since D-467
-        # (TASK-0790, 102a6c8f) it writes ``structured_lattice_v3`` /
-        # ``virtual_default``, which the 0082 CHECK does not admit (0095 adds
-        # the mode), and since D-448 (migration 0125) the table exists only per
-        # game in ``game_data_v2``. A new game's rollout state is created by the
-        # partition lifecycle; see test_game_partition_lifecycle_postgres.py::
+        # former bounded repository backfill (removed in TASK-0812) wrote
+        # ``structured_lattice_v3`` / ``virtual_default``, which the 0082 CHECK
+        # does not admit (0095 adds the mode), and since D-448 (migration 0125)
+        # the table exists only per game in ``game_data_v2``. A new game's
+        # rollout state is created by the partition lifecycle; see
+        # test_game_partition_lifecycle_postgres.py::
         # test_greenfield_catalog_create_provisions_v2_before_return.
         with engine.begin() as connection:
             connection.execute(

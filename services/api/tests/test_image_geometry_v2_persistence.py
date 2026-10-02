@@ -5,7 +5,6 @@ import pytest
 from game_predictor_api.storage.image_geometry_v2_repository import (
     ImageGeometryPersistenceError,
     SourceGeometryRevisionInput,
-    SqlAlchemyImageGeometryRolloutRepository,
     SqlAlchemyImageSourceGeometryRepository,
 )
 from game_predictor_api.storage.models import (
@@ -100,11 +99,3 @@ def test_source_geometry_repository_rejects_non_contiguous_attested_slots() -> N
         SqlAlchemyImageSourceGeometryRepository._validate_input(invalid)
 
     assert error.value.code == "IMAGE_GEOMETRY_SEQUENCE_ATTESTATION_INVALID"
-
-
-@pytest.mark.parametrize("limit", [0, 501])
-def test_rollout_backfill_rejects_unbounded_batch_sizes(limit: int) -> None:
-    repository = SqlAlchemyImageGeometryRolloutRepository(session=None)  # type: ignore[arg-type]
-
-    with pytest.raises(ValueError, match="limit must be between"):
-        repository.backfill_legacy_states(limit=limit)

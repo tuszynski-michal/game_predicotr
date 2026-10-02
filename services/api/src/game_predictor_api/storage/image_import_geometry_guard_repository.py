@@ -24,6 +24,7 @@ from game_predictor_api.storage.models import (
     ImageImportGeometryGuardResolutionManifestModel,
     JobModel,
 )
+from game_predictor_api.storage.partition_constraints import resolve_unique_constraint_name
 
 
 class SqlAlchemyImageImportGeometryGuardRepository:
@@ -128,7 +129,10 @@ class SqlAlchemyImageImportGeometryGuardRepository:
             with self._session.begin_nested():
                 return self._add_decisions(values)
         except IntegrityError as error:
-            if getattr(getattr(error.orig, "diag", None), "constraint_name", None) not in {
+            constraint = resolve_unique_constraint_name(
+                self._session, error, ImageImportGeometryGuardDecisionModel.__table__
+            )
+            if constraint is None or constraint not in {
                 "uq_image_import_guard_decisions_revision",
                 "uq_image_import_guard_decisions_checksum",
             }:

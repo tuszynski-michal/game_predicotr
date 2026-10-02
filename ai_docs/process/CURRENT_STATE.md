@@ -147,6 +147,17 @@ last_updated: 2026-10-01
     w nim), a pozostałe 1 154 zdjęcia są wskazywane przez 152 865 zdarzeń
     weryfikacji symboli importu `f4ef3449`
     (`previous_source_geometry_revision_id`); podgląd kwalifikuje 0 zdjęć.
+  - TASK-0812 done (`v1.7.152`): wspólny `storage/partition_constraints.py`
+    rozpoznaje naruszenie unikalności zgłoszone na partycji gry (rodzic z
+    `pg_inherits`, dopasowanie kolumn i predykatu do ograniczeń ORM) w
+    czterech repozytoriach tabel gry; test przydziałów bez `xfail`;
+    `ai_docs/quality/*.json` z `eol=lf` (`test_reviews.py` 7/7 na Windows);
+    martwy `backfill_legacy_states` usunięty. Pełny `db:baseline:verify`:
+    233 passed, 3 failed — wszystkie trzy przechodzą uruchomione osobno,
+    przyczyną jest limit 260 znaków ścieżki Windows w głębokim katalogu
+    worktree (dwa potwierdzone `FileNotFoundError`, trzeci niezdiagnozowany).
+- 2026-10-02 operator uruchomił etap V3-A (TASK-0800, TASK-0801) po
+  TASK-0812; STOP przy przeglądzie plansz w TASK-0801.
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

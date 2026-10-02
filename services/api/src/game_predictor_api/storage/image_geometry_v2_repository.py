@@ -14,7 +14,6 @@ from typing import cast
 from uuid import UUID, uuid4
 
 from sqlalchemy import select
-from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.board_topology import BoardTopology
@@ -33,9 +32,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     resolve_manual_geometry_qualification,
     sequence_attestation_checksum_sha256,
 )
-from game_predictor_api.domain.image_import_engine_policy import default_rollout_modes
 from game_predictor_api.storage.models import (
-    GameModel,
     ImageGeometryRolloutStateModel,
     ImageSourceGeometryRevisionModel,
     JobModel,
@@ -44,9 +41,6 @@ from game_predictor_api.storage.models import (
 )
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
-_BACKFILL_ACTOR = "system:virtual-geometry-foundation"
-_DEFAULT_BACKFILL_LIMIT = 200
-_MAX_BACKFILL_LIMIT = 500
 
 
 class ImageGeometryPersistenceError(RuntimeError):
@@ -97,14 +91,6 @@ class GeometryRolloutState:
     cell_asset_mode: str
     revision: int
     backfill_status: str
-
-
-@dataclass(frozen=True, slots=True)
-class GeometryRolloutBackfillStep:
-    processed_game_count: int
-    inserted_state_count: int
-    last_game_id: UUID | None
-    has_more: bool
 
 
 class SqlAlchemyImageSourceGeometryRepository:
@@ -338,54 +324,8 @@ class SqlAlchemyImageGeometryRolloutRepository:
             backfill_status=model.backfill_status,
         )
 
-    def backfill_legacy_states(
-        self,
-        *,
-        after_game_id: UUID | None = None,
-        limit: int = _DEFAULT_BACKFILL_LIMIT,
-    ) -> GeometryRolloutBackfillStep:
-        if limit < 1 or limit > _MAX_BACKFILL_LIMIT:
-            raise ValueError(f"limit must be between 1 and {_MAX_BACKFILL_LIMIT}")
-        query = select(GameModel.id).order_by(GameModel.id).limit(limit + 1)
-        if after_game_id is not None:
-            query = query.where(GameModel.id > after_game_id)
-        game_ids = list(self._session.execute(query).scalars())
-        batch = game_ids[:limit]
-        # D-467 (TASK-0790): a missing state starts on the virtual default policy.
-        default_geometry_mode, default_cell_asset_mode = default_rollout_modes()
-        if not batch:
-            return GeometryRolloutBackfillStep(0, 0, after_game_id, False)
-
-        inserted_game_ids = tuple(
-            self._session.execute(
-                postgresql_insert(ImageGeometryRolloutStateModel)
-                .values(
-                    [
-                        {
-                            "game_id": game_id,
-                            "geometry_mode": default_geometry_mode,
-                            "cell_asset_mode": default_cell_asset_mode,
-                            "revision": 0,
-                            "backfill_status": "not_started",
-                            "updated_by": _BACKFILL_ACTOR,
-                        }
-                        for game_id in batch
-                    ]
-                )
-                .on_conflict_do_nothing(index_elements=["game_id"])
-                .returning(ImageGeometryRolloutStateModel.game_id)
-            ).scalars()
-        )
-        return GeometryRolloutBackfillStep(
-            processed_game_count=len(batch),
-            inserted_state_count=len(inserted_game_ids),
-            last_game_id=batch[-1],
-            has_more=len(game_ids) > limit,
-        )
-
 
 __all__ = [
-    "GeometryRolloutBackfillStep",
     "GeometryRolloutState",
     "ImageGeometryPersistenceError",
     "SourceGeometryRevisionInput",

@@ -24,6 +24,7 @@ from game_predictor_api.storage.models import (
     ImagePageGeometryOverrideModel,
     ImagePageSourceExclusionModel,
 )
+from game_predictor_api.storage.partition_constraints import resolve_unique_constraint_name
 
 
 class SqlAlchemyPageGeometryOverrideRepository:
@@ -107,8 +108,11 @@ class SqlAlchemyPageGeometryOverrideRepository:
                 self._session.add(row)
                 self._session.flush()
         except IntegrityError as error:
-            if getattr(getattr(error.orig, "diag", None), "constraint_name", None) != (
-                "uq_image_page_geometry_overrides_revision"
+            if (
+                resolve_unique_constraint_name(
+                    self._session, error, ImagePageGeometryOverrideModel.__table__
+                )
+                != "uq_image_page_geometry_overrides_revision"
             ):
                 raise
             raise JobConflictError(

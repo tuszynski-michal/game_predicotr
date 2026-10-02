@@ -25,6 +25,8 @@ from game_predictor_api.application.reviewer_work_assignments import (
     ReviewerWorkAssignmentService,
 )
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.jobs import JobConflictError
+from game_predictor_api.domain.page_geometry_overrides import ImagePageGeometryOverride
 from game_predictor_api.domain.reviewer_work_assignments import (
     ReviewerWorkAssignmentConflictError,
     ReviewerWorkAssignmentType,
@@ -44,6 +46,9 @@ from game_predictor_api.storage.game_storage_routing import (
     game_storage_scope,
 )
 from game_predictor_api.storage.models import Base
+from game_predictor_api.storage.page_geometry_override_repository import (
+    SqlAlchemyPageGeometryOverrideRepository,
+)
 from game_predictor_api.storage.reviewer_work_assignment_repository import (
     OtherGamesOnlineAssignments,
     SqlAlchemyReviewerWorkAssignmentRepository,
@@ -51,6 +56,7 @@ from game_predictor_api.storage.reviewer_work_assignment_repository import (
 from game_predictor_api.storage.schema_readiness import EXPECTED_ALEMBIC_HEAD
 from sqlalchemy import Engine, create_engine, inspect, text
 from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[4]
@@ -333,16 +339,6 @@ def test_reviewer_work_assignments_enforce_one_active_row_and_keep_history(
         engine.dispose()
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Product bug (TASK-0810): SqlAlchemyReviewerWorkAssignmentRepository.add maps "
-        "the unique violation by the public index name "
-        "uq_reviewer_work_assignments_active_import, but in game_data_v2 PostgreSQL "
-        "reports the partition's generated index name (gpv2_<game>_<hash>_game_id_"
-        "import_job_id_idx<N>), so the code is REVIEWER_ASSIGNMENT_PERSISTENCE_CONFLICT."
-    ),
-)
 def test_duplicate_active_assignment_reports_already_active(isolated_database: URL) -> None:
     command.upgrade(_migration_config(isolated_database), "head")
     engine = create_engine(isolated_database, pool_pre_ping=True)
@@ -383,6 +379,62 @@ def test_duplicate_active_assignment_reports_already_active(isolated_database: U
         ):
             SqlAlchemyReviewerWorkAssignmentRepository(session).add(assignments[1])
         assert conflict.value.code == "REVIEWER_ASSIGNMENT_ALREADY_ACTIVE"
+    finally:
+        engine.dispose()
+
+
+def test_duplicate_geometry_override_revision_is_recognised_in_partition(
+    isolated_database: URL,
+) -> None:
+    """Partition-aware recognition for a second repository, plus unknown violations."""
+
+    command.upgrade(_migration_config(isolated_database), "head")
+    engine = create_engine(isolated_database, pool_pre_ping=True)
+    factory = create_session_factory(engine)
+    game_id = uuid4()
+    point = {"x": 1, "y": 1}
+
+    def override(*, row_id: UUID, revision: int, decision: str) -> ImagePageGeometryOverride:
+        return ImagePageGeometryOverride(
+            id=row_id,
+            game_id=game_id,
+            source_checksum_sha256="a" * 64,
+            image_width=100,
+            image_height=100,
+            final_quads=((point,) * 4,),
+            revision=revision,
+            actor="test",
+            decision_checksum_sha256=decision * 64,
+            created_at=datetime(2026, 8, 20, 12, tzinfo=UTC),
+        )
+
+    first_id = uuid4()
+    try:
+        _provision_game(engine, game_id=game_id, code="override-code-test")
+        with game_storage_scope(game_id), factory.begin() as session:
+            SqlAlchemyPageGeometryOverrideRepository(session).append(
+                override(row_id=first_id, revision=1, decision="b")
+            )
+        # Same (game, source, revision), new id: the partition reports a generated
+        # index name, which must still map to the revision conflict code.
+        with (
+            pytest.raises(JobConflictError) as conflict,
+            game_storage_scope(game_id),
+            factory.begin() as session,
+        ):
+            SqlAlchemyPageGeometryOverrideRepository(session).append(
+                override(row_id=uuid4(), revision=1, decision="c")
+            )
+        assert conflict.value.code == "IMAGE_PAGE_GEOMETRY_REVISION_CONFLICT"
+        # Same primary key, new revision: an unknown violation is raised unchanged.
+        with (
+            pytest.raises(IntegrityError),
+            game_storage_scope(game_id),
+            factory.begin() as session,
+        ):
+            SqlAlchemyPageGeometryOverrideRepository(session).append(
+                override(row_id=first_id, revision=2, decision="d")
+            )
     finally:
         engine.dispose()
 

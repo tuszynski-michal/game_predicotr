@@ -307,6 +307,92 @@ class BoardSearchBoardRefreshResult:
     document_removed: bool
 
 
+class BoardSearchStaleRefreshRepository(Protocol):
+    def stale_document_sequence_numbers(
+        self, *, game_id: UUID, after_sequence_number: int, limit: int
+    ) -> tuple[int, ...]: ...
+
+    def board_document(
+        self, *, game_id: UUID, sequence_number: int
+    ) -> tuple[BoardSearchAssetMode, BoardSearchBoardDocument | None]: ...
+
+    def board_view_source(
+        self, *, game_id: UUID, document: BoardSearchBoardDocument
+    ) -> BoardSearchBoardViewSource | None: ...
+
+    def refresh_board_document(
+        self, *, game_id: UUID, document: BoardSearchBoardDocument
+    ) -> None: ...
+
+
+@dataclass(frozen=True, slots=True)
+class BoardSearchStaleRefreshBatch:
+    """Outcome of one bounded batch; `last_sequence_number` is the cursor of
+    the next batch, `None` when no stale document remained after the cursor."""
+
+    refreshed: tuple[int, ...]
+    removed: tuple[int, ...]
+    still_stale: tuple[int, ...]
+    last_sequence_number: int | None
+
+
+class BoardSearchStaleDocumentRefresh:
+    """Bulk form of the modal's "refresh this board" (TASK-0814).
+
+    Each stale position goes through the same `refresh_board_document` sync
+    as `BoardSearchBoardDetailService.refresh`; no human decision changes.
+    The caller owns the transaction of a batch.
+    """
+
+    def __init__(self, repository: BoardSearchStaleRefreshRepository) -> None:
+        self._repository = repository
+
+    def stale_sequence_numbers(
+        self, *, game_id: UUID, after_sequence_number: int, limit: int
+    ) -> tuple[int, ...]:
+        return self._repository.stale_document_sequence_numbers(
+            game_id=game_id, after_sequence_number=after_sequence_number, limit=limit
+        )
+
+    def refresh_batch(
+        self, *, game_id: UUID, after_sequence_number: int, limit: int
+    ) -> BoardSearchStaleRefreshBatch:
+        if limit < 1:
+            raise ValueError("limit must be positive")
+        positions = self.stale_sequence_numbers(
+            game_id=game_id, after_sequence_number=after_sequence_number, limit=limit
+        )
+        refreshed: list[int] = []
+        removed: list[int] = []
+        still_stale: list[int] = []
+        for sequence_number in positions:
+            _source, document = self._repository.board_document(
+                game_id=game_id, sequence_number=sequence_number
+            )
+            if document is None:
+                # An earlier refresh in this batch already rebuilt the position.
+                removed.append(sequence_number)
+                continue
+            self._repository.refresh_board_document(game_id=game_id, document=document)
+            _source, rebuilt = self._repository.board_document(
+                game_id=game_id, sequence_number=sequence_number
+            )
+            if rebuilt is None:
+                removed.append(sequence_number)
+            elif _is_stale(
+                self._repository.board_view_source(game_id=game_id, document=rebuilt), rebuilt
+            ):
+                still_stale.append(sequence_number)
+            else:
+                refreshed.append(sequence_number)
+        return BoardSearchStaleRefreshBatch(
+            refreshed=tuple(refreshed),
+            removed=tuple(removed),
+            still_stale=tuple(still_stale),
+            last_sequence_number=positions[-1] if positions else None,
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class BoardSearchBoardViewAsset:
     content: bytes
@@ -526,6 +612,9 @@ __all__ = [
     "BoardSearchBoardViewAsset",
     "BoardSearchBoardViewCache",
     "BoardSearchBoardViewService",
+    "BoardSearchStaleDocumentRefresh",
+    "BoardSearchStaleRefreshBatch",
+    "BoardSearchStaleRefreshRepository",
     "DEFAULT_BOARD_VIEW_CACHE_BYTES",
     "render_board_view",
 ]

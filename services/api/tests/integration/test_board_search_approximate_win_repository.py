@@ -32,6 +32,7 @@ from game_predictor_api.application.board_search_approximate_win import (
 )
 from game_predictor_api.application.board_search_board_detail import (
     BoardSearchBoardDetailService,
+    BoardSearchStaleDocumentRefresh,
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import SymbolStatus
@@ -679,3 +680,84 @@ def test_board_detail_reads_lines_geometry_and_detects_a_newer_board_revision(
         ).detail(game_id=game_id, sequence_number=5)
     assert after.document_stale is False
     assert after.payout_credits == 25
+
+
+def test_bulk_refresh_selects_and_refreshes_only_stale_documents(database: Engine) -> None:
+    """TASK-0814: the bulk refresh picks exactly the documents the board
+    detail calls stale, rebuilds them like the modal button and leaves fresh
+    documents alone."""
+
+    game_id = uuid4()
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        session.add(
+            GameModel(id=game_id, code="v2-stale", name="V2 Stale", expected_layout_count=20)
+        )
+        session.flush()
+        _provision_v2_storage_location(session, game_id=game_id)
+        session.add(
+            SymbolModel(
+                game_id=game_id,
+                mobile_code=1,
+                code="A",
+                name="Symbol A",
+                is_wildcard=False,
+                display_order=0,
+                status=SymbolStatus.ACTIVE,
+            )
+        )
+        session.flush()
+        job = _import_job(session, game_id=game_id)
+        source = _source(session, job=job, relative_path="imports/page_1.jpg")
+        items = [
+            _resolved_review_item(
+                session,
+                game_id=game_id,
+                job=job,
+                source=source,
+                position=position,
+                sequence_number=position + 3,
+                symbol_codes=_known(first=5),
+            )
+            for position in range(3)
+        ]
+        SqlAlchemyBoardSearchProjectionRepository(session).rebuild_game(game_id)
+        # The middle board's grid moves on without a projection sync.
+        moved = session.get(RecognizedBoardModel, items[1].recognized_board_id)
+        assert moved is not None
+        moved.geometry_checksum_sha256 = "e" * 64
+
+    with GameStorageSession(database, expire_on_commit=False) as session:
+        before = _game_owned_row_counts(session, game_id)
+        repository = SqlAlchemyBoardSearchApproximateWinRepository(session)
+        assert repository.stale_document_sequence_numbers(
+            game_id=game_id, after_sequence_number=0, limit=10
+        ) == (4,)
+        assert (
+            repository.stale_document_sequence_numbers(
+                game_id=game_id, after_sequence_number=4, limit=10
+            )
+            == ()
+        )
+        assert _game_owned_row_counts(session, game_id) == before
+
+    with GameStorageSession(database, expire_on_commit=False) as session, session.begin():
+        batch = BoardSearchStaleDocumentRefresh(
+            SqlAlchemyBoardSearchApproximateWinRepository(session)
+        ).refresh_batch(game_id=game_id, after_sequence_number=0, limit=10)
+    assert batch.refreshed == (4,)
+    assert batch.removed == batch.still_stale == ()
+
+    with GameStorageSession(database, expire_on_commit=False) as session:
+        repository = SqlAlchemyBoardSearchApproximateWinRepository(session)
+        assert (
+            repository.stale_document_sequence_numbers(
+                game_id=game_id, after_sequence_number=0, limit=10
+            )
+            == ()
+        )
+        documents = {
+            sequence: repository.board_document(game_id=game_id, sequence_number=sequence)[1]
+            for sequence in (3, 4, 5)
+        }
+    assert documents[4] is not None and documents[4].board_checksum_sha256 == "e" * 64
+    assert all(document is not None for document in documents.values())

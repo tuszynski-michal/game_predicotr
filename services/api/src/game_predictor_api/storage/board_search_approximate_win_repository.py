@@ -16,7 +16,7 @@ from uuid import UUID
 
 from game_predictor_worker.payouts.contracts import RulesPayoutConfiguration
 from game_predictor_worker.payouts.store import load_rules_payout_configuration
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.board_search import BoardSearchAssetMode, BoardSearchError
@@ -37,6 +37,7 @@ from game_predictor_api.storage.game_storage_routing import (
 )
 from game_predictor_api.storage.models import (
     GameModel,
+    ImageBoardSearchFastDocumentModel,
     ImageReviewItemModel,
     ImageSymbolReviewCellModel,
     PaylineModel,
@@ -229,6 +230,42 @@ class SqlAlchemyBoardSearchApproximateWinRepository:
         # Core upserts do not refresh loaded ORM rows; later reads must see
         # the rebuilt document, not a cached copy.
         self._session.expire_all()
+
+    def stale_document_sequence_numbers(
+        self,
+        *,
+        game_id: UUID,
+        after_sequence_number: int,
+        limit: int,
+    ) -> tuple[int, ...]:
+        """Positions whose search document predates the board's current
+        identity, in sequence order after a cursor (TASK-0814).
+
+        Same rule as the board detail's staleness check: the board's current
+        geometry checksum differs from the checksum the document was written
+        with. Read-only.
+        """
+        GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
+        document = ImageBoardSearchFastDocumentModel
+        return tuple(
+            int(sequence_number)
+            for sequence_number in self._session.scalars(
+                select(document.sequence_number)
+                .join(ImageReviewItemModel, ImageReviewItemModel.id == document.review_item_id)
+                .join(
+                    RecognizedBoardModel,
+                    RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+                )
+                .where(
+                    document.game_id == game_id,
+                    document.sequence_number > after_sequence_number,
+                    func.coalesce(RecognizedBoardModel.geometry_checksum_sha256, "")
+                    != document.board_checksum_sha256,
+                )
+                .order_by(document.sequence_number)
+                .limit(limit)
+            )
+        )
 
     def payline_labels(self, rules_version_id: UUID) -> dict[str, PaylineLabel]:
         return {

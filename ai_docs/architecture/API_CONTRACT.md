@@ -478,16 +478,21 @@ trzymają audyt i dziennik zapytań.
 ### Dziennik zapytań linku w Adminie (D-472, TASK-0771)
 
 ```text
-GET /api/v1/admin/board-search-shares/sessions/{sessionId}/queries?before=&limit=1..50&kind=
+GET /api/v1/admin/board-search-shares/sessions/{sessionId}/queries?before=&limit=1..50&kind=&groupByPattern=
 operationId: listBoardSearchShareQueries
 200: { entries: [<wpis>], nextCursor: string | null }
 kind (opcjonalne, D-478): search | approximate_win | board_detail — tylko wpisy tego rodzaju.
+groupByPattern=true (D-486, tylko z kind=search; inaczej
+422 BOARD_SEARCH_SHARE_QUERY_GROUP_INVALID): jeden wpis na wzór — najnowsze
+wyszukiwanie tego wzoru — z czasami wszystkich jego wyszukiwań w occurrenceTimes.
 
 DELETE /api/v1/admin/board-search-shares/queries/{eventId}
 operationId: deleteBoardSearchShareQuery (D-478; nagłówki operacji wysokiego wpływu,
 cel `board-search-share-query:{eventId}`)
 204; 404 BOARD_SEARCH_SHARE_QUERY_NOT_FOUND
 Wyszukiwanie usuwa też swoje późniejsze wpisy do następnego wyszukiwania sesji.
+?wholePattern=true (D-486): dla wyszukiwania usuwa tak każde wyszukiwanie tego
+samego wzoru w sesji.
 
 GET /api/v1/admin/board-search-shares/queries/{eventId}
 operationId: getBoardSearchShareQueryReplay
@@ -495,9 +500,12 @@ operationId: getBoardSearchShareQueryReplay
 
 <wpis> = { id, sessionId, gameId, occurredAt, kind: search|approximate_win|board_detail,
            request, resultSummary, outcomeCode,
-           followUpApproximateWin: { startSequenceNumber, spinCount } | null }
+           followUpApproximateWin: { startSequenceNumber, spinCount, stakeGrosze? } | null,
+           occurrenceTimes: [datetime] }
 followUpApproximateWin (tylko dla search): żądanie najnowszej udanej przybliżonej
-wygranej po tym wyszukiwaniu, a przed następnym.
+wygranej po tym wyszukiwaniu, a przed następnym. We wpisie grupowym: z
+najnowszego wyszukiwania wzoru, po którym odbiorca otworzył wygraną.
+occurrenceTimes: czasy zapytania od najnowszego; bez grupowania jeden czas.
 ```
 
 Lista jest stronicowana kursorem `(occurredAt, id)`, od najnowszego wpisu,
@@ -530,6 +538,8 @@ GET  /api/v1/board-search-shares/symbols
 GET  /api/v1/board-search-shares/symbols/{symbolId}/image?revision={sha256}
 GET  /api/v1/board-search-shares/search?cell=&scope=&limit=
 GET  /api/v1/board-search-shares/approximate-win?startSequenceNumber=&spinCount=
+GET  /api/v1/board-search-shares/approximate-win/stake
+     ?startSequenceNumber=&spinCount=&stakeGrosze=
 GET  /api/v1/board-search-shares/boards/{sequenceNumber}
 GET  /api/v1/board-search-shares/boards/{sequenceNumber}/view
      ?expectedBoardChecksumSha256=&viewRevision=
@@ -544,6 +554,10 @@ GET  /api/v1/board-search-shares/boards/{sequenceNumber}/view
   `boards/{n}` zawsze ma `cells = null` (D-473) i nie ma odświeżania. Oba
   kształty Admina zawierają `gameId` i `rulesVersionId`: to nie są sekrety,
   a wspólny UI porównuje `rulesVersionId` przy spójności okna planszy.
+- `approximate-win/stake` (D-487, `recordBoardSearchShareApproximateWinStake`)
+  niczego nie liczy: zapisuje stawkę, w której odbiorca ogląda policzony
+  zakres, i zwraca `{ recorded: true }`. `stakeGrosze` 1..10 000 000; brak
+  parametru oznacza stawkę bazową. Liczy się do limitu żądań JSON.
 - Wzór: najwyżej 15 komórek po najwyżej 67 znaków (`indeks:kod`); dłuższy
   albo liczniejszy daje `422 BOARD_SEARCH_SHARE_QUERY_INVALID` bez odczytu i
   bez wpisu.
@@ -561,6 +575,10 @@ stabilny kod błędu). Wzór wyszukiwania jest zapisany w całości, także z
 polami `?` przesłanymi przez klienta. Wpis jest zatwierdzany w osobnej
 krótkiej transakcji zanim odpowiedź z danymi opuści API (D-475); gdy zapis się nie
 uda, odpowiedź to `503 BOARD_SEARCH_SHARE_QUERY_LOG_UNAVAILABLE` bez danych.
+Zapis stawki (D-487) to wpis rodzaju `approximate_win` z
+`request = { startSequenceNumber, spinCount, stakeGrosze: int | null }` i
+pustym skrótem wyniku; jako najnowszy wpis zakresu po wyszukiwaniu staje się
+jego `followUpApproximateWin`, więc Admin dostaje stawkę razem z zakresem.
 Nieprawidłowe parametry (`422`) nie są zapytaniami o dane i nie są
 zapisywane. Odblokowanie, kontekst, symbole i obrazy nie trafiają do
 dziennika. Nie są zapisywane adresy IP ani nagłówki przeglądarki.
@@ -2828,6 +2846,29 @@ TASK-0727 usunął `POST .../image-reviews/{reviewItemId}/geometry-approval`,
 `POST .../grid-reviews/source-geometry-revisions` (jedynym konsumentem był
 usunięty ekran całego zdjęcia). Lokalny origin Reviewera nie ma ich na
 allowliście.
+
+**D-488 (TASK-0820):** komendy zapisu `image-reviews/{reviewItemId}/geometry-revisions`
+oraz `board-cell-geometry-pending/{pendingId}/manual-resolution` przyjmują
+opcjonalne `cellSymbols: [{ cellIndex, symbolId }]`. Każde wskazane pole jest
+zatwierdzane jako decyzja człowieka dla nowego cropa w transakcji zapisu
+geometrii. Zdublowany indeks → `IMAGE_GRID_REVIEW_CELL_SYMBOLS_INVALID` (422);
+pole bez bieżącego cropa → `IMAGE_GRID_REVIEW_SYMBOL_CELL_UNAVAILABLE` (422);
+symbol nieaktywny → `SYMBOL_CELL_REVIEW_TARGET_SYMBOL_INVALID` (422). Każdy z
+tych błędów wycofuje także geometrię. Pominięte pole działa jak dotąd.
+
+**D-488 (TASK-0821):** podpowiedzi symboli dla ekranu korekty, tylko do
+odczytu, wspólna odpowiedź `GridCorrectionSymbolsResponse`
+(`cells: [{ cellIndex, symbolId | null, origin: assigned | predicted }]`):
+
+```text
+GET  /api/v1/admin/image-reviews/{reviewItemId}/correction-symbols?gameId=
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/geometry-symbol-preview
+```
+
+`GET` zwraca symbole zapisane na bieżących komórkach z pikselami (przypisany,
+w razie braku predykcja). `POST` przyjmuje komendę `geometry-preview` i zwraca
+predykcję przypiętego modelu dla tego cięcia; bez modelu lista jest pusta.
+Kod spoza aktywnych symboli gry (także `?`) daje `symbolId = null`.
 
 Lista ma widoki `needs_validation | needs_correction | all | correction`;
 operacyjną kolejką jest wyłącznie `correction`, a pozostałe widoki i liczniki

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 
 import {
+  gridCellsWithoutPixels,
   gridReviewCorners,
   gridReviewGeometryPreviewCommand,
   gridReviewQualification,
@@ -150,4 +151,24 @@ test('preview and save bind the exact topology and source identity', () => {
     expectedSourceHeight: 800,
     expectedSourceWidth: 1200,
   });
+});
+
+test('only cells with no area inside the photo have no pixels to label', () => {
+  // Five 100 px columns: the first lies entirely left of the photo, the
+  // second is cut by its edge and keeps real pixels.
+  const corners = [
+    { x: -150, y: 100 },
+    { x: 350, y: 100 },
+    { x: 350, y: 400 },
+    { x: -150, y: 400 },
+  ];
+  assert.deepEqual(gridCellsWithoutPixels(corners, 1000, 800), [0, 5, 10]);
+  assert.deepEqual(
+    gridCellsWithoutPixels(
+      corners.map((point) => ({ ...point, x: point.x + 200 })),
+      1000,
+      800,
+    ),
+    [],
+  );
 });

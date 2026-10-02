@@ -23,6 +23,7 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.geometry_qualification import (
     GeometryQualificationPayload,
+    GridCorrectionCellSymbolPayload,
     ManualSourceGeometryPoint,
 )
 from game_predictor_api.schemas.image_reviews import OperationalImageReviewGeometryPoint
@@ -103,6 +104,7 @@ class BoardCellGeometryManualPreviewCommand(ApiModel):
 class BoardCellGeometryManualResolutionCommand(BoardCellGeometryManualPreviewCommand):
     idempotency_key: UUID
     corrected_by: str = Field(min_length=1, max_length=200)
+    cell_symbols: tuple[GridCorrectionCellSymbolPayload, ...] = ()
 
 
 class BoardCellGeometryManualResolutionResponse(ApiModel):

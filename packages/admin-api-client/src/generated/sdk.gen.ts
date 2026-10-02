@@ -293,6 +293,9 @@ import type {
   GetImageGeometryRolloutStatusData,
   GetImageGeometryRolloutStatusErrors,
   GetImageGeometryRolloutStatusResponses,
+  GetImageGridReviewCorrectionSymbolsData,
+  GetImageGridReviewCorrectionSymbolsErrors,
+  GetImageGridReviewCorrectionSymbolsResponses,
   GetImageGridReviewSourceAssetData,
   GetImageGridReviewSourceAssetErrors,
   GetImageGridReviewSourceAssetResponses,
@@ -668,6 +671,9 @@ import type {
   PreviewPendingBoardCellGeometryCorrectionData,
   PreviewPendingBoardCellGeometryCorrectionErrors,
   PreviewPendingBoardCellGeometryCorrectionResponses,
+  PreviewPendingBoardCellGeometrySymbolsData,
+  PreviewPendingBoardCellGeometrySymbolsErrors,
+  PreviewPendingBoardCellGeometrySymbolsResponses,
   PreviewPendingGridReinferenceData,
   PreviewPendingGridReinferenceErrors,
   PreviewPendingGridReinferenceResponses,
@@ -701,6 +707,9 @@ import type {
   PutRemoteManualSelectionFileContentData,
   PutRemoteManualSelectionFileContentErrors,
   PutRemoteManualSelectionFileContentResponses,
+  RecordBoardSearchShareApproximateWinStakeData,
+  RecordBoardSearchShareApproximateWinStakeErrors,
+  RecordBoardSearchShareApproximateWinStakeResponses,
   RecoverImageSelectionRangesData,
   RecoverImageSelectionRangesErrors,
   RecoverImageSelectionRangesResponses,
@@ -1773,6 +1782,32 @@ export const previewPendingBoardCellGeometryCorrection = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Predict the symbols of the virtual cells of a manual deferred-board geometry
+ */
+export const previewPendingBoardCellGeometrySymbols = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPendingBoardCellGeometrySymbolsData, ThrowOnError>,
+): RequestResult<
+  PreviewPendingBoardCellGeometrySymbolsResponses,
+  PreviewPendingBoardCellGeometrySymbolsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPendingBoardCellGeometrySymbolsResponses,
+    PreviewPendingBoardCellGeometrySymbolsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-symbol-preview',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -4154,6 +4189,27 @@ export const listOperationalImageReviewResolutionEvents = <
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/image-review-items/{review_item_id}/resolution-events',
+    ...options,
+  });
+
+/**
+ * Read the symbols stored on the current cells of one board under correction
+ */
+export const getImageGridReviewCorrectionSymbols = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGridReviewCorrectionSymbolsData, ThrowOnError>,
+): RequestResult<
+  GetImageGridReviewCorrectionSymbolsResponses,
+  GetImageGridReviewCorrectionSymbolsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGridReviewCorrectionSymbolsResponses,
+    GetImageGridReviewCorrectionSymbolsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-reviews/{review_item_id}/correction-symbols',
     ...options,
   });
 
@@ -6722,6 +6778,24 @@ export const getBoardSearchShareApproximateWin = <
     GetBoardSearchShareApproximateWinErrors,
     ThrowOnError
   >({ url: '/api/v1/board-search-shares/approximate-win', ...options });
+
+/**
+ * Record the stake the recipient views a calculated range at (D-487)
+ */
+export const recordBoardSearchShareApproximateWinStake = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RecordBoardSearchShareApproximateWinStakeData, ThrowOnError>,
+): RequestResult<
+  RecordBoardSearchShareApproximateWinStakeResponses,
+  RecordBoardSearchShareApproximateWinStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    RecordBoardSearchShareApproximateWinStakeResponses,
+    RecordBoardSearchShareApproximateWinStakeErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/approximate-win/stake', ...options });
 
 /**
  * Winning paylines of one board of the shared game (no cell records)

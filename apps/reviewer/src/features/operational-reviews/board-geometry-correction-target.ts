@@ -2,6 +2,8 @@ import type {
   AdminApiClient,
   BoardCellGeometryCorrectionContextResponse,
   GeometryQualificationPayload,
+  GridCorrectionCellSymbolPayload,
+  GridCorrectionCellSymbolSuggestionResponse,
   ImageGridReviewItemResponse,
   OperationalImageReviewGeometryPoint,
   OperationalImageReviewGeometryResponse,
@@ -95,10 +97,30 @@ export interface BoardGeometryCorrectionTarget {
   ): Promise<
     { readonly blob: Blob; readonly ok: true } | BoardGeometryCorrectionFailure
   >;
+  /**
+   * Symbols known for the previewed cut (D-488): stored ones for a reported
+   * board, the pinned model's prediction for a deferred slot. Absent when the
+   * target cannot assign symbols; never writes anything.
+   */
+  symbols?(
+    corners: OperationalReviewGeometryCorners,
+    flags: ManualGridFlags,
+  ): Promise<
+    | {
+        readonly cells: readonly GridCorrectionCellSymbolSuggestionResponse[];
+        readonly ok: true;
+      }
+    | BoardGeometryCorrectionFailure
+  >;
+  /**
+   * `cellSymbols` are the symbols the operator assigned on the preview
+   * (D-488); the backend approves them in the transaction of the geometry.
+   */
   save(
     corners: OperationalReviewGeometryCorners,
     flags: ManualGridFlags,
     idempotencyKey: string,
+    cellSymbols?: readonly GridCorrectionCellSymbolPayload[],
   ): Promise<
     | { readonly ok: true; readonly reviewItemId: string | null }
     | BoardGeometryCorrectionFailure
@@ -110,7 +132,12 @@ export function deferredBoardGeometryTarget(input: {
   readonly apiBaseUrl: string;
   readonly pendingId: string;
   readonly scope: { readonly gameId: string; readonly importJobId: string };
+  readonly symbolsApi?: Pick<
+    AdminApiClient,
+    'previewPendingBoardCellGeometrySymbols'
+  >;
 }): BoardGeometryCorrectionTarget {
+  const { symbolsApi } = input;
   let context: BoardCellGeometryCorrectionContextResponse | null = null;
   const loaded = (): BoardCellGeometryCorrectionContextResponse => {
     if (context === null)
@@ -154,7 +181,7 @@ export function deferredBoardGeometryTarget(input: {
           ],
           reportedCellIndices: [],
           saveHint:
-            'Zapis utworzy zwykłą planszę; jej symbole trafią do Weryfikacji symboli. Nie zatwierdzi ich automatycznie.',
+            'Zapis utworzy zwykłą planszę; jej symbole trafią do Weryfikacji symboli. Zatwierdzi tylko symbole, które wskażesz na kafelkach.',
           sourceHeight: result.context.sourceHeight,
           sourceUrl: deferredBoardCellGeometrySourceUrl(input.apiBaseUrl, item),
           sourceWidth: result.context.sourceWidth,
@@ -174,17 +201,50 @@ export function deferredBoardGeometryTarget(input: {
         deferredBoardCellGeometryPreviewCommand(loaded(), corners, flags),
       );
     },
-    async save(corners, flags, idempotencyKey) {
+    ...(symbolsApi === undefined
+      ? {}
+      : {
+          async symbols(
+            corners: OperationalReviewGeometryCorners,
+            flags: ManualGridFlags,
+          ) {
+            try {
+              const result =
+                await symbolsApi.previewPendingBoardCellGeometrySymbols(
+                  input.pendingId,
+                  input.scope,
+                  deferredBoardCellGeometryPreviewCommand(
+                    loaded(),
+                    corners,
+                    flags,
+                  ),
+                );
+              if (result.error !== undefined || result.data === undefined) {
+                return failure(
+                  result.error,
+                  'Nie udało się pobrać podpowiedzi symboli.',
+                );
+              }
+              return { cells: result.data.cells, ok: true as const };
+            } catch {
+              return disconnected();
+            }
+          },
+        }),
+    async save(corners, flags, idempotencyKey, cellSymbols) {
       const result = await resolveDeferredBoardCellGeometry(
         input.api,
         input.scope,
         input.pendingId,
-        deferredBoardCellGeometryResolutionCommand(
-          loaded(),
-          corners,
-          idempotencyKey,
-          flags,
-        ),
+        {
+          ...deferredBoardCellGeometryResolutionCommand(
+            loaded(),
+            corners,
+            idempotencyKey,
+            flags,
+          ),
+          ...operatorCellSymbols(cellSymbols),
+        },
       );
       return result.ok
         ? { ok: true, reviewItemId: result.resolution.reviewItemId }
@@ -204,8 +264,12 @@ export type ReportedBoardGeometryClient = Pick<
 export function reportedBoardGeometryTarget(input: {
   readonly api: ReportedBoardGeometryClient;
   readonly item: ImageGridReviewItemResponse;
+  readonly symbolsApi?: Pick<
+    AdminApiClient,
+    'getImageGridReviewCorrectionSymbols'
+  >;
 }): BoardGeometryCorrectionTarget {
-  const { api, item } = input;
+  const { api, item, symbolsApi } = input;
   const reviewItemId = item.reviewItemId;
   const scope = { gameId: item.gameId, importJobId: item.importJobId };
   // D-467 S6: every board is `virtual_source`, so every board accepts a
@@ -257,7 +321,7 @@ export function reportedBoardGeometryTarget(input: {
           ],
           reportedCellIndices: reported,
           saveHint:
-            'Zapis usuwa zgłoszenia „Zła siatka”. Pola ze zmienionym wycinkiem wrócą do Weryfikacji symboli; niezmienione zachowają weryfikację.',
+            'Zapis usuwa zgłoszenia „Zła siatka”. Pola ze zmienionym wycinkiem wrócą do Weryfikacji symboli; niezmienione zachowają weryfikację, a symbole wskazane na kafelkach zostaną zatwierdzone.',
           sourceHeight: item.sourceHeight,
           sourceUrl: api.imageGridReviewSourceAssetUrl(
             reviewItemId,
@@ -292,13 +356,40 @@ export function reportedBoardGeometryTarget(input: {
         return disconnected();
       }
     },
-    async save(corners, flags, idempotencyKey) {
+    ...(symbolsApi === undefined
+      ? {}
+      : {
+          async symbols() {
+            if (reviewItemId === null) return missingReviewItem();
+            try {
+              const result =
+                await symbolsApi.getImageGridReviewCorrectionSymbols(
+                  reviewItemId,
+                  item.gameId,
+                );
+              if (result.error !== undefined || result.data === undefined) {
+                return failure(
+                  result.error,
+                  'Nie udało się pobrać symboli planszy.',
+                );
+              }
+              return { cells: result.data.cells, ok: true as const };
+            } catch {
+              return disconnected();
+            }
+          },
+        }),
+    async save(corners, flags, idempotencyKey, cellSymbols) {
       if (reviewItemId === null) return missingReviewItem();
       try {
         const result = await api.createImageGridReviewGeometryRevision(
           reviewItemId,
           scope,
-          { ...command(corners, flags), idempotencyKey },
+          {
+            ...command(corners, flags),
+            idempotencyKey,
+            ...operatorCellSymbols(cellSymbols),
+          },
         );
         if (result.error !== undefined || result.data === undefined) {
           return failure(
@@ -493,6 +584,15 @@ export function operationalBoardGeometryTarget(input: {
       return geometry;
     },
   };
+}
+
+/** The command field is sent only when the operator assigned a symbol. */
+function operatorCellSymbols(
+  cellSymbols: readonly GridCorrectionCellSymbolPayload[] | undefined,
+): { cellSymbols?: GridCorrectionCellSymbolPayload[] } {
+  return cellSymbols === undefined || cellSymbols.length === 0
+    ? {}
+    : { cellSymbols: [...cellSymbols] };
 }
 
 export function copyCorners(

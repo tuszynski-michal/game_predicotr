@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping
+from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime
 from typing import Any, cast
@@ -21,6 +21,8 @@ from game_predictor_api.application.virtual_grid_geometry import (
     LegacyConversionTarget,
     PreparedVirtualGridGeometry,
     PreparedVirtualGridGeometrySource,
+    VirtualGridCellSymbol,
+    VirtualGridCellSymbolSuggestion,
     VirtualGridGeometryCell,
     VirtualGridGeometryContext,
     VirtualGridGeometryRevision,
@@ -85,6 +87,7 @@ from game_predictor_api.storage.image_review_repository import (
     acquire_image_sequence_locks,
 )
 from game_predictor_api.storage.image_symbol_review_repository import (
+    SqlAlchemyGridCorrectionSymbolRepository,
     SymbolCellReviewWriteThroughCoordinator,
     _apply_count_deltas,
     _bind_game_store,
@@ -160,6 +163,38 @@ class SqlAlchemyVirtualGridGeometryRepository:
             lock=False,
         )
         return self._context_from_row(row)
+
+    def assign_cell_symbols(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        cell_symbols: Sequence[VirtualGridCellSymbol],
+        actor: str,
+    ) -> int:
+        return SqlAlchemyGridCorrectionSymbolRepository(self._session).assign(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            symbol_id_by_cell_index={value.cell_index: value.symbol_id for value in cell_symbols},
+            actor=actor,
+        )
+
+    def current_cell_symbols(
+        self, *, game_id: UUID, review_item_id: UUID
+    ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
+        return tuple(
+            VirtualGridCellSymbolSuggestion(
+                cell_index=cell_index, symbol_id=symbol_id, origin=origin
+            )
+            for cell_index, symbol_id, origin in SqlAlchemyGridCorrectionSymbolRepository(
+                self._session
+            ).current_symbols(game_id=game_id, review_item_id=review_item_id)
+        )
+
+    def active_symbol_ids_by_code(self, *, game_id: UUID) -> Mapping[str, UUID]:
+        return SqlAlchemyGridCorrectionSymbolRepository(self._session).active_symbol_ids_by_code(
+            game_id=game_id
+        )
 
     def save_virtual_geometry_revision(
         self,

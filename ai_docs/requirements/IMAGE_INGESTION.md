@@ -383,6 +383,9 @@ z checksumą stage result; drift kończy się fail-closed.
   komórkę; nie materializuje pośredniej planszy ani trwałego cropa;
 - wynik zawiera RGB, logiczny klucz komórki, content-addressed render spec,
   wersję extractora i checksumę dokładnych pikseli;
+- ręczna korekta geometrii zawsze tworzy nowe rendery, dlatego zapisuje wersję
+  bieżącego renderera, a nie wersję przypiętą w dotychczasowych komórkach
+  planszy; pozostałe pola konfiguracji renderu pozostają przypięte;
 - wariant bezpośredni musi pozostać pikselowo zgodny z historycznym v19 przy
   tej samej geometrii, paddingu, interpolacji i rozmiarze wyjścia;
 - warianty native-bbox i rectified-board są wyłącznie diagnostyczne i nie mogą

@@ -34,7 +34,8 @@ const publicOperations = Object.entries(openapi.paths)
   );
 
 test('every public share route in OpenAPI is allowlisted by the proxy', () => {
-  assert.equal(publicOperations.length, 8);
+  // 9 since D-487 (the stake report of a calculated range).
+  assert.equal(publicOperations.length, 9);
   for (const [method, path] of publicOperations) {
     assert.notEqual(
       boardSearchShareRoute(method, concrete(path)),

@@ -50,6 +50,18 @@ export type BoardSearchDataSource = {
     options: SearchGameBoardsOptions,
   ) => BoardSearchApiResult<BoardSearchResponse>;
   readonly symbolImageAssetUrl: (gameId: string, symbolId: string) => string;
+  /**
+   * Online share only (D-487): tells the link's owner which stake the
+   * recipient views a calculated range at; `null` is the base stake.
+   */
+  readonly recordBoardSearchApproximateWinStake?: (
+    gameId: string,
+    options: {
+      readonly spinCount: number;
+      readonly startSequenceNumber: number;
+      readonly stakeGrosze: number | null;
+    },
+  ) => BoardSearchApiResult<undefined>;
 } & Partial<
   Pick<
     AdminApiClient,

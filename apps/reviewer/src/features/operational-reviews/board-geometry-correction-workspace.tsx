@@ -14,19 +14,26 @@ import {
   deferredBoardGeometryTarget,
   reportedBoardGeometryTarget,
 } from './board-geometry-correction-target';
-import { BoardGeometryCorrectionEditor } from './deferred-board-cell-geometry-editor';
+import {
+  BoardGeometryCorrectionEditor,
+  type CorrectionSymbol,
+} from './deferred-board-cell-geometry-editor';
+import { orderOperationalReviewSymbols } from './operational-review-state';
 
 type LoadState = 'error' | 'loading' | 'ready';
 
 export type BoardGeometryCorrectionClient = Pick<
   AdminApiClient,
   | 'createImageGridReviewGeometryRevision'
+  | 'getImageGridReviewCorrectionSymbols'
   | 'getPendingBoardCellGeometryCorrectionContext'
   | 'imageGridReviewSourceAssetUrl'
   | 'listImageGridReviews'
   | 'listPendingBoardCellGeometry'
+  | 'listSymbols'
   | 'previewImageGridReviewGeometry'
   | 'previewPendingBoardCellGeometryCorrection'
+  | 'previewPendingBoardCellGeometrySymbols'
   | 'resolvePendingBoardCellGeometryManually'
 >;
 
@@ -34,7 +41,8 @@ export type BoardGeometryCorrectionClient = Pick<
  * The single manual grid-correction screen (D-462, TASK-0726): one board and
  * its grid at a time, from one queue of deferred geometries and boards with a
  * `Zła siatka` report. Saving the geometry finishes the correction and moves
- * on; there is no board, photo or symbol approval here.
+ * on; there is no board or photo approval here. Symbols are approved only
+ * for the cells the operator assigns on the preview (D-488).
  */
 export function BoardGeometryCorrectionWorkspace({
   api,
@@ -54,8 +62,30 @@ export function BoardGeometryCorrectionWorkspace({
   const [pageState, setPageState] = useState<LoadState>('loading');
   const [pageError, setPageError] = useState('');
   const [notice, setNotice] = useState('');
+  const [symbols, setSymbols] = useState<readonly CorrectionSymbol[]>([]);
   const mounted = useRef(true);
   const requestId = useRef(0);
+
+  useEffect(() => {
+    let active = true;
+    // Without the catalogue the screen still corrects grids; only the symbol
+    // picker stays hidden.
+    void api
+      .listSymbols(gameId)
+      .then((result) => {
+        if (!active || result.error !== undefined || !result.data) return;
+        setSymbols(
+          orderOperationalReviewSymbols(result.data).map((symbol) => ({
+            id: symbol.id,
+            label: symbol.namePl ?? symbol.name,
+          })),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [api, gameId]);
 
   const loadPage = useCallback(
     async (
@@ -192,8 +222,8 @@ export function BoardGeometryCorrectionWorkspace({
           <h2>Korekta cięcia siatki</h2>
           <p>
             Plansze odrzucone przez algorytm oraz plansze zgłoszone jako „Zła
-            siatka”. Ustaw cztery narożniki, zapisz i przejdź dalej. Zapis nie
-            zatwierdza symboli.
+            siatka”. Ustaw cztery narożniki, zapisz i przejdź dalej. Zapis
+            zatwierdza tylko symbole, które wskażesz na kafelkach podglądu.
           </p>
         </div>
       </header>
@@ -226,6 +256,7 @@ export function BoardGeometryCorrectionWorkspace({
             key={target.key}
             onConflict={handleConflict}
             onSaved={handleSaved}
+            symbols={symbols}
             target={target}
           />
           <footer className="deferredGeometryNavigation">
@@ -278,9 +309,10 @@ function useBoardCorrectionTarget(
         apiBaseUrl,
         pendingId: item.pendingGeometryId,
         scope: { gameId: item.gameId, importJobId: item.importJobId },
+        symbolsApi: api,
       });
     }
-    return reportedBoardGeometryTarget({ api, item });
+    return reportedBoardGeometryTarget({ api, item, symbolsApi: api });
   }, [api, apiBaseUrl, item]);
 }
 

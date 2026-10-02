@@ -21,6 +21,8 @@ from game_predictor_api.application.board_cell_geometry_pending import (
 )
 from game_predictor_api.application.reviewer_access import ReviewerAccessError
 from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridCellSymbol,
+    VirtualGridCellSymbolSuggestion,
     VirtualGridGeometryCell,
     VirtualGridGeometryPreview,
     VirtualGridGeometryRevision,
@@ -457,12 +459,16 @@ class ScopedReviewerAccess:
             raise ReviewerAccessError("REVIEWER_SCOPE_FORBIDDEN", "Foreign scope.")
 
 
+PREDICTED_SYMBOL_ID = UUID("77777777-7777-4777-8777-777777777777")
+
+
 class RecordingVirtualGeometry:
     """Stands in for ``VirtualGridGeometryService``; records the delegation."""
 
     def __init__(self, repository: MemoryPendingRepository) -> None:
         self._repository = repository
         self.previews: list[dict[str, object]] = []
+        self.symbol_previews: list[dict[str, object]] = []
         self.saves: list[dict[str, object]] = []
         self._by_key: dict[UUID, tuple[tuple[ImageReviewGeometryPoint, ...], str]] = {}
 
@@ -472,6 +478,17 @@ class RecordingVirtualGeometry:
             contact_sheet_png=PREVIEW_PNG,
             cells=tuple(_virtual_cell(index) for index in range(15)),
             cropper_version="virtual-cell-renderer-test",
+        )
+
+    def preview_pending_slot_symbols(
+        self, **kwargs: object
+    ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
+        self.symbol_previews.append(kwargs)
+        return (
+            VirtualGridCellSymbolSuggestion(
+                cell_index=0, symbol_id=PREDICTED_SYMBOL_ID, origin="predicted"
+            ),
+            VirtualGridCellSymbolSuggestion(cell_index=1, symbol_id=None, origin="predicted"),
         )
 
     def save_pending_slot(self, **kwargs: object) -> VirtualGridGeometrySourceSaveResult:
@@ -635,8 +652,10 @@ def test_manual_pending_geometry_api_delegates_to_the_virtual_source_path(
     }
     idempotency_key = uuid4()
     reviewer = {"Authorization": "Bearer scoped-token"}
+    operator_symbol_id = uuid4()
     resolution = {
         **preview_command,
+        "cellSymbols": [{"cellIndex": 4, "symbolId": str(operator_symbol_id)}],
         "correctedBy": "spoofed-actor",
         "idempotencyKey": str(idempotency_key),
     }
@@ -649,6 +668,13 @@ def test_manual_pending_geometry_api_delegates_to_the_virtual_source_path(
             json={**preview_command, "expectedManifestChecksumSha256": "0" * 64},
         )
         preview = client.post(f"{base}/geometry-preview", json=preview_command, headers=reviewer)
+        symbol_preview = client.post(
+            f"{base}/geometry-symbol-preview", json=preview_command, headers=reviewer
+        )
+        stale_symbol_preview = client.post(
+            f"{base}/geometry-symbol-preview",
+            json={**preview_command, "expectedManifestChecksumSha256": "0" * 64},
+        )
         foreign_resolution = client.post(
             f"/api/v1/admin/games/{uuid4()}/image-imports/{import_job_id}/"
             f"board-cell-geometry-pending/{pending.id}/manual-resolution",
@@ -678,6 +704,17 @@ def test_manual_pending_geometry_api_delegates_to_the_virtual_source_path(
     assert preview.content == PREVIEW_PNG
     assert preview.headers["x-board-cell-count"] == "15"
     assert preview.headers["x-board-cell-cropper-version"] == "virtual-cell-renderer-test"
+    # D-488: the symbol preview validates like the PNG preview and writes nothing.
+    assert symbol_preview.status_code == 200, symbol_preview.text
+    assert symbol_preview.json() == {
+        "cells": [
+            {"cellIndex": 0, "origin": "predicted", "symbolId": str(PREDICTED_SYMBOL_ID)},
+            {"cellIndex": 1, "origin": "predicted", "symbolId": None},
+        ]
+    }
+    assert stale_symbol_preview.status_code == 409
+    assert len(virtual.symbol_previews) == 1
+    assert virtual.symbol_previews[0]["pending_geometry_id"] == pending.id
     assert foreign_resolution.status_code == 403
     assert foreign_resolution.json()["code"] == "REVIEWER_SCOPE_FORBIDDEN"
     assert resolved.status_code == 200, resolved.text
@@ -699,6 +736,10 @@ def test_manual_pending_geometry_api_delegates_to_the_virtual_source_path(
     assert virtual.saves[0]["pending_geometry_id"] == pending.id
     assert virtual.saves[0]["game_id"] == game_id
     assert virtual.saves[0]["import_job_id"] == import_job_id
+    # D-488: the operator's symbols reach the same save as the geometry.
+    assert virtual.saves[0]["cell_symbols"] == (
+        VirtualGridCellSymbol(cell_index=4, symbol_id=operator_symbol_id),
+    )
     assert len(virtual.previews) == 1
     assert virtual.previews[0]["pending_geometry_id"] == pending.id
 

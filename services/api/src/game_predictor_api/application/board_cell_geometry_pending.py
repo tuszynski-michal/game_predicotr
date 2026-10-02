@@ -18,6 +18,8 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridCellSymbol,
+    VirtualGridCellSymbolSuggestion,
     VirtualGridGeometryPreview,
     VirtualGridGeometryService,
 )
@@ -298,6 +300,50 @@ class BoardCellGeometryPendingService:
             actor=corrected_by,
         )
 
+    def preview_manual_symbols(
+        self,
+        pending_id: UUID,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        expected_manifest_checksum_sha256: str,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+        corrected_by: str = "local-admin-preview",
+        geometry_qualification: GeometryQualification | None = None,
+    ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
+        """Model symbols of the cells a resolution would persist (D-488)."""
+
+        context = self.correction_context(
+            pending_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+        )
+        self._require_pending_command(
+            context,
+            expected_manifest_checksum_sha256=expected_manifest_checksum_sha256,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+        )
+        validate_image_review_geometry_command(
+            corners=corners,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            corrected_by=corrected_by,
+            geometry_qualification=geometry_qualification,
+        )
+        return self._require_virtual_geometry().preview_pending_slot_symbols(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            pending_geometry_id=pending_id,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            corners=corners,
+            geometry_qualification=geometry_qualification,
+            actor=corrected_by,
+        )
+
     def resolve_manual(
         self,
         pending_id: UUID,
@@ -312,6 +358,7 @@ class BoardCellGeometryPendingService:
         corrected_by: str,
         resolved_at: datetime,
         geometry_qualification: GeometryQualification | None = None,
+        cell_symbols: Sequence[VirtualGridCellSymbol] = (),
     ) -> BoardCellGeometryManualResolution:
         """Persist the deferred board as one ``virtual_source`` board (D-467).
 
@@ -351,6 +398,7 @@ class BoardCellGeometryPendingService:
                 actor=corrected_by,
                 created_at=resolved_at,
                 geometry_qualification=geometry_qualification,
+                cell_symbols=cell_symbols,
             )
         except ImageGridReviewError as error:
             # Keep the deferred-resolution error contract of the Reviewer.

@@ -25,6 +25,7 @@ from game_predictor_api.schemas.geometry_qualification import (
     AutomaticFrameGeometryProposalPayload,
     AutomaticPartialGeometryProposalPayload,
     GeometryQualificationPayload,
+    GridCorrectionCellSymbolPayload,
 )
 from game_predictor_api.schemas.geometry_qualification import (
     ManualSourceGeometryPoint as OperationalImageReviewGeometryPoint,
@@ -163,6 +164,7 @@ class ImageGridReviewGeometryPreviewCommand(ApiModel):
 
 class ImageGridReviewGeometryCommand(ImageGridReviewGeometryPreviewCommand):
     idempotency_key: UUID
+    cell_symbols: tuple[GridCorrectionCellSymbolPayload, ...] = ()
 
 
 class ImageGridReviewGeometryCellResponse(ApiModel):

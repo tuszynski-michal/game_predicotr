@@ -454,8 +454,9 @@ lista stawek wraca do „wybierz stawkę”, a podsumowanie, wykres i tabela są
 ukryte do czasu jej wyboru (kalkulacja biegnie w tle, więc wynik pojawia
 się od razu po wyborze). Zmiana planszy w obrębie tego samego wzoru,
 zmiana zakresu, limitu albo zakresu wyszukiwania zachowują stawkę.
-Odtworzenie z dziennika udostępnień (D-472) wybiera stawkę bazową, bo stawka
-odbiorcy nie jest znana. Przy koszcie spinu 0 stawki nie ma i wynik jest
+Odtworzenie z dziennika udostępnień (D-472) wybiera stawkę bazową; stawka
+odbiorcy jest widoczna na wykresie w dzienniku linku (D-487), ale odtworzenie
+jej nie przenosi. Przy koszcie spinu 0 stawki nie ma i wynik jest
 pokazywany bez wyboru.
 
 Wynik rozróżnia dla każdej pozycji zakresu trzy rozłączne kategorie:
@@ -655,11 +656,21 @@ wyłącznie nawigacji. `Niepełna plansza` jest dostępna dla slotów odroczonyc
 plansz `virtual_source`; plansza z zapisaną kwalifikacją geometrii otwiera się
 z nią i zapis ją zachowuje (także `complete`).
 
-Zapis geometrii kończy zadanie korekty i nie weryfikuje symboli. Usuwa
-zgłoszenia `Zła siatka` tej planszy; komórki o zmienionym wycinku wracają do
-zwykłej `Weryfikacji symboli` z dotychczasową etykietą jako podpowiedzią, a
-komórki o niezmienionych pikselach zachowują weryfikację (D-462 R5/R6).
-Zapis dotyczy wyłącznie tej jednej planszy.
+Zapis geometrii kończy zadanie korekty. Usuwa zgłoszenia `Zła siatka` tej
+planszy; komórki o zmienionym wycinku wracają do zwykłej `Weryfikacji symboli`
+z dotychczasową etykietą jako podpowiedzią, a komórki o niezmienionych
+pikselach zachowują weryfikację (D-462 R5/R6). Zapis dotyczy wyłącznie tej
+jednej planszy.
+
+**D-488 (TASK-0820–0822):** podgląd pokazuje jeden zestaw 15 kafelków.
+Kafelek z pikselami (także pole częściowo widoczne) jest klikalny; pod
+podglądem jest paleta aktywnych symboli gry w kolejności katalogu. Kafelek
+pokazuje podpowiedź symbolu — dla planszy zgłoszonej symbol zapisany w bazie,
+dla planszy odroczonej predykcję modelu dla bieżącego cięcia — albo symbol
+wybrany przez operatora. Zapis siatki zatwierdza wyłącznie pola z wybranym
+symbolem (decyzja człowieka dla nowego cropa, w tej samej transakcji co
+geometria); pozostałe pola trafiają do `Weryfikacji symboli` jak dotąd. Pole
+bez pikseli nie jest klikalne. Błąd zapisu symboli wycofuje cały zapis.
 
 Admin nazywa sekcję uruchamiającą Reviewer „Korekta cięcia siatki” i pokazuje
 liczbę plansz do korekty dla wybranego importu oraz liczbę geometrii

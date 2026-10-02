@@ -160,8 +160,26 @@ test('a search entry yields the range the recipient opened, or nothing', () => {
     boardSearchQueryFollowUpRange({
       followUpApproximateWin: { spinCount: 2500, startSequenceNumber: 170619 },
     }),
-    { spinCount: 2500, startSequenceNumber: 170619 },
+    { spinCount: 2500, stakeGrosze: undefined, startSequenceNumber: 170619 },
   );
+  // D-487: a recorded stake (a number, or null for the base stake).
+  for (const [stakeGrosze, expected] of [
+    [200, 200],
+    [null, null],
+    [0, undefined],
+    ['200', undefined],
+  ]) {
+    assert.equal(
+      boardSearchQueryFollowUpRange({
+        followUpApproximateWin: {
+          spinCount: 100,
+          stakeGrosze,
+          startSequenceNumber: 7,
+        },
+      }).stakeGrosze,
+      expected,
+    );
+  }
   for (const followUpApproximateWin of [
     null,
     undefined,

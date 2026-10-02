@@ -239,6 +239,9 @@ _REVIEWER_MUTATION_PATTERNS = tuple(
         r"^/api/v1/admin/image-review-items/[^/]+/resolution$",
         r"^/api/v1/admin/games/[^/]+/image-imports/[^/]+/"
         r"board-cell-geometry-pending/[^/]+/geometry-preview$",
+        # D-488: a read-only symbol prediction for the previewed cut.
+        r"^/api/v1/admin/games/[^/]+/image-imports/[^/]+/"
+        r"board-cell-geometry-pending/[^/]+/geometry-symbol-preview$",
         r"^/api/v1/admin/games/[^/]+/image-imports/[^/]+/"
         r"board-cell-geometry-pending/[^/]+/manual-resolution$",
     )

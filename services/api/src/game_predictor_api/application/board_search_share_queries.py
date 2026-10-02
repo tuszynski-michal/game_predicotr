@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass, replace
@@ -144,6 +145,9 @@ class BoardSearchShareQueryEvent:
     # For a search: the request of the newest successful range calculation
     # the recipient made before their next search (D-478).
     follow_up_approximate_win: dict[str, object] | None = None
+    # For a grouped search (TASK-0816): when the same pattern was searched
+    # through this link, newest first; the entry itself is the newest one.
+    occurrence_times: tuple[datetime, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -222,6 +226,15 @@ class BoardSearchShareQueryRepository(Protocol):
         ...
 
 
+# A link's searches are grouped in memory; one recipient's log stays far
+# below this bound, and older searches beyond it are simply not grouped in.
+_GROUPED_SEARCH_SCAN_MAX = 10_000
+
+
+def _pattern_key(event: BoardSearchShareQueryEvent) -> str:
+    return json.dumps(event.request.get("cells"), ensure_ascii=False)
+
+
 class BoardSearchShareQueryLogService:
     def __init__(self, repository: BoardSearchShareQueryRepository) -> None:
         self._repository = repository
@@ -233,7 +246,16 @@ class BoardSearchShareQueryLogService:
         before_cursor: str | None = None,
         limit: int = QUERY_LOG_PAGE_SIZE_MAX,
         kind: BoardSearchShareQueryKind | None = None,
+        group_by_pattern: bool = False,
     ) -> BoardSearchShareQueryPage:
+        """`group_by_pattern` (TASK-0816) lists every searched pattern once,
+        at its newest search, with the times of all its searches."""
+
+        if group_by_pattern and kind is not BoardSearchShareQueryKind.SEARCH:
+            raise BoardSearchShareError(
+                "BOARD_SEARCH_SHARE_QUERY_GROUP_INVALID",
+                "Only searches can be grouped by their pattern.",
+            )
         if not 1 <= limit <= QUERY_LOG_PAGE_SIZE_MAX:
             raise BoardSearchShareError(
                 "BOARD_SEARCH_SHARE_QUERY_LIMIT_INVALID",
@@ -244,6 +266,8 @@ class BoardSearchShareQueryLogService:
                 "BOARD_SEARCH_SHARE_NOT_FOUND", "This share link does not exist."
             )
         before = None if before_cursor is None else decode_query_log_cursor(before_cursor)
+        if group_by_pattern:
+            return self._grouped_page(session_id=session_id, before=before, limit=limit)
         rows = tuple(
             self._repository.list_events(
                 session_id=session_id, before=before, limit=limit + 1, kind=kind
@@ -258,16 +282,79 @@ class BoardSearchShareQueryLogService:
             else encode_query_log_cursor(last.occurred_at, last.id),
         )
 
-    def delete(self, event_id: UUID) -> int:
+    def _grouped_page(
+        self,
+        *,
+        session_id: UUID,
+        before: tuple[datetime, UUID] | None,
+        limit: int,
+    ) -> BoardSearchShareQueryPage:
+        heads = [
+            group
+            for group in self._pattern_groups(session_id)
+            if before is None or (group[0].occurred_at, group[0].id) < before
+        ]
+        page = heads[:limit]
+        last = page[-1][0] if len(heads) > limit else None
+        return BoardSearchShareQueryPage(
+            entries=tuple(self._group_entry(group) for group in page),
+            next_cursor=None
+            if last is None
+            else encode_query_log_cursor(last.occurred_at, last.id),
+        )
+
+    def _pattern_groups(self, session_id: UUID) -> list[list[BoardSearchShareQueryEvent]]:
+        """The link's searches by pattern; groups and members newest first."""
+
+        groups: dict[str, list[BoardSearchShareQueryEvent]] = {}
+        for event in self._repository.list_events(
+            session_id=session_id,
+            before=None,
+            limit=_GROUPED_SEARCH_SCAN_MAX,
+            kind=BoardSearchShareQueryKind.SEARCH,
+        ):
+            groups.setdefault(_pattern_key(event), []).append(event)
+        return list(groups.values())
+
+    def _group_entry(self, group: list[BoardSearchShareQueryEvent]) -> BoardSearchShareQueryEvent:
+        # The chart is the range of the newest search of this pattern that
+        # was followed by one.
+        follow_up = next(
+            (
+                member.follow_up_approximate_win
+                for member in map(self._with_follow_up, group)
+                if member.follow_up_approximate_win is not None
+            ),
+            None,
+        )
+        return replace(
+            group[0],
+            follow_up_approximate_win=follow_up,
+            occurrence_times=tuple(member.occurred_at for member in group),
+        )
+
+    def delete(self, event_id: UUID, *, whole_pattern: bool = False) -> int:
         """Remove one entry from the owner's log (D-478). A search takes its
         follow-up entries (ranges, board details) up to the next search with
-        it, so nothing of that search stays behind unseen."""
+        it, so nothing of that search stays behind unseen. `whole_pattern`
+        (TASK-0816) removes every search of the same pattern that way."""
 
         event = self._repository.get_event(event_id)
         if event is None:
             raise BoardSearchShareNotFoundError(
                 "BOARD_SEARCH_SHARE_QUERY_NOT_FOUND", "This query log entry does not exist."
             )
+        if whole_pattern and event.kind is BoardSearchShareQueryKind.SEARCH:
+            pattern = _pattern_key(event)
+            return sum(
+                self._delete_event(member)
+                for group in self._pattern_groups(event.session_id)
+                if _pattern_key(group[0]) == pattern
+                for member in group
+            )
+        return self._delete_event(event)
+
+    def _delete_event(self, event: BoardSearchShareQueryEvent) -> int:
         key = (event.occurred_at, event.id)
         # Any other entry ends at its direct successor: only itself goes.
         end = self._repository.next_event_key(

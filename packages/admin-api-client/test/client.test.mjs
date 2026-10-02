@@ -2203,6 +2203,7 @@ test('grid review client binds keyset, source identity and topology-aware writes
     view: 'needs_validation',
   });
   await client.getImageGridReviewSourceAsset(reviewItemId, gameId, checksum);
+  await client.getImageGridReviewCorrectionSymbols(reviewItemId, gameId);
   await client.previewImageGridReviewGeometry(
     reviewItemId,
     { gameId, importJobId },
@@ -2221,6 +2222,7 @@ test('grid review client binds keyset, source identity and topology-aware writes
     [
       ['GET', `/api/v1/admin/games/${gameId}/grid-reviews`],
       ['GET', `/api/v1/admin/image-reviews/${reviewItemId}/source-asset`],
+      ['GET', `/api/v1/admin/image-reviews/${reviewItemId}/correction-symbols`],
       ['POST', `/api/v1/admin/image-reviews/${reviewItemId}/geometry-preview`],
       [
         'POST',
@@ -2237,7 +2239,8 @@ test('grid review client binds keyset, source identity and topology-aware writes
     new URL(requests[1].url).searchParams.get('expectedSourceChecksumSha256'),
     checksum,
   );
-  assert.equal('correctedBy' in (await requests[3].clone().json()), false);
+  assert.equal(new URL(requests[2].url).searchParams.get('gameId'), gameId);
+  assert.equal('correctedBy' in (await requests[4].clone().json()), false);
   // D-462 / TASK-0727: no board, photo or whole-source approval in the client.
   for (const removed of [
     'approveImageGridReviewGeometry',
@@ -2278,6 +2281,11 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
           status: 200,
         });
       }
+      if (path.endsWith('/geometry-symbol-preview')) {
+        return Response.json({
+          cells: [{ cellIndex: 0, origin: 'predicted', symbolId: null }],
+        });
+      }
       if (path.endsWith('/manual-resolution')) {
         return Response.json({
           created: true,
@@ -2315,6 +2323,10 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
   );
   const resolutionCommand = {
     ...previewCommand,
+    // D-488: symbols the operator assigned travel with the geometry save.
+    cellSymbols: [
+      { cellIndex: 4, symbolId: '66666666-6666-4666-8666-666666666666' },
+    ],
     correctedBy: 'reviewer-operator',
     idempotencyKey: '55555555-5555-4555-8555-555555555555',
   };
@@ -2323,7 +2335,15 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
     context,
     resolutionCommand,
   );
+  const symbols = await client.previewPendingBoardCellGeometrySymbols(
+    pendingId,
+    context,
+    previewCommand,
+  );
 
+  assert.deepEqual(symbols.data, {
+    cells: [{ cellIndex: 0, origin: 'predicted', symbolId: null }],
+  });
   assert.equal(source.data instanceof Blob, true);
   assert.equal(preview.data instanceof Blob, true);
   assert.equal(resolved.data?.created, true);
@@ -2336,8 +2356,10 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
       `${collectionPath}/${pendingId}/source`,
       `${collectionPath}/${pendingId}/geometry-preview`,
       `${collectionPath}/${pendingId}/manual-resolution`,
+      `${collectionPath}/${pendingId}/geometry-symbol-preview`,
     ],
   );
+  assert.deepEqual(await requests[5].clone().json(), previewCommand);
   const listUrl = new URL(requests[0].url);
   assert.equal(listUrl.searchParams.get('cursor'), 'cursor-1');
   assert.equal(listUrl.searchParams.get('limit'), '1');
@@ -3772,7 +3794,33 @@ test('board-search share query log wrappers use their Admin paths', async () => 
   await client.getBoardSearchShareQueryReplay(eventId);
   await client.listBoardSearchShareQueries(sessionId, { kind: 'search' });
   await client.deleteBoardSearchShareQuery(eventId);
+  await client.listBoardSearchShareQueries(sessionId, {
+    groupByPattern: true,
+    kind: 'search',
+  });
+  await client.deleteBoardSearchShareQuery(eventId, { wholePattern: true });
   assert.equal(new URL(requests[3].url).searchParams.get('kind'), 'search');
+  assert.equal(
+    new URL(requests[3].url).searchParams.has('groupByPattern'),
+    false,
+  );
+  assert.equal(
+    new URL(requests[4].url).searchParams.has('wholePattern'),
+    false,
+  );
+  assert.equal(
+    new URL(requests[5].url).searchParams.get('groupByPattern'),
+    'true',
+  );
+  assert.equal(requests[6].method, 'DELETE');
+  assert.equal(
+    new URL(requests[6].url).searchParams.get('wholePattern'),
+    'true',
+  );
+  assert.equal(
+    requests[6].headers.get('X-Admin-Target'),
+    `board-search-share-query:${eventId}`,
+  );
   assert.equal(requests[4].method, 'DELETE');
   assert.equal(
     new URL(requests[4].url).pathname,

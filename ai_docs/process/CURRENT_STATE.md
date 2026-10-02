@@ -1,10 +1,145 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-01
+last_updated: 2026-10-02
 ---
 
 # Current State
+
+### TASK-0822 — klikalne kafelki i wybór symbolu w korekcie siatki (done, D-488)
+
+- Ekran „Korekta cięcia siatki” (Reviewer 3001): kafelek podglądu z pikselami
+  jest przyciskiem, pod podglądem jest paleta aktywnych symboli gry. Kafelek
+  pokazuje podpowiedź (kursywa) albo wybór operatora (pogrubienie, zielone
+  tło); „Usuń wybór” cofa wybór. Zapis siatki wysyła wyłącznie wybrane pola
+  (`cellSymbols`); pola bez pikseli nie są klikalne.
+- Podpowiedzi są pobierane po każdym aktualnym podglądzie; ich błąd nie
+  blokuje korekty ani zapisu. Dialog korekty w przeglądzie operacyjnym nie ma
+  palety (poza zakresem planu).
+- Testy: interakcje Reviewera 11/11 (2 nowe), jednostkowe 200/200 (1 nowy),
+  typecheck i lint czyste.
+- **Brak odbioru na żywo.** Po scaleniu wymagany restart API i
+  `npm run reviewer:build`. Plan
+  `GRID_CORRECTION_SYMBOLS_EXECUTION_PLAN.md` jest wykonany w całości.
+
+### TASK-0821 — podpowiedzi symboli dla cięcia w korekcie siatki (done, D-488)
+
+- `GET /admin/image-reviews/{reviewItemId}/correction-symbols`
+  (`getImageGridReviewCorrectionSymbols`): symbole zapisane na bieżących
+  komórkach planszy zgłoszonej — przypisany, a przy jego braku predykcja.
+- `POST …/board-cell-geometry-pending/{pendingId}/geometry-symbol-preview`
+  (`previewPendingBoardCellGeometrySymbols`): predykcja przypiętego modelu dla
+  podanego cięcia planszy odroczonej; brak modelu → pusta lista. Oba endpointy
+  niczego nie zapisują. Nowy POST jest na allowliście proxy Reviewera i
+  serwerowej allowliście originu 3001 (`security/local_admin.py`).
+- Testy: serwis 56/56, żądania API (pending 13, grid review, security 6),
+  PostgreSQL 1/1, klient 76/76, Reviewer 199/199; `openapi --check` i
+  `check:generated` aktualne.
+
+### TASK-0820 — zapis symboli operatora przy zapisie siatki (done, D-488)
+
+- `createImageGridReviewGeometryRevision` i
+  `resolvePendingBoardCellGeometryManually` przyjmują opcjonalne `cellSymbols`
+  (`cellIndex`, `symbolId`). Wskazane pola są zatwierdzane istniejącą akcją
+  `REASSIGN` (`approved`, `human`) dla nowego cropa, w transakcji zapisu
+  geometrii; powtórzenie tym samym kluczem stosuje przypisania ponownie.
+- Błąd przypisania (pole bez bieżącego cropa, nieaktywny symbol, zdublowany
+  indeks) wycofuje cały zapis. Zapis bez `cellSymbols` działa jak dotąd.
+- Testy: serwis 53/53, test PostgreSQL przypisań 1/1 (izolowana baza testowa),
+  żądania API 13/13, klient 76/76, Reviewer 199/199, typecheck Reviewera.
+  `test_grid_review_openapi_is_topology_aware_and_checksum_bound` pada także
+  na niezmienionej gałęzi (oczekuje `minItems` komórek) — poza zakresem.
+- Plan: `ai_docs/delivery/GRID_CORRECTION_SYMBOLS_EXECUTION_PLAN.md`; dalej
+  TASK-0821 (podpowiedzi) i TASK-0822 (UI).
+
+### TASK-0819 — podgląd korekty siatki dla niepełnych plansz, jeden widok cropów (done)
+
+- Zgłoszenie operatora: podgląd niepełnej planszy kończył się
+  `IMAGE_GRID_REVIEW_VIRTUAL_CELLS_INCOMPLETE`. Kontrola arkusza podglądu
+  wymagała braku renderu dla każdego pola z maski, a renderer od D-434/D-435
+  zachowuje pola częściowo widoczne. Teraz wymagane są tylko pola spoza maski;
+  pola z maski mogą mieć render. Dwa czerwone testy podglądu częściowego
+  opisywały stare zachowanie i zostały zaktualizowane.
+- Reviewer pokazuje jeden widok cropów (kafelki); usunięto zdublowany obraz
+  zbiorczy bez odstępów.
+- Testy API korekty siatki 50/50, interakcje geometrii Reviewera 9/9,
+  typecheck i lint Reviewera czyste. Wymagany restart API i przebudowa
+  Reviewera; brak odbioru na żywo.
+- Otwarte: przypisywanie symboli w korekcie siatki (klikalne kafelki, podgląd
+  predykcji) wymaga planu i zmiany D-462 — korekta dziś nie zatwierdza symboli.
+
+### Scalenie toru odczytów wyszukiwarki i dziennika linku (2026-10-02)
+
+- `v1.7.163`: gałąź `claude/board-default-symbols-refresh-ff0843` scalona do
+  `v1.1-vision-lab-hybrid-geometry` (TASK-0814, 0816, 0817, 0818; D-486,
+  D-487). Jej commity `v1.7.158`–`v1.7.162` mają numery sprzed scalenia;
+  `v1.7.158` na gałęzi integracyjnej to TASK-0815 (korekta siatki).
+- Po scaleniu: `npm install`, `npm run reviewer:build` i restart instancji
+  API, aby zapis stawki odbiorcy (D-487) i grupowanie dziennika zadziałały.
+
+### TASK-0817 — stawka odbiorcy na wykresach dziennika linku (done)
+
+- D-487: strona linku zgłasza stawkę każdego pokazanego zakresu
+  (`GET …/approximate-win/stake`), API zapisuje ją jako wpis zakresu ze
+  `stakeGrosze`, a wykres w dzienniku Admina jest rysowany w tej stawce.
+  Bez migracji. Starsze wpisy: „stawka nieznana (wykres w stawce bazowej)”.
+- Do działania u odbiorców potrzebne są przebudowany Reviewer
+  (`npm run reviewer:build`) i restart API po scaleniu.
+
+### TASK-0816 — dziennik linku grupuje te same wzory (done)
+
+- D-486: `listBoardSearchShareQueries` z `groupByPattern=true` zwraca jeden
+  wpis na wzór z `occurrenceTimes`; `deleteBoardSearchShareQuery` z
+  `wholePattern=true` usuwa wszystkie wyszukiwania wzoru. Dziennik w Adminie
+  pokazuje czasy po przecinku i przycisk „Usuń wszystkie (N)”.
+- Przy okazji naprawiony nieaktualny test interakcji dziennika
+  (`board-search-share-panel.test.mjs` oczekiwał kontraktu sprzed D-478).
+
+### TASK-0814 — hurtowe odświeżenie nieaktualnych odczytów wyszukiwarki (done)
+
+- 2026-10-02 operator zgłosił, że „Pokaż planszę” dla #486288 pokazywało
+  schemat z domyślnymi grafikami symboli zamiast zdjęcia do czasu ręcznego
+  „Odśwież odczyt tej planszy”. Przyczyna: odczyt wyszukiwarki zapisany przed
+  bieżącą siatką planszy (`documentStale`, TASK-0773). Gra 777 miała 62 142
+  takich plansz (wszystkie `pending`) z 499 997.
+- Nowy `scripts/refresh_stale_board_search_documents.py --game-id …` liczy
+  je bez zapisu, a z `--apply` odświeża każdą tą samą synchronizacją co
+  przycisk w oknie, partiami po jednej transakcji; ponowne uruchomienie
+  wznawia pracę. Commit `v1.7.158` / `cd36d0a2`.
+- Wynik uruchomienia na bazie deweloperskiej (2026-10-02): próba 200 plansz
+  i pełny przebieg 61 942 — razem 62 142 odświeżone, 0 usuniętych z
+  wyszukiwarki, 0 nadal nieaktualnych; kontrolny podgląd po przebiegu: 0.
+- Przyczyna zaległości: jednorazowa ponowna weryfikacja siatek 777 z
+  2026-09-25 (`system:grid-reverify-777-v1`), wykonana zanim zapis siatki
+  zaczął synchronizować projekcję wyszukiwarki (`v1.7.51`, 2026-09-29;
+  przepinanie sąsiednich plansz — `v1.7.145`). Żadna nieaktualna plansza nie
+  miała siatki zapisanej po 2026-09-25, więc poprawka kodu nie była potrzebna.
+
+### TASK-0818 — plansze „częściowa (potwierdzone minimum)” do korekty siatki (done)
+
+- Decyzja operatora 2026-10-02: plansze z nieznanymi polami oznaczonymi
+  `unreadable` albo `partial_visibility` trafiają do kolejki „korekta cięcia
+  siatki”. `scripts/route_partial_boards_to_grid_correction.py` (podgląd,
+  `--apply`) zgłasza te pola jako „zła siatka” istniejącą decyzją pola.
+  Commit `v1.7.159` / `104f9d81` (numer sprzed scalenia; zadanie
+  przenumerowane z 0815 z powodu kolizji z torem korekty siatki).
+- 777: skierowano 219 plansz (179 + 40), 0 pominiętych; kolejka korekty ma
+  331 plansz w 20 importach. 7 plansz bez rekordu pola pozostało bez zmian.
+  Skierowanie jest jednorazowe; nowe przypadki wymagają ponownego uruchomienia.
+### TASK-0815 — ręczna korekta siatki po bumpie kontraktu renderera (done)
+
+- Zgłoszenie operatora: każda zmiana siatki w „Korekcie cięcia siatki” kończyła
+  się `IMAGE_VIRTUAL_CELL_EXTRACTOR_MISMATCH`. Kontekst korekty brał wersję
+  extractora z render speców istniejących komórek (albo ze snapshotu rolloutu
+  joba), a renderer po TASK-0660/0661/0663 ma `…-source-direct-v4`, więc
+  odrzucał plansze zaimportowane wcześniej.
+- `VirtualGridGeometryService` wiąże teraz konfigurację renderu z bieżącym
+  rendererem (pojedyncza plansza, zapis źródła/odroczonego slotu, konwersja
+  legacy); pozostałe przypięte pola (preprocessing, interpolacja, rozmiar,
+  padding) bez zmian. Bez zmian API, schematu i danych.
+- Test regresyjny przechodzi; plik testów 48/50 — dwa przypadki
+  `test_qualified_partial_preview_…` padają także bez tej zmiany (poza
+  zakresem). Wymagany restart API; brak odbioru na żywym Reviewerze.
 
 ### TASK-0782 — zmiana kolejności symboli w katalogu (done)
 
@@ -202,12 +337,12 @@ last_updated: 2026-10-01
   treningowej 4,2%. Trening 6 000 zdjęć (3 000 S + 3 000 B, 21 rodzin),
   development 600 zdjęć (rodziny `0dbd07df`, `c0932585`, `299e7c72`), złoty
   102 zdjęcia. Snapshot v1 nietknięty.
-- TASK-0814 done (`v1.7.159`): druga runda przeglądu etykiet. Wynik
+- TASK-0823 done (`v1.7.159`; w commicie jako TASK-0814, numer zajęty przez inny tor): druga runda przeglądu etykiet. Wynik
   przeglądu operatora (600 plansz, ślepy, 2026-10-02): B 300/300 dobrych; S
   294 dobre, 5 lekko naciętych, 1 zła — odsetek luźny 0,3% (Wilson 95%:
   0,1–1,9%), ścisły 2,0% (0,9–4,3%); nacięcia skupione na pozycji 2 (prawa
   górna plansza). Etykiety S i B nadają się do treningu.
-- D-486 (2026-10-02): symbole dla V3 przypisuje operator od nowa po pocięciu
+- D-489 (2026-10-02; pierwotnie zapisane jako D-486, numer zajęty przez inny tor): symbole dla V3 przypisuje operator od nowa po pocięciu
   nową siatką; stare etykiety tylko do porównania po fakcie.
 - TASK-0802 w toku (`v1.7.158`): `neural_grid` (dwa stopnie, MobileNetV3-Large
   od zera, 3,3 mln + 3,3 mln parametrów). **Run 1 (preset A)**

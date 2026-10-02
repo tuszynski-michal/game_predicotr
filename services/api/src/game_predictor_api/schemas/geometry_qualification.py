@@ -2,13 +2,56 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import Annotated, Literal
+from uuid import UUID
 
 from game_predictor_worker.images.lateral_partial_contract import LateralPartialGeometrySnapshot
 from pydantic import Field, StrictBool, StrictInt, model_validator
 
+from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridCellSymbol,
+    VirtualGridCellSymbolSuggestion,
+)
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.schemas.catalog import ApiModel
+
+
+class GridCorrectionCellSymbolPayload(ApiModel):
+    """One symbol the operator assigns to a cell while saving its grid (D-488)."""
+
+    cell_index: int = Field(ge=0)
+    symbol_id: UUID
+
+    def to_domain(self) -> VirtualGridCellSymbol:
+        return VirtualGridCellSymbol(cell_index=self.cell_index, symbol_id=self.symbol_id)
+
+
+class GridCorrectionCellSymbolSuggestionResponse(ApiModel):
+    cell_index: int = Field(ge=0)
+    symbol_id: UUID | None
+    origin: Literal["assigned", "predicted"]
+
+
+class GridCorrectionSymbolsResponse(ApiModel):
+    """Symbols known for the cells of one board under grid correction (D-488)."""
+
+    cells: tuple[GridCorrectionCellSymbolSuggestionResponse, ...]
+
+
+def to_grid_correction_symbols_response(
+    values: Sequence[VirtualGridCellSymbolSuggestion],
+) -> GridCorrectionSymbolsResponse:
+    return GridCorrectionSymbolsResponse(
+        cells=tuple(
+            GridCorrectionCellSymbolSuggestionResponse(
+                cell_index=value.cell_index,
+                symbol_id=value.symbol_id,
+                origin=value.origin,
+            )
+            for value in values
+        )
+    )
 
 
 class ManualSourceGeometryPoint(ApiModel):

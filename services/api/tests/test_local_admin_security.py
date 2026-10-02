@@ -308,15 +308,11 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
     def revise_grid(item_id: str) -> dict[str, str]:
         return {"itemId": item_id, "operation": "revision"}
 
-    @app.post(
-        "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval"
-    )
+    @app.post("/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-approval")
     def approve_source_grid(game_id: str) -> dict[str, str]:
         return {"gameId": game_id, "operation": "source-approval"}
 
-    @app.post(
-        "/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions"
-    )
+    @app.post("/api/v1/admin/games/{game_id}/grid-reviews/source-geometry-revisions")
     def revise_source_grid(game_id: str) -> dict[str, str]:
         return {"gameId": game_id, "operation": "source-revision"}
 
@@ -330,6 +326,13 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
     )
     def resolve_pending_geometry(pending_id: str) -> dict[str, str]:
         return {"pendingId": pending_id}
+
+    @app.post(
+        "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/"
+        "board-cell-geometry-pending/{pending_id}/geometry-symbol-preview"
+    )
+    def preview_pending_symbols(pending_id: str) -> dict[str, str]:
+        return {"pendingId": pending_id, "operation": "symbols"}
 
     headers = {
         "Origin": "http://127.0.0.1:3001",
@@ -385,6 +388,11 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
             "board-cell-geometry-pending/pending/manual-resolution",
             headers=headers,
         )
+        accepted_pending_symbols = client.post(
+            "/api/v1/admin/games/game/image-imports/import/"
+            "board-cell-geometry-pending/pending/geometry-symbol-preview",
+            headers=headers,
+        )
 
     assert accepted.status_code == 200
     assert accepted.json() == {"itemId": "review-item"}
@@ -404,6 +412,7 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
     assert wrong_port_reviewer_origin.json()["code"] == "ADMIN_ORIGIN_FORBIDDEN"
     assert accepted_pending_resolution.status_code == 200
     assert accepted_pending_resolution.json() == {"pendingId": "pending"}
+    assert accepted_pending_symbols.status_code == 200
     assert forbidden_admin_mutation.status_code == 403
     assert forbidden_admin_mutation.json()["code"] == "ADMIN_ORIGIN_FORBIDDEN"
     assert foreign_origin.status_code == 403

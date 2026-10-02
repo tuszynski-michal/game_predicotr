@@ -73,6 +73,25 @@ def approximate_win_query_request(
     return {"startSequenceNumber": start_sequence_number, "spinCount": spin_count}
 
 
+# A stake far above any real one only bounds the stored integer.
+QUERY_STAKE_GROSZE_MAX: Final = 10_000_000
+
+
+def approximate_win_stake_query_request(
+    *, start_sequence_number: int, spin_count: int, stake_grosze: int | None
+) -> dict[str, object]:
+    """The stake the recipient views an already calculated range at (D-487).
+
+    Stored as a range entry with `stakeGrosze` (`None` is the base stake of
+    the published rules) and an empty summary: nothing is calculated."""
+
+    return {
+        "startSequenceNumber": start_sequence_number,
+        "spinCount": spin_count,
+        "stakeGrosze": stake_grosze,
+    }
+
+
 def approximate_win_query_summary(
     *,
     evaluated_spin_count: int,
@@ -99,9 +118,12 @@ def board_detail_query_summary(*, payout_credits: int, document_stale: bool) -> 
 
 
 _REQUEST_KEYS: Final = {
-    BoardSearchShareQueryKind.SEARCH: frozenset({"cells", "scope", "limit"}),
-    BoardSearchShareQueryKind.APPROXIMATE_WIN: frozenset({"startSequenceNumber", "spinCount"}),
-    BoardSearchShareQueryKind.BOARD_DETAIL: frozenset({"sequenceNumber"}),
+    BoardSearchShareQueryKind.SEARCH: (frozenset({"cells", "scope", "limit"}),),
+    BoardSearchShareQueryKind.APPROXIMATE_WIN: (
+        frozenset({"startSequenceNumber", "spinCount"}),
+        frozenset({"startSequenceNumber", "spinCount", "stakeGrosze"}),
+    ),
+    BoardSearchShareQueryKind.BOARD_DETAIL: (frozenset({"sequenceNumber"}),),
 }
 
 
@@ -115,7 +137,7 @@ def build_board_search_share_query_entry(
     """Validate one entry. A wrong shape or size is a programming error
     (`ValueError`), never user data to truncate silently."""
 
-    if set(request) != _REQUEST_KEYS[kind]:
+    if set(request) not in _REQUEST_KEYS[kind]:
         raise ValueError(f"Query log request keys do not match kind {kind.value!r}.")
     summary = {} if result_summary is None else dict(result_summary)
     if not outcome_code.strip() or len(outcome_code) > 100:
@@ -174,10 +196,12 @@ __all__ = [
     "QUERY_OUTCOME_OK",
     "QUERY_REQUEST_MAX_BYTES",
     "QUERY_RESULT_SUMMARY_MAX_BYTES",
+    "QUERY_STAKE_GROSZE_MAX",
     "BoardSearchShareQueryEntry",
     "BoardSearchShareQueryKind",
     "approximate_win_query_request",
     "approximate_win_query_summary",
+    "approximate_win_stake_query_request",
     "board_detail_query_request",
     "board_detail_query_summary",
     "build_board_search_share_query_entry",

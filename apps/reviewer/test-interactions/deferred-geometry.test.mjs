@@ -149,7 +149,10 @@ test('deferred editor freezes source through hold, fits and previews final geome
     'preview uses final pointerup position',
   );
   await act(async () => requests[1].resolve({ data: new Blob(['new']) }));
-  const preview = document.querySelector('img').src;
+  const previewTile = () =>
+    document.querySelector('[aria-label="Podgląd 15 cropów planszy"] > div')
+      .style.backgroundImage;
+  const preview = previewTile();
   await act(async () =>
     requests[0].resolve({
       error: {
@@ -158,7 +161,7 @@ test('deferred editor freezes source through hold, fits and previews final geome
       },
     }),
   );
-  assert.equal(document.querySelector('img').src, preview);
+  assert.equal(previewTile(), preview);
   assert.deepEqual(conflicts, []);
   assert.ok(!document.body.textContent.includes('Aktywne przesuwanie'));
 

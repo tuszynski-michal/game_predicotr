@@ -108,6 +108,7 @@ function fakeApi(state) {
     preview: [],
     resolve: [],
     save: [],
+    symbols: [],
   };
   const api = {
     listImageGridReviews: async (options) => {
@@ -183,6 +184,16 @@ function fakeApi(state) {
       };
     },
     listPendingBoardCellGeometry: async () => assert.fail('not used'),
+    // D-488: the catalogue and the read-only suggestions of the symbol picker.
+    listSymbols: async () => ({ data: state.symbols ?? [] }),
+    getImageGridReviewCorrectionSymbols: async (id, gameId) => {
+      calls.symbols.push({ gameId, id });
+      return { data: { cells: state.suggestions ?? [] } };
+    },
+    previewPendingBoardCellGeometrySymbols: async (id, scope, command) => {
+      calls.symbols.push({ command, id, scope });
+      return { data: { cells: state.suggestions ?? [] } };
+    },
   };
   return { api, calls };
 }
@@ -410,5 +421,112 @@ test('a queue conflict reloads once and never loops on the same board', async ()
     document.body.textContent,
     /nadal wskazuje tę planszę — wróć do niej później/,
   );
+  await act(async () => root.unmount());
+});
+
+const SYMBOLS = [
+  {
+    code: 'star',
+    displayOrder: 1,
+    id: 'sym-star',
+    mobileCode: 2,
+    name: 'Star',
+    namePl: null,
+    status: 'active',
+  },
+  {
+    code: 'seven',
+    displayOrder: 0,
+    id: 'sym-seven',
+    mobileCode: 1,
+    name: 'Seven',
+    namePl: 'Siódemka',
+    status: 'active',
+  },
+  {
+    code: 'old',
+    displayOrder: 2,
+    id: 'sym-old',
+    mobileCode: 3,
+    name: 'Old',
+    namePl: null,
+    status: 'archived',
+  },
+];
+
+/** A palette button; a labelled tile shows the same text as its symbol. */
+function paletteButton(text) {
+  return [
+    ...document.querySelectorAll('[aria-label="Symbol wybranego pola"] button'),
+  ].find((candidate) => candidate.textContent === text);
+}
+
+function cropButton(label) {
+  return [...document.querySelectorAll('button')].find(
+    (candidate) => candidate.getAttribute('aria-label') === label,
+  );
+}
+
+test('the operator labels previewed cells and the save sends only those symbols (D-488)', async () => {
+  const state = {
+    queue: [deferredSlot()],
+    suggestions: [
+      { cellIndex: 0, origin: 'predicted', symbolId: 'sym-seven' },
+      { cellIndex: 1, origin: 'predicted', symbolId: null },
+    ],
+    symbols: SYMBOLS,
+  };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+
+  // The suggestion is the model's prediction for exactly the previewed cut.
+  assert.equal(calls.symbols.length, 1);
+  assert.deepEqual(calls.symbols[0].command, calls.preview[0].command);
+  assert.ok(cropButton('Crop 1 — podpowiedź: Siódemka'));
+  // Active symbols only, in catalogue order; nothing is assignable yet.
+  const picker = document.querySelector('[aria-label="Symbol wybranego pola"]');
+  assert.deepEqual(
+    [...picker.querySelectorAll('button')].map((entry) => entry.textContent),
+    ['Siódemka', 'Star', 'Usuń wybór'],
+  );
+  assert.equal(paletteButton('Star').disabled, true);
+
+  await act(async () => cropButton('Crop 3').click());
+  await act(async () => paletteButton('Star').click());
+  assert.ok(cropButton('Crop 3 — wybrany symbol: Star'));
+  // A choice replaces the suggestion on its tile and can be withdrawn.
+  await act(async () => cropButton('Crop 1 — podpowiedź: Siódemka').click());
+  await act(async () => paletteButton('Star').click());
+  assert.ok(cropButton('Crop 1 — wybrany symbol: Star'));
+  await act(async () => paletteButton('Usuń wybór').click());
+  assert.ok(cropButton('Crop 1 — podpowiedź: Siódemka'));
+
+  await act(async () => button('Zapisz geometrię i dalej').click());
+  await settle();
+
+  assert.equal(calls.resolve.length, 1);
+  assert.deepEqual(calls.resolve[0].command.cellSymbols, [
+    { cellIndex: 2, symbolId: 'sym-star' },
+  ]);
+  await act(async () => root.unmount());
+});
+
+test('a save without a chosen symbol sends no symbols and stored ones are only hints', async () => {
+  const state = {
+    queue: [reportedBoard()],
+    suggestions: [{ cellIndex: 4, origin: 'assigned', symbolId: 'sym-star' }],
+    symbols: SYMBOLS,
+  };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+
+  assert.deepEqual(calls.symbols, [{ gameId: 'g', id: 'r1' }]);
+  assert.ok(cropButton('Crop 5 — zgłoszona zła siatka — podpowiedź: Star'));
+
+  await act(async () => button('Zapisz geometrię i dalej').click());
+  await settle();
+
+  assert.equal(calls.save.length, 1);
+  assert.equal('cellSymbols' in calls.save[0].command, false);
   await act(async () => root.unmount());
 });

@@ -6,6 +6,15 @@ last_updated: 2026-10-02
 
 # Current State
 
+### Scalenie toru odczytów wyszukiwarki i dziennika linku (2026-10-02)
+
+- `v1.7.163`: gałąź `claude/board-default-symbols-refresh-ff0843` scalona do
+  `v1.1-vision-lab-hybrid-geometry` (TASK-0814, 0816, 0817, 0818; D-486,
+  D-487). Jej commity `v1.7.158`–`v1.7.162` mają numery sprzed scalenia;
+  `v1.7.158` na gałęzi integracyjnej to TASK-0815 (korekta siatki).
+- Po scaleniu: `npm install`, `npm run reviewer:build` i restart instancji
+  API, aby zapis stawki odbiorcy (D-487) i grupowanie dziennika zadziałały.
+
 ### TASK-0817 — stawka odbiorcy na wykresach dziennika linku (done)
 
 - D-487: strona linku zgłasza stawkę każdego pokazanego zakresu
@@ -44,16 +53,31 @@ last_updated: 2026-10-02
   przepinanie sąsiednich plansz — `v1.7.145`). Żadna nieaktualna plansza nie
   miała siatki zapisanej po 2026-09-25, więc poprawka kodu nie była potrzebna.
 
-### TASK-0815 — plansze „częściowa (potwierdzone minimum)” do korekty siatki (done)
+### TASK-0818 — plansze „częściowa (potwierdzone minimum)” do korekty siatki (done)
 
 - Decyzja operatora 2026-10-02: plansze z nieznanymi polami oznaczonymi
   `unreadable` albo `partial_visibility` trafiają do kolejki „korekta cięcia
   siatki”. `scripts/route_partial_boards_to_grid_correction.py` (podgląd,
   `--apply`) zgłasza te pola jako „zła siatka” istniejącą decyzją pola.
-  Commit `v1.7.159` / `104f9d81`.
+  Commit `v1.7.159` / `104f9d81` (numer sprzed scalenia; zadanie
+  przenumerowane z 0815 z powodu kolizji z torem korekty siatki).
 - 777: skierowano 219 plansz (179 + 40), 0 pominiętych; kolejka korekty ma
   331 plansz w 20 importach. 7 plansz bez rekordu pola pozostało bez zmian.
   Skierowanie jest jednorazowe; nowe przypadki wymagają ponownego uruchomienia.
+### TASK-0815 — ręczna korekta siatki po bumpie kontraktu renderera (done)
+
+- Zgłoszenie operatora: każda zmiana siatki w „Korekcie cięcia siatki” kończyła
+  się `IMAGE_VIRTUAL_CELL_EXTRACTOR_MISMATCH`. Kontekst korekty brał wersję
+  extractora z render speców istniejących komórek (albo ze snapshotu rolloutu
+  joba), a renderer po TASK-0660/0661/0663 ma `…-source-direct-v4`, więc
+  odrzucał plansze zaimportowane wcześniej.
+- `VirtualGridGeometryService` wiąże teraz konfigurację renderu z bieżącym
+  rendererem (pojedyncza plansza, zapis źródła/odroczonego slotu, konwersja
+  legacy); pozostałe przypięte pola (preprocessing, interpolacja, rozmiar,
+  padding) bez zmian. Bez zmian API, schematu i danych.
+- Test regresyjny przechodzi; plik testów 48/50 — dwa przypadki
+  `test_qualified_partial_preview_…` padają także bez tej zmiany (poza
+  zakresem). Wymagany restart API; brak odbioru na żywym Reviewerze.
 
 ### TASK-0782 — zmiana kolejności symboli w katalogu (done)
 

@@ -1,7 +1,7 @@
 """Send boards with unknown search cells to the manual grid-correction queue.
 
 A board whose search document has an unknown cell is shown as "częściowa
-(potwierdzone minimum)" in board search (TASK-0815). This command reports the
+(potwierdzone minimum)" in board search (TASK-0818). This command reports the
 unknown cells a human marked `unreadable` or `partial_visibility` and, with
 `--apply`, marks them `Zła siatka` through the same checksum-bound decision
 as the Reviewer, so the board enters the grid-correction queue. One

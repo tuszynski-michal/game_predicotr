@@ -1,7 +1,8 @@
 """Frozen training snapshot of production 777 geometry (TASK-0801).
 
 Reads the TASK-0800 candidate manifest (streamed, never loaded whole), plans the
-``production-geometry-split-v1`` split (:mod:`.production_split`), copies the
+``production-geometry-split-v1`` or ``-v2`` split (:mod:`.production_split`; the
+policy is part of the snapshot ID), copies the
 selected source photos byte for byte after a SHA-256 check and publishes an
 immutable snapshot directory atomically, following the T01 pattern of
 :mod:`.snapshot`: staging directory, ``fsync``-ed files, checksum verification,
@@ -389,6 +390,11 @@ def _blockers(
         blockers.append("POOL_SMALLER_THAN_TARGET")
     if summary["maxTrainingFamilyShare"] > float(config.family_cap_fraction) + 1e-9:
         blockers.append("FAMILY_SHARE_ABOVE_CAP")
+    if (
+        config.holds_out_gold_families
+        and summary["gold"].get("goldBoardsInFamiliesUnseenInTraining", 0) == 0
+    ):
+        blockers.append("HELDOUT_GOLD_SUBSET_EMPTY")
     if size > max_bytes:
         blockers.append(f"COPY_SIZE_ABOVE_LIMIT:{size}>{max_bytes}")
     return blockers
@@ -635,7 +641,7 @@ def _write_stage(
             stage / "checks" / f"visual-{name}.jpg", stream.getvalue()
         )
     split_document = {
-        "policyVersion": split.POLICY_VERSION,
+        "policyVersion": plan.config.policy_version,
         "policy": identity["policy"],
         "input": identity["input"],
         "selection": identity["selection"],
@@ -650,6 +656,9 @@ def _write_stage(
         "samplesSha256": files[_SAMPLES],
         "samples": len(records),
     }
+    if plan.config.holds_out_gold_families:
+        split_document["heldoutGoldFamilyGroups"] = plan.heldout_groups
+        split_document["heldoutGoldSelection"] = plan.heldout_selection
     files[_SPLIT] = _write_file(stage / _SPLIT, dumps(split_document))
     exclusions = b"".join(
         dumps({"imageId": i, "reason": r, "sourceRelativePath": scan.sources[i].relative_path})

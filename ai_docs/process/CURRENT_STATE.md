@@ -189,6 +189,19 @@ last_updated: 2026-10-01
   odsetek błędnych etykiet z przedziałem Wilsona — rozstrzyga, czy S i B
   nadają się do treningu. Następny etap V3-B (TASK-0802, TASK-0803) wymaga
   jawnego uruchomienia.
+- 2026-10-02 operator: wymusić niezależny podzbiór złoty przed treningiem;
+  podobieństwo rodzin (jedno nagranie, ruchoma kamera) jest cechą danych;
+  uruchomić etap V3-B z budżetem 3 runy × 4 h GPU (D-481). Przegląd 600
+  plansz nie został jeszcze wykonany (0 decyzji) — trening rusza równolegle,
+  wynik przeglądu pozostaje warunkiem oceny przydatności etykiet S/B.
+- TASK-0813 done (`v1.7.157`): polityka `production-geometry-split-v2`,
+  snapshot treningowy **obowiązujący dla V3-B**:
+  `production-geometry-snapshots\286f2e37…df59` (1,81 GB). Rodziny
+  `0dbd07df` (1-19809) i `299e7c72` wyłączone z treningu: 249 z 459 plansz G
+  (54,2%) leży w rodzinach niewidzianych, 210 w widzianych; utrata puli
+  treningowej 4,2%. Trening 6 000 zdjęć (3 000 S + 3 000 B, 21 rodzin),
+  development 600 zdjęć (rodziny `0dbd07df`, `c0932585`, `299e7c72`), złoty
+  102 zdjęcia. Snapshot v1 nietknięty.
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

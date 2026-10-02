@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import dataclasses
 from fractions import Fraction
 from pathlib import Path
 
@@ -176,3 +177,153 @@ def test_production_split_capped_allocation() -> None:
     )
     assert allocation["a"] == 10 and sum(allocation.values()) == 40
     assert split.SplitConfig(seed=0, family_cap_fraction=Fraction(1, 4)).family_cap() == 750
+
+
+V2 = split.SplitConfig(
+    seed=7,
+    training_per_level=8,
+    development_per_level=2,
+    policy_version=split.POLICY_VERSION_V2,
+)
+
+
+def test_production_split_v1_description_is_unchanged() -> None:
+    v1 = split.SplitConfig(seed=801).describe()
+    assert v1["policyVersion"] == split.POLICY_VERSION
+    assert "heldoutGoldFamilies" not in v1
+    v2 = split.SplitConfig(seed=801, policy_version=split.POLICY_VERSION_V2).describe()
+    assert v2["policyVersion"] == split.POLICY_VERSION_V2
+    assert v2["heldoutGoldFamilies"]["goldShareBelow"] == "3/10"
+    assert v2["heldoutGoldFamilies"]["maxTrainingPoolLoss"] == "1/5"
+    assert {k: v for k, v in v2.items() if k not in ("policyVersion", "heldoutGoldFamilies")} == {
+        k: v for k, v in v1.items() if k != "policyVersion"
+    }
+    with pytest.raises(ValueError, match="SPLIT_POLICY_UNSUPPORTED"):
+        split.SplitConfig(seed=1, policy_version="production-geometry-split-v9")
+
+
+def test_production_split_v2_holds_gold_family_out_of_training(tmp_path: Path) -> None:
+    images = facts(standard_dataset(tmp_path))
+    plan = split.plan_split(images, V2, ok)
+    # fam0: 3 G boards over 8 filter-passing photos ranks first and alone holds 75% of G.
+    assert plan.heldout_groups == ["selection:fam0"]
+    assert plan.development_groups[0] == "selection:fam0"
+    assert plan.heldout_selection["stopReason"] == "GOLD_SHARE_REACHED"
+    assert plan.heldout_selection["goldBoardsHeldOut"] == 3
+    trained = {
+        plan.family_group_of[images[i].family_id]
+        for i, role in plan.roles.items()
+        if role == split.ROLE_TRAINING
+    }
+    assert "selection:fam0" not in trained
+    developed = {
+        plan.family_group_of[images[i].family_id]
+        for i, role in plan.roles.items()
+        if role == split.ROLE_DEVELOPMENT
+    }
+    assert developed == {"selection:fam0"}
+    assert plan.family_seen_in_training == {"gold-full": False, "gold-mixed": True}
+    summary = split.split_summary(plan, images)
+    assert summary["gold"]["goldBoardsInFamiliesUnseenInTraining"] == 3
+    assert summary["gold"]["goldBoardsInFamiliesSeenInTraining"] == 1
+    assert summary["roles"]["training"]["imagesByLevel"] == {"B": 8, "S": 8}
+    assert summary["roles"]["development"]["imagesByLevel"] == {"B": 2, "S": 2}
+    assert summary["heldoutGoldFamilies"]["additionalDevelopmentFamilyGroups"] == []
+
+
+def selection_dataset(root: Path) -> Dataset:
+    """fam-b and fam-c tie at 2 G boards per 20 photos; fam-a has 1 G per 20 photos."""
+
+    data = Dataset(root)
+    for family, gold in (
+        ("fam-a", 1),
+        ("fam-b", 2),
+        ("fam-c", 2),
+        *((f"fam-{n}", 0) for n in "defgh"),
+    ):
+        for _ in range(10):
+            data.photo(family, ["S", "S", "S"])
+            data.photo(family, ["B", "B", "B"])
+        if gold:
+            data.photo(family, ["G"] * gold + ["U"], image_id=f"gold-{family}")
+    return data
+
+
+def test_production_split_v2_rule_order_tie_break_and_stop(tmp_path: Path) -> None:
+    images = facts(selection_dataset(tmp_path))
+    config = split.SplitConfig(
+        seed=5,
+        training_per_level=10,
+        development_per_level=2,
+        policy_version=split.POLICY_VERSION_V2,
+        heldout_gold_share=Fraction(1, 2),
+        heldout_max_pool_loss=Fraction(3, 10),
+    )
+    plan = split.plan_split(images, config, ok)
+    order = [row["familyGroup"] for row in plan.heldout_selection["candidates"]]
+    assert order == ["fam-b", "fam-c", "fam-a"]
+    # fam-b holds 40% < 50% of G, fam-c raises the loss to 40/160 = 25% <= 30%: taken.
+    assert plan.heldout_groups == ["fam-b", "fam-c"]
+    assert plan.heldout_selection["stopReason"] == "GOLD_SHARE_REACHED"
+    assert plan.heldout_selection["trainingPoolLoss"] == 0.25
+    assert plan.family_seen_in_training["gold-fam-a"] is True
+    assert plan.family_seen_in_training["gold-fam-b"] is False
+    assert plan.family_seen_in_training["gold-fam-c"] is False
+
+
+def test_production_split_v2_irreconcilable_thresholds_stop(tmp_path: Path) -> None:
+    images = facts(selection_dataset(tmp_path))
+    # fam-b alone holds 40% of G; adding fam-c would lose 25% > 20% of the pool.
+    config = split.SplitConfig(
+        seed=5,
+        training_per_level=10,
+        development_per_level=2,
+        policy_version=split.POLICY_VERSION_V2,
+        heldout_gold_share=Fraction(1, 2),
+    )
+    with pytest.raises(ValueError, match="HELDOUT_GOLD_THRESHOLDS_IRRECONCILABLE"):
+        split.plan_split(images, config, ok)
+    # The first group is always taken, but not past the loss cap.
+    strict = split.SplitConfig(
+        seed=5,
+        training_per_level=10,
+        development_per_level=2,
+        policy_version=split.POLICY_VERSION_V2,
+        heldout_max_pool_loss=Fraction(1, 10),
+    )
+    with pytest.raises(ValueError, match="HELDOUT_GOLD_THRESHOLDS_IRRECONCILABLE"):
+        split.plan_split(images, strict, ok)
+
+
+def test_production_split_v2_tops_up_development_in_seeded_order(tmp_path: Path) -> None:
+    data = standard_dataset(tmp_path)
+    data.photo("selection:goldonly", ["G", "G"], image_id="gold-only")
+    images = facts(data)
+    plan = split.plan_split(images, V2, ok)
+    # A gold group without filter-passing photos ranks first; it cannot fill development.
+    assert plan.heldout_selection["candidates"][0]["familyGroup"] == "selection:goldonly"
+    assert plan.heldout_groups[0] == "selection:goldonly"
+    assert plan.development_groups[: len(plan.heldout_groups)] == plan.heldout_groups
+    summary = split.split_summary(plan, images)
+    assert summary["roles"]["development"]["imagesByLevel"] == {"B": 2, "S": 2}
+    assert plan.family_seen_in_training["gold-only"] is False
+    split.assert_disjoint(plan, images)
+
+
+def test_production_split_v2_disjoint_and_deterministic(tmp_path: Path) -> None:
+    data = standard_dataset(tmp_path)
+    first = split.plan_split(facts(data), V2, ok)
+    data.rows.reverse()
+    images = facts(data)
+    second = split.plan_split(images, V2, ok)
+    assert first.roles == second.roles
+    assert first.heldout_selection == second.heldout_selection
+    # The held-out choice does not depend on the seed; the draws do.
+    reseeded = split.plan_split(images, dataclasses.replace(V2, seed=8), ok)
+    assert reseeded.heldout_groups == second.heldout_groups
+    assert reseeded.roles != second.roles
+    second.roles[
+        next(i for i in images if images[i].family_id == "selection:fam0" and i.startswith("img-"))
+    ] = split.ROLE_TRAINING
+    with pytest.raises(ValueError, match="HELDOUT_FAMILY_IN_TRAINING"):
+        split.assert_disjoint(second, images)

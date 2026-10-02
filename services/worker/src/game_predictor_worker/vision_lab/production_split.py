@@ -1,4 +1,6 @@
-"""Symbol-agreement filter and the ``production-geometry-split-v1`` policy (TASK-0801).
+"""Symbol-agreement filter and the ``production-geometry-split-v1``/``-v2`` policies.
+
+TASK-0801 introduced v1; TASK-0813 adds v2, which is v1 plus one step (see below).
 
 Pure logic over the candidate manifest of TASK-0800 (one row per production
 board). Nothing here reads a database, an image or the network, and nothing here
@@ -18,6 +20,17 @@ Roles, in order of precedence:
 3. ``training`` -- a stratified sample from the remaining family groups, per label
    level, stratified by family and difficulty bin, with a per-family share cap.
 
+``production-geometry-split-v2`` inserts a step before the development choice:
+family groups holding G boards are held out of training as a whole, so part of the
+gold set lies in families never seen in training. Groups with G boards are sorted by
+G boards per 1 000 filter-passing photos of the group (descending; tie: group id;
+a group without filter-passing photos sorts first) and taken one by one while the
+held-out groups hold less than 30% of all G boards and the next group would not
+raise the training-pool loss (filter-passing photos of held-out groups / all
+filter-passing photos) above 20%. The first group is always taken. Held-out groups
+open the development family list; their filter-passing photos feed development, and
+whole groups in v1 seeded order are added only when they cannot fill it.
+
 Every random choice is a sort by ``sha256(seed | purpose | key)``, so the result
 does not depend on the Python version, hash randomisation or input order.
 """
@@ -32,6 +45,8 @@ from fractions import Fraction
 from typing import Any, Final
 
 POLICY_VERSION: Final = "production-geometry-split-v1"
+POLICY_VERSION_V2: Final = "production-geometry-split-v2"
+POLICY_VERSIONS: Final = (POLICY_VERSION, POLICY_VERSION_V2)
 FILTER_VERSION: Final = "production-geometry-symbol-filter-v1"
 # Predictions at or below this quality without a human decision fail the filter
 # (``cellsBelowFilter`` of the TASK-0800 manifest counts exactly those cells).
@@ -242,8 +257,41 @@ class SplitConfig:
     family_cap_fraction: Fraction = Fraction(1, 4)
     difficulty_bins: int = 3
     filter_max_low_quality: float = FILTER_MAX_LOW_QUALITY
+    policy_version: str = POLICY_VERSION
+    # v2 only: stop holding out gold families once they hold this share of G boards...
+    heldout_gold_share: Fraction = Fraction(3, 10)
+    # ...or when the next family would push the training-pool loss above this share.
+    heldout_max_pool_loss: Fraction = Fraction(1, 5)
+
+    def __post_init__(self) -> None:
+        if self.policy_version not in POLICY_VERSIONS:
+            raise ValueError(f"SPLIT_POLICY_UNSUPPORTED: {self.policy_version}")
+
+    @property
+    def holds_out_gold_families(self) -> bool:
+        return self.policy_version == POLICY_VERSION_V2
 
     def describe(self) -> dict[str, Any]:
+        # v1 keeps its exact description: it is part of the published v1 snapshot ID.
+        described = self._describe_v1()
+        if self.holds_out_gold_families:
+            described["policyVersion"] = self.policy_version
+            described["heldoutGoldFamilies"] = {
+                "goldShareBelow": str(self.heldout_gold_share),
+                "maxTrainingPoolLoss": str(self.heldout_max_pool_loss),
+                "rule": (
+                    "family groups with G boards sorted by G boards per 1000 filter-passing "
+                    "photos descending (tie: group id; groups without filter-passing photos "
+                    "first); taken in order while the held-out groups hold less than "
+                    "goldShareBelow of all G boards and the next group keeps the loss of "
+                    "filter-passing photos at or below maxTrainingPoolLoss; the first group "
+                    "is always taken; held-out groups never enter training and feed "
+                    "development, topped up by whole groups in v1 seeded order"
+                ),
+            }
+        return described
+
+    def _describe_v1(self) -> dict[str, Any]:
         return {
             "policyVersion": POLICY_VERSION,
             "seed": self.seed,
@@ -291,6 +339,8 @@ class SplitPlan:
     shortfalls: list[dict[str, Any]] = field(default_factory=list)
     family_seen_in_training: dict[str, bool] = field(default_factory=dict)
     development_family_order: list[dict[str, Any]] = field(default_factory=list)
+    heldout_groups: list[str] = field(default_factory=list)
+    heldout_selection: dict[str, Any] = field(default_factory=dict)
 
 
 def _sha_components(images: Mapping[str, ImageFacts]) -> dict[str, list[str]]:
@@ -410,7 +460,7 @@ def _draw(
 def plan_split(
     images: Mapping[str, ImageFacts], config: SplitConfig, check: IntegrityCheck
 ) -> SplitPlan:
-    """Assign gold, development and training photos (``production-geometry-split-v1``)."""
+    """Assign gold, development and training photos (policy from ``config.policy_version``)."""
 
     plan = SplitPlan(config=config)
     components = _sha_components(images)
@@ -475,20 +525,36 @@ def plan_split(
         pools[eligible[image_id]][group].append(image_id)
 
     # Development: whole family groups in seeded order until both levels can fill it.
+    # v2 opens the list with the held-out gold groups.
     dev_need = config.development_per_level
     have = dict.fromkeys(TRAINING_LEVELS, 0)
+    if config.holds_out_gold_families:
+        plan.heldout_groups = select_heldout_gold_groups(plan, images, pools, gold, config)
+        for group in plan.heldout_groups:
+            counts = {level: len(pools[level].get(group, [])) for level in TRAINING_LEVELS}
+            plan.development_groups.append(group)
+            for level in TRAINING_LEVELS:
+                have[level] += counts[level]
+            plan.development_family_order.append(
+                {"familyGroup": group, **counts, "basis": "heldout_gold"}
+            )
     for group in sorted(
         plan.family_groups, key=lambda g: order_key(config.seed, "development-family", g)
     ):
         if all(have[level] >= dev_need for level in TRAINING_LEVELS):
             break
+        if group in plan.heldout_groups:
+            continue
         counts = {level: len(pools[level].get(group, [])) for level in TRAINING_LEVELS}
         if not any(counts.values()):
             continue
         plan.development_groups.append(group)
         for level in TRAINING_LEVELS:
             have[level] += counts[level]
-        plan.development_family_order.append({"familyGroup": group, **counts})
+        entry: dict[str, Any] = {"familyGroup": group, **counts}
+        if config.holds_out_gold_families:
+            entry["basis"] = "seeded_order"
+        plan.development_family_order.append(entry)
     if not all(have[level] >= dev_need for level in TRAINING_LEVELS):
         raise ValueError(f"DEVELOPMENT_POOL_INSUFFICIENT: {have}")
     plan.training_groups = sorted(
@@ -535,6 +601,95 @@ def plan_split(
     return plan
 
 
+def select_heldout_gold_groups(
+    plan: SplitPlan,
+    images: Mapping[str, ImageFacts],
+    pools: Mapping[str, Mapping[str, list[str]]],
+    gold: set[str],
+    config: SplitConfig,
+) -> list[str]:
+    """The v2 held-out gold family groups, in selection order (see the module docstring).
+
+    Raises ``HELDOUT_GOLD_THRESHOLDS_IRRECONCILABLE`` when the loss cap stops the
+    selection before the held-out groups reach the gold share, or when the first group
+    alone exceeds the loss cap: the operator then chooses, not the code. The
+    candidate table is kept in ``plan.heldout_selection`` either way.
+    """
+
+    gold_boards: dict[str, int] = defaultdict(int)
+    for image_id in gold:
+        image = images[image_id]
+        count = sum(1 for board in image.boards if board.level == "G")
+        if count:
+            gold_boards[plan.family_group_of[image.family_id]] += count
+    passing = {
+        group: sum(len(pools[level].get(group, [])) for level in TRAINING_LEVELS)
+        for group in plan.family_groups
+    }
+    total_gold = sum(gold_boards.values())
+    total_pool = sum(passing.values())
+    if total_gold == 0:
+        raise ValueError("HELDOUT_GOLD_NO_GOLD_BOARDS")
+    if total_pool == 0:
+        raise ValueError("HELDOUT_GOLD_NO_FILTER_PASSING_PHOTOS")
+
+    def rank(group: str) -> tuple[int, Fraction, str]:
+        if passing[group] == 0:
+            return (0, Fraction(0), group)
+        return (1, -Fraction(gold_boards[group] * 1000, passing[group]), group)
+
+    candidates = sorted(gold_boards, key=rank)
+    table = [
+        {
+            "familyGroup": group,
+            "goldBoards": gold_boards[group],
+            "filterPassingPhotos": passing[group],
+            "filterPassingByLevel": {
+                level: len(pools[level].get(group, [])) for level in TRAINING_LEVELS
+            },
+            "goldBoardsPer1000Photos": None
+            if passing[group] == 0
+            else round(gold_boards[group] * 1000 / passing[group], 4),
+        }
+        for group in candidates
+    ]
+    selected: list[str] = []
+    held_gold = 0
+    held_pool = 0
+    stop = "ALL_GOLD_GROUPS_TAKEN"
+    for group in candidates:
+        if selected:
+            if Fraction(held_gold, total_gold) >= config.heldout_gold_share:
+                stop = "GOLD_SHARE_REACHED"
+                break
+            if Fraction(held_pool + passing[group], total_pool) > config.heldout_max_pool_loss:
+                stop = "POOL_LOSS_CAP"
+                break
+        selected.append(group)
+        held_gold += gold_boards[group]
+        held_pool += passing[group]
+    gold_share = Fraction(held_gold, total_gold)
+    pool_loss = Fraction(held_pool, total_pool)
+    plan.heldout_selection = {
+        "candidates": table,
+        "selected": list(selected),
+        "stopReason": stop,
+        "goldBoardsTotal": total_gold,
+        "goldBoardsHeldOut": held_gold,
+        "goldShareHeldOut": float(gold_share),
+        "filterPassingPhotosTotal": total_pool,
+        "filterPassingPhotosHeldOut": held_pool,
+        "trainingPoolLoss": float(pool_loss),
+    }
+    if pool_loss > config.heldout_max_pool_loss or gold_share < config.heldout_gold_share:
+        raise ValueError(
+            "HELDOUT_GOLD_THRESHOLDS_IRRECONCILABLE: "
+            f"goldShare={float(gold_share):.4f} poolLoss={float(pool_loss):.4f} "
+            f"selected={selected}"
+        )
+    return selected
+
+
 def assert_disjoint(plan: SplitPlan, images: Mapping[str, ImageFacts]) -> None:
     """Refuse a split with any leak between roles (photo, SHA-256, family group, unit rule)."""
 
@@ -559,6 +714,10 @@ def assert_disjoint(plan: SplitPlan, images: Mapping[str, ImageFacts]) -> None:
         problems.append("DEVELOPMENT_PHOTO_OUTSIDE_DEVELOPMENT_FAMILIES")
     if set(plan.development_groups) & set(plan.training_groups):
         problems.append("FAMILY_GROUP_IN_TWO_ROLES")
+    if set(plan.heldout_groups) - set(plan.development_groups):
+        problems.append("HELDOUT_FAMILY_OUTSIDE_DEVELOPMENT")
+    if set(plan.heldout_groups) & groups(ROLE_TRAINING):
+        problems.append("HELDOUT_FAMILY_IN_TRAINING")
     gold_shas = {images[i].sha256 for i in plan.gold_basis}
     for image_id in by_role[ROLE_TRAINING] | by_role[ROLE_DEVELOPMENT]:
         image = images[image_id]
@@ -629,7 +788,7 @@ def split_summary(plan: SplitPlan, images: Mapping[str, ImageFacts]) -> dict[str
     gold_ids = [i for i, r in plan.roles.items() if r == ROLE_GOLD]
     gold_boards = sum(1 for i in gold_ids for board in images[i].boards if board.level == "G")
     seen = [i for i in gold_ids if plan.family_seen_in_training.get(i)]
-    return {
+    summary: dict[str, Any] = {
         "roles": per_role,
         "trainingFamilyShare": dict(sorted(shares.items())),
         "maxTrainingFamilyShare": max(shares.values()) if shares else 0.0,
@@ -664,3 +823,23 @@ def split_summary(plan: SplitPlan, images: Mapping[str, ImageFacts]) -> dict[str
             ),
         },
     }
+    if plan.config.holds_out_gold_families:
+        unseen = [i for i in gold_ids if not plan.family_seen_in_training.get(i)]
+        summary["policyVersion"] = plan.config.policy_version
+        summary["gold"]["imagesInFamiliesUnseenInTraining"] = len(unseen)
+        summary["gold"]["goldBoardsInFamiliesUnseenInTraining"] = sum(
+            1 for i in unseen for board in images[i].boards if board.level == "G"
+        )
+        development = set(plan.development_groups)
+        outside_training = sum(
+            1 for i in plan.image_levels if plan.family_group_of[images[i].family_id] in development
+        )
+        summary["heldoutGoldFamilies"] = {
+            **plan.heldout_selection,
+            "additionalDevelopmentFamilyGroups": [
+                g for g in plan.development_groups if g not in plan.heldout_groups
+            ],
+            "trainingPoolLossWithAllDevelopmentFamilies": outside_training
+            / max(1, len(plan.image_levels)),
+        }
+    return summary

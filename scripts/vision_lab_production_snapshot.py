@@ -3,7 +3,9 @@
 Reads the candidate manifest of ``vision_lab_geometry_export.py`` (TASK-0800) and
 the managed source photos read-only; never touches the database.
 
-    preview       plan the ``production-geometry-split-v1`` split, print the counts and
+    preview       plan the split (``--policy``, default ``production-geometry-split-v1``;
+                  ``production-geometry-split-v2`` holds gold families out of training,
+                  TASK-0813), print the counts and
                   the copy size; copies nothing and writes nothing (files are only
                   checked for existence)
     build         plan with SHA-256 and decode checks, copy, verify and publish the
@@ -24,7 +26,11 @@ from pathlib import Path
 
 from game_predictor_worker.vision_lab import production_snapshot
 from game_predictor_worker.vision_lab.label_review import prepare_review
-from game_predictor_worker.vision_lab.production_split import SplitConfig
+from game_predictor_worker.vision_lab.production_split import (
+    POLICY_VERSION,
+    POLICY_VERSIONS,
+    SplitConfig,
+)
 
 DEFAULT_SEED = 801
 
@@ -47,6 +53,7 @@ def main() -> int:
         command.add_argument("--training-per-level", type=int, default=3000)
         command.add_argument("--development-per-level", type=int, default=300)
         command.add_argument("--max-copy-gib", type=float, default=3.0)
+        command.add_argument("--policy", choices=POLICY_VERSIONS, default=POLICY_VERSION)
     review = commands.add_parser("label-review")
     _common(review)
     review.add_argument("--output", type=Path, required=True)
@@ -81,6 +88,7 @@ def main() -> int:
         seed=arguments.seed,
         training_per_level=arguments.training_per_level,
         development_per_level=arguments.development_per_level,
+        policy_version=arguments.policy,
     )
     result = production_snapshot.build_snapshot(
         arguments.candidates,

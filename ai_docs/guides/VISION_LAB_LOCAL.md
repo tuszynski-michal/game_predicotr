@@ -518,6 +518,20 @@ niczego w nim nie zmienia. Opublikowany snapshot z 2026-10-02:
 `ai_docs/quality/GRID_V3_TRAINING_SNAPSHOT_20261002.md`. Nie zmieniaj plików w
 katalogu snapshotu: kontrola sum kontrolnych odrzuci go.
 
+Polityka podziału: `--policy production-geometry-split-v1` (domyślna) albo
+`--policy production-geometry-split-v2` (TASK-0813). v2 przed wyborem developmentu
+wyłącza z treningu całe rodziny z planszami G (malejąco po planszach G na 1 000
+zdjęć po filtrze, dopóki wyłączone mają < 30% plansz G i utrata puli treningowej
+≤ 20%), więc część zbioru złotego leży w rodzinach niewidzianych w treningu
+(`familySeenInTraining = false`). Gdy progi się wykluczają, skrypt kończy się błędem
+`HELDOUT_GOLD_THRESHOLDS_IRRECONCILABLE` i niczego nie kopiuje; pusta część
+niewidziana blokuje budowę (`HELDOUT_GOLD_SUBSET_EMPTY`). Opublikowany snapshot v2
+z 2026-10-02 (ziarno 801):
+`286f2e370aa84437c63fcffe202f01260d6ca13aee317eb8c11cac2ad0f2df59` (6 000 trening,
+600 development, 102 zdjęcia złote, z nich 249 plansz G w rodzinach niewidzianych).
+Tylko v2 ma niepusty podzbiór złota z rodzin niewidzianych; snapshot v1 pozostaje
+bez zmian.
+
 Przegląd etykiet: 600 plansz (300 S i 300 B, ziarno 801) przygotowano w
 `C:\Users\tuszy\Documents\game_predictor_vision_data\production-geometry-snapshots\label-review-seed801`
 (polecenie `label-review` tego samego skryptu z `--output`). Uruchom stronę

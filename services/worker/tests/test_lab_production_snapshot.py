@@ -192,3 +192,38 @@ def test_production_snapshot_real_files_grid_hits_oriented_photo() -> None:
                 -1 <= x <= record["orientedWidth"] and -1 <= y <= record["orientedHeight"]
                 for x, y in board["nodes"]
             )
+
+
+def test_production_snapshot_v2_records_unseen_gold_families(tmp_path: Path) -> None:
+    data = standard_dataset(tmp_path)
+    v2 = split.SplitConfig(
+        seed=7,
+        training_per_level=8,
+        development_per_level=2,
+        policy_version=split.POLICY_VERSION_V2,
+    )
+    candidates = data.write()
+    preview = snapshot.build_snapshot(
+        candidates, data.artifacts, tmp_path / "out", v2, preview=True, log=lambda _m: None
+    )
+    result = snapshot.build_snapshot(
+        candidates, data.artifacts, tmp_path / "out", v2, preview=False, log=lambda _m: None
+    )
+    assert result.status == "published" and not result.blockers
+    assert preview.snapshot_id == result.snapshot_id
+    v1 = build(data, tmp_path / "v1")
+    assert v1.snapshot_id != result.snapshot_id
+    root = tmp_path / "out" / str(result.snapshot_id)
+    manifest = snapshot.verify_snapshot(root)
+    assert manifest["policy"]["policyVersion"] == split.POLICY_VERSION_V2
+    samples = [json.loads(line) for line in (root / "samples.jsonl").read_bytes().splitlines()]
+    seen = {s["imageId"]: s["familySeenInTraining"] for s in samples if s["role"] == "gold"}
+    assert seen == {"gold-full": False, "gold-mixed": True}
+    trained = {s["familyGroupId"] for s in samples if s["role"] == "training"}
+    split_document = json.loads((root / "split.json").read_bytes())
+    assert split_document["policyVersion"] == split.POLICY_VERSION_V2
+    assert split_document["heldoutGoldFamilyGroups"] == ["selection:fam0"]
+    assert not trained & set(split_document["heldoutGoldFamilyGroups"])
+    report = json.loads((root / "report.json").read_bytes())
+    assert report["gold"]["goldBoardsInFamiliesUnseenInTraining"] == 3
+    assert report["heldoutGoldFamilies"]["selected"] == ["selection:fam0"]

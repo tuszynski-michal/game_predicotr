@@ -1,5 +1,5 @@
 ---
-title: Snapshot treningowy geometrii produkcyjnej 777 i próbka przeglądu etykiet (TASK-0801)
+title: Snapshot treningowy geometrii produkcyjnej 777 i próbka przeglądu etykiet (TASK-0801, podział v2 TASK-0813)
 status: accepted
 last_updated: 2026-10-02
 ---
@@ -134,7 +134,9 @@ Liczba zdjęć według rodziny (S/B treningu, S/B developmentu, zdjęcia złote)
   zawierają żadnego zdjęcia G. Podzbiór „rodzina niewidziana w treningu” jest więc
   pusty; TASK-0804 nie może raportować osobno złota z rodzin niewidzianych bez zmiany
   wyboru rodzin (decyzja operatora, np. inne ziarno albo reguła wymuszająca rodzinę
-  z G w developmencie).
+  z G w developmencie). Operator wybrał regułę wymuszającą: snapshot v2 (TASK-0813,
+  sekcja „Podział `production-geometry-split-v2`” niżej) ma 249 plansz G w rodzinach
+  niewidzianych w treningu.
 
 ### Rozłączność i determinizm
 
@@ -212,6 +214,138 @@ złoto 94.
   rozstrzyga przegląd 600 plansz (STOP V3-A).
 - Metryka niskiego kontrastu jest względna (percentyl snapshotu), nie absolutna.
 
+## Podział `production-geometry-split-v2` (TASK-0813)
+
+Polityka v2 = v1 plus jeden krok przed wyborem developmentu: rodziny złote
+wyłączone z treningu. Snapshot v2 zbudowano jednorazowo z tego samego manifestu
+(SHA-256 `0efe2a6a…cfacd`), ziarno 801; snapshot v1 pozostał bez zmian
+(`verify_snapshot`: 6 706 sum zgodnych po budowie v2; podgląd v1 nowym kodem daje
+ten sam ID `3ff448c6…727d`).
+
+- Snapshot: `C:\Users\tuszy\Documents\game_predictor_vision_data\production-geometry-snapshots\286f2e370aa84437c63fcffe202f01260d6ca13aee317eb8c11cac2ad0f2df59\`
+  (6 707 plików, 1 814 113 498 B; obrazy 1 715 762 875 B na 6 700 unikalnych SHA).
+  Format bez zmian (`production-geometry-snapshot-v1`); `manifest.json` →
+  `policy.policyVersion = production-geometry-split-v2` i progi reguły (`3/10`,
+  `1/5`); `split.json` dodatkowo `heldoutGoldFamilyGroups` i `heldoutGoldSelection`
+  (pełna tabela kandydatów), `report.json` sekcję `heldoutGoldFamilies`.
+- Czas budowy: 303,8 s (skan 22,8 s, plan z kontrolą SHA i dekodowaniem 43,0 s,
+  odczyt wierszy 17,8 s, kopia i metryki 158,6 s). Podgląd: 35,0 s, ten sam ID.
+- Kopia obrazów: zwykła kopia ze źródła po kontroli SHA-256, bez ponownego użycia
+  plików v1. Twarde dowiązania łączyłyby pliki obu snapshotów jednym i-węzłem (zapis
+  przez jeden katalog zmieniłby drugi), a kopia z v1 nic nie oszczędza, bo kontrola
+  integralności i tak czyta i dekoduje każde źródło.
+
+### Reguła wyboru rodzin wyłączonych
+
+Rodziny (grupy rodzin; tu 24 rodziny = 24 grupy) z co najmniej jedną planszą G,
+sortowane malejąco po liczbie plansz G na 1 000 zdjęć rodziny przechodzących filtr
+(remis: identyfikator; rodzina bez zdjęć po filtrze byłaby pierwsza). Dobierane
+kolejno, dopóki wyłączone rodziny mają mniej niż 30% wszystkich plansz G i dodanie
+kolejnej nie podniesie utraty puli treningowej (zdjęcia po filtrze w rodzinach
+wyłączonych / wszystkie zdjęcia po filtrze, 49 727) powyżej 20%. Pierwsza rodzina
+jest zawsze wybrana. Jeżeli progi nie dają się pogodzić (pierwsza rodzina ponad 20%
+albo limit utraty zatrzymuje dobór przed 30% G), kod zatrzymuje się z błędem
+`HELDOUT_GOLD_THRESHOLDS_IRRECONCILABLE` zamiast wybierać. Wybór nie zależy od
+ziarna.
+
+| Kolejność | Rodzina | ID | Po filtrze S / B | Plansze G | G / 1 000 zdjęć | Wynik |
+|---|---|---|---|---|---|---|
+| 1 | missing cut (kontynuacja z ręczną korektą) | `299e7c72` | 3 / 6 | 2 | 222,22 | wyłączona (zawsze pierwsza) |
+| 2 | 1-19809 cut | `0dbd07df` | 287 / 1 795 | 247 | 118,64 | wyłączona |
+| 3 | 149626 - 177561 cut | `ef4be7d3` | 1 692 / 716 | 99 | 41,11 | nie: próg 30% G osiągnięty |
+| 4 | 222913 - 248184 cut | `45f84292` | 474 / 1 943 | 30 | 12,41 | — |
+| 5 | 177562 -200583 cut | `b69d4040` | 779 / 1 572 | 23 | 9,78 | — |
+| 6 | 117829 - 128268 cut | `9c7de0ca` | 150 / 948 | 6 | 5,46 | — |
+| 7 | 248176 - 272016 cut | `05d1b599` | 572 / 1 926 | 11 | 4,40 | — |
+| 8 | 200575 - 222912 cut | `239e6fd6` | 308 / 2 055 | 10 | 4,23 | — |
+| 9 | 45163 - 70371 cut | `0935f4ba` | 645 / 1 943 | 10 | 3,86 | — |
+| 10 | 412605 - 387693 cut | `5eafd373` | 1 190 / 805 | 6 | 3,01 | — |
+| 11 | 128269 - 149634 cut | `bafbe14a` | 1 408 / 730 | 5 | 2,34 | — |
+| 12 | 500000 - 477063 cut | `dd693718` | 391 / 1 751 | 5 | 2,33 | — |
+| 13 | 19810 - 45162 cut | `e22ca053` | 269 / 2 357 | 5 | 1,90 | — |
+
+Wynik: wyłączone `299e7c72` i `0dbd07df` — **249 z 459 plansz G (54,2%)**, utrata
+puli treningowej **2 091 z 49 727 zdjęć po filtrze (4,2%)**; dobór zatrzymał próg
+G (`GOLD_SHARE_REACHED`). Progi dały się pogodzić. Próg 30% jest warunkiem
+kontynuacji, więc jedna rodzina o dużej liczbie G (`0dbd07df`, 247 plansz) przenosi
+udział od razu do 54%.
+
+### Development i trening
+
+Rodziny wyłączone mają po filtrze tylko 290 zdjęć S (< 300), więc development
+dobrał całą rodzinę w kolejności ziarna jak w v1: `c0932585` „379243- 352090 cut”
+(188 S / 2 781 B, bez G). Rodziny developmentu: `299e7c72`, `0dbd07df`, `c0932585`;
+łączna utrata puli treningowej z rodzinami developmentu 10,2% (v1: 11,8% przez
+trzy inne rodziny bez G). Trening: 21 rodzin, reguły warstw i limit 25% jak w v1.
+
+| Rola | Zdjęcia | S | B | G | Plansze |
+|---|---|---|---|---|---|
+| training | 6 000 | 3 000 | 3 000 | — | 54 000 (27 000 S + 27 000 B) |
+| development | 600 | 300 | 300 | — | 5 400 (2 700 S + 2 700 B) |
+| gold | 102 | 1 (bliźniak SHA) | — | 101 | 892 (459 G, 425 U, 8 S) |
+
+- Development według rodziny: `0dbd07df` 180 S + 118 B, `c0932585` 118 S + 182 B,
+  `299e7c72` 2 S.
+- Zbiór złoty: **rodziny widziane w treningu 51 zdjęć / 210 plansz G; rodziny
+  niewidziane 51 zdjęć / 249 plansz G** (`0dbd07df` 49 zdjęć / 247 G, `299e7c72`
+  2 / 2). `familySeenInTraining` sprawdzone niezależnie z `samples.jsonl`: 0 błędów.
+- Udziały rodzin w treningu: największy `ef4be7d3` 502 zdjęcia = 8,37% (limit nie
+  zadziałał), najmniejszy `c4c066f8` 50 = 0,83%; braki warstw 0, wykluczenia
+  integralności 0.
+- Trudność (tercyle jak w v1, te same krawędzie: 9,751° / 11,372°, 0,01704 /
+  0,01881): trening s0a0…s2a2 = 271, 617, 891, 588, 550, 682, 1 515, 437, 449;
+  development = 98, 110, 6, 95, 183, 11, 37, 59, 1.
+- Niski kontrast: próg 0,133144; plansz z `lowContrast`: trening 5 313,
+  development 627, złoto 94. Orientacja EXIF: wszystkie 6 702 zdjęcia = 1.
+- Zgodność z v1: 6 049 wspólnych zdjęć (5 588 trening w obu, 226 development w
+  obu, 102 złote, 70 development v1 → trening v2, 63 trening v1 → development v2).
+
+Liczba zdjęć według rodziny (S/B treningu, S/B developmentu, zdjęcia złote / plansze G):
+
+| Rodzina | ID | tr S | tr B | dev S | dev B | gold / G |
+|---|---|---|---|---|---|---|
+| 1-19809 cut | `0dbd07df` | 0 | 0 | 180 | 118 | 49 / 247 |
+| 117829 - 128268 cut | `9c7de0ca` | 39 | 86 | 0 | 0 | 4 / 6 |
+| 128269 - 149634 cut | `bafbe14a` | 364 | 66 | 0 | 0 | 1 / 5 |
+| 149626 - 177561 cut | `ef4be7d3` | 437 | 65 | 0 | 0 | 19 / 99 |
+| 177562 -200583 cut | `b69d4040` | 201 | 143 | 0 | 0 | 4 / 23 |
+| 19810 - 45162 cut | `e22ca053` | 69 | 214 | 0 | 0 | 4 / 5 |
+| 200575 - 222912 cut | `239e6fd6` | 80 | 187 | 0 | 0 | 2 / 10 |
+| 222913 - 248184 cut | `45f84292` | 122 | 176 | 0 | 0 | 6 / 30 |
+| 248176 - 272016 cut | `05d1b599` | 148 | 175 | 0 | 0 | 2 / 11 |
+| 272017 - 275841 cut | `c4c066f8` | 19 | 31 | 0 | 0 | 0 |
+| 302257 - 275698 cut (ponowne przetworzenie) | `a139379b` | 53 | 235 | 0 | 0 | 0 |
+| 326980 - 302257 cut | `3e3f510a` | 42 | 228 | 0 | 0 | 0 |
+| 352090 - 326980 cut | `ccf38bd4` | 48 | 230 | 0 | 0 | 0 |
+| 379243- 352090 cut | `c0932585` | 0 | 0 | 118 | 182 | 0 |
+| 387684 - 379242 cut | `a219649a` | 8 | 78 | 0 | 0 | 0 |
+| 412605 - 387693 cut | `5eafd373` | 307 | 73 | 0 | 0 | 2 / 6 |
+| 437742 - 412605 cut | `a0f63bd9` | 283 | 81 | 0 | 0 | 0 |
+| 45163 - 70371 cut | `0935f4ba` | 167 | 176 | 0 | 0 | 6 / 10 |
+| 453744 - 437743 cut | `d580af96` | 123 | 69 | 0 | 0 | 0 |
+| 477054 - 453753 cut | `02f69f96` | 109 | 176 | 0 | 0 | 0 |
+| 500000 - 477063 cut | `dd693718` | 101 | 159 | 0 | 0 | 1 / 5 |
+| 70363 - 93861 cut | `c2547b09` | 202 | 157 | 0 | 0 | 0 |
+| 93853 -117828 cut | `97f16dfb` | 78 | 195 | 0 | 0 | 0 |
+| missing cut (kontynuacja z ręczną korektą) | `299e7c72` | 0 | 0 | 2 | 0 | 2 / 2 |
+
+### Rozłączność i determinizm (v2)
+
+- `assert_disjoint` przed publikacją (z nowymi kontrolami
+  `HELDOUT_FAMILY_IN_TRAINING`, `HELDOUT_FAMILY_OUTSIDE_DEVELOPMENT`) i niezależny
+  skrypt na opublikowanym `samples.jsonl`: 0 zdjęć w dwóch rolach, 0 SHA złotych w
+  treningu/developmencie, 0 wspólnych SHA i grup rodzin development/trening, 0 rodzin
+  wyłączonych w treningu, 0 zdjęć treningu/developmentu łamiących filtr lub regułę
+  jednostki, 0 węzłów poza obrazem, 0 powtórzonych numerów sekwencji.
+- Determinizm: podgląd i budowa dały ten sam ID `286f2e37…df59`; testy v2
+  sprawdzają niezależność od kolejności wierszy, niezależność wyboru rodzin od ziarna
+  i zgodność ID podglądu z budową. `verify_snapshot`: 6 706 sum zgodnych (7,9 s).
+  Test plików rzeczywistych (`VISION_LAB_PRODUCTION_SNAPSHOT` = snapshot v2): 1 passed.
+- Ryzyko: wyłączenie `0dbd07df` (początek nagrania, „1-19809”) usuwa z treningu jego
+  wygląd; sąsiednia rodzina treningowa `e22ca053` „19810 - 45162” dzieli moment
+  przejścia, więc „rodzina niewidziana” nie oznacza wizualnie nowej sceny (operator
+  przyjął, że rodziny są podobne).
+
 ## Weryfikacja
 
 ```powershell
@@ -226,3 +360,10 @@ selekcja obejmuje też istniejący `test_production_snapshot.py` aplikacji mobil
 test izolacji labu. `ruff check` zgłasza tylko wcześniejsze E501 w
 `services/worker/tests/test_page_geometry_preflight.py` (poza zakresem). `mypy --strict`
 na nowych modułach i skrypcie: brak błędów.
+
+Po TASK-0813 (v2): ta sama selekcja z `label_review` — 44 passed, 1 skipped; bez
+`label_review` (polecenie z TASK-0813) — 37 passed, 1 skipped (7 nowych testów v2,
+testy v1 bez zmian). Test `real_files` z `VISION_LAB_PRODUCTION_SNAPSHOT` ustawionym
+na snapshot v2 `286f2e37…df59`: 1 passed. `ruff check services scripts`: nadal tylko
+wcześniejsze E501 w `test_page_geometry_preflight.py`; `mypy --strict` zmienionych
+modułów i skryptu: brak błędów.

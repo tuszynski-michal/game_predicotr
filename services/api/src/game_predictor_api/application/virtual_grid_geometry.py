@@ -235,7 +235,7 @@ class VirtualGridGeometrySourceCommand:
 
 @dataclass(frozen=True, slots=True)
 class VirtualGridCellSymbol:
-    """One symbol the operator assigned to a cell while correcting its grid (D-486)."""
+    """One symbol the operator assigned to a cell while correcting its grid (D-488)."""
 
     cell_index: int
     symbol_id: UUID
@@ -422,7 +422,7 @@ class VirtualGridGeometryService:
             created_at=created_at,
             geometry_qualification=geometry_qualification,
         )
-        # D-486: a replayed save applies the assignments again; they are
+        # D-488: a replayed save applies the assignments again; they are
         # idempotent and share the transaction of the geometry.
         self._assign_cell_symbols(
             game_id=game_id,
@@ -680,7 +680,7 @@ class VirtualGridGeometryService:
         current geometry: the new source revision is derived from the latest
         one and only the deferred slot's quad changes.  The repository locks
         and re-checks that exact snapshot, so a concurrent change conflicts.
-        Symbols the operator assigned (D-486) are approved on the new board in
+        Symbols the operator assigned (D-488) are approved on the new board in
         the same transaction.
         """
 
@@ -709,7 +709,7 @@ class VirtualGridGeometryService:
     def review_item_symbols(
         self, *, game_id: UUID, review_item_id: UUID
     ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
-        """Symbols stored on the current cells of a reported board (D-486)."""
+        """Symbols stored on the current cells of a reported board (D-488)."""
 
         return self._repository.current_cell_symbols(game_id=game_id, review_item_id=review_item_id)
 

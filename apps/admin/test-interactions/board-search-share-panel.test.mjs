@@ -314,13 +314,18 @@ test('a code created while the panel unmounts is still stored', async (context) 
   );
 });
 
-test('a link shows its query log with the pattern and replays an entry', async () => {
+test('a link shows its grouped query log with the pattern and replays an entry', async () => {
   const id = '88888888-8888-4888-8888-888888888888';
   const eventId = '99999999-9999-4999-8999-999999999999';
   const replayed = [];
   const pages = [];
+  const deleted = [];
   const client = {
     createBoardSearchShareSession: async () => ({ data: undefined }),
+    deleteBoardSearchShareQuery: async (entryId, options) => {
+      deleted.push([entryId, options]);
+      return { data: undefined };
+    },
     listBoardSearchShareQueries: async (sessionId, options) => {
       pages.push([sessionId, options]);
       return {
@@ -330,7 +335,8 @@ test('a link shows its query log with the pattern and replays an entry', async (
               gameId,
               id: eventId,
               kind: 'search',
-              occurredAt: new Date().toISOString(),
+              occurredAt: '2026-10-02T12:30:00Z',
+              occurrenceTimes: ['2026-10-02T12:30:00Z', '2026-10-01T08:05:00Z'],
               outcomeCode: 'ok',
               request: {
                 cells: ['0:cherry', '3:?'],
@@ -372,15 +378,32 @@ test('a link shows its query log with the pattern and replays an entry', async (
     () => document.querySelector('.boardSearchShareQuery') !== null,
     'log entry',
   );
-  assert.deepEqual(pages, [[id, {}]]);
+  // TASK-0816: one entry per pattern, with every time it was searched.
+  assert.deepEqual(pages, [
+    [id, { groupByPattern: true, kind: 'search', limit: 10 }],
+  ]);
   const entry = document.querySelector('.boardSearchShareQuery');
-  assert.match(entry.textContent, /Wyszukiwanie/);
-  assert.match(entry.textContent, /wyniki: 1 \(#7\)/);
+  const times = [...entry.querySelectorAll('.boardSearchShareQueryTimes time')];
+  assert.deepEqual(
+    times.map((time) => time.getAttribute('datetime')),
+    ['2026-10-02T12:30:00Z', '2026-10-01T08:05:00Z'],
+  );
+  assert.match(
+    entry.querySelector('.boardSearchShareQueryTimes').textContent,
+    /\d, \d/,
+  );
   const cells = [...entry.querySelectorAll('.boardSearchShareMiniCell')];
   assert.equal(cells.length, 15);
   assert.equal(cells[0].title, 'Wiśnia');
   assert.equal(cells[3].textContent, '?');
   await click(button('Odtwórz w wyszukiwarce'));
   assert.deepEqual(replayed, [eventId]);
+  await click(button('Usuń'));
+  await click(button('Usuń wszystkie (2)'));
+  await eventually(
+    () => document.querySelector('.boardSearchShareQuery') === null,
+    'entry removed',
+  );
+  assert.deepEqual(deleted, [[eventId, { wholePattern: true }]]);
   await act(async () => root.unmount());
 });

@@ -704,7 +704,7 @@ def test_manual_pending_geometry_api_delegates_to_the_virtual_source_path(
     assert preview.content == PREVIEW_PNG
     assert preview.headers["x-board-cell-count"] == "15"
     assert preview.headers["x-board-cell-cropper-version"] == "virtual-cell-renderer-test"
-    # D-486: the symbol preview validates like the PNG preview and writes nothing.
+    # D-488: the symbol preview validates like the PNG preview and writes nothing.
     assert symbol_preview.status_code == 200, symbol_preview.text
     assert symbol_preview.json() == {
         "cells": [
@@ -736,7 +736,7 @@ def test_manual_pending_geometry_api_delegates_to_the_virtual_source_path(
     assert virtual.saves[0]["pending_geometry_id"] == pending.id
     assert virtual.saves[0]["game_id"] == game_id
     assert virtual.saves[0]["import_job_id"] == import_job_id
-    # D-486: the operator's symbols reach the same save as the geometry.
+    # D-488: the operator's symbols reach the same save as the geometry.
     assert virtual.saves[0]["cell_symbols"] == (
         VirtualGridCellSymbol(cell_index=4, symbol_id=operator_symbol_id),
     )

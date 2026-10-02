@@ -125,6 +125,19 @@ export function boardSearchShareRoute(
       }),
     };
   }
+  if (apiPath === `${API_PREFIX}/approximate-win/stake`) {
+    // D-487: records the stake of a calculated range; omitted = base stake.
+    return {
+      kind: 'json',
+      query: exactly(
+        {
+          spinCount: POSITIVE_INTEGER,
+          startSequenceNumber: POSITIVE_INTEGER,
+        },
+        { stakeGrosze: POSITIVE_INTEGER },
+      ),
+    };
+  }
   if (new RegExp(`^${API_PREFIX}/boards/[1-9]\\d{0,8}$`).test(apiPath)) {
     return { kind: 'json', query: noQuery };
   }

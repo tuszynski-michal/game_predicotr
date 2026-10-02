@@ -184,7 +184,7 @@ function fakeApi(state) {
       };
     },
     listPendingBoardCellGeometry: async () => assert.fail('not used'),
-    // D-486: the catalogue and the read-only suggestions of the symbol picker.
+    // D-488: the catalogue and the read-only suggestions of the symbol picker.
     listSymbols: async () => ({ data: state.symbols ?? [] }),
     getImageGridReviewCorrectionSymbols: async (id, gameId) => {
       calls.symbols.push({ gameId, id });
@@ -467,7 +467,7 @@ function cropButton(label) {
   );
 }
 
-test('the operator labels previewed cells and the save sends only those symbols (D-486)', async () => {
+test('the operator labels previewed cells and the save sends only those symbols (D-488)', async () => {
   const state = {
     queue: [deferredSlot()],
     suggestions: [

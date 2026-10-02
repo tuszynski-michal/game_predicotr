@@ -1892,7 +1892,7 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
 
 
 class SqlAlchemyGridCorrectionSymbolRepository:
-    """Operator symbols of one board's current cells in a grid correction (D-486)."""
+    """Operator symbols of one board's current cells in a grid correction (D-488)."""
 
     def __init__(self, session: Session) -> None:
         self._session = session

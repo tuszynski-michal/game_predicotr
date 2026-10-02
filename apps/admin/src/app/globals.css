@@ -9531,7 +9531,7 @@ div.imageJobInlineError {
   background-color: #07111f;
 }
 
-/* D-486: a previewed cell the operator can label with a symbol. */
+/* D-488: a previewed cell the operator can label with a symbol. */
 .operationalReviewGeometryCropButton {
   display: flex;
   align-items: flex-end;

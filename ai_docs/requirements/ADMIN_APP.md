@@ -454,8 +454,9 @@ lista stawek wraca do „wybierz stawkę”, a podsumowanie, wykres i tabela są
 ukryte do czasu jej wyboru (kalkulacja biegnie w tle, więc wynik pojawia
 się od razu po wyborze). Zmiana planszy w obrębie tego samego wzoru,
 zmiana zakresu, limitu albo zakresu wyszukiwania zachowują stawkę.
-Odtworzenie z dziennika udostępnień (D-472) wybiera stawkę bazową, bo stawka
-odbiorcy nie jest znana. Przy koszcie spinu 0 stawki nie ma i wynik jest
+Odtworzenie z dziennika udostępnień (D-472) wybiera stawkę bazową; stawka
+odbiorcy jest widoczna na wykresie w dzienniku linku (D-487), ale odtworzenie
+jej nie przenosi. Przy koszcie spinu 0 stawki nie ma i wynik jest
 pokazywany bez wyboru.
 
 Wynik rozróżnia dla każdej pozycji zakresu trzy rozłączne kategorie:
@@ -661,7 +662,7 @@ z dotychczasową etykietą jako podpowiedzią, a komórki o niezmienionych
 pikselach zachowują weryfikację (D-462 R5/R6). Zapis dotyczy wyłącznie tej
 jednej planszy.
 
-**D-486 (TASK-0817–0819):** podgląd pokazuje jeden zestaw 15 kafelków.
+**D-488 (TASK-0820–0822):** podgląd pokazuje jeden zestaw 15 kafelków.
 Kafelek z pikselami (także pole częściowo widoczne) jest klikalny; pod
 podglądem jest paleta aktywnych symboli gry w kolejności katalogu. Kafelek
 pokazuje podpowiedź symbolu — dla planszy zgłoszonej symbol zapisany w bazie,

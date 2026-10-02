@@ -4,7 +4,7 @@ status: done
 last_updated: 2026-10-02
 ---
 
-# TASK-0817 — Zapis symboli operatora przy zapisie siatki
+# TASK-0820 — Zapis symboli operatora przy zapisie siatki
 
 ## Status
 
@@ -17,12 +17,12 @@ zatwierdza je w tej samej transakcji.
 
 ## Context
 
-Decyzja D-486 zmienia regułę D-462 „zapis geometrii nie weryfikuje symboli”
+Decyzja D-488 zmienia regułę D-462 „zapis geometrii nie weryfikuje symboli”
 dla pól wskazanych jawnie przez operatora.
 
 ## Dependencies / entry conditions
 
-TASK-0816 wykonane. Fakty i decyzje w planie.
+TASK-0819 wykonane. Fakty i decyzje w planie.
 
 ## Recommended execution
 
@@ -34,7 +34,7 @@ TASK-0816 wykonane. Fakty i decyzje w planie.
 - `AGENTS.md`
 - `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/delivery/GRID_CORRECTION_SYMBOLS_EXECUTION_PLAN.md`
-- `ai_docs/process/DECISION_LOG.md` (D-462, D-486)
+- `ai_docs/process/DECISION_LOG.md` (D-462, D-488)
 
 ## Scope
 
@@ -47,7 +47,7 @@ TASK-0816 wykonane. Fakty i decyzje w planie.
 
 ## Out of scope
 
-- UI wyboru symboli (TASK-0819), podpowiedzi (TASK-0818).
+- UI wyboru symboli (TASK-0822), podpowiedzi (TASK-0821).
 
 ## Acceptance criteria
 
@@ -121,8 +121,8 @@ npm run python:lint; npm run openapi:check
 
 ### Documentation updates
 
-- `DECISION_LOG.md` (D-486), `API_CONTRACT.md`, `CURRENT_STATE.md`.
+- `DECISION_LOG.md` (D-488), `API_CONTRACT.md`, `CURRENT_STATE.md`.
 
 ### Recommended next task
 
-- TASK-0818.
+- TASK-0821.

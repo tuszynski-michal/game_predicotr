@@ -1430,7 +1430,7 @@ export type BoardSearchShareQueryEntryResponse = {
   /**
    * Followupapproximatewin
    *
-   * For a search: the request (`startSequenceNumber`, `spinCount`) of the newest successful range calculation made before the next search.
+   * For a search: the request (`startSequenceNumber`, `spinCount`) of the newest successful range calculation made before the next search. `stakeGrosze` is present when the recipient's stake was recorded (null: the base stake).
    */
   followUpApproximateWin?: {
     [key: string]: unknown;
@@ -1451,6 +1451,12 @@ export type BoardSearchShareQueryEntryResponse = {
    * Occurredat
    */
   occurredAt: string;
+  /**
+   * Occurrencetimes
+   *
+   * When this query was made, newest first. A search listed with `groupByPattern` carries every search of the same pattern.
+   */
+  occurrenceTimes: Array<string>;
   /**
    * Outcomecode
    */
@@ -1575,6 +1581,18 @@ export type BoardSearchShareSessionResponse = {
    * Status
    */
   status: 'active' | 'locked' | 'expired' | 'revoked';
+};
+
+/**
+ * BoardSearchShareStakeRecordedResponse
+ *
+ * Acknowledges a recorded stake choice (D-487); carries no data.
+ */
+export type BoardSearchShareStakeRecordedResponse = {
+  /**
+   * Recorded
+   */
+  recorded?: true;
 };
 
 /**
@@ -3809,7 +3827,7 @@ export type GridCalibrationProfileResponse = {
 /**
  * GridCorrectionCellSymbolPayload
  *
- * One symbol the operator assigns to a cell while saving its grid (D-486).
+ * One symbol the operator assigns to a cell while saving its grid (D-488).
  */
 export type GridCorrectionCellSymbolPayload = {
   /**
@@ -3843,7 +3861,7 @@ export type GridCorrectionCellSymbolSuggestionResponse = {
 /**
  * GridCorrectionSymbolsResponse
  *
- * Symbols known for the cells of one board under grid correction (D-486).
+ * Symbols known for the cells of one board under grid correction (D-488).
  */
 export type GridCorrectionSymbolsResponse = {
   /**
@@ -14894,7 +14912,14 @@ export type DeleteBoardSearchShareQueryData = {
      */
     event_id: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * Wholepattern
+     *
+     * For a search: delete every search of the same pattern.
+     */
+    wholePattern?: boolean;
+  };
   url: '/api/v1/admin/board-search-shares/queries/{event_id}';
 };
 
@@ -15066,6 +15091,12 @@ export type ListBoardSearchShareQueriesData = {
      * Kind
      */
     kind?: BoardSearchShareQueryKind | null;
+    /**
+     * Groupbypattern
+     *
+     * With `kind=search`: one entry per searched pattern.
+     */
+    groupByPattern?: boolean;
   };
   url: '/api/v1/admin/board-search-shares/sessions/{session_id}/queries';
 };
@@ -27149,6 +27180,78 @@ export type GetBoardSearchShareApproximateWinResponses = {
 
 export type GetBoardSearchShareApproximateWinResponse =
   GetBoardSearchShareApproximateWinResponses[keyof GetBoardSearchShareApproximateWinResponses];
+
+export type RecordBoardSearchShareApproximateWinStakeData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path?: never;
+  query: {
+    /**
+     * Startsequencenumber
+     */
+    startSequenceNumber: number;
+    /**
+     * Spincount
+     */
+    spinCount: number;
+    /**
+     * Stakegrosze
+     *
+     * Omitted: the base stake of the published rules.
+     */
+    stakeGrosze?: number | null;
+  };
+  url: '/api/v1/board-search-shares/approximate-win/stake';
+};
+
+export type RecordBoardSearchShareApproximateWinStakeErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type RecordBoardSearchShareApproximateWinStakeError =
+  RecordBoardSearchShareApproximateWinStakeErrors[keyof RecordBoardSearchShareApproximateWinStakeErrors];
+
+export type RecordBoardSearchShareApproximateWinStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareStakeRecordedResponse;
+};
+
+export type RecordBoardSearchShareApproximateWinStakeResponse =
+  RecordBoardSearchShareApproximateWinStakeResponses[keyof RecordBoardSearchShareApproximateWinStakeResponses];
 
 export type GetBoardSearchShareBoardDetailData = {
   body?: never;

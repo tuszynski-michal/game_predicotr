@@ -4,7 +4,7 @@ status: done
 last_updated: 2026-10-02
 ---
 
-# TASK-0818 — Podpowiedzi symboli dla cięcia w korekcie siatki
+# TASK-0821 — Podpowiedzi symboli dla cięcia w korekcie siatki
 
 ## Status
 
@@ -21,7 +21,7 @@ Operator chce widzieć symbole dla cięcia przed zapisem.
 
 ## Dependencies / entry conditions
 
-TASK-0817 wykonane.
+TASK-0820 wykonane.
 
 ## Recommended execution
 
@@ -33,7 +33,7 @@ TASK-0817 wykonane.
 - `AGENTS.md`
 - `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/delivery/GRID_CORRECTION_SYMBOLS_EXECUTION_PLAN.md`
-- `ai_docs/process/DECISION_LOG.md` (D-462, D-486)
+- `ai_docs/process/DECISION_LOG.md` (D-462, D-488)
 
 ## Scope
 
@@ -114,4 +114,4 @@ npm run test --workspace @game-predictor/reviewer
 
 ### Recommended next task
 
-- TASK-0819.
+- TASK-0822.

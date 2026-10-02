@@ -42,7 +42,7 @@ export type BoardGeometryCorrectionClient = Pick<
  * its grid at a time, from one queue of deferred geometries and boards with a
  * `Zła siatka` report. Saving the geometry finishes the correction and moves
  * on; there is no board or photo approval here. Symbols are approved only
- * for the cells the operator assigns on the preview (D-486).
+ * for the cells the operator assigns on the preview (D-488).
  */
 export function BoardGeometryCorrectionWorkspace({
   api,

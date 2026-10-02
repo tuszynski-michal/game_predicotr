@@ -127,7 +127,7 @@ function finitePoint(x: unknown, y: unknown, allowSignedCoordinates = false) {
 
 /**
  * Cells whose footprint has no area inside the photo: they have no crop and
- * cannot receive an operator symbol (D-486). A cell that only partly leaves
+ * cannot receive an operator symbol (D-488). A cell that only partly leaves
  * the photo keeps real pixels and stays assignable.
  */
 export function gridCellsWithoutPixels(

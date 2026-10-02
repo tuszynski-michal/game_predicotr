@@ -4,7 +4,7 @@ status: done
 last_updated: 2026-10-02
 ---
 
-# TASK-0816 — podgląd korekty siatki dla niepełnych plansz, jeden widok cropów
+# TASK-0819 — podgląd korekty siatki dla niepełnych plansz, jeden widok cropów
 
 ## Status
 

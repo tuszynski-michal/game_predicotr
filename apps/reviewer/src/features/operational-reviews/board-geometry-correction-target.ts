@@ -98,7 +98,7 @@ export interface BoardGeometryCorrectionTarget {
     { readonly blob: Blob; readonly ok: true } | BoardGeometryCorrectionFailure
   >;
   /**
-   * Symbols known for the previewed cut (D-486): stored ones for a reported
+   * Symbols known for the previewed cut (D-488): stored ones for a reported
    * board, the pinned model's prediction for a deferred slot. Absent when the
    * target cannot assign symbols; never writes anything.
    */
@@ -114,7 +114,7 @@ export interface BoardGeometryCorrectionTarget {
   >;
   /**
    * `cellSymbols` are the symbols the operator assigned on the preview
-   * (D-486); the backend approves them in the transaction of the geometry.
+   * (D-488); the backend approves them in the transaction of the geometry.
    */
   save(
     corners: OperationalReviewGeometryCorners,

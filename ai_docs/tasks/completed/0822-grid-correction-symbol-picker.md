@@ -4,7 +4,7 @@ status: done
 last_updated: 2026-10-02
 ---
 
-# TASK-0819 — Klikalne kafelki i wybór symbolu w korekcie siatki
+# TASK-0822 — Klikalne kafelki i wybór symbolu w korekcie siatki
 
 ## Status
 
@@ -17,11 +17,11 @@ siatki wysyła narzucone symbole.
 
 ## Context
 
-Ostatni element przepływu D-486.
+Ostatni element przepływu D-488.
 
 ## Dependencies / entry conditions
 
-TASK-0817 i TASK-0818 wykonane.
+TASK-0820 i TASK-0821 wykonane.
 
 ## Recommended execution
 
@@ -33,7 +33,7 @@ TASK-0817 i TASK-0818 wykonane.
 - `AGENTS.md`
 - `ai_docs/process/CURRENT_STATE.md`
 - `ai_docs/delivery/GRID_CORRECTION_SYMBOLS_EXECUTION_PLAN.md`
-- `ai_docs/process/DECISION_LOG.md` (D-462, D-486)
+- `ai_docs/process/DECISION_LOG.md` (D-462, D-488)
 
 ## Scope
 

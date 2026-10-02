@@ -149,6 +149,23 @@ export function createBoardSearchShareDataSource(
       return result;
     },
 
+    recordBoardSearchApproximateWinStake: async (_gameId, stakeOptions) => {
+      const parameters = new URLSearchParams({
+        spinCount: String(stakeOptions.spinCount),
+        startSequenceNumber: String(stakeOptions.startSequenceNumber),
+      });
+      // The base stake is recorded by leaving the parameter out (D-487).
+      if (stakeOptions.stakeGrosze !== null) {
+        parameters.set('stakeGrosze', String(stakeOptions.stakeGrosze));
+      }
+      const result = await get<{ recorded: boolean }>(
+        `/approximate-win/stake?${parameters}`,
+      );
+      return result.data === undefined
+        ? { error: result.error }
+        : { data: undefined };
+    },
+
     getBoardSearchBoardDetail: async (_gameId, sequenceNumber) => {
       const cached = detailCache.get(sequenceNumber);
       if (cached !== undefined) return { data: cached };

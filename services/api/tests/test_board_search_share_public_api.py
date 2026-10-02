@@ -448,6 +448,48 @@ def test_approximate_win_is_logged_with_its_summary(tmp_path: Path) -> None:
     }
 
 
+def test_a_stake_choice_is_recorded_as_a_range_entry_without_a_calculation(
+    tmp_path: Path,
+) -> None:
+    """D-487: the stake the recipient picked reaches the owner's log."""
+
+    harness = _harness(tmp_path)
+    with TestClient(harness.app, base_url="https://testserver") as test_client:
+        url = f"{BASE}/approximate-win/stake"
+        range_parameters = {"startSequenceNumber": 3, "spinCount": 50}
+        assert test_client.get(url, params=range_parameters, headers=PROXY).status_code == 401
+        _signed_in(test_client, harness, RANGE_GAME_ID)
+        chosen = test_client.get(
+            url, params={**range_parameters, "stakeGrosze": 200}, headers=PROXY
+        )
+        base = test_client.get(url, params=range_parameters, headers=PROXY)
+        invalid = test_client.get(url, params={**range_parameters, "stakeGrosze": 0}, headers=PROXY)
+        harness.log.fail = True
+        unrecorded = test_client.get(url, params=range_parameters, headers=PROXY)
+    assert chosen.status_code == 200, chosen.text
+    assert chosen.json() == {"recorded": True}
+    assert base.status_code == 200
+    assert invalid.status_code == 422
+    assert unrecorded.status_code == 503
+    assert [
+        (entry["kind"], entry["request"], entry["resultSummary"], entry["outcomeCode"])
+        for entry in harness.log.entries
+    ] == [
+        (
+            "approximate_win",
+            {"startSequenceNumber": 3, "spinCount": 50, "stakeGrosze": 200},
+            {},
+            "ok",
+        ),
+        (
+            "approximate_win",
+            {"startSequenceNumber": 3, "spinCount": 50, "stakeGrosze": None},
+            {},
+            "ok",
+        ),
+    ]
+
+
 def test_a_query_log_failure_returns_no_data(client: tuple[TestClient, Harness]) -> None:
     test_client, harness = client
     _signed_in(test_client, harness, DETAIL_GAME_ID)

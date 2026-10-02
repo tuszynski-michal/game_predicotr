@@ -313,7 +313,7 @@ class BoardCellGeometryPendingService:
         corrected_by: str = "local-admin-preview",
         geometry_qualification: GeometryQualification | None = None,
     ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
-        """Model symbols of the cells a resolution would persist (D-486)."""
+        """Model symbols of the cells a resolution would persist (D-488)."""
 
         context = self.correction_context(
             pending_id,

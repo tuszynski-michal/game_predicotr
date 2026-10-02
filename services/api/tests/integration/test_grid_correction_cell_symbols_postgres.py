@@ -1,4 +1,4 @@
-"""Operator symbols of a grid correction approve exact current crops (D-486)."""
+"""Operator symbols of a grid correction approve exact current crops (D-488)."""
 
 from __future__ import annotations
 

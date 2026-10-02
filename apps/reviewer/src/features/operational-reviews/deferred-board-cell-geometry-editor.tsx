@@ -45,7 +45,7 @@ import {
 
 type LoadState = 'error' | 'loading' | 'ready';
 
-/** One active symbol the operator can assign to a previewed cell (D-486). */
+/** One active symbol the operator can assign to a previewed cell (D-488). */
 export interface CorrectionSymbol {
   readonly id: string;
   readonly label: string;
@@ -93,7 +93,7 @@ export function DeferredBoardCellGeometryEditor({
  * current board with `Zła siatka` reports. Saving the geometry finishes the
  * correction; it never approves the board or its photo. With `symbols` and a
  * target that supports them, the operator may assign a symbol to a previewed
- * cell; only those cells are approved by the save (D-486).
+ * cell; only those cells are approved by the save (D-488).
  */
 export function BoardGeometryCorrectionEditor({
   canvasLabel = 'Plansza z edytowalną siatką 5 na 3',
@@ -150,7 +150,7 @@ export function BoardGeometryCorrectionEditor({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [flags, setFlags] = useState<ManualGridFlags>(completeManualGridFlags);
-  // D-486: symbols the operator assigned, the cell being edited and the
+  // D-488: symbols the operator assigned, the cell being edited and the
   // read-only suggestions of the previewed cut.
   const [chosenSymbols, setChosenSymbols] = useState<
     Readonly<Record<number, string>>

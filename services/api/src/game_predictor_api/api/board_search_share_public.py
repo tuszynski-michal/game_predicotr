@@ -41,9 +41,11 @@ from game_predictor_api.application.symbol_references import ApprovedSymbolRefer
 from game_predictor_api.domain.board_search import BoardSearchScope, validate_board_search_query
 from game_predictor_api.domain.board_search_share_queries import (
     QUERY_OUTCOME_OK,
+    QUERY_STAKE_GROSZE_MAX,
     BoardSearchShareQueryKind,
     approximate_win_query_request,
     approximate_win_query_summary,
+    approximate_win_stake_query_request,
     board_detail_query_request,
     board_detail_query_summary,
     build_board_search_share_query_entry,
@@ -72,6 +74,7 @@ from game_predictor_api.schemas.board_search_shares import (
     BoardSearchSharePublicContextResponse,
     BoardSearchSharePublicSearchResponse,
     BoardSearchSharePublicSymbolResponse,
+    BoardSearchShareStakeRecordedResponse,
     BoardSearchShareUnlock,
     to_board_search_share_public_search_response,
 )
@@ -388,6 +391,49 @@ def create_board_search_share_public_router(
                 ),
             )
         return to_approximate_win_response(calculation)
+
+    @router.get(
+        "/approximate-win/stake",
+        response_model=BoardSearchShareStakeRecordedResponse,
+        operation_id="recordBoardSearchShareApproximateWinStake",
+        summary="Record the stake the recipient views a calculated range at (D-487)",
+        responses=PUBLIC_ERROR_RESPONSES,
+    )
+    def record_approximate_win_stake(
+        service: Annotated[BoardSearchShareAccessService, access_parameter],
+        start_sequence_number: Annotated[int, Query(alias="startSequenceNumber", ge=1)],
+        spin_count: Annotated[
+            int, Query(alias="spinCount", ge=1, le=APPROXIMATE_WIN_SPIN_COUNT_MAX)
+        ],
+        stake_grosze: Annotated[
+            int | None,
+            Query(
+                alias="stakeGrosze",
+                ge=1,
+                le=QUERY_STAKE_GROSZE_MAX,
+                description="Omitted: the base stake of the published rules.",
+            ),
+        ] = None,
+        access_token: Annotated[str | None, token_cookie] = None,
+    ) -> BoardSearchShareStakeRecordedResponse:
+        # Like every recorded query of this surface it is a GET: the proxy
+        # forwards an exact allowlist of read routes. Nothing is calculated.
+        context = authenticate(service, access_token, BoardSearchShareRequestKind.JSON)
+        record_board_search_share_query(
+            query_log,
+            context=context,
+            entry=build_board_search_share_query_entry(
+                kind=BoardSearchShareQueryKind.APPROXIMATE_WIN,
+                request=approximate_win_stake_query_request(
+                    start_sequence_number=start_sequence_number,
+                    spin_count=spin_count,
+                    stake_grosze=stake_grosze,
+                ),
+                result_summary=None,
+                outcome_code=QUERY_OUTCOME_OK,
+            ),
+        )
+        return BoardSearchShareStakeRecordedResponse()
 
     @router.get(
         "/boards/{sequence_number}",

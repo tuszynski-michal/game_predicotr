@@ -128,6 +128,12 @@ class BoardSearchShareUnlock(ApiModel):
     access_code: str = Field(min_length=1, max_length=64)
 
 
+class BoardSearchShareStakeRecordedResponse(ApiModel):
+    """Acknowledges a recorded stake choice (D-487); carries no data."""
+
+    recorded: Literal[True] = True
+
+
 class BoardSearchSharePublicContextResponse(ApiModel):
     """What the recipient sees about their access; no internal identities."""
 
@@ -200,7 +206,15 @@ class BoardSearchShareQueryEntryResponse(ApiModel):
         default=None,
         description=(
             "For a search: the request (`startSequenceNumber`, `spinCount`) of the "
-            "newest successful range calculation made before the next search."
+            "newest successful range calculation made before the next search. "
+            "`stakeGrosze` is present when the recipient's stake was recorded "
+            "(null: the base stake)."
+        ),
+    )
+    occurrence_times: list[datetime] = Field(
+        description=(
+            "When this query was made, newest first. A search listed with "
+            "`groupByPattern` carries every search of the same pattern."
         ),
     )
 
@@ -218,6 +232,7 @@ class BoardSearchShareQueryEntryResponse(ApiModel):
             follow_up_approximate_win=None
             if value.follow_up_approximate_win is None
             else dict(value.follow_up_approximate_win),
+            occurrence_times=list(value.occurrence_times or (value.occurred_at,)),
         )
 
 
@@ -257,6 +272,7 @@ __all__ = [
     "BoardSearchShareCreatedResponse",
     "BoardSearchShareSessionListResponse",
     "BoardSearchShareSessionResponse",
+    "BoardSearchShareStakeRecordedResponse",
     "BoardSearchShareUnlock",
     "BoardSearchSharePublicContextResponse",
     "BoardSearchSharePublicSearchResponse",

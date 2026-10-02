@@ -2323,7 +2323,7 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
   );
   const resolutionCommand = {
     ...previewCommand,
-    // D-486: symbols the operator assigned travel with the geometry save.
+    // D-488: symbols the operator assigned travel with the geometry save.
     cellSymbols: [
       { cellIndex: 4, symbolId: '66666666-6666-4666-8666-666666666666' },
     ],
@@ -3794,7 +3794,33 @@ test('board-search share query log wrappers use their Admin paths', async () => 
   await client.getBoardSearchShareQueryReplay(eventId);
   await client.listBoardSearchShareQueries(sessionId, { kind: 'search' });
   await client.deleteBoardSearchShareQuery(eventId);
+  await client.listBoardSearchShareQueries(sessionId, {
+    groupByPattern: true,
+    kind: 'search',
+  });
+  await client.deleteBoardSearchShareQuery(eventId, { wholePattern: true });
   assert.equal(new URL(requests[3].url).searchParams.get('kind'), 'search');
+  assert.equal(
+    new URL(requests[3].url).searchParams.has('groupByPattern'),
+    false,
+  );
+  assert.equal(
+    new URL(requests[4].url).searchParams.has('wholePattern'),
+    false,
+  );
+  assert.equal(
+    new URL(requests[5].url).searchParams.get('groupByPattern'),
+    'true',
+  );
+  assert.equal(requests[6].method, 'DELETE');
+  assert.equal(
+    new URL(requests[6].url).searchParams.get('wholePattern'),
+    'true',
+  );
+  assert.equal(
+    requests[6].headers.get('X-Admin-Target'),
+    `board-search-share-query:${eventId}`,
+  );
   assert.equal(requests[4].method, 'DELETE');
   assert.equal(
     new URL(requests[4].url).pathname,

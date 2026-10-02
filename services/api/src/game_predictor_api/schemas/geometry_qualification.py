@@ -18,7 +18,7 @@ from game_predictor_api.schemas.catalog import ApiModel
 
 
 class GridCorrectionCellSymbolPayload(ApiModel):
-    """One symbol the operator assigns to a cell while saving its grid (D-486)."""
+    """One symbol the operator assigns to a cell while saving its grid (D-488)."""
 
     cell_index: int = Field(ge=0)
     symbol_id: UUID
@@ -34,7 +34,7 @@ class GridCorrectionCellSymbolSuggestionResponse(ApiModel):
 
 
 class GridCorrectionSymbolsResponse(ApiModel):
-    """Symbols known for the cells of one board under grid correction (D-486)."""
+    """Symbols known for the cells of one board under grid correction (D-488)."""
 
     cells: tuple[GridCorrectionCellSymbolSuggestionResponse, ...]
 

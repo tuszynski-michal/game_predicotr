@@ -707,6 +707,9 @@ import type {
   PutRemoteManualSelectionFileContentData,
   PutRemoteManualSelectionFileContentErrors,
   PutRemoteManualSelectionFileContentResponses,
+  RecordBoardSearchShareApproximateWinStakeData,
+  RecordBoardSearchShareApproximateWinStakeErrors,
+  RecordBoardSearchShareApproximateWinStakeResponses,
   RecoverImageSelectionRangesData,
   RecoverImageSelectionRangesErrors,
   RecoverImageSelectionRangesResponses,
@@ -6775,6 +6778,24 @@ export const getBoardSearchShareApproximateWin = <
     GetBoardSearchShareApproximateWinErrors,
     ThrowOnError
   >({ url: '/api/v1/board-search-shares/approximate-win', ...options });
+
+/**
+ * Record the stake the recipient views a calculated range at (D-487)
+ */
+export const recordBoardSearchShareApproximateWinStake = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RecordBoardSearchShareApproximateWinStakeData, ThrowOnError>,
+): RequestResult<
+  RecordBoardSearchShareApproximateWinStakeResponses,
+  RecordBoardSearchShareApproximateWinStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    RecordBoardSearchShareApproximateWinStakeResponses,
+    RecordBoardSearchShareApproximateWinStakeErrors,
+    ThrowOnError
+  >({ url: '/api/v1/board-search-shares/approximate-win/stake', ...options });
 
 /**
  * Winning paylines of one board of the shared game (no cell records)

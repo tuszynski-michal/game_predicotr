@@ -6,8 +6,8 @@ last_updated: 2026-10-02
 
 # Symbole w korekcie cięcia siatki
 
-Polecenie operatora z 2026-10-02 (decyzja D-486). Plan wykonywany w jednym
-etapie: TASK-0817 → TASK-0818 → TASK-0819.
+Polecenie operatora z 2026-10-02 (decyzja D-488). Plan wykonywany w jednym
+etapie: TASK-0820 → TASK-0821 → TASK-0822.
 
 ## Stan obecny (fakty z kodu)
 
@@ -75,10 +75,10 @@ jako zatwierdzone — w tej samej transakcji co geometrię.
 
 | Wymaganie | Zadanie | Test |
 | --- | --- | --- |
-| Narzucone symbole trafiają do bazy przy zapisie siatki | 0817 | testy serwisu, test SQL repozytorium |
-| Podgląd symboli dla cięcia | 0818 | testy serwisu i polityki proxy |
-| Klikalne kafelki i paleta | 0819 | test interakcji Reviewera |
-| Jeden widok cropów, podgląd niepełnych plansz | 0816 (wykonane) | — |
+| Narzucone symbole trafiają do bazy przy zapisie siatki | 0820 | testy serwisu, test SQL repozytorium |
+| Podgląd symboli dla cięcia | 0821 | testy serwisu i polityki proxy |
+| Klikalne kafelki i paleta | 0822 | test interakcji Reviewera |
+| Jeden widok cropów, podgląd niepełnych plansz | 0819 (wykonane) | — |
 
 ## Odbiór całości
 
@@ -97,6 +97,6 @@ Weryfikacji symboli. Wymaga restartu API i przebudowy Reviewera.
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-0817 | claude-fable-5-1 | poziom bieżącej sesji (nazwy poziomu nie da się odczytać ze środowiska — rekomendacja warunkowa) | Zapis w transakcji geometrii i kontrakt API; ryzyko danych. | Nie (audyt po zadaniu zawieszony przez operatora 2026-10-01) |
-| TASK-0818 | claude-fable-5-1 | poziom bieżącej sesji (nazwy poziomu nie da się odczytać ze środowiska — rekomendacja warunkowa) | Dwa nowe endpointy tylko do odczytu i klient. | Nie (audyt po zadaniu zawieszony przez operatora 2026-10-01) |
-| TASK-0819 | claude-fable-5-1 | poziom bieżącej sesji (nazwy poziomu nie da się odczytać ze środowiska — rekomendacja warunkowa) | Zmiana UI edytora z testem interakcji. | Nie (audyt po zadaniu zawieszony przez operatora 2026-10-01) |
+| TASK-0820 | claude-fable-5-1 | poziom bieżącej sesji (nazwy poziomu nie da się odczytać ze środowiska — rekomendacja warunkowa) | Zapis w transakcji geometrii i kontrakt API; ryzyko danych. | Nie (audyt po zadaniu zawieszony przez operatora 2026-10-01) |
+| TASK-0821 | claude-fable-5-1 | poziom bieżącej sesji (nazwy poziomu nie da się odczytać ze środowiska — rekomendacja warunkowa) | Dwa nowe endpointy tylko do odczytu i klient. | Nie (audyt po zadaniu zawieszony przez operatora 2026-10-01) |
+| TASK-0822 | claude-fable-5-1 | poziom bieżącej sesji (nazwy poziomu nie da się odczytać ze środowiska — rekomendacja warunkowa) | Zmiana UI edytora z testem interakcji. | Nie (audyt po zadaniu zawieszony przez operatora 2026-10-01) |

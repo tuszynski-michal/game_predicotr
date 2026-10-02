@@ -6,6 +6,24 @@ last_updated: 2026-10-01
 
 # Decision Log
 
+## D-486 — korekta cięcia siatki może zatwierdzić symbole wskazane przez operatora (zmienia D-462)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, plan
+  `ai_docs/delivery/GRID_CORRECTION_SYMBOLS_EXECUTION_PLAN.md`.
+- **Decision:** zapis geometrii z ekranu „Korekta cięcia siatki” może zawierać
+  symbole narzucone przez operatora dla wybranych pól. Każde takie pole jest
+  zatwierdzane jako decyzja człowieka (`approved`, `assignment_source = human`)
+  dla dokładnie nowego cropa, w tej samej transakcji co geometria.
+- **Supersedes:** fragment D-462 „zapis geometrii … nie weryfikuje symboli” —
+  nadal obowiązuje dla pól, których operator nie wskazał: wracają do
+  Weryfikacji symboli na dotychczasowych zasadach.
+- **Rationale:** operator widzi nowy crop w chwili korekty i potrafi go
+  rozpoznać; ponowne szukanie tej samej komórki w Weryfikacji symboli jest
+  zbędne.
+- **Safety:** używana jest wyłącznie istniejąca akcja `REASSIGN`; błąd
+  przypisania wycofuje cały zapis. Pola bez pikseli nie są przypisywane.
+  Podpowiedzi symboli w podglądzie niczego nie zapisują.
+
 ## D-485 — bramka kompletności: stan trwały zdjęcia, dokument sekwencji bez dowodu symboli, przepinanie plansz (uzupełnia D-484)
 
 - **Status:** accepted, 2026-10-02; rozstrzygnięcia wykonawcze TASK-0807

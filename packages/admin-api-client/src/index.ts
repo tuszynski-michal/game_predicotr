@@ -1247,6 +1247,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         /** Only entries of this kind, e.g. the searches (D-478). */
         readonly kind?: 'search' | 'approximate_win' | 'board_detail';
         readonly limit?: number;
+        /** With `kind: 'search'`: one entry per searched pattern. */
+        readonly groupByPattern?: boolean;
       } = {},
     ) =>
       listGeneratedBoardSearchShareQueries({
@@ -1255,15 +1257,23 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         query: {
           ...(options.before === undefined ? {} : { before: options.before }),
           ...(options.kind === undefined ? {} : { kind: options.kind }),
+          ...(options.groupByPattern ? { groupByPattern: true } : {}),
           limit: options.limit ?? 50,
         },
       }),
-    /** Removes a log entry; a search takes its follow-up entries with it. */
-    deleteBoardSearchShareQuery: (eventId: string) =>
+    /**
+     * Removes a log entry; a search takes its follow-up entries with it.
+     * `wholePattern` removes every search of the same pattern that way.
+     */
+    deleteBoardSearchShareQuery: (
+      eventId: string,
+      options: { readonly wholePattern?: boolean } = {},
+    ) =>
       deleteGeneratedBoardSearchShareQuery({
         client,
         headers: confirmedTargetHeaders(`board-search-share-query:${eventId}`),
         path: { event_id: eventId },
+        ...(options.wholePattern ? { query: { wholePattern: true } } : {}),
       }),
     /** A query log entry with what is needed to replay it in the Admin. */
     getBoardSearchShareQueryReplay: (eventId: string) =>

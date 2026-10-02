@@ -1448,6 +1448,12 @@ export type BoardSearchShareQueryEntryResponse = {
    */
   occurredAt: string;
   /**
+   * Occurrencetimes
+   *
+   * When this query was made, newest first. A search listed with `groupByPattern` carries every search of the same pattern.
+   */
+  occurrenceTimes: Array<string>;
+  /**
    * Outcomecode
    */
   outcomeCode: string;
@@ -14840,7 +14846,14 @@ export type DeleteBoardSearchShareQueryData = {
      */
     event_id: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * Wholepattern
+     *
+     * For a search: delete every search of the same pattern.
+     */
+    wholePattern?: boolean;
+  };
   url: '/api/v1/admin/board-search-shares/queries/{event_id}';
 };
 
@@ -15012,6 +15025,12 @@ export type ListBoardSearchShareQueriesData = {
      * Kind
      */
     kind?: BoardSearchShareQueryKind | null;
+    /**
+     * Groupbypattern
+     *
+     * With `kind=search`: one entry per searched pattern.
+     */
+    groupByPattern?: boolean;
   };
   url: '/api/v1/admin/board-search-shares/sessions/{session_id}/queries';
 };

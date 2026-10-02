@@ -478,16 +478,21 @@ trzymają audyt i dziennik zapytań.
 ### Dziennik zapytań linku w Adminie (D-472, TASK-0771)
 
 ```text
-GET /api/v1/admin/board-search-shares/sessions/{sessionId}/queries?before=&limit=1..50&kind=
+GET /api/v1/admin/board-search-shares/sessions/{sessionId}/queries?before=&limit=1..50&kind=&groupByPattern=
 operationId: listBoardSearchShareQueries
 200: { entries: [<wpis>], nextCursor: string | null }
 kind (opcjonalne, D-478): search | approximate_win | board_detail — tylko wpisy tego rodzaju.
+groupByPattern=true (D-486, tylko z kind=search; inaczej
+422 BOARD_SEARCH_SHARE_QUERY_GROUP_INVALID): jeden wpis na wzór — najnowsze
+wyszukiwanie tego wzoru — z czasami wszystkich jego wyszukiwań w occurrenceTimes.
 
 DELETE /api/v1/admin/board-search-shares/queries/{eventId}
 operationId: deleteBoardSearchShareQuery (D-478; nagłówki operacji wysokiego wpływu,
 cel `board-search-share-query:{eventId}`)
 204; 404 BOARD_SEARCH_SHARE_QUERY_NOT_FOUND
 Wyszukiwanie usuwa też swoje późniejsze wpisy do następnego wyszukiwania sesji.
+?wholePattern=true (D-486): dla wyszukiwania usuwa tak każde wyszukiwanie tego
+samego wzoru w sesji.
 
 GET /api/v1/admin/board-search-shares/queries/{eventId}
 operationId: getBoardSearchShareQueryReplay
@@ -495,9 +500,12 @@ operationId: getBoardSearchShareQueryReplay
 
 <wpis> = { id, sessionId, gameId, occurredAt, kind: search|approximate_win|board_detail,
            request, resultSummary, outcomeCode,
-           followUpApproximateWin: { startSequenceNumber, spinCount } | null }
+           followUpApproximateWin: { startSequenceNumber, spinCount } | null,
+           occurrenceTimes: [datetime] }
 followUpApproximateWin (tylko dla search): żądanie najnowszej udanej przybliżonej
-wygranej po tym wyszukiwaniu, a przed następnym.
+wygranej po tym wyszukiwaniu, a przed następnym. We wpisie grupowym: z
+najnowszego wyszukiwania wzoru, po którym odbiorca otworzył wygraną.
+occurrenceTimes: czasy zapytania od najnowszego; bez grupowania jeden czas.
 ```
 
 Lista jest stronicowana kursorem `(occurredAt, id)`, od najnowszego wpisu,

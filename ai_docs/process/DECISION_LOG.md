@@ -1,10 +1,29 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-10-01
+last_updated: 2026-10-02
 ---
 
 # Decision Log
+
+## D-486 — dziennik linku grupuje wyszukiwania tego samego wzoru (zmienia D-478)
+
+- **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0816.
+- **Context:** odbiorca wraca do tego samego wzoru; każde wyszukiwanie było
+  osobnym wpisem dziennika, więc lista rosła powtórzeniami.
+- **Decision:** widok dziennika pokazuje jeden wpis na wzór 3 × 5 w ramach
+  linku (klucz: `request.cells`; zakres i limit wyszukiwania nie rozdzielają
+  grupy). Wpis stoi w miejscu najnowszego wyszukiwania wzoru i wymienia czasy
+  wszystkich jego wyszukiwań po przecinku. Wykres pochodzi z najnowszego
+  wyszukiwania wzoru, po którym odbiorca otworzył „Przybliżoną wygraną” —
+  także gdy plansza startowa albo zakres różniły się między wyszukiwaniami.
+  „Usuń” usuwa wszystkie wyszukiwania wzoru wraz z ich wpisami następczymi.
+- **Reason:** operatora interesuje, jakie wzory odbiorca sprawdzał i kiedy,
+  a nie każde powtórzenie osobno. Zapis dziennika (D-472, D-475) się nie
+  zmienia — grupowanie jest wyłącznie odczytem.
+- **Consequences:** starsze wykresy tego samego wzoru nie są widoczne w
+  dzienniku (zostają w danych do czasu usunięcia grupy). Grupowanie liczy
+  API z najwyżej 10 000 najnowszych wyszukiwań linku.
 
 ## D-485 — bramka kompletności: stan trwały zdjęcia, dokument sekwencji bez dowodu symboli, przepinanie plansz (uzupełnia D-484)
 

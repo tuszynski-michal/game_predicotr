@@ -203,6 +203,12 @@ class BoardSearchShareQueryEntryResponse(ApiModel):
             "newest successful range calculation made before the next search."
         ),
     )
+    occurrence_times: list[datetime] = Field(
+        description=(
+            "When this query was made, newest first. A search listed with "
+            "`groupByPattern` carries every search of the same pattern."
+        ),
+    )
 
     @classmethod
     def from_event(cls, value: BoardSearchShareQueryEvent) -> BoardSearchShareQueryEntryResponse:
@@ -218,6 +224,7 @@ class BoardSearchShareQueryEntryResponse(ApiModel):
             follow_up_approximate_win=None
             if value.follow_up_approximate_win is None
             else dict(value.follow_up_approximate_win),
+            occurrence_times=list(value.occurrence_times or (value.occurred_at,)),
         )
 
 

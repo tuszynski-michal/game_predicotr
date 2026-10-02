@@ -29,6 +29,18 @@ export function boardSearchQueryPatternCells(
   return board;
 }
 
+/**
+ * When the entry's query was made, newest first. A grouped search carries
+ * the time of every search of its pattern (TASK-0816).
+ */
+export function boardSearchQueryOccurrenceTimes(entry: {
+  readonly occurredAt: string;
+  readonly occurrenceTimes?: readonly string[] | null;
+}): readonly string[] {
+  const times = entry.occurrenceTimes;
+  return Array.isArray(times) && times.length > 0 ? times : [entry.occurredAt];
+}
+
 export interface BoardSearchQueryRange {
   readonly spinCount: number;
   readonly startSequenceNumber: number;

@@ -138,8 +138,21 @@ def create_board_search_shares_admin_router(
         before: Annotated[str | None, Query(max_length=256)] = None,
         limit: Annotated[int, Query(ge=1, le=QUERY_LOG_PAGE_SIZE_MAX)] = QUERY_LOG_PAGE_SIZE_MAX,
         kind: Annotated[BoardSearchShareQueryKind | None, Query()] = None,
+        group_by_pattern: Annotated[
+            bool,
+            Query(
+                alias="groupByPattern",
+                description="With `kind=search`: one entry per searched pattern.",
+            ),
+        ] = False,
     ) -> BoardSearchShareQueryPageResponse:
-        page = service.list(session_id=session_id, before_cursor=before, limit=limit, kind=kind)
+        page = service.list(
+            session_id=session_id,
+            before_cursor=before,
+            limit=limit,
+            kind=kind,
+            group_by_pattern=group_by_pattern,
+        )
         return BoardSearchShareQueryPageResponse(
             entries=[BoardSearchShareQueryEntryResponse.from_event(item) for item in page.entries],
             next_cursor=page.next_cursor,
@@ -170,8 +183,15 @@ def create_board_search_shares_admin_router(
     def delete_query(
         event_id: UUID,
         service: Annotated[BoardSearchShareQueryLogService, query_log_parameter],
+        whole_pattern: Annotated[
+            bool,
+            Query(
+                alias="wholePattern",
+                description="For a search: delete every search of the same pattern.",
+            ),
+        ] = False,
     ) -> Response:
-        service.delete(event_id)
+        service.delete(event_id, whole_pattern=whole_pattern)
         return Response(status_code=204)
 
     return router

@@ -6,6 +6,15 @@ last_updated: 2026-10-02
 
 # Current State
 
+### TASK-0816 — dziennik linku grupuje te same wzory (done)
+
+- D-486: `listBoardSearchShareQueries` z `groupByPattern=true` zwraca jeden
+  wpis na wzór z `occurrenceTimes`; `deleteBoardSearchShareQuery` z
+  `wholePattern=true` usuwa wszystkie wyszukiwania wzoru. Dziennik w Adminie
+  pokazuje czasy po przecinku i przycisk „Usuń wszystkie (N)”.
+- Przy okazji naprawiony nieaktualny test interakcji dziennika
+  (`board-search-share-panel.test.mjs` oczekiwał kontraktu sprzed D-478).
+
 ### TASK-0814 — hurtowe odświeżenie nieaktualnych odczytów wyszukiwarki (done)
 
 - 2026-10-02 operator zgłosił, że „Pokaż planszę” dla #486288 pokazywało

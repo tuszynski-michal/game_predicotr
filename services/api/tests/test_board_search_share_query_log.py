@@ -277,6 +277,7 @@ def test_http_query_log_pages_and_replay() -> None:
                 "resultSummary",
                 "outcomeCode",
                 "followUpApproximateWin",
+                "occurrenceTimes",
             }
         # D-478: only searches, each with the range the recipient opened.
         searches = client.get(base, params={"kind": "search"}).json()["entries"]
@@ -368,3 +369,100 @@ def test_http_delete_is_a_confirmed_high_impact_operation_and_removes_the_entry(
         assert client.delete(path).status_code == 404
         listed = client.get(f"/api/v1/admin/board-search-shares/sessions/{SESSION}/queries")
         assert listed.json()["entries"] == []
+
+
+def _search(minute: int, *cells: str) -> BoardSearchShareQueryEvent:
+    return _event(
+        BoardSearchShareQueryKind.SEARCH,
+        minute,
+        request={"cells": list(cells), "scope": "all_searchable", "limit": 5},
+    )
+
+
+def test_grouped_searches_list_each_pattern_once_with_all_its_times() -> None:
+    """TASK-0816: the same pattern searched again is one entry, at its newest
+    search, with every time and the newest range that followed any of them."""
+
+    first_a = _search(1, "0:A")
+    rng = _event(BoardSearchShareQueryKind.APPROXIMATE_WIN, 2, request={"startSequenceNumber": 4})
+    only_b = _search(3, "0:B")
+    second_a = _search(5, "0:A")
+    foreign = _event(
+        BoardSearchShareQueryKind.SEARCH,
+        6,
+        session_id=OTHER_SESSION,
+        request={"cells": ["0:A"], "scope": "all_searchable", "limit": 5},
+    )
+    service = BoardSearchShareQueryLogService(
+        MemoryQueryRepository([first_a, rng, only_b, second_a, foreign])
+    )
+
+    page = service.list(
+        session_id=SESSION, kind=BoardSearchShareQueryKind.SEARCH, group_by_pattern=True
+    )
+
+    assert [entry.id for entry in page.entries] == [second_a.id, only_b.id]
+    assert page.next_cursor is None
+    group = page.entries[0]
+    assert group.occurrence_times == (second_a.occurred_at, first_a.occurred_at)
+    # The newest search of the pattern had no range; the older one did.
+    assert group.follow_up_approximate_win == {"startSequenceNumber": 4}
+    assert page.entries[1].occurrence_times == (only_b.occurred_at,)
+
+    with pytest.raises(BoardSearchShareError) as error:
+        service.list(session_id=SESSION, group_by_pattern=True)
+    assert error.value.code == "BOARD_SEARCH_SHARE_QUERY_GROUP_INVALID"
+
+
+def test_grouped_pages_never_repeat_a_pattern_across_pages() -> None:
+    events = [_search(1, "0:A"), _search(2, "0:B"), _search(3, "0:C"), _search(4, "0:A")]
+    service = BoardSearchShareQueryLogService(MemoryQueryRepository(events))
+
+    first = service.list(
+        session_id=SESSION, kind=BoardSearchShareQueryKind.SEARCH, group_by_pattern=True, limit=2
+    )
+    assert [entry.request["cells"] for entry in first.entries] == [["0:A"], ["0:C"]]
+    assert first.next_cursor is not None
+    second = service.list(
+        session_id=SESSION,
+        kind=BoardSearchShareQueryKind.SEARCH,
+        group_by_pattern=True,
+        limit=2,
+        before_cursor=first.next_cursor,
+    )
+    assert [entry.request["cells"] for entry in second.entries] == [["0:B"]]
+    assert second.next_cursor is None
+
+
+def test_deleting_a_whole_pattern_removes_every_search_of_it_with_follow_ups() -> None:
+    first_a = _search(1, "0:A")
+    rng = _event(BoardSearchShareQueryKind.APPROXIMATE_WIN, 2)
+    only_b = _search(3, "0:B")
+    detail_b = _event(BoardSearchShareQueryKind.BOARD_DETAIL, 4)
+    second_a = _search(5, "0:A")
+    late = _event(BoardSearchShareQueryKind.APPROXIMATE_WIN, 6)
+    repository = MemoryQueryRepository([first_a, rng, only_b, detail_b, second_a, late])
+    service = BoardSearchShareQueryLogService(repository)
+
+    assert service.delete(second_a.id, whole_pattern=True) == 4
+    assert [event.id for event in repository.events] == [only_b.id, detail_b.id]
+
+
+def test_http_grouped_list_and_whole_pattern_delete() -> None:
+    first_a = _search(1, "0:A")
+    second_a = _search(5, "0:A")
+    only_b = _search(3, "0:B")
+    with _client([first_a, only_b, second_a]) as client:
+        base = f"/api/v1/admin/board-search-shares/sessions/{SESSION}/queries"
+        grouped = client.get(base, params={"kind": "search", "groupByPattern": "true"})
+        assert grouped.status_code == 200, grouped.text
+        entries = grouped.json()["entries"]
+        assert [entry["id"] for entry in entries] == [str(second_a.id), str(only_b.id)]
+        assert len(entries[0]["occurrenceTimes"]) == 2
+        plain = client.get(base, params={"kind": "search"}).json()["entries"]
+        assert [len(entry["occurrenceTimes"]) for entry in plain] == [1, 1, 1]
+        assert client.get(base, params={"groupByPattern": "true"}).status_code == 422
+        path = f"/api/v1/admin/board-search-shares/queries/{second_a.id}"
+        assert client.delete(path, params={"wholePattern": "true"}).status_code == 204
+        left = client.get(base).json()["entries"]
+        assert [entry["id"] for entry in left] == [str(only_b.id)]

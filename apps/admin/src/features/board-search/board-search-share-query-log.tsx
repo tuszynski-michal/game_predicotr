@@ -13,10 +13,11 @@ import {
   ApproximateWinBalanceChart,
   type BoardSearchDataSource,
 } from '@game-predictor/board-search-ui';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 
 import {
   boardSearchQueryFollowUpRange,
+  boardSearchQueryOccurrenceTimes,
   type BoardSearchQueryRange,
   boardSearchQueryPatternCells,
 } from './board-search-share-query-log-state';
@@ -53,8 +54,9 @@ const CHART_DISPLAY = { stakeGrosze: null, unit: 'pln' } as const;
 /**
  * One share link's searches (D-472, D-478), newest first: the pattern the
  * recipient entered as a 3 × 5 board and, when they opened the approximate
- * win, its balance chart. An entry can be replayed in this Admin's board
- * search or deleted from the log.
+ * win, its balance chart. A pattern searched several times is one entry
+ * with all its times (TASK-0816). An entry can be replayed in this Admin's
+ * board search or deleted from the log.
  */
 export function BoardSearchShareQueryLog({
   client,
@@ -87,6 +89,7 @@ export function BoardSearchShareQueryLog({
       try {
         const result = await client.listBoardSearchShareQueries(sessionId, {
           ...(before === null ? {} : { before }),
+          groupByPattern: true,
           kind: 'search',
           limit: PAGE_SIZE,
         });
@@ -146,7 +149,10 @@ export function BoardSearchShareQueryLog({
     setDeleteError(null);
     let message: string | null = null;
     try {
-      const result = await client.deleteBoardSearchShareQuery(entryId);
+      // The entry stands for every search of its pattern (TASK-0816).
+      const result = await client.deleteBoardSearchShareQuery(entryId, {
+        wholePattern: true,
+      });
       if (result.error !== undefined) {
         message = boardSearchShareErrorMessage(
           result.error,
@@ -204,9 +210,18 @@ export function BoardSearchShareQueryLog({
           return (
             <li className="boardSearchShareQuery" key={entry.id}>
               <div className="boardSearchShareQueryHeader">
-                <time dateTime={entry.occurredAt}>
-                  {formatBoardSearchShareDate(entry.occurredAt)}
-                </time>
+                <span className="boardSearchShareQueryTimes">
+                  {boardSearchQueryOccurrenceTimes(entry).map(
+                    (occurredAt, index) => (
+                      <Fragment key={`${occurredAt}:${index}`}>
+                        {index > 0 ? ', ' : null}
+                        <time dateTime={occurredAt}>
+                          {formatBoardSearchShareDate(occurredAt)}
+                        </time>
+                      </Fragment>
+                    ),
+                  )}
+                </span>
                 {entry.outcomeCode !== 'ok' ? (
                   <span className="boardSearchShareQueryFailed">
                     błąd {entry.outcomeCode}
@@ -229,7 +244,11 @@ export function BoardSearchShareQueryLog({
                         onClick={() => void confirmDelete(entry.id)}
                         type="button"
                       >
-                        {deletingId === entry.id ? 'Usuwanie…' : 'Usuń wpis'}
+                        {deletingId === entry.id
+                          ? 'Usuwanie…'
+                          : boardSearchQueryOccurrenceTimes(entry).length > 1
+                            ? `Usuń wszystkie (${boardSearchQueryOccurrenceTimes(entry).length})`
+                            : 'Usuń wpis'}
                       </button>
                     </>
                   ) : (

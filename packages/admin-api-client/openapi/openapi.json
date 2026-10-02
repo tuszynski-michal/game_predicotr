@@ -2539,6 +2539,15 @@
             "title": "Occurredat",
             "type": "string"
           },
+          "occurrenceTimes": {
+            "description": "When this query was made, newest first. A search listed with `groupByPattern` carries every search of the same pattern.",
+            "items": {
+              "format": "date-time",
+              "type": "string"
+            },
+            "title": "Occurrencetimes",
+            "type": "array"
+          },
           "outcomeCode": {
             "title": "Outcomecode",
             "type": "string"
@@ -2567,7 +2576,8 @@
           "kind",
           "request",
           "resultSummary",
-          "outcomeCode"
+          "outcomeCode",
+          "occurrenceTimes"
         ],
         "title": "BoardSearchShareQueryEntryResponse",
         "type": "object"
@@ -26800,6 +26810,18 @@
             }
           },
           {
+            "description": "For a search: delete every search of the same pattern.",
+            "in": "query",
+            "name": "wholePattern",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "For a search: delete every search of the same pattern.",
+              "title": "Wholepattern",
+              "type": "boolean"
+            }
+          },
+          {
             "in": "header",
             "name": "X-Admin-Confirmation",
             "required": true,
@@ -27136,6 +27158,18 @@
                 }
               ],
               "title": "Kind"
+            }
+          },
+          {
+            "description": "With `kind=search`: one entry per searched pattern.",
+            "in": "query",
+            "name": "groupByPattern",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "With `kind=search`: one entry per searched pattern.",
+              "title": "Groupbypattern",
+              "type": "boolean"
             }
           }
         ],

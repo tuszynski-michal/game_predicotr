@@ -82,6 +82,7 @@ import {
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
+  getImageGridReviewCorrectionSymbols as getGeneratedImageGridReviewCorrectionSymbols,
   getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
   getBoardSearchApproximateWin as getGeneratedBoardSearchApproximateWin,
   getBoardSearchBoardDetail as getGeneratedBoardSearchBoardDetail,
@@ -203,6 +204,7 @@ import {
   previewOperationalImageReviewGeometry as previewGeneratedOperationalImageReviewGeometry,
   previewImageGridReviewGeometry as previewGeneratedImageGridReviewGeometry,
   previewPendingBoardCellGeometryCorrection as previewGeneratedPendingBoardCellGeometryCorrection,
+  previewPendingBoardCellGeometrySymbols as previewGeneratedPendingBoardCellGeometrySymbols,
   previewPendingSymbolReinference as previewGeneratedPendingSymbolReinference,
   previewPendingGridReinference as previewGeneratedPendingGridReinference,
   previewSymbolCellReviewBulkOperation as previewGeneratedSymbolCellReviewBulkOperation,
@@ -416,6 +418,8 @@ export type {
   ApproximateWinSummaryResponse,
   GeometryQualificationPayload,
   GridCorrectionCellSymbolPayload,
+  GridCorrectionCellSymbolSuggestionResponse,
+  GridCorrectionSymbolsResponse,
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
   BrowserImageImportPreflightResponse,
@@ -2543,6 +2547,15 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       });
       return `${options.baseUrl.replace(/\/$/, '')}/api/v1/admin/image-reviews/${encodeURIComponent(reviewItemId)}/source-asset?${query.toString()}`;
     },
+    getImageGridReviewCorrectionSymbols: (
+      reviewItemId: string,
+      gameId: string,
+    ) =>
+      getGeneratedImageGridReviewCorrectionSymbols({
+        client,
+        path: { review_item_id: reviewItemId },
+        query: { gameId },
+      }),
     previewImageGridReviewGeometry: (
       reviewItemId: string,
       context: ImageGridReviewContext,
@@ -2818,6 +2831,20 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       body: BoardCellGeometryManualPreviewCommand,
     ) =>
       previewGeneratedPendingBoardCellGeometryCorrection({
+        body,
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    previewPendingBoardCellGeometrySymbols: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+      body: BoardCellGeometryManualPreviewCommand,
+    ) =>
+      previewGeneratedPendingBoardCellGeometrySymbols({
         body,
         client,
         path: {

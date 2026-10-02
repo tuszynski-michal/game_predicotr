@@ -8,7 +8,7 @@ from dataclasses import dataclass, replace
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
-from typing import TYPE_CHECKING, Protocol, cast
+from typing import TYPE_CHECKING, Literal, Protocol, cast
 from uuid import UUID
 
 from PIL import Image
@@ -242,6 +242,19 @@ class VirtualGridCellSymbol:
 
 
 @dataclass(frozen=True, slots=True)
+class VirtualGridCellSymbolSuggestion:
+    """The symbol currently known for one cell of a board under correction.
+
+    ``origin`` is ``assigned`` for the symbol stored on the cell and
+    ``predicted`` for a model prediction; a suggestion never writes anything.
+    """
+
+    cell_index: int
+    symbol_id: UUID | None
+    origin: Literal["assigned", "predicted"]
+
+
+@dataclass(frozen=True, slots=True)
 class PreparedVirtualGridGeometrySource:
     entries: tuple[PreparedVirtualGridGeometry, ...]
     source_geometry_checksum_sha256: str
@@ -307,6 +320,12 @@ class VirtualGridGeometryRepository(Protocol):
         cell_symbols: Sequence[VirtualGridCellSymbol],
         actor: str,
     ) -> int: ...
+
+    def current_cell_symbols(
+        self, *, game_id: UUID, review_item_id: UUID
+    ) -> tuple[VirtualGridCellSymbolSuggestion, ...]: ...
+
+    def active_symbol_ids_by_code(self, *, game_id: UUID) -> Mapping[str, UUID]: ...
 
 
 class VirtualGridGeometryService:
@@ -686,6 +705,63 @@ class VirtualGridGeometryService:
                 actor=actor,
             )
         return result
+
+    def review_item_symbols(
+        self, *, game_id: UUID, review_item_id: UUID
+    ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
+        """Symbols stored on the current cells of a reported board (D-486)."""
+
+        return self._repository.current_cell_symbols(game_id=game_id, review_item_id=review_item_id)
+
+    def preview_pending_slot_symbols(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        pending_geometry_id: UUID,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+        geometry_qualification: GeometryQualification | None = None,
+        actor: str = "local-admin-preview",
+    ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
+        """Pinned-model predictions for exactly the cut a save would persist.
+
+        Nothing is written.  Without a pinned model or predictor the slot has
+        no suggestions; codes that are not active symbols of the game (also
+        the model's ``?``) keep the cell without a symbol.
+        """
+
+        command = self._pending_slot_command(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            pending_geometry_id=pending_geometry_id,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            corners=corners,
+            geometry_qualification=geometry_qualification,
+        )
+        prepared, _renders = self._prepare_source(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            commands=(command,),
+            actor=actor,
+            require_complete_source=False,
+            predict=True,
+        )
+        entry = prepared.entries[0]
+        if entry.slot_prediction is None:
+            return ()
+        symbol_ids = self._repository.active_symbol_ids_by_code(game_id=game_id)
+        columns = entry.context.topology.columns
+        return tuple(
+            VirtualGridCellSymbolSuggestion(
+                cell_index=cast(int, cell["rowIndex"]) * columns + cast(int, cell["columnIndex"]),
+                symbol_id=symbol_ids.get(cast(str, cell.get("symbolCode"))),
+                origin="predicted",
+            )
+            for cell in entry.slot_prediction.cells
+        )
 
     def _assign_cell_symbols(
         self,
@@ -1754,6 +1830,7 @@ __all__ = [
     "PreparedVirtualGridGeometry",
     "PreparedVirtualGridGeometrySource",
     "VirtualGridCellSymbol",
+    "VirtualGridCellSymbolSuggestion",
     "VirtualGridGeometryCell",
     "VirtualGridGeometryContext",
     "VirtualGridGeometryPreview",

@@ -11,6 +11,7 @@ from game_predictor_api.application.virtual_grid_geometry import (
     PreparedVirtualGridGeometry,
     PreparedVirtualGridGeometrySource,
     VirtualGridCellSymbol,
+    VirtualGridCellSymbolSuggestion,
     VirtualGridGeometryContext,
     VirtualGridGeometryRevision,
     VirtualGridGeometrySaveResult,
@@ -44,11 +45,19 @@ class MemoryVirtualGridGeometryRepository:
         self.contexts = {context.target_id: context}
         self.saved: list[PreparedVirtualGridGeometry] = []
         self.assigned: list[tuple[UUID, tuple[VirtualGridCellSymbol, ...], str]] = []
+        self.symbol_ids_by_code: dict[str, UUID] = {}
+        self.cell_symbols: tuple[VirtualGridCellSymbolSuggestion, ...] = ()
         self.replays: dict[tuple[UUID, UUID], VirtualGridGeometryRevision] = {}
 
     def assign_cell_symbols(self, *, game_id, review_item_id, cell_symbols, actor) -> int:
         self.assigned.append((review_item_id, tuple(cell_symbols), actor))
         return len(cell_symbols)
+
+    def current_cell_symbols(self, *, game_id, review_item_id):
+        return self.cell_symbols
+
+    def active_symbol_ids_by_code(self, *, game_id):
+        return self.symbol_ids_by_code
 
     def virtual_geometry_replay(self, *, context, idempotency_key):
         return self.replays.get((context.target_id, idempotency_key))
@@ -938,3 +947,69 @@ def test_pending_slot_save_approves_operator_symbols_on_the_new_board(tmp_path: 
     assert repository.assigned == [
         (result.revisions[0].review_item_id, symbols, "reviewer-session:test")
     ]
+
+
+def test_pending_slot_symbol_preview_predicts_the_current_cut_without_writing(
+    tmp_path: Path,
+) -> None:
+    predictor = RecordingSymbolPredictor()
+    service, repository, contexts = _deferred_source(tmp_path, predictor=predictor)
+    deferred = contexts[5]
+    assert deferred.pending_geometry_id is not None
+    seven = uuid4()
+    repository.symbol_ids_by_code = {"seven": seven}
+    kwargs = dict(
+        game_id=deferred.game_id,
+        import_job_id=deferred.import_job_id,
+        pending_geometry_id=deferred.pending_geometry_id,
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        corners=_cell_corners(5),
+    )
+
+    suggestions = service.preview_pending_slot_symbols(**kwargs)
+
+    assert suggestions == tuple(
+        VirtualGridCellSymbolSuggestion(cell_index=index, symbol_id=seven, origin="predicted")
+        for index in range(15)
+    )
+    assert len(predictor.calls) == 1
+    assert repository.saved == [] and repository.assigned == []
+
+    # A predicted code that is no active symbol of the game leaves the cell empty.
+    repository.symbol_ids_by_code = {}
+    assert {value.symbol_id for value in service.preview_pending_slot_symbols(**kwargs)} == {None}
+
+
+def test_pending_slot_symbol_preview_without_a_predictor_has_no_suggestions(
+    tmp_path: Path,
+) -> None:
+    service, repository, contexts = _deferred_source(tmp_path)
+    deferred = contexts[5]
+    assert deferred.pending_geometry_id is not None
+
+    suggestions = service.preview_pending_slot_symbols(
+        game_id=deferred.game_id,
+        import_job_id=deferred.import_job_id,
+        pending_geometry_id=deferred.pending_geometry_id,
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        corners=_cell_corners(5),
+    )
+
+    assert suggestions == () and repository.saved == []
+
+
+def test_review_item_symbols_come_from_the_stored_cells(tmp_path: Path) -> None:
+    service, context = _fixture(tmp_path)
+    repository = service._repository  # noqa: SLF001 - inspect the application port in a unit test
+    assert isinstance(repository, MemoryVirtualGridGeometryRepository)
+    repository.cell_symbols = (
+        VirtualGridCellSymbolSuggestion(cell_index=0, symbol_id=uuid4(), origin="assigned"),
+        VirtualGridCellSymbolSuggestion(cell_index=1, symbol_id=None, origin="predicted"),
+    )
+
+    assert (
+        service.review_item_symbols(game_id=context.game_id, review_item_id=context.review_item_id)
+        == repository.cell_symbols
+    )

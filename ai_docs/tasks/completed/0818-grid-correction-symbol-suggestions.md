@@ -1,6 +1,6 @@
 ---
 title: Podpowiedzi symboli dla cięcia w korekcie siatki
-status: todo
+status: done
 last_updated: 2026-10-02
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-02
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -50,10 +50,10 @@ TASK-0817 wykonane.
 
 ## Acceptance criteria
 
-- [ ] Plansza zgłoszona: symbol przypisany, a przy jego braku predykcja.
-- [ ] Plansza odroczona: predykcja przypiętego modelu dla podanych narożników;
+- [x] Plansza zgłoszona: symbol przypisany, a przy jego braku predykcja.
+- [x] Plansza odroczona: predykcja przypiętego modelu dla podanych narożników;
       brak modelu → pusta lista, nie błąd.
-- [ ] Żaden endpoint niczego nie zapisuje.
+- [x] Żaden endpoint niczego nie zapisuje.
 
 ## Technical notes
 
@@ -87,4 +87,31 @@ npm run test --workspace @game-predictor/reviewer
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- `VirtualGridCellSymbolSuggestion`, `review_item_symbols`,
+  `preview_pending_slot_symbols`, `preview_manual_symbols`.
+- `SqlAlchemyGridCorrectionSymbolRepository.current_symbols` /
+  `active_symbol_ids_by_code`; dwa endpointy, OpenAPI, klient i wrappery.
+- Allowlisty: `reviewer-proxy-policy.ts` oraz `security/local_admin.py`
+  (druga nie była w planie — bez niej POST z originu 3001 byłby odrzucany).
+
+### Verification results
+
+- `test_virtual_grid_geometry.py` + `_repository.py`: 56 passed.
+- `test_board_cell_geometry_pending.py`, `test_image_grid_review_api.py`,
+  `test_local_admin_security.py`: zielone; PostgreSQL 1 passed.
+- Klient 76/76; Reviewer 199/199; `export_admin_openapi.py --check` i
+  `check:generated` aktualne; Ruff i Prettier czyste dla zmienionych plików.
+
+### Not completed
+
+- Predykcja modelu dla plansz zgłoszonych (poza zakresem planu).
+
+### Documentation updates
+
+- `API_CONTRACT.md`, `CURRENT_STATE.md`.
+
+### Recommended next task
+
+- TASK-0819.

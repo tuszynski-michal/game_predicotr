@@ -30,6 +30,10 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewNotFoundError,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.geometry_qualification import (
+    GridCorrectionSymbolsResponse,
+    to_grid_correction_symbols_response,
+)
 from game_predictor_api.schemas.image_geometry_rollout import (
     ImageGeometryRolloutStartResponse,
     ImageGeometryRolloutStatusResponse,
@@ -224,6 +228,26 @@ def create_image_grid_reviews_router(
                 error.code,
             )
             raise
+
+    @router.get(
+        "/image-reviews/{review_item_id}/correction-symbols",
+        response_model=GridCorrectionSymbolsResponse,
+        operation_id="getImageGridReviewCorrectionSymbols",
+        summary="Read the symbols stored on the current cells of one board under correction",
+        responses=ERROR_RESPONSES,
+    )
+    def get_image_grid_review_correction_symbols(
+        review_item_id: UUID,
+        virtual_service: Annotated[
+            VirtualGridGeometryService,
+            virtual_geometry_service_parameter,
+        ],
+        game_id: Annotated[UUID, Query(alias="gameId")],
+    ) -> GridCorrectionSymbolsResponse:
+        with game_storage_scope(game_id):
+            return to_grid_correction_symbols_response(
+                virtual_service.review_item_symbols(game_id=game_id, review_item_id=review_item_id)
+            )
 
     @router.post(
         "/image-reviews/{review_item_id}/geometry-preview",

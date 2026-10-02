@@ -77,6 +77,21 @@ def test_operator_symbols_approve_only_the_selected_current_crops(
                 == rows[index].rendered_pixel_checksum_sha256
             )
         assert rows[2].quality_issue == "partial_visibility"
+        # The suggestions of the correction screen read the same current crops:
+        # the two cells without source pixels are not offered.
+        suggestions = {
+            index: (stored_symbol_id, origin)
+            for index, stored_symbol_id, origin in SqlAlchemyGridCorrectionSymbolRepository(
+                session
+            ).current_symbols(game_id=game_id, review_item_id=review_item_id)
+        }
+        assert sorted(suggestions) == list(range(2, 15))
+        assert suggestions[2] == suggestions[5] == (symbol_id, "assigned")
+        assert all(
+            origin == "predicted"
+            for index, (_, origin) in suggestions.items()
+            if index not in (2, 5)
+        )
         untouched = set(rows) - {2, 5}
         assert {index: (rows[index].revision, rows[index].review_state) for index in untouched} == {
             index: before[index] for index in untouched

@@ -6,6 +6,20 @@ last_updated: 2026-10-02
 
 # Current State
 
+### TASK-0818 — podpowiedzi symboli dla cięcia w korekcie siatki (done, D-486)
+
+- `GET /admin/image-reviews/{reviewItemId}/correction-symbols`
+  (`getImageGridReviewCorrectionSymbols`): symbole zapisane na bieżących
+  komórkach planszy zgłoszonej — przypisany, a przy jego braku predykcja.
+- `POST …/board-cell-geometry-pending/{pendingId}/geometry-symbol-preview`
+  (`previewPendingBoardCellGeometrySymbols`): predykcja przypiętego modelu dla
+  podanego cięcia planszy odroczonej; brak modelu → pusta lista. Oba endpointy
+  niczego nie zapisują. Nowy POST jest na allowliście proxy Reviewera i
+  serwerowej allowliście originu 3001 (`security/local_admin.py`).
+- Testy: serwis 56/56, żądania API (pending 13, grid review, security 6),
+  PostgreSQL 1/1, klient 76/76, Reviewer 199/199; `openapi --check` i
+  `check:generated` aktualne.
+
 ### TASK-0817 — zapis symboli operatora przy zapisie siatki (done, D-486)
 
 - `createImageGridReviewGeometryRevision` i

@@ -4,6 +4,7 @@ import hashlib
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import ClassVar
 from unittest.mock import MagicMock
 from uuid import UUID, uuid4
 
@@ -22,6 +23,7 @@ from game_predictor_api.application.image_grid_reviews import (
     ImageGridReviewService,
 )
 from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridCellSymbolSuggestion,
     VirtualGridGeometryCell,
     VirtualGridGeometryRevision,
     VirtualGridGeometrySaveResult,
@@ -209,8 +211,24 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
         )
 
 
+STORED_SYMBOL_ID = UUID("88888888-8888-4888-8888-888888888888")
+
+
 class UnusedVirtualGeometryService:
-    pass
+    """Only the read-only correction symbols are served by this fixture."""
+
+    symbol_scopes: ClassVar[list[object]] = []
+
+    def review_item_symbols(
+        self, *, game_id: UUID, review_item_id: UUID
+    ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
+        self.symbol_scopes.append(current_game_storage_scope())
+        return (
+            VirtualGridCellSymbolSuggestion(
+                cell_index=0, symbol_id=STORED_SYMBOL_ID, origin="assigned"
+            ),
+            VirtualGridCellSymbolSuggestion(cell_index=1, symbol_id=None, origin="predicted"),
+        )
 
 
 class MemoryImageGeometryRolloutRepository:
@@ -982,3 +1000,24 @@ def test_correction_view_sql_keeps_one_entry_per_board_slot() -> None:
         pending_sql
     )
     assert "automaticpartialproposal" not in pending_sql
+
+
+def test_correction_symbols_are_read_inside_the_query_game_storage(tmp_path: Path) -> None:
+    client, _repository, items = _client(tmp_path)
+    target = items[0]
+    UnusedVirtualGeometryService.symbol_scopes.clear()
+
+    response = client.get(
+        f"/api/v1/admin/image-reviews/{target.review_item_id}/correction-symbols",
+        params={"gameId": str(target.game_id)},
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "cells": [
+            {"cellIndex": 0, "origin": "assigned", "symbolId": str(STORED_SYMBOL_ID)},
+            {"cellIndex": 1, "origin": "predicted", "symbolId": None},
+        ]
+    }
+    scopes = UnusedVirtualGeometryService.symbol_scopes
+    assert len(scopes) == 1 and scopes[0].game_id == target.game_id  # type: ignore[union-attr]

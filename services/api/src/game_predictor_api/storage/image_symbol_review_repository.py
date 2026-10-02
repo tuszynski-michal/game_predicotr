@@ -1951,6 +1951,31 @@ class SqlAlchemyGridCorrectionSymbolRepository:
             changed += int(result.cell_revision != command.expected_revision)
         return changed
 
+    def current_symbols(
+        self, *, game_id: UUID, review_item_id: UUID
+    ) -> tuple[tuple[int, UUID | None, Literal["assigned", "predicted"]], ...]:
+        """``(cell index, symbol id, origin)`` of every current crop with pixels."""
+
+        cells = self._current_cells(
+            game_id=game_id, review_item_id=review_item_id, cell_indices=None
+        )
+        symbol_id_by_code = _active_symbol_maps(self._session, game_id)[1]
+        return tuple(
+            (int(cell.cell_index), cell.assigned_symbol_id, "assigned")
+            if cell.assigned_symbol_id is not None
+            else (
+                int(cell.cell_index),
+                symbol_id_by_code.get(cell.prediction_symbol_code or ""),
+                "predicted",
+            )
+            for cell in cells
+            if cell.source_available
+        )
+
+    def active_symbol_ids_by_code(self, *, game_id: UUID) -> dict[str, UUID]:
+        _bind_game_store(self._session, game_id)
+        return _active_symbol_maps(self._session, game_id)[1]
+
     def _current_cells(
         self,
         *,

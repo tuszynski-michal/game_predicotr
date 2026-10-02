@@ -6877,6 +6877,61 @@
         "title": "GridCorrectionCellSymbolPayload",
         "type": "object"
       },
+      "GridCorrectionCellSymbolSuggestionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "origin": {
+            "enum": [
+              "assigned",
+              "predicted"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "symbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolid"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "symbolId",
+          "origin"
+        ],
+        "title": "GridCorrectionCellSymbolSuggestionResponse",
+        "type": "object"
+      },
+      "GridCorrectionSymbolsResponse": {
+        "additionalProperties": false,
+        "description": "Symbols known for the cells of one board under grid correction (D-486).",
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionCellSymbolSuggestionResponse"
+            },
+            "title": "Cells",
+            "type": "array"
+          }
+        },
+        "required": [
+          "cells"
+        ],
+        "title": "GridCorrectionSymbolsResponse",
+        "type": "object"
+      },
       "GridEndToEndGateReportCommand": {
         "additionalProperties": false,
         "properties": {
@@ -30336,6 +30391,114 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-symbol-preview": {
+      "post": {
+        "operationId": "previewPendingBoardCellGeometrySymbols",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "import_job_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Import Job Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pending_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Pending Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardCellGeometryManualPreviewCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionSymbolsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Deferred geometry item not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Deferred geometry state conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Predict the symbols of the virtual cells of a manual deferred-board geometry",
+        "tags": [
+          "board-cell-geometry"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/manual-resolution": {
       "post": {
         "operationId": "resolvePendingBoardCellGeometryManually",
@@ -40075,6 +40238,79 @@
         "summary": "List append-only operational review decisions",
         "tags": [
           "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-reviews/{review_item_id}/correction-symbols": {
+      "get": {
+        "operationId": "getImageGridReviewCorrectionSymbols",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "review_item_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Review Item Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Gameid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridCorrectionSymbolsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Current grid review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Grid review cursor or revision conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid grid review command"
+          }
+        },
+        "summary": "Read the symbols stored on the current cells of one board under correction",
+        "tags": [
+          "image-grid-reviews"
         ]
       }
     },

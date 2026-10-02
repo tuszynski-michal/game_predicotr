@@ -2838,6 +2838,20 @@ pole bez bieżącego cropa → `IMAGE_GRID_REVIEW_SYMBOL_CELL_UNAVAILABLE` (422)
 symbol nieaktywny → `SYMBOL_CELL_REVIEW_TARGET_SYMBOL_INVALID` (422). Każdy z
 tych błędów wycofuje także geometrię. Pominięte pole działa jak dotąd.
 
+**D-486 (TASK-0818):** podpowiedzi symboli dla ekranu korekty, tylko do
+odczytu, wspólna odpowiedź `GridCorrectionSymbolsResponse`
+(`cells: [{ cellIndex, symbolId | null, origin: assigned | predicted }]`):
+
+```text
+GET  /api/v1/admin/image-reviews/{reviewItemId}/correction-symbols?gameId=
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/geometry-symbol-preview
+```
+
+`GET` zwraca symbole zapisane na bieżących komórkach z pikselami (przypisany,
+w razie braku predykcja). `POST` przyjmuje komendę `geometry-preview` i zwraca
+predykcję przypiętego modelu dla tego cięcia; bez modelu lista jest pusta.
+Kod spoza aktywnych symboli gry (także `?`) daje `symbolId = null`.
+
 Lista ma widoki `needs_validation | needs_correction | all | correction`;
 operacyjną kolejką jest wyłącznie `correction`, a pozostałe widoki i liczniki
 stanów są diagnostyką tylko do odczytu (podsumowanie importu w Adminie). Ma

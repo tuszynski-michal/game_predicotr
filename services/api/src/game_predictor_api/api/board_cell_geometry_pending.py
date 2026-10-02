@@ -39,6 +39,10 @@ from game_predictor_api.schemas.board_cell_geometry_pending import (
     to_pending_response,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.geometry_qualification import (
+    GridCorrectionSymbolsResponse,
+    to_grid_correction_symbols_response,
+)
 
 BoardCellGeometryPendingServiceDependency = Callable[..., object]
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
@@ -244,6 +248,43 @@ def create_board_cell_geometry_pending_router(
                 "X-Board-Cell-Count": str(len(preview.cells)),
                 "X-Board-Cell-Cropper-Version": preview.cropper_version,
             },
+        )
+
+    @router.post(
+        "/{pending_id}/geometry-symbol-preview",
+        response_model=GridCorrectionSymbolsResponse,
+        operation_id="previewPendingBoardCellGeometrySymbols",
+        summary="Predict the symbols of the virtual cells of a manual deferred-board geometry",
+        responses=ERROR_RESPONSES,
+    )
+    def preview_pending_board_cell_geometry_symbols(
+        game_id: UUID,
+        import_job_id: UUID,
+        pending_id: UUID,
+        payload: BoardCellGeometryManualPreviewCommand,
+        service: Annotated[BoardCellGeometryPendingService, service_parameter],
+        reviewer_session: Annotated[ReviewerAccessSession | None, reviewer_parameter],
+        reviewer_access_service: Annotated[
+            ReviewerAccessService,
+            reviewer_service_parameter,
+        ],
+    ) -> GridCorrectionSymbolsResponse:
+        authorize(reviewer_session, reviewer_access_service, game_id, import_job_id)
+        return to_grid_correction_symbols_response(
+            service.preview_manual_symbols(
+                pending_id,
+                game_id=game_id,
+                import_job_id=import_job_id,
+                expected_manifest_checksum_sha256=payload.expected_manifest_checksum_sha256,
+                expected_geometry_revision=payload.expected_geometry_revision,
+                expected_resolution_revision=payload.expected_resolution_revision,
+                corners=tuple(ImageReviewGeometryPoint(x=p.x, y=p.y) for p in payload.corners),
+                geometry_qualification=(
+                    None
+                    if payload.geometry_qualification is None
+                    else payload.geometry_qualification.to_domain()
+                ),
+            )
         )
 
     @router.post(

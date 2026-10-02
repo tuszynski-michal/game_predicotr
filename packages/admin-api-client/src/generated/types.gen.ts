@@ -3823,6 +3823,36 @@ export type GridCorrectionCellSymbolPayload = {
 };
 
 /**
+ * GridCorrectionCellSymbolSuggestionResponse
+ */
+export type GridCorrectionCellSymbolSuggestionResponse = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Origin
+   */
+  origin: 'assigned' | 'predicted';
+  /**
+   * Symbolid
+   */
+  symbolId: string | null;
+};
+
+/**
+ * GridCorrectionSymbolsResponse
+ *
+ * Symbols known for the cells of one board under grid correction (D-486).
+ */
+export type GridCorrectionSymbolsResponse = {
+  /**
+   * Cells
+   */
+  cells: Array<GridCorrectionCellSymbolSuggestionResponse>;
+};
+
+/**
  * GridEndToEndGateReportCommand
  */
 export type GridEndToEndGateReportCommand = {
@@ -16735,6 +16765,58 @@ export type PreviewPendingBoardCellGeometryCorrectionResponses = {
   200: unknown;
 };
 
+export type PreviewPendingBoardCellGeometrySymbolsData = {
+  body: BoardCellGeometryManualPreviewCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/geometry-symbol-preview';
+};
+
+export type PreviewPendingBoardCellGeometrySymbolsErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewPendingBoardCellGeometrySymbolsError =
+  PreviewPendingBoardCellGeometrySymbolsErrors[keyof PreviewPendingBoardCellGeometrySymbolsErrors];
+
+export type PreviewPendingBoardCellGeometrySymbolsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionSymbolsResponse;
+};
+
+export type PreviewPendingBoardCellGeometrySymbolsResponse =
+  PreviewPendingBoardCellGeometrySymbolsResponses[keyof PreviewPendingBoardCellGeometrySymbolsResponses];
+
 export type ResolvePendingBoardCellGeometryManuallyData = {
   body: BoardCellGeometryManualResolutionCommand;
   path: {
@@ -21784,6 +21866,51 @@ export type ListOperationalImageReviewResolutionEventsResponses = {
 
 export type ListOperationalImageReviewResolutionEventsResponse =
   ListOperationalImageReviewResolutionEventsResponses[keyof ListOperationalImageReviewResolutionEventsResponses];
+
+export type GetImageGridReviewCorrectionSymbolsData = {
+  body?: never;
+  path: {
+    /**
+     * Review Item Id
+     */
+    review_item_id: string;
+  };
+  query: {
+    /**
+     * Gameid
+     */
+    gameId: string;
+  };
+  url: '/api/v1/admin/image-reviews/{review_item_id}/correction-symbols';
+};
+
+export type GetImageGridReviewCorrectionSymbolsErrors = {
+  /**
+   * Current grid review resource not found
+   */
+  404: ErrorResponse;
+  /**
+   * Grid review cursor or revision conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid grid review command
+   */
+  422: ErrorResponse;
+};
+
+export type GetImageGridReviewCorrectionSymbolsError =
+  GetImageGridReviewCorrectionSymbolsErrors[keyof GetImageGridReviewCorrectionSymbolsErrors];
+
+export type GetImageGridReviewCorrectionSymbolsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridCorrectionSymbolsResponse;
+};
+
+export type GetImageGridReviewCorrectionSymbolsResponse =
+  GetImageGridReviewCorrectionSymbolsResponses[keyof GetImageGridReviewCorrectionSymbolsResponses];
 
 export type PreviewImageGridReviewGeometryData = {
   body: ImageGridReviewGeometryPreviewCommand;

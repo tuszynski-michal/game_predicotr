@@ -158,6 +158,18 @@ last_updated: 2026-10-01
     worktree (dwa potwierdzone `FileNotFoundError`, trzeci niezdiagnozowany).
 - 2026-10-02 operator uruchomił etap V3-A (TASK-0800, TASK-0801) po
   TASK-0812; STOP przy przeglądzie plansz w TASK-0801.
+- TASK-0800 done (`v1.7.153`): eksport geometrii produkcyjnej 777 tylko do
+  odczytu (`scripts/vision_lab_geometry_export.py`, czysty moduł
+  `vision_lab/production_geometry.py`). Wynik w
+  `game_predictor_vision_data\production-geometry\production-geometry-777-20261002\`
+  (1,59 GB, 8 min): 499 460 plansz-kandydatów ze zdjęć `geometry_complete`,
+  0 wykluczeń, 24 węzły zgodne z manifestem renderu (odchyłka 0 px).
+  Poziomy: G 459 plansz na 101 zdjęciach (198 `local-admin`, 261 zapisanych
+  przez Reviewera), S 137 473 na 15 275 zdjęciach, B 361 103 na 40 123
+  zdjęciach, 425 niesklasyfikowanych (konwersja legacy bez autora). 24
+  rodziny źródeł (katalog joba importu; nagrania nie da się odtworzyć z
+  danych). Raport:
+  `ai_docs/quality/GRID_V3_PRODUCTION_GEOMETRY_INVENTORY_20261002.md`.
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

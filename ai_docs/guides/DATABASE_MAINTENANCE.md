@@ -1,7 +1,7 @@
 ---
 title: Utrzymanie bazy danych — VACUUM, kompaktacja pipeline, VHDX i migracja dysku
 status: active
-last_updated: 2026-09-30
+last_updated: 2026-10-02
 ---
 
 # Runbook: utrzymanie bazy danych
@@ -312,6 +312,123 @@ docker exec game-predictor-postgres-1 psql -U game_predictor -d game_predictor -
 ```
 
 Plik `docker_data.vhdx` nie maleje sam — sekcja 3.
+
+### 2.8. Usunięcie martwych zdjęć zduplikowanego importu (TASK-0811)
+
+`scripts/remove_superseded_import_images.py` (`npm run
+images:remove-superseded-import-images -- ...`) usuwa z magazynu gry tylko
+te zdjęcia wskazanego importu, które są w całości zastąpione innym importem
+tej gry i nie niosą pracy człowieka ani żywych danych. Każde inne zdjęcie
+importu zostaje w całości (nigdy nie usuwa się części plansz zdjęcia) i
+trafia do raportu z powodami. Pliki na dysku i job importu zostają.
+
+Zdjęcie kwalifikuje się, gdy spełnia wszystkie warunki:
+
+1. należy do gry i importu;
+2. ma plansze, każda ma `status = 'rejected'` i element review, każdy
+   element review tych plansz ma `status = 'superseded'` i numer sekwencji;
+3. każdy numer sekwencji jego elementów, plansz i oczekiwanych pozycji
+   najnowszej rewizji źródła ma żywy element review (`pending`/`accepted`/
+   `corrected`, na planszy nie `rejected`) na zdjęciu innego importu tej
+   gry, a raport kompletności (D-484) klasyfikuje zdjęcie jako `superseded`;
+4. brak jego wierszy w tabelach chronionych (`image_symbol_review_cells`,
+   `image_symbol_review_events`, `image_symbol_review_bulk_targets`,
+   `symbol_reference_images`, `verified_training_cohort_items`/`_cells`,
+   `image_sequence_canonical`, `image_sequence_alternatives` (import i suma
+   pliku albo numer sekwencji), `image_sequence_source_override_events`
+   (element albo numer sekwencji), `image_board_search_candidates`,
+   `image_board_search_fast_documents`, `image_layout_staging_rows`);
+5. żadna plansza nie ma zatwierdzonej geometrii ani zdarzenia
+   `image_board_geometry_review_events`; rewizje geometrii plansz i źródła,
+   rozstrzygnięcia elementów review i ich zdarzenia zapisał aktor
+   `system:%`; brak otwartego wiersza odroczonej geometrii;
+6. żaden wiersz spoza zbioru usuwania (innego zdjęcia, importu lub tabeli)
+   nie wskazuje na jego wiersze: wszystkie klucze obce z katalogu
+   `pg_constraint` do tabel usuwanych, `ownerReviewItemId` w
+   `resolved_value` elementów review i zdarzeń rozstrzygnięć oraz znane
+   kolumny bez FK (`image_symbol_review_states.last_review_item_id`,
+   `count_rebuild_cursor`, `layouts.source_board_id`);
+7. brak wyjątku geometrii;
+
+a jego plik importu ma stan `waiting_for_review`/`completed` i nie jest
+współdzielony z innym zdjęciem tego importu.
+
+Zakres usuwania zdjęcia: elementy kolejki review (usuwa je istniejący
+trigger `project_image_review_queue_delete_v1`, który też przelicza
+`image_review_queue_states`), zdarzenia rozstrzygnięć, odroczona geometria,
+rewizje geometrii plansz, rewizje predykcji, manifesty renderu, elementy
+review, plansze, rewizje geometrii źródła, zdjęcia, pliki joba importu, a w
+`public` wyniki etapów, manifesty terminalne i wykonania plików — te trzy
+tylko, gdy po usunięciu żaden wiersz żadnej gry nie odwołuje się do
+`file_execution_key`. Kolejność dzieci przed rodzicami wynika z kluczy obcych
+katalogu; polecenia nie używają `CASCADE`. Liczniki
+`image_symbol_review_states` i `image_board_search_projection_states` nie
+zależą od usuwanych wierszy (zakwalifikowane zdjęcie nie ma komórek ani
+dokumentów wyszukiwarki; `skipped_review_item_count` jest raportem ostatniej
+przebudowy, a nie licznikiem utrzymywanym na bieżąco).
+
+Rola: skrypt łączy się rolą właściciela schematu (silnik utrzymaniowy, jak
+`CrossGameOwnerSession` i usuwanie gry) i odmawia roli objętej RLS, bo
+kontrola wykonań wszystkich gier i usunięcia w `public` muszą być w tej
+samej transakcji co usunięcia w magazynie gry. Gra jest i tak wiązana przez
+`GameStorageRouter`, a każde zapytanie gry ma jawny predykat `game_id`.
+
+Zatrzymaj API, workery i Reviewera wszystkich checkoutów. Polecenia z
+katalogu repozytorium:
+
+1. Podgląd (tylko odczyt: jedna transakcja `REPEATABLE READ READ ONLY`;
+   zapisuje wyłącznie raport
+   `artifacts\data\exports\remove-superseded-import-images\<gra>\<znacznik>-preview.json`
+   z `planSha256`, licznikami wierszy per tabela i listą zdjęć zachowanych z
+   powodami):
+
+   ```powershell
+   .venv\Scripts\python.exe scripts\remove_superseded_import_images.py `
+     --game-id <gra> --import-job-id <import>
+   ```
+
+2. Wykonanie — tylko za osobną zgodą operatora, z `planSha256` przejrzanego
+   podglądu:
+
+   ```powershell
+   .venv\Scripts\python.exe scripts\remove_superseded_import_images.py `
+     --game-id <gra> --import-job-id <import> `
+     --execute --confirm-plan-sha256 <planSha256>
+   ```
+
+   Skrypt bierze wyłączną blokadę advisory gry używaną przez lifecycle
+   (`hashtextextended(game_id, 519)`, na poziomie sesji, przed migawką; zajęta
+   blokada → odmowa `REMOVAL_GAME_LOCKED`), a następnie w jednej transakcji
+   `REPEATABLE READ`: wylicza plan ponownie i odmawia, gdy `planSha256` się
+   różni albo istnieje blokada (aktywny job gry, niespójna projekcja
+   kolejki); zapisuje kopię każdego usuwanego wiersza (JSON Lines per tabela
+   plus stan kolejki importu i `manifest.json` z licznikami i SHA-256) do
+   `artifacts\data\exports\remove-superseded-import-images\<gra>\<znacznik>\`;
+   usuwa i sprawdza liczbę usuniętych wierszy każdego polecenia; przed
+   `COMMIT` sprawdza niezmienniki: liczby żywych plansz, żywych elementów
+   review, komórek, zdarzeń symboli, dokumentów i kandydatów wyszukiwarki i
+   kanonu gry bez zmian; zbiór numerów sekwencji z żywym elementem review
+   bez zmian (liczba i skrót MD5); inne importy bez zmian (zdjęcia, plansze,
+   elementy); różnica wierszy każdej tabeli równa planowi; wiersze
+   zachowanych współdzielonych wykonań bez zmian; statusy jobów gry bez
+   zmian; stan kolejki importu mniejszy dokładnie o usunięte elementy
+   (`superseded`); raport kompletności: `complete`, `incomplete_*`,
+   `no_source_geometry`, `import_failed` bez zmian, `superseded` i `total`
+   mniejsze dokładnie o liczbę usuniętych zdjęć. Naruszenie → `ROLLBACK`,
+   kod wyjścia 3, raport `<znacznik>-execute-rolled-back.json`. Raport
+   wykonania: `<znacznik>\report.json`. Ponowne uruchomienie po wykonaniu
+   nie usuwa nic.
+
+Kopia JSON Lines nie jest automatycznym mechanizmem przywracania.
+
+Podgląd na bazie deweloperskiej (2026-10-02, gra 777, import `7d10ae0a`):
+0 z 1 160 zdjęć kwalifikuje się. 993 zdjęcia (8 937 plansz) blokuje
+wyłącznie klucz obcy
+`image_symbol_review_events(previous_source_geometry_revision_id)`: 152 865
+zdarzeń weryfikacji symboli (`system:image-pipeline`, 10 191 elementów review
+importu `f4ef3449`) wskazuje rewizje geometrii źródła tych zdjęć. Pozostałe
+167 ma dodatkowo pracę człowieka (161 zdjęć z rewizjami geometrii plansz
+`reviewer-operator`) albo żywe dane (6 zdjęć z 51 żywymi planszami).
 
 ## 3. Kompaktowanie `docker_data.vhdx`
 

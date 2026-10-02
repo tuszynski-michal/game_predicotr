@@ -129,7 +129,25 @@ last_updated: 2026-10-01
   i Admin `3000` działają z nowym kodem.
 - Do zrobienia przez operatora: 60 zdjęć ze 108 planszami częściowymi czeka
   w kolejce „Kompletność siatek zdjęć” na wyjątek albo uzupełnienie siatek.
-- Otwarte: 19 testów PG nieprzechodzących niezależnie od etapu
+- Porządek 2026-10-02 (polecenie operatora):
+  - TASK-0810 done (`v1.7.150` / `d3d54da1`): 19 nieaktualnych testów
+    integracyjnych PG dostosowanych do magazynu `game_data_v2` i bieżących
+    kontraktów; siedem plików przechodzi (21 passed, 1 `xfail(strict)`),
+    żaden test nie usunięty. Znaleziony błąd produktu: repozytoria tabel gry
+    rozpoznają naruszenie unikalności po nazwie indeksu rodzica, a
+    PostgreSQL zgłasza nazwę indeksu partycji (przydziały Reviewera, partie
+    przeglądu, decyzje guard geometrii, nadpisania geometrii strony) —
+    proponowane TASK-0812 razem z regułą `eol=lf` dla plików wiązanych sumą
+    kontrolną i martwym `backfill_legacy_states`. Pełny
+    `db:baseline:verify` nie był ponownie uruchamiany.
+  - TASK-0811 done (`v1.7.151`): narzędzie
+    `npm run images:remove-superseded-import-images` (podgląd, kopia JSONL,
+    jedna transakcja, niezmienniki). **Usunięcia nie wykonano**: import
+    `7d10ae0a` nie jest czystym duplikatem (6 zdjęć / 51 plansz żyje tylko
+    w nim), a pozostałe 1 154 zdjęcia są wskazywane przez 152 865 zdarzeń
+    weryfikacji symboli importu `f4ef3449`
+    (`previous_source_geometry_revision_id`); podgląd kwalifikuje 0 zdjęć.
+- Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga
   jawnego uruchomienia.

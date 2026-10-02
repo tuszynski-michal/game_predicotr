@@ -641,3 +641,31 @@ odmawiają pracy, gdy jakiś run jest aktywny. Po przeniesieniu kodu do główne
 checkoutu ustaw `PYTHONPATH` na `services\worker\src` tego checkoutu; ścieżka kodu
 dla wznowień jest zapisana w `settings.json` katalogu runów (`pythonpath`). Wyniki,
 metryki i presety opisuje `ai_docs/quality/GRID_V3_NEURAL_GRID_RUNS_20261002.md`.
+## Bramka `hybrid_v3` — kalibracja (TASK-0803)
+
+`hybrid_v3` (`vision_lab/hybrid_v3_engine.py`, logika w `hybrid_v3_gate.py`) łączy
+siatki odniesienia (wejście zdjęcia: w aplikacji wynik silnika produkcyjnego, w labie
+etykiety snapshotu) z siatkami `neural_grid` pod kontraktem `GeometryEngine`. Plansza
+jest `confident` (`status: complete`) tylko przy zgodności quadów i węzłów obu źródeł;
+każda inna dostaje `needs_review` z powodem `HYBRID_V3_*`; plansza tylko z sieci nigdy
+nie jest pewna. Zdjęcie jest pewne tylko, gdy wszystkie plansze są pewne i liczby plansz
+obu źródeł są równe (pierwszy powód wyniku: `HYBRID_V3_PHOTO_CONFIDENT` albo
+`HYBRID_V3_PHOTO_NEEDS_REVIEW`). Wynik służy wyłącznie do review/shadow (D-461).
+
+Kalibracja progów czyta tylko rolę `development` (inna rola, także `training`, kończy
+się `RoleForbiddenError` przed otwarciem snapshotu), używa eksportu ONNX na CPU i zapisuje
+wyniki w nowym katalogu obok runu; siatka progów i reguła wyboru są stałymi w
+`hybrid_v3_calibration.py`. Nie wymaga GPU i może działać równolegle z treningiem (4 wątki
+CPU, ok. 2,5 min na 600 zdjęć).
+
+```powershell
+$env:PYTHONPATH = 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\services\worker\src'
+$r = 'C:\Users\tuszy\Documents\game_predictor_vision_data\neural-grid-runs\<run_id>'
+.\.venv\Scripts\python.exe -m game_predictor_worker.vision_lab.hybrid_v3_calibration `
+  --bundle "$r\exports\<katalog_eksportu>" --output "$r\hybrid-v3-calibration" --threads 4 `
+  --evaluation "$r\evaluations\<plik_ewaluacji>.json"   # --reuse-network: bez ponownej inferencji
+```
+
+Wynik, krzywą pokrycie–błąd i znaczenie liczb opisuje
+`ai_docs/quality/GRID_V3_HYBRID_GATE_20261002.md`. Progi wybrane dla runu 1 są w
+`hybrid_v3_engine.RUN1_DEVELOPMENT_THRESHOLDS`; inny model wymaga nowej kalibracji.

@@ -357,6 +357,20 @@ last_updated: 2026-10-02
   0,0008 px, CPU 0,18 s na zdjęcie (4 wątki). **Run 2 (preset B)**
   `ff03b1d7…f31d` uruchomiony 2026-10-02 ok. 16:50 na polecenie operatora
   (trzy runy); run 3 (preset C) po nim.
+- TASK-0803 done (`v1.7.168`): `hybrid_v3` — bramka zgodności siatek
+  odniesienia i `neural_grid` (plansza `confident` tylko przy zgodności;
+  plansza tylko z sieci nigdy). Kalibracja na development dla modelu runu 1:
+  IoU 0,90, tolerancja węzłów 0,04, reszta 0,005 → 90,3% zdjęć `confident`
+  (B 98,0%, S 82,7%), 7 błędnych plansz `confident` względem etykiety
+  (0,13%; wszystkie na S). Z 49 plansz S uznanych przez metrykę za błędne
+  bramka kieruje do przeglądu 42. Ograniczenia: na B odniesienie = etykieta
+  (mierzy zgodność), na S brak pierwotnego wyniku silnika produkcyjnego —
+  propozycja dopisania go eksporterem przed TASK-0804; progi związane z
+  modelem runu 1, do powtórzenia po kolejnych runach. Raport:
+  `ai_docs/quality/GRID_V3_HYBRID_GATE_20261002.md`.
+- 2026-10-02 operator: run 2 (preset B) zostaje; run 3 ma przygotować sieć
+  do gry Mumie (nowe ustawienie — wymaga kompletnych siatek Mumii, zmiany
+  roli Mumii w D-456 i zgody na wagi startowe; czeka na decyzje operatora).
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

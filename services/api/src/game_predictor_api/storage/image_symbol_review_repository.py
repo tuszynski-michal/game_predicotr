@@ -61,6 +61,7 @@ from game_predictor_api.domain.geometry_qualification import (
     available_cell_indices,
     partially_visible_cell_indices,
 )
+from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import (
     ImageReviewAction,
     ImageReviewCell,
@@ -1888,6 +1889,91 @@ class SqlAlchemyUnreadableBoardReviewRepository(UnreadableBoardReviewRepository)
             board_status=last_result.board_status,
             changed_cell_count=len(changed_indexes),
         )
+
+
+class SqlAlchemyGridCorrectionSymbolRepository:
+    """Operator symbols of one board's current cells in a grid correction (D-486)."""
+
+    def __init__(self, session: Session) -> None:
+        self._session = session
+
+    def assign(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        symbol_id_by_cell_index: Mapping[int, UUID],
+        actor: str,
+    ) -> int:
+        """Approve the operator's symbols on the board's exact current crops.
+
+        Runs in the caller's transaction, after the geometry write.  A cell
+        without a current reviewable crop is an error: nothing may be skipped
+        silently, the caller rolls the whole save back.
+        """
+
+        self._session.flush()
+        cells = {
+            int(cell.cell_index): cell
+            for cell in self._current_cells(
+                game_id=game_id,
+                review_item_id=review_item_id,
+                cell_indices=tuple(symbol_id_by_cell_index),
+            )
+            if cell.source_available
+        }
+        missing = sorted(set(symbol_id_by_cell_index) - set(cells))
+        if missing:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_SYMBOL_CELL_UNAVAILABLE",
+                "The board has no current reviewable crop for cells "
+                f"{', '.join(str(index + 1) for index in missing)}; "
+                "save the grid without symbols for these cells.",
+            )
+        commands = tuple(
+            SymbolCellReviewMutationCommand(
+                game_id=game_id,
+                cell_review_id=cell.id,
+                action=SymbolCellReviewAction.REASSIGN,
+                expected_revision=int(cell.revision),
+                expected_geometry_revision=int(cell.geometry_revision),
+                expected_crop_sample_id=cell.crop_sample_id,
+                expected_crop_checksum_sha256=cell.crop_checksum_sha256,
+                target_symbol_id=symbol_id_by_cell_index[index],
+                actor=actor,
+            )
+            for index, cell in sorted(cells.items())
+        )
+        mutations = SqlAlchemySymbolCellReviewMutationRepository(self._session)
+        changed = 0
+        for command in commands:
+            result = mutations.apply_mutation(command)
+            changed += int(result.cell_revision != command.expected_revision)
+        return changed
+
+    def _current_cells(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        cell_indices: Sequence[int] | None,
+    ) -> tuple[ImageSymbolReviewCellModel, ...]:
+        _bind_game_store(self._session, game_id)
+        cell = ImageSymbolReviewCellModel
+        statement = (
+            select(cell)
+            .join(RecognizedBoardModel, RecognizedBoardModel.id == cell.recognized_board_id)
+            .where(
+                cell.game_id == game_id,
+                cell.review_item_id == review_item_id,
+                cell.geometry_revision == RecognizedBoardModel.geometry_revision,
+                _logical_cell_visible_clause(),
+            )
+            .order_by(cell.cell_index)
+        )
+        if cell_indices is not None:
+            statement = statement.where(cell.cell_index.in_(tuple(cell_indices)))
+        return tuple(self._session.scalars(statement))
 
 
 class SymbolCellReviewWriteThroughCoordinator:
@@ -4978,6 +5064,7 @@ __all__ = [
     "SqlAlchemySymbolCellReviewQueryRepository",
     "SqlAlchemySymbolCellReviewMutationRepository",
     "SqlAlchemyUnreadableBoardReviewRepository",
+    "SqlAlchemyGridCorrectionSymbolRepository",
     "SymbolCellReviewWriteThroughCoordinator",
     "SqlAlchemyImageSymbolReviewRepository",
     "SymbolCellReviewBackfillError",

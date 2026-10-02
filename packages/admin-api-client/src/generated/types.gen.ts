@@ -535,6 +535,10 @@ export type BoardCellGeometryManualPreviewCommand = {
  */
 export type BoardCellGeometryManualResolutionCommand = {
   /**
+   * Cellsymbols
+   */
+  cellSymbols?: Array<GridCorrectionCellSymbolPayload>;
+  /**
    * Corners
    */
   corners: [
@@ -3803,6 +3807,22 @@ export type GridCalibrationProfileResponse = {
 };
 
 /**
+ * GridCorrectionCellSymbolPayload
+ *
+ * One symbol the operator assigns to a cell while saving its grid (D-486).
+ */
+export type GridCorrectionCellSymbolPayload = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Symbolid
+   */
+  symbolId: string;
+};
+
+/**
  * GridEndToEndGateReportCommand
  */
 export type GridEndToEndGateReportCommand = {
@@ -5135,6 +5155,10 @@ export type ImageGridReviewGeometryCellResponse = {
  * ImageGridReviewGeometryCommand
  */
 export type ImageGridReviewGeometryCommand = {
+  /**
+   * Cellsymbols
+   */
+  cellSymbols?: Array<GridCorrectionCellSymbolPayload>;
   /**
    * Corners
    *

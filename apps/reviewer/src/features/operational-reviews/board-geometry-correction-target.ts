@@ -2,6 +2,7 @@ import type {
   AdminApiClient,
   BoardCellGeometryCorrectionContextResponse,
   GeometryQualificationPayload,
+  GridCorrectionCellSymbolPayload,
   ImageGridReviewItemResponse,
   OperationalImageReviewGeometryPoint,
   OperationalImageReviewGeometryResponse,
@@ -95,10 +96,15 @@ export interface BoardGeometryCorrectionTarget {
   ): Promise<
     { readonly blob: Blob; readonly ok: true } | BoardGeometryCorrectionFailure
   >;
+  /**
+   * `cellSymbols` are the symbols the operator assigned on the preview
+   * (D-486); the backend approves them in the transaction of the geometry.
+   */
   save(
     corners: OperationalReviewGeometryCorners,
     flags: ManualGridFlags,
     idempotencyKey: string,
+    cellSymbols?: readonly GridCorrectionCellSymbolPayload[],
   ): Promise<
     | { readonly ok: true; readonly reviewItemId: string | null }
     | BoardGeometryCorrectionFailure
@@ -174,17 +180,20 @@ export function deferredBoardGeometryTarget(input: {
         deferredBoardCellGeometryPreviewCommand(loaded(), corners, flags),
       );
     },
-    async save(corners, flags, idempotencyKey) {
+    async save(corners, flags, idempotencyKey, cellSymbols) {
       const result = await resolveDeferredBoardCellGeometry(
         input.api,
         input.scope,
         input.pendingId,
-        deferredBoardCellGeometryResolutionCommand(
-          loaded(),
-          corners,
-          idempotencyKey,
-          flags,
-        ),
+        {
+          ...deferredBoardCellGeometryResolutionCommand(
+            loaded(),
+            corners,
+            idempotencyKey,
+            flags,
+          ),
+          ...operatorCellSymbols(cellSymbols),
+        },
       );
       return result.ok
         ? { ok: true, reviewItemId: result.resolution.reviewItemId }
@@ -292,13 +301,17 @@ export function reportedBoardGeometryTarget(input: {
         return disconnected();
       }
     },
-    async save(corners, flags, idempotencyKey) {
+    async save(corners, flags, idempotencyKey, cellSymbols) {
       if (reviewItemId === null) return missingReviewItem();
       try {
         const result = await api.createImageGridReviewGeometryRevision(
           reviewItemId,
           scope,
-          { ...command(corners, flags), idempotencyKey },
+          {
+            ...command(corners, flags),
+            idempotencyKey,
+            ...operatorCellSymbols(cellSymbols),
+          },
         );
         if (result.error !== undefined || result.data === undefined) {
           return failure(
@@ -493,6 +506,15 @@ export function operationalBoardGeometryTarget(input: {
       return geometry;
     },
   };
+}
+
+/** The command field is sent only when the operator assigned a symbol. */
+function operatorCellSymbols(
+  cellSymbols: readonly GridCorrectionCellSymbolPayload[] | undefined,
+): { cellSymbols?: GridCorrectionCellSymbolPayload[] } {
+  return cellSymbols === undefined || cellSymbols.length === 0
+    ? {}
+    : { cellSymbols: [...cellSymbols] };
 }
 
 export function copyCorners(

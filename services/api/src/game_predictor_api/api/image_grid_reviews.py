@@ -320,6 +320,7 @@ def create_image_grid_reviews_router(
                 corners=corners,
                 actor=_LOCAL_ADMIN_ACTOR,
                 created_at=datetime.now(UTC),
+                cell_symbols=tuple(value.to_domain() for value in payload.cell_symbols),
             )
             return to_virtual_grid_review_geometry_response(
                 result,

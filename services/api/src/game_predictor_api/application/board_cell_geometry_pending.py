@@ -18,6 +18,7 @@ from typing import Protocol
 from uuid import UUID, uuid4
 
 from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridCellSymbol,
     VirtualGridGeometryPreview,
     VirtualGridGeometryService,
 )
@@ -312,6 +313,7 @@ class BoardCellGeometryPendingService:
         corrected_by: str,
         resolved_at: datetime,
         geometry_qualification: GeometryQualification | None = None,
+        cell_symbols: Sequence[VirtualGridCellSymbol] = (),
     ) -> BoardCellGeometryManualResolution:
         """Persist the deferred board as one ``virtual_source`` board (D-467).
 
@@ -351,6 +353,7 @@ class BoardCellGeometryPendingService:
                 actor=corrected_by,
                 created_at=resolved_at,
                 geometry_qualification=geometry_qualification,
+                cell_symbols=cell_symbols,
             )
         except ImageGridReviewError as error:
             # Keep the deferred-resolution error contract of the Reviewer.

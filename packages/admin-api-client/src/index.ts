@@ -415,6 +415,7 @@ export type {
   ApproximateWinRulesResponse,
   ApproximateWinSummaryResponse,
   GeometryQualificationPayload,
+  GridCorrectionCellSymbolPayload,
   AndroidBuildJobCreate,
   AndroidBuildJobPayload,
   BrowserImageImportPreflightResponse,

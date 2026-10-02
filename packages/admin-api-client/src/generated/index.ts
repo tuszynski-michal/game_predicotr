@@ -1158,6 +1158,7 @@ export type {
   GetVirtualCellPreviewAtlasErrors,
   GetVirtualCellPreviewAtlasResponses,
   GridCalibrationProfileResponse,
+  GridCorrectionCellSymbolPayload,
   GridEndToEndGateReportCommand,
   GridEndToEndGateSource,
   GridProfileActivationAction,

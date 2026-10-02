@@ -10,6 +10,7 @@ import pytest
 from game_predictor_api.application.virtual_grid_geometry import (
     PreparedVirtualGridGeometry,
     PreparedVirtualGridGeometrySource,
+    VirtualGridCellSymbol,
     VirtualGridGeometryContext,
     VirtualGridGeometryRevision,
     VirtualGridGeometrySaveResult,
@@ -42,7 +43,12 @@ class MemoryVirtualGridGeometryRepository:
         self.context = context
         self.contexts = {context.target_id: context}
         self.saved: list[PreparedVirtualGridGeometry] = []
+        self.assigned: list[tuple[UUID, tuple[VirtualGridCellSymbol, ...], str]] = []
         self.replays: dict[tuple[UUID, UUID], VirtualGridGeometryRevision] = {}
+
+    def assign_cell_symbols(self, *, game_id, review_item_id, cell_symbols, actor) -> int:
+        self.assigned.append((review_item_id, tuple(cell_symbols), actor))
+        return len(cell_symbols)
 
     def virtual_geometry_replay(self, *, context, idempotency_key):
         return self.replays.get((context.target_id, idempotency_key))
@@ -831,3 +837,104 @@ def test_pending_slot_continues_the_sequence_revision(
     assert deferred.next_geometry_revision == expected
     prepared = repository.saved[0]
     assert {cell.render_spec.get("geometryRevision") for cell in prepared.cells} == {expected}
+
+
+def test_save_approves_operator_symbols_after_the_geometry_and_again_on_replay(
+    tmp_path: Path, monkeypatch
+) -> None:
+    service, context = _fixture(tmp_path)
+    repository = service._repository  # noqa: SLF001 - inspect the application port in a unit test
+    assert isinstance(repository, MemoryVirtualGridGeometryRepository)
+    symbols = (
+        VirtualGridCellSymbol(cell_index=3, symbol_id=uuid4()),
+        VirtualGridCellSymbol(cell_index=7, symbol_id=uuid4()),
+    )
+    key = uuid4()
+    kwargs = dict(
+        game_id=context.game_id,
+        import_job_id=context.import_job_id,
+        review_item_id=context.review_item_id,
+        idempotency_key=key,
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        expected_source_checksum_sha256=context.source_checksum_sha256,
+        expected_source_width=context.oriented_width,
+        expected_source_height=context.oriented_height,
+        expected_grid_rows=3,
+        expected_grid_columns=5,
+        corners=_corners(),
+        actor="local-admin",
+        created_at=datetime(2026, 10, 2, tzinfo=UTC),
+    )
+
+    first = service.save(**kwargs, cell_symbols=symbols)
+
+    assert len(repository.saved) == 1
+    assert repository.assigned == [(context.review_item_id, symbols, "local-admin")]
+
+    # A lost response is retried with the same key: no second geometry, the
+    # idempotent assignments run again.
+    repository.replays[(context.target_id, key)] = first.revision
+    monkeypatch.setattr(service, "_prepare", lambda **_: pytest.fail("Replay must not render"))
+    replay = service.save(**kwargs, cell_symbols=symbols)
+    assert not replay.created and len(repository.saved) == 1
+    assert repository.assigned == [(context.review_item_id, symbols, "local-admin")] * 2
+
+    # Without operator symbols the save never touches symbol decisions.
+    service.save(**{**kwargs, "idempotency_key": key})
+    assert len(repository.assigned) == 2
+
+
+def test_save_rejects_two_operator_symbols_for_one_cell_before_any_write(tmp_path: Path) -> None:
+    service, context = _fixture(tmp_path)
+    repository = service._repository  # noqa: SLF001 - inspect the application port in a unit test
+    assert isinstance(repository, MemoryVirtualGridGeometryRepository)
+
+    with pytest.raises(ImageGridReviewError) as error:
+        service.save(
+            game_id=context.game_id,
+            import_job_id=context.import_job_id,
+            review_item_id=context.review_item_id,
+            idempotency_key=uuid4(),
+            expected_geometry_revision=0,
+            expected_resolution_revision=0,
+            expected_source_checksum_sha256=context.source_checksum_sha256,
+            expected_source_width=context.oriented_width,
+            expected_source_height=context.oriented_height,
+            expected_grid_rows=3,
+            expected_grid_columns=5,
+            corners=_corners(),
+            actor="local-admin",
+            created_at=datetime(2026, 10, 2, tzinfo=UTC),
+            cell_symbols=(
+                VirtualGridCellSymbol(cell_index=3, symbol_id=uuid4()),
+                VirtualGridCellSymbol(cell_index=3, symbol_id=uuid4()),
+            ),
+        )
+
+    assert error.value.code == "IMAGE_GRID_REVIEW_CELL_SYMBOLS_INVALID"
+    assert repository.saved == [] and repository.assigned == []
+
+
+def test_pending_slot_save_approves_operator_symbols_on_the_new_board(tmp_path: Path) -> None:
+    service, repository, contexts = _deferred_source(tmp_path)
+    deferred = contexts[5]
+    assert deferred.pending_geometry_id is not None
+    symbols = (VirtualGridCellSymbol(cell_index=0, symbol_id=uuid4()),)
+
+    result = service.save_pending_slot(
+        game_id=deferred.game_id,
+        import_job_id=deferred.import_job_id,
+        pending_geometry_id=deferred.pending_geometry_id,
+        idempotency_key=uuid4(),
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        corners=_cell_corners(5),
+        actor="reviewer-session:test",
+        created_at=datetime(2026, 10, 2, tzinfo=UTC),
+        cell_symbols=symbols,
+    )
+
+    assert repository.assigned == [
+        (result.revisions[0].review_item_id, symbols, "reviewer-session:test")
+    ]

@@ -1,6 +1,6 @@
 ---
 title: Zapis symboli operatora przy zapisie siatki
-status: todo
+status: done
 last_updated: 2026-10-02
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-02
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -51,10 +51,10 @@ TASK-0816 wykonane. Fakty i decyzje w planie.
 
 ## Acceptance criteria
 
-- [ ] Zapis z `cellSymbols` zatwierdza wskazane pola (`approved`, `human`).
-- [ ] Zapis bez `cellSymbols` zachowuje dotychczasowe zachowanie.
-- [ ] Błąd przypisania wycofuje zapis geometrii.
-- [ ] Powtórzenie tym samym kluczem ponownie stosuje przypisania.
+- [x] Zapis z `cellSymbols` zatwierdza wskazane pola (`approved`, `human`).
+- [x] Zapis bez `cellSymbols` zachowuje dotychczasowe zachowanie.
+- [x] Błąd przypisania wycofuje zapis geometrii.
+- [x] Powtórzenie tym samym kluczem ponownie stosuje przypisania.
 
 ## Technical notes
 
@@ -95,4 +95,34 @@ npm run python:lint; npm run openapi:check
 
 ## Outcome
 
-Wypełnia agent po pracy.
+### Changed
+
+- `VirtualGridCellSymbol`, `VirtualGridGeometryService.save` /
+  `save_pending_slot` (`cell_symbols`), port `assign_cell_symbols`.
+- `SqlAlchemyGridCorrectionSymbolRepository.assign` — `REASSIGN` na bieżących
+  komórkach planszy w transakcji wywołującego.
+- `GridCorrectionCellSymbolPayload`, pole `cellSymbols` obu komend zapisu,
+  OpenAPI i wygenerowany klient, `save` celów korekty w Reviewerze.
+
+### Verification results
+
+- `test_virtual_grid_geometry.py` + `_repository.py`: 53 passed.
+- `integration/test_grid_correction_cell_symbols_postgres.py`: 1 passed
+  (PostgreSQL, izolowana baza testowa).
+- `test_board_cell_geometry_pending.py`: 13 passed; klient 76/76; Reviewer
+  199/199; typecheck Reviewera czysty; Ruff czysty dla zmienionych plików.
+- `test_openapi_contract.py::test_grid_review_openapi_is_topology_aware_and_checksum_bound`
+  pada identycznie bez tej zmiany.
+
+### Not completed
+
+- Zapis jednej planszy (`save`) nie ma testu PostgreSQL całego przepływu
+  HTTP; pokryte są serwis i repozytorium osobno.
+
+### Documentation updates
+
+- `DECISION_LOG.md` (D-486), `API_CONTRACT.md`, `CURRENT_STATE.md`.
+
+### Recommended next task
+
+- TASK-0818.

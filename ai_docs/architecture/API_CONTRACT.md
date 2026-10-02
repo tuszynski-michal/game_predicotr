@@ -2829,6 +2829,15 @@ TASK-0727 usunął `POST .../image-reviews/{reviewItemId}/geometry-approval`,
 usunięty ekran całego zdjęcia). Lokalny origin Reviewera nie ma ich na
 allowliście.
 
+**D-486 (TASK-0817):** komendy zapisu `image-reviews/{reviewItemId}/geometry-revisions`
+oraz `board-cell-geometry-pending/{pendingId}/manual-resolution` przyjmują
+opcjonalne `cellSymbols: [{ cellIndex, symbolId }]`. Każde wskazane pole jest
+zatwierdzane jako decyzja człowieka dla nowego cropa w transakcji zapisu
+geometrii. Zdublowany indeks → `IMAGE_GRID_REVIEW_CELL_SYMBOLS_INVALID` (422);
+pole bez bieżącego cropa → `IMAGE_GRID_REVIEW_SYMBOL_CELL_UNAVAILABLE` (422);
+symbol nieaktywny → `SYMBOL_CELL_REVIEW_TARGET_SYMBOL_INVALID` (422). Każdy z
+tych błędów wycofuje także geometrię. Pominięte pole działa jak dotąd.
+
 Lista ma widoki `needs_validation | needs_correction | all | correction`;
 operacyjną kolejką jest wyłącznie `correction`, a pozostałe widoki i liczniki
 stanów są diagnostyką tylko do odczytu (podsumowanie importu w Adminie). Ma

@@ -2315,6 +2315,10 @@ test('generated client exposes the checksum-bound deferred geometry workflow', a
   );
   const resolutionCommand = {
     ...previewCommand,
+    // D-486: symbols the operator assigned travel with the geometry save.
+    cellSymbols: [
+      { cellIndex: 4, symbolId: '66666666-6666-4666-8666-666666666666' },
+    ],
     correctedBy: 'reviewer-operator',
     idempotencyKey: '55555555-5555-4555-8555-555555555555',
   };

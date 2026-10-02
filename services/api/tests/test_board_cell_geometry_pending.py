@@ -21,6 +21,7 @@ from game_predictor_api.application.board_cell_geometry_pending import (
 )
 from game_predictor_api.application.reviewer_access import ReviewerAccessError
 from game_predictor_api.application.virtual_grid_geometry import (
+    VirtualGridCellSymbol,
     VirtualGridGeometryCell,
     VirtualGridGeometryPreview,
     VirtualGridGeometryRevision,
@@ -635,8 +636,10 @@ def test_manual_pending_geometry_api_delegates_to_the_virtual_source_path(
     }
     idempotency_key = uuid4()
     reviewer = {"Authorization": "Bearer scoped-token"}
+    operator_symbol_id = uuid4()
     resolution = {
         **preview_command,
+        "cellSymbols": [{"cellIndex": 4, "symbolId": str(operator_symbol_id)}],
         "correctedBy": "spoofed-actor",
         "idempotencyKey": str(idempotency_key),
     }
@@ -699,6 +702,10 @@ def test_manual_pending_geometry_api_delegates_to_the_virtual_source_path(
     assert virtual.saves[0]["pending_geometry_id"] == pending.id
     assert virtual.saves[0]["game_id"] == game_id
     assert virtual.saves[0]["import_job_id"] == import_job_id
+    # D-486: the operator's symbols reach the same save as the geometry.
+    assert virtual.saves[0]["cell_symbols"] == (
+        VirtualGridCellSymbol(cell_index=4, symbol_id=operator_symbol_id),
+    )
     assert len(virtual.previews) == 1
     assert virtual.previews[0]["pending_geometry_id"] == pending.id
 

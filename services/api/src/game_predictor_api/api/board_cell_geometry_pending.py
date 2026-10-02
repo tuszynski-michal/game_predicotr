@@ -290,6 +290,7 @@ def create_board_cell_geometry_pending_router(
                     if payload.geometry_qualification is None
                     else payload.geometry_qualification.to_domain()
                 ),
+                cell_symbols=tuple(value.to_domain() for value in payload.cell_symbols),
             )
         )
 

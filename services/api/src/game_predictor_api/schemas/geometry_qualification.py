@@ -3,12 +3,24 @@
 from __future__ import annotations
 
 from typing import Annotated, Literal
+from uuid import UUID
 
 from game_predictor_worker.images.lateral_partial_contract import LateralPartialGeometrySnapshot
 from pydantic import Field, StrictBool, StrictInt, model_validator
 
+from game_predictor_api.application.virtual_grid_geometry import VirtualGridCellSymbol
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.schemas.catalog import ApiModel
+
+
+class GridCorrectionCellSymbolPayload(ApiModel):
+    """One symbol the operator assigns to a cell while saving its grid (D-486)."""
+
+    cell_index: int = Field(ge=0)
+    symbol_id: UUID
+
+    def to_domain(self) -> VirtualGridCellSymbol:
+        return VirtualGridCellSymbol(cell_index=self.cell_index, symbol_id=self.symbol_id)
 
 
 class ManualSourceGeometryPoint(ApiModel):

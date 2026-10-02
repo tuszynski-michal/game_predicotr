@@ -234,6 +234,14 @@ class VirtualGridGeometrySourceCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class VirtualGridCellSymbol:
+    """One symbol the operator assigned to a cell while correcting its grid (D-486)."""
+
+    cell_index: int
+    symbol_id: UUID
+
+
+@dataclass(frozen=True, slots=True)
 class PreparedVirtualGridGeometrySource:
     entries: tuple[PreparedVirtualGridGeometry, ...]
     source_geometry_checksum_sha256: str
@@ -290,6 +298,15 @@ class VirtualGridGeometryRepository(Protocol):
         idempotency_key: UUID,
         created_at: datetime,
     ) -> VirtualGridGeometrySourceSaveResult: ...
+
+    def assign_cell_symbols(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        cell_symbols: Sequence[VirtualGridCellSymbol],
+        actor: str,
+    ) -> int: ...
 
 
 class VirtualGridGeometryService:
@@ -366,6 +383,54 @@ class VirtualGridGeometryService:
         actor: str,
         created_at: datetime,
         geometry_qualification: GeometryQualification | None = None,
+        cell_symbols: Sequence[VirtualGridCellSymbol] = (),
+    ) -> VirtualGridGeometrySaveResult:
+        _require_valid_cell_symbols(cell_symbols)
+        result = self._save(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            review_item_id=review_item_id,
+            idempotency_key=idempotency_key,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            expected_source_checksum_sha256=expected_source_checksum_sha256,
+            expected_source_width=expected_source_width,
+            expected_source_height=expected_source_height,
+            expected_grid_rows=expected_grid_rows,
+            expected_grid_columns=expected_grid_columns,
+            corners=corners,
+            actor=actor,
+            created_at=created_at,
+            geometry_qualification=geometry_qualification,
+        )
+        # D-486: a replayed save applies the assignments again; they are
+        # idempotent and share the transaction of the geometry.
+        self._assign_cell_symbols(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            cell_symbols=cell_symbols,
+            actor=actor,
+        )
+        return result
+
+    def _save(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        review_item_id: UUID,
+        idempotency_key: UUID,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        expected_source_checksum_sha256: str,
+        expected_source_width: int,
+        expected_source_height: int,
+        expected_grid_rows: int,
+        expected_grid_columns: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+        actor: str,
+        created_at: datetime,
+        geometry_qualification: GeometryQualification | None,
     ) -> VirtualGridGeometrySaveResult:
         replay = self._find_replay(
             game_id=game_id,
@@ -588,6 +653,7 @@ class VirtualGridGeometryService:
         actor: str,
         created_at: datetime,
         geometry_qualification: GeometryQualification | None = None,
+        cell_symbols: Sequence[VirtualGridCellSymbol] = (),
     ) -> VirtualGridGeometrySourceSaveResult:
         """Resolve one deferred slot as a ``virtual_source`` board (D-467).
 
@@ -595,8 +661,62 @@ class VirtualGridGeometryService:
         current geometry: the new source revision is derived from the latest
         one and only the deferred slot's quad changes.  The repository locks
         and re-checks that exact snapshot, so a concurrent change conflicts.
+        Symbols the operator assigned (D-486) are approved on the new board in
+        the same transaction.
         """
 
+        _require_valid_cell_symbols(cell_symbols)
+        result = self._save_pending_slot(
+            game_id=game_id,
+            import_job_id=import_job_id,
+            pending_geometry_id=pending_geometry_id,
+            idempotency_key=idempotency_key,
+            expected_geometry_revision=expected_geometry_revision,
+            expected_resolution_revision=expected_resolution_revision,
+            corners=corners,
+            actor=actor,
+            created_at=created_at,
+            geometry_qualification=geometry_qualification,
+        )
+        if cell_symbols:
+            self._assign_cell_symbols(
+                game_id=game_id,
+                review_item_id=result.revisions[0].review_item_id,
+                cell_symbols=cell_symbols,
+                actor=actor,
+            )
+        return result
+
+    def _assign_cell_symbols(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        cell_symbols: Sequence[VirtualGridCellSymbol],
+        actor: str,
+    ) -> None:
+        if cell_symbols:
+            self._repository.assign_cell_symbols(
+                game_id=game_id,
+                review_item_id=review_item_id,
+                cell_symbols=tuple(cell_symbols),
+                actor=actor,
+            )
+
+    def _save_pending_slot(
+        self,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        pending_geometry_id: UUID,
+        idempotency_key: UUID,
+        expected_geometry_revision: int,
+        expected_resolution_revision: int,
+        corners: Sequence[ImageReviewGeometryPoint],
+        actor: str,
+        created_at: datetime,
+        geometry_qualification: GeometryQualification | None,
+    ) -> VirtualGridGeometrySourceSaveResult:
         command = self._pending_slot_command(
             game_id=game_id,
             import_job_id=import_job_id,
@@ -1341,6 +1461,15 @@ def _bind_current_renderer(context: VirtualGridGeometryContext) -> VirtualGridGe
     )
 
 
+def _require_valid_cell_symbols(cell_symbols: Sequence[VirtualGridCellSymbol]) -> None:
+    indices = [value.cell_index for value in cell_symbols]
+    if any(index < 0 for index in indices) or len(set(indices)) != len(indices):
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_CELL_SYMBOLS_INVALID",
+            "Each cell may receive at most one operator symbol.",
+        )
+
+
 def _require_expected_context(
     context: VirtualGridGeometryContext,
     *,
@@ -1624,6 +1753,7 @@ __all__ = [
     "LegacyConversionTarget",
     "PreparedVirtualGridGeometry",
     "PreparedVirtualGridGeometrySource",
+    "VirtualGridCellSymbol",
     "VirtualGridGeometryCell",
     "VirtualGridGeometryContext",
     "VirtualGridGeometryPreview",

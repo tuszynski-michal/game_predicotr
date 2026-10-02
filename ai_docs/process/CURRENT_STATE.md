@@ -6,6 +6,22 @@ last_updated: 2026-10-02
 
 # Current State
 
+### TASK-0817 — zapis symboli operatora przy zapisie siatki (done, D-486)
+
+- `createImageGridReviewGeometryRevision` i
+  `resolvePendingBoardCellGeometryManually` przyjmują opcjonalne `cellSymbols`
+  (`cellIndex`, `symbolId`). Wskazane pola są zatwierdzane istniejącą akcją
+  `REASSIGN` (`approved`, `human`) dla nowego cropa, w transakcji zapisu
+  geometrii; powtórzenie tym samym kluczem stosuje przypisania ponownie.
+- Błąd przypisania (pole bez bieżącego cropa, nieaktywny symbol, zdublowany
+  indeks) wycofuje cały zapis. Zapis bez `cellSymbols` działa jak dotąd.
+- Testy: serwis 53/53, test PostgreSQL przypisań 1/1 (izolowana baza testowa),
+  żądania API 13/13, klient 76/76, Reviewer 199/199, typecheck Reviewera.
+  `test_grid_review_openapi_is_topology_aware_and_checksum_bound` pada także
+  na niezmienionej gałęzi (oczekuje `minItems` komórek) — poza zakresem.
+- Plan: `ai_docs/delivery/GRID_CORRECTION_SYMBOLS_EXECUTION_PLAN.md`; dalej
+  TASK-0818 (podpowiedzi) i TASK-0819 (UI).
+
 ### TASK-0816 — podgląd korekty siatki dla niepełnych plansz, jeden widok cropów (done)
 
 - Zgłoszenie operatora: podgląd niepełnej planszy kończył się

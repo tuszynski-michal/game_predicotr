@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Iterable, Mapping
 from dataclasses import replace
 from datetime import datetime
 from typing import Any, cast
@@ -67,6 +67,11 @@ from game_predictor_api.storage.board_search_projection_repository import (
 from game_predictor_api.storage.cell_render_specs import (
     CellRenderSpecKey,
     load_cell_render_specs,
+)
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    recompute_source_image_geometry_completeness,
+    repoint_live_boards_to_newest_source_revision,
+    withheld_review_item_ids,
 )
 from game_predictor_api.storage.image_geometry_v2_repository import (
     ImageGeometryPersistenceError,
@@ -301,6 +306,12 @@ class SqlAlchemyVirtualGridGeometryRepository:
         )
         source.processed_at = created_at
         self._session.flush()
+        self._settle_source_geometry(
+            game_id=context.game_id,
+            source_image_id=context.source_image_id,
+            new_source_revision=stored_source_geometry.created,
+            actor=prepared.command.corrected_by,
+        )
         coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
         coordinator.synchronize_after_cell_mutation(game_id=context.game_id)
         # D-462 R2: the reopened board closes again when every verification
@@ -579,6 +590,13 @@ class SqlAlchemyVirtualGridGeometryRepository:
         assert source is not None
         source.processed_at = created_at
         self._session.flush()
+        self._settle_source_geometry(
+            game_id=base_context.game_id,
+            source_image_id=base_context.source_image_id,
+            new_source_revision=stored_source_geometry.created,
+            affected_board_ids=self._board_ids_of_items(changed_review_item_ids),
+            actor=entries[0].command.corrected_by,
+        )
         self._synchronize_changed_source_items(
             game_id=base_context.game_id,
             changed_review_item_ids=changed_review_item_ids,
@@ -851,6 +869,12 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 game_id=plan.game_id
             )
         self._session.flush()
+        self._settle_source_geometry(
+            game_id=plan.game_id,
+            source_image_id=plan.source_image_id,
+            new_source_revision=stored_source_geometry.created,
+            actor=actor,
+        )
         return LegacyConversionSourceResult(
             source_image_id=plan.source_image_id,
             source_geometry_revision_id=stored_source_geometry.id,
@@ -1215,6 +1239,18 @@ class SqlAlchemyVirtualGridGeometryRepository:
             if board_id is not None:
                 occupied.append(pending)
         return tuple(occupied)
+
+    def _board_ids_of_items(self, review_item_ids: Iterable[UUID]) -> set[UUID]:
+        ids = set(review_item_ids)
+        if not ids:
+            return set()
+        return set(
+            self._session.scalars(
+                select(ImageReviewItemModel.recognized_board_id).where(
+                    ImageReviewItemModel.id.in_(ids)
+                )
+            )
+        )
 
     def _synchronize_changed_source_items(
         self,
@@ -1592,6 +1628,15 @@ class SqlAlchemyVirtualGridGeometryRepository:
                 .with_for_update()
             )
         )
+        if not cells and self._geometry_withheld(context):
+            # D-484 (TASK-0807): the board of an image the geometry gate does
+            # not admit was never cut; there is nothing to recrop. Its cells
+            # are cut from the new revision once the image is admitted.
+            self._session.flush()
+            SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(
+                _require_review_item_id(context)
+            )
+            return
         if len(cells) != context.topology.cell_count or tuple(
             int(cell.cell_index) for cell in cells
         ) != tuple(range(context.topology.cell_count)):
@@ -1720,6 +1765,54 @@ class SqlAlchemyVirtualGridGeometryRepository:
         SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(
             _require_review_item_id(context)
         )
+
+    def _geometry_withheld(self, context: VirtualGridGeometryContext) -> bool:
+        review_item_id = _require_review_item_id(context)
+        board = self._session.get(RecognizedBoardModel, context.recognized_board_id)
+        source = self._session.get(SourceImageModel, context.source_image_id)
+        if board is None or source is None:
+            return False
+        return review_item_id in withheld_review_item_ids(
+            self._session, context.game_id, ((review_item_id, board, source),)
+        )
+
+    def _settle_source_geometry(
+        self,
+        *,
+        game_id: UUID,
+        source_image_id: UUID,
+        new_source_revision: bool,
+        affected_board_ids: Iterable[UUID] = (),
+        actor: str,
+    ) -> None:
+        """Rules of a geometry write on one source image (TASK-0807, D-484).
+
+        A new source revision re-points the image's other live boards whose
+        geometry it repeats; then the image's gate status is recomputed in this
+        transaction (an image that became admitted is cut right away), and so
+        are the images of boards whose ownership the write changed.
+        """
+
+        if new_source_revision:
+            repoint_live_boards_to_newest_source_revision(self._session, game_id, source_image_id)
+        recompute_source_image_geometry_completeness(
+            self._session, game_id, source_image_id, actor=actor
+        )
+        other_boards = set(affected_board_ids)
+        if other_boards:
+            other_images = {
+                image_id
+                for image_id in self._session.scalars(
+                    select(RecognizedBoardModel.source_image_id).where(
+                        RecognizedBoardModel.id.in_(other_boards)
+                    )
+                )
+                if image_id != source_image_id
+            }
+            for image_id in sorted(other_images, key=str):
+                recompute_source_image_geometry_completeness(
+                    self._session, game_id, image_id, actor=actor
+                )
 
     def _pending_context(
         self,

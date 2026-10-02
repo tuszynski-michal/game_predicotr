@@ -6,6 +6,139 @@ last_updated: 2026-10-01
 
 # Decision Log
 
+## D-485 — bramka kompletności: stan trwały zdjęcia, dokument sekwencji bez dowodu symboli, przepinanie plansz (uzupełnia D-484)
+
+- **Status:** accepted, 2026-10-02; rozstrzygnięcia wykonawcze TASK-0807
+  podjęte przez orkiestratora na podstawie pełnomocnictwa operatora z
+  2026-10-02 („decyzję podejmujesz autonomicznie”) i jego polecenia
+  przepinania plansz.
+- **Decision:**
+  1. `source_images` ma trwały stan `geometry_complete`,
+     `geometry_incomplete`, `geometry_exception` albo `NULL` (zdjęcie poza
+     bramką: nieocenione, zastąpione nowszym importem, nieudany import, bez
+     geometrii źródła) — migracja `0139`. Stan przelicza każda operacja
+     zmieniająca planszę, jej geometrię, żywotność albo odroczoną geometrię,
+     w tej samej transakcji.
+  2. Plansza zdjęcia niedopuszczonego nie dostaje komórek weryfikacji
+     symboli. Jej dokument w projekcji wyszukiwarki **zostaje**, ale bez
+     dowodu symboli, więc wyszukiwarka jej nie zwraca. Dokument jest
+     jednocześnie rejestrem właściciela numeru sekwencji, z którego
+     korzysta korekta siatek w Reviewerze i kolejka siatek; jego usunięcie
+     uniemożliwiłoby poprawienie wstrzymanego zdjęcia. Powód wstrzymania
+     jest jawny (`SOURCE_IMAGE_GEOMETRY_INCOMPLETE`, licznik
+     `gate.withheldBoards`).
+  3. Bramka blokuje wyłącznie nową materializację. Plansze, które już mają
+     komórki, są nadal utrzymywane; istniejące komórki, decyzje człowieka i
+     dokumenty nie są usuwane ani unieważniane.
+  4. Zapis nowej rewizji geometrii źródła zdjęcia przepina na nią żywe
+     plansze tego zdjęcia, ale tylko gdy wpis pozycji jest identyczny w obu
+     rewizjach, topologia i sumy kontrolne źródła są te same, plansza ma
+     `geometry_revision = 0`, a jej manifest i komórki wskazują starą
+     rewizję i żadna komórka nie należy do kohorty treningowej. Razem z
+     planszą przechodzą wskaźniki manifestu renderu i komórek; piksele,
+     specyfikacje renderu, identyfikatory cropów, decyzje i zdarzenia się
+     nie zmieniają. Plansza niespełniająca warunków zostaje i trafia do
+     raportu.
+  5. Plansza częściowa (`pending_partial`) nigdy nie liczy się jako
+     poprawna siatka; zdjęcie z taką planszą wymaga wyjątku operatora
+     (D-449, D-484). Backfill nie nadaje wyjątków w imieniu operatora.
+  6. Wycofanie wyjątku po decyzji człowieka na komórce zdjęcia jest
+     odrzucane (`IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT`).
+  7. Ręczna korekta planszy bez komórek na zdjęciu niedopuszczonym nie
+     wykonuje ponownego cięcia; komórki powstają po dopuszczeniu zdjęcia.
+- **Consequences:** po backfillu 777 w kolejce zostaje 60 zdjęć ze 108
+  planszami częściowymi (wszystkie mają już komórki); operator nadaje im
+  wyjątki albo uzupełnia siatki. Wycofanie migracji jest odmawiane, gdy
+  istnieje wyjątek operatora.
+
+## D-483 — metryka nadrzędna silnika siatek: odsetek zdjęć kompletnych i poprawnych
+
+- **Status:** accepted, 2026-10-01; decyzja operatora przy akceptacji
+  `GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` (decyzja 4 planu).
+- **Decision:** silnik siatek 5 × 3 ocenia się najpierw odsetkiem zdjęć, na
+  których wszystkie oczekiwane plansze mają siatkę w tolerancji (zdjęcie
+  zaliczone tylko przy komplecie). Druga w kolejności jest miara image-macro
+  z T05 z kosztem braku planszy równym 1. Miary pomocnicze: odzysk plansz,
+  NME p95, zgodność symboli po cięciu. Metryka i tolerancje są zamrażane
+  przed pierwszym treningiem; model wybiera się wyłącznie na walidacji.
+- **Reason:** D-484 czyni zdjęcie jednostką pracy — jedna zła plansza
+  wstrzymuje całe zdjęcie, więc średnia per plansza nie opisuje kosztu
+  operatora.
+- **Consequences:** raporty runów i raport porównawczy TASK-0804 podają tę
+  miarę jako pierwszą; wynik T05 pozostaje porównywalny przez drugą miarę.
+
+## D-482 — etap D (sieć węzłów) rusza bez ukończenia etapu C (symbole)
+
+- **Status:** accepted, 2026-10-01; decyzja operatora (decyzja 3 planu V3).
+- **Decision:** T10 / TASK-0675 dla geometrii 5 × 3, realizowany jako
+  TASK-0802, nie wymaga ukończenia T09 ani STOP C planu Vision Lab. Etap C
+  (T06b–T09) pozostaje zablokowany i bez zmian.
+- **Reason:** geometria nie zależy od modeli symboli (D-461), a brakujące i
+  błędne siatki są dziś głównym źródłem pracy ręcznej.
+- **Consequences:** warunek wejścia „T09 uzasadnia T10” w TASK-0675 jest
+  zastąpiony dla topologii 5 × 3; topologia 3 × 3 pozostaje poza planem V3.
+
+## D-481 — budżet treningu geometrii V3: do 3 runów po 4 godziny GPU na zadanie modelu
+
+- **Status:** accepted, 2026-10-01; decyzja operatora (decyzja 2 planu V3).
+- **Decision:** zadanie modelu planu V3 (TASK-0802) może wykonać do trzech
+  runów, każdy do 4 godzin GPU, z presetem i fingerprintem zapisanymi przed
+  pierwszym runem. Kolejne runy wymagają nowej zgody. Smoke do 50 kroków bez
+  zmian. Zastępuje limit „jeden trening do 20 epok lub 30 minut” z T05/T10
+  wyłącznie dla zadań planu V3.
+- **Reason:** T05 zakończył się na 200 krokach i 90 siatkach; sieć widząca
+  cały ekran na tysiącach zdjęć nie zmieści się w 30 minutach.
+- **Consequences:** budżet jest trwały w protokole runów (przerwany run nie
+  odzyskuje budżetu). Trening nie biegnie równolegle z ciężkimi operacjami
+  bazy (limit 8 GB VM WSL).
+
+## D-480 — zatwierdzona geometria produkcyjna 777 jako dane uczące geometrii (zmienia D-453)
+
+- **Status:** accepted, 2026-10-01; decyzja operatora (decyzja 1 planu V3).
+- **Decision:** plansze 777 z zatwierdzoną geometrią w `game_data_v2`
+  (poziom S: zatwierdzone po reweryfikacji `system:grid-reverify-777-v1`)
+  oraz plansze z automatyczną geometrią po filtrze zgodności symboli
+  (poziom B) mogą być targetami treningu geometrii. Poziom G (ręczne siatki
+  labu, rezolucje Reviewera, korekty `local-admin`) służy do oceny i nigdy
+  nie jest jedynym źródłem treningu. Zastępuje ograniczenie D-453 „referencją
+  są wyłącznie nowe ręczne geometrie laboratorium” w zakresie treningu.
+- **Boundaries:** dane produkcyjne czyta wyłącznie eksporter, tylko do
+  odczytu; laboratorium nadal nie importuje `storage` ani `psycopg` (D-447).
+  Role źródeł, bramki symboli i holdouty D-456 (walidacja Mumie, `final_test`
+  Reels, `unseen_game` Treasure) pozostają bez zmian. Zdjęcie użyte w
+  treningu, jego rodzina i pochodne nie mogą być niezależnym testem.
+- **Consequences:** etykiety S pochodzą z hybrydowej reweryfikacji i mogą
+  powielać jej błędy; o przydatności rozstrzyga odsetek błędów z przeglądu
+  operatora w TASK-0801 oraz pomiar na poziomie G.
+
+## D-484 — kompletność geometrii zdjęcia jest bramką przed cięciem na symbole
+
+- **Status:** accepted, 2026-10-01; decyzja operatora (decyzja 5 planu V3)
+  po zgłoszeniu: import 777 przeszedł, plansze z siatką trafiły do
+  weryfikacji symboli, a braki siatek na części zdjęć wyszły dopiero później.
+- **Decision:** jednostką geometrii jest zdjęcie źródłowe. Zdjęcie ma
+  oczekiwaną liczbę plansz (`active_board_slots` bieżącej rewizji geometrii
+  źródła). Dopóki każda oczekiwana plansza nie ma poprawnej siatki
+  (zaakceptowanej przez silnik bez zastrzeżeń albo zatwierdzonej przez
+  człowieka), żadna plansza tego zdjęcia nie jest cięta na symbole, nie
+  trafia do weryfikacji symboli ani do wyszukiwarki. Zdjęcie niekompletne ma
+  jawny stan i trafia do kolejki siatek całym zdjęciem. Wyjątek (plansza
+  poza kadrem, kwalifikacja częściowa D-449) wymaga jawnej decyzji operatora
+  dla konkretnego zdjęcia, zapisanej z autorem i powodem. Każdy import i
+  przebieg silnika raportuje zdjęcia kompletne i niekompletne przed pracą
+  nad symbolami.
+- **Scope:** nowe importy i ponowne przebiegi. Istniejące dane 777 są
+  oceniane raportem; wykonana materializacja komórek i decyzje człowieka
+  nie są cofane.
+- **Reason:** błąd siatki wykryty przy symbolach kosztuje poprawianie
+  pojedynczych komórek i unieważnia cropy (`geometry_invalidated`); wykryty
+  zaraz po imporcie kosztuje jedną korektę siatki i daje świeże przykłady
+  do poprawy silnika.
+- **Consequences:** jedna trudna plansza wstrzymuje symbole całego zdjęcia —
+  koszt świadomy, łagodzony wyjątkiem operatora. Zmienia dotychczasowe
+  zachowanie odroczonej geometrii (`image_board_geometry_pending`), w którym
+  pozostałe plansze zdjęcia szły dalej. Raport: TASK-0806; egzekwowanie:
+  TASK-0807.
 ## D-479 — „Przybliżona wygrana” bez kafelków i wyboru zakresu; nazwy operatora (zmienia D-476)
 
 - **Status:** accepted, 2026-10-02; polecenie operatora, TASK-0784.

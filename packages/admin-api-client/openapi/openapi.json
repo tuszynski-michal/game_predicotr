@@ -6309,6 +6309,212 @@
         "title": "GeometryCohortResponse",
         "type": "object"
       },
+      "GeometryCompletenessImageCountsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "complete": {
+            "minimum": 0.0,
+            "title": "Complete",
+            "type": "integer"
+          },
+          "importFailed": {
+            "minimum": 0.0,
+            "title": "Importfailed",
+            "type": "integer"
+          },
+          "incomplete": {
+            "minimum": 0.0,
+            "title": "Incomplete",
+            "type": "integer"
+          },
+          "incompleteMissing": {
+            "minimum": 0.0,
+            "title": "Incompletemissing",
+            "type": "integer"
+          },
+          "incompletePartial": {
+            "minimum": 0.0,
+            "title": "Incompletepartial",
+            "type": "integer"
+          },
+          "incompleteUncertain": {
+            "minimum": 0.0,
+            "title": "Incompleteuncertain",
+            "type": "integer"
+          },
+          "noSourceGeometry": {
+            "minimum": 0.0,
+            "title": "Nosourcegeometry",
+            "type": "integer"
+          },
+          "superseded": {
+            "minimum": 0.0,
+            "title": "Superseded",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "complete",
+          "incomplete",
+          "incompleteMissing",
+          "incompletePartial",
+          "incompleteUncertain",
+          "noSourceGeometry",
+          "superseded",
+          "importFailed"
+        ],
+        "title": "GeometryCompletenessImageCountsResponse",
+        "type": "object"
+      },
+      "GeometryCompletenessPointResponse": {
+        "additionalProperties": false,
+        "description": "A point in ``exif-normalized-rgb-pixels-v1`` source pixels.",
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "GeometryCompletenessPointResponse",
+        "type": "object"
+      },
+      "GeometryCompletenessPositionCountResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "minimum": 0.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "reasonCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoncode"
+          },
+          "state": {
+            "$ref": "#/components/schemas/GeometryPositionState"
+          }
+        },
+        "required": [
+          "state",
+          "reasonCode",
+          "count"
+        ],
+        "title": "GeometryCompletenessPositionCountResponse",
+        "type": "object"
+      },
+      "GeometryCompletenessPositionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "quad": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GeometryCompletenessPointResponse"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Quad"
+          },
+          "reasonCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reasoncode"
+          },
+          "recognizedBoardId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognizedboardid"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "state": {
+            "$ref": "#/components/schemas/GeometryPositionState"
+          }
+        },
+        "required": [
+          "positionIndex",
+          "sequenceNumber",
+          "state",
+          "reasonCode",
+          "recognizedBoardId"
+        ],
+        "title": "GeometryCompletenessPositionResponse",
+        "type": "object"
+      },
+      "GeometryCompletenessSourceStatusCountResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "count": {
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "imageState": {
+            "$ref": "#/components/schemas/GeometryImageState"
+          },
+          "sourceStatus": {
+            "minLength": 1,
+            "title": "Sourcestatus",
+            "type": "string"
+          }
+        },
+        "required": [
+          "imageState",
+          "sourceStatus",
+          "count"
+        ],
+        "title": "GeometryCompletenessSourceStatusCountResponse",
+        "type": "object"
+      },
       "GeometryEngineVariant": {
         "enum": [
           "structured_lattice_v4_partial_sides",
@@ -6362,6 +6568,152 @@
         ],
         "title": "GeometryEngineVariantCapabilityResponse",
         "type": "object"
+      },
+      "GeometryGateCountsResponse": {
+        "additionalProperties": false,
+        "description": "Persisted gate state of the images in scope (TASK-0807).",
+        "properties": {
+          "geometryComplete": {
+            "minimum": 0.0,
+            "title": "Geometrycomplete",
+            "type": "integer"
+          },
+          "geometryException": {
+            "minimum": 0.0,
+            "title": "Geometryexception",
+            "type": "integer"
+          },
+          "geometryIncomplete": {
+            "minimum": 0.0,
+            "title": "Geometryincomplete",
+            "type": "integer"
+          },
+          "notEvaluated": {
+            "minimum": 0.0,
+            "title": "Notevaluated",
+            "type": "integer"
+          },
+          "outsideGate": {
+            "minimum": 0.0,
+            "title": "Outsidegate",
+            "type": "integer"
+          },
+          "withheldBoards": {
+            "minimum": 0.0,
+            "title": "Withheldboards",
+            "type": "integer"
+          },
+          "withheldReasonCode": {
+            "minLength": 1,
+            "title": "Withheldreasoncode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "geometryComplete",
+          "geometryIncomplete",
+          "geometryException",
+          "outsideGate",
+          "notEvaluated",
+          "withheldBoards",
+          "withheldReasonCode"
+        ],
+        "title": "GeometryGateCountsResponse",
+        "type": "object"
+      },
+      "GeometryImageState": {
+        "description": "State of a source image as a whole.",
+        "enum": [
+          "complete",
+          "incomplete_missing",
+          "incomplete_partial",
+          "incomplete_uncertain",
+          "no_source_geometry",
+          "superseded",
+          "import_failed"
+        ],
+        "title": "GeometryImageState",
+        "type": "string"
+      },
+      "GeometryLowQualityBoardResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "lowCellCount": {
+            "maximum": 15.0,
+            "minimum": 1.0,
+            "title": "Lowcellcount",
+            "type": "integer"
+          },
+          "minConfidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Minconfidence",
+            "type": "number"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "relativePath": {
+            "minLength": 1,
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencenumber"
+          },
+          "sourceImageId": {
+            "format": "uuid",
+            "title": "Sourceimageid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "recognizedBoardId",
+          "sourceImageId",
+          "importJobId",
+          "relativePath",
+          "positionIndex",
+          "sequenceNumber",
+          "lowCellCount",
+          "minConfidence"
+        ],
+        "title": "GeometryLowQualityBoardResponse",
+        "type": "object"
+      },
+      "GeometryPositionState": {
+        "description": "State of one expected board position of a source image.",
+        "enum": [
+          "ok",
+          "uncertain",
+          "partial",
+          "missing",
+          "deferred",
+          "superseded"
+        ],
+        "title": "GeometryPositionState",
+        "type": "string"
       },
       "GeometryQualificationPayload": {
         "additionalProperties": false,
@@ -7183,6 +7535,70 @@
           "status"
         ],
         "title": "ImageFolderSelectionResponse",
+        "type": "object"
+      },
+      "ImageGeometryCompletenessResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "computedAt": {
+            "format": "date-time",
+            "title": "Computedat",
+            "type": "string"
+          },
+          "expectedBoardCount": {
+            "minimum": 0.0,
+            "title": "Expectedboardcount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "gate": {
+            "$ref": "#/components/schemas/GeometryGateCountsResponse"
+          },
+          "images": {
+            "$ref": "#/components/schemas/GeometryCompletenessImageCountsResponse"
+          },
+          "importJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobid"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/GeometryCompletenessPositionCountResponse"
+            },
+            "title": "Positions",
+            "type": "array"
+          },
+          "sourceStatuses": {
+            "items": {
+              "$ref": "#/components/schemas/GeometryCompletenessSourceStatusCountResponse"
+            },
+            "title": "Sourcestatuses",
+            "type": "array"
+          }
+        },
+        "required": [
+          "gameId",
+          "importJobId",
+          "images",
+          "expectedBoardCount",
+          "positions",
+          "sourceStatuses",
+          "gate",
+          "computedAt"
+        ],
+        "title": "ImageGeometryCompletenessResponse",
         "type": "object"
       },
       "ImageGeometryGuardBoardContextResponse": {
@@ -8116,6 +8532,69 @@
           "createdAt"
         ],
         "title": "ImageGeometryGuardResolutionManifestResponse",
+        "type": "object"
+      },
+      "ImageGeometryLowQualityBoardsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "items": {
+              "$ref": "#/components/schemas/GeometryLowQualityBoardResponse"
+            },
+            "maxItems": 100,
+            "title": "Boards",
+            "type": "array"
+          },
+          "computedAt": {
+            "format": "date-time",
+            "title": "Computedat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "importJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobid"
+          },
+          "maxConfidence": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Maxconfidence",
+            "type": "number"
+          },
+          "minCells": {
+            "maximum": 15.0,
+            "minimum": 1.0,
+            "title": "Mincells",
+            "type": "integer"
+          },
+          "totalBoards": {
+            "minimum": 0.0,
+            "title": "Totalboards",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "gameId",
+          "importJobId",
+          "maxConfidence",
+          "minCells",
+          "totalBoards",
+          "boards",
+          "computedAt"
+        ],
+        "title": "ImageGeometryLowQualityBoardsResponse",
         "type": "object"
       },
       "ImageGeometryRolloutBackfillJobPayload": {
@@ -12050,6 +12529,287 @@
           "contractVersion"
         ],
         "title": "ImportJobPayload",
+        "type": "object"
+      },
+      "IncompleteGeometryImagePageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completenessStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceImageGeometryStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "imageState": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GeometryImageState"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "images": {
+            "items": {
+              "$ref": "#/components/schemas/IncompleteGeometryImageResponse"
+            },
+            "maxItems": 100,
+            "title": "Images",
+            "type": "array"
+          },
+          "importJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobid"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "gameId",
+          "importJobId",
+          "imageState",
+          "completenessStatus",
+          "images",
+          "nextCursor"
+        ],
+        "title": "IncompleteGeometryImagePageResponse",
+        "type": "object"
+      },
+      "IncompleteGeometryImageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completenessEvaluatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Completenessevaluatedat"
+          },
+          "completenessStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceImageGeometryStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exceptionAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exceptionat"
+          },
+          "exceptionBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exceptionby"
+          },
+          "exceptionReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exceptionreason"
+          },
+          "expectedBoardCount": {
+            "anyOf": [
+              {
+                "maximum": 9.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedboardcount"
+          },
+          "gateReasonCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gatereasoncode"
+          },
+          "imageState": {
+            "$ref": "#/components/schemas/GeometryImageState"
+          },
+          "importErrorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importerrorcode"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "orientedHeight": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orientedheight"
+          },
+          "orientedWidth": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Orientedwidth"
+          },
+          "positions": {
+            "items": {
+              "$ref": "#/components/schemas/GeometryCompletenessPositionResponse"
+            },
+            "maxItems": 9,
+            "title": "Positions",
+            "type": "array"
+          },
+          "relativePath": {
+            "minLength": 1,
+            "title": "Relativepath",
+            "type": "string"
+          },
+          "sequenceRangeEnd": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangeend"
+          },
+          "sequenceRangeStart": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencerangestart"
+          },
+          "sourceImageId": {
+            "format": "uuid",
+            "title": "Sourceimageid",
+            "type": "string"
+          },
+          "sourceRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcerevision"
+          },
+          "sourceStatus": {
+            "minLength": 1,
+            "title": "Sourcestatus",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceImageId",
+          "importJobId",
+          "relativePath",
+          "sourceStatus",
+          "imageState",
+          "sourceRevision",
+          "sequenceRangeStart",
+          "sequenceRangeEnd",
+          "expectedBoardCount",
+          "orientedWidth",
+          "orientedHeight",
+          "importErrorCode",
+          "positions",
+          "completenessStatus",
+          "completenessEvaluatedAt",
+          "gateReasonCode",
+          "exceptionReason",
+          "exceptionBy",
+          "exceptionAt"
+        ],
+        "title": "IncompleteGeometryImageResponse",
         "type": "object"
       },
       "JobErrorResponse": {
@@ -21232,6 +21992,106 @@
         ],
         "title": "SnapshotJobPayload",
         "type": "object"
+      },
+      "SourceImageGeometryExceptionCommand": {
+        "additionalProperties": false,
+        "description": "Operator exception of one incomplete image (D-484, TASK-0807).",
+        "properties": {
+          "reason": {
+            "maxLength": 1000,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason"
+        ],
+        "title": "SourceImageGeometryExceptionCommand",
+        "type": "object"
+      },
+      "SourceImageGeometryExceptionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completenessStatus": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SourceImageGeometryStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exceptionAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exceptionat"
+          },
+          "exceptionBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exceptionby"
+          },
+          "exceptionReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Exceptionreason"
+          },
+          "imageState": {
+            "$ref": "#/components/schemas/GeometryImageState"
+          },
+          "materializedReviewItemCount": {
+            "minimum": 0.0,
+            "title": "Materializedreviewitemcount",
+            "type": "integer"
+          },
+          "sourceImageId": {
+            "format": "uuid",
+            "title": "Sourceimageid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "sourceImageId",
+          "completenessStatus",
+          "imageState",
+          "exceptionReason",
+          "exceptionBy",
+          "exceptionAt",
+          "materializedReviewItemCount"
+        ],
+        "title": "SourceImageGeometryExceptionResponse",
+        "type": "object"
+      },
+      "SourceImageGeometryStatus": {
+        "description": "Persisted ``source_images.geometry_completeness_status`` (TASK-0807).\n\n``NULL`` in storage means *not evaluated* (before the backfill) or *outside\nthe gate* (``superseded``, ``import_failed``, ``no_source_geometry``: the\nimage has no live board to cut). ``geometry_exception`` is set only by an\noperator.",
+        "enum": [
+          "geometry_complete",
+          "geometry_incomplete",
+          "geometry_exception"
+        ],
+        "title": "SourceImageGeometryStatus",
+        "type": "string"
       },
       "StorageGcJobPayload": {
         "additionalProperties": false,
@@ -37352,6 +38212,626 @@
           }
         },
         "summary": "Get accepted image sequence completeness for one game",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/geometry-completeness/{game_id}": {
+      "get": {
+        "operationId": "getImageGeometryCompleteness",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Importjobid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGeometryCompletenessResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Count complete and incomplete source images of a game or import (D-484)",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception": {
+      "delete": {
+        "operationId": "withdrawSourceImageGeometryException",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_image_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Image Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceImageGeometryExceptionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Withdraw the geometry exception of a source image before human decisions",
+        "tags": [
+          "image-reviews"
+        ]
+      },
+      "post": {
+        "operationId": "setSourceImageGeometryException",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_image_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Image Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SourceImageGeometryExceptionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SourceImageGeometryExceptionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Admit an incomplete source image to symbol cutting by an operator exception",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/source": {
+      "get": {
+        "operationId": "getImageGeometryCompletenessSourceAsset",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "source_image_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Source Image Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Read the checksum-bound source image of any image of a game (D-484)",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/geometry-completeness/{game_id}/incomplete-images": {
+      "get": {
+        "operationId": "listIncompleteGeometryImages",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Importjobid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "imageState",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/GeometryImageState"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Imagestate"
+            }
+          },
+          {
+            "in": "query",
+            "name": "completenessStatus",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SourceImageGeometryStatus"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Completenessstatus"
+            }
+          },
+          {
+            "in": "query",
+            "name": "afterCursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Aftercursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IncompleteGeometryImagePageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List one page of source images without a complete set of grids (D-484)",
+        "tags": [
+          "image-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/image-review-items/geometry-completeness/{game_id}/low-quality-boards": {
+      "get": {
+        "operationId": "getImageGeometryLowQualityBoards",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Importjobid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "maxConfidence",
+            "required": false,
+            "schema": {
+              "default": 0.8,
+              "maximum": 1,
+              "minimum": 0,
+              "title": "Maxconfidence",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "minCells",
+            "required": false,
+            "schema": {
+              "default": 5,
+              "maximum": 15,
+              "minimum": 1,
+              "title": "Mincells",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ImageGeometryLowQualityBoardsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review resource not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Operational review conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List boards with many unreviewed low-confidence symbol cells",
         "tags": [
           "image-reviews"
         ]

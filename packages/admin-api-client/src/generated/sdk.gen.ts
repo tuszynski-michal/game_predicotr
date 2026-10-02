@@ -278,9 +278,18 @@ import type {
   GetImageDatasetCompletenessData,
   GetImageDatasetCompletenessErrors,
   GetImageDatasetCompletenessResponses,
+  GetImageGeometryCompletenessData,
+  GetImageGeometryCompletenessErrors,
+  GetImageGeometryCompletenessResponses,
+  GetImageGeometryCompletenessSourceAssetData,
+  GetImageGeometryCompletenessSourceAssetErrors,
+  GetImageGeometryCompletenessSourceAssetResponses,
   GetImageGeometryGuardSourceAssetData,
   GetImageGeometryGuardSourceAssetErrors,
   GetImageGeometryGuardSourceAssetResponses,
+  GetImageGeometryLowQualityBoardsData,
+  GetImageGeometryLowQualityBoardsErrors,
+  GetImageGeometryLowQualityBoardsResponses,
   GetImageGeometryRolloutStatusData,
   GetImageGeometryRolloutStatusErrors,
   GetImageGeometryRolloutStatusResponses,
@@ -515,6 +524,9 @@ import type {
   ListImageSelectionsData,
   ListImageSelectionsErrors,
   ListImageSelectionsResponses,
+  ListIncompleteGeometryImagesData,
+  ListIncompleteGeometryImagesErrors,
+  ListIncompleteGeometryImagesResponses,
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
@@ -791,6 +803,9 @@ import type {
   SelectSymbolReferenceFromCellReviewData,
   SelectSymbolReferenceFromCellReviewErrors,
   SelectSymbolReferenceFromCellReviewResponses,
+  SetSourceImageGeometryExceptionData,
+  SetSourceImageGeometryExceptionErrors,
+  SetSourceImageGeometryExceptionResponses,
   SkipSymbolCellReviewsData,
   SkipSymbolCellReviewsErrors,
   SkipSymbolCellReviewsResponses,
@@ -869,6 +884,9 @@ import type {
   UploadManualImageSelectionFileData,
   UploadManualImageSelectionFileErrors,
   UploadManualImageSelectionFileResponses,
+  WithdrawSourceImageGeometryExceptionData,
+  WithdrawSourceImageGeometryExceptionErrors,
+  WithdrawSourceImageGeometryExceptionResponses,
 } from './types.gen';
 
 export type Options<
@@ -3679,6 +3697,138 @@ export const getImageDatasetCompleteness = <
     ThrowOnError
   >({
     url: '/api/v1/admin/image-review-items/dataset-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * Count complete and incomplete source images of a game or import (D-484)
+ */
+export const getImageGeometryCompleteness = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryCompletenessData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryCompletenessResponses,
+  GetImageGeometryCompletenessErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryCompletenessResponses,
+    GetImageGeometryCompletenessErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}',
+    ...options,
+  });
+
+/**
+ * Withdraw the geometry exception of a source image before human decisions
+ */
+export const withdrawSourceImageGeometryException = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<WithdrawSourceImageGeometryExceptionData, ThrowOnError>,
+): RequestResult<
+  WithdrawSourceImageGeometryExceptionResponses,
+  WithdrawSourceImageGeometryExceptionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).delete<
+    WithdrawSourceImageGeometryExceptionResponses,
+    WithdrawSourceImageGeometryExceptionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception',
+    ...options,
+  });
+
+/**
+ * Admit an incomplete source image to symbol cutting by an operator exception
+ */
+export const setSourceImageGeometryException = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetSourceImageGeometryExceptionData, ThrowOnError>,
+): RequestResult<
+  SetSourceImageGeometryExceptionResponses,
+  SetSourceImageGeometryExceptionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SetSourceImageGeometryExceptionResponses,
+    SetSourceImageGeometryExceptionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/exception',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Read the checksum-bound source image of any image of a game (D-484)
+ */
+export const getImageGeometryCompletenessSourceAsset = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryCompletenessSourceAssetData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryCompletenessSourceAssetResponses,
+  GetImageGeometryCompletenessSourceAssetErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryCompletenessSourceAssetResponses,
+    GetImageGeometryCompletenessSourceAssetErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/images/{source_image_id}/source',
+    ...options,
+  });
+
+/**
+ * List one page of source images without a complete set of grids (D-484)
+ */
+export const listIncompleteGeometryImages = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListIncompleteGeometryImagesData, ThrowOnError>,
+): RequestResult<
+  ListIncompleteGeometryImagesResponses,
+  ListIncompleteGeometryImagesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListIncompleteGeometryImagesResponses,
+    ListIncompleteGeometryImagesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/incomplete-images',
+    ...options,
+  });
+
+/**
+ * List boards with many unreviewed low-confidence symbol cells
+ */
+export const getImageGeometryLowQualityBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetImageGeometryLowQualityBoardsData, ThrowOnError>,
+): RequestResult<
+  GetImageGeometryLowQualityBoardsResponses,
+  GetImageGeometryLowQualityBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetImageGeometryLowQualityBoardsResponses,
+    GetImageGeometryLowQualityBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/low-quality-boards',
     ...options,
   });
 

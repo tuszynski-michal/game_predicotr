@@ -9,6 +9,9 @@ import time
 from uuid import UUID
 
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.image_geometry_completeness import (
+    SOURCE_IMAGE_GEOMETRY_INCOMPLETE,
+)
 from game_predictor_api.storage.database import (
     create_maintenance_database_engine,
     create_session_factory,
@@ -50,6 +53,8 @@ def main() -> int:
     settings = ApiSettings.from_environment()
     factory = create_session_factory(create_maintenance_database_engine(settings))
     started = time.perf_counter()
+    # D-484 (TASK-0807): boards of incomplete images skipped by the gate.
+    withheld = 0
     try:
         with factory.begin() as session:
             report = SqlAlchemyImageSymbolReviewRepository(session).start_or_resume_backfill(
@@ -62,6 +67,7 @@ def main() -> int:
                     batch_size=arguments.batch_size,
                 )
             report = step.report
+            withheld += step.geometry_withheld_review_item_count
             if not step.has_more:
                 break
     except Exception as error:
@@ -74,6 +80,8 @@ def main() -> int:
         json.dumps(
             {
                 "elapsedSeconds": round(time.perf_counter() - started, 3),
+                "geometryWithheldReviewItemCount": withheld,
+                "geometryWithheldReasonCode": SOURCE_IMAGE_GEOMETRY_INCOMPLETE,
                 "report": _report_value(report),
             },
             indent=2,

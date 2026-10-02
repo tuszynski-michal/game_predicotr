@@ -16,6 +16,9 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewItem,
     ImageReviewNotFoundError,
 )
+from game_predictor_api.storage.image_geometry_completeness_repository import (
+    GeometrySourceImageAsset,
+)
 
 LOGGER = logging.getLogger(__name__)
 _IMAGE_MEDIA_TYPES: Final = frozenset({"image/jpeg", "image/png", "image/webp"})
@@ -49,6 +52,18 @@ def resolve_grid_review_source_asset(
         item.source_relative_path,
         item.source_checksum_sha256,
         asset_kind="grid-review-source",
+    )
+
+
+def resolve_geometry_completeness_source_asset(
+    asset: GeometrySourceImageAsset,
+    artifact_root: Path,
+) -> OperationalReviewAsset:
+    return _resolve(
+        artifact_root,
+        asset.relative_path,
+        asset.checksum_sha256,
+        asset_kind="geometry-completeness-source",
     )
 
 
@@ -185,6 +200,7 @@ def _sha256(path: Path) -> str:
 
 __all__ = [
     "OperationalReviewAsset",
+    "resolve_geometry_completeness_source_asset",
     "resolve_grid_review_source_asset",
     "resolve_operational_board_asset",
     "resolve_operational_cell_asset",

@@ -32,6 +32,9 @@ from game_predictor_api.application.legacy_board_conversion import (
 )
 from game_predictor_api.application.virtual_grid_geometry import VirtualGridGeometryService
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    SqlAlchemyImageGeometryCompletenessStateRepository,
+)
 from game_predictor_api.storage.models import (
     ImageBoardGeometryPendingModel,
     ImageBoardGeometryRevisionModel,
@@ -222,10 +225,25 @@ def test_conversion_restores_the_virtual_render_and_keeps_decisions(
             "ALTER TABLE game_data_v2.image_symbol_prediction_revisions "
             "ADD COLUMN legacy_predictions_sha256 varchar(64)"
         )
+        # Likewise the geometry gate columns of migration 0139 (TASK-0807).
+        connection.exec_driver_sql(
+            "ALTER TABLE game_data_v2.source_images "
+            "ADD COLUMN geometry_completeness_status varchar(24), "
+            "ADD COLUMN geometry_completeness_evaluated_at timestamptz, "
+            "ADD COLUMN geometry_exception_reason text, "
+            "ADD COLUMN geometry_exception_by varchar(200), "
+            "ADD COLUMN geometry_exception_at timestamptz"
+        )
     game_id = _provision_game(database.engine, "task0791-convert")
     factory: sessionmaker[Session] = _factory(database.engine)
     seed = _seed(factory, game_id, artifact_root, label="legacy-source", slot_count=2)
     _resolve_via_reviewer_endpoint(database, artifact_root, seed)
+    # TASK-0807 (D-484): slot 1 stays deferred, so the image is incomplete; an
+    # operator exception admits it and the resolved board is cut.
+    with game_storage_scope(game_id), factory.begin() as session:
+        SqlAlchemyImageGeometryCompletenessStateRepository(session).set_exception(
+            game_id, seed.source_image_id, reason="slot 1 deferred", actor="task-0807"
+        )
     with game_storage_scope(game_id), factory() as session, session.begin():
         virtual_before = _state(session, seed.pending_ids[0])
         symbol_id = _symbol(session, game_id)

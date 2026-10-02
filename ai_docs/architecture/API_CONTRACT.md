@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-09-30
+last_updated: 2026-10-01
 ---
 
 # Kontrakty API i danych mobilnych
@@ -2494,6 +2494,136 @@ kolejną stronę tego samego `view`. `counts.approved` cytuje ten sam licznik
 zatwierdzonych co `dataset-completeness.acceptedBoardCount`, licząc jednak w
 oknie `1..expectedLayoutCount` — nie jest z nim identyczny przy numerach poza
 zakresem.
+
+TASK-0806 dodaje do tego samego routera raport kompletności geometrii zdjęć
+(D-484), a TASK-0808 go rozszerza — wyłącznie odczyt, bez migracji i bez zapisu:
+
+```text
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}?importJobId=
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/incomplete-images?importJobId=&imageState=&afterCursor=&limit=
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/images/{sourceImageId}/source
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/low-quality-boards?importJobId=&maxConfidence=&minCells=&limit=
+```
+
+`operationId`: `getImageGeometryCompleteness`, `listIncompleteGeometryImages`,
+`getImageGeometryCompletenessSourceAsset`, `getImageGeometryLowQualityBoards`.
+Jednostką jest zdjęcie źródłowe; oczekiwane pozycje to `active_board_slots`
+najnowszej rewizji geometrii źródła, a stan pozycji (`ok | uncertain | partial |
+missing | deferred | superseded`) i zdjęcia (`complete | incomplete_missing |
+incomplete_partial | incomplete_uncertain | no_source_geometry | import_failed |
+superseded`) wynika z reguł D-484 (`ADMIN_APP.md`, sekcja „Kompletność siatek
+zdjęć”). Plansza `rejected` nie jest planszą z siatką. Pozycja bez żywej planszy,
+której numer sekwencji ma żywy element review (`pending | accepted |
+corrected`) na innym zdjęciu tej samej gry, jest `superseded`; zdjęcie jest
+`superseded`, gdy wszystkie jego oczekiwane pozycje są `superseded` albo gdy nie
+ma żywej planszy, a zdjęcie o tym samym `checksum_sha256` w tej grze ma żywe
+plansze; `import_failed` to zdjęcie bez żywej planszy, którego plik importu ma
+`workflow_status = 'failed'`. Opcjonalny `importJobId` zawęża wynik do jednego
+importu tej gry; import cudzej gry daje `404
+IMAGE_GEOMETRY_COMPLETENESS_IMPORT_NOT_FOUND`, nieznana gra `404
+IMAGE_REVIEW_GAME_NOT_FOUND`.
+
+Raport zwraca `gameId, importJobId | null, images{total, complete, incomplete,
+incompleteMissing, incompletePartial, incompleteUncertain, noSourceGeometry,
+superseded, importFailed}`, gdzie `incomplete = total - complete - superseded`
+(zdjęcia `superseded` nie są niekompletne, ale mają własny licznik),
+`expectedBoardCount` (suma oczekiwanych pozycji zdjęć z geometrią źródła),
+`positions[{state, reasonCode | null, count}]` (pozycje według stanu; stan
+`deferred` z kodem powodu odroczenia), `sourceStatuses[{imageState,
+sourceStatus, count}]` (m.in. zdjęcia `processing`) i `computedAt`. Liczniki są
+agregowane w SQL po zdjęciu; liczba pozycji `ok`, `uncertain` i `partial` liczy
+tylko żywe plansze z oczekiwanych pozycji. Sprawdzenie „numer sekwencji ma żywy
+element review na innym zdjęciu” wykonuje się wyłącznie dla pozycji bez żywej
+planszy, przez indeks `(game_id, sequence_number, status)` elementów review.
+
+Lista zwraca zdjęcia posortowane po `(relativePath, sourceImageId)`, z kursorem
+`afterCursor` (nieprzejrzysty, błędny daje `422
+IMAGE_GEOMETRY_COMPLETENESS_CURSOR_INVALID`) i `limit` `1..100` (domyślnie 25).
+Bez `imageState` zawiera stany wymagające uwagi: `incomplete_*`, `import_failed`
+i `no_source_geometry`; zdjęcia `superseded` i `complete` nie wchodzą do listy
+domyślnej. `imageState` przyjmuje każdy stan poza `complete` (w tym
+`superseded`, żeby zdjęcia zastąpione dało się obejrzeć; `complete` daje `422
+IMAGE_GEOMETRY_COMPLETENESS_STATE_INVALID`). Element: `sourceImageId,
+importJobId, relativePath, sourceStatus, imageState, sourceRevision |
+null, sequenceRangeStart/End | null, expectedBoardCount | null,
+orientedWidth/Height | null, importErrorCode | null, positions[{positionIndex,
+sequenceNumber, state, reasonCode | null, recognizedBoardId | null, quad |
+null}]`. `importErrorCode` to `error_code` nieudanego pliku importu zdjęcia
+(`image_import_job_files`), `null` gdy plik się nie powiódł. `quad` to
+cztery punkty w pikselach zdjęcia `exif-normalized-rgb-pixels-v1` (z rewizji, z
+której plansza została pocięta; dla pozycji bez żywej planszy z rewizji
+bieżącej), `null` gdy rewizja nie ma czworokąta. Pole `previewReviewItemId`
+(TASK-0806) zostało usunięte: podgląd każdego zdjęcia, także bez planszy, daje
+endpoint po `sourceImageId`.
+
+`GET .../images/{sourceImageId}/source` zwraca plik zdjęcia źródłowego (`200`
+`image/jpeg|png|webp`, `Cache-Control: private, immutable, max-age=31536000`).
+Używa tego samego resolvera co `getOperationalImageReviewSourceAsset`
+(ścieżka względna bez `..`/`\`, korzeń `data/` pod katalogiem artefaktów, plik
+zwykły bez symlinku, typ obrazu, suma `checksum_sha256` z `source_images`) i
+tych samych kodów błędów (`404 IMAGE_REVIEW_ASSET_PATH_UNSAFE |
+IMAGE_REVIEW_ASSET_NOT_FOUND | IMAGE_REVIEW_ASSET_MEDIA_TYPE_UNSUPPORTED |
+IMAGE_REVIEW_ASSET_CHECKSUM_DRIFT`). Zdjęcie innej gry albo nieznany
+identyfikator daje `404 IMAGE_GEOMETRY_COMPLETENESS_SOURCE_IMAGE_NOT_FOUND`,
+nieznana gra `404 IMAGE_REVIEW_GAME_NOT_FOUND`. Endpoint jest tylko dla Admina
+(bez sesji Reviewera).
+
+Sygnał niskiej jakości symboli jest osobnym, jawnie wywoływanym zapytaniem na
+tabeli komórek: plansza spełnia go, gdy co najmniej `minCells` (`1..15`,
+domyślnie 5) widocznych komórek (`source_available` albo `outside`) ma
+`review_state = pending` i `prediction_confidence <= maxConfidence`
+(`0..1`, domyślnie 0,80; ta sama definicja „bez decyzji człowieka” i
+pewności co filtry weryfikacji symboli). Odpowiedź: `gameId, importJobId |
+null, maxConfidence, minCells, totalBoards, boards[{recognizedBoardId,
+sourceImageId, importJobId, relativePath, positionIndex, sequenceNumber | null,
+lowCellCount, minConfidence}]` (najwyżej `limit` `1..100`, domyślnie 50,
+sortowane malejąco po `lowCellCount`) i `computedAt`. Zapytanie ma
+transakcyjny `statement_timeout` 10 s; jego przekroczenie to `409
+IMAGE_GEOMETRY_LOW_QUALITY_TIMEOUT` (z `details.timeoutMs`), nigdy pusty wynik.
+Progi poza zakresem dają `422`.
+
+TASK-0807 (bramka D-484) dodaje stan zapisany w bazie i wyjątek operatora:
+
+```text
+GET    /api/v1/admin/image-review-items/geometry-completeness/{gameId}/incomplete-images?completenessStatus=
+POST   /api/v1/admin/image-review-items/geometry-completeness/{gameId}/images/{sourceImageId}/exception
+DELETE /api/v1/admin/image-review-items/geometry-completeness/{gameId}/images/{sourceImageId}/exception
+```
+
+Raport ma pole `gate{geometryComplete, geometryIncomplete, geometryException,
+outsideGate, notEvaluated, withheldBoards, withheldReasonCode}` liczone z
+`source_images.geometry_completeness_status` w zakresie gry albo importu:
+`outsideGate` to zdjęcia ocenione bez żywej planszy do cięcia (status `NULL`),
+`notEvaluated` — jeszcze bez oceny (przed backfillem), `withheldBoards` — żywe
+plansze aktywnych elementów review bez komórek weryfikacji na zdjęciach
+`geometry_incomplete`/`geometry_exception`, wstrzymane z powodem
+`withheldReasonCode = SOURCE_IMAGE_GEOMETRY_INCOMPLETE`. Element listy ma
+dodatkowo `completenessStatus | null`, `completenessEvaluatedAt | null`,
+`gateReasonCode | null` (`SOURCE_IMAGE_GEOMETRY_INCOMPLETE` dla zdjęcia
+wstrzymanego), `exceptionReason | null`, `exceptionBy | null`, `exceptionAt |
+null`; strona ma `completenessStatus | null`. Parametr `completenessStatus`
+(`geometry_incomplete | geometry_exception`; `geometry_complete` daje `422
+IMAGE_GEOMETRY_COMPLETENESS_STATUS_INVALID`) wybiera zdjęcia po stanie z bazy —
+to kolejka siatek; `imageState` może ją dodatkowo zawęzić.
+
+`POST .../exception` (`setSourceImageGeometryException`, body `{reason}` o
+długości `1..1000`) i `DELETE .../exception`
+(`withdrawSourceImageGeometryException`) są operacjami wysokiego wpływu:
+wymagają `X-Admin-Confirmation: confirmed` i `X-Admin-Target:
+source-image-geometry-exception:{sourceImageId}` i trafiają do audytu Admina.
+Autorem wyjątku jest `local-admin`. Odpowiedź: `sourceImageId,
+completenessStatus | null, imageState, exceptionReason | null, exceptionBy |
+null, exceptionAt | null, materializedReviewItemCount`. Wyjątek jest dozwolony
+tylko dla zdjęcia, które po przeliczeniu ma stan `geometry_incomplete` (`409
+IMAGE_GEOMETRY_EXCEPTION_NOT_INCOMPLETE`); ponowienie z tym samym powodem jest
+idempotentne, z innym — `409 IMAGE_GEOMETRY_EXCEPTION_ALREADY_SET`. W tej samej
+transakcji tnie plansze `ok` i częściowe z zatwierdzoną kwalifikacją (D-449).
+Wycofanie przelicza stan (zwykle z powrotem `geometry_incomplete`), niczego nie
+usuwa i jest odrzucane po decyzji człowieka na komórkach zdjęcia (`409
+IMAGE_GEOMETRY_EXCEPTION_HUMAN_DECISIONS_PRESENT`) albo bez wyjątku (`409
+IMAGE_GEOMETRY_EXCEPTION_NOT_SET`). Zdjęcie innej gry: `404
+IMAGE_GEOMETRY_SOURCE_IMAGE_NOT_FOUND`; nieznana gra: `404
+IMAGE_REVIEW_GAME_NOT_FOUND`; pusty powód: `422`.
 
 Lista źródeł zwraca stabilny ranking zaakceptowanych plansz tej samej sekwencji,
 jawne metryki jakości, provenance, automatyczny rank i aktualny wybór. Komenda

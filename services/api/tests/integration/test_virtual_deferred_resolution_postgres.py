@@ -58,6 +58,9 @@ from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleRepository,
 )
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    SqlAlchemyImageGeometryCompletenessStateRepository,
+)
 from game_predictor_api.storage.models import (
     ImageBoardGeometryPendingModel,
     ImageBoardGeometryRevisionModel,
@@ -209,6 +212,7 @@ def _seed(
     label: str,
     slot_count: int,
     expected_geometry_revision: int = 0,
+    sequence_base: int = 100,
 ) -> _Seed:
     relative_path = f"originals/{label}.jpg"
     source_path = _write_source(artifact_root, relative_path, seed=len(label) * 31 + slot_count)
@@ -327,7 +331,7 @@ def _seed(
                 "finalQuad": None,
                 "initialQuad": quad,
                 "positionIndex": slot,
-                "sequenceNumber": 100 + slot,
+                "sequenceNumber": sequence_base + slot,
             }
             for slot in range(slot_count)
         ]
@@ -337,8 +341,8 @@ def _seed(
                 source_image_id=source.id,
                 topology_rules_version_id=rules.id,
                 revision=0,
-                sequence_range_start=100,
-                sequence_range_end=100 + slot_count - 1,
+                sequence_range_start=sequence_base,
+                sequence_range_end=sequence_base + slot_count - 1,
                 active_board_slots=list(range(slot_count)),
                 coordinate_space="exif-normalized-rgb-pixels-v1",
                 source_checksum_sha256=checksum,
@@ -371,7 +375,7 @@ def _seed(
                 source_checksum_sha256=checksum,
                 source_relative_path=relative_path,
                 position_index=slot,
-                sequence_number=100 + slot,
+                sequence_number=sequence_base + slot,
                 pipeline_fingerprint_sha256=_PIPELINE,
                 estimator_version="task-0760-estimator",
                 estimator_fingerprint_sha256="2" * 64,
@@ -585,6 +589,22 @@ def test_reviewer_resolution_writes_virtual_boards_through_the_application(
     assert conflict.json()["code"] == "IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT"
     assert partial.status_code == 200, partial.text
     assert partial.json()["created"] is True
+
+    # TASK-0807 (D-484): one full and one partial board leave the image
+    # incomplete, so neither board is cut into symbol cells until an operator
+    # exception admits the image (the partial board has an approved
+    # qualification, D-449).
+    with game_storage_scope(game_id), factory() as session:
+        assert _state(session, seed.pending_ids[0])["review_cells"] == []
+        assert _state(session, seed.pending_ids[1])["review_cells"] == []
+        source = session.get(SourceImageModel, seed.source_image_id)
+        assert source is not None
+        assert source.geometry_completeness_status == "geometry_incomplete"
+    with game_storage_scope(game_id), factory.begin() as session:
+        admitted = SqlAlchemyImageGeometryCompletenessStateRepository(session).set_exception(
+            game_id, seed.source_image_id, reason="partial board", actor="task-0807"
+        )
+    assert admitted is not None and admitted.materialized_review_item_count == 2
 
     with game_storage_scope(game_id), factory() as session:
         full = _state(session, seed.pending_ids[0])

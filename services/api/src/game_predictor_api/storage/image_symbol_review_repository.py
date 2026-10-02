@@ -119,6 +119,9 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
 )
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    withheld_review_item_ids,
+)
 from game_predictor_api.storage.models import (
     BoardRenderManifestModel,
     GameModel,
@@ -439,6 +442,9 @@ class SymbolCellReviewBackfillStep:
     report: SymbolCellReviewBackfillReport
     processed_review_item_count: int
     has_more: bool
+    # D-484 (TASK-0807): boards of incomplete images skipped with the reason
+    # ``SOURCE_IMAGE_GEOMETRY_INCOMPLETE``; they are cut once admitted.
+    geometry_withheld_review_item_count: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -1892,10 +1898,32 @@ class SymbolCellReviewWriteThroughCoordinator:
     SQLAlchemy session, so running the projection here makes a board mutation,
     its 15 cells and its search/canonical changes commit or roll back together.
     No cell state is materialised before a game's explicit backfill starts.
+
+    D-484 (TASK-0807): a board whose source image is not admitted by the
+    geometry gate and has no cells yet is not cut; its id is recorded in
+    ``geometry_withheld_review_item_ids`` (reason
+    ``SOURCE_IMAGE_GEOMETRY_INCOMPLETE``). Existing cells keep being maintained.
     """
 
     def __init__(self, session: Session) -> None:
         self._session = session
+        self.geometry_withheld_review_item_ids: set[UUID] = set()
+
+    def synchronize_after_geometry_admission(
+        self,
+        *,
+        game_id: UUID,
+        review_item_id: UUID,
+        actor: str = _WRITE_THROUGH_ACTOR,
+    ) -> bool:
+        """Cut a board whose image the geometry gate just admitted (TASK-0807)."""
+
+        return self._synchronize(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            reason="geometry_admission",
+            actor=actor,
+        )
 
     def synchronize_after_board_resolution(
         self,
@@ -1999,6 +2027,9 @@ class SymbolCellReviewWriteThroughCoordinator:
         if board.completeness_status == "pending_partial":
             return False
         if item.status != "pending":
+            return False
+        if self._geometry_withheld(game_id=game_id, item=item, board=board, source=source):
+            # No cells to derive a decision from until the image is admitted.
             return False
         sequence_number = _current_sequence_number(item=item, board=board)
         if sequence_number is None:
@@ -2190,6 +2221,9 @@ class SymbolCellReviewWriteThroughCoordinator:
             # visibility is still a catalog change for a frozen bulk filter.
             self._touch_catalog_revision(state)
             return True
+        if self._geometry_withheld(game_id=game_id, item=item, board=board, source=source):
+            # D-484: the image is not admitted and this board was never cut.
+            return False
 
         sequence_number = _current_sequence_number(item=item, board=board)
         if sequence_number is None:
@@ -2832,6 +2866,21 @@ class SymbolCellReviewWriteThroughCoordinator:
 
     def _refresh_search_projection(self, review_item_id: UUID) -> None:
         SqlAlchemyBoardSearchProjectionRepository(self._session).sync_review_item(review_item_id)
+
+    def _geometry_withheld(
+        self,
+        *,
+        game_id: UUID,
+        item: ImageReviewItemModel,
+        board: RecognizedBoardModel,
+        source: SourceImageModel,
+    ) -> bool:
+        if item.id not in withheld_review_item_ids(
+            self._session, game_id, ((item.id, board, source),)
+        ):
+            return False
+        self.geometry_withheld_review_item_ids.add(item.id)
+        return True
 
     def _state_if_initialized(self, game_id: UUID) -> ImageSymbolReviewStateModel | None:
         return self._session.get(
@@ -4188,8 +4237,16 @@ class SqlAlchemyImageSymbolReviewRepository:
                 processed_review_item_count=0,
                 has_more=False,
             )
+        # D-484 (TASK-0807): boards of incomplete images are not cut; the
+        # cursor still moves over them (they are cut once the image is admitted).
+        withheld = withheld_review_item_ids(
+            self._session,
+            game_id,
+            ((item.id, board, source) for _document, item, board, source, _queue, _job in rows),
+        )
+        admitted_rows = tuple(row for row in rows if row[1].id not in withheld)
         try:
-            values = self._cell_values(rows)
+            values = self._cell_values(admitted_rows) if admitted_rows else []
         except SymbolCellReviewBackfillError as error:
             self._mark_failed(state, error)
             self._session.flush()
@@ -4229,7 +4286,7 @@ class SqlAlchemyImageSymbolReviewRepository:
                 ),
             )
         coordinator = SymbolCellReviewWriteThroughCoordinator(self._session)
-        for _document, item, _board, _source, _queue, _job in rows:
+        for _document, item, _board, _source, _queue, _job in admitted_rows:
             coordinator.synchronize_for_backfill_reconciliation(
                 game_id=game_id, review_item_id=item.id
             )
@@ -4241,6 +4298,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             report=self._report_from_state(state),
             processed_review_item_count=len(rows),
             has_more=len(rows) == batch_size,
+            geometry_withheld_review_item_count=len(withheld),
         )
 
     def begin_reconciliation_pass(self, game_id: UUID) -> SymbolCellReviewBackfillReport:
@@ -4693,7 +4751,24 @@ class SqlAlchemyImageSymbolReviewRepository:
             .having(func.count(ImageSymbolReviewCellModel.id) != expected_count)
             .order_by(ImageBoardSearchFastDocumentModel.review_item_id)
         )
-        return tuple(cast(UUID, value) for value in self._session.scalars(counts))
+        incomplete = tuple(cast(UUID, value) for value in self._session.scalars(counts))
+        if not incomplete:
+            return ()
+        # D-484 (TASK-0807): a board the geometry gate withholds has no cells
+        # by design; it is not an incomplete backfill.
+        rows = self._session.execute(
+            select(ImageReviewItemModel.id, RecognizedBoardModel, SourceImageModel)
+            .join(
+                RecognizedBoardModel,
+                RecognizedBoardModel.id == ImageReviewItemModel.recognized_board_id,
+            )
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .where(ImageReviewItemModel.id.in_(incomplete))
+        ).tuples()
+        withheld = withheld_review_item_ids(self._session, game_id, rows)
+        return tuple(
+            review_item_id for review_item_id in incomplete if review_item_id not in withheld
+        )
 
     def _selected_items_with_stale_geometry(self, game_id: UUID) -> tuple[UUID, ...]:
         statement = (

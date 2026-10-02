@@ -1754,6 +1754,29 @@ class SourceImageModel(Base):
             "AND normalized_pixel_checksum_sha256 ~ '^[0-9a-f]{64}$')",
             name="ck_source_images_coordinate_metadata",
         ),
+        # D-484 gate (TASK-0807, migration 0139).
+        CheckConstraint(
+            "geometry_completeness_status IS NULL OR geometry_completeness_status IN "
+            "('geometry_complete', 'geometry_incomplete', 'geometry_exception')",
+            name="ck_source_images_geometry_completeness_status",
+        ),
+        CheckConstraint(
+            "geometry_completeness_status IS NULL "
+            "OR geometry_completeness_evaluated_at IS NOT NULL",
+            name="ck_source_images_geometry_completeness_evaluated",
+        ),
+        CheckConstraint(
+            "(geometry_completeness_status = 'geometry_exception' "
+            "AND geometry_exception_reason IS NOT NULL "
+            "AND length(btrim(geometry_exception_reason)) > 0 "
+            "AND geometry_exception_by IS NOT NULL "
+            "AND length(btrim(geometry_exception_by)) > 0 "
+            "AND geometry_exception_at IS NOT NULL) OR "
+            "(geometry_completeness_status IS DISTINCT FROM 'geometry_exception' "
+            "AND geometry_exception_reason IS NULL AND geometry_exception_by IS NULL "
+            "AND geometry_exception_at IS NULL)",
+            name="ck_source_images_geometry_exception",
+        ),
         UniqueConstraint(
             "import_job_id",
             "checksum_sha256",
@@ -1798,6 +1821,16 @@ class SourceImageModel(Base):
     processed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
         nullable=True,
+    )
+    # D-484 gate (TASK-0807): NULL = not evaluated or outside the gate.
+    geometry_completeness_status: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    geometry_completeness_evaluated_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    geometry_exception_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    geometry_exception_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    geometry_exception_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
 
 

@@ -48,6 +48,9 @@ from game_predictor_api.storage.cell_render_specs import (
     CellRenderSpecError,
 )
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    SqlAlchemyImageGeometryCompletenessStateRepository,
+)
 from game_predictor_api.storage.image_symbol_review_repository import (
     SqlAlchemySymbolCellReviewQueryRepository,
 )
@@ -246,6 +249,12 @@ def test_switched_readers_reproduce_the_cell_column_from_the_manifest(
     factory = _factory(database.engine)
     seed = _seed(factory, game_id, artifact_root, label="task0792-source", slot_count=2)
     _resolve_full_and_partial(database, artifact_root, seed)
+    # TASK-0807 (D-484): a full and a partial board leave the image
+    # incomplete; an operator exception admits it so both boards are cut.
+    with game_storage_scope(game_id), factory.begin() as session:
+        SqlAlchemyImageGeometryCompletenessStateRepository(session).set_exception(
+            game_id, seed.source_image_id, reason="partial board", actor="task-0807"
+        )
 
     with game_storage_scope(game_id), factory() as session, session.begin():
         _managed_source(artifact_root, game_id, session)

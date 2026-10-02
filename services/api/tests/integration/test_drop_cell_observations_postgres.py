@@ -95,6 +95,17 @@ def database() -> Iterator[_Database]:
         connection.exec_driver_sql(f'CREATE DATABASE "{name}"')
     try:
         command.upgrade(config, _BEFORE)
+        with engine.begin() as connection:
+            # The current ORM maps the geometry gate columns of migration 0139
+            # (TASK-0807); this pre-0134 schema gets them on the test database only.
+            connection.exec_driver_sql(
+                "ALTER TABLE game_data_v2.source_images "
+                "ADD COLUMN geometry_completeness_status varchar(24), "
+                "ADD COLUMN geometry_completeness_evaluated_at timestamptz, "
+                "ADD COLUMN geometry_exception_reason text, "
+                "ADD COLUMN geometry_exception_by varchar(200), "
+                "ADD COLUMN geometry_exception_at timestamptz"
+            )
         yield _Database(engine=engine, config=config)
     finally:
         engine.dispose()

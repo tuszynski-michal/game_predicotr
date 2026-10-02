@@ -26,6 +26,12 @@ from game_predictor_api.storage.board_render_manifest_repository import (
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
 )
+from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    active_review_item_ids,
+    recompute_source_image_geometry_completeness,
+    recompute_source_images_of_review_items,
+    repoint_live_boards_to_newest_source_revision,
+)
 from game_predictor_api.storage.image_geometry_v2_repository import (
     ImageGeometryPersistenceError,
     SourceGeometryRevisionInput,
@@ -79,6 +85,7 @@ from .pipeline_execution import (
 
 NON_VIRTUAL_BOARD_WRITE_ERROR = "IMAGE_PIPELINE_NON_VIRTUAL_BOARD_REJECTED"
 """D-467 (TASK-0790): only ``virtual_source`` boards may be projected."""
+_PIPELINE_ACTOR = "system:image-pipeline"
 
 
 class ImagePipelineStoreError(JobHandlerError):
@@ -284,7 +291,7 @@ class SqlAlchemyImagePipelineStore:
                 )
             sequence_numbers = tuple(cast(int, board["sequenceNumber"]) for board in boards)
             try:
-                SqlAlchemyImageSourceGeometryRepository(session).append(
+                stored = SqlAlchemyImageSourceGeometryRepository(session).append(
                     SourceGeometryRevisionInput(
                         game_id=job.game_id,
                         source_image_id=source.id,
@@ -331,6 +338,13 @@ class SqlAlchemyImagePipelineStore:
                 )
             except ImageGeometryPersistenceError as error:
                 raise ImagePipelineStoreError(error.code, str(error)) from error
+            # D-484 (TASK-0807): a reprocessed source re-points its identical
+            # boards to the new revision; the image's gate status follows.
+            if stored.created:
+                repoint_live_boards_to_newest_source_revision(session, job.game_id, source.id)
+            recompute_source_image_geometry_completeness(
+                session, job.game_id, source.id, actor=_PIPELINE_ACTOR
+            )
 
     def project_recognition(
         self,
@@ -654,11 +668,31 @@ class SqlAlchemyImagePipelineStore:
             )
             source.processed_at = executed_at
             session.flush()
+            # D-484 (TASK-0807): the gate status of the image is recomputed in
+            # this transaction before any board is cut or projected. Boards of
+            # an incomplete image are withheld by the write-through below; an
+            # image that became complete gets all its active boards cut here.
+            gate = recompute_source_image_geometry_completeness(
+                session, job.game_id, source.id, actor=_PIPELINE_ACTOR, materialize=False
+            )
+            synchronized_review_item_ids = set(changed_review_item_ids)
+            if gate.became_admitted:
+                synchronized_review_item_ids.update(
+                    active_review_item_ids(session, job.game_id, source.id)
+                )
+            # Boards of other images that lost their pending sequence ownership.
+            recompute_source_images_of_review_items(
+                session,
+                job.game_id,
+                changed_review_item_ids,
+                exclude_source_image_id=source.id,
+                actor=_PIPELINE_ACTOR,
+            )
             SqlAlchemyBoardSearchProjectionRepository(session).sync_review_items(
-                tuple(changed_review_item_ids)
+                tuple(synchronized_review_item_ids)
             )
             coordinator = SymbolCellReviewWriteThroughCoordinator(session)
-            for review_item_id in sorted(changed_review_item_ids, key=str):
+            for review_item_id in sorted(synchronized_review_item_ids, key=str):
                 coordinator.synchronize_after_prediction_refresh(
                     game_id=job.game_id,
                     review_item_id=review_item_id,
@@ -863,6 +897,11 @@ class SqlAlchemyImagePipelineStore:
             item.resolution_revision = revision
             board.status = action
             session.flush()
+            if action == "rejected":
+                # D-484 (TASK-0807): a rejected board is no longer live.
+                recompute_source_image_geometry_completeness(
+                    session, game_id, board.source_image_id, actor=actor
+                )
             projection = SqlAlchemyBoardSearchProjectionRepository(session)
             projection.sync_review_item(review_item_id)
             if isinstance(sequence_number, int) and not isinstance(sequence_number, bool):

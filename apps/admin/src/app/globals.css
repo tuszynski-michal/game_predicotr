@@ -7415,6 +7415,116 @@ div.imageJobInlineError {
   font-size: 12px;
 }
 
+/* D-484 geometry completeness section (TASK-0806). */
+.geometryScopeControls {
+  grid-template-columns: max-content minmax(170px, 1fr);
+}
+
+.geometryMetrics {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+}
+
+.geometryFilterTabs {
+  flex-wrap: wrap;
+  margin: 12px 20px 0;
+  width: max-content;
+  max-width: calc(100% - 40px);
+}
+
+.geometryImageList {
+  margin-top: 12px;
+}
+
+.geometryImageItem strong {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  overflow-wrap: anywhere;
+}
+
+.geometryStateBadge {
+  padding: 3px 8px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.geometryPreview {
+  display: block;
+  width: 100%;
+  max-width: 720px;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: rgba(5, 12, 22, 0.5);
+}
+
+.geometryQuad polygon {
+  stroke: currentColor;
+}
+
+.geometryQuad text {
+  fill: currentColor;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: rgba(5, 12, 22, 0.85);
+  stroke-width: 0.35em;
+}
+
+.geometryTone-ok {
+  color: var(--accent);
+}
+
+.geometryTone-warning {
+  color: var(--warning);
+}
+
+.geometryTone-danger {
+  color: var(--danger);
+}
+
+.geometryTone-muted {
+  color: var(--muted);
+}
+
+.geometryPositionList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.importCompactList li.geometryPositionChip {
+  display: grid;
+  gap: 2px;
+  padding: 6px 9px;
+  border: 1px solid currentColor;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.importCompactList li.geometryPositionChip > span {
+  color: inherit;
+}
+
+.geometryLowQuality {
+  border-top: 1px solid var(--line);
+}
+
+/* D-484 gate (TASK-0807): status, exception and correction of one image. */
+.geometryGateControls {
+  display: grid;
+  gap: 6px;
+}
+
+.geometryLowQualityControls {
+  grid-template-columns: minmax(120px, 1fr) minmax(120px, 1fr) max-content;
+}
+
 .importComposer label,
 .importReportControls label,
 .importRowFilters label,

@@ -82,6 +82,14 @@ def test_worker_mixed_protected_and_auto_locks_all_sequences_before_source_and_s
     monkeypatch.setattr(worker, "_pending_board_geometry_count", lambda *a, **kw: 0)
     monkeypatch.setattr(worker, "_append_prediction_revision", Mock())
     monkeypatch.setattr(worker, "SqlAlchemyBoardSearchProjectionRepository", Mock())
+    # TASK-0807: the import writer recomputes the image's geometry gate status
+    # in the same transaction, after the source lock and before the cell state.
+    monkeypatch.setattr(
+        worker,
+        "recompute_source_image_geometry_completeness",
+        lambda *a, **kw: events.append("gate") or NS(became_admitted=False),
+    )
+    monkeypatch.setattr(worker, "recompute_source_images_of_review_items", Mock())
     coordinator = Mock()
     coordinator.synchronize_after_prediction_refresh.side_effect = lambda **kw: events.append(
         "state"
@@ -127,7 +135,7 @@ def test_worker_mixed_protected_and_auto_locks_all_sequences_before_source_and_s
         candidate, stage_results=stages
     )
     assert events[:3] == ["lease", ("sequence", (1, 2)), "source"]
-    assert events[-1] == "state"
+    assert events[-2:] == ["gate", "state"]
     created = [call.args[0] for call in session.add.call_args_list]
     assert len(created) == 1 and created[0].position_index == 1
 

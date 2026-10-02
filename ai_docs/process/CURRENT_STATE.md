@@ -18,26 +18,129 @@ last_updated: 2026-10-01
   (numer sprzed scalenia; zadanie przenumerowane z 0730 z powodu kolizji).
   Scalone do `v1.1-vision-lab-hybrid-geometry` commitem `v1.7.132`.
 
-### Hybrydowy silnik siatek V3 — plan do akceptacji (korekta 2026-10-02)
+### Hybrydowy silnik siatek V3 — plan zaakceptowany, etap V3-0 w toku (2026-10-01)
 
-- Plan `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` ma status
-  `proposed`; uzupełnia etap D planu Vision Lab (T10). Korekta operatora z
-  2026-10-02: gra 777 jest poza zakresem (plan nie czyta ani nie zmienia
-  danych produkcyjnych i nie używa zatwierdzonych plansz ani decyzji o
-  symbolach 777 jako danych uczących lub odniesienia), budżet treningu
-  pozostaje bez zmian (smoke do 50 kroków, jeden trening do 20 epok lub
-  30 minut), symbole wybiera się dopiero z cropów poprawnych siatek.
-- Nadrzędna reguła: jednostką geometrii jest zdjęcie; dopóki wszystkie
-  oczekiwane plansze zdjęcia nie mają poprawnej siatki, żadna plansza nie
-  jest cięta na symbole ani nie wchodzi do treningu. Obowiązuje w labie i
-  w przyszłej integracji V3 dla nowych gier.
-- Etapy: V3-0 stan kompletności zdjęcia w labie (TASK-0800), V3-A
-  anotacja wspomagana kompletnych zdjęć i nowa wersja podziału
-  (TASK-0801), V3-B `neural_grid` i `hybrid_v3` z bramką kompletności
-  (TASK-0802, 0803), V3-C ocena (TASK-0804), V3-D integracja dla nowych
-  gier (TASK-0805). Numery TASK-0800–0805 są zarezerwowane dla tego planu;
-  pliki zadań powstają przy uruchomieniu etapu. Pięć decyzji do
-  potwierdzenia jest w planie.
+- 2026-10-01 operator zaakceptował wszystkie pięć decyzji planu
+  `ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` (status
+  `accepted`): D-484 bramka kompletności zdjęcia (wymaganie w
+  `IMAGE_INGESTION.md`), D-480 geometria produkcyjna 777 jako dane uczące,
+  D-481 budżet treningu, D-482 etap D bez etapu C, D-483 metryka nadrzędna.
+  Operator uruchomił etap V3-0 (TASK-0806, potem TASK-0807); po etapie STOP.
+- Praca w worktree `worktrees/grid-engine-v3`, gałąź `feat/grid-engine-v3`
+  od `v1.7.134` / `a6f8635f`. `.venv` worktree to cienkie środowisko z
+  plikiem `.pth` wskazującym pakiety głównego checkoutu i edytowalną
+  instalacją kodu worktree (obejście zamiast pełnej instalacji zależności).
+- Kontrola bazy 2026-10-01 (777): 56 816 zdjęć, 56 710 z kompletem
+  rozpoznanych plansz, 99 bez plansz (`processing`), 7 niepełnych; plansze
+  z automatyczną rewizją `needs_review` bez zatwierdzenia: 1 729,
+  `pending_partial`: 108.
+- Pliki zadań: `ai_docs/tasks/0806-image-geometry-completeness-report.md`,
+  `ai_docs/tasks/0807-image-geometry-completeness-gate.md`. TASK-0807
+  kończy się migracją zweryfikowaną na bazach `*_test`; migracja bazy
+  deweloperskiej wymaga osobnej zgody i skoordynowanego przejścia.
+- Akceptacja planu, decyzje i pliki zadań: commit `v1.7.135` / `ef5e4079`
+  (numer sprzed scalenia; na gałęzi integracyjnej `v1.7.135` to TASK-0797).
+- TASK-0806 done (`v1.7.136` / `0bcbff63`): raport kompletności geometrii
+  zdjęć tylko do odczytu — trzy endpointy pod
+  `/admin/image-review-items/geometry-completeness/{gameId}` (liczniki,
+  lista zdjęć niekompletnych, sygnał niskiej jakości symboli) i sekcja
+  „Kompletność siatek zdjęć” w „Import plansz”. Stan 777 z raportu: 56 812
+  zdjęć, 56 413 kompletnych, 399 niekompletnych (94 z brakującą planszą, 60
+  z planszą częściową, 237 z siatką niepotwierdzoną, 8 bez geometrii
+  źródła); pozycje: 1 703 niepotwierdzone, 108 częściowych, 842 brakujące,
+  0 odroczonych. Odbiór w przeglądarce na instancji worktree (Admin
+  `127.0.0.1:3020`, API `127.0.0.1:8020`).
+- `v1.7.137` / `a6426f3f`: scalenie gałęzi integracyjnej (migracja `0138`,
+  TASK-0784, TASK-0797). Decyzja bramki kompletności ma numer **D-484**
+  (D-479 zajął tor „Przybliżonej wygranej”); pozostałe decyzje planu to
+  D-480–D-483.
+- Otwarte po TASK-0806, do decyzji operatora przy STOP V3-0: (1) 1 703
+  plansze na 240 zdjęciach wskazują starą automatyczną rewizję
+  `needs_review`, choć zdjęcie ma nowszą ręczną rewizję `accepted`
+  (`system:legacy-board-conversion-v1`) — dziś liczone jako niepotwierdzone;
+  (2) plansze o statusie `rejected` (10 390) liczą się jak plansze z siatką;
+  (3) 99 zdjęć bez żadnej planszy nie ma podglądu pliku w liście.
+- 2026-10-02: wykonawca TASK-0807 został przerwany razem z sesją i nie
+  zostawił zmian (worktree czysty); zadanie pozostaje `todo`.
+- 2026-10-02, ustalenia z bazy (tylko `SELECT`) do pytań operatora:
+  (1) z 1 703 plansz na starej rewizji 449 to żywe plansze na 79 zdjęciach
+  po konwersji legacy z 2026-10-01 (operator polecił je przepiąć na
+  najnowszą rewizję zdjęcia i utrzymać tę regułę), a 1 254 to plansze
+  odrzucone; (2) 10 389 z 10 390 plansz `rejected` należy do zduplikowanego
+  importu `7d10ae0a` (zastąpione przez `pending_sequence_replaced_by_newer_import`,
+  każdy numer ma żywą planszę gdzie indziej, bez komórek); (3) 99 zdjęć bez
+  plansz to nieudane pliki importu (88 `IMAGE_STAGE_EXECUTION_FAILED`, 6
+  `IMAGE_STAGE_RESULT_INVALID`, 5
+  `IMAGE_VIRTUAL_CELL_SOURCE_SUPPORT_INCOMPLETE`); pliki istnieją, 73 mają
+  ten sam SHA zaimportowany poprawnie w innym imporcie. Propozycja czekająca
+  na potwierdzenie operatora: raport nie liczy pozycji zastąpionych nowszym
+  importem, pokazuje kod błędu importu, podgląd po `source_image_id`.
+- 2026-10-02: do planu dodano regułę izolacji danych per gra i TASK-0809
+  (kontrola izolacji i gotowości na nową grę, bez zmian schematu). Kontrola
+  bazy: 63 tabele gry partycjonowane `LIST (game_id)`, 3 gry × 63 partycje,
+  RLS na wszystkich, zapytanie jednej gry dotyka tylko jej partycji; żadna
+  zmiana schematu nie jest potrzebna dla izolacji.
+- 2026-10-02 operator: osobna baza PostgreSQL per gra odrzucona (partycje
+  wystarczają); potwierdzony tor TASK-0808 → TASK-0807 → TASK-0809; zgoda
+  na migrację `0139`, backfill i potrzebne zatrzymanie usług na bazie
+  deweloperskiej przy STOP V3-0. Usunięcie duplikatu `7d10ae0a` nie zostało
+  zlecone.
+- TASK-0808 done (`v1.7.141`): plansza `rejected` nie jest planszą z
+  siatką; stany `superseded` (pozycja i zdjęcie) oraz `import_failed`;
+  odczyt pliku źródłowego po `source_image_id`
+  (`GET …/geometry-completeness/{gameId}/images/{sourceImageId}/source`);
+  `previewReviewItemId` usunięte z listy. Stan 777: 56 812 zdjęć, 55 423
+  kompletne, 136 niekompletnych (60 z planszą częściową, 76 z siatką
+  niepotwierdzoną — 449 pozycji), 1 253 zastąpione nowszym importem
+  (11 232 pozycje), 0 brakujących, 0 `import_failed`.
+- 2026-10-02: na gałęzi integracyjnej istniała równoległa korekta planu
+  (`v1.7.141` / `06584ad7`: 777 poza zakresem, bramka tylko w labie, budżet
+  30 minut, status `proposed`). Operator rozstrzygnął sprzeczność:
+  obowiązuje wersja planu z tej gałęzi (`accepted`, D-480–D-484, bramka w
+  pipeline produkcyjnym, TASK-0806–0809); korekta jest zastąpiona przy
+  scaleniu `v1.7.144`. Pozostałe okna nie pracują już nad V3; gałąź
+  integracyjna jest wolna do wdrożenia.
+- `v1.7.144` / `76623320`: scalenie gałęzi integracyjnej (do `v1.7.143`).
+- TASK-0807 (`v1.7.145` / `17c6a27f`), kod gotowy, wdrożenie na bazie
+  deweloperskiej jeszcze niewykonane: migracja `0139` (stan kompletności i
+  wyjątek operatora na `source_images`), przeliczanie stanu w transakcji
+  każdego zapisu geometrii, bramka w materializacji komórek i projekcji
+  wyszukiwarki, przepinanie plansz na najnowszą rewizję źródła, wyjątek
+  operatora w Admin API, backfill z podglądem
+  (`npm run images:geometry-completeness:backfill`), kolejka w Adminie.
+  Rozstrzygnięcia wykonawcze: D-485. Oczekiwany wynik backfillu 777: 55 499
+  `geometry_complete`, 60 `geometry_incomplete` (plansze częściowe, mają
+  komórki), 1 253 poza bramką; 449 plansz do przepięcia, 0 nieprzepinalnych.
+  Zadanie zostaje w `ai_docs/tasks/` ze statusem `in_progress` do czasu
+  wdrożenia. Pełny `db:baseline:verify`: 19 testów nie przechodzi także
+  przed zadaniem (osobne zadanie porządkowe).
+- TASK-0809 done (`v1.7.146` / `063c3970`): test nowej gry obok dużej —
+  komplet 63 partycji, kolumny `0139`, bramka i komórki działają od
+  pierwszego importu, plany czterech ścieżek dotykają wyłącznie partycji
+  tej gry; test strażniczy tabel gry; raport
+  `ai_docs/quality/PER_GAME_ISOLATION_20261002.md`. Tabele współdzielone
+  pipeline (ok. 0,6 GB) bez podziału. CHECK wyjątku poprawiony na odporny
+  na `NULL` przed wdrożeniem.
+- STOP V3-0, do wykonania: zatrzymanie API `8000` → scalenie
+  `feat/grid-engine-v3` do `v1.1-vision-lab-hybrid-geometry` →
+  `npm run db:migrate` → podgląd i wykonanie backfillu → start API.
+  Operator wyraził zgodę 2026-10-02; próba orkiestratora została
+  zablokowana przez uprawnienia sesji (zmiana zasobów współdzielonych).
+
+Stan sprzed akceptacji (zachowany dla kontekstu):
+
+- Plan uzupełnia etap D planu Vision Lab (T10). Zawierał pięć decyzji
+  do potwierdzenia przez operatora (geometria produkcyjna 777 jako dane
+  uczące, budżet treningu, kolejność etapów, metryka nadrzędna, bramka
+  kompletności zdjęcia w aplikacji).
+- Nadrzędna reguła planu: jednostką geometrii jest zdjęcie; żadna plansza
+  zdjęcia nie jest cięta na symbole, dopóki wszystkie oczekiwane plansze
+  nie mają poprawnej siatki (etap V3-0: TASK-0806 raport i kolejka zdjęć
+  niekompletnych, TASK-0807 egzekwowanie w pipeline). Dalej V3-A dane
+  (TASK-0800, 0801), V3-B `neural_grid` i `hybrid_v3` (TASK-0802, 0803),
+  V3-C ocena (TASK-0804), V3-D shadow (TASK-0805).
+- Pliki zadań powstają przy uruchomieniu etapu. Numery TASK-0800–0807 są
+  zarezerwowane dla tego planu.
 
 ### D-470 / D-471 — „Przybliżona wygrana”: linie, wykres, stawki; udostępnianie online (w toku)
 

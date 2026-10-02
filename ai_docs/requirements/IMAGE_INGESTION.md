@@ -1,10 +1,44 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-09-24
+last_updated: 2026-10-01
 ---
 
 # Import i rozpoznawanie zdjęć
+
+## Kompletność geometrii zdjęcia — D-484
+
+Jednostką geometrii jest zdjęcie źródłowe, nie plansza. Oczekiwaną liczbę
+plansz zdjęcia wyznacza `active_board_slots` bieżącej rewizji geometrii
+źródła (zakres numerów sekwencji; dla 777 zwykle 9).
+
+Plansza ma poprawną siatkę, gdy istnieje jako kompletna rozpoznana plansza
+i jej geometria jest zaakceptowana przez silnik bez zastrzeżeń albo
+zatwierdzona przez człowieka. Zdjęcie jest kompletne, gdy wszystkie
+oczekiwane plansze mają poprawną siatkę.
+
+- Dopóki zdjęcie nie jest kompletne, żadna jego plansza nie jest cięta na
+  symbole, nie trafia do weryfikacji symboli ani do wyszukiwarki. Pominięcie
+  ma jawny powód; plansze dołączają po skompletowaniu zdjęcia.
+- Zdjęcie niekompletne trafia do kolejki siatek całym zdjęciem.
+- Wyjątek (plansza fizycznie poza kadrem, kwalifikacja częściowa) wymaga
+  decyzji operatora dla konkretnego zdjęcia, zapisanej z autorem i powodem;
+  dopiero wtedy dostępne plansze idą do cięcia.
+- Każdy import i każdy przebieg silnika pokazuje liczbę zdjęć kompletnych i
+  niekompletnych oraz listę zdjęć z brakującymi albo niepewnymi siatkami,
+  zanim zacznie się praca nad symbolami. Licznik jest widoczny w panelu
+  importu.
+- Reguła dotyczy nowych importów i ponownych przebiegów. Dane istniejące
+  przed wdrożeniem dostają stan z raportu; wykonana praca nie jest cofana.
+
+Doprecyzowania D-485: plansza wstrzymanego zdjęcia zachowuje dokument
+numeru sekwencji w projekcji wyszukiwarki, ale bez dowodu symboli, więc nie
+jest wyszukiwalna; bramka blokuje tylko nową materializację i nie usuwa
+istniejących komórek ani decyzji; pozycje zastąpione nowszym importem nie
+są brakami; plansza częściowa wymaga wyjątku operatora.
+
+Raport i lista: TASK-0806, TASK-0808. Egzekwowanie w pipeline: TASK-0807. Plan:
+`ai_docs/delivery/GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md`.
 
 ## Testowy silnik geometrii V1.2 — TASK-0613
 

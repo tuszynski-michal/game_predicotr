@@ -191,6 +191,63 @@ ta rola (`SET LOCAL ROLE`), a na końcu rola jest usuwana. Test izolacji
 `test_application_role_isolation_postgres.py` loguje się rolą
 `LOGIN` (losowe hasło, ważne godzinę, usuwana po teście).
 
+## Migracja `0139` i backfill bramki kompletności geometrii (TASK-0807, D-484)
+
+Kod TASK-0807 wymaga `0139_source_image_geometry_completeness`
+(`EXPECTED_ALEMBIC_HEAD`). Migracja dodaje na rodzicu partycjonowanym
+`game_data_v2.source_images` pięć kolumn stanu bramki (`ADD COLUMN` bez
+przepisywania tabeli, `ACCESS EXCLUSIVE` z `lock_timeout = 5s`), trzy CHECK-i
+walidowane od razu (wszystkie wartości są `NULL`) i dwa indeksy częściowe.
+Manifest magazynu (v4) i lifecycle partycji się nie zmieniają. Do czasu
+backfillu każde zdjęcie ma status `NULL` i działa jak przed bramką.
+
+Backfill (`npm run images:geometry-completeness:backfill -- --game-id <uuid>`,
+skrypt `scripts/backfill_image_geometry_completeness.py`, rola właściciela):
+dla każdego zdjęcia bez oceny (`geometry_completeness_evaluated_at IS NULL`)
+najpierw przepina żywe plansze wskazujące starszą rewizję geometrii źródła na
+najnowszą, gdy jej wpis pozycji jest identyczny (wskaźniki planszy, manifestu
+renderu i komórek; piksele i decyzje bez zmian), a potem zapisuje status z
+klasyfikatora domenowego. Niczego nie usuwa i nie tnie nowych plansz.
+`--preview` (domyślnie) działa w transakcjach `READ ONLY` i liczy to samo bez
+zapisu; `--execute` zapisuje partie po ≤ 500 zdjęć, każda w osobnej
+transakcji. Oba tryby zapisują raport JSON i punkt kontrolny w
+`<artifact root>/data/exports/image-geometry-completeness/<gameId>/`;
+`--max-seconds` (domyślnie 100) przerywa bieg, a kolejne uruchomienie
+kontynuuje (kod wyjścia `3` = nieukończone); `--restart` zaczyna od nowa.
+Partia zatwierdzona wcześniej nie jest liczona drugi raz, bo ocenione zdjęcia
+są pomijane. Raport końcowy (`databaseSummary`) czyta z bazy liczbę zdjęć per
+status, nieocenionych i niekompletnych z istniejącymi komórkami.
+
+Przejście (cutover):
+
+1. Zaczekaj na koniec jobów albo zatrzymaj je bezpiecznie; zatrzymaj API,
+   workery i Reviewera **wszystkich** checkoutów i worktree (`8000`, `8010`,
+   `8020`, …); sprawdź `netstat -ano | findstr :80` (osierocone `--reload`).
+2. Scal kod; `npm run db:migrate`, `npm run db:current` →
+   `0139_source_image_geometry_completeness`.
+3. Podgląd: `npm run images:geometry-completeness:backfill -- --game-id <gameId> --preview`
+   (powtarzaj do `"completed": true`). Sprawdź `totals.statuses`,
+   `totals.repointedBoards`, `totals.notRepointableByReason` i
+   `totals.incompleteWithCells` z oczekiwaniem z raportu zadania.
+4. Zapis: `npm run images:geometry-completeness:backfill -- --game-id <gameId> --execute`
+   (powtarzaj do `"completed": true`); `databaseSummary.notEvaluated` = 0.
+5. Uruchom usługi; w Adminie sekcja „Kompletność siatek zdjęć” pokazuje
+   kolejkę siatek ze stanu w bazie.
+
+Wycofanie: zatrzymanie usług, `alembic downgrade
+0138_rls_policy_function_parallel_safe` rolą właściciela (odmawia
+`SOURCE_IMAGE_GEOMETRY_EXCEPTION_PRESENT`, dopóki istnieje wyjątek operatora —
+najpierw go wycofaj), kod sprzed TASK-0807. Przepięcie plansz backfillem nie
+jest cofane migracją (wskaźniki prowadzą do rewizji o identycznej geometrii).
+
+Zmiany zachowania: plansza zdjęcia `geometry_incomplete` bez komórek nie jest
+cięta na symbole i trafia do wyszukiwarki bez dowodów symboli (powód
+`SOURCE_IMAGE_GEOMETRY_INCOMPLETE`); po skompletowaniu siatek albo wyjątku
+operatora zdjęcie jest cięte w tej samej transakcji. Nowa rewizja geometrii
+źródła przepina identyczne plansze, więc ponowne odtworzenie
+(`project_recognition`) tego samego pliku po przepięciu kończy się
+`IMAGE_RECOGNIZED_BOARD_CONFLICT`, jak po każdej ręcznej korekcie.
+
 ## Migracja `0138`: równoległa funkcja polityki RLS i ścieżki bez gry (TASK-0797, D-467)
 
 Kod TASK-0797 wymaga `0138_rls_policy_function_parallel_safe`

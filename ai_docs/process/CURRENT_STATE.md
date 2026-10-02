@@ -202,6 +202,26 @@ last_updated: 2026-10-01
   treningowej 4,2%. Trening 6 000 zdjęć (3 000 S + 3 000 B, 21 rodzin),
   development 600 zdjęć (rodziny `0dbd07df`, `c0932585`, `299e7c72`), złoty
   102 zdjęcia. Snapshot v1 nietknięty.
+- TASK-0814 done (`v1.7.159`): druga runda przeglądu etykiet. Wynik
+  przeglądu operatora (600 plansz, ślepy, 2026-10-02): B 300/300 dobrych; S
+  294 dobre, 5 lekko naciętych, 1 zła — odsetek luźny 0,3% (Wilson 95%:
+  0,1–1,9%), ścisły 2,0% (0,9–4,3%); nacięcia skupione na pozycji 2 (prawa
+  górna plansza). Etykiety S i B nadają się do treningu.
+- D-486 (2026-10-02): symbole dla V3 przypisuje operator od nowa po pocięciu
+  nową siatką; stare etykiety tylko do porównania po fakcie.
+- TASK-0802 w toku (`v1.7.158`): `neural_grid` (dwa stopnie, MobileNetV3-Large
+  od zera, 3,3 mln + 3,3 mln parametrów). **Run 1 (preset A)**
+  `43933ac8…e2e6` zakończony w 3 h 40 min; najlepsza runda 3. Development
+  (600 zdjęć): 92,3% zdjęć kompletnych i poprawnych, 5 349 / 5 400 plansz
+  poprawnych, 100% plansz wykrytych, 0 fałszywych; B 99,3% zdjęć, S 85,3%.
+  Z 51 „błędnych” plansz 46 ma NME 0,02–0,03 (tuż za tolerancją), skupione
+  na pozycjach 2, 3, 5, 8 zdjęć S; przegląd wizualny 14 z nich (w tym obu z
+  NME > 0,10): w żadnej etykieta nie jest lepsza od sieci, dwie etykiety są
+  przesunięte o kolumnę albo rząd — pułap 92% wynika głównie z błędów
+  etykiet S, nie z błędów sieci. ONNX `exports\2cd19738…-round3`: parity
+  0,0008 px, CPU 0,18 s na zdjęcie (4 wątki). **Run 2 (preset B)**
+  `ff03b1d7…f31d` uruchomiony 2026-10-02 ok. 16:50 na polecenie operatora
+  (trzy runy); run 3 (preset C) po nim.
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

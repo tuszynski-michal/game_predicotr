@@ -6,6 +6,32 @@ last_updated: 2026-10-01
 
 # Decision Log
 
+## D-486 — symbole dla silnika V3 są wybierane i uczone od nowa, bez dotychczasowych etykiet
+
+- **Status:** accepted, 2026-10-02; polecenie operatora w trakcie etapu V3-B.
+- **Decision:** rozpoznawanie symboli dla zdjęć ciętych siatkami silnika V3
+  (nowe importy 777 i nowe gry) powstaje od nowa: zbiór symboli i ich
+  etykiety są wybierane z cropów poprawnych siatek i potwierdzane przez
+  operatora. Dotychczasowe decyzje i predykcje symboli (`assigned_symbol_id`,
+  biblioteka wzorców, modele v1.1) nie są danymi uczącymi ani etykietami
+  startowymi, bo mogą zawierać błędy. Kolejność pozostaje: najpierw
+  zamknięta geometria całego zdjęcia (D-484), potem symbole.
+- **Boundaries:** nie zmienia istniejących danych 777 ani działającej
+  weryfikacji symboli. Filtr zgodności symboli użyty do wyboru zdjęć
+  treningowych geometrii (TASK-0801) pozostaje ważny — służył wyłącznie do
+  odsiania podejrzanych siatek, nie do uczenia symboli. Po pocięciu zdjęć
+  nową siatką symbole przypisuje operator od zera. Operator zgodził się
+  2026-10-02 na użycie dotychczasowych etykiet **wyłącznie po fakcie** jako
+  niezależnego porównania: lista komórek, w których nowe przypisanie i stara
+  etykieta się różnią, do przejrzenia przez operatora. Stare etykiety nie
+  wpływają na trening, na propozycje pokazywane przy przypisywaniu ani na
+  wynik bez decyzji operatora.
+- **Consequences:** etap symboli (etap C planu Vision Lab, T06b–T09) wymaga
+  własnego planu dla V3: sposób wyboru zbioru symboli, narzędzie etykietowania
+  i budżet pracy operatora. Wymaganie „super symboli” gry Mumie (ramka albo
+  fragment komórki decyduje o klasie premium) wchodzi do tego planu jako
+  otwarte pytanie o margines wycinka komórki.
+
 ## D-485 — bramka kompletności: stan trwały zdjęcia, dokument sekwencji bez dowodu symboli, przepinanie plansz (uzupełnia D-484)
 
 - **Status:** accepted, 2026-10-02; rozstrzygnięcia wykonawcze TASK-0807

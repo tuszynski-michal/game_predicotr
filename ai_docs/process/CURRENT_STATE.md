@@ -100,8 +100,32 @@ last_updated: 2026-10-01
   pipeline produkcyjnym, TASK-0806–0809); korekta jest zastąpiona przy
   scaleniu `v1.7.144`. Pozostałe okna nie pracują już nad V3; gałąź
   integracyjna jest wolna do wdrożenia.
-- Następne: TASK-0807 (bramka, przepinanie plansz, migracja), TASK-0809
-  (izolacja per gra).
+- `v1.7.144` / `76623320`: scalenie gałęzi integracyjnej (do `v1.7.143`).
+- TASK-0807 (`v1.7.145` / `17c6a27f`), kod gotowy, wdrożenie na bazie
+  deweloperskiej jeszcze niewykonane: migracja `0139` (stan kompletności i
+  wyjątek operatora na `source_images`), przeliczanie stanu w transakcji
+  każdego zapisu geometrii, bramka w materializacji komórek i projekcji
+  wyszukiwarki, przepinanie plansz na najnowszą rewizję źródła, wyjątek
+  operatora w Admin API, backfill z podglądem
+  (`npm run images:geometry-completeness:backfill`), kolejka w Adminie.
+  Rozstrzygnięcia wykonawcze: D-485. Oczekiwany wynik backfillu 777: 55 499
+  `geometry_complete`, 60 `geometry_incomplete` (plansze częściowe, mają
+  komórki), 1 253 poza bramką; 449 plansz do przepięcia, 0 nieprzepinalnych.
+  Zadanie zostaje w `ai_docs/tasks/` ze statusem `in_progress` do czasu
+  wdrożenia. Pełny `db:baseline:verify`: 19 testów nie przechodzi także
+  przed zadaniem (osobne zadanie porządkowe).
+- TASK-0809 done (`v1.7.146` / `063c3970`): test nowej gry obok dużej —
+  komplet 63 partycji, kolumny `0139`, bramka i komórki działają od
+  pierwszego importu, plany czterech ścieżek dotykają wyłącznie partycji
+  tej gry; test strażniczy tabel gry; raport
+  `ai_docs/quality/PER_GAME_ISOLATION_20261002.md`. Tabele współdzielone
+  pipeline (ok. 0,6 GB) bez podziału. CHECK wyjątku poprawiony na odporny
+  na `NULL` przed wdrożeniem.
+- STOP V3-0, do wykonania: zatrzymanie API `8000` → scalenie
+  `feat/grid-engine-v3` do `v1.1-vision-lab-hybrid-geometry` →
+  `npm run db:migrate` → podgląd i wykonanie backfillu → start API.
+  Operator wyraził zgodę 2026-10-02; próba orkiestratora została
+  zablokowana przez uprawnienia sesji (zmiana zasobów współdzielonych).
 
 Stan sprzed akceptacji (zachowany dla kontekstu):
 

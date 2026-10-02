@@ -40,6 +40,13 @@ FORBIDDEN_ROLES: Final = frozenset({"gold", "final_test", "unseen_game", "valida
 PRESET_NAMES: Final = ("A", "B", "C")
 # D-490 (TASK-0825): the third budget run is the iterative Mumie fine-tune of run 1.
 FINETUNE_PRESET: Final = "D"
+# D-490 rules revision after iteration 1 of preset D: preset E is a rules-only preset. It
+# is never the preset of a run (``NeuralGridRunRequest.preset`` does not accept it); the
+# single fine-tune run D continues and E's 777 guard and selection apply from
+# ``RULES_FROM_ITERATION`` on. E must be training-equivalent to D (``training_equivalent``).
+RULES_PRESET: Final = "E"
+RULES_FROM_ITERATION: Final = 2
+FINETUNE_PRESETS: Final = (FINETUNE_PRESET, RULES_PRESET)
 PRESET_DIRECTORY: Final = Path(__file__).with_name("neural_grid_presets")
 # Frozen before run 1 (TASK-0802). A changed preset file no longer matches its entry.
 # D was frozen before the first fine-tune iteration (TASK-0825).
@@ -48,6 +55,8 @@ FROZEN_PRESET_FINGERPRINTS: Final = {
     "B": "658b3b529cb332016a15d953d7d2387d6adf35eeb9d5ad2b3660f341928b7da7",
     "C": "d54490696c341a18f7c0cf1c4ce0d2773ba935089de60de93ec46b4dd402b1e3",
     "D": "b94a9627df4c2d0886b43776f1a80b406de5d124c36c997ada2b5f93c5d1cbd9",
+    # E (rules only) was frozen before iteration 2 of the fine-tune run (D-490 revision).
+    "E": "f8f8559be24eae43f483380ad87b81715480ce16983ee27a9c91938e5765a7bc",
 }
 
 # Frozen metric definition (D-483), shared by evaluator, presets and the report.
@@ -187,10 +196,53 @@ class FinetuneInit(Contract):
     development_image_macro: float = Field(ge=0, le=1)
 
 
-class FinetunePreset(Contract):
-    """Iteration settings of preset D (D-490 amendment of 2026-10-02, TASK-0825)."""
+class FinetuneGuard777(Contract):
+    """777 guard and selection of preset E (D-490 rules revision after iteration 1 of D).
 
-    version: Literal["neural-grid-finetune-v1"] = "neural-grid-finetune-v1"
+    A candidate is admissible only if, on the 777 v2 development photos: (a) the
+    complete-and-correct rate on photos of ``level`` is not below run 1's rate of that level
+    by more than ``level_max_drop``; (b) the overall image-macro is not above run 1's; (c)
+    detection recall is at least ``min_detection_recall`` and there are at most
+    ``max_false_boards`` false boards. Among admissible candidates the lowest Mumie-holdout
+    image-macro wins (tie: lower development image-macro, then the earlier candidate).
+    """
+
+    version: Literal["neural-grid-finetune-guard-v2"] = "neural-grid-finetune-guard-v2"
+    adopted_after: str
+    applies_from_iteration: int = Field(ge=2)
+    replaces_preset: Literal["D"] = "D"
+    replaces_preset_fingerprint: str = Field(pattern=r"^[a-f0-9]{64}$")
+    reference_evaluation: str
+    level: Literal["B"] = "B"
+    run1_level_photos: int = Field(ge=1)
+    run1_level_photo_complete_correct: int = Field(ge=0)
+    run1_level_photo_complete_correct_rate: float = Field(ge=0, le=1)
+    level_max_drop: float = Field(ge=0, le=0.05)
+    run1_image_macro: float = Field(ge=0, le=1)
+    min_detection_recall: float = Field(ge=0, le=1)
+    max_false_boards: int = Field(ge=0)
+    selection: str
+
+    @model_validator(mode="after")
+    def consistent_reference(self) -> Self:
+        if self.run1_level_photo_complete_correct > self.run1_level_photos or (
+            abs(
+                self.run1_level_photo_complete_correct / self.run1_level_photos
+                - self.run1_level_photo_complete_correct_rate
+            )
+            > 1e-12
+        ):
+            raise ValueError("NEURAL_GRID_FINETUNE_GUARD_REFERENCE_INVALID")
+        return self
+
+
+class FinetunePreset(Contract):
+    """Iteration settings of preset D (D-490 amendment of 2026-10-02, TASK-0825); preset E
+    adds ``guard_777`` (version v2) and is otherwise identical."""
+
+    version: Literal["neural-grid-finetune-v1", "neural-grid-finetune-v2"] = (
+        "neural-grid-finetune-v1"
+    )
     decision_reference: Literal["D-490"] = "D-490"
     game: Literal["mumie"] = "mumie"
     init: FinetuneInit
@@ -207,17 +259,21 @@ class FinetunePreset(Contract):
     iteration_overhead_seconds: float = Field(gt=0)
     parity_images: int = Field(ge=1, le=64)
     proposal_threads: int = Field(ge=1, le=4)
+    # Preset E only (absent from D's file, so D's fingerprint is unchanged).
+    guard_777: FinetuneGuard777 | None = None
 
     @model_validator(mode="after")
     def ordered_bounds(self) -> Self:
         if self.iteration_train_seconds_min > self.iteration_train_seconds_max:
             raise ValueError("NEURAL_GRID_FINETUNE_BOUNDS_INVALID")
+        if (self.version == "neural-grid-finetune-v2") != (self.guard_777 is not None):
+            raise ValueError("NEURAL_GRID_FINETUNE_GUARD_VERSION_MISMATCH")
         return self
 
 
 class Preset(Contract):
     version: Literal["neural-grid-preset-v1"] = "neural-grid-preset-v1"
-    name: Literal["A", "B", "C", "D"]
+    name: Literal["A", "B", "C", "D", "E"]
     hypothesis: str
     model_version: Literal["neural-grid-v1"] = "neural-grid-v1"
     preprocessing_version: Literal["neural-grid-screen768-board320x192-v1"] = (
@@ -238,25 +294,50 @@ class Preset(Contract):
     optimization: OptimizationPreset
     schedule: SchedulePreset
     metrics: dict[str, Any]
-    # Only the fine-tune preset D has this section; A/B/C files do not carry it.
+    # Only the fine-tune presets D and E have this section; A/B/C files do not carry it.
     finetune: FinetunePreset | None = None
 
     @model_validator(mode="after")
     def frozen_metrics(self) -> Self:
         if self.metrics != METRIC_DEFINITION:
             raise ValueError("NEURAL_GRID_METRIC_DEFINITION_MISMATCH")
-        finetune = self.name == FINETUNE_PRESET
+        finetune = self.name in FINETUNE_PRESETS
         if finetune != (self.finetune is not None) or finetune != (
             self.pretrained == PRETRAINED_RUN1
+        ):
+            raise ValueError("NEURAL_GRID_FINETUNE_PRESET_INVALID")
+        if self.finetune is not None and (self.name == RULES_PRESET) != (
+            self.finetune.guard_777 is not None
         ):
             raise ValueError("NEURAL_GRID_FINETUNE_PRESET_INVALID")
         return self
 
 
 def preset_path(name: str) -> Path:
-    if name not in PRESET_NAMES and name != FINETUNE_PRESET:
+    if name not in PRESET_NAMES and name not in FINETUNE_PRESETS:
         raise ValueError("NEURAL_GRID_PRESET_UNKNOWN")
     return PRESET_DIRECTORY / f"{name}.json"
+
+
+def training_fields(preset: Preset) -> dict[str, Any]:
+    """Everything that determines training; the rules (name, hypothesis, finetune version
+    and the preset-E guard) are left out."""
+
+    data = preset.model_dump(mode="json")
+    data.pop("name")
+    data.pop("hypothesis")
+    finetune = data.get("finetune")
+    if isinstance(finetune, dict):
+        finetune.pop("version", None)
+        finetune.pop("guard_777", None)
+    return data
+
+
+def training_equivalent(run_preset: Preset, rules_preset: Preset) -> bool:
+    """A rules preset may replace the run preset's guard and selection only when training
+    (data mix, augmentation, optimization, schedule, budget, start weights) is identical."""
+
+    return training_fields(run_preset) == training_fields(rules_preset)
 
 
 def preset_fingerprint(payload: dict[str, Any]) -> str:
@@ -288,7 +369,7 @@ class NeuralGridConfiguration(TrainingConfiguration):
 
 
 def finetune_settings(preset: Preset) -> FinetunePreset:
-    if preset.name != FINETUNE_PRESET or preset.finetune is None:
+    if preset.name not in FINETUNE_PRESETS or preset.finetune is None:
         raise ValueError("NEURAL_GRID_FINETUNE_PRESET_REQUIRED")
     return preset.finetune
 
@@ -325,6 +406,9 @@ def build_request(
     *, request_id: str, preset_name: str, purpose: Literal["smoke", "train"], snapshot_id: str
 ) -> NeuralGridRunRequest:
     preset, fingerprint = load_preset(preset_name)
+    if preset.name == RULES_PRESET:
+        # Rules only (D-490 revision): it continues run D and never opens a run of its own.
+        raise ValueError("NEURAL_GRID_RULES_PRESET_NOT_A_RUN")
     if purpose == "smoke":
         configuration = NeuralGridConfiguration(
             epochs=SMOKE_ROUNDS,
@@ -380,7 +464,9 @@ def admit_run(data: dict[str, Any], request: StartRunRequest) -> None:
     cancelled runs do not return budget); resuming a run is a new attempt of the same run
     and is not admitted here. Smoke runs do not count. One training run per preset. The
     iterative fine-tune (preset D) is one run: each iteration is a new attempt of it, so
-    its iterations share the run's durable ``used_seconds`` and 4-hour limit.
+    its iterations share the run's durable ``used_seconds`` and 4-hour limit. Preset E
+    changes only the guard and selection of later iterations of that same run; it can never
+    be the preset of a run request, so it cannot open a fourth run.
     """
 
     if request.purpose != "train":

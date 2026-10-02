@@ -214,6 +214,182 @@ def test_selection_by_mumie_holdout_under_the_777_guard():
     assert finetune.select_candidate(tie, settings, 5)[0] == 2
 
 
+# --- preset E: rules revision after iteration 1 of preset D (D-490) ----------------------------
+
+
+def test_preset_e_is_frozen_rules_only_and_pins_the_run1_reference():
+    preset_d, fingerprint_d = protocol.load_preset("D")
+    preset_e, fingerprint_e = protocol.load_preset("E")
+    assert fingerprint_e == protocol.FROZEN_PRESET_FINGERPRINTS["E"] != fingerprint_d
+    assert fingerprint_d == "b94a9627df4c2d0886b43776f1a80b406de5d124c36c997ada2b5f93c5d1cbd9"
+    assert preset_d.finetune.guard_777 is None
+    assert protocol.training_equivalent(preset_d, preset_e)
+    guard = preset_e.finetune.guard_777
+    assert guard.applies_from_iteration == protocol.RULES_FROM_ITERATION == 2
+    assert guard.replaces_preset_fingerprint == fingerprint_d
+    assert (guard.level, guard.run1_level_photo_complete_correct, guard.run1_level_photos) == (
+        "B",
+        298,
+        300,
+    )
+    assert guard.run1_image_macro == preset_d.finetune.init.development_image_macro
+    assert guard.level_max_drop == 0.005 and guard.min_detection_recall == 1.0
+    assert guard.max_false_boards == 0
+    changed = preset_e.model_copy(
+        update={"optimization": preset_e.optimization.model_copy(update={"learning_rate": 2e-4})}
+    )
+    assert not protocol.training_equivalent(preset_d, changed)
+    with pytest.raises(ValueError, match="RULES_PRESET_NOT_A_RUN"):  # never a run of its own
+        _request("E")
+    payload = _request("D").model_dump()
+    payload["preset"] = "E"
+    with pytest.raises(ValueError):  # nor can a request name it
+        protocol.NeuralGridRunRequest.model_validate(payload)
+
+
+def _development(level_correct=297, macro=0.00287, recall=1.0, false_boards=0):
+    return {
+        "photo_complete_correct_rate": 0.90,  # the preset-D measure no longer guards
+        "image_macro": macro,
+        "detection_recall": recall,
+        "false_boards": false_boards,
+        "by_level": {
+            "B": {
+                "photos": 300,
+                "photo_complete_correct": level_correct,
+                "photo_complete_correct_rate": level_correct / 300,
+            }
+        },
+    }
+
+
+def test_guard_e_conditions_each_fail_alone():
+    guard = protocol.load_preset("E")[0].finetune.guard_777
+    passing = finetune.guard_777(_development(), guard)
+    assert passing["admissible"] and passing["failed"] == []
+    assert passing["level_photo_complete_correct"] == 297
+    cases = {
+        "a_level_rate": _development(level_correct=296),  # 98.67% < 99.33% - 0.5 pp
+        "b_image_macro": _development(macro=0.0028704),
+        "c_detection_recall": _development(recall=5399 / 5400),
+        "c_false_boards": _development(false_boards=1),
+    }
+    for condition, development in cases.items():
+        result = finetune.guard_777(development, guard)
+        assert result["failed"] == [condition] and not result["admissible"]
+    missing = finetune.guard_777({"image_macro": 0.002}, guard)
+    assert set(missing["failed"]) == {"a_level_rate", "c_detection_recall", "c_false_boards"}
+    exact = _development(macro=guard.run1_image_macro)
+    assert finetune.guard_777(exact, guard)["admissible"]  # "not worse" includes equal
+
+
+def test_selection_e_lowest_holdout_image_macro_among_admissible():
+    settings = protocol.load_preset("E")[0].finetune
+
+    def candidate(index, holdout_macro, development=None):
+        return {
+            "candidate": index,
+            "development": development or _development(),
+            "holdout": {"photo_complete_correct_rate": 1.0, "image_macro": holdout_macro},
+        }
+
+    candidates = [
+        candidate(1, 0.0054),
+        candidate(2, 0.0040, _development(level_correct=290)),  # best holdout, guard fails
+        candidate(3, 0.0051),
+        candidate(4, 0.0052),
+    ]
+    assert finetune.select_candidate(candidates, settings, 5) == (3, finetune.GUARD_RULE)
+    # Small holdout: the same rule (not "last admissible"); the report flags the sample.
+    assert finetune.select_candidate(candidates, settings, 2) == (3, finetune.GUARD_RULE)
+    tie = [
+        candidate(1, 0.005, _development(macro=0.0028)),
+        candidate(2, 0.005, _development(macro=0.0027)),
+        candidate(3, 0.005, _development(macro=0.0027)),
+    ]
+    assert finetune.select_candidate(tie, settings, 5)[0] == 2
+    assert finetune.select_candidate([candidates[1]], settings, 5) == (
+        None,
+        finetune.GUARD_REJECTED,
+    )
+    assert finetune.select_candidate(candidates, settings, 0, smoke=True)[0] == 4
+
+
+def test_iteration_1_candidates_of_preset_d_pass_the_e_guard():
+    """Iteration 1 numbers of run 5bc98156 (level B from the checkpoint history: 300/300)."""
+
+    settings = protocol.load_preset("E")[0].finetune
+    observed = [(1, 0.0027834310782030676, 0.005398694697877696)]
+    observed += [(2, 0.002710458041773426, 0.005114510983644488)]
+    observed += [(3, 0.0027255787444075063, 0.005064611201606301)]
+    candidates = [
+        {
+            "candidate": index,
+            "development": _development(level_correct=300, macro=macro),
+            "holdout": {"image_macro": holdout},
+        }
+        for index, macro, holdout in observed
+    ]
+    assert all(
+        finetune.guard_777(c["development"], settings.guard_777)["admissible"] for c in candidates
+    )
+    assert finetune.select_candidate(candidates, settings, 2) == (3, finetune.GUARD_RULE)
+
+
+def test_rules_revision_continues_the_same_run_and_budget(tmp_path, monkeypatch):
+    clock = [1000.0]
+    manager = _manager(tmp_path, clock)
+    for name in ("A", "B"):
+        run = manager.create_or_get_run(_request(name))
+        manager.cancel_run(run.id, RunMutation(request_id=f"cancel-{name}", expected_attempt=1))
+    run = manager.create_or_get_run(_request("D"))
+    lease = token(run)
+    manager.claim(run.id, lease)
+    clock[0] += 682
+    manager.heartbeat(run.id, lease)
+    manager.checkpoint(run.id, lease, _checkpoint(run.request, 1), 1)
+    manager.finish(run.id, lease, status="cancelled", error=finetune.ITERATION_COMPLETE)
+    preset_d, fingerprint_d = protocol.load_preset("D")
+    ledger = {"run_id": run.id, "holdout": {}, "iterations": {"1": {"status": "done"}}}
+    assert finetune.rules_revision(ledger, 1, fingerprint_d, preset_d) == {
+        "preset": "D",
+        "preset_fingerprint": fingerprint_d,
+    }
+    assert "rules_revisions" not in ledger
+    rules = finetune.rules_revision(ledger, 2, fingerprint_d, preset_d)
+    assert rules["preset"] == "E" and rules["run_preset_fingerprint"] == fingerprint_d
+    assert rules["preset_fingerprint"] == protocol.FROZEN_PRESET_FINGERPRINTS["E"]
+    [revision] = ledger["rules_revisions"]
+    assert revision["from_iteration"] == 2 and revision["run_id"] == run.id
+    assert revision["replaces_preset_fingerprint"] == fingerprint_d
+    assert finetune.rules_revision(ledger, 3, fingerprint_d, preset_d)["from_iteration"] == 2
+    assert len(ledger["rules_revisions"]) == 1
+    # Worker side: the plan's rules are accepted only with E's frozen fingerprint.
+    plan = {"preset_fingerprint": fingerprint_d, "rules": rules}
+    assert finetune.plan_rules(plan, preset_d)[0].name == "E"
+    assert finetune.plan_rules({"preset_fingerprint": fingerprint_d}, preset_d)[0] is preset_d
+    with pytest.raises(ValueError, match="RULES_PRESET_MISMATCH"):
+        finetune.plan_rules({**plan, "rules": {**rules, "preset_fingerprint": "0" * 64}}, preset_d)
+    # No fourth run: the budget run D continues; used seconds are carried, not reset.
+    with pytest.raises(ValueError, match="BUDGET_EXHAUSTED"):
+        manager.create_or_get_run(_request("C", request_id="neural-C-fourth"))
+    second = manager.retry_run(run.id, RunMutation(request_id="iteration-2", expected_attempt=1))
+    assert second.id == run.id and second.attempt == 2
+    assert second.used_seconds == pytest.approx(682)
+    assert second.request.preset == "D" and second.request.preset_fingerprint == fingerprint_d
+    assert second.request.configuration.max_seconds == 14400
+    # A rules preset that changes training is refused on both sides.
+    preset_e, fingerprint_e = protocol.load_preset("E")
+    changed = preset_e.model_copy(
+        update={"optimization": preset_e.optimization.model_copy(update={"learning_rate": 2e-4})}
+    )
+    monkeypatch.setattr(finetune, "load_preset", lambda name: (changed, fingerprint_e))
+    with pytest.raises(ValueError, match="TRAINING_MISMATCH"):
+        finetune.plan_rules(plan, preset_d)
+    with pytest.raises(ValueError, match="TRAINING_MISMATCH"):
+        finetune.rules_revision({"run_id": run.id}, 2, fingerprint_d, preset_d)
+
+
 def test_training_time_grows_with_photos_and_batches_mix_mumie_and_777():
     settings = _settings()
     assert finetune.planned_train_seconds(settings, 1) == 300
@@ -450,3 +626,154 @@ def test_iterate_end_to_end(tmp_path, monkeypatch):
     assert registry[third["source_id"]] | {"iteration": 2} == registry[third["source_id"]]
     assert registry[third["source_id"]]["position"] == 3
     assert finetune.holdout_ids(registry) == holdout
+
+
+def test_iteration_2_under_preset_e_reuses_data_after_an_unselected_iteration(
+    tmp_path, monkeypatch
+):
+    """Iteration 1 (rules D) selects nothing; iteration 2 runs on the same photos under the
+    rules of E in the same run (new attempt, used seconds carried, no new run)."""
+
+    pytest.importorskip("torch")
+    from game_predictor_worker.vision_lab.neural_grid_model import NeuralGridNetwork
+    from game_predictor_worker.vision_lab.neural_grid_runs import NeuralGridRunManager, validator
+
+    catalog, store, training, bundle = lab(tmp_path)
+    publish(tmp_path, catalog, store, training, bundle)
+    workspace = assisted.Workspace(catalog, store.root, tmp_path / "proposals", games=("mumie",))
+    first, _ = first_photo(workspace, 0)
+    second, _ = first_photo(workspace, 1)
+    accept_all(workspace, first["source_id"])
+    state = accept_all(workspace, second["source_id"])
+    rows = assisted.export_rows(catalog, state, workspace.proposals)
+    reference = assisted.write_reader_snapshot(
+        rows,
+        catalog,
+        tmp_path / "reference",
+        {rows[0]["imageId"]: "training", rows[1]["imageId"]: "development"},
+    )
+    root = tmp_path / "r"
+    settings = {"python": sys.executable, "pythonpath": "unused", "snapshot": str(reference)}
+    manager = NeuralGridRunManager(
+        root,
+        validate=validator(settings),
+        models=(protocol.MODEL_VERSION,),
+        settings=settings,
+        launcher=lambda run: None,
+        state_type=protocol.NeuralGridRunState,
+        admit=protocol.admit_run,
+        identity=lambda pid: None,
+    )
+    base = _tiny_preset()
+    # Rules D reject every candidate: run 1's development rate is pinned at 100%.
+    tiny_d = base.model_copy(
+        update={
+            "finetune": base.finetune.model_copy(
+                update={
+                    "development_max_drop": 0.0,
+                    "init": base.finetune.init.model_copy(
+                        update={"development_photo_complete_correct_rate": 1.0}
+                    ),
+                }
+            )
+        }
+    )
+    guard = protocol.load_preset("E")[0].finetune.guard_777
+    tiny_e = tiny_d.model_copy(
+        update={
+            "name": "E",
+            "hypothesis": "rules only",
+            "finetune": tiny_d.finetune.model_copy(
+                update={"version": "neural-grid-finetune-v2", "guard_777": guard}
+            ),
+        }
+    )
+    fingerprints = protocol.FROZEN_PRESET_FINGERPRINTS
+    original_initial = finetune.initial_weights
+
+    def initial(manager_, run, settings_, iteration):
+        if iteration == 1:
+            return NeuralGridNetwork().state_dict(), [], {"source": "test"}
+        return original_initial(manager_, run, settings_, iteration)
+
+    def inline_worker(manager_, run_id, log):
+        run = manager_.detail(run_id)
+        lease = token(run)
+        manager_.claim(run_id, lease)
+        finetune.run_iteration_attempt(manager_, run_id, lease, device="cpu")
+        return manager_.detail(run_id)
+
+    monkeypatch.setattr(
+        finetune,
+        "load_preset",
+        lambda name: (tiny_e, fingerprints["E"]) if name == "E" else (tiny_d, fingerprints["D"]),
+    )
+    monkeypatch.setattr(finetune, "validate_request", lambda request: tiny_d)
+    monkeypatch.setattr(finetune, "_manager_for", lambda args: manager)
+    monkeypatch.setattr(finetune, "wait_for", inline_worker)
+    monkeypatch.setattr(finetune, "initial_weights", initial)
+    args = argparse.Namespace(
+        root=root,
+        snapshot=reference,
+        init_root=root,
+        python=None,
+        smoke=False,
+        catalog=catalog.root,
+        annotations=store.root,
+        proposals=tmp_path / "proposals",
+        no_wait=False,
+        allow_same_data=False,
+    )
+
+    finetune.command_iterate(args)
+    ledger = finetune.Ledger(root, "train", fingerprints["D"]).load()
+    assert ledger["iterations"]["1"]["model_unchanged"] is True
+    assert ledger["iterations"]["1"]["rules_preset"] == "D"
+    assert "rules" not in finetune.read_plan(root, "train", 1)
+    first_report = finetune.iteration_directory(root, "train", 1) / "report.json"
+    frozen = first_report.read_bytes()
+    run = manager.detail(ledger["run_id"])
+    used = run.used_seconds
+    assert used > 0
+
+    # Same photos again: allowed because iteration 1 kept its start state.
+    finetune.command_iterate(args)
+    ledger = finetune.Ledger(root, "train", fingerprints["D"]).load()
+    assert [ledger["iterations"][k]["status"] for k in ("1", "2")] == ["done", "done"]
+    [revision] = ledger["rules_revisions"]
+    assert revision["preset"] == "E" and revision["from_iteration"] == 2
+    assert revision["preset_fingerprint"] == fingerprints["E"]
+    assert revision["replaces_preset_fingerprint"] == fingerprints["D"]
+    plan = finetune.read_plan(root, "train", 2)
+    assert plan["same_data"] == {
+        "reused": True,
+        "reason": "previous_iteration_selected_no_state",
+        "previous_iteration": 1,
+    }
+    assert plan["rules"]["preset"] == "E" and plan["preset_fingerprint"] == fingerprints["D"]
+    after = manager.detail(run.id)
+    assert after.attempt == 2 and after.checkpoint_epoch == 2 and after.used_seconds > used
+    train_runs = [r for r in manager.list(0, 100).runs if r.request.purpose == "train"]
+    assert [r.id for r in train_runs] == [run.id]  # no new run
+    assert first_report.read_bytes() == frozen  # iteration 1 stays untouched
+    history = finetune.load_iteration_state(manager, run.id, 2)[2]
+    assert history["init"]["previous_selected_candidate"] is None
+    assert history["rules"]["preset"] == "E"
+    report = json.loads(
+        (finetune.iteration_directory(root, "train", 2) / "report.json").read_text("utf-8")
+    )
+    assert report["rules"]["preset"] == "E" and "D-490" in report["rules"]["note"]
+    # Lab photos are not level B, so condition (a) fails and the start state is kept.
+    assert report["training"]["selection_rule"] == finetune.GUARD_REJECTED
+    for candidate in report["training"]["candidates"]:
+        assert "a_level_rate" in candidate["guard"]["failed"]
+        assert set(candidate["holdout_change"]) == {
+            "image_macro_before",
+            "image_macro_after",
+            "nme_median_before",
+            "nme_median_after",
+        }
+    assert report["data"]["same_data_as_previous_iteration"]["reused"]
+    assert report["measurements"]["development_777"]["guard_777"]["level"] == "B"
+    markdown = (finetune.iteration_directory(root, "train", 2) / "report.md").read_text("utf-8")
+    assert "Reguły wyboru: preset E" in markdown and "(a) poziom B" in markdown

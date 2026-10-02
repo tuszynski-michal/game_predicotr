@@ -21,6 +21,15 @@ limit and the worker watchdog all apply unchanged. A finished iteration ends its
 attempt report. Smoke iterations use a separate ledger and a smoke run (<= 50 steps) that
 does not count towards the budget.
 
+Rules revision (D-490, after iteration 1 of preset D was observed). From iteration 2 the
+guard and the selection come from the rules-only preset E (``RULES_PRESET``); training,
+the run, its request (preset D) and its budget stay the same. The first iteration under E
+records the revision in the ledger (``rules_revisions``, both fingerprints) and every plan
+carries its ``rules``; the worker refuses a rules preset that is not frozen or not
+training-equivalent to D. E can never be a run request, so it cannot open a fourth run.
+An iteration whose predecessor selected no state may re-use the same photos (recorded as
+``same_data`` in the plan and the report).
+
 Data. Only complete Mumie photos of the lab annotation store (D-484) enter an iteration.
 Each newly complete photo gets a permanent role: photos are numbered after all earlier
 assignments in the order of a stable key (SHA-256 of a fixed prefix and the source SHA-256,
@@ -56,15 +65,19 @@ from game_predictor_worker.training_core.runtime import TrainingInterrupted
 from .annotations import exclusive, read_checked, write_atomic
 from .neural_grid_protocol import (
     FINETUNE_PRESET,
+    RULES_FROM_ITERATION,
+    RULES_PRESET,
     SMOKE_EVAL_IMAGES,
     SMOKE_ROUNDS,
     SMOKE_STEPS_PER_ROUND,
+    FinetuneGuard777,
     FinetunePreset,
     NeuralGridRunRequest,
     Preset,
     build_request,
     finetune_settings,
     load_preset,
+    training_equivalent,
     validate_request,
 )
 from .neural_grid_runs import (
@@ -182,6 +195,8 @@ def select_candidate(
         return None, "no_candidate"
     if smoke:
         return int(candidates[-1]["candidate"]), "smoke_final_state"
+    if settings.guard_777 is not None:
+        return select_candidate_guarded(candidates, settings.guard_777)
     floor = settings.init.development_photo_complete_correct_rate - settings.development_max_drop
     admissible = [
         c
@@ -205,6 +220,141 @@ def select_candidate(
         )
 
     return int(max(admissible, key=key)["candidate"]), "max_mumie_holdout_with_777_guard"
+
+
+GUARD_RULE: Final = "min_mumie_holdout_image_macro_with_777_guard_e"
+GUARD_REJECTED: Final = "previous_state_kept_777_guard_e"
+
+
+def guard_777(development: Mapping[str, Any] | None, guard: FinetuneGuard777) -> dict[str, Any]:
+    """Preset E guard values of one candidate (777 development summary) and the failed
+    conditions: ``a_level_rate``, ``b_image_macro``, ``c_detection_recall``,
+    ``c_false_boards``. A missing value fails its condition."""
+
+    summary: Mapping[str, Any] = development or {}
+    level: Mapping[str, Any] = (summary.get("by_level") or {}).get(guard.level) or {}
+    rate = level.get("photo_complete_correct_rate")
+    floor = guard.run1_level_photo_complete_correct_rate - guard.level_max_drop
+    macro = summary.get("image_macro")
+    recall = summary.get("detection_recall")
+    false_boards = summary.get("false_boards")
+    failed = []
+    if rate is None or float(rate) < floor - 1e-9:
+        failed.append("a_level_rate")
+    if macro is None or float(macro) > guard.run1_image_macro:
+        failed.append("b_image_macro")
+    if recall is None or float(recall) < guard.min_detection_recall:
+        failed.append("c_detection_recall")
+    if false_boards is None or int(false_boards) > guard.max_false_boards:
+        failed.append("c_false_boards")
+    return {
+        "level": guard.level,
+        "level_photos": level.get("photos"),
+        "level_photo_complete_correct": level.get("photo_complete_correct"),
+        "level_photo_complete_correct_rate": rate,
+        "level_rate_floor": floor,
+        "image_macro": macro,
+        "image_macro_max": guard.run1_image_macro,
+        "detection_recall": recall,
+        "false_boards": false_boards,
+        "failed": failed,
+        "admissible": not failed,
+    }
+
+
+def select_candidate_guarded(
+    candidates: Sequence[Mapping[str, Any]], guard: FinetuneGuard777
+) -> tuple[int | None, str]:
+    """Preset E: among candidates passing ``guard_777`` the lowest Mumie-holdout
+    image-macro (tie: lower 777 development image-macro, then the earlier candidate). The
+    rule is the same with a small holdout; the report flags the small sample."""
+
+    admissible = [c for c in candidates if guard_777(c["development"], guard)["admissible"]]
+    if not admissible:
+        return None, GUARD_REJECTED
+
+    def key(c: Mapping[str, Any]) -> tuple[float, float, int]:
+        holdout: Mapping[str, Any] = c.get("holdout") or {}
+        macro = holdout.get("image_macro")
+        development = c["development"].get("image_macro")
+        return (
+            float("inf") if macro is None else float(macro),
+            float("inf") if development is None else float(development),
+            int(c["candidate"]),
+        )
+
+    return int(min(admissible, key=key)["candidate"]), GUARD_RULE
+
+
+def rules_name(iteration: int) -> str:
+    """The rules preset of an iteration of the fine-tune run (D-490 revision)."""
+
+    return RULES_PRESET if iteration >= RULES_FROM_ITERATION else FINETUNE_PRESET
+
+
+def plan_rules(plan: Mapping[str, Any], run_preset: Preset) -> tuple[Preset, dict[str, Any]]:
+    """Rules preset recorded in an iteration plan. Plans without ``rules`` (iteration 1)
+    use the run preset D. A rules preset must match its frozen fingerprint and be
+    training-equivalent to the run preset: it changes only guard and selection."""
+
+    rules = plan.get("rules")
+    if rules is None or rules.get("preset") == FINETUNE_PRESET:
+        if rules is not None and rules.get("preset_fingerprint") != plan["preset_fingerprint"]:
+            raise ValueError("NEURAL_GRID_ITERATION_PLAN_INVALID")
+        return run_preset, {
+            "preset": FINETUNE_PRESET,
+            "preset_fingerprint": plan["preset_fingerprint"],
+        }
+    if rules.get("preset") != RULES_PRESET:
+        raise ValueError("NEURAL_GRID_ITERATION_PLAN_INVALID")
+    preset, fingerprint = load_preset(RULES_PRESET)
+    if fingerprint != rules.get("preset_fingerprint"):
+        raise ValueError("NEURAL_GRID_RULES_PRESET_MISMATCH")
+    if not training_equivalent(run_preset, preset):
+        raise ValueError("NEURAL_GRID_RULES_PRESET_TRAINING_MISMATCH")
+    return preset, dict(rules)
+
+
+def rules_revision(
+    ledger: dict[str, Any], iteration: int, run_fingerprint: str, run_preset: Preset
+) -> dict[str, Any]:
+    """Rules of a new iteration; the first iteration under preset E records the revision in
+    the ledger (both fingerprints, same run and budget). ``used_seconds`` and the run are
+    untouched: the revision only changes guard and selection of later attempts."""
+
+    name = rules_name(iteration)
+    if name == FINETUNE_PRESET:
+        return {"preset": FINETUNE_PRESET, "preset_fingerprint": run_fingerprint}
+    preset, fingerprint = load_preset(name)
+    if not training_equivalent(run_preset, preset):
+        raise ValueError("NEURAL_GRID_RULES_PRESET_TRAINING_MISMATCH")
+    revisions: list[dict[str, Any]] = ledger.setdefault("rules_revisions", [])
+    recorded = next((r for r in revisions if r["preset"] == name), None)
+    if recorded is None:
+        guard = finetune_settings(preset).guard_777
+        recorded = {
+            "preset": name,
+            "preset_fingerprint": fingerprint,
+            "replaces_preset": FINETUNE_PRESET,
+            "replaces_preset_fingerprint": run_fingerprint,
+            "from_iteration": iteration,
+            "run_id": ledger["run_id"],
+            "decision_reference": "D-490",
+            "adopted_after": None if guard is None else guard.adopted_after,
+            "recorded_at": _now(),
+        }
+        revisions.append(recorded)
+    elif recorded["preset_fingerprint"] != fingerprint:
+        raise ValueError("NEURAL_GRID_RULES_PRESET_MISMATCH")
+    return {
+        "preset": name,
+        "preset_fingerprint": fingerprint,
+        "run_preset": FINETUNE_PRESET,
+        "run_preset_fingerprint": run_fingerprint,
+        "from_iteration": recorded["from_iteration"],
+        "decision_reference": "D-490",
+        "adopted_after": recorded["adopted_after"],
+    }
 
 
 class MixedBatchSampler:
@@ -413,7 +563,12 @@ def initial_weights(
     return (
         best["model"],
         list(value["history"]),
-        {"source": "previous_iteration", "checkpoint_sha256": run.checkpoint.sha256},
+        {
+            "source": "previous_iteration",
+            "checkpoint_sha256": run.checkpoint.sha256,
+            # None: the previous iteration kept its own start state (e.g. run-1 weights).
+            "previous_selected_candidate": best.get("candidate"),
+        },
     )
 
 
@@ -598,6 +753,10 @@ def train_iteration(
     plan = read_plan(manager.root, request.purpose, iteration)
     if plan["preset_fingerprint"] != request.preset_fingerprint:
         raise ValueError("NEURAL_GRID_ITERATION_PLAN_INVALID")
+    # Guard and selection of this iteration (preset E from iteration 2, D-490 revision);
+    # training itself always follows the run preset D.
+    rules_preset, rules = plan_rules(plan, preset)
+    rules_settings = finetune_settings(rules_preset)
     attempt_dir = manager.root / run_id / f"attempt-{run.attempt}"
     attempt_dir.mkdir(parents=True, exist_ok=True)
     reference_root = Path((manager.settings or {})["snapshot"])
@@ -666,7 +825,11 @@ def train_iteration(
             steps_per_candidate=SMOKE_STEPS_PER_ROUND if smoke else None,
             log_directory=attempt_dir,
         )
-        selected, rule = select_candidate(results, settings, len(holdout), smoke=smoke)
+        guard = rules_settings.guard_777
+        if guard is not None:
+            for result in results:
+                result["guard"] = guard_777(result["development"], guard)
+        selected, rule = select_candidate(results, rules_settings, len(holdout), smoke=smoke)
         if selected is None:
             model, summary, holdout_summary = init_state, None, holdout_before
         else:
@@ -694,6 +857,8 @@ def train_iteration(
             "candidates": [{k: v for k, v in c.items() if k != "model"} for c in results],
             "selected_candidate": selected,
             "selection_rule": rule,
+            "rules": rules,
+            "selection_small_holdout": len(holdout) < rules_settings.holdout_min_photos,
             "development_reference": {
                 "run_id": settings.init.run_id,
                 "photo_complete_correct_rate": (
@@ -701,6 +866,7 @@ def train_iteration(
                 ),
                 "image_macro": settings.init.development_image_macro,
                 "max_drop": settings.development_max_drop,
+                "guard_777": None if guard is None else guard.model_dump(mode="json"),
             },
             "selected_development": summary,
             "selected_holdout": holdout_summary,
@@ -759,6 +925,7 @@ def train_iteration(
             "purpose": request.purpose,
             "selected_candidate": selected,
             "selection_rule": rule,
+            "rules": rules,
             "selected_development": _compact(summary),
             "selected_holdout": _compact(holdout_summary),
             "holdout_before": _compact(holdout_before),
@@ -768,6 +935,7 @@ def train_iteration(
                     "steps": c["steps"],
                     "development": _compact(c["development"]),
                     "holdout": _compact(c["holdout"]),
+                    "guard": c.get("guard"),
                 }
                 for c in results
             ],
@@ -825,8 +993,13 @@ def plan_iteration(
     fingerprint: str,
     reference_snapshot_id: str,
     allow_same_data: bool = False,
+    rules: Mapping[str, Any] | None = None,
 ) -> tuple[dict[str, Any], dict[str, dict[str, Any]]]:
-    """Export -> permanent holdout roles -> iteration snapshot -> ``plan.json``."""
+    """Export -> permanent holdout roles -> iteration snapshot -> ``plan.json``.
+
+    Unchanged data are refused unless ``allow_same_data`` or the previous iteration kept
+    its start state (no candidate selected, so its training photos were never learned);
+    the reason for re-using the data is recorded in the plan."""
 
     from .assisted_annotation import (
         open_proposals,
@@ -847,14 +1020,21 @@ def plan_iteration(
         raise SystemExit("NEURAL_GRID_FINETUNE_NO_COMPLETE_PHOTOS: no complete Mumie photo")
     previous = ledger["iterations"].get(str(iteration - 1))
     previous_ids: set[str] = set()
+    same_data: dict[str, Any] = {"reused": False, "reason": None}
     if previous is not None:
         previous_plan = read_plan(root, purpose, iteration - 1)
         previous_ids = set(previous_plan["photo_ids"])
-        if previous_plan["rows_sha256"] == _rows_digest(rows) and not allow_same_data:
-            raise SystemExit(
-                "NEURAL_GRID_FINETUNE_NO_NEW_PHOTOS: the complete Mumie photos and their "
-                "grids are unchanged since the previous iteration"
-            )
+        if previous_plan["rows_sha256"] == _rows_digest(rows):
+            if previous.get("model_unchanged") is True:
+                reason = "previous_iteration_selected_no_state"
+            elif allow_same_data:
+                reason = "allow_same_data"
+            else:
+                raise SystemExit(
+                    "NEURAL_GRID_FINETUNE_NO_NEW_PHOTOS: the complete Mumie photos and their "
+                    "grids are unchanged since the previous iteration"
+                )
+            same_data = {"reused": True, "reason": reason, "previous_iteration": iteration - 1}
     registry = assign_holdout(
         ledger["holdout"],
         {str(row["imageId"]): str(row["sourceChecksumSha256"]) for row in rows},
@@ -894,7 +1074,10 @@ def plan_iteration(
         "holdout_ids": holdout,
         "registry_holdout_ids": sorted(registry_holdout),
         "train_seconds": planned_train_seconds(settings, len(train_ids)),
+        "same_data": same_data,
     }
+    if rules is not None:
+        plan["rules"] = dict(rules)
     path = directory / "plan.json"
     if path.exists():
         raise ValueError("NEURAL_GRID_ITERATION_PLAN_EXISTS")
@@ -1107,6 +1290,29 @@ def build_report(
     reference = settings.init.development_photo_complete_correct_rate
     development = entry["selected_development"]
     rate = None if development is None else development["photo_complete_correct_rate"]
+    guard = settings.guard_777
+    before = entry["holdout_before"] or {}
+
+    def change(holdout: Mapping[str, Any] | None) -> dict[str, Any]:
+        after = holdout or {}
+        return {
+            "image_macro_before": before.get("image_macro"),
+            "image_macro_after": after.get("image_macro"),
+            "nme_median_before": before.get("nme_median"),
+            "nme_median_after": after.get("nme_median"),
+        }
+
+    rules = dict(
+        entry.get("rules")
+        or plan.get("rules")
+        or {"preset": FINETUNE_PRESET, "preset_fingerprint": plan["preset_fingerprint"]}
+    )
+    if guard is not None:
+        rules["note"] = (
+            f"Reguły presetu {rules['preset']} (strażnik 777 v2 i wybór po image-macro "
+            "odłożonych zdjęć Mumii) przyjęto po obejrzeniu wyniku iteracji 1 presetu D "
+            f"(D-490): {guard.adopted_after}. Ten sam run i ten sam budżet; trening bez zmian."
+        )
     return {
         "format": REPORT_FORMAT,
         "decision_reference": "D-490",
@@ -1114,6 +1320,7 @@ def build_report(
         "purpose": purpose,
         "iteration": iteration,
         "created_at": _now(),
+        "rules": rules,
         "run": {
             "id": run.id,
             "attempt": entry["attempt"],
@@ -1132,6 +1339,7 @@ def build_report(
             "mumie_holdout_photos": len(plan["holdout_ids"]),
             "reference_train_photos": entry["reference_train_photos"],
             "reference_development_photos": entry["reference_development_photos"],
+            "same_data_as_previous_iteration": plan.get("same_data"),
         },
         "training": {
             "init": entry["init"],
@@ -1146,6 +1354,8 @@ def build_report(
                     "steps": c["steps"],
                     "development": _compact(c["development"]),
                     "holdout": _compact(c["holdout"]),
+                    "guard": c.get("guard"),
+                    "holdout_change": change(c["holdout"]),
                 }
                 for c in entry["candidates"]
             ],
@@ -1165,6 +1375,7 @@ def build_report(
                 "delta_percentage_points": None if rate is None else 100 * (rate - reference),
                 "max_drop_percentage_points": 100 * settings.development_max_drop,
                 "photos_evaluated": entry["reference_development_photos"],
+                "guard_777": None if guard is None else guard.model_dump(mode="json"),
             },
             "proposal_accuracy_last_batch": accuracy,
         },
@@ -1222,6 +1433,65 @@ def report_markdown(report: Mapping[str, Any]) -> str:
             else "bez zmiany (żaden kandydat nie spełnił warunku 777)"
         )
         + f" (`{training['selection_rule']}`).",
+    ]
+    rules = report.get("rules") or {}
+    same = data.get("same_data_as_previous_iteration") or {}
+    if same.get("reused"):
+        lines.append(
+            "- Dane takie same jak w poprzedniej iteracji "
+            f"(`{same['reason']}`): poprzednia iteracja nie wybrała nowego stanu."
+            if same["reason"] == "previous_iteration_selected_no_state"
+            else f"- Dane takie same jak w poprzedniej iteracji (`{same['reason']}`)."
+        )
+    guard = development.get("guard_777")
+    if guard is not None:
+
+        def num(value: Any, digits: int = 5) -> str:
+            return "–" if value is None else f"{float(value):.{digits}f}"
+
+        names = {
+            "a_level_rate": f"(a) poziom {guard['level']}",
+            "b_image_macro": "(b) image-macro",
+            "c_detection_recall": "(c) wykrycie",
+            "c_false_boards": "(c) fałszywe",
+        }
+        lines += [
+            "",
+            f"## Reguły wyboru: preset {rules.get('preset')}",
+            "",
+            f"- {rules.get('note', '')}",
+            f"- Strażnik 777 (development, {development['photos_evaluated']} zdjęć): (a) zdjęcia "
+            f"poziomu {guard['level']} kompletne i poprawne ≥ "
+            f"{_pct(guard['run1_level_photo_complete_correct_rate'])} − "
+            f"{100 * guard['level_max_drop']:.1f} pkt proc. (run 1: "
+            f"{guard['run1_level_photo_complete_correct']}/{guard['run1_level_photos']}); (b) "
+            f"image-macro ≤ {guard['run1_image_macro']:.6f} (run 1); (c) wykrycie plansz ≥ "
+            f"{_pct(guard['min_detection_recall'])} i fałszywe plansze ≤ "
+            f"{guard['max_false_boards']}.",
+            "- Wybór: najniższe image-macro odłożonych zdjęć Mumii (remis: niższe image-macro "
+            "development 777, potem wcześniejszy kandydat).",
+            "",
+            f"| Kandydat | Poziom {guard['level']} | image-macro 777 | wykrycie | fałszywe | "
+            "niespełnione | holdout image-macro przed → po | holdout NME mediana przed → po |",
+            "|---|---|---|---|---|---|---|---|",
+        ]
+        for c in training["candidates"]:
+            g = c.get("guard") or {}
+            h = c["holdout_change"]
+            failed = ", ".join(names.get(f, f) for f in g.get("failed", [])) or "—"
+            lines.append(
+                f"| {c['candidate']} | {g.get('level_photo_complete_correct')}/"
+                f"{g.get('level_photos')} ({_pct(g.get('level_photo_complete_correct_rate'))}) "
+                f"| {num(g.get('image_macro'), 6)} | {_pct(g.get('detection_recall'))} | "
+                f"{g.get('false_boards')} | {failed} | {num(h['image_macro_before'])} → "
+                f"{num(h['image_macro_after'])} | {num(h['nme_median_before'])} → "
+                f"{num(h['nme_median_after'])} |"
+            )
+        if holdout["small_sample"]:
+            lines.append(
+                "- Uwaga: wybór oparty na mniej niż 3 odłożonych zdjęciach Mumii (mała próba)."
+            )
+    lines += [
         "",
         "## Odłożone zdjęcia Mumii (D-483, względem siatek operatora)",
         "",
@@ -1237,7 +1507,11 @@ def report_markdown(report: Mapping[str, Any]) -> str:
         f"- Run 1: {_pct(development['run1_photo_complete_correct_rate'])}; po iteracji: "
         f"{rate(development['selected_state'])}; różnica "
         + ("–" if delta is None else f"{delta:+.2f} pkt proc.")
-        + f" (dopuszczalny spadek {development['max_drop_percentage_points']:.1f} pkt proc.).",
+        + (
+            f" (dopuszczalny spadek {development['max_drop_percentage_points']:.1f} pkt proc.)."
+            if guard is None
+            else " (informacyjnie; warunek przyjęcia to strażnik 777 presetu E powyżej)."
+        ),
         "",
         "## Trafność propozycji w ostatniej porcji",
         "",
@@ -1311,6 +1585,8 @@ def command_iterate(args: argparse.Namespace) -> None:
                         f"NEURAL_GRID_FINETUNE_BUDGET_EXHAUSTED: used {used:.0f} s of "
                         f"{preset.schedule.max_run_seconds} s"
                     )
+            # Same run, same budget: the D-490 revision only switches guard and selection.
+            rules = rules_revision(data, iteration, fingerprint, preset)
             plan, registry = plan_iteration(
                 root=args.root,
                 purpose=purpose,
@@ -1323,6 +1599,7 @@ def command_iterate(args: argparse.Namespace) -> None:
                 fingerprint=fingerprint,
                 reference_snapshot_id=Path(args.snapshot).name,
                 allow_same_data=args.allow_same_data,
+                rules=None if rules["preset"] == FINETUNE_PRESET else rules,
             )
             data["holdout"] = registry
             data["iterations"][str(iteration)] = {
@@ -1331,11 +1608,17 @@ def command_iterate(args: argparse.Namespace) -> None:
                 "train_photos": len(plan["train_ids"]),
                 "holdout_photos": len(plan["holdout_ids"]),
                 "train_seconds": plan["train_seconds"],
+                "rules_preset": rules["preset"],
+                "rules_preset_fingerprint": rules["preset_fingerprint"],
+                "same_data": plan["same_data"],
             }
             ledger.save(data)
+            same = plan["same_data"]
             log(
                 f"iteration {iteration}: {len(plan['train_ids'])} Mumie training photos, "
-                f"{len(plan['holdout_ids'])} holdout, planned {plan['train_seconds']:.0f} s"
+                f"{len(plan['holdout_ids'])} holdout, planned {plan['train_seconds']:.0f} s, "
+                f"rules preset {rules['preset']}"
+                + (f", same data ({same['reason']})" if same["reused"] else "")
             )
         entry = data["iterations"][str(iteration)]
         plan = read_plan(args.root, purpose, iteration)
@@ -1392,7 +1675,7 @@ def command_iterate(args: argparse.Namespace) -> None:
                 run=manager.detail(run_id),
                 bundle=None if entry.get("bundle") is None else Path(entry["bundle"]),
                 proposals=None if entry.get("proposals") is None else Path(entry["proposals"]),
-                preset=preset,
+                preset=plan_rules(plan, preset)[0],
             )
             directory = iteration_directory(args.root, purpose, iteration)
             (directory / "report.json").write_text(
@@ -1438,6 +1721,8 @@ def command_status(args: argparse.Namespace) -> None:
                 "holdout": len(holdout_ids(registry)),
                 "train": len(registry) - len(holdout_ids(registry)),
             },
+            "rules_revisions": data.get("rules_revisions", []),
+            "next_iteration_rules_preset": rules_name(len(data["iterations"]) + 1),
             "iterations": data["iterations"],
         }
     )
@@ -1478,9 +1763,14 @@ __all__ = [
     "Ledger",
     "MixedBatchSampler",
     "assign_holdout",
+    "guard_777",
     "guard_training_photos",
+    "plan_rules",
     "planned_train_seconds",
     "proposal_accuracy",
+    "rules_name",
+    "rules_revision",
     "select_candidate",
+    "select_candidate_guarded",
     "train_iteration",
 ]

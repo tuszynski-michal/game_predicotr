@@ -345,7 +345,9 @@ Plik `vision_lab/neural_grid_presets/D.json`, fingerprint
 - 777: snapshot v2 przez strażnik ról (`training` do mieszania, `development` do
   oceny); rola `gold` nie jest czytana. Reels i Treasure nie są czytane.
 - Komenda odmawia iteracji bez zmian w danych (`NEURAL_GRID_FINETUNE_NO_NEW_PHOTOS`),
-  żeby nie wydawać budżetu na te same zdjęcia.
+  żeby nie wydawać budżetu na te same zdjęcia — chyba że poprzednia iteracja nie
+  wybrała nowego stanu (jej zdjęcia nie zostały wyuczone); wtedy plan zapisuje
+  `same_data` (patrz „Preset E”).
 
 ### Pomiar po iteracji (raport `iterations\NN\report.json` i `report.md`)
 
@@ -377,6 +379,60 @@ $f = 'game_predictor_worker.vision_lab.neural_grid_finetune'
 & $py -m $f iterate --no-wait      # tylko start treningu; dokończenie: iterate jeszcze raz
 ```
 
+### Preset E: reguły od iteracji 2 (zmiana D-490 po iteracji 1)
+
+Reguły przyjęto **po obejrzeniu wyniku iteracji 1 presetu D** (zgoda operatora
+2026-10-02, akapit „Zmiana reguł doszkalania po iteracji 1” w D-490); raport każdej
+iteracji pod presetem E mówi to wprost. Plik `vision_lab/neural_grid_presets/E.json`,
+fingerprint `f8f8559be24eae43f483380ad87b81715480ce16983ee27a9c91938e5765a7bc`
+(`FROZEN_PRESET_FINGERPRINTS["E"]`). E jest identyczny z D (dane, mieszanie wsadów,
+augmentacje, optymalizacja, harmonogram, budżet, wagi startowe, ziarno — kod sprawdza
+to funkcją `training_equivalent`) poza sekcją `finetune.guard_777` (wersja
+`neural-grid-finetune-v2`) i opisem hipotezy. Presety A–D, ich fingerprinty i
+zamrożone metryki D-483 są bez zmian.
+
+| Reguła | Wartość |
+|---|---|
+| (a) poziom B development 777 | odsetek zdjęć kompletnych i poprawnych ≥ run 1 − 0,5 pkt proc.; run 1: 298/300 = 99,33% (`2cd19738367121e6-best-development.json`, `summary.by_level.B`), próg 98,83% (≥ 297/300) |
+| (b) image-macro development 777 (600 zdjęć) | ≤ 0,0028703064783595768 (run 1, ta sama wartość co `development_image_macro` w D) |
+| (c) wykrycie i fałszywe plansze | `detection_recall` = 1,0 i `false_boards` = 0 na 600 zdjęciach |
+| wybór spośród dopuszczalnych | najniższe image-macro holdoutu Mumii; remis → niższe image-macro development 777 → wcześniejszy kandydat |
+| mały holdout (< 3 zdjęć) | ta sama reguła (nie „ostatni dopuszczalny”); raport oznacza małą próbę |
+| brak dopuszczalnego | stan poprzedni bez zmian (`previous_state_kept_777_guard_e`) |
+
+Ciągłość budżetu (egzekwowane kodem):
+
+- E nie jest presetem żadnego runu: `build_request("E")` zwraca
+  `NEURAL_GRID_RULES_PRESET_NOT_A_RUN`, a kontrakt żądania runu przyjmuje tylko A–D.
+  Run 3 pozostaje runem `5bc981568c3f42bd96f6f9238e57aedc` z presetem D; iteracja 2
+  jest kolejną próbą (`retry_run`) tego runu, więc `used_seconds` (682 s po iteracji
+  1) przechodzi bez zmian, limit 14 400 s obejmuje wszystkie iteracje, a `admit_run`
+  dalej odmawia czwartego runu.
+- Pierwsze `iterate` planujące iterację ≥ 2 zapisuje w ledgerze `rules_revisions`
+  (E i jego fingerprint, zastępowany D i jego fingerprint, `from_iteration` 2, run,
+  D-490). Plan iteracji (`plan.json`, pole `rules`) i historia checkpointu niosą
+  reguły; worker ładuje E przez zamrożony fingerprint i odmawia, gdy fingerprint się
+  nie zgadza (`NEURAL_GRID_RULES_PRESET_MISMATCH`) albo E zmieniałby trening
+  (`NEURAL_GRID_RULES_PRESET_TRAINING_MISMATCH`). Plany bez pola `rules` (iteracja 1)
+  zostają przy regułach D; katalog i raport iteracji 1 nie są przebudowywane.
+- Te same dane: gdy poprzednia iteracja nie wybrała nowego stanu (`model_unchanged`),
+  komenda nie odmawia (`NEURAL_GRID_FINETUNE_NO_NEW_PHOTOS`) i trenuje na tych samych
+  zdjęciach; plan i raport zapisują `same_data` z powodem
+  `previous_iteration_selected_no_state`. Iteracja 2 startuje z wybranego stanu
+  iteracji 1, czyli z wag runu 1 (`init.previous_selected_candidate` = `null`).
+
+Raport iteracji pod E (`report.json`/`report.md`): sekcja „Reguły wyboru: preset E” z
+notą o przyjęciu reguł po iteracji 1, progami strażnika i tabelą kandydatów: zdjęcia
+poziomu B, image-macro 777, wykrycie, fałszywe plansze, niespełnione warunki,
+image-macro i mediana NME holdoutu Mumii przed iteracją → po kandydacie.
+
+Sprawdzenie na liczbach iteracji 1 (tylko odczyt; poziom B nie jest zapisany w
+`report.json` iteracji, tylko w historii checkpointu próby 1): wszyscy trzej kandydaci
+mieli poziom B 300/300, image-macro 0,002783 / 0,002710 / 0,002726 (≤ 0,0028703),
+wykrycie 100% i 0 fałszywych, więc strażnik E dopuściłby wszystkich; wybór według
+image-macro holdoutu (0,005399 / 0,005115 / 0,005065) wskazałby kandydata 3 (holdout 2
+zdjęcia — mała próba).
+
 ### Wyniki
 
 **Smoke (GPU, 2026-10-02 20:26–20:33, po zakończeniu runu 2; katalogi tymczasowe,
@@ -399,4 +455,10 @@ zamkniętych.
 Wniosek z pomiaru trafności: operator poprawia prawie każdą propozycję runu 1 o kilka
 pikseli — właśnie tę miarę ma obniżać doszkalanie.
 
-Iteracje runu 3: nieuruchomione (start po pierwszej porcji operatora).
+**Iteracja 1 (preset D, run `5bc981568c3f42bd96f6f9238e57aedc`, próba 1).** 10
+zamkniętych zdjęć Mumii (8 treningowych, 2 holdout), 3 kandydatów, 481 s treningu,
+682 s zużyte z 14 400 s. Development 777: 549/600, 546/600, 546/600 (91,5% / 91,0% /
+91,0%) przy progu 91,83% — wszyscy odrzuceni przez strażnik D, stan runu 1 bez zmian,
+bez eksportu i propozycji. Holdout Mumii: image-macro 0,00634 przed, 0,00540 / 0,00511
+/ 0,00506 u kandydatów; mediana NME 0,0067 → 0,0048 / 0,0046 / 0,0045. Po tym wyniku
+operator przyjął reguły presetu E (sekcja wyżej). Iteracja 2: nieuruchomiona.

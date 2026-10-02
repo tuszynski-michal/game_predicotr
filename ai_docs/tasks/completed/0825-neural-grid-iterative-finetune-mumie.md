@@ -229,3 +229,29 @@ Wykonano 2026-10-02 (implementer, worktree `grid-engine-v3`, bez commita).
 
 - Restart strony z nowym kodem, `CloseFinished`, pierwsza iteracja po ok. 10
   zamkniętych zdjęciach Mumii.
+
+### Preset E (uzupełnienie po iteracji 1, D-490)
+
+- Iteracja 1 presetu D (run `5bc981568c3f42bd96f6f9238e57aedc`, 682 s z 14 400 s):
+  wszyscy trzej kandydaci odrzuceni przez strażnik D (development 777 91,0–91,5% przy
+  progu 91,83%), stan runu 1 bez zmian. Operator przyjął nowe reguły po obejrzeniu
+  wyniku (D-490, „Zmiana reguł doszkalania po iteracji 1”).
+- Nowy preset reguł `neural_grid_presets/E.json`, fingerprint
+  `f8f8559be24eae43f483380ad87b81715480ce16983ee27a9c91938e5765a7bc`: identyczny z D
+  poza `finetune.guard_777` — (a) poziom B development 777 ≥ run 1 (298/300) − 0,5 pkt
+  proc., (b) image-macro ≤ 0,0028703064783595768, (c) wykrycie 100% i 0 fałszywych;
+  wybór: najniższe image-macro holdoutu Mumii (mały holdout: ta sama reguła z
+  oznaczeniem w raporcie). A–D i metryki D-483 bez zmian.
+- Ciągłość budżetu: E nigdy nie jest presetem runu (`NEURAL_GRID_RULES_PRESET_NOT_A_RUN`);
+  iteracja 2 to kolejna próba tego samego runu D, `used_seconds` przechodzi,
+  `admit_run` dalej odmawia czwartego runu. Ledger zapisuje `rules_revisions` przy
+  planowaniu iteracji 2, plan i historia niosą `rules`, worker sprawdza zamrożony
+  fingerprint E i równoważność treningu z D. Iteracja po iteracji bez wybranego stanu
+  może użyć tych samych zdjęć (`same_data`, powód `previous_iteration_selected_no_state`).
+- Testy: 6 nowych (preset E, każdy warunek strażnika osobno, wybór po image-macro
+  holdoutu, liczby iteracji 1, ciągłość runu i budżetu przy D→E, komenda `iterate` na
+  CPU: iteracja 2 na tych samych danych pod E w tym samym runie); zestaw
+  `neural_grid or assisted_annotation or no_production_storage_imports`: 44 passed.
+- Sprawdzenie tylko do odczytu na historii checkpointu iteracji 1: poziom B 300/300 u
+  wszystkich kandydatów, strażnik E dopuściłby wszystkich, wybór → kandydat 3.
+  Iteracja 2 nieuruchomiona.

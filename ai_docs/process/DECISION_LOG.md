@@ -46,6 +46,21 @@ last_updated: 2026-10-02
   odkładane do oceny i nie wchodzi do doszkalania. Narzędzie anotacji
   zamyka zdjęcie automatycznie, gdy wszystkie jego plansze są
   zaakceptowane.
+- **Zmiana reguł doszkalania po iteracji 1 (zgoda operatora, 2026-10-02):**
+  iteracja 1 presetu D poprawiła średni błąd węzła na odłożonych zdjęciach
+  Mumii (NME mediana 0,0067 → 0,0045) i image-macro na development 777
+  (0,00287 → 0,00271), ale została odrzucona, bo odsetek zdjęć 777
+  „kompletnych i poprawnych” spadł z 92,3% do 91,0–91,5% (dozwolone
+  0,5 pkt proc.). Ten wskaźnik mierzy zgodność z etykietami S, o których
+  wiadomo z analizy runu 1, że bywają błędne przy progu tolerancji, i waha
+  się o kilka zdjęć bez zmiany jakości. Nowy preset E (ten sam budżet
+  trzeciego runu, czas iteracji 1 pozostaje zużyty): strażnik 777 = (a)
+  odsetek zdjęć kompletnych i poprawnych na zdjęciach poziomu B development
+  nie niższy niż w runie 1 o więcej niż 0,5 pkt proc., (b) image-macro na
+  całym development nie gorsze niż w runie 1, (c) 100% plansz wykrytych i 0
+  fałszywych; wybór stanu na Mumiach według najniższego image-macro
+  holdoutu (średni błąd węzła), nie według odsetka zdjęć poprawnych. Zmiana
+  jest dokonana po obejrzeniu wyniku i jest tak oznaczona w raporcie.
 - **Skutek dla pilota D-456 (przyjęty):** pierwszy zapis siatki we
   wspomaganej anotacji (TASK-0824) oznacza zamrożony podział D-456 jako
   `split_stale` (istniejąca reguła magazynu anotacji dla każdego zapisu

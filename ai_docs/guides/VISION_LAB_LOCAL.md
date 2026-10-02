@@ -815,8 +815,20 @@ $f = 'game_predictor_worker.vision_lab.neural_grid_finetune'
 & $py -m $f iterate --smoke --root <katalog_tymczasowy> --annotations <kopia_magazynu> --proposals <kopia_propozycji>
 ```
 
+Reguły od iteracji 2 (preset E, D-490): przyjęte po obejrzeniu iteracji 1 presetu D.
+Kandydat jest dopuszczalny, gdy na 600 zdjęciach development 777 (a) zdjęcia poziomu B
+są kompletne i poprawne nie gorzej niż run 1 − 0,5 pkt proc. (run 1: 298/300), (b)
+image-macro nie jest gorsze niż w runie 1 i (c) wykrycie plansz = 100% przy 0
+fałszywych; spośród dopuszczalnych wygrywa najniższe image-macro holdoutu Mumii.
+Przełączenie jest automatyczne — nie ma osobnej komendy: pierwsze `iterate` iteracji 2
+zapisuje zmianę reguł w ledgerze. To ten sam run i ten sam budżet (czas iteracji 1
+zostaje zużyty, czwartego runu nie ma); `status` pokazuje `rules_revisions` i
+`next_iteration_rules_preset`.
+
 Wymagania przed iteracją: żaden inny run nie jest aktywny (`RUN_BUSY`), są nowe
-zamknięte zdjęcia Mumii (inaczej `NEURAL_GRID_FINETUNE_NO_NEW_PHOTOS`). Strona
+zamknięte zdjęcia Mumii (inaczej `NEURAL_GRID_FINETUNE_NO_NEW_PHOTOS`; wyjątek:
+poprzednia iteracja nie wybrała nowego stanu — wtedy te same zdjęcia są użyte
+ponownie i raport to odnotowuje). Strona
 anotacji może działać w tym czasie: eksport czyta magazyn przez krótką blokadę, a nowy
 zbiór propozycji strona wczyta sama. Wyniki: `neural-grid-runs\finetune-D\iterations\NN\report.md`
 (po polsku) i `report.json`; ledger z przydziałem holdoutu:

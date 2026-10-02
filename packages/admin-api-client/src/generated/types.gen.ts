@@ -3828,6 +3828,9 @@ export type GridCalibrationProfileResponse = {
  * GridCorrectionCellSymbolPayload
  *
  * One symbol the operator assigns to a cell while saving its grid (D-488).
+ *
+ * A ``null`` ``symbolId`` means the operator cannot tell the symbol: the cell
+ * is marked unreadable and left for a later review, never guessed.
  */
 export type GridCorrectionCellSymbolPayload = {
   /**
@@ -3837,7 +3840,7 @@ export type GridCorrectionCellSymbolPayload = {
   /**
    * Symbolid
    */
-  symbolId: string;
+  symbolId: string | null;
 };
 
 /**

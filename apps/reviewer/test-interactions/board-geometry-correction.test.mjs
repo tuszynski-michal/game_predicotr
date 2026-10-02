@@ -487,7 +487,7 @@ test('the operator labels previewed cells and the save sends only those symbols 
   const picker = document.querySelector('[aria-label="Symbol wybranego pola"]');
   assert.deepEqual(
     [...picker.querySelectorAll('button')].map((entry) => entry.textContent),
-    ['Siódemka', 'Star', 'Usuń wybór'],
+    ['Siódemka', 'Star', '? Nie wiem', 'Usuń wybór'],
   );
   assert.equal(paletteButton('Star').disabled, true);
 
@@ -506,6 +506,32 @@ test('the operator labels previewed cells and the save sends only those symbols 
 
   assert.equal(calls.resolve.length, 1);
   assert.deepEqual(calls.resolve[0].command.cellSymbols, [
+    { cellIndex: 2, symbolId: 'sym-star' },
+  ]);
+  await act(async () => root.unmount());
+});
+
+test('"Nie wiem" saves a covered cell as unknown instead of a guessed symbol', async () => {
+  const state = {
+    queue: [deferredSlot()],
+    suggestions: [{ cellIndex: 0, origin: 'predicted', symbolId: 'sym-seven' }],
+    symbols: SYMBOLS,
+  };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+
+  await act(async () => cropButton('Crop 1 — podpowiedź: Siódemka').click());
+  await act(async () => paletteButton('? Nie wiem').click());
+  // The unknown choice replaces the model hint on the tile.
+  assert.ok(cropButton('Crop 1 — wybrany symbol: ?'));
+  await act(async () => cropButton('Crop 3').click());
+  await act(async () => paletteButton('Star').click());
+
+  await act(async () => button('Zapisz geometrię i dalej').click());
+  await settle();
+
+  assert.deepEqual(calls.resolve[0].command.cellSymbols, [
+    { cellIndex: 0, symbolId: null },
     { cellIndex: 2, symbolId: 'sym-star' },
   ]);
   await act(async () => root.unmount());

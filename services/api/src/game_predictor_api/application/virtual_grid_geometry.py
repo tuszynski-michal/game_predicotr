@@ -235,10 +235,14 @@ class VirtualGridGeometrySourceCommand:
 
 @dataclass(frozen=True, slots=True)
 class VirtualGridCellSymbol:
-    """One symbol the operator assigned to a cell while correcting its grid (D-488)."""
+    """One symbol the operator assigned to a cell while correcting its grid (D-488).
+
+    ``symbol_id`` ``None`` is the operator's explicit "cannot tell": the cell is
+    reopened as unreadable instead of being given a guessed label.
+    """
 
     cell_index: int
-    symbol_id: UUID
+    symbol_id: UUID | None
 
 
 @dataclass(frozen=True, slots=True)

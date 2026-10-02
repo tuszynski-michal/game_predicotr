@@ -6,6 +6,16 @@ last_updated: 2026-10-02
 
 # Current State
 
+### TASK-0825 — opcja „Nie wiem” w palecie symboli korekty siatki (done, D-488)
+
+- Paleta ma przycisk „? Nie wiem”: pole zasłonięte lub widoczne we fragmencie można
+  zapisać bez zgadywania. `cellSymbols[].symbolId = null` oznacza komórkę jako
+  nieczytelną (`mark_unreadable`, oczekująca, bez etykiety); symbol dalej daje
+  `reassign`. Kafelek pokazuje „?”, „Usuń wybór” przywraca podpowiedź.
+- Zmiana kontraktu API (nullowalny `symbolId`), OpenAPI i klient wygenerowane.
+- Testy API 42/42, interakcje Reviewera 12/12, typecheck, lint i `check:generated`
+  czyste. **Brak odbioru na żywo**: wymagany restart API i `reviewer:build`.
+
 ### TASK-0824 — trwałe usunięcie zarchiwizowanej gry V2 (done)
 
 - Na prośbę operatora (2026-10-02) usunięto z bazy deweloperskiej dwie testowe,

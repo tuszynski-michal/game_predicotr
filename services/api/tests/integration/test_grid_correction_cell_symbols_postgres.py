@@ -97,6 +97,22 @@ def test_operator_symbols_approve_only_the_selected_current_crops(
             index: before[index] for index in untouched
         }
 
+    # "Cannot tell" reopens an approved crop as unreadable instead of guessing.
+    with game_storage_scope(game_id), sessions() as session, session.begin():
+        unknown = SqlAlchemyGridCorrectionSymbolRepository(session).assign(
+            game_id=game_id,
+            review_item_id=review_item_id,
+            symbol_id_by_cell_index={5: None},
+            actor="grid-correction-test",
+        )
+        assert unknown == 1
+    with game_storage_scope(game_id), sessions() as session:
+        rows = {row.cell_index: row for row in _rows(session, game_id)}
+        assert rows[5].review_state == "pending"
+        assert rows[5].quality_issue == "unreadable"
+        assert rows[5].assignment_source == "human"
+        assert rows[2].review_state == "approved"
+
     # A cell without source pixels has no crop to approve: nothing is skipped.
     with game_storage_scope(game_id), sessions() as session:
         with pytest.raises(ImageGridReviewError) as error:

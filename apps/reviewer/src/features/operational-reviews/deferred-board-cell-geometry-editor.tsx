@@ -52,6 +52,7 @@ export interface CorrectionSymbol {
 }
 
 const NO_SYMBOLS: readonly CorrectionSymbol[] = [];
+const UNKNOWN_SYMBOL_LABEL = '?';
 
 export function DeferredBoardCellGeometryEditor({
   api,
@@ -152,8 +153,10 @@ export function BoardGeometryCorrectionEditor({
   const [flags, setFlags] = useState<ManualGridFlags>(completeManualGridFlags);
   // D-488: symbols the operator assigned, the cell being edited and the
   // read-only suggestions of the previewed cut.
+  // A `null` value is the explicit "cannot tell": the cell is saved as
+  // unreadable instead of getting a guessed symbol.
   const [chosenSymbols, setChosenSymbols] = useState<
-    Readonly<Record<number, string>>
+    Readonly<Record<number, string | null>>
   >({});
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
   const [suggestedSymbols, setSuggestedSymbols] = useState<{
@@ -773,11 +776,12 @@ export function BoardGeometryCorrectionEditor({
     symbols.find((symbol) => symbol.id === symbolId)?.label ?? null;
   const currentSuggestions =
     suggestedSymbols?.key === commandKey ? suggestedSymbols.byCell : {};
-  const assignSymbol = (symbolId: string | null) => {
+  // `undefined` clears the choice, `null` records "cannot tell".
+  const assignSymbol = (symbolId: string | null | undefined) => {
     if (selectedCell === null) return;
     setChosenSymbols((current) => {
       const next = { ...current };
-      if (symbolId === null) delete next[selectedCell];
+      if (symbolId === undefined) delete next[selectedCell];
       else next[selectedCell] = symbolId;
       return next;
     });
@@ -973,7 +977,10 @@ export function BoardGeometryCorrectionEditor({
                     />
                   );
                 }
-                const chosen = symbolLabel(chosenSymbols[index]);
+                const chosen =
+                  chosenSymbols[index] === null
+                    ? UNKNOWN_SYMBOL_LABEL
+                    : symbolLabel(chosenSymbols[index]);
                 const suggested = symbolLabel(currentSuggestions[index]);
                 return (
                   <button
@@ -1016,7 +1023,7 @@ export function BoardGeometryCorrectionEditor({
             >
               <p>
                 {selectedCell === null
-                  ? 'Kliknij kafelek, aby narzucić jego symbol. Pogrubiona etykieta to Twój wybór, zwykła — podpowiedź. Zapis zatwierdzi tylko wybrane pola.'
+                  ? 'Kliknij kafelek, aby narzucić jego symbol. Pogrubiona etykieta to Twój wybór, zwykła — podpowiedź. Jeśli nie widzisz symbolu, wybierz „Nie wiem”. Zapis zatwierdzi tylko wybrane pola.'
                   : `Pole ${selectedCell + 1}: wybierz symbol.`}
               </p>
               <div>
@@ -1036,13 +1043,26 @@ export function BoardGeometryCorrectionEditor({
                   </button>
                 ))}
                 <button
+                  aria-pressed={
+                    selectedCell !== null &&
+                    chosenSymbols[selectedCell] === null
+                  }
+                  className="secondaryButton"
+                  disabled={selectedCell === null || saving}
+                  onClick={() => assignSymbol(null)}
+                  title="Nie widzisz symbolu (np. jest zasłonięty)? Pole zostanie zapisane jako nieczytelne, bez zgadywania."
+                  type="button"
+                >
+                  {UNKNOWN_SYMBOL_LABEL} Nie wiem
+                </button>
+                <button
                   className="textButton"
                   disabled={
                     selectedCell === null ||
                     saving ||
                     chosenSymbols[selectedCell] === undefined
                   }
-                  onClick={() => assignSymbol(null)}
+                  onClick={() => assignSymbol(undefined)}
                   type="button"
                 >
                   Usuń wybór

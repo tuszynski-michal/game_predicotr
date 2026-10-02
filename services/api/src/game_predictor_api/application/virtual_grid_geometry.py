@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import hashlib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime
 from io import BytesIO
 from pathlib import Path
@@ -798,11 +798,13 @@ class VirtualGridGeometryService:
                 corrected_by=actor,
                 geometry_qualification=source_command.geometry_qualification,
             )
-            context = self._repository.virtual_geometry_context(
-                game_id=game_id,
-                import_job_id=import_job_id,
-                review_item_id=source_command.review_item_id,
-                pending_geometry_id=source_command.pending_geometry_id,
+            context = _bind_current_renderer(
+                self._repository.virtual_geometry_context(
+                    game_id=game_id,
+                    import_job_id=import_job_id,
+                    review_item_id=source_command.review_item_id,
+                    pending_geometry_id=source_command.pending_geometry_id,
+                )
             )
             _require_expected_context(
                 context,
@@ -887,7 +889,7 @@ class VirtualGridGeometryService:
             tuple[VirtualGridGeometryContext, ValidatedImageReviewGeometryCommand, SourceQuad]
         ] = []
         for target in targets:
-            context = target.context
+            context = _bind_current_renderer(target.context)
             corners = target.corners
             qualification = target.geometry_qualification
             quad = SourceQuad(
@@ -1169,11 +1171,13 @@ class VirtualGridGeometryService:
             corrected_by=actor,
             geometry_qualification=geometry_qualification,
         )
-        context = self._repository.virtual_geometry_context(
-            game_id=game_id,
-            import_job_id=import_job_id,
-            review_item_id=review_item_id,
-            pending_geometry_id=None,
+        context = _bind_current_renderer(
+            self._repository.virtual_geometry_context(
+                game_id=game_id,
+                import_job_id=import_job_id,
+                review_item_id=review_item_id,
+                pending_geometry_id=None,
+            )
         )
         _require_expected_context(
             context,
@@ -1315,6 +1319,26 @@ class VirtualGridGeometryService:
             ),
             renders,
         )
+
+
+def _bind_current_renderer(context: VirtualGridGeometryContext) -> VirtualGridGeometryContext:
+    """Bind a context to the renderer that produces the new manual renders.
+
+    Stored cells pin the renderer contract of the import that produced them.
+    A manual correction always creates new renders, so it keeps the remaining
+    pinned configuration and records the current renderer instead of rejecting
+    every board imported before a renderer contract bump.
+    """
+
+    from game_predictor_worker.images.virtual_cell_extraction import VirtualCellRenderer
+
+    return replace(
+        context,
+        render_configuration=replace(
+            context.render_configuration,
+            extractor_version=VirtualCellRenderer.version,
+        ),
+    )
 
 
 def _require_expected_context(

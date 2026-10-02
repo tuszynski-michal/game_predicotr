@@ -1,10 +1,25 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-01
+last_updated: 2026-10-02
 ---
 
 # Current State
+
+### TASK-0815 — ręczna korekta siatki po bumpie kontraktu renderera (done)
+
+- Zgłoszenie operatora: każda zmiana siatki w „Korekcie cięcia siatki” kończyła
+  się `IMAGE_VIRTUAL_CELL_EXTRACTOR_MISMATCH`. Kontekst korekty brał wersję
+  extractora z render speców istniejących komórek (albo ze snapshotu rolloutu
+  joba), a renderer po TASK-0660/0661/0663 ma `…-source-direct-v4`, więc
+  odrzucał plansze zaimportowane wcześniej.
+- `VirtualGridGeometryService` wiąże teraz konfigurację renderu z bieżącym
+  rendererem (pojedyncza plansza, zapis źródła/odroczonego slotu, konwersja
+  legacy); pozostałe przypięte pola (preprocessing, interpolacja, rozmiar,
+  padding) bez zmian. Bez zmian API, schematu i danych.
+- Test regresyjny przechodzi; plik testów 48/50 — dwa przypadki
+  `test_qualified_partial_preview_…` padają także bez tej zmiany (poza
+  zakresem). Wymagany restart API; brak odbioru na żywym Reviewerze.
 
 ### TASK-0782 — zmiana kolejności symboli w katalogu (done)
 

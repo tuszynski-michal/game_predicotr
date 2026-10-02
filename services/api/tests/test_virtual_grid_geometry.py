@@ -358,6 +358,61 @@ def test_virtual_source_save_renders_one_complete_source_without_png(tmp_path: P
     assert not any(path.suffix == ".png" for path in (tmp_path / "data").rglob("*"))
 
 
+def test_manual_correction_rebinds_cells_pinned_to_a_previous_renderer(tmp_path: Path) -> None:
+    service, context = _fixture(tmp_path)
+    repository = service._repository  # noqa: SLF001 - inspect the application port in a unit test
+    assert isinstance(repository, MemoryVirtualGridGeometryRepository)
+    historic = replace(
+        context,
+        render_configuration=replace(
+            context.render_configuration,
+            extractor_version="virtual-cell-renderer-source-direct-v1",
+        ),
+    )
+    repository.contexts = {historic.target_id: historic}
+    identity = dict(
+        expected_geometry_revision=0,
+        expected_resolution_revision=0,
+        expected_source_checksum_sha256=context.source_checksum_sha256,
+        expected_source_width=context.oriented_width,
+        expected_source_height=context.oriented_height,
+        expected_grid_rows=3,
+        expected_grid_columns=5,
+        corners=_corners(),
+    )
+
+    saved = service.save(
+        game_id=context.game_id,
+        import_job_id=context.import_job_id,
+        review_item_id=context.review_item_id,
+        idempotency_key=uuid4(),
+        actor="local-admin",
+        created_at=datetime(2026, 10, 2, tzinfo=UTC),
+        **identity,
+    )
+    source = service.save_source(
+        game_id=context.game_id,
+        import_job_id=context.import_job_id,
+        commands=(
+            VirtualGridGeometrySourceCommand(
+                review_item_id=context.review_item_id,
+                pending_geometry_id=None,
+                **identity,
+            ),
+        ),
+        idempotency_key=uuid4(),
+        actor="local-admin",
+        created_at=datetime(2026, 10, 2, tzinfo=UTC),
+    )
+
+    expected = replace(
+        historic.render_configuration, extractor_version=VirtualCellRenderer.version
+    ).to_dict()
+    for cell in (*saved.revision.cells, *source.revisions[0].cells):
+        assert cell.extractor_version == VirtualCellRenderer.version
+        assert cell.render_spec["configuration"] == expected
+
+
 def test_virtual_source_save_requires_and_persists_all_nine_row_major_slots(
     tmp_path: Path,
     monkeypatch,

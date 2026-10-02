@@ -75,6 +75,8 @@ class RunManager:
         launcher: Callable[[RunState], None] | None = None,
         clock: Callable[[], float] = time.time,
         identity: Callable[[int], str | None] = process_created,
+        state_type: type[RunState] = RunState,
+        admit: Callable[[dict[str, Any], StartRunRequest], None] | None = None,
     ) -> None:
         self.root = root
         self.validate = validate
@@ -83,6 +85,10 @@ class RunManager:
         self.launcher = launcher or self._spawn
         self.clock = clock
         self.identity = identity
+        # A model family may bind a stricter request contract (state_type) and a durable
+        # admission rule evaluated under the run lock against all recorded runs (admit).
+        self.state_type = state_type
+        self.admit = admit
 
     def _load(self) -> dict[str, Any]:
         path = safe_file(self.root, "state.json")
@@ -98,11 +104,10 @@ class RunManager:
             data["runs"][run.id] = run.model_dump()
         write_atomic(safe_file(self.root, "state.json"), data)
 
-    @staticmethod
-    def _get(data: dict[str, Any], run_id: str) -> RunState:
+    def _get(self, data: dict[str, Any], run_id: str) -> RunState:
         if run_id not in data["runs"]:
             raise KeyError("RUN_NOT_FOUND")
-        return RunState.model_validate(data["runs"][run_id])
+        return self.state_type.model_validate(data["runs"][run_id])
 
     def _account(self, run: RunState, *, conservative: bool = False) -> None:
         now = self.clock()
@@ -179,11 +184,13 @@ class RunManager:
                 raise ValueError("RUN_BUSY")
             if request.model_version not in self.models:
                 raise ValueError("RUN_MODEL_NOT_AVAILABLE")
+            if self.admit is not None:
+                self.admit(data, request)
             self.validate(request)
             if self.settings is not None:
                 write_atomic(safe_file(self.root, "settings.json"), self.settings)
             now = self.clock()
-            run = RunState(
+            run = self.state_type(
                 id=uuid.uuid4().hex,
                 request=request,
                 fingerprint=digest(canonical_request(request, exclude_id=True)),
@@ -250,7 +257,7 @@ class RunManager:
             data = self._load()
             self._reconcile(data)
             self._save(data)
-            runs = [RunState.model_validate(value) for value in data["runs"].values()]
+            runs = [self.state_type.model_validate(value) for value in data["runs"].values()]
             runs.sort(key=lambda item: (item.created_at, item.id), reverse=True)
             for run in runs[offset : offset + limit]:
                 self._verify_outputs(run)

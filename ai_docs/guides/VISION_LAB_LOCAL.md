@@ -563,3 +563,49 @@ poziom z przedziałem Wilsona 95%):
 ```powershell
 .\.venv\Scripts\python.exe -m game_predictor_worker.vision_lab.label_review report --review $review
 ```
+
+## Sieć `neural_grid` — runy treningowe (TASK-0802)
+
+Silnik `neural_grid` (dwa stopnie: ekran 768 px → quady plansz, plansza 320 × 192
+→ 24 węzły + dopasowanie siatki projekcyjnej) trenuje się wyłącznie przez trwały
+protokół runów w osobnym katalogu
+`C:\Users\tuszy\Documents\game_predictor_vision_data\neural-grid-runs` i wyłącznie
+interpreterem GPU `.venv-vision-lab` (brak GPU = `RUN_GPU_UNAVAILABLE`, bez treningu
+na CPU). Kod czyta z snapshotu v2 tylko role `training` i `development`; każda inna
+rola (`gold`, `final_test`, `unseen_game`) kończy się błędem
+`NEURAL_GRID_ROLE_FORBIDDEN` przed otwarciem snapshotu. Presety A/B/C leżą w
+`services/worker/src/game_predictor_worker/vision_lab/neural_grid_presets/` i są
+zamrożone fingerprintem w `neural_grid_protocol.py`; zmieniony plik presetu nie
+przejdzie walidacji (nowy preset = nowa zgoda).
+
+Budżet D-481 pilnuje kod: najwyżej 3 runy `train` (po jednym na preset), każdy
+najwyżej 14 400 s liczone od startu procesu; przerwany run nie oddaje budżetu,
+`resume` kontynuuje ten sam run z pozostałym czasem. Smoke (≤ 50 kroków) nie
+liczy się do budżetu. Tylko jeden run naraz (`RUN_BUSY`); nie uruchamiaj treningu
+równolegle z ciężkimi operacjami bazy ani testami PG (limit 8 GB VM WSL). Worker
+prosi Windows o brak uśpienia bezczynności na czas swojego życia; zamknięcie
+pokrywy albo ręczne uśpienie zawiesza run, a czas biegnie dalej.
+
+```powershell
+$env:PYTHONPATH = 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\services\worker\src'
+$py = 'C:\Users\tuszy\Documents\game_predicotr\.venv-vision-lab\Scripts\python.exe'
+$m = 'game_predictor_worker.vision_lab.neural_grid_runs'
+& $py -m $m status                                  # runy, budżet, postęp, ostatnia strata
+& $py -m $m start --preset A --purpose smoke --request-id ng-smoke-a-<data>
+& $py -m $m start --preset B --purpose train --request-id ng-train-b-<data>   # tylko za zgodą
+& $py -m $m stop --run <run_id>                     # kooperacyjnie (koniec rundy, ewaluacja, checkpoint)
+& $py -m $m stop --run <run_id> --kill              # natychmiast; po 60 s failed/RUN_LEASE_EXPIRED
+& $py -m $m resume --run <run_id>                   # wznowienie z ostatniego checkpointu
+& $py -m $m evaluate --run <run_id>                 # development, najlepszy stan, GPU
+& $py -m $m export --run <run_id> --parity-images 16
+& $py -m $m timing --bundle <run_root>\<run_id>\exports\<katalog> --images 30 --threads 4
+& $py -m $m reference --screen-layout-limit 600     # odniesienie produkcji + baseline labu (CPU ~1,75 h)
+```
+
+`start` uruchamia odłączony proces workera (ukryta konsola, osobna grupa procesów),
+który przeżywa zamknięcie terminala; log, postęp (`progress.json`) i straty
+(`losses.jsonl`) są w `<run_root>\<run_id>\attempt-<n>\`. `evaluate` i `export`
+odmawiają pracy, gdy jakiś run jest aktywny. Po przeniesieniu kodu do głównego
+checkoutu ustaw `PYTHONPATH` na `services\worker\src` tego checkoutu; ścieżka kodu
+dla wznowień jest zapisana w `settings.json` katalogu runów (`pythonpath`). Wyniki,
+metryki i presety opisuje `ai_docs/quality/GRID_V3_NEURAL_GRID_RUNS_20261002.md`.

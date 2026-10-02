@@ -1,10 +1,24 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-01
+last_updated: 2026-10-02
 ---
 
 # Current State
+
+### TASK-0812 — trwałe usunięcie zarchiwizowanej gry V2 (done)
+
+- Na prośbę operatora (2026-10-02) usunięto z bazy deweloperskiej dwie testowe,
+  zarchiwizowane gry „Mumie” (`mums`, `mums-test-1`): partycje `game_data_v2`,
+  symbole, wersje zasad, zadania i rekordy gier. W bazie pozostaje jedna gra:
+  777 (`draft`), nienaruszona (63 partycje, 590 zadań).
+- Nowa komenda `scripts/delete_archived_v2_game.py` (podgląd tylko do odczytu,
+  blokady, potwierdzenie + SHA, wznawianie) nad istniejącym lifecycle `delete`;
+  opis w `LOCAL_OPERATION_GUIDE.md`. Admin nadal tylko archiwizuje.
+- Na dysku pozostały niereferencjonowane pliki obu gier (ok. 8 MB w
+  `imports/browser-selections` i jeden manifest geometrii); lista w Outcome
+  zadania. Gałąź `claude/delete-archived-games-activate-sketch-e8c167` od
+  `v1.7.149`, niescalona.
 
 ### TASK-0782 — zmiana kolejności symboli w katalogu (done)
 

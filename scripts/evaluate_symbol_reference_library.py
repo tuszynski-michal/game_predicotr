@@ -144,6 +144,13 @@ WITH eligible AS (
 SELECT * FROM eligible WHERE group_rank <= :per_group ORDER BY id
 """
 
+# A stable split of one confidence range by cell id, for ranges too large for one cache
+# (e.g. hundreds of thousands of cells at exactly 100%). One shard selects everything.
+_SHARD_CLAUSE = (
+    "(:shard_count = 1 OR mod(('x' || left(md5(c.id::text), 7))::bit(28)::int, :shard_count)"
+    " = :shard_index)"
+)
+
 _PREVIEW_SQL = f"""
 SELECT {_CELL_COLUMNS}, NULL::text AS label
 FROM game_data_v2.image_symbol_review_cells c
@@ -157,10 +164,11 @@ WHERE c.game_id = :game_id
   AND c.prediction_symbol_code = ANY(:symbols)
   AND c.prediction_confidence >= :min_confidence
   AND c.prediction_confidence < :max_confidence
+  AND {_SHARD_CLAUSE}
 ORDER BY c.id
 """
 
-_PREVIEW_SCOPE_SQL = """
+_PREVIEW_SCOPE_SQL = f"""
 SELECT reason, count(*) AS cells
 FROM (
   SELECT CASE
@@ -177,6 +185,7 @@ FROM (
     AND c.prediction_symbol_code = ANY(:symbols)
     AND c.prediction_confidence >= :min_confidence
     AND c.prediction_confidence < :max_confidence
+    AND {_SHARD_CLAUSE}
 ) outside
 WHERE reason IS NOT NULL
 GROUP BY reason
@@ -247,6 +256,19 @@ class ActiveModel:
     class_codes: tuple[str, ...]
 
 
+def _shard(value: str) -> tuple[int, int]:
+    """Parse ``INDEX/COUNT`` with ``0 <= INDEX < COUNT``."""
+
+    index_text, separator, count_text = value.partition("/")
+    try:
+        index, count = int(index_text), int(count_text)
+    except ValueError:
+        index, count = -1, 0
+    if separator != "/" or not 0 <= index < count:
+        raise argparse.ArgumentTypeError(f"invalid shard {value!r}; expected INDEX/COUNT")
+    return index, count
+
+
 def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -304,6 +326,12 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     preview.add_argument("--band-edge", type=float, action="append", default=[])
     preview.add_argument("--thumbnails-per-group", type=int, default=40, choices=range(1, 201))
     preview.add_argument("--time-budget-seconds", type=float, default=70.0)
+    preview.add_argument(
+        "--shard",
+        type=_shard,
+        default=(0, 1),
+        help="INDEX/COUNT: only cells whose id hash falls in this shard, e.g. 2/6.",
+    )
 
     apply_preview = commands.add_parser(
         "apply-preview", help="Run the preview and write a manifest of cells to update."
@@ -1856,7 +1884,14 @@ def _preview(arguments: argparse.Namespace) -> int:
     output = cast(Path, arguments.output_dir).resolve()
     output.mkdir(parents=True, exist_ok=True)
     symbol = str(arguments.symbol)
-    parameters = {"symbols": [symbol], "min_confidence": low, "max_confidence": high}
+    shard_index, shard_count = arguments.shard
+    parameters = {
+        "symbols": [symbol],
+        "min_confidence": low,
+        "max_confidence": high,
+        "shard_index": shard_index,
+        "shard_count": shard_count,
+    }
     snapshot = _read_snapshot(
         settings,
         arguments.game_code,
@@ -1988,6 +2023,8 @@ def _preview(arguments: argparse.Namespace) -> int:
             "bandEdges": edges,
             "thumbnailsPerGroup": int(arguments.thumbnails_per_group),
             "referencesPerGroup": arguments.references_per_group,
+            # Only sharded runs carry the key, so unsharded revision checksums stay as before.
+            **({"shard": f"{shard_index}/{shard_count}"} if shard_count > 1 else {}),
         },
         "library": {"cells": len(library.cells), "excluded": library.excluded},
         "libraryIdentitySha256": _library_identity(arguments, model, library),

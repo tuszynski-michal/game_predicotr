@@ -683,6 +683,12 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   „Nowy algorytm”, 284 240 wersji; 37 060 komórek 80–99% bez pewnej
   propozycji zostało przy modelu. Komórki ≥ 99% nieruszane (decyzja
   operatora). Przebiegi zapisu zakończone — S3–S8 planu D-467 odblokowane.
+- 2026-10-02 operator zlecił pasmo ≥ 99% po jednym symbolu: Winogron
+  (TASK-0828, w toku, dziesięć porcji pewności), potem Śliwka (TASK-0830).
+  Nie weryfikować w Adminie symbolu, którego zapis trwa.
+- TASK-0829 done: `preview`/`apply-preview` mają `--shard INDEX/COUNT` (stały
+  podział po `md5(id)`) dla zakresów o jednej pewności (Śliwka 100%: 341 766
+  komórek, 6 części po ~57 tys.).
 
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 

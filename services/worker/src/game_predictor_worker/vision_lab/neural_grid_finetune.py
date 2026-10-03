@@ -27,6 +27,11 @@ the run, its request (preset D) and its budget stay the same. The first iteratio
 records the revision in the ledger (``rules_revisions``, both fingerprints) and every plan
 carries its ``rules``; the worker refuses a rules preset that is not frozen or not
 training-equivalent to D. E can never be a run request, so it cannot open a fourth run.
+Second revision (D-490, after iteration 3): from iteration 4 the rules come from preset F
+(``RULES_PRESET_F``), identical to E except that a candidate is selected only if its
+Mumie-holdout image-macro is strictly below the starting state's in the same iteration;
+otherwise the previous state is kept (no ONNX export, no new proposals). Same run, same
+budget; iterations 1-3 stay as recorded.
 An iteration whose predecessor selected no state may re-use the same photos (recorded as
 ``same_data`` in the plan and the report).
 
@@ -65,8 +70,11 @@ from game_predictor_worker.training_core.runtime import TrainingInterrupted
 from .annotations import exclusive, read_checked, write_atomic
 from .neural_grid_protocol import (
     FINETUNE_PRESET,
+    RULES_F_FROM_ITERATION,
     RULES_FROM_ITERATION,
     RULES_PRESET,
+    RULES_PRESET_F,
+    RULES_PRESETS,
     SMOKE_EVAL_IMAGES,
     SMOKE_ROUNDS,
     SMOKE_STEPS_PER_ROUND,
@@ -182,6 +190,7 @@ def select_candidate(
     holdout_photos: int,
     *,
     smoke: bool = False,
+    holdout_before: Mapping[str, Any] | None = None,
 ) -> tuple[int | None, str]:
     """Candidate state of the iteration (1-based) or ``None`` to keep the previous state.
 
@@ -196,7 +205,7 @@ def select_candidate(
     if smoke:
         return int(candidates[-1]["candidate"]), "smoke_final_state"
     if settings.guard_777 is not None:
-        return select_candidate_guarded(candidates, settings.guard_777)
+        return select_candidate_guarded(candidates, settings.guard_777, holdout_before)
     floor = settings.init.development_photo_complete_correct_rate - settings.development_max_drop
     admissible = [
         c
@@ -224,6 +233,8 @@ def select_candidate(
 
 GUARD_RULE: Final = "min_mumie_holdout_image_macro_with_777_guard_e"
 GUARD_REJECTED: Final = "previous_state_kept_777_guard_e"
+GUARD_RULE_F: Final = "min_mumie_holdout_image_macro_below_start_with_777_guard_f"
+NO_HOLDOUT_IMPROVEMENT: Final = "previous_state_kept_no_holdout_improvement"
 
 
 def guard_777(development: Mapping[str, Any] | None, guard: FinetuneGuard777) -> dict[str, Any]:
@@ -263,15 +274,32 @@ def guard_777(development: Mapping[str, Any] | None, guard: FinetuneGuard777) ->
 
 
 def select_candidate_guarded(
-    candidates: Sequence[Mapping[str, Any]], guard: FinetuneGuard777
+    candidates: Sequence[Mapping[str, Any]],
+    guard: FinetuneGuard777,
+    holdout_before: Mapping[str, Any] | None = None,
 ) -> tuple[int | None, str]:
     """Preset E: among candidates passing ``guard_777`` the lowest Mumie-holdout
     image-macro (tie: lower 777 development image-macro, then the earlier candidate). The
-    rule is the same with a small holdout; the report flags the small sample."""
+    rule is the same with a small holdout; the report flags the small sample.
+
+    Preset F (``guard.require_holdout_improvement``): additionally a candidate must have a
+    holdout image-macro strictly below the starting state's (``holdout_before``, measured in
+    the same iteration); without one the previous state is kept."""
 
     admissible = [c for c in candidates if guard_777(c["development"], guard)["admissible"]]
     if not admissible:
         return None, GUARD_REJECTED
+    if guard.require_holdout_improvement:
+        start = (holdout_before or {}).get("image_macro")
+        admissible = [
+            c
+            for c in admissible
+            if start is not None
+            and (c.get("holdout") or {}).get("image_macro") is not None
+            and float(c["holdout"]["image_macro"]) < float(start)
+        ]
+        if not admissible:
+            return None, NO_HOLDOUT_IMPROVEMENT
 
     def key(c: Mapping[str, Any]) -> tuple[float, float, int]:
         holdout: Mapping[str, Any] = c.get("holdout") or {}
@@ -283,12 +311,16 @@ def select_candidate_guarded(
             int(c["candidate"]),
         )
 
-    return int(min(admissible, key=key)["candidate"]), GUARD_RULE
+    rule = GUARD_RULE_F if guard.require_holdout_improvement else GUARD_RULE
+    return int(min(admissible, key=key)["candidate"]), rule
 
 
 def rules_name(iteration: int) -> str:
-    """The rules preset of an iteration of the fine-tune run (D-490 revision)."""
+    """The rules preset of an iteration of the fine-tune run (D-490 revisions: E from
+    iteration 2, F from iteration 4)."""
 
+    if iteration >= RULES_F_FROM_ITERATION:
+        return RULES_PRESET_F
     return RULES_PRESET if iteration >= RULES_FROM_ITERATION else FINETUNE_PRESET
 
 
@@ -305,9 +337,9 @@ def plan_rules(plan: Mapping[str, Any], run_preset: Preset) -> tuple[Preset, dic
             "preset": FINETUNE_PRESET,
             "preset_fingerprint": plan["preset_fingerprint"],
         }
-    if rules.get("preset") != RULES_PRESET:
+    if rules.get("preset") not in RULES_PRESETS:
         raise ValueError("NEURAL_GRID_ITERATION_PLAN_INVALID")
-    preset, fingerprint = load_preset(RULES_PRESET)
+    preset, fingerprint = load_preset(str(rules["preset"]))
     if fingerprint != rules.get("preset_fingerprint"):
         raise ValueError("NEURAL_GRID_RULES_PRESET_MISMATCH")
     if not training_equivalent(run_preset, preset):
@@ -318,9 +350,9 @@ def plan_rules(plan: Mapping[str, Any], run_preset: Preset) -> tuple[Preset, dic
 def rules_revision(
     ledger: dict[str, Any], iteration: int, run_fingerprint: str, run_preset: Preset
 ) -> dict[str, Any]:
-    """Rules of a new iteration; the first iteration under preset E records the revision in
-    the ledger (both fingerprints, same run and budget). ``used_seconds`` and the run are
-    untouched: the revision only changes guard and selection of later attempts."""
+    """Rules of a new iteration; the first iteration under preset E (or F) records the
+    revision in the ledger (both fingerprints, same run and budget). ``used_seconds`` and the
+    run are untouched: the revision only changes guard and selection of later attempts."""
 
     name = rules_name(iteration)
     if name == FINETUNE_PRESET:
@@ -332,11 +364,20 @@ def rules_revision(
     recorded = next((r for r in revisions if r["preset"] == name), None)
     if recorded is None:
         guard = finetune_settings(preset).guard_777
+        replaced = RULES_PRESET if name == RULES_PRESET_F else FINETUNE_PRESET
+        replaced_fingerprint = (
+            load_preset(replaced)[1] if replaced != FINETUNE_PRESET else run_fingerprint
+        )
+        if guard is not None and (
+            guard.replaces_preset != replaced
+            or guard.replaces_preset_fingerprint != replaced_fingerprint
+        ):
+            raise ValueError("NEURAL_GRID_RULES_PRESET_MISMATCH")
         recorded = {
             "preset": name,
             "preset_fingerprint": fingerprint,
-            "replaces_preset": FINETUNE_PRESET,
-            "replaces_preset_fingerprint": run_fingerprint,
+            "replaces_preset": replaced,
+            "replaces_preset_fingerprint": replaced_fingerprint,
             "from_iteration": iteration,
             "run_id": ledger["run_id"],
             "decision_reference": "D-490",
@@ -829,7 +870,9 @@ def train_iteration(
         if guard is not None:
             for result in results:
                 result["guard"] = guard_777(result["development"], guard)
-        selected, rule = select_candidate(results, rules_settings, len(holdout), smoke=smoke)
+        selected, rule = select_candidate(
+            results, rules_settings, len(holdout), smoke=smoke, holdout_before=holdout_before
+        )
         if selected is None:
             model, summary, holdout_summary = init_state, None, holdout_before
         else:
@@ -1307,7 +1350,15 @@ def build_report(
         or plan.get("rules")
         or {"preset": FINETUNE_PRESET, "preset_fingerprint": plan["preset_fingerprint"]}
     )
-    if guard is not None:
+    if guard is not None and guard.require_holdout_improvement:
+        rules["note"] = (
+            f"Reguły presetu {rules['preset']} (strażnik 777 jak w E; kandydat wybierany tylko, "
+            "gdy image-macro odłożonych zdjęć Mumii jest ściśle niższe niż stanu początkowego "
+            "iteracji, w przeciwnym razie zostaje poprzedni stan, bez eksportu ONNX i bez "
+            f"nowych propozycji) przyjęto po obejrzeniu wyniku iteracji 3 (D-490): "
+            f"{guard.adopted_after}. Ten sam run i ten sam budżet; trening bez zmian."
+        )
+    elif guard is not None:
         rules["note"] = (
             f"Reguły presetu {rules['preset']} (strażnik 777 v2 i wybór po image-macro "
             "odłożonych zdjęć Mumii) przyjęto po obejrzeniu wyniku iteracji 1 presetu D "
@@ -1430,7 +1481,12 @@ def report_markdown(report: Mapping[str, Any]) -> str:
         + (
             f"kandydat {training['selected_candidate']}"
             if training["selected_candidate"] is not None
-            else "bez zmiany (żaden kandydat nie spełnił warunku 777)"
+            else (
+                "bez zmiany (żaden kandydat nie poprawił image-macro odłożonych zdjęć Mumii "
+                "względem stanu początkowego; bez eksportu ONNX i bez nowych propozycji)"
+                if training["selection_rule"] == NO_HOLDOUT_IMPROVEMENT
+                else "bez zmiany (żaden kandydat nie spełnił warunku 777)"
+            )
         )
         + f" (`{training['selection_rule']}`).",
     ]
@@ -1455,6 +1511,9 @@ def report_markdown(report: Mapping[str, Any]) -> str:
             "c_detection_recall": "(c) wykrycie",
             "c_false_boards": "(c) fałszywe",
         }
+        start_macro = next(
+            (c["holdout_change"]["image_macro_before"] for c in training["candidates"]), None
+        )
         lines += [
             "",
             f"## Reguły wyboru: preset {rules.get('preset')}",
@@ -1468,8 +1527,16 @@ def report_markdown(report: Mapping[str, Any]) -> str:
             f"image-macro ≤ {guard['run1_image_macro']:.6f} (run 1); (c) wykrycie plansz ≥ "
             f"{_pct(guard['min_detection_recall'])} i fałszywe plansze ≤ "
             f"{guard['max_false_boards']}.",
-            "- Wybór: najniższe image-macro odłożonych zdjęć Mumii (remis: niższe image-macro "
-            "development 777, potem wcześniejszy kandydat).",
+            (
+                "- Wybór: najniższe image-macro odłożonych zdjęć Mumii, ale tylko ściśle niższe "
+                "niż stanu początkowego tej iteracji "
+                f"({num(start_macro)}; inaczej "
+                "zostaje poprzedni stan; remis: niższe image-macro development 777, potem "
+                "wcześniejszy kandydat)."
+                if guard.get("require_holdout_improvement")
+                else "- Wybór: najniższe image-macro odłożonych zdjęć Mumii (remis: niższe "
+                "image-macro development 777, potem wcześniejszy kandydat)."
+            ),
             "",
             f"| Kandydat | Poziom {guard['level']} | image-macro 777 | wykrycie | fałszywe | "
             "niespełnione | holdout image-macro przed → po | holdout NME mediana przed → po |",
@@ -1510,7 +1577,8 @@ def report_markdown(report: Mapping[str, Any]) -> str:
         + (
             f" (dopuszczalny spadek {development['max_drop_percentage_points']:.1f} pkt proc.)."
             if guard is None
-            else " (informacyjnie; warunek przyjęcia to strażnik 777 presetu E powyżej)."
+            else " (informacyjnie; warunek przyjęcia to strażnik 777 presetu "
+            f"{rules.get('preset')} powyżej)."
         ),
         "",
         "## Trafność propozycji w ostatniej porcji",

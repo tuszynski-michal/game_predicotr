@@ -390,6 +390,159 @@ def test_rules_revision_continues_the_same_run_and_budget(tmp_path, monkeypatch)
         finetune.rules_revision({"run_id": run.id}, 2, fingerprint_d, preset_d)
 
 
+# --- preset F: keep the previous state without a holdout improvement (D-490, after iteration 3) --
+
+
+def _candidate_f(index, holdout_macro, development=None):
+    return {
+        "candidate": index,
+        "development": development or _development(),
+        "holdout": {"photo_complete_correct_rate": 1.0, "image_macro": holdout_macro},
+    }
+
+
+def test_preset_f_is_frozen_rules_only_and_changes_only_the_holdout_comparison():
+    preset_d, fingerprint_d = protocol.load_preset("D")
+    preset_e, fingerprint_e = protocol.load_preset("E")
+    preset_f, fingerprint_f = protocol.load_preset("F")
+    assert fingerprint_f == protocol.FROZEN_PRESET_FINGERPRINTS["F"]
+    assert fingerprint_f == "821bcdca5b9dcaedcb245f7097fb9101f903852d4448744ccfd72c91b0d59d72"
+    assert len({fingerprint_d, fingerprint_e, fingerprint_f}) == 3
+    assert fingerprint_e == "f8f8559be24eae43f483380ad87b81715480ce16983ee27a9c91938e5765a7bc"
+    assert protocol.training_equivalent(preset_d, preset_f)
+    guard_e, guard_f = preset_e.finetune.guard_777, preset_f.finetune.guard_777
+    assert guard_f.require_holdout_improvement and not guard_e.require_holdout_improvement
+    assert guard_f.applies_from_iteration == protocol.RULES_F_FROM_ITERATION == 4
+    assert (guard_f.replaces_preset, guard_f.replaces_preset_fingerprint) == ("E", fingerprint_e)
+    for field in (
+        "level",
+        "run1_level_photos",
+        "run1_level_photo_complete_correct",
+        "level_max_drop",
+        "run1_image_macro",
+        "min_detection_recall",
+        "max_false_boards",
+    ):
+        assert getattr(guard_f, field) == getattr(guard_e, field)
+    with pytest.raises(ValueError, match="RULES_PRESET_NOT_A_RUN"):
+        _request("F")
+    payload = _request("D").model_dump()
+    payload["preset"] = "F"
+    with pytest.raises(ValueError):
+        protocol.NeuralGridRunRequest.model_validate(payload)
+
+
+def test_selection_f_keeps_previous_state_when_no_candidate_improves_the_holdout():
+    settings = protocol.load_preset("F")[0].finetune
+    before = {"image_macro": 0.00274}
+    # Iteration 3 of the real run: every candidate is worse than the starting state.
+    worse = [_candidate_f(1, 0.00330), _candidate_f(2, 0.00337), _candidate_f(3, 0.00336)]
+    assert finetune.select_candidate(worse, settings, 5, holdout_before=before) == (
+        None,
+        finetune.NO_HOLDOUT_IMPROVEMENT,
+    )
+    assert finetune.NO_HOLDOUT_IMPROVEMENT == "previous_state_kept_no_holdout_improvement"
+    # Equal is not an improvement (strictly lower); a missing measurement never is one.
+    equal = [_candidate_f(1, 0.00274)]
+    assert finetune.select_candidate(equal, settings, 5, holdout_before=before)[0] is None
+    missing = [{**_candidate_f(1, 0.001), "holdout": None}]
+    assert finetune.select_candidate(missing, settings, 5, holdout_before=before)[0] is None
+    one = [_candidate_f(1, 0.001)]
+    assert finetune.select_candidate(one, settings, 5)[0] is None
+    assert finetune.select_candidate(one, settings, 0, holdout_before={})[0] is None
+    # Preset E on the same candidates still takes the best one (behaviour unchanged).
+    settings_e = protocol.load_preset("E")[0].finetune
+    assert finetune.select_candidate(worse, settings_e, 5, holdout_before=before) == (
+        1,
+        finetune.GUARD_RULE,
+    )
+
+
+def test_selection_f_selects_the_best_improving_admissible_candidate():
+    settings = protocol.load_preset("F")[0].finetune
+    before = {"image_macro": 0.00274}
+    candidates = [
+        _candidate_f(1, 0.00330),  # worse than the start
+        _candidate_f(2, 0.00260, _development(level_correct=290)),  # improves, 777 guard fails
+        _candidate_f(3, 0.00270),  # improves
+        _candidate_f(4, 0.00265),  # improves most among the admissible
+    ]
+    expected = (4, finetune.GUARD_RULE_F)
+    assert finetune.select_candidate(candidates, settings, 5, holdout_before=before) == expected
+    # Small holdout: the same rule; the report flags the sample.
+    assert finetune.select_candidate(candidates, settings, 2, holdout_before=before) == expected
+    tie = [
+        _candidate_f(1, 0.0026, _development(macro=0.0028)),
+        _candidate_f(2, 0.0026, _development(macro=0.0027)),
+    ]
+    assert finetune.select_candidate(tie, settings, 5, holdout_before=before)[0] == 2
+    # The 777 guard still decides first.
+    guarded = finetune.select_candidate([candidates[1]], settings, 5, holdout_before=before)
+    assert guarded == (None, finetune.GUARD_REJECTED)
+    assert finetune.select_candidate(candidates, settings, 0, smoke=True)[0] == 4
+
+
+def test_rules_switch_from_e_to_f_at_iteration_4_in_the_same_run_and_budget(tmp_path):
+    assert [finetune.rules_name(i) for i in (1, 2, 3, 4, 5, 9)] == list("DEEFFF")
+    clock = [1000.0]
+    manager = _manager(tmp_path, clock)
+    for name in ("A", "B"):
+        run = manager.create_or_get_run(_request(name))
+        manager.cancel_run(run.id, RunMutation(request_id=f"cancel-{name}", expected_attempt=1))
+    run = manager.create_or_get_run(_request("D"))
+    lease = token(run)
+    manager.claim(run.id, lease)
+    clock[0] += 2000
+    manager.heartbeat(run.id, lease)
+    manager.checkpoint(run.id, lease, _checkpoint(run.request, 3), 3)
+    manager.finish(run.id, lease, status="cancelled", error=finetune.ITERATION_COMPLETE)
+    preset_d, fingerprint_d = protocol.load_preset("D")
+    _, fingerprint_e = protocol.load_preset("E")
+    _, fingerprint_f = protocol.load_preset("F")
+    ledger = {"run_id": run.id, "holdout": {}, "iterations": {}}
+    # Iterations 1-3 keep their rules; only E is recorded.
+    assert finetune.rules_revision(ledger, 1, fingerprint_d, preset_d) == {
+        "preset": "D",
+        "preset_fingerprint": fingerprint_d,
+    }
+    for iteration in (2, 3):
+        rules = finetune.rules_revision(ledger, iteration, fingerprint_d, preset_d)
+        assert rules["preset"] == "E" and rules["preset_fingerprint"] == fingerprint_e
+    assert [r["preset"] for r in ledger["rules_revisions"]] == ["E"]
+    rules = finetune.rules_revision(ledger, 4, fingerprint_d, preset_d)
+    assert rules["preset"] == "F" and rules["preset_fingerprint"] == fingerprint_f
+    assert rules["from_iteration"] == 4 and rules["run_preset_fingerprint"] == fingerprint_d
+    e_revision, f_revision = ledger["rules_revisions"]
+    assert e_revision["from_iteration"] == 2
+    assert e_revision["replaces_preset_fingerprint"] == fingerprint_d
+    assert f_revision["preset"] == "F" and f_revision["from_iteration"] == 4
+    assert f_revision["run_id"] == run.id and f_revision["decision_reference"] == "D-490"
+    assert (f_revision["replaces_preset"], f_revision["replaces_preset_fingerprint"]) == (
+        "E",
+        fingerprint_e,
+    )
+    assert f_revision["preset_fingerprint"] == fingerprint_f
+    assert finetune.rules_revision(ledger, 5, fingerprint_d, preset_d)["from_iteration"] == 4
+    assert len(ledger["rules_revisions"]) == 2
+    # Worker side: stored plans of iterations 1-3 resolve as before; F needs its fingerprint.
+    plan_f = {"preset_fingerprint": fingerprint_d, "rules": rules}
+    assert finetune.plan_rules(plan_f, preset_d)[0].name == "F"
+    rules_e = {"preset": "E", "preset_fingerprint": fingerprint_e}
+    plan_e = {"preset_fingerprint": fingerprint_d, "rules": rules_e}
+    assert finetune.plan_rules(plan_e, preset_d)[0].name == "E"
+    assert finetune.plan_rules({"preset_fingerprint": fingerprint_d}, preset_d)[0] is preset_d
+    with pytest.raises(ValueError, match="RULES_PRESET_MISMATCH"):
+        wrong = {**rules, "preset_fingerprint": fingerprint_e}
+        finetune.plan_rules({**plan_f, "rules": wrong}, preset_d)
+    # Same run and budget: used seconds are carried into iteration 4, no fourth run.
+    with pytest.raises(ValueError, match="BUDGET_EXHAUSTED"):
+        manager.create_or_get_run(_request("C", request_id="neural-C-fourth"))
+    fourth = manager.retry_run(run.id, RunMutation(request_id="iteration-4", expected_attempt=1))
+    assert fourth.id == run.id and fourth.used_seconds == pytest.approx(2000)
+    assert fourth.request.preset == "D" and fourth.request.preset_fingerprint == fingerprint_d
+    assert fourth.request.configuration.max_seconds == 14400
+
+
 def test_training_time_grows_with_photos_and_batches_mix_mumie_and_777():
     settings = _settings()
     assert finetune.planned_train_seconds(settings, 1) == 300

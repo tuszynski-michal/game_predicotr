@@ -255,3 +255,22 @@ Wykonano 2026-10-02 (implementer, worktree `grid-engine-v3`, bez commita).
 - Sprawdzenie tylko do odczytu na historii checkpointu iteracji 1: poziom B 300/300 u
   wszystkich kandydatów, strażnik E dopuściłby wszystkich, wybór → kandydat 3.
   Iteracja 2 nieuruchomiona.
+
+### Preset F (uzupełnienie po iteracji 3, D-490)
+
+- W iteracji 3 wszyscy kandydaci byli na holdoucie gorsi od stanu początkowego
+  (image-macro 0,00274 → 0,00330 / 0,00337 / 0,00336), a preset E wybrał kandydata 1.
+- Nowy zamrożony preset reguł `neural_grid_presets/F.json`, fingerprint
+  `821bcdca5b9dcaedcb245f7097fb9101f903852d4448744ccfd72c91b0d59d72`: jak E, ale
+  kandydat jest wybierany tylko, gdy jego image-macro holdoutu jest ściśle niższe niż
+  stanu początkowego tej samej iteracji; inaczej poprzedni stan zostaje
+  (`previous_state_kept_no_holdout_improvement`), bez eksportu ONNX i bez nowych
+  propozycji; raport to zapisuje, mała próba (< 3 zdjęć) jest oznaczana jak w E.
+- F obowiązuje od iteracji 4 tego samego runu i budżetu (mechanizm D→E: wpis
+  `rules_revisions` z fingerprintami F i E oraz powodem, plan niesie `rules`); nie może
+  być presetem runu. Iteracje 1–3 i presety A–E bez zmian.
+- Testy: 4 nowe (preset F zamrożony i równoważny treningowo, odrzucenie bez poprawy,
+  wybór poprawiającego kandydata, przełączenie E→F od iteracji 4 z ciągłością budżetu);
+  zestaw `neural_grid or assisted_annotation or no_production_storage_imports`:
+  48 passed; ruff check/format i mypy --strict zmienionych modułów bez błędów.
+  Żadna iteracja pod F nie została uruchomiona.

@@ -462,3 +462,21 @@ zamkniętych zdjęć Mumii (8 treningowych, 2 holdout), 3 kandydatów, 481 s tre
 bez eksportu i propozycji. Holdout Mumii: image-macro 0,00634 przed, 0,00540 / 0,00511
 / 0,00506 u kandydatów; mediana NME 0,0067 → 0,0048 / 0,0046 / 0,0045. Po tym wyniku
 operator przyjął reguły presetu E (sekcja wyżej). Iteracja 2: nieuruchomiona.
+
+**Preset F (reguły od iteracji 4, D-490).** W iteracji 3 (`finetune-D/iterations/03/report.md`)
+wszyscy trzej kandydaci byli na holdoucie Mumii (4 zdjęcia) gorsi od stanu, z którego
+iteracja wystartowała (image-macro 0,00274 → 0,00330 / 0,00337 / 0,00336), a preset E mimo
+to wybrał kandydata 1, bo wybierał najniższe image-macro spośród dopuszczalnych, nie
+porównując go ze stanem początkowym. Nowy zamrożony preset reguł `neural_grid_presets/F.json`
+(fingerprint `821bcdca5b9dcaedcb245f7097fb9101f903852d4448744ccfd72c91b0d59d72`) jest
+identyczny z E (ten sam strażnik 777, ten sam trening), z jedną różnicą: kandydat jest
+wybierany tylko wtedy, gdy jego image-macro holdoutu jest ściśle niższe niż image-macro
+stanu początkowego tej samej iteracji (`holdout_before`); w przeciwnym razie zostaje
+poprzedni stan (`previous_state_kept_no_holdout_improvement`), bez eksportu ONNX i bez
+nowych propozycji, a raport to zapisuje. Gdy brak pomiaru „przed”, stan też zostaje. Przy
+mniej niż 3 zdjęciach holdoutu obowiązuje ta sama reguła, a raport oznacza małą próbę. F
+obowiązuje od iteracji 4 tego samego runu i budżetu (tak jak przełączenie D→E): pierwsza
+iteracja pod F zapisuje w ledgerze wpis `rules_revisions` z oboma fingerprintami (F
+zastępuje E), powodem i `from_iteration` 4; F, tak jak E, nie może być presetem runu.
+Iteracje 1–3, ich katalogi i raporty oraz presety A–E (fingerprinty i zachowanie) są bez
+zmian. Dotąd żadna iteracja pod F nie została uruchomiona.

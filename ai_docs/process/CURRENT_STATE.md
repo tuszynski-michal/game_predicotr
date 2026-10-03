@@ -431,6 +431,23 @@ last_updated: 2026-10-02
   Mumii. Stan anotacji przy starcie pętli: 10 zdjęć Mumii kompletnych
   (śr. 165 s na zdjęcie); z 90 propozycji runu 1 operator przyjął bez zmian
   14%, poprawił 86% (mediana przesunięcia narożnika 5 px).
+- Run 3 (doszkalanie na Mumiach, run `5bc98156…aedc`) — **zakończony
+  decyzją operatora 2026-10-04 po 3 iteracjach**, zużyte 2 461 s z 14 400 s
+  (reszta zostaje na Gang i Blazing). Iteracja 1 (preset D) odrzucona przez
+  strażnik 777; preset E (D-490) przyjął iterację 2 (holdout Mumii NME
+  mediana 0,0067 → 0,0046) i iterację 3. Trafność propozycji: porcja 1 na
+  modelu runu 1 — 14% plansz przyjętych bez zmian, 165 s na zdjęcie; porcja
+  2 na modelu iteracji 2 — 79% bez zmian, 67 s na zdjęcie; 0 plansz
+  rysowanych ręcznie. 20 zdjęć Mumii kompletnych (16 trening, 4 holdout).
+  Iteracja 3 nie poprawiła holdoutu (image-macro 0,00274 → 0,00330, ok.
+  0,2 px), a reguła E wybrała najlepszego kandydata zamiast zachować
+  poprzedni stan — luka do poprawy przed kolejną grą. 777: poziom B
+  299/300, image-macro 0,00277 (lepsze niż run 1). Plik magazynu anotacji
+  przekroczył 64 MB przez kopie podziału w historii — naprawione
+  `v1.7.175`, skompaktowany z kopią zapasową. Serwery przeglądu etykiet
+  8103/8104 zatrzymane.
+- Następne: poprawka reguły wyboru (zachowanie poprzedniego stanu),
+  TASK-0804 raport końcowy V3-C.
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

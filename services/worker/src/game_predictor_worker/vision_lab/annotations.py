@@ -153,6 +153,57 @@ def read_checked(path: Path) -> dict[str, Any]:
         raise ValueError("ANNOTATION_INTEGRITY_ERROR") from error
 
 
+SPLIT_REFERENCE_KEY = "unchanged_since_revision"
+
+
+def _last_full_split(history: list[Any]) -> tuple[int, dict[str, Any]] | None:
+    for event in reversed(history):
+        split = event.get("split") if isinstance(event, dict) else None
+        if isinstance(split, dict) and SPLIT_REFERENCE_KEY not in split:
+            return int(event["revision"]), split
+    return None
+
+
+def history_split(history: list[Any], split: dict[str, Any] | None) -> dict[str, Any] | None:
+    """Split as recorded in one history event.
+
+    The frozen split is about 0.5 MB; copying it into every event filled the
+    64 MB store after about a hundred edits. An event whose split equals the
+    last fully recorded one stores a reference (revision and digest) instead.
+    """
+
+    if split is None:
+        return None
+    previous = _last_full_split(history)
+    split_digest = digest(split)
+    if previous is not None and digest(previous[1]) == split_digest:
+        return {SPLIT_REFERENCE_KEY: previous[0], "sha256": split_digest}
+    return split
+
+
+def compact_history_splits(history: list[Any]) -> int:
+    """Replace repeated full split copies in existing events by references.
+
+    Returns the number of replaced copies. The first full copy of every
+    distinct split stays in place, so each reference resolves to an earlier
+    event of the same history.
+    """
+
+    replaced = 0
+    seen: dict[str, int] = {}
+    for event in history:
+        split = event.get("split") if isinstance(event, dict) else None
+        if not isinstance(split, dict) or SPLIT_REFERENCE_KEY in split:
+            continue
+        split_digest = digest(split)
+        if split_digest in seen:
+            event["split"] = {SPLIT_REFERENCE_KEY: seen[split_digest], "sha256": split_digest}
+            replaced += 1
+        else:
+            seen[split_digest] = int(event["revision"])
+    return replaced
+
+
 class AnnotationStore:
     def __init__(self, root: Path, catalog: Catalog) -> None:
         if catalog.root is not None and root.resolve().is_relative_to(catalog.root.resolve()):
@@ -307,7 +358,9 @@ class AnnotationStore:
                     "request": request_data,
                     "at": now,
                     "revision": state.revision,
-                    "split": state.split.model_dump() if state.split else None,
+                    "split": history_split(
+                        payload["history"], state.split.model_dump() if state.split else None
+                    ),
                     "annotation": state.annotations[
                         annotation_key(request.annotation.source_id, request.annotation.board_index)
                     ].model_dump()

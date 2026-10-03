@@ -17,8 +17,10 @@ from game_predictor_worker.vision_lab.annotation_contracts import (
     SplitRequest,
 )
 from game_predictor_worker.vision_lab.annotations import (
+    SPLIT_REFERENCE_KEY,
     AnnotationStore,
     active_time,
+    compact_history_splits,
     interpolate,
     read_checked,
 )
@@ -238,6 +240,45 @@ def test_freeze_is_immutable_after_draft_or_family_change(tmp_path: Path):
         ),
     )
     assert store.mutate(family).split == frozen.split
+
+
+def test_history_records_an_unchanged_split_once(tmp_path: Path):
+    store = setup_store(tmp_path)
+    frozen = store.mutate(populate(store))
+    source_id = next(iter(frozen.split.assignments))
+    for _ in range(3):
+        store.mutate(request_for(store, source_id, action="draft"))
+    history = read_checked(store.root / "state.json")["history"]
+    full = [
+        event
+        for event in history
+        if isinstance(event["split"], dict) and "assignments" in event["split"]
+    ]
+    references = [
+        event
+        for event in history
+        if isinstance(event["split"], dict) and SPLIT_REFERENCE_KEY in event["split"]
+    ]
+    assert len(full) == 1 and len(references) == 3
+    assert all(event["split"][SPLIT_REFERENCE_KEY] == full[0]["revision"] for event in references)
+    assert store.read().split == frozen.split
+
+
+def test_compaction_replaces_repeated_split_copies_only():
+    split_a, split_b = {"assignments": {"x": "development"}}, {"assignments": {"y": "validation"}}
+    history = [
+        {"revision": 1, "split": None},
+        {"revision": 2, "split": dict(split_a)},
+        {"revision": 3, "split": dict(split_a)},
+        {"revision": 4, "split": dict(split_b)},
+        {"revision": 5, "split": dict(split_a)},
+    ]
+    assert compact_history_splits(history) == 2
+    assert history[0]["split"] is None
+    assert history[1]["split"] == split_a and history[3]["split"] == split_b
+    assert history[2]["split"][SPLIT_REFERENCE_KEY] == 2
+    assert history[4]["split"][SPLIT_REFERENCE_KEY] == 2
+    assert compact_history_splits(history) == 0
 
 
 def test_unresolved_777_and_transitive_relations_fail_closed(tmp_path: Path):

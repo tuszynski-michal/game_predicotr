@@ -6,6 +6,16 @@ last_updated: 2026-10-02
 
 # Current State
 
+### TASK-0827 — poprawianie planszy z wyników wyszukiwania (done)
+
+- Karta „Wyniki wyszukiwania” ma przycisk „Pokaż planszę”: otwiera to samo okno z liniami
+  wypłat co tabela przybliżonej wygranej, z „Popraw symbole”. Z wyników okno nie
+  ma numeru spinu; wygrana i spójność linii pochodzą z odczytu planszy.
+- Po zapisanej poprawce zamknięcie okna ponawia wyszukiwanie (zaznaczony wynik
+  zostaje). Bez zmian API.
+- Interakcje 38/38, typecheck i lint czyste. **Brak odbioru na żywo**: wymagany
+  `reviewer:build` i restart.
+
 ### TASK-0825 — opcja „Nie wiem” w palecie symboli korekty siatki (done, D-488)
 
 - Paleta ma przycisk „? Nie wiem”: pole zasłonięte lub widoczne we fragmencie można

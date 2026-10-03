@@ -437,7 +437,7 @@ function approximateWinWholeAmountFormatter(
     );
 }
 
-function unitNoun(unit: ApproximateWinAmountUnit): string {
+export function unitNoun(unit: ApproximateWinAmountUnit): string {
   return unit === 'credits' ? ' kredytów' : '';
 }
 
@@ -630,6 +630,7 @@ function ApproximateWinResultView({
               onRecalculate={onRecalculate}
               row={linesRow}
               rulesVersionId={result.rules.rulesVersionId}
+              sequenceNumber={linesRow.sequenceNumber}
               symbols={symbols}
             />
           ) : null}

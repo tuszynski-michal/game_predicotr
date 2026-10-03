@@ -3,10 +3,23 @@
 /* Board crops are checksum-verified API assets, not Next static media. */
 /* eslint-disable @next/next/no-img-element */
 
-import type { BoardSearchResponse } from '@game-predictor/admin-api-client';
+import type {
+  BoardSearchResponse,
+  SymbolResponse,
+} from '@game-predictor/admin-api-client';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
 
+import { unitNoun } from './board-search-approximate-win';
+import {
+  BoardSearchBoardLinesModal,
+  type BoardLinesClient,
+} from './board-search-board-lines-modal';
 import type { BoardSearchDataSource } from './board-search-data-source';
+import {
+  formatApproximateWinAmount,
+  loadApproximateWinDisplay,
+  scaleApproximateWinAmount,
+} from './board-search-stake';
 import {
   activeBoardSearchResult,
   boardSearchNeighbourIndexes,
@@ -17,12 +30,13 @@ import {
   type BoardSearchResultsState,
 } from './board-search-results-state';
 
-type BoardSearchResultsClient = Pick<
-  BoardSearchDataSource,
-  | 'boardSearchBoardViewUrl'
-  | 'getOperationalImageReviewItem'
-  | 'operationalImageReviewBoardAssetUrl'
->;
+type BoardSearchResultsClient = BoardLinesClient &
+  Pick<
+    BoardSearchDataSource,
+    | 'boardSearchBoardViewUrl'
+    | 'getOperationalImageReviewItem'
+    | 'operationalImageReviewBoardAssetUrl'
+  >;
 type BoardSearchResult = BoardSearchResponse['results'][number];
 
 interface BoardSearchResultsProps {
@@ -30,15 +44,22 @@ interface BoardSearchResultsProps {
   readonly gameId: string;
   readonly state: BoardSearchResultsState;
   readonly onStateChange: (state: BoardSearchResultsState) => void;
+  /** A cell correction was saved in the board window: search again. */
+  readonly onBoardEdited: () => void;
+  readonly symbols: readonly SymbolResponse[];
 }
 
 export function BoardSearchResults({
   client: api,
   gameId,
+  onBoardEdited,
   onStateChange,
   state,
+  symbols,
 }: BoardSearchResultsProps) {
   const current = activeBoardSearchResult(state);
+  const [boardOpen, setBoardOpen] = useState(false);
+  const boardTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     for (const index of boardSearchNeighbourIndexes(state)) {
@@ -126,6 +147,50 @@ export function BoardSearchResults({
           <dd>{current.score.unknownCount}</dd>
         </div>
       </dl>
+
+      <div className="boardSearchResultNavigation">
+        <button
+          aria-label={`Pokaż planszę #${current.sequenceNumber} z liniami wypłat`}
+          className="secondaryButton"
+          onClick={() => setBoardOpen(true)}
+          ref={boardTriggerRef}
+          type="button"
+        >
+          Pokaż planszę
+        </button>
+        <span>
+          Otwiera planszę z liniami wypłat; w oknie możesz poprawić pola.
+        </span>
+      </div>
+
+      {boardOpen ? (
+        <BoardSearchBoardLinesModal
+          api={api}
+          formatAmount={(credits) => {
+            const display = loadApproximateWinDisplay();
+            // Base stake: credits x 10 grosze, whatever the spin cost is.
+            return `${formatApproximateWinAmount(
+              scaleApproximateWinAmount(credits, display, 0),
+              display.unit,
+            )}${unitNoun(display.unit)}`;
+          }}
+          gameId={gameId}
+          key={`${current.assetMode}:${current.sequenceNumber}`}
+          onClose={(edited) => {
+            setBoardOpen(false);
+            if (edited) {
+              onBoardEdited();
+              return;
+            }
+            boardTriggerRef.current?.focus();
+          }}
+          onRecalculate={onBoardEdited}
+          row={null}
+          rulesVersionId={null}
+          sequenceNumber={current.sequenceNumber}
+          symbols={symbols}
+        />
+      ) : null}
 
       <footer className="boardSearchResultNavigation">
         <button

@@ -196,4 +196,3 @@ krótka blokada z ponowieniem).
   sekcji „Rekomendacja” raportu) i zadania danych z listy braków (bramka
   plansz tylko z sieci, losowa próbka G zdjęć zaakceptowanych przez
   produkcję, komplet siatek Reels/Treasure, Gang).
-

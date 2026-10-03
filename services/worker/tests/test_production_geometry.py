@@ -319,3 +319,68 @@ def _facts(**overrides: object) -> pg.LabelFacts:
 def test_label_level_rule(facts: pg.LabelFacts, level: str, basis: str, actor: str | None) -> None:
     result = pg.classify_label_level(facts)
     assert (result.level, result.basis, result.approval_actor) == (level, basis, actor)
+
+
+# --- original production output (TASK-0804) ---------------------------------------------------
+
+
+def _lineage(*items: tuple[int, str, str]) -> list[pg.RevisionFacts]:
+    return [pg.RevisionFacts(revision, source, kind) for revision, source, kind in items]
+
+
+def test_original_is_the_last_automatic_engine_revision_before_the_first_manual() -> None:
+    selection = pg.select_production_original(
+        _lineage(
+            (2, "manual", "manual_v1"),
+            (0, "auto", "structured_opencv_v1"),
+            (1, "auto", "structured_opencv_v1"),
+            (3, "auto", "structured_opencv_v1"),
+        )
+    )
+    assert selection == pg.OriginalSelection(1, 2, None)
+
+
+def test_original_without_manual_revision_is_the_newest_engine_revision() -> None:
+    selection = pg.select_production_original(
+        _lineage((0, "auto", "structured_opencv_v1"), (1, "auto", "structured_opencv_v1"))
+    )
+    assert selection == pg.OriginalSelection(1, None, None)
+
+
+@pytest.mark.parametrize(
+    "lineage",
+    [
+        (),
+        ((0, "manual", "manual_v1"), (1, "manual", "manual_v1")),
+        ((0, "manual", "manual_v1"), (1, "auto", "structured_opencv_v1")),
+        ((0, "auto", "legacy_v20"),),
+    ],
+)
+def test_lineage_without_engine_revision_before_manual_has_no_original(
+    lineage: tuple[tuple[int, str, str], ...],
+) -> None:
+    selection = pg.select_production_original(_lineage(*lineage))
+    assert selection.original_revision is None
+    assert selection.missing_reason == pg.ORIGINAL_MISSING_NO_AUTOMATIC_REVISION
+
+
+def test_original_board_nodes_come_from_the_symbol_grid_quad() -> None:
+    entry = {"symbolGridQuad": [{"x": x, "y": y} for x, y in PERSPECTIVE]}
+    nodes, reason = pg.original_board_nodes(entry)
+    assert reason is None
+    assert nodes == pg.derive_grid_nodes(PERSPECTIVE)
+
+
+@pytest.mark.parametrize(
+    ("quad", "reason"),
+    [
+        (None, pg.ORIGINAL_BOARD_WITHOUT_GRID),
+        ([{"x": 0, "y": 0}] * 3, pg.ORIGINAL_BOARD_WITHOUT_GRID),
+        (
+            [{"x": 0, "y": 0}, {"x": 1, "y": 0}, {"x": 2, "y": 0}, {"x": 3, "y": 0}],
+            pg.EXCLUSION_QUAD_DEGENERATE,
+        ),
+    ],
+)
+def test_original_board_without_a_usable_grid_is_explicit(quad: object, reason: str) -> None:
+    assert pg.original_board_nodes({"symbolGridQuad": quad}) == (None, reason)

@@ -206,6 +206,61 @@ WHERE b.game_id = :game_id AND b.status = 'rejected'
 }
 
 
+# --- original production output (TASK-0804) -----------------------------------------------
+
+ORIGINALS_SCHEMA = "production-original-v1"
+ORIGINALS_REPORT_SCHEMA = "production-originals-report-v1"
+_ORIGINALS = "production-originals.jsonl"
+_ORIGINALS_INPUT = "input_image_ids.txt"
+
+_ORIGINAL_IMAGES_SQL = text(
+    """
+SELECT s.id, s.checksum_sha256,
+  COALESCE(s.oriented_width, s.width) AS width,
+  COALESCE(s.oriented_height, s.height) AS height
+FROM source_images s
+WHERE s.game_id = :game_id AND s.id = ANY (:ids)
+"""
+)
+
+_ORIGINAL_REVISIONS_SQL = text(
+    """
+SELECT r.id, r.source_image_id, r.revision, r.geometry_source, r.engine_kind, r.engine_version,
+  r.status, r.created_by, r.created_at, r.coordinate_space, r.source_checksum_sha256,
+  r.oriented_width, r.oriented_height, r.active_board_slots, r.warnings, r.processing_time_ms
+FROM image_source_geometry_revisions r
+WHERE r.game_id = :game_id AND r.source_image_id = ANY (:ids)
+ORDER BY r.source_image_id, r.revision
+"""
+)
+
+_ORIGINAL_ENTRIES_SQL = text(
+    """
+SELECT r.id AS revision_id, e -> 'positionIndex' AS position_index,
+  e -> 'sequenceNumber' AS sequence_number, e -> 'symbolGridQuad' AS symbol_grid_quad,
+  e ->> 'disposition' AS disposition, e ->> 'localLatticeStatus' AS lattice_status,
+  e -> 'reasonCodes' AS reason_codes, e -> 'geometryConfidence' AS geometry_confidence
+FROM image_source_geometry_revisions r, jsonb_array_elements(r.board_geometries) e
+WHERE r.game_id = :game_id AND r.id = ANY (:revision_ids)
+"""
+)
+
+# Render manifests that were cut from the original revision at board geometry revision 0
+# (the engine grid itself, when the board was ever materialized from it): an independent
+# check that the stored grid quad is the grid the engine produced.
+_ORIGINAL_MANIFESTS_SQL = text(
+    """
+SELECT m.source_geometry_revision_id AS revision_id, b.position_index,
+  jsonb_path_query_array(m.cells, '$.cells[*].cellIndex') AS cell_indices,
+  jsonb_path_query_array(m.cells, '$.cells[*].renderSpec.sourceQuad') AS cell_quads
+FROM board_render_manifests m
+JOIN recognized_boards b ON b.game_id = m.game_id AND b.id = m.recognized_board_id
+WHERE m.game_id = :game_id AND m.source_geometry_revision_id = ANY (:revision_ids)
+  AND m.geometry_revision = 0
+"""
+)
+
+
 class GeometryExportError(RuntimeError):
     """The export cannot continue without losing or duplicating evidence."""
 
@@ -781,6 +836,281 @@ def run_export(
     return final
 
 
+def _original_row(
+    game_id: UUID,
+    image_id: UUID,
+    image: Mapping[str, Any] | None,
+    revisions: Sequence[Mapping[str, Any]],
+    entries: Mapping[UUID, list[Mapping[str, Any]]],
+    manifests: Mapping[tuple[UUID, int], Mapping[str, Any]],
+) -> dict[str, Any]:
+    """The original production output of one image, or its explicit absence."""
+
+    row: dict[str, Any] = {
+        "schemaVersion": ORIGINALS_SCHEMA,
+        "gameId": str(game_id),
+        "sourceImageId": str(image_id),
+        "coordinateSpace": geometry.COORDINATE_SPACE,
+        "sourceChecksumSha256": None if image is None else image["checksum_sha256"],
+        "orientedWidth": None if image is None else int(image["width"]),
+        "orientedHeight": None if image is None else int(image["height"]),
+        "lineage": [
+            {
+                "revision": int(r["revision"]),
+                "geometrySource": r["geometry_source"],
+                "engineKind": r["engine_kind"],
+                "engineVersion": r["engine_version"],
+                "status": r["status"],
+                "createdBy": r["created_by"],
+                "createdAt": r["created_at"].isoformat(),
+            }
+            for r in revisions
+        ],
+        "status": "missing",
+        "missingReason": None,
+        "detail": None,
+        "firstManualRevision": None,
+        "original": None,
+        "boards": [],
+    }
+    if image is None:
+        row["missingReason"] = geometry.ORIGINAL_MISSING_IMAGE_NOT_FOUND
+        return row
+    selection = geometry.select_production_original(
+        geometry.RevisionFacts(int(r["revision"]), str(r["geometry_source"]), str(r["engine_kind"]))
+        for r in revisions
+    )
+    row["firstManualRevision"] = selection.first_manual_revision
+    if selection.original_revision is None:
+        row["missingReason"] = selection.missing_reason
+        row["detail"] = "lineage has no automatic structured_opencv_v1 revision before manual"
+        return row
+    original = next(r for r in revisions if int(r["revision"]) == selection.original_revision)
+    mismatch = [
+        name
+        for name, ok in (
+            ("coordinateSpace", original["coordinate_space"] == geometry.COORDINATE_SPACE),
+            ("checksum", original["source_checksum_sha256"] == image["checksum_sha256"]),
+            ("width", int(original["oriented_width"]) == int(image["width"])),
+            ("height", int(original["oriented_height"]) == int(image["height"])),
+        )
+        if not ok
+    ]
+    if mismatch:
+        row["missingReason"] = geometry.ORIGINAL_MISSING_SOURCE_MISMATCH
+        row["detail"] = ",".join(mismatch)
+        return row
+    revision_id = original["id"]
+    boards = []
+    for entry in sorted(entries.get(revision_id, []), key=lambda item: int(item["position_index"])):
+        position = int(entry["position_index"])
+        nodes, reason = geometry.original_board_nodes({"symbolGridQuad": entry["symbol_grid_quad"]})
+        check: dict[str, Any] = {"present": False, "maxDeviationPx": None}
+        manifest = manifests.get((revision_id, position))
+        if manifest is not None and nodes is not None:
+            try:
+                cells = _manifest_cells(manifest["cell_indices"], manifest["cell_quads"])
+                check = {
+                    "present": True,
+                    "maxDeviationPx": round(geometry.max_manifest_deviation(nodes, cells), 6),
+                }
+            except geometry.ProductionGeometryError as error:
+                check = {"present": True, "maxDeviationPx": None, "error": error.code}
+        boards.append(
+            {
+                "positionIndex": position,
+                "sequenceNumber": entry["sequence_number"],
+                "disposition": entry["disposition"],
+                "localLatticeStatus": entry["lattice_status"],
+                "reasonCodes": entry["reason_codes"],
+                "geometryConfidence": entry["geometry_confidence"],
+                "nodes": None if nodes is None else [_round_point(p) for p in nodes],
+                "missingReason": reason,
+                "manifestCheck": check,
+            }
+        )
+    row.update(
+        status="present",
+        original={
+            "revisionId": str(revision_id),
+            "revision": int(original["revision"]),
+            "engineKind": original["engine_kind"],
+            "engineVersion": original["engine_version"],
+            "status": original["status"],
+            "createdBy": original["created_by"],
+            "createdAt": original["created_at"].isoformat(),
+            "activeBoardSlots": list(original["active_board_slots"] or []),
+            "warnings": original["warnings"],
+            "processingTimeMs": original["processing_time_ms"],
+            "isCurrentRevision": int(original["revision"]) == int(revisions[-1]["revision"]),
+        },
+        boards=boards,
+    )
+    return row
+
+
+def _originals_batch(
+    engine: Engine, game_id: UUID, generation: int | None, ids: Sequence[UUID]
+) -> list[dict[str, Any]]:
+    """One batch of images in its own short read-only transaction."""
+
+    with _batch_transaction(engine, game_id, generation) as connection:
+        parameters = {"game_id": game_id, "ids": list(ids)}
+        images = {row["id"]: row for row in _fetch(connection, _ORIGINAL_IMAGES_SQL, parameters)}
+        revisions: dict[UUID, list[dict[str, Any]]] = {image_id: [] for image_id in ids}
+        for row in _fetch(connection, _ORIGINAL_REVISIONS_SQL, parameters):
+            revisions[row["source_image_id"]].append(row)
+        candidate_ids: list[UUID] = []
+        for image_rows in revisions.values():
+            selection = geometry.select_production_original(
+                geometry.RevisionFacts(
+                    int(r["revision"]), str(r["geometry_source"]), str(r["engine_kind"])
+                )
+                for r in image_rows
+            )
+            candidate_ids.extend(
+                r["id"] for r in image_rows if int(r["revision"]) == selection.original_revision
+            )
+        entries: dict[UUID, list[Mapping[str, Any]]] = {}
+        manifests: dict[tuple[UUID, int], Mapping[str, Any]] = {}
+        if candidate_ids:
+            scope = {"game_id": game_id, "revision_ids": candidate_ids}
+            for row in _fetch(connection, _ORIGINAL_ENTRIES_SQL, scope):
+                entries.setdefault(row["revision_id"], []).append(row)
+            for row in _fetch(connection, _ORIGINAL_MANIFESTS_SQL, scope):
+                manifests[(row["revision_id"], int(row["position_index"]))] = row
+    return [
+        _original_row(
+            game_id, image_id, images.get(image_id), revisions[image_id], entries, manifests
+        )
+        for image_id in ids
+    ]
+
+
+def _originals_report(rows: Sequence[Mapping[str, Any]]) -> dict[str, Any]:
+    missing: Counter[str] = Counter()
+    statuses: Counter[str] = Counter()
+    board_missing: Counter[str] = Counter()
+    dispositions: Counter[str] = Counter()
+    deviations: list[float] = []
+    boards = boards_with_grid = 0
+    for row in rows:
+        if row["status"] != "present":
+            missing[str(row["missingReason"])] += 1
+            continue
+        statuses[str(row["original"]["status"])] += 1
+        for board in row["boards"]:
+            boards += 1
+            dispositions[str(board["disposition"])] += 1
+            if board["nodes"] is None:
+                board_missing[str(board["missingReason"])] += 1
+            else:
+                boards_with_grid += 1
+            deviation = board["manifestCheck"].get("maxDeviationPx")
+            if deviation is not None:
+                deviations.append(float(deviation))
+    return {
+        "schemaVersion": ORIGINALS_REPORT_SCHEMA,
+        "images": len(rows),
+        "imagesWithOriginal": sum(statuses.values()),
+        "imagesWithoutOriginal": _counter(missing),
+        "originalRevisionStatus": _counter(statuses),
+        "boards": boards,
+        "boardsWithGrid": boards_with_grid,
+        "boardsWithoutGrid": _counter(board_missing),
+        "boardDispositions": _counter(dispositions),
+        "manifestChecks": len(deviations),
+        "manifestMaxDeviationPx": _quantiles(deviations),
+    }
+
+
+def run_originals_export(
+    engine: Engine,
+    game_id: UUID,
+    output_root: Path,
+    *,
+    export_id: str,
+    image_ids: Sequence[UUID],
+    batch_images: int = DEFAULT_BATCH_IMAGES,
+) -> Path:
+    """``production-originals.jsonl`` for the given images (TASK-0804); read only.
+
+    For every image: the last automatic ``structured_opencv_v1`` source-geometry revision
+    before the first manual revision, with the 24 nodes of every board in
+    ``exif-normalized-rgb-pixels-v1``; a board without a grid and an image without such a
+    revision are explicit (``missingReason``), never dropped. Publication is a single
+    rename of a complete directory; an existing export id is refused.
+    """
+
+    output_root.mkdir(parents=True, exist_ok=True)
+    final = output_root / export_id
+    partial = output_root / f".partial-{export_id}"
+    if final.exists() or partial.exists():
+        raise GeometryExportError(f"{final} (or its partial directory) already exists")
+    partial.mkdir()
+    ordered = sorted(set(image_ids), key=str)
+    (partial / _ORIGINALS_INPUT).write_text(
+        "\n".join(str(i) for i in ordered) + "\n", encoding="ascii"
+    )
+    started = time.monotonic()
+    with _batch_transaction(engine, game_id, None) as connection:
+        generation = int(connection.info["vision_export_generation"])
+        alembic_revision = connection.execute(
+            text("SELECT version_num FROM alembic_version")
+        ).scalar_one()
+    rows: list[dict[str, Any]] = []
+    for offset in range(0, len(ordered), batch_images):
+        rows.extend(
+            _originals_batch(engine, game_id, generation, ordered[offset : offset + batch_images])
+        )
+    _append(partial / _ORIGINALS, [_json_line(row) for row in rows])
+    report = _originals_report(rows)
+    report.update(
+        gameId=str(game_id),
+        exporterVersion=EXPORTER_VERSION,
+        alembicRevision=alembic_revision,
+        storageGeneration=generation,
+        transactionReadOnlyVerified=True,
+        selectionRule=(
+            "last automatic structured_opencv_v1 source-geometry revision before the first "
+            "manual revision; boards without symbolGridQuad and images without such a "
+            "revision are explicit"
+        ),
+        wallSeconds=round(time.monotonic() - started, 1),
+        finishedAt=_now(),
+    )
+    _write_json_atomic(partial / _REPORT, report)
+    files = {
+        name: {"sha256": _sha256_file(partial / name), "bytes": (partial / name).stat().st_size}
+        for name in (_ORIGINALS, _ORIGINALS_INPUT, _REPORT)
+    }
+    _write_json_atomic(
+        partial / _MANIFEST,
+        {
+            "schemaVersion": 1,
+            "exporterVersion": EXPORTER_VERSION,
+            "originalsSchema": ORIGINALS_SCHEMA,
+            "reportSchema": ORIGINALS_REPORT_SCHEMA,
+            "gameId": str(game_id),
+            "exportId": export_id,
+            "images": len(rows),
+            "files": files,
+        },
+    )
+    partial.rename(final)
+    return final
+
+
+def snapshot_image_ids(snapshot: Path, roles: Sequence[str]) -> list[UUID]:
+    """Image ids of the given roles from a production snapshot's ``split.json`` (ids only)."""
+
+    document = json.loads((snapshot / "split.json").read_text(encoding="utf-8"))
+    if document.get("selectionColumns", [None, None])[:2] != ["imageId", "role"]:
+        raise GeometryExportError("The snapshot split format is not supported")
+    wanted = set(roles)
+    return [UUID(str(row[0])) for row in document["selection"] if row[1] in wanted]
+
+
 def _universe(engine: Engine, game_id: UUID, generation: int | None) -> dict[str, Any]:
     """Whole-game counts used to reconcile the export (one short transaction)."""
 
@@ -1012,6 +1342,14 @@ def main() -> None:
     parser.add_argument("--max-images", type=int, default=None, help="limit for dry runs")
     parser.add_argument("--workers", type=int, default=DEFAULT_WORKERS)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--production-originals-for",
+        type=Path,
+        default=None,
+        help="TASK-0804: write production-originals.jsonl for the images of a production "
+        "snapshot (split.json image ids of --originals-roles) instead of the candidates",
+    )
+    parser.add_argument("--originals-roles", default="development,gold")
     arguments = parser.parse_args()
     if not 1 <= arguments.batch_images <= 500:
         parser.error("--batch-images must be between 1 and 500")
@@ -1021,6 +1359,21 @@ def main() -> None:
     engine = create_engine(settings.owner_database_url, connect_args={"connect_timeout": 5})
     try:
         game_id = _resolve_game(engine, arguments.game_id, arguments.game_name)
+        if arguments.production_originals_for is not None:
+            roles = [r.strip() for r in arguments.originals_roles.split(",") if r.strip()]
+            stamp = f"{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
+            print(
+                run_originals_export(
+                    engine,
+                    game_id,
+                    arguments.output_root,
+                    export_id=arguments.export_id
+                    or f"production-originals-{str(game_id)[:8]}-{stamp}",
+                    image_ids=snapshot_image_ids(arguments.production_originals_for, roles),
+                    batch_images=arguments.batch_images,
+                )
+            )
+            return
         export_id = arguments.export_id or (
             f"production-geometry-{str(game_id)[:8]}-{datetime.now(UTC):%Y%m%dT%H%M%SZ}"
         )

@@ -24,6 +24,10 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+)
 from game_predictor_api.storage.models import (
     BoardRenderManifestModel,
     GameModel,
@@ -542,3 +546,70 @@ def test_export_transaction_cannot_write(database: Engine, world: _World) -> Non
         )
         with pytest.raises(DBAPIError, match="read-only"):
             connection.execute(text("UPDATE source_images SET status = status"))
+
+
+def test_production_originals_read_the_engine_revision_before_the_first_manual(
+    database: Engine, world: _World, output_root: Path
+) -> None:
+    with Session(database, expire_on_commit=False) as session, session.begin():
+        GameStorageRouter().bind(session, world.game_id, intent=GameStorageIntent.WRITE)
+        build = _Builder(session, world.game_id)
+        job = _import_job(session, game_id=world.game_id)
+        corrected = build.source(job, "corrected.jpg")
+        engine_revision = build.revision(
+            corrected, revision=0, range_start=9000, slots=2, status="needs_review"
+        )
+        entries = [dict(entry) for entry in engine_revision.board_geometries]
+        entries[1].update(symbolGridQuad=None, disposition="needs_manual_review")
+        engine_revision.board_geometries = entries
+        build.revision(corrected, revision=1, range_start=9000, slots=2, geometry_source="manual")
+        manual_only = build.source(job, "manual-only.jpg")
+        build.revision(manual_only, revision=0, range_start=9100, slots=1, geometry_source="manual")
+        corrected_id, manual_only_id = corrected.id, manual_only.id
+    unknown = uuid4()
+    before = _table_state(database)
+    directory = exporter.run_originals_export(
+        database,
+        world.game_id,
+        output_root,
+        export_id="originals",
+        image_ids=[world.images["one"], corrected_id, manual_only_id, unknown],
+        batch_images=2,
+    )
+    assert _table_state(database) == before
+    rows = {row["sourceImageId"]: row for row in _read(directory, "production-originals.jsonl")}
+    assert len(rows) == 4
+
+    row = rows[str(corrected_id)]
+    assert row["status"] == "present" and row["firstManualRevision"] == 1
+    assert row["original"]["revision"] == 0 and row["original"]["status"] == "needs_review"
+    assert row["original"]["isCurrentRevision"] is False
+    first, second = row["boards"]
+    assert first["missingReason"] is None and len(first["nodes"]) == 24
+    assert second == {
+        **second,
+        "nodes": None,
+        "missingReason": pg.ORIGINAL_BOARD_WITHOUT_GRID,
+        "disposition": "needs_manual_review",
+    }
+
+    one = rows[str(world.images["one"])]
+    assert one["status"] == "present" and one["original"]["isCurrentRevision"] is True
+    checks = {board["positionIndex"]: board["manifestCheck"] for board in one["boards"]}
+    assert checks[0] == {"present": True, "maxDeviationPx": 0.0}
+    assert checks[5]["maxDeviationPx"] == pytest.approx(2.0)
+    # Board 1 (S) and board 3 were re-cut at a later board revision: no engine manifest.
+    assert checks[1] == {"present": False, "maxDeviationPx": None}
+
+    assert rows[str(manual_only_id)]["missingReason"] == pg.ORIGINAL_MISSING_NO_AUTOMATIC_REVISION
+    assert rows[str(unknown)]["missingReason"] == pg.ORIGINAL_MISSING_IMAGE_NOT_FOUND
+    report = json.loads((directory / "report.json").read_text(encoding="utf-8"))
+    assert report["imagesWithOriginal"] == 2
+    assert report["transactionReadOnlyVerified"] is True
+    manifest = json.loads((directory / "export_manifest.json").read_text(encoding="utf-8"))
+    digest = hashlib.sha256((directory / "production-originals.jsonl").read_bytes()).hexdigest()
+    assert manifest["files"]["production-originals.jsonl"]["sha256"] == digest
+    with pytest.raises(exporter.GeometryExportError, match="already exists"):
+        exporter.run_originals_export(
+            database, world.game_id, output_root, export_id="originals", image_ids=[unknown]
+        )

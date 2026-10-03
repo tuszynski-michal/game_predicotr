@@ -425,3 +425,78 @@ def classify_label_level(facts: LabelFacts) -> LabelLevel:
             LABEL_LEVEL_UNCLASSIFIED, "manual_source_geometry_without_authorship", None
         )
     return LabelLevel(LABEL_LEVEL_UNCLASSIFIED, "unrecognized_lineage", None)
+
+
+# --- original production engine output (TASK-0804) --------------------------------------------
+
+# The production engine whose original (pre-correction) output TASK-0804 measures.
+ORIGINAL_ENGINE_KIND: Final = "structured_opencv_v1"
+ORIGINAL_GEOMETRY_SOURCE: Final = "auto"
+MANUAL_GEOMETRY_SOURCE: Final = "manual"
+ORIGINAL_MISSING_NO_AUTOMATIC_REVISION: Final = "PRODUCTION_ORIGINAL_NO_AUTOMATIC_REVISION"
+ORIGINAL_MISSING_IMAGE_NOT_FOUND: Final = "PRODUCTION_ORIGINAL_IMAGE_NOT_FOUND"
+ORIGINAL_MISSING_SOURCE_MISMATCH: Final = "PRODUCTION_ORIGINAL_SOURCE_MISMATCH"
+ORIGINAL_BOARD_WITHOUT_GRID: Final = "PRODUCTION_ORIGINAL_BOARD_WITHOUT_GRID"
+
+
+@dataclass(frozen=True, slots=True)
+class RevisionFacts:
+    """Lineage facts of one source-geometry revision of an image."""
+
+    revision: int
+    geometry_source: str
+    engine_kind: str
+
+
+@dataclass(frozen=True, slots=True)
+class OriginalSelection:
+    """Which revision is the original production output, and why (or why there is none)."""
+
+    original_revision: int | None
+    first_manual_revision: int | None
+    missing_reason: str | None
+
+
+def select_production_original(revisions: Iterable[RevisionFacts]) -> OriginalSelection:
+    """The last automatic ``structured_opencv_v1`` revision before the first manual one.
+
+    The production engine writes automatic revisions; a reverification or a person
+    writes a later ``manual`` revision and leaves the earlier ones in place. The
+    original output is the newest automatic engine revision older than the first
+    manual revision (every automatic revision when there is no manual one). An image
+    whose lineage has no such revision (for example the pipeline asked for manual
+    geometry right away) has no original output; that is reported, never guessed.
+    """
+
+    ordered = sorted(revisions, key=lambda item: item.revision)
+    manual = [r.revision for r in ordered if r.geometry_source == MANUAL_GEOMETRY_SOURCE]
+    first_manual = manual[0] if manual else None
+    automatic = [
+        r.revision
+        for r in ordered
+        if r.geometry_source == ORIGINAL_GEOMETRY_SOURCE
+        and r.engine_kind == ORIGINAL_ENGINE_KIND
+        and (first_manual is None or r.revision < first_manual)
+    ]
+    if not automatic:
+        return OriginalSelection(None, first_manual, ORIGINAL_MISSING_NO_AUTOMATIC_REVISION)
+    return OriginalSelection(automatic[-1], first_manual, None)
+
+
+def original_board_nodes(
+    entry: Mapping[str, object],
+) -> tuple[tuple[Point, ...] | None, str | None]:
+    """24 nodes of one board entry of an engine revision, or ``None`` with the reason.
+
+    The engine's ``symbolGridQuad`` is the grid its cells were rendered from (the TASK-0800
+    export reproduced every engine-revision manifest from it at 0.0 px). A board the engine
+    left for manual review has no grid quad; that is an explicit missing board.
+    """
+
+    quad = parse_quad(entry.get("symbolGridQuad"))
+    if quad is None:
+        return None, ORIGINAL_BOARD_WITHOUT_GRID
+    try:
+        return derive_grid_nodes(quad), None
+    except ProductionGeometryError as error:
+        return None, error.code

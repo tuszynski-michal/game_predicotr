@@ -446,8 +446,28 @@ last_updated: 2026-10-02
   przekroczył 64 MB przez kopie podziału w historii — naprawione
   `v1.7.175`, skompaktowany z kopią zapasową. Serwery przeglądu etykiet
   8103/8104 zatrzymane.
-- Następne: poprawka reguły wyboru (zachowanie poprzedniego stanu),
-  TASK-0804 raport końcowy V3-C.
+- Preset F (`v1.7.177`): od iteracji 4 doszkolony stan jest przyjmowany
+  tylko przy poprawie holdoutu względem stanu startowego.
+- **TASK-0804 done (`v1.7.178`) — STOP V3-C.** Raport
+  `ai_docs/quality/GRID_V3_COMPARISON_REPORT_20261004.md`. Holdouty
+  (gold, Reels, Treasure, holdout Mumii) odczytane po razie przez zamrożone
+  modele (ledger `grid-v3-comparison\sealed\ledger.json`). Wyniki: gold 459
+  plansz G — silnik produkcyjny (pierwotny wynik) 41,4% poprawnych (wszystkie
+  269 braków to plansze bez siatki; 78,8% w skrajnych kolumnach), sieci
+  96,5–97,2%; rodziny niewidziane: produkcja 76,3%, sieci 98,0–98,4%; 17
+  błędów sieci tuż za tolerancją; fałszywe plansze sieci = przesunięte
+  etykiety U (ciche błędy produkcji). Reels 29/30, Treasure 30/30 plansz
+  (etykiety częściowe). `hybrid_v3` z odniesieniem = pierwotny wynik
+  produkcji: 0 błędnych plansz `confident`, ale bez zysku pokrycia na S.
+  CPU ONNX ok. 0,17 s na zdjęcie. **Rekomendacja:** shadow (TASK-0805) z
+  modelem runu 1 w ograniczonym zakresie — weryfikacja wyniku produkcji
+  bramką, propozycje sieci do przeglądu na zdjęciach oznaczonych przez
+  produkcję, bez automatycznej akceptacji plansz tylko z sieci i bez cięcia
+  symboli z siatek sieci. Braki: kalibrowana bramka dla plansz tylko z
+  sieci, losowa próba zdjęć zaakceptowanych przez produkcję (ciche błędy),
+  przegląd 17 plansz przy tolerancji, pełne siatki Reels/Treasure, dane
+  Gang, zgodność symboli po cięciu, czas silnika produkcyjnego, rola
+  walidacji. Etap V3-D wymaga jawnego uruchomienia przez operatora.
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

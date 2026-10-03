@@ -165,3 +165,28 @@ Reguły:
   `lowQualityCells`, `minLowQualityConfidence`, `minPredictionConfidence`,
   `cellsBelowFilter` (komórki bez decyzji człowieka z predykcją `<= 0,80` albo
   bez predykcji). Metryka „niski kontrast” wymaga pikseli i należy do TASK-0801.
+
+## Pierwotny wynik silnika produkcyjnego (TASK-0804)
+
+Tryb `--production-originals-for <katalog snapshotu>` tego samego skryptu nie
+eksportuje kandydatów, tylko plik `production-originals.jsonl` dla zdjęć ról
+podanych w `--originals-roles` (domyślnie `development,gold`; identyfikatory z
+`split.json` snapshotu). Dla każdego zdjęcia: ostatnia automatyczna rewizja
+geometrii źródła `structured_opencv_v1` sprzed pierwszej rewizji `manual`
+(reguła w `production_geometry.select_production_original`), jej status,
+autor i linia rewizji, 24 węzły każdej planszy z `symbolGridQuad`
+(`exif-normalized-rgb-pixels-v1`) albo jawny brak
+(`PRODUCTION_ORIGINAL_BOARD_WITHOUT_GRID`), oraz kontrola z manifestem renderu
+wyciętym z tej rewizji przy rewizji planszy 0. Zdjęcie bez takiej rewizji ma
+`status = missing` i powód (`PRODUCTION_ORIGINAL_NO_AUTOMATIC_REVISION`,
+`PRODUCTION_ORIGINAL_IMAGE_NOT_FOUND`, `PRODUCTION_ORIGINAL_SOURCE_MISMATCH`).
+Odczyt w partiach w krótkich transakcjach `REPEATABLE READ READ ONLY`;
+katalog wyniku (`production-originals.jsonl`, `input_image_ids.txt`,
+`report.json`, `export_manifest.json` z SHA-256) jest publikowany jedną zmianą
+nazwy, istniejący identyfikator eksportu jest odrzucany.
+
+```powershell
+.\.venv\Scripts\python.exe scripts\vision_lab_geometry_export.py --output-root $root `
+  --export-id production-originals-777-20261004 `
+  --production-originals-for <lab>\production-geometry-snapshots\<snapshot> --originals-roles development,gold
+```

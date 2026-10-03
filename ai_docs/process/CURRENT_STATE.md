@@ -684,8 +684,13 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   propozycji zostało przy modelu. Komórki ≥ 99% nieruszane (decyzja
   operatora). Przebiegi zapisu zakończone — S3–S8 planu D-467 odblokowane.
 - 2026-10-02 operator zlecił pasmo ≥ 99% po jednym symbolu: Winogron
-  (TASK-0828, w toku, dziesięć porcji pewności), potem Śliwka (TASK-0830).
-  Nie weryfikować w Adminie symbolu, którego zapis trwa.
+  (TASK-0828), potem Śliwka (TASK-0830, w toku od 2026-10-03 17:22 UTC,
+  16 części). Nie weryfikować w Adminie symbolu, którego zapis trwa.
+- TASK-0828 (B4) done 2026-10-02 19:36 – 10-03 17:22 UTC: Winogron ≥ 99%,
+  dziesięć porcji, 657 616 komórek z predykcją biblioteki na 474 691 zapisach
+  plansz, 0 błędów; 9 699 zmian symbolu (Siedem 3 993, Wiśnia 2 393, Śliwka
+  1 744), 148 502 bez pewnej propozycji przy modelu. Podgląd zmian
+  `artifacts/symbol-reference-library/winogron-ge99-changes/` w worktree.
 - TASK-0829 done: `preview`/`apply-preview` mają `--shard INDEX/COUNT` (stały
   podział po `md5(id)`) dla zakresów o jednej pewności (Śliwka 100%: 341 766
   komórek, 6 części po ~57 tys.).

@@ -699,8 +699,10 @@ export function BoardSearchWorkspace({
           <BoardSearchResults
             client={api}
             gameId={gameId}
+            onBoardEdited={() => runSearch({ preserveSelection: true })}
             onStateChange={setResultsState}
             state={resultsState}
+            symbols={symbols}
           />
           <BoardSearchApproximateWin
             client={api}

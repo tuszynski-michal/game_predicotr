@@ -57,6 +57,16 @@ type DetailState =
       readonly detail: BoardSearchBoardDetailResponse;
     };
 
+/** The table values of an approximate-win row the modal is opened from. */
+export type BoardLinesTableRow = Pick<
+  ApproximateWinRowResponse,
+  | 'boardStatus'
+  | 'payoutCredits'
+  | 'payoutKind'
+  | 'sequenceNumber'
+  | 'spinNumber'
+>;
+
 export function BoardSearchBoardLinesModal({
   api,
   formatAmount,
@@ -65,6 +75,7 @@ export function BoardSearchBoardLinesModal({
   onRecalculate,
   row,
   rulesVersionId,
+  sequenceNumber,
   symbols,
 }: {
   readonly api: BoardLinesClient;
@@ -73,8 +84,13 @@ export function BoardSearchBoardLinesModal({
   /** `edited` is true when a cell correction was saved in this modal. */
   readonly onClose: (edited: boolean) => void;
   readonly onRecalculate: () => void;
-  readonly row: ApproximateWinRowResponse;
-  readonly rulesVersionId: string;
+  /**
+   * `null` when opened from the search results, which have no table row: the
+   * header and the line check then use the board's own freshly read values.
+   */
+  readonly row: BoardLinesTableRow | null;
+  readonly rulesVersionId: string | null;
+  readonly sequenceNumber: number;
   readonly symbols: readonly SymbolResponse[];
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
@@ -115,7 +131,7 @@ export function BoardSearchBoardLinesModal({
       );
       setImageFailed(false);
       void api
-        .getBoardSearchBoardDetail(gameId, row.sequenceNumber)
+        .getBoardSearchBoardDetail(gameId, sequenceNumber)
         .then((result) => {
           if (cancelled) return;
           if (result.error !== undefined || result.data === undefined) {
@@ -145,7 +161,7 @@ export function BoardSearchBoardLinesModal({
     return () => {
       cancelled = true;
     };
-  }, [api, gameId, row.sequenceNumber, attempt]);
+  }, [api, gameId, sequenceNumber, attempt]);
 
   // Close the native modal first: while it is open everything else is
   // inert, so the parent could not move focus back to the row button.
@@ -163,13 +179,41 @@ export function BoardSearchBoardLinesModal({
   const consistency =
     detail === null
       ? null
-      : edited
+      : edited || row === null || rulesVersionId === null
         ? boardLinesConsistency(
             detail,
             detail.payoutCredits,
             detail.rules.rulesVersionId,
           )
         : boardLinesConsistency(detail, row.payoutCredits, rulesVersionId);
+  // The header shows the table's values until a save or a refresh replaced
+  // them; opened from the search results there is no table, so the board's
+  // own reading is the only source.
+  const freshReading =
+    detail !== null && !refreshing && (row === null || edited);
+  const headerValues =
+    freshReading && detail !== null
+      ? {
+          boardStatus: detail.boardStatus,
+          payoutCredits: detail.payoutCredits,
+          payoutKind: detail.payoutKind,
+          prefix:
+            row === null
+              ? 'Wygrana '
+              : correctionSaved
+                ? 'Po poprawce: wygrana '
+                : 'Po odświeżeniu: wygrana ',
+          staleTableCredits: row === null ? null : row.payoutCredits,
+        }
+      : row !== null
+        ? {
+            boardStatus: row.boardStatus,
+            payoutCredits: row.payoutCredits,
+            payoutKind: row.payoutKind,
+            prefix: 'Wygrana ',
+            staleTableCredits: null,
+          }
+        : null;
   const editableCells = new Map(
     (detail?.cells ?? []).map((cell) => [cell.cellIndex, cell]),
   );
@@ -229,7 +273,7 @@ export function BoardSearchBoardLinesModal({
     setSaving(true);
     setNotice(null);
     try {
-      const result = await refreshDocument(gameId, row.sequenceNumber);
+      const result = await refreshDocument(gameId, sequenceNumber);
       if (result.error !== undefined || result.data === undefined) {
         setNotice({
           kind: 'error',
@@ -451,37 +495,26 @@ export function BoardSearchBoardLinesModal({
         <header className="symbolImagePickerHeader">
           <div>
             <h2 id="board-lines-title">
-              Plansza #{row.sequenceNumber} · spin{' '}
-              {row.spinNumber.toLocaleString('pl-PL')}
-            </h2>
-            <p>
-              {edited && !refreshing && detail !== null
-                ? correctionSaved
-                  ? 'Po poprawce: wygrana '
-                  : 'Po odświeżeniu: wygrana '
-                : 'Wygrana '}
-              {formatAmount(
-                edited && !refreshing && detail !== null
-                  ? detail.payoutCredits
-                  : row.payoutCredits,
-              )}
-              {(edited && !refreshing && detail !== null
-                ? detail.payoutKind
-                : row.payoutKind) === 'confirmed_minimum'
-                ? ' · częściowa (potwierdzone minimum)'
-                : ''}{' '}
-              ·{' '}
-              {boardStatusLabel(
-                edited && !refreshing && detail !== null
-                  ? detail.boardStatus
-                  : row.boardStatus,
-              )}
-              {edited && !refreshing && detail !== null
-                ? ` (w tabeli ${formatAmount(row.payoutCredits)} do przeliczenia)`
+              Plansza #{sequenceNumber}
+              {row !== null
+                ? ` · spin ${row.spinNumber.toLocaleString('pl-PL')}`
                 : ''}
-              . Linia liczy się tylko od lewej krawędzi i kończy na pierwszym
-              nieznanym polu.
-            </p>
+            </h2>
+            {headerValues !== null ? (
+              <p>
+                {headerValues.prefix}
+                {formatAmount(headerValues.payoutCredits)}
+                {headerValues.payoutKind === 'confirmed_minimum'
+                  ? ' · częściowa (potwierdzone minimum)'
+                  : ''}{' '}
+                · {boardStatusLabel(headerValues.boardStatus)}
+                {headerValues.staleTableCredits !== null
+                  ? ` (w tabeli ${formatAmount(headerValues.staleTableCredits)} do przeliczenia)`
+                  : ''}
+                . Linia liczy się tylko od lewej krawędzi i kończy na pierwszym
+                nieznanym polu.
+              </p>
+            ) : null}
           </div>
           <button
             className="secondaryButton"

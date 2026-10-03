@@ -1453,6 +1453,90 @@ test('a cell correction in the board modal saves a decision and recalculates the
   await act(async () => root.unmount());
 });
 
+test('the searched board of the results opens the same window, can be corrected and the search runs again', async (context) => {
+  withDialogSupport();
+  context.after(() => dom.window.localStorage.clear());
+  const cells = Array.from({ length: 15 }, (_, index) => ({
+    assignedSymbolCode: 'cherry',
+    cellIndex: index,
+    cellReviewId: `cell-${index}`,
+    cropChecksumSha256: 'b'.repeat(64),
+    cropSampleId: 'a'.repeat(64),
+    geometryRevision: 2,
+    qualityIssue: null,
+    reviewState: 'pending',
+    revision: 5,
+  }));
+  const decisions = [];
+  const detailSequences = [];
+  let searchCalls = 0;
+  const client = {
+    ...makeClient({
+      searchImpl: async () => {
+        searchCalls += 1;
+        return { data: { results: [boardResult(10)] } };
+      },
+    }),
+    applySymbolCellReviewDecision: async (_gameId, cellReviewId, body) => {
+      decisions.push({ body, cellReviewId });
+      return { data: { cellReviewId } };
+    },
+    boardSearchBoardViewUrl: () => 'http://127.0.0.1:8000/view.webp',
+    getBoardSearchBoardDetail: async (_gameId, sequenceNumber) => {
+      detailSequences.push(sequenceNumber);
+      return {
+        data: linesDetail(sequenceNumber, { boardStatus: 'pending', cells }),
+      };
+    },
+  };
+  const root = await renderWorkspaceWithResults(client);
+  const searchesBefore = searchCalls;
+
+  // The button belongs to the searched board, not to a table row.
+  await click(
+    document.querySelector(
+      '.boardSearchResults button[aria-label="Pokaż planszę #10 z liniami wypłat"]',
+    ),
+  );
+  await eventually(
+    () => document.querySelectorAll('.boardSearchBoardLinesMatch').length === 2,
+    'the searched board is drawn with its lines',
+  );
+  assert.deepEqual(detailSequences, [10]);
+  const heading = document.querySelector('#board-lines-title').textContent;
+  assert.match(heading, /Plansza #10/);
+  assert.doesNotMatch(heading, /spin/);
+  assert.match(
+    document.querySelector('.boardSearchBoardLinesDialog').textContent,
+    /Wygrana /,
+  );
+
+  await click(dialogButton('Popraw symbole'));
+  await click(
+    document.querySelector(
+      '.boardSearchBoardCellTarget[aria-label^="Pole 3:"]',
+    ),
+  );
+  await click(
+    [...document.querySelectorAll('.boardSearchBoardCellPalette button')].find(
+      (node) => node.textContent.includes('Nieczytelny'),
+    ),
+  );
+  await settle();
+  assert.equal(decisions.length, 1);
+  assert.equal(decisions[0].cellReviewId, 'cell-2');
+  assert.equal(decisions[0].body.action, 'mark_unreadable');
+
+  await click(dialogButton('Zamknij'));
+  await settle();
+  assert.equal(
+    searchCalls,
+    searchesBefore + 1,
+    'closing after a correction searches again',
+  );
+  await act(async () => root.unmount());
+});
+
 test('a resolved board offers no cell correction', async (context) => {
   withDialogSupport();
   context.after(() => dom.window.localStorage.clear());

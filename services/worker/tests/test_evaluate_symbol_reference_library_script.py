@@ -432,3 +432,23 @@ def test_manifest_without_a_run_checksum_is_rejected(tmp_path: Path) -> None:
 
     assert error.value.code == "SYMBOL_REFERENCE_APPLY_MANIFEST_INVALID"
     assert mismatch.value.code == "SYMBOL_REFERENCE_APPLY_MANIFEST_MISMATCH"
+
+
+def test_shard_is_parsed_and_inherited_by_apply_preview() -> None:
+    common = ["--game-code", "7", "--output-dir", "out", "--library-cache", "lib.npz"]
+    sharded = runner._parse_args(["apply-preview", *common, "--symbol", "SLIWKA", "--shard", "2/6"])
+    unsharded = runner._parse_args(["preview", *common, "--symbol", "SLIWKA"])
+
+    assert sharded.shard == (2, 6)
+    assert unsharded.shard == (0, 1)
+
+
+@pytest.mark.parametrize("value", ["6/6", "-1/6", "1", "a/b", "0/0"])
+def test_invalid_shard_is_rejected(value: str) -> None:
+    with pytest.raises(runner.argparse.ArgumentTypeError):
+        runner._shard(value)
+
+
+def test_shard_clause_is_part_of_both_preview_queries() -> None:
+    assert runner._SHARD_CLAUSE in runner._PREVIEW_SQL
+    assert runner._SHARD_CLAUSE in runner._PREVIEW_SCOPE_SQL

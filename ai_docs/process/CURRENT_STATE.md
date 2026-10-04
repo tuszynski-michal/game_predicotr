@@ -1,10 +1,40 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-04
+last_updated: 2026-10-05
 ---
 
 # Current State
+
+### TASK-0845 — Mumie: test rzeczywistego folderu (done)
+
+- Operator wskazał `C:\Users\tuszy\Documents\mumie wybrane\1 - 23175 cut`
+  (2580 JPEG-ów) i upoważnił wykonawcę do doboru części. Test objął
+  200 zdjęć równomiernie po zakresie 55–23175, bez SHA kompletnych zdjęć labu.
+  Wykluczono 6 identycznych kopii i 5 znanych źródeł; 2569 kwalifikujących się.
+- Aktualna rewizja anotacji 591: 31 kompletnych zdjęć Mumii, 11 nowych względem
+  iteracji 4. Te 11 oceniono osobno, bez dalszego treningu.
+- Porównanie eksportów iteracji 2 i 3 na CPU, istniejące dekodowanie i D-483.
+  Wyniki folderu są propozycjami. Bez accuracy na nieoznaczonych zdjęciach,
+  bez treningu, DB, migracji, aktywacji i V3-D. Plan:
+  `ai_docs/delivery/MUMIE_REAL_FOLDER_TEST_20261005.md`.
+- 422 wyniki (211 na model), każde zdjęcie folderu ma po 9 wykrytych plansz;
+  zero błędów struktury i pól poza obrazem. Przegląd 20 par nakładek oraz dwóch
+  arkuszy wycinków nie pokazał oczywistych przesunięć; nie oceniono ręcznie
+  wszystkich pól. Podgląd: `artifacts/mumie-folder-test-20261005/review.html`,
+  lokalnie `http://127.0.0.1:8108/review.html` (serwer PID 41152, bez autostartu).
+- Nowe 11: oba modele 11/11 zdjęć, 99/99 plansz według D-483. Wszystkie 99
+  referencji to zatwierdzone, niezmienione propozycje iteracji 3. Jej niemal
+  zerowy błąd nie jest niezależnym dowodem przewagi. Zatwierdzenia zachowano.
+- 7 testów PASS, Ruff check/format PASS, Mypy strict jednego modułu PASS;
+  wznowienie w nowych procesach: pending=0, recovered=211 na model; verify,
+  ponowny finish i audit PASS. Galeria: nawigacja, filtry i wycinki sprawdzone.
+- Raport: `ai_docs/quality/MUMIE_REAL_FOLDER_TEST_20261005.md`. Następny zakres:
+  niezależna ocena reprezentatywnych cięć i dobór rzeczywistych błędów, zamiast
+  automatycznego etykietowania całego folderu. Bez treningu symboli/ramki Super.
+- Commit `v1.7.189`; hash dopisywany po commicie. Numer 0845 wybrano, ponieważ
+  0844 zajęto równolegle w głównym checkoutcie. Bez scalenia do checkoutu
+  z trwającym zadaniem 0844 i bez push.
 
 ### TASK-0842 — Mumie: wznowienie i partie danych (done)
 
@@ -61,7 +91,10 @@ last_updated: 2026-10-04
 - Raport: `ai_docs/quality/MUMIE_PRODUCTION_UPLOAD_20261004.md`.
 - Testy requestów 5/5 PASS, Ruff check/format PASS, Mypy strict CLI PASS
   (1 moduł, bez kontroli importowanych zależności). Commit TASK-0843: `v1.7.188`,
-  pełny hash do dopisania po commicie. Bez push.
+  `476bdc268e366720337299fb843666ec865fd9be` (hash dopisany po commicie). Bez push.
+- Commity 187–188 scalone fast-forward do `v1.1-vision-lab-hybrid-geometry`
+  w ramach wcześniejszej zgody operatora. Bez zmian kodu uruchamianych usług
+  i bez nowego wdrożenia/migracji. Zastane zmiany pozostają poza commitami.
 
 
 ### TASK-0841 — edycja symboli po otwarciu planszy audytu (done)

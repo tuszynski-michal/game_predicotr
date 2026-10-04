@@ -506,6 +506,8 @@ import type {
   ListGridCalibrationProfilesData,
   ListGridCalibrationProfilesErrors,
   ListGridCalibrationProfilesResponses,
+  ListGridEngineProfilesData,
+  ListGridEngineProfilesResponses,
   ListGridProfileActivationsData,
   ListGridProfileActivationsErrors,
   ListGridProfileActivationsResponses,
@@ -2821,6 +2823,18 @@ export const getVirtualCellPreviewAtlas = <
     url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas',
     ...options,
   });
+
+/**
+ * List grid engine profiles and the state of their models
+ */
+export const listGridEngineProfiles = <ThrowOnError extends boolean = false>(
+  options?: Options<ListGridEngineProfilesData, ThrowOnError>,
+): RequestResult<ListGridEngineProfilesResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListGridEngineProfilesResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-engine-profiles', ...options });
 
 /**
  * List finalized browser staging folders ready for layout import

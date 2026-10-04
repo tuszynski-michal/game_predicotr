@@ -11,6 +11,7 @@ from game_predictor_api.domain.catalog import (
     ShapeGeometryReadiness,
     ShapeGeometryReadinessStatus,
     SharedShapeGeometryProfileReference,
+    uses_framed_full_page_geometry,
 )
 from game_predictor_api.domain.global_geometry_library import (
     SUPPORTED_GEOMETRY_FAMILY,
@@ -36,7 +37,9 @@ class GlobalShapeGeometryReadinessResolver:
     def resolve(
         self, configuration: GameShapeGeometryConfiguration | None
     ) -> ShapeGeometryReadiness:
-        if configuration is not GameShapeGeometryConfiguration.FRAMED_FULL_PAGE_V2:
+        # TASK-0830: the grid engine profiles are framed full-page games and
+        # resolve exactly like framed_full_page_v2.
+        if configuration is None or not uses_framed_full_page_geometry(configuration):
             return shape_geometry_clarification_readiness(configuration)
         try:
             profiles = tuple(

@@ -4,6 +4,7 @@ import type {
   GameShapeGeometryConfiguration,
   GameResponse,
   GameStatus,
+  GridEngineProfileResponse,
 } from '@game-predictor/admin-api-client';
 import {
   type FormEvent,
@@ -20,6 +21,7 @@ import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
   archiveGameIdentity,
   type GamesClient,
+  loadGridEngineProfiles,
   restoreGameIdentity,
   saveGameIdentity,
 } from '@/features/games/game-catalog-actions';
@@ -27,11 +29,16 @@ import {
   countGamesByStatus,
   EMPTY_GAME_DRAFT,
   filterGamesByStatus,
+  findGridEngineProfile,
   GAME_STATUS_FILTER_LABELS,
   GAME_STATUS_FILTERS,
   GAME_STATUS_LABELS,
+  GRID_ENGINE_PROFILE_FALLBACK_DESCRIPTIONS,
+  gridEngineModelSummary,
+  isGridEngineProfileConfiguration,
   SHAPE_GEOMETRY_CONFIGURATION_LABELS,
   SHAPE_GEOMETRY_READINESS_LABELS,
+  shapeGeometryConfigurationLabel,
   type GameDraft,
   markGameArchived,
   upsertGame,
@@ -79,6 +86,10 @@ export function GameCatalog({
   );
   const [archivingId, setArchivingId] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [gridEngineProfiles, setGridEngineProfiles] = useState<
+    readonly GridEngineProfileResponse[]
+  >([]);
+  const [gridEngineProfilesError, setGridEngineProfilesError] = useState('');
   const loadRequestId = useRef(0);
   const mutationInProgress = useRef(false);
   const statusCounts = useMemo(() => countGamesByStatus(games), [games]);
@@ -132,6 +143,24 @@ export function GameCatalog({
       loadRequestId.current += 1;
     };
   }, [loadGames]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void loadGridEngineProfiles(api).then((result) => {
+      if (cancelled) {
+        return;
+      }
+      if (result.ok) {
+        setGridEngineProfiles(result.profiles);
+        setGridEngineProfilesError('');
+      } else {
+        setGridEngineProfilesError(result.error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
 
   function openCreateEditor() {
     setDraft(EMPTY_GAME_DRAFT);
@@ -326,6 +355,8 @@ export function GameCatalog({
         <GameEditor
           draft={draft}
           error={formError}
+          gridEngineProfiles={gridEngineProfiles}
+          gridEngineProfilesError={gridEngineProfilesError}
           isSubmitting={isSubmitting}
           mode={editor.mode}
           onCancel={closeEditor}
@@ -388,6 +419,7 @@ export function GameCatalog({
                     archivePending={archivingId === game.id}
                     confirmArchive={archiveCandidateId === game.id}
                     game={game}
+                    gridEngineProfiles={gridEngineProfiles}
                     key={game.id}
                     onArchive={() => setArchiveCandidateId(game.id)}
                     onArchiveCancel={() => setArchiveCandidateId(null)}
@@ -417,6 +449,8 @@ export function GameCatalog({
 interface GameEditorProps {
   readonly draft: GameDraft;
   readonly error: string;
+  readonly gridEngineProfiles: readonly GridEngineProfileResponse[];
+  readonly gridEngineProfilesError: string;
   readonly isSubmitting: boolean;
   readonly mode: 'create' | 'edit';
   readonly onCancel: () => void;
@@ -427,6 +461,8 @@ interface GameEditorProps {
 function GameEditor({
   draft,
   error,
+  gridEngineProfiles,
+  gridEngineProfilesError,
   isSubmitting,
   mode,
   onCancel,
@@ -551,6 +587,11 @@ function GameEditor({
             Wybór określa wspólny format strony. Pierwszy import nadal wymaga
             weryfikacji i ewentualnej korekty.
           </small>
+          <GridEngineProfileHint
+            configuration={draft.shapeGeometryConfiguration}
+            error={gridEngineProfilesError}
+            profiles={gridEngineProfiles}
+          />
         </label>
 
         <label>
@@ -606,10 +647,46 @@ function GameEditor({
   );
 }
 
+function GridEngineProfileHint({
+  configuration,
+  error,
+  profiles,
+}: {
+  readonly configuration: GameShapeGeometryConfiguration;
+  readonly error: string;
+  readonly profiles: readonly GridEngineProfileResponse[];
+}) {
+  if (!isGridEngineProfileConfiguration(configuration)) {
+    return (
+      <small className="gridEngineProfileHint">
+        Profile „777 v2” i „Mumie” wybierają też zamrożony model silnika siatek
+        (neural_grid). Profil 777 v2 służy również przyszłym wersjom gry 777.
+      </small>
+    );
+  }
+  const profile = findGridEngineProfile(profiles, configuration);
+  return (
+    <small
+      className="gridEngineProfileHint"
+      data-model-status={profile?.status ?? 'unknown'}
+      data-testid="grid-engine-profile-hint"
+    >
+      Profil silnika siatek:{' '}
+      {profile?.description ??
+        GRID_ENGINE_PROFILE_FALLBACK_DESCRIPTIONS[configuration]}
+      <br />
+      {profile
+        ? `${gridEngineModelSummary(profile)}. ${profile.message}`
+        : error || 'Sprawdzanie stanu modelu…'}
+    </small>
+  );
+}
+
 interface GameRowProps {
   readonly archivePending: boolean;
   readonly confirmArchive: boolean;
   readonly game: GameResponse;
+  readonly gridEngineProfiles: readonly GridEngineProfileResponse[];
   readonly onArchive: () => void;
   readonly onArchiveCancel: () => void;
   readonly onArchiveConfirm: () => void;
@@ -625,6 +702,7 @@ function GameRow({
   archivePending,
   confirmArchive,
   game,
+  gridEngineProfiles,
   onArchive,
   onArchiveCancel,
   onArchiveConfirm,
@@ -637,6 +715,10 @@ function GameRow({
 }: GameRowProps) {
   const readiness = game.shapeGeometryReadiness;
   const readinessStatus = readiness?.status ?? 'requires_clarification';
+  const gridEngineProfile = findGridEngineProfile(
+    gridEngineProfiles,
+    game.shapeGeometryConfiguration,
+  );
   function handleRowClick(event: MouseEvent<HTMLElement>) {
     if (!selectable) {
       return;
@@ -688,6 +770,17 @@ function GameRow({
             Magazyn: {game.storageVersion} · generacja {game.storageGeneration}
             {!game.storageWriteAvailable
               ? ` · tryb tylko do odczytu (${game.storageStatus})`
+              : ''}
+          </small>
+          <small className="gamePageFormat">
+            Format strony:{' '}
+            {shapeGeometryConfigurationLabel(game.shapeGeometryConfiguration)}
+            {isGridEngineProfileConfiguration(game.shapeGeometryConfiguration)
+              ? ` · profil silnika siatek${
+                  gridEngineProfile
+                    ? ` · ${gridEngineModelSummary(gridEngineProfile)}`
+                    : ''
+                }`
               : ''}
           </small>
           <small className="gameGeometryState">

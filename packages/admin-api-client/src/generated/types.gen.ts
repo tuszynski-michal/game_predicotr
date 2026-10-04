@@ -3381,9 +3381,17 @@ export type GameResponse = {
  * GameShapeGeometryConfiguration
  *
  * A game-local declaration, never a copy of a shared geometry profile.
+ *
+ * ``grid_profile_*`` values (TASK-0830) additionally name the grid engine
+ * profile of the game: a frozen ``neural_grid`` model registered in
+ * ``domain.grid_engine_profiles``. A later model of the same game is a new
+ * registry version of the same profile, never a new value of this field.
  */
 export type GameShapeGeometryConfiguration =
-  'framed_full_page_v2' | 'requires_clarification';
+  | 'framed_full_page_v2'
+  | 'requires_clarification'
+  | 'grid_profile_777_v2'
+  | 'grid_profile_mumie_v1';
 
 /**
  * GameStatus
@@ -3965,6 +3973,118 @@ export type GridEndToEndGateSource = {
    * Sourcechecksumsha256
    */
   sourceChecksumSha256: string;
+};
+
+/**
+ * GridEngineModelFileResponse
+ */
+export type GridEngineModelFileResponse = {
+  /**
+   * Expectedsha256
+   */
+  expectedSha256: string;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  status: GridEngineModelStatus;
+};
+
+/**
+ * GridEngineModelStatus
+ */
+export type GridEngineModelStatus =
+  'available' | 'missing' | 'checksum_mismatch';
+
+/**
+ * GridEngineProfileResponse
+ */
+export type GridEngineProfileResponse = {
+  configuration: GameShapeGeometryConfiguration;
+  /**
+   * Description
+   */
+  description: string;
+  /**
+   * Exportid
+   */
+  exportId: string;
+  /**
+   * Files
+   */
+  files: Array<GridEngineModelFileResponse>;
+  /**
+   * Frozenon
+   */
+  frozenOn: string;
+  /**
+   * Label
+   */
+  label: string;
+  /**
+   * Managedpath
+   */
+  managedPath: string;
+  manifestStatus: GridEngineModelStatus;
+  /**
+   * Message
+   */
+  message: string;
+  /**
+   * Modelkind
+   */
+  modelKind: string;
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Preset
+   */
+  preset: string;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
+  /**
+   * Reportresults
+   */
+  reportResults: Array<GridEngineReportResultResponse>;
+  /**
+   * Runid
+   */
+  runId: string;
+  status: GridEngineModelStatus;
+  /**
+   * Version
+   */
+  version: string;
+  /**
+   * Weightssha256
+   */
+  weightsSha256: string;
+};
+
+/**
+ * GridEngineReportResultResponse
+ */
+export type GridEngineReportResultResponse = {
+  /**
+   * Dataset
+   */
+  dataset: string;
+  /**
+   * Result
+   */
+  result: string;
 };
 
 /**
@@ -19088,6 +19208,25 @@ export type GetVirtualCellPreviewAtlasResponses = {
    */
   200: unknown;
 };
+
+export type ListGridEngineProfilesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-engine-profiles';
+};
+
+export type ListGridEngineProfilesResponses = {
+  /**
+   * Response Listgridengineprofiles
+   *
+   * Successful Response
+   */
+  200: Array<GridEngineProfileResponse>;
+};
+
+export type ListGridEngineProfilesResponse =
+  ListGridEngineProfilesResponses[keyof ListGridEngineProfilesResponses];
 
 export type ListReadyBrowserImageSelectionsData = {
   body?: never;

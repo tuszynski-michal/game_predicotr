@@ -182,6 +182,43 @@ def test_framed_page_never_uses_candidate_rejected_or_retired_profile() -> None:
         assert readiness.shared_profile is None
 
 
+def test_grid_engine_profiles_resolve_exactly_like_the_framed_page() -> None:
+    """TASK-0830: the profiles keep their own value but the framed-page readiness."""
+
+    stored = _profile()
+    profiles = (
+        GameShapeGeometryConfiguration.GRID_PROFILE_777_V2,
+        GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1,
+    )
+    for configuration in profiles:
+        framed = GlobalShapeGeometryReadinessResolver(_Profiles((stored,))).resolve(
+            GameShapeGeometryConfiguration.FRAMED_FULL_PAGE_V2
+        )
+        repository = _Profiles((stored,))
+        readiness = GlobalShapeGeometryReadinessResolver(repository).resolve(configuration)
+
+        assert readiness.configuration is configuration
+        assert readiness == replace(framed, configuration=configuration)
+        assert readiness.status is ShapeGeometryReadinessStatus.READY_FOR_SHARED_PREFLIGHT
+        assert repository.calls == [SUPPORTED_GEOMETRY_FAMILY]
+
+        missing = GlobalShapeGeometryReadinessResolver(_Profiles(())).resolve(configuration)
+        assert missing.status is ShapeGeometryReadinessStatus.MANUAL_REVIEW_REQUIRED
+        assert missing.reason_code == "SHAPE_GEOMETRY_V2_ACTIVE_PROFILE_REQUIRED"
+
+
+def test_requires_clarification_is_unchanged_by_the_grid_engine_profiles() -> None:
+    repository = _Profiles((_profile(),))
+
+    readiness = GlobalShapeGeometryReadinessResolver(repository).resolve(
+        GameShapeGeometryConfiguration.REQUIRES_CLARIFICATION
+    )
+
+    assert readiness.status is ShapeGeometryReadinessStatus.REQUIRES_CLARIFICATION
+    assert readiness.reason_code == "SHAPE_GEOMETRY_FORMAT_REQUIRES_CLARIFICATION"
+    assert repository.calls == []
+
+
 def test_framed_page_fails_closed_when_profile_repository_rejects_a_descriptor() -> None:
     readiness = GlobalShapeGeometryReadinessResolver(_UnreadableProfiles()).resolve(
         GameShapeGeometryConfiguration.FRAMED_FULL_PAGE_V2

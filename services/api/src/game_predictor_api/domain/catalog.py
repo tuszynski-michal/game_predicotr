@@ -25,10 +25,37 @@ class GameStatus(StrEnum):
 
 
 class GameShapeGeometryConfiguration(StrEnum):
-    """A game-local declaration, never a copy of a shared geometry profile."""
+    """A game-local declaration, never a copy of a shared geometry profile.
+
+    ``grid_profile_*`` values (TASK-0830) additionally name the grid engine
+    profile of the game: a frozen ``neural_grid`` model registered in
+    ``domain.grid_engine_profiles``. A later model of the same game is a new
+    registry version of the same profile, never a new value of this field.
+    """
 
     FRAMED_FULL_PAGE_V2 = "framed_full_page_v2"
     REQUIRES_CLARIFICATION = "requires_clarification"
+    GRID_PROFILE_777_V2 = "grid_profile_777_v2"
+    GRID_PROFILE_MUMIE_V1 = "grid_profile_mumie_v1"
+
+
+# Values that declare the framed full-page format for the shared geometry
+# readiness. The grid engine profiles describe framed full-page games, so they
+# resolve exactly like ``framed_full_page_v2`` (TASK-0830); preflight and the
+# import pipeline do not read this field.
+FRAMED_FULL_PAGE_CONFIGURATIONS: Final = frozenset(
+    {
+        GameShapeGeometryConfiguration.FRAMED_FULL_PAGE_V2,
+        GameShapeGeometryConfiguration.GRID_PROFILE_777_V2,
+        GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1,
+    }
+)
+
+
+def uses_framed_full_page_geometry(configuration: GameShapeGeometryConfiguration) -> bool:
+    """Whether the shared ``framed_full_page_v2`` readiness applies to the value."""
+
+    return configuration in FRAMED_FULL_PAGE_CONFIGURATIONS
 
 
 class ShapeGeometryReadinessStatus(StrEnum):

@@ -17,6 +17,7 @@ from game_predictor_api.api.catalog import create_catalog_router
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
 from game_predictor_api.api.grid_calibration import create_grid_calibration_router
+from game_predictor_api.api.grid_engine_profiles import create_grid_engine_profiles_router
 from game_predictor_api.api.health import create_health_router
 from game_predictor_api.api.image_grid_reviews import create_image_grid_reviews_router
 from game_predictor_api.api.image_imports import create_image_imports_router
@@ -131,6 +132,7 @@ def create_api_router(
         )
     )
     router.include_router(create_catalog_router(catalog_service_dependency))
+    router.include_router(create_grid_engine_profiles_router(settings.artifact_root))
     router.include_router(
         create_board_search_router(
             board_search_service_dependency,

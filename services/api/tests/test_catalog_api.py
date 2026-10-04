@@ -168,6 +168,65 @@ def _client(repository: MemoryCatalogRepository) -> TestClient:
     return TestClient(app)
 
 
+def test_game_page_format_accepts_the_grid_engine_profiles_and_keeps_old_values() -> None:
+    """TASK-0830: both profiles are stored and returned; old values behave as before."""
+
+    repository = MemoryCatalogRepository()
+
+    with _client(repository) as client:
+        created: dict[str, dict[str, object]] = {}
+        for code, configuration in (
+            ("mumie", "grid_profile_mumie_v1"),
+            ("777-v2", "grid_profile_777_v2"),
+            ("framed", "framed_full_page_v2"),
+            ("unclear", "requires_clarification"),
+        ):
+            response = client.post(
+                "/api/v1/admin/games",
+                json={"code": code, "name": code, "shapeGeometryConfiguration": configuration},
+            )
+            assert response.status_code == 201
+            body = response.json()
+            assert body["shapeGeometryConfiguration"] == configuration
+            assert body["shapeGeometryReadiness"]["configuration"] == configuration
+            created[code] = body
+
+        for code in ("mumie", "777-v2", "framed"):
+            readiness = created[code]["shapeGeometryReadiness"]
+            assert readiness == {
+                "configuration": created[code]["shapeGeometryConfiguration"],
+                "message": (
+                    "Brak aktywnego wspólnego profilu geometrii; pierwszy import wymaga "
+                    "ręcznej korekty."
+                ),
+                "reasonCode": "SHAPE_GEOMETRY_V2_ACTIVE_PROFILE_REQUIRED",
+                "sharedProfile": None,
+                "status": "manual_review_required",
+            }
+        assert created["unclear"]["shapeGeometryReadiness"]["status"] == "requires_clarification"
+
+        game_id = created["mumie"]["id"]
+        listed = {game["code"]: game for game in client.get("/api/v1/admin/games").json()}
+        assert listed["mumie"]["shapeGeometryConfiguration"] == "grid_profile_mumie_v1"
+        switched = client.patch(
+            f"/api/v1/admin/games/{game_id}",
+            json={"shapeGeometryConfiguration": "grid_profile_777_v2"},
+        )
+        assert switched.status_code == 200
+        assert switched.json()["shapeGeometryConfiguration"] == "grid_profile_777_v2"
+        fetched = client.get(f"/api/v1/admin/games/{game_id}").json()
+        assert fetched["shapeGeometryConfiguration"] == "grid_profile_777_v2"
+        assert repository.games[UUID(str(game_id))].shape_geometry_configuration is (
+            GameShapeGeometryConfiguration.GRID_PROFILE_777_V2
+        )
+
+        rejected = client.post(
+            "/api/v1/admin/games",
+            json={"code": "x", "name": "x", "shapeGeometryConfiguration": "grid_profile_777_v3"},
+        )
+        assert rejected.status_code == 422
+
+
 def test_game_and_symbol_crud_assigns_identity_and_deletes_only_unused_symbols() -> None:
     repository = MemoryCatalogRepository()
 

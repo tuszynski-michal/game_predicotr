@@ -334,6 +334,58 @@ test('generated client lists and reads checksum-bound candidate gate reports', a
   assert.equal(new URL(requests[0].url).searchParams.get('limit'), '20');
 });
 
+test('generated client lists grid engine profiles with their model state', async () => {
+  const requests = [];
+  const profile = {
+    configuration: 'grid_profile_mumie_v1',
+    description: 'Model neural_grid doszkolony na Mumiach.',
+    exportId: 'iteration03-f896da7196431be2',
+    files: [
+      {
+        expectedSha256: 'a'.repeat(64),
+        name: 'screen.onnx',
+        sizeBytes: 13808279,
+        status: 'available',
+      },
+    ],
+    frozenOn: '2026-10-04',
+    label: 'Mumie',
+    managedPath: 'models/grid-engine/grid_profile_mumie_v1/v1',
+    manifestStatus: 'available',
+    message: 'Model jest w zarządzanym katalogu i zgadza się z rejestrem.',
+    modelKind: 'neural_grid',
+    modelVersion: 'neural-grid-v1',
+    preset: 'D',
+    presetFingerprint: 'b'.repeat(64),
+    reasonCode: 'GRID_ENGINE_MODEL_AVAILABLE',
+    reportResults: [{ dataset: 'Mumie holdout', result: '36/36' }],
+    runId: '5bc981568c3f42bd96f6f9238e57aedc',
+    status: 'available',
+    version: 'v1',
+    weightsSha256: 'c'.repeat(64),
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return new Response(JSON.stringify([profile]), {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      });
+    },
+  });
+
+  const result = await client.listGridEngineProfiles();
+
+  assert.deepEqual(result.data, [profile]);
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    requests[0].url,
+    'http://127.0.0.1:8000/api/v1/admin/grid-engine-profiles',
+  );
+});
+
 test('generated client calls the typed health operation', async () => {
   const requests = [];
   const mockFetch = async (request) => {

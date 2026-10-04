@@ -1,10 +1,32 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-01
+last_updated: 2026-10-04
 ---
 
 # Kontrakty API i danych mobilnych
+
+## Profile silnika siatek gry — TASK-0830
+
+`shapeGeometryConfiguration` (`GameCreate`, `GameUpdate`, `GameResponse`,
+`ShapeGeometryReadinessResponse.configuration`) przyjmuje dodatkowo
+`grid_profile_777_v2` i `grid_profile_mumie_v1`. Istniejące wartości i
+domyślne `requires_clarification` są bez zmian. Gotowość nowych wartości jest
+liczona dokładnie jak dla `framed_full_page_v2` (te same statusy, kody powodu i
+`sharedProfile`), ale `configuration` zwraca zapisany profil.
+
+`GET /api/v1/admin/grid-engine-profiles` (`listGridEngineProfiles`, tylko
+odczyt, bez bazy) zwraca listę `GridEngineProfileResponse`: `configuration`,
+`label`, `description`, `modelKind` (`neural_grid`), `modelVersion`,
+`version` (bieżąca wersja rejestru profilu), `runId`, `exportId`, `preset`,
+`presetFingerprint`, `weightsSha256`, `frozenOn`, `managedPath` (względem
+katalogu artefaktów), `status` i `manifestStatus` (`GridEngineModelStatus`:
+`available`, `missing`, `checksum_mismatch`), `reasonCode`
+(`GRID_ENGINE_MODEL_AVAILABLE` / `_MISSING` / `_CHECKSUM_MISMATCH`), polską
+`message`, `files[]` (`name`, `expectedSha256`, `sizeBytes`, `status`) i
+`reportResults[]` (`dataset`, `result`). Każde wywołanie liczy SHA-256 plików
+na nowo. Status niezgodny z rejestrem nigdy nie jest zastępowany innym
+modelem.
 
 ## Gotowość wspólnej geometrii przy tworzeniu gry — TASK-0607
 

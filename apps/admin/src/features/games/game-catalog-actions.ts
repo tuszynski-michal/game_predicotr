@@ -3,6 +3,7 @@ import type {
   GameCreate,
   GameResponse,
   GameUpdate,
+  GridEngineProfileResponse,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
@@ -10,8 +11,46 @@ import type { GameDraft } from './game-catalog-state.ts';
 
 export type GamesClient = Pick<
   AdminApiClient,
-  'archiveGame' | 'createGame' | 'getGame' | 'listGames' | 'updateGame'
+  | 'archiveGame'
+  | 'createGame'
+  | 'getGame'
+  | 'listGames'
+  | 'listGridEngineProfiles'
+  | 'updateGame'
 >;
+
+export type GridEngineProfilesResult =
+  | {
+      readonly ok: true;
+      readonly profiles: readonly GridEngineProfileResponse[];
+    }
+  | { readonly error: string; readonly ok: false };
+
+// TASK-0830: read-only state of the grid engine profiles shown at the page
+// format field. A failure never blocks the game catalog itself.
+export async function loadGridEngineProfiles(
+  api: Pick<GamesClient, 'listGridEngineProfiles'>,
+): Promise<GridEngineProfilesResult> {
+  try {
+    const result = await api.listGridEngineProfiles();
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się pobrać stanu modeli silnika siatek.',
+        ),
+        ok: false,
+      };
+    }
+    return { ok: true, profiles: result.data };
+  } catch {
+    return {
+      error:
+        'Nie można połączyć się z lokalnym Admin API, aby sprawdzić modele silnika siatek.',
+      ok: false,
+    };
+  }
+}
 
 export type SaveGameIntent =
   | { readonly mode: 'create' }

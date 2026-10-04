@@ -53,3 +53,13 @@ test('game editor records the page format and card exposes its shared-geometry r
   assert.match(source, /className="gameGeometryState"/);
   assert.match(source, /profil wspólny #/);
 });
+
+test('page format shows the grid engine profile, its model state and the 777 note', () => {
+  assert.match(stateSource, /grid_profile_777_v2: '777 v2'/);
+  assert.match(stateSource, /grid_profile_mumie_v1: 'Mumie'/);
+  assert.match(source, /<GridEngineProfileHint/);
+  assert.match(source, /Profil 777 v2 służy również przyszłym wersjom gry 777/);
+  assert.match(source, /loadGridEngineProfiles\(api\)/);
+  assert.match(source, /className="gamePageFormat"/);
+  assert.match(source, /Format strony:/);
+});

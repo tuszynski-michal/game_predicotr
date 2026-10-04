@@ -1,6 +1,6 @@
 ---
 title: TASK-0830 — profil silnika siatek gry w polu „Format strony” (777 v2, Mumie)
-status: todo
+status: done
 last_updated: 2026-10-04
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-04
 
 ## Status
 
-`todo`
+`done` (commit, `CURRENT_STATE.md` i przeniesienie pliku wykonuje orkiestrator)
 
 ## Goal
 
@@ -94,16 +94,16 @@ produkcyjnych. Audyt zawieszony decyzją operatora (2026-10-01).
 
 ## Acceptance criteria
 
-- [ ] Operator może utworzyć grę z formatem „777 v2” albo „Mumie”;
+- [x] Operator może utworzyć grę z formatem „777 v2” albo „Mumie”;
       wartość zapisuje się i wraca w API i Adminie; stare wartości działają
       jak dotąd (test regresji).
-- [ ] Migracja `0140` z `downgrade` (odmowa, gdy istnieje gra z nową
+- [x] Migracja `0140` z `downgrade` (odmowa, gdy istnieje gra z nową
       wartością) przechodzi test cyklu na bazie `*_test`.
-- [ ] Modele obu profili są w zarządzanym katalogu z manifestem; test
+- [x] Modele obu profili są w zarządzanym katalogu z manifestem; test
       wykrywa brak i zmianę pliku.
-- [ ] Endpoint profili zwraca stan modeli; Admin pokazuje stan przy polu.
-- [ ] Kontrakt pionem (OpenAPI, klient, wrapper, test żądania).
-- [ ] Brak zapisu do bazy deweloperskiej przez wykonawcę; migrację na bazie
+- [x] Endpoint profili zwraca stan modeli; Admin pokazuje stan przy polu.
+- [x] Kontrakt pionem (OpenAPI, klient, wrapper, test żądania).
+- [x] Brak zapisu do bazy deweloperskiej przez wykonawcę; migrację na bazie
       deweloperskiej wykonuje orkiestrator.
 - [ ] Osobny commit, `Outcome`, `CURRENT_STATE.md`.
 
@@ -136,24 +136,102 @@ npm run typecheck --workspace @game-predictor/admin; npm run test --workspace @g
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Integracja przed pracą: `git merge --no-edit v1.1-vision-lab-hybrid-geometry`
+→ „Already up to date” (HEAD `v1.7.179`; w trakcie pracy na gałęzi pojawił
+się commit `v1.7.180`, który dodał ten plik zadania).
 
 ### Changed
 
-- Do uzupełnienia po wykonaniu.
+- Domena: `GameShapeGeometryConfiguration` ma `grid_profile_777_v2` i
+  `grid_profile_mumie_v1`; `FRAMED_FULL_PAGE_CONFIGURATIONS` /
+  `uses_framed_full_page_geometry` w `domain/catalog.py`. Oba resolvery
+  gotowości (`DefaultShapeGeometryReadinessResolver`,
+  `GlobalShapeGeometryReadinessResolver`) liczą profile dokładnie jak
+  `framed_full_page_v2` (te same statusy, kody i `sharedProfile`;
+  `configuration` = zapisany profil). Uzasadnienie: z kodu wynika, że pole i
+  gotowość są wyłącznie projekcją odczytową katalogu — worker, preflight i
+  pipeline ich nie czytają (grep), więc żadne zachowanie preflightu ani
+  pipeline'u się nie zmienia; Mumie i 777 to pełne strony z ramką, a nowa gra
+  startuje od `manual_review_required` (bez aktywnego profilu wspólnego).
+- Rejestr `domain/grid_engine_profiles.py`: profil → bieżąca wersja `v1` →
+  4 pliki (`screen.onnx`, `board.onnx`, `bundle.json`, `preset.json`) z
+  SHA-256 i rozmiarem, metadane (run, eksport, preset, fingerprint, wagi,
+  checkpoint, snapshot, powód wyboru, wyniki V3-C) i deterministyczny
+  `manifest.json` (`grid_engine_manifest`).
+- `storage/grid_engine_model_store.py`: `ManagedGridEngineModelStore`
+  (`inspect` → `available` / `missing` / `checksum_mismatch`, liczy SHA przy
+  każdym odczycie, porównuje manifest z rejestrem; `require` rzuca
+  `GridEngineModelError`, bez fallbacku).
+- `scripts/install_grid_engine_models.py`: jednorazowa instalacja (weryfikacja
+  źródła wobec rejestru i tożsamości bundla, kopia do katalogu tymczasowego,
+  weryfikacja, `os.replace`; poprawny katalog zostaje, niezgodnego nie
+  nadpisuje; `--check`). Uruchomiono: oba modele zainstalowane w
+  `C:\Users\tuszy\Documents\game_predicotr\artifacts\models\grid-engine\{grid_profile_777_v2,grid_profile_mumie_v1}\v1\`;
+  drugie uruchomienie → `already_installed`, `--check` → kod 0.
+- Migracja `0140_grid_engine_profiles` (CHECK rozszerzony, bez zmian
+  wierszy; downgrade odmawia `GRID_ENGINE_PROFILE_IN_USE`);
+  `EXPECTED_ALEMBIC_HEAD` = `0140_grid_engine_profiles`.
+- API: `GET /api/v1/admin/grid-engine-profiles` (`listGridEngineProfiles`,
+  `api/grid_engine_profiles.py`, `application/grid_engine_profiles.py`,
+  `schemas/grid_engine_profiles.py`, wpięty w `api/router.py`).
+- Kontrakt: OpenAPI i klient wygenerowane, wrapper `listGridEngineProfiles`
+  i eksport typów w `packages/admin-api-client/src/index.ts`, test żądania w
+  `client.test.mjs`.
+- Admin: etykiety „777 v2” / „Mumie”, opis profilu i stan modelu pod polem
+  („Profil 777 v2 służy również przyszłym wersjom gry 777”), linia
+  „Format strony: …” ze stanem modelu na karcie gry, `loadGridEngineProfiles`
+  (błąd nie blokuje katalogu).
+- Testy: `test_grid_engine_profiles.py`, `test_grid_engine_profiles_migration.py`,
+  `integration/test_grid_engine_profiles_migration_postgres.py`, nowe
+  przypadki w `test_catalog_api.py`, `test_shape_geometry_game_readiness.py`,
+  `integration/test_catalog_repository.py`, `test_schema_readiness.py`,
+  testy Admina (`game-catalog-*.test.mjs`).
 
 ### Verification results
 
-- Do uzupełnienia po wykonaniu.
+- `pytest services/api/tests -k "catalog or grid_engine_profile or shape_geometry or schema_readiness"`:
+  59 passed, 5 skipped (PostgreSQL).
+- PostgreSQL (`GAME_PREDICTOR_RUN_POSTGRES_TESTS=1`, bazy `*_test`):
+  `test_grid_engine_profiles_migration_postgres.py` 1 passed (0139 → 0140,
+  nowe wartości przyjęte, nieznana odrzucona, downgrade odrzucony z
+  `GRID_ENGINE_PROFILE_IN_USE`, po zmianie gry downgrade i ponowny upgrade);
+  `test_catalog_repository.py` 3 passed.
+- `npm run openapi:generate`; `npm run openapi:check` → kod 0.
+- Admin: `typecheck` 0, `lint` 0 (4 wcześniejsze ostrzeżenia w innych
+  plikach), `node --test` 624/624; `admin-api-client` typecheck 0, test 77/77;
+  prettier `--check` na zmienionych plikach 0.
+- `ruff check` (zmienione pliki) czysto; `mypy --strict` bez błędów w
+  zmienionych plikach (raportuje wcześniejsze błędy w niezmienionych
+  modułach).
+- Endpoint na prawdziwym katalogu artefaktów: oba profile `available`,
+  manifest `available`, 4/4 pliki `available`.
+- Wcześniejsze, niezależne błędy (ten sam wynik na nietkniętym checkoucie
+  głównym na `v1.7.179`):
+  `test_openapi_contract.py::test_grid_review_openapi_is_topology_aware_and_checksum_bound`
+  (`minItems`) i
+  `test_migration_baseline.py::test_parallel_feature_migrations_converge_on_one_head`
+  (oczekuje head `0129`).
 
 ### Not completed
 
-- Do uzupełnienia po wykonaniu.
+- Migracja `0140` na bazie deweloperskiej `game_predictor` — wykonuje
+  orkiestrator (zatrzymanie API/workerów/Reviewera wszystkich checkoutów,
+  merge, `npm run db:migrate`, start).
+- Commit, `CURRENT_STATE.md`, przeniesienie do `completed/` — orkiestrator.
+- Wizualny przegląd Admina w przeglądarce nie był wykonany (serwery 8000 i
+  3000 należą do checkoutu głównego bez nowego endpointu).
 
 ### Documentation updates
 
-- Do uzupełnienia po wykonaniu.
+- `ai_docs/requirements/ADMIN_APP.md`, `ai_docs/architecture/API_CONTRACT.md`,
+  `ai_docs/architecture/DATA_MODEL.md`, `ai_docs/guides/LOCAL_OPERATION_GUIDE.md`
+  (sekcja „Profile silnika siatek gry i migracja `0140`”).
+- Proponowany wpis `DECISION_LOG.md` (orkiestrator): profile silnika siatek
+  jako wartości `shape_geometry_configuration` z gotowością `framed_full_page_v2`;
+  modele w `<ARTIFACT_ROOT>/models/grid-engine/` z rejestrem SHA w kodzie, bez
+  tabeli; brak modelu nie blokuje zapisu gry, `require` bez fallbacku.
 
 ### Recommended next task
 
-- Do uzupełnienia po wykonaniu.
+- TASK-0805 (tryb shadow): ładować model przez
+  `ManagedGridEngineModelStore.require(grid_engine_profile_for(game.shape_geometry_configuration).current)`.

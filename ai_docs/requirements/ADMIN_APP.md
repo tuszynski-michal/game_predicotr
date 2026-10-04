@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-10-01
+last_updated: 2026-10-04
 ---
 
 # Wymagania modułu administracyjnego
@@ -58,6 +58,14 @@ albo format wymagający doprecyzowania. Karta katalogu pokazuje bieżący status
 wspólnej geometrii, konkretną przyczynę i, gdy jest bezpiecznie dostępny,
 numer profilu shared. Panel nie prosi o kolor ramki, lokalną kotwicę ani obraz;
 gotowość do preflightu nadal wymaga ręcznej weryfikacji pierwszego importu.
+
+Pole „Format strony” oferuje także profile silnika siatek „777 v2” i „Mumie”
+(TASK-0830). Profil wskazuje zamrożony model `neural_grid` w zarządzanym
+katalogu modeli; dla gotowości geometrii działa jak pełna strona z ramką. Pod
+polem panel opisuje model wybranego profilu, informuje, że profil 777 v2 służy
+także przyszłym wersjom gry 777, i pokazuje stan modelu z API (dostępny, brak
+plików, niezgodny SHA-256). Karta gry na liście pokazuje format strony, a dla
+profilu także stan jego modelu. Brak modelu nie blokuje zapisu gry.
 
 Po greenfield cutoverze nowa gra jest dostępna do dalszej konfiguracji dopiero,
 gdy API zakończy obowiązkowy provisioning V2 i zwróci

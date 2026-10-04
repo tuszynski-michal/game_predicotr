@@ -721,8 +721,12 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   propozycji zostało przy modelu. Komórki ≥ 99% nieruszane (decyzja
   operatora). Przebiegi zapisu zakończone — S3–S8 planu D-467 odblokowane.
 - 2026-10-02 operator zlecił pasmo ≥ 99% po jednym symbolu: Winogron
-  (TASK-0828), potem Śliwka (TASK-0830, w toku od 2026-10-03 17:22 UTC,
-  16 części). Nie weryfikować w Adminie symbolu, którego zapis trwa.
+  (TASK-0828, done), Śliwka (TASK-0832, w toku od 2026-10-03 17:22 UTC,
+  16 części; 01–13 zapisane do 2026-10-04 17:44 UTC), Arbuz (TASK-0833,
+  15 części; startuje po Śliwce, nocne okno do 2026-10-05 09:15 UTC, reszta po
+  restarcie i migracjach operatora). Stan części, sterowniki i polecenia
+  wznowienia: worktree `artifacts/symbol-reference-library/drivers/README.md`.
+  Nie weryfikować w Adminie symbolu, którego zapis trwa.
 - TASK-0828 (B4) done 2026-10-02 19:36 – 10-03 17:22 UTC: Winogron ≥ 99%,
   dziesięć porcji, 657 616 komórek z predykcją biblioteki na 474 691 zapisach
   plansz, 0 błędów; 9 699 zmian symbolu (Siedem 3 993, Wiśnia 2 393, Śliwka

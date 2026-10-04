@@ -28,6 +28,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import ImageReviewGeometryPoint
 from game_predictor_api.domain.symbol_model_snapshots import bootstrap_symbol_model_snapshot
+from game_predictor_api.storage.virtual_grid_geometry_repository import _require_same_context
 from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
     ManualBoardCellSymbolPrediction,
 )
@@ -427,6 +428,29 @@ def test_manual_correction_rebinds_cells_pinned_to_a_previous_renderer(tmp_path:
     for cell in (*saved.revision.cells, *source.revisions[0].cells):
         assert cell.extractor_version == VirtualCellRenderer.version
         assert cell.render_spec["configuration"] == expected
+
+
+def test_stored_context_pinned_to_a_previous_renderer_matches_the_rebound_one(
+    tmp_path: Path,
+) -> None:
+    # The service binds the prepared context to the current renderer; the
+    # repository re-reads the stored one under the lock. Boards imported with
+    # an older renderer must not fail that comparison on the version alone.
+    _service, rebound = _fixture(tmp_path)
+    stored = replace(
+        rebound,
+        render_configuration=replace(
+            rebound.render_configuration,
+            extractor_version="virtual-cell-renderer-source-direct-v1",
+        ),
+    )
+
+    _require_same_context(stored, rebound)
+
+    changed = replace(stored, resolution_revision=stored.resolution_revision + 1)
+    with pytest.raises(ImageGridReviewError) as error:
+        _require_same_context(changed, rebound)
+    assert error.value.code == "IMAGE_GRID_REVIEW_REVISION_CONFLICT"
 
 
 def test_virtual_source_save_requires_and_persists_all_nine_row_major_slots(

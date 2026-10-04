@@ -2538,6 +2538,18 @@ def _require_same_context(
     current: VirtualGridGeometryContext,
     expected: VirtualGridGeometryContext,
 ) -> None:
+    # TASK-0815: the service binds the context it prepared to the current
+    # renderer, while the stored one still pins the renderer of the import
+    # that produced the cells. That version is the only field allowed to
+    # differ; revisions, source and geometry must still match, and the write
+    # re-renders every cell with the current renderer.
+    current = replace(
+        current,
+        render_configuration=replace(
+            current.render_configuration,
+            extractor_version=expected.render_configuration.extractor_version,
+        ),
+    )
     if current != expected:
         raise ImageGridReviewError(
             "IMAGE_GRID_REVIEW_REVISION_CONFLICT",

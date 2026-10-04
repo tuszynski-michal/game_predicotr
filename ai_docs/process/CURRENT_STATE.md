@@ -6,6 +6,16 @@ last_updated: 2026-10-04
 
 # Current State
 
+### TASK-0835 — konflikt rewizji przy zapisie korekty siatki (done)
+
+- Zapis w „Korekcie cięcia siatki” kończył się `IMAGE_GRID_REVIEW_REVISION_CONFLICT`
+  dla plansz z komórkami przypiętymi do starszego renderera (import 777: wszystkie
+  `v1`, bieżący `v4`). Po TASK-0815 serwis wiązał kontekst z bieżącym rendererem,
+  a repozytorium porównywało go z kontekstem z bazy. `_require_same_context` pomija
+  teraz wersję extractora; rewizje, źródło i geometria nadal muszą się zgadzać.
+- Testy `test_virtual_grid_geometry.py` 27/27. API przeładowane (`--reload`).
+  Brak testu zapisu na żywej bazie.
+
 ### TASK-0834 — skróty klawiszowe symboli w korekcie siatki (done)
 
 - Paleta symboli korekty (Reviewer 3001) używa tych samych klawiszy co Weryfikacja

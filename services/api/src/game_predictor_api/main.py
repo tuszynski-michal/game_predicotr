@@ -54,6 +54,9 @@ from game_predictor_api.application.grid_audit_proposals import (
     FileGridAuditProposalStore,
     GridAuditProposalService,
 )
+from game_predictor_api.application.grid_audit_symbol_suggestions import (
+    FileGridAuditSymbolSuggestionStore,
+)
 from game_predictor_api.application.grid_calibration import GridCalibrationService
 from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
@@ -1360,6 +1363,7 @@ def create_app(
         image_grid_review_service_dependency or default_image_grid_review_service_dependency
     )
     grid_audit_proposal_store = FileGridAuditProposalStore(resolved_settings.artifact_root)
+    grid_audit_symbol_store = FileGridAuditSymbolSuggestionStore(resolved_settings.artifact_root)
 
     def default_grid_audit_proposal_service_dependency() -> Iterator[GridAuditProposalService]:
         # TASK-0840: read-only; the session is rolled back, never committed.
@@ -1368,6 +1372,7 @@ def create_app(
                 yield GridAuditProposalService(
                     grid_audit_proposal_store,
                     SqlAlchemyGridAuditBoardReader(session),
+                    grid_audit_symbol_store,
                 )
             finally:
                 session.rollback()
@@ -1995,6 +2000,7 @@ def create_app(
             "IMAGE_GRID_REVIEW_CURRENT_OWNER_CONFLICT",
             "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED",
             "GRID_AUDIT_PROPOSALS_CHECKSUM_MISMATCH",
+            "GRID_AUDIT_SYMBOL_SUGGESTIONS_CHECKSUM_MISMATCH",
             # The Reviewer's operational geometry contract (409 before the
             # delegation to the virtual path, D-467 S6 / TASK-0796).
             "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",

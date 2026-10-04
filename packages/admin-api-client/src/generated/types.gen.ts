@@ -3862,6 +3862,10 @@ export type GridAuditProposalResponse = {
    * The current board as the correction queue serves it
    */
   reviewItem: ImageGridReviewItemResponse | null;
+  /**
+   * New advisory symbols for exactly the proposed preview; never old approvals
+   */
+  symbolSuggestions?: GridAuditSymbolSuggestionsResponse | null;
 };
 
 /**
@@ -3996,6 +4000,29 @@ export type GridAuditQueuePageResponse = {
  */
 export type GridAuditQueueStatus =
   'open' | 'corrected' | 'stale' | 'removed' | 'no_proposal';
+
+/**
+ * GridAuditSymbolSuggestionsResponse
+ */
+export type GridAuditSymbolSuggestionsResponse = {
+  /**
+   * Algorithmversion
+   */
+  algorithmVersion?: 'symbol-reference-library-v1';
+  /**
+   * Artifactsha256
+   */
+  artifactSha256: string;
+  /**
+   * Cells
+   */
+  cells: Array<GridCorrectionCellSymbolSuggestionResponse>;
+  /**
+   * Generatedat
+   */
+  generatedAt: string;
+  previewCommand: ImageGridReviewGeometryPreviewCommand;
+};
 
 /**
  * GridCalibrationProfileResponse

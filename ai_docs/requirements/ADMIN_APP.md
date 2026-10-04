@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-10-04
+last_updated: 2026-10-05
 ---
 
 # Wymagania modułu administracyjnego
@@ -706,6 +706,14 @@ Dla 777: `1` Wiśnia, `5` Śliwka, `6` Arbuz. Zaznaczenie pola niczego nie
 przypisuje. Wybór symbolu nie wymaga ruszania siatki ani „Ponów podgląd”; zapis
 nadal zatwierdza wyłącznie jawne wybory przez istniejącą korektę D-488.
 Zwykła korekta zachowuje dotychczasowe skróty i ręczne zaznaczanie pola.
+
+**D-491 (TASK-0844):** symbole pod żółtą siatką audytu są nowymi propozycjami
+biblioteki wzorców dla dokładnie tego cięcia. Stare zatwierdzone etykiety
+nie są w tej kolejce podpowiedziami. Niepewne pola pozostają bez symbolu;
+operator przegląda wszystkie pola i wskazuje ich symbole. Brak wyniku ma
+jawny komunikat. Przesunięcie narożników lub zmiana kwalifikacji ukrywa wynik
+poprzedniego cięcia. Rozpoznawanie i wyświetlanie nie zapisuje geometrii ani
+decyzji człowieka; zapis zatwierdza tylko jawne wybory jak w D-488.
 
 Admin nazywa sekcję uruchamiającą Reviewer „Korekta cięcia siatki” i pokazuje
 liczbę plansz do korekty dla wybranego importu oraz liczbę geometrii

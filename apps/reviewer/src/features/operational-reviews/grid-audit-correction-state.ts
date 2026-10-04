@@ -1,9 +1,32 @@
 import type {
+  ImageGridReviewGeometryPreviewCommand,
   GridAuditQueueCountsResponse,
   OperationalImageReviewGeometryPoint,
 } from '@game-predictor/admin-api-client';
 
 import type { OperationalReviewGeometryCorners } from './operational-review-state.ts';
+
+/** Object key order is transport detail; every preview value still has to match. */
+export function gridAuditPreviewCommandsEqual(
+  left: ImageGridReviewGeometryPreviewCommand,
+  right: ImageGridReviewGeometryPreviewCommand,
+): boolean {
+  return (
+    JSON.stringify(sortedValue(left)) === JSON.stringify(sortedValue(right))
+  );
+}
+
+function sortedValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(sortedValue);
+  if (value !== null && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, entry]) => [key, sortedValue(entry)]),
+    );
+  }
+  return value;
+}
 
 /**
  * Pure helpers of the grid-audit correction queue (TASK-0840). The audit

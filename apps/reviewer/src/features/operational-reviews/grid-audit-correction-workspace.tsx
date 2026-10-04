@@ -26,7 +26,6 @@ export type GridAuditCorrectionClient = Pick<
   AdminApiClient,
   | 'createImageGridReviewGeometryRevision'
   | 'getGridAuditProposal'
-  | 'getImageGridReviewCorrectionSymbols'
   | 'imageGridReviewSourceAssetUrl'
   | 'listGridAuditProposals'
   | 'listSymbols'
@@ -158,7 +157,7 @@ export function GridAuditCorrectionWorkspace({
     () =>
       proposal === null
         ? null
-        : gridAuditBoardGeometryTarget({ api, proposal, symbolsApi: api }),
+        : gridAuditBoardGeometryTarget({ api, proposal }),
     [api, proposal],
   );
   useEffect(() => {
@@ -226,7 +225,9 @@ export function GridAuditCorrectionWorkspace({
             Plansze, których zapisana siatka według audytu jest przesunięta albo
             przekrzywiona. Siatka sieci jest wczytana jako propozycja: sprawdź
             podgląd, w razie potrzeby popraw narożniki i zapisz. Jeśli
-            propozycja jest zła, pomiń planszę.
+            propozycja jest zła, pomiń planszę. Symbole są nowymi podpowiedziami
+            dla tej propozycji siatki. Przejrzyj wszystkie pola i wskaż ich
+            symbole; puste pola wymagają ręcznego rozpoznania.
           </p>
           {counts !== null ? (
             <p className="mutedText">{gridAuditProgressText(counts)}</p>

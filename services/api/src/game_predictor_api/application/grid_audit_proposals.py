@@ -20,6 +20,10 @@ from pathlib import Path
 from typing import Any, Protocol
 from uuid import UUID
 
+from game_predictor_api.application.grid_audit_symbol_suggestions import (
+    FileGridAuditSymbolSuggestionStore,
+    GridAuditSymbolSuggestions,
+)
 from game_predictor_api.domain.grid_audit_proposals import (
     GRID_AUDIT_PROPOSALS_MANIFEST_SCHEMA,
     GridAuditBoardState,
@@ -88,12 +92,19 @@ class GridAuditProposalView:
     entry: GridAuditQueueEntry
     proposal: GridAuditProposalGrid | None
     review_item: ImageGridReviewListItem | None
+    symbol_suggestions: GridAuditSymbolSuggestions | None = None
 
 
 class GridAuditProposalService:
-    def __init__(self, store: GridAuditProposalStore, reader: GridAuditBoardReader) -> None:
+    def __init__(
+        self,
+        store: GridAuditProposalStore,
+        reader: GridAuditBoardReader,
+        symbol_store: FileGridAuditSymbolSuggestionStore | None = None,
+    ) -> None:
         self._store = store
         self._reader = reader
+        self._symbol_store = symbol_store
 
     def queue(self, *, game_id: UUID, after_ordinal: int | None, limit: int) -> GridAuditQueuePage:
         if not 1 <= limit <= MAX_GRID_AUDIT_QUEUE_PAGE_SIZE:
@@ -162,6 +173,15 @@ class GridAuditProposalService:
             entry=entry,
             proposal=item.proposal if entry.status is GridAuditQueueStatus.OPEN else None,
             review_item=review_item,
+            symbol_suggestions=self._symbol_store.load(
+                game_id=game_id,
+                audit_id=artifact.audit_id,
+                audit_sha256=artifact.sha256,
+                item_id=item_id,
+                review_item=review_item,
+            )
+            if self._symbol_store is not None and review_item is not None
+            else None,
         )
 
 

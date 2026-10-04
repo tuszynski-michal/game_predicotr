@@ -187,6 +187,7 @@ function fakeApi(boards, symbols = []) {
               }
             : null,
           reviewItem: current ? reviewItem(entry) : null,
+          symbolSuggestions: current ? (entry.symbolSuggestions ?? null) : null,
         },
       };
     },
@@ -351,6 +352,49 @@ test('symbols are editable on opening with a slow source image, without moving t
   }
 });
 
+test('audit crops show only newly recognized symbols and hints are never saved as choices', async () => {
+  const entry = board(0);
+  const item = reviewItem(entry);
+  entry.symbolSuggestions = {
+    artifactSha256: 'd'.repeat(64),
+    previewCommand: {
+      corners: entry.network,
+      geometryQualification: null,
+      expectedGeometryRevision: item.geometryRevision,
+      expectedResolutionRevision: item.resolutionRevision,
+      expectedSourceChecksumSha256: item.sourceChecksumSha256,
+      expectedSourceWidth: item.sourceWidth,
+      expectedSourceHeight: item.sourceHeight,
+      expectedGridRows: item.gridRows,
+      expectedGridColumns: item.gridColumns,
+    },
+    cells: Array.from({ length: 15 }, (_, cellIndex) => ({
+      cellIndex,
+      symbolId: cellIndex === 0 ? 'symbol-5' : null,
+      origin: 'predicted',
+    })),
+  };
+  const { api, calls } = fakeApi([entry, board(1)], catalog());
+  api.getImageGridReviewCorrectionSymbols = async () => {
+    throw new Error('Old approvals must not be read');
+  };
+  const root = await render(api);
+  try {
+    assert.match(crop(0).getAttribute('aria-label'), /podpowiedź: Śliwka/);
+    assert.doesNotMatch(crop(0).getAttribute('aria-label'), /wybrany symbol/);
+    assert.doesNotMatch(
+      crop(1).getAttribute('aria-label'),
+      /podpowiedź: Wiśnia/,
+    );
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.equal(calls.save.length, 1);
+    assert.equal(calls.save[0].command.cellSymbols, undefined);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('a late catalog enables the ready preview and reserves 9 for unknown even with more symbols', async () => {
   const { api, calls } = fakeApi([board(0)]);
   let resolveCatalog;
@@ -409,7 +453,7 @@ test('the audit list opens each board with the network grid and saves through th
     /Do poprawy: 3 · poprawione: 0 z 3 · z decyzjami symboli: 1/,
   );
   assert.match(text, /Audyt siatekprzesunięcie o kolumnę · p00000/);
-  assert.match(text, /Decyzje symboli2 pól/);
+  assert.match(text, /Nowe podpowiedzi symboliOczekują na rozpoznanie/);
   assert.match(text, /Żółta siatka to propozycja sieci/);
   // The source is the board's checksum-bound source of the existing route.
   assert.equal(images.at(-1).url, 'http://127.0.0.1:8000/source/r0');

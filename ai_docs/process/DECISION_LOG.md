@@ -1,10 +1,24 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-10-02
+last_updated: 2026-10-05
 ---
 
 # Decision Log
+
+## D-491 — nowe podpowiedzi symboli dla korekt istniejących siatek audytu
+
+- **Status:** accepted, 2026-10-05; bezpośrednie polecenie operatora.
+- **Decision:** kolejka audytu istniejących plansz 777 pokazuje wyłącznie nowe
+  propozycje biblioteki wzorców dla żółtej siatki, zamiast zapisanych etykiet
+  starego cięcia. Niepewne wyniki pozostają puste do ręcznego przeglądu.
+- **Safety:** propozycje są artefaktami związanymi z sumą audytu, źródłem,
+  rewizjami i całą komendą podglądu. Nie zmieniają bazy ani zatwierdzeń.
+  Zmiana cięcia unieważnia wynik. Operator przegląda wszystkie symbole;
+  tylko jego jawny wybór trafia do istniejącego zapisu korekty D-488.
+- **Boundary:** dotyczy korekt istniejących danych, nie nowego zbioru V3
+  ani treningu D-489. Referencje z plansz tego audytu są wykluczone z głosowania.
+  Pozostałe ekrany korekty i weryfikacji zachowują dotychczasowe zachowanie.
 
 ## D-490 — run 3 sieci siatek przygotowuje nowe gry: Mumie, Blazing i Gang w treningu, wagi startowe (zmienia D-456 i ustawienia D-481)
 

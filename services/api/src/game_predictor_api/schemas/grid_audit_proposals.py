@@ -12,15 +12,21 @@ from game_predictor_api.application.grid_audit_proposals import (
     GridAuditQueueEntry,
     GridAuditQueuePage,
 )
+from game_predictor_api.application.grid_audit_symbol_suggestions import GridAuditSymbolSuggestions
 from game_predictor_api.domain.grid_audit_proposals import (
     GRID_AUDIT_COORDINATE_SPACE,
     GRID_AUDIT_PROVENANCE,
     GridAuditImportStatus,
+    GridAuditProposalError,
     GridAuditQueueStatus,
 )
 from game_predictor_api.schemas.catalog import ApiModel
-from game_predictor_api.schemas.geometry_qualification import ManualSourceGeometryPoint
+from game_predictor_api.schemas.geometry_qualification import (
+    GridCorrectionCellSymbolSuggestionResponse,
+    ManualSourceGeometryPoint,
+)
 from game_predictor_api.schemas.image_grid_reviews import (
+    ImageGridReviewGeometryPreviewCommand,
     ImageGridReviewItemResponse,
     to_image_grid_review_item_response,
 )
@@ -85,6 +91,14 @@ class GridAuditProposalGridResponse(ApiModel):
     )
 
 
+class GridAuditSymbolSuggestionsResponse(ApiModel):
+    algorithm_version: Literal["symbol-reference-library-v1"] = "symbol-reference-library-v1"
+    generated_at: str
+    artifact_sha256: Sha256
+    preview_command: ImageGridReviewGeometryPreviewCommand
+    cells: tuple[GridCorrectionCellSymbolSuggestionResponse, ...]
+
+
 class GridAuditProposalResponse(ApiModel):
     game_id: UUID
     audit_id: str
@@ -94,6 +108,10 @@ class GridAuditProposalResponse(ApiModel):
     )
     review_item: ImageGridReviewItemResponse | None = Field(
         description="The current board as the correction queue serves it"
+    )
+    symbol_suggestions: GridAuditSymbolSuggestionsResponse | None = Field(
+        default=None,
+        description="New advisory symbols for exactly the proposed preview; never old approvals",
     )
 
 
@@ -163,7 +181,36 @@ def to_grid_audit_proposal_response(
         review_item=None
         if view.review_item is None
         else to_image_grid_review_item_response(view.review_item),
+        symbol_suggestions=_symbol_suggestions_response(view.symbol_suggestions),
     )
+
+
+def _symbol_suggestions_response(
+    suggestions: GridAuditSymbolSuggestions | None,
+) -> GridAuditSymbolSuggestionsResponse | None:
+    if suggestions is None:
+        return None
+    try:
+        return GridAuditSymbolSuggestionsResponse(
+            generated_at=suggestions.generated_at,
+            artifact_sha256=suggestions.sha256,
+            preview_command=ImageGridReviewGeometryPreviewCommand.model_validate(
+                suggestions.preview_command
+            ),
+            cells=tuple(
+                GridCorrectionCellSymbolSuggestionResponse(
+                    cell_index=cell.cell_index,
+                    symbol_id=cell.symbol_id,
+                    origin="predicted",
+                )
+                for cell in suggestions.cells
+            ),
+        )
+    except ValueError as error:
+        raise GridAuditProposalError(
+            "GRID_AUDIT_SYMBOL_SUGGESTIONS_INVALID",
+            "The symbol suggestion preview command is malformed.",
+        ) from error
 
 
 def _corner(x: float, y: float) -> ManualSourceGeometryPoint:

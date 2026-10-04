@@ -1,10 +1,30 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-04
+last_updated: 2026-10-05
 ---
 
 # Current State
+
+### TASK-0844 — nowe symbole proponowanych siatek audytu (done)
+
+- Operator 2026-10-05 zlecił przeliczenie symboli otwartych propozycji siatek
+  777 i pokazanie wyłącznie nowych podpowiedzi przed własnym przeglądem.
+- Jawny zakres: korekta istniejących plansz; bez treningu i nowych importów
+  V3 (D-489). Wynik biblioteki jest podpowiedzią, nie decyzją człowieka.
+- Przeliczono 917/917 otwartych plansz: 10 425 nowych podpowiedzi i 3330
+  pustych pól do ręcznego rozpoznania. 58 poprawionych plansz pominięto.
+  Kolejka i decyzje człowieka nie zmieniły się podczas przeliczenia.
+- Trwałe sidecary mają SHA-256 i dokładny kontekst podglądu. Biblioteka ma
+  5653 referencje; wykluczono 192 referencje pochodzące z tego audytu.
+  Restart CLI potwierdził 917 wyników, `processed=0`, bez ponownej kalkulacji.
+- Reviewer 3001 przebudowano i uruchomiono. Odbiór UI: p00271 ma 10/15 nowych
+  podpowiedzi, bez zaznaczonych decyzji symboli. Zmiana cięcia ukrywa wynik.
+- Weryfikacja: testy API/CLI, biblioteki, Reviewera i klienta; lint, format,
+  scoped strict Mypy, TypeScript, OpenAPI oraz build Reviewera. Szczegóły
+  i instrukcja wznowienia w Outcome taska.
+- Task i plan: `ai_docs/tasks/completed/0844-grid-audit-new-symbol-suggestions.md`.
+- Commit: przygotowany `v1.7.189`; pełny hash zostanie dopisany po commicie.
 
 ### TASK-0842 — Mumie: wznowienie i partie danych (done)
 

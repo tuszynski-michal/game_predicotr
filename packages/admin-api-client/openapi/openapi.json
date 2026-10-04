@@ -6937,6 +6937,17 @@
               }
             ],
             "description": "The current board as the correction queue serves it"
+          },
+          "symbolSuggestions": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridAuditSymbolSuggestionsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "New advisory symbols for exactly the proposed preview; never old approvals"
           }
         },
         "required": [
@@ -7171,6 +7182,44 @@
         ],
         "title": "GridAuditQueueStatus",
         "type": "string"
+      },
+      "GridAuditSymbolSuggestionsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "algorithmVersion": {
+            "const": "symbol-reference-library-v1",
+            "default": "symbol-reference-library-v1",
+            "title": "Algorithmversion",
+            "type": "string"
+          },
+          "artifactSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Artifactsha256",
+            "type": "string"
+          },
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/GridCorrectionCellSymbolSuggestionResponse"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "generatedAt": {
+            "title": "Generatedat",
+            "type": "string"
+          },
+          "previewCommand": {
+            "$ref": "#/components/schemas/ImageGridReviewGeometryPreviewCommand"
+          }
+        },
+        "required": [
+          "generatedAt",
+          "artifactSha256",
+          "previewCommand",
+          "cells"
+        ],
+        "title": "GridAuditSymbolSuggestionsResponse",
+        "type": "object"
       },
       "GridCalibrationProfileResponse": {
         "additionalProperties": false,

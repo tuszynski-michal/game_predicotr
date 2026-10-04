@@ -20,6 +20,7 @@ import {
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 import {
   gridAuditClassLabel,
+  gridAuditPreviewCommandsEqual,
   gridAuditSuggestedCorners,
 } from './grid-audit-correction-state.ts';
 import {
@@ -440,12 +441,41 @@ export function gridAuditBoardGeometryTarget(input: {
   const base = reportedBoardGeometryTarget({
     api: input.api,
     item,
-    ...(input.symbolsApi === undefined ? {} : { symbolsApi: input.symbolsApi }),
   });
   const audit = proposal.item;
+  const suggestions = proposal.symbolSuggestions;
   return {
     ...base,
-    key: `audit:${audit.itemId}:${item.slotId}:${item.geometryRevision}:${item.resolutionRevision}`,
+    key: `audit:${audit.itemId}:${item.slotId}:${item.geometryRevision}:${item.resolutionRevision}:${suggestions?.artifactSha256 ?? 'no-symbols'}`,
+    async symbols(corners, flags) {
+      if (suggestions == null) {
+        return {
+          ok: false,
+          isConflict: false,
+          error:
+            'Nowe podpowiedzi symboli nie są jeszcze przygotowane dla tej planszy.',
+        };
+      }
+      const command = {
+        ...gridReviewGeometryPreviewCommand(item, corners),
+        geometryQualification: correctionGeometryQualification(
+          gridReviewQualification(item),
+          flags,
+          corners,
+          item.sourceWidth,
+          item.sourceHeight,
+        ),
+      };
+      if (!gridAuditPreviewCommandsEqual(command, suggestions.previewCommand)) {
+        return {
+          ok: false,
+          isConflict: false,
+          error:
+            'Zmieniono cięcie siatki. Podpowiedzi z poprzedniego cięcia zostały ukryte; wskaż symbole ręcznie.',
+        };
+      }
+      return { ok: true, cells: suggestions.cells };
+    },
     async load() {
       const result = await base.load();
       if (!result.ok) return result;
@@ -469,11 +499,11 @@ export function gridAuditBoardGeometryTarget(input: {
               value: `${gridAuditClassLabel(audit.auditClass)} · ${audit.itemId}`,
             },
             {
-              label: 'Decyzje symboli',
+              label: 'Nowe podpowiedzi symboli',
               value:
-                audit.humanDecidedCells === 0
-                  ? '—'
-                  : `${audit.humanDecidedCells} ${audit.humanDecidedCells === 1 ? 'pole' : 'pól'}`,
+                suggestions == null
+                  ? 'Oczekują na rozpoznanie'
+                  : `${suggestions.cells.filter((cell) => cell.symbolId !== null).length} / ${suggestions.cells.length} · pozostałe pola do ręcznego wskazania`,
             },
           ],
           referenceCorners: copyCorners(gridReviewCorners(item)),

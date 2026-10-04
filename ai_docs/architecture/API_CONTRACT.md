@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-04
+last_updated: 2026-10-05
 ---
 
 # Kontrakty API i danych mobilnych
@@ -2921,6 +2921,22 @@ audycie nigdy nie dostaje starej propozycji. Zapis korekty idzie istniejącym
 `image-reviews/{reviewItemId}/geometry-revisions`; jego kontrakt nie ma pola
 pochodzenia, więc pochodzenie `audit-network-proposal` nie jest zapisywane w
 bazie. Trasy nie są na allowliście proxy Reviewera (tylko tryb lokalny).
+
+**D-491 (TASK-0844):** odpowiedź `getGridAuditProposal` ma opcjonalne
+`symbolSuggestions` (`null` przy braku wyniku lub nieaktualnym kontekście):
+`algorithmVersion = symbol-reference-library-v1`, `generatedAt`,
+`artifactSha256`, `previewCommand` zgodne z `ImageGridReviewGeometryPreviewCommand`
+oraz `cells: [{ cellIndex, symbolId | null, origin: predicted }]`.
+Wynik jest artefaktem `symbol-suggestions/<itemId>.json` obok audytu, z sumą
+w `<itemId>.manifest.json`. Serwer sprawdza sumę pliku i kontekst gry, audytu,
+pozycji review, źródła, obu rewizji, wymiarów i topologii. Klient porównuje
+całą komendę podglądu (także narożniki i kwalifikację) przed pokazaniem wyniku.
+Brak wyniku nie uruchamia odczytu starych zatwierdzonych etykiet w tej kolejce.
+Uszkodzony wynik daje `GRID_AUDIT_SYMBOL_SUGGESTIONS_INVALID` lub
+`GRID_AUDIT_SYMBOL_SUGGESTIONS_CHECKSUM_MISMATCH`. Nie ma nowego endpointu,
+tabeli ani automatycznego zatwierdzania. CLI `recognize_grid_audit_symbols`
+przelicza tylko otwarte pozycje, wykorzystując bezstratny PNG istniejącego
+podglądu i zamrożoną bibliotekę bez referencji z plansz audytu.
 
 Lista ma widoki `needs_validation | needs_correction | all | correction`;
 operacyjną kolejką jest wyłącznie `correction`, a pozostałe widoki i liczniki

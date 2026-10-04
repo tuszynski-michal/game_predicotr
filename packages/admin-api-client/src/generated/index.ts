@@ -1182,6 +1182,7 @@ export type {
   GridAuditQueueItemResponse,
   GridAuditQueuePageResponse,
   GridAuditQueueStatus,
+  GridAuditSymbolSuggestionsResponse,
   GridCalibrationProfileResponse,
   GridCorrectionCellSymbolPayload,
   GridCorrectionCellSymbolSuggestionResponse,

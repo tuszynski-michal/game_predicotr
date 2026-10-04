@@ -530,6 +530,7 @@ export type {
   GridAuditNodeResponse,
   GridAuditProposalGridResponse,
   GridAuditProposalResponse,
+  GridAuditSymbolSuggestionsResponse,
   GridAuditQueueCountsResponse,
   GridAuditQueueItemResponse,
   GridAuditQueuePageResponse,

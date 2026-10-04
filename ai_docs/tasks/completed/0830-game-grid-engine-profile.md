@@ -8,7 +8,7 @@ last_updated: 2026-10-04
 
 ## Status
 
-`done` (commit, `CURRENT_STATE.md` i przeniesienie pliku wykonuje orkiestrator)
+`done` — wdrożone na bazie deweloperskiej z migracją `0140` (2026-10-04).
 
 ## Goal
 
@@ -105,7 +105,7 @@ produkcyjnych. Audyt zawieszony decyzją operatora (2026-10-01).
 - [x] Kontrakt pionem (OpenAPI, klient, wrapper, test żądania).
 - [x] Brak zapisu do bazy deweloperskiej przez wykonawcę; migrację na bazie
       deweloperskiej wykonuje orkiestrator.
-- [ ] Osobny commit, `Outcome`, `CURRENT_STATE.md`.
+- [x] Osobny commit, `Outcome`, `CURRENT_STATE.md`.
 
 ## Technical notes
 
@@ -135,6 +135,34 @@ npm run typecheck --workspace @game-predictor/admin; npm run test --workspace @g
 ```
 
 ## Outcome
+
+### Scalenie i wdrożenie (2026-10-04)
+
+Operator zakończył przypisywanie symboli i zatwierdził krok 1 handoffu.
+Implementacja: `v1.7.181` / `e61ee6c6941dd569d1f04087244877ccd6ca3f91`.
+Scalenie do `v1.1-vision-lab-hybrid-geometry`: `v1.7.184` /
+`67e02e8b512eb396e6fbf0f790b8746b12dd70de`.
+
+Zatrzymano API, Admin, Reviewer i worker general przed scaleniem; wykonano
+instalację zależności, buildy obu paneli, `npm run db:migrate` (0139 → 0140)
+i provision roli aplikacyjnej. `db:current` potwierdza
+`0140_grid_engine_profiles (head)`. Usługi 8000/3000/3001 odpowiadają HTTP 200.
+API ma oba profile oraz ich manifesty `available`; skrypt `--check` potwierdza
+sumy kontrolne. Formularz Admina pokazuje „Model dostępny” dla obu profili;
+zamknięto go bez zapisu. Konfiguracja gry 777 nie została zmieniona.
+
+Kontrole scalenia: API (profile, migracja, audyt i korekta) 50/50; Admin
+624/624; Reviewer 207/207 i interakcje 16/16; klient API 78/78; typecheck
+Admina, Reviewera i klienta, lint, OpenAPI Admina oraz oba buildy poprawne.
+Cztery wcześniejsze ostrzeżenia lint Admina pozostają. Nie uruchamiano ponownie
+testów PostgreSQL ani pełnej kontroli repozytorium. Kontrole i buildy wykonano
+z npm 11.19.0 z instalacji Node, ponieważ globalne `npm.cmd` wskazuje npm 12.
+Lokalny lockfile zachowano bajt w bajt.
+
+Przywrócono worker general (7 wątków). Timeout finalizacji jego pierwszego
+zatrzymania rozwiązano przez ponowienie istniejącego `--mark-lane-stopped`
+po migracji z nowego procesu (kod 0), bez zmiany mechanizmu lifecycle.
+TASK-0805 nie został uruchomiony; restart Windows nie był testowany.
 
 Integracja przed pracą: `git merge --no-edit v1.1-vision-lab-hybrid-geometry`
 → „Already up to date” (HEAD `v1.7.179`; w trakcie pracy na gałęzi pojawił
@@ -214,12 +242,11 @@ się commit `v1.7.180`, który dodał ten plik zadania).
 
 ### Not completed
 
-- Migracja `0140` na bazie deweloperskiej `game_predictor` — wykonuje
-  orkiestrator (zatrzymanie API/workerów/Reviewera wszystkich checkoutów,
-  merge, `npm run db:migrate`, start).
-- Commit, `CURRENT_STATE.md`, przeniesienie do `completed/` — orkiestrator.
-- Wizualny przegląd Admina w przeglądarce nie był wykonany (serwery 8000 i
-  3000 należą do checkoutu głównego bez nowego endpointu).
+- Wyłączono z zakresu: uruchomienie sieci w pipeline/tryb shadow, tworzenie
+  nowych gier oraz zmiana formatu strony istniejącej gry 777.
+- Nie testowano ponownie pełnego zestawu PostgreSQL ani restartu Windows.
+- Migrację, commit implementacji i odbiór Admina ukończono; wcześniejsze
+  ograniczenia wykonawcy dotyczące tych kroków są zamknięte.
 
 ### Documentation updates
 

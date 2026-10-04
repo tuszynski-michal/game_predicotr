@@ -6,6 +6,45 @@ last_updated: 2026-10-04
 
 # Current State
 
+### Wdrożenie silnika siatek V3 — migracja 0140 i kolejka audytu działają (2026-10-04)
+
+- Operator zakończył przypisywanie symboli i zatwierdził scalenie oraz wdrożenie
+  kroku 1 handoffu. Gałąź `feat/grid-engine-v3` scalona bez konfliktów do
+  `v1.1-vision-lab-hybrid-geometry`: `v1.7.184` /
+  `67e02e8b512eb396e6fbf0f790b8746b12dd70de`.
+- API 8000, Admin 3000, Reviewer 3001 i worker general zatrzymane przed
+  scaleniem. Odczyt bazy przed wdrożeniem: `0139_source_image_geometry_completeness`.
+  Migracja `0140_grid_engine_profiles` wykonana; rola aplikacyjna zgodna.
+  `npm install` zakończone, Admin i Reviewer przebudowane. Usługi 8000/3000/3001
+  odpowiadają HTTP 200. API działa jak wcześniej z `--reload` z głównego checkoutu.
+- TASK-0830 wdrożony: oba profile mają model i manifest `available` (SHA-256
+  zgodne). Odbiór formularza Admina: „777 v2” i „Mumie” pokazują „Model dostępny”;
+  formularz zamknięto bez tworzenia gry i bez zmiany konfiguracji 777.
+  Implementacja: `v1.7.181` / `e61ee6c6941dd569d1f04087244877ccd6ca3f91`.
+- TASK-0840 wdrożony: kontrola w transakcji `REPEATABLE READ READ ONLY` na `0140`
+  wykazała 975 aktualnych propozycji, 237 plansz z decyzjami symboli (490 pól),
+  zero nieaktualnych. Artefaktu nie nadpisano. API zwraca 975 otwartych pozycji;
+  Reviewer pokazuje planszę 171127, siatkę sieci i 15/15 podglądów cropów.
+  Nie zapisano żadnej korekty. Implementacja: `v1.7.183` /
+  `b7d649952980bb8f7b107eebc50a81e082084b78`.
+- Weryfikacja scalenia: API 50/50; interakcje Reviewera 16/16; testy jednostkowe
+  Admina 624/624, Reviewera 207/207, klienta 78/78; typecheck tych trzech części,
+  lint i oba buildy poprawne. Lint Admina ma cztery wcześniejsze ostrzeżenia.
+  OpenAPI Admina zgodne z backendem. Użyto npm 11.19.0 z instalacji Node dla
+  kontroli i buildów; `npm.cmd` wskazuje globalne npm 12.0.2 poza zakresem engines.
+- Worker general przywrócony z wcześniejszym budżetem 7 wątków. Pierwsze zatrzymanie
+  miało timeout finalizacji statusu; procesy rzeczywiście zakończono, a następnie
+  `--mark-lane-stopped` zakończyło się poprawnie z nowego procesu przed startem.
+  Logi i zapis PID: `.runtime/grid-v3-deployment-services.json` i artefakty
+  `artifacts/grid-v3-deployment-20261004/`. Lokalne zmiany zastane przed wdrożeniem
+  zachowano; `package-lock.json` ma identyczną sumę przed i po instalacji.
+- Zakres obejmuje TASK-0830 i TASK-0840. Plan symboli Mumii nadal `proposed`;
+  TASK-0805 (shadow) nie został uruchomiony. Brak zgody na usuwanie danych.
+- Następnie: operator poprawia plansze w kolejce audytu; pierwszy zapis korekty
+  na żywej bazie pozostaje do odbioru podczas jego pracy. Nie wykonano restartu
+  Windows ani pełnego zestawu testów PostgreSQL; brak potrzeby ponawiania
+  wcześniej wykonanych testów migracji na bazach testowych.
+
 ### TASK-0835 — konflikt rewizji przy zapisie korekty siatki (done)
 
 - Zapis w „Korekcie cięcia siatki” kończył się `IMAGE_GRID_REVIEW_REVISION_CONFLICT`

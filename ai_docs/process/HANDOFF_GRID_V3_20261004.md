@@ -13,6 +13,16 @@ Dokument dla kolejnego agenta (Codex). Najpierw przeczytaj `AGENTS.md`,
 
 ## 1. Gdzie jest kod i co jest wdrożone
 
+**Aktualizacja po przekazaniu (2026-10-04):** operator zakończył przypisywanie
+symboli i zatwierdził krok 1 sekcji 5. Wdrożenie ukończono: scalenie
+`v1.7.184` / `67e02e8b512eb396e6fbf0f790b8746b12dd70de`, baza na `0140`,
+Admin i Reviewer przebudowane, API 8000 / Admin 3000 / Reviewer 3001 oraz
+worker general działają. Profile obu modeli dostępne; kolejka 975 propozycji
+z podglądem 15 wycinków działa na żywym API. TASK-0830 i TASK-0840 zamknięte.
+Poniższe stany przed wdrożeniem są historycznym kontekstem; aktualny odbiór
+i ograniczenia są w `CURRENT_STATE.md`. Plan Mumii nadal czeka na decyzje,
+a TASK-0805 nadal wymaga jawnego polecenia.
+
 | Rzecz | Stan |
 |---|---|
 | Gałąź robocza | `feat/grid-engine-v3`, worktree `C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3`, HEAD `v1.7.184` (`cab2eee1`) |

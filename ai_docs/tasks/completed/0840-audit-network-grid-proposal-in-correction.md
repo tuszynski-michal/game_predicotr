@@ -103,7 +103,7 @@ istniejącą ścieżkę. Audyt zawieszony decyzją operatora (2026-10-01).
       operatora; brak migracji.
 - [x] Kontrakt pionem; trasy w Reviewerze tylko lokalnie (albo uzasadnienie).
 - [x] Testy przechodzą; dokumentacja.
-- [ ] Osobny commit, `Outcome`, `CURRENT_STATE.md`.
+- [x] Osobny commit, `Outcome`, `CURRENT_STATE.md`.
 
 ## Technical notes
 
@@ -132,6 +132,32 @@ npm run typecheck --workspace @game-predictor/reviewer
 ```
 
 ## Outcome
+
+### Scalenie i wdrożenie (2026-10-04)
+
+Operator zakończył przypisywanie symboli i zatwierdził krok 1 handoffu.
+Implementacja: `v1.7.183` / `b7d649952980bb8f7b107eebc50a81e082084b78`.
+Scalenie do `v1.1-vision-lab-hybrid-geometry`: `v1.7.184` /
+`67e02e8b512eb396e6fbf0f790b8746b12dd70de`.
+
+Reviewer i Admin przebudowane, baza na `0140_grid_engine_profiles`, wszystkie
+trzy usługi uruchomione i odpowiadają HTTP 200. Kontrolny `--dry-run` importera
+z jawnym `--audit` i `--game-id`: `REPEATABLE READ READ ONLY`, 975 aktualnych
+propozycji, zero nieaktualnych; 237 plansz z decyzjami symboli (490 pól).
+Artefaktu nie nadpisano ani nie importowano ponownie. Żaden rekord planszy
+nie został poprawiony przez agenta.
+
+Odbiór API i przeglądarki: kolejka ma 975 otwartych pozycji, 0 poprawionych,
+0 nieaktualnych. Pierwsza plansza 171127 (`p00750`) otwiera się z propozycją
+sieci i konturem bieżącej siatki, podglądem 15/15 wycinków oraz podpowiedziami
+symboli. Przycisk zapisu jest dostępny, lecz nie użyto go na danych operatora.
+Kolejka pozostaje otwarta dla operatora.
+
+Kontrole po scaleniu: API 50/50; interakcje Reviewera 16/16 (obejmują zapis,
+utraconą odpowiedź i konflikt rewizji w izolowanym UI); Reviewer 207/207;
+Admin 624/624; klient 78/78; typecheck, lint (cztery wcześniejsze ostrzeżenia
+Admina), oba buildy i OpenAPI Admina poprawne. Pełnego zestawu PostgreSQL
+nie ponawiano. Worker general przywrócono do wcześniejszego stanu.
 
 Kolejka „Poprawki z audytu siatek” w lokalnym Reviewerze
 (`http://127.0.0.1:3001/?mode=local&gameId=bfc4f949-5c14-4850-b02a-db99610bcfa5&queue=grid-audit`)
@@ -218,12 +244,10 @@ działa w bieżącej sesji (bez zapisu stanu).
 
 ### Not completed
 
-- Commit, `CURRENT_STATE.md`, przeniesienie zadania (poza zakresem
-  wykonawcy).
-- Brak przejścia ekranu w przeglądarce na żywym API: API z tej gałęzi wymaga
-  `0140`, a baza deweloperska jest na `0139` (wdrożenie razem z przejściem
-  `0140`). Ekran sprawdzony testem interakcji (jsdom) i odczytami tylko do
-  odczytu na prawdziwej bazie.
+- Pierwszy rzeczywisty zapis korekty pozostaje do odbioru podczas pracy
+  operatora. Testy interakcji sprawdzają zapis bez zmiany jego danych.
+- Nie ponawiano pełnych testów PostgreSQL ani restartu Windows.
+- Wdrożenie i odbiór ekranu na żywym API `0140` ukończono.
 - Pochodzenie `audit-network-proposal` nie jest zapisywane w bazie (patrz
   decyzje).
 

@@ -133,7 +133,7 @@ function queueItem(entry) {
  * A fake API whose queue is derived on every read from the boards' current
  * revisions — exactly like the backend (no stored queue state).
  */
-function fakeApi(boards) {
+function fakeApi(boards, symbols = []) {
   const calls = { list: [], proposal: [], preview: [], save: [] };
   const open = () =>
     boards.filter((entry) => entry.revision === entry.auditRevision);
@@ -203,7 +203,7 @@ function fakeApi(boards) {
       return { data: { created: true } };
     },
     getImageGridReviewCorrectionSymbols: async () => ({ data: { cells: [] } }),
-    listSymbols: async () => ({ data: [] }),
+    listSymbols: async () => ({ data: symbols }),
   };
   return { api, calls };
 }
@@ -213,7 +213,7 @@ const settle = () =>
     await new Promise((resolve) => setTimeout(resolve, 220));
   });
 
-async function render(api) {
+async function render(api, { loadSource = true } = {}) {
   const root = createRoot(document.getElementById('root'));
   await act(async () =>
     root.render(
@@ -221,7 +221,7 @@ async function render(api) {
     ),
   );
   await settle();
-  await loadImage();
+  if (loadSource) await loadImage();
   return root;
 }
 
@@ -237,6 +237,163 @@ function button(text) {
     (candidate) => candidate.textContent === text,
   );
 }
+
+function catalog(extra = []) {
+  const labels = [
+    'Wiśnia',
+    'Winogrona',
+    'Cytryna',
+    'Pomarańcz',
+    'Śliwka',
+    'Arbuz',
+    'Siódemka',
+    'Gwiazda',
+    ...extra,
+  ];
+  return labels
+    .map((name, index) => ({
+      code: `symbol-${index + 1}`,
+      displayOrder: index,
+      gameId: 'g',
+      id: `symbol-${index + 1}`,
+      imagePath: null,
+      isWildcard: false,
+      mobileCode: index + 1,
+      name,
+      namePl: name,
+      status: 'active',
+    }))
+    .reverse();
+}
+
+function crop(index) {
+  return document.querySelector(`button[aria-label^="Crop ${index + 1}"]`);
+}
+
+async function pressKey(key, options = {}, target = window) {
+  const event = new dom.window.KeyboardEvent('keydown', {
+    bubbles: true,
+    cancelable: true,
+    key,
+    ...options,
+  });
+  await act(async () => target.dispatchEvent(event));
+  return event;
+}
+
+test('symbols are editable on opening with a slow source image, without moving the grid or refreshing', async () => {
+  const { api, calls } = fakeApi([board(0), board(1)], catalog());
+  const root = await render(api, { loadSource: false });
+  try {
+    assert.equal(calls.preview.length, 1);
+    assert.match(document.body.textContent, /Wczytywanie obrazu/);
+    assert.equal(crop(0).getAttribute('aria-pressed'), 'true');
+    const picker = document.querySelector(
+      '[aria-label="Symbol wybranego pola"]',
+    );
+    assert.deepEqual(
+      [...picker.querySelectorAll('kbd')].map((key) => key.textContent),
+      ['1', '2', '3', '4', '5', '6', '7', '8', '9'],
+    );
+    for (const [key, label] of [
+      ['1', 'Wiśnia'],
+      ['5', 'Śliwka'],
+      ['6', 'Arbuz'],
+    ]) {
+      assert.equal((await pressKey(key)).defaultPrevented, true);
+      assert.match(
+        crop(0).getAttribute('aria-label'),
+        new RegExp(`wybrany symbol: ${label}`),
+      );
+    }
+    // Native typing, repeated and modified keys cannot label the selected cell.
+    const input = document.createElement('input');
+    document.body.append(input);
+    try {
+      assert.equal((await pressKey('9', {}, input)).defaultPrevented, false);
+    } finally {
+      input.remove();
+    }
+    for (const options of [
+      { repeat: true },
+      { ctrlKey: true },
+      { altKey: true },
+      { metaKey: true },
+    ]) {
+      assert.equal((await pressKey('9', options)).defaultPrevented, false);
+    }
+    assert.match(crop(0).getAttribute('aria-label'), /wybrany symbol: Arbuz/);
+    await pressKey('9');
+    assert.match(crop(0).getAttribute('aria-label'), /wybrany symbol: \?/);
+    assert.equal(
+      picker
+        .querySelector('[aria-keyshortcuts="9"]')
+        .getAttribute('aria-pressed'),
+      'true',
+    );
+    assert.equal(calls.save.length, 0);
+
+    // Only the explicit symbol choice is sent; the original proposal is kept.
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.deepEqual(calls.save[0].command.cellSymbols, [
+      { cellIndex: 0, symbolId: null },
+    ]);
+    assert.deepEqual(calls.save[0].command.corners, shifted(80));
+    assert.equal(calls.proposal.at(-1).itemId, 'p00001');
+    assert.equal(crop(0).getAttribute('aria-pressed'), 'true');
+    assert.doesNotMatch(crop(0).getAttribute('aria-label'), /wybrany symbol/);
+    assert.equal(calls.preview.length, 2);
+    await loadImage();
+    assert.equal(calls.preview.length, 2);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('a late catalog enables the ready preview and reserves 9 for unknown even with more symbols', async () => {
+  const { api, calls } = fakeApi([board(0)]);
+  let resolveCatalog;
+  api.listSymbols = () =>
+    new Promise((resolve) => {
+      resolveCatalog = resolve;
+    });
+  const root = await render(api, { loadSource: false });
+  try {
+    assert.equal(calls.preview.length, 1);
+    assert.equal(
+      document.querySelector('[aria-label="Symbol wybranego pola"]'),
+      null,
+    );
+    await act(async () => resolveCatalog({ data: catalog(['Dodatkowy']) }));
+    assert.equal(crop(0).getAttribute('aria-pressed'), 'true');
+    assert.equal(
+      document.querySelector('[aria-keyshortcuts="0"] span').textContent,
+      'Dodatkowy',
+    );
+    assert.equal(
+      document.querySelectorAll('[aria-keyshortcuts="9"]').length,
+      1,
+    );
+    await pressKey('0');
+    assert.match(
+      crop(0).getAttribute('aria-label'),
+      /wybrany symbol: Dodatkowy/,
+    );
+    await pressKey('9');
+    assert.match(crop(0).getAttribute('aria-label'), /wybrany symbol: \?/);
+    // Deliberately deselecting must survive subsequent source-image loading.
+    await act(async () => crop(0).click());
+    await loadImage();
+    assert.equal(crop(0).getAttribute('aria-pressed'), 'false');
+    assert.equal((await pressKey('1')).defaultPrevented, false);
+    assert.match(crop(0).getAttribute('aria-label'), /wybrany symbol: \?/);
+    assert.equal(calls.preview.length, 1);
+    assert.equal(calls.save.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
 
 test('the audit list opens each board with the network grid and saves through the existing path', async () => {
   const boards = [board(0), board(1), board(2, { network: shifted(-60) })];

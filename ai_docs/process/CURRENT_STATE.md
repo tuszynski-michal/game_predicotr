@@ -6,8 +6,25 @@ last_updated: 2026-10-04
 
 # Current State
 
+### TASK-0841 — edycja symboli po otwarciu planszy audytu (done)
+
+- Kolejka audytu używa skrótów katalogu (777: `1` Wiśnia, `5` Śliwka,
+  `6` Arbuz); `9` oznacza „Nie wiem”. Dalsze symbole dostają `0`, potem litery.
+- Podgląd startuje bez czekania na pełne zdjęcie canvas; pierwsze pole mające
+  piksele jest zaznaczone po podglądzie. Opóźniony katalog uruchamia paletę bez
+  ponownego podglądu. Zaznaczenie niczego nie przypisuje ani nie zapisuje.
+- Dwa testy regresji odtworzyły brak podglądu przed poprawką. Po poprawce:
+  interakcje Reviewera 18/18, jednostkowe 208/208, lint, typecheck,
+  formatowanie pięciu plików i build poprawne. Build w worktree ostrzega
+  o dodatkowym lockfile przy wykrywaniu root; nie wpływa na wynik.
+- Nowe ustawienia edytora są opcjonalne; zwykła korekta zachowuje dotychczasowe
+  zachowanie. Bez zmian API, migracji i zapisu na żywej bazie.
+- Odbiór w nowym procesie Reviewera do potwierdzenia po scaleniu poprawki.
+
 ### Wdrożenie silnika siatek V3 — migracja 0140 i kolejka audytu działają (2026-10-04)
 
+- Commit zamknięcia wdrożenia: `v1.7.185` /
+  `fcc53b06df0526504f31b5c5edcc97bda1d2fe10` (wpis hash po commicie).
 - Operator zakończył przypisywanie symboli i zatwierdził scalenie oraz wdrożenie
   kroku 1 handoffu. Gałąź `feat/grid-engine-v3` scalona bez konfliktów do
   `v1.1-vision-lab-hybrid-geometry`: `v1.7.184` /

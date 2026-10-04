@@ -110,19 +110,25 @@ export function DeferredBoardCellGeometryEditor({
  * cell; only those cells are approved by the save (D-488).
  */
 export function BoardGeometryCorrectionEditor({
+  autoSelectFirstCell = false,
   canvasLabel = 'Plansza z edytowalną siatką 5 na 3',
   onConflict,
   onSaved,
+  previewWhileSourceLoads = false,
   saveLabel = 'Zapisz geometrię i dalej',
   symbols = NO_SYMBOLS,
   target,
+  unknownSymbolShortcut,
 }: {
+  readonly autoSelectFirstCell?: boolean;
   readonly canvasLabel?: string;
   readonly onConflict: (message: string) => Promise<void>;
   readonly onSaved: (reviewItemId: string | null) => Promise<void>;
+  readonly previewWhileSourceLoads?: boolean;
   readonly saveLabel?: string;
   readonly symbols?: readonly CorrectionSymbol[];
   readonly target: BoardGeometryCorrectionTarget;
+  readonly unknownSymbolShortcut?: string;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [sourceImage, setSourceImage] = useState<{
@@ -172,13 +178,28 @@ export function BoardGeometryCorrectionEditor({
     Readonly<Record<number, string | null>>
   >({});
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
+  const initialCellSelectedRef = useRef(false);
   const [suggestedSymbols, setSuggestedSymbols] = useState<{
     readonly key: string;
     readonly byCell: Readonly<Record<number, string | null>>;
   } | null>(null);
   const [symbolNotice, setSymbolNotice] = useState('');
   const canAssignSymbols = symbols.length > 0 && target.symbols !== undefined;
+  // The API renders from its checksum-bound source, independently of canvas.
+  const waitingForSource = loadingSource && !previewWhileSourceLoads;
   const allowOutsideSource = flags.partial;
+  // Cells with no area inside the photo have no crop to label.
+  const withoutPixels = useMemo(
+    () =>
+      context === null || corners === null
+        ? []
+        : gridCellsWithoutPixels(
+            corners,
+            context.sourceWidth,
+            context.sourceHeight,
+          ),
+    [context, corners],
+  );
   const commandKey = useMemo(() => {
     if (context === null || corners === null) return '';
     try {
@@ -259,6 +280,11 @@ export function BoardGeometryCorrectionEditor({
       setContextState('loading');
       setError('');
       clearPreview();
+      if (autoSelectFirstCell) {
+        initialCellSelectedRef.current = false;
+        setSelectedCell(null);
+        setChosenSymbols({});
+      }
       idempotencyRef.current = null;
       setFlags(completeManualGridFlags);
       setDragging(false);
@@ -305,7 +331,7 @@ export function BoardGeometryCorrectionEditor({
       active = false;
       previewRequestRef.current += 1;
     };
-  }, [clearPreview, onConflict, target]);
+  }, [autoSelectFirstCell, clearPreview, onConflict, target]);
 
   const sourceUrl = context?.sourceUrl ?? null;
   const referenceCorners = context?.referenceCorners ?? null;
@@ -490,7 +516,7 @@ export function BoardGeometryCorrectionEditor({
       corners === null ||
       saving ||
       dragging ||
-      loadingSource ||
+      waitingForSource ||
       contextState !== 'ready'
     )
       return;
@@ -526,7 +552,17 @@ export function BoardGeometryCorrectionEditor({
     previewUrlRef.current = url;
     setPreviewUrl(url);
     setPreviewKey(requestedKey);
+    if (autoSelectFirstCell && !initialCellSelectedRef.current) {
+      const first = Array.from({ length: 15 }, (_, index) => index).find(
+        (index) => !withoutPixels.includes(index),
+      );
+      if (first !== undefined) {
+        initialCellSelectedRef.current = true;
+        setSelectedCell((current) => current ?? first);
+      }
+    }
   }, [
+    autoSelectFirstCell,
     clearPreview,
     commandKey,
     context,
@@ -534,10 +570,11 @@ export function BoardGeometryCorrectionEditor({
     corners,
     dragging,
     flags,
-    loadingSource,
     onConflict,
     saving,
     target,
+    waitingForSource,
+    withoutPixels,
   ]);
 
   useEffect(() => {
@@ -546,14 +583,20 @@ export function BoardGeometryCorrectionEditor({
     if (
       previewIsCurrent ||
       dragging ||
-      loadingSource ||
+      waitingForSource ||
       contextState !== 'ready'
     )
       return;
     // Coalesce rapid releases/qualification changes; never request mid-drag.
     const timer = window.setTimeout(() => void refreshPreview(), 150);
     return () => window.clearTimeout(timer);
-  }, [contextState, dragging, loadingSource, previewIsCurrent, refreshPreview]);
+  }, [
+    contextState,
+    dragging,
+    waitingForSource,
+    previewIsCurrent,
+    refreshPreview,
+  ]);
 
   useEffect(() => {
     if (
@@ -597,7 +640,7 @@ export function BoardGeometryCorrectionEditor({
   useEffect(() => {
     if (
       !canAssignSymbols ||
-      previewUrl === null ||
+      !previewIsCurrent ||
       selectedCell === null ||
       saving
     )
@@ -608,6 +651,11 @@ export function BoardGeometryCorrectionEditor({
         return;
       if (isTextEntryTarget(event.target)) return;
       const key = event.key.toLocaleLowerCase('en-US');
+      if (key === unknownSymbolShortcut?.toLocaleLowerCase('en-US')) {
+        event.preventDefault();
+        setChosenSymbols((current) => ({ ...current, [cell]: null }));
+        return;
+      }
       const symbol = symbols.find((candidate) => candidate.shortcut === key);
       if (symbol === undefined) return;
       event.preventDefault();
@@ -615,7 +663,14 @@ export function BoardGeometryCorrectionEditor({
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [canAssignSymbols, previewUrl, saving, selectedCell, symbols]);
+  }, [
+    canAssignSymbols,
+    previewIsCurrent,
+    saving,
+    selectedCell,
+    symbols,
+    unknownSymbolShortcut,
+  ]);
 
   async function saveGeometry() {
     if (
@@ -657,16 +712,6 @@ export function BoardGeometryCorrectionEditor({
     clearPreview();
     await onSaved(result.reviewItemId);
   }
-
-  // Cells with no area inside the photo have no crop to label.
-  const withoutPixels =
-    context === null || corners === null
-      ? []
-      : gridCellsWithoutPixels(
-          corners,
-          context.sourceWidth,
-          context.sourceHeight,
-        );
 
   function updateCanvasGesture(event: ReactPointerEvent<HTMLCanvasElement>) {
     const gesture = gestureRef.current;
@@ -977,7 +1022,8 @@ export function BoardGeometryCorrectionEditor({
             <div>
               <h3>15 finalnych cropów source-direct</h3>
               <p>
-                Podgląd odświeża się po puszczeniu siatki. Niczego nie zapisuje.
+                Podgląd powstaje automatycznie i odświeża się po puszczeniu
+                siatki. Niczego nie zapisuje.
               </p>
             </div>
             <button
@@ -986,7 +1032,7 @@ export function BoardGeometryCorrectionEditor({
                 corners === null ||
                 loadingPreview ||
                 saving ||
-                loadingSource ||
+                waitingForSource ||
                 dragging
               }
               onClick={() => void refreshPreview()}
@@ -1109,6 +1155,7 @@ export function BoardGeometryCorrectionEditor({
                   </button>
                 ))}
                 <button
+                  aria-keyshortcuts={unknownSymbolShortcut}
                   aria-pressed={
                     selectedCell !== null &&
                     chosenSymbols[selectedCell] === null
@@ -1119,6 +1166,11 @@ export function BoardGeometryCorrectionEditor({
                   title="Nie widzisz symbolu (np. jest zasłonięty)? Pole zostanie zapisane jako nieczytelne, bez zgadywania."
                   type="button"
                 >
+                  {unknownSymbolShortcut ? (
+                    <kbd aria-hidden="true">
+                      {unknownSymbolShortcut.toLocaleUpperCase('en-US')}
+                    </kbd>
+                  ) : null}
                   {UNKNOWN_SYMBOL_LABEL} Nie wiem
                 </button>
                 <button

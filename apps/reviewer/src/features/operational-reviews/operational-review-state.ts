@@ -144,9 +144,13 @@ export function orderOperationalReviewSymbols(
 
 export function buildOperationalReviewSymbolShortcuts(
   symbols: readonly SymbolResponse[],
+  { reservedKeys = [] }: { readonly reservedKeys?: readonly string[] } = {},
 ): readonly OperationalReviewSymbolShortcut[] {
+  const keys = OPERATIONAL_REVIEW_SHORTCUT_KEYS.filter(
+    (key) => !reservedKeys.includes(key),
+  );
   return orderOperationalReviewSymbols(symbols).map((symbol, index) => ({
-    key: OPERATIONAL_REVIEW_SHORTCUT_KEYS[index] ?? null,
+    key: keys[index] ?? null,
     symbol,
   }));
 }

@@ -273,10 +273,19 @@ Wdrożenie razem z przejściem na `0140` (sekcja wyżej): po scaleniu kodu
    `http://127.0.0.1:3001/?mode=local&gameId=bfc4f949-5c14-4850-b02a-db99610bcfa5&queue=grid-audit`,
 3. ekran „Poprawki z audytu siatek” pokazuje jedną planszę: żółta siatka z
    narożnikami to propozycja sieci, cienki czerwony kontur to obecna siatka;
-   podgląd 15 wycinków odświeża się sam,
+   podgląd 15 wycinków powstaje sam, także podczas wczytywania pełnego zdjęcia,
+   a pierwsze dostępne pole jest od razu zaznaczone (TASK-0841),
 4. gdy propozycja jest dobra — `Zapisz geometrię i dalej` (można przed tym
    wskazać symbole na kafelkach, D-488); gdy wymaga poprawki — przeciągnij
    narożniki; gdy jest zła — `Pomiń na razie →`.
+
+Symbol możesz poprawić bez przesuwania siatki i bez „Ponów podgląd”. Kliknij
+właściwy kafelek, potem symbol w palecie albo jego klawisz. W 777: `1` Wiśnia,
+`5` Śliwka, `6` Arbuz; `9` oznacza „Nie wiem”. Wszystkie skróty widać przy
+symbolach. Pierwsze pole jest zaznaczone automatycznie, ale nie dostaje
+etykiety, dopóki jej nie wybierzesz. W katalogu z ponad ośmioma symbolami
+kolejne skróty to `0`, potem litery. Wybory trafiają do bazy dopiero przy
+`Zapisz geometrię i dalej`.
 
 Zapis to zwykła korekta planszy: nowa rewizja geometrii, pola ze zmienionym
 wycinkiem wracają do Weryfikacji symboli. Poprawiona plansza znika z listy

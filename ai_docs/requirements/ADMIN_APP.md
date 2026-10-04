@@ -697,6 +697,16 @@ geometrii (także po restarcie); plansza zmieniona po audycie jest
 sesji. Licznik pokazuje plansze do poprawy, poprawione, z decyzjami symboli i
 nieaktualne. Masowe oznaczanie „Zła siatka” nie jest potrzebne.
 
+**TASK-0841:** plansza audytu automatycznie generuje podgląd bez czekania na
+wczytanie pełnego zdjęcia w edytorze. Po podglądzie i katalogu zaznacza
+pierwsze pole mające piksele; operator może od razu wybrać jego symbol.
+Kliknięcie innego kafelka zmienia edytowane pole. Paleta pokazuje skróty z
+kolejności katalogu: `1–8`, `0`, litery; `9` jest zarezerwowane dla „Nie wiem”.
+Dla 777: `1` Wiśnia, `5` Śliwka, `6` Arbuz. Zaznaczenie pola niczego nie
+przypisuje. Wybór symbolu nie wymaga ruszania siatki ani „Ponów podgląd”; zapis
+nadal zatwierdza wyłącznie jawne wybory przez istniejącą korektę D-488.
+Zwykła korekta zachowuje dotychczasowe skróty i ręczne zaznaczanie pola.
+
 Admin nazywa sekcję uruchamiającą Reviewer „Korekta cięcia siatki” i pokazuje
 liczbę plansz do korekty dla wybranego importu oraz liczbę geometrii
 odroczonych przez algorytm. „Otwórz lokalnie” jest aktywne tylko przy

@@ -18,7 +18,7 @@ import {
   type CorrectionSymbol,
 } from './deferred-board-cell-geometry-editor';
 import { gridAuditProgressText } from './grid-audit-correction-state';
-import { orderOperationalReviewSymbols } from './operational-review-state';
+import { buildOperationalReviewSymbolShortcuts } from './operational-review-state';
 
 type LoadState = 'error' | 'loading' | 'ready';
 
@@ -72,9 +72,12 @@ export function GridAuditCorrectionWorkspace({
       .then((result) => {
         if (!active || result.error !== undefined || !result.data) return;
         setSymbols(
-          orderOperationalReviewSymbols(result.data).map((symbol) => ({
+          buildOperationalReviewSymbolShortcuts(result.data, {
+            reservedKeys: ['9'],
+          }).map(({ key, symbol }) => ({
             id: symbol.id,
             label: symbol.namePl ?? symbol.name,
+            shortcut: key,
           })),
         );
       })
@@ -270,11 +273,14 @@ export function GridAuditCorrectionWorkspace({
       ) : (
         <>
           <BoardGeometryCorrectionEditor
+            autoSelectFirstCell
             key={target.key}
             onConflict={handleConflict}
             onSaved={handleSaved}
+            previewWhileSourceLoads
             symbols={symbols}
             target={target}
+            unknownSymbolShortcut="9"
           />
           <footer className="deferredGeometryNavigation">
             <button

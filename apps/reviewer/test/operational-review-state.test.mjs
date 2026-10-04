@@ -270,6 +270,20 @@ test('maps active symbols through digits and then QWERTY in stable order', () =>
   );
 });
 
+test('reserves explicit action keys without changing the default symbol shortcuts', () => {
+  const symbols = Array.from({ length: 11 }, (_, index) => symbol(index + 1));
+  const reserved = buildOperationalReviewSymbolShortcuts(symbols, {
+    reservedKeys: ['9'],
+  });
+  assert.deepEqual(
+    reserved.map(({ key }) => key),
+    ['1', '2', '3', '4', '5', '6', '7', '8', '0', 'q', 'w'],
+  );
+  assert.equal(operationalReviewSymbolForKey(reserved, '9'), null);
+  assert.equal(operationalReviewSymbolForKey(reserved, '0')?.code, 'symbol-9');
+  assert.equal(buildOperationalReviewSymbolShortcuts(symbols)[8].key, '9');
+});
+
 test('ignores editable keyboard targets', () => {
   assert.equal(isOperationalReviewTypingTarget({ tagName: 'INPUT' }), true);
   assert.equal(isOperationalReviewTypingTarget({ tagName: 'select' }), true);

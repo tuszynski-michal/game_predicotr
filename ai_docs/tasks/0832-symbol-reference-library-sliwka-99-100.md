@@ -90,13 +90,22 @@ Szesnaście części, każda kolejno: `apply-preview` do końca, `apply`, `apply
 
 ## Stan i wznowienie
 
-- Stan 2026-10-04 18:15 UTC: części 01–13 zakończone i sprawdzone, część 14
-  (`3/6`) w toku, 15–16 czekają. Sterownik działa w tle bez przerwy.
-- Sterowniki, skrypt podglądu i instrukcja wznowienia: worktree
-  `artifacts/symbol-reference-library/drivers/` (`run-sliwka-ge99.ps1`,
-  `README.md`). Część skończona = katalog `apply-sliwka-ge99-<NN>/` ma
-  `apply-verify.json`; wznowienie od pierwszej części bez niego
-  (`-FirstPart N`).
+- **Stan 2026-10-04 18:32 UTC — przebieg zatrzymany na polecenie operatora
+  (reset i migracje).** Żaden sterownik nie działa.
+- Części 01–13: zakończone i sprawdzone (`apply-verify.json` w każdym katalogu).
+- Część 14 (`3/6`): niedokończona. Manifest `5e29c551…`, zapisane 9 052 z
+  47 207 plansz (pokwitowania `apply-receipts-5e29c551050a.jsonl`), bez
+  `apply-verify`. Zatrzymanie 18:28 UTC na granicy rundy, potem krótkie
+  wznowienie i zatrzymanie 18:32 UTC w trakcie rundy — jedna plansza mogła
+  zostać zapisana bez pokwitowania, więc **nie wznawiać na starym manifeście**.
+- Części 15–16: niezaczęte.
+- **Wznowienie po restarcie:** `drivers/run-sliwka-ge99.ps1 -FirstPart 14`
+  (polecenie w `artifacts/symbol-reference-library/drivers/README.md` w
+  worktree). Część 14 zrobi nowy podgląd: zapisane już komórki mają pewność
+  0,99, więc wypadają z zakresu `1.0–1.0001`, a podgląd obejmie tylko resztę.
+  Potem 15 i 16. Arbuz (TASK-0833) dopiero po `driver done` Śliwki.
+- Sterowniki, skrypt podglądu i instrukcje: worktree
+  `artifacts/symbol-reference-library/drivers/` (`README.md`).
 
 ## Outcome
 

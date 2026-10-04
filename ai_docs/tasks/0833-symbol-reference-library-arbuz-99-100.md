@@ -93,9 +93,9 @@ każda kolejno: `apply-preview` do końca, `apply`, `apply-verify`:
 
 ## Stan i wznowienie
 
-- Stan 2026-10-04 18:15 UTC: sterownik czeka w tle na `driver done` Śliwki
-  (TASK-0832); żadna część nie jest jeszcze zaczęta. Spodziewane w nocy
-  części 01–05 (~290 tys. komórek), koniec ~08:30 UTC.
+- Stan 2026-10-04 18:25 UTC: sterownik zatrzymany na polecenie operatora
+  przed startem; żadna część Arbuza nie jest zaczęta (brak katalogów
+  `apply-arbuz-ge99-*`). Start po dokończeniu Śliwki (TASK-0832) od części 01.
 - Po restarcie i migracjach operatora: wznowienie od pierwszej części bez
   `apply-verify.json` w `artifacts/symbol-reference-library/apply-arbuz-ge99-<NN>/`
   (worktree), poleceniem z `artifacts/symbol-reference-library/drivers/README.md`

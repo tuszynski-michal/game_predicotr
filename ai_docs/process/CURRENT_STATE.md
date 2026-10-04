@@ -741,9 +741,10 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   operatora). Przebiegi zapisu zakończone — S3–S8 planu D-467 odblokowane.
 - 2026-10-02 operator zlecił pasmo ≥ 99% po jednym symbolu: Winogron
   (TASK-0828, done), Śliwka (TASK-0832, w toku od 2026-10-03 17:22 UTC,
-  16 części; 01–13 zapisane do 2026-10-04 17:44 UTC), Arbuz (TASK-0833,
-  15 części; startuje po Śliwce, nocne okno do 2026-10-05 09:15 UTC, reszta po
-  restarcie i migracjach operatora). Stan części, sterowniki i polecenia
+  16 części; 01–13 zapisane, 14 przerwana po 9 052 z 47 207 planszach, 15–16
+  niezaczęte), Arbuz (TASK-0833, 15 części, niezaczęty). Oba zatrzymane
+  2026-10-04 18:32 UTC na polecenie operatora (reset i migracje); wznowienie od
+  Śliwki części 14 nowym podglądem. Stan części, sterowniki i polecenia
   wznowienia: worktree `artifacts/symbol-reference-library/drivers/README.md`.
   Nie weryfikować w Adminie symbolu, którego zapis trwa.
 - TASK-0828 (B4) done 2026-10-02 19:36 – 10-03 17:22 UTC: Winogron ≥ 99%,

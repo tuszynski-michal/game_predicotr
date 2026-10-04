@@ -33,7 +33,35 @@ last_updated: 2026-10-04
   klasą symbolu ani Jokerem. Uczenie ramki i mechanika wypłat pozostają osobne.
 - Raport: `ai_docs/quality/MUMIE_TRAINING_RESUME_20261004.md`.
   Następny zlecony zakres: TASK-0843 — wgranie do głównej aplikacji przez API.
-  Commit TASK-0842: `v1.7.187` (hash dopisany po commicie).
+  Commit TASK-0842: `v1.7.187` / `9f234575bb7d9090f311d5550a6264bcd7ed7ec2`
+  (hash dopisany po commicie).
+
+### TASK-0843 — Mumie w głównej aplikacji (done: upload i preflight)
+
+- Zlecony addytywny import przez istniejące API. Gra draft z profilem Mumii,
+  225 źródłowych JPEG-ów, zachowane zakresy `seq_*`. Bez wypłat, etykietowania
+  za operatora, aktywacji nowego modelu, shadow i migracji.
+- Nowy CLI `scripts/run_mumie_image_import.py` ma osobne kroki upload/advance/status,
+  trwały raport, kontrolę SHA wejścia i ograniczone żądania. Historycznego CLI
+  `verified_v19` nie uruchamiać. Rewizje bazy i modele pozostają takie jak wdrożone.
+- Gra Mumie: `fea55cc1-ebf4-4cee-b3ab-a520017ed1be`, draft,
+  `grid_profile_mumie_v1`. Staging `becad72f-200d-4ba1-8d35-464b19d8f299`
+  sfinalizowany: 225/225 plików, 61 768 538 bajtów. Upload 13,62 s.
+  Stan trwały: `artifacts/mumie-import-20261004/state.json`.
+- Geometry job `3e0151c8-b9ff-4da1-b96d-72af4cb01912` completed:
+  225 źródeł, 0 failed, 225 review. Preflight wskazuje 2025 nowych pozycji,
+  `IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED`. Import plansz nie został uruchomiony;
+  kompletne wgranie źródeł nie oznacza materializacji plansz.
+- TASK-0830 udostępnia wybór profilu, ale jawnie nie podłącza sieci do importu.
+  Sieć działa w labie; główna aplikacja nadal wymaga przeglądu geometrii.
+  V3-D/TASK-0805 pozostaje niewykonany bez wyraźnego polecenia operatora.
+- Wznowienie w nowym procesie odzyskało ten sam gameId, uploadId i geometryJobId,
+  bez nowego transferu i bez duplikatów. Kontekst `gameId` jest trwale dodany
+  do wszystkich żądań stagingu/jobów; nie było potrzeby zmiany API ani migracji.
+- Raport: `ai_docs/quality/MUMIE_PRODUCTION_UPLOAD_20261004.md`.
+- Testy requestów 5/5 PASS, Ruff check/format PASS, Mypy strict CLI PASS
+  (1 moduł, bez kontroli importowanych zależności). Commit TASK-0843: `v1.7.188`,
+  pełny hash do dopisania po commicie. Bez push.
 
 
 ### TASK-0841 — edycja symboli po otwarciu planszy audytu (done)

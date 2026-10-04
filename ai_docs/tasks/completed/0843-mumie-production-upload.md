@@ -1,6 +1,6 @@
 ---
 title: TASK-0843 — Mumie, wgranie do głównej aplikacji
-status: todo
+status: done
 last_updated: 2026-10-04
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-04
 
 ## Status
 
-`todo`
+`done` — wgranie źródeł i preflight; plansze wymagają przeglądu geometrii.
 
 ## Goal
 
@@ -54,11 +54,11 @@ shadow, migracje, usuwanie danych i ręczne zatwierdzanie sieci za operatora.
 
 ## Acceptance criteria
 
-- [ ] Gra Mumie odrębna od 777; poprawny profil i zapis odczytany z nowego procesu.
-- [ ] 225/225 plików w checksum-bound stagingu, jawne zakresy sekwencji zachowane.
-- [ ] Preflight/import rozliczony; pozycje wymagające ręcznej decyzji jawnie zgłoszone.
-- [ ] Identyczne wznowienie odzyskuje staging/job; nie duplikuje danych.
-- [ ] Raport, Outcome, CURRENT_STATE i osobny commit.
+- [x] Gra Mumie odrębna od 777; poprawny profil i zapis odczytany z nowego procesu.
+- [x] 225/225 plików w checksum-bound stagingu, jawne zakresy sekwencji zachowane.
+- [x] Preflight/import rozliczony; 225 źródeł wymagających decyzji jawnie zgłoszone.
+- [x] Identyczne wznowienie odzyskuje staging/job; nie duplikuje danych.
+- [x] Raport, Outcome, CURRENT_STATE i osobny commit.
 
 ## Technical notes
 
@@ -92,4 +92,28 @@ poprawnego payoutu; brak ten nie może zostać zamaskowany pozornym wynikiem.
 
 ## Outcome
 
-Do uzupełnienia po wykonaniu.
+Gra draft `fea55cc1-ebf4-4cee-b3ab-a520017ed1be` z profilem Mumii. Upload
+225/225 JPEG-ów, 61 768 538 bajtów, 13,62 s, sfinalizowany staging
+`becad72f-200d-4ba1-8d35-464b19d8f299`. Geometry job
+`3e0151c8-b9ff-4da1-b96d-72af4cb01912` completed: 225 review, 0 failed.
+Preflight 2025 nowych pozycji i `IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED`.
+Nie uruchomiono importu plansz, nie obchodzono wymaganych zatwierdzeń.
+
+Wznowienie uploadu i advance w nowych procesach zachowało staging/job bez
+duplikowania. CLI zapisuje stan na dysku, wiąże wejście SHA, propaguje query
+`gameId` i blokuje ponowienie nieznanego wyniku tworzenia stagingu. Brak kontekstu
+gry w pierwszej próbie preflightu usunięto w CLI i objęto testem requestów.
+
+5 testów PASS (0,80 s), Ruff check i format dwóch plików PASS, Mypy strict
+nowego CLI PASS (`--follow-imports skip`, 1 moduł). Pierwsza szersza próba Mypy
+z błędnie zawężonym MYPYPATH wyłącznie do workera miała brak importów API
+i timeout 120 s; runner zakończył drzewo procesów. Poprawiono ścieżki API/worker
+i wykonano kontrolę zakresu CLI. Nie zmieniano kodu zależności ani ich testów.
+
+Raport `ai_docs/quality/MUMIE_PRODUCTION_UPLOAD_20261004.md` i guide zawierają
+stan, checksumy i wznowienie. TASK-0830 nie włącza inferencji w głównym imporcie;
+V3-D nadal wymaga wyraźnego polecenia. Bez nowych migracji, usuwania danych,
+aktywacji modelu, etykietowania symboli, payoutów i shadow. DoD oraz plan
+rozliczone punkt po punkcie: źródła wgrane, dalsza materializacja jawnie zablokowana.
+
+Commit: `v1.7.188` — hash zostanie dopisany po utworzeniu commita.

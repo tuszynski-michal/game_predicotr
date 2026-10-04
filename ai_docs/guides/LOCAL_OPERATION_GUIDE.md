@@ -1588,3 +1588,27 @@ Zatrzymaj wcześniej uruchomiony Reviewer i uruchom go ponownie z procesu API,
 który dziedziczy tę flagę. Po ponownym uruchomieniu API i Reviewera
 `/manual-selection` zwraca 404, proxy
 nie przekazuje żądań, a starsze linki zatwierdzania plansz pozostają bez zmian.
+
+## Mumie — stan i wznowienie wgrania (TASK-0843)
+
+Wgrano 225/225 plików do gry „Mumie”, gameId
+`fea55cc1-ebf4-4cee-b3ab-a520017ed1be`. Staging jest sfinalizowany; preflight
+zwraca `IMAGE_PAGE_GEOMETRY_REVIEW_REQUIRED` dla wszystkich 225 źródeł.
+Nie uruchomiono importu plansz. Wybór profilu Mumii obecnie wskazuje model,
+ale nie uruchamia sieci w głównym imporcie. Przegląd modelowych siatek jest
+w laboratorium `http://127.0.0.1:8105`; V3-D wymaga osobnego polecenia.
+
+Odczyt trwałego stanu bez nowego transferu:
+
+```powershell
+$env:PYTHONPATH = 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\services\worker\src'
+& 'C:\Users\tuszy\Documents\game_predicotr\.venv\Scripts\python.exe' 'C:\Users\tuszy\Documents\game_predicotr\artifacts\grid-v3-deployment-20261004\run_step.py' --timeout 120 --cwd 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3' --name mumie-import-status -- 'C:\Users\tuszy\Documents\game_predicotr\.venv\Scripts\python.exe' 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\scripts\run_mumie_image_import.py' --step status --source 'C:\Users\tuszy\Documents\game_predictor_traning_set\mumie' --report 'C:\Users\tuszy\Documents\game_predicotr\artifacts\mumie-import-20261004\state.json'
+```
+
+Ten sam raport i `--step upload` odzyskują istniejący staging i pomijają
+wgrane indeksy. `--step advance` sprawdza istniejący geometry job i preflight;
+tworzy import tylko po spełnieniu bramek gotowości. Nie zatwierdza siatek.
+Nie uruchamiać go z nową ścieżką raportu jako sposobu na obejście review.
+Nie wykonywać historycznego `run_v20_layout_import.py` z polityką `verified_v19`.
+
+Pełny odbiór i checksumy: `ai_docs/quality/MUMIE_PRODUCTION_UPLOAD_20261004.md`.

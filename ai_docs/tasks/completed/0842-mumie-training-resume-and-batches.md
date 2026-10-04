@@ -118,7 +118,8 @@ usuwania ani zapisów do bazy.
 ### Documentation updates
 
 Raport jakości, plan wznowienia, ostrzeżenie starego planu premium, D-490
-i CURRENT_STATE. Commit `v1.7.187` (hash dopisany po commicie).
+i CURRENT_STATE. Commit `v1.7.187` / `9f234575bb7d9090f311d5550a6264bcd7ed7ec2`
+(hash dopisany po commicie).
 
 ### Recommended next task
 

@@ -50,6 +50,14 @@ przez istniejące API; nie obejmuje migracji, kasowania ani zatwierdzania za nie
 
 ## Symbol wybrany do supergry
 
+**Wynik kontroli integracji TASK-0843:** TASK-0830 dostarczył rejestr i wybór
+profilu, ale jawnie wykluczył inferencję sieci w pipeline importu. Nie wolno
+przedstawiać zapisanego formatu jako aktywnego automatycznego cięcia. Sieć tnie
+i proponuje siatki w labie; główny import używa dotychczasowego preflightu,
+który skierował 225/225 nowych zdjęć Mumii do przeglądu. Wgrywanie źródeł
+jest ukończone, materializacja plansz czeka na poprawne siatki. Podłączenie
+sieci to osobny zakres V3-D wymagający wyraźnego polecenia operatora.
+
 Proponowana krótka etykieta UI: **Super**. Złota ramka jest osobną obserwowalną
 cechą obrazu, niezależną od klasy symbolu. Trzy mumie uruchamiają tryb, ale nie
 ujawniają tożsamości wybranego symbolu. Rozpoznanie musi wskazać zarówno klasę,

@@ -19,6 +19,7 @@ from game_predictor_api.domain.catalog import (
     Symbol,
     SymbolStatus,
     SymbolUsageSummary,
+    uses_framed_full_page_geometry,
     validate_display_order,
     validate_expected_layout_count,
     validate_image_path,
@@ -97,7 +98,7 @@ class DefaultShapeGeometryReadinessResolver:
     def resolve(
         self, configuration: GameShapeGeometryConfiguration | None
     ) -> ShapeGeometryReadiness:
-        if configuration is GameShapeGeometryConfiguration.FRAMED_FULL_PAGE_V2:
+        if configuration is not None and uses_framed_full_page_geometry(configuration):
             return ShapeGeometryReadiness(
                 configuration=configuration,
                 status=ShapeGeometryReadinessStatus.MANUAL_REVIEW_REQUIRED,

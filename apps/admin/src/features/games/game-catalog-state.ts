@@ -2,6 +2,8 @@ import type {
   GameShapeGeometryConfiguration,
   GameResponse,
   GameStatus,
+  GridEngineModelStatus,
+  GridEngineProfileResponse,
   ShapeGeometryReadinessStatus,
 } from '@game-predictor/admin-api-client';
 
@@ -51,7 +53,60 @@ export const SHAPE_GEOMETRY_CONFIGURATION_LABELS: Record<
 > = {
   framed_full_page_v2: 'Pełna strona z ramką',
   requires_clarification: 'Format wymaga doprecyzowania',
+  grid_profile_777_v2: '777 v2',
+  grid_profile_mumie_v1: 'Mumie',
 };
+
+// TASK-0830: page formats that also select a grid engine profile (a frozen
+// neural_grid model). The API owns the model registry; these texts only
+// describe the choice when the profile list is unavailable.
+export const GRID_ENGINE_PROFILE_FALLBACK_DESCRIPTIONS: Partial<
+  Record<GameShapeGeometryConfiguration, string>
+> = {
+  grid_profile_777_v2:
+    'Model neural_grid trenowany na 777. Profil służy także kolejnym wersjom gry 777 (np. 777 v3).',
+  grid_profile_mumie_v1: 'Model neural_grid doszkolony na Mumiach.',
+};
+
+export const GRID_ENGINE_MODEL_STATUS_LABELS: Record<
+  GridEngineModelStatus,
+  string
+> = {
+  available: 'Model dostępny',
+  checksum_mismatch: 'Model niezgodny z rejestrem (SHA-256)',
+  missing: 'Brak plików modelu',
+};
+
+export function isGridEngineProfileConfiguration(
+  configuration: GameShapeGeometryConfiguration | null | undefined,
+): boolean {
+  return (
+    configuration !== null &&
+    configuration !== undefined &&
+    configuration in GRID_ENGINE_PROFILE_FALLBACK_DESCRIPTIONS
+  );
+}
+
+export function findGridEngineProfile(
+  profiles: readonly GridEngineProfileResponse[],
+  configuration: GameShapeGeometryConfiguration | null | undefined,
+): GridEngineProfileResponse | undefined {
+  return profiles.find((profile) => profile.configuration === configuration);
+}
+
+export function shapeGeometryConfigurationLabel(
+  configuration: GameShapeGeometryConfiguration | null | undefined,
+): string {
+  return configuration
+    ? SHAPE_GEOMETRY_CONFIGURATION_LABELS[configuration]
+    : 'Nie ustalono (rekord historyczny)';
+}
+
+export function gridEngineModelSummary(
+  profile: GridEngineProfileResponse,
+): string {
+  return `${GRID_ENGINE_MODEL_STATUS_LABELS[profile.status]} · ${profile.modelKind} ${profile.version} (run ${profile.runId.slice(0, 8)}, preset ${profile.preset})`;
+}
 
 export const SHAPE_GEOMETRY_READINESS_LABELS: Record<
   ShapeGeometryReadinessStatus,

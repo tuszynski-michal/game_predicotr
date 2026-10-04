@@ -2,6 +2,7 @@ import type {
   AdminApiClient,
   BoardCellGeometryCorrectionContextResponse,
   GeometryQualificationPayload,
+  GridAuditProposalResponse,
   GridCorrectionCellSymbolPayload,
   GridCorrectionCellSymbolSuggestionResponse,
   ImageGridReviewItemResponse,
@@ -17,6 +18,10 @@ import {
 } from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
+import {
+  gridAuditClassLabel,
+  gridAuditSuggestedCorners,
+} from './grid-audit-correction-state.ts';
 import {
   gridReviewCorners,
   gridReviewGeometryPreviewCommand,
@@ -60,8 +65,15 @@ import {
 export interface BoardGeometryCorrectionView {
   /** The board's persisted qualification, so a partial board stays partial. */
   readonly initialFlags: ManualGridFlags;
-  readonly kind: 'deferred' | 'operational' | 'reported';
+  readonly kind: 'audit' | 'deferred' | 'operational' | 'reported';
   readonly metadata: readonly BoardGeometryCorrectionFact[];
+  /**
+   * TASK-0840: the board's current grid, drawn as a thin outline when the
+   * suggestion is something else (the audit network proposal).
+   */
+  readonly referenceCorners?: OperationalReviewGeometryCorners;
+  /** Shown above the canvas, e.g. that the suggestion is a proposal. */
+  readonly suggestionNotice?: string;
   readonly reportedCellIndices: readonly number[];
   readonly saveHint: string;
   readonly sourceHeight: number;
@@ -402,6 +414,94 @@ export function reportedBoardGeometryTarget(input: {
         return disconnected();
       }
     },
+  };
+}
+
+/**
+ * TASK-0840: a current board from the grid-audit list. It is the reported
+ * board target (same preview, symbols and save route, so the save has exactly
+ * the effects of a manual correction), opened with the network grid of the
+ * audit as the suggestion and the current grid as a thin outline.
+ */
+export function gridAuditBoardGeometryTarget(input: {
+  readonly api: ReportedBoardGeometryClient;
+  readonly proposal: GridAuditProposalResponse;
+  readonly symbolsApi?: Pick<
+    AdminApiClient,
+    'getImageGridReviewCorrectionSymbols'
+  >;
+}): BoardGeometryCorrectionTarget {
+  const { proposal } = input;
+  const item = proposal.reviewItem;
+  const grid = proposal.proposal;
+  if (item === null || grid === null) {
+    return unavailableAuditTarget(proposal.item.itemId);
+  }
+  const base = reportedBoardGeometryTarget({
+    api: input.api,
+    item,
+    ...(input.symbolsApi === undefined ? {} : { symbolsApi: input.symbolsApi }),
+  });
+  const audit = proposal.item;
+  return {
+    ...base,
+    key: `audit:${audit.itemId}:${item.slotId}:${item.geometryRevision}:${item.resolutionRevision}`,
+    async load() {
+      const result = await base.load();
+      if (!result.ok) return result;
+      const view = result.view;
+      const suggested = gridAuditSuggestedCorners(
+        grid.corners,
+        item.sourceWidth,
+        item.sourceHeight,
+        view.initialFlags.partial,
+      );
+      return {
+        ok: true,
+        view: {
+          ...view,
+          kind: 'audit',
+          metadata: [
+            ...view.metadata,
+            {
+              label: 'Audyt siatek',
+              title: `${audit.itemId}, ${audit.verdictSource === 'operator' ? 'werdykt operatora' : 'reguła z werdyktów operatora'}`,
+              value: `${gridAuditClassLabel(audit.auditClass)} · ${audit.itemId}`,
+            },
+            {
+              label: 'Decyzje symboli',
+              value:
+                audit.humanDecidedCells === 0
+                  ? '—'
+                  : `${audit.humanDecidedCells} ${audit.humanDecidedCells === 1 ? 'pole' : 'pól'}`,
+            },
+          ],
+          referenceCorners: copyCorners(gridReviewCorners(item)),
+          saveHint:
+            'Zapis idzie zwykłą ścieżką korekty: nowa rewizja geometrii, pola ze zmienionym wycinkiem wrócą do Weryfikacji symboli, a symbole wskazane na kafelkach zostaną zatwierdzone.',
+          suggestedCorners: suggested.corners,
+          suggestionNotice: suggested.clamped
+            ? 'Siatka sieci (propozycja) wychodziła poza zdjęcie — narożniki przycięto do krawędzi. Czerwony kontur to obecna, zapisana siatka.'
+            : 'Żółta siatka to propozycja sieci z audytu. Czerwony kontur to obecna, zapisana siatka.',
+        },
+      };
+    },
+  };
+}
+
+function unavailableAuditTarget(itemId: string): BoardGeometryCorrectionTarget {
+  const unavailable = (): BoardGeometryCorrectionFailure => ({
+    error:
+      'Ta plansza zmieniła się po audycie albo nie jest już bieżąca — propozycja sieci nie jest dostępna. Pomiń ją.',
+    isConflict: false,
+    ok: false,
+  });
+  return {
+    key: `audit-unavailable:${itemId}`,
+    commandKey: () => '',
+    load: async () => unavailable(),
+    preview: async () => unavailable(),
+    save: async () => unavailable(),
   };
 }
 

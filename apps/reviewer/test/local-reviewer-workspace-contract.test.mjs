@@ -49,6 +49,28 @@ test('the local reviewer is only the correction screen; remote stays restricted'
   assert.doesNotMatch(proxy, /\/image-reviews\//);
 });
 
+test('the grid-audit list is a loopback-only local mode without a proxy route (TASK-0840)', () => {
+  // Same loopback gate as the local correction screen; scoped by game only.
+  assert.match(
+    page,
+    /loopbackLocal =\s*value\(params\.mode\) === 'local' &&\s*isLoopbackReviewerHost/,
+  );
+  assert.match(
+    page,
+    /gridAuditMode = loopbackLocal && value\(params\.queue\) === 'grid-audit'/,
+  );
+  assert.match(page, /gridAuditScope=\{gridAuditMode \? \{ gameId \} : null\}/);
+  assert.match(
+    page,
+    /localMode \|\| gridAuditMode\s*\?\s*resolveLocalAdminApiBaseUrl/,
+  );
+  assert.match(
+    gate,
+    /gridAuditScope !== null[\s\S]*GridAuditCorrectionWorkspace/,
+  );
+  assert.doesNotMatch(proxy, /grid-audit/);
+});
+
 test('the whole-photo grid validation and its mode switch are gone', () => {
   // TASK-0727: no module may bring back board or photo approval.
   for (const removed of [

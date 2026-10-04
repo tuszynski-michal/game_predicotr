@@ -6126,10 +6126,12 @@
         "type": "object"
       },
       "GameShapeGeometryConfiguration": {
-        "description": "A game-local declaration, never a copy of a shared geometry profile.",
+        "description": "A game-local declaration, never a copy of a shared geometry profile.\n\n``grid_profile_*`` values (TASK-0830) additionally name the grid engine\nprofile of the game: a frozen ``neural_grid`` model registered in\n``domain.grid_engine_profiles``. A later model of the same game is a new\nregistry version of the same profile, never a new value of this field.",
         "enum": [
           "framed_full_page_v2",
-          "requires_clarification"
+          "requires_clarification",
+          "grid_profile_777_v2",
+          "grid_profile_mumie_v1"
         ],
         "title": "GameShapeGeometryConfiguration",
         "type": "string"
@@ -6817,6 +6819,359 @@
         "title": "GeometryQualificationPayload",
         "type": "object"
       },
+      "GridAuditImportStatus": {
+        "description": "Result of the read-only verification at import time.",
+        "enum": [
+          "proposal",
+          "stale",
+          "board_missing",
+          "no_network_grid"
+        ],
+        "title": "GridAuditImportStatus",
+        "type": "string"
+      },
+      "GridAuditNodeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "GridAuditNodeResponse",
+        "type": "object"
+      },
+      "GridAuditProposalGridResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "coordinateSpace": {
+            "const": "exif-normalized-rgb-pixels-v1",
+            "default": "exif-normalized-rgb-pixels-v1",
+            "title": "Coordinatespace",
+            "type": "string"
+          },
+          "corners": {
+            "description": "Outer corners of the network grid, row-major winding",
+            "maxItems": 4,
+            "minItems": 4,
+            "prefixItems": [
+              {
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+              },
+              {
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
+              }
+            ],
+            "title": "Corners",
+            "type": "array"
+          },
+          "nodes": {
+            "description": "The 24 network lattice nodes (6 x 4, row-major)",
+            "items": {
+              "$ref": "#/components/schemas/GridAuditNodeResponse"
+            },
+            "title": "Nodes",
+            "type": "array"
+          },
+          "provenance": {
+            "const": "audit-network-proposal",
+            "default": "audit-network-proposal",
+            "title": "Provenance",
+            "type": "string"
+          }
+        },
+        "required": [
+          "corners",
+          "nodes"
+        ],
+        "title": "GridAuditProposalGridResponse",
+        "type": "object"
+      },
+      "GridAuditProposalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "auditId": {
+            "title": "Auditid",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "item": {
+            "$ref": "#/components/schemas/GridAuditQueueItemResponse"
+          },
+          "proposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/GridAuditProposalGridResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Only while the board still has the audited geometry revision"
+          },
+          "reviewItem": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGridReviewItemResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The current board as the correction queue serves it"
+          }
+        },
+        "required": [
+          "gameId",
+          "auditId",
+          "item",
+          "proposal",
+          "reviewItem"
+        ],
+        "title": "GridAuditProposalResponse",
+        "type": "object"
+      },
+      "GridAuditQueueCountsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "corrected": {
+            "minimum": 0.0,
+            "title": "Corrected",
+            "type": "integer"
+          },
+          "noProposal": {
+            "minimum": 0.0,
+            "title": "Noproposal",
+            "type": "integer"
+          },
+          "open": {
+            "minimum": 0.0,
+            "title": "Open",
+            "type": "integer"
+          },
+          "openWithSymbolDecisions": {
+            "minimum": 0.0,
+            "title": "Openwithsymboldecisions",
+            "type": "integer"
+          },
+          "removed": {
+            "minimum": 0.0,
+            "title": "Removed",
+            "type": "integer"
+          },
+          "stale": {
+            "minimum": 0.0,
+            "title": "Stale",
+            "type": "integer"
+          },
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "open",
+          "corrected",
+          "stale",
+          "removed",
+          "noProposal",
+          "openWithSymbolDecisions"
+        ],
+        "title": "GridAuditQueueCountsResponse",
+        "type": "object"
+      },
+      "GridAuditQueueItemResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "auditClass": {
+            "title": "Auditclass",
+            "type": "string"
+          },
+          "auditGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Auditgeometryrevision",
+            "type": "integer"
+          },
+          "currentGeometryRevision": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Currentgeometryrevision"
+          },
+          "humanDecidedCells": {
+            "minimum": 0.0,
+            "title": "Humandecidedcells",
+            "type": "integer"
+          },
+          "importJobId": {
+            "format": "uuid",
+            "title": "Importjobid",
+            "type": "string"
+          },
+          "importStatus": {
+            "$ref": "#/components/schemas/GridAuditImportStatus"
+          },
+          "itemId": {
+            "title": "Itemid",
+            "type": "string"
+          },
+          "level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Level"
+          },
+          "ordinal": {
+            "minimum": 0.0,
+            "title": "Ordinal",
+            "type": "integer"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "recognizedBoardId": {
+            "format": "uuid",
+            "title": "Recognizedboardid",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "minimum": 0.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "sourceImageId": {
+            "format": "uuid",
+            "title": "Sourceimageid",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GridAuditQueueStatus"
+          },
+          "verdictSource": {
+            "title": "Verdictsource",
+            "type": "string"
+          }
+        },
+        "required": [
+          "ordinal",
+          "itemId",
+          "verdictSource",
+          "auditClass",
+          "level",
+          "humanDecidedCells",
+          "recognizedBoardId",
+          "sourceImageId",
+          "importJobId",
+          "sequenceNumber",
+          "positionIndex",
+          "auditGeometryRevision",
+          "importStatus",
+          "status"
+        ],
+        "title": "GridAuditQueueItemResponse",
+        "type": "object"
+      },
+      "GridAuditQueuePageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "artifactSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Artifactsha256",
+            "type": "string"
+          },
+          "auditId": {
+            "title": "Auditid",
+            "type": "string"
+          },
+          "counts": {
+            "$ref": "#/components/schemas/GridAuditQueueCountsResponse"
+          },
+          "createdAt": {
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GridAuditQueueItemResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextAfterOrdinal": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextafterordinal"
+          }
+        },
+        "required": [
+          "gameId",
+          "auditId",
+          "createdAt",
+          "artifactSha256",
+          "counts",
+          "items",
+          "nextAfterOrdinal"
+        ],
+        "title": "GridAuditQueuePageResponse",
+        "type": "object"
+      },
+      "GridAuditQueueStatus": {
+        "description": "State of one item now, derived from the current board.",
+        "enum": [
+          "open",
+          "corrected",
+          "stale",
+          "removed",
+          "no_proposal"
+        ],
+        "title": "GridAuditQueueStatus",
+        "type": "string"
+      },
       "GridCalibrationProfileResponse": {
         "additionalProperties": false,
         "properties": {
@@ -7103,6 +7458,173 @@
           "activeBoardCount"
         ],
         "title": "GridEndToEndGateSource",
+        "type": "object"
+      },
+      "GridEngineModelFileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedsha256",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "minimum": 0.0,
+            "title": "Sizebytes",
+            "type": "integer"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GridEngineModelStatus"
+          }
+        },
+        "required": [
+          "name",
+          "expectedSha256",
+          "sizeBytes",
+          "status"
+        ],
+        "title": "GridEngineModelFileResponse",
+        "type": "object"
+      },
+      "GridEngineModelStatus": {
+        "enum": [
+          "available",
+          "missing",
+          "checksum_mismatch"
+        ],
+        "title": "GridEngineModelStatus",
+        "type": "string"
+      },
+      "GridEngineProfileResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "configuration": {
+            "$ref": "#/components/schemas/GameShapeGeometryConfiguration"
+          },
+          "description": {
+            "title": "Description",
+            "type": "string"
+          },
+          "exportId": {
+            "title": "Exportid",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/GridEngineModelFileResponse"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "frozenOn": {
+            "title": "Frozenon",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          },
+          "managedPath": {
+            "title": "Managedpath",
+            "type": "string"
+          },
+          "manifestStatus": {
+            "$ref": "#/components/schemas/GridEngineModelStatus"
+          },
+          "message": {
+            "title": "Message",
+            "type": "string"
+          },
+          "modelKind": {
+            "title": "Modelkind",
+            "type": "string"
+          },
+          "modelVersion": {
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "preset": {
+            "title": "Preset",
+            "type": "string"
+          },
+          "presetFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Presetfingerprint",
+            "type": "string"
+          },
+          "reasonCode": {
+            "title": "Reasoncode",
+            "type": "string"
+          },
+          "reportResults": {
+            "items": {
+              "$ref": "#/components/schemas/GridEngineReportResultResponse"
+            },
+            "title": "Reportresults",
+            "type": "array"
+          },
+          "runId": {
+            "title": "Runid",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/GridEngineModelStatus"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "weightsSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Weightssha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "configuration",
+          "label",
+          "description",
+          "modelKind",
+          "modelVersion",
+          "version",
+          "runId",
+          "exportId",
+          "preset",
+          "presetFingerprint",
+          "weightsSha256",
+          "frozenOn",
+          "managedPath",
+          "status",
+          "reasonCode",
+          "message",
+          "manifestStatus",
+          "files",
+          "reportResults"
+        ],
+        "title": "GridEngineProfileResponse",
+        "type": "object"
+      },
+      "GridEngineReportResultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "dataset": {
+            "title": "Dataset",
+            "type": "string"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset",
+          "result"
+        ],
+        "title": "GridEngineReportResultResponse",
         "type": "object"
       },
       "GridProfileActivationAction": {
@@ -28926,6 +29448,171 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/grid-audit-proposals": {
+      "get": {
+        "operationId": "listGridAuditProposals",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "afterOrdinal",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Afterordinal"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 1,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridAuditQueuePageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No imported proposal list or item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Proposal artifact checksum mismatch"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid queue request or artifact"
+          }
+        },
+        "summary": "List the open boards of the imported grid-audit proposal list",
+        "tags": [
+          "grid-audit-proposals"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-audit-proposals/{item_id}": {
+      "get": {
+        "operationId": "getGridAuditProposal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "item_id",
+            "required": true,
+            "schema": {
+              "pattern": "^[a-z][0-9]{5}$",
+              "title": "Item Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridAuditProposalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "No imported proposal list or item"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Proposal artifact checksum mismatch"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid queue request or artifact"
+          }
+        },
+        "summary": "Read one audited board with its network grid proposal",
+        "tags": [
+          "grid-audit-proposals"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/grid-calibration-profiles": {
       "get": {
         "operationId": "listGridCalibrationProfiles",
@@ -34934,6 +35621,31 @@
         "summary": "Read one non-expired checksum-verified virtual preview atlas",
         "tags": [
           "symbol-cell-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/grid-engine-profiles": {
+      "get": {
+        "operationId": "listGridEngineProfiles",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/GridEngineProfileResponse"
+                  },
+                  "title": "Response Listgridengineprofiles",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List grid engine profiles and the state of their models",
+        "tags": [
+          "grid-engine-profiles"
         ]
       }
     },

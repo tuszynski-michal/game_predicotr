@@ -14,6 +14,7 @@ from game_predictor_api.application.rules import RulesService
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.catalog import (
     CatalogConflictError,
+    GameShapeGeometryConfiguration,
     GameStatus,
     SymbolStatus,
 )
@@ -132,6 +133,42 @@ def test_symbol_localized_names_survive_real_database_round_trip(
             session.commit()
             assert cleared.name_pl is None
             assert cleared.name_en == "Lemon"
+    finally:
+        engine.dispose()
+
+
+def test_grid_engine_profile_page_format_survives_real_database_round_trip(
+    isolated_catalog_database: URL,
+) -> None:
+    """TASK-0830: the 0140 constraint accepts both profiles through the repository."""
+
+    command.upgrade(_migration_config(isolated_catalog_database), "head")
+    engine = create_engine(isolated_catalog_database, pool_pre_ping=True)
+
+    try:
+        session_factory = create_session_factory(engine)
+        with session_factory() as session:
+            service = CatalogService(SqlAlchemyCatalogRepository(session))
+            game = service.create_game(
+                code="mumie",
+                name="Mumie",
+                status=GameStatus.DRAFT,
+                shape_geometry_configuration=GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1,
+            )
+            session.commit()
+            assert service.get_game(game.id).shape_geometry_configuration is (
+                GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1
+            )
+            service.update_game(
+                game.id,
+                shape_geometry_configuration=GameShapeGeometryConfiguration.GRID_PROFILE_777_V2,
+            )
+            session.commit()
+        with session_factory() as session:
+            stored = CatalogService(SqlAlchemyCatalogRepository(session)).get_game(game.id)
+            assert stored.shape_geometry_configuration is (
+                GameShapeGeometryConfiguration.GRID_PROFILE_777_V2
+            )
     finally:
         engine.dispose()
 

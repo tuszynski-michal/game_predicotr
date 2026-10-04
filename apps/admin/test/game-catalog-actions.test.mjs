@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   archiveGameIdentity,
+  loadGridEngineProfiles,
   restoreGameIdentity,
   saveGameIdentity,
 } from '../src/features/games/game-catalog-actions.ts';
@@ -24,10 +25,70 @@ function createClient(overrides = {}) {
     createGame: async () => ({ data: savedGame }),
     getGame: async () => ({ data: savedGame }),
     listGames: async () => ({ data: [] }),
+    listGridEngineProfiles: async () => ({ data: [] }),
     updateGame: async () => ({ data: savedGame }),
     ...overrides,
   };
 }
+
+test('creates a game with a grid engine profile as its page format', async () => {
+  let request;
+  const mumieGame = {
+    ...savedGame,
+    shapeGeometryConfiguration: 'grid_profile_mumie_v1',
+  };
+  const client = createClient({
+    createGame: async (body) => {
+      request = body;
+      return { data: mumieGame };
+    },
+  });
+
+  const result = await saveGameIdentity(
+    client,
+    { mode: 'create' },
+    {
+      code: 'mumie',
+      expectedLayoutCount: '500000',
+      name: 'Mumie',
+      shapeGeometryConfiguration: 'grid_profile_mumie_v1',
+      status: 'draft',
+    },
+  );
+
+  assert.equal(request.shapeGeometryConfiguration, 'grid_profile_mumie_v1');
+  assert.deepEqual(result, { game: mumieGame, ok: true });
+});
+
+test('loads grid engine profiles and reports a failure without throwing', async () => {
+  const profile = { configuration: 'grid_profile_777_v2', status: 'missing' };
+  assert.deepEqual(
+    await loadGridEngineProfiles(
+      createClient({
+        listGridEngineProfiles: async () => ({ data: [profile] }),
+      }),
+    ),
+    { ok: true, profiles: [profile] },
+  );
+  const failed = await loadGridEngineProfiles(
+    createClient({
+      listGridEngineProfiles: async () => ({
+        error: { code: 'X', details: {}, message: 'broken' },
+      }),
+    }),
+  );
+  assert.equal(failed.ok, false);
+  assert.match(failed.error, /broken/);
+  const offline = await loadGridEngineProfiles(
+    createClient({
+      listGridEngineProfiles: async () => {
+        throw new Error('socket');
+      },
+    }),
+  );
+  assert.equal(offline.ok, false);
+  assert.match(offline.error, /modele silnika siatek/);
+});
 
 test('creates a game with its stable code through the typed client boundary', async () => {
   let request;

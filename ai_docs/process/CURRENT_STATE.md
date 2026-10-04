@@ -487,6 +487,29 @@ last_updated: 2026-10-04
   przegląd 17 plansz przy tolerancji, pełne siatki Reels/Treasure, dane
   Gang, zgodność symboli po cięciu, czas silnika produkcyjnego, rola
   walidacji. Etap V3-D wymaga jawnego uruchomienia przez operatora.
+- TASK-0830 (`v1.7.181`, kod gotowy, **niewdrożony**): profile silnika
+  siatek w polu „Format strony” (`grid_profile_777_v2` → model runu 1,
+  `grid_profile_mumie_v1` → model iteracji 3 doszkalania), rejestr modeli
+  w `artifacts\models\grid-engine\…\v1` (zainstalowane, sumy zgodne),
+  endpoint `listGridEngineProfiles`, migracja `0140` (rozszerzenie CHECK
+  `games`). **Nie scalać do gałęzi integracyjnej przed migracją** — API
+  8000 z `--reload` w głównym checkoucie przestałoby startować na bazie
+  0139. Wdrożenie (stop usług → scalenie → `db:migrate` → start) po
+  zakończeniu przypisywania symboli przez operatora.
+- TASK-0831 done (`v1.7.182`): audyt cichych błędów siatek 777 (sieć runu
+  1 na 55 499 zdjęciach, tylko odczyt). 3 629 plansz poza tolerancją: 958
+  przesunięć okresu (613 kolumna, 344 rząd), 154 duże rozbieżności skali.
+  Obejrzane 136: 104 potwierdzone błędy produkcji, 17 błędów sieci (w tym
+  cała grupa 231 przesunięć kolumny na pozycji 2 — tam rację ma zapis), 9
+  niejasnych. Szacunek: ok. 790–870 błędnych plansz na ok. 740 zdjęciach;
+  na przesunięciach z błędem produkcji 253 komórki z decyzją człowieka.
+  Raport `ai_docs/quality/SILENT_GRID_AUDIT_777_20261004.md`, przegląd
+  `http://127.0.0.1:8107` (1 233 pozycje), korekta przez „Zła siatka” w
+  weryfikacji symboli → kolejka korekty Reviewera.
+- Plan symboli Mumii `ai_docs/delivery/MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md`
+  (`proposed`, TASK-0832–0839 zarezerwowane) czeka na 5 decyzji operatora.
+- Kolizja numeru: TASK-0825 użyty przez dwa tory (doszkalanie Mumii i
+  `grid-correction-unknown-symbol`); oba zakończone, pliki mają różne nazwy.
 - Otwarte (stan sprzed porządku): 19 testów PG nieprzechodzących niezależnie od etapu
   (`db:baseline:verify`), duplikat importu `7d10ae0a` (1 160 zdjęć, usunięcie
   niezlecone). Następny etap planu: V3-A (TASK-0800, TASK-0801) — wymaga

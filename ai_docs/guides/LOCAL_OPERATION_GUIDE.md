@@ -1,7 +1,7 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-10-01
+last_updated: 2026-10-04
 ---
 
 # Lokalne uruchamianie i instalacja
@@ -190,6 +190,98 @@ jednorazowych bazach testowych, każda sesja `GameStorageSession` działa jako
 ta rola (`SET LOCAL ROLE`), a na końcu rola jest usuwana. Test izolacji
 `test_application_role_isolation_postgres.py` loguje się rolą
 `LOGIN` (losowe hasło, ważne godzinę, usuwana po teście).
+
+## Profile silnika siatek gry i migracja `0140` (TASK-0830)
+
+Pole „Format strony” gry ma, obok „Pełna strona z ramką” i „Format wymaga
+doprecyzowania”, dwa profile silnika siatek: **„777 v2”**
+(`grid_profile_777_v2`) i **„Mumie”** (`grid_profile_mumie_v1`). Profil
+wskazuje zamrożony model `neural_grid` (raport
+`ai_docs/quality/GRID_V3_COMPARISON_REPORT_20261004.md`):
+
+| Profil | Wersja | Model |
+|---|---|---|
+| 777 v2 | `v1` | run `43933ac8…`, preset A, runda 3 (eksport `2cd19738367121e6-round3`); służy też kolejnym wersjom 777 (np. „777 v3” wybiera ten sam profil) |
+| Mumie | `v1` | run `5bc98156…`, doszkolenie D-490, iteracja 3 (eksport `iteration03-f896da7196431be2`) |
+
+Dla preflightu i gotowości wspólnej geometrii profil działa dokładnie jak
+„Pełna strona z ramką”: nowa gra startuje z ręczną weryfikacją pierwszego
+importu. Sieć nie jest jeszcze uruchamiana w pipeline importu (tryb shadow,
+TASK-0805). Wybór profilu nie jest blokowany brakiem modelu; Admin pokazuje
+stan modelu przy polu i na karcie gry.
+
+Modele leżą poza repozytorium w
+`<artifact root>\models\grid-engine\<profil>\<wersja>\` (`screen.onnx`,
+`board.onnx`, `bundle.json`, `preset.json`, `manifest.json`). Repozytorium
+trzyma tylko rejestr SHA-256 i metadanych
+(`services/api/src/game_predictor_api/domain/grid_engine_profiles.py`). Brak
+pliku albo inna suma kontrolna to jawny błąd (`missing` /
+`checksum_mismatch`), bez zastępowania innym modelem. Kolejny model tej samej
+gry to nowa wersja w rejestrze profilu, nie nowa wartość pola.
+
+Jednorazowa instalacja (kopiuje i weryfikuje, eksporty labu tylko czyta;
+istniejący poprawny katalog zostawia, niezgodnego nie nadpisuje):
+
+```powershell
+$runs = 'C:\Users\tuszy\Documents\game_predictor_vision_data\neural-grid-runs'
+.\.venv\Scripts\python.exe scripts/install_grid_engine_models.py `
+  --source "grid_profile_777_v2=$runs\43933ac8d7d443c8b9079630a83de2e6\exports\2cd19738367121e6-round3" `
+  --source "grid_profile_mumie_v1=$runs\5bc981568c3f42bd96f6f9238e57aedc\exports\iteration03-f896da7196431be2"
+.\.venv\Scripts\python.exe scripts/install_grid_engine_models.py --check   # kod 0 = oba modele dostępne
+```
+
+Katalog artefaktów jest ustalany jak w API (`GAME_PREDICTOR_ARTIFACT_ROOT`,
+domyślnie `artifacts` w katalogu startu); `--artifact-root` go nadpisuje.
+Stan modeli zwraca też `GET /api/v1/admin/grid-engine-profiles`.
+
+Migracja `0140_grid_engine_profiles` rozszerza wyłącznie CHECK
+`ck_games_shape_geometry_configuration`; nie zmienia żadnego wiersza. Kod
+wymaga `0140` (`EXPECTED_ALEMBIC_HEAD`), więc przejście jest takie jak dla
+`0139`: zatrzymaj API, workery i Reviewera wszystkich checkoutów, scal kod,
+`npm run db:migrate`, `npm run db:current` → `0140_grid_engine_profiles`,
+uruchom usługi. Wycofanie: `alembic downgrade
+0139_source_image_geometry_completeness` odmawia
+(`GRID_ENGINE_PROFILE_IN_USE`), dopóki któraś gra używa profilu — najpierw
+zmień jej format strony.
+
+## Poprawki z audytu siatek w Reviewerze (TASK-0840)
+
+Lista 975 plansz 777 ze złą zapisaną siatką (audyt TASK-0831,
+`ai_docs/quality/SILENT_GRID_AUDIT_777_20261004.md`) jest zaimportowana jako
+niezmienny artefakt API:
+`artifacts\grid-audit-proposals\bfc4f949-5c14-4850-b02a-db99610bcfa5\silent-grid-777-20261004\`
+(`proposals.json` + `manifest.json` z SHA-256). Import tylko czyta bazę
+(`REPEATABLE READ READ ONLY`) i odmawia nadpisania istniejącego katalogu:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\import_grid_audit_proposals.py `
+  --audit 'C:\Users\tuszy\Documents\game_predictor_vision_data\silent-grid-audit\777-20261004' `
+  --game-id bfc4f949-5c14-4850-b02a-db99610bcfa5 --artifact-root .\artifacts [--dry-run]
+```
+
+Plansza, której rewizja geometrii zmieniła się po audycie, trafia do pliku
+jako `stale` bez propozycji. Grupa 231 błędów sieci (prawa górna plansza) nie
+jest na liście (werdykty operatora).
+
+Wdrożenie razem z przejściem na `0140` (sekcja wyżej): po scaleniu kodu
+`npm install`, `npm run reviewer:build`, migracja, start API (nowe trasy
+`grid-audit-proposals`) i Reviewera. Praca:
+
+1. uruchom Reviewer (`Otwórz lokalnie` w Adminie dla dowolnego importu albo
+   `npm run reviewer:start`),
+2. otwórz
+   `http://127.0.0.1:3001/?mode=local&gameId=bfc4f949-5c14-4850-b02a-db99610bcfa5&queue=grid-audit`,
+3. ekran „Poprawki z audytu siatek” pokazuje jedną planszę: żółta siatka z
+   narożnikami to propozycja sieci, cienki czerwony kontur to obecna siatka;
+   podgląd 15 wycinków odświeża się sam,
+4. gdy propozycja jest dobra — `Zapisz geometrię i dalej` (można przed tym
+   wskazać symbole na kafelkach, D-488); gdy wymaga poprawki — przeciągnij
+   narożniki; gdy jest zła — `Pomiń na razie →`.
+
+Zapis to zwykła korekta planszy: nowa rewizja geometrii, pola ze zmienionym
+wycinkiem wracają do Weryfikacji symboli. Poprawiona plansza znika z listy
+także po restarcie; pominięte wracają przy kolejnym otwarciu. Nic nie jest
+oznaczane jako „Zła siatka”.
 
 ## Migracja `0139` i backfill bramki kompletności geometrii (TASK-0807, D-484)
 

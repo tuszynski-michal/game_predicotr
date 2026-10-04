@@ -1,10 +1,32 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-01
+last_updated: 2026-10-04
 ---
 
 # Kontrakty API i danych mobilnych
+
+## Profile silnika siatek gry — TASK-0830
+
+`shapeGeometryConfiguration` (`GameCreate`, `GameUpdate`, `GameResponse`,
+`ShapeGeometryReadinessResponse.configuration`) przyjmuje dodatkowo
+`grid_profile_777_v2` i `grid_profile_mumie_v1`. Istniejące wartości i
+domyślne `requires_clarification` są bez zmian. Gotowość nowych wartości jest
+liczona dokładnie jak dla `framed_full_page_v2` (te same statusy, kody powodu i
+`sharedProfile`), ale `configuration` zwraca zapisany profil.
+
+`GET /api/v1/admin/grid-engine-profiles` (`listGridEngineProfiles`, tylko
+odczyt, bez bazy) zwraca listę `GridEngineProfileResponse`: `configuration`,
+`label`, `description`, `modelKind` (`neural_grid`), `modelVersion`,
+`version` (bieżąca wersja rejestru profilu), `runId`, `exportId`, `preset`,
+`presetFingerprint`, `weightsSha256`, `frozenOn`, `managedPath` (względem
+katalogu artefaktów), `status` i `manifestStatus` (`GridEngineModelStatus`:
+`available`, `missing`, `checksum_mismatch`), `reasonCode`
+(`GRID_ENGINE_MODEL_AVAILABLE` / `_MISSING` / `_CHECKSUM_MISMATCH`), polską
+`message`, `files[]` (`name`, `expectedSha256`, `sizeBytes`, `status`) i
+`reportResults[]` (`dataset`, `result`). Każde wywołanie liczy SHA-256 plików
+na nowo. Status niezgodny z rejestrem nigdy nie jest zastępowany innym
+modelem.
 
 ## Gotowość wspólnej geometrii przy tworzeniu gry — TASK-0607
 
@@ -2869,6 +2891,36 @@ POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometr
 w razie braku predykcja). `POST` przyjmuje komendę `geometry-preview` i zwraca
 predykcję przypiętego modelu dla tego cięcia; bez modelu lista jest pusta.
 Kod spoza aktywnych symboli gry (także `?`) daje `symbolId = null`.
+
+**TASK-0840 (lista poprawek z audytu siatek):** dwa endpointy tylko do
+odczytu, bez tabeli i bez zapisu w bazie:
+
+```text
+GET  /api/v1/admin/games/{gameId}/grid-audit-proposals?afterOrdinal=&limit=
+GET  /api/v1/admin/games/{gameId}/grid-audit-proposals/{itemId}
+```
+
+Źródłem jest niezmienny artefakt
+`<artifact root>/grid-audit-proposals/<gameId>/<auditId>/proposals.json` z
+`manifest.json` (SHA-256 pliku), zapisany przez
+`scripts/import_grid_audit_proposals.py`; API czyta najnowszy manifest gry i
+odrzuca plik o innej sumie (`409 GRID_AUDIT_PROPOSALS_CHECKSUM_MISMATCH`).
+Brak listy → `404 GRID_AUDIT_PROPOSALS_NOT_FOUND`, nieznana pozycja →
+`404 GRID_AUDIT_PROPOSAL_ITEM_NOT_FOUND`. Stan pozycji (`open | corrected |
+stale | removed | no_proposal`) jest wyliczany przy każdym odczycie z bieżącej
+`geometry_revision` planszy: `open` tylko przy rewizji równej audytowanej i
+bieżącej pozycji review; nowsza rewizja → `corrected` (plansza znika z
+kolejki), inna → `stale`. Lista (`GridAuditQueuePageResponse`) zwraca liczniki
+stanów, pozycje `open` w kolejności pliku po `afterOrdinal` (limit 1–50,
+domyślnie 1) i `nextAfterOrdinal`. Pozycja (`GridAuditProposalResponse`)
+zwraca `proposal` (`corners` — cztery zewnętrzne narożniki siatki sieci,
+`nodes` — 24 węzły, `coordinateSpace = exif-normalized-rgb-pixels-v1`,
+`provenance = audit-network-proposal`) oraz `reviewItem` w kształcie pozycji
+`grid-reviews` — oba wyłącznie dla stanu `open`, więc plansza zmieniona po
+audycie nigdy nie dostaje starej propozycji. Zapis korekty idzie istniejącym
+`image-reviews/{reviewItemId}/geometry-revisions`; jego kontrakt nie ma pola
+pochodzenia, więc pochodzenie `audit-network-proposal` nie jest zapisywane w
+bazie. Trasy nie są na allowliście proxy Reviewera (tylko tryb lokalny).
 
 Lista ma widoki `needs_validation | needs_correction | all | correction`;
 operacyjną kolejką jest wyłącznie `correction`, a pozostałe widoki i liczniki

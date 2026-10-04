@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-09-24
+last_updated: 2026-10-04
 ---
 
 # Model danych
@@ -117,6 +117,19 @@ Aktualny status gotowości jest odczytową projekcją: aktywny profil biblioteki
 może dostarczyć wyłącznie immutable referencję `id`/numer/checksuma. Brak,
 konflikt albo uszkodzenie profilu nie zmienia deklaracji gry i prowadzi do
 ręcznej korekty pierwszego importu.
+
+## Profil silnika siatek gry — TASK-0830
+
+Migracja 0140 rozszerza CHECK `ck_games_shape_geometry_configuration` o
+`grid_profile_777_v2` i `grid_profile_mumie_v1`; nie zmienia żadnego wiersza.
+Wybór profilu jest jedyną informacją w bazie: model profilu (zamrożony eksport
+`neural_grid`) jest plikiem w
+`<ARTIFACT_ROOT>/models/grid-engine/<profil>/<wersja>/` z `manifest.json`, a
+rejestr w kodzie (`domain/grid_engine_profiles.py`) mapuje profil → bieżąca
+wersja → SHA-256 i rozmiar każdego pliku oraz metadane (run, preset,
+fingerprint, wyniki V3-C). Nie ma tabeli modeli. Kolejny model tej samej gry
+to nowa wersja rejestru, nie nowa wartość kolumny. Downgrade odmawia
+(`GRID_ENGINE_PROFILE_IN_USE`), dopóki gra używa profilu.
 
 ## Globalna biblioteka geometrii shape v2 — TASK-0605
 
@@ -349,7 +362,7 @@ Nie dodano migracji: statusy i typ `remove` są już dopuszczone przez schemat
 | name | varchar | nazwa użytkowa |
 | status | enum | draft/active/archived |
 | expected_layout_count | bigint | dodatnia konfiguracja, domyślnie 500 000 |
-| shape_geometry_configuration | varchar(64), nullable | `framed_full_page_v2` lub `requires_clarification`; `NULL` historycznej gry jest odczytywane fail-closed jako potrzeba doprecyzowania |
+| shape_geometry_configuration | varchar(64), nullable | `framed_full_page_v2`, `requires_clarification`, `grid_profile_777_v2` lub `grid_profile_mumie_v1` (0140, profil silnika siatek); `NULL` historycznej gry jest odczytywane fail-closed jako potrzeba doprecyzowania |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 

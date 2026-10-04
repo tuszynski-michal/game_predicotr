@@ -3381,9 +3381,17 @@ export type GameResponse = {
  * GameShapeGeometryConfiguration
  *
  * A game-local declaration, never a copy of a shared geometry profile.
+ *
+ * ``grid_profile_*`` values (TASK-0830) additionally name the grid engine
+ * profile of the game: a frozen ``neural_grid`` model registered in
+ * ``domain.grid_engine_profiles``. A later model of the same game is a new
+ * registry version of the same profile, never a new value of this field.
  */
 export type GameShapeGeometryConfiguration =
-  'framed_full_page_v2' | 'requires_clarification';
+  | 'framed_full_page_v2'
+  | 'requires_clarification'
+  | 'grid_profile_777_v2'
+  | 'grid_profile_mumie_v1';
 
 /**
  * GameStatus
@@ -3781,6 +3789,215 @@ export type GeometryQualificationPayload = {
 };
 
 /**
+ * GridAuditImportStatus
+ *
+ * Result of the read-only verification at import time.
+ */
+export type GridAuditImportStatus =
+  'proposal' | 'stale' | 'board_missing' | 'no_network_grid';
+
+/**
+ * GridAuditNodeResponse
+ */
+export type GridAuditNodeResponse = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
+};
+
+/**
+ * GridAuditProposalGridResponse
+ */
+export type GridAuditProposalGridResponse = {
+  /**
+   * Coordinatespace
+   */
+  coordinateSpace?: 'exif-normalized-rgb-pixels-v1';
+  /**
+   * Corners
+   *
+   * Outer corners of the network grid, row-major winding
+   */
+  corners: [
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+  ];
+  /**
+   * Nodes
+   *
+   * The 24 network lattice nodes (6 x 4, row-major)
+   */
+  nodes: Array<GridAuditNodeResponse>;
+  /**
+   * Provenance
+   */
+  provenance?: 'audit-network-proposal';
+};
+
+/**
+ * GridAuditProposalResponse
+ */
+export type GridAuditProposalResponse = {
+  /**
+   * Auditid
+   */
+  auditId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  item: GridAuditQueueItemResponse;
+  /**
+   * Only while the board still has the audited geometry revision
+   */
+  proposal: GridAuditProposalGridResponse | null;
+  /**
+   * The current board as the correction queue serves it
+   */
+  reviewItem: ImageGridReviewItemResponse | null;
+};
+
+/**
+ * GridAuditQueueCountsResponse
+ */
+export type GridAuditQueueCountsResponse = {
+  /**
+   * Corrected
+   */
+  corrected: number;
+  /**
+   * Noproposal
+   */
+  noProposal: number;
+  /**
+   * Open
+   */
+  open: number;
+  /**
+   * Openwithsymboldecisions
+   */
+  openWithSymbolDecisions: number;
+  /**
+   * Removed
+   */
+  removed: number;
+  /**
+   * Stale
+   */
+  stale: number;
+  /**
+   * Total
+   */
+  total: number;
+};
+
+/**
+ * GridAuditQueueItemResponse
+ */
+export type GridAuditQueueItemResponse = {
+  /**
+   * Auditclass
+   */
+  auditClass: string;
+  /**
+   * Auditgeometryrevision
+   */
+  auditGeometryRevision: number;
+  /**
+   * Currentgeometryrevision
+   */
+  currentGeometryRevision?: number | null;
+  /**
+   * Humandecidedcells
+   */
+  humanDecidedCells: number;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  importStatus: GridAuditImportStatus;
+  /**
+   * Itemid
+   */
+  itemId: string;
+  /**
+   * Level
+   */
+  level: string | null;
+  /**
+   * Ordinal
+   */
+  ordinal: number;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  status: GridAuditQueueStatus;
+  /**
+   * Verdictsource
+   */
+  verdictSource: string;
+};
+
+/**
+ * GridAuditQueuePageResponse
+ */
+export type GridAuditQueuePageResponse = {
+  /**
+   * Artifactsha256
+   */
+  artifactSha256: string;
+  /**
+   * Auditid
+   */
+  auditId: string;
+  counts: GridAuditQueueCountsResponse;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Items
+   */
+  items: Array<GridAuditQueueItemResponse>;
+  /**
+   * Nextafterordinal
+   */
+  nextAfterOrdinal: number | null;
+};
+
+/**
+ * GridAuditQueueStatus
+ *
+ * State of one item now, derived from the current board.
+ */
+export type GridAuditQueueStatus =
+  'open' | 'corrected' | 'stale' | 'removed' | 'no_proposal';
+
+/**
  * GridCalibrationProfileResponse
  */
 export type GridCalibrationProfileResponse = {
@@ -3965,6 +4182,118 @@ export type GridEndToEndGateSource = {
    * Sourcechecksumsha256
    */
   sourceChecksumSha256: string;
+};
+
+/**
+ * GridEngineModelFileResponse
+ */
+export type GridEngineModelFileResponse = {
+  /**
+   * Expectedsha256
+   */
+  expectedSha256: string;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+  status: GridEngineModelStatus;
+};
+
+/**
+ * GridEngineModelStatus
+ */
+export type GridEngineModelStatus =
+  'available' | 'missing' | 'checksum_mismatch';
+
+/**
+ * GridEngineProfileResponse
+ */
+export type GridEngineProfileResponse = {
+  configuration: GameShapeGeometryConfiguration;
+  /**
+   * Description
+   */
+  description: string;
+  /**
+   * Exportid
+   */
+  exportId: string;
+  /**
+   * Files
+   */
+  files: Array<GridEngineModelFileResponse>;
+  /**
+   * Frozenon
+   */
+  frozenOn: string;
+  /**
+   * Label
+   */
+  label: string;
+  /**
+   * Managedpath
+   */
+  managedPath: string;
+  manifestStatus: GridEngineModelStatus;
+  /**
+   * Message
+   */
+  message: string;
+  /**
+   * Modelkind
+   */
+  modelKind: string;
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Preset
+   */
+  preset: string;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Reasoncode
+   */
+  reasonCode: string;
+  /**
+   * Reportresults
+   */
+  reportResults: Array<GridEngineReportResultResponse>;
+  /**
+   * Runid
+   */
+  runId: string;
+  status: GridEngineModelStatus;
+  /**
+   * Version
+   */
+  version: string;
+  /**
+   * Weightssha256
+   */
+  weightsSha256: string;
+};
+
+/**
+ * GridEngineReportResultResponse
+ */
+export type GridEngineReportResultResponse = {
+  /**
+   * Dataset
+   */
+  dataset: string;
+  /**
+   * Result
+   */
+  result: string;
 };
 
 /**
@@ -16000,6 +16329,99 @@ export type GenerateMockDatasetResponses = {
 export type GenerateMockDatasetResponse =
   GenerateMockDatasetResponses[keyof GenerateMockDatasetResponses];
 
+export type ListGridAuditProposalsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Afterordinal
+     */
+    afterOrdinal?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-audit-proposals';
+};
+
+export type ListGridAuditProposalsErrors = {
+  /**
+   * No imported proposal list or item
+   */
+  404: ErrorResponse;
+  /**
+   * Proposal artifact checksum mismatch
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid queue request or artifact
+   */
+  422: ErrorResponse;
+};
+
+export type ListGridAuditProposalsError =
+  ListGridAuditProposalsErrors[keyof ListGridAuditProposalsErrors];
+
+export type ListGridAuditProposalsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridAuditQueuePageResponse;
+};
+
+export type ListGridAuditProposalsResponse =
+  ListGridAuditProposalsResponses[keyof ListGridAuditProposalsResponses];
+
+export type GetGridAuditProposalData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Item Id
+     */
+    item_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-audit-proposals/{item_id}';
+};
+
+export type GetGridAuditProposalErrors = {
+  /**
+   * No imported proposal list or item
+   */
+  404: ErrorResponse;
+  /**
+   * Proposal artifact checksum mismatch
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid queue request or artifact
+   */
+  422: ErrorResponse;
+};
+
+export type GetGridAuditProposalError =
+  GetGridAuditProposalErrors[keyof GetGridAuditProposalErrors];
+
+export type GetGridAuditProposalResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridAuditProposalResponse;
+};
+
+export type GetGridAuditProposalResponse =
+  GetGridAuditProposalResponses[keyof GetGridAuditProposalResponses];
+
 export type ListGridCalibrationProfilesData = {
   body?: never;
   path: {
@@ -19088,6 +19510,25 @@ export type GetVirtualCellPreviewAtlasResponses = {
    */
   200: unknown;
 };
+
+export type ListGridEngineProfilesData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/grid-engine-profiles';
+};
+
+export type ListGridEngineProfilesResponses = {
+  /**
+   * Response Listgridengineprofiles
+   *
+   * Successful Response
+   */
+  200: Array<GridEngineProfileResponse>;
+};
+
+export type ListGridEngineProfilesResponse =
+  ListGridEngineProfilesResponses[keyof ListGridEngineProfilesResponses];
 
 export type ListReadyBrowserImageSelectionsData = {
   body?: never;

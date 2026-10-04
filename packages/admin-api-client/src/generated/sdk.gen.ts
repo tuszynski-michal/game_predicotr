@@ -270,6 +270,9 @@ import type {
   GetGameData,
   GetGameErrors,
   GetGameResponses,
+  GetGridAuditProposalData,
+  GetGridAuditProposalErrors,
+  GetGridAuditProposalResponses,
   GetGridCalibrationCohortDiagnosticsData,
   GetGridCalibrationCohortDiagnosticsErrors,
   GetGridCalibrationCohortDiagnosticsResponses,
@@ -503,9 +506,14 @@ import type {
   ListDatasetVersionsResponses,
   ListGamesData,
   ListGamesResponses,
+  ListGridAuditProposalsData,
+  ListGridAuditProposalsErrors,
+  ListGridAuditProposalsResponses,
   ListGridCalibrationProfilesData,
   ListGridCalibrationProfilesErrors,
   ListGridCalibrationProfilesResponses,
+  ListGridEngineProfilesData,
+  ListGridEngineProfilesResponses,
   ListGridProfileActivationsData,
   ListGridProfileActivationsErrors,
   ListGridProfileActivationsResponses,
@@ -1402,6 +1410,41 @@ export const generateMockDataset = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List the open boards of the imported grid-audit proposal list
+ */
+export const listGridAuditProposals = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridAuditProposalsData, ThrowOnError>,
+): RequestResult<
+  ListGridAuditProposalsResponses,
+  ListGridAuditProposalsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridAuditProposalsResponses,
+    ListGridAuditProposalsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-audit-proposals', ...options });
+
+/**
+ * Read one audited board with its network grid proposal
+ */
+export const getGridAuditProposal = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridAuditProposalData, ThrowOnError>,
+): RequestResult<
+  GetGridAuditProposalResponses,
+  GetGridAuditProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridAuditProposalResponses,
+    GetGridAuditProposalErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-audit-proposals/{item_id}',
+    ...options,
   });
 
 /**
@@ -2821,6 +2864,18 @@ export const getVirtualCellPreviewAtlas = <
     url: '/api/v1/admin/games/{game_id}/virtual-cell-preview-batches/{batch_key}/atlas',
     ...options,
   });
+
+/**
+ * List grid engine profiles and the state of their models
+ */
+export const listGridEngineProfiles = <ThrowOnError extends boolean = false>(
+  options?: Options<ListGridEngineProfilesData, ThrowOnError>,
+): RequestResult<ListGridEngineProfilesResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListGridEngineProfilesResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/api/v1/admin/grid-engine-profiles', ...options });
 
 /**
  * List finalized browser staging folders ready for layout import

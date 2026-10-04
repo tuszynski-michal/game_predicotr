@@ -3747,6 +3747,37 @@ test('listImageGridReviews requests the single correction queue (D-462)', async 
   assert.equal(url.searchParams.get('limit'), '1');
 });
 
+test('grid-audit proposal wrappers read the queue and one proposal (TASK-0840)', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ items: [] }, { status: 200 });
+    },
+  });
+
+  await client.listGridAuditProposals({ afterOrdinal: 4, gameId, limit: 1 });
+  await client.listGridAuditProposals({ gameId });
+  await client.getGridAuditProposal(gameId, 'p00750');
+
+  const first = new URL(requests[0].url);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    first.pathname,
+    `/api/v1/admin/games/${gameId}/grid-audit-proposals`,
+  );
+  assert.equal(first.searchParams.get('afterOrdinal'), '4');
+  assert.equal(first.searchParams.get('limit'), '1');
+  assert.equal(new URL(requests[1].url).search, '');
+  assert.equal(requests[2].method, 'GET');
+  assert.equal(
+    new URL(requests[2].url).pathname,
+    `/api/v1/admin/games/${gameId}/grid-audit-proposals/p00750`,
+  );
+});
+
 test('board-search share wrappers use the share paths and confirmed targets', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

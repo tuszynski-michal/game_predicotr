@@ -129,6 +129,9 @@ test('rejects Admin CRUD, jobs mutations, exports and releases', () => {
       `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/` +
         `board-cell-geometry-pending/${itemId}`,
     ],
+    // TASK-0840: the grid-audit list is local-only (loopback Admin API).
+    ['GET', `/api/v1/admin/games/${gameId}/grid-audit-proposals`],
+    ['GET', `/api/v1/admin/games/${gameId}/grid-audit-proposals/p00001`],
   ]) {
     assert.equal(reviewerProxyTarget(method, path), null, `${method} ${path}`);
   }

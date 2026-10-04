@@ -5,17 +5,21 @@ import { useMemo, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
+import { GridAuditCorrectionWorkspace } from '@/features/operational-reviews/grid-audit-correction-workspace';
 import { OperationalReviewWorkspace } from '@/features/operational-reviews/operational-review-workspace';
 
 import { LocalReviewerWorkspace } from './local-reviewer-workspace';
 
 export function ReviewerAccessGate({
   apiBaseUrl,
+  gridAuditScope = null,
   gridValidationEnabled = false,
   localScope = null,
   sessionId,
 }: {
   readonly apiBaseUrl: string;
+  /** TASK-0840: loopback-only grid-audit list (no session, no tunnel route). */
+  readonly gridAuditScope?: { readonly gameId: string } | null;
   readonly gridValidationEnabled?: boolean;
   readonly localScope?: {
     readonly gameId: string;
@@ -31,6 +35,17 @@ export function ReviewerAccessGate({
   const [scope, setScope] = useState<ReviewerSessionScopeResponse | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  if (gridAuditScope !== null) {
+    return (
+      <main className="reviewerShell">
+        <GridAuditCorrectionWorkspace
+          api={api}
+          gameId={gridAuditScope.gameId}
+        />
+      </main>
+    );
+  }
 
   if (localScope !== null) {
     return (

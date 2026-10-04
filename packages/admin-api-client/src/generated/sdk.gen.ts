@@ -270,6 +270,9 @@ import type {
   GetGameData,
   GetGameErrors,
   GetGameResponses,
+  GetGridAuditProposalData,
+  GetGridAuditProposalErrors,
+  GetGridAuditProposalResponses,
   GetGridCalibrationCohortDiagnosticsData,
   GetGridCalibrationCohortDiagnosticsErrors,
   GetGridCalibrationCohortDiagnosticsResponses,
@@ -503,6 +506,9 @@ import type {
   ListDatasetVersionsResponses,
   ListGamesData,
   ListGamesResponses,
+  ListGridAuditProposalsData,
+  ListGridAuditProposalsErrors,
+  ListGridAuditProposalsResponses,
   ListGridCalibrationProfilesData,
   ListGridCalibrationProfilesErrors,
   ListGridCalibrationProfilesResponses,
@@ -1404,6 +1410,41 @@ export const generateMockDataset = <ThrowOnError extends boolean = false>(
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * List the open boards of the imported grid-audit proposal list
+ */
+export const listGridAuditProposals = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridAuditProposalsData, ThrowOnError>,
+): RequestResult<
+  ListGridAuditProposalsResponses,
+  ListGridAuditProposalsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridAuditProposalsResponses,
+    ListGridAuditProposalsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-audit-proposals', ...options });
+
+/**
+ * Read one audited board with its network grid proposal
+ */
+export const getGridAuditProposal = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridAuditProposalData, ThrowOnError>,
+): RequestResult<
+  GetGridAuditProposalResponses,
+  GetGridAuditProposalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridAuditProposalResponses,
+    GetGridAuditProposalErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-audit-proposals/{item_id}',
+    ...options,
   });
 
 /**

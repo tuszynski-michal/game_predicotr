@@ -16,6 +16,7 @@ from game_predictor_api.api.board_search_shares import create_board_search_share
 from game_predictor_api.api.catalog import create_catalog_router
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
+from game_predictor_api.api.grid_audit_proposals import create_grid_audit_proposals_router
 from game_predictor_api.api.grid_calibration import create_grid_calibration_router
 from game_predictor_api.api.grid_engine_profiles import create_grid_engine_profiles_router
 from game_predictor_api.api.health import create_health_router
@@ -119,6 +120,7 @@ def create_api_router(
     board_search_share_query_log_service_dependency: Callable[..., object],
     board_search_share_query_log: BoardSearchShareQueryLog,
     board_search_share_rate_limiter: BoardSearchShareRateLimiter,
+    grid_audit_proposal_service_dependency: Callable[..., object] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(create_health_router(settings.version))
@@ -251,6 +253,10 @@ def create_api_router(
             settings.artifact_root,
         )
     )
+    if grid_audit_proposal_service_dependency is not None:
+        router.include_router(
+            create_grid_audit_proposals_router(grid_audit_proposal_service_dependency)
+        )
     router.include_router(create_image_review_cohort_router(image_review_cohort_service_dependency))
     router.include_router(
         create_verified_training_cohort_router(verified_training_cohort_service_dependency)

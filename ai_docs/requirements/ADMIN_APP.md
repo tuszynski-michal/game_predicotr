@@ -680,6 +680,23 @@ symbolem (decyzja człowieka dla nowego cropa, w tej samej transakcji co
 geometria); pozostałe pola trafiają do `Weryfikacji symboli` jak dotąd. Pole
 bez pikseli nie jest klikalne. Błąd zapisu symboli wycofuje cały zapis.
 
+**TASK-0840 (Poprawki z audytu siatek):** osobna kolejka lokalnego Reviewera
+pod `http://127.0.0.1:3001/?mode=local&gameId=<gameId>&queue=grid-audit`
+(tylko host pętli zwrotnej na porcie 3001, bez kodu i bez tunelu, zakres:
+cała gra). Pokazuje plansze z zaimportowanej listy audytu siatek (TASK-0831)
+w kolejności listy — najpierw te z decyzjami symboli — po jednej, na tym samym
+ekranie korekty. Siatka sieci `neural_grid` jest wczytana jako propozycja
+(żółta siatka z narożnikami, „Przywróć sugestię” wraca do niej), a obecna
+zapisana siatka jest cienkim czerwonym konturem. Narożniki propozycji poza
+zdjęciem są przycinane do krawędzi, chyba że plansza jest już niepełna.
+Zapis jest zwykłym zapisem korekty planszy (nowa rewizja geometrii, wycinki,
+D-462 R5/R6, symbole wskazane na kafelkach D-488, bramka kompletności).
+Kolejka nie ma stanu w bazie: poprawiona plansza znika, bo ma nowszą rewizję
+geometrii (także po restarcie); plansza zmieniona po audycie jest
+„nieaktualna” i nie dostaje propozycji. `Pomiń na razie` działa w bieżącej
+sesji. Licznik pokazuje plansze do poprawy, poprawione, z decyzjami symboli i
+nieaktualne. Masowe oznaczanie „Zła siatka” nie jest potrzebne.
+
 Admin nazywa sekcję uruchamiającą Reviewer „Korekta cięcia siatki” i pokazuje
 liczbę plansz do korekty dla wybranego importu oraz liczbę geometrii
 odroczonych przez algorytm. „Otwórz lokalnie” jest aktywne tylko przy

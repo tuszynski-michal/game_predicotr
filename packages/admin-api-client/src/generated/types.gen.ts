@@ -3789,6 +3789,215 @@ export type GeometryQualificationPayload = {
 };
 
 /**
+ * GridAuditImportStatus
+ *
+ * Result of the read-only verification at import time.
+ */
+export type GridAuditImportStatus =
+  'proposal' | 'stale' | 'board_missing' | 'no_network_grid';
+
+/**
+ * GridAuditNodeResponse
+ */
+export type GridAuditNodeResponse = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
+};
+
+/**
+ * GridAuditProposalGridResponse
+ */
+export type GridAuditProposalGridResponse = {
+  /**
+   * Coordinatespace
+   */
+  coordinateSpace?: 'exif-normalized-rgb-pixels-v1';
+  /**
+   * Corners
+   *
+   * Outer corners of the network grid, row-major winding
+   */
+  corners: [
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+  ];
+  /**
+   * Nodes
+   *
+   * The 24 network lattice nodes (6 x 4, row-major)
+   */
+  nodes: Array<GridAuditNodeResponse>;
+  /**
+   * Provenance
+   */
+  provenance?: 'audit-network-proposal';
+};
+
+/**
+ * GridAuditProposalResponse
+ */
+export type GridAuditProposalResponse = {
+  /**
+   * Auditid
+   */
+  auditId: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  item: GridAuditQueueItemResponse;
+  /**
+   * Only while the board still has the audited geometry revision
+   */
+  proposal: GridAuditProposalGridResponse | null;
+  /**
+   * The current board as the correction queue serves it
+   */
+  reviewItem: ImageGridReviewItemResponse | null;
+};
+
+/**
+ * GridAuditQueueCountsResponse
+ */
+export type GridAuditQueueCountsResponse = {
+  /**
+   * Corrected
+   */
+  corrected: number;
+  /**
+   * Noproposal
+   */
+  noProposal: number;
+  /**
+   * Open
+   */
+  open: number;
+  /**
+   * Openwithsymboldecisions
+   */
+  openWithSymbolDecisions: number;
+  /**
+   * Removed
+   */
+  removed: number;
+  /**
+   * Stale
+   */
+  stale: number;
+  /**
+   * Total
+   */
+  total: number;
+};
+
+/**
+ * GridAuditQueueItemResponse
+ */
+export type GridAuditQueueItemResponse = {
+  /**
+   * Auditclass
+   */
+  auditClass: string;
+  /**
+   * Auditgeometryrevision
+   */
+  auditGeometryRevision: number;
+  /**
+   * Currentgeometryrevision
+   */
+  currentGeometryRevision?: number | null;
+  /**
+   * Humandecidedcells
+   */
+  humanDecidedCells: number;
+  /**
+   * Importjobid
+   */
+  importJobId: string;
+  importStatus: GridAuditImportStatus;
+  /**
+   * Itemid
+   */
+  itemId: string;
+  /**
+   * Level
+   */
+  level: string | null;
+  /**
+   * Ordinal
+   */
+  ordinal: number;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  status: GridAuditQueueStatus;
+  /**
+   * Verdictsource
+   */
+  verdictSource: string;
+};
+
+/**
+ * GridAuditQueuePageResponse
+ */
+export type GridAuditQueuePageResponse = {
+  /**
+   * Artifactsha256
+   */
+  artifactSha256: string;
+  /**
+   * Auditid
+   */
+  auditId: string;
+  counts: GridAuditQueueCountsResponse;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Items
+   */
+  items: Array<GridAuditQueueItemResponse>;
+  /**
+   * Nextafterordinal
+   */
+  nextAfterOrdinal: number | null;
+};
+
+/**
+ * GridAuditQueueStatus
+ *
+ * State of one item now, derived from the current board.
+ */
+export type GridAuditQueueStatus =
+  'open' | 'corrected' | 'stale' | 'removed' | 'no_proposal';
+
+/**
  * GridCalibrationProfileResponse
  */
 export type GridCalibrationProfileResponse = {
@@ -16119,6 +16328,99 @@ export type GenerateMockDatasetResponses = {
 
 export type GenerateMockDatasetResponse =
   GenerateMockDatasetResponses[keyof GenerateMockDatasetResponses];
+
+export type ListGridAuditProposalsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Afterordinal
+     */
+    afterOrdinal?: number | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-audit-proposals';
+};
+
+export type ListGridAuditProposalsErrors = {
+  /**
+   * No imported proposal list or item
+   */
+  404: ErrorResponse;
+  /**
+   * Proposal artifact checksum mismatch
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid queue request or artifact
+   */
+  422: ErrorResponse;
+};
+
+export type ListGridAuditProposalsError =
+  ListGridAuditProposalsErrors[keyof ListGridAuditProposalsErrors];
+
+export type ListGridAuditProposalsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridAuditQueuePageResponse;
+};
+
+export type ListGridAuditProposalsResponse =
+  ListGridAuditProposalsResponses[keyof ListGridAuditProposalsResponses];
+
+export type GetGridAuditProposalData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Item Id
+     */
+    item_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-audit-proposals/{item_id}';
+};
+
+export type GetGridAuditProposalErrors = {
+  /**
+   * No imported proposal list or item
+   */
+  404: ErrorResponse;
+  /**
+   * Proposal artifact checksum mismatch
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid queue request or artifact
+   */
+  422: ErrorResponse;
+};
+
+export type GetGridAuditProposalError =
+  GetGridAuditProposalErrors[keyof GetGridAuditProposalErrors];
+
+export type GetGridAuditProposalResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridAuditProposalResponse;
+};
+
+export type GetGridAuditProposalResponse =
+  GetGridAuditProposalResponses[keyof GetGridAuditProposalResponses];
 
 export type ListGridCalibrationProfilesData = {
   body?: never;

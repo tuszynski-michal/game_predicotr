@@ -17,6 +17,7 @@ export default async function HomePage({
     readonly gameId?: string | string[];
     readonly importJobId?: string | string[];
     readonly mode?: string | string[];
+    readonly queue?: string | string[];
     readonly session?: string | string[];
   }>;
 }) {
@@ -26,20 +27,24 @@ export default async function HomePage({
     typeof candidate === 'string' ? candidate : (candidate?.[0] ?? '');
   const gameId = value(params.gameId);
   const importJobId = value(params.importJobId);
-  const localMode =
+  const loopbackLocal =
     value(params.mode) === 'local' &&
     isLoopbackReviewerHost(requestHeaders.get('host')) &&
-    UUID.test(gameId) &&
-    UUID.test(importJobId);
-  const apiBaseUrl = localMode
-    ? resolveLocalAdminApiBaseUrl(process.env.REVIEWER_INTERNAL_API_ORIGIN)
-    : resolveAdminApiBaseUrl(process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL);
+    UUID.test(gameId);
+  // TASK-0840: the grid-audit list spans imports, so it is scoped by game only.
+  const gridAuditMode = loopbackLocal && value(params.queue) === 'grid-audit';
+  const localMode = loopbackLocal && !gridAuditMode && UUID.test(importJobId);
+  const apiBaseUrl =
+    localMode || gridAuditMode
+      ? resolveLocalAdminApiBaseUrl(process.env.REVIEWER_INTERNAL_API_ORIGIN)
+      : resolveAdminApiBaseUrl(process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL);
   const rawSessionId = params.session;
   const sessionId =
     typeof rawSessionId === 'string' ? rawSessionId : (rawSessionId?.[0] ?? '');
   return (
     <ReviewerAccessGate
       apiBaseUrl={apiBaseUrl}
+      gridAuditScope={gridAuditMode ? { gameId } : null}
       gridValidationEnabled={localMode}
       localScope={localMode ? { gameId, importJobId } : null}
       sessionId={sessionId}

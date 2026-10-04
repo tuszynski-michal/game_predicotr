@@ -50,6 +50,10 @@ from game_predictor_api.application.cleanup import (
 )
 from game_predictor_api.application.controlled_folder_picker import WindowsFolderPicker
 from game_predictor_api.application.datasets import DatasetService
+from game_predictor_api.application.grid_audit_proposals import (
+    FileGridAuditProposalStore,
+    GridAuditProposalService,
+)
 from game_predictor_api.application.grid_calibration import GridCalibrationService
 from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
@@ -310,6 +314,7 @@ from game_predictor_api.storage.global_geometry_profile_snapshot_resolver import
 from game_predictor_api.storage.global_shape_geometry_readiness import (
     GlobalShapeGeometryReadinessResolver,
 )
+from game_predictor_api.storage.grid_audit_board_reader import SqlAlchemyGridAuditBoardReader
 from game_predictor_api.storage.grid_calibration_repository import (
     SqlAlchemyGridCalibrationRepository,
 )
@@ -1354,6 +1359,18 @@ def create_app(
     resolved_image_grid_review_dependency = (
         image_grid_review_service_dependency or default_image_grid_review_service_dependency
     )
+    grid_audit_proposal_store = FileGridAuditProposalStore(resolved_settings.artifact_root)
+
+    def default_grid_audit_proposal_service_dependency() -> Iterator[GridAuditProposalService]:
+        # TASK-0840: read-only; the session is rolled back, never committed.
+        with session_factory() as session:
+            try:
+                yield GridAuditProposalService(
+                    grid_audit_proposal_store,
+                    SqlAlchemyGridAuditBoardReader(session),
+                )
+            finally:
+                session.rollback()
 
     def default_image_geometry_rollout_service_dependency() -> Iterator[
         ImageGeometryRolloutService
@@ -1793,6 +1810,7 @@ def create_app(
             ),
             board_search_share_query_log=resolved_board_search_share_query_log,
             board_search_share_rate_limiter=resolved_board_search_share_rate_limiter,
+            grid_audit_proposal_service_dependency=(default_grid_audit_proposal_service_dependency),
         )
     )
     if not custom_service_dependency_supplied:
@@ -1958,7 +1976,12 @@ def create_app(
         error: ImageGridReviewError,
     ) -> JSONResponse:
         status_code = 422
-        if error.code in {"GAME_NOT_FOUND", "IMAGE_GRID_REVIEW_ITEM_NOT_FOUND"}:
+        if error.code in {
+            "GAME_NOT_FOUND",
+            "IMAGE_GRID_REVIEW_ITEM_NOT_FOUND",
+            "GRID_AUDIT_PROPOSALS_NOT_FOUND",
+            "GRID_AUDIT_PROPOSAL_ITEM_NOT_FOUND",
+        }:
             status_code = 404
         elif error.code in {
             "IMAGE_GRID_REVIEW_PROJECTION_INCOMPLETE",
@@ -1971,6 +1994,7 @@ def create_app(
             "IMAGE_GRID_REVIEW_TOPOLOGY_CONFLICT",
             "IMAGE_GRID_REVIEW_CURRENT_OWNER_CONFLICT",
             "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED",
+            "GRID_AUDIT_PROPOSALS_CHECKSUM_MISMATCH",
             # The Reviewer's operational geometry contract (409 before the
             # delegation to the virtual path, D-467 S6 / TASK-0796).
             "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",

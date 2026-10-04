@@ -244,6 +244,45 @@ uruchom usługi. Wycofanie: `alembic downgrade
 (`GRID_ENGINE_PROFILE_IN_USE`), dopóki któraś gra używa profilu — najpierw
 zmień jej format strony.
 
+## Poprawki z audytu siatek w Reviewerze (TASK-0840)
+
+Lista 975 plansz 777 ze złą zapisaną siatką (audyt TASK-0831,
+`ai_docs/quality/SILENT_GRID_AUDIT_777_20261004.md`) jest zaimportowana jako
+niezmienny artefakt API:
+`artifacts\grid-audit-proposals\bfc4f949-5c14-4850-b02a-db99610bcfa5\silent-grid-777-20261004\`
+(`proposals.json` + `manifest.json` z SHA-256). Import tylko czyta bazę
+(`REPEATABLE READ READ ONLY`) i odmawia nadpisania istniejącego katalogu:
+
+```powershell
+.\.venv\Scripts\python.exe scripts\import_grid_audit_proposals.py `
+  --audit 'C:\Users\tuszy\Documents\game_predictor_vision_data\silent-grid-audit\777-20261004' `
+  --game-id bfc4f949-5c14-4850-b02a-db99610bcfa5 --artifact-root .\artifacts [--dry-run]
+```
+
+Plansza, której rewizja geometrii zmieniła się po audycie, trafia do pliku
+jako `stale` bez propozycji. Grupa 231 błędów sieci (prawa górna plansza) nie
+jest na liście (werdykty operatora).
+
+Wdrożenie razem z przejściem na `0140` (sekcja wyżej): po scaleniu kodu
+`npm install`, `npm run reviewer:build`, migracja, start API (nowe trasy
+`grid-audit-proposals`) i Reviewera. Praca:
+
+1. uruchom Reviewer (`Otwórz lokalnie` w Adminie dla dowolnego importu albo
+   `npm run reviewer:start`),
+2. otwórz
+   `http://127.0.0.1:3001/?mode=local&gameId=bfc4f949-5c14-4850-b02a-db99610bcfa5&queue=grid-audit`,
+3. ekran „Poprawki z audytu siatek” pokazuje jedną planszę: żółta siatka z
+   narożnikami to propozycja sieci, cienki czerwony kontur to obecna siatka;
+   podgląd 15 wycinków odświeża się sam,
+4. gdy propozycja jest dobra — `Zapisz geometrię i dalej` (można przed tym
+   wskazać symbole na kafelkach, D-488); gdy wymaga poprawki — przeciągnij
+   narożniki; gdy jest zła — `Pomiń na razie →`.
+
+Zapis to zwykła korekta planszy: nowa rewizja geometrii, pola ze zmienionym
+wycinkiem wracają do Weryfikacji symboli. Poprawiona plansza znika z listy
+także po restarcie; pominięte wracają przy kolejnym otwarciu. Nic nie jest
+oznaczane jako „Zła siatka”.
+
 ## Migracja `0139` i backfill bramki kompletności geometrii (TASK-0807, D-484)
 
 Kod TASK-0807 wymaga `0139_source_image_geometry_completeness`

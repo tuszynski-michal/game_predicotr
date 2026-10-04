@@ -204,6 +204,11 @@ pojedynczo — oszacowania dla grup opierają się na próbkach.
   cięcia siatki”). Zapis korekty unieważnia wycinki zmienionych pól i cofa je
   do Weryfikacji symboli (D-462, D-488). Pozycje grupy (0, 2) kolumna +1 to
   błędy sieci — nie poprawiać.
+- **Od TASK-0840** lista korekt (`review\correction-worklist.csv`, 975
+  plansz) jest zaimportowana do API, a Reviewer ma kolejkę „Poprawki z
+  audytu siatek” z siatką sieci jako propozycją
+  (`http://127.0.0.1:3001/?mode=local&gameId=bfc4f949-5c14-4850-b02a-db99610bcfa5&queue=grid-audit`,
+  `LOCAL_OPERATION_GUIDE.md`) — oznaczanie „Zła siatka” nie jest potrzebne.
 
 ## Ograniczenia
 

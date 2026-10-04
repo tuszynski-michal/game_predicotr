@@ -295,6 +295,7 @@ export function BoardGeometryCorrectionEditor({
   }, [clearPreview, onConflict, target]);
 
   const sourceUrl = context?.sourceUrl ?? null;
+  const referenceCorners = context?.referenceCorners ?? null;
 
   const centerViewport = useCallback(() => {
     if (context === null || corners === null) return;
@@ -385,6 +386,13 @@ export function BoardGeometryCorrectionEditor({
         overlapHeight,
       );
     }
+    if (referenceCorners !== null) {
+      // TASK-0840: the current (saved) grid as a thin outline under the
+      // suggestion, so the operator sees what the proposal replaces.
+      context2d.lineWidth = Math.max(1, canvas.width / 1200);
+      context2d.strokeStyle = '#e5484d';
+      drawLattice(context2d, referenceCorners, viewport);
+    }
     context2d.lineWidth = Math.max(2, canvas.width / 500);
     context2d.strokeStyle = '#f4d35e';
     for (let column = 0; column <= 5; column += 1) {
@@ -448,7 +456,14 @@ export function BoardGeometryCorrectionEditor({
         context2d.font = `bold ${Math.max(12, canvas.width / 65)}px sans-serif`;
         context2d.fillText(String(index + 1), point.x + 10, point.y - 10);
       });
-  }, [corners, viewport, allowOutsideSource, sourceImage, sourceUrl]);
+  }, [
+    corners,
+    viewport,
+    allowOutsideSource,
+    referenceCorners,
+    sourceImage,
+    sourceUrl,
+  ]);
 
   // A new canvas can mount with unchanged image/geometry dependencies (for
   // example after a context reload). Always paint that DOM node before display.
@@ -835,6 +850,11 @@ export function BoardGeometryCorrectionEditor({
               Wycentruj widok na siatce
             </button>
           </div>
+          {context.suggestionNotice ? (
+            <p className="operationalReviewNotice" role="note">
+              {context.suggestionNotice}
+            </p>
+          ) : null}
           {loadingSource ? <p>Wczytywanie obrazu…</p> : null}
           <canvas
             aria-label={canvasLabel}
@@ -1110,6 +1130,39 @@ function DeferredGeometryState({
       <p>{text}</p>
     </div>
   );
+}
+
+function drawLattice(
+  context: CanvasRenderingContext2D,
+  corners: OperationalReviewGeometryCorners,
+  viewport: OperationalReviewGeometryViewport,
+) {
+  for (let column = 0; column <= 5; column += 1) {
+    drawLine(
+      context,
+      operationalReviewPointInGeometryViewport(
+        operationalReviewPointInLattice(corners, column / 5, 0),
+        viewport,
+      ),
+      operationalReviewPointInGeometryViewport(
+        operationalReviewPointInLattice(corners, column / 5, 1),
+        viewport,
+      ),
+    );
+  }
+  for (let row = 0; row <= 3; row += 1) {
+    drawLine(
+      context,
+      operationalReviewPointInGeometryViewport(
+        operationalReviewPointInLattice(corners, 0, row / 3),
+        viewport,
+      ),
+      operationalReviewPointInGeometryViewport(
+        operationalReviewPointInLattice(corners, 1, row / 3),
+        viewport,
+      ),
+    );
+  }
 }
 
 function drawLine(

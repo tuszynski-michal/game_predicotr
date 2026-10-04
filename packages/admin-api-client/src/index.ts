@@ -82,6 +82,7 @@ import {
   getGame as getGeneratedGame,
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
+  getGridAuditProposal as getGeneratedGridAuditProposal,
   getImageGridReviewCorrectionSymbols as getGeneratedImageGridReviewCorrectionSymbols,
   getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
   getBoardSearchApproximateWin as getGeneratedBoardSearchApproximateWin,
@@ -155,6 +156,7 @@ import {
   getGridCalibrationCohortDiagnostics as getGeneratedGridCalibrationCohortDiagnostics,
   listCuratedImageImportSources as listGeneratedCuratedImageImportSources,
   listImageDiagnosticExports as listGeneratedImageDiagnosticExports,
+  listGridAuditProposals as listGeneratedGridAuditProposals,
   listImageGridReviews as listGeneratedImageGridReviews,
   listImageSelectionGroupCandidates as listGeneratedImageSelectionGroupCandidates,
   listImageSelectionGroups as listGeneratedImageSelectionGroups,
@@ -525,6 +527,12 @@ export type {
   ImageGridReviewGeometryResponse,
   ImageGridReviewItemResponse,
   ImageGridReviewPageResponse,
+  GridAuditNodeResponse,
+  GridAuditProposalGridResponse,
+  GridAuditProposalResponse,
+  GridAuditQueueCountsResponse,
+  GridAuditQueueItemResponse,
+  GridAuditQueuePageResponse,
   ImageGridReviewState,
   ImageGridReviewView,
   ImageSelectionCreate,
@@ -830,6 +838,13 @@ export interface OperationalImageReviewContext {
 }
 
 export type ImageGridReviewContext = OperationalImageReviewContext;
+
+/** TASK-0840: the read-only grid-audit proposal queue (local Reviewer only). */
+export interface ListGridAuditProposalsOptions {
+  readonly gameId: string;
+  readonly afterOrdinal?: number;
+  readonly limit?: number;
+}
 
 export interface ListImageGridReviewsOptions {
   readonly gameId: string;
@@ -2540,6 +2555,22 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             : { beforeCursor: options.beforeCursor }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
+      }),
+    listGridAuditProposals: (options: ListGridAuditProposalsOptions) =>
+      listGeneratedGridAuditProposals({
+        client,
+        path: { game_id: options.gameId },
+        query: {
+          ...(options.afterOrdinal === undefined
+            ? {}
+            : { afterOrdinal: options.afterOrdinal }),
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    getGridAuditProposal: (gameId: string, itemId: string) =>
+      getGeneratedGridAuditProposal({
+        client,
+        path: { game_id: gameId, item_id: itemId },
       }),
     getImageGridReviewSourceAsset: (
       reviewItemId: string,

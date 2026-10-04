@@ -112,6 +112,17 @@ interpretuje taki adres jako własny loopback i nie uzyskuje dostępu do API
 właściciela. Publiczny host z parametrami trybu lokalnego pozostaje za bramką
 sesji i kodu.
 
+Od TASK-0840 ta sama granica obejmuje kolejkę „Poprawki z audytu siatek”
+(`?mode=local&gameId=…&queue=grid-audit`). Jej dwie trasy odczytu
+`GET /api/v1/admin/games/{gameId}/grid-audit-proposals[/{itemId}]` nie są na
+allowliście `/review-api` (test `reviewer-proxy-policy.test.mjs`), więc tunel
+ich nie udostępnia; przeglądarka woła je bezpośrednio na loopbackowym Admin
+API. Decyzja: lista obejmuje całą grę (identyfikatory plansz, zdjęć i węzły
+siatki sieci z artefaktu audytu), a zakres sesji Reviewera to jeden import —
+udostępnienie zdalne wymagałoby nowej autoryzacji zakresu, której zadanie nie
+potrzebuje. Zapis korekty używa istniejącej trasy `geometry-revisions` bez
+zmian kontraktu i autoryzacji.
+
 ### Udostępniona wyszukiwarka plansz (D-471, D-472, D-475)
 
 Trzecia powierzchnia tego samego procesu i tunelu: `/board-search?share=<id>`

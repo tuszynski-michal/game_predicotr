@@ -458,7 +458,25 @@ const SYMBOLS = [
 function paletteButton(text) {
   return [
     ...document.querySelectorAll('[aria-label="Symbol wybranego pola"] button'),
-  ].find((candidate) => candidate.textContent === text);
+  ].find(
+    (candidate) =>
+      (candidate.querySelector('span')?.textContent ??
+        candidate.textContent) === text,
+  );
+}
+
+/** A key press as the browser reports it to the page. */
+async function pressKey(key, init = {}) {
+  await act(async () => {
+    document.body.dispatchEvent(
+      new dom.window.KeyboardEvent('keydown', {
+        bubbles: true,
+        cancelable: true,
+        key,
+        ...init,
+      }),
+    );
+  });
 }
 
 function cropButton(label) {
@@ -483,11 +501,12 @@ test('the operator labels previewed cells and the save sends only those symbols 
   assert.equal(calls.symbols.length, 1);
   assert.deepEqual(calls.symbols[0].command, calls.preview[0].command);
   assert.ok(cropButton('Crop 1 — podpowiedź: Siódemka'));
-  // Active symbols only, in catalogue order; nothing is assignable yet.
+  // Active symbols only, in catalogue order, each with its key; nothing is
+  // assignable yet.
   const picker = document.querySelector('[aria-label="Symbol wybranego pola"]');
   assert.deepEqual(
     [...picker.querySelectorAll('button')].map((entry) => entry.textContent),
-    ['Siódemka', 'Star', '? Nie wiem', 'Usuń wybór'],
+    ['1Siódemka', '2Star', '? Nie wiem', 'Usuń wybór'],
   );
   assert.equal(paletteButton('Star').disabled, true);
 
@@ -506,6 +525,42 @@ test('the operator labels previewed cells and the save sends only those symbols 
 
   assert.equal(calls.resolve.length, 1);
   assert.deepEqual(calls.resolve[0].command.cellSymbols, [
+    { cellIndex: 2, symbolId: 'sym-star' },
+  ]);
+  await act(async () => root.unmount());
+});
+
+test('the symbol keys of the app pick the symbol of the selected cell', async () => {
+  const state = {
+    queue: [deferredSlot()],
+    suggestions: [{ cellIndex: 0, origin: 'predicted', symbolId: 'sym-seven' }],
+    symbols: SYMBOLS,
+  };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+
+  // No selected cell: the key changes nothing.
+  await pressKey('2');
+  assert.ok(cropButton('Crop 1 — podpowiedź: Siódemka'));
+
+  await act(async () => cropButton('Crop 1 — podpowiedź: Siódemka').click());
+  await pressKey('2');
+  assert.ok(cropButton('Crop 1 — wybrany symbol: Star'));
+  // The same keys as on the symbol verification screen: 1 is the first symbol.
+  await pressKey('1');
+  assert.ok(cropButton('Crop 1 — wybrany symbol: Siódemka'));
+  // Modifier combinations and unassigned keys keep their meaning.
+  await pressKey('2', { ctrlKey: true });
+  await pressKey('x');
+  assert.ok(cropButton('Crop 1 — wybrany symbol: Siódemka'));
+
+  await act(async () => cropButton('Crop 3').click());
+  await pressKey('2');
+  await act(async () => button('Zapisz geometrię i dalej').click());
+  await settle();
+
+  assert.deepEqual(calls.resolve[0].command.cellSymbols, [
+    { cellIndex: 0, symbolId: 'sym-seven' },
     { cellIndex: 2, symbolId: 'sym-star' },
   ]);
   await act(async () => root.unmount());

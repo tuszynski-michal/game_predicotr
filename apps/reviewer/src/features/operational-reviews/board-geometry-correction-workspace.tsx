@@ -18,7 +18,7 @@ import {
   BoardGeometryCorrectionEditor,
   type CorrectionSymbol,
 } from './deferred-board-cell-geometry-editor';
-import { orderOperationalReviewSymbols } from './operational-review-state';
+import { buildOperationalReviewSymbolShortcuts } from './operational-review-state';
 
 type LoadState = 'error' | 'loading' | 'ready';
 
@@ -74,11 +74,16 @@ export function BoardGeometryCorrectionWorkspace({
       .listSymbols(gameId)
       .then((result) => {
         if (!active || result.error !== undefined || !result.data) return;
+        // The keys are the ones of the symbol verification screen: 1-9, 0,
+        // then letters, in the catalogue order of "Zarządzanie grami".
         setSymbols(
-          orderOperationalReviewSymbols(result.data).map((symbol) => ({
-            id: symbol.id,
-            label: symbol.namePl ?? symbol.name,
-          })),
+          buildOperationalReviewSymbolShortcuts(result.data).map(
+            ({ key, symbol }) => ({
+              id: symbol.id,
+              label: symbol.namePl ?? symbol.name,
+              shortcut: key,
+            }),
+          ),
         );
       })
       .catch(() => undefined);

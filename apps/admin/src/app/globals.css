@@ -9585,6 +9585,19 @@ div.imageJobInlineError {
   gap: 6px;
 }
 
+/* The key that picks the symbol, as in the symbol verification legend. */
+.operationalReviewGeometrySymbolPicker kbd {
+  min-width: 18px;
+  margin-right: 6px;
+  padding: 1px 5px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 850;
+  text-align: center;
+}
+
 .operationalReviewGeometrySymbolPicker button[aria-pressed='true'] {
   border-color: #15803d;
   background: rgb(21 128 61 / 14%);

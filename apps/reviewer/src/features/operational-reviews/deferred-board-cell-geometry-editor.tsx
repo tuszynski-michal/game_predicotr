@@ -49,10 +49,23 @@ type LoadState = 'error' | 'loading' | 'ready';
 export interface CorrectionSymbol {
   readonly id: string;
   readonly label: string;
+  /** Key that picks the symbol, as on the symbol verification screen. */
+  readonly shortcut?: string | null;
 }
 
 const NO_SYMBOLS: readonly CorrectionSymbol[] = [];
 const UNKNOWN_SYMBOL_LABEL = '?';
+
+/** Typing into a text field or a select keeps its native keys. */
+function isTextEntryTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  if (target.isContentEditable) return true;
+  if (target.tagName === 'INPUT') {
+    const type = (target as HTMLInputElement).type;
+    return type !== 'button' && type !== 'checkbox' && type !== 'radio';
+  }
+  return target.tagName === 'SELECT' || target.tagName === 'TEXTAREA';
+}
 
 export function DeferredBoardCellGeometryEditor({
   api,
@@ -564,6 +577,31 @@ export function BoardGeometryCorrectionEditor({
     target,
   ]);
 
+  // The symbol keys of the whole app (1-9, 0, then letters) pick the symbol of
+  // the selected cell, so labelling needs no mouse trip to the palette.
+  useEffect(() => {
+    if (
+      !canAssignSymbols ||
+      previewUrl === null ||
+      selectedCell === null ||
+      saving
+    )
+      return;
+    const cell = selectedCell;
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.repeat || event.altKey || event.ctrlKey || event.metaKey)
+        return;
+      if (isTextEntryTarget(event.target)) return;
+      const key = event.key.toLocaleLowerCase('en-US');
+      const symbol = symbols.find((candidate) => candidate.shortcut === key);
+      if (symbol === undefined) return;
+      event.preventDefault();
+      setChosenSymbols((current) => ({ ...current, [cell]: symbol.id }));
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [canAssignSymbols, previewUrl, saving, selectedCell, symbols]);
+
   async function saveGeometry() {
     if (
       context === null ||
@@ -1023,7 +1061,7 @@ export function BoardGeometryCorrectionEditor({
             >
               <p>
                 {selectedCell === null
-                  ? 'Kliknij kafelek, aby narzucić jego symbol. Pogrubiona etykieta to Twój wybór, zwykła — podpowiedź. Jeśli nie widzisz symbolu, wybierz „Nie wiem”. Zapis zatwierdzi tylko wybrane pola.'
+                  ? 'Kliknij kafelek, aby narzucić jego symbol; symbol wybierzesz przyciskiem albo klawiszem skrótu. Pogrubiona etykieta to Twój wybór, zwykła — podpowiedź. Jeśli nie widzisz symbolu, wybierz „Nie wiem”. Zapis zatwierdzi tylko wybrane pola.'
                   : `Pole ${selectedCell + 1}: wybierz symbol.`}
               </p>
               <div>
@@ -1037,9 +1075,17 @@ export function BoardGeometryCorrectionEditor({
                     disabled={selectedCell === null || saving}
                     key={symbol.id}
                     onClick={() => assignSymbol(symbol.id)}
+                    {...(symbol.shortcut
+                      ? { 'aria-keyshortcuts': symbol.shortcut }
+                      : {})}
                     type="button"
                   >
-                    {symbol.label}
+                    {symbol.shortcut ? (
+                      <kbd aria-hidden="true">
+                        {symbol.shortcut.toLocaleUpperCase('en-US')}
+                      </kbd>
+                    ) : null}
+                    <span>{symbol.label}</span>
                   </button>
                 ))}
                 <button

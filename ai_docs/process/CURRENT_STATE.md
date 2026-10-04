@@ -1,10 +1,19 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-02
+last_updated: 2026-10-04
 ---
 
 # Current State
+
+### TASK-0834 — skróty klawiszowe symboli w korekcie siatki (done)
+
+- Paleta symboli korekty (Reviewer 3001) używa tych samych klawiszy co Weryfikacja
+  symboli (1–9, 0, litery wg kolejności katalogu gry): klawisz wybiera symbol
+  zaznaczonego pola, a przycisk palety pokazuje swój klawisz. „? Nie wiem” i
+  „Usuń wybór” bez skrótu.
+- Interakcje 9/9, typecheck i lint czyste. Reviewer przebudowany i zrestartowany;
+  brak odbioru na żywo.
 
 ### TASK-0827 — poprawianie planszy z wyników wyszukiwania (done)
 

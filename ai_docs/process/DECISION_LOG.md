@@ -8,6 +8,20 @@ last_updated: 2026-10-02
 
 ## D-490 — run 3 sieci siatek przygotowuje nowe gry: Mumie, Blazing i Gang w treningu, wagi startowe (zmienia D-456 i ustawienia D-481)
 
+- **Doprecyzowanie operatora 2026-10-04:** wznowić prace nad Mumiami niezależnie
+  od operatora: import, uczenie siatek i większe porcje danych, następnie symbole.
+  Jawne założenie wykonawcze agenta: pierwsza próba wznowienia to iteracja 4
+  presetu F na istniejących 20 kompletnych zdjęciach, w pierwotnym budżecie runu 3,
+  bez kolejnych powtórzeń na tych samych etykietach. Plan
+  `ai_docs/delivery/MUMIE_TRAINING_RESUME_20261004.md`.
+- **Super — korekta interpretacji:** złota ramka komórki ujawnia zwykły symbol
+  wybrany do supergry. Trzy mumie uruchamiają grę, lecz nie ujawniają tego symbolu.
+  Cecha ramki i klasa symbolu wymagają oddzielnych etykiet. Proponowana nazwa UI
+  „Super”; nazwa nie oznacza wdrożenia pola. Poprzedni zapis o wypłacie premium
+  zależnej od liczby komórek gdziekolwiek nie opisuje poprawnie rozwijania kolumn
+  i wygranych na nieprzyległych bębnach. Mechanika i wypłaty zostają odłożone;
+  stary plan premium nie ma zgody na wykonanie w tym zakresie.
+
 - **Status:** accepted, 2026-10-02; decyzje operatora po wyniku runu 1
   `neural_grid`.
 - **Decision:**

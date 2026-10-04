@@ -6,8 +6,40 @@ last_updated: 2026-10-04
 
 # Current State
 
+### TASK-0842 — Mumie: wznowienie i partie danych (done)
+
+- Operator 2026-10-04 polecił niezależnie dokończyć import i rozpocząć uczenie
+  Mumii. Plan `ai_docs/delivery/MUMIE_TRAINING_RESUME_20261004.md` obejmuje jedną
+  iterację 4 presetu F i przygotowanie danych. Bez uruchomienia TASK-0805.
+- Run 3 zakończył iterację 4, próba 4, GPU worker PID 39560. Trening 901 s w istniejącym
+  budżecie 14 400 s. Jawne założenie: jedna próba na tych samych 16 zdjęciach
+  treningowych i 4 odłożonych (`--allow-same-data`), bez automatycznego
+  powtarzania i bez etykietowania propozycji jako prawdy. Wszystkie trzy kandydaty
+  przeszły strażnik 777, ale pogorszyły holdout Mumii (0,003296 →
+  0,00351 / 0,00346 / 0,00358). F zachował poprzedni model. Bez nowego ONNX
+  i propozycji. Zużycie runu 3602/14400 s, pozostało 10798 s.
+- Sprawdzone SHA 225/225 plików folderu Mumii: wszystkie są w katalogu labu.
+  Nowy eksport partii `afc4f0d7…fd816` w `artifacts/mumie-training-20261004/batches`:
+  236 zdjęć, partie 50/50/50/50/36, 20 kompletnych, 216 do przeglądu,
+  2700 nieoznaczonych wycinków z 180 zatwierdzonych plansz. Checksumy odczytane
+  w nowym procesie. Powtórne uruchomienie odzyskało identyczny artefakt w 12,17 s.
+  Bez zmian zatwierdzeń i bez zapisu do bazy.
+- Istnieje zatwierdzony słownik Mumii (10 symboli) i 244 wcześniejsze decyzje
+  z 2026-09-28. Wszystkie mają aktualne rewizje siatek, ale 0 dotyczy obecnie
+  kompletnych zdjęć V3 i 0 pochodzi z nowego przypisywania D-489. Nie użyto ich
+  do treningu symboli. 5 testów, Ruff check/format i Mypy PASS.
+- Proponowana krótka nazwa: „Super”. Złota ramka wskazuje symbol wybrany do
+  supergry; trzy mumie same nie ujawniają jego klasy. Stan ramki nie jest
+  klasą symbolu ani Jokerem. Uczenie ramki i mechanika wypłat pozostają osobne.
+- Raport: `ai_docs/quality/MUMIE_TRAINING_RESUME_20261004.md`.
+  Następny zlecony zakres: TASK-0843 — wgranie do głównej aplikacji przez API.
+  Commit TASK-0842: `v1.7.187` (hash dopisany po commicie).
+
+
 ### TASK-0841 — edycja symboli po otwarciu planszy audytu (done)
 
+- Commit: `v1.7.186` / `65ce8f212cc5f2b3930251b6539f8787dcf8df13`
+  (wpis hash po commicie).
 - Kolejka audytu używa skrótów katalogu (777: `1` Wiśnia, `5` Śliwka,
   `6` Arbuz); `9` oznacza „Nie wiem”. Dalsze symbole dostają `0`, potem litery.
 - Podgląd startuje bez czekania na pełne zdjęcie canvas; pierwsze pole mające
@@ -19,7 +51,17 @@ last_updated: 2026-10-04
   o dodatkowym lockfile przy wykrywaniu root; nie wpływa na wynik.
 - Nowe ustawienia edytora są opcjonalne; zwykła korekta zachowuje dotychczasowe
   zachowanie. Bez zmian API, migracji i zapisu na żywej bazie.
-- Odbiór w nowym procesie Reviewera do potwierdzenia po scaleniu poprawki.
+- Poprawka scalona fast-forward do `v1.1-vision-lab-hybrid-geometry`.
+  Reviewer z głównego checkoutu przebudowany (17,27 s) i zrestartowany;
+  launcher PID 3432, HTTP 200. Pierwszy polling z timeoutem 1 s na request
+  nie potwierdził gotowości; odczyt logów i nowy odczyt HTTP potwierdziły
+  działanie tej samej kopii (bez ponownego startu).
+- Odbiór w świeżo otwartej planszy 423759: podgląd 15/15, pierwsze pole
+  zaznaczone, paleta `1–9` widoczna. Klawisze `1`, `5`, `6`, `9` zweryfikowane
+  bez ruszania siatki i ręcznego preview. Testowy wybór usunięto bez zapisu.
+  Screenshot: `artifacts/grid-v3-deployment-20261004/task0841-live.jpg`.
+- Wyniki odbioru i własny hash dopisane po commicie; brak push. Zastane zmiany
+  użytkownika w wygenerowanym kliencie oraz package-lock zachowane.
 
 ### Wdrożenie silnika siatek V3 — migracja 0140 i kolejka audytu działają (2026-10-04)
 

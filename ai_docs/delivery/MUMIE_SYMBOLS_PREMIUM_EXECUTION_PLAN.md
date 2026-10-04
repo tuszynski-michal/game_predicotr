@@ -6,6 +6,14 @@ last_updated: 2026-10-04
 
 # Gra Mumie — symbole od nowa i symbole premium
 
+> Aktualizacja 2026-10-04: operator uruchomił import i uczenie siatek niezależnie
+> od decyzji o mechanice Super. Obowiązuje zakres
+> `ai_docs/delivery/MUMIE_TRAINING_RESUME_20261004.md` (TASK-0842, TASK-0843).
+> Złota ramka ujawnia symbol wybrany do supergry; poniższy opis wypłat premium
+> liczonych po komórkach gdziekolwiek jest nieaktualną interpretacją. Nie wykonywać
+> zadań wypłat według tego opisu. Numery TASK-0832–0839 wymagają ponownego przydziału
+> przed wznowieniem pozostałych części, ponieważ inne tory zajęły część numerów.
+
 Plan do akceptacji operatora. Realizuje D-489 (symbole dla silnika V3 są
 wybierane i uczone od nowa) i wymagania premium zapisane w D-490 dla gry
 Mumie. Nie zmienia danych ani działania gry 777.

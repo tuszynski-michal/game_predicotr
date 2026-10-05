@@ -1,7 +1,7 @@
 ---
 title: Mumie — kwalifikacja korekt i ograniczona iteracja feedback
 status: accepted
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 ---
 
 # Iteracja po 18 korektach
@@ -92,7 +92,7 @@ TASK-0862 ma własny review i commit. Następnie kontynuować0861.
 
 Po oddzielnym commicie0860 i kwalifikacji danych kontynuować automatycznie.
 Aktualizacja 2026-10-06: przed wznowieniem wykonać naprawę TASK-0862 opisaną
-poniżej. Operator podał nowy parent C:\Users\tuszy\Documents\mumie i potwierdził,
+powyżej. Operator podał nowy parent C:\Users\tuszy\Documents\mumie i potwierdził,
 że trzeci katalog oraz każdy kolejny nowy katalog pochodzą z odrębnych filmów.
 Addytywna generacja3: mumie-symbol-rgb-v3/mumie-symbol-gray-v3, od zera,
 oryginalny preprocessing RGB64/gray3 i spatial4×4, dotychczasowa deterministyczna

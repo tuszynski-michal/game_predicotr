@@ -19,24 +19,23 @@ last_updated: 2026-10-06
   Osobny review bez otwartych P0–P2. Commit `v1.7.208`.
   Dalej wznowienie0861 i diagnostyczna partia60 zdjęć0863. Bez DB/aktywacji.
 
-### TASK-0861 — generacja 3 gotowa, trening zablokowany utratą źródeł
+### TASK-0861 — ograniczona para feedback generacji3 (done)
 
-- Zaimplementowano parę RGB/gray v3, feedback weight4 (318 losowań, 264
-  unikalne wycinki), dokładne resume i diagnostykę po wyborze epoki.
-  Fuzja diagnostyczna używa wyłącznie parametrów wybranych na walidacji.
-- 43 focused pytest PASS, w tym resume generacji 1/2/3 i frozen calibration;
-  Ruff i scoped mypy PASS z jawną nieanalizowaną granicą Torch/ONNX.
-- RGB run 8da05da671d645dd9688c217ef094ce9 / attempt1 / PID41612
-  zakończył się przed checkpointem i pierwszym krokiem optymalizacji.
-  W trakcie weryfikacji zniknął cały folder 481537–500000 cut.
-- Folder bez cut ma inne SHA wszystkich 2 052 plików; nie podstawiono go.
-  Dokładne 18 PNG i decyzje są zachowane. Nie trzeba oznaczać ich ponownie.
-  Operator otrzymał pytanie o lokalizację właściwych zdjęć. Brak wyników nowego modelu.
-- Task pozostaje blocked; implementacyjny commit `v1.7.207` nie oznacza ukończenia.
-  Po przywróceniu dokładnych źródeł: verify, resume tego samego RGB runu,
-  pojedynczy gray run i ocena. Gray, parity i nowa inferencja jeszcze nie wykonane.
-- Worker zakończony; bez duplikatów procesu, DB, aktywacji, merge/push/wdrożenia.
-  Raport: MUMIE_SYMBOL_FEEDBACK_TRAINING_20261006.md.
+- RGB/gray zakończone:20epok/200kroków, wybór epok
+  11/11; jeden run każdej gałęzi.
+  Ten sam RGB run wznowiono po0862; wcześniejszy błąd i budżet zachowane.
+- Walidacja RGB/gray/fuzja: 83/83/83/84; gate wszystkich klas
+  względem V1=True. Pozostaje dawny konflikt referencji K/Q.
+  ONNX parity84/gałąź PASS. Unikalne264 development,318 losowań weight4.
+- Feedback 18/18/18/18 to użyte targety treningu.
+  Diagnostic 9/9/9/9: dwie klasy, ocena po wyborze epoki;
+  nie jest ślepym testem starszych modeli ani accuracy nowego filmu.
+- Dwa świeże procesy odtwarzają identyczny dowód/kalibrację; SHA/etykiety,
+  wcześniejsze modele i magazyny zachowane. Worker PID-y zakończone.
+  43 wcześniejsze focused pytest i Ruff/scoped mypy PASS;0862 dodał29+28 regresji.
+- Odrębny review bez P0–P2; DoD/plan0861 spełnione. Commit `v1.7.209`.
+  Raport MUMIE_SYMBOL_FEEDBACK_TRAINING_20261006.md. Kontynuować0863:
+ 60 nowych zdjęć24517–50112 z2844; brak DB/aktywacji/merge/push/wdrożenia.
 
 ### TASK-0860 — kwalifikacja 18 korekt symboli Mumii (done)
 

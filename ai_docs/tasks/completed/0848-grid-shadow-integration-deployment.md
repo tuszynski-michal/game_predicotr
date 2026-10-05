@@ -186,7 +186,12 @@ Kryteria taska, siedem kroków planu i właściwe punkty DoD porównane z
 wynikami w raporcie. Bez treningu, aktywacji modelu, importu stagingu,
 downgrade, cleanupu danych i push. Następny zakres wymaga jawnego zlecenia
 przebiegu shadow na zmaterializowanych zdjęciach; limit 20 pozostaje.
-Główny commit wdrożenia: `v1.7.194`; pełny hash dopisany po commicie.
+Główny commit wdrożenia: `v1.7.194` /
+`73ae0b6fe82d397fefed24a3f1656ba805c50d6c` (hash dopisany po commicie).
+Zachowany worktree `grid-engine-v3` / `feat/grid-engine-v3` wyrównano
+fast-forward do tego samego commita. Wpisy po commicie kandydata zachowano
+w stash `89c13dcea4b3465c650c767c34b5e3173180d0a8`; zastane metadane
+feature odtworzono z pierwotnego b2501a4 bez stagingu. Oba indeksy puste.
 
 ## Przypisanie modeli do zadań
 

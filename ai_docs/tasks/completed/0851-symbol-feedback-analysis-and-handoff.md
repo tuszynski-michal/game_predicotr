@@ -130,7 +130,8 @@ Skuteczność na sprawdzonym audycie nie dowodzi skuteczności całej populacji.
 - Dowody: artifacts/grid-audit-feedback-20261005/approved-v2/.
 - Kryteria akceptacji porównane punkt po punkcie; nieudany kandydat zachowany
   tylko jako raport, bez mutacji bazy, geometrii, modelu lub sidecarów audytu.
-- Commit dokumentujący zadanie: v1.7.197; hash zostanie dopisany po commicie.
+- Commit `v1.7.197` / `fbef9096a1c937ad4884e745b48dc57bffa815af`
+  (hash dopisany po commicie).
 
 ### Not completed
 

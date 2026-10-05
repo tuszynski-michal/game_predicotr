@@ -25,7 +25,8 @@ last_updated: 2026-10-05
 - Historia 5788 decyzji: zero masowych zatwierdzeń; exporter odrzuca je w przyszłości.
 - Notatka dla Claude Code: ai_docs/guides/SYMBOL_RGB_FEEDBACK_HANDOFF_20261005.md.
   Zakres globalnego pending-only adaptera pozostaje odrębny; bez publikacji.
-- Task 0851 w completed; commit v1.7.197, hash po commicie.
+- Task 0851 w completed; commit `v1.7.197` /
+  `fbef9096a1c937ad4884e745b48dc57bffa815af` (hash dopisany po commicie).
 
 ### TASK-0850 — cofnięcie ostatniego zapisu planszy 388128 (done)
 
@@ -41,8 +42,8 @@ last_updated: 2026-10-05
 - Świeży proces i UI PASS: p00683 / 388128 pierwsza w kolejce, 15/15 podpowiedzi,
   402 open / 573 corrected. Pozostałe geometrie i decyzje niezmienione.
 - Ruff pomocnika PASS. Dowody: artifacts/grid-audit-undo-20261005/p00683/.
-  Task 0850 w completed; commit dokumentujący operację: v1.7.196,
-  pełny hash zostanie dopisany po commicie.
+  Task 0850 w completed; commit `v1.7.196` /
+  `8c16dcf16b67a8f5f61b44c9624509148a85f9e5` (hash dopisany po commicie).
 - Bez zmian aplikacji, schematu, treningu ani usuwania danych.
 
 ### TASK-0849 — cofnięcie ostatniego zapisu planszy 431508 (done)
@@ -62,7 +63,8 @@ last_updated: 2026-10-05
 - 40 regresji API PASS, Ruff pomocników PASS. Dowody:
   artifacts/grid-audit-undo-20261005/p00545/; task 0849 w completed.
 - Bez nowego UI, schematu, endpointu, treningu ani usuwania danych.
-- Commit v1.7.195; hash zostanie dopisany po commicie.
+- Commit `v1.7.195` / `eb19e28aa796c259820d18c4b891f9d68068ac1b`
+  (hash dopisany po commicie).
 
 ### TASK-0848 — V3-D scalony i zmigrowany na main (done)
 
@@ -87,7 +89,8 @@ last_updated: 2026-10-05
   odtworzone poza commitem; stashe zachowane jako odzyskiwalne kopie.
 - Raport: `ai_docs/quality/GRID_V3_SHADOW_DEPLOYMENT_20261005.md`.
   Task: `ai_docs/tasks/completed/0848-grid-shadow-integration-deployment.md`.
-  Główny commit `v1.7.194`; pełny hash dopisany po commicie.
+  Główny commit `v1.7.194` / `73ae0b6fe82d397fefed24a3f1656ba805c50d6c`
+  (hash dopisany po commicie).
 
 ### TASK-0805 — V3-D: shadow w aplikacji (done, domyślnie wyłączony)
 
@@ -197,7 +200,7 @@ last_updated: 2026-10-05
   Ruff/format, scoped strict Mypy, OpenAPI/client oraz TS klienta i Reviewera PASS.
   Pełny Mypy trafił na niezwiązane błędy share-query/limit czasu; poza zakresem.
 - Task i plan: `ai_docs/tasks/completed/0847-grid-audit-rgb-symbol-proposals.md`.
-- Commit: przygotowany `v1.7.192`; hash do dopisania po commicie.
+- Commit: `v1.7.192`, `8a42380bc9b6d13d125c5eab2873c8c58076134f`.
 - Następny krok: przegląd propozycji przez operatora. Bez treningu/aktywacji,
   migracji, restartów usług, push/merge lub wznowienia TASK-0832/0833.
 
@@ -217,7 +220,7 @@ last_updated: 2026-10-05
   i build PASS. Lokalny Reviewer zrestartowany; p00474/p00475 odebrane w UI,
   bez zapisu operatora. Nie sprawdzano fizycznego Androida ani restartu komputera.
 - Plan i task: `ai_docs/tasks/completed/0846-grid-audit-preselected-symbol-proposals.md`.
-- Commit: przygotowany `v1.7.190`; pełny hash do dopisania po commicie.
+- Commit: `v1.7.190`, `222be446718c4655b51fe4bb54de0a3f3baeb045`.
 - Następny krok: operator przegląda wszystkie propozycje i zmienia błędne przed
   zapisem. TASK-0845 i zastane zmiany pozostają poza zakresem; bez push/merge.
 
@@ -249,7 +252,7 @@ last_updated: 2026-10-05
   oraz usunięcie worktree i gałęzi `codex/share-symbol-corrections` po scaleniu.
   Zachowano TASK-0846 i niezacommitowane zmiany operatora; konflikty dotyczyły
   tylko dokumentacji. Kontrakt obu funkcji połączył się zgodnie z backendem.
-- Commit scalający: przygotowany `v1.7.191`; hash do dopisania po commicie.
+- Commit scalający: `v1.7.191` — `317a07c91bc1429804187d7cc7eebd1a47691770`.
 - Logi w `artifacts/task0845-checks/` i `artifacts/task0845-merge/` głównego
   katalogu. Bez wdrożenia, migracji bazy operatora, restartu usług i push.
   Odbiór fizycznego Androida i publicznego tunelu pozostaje do wdrożenia.
@@ -258,6 +261,10 @@ last_updated: 2026-10-05
   214 Reviewera, 39 interakcji shared i 1 kolejki operatora PASS. OpenAPI,
   klient i TypeScript czterech workspace PASS; timeout zbiorczy zastąpiono
   mniejszymi grupami. Bez ponownego builda działających aplikacji.
+- Cleanup zakończony: worktree `share-symbol-corrections` zarchiwizowano
+  przez aplikację i usunięto z dysku/rejestru Git. Scalona gałąź
+  `codex/share-symbol-corrections` usunięta przez `git branch -d`.
+  Zachowano odzyskiwalny snapshot aplikacji, logi oraz pozostałe worktree.
 
 ### TASK-0844 — nowe symbole proponowanych siatek audytu (done)
 
@@ -277,7 +284,7 @@ last_updated: 2026-10-05
   scoped strict Mypy, TypeScript, OpenAPI oraz build Reviewera. Szczegóły
   i instrukcja wznowienia w Outcome taska.
 - Task i plan: `ai_docs/tasks/completed/0844-grid-audit-new-symbol-suggestions.md`.
-- Commit: przygotowany `v1.7.189`; pełny hash zostanie dopisany po commicie.
+- Commit: `v1.7.189`, `a6789285ecfbaa0ca0d94ff3016df6fab8f75d1c`.
 
 ### TASK-0842 — Mumie: wznowienie i partie danych (done)
 

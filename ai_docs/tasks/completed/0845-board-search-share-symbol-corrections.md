@@ -129,7 +129,7 @@ Wyniki wykonanych kontroli znajdują się w Outcome.
   pola jest zmianą; semantyczny no-op nie tworzy nowej pracy. Historia
   pozostaje po usunięciu wyszukiwania i revoke.
 - Backend, OpenAPI, wygenerowany klient, wrapper i testy żądań są spójne.
-- Commit: przygotowany `v1.7.190`; pełny hash zostanie dopisany po commicie.
+- Commit implementacji: `v1.7.190` — `c61c1e65f87e89e7669507cb902e6348fe3cc48e`.
 
 ### Verification results
 
@@ -190,7 +190,7 @@ Wyniki wykonanych kontroli znajdują się w Outcome.
   required conflict resolution; both decisions and task sections were retained.
 - Uncommitted operator changes remain outside the merge commit. Verification logs
   were copied to the primary checkout before the requested worktree cleanup.
-- Merge commit: prepared `v1.7.191`; full hash recorded after commit.
+- Merge commit: `v1.7.191` — `317a07c91bc1429804187d7cc7eebd1a47691770`.
 - No live database migration, deployment, service restart, or push.
 - Post-merge verification: API/share 19 PASS, board detail/schema 29 PASS,
   grid-audit regression 15 PASS, isolated PostgreSQL correction/restart/revoke
@@ -204,3 +204,8 @@ Wyniki wykonanych kontroli znajdują się w Outcome.
   the saved logs and exit codes confirm the actual checks passed.
 - Full builds were already verified for TASK-0845; they were not repeated during
   this merge to avoid replacing outputs of currently running applications.
+- Cleanup completed: the app archived the managed worktree with a recoverable
+  snapshot, removed the checkout from disk and the Git worktree registry, and
+  `git branch -d` removed the merged `codex/share-symbol-corrections` branch.
+  Separate process checks confirm the checkout path and branch no longer exist.
+  Other worktrees and uncommitted operator/concurrent changes were preserved.

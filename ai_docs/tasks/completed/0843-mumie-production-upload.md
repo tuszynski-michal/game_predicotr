@@ -116,4 +116,8 @@ V3-D nadal wymaga wyraźnego polecenia. Bez nowych migracji, usuwania danych,
 aktywacji modelu, etykietowania symboli, payoutów i shadow. DoD oraz plan
 rozliczone punkt po punkcie: źródła wgrane, dalsza materializacja jawnie zablokowana.
 
-Commit: `v1.7.188` — hash zostanie dopisany po utworzeniu commita.
+Commit: `v1.7.188` / `476bdc268e366720337299fb843666ec865fd9be`
+(hash dopisany po commicie).
+
+Commity 187–188 scalone fast-forward do brancha integracyjnego na podstawie
+wcześniejszej zgody. Zachowano zastane zmiany, nie wykonano push ani migracji.

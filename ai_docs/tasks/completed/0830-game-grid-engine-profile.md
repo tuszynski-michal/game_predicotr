@@ -138,6 +138,9 @@ npm run typecheck --workspace @game-predictor/admin; npm run test --workspace @g
 
 ### Scalenie i wdrożenie (2026-10-04)
 
+Commit zamknięcia wdrożenia: `v1.7.185` /
+`fcc53b06df0526504f31b5c5edcc97bda1d2fe10` (wpis hash po commicie).
+
 Operator zakończył przypisywanie symboli i zatwierdził krok 1 handoffu.
 Implementacja: `v1.7.181` / `e61ee6c6941dd569d1f04087244877ccd6ca3f91`.
 Scalenie do `v1.1-vision-lab-hybrid-geometry`: `v1.7.184` /

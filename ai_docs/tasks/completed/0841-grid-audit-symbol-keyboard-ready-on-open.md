@@ -135,6 +135,9 @@ w przeglądarce bez zapisu danych; kontrola świeżego otwarcia i skrótów.
 
 ## Outcome
 
+Commit: `v1.7.186` / `65ce8f212cc5f2b3930251b6539f8787dcf8df13`
+(wpis hash po commicie).
+
 ### Changed
 
 - Kolejka audytu przekazuje skróty z istniejącego mapowania katalogu,
@@ -157,13 +160,24 @@ w przeglądarce bez zapisu danych; kontrola świeżego otwarcia i skrótów.
   lockfile przy wykrywaniu root; brak błędu builda.
 - Zestaw interakcji obejmuje zwykłą korektę, spóźnione odpowiedzi, nawigację,
   utratę odpowiedzi zapisu i nowy mount; nie osłabiono dotychczasowych testów.
+- Fast-forward do `v1.1-vision-lab-hybrid-geometry`; build w głównym checkoutu
+  poprawny (17,27 s). Reviewer uruchomiony w nowym procesie (launcher PID 3432),
+  HTTP 200. Pierwszy ograniczony polling z timeoutem 1 s na request nie
+  potwierdził gotowości; logi i osobny odczyt HTTP potwierdziły działanie
+  tej samej kopii. Nie uruchomiono drugiego procesu.
+- Odbiór na żywo po restarcie: plansza 423759 otwarta z 15/15 cropów,
+  zaznaczonym pierwszym polem i klawiszami palety. `1` Wiśnia, `5` Śliwka,
+  `6` Arbuz i `9` „Nie wiem” wybierają symbol bez kliknięcia cropa,
+  przesuwania siatki lub „Ponów podgląd”. Testowy wybór wyczyszczono lokalnie;
+  nie naciśnięto zapisu. Screenshot:
+  `artifacts/grid-v3-deployment-20261004/task0841-live.jpg`.
 - Kryteria taska i właściwe punkty DoD sprawdzone. Zmiana lokalnej korekty
   desktopowej; dotykowa paleta nadal korzysta z istniejących przycisków.
 
 ### Not completed
 
 - Zapis na żywej bazie poza zakresem.
-- Odbiór po uruchomieniu nowego procesu Reviewera do uzupełnienia po scaleniu.
+- Bez push, zmian API, migracji i uruchamiania shadow.
 
 ### Documentation updates
 

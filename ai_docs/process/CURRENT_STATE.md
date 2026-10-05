@@ -6,6 +6,28 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0859 — poprawka RGB 777 i ukończone 18 korekt Mumii (done)
+
+- Przeczytano wskazany handoff RGB/feedback z głównego checkoutu. Mumie już
+  używają pełnego RGB i SpatialSymbolCnn; 18 PNG ma exact preprocessing parity.
+  Różnica to głowica RGB 777 versus dotychczasowa gray-dominant fuzja Mumii.
+- Operator ukończył 18/18 decyzji approve, revision18. Zweryfikowano klasę,
+  UUID, byte/pixel SHA i identyczne propozycje; bez ponownego oznaczania.
+- Na trudnych18: V1 RGB/gray/fuzja11/10/10; V2 10/13/11. RGB V1 psuje
+  Mumię, gray V2 psuje J względem V1. Wszystkie warianty83/84 na dawnej
+  walidacji. Sama podmiana gałęzi nie rozwiązuje błędu i nie uzasadnia aktywacji.
+- Zapisano bramkę dalszej oceny: mniej błędów ogółem bez regresji klasy,
+  identyczne źródła/piksele/etykiety i niezależny split. Bez accuracy gry
+  z celowo wybranych18. Raport MUMIE_RGB_FEEDBACK_TRANSFER_20261005.md.
+- 29 pytest PASS; ponowny proces daje identyczny dowód199f2b58…ff53f84.
+  Wszystkie wejścia SHA i realne decyzje zachowane. Bez DB, treningu,
+  aktywacji, restartów, merge/push/wdrożenia i nowych zależności.
+- Następny zakres: osobna kwalifikacja dokładnych korekt i splitu do nowej
+  iteracji, potem ograniczony trening i przegląd nowych pomyłek. D-501 raw
+  crop-review nadal trainable=false; nie udaje akceptacji pełnej geometrii.
+  Nie potrzeba teraz kolejnych30 zwykłych przypisań ani ponownej deklaracji nagrań.
+- Osobny commit: `v1.7.205`.
+
 ### TASK-0858 — korekta symboli z partii Mumii (done)
 
 - Operator zgłosił brak edycji w galerii 18 przypadków. Źródła są poza

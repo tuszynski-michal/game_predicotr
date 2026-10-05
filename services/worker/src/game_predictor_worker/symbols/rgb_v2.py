@@ -102,9 +102,31 @@ def decide_rgb(
     )
 
 
+# Version of the write rules; part of the preview rows key, so a rule change recomputes rows.
+WRITE_RULES_VERSION = 2
+
+
+def library_keeps_current(current: CurrentPrediction, decision: RgbDecision) -> bool:
+    """The unanimous library names the current symbol and only the CNN dissents.
+
+    Added at the TASK-0874 gate (< 60% band): 3 227 of 3 563 planned writes were
+    such cells, and their samples showed the CNN misled by colour casts (stars and
+    watermelon slices proposed as lemon or orange). A lone CNN dissent is no reason
+    to replace a symbol the library confirms.
+    """
+
+    return (
+        decision.status == "tentative"
+        and decision.symbol_code != current.symbol_code
+        and decision.library_symbol_code == current.symbol_code
+    )
+
+
 def needs_write(current: CurrentPrediction, decision: RgbDecision) -> bool:
     """Write only when the symbol or the confirmed/tentative status changes."""
 
+    if library_keeps_current(current, decision):
+        return False
     return decision.symbol_code != current.symbol_code or decision.status != current_status(
         current.confidence
     )

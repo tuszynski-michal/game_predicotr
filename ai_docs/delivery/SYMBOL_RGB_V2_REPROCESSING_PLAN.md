@@ -76,6 +76,15 @@ RGB ≠ status obecny. Przykłady:
 | stara biblioteka Siedem 0,99 | pewny Winogron | tak → Winogron 0,99 |
 | model Śliwka 0,999 | do przeglądu Śliwka | tak → 0,50 |
 | model Arbuz 0,70 | do przeglądu Wiśnia | tak → Wiśnia 0,50 |
+| stara biblioteka Arbuz 0,99 | do przeglądu Pomarańcz, biblioteka 7/7 Arbuz | nie (reguła bramki TASK-0874) |
+| model Gwiazda 0,45 | do przeglądu Cytryna, biblioteka 7/7 Gwiazda | nie (j.w.) |
+
+**Reguła bramki TASK-0874 (2026-10-06):** gdy biblioteka jednogłośnie wskazuje
+obecny symbol, a tylko CNN proponuje inny, komórka nie jest zapisywana. W paśmie
+< 60% takich komórek było 3 227 z 3 563 planowanych zapisów; próbki pokazały
+systematyczny błąd CNN przy dominancie barwnej (gwiazdy i plastry arbuza
+proponowane jako cytryna lub pomarańcz). Wersja reguł `WRITE_RULES_VERSION = 2`
+wchodzi do klucza wierszy podglądu i do polityki manifestu.
 
 ### Pasmo i symbol komórki
 

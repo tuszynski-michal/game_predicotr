@@ -38,6 +38,12 @@ last_updated: 2026-10-05
   „Stary model” to komórki bez wpisu biblioteki i bez wpisu RGB v2.
 - **Execution:** każde pasmo ma podgląd z próbką klas i zapis dopiero po
   zgodzie operatora (bramka).
+- **Amendment (2026-10-06, bramka TASK-0874):** niepewna propozycja CNN nie
+  jest zapisywana, gdy jednogłośna biblioteka wskazuje obecny symbol komórki
+  (`library_keeps_current`, `WRITE_RULES_VERSION = 2`); próbki pasma < 60%
+  pokazały błąd CNN przy dominancie barwnej w 3 227 z 3 563 takich zapisów.
+  Operator polecił 2026-10-05 kontynuować bez pytań do napotkania problemu
+  nierozwiązywalnego; reguła tylko wstrzymuje zapis, niczego nie zmienia.
 
 ## D-495 — V3-D: oddzielny, ograniczony shadow i ręczna korekta
 

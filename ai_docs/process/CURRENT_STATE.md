@@ -1200,6 +1200,11 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
 - TASK-0873 done: sterownik pasm `scripts/run_symbol_rgb_bands.ps1` (podgląd →
   bramka → manifest/zapis/weryfikacja) i runbook
   `ai_docs/guides/SYMBOL_RGB_V2_BAND_RUNBOOK.md`. **Etap A zakończony.**
+- Etap B uruchomiony przez operatora 2026-10-06 (bramki pasm 1–4 przegląda
+  wykonawca, bramka 99–100% wraca do operatora).
+- TASK-0874 done: pasmo < 60% — 336 komórek RGB v2 na 324 planszach, 0 błędów.
+  Reguła bramki `library_keeps_current` (poprawka D-520): niepewna propozycja
+  CNN nie nadpisuje symbolu, który jednogłośna biblioteka potwierdza.
 
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 

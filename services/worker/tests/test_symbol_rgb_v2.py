@@ -86,9 +86,14 @@ def _current(symbol: str, confidence: float, source: str = "model") -> CurrentPr
         (_current("SIEDEM", 0.99, "reference_library"), "SIEDEM", "SIEDEM", False),
         (_current("SIEDEM", 0.99, "reference_library"), "WINOGRON", "WINOGRON", True),
         (_current("SLIWKA", 0.999), "SLIWKA", None, True),
-        (_current("ARBUZ", 0.70), "WISNIA", "ARBUZ", True),
+        (_current("ARBUZ", 0.70), "WISNIA", None, True),
         # A tentative cell that stays tentative on the same symbol is not rewritten.
         (_current("ARBUZ", 0.50, "rgb_v2"), "ARBUZ", None, False),
+        # The unanimous library keeps the current symbol against a lone CNN dissent.
+        (_current("ARBUZ", 0.99, "reference_library"), "POMARANCZ", "ARBUZ", False),
+        (_current("GWIAZDA", 0.45), "CYTRYNA", "GWIAZDA", False),
+        # Without that library support the CNN proposal is written for review.
+        (_current("GWIAZDA", 0.45), "CYTRYNA", "SLIWKA", True),
     ],
 )
 def test_write_only_when_symbol_or_status_changes(

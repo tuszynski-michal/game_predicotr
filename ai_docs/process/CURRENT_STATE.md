@@ -6,6 +6,33 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0850 — Mumie: iteracja 5 i dane do interakcji (done)
+
+- Operator 2026-10-05 zlecił pracę do momentu wymagającego jego interakcji.
+  Jedna iteracja 5 presetu F na nowych zatwierdzeniach, testy i przygotowanie
+  cropów. Bez importu plansz do głównej gry, DB, migracji i aktywacji.
+- Iteracja 5 runu 3 zakończona, preset F: 25 train / 6 holdout z 31 zdjęć,
+  11 nowych. 900,75 s GPU, 1831 kroków, zużycie 4718,62/14400 s.
+  Każdy kandydat przeszedł strażnik 777, ale pogorszył Mumie image-macro
+  względem 0,0022076230. Poprzedni model zachowany, bez ONNX/propozycji/aktywacji.
+- Oba foldery verify PASS w nowych procesach: po 200 zdjęć i 11 osobnych kontroli,
+  każdy model 211 wyników na folder. Bez ponownej inferencji i deklaracji accuracy.
+- 4185 cropów z 31 kompletnych zdjęć, 236 nakładek, partie 50/50/50/50/36.
+  Słownik labu 10 klas zatwierdzony; zero etykiet obecnych 31 zdjęć.
+  Dawne 20 ról, rewizja 591, fingerprint zgód i stan symboli niezmienione.
+- 31 testów fine-tune/batches/folder CLI PASS; build/TypeScript labu PASS.
+  Główna gra: 10 symboli, 0 layouts/source_images/recognized_boards/dataset_versions.
+- Faktyczny edytor symboli blokuje `HOLDOUT_POLICY_UNRESOLVED`: dawny split
+  pilota stale. Nie nadpisano splitu ani nie wyłączono guardów. Nowe własne
+  procesy 8102/3102 zatrzymane, 8105 przywrócony (root 42788), 31/236 PASS.
+- Granica interakcji: pytanie o pochodzenie obu folderów i akceptację
+  `ai_docs/delivery/MUMIE_SYMBOL_DATASET_VERSION_20261005.md` (draft).
+  TASK-0851 planned, niewykonany; wszystkie rodziny pozostają unresolved.
+- Raport: `ai_docs/quality/MUMIE_CURRENT_APPROVALS_20261005.md`.
+  Task: `ai_docs/tasks/completed/0850-mumie-train-current-approvals-and-prepare-review.md`.
+  Osobny commit `v1.7.196`, hash dopisywany po commicie. Zastane metadane
+  pozostają poza commitem. Bez DB/migracji/materializacji/shadow/push/merge.
+
 ### TASK-0849 — Omyłkowy duplikat Mumie usunięty (done)
 
 - Operator jawnie zlecił archiwizację i trwałe usunięcie `mumie-1`

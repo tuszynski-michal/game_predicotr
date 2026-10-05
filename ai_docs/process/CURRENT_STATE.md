@@ -6,6 +6,26 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0853 — aktualne etykiety Mumii (done)
+
+- Operator zakończył przypisania i zlecił pracę bez swojej obecności.
+  339 świeżych decyzji D-496: wszystkie 10 klas, 27 Mumii. 30 nie jest bramką.
+- Niezmienny pakiet 339 PNG i historii, 13 zdjęć / 3 komponenty; żadnych
+  identycznych pikselowo duplikatów ani sprzecznych klas. 244 dawne decyzje
+  poza próbkami. Trainable=false, bez assignments i nadpisania magazynów.
+- 20 testów, Ruff/format/Mypy PASS; verify i retry w nowych procesach PASS.
+  SHA geometrii i symboli niezmienione. Pakiet 341 plików / 9 219 147 bajtów,
+  ID `7fb60ce3edc52081d5f9cf016083a8cd6b048766db30d8df8b008fca0dccb1c8`.
+- Wszystkie rodziny Mumii unresolved/missing; brak splitu symboli, stary
+  split geometrii stale. Pytanie o relację trzech nagrań pending; nie potrzeba
+  teraz kolejnych przypisań klas. Dwa główne komponenty mają wszystkie 10 klas.
+- Plan `ai_docs/delivery/MUMIE_SYMBOL_PREPARATION_20261005.md`.
+  Nie osłabiamy bramek T06b; bez treningu do rozstrzygnięcia pochodzenia.
+  Brak oddzielnych etykiet ramki Super; bez zgadywania, DB lub aktywacji.
+- Raport `ai_docs/quality/MUMIE_SYMBOL_PREPARATION_20261005.md`.
+  Osobny commit `v1.7.199`; pełny hash zostanie dopisany po commicie.
+  Zastane metadane pozostają poza commitem. Bez restartu API/UI i wdrożenia.
+
 ### TASK-0852 — szybkość zapisu i poczekalnia 2000 (done)
 
 - Operator zgłosił wielominutową blokadę po przypisaniu symboli i doprecyzował

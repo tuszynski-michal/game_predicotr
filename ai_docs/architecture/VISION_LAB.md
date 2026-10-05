@@ -6,6 +6,20 @@ last_updated: 2026-10-05
 
 # Architektura laboratorium wizji
 
+## Pakiet kwalifikacji symboli (TASK-0853)
+
+CLI `vision_lab.symbol_preparation prepare|verify` tworzy osobny niezmienny
+`lab-symbol-preparation-v1`, bez mutacji geometrii/symbolstore i bez API.
+Budowa używa istniejącego geometry-first lock, grantu D-496 i local_row;
+rola/protected sprawdzane są przed crop bytes. Kopiuje oryginalne PNG,
+pełną kopertę symboli, metadata komponentów oraz raport bramek.
+Create-only publikacja następuje przez rename kompletnego sprawdzonego
+katalogu na tym samym wolumenie. Retry weryfikuje gotowy pakiet; częściowy
+staging nie jest sukcesem. Verify kontroluje manifest, inventory, byte/pixel
+SHA, decyzje względem pełnej historii i raport. Format ma qualification_only,
+trainable=false i brak assignments; nie jest wejściem obecnego treningu.
+Ścieżki CLI są absolutne, output nie może nachodzić na magazyny wejściowe.
+
 ## Integracja shadow V3-D (D-495)
 
 CPU inference i czysta geometria trafiają do neutralnego `geometry_core`;

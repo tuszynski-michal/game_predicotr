@@ -6,6 +6,17 @@ last_updated: 2026-10-05
 
 # Laboratorium wizji
 
+## Przygotowanie aktualnych etykiet Mumii (TASK-0853)
+
+Pakiet przygotowawczy zawiera wyłącznie najnowsze ważne decyzje approve
+aktywnej wersji D-496. Zachowuje dokładne cropy, tożsamości i pełną historię
+symboli jako dowód; stare decyzje nie są próbkami. Liczność 30 na klasę jest
+celem zbierania przykładów, nie sztywną bramką kwalifikacji.
+Raport ujawnia liczności, komponenty, duplikaty i blokery. Pakiet ma
+purpose=qualification_only i trainable=false, bez przydziałów train/validation.
+Nie zastępuje potwierdzenia nagrań i splitu T06b. Klasa symbolu nie jest
+etykietą obecności ramki Super; jej uczenie wymaga odrębnych zatwierdzeń.
+
 ## Wersja referencji etykiet po korektach geometrii (D-496)
 
 Jawnie zaakceptowana wersja `lab-symbol-label-reference-v1` pozwala etykietować

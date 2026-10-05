@@ -344,3 +344,17 @@ per-photo evidence. Proposals and model confidence never become human approvals
 or reported accuracy. Bound board candidates by filename and operator folder
 end; flag disagreements, omit excess boards and never invent missing pixels or
 final sequence numbers. Review shows full photos and exact cell locations.
+
+## Bounded Mumie appearance experiment (D-500, TASK-0857)
+
+An optional second RGB/gray generation trains from the same qualified human
+labels with versioned deterministic lighting/payline augmentation. Validation
+pixels remain unchanged; selection and calibration use only original validation.
+Preserve v1, original stores and defaults. Each variant keeps the existing
+20-epoch/1800-second/10000-step admission limit. Before exploratory inference,
+require at least 83/84 validation and ONNX parity on all 84 crops per variant.
+Reuse exact geometry and crop pixels for all 600 sources, with SHA checks and
+fresh-process replay. Confidence and agreement are not accuracy or approvals.
+An unsuccessful pair requires new human labels for difficult appearances,
+not repeated random experiments or default activation. A read-only targeted
+review identifies exact locations without approving or training those cases.

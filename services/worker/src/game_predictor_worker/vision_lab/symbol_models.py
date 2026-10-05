@@ -5,10 +5,31 @@ from typing import Any, cast
 import numpy as np
 
 MODELS = ("mumie-symbol-rgb-v1", "mumie-symbol-gray-v1")
+ROBUST_MODELS = ("mumie-symbol-rgb-v2", "mumie-symbol-gray-v2")
 PREPROCESSING = {
     MODELS[0]: "rgb-resize64-normalize-half-v1",
     MODELS[1]: "rgb-resize64-normalize-half-gray3-v1",
+    ROBUST_MODELS[0]: "rgb-resize64-normalize-half-v1",
+    ROBUST_MODELS[1]: "rgb-resize64-normalize-half-gray3-v1",
 }
+
+
+def model_pair(generation: int = 1) -> tuple[str, str]:
+    if generation not in (1, 2):
+        raise ValueError("SYMBOL_GENERATION_INVALID")
+    return MODELS if generation == 1 else ROBUST_MODELS
+
+
+def require_robust_qualification(measured: dict[str, Any]) -> None:
+    validation, onnx = measured["validation"], measured["onnx"]
+    if (
+        validation["samples"] != 84
+        or not 83 <= validation["correct"] <= 84
+        or onnx.get("status") != "passed"
+        or onnx.get("samples") != 84
+        or not 0 <= onnx.get("max_absolute_error", float("inf")) <= 1e-4
+    ):
+        raise ValueError("SYMBOL_ROBUST_QUALIFICATION_FAILED")
 
 
 def probabilities(logits: np.ndarray, temperature: float = 1.0) -> np.ndarray:

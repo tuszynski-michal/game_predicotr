@@ -6,6 +6,27 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-500 — bounded appearance experiment without model activation
+
+- **Status:** accepted, 2026-10-05, within the operator's explicit request to
+  autonomously test and fix Mumie until human input becomes necessary.
+- **Decision:** one isolated RGB/gray v2 pair with deterministic, versioned
+  lighting/payline augmentation, using only D-498's 255 development/84 validation
+  labels. Preserve v1 and the 20-epoch/1800-second/10000-step limit. Proposed
+  40-epoch attempts failed validation before admission, without workers/budget.
+- **Qualification:** at least 83/84 validation and ONNX parity on all 84 crops
+  per variant. Calibration uses only that validation. V2 inference pins and
+  reuses previous geometry and exact crop-pixel SHA. The explored 600-photo
+  batch is diagnostic, not a blind final test.
+- **Evidence:** both runs qualify at 83/84, but uncertainty grows from 15626
+  to 16024 and disagreements from 3494 to 4047. Visual improvements and
+  regressions coexist. No demonstrated overall advantage; activate neither
+  pair automatically.
+- **Boundary:** improvement now needs human labels for lighting, payline and
+  white-overlay variants. The 18-case page identifies exact locations without
+  approving grids, assigning symbols or changing stores. No DB, Super,
+  deployment or repeated random tuning in TASK-0857.
+
 ## D-499 — niezależne propozycje symboli i granica plansz folderu
 
 - **Status:** accepted, 2026-10-05; operator zlecił samodzielne testowanie

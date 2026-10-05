@@ -6,6 +6,25 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0857 — odporność modeli symboli Mumii (done)
+
+- Dwie ograniczone próby V2: po 20 epok/160 kroków, walidacja 83/84,
+  development 255/255, czas 70,63/78,93 s. ONNX parity wszystkich 84 cropów,
+  max błąd 2,861e-6. D-500; plan odporności ukończony.
+- Te same 600 zdjęć/5396 plansz/80940 wycięć, identyczne piksele i geometria.
+  V2: 16024 niepewnych (19,80%) i 4047 rozbieżności (5,00%); V1: 15626/3494.
+  Brak wykazanej przewagi V2; obie wersje pozostają testowe, bez accuracy.
+- 36 pytest, Ruff/format i scoped mypy PASS. Świeży proces: 0 powtórzeń,
+  2404 pliki V2/737389437 bajtów i V1 bez zmian. Oryginalne magazyny bez zmian,
+  kontrolowane procesy zakończone. Szerszy mypy: wcześniejsze błędy API/timeout.
+- 18 konkretnych przypadków do rzeczywistej oceny człowieka:
+  `http://127.0.0.1:8108/symbol-review-priority/review.html`. Przegląd tylko do
+  odczytu; dalsza poprawa potrzebuje etykiet podświetlenia/linii/białego znacznika
+  i potwierdzenia geometrii. Nie potrzeba kolejnej rutynowej zgody na testy.
+- Raport `ai_docs/quality/MUMIE_SYMBOL_ROBUSTNESS_20261005.md`; osobny commit
+  `v1.7.203`, pełny hash po commicie. Na `feat/grid-engine-v3`.
+- Bez DB, aktywacji, Super, push/merge/wdrożenia i kolejnych losowych prób.
+
 ### TASK-0856 — większa niezależna partia Mumii (done)
 
 -600 zdjęć z2052,5396 plansz i80940 propozycji. Manifest9068f31a…9199dac.

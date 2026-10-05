@@ -16,7 +16,7 @@ from .run_contracts import RunMutation, RunState, StartRunRequest, TrainingConfi
 from .run_files import verify_artifact
 from .runs import RunManager, Token
 from .snapshot import canonical
-from .symbol_models import MODELS, PREPROCESSING, compare
+from .symbol_models import MODELS, PREPROCESSING, ROBUST_MODELS, compare, model_pair
 from .symbol_store import publish_file
 from .symbol_training_manifest import SymbolTrainingAdapter, SymbolTrainingInputs
 
@@ -29,7 +29,7 @@ BOOT = (
 
 def validate_request(request: StartRunRequest) -> None:
     if (
-        request.model_version not in MODELS
+        request.model_version not in (*MODELS, *ROBUST_MODELS)
         or request.protocol_digest is not None
         or request.preprocessing_version != PREPROCESSING.get(request.model_version)
         or request.topology.columns != 5
@@ -129,7 +129,12 @@ def build_manager(root: Path, settings: dict[str, str], launcher: Any = None) ->
         return adapter.validate(request)
 
     return SymbolRunManager(
-        root, validate=validate, settings=settings, models=MODELS, launcher=launcher, admit=admit
+        root,
+        validate=validate,
+        settings=settings,
+        models=model_pair(int(settings.get("generation", "1"))),
+        launcher=launcher,
+        admit=admit,
     )
 
 
@@ -175,6 +180,7 @@ def main() -> None:
     for name in ("root", "manifest", "python"):
         start.add_argument("--" + name, type=Path, required=True)
     start.add_argument("--variant", choices=("rgb", "gray"), required=True)
+    start.add_argument("--generation", type=int, choices=(1, 2), default=1)
     status = sub.add_parser("status")
     status.add_argument("--root", type=Path, required=True)
     resume = sub.add_parser("resume")
@@ -198,21 +204,28 @@ def main() -> None:
         }
     else:
         settings = read_checked(args.root / "settings.json")
+    if args.action == "start" and args.generation == 2:
+        settings["generation"] = "2"
+    pair = model_pair(int(settings.get("generation", "1")))
     manager = build_manager(args.root, settings)
     if args.action == "worker":
         execute(manager, args.run, (args.attempt, args.fence, args.lease))
         return
     if args.action == "start":
-        model = MODELS[0 if args.variant == "rgb" else 1]
+        model = pair[0 if args.variant == "rgb" else 1]
         request = StartRunRequest(
-            request_id="mumie-first-" + args.variant,
+            request_id=("mumie-first-" if args.generation == 1 else "mumie-robust-") + args.variant,
             manifest_id=args.manifest.stem,
             model_version=model,
             preprocessing_version=PREPROCESSING[model],
             seed=20261005,
             purpose="train",
             configuration=TrainingConfiguration(
-                epochs=20, batch_size=32, learning_rate=0.001, max_steps=10000, max_seconds=1800
+                epochs=20,
+                batch_size=32,
+                learning_rate=0.001,
+                max_steps=10000,
+                max_seconds=1800,
             ),
         )
         print(manager.create_or_get_run(request).model_dump_json())
@@ -234,7 +247,7 @@ def main() -> None:
             for r in manager.list().runs
             if r.status == "succeeded" and r.request.purpose == "train"
         }
-        if set(runs) != set(MODELS):
+        if set(runs) != set(pair):
             raise ValueError("SYMBOL_TWO_COMPLETED_MODELS_REQUIRED")
         if any(r.report is None for r in runs.values()):
             raise ValueError("SYMBOL_MODEL_REPORT_MISSING")
@@ -248,7 +261,7 @@ def main() -> None:
                 ]
             )
 
-        predictions = [prediction(m) for m in MODELS]
+        predictions = [prediction(m) for m in pair]
         result = compare(*predictions)
         publish_file(args.output, canonical(result))
         print(json.dumps({k: v for k, v in result.items() if k != "rows"}))

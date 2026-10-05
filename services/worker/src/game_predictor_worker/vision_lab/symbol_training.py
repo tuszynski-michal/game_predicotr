@@ -26,14 +26,24 @@ from game_predictor_worker.training_core.checkpoint import (
 from .run_contracts import StartRunRequest
 from .run_files import verify_artifact
 from .runs import checkpoint_binding
-from .symbol_models import metrics, probabilities
+from .symbol_augmentation import VERSION as ROBUST_AUGMENTATION
+from .symbol_augmentation import augment as augment_appearance
+from .symbol_models import ROBUST_MODELS, metrics, probabilities
 from .symbol_training_manifest import SymbolTrainingInputs
 from .training_adapter import RunControl
 
 
 class SymbolDataset(Dataset[tuple[torch.Tensor, int]]):
-    def __init__(self, inputs: SymbolTrainingInputs, partition: str, gray: bool, seed: int):
+    def __init__(
+        self,
+        inputs: SymbolTrainingInputs,
+        partition: str,
+        gray: bool,
+        seed: int,
+        robust: bool = False,
+    ):
         self.gray, self.seed, self.epoch = gray, seed, 0
+        self.robust = robust
         entries = inputs.preparation["dictionary"]["entries"]
         ids = {entry["id"]: index for index, entry in enumerate(entries)}
         self.samples = [
@@ -53,7 +63,8 @@ class SymbolDataset(Dataset[tuple[torch.Tensor, int]]):
     def __getitem__(self, index: int) -> tuple[torch.Tensor, int]:
         tensor = self.tensors[index].clone()
         if self.epoch:
-            tensor = augment_training_tensor(
+            augment = augment_appearance if self.robust else augment_training_tensor
+            tensor = augment(
                 tensor,
                 sample_id=self.samples[index]["decision_id"],
                 seed=self.seed,
@@ -141,9 +152,10 @@ def train(
     torch.use_deterministic_algorithms(True)
     torch.set_num_threads(1)
     device = torch.device(device_name)
-    gray = request.model_version.endswith("gray-v1")
+    gray = request.model_version.endswith(("gray-v1", "gray-v2"))
+    robust = request.model_version in ROBUST_MODELS
     classes = [entry["display_name"] for entry in inputs.preparation["dictionary"]["entries"]]
-    train_data = SymbolDataset(inputs, "development", gray, request.seed)
+    train_data = SymbolDataset(inputs, "development", gray, request.seed, robust=robust)
     val_data = SymbolDataset(inputs, "validation", gray, request.seed)
     generator = torch.Generator().manual_seed(request.seed)
     model = SpatialSymbolCnn(len(classes))
@@ -266,7 +278,7 @@ def train(
         "predictions": predictions,
         "onnx": onnx,
         "worker_training_seconds": time.monotonic() - started,
-        "augmentation": "bounded-affine-color-v1",
+        "augmentation": ROBUST_AUGMENTATION if robust else "bounded-affine-color-v1",
         "from_scratch": True,
         "independent_final_test": False,
         "super_labels": 0,

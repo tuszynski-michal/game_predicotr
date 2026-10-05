@@ -19,6 +19,7 @@ from game_predictor_worker.vision_lab.symbol_models import (
     calibrate,
     compare,
     metrics,
+    model_pair,
     probabilities,
 )
 from game_predictor_worker.vision_lab.symbol_runs import admit, validate_request
@@ -157,13 +158,21 @@ def test_request_cannot_enter_other_registry(change):
         validate_request(request().model_copy(update=change))
 
 
-def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(tmp_path, monkeypatch):
+@pytest.mark.parametrize("generation", [1, 2])
+def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
+    tmp_path, monkeypatch, generation
+):
     from game_predictor_worker.vision_lab import symbol_training as module
 
     store, bundle, qualification = prepared(tmp_path / "data")
     manifest = freeze(store, bundle, qualification, tmp_path / "manifests")
     inputs = SymbolTrainingAdapter(manifest).validate()
     req = request(inputs.manifest_id)
+    pair = model_pair(generation)
+    if generation == 2:
+        req = req.model_copy(
+            update={"model_version": pair[0], "preprocessing_version": PREPROCESSING[pair[0]]}
+        )
     # Numerical export is verified separately; this test targets exact durable continuation.
     monkeypatch.setattr(module, "export_onnx", lambda *_: {"status": "test-separated"})
 
@@ -171,7 +180,7 @@ def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(tmp_path, monk
         return RunManager(
             root,
             validate=lambda _: inputs,
-            models=MODELS,
+            models=pair,
             launcher=lambda _: None,
             identity=lambda _: None,
         )

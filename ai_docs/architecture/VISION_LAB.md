@@ -477,3 +477,22 @@ ranges are bounded by the operator folder end, with explicit conflict/count
 review and no sequence assignment. `symbol_batch_review` creates a static
 bounded uncertainty/class-control gallery and full photo index. It changes no
 HTTP registry, annotation store, label history, database or default model.
+
+## Versioned symbol appearance experiment (TASK-0857)
+
+`symbol_augmentation` defines `symbol-light-payline-v1` with sample/seed/epoch
+SHA-derived local RNG. Existing affine variation precedes bounded gamma,
+brightness, contrast, saturation, hue and occasional translucent green lines.
+Grayscale follows augmentation; validation/inference retain the original
+preprocessing. `MODELS` remains v1. Additive `ROBUST_MODELS` and optional CLI
+`--generation 2` select the pair through persistent run settings, reusing the
+neutral RunManager, checkpoint binding, exact resume and budgets. The global
+HTTP registry and TrainingConfiguration remain unchanged.
+
+`require_robust_qualification` rejects insufficient validation, invalid/nonfinite
+parity or incomplete exports. V2 batch requires an immutable `--geometry-reference`
+with matching sources, training manifest and geometry. Pin all prior results and
+visuals. `reclassify_photo` renders each old quad, proves its RGB96 pixel SHA and
+changes only classifier proposals. Atlas/overlay bytes, count conflicts and
+domain ordering remain exact. Both batches survive replay without rewriting
+artifacts or human approvals. The targeted 18-case page is read-only evidence.

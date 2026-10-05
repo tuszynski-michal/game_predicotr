@@ -27,7 +27,7 @@ from .geometry import crop_cell
 from .run_contracts import RunState
 from .run_files import verify_artifact
 from .snapshot import canonical, reject_links, safe_file, sha
-from .symbol_models import MODELS, compare, probabilities
+from .symbol_models import compare, model_pair, probabilities, require_robust_qualification
 from .symbol_store import publish_file
 from .symbol_training_manifest import SymbolTrainingAdapter
 
@@ -181,7 +181,12 @@ def freeze(
     geometry: Path,
     catalog_path: Path,
     limit: int,
+    generation: int = 1,
+    geometry_reference: Path | None = None,
 ) -> dict[str, Any]:
+    pair = model_pair(generation)
+    if generation == 2 and geometry_reference is None:
+        raise ValueError("SYMBOL_BATCH_GEOMETRY_REFERENCE_REQUIRED")
     paths = (root, folder, training, runs, comparison, geometry, catalog_path)
     if not all(p.is_absolute() for p in paths):
         raise ValueError("SYMBOL_BATCH_ABSOLUTE_PATH_REQUIRED")
@@ -206,15 +211,16 @@ def freeze(
     reports = {}
     for raw in read_checked(state_path)["runs"].values():
         run = RunState.model_validate(raw)
-        if run.request.manifest_id != inputs.manifest_id or run.request.model_version not in MODELS:
+        if run.request.manifest_id != inputs.manifest_id or run.request.model_version not in pair:
             continue
         if run.status != "succeeded" or run.report is None or run.request.model_version in exported:
             raise ValueError("SYMBOL_BATCH_RUN_INVALID")
         onnx = verify_artifact(runs, run.artifacts["onnx"])
         report = verify_artifact(runs, run.report)
-        reports[run.request.model_version] = json.loads(report.read_bytes())["metrics"][
-            "predictions"
-        ]
+        measured = json.loads(report.read_bytes())["metrics"]
+        if generation == 2:
+            require_robust_qualification(measured)
+        reports[run.request.model_version] = measured["predictions"]
         exported[run.request.model_version] = {
             "path": str(onnx),
             "sha256": sha(onnx),
@@ -222,10 +228,10 @@ def freeze(
         }
         live[str(report)] = sha(report)
         live[str(onnx)] = sha(onnx)
-    if set(exported) != set(MODELS):
+    if set(exported) != set(pair):
         raise ValueError("SYMBOL_BATCH_EXPORTS_MISSING")
     recorded = json.loads(comparison.read_bytes())
-    if recorded != compare(reports[MODELS[0]], reports[MODELS[1]]):
+    if recorded != compare(reports[pair[0]], reports[pair[1]]):
         raise ValueError("SYMBOL_BATCH_CALIBRATION_MISMATCH")
     live.update({str(path): sha(path) for path in (training, state_path, comparison)})
     geometry_payload = json.loads((geometry / "bundle.json").read_bytes())
@@ -262,7 +268,7 @@ def freeze(
         "training_manifest": str(training),
         "training_manifest_id": inputs.manifest_id,
         "folder": str(folder),
-        "classes": reports[MODELS[0]]["classes"],
+        "classes": reports[pair[0]]["classes"],
         "models": exported,
         "geometry": str(geometry),
         "calibration": {
@@ -280,6 +286,30 @@ def freeze(
         "human_labels_written": 0,
         "accuracy": None,
     }
+    if generation == 2:
+        payload["generation"] = 2
+    if geometry_reference is not None:
+        if not geometry_reference.is_absolute():
+            raise ValueError("SYMBOL_BATCH_ABSOLUTE_PATH_REQUIRED")
+        if root.resolve().is_relative_to(
+            geometry_reference.resolve()
+        ) or geometry_reference.resolve().is_relative_to(root.resolve()):
+            raise ValueError("SYMBOL_BATCH_DIRECTORY_OVERLAP")
+        baseline = validate_batch(geometry_reference)
+        if (
+            baseline["rows"] != selected
+            or baseline["training_manifest_id"] != inputs.manifest_id
+            or baseline["geometry"] != str(geometry)
+        ):
+            raise ValueError("SYMBOL_BATCH_GEOMETRY_REFERENCE_MISMATCH")
+        payload["geometry_reference"] = str(geometry_reference)
+        live[str(geometry_reference / "manifest.json")] = sha(geometry_reference / "manifest.json")
+        for index in range(len(selected)):
+            previous = validate_result(geometry_reference, baseline, index)
+            path = result_path(geometry_reference, index)
+            live[str(path)] = sha(path)
+            for name, value in previous["assets"].items():
+                live[str(path.parent / name)] = value
     with exclusive_bounded(root):
         checked_publish(root / "manifest.json", payload)
     return payload
@@ -319,6 +349,33 @@ def image_bytes(image: Image.Image) -> bytes:
     buffer = io.BytesIO()
     image.save(buffer, format="JPEG", quality=93, subsampling=0)
     return buffer.getvalue()
+
+
+def reclassify_photo(
+    image: Image.Image, baseline: dict[str, Any], classifier: Any
+) -> dict[str, Any]:
+    """Change only symbol proposals, proving exact same crop pixels as the baseline."""
+    result: dict[str, Any] = json.loads(canonical(baseline))
+    rgb = np.asarray(image)
+    crops, indices = [], []
+    for index, cell in enumerate(result["cells"]):
+        if cell["crop_pixel_sha256"] is None:
+            continue
+        crop = crop_cell(rgb, np.asarray(cell["quad"], dtype=np.float32))
+        if crop is None or hashlib.sha256(crop.tobytes()).hexdigest() != cell["crop_pixel_sha256"]:
+            raise ValueError("SYMBOL_BATCH_REFERENCE_CROP_MISMATCH")
+        crops.append(crop)
+        indices.append(index)
+    predictions = classifier(crops) if crops else []
+    if len(predictions) != len(crops):
+        raise ValueError("SYMBOL_BATCH_PREDICTION_COUNT_INVALID")
+    for index, prediction in zip(indices, predictions, strict=True):
+        cell = result["cells"][index]
+        geometry_reasons = [r for r in cell["reasons"] if not r.startswith("SYMBOL_")]
+        cell.update(prediction)
+        cell["reasons"] = sorted(set(geometry_reasons + prediction["symbol_reasons"]))
+        cell["requires_review"] = bool(cell["reasons"])
+    return result
 
 
 def analyse_photo(
@@ -439,15 +496,20 @@ def run(root: Path, max_photos: int = 25) -> dict[str, int]:
         if not pending:
             return {"complete": len(done), "processed": 0, "total": len(payload["rows"])}
         geometry = Path(payload["geometry"])
-        engine = onnx_engine(
-            geometry,
-            threads=2,
-            expected_bundle_sha256=payload["live_bindings"][str(geometry / "bundle.json")],
+        reference = Path(payload["geometry_reference"]) if "geometry_reference" in payload else None
+        engine = (
+            None
+            if reference is not None
+            else onnx_engine(
+                geometry,
+                threads=2,
+                expected_bundle_sha256=payload["live_bindings"][str(geometry / "bundle.json")],
+            )
         )
         options = ort.SessionOptions()
         options.intra_op_num_threads = 2
         sessions = []
-        for model in MODELS:
+        for model in model_pair(payload.get("generation", 1)):
             descriptor = payload["models"][model]
             content = Path(descriptor["path"]).read_bytes()
             if hashlib.sha256(content).hexdigest() != descriptor["sha256"]:
@@ -468,13 +530,22 @@ def run(root: Path, max_photos: int = 25) -> dict[str, int]:
             row = payload["rows"][index]
             image = load_photo(row, payload["training_photo_pixel_groups"])
             cv2.setRNGSeed(int(row["sha256"][:8], 16) % 2147483647)
-            detections = engine.analyse(np.asarray(image))
-            expected, range_reasons = expected_count(row, Path(payload["folder"]))
-            result, assets = analyse_photo(image, detections, expected, classifier)
-            result["photo_reasons"] += range_reasons
-            for cell in result["cells"]:
-                cell["reasons"] = sorted(set(cell["reasons"] + range_reasons))
-                cell["requires_review"] = bool(cell["reasons"])
+            if reference is not None:
+                baseline = read_checked(result_path(reference, index))
+                result = reclassify_photo(image, baseline, classifier)
+                assets = {
+                    name: (result_path(reference, index).parent / name).read_bytes()
+                    for name in baseline["assets"]
+                }
+            else:
+                assert engine is not None
+                detections = engine.analyse(np.asarray(image))
+                expected, range_reasons = expected_count(row, Path(payload["folder"]))
+                result, assets = analyse_photo(image, detections, expected, classifier)
+                result["photo_reasons"] += range_reasons
+                for cell in result["cells"]:
+                    cell["reasons"] = sorted(set(cell["reasons"] + range_reasons))
+                    cell["requires_review"] = bool(cell["reasons"])
             result.update({"batch_id": digest(payload), "row": row, "assets": {}})
             directory = result_path(root, index).parent
             for name, content in assets.items():
@@ -507,6 +578,8 @@ def main() -> None:
         parser.add_argument("--" + name, type=Path)
     parser.add_argument("--limit", type=int, default=600)
     parser.add_argument("--max-photos", type=int, default=25)
+    parser.add_argument("--generation", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--geometry-reference", type=Path)
     args = parser.parse_args()
     if args.action == "freeze":
         required = (
@@ -519,7 +592,17 @@ def main() -> None:
         )
         if any(value is None for value in required):
             parser.error("freeze requires folder/training/runs/comparison/geometry/catalog")
-        print(json.dumps(freeze(args.root, *required, args.limit)["inventory"]))
+        print(
+            json.dumps(
+                freeze(
+                    args.root,
+                    *required,
+                    args.limit,
+                    generation=args.generation,
+                    geometry_reference=args.geometry_reference,
+                )["inventory"]
+            )
+        )
     elif args.action == "run":
         print(json.dumps(run(args.root, args.max_photos)))
     else:

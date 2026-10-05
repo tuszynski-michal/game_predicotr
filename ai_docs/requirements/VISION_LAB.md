@@ -326,3 +326,11 @@ transitive old/current components, including unselected aliases. Reject protecte
 comparison or cross-game members, class coverage gaps and exact cross-partition
 photo/crop pixel duplicates. Bind live stores and source bytes; any drift blocks
 training. Small validation is preliminary and must not be called a final test.
+
+## First scoped Mumie symbol runs (TASK-0855)
+
+Two from-scratch RGB/gray models use only D-498 development/validation samples.
+Each variant admits one train per cohort in the durable configured run root,
+20epochs/1800seconds/10000steps. Retry retains budget and exact v2 epoch state.
+Validation selection/calibration and agreement coverage are preliminary evidence;
+flag reference conflicts without modifying human labels. No default activation.

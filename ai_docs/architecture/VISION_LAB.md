@@ -452,3 +452,15 @@ assignments, class counts and live SHA bindings. `SymbolTrainingAdapter` verifie
 these and exact crop pixels on start/checkpoint/finish; it never changes default
 symbol gates, geometry manifests or label stores. It is local CLI only, with no
 HTTP/API registry change. The fresh Mumie cohort is 255 development/84 validation.
+
+## Scoped symbol run family (TASK-0855)
+
+`symbol_runs.SymbolRunManager` reuses the neutral RunManager, existing artifact
+names best_weights/onnx and durable report/checkpoint protocol. The global
+geometry training registry and HTTP contracts are unchanged. `symbol_training`
+reuses SpatialSymbolCnn with mathematically equivalent fixed4x4 pooling for its
+fixed64 input, preserving deterministic CUDA backward. Checkpoints bind requests,
+data, optimizer, RNG, history and best weights. Final reports embed validation
+logits; `symbol_models` performs bounded validation-only temperature/fusion and
+separate model uncertainty/reference-conflict review. Existing default consumers
+retain their architecture and training gates. CLI roots/settings are persistent.

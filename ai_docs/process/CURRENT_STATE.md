@@ -6,6 +6,23 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0855 — dwa pierwsze modele symboli Mumii (done)
+
+- RGB/gray od zera: po20 epok,255 development/84 validation z osobnych nagrań.
+  Oba83/84 (98.81%), Mumia8/8; najlepsze epoki14/11. Mała walidacja, nie final_test.
+- Kalibracja i fuzja wykonane; fuzja nie poprawia accuracy. ONNX obu modeli:
+  parity84/84, max błąd3.8147e-6. Wagi, historia/logits i raporty zachowane.
+- Jeden konfliktK/Q (crop wygląda jakQ) i niepewny Faraon do późniejszej korekty.
+  Bez zmiany etykiet. Modelowa zgodność nie wykrywa każdej błędnej referencji.
+- Trwały istniejący RunManager, budżety/restart/RNG/checkpoint i admission.
+  RGB wznowiony po błędzie CUDA z tym samym budżetem; fixed pooling ekwiwalentny
+  dla64px, test regresji PASS. Użyto55.36s/49.35s z1800s,161/160 kroków.
+- 11 nowych testów +14 regresji runów, Ruff/format/Mypy i własny review PASS.
+  Wszystkie SHA oryginałów niezmienione. Commit `v1.7.201`, hash po commicie.
+- Raport `ai_docs/quality/MUMIE_SYMBOL_MODELS_20261005.md`; plan0854/55 ukończony.
+  Modele testowe, bez aktywacji, DB, wdrożenia i Super. Kolejny zakres: większa
+  niezależna partia inferencji i korekta wykrytych konfliktów.
+
 ### TASK-0854 — kwalifikowany split symboli Mumii (done)
 
 - Potwierdzenie operatora rozstrzyga pochodzenie trzech grup; bez dalszego pytania.

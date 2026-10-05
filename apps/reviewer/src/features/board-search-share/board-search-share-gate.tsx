@@ -47,6 +47,7 @@ export function BoardSearchShareGate({
   const dataSource = useMemo(
     () =>
       createBoardSearchShareDataSource({
+        sessionId,
         onUnauthorized: () =>
           setState((current) =>
             current.kind === 'ready'
@@ -56,7 +57,7 @@ export function BoardSearchShareGate({
       }),
     // A new data source (and fresh caches) for each unlocked session.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [state.kind === 'ready' ? state.context.sessionId : null],
+    [sessionId, state.kind === 'ready' ? state.context.sessionId : null],
   );
 
   const loadContext = useCallback(async () => {
@@ -176,7 +177,8 @@ export function BoardSearchShareGate({
         </p>
         <p className="boardSearchShareNotice" role="note">
           Zapytania wykonane przez ten link (wzór planszy, parametry i czas) są
-          zapisywane i widoczne dla osoby, która go udostępniła.
+          zapisywane i widoczne dla osoby, która go udostępniła. Poprawki
+          symboli zapisują się od razu w bazie i trafiają do jej przeglądu.
         </p>
         <form
           className="boardSearchShareForm"
@@ -260,7 +262,7 @@ function ShareExpiry({
   return (
     <p role="status">
       Dostęp wygasa za {formatShareTimeLeft(expiresAt, nowMs)} · zapytania są
-      zapisywane
+      zapisywane wraz z poprawkami symboli
     </p>
   );
 }

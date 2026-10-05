@@ -359,8 +359,10 @@ def test_search_reads_only_the_session_game_and_logs_the_full_pattern(
     assert _forbidden_keys(body) == set()
     assert [item["sequenceNumber"] for item in body["results"]] == [11, 12, 13, 14, 15, 16]
     assert harness.search.calls[0]["gameId"] == DETAIL_GAME_ID
+    assert body["searchContextId"] == str(harness.log.entries[0]["id"])
     assert harness.log.entries == [
         {
+            "id": harness.log.entries[0]["id"],
             "sessionId": session_id,
             "gameId": DETAIL_GAME_ID,
             "kind": "search",
@@ -391,7 +393,7 @@ def test_a_token_of_another_session_reads_only_its_own_game(tmp_path: Path) -> N
     assert [entry["gameId"] for entry in harness.log.entries] == [other_game, DETAIL_GAME_ID]
 
 
-def test_board_detail_has_no_cell_records_and_is_logged(
+def test_board_detail_has_opaque_editable_cells_and_is_logged(
     client: tuple[TestClient, Harness],
 ) -> None:
     test_client, harness = client
@@ -399,7 +401,9 @@ def test_board_detail_has_no_cell_records_and_is_logged(
     response = test_client.get(f"{BASE}/boards/42", headers=PROXY)
     assert response.status_code == 200, response.text
     body = response.json()
-    assert body["cells"] is None
+    assert len(body["cells"]) == 15
+    assert [cell["cellIndex"] for cell in body["cells"]] == list(range(15))
+    assert all(len(cell["cellVersion"]) == 64 for cell in body["cells"])
     assert body["matches"]
     assert _forbidden_keys(body) == set()
     assert harness.log.entries[-1]["kind"] == "board_detail"

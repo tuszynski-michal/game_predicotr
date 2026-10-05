@@ -368,14 +368,14 @@ cells: null | [15]:     # D-473: rekordy weryfikacji pól do poprawki
 ```
 
 `cells` jest zwracane wyłącznie dla planszy operacyjnej ze statusem
-`pending`, z rekordami `image_symbol_review_cells` tej planszy i jej
+`pending`, `accepted` lub `corrected` (D-492), z rekordami `image_symbol_review_cells` tej planszy i jej
 bieżącej rewizji geometrii (reguła jak w projekcji wyszukiwania), i tylko
-gdy jest ich dokładnie 15. Plansze zatwierdzone i niepełny zestaw dają
+gdy jest ich dokładnie 15. Nieaktualny dokument, archiwum i niepełny zestaw dają
 `cells = null`. Każdy element jest celem istniejącego
 `POST .../symbol-cell-reviews/{cellReviewId}/decision`
 (`applySymbolCellReviewDecision`) z polami `expected*` przepisanymi z
 rekordu. Publiczna powierzchnia udostępniania (D-471) nie może zwracać
-`cells`.
+wewnętrznych pól `cells`; D-492 zwraca osobny publiczny kształt z SHA wersji.
 
 `sum(matches.payoutCredits) == payoutCredits`. `view` opisuje przycięty widok
 planszy operacyjnej: obrys komórek z zapisanej geometrii plus 20% z każdej
@@ -503,7 +503,9 @@ trzymają audyt i dziennik zapytań.
 GET /api/v1/admin/board-search-shares/sessions/{sessionId}/queries?before=&limit=1..50&kind=&groupByPattern=
 operationId: listBoardSearchShareQueries
 200: { entries: [<wpis>], nextCursor: string | null }
-kind (opcjonalne, D-478): search | approximate_win | board_detail — tylko wpisy tego rodzaju.
+kind (opcjonalne): search | approximate_win | board_detail | symbol_correction |
+correction_review — tylko wpisy tego rodzaju. UI dziennika filtruje `search`;
+trwałe korekty i przeglądy mają osobną listę D-492.
 groupByPattern=true (D-486, tylko z kind=search; inaczej
 422 BOARD_SEARCH_SHARE_QUERY_GROUP_INVALID): jeden wpis na wzór — najnowsze
 wyszukiwanie tego wzoru — z czasami wszystkich jego wyszukiwań w occurrenceTimes.
@@ -512,7 +514,9 @@ DELETE /api/v1/admin/board-search-shares/queries/{eventId}
 operationId: deleteBoardSearchShareQuery (D-478; nagłówki operacji wysokiego wpływu,
 cel `board-search-share-query:{eventId}`)
 204; 404 BOARD_SEARCH_SHARE_QUERY_NOT_FOUND
-Wyszukiwanie usuwa też swoje późniejsze wpisy do następnego wyszukiwania sesji.
+Wyszukiwanie usuwa też swoje późniejsze zapytania do następnego wyszukiwania sesji.
+Trwałe `symbol_correction` i `correction_review` są wykluczone z usuwania;
+bezpośrednie usunięcie takiego eventu daje `422 BOARD_SEARCH_SHARE_CORRECTION_DELETE_FORBIDDEN`.
 ?wholePattern=true (D-486): dla wyszukiwania usuwa tak każde wyszukiwanie tego
 samego wzoru w sesji.
 
@@ -520,7 +524,8 @@ GET /api/v1/admin/board-search-shares/queries/{eventId}
 operationId: getBoardSearchShareQueryReplay
 200: { event: <wpis>, search: <wpis> | null, approximateWin: <wpis> | null }
 
-<wpis> = { id, sessionId, gameId, occurredAt, kind: search|approximate_win|board_detail,
+<wpis> = { id, sessionId, gameId, occurredAt,
+           kind: search|approximate_win|board_detail|symbol_correction|correction_review,
            request, resultSummary, outcomeCode,
            followUpApproximateWin: { startSequenceNumber, spinCount, stakeGrosze? } | null,
            occurrenceTimes: [datetime] }
@@ -540,7 +545,63 @@ najbliższy wcześniejszy udany zakres (dla zakresu — on sam); brak wpisu:
 `404 BOARD_SEARCH_SHARE_QUERY_NOT_FOUND`. Obie trasy są tylko lokalne (Admin);
 publiczna powierzchnia nie ma odczytu dziennika.
 
-### Publiczna powierzchnia udostępniania (D-471, D-472, TASK-0767)
+### Korekty linku i przegląd operatora (D-492, TASK-0845)
+
+```text
+POST /api/v1/board-search-shares/boards/{sequenceNumber}/cells/{cellIndex}/decision
+operationId: correctBoardSearchShareCell
+body: { operationId: UUID, expectedCellVersion: SHA256,
+        action: approve|reassign|mark_unreadable|mark_grid_issue,
+        targetSymbolCode?: string, searchContextId?: UUID,
+        startSequenceNumber?: int, spinCount?: 1..100000, stakeGrosze?: 1..10000000 }
+200: { saved: true, changed: bool, sequenceNumber, cellIndex, cellVersion }
+
+GET /api/v1/admin/board-search-shares/sessions/{sessionId}/corrections
+operationId: listBoardSearchShareCorrections
+query: status=pending|reviewed|all, before?, limit=1..50 (default 25), pattern? (powtarzane)
+200: { entries: [<plansza>], totalCount, pendingCount, nextCursor }
+
+GET /api/v1/admin/board-search-shares/sessions/{sessionId}/corrections/{sequenceNumber}
+operationId: getBoardSearchShareCorrection
+query: before?, limit=1..50 (default 50)
+200: { board: <plansza>, boardVersion: SHA256, changes: [<zmiana>], nextCursor }
+
+POST /api/v1/admin/board-search-shares/sessions/{sessionId}/corrections/{sequenceNumber}/review
+operationId: reviewBoardSearchShareCorrection
+body: { expectedRevision: int >= 1, expectedBoardVersion: SHA256 }
+nagłówki potwierdzonego celu: board-search-share-correction:{sessionId}:{sequenceNumber}
+200: <plansza>
+
+<plansza>: { sequenceNumber, revision, changedCellCount, pending, lastChangedAt,
+            lastEventId, stakeGrosze: int|null, startSequenceNumber: int|null }
+<zmiana>: { id, occurredAt, cellIndex, beforeSymbolCode, afterSymbolCode,
+           beforeQualityIssue, afterQualityIssue, beforeReviewState, afterReviewState }
+```
+
+Publiczny zapis wymaga istniejącej autoryzacji proxy/cookie i budżetu JSON.
+Indeks pola 0..14; kod aktywnego symbolu wymagany tylko dla `reassign`.
+Nadmiarowy JSON jest odrzucany. Proxy wymaga zgodnego `Origin`,
+`Sec-Fetch-Site: same-origin`, JSON do 4 KiB i pustego query. Gra i aktor
+pochodzą wyłącznie z sesji. Kontekst wyszukiwania musi należeć do tego samego
+linku i gry; jawny zakres uwzględnia zawinięcie sekwencji gry.
+
+Zapis komórki, domenowy audyt i metadane korekty są atomowe. Dokładny retry
+`operationId` zwraca zapisany receipt przed sprawdzeniem dawnej wersji pola;
+inne body z tym samym UUID daje `409 BOARD_SEARCH_SHARE_CORRECTION_CONFLICT`.
+Taki sam kod obejmuje zmianę rewizji/właściciela/pikseli albo nieaktualny
+przegląd. Awaria DB daje `503 BOARD_SEARCH_SHARE_CORRECTION_UNAVAILABLE`,
+brak planszy/kontekstu `404 BOARD_SEARCH_SHARE_CORRECTION_NOT_FOUND`, błędny
+symbol `422 BOARD_SEARCH_SHARE_SYMBOL_INVALID`. Retry ponownie sprawdza
+aktywność i token linku pod blokadą. Nie zapisuje po revoke/rotacji.
+
+Lista i liczniki obejmują wszystkie korekty linku, również po usunięciu
+wyszukiwania. `pattern` filtruje plansze poprawione przy dowolnym powtórzeniu
+wzoru; bieżący stan planszy pozostaje wspólny dla całego linku. Szczegóły
+oczekującej planszy listują zmiany po ostatnio przejrzanej rewizji.
+Jawny przegląd sprawdza rewizję korekt i SHA wszystkich aktualnych komórek.
+Nowsza korekta ponownie otwiera przegląd. Zamknięcie okna nie wysyła POST.
+
+### Publiczna powierzchnia udostępniania (D-471, D-472, D-492, TASK-0767/0845)
 
 Trasy są osiągalne tylko przez proxy Reviewera: każde żądanie musi mieć
 nagłówek `X-Board-Search-Share-Proxy: reviewer-board-search-v1`
@@ -565,6 +626,7 @@ GET  /api/v1/board-search-shares/approximate-win/stake
 GET  /api/v1/board-search-shares/boards/{sequenceNumber}
 GET  /api/v1/board-search-shares/boards/{sequenceNumber}/view
      ?expectedBoardChecksumSha256=&viewRevision=
+POST /api/v1/board-search-shares/boards/{sequenceNumber}/cells/{cellIndex}/decision
 ```
 
 - `unlock` i `context` zwracają `{ sessionId, label, gameName, expiresAt }`.
@@ -572,8 +634,12 @@ GET  /api/v1/board-search-shares/boards/{sequenceNumber}/view
   `imageRevision` (suma obrazu wzorca albo `null`); obraz jest dostępny pod
   URL z tą sumą (inna suma: `409 BOARD_SEARCH_SHARE_SYMBOL_IMAGE_CHANGED`).
 - `search` zwraca wyniki bez `reviewItemId`, `recognizedBoardId`,
-  `importJobId` i `assetMode`; `approximate-win` ma kształt Admina;
-  `boards/{n}` zawsze ma `cells = null` (D-473) i nie ma odświeżania. Oba
+  `importJobId` i `assetMode`; D-492 dodaje `searchContextId` udanego wpisu
+  tego wyszukiwania. `approximate-win` ma kształt Admina;
+  `boards/{n}` ma publiczne `cells` dla bieżącej edytowalnej planszy, inaczej
+  `null`. Pole zawiera `cellIndex`, `cellVersion` (SHA-256),
+  `assignedSymbolCode`, `reviewState`, `qualityIssue`; bez wewnętrznych ID
+  lub sum cropów. Nie ma publicznego odświeżania odczytu. Oba
   kształty Admina zawierają `gameId` i `rulesVersionId`: to nie są sekrety,
   a wspólny UI porównuje `rulesVersionId` przy spójności okna planszy.
 - `approximate-win/stake` (D-487, `recordBoardSearchShareApproximateWinStake`)

@@ -3,15 +3,21 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any, Literal
+from typing import Any, Literal, Self
 from urllib.parse import urlencode, urlparse, urlunparse
 from uuid import UUID
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from game_predictor_api.application.board_search_share_access import (
     BoardSearchShareView,
     CreatedBoardSearchShare,
+)
+from game_predictor_api.application.board_search_share_corrections import (
+    CorrectionAction,
+    ShareCellCorrectionReceipt,
+    ShareCorrectionBoard,
+    ShareCorrectionChange,
 )
 from game_predictor_api.application.board_search_share_queries import (
     BoardSearchShareQueryEvent,
@@ -30,6 +36,11 @@ from game_predictor_api.domain.board_search_shares import (
     BoardSearchShareStatus,
 )
 from game_predictor_api.schemas.board_search import BoardSearchResponse, BoardSearchScoreResponse
+from game_predictor_api.schemas.board_search_approximate_win import (
+    ApproximateWinRulesResponse,
+    BoardSearchBoardViewResponse,
+    BoardSearchLineMatchResponse,
+)
 from game_predictor_api.schemas.catalog import ApiModel
 
 
@@ -169,6 +180,7 @@ class BoardSearchSharePublicSearchResponse(ApiModel):
     scope: BoardSearchScope
     query_cell_count: int = Field(ge=1, le=15)
     results: tuple[BoardSearchSharePublicSearchResultResponse, ...] = Field(max_length=100)
+    search_context_id: UUID | None = Field(default=None)
 
 
 def to_board_search_share_public_search_response(
@@ -198,7 +210,9 @@ class BoardSearchShareQueryEntryResponse(ApiModel):
     session_id: UUID
     game_id: UUID
     occurred_at: datetime
-    kind: Literal["search", "approximate_win", "board_detail"]
+    kind: Literal[
+        "search", "approximate_win", "board_detail", "symbol_correction", "correction_review"
+    ]
     request: dict[str, Any]
     result_summary: dict[str, Any]
     outcome_code: str
@@ -262,6 +276,111 @@ class BoardSearchShareQueryReplayResponse(ApiModel):
             if value.approximate_win is None
             else BoardSearchShareQueryEntryResponse.from_event(value.approximate_win),
         )
+
+
+class BoardSearchSharePublicCellResponse(ApiModel):
+    cell_index: int = Field(ge=0, le=14)
+    cell_version: str = Field(pattern=r"^[a-f0-9]{64}$")
+    assigned_symbol_code: str | None
+    review_state: str
+    quality_issue: str | None
+
+
+class BoardSearchSharePublicBoardDetailResponse(ApiModel):
+    game_id: UUID
+    sequence_number: int = Field(ge=1)
+    board_status: str
+    board_checksum_sha256: str
+    data_source: str
+    rules: ApproximateWinRulesResponse
+    symbol_codes: tuple[str | None, ...]
+    payout_credits: int
+    payout_kind: Literal["exact", "confirmed_minimum", "none"]
+    matches: tuple[BoardSearchLineMatchResponse, ...]
+    view: BoardSearchBoardViewResponse | None
+    document_stale: bool
+    cells: tuple[BoardSearchSharePublicCellResponse, ...] | None
+
+
+class BoardSearchShareCellCorrectionRequest(ApiModel):
+    operation_id: UUID
+    expected_cell_version: str = Field(pattern=r"^[a-f0-9]{64}$")
+    action: CorrectionAction
+    target_symbol_code: str | None = Field(default=None, min_length=1, max_length=64)
+    search_context_id: UUID | None = None
+    start_sequence_number: int | None = Field(default=None, ge=1)
+    spin_count: int | None = Field(default=None, ge=1, le=100_000)
+    stake_grosze: int | None = Field(default=None, ge=1, le=10_000_000)
+
+    @model_validator(mode="after")
+    def validate_choice(self) -> Self:
+        if (self.action == "reassign") != (self.target_symbol_code is not None):
+            raise ValueError("Only reassignment requires a target symbol code.")
+        if self.spin_count is not None and self.start_sequence_number is None:
+            raise ValueError("A range requires its starting sequence number.")
+        return self
+
+
+class BoardSearchShareCellCorrectionResponse(ApiModel):
+    saved: Literal[True]
+    changed: bool
+    sequence_number: int
+    cell_index: int
+    cell_version: str
+
+    @classmethod
+    def from_receipt(cls, value: ShareCellCorrectionReceipt) -> Self:
+        return cls.model_validate(value)
+
+
+class BoardSearchShareCorrectionBoardResponse(ApiModel):
+    sequence_number: int
+    revision: int
+    changed_cell_count: int
+    pending: bool
+    last_changed_at: datetime
+    last_event_id: UUID
+    stake_grosze: int | None
+    start_sequence_number: int | None
+
+    @classmethod
+    def from_board(cls, value: ShareCorrectionBoard) -> Self:
+        return cls.model_validate(value)
+
+
+class BoardSearchShareCorrectionPageResponse(ApiModel):
+    entries: list[BoardSearchShareCorrectionBoardResponse]
+    next_cursor: str | None
+    total_count: int
+    pending_count: int
+
+
+class BoardSearchShareCorrectionChangeResponse(ApiModel):
+    id: UUID
+    occurred_at: datetime
+    cell_index: int
+    before_symbol_code: str | None
+    after_symbol_code: str | None
+    before_quality_issue: str | None
+    after_quality_issue: str | None
+    before_review_state: str
+    after_review_state: str
+
+    @classmethod
+    def from_change(cls, value: ShareCorrectionChange) -> Self:
+        return cls.model_validate(value)
+
+
+class BoardSearchShareCorrectionDetailResponse(ApiModel):
+    board: BoardSearchShareCorrectionBoardResponse
+    board_version: str
+    changes: list[BoardSearchShareCorrectionChangeResponse]
+    next_cursor: str | None
+
+
+class BoardSearchShareCorrectionReviewRequest(ApiModel):
+    expected_revision: int = Field(ge=1)
+    expected_board_version: str = Field(pattern=r"^[a-f0-9]{64}$")
 
 
 __all__ = [

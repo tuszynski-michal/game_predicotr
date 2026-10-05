@@ -72,6 +72,16 @@ export function BoardSearchWorkspace({
             listSymbols: api.listSymbols,
             revokeBoardSearchShareSession: api.revokeBoardSearchShareSession,
             symbolImageAssetUrl: api.symbolImageAssetUrl,
+            listBoardSearchShareCorrections:
+              api.listBoardSearchShareCorrections,
+            getBoardSearchShareCorrection: api.getBoardSearchShareCorrection,
+            reviewBoardSearchShareCorrection:
+              api.reviewBoardSearchShareCorrection,
+            getBoardSearchBoardDetail: api.getBoardSearchBoardDetail,
+            boardSearchBoardViewUrl: api.boardSearchBoardViewUrl,
+            applySymbolCellReviewDecision: api.applySymbolCellReviewDecision,
+            refreshBoardSearchBoardDocument:
+              api.refreshBoardSearchBoardDocument,
           }
         : null,
     [api],

@@ -29,6 +29,8 @@ class BoardSearchShareQueryKind(StrEnum):
     SEARCH = "search"
     APPROXIMATE_WIN = "approximate_win"
     BOARD_DETAIL = "board_detail"
+    SYMBOL_CORRECTION = "symbol_correction"
+    CORRECTION_REVIEW = "correction_review"
 
 
 @dataclass(frozen=True, slots=True)
@@ -137,7 +139,7 @@ def build_board_search_share_query_entry(
     """Validate one entry. A wrong shape or size is a programming error
     (`ValueError`), never user data to truncate silently."""
 
-    if set(request) not in _REQUEST_KEYS[kind]:
+    if set(request) not in _REQUEST_KEYS.get(kind, ()):
         raise ValueError(f"Query log request keys do not match kind {kind.value!r}.")
     summary = {} if result_summary is None else dict(result_summary)
     if not outcome_code.strip() or len(outcome_code) > 100:

@@ -2,14 +2,17 @@
 
 import type {
   ApproximateWinRowResponse,
-  BoardSearchBoardCellResponse,
-  BoardSearchBoardDetailResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { apiErrorMessage } from './api-error';
-import type { BoardSearchDataSource } from './board-search-data-source';
+import type {
+  BoardSearchDataSource,
+  BoardSearchEditableCell,
+  BoardSearchModalDetail,
+  BoardSearchCorrectionContext,
+} from './board-search-data-source';
 
 import {
   type BoardCellCorrectionChoice,
@@ -32,13 +35,16 @@ import {
 } from './board-search-board-lines-state';
 
 /**
- * Without `applySymbolCellReviewDecision` (online share) the modal is
- * read-only; without `refreshBoardSearchBoardDocument` a stale reading is
+ * Without a local or public correction port the modal is read-only;
+ * without `refreshBoardSearchBoardDocument` a stale reading is
  * only explained, not refreshed.
  */
 export type BoardLinesClient = Pick<
   BoardSearchDataSource,
   | 'applySymbolCellReviewDecision'
+  | 'correctBoardSearchCell'
+  | 'hasPendingBoardSearchCell'
+  | 'retryBoardSearchCell'
   | 'boardSearchBoardViewUrl'
   | 'getBoardSearchBoardDetail'
   | 'refreshBoardSearchBoardDocument'
@@ -54,7 +60,7 @@ type DetailState =
   | { readonly kind: 'error'; readonly message: string }
   | {
       readonly kind: 'ready';
-      readonly detail: BoardSearchBoardDetailResponse;
+      readonly detail: BoardSearchModalDetail;
     };
 
 /** The table values of an approximate-win row the modal is opened from. */
@@ -77,6 +83,11 @@ export function BoardSearchBoardLinesModal({
   rulesVersionId,
   sequenceNumber,
   symbols,
+  correctionContext,
+  startInEditMode = false,
+  reviewPanel,
+  onCorrectionSaved,
+  changedCellIndices = [],
 }: {
   readonly api: BoardLinesClient;
   readonly formatAmount: (baseCredits: number) => string;
@@ -92,13 +103,24 @@ export function BoardSearchBoardLinesModal({
   readonly rulesVersionId: string | null;
   readonly sequenceNumber: number;
   readonly symbols: readonly SymbolResponse[];
+  readonly correctionContext?: BoardSearchCorrectionContext;
+  readonly startInEditMode?: boolean;
+  readonly reviewPanel?:
+    | ReactNode
+    | ((state: {
+        saving: boolean;
+        refreshing: boolean;
+        ready: boolean;
+      }) => ReactNode);
+  readonly onCorrectionSaved?: () => void;
+  readonly changedCellIndices?: readonly number[];
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<DetailState>({ kind: 'loading' });
   const [visibility, setVisibility] = useState<BoardLineVisibility>(new Set());
   const [imageFailed, setImageFailed] = useState(false);
-  const [editMode, setEditMode] = useState(false);
+  const [editMode, setEditMode] = useState(startInEditMode);
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<CorrectionNotice | null>(null);
@@ -220,24 +242,26 @@ export function BoardSearchBoardLinesModal({
   const applyDecision = api.applySymbolCellReviewDecision;
   const refreshDocument = api.refreshBoardSearchBoardDocument;
   const canEdit =
-    applyDecision !== undefined &&
+    (applyDecision !== undefined || api.correctBoardSearchCell !== undefined) &&
     detail?.cells !== null &&
     detail?.cells !== undefined;
   const palette = boardCellCorrectionPalette(symbols);
 
   async function saveCorrection(
-    cell: BoardSearchBoardCellResponse,
+    cell: BoardSearchEditableCell,
     choice: BoardCellCorrectionChoice,
   ) {
-    if (saving || applyDecision === undefined) return;
+    if (saving || !canEdit) return;
     setSaving(true);
     setNotice(null);
     const result = await applyBoardCellCorrection(
-      { applySymbolCellReviewDecision: applyDecision },
+      api,
       gameId,
       cell,
       choice,
       symbols,
+      sequenceNumber,
+      correctionContext ?? { startSequenceNumber: sequenceNumber },
     );
     setSaving(false);
     const label =
@@ -250,6 +274,7 @@ export function BoardSearchBoardLinesModal({
     if (result.ok) {
       setEdited(true);
       setCorrectionSaved(true);
+      onCorrectionSaved?.();
       setSelectedCell(null);
       setNotice({
         kind: 'ok',
@@ -264,8 +289,10 @@ export function BoardSearchBoardLinesModal({
       });
     }
     // Fresh revisions and lines after a save, and after a conflict too.
-    setRefreshing(true);
-    setAttempt((value) => value + 1);
+    if (result.ok || result.conflict) {
+      setRefreshing(true);
+      setAttempt((value) => value + 1);
+    }
   }
 
   async function refreshStaleBoard() {
@@ -346,15 +373,14 @@ export function BoardSearchBoardLinesModal({
   const selected =
     selectedCell === null ? undefined : editableCells.get(selectedCell);
   const correctionPanel: ReactNode = !canEdit ? (
-    applyDecision !== undefined &&
+    (applyDecision !== undefined || api.correctBoardSearchCell !== undefined) &&
     detail !== null &&
     detail.dataSource === 'operational_review' &&
     !detail.documentStale &&
     !edited ? (
       <p className="boardSearchBoardLinesNote">
-        {detail.boardStatus === 'pending'
-          ? 'Ta plansza nie ma jeszcze kompletu rekordów weryfikacji pól, więc nie można jej poprawiać z tego okna.'
-          : 'Poprawianie pól jest dostępne tylko dla plansz oczekujących; ta plansza ma już zatwierdzone symbole.'}
+        Ta plansza nie ma kompletu aktualnych rekordów weryfikacji pól, więc nie
+        można jej poprawiać z tego okna.
       </p>
     ) : null
   ) : (
@@ -577,16 +603,79 @@ export function BoardSearchBoardLinesModal({
                 {staleWarning}
                 {correctionPanel}
                 {correctionMessages}
+                {api.hasPendingBoardSearchCell?.(gameId, sequenceNumber) ? (
+                  <button
+                    type="button"
+                    className="secondaryButton"
+                    disabled={saving}
+                    onClick={async () => {
+                      if (saving || api.retryBoardSearchCell === undefined)
+                        return;
+                      setSaving(true);
+                      try {
+                        const result = await api.retryBoardSearchCell(
+                          gameId,
+                          sequenceNumber,
+                        );
+                        if (result.data !== undefined) {
+                          setEdited(true);
+                          setCorrectionSaved(true);
+                          setNotice({
+                            kind: 'ok',
+                            text: 'Zapis potwierdzony.',
+                          });
+                          setRefreshing(true);
+                          setAttempt((value) => value + 1);
+                        } else {
+                          setNotice({
+                            kind: 'error',
+                            text: apiErrorMessage(
+                              result.error,
+                              'Nie udało się potwierdzić zapisu.',
+                            ),
+                          });
+                          if (
+                            typeof result.error === 'object' &&
+                            result.error !== null &&
+                            'code' in result.error &&
+                            result.error.code ===
+                              'BOARD_SEARCH_SHARE_CORRECTION_CONFLICT'
+                          ) {
+                            setRefreshing(true);
+                            setAttempt((value) => value + 1);
+                          }
+                        }
+                      } catch {
+                        setNotice({
+                          kind: 'error',
+                          text: 'Połączenie przerwane. Ponów sprawdzenie zapisu.',
+                        });
+                      } finally {
+                        setSaving(false);
+                      }
+                    }}
+                  >
+                    Sprawdź ostatni zapis
+                  </button>
+                ) : null}
               </>
             }
             editableCells={editMode && !refreshing ? editableCells : null}
             onSelectCell={setSelectedCell}
             onVisibilityChange={setVisibility}
             selectedCell={selectedCell}
+            changedCellIndices={changedCellIndices}
             symbols={symbols}
             visibility={visibility}
           />
         ) : null}
+        {typeof reviewPanel === 'function'
+          ? reviewPanel({
+              saving,
+              refreshing,
+              ready: state.kind === 'ready' && !refreshing,
+            })
+          : reviewPanel}
       </div>
     </dialog>
   );
@@ -606,17 +695,16 @@ function BoardLinesView({
   selectedCell,
   symbols,
   visibility,
+  changedCellIndices,
 }: {
   readonly api: BoardLinesClient;
   readonly correctionPanel: ReactNode;
-  readonly detail: BoardSearchBoardDetailResponse;
+  readonly detail: BoardSearchModalDetail;
   /** Cells that can be corrected; `null` outside the correction mode. */
-  readonly editableCells: ReadonlyMap<
-    number,
-    BoardSearchBoardCellResponse
-  > | null;
+  readonly editableCells: ReadonlyMap<number, BoardSearchEditableCell> | null;
   readonly onSelectCell: (cellIndex: number) => void;
   readonly selectedCell: number | null;
+  readonly changedCellIndices: readonly number[];
   readonly formatAmount: (baseCredits: number) => string;
   readonly gameId: string;
   readonly imageFailed: boolean;
@@ -792,6 +880,21 @@ function BoardLinesView({
               </g>
             );
           })}
+          {cells.map((cell, index) =>
+            changedCellIndices.includes(index) ? (
+              <polygon
+                key={`changed:${index}`}
+                points={pointsText(cell)}
+                fill="none"
+                stroke="#ffd23f"
+                strokeWidth={3}
+                strokeDasharray="6 4"
+                pointerEvents="none"
+                vectorEffect="non-scaling-stroke"
+                aria-label={`Zmienione pole ${index + 1}`}
+              />
+            ) : null,
+          )}
           {editableCells !== null
             ? cells.map((cell, index) => {
                 const record = editableCells.get(index);

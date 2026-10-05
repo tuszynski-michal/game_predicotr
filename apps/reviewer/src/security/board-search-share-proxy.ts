@@ -2,8 +2,8 @@
  * Public proxy for the online board-search share (D-471, TASK-0768).
  *
  * The browser talks only to `/board-search-api/...` on the Reviewer; this
- * proxy forwards an exact allowlist of read-only routes (plus the code
- * unlock) to the loopback API, adds the proxy intent header, translates the
+ * proxy forwards an exact allowlist of reads, code unlock and cell
+ * corrections (D-492) to the loopback API, adds the proxy intent header, translates the
  * share cookie and refuses any response that carries internal identities,
  * paths or secrets. Images are streamed with a size limit and a checked
  * content type. It never widens the Reviewer or remote-selection surfaces:
@@ -69,6 +69,7 @@ const FREE_TEXT_KEYS = new Set([
 
 type Route =
   | { readonly kind: 'unlock' }
+  | { readonly kind: 'mutation'; readonly query: QueryRule }
   | { readonly kind: 'json'; readonly query: QueryRule }
   | { readonly kind: 'image'; readonly query: QueryRule };
 
@@ -100,6 +101,14 @@ export function boardSearchShareRoute(
     new RegExp(`^${API_PREFIX}/sessions/${STRICT_UUID}/unlock$`).test(apiPath)
   ) {
     return { kind: 'unlock' };
+  }
+  if (
+    method === 'POST' &&
+    new RegExp(
+      `^${API_PREFIX}/boards/[1-9]\\d{0,8}/cells/(?:[0-9]|1[0-4])/decision$`,
+    ).test(apiPath)
+  ) {
+    return { kind: 'mutation', query: noQuery };
   }
   if (method !== 'GET') return null;
   if (
@@ -235,13 +244,13 @@ export async function proxyBoardSearchShareRequest(
     [BOARD_SEARCH_SHARE_PROXY_HEADER]: BOARD_SEARCH_SHARE_PROXY_INTENT,
   });
   let body: ArrayBuffer | undefined;
-  if (route.kind === 'unlock') {
+  if (route.kind === 'unlock' || route.kind === 'mutation') {
     const contentType = request.headers.get('content-type')?.split(';', 1)[0];
     if (contentType?.trim().toLowerCase() !== 'application/json') {
       return errorResponse(
         415,
         'BOARD_SEARCH_SHARE_CONTENT_TYPE_INVALID',
-        'The unlock request must use application/json.',
+        'The request must use application/json.',
       );
     }
     const declared = Number(request.headers.get('content-length') ?? '0');
@@ -256,7 +265,8 @@ export async function proxyBoardSearchShareRequest(
     if (body.byteLength > BOARD_SEARCH_SHARE_MAX_REQUEST_BYTES)
       return tooLarge();
     headers.set('Content-Type', 'application/json');
-  } else if (publicToken !== null) {
+  }
+  if (route.kind !== 'unlock' && publicToken !== null) {
     headers.set('Cookie', `${BOARD_SEARCH_SHARE_COOKIE}=${publicToken}`);
   }
   if (route.kind === 'image') {

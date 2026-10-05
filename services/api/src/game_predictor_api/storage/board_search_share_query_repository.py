@@ -41,12 +41,13 @@ class SqlAlchemyBoardSearchShareQueryLog(BoardSearchShareQueryLog):
         game_id: UUID,
         entry: BoardSearchShareQueryEntry,
         occurred_at: datetime,
-    ) -> None:
+    ) -> UUID:
         with self._session_factory() as session:
             try:
+                event_id = uuid4()
                 session.add(
                     BoardSearchShareQueryEventModel(
-                        id=uuid4(),
+                        id=event_id,
                         session_id=session_id,
                         game_id=game_id,
                         occurred_at=occurred_at,
@@ -57,6 +58,7 @@ class SqlAlchemyBoardSearchShareQueryLog(BoardSearchShareQueryLog):
                     )
                 )
                 session.commit()
+                return event_id
             except BaseException:
                 session.rollback()
                 raise
@@ -175,6 +177,7 @@ class SqlAlchemyBoardSearchShareQueryRepository(BoardSearchShareQueryRepository)
         occurred_at, event_id = start
         statement = delete(model).where(
             model.session_id == session_id,
+            model.kind.not_in(("symbol_correction", "correction_review")),
             or_(
                 model.occurred_at > occurred_at,
                 and_(model.occurred_at == occurred_at, model.id >= event_id),
@@ -235,12 +238,14 @@ class InMemoryBoardSearchShareQueryLog(BoardSearchShareQueryLog):
         game_id: UUID,
         entry: BoardSearchShareQueryEntry,
         occurred_at: datetime,
-    ) -> None:
+    ) -> UUID:
         if self.fail:
             raise RuntimeError("Synthetic query log failure.")
         with self._lock:
+            event_id = uuid4()
             self.entries.append(
                 {
+                    "id": event_id,
                     "sessionId": session_id,
                     "gameId": game_id,
                     "kind": entry.kind.value,
@@ -250,6 +255,7 @@ class InMemoryBoardSearchShareQueryLog(BoardSearchShareQueryLog):
                     "occurredAt": occurred_at,
                 }
             )
+            return event_id
 
 
 __all__ = [

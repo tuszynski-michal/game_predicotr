@@ -632,6 +632,14 @@ function ApproximateWinResultView({
               rulesVersionId={result.rules.rulesVersionId}
               sequenceNumber={linesRow.sequenceNumber}
               symbols={symbols}
+              correctionContext={{
+                startSequenceNumber: result.startSequenceNumber,
+                spinCount: result.requestedSpinCount,
+                stakeGrosze: effectiveApproximateWinStakeGrosze(
+                  display,
+                  spinCost,
+                ),
+              }}
             />
           ) : null}
         </>

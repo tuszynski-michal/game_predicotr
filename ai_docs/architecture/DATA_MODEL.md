@@ -1,10 +1,41 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-10-04
+last_updated: 2026-10-05
 ---
 
 # Model danych
+
+## Korekty symboli udostępnionej wyszukiwarki — D-492 / TASK-0845
+
+Migracja `0141_share_symbol_corrections` rozszerza CHECK istniejącej tabeli
+`public.board_search_share_query_events` o `symbol_correction` i
+`correction_review`. Nie zmienia ownership magazynu, manifestów ani tabel
+etykiet. Bieżące komórki i ich domenowy audyt pozostają źródłem symboli.
+Mutacja komórki, agregacja rodzica, projekcja wyszukiwania i metadane
+udostępnienia są zapisywane atomowo w jednej sesji DB.
+
+`request` korekty przechowuje UUID operacji i checksumę body, pozycję i
+indeks, monotoniczne `boardRevision`, jawny identyfikator wyszukiwania oraz
+jego snapshot/fingerprint wzoru, planszę startową, zakres i stawkę w
+groszach. `result_summary` zawiera stany symbolu, jakości i weryfikacji
+przed/po, tożsamość komórki/geometrii, rewizję i trwały receipt.
+Potwierdzenie bez zmiany semantycznej ma `changed=false`, nie zwiększa
+rewizji ani kolejki. Zatwierdzenie oczekującego pola zmienia stan.
+
+Częściowy unikalny indeks `(session_id, operationId)` chroni dokładny
+retry. Cztery kolejne indeksy wspierają odczyt planszy, wzoru, kolejności
+rewizji i przeglądu. Rewizja rośnie pod blokadą linku, niezależnie od zegara.
+Przegląd zapisuje ostatni event, oczekiwaną rewizję i fingerprint wszystkich
+aktualnych komórek. Nowszy zapis ponownie otwiera przegląd. Historia listuje
+zmiany po ostatniej potwierdzonej rewizji; stronicowanie czasu/ID jest
+ograniczone do 50 wyników.
+
+Usuwanie zapytań wyklucza oba trwałe rodzaje. Historyczna referencja
+wyszukiwania nie jest FK: snapshot przeżywa usunięcie wpisu. Revoke i expiry
+nie usuwają korekt. Downgrade odmawia, gdy istnieje taka historia. Obrazy
+pozostają poza tabelą. Publiczny SHA komórki wiąże jej bieżącego właściciela,
+rewizje i piksele, bez ujawnienia wewnętrznych identyfikatorów.
 
 ## Uzupełnienie logicznych pozycji pilota — TASK-0711 / D-452
 

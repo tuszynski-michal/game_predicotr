@@ -426,12 +426,12 @@ def test_pending_board_exposes_its_cell_review_records_for_correction() -> None:
     }
 
 
-def test_resolved_boards_have_no_editable_cells() -> None:
+def test_current_resolved_boards_have_editable_cells() -> None:
     accepted = MemoryBoardDetailRepository(
         document=_document((A,) * 15, status="accepted"), configuration=_configuration()
     )
-    assert _get(accepted).json()["cells"] is None
-    assert getattr(accepted, "cell_reads", 0) == 0
+    assert len(_get(accepted).json()["cells"]) == 15
+    assert getattr(accepted, "cell_reads", 0) == 1
 
 
 def test_a_partial_set_of_cell_records_is_not_offered_for_correction() -> None:

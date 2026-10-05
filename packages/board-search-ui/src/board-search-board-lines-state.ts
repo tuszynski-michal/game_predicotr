@@ -116,7 +116,10 @@ export type BoardLinesConsistency =
  * Anything else means data changed between the two requests.
  */
 export function boardLinesConsistency(
-  detail: BoardSearchBoardDetailResponse,
+  detail: Pick<
+    BoardSearchBoardDetailResponse,
+    'matches' | 'payoutCredits' | 'rules'
+  >,
   rowPayoutCredits: number,
   rulesVersionId: string,
 ): BoardLinesConsistency {

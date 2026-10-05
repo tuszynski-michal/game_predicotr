@@ -1,3 +1,5 @@
+@import '../features/board-search/board-search-share-corrections.css';
+
 :root {
   --background: #07101d;
   --panel: #0e1a2c;

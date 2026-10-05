@@ -15,6 +15,10 @@ import {
   formatZloty,
 } from '@game-predictor/board-search-ui';
 import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
+import {
+  BoardSearchShareCorrections,
+  type BoardSearchShareCorrectionClient,
+} from './board-search-share-corrections';
 
 import {
   boardSearchQueryFollowUpRange,
@@ -34,7 +38,8 @@ export type BoardSearchShareQueryLogClient = Pick<
   | 'listSymbols'
   | 'symbolImageAssetUrl'
 > &
-  Pick<BoardSearchDataSource, 'getBoardSearchApproximateWin'>;
+  Pick<BoardSearchDataSource, 'getBoardSearchApproximateWin'> &
+  BoardSearchShareCorrectionClient;
 
 type LogState =
   | { readonly kind: 'loading' }
@@ -177,26 +182,47 @@ export function BoardSearchShareQueryLog({
     );
   }
 
+  const correctionList =
+    typeof client.listBoardSearchShareCorrections === 'function' ? (
+      <BoardSearchShareCorrections
+        client={client}
+        gameId={gameId}
+        sessionId={sessionId}
+        symbols={symbols}
+      />
+    ) : null;
   if (state.kind === 'loading') {
-    return <p role="status">Wczytywanie dziennika…</p>;
+    return (
+      <>
+        {correctionList}
+        <p role="status">Wczytywanie dziennika…</p>
+      </>
+    );
   }
   if (state.kind === 'error') {
     return (
-      <p className="feedbackBanner feedbackBannerError" role="alert">
-        {state.message}
-      </p>
+      <>
+        {correctionList}
+        <p className="feedbackBanner feedbackBannerError" role="alert">
+          {state.message}
+        </p>
+      </>
     );
   }
   if (state.entries.length === 0 && state.nextCursor === null) {
     return (
-      <p className="boardSearchShareEmpty">
-        Przez ten link nie wykonano jeszcze żadnego wyszukiwania.
-      </p>
+      <>
+        {correctionList}
+        <p className="boardSearchShareEmpty">
+          Przez ten link nie wykonano jeszcze żadnego wyszukiwania.
+        </p>
+      </>
     );
   }
   const symbolByCode = new Map(symbols.map((symbol) => [symbol.code, symbol]));
   return (
     <div className="boardSearchShareQueryLog">
+      {correctionList}
       {deleteError !== null ? (
         <p className="feedbackBanner feedbackBannerError" role="alert">
           {deleteError}
@@ -208,6 +234,19 @@ export function BoardSearchShareQueryLog({
           const range = boardSearchQueryFollowUpRange(entry);
           return (
             <li className="boardSearchShareQuery" key={entry.id}>
+              {typeof client.listBoardSearchShareCorrections === 'function' ? (
+                <BoardSearchShareCorrections
+                  client={client}
+                  gameId={gameId}
+                  sessionId={sessionId}
+                  symbols={symbols}
+                  pattern={
+                    Array.isArray(entry.request.cells)
+                      ? (entry.request.cells as string[])
+                      : []
+                  }
+                />
+              ) : null}
               <div className="boardSearchShareQueryHeader">
                 <span className="boardSearchShareQueryTimes">
                   {boardSearchQueryOccurrenceTimes(entry).map(

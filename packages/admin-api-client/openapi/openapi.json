@@ -2273,6 +2273,383 @@
         "title": "BoardSearchScoreResponse",
         "type": "object"
       },
+      "BoardSearchShareCellCorrectionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "reassign",
+              "mark_unreadable",
+              "mark_grid_issue"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "expectedCellVersion": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcellversion",
+            "type": "string"
+          },
+          "operationId": {
+            "format": "uuid",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "searchContextId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Searchcontextid"
+          },
+          "spinCount": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spincount"
+          },
+          "stakeGrosze": {
+            "anyOf": [
+              {
+                "maximum": 10000000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stakegrosze"
+          },
+          "startSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startsequencenumber"
+          },
+          "targetSymbolCode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetsymbolcode"
+          }
+        },
+        "required": [
+          "operationId",
+          "expectedCellVersion",
+          "action"
+        ],
+        "title": "BoardSearchShareCellCorrectionRequest",
+        "type": "object"
+      },
+      "BoardSearchShareCellCorrectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "cellVersion": {
+            "title": "Cellversion",
+            "type": "string"
+          },
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "saved": {
+            "const": true,
+            "title": "Saved",
+            "type": "boolean"
+          },
+          "sequenceNumber": {
+            "title": "Sequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "saved",
+          "changed",
+          "sequenceNumber",
+          "cellIndex",
+          "cellVersion"
+        ],
+        "title": "BoardSearchShareCellCorrectionResponse",
+        "type": "object"
+      },
+      "BoardSearchShareCorrectionBoardResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "changedCellCount": {
+            "title": "Changedcellcount",
+            "type": "integer"
+          },
+          "lastChangedAt": {
+            "format": "date-time",
+            "title": "Lastchangedat",
+            "type": "string"
+          },
+          "lastEventId": {
+            "format": "uuid",
+            "title": "Lasteventid",
+            "type": "string"
+          },
+          "pending": {
+            "title": "Pending",
+            "type": "boolean"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "sequenceNumber": {
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "stakeGrosze": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stakegrosze"
+          },
+          "startSequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startsequencenumber"
+          }
+        },
+        "required": [
+          "sequenceNumber",
+          "revision",
+          "changedCellCount",
+          "pending",
+          "lastChangedAt",
+          "lastEventId",
+          "stakeGrosze",
+          "startSequenceNumber"
+        ],
+        "title": "BoardSearchShareCorrectionBoardResponse",
+        "type": "object"
+      },
+      "BoardSearchShareCorrectionChangeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "afterQualityIssue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Afterqualityissue"
+          },
+          "afterReviewState": {
+            "title": "Afterreviewstate",
+            "type": "string"
+          },
+          "afterSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Aftersymbolcode"
+          },
+          "beforeQualityIssue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beforequalityissue"
+          },
+          "beforeReviewState": {
+            "title": "Beforereviewstate",
+            "type": "string"
+          },
+          "beforeSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beforesymbolcode"
+          },
+          "cellIndex": {
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "occurredAt": {
+            "format": "date-time",
+            "title": "Occurredat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "occurredAt",
+          "cellIndex",
+          "beforeSymbolCode",
+          "afterSymbolCode",
+          "beforeQualityIssue",
+          "afterQualityIssue",
+          "beforeReviewState",
+          "afterReviewState"
+        ],
+        "title": "BoardSearchShareCorrectionChangeResponse",
+        "type": "object"
+      },
+      "BoardSearchShareCorrectionDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "board": {
+            "$ref": "#/components/schemas/BoardSearchShareCorrectionBoardResponse"
+          },
+          "boardVersion": {
+            "title": "Boardversion",
+            "type": "string"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchShareCorrectionChangeResponse"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "board",
+          "boardVersion",
+          "changes",
+          "nextCursor"
+        ],
+        "title": "BoardSearchShareCorrectionDetailResponse",
+        "type": "object"
+      },
+      "BoardSearchShareCorrectionPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchShareCorrectionBoardResponse"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          },
+          "pendingCount": {
+            "title": "Pendingcount",
+            "type": "integer"
+          },
+          "totalCount": {
+            "title": "Totalcount",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "entries",
+          "nextCursor",
+          "totalCount",
+          "pendingCount"
+        ],
+        "title": "BoardSearchShareCorrectionPageResponse",
+        "type": "object"
+      },
+      "BoardSearchShareCorrectionReviewRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedBoardVersion": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedboardversion",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "minimum": 1.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "expectedRevision",
+          "expectedBoardVersion"
+        ],
+        "title": "BoardSearchShareCorrectionReviewRequest",
+        "type": "object"
+      },
       "BoardSearchShareCreate": {
         "additionalProperties": false,
         "properties": {
@@ -2324,6 +2701,166 @@
           "accessCode"
         ],
         "title": "BoardSearchShareCreatedResponse",
+        "type": "object"
+      },
+      "BoardSearchSharePublicBoardDetailResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boardChecksumSha256": {
+            "title": "Boardchecksumsha256",
+            "type": "string"
+          },
+          "boardStatus": {
+            "title": "Boardstatus",
+            "type": "string"
+          },
+          "cells": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/BoardSearchSharePublicCellResponse"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cells"
+          },
+          "dataSource": {
+            "title": "Datasource",
+            "type": "string"
+          },
+          "documentStale": {
+            "title": "Documentstale",
+            "type": "boolean"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "matches": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchLineMatchResponse"
+            },
+            "title": "Matches",
+            "type": "array"
+          },
+          "payoutCredits": {
+            "title": "Payoutcredits",
+            "type": "integer"
+          },
+          "payoutKind": {
+            "enum": [
+              "exact",
+              "confirmed_minimum",
+              "none"
+            ],
+            "title": "Payoutkind",
+            "type": "string"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ApproximateWinRulesResponse"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "symbolCodes": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Symbolcodes",
+            "type": "array"
+          },
+          "view": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchBoardViewResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "required": [
+          "gameId",
+          "sequenceNumber",
+          "boardStatus",
+          "boardChecksumSha256",
+          "dataSource",
+          "rules",
+          "symbolCodes",
+          "payoutCredits",
+          "payoutKind",
+          "matches",
+          "view",
+          "documentStale",
+          "cells"
+        ],
+        "title": "BoardSearchSharePublicBoardDetailResponse",
+        "type": "object"
+      },
+      "BoardSearchSharePublicCellResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "assignedSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assignedsymbolcode"
+          },
+          "cellIndex": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "cellVersion": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Cellversion",
+            "type": "string"
+          },
+          "qualityIssue": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Qualityissue"
+          },
+          "reviewState": {
+            "title": "Reviewstate",
+            "type": "string"
+          }
+        },
+        "required": [
+          "cellIndex",
+          "cellVersion",
+          "assignedSymbolCode",
+          "reviewState",
+          "qualityIssue"
+        ],
+        "title": "BoardSearchSharePublicCellResponse",
         "type": "object"
       },
       "BoardSearchSharePublicContextResponse": {
@@ -2384,6 +2921,18 @@
           },
           "scope": {
             "$ref": "#/components/schemas/BoardSearchScope"
+          },
+          "searchContextId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Searchcontextid"
           }
         },
         "required": [
@@ -2537,7 +3086,9 @@
             "enum": [
               "search",
               "approximate_win",
-              "board_detail"
+              "board_detail",
+              "symbol_correction",
+              "correction_review"
             ],
             "title": "Kind",
             "type": "string"
@@ -2594,7 +3145,9 @@
         "enum": [
           "search",
           "approximate_win",
-          "board_detail"
+          "board_detail",
+          "symbol_correction",
+          "correction_review"
         ],
         "title": "BoardSearchShareQueryKind",
         "type": "string"
@@ -27780,7 +28333,324 @@
             "LocalAdminIntent": []
           }
         ],
-        "summary": "Create one online read-only board-search share link",
+        "summary": "Create one online board-search share link with symbol correction",
+        "tags": [
+          "board-search-shares"
+        ]
+      }
+    },
+    "/api/v1/admin/board-search-shares/sessions/{session_id}/corrections": {
+      "get": {
+        "operationId": "listBoardSearchShareCorrections",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "default": "pending",
+              "enum": [
+                "pending",
+                "reviewed",
+                "all"
+              ],
+              "title": "Status",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 25,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "pattern",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "maxItems": 15,
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Pattern"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareCorrectionPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Corrections",
+        "tags": [
+          "board-search-shares"
+        ]
+      }
+    },
+    "/api/v1/admin/board-search-shares/sessions/{session_id}/corrections/{sequence_number}": {
+      "get": {
+        "operationId": "getBoardSearchShareCorrection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 256,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 50,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareCorrectionDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Correction Detail",
+        "tags": [
+          "board-search-shares"
+        ]
+      }
+    },
+    "/api/v1/admin/board-search-shares/sessions/{session_id}/corrections/{sequence_number}/review": {
+      "post": {
+        "operationId": "reviewBoardSearchShareCorrection",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "session_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Session Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardSearchShareCorrectionReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareCorrectionBoardResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Review Correction",
         "tags": [
           "board-search-shares"
         ]
@@ -50938,7 +51808,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/BoardSearchBoardDetailResponse"
+                  "$ref": "#/components/schemas/BoardSearchSharePublicBoardDetailResponse"
                 }
               }
             },
@@ -51015,7 +51885,163 @@
             "description": "Sharing disabled or query log unavailable"
           }
         },
-        "summary": "Winning paylines of one board of the shared game (no cell records)",
+        "summary": "Winning paylines and opaque editable cells of one shared board",
+        "tags": [
+          "board-search-share-public"
+        ]
+      }
+    },
+    "/api/v1/board-search-shares/boards/{sequence_number}/cells/{cell_index}/decision": {
+      "post": {
+        "operationId": "correctBoardSearchShareCell",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "sequence_number",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Sequence Number",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cell_index",
+            "required": true,
+            "schema": {
+              "maximum": 14,
+              "minimum": 0,
+              "title": "Cell Index",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Board-Search-Share-Proxy",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Board-Search-Share-Proxy"
+            }
+          },
+          {
+            "in": "cookie",
+            "name": "gp_board_search_token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gp Board Search Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BoardSearchShareCellCorrectionRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareCellCorrectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Missing, invalid or expired share access"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not requested through the Reviewer proxy"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Board or symbol not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Data not ready or changed"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid parameters"
+          },
+          "429": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Request limit reached"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Sharing disabled or query log unavailable"
+          }
+        },
+        "summary": "Apply and atomically audit one share-scoped symbol correction",
         "tags": [
           "board-search-share-public"
         ]

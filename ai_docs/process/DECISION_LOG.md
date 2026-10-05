@@ -6,6 +6,22 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-498 — potwierdzone nagrania i osobny split symboli Mumii
+
+- **Status:** accepted, 2026-10-05. Operator: „Tak są z różnych ujęć i innych
+  nagrań”, w odpowiedzi na trzy grupy 1–23175, 76555–103221, 156538–182853.
+  Wcześniejsza zgoda na autonomiczną pracę i uczenie pozostaje.
+- **Decision:** osobna kwalifikacja bieżącej kohorty symboli, z jawnie
+  przypiętymi deklaracjami i całymi komponentami. Development: grupy1 i156538;
+  validation:76555. Każda klasa musi być w obu częściach. To wstępna walidacja,
+  bez końcowego testu. Źródła/duplikaty/pochodne nie przecinają części.
+- **Protection:** brak zmiany oryginalnych zgód, rodzin, stale splitu geometrii
+  i D-496. Nowy manifest i adapter sprawdzają rolę, cały graf i historyczne
+  protected przed pikselami; drift uniemożliwia uczenie. D-489 wyklucza stare
+  etykiety/wagi. Stary workflow pozostaje zamknięty bez nowej kwalifikacji.
+- **Scope:** TASK-0854/0855, 339 przykładów, dwa runy od zera do20epok/1800s
+  każdy. Bez DB, API/UI, aktywacji, Super, push, merge i wdrożenia.
+
 ## D-497 — zamrożony widok symboli i pojedynczy odczyt 2000 cropów
 
 - **Status:** accepted, 2026-10-05; operator zgłosił opóźnienia i jawnie

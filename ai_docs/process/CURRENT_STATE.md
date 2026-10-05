@@ -6,6 +6,18 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0854 — kwalifikowany split symboli Mumii (done)
+
+- Potwierdzenie operatora rozstrzyga pochodzenie trzech grup; bez dalszego pytania.
+- D-498: 339 aktualnych etykiet, development255/validation84, 10 klas w obu
+  częściach. Pełne komponenty starego/obecnego grafu; bez duplikatów między częściami.
+- Osobny niezmienny manifest `d5dc865287ca2d4583b450ccdca84f6186e16ac86922dc6f95ebea3930151589`.
+  Rewalidacja cropów, grafu, źródeł i magazynów. Oryginały i D-496 bez zmian.
+- 32 pytest, Ruff/format/Mypy i restart/retry PASS; własny review bez P0–P2.
+  Commit `v1.7.200`; hash dopisany po commicie. Raport kwalifikacji poniżej.
+- Plan `ai_docs/delivery/MUMIE_SYMBOL_TRAINING_20261005.md` obejmuje dalszy
+  TASK-0855: dwa ograniczone runy RGB/gray od zera. Bez DB/aktywacji/wdrożenia.
+
 ### TASK-0853 — aktualne etykiety Mumii (done)
 
 - Operator zakończył przypisania i zlecił pracę bez swojej obecności.

@@ -442,3 +442,13 @@ bindingów do jednej aktywnej klasy w jednym write_atomic, jednej rewizji
 i receipt, z odrębnym decision_id od fingerprintu i crop_id. Wszystkie
 bindingi są renderowane i sprawdzane przed pierwszą publikacją. Dopiero
 zgodny jawny zapis tworzy etykiety; queue nie kwalifikuje próbki do treningu.
+
+## D-498 symbol cohort adapter (TASK-0854)
+
+`symbol_training_manifest` freezes `lab-symbol-training-manifest-v1` through
+create-only checksummed publication. It references the immutable preparation
+PNG pack, records scoped recording declarations, full merged component evidence,
+assignments, class counts and live SHA bindings. `SymbolTrainingAdapter` verifies
+these and exact crop pixels on start/checkpoint/finish; it never changes default
+symbol gates, geometry manifests or label stores. It is local CLI only, with no
+HTTP/API registry change. The fresh Mumie cohort is 255 development/84 validation.

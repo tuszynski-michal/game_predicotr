@@ -316,3 +316,13 @@ wszystkie jego aktualnie przypisane cropy z nazwą źródła, numerem planszy i
 pola. Widok jest tylko do odczytu i stronicowany; decyzje nieaktualne po
 zmianie siatki, źródła, renderera lub słownika pozostają w poczekalni do
 ponownej oceny, nie na liście aktualnych przypisań.
+
+## Scoped Mumie symbol qualification (D-498, TASK-0854)
+
+An explicit operator declaration of independent recordings may qualify a fresh
+per-game symbol cohort in a separate immutable manifest. Preserve the original
+geometry split, label history and D-496 labels-only reference. Assign entire
+transitive old/current components, including unselected aliases. Reject protected,
+comparison or cross-game members, class coverage gaps and exact cross-partition
+photo/crop pixel duplicates. Bind live stores and source bytes; any drift blocks
+training. Small validation is preliminary and must not be called a final test.

@@ -94,12 +94,12 @@ test('symbol wrappers preserve discriminator, CAS, retry identity and read token
     const queue = await symbolQueue('local-a', 30, 'view');
     assert.equal(queue.kind, 'lab_queue');
     assert.deepEqual(calls[9].body, {
-      kind: 'lab_queue', game_id: 'local-a', offset: 30, limit: 30,
+      kind: 'lab_queue', game_id: 'local-a', offset: 30, limit: 2000,
       read_token: 'view', view: 'pending',
     });
     await symbolQueue('local-a', 0, undefined, 'lemon');
     assert.deepEqual(calls[10].body, {
-      kind: 'lab_queue', game_id: 'local-a', offset: 0, limit: 30,
+      kind: 'lab_queue', game_id: 'local-a', offset: 0, limit: 2000,
       view: 'assigned', symbol_id: 'lemon',
     });
     const selective = { op: 'label_cells_decide', request_id: 'selective',
@@ -113,7 +113,7 @@ test('symbol wrappers preserve discriminator, CAS, retry identity and read token
   }
 });
 
-test('queue composes up to 500 crops from bounded 30-item requests', async () => {
+test('queue reads 2000 crops in one bounded request and preserves page token', async () => {
   const originalFetch = globalThis.fetch;
   const OriginalRequest = globalThis.Request;
   globalThis.Request = class extends OriginalRequest {
@@ -125,9 +125,9 @@ test('queue composes up to 500 crops from bounded 30-item requests', async () =>
   globalThis.fetch = async (request) => {
     const body = await request.json();
     calls.push(body);
-    const count = Math.min(body.limit, 520 - body.offset);
+    const count = Math.min(body.limit, 2020 - body.offset);
     return new Response(JSON.stringify({
-      kind: 'lab_queue', total: 520, revision: 4, read_token: 'stable',
+      kind: 'lab_queue', total: 2020, revision: 4, read_token: 'stable',
       items: Array.from({ length: count }, (_, i) => ({
         binding: { crop_id: `crop-${body.offset + i}` },
         png_base64: 'pixels', status: 'unassigned', reason: null,
@@ -136,23 +136,23 @@ test('queue composes up to 500 crops from bounded 30-item requests', async () =>
   };
   try {
     const first = await symbolQueue('game');
-    assert.equal(first.items.length, 500);
+    assert.equal(first.items.length, 2000);
     assert.equal(first.items[0].binding.crop_id, 'crop-0');
-    assert.equal(first.items.at(-1).binding.crop_id, 'crop-499');
-    assert.equal(calls.length, 17);
-    assert.ok(calls.every((call) => call.limit <= 30));
-    assert.equal(calls.at(-1).limit, 20);
+    assert.equal(first.items.at(-1).binding.crop_id, 'crop-1999');
+    assert.equal(calls.length, 1);
+    assert.ok(calls.every((call) => call.limit <= 2000));
+    assert.equal(calls.at(-1).limit, 2000);
     assert.ok(calls.slice(1).every((call) => call.read_token === 'stable'));
-    const second = await symbolQueue('game', 500, first.read_token);
+    const second = await symbolQueue('game', 2000, first.read_token);
     assert.equal(second.items.length, 20);
-    assert.equal(second.items[0].binding.crop_id, 'crop-500');
+    assert.equal(second.items[0].binding.crop_id, 'crop-2000');
   } finally {
     globalThis.fetch = originalFetch;
     globalThis.Request = OriginalRequest;
   }
 });
 
-test('queue rejects a changed view while assembling 500 crops', async () => {
+test('queue rejects a changed view if a response requires continuation', async () => {
   const originalFetch = globalThis.fetch;
   const OriginalRequest = globalThis.Request;
   globalThis.Request = class extends OriginalRequest {

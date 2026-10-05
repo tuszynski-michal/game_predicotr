@@ -399,14 +399,28 @@ Nierozstrzygnięty globalny podział zatrzymuje odczyt jawnym błędem; zwykły
 holdout jest pomijany bez ujawnienia źródła. Błąd nie udaje pustej kolejki.
 Token wiąże obie rewizje, grę, sortowanie oraz wersję renderera. Jawne
 „Do ponownej oceny” odróżnia drift od braku wcześniejszej decyzji.
-Klient składa jedną stronę widoku do 500 cropów z kolejnych żądań po
-maksymalnie 30; każde używa tego samego read_token, rewizji i sumy.
-Niepełna lub zmieniona seria odrzuca całą stronę, bez pokazywania
-częściowego wyboru. Backend nadal renderuje tylko żądaną partię.
+TASK-0852/D-497 rozszerza istniejący odczyt do 2000 cropów jednym żądaniem;
+domyślny limit 30 pozostaje. Renderer dekoduje każde źródło raz i ogranicza
+sumę PNG do 48 MiB przed kolejnym renderowaniem; przekroczenie daje
+SYMBOL_QUEUE_PREVIEW_TOO_LARGE bez części strony. Klient odrzuca niepełną
+lub zmienioną serię, zachowując token, rewizję i sumę.
+Poczekalnia zachowuje wszystkie wyświetlone piksele do jawnego refresh.
+Potwierdzony label_cells_decide oznacza tylko dokładne bindingi jako assigned,
+zachowuje obrazy/klasę/następny wybór i przesuwa CAS o jedną rewizję.
+Nie odnawia read_token; kolejna nawigacja pobiera limit=1 ze świeżym tokenem,
+a potem żądaną stronę, uwzględniając lokalnie zapisane pola w offset.
+Zmiana busy nie uruchamia odczytu. W trakcie zapisu blokowane są wysłane pola
+i kolejny submit, ale można wybierać następne pola/klasę. Niepotwierdzony zapis
+blokuje edycję do identycznego retry albo jawnego read. Niezgodny receipt
+unieważnia lokalną stronę. Lista etykiet wymaga jawnego read po zapisie kolejki;
+pozostałe mutacje zachowują pełny reload. Wersja/grant/holdout i writer bez zmian.
+Otwarty edytor całej planszy zachowuje poprzedni snapshot bez automatycznego
+odczytu po batchu kolejki. Edycja tej planszy wymaga jawnego „Odczytaj stan”;
+nie uruchamia konkurencyjnego czytnika blokującego następny zapis kolejki.
 Ten sam `lab_queue` dopuszcza `view=assigned` z wymaganym `symbol_id`
 aktywnego słownika. Zwraca wyłącznie bieżące zatwierdzenia bez driftu,
 zachowuje kontrolę roli i holdoutu przed odczytem pikseli oraz paginację
-po 30 na żądanie. Token wiąże także widok i symbol, więc nie wolno użyć
+do 2000 na żądanie (domyślnie 30). Token wiąże także widok i symbol, więc nie wolno użyć
 strony poczekalni jako strony przypisań. Domyślny `view=pending` zachowuje
 dotychczasową kolejkę bez zmiany zapisu.
 Addytywne `label_cells_decide` w POST /symbols zapisuje 1–30 unikalnych

@@ -15,6 +15,7 @@ from game_predictor_worker.vision_lab.symbol_contracts import (
     LabQueueRequest,
 )
 from game_predictor_worker.vision_lab.symbol_store import SymbolLabelStore
+from pydantic import ValidationError
 from test_vision_lab_annotations import request_for
 from test_vision_lab_symbol_labels import dictionary, symbols
 
@@ -68,6 +69,58 @@ def test_queue_before_dictionary_page_and_single_decode(tmp_path, monkeypatch):
     assert [item.binding.cell_index for item in second.items] == list(range(10, 15))
     with pytest.raises(ValueError, match="PAGE_VIEW_CHANGED"):
         queue(store, source, offset=10, token="old")
+
+
+def test_large_queue_additive_limit_single_decode_and_default(tmp_path, monkeypatch):
+    store, source = symbols(tmp_path)
+    add_board(store, source, 1)
+    add_board(store, source, 2)
+    calls = []
+    original = store.catalog.image
+    monkeypatch.setattr(
+        store.catalog, "image", lambda value: (calls.append(value.id), original(value))[1]
+    )
+    client = TestClient(
+        create_app(store.catalog, store.annotations.root, symbol_root=store.root),
+        base_url="http://127.0.0.1:8102",
+    )
+    body = {"kind": "lab_queue", "game_id": source.game_id}
+    headers = {"Origin": "http://127.0.0.1:3102"}
+    small = client.post("/symbol-crops", json=body, headers=headers)
+    assert small.status_code == 200 and len(small.json()["items"]) == 30
+    calls.clear()
+    large = client.post("/symbol-crops", json={**body, "limit": 2000}, headers=headers)
+    assert large.status_code == 200 and len(large.json()["items"]) == 45
+    assert calls == [source.id]
+    assert large.json()["items"][:30] == small.json()["items"]
+    assert (
+        client.post("/symbol-crops", json={**body, "limit": 2001}, headers=headers).status_code
+        == 422
+    )
+    with pytest.raises(ValidationError):
+        LabelCellsDecide(
+            op="label_cells_decide",
+            request_id="too-many",
+            expected_revision=0,
+            dictionary_version=1,
+            dictionary_digest="a" * 64,
+            symbol_id="a",
+            bindings=[item["binding"] for item in large.json()["items"][:31]],
+        )
+
+
+def test_queue_png_budget_stops_without_partial_result(tmp_path, monkeypatch):
+    from game_predictor_worker.vision_lab import symbol_crops
+
+    store, source = symbols(tmp_path)
+    original = symbol_crops.render_selected_bindings
+    monkeypatch.setattr(
+        "game_predictor_worker.vision_lab.symbol_store.render_selected_bindings",
+        lambda *args, **kwargs: original(*args, **{**kwargs, "max_png_bytes": 1}),
+    )
+    with pytest.raises(ValueError, match="SYMBOL_QUEUE_PREVIEW_TOO_LARGE"):
+        queue(store, source, limit=2000)
+    assert not store.root.exists()
 
 
 def test_batch_exact_retry_and_no_partial_last_binding(tmp_path, monkeypatch):

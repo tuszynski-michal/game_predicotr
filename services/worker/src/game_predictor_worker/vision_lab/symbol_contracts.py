@@ -178,7 +178,7 @@ class LabQueueRequest(Contract):
     view: Literal["pending", "assigned"] = "pending"
     symbol_id: str | None = None
     offset: int = Field(default=0, ge=0)
-    limit: int = Field(default=30, ge=1, le=30)
+    limit: int = Field(default=30, ge=1, le=2000)
     read_token: str | None = None
 
 

@@ -155,12 +155,14 @@ def render_selected_bindings(
     selections: list[tuple[str, int, int, int]],
     *,
     preview_grant: LabelPreviewGrant | None = None,
+    max_png_bytes: int | None = None,
 ) -> list[tuple[CropBinding, bytes]]:
     """Render only selected cells, decoding each source at most once."""
     current_source: str | None = None
     image: np.ndarray | None = None
     boards: dict[tuple[str, int], tuple[GeometryAnnotation, list[np.ndarray]]] = {}
     result: list[tuple[CropBinding, bytes]] = []
+    png_bytes = 0
     for sid, board_index, cell_index, revision in selections:
         if sid != current_source:
             if current_source is not None and sid < current_source:
@@ -206,6 +208,9 @@ def render_selected_bindings(
                 ),
             )
         )
+        png_bytes += len(result[-1][1])
+        if max_png_bytes is not None and png_bytes > max_png_bytes:
+            raise ValueError("SYMBOL_QUEUE_PREVIEW_TOO_LARGE")
     return result
 
 

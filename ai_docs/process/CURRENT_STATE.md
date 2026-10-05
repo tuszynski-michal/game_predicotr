@@ -6,6 +6,25 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0852 — szybkość zapisu i poczekalnia 2000 (done)
+
+- Operator zgłosił wielominutową blokadę po przypisaniu symboli i doprecyzował
+  zamrożenie miniatur do odświeżenia. Jeden odczyt do 2000 cropów; potwierdzony
+  zapis oznacza pola bez ponownego pobierania strony. Następny wybór podczas
+  zapisu jest dostępny; kolejny submit wymaga receipt. D-497.
+- Istniejący kontrakt rozszerzany addytywnie; domyślny podgląd 30 i zapis do
+  30 pozostają. Budżet PNG 48 MiB; stare tokeny nigdy nie są odnawiane lokalnie.
+- Zachowujemy bieżące etykiety człowieka. Bez zmian DB, treningu, aktywacji,
+  shadow, push/merge. Weryfikacja realnych danych tylko odczytowa.
+- 73 Python + 37 UI + 5 klienta PASS; format/lint/typy/OpenAPI/drift/build PASS.
+  2000 realnych cropów: 5,464 s, 32,34 MiB base64. Restart API/UI 8102/3102
+  z trwałej konfiguracji, PID 18980/18320, ready. Sumy etykiet i siatek identyczne.
+  Browser: 2000 kafelków, 64 loaded/enabled, zero błędów. Własny audyt PASS.
+- Raport `ai_docs/quality/SYMBOL_REVIEW_PERFORMANCE_20261005.md`.
+  Task `ai_docs/tasks/completed/0852-symbol-review-save-and-queue-performance.md`.
+  Osobny commit `v1.7.198`; pełny hash dopisywany po commicie. Zastane metadane
+  innych tasków pozostają poza commitem. Pierwszy odczyt nadal trwa kilka sekund.
+
 ### TASK-0851 — wersja etykiet symboli Mumii (done)
 
 - Operator 2026-10-05 zaakceptował kontrakt i potwierdził dwa różne nagrania.

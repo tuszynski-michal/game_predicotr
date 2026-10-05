@@ -6,6 +6,22 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-497 — zamrożony widok symboli i pojedynczy odczyt 2000 cropów
+
+- **Status:** accepted, 2026-10-05; operator zgłosił opóźnienia i jawnie
+  doprecyzował zamrożenie widoku do odświeżenia, bez blokowania całego panelu.
+- **Decision:** addytywny limit odczytu 2000, domyślny 30 i limit zapisu 30
+  zachowane; budżet 48 MiB PNG. Potwierdzony batch aktualizuje oznaczenie
+  dokładnych bindingów i CAS, pozostawiając miniatury. Następny wybór podczas
+  zapisu jest dozwolony; następny submit wymaga receipt.
+- **Protection:** brak lokalnego odnowienia read_token. Nawigacja czyta nowy
+  token serwera i uwzględnia zapisane pola w offset. Utrata odpowiedzi zachowuje
+  dokładny retry, niezgodny receipt unieważnia stronę. Bez zmian zgód/splitów,
+  kwalifikacji treningu, DB i zapisów testowych na danych operatora.
+- **Evidence:** TASK-0852; odczyt 2000 istniejących cropów 5,464 s / 32,34 MiB
+  base64; test dwóch zapisów, wyboru podczas oczekiwania, lost response/retry
+  i świeżego tokenu przechodzi bez ponownego pobierania całej kolejki.
+
 ## D-496 — jawna wersja referencji do etykietowania symboli po korektach siatek
 
 - **Status:** accepted, 2026-10-05; operator zaakceptował kontrakt TASK-0851.

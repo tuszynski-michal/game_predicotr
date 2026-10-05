@@ -214,8 +214,10 @@ class SymbolLabelStore:
         raise KeyError("SYMBOL_DICTIONARY_NOT_FOUND")
 
     @staticmethod
-    def validate_page(offset: int, limit: int, supplied: str | None, token: str) -> None:
-        if offset < 0 or not 1 <= limit <= 100:
+    def validate_page(
+        offset: int, limit: int, supplied: str | None, token: str, maximum: int = 100
+    ) -> None:
+        if offset < 0 or not 1 <= limit <= maximum:
             raise ValueError("SYMBOL_PAGE_INVALID")
         if (offset and supplied is None) or (supplied is not None and supplied != token):
             raise ValueError("PAGE_VIEW_CHANGED")
@@ -434,7 +436,8 @@ class SymbolLabelStore:
         source_components = {sid: members for members in components.values() for sid in members}
         pilot_current = None
         if (
-            state.split is not None
+            preview_grant is None
+            and state.split is not None
             and state.split.policy_version == "lab-geometry-whole-game-pilot-v1"
         ):
             from .whole_game_split import pilot_is_current
@@ -571,7 +574,7 @@ class SymbolLabelStore:
                         digest(render_spec()),
                     ],
                 )
-                self.validate_page(request.offset, request.limit, request.read_token, token)
+                self.validate_page(request.offset, request.limit, request.read_token, token, 2000)
                 descriptors = self.queue_descriptors(
                     payload, state, request.game_id, request.view, request.symbol_id, grant
                 )
@@ -587,6 +590,7 @@ class SymbolLabelStore:
                     self.annotations.snapshot_id,
                     requested,
                     preview_grant=grant,
+                    max_png_bytes=48 * 1024 * 1024,
                 )
                 items = [
                     LabQueueItem(

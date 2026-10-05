@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { registerHooks } from 'node:module';
+import { registerHooks, createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { readFileSync, existsSync, statSync } from 'node:fs';
 import ts from 'typescript';
 import React from 'react';
-import { act, create } from 'react-test-renderer';
 
 // Isolated UI harness: real React components, transport replaced before import.
 const apiUrl = new URL(
@@ -12,8 +12,14 @@ const apiUrl = new URL(
   import.meta.url,
 ).href;
 const nextLinkUrl = new URL('./next-link-harness.mjs', import.meta.url).href;
+const harnessRequire = createRequire(import.meta.url);
+const reactUrls = Object.fromEntries(['react', 'react/jsx-runtime', 'react/jsx-dev-runtime']
+  .map((specifier) => [specifier, pathToFileURL(harnessRequire.resolve(specifier)).href]));
 registerHooks({
   resolve(specifier, context, next) {
+    // Renderer and workspace components must share the app's pinned React.
+    if (reactUrls[specifier])
+      return { url: reactUrls[specifier], shortCircuit: true };
     // Next's bundler resolves this extensionless CJS entry and unwraps its
     // default export. Native Node ESM needs both steps explicitly. Keep the
     // real Link implementation: this is resolution, not a replacement anchor.
@@ -43,7 +49,7 @@ registerHooks({
         shortCircuit: true,
         source:
           'export const listRuns = (...args) => globalThis.labApi.runs?.(...args) ?? Promise.resolve({runs: [], total: 0});' +
-          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = (...args) => globalThis.labApi.detect?.(...args) ?? Promise.resolve({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => []; export const symbolLabels = (...args) => globalThis.labApi.symbolLabels(...args); export const symbolDictionaries = (...args) => globalThis.labApi.symbolDictionaries(...args); export const symbolDictionary = (...args) => globalThis.labApi.symbolDictionary(...args); export const symbolBoard = (...args) => globalThis.labApi.symbolBoard(...args); export const SYMBOL_QUEUE_VIEW_SIZE = 500; export const symbolQueue = (...args) => globalThis.labApi.symbolQueue?.(...args) ?? Promise.resolve({kind: "lab_queue", items: [], total: 0, revision: 0, read_token: "test"}); export const symbolCrop = (...args) => globalThis.labApi.symbolCrop(...args); export const writeSymbol = (...args) => globalThis.labApi.writeSymbol(...args); export const backupSymbols = (...args) => globalThis.labApi.backupSymbols(...args);',
+          'export const assetUrl = (id) => id; export const readAnnotations = (...args) => globalThis.labApi.read(...args); export const writeAnnotation = (...args) => globalThis.labApi.write(...args); export const writePhotoReview = (...args) => globalThis.labApi.review(...args); export const previewGeometry = (...args) => globalThis.labApi.preview(...args); export const listSources = (...args) => globalThis.labApi.list(...args); export const detectGeometry = (...args) => globalThis.labApi.detect?.(...args) ?? Promise.resolve({}); export const writeFamily = async () => ({}); export const backupAnnotations = async () => ({}); export const annotationTimings = async () => []; export const symbolLabels = (...args) => globalThis.labApi.symbolLabels(...args); export const symbolDictionaries = (...args) => globalThis.labApi.symbolDictionaries(...args); export const symbolDictionary = (...args) => globalThis.labApi.symbolDictionary(...args); export const symbolBoard = (...args) => globalThis.labApi.symbolBoard(...args); export const SYMBOL_QUEUE_VIEW_SIZE = 2000; export const symbolQueue = (...args) => globalThis.labApi.symbolQueue?.(...args) ?? Promise.resolve({kind: "lab_queue", items: [], total: 0, revision: 0, read_token: "test"}); export const symbolCrop = (...args) => globalThis.labApi.symbolCrop(...args); export const writeSymbol = (...args) => globalThis.labApi.writeSymbol(...args); export const backupSymbols = (...args) => globalThis.labApi.backupSymbols(...args);',
       };
     if (/\.(tsx|ts)$/.test(url))
       return {
@@ -60,6 +66,7 @@ registerHooks({
     return next(url, context);
   },
 });
+const { act, create } = await import('react-test-renderer');
 const { GeometryEditor } =
   await import('../src/components/geometry-editor.tsx');
 const { QuickReview } = await import('../src/components/quick-review.tsx');
@@ -138,7 +145,7 @@ test('queue component requires loaded pixels and refreshes after image failure',
         entries: [{ id: 'b', display_name: 'Jabłko' }] },
     })));
     assert.equal(root.root.findByType('select').props.value, '');
-    assert.equal(button(root, 'Przypisz zaznaczone (1)').props.disabled, true);
+    assert.equal(button(root, 'Przypisz zaznaczone (0)').props.disabled, true);
     await act(async () => images[1].props.onError());
     assert.equal(root.root.findAllByType('input')[1].props.disabled, true);
     const oldImageOnLoad = images[0].props.onLoad;
@@ -372,6 +379,87 @@ test('real NextLink resolves and renders its navigation anchor in the Node harne
     await act(async () => root.unmount());
   }
 });
+test('parent freezes pixels across two writes, permits next selection and retains exact lost-response retry', async () => {
+  let reads = 0, labels = 0, boardReads = 0, failFirst;
+  const requests = [];
+  const dictionary = { origin: 'lab', game_id: 'g', active: true, status: 'approved',
+    version: 1, digest: 'dict', entries: [{ id: 'a', display_name: 'A' }, { id: 'b', display_name: 'B' }] };
+  const page = { kind: 'lab_queue', revision: 2, read_token: 'queue', total: 2001,
+    items: [0, 1, 2].map((cell_index) => ({ binding: { crop_id: `c${cell_index}`,
+      cell_index, source_id: 's', board_index: 0 }, status: 'unassigned', png_base64: 'pixels' })) };
+  globalThis.labApi = {
+    read: async () => ({ revision: 1, annotations: { 's:0': {
+      source_id: 's', board_index: 0, revision: 1, presence: 'present', full_approved: true } } }),
+    list: async () => ({ sources: [{ id: 's', game_id: 'g', game_name: 'Gra', filename: 'photo' }], total: 1 }),
+    symbolLabels: async () => { labels++; return { items: [], total: 0, revision: 2, read_token: 'labels' }; },
+    symbolDictionaries: async () => ({ items: [dictionary], total: 1, read_token: 'dict' }),
+    symbolDictionary: async () => dictionary,
+    symbolBoard: async () => {
+      boardReads++;
+      return { kind: 'lab_board', revision: 2, dictionary, topology: { columns: 5, rows: 3 },
+        width: 100, height: 60, board_png_base64: 'pixels',
+        nodes: Array.from({ length: 24 }, (_, i) => ({ x: (i % 6) * 20, y: Math.floor(i / 6) * 20 })),
+        cells: Array.from({ length: 15 }, (_, cell_index) => ({ binding: {
+          crop_id: `board-${cell_index}`, cell_index }, png_base64: 'pixels', current: null })) };
+    },
+    symbolQueue: async (...args) => {
+      reads++;
+      if (args[4] === 1) return { ...page, total: 1999, revision: 4, read_token: 'fresh', items: page.items.slice(0, 1) };
+      if (reads > 1) { assert.equal(args[2], 'fresh'); assert.equal(args[1], 1); }
+      return structuredClone(page);
+    },
+    writeSymbol: async (request) => {
+      requests.push(request);
+      if (requests.length === 1) return new Promise((_resolve, reject) => { failFirst = reject; });
+      return { revision: request.expected_revision + 1, request_id: request.request_id,
+        label_valid: true, decision_ids: [`d${requests.length}`], replayed: requests.length === 2 };
+    },
+  };
+  let root;
+  await act(async () => { root = create(React.createElement(ToastProvider, null,
+    React.createElement(AnnotationProvider, null, React.createElement(SymbolLabelEditor)))); });
+  try {
+    await act(async () => root.root.findAllByType('select')[0].props.onChange({ target: { value: 'g' } }));
+    const queue = () => root.root.findByType(SymbolCandidateQueue);
+    await act(async () => root.root.findByType(SymbolBoardEditor).findAllByType('select')[0].props.onChange({ target: { value: 's' } }));
+    await act(async () => root.root.findByType(SymbolBoardEditor).findAllByType('select')[1].props.onChange({ target: { value: '0' } }));
+    assert.equal(boardReads, 1);
+    await act(async () => queue().findAllByType('img').forEach((image) => image.props.onLoad()));
+    const images = queue().findAllByType('img').map((image) => image.props.src);
+    await act(async () => queue().findByType('select').props.onChange({ target: { value: 'a' } }));
+    await act(async () => queue().findAllByType('input')[0].props.onChange({ target: { checked: true } }));
+    await act(async () => button(root, 'Przypisz zaznaczone (1)').props.onClick());
+    assert.equal(queue().findByType('select').props.disabled, false);
+    assert.equal(queue().findAllByType('input')[0].props.disabled, true);
+    assert.equal(queue().findAllByType('input')[1].props.disabled, false);
+    await act(async () => {
+      queue().findByType('select').props.onChange({ target: { value: 'b' } });
+      queue().findAllByType('input')[1].props.onChange({ target: { checked: true } });
+    });
+    assert.equal(button(root, 'Przypisz zaznaczone (1)').props.disabled, true);
+    await act(async () => failFirst(new Error('lost response')));
+    assert.equal(queue().findByType('select').props.disabled, true);
+    assert.equal(reads, 1);
+    assert.equal(queue().findAllByType('small')[0].children.join(''), 'Nieprzypisany');
+    await act(async () => button(root, 'Ponów identyczny zapis').props.onClick());
+    assert.equal(requests[1], requests[0]);
+    assert.equal(queue().findAllByType('small')[0].children.join(''), 'Zapisany');
+    assert.equal(queue().findByType('select').props.value, 'b');
+    assert.equal(queue().findAllByType('input')[1].props.checked, true);
+    await act(async () => button(root, 'Przypisz zaznaczone (1)').props.onClick());
+    assert.equal(requests[2].expected_revision, 3);
+    assert.equal(requests[2].symbol_id, 'b');
+    assert.equal(reads, 1);
+    assert.equal(labels, 1);
+    assert.equal(boardReads, 1); // an open board must not start a competing reader after queue writes
+    assert.equal(root.root.findByType(SymbolBoardEditor).props.disabled, true);
+    assert.deepEqual(queue().findAllByType('img').map((image) => image.props.src), images);
+    assert.equal(queue().findAllByType('input')[2].props.disabled, false);
+    await act(async () => button(root, 'Następna strona').props.onClick());
+    assert.equal(reads, 3); // one bounded token read, then the requested page
+  } finally { await act(async () => root.unmount()); }
+});
+
 test('parent reload stays disabled while queue reads a selected game', async () => {
   let finishQueue;
   const source = { id: 's', game_id: 'g', game_name: 'Gra', filename: 'photo.jpg' };

@@ -2042,7 +2042,7 @@
           },
           "limit": {
             "default": 30,
-            "maximum": 30.0,
+            "maximum": 2000.0,
             "minimum": 1.0,
             "title": "Limit",
             "type": "integer"

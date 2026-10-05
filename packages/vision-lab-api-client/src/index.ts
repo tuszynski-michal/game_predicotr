@@ -118,7 +118,9 @@ export async function symbolCrop(body: SymbolCropRequest, timeoutMs = 60_000) {
   // on both success and failure so a board and queue can refresh together.
   const previous = symbolPreviewTail;
   let release: () => void = () => {};
-  symbolPreviewTail = new Promise<void>((resolve) => { release = resolve; });
+  symbolPreviewTail = new Promise<void>((resolve) => {
+    release = resolve;
+  });
   await previous;
   const controller = new AbortController();
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -129,10 +131,17 @@ export async function symbolCrop(body: SymbolCropRequest, timeoutMs = 60_000) {
     }, timeoutMs);
   });
   try {
-    return (await Promise.race([
-      previewSymbolCrop({ baseUrl, body, signal: controller.signal, throwOnError: true }),
-      timeout,
-    ])).data;
+    return (
+      await Promise.race([
+        previewSymbolCrop({
+          baseUrl,
+          body,
+          signal: controller.signal,
+          throwOnError: true,
+        }),
+        timeout,
+      ])
+    ).data;
   } finally {
     if (timeoutId !== undefined) clearTimeout(timeoutId);
     release();
@@ -146,33 +155,47 @@ export async function symbolBoard(
     throw new Error('SYMBOL_BOARD_RESPONSE_INVALID');
   return preview;
 }
-export const SYMBOL_QUEUE_VIEW_SIZE = 500;
-const SYMBOL_QUEUE_FETCH_SIZE = 30;
+export const SYMBOL_QUEUE_VIEW_SIZE = 2000;
+const SYMBOL_QUEUE_FETCH_SIZE = 2000;
 
 export async function symbolQueue(
   gameId: string,
   offset = 0,
   readToken?: string,
   symbolId?: string,
+  viewSize = SYMBOL_QUEUE_VIEW_SIZE,
 ) {
+  if (
+    !Number.isInteger(viewSize) ||
+    viewSize < 1 ||
+    viewSize > SYMBOL_QUEUE_VIEW_SIZE
+  )
+    throw new Error('SYMBOL_QUEUE_PAGE_INVALID');
   let token = readToken;
   let revision: number | undefined;
   let total: number | undefined;
-  const items = [] as Extract<Awaited<ReturnType<typeof symbolCrop>>, { kind: 'lab_queue' }>['items'];
-  while (items.length < SYMBOL_QUEUE_VIEW_SIZE) {
+  const items = [] as Extract<
+    Awaited<ReturnType<typeof symbolCrop>>,
+    { kind: 'lab_queue' }
+  >['items'];
+  while (items.length < viewSize) {
     const preview = await symbolCrop({
       kind: 'lab_queue',
       game_id: gameId,
       view: symbolId ? 'assigned' : 'pending',
       symbol_id: symbolId,
       offset: offset + items.length,
-      limit: Math.min(SYMBOL_QUEUE_FETCH_SIZE, SYMBOL_QUEUE_VIEW_SIZE - items.length),
+      limit: Math.min(SYMBOL_QUEUE_FETCH_SIZE, viewSize - items.length),
       read_token: token,
     });
     if (preview.kind !== 'lab_queue')
       throw new Error('SYMBOL_QUEUE_RESPONSE_INVALID');
-    if (revision !== undefined &&
-      (preview.revision !== revision || preview.total !== total || preview.read_token !== token))
+    if (
+      revision !== undefined &&
+      (preview.revision !== revision ||
+        preview.total !== total ||
+        preview.read_token !== token)
+    )
       throw new Error('SYMBOL_QUEUE_VIEW_CHANGED');
     token = preview.read_token;
     revision = preview.revision;
@@ -184,7 +207,13 @@ export async function symbolQueue(
       return { ...preview, items };
     }
   }
-  return { kind: 'lab_queue' as const, items, total: total!, revision: revision!, read_token: token! };
+  return {
+    kind: 'lab_queue' as const,
+    items,
+    total: total!,
+    revision: revision!,
+    read_token: token!,
+  };
 }
 export async function writeSymbol(body: SymbolRequest) {
   return (await saveSymbolDecision({ baseUrl, body, throwOnError: true })).data;

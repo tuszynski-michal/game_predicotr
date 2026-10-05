@@ -311,6 +311,16 @@ wyświetla reasons; integrity całego store/snapshotu zatrzymuje cały odczyt.
 
 ## UI i testy/odbiór
 
+TASK-0852/D-497: istniejący lab_queue ma addytywny limit 1–2000, domyślnie
+30; suma PNG najwyżej 48 MiB, błąd SYMBOL_QUEUE_PREVIEW_TOO_LARGE bez części
+wyniku. Limit label_cells_decide nadal 1–30. UI utrzymuje zamrożone miniatury
+do refresh, oznacza tylko receipt-confirmed bindingi jako zapisane i aktualizuje
+CAS bez automatycznego odczytu API. Podczas oczekiwania można wybrać następne
+pola i klasę; submit i nawigacja czekają na potwierdzenie. Przy utracie odpowiedzi
+obowiązuje dokładny retry. Oryginalny read_token pozostaje nieważny po zapisie;
+nawigacja pobiera świeży limit=1 i potem stronę. Niezgodny receipt wymaga
+jawnego read. Zasady holdout, geometrii, dictionary i trwałego writera zostają.
+
 Rozszerzenie D-459/TASK-0716 zastępuje pojedynczy wybór komórki widokiem
 całej planszy. Uzgodniony kontrakt lab_board/label_board_decide, atomowość,
 zgodność starych requestów i macierz regresji znajdują się w TASK-0716.

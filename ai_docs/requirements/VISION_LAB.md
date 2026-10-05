@@ -291,9 +291,15 @@ klasę słownika, po czym zapisuje tylko zaznaczone cropy atomowo. Brak
 zatwierdzonego słownika blokuje zapis, ale nie podgląd. Poczekalnia sama
 nie zapisuje etykiety, nie uruchamia treningu i nie ujawnia chronionych źródeł.
 „Grupa” symboli jest zwykłym wpisem słownika, nie nowym poziomem danych.
-Panel pokazuje do 500 cropów na jednej przewijanej stronie, pobierając je
-małymi partiami. To limit widoku, nie jednej transakcji: pojedyncze
+Panel pokazuje do 2000 cropów na jednej przewijanej stronie, pobierając je
+jednym ograniczonym żądaniem. To limit widoku, nie jednej transakcji: pojedyncze
 przypisanie pozostaje ograniczone do 30 świadomie wybranych cropów.
+Miniatury pozostają zamrożone do jawnego odświeżenia. Potwierdzony zapis
+oznacza wybrane pola jako „Zapisany” i blokuje ich ponowny wybór bez
+przeładowywania strony. Podczas zapisu można przygotować kolejny wybór pól
+i klasy; następny zapis czeka na receipt. Brak odpowiedzi wymaga identycznego
+retry albo jawnego odczytu po konflikcie. Stary token strony nie jest
+odnawiany przez UI; nawigacja po zapisie pobiera aktualny token serwera.
 Pod poczekalnią operator może wybrać symbol aktywnego słownika i obejrzeć
 wszystkie jego aktualnie przypisane cropy z nazwą źródła, numerem planszy i
 pola. Widok jest tylko do odczytu i stronicowany; decyzje nieaktualne po

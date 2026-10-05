@@ -48,7 +48,7 @@ last_updated: 2026-10-05
 
 ## Kluczowe decyzje projektu
 
-### Kontrakt zapisu (proponowane, wymaga D-496)
+### Kontrakt zapisu (proponowane, wymaga D-520)
 
 | Wynik RGB v2 | `symbolCode` | `confidence` | Rewizja `model_version` |
 | --- | --- | --- | --- |
@@ -114,7 +114,7 @@ RGB ≠ status obecny. Przykłady:
 
 ### Etap A — implementacja (bez zapisu w bazie poza testami)
 
-#### TASK-0858 — decyzja RGB v2 i indeks pasm w podglądzie
+#### TASK-0870 — decyzja RGB v2 i indeks pasm w podglądzie
 
 - Goal: `apply-preview --policy rgb-v2` liczy propozycje dokładnie jak
   `scripts/recognize_grid_audit_symbols.py` (`AuditRgbClassifier.candidates` na
@@ -134,20 +134,20 @@ RGB ≠ status obecny. Przykłady:
   `test_evaluate_symbol_reference_library_script.py` (nowe przypadki),
   `test_grid_audit_feedback_evaluation.py`.
 
-#### TASK-0859 — kontrakt zapisu `symbol-rgb-v2` w writerze
+#### TASK-0871 — kontrakt zapisu `symbol-rgb-v2` w writerze
 
 - Goal: writer zapisuje rewizję `symbol-rgb-v2` z wpisem `rgbV2` i pewnością
   0,99/0,50; `apply-verify` i `apply-revert` obsługują nową wersję;
   `SIDE_EFFECT` na komórce spoza celów kończy planszę jako `stale:side_effect`.
 - Scope: `reference_library_writer.py` (parametr polityki zamiast stałych),
   `evaluate_symbol_reference_library.py` (`apply`, `apply-verify`,
-  `apply-revert`), wpis D-496 w `DECISION_LOG.md`.
+  `apply-revert`), wpis D-520 w `DECISION_LOG.md`.
 - Acceptance: testy writera dla obu statusów, celu na komórce starej biblioteki,
   przypadku bez zmiany (brak celu), side-effect jako stale; test PG
   (`GAME_PREDICTOR_RUN_POSTGRES_TESTS=1`) zapisu i cofnięcia jednej planszy.
 - Tests: `test_symbol_reference_library_writer.py` + integracyjny PG.
 
-#### TASK-0860 — źródło „RGB v2” w filtrze Admina
+#### TASK-0872 — źródło „RGB v2” w filtrze Admina
 
 - Goal: Admin → Weryfikacja symboli → „Źródło predykcji” ma opcję
   „RGB v2” (oraz „RGB v2 — do przeglądu”), dotychczasowe opcje bez zmian.
@@ -156,7 +156,7 @@ RGB ≠ status obecny. Przykłady:
   test żądania, Admin `symbol-review-workspace.tsx`.
 - Acceptance: `npm run openapi:check`, testy API i Admina, ręczny podgląd filtra.
 
-#### TASK-0861 — trwały sterownik pasm
+#### TASK-0873 — trwały sterownik pasm
 
 - Goal: skrypt w repo (`scripts/run_symbol_rgb_bands.ps1`, proponowany)
   wykonuje dla zadanego pasma osiem symboli po kolei (podgląd → stop na
@@ -170,11 +170,11 @@ RGB ≠ status obecny. Przykłady:
 
 | Task | Pasmo | Bramka przed zapisem |
 | --- | --- | --- |
-| TASK-0862 | < 60% | podgląd 8 symboli + próbki; zgoda operatora |
-| TASK-0863 | 60–80% | j.w. |
-| TASK-0864 | 80–90% | j.w. |
-| TASK-0865 | 90–99% | j.w. |
-| TASK-0866 | 99–100% | j.w. + liczba zapisów 0,50 i szacunek czasu |
+| TASK-0874 | < 60% | podgląd 8 symboli + próbki; zgoda operatora |
+| TASK-0875 | 60–80% | j.w. |
+| TASK-0876 | 80–90% | j.w. |
+| TASK-0877 | 90–99% | j.w. |
+| TASK-0878 | 99–100% | j.w. + liczba zapisów 0,50 i szacunek czasu |
 
 Każdy: zapis per symbol, `apply-verify` każdej części, raport w Outcome,
 `CURRENT_STATE.md`. Stare przebiegi TASK-0832/0833 zamykane jako zastąpione
@@ -194,7 +194,7 @@ Każdy: zapis per symbol, `apply-verify` każdej części, raport w Outcome,
 ## Ryzyka i zakres wyłączony
 
 - Pasmo 5 może dać setki tysięcy komórek 0,50 (obciążenie przeglądu) — decyzja
-  na bramce TASK-0866 (np. nie obniżać pewnych komórek modelu ≥ 99% bez zmiany
+  na bramce TASK-0878 (np. nie obniżać pewnych komórek modelu ≥ 99% bez zmiany
   symbolu).
 - Przyspieszenie `_with_render_specs` (~75 s na rundę) poza zakresem; osobna
   propozycja zadania.
@@ -207,15 +207,15 @@ Każdy: zapis per symbol, `apply-verify` każdej części, raport w Outcome,
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-0858 | claude-opus-5-5 | high | Port metody z dowodem identyczności na snapshocie i nowy indeks pasm; błąd zmienia wyniki na milionach komórek. | Nie (audyt wstrzymany przez operatora 2026-10-01; na prośbę: claude-opus-5-5, high) |
-| TASK-0859 | claude-opus-5-5 | high | Nowy kontrakt zapisu i ochrona danych w transakcji planszy. | Nie (j.w.; zalecany przy włączeniu audytu: claude-opus-5-5, high) |
-| TASK-0860 | claude-sonnet-5-5 | medium | Rozszerzenie istniejącego filtra wg ustalonego przepływu API → OpenAPI → klient → Admin. | Nie |
-| TASK-0861 | claude-sonnet-5-5 | medium | Sterownik według istniejących wzorców przebiegów, bez logiki domenowej. | Nie |
-| TASK-0862 | claude-opus-5-5 | medium | Przebieg danych z bramką; ocena próbek i raport. | Nie |
-| TASK-0863 | claude-opus-5-5 | medium | Jak wyżej, kolejne pasmo. | Nie |
-| TASK-0864 | claude-opus-5-5 | medium | Jak wyżej, kolejne pasmo. | Nie |
-| TASK-0865 | claude-opus-5-5 | medium | Jak wyżej, kolejne pasmo. | Nie |
-| TASK-0866 | claude-opus-5-5 | high | Największy zbiór, decyzja o skali zapisów 0,50 na bramce. | Nie |
+| TASK-0870 | claude-opus-5-5 | high | Port metody z dowodem identyczności na snapshocie i nowy indeks pasm; błąd zmienia wyniki na milionach komórek. | Nie (audyt wstrzymany przez operatora 2026-10-01; na prośbę: claude-opus-5-5, high) |
+| TASK-0871 | claude-opus-5-5 | high | Nowy kontrakt zapisu i ochrona danych w transakcji planszy. | Nie (j.w.; zalecany przy włączeniu audytu: claude-opus-5-5, high) |
+| TASK-0872 | claude-sonnet-5-5 | medium | Rozszerzenie istniejącego filtra wg ustalonego przepływu API → OpenAPI → klient → Admin. | Nie |
+| TASK-0873 | claude-sonnet-5-5 | medium | Sterownik według istniejących wzorców przebiegów, bez logiki domenowej. | Nie |
+| TASK-0874 | claude-opus-5-5 | medium | Przebieg danych z bramką; ocena próbek i raport. | Nie |
+| TASK-0875 | claude-opus-5-5 | medium | Jak wyżej, kolejne pasmo. | Nie |
+| TASK-0876 | claude-opus-5-5 | medium | Jak wyżej, kolejne pasmo. | Nie |
+| TASK-0877 | claude-opus-5-5 | medium | Jak wyżej, kolejne pasmo. | Nie |
+| TASK-0878 | claude-opus-5-5 | high | Największy zbiór, decyzja o skali zapisów 0,50 na bramce. | Nie |
 
 Dostępność modeli i poziomów rozumowania jest warunkowa — potwierdzana przed
 uruchomieniem każdego taska.

@@ -1181,6 +1181,16 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   podział po `md5(id)`) dla zakresów o jednej pewności (Śliwka 100%: 341 766
   komórek, 6 części po ~57 tys.).
 
+### D-520 — ponowne przetworzenie oczekujących komórek metodą RGB v2 (w toku)
+
+- Plan `ai_docs/delivery/SYMBOL_RGB_V2_REPROCESSING_PLAN.md` zaakceptowany
+  2026-10-05 (handoff `ai_docs/guides/SYMBOL_RGB_FEEDBACK_HANDOFF_20261005.md`).
+  Numery TASK-0870–0878 i D-520 zarezerwowane dla tego planu (0858–0863 zajął
+  tor Mumii). Przebiegi TASK-0832/0833 starej biblioteki nie są wznawiane.
+- TASK-0870 done: decyzja RGB v2, indeks pasm (7 412 524 komórek; < 60%
+  16 481, 60–80% 54 356, 80–90% 59 261, 90–99% 273 843, 99–100% 7 008 583),
+  podgląd i manifest; zgodność z `approved-v2` 5788/5788.
+
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 
 - Plan `ai_docs/delivery/LEGACY_V1_REMNANTS_REMOVAL_EXECUTION_PLAN.md`

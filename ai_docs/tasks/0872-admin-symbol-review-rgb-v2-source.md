@@ -1,10 +1,10 @@
 ---
-title: TASK-0861 — trwały sterownik pasm RGB v2
+title: TASK-0872 — źródło RGB v2 w filtrze weryfikacji symboli
 status: todo
 last_updated: 2026-10-05
 ---
 
-# TASK-0861 — trwały sterownik pasm RGB v2
+# TASK-0872 — źródło RGB v2 w filtrze weryfikacji symboli
 
 ## Status
 
@@ -12,7 +12,7 @@ last_updated: 2026-10-05
 
 ## Goal
 
-Skrypt w repo wykonuje pasmo dla ośmiu symboli po kolei: podgląd → zatrzymanie na bramce operatora → po zgodzie zapis i weryfikacja; wznawialny po części, z logiem i raportem pasma.
+Admin → Weryfikacja symboli → „Źródło predykcji” ma opcje „RGB v2” i „RGB v2 — do przeglądu” obok istniejących; API listy, liczników, pomijania i operacji masowych przyjmuje nowe wartości.
 
 ## Context
 
@@ -37,7 +37,8 @@ przez operatora 2026-10-01).
 
 ## Scope
 
-- `scripts/run_symbol_rgb_bands.ps1` (proponowany) i runbook w `ai_docs/guides/`.
+- `SymbolCellReviewPredictionSource` i filtr w `image_symbol_review_repository.py` (wpis predykcji z kluczem `rgbV2` w rewizji `symbol-rgb-v2`; status z `rgbV2.status`).
+- OpenAPI, wygenerowany klient, wrapper, test żądania, Admin `symbol-review-workspace.tsx`.
 
 ## Out of scope
 
@@ -46,12 +47,12 @@ przez operatora 2026-10-01).
 
 ## Acceptance criteria
 
-- [ ] Suchy przebieg pasma < 60% w trybie tylko podgląd.
-- [ ] Wznowienie po przerwaniu opisane i sprawdzone.
+- [ ] `npm run openapi:check` zielone; testy API i Admina zielone.
+- [ ] Dotychczasowe opcje filtra działają jak wcześniej.
 
 ## Test cases
 
-- Suchy przebieg; parsowanie skryptu PowerShell.
+- Testy repozytorium/route dla nowych wartości; test żądania klienta; typecheck i lint Admina.
 
 ## Outcome
 

@@ -1,10 +1,10 @@
 ---
-title: TASK-0859 — kontrakt zapisu symbol-rgb-v2 w writerze
+title: TASK-0871 — kontrakt zapisu symbol-rgb-v2 w writerze
 status: todo
 last_updated: 2026-10-05
 ---
 
-# TASK-0859 — kontrakt zapisu symbol-rgb-v2 w writerze
+# TASK-0871 — kontrakt zapisu symbol-rgb-v2 w writerze
 
 ## Status
 
@@ -39,7 +39,7 @@ przez operatora 2026-10-01).
 
 - `reference_library_writer.py`: polityka zapisu jako parametr (wersja, aktor, pewność, wpis), dotychczasowe zachowanie biblioteki bez zmian.
 - Zapis/weryfikacja/cofnięcie manifestów RGB v2.
-- Wpis D-496 w `DECISION_LOG.md`.
+- Wpis D-520 w `DECISION_LOG.md`.
 
 ## Out of scope
 

@@ -6,6 +6,30 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0847 — poprawne wejście RGB i propozycje sieci w audycie siatek (done)
+
+- Operator zgłosił Śliwka → Arbuz/Pomarańcz oraz Cytryna → Pomarańcz.
+- Odczyt czterech plansz odtworzył trzy śliwki w p00519; ich opis barwy
+  zdominowało tło. Kod głosowania jest zgodny z Claude, lecz jakość na nowym
+  cięciu i przy słabszych propozycjach wymaga osobnej kontroli.
+- Próby samej barwy i dopasowania nie usunęły błędów. Głowica istniejącego
+  modelu na RGB zgodnym z treningiem daje 120/120 w dwóch małych próbkach
+  ocenionych wzrokowo przez agenta; biblioteka 115/120. Nie jest to truth operatora.
+- Audyt używa propozycji głowicy RGB i dodatkowego potwierdzenia przez
+  ścisłą bibliotekę. Brak zgodności ma `?`. Addytywna wersja algorytmu w API.
+  Wagi CNN, wzorce, zatwierdzenia i zatrzymane TASK-0832/0833 bez mutacji.
+- Wszystkie 496 otwartych plansz mają 7440 propozycji: 5662 potwierdzone przez
+  bibliotekę, 1778 z `?`. 479 poprawionych plansz bez zapisów. Biblioteka SHA bez zmian.
+- Nowy proces: `processed=0`, `coveredOpenBoards=496`; API v2 i UI p00519 odebrane
+  bez Save. Osobna karta zachowuje poprzedni widok operatora.
+- Python 79 + końcowe 15 worker PASS (jeden dodatkowy przypadek); klient 81 PASS,
+  Ruff/format, scoped strict Mypy, OpenAPI/client oraz TS klienta i Reviewera PASS.
+  Pełny Mypy trafił na niezwiązane błędy share-query/limit czasu; poza zakresem.
+- Task i plan: `ai_docs/tasks/completed/0847-grid-audit-rgb-symbol-proposals.md`.
+- Commit: przygotowany `v1.7.192`; hash do dopisania po commicie.
+- Następny krok: przegląd propozycji przez operatora. Bez treningu/aktywacji,
+  migracji, restartów usług, push/merge lub wznowienia TASK-0832/0833.
+
 ### TASK-0846 — wstępnie wybrane propozycje symboli audytu (done)
 
 - Operator 2026-10-05 zlecił propozycje także dla niepewnych pól oraz wstępny

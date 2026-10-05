@@ -4298,7 +4298,8 @@ export type GridAuditSymbolSuggestionsResponse = {
   /**
    * Algorithmversion
    */
-  algorithmVersion?: 'symbol-reference-library-v1';
+  algorithmVersion?:
+    'symbol-reference-library-v1' | 'symbol-audit-rgb-classifier-v2';
   /**
    * Artifactsha256
    */

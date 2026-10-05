@@ -753,6 +753,14 @@ Przesunięcie siatki lub zmiana kwalifikacji usuwa automatyczne wybory starego
 cięcia. Brak pikseli lub kandydata pozostaje bez wyboru. Dopiero kliknięcie
 zapisu zatwierdza wszystkie widoczne wybory, również niezmienione propozycje.
 Zwykła korekta zachowuje podpowiedzi wymagające osobnego wyboru operatora.
+
+**D-494 (TASK-0847):** propozycja audytu pochodzi z głowicy istniejącej sieci
+na oryginalnym RGB zgodnym z treningiem. Sieć wykorzystuje przestrzenny układ
+kształtu, detali i barwy; nie jest to reguła wyboru po kolorze. Dotychczasowa
+biblioteka dodatkowo potwierdza wynik przy jednomyślnej zgodności klasy.
+W pozostałych przypadkach propozycja ma `?` i wymaga przeglądu operatora.
+Wagi modelu i zatwierdzone symbole pozostają bez zmian. Metoda dotyczy tylko
+kolejki audytu, a zapis i pierwszeństwo ręcznych wyborów działają jak D-493.
 Podgląd działa przy opóźnionym katalogu, lecz zapis audytu czeka na katalog
 i propozycje. Błąd katalogu ma jawny komunikat i wymaga odświeżenia przed
 zatwierdzaniem symboli; błąd samych propozycji pozwala na ręczne wskazanie.

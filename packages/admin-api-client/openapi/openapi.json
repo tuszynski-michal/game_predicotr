@@ -7740,8 +7740,11 @@
         "additionalProperties": false,
         "properties": {
           "algorithmVersion": {
-            "const": "symbol-reference-library-v1",
             "default": "symbol-reference-library-v1",
+            "enum": [
+              "symbol-reference-library-v1",
+              "symbol-audit-rgb-classifier-v2"
+            ],
             "title": "Algorithmversion",
             "type": "string"
           },

@@ -17,6 +17,8 @@ from game_predictor_api.application.grid_audit_proposals import (
     GridAuditProposalService,
 )
 from game_predictor_api.application.grid_audit_symbol_suggestions import (
+    RGB_SYMBOL_ALGORITHM_VERSION,
+    SYMBOL_ALGORITHM_VERSION,
     SYMBOL_SUGGESTIONS_SCHEMA,
     FileGridAuditSymbolSuggestionStore,
 )
@@ -84,8 +86,12 @@ def _suggestions(tmp_path: Path) -> tuple[Path, dict[str, object]]:
     return directory / "symbol-suggestions", document
 
 
-def test_http_returns_only_new_predictions_and_restart_recovers_artifact(tmp_path: Path) -> None:
+@pytest.mark.parametrize("algorithm", [SYMBOL_ALGORITHM_VERSION, RGB_SYMBOL_ALGORITHM_VERSION])
+def test_http_returns_only_new_predictions_and_restart_recovers_artifact(
+    tmp_path: Path, algorithm: str
+) -> None:
     directory, document = _suggestions(tmp_path)
+    document["algorithmVersion"] = algorithm
     item = _items([_worklist_board(0)])[0]
     base = f"/api/v1/admin/games/{GAME_ID}/grid-audit-proposals/p00000"
     assert (
@@ -97,6 +103,7 @@ def test_http_returns_only_new_predictions_and_restart_recovers_artifact(tmp_pat
         response = _http(tmp_path, {item.recognized_board_id: 1}).get(base)
         assert response.status_code == 200
         suggestions = response.json()["symbolSuggestions"]
+        assert suggestions["algorithmVersion"] == algorithm
         assert suggestions["tentativeCellIndices"] == []
         assert suggestions["previewCommand"] == document["previewCommand"]
         assert len(suggestions["cells"]) == 15
@@ -288,8 +295,9 @@ def test_preview_uses_proposal_clamped_like_reviewer_not_stored_grid() -> None:
 
 
 @pytest.mark.parametrize("tentative", [False, True])
+@pytest.mark.parametrize("previous_policy", [False, True])
 def test_cli_recovers_publish_without_acknowledgment_and_verifies_cursor(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tentative: bool
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tentative: bool, previous_policy: bool
 ) -> None:
     directory, document = _suggestions(tmp_path)
     command = document["previewCommand"]
@@ -336,10 +344,19 @@ def test_cli_recovers_publish_without_acknowledgment_and_verifies_cursor(
             return view
         return {**page, "items": []} if "afterOrdinal=0" in path else page
 
-    model = SimpleNamespace(class_codes=("SLIWKA",), checkpoint_sha256="a" * 64)
+    model = SimpleNamespace(
+        class_codes=("SLIWKA",), checkpoint_sha256="a" * 64, checkpoint_path=tmp_path / "model.pt"
+    )
     matrix = np.zeros((15, 1), dtype=np.float32)
     monkeypatch.setattr(recognition, "read_json", read)
     monkeypatch.setattr(recognition, "frozen_library", lambda *_: (model, matrix, matrix, matrix))
+    monkeypatch.setattr(
+        recognition,
+        "AuditRgbClassifier",
+        lambda *_: SimpleNamespace(
+            candidates=lambda _: np.zeros(15, dtype=np.int64), reference_features=lambda _: matrix
+        ),
+    )
     renders = []
 
     def render(*_: object) -> bytes:
@@ -350,7 +367,6 @@ def test_cli_recovers_publish_without_acknowledgment_and_verifies_cursor(
 
     monkeypatch.setattr(recognition, "request", render)
     monkeypatch.setattr(recognition, "descriptor_matrix", lambda *_: (matrix, matrix))
-    monkeypatch.setattr(recognition.reference, "_feature_maps", lambda *_: matrix)
     monkeypatch.setattr(recognition, "combined_descriptor", lambda *_: matrix)
     monkeypatch.setattr(recognition, "normalize_rows", lambda value: value)
     monkeypatch.setattr(recognition, "vote_batch", lambda *_, **__: [None] * 15)
@@ -362,19 +378,35 @@ def test_cli_recovers_publish_without_acknowledgment_and_verifies_cursor(
             reason="not_unanimous" if tentative else "unanimous",
         ),
     )
-    monkeypatch.setattr(recognition, "hint_candidates", lambda *_: (0,))
 
     def publish_then_lose_response(*args: object) -> None:
         publish(*args)
         raise RuntimeError("Lost publication acknowledgment")
 
     monkeypatch.setattr(recognition, "publish", publish_then_lose_response)
+    if previous_policy:
+        document["displayPolicy"] = "best-candidate-v1"
+        publish(directory, "p00000", document)
+        recognition.write_json(
+            arguments.output_dir / "cursor.json",
+            {
+                "auditSha256": document["auditSha256"],
+                "afterOrdinal": 0,
+                "displayPolicy": "best-candidate-v1",
+            },
+        )
     with pytest.raises(RuntimeError, match="acknowledgment"):
         recognition.run(arguments)
     original = (directory / "p00000.json").read_bytes()
     assert json.loads(original)["cells"][0]["isTentative"] is tentative
     assert json.loads(original)["cells"][0]["symbolCode"] == "SLIWKA"
-    assert not (arguments.output_dir / "cursor.json").exists()
+    assert json.loads(original)["algorithmVersion"] == RGB_SYMBOL_ALGORITHM_VERSION
+    if previous_policy:
+        assert json.loads((arguments.output_dir / "cursor.json").read_bytes())["displayPolicy"] == (
+            "best-candidate-v1"
+        )
+    else:
+        assert not (arguments.output_dir / "cursor.json").exists()
     monkeypatch.setattr(recognition, "publish", publish)
     assert recognition.run(arguments) == 0
     assert recognition.run(arguments) == 0
@@ -393,3 +425,39 @@ def test_cli_recovers_publish_without_acknowledgment_and_verifies_cursor(
     with pytest.raises(ValueError, match="unrecognized boards"):
         recognition.run(arguments)
     assert json.loads((arguments.output_dir / "cursor.json").read_bytes())["afterOrdinal"] is None
+
+
+def test_previous_display_policy_cannot_be_recovered(tmp_path: Path) -> None:
+    directory, document = _suggestions(tmp_path)
+    document["displayPolicy"] = "best-candidate-v1"
+    publish(directory, "p00000", document)
+    assert not completed(
+        directory,
+        "p00000",
+        str(document["auditSha256"]),
+        document["previewCommand"],
+        DISPLAY_POLICY,
+    )
+
+
+def test_recovery_is_bound_to_the_frozen_checkpoint(tmp_path: Path) -> None:
+    directory, document = _suggestions(tmp_path)
+    document["displayPolicy"] = DISPLAY_POLICY
+    document["checkpointSha256"] = "a" * 64
+    publish(directory, "p00000", document)
+    assert completed(
+        directory,
+        "p00000",
+        str(document["auditSha256"]),
+        document["previewCommand"],
+        DISPLAY_POLICY,
+        "a" * 64,
+    )
+    assert not completed(
+        directory,
+        "p00000",
+        str(document["auditSha256"]),
+        document["previewCommand"],
+        DISPLAY_POLICY,
+        "b" * 64,
+    )

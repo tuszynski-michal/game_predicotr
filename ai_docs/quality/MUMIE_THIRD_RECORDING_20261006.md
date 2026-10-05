@@ -106,7 +106,10 @@ fixture without weakening that guard. The import-order lint issue was fixed.
 Separate final review: no unresolved P0–P2. Acceptance criteria1–5 and applicable
 Definition of Done met: independent exclusions, real60-source results, usable
 exact review, bounded/PID-aware execution and restart, tests/documentation/commit.
-Commit v1.7.210 on feat/grid-engine-v3. Previous data/decisions/runs unchanged;
+Commit v1.7.210 on feat/grid-engine-v3; documentation correction v1.7.211
+uses the verified bundled PowerShell7 executable, since Program Files\\PowerShell7
+is absent on this host. Its absolute new-process Status command passes.
+Previous data/decisions/runs unchanged;
 pre-existing unrelated worktree metadata edits excluded from this task commit.
 
 ## Human boundary and operations
@@ -120,8 +123,8 @@ claimed. The ready portal points to specific cases rather than only full photos.
 Absolute persistent restart/status commands:
 
 ```powershell
-& 'C:\Program Files\PowerShell\7\pwsh.exe' -NoProfile -File 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\scripts\vision_lab_symbol_review.ps1' -Action Status -Config 'C:\Users\tuszy\Documents\game_predicotr\artifacts\mumie-symbol-dataset-version-20261005\runtime.json'
-& 'C:\Program Files\PowerShell\7\pwsh.exe' -NoProfile -File 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\scripts\vision_lab_symbol_review.ps1' -Action Start -Config 'C:\Users\tuszy\Documents\game_predicotr\artifacts\mumie-symbol-dataset-version-20261005\runtime.json'
+& 'C:\Users\tuszy\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell\pwsh.exe' -NoProfile -File 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\scripts\vision_lab_symbol_review.ps1' -Action Status -Config 'C:\Users\tuszy\Documents\game_predicotr\artifacts\mumie-symbol-dataset-version-20261005\runtime.json'
+& 'C:\Users\tuszy\.cache\codex-runtimes\codex-primary-runtime\dependencies\native\powershell\pwsh.exe' -NoProfile -File 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\scripts\vision_lab_symbol_review.ps1' -Action Start -Config 'C:\Users\tuszy\Documents\game_predicotr\artifacts\mumie-symbol-dataset-version-20261005\runtime.json'
 ```
 
 Evidence lives under `C:\Users\tuszy\Documents\game_predicotr\artifacts\mumie-symbol-feedback-20261005`: third-inventory, third-operation/status,

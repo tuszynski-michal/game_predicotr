@@ -78,7 +78,13 @@ this task and CURRENT_STATE. Runtime/driver/evidence stay in separate artifacts.
 
 ## Outcome
 
-Completed: `v1.7.210`. Source2844, byte duplicate/overlap0; qualified V3
+Documentation follow-up: `v1.7.211`. The initially documented Program Files
+PowerShell7 path is absent; restart/status instructions now use the actual
+bundled absolute executable. New-process Status confirms both owned lab
+processes and ready ports. This corrects operator instructions only; no model,
+source, decision, API or runtime setting changed.
+
+Completed: `v1.7.210` / `92b3bd8a316fa80f4428d045d29fabf773e8c4a2`. Source2844, byte duplicate/overlap0; qualified V3
 on60 evenly spaced photos. Real540/540 expected/detected/selected boards,
 8100/8100 crops/predictions,0 unavailable/count anomalies. Model uncertainty
 424 and disagreement37; unlabelled accuracy remains null.

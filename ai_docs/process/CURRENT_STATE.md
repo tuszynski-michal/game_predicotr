@@ -8,6 +8,9 @@ last_updated: 2026-10-06
 
 ### TASK-0863 — trzeci niezależny katalog Mumii (done)
 
+- Follow-up `v1.7.211`: instrukcja restart/status używa zweryfikowanego
+  absolutnego bundled PowerShell7. Program Files\\PowerShell7 nie istnieje
+  na tym hoście; nowy proces potwierdza ownership API/UI i gotowość portów.
 - Nowy24517–50112 cut:2844 źródła,0 byte duplicates/overlap,60 równomiernie
   wybranych zdjęć. Qualified V3; wykluczone2699 tożsamości/30 photo pixels.
 - Wykryto540/540 plansz zgodnie z nazwami,8100/8100 pól/propozycji;
@@ -21,7 +24,7 @@ last_updated: 2026-10-06
   API25800/UI23928. Driver25/25/10 zakończony. Nowy proces:0 powtórzeń,
   270 identycznych plików i original pins bez zmian.42+36 pytest,
   Ruff/format/scoped mypy PASS; własny odrębny review bez P0–P2, DoD spełnione.
-- Commit `v1.7.210`; raport MUMIE_THIRD_RECORDING_20261006.md.
+- Commit `v1.7.210` / `92b3bd8a316fa80f4428d045d29fabf773e8c4a2`; raport MUMIE_THIRD_RECORDING_20261006.md.
   Granica człowieka: http://127.0.0.1:3102/symbols/batch — oznaczyć24 wycinki.
   Portal: http://127.0.0.1:8108/third-symbol-review-priority/review.html.
   Nie potrzeba nowego folderu/30 na klasę. Brak DB/aktywacji/Super/merge/push/wdrożenia.

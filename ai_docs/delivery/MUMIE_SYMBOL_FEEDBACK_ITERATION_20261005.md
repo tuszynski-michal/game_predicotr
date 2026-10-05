@@ -141,6 +141,15 @@ do diagnozy nowego nagrania, jawnie oznaczając wersję. Nie uruchamiać kolejne
 losowego treningu. Wybrać ograniczone konkretne crop-review do istniejącego
 edytora, jeśli wynik wymaga nowych etykiet. Bez DB i aktywacji modeli.
 
+Generacja3 wymaga jawnego dowodu all-class qualification oraz obu realnych
+eksportów. Batch zachowuje pełne wykluczenia obu części i diagnostic_test,
+zewnętrzne SHA pełnego feedback-folderu i aktualną lokalizację źródeł.
+Przy przygotowaniu crop-review sprawdzić pełny composite cohort, lecz w
+referencji UI reuse bazowego D-498 approval provenance z identycznym słownikiem,
+immutable manifest/batch i exact case sources. Nie wymuszać hashowania wszystkich
+niepowiązanych2052 zdjęć przy każdej operacji UI. Dotychczasowe referencje/defaulty
+zachowują zachowanie; wynik nie nadaje trainable ani zgody całej geometrii.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

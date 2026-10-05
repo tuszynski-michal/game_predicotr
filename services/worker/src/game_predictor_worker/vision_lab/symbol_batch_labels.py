@@ -49,7 +49,23 @@ def separate(root: Path, protected: list[Path]) -> None:
 def prepare(batch: Path, cases_path: Path, output: Path) -> Path:
     """Freeze only cases already bound to the qualified independent batch."""
     payload = validate_batch(batch)
-    inputs = SymbolTrainingAdapter(Path(payload["training_manifest"])).validate()
+    training = Path(payload["training_manifest"])
+    provenance: dict[str, str] = {}
+    if payload.get("generation") == 3:
+        from .symbol_batch_inputs import batch_inputs
+
+        cohort = batch_inputs(training, 3).inputs
+        inputs = SymbolTrainingAdapter(Path(cohort.payload["base_manifest"])).validate()
+        if cohort.preparation["dictionary"] != inputs.preparation["dictionary"]:
+            raise ValueError("SYMBOL_BATCH_REVIEW_DICTIONARY_MISMATCH")
+        # Review approves only these case rasters. Keep full cohort validation at
+        # preparation and base approval/history guards in the resulting UI packet.
+        provenance[str(training)] = sha(training)
+        provenance[str(cohort.bundle / "preparation.json")] = sha(
+            cohort.bundle / "preparation.json"
+        )
+    else:
+        inputs = SymbolTrainingAdapter(training).validate()
     evidence = read_checked(cases_path)
     if (
         evidence.get("format") != "mumie-targeted-review-evidence-v1"
@@ -72,7 +88,7 @@ def prepare(batch: Path, cases_path: Path, output: Path) -> Path:
     entries = dictionary["entries"]
     if [e["display_name"] for e in entries] != payload["classes"]:
         raise ValueError("SYMBOL_BATCH_REVIEW_DICTIONARY_MISMATCH")
-    live = dict(inputs.payload["live_bindings"])
+    live = {**inputs.payload["live_bindings"], **provenance}
     for path in [
         cases_path,
         batch / "manifest.json",

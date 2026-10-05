@@ -6,6 +6,23 @@ last_updated: 2026-10-05
 
 # Architektura laboratorium wizji
 
+## Feedback batch context and review provenance (D-504)
+
+`symbol_batch_inputs` dispatches only explicit generation3 to the qualified
+feedback adapter, resolving persisted physical image bindings and retaining
+all external SHA/photo-pixel exclusions. Batch freeze requires a checked
+evaluation and recomputes current/base validation from pinned actual reports.
+V2 default keeps exact geometry-reference reuse; `--fresh-geometry` explicitly
+requests fresh geometry on a new recording. Existing generation1 inputs stay
+byte-compatible. Outputs cannot overlap any added baseline/input root.
+
+Generation3 batch-review preparation validates the composite cohort, then checks
+dictionary equality with the original D-498 approval provenance. The packet
+pins base live metadata/history, immutable cohort/batch and exact case sources;
+it does not copy the full2,052-image feedback inventory into the UI read/write
+validation loop. Exact source/PNG/re-render and current-history gates remain.
+Old references/default consumers are unchanged; no HTTP/schema changes.
+
 ## Persisted source location (D-503)
 
 `symbol_feedback relocate` publishes a create-only checksummed sidecar

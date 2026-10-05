@@ -27,9 +27,9 @@ from .geometry import crop_cell
 from .run_contracts import RunState
 from .run_files import verify_artifact
 from .snapshot import canonical, reject_links, safe_file, sha
+from .symbol_batch_inputs import batch_inputs, exclusion_hashes, feedback_qualification
 from .symbol_models import compare, model_pair, probabilities, require_robust_qualification
 from .symbol_store import publish_file
-from .symbol_training_manifest import SymbolTrainingAdapter
 
 FORMAT = "mumie-symbol-batch-v1"
 RANGE = re.compile(r"^seq_(\d+)-(\d+)(?: — kopia)?\.(jpg|jpeg|png|webp)$", re.IGNORECASE)
@@ -183,24 +183,32 @@ def freeze(
     limit: int,
     generation: int = 1,
     geometry_reference: Path | None = None,
+    fresh_geometry: bool = False,
+    qualification: Path | None = None,
 ) -> dict[str, Any]:
     pair = model_pair(generation)
-    if generation == 2 and geometry_reference is None:
+    if fresh_geometry and (generation != 2 or geometry_reference is not None):
+        raise ValueError("SYMBOL_BATCH_GEOMETRY_MODE_INVALID")
+    if generation == 2 and geometry_reference is None and not fresh_geometry:
         raise ValueError("SYMBOL_BATCH_GEOMETRY_REFERENCE_REQUIRED")
+    if (generation == 3) != (qualification is not None):
+        raise ValueError("SYMBOL_BATCH_FEEDBACK_QUALIFICATION_REQUIRED")
     paths = (root, folder, training, runs, comparison, geometry, catalog_path)
     if not all(p.is_absolute() for p in paths):
         raise ValueError("SYMBOL_BATCH_ABSOLUTE_PATH_REQUIRED")
     for path in paths:
         reject_links(path)
-    inputs = SymbolTrainingAdapter(training).validate()
+    context = batch_inputs(training, generation)
+    inputs = context.inputs
     if str(catalog_path / "manifest.json") not in inputs.payload["live_bindings"]:
         raise ValueError("SYMBOL_BATCH_EXCLUSION_CATALOG_MISMATCH")
     catalog = Catalog(catalog_path)
     excluded = excluded_sources(inputs.payload)
-    if not excluded.issubset(catalog.sources):
-        raise ValueError("SYMBOL_BATCH_EXCLUSION_CATALOG_MISMATCH")
-    live = dict(inputs.payload["live_bindings"])
-    sources = [folder, runs, inputs.bundle, geometry, catalog_path]
+    excluded_sha = exclusion_hashes(context, catalog, excluded)
+    live = dict(context.live)
+    sources = [folder, runs, inputs.bundle, geometry, catalog_path, *context.protected]
+    if qualification is not None:
+        sources.append(qualification.parent)
     for protected in [*sources, *[Path(name).parent for name in live]]:
         if root.resolve().is_relative_to(protected.resolve()) or protected.resolve().is_relative_to(
             root.resolve()
@@ -209,6 +217,8 @@ def freeze(
     state_path = runs / "state.json"
     exported: dict[str, dict[str, str]] = {}
     reports = {}
+    measured_reports = {}
+    report_pins = {str(state_path): sha(state_path)}
     for raw in read_checked(state_path)["runs"].values():
         run = RunState.model_validate(raw)
         if run.request.manifest_id != inputs.manifest_id or run.request.model_version not in pair:
@@ -218,8 +228,9 @@ def freeze(
         onnx = verify_artifact(runs, run.artifacts["onnx"])
         report = verify_artifact(runs, run.report)
         measured = json.loads(report.read_bytes())["metrics"]
-        if generation == 2:
+        if generation in (2, 3):
             require_robust_qualification(measured)
+        measured_reports[run.request.model_version] = measured
         reports[run.request.model_version] = measured["predictions"]
         exported[run.request.model_version] = {
             "path": str(onnx),
@@ -227,12 +238,24 @@ def freeze(
             "run": run.id,
         }
         live[str(report)] = sha(report)
+        report_pins[str(report)] = sha(report)
         live[str(onnx)] = sha(onnx)
     if set(exported) != set(pair):
         raise ValueError("SYMBOL_BATCH_EXPORTS_MISSING")
     recorded = json.loads(comparison.read_bytes())
     if recorded != compare(reports[pair[0]], reports[pair[1]]):
         raise ValueError("SYMBOL_BATCH_CALIBRATION_MISMATCH")
+    if generation == 3:
+        assert qualification is not None
+        live.update(
+            feedback_qualification(
+                qualification,
+                context,
+                measured_reports,
+                recorded,
+                {**context.live, **report_pins},
+            )
+        )
     live.update({str(path): sha(path) for path in (training, state_path, comparison)})
     geometry_payload = json.loads((geometry / "bundle.json").read_bytes())
     for name in ("bundle.json", "screen.onnx", "board.onnx"):
@@ -241,7 +264,6 @@ def freeze(
         if name != "bundle.json" and value != geometry_payload["files"][name]:
             raise ValueError("SYMBOL_BATCH_GEOMETRY_CHECKSUM_MISMATCH")
         live[str(path)] = value
-    excluded_sha = {catalog.sources[sid].sha256 for sid in excluded}
     rows = []
     for path in folder.iterdir():
         if not path.is_file() or path.suffix.lower() not in {".jpg", ".jpeg", ".png", ".webp"}:
@@ -279,15 +301,19 @@ def freeze(
         },
         "excluded_source_ids": sorted(excluded),
         "excluded_sha256": sorted(excluded_sha),
-        "training_photo_pixel_groups": sorted(inputs.payload["photo_pixel_groups"]),
+        "training_photo_pixel_groups": context.photo_pixels,
         "inventory": inventory,
         "rows": selected,
         "live_bindings": live,
         "human_labels_written": 0,
         "accuracy": None,
     }
-    if generation == 2:
-        payload["generation"] = 2
+    if generation in (2, 3):
+        payload["generation"] = generation
+    if fresh_geometry:
+        payload["geometry_mode"] = "fresh-v1"
+    if qualification is not None:
+        payload["qualification"] = str(qualification)
     if geometry_reference is not None:
         if not geometry_reference.is_absolute():
             raise ValueError("SYMBOL_BATCH_ABSOLUTE_PATH_REQUIRED")
@@ -310,6 +336,11 @@ def freeze(
             live[str(path)] = sha(path)
             for name, value in previous["assets"].items():
                 live[str(path.parent / name)] = value
+    # Qualification may add frozen baseline reports outside the cohort's own roots.
+    for name in live:
+        protected = Path(name).parent.resolve()
+        if root.resolve().is_relative_to(protected) or protected.is_relative_to(root.resolve()):
+            raise ValueError("SYMBOL_BATCH_DIRECTORY_OVERLAP")
     with exclusive_bounded(root):
         checked_publish(root / "manifest.json", payload)
     return payload
@@ -578,8 +609,10 @@ def main() -> None:
         parser.add_argument("--" + name, type=Path)
     parser.add_argument("--limit", type=int, default=600)
     parser.add_argument("--max-photos", type=int, default=25)
-    parser.add_argument("--generation", type=int, choices=(1, 2), default=1)
+    parser.add_argument("--generation", type=int, choices=(1, 2, 3), default=1)
     parser.add_argument("--geometry-reference", type=Path)
+    parser.add_argument("--fresh-geometry", action="store_true")
+    parser.add_argument("--qualification", type=Path)
     args = parser.parse_args()
     if args.action == "freeze":
         required = (
@@ -600,6 +633,8 @@ def main() -> None:
                     args.limit,
                     generation=args.generation,
                     geometry_reference=args.geometry_reference,
+                    fresh_geometry=args.fresh_geometry,
+                    qualification=args.qualification,
                 )["inventory"]
             )
         )

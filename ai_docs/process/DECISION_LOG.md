@@ -6,6 +6,27 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-504 — qualified feedback inference and case-scoped review provenance
+
+- **Status:** accepted implementation assumption, 2026-10-06, within the
+  operator-authorized third-recording diagnosis and existing exact crop review.
+- **Inference:** generation3 requires its explicit qualified D-502 cohort and
+  checksummed evaluation. Recompute the84-sample class gate from pinned real V1
+  and current reports; do not trust a qualification boolean alone. Preserve
+  complete protected/family/alias exclusions, external feedback SHA, physical
+  source bindings and photo-pixel exclusions. Default V2 comparison still needs
+  its geometry reference; an explicit fresh-geometry mode serves a new recording.
+- **Review:** preparation validates the complete cohort/batch before creating
+  a packet. V3 packets reuse original D-498 approval provenance only after exact
+  dictionary equality, retaining its current history/geometry guards, immutable
+  composite/batch bindings and exact case sources/PNG/re-render gates. UI operations
+  need not rehash2,052 unrelated raw feedback images: their current content does
+  not change which raster this new case asks the operator to classify.
+- **Boundary:** old consumers/references remain strict and unchanged. The new
+  packet remains trainable=false and never approves a board, geometry or model.
+  Any later training qualification must validate all source/label/split gates
+  again. No database write, pseudo-label, Super target or activation is authorized.
+
 ## D-503 — exact source relocation and recording declarations
 
 - **Status:** accepted, 2026-10-06, following the operator's supplied parent

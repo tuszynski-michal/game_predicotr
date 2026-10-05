@@ -23,6 +23,47 @@ from test_vision_lab_symbol_labels import symbols
 HEADERS = {"origin": "http://127.0.0.1:3102"}
 
 
+def test_feedback_review_keeps_base_guards_without_unrelated_inventory(pack, tmp_path, monkeypatch):
+    from game_predictor_worker.vision_lab import symbol_batch_inputs
+
+    store, source, training, payload, evidence = pack
+    original = store.reference_payload()
+    payload["generation"] = 3
+    cohort_policy = tmp_path / "cohort-policy"
+    cohort_policy.mkdir()
+    cohort_manifest = cohort_policy / "cohort.json"
+    write_atomic(cohort_manifest, {"qualified": True})
+    payload["training_manifest"] = str(cohort_manifest)
+    cases = read_checked(evidence)
+    cases["candidate_batch_id"] = digest(payload)
+    write_atomic(evidence, cases)
+    cohort_bundle = tmp_path / "cohort-bundle"
+    cohort_bundle.mkdir()
+    (cohort_bundle / "preparation.json").write_text("immutable composite")
+    unrelated = tmp_path / "unrelated-feedback.jpg"
+    unrelated.write_bytes(b"unrelated source")
+    cohort = SimpleNamespace(
+        payload={"base_manifest": str(training), "live_bindings": {str(unrelated): sha(unrelated)}},
+        preparation={"dictionary": original["dictionary"]},
+        bundle=cohort_bundle,
+    )
+    monkeypatch.setattr(
+        symbol_batch_inputs, "batch_inputs", lambda *_: SimpleNamespace(inputs=cohort)
+    )
+    reference = module.prepare(tmp_path / "batch", evidence, tmp_path / "v3-references")
+    prepared = read_checked(reference / "reference.json")
+    assert str(unrelated) not in prepared["live_bindings"]
+    assert prepared["live_bindings"][str(training)] == sha(training)
+    assert prepared["live_bindings"][str(cohort_manifest)] == sha(cohort_manifest)
+    reviewed = module.BatchReviewStore(reference, tmp_path / "v3-labels")
+    unrelated.write_bytes(b"unrelated change does not change this exact case")
+    assert reviewed.preview().items[0].pixel_sha256 == original["cases"][0]["pixel_sha256"]
+    assert prepared["trainable"] is False and source.read_bytes()
+    training.write_text("changed current approval provenance")
+    with pytest.raises(ValueError, match="INPUT_DRIFT"):
+        reviewed.preview()
+
+
 @pytest.fixture
 def pack(tmp_path, monkeypatch):
     folder = tmp_path / "sources"

@@ -6,6 +6,17 @@ last_updated: 2026-10-05
 
 # Laboratorium wizji
 
+## Qualified feedback diagnosis (D-504)
+
+Unlabelled inference with generation3 requires actual parity-qualified exports
+and a recomputed per-class gate against the identical frozen V1 validation.
+It preserves full recording/alias/protected exclusions, including external
+feedback sources and diagnostic_test. Independent-folder diagnostics remain
+unlabelled and cannot report accuracy. New case review retains current base
+approval history/dictionary and exact immutable case rasters after full cohort
+qualification; unrelated raw training sources need not be rehashed on every UI
+operation. Cases stay trainable=false. Existing reference behavior is unchanged.
+
 ## Exact relocation of reviewed sources (D-503)
 
 A moved complete recording may retain its logical identity and labels through

@@ -6,6 +6,28 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-502 — qualification of exact reviewed symbol rasters
+
+- **Status:** accepted, 2026-10-05, following the operator's explicit request
+  to continue qualification and training after completing18 crop corrections.
+- **Decision:** freeze separate symbol_crop_feedback inputs from actual latest
+  batch_crop_review approve decisions and exact RGB96 source-bound rasters.
+  Verify the selected quad through exact re-rendering, approved dictionary,
+  full history, whole-family/alias closure and live SHA. The derivative policy
+  qualifies classifier inputs only; it does not approve whole grids or create
+  targets for geometry. Original decisions remain trainable=false.
+- **Split:** retain84 original validation. Move the full first recording
+  1–23175 out of new development into diagnostic_test (9 labelled crops,
+  two classes). Add18 feedback to the remaining246 development crops.
+  Original D-498 assignments and all prior runs remain unchanged.
+- **Provenance:** operator explicitly confirmed on2026-10-05 that
+  481537–500000 is a different recording from76555–103221. Its independence
+  from1–23175 was already confirmed. Never infer independence from filenames;
+  technical alias conflicts override the declaration and block qualification.
+- **Boundary:** one bounded new RGB/gray pair with feedbackweight4, original
+  validation selection and later diagnostic-test evaluation. This is not a
+  blind final test or model activation. Existing adapter/API/store gates remain.
+
 ## D-501 — scoped human correction of independent batch crops
 
 - **Status:** accepted, 2026-10-05 (TASK-0858; existing authorization for autonomous fixes).

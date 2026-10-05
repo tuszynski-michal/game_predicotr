@@ -6,6 +6,24 @@ last_updated: 2026-10-05
 
 # Laboratorium wizji
 
+## Exact symbol feedback qualification (D-502)
+
+An operator-approved exact raster/class may enter a separate classifier-only
+cohort after current quad re-rendering, source/PNG/dictionary/history checks and
+whole-recording split qualification. This never approves other cells, a photo,
+whole geometry, sequence or geometry-training targets. Raw batch_crop_review
+remains trainable=false; only the explicit derived manifest is trainable.
+Preserve original D-498 assignments and strict default consumers. Protected,
+comparison, cross-game, alias, label/source drift and cross-partition pixel/photo
+duplicates block qualification. Recording declarations must come from the operator.
+
+For the bounded next Mumie iteration, first recording1–23175 is excluded in
+full from new training. Its9 labels are a limited diagnostic_test, not a blind
+final benchmark. Use264 unique development (246 existing+18 feedback) and
+unchanged84 validation, with all10 classes in both. Selection/calibration uses
+only validation. Feedback sampling weight4 does not create extra labels or
+increase the reported unique cohort. Validation/test data never enter sampling.
+
 ## Przygotowanie aktualnych etykiet Mumii (TASK-0853)
 
 Pakiet przygotowawczy zawiera wyłącznie najnowsze ważne decyzje approve

@@ -16,9 +16,10 @@ from .run_contracts import RunMutation, RunState, StartRunRequest, TrainingConfi
 from .run_files import verify_artifact
 from .runs import RunManager, Token
 from .snapshot import canonical
+from .symbol_feedback import training_adapter
 from .symbol_models import MODELS, PREPROCESSING, ROBUST_MODELS, compare, model_pair
 from .symbol_store import publish_file
-from .symbol_training_manifest import SymbolTrainingAdapter, SymbolTrainingInputs
+from .symbol_training_manifest import SymbolTrainingInputs
 
 SOURCE_ROOT = Path(__file__).resolve().parents[2]
 BOOT = (
@@ -114,7 +115,7 @@ def build_manager(root: Path, settings: dict[str, str], launcher: Any = None) ->
         Path(settings[n]).is_absolute() for n in ("manifest", "python", "pythonpath")
     ):
         raise ValueError("SYMBOL_RUN_ABSOLUTE_PATH_REQUIRED")
-    adapter = SymbolTrainingAdapter(Path(settings["manifest"]))
+    adapter = training_adapter(Path(settings["manifest"]))
     # Check output isolation from every pinned live input, including labels and source files.
     inputs = adapter.validate()
     for name in [str(adapter.manifest), str(inputs.bundle), *inputs.payload["live_bindings"]]:

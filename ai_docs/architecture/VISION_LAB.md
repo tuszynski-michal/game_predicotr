@@ -6,6 +6,27 @@ last_updated: 2026-10-05
 
 # Architektura laboratorium wizji
 
+## Exact crop feedback adapter (D-502)
+
+The optional local symbol_feedback CLI freezes latest reviewed PNG rasters
+with full original decisions and source-bound quads. Its classifier-only
+symbol_crop_feedback manifest composes validated D-498 inputs and exact
+batch-crop targets without changing either original store or whole geometry.
+SymbolFeedbackAdapter verifies metadata before pixels, complete old/current
+graphs plus full-folder SHA aliases, operator recording declarations, exact
+re-rendered PNG identity, history, inventory, counts and live bindings.
+It returns existing SymbolTrainingInputs; the default D-498 adapter does not
+accept this format. Local run dispatch selects this adapter by explicit format.
+
+The new split moves first-recording components to diagnostic_test, retains
+original validation and admits the new folder only with confirmed independence
+from validation. The separate bundle contains source-bound crop decisions;
+original origins/trainable flags and all prior artifacts remain unchanged.
+Generation3 reuses the durable run protocol and augmentation, with a persisted
+weighted sampler driven by the existing checkpointed generator. Unique cohort
+metrics and effective draw counts are reported separately. Diagnostic-test
+evaluation follows final epoch selection and cannot alter training/calibration.
+
 ## Pakiet kwalifikacji symboli (TASK-0853)
 
 CLI `vision_lab.symbol_preparation prepare|verify` tworzy osobny niezmienny

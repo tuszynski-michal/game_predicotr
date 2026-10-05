@@ -6,6 +6,24 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0860 — kwalifikacja 18 korekt symboli Mumii (done)
+
+- Operator potwierdził niezależność nowego nagrania od walidacji. D-502
+  kwalifikuje wyłącznie dokładny raster symbolu; nie zatwierdza planszy ani geometrii.
+- Immutable pack c1392fb1…3f8b60 zawiera 18 decyzji i PNG z 17 zdjęć.
+  Pochodny manifest 0cff2a15…1e3de4: 264 development, 84 validation,
+  9 diagnostic_test. Wszystkie 10 klas pozostaje w development/validation.
+- Cały nowy folder (2 052 pliki) i znane aliasy pozostają w jednej części.
+  Pierwsza rodzina nagrania jest wyłączona z nowego treningu; diagnostyka
+  obejmuje tylko Mumię/Sfinksa i nie jest ślepym testem wcześniejszych modeli.
+- 20 nowych +42 regresyjne pytest PASS; Ruff, scoped strict mypy PASS.
+  Realny verify/retry w nowych procesach daje ten sam manifest i SHA oryginałów.
+  Pierwsza analiza mypy bibliotek przekroczyła 120 s; procesy zakończył runner.
+- Pierwotne decyzje trainable=false i adapter D-498 zachowane; API/UI bez zmian.
+  Bez DB, aktywacji, merge/push/wdrożenia. Osobny review bez otwartych P0–P2.
+- Commit: `v1.7.206`. Dalej TASK-0861: jedna para RGB/gray generation3,
+  feedback weight4 i dokładne resume; aktualne polecenie obejmuje kontynuację.
+
 ### TASK-0859 — poprawka RGB 777 i ukończone 18 korekt Mumii (done)
 
 - Przeczytano wskazany handoff RGB/feedback z głównego checkoutu. Mumie już

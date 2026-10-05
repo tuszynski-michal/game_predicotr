@@ -3783,8 +3783,15 @@ test('the audit wrapper returns the new preview-bound symbol suggestions', async
     algorithmVersion: 'symbol-reference-library-v1',
     artifactSha256: 'a'.repeat(64),
     generatedAt: '2026-10-05T08:00:00Z',
+    tentativeCellIndices: [0],
     previewCommand: { corners: [{ x: 1, y: 2 }], expectedGeometryRevision: 1 },
-    cells: [{ cellIndex: 0, symbolId: null, origin: 'predicted' }],
+    cells: [
+      {
+        cellIndex: 0,
+        symbolId: '11111111-1111-4111-8111-111111111111',
+        origin: 'predicted',
+      },
+    ],
   };
   const requests = [];
   const client = createAdminApiClient({

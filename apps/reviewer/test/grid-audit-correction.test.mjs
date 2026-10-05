@@ -228,7 +228,9 @@ test('audit hints use only new symbols of the exact preview and never read old a
   assert.deepEqual(await target.symbols(NETWORK, COMPLETE_FLAGS), {
     ok: true,
     cells,
+    tentativeCellIndices: [],
   });
+  assert.equal(target.prefillSymbolSuggestions, true);
   const moved = NETWORK.map((point) => ({ ...point, x: point.x + 1 }));
   assert.equal((await target.symbols(moved, COMPLETE_FLAGS)).ok, false);
   assert.equal(

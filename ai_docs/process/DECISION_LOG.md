@@ -6,6 +6,21 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-493 — najlepsza propozycja symbolu wstępnie wybrana w audycie siatek
+
+- **Status:** accepted, 2026-10-05; operator chce poprawiać błędne propozycje,
+  zamiast osobno wybierać również poprawne. TASK-0846 zmienia D-491 w tym zakresie.
+- **Decision:** aktualne cięcie audytu pokazuje pewną propozycję albo najlepszego
+  kandydata z sumy wag obu opisów biblioteki. Niepewny kandydat ma jawny znacznik.
+  Oba są wstępnie wybranymi symbolami do przeglądu operatora. Brak pikseli lub
+  wzorców pozostaje pusty. Wybory nie pochodzą z wcześniejszych zatwierdzonych etykiet.
+- **Write:** odczyt/rozpoznawanie niczego nie zatwierdza. Kliknięcie zapisu planszy
+  zatwierdza widoczne wybory, również niezmienione propozycje. Ręczne nadpisanie,
+  usunięcie i „Nie wiem” mają pierwszeństwo; retry nie przywraca usuniętego wyboru.
+- **Safety:** propozycje i automatyczne wybory dotyczą wyłącznie dokładnej komendy
+  podglądu. Zmiana cięcia/kwalifikacji ukrywa automatyczne wybory poprzedniego cropa.
+  Nie zmienia to reguły ścisłej decyzji 7/7 ani pozostałych ekranów korekty.
+
 ## D-491 — nowe podpowiedzi symboli dla korekt istniejących siatek audytu
 
 - **Status:** accepted, 2026-10-05; bezpośrednie polecenie operatora.

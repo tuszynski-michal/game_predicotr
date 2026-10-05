@@ -24,6 +24,7 @@ MAX_SYMBOL_SUGGESTIONS_BYTES = 128 * 1024
 class GridAuditCellSymbolSuggestion:
     cell_index: int
     symbol_id: UUID | None
+    is_tentative: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -101,6 +102,7 @@ class FileGridAuditSymbolSuggestionStore:
                 GridAuditCellSymbolSuggestion(
                     cell_index=cell["cellIndex"],
                     symbol_id=UUID(cell["symbolId"]) if cell["symbolId"] is not None else None,
+                    is_tentative=cell.get("isTentative", False),
                 )
                 for cell in document["cells"]
             )
@@ -108,6 +110,12 @@ class FileGridAuditSymbolSuggestionStore:
                 range(review_item.topology.cell_count)
             ):
                 raise ValueError("cells")
+            if any(
+                type(cell.is_tentative) is not bool
+                or (cell.is_tentative and cell.symbol_id is None)
+                for cell in cells
+            ):
+                raise ValueError("tentative cells")
             generated_at = document["generatedAt"]
             if not isinstance(generated_at, str):
                 raise ValueError("generatedAt")

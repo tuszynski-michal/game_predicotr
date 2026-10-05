@@ -6,6 +6,26 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0846 — wstępnie wybrane propozycje symboli audytu (done)
+
+- Operator 2026-10-05 zlecił propozycje także dla niepewnych pól oraz wstępny
+  wybór, aby poprawiać tylko błędne symbole przed zapisem. D-493 zmienia D-491.
+- Audyt wstępnie wybiera nowe propozycje; niepewne mają `?`. Ręczny wybór,
+  usunięcie i „Nie wiem” mają pierwszeństwo. Nowe cięcie usuwa stare automatyczne
+  wybory. Zapis czeka na katalog/propozycje i zatwierdza widoczne symbole dopiero
+  po kliknięciu operatora. Zwykłe korekty zachowują poprzednie zachowanie.
+- Biblioteka/model pozostają zamrożone. Trzy rundy przeliczyły 569 otwartych
+  plansz. Odbiór: wszystkie 525 nadal otwarte z 975 (450 już poprawionych),
+  6073 pewne i 1802 niepewne propozycje, zero pustych pól. Nowy proces potwierdził
+  pokrycie 525/525 bez ponownego rozpoznawania; sumy wszystkich plików sprawdzone.
+- 397 testów PASS, format/lint, scoped strict Mypy, TypeScript, OpenAPI/klient
+  i build PASS. Lokalny Reviewer zrestartowany; p00474/p00475 odebrane w UI,
+  bez zapisu operatora. Nie sprawdzano fizycznego Androida ani restartu komputera.
+- Plan i task: `ai_docs/tasks/completed/0846-grid-audit-preselected-symbol-proposals.md`.
+- Commit: przygotowany `v1.7.190`; pełny hash do dopisania po commicie.
+- Następny krok: operator przegląda wszystkie propozycje i zmienia błędne przed
+  zapisem. TASK-0845 i zastane zmiany pozostają poza zakresem; bez push/merge.
+
 ### TASK-0844 — nowe symbole proponowanych siatek audytu (done)
 
 - Operator 2026-10-05 zlecił przeliczenie symboli otwartych propozycji siatek

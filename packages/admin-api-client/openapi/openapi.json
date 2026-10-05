@@ -7210,6 +7210,15 @@
           },
           "previewCommand": {
             "$ref": "#/components/schemas/ImageGridReviewGeometryPreviewCommand"
+          },
+          "tentativeCellIndices": {
+            "default": [],
+            "description": "Best candidates without unanimous agreement; review before saving",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Tentativecellindices",
+            "type": "array"
           }
         },
         "required": [

@@ -2938,6 +2938,18 @@ tabeli ani automatycznego zatwierdzania. CLI `recognize_grid_audit_symbols`
 przelicza tylko otwarte pozycje, wykorzystując bezstratny PNG istniejącego
 podglądu i zamrożoną bibliotekę bez referencji z plansz audytu.
 
+**D-493 (TASK-0846):** `symbolSuggestions` rozszerza się o
+`tentativeCellIndices: number[]`, domyślnie pustą dla wcześniejszych artefaktów.
+Są to indeksy pól z najlepszym kandydatem bez jednomyślnej decyzji obu opisów.
+Artefakt zapisuje `isTentative` per pole i `displayPolicy = best-candidate-v1`;
+CLI uznaje wcześniejsze wyniki i cursor innej polityki za wymagające ponownego
+rozpoznania. Nie zmienia zamrożonej biblioteki ani ścisłej reguły pewności.
+API odrzuca niepoprawny znacznik i niepewny wynik bez `symbolId`. Edytor audytu
+wstępnie wybiera istniejące symbole tylko z wyniku zgodnego z całą komendą
+aktualnego podglądu; ręczna zmiana, usunięcie i `null` mają pierwszeństwo.
+Zapis używa istniejącego `cellSymbols` dopiero po kliknięciu operatora i
+potwierdza również niezmienione propozycje. Odczyt nadal nie zapisuje danych.
+
 Lista ma widoki `needs_validation | needs_correction | all | correction`;
 operacyjną kolejką jest wyłącznie `correction`, a pozostałe widoki i liczniki
 stanów są diagnostyką tylko do odczytu (podsumowanie importu w Adminie). Ma

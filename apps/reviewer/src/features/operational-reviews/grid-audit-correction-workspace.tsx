@@ -59,6 +59,8 @@ export function GridAuditCorrectionWorkspace({
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [symbols, setSymbols] = useState<readonly CorrectionSymbol[]>([]);
+  const [symbolsLoading, setSymbolsLoading] = useState(true);
+  const [symbolsError, setSymbolsError] = useState('');
   const mounted = useRef(true);
   const requestId = useRef(0);
   const reloadedForConflictRef = useRef<string | null>(null);
@@ -69,7 +71,14 @@ export function GridAuditCorrectionWorkspace({
     void api
       .listSymbols(gameId)
       .then((result) => {
-        if (!active || result.error !== undefined || !result.data) return;
+        if (!active) return;
+        setSymbolsLoading(false);
+        if (result.error !== undefined || !result.data) {
+          setSymbolsError(
+            'Nie udało się wczytać symboli. Odśwież stronę przed zatwierdzeniem propozycji.',
+          );
+          return;
+        }
         setSymbols(
           buildOperationalReviewSymbolShortcuts(result.data, {
             reservedKeys: ['9'],
@@ -80,7 +89,13 @@ export function GridAuditCorrectionWorkspace({
           })),
         );
       })
-      .catch(() => undefined);
+      .catch(() => {
+        if (!active) return;
+        setSymbolsLoading(false);
+        setSymbolsError(
+          'Nie udało się wczytać symboli. Odśwież stronę przed zatwierdzeniem propozycji.',
+        );
+      });
     return () => {
       active = false;
     };
@@ -226,8 +241,9 @@ export function GridAuditCorrectionWorkspace({
             przekrzywiona. Siatka sieci jest wczytana jako propozycja: sprawdź
             podgląd, w razie potrzeby popraw narożniki i zapisz. Jeśli
             propozycja jest zła, pomiń planszę. Symbole są nowymi podpowiedziami
-            dla tej propozycji siatki. Przejrzyj wszystkie pola i wskaż ich
-            symbole; puste pola wymagają ręcznego rozpoznania.
+            dla tej propozycji siatki i są wstępnie wybrane. Przejrzyj wszystkie
+            pola i zmień błędne symbole. Znak ? przy nazwie oznacza niepewną
+            propozycję. Zapis zatwierdzi widoczne wybory.
           </p>
           {counts !== null ? (
             <p className="mutedText">{gridAuditProgressText(counts)}</p>
@@ -238,6 +254,12 @@ export function GridAuditCorrectionWorkspace({
       {notice ? (
         <p className="operationalReviewNotice" role="status">
           {notice}
+        </p>
+      ) : null}
+
+      {symbolsLoading || symbolsError ? (
+        <p className="operationalReviewNotice" role="status">
+          {symbolsError || 'Wczytywanie symboli…'}
         </p>
       ) : null}
 
@@ -280,6 +302,7 @@ export function GridAuditCorrectionWorkspace({
             onSaved={handleSaved}
             previewWhileSourceLoads
             symbols={symbols}
+            symbolsLoading={symbolsLoading || symbolsError !== ''}
             target={target}
             unknownSymbolShortcut="9"
           />

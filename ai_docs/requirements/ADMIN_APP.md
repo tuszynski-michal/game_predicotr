@@ -703,17 +703,32 @@ pierwsze pole mające piksele; operator może od razu wybrać jego symbol.
 Kliknięcie innego kafelka zmienia edytowane pole. Paleta pokazuje skróty z
 kolejności katalogu: `1–8`, `0`, litery; `9` jest zarezerwowane dla „Nie wiem”.
 Dla 777: `1` Wiśnia, `5` Śliwka, `6` Arbuz. Zaznaczenie pola niczego nie
-przypisuje. Wybór symbolu nie wymaga ruszania siatki ani „Ponów podgląd”; zapis
-nadal zatwierdza wyłącznie jawne wybory przez istniejącą korektę D-488.
+przypisuje. Wybór symbolu nie wymaga ruszania siatki ani „Ponów podgląd”.
+Od D-493 zapis audytu potwierdza także widoczne, wstępnie wybrane propozycje
+przez istniejącą korektę D-488.
 Zwykła korekta zachowuje dotychczasowe skróty i ręczne zaznaczanie pola.
 
 **D-491 (TASK-0844):** symbole pod żółtą siatką audytu są nowymi propozycjami
 biblioteki wzorców dla dokładnie tego cięcia. Stare zatwierdzone etykiety
-nie są w tej kolejce podpowiedziami. Niepewne pola pozostają bez symbolu;
-operator przegląda wszystkie pola i wskazuje ich symbole. Brak wyniku ma
-jawny komunikat. Przesunięcie narożników lub zmiana kwalifikacji ukrywa wynik
-poprzedniego cięcia. Rozpoznawanie i wyświetlanie nie zapisuje geometrii ani
-decyzji człowieka; zapis zatwierdza tylko jawne wybory jak w D-488.
+nie są w tej kolejce podpowiedziami. Brak wyniku ma jawny komunikat.
+Przesunięcie narożników lub zmiana kwalifikacji ukrywa wynik poprzedniego
+cięcia. Rozpoznawanie i wyświetlanie nie zapisuje geometrii ani decyzji
+człowieka. Regułę pustych niepewnych pól i osobnego wyboru każdego symbolu
+zastępuje D-493.
+
+**D-493 (TASK-0846):** audyt wstępnie wybiera nowe propozycje symboli dla
+bieżącego cięcia, także najlepszy kandydat przy braku jednomyślności.
+Niepewny kandydat ma znak `?` i opis „niepewna propozycja”. Operator przegląda
+wszystkie pola i zmienia błędne wybory. „Nie wiem” zapisuje nieczytelność;
+„Usuń wybór” blokuje ponowny wybór propozycji przy powtórzeniu podglądu i
+pozostawia pole do późniejszej weryfikacji. Ręczne wybory mają pierwszeństwo.
+Przesunięcie siatki lub zmiana kwalifikacji usuwa automatyczne wybory starego
+cięcia. Brak pikseli lub kandydata pozostaje bez wyboru. Dopiero kliknięcie
+zapisu zatwierdza wszystkie widoczne wybory, również niezmienione propozycje.
+Zwykła korekta zachowuje podpowiedzi wymagające osobnego wyboru operatora.
+Podgląd działa przy opóźnionym katalogu, lecz zapis audytu czeka na katalog
+i propozycje. Błąd katalogu ma jawny komunikat i wymaga odświeżenia przed
+zatwierdzaniem symboli; błąd samych propozycji pozwala na ręczne wskazanie.
 
 Admin nazywa sekcję uruchamiającą Reviewer „Korekta cięcia siatki” i pokazuje
 liczbę plansz do korekty dla wybranego importu oraz liczbę geometrii

@@ -36,6 +36,7 @@ from game_predictor_worker.symbols.reference_library import (
     combined_descriptor,
     decide,
     descriptor_matrix,
+    hint_candidates,
     normalize_rows,
     vote_batch,
 )
@@ -45,6 +46,7 @@ from PIL import Image
 from scripts import evaluate_symbol_reference_library as reference
 
 Json = dict[str, Any]
+DISPLAY_POLICY = "best-candidate-v1"
 
 
 def write_json(path: Path, value: object) -> str:
@@ -143,7 +145,13 @@ def publish(directory: Path, item_id: str, document: Json) -> str:
     return sha256
 
 
-def completed(directory: Path, item_id: str, audit_sha: str, command: Json) -> bool:
+def completed(
+    directory: Path,
+    item_id: str,
+    audit_sha: str,
+    command: Json,
+    display_policy: str | None = None,
+) -> bool:
     manifest = directory / f"{item_id}.manifest.json"
     path = directory / f"{item_id}.json"
     if not manifest.is_file():
@@ -152,7 +160,11 @@ def completed(directory: Path, item_id: str, audit_sha: str, command: Json) -> b
     if hashlib.sha256(content).hexdigest() != json.loads(manifest.read_bytes())["sha256"]:
         raise ValueError(f"Suggestion checksum mismatch: {item_id}")
     document = json.loads(content)
-    return bool(document["auditSha256"] == audit_sha and document["previewCommand"] == command)
+    return bool(
+        document["auditSha256"] == audit_sha
+        and document["previewCommand"] == command
+        and (display_policy is None or document.get("displayPolicy") == display_policy)
+    )
 
 
 def frozen_library(
@@ -266,11 +278,20 @@ def run(arguments: argparse.Namespace) -> int:
         for entry in read_json(base, f"/api/v1/admin/games/{arguments.game_id}/symbols")
         if entry["status"] == "active"
     }
-    counts = {"processed": 0, "recovered": 0, "confident": 0, "uncertain": 0, "changedMeanwhile": 0}
+    counts = {
+        "processed": 0,
+        "recovered": 0,
+        "confident": 0,
+        "tentative": 0,
+        "uncertain": 0,
+        "changedMeanwhile": 0,
+    }
     state_path = output / "cursor.json"
     state = json.loads(state_path.read_bytes()) if state_path.is_file() else {}
     if state and state["auditSha256"] != first["artifactSha256"]:
         raise ValueError("The saved cursor belongs to another audit.")
+    if state.get("displayPolicy") != DISPLAY_POLICY:
+        state = {}
     page = (
         first
         if not state or state.get("afterOrdinal") is None
@@ -285,7 +306,12 @@ def run(arguments: argparse.Namespace) -> int:
 
     def checkpoint(entry: Json) -> None:
         write_json(
-            state_path, {"auditSha256": first["artifactSha256"], "afterOrdinal": entry["ordinal"]}
+            state_path,
+            {
+                "auditSha256": first["artifactSha256"],
+                "afterOrdinal": entry["ordinal"],
+                "displayPolicy": DISPLAY_POLICY,
+            },
         )
 
     print(
@@ -317,7 +343,9 @@ def run(arguments: argparse.Namespace) -> int:
                 checkpoint(entry)
                 continue
             command = preview_command(view)
-            if completed(directory, entry["itemId"], first["artifactSha256"], command):
+            if completed(
+                directory, entry["itemId"], first["artifactSha256"], command, DISPLAY_POLICY
+            ):
                 counts["recovered"] += 1
                 checkpoint(entry)
                 continue
@@ -357,10 +385,17 @@ def run(arguments: argparse.Namespace) -> int:
             )
             cells = []
             for index, proposal in enumerate(proposals):
+                candidate_index = proposal.class_index
+                is_tentative = False
+                if candidate_index is None:
+                    candidates = hint_candidates(proposal, 1)
+                    if candidates:
+                        candidate_index = candidates[0]
+                        is_tentative = True
                 code = (
                     None
-                    if proposal.class_index is None or index in unavailable
-                    else model.class_codes[proposal.class_index]
+                    if candidate_index is None or index in unavailable
+                    else model.class_codes[candidate_index]
                 )
                 symbol_id = symbols.get(code) if code is not None else None
                 cells.append(
@@ -368,18 +403,25 @@ def run(arguments: argparse.Namespace) -> int:
                         "cellIndex": index,
                         "symbolId": symbol_id,
                         "symbolCode": code,
+                        "isTentative": is_tentative and symbol_id is not None,
                         "reason": proposal.reason
                         if index not in unavailable
                         else "unavailable_pixels",
                     }
                 )
-                counts["confident" if symbol_id is not None else "uncertain"] += 1
+                category = (
+                    "uncertain"
+                    if symbol_id is None
+                    else ("tentative" if is_tentative else "confident")
+                )
+                counts[category] += 1
             publish(
                 directory,
                 entry["itemId"],
                 {
                     "schema": SYMBOL_SUGGESTIONS_SCHEMA,
                     "algorithmVersion": SYMBOL_ALGORITHM_VERSION,
+                    "displayPolicy": DISPLAY_POLICY,
                     "gameId": arguments.game_id,
                     "auditId": first["auditId"],
                     "auditSha256": first["artifactSha256"],
@@ -423,7 +465,10 @@ def run(arguments: argparse.Namespace) -> int:
                 != json.loads(manifest_path.read_bytes())["sha256"]
             ):
                 raise ValueError(f"Suggestion checksum mismatch: {entry['itemId']}")
-            if document["auditSha256"] != first["artifactSha256"]:
+            if (
+                document["auditSha256"] != first["artifactSha256"]
+                or document.get("displayPolicy") != DISPLAY_POLICY
+            ):
                 missing.append(entry["itemId"])
             else:
                 covered += 1
@@ -439,7 +484,14 @@ def run(arguments: argparse.Namespace) -> int:
             ),
         )
     if missing:
-        write_json(state_path, {"auditSha256": first["artifactSha256"], "afterOrdinal": None})
+        write_json(
+            state_path,
+            {
+                "auditSha256": first["artifactSha256"],
+                "afterOrdinal": None,
+                "displayPolicy": DISPLAY_POLICY,
+            },
+        )
         raise ValueError(
             f"The open queue has {len(missing)} unrecognized boards; resume to recover them."
         )

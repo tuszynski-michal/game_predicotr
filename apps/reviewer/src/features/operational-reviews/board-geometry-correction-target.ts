@@ -95,6 +95,8 @@ export type BoardGeometryCorrectionFailure = DeferredBoardCellGeometryFailure;
 export interface BoardGeometryCorrectionTarget {
   /** Stable identity of the board version the editor was opened for. */
   readonly key: string;
+  /** Audit only: review preselected proposals and confirm them with Save. */
+  readonly prefillSymbolSuggestions?: boolean;
   load(): Promise<
     | { readonly ok: true; readonly view: BoardGeometryCorrectionView }
     | BoardGeometryCorrectionFailure
@@ -121,6 +123,7 @@ export interface BoardGeometryCorrectionTarget {
   ): Promise<
     | {
         readonly cells: readonly GridCorrectionCellSymbolSuggestionResponse[];
+        readonly tentativeCellIndices?: readonly number[];
         readonly ok: true;
       }
     | BoardGeometryCorrectionFailure
@@ -446,6 +449,7 @@ export function gridAuditBoardGeometryTarget(input: {
   const suggestions = proposal.symbolSuggestions;
   return {
     ...base,
+    prefillSymbolSuggestions: true,
     key: `audit:${audit.itemId}:${item.slotId}:${item.geometryRevision}:${item.resolutionRevision}:${suggestions?.artifactSha256 ?? 'no-symbols'}`,
     async symbols(corners, flags) {
       if (suggestions == null) {
@@ -474,7 +478,11 @@ export function gridAuditBoardGeometryTarget(input: {
             'Zmieniono cięcie siatki. Podpowiedzi z poprzedniego cięcia zostały ukryte; wskaż symbole ręcznie.',
         };
       }
-      return { ok: true, cells: suggestions.cells };
+      return {
+        ok: true,
+        cells: suggestions.cells,
+        tentativeCellIndices: suggestions.tentativeCellIndices ?? [],
+      };
     },
     async load() {
       const result = await base.load();
@@ -503,12 +511,12 @@ export function gridAuditBoardGeometryTarget(input: {
               value:
                 suggestions == null
                   ? 'Oczekują na rozpoznanie'
-                  : `${suggestions.cells.filter((cell) => cell.symbolId !== null).length} / ${suggestions.cells.length} · pozostałe pola do ręcznego wskazania`,
+                  : `${suggestions.cells.filter((cell) => cell.symbolId !== null).length} / ${suggestions.cells.length} · niepewne: ${suggestions.tentativeCellIndices?.length ?? 0}`,
             },
           ],
           referenceCorners: copyCorners(gridReviewCorners(item)),
           saveHint:
-            'Zapis idzie zwykłą ścieżką korekty: nowa rewizja geometrii, pola ze zmienionym wycinkiem wrócą do Weryfikacji symboli, a symbole wskazane na kafelkach zostaną zatwierdzone.',
+            'Sprawdź propozycje i zmień błędne symbole. Zapis zatwierdzi wszystkie wybrane symbole, również niezmienione propozycje, razem z korektą siatki.',
           suggestedCorners: suggested.corners,
           suggestionNotice: suggested.clamped
             ? 'Siatka sieci (propozycja) wychodziła poza zdjęcie — narożniki przycięto do krawędzi. Czerwony kontur to obecna, zapisana siatka.'

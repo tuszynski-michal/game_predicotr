@@ -4022,6 +4022,12 @@ export type GridAuditSymbolSuggestionsResponse = {
    */
   generatedAt: string;
   previewCommand: ImageGridReviewGeometryPreviewCommand;
+  /**
+   * Tentativecellindices
+   *
+   * Best candidates without unanimous agreement; review before saving
+   */
+  tentativeCellIndices?: Array<number>;
 };
 
 /**

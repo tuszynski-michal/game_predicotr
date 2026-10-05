@@ -97,6 +97,9 @@ class GridAuditSymbolSuggestionsResponse(ApiModel):
     artifact_sha256: Sha256
     preview_command: ImageGridReviewGeometryPreviewCommand
     cells: tuple[GridCorrectionCellSymbolSuggestionResponse, ...]
+    tentative_cell_indices: tuple[int, ...] = Field(
+        default=(), description="Best candidates without unanimous agreement; review before saving"
+    )
 
 
 class GridAuditProposalResponse(ApiModel):
@@ -204,6 +207,9 @@ def _symbol_suggestions_response(
                     origin="predicted",
                 )
                 for cell in suggestions.cells
+            ),
+            tentative_cell_indices=tuple(
+                cell.cell_index for cell in suggestions.cells if cell.is_tentative
             ),
         )
     except ValueError as error:

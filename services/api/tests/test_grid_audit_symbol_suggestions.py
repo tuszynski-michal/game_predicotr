@@ -37,6 +37,7 @@ from test_grid_audit_proposals import (
 
 from scripts import recognize_grid_audit_symbols as recognition
 from scripts.recognize_grid_audit_symbols import (
+    DISPLAY_POLICY,
     completed,
     contact_sheet_crops,
     preview_command,
@@ -96,6 +97,7 @@ def test_http_returns_only_new_predictions_and_restart_recovers_artifact(tmp_pat
         response = _http(tmp_path, {item.recognized_board_id: 1}).get(base)
         assert response.status_code == 200
         suggestions = response.json()["symbolSuggestions"]
+        assert suggestions["tentativeCellIndices"] == []
         assert suggestions["previewCommand"] == document["previewCommand"]
         assert len(suggestions["cells"]) == 15
         assert suggestions["cells"][0] == {
@@ -108,6 +110,36 @@ def test_http_returns_only_new_predictions_and_restart_recovers_artifact(tmp_pat
     assert changed["symbolSuggestions"] is None
     assert changed["proposal"] is None
     assert completed(directory, "p00000", str(document["auditSha256"]), document["previewCommand"])
+
+
+def test_tentative_candidate_is_returned_explicitly_and_old_policy_is_not_reused(
+    tmp_path: Path,
+) -> None:
+    directory, document = _suggestions(tmp_path)
+    publish(directory, "p00000", document)
+    assert not completed(
+        directory,
+        "p00000",
+        str(document["auditSha256"]),
+        document["previewCommand"],
+        DISPLAY_POLICY,
+    )
+    document["displayPolicy"] = DISPLAY_POLICY
+    document["cells"][0]["isTentative"] = True
+    publish(directory, "p00000", document)
+    item = _items([_worklist_board(0)])[0]
+    response = _http(tmp_path, {item.recognized_board_id: 1}).get(
+        f"/api/v1/admin/games/{GAME_ID}/grid-audit-proposals/p00000"
+    )
+    assert response.json()["symbolSuggestions"]["tentativeCellIndices"] == [0]
+    assert response.json()["symbolSuggestions"]["cells"][0]["symbolId"] == str(UUID(int=999))
+    assert completed(
+        directory,
+        "p00000",
+        str(document["auditSha256"]),
+        document["previewCommand"],
+        DISPLAY_POLICY,
+    )
 
 
 @pytest.mark.parametrize(
@@ -151,6 +183,28 @@ def test_corrupt_or_duplicate_cells_are_refused(tmp_path: Path) -> None:
     publish(directory, "p00000", document)
     with pytest.raises(GridAuditProposalError) as error:
         store.load(**kwargs)
+    assert error.value.code == "GRID_AUDIT_SYMBOL_SUGGESTIONS_INVALID"
+
+
+@pytest.mark.parametrize("flag, missing_symbol", [("true", False), (True, True)])
+def test_invalid_tentative_candidate_is_refused(
+    tmp_path: Path, flag: object, missing_symbol: bool
+) -> None:
+    directory, document = _suggestions(tmp_path)
+    document["cells"][0]["isTentative"] = flag
+    if missing_symbol:
+        document["cells"][0]["symbolId"] = None
+    publish(directory, "p00000", document)
+    item = _items([_worklist_board(0)])[0]
+    store = FileGridAuditSymbolSuggestionStore(tmp_path)
+    with pytest.raises(GridAuditProposalError) as error:
+        store.load(
+            game_id=GAME_ID,
+            audit_id=str(document["auditId"]),
+            audit_sha256=str(document["auditSha256"]),
+            item_id="p00000",
+            review_item=_review_item(item, 1),
+        )
     assert error.value.code == "GRID_AUDIT_SYMBOL_SUGGESTIONS_INVALID"
 
 
@@ -233,8 +287,9 @@ def test_preview_uses_proposal_clamped_like_reviewer_not_stored_grid() -> None:
     assert command["geometryQualification"] is None
 
 
+@pytest.mark.parametrize("tentative", [False, True])
 def test_cli_recovers_publish_without_acknowledgment_and_verifies_cursor(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, tentative: bool
 ) -> None:
     directory, document = _suggestions(tmp_path)
     command = document["previewCommand"]
@@ -300,8 +355,14 @@ def test_cli_recovers_publish_without_acknowledgment_and_verifies_cursor(
     monkeypatch.setattr(recognition, "normalize_rows", lambda value: value)
     monkeypatch.setattr(recognition, "vote_batch", lambda *_, **__: [None] * 15)
     monkeypatch.setattr(
-        recognition, "decide", lambda *_: SimpleNamespace(class_index=0, reason="unanimous")
+        recognition,
+        "decide",
+        lambda *_: SimpleNamespace(
+            class_index=None if tentative else 0,
+            reason="not_unanimous" if tentative else "unanimous",
+        ),
     )
+    monkeypatch.setattr(recognition, "hint_candidates", lambda *_: (0,))
 
     def publish_then_lose_response(*args: object) -> None:
         publish(*args)
@@ -311,6 +372,8 @@ def test_cli_recovers_publish_without_acknowledgment_and_verifies_cursor(
     with pytest.raises(RuntimeError, match="acknowledgment"):
         recognition.run(arguments)
     original = (directory / "p00000.json").read_bytes()
+    assert json.loads(original)["cells"][0]["isTentative"] is tentative
+    assert json.loads(original)["cells"][0]["symbolCode"] == "SLIWKA"
     assert not (arguments.output_dir / "cursor.json").exists()
     monkeypatch.setattr(recognition, "publish", publish)
     assert recognition.run(arguments) == 0
@@ -321,6 +384,7 @@ def test_cli_recovers_publish_without_acknowledgment_and_verifies_cursor(
         "processed": 0,
         "recovered": 0,
         "confident": 0,
+        "tentative": 0,
         "uncertain": 0,
         "changedMeanwhile": 0,
         "coveredOpenBoards": 1,

@@ -26,11 +26,17 @@ from collections import Counter, defaultdict
 from collections.abc import Mapping, Sequence
 from pathlib import Path
 from typing import Any, cast
+from uuid import UUID
 
 import numpy as np
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.prediction_revisions import PREDICTIONS_DIGEST_VERSION
-from game_predictor_api.storage.database import create_maintenance_database_engine
+from game_predictor_api.storage.database import (
+    create_maintenance_database_engine,
+    create_session_factory,
+)
+from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_worker.symbols import rgb_v2
 from game_predictor_worker.symbols.audit_rgb_classifier import AuditRgbClassifier
 from game_predictor_worker.symbols.reference_library import (
     combined_descriptor,
@@ -42,7 +48,18 @@ from game_predictor_worker.symbols.reference_library import (
 from game_predictor_worker.symbols.reference_library_writer import (
     MODEL_VERSION as LIBRARY_MODEL_VERSION,
 )
-from game_predictor_worker.symbols.reference_library_writer import predictions_digest
+from game_predictor_worker.symbols.reference_library_writer import (
+    TARGET_QUALITY_CHANGED,
+    BoardPlan,
+    ReferenceLibraryWriteError,
+    RgbTarget,
+    TargetCell,
+    apply_board,
+    predictions_digest,
+    revert_board,
+    revert_checksum,
+    rgb_v2_policy,
+)
 from game_predictor_worker.symbols.rgb_v2 import (
     BANDS,
     ENTRY_KEY,
@@ -55,6 +72,7 @@ from game_predictor_worker.symbols.rgb_v2 import (
 )
 from numpy.typing import NDArray
 from sqlalchemy import Connection, text
+from sqlalchemy.exc import DBAPIError
 
 from scripts import evaluate_symbol_reference_library as reference
 
@@ -738,6 +756,243 @@ def build_boards(
     return [boards[key] for key in sorted(boards)], excluded, moves
 
 
+# ---------------------------------------------------------------- apply
+
+# Rolled back by the writer; the board is recorded as stale and the run goes on.
+# A non-target side effect is a stale cell row outside the run (e.g. outdated
+# visibility), not an inconsistency of the written board (plan, D-520).
+SKIPPABLE = frozenset({TARGET_QUALITY_CHANGED, "SYMBOL_REFERENCE_WRITE_SIDE_EFFECT"})
+
+
+def read_manifest(path: Path, expected_sha256: str) -> dict[str, Any]:
+    content = path.read_bytes()
+    if hashlib.sha256(content).hexdigest() != expected_sha256:
+        raise RgbError("SYMBOL_RGB_MANIFEST_MISMATCH", "The manifest differs from its checksum.")
+    manifest: Any = json.loads(content)
+    if (
+        not isinstance(manifest, Mapping)
+        or manifest.get("format") != MANIFEST_FORMAT
+        or manifest.get("writerModelVersion") != MODEL_VERSION
+    ):
+        raise RgbError("SYMBOL_RGB_MANIFEST_INVALID", "Unknown manifest.")
+    return dict(manifest)
+
+
+def manifest_policy(manifest: Mapping[str, Any]) -> Any:
+    policy = manifest["policy"]
+    return rgb_v2_policy(
+        {
+            "checkpointSha256": str(policy["checkpointSha256"]),
+            "libraryArraysSha256": str(policy["libraryArraysSha256"]),
+            "libraryMetadataSha256": str(policy["libraryMetadataSha256"]),
+            "runChecksumSha256": str(manifest["revisionChecksumSha256"]),
+        }
+    )
+
+
+def board_plan(board: Mapping[str, Any]) -> BoardPlan:
+    return BoardPlan(
+        review_item_id=UUID(str(board["reviewItemId"])),
+        recognized_board_id=UUID(str(board["recognizedBoardId"])),
+        prediction_revision_id=UUID(str(board["predictionRevisionId"])),
+        predictions_sha256=str(board["predictionsSha256"]),
+        targets=tuple(
+            TargetCell(
+                cell_review_id=UUID(str(target["cellReviewId"])),
+                cell_index=int(target["cellIndex"]),
+                rendered_pixel_checksum_sha256=str(target["renderedPixelChecksumSha256"]),
+                old_symbol=str(target["oldSymbol"]),
+                new_symbol=str(target["newSymbol"]),
+                shape_votes=int(target["shapeVotes"]),
+                combined_votes=int(target["combinedVotes"]),
+                rgb=RgbTarget(
+                    status=target["status"],
+                    cnn_symbol=str(target["cnnSymbol"]),
+                    library_symbol=None
+                    if target["librarySymbol"] is None
+                    else str(target["librarySymbol"]),
+                    old_confidence=float(target["oldConfidence"]),
+                    old_source=target["oldSource"],
+                    original_model_confidence=float(target["originalModelConfidence"]),
+                ),
+            )
+            for target in board["targets"]
+        ),
+    )
+
+
+def run_apply(arguments: argparse.Namespace, *, revert: bool = False) -> int:
+    deadline = time.monotonic() + float(arguments.time_budget_seconds)
+    manifest_path = cast(Path, arguments.manifest).resolve()
+    manifest = read_manifest(manifest_path, str(arguments.expected_sha256))
+    if manifest["game"]["code"] != arguments.game_code:
+        raise RgbError("SYMBOL_RGB_GAME_MISMATCH", "Wrong game code.")
+    if revert and not arguments.board and not arguments.all:
+        raise RgbError(
+            "SYMBOL_RGB_REVERT_SCOPE_REQUIRED",
+            "Name the boards to revert with --board, or pass --all.",
+        )
+    prefix = "revert-receipts" if revert else "apply-receipts"
+    receipts_path = manifest_path.with_name(f"{prefix}-{str(arguments.expected_sha256)[:12]}.jsonl")
+    write_board = revert_board if revert else apply_board
+    policy = manifest_policy(manifest)
+    run_checksum = str(manifest["revisionChecksumSha256"])
+    done = reference._done(reference._receipts(receipts_path))
+    pending = [board for board in manifest["boards"] if board["reviewItemId"] not in done]
+    if arguments.board:
+        selected = set(arguments.board)
+        unknown = selected - {str(board["reviewItemId"]) for board in manifest["boards"]}
+        if unknown:
+            raise RgbError("SYMBOL_RGB_BOARD_UNKNOWN", f"Not in the manifest: {sorted(unknown)}")
+        pending = [board for board in pending if board["reviewItemId"] in selected]
+    if arguments.limit_boards is not None:
+        pending = pending[: int(arguments.limit_boards)]
+    game_id = UUID(str(manifest["game"]["id"]))
+    engine = create_maintenance_database_engine(ApiSettings.from_environment())
+    session_factory = create_session_factory(engine)
+    counts: Counter[str] = Counter()
+    try:
+        with receipts_path.open("a", encoding="utf-8") as receipts:
+            for board in pending:
+                if time.monotonic() >= deadline:
+                    break
+                try:
+                    with (
+                        game_storage_scope(game_id),
+                        session_factory() as session,
+                        session.begin(),
+                    ):
+                        status = write_board(
+                            session,
+                            game_id=game_id,
+                            plan=board_plan(board),
+                            library_checksum_sha256=run_checksum,
+                            policy=policy,
+                        )
+                except (ReferenceLibraryWriteError, DBAPIError) as error:
+                    code = getattr(error, "code", None) or type(error).__name__
+                    skippable = (
+                        isinstance(error, ReferenceLibraryWriteError)
+                        and error.code in SKIPPABLE
+                        and not revert
+                    )
+                    if not skippable:
+                        receipts.write(
+                            json.dumps(
+                                {"reviewItemId": board["reviewItemId"], "status": f"failed:{code}"}
+                            )
+                            + "\n"
+                        )
+                        receipts.flush()
+                        print(f"FAILED {board['reviewItemId']}: {error}", file=sys.stderr)
+                        return 2
+                    print(f"SKIPPED {board['reviewItemId']}: {error}", file=sys.stderr)
+                    status = f"stale:{code}"
+                receipts.write(
+                    json.dumps({"reviewItemId": board["reviewItemId"], "status": status}) + "\n"
+                )
+                receipts.flush()
+                counts[status] += 1
+    finally:
+        engine.dispose()
+    receipts_now = reference._receipts(receipts_path)
+    remaining = sum(
+        1
+        for board in manifest["boards"]
+        if board["reviewItemId"] not in reference._done(receipts_now)
+    )
+    print(
+        f"this run={dict(counts)} total={dict(sorted(Counter(receipts_now.values()).items()))}"
+        f" remaining={remaining}"
+    )
+    if remaining and arguments.limit_boards is None and not arguments.board:
+        print("INCOMPLETE: run the same command again.")
+        return EXIT_INCOMPLETE
+    return 0
+
+
+def classify_target(row: Mapping[str, Any], target: Mapping[str, Any], run_checksum: str) -> str:
+    """Read-back state of one target cell after a run."""
+
+    expected = rgb_v2.confidence_for(target["status"])
+    if row["review_state"] != "pending":
+        return "decided_by_operator"
+    if row["model_version"] == MODEL_VERSION and row["model_checksum_sha256"] != run_checksum:
+        return "other_rgb_run"
+    if (
+        row["model_version"] == MODEL_VERSION
+        and row["prediction_symbol_code"] == target["newSymbol"]
+        and float(row["prediction_confidence"]) == expected
+    ):
+        return "rgb_prediction"
+    if row["model_checksum_sha256"] == revert_checksum(run_checksum):
+        return "reverted"
+    if row["prediction_symbol_code"] == target["oldSymbol"] and float(
+        row["prediction_confidence"] or 0.0
+    ) == float(target["oldConfidence"]):
+        return "unchanged"
+    return "other"
+
+
+def run_verify(arguments: argparse.Namespace) -> int:
+    manifest_path = cast(Path, arguments.manifest).resolve()
+    manifest = read_manifest(manifest_path, str(arguments.expected_sha256))
+    targets = {
+        str(target["cellReviewId"]): target
+        for board in manifest["boards"]
+        for target in board["targets"]
+    }
+    run_checksum = str(manifest["revisionChecksumSha256"])
+    states: Counter[str] = Counter()
+    engine = create_maintenance_database_engine(ApiSettings.from_environment())
+    try:
+        with engine.connect().execution_options(postgresql_readonly=True) as connection:
+            for chunk in _chunks(sorted(targets), ID_BATCH):
+                for row in connection.execute(
+                    text(
+                        """
+                        SELECT c.id::text AS id, c.review_state, c.prediction_symbol_code,
+                               c.prediction_confidence, p.model_version, p.model_checksum_sha256
+                        FROM game_data_v2.image_symbol_review_cells c
+                        LEFT JOIN game_data_v2.image_symbol_prediction_revisions p
+                          ON p.game_id = c.game_id AND p.id = c.prediction_revision_id
+                        WHERE c.game_id = :game_id AND c.id = ANY(CAST(:ids AS uuid[]))
+                        """
+                    ),
+                    {"game_id": str(manifest["game"]["id"]), "ids": chunk},
+                ).mappings():
+                    states[classify_target(dict(row), targets[str(row["id"])], run_checksum)] += 1
+    finally:
+        engine.dispose()
+    sha12 = str(arguments.expected_sha256)[:12]
+    report = {
+        "manifestSha256": arguments.expected_sha256,
+        "targets": len(targets),
+        "cellStates": dict(sorted(states.items())),
+        "boardReceipts": dict(
+            sorted(
+                Counter(
+                    reference._receipts(
+                        manifest_path.with_name(f"apply-receipts-{sha12}.jsonl")
+                    ).values()
+                ).items()
+            )
+        ),
+        "revertReceipts": dict(
+            sorted(
+                Counter(
+                    reference._receipts(
+                        manifest_path.with_name(f"revert-receipts-{sha12}.jsonl")
+                    ).values()
+                ).items()
+            )
+        ),
+    }
+    report_sha = reference._write_json(manifest_path.with_name("apply-verify.json"), report)
+    print(json.dumps(report), f"apply-verify.json sha256={report_sha}")
+    return 0
+
+
 # ---------------------------------------------------------------- cli
 
 
@@ -761,8 +1016,24 @@ def _parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     preview.add_argument("--shard", type=_shard, default=(0, 1))
     preview.add_argument("--thumbnails-per-group", type=int, default=40, choices=range(1, 201))
     preview.add_argument("--time-budget-seconds", type=float, default=300.0)
+    for name, help_text in (
+        ("apply", "Write the manifest's RGB v2 predictions."),
+        ("revert", "Restore the predictions an RGB v2 run replaced."),
+    ):
+        command = commands.add_parser(name, help=help_text)
+        command.add_argument("--game-code", required=True)
+        command.add_argument("--manifest", required=True, type=Path)
+        command.add_argument("--expected-sha256", required=True)
+        command.add_argument("--limit-boards", type=int)
+        command.add_argument("--board", action="append", default=[])
+        command.add_argument("--time-budget-seconds", type=float, default=240.0)
+        if name == "revert":
+            command.add_argument("--all", action="store_true")
     manifest = commands.add_parser("manifest", help="Bind an approved preview to the boards.")
     manifest.add_argument("--output-dir", required=True, type=Path)
+    verify = commands.add_parser("verify", help="Read back the cells of a manifest.")
+    verify.add_argument("--manifest", required=True, type=Path)
+    verify.add_argument("--expected-sha256", required=True)
     return parser.parse_args(argv)
 
 
@@ -773,7 +1044,13 @@ def main(argv: Sequence[str] | None = None) -> int:
             return run_index(arguments)
         if arguments.command == "preview":
             return run_preview(arguments)
-        return run_manifest(arguments)
+        if arguments.command == "manifest":
+            return run_manifest(arguments)
+        if arguments.command == "apply":
+            return run_apply(arguments)
+        if arguments.command == "revert":
+            return run_apply(arguments, revert=True)
+        return run_verify(arguments)
     except (RgbError, reference.EvaluationError) as error:
         print(str(error), file=sys.stderr)
         return 2

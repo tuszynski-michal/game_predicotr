@@ -6,6 +6,39 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-520 — RGB v2 jako źródło nowej wersji predykcji oczekujących komórek
+
+- **Status:** accepted, 2026-10-05; plan
+  `ai_docs/delivery/SYMBOL_RGB_V2_REPROCESSING_PLAN.md` zaakceptowany przez
+  operatora po wyborze wariantów zakresu, zapisu, komórek niepewnych i bramki.
+- **Decision:** oczekujące komórki z przypisaniem od modelu dostają symbol
+  wybrany metodą RGB v2 z D-494 (argmax zamrożonej `SpatialSymbolCnn` na
+  oryginalnym cropie; potwierdzenie jednomyślną biblioteką 7/7). Zapis idzie
+  istniejącym mechanizmem rewizji predykcji z `model_version = symbol-rgb-v2`:
+  potwierdzona propozycja 0,99, niepotwierdzona (`?`) 0,50 — umowny znacznik
+  pasma przeglądu < 60%, nie skalibrowana pewność. Wpis komórki niesie
+  `rgbV2` (status, CNN, biblioteka, głosy, poprzedni symbol, pewność i źródło,
+  pierwotna pewność modelu, sumy checkpointu i biblioteki, suma przebiegu);
+  wpis `referenceLibrary` tej komórki znika, poprzednia rewizja zostaje w
+  historii.
+- **Scope:** wszystkie oczekujące komórki ośmiu symboli 777, także przepisane
+  wcześniej biblioteką (D-466); pasma według pierwotnej pewności modelu
+  (< 60, 60–80, 80–90, 90–99, 99–100), w każdym paśmie osiem symboli.
+  Zapis tylko gdy zmienia się symbol albo status pewna (≥ 0,99) / do przeglądu.
+  Komórki zatwierdzone, z decyzją człowieka lub z flagą jakości nie są
+  zmieniane; nic nie zatwierdza komórek (D-462).
+- **Supersedes:** dalsze przebiegi D-466 (TASK-0832 Śliwka, TASK-0833 Arbuz)
+  nie są wznawiane pod starymi manifestami; D-466 pozostaje dla zapisanych
+  rewizji i `apply-revert`.
+- **Errors:** zmiana stanu komórki spoza celów przy zapisie planszy
+  (`SYMBOL_REFERENCE_WRITE_SIDE_EFFECT`) wycofuje planszę i kończy ją jako
+  `stale` bez zatrzymania przebiegu; manifest wiąże zatwierdzony podgląd z
+  bieżącą rewizją planszy dopiero tuż przed zapisem symbolu.
+- **Filters:** „Źródło predykcji” ma opcje „RGB v2” i „RGB v2 — do przeglądu”;
+  „Stary model” to komórki bez wpisu biblioteki i bez wpisu RGB v2.
+- **Execution:** każde pasmo ma podgląd z próbką klas i zapis dopiero po
+  zgodzie operatora (bramka).
+
 ## D-495 — V3-D: oddzielny, ograniczony shadow i ręczna korekta
 
 - **Identifier:** przy integracji TASK-0848 oznaczono dawną D-493 shadow jako

@@ -1,4 +1,4 @@
-"""Write reference-library predictions for pending symbol cells (D-466).
+"""Write reference-library and RGB v2 predictions for pending symbol cells (D-466, D-520).
 
 One board is written per transaction through the existing prediction-revision
 mechanism, so the current human-decision rules of the symbol-cell projection
@@ -16,7 +16,7 @@ from __future__ import annotations
 import copy
 import hashlib
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
@@ -43,6 +43,8 @@ from game_predictor_api.storage.models import (
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
+from game_predictor_worker.symbols import rgb_v2
+
 MODEL_VERSION = "symbol-reference-library-v1"
 LIBRARY_CONFIDENCE = 0.99
 ACTOR = "system:symbol-reference-library"
@@ -59,6 +61,18 @@ class ReferenceLibraryWriteError(RuntimeError):
 
 
 @dataclass(frozen=True, slots=True)
+class RgbTarget:
+    """RGB v2 provenance of one target (D-520); the old confidence guards the write."""
+
+    status: rgb_v2.Status
+    cnn_symbol: str
+    library_symbol: str | None
+    old_confidence: float
+    old_source: rgb_v2.Source
+    original_model_confidence: float
+
+
+@dataclass(frozen=True, slots=True)
 class TargetCell:
     cell_review_id: UUID
     cell_index: int
@@ -67,6 +81,23 @@ class TargetCell:
     new_symbol: str
     shape_votes: int
     combined_votes: int
+    rgb: RgbTarget | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class WritePolicy:
+    """Prediction source of a run: revision version, actor and run provenance."""
+
+    model_version: str
+    actor: str
+    provenance: Mapping[str, str] = field(default_factory=dict)
+
+
+LIBRARY_POLICY = WritePolicy(MODEL_VERSION, ACTOR)
+
+
+def rgb_v2_policy(provenance: Mapping[str, str]) -> WritePolicy:
+    return WritePolicy(rgb_v2.MODEL_VERSION, "system:symbol-rgb-v2", dict(provenance))
 
 
 @dataclass(frozen=True, slots=True)
@@ -92,6 +123,7 @@ def rewrite_predictions(
     targets: Sequence[TargetCell],
     *,
     columns: int = 5,
+    policy: WritePolicy = LIBRARY_POLICY,
 ) -> list[dict[str, Any]]:
     """Return a copy of a board's predictions with only the target cells replaced."""
 
@@ -117,16 +149,42 @@ def rewrite_predictions(
                 "SYMBOL_REFERENCE_PREDICTION_DRIFT",
                 f"Cell {target.cell_index} no longer predicts {target.old_symbol}.",
             )
+        if target.rgb is None:
+            entry["symbolCode"] = target.new_symbol
+            entry["confidence"] = LIBRARY_CONFIDENCE
+            entry["alternatives"] = [
+                {"symbolCode": target.new_symbol, "confidence": LIBRARY_CONFIDENCE}
+            ]
+            entry["referenceLibrary"] = {
+                "version": MODEL_VERSION,
+                "previousSymbolCode": target.old_symbol,
+                "shapeVotes": target.shape_votes,
+                "combinedVotes": target.combined_votes,
+            }
+            continue
+        if policy.model_version != rgb_v2.MODEL_VERSION:
+            raise ReferenceLibraryWriteError(
+                "SYMBOL_REFERENCE_POLICY_MISMATCH", "An RGB v2 target needs the RGB v2 policy."
+            )
+        confidence = rgb_v2.confidence_for(target.rgb.status)
         entry["symbolCode"] = target.new_symbol
-        entry["confidence"] = LIBRARY_CONFIDENCE
-        entry["alternatives"] = [
-            {"symbolCode": target.new_symbol, "confidence": LIBRARY_CONFIDENCE}
-        ]
-        entry["referenceLibrary"] = {
-            "version": MODEL_VERSION,
-            "previousSymbolCode": target.old_symbol,
+        entry["confidence"] = confidence
+        entry["alternatives"] = [{"symbolCode": target.new_symbol, "confidence": confidence}]
+        # The cell now has one source; the replaced library provenance stays in the
+        # previous revision and in ``previousSource``.
+        entry.pop("referenceLibrary", None)
+        entry[rgb_v2.ENTRY_KEY] = {
+            "version": rgb_v2.MODEL_VERSION,
+            "status": target.rgb.status,
+            "cnnSymbolCode": target.rgb.cnn_symbol,
+            "librarySymbolCode": target.rgb.library_symbol,
             "shapeVotes": target.shape_votes,
             "combinedVotes": target.combined_votes,
+            "previousSymbolCode": target.old_symbol,
+            "previousConfidence": target.rgb.old_confidence,
+            "previousSource": target.rgb.old_source,
+            "originalModelConfidence": target.rgb.original_model_confidence,
+            **policy.provenance,
         }
     return rewritten
 
@@ -216,6 +274,7 @@ def _write_revision(
     cells: Mapping[UUID, ImageSymbolReviewCellModel],
     revision: ImageSymbolPredictionRevisionModel,
     expected_symbols: Mapping[UUID, str],
+    actor: str = ACTOR,
 ) -> None:
     """Add a revision, refresh the projection and check that only expected cells changed.
 
@@ -231,7 +290,7 @@ def _write_revision(
     if not SymbolCellReviewWriteThroughCoordinator(session).synchronize_after_prediction_refresh(
         game_id=game_id,
         review_item_id=plan.review_item_id,
-        actor=ACTOR,
+        actor=actor,
     ):
         raise ReferenceLibraryWriteError(
             "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
@@ -303,6 +362,7 @@ def apply_board(
     game_id: UUID,
     plan: BoardPlan,
     library_checksum_sha256: str,
+    policy: WritePolicy = LIBRARY_POLICY,
 ) -> str:
     """Write one board inside the caller's transaction.
 
@@ -314,7 +374,7 @@ def apply_board(
     if isinstance(latest, str):
         return latest
     if (
-        latest.model_version == MODEL_VERSION
+        latest.model_version == policy.model_version
         and latest.model_checksum_sha256 == library_checksum_sha256
     ):
         return "already_applied"
@@ -347,6 +407,10 @@ def apply_board(
             or cell.rendered_pixel_checksum_sha256 != target.rendered_pixel_checksum_sha256
             or cell.prediction_revision_id != plan.prediction_revision_id
             or cell.prediction_symbol_code != target.old_symbol
+            or (
+                target.rgb is not None
+                and float(cell.prediction_confidence or 0.0) != target.rgb.old_confidence
+            )
         ):
             return "stale:cell_changed"
 
@@ -361,12 +425,15 @@ def apply_board(
             recognized_board_id=plan.recognized_board_id,
             source_job_id=latest.source_job_id,
             model_iteration_id=None,
-            model_version=MODEL_VERSION,
+            model_version=policy.model_version,
             model_checksum_sha256=library_checksum_sha256,
             crop_manifest_checksum_sha256=latest.crop_manifest_checksum_sha256,
-            predictions=slim_predictions(rewrite_predictions(latest.predictions, plan.targets)),
+            predictions=slim_predictions(
+                rewrite_predictions(latest.predictions, plan.targets, policy=policy)
+            ),
         ),
         expected_symbols={target.cell_review_id: target.new_symbol for target in plan.targets},
+        actor=policy.actor,
     )
     return "applied"
 
@@ -377,8 +444,9 @@ def revert_board(
     game_id: UUID,
     plan: BoardPlan,
     library_checksum_sha256: str,
+    policy: WritePolicy = LIBRARY_POLICY,
 ) -> str:
-    """Restore the predictions a library run replaced on one board.
+    """Restore the predictions a library or RGB v2 run replaced on one board.
 
     The previous revision is copied into a new current revision under the previous
     model version, so the old model is the prediction source again. Only a board whose
@@ -393,7 +461,7 @@ def revert_board(
     if latest.model_checksum_sha256 == checksum:
         return "already_reverted"
     if (
-        latest.model_version != MODEL_VERSION
+        latest.model_version != policy.model_version
         or latest.model_checksum_sha256 != library_checksum_sha256
     ):
         return "stale:not_current_library_revision"
@@ -443,6 +511,7 @@ def revert_board(
             predictions=slim_predictions(previous.predictions),
         ),
         expected_symbols=expected_symbols,
+        actor=policy.actor,
     )
     return "reverted"
 
@@ -450,11 +519,14 @@ def revert_board(
 __all__ = [
     "ACTOR",
     "LIBRARY_CONFIDENCE",
+    "LIBRARY_POLICY",
     "MODEL_VERSION",
     "TARGET_QUALITY_CHANGED",
     "BoardPlan",
     "ReferenceLibraryWriteError",
+    "RgbTarget",
     "TargetCell",
+    "WritePolicy",
     "apply_board",
     "canonical_json",
     "predictions_digest",
@@ -462,4 +534,5 @@ __all__ = [
     "revert_board",
     "revert_checksum",
     "rewrite_predictions",
+    "rgb_v2_policy",
 ]

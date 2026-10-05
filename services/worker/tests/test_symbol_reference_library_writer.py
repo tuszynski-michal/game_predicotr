@@ -197,3 +197,77 @@ def test_non_target_gaining_a_quality_issue_is_a_side_effect(
 
 def test_clean_refresh_passes_the_post_write_check(monkeypatch: pytest.MonkeyPatch) -> None:
     _write(monkeypatch, flag_target=False, flag_other=False, target_first=True)
+
+
+def _rgb_target(
+    status: str = "confirmed", *, old: str = "ARBUZ", new: str = "CYTRYNA"
+) -> TargetCell:
+    return TargetCell(
+        uuid4(),
+        7,
+        "a" * 64,
+        old,
+        new,
+        7,
+        6,
+        writer.RgbTarget(
+            status=cast(Any, status),
+            cnn_symbol=new,
+            library_symbol=new if status == "confirmed" else None,
+            old_confidence=0.5,
+            old_source="reference_library",
+            original_model_confidence=0.42,
+        ),
+    )
+
+
+def test_rgb_v2_targets_record_their_own_provenance() -> None:
+    from game_predictor_worker.symbols import rgb_v2
+
+    predictions = _predictions()
+    predictions[7]["referenceLibrary"] = {"version": MODEL_VERSION}
+    policy = writer.rgb_v2_policy({"checkpointSha256": "c" * 64})
+
+    confirmed = rewrite_predictions(predictions, [_rgb_target()], policy=policy)
+    tentative = rewrite_predictions(predictions, [_rgb_target("tentative")], policy=policy)
+
+    entry = confirmed[7]
+    assert (entry["symbolCode"], entry["confidence"]) == ("CYTRYNA", rgb_v2.CONFIRMED_CONFIDENCE)
+    assert entry["alternatives"] == [
+        {"symbolCode": "CYTRYNA", "confidence": rgb_v2.CONFIRMED_CONFIDENCE}
+    ]
+    # One source per cell: the replaced library provenance leaves the entry.
+    assert "referenceLibrary" not in entry
+    assert entry["rgbV2"] == {
+        "version": rgb_v2.MODEL_VERSION,
+        "status": "confirmed",
+        "cnnSymbolCode": "CYTRYNA",
+        "librarySymbolCode": "CYTRYNA",
+        "shapeVotes": 7,
+        "combinedVotes": 6,
+        "previousSymbolCode": "ARBUZ",
+        "previousConfidence": 0.5,
+        "previousSource": "reference_library",
+        "originalModelConfidence": 0.42,
+        "checkpointSha256": "c" * 64,
+    }
+    assert tentative[7]["confidence"] == rgb_v2.TENTATIVE_CONFIDENCE
+    assert tentative[7]["rgbV2"]["status"] == "tentative"
+    assert tentative[7]["rgbV2"]["librarySymbolCode"] is None
+    assert [e for i, e in enumerate(confirmed) if i != 7] == [
+        e for i, e in enumerate(predictions) if i != 7
+    ]
+    assert predictions[7]["referenceLibrary"] == {"version": MODEL_VERSION}
+
+
+def test_rgb_v2_target_requires_the_rgb_policy() -> None:
+    with pytest.raises(ReferenceLibraryWriteError) as error:
+        rewrite_predictions(_predictions(), [_rgb_target()])
+
+    assert error.value.code == "SYMBOL_REFERENCE_POLICY_MISMATCH"
+
+
+def test_library_policy_is_the_default_and_unchanged() -> None:
+    assert writer.LIBRARY_POLICY.model_version == MODEL_VERSION
+    assert writer.LIBRARY_POLICY.actor == writer.ACTOR
+    assert writer.rgb_v2_policy({}).model_version == "symbol-rgb-v2"

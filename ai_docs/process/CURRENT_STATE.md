@@ -1194,6 +1194,9 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   „RGB v2” i „RGB v2 — do przeglądu” (`rgb_v2`, `rgb_v2_tentative`); „Stary
   model” wyklucza wpisy biblioteki i RGB v2. Po scaleniu: `npm install` i
   `npm run reviewer:build` nie są potrzebne (zmiana Admina i klienta).
+- TASK-0871 done: writer i `scripts/symbol_rgb_v2.py apply|verify|revert` dla
+  `symbol-rgb-v2` (0,99 pewna, 0,50 do przeglądu, wpis `rgbV2`); side-effect
+  poza celami = plansza `stale`; test PostgreSQL zapisu, filtra i cofnięcia.
 
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 

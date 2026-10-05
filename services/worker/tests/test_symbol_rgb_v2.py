@@ -201,3 +201,113 @@ def test_boards_group_targets_and_exclude_cells_that_moved() -> None:
         "revision_not_current": 1,
     }
     assert moves == {"WINOGRON->SIEDEM:confirmed": 2}
+
+
+def _manifest_target(**overrides: Any) -> dict[str, Any]:
+    target = {
+        "cellReviewId": "00000000-0000-0000-0000-000000000001",
+        "cellIndex": 4,
+        "renderedPixelChecksumSha256": "p" * 64,
+        "oldSymbol": "WINOGRON",
+        "oldConfidence": 0.99,
+        "oldSource": "reference_library",
+        "originalModelConfidence": 0.55,
+        "newSymbol": "SIEDEM",
+        "status": "tentative",
+        "cnnSymbol": "SIEDEM",
+        "librarySymbol": None,
+        "shapeVotes": 3,
+        "combinedVotes": 4,
+    }
+    target.update(overrides)
+    return target
+
+
+def test_board_plan_carries_the_rgb_guard_and_provenance() -> None:
+    board = {
+        "reviewItemId": "00000000-0000-0000-0000-00000000000a",
+        "recognizedBoardId": "00000000-0000-0000-0000-00000000000b",
+        "predictionRevisionId": "00000000-0000-0000-0000-00000000000c",
+        "predictionsSha256": "d" * 64,
+        "targets": [_manifest_target()],
+    }
+
+    plan = runner.board_plan(board)
+
+    target = plan.targets[0]
+    assert (target.old_symbol, target.new_symbol) == ("WINOGRON", "SIEDEM")
+    assert target.rgb.status == "tentative"
+    assert target.rgb.old_confidence == 0.99
+    assert target.rgb.library_symbol is None
+    assert target.rgb.original_model_confidence == 0.55
+
+
+def test_manifest_must_match_its_checksum_and_format(tmp_path: Path) -> None:
+    import hashlib
+    import json
+
+    path = tmp_path / "apply-manifest.json"
+    path.write_text(json.dumps({"format": "other"}), encoding="utf-8")
+    checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+
+    with pytest.raises(runner.RgbError) as invalid:
+        runner.read_manifest(path, checksum)
+    with pytest.raises(runner.RgbError) as mismatch:
+        runner.read_manifest(path, "0" * 64)
+
+    assert invalid.value.code == "SYMBOL_RGB_MANIFEST_INVALID"
+    assert mismatch.value.code == "SYMBOL_RGB_MANIFEST_MISMATCH"
+
+
+@pytest.mark.parametrize(
+    ("row", "state"),
+    [
+        ({"review_state": "approved"}, "decided_by_operator"),
+        ({"model_checksum_sha256": "other"}, "other_rgb_run"),
+        ({}, "rgb_prediction"),
+        (
+            {
+                "model_version": "m",
+                "model_checksum_sha256": "revert",
+                "prediction_symbol_code": "X",
+            },
+            "reverted",
+        ),
+        (
+            {
+                "model_version": "m",
+                "model_checksum_sha256": "x",
+                "prediction_symbol_code": "WINOGRON",
+                "prediction_confidence": 0.99,
+            },
+            "unchanged",
+        ),
+    ],
+)
+def test_read_back_states(row: dict[str, Any], state: str) -> None:
+    base = {
+        "review_state": "pending",
+        "model_version": "symbol-rgb-v2",
+        "model_checksum_sha256": "run",
+        "prediction_symbol_code": "SIEDEM",
+        "prediction_confidence": 0.5,
+    }
+    base.update(row)
+    if base["model_checksum_sha256"] == "revert":
+        base["model_checksum_sha256"] = runner.revert_checksum("run")
+
+    assert runner.classify_target(base, _manifest_target(), "run") == state
+
+
+def test_side_effect_and_quality_change_are_skippable() -> None:
+    assert {
+        "SYMBOL_REFERENCE_TARGET_QUALITY_CHANGED",
+        "SYMBOL_REFERENCE_WRITE_SIDE_EFFECT",
+    } == runner.SKIPPABLE
+
+
+def test_writer_version_matches_the_admin_filter_constant() -> None:
+    from game_predictor_api.domain.image_symbol_reviews import RGB_V2_PREDICTION_MODEL_VERSION
+    from game_predictor_worker.symbols.rgb_v2 import MODEL_VERSION
+
+    assert MODEL_VERSION == RGB_V2_PREDICTION_MODEL_VERSION

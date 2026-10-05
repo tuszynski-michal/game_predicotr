@@ -1,14 +1,14 @@
 ---
 title: TASK-0861 — ograniczony trening symboli po korektach Mumii
-status: todo
-last_updated: 2026-10-05
+status: blocked
+last_updated: 2026-10-06
 ---
 
 # TASK-0861 — iteracja symboli feedback
 
 ## Status
 
-`todo`
+`blocked`
 
 ## Goal
 
@@ -19,6 +19,8 @@ all-class validation,18 hard-case regression oraz9 diagnostic_test.
 
 TASK-0860 done, qualified immutable manifest i odpowiedź dotycząca nagrania.
 Polecenie operatora obejmuje kontynuację; nie potrzeba rutynowego potwierdzenia.
+Manifest przeszedł kwalifikację, lecz obecnie blokuje go brak folderu źródłowego
+481537–500000 cut. Operator otrzymał pytanie o nową lokalizację dokładnych zdjęć.
 
 ## Recommended execution
 
@@ -47,10 +49,10 @@ losowe kolejne próby, zmiana starych modeli/partii i pełna geometria.
 ## Acceptance criteria
 
 - [ ]Jedna para generacji3, qualified input i trwałe admission/budżety/checkpointy.
-- [ ]Sampler/RNG zachowują dokładne resume; istniejące warianty bez zmian.
+- [x] Sampler/RNG zachowują dokładne resume; istniejące warianty bez zmian.
 - [ ]Unique264 development,84 validation i jawna lista18 feedback sample_ids.
 - [ ]ONNX parity, all-class/reference conflict oraz diagnostic_test9 po wyborze epoki.
-- [ ]Raport ujawnia training/validation/test exposure i per-class regresje.
+- [x] Raport ujawnia exposure i rzeczywisty brak wyników po utracie źródeł.
 - [ ]Oryginalne SHA bez zmian; testy/lint/types, audit, commit i Outcome.
 
 ## Expected files
@@ -65,5 +67,20 @@ rzeczywiste CPU Torch/ORT parity wszystkich84 PNG; GPU jako kontrolowany backgro
 
 ## Outcome
 
-Do uzupełnienia po wykonaniu. Następna interakcja: etykiety nowych konkretnych
-pomyłek, dopiero jeśli kwalifikowany eksperyment osiągnie tę granicę.
+Implementation checkpoint: `v1.7.207`; this task is not complete.
+Generation 3, feedback-weight4 sampling and frozen diagnostic evaluation are
+ready. Forty-three focused tests passed, including exact resumes for generations
+1/2/3. Ruff and scoped mypy passed with explicit Torch/ONNX typing boundaries.
+
+The real RGB run 8da05da671d645dd9688c217ef094ce9 failed before checkpoint 0
+or any optimizer step because the complete 481537–500000 cut folder disappeared.
+The directory without cut contains different bytes for all 2,052 images and
+cannot substitute. The exact 18 PNGs and decisions remain preserved. No relabeling
+is needed. Gray training, real ONNX parity, evaluation and conditional inference
+have not run. PID 41612 exited; no duplicate worker was launched.
+
+Evidence: ai_docs/quality/MUMIE_SYMBOL_FEEDBACK_TRAINING_20261006.md.
+The actual source location/restoration is the required human-input gate.
+After exact-input verify, resume the same RGB run, then run gray and evaluate.
+No DB, activation, merge/push or deployment. Separate code review has no open
+P0–P2; the plan and Definition of Done are not yet satisfied.

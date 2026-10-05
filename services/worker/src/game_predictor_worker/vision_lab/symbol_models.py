@@ -6,18 +6,21 @@ import numpy as np
 
 MODELS = ("mumie-symbol-rgb-v1", "mumie-symbol-gray-v1")
 ROBUST_MODELS = ("mumie-symbol-rgb-v2", "mumie-symbol-gray-v2")
+FEEDBACK_MODELS = ("mumie-symbol-rgb-v3", "mumie-symbol-gray-v3")
 PREPROCESSING = {
     MODELS[0]: "rgb-resize64-normalize-half-v1",
     MODELS[1]: "rgb-resize64-normalize-half-gray3-v1",
     ROBUST_MODELS[0]: "rgb-resize64-normalize-half-v1",
     ROBUST_MODELS[1]: "rgb-resize64-normalize-half-gray3-v1",
+    FEEDBACK_MODELS[0]: "rgb-resize64-normalize-half-v1",
+    FEEDBACK_MODELS[1]: "rgb-resize64-normalize-half-gray3-v1",
 }
 
 
 def model_pair(generation: int = 1) -> tuple[str, str]:
-    if generation not in (1, 2):
+    if generation not in (1, 2, 3):
         raise ValueError("SYMBOL_GENERATION_INVALID")
-    return MODELS if generation == 1 else ROBUST_MODELS
+    return (MODELS, ROBUST_MODELS, FEEDBACK_MODELS)[generation - 1]
 
 
 def require_robust_qualification(measured: dict[str, Any]) -> None:
@@ -145,4 +148,42 @@ def compare(rgb: dict[str, Any], gray: dict[str, Any]) -> dict[str, Any]:
         "limitation": (
             "Selection and calibration reuse small validation; no independent final test."
         ),
+    }
+
+
+def evaluate_frozen_fusion(
+    rgb: dict[str, Any], gray: dict[str, Any], calibration: dict[str, Any]
+) -> dict[str, Any]:
+    """Apply validation-selected parameters without fitting held-out or training labels."""
+    for key in ("manifest_id", "classes", "labels", "sample_ids"):
+        if rgb[key] != gray[key]:
+            raise ValueError("SYMBOL_FUSION_BINDING_MISMATCH")
+    if calibration["manifest_id"] != rgb["manifest_id"]:
+        raise ValueError("SYMBOL_FUSION_BINDING_MISMATCH")
+    weight = calibration["selected_fusion"]["rgb_weight"]
+    temperatures = [calibration[branch]["temperature"] for branch in ["rgb", "gray"]]
+    if weight not in (0.0, 0.1, 0.2, 0.3) or any(not 0.5 <= t <= 3 for t in temperatures):
+        raise ValueError("SYMBOL_FROZEN_CALIBRATION_INVALID")
+    rp = probabilities(np.asarray(rgb["logits"]), temperatures[0])
+    gp = probabilities(np.asarray(gray["logits"]), temperatures[1])
+    fused = weight * rp + (1 - weight) * gp
+    classes, labels = rgb["classes"], rgb["labels"]
+    return {
+        "rgb": metrics(rp, labels, classes),
+        "gray": metrics(gp, labels, classes),
+        "fusion": metrics(fused, labels, classes),
+        "calibration_selected_on": "validation",
+        "rows": [
+            {
+                "sample_id": sid,
+                "expected": classes[target],
+                "rgb": classes[int(rp[i].argmax())],
+                "gray": classes[int(gp[i].argmax())],
+                "predicted": classes[int(fused[i].argmax())],
+                "confidence": float(fused[i].max()),
+                "disagreement": int(rp[i].argmax()) != int(gp[i].argmax()),
+                "correct": int(fused[i].argmax()) == target,
+            }
+            for i, (sid, target) in enumerate(zip(rgb["sample_ids"], labels, strict=True))
+        ],
     }

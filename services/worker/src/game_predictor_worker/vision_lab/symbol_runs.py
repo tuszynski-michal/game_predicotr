@@ -17,7 +17,14 @@ from .run_files import verify_artifact
 from .runs import RunManager, Token
 from .snapshot import canonical
 from .symbol_feedback import training_adapter
-from .symbol_models import MODELS, PREPROCESSING, ROBUST_MODELS, compare, model_pair
+from .symbol_models import (
+    FEEDBACK_MODELS,
+    MODELS,
+    PREPROCESSING,
+    ROBUST_MODELS,
+    compare,
+    model_pair,
+)
 from .symbol_store import publish_file
 from .symbol_training_manifest import SymbolTrainingInputs
 
@@ -30,7 +37,7 @@ BOOT = (
 
 def validate_request(request: StartRunRequest) -> None:
     if (
-        request.model_version not in (*MODELS, *ROBUST_MODELS)
+        request.model_version not in (*MODELS, *ROBUST_MODELS, *FEEDBACK_MODELS)
         or request.protocol_digest is not None
         or request.preprocessing_version != PREPROCESSING.get(request.model_version)
         or request.topology.columns != 5
@@ -118,6 +125,9 @@ def build_manager(root: Path, settings: dict[str, str], launcher: Any = None) ->
     adapter = training_adapter(Path(settings["manifest"]))
     # Check output isolation from every pinned live input, including labels and source files.
     inputs = adapter.validate()
+    generation = int(settings.get("generation", "1"))
+    if (generation == 3) != (inputs.payload.get("purpose") == "symbol_crop_feedback"):
+        raise ValueError("SYMBOL_FEEDBACK_GENERATION_BINDING_REQUIRED")
     for name in [str(adapter.manifest), str(inputs.bundle), *inputs.payload["live_bindings"]]:
         path = Path(name).resolve()
         if path.is_file():
@@ -181,7 +191,7 @@ def main() -> None:
     for name in ("root", "manifest", "python"):
         start.add_argument("--" + name, type=Path, required=True)
     start.add_argument("--variant", choices=("rgb", "gray"), required=True)
-    start.add_argument("--generation", type=int, choices=(1, 2), default=1)
+    start.add_argument("--generation", type=int, choices=(1, 2, 3), default=1)
     status = sub.add_parser("status")
     status.add_argument("--root", type=Path, required=True)
     resume = sub.add_parser("resume")
@@ -205,8 +215,8 @@ def main() -> None:
         }
     else:
         settings = read_checked(args.root / "settings.json")
-    if args.action == "start" and args.generation == 2:
-        settings["generation"] = "2"
+    if args.action == "start" and args.generation != 1:
+        settings["generation"] = str(args.generation)
     pair = model_pair(int(settings.get("generation", "1")))
     manager = build_manager(args.root, settings)
     if args.action == "worker":
@@ -215,7 +225,10 @@ def main() -> None:
     if args.action == "start":
         model = pair[0 if args.variant == "rgb" else 1]
         request = StartRunRequest(
-            request_id=("mumie-first-" if args.generation == 1 else "mumie-robust-") + args.variant,
+            request_id={1: "mumie-first-", 2: "mumie-robust-", 3: "mumie-feedback-"}[
+                args.generation
+            ]
+            + args.variant,
             manifest_id=args.manifest.stem,
             model_version=model,
             preprocessing_version=PREPROCESSING[model],

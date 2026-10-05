@@ -6,6 +6,25 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0861 — generacja 3 gotowa, trening zablokowany utratą źródeł
+
+- Zaimplementowano parę RGB/gray v3, feedback weight4 (318 losowań, 264
+  unikalne wycinki), dokładne resume i diagnostykę po wyborze epoki.
+  Fuzja diagnostyczna używa wyłącznie parametrów wybranych na walidacji.
+- 43 focused pytest PASS, w tym resume generacji 1/2/3 i frozen calibration;
+  Ruff i scoped mypy PASS z jawną nieanalizowaną granicą Torch/ONNX.
+- RGB run 8da05da671d645dd9688c217ef094ce9 / attempt1 / PID41612
+  zakończył się przed checkpointem i pierwszym krokiem optymalizacji.
+  W trakcie weryfikacji zniknął cały folder 481537–500000 cut.
+- Folder bez cut ma inne SHA wszystkich 2 052 plików; nie podstawiono go.
+  Dokładne 18 PNG i decyzje są zachowane. Nie trzeba oznaczać ich ponownie.
+  Operator otrzymał pytanie o lokalizację właściwych zdjęć. Brak wyników nowego modelu.
+- Task pozostaje blocked; implementacyjny commit `v1.7.207` nie oznacza ukończenia.
+  Po przywróceniu dokładnych źródeł: verify, resume tego samego RGB runu,
+  pojedynczy gray run i ocena. Gray, parity i nowa inferencja jeszcze nie wykonane.
+- Worker zakończony; bez duplikatów procesu, DB, aktywacji, merge/push/wdrożenia.
+  Raport: MUMIE_SYMBOL_FEEDBACK_TRAINING_20261006.md.
+
 ### TASK-0860 — kwalifikacja 18 korekt symboli Mumii (done)
 
 - Operator potwierdził niezależność nowego nagrania od walidacji. D-502

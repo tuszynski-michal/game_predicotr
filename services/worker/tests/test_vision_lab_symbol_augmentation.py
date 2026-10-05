@@ -77,7 +77,7 @@ def test_unaugmented_validation_and_v1_dataset_are_unchanged(tmp_path):
 def test_generation_registry_and_budget_preserve_v1():
     assert model_pair() == MODELS and model_pair(2) == ROBUST_MODELS
     with pytest.raises(ValueError, match="GENERATION_INVALID"):
-        model_pair(3)
+        model_pair(4)
     old = request(purpose="train")
     validate_request(old)
     forty = old.configuration.model_copy(update={"epochs": 40})

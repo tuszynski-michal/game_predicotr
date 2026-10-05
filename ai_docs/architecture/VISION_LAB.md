@@ -27,6 +27,15 @@ weighted sampler driven by the existing checkpointed generator. Unique cohort
 metrics and effective draw counts are reported separately. Diagnostic-test
 evaluation follows final epoch selection and cannot alter training/calibration.
 
+The generation-3 local registry requires the D-502 purpose. Its versioned
+replacement sampler gives approved feedback weight 4, drawing 318 samples
+from 264 unique development crops. Both sampler and loader share the persisted
+generator. Final reports isolate feedback regression and diagnostic predictions.
+`evaluate_frozen_fusion` only applies existing validation temperatures/weight;
+it cannot select or calibrate on these additional labels. Missing pinned source
+files invalidate admission/checkpoint verification; an immutable crop copy is
+not permission to bypass the current source-integrity gate.
+
 ## Pakiet kwalifikacji symboli (TASK-0853)
 
 CLI `vision_lab.symbol_preparation prepare|verify` tworzy osobny niezmienny

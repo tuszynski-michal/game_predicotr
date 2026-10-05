@@ -24,6 +24,13 @@ unchanged84 validation, with all10 classes in both. Selection/calibration uses
 only validation. Feedback sampling weight4 does not create extra labels or
 increase the reported unique cohort. Validation/test data never enter sampling.
 
+Generation 3 is bounded to one admitted RGB and one gray run from scratch,
+with the existing durable budgets and exact sampler/RNG resume. Report the
+18 training feedback outcomes separately from validation and the diagnostic
+labels evaluated after selection. Missing sources block execution, preserving
+decisions and artifacts; never substitute an identically named photo whose
+SHA differs. An interrupted pre-training attempt is not model qualification.
+
 ## Przygotowanie aktualnych etykiet Mumii (TASK-0853)
 
 Pakiet przygotowawczy zawiera wyłącznie najnowsze ważne decyzje approve

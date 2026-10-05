@@ -14,10 +14,12 @@ from game_predictor_worker.vision_lab.run_contracts import (
 from game_predictor_worker.vision_lab.run_files import verify_artifact
 from game_predictor_worker.vision_lab.runs import RunManager, checkpoint_binding, token
 from game_predictor_worker.vision_lab.symbol_models import (
+    FEEDBACK_MODELS,
     MODELS,
     PREPROCESSING,
     calibrate,
     compare,
+    evaluate_frozen_fusion,
     metrics,
     model_pair,
     probabilities,
@@ -158,7 +160,7 @@ def test_request_cannot_enter_other_registry(change):
         validate_request(request().model_copy(update=change))
 
 
-@pytest.mark.parametrize("generation", [1, 2])
+@pytest.mark.parametrize("generation", [1, 2, 3])
 def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
     tmp_path, monkeypatch, generation
 ):
@@ -169,10 +171,23 @@ def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
     inputs = SymbolTrainingAdapter(manifest).validate()
     req = request(inputs.manifest_id)
     pair = model_pair(generation)
-    if generation == 2:
+    if generation != 1:
         req = req.model_copy(
             update={"model_version": pair[0], "preprocessing_version": PREPROCESSING[pair[0]]}
         )
+    if generation == 3:
+        development = next(
+            s
+            for s in inputs.preparation["samples"]
+            if inputs.payload["assignments"][s["decision"]["binding"]["source_id"]] == "development"
+        )
+        inputs.payload["purpose"] = "symbol_crop_feedback"
+        inputs.payload["feedback_sample_ids"] = [development["decision"]["decision_id"]]
+        diagnostic = deepcopy(inputs.preparation["samples"][0])
+        diagnostic["decision"]["decision_id"] = "diagnostic-only"
+        diagnostic["decision"]["binding"]["source_id"] = "diagnostic-source"
+        inputs.preparation["samples"].append(diagnostic)
+        inputs.payload["assignments"]["diagnostic-source"] = "diagnostic_test"
     # Numerical export is verified separately; this test targets exact durable continuation.
     monkeypatch.setattr(module, "export_onnx", lambda *_: {"status": "test-separated"})
 
@@ -189,6 +204,18 @@ def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
     run = full.create_or_get_run(req)
     full.claim(run.id, token(run))
     measured = train(inputs, req, RunControl(full, run.id, token(run)), device_name="cpu")
+    if generation == 3:
+        assert measured["sampling"] == {
+            "policy": "feedback-weight4-replacement-v1",
+            "feedback_weight": 4,
+            "unique_development": 1,
+            "feedback_samples": 1,
+            "draws_per_epoch": 4,
+        }
+        assert measured["diagnostic_test"]["evaluated_after_model_selection"]
+        assert measured["diagnostic_test"]["predictions"]["sample_ids"] == ["diagnostic-only"]
+        assert measured["development"]["samples"] == 1
+        assert measured["feedback_regression"]["metrics"]["samples"] == 1
     complete = full.finish(run.id, token(run), status="succeeded", metrics=measured)
     original = load_checkpoint(
         verify_artifact(full.root, complete.checkpoint),
@@ -241,3 +268,73 @@ def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
     gray = SymbolDataset(inputs, "validation", True, req.seed)
     rgb = SymbolDataset(inputs, "validation", False, req.seed)
     assert torch.equal(gray[0][0][0], gray[0][0][1]) and not torch.equal(rgb[0][0][0], rgb[0][0][1])
+
+
+def test_feedback_registry_and_old_cohort_cannot_be_mixed(tmp_path):
+    store, bundle, qualification = prepared(tmp_path / "data")
+    manifest = freeze(store, bundle, qualification, tmp_path / "manifests")
+    inputs = SymbolTrainingAdapter(manifest).validate()
+    req = request(inputs.manifest_id).model_copy(
+        update={
+            "model_version": FEEDBACK_MODELS[0],
+            "preprocessing_version": PREPROCESSING[FEEDBACK_MODELS[0]],
+        }
+    )
+    validate_request(req)
+    assert model_pair(3) == FEEDBACK_MODELS
+    with pytest.raises(ValueError, match="GENERATION_BINDING_REQUIRED"):
+        train(inputs, req, None, device_name="cpu")
+    with pytest.raises(ValueError, match="GENERATION_INVALID"):
+        model_pair(4)
+
+
+def test_feedback_sampler_has_exact_weights_and_checkpoint_generator(tmp_path):
+    from game_predictor_worker.vision_lab.symbol_training import training_loader
+
+    store, bundle, qualification = prepared(tmp_path / "data")
+    manifest = freeze(store, bundle, qualification, tmp_path / "manifests")
+    inputs = SymbolTrainingAdapter(manifest).validate()
+    data = SymbolDataset(inputs, "development", False, 20261005)
+    data.samples.append(deepcopy(data.samples[0]))
+    data.samples[1]["decision_id"] = "feedback"
+    data.tensors.append(data.tensors[0].clone())
+    data.labels.append(data.labels[0])
+    data.feedback_ids = {"feedback"}
+    generator = torch.Generator().manual_seed(20261005)
+    loader = training_loader(data, 32, generator, feedback=True)
+    assert loader.sampler.generator is generator and loader.generator is generator
+    assert loader.sampler.weights.tolist() == [1, 4]
+    assert loader.sampler.num_samples == 5 and loader.sampler.replacement
+    state = generator.get_state()
+    expected = list(loader.sampler)
+    generator.set_state(state)
+    replay = training_loader(data, 32, generator, feedback=True)
+    assert list(replay.sampler) == expected
+    assert len(data) == 2
+
+
+def test_diagnostic_fusion_uses_only_frozen_validation_parameters(monkeypatch):
+    from game_predictor_worker.vision_lab import symbol_models as module
+
+    rgb = {
+        "manifest_id": "same",
+        "classes": ["A", "B"],
+        "labels": [0, 1],
+        "sample_ids": ["one", "two"],
+        "logits": [[8, 0], [0, 8]],
+    }
+    calibration = compare(rgb, deepcopy(rgb))
+    before = deepcopy(calibration)
+
+    def refit(*_args):
+        raise AssertionError("diagnostic labels were used for calibration")
+
+    monkeypatch.setattr(module, "calibrate", refit)
+    gray = deepcopy(rgb)
+    gray["logits"][0] = [0, 8]
+    result = evaluate_frozen_fusion(rgb, gray, calibration)
+    assert result["gray"]["correct"] == result["fusion"]["correct"] == 1
+    assert result["rows"][0]["disagreement"]
+    assert calibration == before
+    with pytest.raises(ValueError, match="BINDING_MISMATCH"):
+        evaluate_frozen_fusion(rgb, gray, {**calibration, "manifest_id": "other"})

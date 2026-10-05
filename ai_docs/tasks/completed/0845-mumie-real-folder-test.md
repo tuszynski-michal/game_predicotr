@@ -111,4 +111,5 @@ Raport: `ai_docs/quality/MUMIE_REAL_FOLDER_TEST_20261005.md`.
 
 Numer zmieniono z 0844 na 0845 przed commitem: w głównym checkoutcie inny
 trwający task zajął 0844. Jego zmian nie włączono do tego zadania.
-Commit: `v1.7.189`; pełny hash zostanie dopisany po commicie.
+Commit: `v1.7.189` / `7ac2fb53ebb6deec3edcf65b1c34d685f70f0a65`
+(hash dopisany po commicie). Bez push i scalenia do głównego checkoutu.

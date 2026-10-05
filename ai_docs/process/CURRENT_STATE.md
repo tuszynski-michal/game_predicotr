@@ -6,6 +6,30 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0846 — Mumie: drugi folder (done)
+
+- Operator wskazał `C:\Users\tuszy\Documents\mumie wybrane\481537- 500000 cut`
+  po ocenie pierwszego porównania jako niemal identycznego. Folder ma 2052 pliki.
+- Wykonano 200 unikalnych zdjęć równomiernie po zakresie; istniejące modele
+  iteracji 2 i 3, CPU, ten sam adapter. Zero kopii i znanych SHA.
+  Inny folder nie dowodzi innej rodziny. 422 wyniki z kontrolnymi 11.
+- Wyniki w `artifacts/mumie-folder-test-20261005/second-481537-500000`;
+  wcześniejszy test pozostaje niezmieniony. Kontrolne 11 zdjęć oceniane osobno,
+  nie jako nowe referencje drugiego folderu. Bez treningu/DB/migracji/V3-D.
+- Oba modele: 199 zdjęć z 9 planszami, jedno z 6, zero błędów struktury.
+  Ostatnie zdjęcie zawiera pięć rzeczywistych plansz; obie iteracje tworzą
+  fałszywą szóstą na tle. `seq_485704-485712` ma uciętą górę pierwszej planszy;
+  2 cropy iteracji 2 i 3 cropy iteracji 3 poza obrazem. Brak dowodu przewagi.
+- Mediana różnicy 43128 węzłów 0,327794 px, P95 0,794990 px. Bez accuracy.
+  20 par nakładek, największe różnice i cropy obu trudnych przypadków obejrzane.
+- 7 testów PASS, nowy proces odzyskuje po 211 wyników bez inferencji;
+  ponowne finish/audit/verify PASS. Galeria: filtry 200/11/2 i wycinki PASS.
+  Podgląd: `http://127.0.0.1:8108/second-481537-500000/case-review.html`.
+- Task i plan: `ai_docs/tasks/completed/0846-mumie-second-folder-test.md`.
+  Raport: `ai_docs/quality/MUMIE_SECOND_FOLDER_TEST_20261005.md`.
+  Następny zakres: referencje niepełnych ekranów i pustych miejsc, dopuszczenie
+  do uczenia po zatwierdzeniach. Commit `v1.7.190`; hash po commicie.
+
 ### TASK-0845 — Mumie: test rzeczywistego folderu (done)
 
 - Operator wskazał `C:\Users\tuszy\Documents\mumie wybrane\1 - 23175 cut`
@@ -32,7 +56,8 @@ last_updated: 2026-10-05
 - Raport: `ai_docs/quality/MUMIE_REAL_FOLDER_TEST_20261005.md`. Następny zakres:
   niezależna ocena reprezentatywnych cięć i dobór rzeczywistych błędów, zamiast
   automatycznego etykietowania całego folderu. Bez treningu symboli/ramki Super.
-- Commit `v1.7.189`; hash dopisywany po commicie. Numer 0845 wybrano, ponieważ
+- Commit `v1.7.189` / `7ac2fb53ebb6deec3edcf65b1c34d685f70f0a65`
+  (hash dopisany po commicie). Numer 0845 wybrano, ponieważ
   0844 zajęto równolegle w głównym checkoutcie. Bez scalenia do checkoutu
   z trwającym zadaniem 0844 i bez push.
 

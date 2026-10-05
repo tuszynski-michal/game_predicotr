@@ -92,7 +92,9 @@ class GridAuditProposalGridResponse(ApiModel):
 
 
 class GridAuditSymbolSuggestionsResponse(ApiModel):
-    algorithm_version: Literal["symbol-reference-library-v1"] = "symbol-reference-library-v1"
+    algorithm_version: Literal["symbol-reference-library-v1", "symbol-audit-rgb-classifier-v2"] = (
+        "symbol-reference-library-v1"
+    )
     generated_at: str
     artifact_sha256: Sha256
     preview_command: ImageGridReviewGeometryPreviewCommand
@@ -195,6 +197,7 @@ def _symbol_suggestions_response(
         return None
     try:
         return GridAuditSymbolSuggestionsResponse(
+            algorithm_version=suggestions.algorithm_version,
             generated_at=suggestions.generated_at,
             artifact_sha256=suggestions.sha256,
             preview_command=ImageGridReviewGeometryPreviewCommand.model_validate(

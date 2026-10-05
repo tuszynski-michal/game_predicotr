@@ -157,7 +157,7 @@ Brama skali nadal poprzedza przyszłe masowe przetwarzanie.
   rozmiary dotykowe oraz istniejąca korekta mają dowody. Mobilny smoke
   dotyku zaliczono w dwóch viewportach Chromium; fizyczny Android pozostaje
   granicą dowodu, podobnie jak przyszły odbiór na danych operatora.
-- Dokumentacja i raport: wymagania, architektura, D-494, kontrakt, raport,
+- Dokumentacja i raport: wymagania, architektura, D-495, kontrakt, raport,
   Outcome i CURRENT_STATE uzupełnione; task przeniesiony do completed,
   osobny commit v1.7.191. Wdrożenie, aktywacja i pełny odbiór operacyjny
   na danych operatora pozostają poza zrealizowanym zakresem.

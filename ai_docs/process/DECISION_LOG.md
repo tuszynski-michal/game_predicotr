@@ -6,10 +6,11 @@ last_updated: 2026-10-05
 
 # Decision Log
 
-## D-494 — V3-D: oddzielny, ograniczony shadow i ręczna korekta
+## D-495 — V3-D: oddzielny, ograniczony shadow i ręczna korekta
 
 - **Identifier:** przy integracji TASK-0848 oznaczono dawną D-493 shadow jako
-  D-494. Niezależna D-493 main dotyczy propozycji symboli; obie treści zachowano.
+  D-495 (przejściowo D-494 w kandydacie v1.7.192). Niezależne D-493/D-494 main
+  dotyczą podpowiedzi symboli; zachowano treści wszystkich decyzji.
 - **Status:** accepted, 2026-10-05; operator jawnie uruchomił V3-D/TASK-0805.
 - **Decision:** domyślnie wyłączony pion działa na zmaterializowanych źródłach
   5 × 3 przez istniejące joby VALIDATE, zapisując wynik osobno w magazynie
@@ -30,6 +31,29 @@ last_updated: 2026-10-05
   sekwencji, źródła i joba. To porządkuje istniejącą blokadę FK do gry wobec
   resetu Game FOR UPDATE, bez wprowadzania konfliktu ze zwykłą korektą.
   Historię chronią także jawne blokady podglądu usuwania źródeł i resetu gry.
+
+## D-494 — propozycja głowicy RGB z dodatkowym potwierdzeniem biblioteki w audycie
+
+- **Status:** accepted, 2026-10-05; operator zlecił poprawę rozpoznawania
+  Śliwki/Cytryny/Arbuza i doprecyzował, że sama barwa nie jest wystarczającą metodą.
+- **Decision:** audyt wybiera propozycję z głowicy już zamrożonego, aktywnego
+  checkpointu na pełnym RGB 64px, z normalizacją zgodną z treningiem (/127.5−1).
+  Dotychczasowa biblioteka 7/7 dodatkowo potwierdza wynik tylko przy zgodności
+  klasy. Abstencja lub rozbieżność daje `?`, bez zastępowania kandydata głosem
+  biblioteki. Argmax nie jest traktowany jako skalibrowana pewność.
+- **Evidence:** na 60 wycinkach development + osobnych 60 z kolejki głowica RGB
+  120/120 według wzrokowej oceny agenta; stara polityka 115/120. To ograniczony
+  dowód regresyjny, nie ground truth operatora ani pomiar całej populacji.
+  Dodatkowy gray-world zmienia wejście względem treningu; na tych wycinkach
+  głowica po nim jest wyraźnie gorsza. Eksperymenty samej barwy nie są wdrażane.
+- **Compatibility:** nowa wersja `symbol-audit-rgb-classifier-v2` oraz polityka
+  `trained-rgb-candidate-v2`. API nadal czyta sidecary `symbol-reference-library-v1`.
+  Nowa polityka unieważnia cursor i odzyskanie starej polityki. Nie ma nowego
+  endpointu, UI, tabel, treningu lub aktywacji. D-491/D-493 zachowują granicę zapisu.
+- **Safety:** checksum checkpointu, ścisła architektura stanu i zgodność katalogu
+  są wymagane. Tylko otwarte pozycje i dokładny PNG aktualnego podglądu. Poprzednie
+  zatwierdzenia pozostają w bazie; Save jest decyzją operatora. Zatrzymane przebiegi
+  TASK-0832/0833 i ich reguła/preprocessing nie są zmieniane.
 
 ## D-493 — najlepsza propozycja symbolu wstępnie wybrana w audycie siatek
 

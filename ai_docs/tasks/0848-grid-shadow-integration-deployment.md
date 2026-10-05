@@ -21,6 +21,9 @@ Operator wcześniej zlecił scalenie po zakończeniu przypisywania symboli,
 a 2026-10-05 udzielił zgody na migrację. Zgoda obejmuje niezbędne zatrzymanie
 i restart usług. Nie obejmuje treningu, aktywacji domyślnego silnika,
 przebiegu shadow na danych, usuwania danych, downgrade ani push.
+Operator następnie jawnie upoważnił kontakt z czatem wykonującym TASK-0847.
+Wysłano prośbę o zakończenie kontroli i commita bez własnego restartu API
+ani migracji. Równoległa poprawka ma wejść do wspólnego wdrożenia.
 
 Główny checkout: `C:\Users\tuszy\Documents\game_predicotr`, branch
 `v1.1-vision-lab-hybrid-geometry`, HEAD v1.7.191 / 317a07c9.
@@ -45,14 +48,14 @@ i testy PostgreSQL pozostają dowodem jego implementacji.
 - process/HANDOFF_GRID_V3_20261004.md — kontrolowana kolejność wdrożenia
 - tasks/completed/0805-grid-geometry-shadow-integration.md
 - quality/GRID_V3_SHADOW_IMPLEMENTATION_20261005.md
-- Główny tasks/0847-grid-audit-foreground-colour-proposals.md — wyłącznie
+- Główny tasks/completed/0847-grid-audit-rgb-symbol-proposals.md — wyłącznie
   ochrona równoległych niezacommitowanych zmian, nie wykonanie tego taska.
 
 ## Scope / plan wykonania
 
 1. Zachować zastane zmiany jako odzyskiwalne patche/stash, bez ich commita.
    Połączyć commitowany main w worktree. Zachować oba piony API i dokumenty.
-   Kolizję D-493 rozwiązać: zachować D-493 z main, shadow oznaczyć D-494
+   Kolizje decyzji rozwiązać: zachować D-493/D-494 z main, shadow oznaczyć D-495
    z jawnym śladem poprzedniego numeru; treści decyzji nie zmieniać.
 2. Dodać proponowaną no-op migrację `0143_merge_share_grid_shadow`, parents
    0141_share_symbol_corrections i 0142_grid_geometry_shadow_results.
@@ -61,11 +64,15 @@ i testy PostgreSQL pozostają dowodem jego implementacji.
    wygenerować łączny kontrakt; lint/typy. Oba buildy wykonać z main w kroku 5.
    Nie powtarzać
    benchmarków, treningów ani testów PostgreSQL na nowych bazach.
-4. Zapisać osobny commit kandydata v1.7.192. Przed zmianą main ponownie
+4. Zapisać osobny commit kandydata v1.7.192 (zapisany). Po zakończeniu
+   TASK-0847 włączyć jego commit do worktree i sprawdzić wspólny kontrakt.
+   Każdy kolejny commit zwiększa patch według rzeczywistej historii brancha.
+   Przed zmianą main ponownie
    sprawdzić stan repo/jobów; zachować tylko kolidujące lokalne patche.
    Zatrzymać konkretne procesy API/Admin/Reviewera i worker general;
    pozostawić lab 8105/8107. Nie zmieniać plików main przy działającym reload.
-5. Scalić feat do main bez automatycznego commita, zachowując lokalny TASK-0847.
+5. Scalić feat do main bez automatycznego commita, zachowując zatwierdzony
+   commit TASK-0847 i zastane lokalne zmiany metadanych poza własnym commitem.
    Zainstalować istniejące zależności i zbudować oba UI z main. Wykonać
    `db:migrate` do 0143 oraz check ról. Migracje 0141/0142 są transakcyjne,
    z lock_timeout 5 s i statement_timeout 120 s. 0143 nie zawiera DDL/DML.
@@ -74,7 +81,8 @@ i testy PostgreSQL pozostają dowodem jego implementacji.
    Przełącznik shadow pozostaje false. Odtworzyć uruchomiony worker z jego
    dotychczasowym budżetem 7 wątków. Brak niezamówionej inferencji.
 7. Uzupełnić Outcome/CURRENT_STATE i raport, przenieść task do completed,
-   commit scalający v1.7.193. Przywrócić i zachować zastane zmiany; żadnego push.
+   osobny commit scalający z kolejnym patchem względem ostatniego kandydata.
+   Przywrócić i zachować zastane zmiany; żadnego push.
 
 ## Acceptance criteria
 
@@ -121,6 +129,26 @@ Klient 74 PASS, regresje Reviewera 21 PASS, typy czterech workspace PASS,
 strict Mypy main/router/guard z typowanymi zależnościami PASS, Ruff/format PASS.
 Wspólny OpenAPI i klient wygenerowane z połączonego backendu.
 Przygotowanie migracji 0143 i guardu zakończone; baza nadal na 0140.
+
+Kandydat integracji: `v1.7.192` / `a5119244c0af32ef2cf3132550ba115f1f5c960d`.
+Przed wdrożeniem ponowny status main wykrył aktywne zmiany TASK-0847 w API,
+OpenAPI i podpowiedziach symboli. Nie staszowano ani nie scalano tych
+niezacommitowanych zmian i nie zatrzymano usług. Operator upoważnił kontakt
+z drugim czatem; koordynacja wykonana; TASK-0847 zakończony jako `v1.7.192` /
+`8a42380bc9b6d13d125c5eab2873c8c58076134f`, włączony do worktree.
+Nowa D-494 main dotyczy RGB; ostateczny identyfikator shadow to D-495.
+Zapisano odczytowy snapshot identyfikatorów i rewizji magazynów obu gier
+(`task0848-before-catalog.json`) oraz przygotowano kontrolę po migracji
+obejmującą manifest, pustą historię shadow, partycje, RLS i indeksy obu pionów.
+Snapshot potwierdza nadal 0140, brak aktywnych jobów/lifecycle i shadow false.
+Baza i procesy operatora pozostają bez zmian; wdrożenie nie jest zakończone.
+Drugi snapshot lokalnych metadanych feature: stash
+`6c3cc4aaef184787ba40ea3039ff131cb82d8049`, zachowany do odtworzenia.
+Po włączeniu zakończonego TASK-0847: 34 testy API/graph/guard/propozycji
+PASS, 82 testy całego klienta PASS, typy czterech workspace PASS,
+Ruff połączonych modułów PASS. OpenAPI i klient ponownie wygenerowane.
+Dwa konflikty dokumentacji rozwiązano, zachowując D-493, D-494 i D-495.
+Przygotowano podgląd konkretnych drzew procesów; żadnej usługi nie zatrzymano.
 
 ## Przypisanie modeli do zadań
 

@@ -1,0 +1,166 @@
+{
+  "labelProvenance": "Agent visual checks only, not operator-approved labels. First four development boards; last four blind-inspected holdout boards.",
+  "checkpointSha256": "1731869da3d082c43968c55bbc3fee0e2f58066ebcabf50191fb53164fb35f6c",
+  "boards": {
+    "p00519": {
+      "sha256": "bbd566118eb8316d4ccd4f595f374e917feb58d1d8c2a44d3994143ae0600107",
+      "codes": [
+        "WISNIA",
+        "POMARANCZ",
+        "POMARANCZ",
+        "WINOGRON",
+        "SLIWKA",
+        "WISNIA",
+        "WINOGRON",
+        "GWIAZDA",
+        "ARBUZ",
+        "SLIWKA",
+        "CYTRYNA",
+        "WINOGRON",
+        "GWIAZDA",
+        "ARBUZ",
+        "SLIWKA"
+      ]
+    },
+    "p00523": {
+      "sha256": "89a3067460fb1960aade19611144b01f2a3246ed6917212ec2b2fdf795778745",
+      "codes": [
+        "CYTRYNA",
+        "ARBUZ",
+        "ARBUZ",
+        "WINOGRON",
+        "WINOGRON",
+        "CYTRYNA",
+        "ARBUZ",
+        "ARBUZ",
+        "WINOGRON",
+        "WINOGRON",
+        "POMARANCZ",
+        "SLIWKA",
+        "ARBUZ",
+        "ARBUZ",
+        "WINOGRON"
+      ]
+    },
+    "p00525": {
+      "sha256": "7ea0f22e1591eecd19a174cbe8d0f46bf7fb16ccf92dc08a4414c8f89e19b698",
+      "codes": [
+        "POMARANCZ",
+        "GWIAZDA",
+        "GWIAZDA",
+        "POMARANCZ",
+        "SLIWKA",
+        "POMARANCZ",
+        "GWIAZDA",
+        "SLIWKA",
+        "POMARANCZ",
+        "SLIWKA",
+        "WINOGRON",
+        "WINOGRON",
+        "SLIWKA",
+        "GWIAZDA",
+        "SLIWKA"
+      ]
+    },
+    "p00527": {
+      "sha256": "76495129b8854b34ec190e7c74c71ef8fc611c0d5c53e4af712435888a18c703",
+      "codes": [
+        "SLIWKA",
+        "WISNIA",
+        "ARBUZ",
+        "ARBUZ",
+        "WISNIA",
+        "SLIWKA",
+        "ARBUZ",
+        "ARBUZ",
+        "ARBUZ",
+        "WINOGRON",
+        "SLIWKA",
+        "ARBUZ",
+        "ARBUZ",
+        "SLIWKA",
+        "WINOGRON"
+      ]
+    },
+    "p00689": {
+      "sha256": "190310c7e0ae06f64e64bca0d871891ffcb257e9b39a95cd11889a3e935e73a8",
+      "codes": [
+        "CYTRYNA",
+        "WINOGRON",
+        "ARBUZ",
+        "ARBUZ",
+        "SIEDEM",
+        "POMARANCZ",
+        "WINOGRON",
+        "ARBUZ",
+        "SLIWKA",
+        "SIEDEM",
+        "POMARANCZ",
+        "SLIWKA",
+        "POMARANCZ",
+        "SLIWKA",
+        "SIEDEM"
+      ]
+    },
+    "p00796": {
+      "sha256": "d8cf18e27df21272c9979a7cf06390dd3f0384a3b72782fcfded857f4812f3e5",
+      "codes": [
+        "SIEDEM",
+        "WISNIA",
+        "SLIWKA",
+        "GWIAZDA",
+        "GWIAZDA",
+        "SIEDEM",
+        "ARBUZ",
+        "SLIWKA",
+        "GWIAZDA",
+        "GWIAZDA",
+        "SIEDEM",
+        "ARBUZ",
+        "SLIWKA",
+        "WINOGRON",
+        "ARBUZ"
+      ]
+    },
+    "p00901": {
+      "sha256": "1b897f32620cef913c8d3eb8522a4bfdb6a1856a7f64e767ca1571aa1f530feb",
+      "codes": [
+        "WISNIA",
+        "ARBUZ",
+        "SLIWKA",
+        "WINOGRON",
+        "SLIWKA",
+        "WISNIA",
+        "ARBUZ",
+        "SLIWKA",
+        "WINOGRON",
+        "GWIAZDA",
+        "SLIWKA",
+        "ARBUZ",
+        "WISNIA",
+        "ARBUZ",
+        "GWIAZDA"
+      ]
+    },
+    "p01019": {
+      "sha256": "21126c5ed93075d3d711cc720bbce86b79f06801c342198e373c01d7fd5cf816",
+      "codes": [
+        "WINOGRON",
+        "WINOGRON",
+        "SLIWKA",
+        "WISNIA",
+        "ARBUZ",
+        "WINOGRON",
+        "WINOGRON",
+        "WINOGRON",
+        "WISNIA",
+        "WISNIA",
+        "WINOGRON",
+        "SLIWKA",
+        "WINOGRON",
+        "WISNIA",
+        "WISNIA"
+      ]
+    }
+  }
+}

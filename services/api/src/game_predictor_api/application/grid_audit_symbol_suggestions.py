@@ -8,7 +8,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal, cast
 from uuid import UUID
 
 from game_predictor_api.domain.grid_audit_proposals import GridAuditProposalError
@@ -16,7 +16,9 @@ from game_predictor_api.domain.image_grid_reviews import ImageGridReviewListItem
 
 SYMBOL_SUGGESTIONS_SCHEMA = "grid-audit-symbol-suggestions-v1"
 SYMBOL_SUGGESTIONS_DIRECTORY = "symbol-suggestions"
-SYMBOL_ALGORITHM_VERSION = "symbol-reference-library-v1"
+SYMBOL_ALGORITHM_VERSION: Literal["symbol-reference-library-v1"] = "symbol-reference-library-v1"
+RGB_SYMBOL_ALGORITHM_VERSION = "symbol-audit-rgb-classifier-v2"
+SymbolAlgorithmVersion = Literal["symbol-reference-library-v1", "symbol-audit-rgb-classifier-v2"]
 MAX_SYMBOL_SUGGESTIONS_BYTES = 128 * 1024
 
 
@@ -33,6 +35,7 @@ class GridAuditSymbolSuggestions:
     sha256: str
     preview_command: Mapping[str, Any]
     cells: tuple[GridAuditCellSymbolSuggestion, ...]
+    algorithm_version: SymbolAlgorithmVersion = SYMBOL_ALGORITHM_VERSION
 
 
 class FileGridAuditSymbolSuggestionStore:
@@ -71,7 +74,10 @@ class FileGridAuditSymbolSuggestionStore:
             document = json.loads(content)
             if document["schema"] != SYMBOL_SUGGESTIONS_SCHEMA:
                 raise ValueError("schema")
-            if document["algorithmVersion"] != SYMBOL_ALGORITHM_VERSION:
+            if document["algorithmVersion"] not in (
+                SYMBOL_ALGORITHM_VERSION,
+                RGB_SYMBOL_ALGORITHM_VERSION,
+            ):
                 raise ValueError("algorithm")
             if (
                 document["gameId"] != str(game_id)
@@ -119,7 +125,13 @@ class FileGridAuditSymbolSuggestionStore:
             generated_at = document["generatedAt"]
             if not isinstance(generated_at, str):
                 raise ValueError("generatedAt")
-            return GridAuditSymbolSuggestions(generated_at, sha256, command, cells)
+            return GridAuditSymbolSuggestions(
+                generated_at,
+                sha256,
+                command,
+                cells,
+                cast(SymbolAlgorithmVersion, document["algorithmVersion"]),
+            )
         except (OSError, KeyError, TypeError, ValueError, AttributeError) as error:
             if isinstance(error, GridAuditProposalError):
                 raise

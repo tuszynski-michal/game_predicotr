@@ -6,7 +6,7 @@ last_updated: 2026-09-28
 
 # Architektura laboratorium wizji
 
-## Integracja shadow V3-D (D-494)
+## Integracja shadow V3-D (D-495)
 
 CPU inference i czysta geometria trafiają do neutralnego `geometry_core`;
 lab zachowuje kompatybilne wrappery. Produkcyjny handler nie importuje

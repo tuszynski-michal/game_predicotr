@@ -24,19 +24,22 @@ from uuid import UUID
 
 import numpy as np
 from game_predictor_api.application.grid_audit_symbol_suggestions import (
-    SYMBOL_ALGORITHM_VERSION,
+    RGB_SYMBOL_ALGORITHM_VERSION,
     SYMBOL_SUGGESTIONS_DIRECTORY,
     SYMBOL_SUGGESTIONS_SCHEMA,
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.schemas.image_grid_reviews import ImageGridReviewGeometryPreviewCommand
 from game_predictor_api.security.local_admin import ADMIN_INTENT_HEADER, ADMIN_INTENT_VALUE
+from game_predictor_worker.symbols.audit_rgb_classifier import (
+    AuditRgbClassifier,
+    candidate_is_tentative,
+)
 from game_predictor_worker.symbols.reference_library import (
     CROP_SIZE,
     combined_descriptor,
     decide,
     descriptor_matrix,
-    hint_candidates,
     normalize_rows,
     vote_batch,
 )
@@ -46,7 +49,7 @@ from PIL import Image
 from scripts import evaluate_symbol_reference_library as reference
 
 Json = dict[str, Any]
-DISPLAY_POLICY = "best-candidate-v1"
+DISPLAY_POLICY = "trained-rgb-candidate-v2"
 
 
 def write_json(path: Path, value: object) -> str:
@@ -151,6 +154,7 @@ def completed(
     audit_sha: str,
     command: Json,
     display_policy: str | None = None,
+    checkpoint_sha256: str | None = None,
 ) -> bool:
     manifest = directory / f"{item_id}.manifest.json"
     path = directory / f"{item_id}.json"
@@ -164,6 +168,7 @@ def completed(
         document["auditSha256"] == audit_sha
         and document["previewCommand"] == command
         and (display_policy is None or document.get("displayPolicy") == display_policy)
+        and (checkpoint_sha256 is None or document.get("checkpointSha256") == checkpoint_sha256)
     )
 
 
@@ -273,6 +278,9 @@ def run(arguments: argparse.Namespace) -> int:
         / SYMBOL_SUGGESTIONS_DIRECTORY
     )
     model, labels, reference_shape, reference_combined = frozen_library(arguments, first, deadline)
+    classifier = AuditRgbClassifier(
+        model.checkpoint_path, model.checkpoint_sha256, model.class_codes
+    )
     symbols = {
         entry["code"]: entry["id"]
         for entry in read_json(base, f"/api/v1/admin/games/{arguments.game_id}/symbols")
@@ -344,7 +352,12 @@ def run(arguments: argparse.Namespace) -> int:
                 continue
             command = preview_command(view)
             if completed(
-                directory, entry["itemId"], first["artifactSha256"], command, DISPLAY_POLICY
+                directory,
+                entry["itemId"],
+                first["artifactSha256"],
+                command,
+                DISPLAY_POLICY,
+                model.checkpoint_sha256,
             ):
                 counts["recovered"] += 1
                 checkpoint(entry)
@@ -366,9 +379,10 @@ def run(arguments: argparse.Namespace) -> int:
                         continue
                 raise
             crops = contact_sheet_crops(content, item["gridRows"], item["gridColumns"])
+            rgb_candidates = classifier.candidates(crops)
             shape, hue = descriptor_matrix(list(crops))
             combined = normalize_rows(
-                combined_descriptor(shape, reference._feature_maps(model, crops), hue)
+                combined_descriptor(shape, classifier.reference_features(crops), hue)
             )
             proposals = [
                 decide(shape_vote, combined_vote)
@@ -385,18 +399,9 @@ def run(arguments: argparse.Namespace) -> int:
             )
             cells = []
             for index, proposal in enumerate(proposals):
-                candidate_index = proposal.class_index
-                is_tentative = False
-                if candidate_index is None:
-                    candidates = hint_candidates(proposal, 1)
-                    if candidates:
-                        candidate_index = candidates[0]
-                        is_tentative = True
-                code = (
-                    None
-                    if candidate_index is None or index in unavailable
-                    else model.class_codes[candidate_index]
-                )
+                candidate_index = int(rgb_candidates[index])
+                is_tentative = candidate_is_tentative(candidate_index, proposal.class_index)
+                code = None if index in unavailable else model.class_codes[candidate_index]
                 symbol_id = symbols.get(code) if code is not None else None
                 cells.append(
                     {
@@ -404,7 +409,11 @@ def run(arguments: argparse.Namespace) -> int:
                         "symbolId": symbol_id,
                         "symbolCode": code,
                         "isTentative": is_tentative and symbol_id is not None,
-                        "reason": proposal.reason
+                        "reason": (
+                            "rgb_reference_consensus"
+                            if not is_tentative
+                            else "rgb_candidate_requires_review"
+                        )
                         if index not in unavailable
                         else "unavailable_pixels",
                     }
@@ -420,7 +429,7 @@ def run(arguments: argparse.Namespace) -> int:
                 entry["itemId"],
                 {
                     "schema": SYMBOL_SUGGESTIONS_SCHEMA,
-                    "algorithmVersion": SYMBOL_ALGORITHM_VERSION,
+                    "algorithmVersion": RGB_SYMBOL_ALGORITHM_VERSION,
                     "displayPolicy": DISPLAY_POLICY,
                     "gameId": arguments.game_id,
                     "auditId": first["auditId"],
@@ -468,6 +477,7 @@ def run(arguments: argparse.Namespace) -> int:
             if (
                 document["auditSha256"] != first["artifactSha256"]
                 or document.get("displayPolicy") != DISPLAY_POLICY
+                or document.get("checkpointSha256") != model.checkpoint_sha256
             ):
                 missing.append(entry["itemId"])
             else:

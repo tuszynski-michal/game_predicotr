@@ -3049,6 +3049,16 @@ aktualnego podglądu; ręczna zmiana, usunięcie i `null` mają pierwszeństwo.
 Zapis używa istniejącego `cellSymbols` dopiero po kliknięciu operatora i
 potwierdza również niezmienione propozycje. Odczyt nadal nie zapisuje danych.
 
+**D-494 (TASK-0847):** `algorithmVersion` addytywnie dopuszcza
+`symbol-audit-rgb-classifier-v2`; historyczne `symbol-reference-library-v1`
+pozostaje obsługiwane. Nowa polityka sidecara `trained-rgb-candidate-v2`
+wybiera argmax głowicy zamrożonego checkpointu na RGB 64px (/127.5−1, bez
+gray-world). Stara reguła biblioteki 7/7 stanowi dodatkowe potwierdzenie:
+tylko zgodna klasa daje wynik bez `?`. Brak zgodności daje
+`tentativeCellIndices`, nie pusty kandydat. Nowy proces ładuje checksumę,
+klasy i architekturę checkpointu; cursor i wcześniejsze wyniki innej
+polityki wymagają przeliczenia. Nie ma nowego endpointu ani zapisu w bazie.
+
 Lista ma widoki `needs_validation | needs_correction | all | correction`;
 operacyjną kolejką jest wyłącznie `correction`, a pozostałe widoki i liczniki
 stanów są diagnostyką tylko do odczytu (podsumowanie importu w Adminie). Ma

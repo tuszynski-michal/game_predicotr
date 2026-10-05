@@ -12,13 +12,18 @@ last_updated: 2026-10-05
   pozostaje ważna. Przygotowanie w grid-engine-v3, wdrożenie z main.
 - Połączono commitowane piony shadow i korekt share. No-op 0143 łączy
   rodziców 0141/0142; guard wskazuje jeden wspólny head. Treść shadow D-493
-  oznaczono D-494 po kolizji z niezależną decyzją main, bez zmiany domeny.
+  oznaczono D-495 po kolizjach z niezależną decyzją main, bez zmiany domeny.
 - Po poprawce pomocnika konfliktów pełne pliki zachowane; 43 API/graph,
   74 klienta i 21 Reviewera PASS. Typy UI, Mypy, Ruff/format PASS.
 - Preflight READ ONLY: baza 0140, dwie aktywne gry v4, brak aktywnych jobów
   i lifecycle. Migracja oraz restart jeszcze przed nami. Shadow pozostaje off.
 - Zastane zmiany i równoległy TASK-0847 chronione; bez treningu/inferencji/push.
   Task: `ai_docs/tasks/0848-grid-shadow-integration-deployment.md`.
+
+- Kandydat bazowy `v1.7.192` / `a5119244c0af32ef2cf3132550ba115f1f5c960d`.
+  Po zgodzie operatora uzgodniono zakończenie drugiego czatu. Włączono
+  jego TASK-0847: `v1.7.192` / `8a42380bc9b6d13d125c5eab2873c8c58076134f`.
+  Ponowna kontrola wspólnego kandydata przed zmianą main i migracją.
 
 ### TASK-0805 — V3-D: shadow w aplikacji (done, domyślnie wyłączony)
 
@@ -106,6 +111,30 @@ last_updated: 2026-10-05
   (hash dopisany po commicie). Numer 0845 wybrano, ponieważ
   0844 zajęto równolegle w głównym checkoutcie. Bez scalenia do checkoutu
   z trwającym zadaniem 0844 i bez push.
+
+### TASK-0847 — poprawne wejście RGB i propozycje sieci w audycie siatek (done)
+
+- Operator zgłosił Śliwka → Arbuz/Pomarańcz oraz Cytryna → Pomarańcz.
+- Odczyt czterech plansz odtworzył trzy śliwki w p00519; ich opis barwy
+  zdominowało tło. Kod głosowania jest zgodny z Claude, lecz jakość na nowym
+  cięciu i przy słabszych propozycjach wymaga osobnej kontroli.
+- Próby samej barwy i dopasowania nie usunęły błędów. Głowica istniejącego
+  modelu na RGB zgodnym z treningiem daje 120/120 w dwóch małych próbkach
+  ocenionych wzrokowo przez agenta; biblioteka 115/120. Nie jest to truth operatora.
+- Audyt używa propozycji głowicy RGB i dodatkowego potwierdzenia przez
+  ścisłą bibliotekę. Brak zgodności ma `?`. Addytywna wersja algorytmu w API.
+  Wagi CNN, wzorce, zatwierdzenia i zatrzymane TASK-0832/0833 bez mutacji.
+- Wszystkie 496 otwartych plansz mają 7440 propozycji: 5662 potwierdzone przez
+  bibliotekę, 1778 z `?`. 479 poprawionych plansz bez zapisów. Biblioteka SHA bez zmian.
+- Nowy proces: `processed=0`, `coveredOpenBoards=496`; API v2 i UI p00519 odebrane
+  bez Save. Osobna karta zachowuje poprzedni widok operatora.
+- Python 79 + końcowe 15 worker PASS (jeden dodatkowy przypadek); klient 81 PASS,
+  Ruff/format, scoped strict Mypy, OpenAPI/client oraz TS klienta i Reviewera PASS.
+  Pełny Mypy trafił na niezwiązane błędy share-query/limit czasu; poza zakresem.
+- Task i plan: `ai_docs/tasks/completed/0847-grid-audit-rgb-symbol-proposals.md`.
+- Commit: przygotowany `v1.7.192`; hash do dopisania po commicie.
+- Następny krok: przegląd propozycji przez operatora. Bez treningu/aktywacji,
+  migracji, restartów usług, push/merge lub wznowienia TASK-0832/0833.
 
 ### TASK-0846 — wstępnie wybrane propozycje symboli audytu (done)
 

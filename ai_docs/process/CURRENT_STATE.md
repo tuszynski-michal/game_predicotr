@@ -6,6 +6,25 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0849 — cofnięcie ostatniego zapisu planszy 431508 (done)
+
+- Operator polecił cofnięcie ostatniego zapisu; odczyt wskazuje p00545,
+  revision 2, receipt 9b4c8f0f-23cb-4643-9c97-79710bb977a1.
+- Zakres obejmuje poprzednie narożniki i 15 zatwierdzeń tego zapisu.
+  Wcześniejszy stan wszystkich pól: pending. Historia ma pozostać.
+- Istniejący zapis kompensujący: revision 3 / receipt
+  4c2e9a09-b1af-4b3f-99b9-9d3467ff6ae6. Poprzednie narożniki przywrócone;
+  15 pól pending/requires_review, poprzednia aprobata 2 wyłącznie w historii.
+- Nowy niezmienny audyt silent-grid-777-20261004-undo-p00545-20261005t130216:
+  rebase tylko p00545, wszystkie 975 pozycji i 917 propozycji zachowane.
+  Oryginalny audyt niezmieniony; SHA PNG zgodny dla nowych rewizji kontekstu.
+- Nowy proces i UI PASS: p00545 / 431508 pierwsza, 15/15 propozycji RGB,
+  kolejka 482 open / 493 corrected. Pozostałe geometrie i decyzje zachowane.
+- 40 regresji API PASS, Ruff pomocników PASS. Dowody:
+  artifacts/grid-audit-undo-20261005/p00545/; task 0849 w completed.
+- Bez nowego UI, schematu, endpointu, treningu ani usuwania danych.
+- Commit v1.7.195; hash zostanie dopisany po commicie.
+
 ### TASK-0848 — V3-D scalony i zmigrowany na main (done)
 
 - Wdrożono z `C:\Users\tuszy\Documents\game_predicotr` na

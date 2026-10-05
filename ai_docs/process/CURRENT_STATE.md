@@ -6,6 +6,20 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0848 — integracja i migracja V3-D (in progress)
+
+- Operator zezwolił na migrację 2026-10-05; wcześniejsza zgoda na scalenie
+  pozostaje ważna. Przygotowanie w grid-engine-v3, wdrożenie z main.
+- Połączono commitowane piony shadow i korekt share. No-op 0143 łączy
+  rodziców 0141/0142; guard wskazuje jeden wspólny head. Treść shadow D-493
+  oznaczono D-494 po kolizji z niezależną decyzją main, bez zmiany domeny.
+- Po poprawce pomocnika konfliktów pełne pliki zachowane; 43 API/graph,
+  74 klienta i 21 Reviewera PASS. Typy UI, Mypy, Ruff/format PASS.
+- Preflight READ ONLY: baza 0140, dwie aktywne gry v4, brak aktywnych jobów
+  i lifecycle. Migracja oraz restart jeszcze przed nami. Shadow pozostaje off.
+- Zastane zmiany i równoległy TASK-0847 chronione; bez treningu/inferencji/push.
+  Task: `ai_docs/tasks/0848-grid-shadow-integration-deployment.md`.
+
 ### TASK-0805 — V3-D: shadow w aplikacji (done, domyślnie wyłączony)
 
 - Operator jawnie uruchomił etap 2026-10-05. Kontrakt wykonawczy:
@@ -17,10 +31,10 @@ last_updated: 2026-10-05
 - Neutralny rdzeń, manifest v5 i RLS, API/OpenAPI/klient i Admin/Reviewer.
   Claude z pierwotnej tabeli niedostępny; jawnie przypisano gpt-6.1-sol high
   oraz audyt gpt-6-astra high. Delegacja w ramach uruchomionego etapu.
-- Nie wykonywać migracji bazy operatora, przebiegu na jego danych,
-  merge/push ani aktywacji.
-  Main zawiera cudzą migrację 0141; nowa 0142 w worktree wymaga przed
-  wdrożeniem jawnej integracji jednego head Alembic.
+- TASK-0805 nie obejmował migracji operatora ani merge/wdrożenia. Zgoda
+  na integrację i migrację udzielona później w TASK-0848; brak zgody na
+  przebieg shadow, trening, push i aktywację domyślnego silnika.
+  Main zawiera 0141; 0143 łączy ją z 0142 przygotowaną w tym tasku.
 - Admin i Reviewer budują się poprawnie. Audyt statyczny zamknięty bez
   pozostałych P0–P2. Nowe testy workera 20 PASS, regresje labu 38 PASS,
   klient 79 PASS; testy backendu i UI, typy i OpenAPI PASS.
@@ -92,6 +106,84 @@ last_updated: 2026-10-05
   (hash dopisany po commicie). Numer 0845 wybrano, ponieważ
   0844 zajęto równolegle w głównym checkoutcie. Bez scalenia do checkoutu
   z trwającym zadaniem 0844 i bez push.
+
+### TASK-0846 — wstępnie wybrane propozycje symboli audytu (done)
+
+- Operator 2026-10-05 zlecił propozycje także dla niepewnych pól oraz wstępny
+  wybór, aby poprawiać tylko błędne symbole przed zapisem. D-493 zmienia D-491.
+- Audyt wstępnie wybiera nowe propozycje; niepewne mają `?`. Ręczny wybór,
+  usunięcie i „Nie wiem” mają pierwszeństwo. Nowe cięcie usuwa stare automatyczne
+  wybory. Zapis czeka na katalog/propozycje i zatwierdza widoczne symbole dopiero
+  po kliknięciu operatora. Zwykłe korekty zachowują poprzednie zachowanie.
+- Biblioteka/model pozostają zamrożone. Trzy rundy przeliczyły 569 otwartych
+  plansz. Odbiór: wszystkie 525 nadal otwarte z 975 (450 już poprawionych),
+  6073 pewne i 1802 niepewne propozycje, zero pustych pól. Nowy proces potwierdził
+  pokrycie 525/525 bez ponownego rozpoznawania; sumy wszystkich plików sprawdzone.
+- 397 testów PASS, format/lint, scoped strict Mypy, TypeScript, OpenAPI/klient
+  i build PASS. Lokalny Reviewer zrestartowany; p00474/p00475 odebrane w UI,
+  bez zapisu operatora. Nie sprawdzano fizycznego Androida ani restartu komputera.
+- Plan i task: `ai_docs/tasks/completed/0846-grid-audit-preselected-symbol-proposals.md`.
+- Commit: przygotowany `v1.7.190`; pełny hash do dopisania po commicie.
+- Następny krok: operator przegląda wszystkie propozycje i zmienia błędne przed
+  zapisem. TASK-0845 i zastane zmiany pozostają poza zakresem; bez push/merge.
+
+### TASK-0845 — korekty symboli przez link i przegląd operatora (done)
+
+- Operator 2026-10-05 zlecił poprawianie symboli przez udostępnioną
+  wyszukiwarkę, oznaczenia przy wyszukiwaniu/stawce oraz szybki przegląd
+  zmian także dalszych plansz w zakresie do 100 000 spinów.
+- Operator potwierdził Q1/Q2: zastosowanie od razu i edycja również
+  zatwierdzonych plansz. D-492 rozszerza D-471/D-473; bieżące plansze
+  operacyjne są edytowalne lokalnie i online.
+- Zapis korzysta ze wspólnego writera i atomowego audytu linku. Kontekst
+  wyszukiwania/stawki jest jawny; dokładne ponowienie działa po restarcie.
+  Historia pozostaje po usunięciu wyszukiwania i revoke. Przegląd sprawdza
+  rewizję i SHA planszy, a nowsza zmiana ponownie otwiera kolejkę.
+- Admin pokazuje liczniki przy wzorze oraz listę wszystkich zmienionych
+  plansz linku. Klik otwiera edytor z historią i wyróżnieniem pól; zamknięcie
+  nie zatwierdza przeglądu. Lista nie pobiera całego zakresu 100 000 plansz.
+- Testy nowego pionu i regresje, lint, scoped strict Mypy, TypeScript,
+  OpenAPI i oba buildy przeszły. Odbiór na danych testowych w Chromium:
+  1280×900 i 390×844, bez poziomego overflow, przyciski przeglądu ≥44 px.
+  PostgreSQL potwierdził nowy proces, utratę odpowiedzi, rollback audytu
+  i revoke równoległe z zapisem. Szczegóły oraz wcześniejsze błędy szerszych
+  kontroli (typy grupowania i podwójny React testów Admina) są w Outcome.
+- Plan: `ai_docs/delivery/BOARD_SEARCH_SHARE_SYMBOL_CORRECTIONS_PLAN.md`.
+  Task: `ai_docs/tasks/completed/0845-board-search-share-symbol-corrections.md`.
+- Implementacja: `v1.7.190`, `c61c1e65f87e89e7669507cb902e6348fe3cc48e`.
+- Operator zlecił scalenie 2026-10-05 do `v1.1-vision-lab-hybrid-geometry`
+  oraz usunięcie worktree i gałęzi `codex/share-symbol-corrections` po scaleniu.
+  Zachowano TASK-0846 i niezacommitowane zmiany operatora; konflikty dotyczyły
+  tylko dokumentacji. Kontrakt obu funkcji połączył się zgodnie z backendem.
+- Commit scalający: przygotowany `v1.7.191`; hash do dopisania po commicie.
+- Logi w `artifacts/task0845-checks/` i `artifacts/task0845-merge/` głównego
+  katalogu. Bez wdrożenia, migracji bazy operatora, restartu usług i push.
+  Odbiór fizycznego Androida i publicznego tunelu pozostaje do wdrożenia.
+
+- Po scaleniu: 63 testy API/regresji, izolowany PostgreSQL, 80 klienta,
+  214 Reviewera, 39 interakcji shared i 1 kolejki operatora PASS. OpenAPI,
+  klient i TypeScript czterech workspace PASS; timeout zbiorczy zastąpiono
+  mniejszymi grupami. Bez ponownego builda działających aplikacji.
+
+### TASK-0844 — nowe symbole proponowanych siatek audytu (done)
+
+- Operator 2026-10-05 zlecił przeliczenie symboli otwartych propozycji siatek
+  777 i pokazanie wyłącznie nowych podpowiedzi przed własnym przeglądem.
+- Jawny zakres: korekta istniejących plansz; bez treningu i nowych importów
+  V3 (D-489). Wynik biblioteki jest podpowiedzią, nie decyzją człowieka.
+- Przeliczono 917/917 otwartych plansz: 10 425 nowych podpowiedzi i 3330
+  pustych pól do ręcznego rozpoznania. 58 poprawionych plansz pominięto.
+  Kolejka i decyzje człowieka nie zmieniły się podczas przeliczenia.
+- Trwałe sidecary mają SHA-256 i dokładny kontekst podglądu. Biblioteka ma
+  5653 referencje; wykluczono 192 referencje pochodzące z tego audytu.
+  Restart CLI potwierdził 917 wyników, `processed=0`, bez ponownej kalkulacji.
+- Reviewer 3001 przebudowano i uruchomiono. Odbiór UI: p00271 ma 10/15 nowych
+  podpowiedzi, bez zaznaczonych decyzji symboli. Zmiana cięcia ukrywa wynik.
+- Weryfikacja: testy API/CLI, biblioteki, Reviewera i klienta; lint, format,
+  scoped strict Mypy, TypeScript, OpenAPI oraz build Reviewera. Szczegóły
+  i instrukcja wznowienia w Outcome taska.
+- Task i plan: `ai_docs/tasks/completed/0844-grid-audit-new-symbol-suggestions.md`.
+- Commit: przygotowany `v1.7.189`; pełny hash zostanie dopisany po commicie.
 
 ### TASK-0842 — Mumie: wznowienie i partie danych (done)
 

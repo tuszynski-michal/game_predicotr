@@ -95,10 +95,11 @@ RLS ENABLE+FORCE i policy obowiązują także na child partitions. Istniejąca
 historia porównań blokuje usuwanie jej źródeł w podglądzie cleanupu oraz
 automatycznej retencji stagingu; nie dodajemy cichego usuwania historii.
 
-Przygotowana migracja 0142 ma parent 0140 w tym worktree. Niecommitowana
-0141 innego toru nie jest kopiowana. Przed scaleniem obowiązuje osobny
-wspólny head Alembic i zgodna schema guard. Bez migracji/downgrade na danych
-operatora w tym tasku; downgrade z istniejącymi wynikami odmawia usunięcia.
+Migracja 0142 zachowuje parent 0140. TASK-0848 integruje commitowaną 0141
+z main i dodaje no-op 0143, której rodzicami są obie migracje 0141/0142.
+Guard API/workera wskazuje 0143. Task przygotowania 0805 nie obejmował
+migracji/downgrade na danych operatora; późniejszą migrację zatwierdzono
+w TASK-0848. Downgrade z istniejącymi wynikami odmawia usunięcia.
 
 ## Porównanie i korekta
 
@@ -127,11 +128,10 @@ Operacyjny odbiór danych/migracji i brama skali wymagają oddzielnej zgody.
 
 Samo przygotowanie kodu nie uruchamia porównań. Testy PostgreSQL w osobnych
 bazach testowych zostały zatwierdzone i zaliczone 2026-10-05 (4 PASS),
-z potwierdzonym usunięciem zasobów testowych. Przed wdrożeniem należy
-rozwiązać rozbieżne
-migracje głównego checkoutu i worktree oraz przygotować zgodny pojedynczy
-head Alembic. Dopiero po osobnej zgodzie wolno zatrzymać usługi, scalić kod,
-wykonać migrację i uruchomić API, worker, Admin oraz Reviewer.
+z potwierdzonym usunięciem zasobów testowych. Operator zatwierdził późniejszą
+migrację w TASK-0848. Wspólny head 0143 integruje dwa tory. Kontrolowane
+wdrożenie zatrzymuje usługi przed zmianą main, scala kod, wykonuje migrację
+i dopiero wtedy uruchamia API, worker, Admin oraz Reviewer.
 
 Przełącznik `GAME_PREDICTOR_GRID_SHADOW_ENABLED` pozostaje domyślnie false.
 Włączenie musi być zapisane w trwałej konfiguracji API i workera, a nie tylko

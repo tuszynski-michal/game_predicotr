@@ -6,8 +6,10 @@ last_updated: 2026-10-05
 
 # Decision Log
 
-## D-493 — V3-D: oddzielny, ograniczony shadow i ręczna korekta
+## D-494 — V3-D: oddzielny, ograniczony shadow i ręczna korekta
 
+- **Identifier:** przy integracji TASK-0848 oznaczono dawną D-493 shadow jako
+  D-494. Niezależna D-493 main dotyczy propozycji symboli; obie treści zachowano.
 - **Status:** accepted, 2026-10-05; operator jawnie uruchomił V3-D/TASK-0805.
 - **Decision:** domyślnie wyłączony pion działa na zmaterializowanych źródłach
   5 × 3 przez istniejące joby VALIDATE, zapisując wynik osobno w magazynie
@@ -28,6 +30,63 @@ last_updated: 2026-10-05
   sekwencji, źródła i joba. To porządkuje istniejącą blokadę FK do gry wobec
   resetu Game FOR UPDATE, bez wprowadzania konfliktu ze zwykłą korektą.
   Historię chronią także jawne blokady podglądu usuwania źródeł i resetu gry.
+
+## D-493 — najlepsza propozycja symbolu wstępnie wybrana w audycie siatek
+
+- **Status:** accepted, 2026-10-05; operator chce poprawiać błędne propozycje,
+  zamiast osobno wybierać również poprawne. TASK-0846 zmienia D-491 w tym zakresie.
+- **Decision:** aktualne cięcie audytu pokazuje pewną propozycję albo najlepszego
+  kandydata z sumy wag obu opisów biblioteki. Niepewny kandydat ma jawny znacznik.
+  Oba są wstępnie wybranymi symbolami do przeglądu operatora. Brak pikseli lub
+  wzorców pozostaje pusty. Wybory nie pochodzą z wcześniejszych zatwierdzonych etykiet.
+- **Write:** odczyt/rozpoznawanie niczego nie zatwierdza. Kliknięcie zapisu planszy
+  zatwierdza widoczne wybory, również niezmienione propozycje. Ręczne nadpisanie,
+  usunięcie i „Nie wiem” mają pierwszeństwo; retry nie przywraca usuniętego wyboru.
+- **Safety:** propozycje i automatyczne wybory dotyczą wyłącznie dokładnej komendy
+  podglądu. Zmiana cięcia/kwalifikacji ukrywa automatyczne wybory poprzedniego cropa.
+  Nie zmienia to reguły ścisłej decyzji 7/7 ani pozostałych ekranów korekty.
+
+## D-492 — poprawki symboli przez link wyszukiwarki i przegląd operatora
+
+- **Status:** accepted, 2026-10-05; operator potwierdził natychmiastowe
+  zastosowanie zmian i edycję również zatwierdzonych plansz, TASK-0845.
+- **Decision:** sesja `board-search-share` może poprawiać symbole aktualnych
+  operacyjnych plansz swojej gry. Rozszerza D-471. D-473 obejmuje teraz
+  plansze `pending`, `accepted` i `corrected`, lokalnie i online, z kompletem
+  aktualnych komórek. Archiwum i nieaktualny odczyt nie są edytowalne.
+- **Write:** istniejący writer komórek zapisuje decyzję człowieka, agreguje
+  rodzica i aktualizuje canonical oraz wyszukiwarkę. Audyt udostępnienia
+  należy do tej samej transakcji. Actor pochodzi z sesji, nie z requestu.
+- **Review:** osobna kolejka operatora zapisuje historię przed/po oraz
+  kontekst wyszukiwania i stawki, także dla dalszych plansz zakresu. Zmiany
+  działają przed przeglądem. Jawne oznaczenie konkretnej rewizji jako
+  przejrzanej nie jest nowym stanem domenowej weryfikacji symbolu.
+- **Durability:** historia korekt przeżywa usunięcie wyszukiwania i revoke.
+  Dokładny retry operacji jest idempotentny; nowsza korekta ponownie otwiera
+  przegląd. Kilka kart przekazuje kontekst jawnie, zamiast zgadywać go z czasu.
+  Rewizja rośnie pod blokadą linku niezależnie od czasu; potwierdzenie
+  oczekującego pola jest zmianą stanu, a ponowne zatwierdzenie już
+  zatwierdzonego symbolu bez zmiany jakości nie otwiera nowego przeglądu.
+- **Storage:** nowe rodzaje `symbol_correction` i `correction_review` w
+  istniejącym dzienniku metadanych sesji. Zmiana CHECK i indeksów przez Alembic;
+  usuwanie zapytań wyklucza trwałą historię korekt. Bez zmiany własności schematu.
+- **Boundary:** jedna gra, istniejący limit 100 000 spinów, zamknięta
+  allowlista proxy i CSRF. Bez edycji geometrii, nowych uprawnień Admina,
+  treningu, wdrożenia ani operacji destrukcyjnych na danych operatora.
+
+## D-491 — nowe podpowiedzi symboli dla korekt istniejących siatek audytu
+
+- **Status:** accepted, 2026-10-05; bezpośrednie polecenie operatora.
+- **Decision:** kolejka audytu istniejących plansz 777 pokazuje wyłącznie nowe
+  propozycje biblioteki wzorców dla żółtej siatki, zamiast zapisanych etykiet
+  starego cięcia. Niepewne wyniki pozostają puste do ręcznego przeglądu.
+- **Safety:** propozycje są artefaktami związanymi z sumą audytu, źródłem,
+  rewizjami i całą komendą podglądu. Nie zmieniają bazy ani zatwierdzeń.
+  Zmiana cięcia unieważnia wynik. Operator przegląda wszystkie symbole;
+  tylko jego jawny wybór trafia do istniejącego zapisu korekty D-488.
+- **Boundary:** dotyczy korekt istniejących danych, nie nowego zbioru V3
+  ani treningu D-489. Referencje z plansz tego audytu są wykluczone z głosowania.
+  Pozostałe ekrany korekty i weryfikacji zachowują dotychczasowe zachowanie.
 
 ## D-490 — run 3 sieci siatek przygotowuje nowe gry: Mumie, Blazing i Gang w treningu, wagi startowe (zmienia D-456 i ustawienia D-481)
 

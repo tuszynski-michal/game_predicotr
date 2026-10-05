@@ -109,6 +109,30 @@ function reviewItem(entry) {
   };
 }
 
+function newProposals(entry) {
+  const item = reviewItem(entry);
+  return {
+    artifactSha256: 'd'.repeat(64),
+    tentativeCellIndices: [2],
+    previewCommand: {
+      corners: entry.network,
+      geometryQualification: null,
+      expectedGeometryRevision: item.geometryRevision,
+      expectedResolutionRevision: item.resolutionRevision,
+      expectedSourceChecksumSha256: item.sourceChecksumSha256,
+      expectedSourceWidth: item.sourceWidth,
+      expectedSourceHeight: item.sourceHeight,
+      expectedGridRows: item.gridRows,
+      expectedGridColumns: item.gridColumns,
+    },
+    cells: Array.from({ length: 15 }, (_, cellIndex) => ({
+      cellIndex,
+      symbolId: cellIndex === 2 ? 'symbol-3' : 'symbol-5',
+      origin: 'predicted',
+    })),
+  };
+}
+
 function queueItem(entry) {
   return {
     auditClass: 'column_shift',
@@ -187,6 +211,7 @@ function fakeApi(boards, symbols = []) {
               }
             : null,
           reviewItem: current ? reviewItem(entry) : null,
+          symbolSuggestions: current ? (entry.symbolSuggestions ?? null) : null,
         },
       };
     },
@@ -351,8 +376,109 @@ test('symbols are editable on opening with a slow source image, without moving t
   }
 });
 
+test('audit proposals are preselected and only the operator Save confirms them', async () => {
+  const entry = board(0);
+  entry.symbolSuggestions = newProposals(entry);
+  const { api, calls } = fakeApi([entry, board(1)], catalog());
+  api.getImageGridReviewCorrectionSymbols = async () => {
+    throw new Error('Old approvals must not be read');
+  };
+  const root = await render(api);
+  try {
+    assert.equal(calls.save.length, 0);
+    assert.match(crop(0).getAttribute('aria-label'), /wybrany symbol: Śliwka/);
+    assert.match(
+      crop(2).getAttribute('aria-label'),
+      /Cytryna — niepewna propozycja/,
+    );
+    assert.match(crop(2).textContent, /Cytryna \?/);
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.equal(calls.save.length, 1);
+    assert.deepEqual(
+      calls.save[0].command.cellSymbols,
+      entry.symbolSuggestions.cells.map(({ cellIndex, symbolId }) => ({
+        cellIndex,
+        symbolId,
+      })),
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('manual corrections, unknown and clear override prefill through a preview retry', async () => {
+  const entry = board(0);
+  entry.symbolSuggestions = newProposals(entry);
+  const { api, calls } = fakeApi([entry, board(1)], catalog());
+  const root = await render(api);
+  try {
+    await pressKey('6');
+    await act(async () => crop(1).click());
+    await act(async () => button('Usuń wybór').click());
+    await act(async () => crop(2).click());
+    await pressKey('9');
+    await act(async () => button('Ponów podgląd').click());
+    await settle();
+    assert.match(crop(0).getAttribute('aria-label'), /wybrany symbol: Arbuz/);
+    assert.doesNotMatch(crop(1).getAttribute('aria-label'), /wybrany symbol/);
+    assert.match(crop(2).getAttribute('aria-label'), /wybrany symbol: \?/);
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    const cells = calls.save[0].command.cellSymbols;
+    assert.deepEqual(
+      cells.find((cell) => cell.cellIndex === 0),
+      { cellIndex: 0, symbolId: 'symbol-6' },
+    );
+    assert.equal(
+      cells.find((cell) => cell.cellIndex === 1),
+      undefined,
+    );
+    assert.deepEqual(
+      cells.find((cell) => cell.cellIndex === 2),
+      { cellIndex: 2, symbolId: null },
+    );
+    assert.equal(cells.length, 14);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('changing qualification drops every automatic proposal before saving', async () => {
+  const entry = board(0);
+  entry.symbolSuggestions = newProposals(entry);
+  const { api, calls } = fakeApi([entry, board(1)], catalog());
+  const root = await render(api);
+  try {
+    const partial = [
+      ...document.querySelectorAll('input[type="checkbox"]'),
+    ].find((input) =>
+      input.parentElement.textContent.includes('Niepełna plansza'),
+    );
+    await act(async () => partial.click());
+    await act(async () =>
+      document
+        .querySelector('input[aria-label="Pole 1 poza zdjęciem"]')
+        .click(),
+    );
+    await settle();
+    assert.doesNotMatch(crop(1).getAttribute('aria-label'), /wybrany symbol/);
+    assert.match(
+      document.body.textContent,
+      /Podpowiedzi z poprzedniego cięcia zostały ukryte/,
+    );
+    await act(async () => button('Zapisz geometrię i dalej').click());
+    await settle();
+    assert.equal(calls.save[0].command.cellSymbols, undefined);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('a late catalog enables the ready preview and reserves 9 for unknown even with more symbols', async () => {
-  const { api, calls } = fakeApi([board(0)]);
+  const entry = board(0);
+  entry.symbolSuggestions = newProposals(entry);
+  const { api, calls } = fakeApi([entry]);
   let resolveCatalog;
   api.listSymbols = () =>
     new Promise((resolve) => {
@@ -365,7 +491,11 @@ test('a late catalog enables the ready preview and reserves 9 for unknown even w
       document.querySelector('[aria-label="Symbol wybranego pola"]'),
       null,
     );
+    assert.equal(button('Zapisz geometrię i dalej').disabled, true);
     await act(async () => resolveCatalog({ data: catalog(['Dodatkowy']) }));
+    await settle();
+    assert.match(crop(0).getAttribute('aria-label'), /wybrany symbol: Śliwka/);
+    assert.equal(button('Zapisz geometrię i dalej').disabled, false);
     assert.equal(crop(0).getAttribute('aria-pressed'), 'true');
     assert.equal(
       document.querySelector('[aria-keyshortcuts="0"] span').textContent,
@@ -395,6 +525,21 @@ test('a late catalog enables the ready preview and reserves 9 for unknown even w
   }
 });
 
+test('a failed catalog explains why preselected proposals cannot be saved', async () => {
+  const entry = board(0);
+  entry.symbolSuggestions = newProposals(entry);
+  const { api, calls } = fakeApi([entry]);
+  api.listSymbols = async () => ({ error: { message: 'Offline' } });
+  const root = await render(api);
+  try {
+    assert.match(document.body.textContent, /Nie udało się wczytać symboli/);
+    assert.equal(button('Zapisz geometrię i dalej').disabled, true);
+    assert.equal(calls.save.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('the audit list opens each board with the network grid and saves through the existing path', async () => {
   const boards = [board(0), board(1), board(2, { network: shifted(-60) })];
   const { api, calls } = fakeApi(boards);
@@ -409,7 +554,7 @@ test('the audit list opens each board with the network grid and saves through th
     /Do poprawy: 3 · poprawione: 0 z 3 · z decyzjami symboli: 1/,
   );
   assert.match(text, /Audyt siatekprzesunięcie o kolumnę · p00000/);
-  assert.match(text, /Decyzje symboli2 pól/);
+  assert.match(text, /Nowe podpowiedzi symboliOczekują na rozpoznanie/);
   assert.match(text, /Żółta siatka to propozycja sieci/);
   // The source is the board's checksum-bound source of the existing route.
   assert.equal(images.at(-1).url, 'http://127.0.0.1:8000/source/r0');

@@ -1537,7 +1537,7 @@ test('the searched board of the results opens the same window, can be corrected 
   await act(async () => root.unmount());
 });
 
-test('a resolved board offers no cell correction', async (context) => {
+test('a board without current editable cells offers no cell correction', async (context) => {
   withDialogSupport();
   context.after(() => dom.window.localStorage.clear());
   const client = {
@@ -1589,7 +1589,7 @@ test('a resolved board offers no cell correction', async (context) => {
   assert.equal(dialogButton('Popraw symbole'), undefined);
   assert.match(
     document.querySelector('.boardSearchBoardLinesDialog').textContent,
-    /tylko dla plansz oczekujących/,
+    /nie ma kompletu aktualnych rekordów/,
   );
   await act(async () => root.unmount());
 });

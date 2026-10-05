@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
     ManualBoardCellSymbolPredictor,
 )
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
@@ -38,6 +39,9 @@ from game_predictor_api.application.board_search_share_access import (
     BoardSearchShareAccessService,
     assert_board_search_share_ready,
 )
+from game_predictor_api.application.board_search_share_corrections import (
+    BoardSearchShareCorrectionService,
+)
 from game_predictor_api.application.board_search_share_queries import (
     BoardSearchShareQueryLog,
     BoardSearchShareQueryLogService,
@@ -53,6 +57,9 @@ from game_predictor_api.application.datasets import DatasetService
 from game_predictor_api.application.grid_audit_proposals import (
     FileGridAuditProposalStore,
     GridAuditProposalService,
+)
+from game_predictor_api.application.grid_audit_symbol_suggestions import (
+    FileGridAuditSymbolSuggestionStore,
 )
 from game_predictor_api.application.grid_calibration import GridCalibrationService
 from game_predictor_api.application.grid_shadow import GridShadowService
@@ -271,6 +278,9 @@ from game_predictor_api.storage.board_search_approximate_win_repository import (
 )
 from game_predictor_api.storage.board_search_projection_repository import (
     SqlAlchemyBoardSearchProjectionRepository,
+)
+from game_predictor_api.storage.board_search_share_correction_repository import (
+    SqlAlchemyBoardSearchShareCorrectionRepository,
 )
 from game_predictor_api.storage.board_search_share_query_repository import (
     SqlAlchemyBoardSearchShareQueryLog,
@@ -515,6 +525,7 @@ def create_app(
     board_search_share_access_service_dependency: Callable[..., object] | None = None,
     board_search_share_query_log: BoardSearchShareQueryLog | None = None,
     board_search_share_query_log_service_dependency: Callable[..., object] | None = None,
+    board_search_share_correction_service_dependency: Callable[..., object] | None = None,
     board_search_share_rate_limiter: BoardSearchShareRateLimiter | None = None,
     cleanup_service_dependency: Callable[..., object] | None = None,
     rules_service_dependency: Callable[..., object] | None = None,
@@ -572,6 +583,7 @@ def create_app(
             board_search_board_detail_service_dependency,
             board_search_board_view_service_dependency,
             board_search_share_access_service_dependency,
+            board_search_share_correction_service_dependency,
             cleanup_service_dependency,
             rules_service_dependency,
             dataset_service_dependency,
@@ -756,6 +768,30 @@ def create_app(
     )
     resolved_board_search_share_rate_limiter = (
         board_search_share_rate_limiter or BoardSearchShareRateLimiter()
+    )
+
+    def default_board_search_share_correction_service_dependency() -> Iterator[
+        BoardSearchShareCorrectionService
+    ]:
+        with session_factory() as session:
+            try:
+                yield BoardSearchShareCorrectionService(
+                    SqlAlchemyBoardSearchShareCorrectionRepository(session)
+                )
+                session.commit()
+            except SQLAlchemyError as error:
+                session.rollback()
+                raise BoardSearchShareUnavailableError(
+                    "BOARD_SEARCH_SHARE_CORRECTION_UNAVAILABLE",
+                    "The correction could not be committed; retry the same operation.",
+                ) from error
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_board_search_share_correction_dependency = (
+        board_search_share_correction_service_dependency
+        or default_board_search_share_correction_service_dependency
     )
 
     def default_board_search_board_view_service_dependency() -> Iterator[
@@ -1366,6 +1402,7 @@ def create_app(
         image_grid_review_service_dependency or default_image_grid_review_service_dependency
     )
     grid_audit_proposal_store = FileGridAuditProposalStore(resolved_settings.artifact_root)
+    grid_audit_symbol_store = FileGridAuditSymbolSuggestionStore(resolved_settings.artifact_root)
 
     def default_grid_shadow_service_dependency() -> Iterator[GridShadowService]:
         with session_factory() as session:
@@ -1391,6 +1428,7 @@ def create_app(
                 yield GridAuditProposalService(
                     grid_audit_proposal_store,
                     SqlAlchemyGridAuditBoardReader(session),
+                    grid_audit_symbol_store,
                 )
             finally:
                 session.rollback()
@@ -1831,6 +1869,9 @@ def create_app(
             board_search_share_query_log_service_dependency=(
                 resolved_board_search_share_query_log_service_dependency
             ),
+            board_search_share_correction_service_dependency=(
+                resolved_board_search_share_correction_dependency
+            ),
             board_search_share_query_log=resolved_board_search_share_query_log,
             board_search_share_rate_limiter=resolved_board_search_share_rate_limiter,
             grid_audit_proposal_service_dependency=(default_grid_audit_proposal_service_dependency),
@@ -2026,6 +2067,7 @@ def create_app(
             "IMAGE_GRID_REVIEW_CURRENT_OWNER_CONFLICT",
             "IMAGE_GRID_REVIEW_CORRECTION_REQUIRED",
             "GRID_AUDIT_PROPOSALS_CHECKSUM_MISMATCH",
+            "GRID_AUDIT_SYMBOL_SUGGESTIONS_CHECKSUM_MISMATCH",
             # The Reviewer's operational geometry contract (409 before the
             # delegation to the virtual path, D-467 S6 / TASK-0796).
             "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",

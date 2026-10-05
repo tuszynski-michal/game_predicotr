@@ -117,6 +117,7 @@ export function BoardGeometryCorrectionEditor({
   previewWhileSourceLoads = false,
   saveLabel = 'Zapisz geometrię i dalej',
   symbols = NO_SYMBOLS,
+  symbolsLoading = false,
   target,
   unknownSymbolShortcut,
 }: {
@@ -127,6 +128,7 @@ export function BoardGeometryCorrectionEditor({
   readonly previewWhileSourceLoads?: boolean;
   readonly saveLabel?: string;
   readonly symbols?: readonly CorrectionSymbol[];
+  readonly symbolsLoading?: boolean;
   readonly target: BoardGeometryCorrectionTarget;
   readonly unknownSymbolShortcut?: string;
 }) {
@@ -175,13 +177,14 @@ export function BoardGeometryCorrectionEditor({
   // A `null` value is the explicit "cannot tell": the cell is saved as
   // unreadable instead of getting a guessed symbol.
   const [chosenSymbols, setChosenSymbols] = useState<
-    Readonly<Record<number, string | null>>
+    Readonly<Record<number, string | null | undefined>>
   >({});
   const [selectedCell, setSelectedCell] = useState<number | null>(null);
   const initialCellSelectedRef = useRef(false);
   const [suggestedSymbols, setSuggestedSymbols] = useState<{
     readonly key: string;
     readonly byCell: Readonly<Record<number, string | null>>;
+    readonly tentativeCellIndices: readonly number[];
   } | null>(null);
   const [symbolNotice, setSymbolNotice] = useState('');
   const canAssignSymbols = symbols.length > 0 && target.symbols !== undefined;
@@ -211,6 +214,32 @@ export function BoardGeometryCorrectionEditor({
     }
   }, [context, corners, flags, target]);
   const previewIsCurrent = previewUrl !== null && previewKey === commandKey;
+  const currentSuggestions =
+    previewIsCurrent && suggestedSymbols?.key === commandKey
+      ? suggestedSymbols.byCell
+      : {};
+  const effectiveChosenSymbols: Readonly<
+    Record<number, string | null | undefined>
+  > = {
+    ...(target.prefillSymbolSuggestions
+      ? Object.fromEntries(
+          Object.entries(currentSuggestions).filter(
+            ([index, symbolId]) =>
+              symbolId !== null &&
+              !withoutPixels.includes(Number(index)) &&
+              symbols.some((symbol) => symbol.id === symbolId),
+          ),
+        )
+      : {}),
+    ...chosenSymbols,
+  };
+  const waitingForSymbols = Boolean(
+    target.prefillSymbolSuggestions &&
+    (symbolsLoading ||
+      (canAssignSymbols &&
+        previewIsCurrent &&
+        suggestedSymbols?.key !== commandKey)),
+  );
 
   useEffect(() => {
     currentCommandKeyRef.current = commandKey;
@@ -620,6 +649,9 @@ export function BoardGeometryCorrectionEditor({
             )
           : {},
         key: requestedKey,
+        tentativeCellIndices: result.ok
+          ? (result.tentativeCellIndices ?? [])
+          : [],
       });
     });
     return () => {
@@ -678,7 +710,8 @@ export function BoardGeometryCorrectionEditor({
       corners === null ||
       !previewIsCurrent ||
       saving ||
-      loadingPreview
+      loadingPreview ||
+      waitingForSymbols
     )
       return;
     const idempotency = deferredBoardCellGeometryIdempotency(
@@ -694,7 +727,11 @@ export function BoardGeometryCorrectionEditor({
       flags,
       idempotency.idempotencyKey,
       canAssignSymbols
-        ? Object.entries(chosenSymbols)
+        ? Object.entries(effectiveChosenSymbols)
+            .filter(
+              (entry): entry is [string, string | null] =>
+                entry[1] !== undefined,
+            )
             .map(([cellIndex, symbolId]) => ({
               cellIndex: Number(cellIndex),
               symbolId,
@@ -872,15 +909,13 @@ export function BoardGeometryCorrectionEditor({
         );
   const symbolLabel = (symbolId: string | null | undefined) =>
     symbols.find((symbol) => symbol.id === symbolId)?.label ?? null;
-  const currentSuggestions =
-    suggestedSymbols?.key === commandKey ? suggestedSymbols.byCell : {};
   // `undefined` clears the choice, `null` records "cannot tell".
   const assignSymbol = (symbolId: string | null | undefined) => {
     if (selectedCell === null) return;
     setChosenSymbols((current) => {
       const next = { ...current };
-      if (symbolId === undefined) delete next[selectedCell];
-      else next[selectedCell] = symbolId;
+      // Keep an explicit clear so a retry cannot reselect the proposal.
+      next[selectedCell] = symbolId;
       return next;
     });
   };
@@ -1082,17 +1117,21 @@ export function BoardGeometryCorrectionEditor({
                   );
                 }
                 const chosen =
-                  chosenSymbols[index] === null
+                  effectiveChosenSymbols[index] === null
                     ? UNKNOWN_SYMBOL_LABEL
-                    : symbolLabel(chosenSymbols[index]);
+                    : symbolLabel(effectiveChosenSymbols[index]);
                 const suggested = symbolLabel(currentSuggestions[index]);
+                const tentative =
+                  suggestedSymbols?.key === commandKey &&
+                  suggestedSymbols.tentativeCellIndices.includes(index) &&
+                  chosenSymbols[index] === undefined;
                 return (
                   <button
                     aria-label={
                       chosen !== null
-                        ? `${label} — wybrany symbol: ${chosen}`
+                        ? `${label} — wybrany symbol: ${chosen}${tentative ? ' — niepewna propozycja' : ''}`
                         : suggested !== null
-                          ? `${label} — podpowiedź: ${suggested}`
+                          ? `${label} — podpowiedź: ${suggested}${tentative ? ' — niepewna propozycja' : ''}`
                           : label
                     }
                     aria-pressed={selectedCell === index}
@@ -1110,9 +1149,15 @@ export function BoardGeometryCorrectionEditor({
                     type="button"
                   >
                     {chosen !== null ? (
-                      <strong>{chosen}</strong>
+                      <strong>
+                        {chosen}
+                        {tentative ? ' ?' : ''}
+                      </strong>
                     ) : suggested !== null ? (
-                      <span>{suggested}</span>
+                      <span>
+                        {suggested}
+                        {tentative ? ' ?' : ''}
+                      </span>
                     ) : null}
                   </button>
                 );
@@ -1127,15 +1172,17 @@ export function BoardGeometryCorrectionEditor({
             >
               <p>
                 {selectedCell === null
-                  ? 'Kliknij kafelek, aby narzucić jego symbol; symbol wybierzesz przyciskiem albo klawiszem skrótu. Pogrubiona etykieta to Twój wybór, zwykła — podpowiedź. Jeśli nie widzisz symbolu, wybierz „Nie wiem”. Zapis zatwierdzi tylko wybrane pola.'
-                  : `Pole ${selectedCell + 1}: wybierz symbol.`}
+                  ? target.prefillSymbolSuggestions
+                    ? 'Propozycje są wstępnie wybrane. Kliknij pole, aby zmienić błędny symbol. Znak ? przy nazwie oznacza niepewną propozycję. Zapis zatwierdzi wybrane symbole; „Usuń wybór” zostawi pole do późniejszej weryfikacji.'
+                    : 'Kliknij kafelek, aby narzucić jego symbol; symbol wybierzesz przyciskiem albo klawiszem skrótu. Pogrubiona etykieta to Twój wybór, zwykła — podpowiedź. Jeśli nie widzisz symbolu, wybierz „Nie wiem”. Zapis zatwierdzi tylko wybrane pola.'
+                  : `Pole ${selectedCell + 1}: ${target.prefillSymbolSuggestions ? 'sprawdź lub zmień symbol.' : 'wybierz symbol.'}`}
               </p>
               <div>
                 {symbols.map((symbol) => (
                   <button
                     aria-pressed={
                       selectedCell !== null &&
-                      chosenSymbols[selectedCell] === symbol.id
+                      effectiveChosenSymbols[selectedCell] === symbol.id
                     }
                     className="secondaryButton"
                     disabled={selectedCell === null || saving}
@@ -1158,7 +1205,7 @@ export function BoardGeometryCorrectionEditor({
                   aria-keyshortcuts={unknownSymbolShortcut}
                   aria-pressed={
                     selectedCell !== null &&
-                    chosenSymbols[selectedCell] === null
+                    effectiveChosenSymbols[selectedCell] === null
                   }
                   className="secondaryButton"
                   disabled={selectedCell === null || saving}
@@ -1178,7 +1225,7 @@ export function BoardGeometryCorrectionEditor({
                   disabled={
                     selectedCell === null ||
                     saving ||
-                    chosenSymbols[selectedCell] === undefined
+                    effectiveChosenSymbols[selectedCell] === undefined
                   }
                   onClick={() => assignSymbol(undefined)}
                   type="button"
@@ -1204,7 +1251,9 @@ export function BoardGeometryCorrectionEditor({
         <span>{context.saveHint}</span>
         <button
           className="primaryButton"
-          disabled={!previewIsCurrent || saving || loadingPreview}
+          disabled={
+            !previewIsCurrent || saving || loadingPreview || waitingForSymbols
+          }
           onClick={() => void saveGeometry()}
           type="button"
         >

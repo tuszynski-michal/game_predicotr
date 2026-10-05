@@ -198,3 +198,46 @@ test('a board without a proposal (changed after the audit) never gets the stale 
   assert.equal(saved.ok, false);
   assert.equal(calls.save.length, 0);
 });
+
+test('audit hints use only new symbols of the exact preview and never read old approvals', async () => {
+  const { api, calls } = fakeApi();
+  const unprepared = gridAuditBoardGeometryTarget({
+    api,
+    proposal: proposal(),
+  });
+  await unprepared.preview(NETWORK, COMPLETE_FLAGS);
+  const cells = [
+    { cellIndex: 0, symbolId: 'new-plum', origin: 'predicted' },
+    { cellIndex: 1, symbolId: null, origin: 'predicted' },
+  ];
+  const target = gridAuditBoardGeometryTarget({
+    api,
+    symbolsApi: {
+      getImageGridReviewCorrectionSymbols: () => {
+        throw new Error('Old approvals must not be read');
+      },
+    },
+    proposal: proposal({
+      symbolSuggestions: {
+        artifactSha256: 'd'.repeat(64),
+        previewCommand: calls.preview[0].command,
+        cells,
+      },
+    }),
+  });
+  assert.deepEqual(await target.symbols(NETWORK, COMPLETE_FLAGS), {
+    ok: true,
+    cells,
+    tentativeCellIndices: [],
+  });
+  assert.equal(target.prefillSymbolSuggestions, true);
+  const moved = NETWORK.map((point) => ({ ...point, x: point.x + 1 }));
+  assert.equal((await target.symbols(moved, COMPLETE_FLAGS)).ok, false);
+  assert.equal(
+    (await target.symbols(NETWORK, { ...COMPLETE_FLAGS, exclude: true })).ok,
+    false,
+  );
+  assert.equal((await unprepared.symbols(NETWORK, COMPLETE_FLAGS)).ok, false);
+  await target.save(NETWORK, COMPLETE_FLAGS, 'k-new');
+  assert.equal(calls.save[0].command.cellSymbols, undefined);
+});

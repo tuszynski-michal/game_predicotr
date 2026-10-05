@@ -21,6 +21,9 @@ from game_predictor_api.application.grid_audit_proposals import (
     GridAuditBoardReader,
     GridAuditProposalService,
 )
+from game_predictor_api.application.grid_audit_symbol_suggestions import (
+    FileGridAuditSymbolSuggestionStore,
+)
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.grid_audit_proposals import (
@@ -117,7 +120,7 @@ def _review_item(item: GridAuditProposalItem, revision: int) -> ImageGridReviewL
     return ImageGridReviewListItem(
         slot_id=uuid4(),
         slot_kind=ImageGridReviewSlotKind.CURRENT_REVIEW,
-        review_item_id=uuid4(),
+        review_item_id=UUID(int=10_000 + item.ordinal),
         game_id=GAME_ID,
         import_job_id=item.import_job_id,
         recognized_board_id=item.recognized_board_id,
@@ -467,7 +470,9 @@ def _http(tmp_path: Path, revisions: dict[UUID, int]) -> TestClient:
     store = FileGridAuditProposalStore(tmp_path)
     app.include_router(
         create_grid_audit_proposals_router(
-            lambda: GridAuditProposalService(store, MemoryBoardReader(revisions))
+            lambda: GridAuditProposalService(
+                store, MemoryBoardReader(revisions), FileGridAuditSymbolSuggestionStore(tmp_path)
+            )
         ),
         prefix="/api/v1",
     )

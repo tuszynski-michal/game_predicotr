@@ -2,6 +2,11 @@ import type {
   AdminApiClient,
   ApproximateWinResponse,
   BoardSearchBoardDetailResponse,
+  BoardSearchBoardCellResponse,
+  BoardSearchSharePublicBoardDetailResponse,
+  BoardSearchSharePublicCellResponse,
+  BoardSearchShareCellCorrectionRequest,
+  BoardSearchShareCellCorrectionResponse,
   BoardSearchResponse,
   GetBoardSearchApproximateWinOptions,
   SearchGameBoardsOptions,
@@ -18,13 +23,24 @@ export type BoardSearchApiResult<T> = Promise<{
   readonly error?: unknown;
 }>;
 
+export type BoardSearchModalDetail =
+  BoardSearchBoardDetailResponse | BoardSearchSharePublicBoardDetailResponse;
+export type BoardSearchEditableCell =
+  BoardSearchBoardCellResponse | BoardSearchSharePublicCellResponse;
+export type BoardSearchCorrectionContext = {
+  readonly startSequenceNumber: number;
+  readonly spinCount?: number;
+  readonly stakeGrosze?: number;
+};
+
 /**
- * Everything the board search section reads. The Admin passes its generated
- * client directly; the online share adapter (Reviewer, D-471) implements the
+ * Board search reads and optional writes. The Admin passes its generated
+ * client directly; the online share adapter (Reviewer, D-492) implements the
  * same members over its proxy.
  *
- * The optional members are Admin-only. Without the mutations the section
- * hides cell correction and the stale-reading refresh; without the full-photo
+ * Correction has separate optional ports for local identity and public position.
+ * Without mutations the section hides correction; stale-reading refresh is local.
+ * Without the full-photo
  * members the carousel has no fallback when the cropped view is unavailable.
  */
 export type BoardSearchDataSource = {
@@ -41,7 +57,24 @@ export type BoardSearchDataSource = {
   readonly getBoardSearchBoardDetail: (
     gameId: string,
     sequenceNumber: number,
-  ) => BoardSearchApiResult<BoardSearchBoardDetailResponse>;
+  ) => BoardSearchApiResult<BoardSearchModalDetail>;
+  readonly correctBoardSearchCell?: (
+    gameId: string,
+    sequenceNumber: number,
+    cellIndex: number,
+    request: Omit<
+      BoardSearchShareCellCorrectionRequest,
+      'operationId' | 'searchContextId'
+    >,
+  ) => BoardSearchApiResult<BoardSearchShareCellCorrectionResponse>;
+  readonly hasPendingBoardSearchCell?: (
+    gameId: string,
+    sequenceNumber: number,
+  ) => boolean;
+  readonly retryBoardSearchCell?: (
+    gameId: string,
+    sequenceNumber: number,
+  ) => BoardSearchApiResult<BoardSearchShareCellCorrectionResponse>;
   readonly listSymbols: (
     gameId: string,
   ) => BoardSearchApiResult<SymbolResponse[]>;

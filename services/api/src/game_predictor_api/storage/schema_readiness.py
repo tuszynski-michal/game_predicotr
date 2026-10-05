@@ -14,7 +14,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0142_grid_geometry_shadow_results"
+EXPECTED_ALEMBIC_HEAD: Final = "0143_merge_share_grid_shadow"
 
 
 class AlembicHeadMismatchError(RuntimeError):

@@ -1,6 +1,8 @@
 import type {
   ApproximateWinResponse,
-  BoardSearchBoardDetailResponse,
+  BoardSearchSharePublicBoardDetailResponse,
+  BoardSearchShareCellCorrectionRequest,
+  BoardSearchShareCellCorrectionResponse,
   BoardSearchResponse,
   BoardSearchSharePublicContextResponse,
   BoardSearchSharePublicSearchResponse,
@@ -13,7 +15,7 @@ import type { BoardSearchDataSource } from '@game-predictor/board-search-ui';
 
 /**
  * The shared board search section's data source over the Reviewer proxy
- * (D-471). Read-only: no cell correction, no refresh, no full-photo
+ * (D-492). Public correction uses opaque cell versions; no refresh or full-photo
  * fallback. Client caches follow plan §4.5.
  */
 
@@ -27,6 +29,8 @@ export const SEARCH_CACHE_MAX_ENTRIES = 50;
 type Result<T> = { readonly data?: T; readonly error?: unknown };
 
 export type BoardSearchShareDataSourceOptions = {
+  readonly sessionId?: string;
+  readonly storage?: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
   readonly fetchImplementation?: typeof globalThis.fetch;
   readonly now?: () => number;
   /** Called when the proxy answers 401: the access expired or was stopped. */
@@ -46,9 +50,112 @@ export function createBoardSearchShareDataSource(
   const now = options.now ?? (() => Date.now());
   const searchCache = new Map<
     string,
-    { readonly expiresAt: number; readonly value: BoardSearchResponse }
+    {
+      readonly expiresAt: number;
+      readonly value: BoardSearchResponse;
+      readonly searchContextId: string | null;
+    }
   >();
-  const detailCache = new Map<number, BoardSearchBoardDetailResponse>();
+  const detailCache = new Map<
+    number,
+    BoardSearchSharePublicBoardDetailResponse
+  >();
+  let searchContextId: string | null = null;
+  let storage = options.storage;
+  if (storage === undefined && typeof window !== 'undefined') {
+    try {
+      storage = window.sessionStorage;
+    } catch {
+      /* Reading remains available. */
+    }
+  }
+  const pendingKey = `board-search-share-correction:${options.sessionId ?? 'unspecified'}`;
+  type Pending = {
+    sequenceNumber: number;
+    cellIndex: number;
+    body: BoardSearchShareCellCorrectionRequest;
+  };
+  let pending: Pending | null = null;
+  let inFlight = false;
+  try {
+    const raw = storage?.getItem(pendingKey);
+    if (raw) {
+      const candidate = JSON.parse(raw) as Pending;
+      if (
+        Number.isInteger(candidate.sequenceNumber) &&
+        Number.isInteger(candidate.cellIndex) &&
+        typeof candidate.body?.operationId === 'string'
+      )
+        pending = candidate;
+    }
+  } catch {
+    /* An unavailable storage is reported before a write. */
+  }
+
+  function clearData() {
+    searchCache.clear();
+    detailCache.clear();
+    rangeFingerprint = null;
+  }
+
+  async function sendCorrection(
+    operation: Pending,
+  ): Promise<Result<BoardSearchShareCellCorrectionResponse>> {
+    if (inFlight)
+      return { error: { message: 'Poprzedni zapis jeszcze trwa.' } };
+    inFlight = true;
+    try {
+      const response = await fetchImplementation(
+        `${BOARD_SEARCH_SHARE_API_BASE}/boards/${operation.sequenceNumber}/cells/${operation.cellIndex}/decision`,
+        {
+          method: 'POST',
+          cache: 'no-store',
+          credentials: 'same-origin',
+          headers: {
+            Accept: 'application/json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(operation.body),
+        },
+      );
+      let receipt: BoardSearchShareCellCorrectionResponse | undefined;
+      if (response.ok) {
+        receipt =
+          (await response.json()) as BoardSearchShareCellCorrectionResponse;
+        if (
+          receipt.saved !== true ||
+          receipt.sequenceNumber !== operation.sequenceNumber ||
+          receipt.cellIndex !== operation.cellIndex ||
+          typeof receipt.cellVersion !== 'string'
+        ) {
+          throw new Error('Invalid correction receipt');
+        }
+      }
+      if (
+        response.ok ||
+        (response.status >= 400 &&
+          response.status < 500 &&
+          response.status !== 429)
+      ) {
+        try {
+          storage?.removeItem(pendingKey);
+        } catch {
+          /* A stale durable receipt can safely be retried. */
+        }
+        pending = null;
+        clearData();
+      }
+      if (response.status === 401) {
+        clearData();
+        options.onUnauthorized?.();
+      }
+      return receipt !== undefined
+        ? { data: receipt }
+        : { error: await errorBody(response) };
+    } finally {
+      inFlight = false;
+    }
+  }
   let rangeFingerprint: string | null = null;
   let symbols: Promise<Result<SymbolResponse[]>> | null = null;
   const imageRevisions = new Map<string, string>();
@@ -63,7 +170,10 @@ export function createBoardSearchShareDataSource(
       },
     );
     if (response.ok) return { data: (await response.json()) as T };
-    if (response.status === 401) options.onUnauthorized?.();
+    if (response.status === 401) {
+      clearData();
+      options.onUnauthorized?.();
+    }
     return { error: await errorBody(response) };
   }
 
@@ -109,6 +219,7 @@ export function createBoardSearchShareDataSource(
         // Refresh the entry's recency for the size limit.
         searchCache.delete(key);
         searchCache.set(key, cached);
+        searchContextId = cached.searchContextId;
         return { data: cached.value };
       }
       searchCache.delete(key);
@@ -117,7 +228,12 @@ export function createBoardSearchShareDataSource(
       );
       if (result.data === undefined) return { error: result.error };
       const value = toAdminSearch(result.data);
-      searchCache.set(key, { expiresAt: now() + SEARCH_CACHE_TTL_MS, value });
+      searchContextId = result.data.searchContextId ?? null;
+      searchCache.set(key, {
+        expiresAt: now() + SEARCH_CACHE_TTL_MS,
+        value,
+        searchContextId,
+      });
       while (searchCache.size > SEARCH_CACHE_MAX_ENTRIES) {
         const oldest = searchCache.keys().next().value;
         if (oldest === undefined) break;
@@ -169,12 +285,62 @@ export function createBoardSearchShareDataSource(
     getBoardSearchBoardDetail: async (_gameId, sequenceNumber) => {
       const cached = detailCache.get(sequenceNumber);
       if (cached !== undefined) return { data: cached };
-      const result = await get<BoardSearchBoardDetailResponse>(
+      const result = await get<BoardSearchSharePublicBoardDetailResponse>(
         `/boards/${sequenceNumber}`,
       );
       if (result.data !== undefined)
         detailCache.set(sequenceNumber, result.data);
       return result;
+    },
+
+    hasPendingBoardSearchCell: (_gameId, sequenceNumber) =>
+      pending?.sequenceNumber === sequenceNumber,
+    retryBoardSearchCell: async (_gameId, sequenceNumber) => {
+      if (pending === null || pending.sequenceNumber !== sequenceNumber)
+        return { error: { message: 'Brak zapisu do potwierdzenia.' } };
+      return sendCorrection(pending);
+    },
+    correctBoardSearchCell: async (
+      _gameId,
+      sequenceNumber,
+      cellIndex,
+      request,
+    ) => {
+      const body = { ...request, searchContextId };
+      if (pending !== null) {
+        const { operationId: _operationId, ...previous } = pending.body;
+        if (
+          pending.sequenceNumber !== sequenceNumber ||
+          pending.cellIndex !== cellIndex ||
+          JSON.stringify(previous) !== JSON.stringify(body)
+        ) {
+          return {
+            error: {
+              message: `Najpierw sprawdź ostatni zapis na planszy #${pending.sequenceNumber}.`,
+            },
+          };
+        }
+      } else {
+        const operation = {
+          sequenceNumber,
+          cellIndex,
+          body: { ...body, operationId: globalThis.crypto.randomUUID() },
+        };
+        try {
+          if (storage === undefined || options.sessionId === undefined)
+            throw new Error('Missing durable session storage');
+          storage.setItem(pendingKey, JSON.stringify(operation));
+        } catch {
+          return {
+            error: {
+              message:
+                'Przeglądarka nie pozwala zachować zapisu do ponowienia. Włącz pamięć sesji.',
+            },
+          };
+        }
+        pending = operation;
+      }
+      return sendCorrection(pending);
     },
 
     boardSearchBoardViewUrl: (

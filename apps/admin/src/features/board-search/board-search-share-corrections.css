@@ -1,0 +1,18 @@
+.boardSearchShareCorrections {
+  margin: 16px 0;
+  padding: 12px;
+  border: 1px solid rgba(160, 170, 190, 0.35);
+  border-radius: 8px;
+}
+
+.boardSearchShareCorrections li {
+  margin: 10px 0;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+
+.boardSearchShareCorrections button,
+.boardSearchShareCorrections select {
+  min-height: 44px;
+  margin: 4px;
+}

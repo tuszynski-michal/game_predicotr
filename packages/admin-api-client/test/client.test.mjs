@@ -3778,6 +3778,38 @@ test('grid-audit proposal wrappers read the queue and one proposal (TASK-0840)',
   );
 });
 
+test('the audit wrapper returns the new preview-bound symbol suggestions', async () => {
+  const suggestions = {
+    algorithmVersion: 'symbol-reference-library-v1',
+    artifactSha256: 'a'.repeat(64),
+    generatedAt: '2026-10-05T08:00:00Z',
+    tentativeCellIndices: [0],
+    previewCommand: { corners: [{ x: 1, y: 2 }], expectedGeometryRevision: 1 },
+    cells: [
+      {
+        cellIndex: 0,
+        symbolId: '11111111-1111-4111-8111-111111111111',
+        origin: 'predicted',
+      },
+    ],
+  };
+  const requests = [];
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ symbolSuggestions: suggestions });
+    },
+  });
+  const result = await client.getGridAuditProposal('g', 'p00000');
+  assert.deepEqual(result.data.symbolSuggestions, suggestions);
+  assert.equal(requests[0].method, 'GET');
+  assert.equal(
+    new URL(requests[0].url).pathname,
+    '/api/v1/admin/games/g/grid-audit-proposals/p00000',
+  );
+});
+
 test('board-search share wrappers use the share paths and confirmed targets', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

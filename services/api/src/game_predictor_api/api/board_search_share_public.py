@@ -1,4 +1,4 @@
-"""Public, read-only board-search share surface (D-471, D-472, TASK-0767).
+"""Public board-search reads and scoped symbol corrections (D-492).
 
 Reachable only through the Reviewer proxy (intent header) with the share
 cookie. The game always comes from the authenticated session, never from the
@@ -29,6 +29,11 @@ from game_predictor_api.application.board_search_board_detail import (
 from game_predictor_api.application.board_search_share_access import (
     BoardSearchShareAccessService,
     BoardSearchShareContext,
+)
+from game_predictor_api.application.board_search_share_corrections import (
+    BoardSearchShareCorrectionService,
+    ShareCellCorrectionCommand,
+    share_cell_version,
 )
 from game_predictor_api.application.board_search_share_queries import (
     BoardSearchShareQueryLog,
@@ -66,11 +71,14 @@ from game_predictor_api.domain.catalog import CatalogNotFoundError, SymbolStatus
 from game_predictor_api.schemas.board_search import to_board_search_response
 from game_predictor_api.schemas.board_search_approximate_win import (
     ApproximateWinResponse,
-    BoardSearchBoardDetailResponse,
     to_approximate_win_response,
     to_board_search_board_detail_response,
 )
 from game_predictor_api.schemas.board_search_shares import (
+    BoardSearchShareCellCorrectionRequest,
+    BoardSearchShareCellCorrectionResponse,
+    BoardSearchSharePublicBoardDetailResponse,
+    BoardSearchSharePublicCellResponse,
     BoardSearchSharePublicContextResponse,
     BoardSearchSharePublicSearchResponse,
     BoardSearchSharePublicSymbolResponse,
@@ -109,6 +117,7 @@ def create_board_search_share_public_router(
     approximate_win_service_dependency: Callable[..., object],
     board_detail_service_dependency: Callable[..., object],
     board_view_service_dependency: Callable[..., object],
+    correction_service_dependency: Callable[..., object],
     query_log: BoardSearchShareQueryLog,
     rate_limiter: BoardSearchShareRateLimiter,
     artifact_root: Path,
@@ -125,6 +134,7 @@ def create_board_search_share_public_router(
     approximate_win_parameter = Depends(approximate_win_service_dependency)
     board_detail_parameter = Depends(board_detail_service_dependency)
     board_view_parameter = Depends(board_view_service_dependency)
+    correction_parameter = Depends(correction_service_dependency, scope="function")
     token_cookie = Cookie(alias=BOARD_SEARCH_SHARE_COOKIE_NAME)
 
     def authenticate(
@@ -146,6 +156,8 @@ def create_board_search_share_public_router(
         request: dict[str, object],
         compute: Callable[[], _T],
         summarize: Callable[[_T], dict[str, object]],
+        *,
+        on_recorded: Callable[[UUID | None], None] | None = None,
     ) -> _T:
         """Run one data query in the session's game scope and record it;
         a failed query is recorded with its stable error code."""
@@ -177,7 +189,7 @@ def create_board_search_share_public_router(
                 ),
             )
             raise
-        record_board_search_share_query(
+        event_id = record_board_search_share_query(
             query_log,
             context=context,
             entry=build_board_search_share_query_entry(
@@ -187,6 +199,8 @@ def create_board_search_share_public_router(
                 outcome_code=QUERY_OUTCOME_OK,
             ),
         )
+        if on_recorded is not None:
+            on_recorded(event_id)
         return result
 
     @router.post(
@@ -336,14 +350,16 @@ def create_board_search_share_public_router(
             scope=scope.value,
             limit=limit,
         )
+        context_ids: list[UUID | None] = []
         results = logged(
             context,
             BoardSearchShareQueryKind.SEARCH,
             request,
             lambda: search.search(game_id=context.game_id, cells=query, scope=scope, limit=limit),
             lambda found: search_query_summary([result.sequence_number for result in found]),
+            on_recorded=context_ids.append,
         )
-        return to_board_search_share_public_search_response(
+        response = to_board_search_share_public_search_response(
             to_board_search_response(
                 game_id=context.game_id,
                 scope=scope,
@@ -351,6 +367,8 @@ def create_board_search_share_public_router(
                 results=results,
             )
         )
+        response.search_context_id = context_ids[0]
+        return response
 
     @router.get(
         "/approximate-win",
@@ -437,9 +455,9 @@ def create_board_search_share_public_router(
 
     @router.get(
         "/boards/{sequence_number}",
-        response_model=BoardSearchBoardDetailResponse,
+        response_model=BoardSearchSharePublicBoardDetailResponse,
         operation_id="getBoardSearchShareBoardDetail",
-        summary="Winning paylines of one board of the shared game (no cell records)",
+        summary="Winning paylines and opaque editable cells of one shared board",
         responses=PUBLIC_ERROR_RESPONSES,
     )
     def get_board_detail(
@@ -447,7 +465,7 @@ def create_board_search_share_public_router(
         service: Annotated[BoardSearchShareAccessService, access_parameter],
         detail_service: Annotated[BoardSearchBoardDetailService, board_detail_parameter],
         access_token: Annotated[str | None, token_cookie] = None,
-    ) -> BoardSearchBoardDetailResponse:
+    ) -> BoardSearchSharePublicBoardDetailResponse:
         context = authenticate(service, access_token, BoardSearchShareRequestKind.JSON)
         detail = logged(
             context,
@@ -456,13 +474,64 @@ def create_board_search_share_public_router(
             lambda: detail_service.detail(
                 game_id=context.game_id,
                 sequence_number=sequence_number,
-                include_cells=False,
+                include_cells=True,
             ),
             lambda value: board_detail_query_summary(
                 payout_credits=value.payout_credits, document_stale=value.document_stale
             ),
         )
-        return to_board_search_board_detail_response(detail)
+        response = to_board_search_board_detail_response(detail)
+        return BoardSearchSharePublicBoardDetailResponse(
+            **response.model_dump(exclude={"cells"}),
+            cells=None
+            if detail.cells is None
+            else tuple(
+                BoardSearchSharePublicCellResponse(
+                    cell_index=cell.cell_index,
+                    cell_version=share_cell_version(context.game_id, sequence_number, cell),
+                    assigned_symbol_code=cell.assigned_symbol_code,
+                    review_state=cell.review_state,
+                    quality_issue=cell.quality_issue,
+                )
+                for cell in detail.cells
+            ),
+        )
+
+    @router.post(
+        "/boards/{sequence_number}/cells/{cell_index}/decision",
+        response_model=BoardSearchShareCellCorrectionResponse,
+        operation_id="correctBoardSearchShareCell",
+        summary="Apply and atomically audit one share-scoped symbol correction",
+        responses=PUBLIC_ERROR_RESPONSES,
+    )
+    def correct_cell(
+        sequence_number: Annotated[int, ApiPath(ge=1)],
+        cell_index: Annotated[int, ApiPath(ge=0, le=14)],
+        payload: BoardSearchShareCellCorrectionRequest,
+        access: Annotated[BoardSearchShareAccessService, access_parameter],
+        corrections: Annotated[BoardSearchShareCorrectionService, correction_parameter],
+        access_token: Annotated[str | None, token_cookie] = None,
+    ) -> BoardSearchShareCellCorrectionResponse:
+        context = authenticate(access, access_token, BoardSearchShareRequestKind.JSON)
+        assert access_token is not None
+        with game_storage_scope(context.game_id):
+            receipt = corrections.correct(
+                context,
+                access_token,
+                ShareCellCorrectionCommand(
+                    sequence_number=sequence_number,
+                    cell_index=cell_index,
+                    operation_id=payload.operation_id,
+                    expected_cell_version=payload.expected_cell_version,
+                    action=payload.action,
+                    target_symbol_code=payload.target_symbol_code,
+                    search_context_id=payload.search_context_id,
+                    start_sequence_number=payload.start_sequence_number,
+                    spin_count=payload.spin_count,
+                    stake_grosze=payload.stake_grosze,
+                ),
+            )
+        return BoardSearchShareCellCorrectionResponse.from_receipt(receipt)
 
     @router.get(
         "/boards/{sequence_number}/view",

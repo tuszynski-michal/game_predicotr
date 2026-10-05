@@ -119,6 +119,7 @@ def create_api_router(
     board_search_board_view_service_dependency: Callable[..., object],
     board_search_share_access_service_dependency: Callable[..., object],
     board_search_share_query_log_service_dependency: Callable[..., object],
+    board_search_share_correction_service_dependency: Callable[..., object],
     board_search_share_query_log: BoardSearchShareQueryLog,
     board_search_share_rate_limiter: BoardSearchShareRateLimiter,
     grid_audit_proposal_service_dependency: Callable[..., object] | None = None,
@@ -150,6 +151,7 @@ def create_api_router(
             board_search_share_access_service_dependency,
             reviewer_ingress_service_dependency,
             board_search_share_query_log_service_dependency,
+            board_search_share_correction_service_dependency,
         )
     )
     router.include_router(
@@ -161,6 +163,7 @@ def create_api_router(
             approximate_win_service_dependency=board_search_approximate_win_service_dependency,
             board_detail_service_dependency=board_search_board_detail_service_dependency,
             board_view_service_dependency=board_search_board_view_service_dependency,
+            correction_service_dependency=board_search_share_correction_service_dependency,
             query_log=board_search_share_query_log,
             rate_limiter=board_search_share_rate_limiter,
             artifact_root=settings.artifact_root,

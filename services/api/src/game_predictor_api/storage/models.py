@@ -6688,7 +6688,8 @@ class BoardSearchShareQueryEventModel(Base):
     __tablename__ = "board_search_share_query_events"
     __table_args__ = (
         CheckConstraint(
-            "kind IN ('search','approximate_win','board_detail')",
+            "kind IN ('search','approximate_win','board_detail',"
+            "'symbol_correction','correction_review')",
             name="ck_bss_query_kind",
         ),
         CheckConstraint(

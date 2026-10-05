@@ -1,4 +1,20 @@
 import { createClient as createGeneratedClient } from './generated/client';
+import type {
+  ListBoardSearchShareCorrectionsData,
+  GetBoardSearchShareCorrectionData,
+  BoardSearchShareCorrectionReviewRequest,
+  ListBoardSearchShareQueriesData,
+} from './generated/types.gen';
+export type {
+  BoardSearchSharePublicBoardDetailResponse,
+  BoardSearchSharePublicCellResponse,
+  BoardSearchShareCellCorrectionRequest,
+  BoardSearchShareCellCorrectionResponse,
+  BoardSearchShareCorrectionBoardResponse,
+  BoardSearchShareCorrectionPageResponse,
+  BoardSearchShareCorrectionDetailResponse,
+  BoardSearchShareCorrectionChangeResponse,
+} from './generated/types.gen';
 import {
   acknowledgeSemiAutomaticImageSelectionOutput as acknowledgeGeneratedSemiAutomaticImageSelectionOutput,
   activateGridProfile as activateGeneratedGridProfile,
@@ -69,6 +85,9 @@ import {
   deleteBoardSearchShareQuery as deleteGeneratedBoardSearchShareQuery,
   getBoardSearchShareQueryReplay as getGeneratedBoardSearchShareQueryReplay,
   listBoardSearchShareQueries as listGeneratedBoardSearchShareQueries,
+  listBoardSearchShareCorrections as listGeneratedBoardSearchShareCorrections,
+  getBoardSearchShareCorrection as getGeneratedBoardSearchShareCorrection,
+  reviewBoardSearchShareCorrection as reviewGeneratedBoardSearchShareCorrection,
   createRemoteManualSelectionSession as createGeneratedRemoteManualSelectionSession,
   createSymbol as createGeneratedSymbol,
   createSymbolTraining as createGeneratedSymbolTraining,
@@ -533,6 +552,7 @@ export type {
   GridAuditNodeResponse,
   GridAuditProposalGridResponse,
   GridAuditProposalResponse,
+  GridAuditSymbolSuggestionsResponse,
   GridAuditQueueCountsResponse,
   GridAuditQueueItemResponse,
   GridAuditQueuePageResponse,
@@ -1268,7 +1288,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         headers: confirmedTargetHeaders(`reviewer-session:${sessionId}`),
         path: { session_id: sessionId },
       }),
-    /** Create one online read-only board-search share link (D-471). */
+    /** Create one online board-search share link (D-492). */
     createBoardSearchShareSession: (body: BoardSearchShareCreate) =>
       createGeneratedBoardSearchShareSession({
         body,
@@ -1286,12 +1306,46 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         },
       }),
     /** One share link's query log, newest first, 50 per page (D-472). */
+    listBoardSearchShareCorrections: (
+      sessionId: string,
+      options: NonNullable<ListBoardSearchShareCorrectionsData['query']> = {},
+    ) =>
+      listGeneratedBoardSearchShareCorrections({
+        client,
+        path: { session_id: sessionId },
+        query: options,
+      }),
+    getBoardSearchShareCorrection: (
+      sessionId: string,
+      sequenceNumber: number,
+      options: NonNullable<GetBoardSearchShareCorrectionData['query']> = {},
+    ) =>
+      getGeneratedBoardSearchShareCorrection({
+        client,
+        path: { session_id: sessionId, sequence_number: sequenceNumber },
+        query: options,
+      }),
+    reviewBoardSearchShareCorrection: (
+      sessionId: string,
+      sequenceNumber: number,
+      body: BoardSearchShareCorrectionReviewRequest,
+    ) =>
+      reviewGeneratedBoardSearchShareCorrection({
+        client,
+        path: { session_id: sessionId, sequence_number: sequenceNumber },
+        body,
+        headers: confirmedTargetHeaders(
+          `board-search-share-correction:${sessionId}:${sequenceNumber}`,
+        ),
+      }),
     listBoardSearchShareQueries: (
       sessionId: string,
       options: {
         readonly before?: string;
         /** Only entries of this kind, e.g. the searches (D-478). */
-        readonly kind?: 'search' | 'approximate_win' | 'board_detail';
+        readonly kind?: NonNullable<
+          ListBoardSearchShareQueriesData['query']
+        >['kind'];
         readonly limit?: number;
         /** With `kind: 'search'`: one entry per searched pattern. */
         readonly groupByPattern?: boolean;

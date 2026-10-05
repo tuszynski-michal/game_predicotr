@@ -20,6 +20,7 @@ import {
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 import {
   gridAuditClassLabel,
+  gridAuditPreviewCommandsEqual,
   gridAuditSuggestedCorners,
 } from './grid-audit-correction-state.ts';
 import {
@@ -94,6 +95,8 @@ export type BoardGeometryCorrectionFailure = DeferredBoardCellGeometryFailure;
 export interface BoardGeometryCorrectionTarget {
   /** Stable identity of the board version the editor was opened for. */
   readonly key: string;
+  /** Audit only: review preselected proposals and confirm them with Save. */
+  readonly prefillSymbolSuggestions?: boolean;
   load(): Promise<
     | { readonly ok: true; readonly view: BoardGeometryCorrectionView }
     | BoardGeometryCorrectionFailure
@@ -120,6 +123,7 @@ export interface BoardGeometryCorrectionTarget {
   ): Promise<
     | {
         readonly cells: readonly GridCorrectionCellSymbolSuggestionResponse[];
+        readonly tentativeCellIndices?: readonly number[];
         readonly ok: true;
       }
     | BoardGeometryCorrectionFailure
@@ -440,12 +444,46 @@ export function gridAuditBoardGeometryTarget(input: {
   const base = reportedBoardGeometryTarget({
     api: input.api,
     item,
-    ...(input.symbolsApi === undefined ? {} : { symbolsApi: input.symbolsApi }),
   });
   const audit = proposal.item;
+  const suggestions = proposal.symbolSuggestions;
   return {
     ...base,
-    key: `audit:${audit.itemId}:${item.slotId}:${item.geometryRevision}:${item.resolutionRevision}`,
+    prefillSymbolSuggestions: true,
+    key: `audit:${audit.itemId}:${item.slotId}:${item.geometryRevision}:${item.resolutionRevision}:${suggestions?.artifactSha256 ?? 'no-symbols'}`,
+    async symbols(corners, flags) {
+      if (suggestions == null) {
+        return {
+          ok: false,
+          isConflict: false,
+          error:
+            'Nowe podpowiedzi symboli nie są jeszcze przygotowane dla tej planszy.',
+        };
+      }
+      const command = {
+        ...gridReviewGeometryPreviewCommand(item, corners),
+        geometryQualification: correctionGeometryQualification(
+          gridReviewQualification(item),
+          flags,
+          corners,
+          item.sourceWidth,
+          item.sourceHeight,
+        ),
+      };
+      if (!gridAuditPreviewCommandsEqual(command, suggestions.previewCommand)) {
+        return {
+          ok: false,
+          isConflict: false,
+          error:
+            'Zmieniono cięcie siatki. Podpowiedzi z poprzedniego cięcia zostały ukryte; wskaż symbole ręcznie.',
+        };
+      }
+      return {
+        ok: true,
+        cells: suggestions.cells,
+        tentativeCellIndices: suggestions.tentativeCellIndices ?? [],
+      };
+    },
     async load() {
       const result = await base.load();
       if (!result.ok) return result;
@@ -469,16 +507,16 @@ export function gridAuditBoardGeometryTarget(input: {
               value: `${gridAuditClassLabel(audit.auditClass)} · ${audit.itemId}`,
             },
             {
-              label: 'Decyzje symboli',
+              label: 'Nowe podpowiedzi symboli',
               value:
-                audit.humanDecidedCells === 0
-                  ? '—'
-                  : `${audit.humanDecidedCells} ${audit.humanDecidedCells === 1 ? 'pole' : 'pól'}`,
+                suggestions == null
+                  ? 'Oczekują na rozpoznanie'
+                  : `${suggestions.cells.filter((cell) => cell.symbolId !== null).length} / ${suggestions.cells.length} · niepewne: ${suggestions.tentativeCellIndices?.length ?? 0}`,
             },
           ],
           referenceCorners: copyCorners(gridReviewCorners(item)),
           saveHint:
-            'Zapis idzie zwykłą ścieżką korekty: nowa rewizja geometrii, pola ze zmienionym wycinkiem wrócą do Weryfikacji symboli, a symbole wskazane na kafelkach zostaną zatwierdzone.',
+            'Sprawdź propozycje i zmień błędne symbole. Zapis zatwierdzi wszystkie wybrane symbole, również niezmienione propozycje, razem z korektą siatki.',
           suggestedCorners: suggested.corners,
           suggestionNotice: suggested.clamped
             ? 'Siatka sieci (propozycja) wychodziła poza zdjęcie — narożniki przycięto do krawędzi. Czerwony kontur to obecna, zapisana siatka.'

@@ -6,7 +6,7 @@ last_updated: 2026-09-28
 
 # Laboratorium wizji
 
-## V3-D — shadow w aplikacji (D-493, TASK-0805)
+## V3-D — shadow w aplikacji (D-494, TASK-0805)
 
 Jawnie uruchomiony etap porównuje na tym samym niezmiennym zdjęciu 5 × 3
 obecną geometrię i propozycję sieci. Domyślnie jest wyłączony. Operator

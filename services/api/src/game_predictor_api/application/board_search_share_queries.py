@@ -37,7 +37,7 @@ class BoardSearchShareQueryLog(Protocol):
         game_id: UUID,
         entry: BoardSearchShareQueryEntry,
         occurred_at: datetime,
-    ) -> None:
+    ) -> UUID | None:
         """Durably store one entry (committed before returning)."""
         ...
 
@@ -48,12 +48,12 @@ def record_board_search_share_query(
     context: BoardSearchShareContext,
     entry: BoardSearchShareQueryEntry,
     now: datetime | None = None,
-) -> None:
+) -> UUID | None:
     """Fail closed (R5): a query whose entry cannot be stored returns no
     data, only `503 BOARD_SEARCH_SHARE_QUERY_LOG_UNAVAILABLE`."""
 
     try:
-        log.record(
+        return log.record(
             session_id=context.session_id,
             game_id=context.game_id,
             entry=entry,
@@ -343,6 +343,14 @@ class BoardSearchShareQueryLogService:
         if event is None:
             raise BoardSearchShareNotFoundError(
                 "BOARD_SEARCH_SHARE_QUERY_NOT_FOUND", "This query log entry does not exist."
+            )
+        if event.kind in {
+            BoardSearchShareQueryKind.SYMBOL_CORRECTION,
+            BoardSearchShareQueryKind.CORRECTION_REVIEW,
+        }:
+            raise BoardSearchShareError(
+                "BOARD_SEARCH_SHARE_CORRECTION_DELETE_FORBIDDEN",
+                "Symbol correction history cannot be deleted with a query log entry.",
             )
         if whole_pattern and event.kind is BoardSearchShareQueryKind.SEARCH:
             pattern = _pattern_key(event)

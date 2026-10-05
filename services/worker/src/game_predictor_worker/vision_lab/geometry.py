@@ -4,6 +4,7 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 
+from game_predictor_worker.geometry_core.lattice import lattice_cell_quads
 from game_predictor_worker.images.screen_layout_v3.engine import (
     SCREEN_LAYOUT_V3_VERSION,
     detect_screen_layout_v3,
@@ -13,31 +14,8 @@ from .contracts import Board, GeometryResult, Point, Topology
 
 
 def cell_quads(board: Board, topology: Topology) -> list[NDArray[np.float32]]:
-    if len(board.nodes) != (topology.rows + 1) * (topology.columns + 1):
-        raise ValueError("GRID_INCOMPLETE")
     points = np.asarray([(p.x, p.y) for p in board.nodes], dtype=np.float32)
-    if not np.isfinite(points).all():
-        raise ValueError("GRID_NONFINITE")
-    grid = points.reshape(topology.rows + 1, topology.columns + 1, 2)
-    quads = []
-    for row in range(topology.rows):
-        for col in range(topology.columns):
-            quad = np.array(
-                [grid[row, col], grid[row, col + 1], grid[row + 1, col + 1], grid[row + 1, col]],
-                dtype=np.float32,
-            )
-            edges = np.roll(quad, -1, axis=0) - quad
-            turns = edges[:, 0] * np.roll(edges[:, 1], -1) - edges[:, 1] * np.roll(edges[:, 0], -1)
-            if not np.all(turns > 0) or cv2.contourArea(quad, oriented=True) <= 1:
-                raise ValueError("GRID_ORDER_OR_INTERSECTION_INVALID")
-            quads.append(quad)
-    # Non-neighbour cells must not overlap; this also catches folded whole grids.
-    for index, quad in enumerate(quads):
-        for other in quads[index + 1 :]:
-            area, _ = cv2.intersectConvexConvex(quad, other)
-            if area > 0.1:
-                raise ValueError("GRID_CELLS_OVERLAP")
-    return quads
+    return lattice_cell_quads(points, topology.rows, topology.columns)
 
 
 def crop_cell(rgb: NDArray[np.uint8], quad: NDArray[np.float32]) -> NDArray[np.uint8] | None:

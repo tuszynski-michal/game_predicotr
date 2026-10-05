@@ -83,6 +83,9 @@ import {
   getHealth as getGeneratedHealth,
   getImageJobOperations as getGeneratedImageJobOperations,
   getGridAuditProposal as getGeneratedGridAuditProposal,
+  getGridShadowResult as getGeneratedGridShadowResult,
+  listGridShadowResults as listGeneratedGridShadowResults,
+  startGridShadowJob as startGeneratedGridShadowJob,
   getImageGridReviewCorrectionSymbols as getGeneratedImageGridReviewCorrectionSymbols,
   getImageGridReviewSourceAsset as getGeneratedImageGridReviewSourceAsset,
   getBoardSearchApproximateWin as getGeneratedBoardSearchApproximateWin,
@@ -804,6 +807,24 @@ export type {
   ValidateJobCreate,
   ValidateJobPayload,
 } from './generated/types.gen';
+
+export type {
+  GridShadowJobCreate,
+  GridShadowResultPageResponse,
+  GridShadowResultResponse,
+  GridShadowResultSummaryResponse,
+  GridShadowSlotResponse,
+} from './generated/types.gen';
+
+export type StartGridShadowJobOptions =
+  import('./generated/types.gen').StartGridShadowJobData['body'] & {
+    readonly gameId: string;
+  };
+
+export type ListGridShadowResultsOptions =
+  import('./generated/types.gen').ListGridShadowResultsData['query'] & {
+    readonly gameId: string;
+  };
 
 export interface AdminApiClientOptions {
   readonly baseUrl: string;
@@ -2566,6 +2587,27 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             : { afterOrdinal: options.afterOrdinal }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
         },
+      }),
+    startGridShadowJob: (options: StartGridShadowJobOptions) => {
+      const { gameId, ...body } = options;
+      return startGeneratedGridShadowJob({
+        client,
+        path: { game_id: gameId },
+        body,
+      });
+    },
+    listGridShadowResults: (options: ListGridShadowResultsOptions) => {
+      const { gameId, ...query } = options;
+      return listGeneratedGridShadowResults({
+        client,
+        path: { game_id: gameId },
+        query,
+      });
+    },
+    getGridShadowResult: (gameId: string, resultId: string) =>
+      getGeneratedGridShadowResult({
+        client,
+        path: { game_id: gameId, result_id: resultId },
       }),
     getGridAuditProposal: (gameId: string, itemId: string) =>
       getGeneratedGridAuditProposal({

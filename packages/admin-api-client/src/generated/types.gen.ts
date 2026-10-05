@@ -4453,6 +4453,451 @@ export type GridProfileJobSnapshotPayload = {
 };
 
 /**
+ * GridShadowJobCreate
+ */
+export type GridShadowJobCreate = {
+  /**
+   * Requestid
+   */
+  requestId: string;
+  /**
+   * Sourceimageids
+   */
+  sourceImageIds: Array<string>;
+};
+
+/**
+ * GridShadowJobPayloadResponse
+ */
+export type GridShadowJobPayloadResponse = {
+  /**
+   * Inputdigestsha256
+   */
+  inputDigestSha256: string;
+  /**
+   * Model
+   */
+  model: {
+    [key: string]: unknown;
+  };
+  /**
+   * Requestfingerprintsha256
+   */
+  requestFingerprintSha256: string;
+  /**
+   * Requestid
+   */
+  requestId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 1;
+  /**
+   * Sources
+   */
+  sources: Array<{
+    [key: string]: unknown;
+  }>;
+  /**
+   * Validationkind
+   */
+  validationKind: 'grid_geometry_shadow_v3';
+};
+
+/**
+ * GridShadowOutputResponse
+ */
+export type GridShadowOutputResponse = {
+  /**
+   * Reasons
+   */
+  reasons?: Array<string>;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 1;
+  /**
+   * Slots
+   */
+  slots: Array<GridShadowSlotResponse>;
+  /**
+   * Status
+   */
+  status: 'needs_review' | 'failed' | 'unsupported';
+  /**
+   * Unassigneddetections
+   */
+  unassignedDetections?: Array<GridShadowUnassignedDetectionResponse>;
+};
+
+/**
+ * GridShadowPointResponse
+ */
+export type GridShadowPointResponse = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
+};
+
+/**
+ * GridShadowResultPageResponse
+ */
+export type GridShadowResultPageResponse = {
+  /**
+   * Items
+   */
+  items: Array<GridShadowResultSummaryResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * GridShadowResultResponse
+ */
+export type GridShadowResultResponse = {
+  /**
+   * Baselineenginename
+   */
+  baselineEngineName?: string | null;
+  /**
+   * Baselineengineversion
+   */
+  baselineEngineVersion?: string | null;
+  /**
+   * Baselinegeometrysource
+   */
+  baselineGeometrySource?: string | null;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Modelmanifestchecksumsha256
+   */
+  modelManifestChecksumSha256: string;
+  /**
+   * Modelprofile
+   */
+  modelProfile: string;
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  output: GridShadowOutputResponse;
+  /**
+   * Outputchecksumsha256
+   */
+  outputChecksumSha256: string;
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Sourceassetreviewitemid
+   */
+  sourceAssetReviewItemId?: string | null;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcegeometryrevision
+   */
+  sourceGeometryRevision: number;
+  /**
+   * Sourcegeometryrevisionid
+   */
+  sourceGeometryRevisionId: string;
+  /**
+   * Sourceheight
+   */
+  sourceHeight: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Sourcewidth
+   */
+  sourceWidth: number;
+  /**
+   * Stale
+   */
+  stale: boolean;
+  /**
+   * Status
+   */
+  status: 'needs_review' | 'failed' | 'unsupported';
+};
+
+/**
+ * GridShadowResultSummaryResponse
+ */
+export type GridShadowResultSummaryResponse = {
+  /**
+   * Baselineenginename
+   */
+  baselineEngineName?: string | null;
+  /**
+   * Baselineengineversion
+   */
+  baselineEngineVersion?: string | null;
+  /**
+   * Baselinegeometrysource
+   */
+  baselineGeometrySource?: string | null;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Jobid
+   */
+  jobId: string;
+  /**
+   * Modelmanifestchecksumsha256
+   */
+  modelManifestChecksumSha256: string;
+  /**
+   * Modelprofile
+   */
+  modelProfile: string;
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Outputchecksumsha256
+   */
+  outputChecksumSha256: string;
+  /**
+   * Reasons
+   */
+  reasons: Array<string>;
+  /**
+   * Sourceassetreviewitemid
+   */
+  sourceAssetReviewItemId?: string | null;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourcegeometryrevision
+   */
+  sourceGeometryRevision: number;
+  /**
+   * Sourcegeometryrevisionid
+   */
+  sourceGeometryRevisionId: string;
+  /**
+   * Sourceheight
+   */
+  sourceHeight: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+  /**
+   * Sourcewidth
+   */
+  sourceWidth: number;
+  /**
+   * Stale
+   */
+  stale: boolean;
+  /**
+   * Status
+   */
+  status: 'needs_review' | 'failed' | 'unsupported';
+};
+
+/**
+ * GridShadowSlotResponse
+ */
+export type GridShadowSlotResponse = {
+  /**
+   * Baselineenginename
+   */
+  baselineEngineName?: string | null;
+  /**
+   * Baselineengineversion
+   */
+  baselineEngineVersion?: string | null;
+  /**
+   * Baselinenodes24
+   */
+  baselineNodes24?:
+    | [
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+      ]
+    | null;
+  /**
+   * Cellvisibility
+   */
+  cellVisibility: [
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+  ];
+  /**
+   * Neuralnodes24
+   */
+  neuralNodes24?:
+    | [
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+      ]
+    | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes?: Array<string>;
+  reviewItem?: ImageGridReviewItemResponse | null;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * State
+   */
+  state: 'needs_review' | 'missing' | 'invalid';
+};
+
+/**
+ * GridShadowUnassignedDetectionResponse
+ */
+export type GridShadowUnassignedDetectionResponse = {
+  /**
+   * Detectionindex
+   */
+  detectionIndex: number;
+  /**
+   * Nodes24
+   */
+  nodes24?:
+    | [
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+        GridShadowPointResponse,
+      ]
+    | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes?: Array<string>;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -7540,6 +7985,7 @@ export type JobResponse = {
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PageGeometryPreflightJobPayload
+    | GridShadowJobPayloadResponse
     | ImageGeometryGuardReportReconstructionJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
@@ -16806,6 +17252,159 @@ export type ListImageGridReviewsResponses = {
 
 export type ListImageGridReviewsResponse =
   ListImageGridReviewsResponses[keyof ListImageGridReviewsResponses];
+
+export type StartGridShadowJobData = {
+  body: GridShadowJobCreate;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-shadow-jobs';
+};
+
+export type StartGridShadowJobErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type StartGridShadowJobError =
+  StartGridShadowJobErrors[keyof StartGridShadowJobErrors];
+
+export type StartGridShadowJobResponses = {
+  /**
+   * Successful Response
+   */
+  200: JobResponse;
+};
+
+export type StartGridShadowJobResponse =
+  StartGridShadowJobResponses[keyof StartGridShadowJobResponses];
+
+export type ListGridShadowResultsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Sourceimageid
+     */
+    sourceImageId?: string | null;
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/grid-shadow-results';
+};
+
+export type ListGridShadowResultsErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type ListGridShadowResultsError =
+  ListGridShadowResultsErrors[keyof ListGridShadowResultsErrors];
+
+export type ListGridShadowResultsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridShadowResultPageResponse;
+};
+
+export type ListGridShadowResultsResponse =
+  ListGridShadowResultsResponses[keyof ListGridShadowResultsResponses];
+
+export type GetGridShadowResultData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Result Id
+     */
+    result_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/grid-shadow-results/{result_id}';
+};
+
+export type GetGridShadowResultErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+  /**
+   * Service Unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type GetGridShadowResultError =
+  GetGridShadowResultErrors[keyof GetGridShadowResultErrors];
+
+export type GetGridShadowResultResponses = {
+  /**
+   * Successful Response
+   */
+  200: GridShadowResultResponse;
+};
+
+export type GetGridShadowResultResponse =
+  GetGridShadowResultResponses[keyof GetGridShadowResultResponses];
 
 export type GetImageGeometryRolloutStatusData = {
   body?: never;

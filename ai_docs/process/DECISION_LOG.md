@@ -1,10 +1,33 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-10-02
+last_updated: 2026-10-05
 ---
 
 # Decision Log
+
+## D-493 — V3-D: oddzielny, ograniczony shadow i ręczna korekta
+
+- **Status:** accepted, 2026-10-05; operator jawnie uruchomił V3-D/TASK-0805.
+- **Decision:** domyślnie wyłączony pion działa na zmaterializowanych źródłach
+  5 × 3 przez istniejące joby VALIDATE, zapisując wynik osobno w magazynie
+  gry (manifest v5). Nie zmienia produkcyjnej geometrii, symboli ani canonical.
+  Każda propozycja wymaga jawnego przeglądu. Kalibracja runu 1 nie jest dowodem
+  pewności Mumii; Mumie mają jawny powód niekalibrowanej bramki.
+- **Bindings:** SHA/model/revisions/aktywne sloty są zamrożone. Brak
+  środkowej planszy nie przesuwa numeracji; extra nie tworzy nowego slotu.
+  Stara propozycja po zmianie geometrii nie jest dostępna do zapisu.
+- **Review:** porównanie pokazuje pełne węzły. Istniejący edytor narożników
+  dostaje jawny szkic do korekty, bez twierdzenia, że zachowuje pełne 24 węzły.
+  Symbole i częściowe pola zachowują istniejące kontrakty D-488/D-451.
+- **Operations:** kod/testy są zlecone, osobna zgoda pozostaje wymagana na
+  migrację, merge/wdrożenie i przebieg na danych. Staging Mumii wymaga
+  wcześniejszego przeglądu/importu. Brama skali przed masowym przetwarzaniem.
+- **Implementation:** `ai_docs/delivery/GRID_V3_SHADOW_CONTRACT_20261005.md`.
+- **Concurrency:** publikacja bierze Game FOR KEY SHARE przed blokadami
+  sekwencji, źródła i joba. To porządkuje istniejącą blokadę FK do gry wobec
+  resetu Game FOR UPDATE, bez wprowadzania konfliktu ze zwykłą korektą.
+  Historię chronią także jawne blokady podglądu usuwania źródeł i resetu gry.
 
 ## D-490 — run 3 sieci siatek przygotowuje nowe gry: Mumie, Blazing i Gang w treningu, wagi startowe (zmienia D-456 i ustawienia D-481)
 

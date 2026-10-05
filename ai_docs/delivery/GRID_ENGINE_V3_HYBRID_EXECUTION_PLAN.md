@@ -350,14 +350,24 @@ Każdy etap wymaga jawnego uruchomienia; po etapie STOP z raportem.
 
 ### Etap V3-D — shadow w aplikacji (osobne uruchomienie po STOP V3-C)
 
+Operator uruchomił V3-D 2026-10-05. Obowiązuje doprecyzowanie
+`GRID_V3_SHADOW_CONTRACT_20261005.md` i aktywny
+`tasks/completed/0805-grid-geometry-shadow-integration.md`: ograniczony job na
+zmaterializowanych źródłach, profile 777/Mumii, bez aktywacji, migracji i
+przebiegu na danych operatora w ramach przygotowania kodu.
+
 - **TASK-0805 — integracja review/shadow 5 × 3.** Zakres T11 (TASK-0676)
   z doprecyzowaniem D-461: kandydat liczony równolegle dla tego samego SHA
   zdjęcia 777, wynik i wersja zapisane osobno (proponowana tabela gry
   `image_geometry_shadow_results` przez Alembic i manifest magazynu v5),
   bez nadpisania geometrii produkcyjnej i decyzji człowieka; widok
   porównawczy w Adminie. Przed masowym przetwarzaniem obowiązuje brama
-  skali z planu Vision Lab. Szczegółowy kontrakt powstaje po STOP V3-C;
-  ten wiersz rezerwuje zakres, nie upoważnia do wykonania.
+  skali z planu Vision Lab. Pierwotną rezerwację doprecyzowano zaakceptowanym
+  kontraktem 2026-10-05. Operator uruchomił przygotowanie kodu V3-D i osobno
+  zezwolił na cztery testy w izolowanych bazach PostgreSQL; wszystkie PASS.
+  Kod i odbiór TASK-0805 zakończono: audyt bez P0–P2, techniczne DoD,
+  backend/worker/UI, mobilny smoke dotyku, typy/lint/kontrakt i build PASS.
+  Migracja bazy operatora, aktywacja i wdrożenie pozostają osobnym zakresem.
 
 ## Błędy i przypadki brzegowe
 
@@ -434,4 +444,4 @@ wznowienia audytów; obecnie audyty są zawieszone decyzją operatora.
 | TASK-0802 | claude-opus-5-5 | high | Architektura dwóch stopni, trening, ONNX i kontrakt silnika. | Zawieszony; przy wznowieniu claude-opus-5-5, high |
 | TASK-0803 | claude-opus-5-5 | high | Reguły bramki i kalibracja bez przecieku z walidacji do testu. | Zawieszony; przy wznowieniu claude-opus-5-5, medium |
 | TASK-0804 | claude-opus-5-5 | high | Ocena dowodów, jednorazowy odczyt holdoutów, rekomendacja. | Zawieszony; przy wznowieniu claude-opus-5-5, high |
-| TASK-0805 | claude-opus-5-5 | high | Zmiana schematu i przepływu produkcyjnego w trybie shadow; kontrakt po STOP V3-C. | Zawieszony; przy wznowieniu claude-opus-5-5, high |
+| TASK-0805 | gpt-6.1-sol | high | Operator uruchomił V3-D 2026-10-05. Poprzedni model Claude jest niedostępny w tej sesji; jawna aktualizacja przed implementacją. Spójny pion shadow, rewizje i kontrakt według doprecyzowania TASK-0805. | gpt-6-astra, high; niezależny audyt kodu przed ukończeniem |

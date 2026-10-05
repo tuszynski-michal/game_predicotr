@@ -6,6 +6,29 @@ last_updated: 2026-09-28
 
 # Laboratorium wizji
 
+## V3-D — shadow w aplikacji (D-493, TASK-0805)
+
+Jawnie uruchomiony etap porównuje na tym samym niezmiennym zdjęciu 5 × 3
+obecną geometrię i propozycję sieci. Domyślnie jest wyłączony. Operator
+uruchamia ograniczony job dla 1–20 zmaterializowanych źródeł; staging nie
+jest materializacją. Historyczna nazwa/wydanie gry ani brak słownika symboli
+nie blokują samego porównania.
+
+Propozycje i powody są zapisane oddzielnie z wersją modelu, SHA obrazu i
+rewizjami. Każda wymaga ręcznego przeglądu; niekalibrowane Mumie nigdy nie
+dziedziczą pewności runu1. Brak siatki nie usuwa aktywnego slotu. Dodatkowe
+wykrycie nie zwiększa liczby slotów wynikającej z poświadczonego zakresu.
+Rozbieżne metadane mają błąd, bez cichego ograniczenia numerów.
+
+Admin pokazuje pełne węzły i obecną siatkę; aktualny slot można otworzyć w
+istniejącej korekcie Reviewera. Jeżeli edytor odtwarza siatkę z narożników,
+oznacza ją jako szkic do korekty, nie pełną zaakceptowaną siatkę sieci.
+Zmiana SHA/revision oznacza stale i blokuje przekazanie starej propozycji.
+Start, odczyt i worker shadow nie zmieniają geometrii ani decyzji symboli.
+
+Migracja, aktywacja, przebieg na danych i odbiór skali pozostają osobne.
+Kontrakt: `delivery/GRID_V3_SHADOW_CONTRACT_20261005.md`.
+
 Hybryda D-457 jest jawnym wariantem podglądu, nigdy nowym domyślnym silnikiem.
 Poprawia obrazowe propozycje baseline zamrożonym MobileNetV3-Small i uczoną
 głowicą narożników. Ręczne węzły służą wyłącznie targetom i ocenie; nie tworzą

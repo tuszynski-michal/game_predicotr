@@ -18,6 +18,8 @@ export default async function HomePage({
     readonly importJobId?: string | string[];
     readonly mode?: string | string[];
     readonly queue?: string | string[];
+    readonly resultId?: string | string[];
+    readonly positionIndex?: string | string[];
     readonly session?: string | string[];
   }>;
 }) {
@@ -33,9 +35,22 @@ export default async function HomePage({
     UUID.test(gameId);
   // TASK-0840: the grid-audit list spans imports, so it is scoped by game only.
   const gridAuditMode = loopbackLocal && value(params.queue) === 'grid-audit';
-  const localMode = loopbackLocal && !gridAuditMode && UUID.test(importJobId);
+  const resultId = value(params.resultId);
+  const rawPositionIndex = value(params.positionIndex);
+  const positionIndex = Number(rawPositionIndex);
+  const gridShadowMode =
+    loopbackLocal &&
+    value(params.queue) === 'grid-shadow' &&
+    UUID.test(resultId) &&
+    /^\d$/.test(rawPositionIndex) &&
+    positionIndex <= 8;
+  const localMode =
+    loopbackLocal &&
+    !gridAuditMode &&
+    !gridShadowMode &&
+    UUID.test(importJobId);
   const apiBaseUrl =
-    localMode || gridAuditMode
+    localMode || gridAuditMode || gridShadowMode
       ? resolveLocalAdminApiBaseUrl(process.env.REVIEWER_INTERNAL_API_ORIGIN)
       : resolveAdminApiBaseUrl(process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL);
   const rawSessionId = params.session;
@@ -45,6 +60,9 @@ export default async function HomePage({
     <ReviewerAccessGate
       apiBaseUrl={apiBaseUrl}
       gridAuditScope={gridAuditMode ? { gameId } : null}
+      gridShadowScope={
+        gridShadowMode ? { gameId, resultId, positionIndex } : null
+      }
       gridValidationEnabled={localMode}
       localScope={localMode ? { gameId, importJobId } : null}
       sessionId={sessionId}

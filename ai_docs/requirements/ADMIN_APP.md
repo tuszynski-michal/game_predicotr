@@ -13,6 +13,25 @@ kontraktu `0.1` przed rozpoczęciem zadań `0.2`.
 
 ## Forma aplikacji
 
+### Porównanie siatek V3 — TASK-0805
+
+Domyślnie wyłączony panel shadow umożliwia jawne uruchomienie porównania dla
+co najwyżej 20 wybranych, zmaterializowanych zdjęć gry z profilem sieci.
+Nie zastępuje preflightu źródeł w stagingu. Lista zachowuje numerację i
+pokazuje status joba, błędy, wersję modelu oraz aktualność wyniku.
+
+Na tym samym zdjęciu panel pokazuje obecną siatkę i pełne węzły propozycji.
+Oznaczenia tekstowe uzupełniają kolory. Brak planszy, dodatkowe wykrycia i
+pola częściowe lub poza obrazem są jawne. Mumie mają komunikat o braku
+kalibracji. Każda propozycja wymaga ręcznego przeglądu.
+
+Bieżący slot z dostępną propozycją można otworzyć w istniejącej lokalnej
+korekcie Reviewera. Edytor oparty na narożnikach opisuje odtworzoną siatkę
+jako szkic do korekty; nie udaje zachowania wszystkich węzłów sieci.
+Wybór symboli, skróty i natychmiastowy podgląd zachowują TASK-0841/D-488.
+Nieaktualny wynik pozostaje widoczny, ale nie udostępnia propozycji do zapisu.
+Start, podgląd i odczyt shadow nie zatwierdzają żadnych siatek ani symboli.
+
 ### Usuwanie starej gry przed partycjonowaniem — TASK-0516
 
 Utrzymaniowa komenda usuwania `777 v0.1` jest odrębna od zwykłych akcji Admina.

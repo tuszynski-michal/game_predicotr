@@ -55,6 +55,7 @@ from game_predictor_api.application.grid_audit_proposals import (
     GridAuditProposalService,
 )
 from game_predictor_api.application.grid_calibration import GridCalibrationService
+from game_predictor_api.application.grid_shadow import GridShadowService
 from game_predictor_api.application.image_geometry_rollout import ImageGeometryRolloutService
 from game_predictor_api.application.image_grid_reviews import ImageGridReviewService
 from game_predictor_api.application.image_import_geometry_guard import (
@@ -198,6 +199,7 @@ from game_predictor_api.domain.datasets import (
     DatasetError,
     DatasetNotFoundError,
 )
+from game_predictor_api.domain.grid_shadow import GridShadowError
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_import_engine_policy import (
     LEGACY_IMAGE_IMPORT_ENGINE_POLICY_ERROR,
@@ -318,9 +320,11 @@ from game_predictor_api.storage.grid_audit_board_reader import SqlAlchemyGridAud
 from game_predictor_api.storage.grid_calibration_repository import (
     SqlAlchemyGridCalibrationRepository,
 )
+from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
 from game_predictor_api.storage.grid_profile_snapshot_resolver import (
     SqlAlchemyGridProfileSnapshotResolver,
 )
+from game_predictor_api.storage.grid_shadow import SqlAlchemyGridShadowRepository
 from game_predictor_api.storage.image_geometry_completeness_repository import (
     SqlAlchemyImageGeometryCompletenessRepository,
 )
@@ -527,6 +531,7 @@ def create_app(
     image_storage_service_dependency: Callable[..., object] | None = None,
     image_review_service_dependency: Callable[..., object] | None = None,
     image_grid_review_service_dependency: Callable[..., object] | None = None,
+    grid_shadow_service_dependency: Callable[..., object] | None = None,
     image_geometry_rollout_service_dependency: Callable[..., object] | None = None,
     virtual_grid_geometry_service_dependency: Callable[..., object] | None = None,
     image_review_cohort_service_dependency: Callable[..., object] | None = None,
@@ -582,6 +587,7 @@ def create_app(
             image_storage_service_dependency,
             image_review_service_dependency,
             image_grid_review_service_dependency,
+            grid_shadow_service_dependency,
             image_geometry_rollout_service_dependency,
             virtual_grid_geometry_service_dependency,
             image_review_cohort_service_dependency,
@@ -1361,6 +1367,23 @@ def create_app(
     )
     grid_audit_proposal_store = FileGridAuditProposalStore(resolved_settings.artifact_root)
 
+    def default_grid_shadow_service_dependency() -> Iterator[GridShadowService]:
+        with session_factory() as session:
+            try:
+                yield GridShadowService(
+                    SqlAlchemyGridShadowRepository(session),
+                    ManagedGridEngineModelStore(resolved_settings.artifact_root),
+                    enabled=resolved_settings.grid_shadow_enabled,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_grid_shadow_dependency = (
+        grid_shadow_service_dependency or default_grid_shadow_service_dependency
+    )
+
     def default_grid_audit_proposal_service_dependency() -> Iterator[GridAuditProposalService]:
         # TASK-0840: read-only; the session is rolled back, never committed.
         with session_factory() as session:
@@ -1811,6 +1834,7 @@ def create_app(
             board_search_share_query_log=resolved_board_search_share_query_log,
             board_search_share_rate_limiter=resolved_board_search_share_rate_limiter,
             grid_audit_proposal_service_dependency=(default_grid_audit_proposal_service_dependency),
+            grid_shadow_service_dependency=resolved_grid_shadow_dependency,
         )
     )
     if not custom_service_dependency_supplied:
@@ -1967,6 +1991,13 @@ def create_app(
             status_code = 503
         return JSONResponse(
             status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
+    @application.exception_handler(GridShadowError)
+    async def handle_grid_shadow_error(request: Request, error: GridShadowError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status_code,
             content={"code": error.code, "message": error.message, "details": error.details},
         )
 

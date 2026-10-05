@@ -6,6 +6,38 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0805 — V3-D: shadow w aplikacji (done, domyślnie wyłączony)
+
+- Operator jawnie uruchomił etap 2026-10-05. Kontrakt wykonawczy:
+  `ai_docs/delivery/GRID_V3_SHADOW_CONTRACT_20261005.md`; TASK-0805.
+- Jeden pion na zmaterializowanych źródłach, domyślnie wyłączony, z jobem
+  VALIDATE ograniczonym do 20 źródeł, osobnymi wynikami i ręczną korektą.
+  Mumie bez kalibracji pozostają propozycją do przeglądu. 225 zdjęć w stagingu
+  nadal wymaga preflightu i materializacji źródeł.
+- Neutralny rdzeń, manifest v5 i RLS, API/OpenAPI/klient i Admin/Reviewer.
+  Claude z pierwotnej tabeli niedostępny; jawnie przypisano gpt-6.1-sol high
+  oraz audyt gpt-6-astra high. Delegacja w ramach uruchomionego etapu.
+- Nie wykonywać migracji bazy operatora, przebiegu na jego danych,
+  merge/push ani aktywacji.
+  Main zawiera cudzą migrację 0141; nowa 0142 w worktree wymaga przed
+  wdrożeniem jawnej integracji jednego head Alembic.
+- Admin i Reviewer budują się poprawnie. Audyt statyczny zamknięty bez
+  pozostałych P0–P2. Nowe testy workera 20 PASS, regresje labu 38 PASS,
+  klient 79 PASS; testy backendu i UI, typy i OpenAPI PASS.
+  Raport: `ai_docs/quality/GRID_V3_SHADOW_IMPLEMENTATION_20261005.md`.
+- Po osobnej zgodzie operatora 2026-10-05 testy PostgreSQL: 4 PASS (RLS,
+  migracja/downgrade, odczyt w nowym procesie i współbieżność blokad).
+  Tymczasowe bazy i role usunięto, brak pozostałości potwierdzono odczytem.
+  Bez zmian bazy operatora. Poprawki loading/empty i rozmiarów kontrolek
+  potwierdzono 8 testami interakcji Admina, typami/lintem i końcowym buildem.
+- Mobilny smoke Edge Chromium 360/390 × 844 PASS: dotyk wybiera zdjęcie,
+  pole i symbol, brak poziomego overflow, zero zapisów i wyjątków.
+  Fizycznego Androida nie testowano; testowe procesy przeglądarki zakończone.
+- Końcowy audyt gpt-6-astra high bez P0–P2, kryteria taska/plan/DoD zamknięte.
+  Task: `ai_docs/tasks/completed/0805-grid-geometry-shadow-integration.md`.
+  Commit `v1.7.191`; pełny hash po commicie. Etap kodowy zakończony;
+  uruchomienie API/workera na danych operatora i wdrożenie pozostają osobne.
+
 ### TASK-0846 — Mumie: drugi folder (done)
 
 - Operator wskazał `C:\Users\tuszy\Documents\mumie wybrane\481537- 500000 cut`

@@ -1719,6 +1719,66 @@ class ImagePipelineTerminalManifestModel(Base):
     )
 
 
+class ImageGeometryShadowResultModel(Base):
+    """Append-only, game-owned comparison; never a production geometry revision."""
+
+    __tablename__ = "image_geometry_shadow_results"
+    __table_args__ = (
+        UniqueConstraint("game_id", "job_id", "source_image_id", name="uq_grid_shadow_job_source"),
+        CheckConstraint(
+            "status IN ('needs_review', 'failed', 'unsupported')", name="ck_grid_shadow_status"
+        ),
+        CheckConstraint(
+            "source_geometry_revision >= 0 AND source_width > 0 AND source_height > 0",
+            name="ck_grid_shadow_source",
+        ),
+        CheckConstraint(
+            "output_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND source_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND source_geometry_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND model_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND binding_checksum_sha256 ~ '^[0-9a-f]{64}$'",
+            name="ck_grid_shadow_checksums",
+        ),
+        CheckConstraint(
+            "jsonb_typeof(output) = 'object' AND jsonb_typeof(source_binding) = 'object' "
+            "AND jsonb_typeof(model_binding) = 'object' AND jsonb_typeof(reasons) = 'array'",
+            name="ck_grid_shadow_payloads",
+        ),
+        Index("ix_grid_shadow_game_created", "game_id", "created_at", "id"),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
+    source_image_id: Mapped[UUID] = mapped_column(
+        ForeignKey("source_images.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_geometry_revision_id: Mapped[UUID] = mapped_column(
+        ForeignKey("image_source_geometry_revisions.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_geometry_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_geometry_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_width: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_height: Mapped[int] = mapped_column(Integer, nullable=False)
+    model_profile: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_version: Mapped[str] = mapped_column(String(100), nullable=False)
+    model_manifest_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_binding: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    model_binding: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    binding_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(24), nullable=False)
+    reasons: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    output: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    output_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
 class SourceImageModel(Base):
     __tablename__ = "source_images"
     __table_args__ = (

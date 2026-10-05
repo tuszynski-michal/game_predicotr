@@ -6,6 +6,24 @@ last_updated: 2026-09-28
 
 # Architektura laboratorium wizji
 
+## Integracja shadow V3-D (D-493)
+
+CPU inference i czysta geometria trafiają do neutralnego `geometry_core`;
+lab zachowuje kompatybilne wrappery. Produkcyjny handler nie importuje
+anotacji, runów ani snapshotów labu. Registry i ManagedGridEngineModelStore
+weryfikują zamrożony model bez fallbacku.
+
+Jawny VALIDATE kind `grid_geometry_shadow_v3` korzysta z istniejącego lease,
+heartbeat, checkpoint i fencing. Pin obejmuje SHA/wymiary/managedpath,
+sourceRevision, boardRevision/resolutionRevision, sloty i model. Wynik ma
+osobną tabelę gry `image_geometry_shadow_results`, manifestv5, LIST(game_id)
+i RLS także na child. Publikacja wyniku nie modyfikuje geometrii produkcyjnej.
+Odczyt ponownie porównuje bindingi, a stale blokuje correction handoff.
+
+Pion API–OpenAPI–klient–Admin/Reviewer rozszerza istniejący kontrakt; zapis
+korekty pozostaje dotychczasową jawną source/revision-bound komendą.
+Szczegóły: `delivery/GRID_V3_SHADOW_CONTRACT_20261005.md`.
+
 T05 rejestruje `hybrid-mobilenet-v1` leniwie: odkrywanie trenerów przez API
 nie importuje torch. `hybrid_data` jest obrazowym adapterem propozycji/cropu,
 matchingu i metryki; `hybrid_model`/`hybrid_training` działają tylko w workerze,

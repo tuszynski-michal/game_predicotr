@@ -276,6 +276,9 @@ import type {
   GetGridCalibrationCohortDiagnosticsData,
   GetGridCalibrationCohortDiagnosticsErrors,
   GetGridCalibrationCohortDiagnosticsResponses,
+  GetGridShadowResultData,
+  GetGridShadowResultErrors,
+  GetGridShadowResultResponses,
   GetHealthData,
   GetHealthResponses,
   GetImageDatasetCompletenessData,
@@ -517,6 +520,9 @@ import type {
   ListGridProfileActivationsData,
   ListGridProfileActivationsErrors,
   ListGridProfileActivationsResponses,
+  ListGridShadowResultsData,
+  ListGridShadowResultsErrors,
+  ListGridShadowResultsResponses,
   ListImageDiagnosticExportsData,
   ListImageDiagnosticExportsErrors,
   ListImageDiagnosticExportsResponses,
@@ -829,6 +835,9 @@ import type {
   StartBrowserPageGeometryPreflightData,
   StartBrowserPageGeometryPreflightErrors,
   StartBrowserPageGeometryPreflightResponses,
+  StartGridShadowJobData,
+  StartGridShadowJobErrors,
+  StartGridShadowJobResponses,
   StartImageGeometryGuardReportReconstructionData,
   StartImageGeometryGuardReportReconstructionErrors,
   StartImageGeometryGuardReportReconstructionResponses,
@@ -1620,6 +1629,65 @@ export const listImageGridReviews = <ThrowOnError extends boolean = false>(
     ListImageGridReviewsErrors,
     ThrowOnError
   >({ url: '/api/v1/admin/games/{game_id}/grid-reviews', ...options });
+
+/**
+ * Start Grid Shadow Job
+ */
+export const startGridShadowJob = <ThrowOnError extends boolean = false>(
+  options: Options<StartGridShadowJobData, ThrowOnError>,
+): RequestResult<
+  StartGridShadowJobResponses,
+  StartGridShadowJobErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    StartGridShadowJobResponses,
+    StartGridShadowJobErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/grid-shadow-jobs',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Grid Shadow Results
+ */
+export const listGridShadowResults = <ThrowOnError extends boolean = false>(
+  options: Options<ListGridShadowResultsData, ThrowOnError>,
+): RequestResult<
+  ListGridShadowResultsResponses,
+  ListGridShadowResultsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGridShadowResultsResponses,
+    ListGridShadowResultsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/grid-shadow-results', ...options });
+
+/**
+ * Get Grid Shadow Result
+ */
+export const getGridShadowResult = <ThrowOnError extends boolean = false>(
+  options: Options<GetGridShadowResultData, ThrowOnError>,
+): RequestResult<
+  GetGridShadowResultResponses,
+  GetGridShadowResultErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetGridShadowResultResponses,
+    GetGridShadowResultErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/grid-shadow-results/{result_id}',
+    ...options,
+  });
 
 /**
  * Get bounded virtual-geometry rollout validation status

@@ -12,6 +12,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
+  GridShadowPanel,
+  type GridShadowPanelClient,
+} from '@/features/grid-shadow/grid-shadow-panel';
+import {
   hasImageImport,
   hasReviewerWork,
   gridReviewTotal,
@@ -47,7 +51,7 @@ export function ReviewerAccessLauncher({
   onOpenImports,
 }: {
   readonly apiBaseUrl: string;
-  readonly client?: GridReviewLauncherClient;
+  readonly client?: GridReviewLauncherClient & Partial<GridShadowPanelClient>;
   readonly gameId?: string;
   readonly onOpenImports?: () => void;
 }) {
@@ -429,6 +433,24 @@ export function ReviewerAccessLauncher({
           </p>
         ) : null}
       </div>
+      {gameId !== '' && hasGridShadowPanelClient(api) ? (
+        <GridShadowPanel key={gameId} api={api} gameId={gameId} />
+      ) : null}
     </section>
+  );
+}
+
+function hasGridShadowPanelClient(
+  api: GridReviewLauncherClient & Partial<GridShadowPanelClient>,
+): api is GridReviewLauncherClient & GridShadowPanelClient {
+  return [
+    'startGridShadowJob',
+    'listGridShadowResults',
+    'getGridShadowResult',
+    'imageGridReviewSourceAssetUrl',
+    'getJob',
+  ].every(
+    (method) =>
+      typeof api[method as keyof GridShadowPanelClient] === 'function',
   );
 }

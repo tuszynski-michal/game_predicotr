@@ -44,7 +44,7 @@ testpaths = ["services/api/tests", "services/worker/tests"]
 [tool.mypy]
 strict = true
 python_version = "3.12"
-mypy_path = "services/api/src;services/worker/src"
+mypy_path = ["services/api/src", "services/worker/src"]
 
 [[tool.mypy.overrides]]
 module = [

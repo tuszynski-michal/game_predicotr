@@ -3,7 +3,7 @@ from __future__ import annotations
 from uuid import UUID, uuid4
 
 import pytest
-from game_predictor_api.storage.game_data_v2_manifest_v4 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v5 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageLocation,

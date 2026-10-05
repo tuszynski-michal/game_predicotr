@@ -43,7 +43,7 @@ def test_ready_projection_remains_available_during_marked_reconciliation(monkeyp
             game_id=_args[2],
             store_schema=GameStorageSchema.V2,
             generation=2,
-            manifest_version="game-data-v2-manifest-v4",
+            manifest_version="game-data-v2-manifest-v5",
             status=GameStorageStatus.ACTIVE,
             revision=1,
         ),

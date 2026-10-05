@@ -6,6 +6,27 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0851 — analiza nowych korekt symboli i przekazanie metody (done)
+
+- Operator zlecił analizę swoich nowych korekt audytu 777 i dopracowanie
+  mechanizmu oraz notatkę do Claude Code.
+- Ocena wyłącznie aktualnych zatwierdzonych pikseli; osobne źródła do oceny
+  kandydata. Niezmienione propozycje zatwierdzone Save to słabszy dowód.
+- Bez aktywacji/treningu CNN, masowego zapisu, zmian geometrii ani wznowienia
+  zatrzymanych TASK-0832/0833. Zmiana metody zależy od niezależnych wyników.
+- Snapshot tylko do odczytu: 5788 zatwierdzonych pól / 578 zdjęć, SHA cropów PASS.
+  RGB: 100 rozbieżności; w aktualnym przeglądzie RGB 44/3780 (98,84% zgodności).
+  Cytryna 0/556, Śliwka 1/584, Arbuz 1/429; główny problem Winogron/Siedem.
+- Wariant nowych wzorców zmniejsza test 21 → 18 błędów, ale Cytryna 2 → 5.
+  Odrzucony; kontrola regresji każdej klasy pozostawia obecną politykę D-494.
+- Nowy ewaluator scripts/evaluate_grid_audit_feedback.py; 28 testów PASS,
+  Ruff i scoped Mypy PASS. Nowy proces evaluate: retain_rgb_v2.
+  Raport: artifacts/grid-audit-feedback-20261005/approved-v2/.
+- Historia 5788 decyzji: zero masowych zatwierdzeń; exporter odrzuca je w przyszłości.
+- Notatka dla Claude Code: ai_docs/guides/SYMBOL_RGB_FEEDBACK_HANDOFF_20261005.md.
+  Zakres globalnego pending-only adaptera pozostaje odrębny; bez publikacji.
+- Task 0851 w completed; commit v1.7.197, hash po commicie.
+
 ### TASK-0850 — cofnięcie ostatniego zapisu planszy 388128 (done)
 
 - Operator polecił cofnięcie jednej ostatnio zapisanej planszy: p00683,

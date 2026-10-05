@@ -6,6 +6,24 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0850 — cofnięcie ostatniego zapisu planszy 388128 (done)
+
+- Operator polecił cofnięcie jednej ostatnio zapisanej planszy: p00683,
+  revision 2, receipt 0f3009c7-2923-4574-b130-e1cac7103f2a.
+- Zakres: poprzednie narożniki i 15 zatwierdzeń tego samego zapisu.
+  Przed zapisem wszystkie pola pending / requires_review. Historia pozostaje.
+- Zapis kompensujący revision 3 / receipt efc87ae4-6eae-4803-9fd3-0a4980707c84:
+  poprzednie narożniki przywrócone; 15 pól pending / requires_review.
+- Nowy audyt silent-grid-777-20261004-undo-p00683-20261005t160416 jest kopią
+  aktualnej wersji po TASK-0849; rebase wyłącznie p00683. Wcześniejszy rebase
+  p00545 oraz wszystkie 975 pozycji i 917 propozycji zachowane.
+- Świeży proces i UI PASS: p00683 / 388128 pierwsza w kolejce, 15/15 podpowiedzi,
+  402 open / 573 corrected. Pozostałe geometrie i decyzje niezmienione.
+- Ruff pomocnika PASS. Dowody: artifacts/grid-audit-undo-20261005/p00683/.
+  Task 0850 w completed; commit dokumentujący operację: v1.7.196,
+  pełny hash zostanie dopisany po commicie.
+- Bez zmian aplikacji, schematu, treningu ani usuwania danych.
+
 ### TASK-0849 — cofnięcie ostatniego zapisu planszy 431508 (done)
 
 - Operator polecił cofnięcie ostatniego zapisu; odczyt wskazuje p00545,

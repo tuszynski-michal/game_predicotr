@@ -373,6 +373,12 @@ Testy wymienione są planowane, nie wykonane. Rzeczywiste zapisy danych
 dopiero po audycie kodu; T06b wymaga operatora i osobnego planu operacji.
 Ukończenie narzędzi nie oznacza ukończenia zbioru ani nadrzędnego T06.
 
+TASK-0858/D-501 adds optional batch_queue/batch_label_decide to the same routes.
+Its exact crop reference and separate history are specified in
+MUMIE_BATCH_SYMBOL_CORRECTION_20261005.md. Origin batch_crop_review is not
+lab_human_approved; it never bypasses this document's whole-geometry/training
+gates. Default consumers, labels and dictionary identities remain unchanged.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

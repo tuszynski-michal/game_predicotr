@@ -48,6 +48,9 @@ export type {
   LabelBoardDecide,
   DbCropPreview,
   SymbolResult,
+  BatchQueuePreview,
+  BatchCasePreview,
+  BatchLabelDecide,
 } from './generated/types.gen';
 export type {
   GeometryResult,
@@ -70,6 +73,12 @@ export type {
 } from './generated/types.gen';
 
 const baseUrl = '/api/lab';
+export async function symbolBatchQueue() {
+  const result = await symbolCrop({ kind: 'batch_queue' });
+  if (result?.kind !== 'batch_queue')
+    throw new Error('SYMBOL_BATCH_PREVIEW_INVALID');
+  return result;
+}
 export async function symbolLabels(
   gameId?: string,
   sourceId?: string,

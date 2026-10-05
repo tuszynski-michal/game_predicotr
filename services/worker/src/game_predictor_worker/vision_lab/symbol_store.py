@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from .annotation_contracts import AnnotationState, BackupResult
 from .annotations import (
@@ -22,6 +22,9 @@ from .annotations import (
 from .snapshot import canonical, reject_links, safe_file
 from .splits import build_components
 from .symbol_contracts import (
+    BatchLabelDecide,
+    BatchQueuePreview,
+    BatchQueueRequest,
     BoardCellDecision,
     BoardCellPreview,
     CropBinding,
@@ -60,6 +63,9 @@ from .symbol_dataset_version import LabelPreviewGrant, load_reference, validate_
 from .symbol_labels import holdout_reason, qualify_symbol_sample
 from .symbol_snapshot import SymbolSnapshot
 
+if TYPE_CHECKING:
+    from .symbol_batch_labels import BatchReviewStore
+
 QueueDescriptor = tuple[
     str, int, int, int, Literal["unassigned", "requires_review", "assigned"], str | None
 ]
@@ -95,12 +101,14 @@ class SymbolLabelStore:
         protected: tuple[Path, ...] = (),
         *,
         dataset_version: Path | None = None,
+        batch_review: "BatchReviewStore | None" = None,
     ):
         self.annotations = annotations
         self.catalog = annotations.catalog
         self.root = root.absolute()
         self.protected = protected
         self.dataset_version = dataset_version
+        self.batch_review = batch_review
         reject_links(self.root)
         roots = (
             annotations.root,
@@ -551,7 +559,11 @@ class SymbolLabelStore:
 
     def preview(
         self, request: CropRequest
-    ) -> LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview:
+    ) -> LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview | BatchQueuePreview:
+        if isinstance(request, BatchQueueRequest):
+            if self.batch_review is None:
+                raise ValueError("SYMBOL_BATCH_REVIEW_NOT_CONFIGURED")
+            return self.batch_review.preview()
         with self.locked() as (payload, state, geometry):
             grant = self.preview_grant(payload, state, geometry)
             if isinstance(request, LabQueueRequest):
@@ -663,6 +675,10 @@ class SymbolLabelStore:
             return LabCropPreview(binding=binding, png_base64=base64.b64encode(data).decode())
 
     def mutate(self, request: SymbolRequest) -> SymbolResult:
+        if isinstance(request, BatchLabelDecide):
+            if self.batch_review is None:
+                raise ValueError("SYMBOL_BATCH_REVIEW_NOT_CONFIGURED")
+            return self.batch_review.mutate(request)
         with self.locked(write=True) as (payload, state, _geometry):
             fingerprint = digest(request.model_dump())
             if receipt := payload["receipts"].get(request.request_id):

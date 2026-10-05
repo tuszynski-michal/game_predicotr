@@ -21,6 +21,14 @@ foreach ($field in @('Repository', 'Python', 'Node', 'Snapshot', 'Annotations', 
   }
 }
 $processFile = Join-Path $settings.Logs 'processes.json'
+if (($null -ne $settings.BatchReference) -ne ($null -ne $settings.BatchLabels)) {
+  throw 'BatchReference and BatchLabels must be configured together.'
+}
+foreach ($field in @('BatchReference', 'BatchLabels')) {
+  if ($settings.$field -and -not [System.IO.Path]::IsPathFullyQualified($settings.$field)) {
+    throw "Config field $field must be an absolute path."
+  }
+}
 $module = 'game_predictor_worker.vision_lab'
 
 function Test-Identity($record) {
@@ -105,12 +113,18 @@ $env:PYTHONPATH = Join-Path $settings.Repository 'services\worker\src'
 $env:PYTHONIOENCODING = 'utf-8'
 $records = @()
 try {
-  $api = Start-Process -FilePath $settings.Python -ArgumentList @(
+  $apiArguments = @(
     '-m', $module, '--snapshot', ('"' + $settings.Snapshot + '"'),
     '--annotations', ('"' + $settings.Annotations + '"'),
     '--symbols', ('"' + $settings.Symbols + '"'),
     '--symbol-dataset-version', ('"' + $settings.DatasetVersion + '"')
-  ) -WorkingDirectory $settings.Repository -WindowStyle Hidden -PassThru `
+  )
+  if ($settings.BatchReference) {
+    $apiArguments += @('--symbol-batch-reference', ('"' + $settings.BatchReference + '"'),
+      '--symbol-batch-labels', ('"' + $settings.BatchLabels + '"'))
+  }
+  $api = Start-Process -FilePath $settings.Python -ArgumentList $apiArguments `
+    -WorkingDirectory $settings.Repository -WindowStyle Hidden -PassThru `
     -RedirectStandardOutput (Join-Path $settings.Logs 'api.stdout.log') `
     -RedirectStandardError (Join-Path $settings.Logs 'api.stderr.log')
   $records += Save-Process $api 'api'

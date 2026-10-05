@@ -13,6 +13,8 @@ if __name__ == "__main__":
     parser.add_argument("--annotations", type=Path)
     parser.add_argument("--symbols", type=Path)
     parser.add_argument("--symbol-dataset-version", type=Path)
+    parser.add_argument("--symbol-batch-reference", type=Path)
+    parser.add_argument("--symbol-batch-labels", type=Path)
     parser.add_argument("--manifests", type=Path)
     parser.add_argument("--runs", type=Path)
     parser.add_argument("--training-python", type=Path)
@@ -22,6 +24,8 @@ if __name__ == "__main__":
         ("annotations", "VISION_LAB_ANNOTATIONS"),
         ("symbols", "VISION_LAB_SYMBOLS"),
         ("symbol_dataset_version", "VISION_LAB_SYMBOL_DATASET_VERSION"),
+        ("symbol_batch_reference", "VISION_LAB_SYMBOL_BATCH_REFERENCE"),
+        ("symbol_batch_labels", "VISION_LAB_SYMBOL_BATCH_LABELS"),
         ("manifests", "VISION_LAB_MANIFESTS"),
         ("runs", "VISION_LAB_RUNS"),
         ("training_python", "VISION_LAB_PYTHON"),

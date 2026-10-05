@@ -358,3 +358,18 @@ fresh-process replay. Confidence and agreement are not accuracy or approvals.
 An unsuccessful pair requires new human labels for difficult appearances,
 not repeated random experiments or default activation. A read-only targeted
 review identifies exact locations without approving or training those cases.
+
+## Independent batch crop correction (D-501, TASK-0858)
+
+The operator can correct the 18 diagnostic crops without changing their grid.
+Click selects the crop; the approved dictionary palette and 1–9/0 shortcuts
+are available immediately. An explicit save confirms only the displayed crop
+and class, with unreadable/grid_issue alternatives. Retain frozen PNGs and
+confirm only the receipt's exact case. Keep lost-response retry identical;
+conflicts require an explicit read. Full photos open through a separate link.
+Place the palette beside the gallery on desktop and above it on mobile.
+
+These decisions have batch_crop_review provenance in a separate store. They
+do not approve the photo, whole geometry or sequence and remain trainable=false
+until a separate qualification task satisfies geometry/split gates. Preserve
+the original lab history, training parts, models and immutable batch evidence.

@@ -357,6 +357,233 @@
         "title": "BackupResult",
         "type": "object"
       },
+      "BatchCasePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "anyOf": [
+              {
+                "enum": [
+                  "approve",
+                  "unreadable",
+                  "grid_issue"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Action"
+          },
+          "board": {
+            "maximum": 9.0,
+            "minimum": 1.0,
+            "title": "Board",
+            "type": "integer"
+          },
+          "case_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "category": {
+            "title": "Category",
+            "type": "string"
+          },
+          "decision_id": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Decision Id"
+          },
+          "field": {
+            "maximum": 15.0,
+            "minimum": 1.0,
+            "title": "Field",
+            "type": "integer"
+          },
+          "filename": {
+            "title": "Filename",
+            "type": "string"
+          },
+          "photo_url": {
+            "title": "Photo Url",
+            "type": "string"
+          },
+          "pixel_sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Pixel Sha256",
+            "type": "string"
+          },
+          "png_base64": {
+            "title": "Png Base64",
+            "type": "string"
+          },
+          "symbol_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol Id"
+          }
+        },
+        "required": [
+          "case_id",
+          "filename",
+          "board",
+          "field",
+          "category",
+          "png_base64",
+          "pixel_sha256",
+          "photo_url",
+          "action",
+          "symbol_id",
+          "decision_id"
+        ],
+        "title": "BatchCasePreview",
+        "type": "object"
+      },
+      "BatchLabelDecide": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "unreadable",
+              "grid_issue"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "actor": {
+            "const": "operator",
+            "default": "operator",
+            "title": "Actor",
+            "type": "string"
+          },
+          "case_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Case Id",
+            "type": "string"
+          },
+          "expected_revision": {
+            "minimum": 0.0,
+            "title": "Expected Revision",
+            "type": "integer"
+          },
+          "op": {
+            "const": "batch_label_decide",
+            "title": "Op",
+            "type": "string"
+          },
+          "reference_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Reference Id",
+            "type": "string"
+          },
+          "request_id": {
+            "maxLength": 128,
+            "minLength": 1,
+            "title": "Request Id",
+            "type": "string"
+          },
+          "symbol_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbol Id"
+          }
+        },
+        "required": [
+          "request_id",
+          "expected_revision",
+          "op",
+          "reference_id",
+          "case_id",
+          "action"
+        ],
+        "title": "BatchLabelDecide",
+        "type": "object"
+      },
+      "BatchQueuePreview": {
+        "additionalProperties": false,
+        "properties": {
+          "dictionary": {
+            "$ref": "#/components/schemas/DictionaryView"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/BatchCasePreview"
+            },
+            "maxItems": 100,
+            "minItems": 1,
+            "title": "Items",
+            "type": "array"
+          },
+          "kind": {
+            "const": "batch_queue",
+            "default": "batch_queue",
+            "title": "Kind",
+            "type": "string"
+          },
+          "reference_id": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Reference Id",
+            "type": "string"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "trainable": {
+            "const": false,
+            "default": false,
+            "title": "Trainable",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "kind",
+          "reference_id",
+          "revision",
+          "dictionary",
+          "items",
+          "trainable"
+        ],
+        "title": "BatchQueuePreview",
+        "type": "object"
+      },
+      "BatchQueueRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "const": "batch_queue",
+            "title": "Kind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "title": "BatchQueueRequest",
+        "type": "object"
+      },
       "Board-Input": {
         "additionalProperties": false,
         "properties": {
@@ -4362,6 +4589,7 @@
               "schema": {
                 "discriminator": {
                   "mapping": {
+                    "batch_queue": "#/components/schemas/BatchQueueRequest",
                     "db_approved": "#/components/schemas/DbCropRequest",
                     "lab_board": "#/components/schemas/LabBoardRequest",
                     "lab_cell": "#/components/schemas/LabCropRequest",
@@ -4381,6 +4609,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/LabQueueRequest"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BatchQueueRequest"
                   }
                 ],
                 "title": "Body"
@@ -4406,6 +4637,9 @@
                     },
                     {
                       "$ref": "#/components/schemas/LabQueuePreview"
+                    },
+                    {
+                      "$ref": "#/components/schemas/BatchQueuePreview"
                     }
                   ],
                   "title": "Response Preview Symbol Crop"
@@ -4669,6 +4903,7 @@
               "schema": {
                 "discriminator": {
                   "mapping": {
+                    "batch_label_decide": "#/components/schemas/BatchLabelDecide",
                     "dictionary_approve": "#/components/schemas/DictionaryApprove",
                     "dictionary_draft": "#/components/schemas/DictionaryDraft",
                     "label_board_decide": "#/components/schemas/LabelBoardDecide",
@@ -4696,6 +4931,9 @@
                   },
                   {
                     "$ref": "#/components/schemas/LabelCellsDecide"
+                  },
+                  {
+                    "$ref": "#/components/schemas/BatchLabelDecide"
                   }
                 ],
                 "title": "Body"

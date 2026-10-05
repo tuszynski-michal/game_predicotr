@@ -6,6 +6,21 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-501 — scoped human correction of independent batch crops
+
+- **Status:** accepted, 2026-10-05 (TASK-0858; existing authorization for autonomous fixes).
+- **Decision:** add optional batch_queue/batch_label_decide to existing symbol API.
+  Freeze exact RGB96 PNG cases and already approved dictionary provenance.
+  Store operator decisions in a separate configured artifact root with atomic
+  history, CAS and idempotent receipts. Origin is batch_crop_review.
+- **Rationale:** the 18 diagnostic cases are outside the original lab catalog;
+  requiring grid changes cannot correct their symbols and synthetic whole-board
+  approval would misrepresent the human review.
+- **Safety:** approve confirms only the displayed crop/class. No sequence or
+  whole geometry approval. Always trainable=false with explicit geometry/split
+  blockers. Source/pixel/dictionary drift blocks writes. Existing stores,
+  models, API defaults and protected partitions remain unchanged.
+
 ## D-500 — bounded appearance experiment without model activation
 
 - **Status:** accepted, 2026-10-05, within the operator's explicit request to

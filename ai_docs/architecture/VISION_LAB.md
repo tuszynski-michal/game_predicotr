@@ -496,3 +496,27 @@ visuals. `reclassify_photo` renders each old quad, proves its RGB96 pixel SHA an
 changes only classifier proposals. Atlas/overlay bytes, count conflicts and
 domain ordering remain exact. Both batches survive replay without rewriting
 artifacts or human approvals. The targeted 18-case page is read-only evidence.
+
+## Batch crop review (D-501, TASK-0858)
+
+`symbol_batch_labels.prepare` verifies the independent batch exclusions,
+D-498 dictionary provenance, source and RGB96 pixel identity, then publishes
+a content-addressed reference with exact PNG files. The original read-only
+gallery is preserved as review.before-editing.html; its derivative entry page
+links exact case IDs to the existing Vision Lab `/symbols/batch` editor.
+
+Optional batch_queue/batch_label_decide extend existing symbol routes and
+generated OpenAPI client. `SymbolLabelStore` delegates only these variants to
+`BatchReviewStore`; existing default gates and stores remain unchanged.
+Original geometry/symbol guards precede the independent store lock. Verify
+live metadata, renderer, source and PNG, re-render the selected quad on save,
+then publish one atomic state with CAS, immutable decision history and receipt.
+Identical retry acknowledges the prior write before CAS and can recover after
+policy drift without authorizing new pixels. All results are trainable=false.
+
+The durable launcher accepts optional absolute BatchReference/BatchLabels
+paths together. New decisions live outside the original lab roots. React
+reuses symbolWriteSession, freezes PNGs, updates only receipt-confirmed cases
+and keeps the next selection while a save is pending. Rereads remount PNGs
+and require their load events; image failure blocks approval. The sticky
+desktop panel and mobile layout expose the palette without opening a photo.

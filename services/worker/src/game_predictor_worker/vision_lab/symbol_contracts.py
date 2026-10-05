@@ -80,6 +80,20 @@ class LabelDecide(SymbolMutation):
         return self
 
 
+class BatchLabelDecide(SymbolMutation):
+    op: Literal["batch_label_decide"]
+    reference_id: Sha
+    case_id: Sha
+    action: Literal["approve", "unreadable", "grid_issue"]
+    symbol_id: str | None = None
+
+    @model_validator(mode="after")
+    def valid_class(self) -> "BatchLabelDecide":
+        if (self.action == "approve") != (self.symbol_id is not None):
+            raise ValueError("SYMBOL_ACTION_CLASS_INVALID")
+        return self
+
+
 class LabelWithdraw(SymbolMutation):
     op: Literal["label_withdraw"]
     decision_id: Sha
@@ -147,7 +161,8 @@ SymbolRequest = Annotated[
     | LabelDecide
     | LabelWithdraw
     | LabelBoardDecide
-    | LabelCellsDecide,
+    | LabelCellsDecide
+    | BatchLabelDecide,
     Field(discriminator="op"),
 ]
 
@@ -182,8 +197,13 @@ class LabQueueRequest(Contract):
     read_token: str | None = None
 
 
+class BatchQueueRequest(Contract):
+    kind: Literal["batch_queue"]
+
+
 CropRequest = Annotated[
-    LabCropRequest | DbCropRequest | LabBoardRequest | LabQueueRequest, Field(discriminator="kind")
+    LabCropRequest | DbCropRequest | LabBoardRequest | LabQueueRequest | BatchQueueRequest,
+    Field(discriminator="kind"),
 ]
 
 
@@ -289,3 +309,26 @@ class DbCropPreview(Contract):
     media_type: str
     crop_bytes_base64: str
     dictionary: DictionaryView
+
+
+class BatchCasePreview(Contract):
+    case_id: Sha
+    filename: str
+    board: int = Field(ge=1, le=9)
+    field: int = Field(ge=1, le=15)
+    category: str
+    png_base64: str
+    pixel_sha256: Sha
+    photo_url: str
+    action: Literal["approve", "unreadable", "grid_issue"] | None = None
+    symbol_id: str | None = None
+    decision_id: Sha | None = None
+
+
+class BatchQueuePreview(Contract):
+    kind: Literal["batch_queue"] = "batch_queue"
+    reference_id: Sha
+    revision: int
+    dictionary: DictionaryView
+    items: list[BatchCasePreview] = Field(min_length=1, max_length=100)
+    trainable: Literal[False] = False

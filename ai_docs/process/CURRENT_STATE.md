@@ -6,6 +6,32 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0858 — korekta symboli z partii Mumii (done)
+
+- Operator zgłosił brak edycji w galerii 18 przypadków. Źródła są poza
+  obecnym katalogiem lab. Dodajemy dokładny crop-review do istniejącego API
+  i edytora, z oddzielną trwałą historią i zatwierdzonym słownikiem D-498.
+- Założenie D-501: wybór klasy zatwierdza wyłącznie widoczne wycięcie;
+  nie pełną geometrię, sekwencję ani próbkę treningową. Bez DB/migracji,
+  treningu, aktywacji, produkcyjnego wdrożenia i zmian pierwotnych etykiet.
+- Plan: ai_docs/delivery/MUMIE_BATCH_SYMBOL_CORRECTION_20261005.md.
+- Działający edytor http://127.0.0.1:3102/symbols/batch: wybór wycinka,
+  paleta dziesięciu istniejących klas, skróty 1–9/0 i jawny zapis bez zmiany
+  siatki. Desktop ma panel obok galerii; telefon — nad nią. Galeria 8108
+  prowadzi do konkretnego wycinka. Miniatury pozostają zamrożone po zapisie.
+- Referencja 48341730f870b38590286bffa7ff289649cd8c73f9fcc0907c81ac3c16754c54;
+  18 bezstratnych PNG RGB96. Odczyt API/proxy 0,203/0,172 s. Realny zbiór
+  nadal ma zero nowych decyzji; stare rev591/rev63 i SHA bez zmian.
+- Osobny trwały magazyn batch_crop_review; CAS, exact retry i restart
+  potwierdzone na izolowanym fixture. Saved runtime.json i launcher
+  odtwarzają lab z nowego procesu. API/UI 8102/3102 gotowe po restarcie.
+- Weryfikacja: backend 56, UI 62, klient 15 PASS; Ruff/mypy, OpenAPI/client
+  drift, lint/typecheck i build PASS. Browser/390×844 bez overflow, guziki 44px.
+  Audyt: ai_docs/quality/MUMIE_BATCH_SYMBOL_CORRECTION_20261005.md.
+- Commit: `v1.7.204`.
+- Następna konieczna interakcja: operator wybiera prawdziwe klasy w 18
+  wycinkach. Potem osobna kwalifikacja/ocena; trening nie uruchamia się sam.
+
 ### TASK-0857 — odporność modeli symboli Mumii (done)
 
 - Dwie ograniczone próby V2: po 20 epok/160 kroków, walidacja 83/84,

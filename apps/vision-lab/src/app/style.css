@@ -500,3 +500,35 @@ textarea {
     max-width: 330px;
   }
 }
+.symbol-batch-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 440px);
+  gap: 20px;
+  align-items: start;
+}
+.symbol-batch-crops {
+  grid-column: 1;
+  grid-row: 1;
+}
+.symbol-batch-panel {
+  grid-column: 2;
+  grid-row: 1;
+  position: sticky;
+  top: 12px;
+}
+.symbol-batch-panel h2 {
+  margin-top: 0;
+}
+@media (max-width: 900px) {
+  .symbol-batch-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .symbol-batch-panel {
+    grid-column: 1;
+    grid-row: 1;
+    position: static;
+  }
+  .symbol-batch-crops {
+    grid-row: 2;
+  }
+}

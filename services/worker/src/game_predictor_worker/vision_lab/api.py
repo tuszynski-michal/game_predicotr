@@ -61,6 +61,8 @@ def create_app(
     run_manager: RunManager | None = None,
     symbol_root: Path | None = None,
     symbol_dataset_version: Path | None = None,
+    symbol_batch_reference: Path | None = None,
+    symbol_batch_labels: Path | None = None,
 ) -> FastAPI:
     application = FastAPI(title="Vision Lab API", version="1.0.0", docs_url=None, redoc_url=None)
     application.add_middleware(LocalBoundary)
@@ -163,8 +165,39 @@ def create_app(
                 if os.environ.get("VISION_LAB_SYMBOL_DATASET_VERSION")
                 else None
             )
+            reference = symbol_batch_reference or (
+                Path(os.environ["VISION_LAB_SYMBOL_BATCH_REFERENCE"])
+                if os.environ.get("VISION_LAB_SYMBOL_BATCH_REFERENCE")
+                else None
+            )
+            batch_labels = symbol_batch_labels or (
+                Path(os.environ["VISION_LAB_SYMBOL_BATCH_LABELS"])
+                if os.environ.get("VISION_LAB_SYMBOL_BATCH_LABELS")
+                else None
+            )
+            if (reference is None) != (batch_labels is None):
+                raise HTTPException(503, "SYMBOL_BATCH_REVIEW_NOT_CONFIGURED")
+            batch_review = None
+            if reference is not None and batch_labels is not None:
+                from .symbol_batch_labels import BatchReviewStore
+
+                catalog_root = current().root
+                batch_review = BatchReviewStore(
+                    reference,
+                    batch_labels,
+                    (
+                        configured_symbols,
+                        annotations().root,
+                        *((catalog_root,) if catalog_root is not None else ()),
+                        *protected,
+                    ),
+                )
             symbols_instance = SymbolLabelStore(
-                configured_symbols, annotations(), protected, dataset_version=version
+                configured_symbols,
+                annotations(),
+                protected,
+                dataset_version=version,
+                batch_review=batch_review,
             )
         return symbols_instance
 

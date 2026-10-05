@@ -1,14 +1,14 @@
 ---
 title: TASK-0873 — trwały sterownik pasm RGB v2
-status: todo
-last_updated: 2026-10-05
+status: done
+last_updated: 2026-10-06
 ---
 
 # TASK-0873 — trwały sterownik pasm RGB v2
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -46,8 +46,8 @@ przez operatora 2026-10-01).
 
 ## Acceptance criteria
 
-- [ ] Suchy przebieg pasma < 60% w trybie tylko podgląd.
-- [ ] Wznowienie po przerwaniu opisane i sprawdzone.
+- [x] Suchy przebieg pasma < 60% w trybie tylko podgląd.
+- [x] Wznowienie po przerwaniu opisane i sprawdzone.
 
 ## Test cases
 
@@ -55,4 +55,16 @@ przez operatora 2026-10-01).
 
 ## Outcome
 
-Brak.
+- `scripts/run_symbol_rgb_bands.ps1`: pasmo × osiem symboli, części ≤ 60 000
+  komórek (`--shard` po skrócie id, liczność z `index/summary.json`), faza
+  `preview` kończy się bramką (`band-<pasmo>-gate.json`, wpis `GATE`), faza
+  `apply` dla każdej części: `manifest` → `apply` → `verify`; części z
+  `apply-verify.json` pomijane, część z manifestem wznawiana na nim. Proces
+  Pythona z limitem 600 s. Poprawka PowerShell 5.1: `$PSScriptRoot` jest pusty
+  w bloku `param`.
+- Runbook `ai_docs/guides/SYMBOL_RGB_V2_BAND_RUNBOOK.md`.
+- Suchy przebieg 2026-10-05 23:29–23:37 UTC: podgląd pasma < 60% dla ośmiu
+  symboli (16 481 komórek, 8 części po jednej na symbol, 1–2 min na część),
+  bramka zapisana. Wznowienie sprawdzone ponownym uruchomieniem po zmianie
+  reguł zapisu (23:41–23:43 UTC): `scope.json` i cache wycinków użyte
+  ponownie, wiersze przeliczone dla nowego klucza.

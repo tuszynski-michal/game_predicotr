@@ -1197,6 +1197,9 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
 - TASK-0871 done: writer i `scripts/symbol_rgb_v2.py apply|verify|revert` dla
   `symbol-rgb-v2` (0,99 pewna, 0,50 do przeglądu, wpis `rgbV2`); side-effect
   poza celami = plansza `stale`; test PostgreSQL zapisu, filtra i cofnięcia.
+- TASK-0873 done: sterownik pasm `scripts/run_symbol_rgb_bands.ps1` (podgląd →
+  bramka → manifest/zapis/weryfikacja) i runbook
+  `ai_docs/guides/SYMBOL_RGB_V2_BAND_RUNBOOK.md`. **Etap A zakończony.**
 
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 

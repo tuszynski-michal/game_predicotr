@@ -6,6 +6,23 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-496 — jawna wersja referencji do etykietowania symboli po korektach siatek
+
+- **Status:** accepted, 2026-10-05; operator zaakceptował kontrakt TASK-0851.
+- **Decision:** create-only, checksumowana referencja zachowuje cały oryginalny
+  payload/historię/receipts geometrii i symboli. Nie zmienia AnnotationStore,
+  starego frozen splitu ani jego stale. Istniejący SymbolLabelStore używa
+  opcjonalnej konfiguracji wyłącznie do etykietowania przypiętych źródeł.
+- **Protection:** integralność dawnych ról i całe komponenty ze starych oraz
+  aktualnych powiązań są sprawdzane przed pikselami. Drift geometrii/katalogu/
+  słownika blokuje wersję. Brak nowej zgody na trainability, rodziny lub split
+  symboli. Bez konfiguracji obowiązuje wcześniejsza polityka.
+- **Evidence:** operator potwierdził różne nagrania dla `1 - 23175 cut` i
+  `481537- 500000 cut`. Deklaracja nie oznacza verified dla obecnych 31 zdjęć.
+  Historyczne role 25/6 pozostają dowodem użycia siatkowego, nie nowym testem.
+- **Boundary:** lab plikowy, bez DB, migracji, aktywacji, materializacji,
+  kasowania, shadow, push i merge. Słownik i magazyn etykiet zachowują tożsamość.
+
 ## D-495 — V3-D: oddzielny, ograniczony shadow i ręczna korekta
 
 - **Identifier:** przy integracji TASK-0848 oznaczono dawną D-493 shadow jako

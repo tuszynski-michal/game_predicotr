@@ -6,6 +6,28 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0851 — wersja etykiet symboli Mumii (done)
+
+- Operator 2026-10-05 zaakceptował kontrakt i potwierdził dwa różne nagrania.
+  Deklaracja dotyczy wskazanych folderów; nie nadaje rodzinom verified.
+- Wykonano: niezmienna referencja zgód i dawnych ról, opcjonalna konfiguracja
+  istniejącego magazynu/API/edytora, 31 zdjęć / 279 plansz / 4185 komórek.
+  Oryginalny split pozostaje stale. Bez nowego AnnotationStore i bez osłabienia
+  starego workflow. Brak automatycznych etykiet i kwalifikacji treningu.
+- Decyzja D-496. Main Mumie pozostaje pusty. Bez DB/migracji/materializacji/
+  aktywacji/shadow/push/merge. Następna interakcja: przypisanie klas przez człowieka.
+- Wersja `dab77630f3518604add168c2baeed124dc9c5010d8ea483201a5be8cb77da1fc`,
+  523 chronione źródła, słownik v1, pełna oryginalna historia. Wszystkie dawne
+  sumy niezmienione; zero nowych etykiet, 706 dotychczasowych zachowanych.
+- 63 testy PASS; format/lint/typy/OpenAPI/build/TypeScript PASS. Restart i HTTP
+  pierwszej/ostatniej strony oraz pełnej planszy PASS. Browser smoke: 15 aktywnych
+  wyborów bez zmiany siatki. API/UI 8102/3102 gotowe; własny 8105 zatrzymany.
+  Trwały launcher/config, PID/czas startu zapisane. Bez restartu komputera.
+- Raport `ai_docs/quality/MUMIE_SYMBOL_DATASET_VERSION_20261005.md`.
+  Task `ai_docs/tasks/completed/0851-mumie-symbol-label-dataset-version.md`.
+  Osobny commit `v1.7.197` na `feat/grid-engine-v3`; hash dopisany po commicie.
+  Zastane metadane pozostają poza commitem. Nie uruchomiono uczenia symboli.
+
 ### TASK-0850 — Mumie: iteracja 5 i dane do interakcji (done)
 
 - Operator 2026-10-05 zlecił pracę do momentu wymagającego jego interakcji.

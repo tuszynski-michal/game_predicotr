@@ -1,7 +1,7 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-09-28
+last_updated: 2026-10-05
 ---
 
 # Architektura laboratorium wizji
@@ -340,6 +340,30 @@ nie może nachodzić na snapshot, anotacje lub manifesty. Rejestr trenerów jest
 zamknięty; T05 dodaje leniwą hybrydę, a produkcyjny handler pozostaje niezależny.
 
 ## Narzędzia etykiet symboli T06a
+
+TASK-0851/D-496 dodaje opcjonalny `--symbol-dataset-version` / środowiskowe
+`VISION_LAB_SYMBOL_DATASET_VERSION`. Moduł `symbol_dataset_version` publikuje
+create-only, checksumowany `manifest.json`; jego digest jest ID katalogu.
+Referencja zachowuje pełne oryginalne payloady geometrii i symboli, ich sumy,
+katalog, wybrane źródła, zatwierdzony słownik, zgodę na wersję oraz dowody
+historycznego użycia. Nie jest nowym AnnotationStore ani magazynem etykiet.
+
+Istniejący SymbolLabelStore waliduje ją pod dotychczasowymi blokadami przed
+podglądem i zapisem. Request-local grant wiąże instancję stanu i katalogu;
+zezwala wyłącznie na przypięte źródła, po sprawdzeniu fingerprintu dawnych ról
+i przechodniej sumy starych/aktualnych komponentów. Stale geometrii nie jest
+usuwane. Drift zwraca `SYMBOL_DATASET_VERSION_STALE`; brak referencji zachowuje
+wcześniejszą politykę, w tym `HOLDOUT_POLICY_UNRESOLVED`. Schema HTTP, bindingi,
+renderer i writer pozostają istniejące. ID wersji trafia do metadata decyzji,
+token strony wiąże wersję, a receipt nadal chroni dokładny retry.
+Kwalifikacja treningu nie używa tego grantu; wszystkie jej bramki zostają.
+
+Manifest jest ograniczony dotychczasowym czytnikiem kopert do 64 MiB i wersją
+do 10000 komórek. Obrazy są renderowane tylko dla strony. Launcher
+`scripts/vision_lab_symbol_review.ps1` korzysta z trwałego JSON konfiguracji,
+zapisuje PID, czas utworzenia i command line, uruchamia ukryte procesy i
+sprawdza gotowość osobno. Dopasowany writer geometrii 8105 jest zatrzymywany
+przed uruchomieniem API 8102. Cudzy listener blokuje start zamiast być kończony.
 
 D-458 rozdziela budowę narzędzi od kwalifikacji rzeczywistego zbioru.
 Oddzielny, jawnie skonfigurowany magazyn symboli nie zmienia formatu

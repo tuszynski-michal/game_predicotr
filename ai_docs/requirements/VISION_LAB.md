@@ -1,10 +1,22 @@
 ---
 title: Laboratorium geometrii i symboli — wymagania
 status: accepted
-last_updated: 2026-09-28
+last_updated: 2026-10-05
 ---
 
 # Laboratorium wizji
+
+## Wersja referencji etykiet po korektach geometrii (D-496)
+
+Jawnie zaakceptowana wersja `lab-symbol-label-reference-v1` pozwala etykietować
+przypięte, aktualnie zatwierdzone zdjęcia mimo stale dawnego splitu geometrii.
+Nie zastępuje splitu ani zgód. Zachowuje oryginalną historię, receipts, słownik,
+role i historyczne użycie, bez ponownego nadania zgody przez narzędzie.
+Chronione role i całe komponenty z dawnych oraz aktualnych powiązań pozostają
+niedostępne przed odczytem pikseli. Zmiana geometrii, katalogu lub aktywnego
+słownika zatrzymuje wersję; operator potrzebuje nowego jawnego preview.
+Ta referencja nie kwalifikuje danych do treningu, nie nadaje verified i nie
+tworzy podziału symboli. Bez konfiguracji obowiązują dotychczasowe guardy.
 
 ## V3-D — shadow w aplikacji (D-495, TASK-0805)
 

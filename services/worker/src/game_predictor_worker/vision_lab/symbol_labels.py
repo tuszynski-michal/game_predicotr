@@ -5,6 +5,7 @@ from .annotations import digest
 from .catalog import Catalog
 from .splits import build_components
 from .symbol_contracts import LabelValidity
+from .symbol_dataset_version import LabelPreviewGrant
 
 
 def holdout_reason(
@@ -113,12 +114,21 @@ def _component_holdout(
     return None
 
 
-def guard_pixels(state: AnnotationState, catalog: Catalog, source_id: str) -> None:
+def guard_pixels(
+    state: AnnotationState,
+    catalog: Catalog,
+    source_id: str,
+    preview_grant: LabelPreviewGrant | None = None,
+) -> None:
     if source_id not in catalog.sources:
         raise KeyError("SYMBOL_SOURCE_NOT_FOUND")
     if catalog.sources[source_id].role == "comparison_only":
         raise ValueError("SYMBOL_ROLE_EXCLUDED")
-    reason = holdout_reason(state, catalog, source_id)
+    reason = (
+        preview_grant.reason(state, catalog, source_id)
+        if preview_grant is not None
+        else holdout_reason(state, catalog, source_id)
+    )
     if reason:
         raise ValueError(reason)
 

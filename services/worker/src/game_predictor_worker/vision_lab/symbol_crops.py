@@ -16,6 +16,7 @@ from .contracts import Board, Point
 from .geometry import cell_quads, crop_cell
 from .photo_review import photo_accepted
 from .symbol_contracts import CropBinding, LabBoardRequest, LabCropRequest
+from .symbol_dataset_version import LabelPreviewGrant
 from .symbol_labels import guard_pixels
 
 
@@ -59,8 +60,10 @@ def render_crop(
     snapshot_id: str,
     catalog_digest: str,
     request: LabCropRequest,
+    *,
+    preview_grant: LabelPreviewGrant | None = None,
 ) -> tuple[CropBinding, bytes]:
-    guard_pixels(state, catalog, request.source_id)
+    guard_pixels(state, catalog, request.source_id, preview_grant)
     annotation = geometry_for(state, catalog, request)
     board = Board(position_index=annotation.board_index, status="complete", nodes=annotation.nodes)
     quad = cell_quads(board, annotation.topology)[request.cell_index]
@@ -116,8 +119,10 @@ def render_board(
     snapshot_id: str,
     catalog_digest: str,
     request: LabBoardRequest,
+    *,
+    preview_grant: LabelPreviewGrant | None = None,
 ) -> tuple[GeometryAnnotation, np.ndarray, list[tuple[CropBinding, bytes]]]:
-    guard_pixels(state, catalog, request.source_id)
+    guard_pixels(state, catalog, request.source_id, preview_grant)
     annotation = geometry_for(state, catalog, request)
     rgb = np.asarray(catalog.image(catalog.sources[request.source_id]), dtype=np.uint8)
     board = Board(position_index=annotation.board_index, status="complete", nodes=annotation.nodes)
@@ -148,6 +153,8 @@ def render_selected_bindings(
     snapshot_id: str,
     catalog_digest: str,
     selections: list[tuple[str, int, int, int]],
+    *,
+    preview_grant: LabelPreviewGrant | None = None,
 ) -> list[tuple[CropBinding, bytes]]:
     """Render only selected cells, decoding each source at most once."""
     current_source: str | None = None
@@ -158,7 +165,7 @@ def render_selected_bindings(
         if sid != current_source:
             if current_source is not None and sid < current_source:
                 raise ValueError("SYMBOL_QUEUE_BINDINGS_INVALID")
-            guard_pixels(state, catalog, sid)
+            guard_pixels(state, catalog, sid, preview_grant)
             image = np.asarray(catalog.image(catalog.sources[sid]), dtype=np.uint8)
             current_source = sid
             boards.clear()

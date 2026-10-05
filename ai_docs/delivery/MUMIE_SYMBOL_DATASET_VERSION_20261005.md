@@ -1,23 +1,22 @@
 ---
 title: Mumie — contract for a new symbol-label dataset version
-status: draft
+status: accepted
 last_updated: 2026-10-05
 ---
 
 # Mumie — nowa wersja zbioru do etykietowania symboli
 
-## Status i decyzja wymagana
+## Status i decyzja operatora
 
-To konkretny draft kontraktu, nie zgoda na jego implementację. TASK-0850
+Operator zaakceptował kontrakt 2026-10-05. TASK-0850
 zakończył iterację 5 i przygotował 4185 wycinków. Istniejący panel etykiet
 odrzuca je przez `HOLDOUT_POLICY_UNRESOLVED`, ponieważ dawny zamrożony split
 geometrii jest nieaktualny. Architektura VISION_LAB zachowuje stale i zakaz
 ponownego freeze; guide wymaga jawnego kontraktu wersji przed ponownym użyciem.
 
-Wymagane wejścia operatora: akceptacja poniższego kontraktu oraz informacja,
-czy dwa wskazane foldery są fragmentami tego samego nagrania. Informacja
-o nagraniu ustala rzeczywiste grupowanie, nie zastępuje etykiet symboli.
-Bez odpowiedzi nie przypisywać provenance verified ani niezależności testu.
+Foldery `1 - 23175 cut` oraz `481537- 500000 cut` pochodzą z różnych nagrań,
+zgodnie z deklaracją operatora. Ta deklaracja nie weryfikuje automatycznie
+rodzin obecnych 31 zdjęć i nie zastępuje etykiet symboli.
 
 ## Problem i wynik
 
@@ -64,6 +63,28 @@ Testy obejmują restart, ponowienie po utracie odpowiedzi, zmianę geometrii,
 zablokowanie całego komponentu holdoutu, uszkodzenie manifestu i zachowanie
 dotychczasowego edytora bez nowej konfiguracji. Właściwe lint/typecheck/build
 po testach. Nie osłabiać `HOLDOUT_POLICY_UNRESOLVED` w starym workflow.
+
+## Format i granica referencji
+
+Nowy moduł `symbol_dataset_version` zapisuje create-only `manifest.json`
+z checksumowaną kopertą. ID katalogu jest digestem payloadu. Payload zawiera
+pełną kopię oryginalnych stanów/historii/receipts geometrii i symboli, listę
+źródeł, słownik oraz dowody historycznego użycia i deklarację operatora.
+To referencja uprawnienia do etykietowania, bez nowego splitu lub AnnotationStore.
+Pierwotny frozen split jest sprawdzany przez jego fingerprint; suma dawnych
+i aktualnych powiązań chroni cały komponent final_test/unseen_game.
+Tylko przypięte, zaakceptowane źródła mają dostęp do renderera.
+
+Istniejący magazyn symboli dostaje opcjonalną ścieżkę referencji. Pod blokadą
+sprawdza checksum manifestu, katalog i oryginalny payload geometrii oraz aktywny
+słownik przed odczytem pikseli i zapisem. Drift zatrzymuje operację kodem
+`SYMBOL_DATASET_VERSION_STALE`; uszkodzenie daje błąd integralności.
+Ponowienie create-only zwraca tę samą wersję; utracona odpowiedź zapisu etykiet
+używa istniejącego receipt. Domyślny workflow bez tej konfiguracji zachowuje
+dotychczasowe guardy. Format HTTP i tożsamość cropa pozostają bez zmian;
+decyzje mają lineage wersji w istniejącym metadata. Limit wersji: 10000 komórek,
+pełne renderowanie tylko bieżącej strony. Nowy launcher zapisuje jawne ścieżki
+oraz PID/czas utworzenia kontrolowanych procesów, bez automatycznego treningu.
 
 ## Granice i ryzyka
 

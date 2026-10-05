@@ -60,6 +60,7 @@ def create_app(
     annotation_root: Path | None = None,
     run_manager: RunManager | None = None,
     symbol_root: Path | None = None,
+    symbol_dataset_version: Path | None = None,
 ) -> FastAPI:
     application = FastAPI(title="Vision Lab API", version="1.0.0", docs_url=None, redoc_url=None)
     application.add_middleware(LocalBoundary)
@@ -157,7 +158,14 @@ def create_app(
                 for key in ("VISION_LAB_MANIFESTS", "VISION_LAB_RUNS")
                 if os.environ.get(key)
             )
-            symbols_instance = SymbolLabelStore(configured_symbols, annotations(), protected)
+            version = symbol_dataset_version or (
+                Path(os.environ["VISION_LAB_SYMBOL_DATASET_VERSION"])
+                if os.environ.get("VISION_LAB_SYMBOL_DATASET_VERSION")
+                else None
+            )
+            symbols_instance = SymbolLabelStore(
+                configured_symbols, annotations(), protected, dataset_version=version
+            )
         return symbols_instance
 
     install_symbol_routes(application, symbols)

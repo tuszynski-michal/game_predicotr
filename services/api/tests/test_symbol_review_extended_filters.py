@@ -13,6 +13,7 @@ from game_predictor_api.application.image_symbol_review_bulk_operations import (
 )
 from game_predictor_api.domain.image_symbol_reviews import (
     REFERENCE_LIBRARY_PREDICTION_MODEL_VERSION,
+    RGB_V2_PREDICTION_MODEL_VERSION,
     SymbolCellReviewAction,
     SymbolCellReviewCursorDirection,
     SymbolCellReviewError,
@@ -76,11 +77,44 @@ def test_reference_library_source_matches_the_cells_own_library_entry() -> None:
     assert "'referenceLibrary', jsonb_build_object()" in clause
 
 
-def test_model_source_is_the_complement_of_the_library_entry() -> None:
-    (library,) = _sql(_filter(prediction_source=SymbolCellReviewPredictionSource.REFERENCE_LIBRARY))
-    (model,) = _sql(_filter(prediction_source=SymbolCellReviewPredictionSource.MODEL))
+def test_rgb_v2_source_matches_the_cells_own_rgb_entry() -> None:
+    (clause,) = _sql(_filter(prediction_source=SymbolCellReviewPredictionSource.RGB_V2))
 
-    assert model == f"NOT ({library})"
+    assert RGB_V2_PREDICTION_MODEL_VERSION == "symbol-rgb-v2"
+    assert clause.startswith("EXISTS")
+    assert "rgb_revision.model_version = 'symbol-rgb-v2'" in clause
+    assert "rgb_revision.id = image_symbol_review_cells.prediction_revision_id" in clause
+    assert "rgb_revision.game_id = image_symbol_review_cells.game_id" in clause
+    # The cell's own entry (rowIndex/columnIndex) must carry an ``rgbV2`` object of any status.
+    assert "predictions @> jsonb_build_array(jsonb_build_object('rowIndex'" in clause
+    assert "'rgbV2', jsonb_build_object())" in clause
+    assert "referenceLibrary" not in clause
+    assert "tentative" not in clause
+
+
+def test_rgb_v2_tentative_source_adds_the_tentative_status() -> None:
+    (rgb,) = _sql(_filter(prediction_source=SymbolCellReviewPredictionSource.RGB_V2))
+    (tentative,) = _sql(
+        _filter(prediction_source=SymbolCellReviewPredictionSource.RGB_V2_TENTATIVE)
+    )
+
+    assert tentative.startswith("EXISTS")
+    assert "rgb_revision.model_version = 'symbol-rgb-v2'" in tentative
+    assert "'rgbV2', jsonb_build_object('status', 'tentative'))" in tentative
+    assert tentative == rgb.replace(
+        "'rgbV2', jsonb_build_object())", "'rgbV2', jsonb_build_object('status', 'tentative'))"
+    )
+
+
+def test_model_source_excludes_both_the_library_and_the_rgb_entry() -> None:
+    (library,) = _sql(_filter(prediction_source=SymbolCellReviewPredictionSource.REFERENCE_LIBRARY))
+    (rgb,) = _sql(_filter(prediction_source=SymbolCellReviewPredictionSource.RGB_V2))
+    model = _sql(_filter(prediction_source=SymbolCellReviewPredictionSource.MODEL))
+
+    # NOT library_entry AND NOT rgb_entry: ``model`` never matches a writer's own cell.
+    assert model == [f"NOT ({library})", f"NOT ({rgb})"]
+    # It excludes any ``rgbV2`` entry: a tentative cell goes out together with a confirmed one.
+    assert "tentative" not in model[1]
 
 
 def test_changed_range_bounds_updated_at() -> None:
@@ -232,14 +266,31 @@ def _v2_statements(review_filter: SymbolCellReviewListFilter) -> dict[str, str]:
     return {name: str(statement.compile(dialect=dialect)) for name, statement in statements.items()}
 
 
+_SOURCE_REVISION_ALIASES = {
+    SymbolCellReviewPredictionSource.REFERENCE_LIBRARY: ("library_revision",),
+    SymbolCellReviewPredictionSource.RGB_V2: ("rgb_revision",),
+    SymbolCellReviewPredictionSource.RGB_V2_TENTATIVE: ("rgb_revision",),
+    SymbolCellReviewPredictionSource.MODEL: ("library_revision", "rgb_revision"),
+}
+
+
+def test_every_source_has_an_expected_revision_alias() -> None:
+    assert set(_SOURCE_REVISION_ALIASES) == set(SymbolCellReviewPredictionSource)
+
+
 @pytest.mark.parametrize("source", list(SymbolCellReviewPredictionSource))
 def test_source_filter_compiles_in_statements_that_join_the_revision(
     source: SymbolCellReviewPredictionSource,
 ) -> None:
     review_filter = _filter(prediction_source=source, min_confidence=0.5)
+    aliases = _SOURCE_REVISION_ALIASES[source]
 
-    for sql in _v2_statements(review_filter).values():
-        assert "image_symbol_prediction_revisions AS library_revision" in sql
+    for name, sql in _v2_statements(review_filter).items():
+        for alias in aliases:
+            assert f"image_symbol_prediction_revisions AS {alias}" in sql, (name, alias)
+        # Correlated to the cell only: one revision lookup per writer the source distinguishes.
+        assert sql.count("image_symbol_prediction_revisions") == len(aliases), name
+        assert sql.count("EXISTS") == len(aliases), name
 
 
 def test_v2_scope_statements_read_only_the_current_cell_projection() -> None:

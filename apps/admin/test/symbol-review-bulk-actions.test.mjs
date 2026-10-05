@@ -205,3 +205,24 @@ test('filter selection forwards prediction source and change range when set', ()
   assert.equal('predictionSource' in (plain?.request.selection ?? {}), false);
   assert.equal('changedFrom' in (plain?.request.selection ?? {}), false);
 });
+
+test('filter selection forwards the RGB v2 prediction sources (TASK-0872)', () => {
+  for (const predictionSource of ['rgb_v2', 'rgb_v2_tentative']) {
+    const command = createSymbolReviewBulkCommand(
+      'approve',
+      createAllMatchingFilterSymbolReviewSelection({
+        catalogRevision: 7,
+        gameId: 'game-1',
+        matchedCount: 3,
+        maxConfidence: null,
+        minConfidence: null,
+        predictionSource,
+        state: 'pending',
+        symbolId: 'symbol-1',
+      }),
+      null,
+    );
+
+    assert.equal(command?.request.selection.predictionSource, predictionSource);
+  }
+});

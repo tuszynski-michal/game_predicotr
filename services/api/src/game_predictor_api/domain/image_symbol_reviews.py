@@ -78,13 +78,22 @@ class SymbolCellReviewFilterState(StrEnum):
 
 
 class SymbolCellReviewPredictionSource(StrEnum):
-    """Which writer produced a cell's current prediction (D-466)."""
+    """Which writer produced a cell's current prediction (D-466).
+
+    ``MODEL`` is the complement of every other writer: neither a reference-library entry nor an
+    RGB v2 entry.  ``RGB_V2`` matches cells whose own entry carries ``rgbV2`` in a
+    ``symbol-rgb-v2`` revision; ``RGB_V2_TENTATIVE`` narrows that to ``rgbV2.status == tentative``
+    (the cells still waiting for a human look).
+    """
 
     REFERENCE_LIBRARY = "reference_library"
+    RGB_V2 = "rgb_v2"
+    RGB_V2_TENTATIVE = "rgb_v2_tentative"
     MODEL = "model"
 
 
 REFERENCE_LIBRARY_PREDICTION_MODEL_VERSION = "symbol-reference-library-v1"
+RGB_V2_PREDICTION_MODEL_VERSION = "symbol-rgb-v2"
 
 
 class SymbolCellReviewCursorDirection(StrEnum):

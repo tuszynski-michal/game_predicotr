@@ -210,6 +210,19 @@ test('extended filters are sent only when set', () => {
   );
 });
 
+test('RGB v2 prediction sources are sent as their API values (TASK-0872)', () => {
+  for (const predictionSource of ['rgb_v2', 'rgb_v2_tentative']) {
+    assert.deepEqual(
+      symbolReviewExtendedFilters({
+        changedFrom: null,
+        changedTo: null,
+        predictionSource,
+      }),
+      { predictionSource },
+    );
+  }
+});
+
 test('change range converts local minutes to inclusive instants', () => {
   const from = symbolReviewLocalDateTimeToIso('2026-09-30T00:00', 'from');
   const to = symbolReviewLocalDateTimeToIso('2026-09-30T23:59', 'to');

@@ -25736,9 +25736,11 @@
         "type": "object"
       },
       "SymbolCellReviewPredictionSource": {
-        "description": "Which writer produced a cell's current prediction (D-466).",
+        "description": "Which writer produced a cell's current prediction (D-466).\n\n``MODEL`` is the complement of every other writer: neither a reference-library entry nor an\nRGB v2 entry.  ``RGB_V2`` matches cells whose own entry carries ``rgbV2`` in a\n``symbol-rgb-v2`` revision; ``RGB_V2_TENTATIVE`` narrows that to ``rgbV2.status == tentative``\n(the cells still waiting for a human look).",
         "enum": [
           "reference_library",
+          "rgb_v2",
+          "rgb_v2_tentative",
           "model"
         ],
         "title": "SymbolCellReviewPredictionSource",

@@ -2541,6 +2541,8 @@ const PREDICTION_SOURCE_OPTIONS: readonly {
 }[] = [
   { label: 'Wszystkie', value: 'all' },
   { label: 'Nowy algorytm (biblioteka wzorców)', value: 'reference_library' },
+  { label: 'RGB v2', value: 'rgb_v2' },
+  { label: 'RGB v2 — do przeglądu', value: 'rgb_v2_tentative' },
   { label: 'Stary model', value: 'model' },
 ];
 

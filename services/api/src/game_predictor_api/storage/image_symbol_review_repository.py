@@ -70,6 +70,7 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.domain.image_symbol_reviews import (
     REFERENCE_LIBRARY_PREDICTION_MODEL_VERSION,
+    RGB_V2_PREDICTION_MODEL_VERSION,
     SymbolCellApprovedCropIdentity,
     SymbolCellAssignmentSource,
     SymbolCellCropIdentity,
@@ -982,6 +983,51 @@ def _visible_cell_scope(
     return statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))
 
 
+def _current_prediction_entry_exists(
+    *,
+    revision_alias: str,
+    model_version: str,
+    marker_key: str,
+    marker_fields: Mapping[str, str],
+) -> ColumnElement[bool]:
+    """Whether the cell's own entry in its current prediction revision carries a writer marker.
+
+    Aliased and correlated to the cell only: some enclosing statements already join the cell's
+    prediction revision, which auto-correlation would otherwise swallow.  A rewriting revision
+    copies the whole board, so only the entries the writer rewrote carry its marker and the
+    source is decided per cell, not per revision.  The entry's ``marker_key`` value must be a JSON
+    object containing ``marker_fields`` (no fields matches any object).
+    """
+
+    cell = ImageSymbolReviewCellModel
+    revision = aliased(ImageSymbolPredictionRevisionModel, name=revision_alias)
+    marker_object = func.jsonb_build_object(
+        *(argument for item in marker_fields.items() for argument in item)
+    )
+    return (
+        select(revision.id)
+        .where(
+            revision.game_id == cell.game_id,
+            revision.id == cell.prediction_revision_id,
+            revision.model_version == model_version,
+            revision.predictions.contains(
+                func.jsonb_build_array(
+                    func.jsonb_build_object(
+                        "rowIndex",
+                        cell.row_index,
+                        "columnIndex",
+                        cell.column_index,
+                        marker_key,
+                        marker_object,
+                    )
+                )
+            ),
+        )
+        .correlate(cell)
+        .exists()
+    )
+
+
 def extended_symbol_cell_review_filter_clauses(
     review_filter: SymbolCellReviewListFilter,
 ) -> tuple[ColumnElement[bool], ...]:
@@ -989,43 +1035,42 @@ def extended_symbol_cell_review_filter_clauses(
 
     cell = ImageSymbolReviewCellModel
     clauses: list[ColumnElement[bool]] = []
-    if review_filter.prediction_source is not None:
-        # Aliased and correlated to the cell only: some enclosing statements already join the
-        # cell's prediction revision, which auto-correlation would otherwise swallow.
-        revision = aliased(ImageSymbolPredictionRevisionModel, name="library_revision")
-        # A library revision copies the whole board; only entries the library rewrote carry
-        # ``referenceLibrary``, so the source is decided per cell, not per revision.
-        library_entry = (
-            select(revision.id)
-            .where(
-                revision.game_id == cell.game_id,
-                revision.id == cell.prediction_revision_id,
-                revision.model_version == REFERENCE_LIBRARY_PREDICTION_MODEL_VERSION,
-                revision.predictions.contains(
-                    func.jsonb_build_array(
-                        func.jsonb_build_object(
-                            "rowIndex",
-                            cell.row_index,
-                            "columnIndex",
-                            cell.column_index,
-                            "referenceLibrary",
-                            func.jsonb_build_object(),
-                        )
-                    )
-                ),
-            )
-            .correlate(cell)
-            .exists()
-        )
-        if review_filter.prediction_source is SymbolCellReviewPredictionSource.REFERENCE_LIBRARY:
-            clauses.append(library_entry)
+    source = review_filter.prediction_source
+    if source is not None:
+        # Each writer has its own correlated EXISTS (own alias) so ``model`` can exclude both.
+        if source is SymbolCellReviewPredictionSource.REFERENCE_LIBRARY:
+            clauses.append(_reference_library_entry_exists())
+        elif source is SymbolCellReviewPredictionSource.RGB_V2:
+            clauses.append(_rgb_v2_entry_exists())
+        elif source is SymbolCellReviewPredictionSource.RGB_V2_TENTATIVE:
+            clauses.append(_rgb_v2_entry_exists(status="tentative"))
         else:
-            clauses.append(~library_entry)
+            # ``model`` is whatever neither the library nor RGB v2 wrote.
+            clauses.append(~_reference_library_entry_exists())
+            clauses.append(~_rgb_v2_entry_exists())
     if review_filter.changed_from is not None:
         clauses.append(cell.updated_at >= review_filter.changed_from)
     if review_filter.changed_to is not None:
         clauses.append(cell.updated_at <= review_filter.changed_to)
     return tuple(clauses)
+
+
+def _reference_library_entry_exists() -> ColumnElement[bool]:
+    return _current_prediction_entry_exists(
+        revision_alias="library_revision",
+        model_version=REFERENCE_LIBRARY_PREDICTION_MODEL_VERSION,
+        marker_key="referenceLibrary",
+        marker_fields={},
+    )
+
+
+def _rgb_v2_entry_exists(*, status: str | None = None) -> ColumnElement[bool]:
+    return _current_prediction_entry_exists(
+        revision_alias="rgb_revision",
+        model_version=RGB_V2_PREDICTION_MODEL_VERSION,
+        marker_key="rgbV2",
+        marker_fields={} if status is None else {"status": status},
+    )
 
 
 def _apply_symbol_cell_review_state_filter(

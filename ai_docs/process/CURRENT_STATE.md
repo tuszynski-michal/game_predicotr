@@ -1190,6 +1190,10 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
 - TASK-0870 done: decyzja RGB v2, indeks pasm (7 412 524 komórek; < 60%
   16 481, 60–80% 54 356, 80–90% 59 261, 90–99% 273 843, 99–100% 7 008 583),
   podgląd i manifest; zgodność z `approved-v2` 5788/5788.
+- TASK-0872 done: Admin → Weryfikacja symboli → „Źródło predykcji” ma
+  „RGB v2” i „RGB v2 — do przeglądu” (`rgb_v2`, `rgb_v2_tentative`); „Stary
+  model” wyklucza wpisy biblioteki i RGB v2. Po scaleniu: `npm install` i
+  `npm run reviewer:build` nie są potrzebne (zmiana Admina i klienta).
 
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 

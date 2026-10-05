@@ -1628,6 +1628,71 @@ def test_list_endpoint_passes_prediction_source_and_changed_range(tmp_path: Path
     assert unknown_source.status_code == 422
 
 
+@pytest.mark.parametrize("source", ["reference_library", "rgb_v2", "rgb_v2_tentative", "model"])
+def test_prediction_source_value_is_accepted_by_list_counts_skip_and_bulk(
+    tmp_path: Path, source: str
+) -> None:
+    game_id, symbol_id = uuid4(), uuid4()
+    items = tuple(
+        _item(
+            game_id=game_id,
+            symbol_id=symbol_id,
+            sequence_number=index,
+            cell_index=0,
+            review_item_id=UUID(int=index),
+        )
+        for index in (1, 2)
+    )
+    reviews = MemorySymbolCellReviewRepository(game_id=game_id, symbol_id=symbol_id, items=items)
+    bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
+    query = {"symbolId": str(symbol_id), "predictionSource": source}
+    base = f"/api/v1/admin/games/{game_id}"
+
+    with _client(reviews, artifact_root=tmp_path, bulk_repository=bulk) as client:
+        listing = client.get(f"{base}/symbol-cell-reviews", params={**query, "limit": 1})
+        list_filter = reviews.filters[-1]
+        counts = client.get(
+            f"{base}/symbol-cell-review-counts",
+            params={**query, "catalogRevision": listing.json()["catalogRevision"]},
+        )
+        # The cursor is bound to the filter scope, so the same source must reach the skip route.
+        skip = client.get(
+            f"{base}/symbol-cell-review-skip",
+            params={**query, "afterCursor": listing.json()["nextCursor"], "count": 1},
+        )
+        preview = client.post(
+            f"{base}/symbol-cell-review-operations/preview",
+            json={
+                "action": "approve",
+                "selection": {
+                    "kind": "filter",
+                    "symbolId": str(symbol_id),
+                    "state": "pending",
+                    "catalogRevision": 17,
+                    "excludedCellReviewIds": [],
+                    "predictionSource": source,
+                },
+            },
+        )
+        rejected = client.get(
+            f"{base}/symbol-cell-reviews",
+            params={"symbolId": str(symbol_id), "predictionSource": "rgb_v2_confirmed"},
+        )
+
+    assert listing.status_code == 200
+    assert list_filter.prediction_source is not None
+    assert list_filter.prediction_source.value == source
+    assert counts.status_code == 200
+    assert skip.status_code == 200
+    assert skip.json()["cursor"] is not None
+    assert preview.status_code == 200
+    filter_selection = bulk.requests[0].filter_selection
+    assert filter_selection is not None
+    assert filter_selection.prediction_source is not None
+    assert filter_selection.prediction_source.value == source
+    assert rejected.status_code == 422
+
+
 def test_list_endpoint_supports_unknown_and_rejects_cross_scope_cursor(tmp_path: Path) -> None:
     game_id, symbol_id = uuid4(), uuid4()
     unknown = _item(

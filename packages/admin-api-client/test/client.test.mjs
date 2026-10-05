@@ -2740,6 +2740,54 @@ test('symbol cell review client sends prediction source and change range only wh
   assert.equal(unfiltered.searchParams.has('changedTo'), false);
 });
 
+test('symbol cell review client sends every prediction source value (TASK-0872)', async () => {
+  const requests = [];
+  const gameId = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({
+        catalogRevision: 2,
+        counts: { allCount: 1, approvedCount: 0, pendingCount: 1 },
+        cursor: null,
+        items: [],
+        nextCursor: null,
+        previousCursor: null,
+        skippedCount: 0,
+      });
+    },
+  });
+  const sources = ['reference_library', 'rgb_v2', 'rgb_v2_tentative', 'model'];
+
+  for (const predictionSource of sources) {
+    await client.listSymbolCellReviews({
+      gameId,
+      predictionSource,
+      symbolId: 'all',
+    });
+    await client.skipSymbolCellReviews({
+      count: 5,
+      gameId,
+      predictionSource,
+      symbolId: 'all',
+    });
+    await client.getSymbolCellReviewCounts({
+      catalogRevision: 2,
+      gameId,
+      predictionSource,
+      symbolId: 'all',
+    });
+  }
+
+  assert.deepEqual(
+    requests.map((request) =>
+      new URL(request.url).searchParams.get('predictionSource'),
+    ),
+    sources.flatMap((source) => [source, source, source]),
+  );
+});
+
 test('symbol cell review client reads and starts durable projection preparation', async () => {
   const requests = [];
   const gameId = '22222222-2222-4222-8222-222222222222';

@@ -6,6 +6,19 @@ last_updated: 2026-10-05
 
 # Architektura laboratorium wizji
 
+## Persisted source location (D-503)
+
+`symbol_feedback relocate` publishes a create-only checksummed sidecar
+`<manifest_id>.sources.json`, bound to the complete qualified inventory,
+original folder and actual source root. `SymbolFeedbackAdapter` discovers it
+in each new process, verifies full names/SHA before feedback pixels and retains
+the original logical paths in reconstructed manifests/decisions. Only direct
+image reads may relocate; labels/catalog/bundles cannot. All exact rendering
+and live history checks remain. The manifest/checkpoint/run settings stay
+unchanged; output guards include the actual root. Removal/drift of the persisted
+configuration cannot be masked by a prior in-memory location. This avoids
+symlinks, image moves and duplicated training attempts.
+
 ## Exact crop feedback adapter (D-502)
 
 The optional local symbol_feedback CLI freezes latest reviewed PNG rasters

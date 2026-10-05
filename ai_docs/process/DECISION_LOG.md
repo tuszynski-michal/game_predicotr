@@ -6,6 +6,28 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-503 — exact source relocation and recording declarations
+
+- **Status:** accepted, 2026-10-06, following the operator's supplied parent
+  C:\Users\tuszy\Documents\mumie and instruction to continue with its cut folders.
+- **Location:** an optional create-only manifest-bound source-location sidecar
+  may relocate a complete D-502 recording only if names and every source SHA
+  match its frozen inventory. Re-rendered crops, original decisions, dictionary,
+  whole-family graph, split and manifest/checkpoint identities stay unchanged.
+  Metadata/labels/bundles cannot be relocated through this mechanism. Current
+  source/content drift still blocks; default no-sidecar behavior stays strict.
+- **Durability:** the local manager and new worker processes discover the same
+  persisted sidecar. Output isolation includes the real current source_root.
+  Existing run settings, admission and budgets are not reset. Resume the same
+  pre-training failed run after exact validation, without another random try.
+- **Recordings:** the operator declares the newly supplied third folder and
+  each future new directory in this set to be a different film. Do not ask for
+  this declaration again. A moved duplicate folder is the same recording;
+  technical SHA/alias conflicts always override a folder-level declaration.
+- **Boundary:** diagnose60 sources from the third independent cut folder after
+  the bounded training result. Use qualified V3, or the existing qualified V2
+  if V3 fails the gate. No database writes, new human labels or activation.
+
 ## D-502 — qualification of exact reviewed symbol rasters
 
 - **Status:** accepted, 2026-10-05, following the operator's explicit request

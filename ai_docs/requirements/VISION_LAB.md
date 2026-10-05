@@ -6,6 +6,16 @@ last_updated: 2026-10-05
 
 # Laboratorium wizji
 
+## Exact relocation of reviewed sources (D-503)
+
+A moved complete recording may retain its logical identity and labels through
+an explicit manifest-bound source location. Every filename/source SHA and exact
+reviewed crop must match the qualified inventory. Other metadata cannot be
+remapped. No location configuration preserves the strict original behavior;
+source content drift always blocks training. The operator's 2026-10-06
+declaration covers each new directory as an independent film, while moved
+duplicates and technical aliases remain the same recording.
+
 ## Exact symbol feedback qualification (D-502)
 
 An operator-approved exact raster/class may enter a separate classifier-only

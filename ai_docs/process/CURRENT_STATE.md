@@ -1,10 +1,23 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 ---
 
 # Current State
+
+### TASK-0862 — lokalizacja przeniesionych zdjęć Mumii (done)
+
+- Operator wskazał C:\Users\tuszy\Documents\mumie. Wszystkie 2 052 SHA
+  folderu481537–500000 cut są identyczne z qualified inventory.
+  Nowy trzeci katalog24517–50112 cut zawiera2 844 zdjęcia z odrębnego filmu.
+- D-503 zapisuje deklarację odrębnych filmów dla każdego nowego katalogu;
+  nie wymaga powtarzania pytania. Przeniesione stare katalogi zachowują tożsamość.
+- Create-only sidecar lokalizacji zachowuje manifest/run/split i pełną kontrolę
+  SHA/re-render. Fresh-process verify i identyczny retry PASS, bez zmian zdjęć.
+- 29 nowych/kwalifikacyjnych +28 regresyjnych pytest PASS; Ruff/mypy PASS.
+  Osobny review bez otwartych P0–P2. Commit `v1.7.208`.
+  Dalej wznowienie0861 i diagnostyczna partia60 zdjęć0863. Bez DB/aktywacji.
 
 ### TASK-0861 — generacja 3 gotowa, trening zablokowany utratą źródeł
 

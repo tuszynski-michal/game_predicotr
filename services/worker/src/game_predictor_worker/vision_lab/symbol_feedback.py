@@ -31,6 +31,28 @@ PACK_FORMAT = "lab-symbol-feedback-pack-v1"
 FORMAT = "lab-symbol-feedback-training-v1"
 
 
+class SourceLocation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    format: Literal["lab-symbol-source-location-v1"] = "lab-symbol-source-location-v1"
+    manifest_id: str = Field(pattern=r"^[a-f0-9]{64}$")
+    original_folder: str
+    source_root: str
+    inventory_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
+    reference: str = Field(min_length=1)
+
+
+def resolve_source(path: Path, original: Path, current: Path | None) -> Path:
+    """Relocate only direct source images; metadata and raster bundles never move."""
+    if (
+        current is not None
+        and path.parent == original
+        and path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}
+    ):
+        path = current / path.name
+    reject_links(path)
+    return path
+
+
 class FeedbackQualification(BaseModel):
     model_config = ConfigDict(extra="forbid")
     accepted: Literal[True]
@@ -168,7 +190,7 @@ def prepare(store: BatchReviewStore, output: Path) -> Path:
         return root
 
 
-def folder_rows(folder: Path) -> list[dict[str, str]]:
+def folder_rows(folder: Path, logical_root: Path | None = None) -> list[dict[str, str]]:
     if not folder.is_absolute():
         raise ValueError("SYMBOL_FEEDBACK_ABSOLUTE_PATH_REQUIRED")
     reject_links(folder)
@@ -177,7 +199,8 @@ def folder_rows(folder: Path) -> list[dict[str, str]]:
         if path.is_file() and path.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
             reject_links(path)
             checksum = sha(path)
-            rows.append({"path": str(path), "sha256": checksum, "id": "feedback:" + checksum})
+            logical = path if logical_root is None else logical_root / path.name
+            rows.append({"path": str(logical), "sha256": checksum, "id": "feedback:" + checksum})
             if len(rows) > 10000:
                 raise ValueError("SYMBOL_FEEDBACK_FOLDER_TOO_LARGE")
     if not rows:
@@ -284,7 +307,12 @@ def counts(
 
 
 def compose(
-    base: Path, pack: Path, catalog_root: Path, qualification: FeedbackQualification
+    base: Path,
+    pack: Path,
+    catalog_root: Path,
+    qualification: FeedbackQualification,
+    *,
+    source_root: Path | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any], dict[str, bytes]]:
     for path in [base, pack, catalog_root]:
         if not path.is_absolute():
@@ -296,7 +324,8 @@ def compose(
         raise ValueError("SYMBOL_FEEDBACK_DICTIONARY_MISMATCH")
     if str(catalog_root / "manifest.json") not in inputs.payload["live_bindings"]:
         raise ValueError("SYMBOL_FEEDBACK_CATALOG_BINDING_INVALID")
-    rows = folder_rows(Path(qualification.recording_reference))
+    original = Path(qualification.recording_reference)
+    rows = folder_rows(source_root or original, original)
     catalog = Catalog(catalog_root)
     graph, assignments = assign_components(inputs, rows, catalog, qualification)
     allowed = {row["path"]: row["sha256"] for row in rows}
@@ -322,7 +351,13 @@ def compose(
     for decision, case in zip(metadata["decisions"], metadata["cases"], strict=True):
         source = case["source"]
         if source["path"] not in photos:
-            image = load_photo(source, [])
+            image = load_photo(
+                {
+                    **source,
+                    "path": str(resolve_source(Path(source["path"]), original, source_root)),
+                },
+                [],
+            )
             pixel = digest([image.size, hashlib.sha256(image.tobytes()).hexdigest()])
             if pixel in photo_parts and photo_parts[pixel] != "development":
                 raise ValueError("SYMBOL_FEEDBACK_PHOTO_CONFLICT")
@@ -405,12 +440,22 @@ def freeze(
 
 
 class SymbolFeedbackAdapter:
-    def __init__(self, manifest: Path):
+    def __init__(self, manifest: Path, *, source_root: Path | None = None):
         if not manifest.is_absolute():
             raise ValueError("SYMBOL_FEEDBACK_ABSOLUTE_PATH_REQUIRED")
         self.manifest = manifest
+        self.source_root = source_root
+        self._explicit_source_root = source_root
+
+    @property
+    def location_path(self) -> Path:
+        return self.manifest.with_suffix(".sources.json")
+
+    def protected_paths(self) -> list[Path]:
+        return [self.location_path, self.source_root] if self.source_root is not None else []
 
     def validate(self, request: Any = None) -> SymbolTrainingInputs:
+        self.source_root = self._explicit_source_root
         reject_links(self.manifest)
         payload = read_checked(self.manifest)
         identity = digest(payload)
@@ -424,11 +469,29 @@ class SymbolFeedbackAdapter:
         ):
             raise ValueError("SYMBOL_FEEDBACK_MANIFEST_INVALID")
         qualification = FeedbackQualification.model_validate(payload["qualification"])
+        original = Path(qualification.recording_reference)
+        location = None
+        if self.location_path.exists():
+            reject_links(self.location_path)
+            location = SourceLocation.model_validate(read_checked(self.location_path))
+            if (
+                location.manifest_id != identity
+                or location.original_folder != str(original)
+                or location.inventory_sha256 != digest(payload["folder_rows"])
+            ):
+                raise ValueError("SYMBOL_SOURCE_LOCATION_BINDING_INVALID")
+            self.source_root = Path(location.source_root)
+        if (
+            self.source_root is not None
+            and folder_rows(self.source_root, original) != payload["folder_rows"]
+        ):
+            raise ValueError("SYMBOL_SOURCE_LOCATION_INVENTORY_DRIFT")
         expected, preparation, _files = compose(
             Path(payload["base_manifest"]),
             Path(payload["feedback_pack"]),
             Path(payload["catalog"]),
             qualification,
+            source_root=self.source_root,
         )
         expected["bundle"] = payload["bundle"]
         if expected != payload:
@@ -445,12 +508,35 @@ class SymbolFeedbackAdapter:
         }:
             raise ValueError("SYMBOL_FEEDBACK_INVENTORY_INVALID")
         for name, expected_hash in payload["live_bindings"].items():
-            if sha(Path(name)) != expected_hash:
+            if sha(resolve_source(Path(name), original, self.source_root)) != expected_hash:
                 raise ValueError("SYMBOL_FEEDBACK_INPUT_DRIFT")
         for name, expected_hash in payload["files"].items():
             if sha(safe_file(bundle, name)) != expected_hash:
                 raise ValueError("SYMBOL_FEEDBACK_BUNDLE_INVALID")
+        if location is not None and read_checked(self.location_path) != location.model_dump():
+            raise ValueError("SYMBOL_SOURCE_LOCATION_DRIFT")
         return SymbolTrainingInputs(identity, payload, preparation, bundle)
+
+
+def bind_source_location(manifest: Path, source_root: Path, reference: str) -> Path:
+    """Create an explicit durable read location after exact inventory and crop validation."""
+    adapter = SymbolFeedbackAdapter(manifest, source_root=source_root)
+    inputs = adapter.validate()
+    if adapter.source_root != source_root:
+        raise ValueError("SYMBOL_SOURCE_LOCATION_CONFLICT")
+    location = SourceLocation(
+        manifest_id=inputs.manifest_id,
+        original_folder=inputs.payload["qualification"]["recording_reference"],
+        source_root=str(source_root),
+        inventory_sha256=digest(inputs.payload["folder_rows"]),
+        reference=reference,
+    )
+    publish_file(
+        adapter.location_path,
+        canonical({"payload": location.model_dump(), "sha256": digest(location.model_dump())}),
+    )
+    SymbolFeedbackAdapter(manifest).validate()
+    return adapter.location_path
 
 
 def training_adapter(manifest: Path) -> SymbolTrainingAdapter | SymbolFeedbackAdapter:
@@ -473,10 +559,17 @@ def main() -> None:
         f.add_argument("--" + name, type=Path, required=True)
     v = sub.add_parser("verify")
     v.add_argument("--manifest", type=Path, required=True)
+    relocate = sub.add_parser("relocate")
+    relocate.add_argument("--manifest", type=Path, required=True)
+    relocate.add_argument("--source-root", type=Path, required=True)
+    relocate.add_argument("--reference", required=True)
     args = parser.parse_args()
     if not all(v.is_absolute() for v in vars(args).values() if isinstance(v, Path)):
         parser.error("all paths must be absolute")
-    if args.action == "prepare":
+    if args.action == "relocate":
+        path = bind_source_location(args.manifest, args.source_root, args.reference)
+        print(json.dumps({"location": str(path), "manifest_id": args.manifest.stem}))
+    elif args.action == "prepare":
         path = prepare(BatchReviewStore(args.reference, args.labels), args.output)
         print(json.dumps({"pack": str(path), "samples": len(verify_pack(path)["decisions"])}))
     else:

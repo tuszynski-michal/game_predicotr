@@ -66,9 +66,34 @@ dotychczasowy SymbolTrainingAdapter odrzuca nowy format.
 Identyczny retry/new-process verify zachowuje jeden pakiet i manifest.
 Drift daje jawny błąd bez automatycznej korekty albo wznowienia starego raportu.
 
+## TASK-0862 — trwała lokalizacja przeniesionych źródeł
+
+Wykonać przed wznowieniem0861. To naprawa lokalizacji, bez zmiany etykiet,
+rastrów, podziału, manifest_id, checkpoint binding ani settings istniejącego
+runu. Proponowany create-only sidecar `<manifest_id>.sources.json`, checksum
+envelope, jawnie wiąże manifest, oryginalny folder, aktualny source_root,
+digest pełnego inventory i referencję operatora. Dopuszczalne jest wyłącznie
+przeniesienie całego nagrania z identycznymi nazwami i wszystkimi SHA.
+Metadata/role/alias gates pozostają przed pikselami. Exact re-render wszystkich
+18 zatwierdzonych rastrów i pełna historia pozostają wymagane.
+
+Adapter używa lokalizacji tylko do odczytu zdjęć, zachowując oryginalną logiczną
+przestrzeń ścieżek w manifestach i decyzjach. Nie remapuje etykiet, katalogu,
+PNG bundle ani innych metadanych. Domyślny brak sidecara zachowuje strict gates.
+Manager chroni również aktualny source_root przed overlapem wyników. Nowy
+proces i identyczny retry dowodzą trwałości, bez junctionów i kopiowania zdjęć
+do starego folderu. Failed RGB run wznowić z tym samym ID i budżetem.
+
+Testy: full-folder drift/extra/missing file, zła tożsamość/relative root,
+re-render/label drift, create-only retry, default adapter i output overlap.
+TASK-0862 ma własny review i commit. Następnie kontynuować0861.
+
 ## TASK-0861 — jedna ograniczona iteracja i ocena
 
 Po oddzielnym commicie0860 i kwalifikacji danych kontynuować automatycznie.
+Aktualizacja 2026-10-06: przed wznowieniem wykonać naprawę TASK-0862 opisaną
+poniżej. Operator podał nowy parent C:\Users\tuszy\Documents\mumie i potwierdził,
+że trzeci katalog oraz każdy kolejny nowy katalog pochodzą z odrębnych filmów.
 Addytywna generacja3: mumie-symbol-rgb-v3/mumie-symbol-gray-v3, od zera,
 oryginalny preprocessing RGB64/gray3 i spatial4×4, dotychczasowa deterministyczna
 augmentacja wyglądu. Nie kopiować checkpointu ani słownika777. Każda gałąź
@@ -104,9 +129,23 @@ Polecenia przez istniejący absolutny timeout runner120s; GPU worker ma
 kontrolowany background/PID i trwały watchdog1800s. Bez nieograniczonego wait.
 Testy są planowane; wynik wymaga rzeczywistego uruchomienia i raportu.
 
+## TASK-0863 — trzeci niezależny katalog zdjęć
+
+Operator jawnie zlecił użycie trzeciego katalogu. Po0861 wykonać ograniczoną
+inferencję60 rozłożonych po nagraniu zdjęć z24517–50112 cut, z filename-count
+cap, istniejącym modelem geometrii i dotychczasowym artefaktowym workflow.
+Zbiór jest nieopisany; nie tworzyć accuracy ani etykiet bez człowieka.
+Jeśli generation3 przejdzie bramkę, użyć jej zamrożonej pary i kalibracji.
+Jeśli nie, zachować wynik treningu i użyć poprzedniej kwalifikowanej pary V2
+do diagnozy nowego nagrania, jawnie oznaczając wersję. Nie uruchamiać kolejnego
+losowego treningu. Wybrać ograniczone konkretne crop-review do istniejącego
+edytora, jeśli wynik wymaga nowych etykiet. Bez DB i aktywacji modeli.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
 | TASK-0860 — dokładny feedback i kwalifikacja | gpt-6.1-sol | high | Granularne zgody, pełny graf i spójność immutable cropów/splitu. | Własny odrębny przegląd i testy integralności; bez delegowania |
+| TASK-0862 — lokalizacja przeniesionych źródeł | gpt-6.1-sol | high | Zachowanie exact bindings i pełnych bramek przy zmianie ścieżki. | Własny odrębny przegląd i regresje; bez delegowania |
 | TASK-0861 — ograniczona iteracja i ocena | gpt-6.1-sol | high | Trwałe runy, sampler/RNG i ocena regresji każdej klasy. | Własny odrębny przegląd oraz regresje resume; bez delegowania |
+| TASK-0863 — nowy niezależny katalog | gpt-6.1-sol | high | Rozłączność źródeł i ograniczona inferencja z exact crop-review. | Własny odrębny przegląd i replay artefaktów; bez delegowania |

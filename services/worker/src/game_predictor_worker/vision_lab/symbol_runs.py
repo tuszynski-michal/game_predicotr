@@ -16,7 +16,7 @@ from .run_contracts import RunMutation, RunState, StartRunRequest, TrainingConfi
 from .run_files import verify_artifact
 from .runs import RunManager, Token
 from .snapshot import canonical
-from .symbol_feedback import training_adapter
+from .symbol_feedback import SymbolFeedbackAdapter, training_adapter
 from .symbol_models import (
     FEEDBACK_MODELS,
     MODELS,
@@ -125,10 +125,16 @@ def build_manager(root: Path, settings: dict[str, str], launcher: Any = None) ->
     adapter = training_adapter(Path(settings["manifest"]))
     # Check output isolation from every pinned live input, including labels and source files.
     inputs = adapter.validate()
+    extra_paths = adapter.protected_paths() if isinstance(adapter, SymbolFeedbackAdapter) else []
     generation = int(settings.get("generation", "1"))
     if (generation == 3) != (inputs.payload.get("purpose") == "symbol_crop_feedback"):
         raise ValueError("SYMBOL_FEEDBACK_GENERATION_BINDING_REQUIRED")
-    for name in [str(adapter.manifest), str(inputs.bundle), *inputs.payload["live_bindings"]]:
+    for name in [
+        str(adapter.manifest),
+        str(inputs.bundle),
+        *inputs.payload["live_bindings"],
+        *[str(p) for p in extra_paths],
+    ]:
         path = Path(name).resolve()
         if path.is_file():
             path = path.parent

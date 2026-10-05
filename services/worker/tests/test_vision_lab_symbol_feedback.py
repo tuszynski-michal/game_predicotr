@@ -272,3 +272,94 @@ def test_incomplete_publication_can_be_retried(cohort, monkeypatch):
     assert (
         module.SymbolFeedbackAdapter(path).validate().payload["counts"]["parts"]["development"] == 3
     )
+
+
+def test_relocated_sources_keep_manifest_labels_and_restart_identity(cohort):
+    c = cohort
+    path = freeze(c)
+    before = path.read_bytes()
+    labels = (c.store.root / "state.json").read_bytes()
+    expected = module.SymbolFeedbackAdapter(path).validate()
+    current = c.source.parent.with_name("moved-recording")
+    c.source.parent.rename(current)
+    with pytest.raises(FileNotFoundError):
+        module.SymbolFeedbackAdapter(path).validate()
+    location = module.bind_source_location(path, current, "operator supplies new parent")
+    content = location.read_bytes()
+    assert module.bind_source_location(path, current, "operator supplies new parent") == location
+    assert location.read_bytes() == content
+    reopened = module.training_adapter(path).validate()
+    assert reopened.manifest_id == expected.manifest_id
+    assert reopened.payload == expected.payload and reopened.preparation == expected.preparation
+    assert path.read_bytes() == before and (c.store.root / "state.json").read_bytes() == labels
+    assert (
+        module.resolve_source(c.catalog / "manifest.json", c.source.parent, current)
+        == c.catalog / "manifest.json"
+    )
+    adapter = module.SymbolFeedbackAdapter(path)
+    adapter.validate()
+    location.unlink()
+    with pytest.raises(FileNotFoundError):
+        adapter.validate()  # a previous in-memory location cannot replace persisted configuration
+
+
+@pytest.mark.parametrize(
+    "change", ["extra", "missing", "bytes", "identity", "inventory", "relative"]
+)
+def test_source_location_rejects_drift_before_feedback_pixels(cohort, monkeypatch, change):
+    c = cohort
+    path = freeze(c)
+    current = c.source.parent.with_name("moved-recording")
+    c.source.parent.rename(current)
+    location = module.bind_source_location(path, current, "operator supplied location")
+    if change == "extra":
+        Image.new("RGB", (96, 96), "red").save(current / "extra.png")
+    elif change == "missing":
+        (current / c.source.name).unlink()
+    elif change == "bytes":
+        (current / c.source.name).write_bytes(b"different image")
+    else:
+        payload = read_checked(location)
+        payload[
+            {"identity": "manifest_id", "inventory": "inventory_sha256", "relative": "source_root"}[
+                change
+            ]
+        ] = "relative" if change == "relative" else "a" * 64
+        write_atomic(location, payload)
+
+    def decode(*_args):
+        raise AssertionError("rejected source-location feedback pixels decoded")
+
+    monkeypatch.setattr(module, "read_crop", decode)
+    with pytest.raises(ValueError, match="LOCATION_|ABSOLUTE|FOLDER_EMPTY"):
+        module.SymbolFeedbackAdapter(path).validate()
+
+
+def test_relocated_location_cannot_overlap_run_outputs(cohort):
+    from game_predictor_worker.vision_lab.symbol_runs import build_manager
+
+    c = cohort
+    path = freeze(c)
+    current = c.source.parent.with_name("moved-recording")
+    c.source.parent.rename(current)
+    module.bind_source_location(path, current, "new location")
+    settings = {
+        "manifest": str(path),
+        "python": sys.executable,
+        "pythonpath": str(c.catalog),
+        "generation": "3",
+    }
+    with pytest.raises(ValueError, match="RUN_DIRECTORY_OVERLAP"):
+        build_manager(current / "runs", settings, launcher=lambda _: None)
+
+
+def test_relocated_sources_still_enforce_current_label_and_crop_checks(cohort):
+    c = cohort
+    path = freeze(c)
+    current = c.source.parent.with_name("moved-recording")
+    c.source.parent.rename(current)
+    module.bind_source_location(path, current, "new location")
+    # The original case raster is immutable even after the source root changes.
+    next((c.pack / "crops").glob("*.png")).write_bytes(b"altered reviewed crop")
+    with pytest.raises(ValueError, match="PACK_DRIFT"):
+        module.SymbolFeedbackAdapter(path).validate()

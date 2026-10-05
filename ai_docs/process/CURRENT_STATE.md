@@ -6,6 +6,23 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0856 — większa niezależna partia Mumii (done)
+
+-600 zdjęć z2052,5396 plansz i80940 propozycji. Manifest9068f31a…9199dac.
+ 15626 niepewnych modeli,3494 disagreement; bez accuracy/zgód za człowieka.
+- Poprawiono końcówkę499996–500004 w folderze do500000:5 plansz, pominięty
+  jeden nadmiarowy kandydat, jawny konflikt nazwy. Oryginalny plik bez zmian.
+- Trwałe per-photo wyniki, kompletne SHA, root lock, porcje25/115s. Restart
+  w nowym procesie:2404 pliki/737005906 bajtów identyczne, zero powtórzeń.
+-28 pytest, Ruff/format/mypy i własny review PASS. Oryginały geometrii,
+  symboli i run-state bez zmian. Driver/PID zakończone, bez orphanów.
+- Przegląd `http://127.0.0.1:8108/symbol-batch-600/review.html`; HTTP/browser
+  smoke PASS. Raport `ai_docs/quality/MUMIE_SYMBOL_BATCH_20261005.md`.
+- Samodzielna dalsza praca: jasne J/K z zielonymi liniami ujawniły błędy
+  modeli. Kontynuujemy TASK-0857, plan `MUMIE_SYMBOL_ROBUSTNESS_20261005.md`.
+  Bez DB, aktywacji, Super, push/merge i wdrożenia.
+- Osobny commit `v1.7.202`, pełny hash dopisany po commicie.
+
 ### TASK-0855 — dwa pierwsze modele symboli Mumii (done)
 
 - RGB/gray od zera: po20 epok,255 development/84 validation z osobnych nagrań.

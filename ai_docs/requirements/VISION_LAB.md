@@ -334,3 +334,13 @@ Each variant admits one train per cohort in the durable configured run root,
 20epochs/1800seconds/10000steps. Retry retains budget and exact v2 epoch state.
 Validation selection/calibration and agreement coverage are preliminary evidence;
 flag reference conflicts without modifying human labels. No default activation.
+
+## Independent Mumie inference (D-499, TASK-0856)
+
+Frozen models may propose symbols on an explicitly authorized unlabelled folder.
+Exclude full training/validation/protected components and exact source aliases
+before pixel decoding. Preserve source/model/live-store SHA bindings and durable
+per-photo evidence. Proposals and model confidence never become human approvals
+or reported accuracy. Bound board candidates by filename and operator folder
+end; flag disagreements, omit excess boards and never invent missing pixels or
+final sequence numbers. Review shows full photos and exact cell locations.

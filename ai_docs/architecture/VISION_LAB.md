@@ -464,3 +464,16 @@ data, optimizer, RNG, history and best weights. Final reports embed validation
 logits; `symbol_models` performs bounded validation-only temperature/fusion and
 separate model uncertainty/reference-conflict review. Existing default consumers
 retain their architecture and training gates. CLI roots/settings are persistent.
+
+## Independent symbol batch (TASK-0856)
+
+`symbol_batch` freezes `mumie-symbol-batch-v1` in an isolated CLI root using
+SymbolTrainingAdapter, verified succeeded RunState exports, full-component
+exclusions and create-only lab publication. It reuses neutral geometry decoding,
+lattice quads, RGB96 cropping and exact RGB/gray training preprocessing. A
+per-photo result is published after source-bound atlas/overlay assets; bounded
+portions validate existing artifacts and live bindings on resume. Filename
+ranges are bounded by the operator folder end, with explicit conflict/count
+review and no sequence assignment. `symbol_batch_review` creates a static
+bounded uncertainty/class-control gallery and full photo index. It changes no
+HTTP registry, annotation store, label history, database or default model.

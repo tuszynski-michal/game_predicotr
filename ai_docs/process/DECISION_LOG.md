@@ -6,6 +6,23 @@ last_updated: 2026-10-05
 
 # Decision Log
 
+## D-499 — niezależne propozycje symboli i granica plansz folderu
+
+- **Status:** accepted, 2026-10-05; operator zlecił samodzielne testowanie
+  i poprawki na wcześniej wskazanym folderze do potrzeby rzeczywistych etykiet.
+- **Decision:** osobny, niezmienny batch inferencji600 zdjęć z pełnym
+  wykluczeniem komponentów D-498 i źródeł chronionych. Zgodność RGB/gray
+  i pewność nie zatwierdzają geometrii ani symbolu. Kalibracja z walidacji
+  pozostaje zamrożona. Brak accuracy dla nowych zdjęć bez referencji.
+- **Count:** górna granica plansz wynika z zakresu pliku ograniczonego końcem
+  operatorowego folderu. Faktyczny ostatni plik499996–500004 ma5 plansz
+  i folder kończący się na500000. Jawny konflikt nazwy; odrzucamy nadmiarową
+  detekcję po score i zachowujemy reading_order. Nie zmieniamy źródła,
+  nie uzupełniamy braków i nie przypisujemy finalnego sequence_number.
+- **Durability:** per-photo commit marker po create-only wizualizacjach,
+  SHA źródeł/modeli i wyników, bounded lock/portion; restart sprawdza wyniki.
+- **Scope:** TASK-0856. Bez DB, zgód za człowieka, aktywacji i wdrożenia.
+
 ## D-498 — potwierdzone nagrania i osobny split symboli Mumii
 
 - **Status:** accepted, 2026-10-05. Operator: „Tak są z różnych ujęć i innych

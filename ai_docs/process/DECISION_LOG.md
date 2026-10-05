@@ -21,6 +21,34 @@ last_updated: 2026-10-05
   podglądu. Zmiana cięcia/kwalifikacji ukrywa automatyczne wybory poprzedniego cropa.
   Nie zmienia to reguły ścisłej decyzji 7/7 ani pozostałych ekranów korekty.
 
+## D-492 — poprawki symboli przez link wyszukiwarki i przegląd operatora
+
+- **Status:** accepted, 2026-10-05; operator potwierdził natychmiastowe
+  zastosowanie zmian i edycję również zatwierdzonych plansz, TASK-0845.
+- **Decision:** sesja `board-search-share` może poprawiać symbole aktualnych
+  operacyjnych plansz swojej gry. Rozszerza D-471. D-473 obejmuje teraz
+  plansze `pending`, `accepted` i `corrected`, lokalnie i online, z kompletem
+  aktualnych komórek. Archiwum i nieaktualny odczyt nie są edytowalne.
+- **Write:** istniejący writer komórek zapisuje decyzję człowieka, agreguje
+  rodzica i aktualizuje canonical oraz wyszukiwarkę. Audyt udostępnienia
+  należy do tej samej transakcji. Actor pochodzi z sesji, nie z requestu.
+- **Review:** osobna kolejka operatora zapisuje historię przed/po oraz
+  kontekst wyszukiwania i stawki, także dla dalszych plansz zakresu. Zmiany
+  działają przed przeglądem. Jawne oznaczenie konkretnej rewizji jako
+  przejrzanej nie jest nowym stanem domenowej weryfikacji symbolu.
+- **Durability:** historia korekt przeżywa usunięcie wyszukiwania i revoke.
+  Dokładny retry operacji jest idempotentny; nowsza korekta ponownie otwiera
+  przegląd. Kilka kart przekazuje kontekst jawnie, zamiast zgadywać go z czasu.
+  Rewizja rośnie pod blokadą linku niezależnie od czasu; potwierdzenie
+  oczekującego pola jest zmianą stanu, a ponowne zatwierdzenie już
+  zatwierdzonego symbolu bez zmiany jakości nie otwiera nowego przeglądu.
+- **Storage:** nowe rodzaje `symbol_correction` i `correction_review` w
+  istniejącym dzienniku metadanych sesji. Zmiana CHECK i indeksów przez Alembic;
+  usuwanie zapytań wyklucza trwałą historię korekt. Bez zmiany własności schematu.
+- **Boundary:** jedna gra, istniejący limit 100 000 spinów, zamknięta
+  allowlista proxy i CSRF. Bez edycji geometrii, nowych uprawnień Admina,
+  treningu, wdrożenia ani operacji destrukcyjnych na danych operatora.
+
 ## D-491 — nowe podpowiedzi symboli dla korekt istniejących siatek audytu
 
 - **Status:** accepted, 2026-10-05; bezpośrednie polecenie operatora.

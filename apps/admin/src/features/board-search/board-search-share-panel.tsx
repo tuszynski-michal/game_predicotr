@@ -15,7 +15,10 @@ import {
 } from './board-search-share-code-cache';
 import type { BoardSearchDataSource } from '@game-predictor/board-search-ui';
 
-import { BoardSearchShareQueryLog } from './board-search-share-query-log';
+import {
+  BoardSearchShareQueryLog,
+  type BoardSearchShareQueryLogClient,
+} from './board-search-share-query-log';
 import {
   BOARD_SEARCH_SHARE_DEFAULT_LIFETIME_MINUTES,
   BOARD_SEARCH_SHARE_LIFETIMES,
@@ -35,7 +38,8 @@ export type BoardSearchShareClient = Pick<
   | 'revokeBoardSearchShareSession'
   | 'symbolImageAssetUrl'
 > &
-  Pick<BoardSearchDataSource, 'getBoardSearchApproximateWin'>;
+  Pick<BoardSearchDataSource, 'getBoardSearchApproximateWin'> &
+  BoardSearchShareQueryLogClient;
 
 type ListState =
   | { readonly kind: 'loading' }

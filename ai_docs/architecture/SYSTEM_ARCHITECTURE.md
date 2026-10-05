@@ -1,10 +1,34 @@
 ---
 title: System architecture
 status: accepted
-last_updated: 2026-08-03
+last_updated: 2026-10-05
 ---
 
 # Architektura systemu
+
+## Zapis przez udostępnioną wyszukiwarkę — D-492 / TASK-0845
+
+Powierzchnia `board-search-api` Reviewera dopuszcza dokładny POST decyzji
+jednego pola wskazanego pozycją planszy. Backend bierze grę i aktora z sesji,
+pod blokadą ponownie sprawdza token i aktualne komórki, po czym korzysta z
+istniejącego writera decyzji. Jedna transakcja zapisuje decyzję, projekcję
+i audyt linku; commit następuje przed odpowiedzią. Publiczny port korekty
+wspólnego modala używa opaque SHA zamiast tożsamości review Admina.
+
+Udane wyszukiwanie zwraca własny identyfikator kontekstu, zachowywany także
+przez cache karty. Korekta przekazuje go jawnie z zakresem i stawką; kilka
+kart nie przypisuje zmian przez kolejność zegara. Jeden oczekujący request
+z UUID jest zachowywany w sessionStorage linku przed wysłaniem. Po utracie
+odpowiedzi lub odświeżeniu karty odbiorca jawnie sprawdza ten sam zapis.
+Odblokowanie innej sesji nie odtwarza operacji automatycznie.
+
+Lokalny Admin czyta indeksowane metadane korekt, bez pobierania 100 000
+plansz. Historię pól i bieżącą planszę pobiera dopiero po kliknięciu.
+Przegląd sprawdza rewizję korekt linku i fingerprint aktualnych komórek;
+zmiana z innego linku lub lokalnego edytora również chroni przed
+zatwierdzeniem nieobejrzanego stanu. Historia pozostaje po revoke/usunięciu
+wyszukiwania. Geometria, archiwum i pozostałe powierzchnie Reviewera nie
+otrzymują nowych tras.
 
 ## Aktualizacja granicy zdalnego Reviewera v0.1
 

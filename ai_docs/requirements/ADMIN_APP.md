@@ -580,7 +580,8 @@ przebudowuje odczyt tej jednej planszy z bieżącej siatki i symboli (bez
 zmiany decyzji ludzi); potem wraca zdjęcie i poprawianie pól, a zamknięcie
 okna przelicza tabelę.
 
-**Poprawianie symbolu pola (D-473, TASK-0772).** Dla planszy oczekującej
+**Poprawianie symbolu pola (D-473, D-492, TASK-0772/0845).** Dla bieżącej
+planszy operacyjnej `pending`, `accepted` lub `corrected` z kompletem 15 pól
 modal ma tryb „Popraw symbole”: kliknięcie pola otwiera paletę symboli gry
 oraz „Nieczytelny” i „Zła siatka”. Wybór zapisuje decyzję człowieka dla pola
 tak samo jak „Weryfikacja symboli” (ten sam symbol zatwierdza pole, inny je
@@ -588,7 +589,7 @@ przepisuje) i od razu zmienia linie w oknie. „Nieczytelny” czyni pole `?`,
 więc linia oparta na błędnie rozpoznanym symbolu kończy się przed nim.
 Konflikt z równoległą zmianą pokazuje komunikat i odświeża planszę. Po
 zapisanej zmianie zamknięcie okna przelicza tabelę i bilans. Plansze
-zatwierdzone i archiwalne nie mają edycji. Poza tym trybem modal jest
+archiwalne i nieaktualne nie mają edycji. Poza tym trybem modal jest
 wyłącznie do odczytu.
 
 ### Udostępnianie wyszukiwania online
@@ -610,10 +611,34 @@ nie tworzy linku.
 Odbiorca po podaniu kodu ma te same funkcje co operator: liczbę wyników,
 zakres wyszukiwania, paletę symboli, edycję wzoru, karuzelę wyników,
 „Przybliżoną wygraną” z tabelą, wykresem, stawką i modalem linii. Dostęp
-jest tylko do odczytu i obejmuje jedną grę. Obrazy są przycięte do planszy
+obejmuje jedną grę i poprawianie jej bieżących symboli (D-492). Obrazy są przycięte do planszy
 i zmniejszone. Odbiorca nie widzi panelu udostępniania ani identyfikatorów
 wewnętrznych. Po wygaśnięciu albo zatrzymaniu sesji aplikacja pokazuje
 czytelny ekran zakończenia.
+
+**Korekty odbiorcy i przegląd operatora (D-492, TASK-0845).** Przycisk
+„Popraw symbole” w tym samym modalu działa dla planszy startowej i plansz
+przeglądanych dalej w zakresie do 100 000 spinów. Decyzja od razu zmienia
+bieżące wyszukiwanie i wypłaty. Obowiązują dotychczasowe reguły decyzji
+człowieka, w tym kwalifikacji danych; przegląd operatora nie odkłada zmiany
+i nie uruchamia treningu. Bramka informuje o zapisie poprawek.
+
+Dziennik wybranego linku pokazuje liczniki wszystkich poprawionych plansz
+i tych do przeglądu, także obok grupowanego wzoru wyszukiwania. Osobna lista
+ma filtry „Do przeglądu”, „Wszystkie” i „Przejrzane”, strony po 25, numer
+planszy, liczbę pól, czas, stawkę z chwili korekty oraz oznaczenie planszy
+startowej lub dalszej. Nie pobiera całego zakresu. „Sprawdź poprawki” od
+razu otwiera lokalny edytor właściwej planszy, wyróżnia zmienione pola i
+pokazuje historię symboli oraz stanów przed/po. Operator może poprawić dane.
+
+„Oznacz jako przejrzane” zamyka przegląd dopiero po wczytaniu historii
+wszystkich pól i sprawdzeniu aktualnej rewizji oraz stanu całej planszy.
+Zamknięcie modala nie zatwierdza przeglądu. Nowsza korekta daje konflikt
+albo ponownie umieszcza planszę na liście. Potwierdzenie już zatwierdzonego
+symbolu bez zmiany stanu nie tworzy nowej pracy; zatwierdzenie oczekującego
+pola jest zmianą. Usunięcie wyszukiwania lub revoke zachowuje historię.
+Po utracie odpowiedzi odbiorca może jawnie sprawdzić ostatni zapis, także
+po odświeżeniu karty, z dokładnym identyfikatorem tej samej operacji.
 
 **Dziennik zapytań i odtworzenie (D-472, TASK-0771).** Każde zapytanie
 odbiorcy o dane (wyszukiwanie, przybliżona wygrana, szczegóły planszy) jest
@@ -627,7 +652,8 @@ szerokości wpisu) oraz — jeżeli odbiorca po tym wyszukiwaniu uruchomił
 szerokości, liczony w Adminie w stawce bazowej i złotych. Wpisy przybliżonej
 wygranej i szczegółów planszy nie są osobnymi pozycjami, a linia opisu
 (zakres, limit, wyniki) nie jest pokazywana. „Usuń” z potwierdzeniem „Usuń
-wpis” trwale kasuje wyszukiwanie razem z jego późniejszymi zapisami. Przycisk „Odtwórz w
+wpis” trwale kasuje wyszukiwanie razem z jego późniejszymi zapytaniami,
+bez historii korekt i przeglądu (D-492). Przycisk „Odtwórz w
 wyszukiwarce” otwiera „Wyszukaj plansze” tej gry z tym samym wzorem, zakresem
 i liczbą wyników (także pola `?`) i od razu uruchamia wyszukiwanie; adres
 Admina zawiera wtedy jednorazowo `?boardSearchReplay=<id wpisu>`, a wpis
@@ -636,7 +662,8 @@ wygranej odtworzenie używa najbliższego wcześniejszego wyszukiwania tej
 sesji, wybiera planszę startową i zakres spinów i rozwija „Przybliżoną
 wygraną”; dla szczegółów planszy dodatkowo otwiera modal. Symbol, który nie
 jest już aktywny, trafia do wzoru jako `?` z ostrzeżeniem. Stawka i jednostka
-odbiorcy nie są znane serwerowi i nie są odtwarzane.
+odbiorcy: stawka jest zapisana w groszach wraz z zakresem (D-487) oraz korektą
+(D-492), a jednostka wyświetlania pozostaje lokalna.
 
 ### Korekta cięcia siatki
 

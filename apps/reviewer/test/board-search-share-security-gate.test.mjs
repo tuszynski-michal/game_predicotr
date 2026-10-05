@@ -24,7 +24,8 @@ function concrete(path) {
   return path
     .replaceAll('{session_id}', uuid)
     .replaceAll('{symbol_id}', uuid)
-    .replaceAll('{sequence_number}', '42');
+    .replaceAll('{sequence_number}', '42')
+    .replaceAll('{cell_index}', '0');
 }
 
 const publicOperations = Object.entries(openapi.paths)
@@ -34,8 +35,8 @@ const publicOperations = Object.entries(openapi.paths)
   );
 
 test('every public share route in OpenAPI is allowlisted by the proxy', () => {
-  // 9 since D-487 (the stake report of a calculated range).
-  assert.equal(publicOperations.length, 9);
+  // D-492 adds the exact cell-correction POST to D-487's nine routes.
+  assert.equal(publicOperations.length, 10);
   for (const [method, path] of publicOperations) {
     assert.notEqual(
       boardSearchShareRoute(method, concrete(path)),

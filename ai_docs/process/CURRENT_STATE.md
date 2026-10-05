@@ -26,6 +26,44 @@ last_updated: 2026-10-05
 - Następny krok: operator przegląda wszystkie propozycje i zmienia błędne przed
   zapisem. TASK-0845 i zastane zmiany pozostają poza zakresem; bez push/merge.
 
+### TASK-0845 — korekty symboli przez link i przegląd operatora (done)
+
+- Operator 2026-10-05 zlecił poprawianie symboli przez udostępnioną
+  wyszukiwarkę, oznaczenia przy wyszukiwaniu/stawce oraz szybki przegląd
+  zmian także dalszych plansz w zakresie do 100 000 spinów.
+- Operator potwierdził Q1/Q2: zastosowanie od razu i edycja również
+  zatwierdzonych plansz. D-492 rozszerza D-471/D-473; bieżące plansze
+  operacyjne są edytowalne lokalnie i online.
+- Zapis korzysta ze wspólnego writera i atomowego audytu linku. Kontekst
+  wyszukiwania/stawki jest jawny; dokładne ponowienie działa po restarcie.
+  Historia pozostaje po usunięciu wyszukiwania i revoke. Przegląd sprawdza
+  rewizję i SHA planszy, a nowsza zmiana ponownie otwiera kolejkę.
+- Admin pokazuje liczniki przy wzorze oraz listę wszystkich zmienionych
+  plansz linku. Klik otwiera edytor z historią i wyróżnieniem pól; zamknięcie
+  nie zatwierdza przeglądu. Lista nie pobiera całego zakresu 100 000 plansz.
+- Testy nowego pionu i regresje, lint, scoped strict Mypy, TypeScript,
+  OpenAPI i oba buildy przeszły. Odbiór na danych testowych w Chromium:
+  1280×900 i 390×844, bez poziomego overflow, przyciski przeglądu ≥44 px.
+  PostgreSQL potwierdził nowy proces, utratę odpowiedzi, rollback audytu
+  i revoke równoległe z zapisem. Szczegóły oraz wcześniejsze błędy szerszych
+  kontroli (typy grupowania i podwójny React testów Admina) są w Outcome.
+- Plan: `ai_docs/delivery/BOARD_SEARCH_SHARE_SYMBOL_CORRECTIONS_PLAN.md`.
+  Task: `ai_docs/tasks/completed/0845-board-search-share-symbol-corrections.md`.
+- Implementacja: `v1.7.190`, `c61c1e65f87e89e7669507cb902e6348fe3cc48e`.
+- Operator zlecił scalenie 2026-10-05 do `v1.1-vision-lab-hybrid-geometry`
+  oraz usunięcie worktree i gałęzi `codex/share-symbol-corrections` po scaleniu.
+  Zachowano TASK-0846 i niezacommitowane zmiany operatora; konflikty dotyczyły
+  tylko dokumentacji. Kontrakt obu funkcji połączył się zgodnie z backendem.
+- Commit scalający: przygotowany `v1.7.191`; hash do dopisania po commicie.
+- Logi w `artifacts/task0845-checks/` i `artifacts/task0845-merge/` głównego
+  katalogu. Bez wdrożenia, migracji bazy operatora, restartu usług i push.
+  Odbiór fizycznego Androida i publicznego tunelu pozostaje do wdrożenia.
+
+- Po scaleniu: 63 testy API/regresji, izolowany PostgreSQL, 80 klienta,
+  214 Reviewera, 39 interakcji shared i 1 kolejki operatora PASS. OpenAPI,
+  klient i TypeScript czterech workspace PASS; timeout zbiorczy zastąpiono
+  mniejszymi grupami. Bez ponownego builda działających aplikacji.
+
 ### TASK-0844 — nowe symbole proponowanych siatek audytu (done)
 
 - Operator 2026-10-05 zlecił przeliczenie symboli otwartych propozycji siatek

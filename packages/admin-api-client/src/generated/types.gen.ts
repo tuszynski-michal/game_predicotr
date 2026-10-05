@@ -1285,6 +1285,205 @@ export type BoardSearchScoreResponse = {
 };
 
 /**
+ * BoardSearchShareCellCorrectionRequest
+ */
+export type BoardSearchShareCellCorrectionRequest = {
+  /**
+   * Action
+   */
+  action: 'approve' | 'reassign' | 'mark_unreadable' | 'mark_grid_issue';
+  /**
+   * Expectedcellversion
+   */
+  expectedCellVersion: string;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Searchcontextid
+   */
+  searchContextId?: string | null;
+  /**
+   * Spincount
+   */
+  spinCount?: number | null;
+  /**
+   * Stakegrosze
+   */
+  stakeGrosze?: number | null;
+  /**
+   * Startsequencenumber
+   */
+  startSequenceNumber?: number | null;
+  /**
+   * Targetsymbolcode
+   */
+  targetSymbolCode?: string | null;
+};
+
+/**
+ * BoardSearchShareCellCorrectionResponse
+ */
+export type BoardSearchShareCellCorrectionResponse = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Cellversion
+   */
+  cellVersion: string;
+  /**
+   * Changed
+   */
+  changed: boolean;
+  /**
+   * Saved
+   */
+  saved: true;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+};
+
+/**
+ * BoardSearchShareCorrectionBoardResponse
+ */
+export type BoardSearchShareCorrectionBoardResponse = {
+  /**
+   * Changedcellcount
+   */
+  changedCellCount: number;
+  /**
+   * Lastchangedat
+   */
+  lastChangedAt: string;
+  /**
+   * Lasteventid
+   */
+  lastEventId: string;
+  /**
+   * Pending
+   */
+  pending: boolean;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Stakegrosze
+   */
+  stakeGrosze: number | null;
+  /**
+   * Startsequencenumber
+   */
+  startSequenceNumber: number | null;
+};
+
+/**
+ * BoardSearchShareCorrectionChangeResponse
+ */
+export type BoardSearchShareCorrectionChangeResponse = {
+  /**
+   * Afterqualityissue
+   */
+  afterQualityIssue: string | null;
+  /**
+   * Afterreviewstate
+   */
+  afterReviewState: string;
+  /**
+   * Aftersymbolcode
+   */
+  afterSymbolCode: string | null;
+  /**
+   * Beforequalityissue
+   */
+  beforeQualityIssue: string | null;
+  /**
+   * Beforereviewstate
+   */
+  beforeReviewState: string;
+  /**
+   * Beforesymbolcode
+   */
+  beforeSymbolCode: string | null;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Occurredat
+   */
+  occurredAt: string;
+};
+
+/**
+ * BoardSearchShareCorrectionDetailResponse
+ */
+export type BoardSearchShareCorrectionDetailResponse = {
+  board: BoardSearchShareCorrectionBoardResponse;
+  /**
+   * Boardversion
+   */
+  boardVersion: string;
+  /**
+   * Changes
+   */
+  changes: Array<BoardSearchShareCorrectionChangeResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+};
+
+/**
+ * BoardSearchShareCorrectionPageResponse
+ */
+export type BoardSearchShareCorrectionPageResponse = {
+  /**
+   * Entries
+   */
+  entries: Array<BoardSearchShareCorrectionBoardResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+  /**
+   * Pendingcount
+   */
+  pendingCount: number;
+  /**
+   * Totalcount
+   */
+  totalCount: number;
+};
+
+/**
+ * BoardSearchShareCorrectionReviewRequest
+ */
+export type BoardSearchShareCorrectionReviewRequest = {
+  /**
+   * Expectedboardversion
+   */
+  expectedBoardVersion: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+};
+
+/**
  * BoardSearchShareCreate
  */
 export type BoardSearchShareCreate = {
@@ -1313,6 +1512,84 @@ export type BoardSearchShareCreatedResponse = {
    */
   accessCode: string;
   session: BoardSearchShareSessionResponse;
+};
+
+/**
+ * BoardSearchSharePublicBoardDetailResponse
+ */
+export type BoardSearchSharePublicBoardDetailResponse = {
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256: string;
+  /**
+   * Boardstatus
+   */
+  boardStatus: string;
+  /**
+   * Cells
+   */
+  cells: Array<BoardSearchSharePublicCellResponse> | null;
+  /**
+   * Datasource
+   */
+  dataSource: string;
+  /**
+   * Documentstale
+   */
+  documentStale: boolean;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Matches
+   */
+  matches: Array<BoardSearchLineMatchResponse>;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits: number;
+  /**
+   * Payoutkind
+   */
+  payoutKind: 'exact' | 'confirmed_minimum' | 'none';
+  rules: ApproximateWinRulesResponse;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Symbolcodes
+   */
+  symbolCodes: Array<string | null>;
+  view: BoardSearchBoardViewResponse | null;
+};
+
+/**
+ * BoardSearchSharePublicCellResponse
+ */
+export type BoardSearchSharePublicCellResponse = {
+  /**
+   * Assignedsymbolcode
+   */
+  assignedSymbolCode: string | null;
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Cellversion
+   */
+  cellVersion: string;
+  /**
+   * Qualityissue
+   */
+  qualityIssue: string | null;
+  /**
+   * Reviewstate
+   */
+  reviewState: string;
 };
 
 /**
@@ -1352,6 +1629,10 @@ export type BoardSearchSharePublicSearchResponse = {
    */
   results: Array<BoardSearchSharePublicSearchResultResponse>;
   scope: BoardSearchScope;
+  /**
+   * Searchcontextid
+   */
+  searchContextId?: string | null;
 };
 
 /**
@@ -1446,7 +1727,12 @@ export type BoardSearchShareQueryEntryResponse = {
   /**
    * Kind
    */
-  kind: 'search' | 'approximate_win' | 'board_detail';
+  kind:
+    | 'search'
+    | 'approximate_win'
+    | 'board_detail'
+    | 'symbol_correction'
+    | 'correction_review';
   /**
    * Occurredat
    */
@@ -1483,7 +1769,11 @@ export type BoardSearchShareQueryEntryResponse = {
  * BoardSearchShareQueryKind
  */
 export type BoardSearchShareQueryKind =
-  'search' | 'approximate_win' | 'board_detail';
+  | 'search'
+  | 'approximate_win'
+  | 'board_detail'
+  | 'symbol_correction'
+  | 'correction_review';
 
 /**
  * BoardSearchShareQueryPageResponse
@@ -15435,6 +15725,160 @@ export type CreateBoardSearchShareSessionResponses = {
 export type CreateBoardSearchShareSessionResponse =
   CreateBoardSearchShareSessionResponses[keyof CreateBoardSearchShareSessionResponses];
 
+export type ListBoardSearchShareCorrectionsData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: {
+    /**
+     * Status
+     */
+    status?: 'pending' | 'reviewed' | 'all';
+    /**
+     * Before
+     */
+    before?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Pattern
+     */
+    pattern?: Array<string> | null;
+  };
+  url: '/api/v1/admin/board-search-shares/sessions/{session_id}/corrections';
+};
+
+export type ListBoardSearchShareCorrectionsErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Unprocessable Entity
+   */
+  422: ErrorResponse;
+};
+
+export type ListBoardSearchShareCorrectionsError =
+  ListBoardSearchShareCorrectionsErrors[keyof ListBoardSearchShareCorrectionsErrors];
+
+export type ListBoardSearchShareCorrectionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareCorrectionPageResponse;
+};
+
+export type ListBoardSearchShareCorrectionsResponse =
+  ListBoardSearchShareCorrectionsResponses[keyof ListBoardSearchShareCorrectionsResponses];
+
+export type GetBoardSearchShareCorrectionData = {
+  body?: never;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: {
+    /**
+     * Before
+     */
+    before?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/board-search-shares/sessions/{session_id}/corrections/{sequence_number}';
+};
+
+export type GetBoardSearchShareCorrectionErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetBoardSearchShareCorrectionError =
+  GetBoardSearchShareCorrectionErrors[keyof GetBoardSearchShareCorrectionErrors];
+
+export type GetBoardSearchShareCorrectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareCorrectionDetailResponse;
+};
+
+export type GetBoardSearchShareCorrectionResponse =
+  GetBoardSearchShareCorrectionResponses[keyof GetBoardSearchShareCorrectionResponses];
+
+export type ReviewBoardSearchShareCorrectionData = {
+  body: BoardSearchShareCorrectionReviewRequest;
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/board-search-shares/sessions/{session_id}/corrections/{sequence_number}/review';
+};
+
+export type ReviewBoardSearchShareCorrectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ReviewBoardSearchShareCorrectionError =
+  ReviewBoardSearchShareCorrectionErrors[keyof ReviewBoardSearchShareCorrectionErrors];
+
+export type ReviewBoardSearchShareCorrectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareCorrectionBoardResponse;
+};
+
+export type ReviewBoardSearchShareCorrectionResponse =
+  ReviewBoardSearchShareCorrectionResponses[keyof ReviewBoardSearchShareCorrectionResponses];
+
 export type ListBoardSearchShareQueriesData = {
   body?: never;
   path: {
@@ -27786,11 +28230,77 @@ export type GetBoardSearchShareBoardDetailResponses = {
   /**
    * Successful Response
    */
-  200: BoardSearchBoardDetailResponse;
+  200: BoardSearchSharePublicBoardDetailResponse;
 };
 
 export type GetBoardSearchShareBoardDetailResponse =
   GetBoardSearchShareBoardDetailResponses[keyof GetBoardSearchShareBoardDetailResponses];
+
+export type CorrectBoardSearchShareCellData = {
+  body: BoardSearchShareCellCorrectionRequest;
+  headers?: {
+    /**
+     * X-Board-Search-Share-Proxy
+     */
+    'X-Board-Search-Share-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Sequence Number
+     */
+    sequence_number: number;
+    /**
+     * Cell Index
+     */
+    cell_index: number;
+  };
+  query?: never;
+  url: '/api/v1/board-search-shares/boards/{sequence_number}/cells/{cell_index}/decision';
+};
+
+export type CorrectBoardSearchShareCellErrors = {
+  /**
+   * Missing, invalid or expired share access
+   */
+  401: ErrorResponse;
+  /**
+   * Not requested through the Reviewer proxy
+   */
+  403: ErrorResponse;
+  /**
+   * Board or symbol not found
+   */
+  404: ErrorResponse;
+  /**
+   * Data not ready or changed
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid parameters
+   */
+  422: ErrorResponse;
+  /**
+   * Request limit reached
+   */
+  429: ErrorResponse;
+  /**
+   * Sharing disabled or query log unavailable
+   */
+  503: ErrorResponse;
+};
+
+export type CorrectBoardSearchShareCellError =
+  CorrectBoardSearchShareCellErrors[keyof CorrectBoardSearchShareCellErrors];
+
+export type CorrectBoardSearchShareCellResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareCellCorrectionResponse;
+};
+
+export type CorrectBoardSearchShareCellResponse =
+  CorrectBoardSearchShareCellResponses[keyof CorrectBoardSearchShareCellResponses];
 
 export type GetBoardSearchShareBoardViewData = {
   body?: never;

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0140_grid_engine_profiles"
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0141_share_symbol_corrections"
 
 
 @pytest.mark.parametrize(

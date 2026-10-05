@@ -1,7 +1,7 @@
 ---
 title: Remote Reviewer threat model
 status: accepted
-last_updated: 2026-10-01
+last_updated: 2026-10-05
 ---
 
 # Model zagrożeń zdalnego Reviewera
@@ -126,14 +126,16 @@ zmian kontraktu i autoryzacji.
 ### Udostępniona wyszukiwarka plansz (D-471, D-472, D-475)
 
 Trzecia powierzchnia tego samego procesu i tunelu: `/board-search?share=<id>`
-z proxy `/board-search-api`. Jest wyłącznie do odczytu i obejmuje jedną grę
+z proxy `/board-search-api`. D-492 dodaje zapis symboli bieżących plansz jednej gry
 wybraną przy tworzeniu linku w Adminie. Odbiorca ma własne cookie
 `gp_board_search_token` (`HttpOnly`, `Secure`, `SameSite=Strict`,
 `Path=/board-search-api`) i stałą intencję proxy `reviewer-board-search-v1`
 (nagłówek `X-Board-Search-Share-Proxy`). Zamknięta allowlista to: unlock
 kodem, kontekst, symbole, obraz symbolu z sumą, wyszukiwanie, przybliżona
-wygrana, szczegóły planszy i przycięty widok planszy — wyłącznie `GET` poza
-unlockiem, z dokładnymi parametrami. Brak poprawiania pól, odświeżania
+wygrana, szczegóły planszy i przycięty widok planszy — `GET` z dokładnymi
+parametrami; poza unlockiem jedyny POST to `boards/{n}/cells/{0..14}/decision`.
+Mutacja wymaga zgodnego Origin, `Sec-Fetch-Site: same-origin`, JSON do 4 KiB,
+Strict cookie i braku query. Brak odświeżania
 odczytu, pełnych zdjęć, tras Admina i odczytu dziennika zapytań. Cookie
 udostępnienia nie autoryzuje `/review-api` ani `/selection-api`, a ich cookie
 nie autoryzują `/board-search-api` (testy w obu kierunkach). API bierze grę
@@ -145,7 +147,14 @@ zostawia jeden wpis dziennika; żądanie odrzucone przy walidacji parametrów
 IP i nagłówków. Wpis jest zatwierdzany przed wysłaniem danych; jeżeli nie da
 się go zapisać, odbiorca dostaje `503` bez danych. Bramka kodu informuje o
 zapisie przed podaniem kodu. Dziennik czyta tylko właściciel w Adminie na
-loopbacku.
+loopbacku. Korekta używa SHA wersji pola zamiast wewnętrznych ID. Backend
+blokuje link i bieżącą pozycję, ponownie sprawdza token oraz scope, deleguje
+do istniejącego writera i atomowo zapisuje audyt. Awaria audytu daje 503
+bez zmiany komórki. UUID operacji i checksum body chronią exact retry;
+odświeżona karta może jawnie ponowić zapis z sessionStorage tego linku.
+Nie ma automatycznego odtwarzania operacji po odblokowaniu innej sesji.
+Przegląd operatora wymaga rewizji i fingerprintu aktualnej planszy;
+korekta równoległa nie może zostać ukryta przez spóźnione potwierdzenie.
 
 ## Chronione zasoby i aktorzy
 

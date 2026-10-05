@@ -1,11 +1,15 @@
 import type {
-  AdminApiClient,
   BoardSearchBoardCellResponse,
   SymbolCellReviewMutationRequest,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 
 import { apiErrorMessage } from './api-error.ts';
+import type {
+  BoardSearchDataSource,
+  BoardSearchEditableCell,
+  BoardSearchCorrectionContext,
+} from './board-search-data-source.ts';
 
 /**
  * Cell correction from the board payline modal (D-473). A correction is the
@@ -20,8 +24,8 @@ export type BoardCellCorrectionChoice =
   | { readonly kind: 'grid_issue' };
 
 export type BoardCellCorrectionClient = Pick<
-  AdminApiClient,
-  'applySymbolCellReviewDecision'
+  BoardSearchDataSource,
+  'applySymbolCellReviewDecision' | 'correctBoardSearchCell'
 >;
 
 /**
@@ -80,17 +84,22 @@ export type BoardCellCorrectionResult =
 const CONFLICT_CODES: ReadonlySet<string> = new Set([
   'SYMBOL_CELL_REVIEW_REVISION_CONFLICT',
   'SYMBOL_CELL_REVIEW_CROP_DRIFT',
+  'BOARD_SEARCH_SHARE_CORRECTION_CONFLICT',
 ]);
 
 export async function applyBoardCellCorrection(
   api: BoardCellCorrectionClient,
   gameId: string,
-  cell: BoardSearchBoardCellResponse,
+  cell: BoardSearchEditableCell,
   choice: BoardCellCorrectionChoice,
   symbols: readonly SymbolResponse[],
+  sequenceNumber?: number,
+  context?: BoardSearchCorrectionContext,
 ): Promise<BoardCellCorrectionResult> {
-  const request = boardCellCorrectionRequest(cell, choice, symbols);
-  if (request === null) {
+  if (
+    choice.kind === 'symbol' &&
+    !symbols.some((item) => item.code === choice.symbolCode)
+  ) {
     return {
       conflict: false,
       error: 'Wybrany symbol nie należy do tej gry.',
@@ -98,11 +107,55 @@ export async function applyBoardCellCorrection(
     };
   }
   try {
-    const result = await api.applySymbolCellReviewDecision(
-      gameId,
-      cell.cellReviewId,
-      request,
-    );
+    let result: { readonly data?: unknown; readonly error?: unknown };
+    if ('cellVersion' in cell) {
+      if (
+        api.correctBoardSearchCell === undefined ||
+        sequenceNumber === undefined
+      ) {
+        return {
+          ok: false,
+          conflict: false,
+          error: 'Zapis symboli nie jest dostępny.',
+        };
+      }
+      const action =
+        choice.kind === 'unreadable'
+          ? 'mark_unreadable'
+          : choice.kind === 'grid_issue'
+            ? 'mark_grid_issue'
+            : cell.assignedSymbolCode === choice.symbolCode &&
+                cell.qualityIssue === null
+              ? 'approve'
+              : 'reassign';
+      result = await api.correctBoardSearchCell(
+        gameId,
+        sequenceNumber,
+        cell.cellIndex,
+        {
+          ...context,
+          expectedCellVersion: cell.cellVersion,
+          action,
+          ...(action === 'reassign' && choice.kind === 'symbol'
+            ? { targetSymbolCode: choice.symbolCode }
+            : {}),
+        },
+      );
+    } else {
+      const request = boardCellCorrectionRequest(cell, choice, symbols);
+      if (request === null || api.applySymbolCellReviewDecision === undefined) {
+        return {
+          ok: false,
+          conflict: false,
+          error: 'Zapis symboli nie jest dostępny.',
+        };
+      }
+      result = await api.applySymbolCellReviewDecision(
+        gameId,
+        cell.cellReviewId,
+        request,
+      );
+    }
     if (result.error !== undefined || result.data === undefined) {
       const code =
         typeof result.error === 'object' &&
@@ -124,7 +177,8 @@ export async function applyBoardCellCorrection(
   } catch {
     return {
       conflict: false,
-      error: 'Połączenie z lokalnym Admin API zostało przerwane.',
+      error:
+        'Połączenie zostało przerwane. Ponów ten sam wybór, aby sprawdzić zapis.',
       ok: false,
     };
   }

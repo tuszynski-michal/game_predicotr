@@ -66,6 +66,9 @@ import type {
   ContinueImageSelectionWithoutImageData,
   ContinueImageSelectionWithoutImageErrors,
   ContinueImageSelectionWithoutImageResponses,
+  CorrectBoardSearchShareCellData,
+  CorrectBoardSearchShareCellErrors,
+  CorrectBoardSearchShareCellResponses,
   CreateBoardSearchShareSessionData,
   CreateBoardSearchShareSessionErrors,
   CreateBoardSearchShareSessionResponses,
@@ -246,6 +249,9 @@ import type {
   GetBoardSearchShareContextData,
   GetBoardSearchShareContextErrors,
   GetBoardSearchShareContextResponses,
+  GetBoardSearchShareCorrectionData,
+  GetBoardSearchShareCorrectionErrors,
+  GetBoardSearchShareCorrectionResponses,
   GetBoardSearchShareQueryReplayData,
   GetBoardSearchShareQueryReplayErrors,
   GetBoardSearchShareQueryReplayResponses,
@@ -480,6 +486,9 @@ import type {
   ListApprovedSymbolReferenceCandidatesData,
   ListApprovedSymbolReferenceCandidatesErrors,
   ListApprovedSymbolReferenceCandidatesResponses,
+  ListBoardSearchShareCorrectionsData,
+  ListBoardSearchShareCorrectionsErrors,
+  ListBoardSearchShareCorrectionsResponses,
   ListBoardSearchShareQueriesData,
   ListBoardSearchShareQueriesErrors,
   ListBoardSearchShareQueriesResponses,
@@ -778,6 +787,9 @@ import type {
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
+  ReviewBoardSearchShareCorrectionData,
+  ReviewBoardSearchShareCorrectionErrors,
+  ReviewBoardSearchShareCorrectionResponses,
   RevokeBoardSearchShareSessionData,
   RevokeBoardSearchShareSessionErrors,
   RevokeBoardSearchShareSessionResponses,
@@ -986,7 +998,7 @@ export const listBoardSearchShareSessions = <
   >({ url: '/api/v1/admin/board-search-shares/sessions', ...options });
 
 /**
- * Create one online read-only board-search share link
+ * Create one online board-search share link with symbol correction
  */
 export const createBoardSearchShareSession = <
   ThrowOnError extends boolean = false,
@@ -1004,6 +1016,74 @@ export const createBoardSearchShareSession = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/board-search-shares/sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Corrections
+ */
+export const listBoardSearchShareCorrections = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListBoardSearchShareCorrectionsData, ThrowOnError>,
+): RequestResult<
+  ListBoardSearchShareCorrectionsResponses,
+  ListBoardSearchShareCorrectionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListBoardSearchShareCorrectionsResponses,
+    ListBoardSearchShareCorrectionsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/corrections',
+    ...options,
+  });
+
+/**
+ * Correction Detail
+ */
+export const getBoardSearchShareCorrection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetBoardSearchShareCorrectionData, ThrowOnError>,
+): RequestResult<
+  GetBoardSearchShareCorrectionResponses,
+  GetBoardSearchShareCorrectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetBoardSearchShareCorrectionResponses,
+    GetBoardSearchShareCorrectionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/corrections/{sequence_number}',
+    ...options,
+  });
+
+/**
+ * Review Correction
+ */
+export const reviewBoardSearchShareCorrection = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ReviewBoardSearchShareCorrectionData, ThrowOnError>,
+): RequestResult<
+  ReviewBoardSearchShareCorrectionResponses,
+  ReviewBoardSearchShareCorrectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ReviewBoardSearchShareCorrectionResponses,
+    ReviewBoardSearchShareCorrectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/board-search-shares/sessions/{session_id}/corrections/{sequence_number}/review',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -6853,7 +6933,7 @@ export const recordBoardSearchShareApproximateWinStake = <
   >({ url: '/api/v1/board-search-shares/approximate-win/stake', ...options });
 
 /**
- * Winning paylines of one board of the shared game (no cell records)
+ * Winning paylines and opaque editable cells of one shared board
  */
 export const getBoardSearchShareBoardDetail = <
   ThrowOnError extends boolean = false,
@@ -6871,6 +6951,31 @@ export const getBoardSearchShareBoardDetail = <
   >({
     url: '/api/v1/board-search-shares/boards/{sequence_number}',
     ...options,
+  });
+
+/**
+ * Apply and atomically audit one share-scoped symbol correction
+ */
+export const correctBoardSearchShareCell = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CorrectBoardSearchShareCellData, ThrowOnError>,
+): RequestResult<
+  CorrectBoardSearchShareCellResponses,
+  CorrectBoardSearchShareCellErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CorrectBoardSearchShareCellResponses,
+    CorrectBoardSearchShareCellErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/board-search-shares/boards/{sequence_number}/cells/{cell_index}/decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

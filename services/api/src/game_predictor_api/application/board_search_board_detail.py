@@ -244,10 +244,9 @@ class BoardSearchBoardDetailService:
         stale = _is_stale(source, document)
         prepared = None if source is None or stale else _prepare_view(source)
         view = None if prepared is None else prepared[1]
-        # Only a pending operational board is corrected cell by cell (D-462,
-        # D-473); resolved boards read the whole-board decision instead.
+        # D-492 allows current operational cells on pending and resolved boards.
         cells: tuple[BoardSearchBoardCell, ...] | None = None
-        if include_cells and document.status == "pending" and not stale:
+        if include_cells and document.status in {"pending", "accepted", "corrected"} and not stale:
             records = self._repository.board_cells(game_id=game_id, document=document)
             # Correction needs one current record per logical cell; a partial
             # set (e.g. mid-backfill) is offered as not editable.

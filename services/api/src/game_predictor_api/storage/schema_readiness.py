@@ -14,7 +14,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0140_grid_engine_profiles"
+EXPECTED_ALEMBIC_HEAD: Final = "0141_share_symbol_corrections"
 
 
 class AlembicHeadMismatchError(RuntimeError):

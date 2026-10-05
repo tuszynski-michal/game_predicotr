@@ -6,6 +6,22 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0849 — Omyłkowy duplikat Mumie usunięty (done)
+
+- Operator jawnie zlecił archiwizację i trwałe usunięcie `mumie-1`
+  (`12180d9f-6c1a-43a9-a480-4056d2da81a9`). Oryginalne `mumie` i `777`
+  pozostają chronione.
+- Preview bez danych użytkownika; wznowiono istniejący provisioning 9/64
+  do 64/64 bez ręcznego SQL. Archiwizacja przez API 204; końcowy preview
+  bez blockerów. Usunięcie istniejącym CLI, 64/64, receipt `done`.
+- Nowy proces: PASS; duplikat daje 404, zero katalogu, registry i partycji.
+  Snapshoty katalogów, magazynów, symboli i fingerprintów jobów oryginalnych
+  gier są zgodne. Zdjęcia zachowane; bez restartów usług, treningu i shadow.
+- Raport: `ai_docs/quality/MUMIE_DUPLICATE_REMOVAL_20261005.md`.
+  Task: `ai_docs/tasks/completed/0849-remove-accidental-mumie-duplicate.md`.
+  Osobny commit `v1.7.195`; hash dopisany po zapisie. Zastane metadane poza
+  commitem; brak push/merge.
+
 ### TASK-0848 — V3-D scalony i zmigrowany na main (done)
 
 - Wdrożono z `C:\Users\tuszy\Documents\game_predicotr` na

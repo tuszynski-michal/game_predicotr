@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 from typing import Final
 
-from game_predictor_api.config import ApiSettings
-from game_predictor_api.main import create_app
-
 REPOSITORY_ROOT: Final = Path(__file__).resolve().parents[1]
+# A shared editable virtualenv can point at a different checkout. Export the
+# contract belonging to this script, including from a managed Git worktree.
+for source_directory in ("services/worker/src", "services/api/src"):
+    sys.path.insert(0, str(REPOSITORY_ROOT / source_directory))
+
+from game_predictor_api.config import ApiSettings  # noqa: E402
+from game_predictor_api.main import create_app  # noqa: E402
+
 OPENAPI_PATH: Final = REPOSITORY_ROOT / "packages" / "admin-api-client" / "openapi" / "openapi.json"
 
 

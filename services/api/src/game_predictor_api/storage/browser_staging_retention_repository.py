@@ -23,6 +23,7 @@ from .models import (
     ImageBoardGeometryPendingModel,
     ImageFileExecutionModel,
     ImageGeometryRolloutStateModel,
+    ImageGeometryShadowResultModel,
     ImageImportJobFileModel,
     ImagePipelineStageResultModel,
     ImagePipelineTerminalManifestModel,
@@ -37,6 +38,26 @@ from .models import (
 )
 
 RETENTION_DELAY = timedelta(hours=24)
+
+
+def require_no_grid_shadow_history(session: Session, source_image_ids: tuple[UUID, ...]) -> None:
+    """An immutable comparison is retained even when no board was materialized."""
+    if not source_image_ids:
+        return
+    count = int(
+        session.scalar(
+            select(func.count(ImageGeometryShadowResultModel.id)).where(
+                ImageGeometryShadowResultModel.source_image_id.in_(source_image_ids)
+            )
+        )
+        or 0
+    )
+    if count:
+        raise JobConflictError(
+            "IMAGE_BROWSER_SELECTION_DELETE_HAS_RESULTS",
+            "The staging has immutable grid comparison history and cannot be deleted as unused.",
+            details={"gridShadowResultCount": count},
+        )
 
 
 class SqlAlchemyBrowserStagingRetentionRepository:
@@ -275,6 +296,7 @@ class SqlAlchemyBrowserStagingRetentionRepository:
                         .with_for_update()
                     )
                 )
+                require_no_grid_shadow_history(session, source_image_ids)
                 pending_geometry = tuple(
                     session.scalars(
                         select(ImageBoardGeometryPendingModel)

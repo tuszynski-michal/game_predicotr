@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import { GridAuditCorrectionWorkspace } from '@/features/operational-reviews/grid-audit-correction-workspace';
+import { GridShadowCorrectionWorkspace } from '@/features/operational-reviews/grid-shadow-correction-workspace';
 import { OperationalReviewWorkspace } from '@/features/operational-reviews/operational-review-workspace';
 
 import { LocalReviewerWorkspace } from './local-reviewer-workspace';
@@ -13,6 +14,7 @@ import { LocalReviewerWorkspace } from './local-reviewer-workspace';
 export function ReviewerAccessGate({
   apiBaseUrl,
   gridAuditScope = null,
+  gridShadowScope = null,
   gridValidationEnabled = false,
   localScope = null,
   sessionId,
@@ -20,6 +22,11 @@ export function ReviewerAccessGate({
   readonly apiBaseUrl: string;
   /** TASK-0840: loopback-only grid-audit list (no session, no tunnel route). */
   readonly gridAuditScope?: { readonly gameId: string } | null;
+  readonly gridShadowScope?: {
+    readonly gameId: string;
+    readonly resultId: string;
+    readonly positionIndex: number;
+  } | null;
   readonly gridValidationEnabled?: boolean;
   readonly localScope?: {
     readonly gameId: string;
@@ -35,6 +42,18 @@ export function ReviewerAccessGate({
   const [scope, setScope] = useState<ReviewerSessionScopeResponse | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+
+  if (gridShadowScope !== null) {
+    return (
+      <main className="reviewerShell">
+        <GridShadowCorrectionWorkspace
+          api={api}
+          apiBaseUrl={apiBaseUrl}
+          {...gridShadowScope}
+        />
+      </main>
+    );
+  }
 
   if (gridAuditScope !== null) {
     return (

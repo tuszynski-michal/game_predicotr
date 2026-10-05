@@ -6,6 +6,119 @@ last_updated: 2026-10-05
 
 # Current State
 
+### TASK-0848 — V3-D scalony i zmigrowany na main (done)
+
+- Wdrożono z `C:\Users\tuszy\Documents\game_predicotr` na
+  `v1.1-vision-lab-hybrid-geometry`, po zgodzie operatora i koordynacji TASK-0847.
+- Kandydat `v1.7.192` / `a5119244c0af32ef2cf3132550ba115f1f5c960d`;
+  końcowy `v1.7.193` / `6fb6b8f2ed026d17418e4dfc3d9dcce8cf7c9b90`.
+  Zachowano RGB TASK-0847 `v1.7.192` / `8a42380bc9b6d13d125c5eab2873c8c58076134f`.
+- Baza na `0143_merge_share_grid_shadow` (no-op join 0141/0142), guard zgodny.
+  Dwie wcześniejsze gry aktywne, manifest v5, rewizje magazynów +1.
+  Parent i dwa children shadow ENABLE/FORCE RLS; rzeczywiście zero historii.
+  Role compliant, brak aktywnych jobów/lifecycle w kontroli po migracji.
+- 43 testy pierwszej integracji i 34 po RGB PASS; klient 82 PASS;
+  regresje Reviewera 21 PASS, typy/lint/scoped Mypy PASS. Kontrakt wygenerowany.
+  Zależności aktualne. Build Admin 21,25 s i Reviewer 14,11 s PASS z main.
+- API 8000, Admin 3000, Reviewer 3001 gotowe; worker general z 7 wątkami.
+  Odczyt HTTP i trwałego stanu PASS w nowym procesie. Pierwszy probe API
+  przekroczył 10 s; gotowość potwierdzono bez drugiej kopii, bez gwarancji 10 s.
+  Galerie 8105/8107 bez restartu; brak starych procesów i duplikatu workera.
+- Shadow false; nie uruchomiono jego inferencji, treningu, aktywacji modelu,
+  importu stagingu, downgrade, usuwania danych ani push. Zastane metadane
+  odtworzone poza commitem; stashe zachowane jako odzyskiwalne kopie.
+- Raport: `ai_docs/quality/GRID_V3_SHADOW_DEPLOYMENT_20261005.md`.
+  Task: `ai_docs/tasks/completed/0848-grid-shadow-integration-deployment.md`.
+  Główny commit `v1.7.194`; pełny hash dopisany po commicie.
+
+### TASK-0805 — V3-D: shadow w aplikacji (done, domyślnie wyłączony)
+
+- Operator jawnie uruchomił etap 2026-10-05. Kontrakt wykonawczy:
+  `ai_docs/delivery/GRID_V3_SHADOW_CONTRACT_20261005.md`; TASK-0805.
+- Jeden pion na zmaterializowanych źródłach, domyślnie wyłączony, z jobem
+  VALIDATE ograniczonym do 20 źródeł, osobnymi wynikami i ręczną korektą.
+  Mumie bez kalibracji pozostają propozycją do przeglądu. 225 zdjęć w stagingu
+  nadal wymaga preflightu i materializacji źródeł.
+- Neutralny rdzeń, manifest v5 i RLS, API/OpenAPI/klient i Admin/Reviewer.
+  Claude z pierwotnej tabeli niedostępny; jawnie przypisano gpt-6.1-sol high
+  oraz audyt gpt-6-astra high. Delegacja w ramach uruchomionego etapu.
+- TASK-0805 nie obejmował migracji operatora ani merge/wdrożenia. Zgoda
+  na integrację i migrację udzielona później w TASK-0848; brak zgody na
+  przebieg shadow, trening, push i aktywację domyślnego silnika.
+  Main zawiera 0141; 0143 łączy ją z 0142 przygotowaną w tym tasku.
+- Admin i Reviewer budują się poprawnie. Audyt statyczny zamknięty bez
+  pozostałych P0–P2. Nowe testy workera 20 PASS, regresje labu 38 PASS,
+  klient 79 PASS; testy backendu i UI, typy i OpenAPI PASS.
+  Raport: `ai_docs/quality/GRID_V3_SHADOW_IMPLEMENTATION_20261005.md`.
+- Po osobnej zgodzie operatora 2026-10-05 testy PostgreSQL: 4 PASS (RLS,
+  migracja/downgrade, odczyt w nowym procesie i współbieżność blokad).
+  Tymczasowe bazy i role usunięto, brak pozostałości potwierdzono odczytem.
+  Bez zmian bazy operatora. Poprawki loading/empty i rozmiarów kontrolek
+  potwierdzono 8 testami interakcji Admina, typami/lintem i końcowym buildem.
+- Mobilny smoke Edge Chromium 360/390 × 844 PASS: dotyk wybiera zdjęcie,
+  pole i symbol, brak poziomego overflow, zero zapisów i wyjątków.
+  Fizycznego Androida nie testowano; testowe procesy przeglądarki zakończone.
+- Końcowy audyt gpt-6-astra high bez P0–P2, kryteria taska/plan/DoD zamknięte.
+  Task: `ai_docs/tasks/completed/0805-grid-geometry-shadow-integration.md`.
+  Commit `v1.7.191`; pełny hash po commicie. Etap kodowy zakończony;
+  wdrożenie z migracją zakończono później w TASK-0848. Shadow pozostaje
+  wyłączony; odbiór inferencji na danych operatora jest osobny.
+
+### TASK-0846 — Mumie: drugi folder (done)
+
+- Operator wskazał `C:\Users\tuszy\Documents\mumie wybrane\481537- 500000 cut`
+  po ocenie pierwszego porównania jako niemal identycznego. Folder ma 2052 pliki.
+- Wykonano 200 unikalnych zdjęć równomiernie po zakresie; istniejące modele
+  iteracji 2 i 3, CPU, ten sam adapter. Zero kopii i znanych SHA.
+  Inny folder nie dowodzi innej rodziny. 422 wyniki z kontrolnymi 11.
+- Wyniki w `artifacts/mumie-folder-test-20261005/second-481537-500000`;
+  wcześniejszy test pozostaje niezmieniony. Kontrolne 11 zdjęć oceniane osobno,
+  nie jako nowe referencje drugiego folderu. Bez treningu/DB/migracji/V3-D.
+- Oba modele: 199 zdjęć z 9 planszami, jedno z 6, zero błędów struktury.
+  Ostatnie zdjęcie zawiera pięć rzeczywistych plansz; obie iteracje tworzą
+  fałszywą szóstą na tle. `seq_485704-485712` ma uciętą górę pierwszej planszy;
+  2 cropy iteracji 2 i 3 cropy iteracji 3 poza obrazem. Brak dowodu przewagi.
+- Mediana różnicy 43128 węzłów 0,327794 px, P95 0,794990 px. Bez accuracy.
+  20 par nakładek, największe różnice i cropy obu trudnych przypadków obejrzane.
+- 7 testów PASS, nowy proces odzyskuje po 211 wyników bez inferencji;
+  ponowne finish/audit/verify PASS. Galeria: filtry 200/11/2 i wycinki PASS.
+  Podgląd: `http://127.0.0.1:8108/second-481537-500000/case-review.html`.
+- Task i plan: `ai_docs/tasks/completed/0846-mumie-second-folder-test.md`.
+  Raport: `ai_docs/quality/MUMIE_SECOND_FOLDER_TEST_20261005.md`.
+  Następny zakres: referencje niepełnych ekranów i pustych miejsc, dopuszczenie
+  do uczenia po zatwierdzeniach. Commit `v1.7.190`; hash po commicie.
+
+### TASK-0845 — Mumie: test rzeczywistego folderu (done)
+
+- Operator wskazał `C:\Users\tuszy\Documents\mumie wybrane\1 - 23175 cut`
+  (2580 JPEG-ów) i upoważnił wykonawcę do doboru części. Test objął
+  200 zdjęć równomiernie po zakresie 55–23175, bez SHA kompletnych zdjęć labu.
+  Wykluczono 6 identycznych kopii i 5 znanych źródeł; 2569 kwalifikujących się.
+- Aktualna rewizja anotacji 591: 31 kompletnych zdjęć Mumii, 11 nowych względem
+  iteracji 4. Te 11 oceniono osobno, bez dalszego treningu.
+- Porównanie eksportów iteracji 2 i 3 na CPU, istniejące dekodowanie i D-483.
+  Wyniki folderu są propozycjami. Bez accuracy na nieoznaczonych zdjęciach,
+  bez treningu, DB, migracji, aktywacji i V3-D. Plan:
+  `ai_docs/delivery/MUMIE_REAL_FOLDER_TEST_20261005.md`.
+- 422 wyniki (211 na model), każde zdjęcie folderu ma po 9 wykrytych plansz;
+  zero błędów struktury i pól poza obrazem. Przegląd 20 par nakładek oraz dwóch
+  arkuszy wycinków nie pokazał oczywistych przesunięć; nie oceniono ręcznie
+  wszystkich pól. Podgląd: `artifacts/mumie-folder-test-20261005/review.html`,
+  lokalnie `http://127.0.0.1:8108/review.html` (serwer PID 41152, bez autostartu).
+- Nowe 11: oba modele 11/11 zdjęć, 99/99 plansz według D-483. Wszystkie 99
+  referencji to zatwierdzone, niezmienione propozycje iteracji 3. Jej niemal
+  zerowy błąd nie jest niezależnym dowodem przewagi. Zatwierdzenia zachowano.
+- 7 testów PASS, Ruff check/format PASS, Mypy strict jednego modułu PASS;
+  wznowienie w nowych procesach: pending=0, recovered=211 na model; verify,
+  ponowny finish i audit PASS. Galeria: nawigacja, filtry i wycinki sprawdzone.
+- Raport: `ai_docs/quality/MUMIE_REAL_FOLDER_TEST_20261005.md`. Następny zakres:
+  niezależna ocena reprezentatywnych cięć i dobór rzeczywistych błędów, zamiast
+  automatycznego etykietowania całego folderu. Bez treningu symboli/ramki Super.
+- Commit `v1.7.189` / `7ac2fb53ebb6deec3edcf65b1c34d685f70f0a65`
+  (hash dopisany po commicie). Numer 0845 wybrano, ponieważ
+  0844 zajęto równolegle w głównym checkoutcie. Bez scalenia do checkoutu
+  z trwającym zadaniem 0844 i bez push.
+
 ### TASK-0847 — poprawne wejście RGB i propozycje sieci w audycie siatek (done)
 
 - Operator zgłosił Śliwka → Arbuz/Pomarańcz oraz Cytryna → Pomarańcz.
@@ -163,7 +276,10 @@ last_updated: 2026-10-05
 - Raport: `ai_docs/quality/MUMIE_PRODUCTION_UPLOAD_20261004.md`.
 - Testy requestów 5/5 PASS, Ruff check/format PASS, Mypy strict CLI PASS
   (1 moduł, bez kontroli importowanych zależności). Commit TASK-0843: `v1.7.188`,
-  pełny hash do dopisania po commicie. Bez push.
+  `476bdc268e366720337299fb843666ec865fd9be` (hash dopisany po commicie). Bez push.
+- Commity 187–188 scalone fast-forward do `v1.1-vision-lab-hybrid-geometry`
+  w ramach wcześniejszej zgody operatora. Bez zmian kodu uruchamianych usług
+  i bez nowego wdrożenia/migracji. Zastane zmiany pozostają poza commitami.
 
 
 ### TASK-0841 — edycja symboli po otwarciu planszy audytu (done)

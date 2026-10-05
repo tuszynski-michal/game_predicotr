@@ -14,6 +14,7 @@ from game_predictor_api.application.semi_automatic_image_selections import (
 )
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.grid_shadow import GridShadowJobPayloadResponse
 
 
 class ImportJobCreatePayload(ApiModel):
@@ -752,6 +753,7 @@ JobPayloadResponse = (
     | ValidateJobPayload
     | LayoutImportValidateJobPayload
     | PageGeometryPreflightJobPayload
+    | GridShadowJobPayloadResponse
     | ImageGeometryGuardReportReconstructionJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
@@ -1236,6 +1238,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION:
         return SemiAutomaticImageSelectionJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.VALIDATE:
+        if job.input_payload.get("validation_kind") == "grid_geometry_shadow_v3":
+            return GridShadowJobPayloadResponse.model_validate(job.input_payload)
         if job.input_payload.get("validation_kind") == "layout_import":
             return LayoutImportValidateJobPayload.model_validate(job.input_payload)
         if job.input_payload.get("validation_kind") == "page_geometry_preflight":

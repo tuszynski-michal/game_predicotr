@@ -14,9 +14,27 @@ from typing import Any, Final, Literal, Self
 
 from pydantic import Field, model_validator
 
-from .annotations import digest
-from .contracts import Contract
-from .run_contracts import RunState, StartRunRequest, TrainingConfiguration
+from game_predictor_worker.geometry_core.settings import (
+    BoardPreset as BoardPreset,
+)
+from game_predictor_worker.geometry_core.settings import (
+    FitPreset as FitPreset,
+)
+from game_predictor_worker.geometry_core.settings import (
+    ScreenPreset as ScreenPreset,
+)
+
+from .annotations import digest as digest
+from .contracts import Contract as Contract
+from .run_contracts import (
+    RunState as RunState,
+)
+from .run_contracts import (
+    StartRunRequest as StartRunRequest,
+)
+from .run_contracts import (
+    TrainingConfiguration as TrainingConfiguration,
+)
 
 MODEL_VERSION: Final = "neural-grid-v1"
 PREPROCESSING_VERSION: Final = "neural-grid-screen768-board320x192-v1"
@@ -123,44 +141,6 @@ class AugmentationPreset(Contract):
     contrast: float = Field(ge=0, le=0.6)
     saturation: float = Field(ge=0, le=0.8)
     hue_degrees: float = Field(ge=0, le=30)
-
-
-class ScreenPreset(Contract):
-    long_side: Literal[768] = 768
-    train_canvas: tuple[int, int] = (768, 576)
-    stride: Literal[4] = 4
-    pad_multiple: Literal[32] = 32
-    heat_sigma_fraction: float = Field(gt=0, le=0.5)
-    min_heat_sigma: float = Field(gt=0, le=4)
-    offset_scale: float = Field(gt=0)
-    positive_radius: float = Field(gt=0, le=1)
-    offset_loss_weight: float = Field(gt=0)
-    decode_threshold: float = Field(gt=0, lt=1)
-    nms_iou: float = Field(gt=0, lt=1)
-    top_k: int = Field(ge=1, le=256)
-
-
-class BoardPreset(Contract):
-    canvas: tuple[int, int] = (320, 192)
-    margin: float = Field(ge=0, le=0.5)
-    stride: Literal[4] = 4
-    corner_jitter: float = Field(ge=0, le=0.2)
-    shift_jitter: float = Field(ge=0, le=0.2)
-    scale_jitter: float = Field(ge=0, le=0.3)
-    rotation_jitter_degrees: float = Field(ge=0, le=10)
-    boards_per_image: int = Field(ge=1, le=16)
-    coordinate_loss_weight: float = Field(gt=0)
-    heatmap_loss_weight: float = Field(ge=0)
-    heatmap_sigma: float = Field(gt=0)
-    visibility_loss_weight: float = Field(ge=0)
-
-
-class FitPreset(Contract):
-    method: Literal["opencv-ransac-homography-then-least-squares-on-inliers"] = (
-        "opencv-ransac-homography-then-least-squares-on-inliers"
-    )
-    inlier_threshold: float = Field(gt=0, le=0.2)
-    min_inliers: int = Field(ge=4, le=24)
 
 
 class OptimizationPreset(Contract):

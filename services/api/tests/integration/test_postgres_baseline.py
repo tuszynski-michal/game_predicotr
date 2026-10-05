@@ -34,7 +34,7 @@ from game_predictor_api.domain.reviewer_work_assignments import (
     create_reviewer_work_assignment,
 )
 from game_predictor_api.storage.database import create_session_factory
-from game_predictor_api.storage.game_data_v2_manifest_v4 import CREATE_TABLES, GAME_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v5 import CREATE_TABLES, GAME_TABLES
 from game_predictor_api.storage.game_entity_locator import GameEntityLocator
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,

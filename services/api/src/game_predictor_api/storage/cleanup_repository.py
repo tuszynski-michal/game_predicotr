@@ -117,6 +117,8 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         counts = self._game_counts(game_id)
         artifacts, retained_shared = self._game_artifacts(game_id)
         blockers: list[str] = []
+        if self._game_has_grid_shadow_history(game_id):
+            blockers.append("GRID_SHADOW_HISTORY_PRESENT")
         if self._count(
             """
             SELECT count(*) FROM jobs
@@ -254,10 +256,24 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         snapshot: CleanupSnapshot,
         result: CleanupResult,
     ) -> None:
+        if self._game_has_grid_shadow_history(snapshot.target_id):
+            raise CleanupConflictError(
+                "CLEANUP_BLOCKED",
+                "The game gained protected geometry shadow history.",
+                details={"blockers": ["GRID_SHADOW_HISTORY_PRESENT"]},
+            )
         parameters = {"game_id": snapshot.target_id}
         for statement in _GAME_RESET_STATEMENTS:
             self._session.execute(text(statement), parameters)
         self._record(result)
+
+    def _game_has_grid_shadow_history(self, game_id: UUID) -> bool:
+        return bool(
+            self._count(
+                "SELECT count(*) FROM image_geometry_shadow_results WHERE game_id = :game_id",
+                game_id=game_id,
+            )
+        )
 
     def delete_board_sources(
         self,
@@ -544,6 +560,13 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
 
     def _board_source_blockers(self, scope: _BoardSourceScope) -> list[str]:
         blockers: list[str] = []
+        if scope.source_ids and self._count(
+            "SELECT count(*) FROM image_geometry_shadow_results "
+            "WHERE game_id = :game_id AND source_image_id IN :source_ids",
+            game_id=scope.game_id,
+            source_ids=scope.source_ids,
+        ):
+            blockers.append("GRID_SHADOW_HISTORY_PRESENT")
         if self._count(
             """
             SELECT count(*) FROM jobs

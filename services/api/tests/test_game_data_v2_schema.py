@@ -9,6 +9,10 @@ from game_predictor_api.storage import models  # noqa: F401
 from game_predictor_api.storage.game_data_v2_manifest_v1 import GAME_TABLES as V1_GAME_TABLES
 from game_predictor_api.storage.game_data_v2_manifest_v3 import GAME_TABLES as V3_GAME_TABLES
 from game_predictor_api.storage.game_data_v2_manifest_v4 import (
+    GAME_TABLES as V4_GAME_TABLES,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v4 import REMOVED_GAME_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v5 import (
     CATALOG,
     CONTROL_TABLES,
     CREATE_TABLES,
@@ -16,7 +20,6 @@ from game_predictor_api.storage.game_data_v2_manifest_v4 import (
     GAME_TABLES,
     MIGRATE_TABLES,
     PARTITIONED_TABLES,
-    REMOVED_GAME_TABLES,
     SHARED,
     VERSION,
     ownership,
@@ -44,14 +47,19 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "game_deletion_batches",
     }
     assert CREATE_TABLES == MIGRATE_TABLES == DELETE_TABLES == PARTITIONED_TABLES == GAME_TABLES
-    assert VERSION == "game-data-v2-manifest-v4"
+    assert VERSION == "game-data-v2-manifest-v5"
     assert len(V3_GAME_TABLES) == 66
-    assert len(GAME_TABLES) == 63
-    assert set(GAME_TABLES) - set(V1_GAME_TABLES) == {"board_render_manifests"}
+    assert len(V4_GAME_TABLES) == 63
+    assert len(GAME_TABLES) == 64
+    assert set(GAME_TABLES) - set(V1_GAME_TABLES) == {
+        "board_render_manifests",
+        "image_geometry_shadow_results",
+    }
     # D-467 S5 (TASK-0759): v4 is v3 without exactly the three dropped tables.
     assert tuple(sorted(set(GAME_TABLES))) == GAME_TABLES
-    assert set(GAME_TABLES).issubset(V3_GAME_TABLES)
-    assert set(V3_GAME_TABLES) - set(GAME_TABLES) == set(REMOVED_GAME_TABLES)
+    assert set(V4_GAME_TABLES).issubset(V3_GAME_TABLES)
+    assert set(V3_GAME_TABLES) - set(V4_GAME_TABLES) == set(REMOVED_GAME_TABLES)
+    assert set(GAME_TABLES) - set(V4_GAME_TABLES) == {"image_geometry_shadow_results"}
     assert set(REMOVED_GAME_TABLES) == {
         "cell_observations",
         "legacy_board_search_archive_documents",

@@ -15,13 +15,18 @@ class ValidationJobDispatchHandler:
         layout_handler: Callable[[JobExecutionContext, Job], None],
         page_geometry_handler: Callable[[JobExecutionContext, Job], None],
         geometry_guard_report_handler: Callable[[JobExecutionContext, Job], None],
+        grid_shadow_handler: Callable[[JobExecutionContext, Job], None] | None = None,
     ) -> None:
         self._layout_handler = layout_handler
         self._page_geometry_handler = page_geometry_handler
         self._geometry_guard_report_handler = geometry_guard_report_handler
+        self._grid_shadow_handler = grid_shadow_handler
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
         kind = job.input_payload.get("validation_kind")
+        if kind == "grid_geometry_shadow_v3" and self._grid_shadow_handler is not None:
+            self._grid_shadow_handler(context, job)
+            return
         if kind == "layout_import":
             self._layout_handler(context, job)
             return

@@ -1,0 +1,37 @@
+.panel {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px solid #39404d;
+  border-radius: 12px;
+}
+.choice {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem;
+  min-height: 48px;
+  box-sizing: border-box;
+}
+.panel button {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+}
+.panel fieldset {
+  min-width: 0;
+}
+.choice small {
+  overflow-wrap: anywhere;
+}
+.actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+}
+.image {
+  display: block;
+  width: 100%;
+  max-height: 75vh;
+  background: #111;
+}

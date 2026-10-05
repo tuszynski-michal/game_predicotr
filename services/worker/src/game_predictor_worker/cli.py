@@ -50,6 +50,7 @@ from game_predictor_worker.images.geometry_guard_report_reconstruction import (
 from game_predictor_worker.images.geometry_rollout_backfill import (
     ImageGeometryRolloutBackfillHandler,
 )
+from game_predictor_worker.images.grid_shadow_handler import GridShadowHandler
 from game_predictor_worker.images.page_geometry_preflight import PageGeometryPreflightHandler
 from game_predictor_worker.images.pending_grid_reinference import (
     PendingGridReinferenceHandler,
@@ -394,6 +395,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 session_factory,
                 artifact_root,
                 repository_root=Path.cwd(),
+            ),
+            GridShadowHandler(
+                session_factory,
+                artifact_root,
+                enabled=settings.grid_shadow_enabled,
+                threads=thread_budget,
             ),
         )
         image_import_handler = ProductionImageImportWorkflow(

@@ -8517,6 +8517,668 @@
         "title": "GridProfileJobSnapshotPayload",
         "type": "object"
       },
+      "GridShadowJobCreate": {
+        "additionalProperties": false,
+        "properties": {
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "sourceImageIds": {
+            "items": {
+              "format": "uuid",
+              "type": "string"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Sourceimageids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "requestId",
+          "sourceImageIds"
+        ],
+        "title": "GridShadowJobCreate",
+        "type": "object"
+      },
+      "GridShadowJobPayloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "inputDigestSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Inputdigestsha256",
+            "type": "string"
+          },
+          "model": {
+            "additionalProperties": true,
+            "title": "Model",
+            "type": "object"
+          },
+          "requestFingerprintSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Requestfingerprintsha256",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "sources": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "maxItems": 20,
+            "minItems": 1,
+            "title": "Sources",
+            "type": "array"
+          },
+          "validationKind": {
+            "const": "grid_geometry_shadow_v3",
+            "title": "Validationkind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "validationKind",
+          "requestId",
+          "requestFingerprintSha256",
+          "model",
+          "sources",
+          "inputDigestSha256"
+        ],
+        "title": "GridShadowJobPayloadResponse",
+        "type": "object"
+      },
+      "GridShadowOutputResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "reasons": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/GridShadowSlotResponse"
+            },
+            "maxItems": 9,
+            "minItems": 1,
+            "title": "Slots",
+            "type": "array"
+          },
+          "status": {
+            "enum": [
+              "needs_review",
+              "failed",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          },
+          "unassignedDetections": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/GridShadowUnassignedDetectionResponse"
+            },
+            "title": "Unassigneddetections",
+            "type": "array"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "status",
+          "slots"
+        ],
+        "title": "GridShadowOutputResponse",
+        "type": "object"
+      },
+      "GridShadowPointResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "GridShadowPointResponse",
+        "type": "object"
+      },
+      "GridShadowResultPageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/GridShadowResultSummaryResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ],
+        "title": "GridShadowResultPageResponse",
+        "type": "object"
+      },
+      "GridShadowResultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "baselineEngineName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselineenginename"
+          },
+          "baselineEngineVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselineengineversion"
+          },
+          "baselineGeometrySource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselinegeometrysource"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "modelManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Modelmanifestchecksumsha256",
+            "type": "string"
+          },
+          "modelProfile": {
+            "title": "Modelprofile",
+            "type": "string"
+          },
+          "modelVersion": {
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "output": {
+            "$ref": "#/components/schemas/GridShadowOutputResponse"
+          },
+          "outputChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Outputchecksumsha256",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "sourceAssetReviewItemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceassetreviewitemid"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Sourcegeometryrevision",
+            "type": "integer"
+          },
+          "sourceGeometryRevisionId": {
+            "format": "uuid",
+            "title": "Sourcegeometryrevisionid",
+            "type": "string"
+          },
+          "sourceHeight": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourceheight",
+            "type": "integer"
+          },
+          "sourceImageId": {
+            "format": "uuid",
+            "title": "Sourceimageid",
+            "type": "string"
+          },
+          "sourceWidth": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourcewidth",
+            "type": "integer"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "needs_review",
+              "failed",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "jobId",
+          "sourceImageId",
+          "sourceChecksumSha256",
+          "sourceWidth",
+          "sourceHeight",
+          "sourceGeometryRevisionId",
+          "sourceGeometryRevision",
+          "modelProfile",
+          "modelVersion",
+          "modelManifestChecksumSha256",
+          "outputChecksumSha256",
+          "status",
+          "reasons",
+          "stale",
+          "createdAt",
+          "output"
+        ],
+        "title": "GridShadowResultResponse",
+        "type": "object"
+      },
+      "GridShadowResultSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "baselineEngineName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselineenginename"
+          },
+          "baselineEngineVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselineengineversion"
+          },
+          "baselineGeometrySource": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselinegeometrysource"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "modelManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Modelmanifestchecksumsha256",
+            "type": "string"
+          },
+          "modelProfile": {
+            "title": "Modelprofile",
+            "type": "string"
+          },
+          "modelVersion": {
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "outputChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Outputchecksumsha256",
+            "type": "string"
+          },
+          "reasons": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasons",
+            "type": "array"
+          },
+          "sourceAssetReviewItemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceassetreviewitemid"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceGeometryRevision": {
+            "minimum": 0.0,
+            "title": "Sourcegeometryrevision",
+            "type": "integer"
+          },
+          "sourceGeometryRevisionId": {
+            "format": "uuid",
+            "title": "Sourcegeometryrevisionid",
+            "type": "string"
+          },
+          "sourceHeight": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourceheight",
+            "type": "integer"
+          },
+          "sourceImageId": {
+            "format": "uuid",
+            "title": "Sourceimageid",
+            "type": "string"
+          },
+          "sourceWidth": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourcewidth",
+            "type": "integer"
+          },
+          "stale": {
+            "title": "Stale",
+            "type": "boolean"
+          },
+          "status": {
+            "enum": [
+              "needs_review",
+              "failed",
+              "unsupported"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "jobId",
+          "sourceImageId",
+          "sourceChecksumSha256",
+          "sourceWidth",
+          "sourceHeight",
+          "sourceGeometryRevisionId",
+          "sourceGeometryRevision",
+          "modelProfile",
+          "modelVersion",
+          "modelManifestChecksumSha256",
+          "outputChecksumSha256",
+          "status",
+          "reasons",
+          "stale",
+          "createdAt"
+        ],
+        "title": "GridShadowResultSummaryResponse",
+        "type": "object"
+      },
+      "GridShadowSlotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "baselineEngineName": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselineenginename"
+          },
+          "baselineEngineVersion": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselineengineversion"
+          },
+          "baselineNodes24": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GridShadowPointResponse"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Baselinenodes24"
+          },
+          "cellVisibility": {
+            "items": {
+              "enum": [
+                "full",
+                "partial",
+                "outside",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            "maxItems": 15,
+            "minItems": 15,
+            "title": "Cellvisibility",
+            "type": "array"
+          },
+          "neuralNodes24": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GridShadowPointResponse"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neuralnodes24"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "reasonCodes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "reviewItem": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ImageGridReviewItemResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "needs_review",
+              "missing",
+              "invalid"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "positionIndex",
+          "sequenceNumber",
+          "state",
+          "cellVisibility"
+        ],
+        "title": "GridShadowSlotResponse",
+        "type": "object"
+      },
+      "GridShadowUnassignedDetectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "detectionIndex": {
+            "minimum": 0.0,
+            "title": "Detectionindex",
+            "type": "integer"
+          },
+          "nodes24": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/GridShadowPointResponse"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nodes24"
+          },
+          "reasonCodes": {
+            "default": [],
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "detectionIndex"
+        ],
+        "title": "GridShadowUnassignedDetectionResponse",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -14309,6 +14971,9 @@
               },
               {
                 "$ref": "#/components/schemas/PageGeometryPreflightJobPayload"
+              },
+              {
+                "$ref": "#/components/schemas/GridShadowJobPayloadResponse"
               },
               {
                 "$ref": "#/components/schemas/ImageGeometryGuardReportReconstructionJobPayload"
@@ -31283,6 +31948,306 @@
         "summary": "List current game-wide board geometries with bounded keyset pagination",
         "tags": [
           "image-grid-reviews"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-shadow-jobs": {
+      "post": {
+        "operationId": "startGridShadowJob",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GridShadowJobCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/JobResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Start Grid Shadow Job",
+        "tags": [
+          "grid-shadow"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-shadow-results": {
+      "get": {
+        "operationId": "listGridShadowResults",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "sourceImageId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Sourceimageid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 20,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridShadowResultPageResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "List Grid Shadow Results",
+        "tags": [
+          "grid-shadow"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/grid-shadow-results/{result_id}": {
+      "get": {
+        "operationId": "getGridShadowResult",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "result_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Result Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GridShadowResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          },
+          "503": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Service Unavailable"
+          }
+        },
+        "summary": "Get Grid Shadow Result",
+        "tags": [
+          "grid-shadow"
         ]
       }
     },

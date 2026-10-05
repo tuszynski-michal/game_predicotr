@@ -6,6 +6,39 @@ last_updated: 2026-10-05
 
 # Kontrakty API i danych mobilnych
 
+## Shadow siatek V3 — TASK-0805
+
+Addytywny zasób Admina dla odrębnych wyników inferencji na zmaterializowanych
+źródłach. Domyślnie wyłączony przełącznik odmawia startu; nie zmienia wyboru
+silnika importu. Trasy nie są częścią publicznego proxy Reviewera.
+
+- `POST /api/v1/admin/games/{gameId}/grid-shadow-jobs` (`startGridShadowJob`)
+  przyjmuje `requestId` UUID i `sourceImageIds` (1–20 unikalnych UUID),
+  zwraca istniejący `JobResponse`. Ten sam request i zakres odzyskuje job;
+  zmieniony payload pod tym samym requestId daje konflikt.
+- `GET /api/v1/admin/games/{gameId}/grid-shadow-results`
+  (`listGridShadowResults`) zwraca ograniczoną stronę podsumowań i nextCursor.
+- `GET /api/v1/admin/games/{gameId}/grid-shadow-results/{resultId}`
+  (`getGridShadowResult`) zwraca oddzielny wynik, wersję modelu, SHA źródła,
+  rewizje, powody i jawne sloty z pełnymi węzłami baseline/neural. Aktualne
+  reviewItem jest dostępne do korekty wyłącznie przy zgodnych bindingach.
+
+Serwer pinuje model i źródła, klient nie przesyła ścieżek ani wyników.
+Job jest istniejącym VALIDATE z `validation_kind=grid_geometry_shadow_v3`.
+3 × 3, niejednoznaczny zakres, obca gra oraz brak zgodnego modelu odmawiają
+startu przed zapisem. Kolejność slotów i sequence_number nie wynikają z
+liczby wykryć. Dodatkowe wykrycie nie tworzy planszy ani cropu produkcyjnego.
+
+Wynik jest powiązany z jobem i źródłem, ma checksum i oddzielną tabelę gry.
+Worker publikuje z fencingiem lease i kontrolą aktualności. GET po zmianie
+źródła/revision pokazuje stale i nie przekazuje starej propozycji do zapisu.
+Wszystkie propozycje wymagają ręcznego przeglądu; Mumie nie dziedziczą
+kalibracji runu1. Istniejące source/revision-bound komendy korekty pozostają
+jedyną drogą zatwierdzania, z dotychczasowym kontraktem symboli i partial.
+
+OpenAPI backendu pozostaje źródłem wygenerowanych typów i wrapperów klienta.
+Szczegółowy kontrakt: `delivery/GRID_V3_SHADOW_CONTRACT_20261005.md`.
+
 ## Profile silnika siatek gry — TASK-0830
 
 `shapeGeometryConfiguration` (`GameCreate`, `GameUpdate`, `GameResponse`,

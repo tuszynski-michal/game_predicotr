@@ -6,6 +6,30 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0879–0884 — jawny pilot Mumii w głównej aplikacji
+
+- Operator wybrał rekomendowany R2 RGB i zlecił integrację folderów, korekty
+  siatek/symboli oraz naukę z zatwierdzonych poprawek. D-521; plan
+  MUMIE_MAIN_APP_PILOT_EXECUTION_PLAN_20261006.md. Bez nowych oznaczeń teraz.
+- R2 RGB eligibility5b6af3…4ac7c, ONNX e4f9b2…37095, T1.05, human34=34/34
+  wybranych kontroli. R2 pair i V5 nadal FAIL; nie jest to accuracy całego filmu.
+- Wykryta istotna różnica preprocessing: lab używa bilinear antialias96→64,
+  produkcja uint8 INTER_AREA. TASK0880 zachowa wersjonowane wejście modelu.
+- Potrzebne jawne lab-origin w istniejącym registry, neural staging/pending,
+  pełne24nodes w korekcie oraz osobne kwalifikowanie targets z feedbacku.
+  Plan0144 po obecnym0143 wymaga gotowego preview przed operacją na bazie.
+- Worktree HEADv1.7.220/4afedc11682cb7d378363710c78467c19d3bb12a;
+  MAINv1.7.222/48b6e0e104e19e915bde30cd89a80d508e81c0b3.
+  Przy scaleniu zachować nowszy RGB0878 i jego checkpoint, zatrzymać reload.
+  Numery0873–0878 na MAIN zajęte; nowa integracja ma0879–0884.
+- TASK0879: plan i taski zapisane, niezależny review PASS,0 openP0–P2.
+  Uściślono source-level korektę przed sequence, brak compaction i whole-photo
+  split z trwałą ochroną held-out byte/pixel aliases przed nowym DB TRAIN.
+  Preflight405 real crops/3photos PASS: input max7.153e-7, logit max1.908e-6,
+ 0 class differences,40.17s. To parity wejścia, nie accuracy pełnego folderu.
+  Oddzielny commitv1.7.221; hash zapisać po commicie. Następny TASK0880.
+  Kod/DB/runtime pilota jeszcze nie zmienione; stare dirty metadata poza stagingiem.
+
 ### TASK-0872 — większy izolowany RGB Mumii (done; candidate rejected)
 
 - TASK-0871 zakończony i odebrany; HEAD `v1.7.219` /

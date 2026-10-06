@@ -6,6 +6,45 @@ last_updated: 2026-10-06
 
 # Decision Log
 
+## D-521 — explicit Mumie RGB and neural folder pilot
+
+- **Status:** accepted scope, 2026-10-06, following the operator's explicit
+  selection of the recommended earlier RGB and request to connect the engine
+  to main-app folder uploads, corrections and subsequent training.
+- **Candidate:** only R2 RGB, eligibility 5b6af3…4ac7c, ONNX e4f9b2…37095,
+  temperature1.05. Its nine selected class/group controls pass; human34=34/34
+  is not population accuracy. R2 combined gate and V5 remain rejected.
+- **Origin:** lab_import remains distinct from production_training and from
+  verified_training_cohorts. Preserve 283 human/44 AI development origins;
+  never insert phantom boards or DB approvals to register the exported model.
+  Extend the existing model registry with checksum-bound origin and pilot scope.
+- **Runtime:** preserve RGB96 float32 bilinear antialias96→64 and normalization;
+  the existing uint8 INTER_AREA production transform cannot be substituted.
+  A versioned CPU adapter is shared by import and manual-cell inference.
+- **Geometry:** attach frozen neural proposals to staging/import pending review;
+  preserve all24 nodes, attested active slots and sequence. A model proposal
+  never implies verified geometry. Missing/outside cells do not become targets.
+- **Learning:** uploads run inference; actual human corrections qualify separate
+  grid/symbol snapshots for later explicit batch training. Preserve recording
+  separation and prior control sets. No training or activation on every upload.
+- **Precise pilot split boundary:** existing DB cohorts guarantee whole-photo
+  family splits, not whole-recording. The pilot reports this limitation and
+  does not introduce a recording registry. New Mumie DB TRAIN requires frozen
+  protected whole-source byte/decoded-pixel exclusions from R2 held-out controls,
+  including imported and reencoded aliases. Both cohort freeze and dataset builder
+  enforce them; missing/drifting exclusions block TRAIN while correction works.
+- **Unassigned geometry:** source-level staging/page-geometry overrides own
+  proposals before a deterministic slot binding exists. Range count alone does
+  not locate a missing board; no sequence compaction or board-only deferral
+  is allowed without a bound active slot.
+- **Execution boundary:** prepare the complete code and reviewable deployment
+  preview autonomously. New schema/production DB operations require specific
+  preview and authorization. Preserve the concurrent main-branch RGB0878 work.
+  No new Super model, deletions, push or unreviewed activation.
+- **Plan:** ai_docs/delivery/MUMIE_MAIN_APP_PILOT_EXECUTION_PLAN_20261006.md,
+  TASK-0879–0884. The old larger-training stageC is superseded for integration
+  only; its failed V5 acceptance is not changed to PASS.
+
 ## D-506 — explicit larger local RGB experiment
 
 - **Status:** accepted implementation decision, 2026-10-06, within the operator's

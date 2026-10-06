@@ -66,6 +66,12 @@ Brak niezależnego pomiaru populacji należy jawnie ujawnić.
 
 ## C — TASK-0873: kandydat integracji
 
+**Zastąpiony nowym zakresem:** po odrzuceniu V5 operator wybrał wcześniejszy
+R2 RGB do pilota głównej aplikacji. Obowiązuje D-521 i
+MUMIE_MAIN_APP_PILOT_EXECUTION_PLAN_20261006.md, TASK-0879–0884.
+Poniższy niewykonany etap nie kwalifikuje V5 ani pary R2.
+Numer0873 zajęła niezależna praca RGB na głównej gałęzi; nie tworzyć tu taska0873.
+
 Po PASS B prześledzić istniejący release manifest i ścieżkę rozpoznawania.
 Przygotować zgodne mapowanie zatwierdzonych symboli Mumii, preprocessing,
 kalibrację, eksport i test importu bez automatycznej aktywacji modelu.

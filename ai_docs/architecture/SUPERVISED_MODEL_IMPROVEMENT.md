@@ -6,6 +6,26 @@ last_updated: 2026-08-23
 
 # Architektura iteracyjnego ulepszania modelu symboli
 
+## Jawne pochodzenie kandydata pilota Mumii — D-521
+
+Adapter eksportu laboratorium rejestruje niezmienny pakiet w istniejącym
+symbol_model_iterations z pochodzeniem lab_import. Wymaga checksum-bound
+origin manifest zamiast fikcyjnej verified_training_cohort. Istniejące
+production_training zachowuje obowiązkową rzeczywistą kohortę DB.
+Zmiana nullability ma constraint rozdzielający oba pochodzenia i migrację.
+Aktywacja używa istniejącego registry, rozszerzonego o jawne wyłączenie pilota
+gdy brak poprzedniej aktywnej wersji; nie uruchamia niezgodnego bootstrapu.
+R2 RGB ma osobny kontrakt opset17, cropSize96/inputSize64 i bilinear antialias,
+przypięty w fingerprint snapshotu. M6/777 pozostaje przy swoim kontrakcie.
+Import i korekta używają tego samego wersjonowanego CPU preprocessingu.
+Preview/freeze kohorty i dataset builder niezależnie stosują per-game frozen
+protected-source-exclusions-v1 z byte/pixel SHA całych kontrolnych źródeł R2.
+Deskryptor jest częścią fingerprintu; chroni importowane i reencoded aliasy.
+Pilot używa istniejącego whole-photo source-family split. Recording registry
+nie jest częścią tego zakresu; ograniczenie widoczne w raporcie.
+Wdrożenie i migracja wymagają konkretnego preview, zgodnie z planem
+delivery/MUMIE_MAIN_APP_PILOT_EXECUTION_PLAN_20261006.md.
+
 ## Granica odpowiedzialności
 
 Laboratorium (`VISION_LAB.md`, D-447) utrzymuje plikowe zatwierdzenia

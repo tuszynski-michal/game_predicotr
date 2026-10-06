@@ -18,10 +18,15 @@ param(
     [string]$ArtifactRoot = '',
     [string]$LibraryDir = '',
     [string]$GameCode = '7',
-    [int]$MaxCellsPerPart = 60000
+    [int]$MaxCellsPerPart = 60000,
+    # Delete a part's crop cache (~0.75 GB per 60 000 cells) once its preview is complete;
+    # manifest, apply and verify do not read it. Needed for the 120 parts of 99-100%.
+    [switch]$DropCropCache
 )
 $ErrorActionPreference = 'Stop'
 # $PSScriptRoot is empty inside the param block of Windows PowerShell 5.1.
+# -File passes 'A,B' as one string; accept both forms.
+$Symbols = @($Symbols | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 if (-not $RepoRoot) { $RepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path }
 if (-not $Python) { $Python = Join-Path $RepoRoot '.venv\Scripts\python.exe' }
 if (-not $ArtifactRoot) { $ArtifactRoot = Join-Path $RepoRoot 'artifacts' }
@@ -114,11 +119,21 @@ if ($Phase -eq 'preview') {
     foreach ($entry in $plan) {
         $symbol, $name, $shard = $entry.Symbol, $entry.Name, $entry.Shard
         $output = Join-Path $runDir $name
-        $text = Invoke-Until-Done "$name preview" @(
-            'preview', '--game-code', $GameCode, '--index-dir', $indexDir,
-            '--output-dir', $output, '--library-dir', $LibraryDir, '--artifact-root', $ArtifactRoot,
-            '--symbol', $symbol, '--band', $Band, '--shard', $shard, '--time-budget-seconds', '300'
-        )
+        $doneMarker = Join-Path $output 'preview.done'
+        if (Test-Path $doneMarker) {
+            Write-Log "$name preview already complete; skipped"
+        } else {
+            $text = Invoke-Until-Done "$name preview" @(
+                'preview', '--game-code', $GameCode, '--index-dir', $indexDir,
+                '--output-dir', $output, '--library-dir', $LibraryDir, '--artifact-root', $ArtifactRoot,
+                '--symbol', $symbol, '--band', $Band, '--shard', $shard, '--time-budget-seconds', '300'
+            )
+            # Written only after a complete preview; delete it to recompute a part.
+            Set-Content -Path $doneMarker -Value (Get-Date).ToUniversalTime().ToString('o') -Encoding ascii
+            if ($DropCropCache) {
+                Remove-Item (Join-Path $output 'preview-crops.npz') -ErrorAction SilentlyContinue
+            }
+        }
         $report = Get-Content (Join-Path $output 'report.json') -Raw -Encoding utf8 | ConvertFrom-Json
         $gate += [ordered]@{
             part = $name; cells = $report.cells; writes = $report.writes

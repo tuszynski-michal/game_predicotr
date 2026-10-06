@@ -6,6 +6,36 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0870 — osobna diagnostyka RGB (done)
+
+- Eligibility `5b6af3…4ac7c`: wszystkie dziewięć bramek RGB według klas i grup
+  przechodzi (human84/18/19/9, held22/4, nowe control3/directed5/all8).
+  Sprawdzono 9352 oryginalne piny oraz powiązania modeli, temperatur i metryk
+  z niezmiennymi dowodami. Diagnostyka używa dokładnie dwóch eksportów RGB.
+- 60 zdjęć / 8100 identycznych wycinków; porcje po 20 zdjęć, limit kroku 120 s.
+  Czasy: 26.20 / 20.44 / 24.16 s. Osobny sidecar RGB zawiera 33 zmiany klas;
+  liczba wyników poniżej progu pewności 0.9 spadła z 704 do 490 (o 214).
+  To nie jest pomiar poprawności całego filmu. Nowych oznaczeń zapisano 0.
+  Nowe osiem przykładów: RGB 8/8; łącznie 34/34 na dwóch wybranych zestawach.
+- Powtórna inferencja obu CNN odtworzyła 60 zdjęć / 8100 wycinków bez różnic
+  w logitach. Czasy porcji: 26.38 / 33.66 / 45.14 s. Replay: 9474 piny,
+  digest `b3f13c…b6f1f`, siedem grup kontroli negatywnych PASS.
+  Wznowienie porównania: 18.30 s, 0 nowych zdjęć. Wznowienie weryfikacji:
+  35.50 s, 0 nowych zdjęć; 60 markerów, digest i bajty raportu identyczne.
+  Ścisła walidacja wyników, quadów, pikseli, modeli i historii odrzuca zmiany.
+- Niezależny końcowy audyt artefaktów, replay, wznowienia i dokumentacji PASS.
+  Obie wcześniejsze uwagi poprawione i sprawdzone; brak otwartych P0–P2.
+  17 testów inferencji PASS; cztery helpery: Ruff, formatowanie i typy PASS.
+  TASK-0869 osobno: 43 testy PASS.
+- Human8 revision8, human26 revision27 i oba wcześniejsze zestawy 61 wyników
+  zachowane. V4 pozostaje kwalifikowaną parą; R2 combined gate=false,
+  sidecar odrzuconej pary nadal nie istnieje. Bez treningu, refitu ani aktywacji.
+- DoD, pięć kryteriów i kroki 1–4 zaakceptowanego planu spełnione.
+  Raport: MUMIE_RGB_ONLY_DIAGNOSTIC_20261006.md. Commit `v1.7.218`.
+  Wcześniejsze zmiany metadanych wyłączone ze stagingu. Etap 0869–0870 ukończony.
+  Bez zmian API/UI/schematu/DB, migracji, usuwania, Super, merge, push i wdrożenia.
+  Użytkownik nie musi powtarzać ośmiu oznaczeń.
+
 ### TASK-0869 — nowe osiem zatwierdzeń Mumii (done)
 
 - Exact human8/revision8 z pełnym history/receipt/dictionary/source/quad/PNG.

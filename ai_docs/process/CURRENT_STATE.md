@@ -1207,6 +1207,7 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   CNN nie nadpisuje symbolu, który jednogłośna biblioteka potwierdza.
 - TASK-0875 done: pasmo 60–80% — 599 komórek RGB v2 na 553 planszach, 0 błędów,
   1 plansza `stale` (flaga jakości).
+- TASK-0876 done: pasmo 80–90% — 590 komórek RGB v2 na 563 planszach, 0 błędów.
 
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 

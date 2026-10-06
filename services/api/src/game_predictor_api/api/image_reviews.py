@@ -85,6 +85,7 @@ from game_predictor_api.schemas.image_reviews import (
     to_pending_grid_reinference_preview_response,
 )
 from game_predictor_api.schemas.jobs import JobResponse
+from game_predictor_api.schemas.source_lattice_geometry import to_source_lattice_nodes
 
 OperationalImageReviewServiceDependency = Callable[..., object]
 # Author of an operator geometry exception set from the local Admin (TASK-0807).
@@ -513,6 +514,8 @@ def create_image_reviews_router(
             corners=tuple(
                 ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
             ),
+            lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
+            expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
             geometry_qualification=(
                 None
                 if payload.geometry_qualification is None
@@ -565,6 +568,8 @@ def create_image_reviews_router(
             corners=tuple(
                 ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
             ),
+            lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
+            expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
             geometry_qualification=(
                 None
                 if payload.geometry_qualification is None

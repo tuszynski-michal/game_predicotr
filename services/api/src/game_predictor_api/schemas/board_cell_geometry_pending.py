@@ -27,6 +27,10 @@ from game_predictor_api.schemas.geometry_qualification import (
     ManualSourceGeometryPoint,
 )
 from game_predictor_api.schemas.image_reviews import OperationalImageReviewGeometryPoint
+from game_predictor_api.schemas.source_lattice_geometry import (
+    SourceLatticeNodesPayload,
+    lattice_nodes_payload,
+)
 
 Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
@@ -70,6 +74,8 @@ class BoardCellGeometryPendingPageResponse(ApiModel):
 
 
 class BoardCellGeometryCorrectionContextResponse(ApiModel):
+    lattice_nodes: SourceLatticeNodesPayload | None = None
+    expected_proposal_checksum_sha256: Sha256 | None = None
     item: BoardCellGeometryPendingResponse
     source_width: int = Field(gt=0)
     source_height: int = Field(gt=0)
@@ -89,6 +95,8 @@ class BoardCellGeometryCorrectionContextResponse(ApiModel):
 
 
 class BoardCellGeometryManualPreviewCommand(ApiModel):
+    lattice_nodes: SourceLatticeNodesPayload | None = None
+    expected_proposal_checksum_sha256: Sha256 | None = None
     expected_manifest_checksum_sha256: Sha256
     expected_geometry_revision: int = Field(ge=0)
     expected_resolution_revision: int = Field(ge=0)
@@ -171,6 +179,12 @@ def to_correction_context_response(
         source_order_index=value.source_order_index,
         board_quad=quad,
         suggested_corners=quad,
+        lattice_nodes=lattice_nodes_payload(value.board_geometry.get("latticeNodes")),
+        expected_proposal_checksum_sha256=(
+            str(value.board_geometry["neuralProposalChecksumSha256"])
+            if isinstance(value.board_geometry.get("neuralProposalChecksumSha256"), str)
+            else None
+        ),
     )
 
 

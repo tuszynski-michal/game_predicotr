@@ -25,6 +25,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     ImageGeometryContractError,
     NormalizedSourceImage,
     SourceImageBounds,
+    SourceLatticeNodes,
     SourceOccurrence,
     SourcePoint,
     SourceQuad,
@@ -204,6 +205,8 @@ class VirtualGridGeometryRevision:
     corrected_by: str
     created_at: datetime
     geometry_qualification: GeometryQualification | None = None
+    lattice_nodes: SourceLatticeNodes | None = None
+    expected_proposal_checksum_sha256: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -227,6 +230,8 @@ class VirtualGridGeometrySourceCommand:
     expected_grid_columns: int
     corners: tuple[ImageReviewGeometryPoint, ...]
     geometry_qualification: GeometryQualification | None = None
+    lattice_nodes: SourceLatticeNodes | None = None
+    expected_proposal_checksum_sha256: str | None = None
 
     @property
     def target_id(self) -> UUID:
@@ -361,6 +366,8 @@ class VirtualGridGeometryService:
         expected_grid_columns: int,
         corners: Sequence[ImageReviewGeometryPoint],
         geometry_qualification: GeometryQualification | None = None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometryPreview:
         prepared, renders = self._prepare(
             game_id=game_id,
@@ -374,6 +381,8 @@ class VirtualGridGeometryService:
             expected_grid_rows=expected_grid_rows,
             expected_grid_columns=expected_grid_columns,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             actor="local-admin-preview",
             geometry_qualification=geometry_qualification,
         )
@@ -407,6 +416,8 @@ class VirtualGridGeometryService:
         created_at: datetime,
         geometry_qualification: GeometryQualification | None = None,
         cell_symbols: Sequence[VirtualGridCellSymbol] = (),
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometrySaveResult:
         _require_valid_cell_symbols(cell_symbols)
         result = self._save(
@@ -422,6 +433,8 @@ class VirtualGridGeometryService:
             expected_grid_rows=expected_grid_rows,
             expected_grid_columns=expected_grid_columns,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             actor=actor,
             created_at=created_at,
             geometry_qualification=geometry_qualification,
@@ -454,6 +467,8 @@ class VirtualGridGeometryService:
         actor: str,
         created_at: datetime,
         geometry_qualification: GeometryQualification | None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometrySaveResult:
         replay = self._find_replay(
             game_id=game_id,
@@ -470,6 +485,8 @@ class VirtualGridGeometryService:
                     expected_grid_rows=expected_grid_rows,
                     expected_grid_columns=expected_grid_columns,
                     corners=tuple(corners),
+                    lattice_nodes=lattice_nodes,
+                    expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
                     geometry_qualification=geometry_qualification,
                 ),
             ),
@@ -490,6 +507,8 @@ class VirtualGridGeometryService:
             expected_grid_rows=expected_grid_rows,
             expected_grid_columns=expected_grid_columns,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             actor=actor,
             geometry_qualification=geometry_qualification,
         )
@@ -509,6 +528,8 @@ class VirtualGridGeometryService:
         expected_resolution_revision: int,
         corners: Sequence[ImageReviewGeometryPoint],
         geometry_qualification: GeometryQualification | None = None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometryPreview:
         """Render one current board for the operational Reviewer (TASK-0796).
 
@@ -533,6 +554,8 @@ class VirtualGridGeometryService:
             expected_grid_rows=context.topology.rows,
             expected_grid_columns=context.topology.columns,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             geometry_qualification=geometry_qualification,
         )
 
@@ -549,6 +572,8 @@ class VirtualGridGeometryService:
         actor: str,
         created_at: datetime,
         geometry_qualification: GeometryQualification | None = None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometrySaveResult:
         """Persist one current board's manual geometry for the Reviewer (TASK-0796).
 
@@ -573,6 +598,8 @@ class VirtualGridGeometryService:
             expected_grid_rows=context.topology.rows,
             expected_grid_columns=context.topology.columns,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             geometry_qualification=geometry_qualification,
             actor=actor,
             created_at=created_at,
@@ -631,6 +658,8 @@ class VirtualGridGeometryService:
         corners: Sequence[ImageReviewGeometryPoint],
         geometry_qualification: GeometryQualification | None = None,
         actor: str = "local-admin-preview",
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometryPreview:
         """Render one deferred slot from its source, exactly as a save would."""
 
@@ -641,6 +670,8 @@ class VirtualGridGeometryService:
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             geometry_qualification=geometry_qualification,
         )
         prepared, renders = self._prepare_source(
@@ -677,6 +708,8 @@ class VirtualGridGeometryService:
         created_at: datetime,
         geometry_qualification: GeometryQualification | None = None,
         cell_symbols: Sequence[VirtualGridCellSymbol] = (),
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometrySourceSaveResult:
         """Resolve one deferred slot as a ``virtual_source`` board (D-467).
 
@@ -697,6 +730,8 @@ class VirtualGridGeometryService:
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             actor=actor,
             created_at=created_at,
             geometry_qualification=geometry_qualification,
@@ -728,6 +763,8 @@ class VirtualGridGeometryService:
         corners: Sequence[ImageReviewGeometryPoint],
         geometry_qualification: GeometryQualification | None = None,
         actor: str = "local-admin-preview",
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
         """Pinned-model predictions for exactly the cut a save would persist.
 
@@ -743,6 +780,8 @@ class VirtualGridGeometryService:
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             geometry_qualification=geometry_qualification,
         )
         prepared, _renders = self._prepare_source(
@@ -796,6 +835,8 @@ class VirtualGridGeometryService:
         actor: str,
         created_at: datetime,
         geometry_qualification: GeometryQualification | None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometrySourceSaveResult:
         command = self._pending_slot_command(
             game_id=game_id,
@@ -804,6 +845,8 @@ class VirtualGridGeometryService:
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             geometry_qualification=geometry_qualification,
         )
         replay = self._find_replay(
@@ -838,6 +881,8 @@ class VirtualGridGeometryService:
         expected_resolution_revision: int,
         corners: Sequence[ImageReviewGeometryPoint],
         geometry_qualification: GeometryQualification | None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometrySourceCommand:
         # The deferred item's processing manifest already pins the source
         # checksum; the source identity therefore comes from persistence.
@@ -858,6 +903,8 @@ class VirtualGridGeometryService:
             expected_grid_rows=context.topology.rows,
             expected_grid_columns=context.topology.columns,
             corners=tuple(corners),
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             geometry_qualification=geometry_qualification,
         )
 
@@ -890,7 +937,8 @@ class VirtualGridGeometryService:
             qualification = value.geometry_qualification
             if qualification is not None:
                 qualification = resolve_manual_geometry_qualification(
-                    quad=SourceQuad(
+                    quad=value.lattice_nodes
+                    or SourceQuad(
                         cast(
                             tuple[SourcePoint, SourcePoint, SourcePoint, SourcePoint],
                             tuple(SourcePoint(x=p.x, y=p.y) for p in value.corners),
@@ -902,6 +950,8 @@ class VirtualGridGeometryService:
                 )
             command = validate_image_review_geometry_command(
                 corners=value.corners,
+                lattice_nodes=value.lattice_nodes,
+                expected_proposal_checksum_sha256=value.expected_proposal_checksum_sha256,
                 expected_geometry_revision=value.expected_geometry_revision,
                 expected_resolution_revision=value.expected_resolution_revision,
                 corrected_by=actor,
@@ -993,6 +1043,8 @@ class VirtualGridGeometryService:
         for source_command in commands:
             command = validate_image_review_geometry_command(
                 corners=source_command.corners,
+                lattice_nodes=source_command.lattice_nodes,
+                expected_proposal_checksum_sha256=source_command.expected_proposal_checksum_sha256,
                 expected_geometry_revision=source_command.expected_geometry_revision,
                 expected_resolution_revision=source_command.expected_resolution_revision,
                 corrected_by=actor,
@@ -1023,15 +1075,19 @@ class VirtualGridGeometryService:
                     tuple(SourcePoint(x=point.x, y=point.y) for point in command.corners),
                 )
             )
+            if command.lattice_nodes is not None:
+                quad = command.lattice_nodes.outer_quad
             if command.geometry_qualification is not None:
                 qualification = resolve_manual_geometry_qualification(
-                    quad=quad,
+                    quad=command.lattice_nodes or quad,
                     source=SourceImageBounds(context.oriented_width, context.oriented_height),
                     topology=context.topology,
                     qualification=command.geometry_qualification,
                 )
                 command = validate_image_review_geometry_command(
                     corners=command.corners,
+                    lattice_nodes=command.lattice_nodes,
+                    expected_proposal_checksum_sha256=command.expected_proposal_checksum_sha256,
                     expected_geometry_revision=command.expected_geometry_revision,
                     expected_resolution_revision=command.expected_resolution_revision,
                     corrected_by=actor,
@@ -1182,6 +1238,7 @@ class VirtualGridGeometryService:
                     geometry_version=VIRTUAL_MANUAL_GEOMETRY_VERSION,
                     engine_kind=GeometryEngineKind.MANUAL_V1,
                     symbol_grid_quad=quad,
+                    lattice_nodes=command.lattice_nodes,
                     geometry_qualification=command.geometry_qualification,
                 )
                 rendered_by_item[context.target_id] = tuple(
@@ -1210,6 +1267,10 @@ class VirtualGridGeometryService:
             tuple((context, quad) for context, _command, quad in prepared_inputs),
             qualifications={
                 context.position_index: command.geometry_qualification
+                for context, command, _quad in prepared_inputs
+            },
+            lattices={
+                context.position_index: command.lattice_nodes
                 for context, command, _quad in prepared_inputs
             },
         )
@@ -1255,6 +1316,8 @@ class VirtualGridGeometryService:
             if command.geometry_qualification is not None:
                 render_manifest["configuration"] = context.render_configuration.to_dict()
                 render_manifest["geometryQualification"] = command.geometry_qualification.to_dict()
+            if command.lattice_nodes is not None:
+                render_manifest["latticeNodes"] = command.lattice_nodes.to_dict()
             entries.append(
                 PreparedVirtualGridGeometry(
                     command=command,
@@ -1266,6 +1329,7 @@ class VirtualGridGeometryService:
                         quad,
                         command.command_sha256,
                         qualification=command.geometry_qualification,
+                        lattice_nodes=command.lattice_nodes,
                     ),
                     virtual_render_spec=render_manifest,
                     virtual_render_spec_checksum_sha256=hashlib.sha256(
@@ -1354,6 +1418,8 @@ class VirtualGridGeometryService:
         corners: Sequence[ImageReviewGeometryPoint],
         actor: str,
         geometry_qualification: GeometryQualification | None = None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> tuple[PreparedVirtualGridGeometry, tuple[VirtualCellRender, ...]]:
         from game_predictor_worker.images.normalization import (
             CanonicalSourceLoader,
@@ -1366,6 +1432,8 @@ class VirtualGridGeometryService:
 
         command = validate_image_review_geometry_command(
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=actor,
@@ -1409,15 +1477,19 @@ class VirtualGridGeometryService:
                     tuple(SourcePoint(x=point.x, y=point.y) for point in command.corners),
                 )
             )
+            if command.lattice_nodes is not None:
+                quad = command.lattice_nodes.outer_quad
             if geometry_qualification is not None:
                 geometry_qualification = resolve_manual_geometry_qualification(
-                    quad,
+                    command.lattice_nodes or quad,
                     source=frame.source,
                     topology=context.topology,
                     qualification=geometry_qualification,
                 )
                 command = validate_image_review_geometry_command(
                     corners=corners,
+                    lattice_nodes=lattice_nodes,
+                    expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
                     expected_geometry_revision=expected_geometry_revision,
                     expected_resolution_revision=expected_resolution_revision,
                     corrected_by=actor,
@@ -1441,6 +1513,7 @@ class VirtualGridGeometryService:
                 geometry_version=VIRTUAL_MANUAL_GEOMETRY_VERSION,
                 engine_kind=GeometryEngineKind.MANUAL_V1,
                 symbol_grid_quad=quad,
+                lattice_nodes=command.lattice_nodes,
                 geometry_qualification=geometry_qualification,
             )
             renders = VirtualCellRenderer().render(
@@ -1463,7 +1536,7 @@ class VirtualGridGeometryService:
             loader.clear()
 
         board_geometries = _replace_board_geometry(
-            context, quad, qualification=geometry_qualification
+            context, quad, qualification=geometry_qualification, lattice_nodes=command.lattice_nodes
         )
         source_geometry_checksum = hashlib.sha256(
             canonical_json_bytes(
@@ -1500,8 +1573,14 @@ class VirtualGridGeometryService:
         if geometry_qualification is not None:
             render_manifest["configuration"] = context.render_configuration.to_dict()
             render_manifest["geometryQualification"] = geometry_qualification.to_dict()
+        if command.lattice_nodes is not None:
+            render_manifest["latticeNodes"] = command.lattice_nodes.to_dict()
         board_geometry = _recognized_board_geometry(
-            context, quad, command.command_sha256, qualification=geometry_qualification
+            context,
+            quad,
+            command.command_sha256,
+            qualification=geometry_qualification,
+            lattice_nodes=command.lattice_nodes,
         )
         return (
             PreparedVirtualGridGeometry(
@@ -1560,6 +1639,25 @@ def _require_expected_context(
     topology: BoardTopology,
     check_revision: bool = True,
 ) -> None:
+    if (
+        check_revision
+        and (
+            command.expected_proposal_checksum_sha256 is not None
+            or isinstance(
+                context.board_geometries[context.position_index].get(
+                    "neuralProposalChecksumSha256"
+                ),
+                str,
+            )
+        )
+        and (
+            context.board_geometries[context.position_index].get("neuralProposalChecksumSha256")
+            != command.expected_proposal_checksum_sha256
+        )
+    ):
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_PROPOSAL_STALE", "The neural proposal changed after preview."
+        )
     if (
         check_revision
         and context.board_geometries[context.position_index].get("geometryQualification")
@@ -1622,6 +1720,7 @@ def _replace_board_geometry(
     quad: SourceQuad,
     *,
     qualification: GeometryQualification | None = None,
+    lattice_nodes: SourceLatticeNodes | None = None,
 ) -> tuple[Mapping[str, object], ...]:
     if context.active_board_slots != tuple(range(len(context.board_geometries))):
         raise ImageGridReviewError(
@@ -1645,6 +1744,7 @@ def _replace_board_geometry(
     )
     if qualification is not None:
         _apply_qualification(values[context.position_index], quad, qualification)
+    _apply_lattice(values[context.position_index], lattice_nodes)
     return tuple(values)
 
 
@@ -1688,6 +1788,7 @@ def _replace_source_board_geometries(
     values: Sequence[tuple[VirtualGridGeometryContext, SourceQuad]],
     *,
     qualifications: Mapping[int, GeometryQualification | None] | None = None,
+    lattices: Mapping[int, SourceLatticeNodes | None] | None = None,
 ) -> tuple[dict[str, object], ...]:
     if context.active_board_slots != tuple(range(len(context.board_geometries))):
         raise ImageGridReviewError(
@@ -1715,6 +1816,10 @@ def _replace_source_board_geometries(
         )
         if qualification is not None:
             _apply_qualification(result[entry_context.position_index], quad, qualification)
+        _apply_lattice(
+            result[entry_context.position_index],
+            None if lattices is None else lattices.get(entry_context.position_index),
+        )
     return tuple(result)
 
 
@@ -1724,6 +1829,7 @@ def _recognized_board_geometry(
     command_checksum: str,
     *,
     qualification: GeometryQualification | None = None,
+    lattice_nodes: SourceLatticeNodes | None = None,
 ) -> Mapping[str, object]:
     value = dict(context.board_geometries[context.position_index])
     value.update(
@@ -1738,7 +1844,16 @@ def _recognized_board_geometry(
     )
     if qualification is not None:
         _apply_qualification(value, quad, qualification)
+    _apply_lattice(value, lattice_nodes)
     return value
+
+
+def _apply_lattice(value: dict[str, object], lattice: SourceLatticeNodes | None) -> None:
+    # Choosing the explicit four-corner workflow removes the prior interior
+    # nodes instead of accidentally retaining a stale neural lattice.
+    value.pop("latticeNodes", None)
+    if lattice is not None:
+        value["latticeNodes"] = lattice.to_dict()
 
 
 def _apply_qualification(

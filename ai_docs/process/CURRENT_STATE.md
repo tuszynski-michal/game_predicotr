@@ -6,6 +6,34 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0882 — neural folder import and correction (done)
+
+- Frozen geometry_core CPU staging, immutable checkpoint replay, explicit
+  source binding and exact24-node board correction implemented. Migration0145
+  extends the existing override; missing slots are never compacted.
+  Managed source handoff/exclusions work after staging retention.
+- Actual Admin Import panel accepts99 review sources and all-unbound source
+  handoff; replay recovers the existing job, active new descriptor is rejected.
+  Symbols edit on opening; approved geometry and legacy777 defaults preserved.
+- Root41 new/120 broader/24 managed-source tests; backend46 core/10legacy,
+  client86, independent fresh backend96 PASS (overlapping counts).
+  Disposable PostgreSQL1 PASS/0skip,9 invalid nested bindings rejected;
+  populated0144→0145, CAS/cold receipt/RLS/guarded downgrade verified.
+- UI pure41/final66 and Reviewer15/Admin21 interactions PASS. Types/lint,
+  formatting, OpenAPI/SDK checks, strict Mypy root7/backend29 and both builds
+  PASS. Mobile touch390/360×844 PASS; physical Android untested.
+- Real100 source handler:900 expected,897 valid24-node proposals/13455fullcells,
+  99 ordered drafts/1 unbound; five20-source steps below20s. Cold replay0/4
+  sameSHA/0infer. Separate memory20 parent124.6MiB/child413.0MiB individualpeaks.
+  These are structural counts, not population symbol accuracy.
+- Quality: MUMIE_NEURAL_FOLDER_CORRECTION_20261006.md; final proof in main
+  artifacts/grid-v3-deployment-20261004/0882-final-proof.json. Independent
+  gpt-6.1-sol/high audit PASS,0 openP0–P2;v1.7.224 hash after commit.
+  Continue0883 autonomously.
+- No operator DB writes, main merge/activation/restart. Live0143 and0Mumie
+  sources/boards confirmed read-only. RGB777 previewCLI still active.
+  Prepared100-photo upload copies31.17MB preserve sourceSHA/originals.
+
 ### TASK-0881 — lab candidate registry and recovery (done)
 
 - Explicit lab_import origin, nullable cohort only for lab and immutable
@@ -25,7 +53,8 @@ last_updated: 2026-10-06
   imports PASS. Independent gpt-6.1-sol/high audit:0 openP0–P2.
   Proof: main artifacts/grid-v3-deployment-20261004/0881-final-proof.json.
 - No operator DB writes, main merge, activation or service restart.
-  Commit version/hash is recorded after publication. Continue0882 next.
+  Commitv1.7.223/669cd5325140312e9da270bcd3c2ff194b875655 verified with
+  show/stat and remaining status. Continue0882 next.
 
 ### TASK-0880 — qualified R2 RGB pilot adapter (done)
 

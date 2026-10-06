@@ -166,6 +166,11 @@ class PageGeometryPreflightHandler:
         self._registration_workers = registration_workers
 
     def __call__(self, context: JobExecutionContext, job: Job) -> None:
+        if "neural_grid_proposal" in job.input_payload:
+            from .neural_page_geometry_preflight import NeuralPageGeometryPreflightHandler
+
+            NeuralPageGeometryPreflightHandler(artifact_root=self._artifact_root)(context, job)
+            return
         payload = _input(job)
         output = self._existing_output(job)
         if output is not None:

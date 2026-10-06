@@ -35,7 +35,7 @@ test('saving a correction is separated from submitting the saved batch', () => {
   assert.match(panel, /async function save\(\)[\s\S]*setSavedCount/);
   assert.match(
     panel,
-    /async function submitSaved\(\)[\s\S]*await onSubmitSaved\(\)/,
+    /async function submitSaved\(\)[\s\S]*await onSubmitSaved\(managedSourceJobId\)/,
   );
   assert.match(panel, /Liczniki dotyczą zdjęć źródłowych/);
   assert.match(panel, /aktualizacja już zarejestrowanej geometrii/);

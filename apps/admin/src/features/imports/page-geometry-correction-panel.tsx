@@ -77,6 +77,7 @@ import {
   validV12FrameOffsets,
   type V12OffsetDraft,
 } from './page-geometry-v12-offsets';
+import { NeuralSourceBindingPanel } from './neural-source-binding-panel';
 
 type GeometryCorrectionClient = Pick<
   AdminApiClient,
@@ -104,7 +105,7 @@ interface PageGeometryCorrectionPanelProps {
   readonly geometryEngineVariant?: GeometryEngineVariant;
   readonly onPendingSourceCountChange?: (count: number) => void;
   readonly onDraftSaved?: () => void;
-  readonly onSubmitSaved: () => Promise<void>;
+  readonly onSubmitSaved: (managedSourceJobId?: string) => Promise<void>;
   readonly onSourceReplaced: (
     ready: BrowserReadySelectionResponse,
     replacementChecksumSha256: string,
@@ -452,6 +453,9 @@ function PageGeometryCorrectionPanelContent({
   const [submitting, setSubmitting] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [geometryManifestChecksum, setGeometryManifestChecksum] = useState('');
+  const [managedSourceJobId, setManagedSourceJobId] = useState<
+    string | undefined
+  >(undefined);
   const [partialTrainingPool, setPartialTrainingPool] = useState({
     readyPatterns: 0,
     samples: 0,
@@ -505,6 +509,7 @@ function PageGeometryCorrectionPanelContent({
       const pendingSources = result.data.sources.filter(
         (item) => !item.savedSincePreflight,
       );
+      setManagedSourceJobId(result.data.managedSourceJobId ?? undefined);
       if (
         inspectionSourceChecksumSha256 !== null &&
         !pendingSources.some(
@@ -617,7 +622,7 @@ function PageGeometryCorrectionPanelContent({
     : storedReplacement;
   const draftScope = useMemo<PageGeometryDraftScope | null>(
     () =>
-      source && imageSize
+      source && source.neuralProposal == null && imageSize
         ? {
             gameId,
             uploadId,
@@ -1455,7 +1460,7 @@ function PageGeometryCorrectionPanelContent({
     setError('');
     setFeedback('Tworzę jeden preflight dla całej zapisanej partii…');
     try {
-      await onSubmitSaved();
+      await onSubmitSaved(managedSourceJobId);
     } catch {
       setError('Nie udało się wysłać zapisanych geometrii do weryfikacji.');
     } finally {
@@ -1821,7 +1826,65 @@ function PageGeometryCorrectionPanelContent({
             : 'Nie ma już stron oczekujących na korektę geometrii.'}
         </p>
       ) : null}
-      {source !== null ? (
+      {source?.neuralProposal != null ? (
+        loading ? null : (
+          <>
+            <p style={{ overflowWrap: 'anywhere' }}>
+              Zdjęcie {sourceIndex + 1}/{sources.length} ·{' '}
+              {source.sourceRelativePath}
+            </p>
+            <div className="importActionButtons">
+              <button
+                type="button"
+                className="secondaryButton"
+                disabled={sourceIndex === 0}
+                style={{ minHeight: 44 }}
+                onClick={() => setSourceIndex((i) => i - 1)}
+              >
+                Poprzednie zdjęcie
+              </button>
+              <button
+                type="button"
+                className="secondaryButton"
+                disabled={sourceIndex + 1 >= sources.length}
+                style={{ minHeight: 44 }}
+                onClick={() => setSourceIndex((i) => i + 1)}
+              >
+                Następne zdjęcie
+              </button>
+            </div>
+            <NeuralSourceBindingPanel
+              key={`${source.sourceChecksumSha256}:${source.neuralProposal.proposalChecksumSha256}:${source.existingOverrideRevision ?? 0}:${geometryManifestChecksum}`}
+              api={api}
+              gameId={gameId}
+              uploadId={uploadId}
+              source={source}
+              imageUrl={imageUrl!}
+              preflightJobId={preflightJobId}
+              manifestChecksumSha256={geometryManifestChecksum}
+              onRefresh={refresh}
+              onSaved={() => {
+                setFeedback(
+                  'Zapisano przypisanie plansz. Wyślij zapisane do weryfikacji, aby wznowić analizę źródeł.',
+                );
+                setSavedCount((count) => count + 1);
+                const remaining = sources.filter(
+                  (s) => s.sourceChecksumSha256 !== source.sourceChecksumSha256,
+                );
+                setSources(remaining);
+                onPendingSourceCountChange?.(
+                  remaining.filter(
+                    (s) => s.reviewReason !== 'operator_inspection',
+                  ).length,
+                );
+                setSourceIndex((index) =>
+                  Math.min(index, Math.max(0, remaining.length - 1)),
+                );
+              }}
+            />
+          </>
+        )
+      ) : source !== null ? (
         <div className="pageGeometryCorrectionGrid">
           <div className="pageGeometryControls">
             <p className="curatedImportStatus">

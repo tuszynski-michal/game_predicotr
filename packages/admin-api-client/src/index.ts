@@ -1,4 +1,13 @@
 import { createClient as createGeneratedClient } from './generated/client';
+export type {
+  SourceLatticePoint,
+  NeuralDetectionPayload,
+  NeuralGridSnapshotPayload,
+  NeuralSourceProposalPayload,
+  NeuralSourceBindingPayload,
+  NeuralSourceAssignmentPayload,
+  NeuralSourceRangePayload,
+} from './generated/types.gen';
 import {
   listLabSymbolCandidates as listGeneratedLabSymbolCandidates,
   previewLabSymbolCandidateImport as previewGeneratedLabSymbolCandidateImport,

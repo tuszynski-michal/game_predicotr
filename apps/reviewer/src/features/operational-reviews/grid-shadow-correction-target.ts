@@ -170,6 +170,9 @@ export function gridShadowBoardGeometryTarget({
           ...view,
           referenceCorners: view.suggestedCorners,
           suggestedCorners: suggestion.corners,
+          // Keep the established shadow corner sketch separate from a saved
+          // full lattice inherited through the ordinary target.
+          suggestedLatticeNodes: undefined,
           suggestionNotice:
             'Szkic do korekty utworzony z czterech zewnętrznych narożników sieci. Edytor odtwarza regularną siatkę; nie zachowuje pełnych 24 węzłów. Pełną propozycję zobaczysz w porównaniu w Adminie.' +
             (suggestion.clamped

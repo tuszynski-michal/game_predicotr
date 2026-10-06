@@ -422,7 +422,42 @@ export type BoardCellGeometryCorrectionContextResponse = {
     OperationalImageReviewGeometryPoint,
     OperationalImageReviewGeometryPoint,
   ];
+  /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
   item: BoardCellGeometryPendingResponse;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
   /**
    * Sourceheight
    */
@@ -524,10 +559,45 @@ export type BoardCellGeometryManualPreviewCommand = {
    */
   expectedManifestChecksumSha256: string;
   /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
+  /**
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
   geometryQualification?: GeometryQualificationPayload | null;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
 };
 
 /**
@@ -560,6 +630,10 @@ export type BoardCellGeometryManualResolutionCommand = {
    */
   expectedManifestChecksumSha256: string;
   /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
+  /**
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
@@ -568,6 +642,37 @@ export type BoardCellGeometryManualResolutionCommand = {
    * Idempotencykey
    */
   idempotencyKey: string;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
 };
 
 /**
@@ -1975,6 +2080,7 @@ export type BrowserImageImportJobPayload = {
    * Importkind
    */
   importKind: 'image_directory';
+  neuralGridProposal?: NeuralGridSnapshotPayload | null;
   /**
    * Normalizationadapterversion
    */
@@ -2512,6 +2618,14 @@ export type BrowserPageGeometryOverrideCreate = {
    */
   gameId: string;
   /**
+   * Geometrymanifestchecksumsha256
+   */
+  geometryManifestChecksumSha256?: string | null;
+  /**
+   * Geometrypreflightjobid
+   */
+  geometryPreflightJobId?: string | null;
+  /**
    * Imageheight
    */
   imageHeight: number;
@@ -2519,6 +2633,7 @@ export type BrowserPageGeometryOverrideCreate = {
    * Imagewidth
    */
   imageWidth: number;
+  neuralProposalBinding?: NeuralSourceBindingPayload | null;
   /**
    * Slotqualifications
    */
@@ -2556,6 +2671,7 @@ export type BrowserPageGeometryOverrideResponse = {
    * Id
    */
   id: string;
+  neuralProposalBinding?: NeuralSourceBindingPayload | null;
   /**
    * Revision
    */
@@ -2633,6 +2749,8 @@ export type BrowserPageGeometryReviewSourceResponse = {
    * Geometryorigin
    */
   geometryOrigin: 'automatic' | 'manual_override' | 'manual_template';
+  neuralProposal?: NeuralSourceProposalPayload | null;
+  neuralProposalBinding?: NeuralSourceBindingPayload | null;
   registrationDiagnostics?: PageGeometryRegistrationDiagnostics | null;
   /**
    * Rejectionreasoncode
@@ -2669,10 +2787,18 @@ export type BrowserPageGeometryReviewSourceResponse = {
  */
 export type BrowserPageGeometryReviewSourcesResponse = {
   /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount?: number | null;
+  /**
    * Geometrymanifestchecksumsha256
    */
   geometryManifestChecksumSha256: string;
   job: JobResponse;
+  /**
+   * Managedsourcejobid
+   */
+  managedSourceJobId?: string | null;
   /**
    * Operatorexcludedsourcecount
    */
@@ -6332,6 +6458,10 @@ export type ImageGridReviewGeometryCommand = {
    */
   expectedGridRows: number;
   /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
+  /**
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
@@ -6352,6 +6482,37 @@ export type ImageGridReviewGeometryCommand = {
    * Idempotencykey
    */
   idempotencyKey: string;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
 };
 
 /**
@@ -6382,6 +6543,10 @@ export type ImageGridReviewGeometryPreviewCommand = {
    */
   expectedGridRows: number;
   /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
+  /**
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
@@ -6398,6 +6563,37 @@ export type ImageGridReviewGeometryPreviewCommand = {
    */
   expectedSourceWidth: number;
   geometryQualification?: GeometryQualificationPayload | null;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
 };
 
 /**
@@ -6449,6 +6645,10 @@ export type ImageGridReviewGeometryRevisionResponse = {
    */
   cropperVersion: string;
   /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
+  /**
    * Geometrychecksumsha256
    */
   geometryChecksumSha256: string;
@@ -6469,6 +6669,37 @@ export type ImageGridReviewGeometryRevisionResponse = {
    * Idempotencykey
    */
   idempotencyKey: string;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
   /**
    * Recognizedboardid
    */
@@ -6532,6 +6763,10 @@ export type ImageGridReviewItemResponse = {
       ]
     | null;
   /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
+  /**
    * Gameid
    */
   gameId: string;
@@ -6566,6 +6801,37 @@ export type ImageGridReviewItemResponse = {
    * Importjobid
    */
   importJobId: string;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
   /**
    * Locallatticestatus
    */
@@ -6794,6 +7060,7 @@ export type ImageImportJobPayload = {
    * Importkind
    */
   importKind: 'image_directory';
+  neuralGridProposal?: NeuralGridSnapshotPayload | null;
   /**
    * Normalizationadapterversion
    */
@@ -9373,6 +9640,331 @@ export type ModelQualityResponse = {
 };
 
 /**
+ * NeuralDetectionPayload
+ */
+export type NeuralDetectionPayload = {
+  /**
+   * Cellquads
+   */
+  cellQuads: Array<
+    [
+      SourceLatticePoint,
+      SourceLatticePoint,
+      SourceLatticePoint,
+      SourceLatticePoint,
+    ]
+  >;
+  /**
+   * Cellvisibility
+   */
+  cellVisibility: [
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+    'full' | 'partial' | 'outside' | 'unknown',
+  ];
+  /**
+   * Detectionid
+   */
+  detectionId: string;
+  /**
+   * Latticenodes
+   */
+  latticeNodes:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Score
+   */
+  score: number;
+  /**
+   * Structurallyvalid
+   */
+  structurallyValid: boolean;
+};
+
+/**
+ * NeuralGridModelFilePayload
+ */
+export type NeuralGridModelFilePayload = {
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Sha256
+   */
+  sha256: string;
+  /**
+   * Sizebytes
+   */
+  sizeBytes: number;
+};
+
+/**
+ * NeuralGridModelManifestPayload
+ */
+export type NeuralGridModelManifestPayload = {
+  /**
+   * Bundleformat
+   */
+  bundleFormat: string;
+  /**
+   * Checkpointsha256
+   */
+  checkpointSha256: string;
+  /**
+   * Exportid
+   */
+  exportId: string;
+  /**
+   * Files
+   */
+  files: Array<NeuralGridModelFilePayload>;
+  /**
+   * Frozenon
+   */
+  frozenOn: string;
+  /**
+   * Modelkind
+   */
+  modelKind: 'neural_grid';
+  /**
+   * Modelversion
+   */
+  modelVersion: string;
+  /**
+   * Preset
+   */
+  preset: string;
+  /**
+   * Presetfingerprint
+   */
+  presetFingerprint: string;
+  /**
+   * Profile
+   */
+  profile: 'grid_profile_mumie_v1';
+  /**
+   * Report
+   */
+  report: string;
+  /**
+   * Reportresults
+   */
+  reportResults: Array<NeuralGridModelReportPayload>;
+  /**
+   * Runid
+   */
+  runId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion: 'grid-engine-model-manifest-v1';
+  /**
+   * Selectionreason
+   */
+  selectionReason: string;
+  /**
+   * Snapshotid
+   */
+  snapshotId: string;
+  /**
+   * Version
+   */
+  version: string;
+  /**
+   * Weightssha256
+   */
+  weightsSha256: string;
+};
+
+/**
+ * NeuralGridModelReportPayload
+ */
+export type NeuralGridModelReportPayload = {
+  /**
+   * Dataset
+   */
+  dataset: string;
+  /**
+   * Result
+   */
+  result: string;
+};
+
+/**
+ * NeuralGridSnapshotPayload
+ */
+export type NeuralGridSnapshotPayload = {
+  /**
+   * Contractversion
+   */
+  contractVersion: 'neural-grid-proposal-snapshot-v1';
+  /**
+   * Expectedlayoutcount
+   */
+  expectedLayoutCount: number;
+  model: NeuralGridModelManifestPayload;
+};
+
+/**
+ * NeuralSourceAssignmentPayload
+ */
+export type NeuralSourceAssignmentPayload = {
+  /**
+   * Detectionid
+   */
+  detectionId: string;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+};
+
+/**
+ * NeuralSourceBindingPayload
+ */
+export type NeuralSourceBindingPayload = {
+  /**
+   * Assignments
+   */
+  assignments: Array<NeuralSourceAssignmentPayload>;
+  confirmedRange: NeuralSourceRangePayload;
+  /**
+   * Contractversion
+   */
+  contractVersion: 'neural-source-binding-v1';
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Ignoreddetectionids
+   */
+  ignoredDetectionIds: Array<string>;
+  /**
+   * Missingpositionindexes
+   */
+  missingPositionIndexes: Array<number>;
+  originalRange: NeuralSourceRangePayload;
+  /**
+   * Proposalchecksumsha256
+   */
+  proposalChecksumSha256: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceheight
+   */
+  sourceHeight: number;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  /**
+   * Sourcewidth
+   */
+  sourceWidth: number;
+};
+
+/**
+ * NeuralSourceProposalPayload
+ */
+export type NeuralSourceProposalPayload = {
+  /**
+   * Contractversion
+   */
+  contractVersion: 'neural-source-proposal-v1';
+  /**
+   * Detections
+   */
+  detections: Array<NeuralDetectionPayload>;
+  engineSnapshot: NeuralGridSnapshotPayload;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  originalRange: NeuralSourceRangePayload;
+  /**
+   * Proposalchecksumsha256
+   */
+  proposalChecksumSha256: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceheight
+   */
+  sourceHeight: number;
+  /**
+   * Sourceselectionid
+   */
+  sourceSelectionId: string;
+  /**
+   * Sourcewidth
+   */
+  sourceWidth: number;
+};
+
+/**
+ * NeuralSourceRangePayload
+ */
+export type NeuralSourceRangePayload = {
+  /**
+   * Sequencerangeend
+   */
+  sequenceRangeEnd: number;
+  /**
+   * Sequencerangestart
+   */
+  sequenceRangeStart: number;
+};
+
+/**
  * OperationalImageReviewAlternativeResponse
  */
 export type OperationalImageReviewAlternativeResponse = {
@@ -9512,6 +10104,10 @@ export type OperationalImageReviewGeometryCommand = {
    */
   expectedGeometryRevision: number;
   /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
+  /**
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
@@ -9520,6 +10116,37 @@ export type OperationalImageReviewGeometryCommand = {
    * Idempotencykey
    */
   idempotencyKey: string;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
 };
 
 /**
@@ -9556,10 +10183,45 @@ export type OperationalImageReviewGeometryPreviewCommand = {
    */
   expectedGeometryRevision: number;
   /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
+  /**
    * Expectedresolutionrevision
    */
   expectedResolutionRevision: number;
   geometryQualification?: GeometryQualificationPayload | null;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
 };
 
 /**
@@ -9576,12 +10238,6 @@ export type OperationalImageReviewGeometryResponse = {
 
 /**
  * OperationalImageReviewGeometryRevisionResponse
- *
- * One ``virtual_source`` manual geometry revision (D-467 S6, TASK-0796).
- *
- * The former v19 file-crop fields (board crop checksum, manual decision
- * checksum) are gone: the revision is bound by its source geometry and
- * render manifest checksums instead.
  */
 export type OperationalImageReviewGeometryRevisionResponse = {
   /**
@@ -9614,6 +10270,10 @@ export type OperationalImageReviewGeometryRevisionResponse = {
    */
   cropperVersion: string;
   /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
+  /**
    * Geometrychecksumsha256
    */
   geometryChecksumSha256: string;
@@ -9626,6 +10286,37 @@ export type OperationalImageReviewGeometryRevisionResponse = {
    * Idempotencykey
    */
   idempotencyKey: string;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
   /**
    * Recognizedboardid
    */
@@ -9665,6 +10356,10 @@ export type OperationalImageReviewItemResponse = {
    */
   createdAt: string;
   /**
+   * Expectedproposalchecksumsha256
+   */
+  expectedProposalChecksumSha256?: string | null;
+  /**
    * Gameid
    */
   gameId: string;
@@ -9690,6 +10385,37 @@ export type OperationalImageReviewItemResponse = {
    * Importjobid
    */
   importJobId: string;
+  /**
+   * Latticenodes
+   */
+  latticeNodes?:
+    | [
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+        SourceLatticePoint,
+      ]
+    | null;
   /**
    * Pipelinefingerprint
    */
@@ -9947,6 +10673,7 @@ export type PageGeometryPreflightJobPayload = {
    * Managedsourcemanifestchecksumsha256
    */
   managedSourceManifestChecksumSha256?: string | null;
+  neuralGridProposal?: NeuralGridSnapshotPayload | null;
   /**
    * Pagegeometryoverrides
    */
@@ -9966,6 +10693,7 @@ export type PageGeometryPreflightJobPayload = {
     | 'page-geometry-preflight-v2-auto-anchor'
     | 'page-geometry-preflight-v3-board-area-mask'
     | 'page-geometry-preflight-v12-contrast-frame-grid'
+    | 'page-geometry-preflight-v13-neural-mumie-pilot'
     | null;
   /**
    * Replacementparentmanifestsha256
@@ -11584,6 +12312,15 @@ export type ResolvedBrowserImageImportJobPayload = {
    * Importkind
    */
   importKind: 'image_directory';
+  /**
+   * Managedsourcejobid
+   */
+  managedSourceJobId?: string | null;
+  /**
+   * Managedsourcemanifestchecksumsha256
+   */
+  managedSourceManifestChecksumSha256?: string | null;
+  neuralGridProposal?: NeuralGridSnapshotPayload | null;
   /**
    * Normalizationadapterversion
    */
@@ -13548,6 +14285,20 @@ export type SourceImageGeometryExceptionResponse = {
  */
 export type SourceImageGeometryStatus =
   'geometry_complete' | 'geometry_incomplete' | 'geometry_exception';
+
+/**
+ * SourceLatticePoint
+ */
+export type SourceLatticePoint = {
+  /**
+   * X
+   */
+  x: number;
+  /**
+   * Y
+   */
+  y: number;
+};
 
 /**
  * StorageGcJobPayload

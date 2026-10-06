@@ -46,6 +46,7 @@ from game_predictor_api.domain.reviews import (
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.metadata import Base
+from game_predictor_api.storage.neural_page_geometry_constraints import NEURAL_PAGE_BINDING_CHECK
 
 
 def _enum_values(
@@ -1933,7 +1934,7 @@ class ImageSourceGeometryRevisionModel(Base):
         ),
         CheckConstraint(
             "engine_kind IN ('legacy_v20', 'structured_opencv_v1', "
-            "'manual_v1', 'keypoint_fallback_v1') "
+            "'manual_v1', 'keypoint_fallback_v1', 'neural_grid_v1') "
             "AND length(btrim(engine_version)) > 0",
             name="ck_image_source_geometry_revisions_engine",
         ),
@@ -3405,8 +3406,14 @@ class ImagePageGeometryOverrideModel(Base):
         ),
         CheckConstraint(
             "jsonb_typeof(final_quads) = 'array' "
-            "AND jsonb_array_length(final_quads) BETWEEN 1 AND 9",
+            "AND ((neural_proposal_binding IS NULL AND "
+            "jsonb_array_length(final_quads) BETWEEN 1 AND 9) OR "
+            "(neural_proposal_binding IS NOT NULL AND jsonb_array_length(final_quads) = 0))",
             name="ck_image_page_geometry_overrides_quads",
+        ),
+        CheckConstraint(
+            NEURAL_PAGE_BINDING_CHECK,
+            name="ck_page_override_neural_binding",
         ),
         UniqueConstraint(
             "game_id",
@@ -3430,6 +3437,9 @@ class ImagePageGeometryOverrideModel(Base):
     image_width: Mapped[int] = mapped_column(Integer, nullable=False)
     image_height: Mapped[int] = mapped_column(Integer, nullable=False)
     final_quads: Mapped[list[list[dict[str, int]]]] = mapped_column(JSONB, nullable=False)
+    neural_proposal_binding: Mapped[dict[str, object] | None] = mapped_column(
+        JSONB(none_as_null=True), nullable=True
+    )
     board_frame_quads: Mapped[list[list[dict[str, int]]] | None] = mapped_column(
         JSONB(none_as_null=True), nullable=True
     )

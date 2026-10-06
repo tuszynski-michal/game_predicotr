@@ -204,8 +204,9 @@ C:\Users\tuszy\Documents\game_predicotr\artifacts\grid-v3-deployment-20261004\08
 Nie wykonano migracji, importu ani aktywacji na bazie operatora. Nie
 restartowano usług, nie scalano gałęzi, nie uruchamiano TASK-0882.
 Implementacja i odbiór spełniają sześć kryteriów taska oraz odpowiadającą
-sekcję zaakceptowanego planu. Osobny commit v1.7.223 i jego pełny hash
-zostaną potwierdzone z historią po publikacji. Stare brudne metadane tasków
+sekcję zaakceptowanego planu. Osobny commit v1.7.223 /
+669cd5325140312e9da270bcd3c2ff194b875655 potwierdzono z historią,
+git show --stat i pozostałym git status. Stare brudne metadane tasków
 pozostają poza zakresem commita.
 
 ### Documentation updates

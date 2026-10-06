@@ -313,7 +313,9 @@ class SqlAlchemyImagePipelineStore:
                             cast(Mapping[str, object], structured["globalInitialization"])
                         ),
                         board_geometries=boards,
-                        engine_kind="manual_v1"
+                        engine_kind=cast(str, structured["engineKind"])
+                        if structured.get("engineKind") == "neural_grid_v1"
+                        else "manual_v1"
                         if structured.get("geometrySource") == "manual"
                         else "structured_opencv_v1",
                         engine_version=cast(str, structured["engineVersion"]),

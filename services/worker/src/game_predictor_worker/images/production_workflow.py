@@ -424,6 +424,9 @@ class ProductionImageImportWorkflow:
             job,
             source_directory=_source_directory(job),
         )
+        if "neural_grid_proposal" in job.input_payload:
+            # Verify source/model/binding evidence before any retention DB write.
+            _page_geometry_manifest(job, self._artifact_root, managed_manifest=manifest)
         all_source_count = len(manifest.originals)
         source_context = _ProgressWindowContext(
             context,
@@ -453,10 +456,16 @@ class ProductionImageImportWorkflow:
             if job.input_payload.get("geometry_guard_resolution_manifest") is not None
             else None
         )
-        unresolved_originals = _filter_canonical_originals(manifest.originals, job)
-        canonical_skipped_count = len(manifest.originals) - len(unresolved_originals)
+        neural_import = "neural_grid_proposal" in job.input_payload
+        candidate_originals = manifest.originals
+        if neural_import:
+            from .neural_pending_geometry import bound_neural_originals
+
+            candidate_originals = bound_neural_originals(manifest.originals, geometry_manifest)
+        unresolved_originals = _filter_canonical_originals(candidate_originals, job)
+        canonical_skipped_count = len(candidate_originals) - len(unresolved_originals)
         geometry_guard_policy = _geometry_systemic_guard_policy(job)
-        manual_geometry_import = (
+        manual_geometry_import = neural_import or (
             geometry_guard_policy is not None
             and geometry_guard_policy["policyVersion"] == MANUAL_REVIEW_GEOMETRY_GUARD_VERSION
         )
@@ -466,7 +475,12 @@ class ProductionImageImportWorkflow:
                 pipeline_originals,
                 geometry_manifest,
             )
-        deferred_geometry_count = len(unresolved_originals) - len(pipeline_originals)
+        deferred_geometry_count = (
+            len(manifest.originals)
+            - len(candidate_originals)
+            + len(unresolved_originals)
+            - len(pipeline_originals)
+        )
         source_count = len(pipeline_originals)
         if not pipeline_originals:
             context.checkpoint(
@@ -504,7 +518,11 @@ class ProductionImageImportWorkflow:
         geometry_guard_policy = _geometry_systemic_guard_policy(job)
         geometry_guard = None
         geometry_guard_resolution = None
-        if board_cell_processing is not None and geometry_guard_policy is not None:
+        if (
+            board_cell_processing is not None
+            and geometry_guard_policy is not None
+            and not neural_import
+        ):
             guard_suite = ProductionImageStageAdapterSuite(
                 self._artifact_root,
                 manual_geometry_import=manual_geometry_import,
@@ -1100,6 +1118,10 @@ class ProductionImageStageAdapterSuite:
                     attested_range=AttestedSequenceRange(start=start, end=end),
                 )
             ).to_payload()
+            if entry.get("neuralProposal") is not None:
+                from .neural_pending_geometry import neural_pending_payload
+
+                return neural_pending_payload(structured, entry)
             return {
                 "manualGeometryRequired": True,
                 "structuredGeometry": structured,
@@ -1246,6 +1268,12 @@ class ProductionImageStageAdapterSuite:
             return {
                 "manualGeometryRequired": True,
                 "structuredGeometry": detection["structuredGeometry"],
+                "processingVersion": BOARD_CELL_PROCESSING_VERSION,
+                "topologyRulesVersionId": self._board_topology.rules_version_id,
+                "configurationFingerprintSha256": _text(
+                    _mapping(detection["structuredGeometry"], "structuredGeometry"),
+                    "configChecksumSha256",
+                ),
                 "gridRows": self._board_topology.rows,
                 "gridColumns": self._board_topology.columns,
                 "boards": [
@@ -3242,6 +3270,33 @@ def _page_geometry_manifest(
     entries = value.get("entries")
     if not isinstance(entries, Mapping):
         raise _page_manifest_error(job, "The pinned page geometry manifest has no source entries.")
+    if "neural_grid_proposal" in job.input_payload:
+        from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
+
+        from .neural_page_geometry_preflight import validate_neural_page_manifest
+
+        snapshot = NeuralGridSnapshot.from_payload(job.input_payload["neural_grid_proposal"])
+        validate_neural_page_manifest(
+            value,
+            game_id=str(job.game_id),
+            source_selection_id=str(job.input_payload.get("source_selection_id")),
+            source_manifest_sha256=str(job.input_payload.get("source_manifest_sha256")),
+            snapshot=snapshot,
+        )
+        if managed_manifest is None or set(entries) != {
+            item.checksum_sha256 for item in managed_manifest.originals
+        }:
+            raise _page_manifest_error(job, "The neural manifest differs from managed originals.")
+        for original in managed_manifest.originals:
+            entry = cast(Mapping[str, object], entries[original.checksum_sha256])
+            if entry["sourceRelativePath"] != original.source_relative_path:
+                raise _page_manifest_error(
+                    job, "The neural source path differs from the frozen inventory."
+                )
+        from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
+
+        ManagedGridEngineModelStore(artifact_root).require(snapshot.version)
+        return entries
     if job.input_payload.get("geometry_engine_variant") == "contrast_frame_grid_v1_2":
         from .page_geometry_preflight import (
             PAGE_GEOMETRY_MANIFEST_CONTRAST_FRAME_V12_SCHEMA_VERSION,

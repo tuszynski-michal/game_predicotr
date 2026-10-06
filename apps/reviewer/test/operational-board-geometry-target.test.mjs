@@ -25,6 +25,42 @@ const COMPLETE_FLAGS = {
   manualUnavailable: [],
   partial: false,
 };
+
+test('operational neural nodes and proposal checksum survive load, preview and save', async () => {
+  const nodes = Array.from({ length: 24 }, (_, i) => ({
+    x: 100.125 + (i % 6) * 80,
+    y: 80.375 + Math.floor(i / 6) * 80,
+  }));
+  const { api, calls } = fakeApi();
+  const board = target(
+    operationalItem({
+      latticeNodes: nodes,
+      expectedProposalChecksumSha256: 'd'.repeat(64),
+    }),
+    api,
+  );
+  const loaded = await board.load();
+  assert.deepEqual(loaded.view.suggestedLatticeNodes, nodes);
+  await board.preview(LATTICE, COMPLETE_FLAGS, nodes);
+  await board.save(
+    LATTICE,
+    COMPLETE_FLAGS,
+    'float-idempotency',
+    undefined,
+    nodes,
+  );
+  for (const call of [calls.preview[0], calls.save[0]]) {
+    assert.deepEqual(call.body.latticeNodes, nodes);
+    assert.equal(call.body.expectedProposalChecksumSha256, 'd'.repeat(64));
+    assert.equal(call.body.corners[0].x, 100);
+  }
+  const changed = structuredClone(nodes);
+  changed[7].x += 0.125;
+  assert.notEqual(
+    board.commandKey(LATTICE, COMPLETE_FLAGS, nodes),
+    board.commandKey(LATTICE, COMPLETE_FLAGS, changed),
+  );
+});
 const PARTIAL_FLAGS = { ...COMPLETE_FLAGS, exclude: true, partial: true };
 
 function operationalItem(overrides = {}) {

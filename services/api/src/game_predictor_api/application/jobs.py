@@ -61,6 +61,7 @@ from game_predictor_worker.images.structured_geometry import (
 from game_predictor_api.application.layout_imports import LayoutImportSourceInspector
 from game_predictor_api.application.managed_reprocess_evidence import (
     ManagedReprocessEvidenceError,
+    resolve_managed_preflight_source,
     resolve_managed_reprocess_evidence,
 )
 from game_predictor_api.domain.datasets import DatasetVersionStatus
@@ -81,11 +82,18 @@ from game_predictor_api.domain.jobs import (
     requeue_job,
     requeue_job_with_fresh_progress,
 )
+from game_predictor_api.domain.neural_grid_proposal import (
+    NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
+    NeuralGridSnapshot,
+    validate_neural_source_binding,
+    validate_neural_source_proposal,
+)
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     bootstrap_symbol_model_snapshot,
 )
+from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
 
 PAYOUT_ALGORITHM_VERSION = "payout-v3-unknown-prefix-stop"
 # Must match migration 0091 and the immutable v2 recognizer contract.  This
@@ -670,6 +678,7 @@ class JobService:
         geometry_guard_resolution_manifest: dict[str, object] | None = None,
         allow_unclassified_symbol_cold_start: bool = False,
         geometry_engine_variant: GeometryEngineVariant | None = None,
+        managed_source_job_id: UUID | None = None,
     ) -> Job:
         # Do not persist an executable v4 job before its detector and acceptance.
         try:
@@ -719,14 +728,38 @@ class JobService:
                 "Game does not exist.",
                 details={"gameId": str(game_id)},
             )
+        managed_input: dict[str, object] = {}
+        if managed_source_job_id is not None:
+            pilot = getattr(self._grid_profile_snapshot_resolver, "uses_neural_grid_pilot", None)
+            if not callable(pilot) or not pilot(game_id=game_id) or self._artifact_root is None:
+                raise JobConflictError(
+                    "NEURAL_MANAGED_SOURCE_UNSUPPORTED",
+                    "Managed source reuse requires the neural pilot.",
+                )
+            from .managed_reprocess_evidence import resolve_managed_preflight_source
+
+            managed_checksum, browser_checksum = resolve_managed_preflight_source(
+                self.get_job(managed_source_job_id),
+                artifact_root=self._artifact_root,
+                game_id=game_id,
+                selection_id=selection_id,
+            )
+            if browser_checksum != source_manifest_sha256:
+                raise JobConflictError(
+                    "NEURAL_MANAGED_SOURCE_STALE", "The managed source identity differs."
+                )
+            managed_input = {
+                "managed_source_job_id": str(managed_source_job_id),
+                "managed_source_manifest_checksum_sha256": managed_checksum,
+            }
         try:
-            resolved = source_directory.resolve(strict=True)
+            resolved = source_directory.resolve(strict=not bool(managed_input))
         except OSError as error:
             raise JobError(
                 "IMAGE_FOLDER_NOT_FOUND",
                 "The selected image folder does not exist or is unavailable.",
             ) from error
-        if not resolved.is_dir():
+        if not managed_input and not resolved.is_dir():
             raise JobError(
                 "IMAGE_FOLDER_NOT_DIRECTORY",
                 "The selected image source must be a directory.",
@@ -748,7 +781,16 @@ class JobService:
             "source_pipeline_fingerprint": pipeline_fingerprint,
             "normalization_adapter_version": CURRENT_NORMALIZATION_ADAPTER_VERSION,
             "symbol_model": symbol_model.to_payload(),
+            **managed_input,
         }
+        neural_snapshot = self._neural_import_snapshot(
+            game_id=game_id,
+            selection_id=selection_id,
+            source_manifest_sha256=source_manifest_sha256,
+            descriptor=page_geometry_manifest,
+        )
+        if neural_snapshot is not None:
+            input_payload["neural_grid_proposal"] = neural_snapshot
         if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
             input_payload["geometry_engine_variant"] = geometry_engine_variant.value
         if start_mode is not None:
@@ -1830,6 +1872,36 @@ class JobService:
                 "The selected page registration variant is not supported.",
                 details={"pageRegistrationVariant": page_registration_variant},
             )
+        overrides = (
+            {}
+            if self._page_geometry_override_snapshot_resolver is None
+            else self._page_geometry_override_snapshot_resolver.snapshot(game_id=game_id)
+        )
+        if not isinstance(overrides, dict):
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_OVERRIDE_SNAPSHOT_INVALID",
+                "The page geometry override snapshot is invalid.",
+            )
+        candidates = self._repository.list_jobs(
+            status=None,
+            job_type=JobType.VALIDATE,
+            game_id=game_id,
+            limit=10_000,
+        )
+        neural_snapshot = self._neural_preflight_snapshot(
+            game_id=game_id,
+            selection_id=selection_id,
+            source_manifest_sha256=source_manifest_sha256,
+            candidates=candidates,
+            overrides=overrides,
+        )
+        if neural_snapshot is not None and (
+            geometry_engine_variant is not None or page_registration_variant != "standard_v0_10"
+        ):
+            raise JobConflictError(
+                "NEURAL_GRID_PILOT_VARIANT_CONFLICT",
+                "The Mumie neural pilot cannot silently replace an explicit classical variant.",
+            )
         managed_input: dict[str, object] = {}
         if managed_source_job_id is not None:
             if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
@@ -1837,7 +1909,9 @@ class JobService:
                     "IMAGE_CONTRAST_FRAME_GRID_MANAGED_PREFLIGHT_UNSUPPORTED",
                     "V1.2 visual preflight currently accepts browser-staged sources only.",
                 )
-            if geometry_engine_variant is None or self._artifact_root is None:
+            if (
+                geometry_engine_variant is None and neural_snapshot is None
+            ) or self._artifact_root is None:
                 raise JobConflictError(
                     "IMAGE_LATERAL_PARTIAL_MANAGED_PREFLIGHT_INVALID",
                     "Managed preflight preparation requires the explicit v0.10.4 variant.",
@@ -1889,7 +1963,7 @@ class JobService:
         is_v12 = geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2
         shape_geometry_v2_profile = (
             None
-            if is_v12
+            if is_v12 or neural_snapshot is not None
             else self._shape_geometry_v2_profile_snapshot(
                 page_registration_variant=page_registration_variant
             )
@@ -1914,19 +1988,9 @@ class JobService:
                 if shape_geometry_v2_profile is not None
                 else "page-geometry-preflight-v2-auto-anchor"
             )
-        overrides = (
-            {}
-            if self._page_geometry_override_snapshot_resolver is None
-            else self._page_geometry_override_snapshot_resolver.snapshot(game_id=game_id)
-        )
-        if not isinstance(overrides, dict):
-            raise JobError(
-                "IMAGE_PAGE_GEOMETRY_OVERRIDE_SNAPSHOT_INVALID",
-                "The page geometry override snapshot is invalid.",
-            )
         partial_policy = (
             None
-            if is_v12
+            if is_v12 or neural_snapshot is not None
             else self._current_lateral_partial_policy(
                 game_id=game_id,
                 geometry_engine_variant=geometry_engine_variant,
@@ -1935,6 +1999,8 @@ class JobService:
         contrast_profile = build_contrast_frame_grid_v12_profile(overrides) if is_v12 else None
         if is_v12:
             preflight_policy_version = "page-geometry-preflight-v12-contrast-frame-grid"
+        if neural_snapshot is not None:
+            preflight_policy_version = NEURAL_GRID_PREFLIGHT_POLICY_VERSION
         exclusions = (
             {}
             if self._page_geometry_override_snapshot_resolver is None
@@ -1957,6 +2023,7 @@ class JobService:
             "source_manifest_sha256": source_manifest_sha256,
             "page_registration_profile": registration,
             "page_geometry_overrides": overrides,
+            **({"neural_grid_proposal": neural_snapshot} if neural_snapshot is not None else {}),
             **(
                 {"shape_geometry_v2_profile": shape_geometry_v2_profile}
                 if shape_geometry_v2_profile is not None
@@ -2012,6 +2079,129 @@ class JobService:
             input_payload=input_payload,
             game_already_validated=True,
         )
+
+    def _neural_preflight_snapshot(
+        self,
+        *,
+        game_id: UUID,
+        selection_id: UUID,
+        source_manifest_sha256: str,
+        candidates: Sequence[Job],
+        overrides: Mapping[str, object],
+    ) -> dict[str, object] | None:
+        resolver = self._grid_profile_snapshot_resolver
+        pilot = getattr(resolver, "uses_neural_grid_pilot", None)
+        if not callable(pilot) or not pilot(game_id=game_id):
+            return None
+        if self._artifact_root is None:
+            raise JobError(
+                "GRID_ENGINE_MODEL_STORE_UNAVAILABLE", "The managed model store is unavailable."
+            )
+        current_bindings = {
+            source_sha: binding
+            for source_sha, value in overrides.items()
+            if isinstance(value, Mapping)
+            and isinstance(binding := value.get("neuralProposalBinding"), Mapping)
+            and binding.get("sourceSelectionId") == str(selection_id)
+        }
+        for candidate in candidates:
+            payload = candidate.input_payload
+            if (
+                candidate.status is not JobStatus.COMPLETED
+                or payload.get("validation_kind") != "page_geometry_preflight"
+                or payload.get("source_selection_id") != str(selection_id)
+                or payload.get("source_manifest_sha256") != source_manifest_sha256
+                or payload.get("preflight_policy_version") != NEURAL_GRID_PREFLIGHT_POLICY_VERSION
+            ):
+                continue
+            descriptor = _completed_page_geometry_manifest_descriptor(
+                candidate,
+                artifact_root=self._artifact_root,
+                target=payload,
+                compatibility_mode="exact_policy",
+            )
+            if descriptor is not None:
+                if current_bindings:
+                    checkpoint = cast(Mapping[str, object], candidate.checkpoint_payload)
+                    path = self._artifact_root / str(checkpoint["geometry_manifest_relative_path"])
+                    try:
+                        content = path.read_bytes()
+                        if (
+                            hashlib.sha256(content).hexdigest()
+                            != descriptor["manifestChecksumSha256"]
+                        ):
+                            continue
+                        manifest = json.loads(content)
+                        for source_sha, binding in current_bindings.items():
+                            entry = manifest["entries"].get(source_sha)
+                            if not isinstance(entry, Mapping):
+                                raise ValueError("The frozen proposal source is unavailable.")
+                            if entry.get("status") == "skipped_human_resolved":
+                                continue
+                            validate_neural_source_binding(binding, entry.get("neuralProposal"))
+                    except (ValueError, TypeError, KeyError, OSError):
+                        continue
+                snapshot = NeuralGridSnapshot.from_payload(payload.get("neural_grid_proposal"))
+                ManagedGridEngineModelStore(self._artifact_root).require(snapshot.version)
+                return snapshot.to_payload()
+        if current_bindings:
+            raise JobConflictError(
+                "NEURAL_SOURCE_PROPOSAL_UNAVAILABLE",
+                "The saved binding has no matching immutable source proposal.",
+            )
+        resolve = getattr(resolver, "resolve_neural_grid_proposal", None)
+        if not callable(resolve):
+            raise JobError(
+                "NEURAL_GRID_SNAPSHOT_UNAVAILABLE", "The neural snapshot resolver is unavailable."
+            )
+        return cast(dict[str, object] | None, resolve(game_id=game_id))
+
+    def _neural_import_snapshot(
+        self,
+        *,
+        game_id: UUID,
+        selection_id: UUID,
+        source_manifest_sha256: str | None,
+        descriptor: Mapping[str, object] | None,
+    ) -> dict[str, object] | None:
+        pilot = getattr(self._grid_profile_snapshot_resolver, "uses_neural_grid_pilot", None)
+        if not callable(pilot) or not pilot(game_id=game_id):
+            return None
+        if descriptor is None or self._artifact_root is None:
+            raise JobConflictError(
+                "NEURAL_GRID_PREFLIGHT_REQUIRED", "The neural pilot requires its frozen preflight."
+            )
+        try:
+            candidate = self.get_job(UUID(str(descriptor.get("preflightJobId"))))
+        except ValueError as error:
+            raise JobConflictError(
+                "NEURAL_GRID_PREFLIGHT_INVALID", "The preflight identity is invalid."
+            ) from error
+        payload = candidate.input_payload
+        if (
+            candidate.game_id != game_id
+            or payload.get("source_selection_id") != str(selection_id)
+            or payload.get("source_manifest_sha256") != source_manifest_sha256
+            or payload.get("preflight_policy_version") != NEURAL_GRID_PREFLIGHT_POLICY_VERSION
+            or candidate.checkpoint_payload is None
+            or candidate.checkpoint_payload.get("geometry_manifest_checksum_sha256")
+            != descriptor.get("checksumSha256")
+            or candidate.checkpoint_payload.get("geometry_manifest_relative_path")
+            != descriptor.get("relativePath")
+            or _completed_page_geometry_manifest_descriptor(
+                candidate,
+                artifact_root=self._artifact_root,
+                target=payload,
+                compatibility_mode="exact_policy",
+            )
+            is None
+        ):
+            raise JobConflictError(
+                "NEURAL_GRID_PREFLIGHT_INVALID", "The frozen preflight provenance differs."
+            )
+        snapshot = NeuralGridSnapshot.from_payload(payload.get("neural_grid_proposal"))
+        ManagedGridEngineModelStore(self._artifact_root).require(snapshot.version)
+        return snapshot.to_payload()
 
     def _select_page_geometry_base_manifest(
         self,
@@ -2078,6 +2268,40 @@ class JobService:
             if job.input_payload.get("source_selection_id") == str(source_selection_id):
                 return job
         return None
+
+    def get_managed_neural_import_by_source_selection(
+        self,
+        *,
+        game_id: UUID,
+        source_selection_id: UUID,
+    ) -> Job | None:
+        """Select durable originals, independently of a newer in-flight import run."""
+        if self._artifact_root is None:
+            return None
+        for job in self._repository.list_jobs(
+            status=None, job_type=JobType.IMPORT, game_id=game_id, limit=10_000
+        ):
+            if (
+                job.input_payload.get("source_selection_id") != str(source_selection_id)
+                or job.input_payload.get("neural_grid_proposal") is None
+            ):
+                continue
+            try:
+                NeuralGridSnapshot.from_payload(job.input_payload["neural_grid_proposal"])
+                resolve_managed_preflight_source(
+                    job,
+                    artifact_root=self._artifact_root,
+                    game_id=game_id,
+                    selection_id=source_selection_id,
+                )
+            except (ManagedReprocessEvidenceError, ValueError):
+                continue
+            return job
+        return None
+
+    def uses_neural_grid_pilot(self, *, game_id: UUID) -> bool:
+        resolver = getattr(self._grid_profile_snapshot_resolver, "uses_neural_grid_pilot", None)
+        return bool(callable(resolver) and resolver(game_id=game_id))
 
     def get_image_import_run_by_source_selection(
         self,
@@ -2198,6 +2422,10 @@ class JobService:
                 or payload.get("source_selection_id") != str(source_selection_id)
                 or payload.get("source_manifest_sha256") != source_manifest_sha256
             ):
+                continue
+            if payload.get("neural_grid_proposal") is not None:
+                if geometry_engine_variant is None:
+                    return job
                 continue
             if geometry_engine_variant is GeometryEngineVariant.CONTRAST_FRAME_GRID_V1_2:
                 if (
@@ -2405,6 +2633,7 @@ def _page_geometry_candidate_compatibility(
         or payload.get("shape_geometry_v2_profile") != target.get("shape_geometry_v2_profile")
         or payload.get("contrast_frame_grid_v12_profile")
         != target.get("contrast_frame_grid_v12_profile")
+        or payload.get("neural_grid_proposal") != target.get("neural_grid_proposal")
     ):
         return None
     if target.get("contrast_frame_grid_v12_profile") is not None:
@@ -2496,6 +2725,50 @@ def _completed_page_geometry_manifest_descriptor(
         or not isinstance(manifest.get("entries"), Mapping)
     ):
         return None
+    neural_payload = target.get("neural_grid_proposal")
+    if neural_payload is not None:
+        try:
+            snapshot = NeuralGridSnapshot.from_payload(neural_payload)
+            if (
+                manifest.get("schemaVersion") != 5
+                or manifest.get("neuralGridProposal") != snapshot.to_payload()
+            ):
+                return None
+            for source_sha, entry in manifest["entries"].items():
+                if not isinstance(entry, Mapping):
+                    return None
+                if entry.get("status") == "skipped_human_resolved":
+                    continue
+                proposal = validate_neural_source_proposal(entry.get("neuralProposal"))
+                if (
+                    proposal["gameId"] != str(candidate.game_id)
+                    or proposal["sourceSelectionId"] != expected_selection
+                    or proposal["sourceChecksumSha256"] != source_sha
+                    or proposal["engineSnapshot"] != snapshot.to_payload()
+                ):
+                    return None
+                if entry.get("neuralProposalBinding") is not None:
+                    validate_neural_source_binding(entry["neuralProposalBinding"], proposal)
+            overrides = target.get("page_geometry_overrides")
+            if isinstance(overrides, Mapping):
+                for source_sha, override in overrides.items():
+                    binding = (
+                        override.get("neuralProposalBinding")
+                        if isinstance(override, Mapping)
+                        else None
+                    )
+                    if (
+                        not isinstance(binding, Mapping)
+                        or binding.get("sourceSelectionId") != expected_selection
+                    ):
+                        continue
+                    entry = manifest["entries"].get(source_sha)
+                    if not isinstance(entry, Mapping):
+                        return None
+                    if entry.get("status") != "skipped_human_resolved":
+                        validate_neural_source_binding(binding, entry.get("neuralProposal"))
+        except (ValueError, TypeError, KeyError):
+            return None
     return {
         "contractVersion": _PAGE_GEOMETRY_REUSE_CONTRACT_VERSION,
         "jobId": str(candidate.id),

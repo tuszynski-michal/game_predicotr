@@ -19,6 +19,13 @@ import {
 
 import { apiErrorMessage } from '../catalog/catalog-api-error.ts';
 import {
+  boardLatticeUnavailable,
+  boardLatticeQualification,
+  boardLatticeTransportCorners,
+  boardLatticePayload,
+  type BoardLatticeNodes,
+} from './board-lattice-state.ts';
+import {
   gridAuditClassLabel,
   gridAuditPreviewCommandsEqual,
   gridAuditSuggestedCorners,
@@ -81,6 +88,9 @@ export interface BoardGeometryCorrectionView {
   readonly sourceUrl: string;
   readonly sourceWidth: number;
   readonly suggestedCorners: OperationalReviewGeometryCorners;
+  /** Full source lattice; absent for the established four-corner workflow. */
+  readonly suggestedLatticeNodes?: BoardLatticeNodes;
+  readonly draftBindingKey?: string;
   readonly supportsPartial: boolean;
 }
 
@@ -105,10 +115,12 @@ export interface BoardGeometryCorrectionTarget {
   commandKey(
     corners: OperationalReviewGeometryCorners,
     flags: ManualGridFlags,
+    latticeNodes?: BoardLatticeNodes,
   ): string;
   preview(
     corners: OperationalReviewGeometryCorners,
     flags: ManualGridFlags,
+    latticeNodes?: BoardLatticeNodes,
   ): Promise<
     { readonly blob: Blob; readonly ok: true } | BoardGeometryCorrectionFailure
   >;
@@ -120,6 +132,7 @@ export interface BoardGeometryCorrectionTarget {
   symbols?(
     corners: OperationalReviewGeometryCorners,
     flags: ManualGridFlags,
+    latticeNodes?: BoardLatticeNodes,
   ): Promise<
     | {
         readonly cells: readonly GridCorrectionCellSymbolSuggestionResponse[];
@@ -137,6 +150,7 @@ export interface BoardGeometryCorrectionTarget {
     flags: ManualGridFlags,
     idempotencyKey: string,
     cellSymbols?: readonly GridCorrectionCellSymbolPayload[],
+    latticeNodes?: BoardLatticeNodes,
   ): Promise<
     | { readonly ok: true; readonly reviewItemId: string | null }
     | BoardGeometryCorrectionFailure
@@ -174,7 +188,18 @@ export function deferredBoardGeometryTarget(input: {
       return {
         ok: true,
         view: {
-          initialFlags: completeManualGridFlags,
+          initialFlags:
+            result.context.latticeNodes == null
+              ? completeManualGridFlags
+              : {
+                  ...completeManualGridFlags,
+                  partial:
+                    boardLatticeUnavailable(
+                      result.context.latticeNodes,
+                      result.context.sourceWidth,
+                      result.context.sourceHeight,
+                    ).length > 0,
+                },
           kind: 'deferred',
           metadata: [
             {
@@ -183,7 +208,10 @@ export function deferredBoardGeometryTarget(input: {
             },
             {
               label: 'Pozycja na stronie',
-              value: `${item.positionIndex + 1} / 9`,
+              value:
+                result.context.latticeNodes == null
+                  ? `${item.positionIndex + 1} / 9`
+                  : String(item.positionIndex + 1),
             },
             {
               label: 'Powód odroczenia',
@@ -202,19 +230,40 @@ export function deferredBoardGeometryTarget(input: {
           sourceUrl: deferredBoardCellGeometrySourceUrl(input.apiBaseUrl, item),
           sourceWidth: result.context.sourceWidth,
           suggestedCorners: deferredBoardCellGeometryCorners(result.context),
+          ...(result.context.latticeNodes == null
+            ? {}
+            : {
+                suggestedLatticeNodes: result.context.latticeNodes,
+                draftBindingKey: JSON.stringify({
+                  manifest: item.processingManifestChecksumSha256,
+                  geometry: item.expectedGeometryRevision,
+                  resolution: item.expectedReviewResolutionRevision,
+                  proposal: result.context.expectedProposalChecksumSha256,
+                }),
+              }),
           supportsPartial: true,
         },
       };
     },
-    commandKey(corners, flags) {
-      return deferredBoardCellGeometryCommandKey(loaded(), corners, flags);
+    commandKey(corners, flags, latticeNodes) {
+      return deferredBoardCellGeometryCommandKey(
+        loaded(),
+        corners,
+        flags,
+        latticeNodes,
+      );
     },
-    preview(corners, flags) {
+    preview(corners, flags, latticeNodes) {
       return previewDeferredBoardCellGeometry(
         input.api,
         input.scope,
         input.pendingId,
-        deferredBoardCellGeometryPreviewCommand(loaded(), corners, flags),
+        deferredBoardCellGeometryPreviewCommand(
+          loaded(),
+          corners,
+          flags,
+          latticeNodes,
+        ),
       );
     },
     ...(symbolsApi === undefined
@@ -223,6 +272,7 @@ export function deferredBoardGeometryTarget(input: {
           async symbols(
             corners: OperationalReviewGeometryCorners,
             flags: ManualGridFlags,
+            latticeNodes?: BoardLatticeNodes,
           ) {
             try {
               const result =
@@ -233,6 +283,7 @@ export function deferredBoardGeometryTarget(input: {
                     loaded(),
                     corners,
                     flags,
+                    latticeNodes,
                   ),
                 );
               if (result.error !== undefined || result.data === undefined) {
@@ -247,7 +298,7 @@ export function deferredBoardGeometryTarget(input: {
             }
           },
         }),
-    async save(corners, flags, idempotencyKey, cellSymbols) {
+    async save(corners, flags, idempotencyKey, cellSymbols, latticeNodes) {
       const result = await resolveDeferredBoardCellGeometry(
         input.api,
         input.scope,
@@ -258,6 +309,7 @@ export function deferredBoardGeometryTarget(input: {
             corners,
             idempotencyKey,
             flags,
+            latticeNodes,
           ),
           ...operatorCellSymbols(cellSymbols),
         },
@@ -294,14 +346,16 @@ export function reportedBoardGeometryTarget(input: {
   const command = (
     corners: OperationalReviewGeometryCorners,
     flags: ManualGridFlags,
+    latticeNodes?: BoardLatticeNodes,
   ) => ({
-    ...gridReviewGeometryPreviewCommand(item, corners),
+    ...gridReviewGeometryPreviewCommand(item, corners, latticeNodes),
     geometryQualification: correctionGeometryQualification(
       persistedQualification,
       flags,
       corners,
       item.sourceWidth,
       item.sourceHeight,
+      latticeNodes,
     ),
   });
   const reported = [...(item.reportedCellIndices ?? [])].sort((a, b) => a - b);
@@ -325,7 +379,10 @@ export function reportedBoardGeometryTarget(input: {
             },
             {
               label: 'Pozycja na stronie',
-              value: `${item.positionIndex + 1} / 9`,
+              value:
+                item.latticeNodes == null
+                  ? `${item.positionIndex + 1} / 9`
+                  : String(item.positionIndex + 1),
             },
             {
               label: 'Zgłoszone pola',
@@ -346,20 +403,26 @@ export function reportedBoardGeometryTarget(input: {
           ),
           sourceWidth: item.sourceWidth,
           suggestedCorners: copyCorners(gridReviewCorners(item)),
+          ...(item.latticeNodes == null
+            ? {}
+            : {
+                suggestedLatticeNodes: item.latticeNodes,
+                draftBindingKey: item.expectedProposalChecksumSha256 ?? '',
+              }),
           supportsPartial: true,
         },
       };
     },
-    commandKey(corners, flags) {
-      return JSON.stringify(command(corners, flags));
+    commandKey(corners, flags, latticeNodes) {
+      return JSON.stringify(command(corners, flags, latticeNodes));
     },
-    async preview(corners, flags) {
+    async preview(corners, flags, latticeNodes) {
       if (reviewItemId === null) return missingReviewItem();
       try {
         const result = await api.previewImageGridReviewGeometry(
           reviewItemId,
           scope,
-          command(corners, flags),
+          command(corners, flags, latticeNodes),
         );
         if (result.error !== undefined || !(result.data instanceof Blob)) {
           return failure(
@@ -395,14 +458,14 @@ export function reportedBoardGeometryTarget(input: {
             }
           },
         }),
-    async save(corners, flags, idempotencyKey, cellSymbols) {
+    async save(corners, flags, idempotencyKey, cellSymbols, latticeNodes) {
       if (reviewItemId === null) return missingReviewItem();
       try {
         const result = await api.createImageGridReviewGeometryRevision(
           reviewItemId,
           scope,
           {
-            ...command(corners, flags),
+            ...command(corners, flags, latticeNodes),
             idempotencyKey,
             ...operatorCellSymbols(cellSymbols),
           },
@@ -518,6 +581,7 @@ export function gridAuditBoardGeometryTarget(input: {
           saveHint:
             'Sprawdź propozycje i zmień błędne symbole. Zapis zatwierdzi wszystkie wybrane symbole, również niezmienione propozycje, razem z korektą siatki.',
           suggestedCorners: suggested.corners,
+          suggestedLatticeNodes: undefined,
           suggestionNotice: suggested.clamped
             ? 'Siatka sieci (propozycja) wychodziła poza zdjęcie — narożniki przycięto do krawędzi. Czerwony kontur to obecna, zapisana siatka.'
             : 'Żółta siatka to propozycja sieci z audytu. Czerwony kontur to obecna, zapisana siatka.',
@@ -556,10 +620,18 @@ export function correctionGeometryQualification(
   corners: OperationalReviewGeometryCorners,
   sourceWidth: number,
   sourceHeight: number,
+  latticeNodes?: BoardLatticeNodes,
 ): GeometryQualificationPayload | null {
   const qualified = persisted !== undefined || flags.partial || flags.exclude;
   return qualified
-    ? manualGridQualification(flags, corners, sourceWidth, sourceHeight)
+    ? latticeNodes === undefined
+      ? manualGridQualification(flags, corners, sourceWidth, sourceHeight)
+      : boardLatticeQualification(
+          flags,
+          latticeNodes,
+          sourceWidth,
+          sourceHeight,
+        )
     : null;
 }
 
@@ -599,16 +671,31 @@ export function operationalBoardGeometryTarget(input: {
   const command = (
     corners: OperationalReviewGeometryCorners,
     flags: ManualGridFlags,
+    latticeNodes?: BoardLatticeNodes,
   ) => {
     const size = sourceSize();
     return {
-      ...buildOperationalReviewGeometryPreviewCommand(item, corners),
+      ...buildOperationalReviewGeometryPreviewCommand(
+        item,
+        latticeNodes === undefined
+          ? corners
+          : boardLatticeTransportCorners(latticeNodes),
+      ),
+      ...(latticeNodes === undefined
+        ? {}
+        : { latticeNodes: boardLatticePayload(latticeNodes) }),
+      ...(item.expectedProposalChecksumSha256 == null
+        ? {}
+        : {
+            expectedProposalChecksumSha256: item.expectedProposalChecksumSha256,
+          }),
       geometryQualification: correctionGeometryQualification(
         persistedQualification,
         flags,
         corners,
         size.width,
         size.height,
+        latticeNodes,
       ),
     };
   };
@@ -643,7 +730,10 @@ export function operationalBoardGeometryTarget(input: {
             },
             {
               label: 'Pozycja na stronie',
-              value: `${item.positionIndex + 1} / 9`,
+              value:
+                item.latticeNodes == null
+                  ? `${item.positionIndex + 1} / 9`
+                  : String(item.positionIndex + 1),
             },
             {
               label: 'Rewizja geometrii',
@@ -665,6 +755,16 @@ export function operationalBoardGeometryTarget(input: {
             },
           ),
           sourceWidth: width,
+          ...(item.latticeNodes == null
+            ? {}
+            : {
+                suggestedLatticeNodes: item.latticeNodes,
+                draftBindingKey: JSON.stringify([
+                  item.geometryRevision,
+                  item.resolutionRevision,
+                  item.expectedProposalChecksumSha256,
+                ]),
+              }),
           suggestedCorners:
             parseGeometryCorners(
               item.geometry,
@@ -674,12 +774,12 @@ export function operationalBoardGeometryTarget(input: {
         },
       };
     },
-    commandKey(corners, flags) {
-      return JSON.stringify(command(corners, flags));
+    commandKey(corners, flags, latticeNodes) {
+      return JSON.stringify(command(corners, flags, latticeNodes));
     },
-    async preview(corners, flags) {
+    async preview(corners, flags, latticeNodes) {
       const result = await previewOperationalReviewGeometry(api, {
-        command: command(corners, flags),
+        command: command(corners, flags, latticeNodes),
         gameId: item.gameId,
         importJobId: input.importJobId,
         reviewItemId: item.id,
@@ -692,7 +792,7 @@ export function operationalBoardGeometryTarget(input: {
             ok: false,
           };
     },
-    async save(corners, flags, idempotencyKey) {
+    async save(corners, flags, idempotencyKey, _cellSymbols, latticeNodes) {
       const result = await saveOperationalReviewGeometry(api, {
         command: {
           ...buildOperationalReviewGeometryCommand(
@@ -700,7 +800,7 @@ export function operationalBoardGeometryTarget(input: {
             corners,
             idempotencyKey,
           ),
-          geometryQualification: command(corners, flags).geometryQualification,
+          ...command(corners, flags, latticeNodes),
         },
         gameId: item.gameId,
         importJobId: input.importJobId,

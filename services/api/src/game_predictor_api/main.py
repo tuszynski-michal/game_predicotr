@@ -1004,7 +1004,9 @@ def create_app(
                     session,
                     artifact_root=resolved_settings.artifact_root,
                 ),
-                SqlAlchemyGridProfileSnapshotResolver(session),
+                SqlAlchemyGridProfileSnapshotResolver(
+                    session, artifact_root=resolved_settings.artifact_root
+                ),
                 artifact_root=resolved_settings.artifact_root,
                 page_geometry_override_snapshot_resolver=PageGeometryOverrideService(
                     SqlAlchemyPageGeometryOverrideRepository(session)
@@ -1304,7 +1306,9 @@ def create_app(
                         session,
                         artifact_root=resolved_settings.artifact_root,
                     ),
-                    SqlAlchemyGridProfileSnapshotResolver(session),
+                    SqlAlchemyGridProfileSnapshotResolver(
+                        session, artifact_root=resolved_settings.artifact_root
+                    ),
                     artifact_root=resolved_settings.artifact_root,
                     shape_geometry_v2_profile_snapshot_resolver=(
                         SqlAlchemyGlobalGeometryProfileSnapshotResolver(

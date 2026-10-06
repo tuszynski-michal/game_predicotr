@@ -39,6 +39,13 @@ last_updated: 2026-10-06
   proposals before a deterministic slot binding exists. Range count alone does
   not locate a missing board; no sequence compaction or board-only deferral
   is allowed without a bound active slot.
+  Existing page override constraints permit only1–9 final quads. Migration0145
+  adds an optional versioned neural binding on the same override, preserving
+  its full precision and allowing no fabricated quad for an absent detection.
+- **Neural engine provenance:** additive neural_grid_v1 identifies frozen
+  first-pass neural proposals. Do not describe them as structured_opencv_v1
+  or as an automatic keypoint fallback. Manual approval creates manual_v1
+  geometry with the exact lattice and proposal checksum retained separately.
 - **Execution boundary:** prepare the complete code and reviewable deployment
   preview autonomously. New schema/production DB operations require specific
   preview and authorization. Preserve the concurrent main-branch RGB0878 work.

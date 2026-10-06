@@ -74,6 +74,86 @@ class PageGeometryOverrideService:
     def __init__(self, repository: PageGeometryOverrideRepository) -> None:
         self._repository = repository
 
+    def save_neural_binding(
+        self,
+        *,
+        game_id: UUID,
+        source_checksum_sha256: str,
+        image_width: int,
+        image_height: int,
+        proposal: object,
+        binding: object,
+        actor: str,
+        expected_override_revision: int | None = None,
+    ) -> tuple[ImagePageGeometryOverride, bool]:
+        """Persist source assignment without inventing final board quads."""
+        from game_predictor_api.domain.neural_grid_proposal import (
+            NeuralGridProposalError,
+            validate_neural_source_binding,
+        )
+
+        try:
+            parsed = dict(validate_neural_source_binding(binding, proposal))
+        except NeuralGridProposalError as error:
+            raise JobConflictError(error.code, str(error)) from error
+        if (
+            parsed["gameId"] != str(game_id)
+            or parsed["sourceChecksumSha256"] != source_checksum_sha256
+            or parsed["sourceWidth"] != image_width
+            or parsed["sourceHeight"] != image_height
+        ):
+            raise JobConflictError(
+                "NEURAL_GRID_BINDING_STALE", "The binding belongs to another source or game."
+            )
+        if not actor.strip() or len(actor.strip()) > 200:
+            raise JobError(
+                "IMAGE_PAGE_GEOMETRY_ACTOR_REQUIRED", "A valid correction actor is required."
+            )
+        checksum = hashlib.sha256(
+            json.dumps(parsed, allow_nan=False, sort_keys=True, separators=(",", ":")).encode(
+                "ascii"
+            )
+        ).hexdigest()
+        lookup = getattr(self._repository, "get_by_decision_checksum", None)
+        receipt = (
+            lookup(
+                game_id=game_id,
+                source_checksum_sha256=source_checksum_sha256,
+                decision_checksum_sha256=checksum,
+            )
+            if callable(lookup)
+            else None
+        )
+        if receipt is not None:
+            return receipt, False
+        current = self._repository.get_current(
+            game_id=game_id, source_checksum_sha256=source_checksum_sha256
+        )
+        if current is not None and current.decision_checksum_sha256 == checksum:
+            return current, False
+        if expected_override_revision is None or expected_override_revision != (
+            0 if current is None else current.revision
+        ):
+            raise JobConflictError(
+                "IMAGE_PAGE_GEOMETRY_REVISION_CONFLICT",
+                "The neural source binding changed after this draft was opened.",
+            )
+        return self._repository.append(
+            ImagePageGeometryOverride(
+                id=uuid4(),
+                game_id=game_id,
+                source_checksum_sha256=source_checksum_sha256,
+                image_width=image_width,
+                image_height=image_height,
+                final_quads=(),
+                revision=1 if current is None else current.revision + 1,
+                actor=actor.strip(),
+                decision_checksum_sha256=checksum,
+                created_at=datetime.now(UTC),
+                neural_proposal_binding=parsed,
+            )
+        ), True
+
     def save(
         self,
         *,
@@ -228,6 +308,12 @@ class PageGeometryOverrideService:
             if value.board_frame_quads is not None and value.symbol_grid_quads is not None:
                 entry["boardFrameQuads"] = value.board_frame_quads
                 entry["symbolGridQuads"] = value.symbol_grid_quads
+            if value.neural_proposal_binding is not None:
+                entry["neuralProposalBinding"] = value.neural_proposal_binding
+                confirmed = cast(dict[str, int], value.neural_proposal_binding["confirmedRange"])
+                entry["expectedBoardCount"] = (
+                    confirmed["sequenceRangeEnd"] - confirmed["sequenceRangeStart"] + 1
+                )
             entries[value.source_checksum_sha256] = entry
         return dict(sorted(entries.items()))
 

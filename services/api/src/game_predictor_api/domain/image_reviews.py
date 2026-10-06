@@ -13,6 +13,7 @@ from typing import cast
 from uuid import UUID
 
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.image_geometry_v2 import SourceLatticeNodes
 
 IMAGE_REVIEW_CELL_COUNT = 15
 MAX_IMAGE_REVIEW_ALTERNATIVES = 4
@@ -280,6 +281,8 @@ class ValidatedImageReviewGeometryCommand:
     corrected_by: str
     command_sha256: str
     geometry_qualification: GeometryQualification | None = None
+    lattice_nodes: SourceLatticeNodes | None = None
+    expected_proposal_checksum_sha256: str | None = None
 
 
 def canonical_image_review_bytes(value: object) -> bytes:
@@ -329,6 +332,8 @@ def validate_image_review_geometry_command(
     expected_resolution_revision: int,
     corrected_by: str,
     geometry_qualification: GeometryQualification | None = None,
+    lattice_nodes: SourceLatticeNodes | None = None,
+    expected_proposal_checksum_sha256: str | None = None,
 ) -> ValidatedImageReviewGeometryCommand:
     actor = corrected_by.strip()
     if not actor or len(actor) > 200:
@@ -382,6 +387,16 @@ def validate_image_review_geometry_command(
     }
     if geometry_qualification is not None:
         command_value["geometryQualification"] = geometry_qualification.to_dict()
+    if lattice_nodes is not None:
+        command_value["latticeNodes"] = lattice_nodes.to_dict()
+    if expected_proposal_checksum_sha256 is not None:
+        if len(expected_proposal_checksum_sha256) != 64 or any(
+            char not in "0123456789abcdef" for char in expected_proposal_checksum_sha256
+        ):
+            raise ImageReviewConflictError(
+                "IMAGE_REVIEW_GEOMETRY_PROPOSAL_INVALID", "A proposal pin must be a SHA-256."
+            )
+        command_value["expectedProposalChecksumSha256"] = expected_proposal_checksum_sha256
     return ValidatedImageReviewGeometryCommand(
         corners=quad,
         expected_geometry_revision=expected_geometry_revision,
@@ -389,6 +404,8 @@ def validate_image_review_geometry_command(
         corrected_by=actor,
         command_sha256=hashlib.sha256(canonical_image_review_bytes(command_value)).hexdigest(),
         geometry_qualification=geometry_qualification,
+        lattice_nodes=lattice_nodes,
+        expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
     )
 
 

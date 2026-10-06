@@ -185,6 +185,13 @@ Binding upload selection ID + source SHA + dimensions + manifest revision
 pozwala wznowić korektę po restarcie bez RecognizedBoard ani sequence.
 Idempotentny override zapisuje ręcznie przypisane detectionID→positionIndex
 i checksum propozycji, zgodnie z istniejącym page-geometry workflow.
+Odczytany istniejący model wymaga tablicy1–9 final_quads; nie wolno zapisywać
+neural bindingu jako niezgodnego obiektu ani tworzyć fikcyjnych quadów dla
+brakujących detekcji. Proponowana migracja0145 po0144 dodaje opcjonalny JSON
+neural_proposal_binding do istniejących page geometry overrides i zgodny
+constraint dopuszczający pustą tablicę quadów wyłącznie z pełnym bindingiem.
+Stare kolumny i reguły pozostają obowiązkowe dla starych overrideów. Węzły
+oraz binding zachowują osobne wersje i pełną precyzję, ze źródłem i SHA.
 Zmiana pliku/proposal/revision odrzuca override jako stale. Ponowne preflight
 korzysta z zapisanego bindingu; dopiero wtedy może wywołać board deferred writer.
 
@@ -200,6 +207,19 @@ są jawnie missing. Przykład: zakres101–105, detekcje a,b,d,e; operator przyp
 a→0,b→1,d→3,e→4; slot2/sequence103 pozostaje pending bez cropa.
 Detekcja d zachowuje sequence104, a nie103. Extra detection zostaje diagnostyką.
 Istniejący reading_order służy tylko do sortowania, nie do naprawy braków.
+
+Potwierdzona analiza istniejących bramek: canonical preflight dopuszcza obecnie
+krótki range tylko na końcu gry, a filename verification pozwala keep/reject,
+bez korekty zakresu browser source. Rozszerzenie neural pilota musi jawnie
+dopuścić poświadczone zakresy1–9 także wcześniej, wyłącznie w przypiętej nowej
+ścieżce; poprzednie defaults pozostają bez zmian. Błędny range wychodzący poza
+Game.expected_layout_count wymaga ręcznie potwierdzonego aktywnego zakresu
+w source binding. Zachować oryginalny filename range; nie przycinać go cicho.
+Niezwiązane źródło nie tworzy sequence i nie blokuje poprawnych źródeł partii.
+Po retencji stagingu istniejące page source asset/override routes muszą używać
+serwerowo zweryfikowanego managed handoff przypiętego do upload/game/job/SHA.
+Odtworzenie preflightu używa istniejącego managedSourceJobId; sama obecność
+starej ścieżki przeglądarki nie jest dowodem dostępności źródła.
 
 Strukturalnie wadliwa detekcja nie jest renderowana jako pełna siatka.
 Wynik NN nie nadpisuje zatwierdzonej geometrii.
@@ -271,6 +291,7 @@ focused tests→lint/types→kontrakt→build. Udokumentować operatorowi workfl
 
 Warunek: 0880–0883 odebrane, niezależny audit bez otwartych P0–P2,
 konkretny preview migracji/importu/aktywacji i zgoda na wykonanie na bazie.
+Preview obejmuje0144 (registry) i0145 (durable neural page binding).
 Polecenie podłączenia aplikacji obejmuje przygotowanie kodu i odbioru.
 Dawne zgody na 0140–0143 nie zastępują preview nowej 0144.
 Nie prosić ponownie o wybór modelu, źródła filmów ani zgodę na implementację.
@@ -300,9 +321,10 @@ Nie prosić ponownie o wybór modelu, źródła filmów ani zgodę na implementa
 
 # Co robi operator po wdrożeniu
 
-1. Otwiera istniejącą grę Mumie w Admin i wybiera folder zdjęć z jednego filmu.
-   Na początek system przyjmie pilotażową partię 100; reszta pozostanie dostępna
-   do kolejnego uploadu. Potwierdza zakresy z nazw plików tylko jeśli UI tego wymaga.
+1. Otwiera istniejącą grę Mumie w Admin i wybiera przygotowany folder pilota
+   ze 100 zdjęciami. Import przetwarza cały wybrany folder; nie ogranicza go
+   automatycznie do 100. Kolejne partie 500 i 2000 przygotowujemy po odbiorze
+   pilota. Potwierdza zakresy z nazw plików tylko jeśli UI tego wymaga.
 2. Otwiera kolejkę korekty siatek. Poprawia położenie/podział tylko przy złym
    cięciu. Siatka wymagająca oceny od razu pokazuje widoczne komórki i sugestie.
 3. Przy dobrym cięciu zmienia wyłącznie symbol. Może używać numerów klawiatury

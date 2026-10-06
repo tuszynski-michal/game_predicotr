@@ -1,7 +1,7 @@
 ---
 title: Iterative supervised symbol model improvement requirements
 status: accepted
-last_updated: 2026-08-23
+last_updated: 2026-10-07
 ---
 
 # Iteracyjne ulepszanie rozpoznawania symboli
@@ -59,15 +59,16 @@ której użytkownik zapisał rozstrzygnięcie `accepted`, `corrected` lub
 - trening, aktywacja modelu i przeliczenie oczekujących nie modyfikują
   historycznych zdarzeń review, zatwierdzonych etykiet, geometrii ani stagingu.
 
-## Zakres per gra
+## Obecny zakres per gra
 
 Osobne laboratorium (`VISION_LAB.md`, D-447) może używać
 `lab_human_approved` z pełną tożsamością cropa. Istniejąca kohorta DB nadal
 kwalifikuje wyłącznie zatwierdzenia DB według poniższych reguł.
 
-Model, kohorta treningowa, metryki i aktywna wersja są przypisane do jednej
-gry. Dane różnych gier nie są łączone bez nowej decyzji architektonicznej,
-ponieważ gry mogą mieć inne katalogi symboli i inne warunki obrazu.
+W obecnej implementacji model, kohorta treningowa, metryki i aktywna wersja
+są przypisane do jednej gry. Dane różnych gier nie są obecnie łączone.
+D-527 zatwierdza docelowe współdzielenie opisane poniżej; jego wdrożenie
+wymaga osobnego pionu integracji i nie zmienia istniejących aktywacji.
 
 Raport browserowego importu może być odczytany przed pierwszym treningiem, aby
 operator mógł ocenić zakresy i przygotować geometrię. Gdy gra nie ma jeszcze
@@ -77,6 +78,46 @@ i nie zapisuje rewizji predykcji. Operator przypisuje część cropów, buduje z
 nich kohortę, trenuje i aktywuje model, a następnie uruchamia istniejącą
 pending-only reinferencję na tych samych cropach. Niezgodny globalny bootstrap
 nigdy nie zastępuje modelu gry.
+
+## Docelowe rodziny modeli i katalog przy tworzeniu gry — D-527
+
+To zaakceptowane wymaganie przyszłego Laboratorium w głównej aplikacji,
+jeszcze niewdrożone. **Gra**, **rodzina modelu** i **wersja modelu** mają
+osobne tożsamości. Jedna rodzina może obsługiwać wiele zgodnych gier, np.
+777 v3 i 777 v4, korzystających z tego samego modelu. Nowa nazwa lub rekord
+gry nie wymaga treningu od początku ani kopii wag dla tej gry.
+
+- Trening z zatwierdzonych danych tworzy niezmienną wersję kandydującą.
+  Po ocenie jakości i jawnej publikacji wersja trafia do listy modeli
+  dostępnych przy tworzeniu gry. Kandydat nieprzebadany, odrzucony lub
+  niekompletny nie jest modelem dostępnym do użycia.
+- Operator wybiera opublikowany model. Lista pokazuje rodzinę, wersję,
+  rodzaj modelu, wymagane klasy lub geometrię oraz zakres sprawdzonej jakości.
+  Wybór wiąże grę z rodziną i konkretną wersją, bez powielania artefaktów.
+- Zweryfikowane poprawki z gier należących do rodziny mogą zasilać wspólną,
+  zamrożoną kohortę kolejnej wersji. Nie trenujemy automatycznie po każdym
+  uploadzie lub zapisie symbolu. Raport zachowuje pochodzenie każdej próbki,
+  liczności i jakość dla poszczególnych gier oraz całej rodziny.
+- Sama nazwa gry lub jednakowa liczba symboli nie potwierdza zgodności.
+  Wymagane są zgodne klasy graficzne i jawne mapowanie klas modelu na symbole
+  konkretnej gry, a dla cięcia zgodna geometria i kontrakt wejścia. Lokalny
+  identyfikator symbolu nie staje się identyfikatorem wspólnym dla wielu gier.
+  Niezgodność blokuje inferencję i kwalifikację danych do wspólnego treningu.
+- Mumie i 777 pozostają odrębnymi rodzinami. Plansze, `sequence_number`,
+  zatwierdzenia, linie wypłat i reguły każdej gry pozostają jej własnymi danymi.
+  Współdzielenie modelu nie łączy sekwencji ani nie kopiuje zasad gry.
+- Podział danych i wyłączenia kontrolne obowiązują w całej rodzinie, także
+  gdy to samo zdjęcie lub nagranie występuje w kilku grach. Przeniesienie
+  źródła do innej gry nie może umożliwić przecieku do treningu. Bez trwałej
+  identyfikacji nagrań nie deklarujemy niezależności testu po filmach.
+- Nowa wersja jest oceniana i jawnie aktywowana dla wskazanych zgodnych gier;
+  publikacja do katalogu nie przełącza samoczynnie istniejących gier. Wszystkie
+  gry rodziny mogą korzystać z tej samej wersji bez oddzielnych treningów.
+  Rozpoczęte joby zachowują przypięte wersje; decyzje człowieka pozostają
+  chronione, a poprzednia wersja jest dostępna do powrotu.
+- Cięcie siatek i rozpoznawanie symboli pozostają osobno wersjonowanymi
+  modelami. Opublikowany model cięcia nie oznacza wyszkolonego rozpoznawania
+  symboli; panel pokazuje oba przypisania i ich gotowość.
 
 ## Kohorta treningowa
 
@@ -248,7 +289,8 @@ Panel Admina dla aktywnej gry pokazuje co najmniej:
 - nadpisywanie decyzji człowieka,
 - uczenie na odrzuconych lub niekompletnych planszach,
 - automatyczna aktywacja kandydata,
-- wspólny model wielu gier,
+- wdrożenie wspólnego modelu wielu gier w obecnym pionie per gra; docelowy
+  kierunek D-527 opisano powyżej i wymaga osobnego planu integracji,
 - poprawa geometrii plansz i OCR numerów sekwencji; te elementy wymagają
   osobnych wersji pipeline'u i osobnych bramek jakości,
 - chmura, Redis/Celery i zewnętrzny serwis treningowy.

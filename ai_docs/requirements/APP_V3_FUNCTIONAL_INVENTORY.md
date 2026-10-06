@@ -58,28 +58,41 @@ z kolejną decyzją operatora; pozostałe pozycje czekają na przegląd.
 | MODEL-06 | Ulepsz cięcie siatki | Obecnie kalibracja klasycznego profilu, nie trening sieci V3. Potrzebna osobna czytelna obsługa snapshotu 24 punktów, treningu i oceny sieci z panelu. Nie udawać, że obecny przycisk to wykonuje. | brak funkcji V3 w panelu | przyszły osobny plan/task |
 | MODEL-07 | Różne foldery z różnych filmów | Potrzebny trwały identyfikator nagrania i kontrola niezależnego testu. Obecny trening DB dzieli całe zdjęcia; nie gwarantuje podziału po filmach. | potrzebne | przyszły task |
 | MODEL-08 | Złota ramka i supergra Mumii | Oddzielić bazowy symbol, flagę złotej ramki i symbol wybrany na serię darmowych gier. Ręczny wybór symbolu serii po ≥3 mumiach jest kierunkiem użytkownika; licznik/retrigger wymagają osobnego dopracowania. | potrzebne, poza dzisiejszym zakresem | osobny plan |
-| MODEL-09 | Osobne Laboratorium w głównej aplikacji | Wspólna zakładka dla każdej gry: dane z prawdziwej bazy, uczenie siatek i symboli, raporty, rejestr wersji i aktywacja. Udany trening zapisuje kandydata w głównej bazie, bez ręcznego przenoszenia z osobnej aplikacji. | wymaganie użytkownika 2026-10-07; niewdrożone | D-526; osobny pion integracji |
+| MODEL-09 | Osobne Laboratorium w głównej aplikacji | Zakładka dla rodzin modeli i przypisanych gier: dane z prawdziwej bazy, uczenie siatek i symboli, raporty, rejestr wersji i aktywacja. Zgodne gry mogą wspólnie dostarczać zatwierdzenia. Udany trening zapisuje kandydata w głównej bazie. | wymaganie użytkownika 2026-10-07; niewdrożone | D-526, D-527; osobny pion integracji |
+| MODEL-10 | Wybór profilu Mumie / 777 v2 przy tworzeniu gry | Rozwinąć w katalog ocenionych i jawnie opublikowanych modeli. 777 v3 i 777 v4 mogą używać jednej rodziny i tych samych wag, wspólnie rozwijając kolejne wersje. Dane plansz i reguły gier pozostają osobne. | zaakceptowany kierunek; katalog modeli i wspólne uczenie niewdrożone | D-527, TASK-0892; wymagania i architektura uczenia |
 
 ### Laboratorium — zaakceptowany kierunek, jeszcze bez implementacji
 
-Operator wybiera grę oraz model **cięcia siatek** albo **rozpoznawania
-symboli**. Dane treningowe pochodzą z zapisanych korekt i zatwierdzeń tej
-gry; predykcje nie stają się automatycznie etykietami. Nie mieszamy danych
-Mumii,777 ani kolejnej gry. System pokazuje nowe przykłady, pokrycie klas,
-niezależny zbiór oceny i postęp trwałego zadania.
+Operator wybiera rodzinę modelu oraz **cięcie siatek** albo **rozpoznawanie
+symboli**. Rodzina może obsługiwać wiele zgodnych gier, np. 777 v3 i 777 v4.
+Dane treningowe pochodzą z zapisanych korekt i zatwierdzeń przypisanych gier;
+predykcje nie stają się automatycznie etykietami. Mumie i 777 pozostają
+odrębnymi rodzinami. System pokazuje pochodzenie danych per gra, nowe
+przykłady, pokrycie klas, niezależny zbiór oceny i postęp trwałego zadania.
 
 Po treningu aplikacja rejestruje wersję kandydującą w **głównej bazie**:
-gra, rodzaj modelu, wersja, kohorta/snapshot, metryki, status oraz ścieżki
-i checksumy niezmiennych artefaktów. Wagi pozostają plikami, nie dużymi
-blobami w tabelach domenowych. Utracona odpowiedź lub restart nie tworzy
+rodzina, gry źródłowe, rodzaj modelu, wersja, kohorta/snapshot, metryki,
+status oraz ścieżki i checksumy niezmiennych artefaktów. Wagi pozostają
+plikami, nie dużymi blobami w tabelach domenowych. Utracona odpowiedź lub restart nie tworzy
 drugiej wersji i nie gubi wyniku. Niekompletny/błędny trening nie staje się
-gotowym kandydatem. Aktywacja pozostaje oddzielną decyzją po porównaniu
-z bieżącą wersją; poprzednia wersja służy do powrotu.
+gotowym kandydatem. Po ocenie i jawnej publikacji model pojawia się na liście
+przy tworzeniu gry. Nowa gra może użyć istniejącej rodziny i wersji bez
+ponownego treningu. Aktywacja dla wskazanych istniejących gier pozostaje
+oddzielną decyzją po porównaniu z bieżącą wersją; poprzednia wersja służy do
+powrotu. Publikacja nie zmienia rozpoczętych importów ani ręcznych decyzji.
+
+Zgodność wymaga kontraktu klas, jawnego mapowania symboli i zgodnej geometrii,
+nie podobnej nazwy gry. Dane plansz, kolejność, payouty i reguły pozostają
+osobne. Podział i wyłączenia kontrolne obejmują całą rodzinę, także źródła
+powtórzone w innej grze. Szczegóły:
+[wymagania](SUPERVISED_MODEL_IMPROVEMENT.md#docelowe-rodziny-modeli-i-katalog-przy-tworzeniu-gry--d-527),
+[architektura](../architecture/SUPERVISED_MODEL_IMPROVEMENT.md#docelowy-rejestr-rodzin-współdzielonych--d-527).
 
 Istniejący panel Ulepsz rozpoznawanie i registry symboli są podstawą do
 integracji, nie należy tworzyć drugiego pipeline. Obecne plikowe laboratorium
 oraz eksport sieci cięcia wymagają adaptacji do głównego cyklu zadań i rejestru.
-TASK-0891 zapisuje ten zakres, ale nie dodaje jeszcze zakładki ani migracji.
+TASK-0891 i TASK-0892 zapisują ten zakres, ale nie dodają jeszcze zakładki,
+katalogu modeli, wspólnego buildera kohort ani migracji.
 
 ## Pozostałe sekcje i ekrany — do wspólnego przeglądu
 

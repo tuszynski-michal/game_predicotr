@@ -1,7 +1,7 @@
 ---
 title: Supervised symbol model improvement architecture
 status: accepted
-last_updated: 2026-08-23
+last_updated: 2026-10-07
 ---
 
 # Architektura iteracyjnego ulepszania modelu symboli
@@ -56,6 +56,49 @@ Kalibracja geometrii w wersji 0.5 pozostaje osobnym pionem z własną kohortą,
 bramką, rejestrem aktywacji i snapshotem importu. Jej kontrakt opisuje
 architecture/ITERATIVE_IMAGE_IMPORT.md; model symboli nie może ukrycie
 aktywować ani zmieniać profilu siatki.
+
+## Docelowy rejestr rodzin współdzielonych — D-527
+
+Poniższy kierunek jest zaakceptowany dla przyszłego Laboratorium w głównej
+aplikacji. Nie opisuje wdrożonej migracji ani obecnego resolvera per gra.
+Wymagania: `requirements/SUPERVISED_MODEL_IMPROVEMENT.md`, sekcja D-527.
+
+Rejestr rozdziela rodzinę modelu, niezmienną wersję oraz przypisanie do gry.
+Jedna rodzina ma wiele wersji i wiele zgodnych gier; wersja wskazuje jeden
+pakiet artefaktów, kohortę i raport, nawet jeśli korzysta z niej wiele gier.
+Gra zachowuje własne dane, symbole i historię aktywacji. Wersje siatek oraz
+symboli mają odrębne kontrakty i przypisania. Istniejące profile
+`grid_profile_777_v2` i `grid_profile_mumie_v1` wybierają zamrożone modele
+cięcia; nie są dynamiczną listą wszystkich wytrenowanych modeli symboli.
+
+Publikacja po bramce jakości udostępnia wersję w katalogu tworzenia gry.
+Wybranie wersji zapisuje powiązanie z grą i zgodny kontrakt; nie kopiuje wag
+ani historycznych plansz. Backend jest właścicielem katalogu i kontroli
+zgodności. Frontend korzysta z wygenerowanego kontraktu API. Szczegółowy
+schemat, migracje i operacje publikacji/przypisania należą do osobnego planu;
+nie dodajemy równoległego registry lub stałej opcji UI dla każdej nowej wersji.
+
+Wspólna kohorta zamraża listę gier, mapowanie stabilnych klas na lokalne
+symbole, kwalifikowane zatwierdzenia i pełną proweniencję każdej próbki.
+Builder zachowuje reguły bieżącego cropa i decyzji człowieka. Zgodność
+obejmuje klasy, wejście/preprocessing, a dla geometrii także topologię.
+Zmiana katalogu lub kontraktu po zamrożeniu nie zmienia manifestu; drift
+wyklucza próbkę albo blokuje zależny etap, zamiast zgadywać etykietę.
+Nie łączymy rodzin na podstawie nazw gier.
+
+Deduplikacja, przypisania źródeł i wyłączenia kontrolne są wspólne dla rodziny,
+z zachowaniem oryginalnego `game_id`. Alias kontrolnego zdjęcia w innej grze
+nadal pozostaje poza TRAIN. Przyszły rejestr nagrań musi obsłużyć tę granicę;
+obecny podział po całych zdjęciach nie daje gwarancji podziału po filmach.
+Raport porównuje wersje na tym samym zbiorze i pokazuje wyniki per gra,
+źródło i klasa, aby duża gra nie ukryła regresji mniejszej.
+
+Publikacja nie tworzy aktywacji w istniejących grach. Jawna aktywacja wskazuje
+gry docelowe i sprawdza ich zgodność przed zapisem. Import nadal utrwala
+checksum-bound snapshot właściwych wersji, mapowanie klas i kontrakt renderu.
+Worker nie odczytuje zmiennego „najnowszego modelu” podczas trwającego joba.
+Retry publikacji, przypisania i treningu musi być idempotentne, a stan
+odtwarzalny po restarcie. Niekompletny pakiet nie pojawia się jako dostępny.
 
 ## Przepływ
 

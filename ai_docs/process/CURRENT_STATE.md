@@ -6,6 +6,24 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0892 — shared model family requirements (done)
+
+- User requests published Laboratory models in the game creation catalog,
+  shared by compatible games such as 777 v3 and 777 v4.
+- Scope assumption: record the accepted domain direction, not implement the
+  Laboratory, migrate the registry or activate models. Existing profiles and
+  per-game runtime remain unchanged until a separate implementation.
+- D-527 separates game records, shared families and immutable versions;
+  evaluated versions can be explicitly published to the game creation catalog.
+  Compatible 777 games pool qualified feedback without copying weights or
+  merging boards, sequences and rules. Preserve class mapping, source origins,
+  family-wide held-out protection and pinned running jobs.
+- Requirements/architecture and MODEL-09/10 now distinguish current per-game
+  runtime from future shared integration. Grid/symbol models remain separate.
+- Fresh-process documentation review and git diff --check PASS. No code/build
+  tests for documentation-only scope. No data operation or model activation.
+- Completion v1.7.234; commit hash recorded after commit.
+
 ### TASK-0891 — neural preflight presentation (done)
 
 - Actual completed job1e5c0d7d uses Mumie neural Run3/iteration03-f896da7196431be2.

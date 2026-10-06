@@ -6,6 +6,30 @@ last_updated: 2026-10-07
 
 # Decision Log
 
+## D-527 — shared model families and published game creation catalog
+
+- **Status:** accepted user direction, 2026-10-07, TASK-0892.
+- **Decision:** a model family is independent of a game record. Compatible
+  games such as 777 v3 and 777 v4 may use the same version and contribute
+  qualified human feedback to the family's next immutable version. Sharing
+  does not duplicate weights or merge game boards, sequences or rules.
+- **Catalog:** training creates a candidate; evaluation and explicit
+  publication make a version available for selection when creating a game.
+  Publication does not silently activate a new version in existing games.
+  Targeted activation retains rollback and in-flight job snapshot guarantees.
+- **Compatibility:** verify class mapping, input/render contracts and geometry
+  as applicable. Preserve per-game sample provenance and family-wide protected
+  evaluation sources. Game names alone do not establish compatibility;
+  Mumie and 777 remain separate families. Grid and symbol models retain
+  separate versioned contracts and readiness.
+- **Supersession:** extends D-526's per-game Laboratory direction. Per-game-only
+  training remains the current implementation, but is no longer a blanket
+  prohibition for the future shared-family integration.
+- **Boundary:** documentation only. Existing grid profiles already select
+  frozen grid models; the dynamic catalog and shared symbol training are not
+  implemented here. No schema/API changes, training, data writes, publication,
+  activation or deployment. Reuse the existing registry and training pipeline.
+
 ## D-526 — neural proposals are not mandatory correction; shared Laboratory direction
 
 - **Status:** accepted user scope, 2026-10-07, TASK-0891.

@@ -28,6 +28,9 @@ from .run_files import verify_artifact
 from .runs import checkpoint_binding
 from .symbol_augmentation import VERSION as ROBUST_AUGMENTATION
 from .symbol_augmentation import augment as augment_appearance
+from .symbol_large_rgb_protocol import MODEL as LARGE_RGB_MODEL
+from .symbol_large_rgb_protocol import PURPOSE as LARGE_RGB_PURPOSE
+from .symbol_large_rgb_protocol import validate_request as validate_large_request
 from .symbol_models import AI_MODELS, FEEDBACK_MODELS, ROBUST_MODELS, metrics, probabilities
 from .symbol_training_manifest import SymbolTrainingInputs
 from .training_adapter import RunControl
@@ -177,11 +180,19 @@ def train(
     gray = request.model_version.endswith(("gray-v1", "gray-v2", "gray-v3", "gray-v4-ai"))
     feedback = request.model_version in FEEDBACK_MODELS
     ai_experiment = request.model_version in AI_MODELS
+    large_ai_experiment = request.model_version == LARGE_RGB_MODEL
     if feedback != (inputs.payload.get("purpose") == "symbol_crop_feedback"):
         raise ValueError("SYMBOL_FEEDBACK_GENERATION_BINDING_REQUIRED")
     if ai_experiment != (inputs.payload.get("purpose") == "symbol_ai_experiment"):
         raise ValueError("SYMBOL_AI_GENERATION_BINDING_REQUIRED")
-    robust = request.model_version in (*ROBUST_MODELS, *FEEDBACK_MODELS, *AI_MODELS)
+    if large_ai_experiment != (inputs.payload.get("purpose") == LARGE_RGB_PURPOSE):
+        raise ValueError("LARGE_RGB_GENERATION_BINDING_REQUIRED")
+    if large_ai_experiment:
+        request = validate_large_request(request)
+    robust = (
+        request.model_version in (*ROBUST_MODELS, *FEEDBACK_MODELS, *AI_MODELS)
+        or large_ai_experiment
+    )
     classes = [entry["display_name"] for entry in inputs.preparation["dictionary"]["entries"]]
     train_data = SymbolDataset(inputs, "development", gray, request.seed, robust=robust)
     val_data = SymbolDataset(inputs, "validation", gray, request.seed)
@@ -232,7 +243,7 @@ def train(
             train_data,
             request.configuration.batch_size,
             generator,
-            feedback=feedback or ai_experiment,
+            feedback=feedback or ai_experiment or large_ai_experiment,
         )
         for images, labels in loader:
             control.before_batch()
@@ -293,7 +304,7 @@ def train(
         "logits": val_logits.tolist(),
     }
     extra: dict[str, Any] = {}
-    if feedback or ai_experiment:
+    if feedback or ai_experiment or large_ai_experiment:
         indices = [
             i
             for i, s in enumerate(train_data.samples)
@@ -344,7 +355,7 @@ def train(
                 "draws_per_epoch": len(train_data) + 3 * len(indices),
             },
         }
-    if ai_experiment:
+    if ai_experiment or large_ai_experiment:
         audit_data = SymbolDataset(inputs, "ai_audit", gray, request.seed)
         audit_logits = evaluate(model, audit_data, request.configuration.batch_size, device)
         ai_indices = [

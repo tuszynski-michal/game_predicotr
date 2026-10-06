@@ -6,6 +6,48 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0872 — większy izolowany RGB Mumii (done; candidate rejected)
+
+- TASK-0871 zakończony i odebrany; HEAD `v1.7.219` /
+  `d61d6981f1c68960d9c1ecb776303643b047421f` potwierdzony z historią.
+- Manifest `58a064…d36b` opublikowany: R2 development327 + 1726 nowych high/high
+  AI cropów, w tym Mumia109. Human84/diagnostic9/AI22 i human26/human8 zachowane.
+  Pełny freeze 93.78 s; fresh-process verify 70.81 s, wszystkie 2000 quadów
+  ponownie wyrenderowane. Cache źródeł i parent statów usuwa wcześniejsze timeouty.
+- D-506: nowy jawny lokalny kontrakt wielu pakietów, jeden model RGB,
+  20 epok / 7200 s / 50000 kroków. Stare generation1–4/API/limit100 bez zmian.
+  Własny symbol_protocol_digest w lokalnym Request wiąże checkpoint; HYBRID
+  protocol_digest pozostaje None. Manifest wymaga jednego zamrożonego run root.
+- Pełny niezależny preflight kodu/danych PASS. Jedyny run `5302ac…8093` zakończył
+  20 epok / 1360 kroków; best1, validation83/84. Pierwsza próba PID44912,
+  631.21 s; fresh resume checkpoint20 PID7892, nadal1360 kroków, razem695.96 s.
+  Real CPU ONNX parity PASS (max2.861e-6). Bez DB, Super i aktywacji.
+- Ocena `efcdc9…5ee`: V5 odrzucony; 10/18 porównań według klas nie przechodzi.
+  New19=16/19, held22=19/22, human8=6/8; human34 razem29/34 wobec R2 RGB34/34.
+  Human84=83/84, old18=18/18, diagnostic9=9/9. Więcej AI nie poprawiło jakości;
+  etapu0873 nie uruchamiać z tym kandydatem. Niezależny actual inference audit
+  obu baseline RGB i V5 odtwarza wszystkie18 bramek; 11480 pinów sprawdzonych.
+  To wybrane kontrole regresji, nie accuracy całego filmu.
+- Próba anulowania ujawniła opóźniony stop w dawnym trainerze. Nowy lokalny
+  LargeRgbRunManager honoruje go przy kolejnym batchu; 15 runner tests PASS.
+  Stare kontrakty zachowane. Niezależny strict scoped mypy nowych3modułów PASS.
+- 42 focused adapter/run/legacy tests PASS i 18 numerical training/resume tests
+  PASS dla generation1–5. Dokładny R2 receipt, protected groups, resigned inputs,
+  restart/budżety/fencing, defensive cache i Windows case/reparse guards pokryte.
+- Final Ruff lint/format 5 modułów i 3 testów PASS. Real cp9/globalStep612
+  odtworzony w dwóch procesach: identyczny batch32/images/logits/optimizer/model/RNG.
+  Proof `1d4b43…06d9`, batch digest `3bd0b2…7ea3`, ledger i model niezmienione.
+  Auditor w nowym procesie odtworzył sampler/augmentację/labels/generator.
+  Preflight/model/ocena/replay PASS, bez otwartych P0–P2; V5 nadal REJECTED.
+- Raport: ai_docs/quality/MUMIE_LARGE_RGB_EXPERIMENT_20261006.md.
+  Hipoteza dalszej pracy: feedback draw share spadł z33.79% do6.84% mimo weight4;
+  AI stanowi81.79% drawów. Kolejny osobno opisany eksperyment powinien kontrolować
+  udział human/AI i ekspozycję zdjęć. Brak potrzeby nowych folderów/oznaczeń teraz.
+- Pliki: trzy nowe moduły symbol_large_*, dwa opcjonalne reuse hooks, testy
+  i dokumentacja protokołu. Wcześniejsze dirty metadata wyłączyć ze stagingu.
+  Oddzielny commit `v1.7.220`; pełny hash dopisać po commicie. Cały zaakceptowany
+  plan kończy bieżący etap na niespełnionym warunku C. Bez refitu/aktywacji/DB.
+
 ### TASK-0871 — większy zbiór Mumii (done)
 
 - Po v1.7.218 większy trening nie został uruchomiony. Poprzednio podany czas

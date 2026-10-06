@@ -94,6 +94,24 @@ pomiaru i nie wynika z wyników klasyfikatora. Brak dokładnego terminu wdrożen
 przed sprawdzeniem integracji. Bez DB, migracji, usuwania, Super targets,
 automatycznego push, merge, aktywacji ani wdrożenia.
 
+## Wynik wykonania A i B — 2026-10-06
+
+TASK-0871 zakończony: 2000 dokładnych rastrów, dwa niezależne review,
+1726 zaakceptowanych ocen AI. Commit v1.7.219.
+
+TASK-0872 zakończył jeden izolowany run RGB: 20 epok / 1360 kroków,
+631.21 s pierwszej próby; 695.96 s łącznie z odtworzeniem eksportu w nowym
+procesie. Odbiór implementacji, trwałości, CPU ONNX i rzeczywistego wznowienia
+przeszedł. Kandydat V5 jest odrzucony: human34=29/34 wobec R2 RGB34/34;
+10/18 bramek klas nie przechodzi. Wynik i niezmienne dowody zachowano w
+ai_docs/quality/MUMIE_LARGE_RGB_EXPERIMENT_20261006.md.
+
+Etap C pozostaje niewykonany: warunek przyjęcia kandydata w B nie został
+spełniony. Nie uruchamiamy refitu ani innego seeda w tym protokole. Następny
+osobno opisany eksperyment powinien kontrolować udział ocen człowieka i AI
+oraz ekspozycję zdjęć, zanim zażądamy kolejnych oznaczeń lub wydłużymy trening.
+Jest to kierunek dalszej pracy, bez zmiany bramek tego planu.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |

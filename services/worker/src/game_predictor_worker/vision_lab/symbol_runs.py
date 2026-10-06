@@ -69,6 +69,8 @@ def admit(data: dict[str, Any], request: StartRunRequest) -> None:
 
 
 class SymbolRunManager(RunManager):
+    worker_boot = BOOT
+
     def _spawn(self, run: RunState) -> None:
         if self.settings is None:
             raise ValueError("RUN_RUNTIME_NOT_CONFIGURED")
@@ -82,7 +84,7 @@ class SymbolRunManager(RunManager):
             "-X",
             "utf8",
             "-c",
-            BOOT,
+            self.worker_boot,
             self.settings["pythonpath"],
             "worker",
             "--root",

@@ -6,6 +6,27 @@ last_updated: 2026-10-06
 
 # Architektura laboratorium wizji
 
+## Larger local symbol experiment (D-506)
+
+Three explicit local modules isolate the multi-reference adapter, RGB protocol
+and runner. They reuse SymbolTrainingInputs and neutral RunManager(state_type),
+RunControl and symbol_training. Local Configuration/Request/RunState provide
+7200-second/50000-step bounds; public types and registries remain unchanged.
+The distinct symbol_protocol_digest is serialized into canonical_request and
+checkpoint fingerprints while protocol_digest remains None. An immutable run
+root prevents admission through a second directory. Strict current source,
+dictionary, proof/review/PNG/quad and whole-photo exclusion bindings survive
+each start/checkpoint/finish. The local runner additionally verifies real export
+artifacts and best epoch. Earlier consumers keep the identical default BOOT,
+augmentation, contracts and workflow.
+
+The adapter binds the exact accepted R2 qualification SHA, manifest ID and path.
+Per-composition decoded-source caching preserves independent quad rendering.
+Per-process validated inputs are private defensive copies; first validation always
+recomposes, and subsequent calls still recheck every live/bundle hash and manifest.
+Endpoint and shared-ancestor reparse checks run before and after hashing without
+deduplicating declared SHA pins by Windows case-insensitive Path equality.
+
 ## AI experimental adapter (D-505)
 
 An explicit separate symbol_ai_experiment format composes the fully validated

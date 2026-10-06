@@ -160,7 +160,7 @@ def test_request_cannot_enter_other_registry(change):
         validate_request(request().model_copy(update=change))
 
 
-@pytest.mark.parametrize("generation", [1, 2, 3, 4])
+@pytest.mark.parametrize("generation", [1, 2, 3, 4, 5])
 def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
     tmp_path, monkeypatch, generation
 ):
@@ -170,27 +170,53 @@ def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
     manifest = freeze(store, bundle, qualification, tmp_path / "manifests")
     inputs = SymbolTrainingAdapter(manifest).validate()
     req = request(inputs.manifest_id)
-    pair = model_pair(generation)
-    if generation != 1:
+    if generation == 5:
+        from game_predictor_worker.vision_lab.symbol_large_rgb_protocol import (
+            MODEL as LARGE_MODEL,
+        )
+        from game_predictor_worker.vision_lab.symbol_large_rgb_protocol import (
+            PREPROCESSING as LARGE_PREPROCESSING,
+        )
+        from game_predictor_worker.vision_lab.symbol_large_rgb_protocol import (
+            LargeRgbConfiguration,
+            LargeRgbRequest,
+            LargeRgbRunState,
+        )
+
+        pair = (LARGE_MODEL,)
+        req = LargeRgbRequest(
+            request_id="large-rgb-resume-test",
+            manifest_id=inputs.manifest_id,
+            model_version=LARGE_MODEL,
+            preprocessing_version=LARGE_PREPROCESSING,
+            seed=20261005,
+            purpose="train",
+            configuration=LargeRgbConfiguration(epochs=20, batch_size=32, max_seconds=120),
+        )
+    else:
+        pair = model_pair(generation)
+    if generation not in (1, 5):
         req = req.model_copy(
             update={"model_version": pair[0], "preprocessing_version": PREPROCESSING[pair[0]]}
         )
-    if generation in (3, 4):
+    if generation in (3, 4, 5):
         development = next(
             s
             for s in inputs.preparation["samples"]
             if inputs.payload["assignments"][s["decision"]["binding"]["source_id"]] == "development"
         )
-        inputs.payload["purpose"] = (
-            "symbol_crop_feedback" if generation == 3 else "symbol_ai_experiment"
-        )
+        inputs.payload["purpose"] = {
+            3: "symbol_crop_feedback",
+            4: "symbol_ai_experiment",
+            5: "symbol_large_ai_experiment",
+        }[generation]
         inputs.payload["feedback_sample_ids"] = [development["decision"]["decision_id"]]
         diagnostic = deepcopy(inputs.preparation["samples"][0])
         diagnostic["decision"]["decision_id"] = "diagnostic-only"
         diagnostic["decision"]["binding"]["source_id"] = "diagnostic-source"
         inputs.preparation["samples"].append(diagnostic)
         inputs.payload["assignments"]["diagnostic-source"] = "diagnostic_test"
-        if generation == 4:
+        if generation in (4, 5):
             audit = deepcopy(diagnostic)
             audit["decision"]["decision_id"] = "ai-withheld"
             audit["decision"]["origin"] = "ai_visual_assessment"
@@ -206,12 +232,14 @@ def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
     monkeypatch.setattr(module, "export_onnx", lambda *_: {"status": "test-separated"})
 
     def manager(root):
+        extra = {"state_type": LargeRgbRunState} if generation == 5 else {}
         return RunManager(
             root,
             validate=lambda _: inputs,
             models=pair,
             launcher=lambda _: None,
             identity=lambda _: None,
+            **extra,
         )
 
     full = manager(tmp_path / "full")
@@ -230,7 +258,7 @@ def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
         assert measured["diagnostic_test"]["predictions"]["sample_ids"] == ["diagnostic-only"]
         assert measured["development"]["samples"] == 1
         assert measured["feedback_regression"]["metrics"]["samples"] == 1
-    if generation == 4:
+    if generation in (4, 5):
         assert measured["sampling"]["ai_samples"] == 1
         assert measured["sampling"]["ai_weight"] == 1
         assert measured["sampling"]["draws_per_epoch"] == 5
@@ -279,7 +307,8 @@ def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
         completed.checkpoint.sha256,
         expected_binding=checkpoint_binding(req),
     )
-    assert completed.reserved_steps == 3 and restored["globalStep"] == original["globalStep"] == 2
+    assert completed.reserved_steps == req.configuration.epochs + 1
+    assert restored["globalStep"] == original["globalStep"] == req.configuration.epochs
     assert restored["history"] == original["history"]
     assert restored["bestState"]["epoch"] == original["bestState"]["epoch"]
     assert all(

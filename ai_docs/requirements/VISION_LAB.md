@@ -6,6 +6,17 @@ last_updated: 2026-10-06
 
 # Laboratorium wizji
 
+## Larger isolated RGB experiment (D-506)
+
+An explicitly versioned local multi-reference experiment may add only independently
+agreed high/high exact AI crops to the qualified R2 cohort. Preserve all human
+origins, validation, diagnostic and photo-disjoint audit evidence. One new RGB
+variant is bounded to 20 epochs, 7200 seconds and 50000 steps in its immutable run
+root. Earlier generation1–4 and reference limits remain unchanged. Selection and
+calibration use human84 only; per-class regression against V4 RGB and R2 RGB blocks
+acceptance. Require real best_weights and CPU ONNX parity before success. The
+experimental model cannot automatically activate or modify production labels.
+
 ## Isolated AI-assisted experiment (D-505)
 
 The user's2026-10-06 autonomous-training/internal-AI instruction permits a

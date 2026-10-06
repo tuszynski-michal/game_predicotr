@@ -6,6 +6,36 @@ last_updated: 2026-10-06
 
 # Decision Log
 
+## D-506 — explicit larger local RGB experiment
+
+- **Status:** accepted implementation decision, 2026-10-06, within the operator's
+  autonomous larger-training instruction and accepted TASK-0871–0873 plan.
+- **Inputs:** new versioned multi-reference AI manifest composes the qualified R2
+  base with 1726 exact high/high AI assessments. Original origins, human84,
+  diagnostic9, AI audit22 and human26/human8 whole-photo guards are preserved.
+  No raw label, human approval, Super target or prior manifest is rewritten.
+- **Exact base and repeated checks:** require the accepted R2 qualified-frozen
+  file SHA, manifest ID and exact path. Decode each source once per composition,
+  while independently rendering every quad and verifying its actual PNG/pixels.
+  Each new process fully recomposes; an adapter may cache defensive copies only
+  while checking all original live hashes, manifest and full bundle inventory/
+  hashes on every call, including a final live/manifest check. Batched reparse
+  checks cover every endpoint and unique ancestor before and after all hashes;
+  preserve every declared pin, including case aliases with conflicting SHA.
+- **Protocol:** one RGB version and one admitted training run in its immutable
+  configured root; 20 epochs, at most 7200 seconds and 50000 steps. Local request,
+  state and configuration subclass the neutral run contracts. A distinct
+  symbol_protocol_digest is part of canonical_request/checkpoint fingerprint;
+  protocol_digest stays None so unrelated HYBRID semantics remain unchanged.
+- **Isolation:** old generation1–4 registries, 100-case reference limit, public
+  TrainingConfiguration, API and default adapter factory remain unchanged.
+  Reuse the existing trainer, robust augmentation, sampling and exact RNG/optimizer
+  checkpoints. The new runner requires valid best epoch and both real exports,
+  including passed CPU ONNX parity, before reporting success.
+- **Acceptance:** independent code/data preflight, validation-only selection and
+  calibration, then per-class checks against both V4 RGB and R2 RGB. No seed
+  search/refit, automatic activation, database writes, migration or deployment.
+
 ## D-505 — explicitly authorized isolated AI symbol experiment
 
 - **Status:** accepted implementation decision,2026-10-06, based on the user's

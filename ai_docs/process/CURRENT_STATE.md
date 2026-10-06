@@ -6,6 +6,20 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0880 — qualified R2 RGB pilot adapter (done)
+
+- Full source quad RGB96, padding0.0, float antialias96→64, opset17.
+  Existing777 preprocessing/padding/fingerprints preserved.
+- 77 focused +108 broader regression tests PASS; Ruff15files/scopedmypy8 PASS.
+  Fresh manual/production runtime entrypoints work without Torch. Independent
+  audit PASS,0 openP0–P2, original9352pins and actual405source cells verified.
+- Candidate5e0489…a480 / manifest721257…a5c2; prepared managed package and
+  package-render-preflight.json in main artifacts/mumie-main-app-pilot-20261006.
+  Zero pixel/class differences, input7.15e-7/logit1.91e-6; no population accuracy.
+- No DB/activation/main deployment. Next0881 registry;0882 folder/correction;
+  0883 feedback/acceptance;0884 concrete migration/activation preview.
+- Commit version/hash is recorded after publication.
+
 ### TASK-0879–0884 — jawny pilot Mumii w głównej aplikacji
 
 - Operator wybrał rekomendowany R2 RGB i zlecił integrację folderów, korekty
@@ -27,8 +41,9 @@ last_updated: 2026-10-06
   split z trwałą ochroną held-out byte/pixel aliases przed nowym DB TRAIN.
   Preflight405 real crops/3photos PASS: input max7.153e-7, logit max1.908e-6,
  0 class differences,40.17s. To parity wejścia, nie accuracy pełnego folderu.
-  Oddzielny commitv1.7.221; hash zapisać po commicie. Następny TASK0880.
-  Kod/DB/runtime pilota jeszcze nie zmienione; stare dirty metadata poza stagingiem.
+  Oddzielny commitv1.7.221/2ac7a36bdf7894021de0d7c4118649efa025945e.
+  Potwierdzony show/stat i status; następny TASK0880.
+  Adapter0880 implemented and qualified; DB/runtime activation not performed. Old dirty metadata remains outside staging.
 
 ### TASK-0872 — większy izolowany RGB Mumii (done; candidate rejected)
 

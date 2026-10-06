@@ -126,7 +126,8 @@ PLAN_STANDARD/DoD i cztery kryteria odbioru spełnione. Read-only live API
 potwierdziło grę/katalog/profil. Preflight405 real crops z3 zdjęć: input
 max7.153e-7, logit max1.908e-6,0 class changes;40.17s, timeout120s, exit0.
 Testy implementacji0880–0884 nie zostały jeszcze wykonane.
-Oddzielny commit v1.7.221; pełny hash zostanie zapisany po commicie.
+Oddzielny commit v1.7.221 / 2ac7a36bdf7894021de0d7c4118649efa025945e,
+potwierdzony git show --stat; dawne dirty metadata zachowane poza stagingiem.
 
 ### Not completed
 

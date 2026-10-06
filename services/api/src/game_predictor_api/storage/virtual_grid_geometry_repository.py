@@ -2088,9 +2088,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
             extractor_version=rollout.virtual_renderer_version,
             preprocessing_version=rollout.preprocessing_version,
             interpolation=VIRTUAL_CELL_INTERPOLATION_VERSION,
-            output_width=model.input_size,
-            output_height=model.input_size,
-            padding_fraction=0.08,
+            output_width=model.crop_output_size,
+            output_height=model.crop_output_size,
+            padding_fraction=model.crop_padding_fraction,
         )
 
     def _current_row(

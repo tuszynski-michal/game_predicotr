@@ -155,6 +155,7 @@ from .symbol_onnx import (
     LocalSymbolOnnxAdapter,
     SymbolOnnxError,
     preprocess_rgb_batch,
+    symbol_onnx_variant_arguments,
 )
 from .virtual_cell_extraction import (
     VIRTUAL_CELL_INTERPOLATION_VERSION,
@@ -911,10 +912,10 @@ class ProductionImageStageAdapterSuite:
             load_anchor_rgb=self._load_anchor_rgb,
         )
         self._cropper = SourceDirectBoardCellCropper(
-            cell_output_size=self._symbol_model_snapshot.input_size,
+            cell_output_size=self._symbol_model_snapshot.crop_output_size,
         )
         self._v19_cropper = BoardCellGeometrySourceDirectCropper(
-            cell_output_size=self._symbol_model_snapshot.input_size,
+            cell_output_size=self._symbol_model_snapshot.crop_output_size,
             topology=(
                 self._board_topology
                 if self._board_cell_processing.get("topologyRulesVersionId") is not None
@@ -1539,7 +1540,7 @@ class ProductionImageStageAdapterSuite:
                 {
                     "boardChecksumSha256": board_checksum,
                     "boardRelativePath": board_relative,
-                    "cellOutputSize": self._symbol_model_snapshot.input_size,
+                    "cellOutputSize": self._symbol_model_snapshot.crop_output_size,
                     "cells": cells,
                     "cropperVersion": CROP_ADAPTER_VERSION,
                     "cropValidity": "source_direct_verified_geometry",
@@ -1616,7 +1617,7 @@ class ProductionImageStageAdapterSuite:
                 {
                     "boardChecksumSha256": board_checksum,
                     "boardRelativePath": board_relative,
-                    "cellOutputSize": self._symbol_model_snapshot.input_size,
+                    "cellOutputSize": self._symbol_model_snapshot.crop_output_size,
                     "cells": cells,
                     "cropperVersion": V19_CROPPER_VERSION,
                     "cropValidity": "source_direct_verified_v19_geometry",
@@ -1722,7 +1723,7 @@ class ProductionImageStageAdapterSuite:
             boards.append(
                 {
                     "assetMode": "virtual_source",
-                    "cellOutputSize": self._symbol_model_snapshot.input_size,
+                    "cellOutputSize": self._symbol_model_snapshot.crop_output_size,
                     "cells": [
                         {
                             "assetMode": "virtual_source",
@@ -1812,9 +1813,9 @@ class ProductionImageStageAdapterSuite:
             extractor_version=self._geometry_rollout.virtual_renderer_version,
             preprocessing_version=self._geometry_rollout.preprocessing_version,
             interpolation=VIRTUAL_CELL_INTERPOLATION_VERSION,
-            output_width=self._symbol_model_snapshot.input_size,
-            output_height=self._symbol_model_snapshot.input_size,
-            padding_fraction=0.08,
+            output_width=self._symbol_model_snapshot.crop_output_size,
+            output_height=self._symbol_model_snapshot.crop_output_size,
+            padding_fraction=self._symbol_model_snapshot.crop_padding_fraction,
         )
         cells: list[VirtualCell] = []
         geometry_revision_value = structured.get("geometryRevision", 0)
@@ -2621,6 +2622,7 @@ class ProductionImageStageAdapterSuite:
                     preprocess_rgb_batch(
                         images,
                         input_size=self._symbol_model_snapshot.input_size,
+                        model_version=self._symbol_model_snapshot.model_version,
                     )
                 )
             except SymbolOnnxError as error:
@@ -2722,6 +2724,7 @@ class ProductionImageStageAdapterSuite:
                     expected_sha256=self._symbol_model_snapshot.onnx_checksum_sha256,
                     class_codes=self._symbol_model_snapshot.class_codes,
                     input_size=self._symbol_model_snapshot.input_size,
+                    **symbol_onnx_variant_arguments(self._symbol_model_snapshot.model_version),
                 )
             except SymbolOnnxError as error:
                 raise ImagePipelineExecutionError(f"IMAGE_{error.code}", str(error)) from error
@@ -3078,7 +3081,7 @@ def _board_cell_processing_snapshot(job: Job) -> dict[str, object] | None:
     try:
         snapshot = validate_board_cell_processing_snapshot(
             value,
-            cell_output_size=_symbol_model_snapshot(job).input_size,
+            cell_output_size=_symbol_model_snapshot(job).crop_output_size,
         )
         require_v20_supported_topology(snapshot)
         return snapshot

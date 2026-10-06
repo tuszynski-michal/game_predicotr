@@ -21,6 +21,8 @@ last_updated: 2026-10-06
 - **Runtime:** preserve RGB96 float32 bilinear antialias96→64 and normalization;
   the existing uint8 INTER_AREA production transform cannot be substituted.
   A versioned CPU adapter is shared by import and manual-cell inference.
+  Its pinned render contract source-direct-full-quad-rgb96-v1 uses the full
+  source cell quad and padding0.0. Legacy virtual padding0.08 remains unchanged.
 - **Geometry:** attach frozen neural proposals to staging/import pending review;
   preserve all24 nodes, attested active slots and sequence. A model proposal
   never implies verified geometry. Missing/outside cells do not become targets.

@@ -24,6 +24,7 @@ from game_predictor_api.domain.geometry_qualification import (
 )
 from game_predictor_api.domain.jobs import Job, JobStatus
 from game_predictor_api.domain.symbol_model_snapshots import (
+    LAB_RGB_SYMBOL_MODEL_VERSION,
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
 )
@@ -56,7 +57,12 @@ from game_predictor_worker.images.normalization import (
     CanonicalSourceLoadError,
 )
 from game_predictor_worker.images.symbol_model_release import build_symbol_predictions
-from game_predictor_worker.images.symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError
+from game_predictor_worker.images.symbol_onnx import (
+    LocalSymbolOnnxAdapter,
+    SymbolOnnxError,
+    preprocess_rgb_batch,
+    symbol_onnx_variant_arguments,
+)
 from game_predictor_worker.images.virtual_cell_extraction import (
     VirtualCellExtractionError,
     render_persisted_virtual_cell_rgb,
@@ -136,6 +142,7 @@ class PendingSymbolReinferenceHandler:
             expected_sha256=snapshot.onnx_checksum_sha256,
             class_codes=snapshot.class_codes,
             input_size=snapshot.input_size,
+            **symbol_onnx_variant_arguments(snapshot.model_version),
         )
         rows = self._pending_rows(job.game_id)
         total = len(rows)
@@ -364,6 +371,10 @@ class PendingSymbolReinferenceHandler:
         for crop in crops:
             checksums.append(crop.checksum_sha256)
             rgb = crop.rgb
+            if snapshot.model_version == LAB_RGB_SYMBOL_MODEL_VERSION:
+                # Current crop identity must already be RGB96. Never silently
+                # re-render/rescale pixels approved under a different snapshot.
+                continue
             if rgb.shape[:2] != (snapshot.input_size, snapshot.input_size):
                 rgb = cast(
                     NDArray[np.uint8],
@@ -376,7 +387,16 @@ class PendingSymbolReinferenceHandler:
             normalized = rgb.astype(np.float32).transpose(2, 0, 1) / 255.0
             tensors.append(((normalized - 0.5) / 0.5).astype(np.float32))
         try:
-            inference = adapter.infer(np.stack(tensors).astype(np.float32))
+            inputs = (
+                preprocess_rgb_batch(
+                    [crop.rgb for crop in crops],
+                    input_size=snapshot.input_size,
+                    model_version=snapshot.model_version,
+                )
+                if snapshot.model_version == LAB_RGB_SYMBOL_MODEL_VERSION
+                else np.stack(tensors).astype(np.float32)
+            )
+            inference = adapter.infer(inputs)
         except SymbolOnnxError as error:
             raise JobHandlerError(f"IMAGE_{error.code}", str(error)) from error
         predictions = build_symbol_predictions(
@@ -581,18 +601,7 @@ def _snapshot_from_payload(job: Job) -> SymbolModelJobSnapshot:
             "IMAGE_SYMBOL_REINFERENCE_MODEL_MISSING", "The model snapshot is missing."
         )
     try:
-        iteration = raw.get("iterationId")
-        return SymbolModelJobSnapshot(
-            iteration_id=None if iteration is None else UUID(str(iteration)),
-            model_version=str(raw["modelVersion"]),
-            manifest_checksum_sha256=str(raw["manifestChecksumSha256"]),
-            onnx_checksum_sha256=str(raw["onnxChecksumSha256"]),
-            onnx_relative_path=str(raw["onnxRelativePath"]),
-            storage_root=SymbolModelStorageRoot(str(raw["storageRoot"])),
-            class_codes=tuple(str(value) for value in cast(list[object], raw["classCodes"])),
-            input_size=int(raw["inputSize"]),
-            temperature=float(raw["temperature"]),
-        )
+        return SymbolModelJobSnapshot.from_payload(raw)
     except (KeyError, TypeError, ValueError) as error:
         raise JobHandlerError(
             "IMAGE_SYMBOL_REINFERENCE_MODEL_INVALID", "The model snapshot is invalid."

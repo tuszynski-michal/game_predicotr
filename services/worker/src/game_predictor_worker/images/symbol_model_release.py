@@ -7,21 +7,14 @@ import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import torch
 from numpy.typing import ArrayLike
-from torch import Tensor
 
-from .symbol_classifier import PREPROCESSING_VERSION, logical_state_sha256
 from .symbol_confidence import calibrated_probabilities
-from .symbol_model_benchmark import (
-    BENCHMARK_VERSION,
-    NO_AUGMENTATION_VERSION,
-    SPATIAL_ARCHITECTURE_VERSION,
-    SPATIAL_VARIANT,
-    SpatialSymbolCnn,
-)
+
+if TYPE_CHECKING:
+    from .symbol_model_benchmark import SpatialSymbolCnn
 
 SPATIAL_MODEL_VERSION = "production-spatial-symbol-cnn-v1"
 SPATIAL_ONNX_MODEL_VERSION = "spatial-symbol-cnn-onnx-v1"
@@ -133,6 +126,18 @@ def load_spatial_model_checkpoint(
     expected_class_codes: Sequence[str],
 ) -> LoadedSpatialModel:
     """Load the exact selected checkpoint and reject provenance drift."""
+
+    import torch
+    from torch import Tensor
+
+    from .symbol_classifier import logical_state_sha256
+    from .symbol_model_benchmark import (
+        BENCHMARK_VERSION,
+        NO_AUGMENTATION_VERSION,
+        SPATIAL_ARCHITECTURE_VERSION,
+        SPATIAL_VARIANT,
+        SpatialSymbolCnn,
+    )
 
     try:
         content = path.read_bytes()
@@ -287,6 +292,9 @@ def validate_release_manifest(
     repository_root: Path,
 ) -> dict[str, Path]:
     """Validate the one-manifest boundary and every referenced artifact checksum."""
+
+    from .symbol_classifier import PREPROCESSING_VERSION
+    from .symbol_model_benchmark import SPATIAL_ARCHITECTURE_VERSION
 
     if (
         manifest.get("releaseVersion") != SPATIAL_RELEASE_VERSION

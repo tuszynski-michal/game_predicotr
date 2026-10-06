@@ -18,6 +18,9 @@ gdy brak poprzedniej aktywnej wersji; nie uruchamia niezgodnego bootstrapu.
 R2 RGB ma osobny kontrakt opset17, cropSize96/inputSize64 i bilinear antialias,
 przypięty w fingerprint snapshotu. M6/777 pozostaje przy swoim kontrakcie.
 Import i korekta używają tego samego wersjonowanego CPU preprocessingu.
+R2 renderuje pełny źródłowy quad RGB96 bez insetu (padding0.0), z wersją
+source-direct-full-quad-rgb96-v1 w tożsamości pakietu. Dotychczasowy virtual
+padding0.08 pozostaje bez zmian. Parity obejmuje piksele ze źródła oraz logity.
 Preview/freeze kohorty i dataset builder niezależnie stosują per-game frozen
 protected-source-exclusions-v1 z byte/pixel SHA całych kontrolnych źródeł R2.
 Deskryptor jest częścią fingerprintu; chroni importowane i reencoded aliasy.

@@ -53,6 +53,10 @@ Nowszy V5 pozostaje odrzucony: human34 29/34, 10/18 bramek FAIL.
    przed transformacją. Obecny INTER_AREA na uint8 jest innym preprocessingiem.
    Nowy wersjonowany adapter musi zachować transformację i odtworzyć logity
    rzeczywistego R2. Nie zmieniać preprocessingu istniejących modeli 777.
+   R2 renderuje pełny źródłowy quad komórki do RGB96 bez insetu (padding0.0).
+   Pakiet przypina source-direct-full-quad-rgb96-v1. Stary virtual padding0.08
+   pozostaje bez zmian. Test źródło→produkcja sprawdza identyczność pikseli;
+   test samego tensora nie zastępuje tej kontroli.
 6. Nieczytelny lub nieobecny fragment obrazu nie staje się targetem treningowym.
    Partial może być poprawiany dla widocznych komórek; outside nie ma cropa.
 7. Każdy upload wykonuje inferencję. Trening jest późniejszą jawną iteracją

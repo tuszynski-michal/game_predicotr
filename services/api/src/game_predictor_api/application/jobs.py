@@ -576,7 +576,7 @@ class JobService:
                     "The structured geometry adapter currently supports only 3x5 boards.",
                 )
             processing = board_cell_processing_snapshot(
-                cell_output_size=symbol_model.input_size,
+                cell_output_size=symbol_model.crop_output_size,
                 topology=BoardCellTopology(
                     rows=topology_reference.rows,
                     columns=topology_reference.columns,
@@ -1040,14 +1040,14 @@ class JobService:
             if self._symbol_model_snapshot_resolver is None
             else self._symbol_model_snapshot_resolver.resolve(game_id=game_id)
         )
-        recrop_snapshot = board_cell_recrop_snapshot(cell_output_size=symbol_model.input_size)
+        recrop_snapshot = board_cell_recrop_snapshot(cell_output_size=symbol_model.crop_output_size)
         return self._persist_job(
             JobType.IMAGE_GRID_REINFERENCE,
             game_id=game_id,
             input_payload={
                 "schema_version": 2,
                 "inference_kind": "pending_grid_only",
-                "cell_output_size": symbol_model.input_size,
+                "cell_output_size": symbol_model.crop_output_size,
                 "board_cell_recrop": recrop_snapshot,
             },
             game_already_validated=True,
@@ -1372,7 +1372,7 @@ class JobService:
                 },
             )
         processing_snapshot = board_cell_processing_snapshot(
-            cell_output_size=symbol_model.input_size,
+            cell_output_size=symbol_model.crop_output_size,
             topology=BoardCellTopology(
                 rows=topology_reference.rows,
                 columns=topology_reference.columns,

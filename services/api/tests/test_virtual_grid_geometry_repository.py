@@ -27,6 +27,49 @@ from game_predictor_api.storage.virtual_grid_geometry_repository import (
 from sqlalchemy.dialects import postgresql
 
 
+@pytest.mark.parametrize("lab", (False, True))
+def test_deferred_render_configuration_uses_pinned_crop_contract(lab: bool) -> None:
+    from dataclasses import replace
+
+    from game_predictor_api.domain.symbol_model_snapshots import (
+        LAB_RGB_SYMBOL_MODEL_VERSION,
+        bootstrap_symbol_model_snapshot,
+    )
+    from game_predictor_worker.images.pipeline_contract import (
+        VIRTUAL_CELL_RENDERER_VERSION,
+        CellAssetRolloutMode,
+        GeometryPipelineRolloutSnapshot,
+        GeometryRolloutMode,
+    )
+
+    model = bootstrap_symbol_model_snapshot()
+    if lab:
+        model = replace(model, model_version=LAB_RGB_SYMBOL_MODEL_VERSION, crop_size=96)
+    rollout = GeometryPipelineRolloutSnapshot(
+        GeometryRolloutMode.STRUCTURED_DEFAULT,
+        CellAssetRolloutMode.VIRTUAL_DEFAULT,
+        1,
+        "test-geometry",
+        VIRTUAL_CELL_RENDERER_VERSION,
+        "test-preprocess",
+    )
+    session = Mock()
+    session.scalar.return_value = None
+    job = SimpleNamespace(
+        input_payload={
+            "symbol_model": model.to_payload(),
+            "image_geometry_rollout": rollout.to_payload(),
+        }
+    )
+    configuration = SqlAlchemyVirtualGridGeometryRepository(session)._pending_render_configuration(
+        source_image_id=uuid4(),
+        import_job_id=uuid4(),
+        job=job,
+    )
+    assert configuration.output_width == configuration.output_height == (96 if lab else 64)
+    assert configuration.padding_fraction == (0.0 if lab else 0.08)
+
+
 @pytest.mark.parametrize(
     "existing", (None, SimpleNamespace(status="failed", failure_message="keep"))
 )

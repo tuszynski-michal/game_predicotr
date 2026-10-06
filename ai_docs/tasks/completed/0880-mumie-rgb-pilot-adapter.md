@@ -1,6 +1,6 @@
 ---
 title: TASK-0880 — adapter i pakiet R2 RGB
-status: todo
+status: done
 last_updated: 2026-10-06
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-06
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -66,11 +66,11 @@ push oraz zmiany modelu 777.
 
 ## Acceptance criteria
 
-- [ ] Runtime bez Torch zachowuje bilinear antialias RGB96→64.
-- [ ] Logity i klasy na rzeczywistych cropach zgadzają się z referencją lab.
-- [ ] Import i korekta używają tego samego dispatchu; stare modele zachowane.
-- [ ] Publikacja pakietu jest idempotentna i sprawdzona w nowym procesie.
-- [ ] Drift modelu, słownika, temperatury i dowodów jest odrzucany.
+- [x] Runtime bez Torch zachowuje bilinear antialias RGB96→64.
+- [x] Logity i klasy na rzeczywistych cropach zgadzają się z referencją lab.
+- [x] Import i korekta używają tego samego dispatchu; stare modele zachowane.
+- [x] Publikacja pakietu jest idempotentna i sprawdzona w nowym procesie.
+- [x] Drift modelu, słownika, temperatury i dowodów jest odrzucany.
 
 ## Technical notes
 
@@ -85,6 +85,13 @@ Task nie nadaje zgody na operacje DB użytkownika; szczegółowy preview stanowi
 wejście 0884. Własne zmiany CURRENT stagingować oddzielnie od dawnych metadanych.
 
 ## Expected files
+
+- Nowy: services/worker/src/game_predictor_worker/images/lab_rgb_preprocessing.py — CPU antialias.
+- Istniejący: services/api/src/game_predictor_api/domain/symbol_model_snapshots.py — cropSize fingerprint.
+- Istniejący: services/api/src/game_predictor_api/application/jobs.py — crop output size.
+- Istniejący: services/worker/src/game_predictor_worker/images/pending_symbol_reinference.py — spójny dispatch.
+- Nowy: services/api/src/game_predictor_api/domain/lab_symbol_candidate.py — immutable package contract.
+- Nowy: scripts/prepare_mumie_rgb_pilot.py — bounded verified package CLI.
 
 - Istniejące: C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\services\worker\src\game_predictor_worker\images\symbol_onnx.py
 - Istniejące: C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\services\worker\src\game_predictor_worker\images\manual_board_cell_symbol_prediction.py
@@ -126,20 +133,48 @@ planowane polecenie nie stanowi wyniku PASS.
 
 ### Changed
 
-Jeszcze nie ukończono.
+Added the lab-rgb-symbol-onnx-v1 CPU adapter with exact RGB96 float bilinear
+antialias preprocessing, opset17, input64 and crop96. Import, recrop, manual
+prediction, deferred render fallback and pending reinference share this contract.
+The complete source quad uses padding0.0; existing virtual padding0.08,
+opset18, legacy preprocessing and snapshot fingerprints remain unchanged.
+Training/export Torch imports are lazy; runtime entrypoints remain Torch-free.
+Prepared a content-addressed package with explicit lab_import provenance,
+283 human/44 AI development records and no invented DB approvals/accuracy.
 
 ### Verification results
 
-Jeszcze nie uruchomiono testów odbioru tego taska.
+- Focused render/release/pending/virtual-repository/package suite:77 passed.
+- Broader existing ONNX/manual/resolver/production workflow and adapter suite:
+  108 passed. The final package/pending-R2 suite:23 passed.
+- Ruff check and format for15 changed files PASS; scoped mypy8modules PASS.
+  A broader follow-imports=silent invocation exceeded120s and was bounded;
+  no orphan remained. Broader skip-import analysis reports15 preexisting
+  dependency-typing diagnostics in unchanged lines of jobs, repository and
+  workflow; these are outside this adapter change.
+- Actual source→production render parity:405cells/3photos, zero pixel/class
+  differences; input max7.153e-7, logits max1.908e-6. Source evidence verifies
+  all9352pins and full accepted eligibility semantics before/after inference.
+- Fresh process: actual manual405+production135 inference, three runtime
+  entrypoint imports, canonical pending snapshot roundtrip, zero Torch imports.
+- Independent gpt-6.1-sol/high audit PASS, no remaining P0–P2. Auditor reproduced
+  original source rendering and manual405+production405 runtime independently.
+- Candidate FP5e0489db5f0b1aaa03854e5dabe7104ad85e444d077ff20d5c747f67d062a480;
+  manifest72125739eec0e03e212de5b586ed5b417837e00b0f4382903f88405b0331a5c2.
+  Managed package: main artifacts/mumie-main-app-pilot-20261006/prepared/models/
+  lab-symbol-candidates/<FP>; report package-render-preflight.json.
+  The obsolete tensor-only package is preserved and rejected by the new contract.
 
 ### Not completed
 
-Pozostały kryteria odbioru wskazane powyżej.
+No live DB writes, migration, main merge, deployment, training or model activation.
+Registry/UI/folder integration belongs to0881–0883; this task's criteria are met.
 
 ### Documentation updates
 
-Plan MUMIE_MAIN_APP_PILOT_EXECUTION_PLAN_20261006.md.
+Plan, D-521, architecture supplement and CURRENT_STATE record the exact full-quad
+render boundary and distinguish runtime parity from population accuracy.
 
 ### Recommended next task
 
-TASK-0881. Kontynuować zgodnie z planem po audycie i commicie.
+TASK-0881. Continue the explicitly requested integration plan after this commit.

@@ -6,6 +6,23 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0867 — autonomiczny blind AI audit pierwszej próby (done)
+
+- Dwa niezależne review60 PNG/20human kotwic: 53 high/high readable,7 unresolved.
+  Control50: V3 RGB46/gray45/fuzja45 z47; V4 wszystkie47/47.
+  Directed10: V3 5/0/0 z6; V4 6/5/6 z6. AI agreement, nie human accuracy.
+- Priorytet8 exact cropów; original60 i wcześniejsze26 approve zachowane.
+  Gold frame3 present/51absent/6unresolved; zero Super/human pseudo-label writes.
+  Pierwszy film poza symbol development; geometria wcześniej częściowo trenowana.
+- Proof5fd1d19…8590a; fresh replay8748pins/20anchors i4negativeguards PASS.
+  30pytest,6helpers Ruff/format/scoped strict mypy PASS; independent audit PASS.
+- Saved runtime z bytebackupem; owned API2740/UI26388 gotowe po restarcie.
+  Exact8 direct/proxy0.297/0.266s, revision0; galerie/editor200. API8000 nietknięte.
+- DoD/sixcriteria/plan1–3 spełnione; quality MUMIE_AUTONOMOUS_AI_AUDIT_20261006.md.
+  Commit `v1.7.215`; wcześniejsze metadata wyłączone ze stagingu.
+- Natychmiast kontynuować TASK-0868: nowy cohort i jedna V4-R2 para. Kolejka8
+  nie blokuje. Bez DB/Super/aktywacji/merge/push/wdrożenia.
+
 ### TASK-0866 — większa próba transferu z istniejących katalogów (done)
 
 - Trzy katalogi potwierdzone: 2580/2052/2844 zdjęcia. Nie potrzeba kolejnego

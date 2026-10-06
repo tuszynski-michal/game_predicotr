@@ -6,6 +6,33 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0868 — drugi izolowany eksperyment Mumii (done)
+
+- Etap0867–0868 wykonany bez interakcji operatora; oba taski mają osobne commity.
+- Dwa blind review100 exactPNG/20anchors:76high/high;327development=283human+44AI
+  wobec312/AI29 w V4. Audit22, human84/diag9 oraz human19/5unreadable zachowane.
+  Human26 całe zdjęcia/decoded aliases i pierwszy film wykluczone z development.
+- Jedna para gen4,seed20261005,20ep/280steps:RGB633.28s/best8,gray606.19s/best6.
+  Calibration/best tylko human84. Oba controlled workery zakończone, brak retry.
+- Pairdbe76d…7e815:human84=83/84,old18=18/18,new19=19/19,diag9=9/9 dla każdej
+  gałęzi/fuzji; wszystkie dotychczasowe perclass gates PASS. AI22/44 agreement100%.
+- Held2eaefe…41820:RGB25/26→26/26;gray i fuzja26/26→25/26, nowy błąd Ra→J
+  w directed4 (board4/field11,seq_27118-27126.jpg). Combined human gate FAIL.
+  R2 RGB zachowany eksperymentalnie, V4 pozostaje qualified pair; brak aktywacji.
+- Transfer pierwszego filmu:control47/47 każda gałąź;directedRGB6/gray5/fuzja5
+  z6 wobec V4 6/5/6. AI agreement nie zastępuje human accuracy.
+- Brak R2 sidecara8100:actual max-photos1 odrzucony stabilnym failed-gate guardem.
+  Stare61 wyniki/model/raster/history bez zmian; brak refit/extra run/nowej pary.
+- Independent ONNX/checkpoint196 rastrów:classes identyczne,maxabs3.8147e-6.
+  Actual pair/held fresh replay byte-identical;final replay powtórzony9332pins
+  i4negativeguards PASS, setSHA12bc79f…6238c. Helpers15 Ruff/format/types PASS.
+- Focused50PASS/1 dawny obsolete registry assertion(gen3invalid wobecgen3/4),
+  niezmieniony i opisany poza zakresem. Independent final audit PASS,0openP0–P2.
+- Read-only kolejka8/revision0:directPNG0.125s/proxy0.094s;raw60/human26 zachowane.
+  Nie potrzeba nowych katalogów. Bez DB/Super/migracji/usuwania/merge/push/deploy.
+- DoD/sevencriteria/plan1–5 fulfilled;quality MUMIE_AI_ROUND2_20261006.md.
+  Commit `v1.7.216`; wcześniejsze metadata wyłączone ze stagingu.
+
 ### TASK-0867 — autonomiczny blind AI audit pierwszej próby (done)
 
 - Dwa niezależne review60 PNG/20human kotwic: 53 high/high readable,7 unresolved.

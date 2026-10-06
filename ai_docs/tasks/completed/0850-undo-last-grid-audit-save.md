@@ -106,7 +106,8 @@ Brak blokujących pytań; zakres wyraźnie autoryzowany przez operatora.
 - Ruff format i końcowy check pomocnika PASS; pierwszy check wskazał długi
   wiersz poprawiony formatterem. Bez zmian logiki po weryfikacji.
 - Kryteria akceptacji sprawdzone punkt po punkcie; zakres operacji zachowany.
-- Commit dokumentujący operację: v1.7.196; pełny hash zostanie dopisany po commicie.
+- Commit `v1.7.196` / `8c16dcf16b67a8f5f61b44c9624509148a85f9e5`
+  (hash dopisany po commicie).
 
 ### Not completed
 

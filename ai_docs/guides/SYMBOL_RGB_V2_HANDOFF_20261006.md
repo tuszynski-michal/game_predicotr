@@ -15,8 +15,9 @@ D-520 w `ai_docs/process/DECISION_LOG.md` (z dwiema poprawkami),
 ## Gdzie jest praca
 
 - Worktree: `C:\Users\tuszy\Documents\game_predicotr\worktrees\symbol-reference-library`,
-  gałąź `feat/symbol-reference-library-port`, tip `c197801d` (v1.7.220).
-  **Nie scalona** z `v1.1-vision-lab-hybrid-geometry` (tip `bc75c99c`).
+  gałąź `feat/symbol-reference-library-port`; scalona do
+  `v1.1-vision-lab-hybrid-geometry` commitem merge v1.7.222 (2026-10-06, za
+  zgodą operatora) i wypchnięta. Sterowniki w tle nadal używają kodu z worktree.
 - Artefakty przebiegów (poza Gitem): `<worktree>\artifacts\symbol-rgb-v2\`
   — `index\` (indeks pasm), `runs\<pasmo>\<SYMBOL>-NN-of-MM\` (scope, rows,
   report, preview.html, manifest, pokwitowania, `apply-verify.json`),
@@ -90,13 +91,11 @@ Nie weryfikować w Adminie symbolu, którego zapis właśnie trwa (zakleszczenia
 
 ## Otwarte decyzje i sprawy (wymagają zgody operatora)
 
-1. **Merge** `feat/symbol-reference-library-port` → `v1.1-vision-lab-hybrid-geometry`
-   (+ push wg zasady „merge = push”). Kolizje numerów: na gałęzi są v1.7.198
-   (`db99654f`, duplikat numeru z integracji) i v1.7.210–220, a inne gałęzie
-   mają już do v1.7.209 — sprawdzić tip przed merge i opisać przenumerowanie w
-   commicie merge (precedens w `ai_docs/process/CURRENT_STATE.md`). Zadania
-   tego planu mają TASK-0870–0878 i D-520 (0858–0863 zajął tor Mumii).
-2. **Restart API** po merge — dopiero wtedy filtr „RGB v2” działa w Adminie.
+1. Merge wykonany (v1.7.222). Numeracja: `db99654f` niesie v1.7.198 jak
+   `bc75c99c` z integracji (duplikat zostawiony, opisany w merge); kolejne
+   commity gałęzi v1.7.210–221. Zadania tego planu: TASK-0870–0878, D-520.
+2. **Restart API** (decyzja operatora) — dopiero wtedy filtr „RGB v2” działa
+   w Adminie; Admin (Next.js dev) przeładuje się sam.
    Do tego czasu komórki RGB v2 widać filtrem „Data zmiany komórki” od
    2026-10-05 23:44 UTC albo w przedziale pewności < 60% (0,50 = do przeglądu).
 3. **Miejsce na dysku** (C: ~27 GB wolnego). Cache do ewentualnego usunięcia

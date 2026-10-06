@@ -168,7 +168,7 @@ must support the concrete improvement before publishing new advisory results.
   No migrations, service restarts, push/merge, paused-job resume or model activation.
   Physical Android, OS reboot and overall operator-labelled accuracy not measured.
 - Next step: operator reviews candidates and corrects remaining mistakes before Save.
-- Commit: prepared `v1.7.192`; full hash to record after commit. Branch history
+- Commit: `v1.7.192`, `8a42380bc9b6d13d125c5eab2873c8c58076134f`. Branch history
   advanced during work to `317a07c9` / v1.7.191; pre-existing work excluded.
 
 ## Przypisanie modeli do zadań

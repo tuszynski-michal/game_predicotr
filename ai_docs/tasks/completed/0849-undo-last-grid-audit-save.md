@@ -115,7 +115,10 @@ Szczegółowe logi i pomocnik operacyjny: .runtime/task0849/; wywołania
 mają limity 20–55 s. Dane operacji odczytano w nowym procesie.
 Plan nie obejmuje przycisku Cofnij; kolejna operacja wymaga nowego polecenia.
 
-Commit: v1.7.195; pełny hash zostanie dopisany po zapisie commita.
+Commit: `v1.7.195` / `eb19e28aa796c259820d18c4b891f9d68068ac1b`.
+Przed commitem staged check/stat/list PASS; po commicie show/stat/status PASS.
+W commicie tylko ten task i jego sekcja CURRENT_STATE; wcześniejsze zmiany
+pozostały poza indeksem. Hash dopisany po commicie.
 
 ## Przypisanie modeli do zadań
 

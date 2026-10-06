@@ -161,7 +161,8 @@ Remaining limitation: tentative candidates can be wrong; the operator must
 review every board and correct/clear/mark unknown before Save. Next step is this
 operator review in the already opened local audit queue.
 
-Commit: prepared `v1.7.190`; the full hash will be recorded after commit.
+Commit: `v1.7.190`, `222be446718c4655b51fe4bb54de0a3f3baeb045`.
+The hash was recorded after commit; no push or merge.
 
 ## Przypisanie modeli do zadań
 

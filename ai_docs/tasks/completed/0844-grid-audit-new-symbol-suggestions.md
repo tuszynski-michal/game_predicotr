@@ -183,7 +183,7 @@ treningu, aktywacji modelu, zapisu/cleanup danych, push ani merge. Android devic
 acceptance nie był częścią zakresu; istniejące kontrolki i dotykowy workflow
 pozostały bez zmian. Operator przejrzy wszystkie symbole przed ich zatwierdzeniem.
 
-Commit przygotowany: `v1.7.189`; pełny hash zostanie dopisany po commicie.
+Commit: `v1.7.189`, `a6789285ecfbaa0ca0d94ff3016df6fab8f75d1c`.
 
 ## Przypisanie modeli do zadań
 

@@ -167,6 +167,13 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "create-symbol-training",
         "symbol-model-iteration:{game_id}",
     ),
+    ("POST", "/api/v1/admin/games/{game_id}/symbol-model-iterations/imports"): HighImpactOperation(
+        "import-lab-symbol-candidate", "symbol-model-iteration:{game_id}"
+    ),
+    (
+        "POST",
+        "/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/deactivate",
+    ): HighImpactOperation("deactivate-symbol-model", "symbol-model-registry:{game_id}"),
     (
         "POST",
         "/api/v1/admin/reviewer-sessions/{session_id}/revoke",

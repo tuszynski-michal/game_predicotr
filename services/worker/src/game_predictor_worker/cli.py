@@ -127,6 +127,7 @@ from game_predictor_worker.snapshots import (
 )
 from game_predictor_worker.storage_gc import StorageGcHandler
 from game_predictor_worker.storage_inventory import StorageInventoryHandler
+from game_predictor_worker.symbols.lab_candidate_import import LabSymbolCandidateImportHandler
 from game_predictor_worker.symbols.review_backfill import SymbolCellReviewBackfillHandler
 from game_predictor_worker.symbols.review_bulk import SymbolCellReviewBulkHandler
 from game_predictor_worker.symbols.training_job import (
@@ -402,6 +403,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 enabled=settings.grid_shadow_enabled,
                 threads=thread_budget,
             ),
+            LabSymbolCandidateImportHandler(session_factory, artifact_root),
         )
         image_import_handler = ProductionImageImportWorkflow(
             session_factory,

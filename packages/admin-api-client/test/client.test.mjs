@@ -3,6 +3,55 @@ import test from 'node:test';
 
 import { createAdminApiClient } from '../src/index.ts';
 
+test('lab registry uses game-scoped generated imports and deactivation routes', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const fingerprint = 'a'.repeat(64);
+  const key = '22222222-2222-4222-8222-222222222222';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push({
+        path: new URL(request.url).pathname,
+        method: request.method,
+        body: request.method === 'POST' ? await request.clone().json() : null,
+        target: request.headers.get('x-game-predictor-confirmed-target'),
+      });
+      return Response.json({});
+    },
+  });
+  await client.listLabSymbolCandidates(gameId);
+  await client.previewLabSymbolCandidateImport(gameId, fingerprint);
+  await client.importLabSymbolCandidate(gameId, {
+    candidateFingerprint: fingerprint,
+    idempotencyKey: key,
+  });
+  await client.previewSymbolModelDeactivation(gameId);
+  const deactivation = {
+    actor: 'local-owner',
+    idempotencyKey: key,
+    expectedCurrentModelIterationId: key,
+    reason: 'disable pilot',
+  };
+  await client.deactivateSymbolModel(gameId, deactivation);
+  const prefix = `/api/v1/admin/games/${gameId}/symbol-model-iterations`;
+  assert.deepEqual(
+    requests.map((request) => request.path),
+    [
+      prefix + '/imports/candidates',
+      prefix + `/imports/${fingerprint}/preview`,
+      prefix + '/imports',
+      prefix + '/registry/deactivation-preview',
+      prefix + '/registry/deactivate',
+    ],
+  );
+  assert.deepEqual(requests[2].body, {
+    candidateFingerprint: fingerprint,
+    idempotencyKey: key,
+  });
+  assert.deepEqual(requests[4].body, deactivation);
+});
+
 test('qualified guard commands retain signed corners and all-missing mask', async () => {
   const requests = [];
   const client = createAdminApiClient({

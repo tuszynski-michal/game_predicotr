@@ -512,6 +512,17 @@ class ValidateJobPayload(ApiModel):
     dataset_version_id: UUID
 
 
+class LabSymbolCandidateImportJobPayloadResponse(ApiModel):
+    schema_version: Literal[1]
+    validation_kind: Literal["symbol_model_lab_import"]
+    idempotency_key: UUID
+    candidate_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_manifest_relative_path: str
+    candidate_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    origin_manifest_relative_path: str
+    origin_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class LayoutImportValidateJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     validation_kind: Literal["layout_import"]
@@ -754,6 +765,7 @@ JobPayloadResponse = (
     | LayoutImportValidateJobPayload
     | PageGeometryPreflightJobPayload
     | GridShadowJobPayloadResponse
+    | LabSymbolCandidateImportJobPayloadResponse
     | ImageGeometryGuardReportReconstructionJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
@@ -1238,6 +1250,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION:
         return SemiAutomaticImageSelectionJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.VALIDATE:
+        if job.input_payload.get("validation_kind") == "symbol_model_lab_import":
+            return LabSymbolCandidateImportJobPayloadResponse.model_validate(job.input_payload)
         if job.input_payload.get("validation_kind") == "grid_geometry_shadow_v3":
             return GridShadowJobPayloadResponse.model_validate(job.input_payload)
         if job.input_payload.get("validation_kind") == "layout_import":

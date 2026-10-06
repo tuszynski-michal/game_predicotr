@@ -4101,6 +4101,19 @@ class SymbolModelIterationModel(Base):
             name="ck_symbol_model_iterations_gate_sha256",
         ),
         UniqueConstraint("game_id", "iteration_number", name="uq_symbol_model_iterations_number"),
+        CheckConstraint(
+            "(origin = 'production_training' AND cohort_id IS NOT NULL "
+            "AND origin_fingerprint IS NULL AND origin_manifest_relative_path IS NULL "
+            "AND origin_manifest_checksum_sha256 IS NULL) OR "
+            "(origin = 'lab_import' AND cohort_id IS NULL "
+            "AND origin_fingerprint IS NOT NULL AND origin_manifest_checksum_sha256 IS NOT NULL "
+            "AND origin_fingerprint ~ '^[0-9a-f]{64}$' "
+            "AND origin_manifest_checksum_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND origin_manifest_relative_path IS NOT NULL "
+            "AND btrim(origin_manifest_relative_path) <> '')",
+            name="ck_symbol_model_iterations_origin",
+        ),
+        UniqueConstraint("game_id", "origin_fingerprint", name="uq_symbol_model_iterations_origin"),
         UniqueConstraint("job_id", name="uq_symbol_model_iterations_job"),
         UniqueConstraint(
             "game_id",
@@ -4115,9 +4128,18 @@ class SymbolModelIterationModel(Base):
     game_id: Mapped[UUID] = mapped_column(
         ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
     )
-    cohort_id: Mapped[UUID] = mapped_column(
-        ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"), nullable=False
+    cohort_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("verified_training_cohorts.id", ondelete="RESTRICT"), nullable=True
     )
+    origin: Mapped[str] = mapped_column(
+        String(30),
+        nullable=False,
+        default="production_training",
+        server_default="production_training",
+    )
+    origin_fingerprint: Mapped[str | None] = mapped_column(String(64))
+    origin_manifest_relative_path: Mapped[str | None] = mapped_column(String(1000))
+    origin_manifest_checksum_sha256: Mapped[str | None] = mapped_column(String(64))
     job_id: Mapped[UUID] = mapped_column(ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False)
     iteration_number: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[str] = mapped_column(String(30), nullable=False)
@@ -4153,8 +4175,13 @@ class GameSymbolModelActivationModel(Base):
     __tablename__ = "game_symbol_model_activations"
     __table_args__ = (
         CheckConstraint(
-            "action IN ('activate','rollback')",
+            "action IN ('activate','rollback','deactivate')",
             name="ck_game_symbol_model_activations_action",
+        ),
+        CheckConstraint(
+            "(action = 'deactivate' AND model_iteration_id IS NULL) OR "
+            "(action IN ('activate','rollback') AND model_iteration_id IS NOT NULL)",
+            name="ck_game_symbol_model_activations_target",
         ),
         CheckConstraint(
             "activation_number > 0 AND btrim(actor) <> '' AND command_sha256 ~ '^[0-9a-f]{64}$'",
@@ -4181,8 +4208,8 @@ class GameSymbolModelActivationModel(Base):
     game_id: Mapped[UUID] = mapped_column(
         ForeignKey("games.id", ondelete="RESTRICT"), nullable=False
     )
-    model_iteration_id: Mapped[UUID] = mapped_column(
-        ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT"), nullable=False
+    model_iteration_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT"), nullable=True
     )
     previous_model_iteration_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("symbol_model_iterations.id", ondelete="RESTRICT")

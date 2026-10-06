@@ -165,6 +165,9 @@ import type {
   CreateVirtualCellPreviewBatchData,
   CreateVirtualCellPreviewBatchErrors,
   CreateVirtualCellPreviewBatchResponses,
+  DeactivateSymbolModelData,
+  DeactivateSymbolModelErrors,
+  DeactivateSymbolModelResponses,
   DecideSemiAutomaticFilenameRangeVerificationData,
   DecideSemiAutomaticFilenameRangeVerificationErrors,
   DecideSemiAutomaticFilenameRangeVerificationResponses,
@@ -483,6 +486,9 @@ import type {
   HeartbeatReviewerWorkAssignmentData,
   HeartbeatReviewerWorkAssignmentErrors,
   HeartbeatReviewerWorkAssignmentResponses,
+  ImportLabSymbolCandidateData,
+  ImportLabSymbolCandidateErrors,
+  ImportLabSymbolCandidateResponses,
   ImportReviewBatchData,
   ImportReviewBatchErrors,
   ImportReviewBatchResponses,
@@ -556,6 +562,9 @@ import type {
   ListJobsData,
   ListJobsErrors,
   ListJobsResponses,
+  ListLabSymbolCandidatesData,
+  ListLabSymbolCandidatesErrors,
+  ListLabSymbolCandidatesResponses,
   ListLayoutImportNormalizedRowsData,
   ListLayoutImportNormalizedRowsErrors,
   ListLayoutImportNormalizedRowsResponses,
@@ -685,6 +694,9 @@ import type {
   PreviewImageSelectionRangeRecoveryData,
   PreviewImageSelectionRangeRecoveryErrors,
   PreviewImageSelectionRangeRecoveryResponses,
+  PreviewLabSymbolCandidateImportData,
+  PreviewLabSymbolCandidateImportErrors,
+  PreviewLabSymbolCandidateImportResponses,
   PreviewMobileReleaseDeletionData,
   PreviewMobileReleaseDeletionErrors,
   PreviewMobileReleaseDeletionResponses,
@@ -715,6 +727,9 @@ import type {
   PreviewSymbolModelActivationData,
   PreviewSymbolModelActivationErrors,
   PreviewSymbolModelActivationResponses,
+  PreviewSymbolModelDeactivationData,
+  PreviewSymbolModelDeactivationErrors,
+  PreviewSymbolModelDeactivationResponses,
   PreviewVerifiedTrainingCohortData,
   PreviewVerifiedTrainingCohortErrors,
   PreviewVerifiedTrainingCohortResponses,
@@ -2554,6 +2569,70 @@ export const createSymbolTraining = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Import Lab Candidate
+ */
+export const importLabSymbolCandidate = <ThrowOnError extends boolean = false>(
+  options: Options<ImportLabSymbolCandidateData, ThrowOnError>,
+): RequestResult<
+  ImportLabSymbolCandidateResponses,
+  ImportLabSymbolCandidateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ImportLabSymbolCandidateResponses,
+    ImportLabSymbolCandidateErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/imports',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List Lab Candidates
+ */
+export const listLabSymbolCandidates = <ThrowOnError extends boolean = false>(
+  options: Options<ListLabSymbolCandidatesData, ThrowOnError>,
+): RequestResult<
+  ListLabSymbolCandidatesResponses,
+  ListLabSymbolCandidatesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListLabSymbolCandidatesResponses,
+    ListLabSymbolCandidatesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/imports/candidates',
+    ...options,
+  });
+
+/**
+ * Preview Lab Import
+ */
+export const previewLabSymbolCandidateImport = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewLabSymbolCandidateImportData, ThrowOnError>,
+): RequestResult<
+  PreviewLabSymbolCandidateImportResponses,
+  PreviewLabSymbolCandidateImportErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewLabSymbolCandidateImportResponses,
+    PreviewLabSymbolCandidateImportErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/imports/{fingerprint}/preview',
+    ...options,
+  });
+
+/**
  * List Activations
  */
 export const listSymbolModelActivations = <
@@ -2571,6 +2650,51 @@ export const listSymbolModelActivations = <
     ThrowOnError
   >({
     url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/activations',
+    ...options,
+  });
+
+/**
+ * Deactivate
+ */
+export const deactivateSymbolModel = <ThrowOnError extends boolean = false>(
+  options: Options<DeactivateSymbolModelData, ThrowOnError>,
+): RequestResult<
+  DeactivateSymbolModelResponses,
+  DeactivateSymbolModelErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeactivateSymbolModelResponses,
+    DeactivateSymbolModelErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/deactivate',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Deactivation
+ */
+export const previewSymbolModelDeactivation = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewSymbolModelDeactivationData, ThrowOnError>,
+): RequestResult<
+  PreviewSymbolModelDeactivationResponses,
+  PreviewSymbolModelDeactivationErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewSymbolModelDeactivationResponses,
+    PreviewSymbolModelDeactivationErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/deactivation-preview',
     ...options,
   });
 

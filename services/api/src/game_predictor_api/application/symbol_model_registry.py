@@ -19,7 +19,7 @@ class SymbolModelRegistryRepository(Protocol):
         self,
         *,
         game_id: UUID,
-        model_iteration_id: UUID,
+        model_iteration_id: UUID | None,
         action: SymbolModelActivationAction,
     ) -> SymbolModelActivationPreview: ...
 
@@ -27,8 +27,8 @@ class SymbolModelRegistryRepository(Protocol):
         self,
         *,
         game_id: UUID,
-        model_iteration_id: UUID,
-        expected_manifest_checksum_sha256: str,
+        model_iteration_id: UUID | None,
+        expected_manifest_checksum_sha256: str | None,
         expected_current_model_iteration_id: UUID | None,
         action: SymbolModelActivationAction,
         actor: str,
@@ -48,7 +48,7 @@ class SymbolModelRegistryService:
         self,
         *,
         game_id: UUID,
-        model_iteration_id: UUID,
+        model_iteration_id: UUID | None,
         action: SymbolModelActivationAction,
     ) -> SymbolModelActivationPreview:
         return self._repository.preview(
@@ -61,14 +61,20 @@ class SymbolModelRegistryService:
         self,
         *,
         game_id: UUID,
-        model_iteration_id: UUID,
-        expected_manifest_checksum_sha256: str,
+        model_iteration_id: UUID | None,
+        expected_manifest_checksum_sha256: str | None,
         expected_current_model_iteration_id: UUID | None,
         action: SymbolModelActivationAction,
         actor: str,
         reason: str | None,
         idempotency_key: UUID,
     ) -> tuple[SymbolModelActivation, bool]:
+        if (action is SymbolModelActivationAction.DEACTIVATE) != (
+            model_iteration_id is None and expected_manifest_checksum_sha256 is None
+        ):
+            raise JobConflictError(
+                "SYMBOL_MODEL_ACTIVATION_TARGET_INVALID", "Invalid activation target."
+            )
         normalized_actor = actor.strip()
         normalized_reason = None if reason is None else reason.strip() or None
         if not normalized_actor or len(normalized_actor) > 200:

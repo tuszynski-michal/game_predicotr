@@ -6,6 +6,9 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
+from game_predictor_api.application.lab_symbol_candidate_import import (
+    LabSymbolCandidateImportService,
+)
 from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
 from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
 from game_predictor_api.domain.symbol_model_iterations import SymbolTrainingConfiguration
@@ -15,31 +18,127 @@ from game_predictor_api.schemas.jobs import JobResponse
 from game_predictor_api.schemas.symbol_model_iterations import (
     CreateSymbolTrainingCommand,
     CreateSymbolTrainingResponse,
+    ImportLabSymbolCandidateCommand,
+    LabSymbolCandidateResponse,
     SymbolModelActivationCommand,
     SymbolModelActivationCommandResponse,
     SymbolModelActivationPreviewResponse,
     SymbolModelActivationResponse,
+    SymbolModelDeactivationCommand,
     SymbolModelIterationResponse,
     to_activation_preview_response,
     to_activation_response,
     to_iteration_response,
+    to_lab_candidate_response,
 )
 
 
 def create_symbol_model_iteration_router(
     service_dependency: Callable[..., object],
     registry_service_dependency: Callable[..., object],
+    import_service_dependency: Callable[..., object] | None = None,
 ) -> APIRouter:
     router = APIRouter(
         prefix="/admin/games/{game_id}/symbol-model-iterations", tags=["symbol-model-iterations"]
     )
     dependency = Depends(service_dependency)
     registry_dependency = Depends(registry_service_dependency)
+    import_dependency = Depends(import_service_dependency or service_dependency)
     errors: dict[int | str, dict[str, Any]] = {
         404: {"model": ErrorResponse},
         409: {"model": ErrorResponse},
         422: {"model": ErrorResponse},
     }
+
+    @router.get(
+        "/imports/candidates",
+        response_model=list[LabSymbolCandidateResponse],
+        operation_id="listLabSymbolCandidates",
+        responses=errors,
+    )
+    def list_lab_candidates(
+        game_id: UUID,
+        service: Annotated[LabSymbolCandidateImportService, import_dependency],
+    ) -> list[LabSymbolCandidateResponse]:
+        return [to_lab_candidate_response(value) for value in service.inventory(game_id)]
+
+    @router.get(
+        "/imports/{fingerprint}/preview",
+        response_model=LabSymbolCandidateResponse,
+        operation_id="previewLabSymbolCandidateImport",
+        responses=errors,
+    )
+    def preview_lab_import(
+        game_id: UUID,
+        fingerprint: str,
+        service: Annotated[LabSymbolCandidateImportService, import_dependency],
+    ) -> LabSymbolCandidateResponse:
+        return to_lab_candidate_response(service.preview(game_id, fingerprint))
+
+    @router.post(
+        "/imports",
+        response_model=CreateSymbolTrainingResponse,
+        operation_id="importLabSymbolCandidate",
+        responses=errors,
+    )
+    def import_lab_candidate(
+        game_id: UUID,
+        payload: ImportLabSymbolCandidateCommand,
+        service: Annotated[LabSymbolCandidateImportService, import_dependency],
+    ) -> CreateSymbolTrainingResponse:
+        iteration, job, created = service.start(
+            game_id=game_id,
+            fingerprint=payload.candidate_fingerprint,
+            idempotency_key=payload.idempotency_key,
+        )
+        return CreateSymbolTrainingResponse(
+            iteration=to_iteration_response(iteration),
+            job=JobResponse.from_domain(job),
+            created=created,
+        )
+
+    @router.get(
+        "/registry/deactivation-preview",
+        response_model=SymbolModelActivationPreviewResponse,
+        operation_id="previewSymbolModelDeactivation",
+        responses=errors,
+    )
+    def preview_deactivation(
+        game_id: UUID,
+        service: Annotated[SymbolModelRegistryService, registry_dependency],
+    ) -> SymbolModelActivationPreviewResponse:
+        return to_activation_preview_response(
+            service.preview(
+                game_id=game_id,
+                model_iteration_id=None,
+                action=SymbolModelActivationAction.DEACTIVATE,
+            )
+        )
+
+    @router.post(
+        "/registry/deactivate",
+        response_model=SymbolModelActivationCommandResponse,
+        operation_id="deactivateSymbolModel",
+        responses=errors,
+    )
+    def deactivate(
+        game_id: UUID,
+        payload: SymbolModelDeactivationCommand,
+        service: Annotated[SymbolModelRegistryService, registry_dependency],
+    ) -> SymbolModelActivationCommandResponse:
+        activation, created = service.activate(
+            game_id=game_id,
+            model_iteration_id=None,
+            expected_manifest_checksum_sha256=None,
+            expected_current_model_iteration_id=payload.expected_current_model_iteration_id,
+            action=SymbolModelActivationAction.DEACTIVATE,
+            actor=payload.actor,
+            reason=payload.reason,
+            idempotency_key=payload.idempotency_key,
+        )
+        return SymbolModelActivationCommandResponse(
+            activation=to_activation_response(activation), created=created
+        )
 
     @router.post(
         "",

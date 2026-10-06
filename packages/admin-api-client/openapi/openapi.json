@@ -14453,6 +14453,27 @@
         "title": "ImportJobPayload",
         "type": "object"
       },
+      "ImportLabSymbolCandidateCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidatefingerprint",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidateFingerprint",
+          "idempotencyKey"
+        ],
+        "title": "ImportLabSymbolCandidateCommand",
+        "type": "object"
+      },
       "IncompleteGeometryImagePageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -14976,6 +14997,9 @@
                 "$ref": "#/components/schemas/GridShadowJobPayloadResponse"
               },
               {
+                "$ref": "#/components/schemas/LabSymbolCandidateImportJobPayloadResponse"
+              },
+              {
                 "$ref": "#/components/schemas/ImageGeometryGuardReportReconstructionJobPayload"
               },
               {
@@ -15137,6 +15161,209 @@
         ],
         "title": "JobType",
         "type": "string"
+      },
+      "LabSymbolCandidateImportJobPayloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidatefingerprint",
+            "type": "string"
+          },
+          "candidateManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidatemanifestchecksumsha256",
+            "type": "string"
+          },
+          "candidateManifestRelativePath": {
+            "title": "Candidatemanifestrelativepath",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "originManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Originmanifestchecksumsha256",
+            "type": "string"
+          },
+          "originManifestRelativePath": {
+            "title": "Originmanifestrelativepath",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "validationKind": {
+            "const": "symbol_model_lab_import",
+            "title": "Validationkind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "validationKind",
+          "idempotencyKey",
+          "candidateFingerprint",
+          "candidateManifestRelativePath",
+          "candidateManifestChecksumSha256",
+          "originManifestRelativePath",
+          "originManifestChecksumSha256"
+        ],
+        "title": "LabSymbolCandidateImportJobPayloadResponse",
+        "type": "object"
+      },
+      "LabSymbolCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateFingerprint": {
+            "title": "Candidatefingerprint",
+            "type": "string"
+          },
+          "candidateManifestChecksumSha256": {
+            "title": "Candidatemanifestchecksumsha256",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/LabSymbolCandidateSummaryResponse"
+          }
+        },
+        "required": [
+          "candidateFingerprint",
+          "candidateManifestChecksumSha256",
+          "summary"
+        ],
+        "title": "LabSymbolCandidateResponse",
+        "type": "object"
+      },
+      "LabSymbolCandidateSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "classCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Classcodes",
+            "type": "array"
+          },
+          "cropSize": {
+            "title": "Cropsize",
+            "type": "integer"
+          },
+          "datasetId": {
+            "title": "Datasetid",
+            "type": "string"
+          },
+          "developmentOrigins": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Developmentorigins",
+            "type": "object"
+          },
+          "eligibilityId": {
+            "title": "Eligibilityid",
+            "type": "string"
+          },
+          "format": {
+            "const": "lab-symbol-candidate-v1",
+            "title": "Format",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "humanSelectedControls": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Humanselectedcontrols",
+            "type": "object"
+          },
+          "inputSize": {
+            "title": "Inputsize",
+            "type": "integer"
+          },
+          "modelVersion": {
+            "const": "lab-rgb-symbol-onnx-v1",
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "onnxSha256": {
+            "title": "Onnxsha256",
+            "type": "string"
+          },
+          "origin": {
+            "const": "lab_import",
+            "title": "Origin",
+            "type": "string"
+          },
+          "paddingFraction": {
+            "title": "Paddingfraction",
+            "type": "number"
+          },
+          "populationAccuracy": {
+            "title": "Populationaccuracy",
+            "type": "null"
+          },
+          "preprocessingVersion": {
+            "title": "Preprocessingversion",
+            "type": "string"
+          },
+          "r2CombinedAccepted": {
+            "const": false,
+            "title": "R2Combinedaccepted",
+            "type": "boolean"
+          },
+          "renderVersion": {
+            "title": "Renderversion",
+            "type": "string"
+          },
+          "scope": {
+            "const": "mumie_pilot",
+            "title": "Scope",
+            "type": "string"
+          },
+          "temperature": {
+            "title": "Temperature",
+            "type": "number"
+          },
+          "v5Accepted": {
+            "const": false,
+            "title": "V5Accepted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "format",
+          "gameId",
+          "origin",
+          "scope",
+          "modelVersion",
+          "preprocessingVersion",
+          "renderVersion",
+          "paddingFraction",
+          "cropSize",
+          "inputSize",
+          "classCodes",
+          "temperature",
+          "onnxSha256",
+          "eligibilityId",
+          "datasetId",
+          "developmentOrigins",
+          "populationAccuracy",
+          "humanSelectedControls",
+          "r2CombinedAccepted",
+          "v5Accepted"
+        ],
+        "title": "LabSymbolCandidateSummaryResponse",
+        "type": "object"
       },
       "LateralPartialGeometryJobSnapshotPayload": {
         "additionalProperties": false,
@@ -25982,7 +26209,8 @@
       "SymbolModelActivationAction": {
         "enum": [
           "activate",
-          "rollback"
+          "rollback",
+          "deactivate"
         ],
         "title": "SymbolModelActivationAction",
         "type": "string"
@@ -26069,8 +26297,15 @@
             "type": "boolean"
           },
           "candidateManifestChecksumSha256": {
-            "title": "Candidatemanifestchecksumsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidatemanifestchecksumsha256"
           },
           "currentModelIterationId": {
             "anyOf": [
@@ -26090,9 +26325,26 @@
             "type": "string"
           },
           "modelIterationId": {
-            "format": "uuid",
-            "title": "Modeliterationid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modeliterationid"
+          },
+          "pilotSummary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LabSymbolCandidateSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -26142,9 +26394,16 @@
             "type": "string"
           },
           "modelIterationId": {
-            "format": "uuid",
-            "title": "Modeliterationid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modeliterationid"
           },
           "previousModelIterationId": {
             "anyOf": [
@@ -26183,6 +26442,46 @@
           "createdAt"
         ],
         "title": "SymbolModelActivationResponse",
+        "type": "object"
+      },
+      "SymbolModelDeactivationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expectedCurrentModelIterationId": {
+            "format": "uuid",
+            "title": "Expectedcurrentmodeliterationid",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "expectedCurrentModelIterationId",
+          "idempotencyKey",
+          "actor"
+        ],
+        "title": "SymbolModelDeactivationCommand",
         "type": "object"
       },
       "SymbolModelIterationResponse": {
@@ -26233,9 +26532,16 @@
             "title": "Checkpointrelativepath"
           },
           "cohortId": {
-            "format": "uuid",
-            "title": "Cohortid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cohortid"
           },
           "configuration": {
             "additionalProperties": true,
@@ -26272,6 +26578,10 @@
               }
             ],
             "title": "Datasetmanifestrelativepath"
+          },
+          "epochCount": {
+            "title": "Epochcount",
+            "type": "integer"
           },
           "errorCode": {
             "anyOf": [
@@ -26368,6 +26678,48 @@
             "title": "Lastcompletedepoch",
             "type": "integer"
           },
+          "origin": {
+            "default": "production_training",
+            "enum": [
+              "production_training",
+              "lab_import"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "originFingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originfingerprint"
+          },
+          "originManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originmanifestchecksumsha256"
+          },
+          "originManifestRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originmanifestrelativepath"
+          },
           "partialMetrics": {
             "additionalProperties": true,
             "title": "Partialmetrics",
@@ -26416,7 +26768,8 @@
           "errorCode",
           "errorMessage",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "epochCount"
         ],
         "title": "SymbolModelIterationResponse",
         "type": "object"
@@ -35617,6 +35970,250 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/imports": {
+      "post": {
+        "operationId": "importLabSymbolCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportLabSymbolCandidateCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSymbolTrainingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Import Lab Candidate",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/imports/candidates": {
+      "get": {
+        "operationId": "listLabSymbolCandidates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LabSymbolCandidateResponse"
+                  },
+                  "title": "Response Listlabsymbolcandidates",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Lab Candidates",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/imports/{fingerprint}/preview": {
+      "get": {
+        "operationId": "previewLabSymbolCandidateImport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fingerprint",
+            "required": true,
+            "schema": {
+              "title": "Fingerprint",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabSymbolCandidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Preview Lab Import",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/activations": {
       "get": {
         "operationId": "listSymbolModelActivations",
@@ -35691,6 +36288,174 @@
           }
         },
         "summary": "List Activations",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/deactivate": {
+      "post": {
+        "operationId": "deactivateSymbolModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SymbolModelDeactivationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelActivationCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Deactivate",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/deactivation-preview": {
+      "get": {
+        "operationId": "previewSymbolModelDeactivation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelActivationPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Preview Deactivation",
         "tags": [
           "symbol-model-iterations"
         ]

@@ -1,6 +1,6 @@
 ---
 title: TASK-0881 — rejestr kandydata lab
-status: todo
+status: done
 last_updated: 2026-10-06
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-06
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -67,14 +67,29 @@ push oraz zmiany modelu 777.
 
 ## Acceptance criteria
 
-- [ ] Jawne pochodzenie lab_import i checksum-bound origin manifest.
-- [ ] Migracja 0144 zachowuje istniejące production_training rekordy.
-- [ ] Import idempotentny po utracie odpowiedzi i restarcie.
-- [ ] Activation preview, per-game snapshot i deaktywacja pierwszego pilota.
-- [ ] Spójny backend/OpenAPI/generated client/wrapper/UI/request tests.
-- [ ] Regresja 777 i ochrona zatwierdzeń.
+- [x] Jawne pochodzenie lab_import i checksum-bound origin manifest.
+- [x] Migracja 0144 zachowuje istniejące production_training rekordy.
+- [x] Import idempotentny po utracie odpowiedzi i restarcie.
+- [x] Activation preview, per-game snapshot i deaktywacja pierwszego pilota.
+- [x] Spójny backend/OpenAPI/generated client/wrapper/UI/request tests.
+- [x] Regresja 777 i ochrona zatwierdzeń.
 
 ## Technical notes
+
+Implementation started after TASK-0880 commit v1.7.222 /
+e8de3b18d389207a5ceaa5d171e8a9e14d46c346. Executor: gpt-6.1-sol / high.
+The existing model-iterations resource will expose managed candidate inventory
+and preview. Import uses a VALIDATE job with server-pinned candidate identity.
+The latest deactivation event must be read before resolving a cohort; an inner
+join must not expose an older activation after a null-target deactivation.
+Additional implementation files: application/lab_symbol_candidate_import.py,
+storage/lab_symbol_candidate_import_repository.py,
+storage/lab_symbol_candidate_validation.py,
+worker/symbols/lab_candidate_import.py,
+alembic/versions/0144_lab_symbol_candidate_registry.py, and focused tests.
+Runtime composition, job response schemas, generated client, client wrapper and
+Admin model-quality UI belong to the same change. No operator database writes,
+service changes, model activation or migration execution are authorized here.
 
 Plan jest źródłem rozstrzygnięć technicznych tego taska, D-521 jego zakresu
 produktowego. Nie zastępować całych źródeł pojedynczymi wycinkami w podziale
@@ -132,19 +147,72 @@ planowane polecenie nie stanowi wyniku PASS.
 
 ### Changed
 
-Jeszcze nie ukończono.
+Przygotowano migrację 0144 z jawnym pochodzeniem production_training/lab_import.
+Kandydat lab nie otrzymuje fikcyjnej kohorty ani epok treningu. Istniejący
+zasób modeli udostępnia zarządzany inventory, zweryfikowany preview i import
+VALIDATE z pinami wyznaczonymi przez backend. Import odtwarza trwały receipt
+przed sprawdzeniem bieżących artefaktów i katalogu; publikacja sprawdza lease,
+anulowanie, własność gry, checksumy i wszystkie powiązania.
+
+Dodano preview i idempotentną deaktywację rejestru. Najnowsze wyłączenie
+zatrzymuje resolver zamiast ujawniać wcześniejszy model. Cleanup blokuje
+usunięcie takiego wyłączenia wraz z historycznym modelem. Synchronizacja
+statusu iteracji obejmuje API cancel/retry i odzyskanie wygasłego joba po
+awarii workera. TRAIN i istniejące rodzaje VALIDATE zachowują swoje kontrakty.
+
+Backend, OpenAPI, wygenerowany klient, wrapper, testy żądań i panel Admin
+tworzą jeden pion. Panel zapisuje pełne potwierdzone polecenie przed POST,
+odtwarza je po restarcie/utracie odpowiedzi i zachowuje po 401/403/408/429/5xx.
+Domenowe 404/409/422 pozwalają odświeżyć preview i wydać nowe polecenie.
+Kwalifikacja pilota pokazuje osobno 34 kontrolne komórki, pochodzenie
+human/AI i brak oszacowania jakości populacyjnej.
 
 ### Verification results
 
-Jeszcze nie uruchomiono testów odbioru tego taska.
+Wszystkie wyniki dotyczą absolutnego worktree grid-engine-v3. Runner miał
+limit 120 sekund na krok. Pełny allowlist 42 plików, dokładne ścieżki testów,
+polecenie PG i wyniki zapisano w:
+C:\Users\tuszy\Documents\game_predicotr\artifacts\grid-v3-deployment-20261004\0881-final-proof.json.
+
+- Backend/worker: 64 PASS, w tym receipt replay po drift, fencing, faktyczne
+  requeue_job → save_job, crash/cancel/recovery, blokada cleanup i pięć
+  istniejących/nowych konsumentów dispatch. Proof: 0881-focused-complete.json.
+- Izolowany PostgreSQL: 1 PASS przez istniejący guarded
+  application_role_database("t0881"), bez użycia bazy operatora. Odbiór
+  potwierdził upgrade istniejącego rekordu production_training, constrainty,
+  import/publikację, odtworzenie receipt w nowym procesie Python,
+  activation/deactivation, scope-less/cross-game izolację i fail-closed
+  downgrade z historią. Proof: 0881-isolated-pg-3.json.
+- Klient API: 83 PASS. Panel i istniejące workflowy: 14 PASS, w tym stale
+  deactivation 409 oraz utrata odpowiedzi → 403 → ponowne uwierzytelnienie →
+  identyczny retry. Proof: 0881-client-tests.json i 0881-frontend-tests-final.json.
+- Ruff lint i format: PASS dla 30 zmienionych modułów/testów.
+  ESLint i Prettier zmienionych plików UI/klienta: PASS.
+- Strict scoped Mypy: PASS dla 23 modułów. Typecheck Admin i klienta: PASS.
+  Próba pełnej kompozycji Mypy przekroczyła limit 120 sekund; runner zakończył
+  procesy potomne. Nie rozszerzano zakresu na dawne zależności.
+  Świeży import API i CLI workera: PASS, bez startu lifespan lub usług.
+- OpenAPI export --check, generated-client drift check: PASS.
+- Admin build i Reviewer build: PASS. Pozostały wyłącznie wcześniejsze
+  ostrzeżenia Next dotyczące wielu lockfile oraz ostrzeżenia zależności w testach.
+- Niezależny audyt gpt-6.1-sol/high: 0 otwartych P0–P2. Wszystkie zgłoszone
+  recovery, deactivation i cleanup regresje mają reprodukcję i PASS.
+- git diff --check dla allowlist: PASS.
 
 ### Not completed
 
-Pozostały kryteria odbioru wskazane powyżej.
+Nie wykonano migracji, importu ani aktywacji na bazie operatora. Nie
+restartowano usług, nie scalano gałęzi, nie uruchamiano TASK-0882.
+Implementacja i odbiór spełniają sześć kryteriów taska oraz odpowiadającą
+sekcję zaakceptowanego planu. Osobny commit v1.7.223 i jego pełny hash
+zostaną potwierdzone z historią po publikacji. Stare brudne metadane tasków
+pozostają poza zakresem commita.
 
 ### Documentation updates
 
-Plan MUMIE_MAIN_APP_PILOT_EXECUTION_PLAN_20261006.md.
+Ten task: kryteria odbioru, opis implementacji i rzeczywiste wyniki.
+Root uzupełnia CURRENT_STATE, końcowy commit i przeniesienie do completed;
+plan oraz decyzje pozostają w jego zakresie.
 
 ### Recommended next task
 

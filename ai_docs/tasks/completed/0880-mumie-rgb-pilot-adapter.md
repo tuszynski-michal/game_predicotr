@@ -144,6 +144,9 @@ Prepared a content-addressed package with explicit lab_import provenance,
 
 ### Verification results
 
+- Commit: v1.7.222 / e8de3b18d389207a5ceaa5d171e8a9e14d46c346.
+  Confirmed git show/stat and remaining status after publication.
+
 - Focused render/release/pending/virtual-repository/package suite:77 passed.
 - Broader existing ONNX/manual/resolver/production workflow and adapter suite:
   108 passed. The final package/pending-R2 suite:23 passed.

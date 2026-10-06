@@ -116,6 +116,7 @@ class SymbolTrainingJobStore:
                     "SYMBOL_TRAINING_GAME_MISSING", "Training game is unavailable."
                 )
             config = _training_config(record.configuration_payload)
+            assert record.cohort_id is not None  # TRAIN always retains a real frozen cohort.
             dataset_config = _dataset_config(record.configuration_payload.get("dataset"))
             return _IterationSpec(
                 iteration_id=record.id,

@@ -258,6 +258,7 @@ class SqlAlchemyJobRepository(JobRepository):
                 details={"jobId": str(job.id)},
             )
         apply_job_to_record(record, job)
+        synchronize_lab_import_iteration(self._session, job)
         if job.job_type is JobType.ANDROID_BUILD and job.status is JobStatus.CANCELLED:
             release = self._session.scalar(
                 select(MobileReleaseModel).where(MobileReleaseModel.build_job_id == job.id)
@@ -356,6 +357,35 @@ class SqlAlchemyJobRepository(JobRepository):
                 "JOB_PERSISTENCE_CONFLICT",
                 "Job data conflicts with a persisted record.",
             ) from error
+
+
+def synchronize_lab_import_iteration(session: Session, job: Job) -> None:
+    """Project terminal import state and explicit retry without affecting TRAIN."""
+    if job.game_id is None or job.input_payload.get("validation_kind") != "symbol_model_lab_import":
+        return
+    from game_predictor_api.storage.models import SymbolModelIterationModel
+
+    GameStorageRouter().bind(session, job.game_id, intent=GameStorageIntent.WRITE)
+    iteration = session.scalar(
+        select(SymbolModelIterationModel)
+        .where(
+            SymbolModelIterationModel.game_id == job.game_id,
+            SymbolModelIterationModel.job_id == job.id,
+            SymbolModelIterationModel.origin == "lab_import",
+        )
+        .with_for_update()
+    )
+    if iteration is None:
+        return
+    if job.status in {JobStatus.CANCELLED, JobStatus.FAILED}:
+        iteration.status = job.status.value
+        iteration.error_code = job.error_code
+        iteration.error_message = job.error_message
+        iteration.updated_at = job.updated_at
+    elif job.status is JobStatus.CREATED and iteration.status in {"failed", "cancelled"}:
+        iteration.status = "created"
+        iteration.error_code = iteration.error_message = None
+        iteration.updated_at = job.updated_at
 
 
 def apply_job_to_record(record: JobModel, job: Job) -> None:

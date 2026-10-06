@@ -6,6 +6,27 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0881 — lab candidate registry and recovery (done)
+
+- Explicit lab_import origin, nullable cohort only for lab and immutable
+  candidate inventory/preview/VALIDATE import. No invented training epochs
+  or human cohort; runtime keeps qualified R2 RGB96→64 and T1.05.
+- Append-only deactivate and latest-state resolver prevent bootstrap/older
+  activation revival. Receipt replay survives restart/response loss; cancel,
+  retry and expired-lease recovery synchronize the import iteration.
+  Cleanup fails closed before deleting the current disabled-state history.
+- Backend/OpenAPI/generated client/wrapper/Admin request vertical completed.
+  Operator commands persist exact inputs; authenticated retries retain receipts.
+- 64 backend/worker, 83 client, 14 UI and 1 isolated PostgreSQL tests PASS.
+  Actual 0143→0144 upgrade preserves production rows and verifies RLS,
+  import/publication, cold-process replay and guarded downgrade.
+- Ruff/format30, scoped Mypy23, UI/client lint/types, contract/drift and both
+  builds PASS. Broad composition Mypy was bounded at120s; fresh API/CLI
+  imports PASS. Independent gpt-6.1-sol/high audit:0 openP0–P2.
+  Proof: main artifacts/grid-v3-deployment-20261004/0881-final-proof.json.
+- No operator DB writes, main merge, activation or service restart.
+  Commit version/hash is recorded after publication. Continue0882 next.
+
 ### TASK-0880 — qualified R2 RGB pilot adapter (done)
 
 - Full source quad RGB96, padding0.0, float antialias96→64, opset17.
@@ -18,7 +39,8 @@ last_updated: 2026-10-06
   Zero pixel/class differences, input7.15e-7/logit1.91e-6; no population accuracy.
 - No DB/activation/main deployment. Next0881 registry;0882 folder/correction;
   0883 feedback/acceptance;0884 concrete migration/activation preview.
-- Commit version/hash is recorded after publication.
+- Oddzielny commitv1.7.222 / e8de3b18d389207a5ceaa5d171e8a9e14d46c346.
+  Potwierdzono show/stat i status; stare dirty metadata zachowane.
 
 ### TASK-0879–0884 — jawny pilot Mumii w głównej aplikacji
 

@@ -310,6 +310,10 @@ def _to_domain(record: SymbolModelIterationModel) -> SymbolModelIteration:
         error_message=record.error_message,
         created_at=record.created_at,
         updated_at=record.updated_at,
+        origin=record.origin,
+        origin_fingerprint=record.origin_fingerprint,
+        origin_manifest_relative_path=record.origin_manifest_relative_path,
+        origin_manifest_checksum_sha256=record.origin_manifest_checksum_sha256,
     )
 
 

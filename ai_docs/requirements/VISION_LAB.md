@@ -1,10 +1,104 @@
 ---
 title: Laboratorium geometrii i symboli — wymagania
 status: accepted
-last_updated: 2026-09-28
+last_updated: 2026-10-06
 ---
 
 # Laboratorium wizji
+
+## Larger isolated RGB experiment (D-506)
+
+An explicitly versioned local multi-reference experiment may add only independently
+agreed high/high exact AI crops to the qualified R2 cohort. Preserve all human
+origins, validation, diagnostic and photo-disjoint audit evidence. One new RGB
+variant is bounded to 20 epochs, 7200 seconds and 50000 steps in its immutable run
+root. Earlier generation1–4 and reference limits remain unchanged. Selection and
+calibration use human84 only; per-class regression against V4 RGB and R2 RGB blocks
+acceptance. Require real best_weights and CPU ONNX parity before success. The
+experimental model cannot automatically activate or modify production labels.
+
+## Isolated AI-assisted experiment (D-505)
+
+The user's2026-10-06 autonomous-training/internal-AI instruction permits a
+separate experimental symbol cohort with explicit ai_visual_assessment origin.
+Two blind, exact-raster visual reviews must agree high/high on a readable crop.
+Human approvals and raw batch trainable=false remain untouched. Preserve full
+source/dictionary/base/exclusion gates and frozen human validation. Withheld
+photo-disjoint AI examples from the same film measure AI agreement only.
+One bounded generation4 pair cannot automatically qualify or activate production.
+No AI-derived Super targets or whole-grid approvals are created.
+New exact human approvals retain original provenance and take priority over AI;
+operator unreadable/grid_issue decisions exclude those rasters. New human-training
+photos cannot be in the AI audit; selection is frozen before any experiment run.
+
+## Qualified feedback diagnosis (D-504)
+
+Unlabelled inference with generation3 requires actual parity-qualified exports
+and a recomputed per-class gate against the identical frozen V1 validation.
+It preserves full recording/alias/protected exclusions, including external
+feedback sources and diagnostic_test. Independent-folder diagnostics remain
+unlabelled and cannot report accuracy. New case review retains current base
+approval history/dictionary and exact immutable case rasters after full cohort
+qualification; unrelated raw training sources need not be rehashed on every UI
+operation. Cases stay trainable=false. Existing reference behavior is unchanged.
+
+## Exact relocation of reviewed sources (D-503)
+
+A moved complete recording may retain its logical identity and labels through
+an explicit manifest-bound source location. Every filename/source SHA and exact
+reviewed crop must match the qualified inventory. Other metadata cannot be
+remapped. No location configuration preserves the strict original behavior;
+source content drift always blocks training. The operator's 2026-10-06
+declaration covers each new directory as an independent film, while moved
+duplicates and technical aliases remain the same recording.
+
+## Exact symbol feedback qualification (D-502)
+
+An operator-approved exact raster/class may enter a separate classifier-only
+cohort after current quad re-rendering, source/PNG/dictionary/history checks and
+whole-recording split qualification. This never approves other cells, a photo,
+whole geometry, sequence or geometry-training targets. Raw batch_crop_review
+remains trainable=false; only the explicit derived manifest is trainable.
+Preserve original D-498 assignments and strict default consumers. Protected,
+comparison, cross-game, alias, label/source drift and cross-partition pixel/photo
+duplicates block qualification. Recording declarations must come from the operator.
+
+For the bounded next Mumie iteration, first recording1–23175 is excluded in
+full from new training. Its9 labels are a limited diagnostic_test, not a blind
+final benchmark. Use264 unique development (246 existing+18 feedback) and
+unchanged84 validation, with all10 classes in both. Selection/calibration uses
+only validation. Feedback sampling weight4 does not create extra labels or
+increase the reported unique cohort. Validation/test data never enter sampling.
+
+Generation 3 is bounded to one admitted RGB and one gray run from scratch,
+with the existing durable budgets and exact sampler/RNG resume. Report the
+18 training feedback outcomes separately from validation and the diagnostic
+labels evaluated after selection. Missing sources block execution, preserving
+decisions and artifacts; never substitute an identically named photo whose
+SHA differs. An interrupted pre-training attempt is not model qualification.
+
+## Przygotowanie aktualnych etykiet Mumii (TASK-0853)
+
+Pakiet przygotowawczy zawiera wyłącznie najnowsze ważne decyzje approve
+aktywnej wersji D-496. Zachowuje dokładne cropy, tożsamości i pełną historię
+symboli jako dowód; stare decyzje nie są próbkami. Liczność 30 na klasę jest
+celem zbierania przykładów, nie sztywną bramką kwalifikacji.
+Raport ujawnia liczności, komponenty, duplikaty i blokery. Pakiet ma
+purpose=qualification_only i trainable=false, bez przydziałów train/validation.
+Nie zastępuje potwierdzenia nagrań i splitu T06b. Klasa symbolu nie jest
+etykietą obecności ramki Super; jej uczenie wymaga odrębnych zatwierdzeń.
+
+## Wersja referencji etykiet po korektach geometrii (D-496)
+
+Jawnie zaakceptowana wersja `lab-symbol-label-reference-v1` pozwala etykietować
+przypięte, aktualnie zatwierdzone zdjęcia mimo stale dawnego splitu geometrii.
+Nie zastępuje splitu ani zgód. Zachowuje oryginalną historię, receipts, słownik,
+role i historyczne użycie, bez ponownego nadania zgody przez narzędzie.
+Chronione role i całe komponenty z dawnych oraz aktualnych powiązań pozostają
+niedostępne przed odczytem pikseli. Zmiana geometrii, katalogu lub aktywnego
+słownika zatrzymuje wersję; operator potrzebuje nowego jawnego preview.
+Ta referencja nie kwalifikuje danych do treningu, nie nadaje verified i nie
+tworzy podziału symboli. Bez konfiguracji obowiązują dotychczasowe guardy.
 
 ## V3-D — shadow w aplikacji (D-495, TASK-0805)
 
@@ -279,11 +373,74 @@ klasę słownika, po czym zapisuje tylko zaznaczone cropy atomowo. Brak
 zatwierdzonego słownika blokuje zapis, ale nie podgląd. Poczekalnia sama
 nie zapisuje etykiety, nie uruchamia treningu i nie ujawnia chronionych źródeł.
 „Grupa” symboli jest zwykłym wpisem słownika, nie nowym poziomem danych.
-Panel pokazuje do 500 cropów na jednej przewijanej stronie, pobierając je
-małymi partiami. To limit widoku, nie jednej transakcji: pojedyncze
+Panel pokazuje do 2000 cropów na jednej przewijanej stronie, pobierając je
+jednym ograniczonym żądaniem. To limit widoku, nie jednej transakcji: pojedyncze
 przypisanie pozostaje ograniczone do 30 świadomie wybranych cropów.
+Miniatury pozostają zamrożone do jawnego odświeżenia. Potwierdzony zapis
+oznacza wybrane pola jako „Zapisany” i blokuje ich ponowny wybór bez
+przeładowywania strony. Podczas zapisu można przygotować kolejny wybór pól
+i klasy; następny zapis czeka na receipt. Brak odpowiedzi wymaga identycznego
+retry albo jawnego odczytu po konflikcie. Stary token strony nie jest
+odnawiany przez UI; nawigacja po zapisie pobiera aktualny token serwera.
 Pod poczekalnią operator może wybrać symbol aktywnego słownika i obejrzeć
 wszystkie jego aktualnie przypisane cropy z nazwą źródła, numerem planszy i
 pola. Widok jest tylko do odczytu i stronicowany; decyzje nieaktualne po
 zmianie siatki, źródła, renderera lub słownika pozostają w poczekalni do
 ponownej oceny, nie na liście aktualnych przypisań.
+
+## Scoped Mumie symbol qualification (D-498, TASK-0854)
+
+An explicit operator declaration of independent recordings may qualify a fresh
+per-game symbol cohort in a separate immutable manifest. Preserve the original
+geometry split, label history and D-496 labels-only reference. Assign entire
+transitive old/current components, including unselected aliases. Reject protected,
+comparison or cross-game members, class coverage gaps and exact cross-partition
+photo/crop pixel duplicates. Bind live stores and source bytes; any drift blocks
+training. Small validation is preliminary and must not be called a final test.
+
+## First scoped Mumie symbol runs (TASK-0855)
+
+Two from-scratch RGB/gray models use only D-498 development/validation samples.
+Each variant admits one train per cohort in the durable configured run root,
+20epochs/1800seconds/10000steps. Retry retains budget and exact v2 epoch state.
+Validation selection/calibration and agreement coverage are preliminary evidence;
+flag reference conflicts without modifying human labels. No default activation.
+
+## Independent Mumie inference (D-499, TASK-0856)
+
+Frozen models may propose symbols on an explicitly authorized unlabelled folder.
+Exclude full training/validation/protected components and exact source aliases
+before pixel decoding. Preserve source/model/live-store SHA bindings and durable
+per-photo evidence. Proposals and model confidence never become human approvals
+or reported accuracy. Bound board candidates by filename and operator folder
+end; flag disagreements, omit excess boards and never invent missing pixels or
+final sequence numbers. Review shows full photos and exact cell locations.
+
+## Bounded Mumie appearance experiment (D-500, TASK-0857)
+
+An optional second RGB/gray generation trains from the same qualified human
+labels with versioned deterministic lighting/payline augmentation. Validation
+pixels remain unchanged; selection and calibration use only original validation.
+Preserve v1, original stores and defaults. Each variant keeps the existing
+20-epoch/1800-second/10000-step admission limit. Before exploratory inference,
+require at least 83/84 validation and ONNX parity on all 84 crops per variant.
+Reuse exact geometry and crop pixels for all 600 sources, with SHA checks and
+fresh-process replay. Confidence and agreement are not accuracy or approvals.
+An unsuccessful pair requires new human labels for difficult appearances,
+not repeated random experiments or default activation. A read-only targeted
+review identifies exact locations without approving or training those cases.
+
+## Independent batch crop correction (D-501, TASK-0858)
+
+The operator can correct the 18 diagnostic crops without changing their grid.
+Click selects the crop; the approved dictionary palette and 1–9/0 shortcuts
+are available immediately. An explicit save confirms only the displayed crop
+and class, with unreadable/grid_issue alternatives. Retain frozen PNGs and
+confirm only the receipt's exact case. Keep lost-response retry identical;
+conflicts require an explicit read. Full photos open through a separate link.
+Place the palette beside the gallery on desktop and above it on mobile.
+
+These decisions have batch_crop_review provenance in a separate store. They
+do not approve the photo, whole geometry or sequence and remain trainable=false
+until a separate qualification task satisfies geometry/split gates. Preserve
+the original lab history, training parts, models and immutable batch evidence.

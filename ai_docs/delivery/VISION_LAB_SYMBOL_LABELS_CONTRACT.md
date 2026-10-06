@@ -311,6 +311,16 @@ wyświetla reasons; integrity całego store/snapshotu zatrzymuje cały odczyt.
 
 ## UI i testy/odbiór
 
+TASK-0852/D-497: istniejący lab_queue ma addytywny limit 1–2000, domyślnie
+30; suma PNG najwyżej 48 MiB, błąd SYMBOL_QUEUE_PREVIEW_TOO_LARGE bez części
+wyniku. Limit label_cells_decide nadal 1–30. UI utrzymuje zamrożone miniatury
+do refresh, oznacza tylko receipt-confirmed bindingi jako zapisane i aktualizuje
+CAS bez automatycznego odczytu API. Podczas oczekiwania można wybrać następne
+pola i klasę; submit i nawigacja czekają na potwierdzenie. Przy utracie odpowiedzi
+obowiązuje dokładny retry. Oryginalny read_token pozostaje nieważny po zapisie;
+nawigacja pobiera świeży limit=1 i potem stronę. Niezgodny receipt wymaga
+jawnego read. Zasady holdout, geometrii, dictionary i trwałego writera zostają.
+
 Rozszerzenie D-459/TASK-0716 zastępuje pojedynczy wybór komórki widokiem
 całej planszy. Uzgodniony kontrakt lab_board/label_board_decide, atomowość,
 zgodność starych requestów i macierz regresji znajdują się w TASK-0716.
@@ -362,6 +372,12 @@ Repo używa npm@11.18.0, nie pnpm.
 Testy wymienione są planowane, nie wykonane. Rzeczywiste zapisy danych
 dopiero po audycie kodu; T06b wymaga operatora i osobnego planu operacji.
 Ukończenie narzędzi nie oznacza ukończenia zbioru ani nadrzędnego T06.
+
+TASK-0858/D-501 adds optional batch_queue/batch_label_decide to the same routes.
+Its exact crop reference and separate history are specified in
+MUMIE_BATCH_SYMBOL_CORRECTION_20261005.md. Origin batch_crop_review is not
+lab_human_approved; it never bypasses this document's whole-geometry/training
+gates. Default consumers, labels and dictionary identities remain unchanged.
 
 ## Przypisanie modeli do zadań
 

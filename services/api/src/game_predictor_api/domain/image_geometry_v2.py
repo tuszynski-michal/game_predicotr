@@ -219,6 +219,7 @@ class GeometryEngineKind(StrEnum):
     STRUCTURED_OPENCV_V1 = "structured_opencv_v1"
     MANUAL_V1 = "manual_v1"
     KEYPOINT_FALLBACK_V1 = "keypoint_fallback_v1"
+    NEURAL_GRID_V1 = "neural_grid_v1"
 
 
 @dataclass(frozen=True, slots=True)
@@ -465,6 +466,79 @@ class SourceQuad:
 
 
 @dataclass(frozen=True, slots=True)
+class SourceLatticeNodes:
+    """Exact source-space 4 by 6 lattice, preserving every interior node."""
+
+    nodes: tuple[SourcePoint, ...]
+
+    def __post_init__(self) -> None:
+        if len(self.nodes) != 24 or not all(isinstance(p, SourcePoint) for p in self.nodes):
+            raise ImageGeometryContractError(
+                "IMAGE_GEOMETRY_LATTICE_INVALID", "A 3x5 lattice requires 24 finite source points."
+            )
+        if len({(p.x, p.y) for p in self.nodes}) != 24:
+            raise ImageGeometryContractError(
+                "IMAGE_GEOMETRY_LATTICE_INVALID", "Every lattice node must be distinct."
+            )
+        # Each exact cell must retain clockwise image winding. No interpolation
+        # or coordinate rounding is allowed at this boundary.
+        for row in range(3):
+            for column in range(5):
+                quad = self.cell_quad(
+                    topology=BoardTopology(3, 5), row_index=row, column_index=column
+                )
+                if _cross(*quad.corners[:3]) <= 0:
+                    raise ImageGeometryContractError(
+                        "IMAGE_GEOMETRY_LATTICE_INVALID", "Lattice cells must be clockwise."
+                    )
+        _ = self.outer_quad
+
+    @property
+    def outer_quad(self) -> SourceQuad:
+        return SourceQuad((self.nodes[0], self.nodes[5], self.nodes[23], self.nodes[18]))
+
+    def cell_quad(
+        self, *, topology: BoardTopology, row_index: int, column_index: int
+    ) -> SourceQuad:
+        if topology != BoardTopology(3, 5) or not 0 <= row_index < 3 or not 0 <= column_index < 5:
+            raise ImageGeometryContractError(
+                "IMAGE_GEOMETRY_CELL_COORDINATES_INVALID", "A lattice cell must belong to 3x5."
+            )
+        index = row_index * 6 + column_index
+        return SourceQuad(
+            (self.nodes[index], self.nodes[index + 1], self.nodes[index + 7], self.nodes[index + 6])
+        )
+
+    def require_within(
+        self, source: NormalizedSourceImage | SourceImageBounds, *, tolerance: float = 0.0
+    ) -> None:
+        if any(
+            p.x < -tolerance
+            or p.x > source.width + tolerance
+            or p.y < -tolerance
+            or p.y > source.height + tolerance
+            for p in self.nodes
+        ):
+            raise ImageGeometryContractError(
+                "IMAGE_GEOMETRY_QUAD_OUT_OF_BOUNDS", "Lattice nodes must be inside the source."
+            )
+
+    def require_manual_edit_bounds(self, source: NormalizedSourceImage | SourceImageBounds) -> None:
+        if any(
+            not -source.width <= p.x <= 2 * source.width
+            or not -source.height <= p.y <= 2 * source.height
+            for p in self.nodes
+        ):
+            raise ImageGeometryContractError(
+                "IMAGE_GEOMETRY_MANUAL_EDIT_BOUNDS_EXCEEDED",
+                "Lattice nodes exceed the permitted manual edit bounds.",
+            )
+
+    def to_dict(self) -> list[dict[str, float]]:
+        return [point.to_dict() for point in self.nodes]
+
+
+@dataclass(frozen=True, slots=True)
 class VirtualBoardGeometry:
     """One current source-space grid quad for an active, attested board slot."""
 
@@ -478,6 +552,11 @@ class VirtualBoardGeometry:
     engine_kind: GeometryEngineKind
     symbol_grid_quad: SourceQuad
     geometry_qualification: GeometryQualification | None = None
+    lattice_nodes: SourceLatticeNodes | None = None
+
+    @property
+    def grid_surface(self) -> SourceQuad | SourceLatticeNodes:
+        return self.symbol_grid_quad if self.lattice_nodes is None else self.lattice_nodes
 
     def __post_init__(self) -> None:
         if (
@@ -495,8 +574,15 @@ class VirtualBoardGeometry:
                 "A virtual board geometry requires a versioned geometry engine contract.",
             )
         qualification = self.geometry_qualification
+        if self.lattice_nodes is not None and (
+            self.topology != BoardTopology(3, 5)
+            or self.symbol_grid_quad != self.lattice_nodes.outer_quad
+        ):
+            raise ImageGeometryContractError(
+                "IMAGE_GEOMETRY_LATTICE_BOUNDS_MISMATCH", "The outer quad must match lattice nodes."
+            )
         if qualification is None:
-            self.symbol_grid_quad.require_within(self.source)
+            self.grid_surface.require_within(self.source)
         else:
             if self.topology.rows != 3 or self.topology.columns != 5:
                 raise ImageGeometryContractError(
@@ -507,9 +593,9 @@ class VirtualBoardGeometry:
                     "IMAGE_GEOMETRY_QUALIFICATION_ENGINE_UNSUPPORTED",
                     "Explicit manual qualification is not an automatic geometry fallback.",
                 )
-            self.symbol_grid_quad.require_manual_edit_bounds(self.source)
+            self.grid_surface.require_manual_edit_bounds(self.source)
             outside = unavailable_source_cell_indices(
-                self.symbol_grid_quad, source=self.source, topology=self.topology
+                self.grid_surface, source=self.source, topology=self.topology
             )
             if not set(outside).issubset(qualification.unavailable_cell_indices):
                 raise ImageGeometryContractError(
@@ -517,7 +603,7 @@ class VirtualBoardGeometry:
                     "Every cell outside the source must remain unavailable.",
                 )
             if qualification.completeness_status == "complete":
-                self.symbol_grid_quad.require_within(self.source)
+                self.grid_surface.require_within(self.source)
 
     @property
     def topology_fingerprint_sha256(self) -> str:
@@ -543,6 +629,8 @@ class VirtualBoardGeometry:
         }
         if self.geometry_qualification is not None:
             payload["geometryQualification"] = self.geometry_qualification.to_dict()
+        if self.lattice_nodes is not None:
+            payload["latticeNodes"] = self.lattice_nodes.to_dict()
         return hashlib.sha256(canonical_json_bytes(payload)).hexdigest()
 
 
@@ -622,7 +710,7 @@ class VirtualCell:
                 if self.geometry.geometry_qualification is not None
                 else 0.0,
             )
-        expected = self.geometry.symbol_grid_quad.cell_quad(
+        expected = self.geometry.grid_surface.cell_quad(
             topology=self.geometry.topology,
             row_index=self.row_index,
             column_index=self.column_index,
@@ -711,7 +799,7 @@ def derive_virtual_cells(
     fully_unavailable = (
         set(
             fully_unavailable_source_cell_indices(
-                geometry.symbol_grid_quad, source=geometry.source, topology=geometry.topology
+                geometry.grid_surface, source=geometry.source, topology=geometry.topology
             )
         )
         if qualification is not None
@@ -729,7 +817,7 @@ def derive_virtual_cells(
                 cell_index=cell_index,
                 row_index=row_index,
                 column_index=column_index,
-                source_quad=geometry.symbol_grid_quad.cell_quad(
+                source_quad=geometry.grid_surface.cell_quad(
                     topology=geometry.topology,
                     row_index=row_index,
                     column_index=column_index,
@@ -757,7 +845,10 @@ def _out_of_bounds_corner_count(
 
 
 def unavailable_source_cell_indices(
-    quad: SourceQuad, *, source: NormalizedSourceImage | SourceImageBounds, topology: BoardTopology
+    quad: SourceQuad | SourceLatticeNodes,
+    *,
+    source: NormalizedSourceImage | SourceImageBounds,
+    topology: BoardTopology,
 ) -> tuple[int, ...]:
     """Classify actual cell footprints, not the renderer's inset/padding.
 
@@ -777,7 +868,10 @@ def unavailable_source_cell_indices(
 
 
 def fully_unavailable_source_cell_indices(
-    quad: SourceQuad, *, source: NormalizedSourceImage | SourceImageBounds, topology: BoardTopology
+    quad: SourceQuad | SourceLatticeNodes,
+    *,
+    source: NormalizedSourceImage | SourceImageBounds,
+    topology: BoardTopology,
 ) -> tuple[int, ...]:
     """Cells with no positive-area intersection with the source image."""
     missing: list[int] = []
@@ -836,7 +930,7 @@ def source_quad_intersects_image(
 
 
 def resolve_manual_geometry_qualification(
-    quad: SourceQuad,
+    quad: SourceQuad | SourceLatticeNodes,
     *,
     source: NormalizedSourceImage | SourceImageBounds,
     topology: BoardTopology,
@@ -942,6 +1036,7 @@ __all__ = [
     "ImageGeometryContractError",
     "NormalizedSourceImage",
     "SourcePoint",
+    "SourceLatticeNodes",
     "SourceQuad",
     "SourceOccurrence",
     "VirtualBoardGeometry",

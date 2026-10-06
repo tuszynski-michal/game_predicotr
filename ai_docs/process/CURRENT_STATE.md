@@ -1,11 +1,694 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 ---
 
 # Current State
 
+### TASK-0884 — approved main-app pilot deployment (done)
+
+- Actual MAIN pilot ready:100 managed originals,99 bound sources,891 pending,
+  one unbound ending source. Same importf3ff4258-e561-4031-bc04-227c9dbf51b6
+  waiting_for_review/attempt3,199/199,99review/0failed. No human approvals,
+  approved geometry,cohorts or symbol_training. First operator review remains.
+- Mumie iterationfd5b15b6-e335-410d-9720-5f2d3bd6ec43 activated by
+  fa00eaa1-5f19-4675-8102-3f40e042ff7c. Qualified R2crop96/input64 and exact
+  neural24-node identity preserved;777 registry/activation unchanged.
+- Both histories retained: sourcev1.7.225/820083aed4b3d2dda048c938bd2f3ed410132d95
+  and premerge MAINv1.7.222/48b6e0e104e19e915bde30cd89a80d508e81c0b3.
+  Completionv1.7.226/full hash is recorded after commit. MAIN branch remains
+  v1.1-vision-lab-hybrid-geometry. Independent RGB0878 and old dirty metadata retained.
+- Live fixes: owned-listener API readiness, lab checkpoint schema_version,
+  optional strict lab cropSize DTO/full generated contract, deferred crop
+  producer stage contract. Real exact99-file retry preserved297 prior stages,
+  checkpoint/order/digests, same job and existing pending891. No data reset.
+- Final API29756/30308,Admin45912,Reviewer48888,worker38536/48684 healthy;
+  MAIN ports8000/3000/3001. Vision Lab3102/RGB preserved. UI auto-preview15/15,
+ 24nodes, symbol-only edit and unsaved-draft reload passed without approval.
+- Full13.6GB archive and retained isolated *_test restore passed. Restore filled
+  C and blocked30GiB reserve; root acknowledged error and moved verified archive
+  to D:\game_predictor_backups\mumie-main-app-pilot-20261006 after both fullSHA.
+  Durable pointer/reconciliation passed. No DB deletion/reserve reduction.
+  Earlier0143→0145 executor is unattributed; explicit migrationCLI was a no-op.
+  Actual isolated migration tests and final head0145/exact777 fences passed.
+- Necessary existing topology draft3×5 created through API;spinCost0 is unused
+  explicit placeholder. No publication,paylines,payouts or target calculation.
+- Install/builds/contracts/types/lint, scoped tests and real100 cold acceptance
+  PASS. Readiness3/labworker2/query22/HTTP2/stage5/client88 tests overlap broader
+  suites. Independent gpt-6.1-sol/high code/liveSQL review PASS,0 openP0–P2.
+  Quality: MUMIE_MAIN_APP_PILOT_ACCEPTANCE_20261006.md; receipts in
+  main artifacts/mumie-main-app-pilot-20261006. No push.
+- Next: operator review of existing100, then500/2000. No further upload or
+  training authorization needed to finish0884. Symbol TRAIN uses pooled human
+  corrections; neural-grid refit remains separate. Super/manual10-spin selection
+  is a later task proposal, not a pilot blocker. V5/R2pair still FAIL.
+
+### TASK-0883 — pooled correction feedback and pilot acceptance (done)
+
+- Whole-photo protections before existing caps, current human approvals and
+  fresh preview/freeze/builder/reuse/first-epoch gates implemented. Legacy
+  fingerprints and4000/class,64/source budgets preserved; no auto-training.
+- Exact24-node human geometry export and visibility/outside masks retained.
+  Initial approval needs no recrop. Checksum/interior/stale approval negatives
+  and explicit legacy corner conversion have regression coverage.
+- Frozen127 genuine human controls/136 proofs/24 whole sources,10 explicit
+  catalog mappings; AI never becomes truth. New production promotion checks
+  exact current crop and locks pending controls. OPEN is a real conflict;
+  absent comparisons are NO_CONFLICT/0. R2 lab import and777 preserved.
+- Root67/feedback53/truth51/installer15 testsPASS, with overlapping suites;
+  independent55PASS. Two actual guarded *_test PG testsPASS including cold
+  export resume and competing LOGIN update55P03/teardown. API/UI/contract,
+  strict owned-scope types, Ruff/format and Admin buildPASS. Full Torch graph
+  timed out; scoped check skips only third-party torch/torchvision.
+- Prepared controls161files verified in a new process,0 writes to live store.
+  Prepared100-photo folder ready; reuse bounded actual100 receipt from0882,
+  not a population accuracy claim. Operator guide and concrete0144/0145
+  deployment preview ready. Independent gpt-6.1-sol/high audit PASS,0 open P0–P2;
+  commitv1.7.225/820083aed4b3d2dda048c938bd2f3ed410132d95.
+  Post-commit merge-tree confirms only CURRENT_STATE/DECISION_LOG conflicts;
+  MAIN stays clean at48b6e0e104e19e915bde30cd89a80d508e81c0b3.
+- OperatorDB remains0143 with0Mumie sources/boards, no activation or restart.
+  DB51.64GB/C:82.47GBfree measured read-only; full backup/restore not done.
+  Main Admin3000, Reviewer3001, API8000;3102 is Vision Lab. API arguments
+  currently have no --reload; stop it before merge/migration regardless.
+  RGB0878 previewCLI remains active; safe checkpoint required before0884.
+
+### TASK-0882 — neural folder import and correction (done)
+
+- Frozen geometry_core CPU staging, immutable checkpoint replay, explicit
+  source binding and exact24-node board correction implemented. Migration0145
+  extends the existing override; missing slots are never compacted.
+  Managed source handoff/exclusions work after staging retention.
+- Actual Admin Import panel accepts99 review sources and all-unbound source
+  handoff; replay recovers the existing job, active new descriptor is rejected.
+  Symbols edit on opening; approved geometry and legacy777 defaults preserved.
+- Root41 new/120 broader/24 managed-source tests; backend46 core/10legacy,
+  client86, independent fresh backend96 PASS (overlapping counts).
+  Disposable PostgreSQL1 PASS/0skip,9 invalid nested bindings rejected;
+  populated0144→0145, CAS/cold receipt/RLS/guarded downgrade verified.
+- UI pure41/final66 and Reviewer15/Admin21 interactions PASS. Types/lint,
+  formatting, OpenAPI/SDK checks, strict Mypy root7/backend29 and both builds
+  PASS. Mobile touch390/360×844 PASS; physical Android untested.
+- Real100 source handler:900 expected,897 valid24-node proposals/13455fullcells,
+  99 ordered drafts/1 unbound; five20-source steps below20s. Cold replay0/4
+  sameSHA/0infer. Separate memory20 parent124.6MiB/child413.0MiB individualpeaks.
+  These are structural counts, not population symbol accuracy.
+- Quality: MUMIE_NEURAL_FOLDER_CORRECTION_20261006.md; final proof in main
+  artifacts/grid-v3-deployment-20261004/0882-final-proof.json. Independent
+  gpt-6.1-sol/high audit PASS,0 openP0–P2;commitv1.7.224/8b37241fdd6eb9d29b35691d4e91f3d6a88cb18e.
+  Continue0883 autonomously.
+- No operator DB writes, main merge/activation/restart. Live0143 and0Mumie
+  sources/boards confirmed read-only. RGB777 previewCLI still active.
+  Prepared100-photo upload copies31.17MB preserve sourceSHA/originals.
+
+### TASK-0881 — lab candidate registry and recovery (done)
+
+- Explicit lab_import origin, nullable cohort only for lab and immutable
+  candidate inventory/preview/VALIDATE import. No invented training epochs
+  or human cohort; runtime keeps qualified R2 RGB96→64 and T1.05.
+- Append-only deactivate and latest-state resolver prevent bootstrap/older
+  activation revival. Receipt replay survives restart/response loss; cancel,
+  retry and expired-lease recovery synchronize the import iteration.
+  Cleanup fails closed before deleting the current disabled-state history.
+- Backend/OpenAPI/generated client/wrapper/Admin request vertical completed.
+  Operator commands persist exact inputs; authenticated retries retain receipts.
+- 64 backend/worker, 83 client, 14 UI and 1 isolated PostgreSQL tests PASS.
+  Actual 0143→0144 upgrade preserves production rows and verifies RLS,
+  import/publication, cold-process replay and guarded downgrade.
+- Ruff/format30, scoped Mypy23, UI/client lint/types, contract/drift and both
+  builds PASS. Broad composition Mypy was bounded at120s; fresh API/CLI
+  imports PASS. Independent gpt-6.1-sol/high audit:0 openP0–P2.
+  Proof: main artifacts/grid-v3-deployment-20261004/0881-final-proof.json.
+- No operator DB writes, main merge, activation or service restart.
+  Commitv1.7.223/669cd5325140312e9da270bcd3c2ff194b875655 verified with
+  show/stat and remaining status. Continue0882 next.
+
+### TASK-0880 — qualified R2 RGB pilot adapter (done)
+
+- Full source quad RGB96, padding0.0, float antialias96→64, opset17.
+  Existing777 preprocessing/padding/fingerprints preserved.
+- 77 focused +108 broader regression tests PASS; Ruff15files/scopedmypy8 PASS.
+  Fresh manual/production runtime entrypoints work without Torch. Independent
+  audit PASS,0 openP0–P2, original9352pins and actual405source cells verified.
+- Candidate5e0489…a480 / manifest721257…a5c2; prepared managed package and
+  package-render-preflight.json in main artifacts/mumie-main-app-pilot-20261006.
+  Zero pixel/class differences, input7.15e-7/logit1.91e-6; no population accuracy.
+- No DB/activation/main deployment. Next0881 registry;0882 folder/correction;
+  0883 feedback/acceptance;0884 concrete migration/activation preview.
+- Oddzielny commitv1.7.222 / e8de3b18d389207a5ceaa5d171e8a9e14d46c346.
+  Potwierdzono show/stat i status; stare dirty metadata zachowane.
+
+### TASK-0879–0884 — jawny pilot Mumii w głównej aplikacji
+
+- Operator wybrał rekomendowany R2 RGB i zlecił integrację folderów, korekty
+  siatek/symboli oraz naukę z zatwierdzonych poprawek. D-521; plan
+  MUMIE_MAIN_APP_PILOT_EXECUTION_PLAN_20261006.md. Bez nowych oznaczeń teraz.
+- R2 RGB eligibility5b6af3…4ac7c, ONNX e4f9b2…37095, T1.05, human34=34/34
+  wybranych kontroli. R2 pair i V5 nadal FAIL; nie jest to accuracy całego filmu.
+- Wykryta istotna różnica preprocessing: lab używa bilinear antialias96→64,
+  produkcja uint8 INTER_AREA. TASK0880 zachowa wersjonowane wejście modelu.
+- Potrzebne jawne lab-origin w istniejącym registry, neural staging/pending,
+  pełne24nodes w korekcie oraz osobne kwalifikowanie targets z feedbacku.
+  Plan0144 po obecnym0143 wymaga gotowego preview przed operacją na bazie.
+- Worktree HEADv1.7.220/4afedc11682cb7d378363710c78467c19d3bb12a;
+  MAINv1.7.222/48b6e0e104e19e915bde30cd89a80d508e81c0b3.
+  Przy scaleniu zachować nowszy RGB0878 i jego checkpoint, zatrzymać reload.
+  Numery0873–0878 na MAIN zajęte; nowa integracja ma0879–0884.
+- TASK0879: plan i taski zapisane, niezależny review PASS,0 openP0–P2.
+  Uściślono source-level korektę przed sequence, brak compaction i whole-photo
+  split z trwałą ochroną held-out byte/pixel aliases przed nowym DB TRAIN.
+  Preflight405 real crops/3photos PASS: input max7.153e-7, logit max1.908e-6,
+ 0 class differences,40.17s. To parity wejścia, nie accuracy pełnego folderu.
+  Oddzielny commitv1.7.221/2ac7a36bdf7894021de0d7c4118649efa025945e.
+  Potwierdzony show/stat i status; następny TASK0880.
+  Adapter0880 implemented and qualified; DB/runtime activation not performed. Old dirty metadata remains outside staging.
+
+### TASK-0872 — większy izolowany RGB Mumii (done; candidate rejected)
+
+- TASK-0871 zakończony i odebrany; HEAD `v1.7.219` /
+  `d61d6981f1c68960d9c1ecb776303643b047421f` potwierdzony z historią.
+- Manifest `58a064…d36b` opublikowany: R2 development327 + 1726 nowych high/high
+  AI cropów, w tym Mumia109. Human84/diagnostic9/AI22 i human26/human8 zachowane.
+  Pełny freeze 93.78 s; fresh-process verify 70.81 s, wszystkie 2000 quadów
+  ponownie wyrenderowane. Cache źródeł i parent statów usuwa wcześniejsze timeouty.
+- D-506: nowy jawny lokalny kontrakt wielu pakietów, jeden model RGB,
+  20 epok / 7200 s / 50000 kroków. Stare generation1–4/API/limit100 bez zmian.
+  Własny symbol_protocol_digest w lokalnym Request wiąże checkpoint; HYBRID
+  protocol_digest pozostaje None. Manifest wymaga jednego zamrożonego run root.
+- Pełny niezależny preflight kodu/danych PASS. Jedyny run `5302ac…8093` zakończył
+  20 epok / 1360 kroków; best1, validation83/84. Pierwsza próba PID44912,
+  631.21 s; fresh resume checkpoint20 PID7892, nadal1360 kroków, razem695.96 s.
+  Real CPU ONNX parity PASS (max2.861e-6). Bez DB, Super i aktywacji.
+- Ocena `efcdc9…5ee`: V5 odrzucony; 10/18 porównań według klas nie przechodzi.
+  New19=16/19, held22=19/22, human8=6/8; human34 razem29/34 wobec R2 RGB34/34.
+  Human84=83/84, old18=18/18, diagnostic9=9/9. Więcej AI nie poprawiło jakości;
+  etapu0873 nie uruchamiać z tym kandydatem. Niezależny actual inference audit
+  obu baseline RGB i V5 odtwarza wszystkie18 bramek; 11480 pinów sprawdzonych.
+  To wybrane kontrole regresji, nie accuracy całego filmu.
+- Próba anulowania ujawniła opóźniony stop w dawnym trainerze. Nowy lokalny
+  LargeRgbRunManager honoruje go przy kolejnym batchu; 15 runner tests PASS.
+  Stare kontrakty zachowane. Niezależny strict scoped mypy nowych3modułów PASS.
+- 42 focused adapter/run/legacy tests PASS i 18 numerical training/resume tests
+  PASS dla generation1–5. Dokładny R2 receipt, protected groups, resigned inputs,
+  restart/budżety/fencing, defensive cache i Windows case/reparse guards pokryte.
+- Final Ruff lint/format 5 modułów i 3 testów PASS. Real cp9/globalStep612
+  odtworzony w dwóch procesach: identyczny batch32/images/logits/optimizer/model/RNG.
+  Proof `1d4b43…06d9`, batch digest `3bd0b2…7ea3`, ledger i model niezmienione.
+  Auditor w nowym procesie odtworzył sampler/augmentację/labels/generator.
+  Preflight/model/ocena/replay PASS, bez otwartych P0–P2; V5 nadal REJECTED.
+- Raport: ai_docs/quality/MUMIE_LARGE_RGB_EXPERIMENT_20261006.md.
+  Hipoteza dalszej pracy: feedback draw share spadł z33.79% do6.84% mimo weight4;
+  AI stanowi81.79% drawów. Kolejny osobno opisany eksperyment powinien kontrolować
+  udział human/AI i ekspozycję zdjęć. Brak potrzeby nowych folderów/oznaczeń teraz.
+- Pliki: trzy nowe moduły symbol_large_*, dwa opcjonalne reuse hooks, testy
+  i dokumentacja protokołu. Wcześniejsze dirty metadata wyłączyć ze stagingu.
+  Oddzielny commit `v1.7.220`; pełny hash dopisać po commicie. Cały zaakceptowany
+  plan kończy bieżący etap na niespełnionym warunku C. Bez refitu/aktywacji/DB.
+
+### TASK-0871 — większy zbiór Mumii (done)
+
+- Po v1.7.218 większy trening nie został uruchomiony. Poprzednio podany czas
+  był szacunkiem; aktualna kontrola procesów potwierdziła brak aktywnego CNN Mumii.
+- Rozpoczęto przygotowanie większej deterministycznej serii z trzeciego filmu.
+  Wyrenderowano 2000/2000 nowych kandydatów w 20 pakietach po 100; 916.50 s.
+  Selection `12645e…69ff`, SHA `afcb8b…89fe`; 41 zdjęć, maksymalnie 54/zdjęcie.
+  Pełny union 526 dawnych rastrów i 9351 pinów zachowany. Oba blind review
+  zakończone: 2000 indywidualnych ocen każdy, własne fresh-process checks PASS.
+- Fresh-process selection odtworzony bez zmian w 47.06 s; packet0 ponownie
+  zweryfikowany w 36.62 s. Kontroler zakończył pracę; brak aktywnego CNN.
+  Fresh aggregate odtwarza ID/pointer/bajty w 14.86 s. Qualification `8a57f6…8ac8`
+  ma 11472 piny, 1726 high/high accepted i 274 rejected; Mumia 109.
+  To liczności danych z AI, nie pomiar accuracy. Bez targetów Super/human approvals.
+- 12 focused tests PASS; Ruff/format 4 i mypy 3 helperów PASS. Niezależny audyt
+  wszystkich 2000 source/quad/pixels/montages i 40 review/20 proofs PASS;
+  14 dodatkowych detached negative guards PASS. Końcowy niezależny audyt PASS,
+  brak otwartych P0–P2. Oddzielny commit `v1.7.219`; hash dopisany po commicie.
+- Zachować pierwszy film, human26/human8, validation/diagnostic i dawne AI audit
+  poza nowym development. Bez zmian historii człowieka, modeli i aplikacji.
+- Zaakceptowany zakres autonomiczny: MUMIE_LARGE_TRAINING_EXECUTION_PLAN_20261006.md.
+  Najpierw przygotowanie i dwa blind review; CNN dopiero po kwalifikacji 0872.
+  Bieżąca decyzja nie obejmuje DB, migracji, usuwania, merge, push ani aktywacji.
+- Wcześniejsze brudne metadane wyłączyć ze stagingu. Po commicie kontynuować 0872.
+
+### TASK-0870 — osobna diagnostyka RGB (done)
+
+- Eligibility `5b6af3…4ac7c`: wszystkie dziewięć bramek RGB według klas i grup
+  przechodzi (human84/18/19/9, held22/4, nowe control3/directed5/all8).
+  Sprawdzono 9352 oryginalne piny oraz powiązania modeli, temperatur i metryk
+  z niezmiennymi dowodami. Diagnostyka używa dokładnie dwóch eksportów RGB.
+- 60 zdjęć / 8100 identycznych wycinków; porcje po 20 zdjęć, limit kroku 120 s.
+  Czasy: 26.20 / 20.44 / 24.16 s. Osobny sidecar RGB zawiera 33 zmiany klas;
+  liczba wyników poniżej progu pewności 0.9 spadła z 704 do 490 (o 214).
+  To nie jest pomiar poprawności całego filmu. Nowych oznaczeń zapisano 0.
+  Nowe osiem przykładów: RGB 8/8; łącznie 34/34 na dwóch wybranych zestawach.
+- Powtórna inferencja obu CNN odtworzyła 60 zdjęć / 8100 wycinków bez różnic
+  w logitach. Czasy porcji: 26.38 / 33.66 / 45.14 s. Replay: 9474 piny,
+  digest `b3f13c…b6f1f`, siedem grup kontroli negatywnych PASS.
+  Wznowienie porównania: 18.30 s, 0 nowych zdjęć. Wznowienie weryfikacji:
+  35.50 s, 0 nowych zdjęć; 60 markerów, digest i bajty raportu identyczne.
+  Ścisła walidacja wyników, quadów, pikseli, modeli i historii odrzuca zmiany.
+- Niezależny końcowy audyt artefaktów, replay, wznowienia i dokumentacji PASS.
+  Obie wcześniejsze uwagi poprawione i sprawdzone; brak otwartych P0–P2.
+  17 testów inferencji PASS; cztery helpery: Ruff, formatowanie i typy PASS.
+  TASK-0869 osobno: 43 testy PASS.
+- Human8 revision8, human26 revision27 i oba wcześniejsze zestawy 61 wyników
+  zachowane. V4 pozostaje kwalifikowaną parą; R2 combined gate=false,
+  sidecar odrzuconej pary nadal nie istnieje. Bez treningu, refitu ani aktywacji.
+- DoD, pięć kryteriów i kroki 1–4 zaakceptowanego planu spełnione.
+  Raport: MUMIE_RGB_ONLY_DIAGNOSTIC_20261006.md. Commit `v1.7.218`.
+  Wcześniejsze zmiany metadanych wyłączone ze stagingu. Etap 0869–0870 ukończony.
+  Bez zmian API/UI/schematu/DB, migracji, usuwania, Super, merge, push i wdrożenia.
+  Użytkownik nie musi powtarzać ośmiu oznaczeń.
+
+### TASK-0869 — nowe osiem zatwierdzeń Mumii (done)
+
+- Exact human8/revision8 z pełnym history/receipt/dictionary/source/quad/PNG.
+  Pierwszy film poza symboldevelopment312/327,0photo/pixel overlap.
+  Category nadaje własne caseIDs; join pełnym bindingiem, previous_case_id zachowane.
+- Actual sześć ONNX:control3 wszyscy3/3;directed5 V3 RGB5/gray2/fuzja2,
+  V4 5/3/5,R2 5/3/4. All8 RGB8 każda generacja,gray5/6/6,fuzja5/8/7.
+  R2 RGB noweperclass/group gates PASS; wcześniejszehuman26 RGB26/26,łącznie34/34
+  na dwóch wybranych zestawach. Nie jest to accuracy całego katalogu.
+- Zero accepted AI/humanconflicts;7dawnychunresolved rozstrzygnięte przez człowieka,
+  52pozostałe AI-only. Żadnych nadpisanych ocen, pseudo-zgód ani training/refit.
+- Proof9d02a5…c5833, actual75.09s/fresh81.67s byte-identical.
+  Replay11.86s:9349pins,rerender8,5negativeguards PASS,setSHAd715e61…da9d51.
+  Human26 i oba61-output sets zachowane;43pytest,2helperRuff/format/types PASS.
+- Independent final audit PASS,0openP0–P2;DoD/sixcriteria/plan1–4.
+  Quality MUMIE_FIRST_HUMAN_CHECK_20261006.md;commit `v1.7.217`.
+- Accepted MUMIE_FIRST_HUMAN_CONTINUATION_20261006.md:po audit/commicie kontynuować
+ 0870 conditional RGB-only diagnostic istniejących8100, bez nowej pary/aktywacji.
+  QualifiedV4/rejectedR2combined bez zmian. Bez DB/Super/API/UI/merge/push/deploy.
+  Wcześniejsze dirty metadata wyłączyć ze stagingu. Nie potrzeba kolejnych8/folderu.
+
+### TASK-0868 — drugi izolowany eksperyment Mumii (done)
+
+- Etap0867–0868 wykonany bez interakcji operatora; oba taski mają osobne commity.
+- Dwa blind review100 exactPNG/20anchors:76high/high;327development=283human+44AI
+  wobec312/AI29 w V4. Audit22, human84/diag9 oraz human19/5unreadable zachowane.
+  Human26 całe zdjęcia/decoded aliases i pierwszy film wykluczone z development.
+- Jedna para gen4,seed20261005,20ep/280steps:RGB633.28s/best8,gray606.19s/best6.
+  Calibration/best tylko human84. Oba controlled workery zakończone, brak retry.
+- Pairdbe76d…7e815:human84=83/84,old18=18/18,new19=19/19,diag9=9/9 dla każdej
+  gałęzi/fuzji; wszystkie dotychczasowe perclass gates PASS. AI22/44 agreement100%.
+- Held2eaefe…41820:RGB25/26→26/26;gray i fuzja26/26→25/26, nowy błąd Ra→J
+  w directed4 (board4/field11,seq_27118-27126.jpg). Combined human gate FAIL.
+  R2 RGB zachowany eksperymentalnie, V4 pozostaje qualified pair; brak aktywacji.
+- Transfer pierwszego filmu:control47/47 każda gałąź;directedRGB6/gray5/fuzja5
+  z6 wobec V4 6/5/6. AI agreement nie zastępuje human accuracy.
+- Brak R2 sidecara8100:actual max-photos1 odrzucony stabilnym failed-gate guardem.
+  Stare61 wyniki/model/raster/history bez zmian; brak refit/extra run/nowej pary.
+- Independent ONNX/checkpoint196 rastrów:classes identyczne,maxabs3.8147e-6.
+  Actual pair/held fresh replay byte-identical;final replay powtórzony9332pins
+  i4negativeguards PASS, setSHA12bc79f…6238c. Helpers15 Ruff/format/types PASS.
+- Focused50PASS/1 dawny obsolete registry assertion(gen3invalid wobecgen3/4),
+  niezmieniony i opisany poza zakresem. Independent final audit PASS,0openP0–P2.
+- Read-only kolejka8/revision0:directPNG0.125s/proxy0.094s;raw60/human26 zachowane.
+  Nie potrzeba nowych katalogów. Bez DB/Super/migracji/usuwania/merge/push/deploy.
+- DoD/sevencriteria/plan1–5 fulfilled;quality MUMIE_AI_ROUND2_20261006.md.
+  Commit `v1.7.216`; wcześniejsze metadata wyłączone ze stagingu.
+
+### TASK-0867 — autonomiczny blind AI audit pierwszej próby (done)
+
+- Dwa niezależne review60 PNG/20human kotwic: 53 high/high readable,7 unresolved.
+  Control50: V3 RGB46/gray45/fuzja45 z47; V4 wszystkie47/47.
+  Directed10: V3 5/0/0 z6; V4 6/5/6 z6. AI agreement, nie human accuracy.
+- Priorytet8 exact cropów; original60 i wcześniejsze26 approve zachowane.
+  Gold frame3 present/51absent/6unresolved; zero Super/human pseudo-label writes.
+  Pierwszy film poza symbol development; geometria wcześniej częściowo trenowana.
+- Proof5fd1d19…8590a; fresh replay8748pins/20anchors i4negativeguards PASS.
+  30pytest,6helpers Ruff/format/scoped strict mypy PASS; independent audit PASS.
+- Saved runtime z bytebackupem; owned API2740/UI26388 gotowe po restarcie.
+  Exact8 direct/proxy0.297/0.266s, revision0; galerie/editor200. API8000 nietknięte.
+- DoD/sixcriteria/plan1–3 spełnione; quality MUMIE_AUTONOMOUS_AI_AUDIT_20261006.md.
+  Commit `v1.7.215`; wcześniejsze metadata wyłączone ze stagingu.
+- Natychmiast kontynuować TASK-0868: nowy cohort i jedna V4-R2 para. Kolejka8
+  nie blokuje. Bez DB/Super/aktywacji/merge/push/wdrożenia.
+
+### TASK-0866 — większa próba transferu z istniejących katalogów (done)
+
+- Trzy katalogi potwierdzone: 2580/2052/2844 zdjęcia. Nie potrzeba kolejnego
+  folderu ani ponownego potwierdzenia nagrań. Pierwszy film ma 0 source overlap
+  z actual development312; strict exclusions: 6 duplikatów,66 wykluczonych,
+  2508 eligible,60 równomiernych zdjęć z whole-photo guardami.
+- Frozen V3/V4: 8100 identycznych cropów,540 plansz,0 unavailable,100 zmian
+  klasy,disagreements89→54,lowconfidence461→472. Accuracy=null. Geometria była
+  częściowo trenowana na tym filmie; wcześniejsze diagnostic9 użyte w regresji.
+- Ready packet 4af49619…7f9d91: 50 kontroli wybranych przed inference i10
+  odrębnych kierowanych przypadków,60 zdjęć,0 missing,revision0/trainable=false,
+  bez pseudo-zgód. Edytor http://127.0.0.1:3102/symbols/batch; korekta symbolu
+  bez zmiany dobrej siatki. Poprzednie26/revision27 i61 oryginalnych wyników zachowane.
+- Saved runtime z byte backupem; API23640/UI35108 owned/ready po restarcie.
+  Read-only direct/proxy60PNG:0.516/0.297s,galerie/editor200. API8000 nietknięte.
+- 71 focused pytest; seven helper Ruff/format/scoped strict mypy PASS. Nowy
+  proces:8539 inputSHA/372 outputfiles identyczne,rerender8100,actualONNX60,
+  4 negatives PASS. Niezależny final audit PASS, bez otwartychP0–P2.
+- DoD/7criteria/plan1–5 spełnione; quality MUMIE_CROSS_RECORDING_20261006.md.
+  Commit `v1.7.214`; branch feat/grid-engine-v3, wcześniejsze metadata pominięte.
+  Bez nowych training/calibration/activation,DB/Super/merge/push/wdrożenia.
+- Wymagana następna interakcja: oznaczenie gotowych60 cropów. Potem human
+  evaluation frozen pary,control50 i directed10 osobno; first film pozostaje
+  poza development. Nie powtarzać wcześniejszych26 oznaczeń.
+
+### TASK-0865 — ocena modeli na nowych oznaczeniach człowieka (done)
+
+-26 latest approve/revision27 qualified exact pack, pełne history/receipt/source
+  i dictionary guards; jedna historyczna decyzja zastąpiona. Bez wpisów agenta.
+-22 withheld: V3 RGB19/gray18/fuzja18; V4 RGB21/gray22/fuzja22. Wszystkie10
+  klas obecne.4 oddzielne diagnostic: V3 4/0/2, V4 4/4/4. Wynik22/22 jest
+  teraz względem człowieka.0 konfliktów AI/human, RGB myli A z Faraonem.
+- Wszystkie26 crop/pełne-photo SHA poza development312; bez treningu,
+  recalibration/threshold/epoch selection. Same-film/kierowany dobór nadal
+  ograniczają wnioski; nie accuracy całego folderu ani niezależnego filmu.
+- Actual ONNX4 z frozen preprocess/settings zgodne z dawnymi propozycjami;
+  qualified40.22s i nowy proces43.61s reprodukują identyczny raport7d3c0e…b38d9.
+ 5771 input SHA, w tym oryginalne61output SHA, bez zmian.4 negative checks PASS.
+-46 pytest, helper Ruff/format/scoped strict mypy PASS; niezależny audit
+  source render26/ONNX/metrics/isolation/hash PASS, bez otwartychP0–P2.
+  DoD/7 acceptance criteria/plan1–5 spełnione; raport MUMIE_HUMAN_AUDIT_20261006.md.
+- Commit `v1.7.213`; feat/grid-engine-v3, wcześniejsze obce metadata pominięte.
+  Bez zmian aplikacji/API/UI/runtime, DB/Super/aktywacji/merge/push/wdrożenia.
+- Następny etap: większa human-referenced próba z nagrania wyłączonego z V4
+  po kwalifikacji lokalizacji; sprawdzić istniejące katalogi przed pytaniem
+  o nowy. Obecne26 zachować jako ocenę zamrożonego modelu; nie powtarzać oznaczeń.
+
+### TASK-0864 — autonomiczny przegląd AI i eksperyment Mumii (done)
+
+- D-505: jawna zgoda na nocny trening/wewnętrzne AI. Dwa blind review79 exact
+  crops z20 kotwicami klas; consensus high/high, pełne source/review provenance.
+- Nowe24 decyzje:19 approve z oryginalną historią/priorytetem i5 unreadable
+  wyłączonych z AI. Oryginalnehuman264/84/9 i18 korekt bez zmian.29 AI targets
+  i22 photo-disjoint AI audit z tego samego filmu, osobny format/purpose/gen4.
+-312 unikalnych development,423 draws/epoch; human feedback37 ma wagę4,
+  AI29 wagę1. Audit22 nie uczestniczy w treningu/wyborze/calibration.
+- Jedna para RGB/gray:20epok/280steps, attempt1, best8/6;535.908/604.668s.
+  Walidacja83/84 każda/fuzja, old18=18/18, new19=19/19 po treningu, diag9=9/9.
+  Wszystkie human perclass gates i ONNX parity84/gałąź PASS.
+- V3 przed treningiem new19: RGB15/gray4/fuzja10. AI audit22:21/22 RGB,
+  22/22 gray/fuzja względem V3 19/18/18; to AI agreement, nie human accuracy.
+-8100 identycznych cropów/540 siatek:39 zmian klas, disagreements37→22,
+  lowconfidence424→454. Accuracy=null; wynik mieszany, brak aktywacji.
+  Porcje20/20/20, nowy proces0 powtórzeń,61 output/5673 input SHA bez zmian.
+-85 pytest +14 artifact checks, Ruff/format/scoped mypy PASS. Osobne audyty
+  kodu/danych i re-render wszystkich8100 pól PASS, bez otwartychP0–P2.
+  DoD/9 acceptance criteria/plan1–7 spełnione; raport MUMIE_AI_OVERNIGHT_20261006.md.
+- Commit `v1.7.212`. Praca na feat/grid-engine-v3; wcześniejsze obce metadata
+  pominięte. Bez DB/migracji/usuwania, Super targets, grid approvals, aktywacji,
+  merge/push/wdrożenia.10 AI obserwacji złotej ramki nie są targetami Super.
+- Granica człowieka:26 pending crops (22 withheld +4 uncertain),
+  http://127.0.0.1:3102/symbols/batch; portal
+  http://127.0.0.1:8108/overnight-symbol-review/review.html. Saved runtime i lab
+  API45388/UI36508 ownership/ready PASS. Nie potrzeba nowego folderu/30 na klasę.
+
+### TASK-0863 — trzeci niezależny katalog Mumii (done)
+
+- Follow-up `v1.7.211`: instrukcja restart/status używa zweryfikowanego
+  absolutnego bundled PowerShell7. Program Files\\PowerShell7 nie istnieje
+  na tym hoście; nowy proces potwierdza ownership API/UI i gotowość portów.
+- Nowy24517–50112 cut:2844 źródła,0 byte duplicates/overlap,60 równomiernie
+  wybranych zdjęć. Qualified V3; wykluczone2699 tożsamości/30 photo pixels.
+- Wykryto540/540 plansz zgodnie z nazwami,8100/8100 pól/propozycji;
+ 0 count anomalies/pól poza obrazem.424 niepewnych i37 disagreements.
+  Brak etykiet tego filmu: accuracy=null; zgodność liczby nie zatwierdza siatek.
+-24 exact PNG z15 zdjęć,10 klas,0/24 ocenionych. D-504 zachowuje bieżące
+  base approval/history i exact case gates po pełnej kwalifikacji; UI bez
+  hashowania2052 niepowiązanych feedback photos. Preview API/proxy
+  0.110/0.109s, HTTP/browser PASS. Skróty1–9/0, symbol bez zmiany siatki.
+- Saved runtime i kontrolowany restart labu przez PowerShell7 PASS;
+  API25800/UI23928. Driver25/25/10 zakończony. Nowy proces:0 powtórzeń,
+  270 identycznych plików i original pins bez zmian.42+36 pytest,
+  Ruff/format/scoped mypy PASS; własny odrębny review bez P0–P2, DoD spełnione.
+- Commit `v1.7.210` / `92b3bd8a316fa80f4428d045d29fabf773e8c4a2`; raport MUMIE_THIRD_RECORDING_20261006.md.
+  Granica człowieka: http://127.0.0.1:3102/symbols/batch — oznaczyć24 wycinki.
+  Portal: http://127.0.0.1:8108/third-symbol-review-priority/review.html.
+  Nie potrzeba nowego folderu/30 na klasę. Brak DB/aktywacji/Super/merge/push/wdrożenia.
+
+### TASK-0862 — lokalizacja przeniesionych zdjęć Mumii (done)
+
+- Operator wskazał C:\Users\tuszy\Documents\mumie. Wszystkie 2 052 SHA
+  folderu481537–500000 cut są identyczne z qualified inventory.
+  Nowy trzeci katalog24517–50112 cut zawiera2 844 zdjęcia z odrębnego filmu.
+- D-503 zapisuje deklarację odrębnych filmów dla każdego nowego katalogu;
+  nie wymaga powtarzania pytania. Przeniesione stare katalogi zachowują tożsamość.
+- Create-only sidecar lokalizacji zachowuje manifest/run/split i pełną kontrolę
+  SHA/re-render. Fresh-process verify i identyczny retry PASS, bez zmian zdjęć.
+- 29 nowych/kwalifikacyjnych +28 regresyjnych pytest PASS; Ruff/mypy PASS.
+  Osobny review bez otwartych P0–P2. Commit `v1.7.208`.
+  Dalej wznowienie0861 i diagnostyczna partia60 zdjęć0863. Bez DB/aktywacji.
+
+### TASK-0861 — ograniczona para feedback generacji3 (done)
+
+- RGB/gray zakończone:20epok/200kroków, wybór epok
+  11/11; jeden run każdej gałęzi.
+  Ten sam RGB run wznowiono po0862; wcześniejszy błąd i budżet zachowane.
+- Walidacja RGB/gray/fuzja: 83/83/83/84; gate wszystkich klas
+  względem V1=True. Pozostaje dawny konflikt referencji K/Q.
+  ONNX parity84/gałąź PASS. Unikalne264 development,318 losowań weight4.
+- Feedback 18/18/18/18 to użyte targety treningu.
+  Diagnostic 9/9/9/9: dwie klasy, ocena po wyborze epoki;
+  nie jest ślepym testem starszych modeli ani accuracy nowego filmu.
+- Dwa świeże procesy odtwarzają identyczny dowód/kalibrację; SHA/etykiety,
+  wcześniejsze modele i magazyny zachowane. Worker PID-y zakończone.
+  43 wcześniejsze focused pytest i Ruff/scoped mypy PASS;0862 dodał29+28 regresji.
+- Odrębny review bez P0–P2; DoD/plan0861 spełnione. Commit `v1.7.209`.
+  Raport MUMIE_SYMBOL_FEEDBACK_TRAINING_20261006.md. Kontynuować0863:
+ 60 nowych zdjęć24517–50112 z2844; brak DB/aktywacji/merge/push/wdrożenia.
+
+### TASK-0860 — kwalifikacja 18 korekt symboli Mumii (done)
+
+- Operator potwierdził niezależność nowego nagrania od walidacji. D-502
+  kwalifikuje wyłącznie dokładny raster symbolu; nie zatwierdza planszy ani geometrii.
+- Immutable pack c1392fb1…3f8b60 zawiera 18 decyzji i PNG z 17 zdjęć.
+  Pochodny manifest 0cff2a15…1e3de4: 264 development, 84 validation,
+  9 diagnostic_test. Wszystkie 10 klas pozostaje w development/validation.
+- Cały nowy folder (2 052 pliki) i znane aliasy pozostają w jednej części.
+  Pierwsza rodzina nagrania jest wyłączona z nowego treningu; diagnostyka
+  obejmuje tylko Mumię/Sfinksa i nie jest ślepym testem wcześniejszych modeli.
+- 20 nowych +42 regresyjne pytest PASS; Ruff, scoped strict mypy PASS.
+  Realny verify/retry w nowych procesach daje ten sam manifest i SHA oryginałów.
+  Pierwsza analiza mypy bibliotek przekroczyła 120 s; procesy zakończył runner.
+- Pierwotne decyzje trainable=false i adapter D-498 zachowane; API/UI bez zmian.
+  Bez DB, aktywacji, merge/push/wdrożenia. Osobny review bez otwartych P0–P2.
+- Commit: `v1.7.206`. Dalej TASK-0861: jedna para RGB/gray generation3,
+  feedback weight4 i dokładne resume; aktualne polecenie obejmuje kontynuację.
+
+### TASK-0859 — poprawka RGB 777 i ukończone 18 korekt Mumii (done)
+
+- Przeczytano wskazany handoff RGB/feedback z głównego checkoutu. Mumie już
+  używają pełnego RGB i SpatialSymbolCnn; 18 PNG ma exact preprocessing parity.
+  Różnica to głowica RGB 777 versus dotychczasowa gray-dominant fuzja Mumii.
+- Operator ukończył 18/18 decyzji approve, revision18. Zweryfikowano klasę,
+  UUID, byte/pixel SHA i identyczne propozycje; bez ponownego oznaczania.
+- Na trudnych18: V1 RGB/gray/fuzja11/10/10; V2 10/13/11. RGB V1 psuje
+  Mumię, gray V2 psuje J względem V1. Wszystkie warianty83/84 na dawnej
+  walidacji. Sama podmiana gałęzi nie rozwiązuje błędu i nie uzasadnia aktywacji.
+- Zapisano bramkę dalszej oceny: mniej błędów ogółem bez regresji klasy,
+  identyczne źródła/piksele/etykiety i niezależny split. Bez accuracy gry
+  z celowo wybranych18. Raport MUMIE_RGB_FEEDBACK_TRANSFER_20261005.md.
+- 29 pytest PASS; ponowny proces daje identyczny dowód199f2b58…ff53f84.
+  Wszystkie wejścia SHA i realne decyzje zachowane. Bez DB, treningu,
+  aktywacji, restartów, merge/push/wdrożenia i nowych zależności.
+- Następny zakres: osobna kwalifikacja dokładnych korekt i splitu do nowej
+  iteracji, potem ograniczony trening i przegląd nowych pomyłek. D-501 raw
+  crop-review nadal trainable=false; nie udaje akceptacji pełnej geometrii.
+  Nie potrzeba teraz kolejnych30 zwykłych przypisań ani ponownej deklaracji nagrań.
+- Osobny commit: `v1.7.205`.
+
+### TASK-0858 — korekta symboli z partii Mumii (done)
+
+- Operator zgłosił brak edycji w galerii 18 przypadków. Źródła są poza
+  obecnym katalogiem lab. Dodajemy dokładny crop-review do istniejącego API
+  i edytora, z oddzielną trwałą historią i zatwierdzonym słownikiem D-498.
+- Założenie D-501: wybór klasy zatwierdza wyłącznie widoczne wycięcie;
+  nie pełną geometrię, sekwencję ani próbkę treningową. Bez DB/migracji,
+  treningu, aktywacji, produkcyjnego wdrożenia i zmian pierwotnych etykiet.
+- Plan: ai_docs/delivery/MUMIE_BATCH_SYMBOL_CORRECTION_20261005.md.
+- Działający edytor http://127.0.0.1:3102/symbols/batch: wybór wycinka,
+  paleta dziesięciu istniejących klas, skróty 1–9/0 i jawny zapis bez zmiany
+  siatki. Desktop ma panel obok galerii; telefon — nad nią. Galeria 8108
+  prowadzi do konkretnego wycinka. Miniatury pozostają zamrożone po zapisie.
+- Referencja 48341730f870b38590286bffa7ff289649cd8c73f9fcc0907c81ac3c16754c54;
+  18 bezstratnych PNG RGB96. Odczyt API/proxy 0,203/0,172 s. Realny zbiór
+  nadal ma zero nowych decyzji; stare rev591/rev63 i SHA bez zmian.
+- Osobny trwały magazyn batch_crop_review; CAS, exact retry i restart
+  potwierdzone na izolowanym fixture. Saved runtime.json i launcher
+  odtwarzają lab z nowego procesu. API/UI 8102/3102 gotowe po restarcie.
+- Weryfikacja: backend 56, UI 62, klient 15 PASS; Ruff/mypy, OpenAPI/client
+  drift, lint/typecheck i build PASS. Browser/390×844 bez overflow, guziki 44px.
+  Audyt: ai_docs/quality/MUMIE_BATCH_SYMBOL_CORRECTION_20261005.md.
+- Commit: `v1.7.204`.
+- Następna konieczna interakcja: operator wybiera prawdziwe klasy w 18
+  wycinkach. Potem osobna kwalifikacja/ocena; trening nie uruchamia się sam.
+
+### TASK-0857 — odporność modeli symboli Mumii (done)
+
+- Dwie ograniczone próby V2: po 20 epok/160 kroków, walidacja 83/84,
+  development 255/255, czas 70,63/78,93 s. ONNX parity wszystkich 84 cropów,
+  max błąd 2,861e-6. D-500; plan odporności ukończony.
+- Te same 600 zdjęć/5396 plansz/80940 wycięć, identyczne piksele i geometria.
+  V2: 16024 niepewnych (19,80%) i 4047 rozbieżności (5,00%); V1: 15626/3494.
+  Brak wykazanej przewagi V2; obie wersje pozostają testowe, bez accuracy.
+- 36 pytest, Ruff/format i scoped mypy PASS. Świeży proces: 0 powtórzeń,
+  2404 pliki V2/737389437 bajtów i V1 bez zmian. Oryginalne magazyny bez zmian,
+  kontrolowane procesy zakończone. Szerszy mypy: wcześniejsze błędy API/timeout.
+- 18 konkretnych przypadków do rzeczywistej oceny człowieka:
+  `http://127.0.0.1:8108/symbol-review-priority/review.html`. Przegląd tylko do
+  odczytu; dalsza poprawa potrzebuje etykiet podświetlenia/linii/białego znacznika
+  i potwierdzenia geometrii. Nie potrzeba kolejnej rutynowej zgody na testy.
+- Raport `ai_docs/quality/MUMIE_SYMBOL_ROBUSTNESS_20261005.md`; osobny commit
+  `v1.7.203`, pełny hash po commicie. Na `feat/grid-engine-v3`.
+- Bez DB, aktywacji, Super, push/merge/wdrożenia i kolejnych losowych prób.
+
+### TASK-0856 — większa niezależna partia Mumii (done)
+
+-600 zdjęć z2052,5396 plansz i80940 propozycji. Manifest9068f31a…9199dac.
+ 15626 niepewnych modeli,3494 disagreement; bez accuracy/zgód za człowieka.
+- Poprawiono końcówkę499996–500004 w folderze do500000:5 plansz, pominięty
+  jeden nadmiarowy kandydat, jawny konflikt nazwy. Oryginalny plik bez zmian.
+- Trwałe per-photo wyniki, kompletne SHA, root lock, porcje25/115s. Restart
+  w nowym procesie:2404 pliki/737005906 bajtów identyczne, zero powtórzeń.
+-28 pytest, Ruff/format/mypy i własny review PASS. Oryginały geometrii,
+  symboli i run-state bez zmian. Driver/PID zakończone, bez orphanów.
+- Przegląd `http://127.0.0.1:8108/symbol-batch-600/review.html`; HTTP/browser
+  smoke PASS. Raport `ai_docs/quality/MUMIE_SYMBOL_BATCH_20261005.md`.
+- Samodzielna dalsza praca: jasne J/K z zielonymi liniami ujawniły błędy
+  modeli. Kontynuujemy TASK-0857, plan `MUMIE_SYMBOL_ROBUSTNESS_20261005.md`.
+  Bez DB, aktywacji, Super, push/merge i wdrożenia.
+- Osobny commit `v1.7.202`, pełny hash dopisany po commicie.
+
+### TASK-0855 — dwa pierwsze modele symboli Mumii (done)
+
+- RGB/gray od zera: po20 epok,255 development/84 validation z osobnych nagrań.
+  Oba83/84 (98.81%), Mumia8/8; najlepsze epoki14/11. Mała walidacja, nie final_test.
+- Kalibracja i fuzja wykonane; fuzja nie poprawia accuracy. ONNX obu modeli:
+  parity84/84, max błąd3.8147e-6. Wagi, historia/logits i raporty zachowane.
+- Jeden konfliktK/Q (crop wygląda jakQ) i niepewny Faraon do późniejszej korekty.
+  Bez zmiany etykiet. Modelowa zgodność nie wykrywa każdej błędnej referencji.
+- Trwały istniejący RunManager, budżety/restart/RNG/checkpoint i admission.
+  RGB wznowiony po błędzie CUDA z tym samym budżetem; fixed pooling ekwiwalentny
+  dla64px, test regresji PASS. Użyto55.36s/49.35s z1800s,161/160 kroków.
+- 11 nowych testów +14 regresji runów, Ruff/format/Mypy i własny review PASS.
+  Wszystkie SHA oryginałów niezmienione. Commit `v1.7.201`, hash po commicie.
+- Raport `ai_docs/quality/MUMIE_SYMBOL_MODELS_20261005.md`; plan0854/55 ukończony.
+  Modele testowe, bez aktywacji, DB, wdrożenia i Super. Kolejny zakres: większa
+  niezależna partia inferencji i korekta wykrytych konfliktów.
+
+### TASK-0854 — kwalifikowany split symboli Mumii (done)
+
+- Potwierdzenie operatora rozstrzyga pochodzenie trzech grup; bez dalszego pytania.
+- D-498: 339 aktualnych etykiet, development255/validation84, 10 klas w obu
+  częściach. Pełne komponenty starego/obecnego grafu; bez duplikatów między częściami.
+- Osobny niezmienny manifest `d5dc865287ca2d4583b450ccdca84f6186e16ac86922dc6f95ebea3930151589`.
+  Rewalidacja cropów, grafu, źródeł i magazynów. Oryginały i D-496 bez zmian.
+- 32 pytest, Ruff/format/Mypy i restart/retry PASS; własny review bez P0–P2.
+  Commit `v1.7.200`; hash dopisany po commicie. Raport kwalifikacji poniżej.
+- Plan `ai_docs/delivery/MUMIE_SYMBOL_TRAINING_20261005.md` obejmuje dalszy
+  TASK-0855: dwa ograniczone runy RGB/gray od zera. Bez DB/aktywacji/wdrożenia.
+
+### TASK-0853 — aktualne etykiety Mumii (done)
+
+- Operator zakończył przypisania i zlecił pracę bez swojej obecności.
+  339 świeżych decyzji D-496: wszystkie 10 klas, 27 Mumii. 30 nie jest bramką.
+- Niezmienny pakiet 339 PNG i historii, 13 zdjęć / 3 komponenty; żadnych
+  identycznych pikselowo duplikatów ani sprzecznych klas. 244 dawne decyzje
+  poza próbkami. Trainable=false, bez assignments i nadpisania magazynów.
+- 20 testów, Ruff/format/Mypy PASS; verify i retry w nowych procesach PASS.
+  SHA geometrii i symboli niezmienione. Pakiet 341 plików / 9 219 147 bajtów,
+  ID `7fb60ce3edc52081d5f9cf016083a8cd6b048766db30d8df8b008fca0dccb1c8`.
+- Wszystkie rodziny Mumii unresolved/missing; brak splitu symboli, stary
+  split geometrii stale. Pytanie o relację trzech nagrań pending; nie potrzeba
+  teraz kolejnych przypisań klas. Dwa główne komponenty mają wszystkie 10 klas.
+- Plan `ai_docs/delivery/MUMIE_SYMBOL_PREPARATION_20261005.md`.
+  Nie osłabiamy bramek T06b; bez treningu do rozstrzygnięcia pochodzenia.
+  Brak oddzielnych etykiet ramki Super; bez zgadywania, DB lub aktywacji.
+- Raport `ai_docs/quality/MUMIE_SYMBOL_PREPARATION_20261005.md`.
+  Osobny commit `v1.7.199`; pełny hash zostanie dopisany po commicie.
+  Zastane metadane pozostają poza commitem. Bez restartu API/UI i wdrożenia.
+
+### TASK-0852 — szybkość zapisu i poczekalnia 2000 (done)
+
+- Operator zgłosił wielominutową blokadę po przypisaniu symboli i doprecyzował
+  zamrożenie miniatur do odświeżenia. Jeden odczyt do 2000 cropów; potwierdzony
+  zapis oznacza pola bez ponownego pobierania strony. Następny wybór podczas
+  zapisu jest dostępny; kolejny submit wymaga receipt. D-497.
+- Istniejący kontrakt rozszerzany addytywnie; domyślny podgląd 30 i zapis do
+  30 pozostają. Budżet PNG 48 MiB; stare tokeny nigdy nie są odnawiane lokalnie.
+- Zachowujemy bieżące etykiety człowieka. Bez zmian DB, treningu, aktywacji,
+  shadow, push/merge. Weryfikacja realnych danych tylko odczytowa.
+- 73 Python + 37 UI + 5 klienta PASS; format/lint/typy/OpenAPI/drift/build PASS.
+  2000 realnych cropów: 5,464 s, 32,34 MiB base64. Restart API/UI 8102/3102
+  z trwałej konfiguracji, PID 18980/18320, ready. Sumy etykiet i siatek identyczne.
+  Browser: 2000 kafelków, 64 loaded/enabled, zero błędów. Własny audyt PASS.
+- Raport `ai_docs/quality/SYMBOL_REVIEW_PERFORMANCE_20261005.md`.
+  Task `ai_docs/tasks/completed/0852-symbol-review-save-and-queue-performance.md`.
+  Osobny commit `v1.7.198`; pełny hash dopisywany po commicie. Zastane metadane
+  innych tasków pozostają poza commitem. Pierwszy odczyt nadal trwa kilka sekund.
+
+### TASK-0851 — wersja etykiet symboli Mumii (done)
+
+- Operator 2026-10-05 zaakceptował kontrakt i potwierdził dwa różne nagrania.
+  Deklaracja dotyczy wskazanych folderów; nie nadaje rodzinom verified.
+- Wykonano: niezmienna referencja zgód i dawnych ról, opcjonalna konfiguracja
+  istniejącego magazynu/API/edytora, 31 zdjęć / 279 plansz / 4185 komórek.
+  Oryginalny split pozostaje stale. Bez nowego AnnotationStore i bez osłabienia
+  starego workflow. Brak automatycznych etykiet i kwalifikacji treningu.
+- Decyzja D-496. Main Mumie pozostaje pusty. Bez DB/migracji/materializacji/
+  aktywacji/shadow/push/merge. Następna interakcja: przypisanie klas przez człowieka.
+- Wersja `dab77630f3518604add168c2baeed124dc9c5010d8ea483201a5be8cb77da1fc`,
+  523 chronione źródła, słownik v1, pełna oryginalna historia. Wszystkie dawne
+  sumy niezmienione; zero nowych etykiet, 706 dotychczasowych zachowanych.
+- 63 testy PASS; format/lint/typy/OpenAPI/build/TypeScript PASS. Restart i HTTP
+  pierwszej/ostatniej strony oraz pełnej planszy PASS. Browser smoke: 15 aktywnych
+  wyborów bez zmiany siatki. API/UI 8102/3102 gotowe; własny 8105 zatrzymany.
+  Trwały launcher/config, PID/czas startu zapisane. Bez restartu komputera.
+- Raport `ai_docs/quality/MUMIE_SYMBOL_DATASET_VERSION_20261005.md`.
+  Task `ai_docs/tasks/completed/0851-mumie-symbol-label-dataset-version.md`.
+  Osobny commit `v1.7.197` na `feat/grid-engine-v3`; hash dopisany po commicie.
+  Zastane metadane pozostają poza commitem. Nie uruchomiono uczenia symboli.
+
+### TASK-0850 — Mumie: iteracja 5 i dane do interakcji (done)
+
+- Operator 2026-10-05 zlecił pracę do momentu wymagającego jego interakcji.
+  Jedna iteracja 5 presetu F na nowych zatwierdzeniach, testy i przygotowanie
+  cropów. Bez importu plansz do głównej gry, DB, migracji i aktywacji.
+- Iteracja 5 runu 3 zakończona, preset F: 25 train / 6 holdout z 31 zdjęć,
+  11 nowych. 900,75 s GPU, 1831 kroków, zużycie 4718,62/14400 s.
+  Każdy kandydat przeszedł strażnik 777, ale pogorszył Mumie image-macro
+  względem 0,0022076230. Poprzedni model zachowany, bez ONNX/propozycji/aktywacji.
+- Oba foldery verify PASS w nowych procesach: po 200 zdjęć i 11 osobnych kontroli,
+  każdy model 211 wyników na folder. Bez ponownej inferencji i deklaracji accuracy.
+- 4185 cropów z 31 kompletnych zdjęć, 236 nakładek, partie 50/50/50/50/36.
+  Słownik labu 10 klas zatwierdzony; zero etykiet obecnych 31 zdjęć.
+  Dawne 20 ról, rewizja 591, fingerprint zgód i stan symboli niezmienione.
+- 31 testów fine-tune/batches/folder CLI PASS; build/TypeScript labu PASS.
+  Główna gra: 10 symboli, 0 layouts/source_images/recognized_boards/dataset_versions.
+- Faktyczny edytor symboli blokuje `HOLDOUT_POLICY_UNRESOLVED`: dawny split
+  pilota stale. Nie nadpisano splitu ani nie wyłączono guardów. Nowe własne
+  procesy 8102/3102 zatrzymane, 8105 przywrócony (root 42788), 31/236 PASS.
+- Granica interakcji: pytanie o pochodzenie obu folderów i akceptację
+  `ai_docs/delivery/MUMIE_SYMBOL_DATASET_VERSION_20261005.md` (draft).
+  TASK-0851 planned, niewykonany; wszystkie rodziny pozostają unresolved.
+- Raport: `ai_docs/quality/MUMIE_CURRENT_APPROVALS_20261005.md`.
+  Task: `ai_docs/tasks/completed/0850-mumie-train-current-approvals-and-prepare-review.md`.
+  Osobny commit `v1.7.196`, hash dopisywany po commicie. Zastane metadane
+  pozostają poza commitem. Bez DB/migracji/materializacji/shadow/push/merge.
+
+### TASK-0849 — Omyłkowy duplikat Mumie usunięty (done)
+
+- Operator jawnie zlecił archiwizację i trwałe usunięcie `mumie-1`
+  (`12180d9f-6c1a-43a9-a480-4056d2da81a9`). Oryginalne `mumie` i `777`
+  pozostają chronione.
+- Preview bez danych użytkownika; wznowiono istniejący provisioning 9/64
+  do 64/64 bez ręcznego SQL. Archiwizacja przez API 204; końcowy preview
+  bez blockerów. Usunięcie istniejącym CLI, 64/64, receipt `done`.
+- Nowy proces: PASS; duplikat daje 404, zero katalogu, registry i partycji.
+  Snapshoty katalogów, magazynów, symboli i fingerprintów jobów oryginalnych
+  gier są zgodne. Zdjęcia zachowane; bez restartów usług, treningu i shadow.
+- Raport: `ai_docs/quality/MUMIE_DUPLICATE_REMOVAL_20261005.md`.
+  Task: `ai_docs/tasks/completed/0849-remove-accidental-mumie-duplicate.md`.
+  Osobny commit `v1.7.195`; hash dopisany po zapisie. Zastane metadane poza
+  commitem; brak push/merge.
 ### TASK-0851 — analiza nowych korekt symboli i przekazanie metody (done)
 
 - Operator zlecił analizę swoich nowych korekt audytu 777 i dopracowanie

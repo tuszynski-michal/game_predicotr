@@ -54,6 +54,7 @@ from game_predictor_api.schemas.image_grid_reviews import (
     to_image_grid_review_page_response,
     to_virtual_grid_review_geometry_response,
 )
+from game_predictor_api.schemas.source_lattice_geometry import to_source_lattice_nodes
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 LOGGER = logging.getLogger(__name__)
@@ -290,6 +291,8 @@ def create_image_grid_reviews_router(
                 expected_grid_rows=payload.expected_grid_rows,
                 expected_grid_columns=payload.expected_grid_columns,
                 corners=corners,
+                lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
+                expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
             )
             return Response(
                 content=virtual_preview.contact_sheet_png,
@@ -342,6 +345,8 @@ def create_image_grid_reviews_router(
                 expected_grid_rows=payload.expected_grid_rows,
                 expected_grid_columns=payload.expected_grid_columns,
                 corners=corners,
+                lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
+                expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
                 actor=_LOCAL_ADMIN_ACTOR,
                 created_at=datetime.now(UTC),
                 cell_symbols=tuple(value.to_domain() for value in payload.cell_symbols),

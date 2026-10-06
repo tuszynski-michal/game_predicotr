@@ -1,10 +1,119 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-09-28
+last_updated: 2026-10-06
 ---
 
 # Architektura laboratorium wizji
+
+## Larger local symbol experiment (D-506)
+
+Three explicit local modules isolate the multi-reference adapter, RGB protocol
+and runner. They reuse SymbolTrainingInputs and neutral RunManager(state_type),
+RunControl and symbol_training. Local Configuration/Request/RunState provide
+7200-second/50000-step bounds; public types and registries remain unchanged.
+The distinct symbol_protocol_digest is serialized into canonical_request and
+checkpoint fingerprints while protocol_digest remains None. An immutable run
+root prevents admission through a second directory. Strict current source,
+dictionary, proof/review/PNG/quad and whole-photo exclusion bindings survive
+each start/checkpoint/finish. The local runner additionally verifies real export
+artifacts and best epoch. Earlier consumers keep the identical default BOOT,
+augmentation, contracts and workflow.
+
+The adapter binds the exact accepted R2 qualification SHA, manifest ID and path.
+Per-composition decoded-source caching preserves independent quad rendering.
+Per-process validated inputs are private defensive copies; first validation always
+recomposes, and subsequent calls still recheck every live/bundle hash and manifest.
+Endpoint and shared-ancestor reparse checks run before and after hashing without
+deduplicating declared SHA pins by Windows case-insensitive Path equality.
+
+## AI experimental adapter (D-505)
+
+An explicit separate symbol_ai_experiment format composes the fully validated
+feedback base with conservative AI review targets and exact source-bound PNGs.
+It reuses SymbolTrainingInputs and durable SymbolRunManager via optional format
+dispatch; strict D-498/D-502 adapters reject it. Generation4 is isolated from
+production and prior runs. The manifest pins both reviews, source batch and
+all rasters; human validation remains byte-identical. Human feedback weight4,
+AI weight1 and withheld photo isolation survive checkpoint/RNG replay.
+An optional exact human-feedback pack preserves current decision/history/source
+bindings. It contributes original human targets at weight4 and excludes every
+human-reviewed raster from AI targets. Photos with human-training targets cannot
+enter the AI audit; no human store is mutated by the experimental adapter.
+
+## Feedback batch context and review provenance (D-504)
+
+`symbol_batch_inputs` dispatches only explicit generation3 to the qualified
+feedback adapter, resolving persisted physical image bindings and retaining
+all external SHA/photo-pixel exclusions. Batch freeze requires a checked
+evaluation and recomputes current/base validation from pinned actual reports.
+V2 default keeps exact geometry-reference reuse; `--fresh-geometry` explicitly
+requests fresh geometry on a new recording. Existing generation1 inputs stay
+byte-compatible. Outputs cannot overlap any added baseline/input root.
+
+Generation3 batch-review preparation validates the composite cohort, then checks
+dictionary equality with the original D-498 approval provenance. The packet
+pins base live metadata/history, immutable cohort/batch and exact case sources;
+it does not copy the full2,052-image feedback inventory into the UI read/write
+validation loop. Exact source/PNG/re-render and current-history gates remain.
+Old references/default consumers are unchanged; no HTTP/schema changes.
+
+## Persisted source location (D-503)
+
+`symbol_feedback relocate` publishes a create-only checksummed sidecar
+`<manifest_id>.sources.json`, bound to the complete qualified inventory,
+original folder and actual source root. `SymbolFeedbackAdapter` discovers it
+in each new process, verifies full names/SHA before feedback pixels and retains
+the original logical paths in reconstructed manifests/decisions. Only direct
+image reads may relocate; labels/catalog/bundles cannot. All exact rendering
+and live history checks remain. The manifest/checkpoint/run settings stay
+unchanged; output guards include the actual root. Removal/drift of the persisted
+configuration cannot be masked by a prior in-memory location. This avoids
+symlinks, image moves and duplicated training attempts.
+
+## Exact crop feedback adapter (D-502)
+
+The optional local symbol_feedback CLI freezes latest reviewed PNG rasters
+with full original decisions and source-bound quads. Its classifier-only
+symbol_crop_feedback manifest composes validated D-498 inputs and exact
+batch-crop targets without changing either original store or whole geometry.
+SymbolFeedbackAdapter verifies metadata before pixels, complete old/current
+graphs plus full-folder SHA aliases, operator recording declarations, exact
+re-rendered PNG identity, history, inventory, counts and live bindings.
+It returns existing SymbolTrainingInputs; the default D-498 adapter does not
+accept this format. Local run dispatch selects this adapter by explicit format.
+
+The new split moves first-recording components to diagnostic_test, retains
+original validation and admits the new folder only with confirmed independence
+from validation. The separate bundle contains source-bound crop decisions;
+original origins/trainable flags and all prior artifacts remain unchanged.
+Generation3 reuses the durable run protocol and augmentation, with a persisted
+weighted sampler driven by the existing checkpointed generator. Unique cohort
+metrics and effective draw counts are reported separately. Diagnostic-test
+evaluation follows final epoch selection and cannot alter training/calibration.
+
+The generation-3 local registry requires the D-502 purpose. Its versioned
+replacement sampler gives approved feedback weight 4, drawing 318 samples
+from 264 unique development crops. Both sampler and loader share the persisted
+generator. Final reports isolate feedback regression and diagnostic predictions.
+`evaluate_frozen_fusion` only applies existing validation temperatures/weight;
+it cannot select or calibrate on these additional labels. Missing pinned source
+files invalidate admission/checkpoint verification; an immutable crop copy is
+not permission to bypass the current source-integrity gate.
+
+## Pakiet kwalifikacji symboli (TASK-0853)
+
+CLI `vision_lab.symbol_preparation prepare|verify` tworzy osobny niezmienny
+`lab-symbol-preparation-v1`, bez mutacji geometrii/symbolstore i bez API.
+Budowa używa istniejącego geometry-first lock, grantu D-496 i local_row;
+rola/protected sprawdzane są przed crop bytes. Kopiuje oryginalne PNG,
+pełną kopertę symboli, metadata komponentów oraz raport bramek.
+Create-only publikacja następuje przez rename kompletnego sprawdzonego
+katalogu na tym samym wolumenie. Retry weryfikuje gotowy pakiet; częściowy
+staging nie jest sukcesem. Verify kontroluje manifest, inventory, byte/pixel
+SHA, decyzje względem pełnej historii i raport. Format ma qualification_only,
+trainable=false i brak assignments; nie jest wejściem obecnego treningu.
+Ścieżki CLI są absolutne, output nie może nachodzić na magazyny wejściowe.
 
 ## Integracja shadow V3-D (D-495)
 
@@ -341,6 +450,30 @@ zamknięty; T05 dodaje leniwą hybrydę, a produkcyjny handler pozostaje niezale
 
 ## Narzędzia etykiet symboli T06a
 
+TASK-0851/D-496 dodaje opcjonalny `--symbol-dataset-version` / środowiskowe
+`VISION_LAB_SYMBOL_DATASET_VERSION`. Moduł `symbol_dataset_version` publikuje
+create-only, checksumowany `manifest.json`; jego digest jest ID katalogu.
+Referencja zachowuje pełne oryginalne payloady geometrii i symboli, ich sumy,
+katalog, wybrane źródła, zatwierdzony słownik, zgodę na wersję oraz dowody
+historycznego użycia. Nie jest nowym AnnotationStore ani magazynem etykiet.
+
+Istniejący SymbolLabelStore waliduje ją pod dotychczasowymi blokadami przed
+podglądem i zapisem. Request-local grant wiąże instancję stanu i katalogu;
+zezwala wyłącznie na przypięte źródła, po sprawdzeniu fingerprintu dawnych ról
+i przechodniej sumy starych/aktualnych komponentów. Stale geometrii nie jest
+usuwane. Drift zwraca `SYMBOL_DATASET_VERSION_STALE`; brak referencji zachowuje
+wcześniejszą politykę, w tym `HOLDOUT_POLICY_UNRESOLVED`. Schema HTTP, bindingi,
+renderer i writer pozostają istniejące. ID wersji trafia do metadata decyzji,
+token strony wiąże wersję, a receipt nadal chroni dokładny retry.
+Kwalifikacja treningu nie używa tego grantu; wszystkie jej bramki zostają.
+
+Manifest jest ograniczony dotychczasowym czytnikiem kopert do 64 MiB i wersją
+do 10000 komórek. Obrazy są renderowane tylko dla strony. Launcher
+`scripts/vision_lab_symbol_review.ps1` korzysta z trwałego JSON konfiguracji,
+zapisuje PID, czas utworzenia i command line, uruchamia ukryte procesy i
+sprawdza gotowość osobno. Dopasowany writer geometrii 8105 jest zatrzymywany
+przed uruchomieniem API 8102. Cudzy listener blokuje start zamiast być kończony.
+
 D-458 rozdziela budowę narzędzi od kwalifikacji rzeczywistego zbioru.
 Oddzielny, jawnie skonfigurowany magazyn symboli nie zmienia formatu
 AnnotationStore ani jego receipts i podziałów. Wersje słownika, decyzje
@@ -375,14 +508,28 @@ Nierozstrzygnięty globalny podział zatrzymuje odczyt jawnym błędem; zwykły
 holdout jest pomijany bez ujawnienia źródła. Błąd nie udaje pustej kolejki.
 Token wiąże obie rewizje, grę, sortowanie oraz wersję renderera. Jawne
 „Do ponownej oceny” odróżnia drift od braku wcześniejszej decyzji.
-Klient składa jedną stronę widoku do 500 cropów z kolejnych żądań po
-maksymalnie 30; każde używa tego samego read_token, rewizji i sumy.
-Niepełna lub zmieniona seria odrzuca całą stronę, bez pokazywania
-częściowego wyboru. Backend nadal renderuje tylko żądaną partię.
+TASK-0852/D-497 rozszerza istniejący odczyt do 2000 cropów jednym żądaniem;
+domyślny limit 30 pozostaje. Renderer dekoduje każde źródło raz i ogranicza
+sumę PNG do 48 MiB przed kolejnym renderowaniem; przekroczenie daje
+SYMBOL_QUEUE_PREVIEW_TOO_LARGE bez części strony. Klient odrzuca niepełną
+lub zmienioną serię, zachowując token, rewizję i sumę.
+Poczekalnia zachowuje wszystkie wyświetlone piksele do jawnego refresh.
+Potwierdzony label_cells_decide oznacza tylko dokładne bindingi jako assigned,
+zachowuje obrazy/klasę/następny wybór i przesuwa CAS o jedną rewizję.
+Nie odnawia read_token; kolejna nawigacja pobiera limit=1 ze świeżym tokenem,
+a potem żądaną stronę, uwzględniając lokalnie zapisane pola w offset.
+Zmiana busy nie uruchamia odczytu. W trakcie zapisu blokowane są wysłane pola
+i kolejny submit, ale można wybierać następne pola/klasę. Niepotwierdzony zapis
+blokuje edycję do identycznego retry albo jawnego read. Niezgodny receipt
+unieważnia lokalną stronę. Lista etykiet wymaga jawnego read po zapisie kolejki;
+pozostałe mutacje zachowują pełny reload. Wersja/grant/holdout i writer bez zmian.
+Otwarty edytor całej planszy zachowuje poprzedni snapshot bez automatycznego
+odczytu po batchu kolejki. Edycja tej planszy wymaga jawnego „Odczytaj stan”;
+nie uruchamia konkurencyjnego czytnika blokującego następny zapis kolejki.
 Ten sam `lab_queue` dopuszcza `view=assigned` z wymaganym `symbol_id`
 aktywnego słownika. Zwraca wyłącznie bieżące zatwierdzenia bez driftu,
 zachowuje kontrolę roli i holdoutu przed odczytem pikseli oraz paginację
-po 30 na żądanie. Token wiąże także widok i symbol, więc nie wolno użyć
+do 2000 na żądanie (domyślnie 30). Token wiąże także widok i symbol, więc nie wolno użyć
 strony poczekalni jako strony przypisań. Domyślny `view=pending` zachowuje
 dotychczasową kolejkę bez zmiany zapisu.
 Addytywne `label_cells_decide` w POST /symbols zapisuje 1–30 unikalnych
@@ -390,3 +537,81 @@ bindingów do jednej aktywnej klasy w jednym write_atomic, jednej rewizji
 i receipt, z odrębnym decision_id od fingerprintu i crop_id. Wszystkie
 bindingi są renderowane i sprawdzane przed pierwszą publikacją. Dopiero
 zgodny jawny zapis tworzy etykiety; queue nie kwalifikuje próbki do treningu.
+
+## D-498 symbol cohort adapter (TASK-0854)
+
+`symbol_training_manifest` freezes `lab-symbol-training-manifest-v1` through
+create-only checksummed publication. It references the immutable preparation
+PNG pack, records scoped recording declarations, full merged component evidence,
+assignments, class counts and live SHA bindings. `SymbolTrainingAdapter` verifies
+these and exact crop pixels on start/checkpoint/finish; it never changes default
+symbol gates, geometry manifests or label stores. It is local CLI only, with no
+HTTP/API registry change. The fresh Mumie cohort is 255 development/84 validation.
+
+## Scoped symbol run family (TASK-0855)
+
+`symbol_runs.SymbolRunManager` reuses the neutral RunManager, existing artifact
+names best_weights/onnx and durable report/checkpoint protocol. The global
+geometry training registry and HTTP contracts are unchanged. `symbol_training`
+reuses SpatialSymbolCnn with mathematically equivalent fixed4x4 pooling for its
+fixed64 input, preserving deterministic CUDA backward. Checkpoints bind requests,
+data, optimizer, RNG, history and best weights. Final reports embed validation
+logits; `symbol_models` performs bounded validation-only temperature/fusion and
+separate model uncertainty/reference-conflict review. Existing default consumers
+retain their architecture and training gates. CLI roots/settings are persistent.
+
+## Independent symbol batch (TASK-0856)
+
+`symbol_batch` freezes `mumie-symbol-batch-v1` in an isolated CLI root using
+SymbolTrainingAdapter, verified succeeded RunState exports, full-component
+exclusions and create-only lab publication. It reuses neutral geometry decoding,
+lattice quads, RGB96 cropping and exact RGB/gray training preprocessing. A
+per-photo result is published after source-bound atlas/overlay assets; bounded
+portions validate existing artifacts and live bindings on resume. Filename
+ranges are bounded by the operator folder end, with explicit conflict/count
+review and no sequence assignment. `symbol_batch_review` creates a static
+bounded uncertainty/class-control gallery and full photo index. It changes no
+HTTP registry, annotation store, label history, database or default model.
+
+## Versioned symbol appearance experiment (TASK-0857)
+
+`symbol_augmentation` defines `symbol-light-payline-v1` with sample/seed/epoch
+SHA-derived local RNG. Existing affine variation precedes bounded gamma,
+brightness, contrast, saturation, hue and occasional translucent green lines.
+Grayscale follows augmentation; validation/inference retain the original
+preprocessing. `MODELS` remains v1. Additive `ROBUST_MODELS` and optional CLI
+`--generation 2` select the pair through persistent run settings, reusing the
+neutral RunManager, checkpoint binding, exact resume and budgets. The global
+HTTP registry and TrainingConfiguration remain unchanged.
+
+`require_robust_qualification` rejects insufficient validation, invalid/nonfinite
+parity or incomplete exports. V2 batch requires an immutable `--geometry-reference`
+with matching sources, training manifest and geometry. Pin all prior results and
+visuals. `reclassify_photo` renders each old quad, proves its RGB96 pixel SHA and
+changes only classifier proposals. Atlas/overlay bytes, count conflicts and
+domain ordering remain exact. Both batches survive replay without rewriting
+artifacts or human approvals. The targeted 18-case page is read-only evidence.
+
+## Batch crop review (D-501, TASK-0858)
+
+`symbol_batch_labels.prepare` verifies the independent batch exclusions,
+D-498 dictionary provenance, source and RGB96 pixel identity, then publishes
+a content-addressed reference with exact PNG files. The original read-only
+gallery is preserved as review.before-editing.html; its derivative entry page
+links exact case IDs to the existing Vision Lab `/symbols/batch` editor.
+
+Optional batch_queue/batch_label_decide extend existing symbol routes and
+generated OpenAPI client. `SymbolLabelStore` delegates only these variants to
+`BatchReviewStore`; existing default gates and stores remain unchanged.
+Original geometry/symbol guards precede the independent store lock. Verify
+live metadata, renderer, source and PNG, re-render the selected quad on save,
+then publish one atomic state with CAS, immutable decision history and receipt.
+Identical retry acknowledges the prior write before CAS and can recover after
+policy drift without authorizing new pixels. All results are trainable=false.
+
+The durable launcher accepts optional absolute BatchReference/BatchLabels
+paths together. New decisions live outside the original lab roots. React
+reuses symbolWriteSession, freezes PNGs, updates only receipt-confirmed cases
+and keeps the next selection while a save is pending. Rereads remount PNGs
+and require their load events; image failure blocks approval. The sticky
+desktop panel and mobile layout expose the palette without opening a photo.

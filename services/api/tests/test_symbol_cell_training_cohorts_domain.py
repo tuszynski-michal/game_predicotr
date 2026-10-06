@@ -13,6 +13,32 @@ from game_predictor_api.domain.symbol_cell_training_cohorts import (
 )
 
 
+def test_pilot_descriptor_changes_only_opted_in_manifest_identity() -> None:
+    selection = select_symbol_cell_training_samples(
+        candidates=(_candidate(1),), active_symbol_codes=("cherry",)
+    )
+    legacy, legacy_bytes, legacy_sha = build_symbol_cell_training_manifest(
+        game_id=UUID(int=1), selection=selection
+    )
+    repeated = build_symbol_cell_training_manifest(
+        game_id=UUID(int=1), selection=selection, protected_source_exclusions=None
+    )
+    assert repeated == (legacy, legacy_bytes, legacy_sha)
+    reference = {"version": "protected-source-exclusions-v1", "checksumSha256": "a" * 64}
+    pilot, _, pilot_sha = build_symbol_cell_training_manifest(
+        game_id=UUID(int=1), selection=selection, protected_source_exclusions=reference
+    )
+    assert pilot["protectedSourceExclusions"] == reference
+    assert pilot_sha != legacy_sha
+    reference["checksumSha256"] = "b" * 64
+    assert (
+        build_symbol_cell_training_manifest(
+            game_id=UUID(int=1), selection=selection, protected_source_exclusions=reference
+        )[2]
+        != pilot_sha
+    )
+
+
 def _candidate(
     index: int,
     *,

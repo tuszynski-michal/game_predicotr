@@ -25,7 +25,9 @@ export function hasBlankSymbolDictionaryName(
 }
 
 /** A lost response retains the exact request; selection changes never save. */
-export function symbolWriteSession<T>(write: (request: T) => Promise<unknown>) {
+export function symbolWriteSession<T, R = unknown>(
+  write: (request: T) => Promise<R>,
+) {
   let pending: T | null = null;
   let busy = false;
   return {
@@ -49,8 +51,9 @@ export function symbolWriteSession<T>(write: (request: T) => Promise<unknown>) {
       pending = request;
       busy = true;
       try {
-        await write(request);
+        const result = await write(request);
         pending = null;
+        return result;
       } finally {
         busy = false;
       }

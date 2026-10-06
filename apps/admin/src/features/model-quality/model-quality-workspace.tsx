@@ -13,6 +13,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { GridQualityPanel } from '@/features/model-quality/grid-quality-panel';
+import { LabCandidateRegistryPanel } from './lab-candidate-registry-panel';
 import {
   freezeModelQualityCohort,
   confirmModelActivation,
@@ -37,6 +38,12 @@ const WARNING_LABELS: Readonly<Record<string, string>> = {
 };
 
 function warningLabel(code: string): string {
+  if (code.startsWith('PROTECTED_EVALUATION_SOURCE:')) {
+    return 'Zdjęcia kontrolne zostały wykluczone z treningu.';
+  }
+  if (code === 'SOURCE_SPLIT_WHOLE_PHOTO_ONLY:NO_PERSISTED_RECORDING_ID') {
+    return 'Dane rozdzielono po całych zdjęciach. Brak identyfikatora nagrania do kontroli całych sesji.';
+  }
   if (code.startsWith('LOW_SYMBOL_COVERAGE:')) {
     return `Mało przykładów symbolu ${code.slice('LOW_SYMBOL_COVERAGE:'.length)}.`;
   }
@@ -237,6 +244,13 @@ export function ModelQualityWorkspace({
           </button>
         </div>
         <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
+        <LabCandidateRegistryPanel
+          apiBaseUrl={apiBaseUrl}
+          gameId={gameId}
+          activeIterationId={activations[0]?.modelIterationId ?? null}
+          iterations={iterations}
+          onChanged={refresh}
+        />
       </section>
     );
   }
@@ -280,14 +294,18 @@ export function ModelQualityWorkspace({
           <article>
             <span>Aktywny model</span>
             <strong>
-              {activeIteration === null
-                ? 'Model bazowy'
-                : `Iteracja #${activeIteration.iterationNumber}`}
+              {latestActivation?.action === 'deactivate'
+                ? 'Rozpoznawanie wyłączone'
+                : activeIteration === null
+                  ? 'Model bazowy'
+                  : `Iteracja #${activeIteration.iterationNumber}`}
             </strong>
             <code>
               {activeIteration?.candidateManifestChecksumSha256
                 ? shortChecksum(activeIteration.candidateManifestChecksumSha256)
-                : 'Wbudowany model startowy'}
+                : latestActivation?.action === 'deactivate'
+                  ? 'Wymagana ponowna aktywacja'
+                  : 'Wbudowany model startowy'}
             </code>
           </article>
           <article>
@@ -486,7 +504,11 @@ export function ModelQualityWorkspace({
           <dl className="modelQualityDecisionCounts">
             <div>
               <dt>Aktywna iteracja</dt>
-              <dd>{activeIterationId ?? 'Model bazowy'}</dd>
+              <dd>
+                {latestActivation?.action === 'deactivate'
+                  ? 'Rozpoznawanie wyłączone'
+                  : (activeIterationId ?? 'Model bazowy')}
+              </dd>
             </div>
             <div>
               <dt>Historia zmian</dt>
@@ -529,7 +551,7 @@ export function ModelQualityWorkspace({
               {activations.slice(0, 5).map((activation) => (
                 <li key={activation.id}>
                   <strong>{activation.action}</strong>{' '}
-                  <code>{activation.modelIterationId}</code>{' '}
+                  <code>{activation.modelIterationId ?? 'Wyłączone'}</code>{' '}
                   <time dateTime={activation.createdAt}>
                     {new Date(activation.createdAt).toLocaleString('pl-PL')}
                   </time>
@@ -549,14 +571,29 @@ export function ModelQualityWorkspace({
                   ? 'Potwierdź rollback modelu'
                   : 'Potwierdź aktywację modelu'}
               </h3>
-              <code title={activationPreview.candidateManifestChecksumSha256}>
+              <code
+                title={
+                  activationPreview.candidateManifestChecksumSha256 ?? undefined
+                }
+              >
                 SHA-256: {activationPreview.candidateManifestChecksumSha256}
               </code>
               <p>
                 Iteracja: {activationPreview.modelIterationId}. Bieżąca
                 iteracja:{' '}
-                {activationPreview.currentModelIterationId ?? 'model bazowy'}.
+                {activationPreview.currentModelIterationId ??
+                  (latestActivation?.action === 'deactivate'
+                    ? 'rozpoznawanie wyłączone'
+                    : 'model bazowy')}
+                .
               </p>
+              {activationPreview.pilotSummary ? (
+                <p>
+                  Pilot Mumii: 34/34 na wybranych zdjęciach kontrolnych. Nie
+                  jest to trafność całego zbioru. Dane rozwojowe obejmują ocenę
+                  AI.
+                </p>
+              ) : null}
               <div className="buttonRow">
                 <button
                   className="primaryButton"
@@ -578,6 +615,14 @@ export function ModelQualityWorkspace({
             </section>
           ) : null}
         </section>
+
+        <LabCandidateRegistryPanel
+          apiBaseUrl={apiBaseUrl}
+          gameId={gameId}
+          activeIterationId={activeIterationId}
+          iterations={iterations}
+          onChanged={refresh}
+        />
 
         {quality.warnings.length > 0 ? (
           <aside

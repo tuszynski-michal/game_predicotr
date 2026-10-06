@@ -696,8 +696,36 @@
             "title": "Boardquad",
             "type": "array"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "item": {
             "$ref": "#/components/schemas/BoardCellGeometryPendingResponse"
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           },
           "sourceHeight": {
             "exclusiveMinimum": 0.0,
@@ -867,6 +895,18 @@
             "title": "Expectedmanifestchecksumsha256",
             "type": "string"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "expectedResolutionRevision": {
             "minimum": 0.0,
             "title": "Expectedresolutionrevision",
@@ -881,6 +921,22 @@
                 "type": "null"
               }
             ]
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           }
         },
         "required": [
@@ -939,6 +995,18 @@
             "title": "Expectedmanifestchecksumsha256",
             "type": "string"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "expectedResolutionRevision": {
             "minimum": 0.0,
             "title": "Expectedresolutionrevision",
@@ -958,6 +1026,22 @@
             "format": "uuid",
             "title": "Idempotencykey",
             "type": "string"
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           }
         },
         "required": [
@@ -3542,6 +3626,16 @@
             "title": "Importkind",
             "type": "string"
           },
+          "neuralGridProposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "normalizationAdapterVersion": {
             "anyOf": [
               {
@@ -4587,7 +4681,7 @@
               "type": "array"
             },
             "maxItems": 9,
-            "minItems": 1,
+            "minItems": 0,
             "title": "Finalquads",
             "type": "array"
           },
@@ -4595,6 +4689,30 @@
             "format": "uuid",
             "title": "Gameid",
             "type": "string"
+          },
+          "geometryManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrymanifestchecksumsha256"
+          },
+          "geometryPreflightJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Geometrypreflightjobid"
           },
           "imageHeight": {
             "minimum": 1.0,
@@ -4605,6 +4723,16 @@
             "minimum": 1.0,
             "title": "Imagewidth",
             "type": "integer"
+          },
+          "neuralProposalBinding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NeuralSourceBindingPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "slotQualifications": {
             "anyOf": [
@@ -4687,6 +4815,16 @@
             "format": "uuid",
             "title": "Id",
             "type": "string"
+          },
+          "neuralProposalBinding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NeuralSourceBindingPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "revision": {
             "minimum": 1.0,
@@ -4895,6 +5033,26 @@
             "title": "Geometryorigin",
             "type": "string"
           },
+          "neuralProposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NeuralSourceProposalPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "neuralProposalBinding": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NeuralSourceBindingPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "registrationDiagnostics": {
             "anyOf": [
               {
@@ -4981,6 +5139,18 @@
       "BrowserPageGeometryReviewSourcesResponse": {
         "additionalProperties": false,
         "properties": {
+          "expectedLayoutCount": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedlayoutcount"
+          },
           "geometryManifestChecksumSha256": {
             "pattern": "^[0-9a-f]{64}$",
             "title": "Geometrymanifestchecksumsha256",
@@ -4988,6 +5158,18 @@
           },
           "job": {
             "$ref": "#/components/schemas/JobResponse"
+          },
+          "managedSourceJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managedsourcejobid"
           },
           "operatorExcludedSourceCount": {
             "default": 0,
@@ -11141,6 +11323,18 @@
             "title": "Expectedgridrows",
             "type": "integer"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "expectedResolutionRevision": {
             "minimum": 0.0,
             "title": "Expectedresolutionrevision",
@@ -11175,6 +11369,22 @@
             "format": "uuid",
             "title": "Idempotencykey",
             "type": "string"
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           }
         },
         "required": [
@@ -11230,6 +11440,18 @@
             "title": "Expectedgridrows",
             "type": "integer"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "expectedResolutionRevision": {
             "minimum": 0.0,
             "title": "Expectedresolutionrevision",
@@ -11259,6 +11481,22 @@
                 "type": "null"
               }
             ]
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           }
         },
         "required": [
@@ -11345,6 +11583,18 @@
             "title": "Cropperversion",
             "type": "string"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "geometryChecksumSha256": {
             "pattern": "^[a-f0-9]{64}$",
             "title": "Geometrychecksumsha256",
@@ -11379,6 +11629,22 @@
             "format": "uuid",
             "title": "Idempotencykey",
             "type": "string"
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           },
           "recognizedBoardId": {
             "format": "uuid",
@@ -11528,6 +11794,18 @@
             ],
             "title": "Boardframequad"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -11589,6 +11867,22 @@
             "format": "uuid",
             "title": "Importjobid",
             "type": "string"
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           },
           "localLatticeStatus": {
             "anyOf": [
@@ -12075,6 +12369,16 @@
             "const": "image_directory",
             "title": "Importkind",
             "type": "string"
+          },
+          "neuralGridProposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "normalizationAdapterVersion": {
             "anyOf": [
@@ -14453,6 +14757,27 @@
         "title": "ImportJobPayload",
         "type": "object"
       },
+      "ImportLabSymbolCandidateCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidatefingerprint",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          }
+        },
+        "required": [
+          "candidateFingerprint",
+          "idempotencyKey"
+        ],
+        "title": "ImportLabSymbolCandidateCommand",
+        "type": "object"
+      },
       "IncompleteGeometryImagePageResponse": {
         "additionalProperties": false,
         "properties": {
@@ -14976,6 +15301,9 @@
                 "$ref": "#/components/schemas/GridShadowJobPayloadResponse"
               },
               {
+                "$ref": "#/components/schemas/LabSymbolCandidateImportJobPayloadResponse"
+              },
+              {
                 "$ref": "#/components/schemas/ImageGeometryGuardReportReconstructionJobPayload"
               },
               {
@@ -15137,6 +15465,209 @@
         ],
         "title": "JobType",
         "type": "string"
+      },
+      "LabSymbolCandidateImportJobPayloadResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidatefingerprint",
+            "type": "string"
+          },
+          "candidateManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Candidatemanifestchecksumsha256",
+            "type": "string"
+          },
+          "candidateManifestRelativePath": {
+            "title": "Candidatemanifestrelativepath",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "originManifestChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Originmanifestchecksumsha256",
+            "type": "string"
+          },
+          "originManifestRelativePath": {
+            "title": "Originmanifestrelativepath",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          },
+          "validationKind": {
+            "const": "symbol_model_lab_import",
+            "title": "Validationkind",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "validationKind",
+          "idempotencyKey",
+          "candidateFingerprint",
+          "candidateManifestRelativePath",
+          "candidateManifestChecksumSha256",
+          "originManifestRelativePath",
+          "originManifestChecksumSha256"
+        ],
+        "title": "LabSymbolCandidateImportJobPayloadResponse",
+        "type": "object"
+      },
+      "LabSymbolCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidateFingerprint": {
+            "title": "Candidatefingerprint",
+            "type": "string"
+          },
+          "candidateManifestChecksumSha256": {
+            "title": "Candidatemanifestchecksumsha256",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/LabSymbolCandidateSummaryResponse"
+          }
+        },
+        "required": [
+          "candidateFingerprint",
+          "candidateManifestChecksumSha256",
+          "summary"
+        ],
+        "title": "LabSymbolCandidateResponse",
+        "type": "object"
+      },
+      "LabSymbolCandidateSummaryResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "classCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Classcodes",
+            "type": "array"
+          },
+          "cropSize": {
+            "title": "Cropsize",
+            "type": "integer"
+          },
+          "datasetId": {
+            "title": "Datasetid",
+            "type": "string"
+          },
+          "developmentOrigins": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Developmentorigins",
+            "type": "object"
+          },
+          "eligibilityId": {
+            "title": "Eligibilityid",
+            "type": "string"
+          },
+          "format": {
+            "const": "lab-symbol-candidate-v1",
+            "title": "Format",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "humanSelectedControls": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Humanselectedcontrols",
+            "type": "object"
+          },
+          "inputSize": {
+            "title": "Inputsize",
+            "type": "integer"
+          },
+          "modelVersion": {
+            "const": "lab-rgb-symbol-onnx-v1",
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "onnxSha256": {
+            "title": "Onnxsha256",
+            "type": "string"
+          },
+          "origin": {
+            "const": "lab_import",
+            "title": "Origin",
+            "type": "string"
+          },
+          "paddingFraction": {
+            "title": "Paddingfraction",
+            "type": "number"
+          },
+          "populationAccuracy": {
+            "title": "Populationaccuracy",
+            "type": "null"
+          },
+          "preprocessingVersion": {
+            "title": "Preprocessingversion",
+            "type": "string"
+          },
+          "r2CombinedAccepted": {
+            "const": false,
+            "title": "R2Combinedaccepted",
+            "type": "boolean"
+          },
+          "renderVersion": {
+            "title": "Renderversion",
+            "type": "string"
+          },
+          "scope": {
+            "const": "mumie_pilot",
+            "title": "Scope",
+            "type": "string"
+          },
+          "temperature": {
+            "title": "Temperature",
+            "type": "number"
+          },
+          "v5Accepted": {
+            "const": false,
+            "title": "V5Accepted",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "format",
+          "gameId",
+          "origin",
+          "scope",
+          "modelVersion",
+          "preprocessingVersion",
+          "renderVersion",
+          "paddingFraction",
+          "cropSize",
+          "inputSize",
+          "classCodes",
+          "temperature",
+          "onnxSha256",
+          "eligibilityId",
+          "datasetId",
+          "developmentOrigins",
+          "populationAccuracy",
+          "humanSelectedControls",
+          "r2CombinedAccepted",
+          "v5Accepted"
+        ],
+        "title": "LabSymbolCandidateSummaryResponse",
+        "type": "object"
       },
       "LateralPartialGeometryJobSnapshotPayload": {
         "additionalProperties": false,
@@ -16618,6 +17149,479 @@
         "title": "ModelQualityResponse",
         "type": "object"
       },
+      "NeuralDetectionPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "cellQuads": {
+            "items": {
+              "maxItems": 4,
+              "minItems": 4,
+              "prefixItems": [
+                {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                }
+              ],
+              "type": "array"
+            },
+            "maxItems": 15,
+            "title": "Cellquads",
+            "type": "array"
+          },
+          "cellVisibility": {
+            "items": {
+              "enum": [
+                "full",
+                "partial",
+                "outside",
+                "unknown"
+              ],
+              "type": "string"
+            },
+            "maxItems": 15,
+            "minItems": 15,
+            "title": "Cellvisibility",
+            "type": "array"
+          },
+          "detectionId": {
+            "title": "Detectionid",
+            "type": "string"
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "score": {
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Score",
+            "type": "number"
+          },
+          "structurallyValid": {
+            "title": "Structurallyvalid",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "detectionId",
+          "score",
+          "latticeNodes",
+          "cellQuads",
+          "cellVisibility",
+          "structurallyValid",
+          "reasonCodes"
+        ],
+        "title": "NeuralDetectionPayload",
+        "type": "object"
+      },
+      "NeuralGridModelFilePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "sha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sha256",
+            "type": "string"
+          },
+          "sizeBytes": {
+            "minimum": 0.0,
+            "title": "Sizebytes",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "sha256",
+          "sizeBytes"
+        ],
+        "title": "NeuralGridModelFilePayload",
+        "type": "object"
+      },
+      "NeuralGridModelManifestPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "bundleFormat": {
+            "title": "Bundleformat",
+            "type": "string"
+          },
+          "checkpointSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Checkpointsha256",
+            "type": "string"
+          },
+          "exportId": {
+            "title": "Exportid",
+            "type": "string"
+          },
+          "files": {
+            "items": {
+              "$ref": "#/components/schemas/NeuralGridModelFilePayload"
+            },
+            "title": "Files",
+            "type": "array"
+          },
+          "frozenOn": {
+            "title": "Frozenon",
+            "type": "string"
+          },
+          "modelKind": {
+            "const": "neural_grid",
+            "title": "Modelkind",
+            "type": "string"
+          },
+          "modelVersion": {
+            "title": "Modelversion",
+            "type": "string"
+          },
+          "preset": {
+            "title": "Preset",
+            "type": "string"
+          },
+          "presetFingerprint": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Presetfingerprint",
+            "type": "string"
+          },
+          "profile": {
+            "const": "grid_profile_mumie_v1",
+            "title": "Profile",
+            "type": "string"
+          },
+          "report": {
+            "title": "Report",
+            "type": "string"
+          },
+          "reportResults": {
+            "items": {
+              "$ref": "#/components/schemas/NeuralGridModelReportPayload"
+            },
+            "title": "Reportresults",
+            "type": "array"
+          },
+          "runId": {
+            "title": "Runid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": "grid-engine-model-manifest-v1",
+            "title": "Schemaversion",
+            "type": "string"
+          },
+          "selectionReason": {
+            "title": "Selectionreason",
+            "type": "string"
+          },
+          "snapshotId": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Snapshotid",
+            "type": "string"
+          },
+          "version": {
+            "title": "Version",
+            "type": "string"
+          },
+          "weightsSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Weightssha256",
+            "type": "string"
+          }
+        },
+        "required": [
+          "schemaVersion",
+          "profile",
+          "version",
+          "modelKind",
+          "modelVersion",
+          "bundleFormat",
+          "runId",
+          "exportId",
+          "preset",
+          "presetFingerprint",
+          "weightsSha256",
+          "checkpointSha256",
+          "snapshotId",
+          "frozenOn",
+          "selectionReason",
+          "report",
+          "reportResults",
+          "files"
+        ],
+        "title": "NeuralGridModelManifestPayload",
+        "type": "object"
+      },
+      "NeuralGridModelReportPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "dataset": {
+            "title": "Dataset",
+            "type": "string"
+          },
+          "result": {
+            "title": "Result",
+            "type": "string"
+          }
+        },
+        "required": [
+          "dataset",
+          "result"
+        ],
+        "title": "NeuralGridModelReportPayload",
+        "type": "object"
+      },
+      "NeuralGridSnapshotPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "contractVersion": {
+            "const": "neural-grid-proposal-snapshot-v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "expectedLayoutCount": {
+            "maximum": 10000000.0,
+            "minimum": 1.0,
+            "title": "Expectedlayoutcount",
+            "type": "integer"
+          },
+          "model": {
+            "$ref": "#/components/schemas/NeuralGridModelManifestPayload"
+          }
+        },
+        "required": [
+          "contractVersion",
+          "expectedLayoutCount",
+          "model"
+        ],
+        "title": "NeuralGridSnapshotPayload",
+        "type": "object"
+      },
+      "NeuralSourceAssignmentPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "detectionId": {
+            "title": "Detectionid",
+            "type": "string"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "detectionId",
+          "positionIndex"
+        ],
+        "title": "NeuralSourceAssignmentPayload",
+        "type": "object"
+      },
+      "NeuralSourceBindingPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "assignments": {
+            "items": {
+              "$ref": "#/components/schemas/NeuralSourceAssignmentPayload"
+            },
+            "maxItems": 9,
+            "title": "Assignments",
+            "type": "array"
+          },
+          "confirmedRange": {
+            "$ref": "#/components/schemas/NeuralSourceRangePayload"
+          },
+          "contractVersion": {
+            "const": "neural-source-binding-v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "ignoredDetectionIds": {
+            "items": {
+              "type": "string"
+            },
+            "maxItems": 256,
+            "title": "Ignoreddetectionids",
+            "type": "array"
+          },
+          "missingPositionIndexes": {
+            "items": {
+              "maximum": 8.0,
+              "minimum": 0.0,
+              "type": "integer"
+            },
+            "maxItems": 9,
+            "title": "Missingpositionindexes",
+            "type": "array"
+          },
+          "originalRange": {
+            "$ref": "#/components/schemas/NeuralSourceRangePayload"
+          },
+          "proposalChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Proposalchecksumsha256",
+            "type": "string"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceHeight": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourceheight",
+            "type": "integer"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "sourceWidth": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourcewidth",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contractVersion",
+          "gameId",
+          "sourceSelectionId",
+          "sourceChecksumSha256",
+          "sourceWidth",
+          "sourceHeight",
+          "proposalChecksumSha256",
+          "originalRange",
+          "confirmedRange",
+          "assignments",
+          "missingPositionIndexes",
+          "ignoredDetectionIds"
+        ],
+        "title": "NeuralSourceBindingPayload",
+        "type": "object"
+      },
+      "NeuralSourceProposalPayload": {
+        "additionalProperties": false,
+        "properties": {
+          "contractVersion": {
+            "const": "neural-source-proposal-v1",
+            "title": "Contractversion",
+            "type": "string"
+          },
+          "detections": {
+            "items": {
+              "$ref": "#/components/schemas/NeuralDetectionPayload"
+            },
+            "maxItems": 256,
+            "title": "Detections",
+            "type": "array"
+          },
+          "engineSnapshot": {
+            "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "originalRange": {
+            "$ref": "#/components/schemas/NeuralSourceRangePayload"
+          },
+          "proposalChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Proposalchecksumsha256",
+            "type": "string"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceHeight": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourceheight",
+            "type": "integer"
+          },
+          "sourceSelectionId": {
+            "format": "uuid",
+            "title": "Sourceselectionid",
+            "type": "string"
+          },
+          "sourceWidth": {
+            "exclusiveMinimum": 0.0,
+            "title": "Sourcewidth",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "contractVersion",
+          "gameId",
+          "sourceSelectionId",
+          "sourceChecksumSha256",
+          "sourceWidth",
+          "sourceHeight",
+          "originalRange",
+          "engineSnapshot",
+          "detections",
+          "proposalChecksumSha256"
+        ],
+        "title": "NeuralSourceProposalPayload",
+        "type": "object"
+      },
+      "NeuralSourceRangePayload": {
+        "additionalProperties": false,
+        "properties": {
+          "sequenceRangeEnd": {
+            "minimum": 1.0,
+            "title": "Sequencerangeend",
+            "type": "integer"
+          },
+          "sequenceRangeStart": {
+            "minimum": 1.0,
+            "title": "Sequencerangestart",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sequenceRangeStart",
+          "sequenceRangeEnd"
+        ],
+        "title": "NeuralSourceRangePayload",
+        "type": "object"
+      },
       "OperationalImageReviewAlternativeResponse": {
         "additionalProperties": false,
         "properties": {
@@ -16842,6 +17846,18 @@
             "title": "Expectedgeometryrevision",
             "type": "integer"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "expectedResolutionRevision": {
             "minimum": 0.0,
             "title": "Expectedresolutionrevision",
@@ -16861,6 +17877,22 @@
             "format": "uuid",
             "title": "Idempotencykey",
             "type": "string"
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           }
         },
         "required": [
@@ -16923,6 +17955,18 @@
             "title": "Expectedgeometryrevision",
             "type": "integer"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "expectedResolutionRevision": {
             "minimum": 0.0,
             "title": "Expectedresolutionrevision",
@@ -16937,6 +17981,22 @@
                 "type": "null"
               }
             ]
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           }
         },
         "required": [
@@ -16971,7 +18031,6 @@
       },
       "OperationalImageReviewGeometryRevisionResponse": {
         "additionalProperties": false,
-        "description": "One ``virtual_source`` manual geometry revision (D-467 S6, TASK-0796).\n\nThe former v19 file-crop fields (board crop checksum, manual decision\nchecksum) are gone: the revision is bound by its source geometry and\nrender manifest checksums instead.",
         "properties": {
           "cells": {
             "items": {
@@ -17019,6 +18078,18 @@
             "title": "Cropperversion",
             "type": "string"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "geometryChecksumSha256": {
             "pattern": "^[a-f0-9]{64}$",
             "title": "Geometrychecksumsha256",
@@ -17043,6 +18114,22 @@
             "format": "uuid",
             "title": "Idempotencykey",
             "type": "string"
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           },
           "recognizedBoardId": {
             "format": "uuid",
@@ -17111,6 +18198,18 @@
             "title": "Createdat",
             "type": "string"
           },
+          "expectedProposalChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[a-f0-9]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedproposalchecksumsha256"
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -17146,6 +18245,22 @@
             "format": "uuid",
             "title": "Importjobid",
             "type": "string"
+          },
+          "latticeNodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/SourceLatticePoint"
+                },
+                "maxItems": 24,
+                "minItems": 24,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Latticenodes"
           },
           "pipelineFingerprint": {
             "pattern": "^[a-f0-9]{64}$",
@@ -17656,6 +18771,16 @@
             ],
             "title": "Managedsourcemanifestchecksumsha256"
           },
+          "neuralGridProposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "pageGeometryOverrides": {
             "additionalProperties": true,
             "title": "Pagegeometryoverrides",
@@ -17672,7 +18797,8 @@
                 "enum": [
                   "page-geometry-preflight-v2-auto-anchor",
                   "page-geometry-preflight-v3-board-area-mask",
-                  "page-geometry-preflight-v12-contrast-frame-grid"
+                  "page-geometry-preflight-v12-contrast-frame-grid",
+                  "page-geometry-preflight-v13-neural-mumie-pilot"
                 ],
                 "type": "string"
               },
@@ -20608,6 +21734,40 @@
             "const": "image_directory",
             "title": "Importkind",
             "type": "string"
+          },
+          "managedSourceJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managedsourcejobid"
+          },
+          "managedSourceManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Managedsourcemanifestchecksumsha256"
+          },
+          "neuralGridProposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "normalizationAdapterVersion": {
             "anyOf": [
@@ -24018,6 +25178,25 @@
         "title": "SourceImageGeometryStatus",
         "type": "string"
       },
+      "SourceLatticePoint": {
+        "additionalProperties": false,
+        "properties": {
+          "x": {
+            "title": "X",
+            "type": "number"
+          },
+          "y": {
+            "title": "Y",
+            "type": "number"
+          }
+        },
+        "required": [
+          "x",
+          "y"
+        ],
+        "title": "SourceLatticePoint",
+        "type": "object"
+      },
       "StorageGcJobPayload": {
         "additionalProperties": false,
         "properties": {
@@ -25984,7 +27163,8 @@
       "SymbolModelActivationAction": {
         "enum": [
           "activate",
-          "rollback"
+          "rollback",
+          "deactivate"
         ],
         "title": "SymbolModelActivationAction",
         "type": "string"
@@ -26071,8 +27251,15 @@
             "type": "boolean"
           },
           "candidateManifestChecksumSha256": {
-            "title": "Candidatemanifestchecksumsha256",
-            "type": "string"
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Candidatemanifestchecksumsha256"
           },
           "currentModelIterationId": {
             "anyOf": [
@@ -26092,9 +27279,26 @@
             "type": "string"
           },
           "modelIterationId": {
-            "format": "uuid",
-            "title": "Modeliterationid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modeliterationid"
+          },
+          "pilotSummary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LabSymbolCandidateSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -26144,9 +27348,16 @@
             "type": "string"
           },
           "modelIterationId": {
-            "format": "uuid",
-            "title": "Modeliterationid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Modeliterationid"
           },
           "previousModelIterationId": {
             "anyOf": [
@@ -26185,6 +27396,46 @@
           "createdAt"
         ],
         "title": "SymbolModelActivationResponse",
+        "type": "object"
+      },
+      "SymbolModelDeactivationCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "actor": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Actor",
+            "type": "string"
+          },
+          "expectedCurrentModelIterationId": {
+            "format": "uuid",
+            "title": "Expectedcurrentmodeliterationid",
+            "type": "string"
+          },
+          "idempotencyKey": {
+            "format": "uuid",
+            "title": "Idempotencykey",
+            "type": "string"
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "maxLength": 2000,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reason"
+          }
+        },
+        "required": [
+          "expectedCurrentModelIterationId",
+          "idempotencyKey",
+          "actor"
+        ],
+        "title": "SymbolModelDeactivationCommand",
         "type": "object"
       },
       "SymbolModelIterationResponse": {
@@ -26235,9 +27486,16 @@
             "title": "Checkpointrelativepath"
           },
           "cohortId": {
-            "format": "uuid",
-            "title": "Cohortid",
-            "type": "string"
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cohortid"
           },
           "configuration": {
             "additionalProperties": true,
@@ -26274,6 +27532,10 @@
               }
             ],
             "title": "Datasetmanifestrelativepath"
+          },
+          "epochCount": {
+            "title": "Epochcount",
+            "type": "integer"
           },
           "errorCode": {
             "anyOf": [
@@ -26370,6 +27632,48 @@
             "title": "Lastcompletedepoch",
             "type": "integer"
           },
+          "origin": {
+            "default": "production_training",
+            "enum": [
+              "production_training",
+              "lab_import"
+            ],
+            "title": "Origin",
+            "type": "string"
+          },
+          "originFingerprint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originfingerprint"
+          },
+          "originManifestChecksumSha256": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originmanifestchecksumsha256"
+          },
+          "originManifestRelativePath": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Originmanifestrelativepath"
+          },
           "partialMetrics": {
             "additionalProperties": true,
             "title": "Partialmetrics",
@@ -26418,7 +27722,8 @@
           "errorCode",
           "errorMessage",
           "createdAt",
-          "updatedAt"
+          "updatedAt",
+          "epochCount"
         ],
         "title": "SymbolModelIterationResponse",
         "type": "object"
@@ -26433,6 +27738,18 @@
             "minItems": 1,
             "title": "Classcodes",
             "type": "array"
+          },
+          "cropSize": {
+            "anyOf": [
+              {
+                "minimum": 16.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cropsize"
           },
           "inferenceFingerprint": {
             "pattern": "^[0-9a-f]{64}$",
@@ -35619,6 +36936,250 @@
         ]
       }
     },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/imports": {
+      "post": {
+        "operationId": "importLabSymbolCandidate",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportLabSymbolCandidateCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreateSymbolTrainingResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Import Lab Candidate",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/imports/candidates": {
+      "get": {
+        "operationId": "listLabSymbolCandidates",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/LabSymbolCandidateResponse"
+                  },
+                  "title": "Response Listlabsymbolcandidates",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "List Lab Candidates",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/imports/{fingerprint}/preview": {
+      "get": {
+        "operationId": "previewLabSymbolCandidateImport",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "fingerprint",
+            "required": true,
+            "schema": {
+              "title": "Fingerprint",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/LabSymbolCandidateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Preview Lab Import",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
     "/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/activations": {
       "get": {
         "operationId": "listSymbolModelActivations",
@@ -35693,6 +37254,174 @@
           }
         },
         "summary": "List Activations",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/deactivate": {
+      "post": {
+        "operationId": "deactivateSymbolModel",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Confirmation",
+            "required": true,
+            "schema": {
+              "const": "confirmed",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "X-Admin-Target",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SymbolModelDeactivationCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelActivationCommandResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Deactivate",
+        "tags": [
+          "symbol-model-iterations"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/symbol-model-iterations/registry/deactivation-preview": {
+      "get": {
+        "operationId": "previewSymbolModelDeactivation",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SymbolModelActivationPreviewResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Unprocessable Entity"
+          }
+        },
+        "summary": "Preview Deactivation",
         "tags": [
           "symbol-model-iterations"
         ]

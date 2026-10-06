@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import cast
@@ -554,12 +554,17 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             source_job_execution_pairs=tuple(sorted((row[4], row[3]) for row in source_rows)),
             active_model_affected=active_model_affected,
             active_model_survives=active_model_id is not None and not active_model_affected,
+            deactivation_history_affected=latest_deactivation_selected(
+                activation_rows, activation_ids
+            ),
             artifact_paths=artifact_paths,
             retained_shared_artifact_count=0,
         )
 
     def _board_source_blockers(self, scope: _BoardSourceScope) -> list[str]:
         blockers: list[str] = []
+        if getattr(scope, "deactivation_history_affected", False):
+            blockers.append("SYMBOL_MODEL_DEACTIVATION_HISTORY_PRESENT")
         if scope.source_ids and self._count(
             "SELECT count(*) FROM image_geometry_shadow_results "
             "WHERE game_id = :game_id AND source_image_id IN :source_ids",
@@ -1023,6 +1028,18 @@ class _BoardSourceScope:
     active_model_survives: bool
     artifact_paths: tuple[str, ...]
     retained_shared_artifact_count: int
+    deactivation_history_affected: bool = False
+
+
+def latest_deactivation_selected(
+    activation_rows: Sequence[Sequence[object]], activation_ids: tuple[UUID, ...]
+) -> bool:
+    """Never expose an earlier active model by deleting the current off event."""
+    return bool(
+        activation_rows
+        and activation_rows[0][1] is None
+        and activation_rows[0][0] in activation_ids
+    )
 
 
 def _range_confirmation_target(

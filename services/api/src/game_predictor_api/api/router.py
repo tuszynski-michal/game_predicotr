@@ -124,6 +124,7 @@ def create_api_router(
     board_search_share_rate_limiter: BoardSearchShareRateLimiter,
     grid_audit_proposal_service_dependency: Callable[..., object] | None = None,
     grid_shadow_service_dependency: Callable[..., object] | None = None,
+    lab_symbol_candidate_import_service_dependency: Callable[..., object] | None = None,
 ) -> APIRouter:
     router = APIRouter(prefix="/api/v1")
     router.include_router(create_health_router(settings.version))
@@ -272,6 +273,7 @@ def create_api_router(
         create_symbol_model_iteration_router(
             symbol_model_iteration_service_dependency,
             symbol_model_registry_service_dependency,
+            lab_symbol_candidate_import_service_dependency,
         )
     )
     router.include_router(create_grid_calibration_router(grid_calibration_service_dependency))

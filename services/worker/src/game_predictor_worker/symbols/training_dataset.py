@@ -10,7 +10,7 @@ import shutil
 import tempfile
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Literal, cast
 from uuid import UUID
@@ -28,6 +28,12 @@ from game_predictor_worker.images.normalization import (
 from game_predictor_worker.images.virtual_cell_extraction import (
     VirtualCellExtractionError,
     render_persisted_virtual_cell_rgb,
+)
+from game_predictor_worker.symbols.protected_sources import (
+    ProtectedSourceError,
+    load_protected_sources,
+    require_frozen_reference,
+    source_pixel_identity,
 )
 
 TRAINING_DATASET_SCHEMA_VERSION = 1
@@ -1228,8 +1234,32 @@ def build_cumulative_training_dataset(
             "The persisted cohort manifest belongs to another game.",
         )
     _validate_declared_counts(cohort)
+    try:
+        protected = load_protected_sources(managed_root, cohort_game_id)
+        if protected is not None:
+            require_frozen_reference(protected, cohort)
+    except ProtectedSourceError as error:
+        raise TrainingDatasetBuildError(error.code, str(error)) from error
     catalog = _catalog(symbols)
     samples = _parse_samples(cohort, catalog=catalog, data_root=data_root)
+    if protected is not None:
+        identities: dict[tuple[str, str], str] = {}
+        guarded_samples: list[_Sample] = []
+        try:
+            for sample in samples:
+                key = (sample.source_relative_path, sample.source_checksum)
+                if key not in identities:
+                    identities[key] = source_pixel_identity(data_root, *key)
+                pixels = identities[key]
+                if protected.excludes(sample.source_checksum, pixels):
+                    raise ProtectedSourceError(
+                        "PROTECTED_EVALUATION_SOURCE",
+                        "A frozen evaluation photograph cannot enter a new training dataset.",
+                    )
+                guarded_samples.append(replace(sample, source_family=pixels))
+        except ProtectedSourceError as error:
+            raise TrainingDatasetBuildError(error.code, str(error)) from error
+        samples = tuple(guarded_samples)
     manifest = _manifest(
         cohort=cohort,
         cohort_checksum=expected_cohort_checksum_sha256,
@@ -1238,6 +1268,8 @@ def build_cumulative_training_dataset(
         samples=samples,
         config=config,
     )
+    if protected is not None:
+        manifest["protectedSourceExclusions"] = protected.reference()
     manifest_bytes = _canonical_bytes(manifest)
     manifest_checksum = hashlib.sha256(manifest_bytes).hexdigest()
     relative_directory = PurePosixPath(
@@ -1308,6 +1340,11 @@ def build_cumulative_training_dataset(
             if temporary_manifest is not None:
                 temporary_manifest.unlink(missing_ok=True)
 
+    if protected is not None:
+        try:
+            load_protected_sources(managed_root, cohort_game_id)
+        except ProtectedSourceError as error:
+            raise TrainingDatasetBuildError(error.code, str(error)) from error
     return TrainingDatasetArtifact(
         game_id=cohort_game_id,
         cohort_checksum_sha256=expected_cohort_checksum_sha256,

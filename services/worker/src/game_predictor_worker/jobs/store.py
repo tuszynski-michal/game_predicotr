@@ -28,6 +28,7 @@ from game_predictor_api.storage.game_storage_routing import GameStorageIntent, G
 from game_predictor_api.storage.job_repository import (
     apply_job_to_record,
     job_from_record,
+    synchronize_lab_import_iteration,
 )
 from game_predictor_api.storage.models import (
     BrowserSelectionRetentionModel,
@@ -420,6 +421,7 @@ def _record_browser_staging_board_status(
 def _synchronize_bulk_operation_terminal_state(session: Session, job: Job) -> None:
     """Keep cancellation/failure visible without creating a second worker lane."""
 
+    synchronize_lab_import_iteration(session, job)
     if job.job_type is not JobType.IMAGE_SYMBOL_REVIEW_BULK:
         return
     operation = _bulk_operation_for_job(session, job)
@@ -436,6 +438,7 @@ def _synchronize_bulk_operation_terminal_state(session: Session, job: Job) -> No
 
 
 def _synchronize_bulk_operation_recovery(session: Session, job: Job) -> None:
+    synchronize_lab_import_iteration(session, job)
     if job.job_type is not JobType.IMAGE_SYMBOL_REVIEW_BULK:
         return
     operation = _bulk_operation_for_job(session, job)

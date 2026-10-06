@@ -3,6 +3,7 @@ import json
 import os
 import subprocess
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from io import BytesIO
 from pathlib import Path
@@ -50,6 +51,7 @@ from game_predictor_api.domain.jobs import (
     start_job,
 )
 from game_predictor_api.domain.symbol_model_snapshots import (
+    LAB_RGB_SYMBOL_MODEL_VERSION,
     SymbolModelJobSnapshot,
     bootstrap_symbol_model_snapshot,
     cold_start_unclassified_symbol_snapshot,
@@ -735,8 +737,10 @@ def test_v12_browser_import_waits_for_registered_inner_grids(tmp_path: Path) -> 
         assert not tuple((tmp_path / "artifacts").rglob("*cell*.png"))
 
 
+@pytest.mark.parametrize("lab_rgb", [False, True])
 def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     tmp_path: Path,
+    lab_rgb: bool,
 ) -> None:
     game_id = uuid4()
     repository = MemoryJobRepository(game_id)
@@ -748,7 +752,29 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
         clock=lambda: NOW,
     )
     canonical_service = ImageSequenceCanonicalService(_BrowserCanonicalRepository())
-    job_service = JobService(repository, artifact_root=tmp_path / "artifacts")
+    snapshot = bootstrap_symbol_model_snapshot()
+    if lab_rgb:
+        snapshot = replace(
+            snapshot,
+            model_version=LAB_RGB_SYMBOL_MODEL_VERSION,
+            crop_size=96,
+            iteration_id=uuid4(),
+            class_codes=("10", "J", "Q", "K", "A", "MUMIA"),
+        )
+
+    class SnapshotResolver:
+        def resolve(self, *, game_id: UUID) -> SymbolModelJobSnapshot:
+            assert game_id == repository.game_id
+            return snapshot
+
+        def resolve_unclassified_cold_start(self, *, game_id: UUID) -> None:
+            return None
+
+    job_service = JobService(
+        repository,
+        symbol_model_snapshot_resolver=SnapshotResolver(),
+        artifact_root=tmp_path / "artifacts",
+    )
     image_bytes: list[bytes] = []
     for color in ((255, 0, 0), (0, 255, 0)):
         stream = BytesIO()
@@ -1062,6 +1088,16 @@ def test_ready_browser_layout_import_preflight_and_start_are_idempotent(
     assert started.status_code == 201
     assert started.json()["created"] is True
     assert started.json()["job"]["inputPayload"]["schemaVersion"] == 7
+    job_id = started.json()["job"]["id"]
+    fetched = client.get(f"/api/v1/admin/jobs/{job_id}")
+    listed = client.get(f"/api/v1/admin/jobs?game_id={game_id}&job_type=import")
+    assert fetched.status_code == 200, fetched.text
+    assert listed.status_code == 200, listed.text
+    listed_job = next(item for item in listed.json() if item["id"] == job_id)
+    for returned in (started.json()["job"], fetched.json(), listed_job):
+        returned_snapshot = returned["inputPayload"]["symbolModel"]
+        assert returned_snapshot["cropSize"] == (96 if lab_rgb else None)
+        assert returned_snapshot["inferenceFingerprint"] == snapshot.inference_fingerprint
     assert invalid_resolution_reference.status_code == 409
     assert (
         invalid_resolution_reference.json()["code"] == "IMAGE_LATERAL_PARTIAL_GUARD_REBIND_REQUIRED"
@@ -2065,9 +2101,7 @@ def _lateral_candidate_payload(
     payload: dict[str, object] = {
         "origin": "automatic_search_proposal",
         "analysisQuads": quads,
-        "activeBoardSlots": (
-            list(range(9)) if active_board_slots is None else active_board_slots
-        ),
+        "activeBoardSlots": (list(range(9)) if active_board_slots is None else active_board_slots),
     }
     payload.update(overrides)
     return payload
@@ -2213,15 +2247,9 @@ def test_review_sources_expose_automatic_page_proposal_for_cropped_page(tmp_path
     "mutate",
     [
         lambda candidate: candidate.pop("analysisQuads"),
-        lambda candidate: candidate.__setitem__(
-            "analysisQuads", candidate["analysisQuads"][:8]
-        ),
-        lambda candidate: candidate["analysisQuads"][0].__setitem__(
-            0, {"x": 0.5, "y": 0}
-        ),
-        lambda candidate: candidate["analysisQuads"][0].__setitem__(
-            0, {"x": 2 * 1080 + 1, "y": 0}
-        ),
+        lambda candidate: candidate.__setitem__("analysisQuads", candidate["analysisQuads"][:8]),
+        lambda candidate: candidate["analysisQuads"][0].__setitem__(0, {"x": 0.5, "y": 0}),
+        lambda candidate: candidate["analysisQuads"][0].__setitem__(0, {"x": 2 * 1080 + 1, "y": 0}),
         lambda candidate: candidate.__setitem__("recoveryKind", "unknown_kind"),
     ],
     ids=[

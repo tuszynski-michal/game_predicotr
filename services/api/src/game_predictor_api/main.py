@@ -101,6 +101,9 @@ from game_predictor_api.application.jobs import (
     JobService,
     ManagedImageSelectionDeletionArtifactStore,
 )
+from game_predictor_api.application.lab_symbol_candidate_import import (
+    LabSymbolCandidateImportService,
+)
 from game_predictor_api.application.layout_import_reports import (
     LayoutImportReportService,
 )
@@ -380,6 +383,9 @@ from game_predictor_api.storage.iterative_image_import_repository import (
     SqlAlchemyIterativeImageImportRepository,
 )
 from game_predictor_api.storage.job_repository import SqlAlchemyJobRepository
+from game_predictor_api.storage.lab_symbol_candidate_import_repository import (
+    SqlAlchemyLabSymbolCandidateImportRepository,
+)
 from game_predictor_api.storage.layout_import_report_repository import (
     SqlAlchemyLayoutImportReportRepository,
 )
@@ -562,6 +568,7 @@ def create_app(
     worker_lane_status_service_dependency: Callable[..., object] | None = None,
     verified_training_cohort_service_dependency: Callable[..., object] | None = None,
     symbol_model_iteration_service_dependency: Callable[..., object] | None = None,
+    lab_symbol_candidate_import_service_dependency: Callable[..., object] | None = None,
     symbol_model_registry_service_dependency: Callable[..., object] | None = None,
     grid_calibration_service_dependency: Callable[..., object] | None = None,
     page_geometry_override_service_dependency: Callable[..., object] | None = None,
@@ -619,6 +626,7 @@ def create_app(
             worker_lane_status_service_dependency,
             verified_training_cohort_service_dependency,
             symbol_model_iteration_service_dependency,
+            lab_symbol_candidate_import_service_dependency,
             symbol_model_registry_service_dependency,
             grid_calibration_service_dependency,
             page_geometry_override_service_dependency,
@@ -996,7 +1004,9 @@ def create_app(
                     session,
                     artifact_root=resolved_settings.artifact_root,
                 ),
-                SqlAlchemyGridProfileSnapshotResolver(session),
+                SqlAlchemyGridProfileSnapshotResolver(
+                    session, artifact_root=resolved_settings.artifact_root
+                ),
                 artifact_root=resolved_settings.artifact_root,
                 page_geometry_override_snapshot_resolver=PageGeometryOverrideService(
                     SqlAlchemyPageGeometryOverrideRepository(session)
@@ -1296,7 +1306,9 @@ def create_app(
                         session,
                         artifact_root=resolved_settings.artifact_root,
                     ),
-                    SqlAlchemyGridProfileSnapshotResolver(session),
+                    SqlAlchemyGridProfileSnapshotResolver(
+                        session, artifact_root=resolved_settings.artifact_root
+                    ),
                     artifact_root=resolved_settings.artifact_root,
                     shape_geometry_v2_profile_snapshot_resolver=(
                         SqlAlchemyGlobalGeometryProfileSnapshotResolver(
@@ -1518,7 +1530,11 @@ def create_app(
     ]:
         with session_factory() as session:
             try:
-                yield SymbolModelIterationService(SqlAlchemySymbolModelIterationRepository(session))
+                yield SymbolModelIterationService(
+                    SqlAlchemySymbolModelIterationRepository(
+                        session, resolved_settings.artifact_root
+                    )
+                )
                 session.commit()
             except BaseException:
                 session.rollback()
@@ -1532,7 +1548,12 @@ def create_app(
     def default_symbol_model_registry_service_dependency() -> Iterator[SymbolModelRegistryService]:
         with session_factory() as session:
             try:
-                yield SymbolModelRegistryService(SqlAlchemySymbolModelRegistryRepository(session))
+                yield SymbolModelRegistryService(
+                    SqlAlchemySymbolModelRegistryRepository(
+                        session,
+                        artifact_root=resolved_settings.artifact_root,
+                    )
+                )
                 session.commit()
             except BaseException:
                 session.rollback()
@@ -1540,6 +1561,25 @@ def create_app(
 
     resolved_symbol_model_registry_dependency = (
         symbol_model_registry_service_dependency or default_symbol_model_registry_service_dependency
+    )
+
+    def default_lab_symbol_candidate_import_dependency() -> Iterator[
+        LabSymbolCandidateImportService
+    ]:
+        with session_factory() as session:
+            try:
+                yield LabSymbolCandidateImportService(
+                    SqlAlchemyLabSymbolCandidateImportRepository(session),
+                    resolved_settings.artifact_root,
+                )
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    resolved_lab_symbol_candidate_import_dependency = (
+        lab_symbol_candidate_import_service_dependency
+        or default_lab_symbol_candidate_import_dependency
     )
 
     def default_grid_calibration_service_dependency() -> Iterator[GridCalibrationService]:
@@ -1876,6 +1916,7 @@ def create_app(
             board_search_share_rate_limiter=resolved_board_search_share_rate_limiter,
             grid_audit_proposal_service_dependency=(default_grid_audit_proposal_service_dependency),
             grid_shadow_service_dependency=resolved_grid_shadow_dependency,
+            lab_symbol_candidate_import_service_dependency=resolved_lab_symbol_candidate_import_dependency,
         )
     )
     if not custom_service_dependency_supplied:

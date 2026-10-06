@@ -32,9 +32,16 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
+from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.image_geometry_completeness import (
     DEFAULT_LOW_QUALITY_MAX_CONFIDENCE,
 )
+from game_predictor_api.domain.image_geometry_v2 import (
+    SourceLatticeNodes,
+    SourcePoint,
+    canonical_json_bytes,
+)
+from game_predictor_api.domain.neural_grid_proposal import lattice_visibility
 from game_predictor_worker.vision_lab import production_geometry as geometry
 from sqlalchemy import Connection, Engine, create_engine, text
 
@@ -114,6 +121,10 @@ SELECT bx.id, bx.source_image_id, bx.position_index, bx.sequence_number, bx.stat
   bx.source_entry -> 'symbolGridQuad' AS source_symbol_grid_quad,
   bx.source_entry -> 'finalQuad' AS source_final_quad,
   rv.corners AS revision_corners,
+  rv.geometry AS revision_geometry,
+  rv.virtual_render_spec AS revision_virtual_render_spec,
+  rv.virtual_render_spec_checksum_sha256 AS revision_render_checksum,
+  bx.source_entry -> 'latticeNodes' AS source_lattice_nodes,
   (SELECT jsonb_agg(jsonb_build_array(rr.revision, rr.corrected_by) ORDER BY rr.revision)
      FROM image_board_geometry_revisions rr
      WHERE rr.game_id = :game_id AND rr.recognized_board_id = bx.id
@@ -379,6 +390,41 @@ def _qualification(board: Mapping[str, Any]) -> dict[str, Any] | None:
     }
 
 
+def _exact_lattice(board: Mapping[str, Any]) -> object | None:
+    """Current explicit lattice with checksum-bound revision provenance."""
+
+    revision = board.get("revision_geometry")
+    render = board.get("revision_virtual_render_spec")
+    if render is not None and (
+        not isinstance(render, dict)
+        or hashlib.sha256(canonical_json_bytes(render)).hexdigest()
+        != board.get("revision_render_checksum")
+    ):
+        raise geometry.ProductionGeometryError(
+            geometry.EXCLUSION_INTEGRITY, "the current render revision checksum is inconsistent"
+        )
+    revision_nodes = revision.get("latticeNodes") if isinstance(revision, Mapping) else None
+    render_nodes = render.get("latticeNodes") if isinstance(render, Mapping) else None
+    source_nodes = board.get("source_lattice_nodes")
+    if revision_nodes is None and render_nodes is None:
+        if source_nodes is not None and revision is not None:
+            raise geometry.ProductionGeometryError(
+                geometry.EXCLUSION_INTEGRITY,
+                "the current revision lost its source lattice",
+            )
+        return source_nodes
+    if (
+        revision_nodes is None
+        or revision_nodes != render_nodes
+        or (source_nodes is not None and revision_nodes != source_nodes)
+        or not isinstance(render, dict)
+    ):
+        raise geometry.ProductionGeometryError(
+            geometry.EXCLUSION_INTEGRITY, "the current exact-lattice revision is inconsistent"
+        )
+    return cast(object, revision_nodes)
+
+
 def _build_row(
     game_id: UUID,
     image: Mapping[str, Any],
@@ -423,9 +469,23 @@ def _build_row(
         )
     manifest_cells = _manifest_cells(board["manifest_cell_indices"], board["manifest_cell_quads"])
     unavailable = [int(index) for index in board["unavailable_cell_indices"] or []]
-    derived = geometry.derive_consistent_nodes(
-        _candidate_quads(board), manifest_cells, unavailable_cell_indices=unavailable
-    )
+    exact_lattice = _exact_lattice(board)
+    if exact_lattice is not None:
+        if (
+            board["approved_geometry_revision"] != board["geometry_revision"]
+            or board["geometry_approved_by"] not in geometry.HUMAN_ACTORS
+        ):
+            raise geometry.ProductionGeometryError(
+                geometry.EXCLUSION_HUMAN_APPROVAL_REQUIRED,
+                "exact lattice targets require current human geometry approval",
+            )
+        derived = geometry.derive_consistent_lattice_nodes(
+            exact_lattice, manifest_cells, unavailable_cell_indices=unavailable
+        )
+    else:
+        derived = geometry.derive_consistent_nodes(
+            _candidate_quads(board), manifest_cells, unavailable_cell_indices=unavailable
+        )
     authors = [
         (int(revision), str(author)) for revision, author in (board["revision_authors"] or [])
     ]
@@ -475,7 +535,7 @@ def _build_row(
             "otherRevisionCells": int(cells["other_revision_cells"]),
         }
     approved_at = board["geometry_approved_at"]
-    return {
+    result: dict[str, Any] = {
         "schemaVersion": CANDIDATE_SCHEMA,
         "gameId": str(game_id),
         "sourceImageId": str(image["id"]),
@@ -532,6 +592,26 @@ def _build_row(
         "symbolSignals": {"lowQualityMaxConfidence": DEFAULT_LOW_QUALITY_MAX_CONFIDENCE, **signals},
         "difficulty": difficulty,
     }
+    if exact_lattice is not None:
+        # Legacy rows retain their existing four-decimal representation.
+        result["geometry"]["nodes"] = [list(point) for point in derived.nodes]
+        result["geometry"]["quad"] = [list(point) for point in derived.quad]
+        lattice = SourceLatticeNodes(tuple(SourcePoint(x, y) for x, y in derived.nodes))
+        visibility = lattice_visibility(
+            [
+                lattice.cell_quad(topology=BoardTopology(3, 5), row_index=row, column_index=column)
+                for row in range(3)
+                for column in range(5)
+            ],
+            width=width,
+            height=height,
+        )
+        result["partial"]["cellVisibility"] = visibility
+        result["partial"]["unavailableCellIndices"] = sorted(
+            set(unavailable)
+            | {index for index, state in enumerate(visibility) if state == "outside"}
+        )
+    return result
 
 
 def _json_line(value: Mapping[str, Any]) -> bytes:

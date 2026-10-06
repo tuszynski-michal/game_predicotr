@@ -13,8 +13,10 @@ from game_predictor_api.application.semi_automatic_image_selections import (
     workflow_mode_for_recognizer_fingerprint,
 )
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType
+from game_predictor_api.domain.symbol_model_snapshots import LAB_RGB_SYMBOL_MODEL_VERSION
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.grid_shadow import GridShadowJobPayloadResponse
+from game_predictor_api.schemas.neural_grid_proposals import NeuralGridSnapshotPayload
 
 
 class ImportJobCreatePayload(ApiModel):
@@ -55,6 +57,16 @@ class SymbolModelJobSnapshotPayload(ApiModel):
     temperature: float = Field(gt=0)
     inference_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     inference_mode: Literal["model", "unclassified"] = "model"
+    crop_size: int | None = Field(default=None, ge=16, strict=True)
+
+    @model_validator(mode="after")
+    def validate_lab_crop_contract(self) -> Self:
+        if self.model_version == LAB_RGB_SYMBOL_MODEL_VERSION:
+            if self.crop_size != 96 or self.input_size != 64 or self.inference_mode != "model":
+                raise ValueError("LAB_RGB_SNAPSHOT_RUNTIME_INVALID")
+        elif self.crop_size is not None:
+            raise ValueError("The cropSize override requires the lab RGB model contract.")
+        return self
 
 
 class BoardCellProcessingJobSnapshotPayload(ApiModel):
@@ -269,6 +281,7 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
 
 
 class ImageImportJobPayload(ApiModel):
+    neural_grid_proposal: NeuralGridSnapshotPayload | None = None
     schema_version: Literal[2]
     import_kind: Literal["image_directory"]
     source_selection_id: UUID | None = None
@@ -326,6 +339,7 @@ class ImageGeometryGuardResolutionManifestJobPayload(ApiModel):
 
 
 class BrowserImageImportJobPayload(ApiModel):
+    neural_grid_proposal: NeuralGridSnapshotPayload | None = None
     schema_version: Literal[5]
     import_kind: Literal["image_directory"]
     source_selection_id: UUID
@@ -348,6 +362,11 @@ class BrowserImageImportJobPayload(ApiModel):
 
 
 class ResolvedBrowserImageImportJobPayload(ApiModel):
+    neural_grid_proposal: NeuralGridSnapshotPayload | None = None
+    managed_source_job_id: UUID | None = None
+    managed_source_manifest_checksum_sha256: str | None = Field(
+        default=None, pattern=r"^[0-9a-f]{64}$"
+    )
     schema_version: Literal[7]
     import_kind: Literal["image_directory"]
     source_selection_id: UUID
@@ -512,6 +531,17 @@ class ValidateJobPayload(ApiModel):
     dataset_version_id: UUID
 
 
+class LabSymbolCandidateImportJobPayloadResponse(ApiModel):
+    schema_version: Literal[1]
+    validation_kind: Literal["symbol_model_lab_import"]
+    idempotency_key: UUID
+    candidate_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
+    candidate_manifest_relative_path: str
+    candidate_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    origin_manifest_relative_path: str
+    origin_manifest_checksum_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
 class LayoutImportValidateJobPayload(ApiModel):
     schema_version: Literal[1] = 1
     validation_kind: Literal["layout_import"]
@@ -536,6 +566,7 @@ class BasePageGeometryManifestPayload(ApiModel):
 
 
 class PageGeometryPreflightJobPayload(ApiModel):
+    neural_grid_proposal: NeuralGridSnapshotPayload | None = None
     schema_version: Literal[2]
     validation_kind: Literal["page_geometry_preflight"]
     preflight_policy_version: (
@@ -543,6 +574,7 @@ class PageGeometryPreflightJobPayload(ApiModel):
             "page-geometry-preflight-v2-auto-anchor",
             "page-geometry-preflight-v3-board-area-mask",
             "page-geometry-preflight-v12-contrast-frame-grid",
+            "page-geometry-preflight-v13-neural-mumie-pilot",
         ]
         | None
     ) = None
@@ -754,6 +786,7 @@ JobPayloadResponse = (
     | LayoutImportValidateJobPayload
     | PageGeometryPreflightJobPayload
     | GridShadowJobPayloadResponse
+    | LabSymbolCandidateImportJobPayloadResponse
     | ImageGeometryGuardReportReconstructionJobPayload
     | PayoutJobPayload
     | SnapshotJobPayload
@@ -1238,6 +1271,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
     if job.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION:
         return SemiAutomaticImageSelectionJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.VALIDATE:
+        if job.input_payload.get("validation_kind") == "symbol_model_lab_import":
+            return LabSymbolCandidateImportJobPayloadResponse.model_validate(job.input_payload)
         if job.input_payload.get("validation_kind") == "grid_geometry_shadow_v3":
             return GridShadowJobPayloadResponse.model_validate(job.input_payload)
         if job.input_payload.get("validation_kind") == "layout_import":

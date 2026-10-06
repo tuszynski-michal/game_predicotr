@@ -7,6 +7,7 @@ import { useAnnotations } from './annotation-context';
 import { SymbolBoardEditor } from './symbol-board-editor';
 import { SymbolCandidateQueue } from './symbol-candidate-queue';
 import { SymbolAssignedGallery } from './symbol-assigned-gallery';
+import type { QueueConfirmation } from '../lib/symbol-queue-workflow';
 import { gameDisplayName } from '../lib/game-display-name';
 import {
   symbolWriteSession,
@@ -30,6 +31,7 @@ import {
   type DictionaryEntry,
   type DictionaryView,
   type DbCropPreview,
+  type SymbolResult,
 } from '../../../../packages/vision-lab-api-client/src/index';
 
 export function SymbolLabelEditor() {
@@ -48,9 +50,16 @@ export function SymbolLabelEditor() {
   const [queueBusy, setQueueBusy] = useState(false);
   const [offset, setOffset] = useState(0);
   const [boardReadVersion, setBoardReadVersion] = useState(0);
+  const [boardRevision, setBoardRevision] = useState(0);
+  const [confirmation, setConfirmation] = useState<QueueConfirmation | null>(
+    null,
+  );
+  const [labelsStale, setLabelsStale] = useState(false);
   const order = useRef(0);
   const writing = useRef(false);
-  const writeSession = useRef(symbolWriteSession<SymbolRequest>(writeSymbol));
+  const writeSession = useRef(
+    symbolWriteSession<SymbolRequest, SymbolResult>(writeSymbol),
+  );
   const unavailable = busy || boardBusy || queueBusy || pending !== null;
   const report = useCallback(
     (message: string) => notify({ kind: 'error', message }),
@@ -91,6 +100,9 @@ export function SymbolLabelEditor() {
           : null;
         if (generation !== order.current) return;
         setPage(labels);
+        setBoardRevision(labels.revision);
+        setLabelsStale(false);
+        setConfirmation(null);
         setOffset(0);
         setVersions(dictionaries);
         setEntries(latestFull?.entries ?? []);
@@ -134,13 +146,19 @@ export function SymbolLabelEditor() {
     setBusy(true);
     setPending(body);
     try {
-      await writeSession.current.submit(body);
+      const result = await writeSession.current.submit(body);
       setPending(null);
       notify({
         kind: 'success',
         message: 'Decyzja zapisana. Nie oznacza zgody na trening.',
       });
-      await load(game);
+      if (body.op === 'label_cells_decide') {
+        setPage(
+          (current) => current && { ...current, revision: result.revision },
+        );
+        setLabelsStale(true);
+        setConfirmation({ request: body, result });
+      } else await load(game);
     } catch (error) {
       report(
         `Zapis niepotwierdzony: ${errorCode(error)}. Ponów dokładnie to żądanie lub odczytaj stan po konflikcie.`,
@@ -303,8 +321,20 @@ export function SymbolLabelEditor() {
         sources={sources}
         active={active}
         readVersion={boardReadVersion}
-        enabled={!busy && page !== null && pending === null}
-        disabled={unavailable || !page}
+        enabled={page !== null}
+        disabled={
+          queueBusy ||
+          !page ||
+          (busy && pending?.op !== 'label_cells_decide') ||
+          (pending !== null && !busy)
+        }
+        saving={busy}
+        submittedIds={
+          pending?.op === 'label_cells_decide'
+            ? pending.bindings.map((binding) => binding.crop_id)
+            : []
+        }
+        confirmation={confirmation}
         onBusy={setQueueBusy}
         onSubmit={submit}
         onError={report}
@@ -317,14 +347,20 @@ export function SymbolLabelEditor() {
         readVersion={boardReadVersion}
         onError={report}
       />
+      {labelsStale && (
+        <p>
+          Listę przypisań odświeżysz przyciskiem „Odśwież listę”. Aby edytować
+          całą planszę, kliknij „Odczytaj stan”.
+        </p>
+      )}
       <SymbolBoardEditor
         key={`board-${game}`}
         game={game}
         sources={sources}
         annotations={state}
-        revision={page?.revision ?? 0}
+        revision={boardRevision}
         readVersion={boardReadVersion}
-        disabled={unavailable || !page}
+        disabled={unavailable || labelsStale || !page}
         onBusy={setBoardBusy}
         onSubmit={submit}
         onError={report}
@@ -335,56 +371,63 @@ export function SymbolLabelEditor() {
           Trening zablokowany: nie zamrożono podziału danych symboli. Brak
           danych DB w snapshotcie folderowym jest oczekiwany.
         </p>
-        {page?.items.map((row) => (
-          <article key={row.sample_id}>
-            <p>
-              {row.source_id.slice(0, 12)} · plansza{' '}
-              {row.origin === 'lab_human_approved'
-                ? Number(row.board_id) + 1
-                : row.board_id}{' '}
-              · komórka {row.cell_index + 1}: {row.symbol_id ?? row.action} —{' '}
-              {row.label_valid ? 'ważna decyzja' : 'wymaga przeglądu'}
-            </p>
-            <p>{[...row.reasons, ...row.training_blockers].join(', ')}</p>
-            {canMutateSymbolRow(row.origin) ? (
-              <button
-                disabled={unavailable || row.action === 'withdraw'}
-                onClick={() =>
-                  void submit({
-                    ...mutation(),
-                    op: 'label_withdraw',
-                    decision_id: row.sample_id,
-                  })
-                }
-              >
-                Wycofaj etykietę
-              </button>
-            ) : (
-              <button
-                disabled={unavailable}
-                onClick={async () => {
-                  setBusy(true);
-                  setPreview(null);
-                  try {
-                    const crop = await symbolCrop({
-                      kind: 'db_approved',
-                      sample_id: row.sample_id,
-                    });
-                    if (crop.kind === 'db_approved') setPreview(crop);
-                  } catch (error) {
-                    report(
-                      `Eksportowany crop jest niedostępny: ${errorCode(error)}`,
-                    );
-                  } finally {
-                    setBusy(false);
+        {labelsStale && (
+          <p>
+            Nowe decyzje zapisane. Kliknij „Odczytaj stan”, aby zaktualizować
+            listę etykiet.
+          </p>
+        )}
+        {!labelsStale &&
+          page?.items.map((row) => (
+            <article key={row.sample_id}>
+              <p>
+                {row.source_id.slice(0, 12)} · plansza{' '}
+                {row.origin === 'lab_human_approved'
+                  ? Number(row.board_id) + 1
+                  : row.board_id}{' '}
+                · komórka {row.cell_index + 1}: {row.symbol_id ?? row.action} —{' '}
+                {row.label_valid ? 'ważna decyzja' : 'wymaga przeglądu'}
+              </p>
+              <p>{[...row.reasons, ...row.training_blockers].join(', ')}</p>
+              {canMutateSymbolRow(row.origin) ? (
+                <button
+                  disabled={unavailable || row.action === 'withdraw'}
+                  onClick={() =>
+                    void submit({
+                      ...mutation(),
+                      op: 'label_withdraw',
+                      decision_id: row.sample_id,
+                    })
                   }
-                }}
-              >
-                Podgląd eksportowanej etykiety
-              </button>
-            )}
-          </article>
-        ))}
+                >
+                  Wycofaj etykietę
+                </button>
+              ) : (
+                <button
+                  disabled={unavailable}
+                  onClick={async () => {
+                    setBusy(true);
+                    setPreview(null);
+                    try {
+                      const crop = await symbolCrop({
+                        kind: 'db_approved',
+                        sample_id: row.sample_id,
+                      });
+                      if (crop.kind === 'db_approved') setPreview(crop);
+                    } catch (error) {
+                      report(
+                        `Eksportowany crop jest niedostępny: ${errorCode(error)}`,
+                      );
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  Podgląd eksportowanej etykiety
+                </button>
+              )}
+            </article>
+          ))}
         {preview?.kind === 'db_approved' && (
           <div>
             <p>
@@ -405,15 +448,20 @@ export function SymbolLabelEditor() {
           </div>
         )}
         <p>
-          {page
-            ? page.total === 0
-              ? '0 z 0'
-              : `${offset + 1}–${offset + page.items.length} z ${page.total}`
-            : 'Brak odczytu'}
+          {labelsStale
+            ? 'Lista wymaga aktualnego odczytu'
+            : page
+              ? page.total === 0
+                ? '0 z 0'
+                : `${offset + 1}–${offset + page.items.length} z ${page.total}`
+              : 'Brak odczytu'}
         </p>
         <button
           disabled={
-            unavailable || !page || offset + page.items.length >= page.total
+            unavailable ||
+            labelsStale ||
+            !page ||
+            offset + page.items.length >= page.total
           }
           onClick={() => void nextPage()}
         >

@@ -30,11 +30,17 @@ from game_predictor_api.schemas.geometry_qualification import (
 from game_predictor_api.schemas.geometry_qualification import (
     ManualSourceGeometryPoint as OperationalImageReviewGeometryPoint,
 )
+from game_predictor_api.schemas.source_lattice_geometry import (
+    SourceLatticeNodesPayload,
+    lattice_nodes_payload,
+)
 
 Sha256 = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
 
 
 class ImageGridReviewItemResponse(ApiModel):
+    lattice_nodes: SourceLatticeNodesPayload | None = None
+    expected_proposal_checksum_sha256: Sha256 | None = None
     geometry_qualification: GeometryQualificationPayload | None = None
     automatic_partial_proposal: AutomaticPartialGeometryProposalPayload | None = None
     automatic_frame_proposal: AutomaticFrameGeometryProposalPayload | None = None
@@ -130,6 +136,8 @@ class ImageGridReviewPageResponse(ApiModel):
 
 
 class ImageGridReviewGeometryPreviewCommand(ApiModel):
+    lattice_nodes: SourceLatticeNodesPayload | None = None
+    expected_proposal_checksum_sha256: Sha256 | None = None
     geometry_qualification: GeometryQualificationPayload | None = None
     expected_geometry_revision: int = Field(ge=0)
     expected_resolution_revision: int = Field(ge=0)
@@ -176,6 +184,8 @@ class ImageGridReviewGeometryCellResponse(ApiModel):
 
 
 class ImageGridReviewGeometryRevisionResponse(ApiModel):
+    lattice_nodes: SourceLatticeNodesPayload | None = None
+    expected_proposal_checksum_sha256: Sha256 | None = None
     geometry_qualification: GeometryQualificationPayload | None = None
     id: UUID
     review_item_id: UUID
@@ -258,6 +268,10 @@ def to_image_grid_review_item_response(
         review_uncertainty_reason=_optional_text(geometry.get("reviewUncertaintyReason")),
         board_frame_quad=_optional_geometry_quad(geometry.get("boardFrameQuad")),
         symbol_grid_quad=_optional_geometry_quad(symbol_grid_quad),
+        lattice_nodes=lattice_nodes_payload(geometry.get("latticeNodes")),
+        expected_proposal_checksum_sha256=_optional_text(
+            geometry.get("neuralProposalChecksumSha256")
+        ),
         local_lattice_status=_optional_text(geometry.get("localLatticeStatus")),
         local_lattice_version=_optional_text(geometry.get("localLatticeVersion")),
         # Pydantic still validates the literal at runtime (fail closed).
@@ -342,6 +356,10 @@ def to_virtual_grid_review_geometry_response(
     revision = result.revision
     return ImageGridReviewGeometryResponse(
         geometry_revision=ImageGridReviewGeometryRevisionResponse(
+            lattice_nodes=lattice_nodes_payload(
+                None if revision.lattice_nodes is None else revision.lattice_nodes.to_dict()
+            ),
+            expected_proposal_checksum_sha256=revision.expected_proposal_checksum_sha256,
             geometry_qualification=GeometryQualificationPayload.model_validate(
                 revision.geometry_qualification.to_client_dict()
             )

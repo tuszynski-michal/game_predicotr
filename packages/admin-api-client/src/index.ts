@@ -1,4 +1,30 @@
 import { createClient as createGeneratedClient } from './generated/client';
+export type {
+  SourceLatticePoint,
+  NeuralDetectionPayload,
+  NeuralGridSnapshotPayload,
+  NeuralSourceProposalPayload,
+  NeuralSourceBindingPayload,
+  NeuralSourceAssignmentPayload,
+  NeuralSourceRangePayload,
+} from './generated/types.gen';
+import {
+  listLabSymbolCandidates as listGeneratedLabSymbolCandidates,
+  previewLabSymbolCandidateImport as previewGeneratedLabSymbolCandidateImport,
+  importLabSymbolCandidate as importGeneratedLabSymbolCandidate,
+  previewSymbolModelDeactivation as previewGeneratedSymbolModelDeactivation,
+  deactivateSymbolModel as deactivateGeneratedSymbolModel,
+} from './generated/sdk.gen';
+import type {
+  ImportLabSymbolCandidateCommand,
+  SymbolModelDeactivationCommand,
+} from './generated/types.gen';
+export type {
+  ImportLabSymbolCandidateCommand,
+  LabSymbolCandidateResponse,
+  LabSymbolCandidateSummaryResponse,
+  SymbolModelDeactivationCommand,
+} from './generated/types.gen';
 import type {
   ListBoardSearchShareCorrectionsData,
   GetBoardSearchShareCorrectionData,
@@ -2373,6 +2399,54 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         client,
         headers: confirmedTargetHeaders(`symbol-model-iteration:${gameId}`),
         path: { game_id: gameId },
+      }),
+    listLabSymbolCandidates: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      listGeneratedLabSymbolCandidates({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    previewLabSymbolCandidateImport: (
+      gameId: string,
+      fingerprint: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedLabSymbolCandidateImport({
+        client,
+        path: { game_id: gameId, fingerprint },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    importLabSymbolCandidate: (
+      gameId: string,
+      body: ImportLabSymbolCandidateCommand,
+    ) =>
+      importGeneratedLabSymbolCandidate({
+        client,
+        body,
+        path: { game_id: gameId },
+        headers: confirmedTargetHeaders(`symbol-model-iteration:${gameId}`),
+      }),
+    previewSymbolModelDeactivation: (
+      gameId: string,
+      options: { readonly signal?: AbortSignal } = {},
+    ) =>
+      previewGeneratedSymbolModelDeactivation({
+        client,
+        path: { game_id: gameId },
+        ...(options.signal === undefined ? {} : { signal: options.signal }),
+      }),
+    deactivateSymbolModel: (
+      gameId: string,
+      body: SymbolModelDeactivationCommand,
+    ) =>
+      deactivateGeneratedSymbolModel({
+        client,
+        body,
+        path: { game_id: gameId },
+        headers: confirmedTargetHeaders(`symbol-model-registry:${gameId}`),
       }),
     listSymbolModelIterations: (
       gameId: string,

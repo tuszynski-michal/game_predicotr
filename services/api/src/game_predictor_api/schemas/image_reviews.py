@@ -33,6 +33,10 @@ from game_predictor_api.schemas.geometry_qualification import (
     GeometryQualificationPayload,
     ManualSourceGeometryPoint,
 )
+from game_predictor_api.schemas.source_lattice_geometry import (
+    SourceLatticeNodesPayload,
+    lattice_nodes_payload,
+)
 from game_predictor_api.storage.board_import_coverage_repository import (
     BoardImportCoverageReport,
 )
@@ -62,6 +66,8 @@ class OperationalImageReviewCellResponse(ApiModel):
 
 
 class OperationalImageReviewItemResponse(ApiModel):
+    lattice_nodes: SourceLatticeNodesPayload | None = None
+    expected_proposal_checksum_sha256: Sha256 | None = None
     id: UUID
     game_id: UUID
     import_job_id: UUID
@@ -315,6 +321,8 @@ class OperationalImageReviewGeometryPoint(ApiModel):
 
 
 class OperationalImageReviewGeometryPreviewCommand(ApiModel):
+    lattice_nodes: SourceLatticeNodesPayload | None = None
+    expected_proposal_checksum_sha256: Sha256 | None = None
     expected_geometry_revision: int = Field(ge=0)
     expected_resolution_revision: int = Field(ge=0)
     corners: tuple[
@@ -357,6 +365,8 @@ class OperationalImageReviewGeometryCellResponse(ApiModel):
 
 
 class OperationalImageReviewGeometryRevisionResponse(ApiModel):
+    lattice_nodes: SourceLatticeNodesPayload | None = None
+    expected_proposal_checksum_sha256: Sha256 | None = None
     """One ``virtual_source`` manual geometry revision (D-467 S6, TASK-0796).
 
     The former v19 file-crop fields (board crop checksum, manual decision
@@ -412,6 +422,12 @@ def to_operational_item_response(
         board_checksum_sha256=item.board_checksum_sha256,
         geometry_revision=item.geometry_revision,
         geometry=dict(item.geometry),
+        lattice_nodes=lattice_nodes_payload(item.geometry.get("latticeNodes")),
+        expected_proposal_checksum_sha256=(
+            str(item.geometry["neuralProposalChecksumSha256"])
+            if isinstance(item.geometry.get("neuralProposalChecksumSha256"), str)
+            else None
+        ),
         geometry_qualification=_client_qualification(item.geometry_qualification),
         source_width=item.source_width,
         source_height=item.source_height,
@@ -648,6 +664,10 @@ def to_operational_geometry_revision_response(
             ManualSourceGeometryPoint(x=revision.corners[2].x, y=revision.corners[2].y),
             ManualSourceGeometryPoint(x=revision.corners[3].x, y=revision.corners[3].y),
         ),
+        lattice_nodes=lattice_nodes_payload(
+            None if revision.lattice_nodes is None else revision.lattice_nodes.to_dict()
+        ),
+        expected_proposal_checksum_sha256=revision.expected_proposal_checksum_sha256,
         geometry_qualification=(
             None
             if revision.geometry_qualification is None

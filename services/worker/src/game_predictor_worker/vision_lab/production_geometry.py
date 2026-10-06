@@ -25,6 +25,12 @@ from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
+from game_predictor_api.domain.image_geometry_v2 import (
+    ImageGeometryContractError,
+    SourceLatticeNodes,
+    SourcePoint,
+)
+
 Point = tuple[float, float]
 Quad = tuple[Point, Point, Point, Point]
 
@@ -69,6 +75,7 @@ EXCLUSION_QUAD_DEGENERATE: Final = "BOARD_QUAD_DEGENERATE"
 EXCLUSION_NODES_MISMATCH: Final = "NODES_DO_NOT_MATCH_RENDER_MANIFEST"
 EXCLUSION_CELLS_MISSING: Final = "MANIFEST_CELLS_MISSING_WITHOUT_UNAVAILABLE_MASK"
 EXCLUSION_INTEGRITY: Final = "BOARD_INTEGRITY_ERROR"
+EXCLUSION_HUMAN_APPROVAL_REQUIRED: Final = "NEURAL_GEOMETRY_HUMAN_APPROVAL_REQUIRED"
 
 
 class ProductionGeometryError(ValueError):
@@ -222,6 +229,61 @@ class DerivedNodes:
     max_deviation_px: float
     manifest_cell_indices: tuple[int, ...]
     missing_cell_indices: tuple[int, ...]
+
+
+def derive_consistent_lattice_nodes(
+    value: object,
+    manifest_cells: Mapping[int, Quad],
+    unavailable_cell_indices: Iterable[int] = (),
+) -> DerivedNodes:
+    """Validate the persisted exact lattice against the current rendered cells.
+
+    Never reconstruct a damaged or absent interior from the outer quad. Every
+    numeric value is retained without coordinate rounding or interpolation.
+    """
+
+    if not isinstance(value, list) or len(value) != NODE_COUNT:
+        raise ProductionGeometryError(EXCLUSION_NODES_MISMATCH, "the exact lattice is incomplete")
+    points: list[SourcePoint] = []
+    try:
+        for raw in value:
+            if not isinstance(raw, Mapping):
+                raise ProductionGeometryError(
+                    EXCLUSION_NODES_MISMATCH, "a lattice point is invalid"
+                )
+            x, y = raw.get("x"), raw.get("y")
+            if (
+                isinstance(x, bool)
+                or isinstance(y, bool)
+                or not isinstance(x, int | float)
+                or not isinstance(y, int | float)
+            ):
+                raise ProductionGeometryError(
+                    EXCLUSION_NODES_MISMATCH, "a lattice coordinate is invalid"
+                )
+            points.append(SourcePoint(float(x), float(y)))
+        lattice = SourceLatticeNodes(tuple(points))
+    except ImageGeometryContractError as error:
+        raise ProductionGeometryError(EXCLUSION_NODES_MISMATCH, str(error)) from error
+    nodes = tuple((point.x, point.y) for point in lattice.nodes)
+    if not manifest_cells:
+        raise ProductionGeometryError(EXCLUSION_MANIFEST_MALFORMED, "the manifest has no cells")
+    present = tuple(sorted(manifest_cells))
+    missing = tuple(index for index in range(CELL_COUNT) if index not in manifest_cells)
+    if not set(missing) <= set(unavailable_cell_indices):
+        raise ProductionGeometryError(
+            EXCLUSION_CELLS_MISSING, "an available lattice cell has no manifest"
+        )
+    deviation = max_manifest_deviation(nodes, manifest_cells)
+    # Both representations persist the same numeric nodes, without projection
+    # or rounding. JSON round-trips preserve these doubles; legacy tolerance
+    # would conceal a changed cell quad and must not apply to this path.
+    if deviation != 0.0:
+        raise ProductionGeometryError(
+            EXCLUSION_NODES_MISMATCH, "exact nodes differ from rendered cells"
+        )
+    quad: Quad = (nodes[0], nodes[5], nodes[23], nodes[18])
+    return DerivedNodes("persisted_exact_lattice_v1", quad, nodes, deviation, present, missing)
 
 
 def derive_consistent_nodes(

@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import TYPE_CHECKING, Any, Literal
 
 from .annotation_contracts import AnnotationState, BackupResult
 from .annotations import (
@@ -22,6 +22,9 @@ from .annotations import (
 from .snapshot import canonical, reject_links, safe_file
 from .splits import build_components
 from .symbol_contracts import (
+    BatchLabelDecide,
+    BatchQueuePreview,
+    BatchQueueRequest,
     BoardCellDecision,
     BoardCellPreview,
     CropBinding,
@@ -56,8 +59,12 @@ from .symbol_crops import (
     render_selected_bindings,
     render_spec,
 )
+from .symbol_dataset_version import LabelPreviewGrant, load_reference, validate_inputs
 from .symbol_labels import holdout_reason, qualify_symbol_sample
 from .symbol_snapshot import SymbolSnapshot
+
+if TYPE_CHECKING:
+    from .symbol_batch_labels import BatchReviewStore
 
 QueueDescriptor = tuple[
     str, int, int, int, Literal["unassigned", "requires_review", "assigned"], str | None
@@ -87,13 +94,28 @@ def publish_file(path: Path, data: bytes) -> None:
 
 
 class SymbolLabelStore:
-    def __init__(self, root: Path, annotations: AnnotationStore, protected: tuple[Path, ...] = ()):
+    def __init__(
+        self,
+        root: Path,
+        annotations: AnnotationStore,
+        protected: tuple[Path, ...] = (),
+        *,
+        dataset_version: Path | None = None,
+        batch_review: "BatchReviewStore | None" = None,
+    ):
         self.annotations = annotations
         self.catalog = annotations.catalog
         self.root = root.absolute()
         self.protected = protected
+        self.dataset_version = dataset_version
+        self.batch_review = batch_review
         reject_links(self.root)
-        roots = (annotations.root, self.catalog.root, *protected)
+        roots = (
+            annotations.root,
+            self.catalog.root,
+            *protected,
+            *((dataset_version,) if dataset_version is not None else ()),
+        )
         for other in roots:
             if other is not None:
                 reject_links(other)
@@ -101,6 +123,17 @@ class SymbolLabelStore:
                 if a.is_relative_to(b) or b.is_relative_to(a):
                     raise ValueError("SYMBOL_DIRECTORY_OVERLAP")
         self.snapshot = SymbolSnapshot(self.catalog)
+
+    def preview_grant(
+        self,
+        payload: dict[str, Any],
+        state: AnnotationState,
+        geometry: dict[str, Any],
+    ) -> LabelPreviewGrant | None:
+        if self.dataset_version is None:
+            return None
+        reference = load_reference(self.dataset_version)
+        return validate_inputs(reference, self, payload, state, geometry)
 
     def empty(self) -> dict[str, Any]:
         return {
@@ -155,6 +188,7 @@ class SymbolLabelStore:
                 self.annotations.snapshot_id,
                 self.snapshot.manifest_digest,
                 filters,
+                *([self.dataset_version.name] if self.dataset_version is not None else []),
             ]
         )
 
@@ -188,8 +222,10 @@ class SymbolLabelStore:
         raise KeyError("SYMBOL_DICTIONARY_NOT_FOUND")
 
     @staticmethod
-    def validate_page(offset: int, limit: int, supplied: str | None, token: str) -> None:
-        if offset < 0 or not 1 <= limit <= 100:
+    def validate_page(
+        offset: int, limit: int, supplied: str | None, token: str, maximum: int = 100
+    ) -> None:
+        if offset < 0 or not 1 <= limit <= maximum:
             raise ValueError("SYMBOL_PAGE_INVALID")
         if (offset and supplied is None) or (supplied is not None and supplied != token):
             raise ValueError("PAGE_VIEW_CHANGED")
@@ -217,7 +253,11 @@ class SymbolLabelStore:
             )
 
     def local_row(
-        self, decision: dict[str, Any], payload: dict[str, Any], state: AnnotationState
+        self,
+        decision: dict[str, Any],
+        payload: dict[str, Any],
+        state: AnnotationState,
+        preview_grant: LabelPreviewGrant | None = None,
     ) -> SymbolRow:
         b = CropBinding.model_validate(decision["binding"])
         reasons = []
@@ -264,7 +304,12 @@ class SymbolLabelStore:
         with source_path.open("rb") as stream:
             if hashlib.file_digest(stream, "sha256").hexdigest() != b.source_sha256:
                 raise ValueError("SYMBOL_SOURCE_INTEGRITY_ERROR")
-        if holdout_reason(state, self.catalog, b.source_id) or source.role == "comparison_only":
+        pixel_reason = (
+            preview_grant.reason(state, self.catalog, b.source_id)
+            if preview_grant is not None
+            else holdout_reason(state, self.catalog, b.source_id)
+        )
+        if pixel_reason or source.role == "comparison_only":
             reasons.append("SYMBOL_PIXEL_CHECK_DEFERRED")
         else:
             with safe_file(self.root, f"crops/{b.byte_sha256}.png").open("rb") as stream:
@@ -305,6 +350,7 @@ class SymbolLabelStore:
         read_token: str | None = None,
     ) -> SymbolPage:
         with self.locked() as (payload, state, geometry):
+            grant = self.preview_grant(payload, state, geometry)
             token = self.token(payload, geometry, ["labels", game_id, source_id])
             self.validate_page(offset, limit, read_token, token)
             current: dict[tuple[str, int, int], dict[str, Any]] = {}
@@ -350,7 +396,7 @@ class SymbolLabelStore:
                 )
             }
             rows = [
-                self.local_row(d[5], payload, state) if d[5] is not None else database[d[4]]
+                self.local_row(d[5], payload, state, grant) if d[5] is not None else database[d[4]]
                 for d in selected
             ]
             return SymbolPage(
@@ -368,6 +414,7 @@ class SymbolLabelStore:
         game_id: str,
         view: Literal["pending", "assigned"] = "pending",
         symbol_id: str | None = None,
+        preview_grant: LabelPreviewGrant | None = None,
     ) -> list[QueueDescriptor]:
         """Enumerate eligible cells from metadata, without opening image or crop files."""
         boards: dict[str, list[Any]] = {}
@@ -397,7 +444,8 @@ class SymbolLabelStore:
         source_components = {sid: members for members in components.values() for sid in members}
         pilot_current = None
         if (
-            state.split is not None
+            preview_grant is None
+            and state.split is not None
             and state.split.policy_version == "lab-geometry-whole-game-pilot-v1"
         ):
             from .whole_game_split import pilot_is_current
@@ -408,6 +456,8 @@ class SymbolLabelStore:
         rows: list[QueueDescriptor] = []
         for sid, source in self.catalog.sources.items():
             if source.game_id != game_id or source.role == "comparison_only":
+                continue
+            if preview_grant is not None and preview_grant.reason(state, self.catalog, sid):
                 continue
             review = state.photo_reviews.get(sid)
             candidates = boards.get(sid, [])
@@ -425,13 +475,17 @@ class SymbolLabelStore:
             members = source_components[sid]
             component_key = min(members)
             if component_key not in component_holdouts:
-                component_holdouts[component_key] = holdout_reason(
-                    state,
-                    self.catalog,
-                    sid,
-                    component_members=members,
-                    pilot_current=pilot_current,
-                    policy_validated=policy_validated,
+                component_holdouts[component_key] = (
+                    None
+                    if preview_grant is not None
+                    else holdout_reason(
+                        state,
+                        self.catalog,
+                        sid,
+                        component_members=members,
+                        pilot_current=pilot_current,
+                        policy_validated=policy_validated,
+                    )
                 )
                 if component_holdouts[component_key] == "HOLDOUT_POLICY_UNRESOLVED":
                     raise ValueError("HOLDOUT_POLICY_UNRESOLVED")
@@ -505,8 +559,13 @@ class SymbolLabelStore:
 
     def preview(
         self, request: CropRequest
-    ) -> LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview:
+    ) -> LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview | BatchQueuePreview:
+        if isinstance(request, BatchQueueRequest):
+            if self.batch_review is None:
+                raise ValueError("SYMBOL_BATCH_REVIEW_NOT_CONFIGURED")
+            return self.batch_review.preview()
         with self.locked() as (payload, state, geometry):
+            grant = self.preview_grant(payload, state, geometry)
             if isinstance(request, LabQueueRequest):
                 if request.game_id not in {s.game_id for s in self.catalog.sources.values()}:
                     raise KeyError("SYMBOL_GAME_NOT_FOUND")
@@ -527,9 +586,9 @@ class SymbolLabelStore:
                         digest(render_spec()),
                     ],
                 )
-                self.validate_page(request.offset, request.limit, request.read_token, token)
+                self.validate_page(request.offset, request.limit, request.read_token, token, 2000)
                 descriptors = self.queue_descriptors(
-                    payload, state, request.game_id, request.view, request.symbol_id
+                    payload, state, request.game_id, request.view, request.symbol_id, grant
                 )
                 selected = descriptors[request.offset : request.offset + request.limit]
                 # Only page entries are decoded; one source image can serve several boards.
@@ -537,7 +596,13 @@ class SymbolLabelStore:
                     (sid, board, cell, revision) for sid, board, cell, revision, _, _ in selected
                 ]
                 page_rendered = render_selected_bindings(
-                    state, self.catalog, self.snapshot.id, self.annotations.snapshot_id, requested
+                    state,
+                    self.catalog,
+                    self.snapshot.id,
+                    self.annotations.snapshot_id,
+                    requested,
+                    preview_grant=grant,
+                    max_png_bytes=48 * 1024 * 1024,
                 )
                 items = [
                     LabQueueItem(
@@ -560,7 +625,12 @@ class SymbolLabelStore:
                 return self.snapshot.preview(request.sample_id, state)
             if isinstance(request, LabBoardRequest):
                 annotation, rgb, rendered = render_board(
-                    state, self.catalog, self.snapshot.id, self.annotations.snapshot_id, request
+                    state,
+                    self.catalog,
+                    self.snapshot.id,
+                    self.annotations.snapshot_id,
+                    request,
+                    preview_grant=grant,
                 )
                 data, width, height, nodes = board_context(rgb, annotation.nodes)
                 current = {}
@@ -587,7 +657,7 @@ class SymbolLabelStore:
                         BoardCellPreview(
                             binding=b,
                             png_base64=base64.b64encode(png).decode(),
-                            current=self.local_row(current[b.cell_index], payload, state)
+                            current=self.local_row(current[b.cell_index], payload, state, grant)
                             if b.cell_index in current
                             else None,
                         )
@@ -595,16 +665,33 @@ class SymbolLabelStore:
                     ],
                 )
             binding, data = render_crop(
-                state, self.catalog, self.snapshot.id, self.annotations.snapshot_id, request
+                state,
+                self.catalog,
+                self.snapshot.id,
+                self.annotations.snapshot_id,
+                request,
+                preview_grant=grant,
             )
             return LabCropPreview(binding=binding, png_base64=base64.b64encode(data).decode())
 
     def mutate(self, request: SymbolRequest) -> SymbolResult:
+        if isinstance(request, BatchLabelDecide):
+            if self.batch_review is None:
+                raise ValueError("SYMBOL_BATCH_REVIEW_NOT_CONFIGURED")
+            return self.batch_review.mutate(request)
         with self.locked(write=True) as (payload, state, _geometry):
             fingerprint = digest(request.model_dump())
             if receipt := payload["receipts"].get(request.request_id):
                 if receipt["fingerprint"] != fingerprint:
                     raise ValueError("REQUEST_ID_CONFLICT")
+                try:
+                    grant = self.preview_grant(payload, state, _geometry)
+                except ValueError as error:
+                    if str(error) != "SYMBOL_DATASET_VERSION_STALE":
+                        raise
+                    # A confirmed old write remains replayable after drift. No new
+                    # pixels are authorized; default validity reports its stale binding.
+                    grant = None
                 return self.result(
                     payload,
                     state,
@@ -612,7 +699,9 @@ class SymbolLabelStore:
                     request.request_id,
                     receipt["revision"],
                     True,
+                    grant,
                 )
+            grant = self.preview_grant(payload, state, _geometry)
             if request.expected_revision != payload["revision"]:
                 raise ValueError("SYMBOL_REVISION_CONFLICT")
             now = datetime.now(UTC).isoformat()
@@ -694,7 +783,7 @@ class SymbolLabelStore:
                     allowed = {
                         (sid, board, cell)
                         for sid, board, cell, _, _, _ in self.queue_descriptors(
-                            payload, state, b.game_id
+                            payload, state, b.game_id, preview_grant=grant
                         )
                     }
                     if any(
@@ -732,6 +821,7 @@ class SymbolLabelStore:
                             board_index=b.board_index,
                             expected_geometry_revision=b.geometry_revision,
                         ),
+                        preview_grant=grant,
                     )
                     decision_ids = [digest([fingerprint, c.binding.cell_index]) for c in cells]
                 elif isinstance(request, LabelCellsDecide):
@@ -749,6 +839,7 @@ class SymbolLabelStore:
                             )
                             for c in cells
                         ],
+                        preview_grant=grant,
                     )
                     decision_ids = [digest([fingerprint, c.binding.crop_id]) for c in cells]
                 else:
@@ -765,6 +856,7 @@ class SymbolLabelStore:
                                 cell_index=b.cell_index,
                                 expected_geometry_revision=b.geometry_revision,
                             ),
+                            preview_grant=grant,
                         )
                     ]
                 if any(
@@ -786,6 +878,11 @@ class SymbolLabelStore:
                             "decision_id": decision_ids[index] if decision_ids else result_id,
                             "revision": payload["revision"] + 1,
                             "decided_at": now,
+                            **(
+                                {"dataset_version_id": grant.version_id}
+                                if grant is not None
+                                else {}
+                            ),
                         }
                     )
             elif isinstance(request, LabelWithdraw):
@@ -864,7 +961,7 @@ class SymbolLabelStore:
                 )
             else:
                 result = self.result(
-                    payload, state, result_id, request.request_id, payload["revision"], False
+                    payload, state, result_id, request.request_id, payload["revision"], False, grant
                 )
             write_atomic(self.root / "state.json", payload)
             return result
@@ -877,11 +974,12 @@ class SymbolLabelStore:
         request_id: str,
         revision: int,
         replayed: bool,
+        preview_grant: LabelPreviewGrant | None = None,
     ) -> SymbolResult:
         decision_ids = payload["receipts"].get(request_id, {}).get("decision_ids", [])
         selected_ids = set(decision_ids or [result_id])
         validities = [
-            self.local_row(d, payload, state)
+            self.local_row(d, payload, state, preview_grant)
             for d in payload["decisions"]
             if d["decision_id"] in selected_ids
         ]

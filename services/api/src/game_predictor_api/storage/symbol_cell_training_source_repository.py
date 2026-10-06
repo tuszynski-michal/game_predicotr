@@ -12,6 +12,11 @@ from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
+from game_predictor_worker.symbols.protected_sources import (
+    ProtectedSourceError,
+    load_protected_sources,
+    source_pixel_identity,
+)
 from PIL import Image, ImageStat
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
@@ -77,6 +82,36 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 "The selected training cohort game does not exist.",
             )
         exclusions = self._exclusion_counts(game_id)
+        try:
+            protected = load_protected_sources(self._artifact_root, str(game_id))
+            protected_bytes = [] if protected is None else sorted(protected.byte_checksums)
+            protected_pixels = [] if protected is None else sorted(protected.pixel_checksums)
+            protected_cell_count = 0
+            if protected is not None:
+                protected_cell_count = int(
+                    self._session.execute(
+                        text("""
+                    SELECT count(c.id)
+                    FROM source_images src
+                    JOIN recognized_boards rb ON rb.source_image_id = src.id
+                    JOIN image_symbol_review_cells c ON c.recognized_board_id = rb.id
+                    LEFT JOIN image_source_geometry_revisions sgr
+                      ON sgr.id = c.source_geometry_revision_id
+                    WHERE c.game_id = :game_id AND c.review_state = 'approved'
+                      AND (src.checksum_sha256 = ANY(CAST(:protected_bytes AS text[]))
+                        OR (sgr.source_checksum_sha256 = src.checksum_sha256
+                          AND sgr.normalized_pixel_checksum_sha256 =
+                            ANY(CAST(:protected_pixels AS text[]))))
+                """),
+                        {
+                            "game_id": game_id,
+                            "protected_bytes": protected_bytes,
+                            "protected_pixels": protected_pixels,
+                        },
+                    ).scalar_one()
+                )
+        except ProtectedSourceError as error:
+            raise ImageReviewConflictError(error.code, str(error)) from error
         selected = tuple(
             self._session.execute(
                 text(
@@ -118,6 +153,16 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                    AND d.sequence_number = c.sequence_number
                    AND d.review_item_id = c.review_item_id
                   WHERE c.game_id = :game_id
+                    AND NOT (src.checksum_sha256 = ANY(CAST(:protected_bytes AS text[])))
+                    AND NOT COALESCE(
+                      sgr.source_checksum_sha256 = src.checksum_sha256
+                      AND sgr.normalized_pixel_checksum_sha256 =
+                        ANY(CAST(:protected_pixels AS text[])), false)
+                    AND (:protected_enabled = false OR (
+                      c.source_geometry_revision_id = rb.source_geometry_revision_id
+                      AND sgr.source_checksum_sha256 = src.checksum_sha256
+                      AND sgr.normalized_pixel_checksum_sha256 ~ '^[0-9a-f]{64}$'
+                    ))
                     AND c.source_available = true
                     AND (c.source_visibility IS NULL OR c.source_visibility = 'full')
                     AND c.geometry_revision = rb.geometry_revision
@@ -150,9 +195,35 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                     "game_id": game_id,
                     "source_cap": _SOURCE_SAMPLE_CAP,
                     "symbol_cap": _SYMBOL_PREPOOL_CAP,
+                    "protected_bytes": protected_bytes,
+                    "protected_pixels": protected_pixels,
+                    "protected_enabled": protected is not None,
                 },
             ).mappings()
         )
+        # Only the existing bounded pool pays for managed-original reads. SQL
+        # uses checksum-bound geometry metadata to exclude complete protected
+        # photographs before either cap; live reads independently attest it.
+        if protected is not None:
+            identities: dict[tuple[str, str], str] = {}
+            try:
+                for row in selected:
+                    key = (str(row["source_relative_path"]), str(row["source_checksum_sha256"]))
+                    if key not in identities:
+                        identities[key] = source_pixel_identity(self._artifact_root / "data", *key)
+                    pixels = identities[key]
+                    if protected.excludes(key[1], pixels):
+                        raise ProtectedSourceError(
+                            "PROTECTED_EVALUATION_SOURCE",
+                            "A protected source failed its exclusion metadata binding.",
+                        )
+                    if pixels != row["normalized_pixel_checksum_sha256"]:
+                        raise ProtectedSourceError(
+                            "PROTECTED_SOURCE_IDENTITY_DRIFT",
+                            "Selected source pixels differ from checksum-bound geometry metadata.",
+                        )
+            except ProtectedSourceError as error:
+                raise ImageReviewConflictError(error.code, str(error)) from error
         rows = _with_manifest_render_specs(self._session, game_id=game_id, rows=selected)
         worker_count = min(
             _MAX_DESCRIPTOR_WORKERS,
@@ -173,6 +244,8 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
             )
         return SymbolCellTrainingSourceInventory(
             candidates=candidates,
+            protected_source_exclusions=None if protected is None else protected.reference(),
+            protected_cell_count=protected_cell_count,
             exclusions=SymbolCellTrainingExclusionCounts(
                 unknown=exclusions.unknown,
                 unreadable=exclusions.unreadable,

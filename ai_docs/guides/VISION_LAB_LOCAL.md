@@ -54,6 +54,39 @@ podział danych i nazwy plików nie są przepisywane.
 
 ## Powtarzalne uruchomienie po restarcie
 
+### Mumie: etykietowanie zatwierdzonych siatek (TASK-0851)
+
+Aktualny edytor: `http://127.0.0.1:3102/symbols`. Wybierz grę `mumie`.
+W „Symbole całej planszy” wybierz zdjęcie i planszę. Komórki są dostępne od
+razu; wybierz klasę w każdym polu i zapisz wszystkie 15 pól. Siatki nie trzeba
+przesuwać. Alternatywnie w poczekalni zaznacz do 30 wycinków tego samego symbolu,
+wybierz klasę i przypisz zaznaczone. Nie zmieniaj zatwierdzonego słownika bez
+potrzeby. Sam odczyt nie nadaje etykiet.
+
+Nowa referencja ma 31 zdjęć, 279 plansz i 4185 komórek. Nie importuje ich do
+głównej gry. Dawny split pozostaje stale, wszystkie bramki treningu pozostają
+aktywne. Potwierdzenie różnych nagrań dla dwóch testowych folderów nie nadaje
+verified pozostałym rodzinom. Super i ramka pozostają osobnym etapem.
+
+Trwała konfiguracja tej sesji:
+`C:\Users\tuszy\Documents\game_predicotr\artifacts\mumie-symbol-dataset-version-20261005\runtime.json`.
+W nowym PowerShell uruchom kontrolowany launcher (ponowiony Start nie tworzy
+drugiej kopii). Start zwraca PID; gotowość sprawdź osobno przez Status:
+
+```powershell
+& 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\scripts\vision_lab_symbol_review.ps1' `
+  -Action Start -Config 'C:\Users\tuszy\Documents\game_predicotr\artifacts\mumie-symbol-dataset-version-20261005\runtime.json'
+& 'C:\Users\tuszy\Documents\game_predicotr\worktrees\grid-engine-v3\scripts\vision_lab_symbol_review.ps1' `
+  -Action Status -Config 'C:\Users\tuszy\Documents\game_predicotr\artifacts\mumie-symbol-dataset-version-20261005\runtime.json'
+```
+
+Stop z tą samą konfiguracją kończy tylko zapisane, zgodne procesy. Zmiana
+geometrii lub słownika blokuje referencję i wymaga nowego jawnego preview;
+nie usuwaj splitu i nie ponawiaj legacy rebase. Historyczne instrukcje startu
+bez `--symbol-dataset-version` zachowują dotychczasową blokadę stale.
+
+### Ogólny start laboratorium
+
 Najpierw wykonaj build UI przy zatrzymanym serwerze tej aplikacji:
 
 ```powershell

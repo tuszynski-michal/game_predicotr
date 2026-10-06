@@ -66,7 +66,7 @@ class SymbolTrainingConfiguration:
 class SymbolModelIteration:
     id: UUID
     game_id: UUID
-    cohort_id: UUID
+    cohort_id: UUID | None
     job_id: UUID
     iteration_number: int
     status: SymbolModelIterationStatus
@@ -90,6 +90,10 @@ class SymbolModelIteration:
     error_message: str | None
     created_at: datetime
     updated_at: datetime
+    origin: str = "production_training"
+    origin_fingerprint: str | None = None
+    origin_manifest_relative_path: str | None = None
+    origin_manifest_checksum_sha256: str | None = None
 
 
 __all__ = [

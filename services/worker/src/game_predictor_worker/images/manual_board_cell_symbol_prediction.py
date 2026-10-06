@@ -19,7 +19,12 @@ from game_predictor_api.domain.symbol_model_snapshots import (
 from numpy.typing import NDArray
 
 from .symbol_model_release import SymbolModelReleaseError, build_symbol_predictions
-from .symbol_onnx import LocalSymbolOnnxAdapter, SymbolOnnxError, preprocess_rgb_batch
+from .symbol_onnx import (
+    LocalSymbolOnnxAdapter,
+    SymbolOnnxError,
+    preprocess_rgb_batch,
+    symbol_onnx_variant_arguments,
+)
 
 
 class ManualBoardCellSymbolPredictionError(ValueError):
@@ -94,6 +99,7 @@ class ManualBoardCellSymbolPredictor:
                 preprocess_rgb_batch(
                     [cell.rgb for cell in cells],
                     input_size=snapshot.input_size,
+                    model_version=snapshot.model_version,
                 )
             )
             predictions = build_symbol_predictions(
@@ -159,6 +165,7 @@ class ManualBoardCellSymbolPredictor:
                 expected_sha256=snapshot.onnx_checksum_sha256,
                 class_codes=snapshot.class_codes,
                 input_size=snapshot.input_size,
+                **symbol_onnx_variant_arguments(snapshot.model_version),
             )
         except SymbolOnnxError as error:
             raise ManualBoardCellSymbolPredictionError(

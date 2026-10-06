@@ -17,6 +17,10 @@ $runtimeDirectory = Join-Path $projectRoot '.runtime'
 $pythonPath = Join-Path $projectRoot '.venv\Scripts\python.exe'
 $environmentScript = Join-Path $PSScriptRoot 'windows_process_environment.ps1'
 
+if (@(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue).Count -ne 0) {
+    throw "Port $Port is already occupied. No controlled API was started."
+}
+
 if (-not (Test-Path -LiteralPath $pythonPath -PathType Leaf)) {
     throw "Repository Python is unavailable: $pythonPath"
 }
@@ -70,10 +74,23 @@ do {
         throw "Controlled API exited before readiness. $stderrTail"
     }
     try {
+        $health = $null
         $health = Invoke-RestMethod `
             -Uri "http://127.0.0.1:$Port/api/v1/health" `
             -TimeoutSec 2
+        $ownedProcessIds = @($process.Id) + @(
+            Get-CimInstance Win32_Process -Filter "ParentProcessId=$($process.Id)" |
+                Where-Object { $_.Name -ieq 'python.exe' } |
+                ForEach-Object { $_.ProcessId }
+        )
+        $listenerIds = @(Get-NetTCPConnection -State Listen -LocalPort $Port -ErrorAction SilentlyContinue |
+            ForEach-Object { $_.OwningProcess })
+        if ($listenerIds.Count -eq 0 -or @($listenerIds | Where-Object { $_ -notin $ownedProcessIds }).Count -ne 0) {
+            $health = $null
+            throw 'API health response belongs to another process.'
+        }
     } catch {
+        $health = $null
         Start-Sleep -Milliseconds 250
     }
 } while ($null -eq $health -and (Get-Date) -lt $deadline)

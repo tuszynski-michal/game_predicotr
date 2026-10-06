@@ -1,11 +1,278 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 ---
 
 # Decision Log
 
+## D-521 — explicit Mumie RGB and neural folder pilot
+
+- **Status:** accepted scope, 2026-10-06, following the operator's explicit
+  selection of the recommended earlier RGB and request to connect the engine
+  to main-app folder uploads, corrections and subsequent training.
+- **Candidate:** only R2 RGB, eligibility 5b6af3…4ac7c, ONNX e4f9b2…37095,
+  temperature1.05. Its nine selected class/group controls pass; human34=34/34
+  is not population accuracy. R2 combined gate and V5 remain rejected.
+- **Origin:** lab_import remains distinct from production_training and from
+  verified_training_cohorts. Preserve 283 human/44 AI development origins;
+  never insert phantom boards or DB approvals to register the exported model.
+  Extend the existing model registry with checksum-bound origin and pilot scope.
+- **Runtime:** preserve RGB96 float32 bilinear antialias96→64 and normalization;
+  the existing uint8 INTER_AREA production transform cannot be substituted.
+  A versioned CPU adapter is shared by import and manual-cell inference.
+  Its pinned render contract source-direct-full-quad-rgb96-v1 uses the full
+  source cell quad and padding0.0. Legacy virtual padding0.08 remains unchanged.
+- **Geometry:** attach frozen neural proposals to staging/import pending review;
+  preserve all24 nodes, attested active slots and sequence. A model proposal
+  never implies verified geometry. Missing/outside cells do not become targets.
+- **Learning:** uploads run inference; actual human corrections qualify separate
+  grid/symbol snapshots for later explicit batch training. Preserve recording
+  separation and prior control sets. No training or activation on every upload.
+- **Precise pilot split boundary:** existing DB cohorts guarantee whole-photo
+  family splits, not whole-recording. The pilot reports this limitation and
+  does not introduce a recording registry. New Mumie DB TRAIN requires frozen
+  protected whole-source byte/decoded-pixel exclusions from R2 held-out controls,
+  including imported and reencoded aliases. Both cohort freeze and dataset builder
+  enforce them; missing/drifting exclusions block TRAIN while correction works.
+- **Unassigned geometry:** source-level staging/page-geometry overrides own
+  proposals before a deterministic slot binding exists. Range count alone does
+  not locate a missing board; no sequence compaction or board-only deferral
+  is allowed without a bound active slot.
+  Existing page override constraints permit only1–9 final quads. Migration0145
+  adds an optional versioned neural binding on the same override, preserving
+  its full precision and allowing no fabricated quad for an absent detection.
+- **Neural engine provenance:** additive neural_grid_v1 identifies frozen
+  first-pass neural proposals. Do not describe them as structured_opencv_v1
+  or as an automatic keypoint fallback. Manual approval creates manual_v1
+  geometry with the exact lattice and proposal checksum retained separately.
+- **Execution boundary:** prepare the complete code and reviewable deployment
+  preview autonomously. New schema/production DB operations require specific
+  preview and authorization. Preserve the concurrent main-branch RGB0878 work.
+  No new Super model, deletions, push or unreviewed activation.
+- **Plan:** ai_docs/delivery/MUMIE_MAIN_APP_PILOT_EXECUTION_PLAN_20261006.md,
+  TASK-0879–0884. The old larger-training stageC is superseded for integration
+  only; its failed V5 acceptance is not changed to PASS.
+
+## D-506 — explicit larger local RGB experiment
+
+- **Status:** accepted implementation decision, 2026-10-06, within the operator's
+  autonomous larger-training instruction and accepted TASK-0871–0873 plan.
+- **Inputs:** new versioned multi-reference AI manifest composes the qualified R2
+  base with 1726 exact high/high AI assessments. Original origins, human84,
+  diagnostic9, AI audit22 and human26/human8 whole-photo guards are preserved.
+  No raw label, human approval, Super target or prior manifest is rewritten.
+- **Exact base and repeated checks:** require the accepted R2 qualified-frozen
+  file SHA, manifest ID and exact path. Decode each source once per composition,
+  while independently rendering every quad and verifying its actual PNG/pixels.
+  Each new process fully recomposes; an adapter may cache defensive copies only
+  while checking all original live hashes, manifest and full bundle inventory/
+  hashes on every call, including a final live/manifest check. Batched reparse
+  checks cover every endpoint and unique ancestor before and after all hashes;
+  preserve every declared pin, including case aliases with conflicting SHA.
+- **Protocol:** one RGB version and one admitted training run in its immutable
+  configured root; 20 epochs, at most 7200 seconds and 50000 steps. Local request,
+  state and configuration subclass the neutral run contracts. A distinct
+  symbol_protocol_digest is part of canonical_request/checkpoint fingerprint;
+  protocol_digest stays None so unrelated HYBRID semantics remain unchanged.
+- **Isolation:** old generation1–4 registries, 100-case reference limit, public
+  TrainingConfiguration, API and default adapter factory remain unchanged.
+  Reuse the existing trainer, robust augmentation, sampling and exact RNG/optimizer
+  checkpoints. The new runner requires valid best epoch and both real exports,
+  including passed CPU ONNX parity, before reporting success.
+- **Acceptance:** independent code/data preflight, validation-only selection and
+  calibration, then per-class checks against both V4 RGB and R2 RGB. No seed
+  search/refit, automatic activation, database writes, migration or deployment.
+
+## D-505 — explicitly authorized isolated AI symbol experiment
+
+- **Status:** accepted implementation decision,2026-10-06, based on the user's
+  request to continue training autonomously and use internal AI to inspect graphics.
+- **Scope change:** supersedes D-502/D-504's no-pseudo-label boundary only for a
+  separate local experimental cohort. Two visual reviews bind exact PNG/source/
+  quad and the human-approved dictionary. Only high/high readable consensus
+  enters development, with `ai_visual_assessment` origin. No human decision is
+  created or changed; whole grids and Super presence are not approved.
+- **Controls:** immutable generation4/purpose symbol_ai_experiment, one bounded
+  pair, unchanged human84 validation and264/9 cohorts. Existing human18 sampling4,
+  AI sampling1. Preselected photo-disjoint withheld examples are a same-recording
+  appearance audit; report AI agreement, never human accuracy or blind film test.
+- **Human update before training:** consume19 new exact approvals at revision24,
+  retaining their original origin/history and weight4. All5 unreadable rasters
+  stay excluded from AI targets. Human decisions override AI on exact pixels.
+  Photos with new human training targets leave the deterministic withheld set
+  before the run; remaining photo-disjoint AI audits still need at least20 crops.
+- **Safety:** strict original adapters, full base/source/render/exclusion gates,
+  budgets/checkpoints and provenance survive restart. AI consensus may be wrong;
+  all-class human gates and reviewer findings are retained. No automatic activation,
+  database mutation, deployment or new paid external service.
+
+## D-504 — qualified feedback inference and case-scoped review provenance
+
+- **Status:** accepted implementation assumption, 2026-10-06, within the
+  operator-authorized third-recording diagnosis and existing exact crop review.
+- **Inference:** generation3 requires its explicit qualified D-502 cohort and
+  checksummed evaluation. Recompute the84-sample class gate from pinned real V1
+  and current reports; do not trust a qualification boolean alone. Preserve
+  complete protected/family/alias exclusions, external feedback SHA, physical
+  source bindings and photo-pixel exclusions. Default V2 comparison still needs
+  its geometry reference; an explicit fresh-geometry mode serves a new recording.
+- **Review:** preparation validates the complete cohort/batch before creating
+  a packet. V3 packets reuse original D-498 approval provenance only after exact
+  dictionary equality, retaining its current history/geometry guards, immutable
+  composite/batch bindings and exact case sources/PNG/re-render gates. UI operations
+  need not rehash2,052 unrelated raw feedback images: their current content does
+  not change which raster this new case asks the operator to classify.
+- **Boundary:** old consumers/references remain strict and unchanged. The new
+  packet remains trainable=false and never approves a board, geometry or model.
+  Any later training qualification must validate all source/label/split gates
+  again. No database write, pseudo-label, Super target or activation is authorized.
+
+## D-503 — exact source relocation and recording declarations
+
+- **Status:** accepted, 2026-10-06, following the operator's supplied parent
+  C:\Users\tuszy\Documents\mumie and instruction to continue with its cut folders.
+- **Location:** an optional create-only manifest-bound source-location sidecar
+  may relocate a complete D-502 recording only if names and every source SHA
+  match its frozen inventory. Re-rendered crops, original decisions, dictionary,
+  whole-family graph, split and manifest/checkpoint identities stay unchanged.
+  Metadata/labels/bundles cannot be relocated through this mechanism. Current
+  source/content drift still blocks; default no-sidecar behavior stays strict.
+- **Durability:** the local manager and new worker processes discover the same
+  persisted sidecar. Output isolation includes the real current source_root.
+  Existing run settings, admission and budgets are not reset. Resume the same
+  pre-training failed run after exact validation, without another random try.
+- **Recordings:** the operator declares the newly supplied third folder and
+  each future new directory in this set to be a different film. Do not ask for
+  this declaration again. A moved duplicate folder is the same recording;
+  technical SHA/alias conflicts always override a folder-level declaration.
+- **Boundary:** diagnose60 sources from the third independent cut folder after
+  the bounded training result. Use qualified V3, or the existing qualified V2
+  if V3 fails the gate. No database writes, new human labels or activation.
+
+## D-502 — qualification of exact reviewed symbol rasters
+
+- **Status:** accepted, 2026-10-05, following the operator's explicit request
+  to continue qualification and training after completing18 crop corrections.
+- **Decision:** freeze separate symbol_crop_feedback inputs from actual latest
+  batch_crop_review approve decisions and exact RGB96 source-bound rasters.
+  Verify the selected quad through exact re-rendering, approved dictionary,
+  full history, whole-family/alias closure and live SHA. The derivative policy
+  qualifies classifier inputs only; it does not approve whole grids or create
+  targets for geometry. Original decisions remain trainable=false.
+- **Split:** retain84 original validation. Move the full first recording
+  1–23175 out of new development into diagnostic_test (9 labelled crops,
+  two classes). Add18 feedback to the remaining246 development crops.
+  Original D-498 assignments and all prior runs remain unchanged.
+- **Provenance:** operator explicitly confirmed on2026-10-05 that
+  481537–500000 is a different recording from76555–103221. Its independence
+  from1–23175 was already confirmed. Never infer independence from filenames;
+  technical alias conflicts override the declaration and block qualification.
+- **Boundary:** one bounded new RGB/gray pair with feedbackweight4, original
+  validation selection and later diagnostic-test evaluation. This is not a
+  blind final test or model activation. Existing adapter/API/store gates remain.
+
+## D-501 — scoped human correction of independent batch crops
+
+- **Status:** accepted, 2026-10-05 (TASK-0858; existing authorization for autonomous fixes).
+- **Decision:** add optional batch_queue/batch_label_decide to existing symbol API.
+  Freeze exact RGB96 PNG cases and already approved dictionary provenance.
+  Store operator decisions in a separate configured artifact root with atomic
+  history, CAS and idempotent receipts. Origin is batch_crop_review.
+- **Rationale:** the 18 diagnostic cases are outside the original lab catalog;
+  requiring grid changes cannot correct their symbols and synthetic whole-board
+  approval would misrepresent the human review.
+- **Safety:** approve confirms only the displayed crop/class. No sequence or
+  whole geometry approval. Always trainable=false with explicit geometry/split
+  blockers. Source/pixel/dictionary drift blocks writes. Existing stores,
+  models, API defaults and protected partitions remain unchanged.
+
+## D-500 — bounded appearance experiment without model activation
+
+- **Status:** accepted, 2026-10-05, within the operator's explicit request to
+  autonomously test and fix Mumie until human input becomes necessary.
+- **Decision:** one isolated RGB/gray v2 pair with deterministic, versioned
+  lighting/payline augmentation, using only D-498's 255 development/84 validation
+  labels. Preserve v1 and the 20-epoch/1800-second/10000-step limit. Proposed
+  40-epoch attempts failed validation before admission, without workers/budget.
+- **Qualification:** at least 83/84 validation and ONNX parity on all 84 crops
+  per variant. Calibration uses only that validation. V2 inference pins and
+  reuses previous geometry and exact crop-pixel SHA. The explored 600-photo
+  batch is diagnostic, not a blind final test.
+- **Evidence:** both runs qualify at 83/84, but uncertainty grows from 15626
+  to 16024 and disagreements from 3494 to 4047. Visual improvements and
+  regressions coexist. No demonstrated overall advantage; activate neither
+  pair automatically.
+- **Boundary:** improvement now needs human labels for lighting, payline and
+  white-overlay variants. The 18-case page identifies exact locations without
+  approving grids, assigning symbols or changing stores. No DB, Super,
+  deployment or repeated random tuning in TASK-0857.
+
+## D-499 — niezależne propozycje symboli i granica plansz folderu
+
+- **Status:** accepted, 2026-10-05; operator zlecił samodzielne testowanie
+  i poprawki na wcześniej wskazanym folderze do potrzeby rzeczywistych etykiet.
+- **Decision:** osobny, niezmienny batch inferencji600 zdjęć z pełnym
+  wykluczeniem komponentów D-498 i źródeł chronionych. Zgodność RGB/gray
+  i pewność nie zatwierdzają geometrii ani symbolu. Kalibracja z walidacji
+  pozostaje zamrożona. Brak accuracy dla nowych zdjęć bez referencji.
+- **Count:** górna granica plansz wynika z zakresu pliku ograniczonego końcem
+  operatorowego folderu. Faktyczny ostatni plik499996–500004 ma5 plansz
+  i folder kończący się na500000. Jawny konflikt nazwy; odrzucamy nadmiarową
+  detekcję po score i zachowujemy reading_order. Nie zmieniamy źródła,
+  nie uzupełniamy braków i nie przypisujemy finalnego sequence_number.
+- **Durability:** per-photo commit marker po create-only wizualizacjach,
+  SHA źródeł/modeli i wyników, bounded lock/portion; restart sprawdza wyniki.
+- **Scope:** TASK-0856. Bez DB, zgód za człowieka, aktywacji i wdrożenia.
+
+## D-498 — potwierdzone nagrania i osobny split symboli Mumii
+
+- **Status:** accepted, 2026-10-05. Operator: „Tak są z różnych ujęć i innych
+  nagrań”, w odpowiedzi na trzy grupy 1–23175, 76555–103221, 156538–182853.
+  Wcześniejsza zgoda na autonomiczną pracę i uczenie pozostaje.
+- **Decision:** osobna kwalifikacja bieżącej kohorty symboli, z jawnie
+  przypiętymi deklaracjami i całymi komponentami. Development: grupy1 i156538;
+  validation:76555. Każda klasa musi być w obu częściach. To wstępna walidacja,
+  bez końcowego testu. Źródła/duplikaty/pochodne nie przecinają części.
+- **Protection:** brak zmiany oryginalnych zgód, rodzin, stale splitu geometrii
+  i D-496. Nowy manifest i adapter sprawdzają rolę, cały graf i historyczne
+  protected przed pikselami; drift uniemożliwia uczenie. D-489 wyklucza stare
+  etykiety/wagi. Stary workflow pozostaje zamknięty bez nowej kwalifikacji.
+- **Scope:** TASK-0854/0855, 339 przykładów, dwa runy od zera do20epok/1800s
+  każdy. Bez DB, API/UI, aktywacji, Super, push, merge i wdrożenia.
+
+## D-497 — zamrożony widok symboli i pojedynczy odczyt 2000 cropów
+
+- **Status:** accepted, 2026-10-05; operator zgłosił opóźnienia i jawnie
+  doprecyzował zamrożenie widoku do odświeżenia, bez blokowania całego panelu.
+- **Decision:** addytywny limit odczytu 2000, domyślny 30 i limit zapisu 30
+  zachowane; budżet 48 MiB PNG. Potwierdzony batch aktualizuje oznaczenie
+  dokładnych bindingów i CAS, pozostawiając miniatury. Następny wybór podczas
+  zapisu jest dozwolony; następny submit wymaga receipt.
+- **Protection:** brak lokalnego odnowienia read_token. Nawigacja czyta nowy
+  token serwera i uwzględnia zapisane pola w offset. Utrata odpowiedzi zachowuje
+  dokładny retry, niezgodny receipt unieważnia stronę. Bez zmian zgód/splitów,
+  kwalifikacji treningu, DB i zapisów testowych na danych operatora.
+- **Evidence:** TASK-0852; odczyt 2000 istniejących cropów 5,464 s / 32,34 MiB
+  base64; test dwóch zapisów, wyboru podczas oczekiwania, lost response/retry
+  i świeżego tokenu przechodzi bez ponownego pobierania całej kolejki.
+
+## D-496 — jawna wersja referencji do etykietowania symboli po korektach siatek
+
+- **Status:** accepted, 2026-10-05; operator zaakceptował kontrakt TASK-0851.
+- **Decision:** create-only, checksumowana referencja zachowuje cały oryginalny
+  payload/historię/receipts geometrii i symboli. Nie zmienia AnnotationStore,
+  starego frozen splitu ani jego stale. Istniejący SymbolLabelStore używa
+  opcjonalnej konfiguracji wyłącznie do etykietowania przypiętych źródeł.
+- **Protection:** integralność dawnych ról i całe komponenty ze starych oraz
+  aktualnych powiązań są sprawdzane przed pikselami. Drift geometrii/katalogu/
+  słownika blokuje wersję. Brak nowej zgody na trainability, rodziny lub split
+  symboli. Bez konfiguracji obowiązuje wcześniejsza polityka.
+- **Evidence:** operator potwierdził różne nagrania dla `1 - 23175 cut` i
+  `481537- 500000 cut`. Deklaracja nie oznacza verified dla obecnych 31 zdjęć.
+  Historyczne role 25/6 pozostają dowodem użycia siatkowego, nie nowym testem.
+- **Boundary:** lab plikowy, bez DB, migracji, aktywacji, materializacji,
+  kasowania, shadow, push i merge. Słownik i magazyn etykiet zachowują tożsamość.
 ## D-520 — RGB v2 jako źródło nowej wersji predykcji oczekujących komórek
 
 - **Status:** accepted, 2026-10-05; plan

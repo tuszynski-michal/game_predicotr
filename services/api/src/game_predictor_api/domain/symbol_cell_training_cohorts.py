@@ -92,6 +92,7 @@ def build_symbol_cell_training_manifest(
     game_id: UUID,
     selection: SymbolCellTrainingSelection,
     exclusion_counts: Mapping[str, int] | None = None,
+    protected_source_exclusions: Mapping[str, object] | None = None,
 ) -> tuple[dict[str, object], bytes, str]:
     """Materialize one immutable v3 manifest from a completed selection."""
 
@@ -178,6 +179,8 @@ def build_symbol_cell_training_manifest(
         "schemaVersion": SYMBOL_CELL_TRAINING_COHORT_SCHEMA_VERSION,
         "trainingEligibilityVersion": "symbol-cell-training-eligible-v1",
     }
+    if protected_source_exclusions is not None:
+        manifest["protectedSourceExclusions"] = dict(protected_source_exclusions)
     content = canonical_image_review_bytes(manifest)
     return manifest, content, hashlib.sha256(content).hexdigest()
 

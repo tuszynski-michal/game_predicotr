@@ -32,6 +32,7 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     board_cell_processing_artifact_relative_path,
 )
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
+from game_predictor_api.domain.image_geometry_v2 import SourceLatticeNodes
 from game_predictor_api.domain.image_grid_reviews import ImageGridReviewError
 from game_predictor_api.domain.image_reviews import (
     ImageReviewGeometryPoint,
@@ -268,6 +269,8 @@ class BoardCellGeometryPendingService:
         corners: Sequence[ImageReviewGeometryPoint],
         corrected_by: str = "local-admin-preview",
         geometry_qualification: GeometryQualification | None = None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometryPreview:
         """Contact sheet of the virtual cells a resolution would persist."""
 
@@ -284,6 +287,8 @@ class BoardCellGeometryPendingService:
         )
         validate_image_review_geometry_command(
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=corrected_by,
@@ -296,6 +301,8 @@ class BoardCellGeometryPendingService:
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             geometry_qualification=geometry_qualification,
             actor=corrected_by,
         )
@@ -312,6 +319,8 @@ class BoardCellGeometryPendingService:
         corners: Sequence[ImageReviewGeometryPoint],
         corrected_by: str = "local-admin-preview",
         geometry_qualification: GeometryQualification | None = None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> tuple[VirtualGridCellSymbolSuggestion, ...]:
         """Model symbols of the cells a resolution would persist (D-488)."""
 
@@ -328,6 +337,8 @@ class BoardCellGeometryPendingService:
         )
         validate_image_review_geometry_command(
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=corrected_by,
@@ -340,6 +351,8 @@ class BoardCellGeometryPendingService:
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             geometry_qualification=geometry_qualification,
             actor=corrected_by,
         )
@@ -359,6 +372,8 @@ class BoardCellGeometryPendingService:
         resolved_at: datetime,
         geometry_qualification: GeometryQualification | None = None,
         cell_symbols: Sequence[VirtualGridCellSymbol] = (),
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> BoardCellGeometryManualResolution:
         """Persist the deferred board as one ``virtual_source`` board (D-467).
 
@@ -381,6 +396,8 @@ class BoardCellGeometryPendingService:
         )
         validate_image_review_geometry_command(
             corners=corners,
+            lattice_nodes=lattice_nodes,
+            expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
             expected_geometry_revision=expected_geometry_revision,
             expected_resolution_revision=expected_resolution_revision,
             corrected_by=corrected_by,
@@ -395,6 +412,8 @@ class BoardCellGeometryPendingService:
                 expected_geometry_revision=expected_geometry_revision,
                 expected_resolution_revision=expected_resolution_revision,
                 corners=corners,
+                lattice_nodes=lattice_nodes,
+                expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
                 actor=corrected_by,
                 created_at=resolved_at,
                 geometry_qualification=geometry_qualification,

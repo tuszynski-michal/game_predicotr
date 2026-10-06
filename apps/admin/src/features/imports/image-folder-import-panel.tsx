@@ -72,6 +72,11 @@ import { MissingBoardsSection } from './missing-boards-section';
 import { PageGeometryCorrectionPanel } from './page-geometry-correction-panel';
 import { GeometryGuardResolutionPanel } from './geometry-guard-resolution-panel';
 import { ImportGeometryReviewSummary } from './import-geometry-review-summary';
+import {
+  canResumeNeuralImport,
+  isNeuralGeometryPreflight,
+  readySelectionHasNeuralImport,
+} from './neural-import-preflight-state';
 
 interface ImageFolderImportPanelProps {
   readonly apiBaseUrl: string;
@@ -430,11 +435,12 @@ export function ImageFolderImportPanel({
   );
   const readyImportStartAllowed =
     preflight !== null &&
-    !readySelections.some(
+    (!readySelections.some(
       (selection) =>
         selection.uploadId === preflight.uploadId &&
         readyBoardImportHasImport(selection),
-    ) &&
+    ) ||
+      canResumeNeuralImport(preflight, jobs)) &&
     preflight.geometryEngineVariantEnabled &&
     canStartReadyImport({
       geometryGuardResolutionManifestAvailable:
@@ -933,7 +939,7 @@ export function ImageFolderImportPanel({
     }
   }
 
-  async function startGeometryPreflight() {
+  async function startGeometryPreflight(managedSourceJobId?: string) {
     if (
       busy ||
       readyUploadId === null ||
@@ -945,7 +951,7 @@ export function ImageFolderImportPanel({
     }
     setActiveAction('geometry-preflight');
     setError('');
-    setFeedback('Tworzę job preflightu pełnej geometrii 3×3…');
+    setFeedback('Tworzę analizę geometrii zdjęć…');
     try {
       const result = await startBrowserPageGeometryPreflight(
         api,
@@ -953,6 +959,7 @@ export function ImageFolderImportPanel({
         gameId,
         pageRegistrationVariant,
         geometryEngineVariant,
+        managedSourceJobId,
       );
       if (!result.ok) {
         setError(result.error);
@@ -1086,9 +1093,11 @@ export function ImageFolderImportPanel({
     }
   }
 
-  async function rerunGeometryPreflightAfterCorrection() {
+  async function rerunGeometryPreflightAfterCorrection(
+    managedSourceJobId?: string,
+  ) {
     setGeometryPreflightJob(null);
-    await startGeometryPreflight();
+    await startGeometryPreflight(managedSourceJobId);
   }
 
   async function deleteReadyStaging(uploadId: string) {
@@ -1588,7 +1597,14 @@ export function ImageFolderImportPanel({
           <ul className="importCompactList">
             {readySelections.map((ready) => {
               const imported = readyBoardImportHasImport(ready);
-              const active = ready.uploadId === readyUploadId && !imported;
+              const neuralHistory = readySelectionHasNeuralImport(
+                jobs,
+                ready,
+                gameId,
+              );
+              const active =
+                ready.uploadId === readyUploadId &&
+                (!imported || neuralHistory);
               const lifecycleLabel = readyBoardImportLifecycleLabel({
                 geometryPreflightJobs,
                 reportPrepared:
@@ -1605,7 +1621,7 @@ export function ImageFolderImportPanel({
                     {(ready.expectedTotalBytes / 1_000_000).toFixed(1)} MB ·{' '}
                     staging {ready.uploadId.slice(0, 8)} · {lifecycleLabel}
                   </span>
-                  {!imported ? (
+                  {!imported || neuralHistory ? (
                     <div className="importActionButtons">
                       <button
                         aria-busy={activeAction === 'preflight' && active}
@@ -1630,35 +1646,50 @@ export function ImageFolderImportPanel({
                             ? 'Odśwież raport'
                             : 'Pokaż raport'}
                       </button>
-                      <button
-                        className="secondaryButton"
-                        disabled={busy || selectiveCapability?.enabled !== true}
-                        onClick={() =>
-                          void prepareReadyImport(
-                            ready.uploadId,
-                            SELECTIVE_BOARD_VARIANT,
-                          )
-                        }
-                        type="button"
-                      >
-                        Przetwórz w v1.1
-                      </button>
-                      <button
-                        aria-busy={activeAction === 'delete-ready' && active}
-                        className="secondaryButton"
-                        disabled={busy}
-                        onClick={() => void deleteReadyStaging(ready.uploadId)}
-                        type="button"
-                      >
-                        Usuń nieużywany staging
-                      </button>
+                      {!imported ? (
+                        <button
+                          className="secondaryButton"
+                          disabled={
+                            busy || selectiveCapability?.enabled !== true
+                          }
+                          onClick={() =>
+                            void prepareReadyImport(
+                              ready.uploadId,
+                              SELECTIVE_BOARD_VARIANT,
+                            )
+                          }
+                          type="button"
+                        >
+                          Przetwórz w v1.1
+                        </button>
+                      ) : null}
+                      {!imported ? (
+                        <button
+                          aria-busy={activeAction === 'delete-ready' && active}
+                          className="secondaryButton"
+                          disabled={busy}
+                          onClick={() =>
+                            void deleteReadyStaging(ready.uploadId)
+                          }
+                          type="button"
+                        >
+                          Usuń nieużywany staging
+                        </button>
+                      ) : null}
                     </div>
                   ) : null}
-                  {imported ? (
+                  {imported && !neuralHistory ? (
                     <p className="curatedImportStatus">
                       Ten staging nie wymaga ponownego importu. Weryfikacja
                       symboli nie zmienia statusu importu plansz. Brakujące
                       geometrie popraw w „Korekta cięcia siatki”.
+                    </p>
+                  ) : null}
+                  {imported && neuralHistory ? (
+                    <p className="curatedImportStatus">
+                      Źródła oczekujące na przypisanie pozostają dostępne do
+                      korekty. Po zapisaniu przypisań przygotuj nową geometrię i
+                      jawnie rozpocznij import.
                     </p>
                   ) : null}
                   {active && preflight !== null ? (
@@ -1694,7 +1725,13 @@ export function ImageFolderImportPanel({
                         <dd>{preflight.firstUnresolvedSequence ?? 'brak'}</dd>
                       </div>
                       <div className="importMetric">
-                        <dt>Źródło geometrii 3×3</dt>
+                        <dt>
+                          {isNeuralGeometryPreflight(
+                            activeBrowserGeometryPreflightJob,
+                          )
+                            ? 'Źródło geometrii neuronowej'
+                            : 'Źródło geometrii 3×3'}
+                        </dt>
                         <dd>
                           {geometryManifestChecksum === null
                             ? 'blokada — brak dokładnego manifestu'
@@ -1730,18 +1767,22 @@ export function ImageFolderImportPanel({
                       <div className="importMetric">
                         <dt>Wersja silnika siatki</dt>
                         <dd>
-                          {preflight.geometryEngineVariant ===
-                          SELECTIVE_BOARD_VARIANT
-                            ? 'v1.1 — korekta plansz'
+                          {isNeuralGeometryPreflight(
+                            activeBrowserGeometryPreflightJob,
+                          )
+                            ? 'Mumie — siatka neuronowa'
                             : preflight.geometryEngineVariant ===
-                                CONTRAST_FRAME_GRID_V12_VARIANT
-                              ? 'v1.2 — test wizualny, import zablokowany'
+                                SELECTIVE_BOARD_VARIANT
+                              ? 'v1.1 — korekta plansz'
                               : preflight.geometryEngineVariant ===
-                                  LATERAL_PARTIAL_VARIANT
-                                ? 'v1.0 — niepełne boki'
-                                : boardCellProcessingModeLabel(
-                                    boardCellProcessingMode,
-                                  )}
+                                  CONTRAST_FRAME_GRID_V12_VARIANT
+                                ? 'v1.2 — test wizualny, import zablokowany'
+                                : preflight.geometryEngineVariant ===
+                                    LATERAL_PARTIAL_VARIANT
+                                  ? 'v1.0 — niepełne boki'
+                                  : boardCellProcessingModeLabel(
+                                      boardCellProcessingMode,
+                                    )}
                         </dd>
                       </div>
                       <div className="importMetric">
@@ -1927,11 +1968,12 @@ export function ImageFolderImportPanel({
                               </summary>
                               <p className="curatedImportStatus">
                                 Każda pozycja oznacza jedno zdjęcie zawierające
-                                dziewięć plansz. Ponowna korekta wcześniej
-                                zarejestrowanego zdjęcia zmienia jego geometrię,
-                                ale nie zwiększa licznika zarejestrowanych.
-                                Plansze powstaną dopiero po uruchomieniu
-                                importu.
+                                od jednej do dziewięciu plansz zgodnie z
+                                potwierdzonym zakresem. Ponowna korekta
+                                wcześniej zarejestrowanego zdjęcia zmienia jego
+                                geometrię, ale nie zwiększa licznika
+                                zarejestrowanych. Plansze powstaną dopiero po
+                                uruchomieniu importu.
                               </p>
                               <PageGeometryCorrectionPanel
                                 allowRegisteredSourceInspection
@@ -2028,14 +2070,16 @@ export function ImageFolderImportPanel({
               ? 'Uruchamianie…'
               : preflight === null
                 ? 'Przygotuj raport, aby rozpocząć import'
-                : geometryPreflightJob !== null &&
-                    geometryPreflightJob.progress.review > 0
-                  ? 'Importuj rozpoznane strony'
-                  : geometryGuardResolutionManifest !== null
-                    ? 'Rozpocznij nowy import z rozliczeniami'
-                    : preflight.unclassifiedColdStartAllowed
-                      ? 'Rozpocznij pierwszy import bez modelu'
-                      : `Rozpocznij import ${geometryEngineVariant === SELECTIVE_BOARD_VARIANT ? 'v1.1' : 'v1.0'} z raportu`}
+                : isNeuralGeometryPreflight(activeBrowserGeometryPreflightJob)
+                  ? 'Rozpocznij import Mumii z korektą'
+                  : geometryPreflightJob !== null &&
+                      geometryPreflightJob.progress.review > 0
+                    ? 'Importuj rozpoznane strony'
+                    : geometryGuardResolutionManifest !== null
+                      ? 'Rozpocznij nowy import z rozliczeniami'
+                      : preflight.unclassifiedColdStartAllowed
+                        ? 'Rozpocznij pierwszy import bez modelu'
+                        : `Rozpocznij import ${geometryEngineVariant === SELECTIVE_BOARD_VARIANT ? 'v1.1' : 'v1.0'} z raportu`}
           </button>
           <input
             accept=".jpg,.jpeg,image/jpeg"

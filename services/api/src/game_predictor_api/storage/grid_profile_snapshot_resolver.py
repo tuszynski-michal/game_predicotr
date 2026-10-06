@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+from pathlib import Path
 from uuid import UUID
 
 from game_predictor_worker.images.page_geometry_registration import (
@@ -16,14 +17,19 @@ from game_predictor_api.application.jobs import (
     GridProfileSnapshotResolver,
     _baseline_grid_profile_snapshot,
 )
+from game_predictor_api.domain.catalog import GameShapeGeometryConfiguration
 from game_predictor_api.domain.geometry_qualification import geometry_training_exclusion_reason
 from game_predictor_api.domain.grid_calibration import (
     GridProfileStatus,
     grid_profile_end_to_end_gate_is_current,
 )
+from game_predictor_api.domain.grid_engine_profiles import grid_engine_profile_for
 from game_predictor_api.domain.jobs import JobConflictError
+from game_predictor_api.domain.neural_grid_proposal import NeuralGridSnapshot
+from game_predictor_api.storage.grid_engine_model_store import ManagedGridEngineModelStore
 from game_predictor_api.storage.models import (
     GameGridProfileActivationModel,
+    GameModel,
     GridCalibrationProfileModel,
     GridGeometryCohortModel,
     JobModel,
@@ -33,8 +39,39 @@ from game_predictor_api.storage.models import (
 
 
 class SqlAlchemyGridProfileSnapshotResolver(GridProfileSnapshotResolver):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, artifact_root: Path | None = None) -> None:
         self._session = session
+        self._artifact_root = artifact_root
+
+    def resolve_neural_grid_proposal(self, *, game_id: UUID) -> dict[str, object] | None:
+        """Only the explicitly selected Mumie profile enables the neural pilot."""
+        game = self._session.get(GameModel, game_id)
+        if (
+            game is None
+            or game.shape_geometry_configuration
+            != GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1.value
+        ):
+            return None
+        if self._artifact_root is None:
+            raise JobConflictError(
+                "GRID_ENGINE_MODEL_STORE_UNAVAILABLE", "The managed model store is unavailable."
+            )
+        profile = grid_engine_profile_for(GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1)
+        if profile is None:
+            raise JobConflictError(
+                "GRID_ENGINE_PROFILE_UNAVAILABLE", "The Mumie grid profile is unavailable."
+            )
+        version = profile.current
+        ManagedGridEngineModelStore(self._artifact_root).require(version)
+        return NeuralGridSnapshot.for_game(game.expected_layout_count, version).to_payload()
+
+    def uses_neural_grid_pilot(self, *, game_id: UUID) -> bool:
+        game = self._session.get(GameModel, game_id)
+        return (
+            game is not None
+            and game.shape_geometry_configuration
+            == GameShapeGeometryConfiguration.GRID_PROFILE_MUMIE_V1.value
+        )
 
     def resolve(self, *, game_id: UUID) -> dict[str, object]:
         activation = self._session.scalar(

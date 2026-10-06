@@ -25,6 +25,24 @@ import {
   deferredBoardGeometryTarget,
 } from './board-geometry-correction-target';
 import { gridCellsWithoutPixels } from './board-geometry-correction-state';
+import {
+  boardLatticeCorners,
+  boardLatticeViewportExtent,
+  boardLatticeTransportCorners,
+  boardLatticePointInSource,
+  boardLatticeUnavailable,
+  boardLatticeWithoutPixels,
+  parseBoardLattice,
+  translatedBoardLattice,
+  type BoardLatticeNodes,
+} from './board-lattice-state';
+import {
+  readBoardLatticeDraft,
+  writeBoardLatticeDraft,
+  clearBoardLatticeDraft,
+  boardLatticeDraftKey,
+  type BoardLatticeDraftScope,
+} from './board-lattice-draft-storage';
 import type { DeferredBoardCellGeometryClient } from './deferred-board-cell-geometry-actions';
 import {
   deferredBoardCellGeometryIdempotency,
@@ -141,6 +159,7 @@ export function BoardGeometryCorrectionEditor({
   const dragIndexRef = useRef<number | null>(null);
   const translateGridRef = useRef<{
     readonly corners: OperationalReviewGeometryCorners;
+    readonly latticeNodes?: BoardLatticeNodes;
     readonly point: OperationalImageReviewGeometryPoint;
   } | null>(null);
   const gestureRef = useRef<{
@@ -162,6 +181,23 @@ export function BoardGeometryCorrectionEditor({
   const [contextState, setContextState] = useState<LoadState>('loading');
   const [corners, setCorners] =
     useState<OperationalReviewGeometryCorners | null>(null);
+  const [latticeNodes, setLatticeNodes] = useState<BoardLatticeNodes | null>(
+    null,
+  );
+  const latestLatticeRef = useRef<BoardLatticeNodes | null>(null);
+  const draftLoadedRef = useRef<string | null>(null);
+  const latticeDraftScope = useMemo<BoardLatticeDraftScope | null>(
+    () =>
+      context?.suggestedLatticeNodes === undefined
+        ? null
+        : {
+            targetKey: `${target.key}:${context.draftBindingKey ?? ''}`,
+            sourceUrl: context.sourceUrl,
+            width: context.sourceWidth,
+            height: context.sourceHeight,
+          },
+    [context, target.key],
+  );
   const [viewport, setViewport] =
     useState<OperationalReviewGeometryViewport | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -189,30 +225,37 @@ export function BoardGeometryCorrectionEditor({
   const [symbolNotice, setSymbolNotice] = useState('');
   const canAssignSymbols = symbols.length > 0 && target.symbols !== undefined;
   // The API renders from its checksum-bound source, independently of canvas.
-  const waitingForSource = loadingSource && !previewWhileSourceLoads;
+  const waitingForSource =
+    loadingSource && !previewWhileSourceLoads && latticeNodes === null;
   const allowOutsideSource = flags.partial;
   // Cells with no area inside the photo have no crop to label.
   const withoutPixels = useMemo(
     () =>
       context === null || corners === null
         ? []
-        : gridCellsWithoutPixels(
-            corners,
-            context.sourceWidth,
-            context.sourceHeight,
-          ),
-    [context, corners],
+        : latticeNodes !== null
+          ? boardLatticeWithoutPixels(
+              latticeNodes,
+              context.sourceWidth,
+              context.sourceHeight,
+            )
+          : gridCellsWithoutPixels(
+              corners,
+              context.sourceWidth,
+              context.sourceHeight,
+            ),
+    [context, corners, latticeNodes],
   );
   const commandKey = useMemo(() => {
     if (context === null || corners === null) return '';
     try {
-      return target.commandKey(corners, flags);
+      return target.commandKey(corners, flags, latticeNodes ?? undefined);
     } catch {
       // Invalid qualification (e.g. "Niepełna plansza" without any field
       // marked as missing) never matches a preview; save() surfaces it.
       return '';
     }
-  }, [context, corners, flags, target]);
+  }, [context, corners, flags, latticeNodes, target]);
   const previewIsCurrent = previewUrl !== null && previewKey === commandKey;
   const currentSuggestions =
     previewIsCurrent && suggestedSymbols?.key === commandKey
@@ -270,7 +313,9 @@ export function BoardGeometryCorrectionEditor({
       if (recenterViewport && context !== null) {
         setViewport(
           operationalReviewGeometryViewport(
-            next,
+            latestLatticeRef.current === null
+              ? next
+              : boardLatticeViewportExtent(latestLatticeRef.current),
             context.sourceWidth,
             context.sourceHeight,
             0.35,
@@ -291,7 +336,9 @@ export function BoardGeometryCorrectionEditor({
       if (context !== null && corners !== null) {
         setViewport(
           operationalReviewGeometryViewport(
-            corners,
+            latestLatticeRef.current === null
+              ? corners
+              : boardLatticeViewportExtent(latestLatticeRef.current),
             context.sourceWidth,
             context.sourceHeight,
             0.35,
@@ -303,9 +350,20 @@ export function BoardGeometryCorrectionEditor({
     [clearPreview, context, corners],
   );
 
+  const replaceLattice = useCallback(
+    (next: BoardLatticeNodes) => {
+      latestLatticeRef.current = next;
+      setLatticeNodes(next.map(({ x, y }) => ({ x, y })));
+      replaceCorners(boardLatticeCorners(next));
+    },
+    [replaceCorners],
+  );
+
   useEffect(() => {
     let active = true;
     async function load() {
+      draftLoadedRef.current = null;
+      latestLatticeRef.current = null;
       setContextState('loading');
       setError('');
       clearPreview();
@@ -340,17 +398,67 @@ export function BoardGeometryCorrectionEditor({
       setContext(result.view);
       // A board that is already partial keeps its qualification and may keep
       // corners outside the photo.
-      setFlags(result.view.initialFlags);
+      let initialFlags = result.view.initialFlags;
       const initialCorners = copyCorners(result.view.suggestedCorners);
-      setCorners(initialCorners);
-      latestCornersRef.current = initialCorners;
+      let initialLattice = parseBoardLattice(result.view.suggestedLatticeNodes);
+      if (
+        result.view.suggestedLatticeNodes !== undefined &&
+        initialLattice === null
+      ) {
+        setContextState('error');
+        setLoadingSource(false);
+        setError(
+          'Propozycja nie zawiera poprawnej siatki 24 węzłów. Wróć do korekty zdjęcia źródłowego.',
+        );
+        return;
+      }
+      let initialBounds =
+        initialLattice === null
+          ? initialCorners
+          : boardLatticeCorners(initialLattice);
+      if (result.view.suggestedLatticeNodes !== undefined) {
+        initialCellSelectedRef.current = false;
+        setSelectedCell(null);
+        setChosenSymbols({});
+        const scope = {
+          targetKey: `${target.key}:${result.view.draftBindingKey ?? ''}`,
+          sourceUrl: result.view.sourceUrl,
+          width: result.view.sourceWidth,
+          height: result.view.sourceHeight,
+        };
+        try {
+          const draft = readBoardLatticeDraft(localStorage, scope);
+          if (draft !== null) {
+            initialLattice = draft.latticeNodes;
+            initialBounds =
+              draft.latticeNodes === null
+                ? draft.corners
+                : boardLatticeCorners(draft.latticeNodes);
+            initialFlags = draft.flags;
+            setChosenSymbols(draft.symbols);
+            idempotencyRef.current = draft.idempotency;
+          }
+          draftLoadedRef.current = boardLatticeDraftKey(scope);
+        } catch {
+          setError(
+            'Nie można odtworzyć szkicu siatki. Przywróć sugestię, aby rozpocząć nowy szkic.',
+          );
+        }
+      }
+      setFlags(initialFlags);
+      setLatticeNodes(initialLattice);
+      latestLatticeRef.current = initialLattice;
+      setCorners(initialBounds);
+      latestCornersRef.current = initialBounds;
       setViewport(
         operationalReviewGeometryViewport(
-          initialCorners,
+          initialLattice === null
+            ? initialBounds
+            : boardLatticeViewportExtent(initialLattice),
           result.view.sourceWidth,
           result.view.sourceHeight,
           0.35,
-          result.view.initialFlags.partial,
+          initialFlags.partial,
         ),
       );
       setContextState('ready');
@@ -362,6 +470,35 @@ export function BoardGeometryCorrectionEditor({
     };
   }, [autoSelectFirstCell, clearPreview, onConflict, target]);
 
+  useEffect(() => {
+    if (
+      latticeDraftScope === null ||
+      corners === null ||
+      draftLoadedRef.current !== boardLatticeDraftKey(latticeDraftScope)
+    )
+      return;
+    let active = true;
+    try {
+      writeBoardLatticeDraft(localStorage, latticeDraftScope, {
+        corners,
+        latticeNodes,
+        flags,
+        symbols: chosenSymbols,
+        idempotency: idempotencyRef.current,
+      });
+    } catch {
+      queueMicrotask(() => {
+        if (active)
+          setError(
+            'Nie udało się utrwalić szkicu w przeglądarce. Zapis będzie dostępny po przywróceniu pamięci przeglądarki.',
+          );
+      });
+    }
+    return () => {
+      active = false;
+    };
+  }, [latticeDraftScope, corners, latticeNodes, flags, chosenSymbols]);
+
   const sourceUrl = context?.sourceUrl ?? null;
   const referenceCorners = context?.referenceCorners ?? null;
 
@@ -369,7 +506,9 @@ export function BoardGeometryCorrectionEditor({
     if (context === null || corners === null) return;
     setViewport(
       operationalReviewGeometryViewport(
-        corners,
+        latestLatticeRef.current === null
+          ? corners
+          : boardLatticeViewportExtent(latestLatticeRef.current),
         context.sourceWidth,
         context.sourceHeight,
         0.35,
@@ -463,49 +602,81 @@ export function BoardGeometryCorrectionEditor({
     }
     context2d.lineWidth = Math.max(2, canvas.width / 500);
     context2d.strokeStyle = '#f4d35e';
-    for (let column = 0; column <= 5; column += 1) {
-      drawLine(
-        context2d,
-        operationalReviewPointInGeometryViewport(
-          operationalReviewPointInLattice(corners, column / 5, 0),
-          viewport,
-        ),
-        operationalReviewPointInGeometryViewport(
-          operationalReviewPointInLattice(corners, column / 5, 1),
-          viewport,
-        ),
-      );
-    }
-    for (let row = 0; row <= 3; row += 1) {
-      drawLine(
-        context2d,
-        operationalReviewPointInGeometryViewport(
-          operationalReviewPointInLattice(corners, 0, row / 3),
-          viewport,
-        ),
-        operationalReviewPointInGeometryViewport(
-          operationalReviewPointInLattice(corners, 1, row / 3),
-          viewport,
-        ),
-      );
-    }
-    operationalReviewGeometryEdgeHandles(corners)
-      .map((point) => operationalReviewPointInGeometryViewport(point, viewport))
-      .forEach((point) => {
-        const radius = Math.max(5, canvas.width / 180);
-        context2d.beginPath();
-        context2d.fillStyle = '#8ea0b8';
-        context2d.strokeStyle = '#253b56';
-        context2d.rect(
-          point.x - radius,
-          point.y - radius,
-          radius * 2,
-          radius * 2,
+    if (latticeNodes !== null) {
+      for (let row = 0; row < 4; row += 1) {
+        for (let col = 0; col < 6; col += 1) {
+          const index = row * 6 + col;
+          const a = operationalReviewPointInGeometryViewport(
+            latticeNodes[index]!,
+            viewport,
+          );
+          if (col < 5)
+            drawLine(
+              context2d,
+              a,
+              operationalReviewPointInGeometryViewport(
+                latticeNodes[index + 1]!,
+                viewport,
+              ),
+            );
+          if (row < 3)
+            drawLine(
+              context2d,
+              a,
+              operationalReviewPointInGeometryViewport(
+                latticeNodes[index + 6]!,
+                viewport,
+              ),
+            );
+        }
+      }
+    } else {
+      for (let column = 0; column <= 5; column += 1) {
+        drawLine(
+          context2d,
+          operationalReviewPointInGeometryViewport(
+            operationalReviewPointInLattice(corners, column / 5, 0),
+            viewport,
+          ),
+          operationalReviewPointInGeometryViewport(
+            operationalReviewPointInLattice(corners, column / 5, 1),
+            viewport,
+          ),
         );
-        context2d.fill();
-        context2d.stroke();
-      });
-    corners
+      }
+      for (let row = 0; row <= 3; row += 1) {
+        drawLine(
+          context2d,
+          operationalReviewPointInGeometryViewport(
+            operationalReviewPointInLattice(corners, 0, row / 3),
+            viewport,
+          ),
+          operationalReviewPointInGeometryViewport(
+            operationalReviewPointInLattice(corners, 1, row / 3),
+            viewport,
+          ),
+        );
+      }
+      operationalReviewGeometryEdgeHandles(corners)
+        .map((point) =>
+          operationalReviewPointInGeometryViewport(point, viewport),
+        )
+        .forEach((point) => {
+          const radius = Math.max(5, canvas.width / 180);
+          context2d.beginPath();
+          context2d.fillStyle = '#8ea0b8';
+          context2d.strokeStyle = '#253b56';
+          context2d.rect(
+            point.x - radius,
+            point.y - radius,
+            radius * 2,
+            radius * 2,
+          );
+          context2d.fill();
+          context2d.stroke();
+        });
+    }
+    (latticeNodes ?? corners)
       .map((point) => operationalReviewPointInGeometryViewport(point, viewport))
       .forEach((point, index) => {
         context2d.beginPath();
@@ -531,6 +702,7 @@ export function BoardGeometryCorrectionEditor({
     referenceCorners,
     sourceImage,
     sourceUrl,
+    latticeNodes,
   ]);
 
   // A new canvas can mount with unchanged image/geometry dependencies (for
@@ -550,7 +722,7 @@ export function BoardGeometryCorrectionEditor({
     )
       return;
     try {
-      target.commandKey(corners, flags);
+      target.commandKey(corners, flags, latticeNodes ?? undefined);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -563,7 +735,11 @@ export function BoardGeometryCorrectionEditor({
     const requestId = ++previewRequestRef.current;
     setLoadingPreview(true);
     setError('');
-    const result = await target.preview(corners, flags);
+    const result = await target.preview(
+      corners,
+      flags,
+      latticeNodes ?? undefined,
+    );
     if (
       requestId !== previewRequestRef.current ||
       requestedKey !== currentCommandKeyRef.current
@@ -581,7 +757,10 @@ export function BoardGeometryCorrectionEditor({
     previewUrlRef.current = url;
     setPreviewUrl(url);
     setPreviewKey(requestedKey);
-    if (autoSelectFirstCell && !initialCellSelectedRef.current) {
+    if (
+      (autoSelectFirstCell || latticeNodes !== null) &&
+      !initialCellSelectedRef.current
+    ) {
       const first = Array.from({ length: 15 }, (_, index) => index).find(
         (index) => !withoutPixels.includes(index),
       );
@@ -597,6 +776,7 @@ export function BoardGeometryCorrectionEditor({
     context,
     contextState,
     corners,
+    latticeNodes,
     dragging,
     flags,
     onConflict,
@@ -638,22 +818,24 @@ export function BoardGeometryCorrectionEditor({
       return;
     let active = true;
     const requestedKey = commandKey;
-    void target.symbols(corners, flags).then((result) => {
-      if (!active || requestedKey !== currentCommandKeyRef.current) return;
-      // A failed suggestion never blocks the correction or the save.
-      setSymbolNotice(result.ok ? '' : result.error);
-      setSuggestedSymbols({
-        byCell: result.ok
-          ? Object.fromEntries(
-              result.cells.map((cell) => [cell.cellIndex, cell.symbolId]),
-            )
-          : {},
-        key: requestedKey,
-        tentativeCellIndices: result.ok
-          ? (result.tentativeCellIndices ?? [])
-          : [],
+    void target
+      .symbols(corners, flags, latticeNodes ?? undefined)
+      .then((result) => {
+        if (!active || requestedKey !== currentCommandKeyRef.current) return;
+        // A failed suggestion never blocks the correction or the save.
+        setSymbolNotice(result.ok ? '' : result.error);
+        setSuggestedSymbols({
+          byCell: result.ok
+            ? Object.fromEntries(
+                result.cells.map((cell) => [cell.cellIndex, cell.symbolId]),
+              )
+            : {},
+          key: requestedKey,
+          tentativeCellIndices: result.ok
+            ? (result.tentativeCellIndices ?? [])
+            : [],
+        });
       });
-    });
     return () => {
       active = false;
     };
@@ -663,6 +845,7 @@ export function BoardGeometryCorrectionEditor({
     corners,
     flags,
     previewIsCurrent,
+    latticeNodes,
     suggestedSymbols,
     target,
   ]);
@@ -714,30 +897,52 @@ export function BoardGeometryCorrectionEditor({
       waitingForSymbols
     )
       return;
+    const cellSymbols = canAssignSymbols
+      ? Object.entries(effectiveChosenSymbols)
+          .filter(
+            (entry): entry is [string, string | null] => entry[1] !== undefined,
+          )
+          .map(([cellIndex, symbolId]) => ({
+            cellIndex: Number(cellIndex),
+            symbolId,
+          }))
+          .filter((cell) => !withoutPixels.includes(cell.cellIndex))
+      : undefined;
     const idempotency = deferredBoardCellGeometryIdempotency(
       idempotencyRef.current,
-      commandKey,
+      latticeDraftScope === null
+        ? commandKey
+        : JSON.stringify({ commandKey, cellSymbols }),
       () => globalThis.crypto.randomUUID(),
     );
     idempotencyRef.current = idempotency;
     setSaving(true);
     setError('');
+    if (latticeDraftScope !== null) {
+      try {
+        if (draftLoadedRef.current !== boardLatticeDraftKey(latticeDraftScope))
+          throw new Error('draft');
+        writeBoardLatticeDraft(localStorage, latticeDraftScope, {
+          corners,
+          latticeNodes,
+          flags,
+          symbols: chosenSymbols,
+          idempotency,
+        });
+      } catch {
+        setSaving(false);
+        setError(
+          'Nie można utrwalić zapisu do ponowienia. Przywróć sugestię lub dostęp do pamięci przeglądarki.',
+        );
+        return;
+      }
+    }
     const result = await target.save(
       corners,
       flags,
       idempotency.idempotencyKey,
-      canAssignSymbols
-        ? Object.entries(effectiveChosenSymbols)
-            .filter(
-              (entry): entry is [string, string | null] =>
-                entry[1] !== undefined,
-            )
-            .map(([cellIndex, symbolId]) => ({
-              cellIndex: Number(cellIndex),
-              symbolId,
-            }))
-            .filter((cell) => !withoutPixels.includes(cell.cellIndex))
-        : undefined,
+      cellSymbols,
+      latticeNodes ?? undefined,
     );
     setSaving(false);
     if (!result.ok) {
@@ -746,6 +951,14 @@ export function BoardGeometryCorrectionEditor({
       return;
     }
     idempotencyRef.current = null;
+    if (latticeDraftScope !== null) {
+      try {
+        clearBoardLatticeDraft(localStorage, latticeDraftScope);
+      } catch {
+        /* Receipt is already persisted on the server. */
+      }
+      draftLoadedRef.current = null;
+    }
     clearPreview();
     await onSaved(result.reviewItemId);
   }
@@ -767,37 +980,65 @@ export function BoardGeometryCorrectionEditor({
     if (index === null) {
       const translation = translateGridRef.current;
       if (translation !== null) {
-        const point = operationalReviewPointInSourceImage(
+        const point = (
+          latticeNodes === null
+            ? operationalReviewPointInSourceImage
+            : boardLatticePointInSource
+        )(
           pointer.point,
           viewport,
           context.sourceWidth,
           context.sourceHeight,
           allowOutsideSource,
         );
-        replaceCorners(
-          operationalReviewTranslatedGeometryCorners(
-            translation.corners,
-            {
-              x: point.x - translation.point.x,
-              y: point.y - translation.point.y,
-            },
-            context.sourceWidth,
-            context.sourceHeight,
-            allowOutsideSource,
-          ),
-        );
+        if (translation.latticeNodes !== undefined) {
+          replaceLattice(
+            translatedBoardLattice(
+              translation.latticeNodes,
+              {
+                x: point.x - translation.point.x,
+                y: point.y - translation.point.y,
+              },
+              context.sourceWidth,
+              context.sourceHeight,
+              allowOutsideSource,
+            ),
+          );
+        } else
+          replaceCorners(
+            operationalReviewTranslatedGeometryCorners(
+              translation.corners,
+              {
+                x: point.x - translation.point.x,
+                y: point.y - translation.point.y,
+              },
+              context.sourceWidth,
+              context.sourceHeight,
+              allowOutsideSource,
+            ),
+          );
         return;
       }
       return;
     }
     if (corners === null) return;
-    const point = operationalReviewPointInSourceImage(
+    const point = (
+      latticeNodes === null
+        ? operationalReviewPointInSourceImage
+        : boardLatticePointInSource
+    )(
       pointer.point,
       viewport,
       context.sourceWidth,
       context.sourceHeight,
       allowOutsideSource,
     );
+    if (latticeNodes !== null) {
+      const next = [...latticeNodes];
+      next[index] = point;
+      replaceLattice(next);
+      return;
+    }
     const next = [...corners] as OperationalReviewGeometryCorners;
     next[index] = point;
     replaceCorners(next);
@@ -824,7 +1065,7 @@ export function BoardGeometryCorrectionEditor({
       canvas.height,
     );
     const threshold = 44 / pointer.scale;
-    const candidate = corners
+    const candidate = (latticeNodes ?? corners)
       .map((point) => operationalReviewPointInGeometryViewport(point, viewport))
       .map((point, index) => ({
         distance: Math.hypot(
@@ -837,7 +1078,11 @@ export function BoardGeometryCorrectionEditor({
     if (candidate !== undefined && candidate.distance <= threshold) {
       dragIndexRef.current = candidate.index;
     } else {
-      const point = operationalReviewPointInSourceImage(
+      const point = (
+        latticeNodes === null
+          ? operationalReviewPointInSourceImage
+          : boardLatticePointInSource
+      )(
         pointer.point,
         viewport,
         context.sourceWidth,
@@ -845,7 +1090,11 @@ export function BoardGeometryCorrectionEditor({
         allowOutsideSource,
       );
       if (!operationalReviewGeometryContainsPoint(corners, point)) return;
-      translateGridRef.current = { corners, point };
+      translateGridRef.current = {
+        corners,
+        point,
+        ...(latticeNodes === null ? {} : { latticeNodes }),
+      };
     }
     event.preventDefault();
     gestureRef.current = { pointerId: event.pointerId, viewport, rect };
@@ -868,7 +1117,9 @@ export function BoardGeometryCorrectionEditor({
     if (next !== null && context !== null) {
       setViewport(
         operationalReviewGeometryViewport(
-          next,
+          latestLatticeRef.current === null
+            ? next
+            : boardLatticeViewportExtent(latestLatticeRef.current),
           context.sourceWidth,
           context.sourceHeight,
           0.35,
@@ -893,20 +1144,37 @@ export function BoardGeometryCorrectionEditor({
   const unavailable =
     corners === null
       ? []
-      : manualGridUnavailable(
-          flags,
-          corners,
-          context.sourceWidth,
-          context.sourceHeight,
-        );
+      : latticeNodes !== null
+        ? [
+            ...new Set([
+              ...flags.manualUnavailable,
+              ...boardLatticeUnavailable(
+                latticeNodes,
+                context.sourceWidth,
+                context.sourceHeight,
+              ),
+            ]),
+          ].sort((a, b) => a - b)
+        : manualGridUnavailable(
+            flags,
+            corners,
+            context.sourceWidth,
+            context.sourceHeight,
+          );
   const automaticUnavailable =
     corners === null
       ? []
-      : automaticUnavailableGridCells(
-          corners,
-          context.sourceWidth,
-          context.sourceHeight,
-        );
+      : latticeNodes !== null
+        ? boardLatticeUnavailable(
+            latticeNodes,
+            context.sourceWidth,
+            context.sourceHeight,
+          )
+        : automaticUnavailableGridCells(
+            corners,
+            context.sourceWidth,
+            context.sourceHeight,
+          );
   const symbolLabel = (symbolId: string | null | undefined) =>
     symbols.find((symbol) => symbol.id === symbolId)?.label ?? null;
   // `undefined` clears the choice, `null` records "cannot tell".
@@ -933,30 +1201,80 @@ export function BoardGeometryCorrectionEditor({
 
       <div className="operationalReviewGeometryBody deferredGeometryBody">
         <section>
-          <div className="deferredGeometrySectionHeader">
+          <div
+            className={
+              latticeNodes !== null
+                ? 'deferredGeometrySectionHeader deferredGeometryLatticeHeader'
+                : 'deferredGeometrySectionHeader'
+            }
+          >
             <div>
               <h3>Oryginał i edytowalna siatka</h3>
               <p>
-                Przeciągnij numerowany narożnik, aby skorygować perspektywę,
-                albo wnętrze siatki, aby przesunąć cały obrys bez jej zmiany.
-                Podczas trzymania przycisku obraz pozostaje statyczny. Po
-                puszczeniu kadr dopasuje się do siatki, a podgląd cropów
-                odświeży się automatycznie. Szare punkty są wyliczane
-                automatycznie.
+                {latticeNodes !== null ? (
+                  'Przeciągnij jeden z 24 węzłów, aby poprawić podział komórek. Przeciągnięcie wnętrza przesuwa całą siatkę. Zmiana symbolu zachowuje podział i wycinki.'
+                ) : (
+                  <>
+                    Przeciągnij numerowany narożnik, aby skorygować perspektywę,
+                    albo wnętrze siatki, aby przesunąć cały obrys bez jej
+                    zmiany. Podczas trzymania przycisku obraz pozostaje
+                    statyczny. Po puszczeniu kadr dopasuje się do siatki, a
+                    podgląd cropów odświeży się automatycznie. Szare punkty są
+                    wyliczane automatycznie.
+                  </>
+                )}
               </p>
             </div>
             <button
               className="textButton"
               disabled={saving || dragging}
-              onClick={() =>
-                replaceCorners(copyCorners(context.suggestedCorners), {
-                  recenterViewport: true,
-                })
-              }
+              onClick={() => {
+                const original = parseBoardLattice(
+                  context.suggestedLatticeNodes,
+                );
+                if (latticeDraftScope !== null) {
+                  try {
+                    clearBoardLatticeDraft(localStorage, latticeDraftScope);
+                  } catch {
+                    setError('Nie udało się zresetować zapisanego szkicu.');
+                    return;
+                  }
+                  draftLoadedRef.current =
+                    boardLatticeDraftKey(latticeDraftScope);
+                }
+                setError('');
+                setChosenSymbols({});
+                setLatticeNodes(original);
+                latestLatticeRef.current = original;
+                replaceCorners(
+                  original === null
+                    ? copyCorners(context.suggestedCorners)
+                    : boardLatticeCorners(original),
+                  {
+                    recenterViewport: true,
+                  },
+                );
+              }}
               type="button"
             >
               Przywróć sugestię
             </button>
+            {latticeNodes !== null ? (
+              <button
+                className="textButton"
+                type="button"
+                disabled={saving || dragging}
+                onClick={() => {
+                  const sketchCorners =
+                    boardLatticeTransportCorners(latticeNodes);
+                  setLatticeNodes(null);
+                  latestLatticeRef.current = null;
+                  replaceCorners(sketchCorners);
+                }}
+              >
+                Zamień na szkic z czterech narożników
+              </button>
+            ) : null}
             <button
               className="textButton"
               disabled={

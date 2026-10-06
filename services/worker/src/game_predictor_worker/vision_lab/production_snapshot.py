@@ -146,7 +146,7 @@ def _slim_row(row: Mapping[str, Any]) -> dict[str, Any]:
     label = row["label"]
     geometry = row["geometry"]
     signals = row["symbolSignals"]
-    return {
+    result: dict[str, Any] = {
         "recognizedBoardId": row["recognizedBoardId"],
         "positionIndex": row["positionIndex"],
         "sequenceNumber": row["sequenceNumber"],
@@ -169,6 +169,21 @@ def _slim_row(row: Mapping[str, Any]) -> dict[str, Any]:
             "sourceEngineVersion": row["engine"].get("sourceEngineVersion"),
         },
     }
+    if "cellVisibility" in row["partial"]:
+        visibility = row["partial"]["cellVisibility"]
+        if (
+            not isinstance(visibility, list)
+            or len(visibility) != 15
+            or any(
+                not isinstance(state, str) or state not in {"full", "partial", "outside"}
+                for state in visibility
+            )
+            or not {index for index, state in enumerate(visibility) if state == "outside"}
+            <= set(result["unavailableCellIndices"])
+        ):
+            raise ValueError("CANDIDATE_LATTICE_VISIBILITY_INVALID")
+        result["cellVisibility"] = list(visibility)
+    return result
 
 
 def collect_rows(path: Path, image_ids: Iterable[str]) -> dict[str, list[dict[str, Any]]]:

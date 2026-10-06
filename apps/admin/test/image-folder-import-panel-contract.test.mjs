@@ -175,7 +175,7 @@ test('keeps optional registered-source geometry inspection available before impo
   assert.match(panelSource, /allowRegisteredSourceInspection/);
   assert.match(
     panelSource,
-    /const active = ready\.uploadId === readyUploadId && !imported/,
+    /const active =\s*ready\.uploadId === readyUploadId &&\s*\(!imported \|\| neuralHistory\)/,
   );
   assert.match(
     panelSource,
@@ -224,7 +224,7 @@ test('reopens the completed engine variant and replays a report without dispatch
   );
   assert.match(
     stagingActions,
-    /disabled=\{busy \|\| selectiveCapability\?\.enabled !== true\}/,
+    /disabled=\{\s*busy \|\| selectiveCapability\?\.enabled !== true\s*\}/,
   );
   assert.match(stagingActions, /Przetwórz w v1\.1/);
   assert.doesNotMatch(stagingActions, /Przetwórz w v1\.0/);

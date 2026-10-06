@@ -498,6 +498,13 @@ export async function confirmModelActivation(
     readonly preview: SymbolModelActivationPreviewResponse;
   },
 ): Promise<ModelActivationResult> {
+  if (
+    input.preview.modelIterationId === null ||
+    input.preview.candidateManifestChecksumSha256 === null ||
+    input.action === 'deactivate'
+  ) {
+    return { ok: false, error: 'Odśwież podgląd aktywacji modelu.' };
+  }
   const command = {
     actor: input.actor,
     expectedCurrentModelIterationId: input.preview.currentModelIterationId,

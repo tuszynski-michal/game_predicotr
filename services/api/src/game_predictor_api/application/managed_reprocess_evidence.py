@@ -8,10 +8,13 @@ import re
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType
+
+if TYPE_CHECKING:
+    from game_predictor_api.application.image_imports import BrowserReadySelection
 
 _SHA256 = re.compile(r"^[0-9a-f]{64}$")
 _MAX_LINEAGE_DEPTH = 64
@@ -66,6 +69,111 @@ def resolve_managed_preflight_source(
         raise _incompatible("The managed preflight has no attested browser source checksum.")
     checksum, _ = _load_managed_source_manifest(artifact_root.resolve(), source)
     return checksum, browser_checksum
+
+
+def resolve_managed_page_source(
+    source: Job,
+    *,
+    artifact_root: Path,
+    game_id: UUID,
+    selection_id: UUID,
+    source_checksum_sha256: str,
+) -> tuple[Path, str]:
+    """Read a game-owned original after its browser staging was retained away."""
+    resolve_managed_preflight_source(
+        source, artifact_root=artifact_root, game_id=game_id, selection_id=selection_id
+    )
+    _, originals = _load_managed_source_manifest(artifact_root.resolve(), source)
+    item = next(
+        (item for item in originals if item.checksum_sha256 == source_checksum_sha256), None
+    )
+    if item is None:
+        raise _incompatible("The source is absent from the managed inventory.")
+    path = _managed_path(
+        artifact_root.resolve(),
+        PurePosixPath(
+            "data", "originals", source_checksum_sha256[:2], f"{source_checksum_sha256}.jpg"
+        ),
+    )
+    content = _read_bytes(path, "The managed source image is unavailable.")
+    if hashlib.sha256(content).hexdigest() != source_checksum_sha256:
+        raise _incompatible("The managed source image checksum changed.")
+    return path, item.source_relative_path
+
+
+def resolve_managed_browser_selection(
+    source: Job,
+    *,
+    artifact_root: Path,
+    game_id: UUID,
+    selection_id: UUID,
+) -> BrowserReadySelection:
+    """Expose the verified import inventory through the existing read-only selection view."""
+    from game_predictor_api.application.image_imports import (
+        BrowserImageUpload,
+        BrowserReadySelection,
+        ImageSelectionPurpose,
+    )
+    from game_predictor_api.domain.image_geometry_v2 import (
+        is_sequence_range_filename_candidate,
+        parse_attested_sequence_range_filename,
+    )
+    from game_predictor_api.domain.image_sequence_canonical import (
+        BrowserSequenceManifest,
+        BrowserSequenceSource,
+    )
+
+    _, browser_checksum = resolve_managed_preflight_source(
+        source,
+        artifact_root=artifact_root,
+        game_id=game_id,
+        selection_id=selection_id,
+    )
+    _, originals = _load_managed_source_manifest(artifact_root.resolve(), source)
+    files = []
+    for index, original in enumerate(originals):
+        relative = PurePosixPath(original.source_relative_path)
+        attested = (
+            parse_attested_sequence_range_filename(relative.name)
+            if is_sequence_range_filename_candidate(relative.name)
+            else None
+        )
+        managed_relative = (
+            f"data/originals/{original.checksum_sha256[:2]}/{original.checksum_sha256}.jpg"
+        )
+        path = _managed_path(artifact_root.resolve(), PurePosixPath(managed_relative))
+        if not path.is_file():
+            raise _incompatible("A managed source image is unavailable.")
+        files.append(
+            BrowserSequenceSource(
+                order_index=index,
+                relative_path=original.source_relative_path,
+                stored_file_name=managed_relative,
+                size_bytes=path.stat().st_size,
+                checksum_sha256=original.checksum_sha256,
+                sequence_range=None if attested is None else (attested.start, attested.end),
+            )
+        )
+    total = sum(item.size_bytes for item in files)
+    upload = BrowserImageUpload(
+        upload_id=selection_id,
+        path=artifact_root.resolve(),
+        display_name=str(source.input_payload.get("source_display_name") or selection_id),
+        purpose=ImageSelectionPurpose.LAYOUT_IMPORT,
+        game_id=game_id,
+        expected_file_count=len(files),
+        expected_total_bytes=total,
+        created_at=source.created_at,
+        uploaded_indexes=set(range(len(files))),
+        uploaded_files={},
+        uploaded_bytes=total,
+    )
+    return BrowserReadySelection(
+        upload=upload,
+        manifest=BrowserSequenceManifest(tuple(files), (), browser_checksum),
+        completed_at=None,
+        board_import_status=None,
+    )
 
 
 def resolve_managed_reprocess_evidence(

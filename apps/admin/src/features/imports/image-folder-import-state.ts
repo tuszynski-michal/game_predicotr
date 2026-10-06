@@ -6,6 +6,7 @@ import type {
 
 const DEFAULT_READY_BOARD_IMPORT_GEOMETRY_VARIANT: GeometryEngineVariant =
   'selective_board_review_v1_1';
+import { isNeuralGeometryPreflight } from './neural-import-preflight-state.ts';
 
 interface ReadyImportStartState {
   readonly geometryGuardResolutionManifestAvailable: boolean;
@@ -136,6 +137,12 @@ export function readyBoardImportLifecycleLabel(
       : '';
   switch (state.selection.boardImportStatus) {
     case 'boards_imported':
+      if (
+        isNeuralGeometryPreflight(latestCompletedGeometry) &&
+        (reviewRequired ?? 0) > 0
+      ) {
+        return `import zakończony${geometrySuffix} · źródła do korekty pozostają dostępne`;
+      }
       return `plansze utworzone${geometrySuffix} · weryfikacja symboli poza importem`;
     case 'importing':
       return `trwa import plansz${geometrySuffix}`;
@@ -145,6 +152,9 @@ export function readyBoardImportLifecycleLabel(
       break;
   }
   if (typeof reviewRequired === 'number' && reviewRequired > 0) {
+    if (isNeuralGeometryPreflight(latestCompletedGeometry)) {
+      return `gotowe do importu z korektą · zdjęcia do sprawdzenia ${reviewRequired.toLocaleString('pl-PL')}`;
+    }
     return `wymaga korekty geometrii · odroczone zdjęcia ${reviewRequired.toLocaleString('pl-PL')}`;
   }
 

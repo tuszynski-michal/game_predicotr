@@ -569,18 +569,20 @@ class SqlAlchemySymbolCellReviewQueryRepository(SymbolCellReviewQueryRepository)
 
     def active_model_cohort_id(self, game_id: UUID) -> UUID | None:
         self._raise_if_read_cancelled()
+        current = self._session.scalar(
+            select(GameSymbolModelActivationModel)
+            .where(GameSymbolModelActivationModel.game_id == game_id)
+            .order_by(GameSymbolModelActivationModel.activation_number.desc())
+            .limit(1)
+        )
+        if current is None or current.model_iteration_id is None:
+            return None
         return cast(
             UUID | None,
             self._session.scalar(
                 select(SymbolModelIterationModel.cohort_id)
-                .join(
-                    GameSymbolModelActivationModel,
-                    GameSymbolModelActivationModel.model_iteration_id
-                    == SymbolModelIterationModel.id,
-                )
-                .where(GameSymbolModelActivationModel.game_id == game_id)
+                .where(SymbolModelIterationModel.id == current.model_iteration_id)
                 .where(SymbolModelIterationModel.game_id == game_id)
-                .order_by(GameSymbolModelActivationModel.activation_number.desc())
                 .limit(1)
             ),
         )

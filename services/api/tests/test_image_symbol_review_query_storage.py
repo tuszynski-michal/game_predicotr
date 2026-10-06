@@ -16,7 +16,7 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     _CountedCellState,
     _excluded_cell_count_sql,
 )
-from game_predictor_api.storage.models import RecognizedBoardModel
+from game_predictor_api.storage.models import GameSymbolModelActivationModel, RecognizedBoardModel
 from sqlalchemy import select
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.exc import DBAPIError
@@ -31,6 +31,16 @@ class _ScalarSession:
     def scalar(self, statement: object) -> UUID | None:
         self.statement = statement
         return self.result
+
+
+class _ActivationSession:
+    def __init__(self, results: list[object]) -> None:
+        self.results = results
+        self.statements: list[object] = []
+
+    def scalar(self, statement: object) -> object:
+        self.statements.append(statement)
+        return self.results.pop(0)
 
 
 class _ExecuteSession:
@@ -94,17 +104,58 @@ def _compiled(statement: object) -> str:
 def test_active_model_cohort_uses_latest_activation_for_the_same_game() -> None:
     game_id = UUID(int=1)
     cohort_id = UUID(int=2)
-    session = _ScalarSession(cohort_id)
+    iteration_id = UUID(int=3)
+    current = GameSymbolModelActivationModel(
+        game_id=game_id, model_iteration_id=iteration_id, action="activate", activation_number=5
+    )
+    session = _ActivationSession([current, cohort_id])
     repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))
 
     assert repository.active_model_cohort_id(game_id) == cohort_id
 
-    sql = _compiled(session.statement)
-    assert "JOIN game_symbol_model_activations" in sql
-    assert "game_symbol_model_activations.game_id" in sql
-    assert "symbol_model_iterations.game_id" in sql
+    assert len(session.statements) == 2
+    activation_sql, cohort_sql = map(_compiled, session.statements)
+    assert f"game_symbol_model_activations.game_id = '{game_id}'" in activation_sql
+    assert "ORDER BY game_symbol_model_activations.activation_number DESC" in activation_sql
+    assert "LIMIT 1" in activation_sql
+    # Resolve the latest activation before reading its cohort. Joining first
+    # would silently fall back to an older activation after a deactivation.
+    assert "JOIN" not in activation_sql
+    assert f"symbol_model_iterations.id = '{iteration_id}'" in cohort_sql
+    assert f"symbol_model_iterations.game_id = '{game_id}'" in cohort_sql
+    assert "LIMIT 1" in cohort_sql
+
+
+@pytest.mark.parametrize("deactivated", [False, True])
+def test_missing_or_deactivated_latest_model_never_uses_an_old_cohort(deactivated: bool) -> None:
+    game_id = UUID(int=1)
+    current = (
+        GameSymbolModelActivationModel(
+            game_id=game_id, model_iteration_id=None, action="deactivate", activation_number=6
+        )
+        if deactivated
+        else None
+    )
+    session = _ActivationSession([current])
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))
+
+    assert repository.active_model_cohort_id(game_id) is None
+    assert len(session.statements) == 1
+    sql = _compiled(session.statements[0])
     assert "ORDER BY game_symbol_model_activations.activation_number DESC" in sql
     assert "LIMIT 1" in sql
+
+
+def test_active_lab_model_without_a_cohort_does_not_use_an_old_training_cohort() -> None:
+    game_id = UUID(int=1)
+    current = GameSymbolModelActivationModel(
+        game_id=game_id, model_iteration_id=UUID(int=3), action="activate", activation_number=6
+    )
+    session = _ActivationSession([current, None])
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, session))
+
+    assert repository.active_model_cohort_id(game_id) is None
+    assert len(session.statements) == 2
 
 
 def test_active_model_cohort_filter_requires_the_exact_current_crop_identity() -> None:

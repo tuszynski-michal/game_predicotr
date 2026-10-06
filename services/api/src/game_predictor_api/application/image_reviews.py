@@ -30,6 +30,7 @@ from game_predictor_api.domain.image_geometry_completeness import (
     LowQualityThresholds,
     SourceImageGeometryStatus,
 )
+from game_predictor_api.domain.image_geometry_v2 import SourceLatticeNodes
 from game_predictor_api.domain.image_reviews import (
     MAX_IMAGE_REVIEW_PAGE_SIZE,
     ImageDatasetCompleteness,
@@ -827,6 +828,8 @@ class OperationalImageReviewService:
         expected_resolution_revision: int,
         corners: Sequence[ImageReviewGeometryPoint],
         geometry_qualification: GeometryQualification | None = None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> VirtualGridGeometryPreview:
         """Render the cells a manual geometry would persist (D-467 S6, TASK-0796).
 
@@ -845,6 +848,8 @@ class OperationalImageReviewService:
                 expected_geometry_revision=expected_geometry_revision,
                 expected_resolution_revision=expected_resolution_revision,
                 corners=corners,
+                lattice_nodes=lattice_nodes,
+                expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
                 geometry_qualification=geometry_qualification,
             )
 
@@ -860,6 +865,8 @@ class OperationalImageReviewService:
         corners: Sequence[ImageReviewGeometryPoint],
         corrected_by: str,
         geometry_qualification: GeometryQualification | None = None,
+        lattice_nodes: SourceLatticeNodes | None = None,
+        expected_proposal_checksum_sha256: str | None = None,
     ) -> tuple[ImageReviewItem, VirtualGridGeometryRevision, bool]:
         """Persist a ``virtual_source`` geometry revision of one current board.
 
@@ -880,6 +887,8 @@ class OperationalImageReviewService:
                 expected_geometry_revision=expected_geometry_revision,
                 expected_resolution_revision=expected_resolution_revision,
                 corners=corners,
+                lattice_nodes=lattice_nodes,
+                expected_proposal_checksum_sha256=expected_proposal_checksum_sha256,
                 geometry_qualification=geometry_qualification,
                 actor=corrected_by,
                 created_at=datetime.now(UTC),

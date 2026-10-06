@@ -6,6 +6,22 @@ last_updated: 2026-08-23
 
 # Iteracyjne ulepszanie rozpoznawania symboli
 
+## Jawny pilot Mumii — D-521
+
+Operator wybrał wcześniejszy R2 RGB do pilota w głównej aplikacji.
+Kandydat z laboratorium zachowuje pochodzenie lab_import, AI/human origins oraz
+ograniczony zakres oceny. Nie jest kohortą zatwierdzeń DB ani dowodem accuracy
+całego filmu. Odrzucona para R2 i nowszy V5 pozostają odrzucone.
+Rejestracja i aktywacja pilota mają osobne preview; nowa iteracja treningowa
+zbiera wyłącznie kwalifikowane korekty zgodnie z poniższymi regułami.
+Wgranie folderu wykonuje inferencję, bez automatycznego treningu lub aktywacji.
+Korekta symbolu nie wymaga zmiany poprawnej geometrii.
+Nowe iteracje DB pilota gwarantują podział po całych zdjęciach, bez deklaracji
+niezależności filmów. Zamrożone kontrolne źródła R2 pozostają poza TRAIN także
+po imporcie, zatwierdzeniu i ponownym zakodowaniu zdjęcia. Brak zgodnego
+manifestu wykluczeń blokuje nowy trening, nie dalszy upload i korektę.
+Plan wykonania: delivery/MUMIE_MAIN_APP_PILOT_EXECUTION_PLAN_20261006.md.
+
 ## Cel
 
 System ma wykorzystywać ręcznie zweryfikowane cropy symboli do kolejnych,

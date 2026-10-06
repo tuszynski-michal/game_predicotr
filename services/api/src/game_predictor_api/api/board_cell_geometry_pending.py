@@ -43,6 +43,7 @@ from game_predictor_api.schemas.geometry_qualification import (
     GridCorrectionSymbolsResponse,
     to_grid_correction_symbols_response,
 )
+from game_predictor_api.schemas.source_lattice_geometry import to_source_lattice_nodes
 
 BoardCellGeometryPendingServiceDependency = Callable[..., object]
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
@@ -234,6 +235,8 @@ def create_board_cell_geometry_pending_router(
             expected_geometry_revision=payload.expected_geometry_revision,
             expected_resolution_revision=payload.expected_resolution_revision,
             corners=tuple(ImageReviewGeometryPoint(x=p.x, y=p.y) for p in payload.corners),
+            lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
+            expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
             geometry_qualification=(
                 None
                 if payload.geometry_qualification is None
@@ -279,6 +282,8 @@ def create_board_cell_geometry_pending_router(
                 expected_geometry_revision=payload.expected_geometry_revision,
                 expected_resolution_revision=payload.expected_resolution_revision,
                 corners=tuple(ImageReviewGeometryPoint(x=p.x, y=p.y) for p in payload.corners),
+                lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
+                expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
                 geometry_qualification=(
                     None
                     if payload.geometry_qualification is None
@@ -324,6 +329,8 @@ def create_board_cell_geometry_pending_router(
                 corners=tuple(
                     ImageReviewGeometryPoint(x=point.x, y=point.y) for point in payload.corners
                 ),
+                lattice_nodes=to_source_lattice_nodes(payload.lattice_nodes),
+                expected_proposal_checksum_sha256=payload.expected_proposal_checksum_sha256,
                 corrected_by=reviewer_actor or payload.corrected_by,
                 resolved_at=datetime.now(UTC),
                 geometry_qualification=(

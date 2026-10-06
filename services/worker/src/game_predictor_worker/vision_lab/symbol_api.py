@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException, Query
 
 from .annotation_contracts import BackupRequest, BackupResult
 from .symbol_contracts import (
+    BatchQueuePreview,
     CropRequest,
     DbCropPreview,
     DictionaryPage,
@@ -24,6 +25,8 @@ def symbol_error(error: Exception) -> HTTPException:
     message = str(error.args[0]) if error.args else type(error).__name__
     if isinstance(error, KeyError):
         return HTTPException(404, message)
+    if message == "SYMBOL_BATCH_REVIEW_NOT_CONFIGURED":
+        return HTTPException(503, message)
     if isinstance(error, OSError) or "INTEGRITY" in message or "CHECKSUM" in message:
         return HTTPException(500, "SYMBOL_INTEGRITY_OR_IO_ERROR")
     return HTTPException(409, message)
@@ -72,12 +75,16 @@ def install_symbol_routes(app: FastAPI, store: Callable[[], SymbolLabelStore]) -
 
     @app.post(
         "/symbol-crops",
-        response_model=LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview,
+        response_model=LabCropPreview
+        | DbCropPreview
+        | LabBoardPreview
+        | LabQueuePreview
+        | BatchQueuePreview,
         operation_id="preview_symbol_crop",
     )
     def preview(
         body: CropRequest,
-    ) -> LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview:
+    ) -> LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview | BatchQueuePreview:
         try:
             return store().preview(body)
         except (ValueError, KeyError, OSError) as error:

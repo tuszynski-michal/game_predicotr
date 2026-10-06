@@ -15,12 +15,14 @@ from game_predictor_api.application.jobs import SymbolModelSnapshotResolver
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.domain.symbol_model_snapshots import (
+    LAB_RGB_SYMBOL_MODEL_VERSION,
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
     bootstrap_symbol_model_snapshot,
     cold_start_unclassified_symbol_snapshot,
 )
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
+from game_predictor_api.storage.lab_symbol_candidate_validation import require_iteration_candidate
 from game_predictor_api.storage.models import (
     GameSymbolModelActivationModel,
     ImageSymbolReviewCellModel,
@@ -83,11 +85,31 @@ class SqlAlchemySymbolModelSnapshotResolver(SymbolModelSnapshotResolver):
                     "inference.",
                 )
             return bootstrap
+        if activation.action == "deactivate" or activation.model_iteration_id is None:
+            raise JobConflictError(
+                "SYMBOL_MODEL_ACTIVATION_REQUIRED",
+                "Symbol recognition is disabled for this game. Explicit activation is required.",
+            )
         iteration = self._session.get(SymbolModelIterationModel, activation.model_iteration_id)
         if iteration is None or iteration.game_id != game_id:
             raise JobConflictError(
                 "SYMBOL_MODEL_ACTIVE_ITERATION_MISSING",
                 "The active symbol model iteration is unavailable.",
+            )
+        if iteration.origin == "lab_import":
+            candidate = require_iteration_candidate(self._session, self._artifact_root, iteration)
+            lab_artifacts = cast(dict[str, dict[str, str]], candidate.manifest["artifacts"])
+            return SymbolModelJobSnapshot(
+                iteration_id=iteration.id,
+                model_version=LAB_RGB_SYMBOL_MODEL_VERSION,
+                manifest_checksum_sha256=candidate.manifest_sha256,
+                onnx_checksum_sha256=lab_artifacts["onnx"]["sha256"],
+                onnx_relative_path=lab_artifacts["onnx"]["relativePath"],
+                storage_root=SymbolModelStorageRoot.ARTIFACT,
+                class_codes=tuple(cast(list[str], candidate.manifest["classCodes"])),
+                input_size=64,
+                crop_size=96,
+                temperature=1.05,
             )
         manifest_path = self._managed_path(iteration.candidate_manifest_relative_path)
         manifest = self._verified_json(

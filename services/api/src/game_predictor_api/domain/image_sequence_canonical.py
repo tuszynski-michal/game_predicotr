@@ -125,7 +125,15 @@ class ImageSequenceCanonicalService:
         game_id: UUID,
         source_directory: Path | None = None,
         manifest: BrowserSequenceManifest | None = None,
+        confirmed_ranges: Mapping[str, tuple[int, int] | None] | None = None,
     ) -> ImageSequenceImportPreflight:
+        pilot_method = getattr(self._repository, "uses_neural_grid_pilot", None)
+        neural_pilot = bool(callable(pilot_method) and pilot_method(game_id))
+        if confirmed_ranges is not None and not neural_pilot:
+            raise JobConflictError(
+                "IMAGE_SEQUENCE_CONFIRMED_RANGE_UNSUPPORTED",
+                "Confirmed source ranges require the neural Mumie pilot.",
+            )
         if manifest is not None:
             source_file_count = len(manifest.files)
             ranges: list[tuple[str | Path, int, int, str]] = [
@@ -138,6 +146,12 @@ class ImageSequenceCanonicalService:
                 for item in manifest.files
                 if item.sequence_range is not None
             ]
+            if confirmed_ranges is not None:
+                ranges = [
+                    (path, selected[0], selected[1], checksum)
+                    for path, _start, _end, checksum in ranges
+                    if (selected := confirmed_ranges.get(checksum)) is not None
+                ]
         else:
             if source_directory is None:
                 raise ValueError("source_directory or manifest is required")
@@ -210,7 +224,9 @@ class ImageSequenceCanonicalService:
                 ),
                 None,
             )
-            if out_of_bounds is not None:
+            if out_of_bounds is not None and neural_pilot and confirmed_ranges is None:
+                warnings.append("IMAGE_SEQUENCE_CONFIRMED_RANGE_REQUIRED")
+            elif out_of_bounds is not None:
                 out_of_bounds_path, start, end = out_of_bounds
                 raise JobConflictError(
                     "IMAGE_SEQUENCE_PREFLIGHT_OUT_OF_BOUNDS",
@@ -223,7 +239,7 @@ class ImageSequenceCanonicalService:
                     },
                 )
         for range_path, start, end, _checksum in ranges:
-            if end - start + 1 != 9 and end != expected_layout_count:
+            if not neural_pilot and end - start + 1 != 9 and end != expected_layout_count:
                 raise JobConflictError(
                     "IMAGE_SEQUENCE_PREFLIGHT_SHORT_RANGE_NOT_TERMINAL",
                     "A shorter seq_* range is allowed only at the configured end of the game.",

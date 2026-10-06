@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 from collections.abc import Iterable, Mapping, Sequence
 from dataclasses import replace
 from datetime import datetime
@@ -44,6 +45,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     DirectCellRenderConfiguration,
     ImageGeometryContractError,
     SourceImageBounds,
+    SourceLatticeNodes,
     SourcePoint,
     SourceQuad,
     resolve_manual_geometry_qualification,
@@ -2088,9 +2090,9 @@ class SqlAlchemyVirtualGridGeometryRepository:
             extractor_version=rollout.virtual_renderer_version,
             preprocessing_version=rollout.preprocessing_version,
             interpolation=VIRTUAL_CELL_INTERPOLATION_VERSION,
-            output_width=model.input_size,
-            output_height=model.input_size,
-            padding_fraction=0.08,
+            output_width=model.crop_output_size,
+            output_height=model.crop_output_size,
+            padding_fraction=model.crop_padding_fraction,
         )
 
     def _current_row(
@@ -2706,6 +2708,25 @@ def _revision_from_model(
             "IMAGE_GRID_REVIEW_VIRTUAL_REVISION_INVALID",
             "The persisted virtual geometry revision is incomplete.",
         )
+    if (
+        record.virtual_render_spec.get("latticeNodes") is not None
+        or record.geometry.get("latticeNodes") is not None
+    ):
+        from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
+
+        try:
+            valid_lattice_checksum = hashlib.sha256(
+                canonical_json_bytes(record.virtual_render_spec)
+            ).hexdigest() == record.virtual_render_spec_checksum_sha256 and record.geometry.get(
+                "latticeNodes"
+            ) == record.virtual_render_spec.get("latticeNodes")
+        except (ValueError, TypeError):
+            valid_lattice_checksum = False
+        if not valid_lattice_checksum:
+            raise ImageGridReviewError(
+                "IMAGE_GRID_REVIEW_VIRTUAL_REVISION_INVALID",
+                "The persisted lattice geometry checksum differs.",
+            )
     raw_cells = record.virtual_render_spec.get("cells")
     if not isinstance(raw_cells, list):
         raise ImageGridReviewError(
@@ -2764,12 +2785,33 @@ def _revision_from_model(
         cells=tuple(cells),
         corrected_by=record.corrected_by,
         created_at=record.created_at,
+        lattice_nodes=_persisted_lattice(record.virtual_render_spec.get("latticeNodes")),
+        expected_proposal_checksum_sha256=cast(
+            str | None, record.geometry.get("neuralProposalChecksumSha256")
+        ),
         geometry_qualification=(
             GeometryQualification.from_dict(record.geometry["geometryQualification"])
             if isinstance(record.geometry.get("geometryQualification"), dict)
             else None
         ),
     )
+
+
+def _persisted_lattice(value: object) -> SourceLatticeNodes | None:
+    if value is None:
+        return None
+    if (
+        not isinstance(value, list)
+        or len(value) != 24
+        or any(not isinstance(point, dict) or set(point) != {"x", "y"} for point in value)
+    ):
+        raise ImageGridReviewError(
+            "IMAGE_GRID_REVIEW_VIRTUAL_REVISION_INVALID", "Persisted lattice nodes are invalid."
+        )
+    try:
+        return SourceLatticeNodes(tuple(SourcePoint(point["x"], point["y"]) for point in value))
+    except ImageGeometryContractError as error:
+        raise ImageGridReviewError(error.code, str(error)) from error
 
 
 __all__ = ["SqlAlchemyVirtualGridGeometryRepository"]

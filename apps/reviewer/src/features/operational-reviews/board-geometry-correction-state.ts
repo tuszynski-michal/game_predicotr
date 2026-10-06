@@ -8,6 +8,11 @@ import type {
 import { manualGridCellPolygons } from '@game-predictor/manual-image-selection-core/manual-grid-qualification';
 
 import type { OperationalReviewGeometryCorners } from './operational-review-state.ts';
+import {
+  boardLatticeTransportCorners,
+  boardLatticePayload,
+  type BoardLatticeNodes,
+} from './board-lattice-state.ts';
 
 /**
  * Pure helpers for a board from the correction queue (moved from the removed
@@ -60,9 +65,21 @@ export function gridReviewQualification(
 export function gridReviewGeometryPreviewCommand(
   item: ImageGridReviewItemResponse,
   corners: OperationalReviewGeometryCorners,
+  latticeNodes?: BoardLatticeNodes,
 ): ImageGridReviewGeometryPreviewCommand {
   return {
-    corners,
+    corners:
+      latticeNodes === undefined
+        ? corners
+        : boardLatticeTransportCorners(latticeNodes),
+    ...(latticeNodes === undefined
+      ? {}
+      : { latticeNodes: boardLatticePayload(latticeNodes) }),
+    ...(item.expectedProposalChecksumSha256 == null
+      ? {}
+      : {
+          expectedProposalChecksumSha256: item.expectedProposalChecksumSha256,
+        }),
     expectedGeometryRevision: item.geometryRevision,
     expectedGridColumns: item.gridColumns,
     expectedGridRows: item.gridRows,
@@ -135,9 +152,21 @@ export function gridCellsWithoutPixels(
   sourceWidth: number,
   sourceHeight: number,
 ): readonly number[] {
+  return gridCellPolygonsWithoutPixels(
+    manualGridCellPolygons(corners),
+    sourceWidth,
+    sourceHeight,
+  );
+}
+
+export function gridCellPolygonsWithoutPixels(
+  polygons: readonly (readonly { readonly x: number; readonly y: number }[])[],
+  sourceWidth: number,
+  sourceHeight: number,
+): readonly number[] {
   const right = sourceWidth - 1;
   const bottom = sourceHeight - 1;
-  return manualGridCellPolygons(corners).flatMap((polygon, index) =>
+  return polygons.flatMap((polygon, index) =>
     clippedArea(polygon, right, bottom) > 1e-6 ? [] : [index],
   );
 }

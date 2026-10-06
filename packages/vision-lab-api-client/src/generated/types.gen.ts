@@ -233,6 +233,131 @@ export type BackupResult = {
 };
 
 /**
+ * BatchCasePreview
+ */
+export type BatchCasePreview = {
+    /**
+     * Action
+     */
+    action: 'approve' | 'unreadable' | 'grid_issue' | null;
+    /**
+     * Board
+     */
+    board: number;
+    /**
+     * Case Id
+     */
+    case_id: string;
+    /**
+     * Category
+     */
+    category: string;
+    /**
+     * Decision Id
+     */
+    decision_id: string | null;
+    /**
+     * Field
+     */
+    field: number;
+    /**
+     * Filename
+     */
+    filename: string;
+    /**
+     * Photo Url
+     */
+    photo_url: string;
+    /**
+     * Pixel Sha256
+     */
+    pixel_sha256: string;
+    /**
+     * Png Base64
+     */
+    png_base64: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string | null;
+};
+
+/**
+ * BatchLabelDecide
+ */
+export type BatchLabelDecide = {
+    /**
+     * Action
+     */
+    action: 'approve' | 'unreadable' | 'grid_issue';
+    /**
+     * Actor
+     */
+    actor?: 'operator';
+    /**
+     * Case Id
+     */
+    case_id: string;
+    /**
+     * Expected Revision
+     */
+    expected_revision: number;
+    /**
+     * Op
+     */
+    op: 'batch_label_decide';
+    /**
+     * Reference Id
+     */
+    reference_id: string;
+    /**
+     * Request Id
+     */
+    request_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id?: string | null;
+};
+
+/**
+ * BatchQueuePreview
+ */
+export type BatchQueuePreview = {
+    dictionary: DictionaryView;
+    /**
+     * Items
+     */
+    items: Array<BatchCasePreview>;
+    /**
+     * Kind
+     */
+    kind: 'batch_queue';
+    /**
+     * Reference Id
+     */
+    reference_id: string;
+    /**
+     * Revision
+     */
+    revision: number;
+    /**
+     * Trainable
+     */
+    trainable: false;
+};
+
+/**
+ * BatchQueueRequest
+ */
+export type BatchQueueRequest = {
+    /**
+     * Kind
+     */
+    kind: 'batch_queue';
+};
+
+/**
  * Board
  */
 export type BoardInput = {
@@ -2606,7 +2731,9 @@ export type PreviewSymbolCropData = {
         kind: 'lab_board';
     } & LabBoardRequest) | ({
         kind: 'lab_queue';
-    } & LabQueueRequest);
+    } & LabQueueRequest) | ({
+        kind: 'batch_queue';
+    } & BatchQueueRequest);
     path?: never;
     query?: never;
     url: '/symbol-crops';
@@ -2627,7 +2754,7 @@ export type PreviewSymbolCropResponses = {
      *
      * Successful Response
      */
-    200: LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview;
+    200: LabCropPreview | DbCropPreview | LabBoardPreview | LabQueuePreview | BatchQueuePreview;
 };
 
 export type PreviewSymbolCropResponse = PreviewSymbolCropResponses[keyof PreviewSymbolCropResponses];
@@ -2770,7 +2897,9 @@ export type SaveSymbolDecisionData = {
         op: 'label_board_decide';
     } & LabelBoardDecide) | ({
         op: 'label_cells_decide';
-    } & LabelCellsDecide);
+    } & LabelCellsDecide) | ({
+        op: 'batch_label_decide';
+    } & BatchLabelDecide);
     path?: never;
     query?: never;
     url: '/symbols';

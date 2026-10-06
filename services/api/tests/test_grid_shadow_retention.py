@@ -18,6 +18,7 @@ from game_predictor_api.storage.browser_staging_retention_repository import (
 from game_predictor_api.storage.cleanup_repository import (
     SqlAlchemyCleanupRepository,
     _BoardSourceScope,
+    latest_deactivation_selected,
 )
 from sqlalchemy.orm import Session
 
@@ -52,6 +53,34 @@ def test_source_cleanup_preview_explicitly_blocks_preserved_shadow_history() -> 
         _BoardSourceScope, SimpleNamespace(game_id=uuid4(), source_ids=(uuid4(),), release_ids=())
     )
     assert repository._board_source_blockers(scope) == ["GRID_SHADOW_HISTORY_PRESENT"]
+
+
+def test_source_cleanup_cannot_remove_off_event_and_reveal_older_model() -> None:
+    model_b, model_a = uuid4(), uuid4()
+    activation_b, activation_a, deactivation = uuid4(), uuid4(), uuid4()
+    # B -> A -> deactivate(A). Deleting A's cohort selects the last off
+    # event through previous_model_iteration_id, even though its target is null.
+    history = [(deactivation, None), (activation_a, model_a), (activation_b, model_b)]
+    affected = latest_deactivation_selected(history, (deactivation, activation_a))
+    assert affected
+    assert not latest_deactivation_selected(history, (activation_a,))
+
+    class Repository(SqlAlchemyCleanupRepository):
+        def _count(self, sql, **parameters):
+            return 0
+
+    scope = cast(
+        _BoardSourceScope,
+        SimpleNamespace(
+            game_id=uuid4(),
+            source_ids=(),
+            release_ids=(),
+            deactivation_history_affected=affected,
+        ),
+    )
+    assert Repository(cast(Session, SessionDouble(0)))._board_source_blockers(scope) == [
+        "SYMBOL_MODEL_DEACTIVATION_HISTORY_PRESENT"
+    ]
 
 
 class GameCleanupSession:

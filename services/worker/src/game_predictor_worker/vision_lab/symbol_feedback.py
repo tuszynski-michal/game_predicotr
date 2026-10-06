@@ -539,8 +539,12 @@ def bind_source_location(manifest: Path, source_root: Path, reference: str) -> P
     return adapter.location_path
 
 
-def training_adapter(manifest: Path) -> SymbolTrainingAdapter | SymbolFeedbackAdapter:
+def training_adapter(manifest: Path) -> Any:
     metadata = read_checked(manifest)
+    if metadata.get("format") == "lab-symbol-ai-experiment-v1":
+        from .symbol_ai_experiment import SymbolAiExperimentAdapter
+
+        return SymbolAiExperimentAdapter(manifest)
     return (
         SymbolFeedbackAdapter(manifest)
         if metadata.get("format") == FORMAT

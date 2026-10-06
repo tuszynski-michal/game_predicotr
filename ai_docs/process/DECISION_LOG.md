@@ -1,10 +1,33 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 ---
 
 # Decision Log
+
+## D-505 — explicitly authorized isolated AI symbol experiment
+
+- **Status:** accepted implementation decision,2026-10-06, based on the user's
+  request to continue training autonomously and use internal AI to inspect graphics.
+- **Scope change:** supersedes D-502/D-504's no-pseudo-label boundary only for a
+  separate local experimental cohort. Two visual reviews bind exact PNG/source/
+  quad and the human-approved dictionary. Only high/high readable consensus
+  enters development, with `ai_visual_assessment` origin. No human decision is
+  created or changed; whole grids and Super presence are not approved.
+- **Controls:** immutable generation4/purpose symbol_ai_experiment, one bounded
+  pair, unchanged human84 validation and264/9 cohorts. Existing human18 sampling4,
+  AI sampling1. Preselected photo-disjoint withheld examples are a same-recording
+  appearance audit; report AI agreement, never human accuracy or blind film test.
+- **Human update before training:** consume19 new exact approvals at revision24,
+  retaining their original origin/history and weight4. All5 unreadable rasters
+  stay excluded from AI targets. Human decisions override AI on exact pixels.
+  Photos with new human training targets leave the deterministic withheld set
+  before the run; remaining photo-disjoint AI audits still need at least20 crops.
+- **Safety:** strict original adapters, full base/source/render/exclusion gates,
+  budgets/checkpoints and provenance survive restart. AI consensus may be wrong;
+  all-class human gates and reviewer findings are retained. No automatic activation,
+  database mutation, deployment or new paid external service.
 
 ## D-504 — qualified feedback inference and case-scoped review provenance
 

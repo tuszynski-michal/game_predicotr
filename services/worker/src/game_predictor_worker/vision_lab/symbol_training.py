@@ -28,7 +28,7 @@ from .run_files import verify_artifact
 from .runs import checkpoint_binding
 from .symbol_augmentation import VERSION as ROBUST_AUGMENTATION
 from .symbol_augmentation import augment as augment_appearance
-from .symbol_models import FEEDBACK_MODELS, ROBUST_MODELS, metrics, probabilities
+from .symbol_models import AI_MODELS, FEEDBACK_MODELS, ROBUST_MODELS, metrics, probabilities
 from .symbol_training_manifest import SymbolTrainingInputs
 from .training_adapter import RunControl
 
@@ -50,7 +50,13 @@ class SymbolDataset(Dataset[tuple[torch.Tensor, int]]):
         self.samples = [
             s["decision"]
             for s in inputs.preparation["samples"]
-            if inputs.payload["assignments"][s["decision"]["binding"]["source_id"]] == partition
+            if (partition == "ai_audit" and s.get("ai_audit") is True)
+            or (
+                partition != "ai_audit"
+                and not s.get("ai_audit", False)
+                and inputs.payload["assignments"][s["decision"]["binding"]["source_id"]]
+                == partition
+            )
         ]
         self.tensors = [
             load_image_tensor(inputs.bundle / "crops" / (s["binding"]["byte_sha256"] + ".png"), 64)
@@ -168,11 +174,14 @@ def train(
     torch.use_deterministic_algorithms(True)
     torch.set_num_threads(1)
     device = torch.device(device_name)
-    gray = request.model_version.endswith(("gray-v1", "gray-v2", "gray-v3"))
+    gray = request.model_version.endswith(("gray-v1", "gray-v2", "gray-v3", "gray-v4-ai"))
     feedback = request.model_version in FEEDBACK_MODELS
+    ai_experiment = request.model_version in AI_MODELS
     if feedback != (inputs.payload.get("purpose") == "symbol_crop_feedback"):
         raise ValueError("SYMBOL_FEEDBACK_GENERATION_BINDING_REQUIRED")
-    robust = request.model_version in (*ROBUST_MODELS, *FEEDBACK_MODELS)
+    if ai_experiment != (inputs.payload.get("purpose") == "symbol_ai_experiment"):
+        raise ValueError("SYMBOL_AI_GENERATION_BINDING_REQUIRED")
+    robust = request.model_version in (*ROBUST_MODELS, *FEEDBACK_MODELS, *AI_MODELS)
     classes = [entry["display_name"] for entry in inputs.preparation["dictionary"]["entries"]]
     train_data = SymbolDataset(inputs, "development", gray, request.seed, robust=robust)
     val_data = SymbolDataset(inputs, "validation", gray, request.seed)
@@ -220,7 +229,10 @@ def train(
         train_data.epoch = epoch
         model.train()
         loader = training_loader(
-            train_data, request.configuration.batch_size, generator, feedback=feedback
+            train_data,
+            request.configuration.batch_size,
+            generator,
+            feedback=feedback or ai_experiment,
         )
         for images, labels in loader:
             control.before_batch()
@@ -281,7 +293,7 @@ def train(
         "logits": val_logits.tolist(),
     }
     extra: dict[str, Any] = {}
-    if feedback:
+    if feedback or ai_experiment:
         indices = [
             i
             for i, s in enumerate(train_data.samples)
@@ -332,6 +344,33 @@ def train(
                 "draws_per_epoch": len(train_data) + 3 * len(indices),
             },
         }
+    if ai_experiment:
+        audit_data = SymbolDataset(inputs, "ai_audit", gray, request.seed)
+        audit_logits = evaluate(model, audit_data, request.configuration.batch_size, device)
+        ai_indices = [
+            i for i, s in enumerate(train_data.samples) if s.get("origin") == "ai_visual_assessment"
+        ]
+        extra["ai_experiment"] = {
+            "origin": "ai_visual_assessment",
+            "human_labels_written": 0,
+            "ai_training_samples": len(ai_indices),
+            "ai_training_agreement": result(
+                train_logits[ai_indices],
+                [train_data.labels[i] for i in ai_indices],
+                [train_data.samples[i]["decision_id"] for i in ai_indices],
+            ),
+            "withheld_ai_agreement": result(
+                audit_logits, audit_data.labels, [s["decision_id"] for s in audit_data.samples]
+            ),
+            "evaluated_after_model_selection": True,
+            "limitation": (
+                "AI consensus is fallible; same-film audit is not "
+                "human accuracy or independent film test"
+            ),
+        }
+        extra["sampling"]["policy"] = "human-feedback4-ai1-replacement-v1"
+        extra["sampling"]["ai_weight"] = 1
+        extra["sampling"]["ai_samples"] = len(ai_indices)
     onnx = export_onnx(model, val_data, control)
     return {
         "model_version": request.model_version,

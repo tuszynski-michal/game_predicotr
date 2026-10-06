@@ -6,6 +6,34 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0864 — autonomiczny przegląd AI i eksperyment Mumii (done)
+
+- D-505: jawna zgoda na nocny trening/wewnętrzne AI. Dwa blind review79 exact
+  crops z20 kotwicami klas; consensus high/high, pełne source/review provenance.
+- Nowe24 decyzje:19 approve z oryginalną historią/priorytetem i5 unreadable
+  wyłączonych z AI. Oryginalnehuman264/84/9 i18 korekt bez zmian.29 AI targets
+  i22 photo-disjoint AI audit z tego samego filmu, osobny format/purpose/gen4.
+-312 unikalnych development,423 draws/epoch; human feedback37 ma wagę4,
+  AI29 wagę1. Audit22 nie uczestniczy w treningu/wyborze/calibration.
+- Jedna para RGB/gray:20epok/280steps, attempt1, best8/6;535.908/604.668s.
+  Walidacja83/84 każda/fuzja, old18=18/18, new19=19/19 po treningu, diag9=9/9.
+  Wszystkie human perclass gates i ONNX parity84/gałąź PASS.
+- V3 przed treningiem new19: RGB15/gray4/fuzja10. AI audit22:21/22 RGB,
+  22/22 gray/fuzja względem V3 19/18/18; to AI agreement, nie human accuracy.
+-8100 identycznych cropów/540 siatek:39 zmian klas, disagreements37→22,
+  lowconfidence424→454. Accuracy=null; wynik mieszany, brak aktywacji.
+  Porcje20/20/20, nowy proces0 powtórzeń,61 output/5673 input SHA bez zmian.
+-85 pytest +14 artifact checks, Ruff/format/scoped mypy PASS. Osobne audyty
+  kodu/danych i re-render wszystkich8100 pól PASS, bez otwartychP0–P2.
+  DoD/9 acceptance criteria/plan1–7 spełnione; raport MUMIE_AI_OVERNIGHT_20261006.md.
+- Commit `v1.7.212`. Praca na feat/grid-engine-v3; wcześniejsze obce metadata
+  pominięte. Bez DB/migracji/usuwania, Super targets, grid approvals, aktywacji,
+  merge/push/wdrożenia.10 AI obserwacji złotej ramki nie są targetami Super.
+- Granica człowieka:26 pending crops (22 withheld +4 uncertain),
+  http://127.0.0.1:3102/symbols/batch; portal
+  http://127.0.0.1:8108/overnight-symbol-review/review.html. Saved runtime i lab
+  API45388/UI36508 ownership/ready PASS. Nie potrzeba nowego folderu/30 na klasę.
+
 ### TASK-0863 — trzeci niezależny katalog Mumii (done)
 
 - Follow-up `v1.7.211`: instrukcja restart/status używa zweryfikowanego

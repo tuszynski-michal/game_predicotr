@@ -160,7 +160,7 @@ def test_request_cannot_enter_other_registry(change):
         validate_request(request().model_copy(update=change))
 
 
-@pytest.mark.parametrize("generation", [1, 2, 3])
+@pytest.mark.parametrize("generation", [1, 2, 3, 4])
 def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
     tmp_path, monkeypatch, generation
 ):
@@ -175,19 +175,33 @@ def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
         req = req.model_copy(
             update={"model_version": pair[0], "preprocessing_version": PREPROCESSING[pair[0]]}
         )
-    if generation == 3:
+    if generation in (3, 4):
         development = next(
             s
             for s in inputs.preparation["samples"]
             if inputs.payload["assignments"][s["decision"]["binding"]["source_id"]] == "development"
         )
-        inputs.payload["purpose"] = "symbol_crop_feedback"
+        inputs.payload["purpose"] = (
+            "symbol_crop_feedback" if generation == 3 else "symbol_ai_experiment"
+        )
         inputs.payload["feedback_sample_ids"] = [development["decision"]["decision_id"]]
         diagnostic = deepcopy(inputs.preparation["samples"][0])
         diagnostic["decision"]["decision_id"] = "diagnostic-only"
         diagnostic["decision"]["binding"]["source_id"] = "diagnostic-source"
         inputs.preparation["samples"].append(diagnostic)
         inputs.payload["assignments"]["diagnostic-source"] = "diagnostic_test"
+        if generation == 4:
+            audit = deepcopy(diagnostic)
+            audit["decision"]["decision_id"] = "ai-withheld"
+            audit["decision"]["origin"] = "ai_visual_assessment"
+            audit["decision"]["binding"]["source_id"] = "ai-source"
+            audit["ai_audit"] = True
+            inputs.preparation["samples"].append(audit)
+            inputs.payload["assignments"]["ai-source"] = "development"
+            ai = deepcopy(development)
+            ai["decision"]["decision_id"] = "ai-training"
+            ai["decision"]["origin"] = "ai_visual_assessment"
+            inputs.preparation["samples"].append(ai)
     # Numerical export is verified separately; this test targets exact durable continuation.
     monkeypatch.setattr(module, "export_onnx", lambda *_: {"status": "test-separated"})
 
@@ -216,6 +230,14 @@ def test_exact_resume_keeps_rng_optimizer_best_and_consumed_steps(
         assert measured["diagnostic_test"]["predictions"]["sample_ids"] == ["diagnostic-only"]
         assert measured["development"]["samples"] == 1
         assert measured["feedback_regression"]["metrics"]["samples"] == 1
+    if generation == 4:
+        assert measured["sampling"]["ai_samples"] == 1
+        assert measured["sampling"]["ai_weight"] == 1
+        assert measured["sampling"]["draws_per_epoch"] == 5
+        assert measured["development"]["samples"] == 2
+        audit = measured["ai_experiment"]["withheld_ai_agreement"]["predictions"]
+        assert audit["sample_ids"] == ["ai-withheld"]
+        assert measured["ai_experiment"]["evaluated_after_model_selection"]
     complete = full.finish(run.id, token(run), status="succeeded", metrics=measured)
     original = load_checkpoint(
         verify_artifact(full.root, complete.checkpoint),
@@ -285,7 +307,7 @@ def test_feedback_registry_and_old_cohort_cannot_be_mixed(tmp_path):
     with pytest.raises(ValueError, match="GENERATION_BINDING_REQUIRED"):
         train(inputs, req, None, device_name="cpu")
     with pytest.raises(ValueError, match="GENERATION_INVALID"):
-        model_pair(4)
+        model_pair(5)
 
 
 def test_feedback_sampler_has_exact_weights_and_checkpoint_generator(tmp_path):

@@ -1,10 +1,24 @@
 ---
 title: Laboratorium geometrii i symboli — architektura
 status: accepted
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 ---
 
 # Architektura laboratorium wizji
+
+## AI experimental adapter (D-505)
+
+An explicit separate symbol_ai_experiment format composes the fully validated
+feedback base with conservative AI review targets and exact source-bound PNGs.
+It reuses SymbolTrainingInputs and durable SymbolRunManager via optional format
+dispatch; strict D-498/D-502 adapters reject it. Generation4 is isolated from
+production and prior runs. The manifest pins both reviews, source batch and
+all rasters; human validation remains byte-identical. Human feedback weight4,
+AI weight1 and withheld photo isolation survive checkpoint/RNG replay.
+An optional exact human-feedback pack preserves current decision/history/source
+bindings. It contributes original human targets at weight4 and excludes every
+human-reviewed raster from AI targets. Photos with human-training targets cannot
+enter the AI audit; no human store is mutated by the experimental adapter.
 
 ## Feedback batch context and review provenance (D-504)
 

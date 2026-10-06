@@ -7,6 +7,7 @@ import numpy as np
 MODELS = ("mumie-symbol-rgb-v1", "mumie-symbol-gray-v1")
 ROBUST_MODELS = ("mumie-symbol-rgb-v2", "mumie-symbol-gray-v2")
 FEEDBACK_MODELS = ("mumie-symbol-rgb-v3", "mumie-symbol-gray-v3")
+AI_MODELS = ("mumie-symbol-rgb-v4-ai", "mumie-symbol-gray-v4-ai")
 PREPROCESSING = {
     MODELS[0]: "rgb-resize64-normalize-half-v1",
     MODELS[1]: "rgb-resize64-normalize-half-gray3-v1",
@@ -14,13 +15,15 @@ PREPROCESSING = {
     ROBUST_MODELS[1]: "rgb-resize64-normalize-half-gray3-v1",
     FEEDBACK_MODELS[0]: "rgb-resize64-normalize-half-v1",
     FEEDBACK_MODELS[1]: "rgb-resize64-normalize-half-gray3-v1",
+    AI_MODELS[0]: "rgb-resize64-normalize-half-v1",
+    AI_MODELS[1]: "rgb-resize64-normalize-half-gray3-v1",
 }
 
 
 def model_pair(generation: int = 1) -> tuple[str, str]:
-    if generation not in (1, 2, 3):
+    if generation not in (1, 2, 3, 4):
         raise ValueError("SYMBOL_GENERATION_INVALID")
-    return (MODELS, ROBUST_MODELS, FEEDBACK_MODELS)[generation - 1]
+    return (MODELS, ROBUST_MODELS, FEEDBACK_MODELS, AI_MODELS)[generation - 1]
 
 
 def require_robust_qualification(measured: dict[str, Any]) -> None:

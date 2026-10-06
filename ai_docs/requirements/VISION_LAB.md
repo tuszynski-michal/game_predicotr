@@ -1,10 +1,24 @@
 ---
 title: Laboratorium geometrii i symboli — wymagania
 status: accepted
-last_updated: 2026-10-05
+last_updated: 2026-10-06
 ---
 
 # Laboratorium wizji
+
+## Isolated AI-assisted experiment (D-505)
+
+The user's2026-10-06 autonomous-training/internal-AI instruction permits a
+separate experimental symbol cohort with explicit ai_visual_assessment origin.
+Two blind, exact-raster visual reviews must agree high/high on a readable crop.
+Human approvals and raw batch trainable=false remain untouched. Preserve full
+source/dictionary/base/exclusion gates and frozen human validation. Withheld
+photo-disjoint AI examples from the same film measure AI agreement only.
+One bounded generation4 pair cannot automatically qualify or activate production.
+No AI-derived Super targets or whole-grid approvals are created.
+New exact human approvals retain original provenance and take priority over AI;
+operator unreadable/grid_issue decisions exclude those rasters. New human-training
+photos cannot be in the AI audit; selection is frozen before any experiment run.
 
 ## Qualified feedback diagnosis (D-504)
 

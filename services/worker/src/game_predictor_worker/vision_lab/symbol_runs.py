@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import subprocess
+import sys
 import threading
 from contextlib import suppress
 from pathlib import Path
@@ -16,8 +17,9 @@ from .run_contracts import RunMutation, RunState, StartRunRequest, TrainingConfi
 from .run_files import verify_artifact
 from .runs import RunManager, Token
 from .snapshot import canonical
-from .symbol_feedback import SymbolFeedbackAdapter, training_adapter
+from .symbol_feedback import training_adapter
 from .symbol_models import (
+    AI_MODELS,
     FEEDBACK_MODELS,
     MODELS,
     PREPROCESSING,
@@ -37,7 +39,7 @@ BOOT = (
 
 def validate_request(request: StartRunRequest) -> None:
     if (
-        request.model_version not in (*MODELS, *ROBUST_MODELS, *FEEDBACK_MODELS)
+        request.model_version not in (*MODELS, *ROBUST_MODELS, *FEEDBACK_MODELS, *AI_MODELS)
         or request.protocol_digest is not None
         or request.preprocessing_version != PREPROCESSING.get(request.model_version)
         or request.topology.columns != 5
@@ -125,10 +127,12 @@ def build_manager(root: Path, settings: dict[str, str], launcher: Any = None) ->
     adapter = training_adapter(Path(settings["manifest"]))
     # Check output isolation from every pinned live input, including labels and source files.
     inputs = adapter.validate()
-    extra_paths = adapter.protected_paths() if isinstance(adapter, SymbolFeedbackAdapter) else []
+    extra_paths = adapter.protected_paths() if hasattr(adapter, "protected_paths") else []
     generation = int(settings.get("generation", "1"))
     if (generation == 3) != (inputs.payload.get("purpose") == "symbol_crop_feedback"):
         raise ValueError("SYMBOL_FEEDBACK_GENERATION_BINDING_REQUIRED")
+    if (generation == 4) != (inputs.payload.get("purpose") == "symbol_ai_experiment"):
+        raise ValueError("SYMBOL_AI_GENERATION_BINDING_REQUIRED")
     for name in [
         str(adapter.manifest),
         str(inputs.bundle),
@@ -197,7 +201,7 @@ def main() -> None:
     for name in ("root", "manifest", "python"):
         start.add_argument("--" + name, type=Path, required=True)
     start.add_argument("--variant", choices=("rgb", "gray"), required=True)
-    start.add_argument("--generation", type=int, choices=(1, 2, 3), default=1)
+    start.add_argument("--generation", type=int, choices=(1, 2, 3, 4), default=1)
     status = sub.add_parser("status")
     status.add_argument("--root", type=Path, required=True)
     resume = sub.add_parser("resume")
@@ -224,16 +228,27 @@ def main() -> None:
     if args.action == "start" and args.generation != 1:
         settings["generation"] = str(args.generation)
     pair = model_pair(int(settings.get("generation", "1")))
+    if settings.get("generation") == "4":
+        print("Validating pinned AI experiment inputs.", file=sys.stderr, flush=True)
     manager = build_manager(args.root, settings)
+    if settings.get("generation") == "4":
+        print(
+            "AI experiment inputs validated; continuing durable operation.",
+            file=sys.stderr,
+            flush=True,
+        )
     if args.action == "worker":
         execute(manager, args.run, (args.attempt, args.fence, args.lease))
         return
     if args.action == "start":
         model = pair[0 if args.variant == "rgb" else 1]
         request = StartRunRequest(
-            request_id={1: "mumie-first-", 2: "mumie-robust-", 3: "mumie-feedback-"}[
-                args.generation
-            ]
+            request_id={
+                1: "mumie-first-",
+                2: "mumie-robust-",
+                3: "mumie-feedback-",
+                4: "mumie-ai-",
+            }[args.generation]
             + args.variant,
             manifest_id=args.manifest.stem,
             model_version=model,

@@ -6,6 +6,31 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0866 — większa próba transferu z istniejących katalogów (done)
+
+- Trzy katalogi potwierdzone: 2580/2052/2844 zdjęcia. Nie potrzeba kolejnego
+  folderu ani ponownego potwierdzenia nagrań. Pierwszy film ma 0 source overlap
+  z actual development312; strict exclusions: 6 duplikatów,66 wykluczonych,
+  2508 eligible,60 równomiernych zdjęć z whole-photo guardami.
+- Frozen V3/V4: 8100 identycznych cropów,540 plansz,0 unavailable,100 zmian
+  klasy,disagreements89→54,lowconfidence461→472. Accuracy=null. Geometria była
+  częściowo trenowana na tym filmie; wcześniejsze diagnostic9 użyte w regresji.
+- Ready packet 4af49619…7f9d91: 50 kontroli wybranych przed inference i10
+  odrębnych kierowanych przypadków,60 zdjęć,0 missing,revision0/trainable=false,
+  bez pseudo-zgód. Edytor http://127.0.0.1:3102/symbols/batch; korekta symbolu
+  bez zmiany dobrej siatki. Poprzednie26/revision27 i61 oryginalnych wyników zachowane.
+- Saved runtime z byte backupem; API23640/UI35108 owned/ready po restarcie.
+  Read-only direct/proxy60PNG:0.516/0.297s,galerie/editor200. API8000 nietknięte.
+- 71 focused pytest; seven helper Ruff/format/scoped strict mypy PASS. Nowy
+  proces:8539 inputSHA/372 outputfiles identyczne,rerender8100,actualONNX60,
+  4 negatives PASS. Niezależny final audit PASS, bez otwartychP0–P2.
+- DoD/7criteria/plan1–5 spełnione; quality MUMIE_CROSS_RECORDING_20261006.md.
+  Commit `v1.7.214`; branch feat/grid-engine-v3, wcześniejsze metadata pominięte.
+  Bez nowych training/calibration/activation,DB/Super/merge/push/wdrożenia.
+- Wymagana następna interakcja: oznaczenie gotowych60 cropów. Potem human
+  evaluation frozen pary,control50 i directed10 osobno; first film pozostaje
+  poza development. Nie powtarzać wcześniejszych26 oznaczeń.
+
 ### TASK-0865 — ocena modeli na nowych oznaczeniach człowieka (done)
 
 -26 latest approve/revision27 qualified exact pack, pełne history/receipt/source

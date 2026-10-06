@@ -7,6 +7,7 @@ from uuid import uuid4
 
 import pytest
 from game_predictor_api.domain.image_geometry_v2 import AttestedSequenceRange
+from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
 from game_predictor_api.domain.neural_grid_proposal import build_neural_source_binding
 from game_predictor_worker.images.board_cell_geometry_activation import (
     board_cell_processing_snapshot,
@@ -16,6 +17,7 @@ from game_predictor_worker.images.neural_page_geometry_preflight import (
     NeuralPageGeometryPreflightHandler,
 )
 from game_predictor_worker.images.neural_pending_geometry import bound_neural_originals
+from game_predictor_worker.images.normalization import CanonicalSourceLoader
 from game_predictor_worker.images.pipeline_execution import (
     ImageStageContext,
     validate_stage_payload,
@@ -28,8 +30,9 @@ from game_predictor_worker.images.source_ingestion import ManagedOriginalStore
 from test_neural_page_geometry_preflight import Context, Models, Runner, job_fixture, result
 
 
+@pytest.mark.parametrize("automatic", [False, True])
 def test_folder_to_pending_draft_keeps_missing_middle_and_full_nodes(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, automatic: bool
 ) -> None:
     job, checksums = job_fixture(tmp_path)
     root = tmp_path / "artifacts"
@@ -62,6 +65,7 @@ def test_folder_to_pending_draft_keeps_missing_middle_and_full_nodes(
         root,
         repository_root=tmp_path,
         manual_geometry_import=True,
+        neural_execution_policy=NEURAL_AUTO_CROP_POLICY if automatic else None,
         page_geometry_manifest=entries,
         board_cell_processing=board_cell_processing_snapshot(
             cell_output_size=96,
@@ -71,17 +75,14 @@ def test_folder_to_pending_draft_keeps_missing_middle_and_full_nodes(
             defer=lambda _context, **kwargs: deferred.append(kwargs)
         ),
     )
+    frame = CanonicalSourceLoader().load(
+        Path(job.input_payload["source_directory"]) / "00000000.jpg",
+        expected_source_checksum_sha256=checksums[0],
+    )
     monkeypatch.setattr(
         suite,
         "_canonical_source",
-        lambda _context: SimpleNamespace(
-            source=SimpleNamespace(
-                source_checksum_sha256=checksums[0],
-                normalized_pixel_checksum_sha256="e" * 64,
-                width=500,
-                height=300,
-            )
-        ),
+        lambda _context: frame,
     )
     stage = ImageStageContext(
         job_id=job.id,
@@ -107,13 +108,31 @@ def test_folder_to_pending_draft_keeps_missing_middle_and_full_nodes(
     stage = replace(
         stage,
         previous_results={
-            "normalization": {},
+            "normalization": {
+                "normalizedPixelChecksumSha256": frame.source.normalized_pixel_checksum_sha256
+            },
             "board_detection": detection,
             "board_cell_geometry": geometry,
         },
     )
     crops = suite.board_crops(stage)
     validate_stage_payload("board_crops", crops, stage)
+    if automatic:
+        assert [item["positionIndex"] for item in crops["boards"]] == [0, 1, 3, 4]
+        assert [item["sequence_number"] for item in deferred] == [103]
+        assert [item["positionIndex"] for item in crops["deferredBoards"]] == [2]
+        assert sum(len(item["cells"]) for item in crops["boards"]) == 60
+        render = suite._virtual_renders(stage)[2]
+        # An interior point displaced by the detector must reach the renderer.
+        spec_nodes = render.render_spec["sourceQuad"]
+        assert proposal["detections"][0]["latticeNodes"][8] in spec_nodes
+        assert geometry["structuredGeometry"]["status"] == "needs_review"
+        assert all(item["geometryEngineName"] == "neural_grid_v1" for item in crops["boards"])
+        stage = replace(stage, previous_results={**stage.previous_results, "board_crops": crops})
+        ocr = suite.sequence_ocr(stage)
+        validate_stage_payload("sequence_ocr", ocr, stage)
+        assert [item["normalizedNumber"] for item in ocr["boards"]] == [101, 102, 104, 105]
+        return
     assert crops["boards"] == []
     assert [board["positionIndex"] for board in crops["deferredBoards"]] == list(range(5))
     stage = replace(stage, previous_results={**stage.previous_results, "board_crops": crops})

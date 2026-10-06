@@ -4339,6 +4339,31 @@ class SqlAlchemyImageSymbolReviewRepository:
         state.count_projection_failure_message = None
         self._session.flush()
 
+    def ensure_current_count_projection_next_batch(
+        self, game_id: UUID, *, batch_size: int = 5_000
+    ) -> bool:
+        """Finish historical count repair without rescanning a ready projection."""
+        state = self._session.get(ImageSymbolReviewStateModel, game_id, with_for_update=True)
+        if (
+            state is not None
+            and state.count_projection_status == "ready"
+            and _count_semantics_current(state)
+        ):
+            return True
+        if state is None:
+            raise SymbolCellReviewBackfillError(
+                "SYMBOL_CELL_REVIEW_COUNT_REBUILD_NOT_READY",
+                "The symbol-cell projection must exist before counts are rebuilt.",
+            )
+        # Reuse the persisted accumulator on a cold handler retry. The normal
+        # backfill may have republished crop readiness before reaching this step.
+        if (
+            state.count_projection_status != "rebuilding"
+            or state.count_rebuild_accumulator.get("_building") != _COUNT_SEMANTICS
+        ):
+            self.start_count_rebuild(game_id)
+        return self.rebuild_count_projection_next_batch(game_id, batch_size=batch_size)
+
     def rebuild_count_projection_next_batch(
         self,
         game_id: UUID,

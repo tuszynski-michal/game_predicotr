@@ -649,6 +649,11 @@ def test_all_unbound_neural_sources_start_and_replay_without_invented_boards(tmp
     assert started.json()["created"] is True
     frozen = repository.get_job(UUID(started.json()["job"]["id"]))
     assert frozen.input_payload["neural_grid_proposal"] == value["engineSnapshot"]
+    assert frozen.input_payload["neural_grid_execution_policy_version"] == "neural-auto-crop-v1"
+    assert (
+        started.json()["job"]["inputPayload"]["neuralGridExecutionPolicyVersion"]
+        == "neural-auto-crop-v1"
+    )
     replay = client.post(prefix + "/start", json=command)
     assert replay.status_code == 201, replay.text
     assert replay.json()["created"] is False

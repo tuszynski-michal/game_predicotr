@@ -22,6 +22,11 @@ Import i korekta używają tego samego wersjonowanego CPU preprocessingu.
 D-522 dopuszcza bieżącą ręcznie zatwierdzoną siatkę przypisanego slotu sieci
 do własnej projekcji cropów podczas korekty pojedynczej planszy. Historyczny
 backfill gry i pozostałe sloty nie stanowią warunku zapisu wskazanego symbolu.
+Wersjonowana polityka D-523 umożliwia też użycie pełnych przewidywanych
+lattice do bieżącej projekcji pending. Zachowuje wszystkie punkty i oddziela
+operacyjną dostępność cropów od approval oraz kwalifikacji treningowej.
+Human geometry/labels/quality issues chronią aktualnego właściciela podczas
+reprocessu. Globalną historyczną gotowość odzyskuje istniejący backfill.
 Nie zmienia to globalnej gotowości katalogu, kwalifikacji kohort ani ochrony
 bieżącej tożsamości cropa. Widoczność wyznaczają dokładne węzły renderu.
 R2 renderuje pełny źródłowy quad RGB96 bez insetu (padding0.0), z wersją

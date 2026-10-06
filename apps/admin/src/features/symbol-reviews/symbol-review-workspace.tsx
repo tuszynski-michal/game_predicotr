@@ -235,6 +235,7 @@ export function SymbolReviewWorkspace({
   const pageRequestId = useRef(0);
   const countsRequestId = useRef(0);
   const projectionRequestId = useRef(0);
+  const projectionRecoveryAttempted = useRef(new Set<string>());
   const filtersRef = useRef<SymbolReviewFilters>(INITIAL_FILTERS);
   const pagingRef = useRef(false);
   const pagePositionRef = useRef<SymbolReviewPagePosition>({ number: 1 });
@@ -332,6 +333,7 @@ export function SymbolReviewWorkspace({
       setMarkBlurry(false);
       setSourceContextItem(null);
       if (previousFilters.gameId !== nextFilters.gameId) {
+        setProjectionStarting(false);
         setSymbols([]);
         setSymbolsState(nextFilters.gameId === null ? 'ready' : 'loading');
         setProjectionStatus(null);
@@ -533,11 +535,31 @@ export function SymbolReviewWorkspace({
   }, [api, filters.gameId, reloadRevision]);
 
   useEffect(() => {
+    const gameId = filters.gameId;
     if (
-      filters.gameId === null ||
-      (projectionStatus?.status !== 'rebuilding' &&
-        projectionStatus?.activeJobId === null)
-    ) {
+      gameId === null ||
+      projectionStatus?.gameId !== gameId ||
+      projectionStatus?.status !== 'rebuilding' ||
+      projectionStatus.activeJobId !== null ||
+      projectionRecoveryAttempted.current.has(gameId)
+    )
+      return;
+    projectionRecoveryAttempted.current.add(gameId);
+    setProjectionStarting(true);
+    void startSymbolReviewProjection(api, gameId).then((result) => {
+      if (filtersRef.current.gameId !== gameId) return;
+      setProjectionStarting(false);
+      if (!result.ok) {
+        setError(result.error);
+        return;
+      }
+      setProjectionStatus(result.value.projection);
+      setProjectionState('ready');
+    });
+  }, [api, filters.gameId, projectionStatus]);
+
+  useEffect(() => {
+    if (filters.gameId === null || projectionStatus?.activeJobId == null) {
       return;
     }
     const gameId = filters.gameId;
@@ -562,7 +584,7 @@ export function SymbolReviewWorkspace({
         setPageState('loading');
       }
       setProjectionStatus(result.status);
-      if (result.status.status === 'rebuilding') {
+      if (result.status.activeJobId !== null) {
         timerId = window.setTimeout(() => void poll(), 2_000);
       }
     };
@@ -988,9 +1010,11 @@ export function SymbolReviewWorkspace({
 
   async function prepareProjection() {
     if (filters.gameId === null || projectionStarting) return;
+    const gameId = filters.gameId;
     setProjectionStarting(true);
     setError('');
-    const result = await startSymbolReviewProjection(api, filters.gameId);
+    const result = await startSymbolReviewProjection(api, gameId);
+    if (filtersRef.current.gameId !== gameId) return;
     setProjectionStarting(false);
     if (!result.ok) {
       setError(result.error);
@@ -1642,6 +1666,9 @@ export function SymbolReviewWorkspace({
 
       {projectionStatus?.status === 'ready' && currentPage !== null ? (
         <SymbolReviewSelectionToolbar
+          allowApproval={
+            activeGame?.shapeGeometryConfiguration === 'grid_profile_mumie_v1'
+          }
           busy={interactionBusy}
           hasNoImageSelection={selectedWithoutImage}
           canSelectVisible={currentItems.length > 0}
@@ -2081,6 +2108,7 @@ function symbolReviewCardBadge(
 }
 
 function SymbolReviewSelectionToolbar({
+  allowApproval = false,
   busy,
   hasNoImageSelection,
   canSelectVisible,
@@ -2101,6 +2129,7 @@ function SymbolReviewSelectionToolbar({
   symbols,
   readOnly,
 }: {
+  readonly allowApproval?: boolean;
   readonly busy: boolean;
   readonly hasNoImageSelection: boolean;
   readonly canSetSymbolImage: boolean;
@@ -2149,9 +2178,13 @@ function SymbolReviewSelectionToolbar({
       <div className={styles.toolbarActions}>
         <button
           className="primaryButton"
-          disabled={true}
+          disabled={!allowApproval || actionsDisabled || hasNoImageSelection}
           onClick={onApprove}
-          title="Masowe zatwierdzanie jest obecnie wyłączone."
+          title={
+            allowApproval
+              ? 'Zatwierdź ocenione cropy z bieżącym obrazem.'
+              : 'Masowe zatwierdzanie jest obecnie wyłączone.'
+          }
           type="button"
         >
           Zatwierdź
@@ -2432,14 +2465,15 @@ function SymbolReviewProjectionStatus({
   readonly starting: boolean;
   readonly status: SymbolCellReviewProjectionStatusResponse;
 }) {
-  const canStart =
-    status.status === 'not_started' || status.status === 'failed';
+  const canStart = status.activeJobId === null && status.status !== 'ready';
   const title =
     status.status === 'not_started'
       ? 'Przygotuj weryfikację symboli'
       : status.status === 'failed'
         ? 'Przygotowanie wymaga uwagi'
-        : 'Trwa przygotowanie weryfikacji symboli';
+        : status.activeJobId === null
+          ? 'Przygotowanie wymaga wznowienia'
+          : 'Trwa przygotowanie weryfikacji symboli';
   return (
     <section
       aria-live="polite"
@@ -2477,7 +2511,7 @@ function SymbolReviewProjectionStatus({
         >
           {starting
             ? 'Uruchamianie…'
-            : status.status === 'failed'
+            : status.status !== 'not_started'
               ? 'Wznów przygotowanie'
               : 'Przygotuj weryfikację symboli'}
         </button>

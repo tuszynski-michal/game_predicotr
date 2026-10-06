@@ -281,6 +281,7 @@ class ImageGeometryRolloutJobSnapshotPayload(ApiModel):
 
 
 class ImageImportJobPayload(ApiModel):
+    neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
     neural_grid_proposal: NeuralGridSnapshotPayload | None = None
     schema_version: Literal[2]
     import_kind: Literal["image_directory"]
@@ -339,6 +340,7 @@ class ImageGeometryGuardResolutionManifestJobPayload(ApiModel):
 
 
 class BrowserImageImportJobPayload(ApiModel):
+    neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
     neural_grid_proposal: NeuralGridSnapshotPayload | None = None
     schema_version: Literal[5]
     import_kind: Literal["image_directory"]
@@ -362,6 +364,7 @@ class BrowserImageImportJobPayload(ApiModel):
 
 
 class ResolvedBrowserImageImportJobPayload(ApiModel):
+    neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
     neural_grid_proposal: NeuralGridSnapshotPayload | None = None
     managed_source_job_id: UUID | None = None
     managed_source_manifest_checksum_sha256: str | None = Field(
@@ -431,6 +434,8 @@ class ManagedImageReprocessJobPayload(ApiModel):
 
 
 class PinnedManagedImageReprocessJobPayload(ApiModel):
+    neural_grid_execution_policy_version: Literal["neural-auto-crop-v1"] | None = None
+    neural_grid_proposal: NeuralGridSnapshotPayload | None = None
     schema_version: Literal[6]
     import_kind: Literal["image_directory"]
     source_selection_id: UUID

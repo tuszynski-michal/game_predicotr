@@ -16,6 +16,10 @@ Rejestracja i aktywacja pilota mają osobne preview; nowa iteracja treningowa
 zbiera wyłącznie kwalifikowane korekty zgodnie z poniższymi regułami.
 Wgranie folderu wykonuje inferencję, bez automatycznego treningu lub aktywacji.
 Korekta symbolu nie wymaga zmiany poprawnej geometrii.
+Polityka automatycznego cięcia D-523 udostępnia przewidywania do zbiorczej
+weryfikacji bez ręcznej akceptacji każdej planszy. Nadal wyłącznie człowiek
+zatwierdza bieżące piksele jako przykład treningowy; ponowne przetwarzanie
+nie zmienia już zapisanych ręcznych decyzji.
 Nowe iteracje DB pilota gwarantują podział po całych zdjęciach, bez deklaracji
 niezależności filmów. Zamrożone kontrolne źródła R2 pozostają poza TRAIN także
 po imporcie, zatwierdzeniu i ponownym zakodowaniu zdjęcia. Brak zgodnego

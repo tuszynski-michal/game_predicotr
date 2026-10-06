@@ -660,6 +660,29 @@ class SqlAlchemyImagePipelineStore:
                         )
                     if completeness_status == "complete":
                         projected_positions += 1
+                    if (
+                        job.input_payload.get("neural_grid_execution_policy_version")
+                        == "neural-auto-crop-v1"
+                    ):
+                        # A new operational result replaces only unreviewed
+                        # deferred records for this exact source and sequence.
+                        old_pending = session.scalars(
+                            select(ImageBoardGeometryPendingModel)
+                            .where(
+                                ImageBoardGeometryPendingModel.game_id == job.game_id,
+                                ImageBoardGeometryPendingModel.source_checksum_sha256
+                                == source.checksum_sha256,
+                                ImageBoardGeometryPendingModel.sequence_number == sequence_number,
+                                ImageBoardGeometryPendingModel.import_job_id != job_id,
+                                ImageBoardGeometryPendingModel.status == "pending",
+                                ImageBoardGeometryPendingModel.recognized_board_id.is_(None),
+                                ImageBoardGeometryPendingModel.review_item_id.is_(None),
+                            )
+                            .with_for_update()
+                        ).all()
+                        for pending in old_pending:
+                            pending.status = "superseded"
+                            pending.superseded_at = executed_at
             deferred_positions = _pending_board_geometry_count(
                 session,
                 job_id=job_id,

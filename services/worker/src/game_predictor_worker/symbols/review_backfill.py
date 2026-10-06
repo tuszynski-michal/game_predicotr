@@ -164,7 +164,30 @@ class SymbolCellReviewBackfillHandler:
                         review_count=0,
                     )
                     if last_report.status == "ready":
-                        return
+                        while True:
+                            with self._session_factory.begin() as session:
+                                counts_ready = SqlAlchemyImageSymbolReviewRepository(
+                                    session
+                                ).ensure_current_count_projection_next_batch(job.game_id)
+                            if counts_ready:
+                                return
+                            context.checkpoint(
+                                checkpoint_payload={
+                                    "schema_version": 1,
+                                    "workflow": "image_symbol_review_backfill",
+                                    "phase": "counts",
+                                    "processed_board_count": (
+                                        last_report.processed_review_item_count
+                                    ),
+                                    "persisted_cell_count": last_report.cell_count,
+                                },
+                                stage="symbol_cell_review_count_rebuild",
+                                current=current,
+                                total=None,
+                                success_count=success_count,
+                                failure_count=failure_count,
+                                review_count=0,
+                            )
 
             raise JobHandlerError(
                 "SYMBOL_CELL_REVIEW_BACKFILL_FAILED",

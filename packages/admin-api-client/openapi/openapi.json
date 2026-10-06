@@ -3626,6 +3626,18 @@
             "title": "Importkind",
             "type": "string"
           },
+          "neuralGridExecutionPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "neural-auto-crop-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neuralgridexecutionpolicyversion"
+          },
           "neuralGridProposal": {
             "anyOf": [
               {
@@ -12370,6 +12382,18 @@
             "title": "Importkind",
             "type": "string"
           },
+          "neuralGridExecutionPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "neural-auto-crop-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neuralgridexecutionpolicyversion"
+          },
           "neuralGridProposal": {
             "anyOf": [
               {
@@ -19840,6 +19864,28 @@
             "title": "Managedsourcemanifestchecksumsha256",
             "type": "string"
           },
+          "neuralGridExecutionPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "neural-auto-crop-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neuralgridexecutionpolicyversion"
+          },
+          "neuralGridProposal": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NeuralGridSnapshotPayload"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "normalizationAdapterVersion": {
             "anyOf": [
               {
@@ -21758,6 +21804,18 @@
               }
             ],
             "title": "Managedsourcemanifestchecksumsha256"
+          },
+          "neuralGridExecutionPolicyVersion": {
+            "anyOf": [
+              {
+                "const": "neural-auto-crop-v1",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Neuralgridexecutionpolicyversion"
           },
           "neuralGridProposal": {
             "anyOf": [

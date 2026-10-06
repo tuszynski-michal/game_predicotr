@@ -8,6 +8,7 @@ from dataclasses import replace
 from typing import cast
 
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
+from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
 from game_predictor_api.domain.neural_grid_proposal import (
     NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
     NEURAL_GRID_REVIEW_REASON,
@@ -53,7 +54,7 @@ def bound_neural_originals(
 
 
 def neural_pending_payload(
-    manual: Mapping[str, object], entry: Mapping[str, object]
+    manual: Mapping[str, object], entry: Mapping[str, object], *, automatic_crops: bool = False
 ) -> dict[str, object]:
     """Keep all active positions, including missing middle cells, in deferred review."""
     proposal = validate_neural_source_proposal(entry.get("neuralProposal"))
@@ -98,6 +99,14 @@ def neural_pending_payload(
             "detectionId": None if detection is None else detection["detectionId"],
             "neuralProposalBinding": dict(binding),
         }
+        automatic = (
+            automatic_crops
+            and detection is not None
+            and detection["structurallyValid"] is True
+            and all(value == "full" for value in cast(list[str], detection["cellVisibility"]))
+        )
+        if automatic:
+            shared["neuralExecutionPolicy"] = NEURAL_AUTO_CROP_POLICY
         board = {
             **raw_board,
             **shared,
@@ -105,7 +114,12 @@ def neural_pending_payload(
             "sequenceNumber": start + position,
             "initialQuad": quad,
             "reviewDraftQuad": quad,
-            "finalQuad": None,
+            "finalQuad": quad if automatic else None,
+            **(
+                {"disposition": "automatic" if automatic else "needs_manual_review"}
+                if automatic_crops
+                else {}
+            ),
             "reviewDraftOrigin": "neural_grid_v1",
             "reasonCodes": list(dict.fromkeys(reasons)),
             "geometryConfidence": 0.0 if detection is None else detection["score"],
@@ -119,7 +133,7 @@ def neural_pending_payload(
                 "geometry": {
                     "quad": quad,
                     **shared,
-                    "structuredDisposition": "needs_manual_review",
+                    "structuredDisposition": "automatic" if automatic else "needs_manual_review",
                 },
                 "reasonCodes": list(dict.fromkeys(reasons)),
             }
@@ -129,7 +143,10 @@ def neural_pending_payload(
         "boards": boards,
         "geometrySource": "auto",
         "engineKind": "neural_grid_v1",
-        "engineVersion": NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
+        "engineId": "neural_grid_v1" if automatic_crops else manual["engineId"],
+        "engineVersion": NEURAL_AUTO_CROP_POLICY
+        if automatic_crops
+        else NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
         "status": "needs_review",
         "reasonCodes": [NEURAL_GRID_REVIEW_REASON],
         "neuralProposalBinding": dict(binding),
@@ -138,4 +155,8 @@ def neural_pending_payload(
     structured["resultChecksumSha256"] = hashlib.sha256(
         canonical_json_bytes(structured)
     ).hexdigest()
-    return {"manualGeometryRequired": True, "structuredGeometry": structured, "boards": projected}
+    return {
+        "manualGeometryRequired": not automatic_crops,
+        "structuredGeometry": structured,
+        "boards": projected,
+    }

@@ -14,16 +14,24 @@ Port3102 pozostaje laboratorium. Model Mumii jest aktywny.
 
 Pierwsze100 zdjęć z trzech nagrań zostało już wgrane. Nie wgrywaj tej partii
 ponownie. Zachowano wszystkie oryginały;99 zdjęć daje891 propozycji plansz.
-Import czeka na ocenę człowieka, bez błędów przetwarzania. Nie ma jeszcze
-zatwierdzonych plansz — propozycje są w kolejce korekty.
+TASK-0886 odzyskał tę partię istniejącym ponownym przetwarzaniem:
+891 bieżących plansz, 13 365 cropów i gotowe liczniki weryfikacji.
+Pełne, jednoznacznie przypisane siatki są cięte automatycznie.
+Nie musisz zatwierdzać każdej planszy, żeby rozpocząć ocenę symboli.
 
-1. Otwórz [kolejkę korekty Mumii](http://127.0.0.1:3001/?mode=local&gameId=fea55cc1-ebf4-4cee-b3ab-a520017ed1be&importJobId=f3ff4258-e561-4031-bc04-227c9dbf51b6).
-   To kolejka tego importu. Dawny adres z queue=grid-audit otwiera inną listę.
-2. W Admin: http://127.0.0.1:3000 wybierz **Szkice → Mumie → Korekta cięcia
-   siatki → Otwórz lokalnie**, aby dojść do tej samej kolejki.
-3. Sprawdź kilka plansz. Wycinki i podpowiedzi pojawiają się automatycznie.
-   Propozycje wymagają oceny, nawet jeśli wyglądają poprawnie.
-4. Zatwierdź wyłącznie zgodną siatkę oraz symbole, które rzeczywiście oceniłeś.
+1. Otwórz [główny Admin](http://127.0.0.1:3000), **Weryfikacja symboli**,
+   i wybierz grę **Mumie**.
+   Ustaw **Na stronę: 2000**, jeśli potrzebujesz większego wyboru.
+2. Wybierz grupę symbolu albo nierozpoznane cropy. Zaznacz poprawne wycinki
+   zbiorczo i zatwierdź je. Błędnym przypisz właściwy symbol.
+3. Crop źle wycięty oznacz jako **Zła siatka**. Tylko takie zgłoszenia oraz
+   brakujące lub ucięte sloty wymagają **Korekty cięcia siatki**.
+4. Zapisane decyzje pozostają widoczne na stronie do odświeżenia. Kolejna
+   partia i trening nie wymagają ponownego oceniania tych samych cropów.
+
+Przygotowanie weryfikacji jest trwałym zadaniem. Stan bez aktywnego zadania
+jest automatycznie wznawiany raz po wejściu do panelu; dostępny jest też
+przycisk **Wznów przygotowanie**. Błąd nie jest pokazywany jako wieczny postęp.
 
 Pierwszy test strukturalny wykrył897 propozycji wobec900 pozycji z nazw.
 Właściwy import zachowuje891 aktywnych slotów dla99 jednoznacznych źródeł.
@@ -52,7 +60,8 @@ zmienia szkic; szkic wraca po odświeżeniu, ale nie jest zatwierdzoną etykiet�
 
 Zapis wskazanego symbolu na zatwierdzanej siatce sieci działa od razu dla
 tej planszy. Nie trzeba wcześniej poprawiać wszystkich plansz tego zdjęcia.
-Pozostałe propozycje nadal wymagają osobnej oceny. Poprawka TASK-0885 usuwa
+Pełne sąsiednie sloty są dostępne w zbiorczej weryfikacji bez akceptacji
+geometrii; brakujące lub częściowe pozostają w korekcie. TASK-0885 usuwa
 błąd braku cropa zgłoszony przy polu4 planszy1405.
 
 Po ponownym cięciu zatwierdź nowe piksele symboli. Poprzednie zatwierdzenie
@@ -81,7 +90,7 @@ wykonawca na osobnym snapshotcie i przedstawia osobny raport.
 
 ## Zwiększanie partii
 
-Po sprawdzeniu przepływu 100 zdjęć przygotujemy 500, następnie 2000.
+Po sprawdzeniu obecnych 100 zdjęć wgraj partię około 500, następnie 2000.
 Większa partia służy zbieraniu różnorodnych poprawek i ocenie realnych błędów.
 Nie oznacza automatycznego zatwierdzenia wszystkich predykcji.
 

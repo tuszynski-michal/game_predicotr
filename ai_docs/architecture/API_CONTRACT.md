@@ -2984,6 +2984,22 @@ backfill gry. Nie zmienia stanu kompletności źródła ani globalnej gotowości
 projekcji. Sprawdza nadal aktualnego właściciela, render i crop identity;
 pole poza zdjęciem zachowuje powyższy błąd i rollback. Bez nowych pól HTTP.
 
+**D-523 (TASK-0886):** istniejące payloady importu 2/5/6/7 mają opcjonalne
+`neuralGridExecutionPolicyVersion: "neural-auto-crop-v1"`; reprocess 6
+może przypiąć `neuralGridProposal`. Polityka uczestniczy w fingerprintach
+jobów i etapów. Brak pola zachowuje dawny przebieg.
+Managed reprocess weryfikuje także manifest neural schema5/v13, jego kompletny
+inwentarz, model, źródła i bindingi. Powtórzenie odzyskuje ten sam job.
+Wspólna bramka projekcji dopuszcza własne pełne cropy tylko przy zgodnych
+24 węzłach, policy, checksumie propozycji, grze, źródle, wymiarach i sekwencji.
+Geometria nadal ma niezatwierdzoną rewizję i diagnostykę jakości.
+Gotowa pusta projekcja powstaje tylko przy braku wcześniejszych plansz,
+pending i komórek. Historyczna projekcja korzysta z istniejącego trwałego
+`POST games/{gameId}/symbol-cell-review-projection`. Bez nowych tras i migracji.
+Backfill kończy także odbudowę niedostępnych historycznych liczników w
+ograniczonych partiach z trwałym kursorem. Aktualne gotowe liczniki pozostają
+bez skanowania. Nie publikuje liczników z częściowo wykonanej odbudowy.
+
 **D-488 (TASK-0821):** podpowiedzi symboli dla ekranu korekty, tylko do
 odczytu, wspólna odpowiedź `GridCorrectionSymbolsResponse`
 (`cells: [{ cellIndex, symbolId | null, origin: assigned | predicted }]`):

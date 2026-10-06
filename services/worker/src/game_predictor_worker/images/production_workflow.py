@@ -32,6 +32,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     AttestedSequenceRange,
     DirectCellRenderConfiguration,
     GeometryEngineKind,
+    SourceLatticeNodes,
     SourceOccurrence,
     SourcePoint,
     SourceQuad,
@@ -41,6 +42,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
     derive_virtual_cells,
 )
 from game_predictor_api.domain.jobs import Job
+from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
@@ -627,6 +629,9 @@ class ProductionImageImportWorkflow:
         adapters = ProductionImageStageAdapterSuite(
             self._artifact_root,
             manual_geometry_import=manual_geometry_import,
+            neural_execution_policy=cast(
+                str | None, job.input_payload.get("neural_grid_execution_policy_version")
+            ),
             repository_root=self._repository_root,
             symbol_model=_symbol_model_snapshot(job),
             grid_profile=_grid_profile_snapshot(job),
@@ -883,6 +888,7 @@ class ProductionImageStageAdapterSuite:
         game_id: UUID | None = None,
         geometry_guard_resolutions: GeometryGuardResolutionSet | None = None,
         manual_geometry_import: bool = False,
+        neural_execution_policy: str | None = None,
         geometry_engine_variant: str | None = None,
     ) -> None:
         self._artifact_root = artifact_root.resolve()
@@ -916,6 +922,13 @@ class ProductionImageStageAdapterSuite:
         self._game_id = game_id
         self._geometry_guard_resolutions = geometry_guard_resolutions
         self._manual_geometry_import = manual_geometry_import
+        from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
+
+        if neural_execution_policy not in (None, NEURAL_AUTO_CROP_POLICY):
+            raise ImagePipelineExecutionError(
+                "NEURAL_GRID_EXECUTION_POLICY_UNSUPPORTED", "Unsupported neural crop policy."
+            )
+        self._neural_automatic_crops = neural_execution_policy == NEURAL_AUTO_CROP_POLICY
         self._geometry_engine_variant = geometry_engine_variant
         self._detector = ClassicalPageBoardDetector()
         # A pinned preflight manifest is the complete geometry authority for a
@@ -958,7 +971,9 @@ class ProductionImageStageAdapterSuite:
             FunctionImageStageAdapter(
                 "board_detection",
                 (
-                    DETECTION_ADAPTER_VERSION
+                    NEURAL_AUTO_CROP_POLICY
+                    if self._neural_automatic_crops
+                    else DETECTION_ADAPTER_VERSION
                     if self._geometry_rollout.is_legacy
                     else self._geometry_rollout.geometry_engine_version
                 ),
@@ -970,7 +985,9 @@ class ProductionImageStageAdapterSuite:
                 FunctionImageStageAdapter(
                     "board_cell_geometry",
                     (
-                        BOARD_CELL_PROCESSING_VERSION
+                        NEURAL_AUTO_CROP_POLICY
+                        if self._neural_automatic_crops
+                        else BOARD_CELL_PROCESSING_VERSION
                         if self._geometry_rollout.is_legacy
                         else self._geometry_rollout.geometry_engine_version
                     ),
@@ -1121,7 +1138,9 @@ class ProductionImageStageAdapterSuite:
             if entry.get("neuralProposal") is not None:
                 from .neural_pending_geometry import neural_pending_payload
 
-                return neural_pending_payload(structured, entry)
+                return neural_pending_payload(
+                    structured, entry, automatic_crops=self._neural_automatic_crops
+                )
             return {
                 "manualGeometryRequired": True,
                 "structuredGeometry": structured,
@@ -1264,6 +1283,36 @@ class ProductionImageStageAdapterSuite:
         """Estimate all nine lattices and persist only fail-closed deferrals."""
 
         detection = _previous(context, "board_detection")
+        if self._neural_automatic_crops:
+            structured = _mapping(detection["structuredGeometry"], "structuredGeometry")
+            return {
+                "structuredGeometry": structured,
+                "processingVersion": NEURAL_AUTO_CROP_POLICY,
+                "topologyRulesVersionId": self._board_topology.rules_version_id,
+                "configurationFingerprintSha256": structured["configChecksumSha256"],
+                "gridRows": self._board_topology.rows,
+                "gridColumns": self._board_topology.columns,
+                "boards": [
+                    {
+                        **board,
+                        "cellGeometry": (
+                            {"gridQuad": _mapping(board["geometry"], "geometry")["quad"]}
+                            if _mapping(board["geometry"], "geometry").get("structuredDisposition")
+                            == "automatic"
+                            else None
+                        ),
+                        "status": (
+                            "verified"
+                            if _mapping(board["geometry"], "geometry").get("structuredDisposition")
+                            == "automatic"
+                            else "deferred"
+                        ),
+                        "reasonCode": "incomplete_lattice",
+                        "estimatorFailureReason": "INCOMPLETE_LATTICE",
+                    }
+                    for board in _boards(detection)
+                ],
+            }
         if self._manual_geometry_import and detection.get("manualGeometryRequired") is True:
             return {
                 "manualGeometryRequired": True,
@@ -1496,6 +1545,8 @@ class ProductionImageStageAdapterSuite:
         geometry_stage = (
             _previous(context, "board_cell_geometry") if self._board_cell_processing else {}
         )
+        if self._neural_automatic_crops:
+            return self._virtual_board_payload(context)
         if self._manual_geometry_import and geometry_stage.get("manualGeometryRequired") is True:
             return {
                 "assetMode": "virtual_source",
@@ -1896,7 +1947,19 @@ class ProductionImageStageAdapterSuite:
                 engine_kind=(
                     GeometryEngineKind.MANUAL_V1
                     if "geometryQualification" in board
+                    else GeometryEngineKind.NEURAL_GRID_V1
+                    if self._neural_automatic_crops
                     else GeometryEngineKind.STRUCTURED_OPENCV_V1
+                ),
+                lattice_nodes=(
+                    SourceLatticeNodes(
+                        tuple(
+                            SourcePoint(float(point["x"]), float(point["y"]))
+                            for point in cast(list[dict[str, float]], board["latticeNodes"])
+                        )
+                    )
+                    if self._neural_automatic_crops
+                    else None
                 ),
                 symbol_grid_quad=final_quad,
                 geometry_qualification=(
@@ -2452,6 +2515,7 @@ class ProductionImageStageAdapterSuite:
                 detections,
                 context.attested_sequence_range,
                 allow_sparse=self._board_cell_processing is not None,
+                bound_neural_slots=self._neural_automatic_crops,
             )
         rgb = self._normalized_images.load(context, normalized)
         recognizer = self._ocr_recognizer()
@@ -3673,12 +3737,14 @@ def _attested_sequence_payload(
     sequence_range: tuple[int, int],
     *,
     allow_sparse: bool = False,
+    bound_neural_slots: bool = False,
 ) -> dict[str, object]:
     """Assign row-major numbers from a validated ``seq_start-end`` filename.
 
     The filename is authoritative when the detector returned the complete
     declared page. Sparse geometry on a full nine-board page keeps its physical
-    position; neither path shifts a remaining board to fill a missing slot.
+    position. Frozen neural bindings also attest sparse shorter pages; no path
+    shifts a remaining board to fill a missing slot.
     """
 
     start, end = sequence_range
@@ -3689,7 +3755,7 @@ def _attested_sequence_payload(
     )
     sparse_full_page = (
         allow_sparse
-        and expected_count == 9
+        and (expected_count == 9 or bound_neural_slots)
         and bool(positions)
         and positions == sorted(set(positions))
         and all(0 <= position < expected_count for position in positions)

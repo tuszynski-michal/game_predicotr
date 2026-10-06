@@ -8,7 +8,16 @@ import {
   partialReviewItem,
 } from './fixtures/symbol-review-partial-client.mjs';
 
+const appReactUrl = import.meta.resolve('react');
 registerHooks({
+  // Shared hoisted libraries must use the app's React instance in Node tests,
+  // just as Next resolves React for the browser bundle.
+  resolve(specifier, context, nextResolve) {
+    if (specifier === 'react') {
+      return nextResolve(appReactUrl, context);
+    }
+    return nextResolve(specifier, context);
+  },
   load(url, context, nextLoad) {
     if (url.endsWith('.css'))
       return {
@@ -83,8 +92,10 @@ async function settle() {
   });
 }
 async function eventually(predicate) {
-  for (let i = 0; i < 30; i++) {
+  const deadline = performance.now() + 5_000;
+  while (performance.now() < deadline) {
     if (predicate()) return;
+    await act(async () => new Promise((resolve) => setTimeout(resolve, 20)));
     await settle();
   }
   assert.fail('Expected UI state did not appear');
@@ -106,8 +117,8 @@ async function choose(index, value) {
   });
   await settle();
 }
-async function mount() {
-  const fixture = await createPartialReviewClient();
+async function mount(customFixture) {
+  const fixture = customFixture ?? (await createPartialReviewClient());
   const root = createRoot(document.getElementById('root'));
   await act(async () =>
     root.render(
@@ -122,6 +133,140 @@ async function mount() {
   await eventually(() => document.querySelector('option[value="cherry"]'));
   return { ...fixture, root };
 }
+
+test('orphan preparation starts a durable job once and is recoverable on a cold mount', async () => {
+  const fixture = await createPartialReviewClient();
+  let starts = 0;
+  let status = {
+    gameId: 'game-1',
+    status: 'rebuilding',
+    activeJobId: null,
+    processedBoardCount: 0,
+    expectedBoardCount: 1,
+    expectedCellCount: 15,
+    persistedCellCount: 15,
+    sampleProblemReviewItemIds: [],
+    failureMessage: null,
+  };
+  fixture.api.getSymbolCellReviewProjectionStatus = async () => ({
+    data: status,
+  });
+  fixture.api.startSymbolCellReviewProjectionBackfill = async () => {
+    starts++;
+    status = { ...status, activeJobId: 'backfill-1' };
+    return { data: { projection: status, job: { id: 'backfill-1' } } };
+  };
+  const { root } = await mount(fixture);
+  try {
+    await eventually(() => starts === 1);
+    await settle();
+    assert.equal(starts, 1);
+    assert.match(document.body.textContent, /Trwa przygotowanie/);
+  } finally {
+    await act(async () => root.unmount());
+  }
+  // New process/view attaches to the active durable job, not a second start.
+  const cold = await mount(fixture);
+  try {
+    await settle();
+    assert.equal(starts, 1);
+  } finally {
+    await act(async () => cold.root.unmount());
+  }
+});
+
+test('failed orphan start leaves an explicit resume button without automatic retry loops', async () => {
+  const fixture = await createPartialReviewClient();
+  const status = {
+    gameId: 'game-1',
+    status: 'rebuilding',
+    activeJobId: null,
+    processedBoardCount: 0,
+    expectedBoardCount: 1,
+    expectedCellCount: 15,
+    persistedCellCount: 15,
+    sampleProblemReviewItemIds: [],
+    failureMessage: null,
+  };
+  let starts = 0;
+  fixture.api.getSymbolCellReviewProjectionStatus = async () => ({
+    data: status,
+  });
+  fixture.api.startSymbolCellReviewProjectionBackfill = async () => {
+    starts++;
+    return {
+      error: { code: 'TEST_UNAVAILABLE', message: 'Próba wymaga wznowienia' },
+    };
+  };
+  const { root } = await mount(fixture);
+  try {
+    await eventually(() => starts === 1);
+    await settle();
+    assert.equal(starts, 1);
+    await click(button('Wznów przygotowanie'));
+    assert.equal(starts, 2);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('orphan start in a previous game cannot disable or overwrite preparation in the next game', async () => {
+  const fixture = await createPartialReviewClient();
+  fixture.api.listGames = async () => ({
+    data: [
+      { id: 'game-1', name: 'Mumie', code: 'mumie', status: 'draft' },
+      { id: 'game-2', name: 'Second', code: 'second', status: 'draft' },
+    ],
+  });
+  const status = (gameId, state) => ({
+    gameId,
+    status: state,
+    activeJobId: null,
+    processedBoardCount: 0,
+    expectedBoardCount: 1,
+    expectedCellCount: 15,
+    persistedCellCount: 0,
+    sampleProblemReviewItemIds: [],
+    failureMessage: null,
+  });
+  fixture.api.getSymbolCellReviewProjectionStatus = async (gameId) => ({
+    data: status(
+      gameId,
+      gameId === 'game-1' ? 'rebuilding' : 'not_started',
+    ),
+  });
+  let completeOld;
+  fixture.api.startSymbolCellReviewProjectionBackfill = () =>
+    new Promise((resolve) => {
+      completeOld = resolve;
+    });
+  const { root } = await mount(fixture);
+  try {
+    await eventually(() => completeOld !== undefined);
+    await choose(0, 'game-2');
+    await eventually(() =>
+      buttons().some(
+        (node) => node.textContent === 'Przygotuj weryfikację symboli',
+      ),
+    );
+    assert.equal(button('Przygotuj weryfikację symboli').disabled, false);
+    await act(async () =>
+      completeOld({
+        data: {
+          projection: {
+            ...status('game-1', 'rebuilding'),
+            activeJobId: 'old-job',
+          },
+        },
+      }),
+    );
+    await settle();
+    assert.equal(button('Przygotuj weryfikację symboli').disabled, false);
+    assert.doesNotMatch(document.body.textContent, /Trwa przygotowanie/);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
 
 test('outside selection, keyboard reassignment and unreadable preserve visibility without image actions', async () => {
   const { root, calls } = await mount();
@@ -370,7 +515,7 @@ test('retained blurry option cannot turn an outside assignment into an image act
   }
 });
 
-test('approve button stays disabled even for visible crops with a valid selection', async () => {
+test('legacy approve button stays disabled even for visible crops with a valid selection', async () => {
   const { root } = await mount();
   try {
     await choose(1, 'all');
@@ -396,6 +541,62 @@ test('approve button stays disabled even for visible crops with a valid selectio
     );
     assert.equal(button('Zatwierdź').disabled, true);
     assert.equal(button('Zastosuj zmianę').disabled, false);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('Mumie enables bulk approval for visible crops and preserves outside protection', async () => {
+  const fixture = await createPartialReviewClient();
+  fixture.api.listGames = async () => ({
+    data: [
+      {
+        id: 'game-1',
+        name: 'Mumie',
+        code: 'mumie',
+        status: 'draft',
+        shapeGeometryConfiguration: 'grid_profile_mumie_v1',
+      },
+    ],
+  });
+  fixture.cells.push({
+    ...fixture.cells.find((cell) => cell.id === 'full-cell'),
+    id: 'full-cell-second',
+    cellIndex: 3,
+    columnIndex: 3,
+  });
+  const { root, calls } = await mount(fixture);
+  try {
+    await choose(1, 'cherry');
+    await eventually(() =>
+      buttons().some(
+        (node) =>
+          node.getAttribute('aria-label') ===
+          'Zaznacz crop z planszy 62287, pozycja 1/4',
+      ),
+    );
+    assert.equal(button('Zatwierdź').disabled, true);
+    await click(button('Zaznacz stronę'));
+    assert.equal(button('Zatwierdź').disabled, false);
+    await click(button('Zatwierdź'));
+    await eventually(() =>
+      buttons().some((node) => node.textContent === 'Uruchom operację'),
+    );
+    await click(button('Uruchom operację'));
+    await eventually(() => calls.decisions.length === 2);
+    assert.ok(
+      calls.decisions.every((call) => call.command.action === 'approve'),
+    );
+    await choose(1, 'outside');
+    await eventually(() =>
+      buttons().some(
+        (node) =>
+          node.getAttribute('aria-label') ===
+          'Zaznacz crop z planszy 62287, pozycja 1/1',
+      ),
+    );
+    await click(button('Zaznacz stronę'));
+    assert.equal(button('Zatwierdź').disabled, true);
   } finally {
     await act(async () => root.unmount());
   }

@@ -57,6 +57,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewError,
     ImageReviewNotFoundError,
 )
+from game_predictor_api.domain.neural_crop_policy import full_neural_prediction_geometry
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -391,6 +392,22 @@ def withheld_review_item_ids(
     )
     withheld: set[UUID] = set()
     for review_item_id, board, source in gated:
+        if (
+            board.asset_mode == "virtual_source"
+            and board.geometry_engine_name == "neural_grid_v1"
+            and board.completeness_status == "complete"
+            and board.source_geometry_revision_id is not None
+            and full_neural_prediction_geometry(
+                board.board_geometry,
+                position=board.position_index,
+                sequence=board.sequence_number,
+                width=source.width,
+                height=source.height,
+                game_id=str(game_id),
+                source_checksum_sha256=source.checksum_sha256,
+            )
+        ):
+            continue
         approved = (
             board.approved_geometry_revision is not None
             and board.approved_geometry_revision == board.geometry_revision

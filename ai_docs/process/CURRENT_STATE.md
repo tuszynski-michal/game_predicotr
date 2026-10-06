@@ -6,6 +6,42 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0886 — automatic Mumie import and recoverable symbol verification (done)
+
+- New neural-auto-crop-v1 imports render exact 24-node full bound lattices
+  directly into bulk symbol verification. Missing or partial slots defer
+  individually without shifting sequence numbers. Predictions remain separate
+  from human approval. Legacy policy and 777 UI defaults are preserved.
+- Managed reprocess validates neural schema5/v13 evidence, pins the policy
+  and retries the same job. Per-sequence owner protection preserves current
+  manual grids and symbol decisions; old unreviewed pending remains audited.
+- MAIN Mumie recovery: 100 originals, 99 bound sources, 891 current boards,
+  13,365 cells, zero failures, ready projection and exact counters. Reprocess
+  af474e46-28bc-404d-af1c-07aeb05a165c completed processing 99/99 sources,
+  199/199 steps and awaits bulk symbol review. Retrying returns the same job.
+  Forty-four captured human geometries and two human cells preserved exactly;
+  847 old pending superseded, activation histories unchanged.
+- Orphan preparation starts a durable job once and offers explicit resume.
+  A late previous-game response cannot overwrite or disable the current view.
+  Backfill now completes unavailable historical counts in durable bounded
+  batches. Final counts job 13aabb68-aa50-42b7-9176-81552ca9b651 completed;
+  revision174 reports 40 approved and 13,325 pending. Current ready counts do
+  not rescan. Actual Admin: page2000, 423 Mumia crop previews and working
+  counters, bulk approval enabled for image-bearing selections.
+- Focused API/worker108, managed21, lateral scoped15, real isolated PG2,
+  manual HTTP1, count/handler12, Admin interaction9, SDK request78 passed
+  (overlapping suites). Scoped Ruff/format, strict owned-source mypy,
+  Admin/SDK types and lint, OpenAPI/SDK checks and final Admin build passed.
+  Two unrelated failures reproduced on unchanged HEAD are documented, not
+  weakened; full-suite and physical Android/OS reboot are not claimed.
+- MAIN API root15292/listener10516 and worker root42784, Admin root33252 are
+  controlled and healthy. Reviewer3001 and VisionLab3102 preserved. No new
+  migration, cleanup, model training/activation, 777 data operation or push.
+- Quality: MUMIE_AUTOMATIC_IMPORT_RECOVERY_20261006.md. Existing operator
+  guide now describes bulk verification and 500→2000-photo uploads with pooled
+  feedback. One ending photo still needs explicit source-range binding.
+  Completion version: v1.7.228; hash recorded after the scoped commit.
+
 ### TASK-0885 — neural manual slot symbol save (done)
 
 - Board 1405's selected cell 4 save was blocked by the source-wide projection

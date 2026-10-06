@@ -82,6 +82,7 @@ from game_predictor_api.domain.jobs import (
     requeue_job,
     requeue_job_with_fresh_progress,
 )
+from game_predictor_api.domain.neural_crop_policy import pin_neural_crop_policy
 from game_predictor_api.domain.neural_grid_proposal import (
     NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
     NeuralGridSnapshot,
@@ -847,6 +848,9 @@ class JobService:
             geometry_engine_variant=geometry_engine_variant,
             lateral_partial_geometry=lateral_partial_geometry,
         )
+        effective_pipeline_fingerprint = pin_neural_crop_policy(
+            input_payload, effective_pipeline_fingerprint
+        )
         input_payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         if image_selection_run_id is not None:
             input_payload["image_selection_run_id"] = str(image_selection_run_id)
@@ -1397,6 +1401,14 @@ class JobService:
             "symbol_model": symbol_model.to_payload(),
             "grid_profile": grid_profile,
         }
+        neural_snapshot = self._neural_import_snapshot(
+            game_id=source.game_id,
+            selection_id=evidence.source_selection_id,
+            source_manifest_sha256=evidence.source_manifest_sha256,
+            descriptor=evidence.page_geometry_manifest,
+        )
+        if neural_snapshot is not None:
+            payload["neural_grid_proposal"] = neural_snapshot
         topology_reference = self._repository.get_or_pin_board_topology(source.game_id)
         if topology_reference is None:
             raise JobError(
@@ -1441,6 +1453,9 @@ class JobService:
             symbol_model=symbol_model,
             geometry_engine_variant=geometry_engine_variant,
         )
+        effective_pipeline_fingerprint = pin_neural_crop_policy(
+            payload, effective_pipeline_fingerprint
+        )
         payload["pipeline_fingerprint"] = effective_pipeline_fingerprint
         image_selection_run_id = source.input_payload.get("image_selection_run_id")
         if image_selection_run_id is not None:
@@ -1453,7 +1468,9 @@ class JobService:
                 game_already_validated=True,
             )
         except JobConflictError as error:
-            if geometry_engine_variant is None or error.code != "JOB_INPUT_ALREADY_EXISTS":
+            if (
+                geometry_engine_variant is None and neural_snapshot is None
+            ) or error.code != "JOB_INPUT_ALREADY_EXISTS":
                 raise
             key = create_job(
                 JobType.IMPORT, game_id=source.game_id, input_payload=payload

@@ -33,14 +33,19 @@ from game_predictor_api.storage.models import (
     CuratedImageImportSourceModel,
     DatasetVersionModel,
     GameModel,
+    ImageBoardGeometryPendingModel,
     ImageGeometryRolloutStateModel,
     ImageSelectionCandidateModel,
     ImageSelectionGroupModel,
     ImageSelectionManualDecisionModel,
     ImageSelectionRunModel,
+    ImageSymbolReviewCellModel,
+    ImageSymbolReviewStateModel,
     JobModel,
     MobileReleaseModel,
+    RecognizedBoardModel,
     RulesVersionModel,
+    SourceImageModel,
 )
 
 
@@ -148,6 +153,7 @@ class SqlAlchemyJobRepository(JobRepository):
         )
 
     def add_job(self, job: Job) -> Job:
+        self._initialize_empty_neural_projection(job)
         record = job_record_from_domain(job)
         self._session.add(record)
         self._flush_or_raise_conflict()
@@ -161,6 +167,7 @@ class SqlAlchemyJobRepository(JobRepository):
     ) -> Job:
         if job.game_id is not None:
             self._storage_router.bind(self._session, job.game_id, intent=GameStorageIntent.WRITE)
+        self._initialize_empty_neural_projection(job)
         retention = self._session.scalar(
             select(BrowserSelectionRetentionModel)
             .where(BrowserSelectionRetentionModel.upload_id == source_selection_id)
@@ -196,6 +203,53 @@ class SqlAlchemyJobRepository(JobRepository):
             retention.updated_at = job.created_at
             self._flush_or_raise_conflict()
         return job_from_record(record)
+
+    def _initialize_empty_neural_projection(self, job: Job) -> None:
+        """Only a genuinely empty store can skip a historical backfill."""
+        from game_predictor_api.domain.neural_crop_policy import (
+            NEURAL_AUTO_CROP_PAYLOAD_KEY,
+            NEURAL_AUTO_CROP_POLICY,
+        )
+
+        from .image_symbol_review_repository import _COUNT_SEMANTICS, _COUNT_SEMANTICS_KEY
+
+        if (
+            job.game_id is None
+            or job.job_type is not JobType.IMPORT
+            or job.input_payload.get(NEURAL_AUTO_CROP_PAYLOAD_KEY) != NEURAL_AUTO_CROP_POLICY
+        ):
+            return
+        self._session.scalar(select(GameModel).where(GameModel.id == job.game_id).with_for_update())
+        self._storage_router.bind(self._session, job.game_id, intent=GameStorageIntent.WRITE)
+        if self._session.get(ImageSymbolReviewStateModel, job.game_id) is not None:
+            return
+        historical_board = self._session.scalar(
+            select(RecognizedBoardModel.id)
+            .join(SourceImageModel, SourceImageModel.id == RecognizedBoardModel.source_image_id)
+            .join(JobModel, JobModel.id == SourceImageModel.import_job_id)
+            .where(JobModel.game_id == job.game_id)
+            .limit(1)
+        )
+        if historical_board is not None:
+            return
+        for model in (
+            ImageBoardGeometryPendingModel,
+            ImageSymbolReviewCellModel,
+        ):
+            if (
+                self._session.scalar(select(model.id).where(model.game_id == job.game_id).limit(1))
+                is not None
+            ):
+                return
+        self._session.add(
+            ImageSymbolReviewStateModel(
+                game_id=job.game_id,
+                status="ready",
+                count_projection_status="ready",
+                count_projection={_COUNT_SEMANTICS_KEY: dict(_COUNT_SEMANTICS)},
+            )
+        )
+        self._session.flush()
 
     def get_job(self, job_id: UUID) -> Job | None:
         record = self._session.get(JobModel, job_id)

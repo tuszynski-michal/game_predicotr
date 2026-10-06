@@ -12,6 +12,13 @@ from typing import TYPE_CHECKING, cast
 from uuid import UUID
 
 from game_predictor_api.domain.jobs import Job, JobStatus, JobType
+from game_predictor_api.domain.neural_grid_proposal import (
+    NEURAL_GRID_MANIFEST_SCHEMA_VERSION,
+    NEURAL_GRID_PREFLIGHT_POLICY_VERSION,
+    NeuralGridProposalError,
+    validate_neural_source_binding,
+    validate_neural_source_proposal,
+)
 
 if TYPE_CHECKING:
     from game_predictor_api.application.image_imports import BrowserReadySelection
@@ -23,6 +30,7 @@ _PAGE_MANIFEST_VERSIONS = {
     (1, "page-geometry-preflight-v1"),
     (2, "page-geometry-preflight-v2-auto-anchor"),
     (2, "page-geometry-preflight-v3-board-area-mask"),
+    (NEURAL_GRID_MANIFEST_SCHEMA_VERSION, NEURAL_GRID_PREFLIGHT_POLICY_VERSION),
 }
 
 
@@ -361,17 +369,43 @@ def _validate_page_geometry_evidence(
     if set(entries) != set(by_checksum):
         raise _incompatible("The page-geometry manifest source inventory is incompatible.")
     counts = {"registered": 0, "review_required": 0, "skipped_human_resolved": 0}
+    neural = manifest.get("version") == NEURAL_GRID_PREFLIGHT_POLICY_VERSION
+    if neural and manifest.get("neuralGridProposal") != preflight.input_payload.get(
+        "neural_grid_proposal"
+    ):
+        raise _incompatible("The neural manifest has different model provenance.")
     for source_checksum, raw_entry in entries.items():
         original = by_checksum[cast(str, source_checksum)]
         if not isinstance(raw_entry, Mapping):
             raise _incompatible("A page-geometry manifest entry is invalid.")
         status = raw_entry.get("status")
+        if neural and status == "slot_binding_required":
+            status = "review_required"
         if (
             status not in counts
             or raw_entry.get("sourceRelativePath") != original.source_relative_path
         ):
             raise _incompatible("A page-geometry manifest entry has incompatible provenance.")
         counts[cast(str, status)] += 1
+        if neural and status != "skipped_human_resolved":
+            try:
+                proposal = validate_neural_source_proposal(raw_entry.get("neuralProposal"))
+                if (
+                    proposal["sourceChecksumSha256"] != source_checksum
+                    or proposal["gameId"] != str(source.game_id)
+                    or proposal["sourceSelectionId"] != str(source_selection_id)
+                    or proposal["engineSnapshot"] != manifest.get("neuralGridProposal")
+                    or proposal["sourceWidth"] != raw_entry.get("imageWidth")
+                    or proposal["sourceHeight"] != raw_entry.get("imageHeight")
+                ):
+                    raise _incompatible("The neural source proposal has different provenance.")
+                binding = raw_entry.get("neuralProposalBinding")
+                if binding is not None:
+                    validate_neural_source_binding(binding, proposal)
+                if (binding is None) != (raw_entry.get("status") == "slot_binding_required"):
+                    raise _incompatible("The neural source binding status is inconsistent.")
+            except NeuralGridProposalError as error:
+                raise _incompatible("The neural source proposal or binding is invalid.") from error
         if status == "registered":
             quads = raw_entry.get("quads")
             width = raw_entry.get("imageWidth")

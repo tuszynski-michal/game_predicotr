@@ -732,6 +732,20 @@ plansze zdjęcia nadal czekają na korektę. Zatwierdza tylko wskazane symbole.
 Zdjęcie zachowuje stan niekompletny; pozostałe propozycje nie są zatwierdzane.
 Starsza korekta czterech narożników zachowuje bramkę całego zdjęcia D-484.
 
+**D-523 (TASK-0886):** import z polityką `neural-auto-crop-v1` udostępnia
+pełne, jednoznacznie przypisane siatki w zbiorczej `Weryfikacji symboli`
+bez obowiązkowego zatwierdzania geometrii każdej planszy. Render zachowuje
+wszystkie 24 węzły. Brakujący lub ucięty slot sam trafia do korekty;
+nie blokuje pełnych sąsiadów ani nie przesuwa numerów sekwencji.
+Przycisk `Zatwierdź` jest dostępny dla zaznaczeń z obrazem w profilu Mumii,
+z istniejącym podglądem i operacją zbiorczą. Pola bez obrazu są wyłączone.
+Pozostałe gry zachowują dotychczasowe zachowanie paska akcji.
+Operator oznacza błędny crop jako `Zła siatka`, a dobry crop ze złym
+symbolem poprawia w weryfikacji. Predykcja nie jest etykietą treningową.
+Ponowne przetwarzanie zachowuje bieżące ręczne siatki i decyzje symboli.
+Przygotowanie bez aktywnego zadania dostaje jedną próbę trwałego wznowienia
+po wejściu do panelu i przycisk `Wznów przygotowanie`; błąd pozostaje widoczny.
+
 **TASK-0840 (Poprawki z audytu siatek):** osobna kolejka lokalnego Reviewera
 pod `http://127.0.0.1:3001/?mode=local&gameId=<gameId>&queue=grid-audit`
 (tylko host pętli zwrotnej na porcie 3001, bez kodu i bez tunelu, zakres:

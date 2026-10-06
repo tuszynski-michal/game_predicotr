@@ -121,3 +121,35 @@ def test_pre_upgrade_checkpoint_rescans_instead_of_publishing_old_semantics(old_
         "outside": {"pending": 1},
         "_semantics": {"version": 2},
     }
+
+
+def test_backfill_finishes_unavailable_counts_and_resumes_a_cold_cursor():
+    game_id = UUID(int=100)
+    row = (UUID(int=5), True, None, "pending", None, "full")
+    state = _state()
+    state.count_projection_status = "unavailable"
+    session = _session(state, [[row]])
+    repository = SqlAlchemyImageSymbolReviewRepository(session)
+    assert not repository.ensure_current_count_projection_next_batch(game_id, batch_size=1)
+    assert state.count_rebuild_cursor == row[0]
+    restored = SimpleNamespace(**vars(state))
+    cold_session = _session(restored, [[]])
+    cold = SqlAlchemyImageSymbolReviewRepository(cold_session)
+    assert cold.ensure_current_count_projection_next_batch(game_id, batch_size=1)
+    assert restored.count_projection == {
+        "_semantics": {"version": 2},
+        "all": {"pending": 1},
+        "unknown": {"pending": 1},
+    }
+    assert restored.status == restored.count_projection_status == "ready"
+
+
+def test_backfill_keeps_ready_current_counts_without_a_scan():
+    state = _state()
+    state.count_projection["_semantics"] = {"version": 2}
+    session = _session(state, [])
+    assert SqlAlchemyImageSymbolReviewRepository(
+        session
+    ).ensure_current_count_projection_next_batch(UUID(int=100))
+    session.execute.assert_not_called()
+    assert state.catalog_revision == 20

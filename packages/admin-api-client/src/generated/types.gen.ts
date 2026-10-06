@@ -2080,6 +2080,10 @@ export type BrowserImageImportJobPayload = {
    * Importkind
    */
   importKind: 'image_directory';
+  /**
+   * Neuralgridexecutionpolicyversion
+   */
+  neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
   neuralGridProposal?: NeuralGridSnapshotPayload | null;
   /**
    * Normalizationadapterversion
@@ -7060,6 +7064,10 @@ export type ImageImportJobPayload = {
    * Importkind
    */
   importKind: 'image_directory';
+  /**
+   * Neuralgridexecutionpolicyversion
+   */
+  neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
   neuralGridProposal?: NeuralGridSnapshotPayload | null;
   /**
    * Normalizationadapterversion
@@ -11234,6 +11242,11 @@ export type PinnedManagedImageReprocessJobPayload = {
    */
   managedSourceManifestChecksumSha256: string;
   /**
+   * Neuralgridexecutionpolicyversion
+   */
+  neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
+  neuralGridProposal?: NeuralGridSnapshotPayload | null;
+  /**
    * Normalizationadapterversion
    */
   normalizationAdapterVersion?: string | null;
@@ -12320,6 +12333,10 @@ export type ResolvedBrowserImageImportJobPayload = {
    * Managedsourcemanifestchecksumsha256
    */
   managedSourceManifestChecksumSha256?: string | null;
+  /**
+   * Neuralgridexecutionpolicyversion
+   */
+  neuralGridExecutionPolicyVersion?: 'neural-auto-crop-v1' | null;
   neuralGridProposal?: NeuralGridSnapshotPayload | null;
   /**
    * Normalizationadapterversion

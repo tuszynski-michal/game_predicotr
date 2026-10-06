@@ -6,6 +6,32 @@ last_updated: 2026-10-06
 
 # Decision Log
 
+## D-523 — operational neural crops and recoverable symbol verification
+
+- **Status:** accepted user scope, 2026-10-06, TASK-0886. The operator explicitly
+  requested automatic cutting followed by bulk symbol verification and a
+  complete MAIN recovery without approving every board.
+- **Decision:** new neural imports pin neural-auto-crop-v1. A bound full
+  structurally valid 24-node lattice can produce current virtual prediction
+  cells without a human geometry approval. Missing or partial slots remain
+  deferred individually; sequence positions are never compacted. This changes
+  the all-manual operational prerequisite of D-521, not its training truth.
+- **Gate:** narrowly admit current policy-bound full neural cells into search
+  and symbol review. Preserve the uncalibrated diagnostic and all other
+  source/render/current-revision checks. Predictions are never human labels.
+  Reprocess preserves human owners under per-sequence locks.
+- **Readiness:** initialize empty projection only after proving no historical
+  boards/cells; historical orphan rebuilding resumes a durable existing
+  backfill job. No fabricated readiness, migration, deletion or 777 changes.
+- **Counts:** a completed crop backfill also finishes unavailable historical
+  counts using existing bounded batches and a durable cursor. Current ready
+  counts do not rescan; interruptions and interleaved writes retain the
+  existing count reconstruction fences.
+- **Bulk action:** the existing approval button is enabled for Mumie-profile
+  image-bearing selections using the existing scoped approval operation.
+  No-image selections stay blocked. The shared toolbar's legacy default and
+  other games remain unchanged; approval still requires an operator decision.
+
 ## D-522 — current manual neural slot approval permits its own symbol save
 
 - **Status:** accepted implementation interpretation, 2026-10-06, TASK-0885,

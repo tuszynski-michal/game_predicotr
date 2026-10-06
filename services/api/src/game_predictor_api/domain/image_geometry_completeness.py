@@ -255,6 +255,7 @@ def geometry_gate_withholds_board(
     position_state: GeometryPositionState,
     qualified_partial_approved: bool,
     has_cells: bool,
+    manual_neural_lattice_approved: bool = False,
 ) -> bool:
     """Whether the D-484 gate withholds one board from symbol cutting and search.
 
@@ -266,6 +267,13 @@ def geometry_gate_withholds_board(
     (D-449) are cut; ``uncertain`` boards stay withheld.
     """
 
+    if manual_neural_lattice_approved and (
+        position_state is GeometryPositionState.OK
+        or (position_state is GeometryPositionState.PARTIAL and qualified_partial_approved)
+    ):
+        # D-522: explicit approval of this bound manual neural lattice admits
+        # its own crops, without admitting its still-incomplete source image.
+        return False
     if has_cells or image_status is None:
         return False
     if image_status is SourceImageGeometryStatus.GEOMETRY_COMPLETE:

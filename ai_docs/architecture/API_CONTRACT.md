@@ -2977,6 +2977,13 @@ pole bez bieżącego cropa → `IMAGE_GRID_REVIEW_SYMBOL_CELL_UNAVAILABLE` (422)
 symbol nieaktywny → `SYMBOL_CELL_REVIEW_TARGET_SYMBOL_INVALID` (422). Każdy z
 tych błędów wycofuje także geometrię. Pominięte pole działa jak dotąd.
 
+**D-522 (TASK-0885):** ten sam kontrakt zapisu obsługuje bieżącą ręcznie
+zatwierdzoną siatkę 24 punktów z przypiętą checksumą propozycji sieci. Jej
+własna projekcja komórek nie czeka na pozostałe sloty zdjęcia ani historyczny
+backfill gry. Nie zmienia stanu kompletności źródła ani globalnej gotowości
+projekcji. Sprawdza nadal aktualnego właściciela, render i crop identity;
+pole poza zdjęciem zachowuje powyższy błąd i rollback. Bez nowych pól HTTP.
+
 **D-488 (TASK-0821):** podpowiedzi symboli dla ekranu korekty, tylko do
 odczytu, wspólna odpowiedź `GridCorrectionSymbolsResponse`
 (`cells: [{ cellIndex, symbolId | null, origin: assigned | predicted }]`):

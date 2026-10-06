@@ -50,6 +50,11 @@ Skróty aktualnego katalogu:1=10,2=J,3=Q,4=K,5=A,6=Sarkofag,7=Ra,
 8=Faraon,9=Sfinks,0=Mumia. Zapisz po ocenie planszy. Samo kliknięcie symbolu
 zmienia szkic; szkic wraca po odświeżeniu, ale nie jest zatwierdzoną etykietą.
 
+Zapis wskazanego symbolu na zatwierdzanej siatce sieci działa od razu dla
+tej planszy. Nie trzeba wcześniej poprawiać wszystkich plansz tego zdjęcia.
+Pozostałe propozycje nadal wymagają osobnej oceny. Poprawka TASK-0885 usuwa
+błąd braku cropa zgłoszony przy polu4 planszy1405.
+
 Po ponownym cięciu zatwierdź nowe piksele symboli. Poprzednie zatwierdzenie
 dotyczy poprzedniego cropa. Zapis samego symbolu zachowuje poprawną geometrię.
 

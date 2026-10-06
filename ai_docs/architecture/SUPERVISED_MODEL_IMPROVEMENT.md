@@ -18,6 +18,12 @@ gdy brak poprzedniej aktywnej wersji; nie uruchamia niezgodnego bootstrapu.
 R2 RGB ma osobny kontrakt opset17, cropSize96/inputSize64 i bilinear antialias,
 przypięty w fingerprint snapshotu. M6/777 pozostaje przy swoim kontrakcie.
 Import i korekta używają tego samego wersjonowanego CPU preprocessingu.
+
+D-522 dopuszcza bieżącą ręcznie zatwierdzoną siatkę przypisanego slotu sieci
+do własnej projekcji cropów podczas korekty pojedynczej planszy. Historyczny
+backfill gry i pozostałe sloty nie stanowią warunku zapisu wskazanego symbolu.
+Nie zmienia to globalnej gotowości katalogu, kwalifikacji kohort ani ochrony
+bieżącej tożsamości cropa. Widoczność wyznaczają dokładne węzły renderu.
 R2 renderuje pełny źródłowy quad RGB96 bez insetu (padding0.0), z wersją
 source-direct-full-quad-rgb96-v1 w tożsamości pakietu. Dotychczasowy virtual
 padding0.08 pozostaje bez zmian. Parity obejmuje piksele ze źródła oraz logity.

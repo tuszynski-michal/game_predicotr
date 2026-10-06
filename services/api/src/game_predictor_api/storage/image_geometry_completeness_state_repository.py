@@ -47,6 +47,11 @@ from game_predictor_api.domain.image_geometry_completeness import (
     recomputed_status,
     require_geometry_exception_reason,
 )
+from game_predictor_api.domain.image_geometry_v2 import (
+    ImageGeometryContractError,
+    SourceLatticeNodes,
+    SourcePoint,
+)
 from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
     ImageReviewError,
@@ -404,9 +409,42 @@ def withheld_review_item_ids(
             position_state=position_state,
             qualified_partial_approved=board.geometry_qualification is not None and approved,
             has_cells=review_item_id in with_cells,
+            manual_neural_lattice_approved=_manual_neural_lattice_approved(board),
         ):
             withheld.add(review_item_id)
     return frozenset(withheld)
+
+
+def _manual_neural_lattice_approved(board: RecognizedBoardModel) -> bool:
+    """D-522: a current human save, never an unapproved neural proposal."""
+    geometry = board.board_geometry
+    if (
+        board.asset_mode != "virtual_source"
+        or board.geometry_engine_name != "manual_v1"
+        or board.geometry_revision <= 0
+        or board.approved_geometry_revision != board.geometry_revision
+        or not board.geometry_approved_by
+        or board.geometry_approved_at is None
+        or not isinstance(geometry, Mapping)
+    ):
+        return False
+    checksum = geometry.get("neuralProposalChecksumSha256")
+    nodes = geometry.get("latticeNodes")
+    if (
+        not isinstance(checksum, str)
+        or len(checksum) != 64
+        or any(character not in "0123456789abcdef" for character in checksum)
+        or not isinstance(nodes, list)
+        or not all(isinstance(point, Mapping) for point in nodes)
+    ):
+        return False
+    try:
+        SourceLatticeNodes(
+            tuple(SourcePoint(float(point["x"]), float(point["y"])) for point in nodes)
+        )
+    except (ImageGeometryContractError, KeyError, TypeError, ValueError):
+        return False
+    return True
 
 
 # -- re-pointing of live boards to the newest source revision ---------------

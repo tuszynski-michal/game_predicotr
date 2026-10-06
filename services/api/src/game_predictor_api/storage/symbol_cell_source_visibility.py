@@ -8,6 +8,7 @@ from game_predictor_api.domain.geometry_qualification import GeometryQualificati
 from game_predictor_api.domain.image_geometry_v2 import (
     SOURCE_SUPPORT_EPSILON,
     SourceImageBounds,
+    SourceLatticeNodes,
     SourcePoint,
     SourceQuad,
     source_quad_intersects_image,
@@ -73,7 +74,22 @@ def current_source_visibilities(
     source = SourceImageBounds(width, height)
     raw_cells = geometry.get("cells")
     footprints: dict[int, SourceQuad] = {}
-    if isinstance(raw_cells, list):
+    nodes = geometry.get("latticeNodes")
+    if nodes is not None:
+        if not isinstance(nodes, list) or not all(isinstance(point, Mapping) for point in nodes):
+            raise ValueError("Current source lattice is malformed.")
+        lattice = SourceLatticeNodes(
+            tuple(SourcePoint(float(point["x"]), float(point["y"])) for point in nodes)
+        )
+        footprints = {
+            index: lattice.cell_quad(
+                topology=topology,
+                row_index=index // topology.columns,
+                column_index=index % topology.columns,
+            )
+            for index in range(topology.cell_count)
+        }
+    elif isinstance(raw_cells, list):
         for cell in raw_cells:
             if not isinstance(cell, Mapping):
                 raise ValueError("Current cell geometry is malformed.")

@@ -122,6 +122,7 @@ from game_predictor_api.storage.game_storage_routing import (
     GameStorageRouter,
 )
 from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+    _manual_neural_lattice_approved,
     withheld_review_item_ids,
 )
 from game_predictor_api.storage.models import (
@@ -1111,8 +1112,11 @@ def _apply_symbol_cell_review_state_filter(
 class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepository):
     """Apply checksum-bound crop decisions and reconcile one parent board once."""
 
-    def __init__(self, session: Session) -> None:
+    def __init__(
+        self, session: Session, *, allow_current_manual_neural_board: bool = False
+    ) -> None:
         self._session = session
+        self._allow_current_manual_neural_board = allow_current_manual_neural_board
 
     def apply_mutation(
         self,
@@ -1180,7 +1184,7 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
         # The worker and geometry editor lock sequences/source rows before the
         # shared catalog state. Taking state first deadlocks against a worker
         # that is finishing another board while this mutation waits on its source.
-        state = self._require_ready_state(game_id)
+        state = self._require_ready_state(game_id, current_board=None if not rows else rows[0][2])
         row_by_cell_id = {row[0].id: row for row in rows}
         if set(row_by_cell_id) != {command.cell_review_id for command in commands}:
             raise SymbolCellReviewError(
@@ -1386,7 +1390,9 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
             for command in commands
         )
 
-    def _require_ready_state(self, game_id: UUID) -> ImageSymbolReviewStateModel:
+    def _require_ready_state(
+        self, game_id: UUID, *, current_board: RecognizedBoardModel | None = None
+    ) -> ImageSymbolReviewStateModel:
         if self._session.get(GameModel, game_id) is None:
             raise SymbolCellReviewError(
                 "GAME_NOT_FOUND",
@@ -1394,10 +1400,21 @@ class SqlAlchemySymbolCellReviewMutationRepository(SymbolCellReviewMutationRepos
                 details={"gameId": str(game_id)},
             )
         state = self._session.get(ImageSymbolReviewStateModel, game_id, with_for_update=True)
-        if state is None or not symbol_cell_review_projection_is_available(
-            self._session,
-            game_id=game_id,
-            state=state,
+        current_manual_board_available = (
+            self._allow_current_manual_neural_board
+            and state is not None
+            and state.status == "rebuilding"
+            and not state.failure_message
+            and current_board is not None
+            and _manual_neural_lattice_approved(current_board)
+        )
+        if state is None or not (
+            current_manual_board_available
+            or symbol_cell_review_projection_is_available(
+                self._session,
+                game_id=game_id,
+                state=state,
+            )
         ):
             raise SymbolCellReviewError(
                 "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE",
@@ -1998,7 +2015,9 @@ class SqlAlchemyGridCorrectionSymbolRepository:
             )
             for index, cell in sorted(cells.items())
         )
-        mutations = SqlAlchemySymbolCellReviewMutationRepository(self._session)
+        mutations = SqlAlchemySymbolCellReviewMutationRepository(
+            self._session, allow_current_manual_neural_board=True
+        )
         changed = 0
         for command in commands:
             result = mutations.apply_mutation(command)

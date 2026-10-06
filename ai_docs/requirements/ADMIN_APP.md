@@ -726,6 +726,12 @@ symbolem (decyzja człowieka dla nowego cropa, w tej samej transakcji co
 geometria); pozostałe pola trafiają do `Weryfikacji symboli` jak dotąd. Pole
 bez pikseli nie jest klikalne. Błąd zapisu symboli wycofuje cały zapis.
 
+**D-522 (TASK-0885):** zapis ręcznie zatwierdzonej, przypisanej planszy sieci
+z pełną siatką 24 punktów tworzy jej bieżące cropy również wtedy, gdy inne
+plansze zdjęcia nadal czekają na korektę. Zatwierdza tylko wskazane symbole.
+Zdjęcie zachowuje stan niekompletny; pozostałe propozycje nie są zatwierdzane.
+Starsza korekta czterech narożników zachowuje bramkę całego zdjęcia D-484.
+
 **TASK-0840 (Poprawki z audytu siatek):** osobna kolejka lokalnego Reviewera
 pod `http://127.0.0.1:3001/?mode=local&gameId=<gameId>&queue=grid-audit`
 (tylko host pętli zwrotnej na porcie 3001, bez kodu i bez tunelu, zakres:

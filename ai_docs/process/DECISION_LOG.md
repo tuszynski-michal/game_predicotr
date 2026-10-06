@@ -6,6 +6,25 @@ last_updated: 2026-10-06
 
 # Decision Log
 
+## D-522 — current manual neural slot approval permits its own symbol save
+
+- **Status:** accepted implementation interpretation, 2026-10-06, TASK-0885,
+  following the operator's request to correct a symbol on board1405 and the
+  approved individual neural correction workflow of D-521/D-488.
+- **Decision:** a bound neural slot retaining its proposal checksum and exact
+  24-node lattice, saved as manual_v1 with the current geometry revision
+  explicitly approved by the operator, can materialize its own current crops
+  while its source remains incomplete. This narrows D-484 only for this
+  human correction path. Other positions and unapproved proposals stay gated.
+- **Safety:** no implicit source-wide exception, auto approval of predictions,
+  reimport or changes to 777. The transaction still checks pinned source/render
+  provenance, exact cell visibility, active symbol and current crop identity;
+  a failure rolls back geometry and symbols. Partial/outside cells are
+  classified from the lattice actually rendered, not an interpolated outline.
+- **Reason:** the correction preview exposes real pixels and offers symbol
+  selection; saving that explicit selection must not fail solely because a
+  sibling board has not yet been reviewed.
+
 ## D-521 — explicit Mumie RGB and neural folder pilot
 
 - **Status:** accepted scope, 2026-10-06, following the operator's explicit

@@ -490,3 +490,30 @@ def test_exception_reason_is_required_and_bounded() -> None:
             require_geometry_exception_reason(value)
         assert error.value.code == "IMAGE_GEOMETRY_EXCEPTION_REASON_INVALID"
     assert SOURCE_IMAGE_GEOMETRY_INCOMPLETE == "SOURCE_IMAGE_GEOMETRY_INCOMPLETE"
+
+
+@pytest.mark.parametrize(
+    "position_state,qualified,withheld",
+    [
+        (OK, False, False),
+        (PARTIAL, True, False),
+        (PARTIAL, False, True),
+        (UNCERTAIN, False, True),
+        (MISSING, False, True),
+    ],
+)
+def test_current_manual_neural_approval_admits_only_its_reviewable_position(
+    position_state,
+    qualified,
+    withheld,
+) -> None:
+    assert (
+        geometry_gate_withholds_board(
+            image_status=INCOMPLETE_STATUS,
+            position_state=position_state,
+            qualified_partial_approved=qualified,
+            has_cells=False,
+            manual_neural_lattice_approved=True,
+        )
+        is withheld
+    )

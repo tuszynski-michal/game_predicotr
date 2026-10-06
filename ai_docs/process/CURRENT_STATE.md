@@ -6,6 +6,23 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0885 — neural manual slot symbol save (done)
+
+- Board 1405's selected cell 4 save was blocked by the source-wide projection
+  gate and the rebuilding-state mutation gate. D-522 now admits only a current
+  human-approved, proposal-bound manual neural lattice and its exact cells.
+  Sibling slots, incomplete source, general mutation and legacy gates remain.
+- Exact lattice visibility protects outside cells. Real PostgreSQL HTTP test
+  covers selected-only approval, outside rollback and fresh-app retry; passed.
+  Scoped 143 tests, Ruff/format and strict owned-source mypy passed. Broader
+  checks: 84 passed, one pre-existing list-timeout expectation failure untouched.
+- Fixed MAIN API root 46320 / listener 47872 is healthy on 8000 after guarded
+  restart; initial readiness timeout recovered through checks of the same
+  process. Other services preserved. No migration, cleanup, training or guessed
+  production label. Operator retries Save on 1405 without changing the grid.
+- Completion v1.7.227; full hash recorded after commit. Read-only proof and
+  runtime/check receipts are in the main Mumie pilot and deployment artifacts.
+
 ### TASK-0884 — approved main-app pilot deployment (done)
 
 - Actual MAIN pilot ready:100 managed originals,99 bound sources,891 pending,

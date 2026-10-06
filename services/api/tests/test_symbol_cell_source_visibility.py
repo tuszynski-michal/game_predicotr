@@ -61,6 +61,61 @@ def test_corrected_footprints_override_old_board_outline():
     assert visibility == ("partial", "outside") + ("full",) * 13
 
 
+def test_exact_lattice_interior_boundary_overrides_interpolated_outline():
+    nodes = [{"x": 10 + column * 15, "y": 10 + row * 25} for row in range(4) for column in range(6)]
+    nodes[2]["y"] = -5
+    visibility = current_source_visibilities(
+        geometry={"latticeBoundsQuad": _quad(10, 10, 85, 85), "latticeNodes": nodes},
+        width=100,
+        height=100,
+        topology=LEGACY_IMAGE_BOARD_TOPOLOGY,
+    )
+    assert visibility == ("full", "partial", "partial") + ("full",) * 12
+
+
+@pytest.mark.parametrize("nodes", [[], [{"x": 1, "y": 1}] * 24, "invalid"])
+def test_invalid_current_lattice_never_falls_back_to_outline(nodes):
+    with pytest.raises(ValueError):
+        current_source_visibilities(
+            geometry={"latticeBoundsQuad": _quad(10, 10, 85, 85), "latticeNodes": nodes},
+            width=100,
+            height=100,
+            topology=LEGACY_IMAGE_BOARD_TOPOLOGY,
+        )
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        {"geometry_engine_name": "neural_grid_v1"},
+        {"approved_geometry_revision": 0},
+        {"geometry_approved_by": None},
+        {"geometry_approved_at": None},
+        {"geometry_revision": 0},
+        {"board_geometry": {"neuralProposalChecksumSha256": "a" * 64}},
+    ],
+)
+def test_only_current_human_manual_lattice_can_cross_the_incomplete_source_gate(change):
+    from game_predictor_api.storage.image_geometry_completeness_state_repository import (
+        _manual_neural_lattice_approved,
+    )
+
+    nodes = [{"x": column * 10, "y": row * 10} for row in range(4) for column in range(6)]
+    board = SimpleNamespace(
+        asset_mode="virtual_source",
+        geometry_engine_name="manual_v1",
+        geometry_revision=1,
+        approved_geometry_revision=1,
+        geometry_approved_by="reviewer-operator",
+        geometry_approved_at="now",
+        board_geometry={"latticeNodes": nodes, "neuralProposalChecksumSha256": "a" * 64},
+    )
+    assert _manual_neural_lattice_approved(board)
+    for key, value in change.items():
+        setattr(board, key, value)
+    assert not _manual_neural_lattice_approved(board)
+
+
 def _coordinator(monkeypatch, *, asset_mode="virtual_source"):
     monkeypatch.setattr(
         "game_predictor_api.storage.image_symbol_review_repository._bind_game_store",
@@ -109,7 +164,12 @@ def _coordinator(monkeypatch, *, asset_mode="virtual_source"):
     board.board_geometry = {"cells": cells}
     item = SimpleNamespace(id=uuid4(), status="pending", resolved_value=None)
     source = SimpleNamespace(
-        import_job_id=uuid4(), width=100, height=100, oriented_width=100, oriented_height=100
+        import_job_id=uuid4(),
+        width=100,
+        height=100,
+        oriented_width=100,
+        oriented_height=100,
+        geometry_completeness_status=None,
     )
     _install_pinned_geometry_records(session, board, source)
     coordinator = SymbolCellReviewWriteThroughCoordinator(session)
@@ -130,6 +190,55 @@ def _coordinator(monkeypatch, *, asset_mode="virtual_source"):
         symbol_id,
         dict(game_id=uuid4(), review_item_id=item.id),
     )
+
+
+@pytest.mark.parametrize(
+    "allow,status,failure,expected",
+    [
+        (True, "rebuilding", None, True),
+        (False, "rebuilding", None, False),
+        (True, "failed", None, False),
+        (True, "rebuilding", "bad crop", False),
+    ],
+)
+def test_manual_correction_keeps_global_readiness_fence(
+    monkeypatch, allow, status, failure, expected
+):
+    from game_predictor_api.storage.image_symbol_review_repository import (
+        SqlAlchemySymbolCellReviewMutationRepository,
+    )
+    from game_predictor_api.storage.models import GameModel
+
+    monkeypatch.setattr(
+        "game_predictor_api.storage.image_symbol_review_repository.symbol_cell_review_projection_is_available",
+        lambda *_args, **_kwargs: False,
+    )
+    nodes = [{"x": column * 10, "y": row * 10} for row in range(4) for column in range(6)]
+    board = SimpleNamespace(
+        asset_mode="virtual_source",
+        geometry_engine_name="manual_v1",
+        geometry_revision=1,
+        approved_geometry_revision=1,
+        geometry_approved_by="reviewer-operator",
+        geometry_approved_at="now",
+        board_geometry={"latticeNodes": nodes, "neuralProposalChecksumSha256": "a" * 64},
+    )
+    state = SimpleNamespace(status=status, failure_message=failure)
+    session = Mock()
+    session.get.side_effect = (
+        lambda model, *_args, **_kwargs: object() if model is GameModel else state
+    )
+    repository = SqlAlchemySymbolCellReviewMutationRepository(
+        session,
+        allow_current_manual_neural_board=allow,
+    )
+    if expected:
+        assert repository._require_ready_state(uuid4(), current_board=board) is state
+    else:
+        with pytest.raises(SymbolCellReviewError) as error:
+            repository._require_ready_state(uuid4(), current_board=board)
+        assert error.value.code == "SYMBOL_CELL_REVIEW_PROJECTION_INCOMPLETE"
+    assert state.status == status  # Never claim that game-wide backfill completed.
 
 
 # D-467 S6 (TASK-0796): every board is ``virtual_source``.

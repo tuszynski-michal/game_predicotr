@@ -11,6 +11,12 @@ from pathlib import Path, PurePosixPath
 from typing import Protocol, cast
 from uuid import UUID
 
+from game_predictor_worker.symbols.protected_sources import (
+    ProtectedSourceError,
+    load_protected_sources,
+    require_frozen_reference,
+)
+
 from game_predictor_api.domain.image_review_cohorts import validate_cohort_actor
 from game_predictor_api.domain.image_reviews import (
     ImageReviewConflictError,
@@ -102,6 +108,8 @@ class VerifiedTrainingCohortRepository(Protocol):
 class SymbolCellTrainingSourceInventory:
     candidates: tuple[ApprovedSymbolCellCandidate, ...]
     exclusions: SymbolCellTrainingExclusionCounts
+    protected_source_exclusions: Mapping[str, object] | None = None
+    protected_cell_count: int = 0
 
 
 class SymbolCellTrainingSourceRepository(Protocol):
@@ -115,6 +123,12 @@ class VerifiedTrainingCohortArtifactStore:
         self._managed_root = artifact_root.resolve() / "data"
 
     def write(self, source: VerifiedTrainingCohortSource) -> str:
+        try:
+            protected = load_protected_sources(self._managed_root.parent, str(source.game_id))
+            if protected is not None:
+                require_frozen_reference(protected, source.manifest)
+        except ProtectedSourceError as error:
+            raise ImageReviewConflictError(error.code, str(error)) from error
         if hashlib.sha256(source.manifest_bytes).hexdigest() != source.manifest_checksum_sha256:
             raise ImageReviewConflictError(
                 "VERIFIED_TRAINING_COHORT_CHECKSUM_INVALID",
@@ -144,6 +158,11 @@ class VerifiedTrainingCohortArtifactStore:
                 handle.write(source.manifest_bytes)
                 handle.flush()
                 os.fsync(handle.fileno())
+            if protected is not None:
+                try:
+                    load_protected_sources(self._managed_root.parent, str(source.game_id))
+                except ProtectedSourceError as error:
+                    raise ImageReviewConflictError(error.code, str(error)) from error
             os.replace(temporary_name, destination)
             temporary_name = None
         finally:
@@ -317,6 +336,7 @@ class VerifiedTrainingCohortService:
                 "unknown": inventory.exclusions.unknown,
                 "unreadable": inventory.exclusions.unreadable,
             },
+            protected_source_exclusions=inventory.protected_source_exclusions,
         )
         represented_boards = {sample.candidate.recognized_board_id for sample in selection.samples}
         represented_sources = {sample.candidate.source_image_id for sample in selection.samples}
@@ -325,6 +345,11 @@ class VerifiedTrainingCohortService:
             for item in selection.coverage
             if item.selected_count < 10
         )
+        if inventory.protected_source_exclusions is not None:
+            warnings += (
+                f"PROTECTED_EVALUATION_SOURCE:{inventory.protected_cell_count}",
+                "SOURCE_SPLIT_WHOLE_PHOTO_ONLY:NO_PERSISTED_RECORDING_ID",
+            )
         return VerifiedTrainingCohortSource(
             game_id=game_id,
             manifest=manifest,

@@ -1530,7 +1530,11 @@ def create_app(
     ]:
         with session_factory() as session:
             try:
-                yield SymbolModelIterationService(SqlAlchemySymbolModelIterationRepository(session))
+                yield SymbolModelIterationService(
+                    SqlAlchemySymbolModelIterationRepository(
+                        session, resolved_settings.artifact_root
+                    )
+                )
                 session.commit()
             except BaseException:
                 session.rollback()

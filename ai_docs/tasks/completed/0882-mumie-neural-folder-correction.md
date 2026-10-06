@@ -214,7 +214,7 @@ defaults, partial/outside restrictions and approved geometry remain protected.
 
 Evidence: ai_docs/quality/MUMIE_NEURAL_FOLDER_CORRECTION_20261006.md and
 C:\Users\tuszy\Documents\game_predicotr\artifacts\grid-v3-deployment-20261004\0882-final-proof.json.
-Commit version will be v1.7.224; record the full hash after publication.
+Separate commitv1.7.224/8b37241fdd6eb9d29b35691d4e91f3d6a88cb18e; show/stat and remaining status verified.
 
 ### Not completed
 

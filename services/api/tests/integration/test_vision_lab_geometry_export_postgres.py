@@ -24,6 +24,7 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
+from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,
@@ -191,7 +192,9 @@ def _revision(
             source_geometry_revision_id=board.source_geometry_revision_id,
             geometry_checksum_sha256=_sha(f"geometry:{board.id}:{revision}"),
             virtual_render_spec={"cells": []},
-            virtual_render_spec_checksum_sha256=_sha(f"spec:{board.id}:{revision}"),
+            virtual_render_spec_checksum_sha256=hashlib.sha256(
+                canonical_json_bytes({"cells": []})
+            ).hexdigest(),
             cropper_version="fixture-cropper-v1",
             corrected_by=author,
         )

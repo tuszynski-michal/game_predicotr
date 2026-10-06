@@ -6,6 +6,34 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0883 — pooled correction feedback and pilot acceptance (done)
+
+- Whole-photo protections before existing caps, current human approvals and
+  fresh preview/freeze/builder/reuse/first-epoch gates implemented. Legacy
+  fingerprints and4000/class,64/source budgets preserved; no auto-training.
+- Exact24-node human geometry export and visibility/outside masks retained.
+  Initial approval needs no recrop. Checksum/interior/stale approval negatives
+  and explicit legacy corner conversion have regression coverage.
+- Frozen127 genuine human controls/136 proofs/24 whole sources,10 explicit
+  catalog mappings; AI never becomes truth. New production promotion checks
+  exact current crop and locks pending controls. OPEN is a real conflict;
+  absent comparisons are NO_CONFLICT/0. R2 lab import and777 preserved.
+- Root67/feedback53/truth51/installer15 testsPASS, with overlapping suites;
+  independent55PASS. Two actual guarded *_test PG testsPASS including cold
+  export resume and competing LOGIN update55P03/teardown. API/UI/contract,
+  strict owned-scope types, Ruff/format and Admin buildPASS. Full Torch graph
+  timed out; scoped check skips only third-party torch/torchvision.
+- Prepared controls161files verified in a new process,0 writes to live store.
+  Prepared100-photo folder ready; reuse bounded actual100 receipt from0882,
+  not a population accuracy claim. Operator guide and concrete0144/0145
+  deployment preview ready. Independent gpt-6.1-sol/high audit PASS,0 open P0–P2;
+  versioned task commit pending.
+- OperatorDB remains0143 with0Mumie sources/boards, no activation or restart.
+  DB51.64GB/C:82.47GBfree measured read-only; full backup/restore not done.
+  Main Admin3000, Reviewer3001, API8000;3102 is Vision Lab. API arguments
+  currently have no --reload; stop it before merge/migration regardless.
+  RGB0878 previewCLI remains active; safe checkpoint required before0884.
+
 ### TASK-0882 — neural folder import and correction (done)
 
 - Frozen geometry_core CPU staging, immutable checkpoint replay, explicit
@@ -28,7 +56,7 @@ last_updated: 2026-10-06
   These are structural counts, not population symbol accuracy.
 - Quality: MUMIE_NEURAL_FOLDER_CORRECTION_20261006.md; final proof in main
   artifacts/grid-v3-deployment-20261004/0882-final-proof.json. Independent
-  gpt-6.1-sol/high audit PASS,0 openP0–P2;v1.7.224 hash after commit.
+  gpt-6.1-sol/high audit PASS,0 openP0–P2;commitv1.7.224/8b37241fdd6eb9d29b35691d4e91f3d6a88cb18e.
   Continue0883 autonomously.
 - No operator DB writes, main merge/activation/restart. Live0143 and0Mumie
   sources/boards confirmed read-only. RGB777 previewCLI still active.

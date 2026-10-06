@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from uuid import UUID
 
+from game_predictor_worker.symbols.protected_sources import MUMIE_GAME_ID
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -23,6 +24,7 @@ from game_predictor_api.storage.models import (
     GameSymbolModelActivationModel,
     SymbolModelIterationModel,
 )
+from game_predictor_api.storage.protected_control_truth import require_control_truth_promotion
 
 
 class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
@@ -65,6 +67,7 @@ class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
             action=action,
         )
         assert target.candidate_manifest_checksum_sha256 is not None
+        self._require_control_truth(target, lock=False)
         return SymbolModelActivationPreview(
             game_id=game_id,
             model_iteration_id=model_iteration_id,
@@ -143,6 +146,8 @@ class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
             current=current,
             action=action,
         )
+        if target is not None:
+            self._require_control_truth(target, lock=True)
         record = GameSymbolModelActivationModel(
             game_id=game_id,
             model_iteration_id=model_iteration_id,
@@ -211,6 +216,22 @@ class SqlAlchemySymbolModelRegistryRepository(SymbolModelRegistryRepository):
                 GameSymbolModelActivationModel.activation_number.desc(),
             )
             .limit(1)
+        )
+
+    def _require_control_truth(self, target: SymbolModelIterationModel, *, lock: bool) -> None:
+        if str(target.game_id) != MUMIE_GAME_ID or target.origin != "production_training":
+            return
+        if self._artifact_root is None:
+            raise JobConflictError(
+                "PROTECTED_CONTROL_STORAGE_REQUIRED",
+                "Managed human control storage is unavailable.",
+            )
+        require_control_truth_promotion(
+            self._session,
+            self._artifact_root,
+            target.game_id,
+            target.configuration_payload,
+            lock=lock,
         )
 
     def _validate_transition(

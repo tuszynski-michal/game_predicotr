@@ -38,6 +38,12 @@ const WARNING_LABELS: Readonly<Record<string, string>> = {
 };
 
 function warningLabel(code: string): string {
+  if (code.startsWith('PROTECTED_EVALUATION_SOURCE:')) {
+    return 'Zdjęcia kontrolne zostały wykluczone z treningu.';
+  }
+  if (code === 'SOURCE_SPLIT_WHOLE_PHOTO_ONLY:NO_PERSISTED_RECORDING_ID') {
+    return 'Dane rozdzielono po całych zdjęciach. Brak identyfikatora nagrania do kontroli całych sesji.';
+  }
   if (code.startsWith('LOW_SYMBOL_COVERAGE:')) {
     return `Mało przykładów symbolu ${code.slice('LOW_SYMBOL_COVERAGE:'.length)}.`;
   }

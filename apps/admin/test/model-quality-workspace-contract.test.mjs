@@ -68,3 +68,11 @@ test('requires an explicit checksum-bound confirmation and recovers after errors
   assert.match(source, /controller\.abort\(\)/);
   assert.match(source, /Ulepsz rozpoznawanie/);
 });
+
+test('translates protected-source warnings without claiming recording separation', () => {
+  assert.match(source, /PROTECTED_EVALUATION_SOURCE:/);
+  assert.match(source, /Zdjęcia kontrolne zostały wykluczone z treningu/);
+  assert.match(source, /SOURCE_SPLIT_WHOLE_PHOTO_ONLY:NO_PERSISTED_RECORDING_ID/);
+  assert.match(source, /Dane rozdzielono po całych zdjęciach/);
+  assert.match(source, /Brak identyfikatora nagrania/);
+});

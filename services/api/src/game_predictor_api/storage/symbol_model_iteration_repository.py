@@ -7,15 +7,26 @@ import json
 from collections import Counter, defaultdict
 from collections.abc import Mapping
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import cast
 from uuid import UUID, uuid4
 
+from game_predictor_worker.symbols.protected_sources import (
+    MUMIE_GAME_ID,
+    ProtectedSourceError,
+    load_protected_sources,
+    managed_path,
+    require_frozen_reference,
+    source_pixel_identity,
+)
 from game_predictor_worker.symbols.training_dataset import (
     CLASS_STRATIFIED_SPLIT_POLICY_VERSION,
     CLASS_STRATIFIED_SPLIT_SEED,
     SPLIT_ORDER,
     SplitName,
+    TrainingDatasetBuildError,
     TrainingDatasetConfig,
+    _read_cohort,
     build_class_stratified_source_assignments,
 )
 from sqlalchemy import func, select
@@ -116,8 +127,9 @@ def _cohort_source_symbol_counts(session: Session, cohort_id: UUID) -> dict[str,
 
 
 class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
-    def __init__(self, session: Session) -> None:
+    def __init__(self, session: Session, artifact_root: Path | None = None) -> None:
         self._session = session
+        self._artifact_root = artifact_root
 
     def create_training(
         self,
@@ -138,6 +150,54 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
             )
         model_payload = configuration.to_payload()
         source_symbol_counts = _cohort_source_symbol_counts(self._session, cohort_id)
+        protected_reference: dict[str, object] | None = None
+        if str(game_id) == MUMIE_GAME_ID:
+            try:
+                if self._artifact_root is None:
+                    raise ProtectedSourceError(
+                        "PROTECTED_SOURCE_DESCRIPTOR_MISSING",
+                        "Pilot training requires managed artifact storage.",
+                    )
+                protected = load_protected_sources(self._artifact_root, str(game_id))
+                assert protected is not None
+                manifest = _read_cohort(
+                    managed_path(self._artifact_root / "data", cohort.artifact_relative_path),
+                    cohort.manifest_checksum_sha256,
+                )
+                require_frozen_reference(protected, manifest)
+                remapped: defaultdict[str, Counter[str]] = defaultdict(Counter)
+                raw_cells = manifest.get("cells")
+                if not isinstance(raw_cells, list):
+                    raise ProtectedSourceError(
+                        "PROTECTED_SOURCE_COHORT_UNQUALIFIED",
+                        "Pilot training requires frozen cell provenance.",
+                    )
+                source_identities: dict[str, str] = {}
+                for cell in raw_cells:
+                    source = cell["source"]
+                    checksum = str(source["checksumSha256"])
+                    if checksum in source_identities:
+                        continue
+                    pixels = source_pixel_identity(
+                        self._artifact_root / "data", str(source["relativePath"]), checksum
+                    )
+                    if protected.excludes(checksum, pixels):
+                        raise ProtectedSourceError(
+                            "PROTECTED_EVALUATION_SOURCE",
+                            "Evaluation sources cannot enter new pilot training.",
+                        )
+                    source_identities[checksum] = pixels
+                for checksum, pixels in source_identities.items():
+                    if checksum in source_symbol_counts:
+                        remapped[pixels].update(source_symbol_counts.pop(checksum))
+                if source_symbol_counts:
+                    raise ProtectedSourceError(
+                        "PROTECTED_SOURCE_MISSING", "A frozen cohort source is no longer available."
+                    )
+                source_symbol_counts = {source: dict(counts) for source, counts in remapped.items()}
+                protected_reference = protected.reference()
+            except (ProtectedSourceError, TrainingDatasetBuildError) as error:
+                raise JobConflictError(error.code, str(error)) from error
         prior_assignments: dict[str, SplitName] = {}
         prior_rows = self._session.scalars(
             select(SymbolModelIterationModel)
@@ -167,6 +227,8 @@ class SqlAlchemySymbolModelIterationRepository(SymbolModelIterationRepository):
             source_assignments=assignments,
         ).to_dict()
         payload = {**model_payload, "dataset": dataset_payload}
+        if protected_reference is not None:
+            payload["protectedSourceExclusions"] = protected_reference
         configuration_fingerprint = _payload_checksum(payload)
         prior_with_configuration = self._session.scalar(
             select(SymbolModelIterationModel).where(

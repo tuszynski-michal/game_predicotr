@@ -372,6 +372,18 @@ class SymbolTrainingJobHandler:
                 checkpoint_checksum=None,
                 metrics={},
             )
+        from game_predictor_worker.symbols.protected_sources import (
+            ProtectedSourceError,
+            load_protected_sources,
+            require_frozen_reference,
+        )
+
+        try:
+            protected = load_protected_sources(self._store.artifact_root, str(spec.game_id))
+            if protected is not None:
+                require_frozen_reference(protected, dataset.manifest)
+        except ProtectedSourceError as error:
+            raise JobHandlerError(error.code, str(error)) from error
         result = _train_epochs(
             context=context,
             store=self._store,

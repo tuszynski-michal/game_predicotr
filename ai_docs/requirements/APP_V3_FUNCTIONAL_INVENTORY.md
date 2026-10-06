@@ -1,7 +1,7 @@
 ---
 title: Aplikacja V3 — rejestr ekranów i potrzebnych funkcji
 status: draft
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 ---
 
 # Aplikacja V3 — rejestr przeglądu funkcjonalności
@@ -27,8 +27,9 @@ Instrukcja korzystania: [Mumie w głównej aplikacji](../guides/MUMIE_MAIN_APP_O
 ## Import i Zarządzanie planszami
 
 Obszar nazywany przez operatora „Zarządzanie planszami” jest obecnie zbiorem
-sekcji wybranej gry w **Zarządzaniu grami**. W TASK-0887 zmienia się tylko
-wybór/opis silnika; pozostałe poniższe sekcje zostają na miejscu.
+sekcji wybranej gry w **Zarządzaniu grami**. TASK-0887 zmienił wybór/opis
+silnika. TASK-0890 przenosi diagnostykę siatek z importu do korekty zgodnie
+z kolejną decyzją operatora; pozostałe pozycje czekają na przegląd.
 
 | ID | Obecna funkcja | Potrzeba w V3 / proponowana zmiana | Status | Realizacja |
 | --- | --- | --- | --- | --- |
@@ -39,7 +40,7 @@ wybór/opis silnika; pozostałe poniższe sekcje zostają na miejscu.
 | IMPORT-05 | Przygotowanie pełnych siatek 3×5 i cropów | Automatycznie udostępniać pełne, przypisane siatki w weryfikacji symboli; bez ręcznego zatwierdzania każdej planszy. Braki i częściowe do korekty. | działa | D-523 |
 | IMPORT-06 | Ręczna korekta zdjęć geometrii przed importem | Zachować dla niejednoznacznego zdjęcia i numeracji. Odróżnić od korekty cięcia pojedynczej planszy po imporcie. | działa / potrzebne wyjaśnienie | instrukcja |
 | IMPORT-07 | Dopasowanie geometrii zdjęcia: Standardowe v0.10 / Obszar plansz — testowe | Ukryte dla Mumii V3 na prośbę użytkownika. Zachowane dla klasycznej geometrii V1.1; wybrany wariant nadal trafia do jej preflightu. | wdrożone | TASK-0889 |
-| IMPORT-08 | Brakujące plansze, kompletność siatek zdjęć | Zachować dane operacyjne. Rozdzielić brak pozycji, jakość cięcia i dostępność cropów. Obecny opis bramki całego zdjęcia nie wyjaśnia wyjątku D-523; liczba nieocenionych geometrii nie oznacza braku symboli. | potrzebna zmiana opisu/liczników | osobny task |
+| IMPORT-08 | Brakujące plansze, diagnostyka siatek zdjęć | Raport brakujących numerów zostaje w imporcie. Diagnostyka zdjęć przeniesiona do Korekty cięcia siatki; opis uwzględnia D-523. Historyczne liczniki całego zdjęcia nie mierzą dostępności wszystkich cropów V3. | przeniesione; semantyka liczników zachowana | D-525, TASK-0890 |
 | IMPORT-09 | Ponowne przetwarzanie z oryginałów, kontynuacja korekty | Zachować wznowienie i ochronę ręcznych decyzji. Ukryto osobne wymuszenie V1.0. Diagnostyka pozostaje w szczegółach. | działa / wycofane V1.0 | TASK-0887 |
 | IMPORT-10 | Źródła tej samej sekwencji, ranking, ręczny wybór | Zachować możliwość wyboru lepszego zdjęcia dla tego samego numeru. Propozycja: przesunąć do narzędzi naprawy/diagnostyki. | działa / propozycja układu | do przeglądu |
 | IMPORT-11 | Paczki z Selekcji zdjęć i import kolejnych partii | Przejrzeć przy dużych folderach. Nie tworzyć drugiego pipeline V3; sprawdzić obsługę tego samego profilu i checkpointów przed rozszerzeniem. | do przeglądu | osobny task, jeśli potrzebny |
@@ -51,7 +52,7 @@ wybór/opis silnika; pozostałe poniższe sekcje zostają na miejscu.
 | --- | --- | --- | --- | --- |
 | MODEL-01 | Katalog symboli gry i obrazy referencyjne | Zachować tożsamość, kolejność i flagi. Rozdzielić flagi zasad gry od bazowej klasy graficznej. | działa / potrzebne | ekran Symbole |
 | MODEL-02 | Globalna Weryfikacja symboli z wyborem gry | Główny szybki przepływ: grupy, do 2000 cropów, korekta lub zatwierdzenie wielu naraz. Zapis zamraża stronę do odświeżenia. | działa w Mumii | D-523 |
-| MODEL-03 | Zła siatka → Korekta cięcia siatki | Zachować. Zmieniamy cięcie tylko przy błędzie pikseli. Dobrze wycięty zły symbol poprawiamy bez ruszania siatki. | działa | instrukcja |
+| MODEL-03 | Zła siatka → Korekta cięcia siatki | Kolejka korekty, odroczone geometrie i diagnostyka zdjęć w jednym miejscu. Zmieniamy cięcie tylko przy błędzie pikseli. Dobrze wycięty zły symbol poprawiamy bez ruszania siatki. | działa / diagnostyka przeniesiona | D-525, TASK-0890, instrukcja |
 | MODEL-04 | Weryfikacja symbolu na planszy | Zachować jako wyjątek dla nieczytelnych pojedynczych cropów. To nie obowiązkowe zatwierdzanie wszystkich plansz. | działa | do przeglądu położenia |
 | MODEL-05 | Jakość rozpoznawania → Ulepsz rozpoznawanie | Zachować wspólną pulę zatwierdzeń z wielu uploadów, trening kandydata, raport, osobną aktywację i przeliczenie pending. | działa | istniejący pion uczenia |
 | MODEL-06 | Ulepsz cięcie siatki | Obecnie kalibracja klasycznego profilu, nie trening sieci V3. Potrzebna osobna czytelna obsługa snapshotu 24 punktów, treningu i oceny sieci z panelu. Nie udawać, że obecny przycisk to wykonuje. | brak funkcji V3 w panelu | przyszły osobny plan/task |

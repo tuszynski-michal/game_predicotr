@@ -6,6 +6,23 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0890 — grid diagnostics placement (done)
+
+- User explicitly places grid problems in Korekta cięcia siatki rather than
+  extending Import plansz. Assumption: UI move only, existing backend queue
+  qualification and neural-auto-crop-v1 remain authoritative.
+- Reuse GeometryCompletenessSection in ReviewerAccessLauncher with game-scoped
+  jobs and queue refresh; retain MissingBoardsSection in import. D-525 records
+  placement and separates whole-image diagnostics from V3 crop availability.
+- Plan: delivery/GRID_DIAGNOSTICS_PLACEMENT_EXECUTION_PLAN.md. No DB/API change,
+  migration, cleanup, import/preflight dispatch, training or activation.
+- Unit47/interaction20 PASS, scoped format/lint/types PASS (existing img warning
+  only), final Admin build PASS (24.39s). MAIN import has no diagnostics, folder
+  stays visible; correction reload and queue refresh verified. Reused responsive
+  controls; proof artifacts/grid-diagnostics-placement-20261007/.
+- Historical counters retain whole-image semantics; no crop-readiness claim.
+- Completion v1.7.232; full commit hash pending.
+
 ### TASK-0889 — import folder recovery and V3 registration (done)
 
 - Diagnosis: GET browser-selections fails with GAME_NOT_FOUND for finalized

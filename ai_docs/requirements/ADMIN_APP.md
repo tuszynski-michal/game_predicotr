@@ -1187,11 +1187,13 @@ cięcia, manifest geometrii stron, test ochronny, wersja modelu symboli,
 wynik pipeline'u) została usunięta z tego widoku; pozostaje dostępna w
 zakładce Joby.
 
-### Sekcja „Kompletność siatek zdjęć” w Import plansz (D-484, TASK-0806, TASK-0808, TASK-0807)
+### Diagnostyka siatek zdjęć w Korekcie cięcia siatki (D-484, D-525, TASK-0890)
 
-Jednostką geometrii jest zdjęcie źródłowe (D-484). Sekcja, pod „Brakującymi
-planszami”, pokazuje, ile zdjęć gry ma komplet poprawnych siatek, a ile nie, i
-listuje zdjęcia niekompletne. Od TASK-0807 jest kolejką siatek bramki D-484:
+Jednostką geometrii jest zdjęcie źródłowe (D-484). Diagnostyka znajduje się
+w „Korekcie cięcia siatki”, pod uruchomieniem Reviewera. Nie jest częścią
+„Importu plansz”; raport brakujących numerów plansz zostaje w imporcie.
+Pokazuje, ile zdjęć gry ma komplet poprawnych siatek, a ile nie, i listuje
+zdjęcia niekompletne. Od TASK-0807 jest kolejką siatek bramki D-484:
 zakładka domyślna „Kolejka siatek” pokazuje zdjęcia ze stanem zapisanym w
 bazie `geometry_incomplete` (`completenessStatus`), a „Wyjątki operatora” —
 zdjęcia `geometry_exception`. Siatki poprawia się w istniejącej korekcie siatek
@@ -1199,6 +1201,11 @@ zdjęcia `geometry_exception`. Siatki poprawia się w istniejącej korekcie siat
 dla importu zdjęcia). Korzysta z `GET .../geometry-completeness/{gameId}`,
 `.../incomplete-images`, `.../low-quality-boards` oraz
 `POST`/`DELETE .../images/{sourceImageId}/exception`.
+
+Opis wyjaśnia, że w V3 (D-523) poprawne pełne siatki są cięte automatycznie
+niezależnie od innych slotów zdjęcia. Niekompletność całego zdjęcia nie
+oznacza niedostępności wszystkich jego cropów. Przeniesienie UI nie zmienia
+kwalifikacji kolejki, danych ani kontraktu API. Zmiana gry resetuje diagnostykę.
 
 Definicje (zapisane w czystej funkcji `domain/image_geometry_completeness.py`,
 ten sam przepis liczy SQL raportu):
@@ -1267,7 +1274,7 @@ Zachowanie:
   (`review_state = pending`) ma pewność predykcji `≤ maxConfidence` (domyślnie
   80 %). Zakres to wybrany import albo cała gra; przekroczenie limitu 10 s daje
   jawny błąd z podpowiedzią zawężenia do importu, nigdy pusty wynik,
-- odświeżanie: przy wejściu, po `Odśwież status` panelu (`refreshToken`) i po
+- odświeżanie: przy wejściu, po `Odśwież kolejkę` w korekcie (`refreshToken`) i po
   zmianie zakresu/filtra; co 15 s odświeżane są wyłącznie liczniki i tylko gdy
   trwa aktywny import tej gry.
 

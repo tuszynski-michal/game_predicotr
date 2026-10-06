@@ -6,6 +6,19 @@ last_updated: 2026-10-06
 
 # Decision Log
 
+## D-525 — grid diagnostics belong to correction, not import
+
+- **Status:** accepted user instruction, 2026-10-07, TASK-0890.
+- **Decision:** move the existing whole-image grid diagnostics out of Import
+  plansz into Korekta cięcia siatki, alongside its existing correction queue.
+  Keep missing sequence numbers in import. Reuse the same API and game/import
+  scope; preserve previews, filters and explicit correction/exception actions.
+- **Presentation:** explain missing, partial and uncertain grids in plain
+  language. D-523 still admits valid full neural crops independently of other
+  slots; a historical incomplete-image count is not crop unavailability.
+- **Boundary:** no backend classification changes, database writes/migrations,
+  queue creation, training, activation, cleanup or changes to sequence numbers.
+
 ## D-524 — show the actual neural import and retire old UI choices
 
 - **Status:** accepted user scope, 2026-10-06, TASK-0887. Hide obsolete engines

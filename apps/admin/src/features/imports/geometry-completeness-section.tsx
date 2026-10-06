@@ -52,6 +52,17 @@ const PAGE_LIMIT = 25;
 const LOW_QUALITY_LIMIT = 50;
 const POLL_INTERVAL_MS = 15_000;
 
+export type GeometryCompletenessClient = Pick<
+  ImageFolderImportClient,
+  | 'getImageGeometryCompleteness'
+  | 'listIncompleteGeometryImages'
+  | 'getImageGeometryCompletenessSourceAsset'
+  | 'getImageGeometryLowQualityBoards'
+  | 'setSourceImageGeometryException'
+  | 'withdrawSourceImageGeometryException'
+  | 'startLocalReviewer'
+>;
+
 type Scope = 'game' | 'import';
 // The queue tabs read the persisted gate status (TASK-0807); the state tabs
 // classify the images on the fly (TASK-0806/0808).
@@ -59,7 +70,7 @@ type StateFilter = 'all' | ListedImageStateName | GeometryQueueFilter;
 type PreviewStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 interface GeometryCompletenessSectionProps {
-  readonly api: ImageFolderImportClient;
+  readonly api: GeometryCompletenessClient;
   readonly gameId: string;
   readonly imports: readonly GeometryImportOption[];
   /** Polling of the counters runs only while an import is being processed. */
@@ -243,20 +254,18 @@ export function GeometryCompletenessSection({
     >
       <header className="importCompletenessHeader">
         <div>
-          <p className="eyebrow">Kompletność siatek zdjęć</p>
+          <p className="eyebrow">Diagnostyka siatek zdjęć</p>
           <h3 id="geometry-completeness-title">
             {gameReport
               ? `${gameReport.images.incomplete.toLocaleString('pl-PL')} niekompletnych zdjęć z ${gameReport.images.total.toLocaleString('pl-PL')}`
-              : 'Kompletność siatek zdjęć'}
+              : 'Zdjęcia wymagające sprawdzenia siatek'}
           </h3>
           <p>
-            Zdjęcie jest kompletne, gdy każda oczekiwana plansza ma siatkę
-            zatwierdzoną przez człowieka albo zaakceptowaną przez silnik bez
-            zastrzeżeń. Plansze odrzucone nie są dowodem poprawnej siatki, a
-            zdjęcia zastąpione nowszym importem nie są brakami. Bramka D-484
-            wstrzymuje cięcie na symbole i wyszukiwarkę dla zdjęć bez kompletu
-            siatek; kolejka siatek pokazuje stan zapisany w bazie. Siatki
-            poprawiasz w Reviewerze, a wyjątek dopuszcza zdjęcie mimo braków.
+            Tutaj sprawdzisz zdjęcia z brakującą, częściową albo niepewną
+            siatką. Wybierz zdjęcie i otwórz je do korekty w Reviewerze. W V3
+            poprawne pełne siatki są cięte automatycznie, niezależnie od
+            problemów pozostałych plansz na zdjęciu. Raport całego zdjęcia nie
+            oznacza, że wszystkie jego symbole są niedostępne.
           </p>
         </div>
         <button
@@ -576,7 +585,7 @@ function imageStateCount(
 }
 
 interface GeometryImageItemProps {
-  readonly api: ImageFolderImportClient;
+  readonly api: GeometryCompletenessClient;
   readonly gameId: string;
   readonly image: IncompleteGeometryImageResponse;
   /** Refreshes the counters and the queue after a gate decision. */
@@ -770,7 +779,7 @@ function imageTone(image: IncompleteGeometryImageResponse): string {
 }
 
 interface GeometryGateControlsProps {
-  readonly api: ImageFolderImportClient;
+  readonly api: GeometryCompletenessClient;
   readonly gameId: string;
   readonly image: IncompleteGeometryImageResponse;
   readonly onChanged: () => void;
@@ -977,7 +986,7 @@ function GeometryGateControls({
 }
 
 interface LowQualityBlockProps {
-  readonly api: ImageFolderImportClient;
+  readonly api: GeometryCompletenessClient;
   readonly gameId: string;
   readonly importJobId: string | undefined;
 }

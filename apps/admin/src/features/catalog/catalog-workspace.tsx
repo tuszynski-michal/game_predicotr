@@ -122,7 +122,7 @@ const GAME_SECTION_OPTIONS: readonly {
     id: 'reviews',
     title: 'Korekta cięcia siatki',
     description:
-      'Ręczna korekta siatki jednej planszy naraz w aplikacji Reviewer.',
+      'Błędne i niepełne siatki, diagnostyka zdjęć oraz korekta w Reviewerze.',
   },
   {
     id: 'unreadable-symbols',

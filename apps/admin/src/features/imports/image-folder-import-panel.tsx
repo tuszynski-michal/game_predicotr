@@ -67,7 +67,6 @@ import {
   readyBoardImportLifecycleLabel,
   sortReadyBoardImports,
 } from './image-folder-import-state';
-import { GeometryCompletenessSection } from './geometry-completeness-section';
 import { MissingBoardsSection } from './missing-boards-section';
 import { PageGeometryCorrectionPanel } from './page-geometry-correction-panel';
 import { GeometryGuardResolutionPanel } from './geometry-guard-resolution-panel';
@@ -2245,19 +2244,6 @@ export function ImageFolderImportPanel({
       <MissingBoardsSection
         api={api}
         gameId={gameId}
-        refreshToken={refreshToken}
-      />
-
-      <GeometryCompletenessSection
-        api={api}
-        gameId={gameId}
-        importActive={jobs.some((job) =>
-          ['created', 'processing'].includes(job.status),
-        )}
-        imports={jobs.map((job) => ({
-          id: job.id,
-          label: `${job.inputPayload.sourceDisplayName ?? 'Import obrazów'} · ${job.id.slice(0, 8)}`,
-        }))}
         refreshToken={refreshToken}
       />
 

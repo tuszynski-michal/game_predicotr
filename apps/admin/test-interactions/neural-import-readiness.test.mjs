@@ -230,6 +230,31 @@ test('existing Import button is enabled for a completed 99-review neural report 
   }
 });
 
+test('import does not mount or request grid diagnostics', async () => {
+  const requests = [];
+  const { root } = await mount(null, false, {
+    clientOverrides: {
+      getImageGeometryCompleteness: async () => {
+        requests.push('report');
+        return { error: {} };
+      },
+      listIncompleteGeometryImages: async () => {
+        requests.push('images');
+        return { error: {} };
+      },
+    },
+  });
+  try {
+    assert.deepEqual(requests, []);
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Kompletność siatek zdjęć|Diagnostyka siatek zdjęć/,
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('a successful Mumie import reports V3 rather than the undefined classical fallback', async () => {
   const job = {
     ...previous,

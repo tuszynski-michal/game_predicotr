@@ -52,11 +52,13 @@ akcją z zebranych zatwierdzeń; nowy folder nie wymaga uczenia od początku.
 Status importu `waiting_for_review` może oznaczać oczekującą zbiorczą
 weryfikację symboli, a nie obowiązek ręcznego zatwierdzania każdej siatki.
 
-Historyczna sekcja **Kompletność siatek zdjęć** nadal pokazuje akceptację
-geometrii całego zdjęcia. Przy V3 jej „Siatka niepotwierdzona” nie oznacza,
-że wszystkie cropy są niedostępne. Dostępność sprawdzaj w **Weryfikacji
-symboli**. Te opisy i liczniki zapisano do osobnej korekty w
-[rejestrze ekranów](../requirements/APP_V3_FUNCTIONAL_INVENTORY.md).
+**Diagnostykę siatek zdjęć** znajdziesz w **Korekcie cięcia siatki**, pod
+przyciskiem otwarcia Reviewera. Wybierz całą grę albo konkretny import,
+sprawdź zdjęcia i użyj **Popraw siatki w Reviewerze**. **Odśwież kolejkę**
+odczytuje bieżący stan. Import zawiera nadal raport brakujących numerów.
+Raport geometrii całego zdjęcia zachowuje historyczne reguły: przy V3
+„Siatka niepotwierdzona” nie oznacza, że wszystkie cropy są niedostępne.
+Dostępność sprawdzaj w **Weryfikacji symboli**.
 
 ## Pierwsza partia
 

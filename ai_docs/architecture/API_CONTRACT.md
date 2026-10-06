@@ -2657,8 +2657,8 @@ Jednostką jest zdjęcie źródłowe; oczekiwane pozycje to `active_board_slots`
 najnowszej rewizji geometrii źródła, a stan pozycji (`ok | uncertain | partial |
 missing | deferred | superseded`) i zdjęcia (`complete | incomplete_missing |
 incomplete_partial | incomplete_uncertain | no_source_geometry | import_failed |
-superseded`) wynika z reguł D-484 (`ADMIN_APP.md`, sekcja „Kompletność siatek
-zdjęć”). Plansza `rejected` nie jest planszą z siatką. Pozycja bez żywej planszy,
+superseded`) wynika z reguł D-484 (`ADMIN_APP.md`, sekcja „Diagnostyka siatek
+zdjęć” w Korekcie cięcia siatki, D-525). Plansza `rejected` nie jest planszą z siatką. Pozycja bez żywej planszy,
 której numer sekwencji ma żywy element review (`pending | accepted |
 corrected`) na innym zdjęciu tej samej gry, jest `superseded`; zdjęcie jest
 `superseded`, gdy wszystkie jego oczekiwane pozycje są `superseded` albo gdy nie

@@ -43,6 +43,13 @@ const panelSource = readFileSync(
   ),
   'utf8',
 );
+const launcherSource = readFileSync(
+  new URL(
+    '../src/features/reviewer-access/reviewer-access-launcher.tsx',
+    import.meta.url,
+  ),
+  'utf8',
+);
 
 const base = {
   error: null,
@@ -232,13 +239,24 @@ test('scope resolves to an import id only for a known selected import', () => {
   assert.equal(geometryScopeImportId('import', '', imports), undefined);
 });
 
-test('the panel mounts the section next to the missing-boards section', () => {
-  assert.match(panelSource, /<GeometryCompletenessSection/);
-  assert.ok(
-    panelSource.indexOf('<MissingBoardsSection') <
-      panelSource.indexOf('<GeometryCompletenessSection'),
+test('grid diagnostics belong to correction while missing boards stay in import', () => {
+  assert.doesNotMatch(panelSource, /GeometryCompletenessSection/);
+  assert.match(panelSource, /<MissingBoardsSection/);
+  assert.match(launcherSource, /<GeometryCompletenessSection/);
+  assert.match(launcherSource, /key=\{gameId\}/);
+  assert.match(launcherSource, /importActive=\{jobs\.some/);
+  assert.match(sectionSource, /Diagnostyka siatek zdjęć/);
+  assert.match(
+    sectionSource,
+    /W V3\s+poprawne pełne siatki są cięte automatycznie/,
   );
-  assert.match(panelSource, /importActive=\{jobs\.some/);
+});
+
+test('whole-image gate copy does not claim that every V3 crop is unavailable', () => {
+  assert.match(
+    geometryGateReasonLabel('SOURCE_IMAGE_GEOMETRY_INCOMPLETE'),
+    /w V3 poprawne pełne siatki mogą być już dostępne/,
+  );
 });
 
 test('the section uses the generated-client wrappers and runs the quality query only on demand', () => {
@@ -279,7 +297,7 @@ test('gate queue: persisted statuses, reasons and exception rules have Polish te
   );
   assert.match(
     geometryGateReasonLabel('SOURCE_IMAGE_GEOMETRY_INCOMPLETE'),
-    /nie są cięte na symbole.*\(SOURCE_IMAGE_GEOMETRY_INCOMPLETE\)$/,
+    /w V3 poprawne pełne siatki mogą być już dostępne.*\(SOURCE_IMAGE_GEOMETRY_INCOMPLETE\)$/,
   );
   assert.equal(canSetGeometryException('geometry_incomplete'), true);
   assert.equal(canSetGeometryException('geometry_exception'), false);

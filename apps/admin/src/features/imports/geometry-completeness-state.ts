@@ -95,7 +95,7 @@ const COMPLETENESS_STATUS_LABELS: Readonly<
 
 const GATE_REASON_LABELS: Readonly<Record<string, string>> = {
   SOURCE_IMAGE_GEOMETRY_INCOMPLETE:
-    'zdjęcie nie ma kompletu poprawnych siatek, więc jego plansze nie są cięte na symbole i nie trafiają do wyszukiwarki',
+    'zdjęcie nie ma kompletu potwierdzonych siatek; w V3 poprawne pełne siatki mogą być już dostępne w weryfikacji symboli',
 };
 
 const GEOMETRY_EXCEPTION_ERRORS: Readonly<Record<string, string>> = {

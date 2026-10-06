@@ -12,6 +12,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import { apiErrorMessage } from '@/features/catalog/catalog-api-error';
 import {
+  GeometryCompletenessSection,
+  type GeometryCompletenessClient,
+} from '@/features/imports/geometry-completeness-section';
+import {
   GridShadowPanel,
   type GridShadowPanelClient,
 } from '@/features/grid-shadow/grid-shadow-panel';
@@ -51,7 +55,9 @@ export function ReviewerAccessLauncher({
   onOpenImports,
 }: {
   readonly apiBaseUrl: string;
-  readonly client?: GridReviewLauncherClient & Partial<GridShadowPanelClient>;
+  readonly client?: GridReviewLauncherClient &
+    GeometryCompletenessClient &
+    Partial<GridShadowPanelClient>;
   readonly gameId?: string;
   readonly onOpenImports?: () => void;
 }) {
@@ -66,9 +72,11 @@ export function ReviewerAccessLauncher({
   >([]);
   const [uncontrolledGameId, setGameId] = useState('');
   const gameId = controlledGameId ?? uncontrolledGameId;
+  const gameIdRef = useRef(gameId);
   const [jobId, setJobId] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshToken, setRefreshToken] = useState(0);
   const [reviewContextLoading, setReviewContextLoading] = useState(false);
   const [gridReviewCounts, setGridReviewCounts] = useState<
     ImageGridReviewPageResponse['counts'] | null
@@ -78,6 +86,10 @@ export function ReviewerAccessLauncher({
   const [localReviewUrl, setLocalReviewUrl] = useState<string | null>(null);
   const [openingLocal, setOpeningLocal] = useState(false);
   const openingLocalRef = useRef(false);
+
+  useEffect(() => {
+    gameIdRef.current = gameId;
+  }, [gameId]);
 
   useEffect(() => {
     let active = true;
@@ -126,9 +138,15 @@ export function ReviewerAccessLauncher({
             ? stagingResult.data
             : [],
         );
-        const selectedGameId = controlledGameId ?? firstGameId;
-        if (controlledGameId === undefined) setGameId(firstGameId);
-        setJobId(selectReviewImportId(imageJobs, selectedGameId, ''));
+        const selectedGameId =
+          controlledGameId ??
+          (availableGames.some((game) => game.id === gameIdRef.current)
+            ? gameIdRef.current
+            : firstGameId);
+        if (controlledGameId === undefined) setGameId(selectedGameId);
+        setJobId((current) =>
+          selectReviewImportId(imageJobs, selectedGameId, current),
+        );
       } catch {
         if (active) {
           setError('Połączenie z lokalnym Admin API zostało przerwane.');
@@ -141,7 +159,7 @@ export function ReviewerAccessLauncher({
     return () => {
       active = false;
     };
-  }, [api, controlledGameId]);
+  }, [api, controlledGameId, refreshToken]);
 
   const availableJobs = reviewReadyImports(jobs, gameId);
   const availableStaging = readyBoardImportStaging(readyStaging, gameId);
@@ -203,7 +221,7 @@ export function ReviewerAccessLauncher({
     return () => {
       active = false;
     };
-  }, [api, gameId, jobId]);
+  }, [api, gameId, jobId, refreshToken]);
 
   function canOpenWork() {
     return (
@@ -338,6 +356,14 @@ export function ReviewerAccessLauncher({
 
           <button
             className="secondaryButton"
+            disabled={loading || reviewContextLoading || openingLocal}
+            onClick={() => setRefreshToken((current) => current + 1)}
+            type="button"
+          >
+            Odśwież kolejkę
+          </button>
+          <button
+            className="secondaryButton"
             disabled={!canOpenWork()}
             onClick={() => void launchLocalReviewer()}
             type="button"
@@ -433,6 +459,25 @@ export function ReviewerAccessLauncher({
           </p>
         ) : null}
       </div>
+      {gameId !== '' ? (
+        <GeometryCompletenessSection
+          key={gameId}
+          api={api}
+          gameId={gameId}
+          importActive={jobs.some(
+            (job) =>
+              job.gameId === gameId &&
+              ['created', 'processing'].includes(job.status),
+          )}
+          imports={jobs
+            .filter((job) => job.gameId === gameId)
+            .map((job) => ({
+              id: job.id,
+              label: `${'sourceDisplayName' in job.inputPayload ? (job.inputPayload.sourceDisplayName ?? 'Import obrazów') : 'Import obrazów'} · ${job.id.slice(0, 8)}`,
+            }))}
+          refreshToken={refreshToken}
+        />
+      ) : null}
       {gameId !== '' && hasGridShadowPanelClient(api) ? (
         <GridShadowPanel key={gameId} api={api} gameId={gameId} />
       ) : null}

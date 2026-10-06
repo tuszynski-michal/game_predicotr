@@ -122,11 +122,19 @@ def library_keeps_current(current: CurrentPrediction, decision: RgbDecision) -> 
     )
 
 
-def needs_write(current: CurrentPrediction, decision: RgbDecision) -> bool:
+# Bands written only where the symbol changes (operator decision 2026-10-06 at the
+# TASK-0878 gate): in 99-100% the status rule alone would have demoted ~1 million
+# cells with a correct symbol to review (lemons 68%), for ~2 800 real corrections.
+SYMBOL_CHANGES_ONLY_BANDS = frozenset({"99-100"})
+
+
+def needs_write(
+    current: CurrentPrediction, decision: RgbDecision, *, symbol_changes_only: bool = False
+) -> bool:
     """Write only when the symbol or the confirmed/tentative status changes."""
 
     if library_keeps_current(current, decision):
         return False
-    return decision.symbol_code != current.symbol_code or decision.status != current_status(
-        current.confidence
-    )
+    if decision.symbol_code != current.symbol_code:
+        return True
+    return not symbol_changes_only and decision.status != current_status(current.confidence)

@@ -86,6 +86,10 @@ systematyczny błąd CNN przy dominancie barwnej (gwiazdy i plastry arbuza
 proponowane jako cytryna lub pomarańcz). Wersja reguł `WRITE_RULES_VERSION = 2`
 wchodzi do klucza wierszy podglądu i do polityki manifestu.
 
+**Decyzja bramki TASK-0878 (2026-10-06):** w paśmie 99–100% zapis tylko przy
+zmianie symbolu; zmiana samego statusu (obniżenie do przeglądu przy tym samym
+symbolu) nie jest zapisywana.
+
 ### Pasmo i symbol komórki
 
 - Symbol grupy = **obecny** symbol predykcji (to, co widzi Admin).

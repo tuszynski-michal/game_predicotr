@@ -64,6 +64,7 @@ from game_predictor_worker.symbols.rgb_v2 import (
     BANDS,
     ENTRY_KEY,
     MODEL_VERSION,
+    SYMBOL_CHANGES_ONLY_BANDS,
     WRITE_RULES_VERSION,
     CurrentPrediction,
     band_of,
@@ -468,6 +469,7 @@ def run_preview(arguments: argparse.Namespace) -> int:
             "format": PREVIEW_FORMAT,
             "identity": identity,
             "writeRules": WRITE_RULES_VERSION,
+            "symbolChangesOnly": band in SYMBOL_CHANGES_ONLY_BANDS,
             "cells": [reference._cache_key(cell) for cell in usable],
         }
     )
@@ -509,7 +511,11 @@ def run_preview(arguments: argparse.Namespace) -> int:
                         "currentSource": current.source,
                         "originalConfidence": current.original_confidence,
                         **result,
-                        "write": needs_write(current, decision),
+                        "write": needs_write(
+                            current,
+                            decision,
+                            symbol_changes_only=band in SYMBOL_CHANGES_ONLY_BANDS,
+                        ),
                     }
                 )
             reference._write_rows_cache(partial_path, rows_key, partial, complete=False)
@@ -543,7 +549,12 @@ def run_preview(arguments: argparse.Namespace) -> int:
     report = {
         "format": PREVIEW_FORMAT,
         "game": {"id": game_id, "code": arguments.game_code, "name": game_name},
-        "policy": {"modelVersion": MODEL_VERSION, "writeRules": WRITE_RULES_VERSION, **identity},
+        "policy": {
+            "modelVersion": MODEL_VERSION,
+            "writeRules": WRITE_RULES_VERSION,
+            "symbolChangesOnly": band in SYMBOL_CHANGES_ONLY_BANDS,
+            **identity,
+        },
         "scope": {k: scope[k] for k in ("symbol", "band", "shard", "indexShards", "indexSha256")},
         "cellStateFingerprint": fingerprint,
         "cells": len(rows),

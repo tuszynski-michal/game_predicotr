@@ -1,6 +1,6 @@
 ---
 title: TASK-0878 — B11 — zapis RGB v2 dla pasma 99–100% (osiem symboli)
-status: blocked
+status: in_progress
 last_updated: 2026-10-06
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-06
 
 ## Status
 
-`blocked` — bramka operatora: skala obniżeń do przeglądu (plan, ryzyko 1).
+`in_progress`
 
 ## Goal
 
@@ -44,7 +44,7 @@ pasma należy do operatora. Pasmo: 7 008 583 komórek, 120 części po ≤ 60 00
 
 ## Acceptance criteria
 
-- [ ] Decyzja operatora na bramce.
+- [x] Decyzja operatora na bramce: tylko zmiany symbolu (2026-10-06).
 - [ ] Zapis bez błędów; `verify` każdej części zgodny z manifestem.
 
 ## Technical notes

@@ -316,3 +316,16 @@ def test_writer_version_matches_the_admin_filter_constant() -> None:
     from game_predictor_worker.symbols.rgb_v2 import MODEL_VERSION
 
     assert MODEL_VERSION == RGB_V2_PREDICTION_MODEL_VERSION
+
+
+def test_symbol_changes_only_band_skips_status_changes() -> None:
+    from game_predictor_worker.symbols.rgb_v2 import SYMBOL_CHANGES_ONLY_BANDS
+
+    demotion = decide_rgb(CODES, _index("CYTRYNA"), None)
+    correction = decide_rgb(CODES, _index("WISNIA"), _index("WISNIA"))
+    current = _current("CYTRYNA", 0.9999)
+
+    assert {"99-100"} == SYMBOL_CHANGES_ONLY_BANDS
+    assert needs_write(current, demotion) is True
+    assert needs_write(current, demotion, symbol_changes_only=True) is False
+    assert needs_write(current, correction, symbol_changes_only=True) is True

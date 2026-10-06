@@ -44,6 +44,11 @@ last_updated: 2026-10-05
   pokazały błąd CNN przy dominancie barwnej w 3 227 z 3 563 takich zapisów.
   Operator polecił 2026-10-05 kontynuować bez pytań do napotkania problemu
   nierozwiązywalnego; reguła tylko wstrzymuje zapis, niczego nie zmienia.
+- **Amendment (2026-10-06, bramka TASK-0878, decyzja operatora):** w paśmie
+  99–100% zapis tylko przy zmianie symbolu (`SYMBOL_CHANGES_ONLY_BANDS`);
+  same zmiany statusu przy tym samym symbolu nie są zapisywane. Próbka 468 tys.
+  komórek: ~1 mln obniżeń do przeglądu przy poprawnym symbolu (cytryny 68%)
+  wobec ~2,8 tys. rzeczywistych poprawek.
 
 ## D-495 — V3-D: oddzielny, ograniczony shadow i ręczna korekta
 

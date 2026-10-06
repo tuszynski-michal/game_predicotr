@@ -6,6 +6,31 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0871 — większy zbiór Mumii (done)
+
+- Po v1.7.218 większy trening nie został uruchomiony. Poprzednio podany czas
+  był szacunkiem; aktualna kontrola procesów potwierdziła brak aktywnego CNN Mumii.
+- Rozpoczęto przygotowanie większej deterministycznej serii z trzeciego filmu.
+  Wyrenderowano 2000/2000 nowych kandydatów w 20 pakietach po 100; 916.50 s.
+  Selection `12645e…69ff`, SHA `afcb8b…89fe`; 41 zdjęć, maksymalnie 54/zdjęcie.
+  Pełny union 526 dawnych rastrów i 9351 pinów zachowany. Oba blind review
+  zakończone: 2000 indywidualnych ocen każdy, własne fresh-process checks PASS.
+- Fresh-process selection odtworzony bez zmian w 47.06 s; packet0 ponownie
+  zweryfikowany w 36.62 s. Kontroler zakończył pracę; brak aktywnego CNN.
+  Fresh aggregate odtwarza ID/pointer/bajty w 14.86 s. Qualification `8a57f6…8ac8`
+  ma 11472 piny, 1726 high/high accepted i 274 rejected; Mumia 109.
+  To liczności danych z AI, nie pomiar accuracy. Bez targetów Super/human approvals.
+- 12 focused tests PASS; Ruff/format 4 i mypy 3 helperów PASS. Niezależny audyt
+  wszystkich 2000 source/quad/pixels/montages i 40 review/20 proofs PASS;
+  14 dodatkowych detached negative guards PASS. Końcowy niezależny audyt PASS,
+  brak otwartych P0–P2. Oddzielny commit `v1.7.219`; hash dopisany po commicie.
+- Zachować pierwszy film, human26/human8, validation/diagnostic i dawne AI audit
+  poza nowym development. Bez zmian historii człowieka, modeli i aplikacji.
+- Zaakceptowany zakres autonomiczny: MUMIE_LARGE_TRAINING_EXECUTION_PLAN_20261006.md.
+  Najpierw przygotowanie i dwa blind review; CNN dopiero po kwalifikacji 0872.
+  Bieżąca decyzja nie obejmuje DB, migracji, usuwania, merge, push ani aktywacji.
+- Wcześniejsze brudne metadane wyłączyć ze stagingu. Po commicie kontynuować 0872.
+
 ### TASK-0870 — osobna diagnostyka RGB (done)
 
 - Eligibility `5b6af3…4ac7c`: wszystkie dziewięć bramek RGB według klas i grup

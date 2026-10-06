@@ -22,8 +22,12 @@ Port3102 pozostaje laboratorium. Model Mumii jest aktywny.
    kolejne około **500 zdjęć**. To zdjęcia źródłowe, nie 500 pojedynczych
    plansz; zdjęcie może zawierać kilka plansz. Aplikacja przesyła cały folder.
    Jeśli folder ma więcej zdjęć, przygotuj mniejszy katalog partii.
-4. Po przesłaniu otwiera się raport; dla wcześniej przesłanego folderu
-   wybierz **Pokaż raport**. Sprawdź grę, liczbę plików i zakresy. Kliknij
+4. Folder znajdziesz w sekcji **Przesłane foldery**. Po przesłaniu otwiera
+   się raport; dla wcześniej przesłanego folderu wybierz **Pokaż raport**.
+   Jeśli raport się nie przygotuje, folder pozostaje na liście: wybierz
+   **Odśwież raport**. Błąd pobrania listy ponów przez **Odśwież status**;
+   zdjęć nie trzeba przesyłać drugi raz. W V3 nie ma klasycznego wyboru
+   „Dopasowanie geometrii zdjęcia”. Sprawdź grę, liczbę plików i zakresy. Kliknij
    **Przygotuj geometrię stron**. To preflight sieci: wykrywa plansze,
    ich podział i przypisanie do numerów. Sam raport/preflight nie tworzy
    jeszcze komórek symboli w grze.

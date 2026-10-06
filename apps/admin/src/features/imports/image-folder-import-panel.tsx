@@ -215,6 +215,9 @@ export function ImageFolderImportPanel({
   const [readySelections, setReadySelections] = useState<
     readonly BrowserReadySelectionResponse[]
   >([]);
+  const [readySelectionsLoading, setReadySelectionsLoading] = useState(true);
+  const [readySelectionsError, setReadySelectionsError] = useState('');
+  const readySelectionsRequest = useRef(0);
   const [replacementPreview, setReplacementPreview] = useState<{
     readonly checksum: string;
     readonly uploadId: string;
@@ -276,6 +279,14 @@ export function ImageFolderImportPanel({
   const [pageRegistrationVariant, setPageRegistrationVariant] =
     useState<PageRegistrationVariant>('standard_v0_10');
   const usesNeuralGrid = shapeGeometryConfiguration === 'grid_profile_mumie_v1';
+  // Before the first geometry job, the game profile identifies this report's
+  // configured engine. Existing pinned classical reports retain their labels.
+  const configuredNeuralReport =
+    usesNeuralGrid &&
+    preflight !== null &&
+    preflight.geometryEngineVariant == null &&
+    preflight.geometryPreflightJob == null &&
+    preflight.existingImportJob == null;
   const [selectedGeometryEngineVariant, setGeometryEngineVariant] = useState<
     GeometryEngineVariant | undefined
   >(DEFAULT_GEOMETRY_ENGINE_VARIANT);
@@ -465,36 +476,18 @@ export function ImageFolderImportPanel({
         (preflight.unclassifiedColdStartAllowed ?? false),
     });
 
-  const refreshJobs = useCallback(async () => {
-    const [
-      jobsResult,
-      curatedResult,
-      readyResult,
-      policyResult,
-      geometryPreflightsResult,
-    ] = await Promise.all([
-      api.listJobs({
-        gameId,
-        jobType: 'import',
-        limit: 200,
-      }),
-      api.listCuratedImageImportSources(gameId),
-      listReadyBrowserImageSelections(api),
-      api.getImageImportEnginePolicy(gameId),
-      api.listJobs({
-        gameId,
-        jobType: 'validate',
-        limit: 200,
-      }),
-    ]);
-    if (jobsResult.error === undefined && jobsResult.data !== undefined) {
-      setJobs(jobsResult.data.filter(isImageImportJob));
-    }
-    if (curatedResult.error === undefined && curatedResult.data !== undefined) {
-      setCuratedSources(curatedResult.data);
-    }
-    if (readyResult.ok) {
-      const gameReady = readyResult.data.filter(
+  const refreshReadySelections = useCallback(async () => {
+    const request = ++readySelectionsRequest.current;
+    setReadySelectionsLoading(true);
+    try {
+      const result = await listReadyBrowserImageSelections(api);
+      if (request !== readySelectionsRequest.current) return;
+      if (!result.ok) {
+        setReadySelectionsError(result.error);
+        return;
+      }
+      setReadySelectionsError('');
+      const gameReady = result.data.filter(
         (item) => item.gameId === null || item.gameId === gameId,
       );
       setReadySelections(sortReadyBoardImports(gameReady));
@@ -510,6 +503,35 @@ export function ImageFolderImportPanel({
         }
         return current;
       });
+    } finally {
+      if (request === readySelectionsRequest.current) {
+        setReadySelectionsLoading(false);
+      }
+    }
+  }, [api, gameId]);
+
+  const refreshJobs = useCallback(async () => {
+    const [jobsResult, curatedResult, policyResult, geometryPreflightsResult] =
+      await Promise.all([
+        api.listJobs({
+          gameId,
+          jobType: 'import',
+          limit: 200,
+        }),
+        api.listCuratedImageImportSources(gameId),
+        api.getImageImportEnginePolicy(gameId),
+        api.listJobs({
+          gameId,
+          jobType: 'validate',
+          limit: 200,
+        }),
+        refreshReadySelections(),
+      ]);
+    if (jobsResult.error === undefined && jobsResult.data !== undefined) {
+      setJobs(jobsResult.data.filter(isImageImportJob));
+    }
+    if (curatedResult.error === undefined && curatedResult.data !== undefined) {
+      setCuratedSources(curatedResult.data);
     }
     if (policyResult.error === undefined && policyResult.data !== undefined) {
       const policy = policyResult.data;
@@ -530,7 +552,7 @@ export function ImageFolderImportPanel({
       );
     }
     setRefreshToken((current) => current + 1);
-  }, [api, gameId]);
+  }, [api, gameId, refreshReadySelections]);
 
   useEffect(() => {
     let cancelled = false;
@@ -752,6 +774,8 @@ export function ImageFolderImportPanel({
           ? `Folder przesłany: ${result.selection.supportedFileCount} plików JPEG. Przygotowuję raport przed importem.`
           : `Przesłano ${result.uploadPlan.uploadFileCount.toLocaleString('pl-PL')} z ${result.uploadPlan.selectedFileCount.toLocaleString('pl-PL')} JPEG-ów. Pominięto ${result.uploadPlan.skippedCompleteSourceCount.toLocaleString('pl-PL')} kompletnych zakresów. Przygotowuję raport przed importem.`,
       );
+      // Finalized uploads remain actionable even when report preparation fails.
+      await refreshReadySelections();
       const preflightResult = await previewReadyBrowserImageImport(
         api,
         result.uploadId,
@@ -774,14 +798,6 @@ export function ImageFolderImportPanel({
         setGeometryPreflightJob(null);
         setFeedback(
           'Raport jest gotowy. Nowy silnik rozpocznie bez historycznego profilu siatki i zapisze wyniki w trybie shadow.',
-        );
-      }
-      const readyResult = await listReadyBrowserImageSelections(api);
-      if (readyResult.ok) {
-        setReadySelections(
-          readyResult.data.filter(
-            (item) => item.gameId === null || item.gameId === gameId,
-          ),
         );
       }
     } catch {
@@ -1547,184 +1563,194 @@ export function ImageFolderImportPanel({
         );
       })}
 
-      {readySelections.length > 0 ? (
-        <section
-          className="importCompletenessCard"
-          aria-labelledby="ready-layout-staging-title"
-        >
-          <header className="importCompletenessHeader">
-            <div>
-              <p className="eyebrow">Gotowy staging do wznowienia</p>
-              <h3 id="ready-layout-staging-title">Import plansz z manifestu</h3>
-              <p>
-                Staging pozostaje dostępny po restarcie API i nie wymaga
-                ponownego uploadu. Lista obejmuje tylko fizyczne stagingi gotowe
-                do wznowienia; historia zakończonych importów pozostaje w
-                zakładce Joby.
-              </p>
-            </div>
-          </header>
-          <ul className="importCompactList">
-            {readySelections.map((ready) => {
-              const imported = readyBoardImportHasImport(ready);
-              const neuralHistory = readySelectionHasNeuralImport(
-                jobs,
-                ready,
-                gameId,
-              );
-              const active =
-                ready.uploadId === readyUploadId &&
-                (!imported || neuralHistory);
-              const lifecycleLabel = readyBoardImportLifecycleLabel({
-                geometryPreflightJobs,
-                reportPrepared:
-                  preflight?.uploadId === ready.uploadId &&
-                  preflight.manifestChecksumSha256 ===
-                    ready.manifestChecksumSha256,
-                selection: ready,
-              });
-              return (
-                <li key={ready.uploadId}>
-                  <strong>{ready.displayName}</strong>
-                  <span>
-                    {ready.uploadedFileCount.toLocaleString('pl-PL')} plików ·{' '}
-                    {(ready.expectedTotalBytes / 1_000_000).toFixed(1)} MB ·{' '}
-                    staging {ready.uploadId.slice(0, 8)} · {lifecycleLabel}
-                  </span>
-                  {!imported || neuralHistory ? (
-                    <div className="importActionButtons">
+      <section
+        className="importCompletenessCard"
+        aria-labelledby="ready-layout-staging-title"
+      >
+        <header className="importCompletenessHeader">
+          <div>
+            <p className="eyebrow">Foldery dostępne do importu</p>
+            <h3 id="ready-layout-staging-title">Przesłane foldery</h3>
+            <p>
+              Przesłane zdjęcia pozostają dostępne po odświeżeniu strony i
+              restarcie aplikacji. Nie musisz przesyłać ich ponownie. Historia
+              zakończonych importów pozostaje w zakładce Joby.
+            </p>
+          </div>
+        </header>
+        {readySelectionsLoading ? (
+          <p role="status">Wczytywanie przesłanych folderów…</p>
+        ) : null}
+        {readySelectionsError ? (
+          <p className="feedbackBanner feedbackBannerError" role="alert">
+            Nie udało się wczytać przesłanych folderów: {readySelectionsError}{' '}
+            Kliknij „Odśwież status”, aby spróbować ponownie.
+          </p>
+        ) : null}
+        {!readySelectionsLoading &&
+        !readySelectionsError &&
+        readySelections.length === 0 ? (
+          <p>
+            Brak przesłanych folderów dla tej gry. Kliknij „Wybierz folder”.
+          </p>
+        ) : null}
+        <ul className="importCompactList">
+          {readySelections.map((ready) => {
+            const imported = readyBoardImportHasImport(ready);
+            const neuralHistory = readySelectionHasNeuralImport(
+              jobs,
+              ready,
+              gameId,
+            );
+            const active =
+              ready.uploadId === readyUploadId && (!imported || neuralHistory);
+            const lifecycleLabel = readyBoardImportLifecycleLabel({
+              geometryPreflightJobs,
+              reportPrepared:
+                preflight?.uploadId === ready.uploadId &&
+                preflight.manifestChecksumSha256 ===
+                  ready.manifestChecksumSha256,
+              selection: ready,
+            });
+            return (
+              <li key={ready.uploadId}>
+                <strong>{ready.displayName}</strong>
+                <span>
+                  {ready.uploadedFileCount.toLocaleString('pl-PL')} plików ·{' '}
+                  {(ready.expectedTotalBytes / 1_000_000).toFixed(1)} MB ·{' '}
+                  staging {ready.uploadId.slice(0, 8)} · {lifecycleLabel}
+                </span>
+                {!imported || neuralHistory ? (
+                  <div className="importActionButtons">
+                    <button
+                      aria-busy={activeAction === 'preflight' && active}
+                      className="secondaryButton"
+                      disabled={busy}
+                      onClick={() =>
+                        void prepareReadyImport(
+                          ready.uploadId,
+                          usesNeuralGrid
+                            ? undefined
+                            : active
+                              ? geometryEngineVariant
+                              : readyBoardImportGeometryVariant(
+                                  geometryPreflightJobs,
+                                  ready,
+                                ),
+                        )
+                      }
+                      type="button"
+                    >
+                      {activeAction === 'preflight' && active
+                        ? 'Sprawdzanie…'
+                        : active
+                          ? 'Odśwież raport'
+                          : 'Pokaż raport'}
+                    </button>
+                    {!imported && !usesNeuralGrid ? (
                       <button
-                        aria-busy={activeAction === 'preflight' && active}
                         className="secondaryButton"
-                        disabled={busy}
+                        disabled={busy || selectiveCapability?.enabled !== true}
                         onClick={() =>
                           void prepareReadyImport(
                             ready.uploadId,
-                            usesNeuralGrid
-                              ? undefined
-                              : active
-                                ? geometryEngineVariant
-                                : readyBoardImportGeometryVariant(
-                                    geometryPreflightJobs,
-                                    ready,
-                                  ),
+                            SELECTIVE_BOARD_VARIANT,
                           )
                         }
                         type="button"
                       >
-                        {activeAction === 'preflight' && active
-                          ? 'Sprawdzanie…'
-                          : active
-                            ? 'Odśwież raport'
-                            : 'Pokaż raport'}
+                        Przetwórz w v1.1
                       </button>
-                      {!imported && !usesNeuralGrid ? (
-                        <button
-                          className="secondaryButton"
-                          disabled={
-                            busy || selectiveCapability?.enabled !== true
-                          }
-                          onClick={() =>
-                            void prepareReadyImport(
-                              ready.uploadId,
-                              SELECTIVE_BOARD_VARIANT,
-                            )
-                          }
-                          type="button"
-                        >
-                          Przetwórz w v1.1
-                        </button>
-                      ) : null}
-                      {!imported ? (
-                        <button
-                          aria-busy={activeAction === 'delete-ready' && active}
-                          className="secondaryButton"
-                          disabled={busy}
-                          onClick={() =>
-                            void deleteReadyStaging(ready.uploadId)
-                          }
-                          type="button"
-                        >
-                          Usuń nieużywany staging
-                        </button>
-                      ) : null}
+                    ) : null}
+                    {!imported ? (
+                      <button
+                        aria-busy={activeAction === 'delete-ready' && active}
+                        className="secondaryButton"
+                        disabled={busy}
+                        onClick={() => void deleteReadyStaging(ready.uploadId)}
+                        type="button"
+                      >
+                        Usuń nieużywany staging
+                      </button>
+                    ) : null}
+                  </div>
+                ) : null}
+                {imported && !neuralHistory ? (
+                  <p className="curatedImportStatus">
+                    Ten staging nie wymaga ponownego importu. Weryfikacja
+                    symboli nie zmienia statusu importu plansz. Brakujące
+                    geometrie popraw w „Korekta cięcia siatki”.
+                  </p>
+                ) : null}
+                {imported && neuralHistory ? (
+                  <p className="curatedImportStatus">
+                    Źródła oczekujące na przypisanie pozostają dostępne do
+                    korekty. Po zapisaniu przypisań przygotuj nową geometrię i
+                    jawnie rozpocznij import.
+                  </p>
+                ) : null}
+                {active && preflight !== null ? (
+                  <dl className="importMetrics">
+                    <div className="importMetric">
+                      <dt>Źródła</dt>
+                      <dd>
+                        {preflight.sourceFileCount.toLocaleString('pl-PL')}
+                      </dd>
                     </div>
-                  ) : null}
-                  {imported && !neuralHistory ? (
-                    <p className="curatedImportStatus">
-                      Ten staging nie wymaga ponownego importu. Weryfikacja
-                      symboli nie zmienia statusu importu plansz. Brakujące
-                      geometrie popraw w „Korekta cięcia siatki”.
-                    </p>
-                  ) : null}
-                  {imported && neuralHistory ? (
-                    <p className="curatedImportStatus">
-                      Źródła oczekujące na przypisanie pozostają dostępne do
-                      korekty. Po zapisaniu przypisań przygotuj nową geometrię i
-                      jawnie rozpocznij import.
-                    </p>
-                  ) : null}
-                  {active && preflight !== null ? (
-                    <dl className="importMetrics">
-                      <div className="importMetric">
-                        <dt>Źródła</dt>
-                        <dd>
-                          {preflight.sourceFileCount.toLocaleString('pl-PL')}
-                        </dd>
-                      </div>
-                      <div className="importMetric">
-                        <dt>Nowe plansze</dt>
-                        <dd>
-                          {preflight.newSequenceCount.toLocaleString('pl-PL')}
-                        </dd>
-                      </div>
-                      <div className="importMetric">
-                        <dt>Już zatwierdzone</dt>
-                        <dd>
-                          {preflight.reusedSequenceCount.toLocaleString(
-                            'pl-PL',
-                          )}
-                        </dd>
-                      </div>
-                      <div className="importMetric">
-                        <dt>Pominięte źródła</dt>
-                        <dd>
-                          {preflight.skippedSourceCount.toLocaleString('pl-PL')}
-                        </dd>
-                      </div>
-                      <div className="importMetric">
-                        <dt>Pierwszy nierozwiązany</dt>
-                        <dd>{preflight.firstUnresolvedSequence ?? 'brak'}</dd>
-                      </div>
-                      <div className="importMetric">
-                        <dt>
-                          {isNeuralGeometryPreflight(
-                            activeBrowserGeometryPreflightJob,
-                          )
-                            ? 'Źródło geometrii neuronowej'
-                            : 'Źródło geometrii 3×3'}
-                        </dt>
-                        <dd>
-                          {geometryManifestChecksum === null
-                            ? 'blokada — brak dokładnego manifestu'
-                            : 'dokładny manifest preflightu'}
-                        </dd>
-                      </div>
-                      <div className="importMetric">
-                        <dt>Manifest / preflight</dt>
-                        <dd>
-                          {shortChecksum(geometryManifestChecksum)} ·{' '}
-                          {activeBrowserGeometryPreflightJob?.id ?? 'brak'}
-                        </dd>
-                      </div>
-                      <div className="importMetric">
-                        <dt>Pokrycie geometrii źródeł</dt>
-                        <dd>
-                          {geometryPreflightJob === null
-                            ? 'oczekuje'
-                            : `${geometryPreflightJob.progress.succeeded.toLocaleString('pl-PL')}/${preflight.sourceFileCount.toLocaleString('pl-PL')}`}
-                        </dd>
-                      </div>
+                    <div className="importMetric">
+                      <dt>Nowe plansze</dt>
+                      <dd>
+                        {preflight.newSequenceCount.toLocaleString('pl-PL')}
+                      </dd>
+                    </div>
+                    <div className="importMetric">
+                      <dt>Już zatwierdzone</dt>
+                      <dd>
+                        {preflight.reusedSequenceCount.toLocaleString('pl-PL')}
+                      </dd>
+                    </div>
+                    <div className="importMetric">
+                      <dt>Pominięte źródła</dt>
+                      <dd>
+                        {preflight.skippedSourceCount.toLocaleString('pl-PL')}
+                      </dd>
+                    </div>
+                    <div className="importMetric">
+                      <dt>Pierwszy nierozwiązany</dt>
+                      <dd>{preflight.firstUnresolvedSequence ?? 'brak'}</dd>
+                    </div>
+                    <div className="importMetric">
+                      <dt>
+                        {isNeuralGeometryPreflight(
+                          activeBrowserGeometryPreflightJob,
+                        ) || configuredNeuralReport
+                          ? 'Źródło geometrii neuronowej'
+                          : 'Źródło geometrii 3×3'}
+                      </dt>
+                      <dd>
+                        {geometryManifestChecksum === null
+                          ? 'blokada — brak dokładnego manifestu'
+                          : 'dokładny manifest preflightu'}
+                      </dd>
+                    </div>
+                    <div className="importMetric">
+                      <dt>Manifest / preflight</dt>
+                      <dd>
+                        {shortChecksum(geometryManifestChecksum)} ·{' '}
+                        {activeBrowserGeometryPreflightJob?.id ?? 'brak'}
+                      </dd>
+                    </div>
+                    <div className="importMetric">
+                      <dt>Pokrycie geometrii źródeł</dt>
+                      <dd>
+                        {geometryPreflightJob === null
+                          ? 'oczekuje'
+                          : `${geometryPreflightJob.progress.succeeded.toLocaleString('pl-PL')}/${preflight.sourceFileCount.toLocaleString('pl-PL')}`}
+                      </dd>
+                    </div>
+                    {!isNeuralGeometryPreflight(
+                      activeBrowserGeometryPreflightJob,
+                    ) && !configuredNeuralReport ? (
                       <div className="importMetric">
                         <dt>Wariant dopasowania zdjęcia</dt>
                         <dd>
@@ -1732,304 +1758,299 @@ export function ImageFolderImportPanel({
                             pageRegistrationVariant}
                         </dd>
                       </div>
-                      <div className="importMetric">
-                        <dt>Model symboli — wersja</dt>
-                        <dd>{symbolModelReadinessText(preflight)}</dd>
-                      </div>
-                      <div className="importMetric">
-                        <dt>Wersja silnika siatki</dt>
-                        <dd>
-                          {isNeuralGeometryPreflight(
-                            activeBrowserGeometryPreflightJob,
-                          )
-                            ? 'V3 — sieć neuronowa (Mumie)'
+                    ) : null}
+                    <div className="importMetric">
+                      <dt>Model symboli — wersja</dt>
+                      <dd>{symbolModelReadinessText(preflight)}</dd>
+                    </div>
+                    <div className="importMetric">
+                      <dt>Wersja silnika siatki</dt>
+                      <dd>
+                        {isNeuralGeometryPreflight(
+                          activeBrowserGeometryPreflightJob,
+                        ) || configuredNeuralReport
+                          ? 'V3 — sieć neuronowa (Mumie)'
+                          : preflight.geometryEngineVariant ===
+                              SELECTIVE_BOARD_VARIANT
+                            ? 'v1.1 — korekta plansz'
                             : preflight.geometryEngineVariant ===
-                                SELECTIVE_BOARD_VARIANT
-                              ? 'v1.1 — korekta plansz'
+                                CONTRAST_FRAME_GRID_V12_VARIANT
+                              ? 'v1.2 — raport historyczny'
                               : preflight.geometryEngineVariant ===
-                                  CONTRAST_FRAME_GRID_V12_VARIANT
-                                ? 'v1.2 — raport historyczny'
-                                : preflight.geometryEngineVariant ===
-                                    LATERAL_PARTIAL_VARIANT
-                                  ? 'v1.0 — niepełne boki'
-                                  : boardCellProcessingModeLabel(
-                                      boardCellProcessingMode,
-                                    )}
-                        </dd>
-                      </div>
-                      <div className="importMetric">
-                        <dt>Fingerprint profilu</dt>
-                        <dd>
-                          {shortChecksum(
-                            preflight.gridProfileInferenceFingerprint,
-                          )}
-                        </dd>
-                      </div>
-                      <div className="importMetric">
-                        <dt>Test ochronny ≥98%</dt>
-                        <dd>
-                          {preflight.sourceFileCount >= 100 ||
-                          preflight.newSequenceCount >= 500
-                            ? 'oczekuje — wykona się przed materializacją'
-                            : 'niewymagany dla małego importu'}
-                        </dd>
-                      </div>
-                    </dl>
-                  ) : null}
-                  {active && preflight?.warnings.length ? (
-                    <p className="curatedImportStatus">
-                      Ostrzeżenia: {preflight.warnings.join(' · ')}
-                    </p>
-                  ) : null}
-                  {active && preflight !== null
-                    ? (() => {
-                        const nextStep = symbolModelNextStep(preflight);
-                        return nextStep === null ? null : (
-                          <p className="curatedImportStatus">{nextStep}</p>
-                        );
-                      })()
-                    : null}
-                  {active &&
-                  preflight?.geometryEngineVariant ===
-                    CONTRAST_FRAME_GRID_V12_VARIANT ? (
-                    <p className="curatedImportStatus" role="status">
-                      V1.2: po ukończonym preflighcie wszystkich importowanych
-                      zdjęć możesz uruchomić Import. Dopiero import tworzy
-                      wycinki plansz i pól symboli.
-                    </p>
-                  ) : null}
-                  {active && foreignGeometryGuardJob !== null ? (
-                    <p
-                      className="feedbackBanner feedbackBannerError"
-                      role="alert"
-                    >
-                      IMAGE_GEOMETRY_GUARD_IDENTITY_MISMATCH: guard z runu{' '}
-                      {foreignGeometryGuardJob.id} ma inny manifest, wariant lub
-                      rewizję. Nie zostanie automatycznie przepięty.
-                    </p>
-                  ) : null}
-                  {active && preflight !== null ? (
-                    <>
-                      {preflight.geometryPreflightRequired ? (
-                        <div className="importActionButtons">
-                          <button
-                            aria-busy={activeAction === 'geometry-preflight'}
-                            className="secondaryButton"
-                            disabled={
-                              busy || !preflight.geometryEngineVariantEnabled
-                            }
-                            onClick={() =>
-                              canRetryPageGeometryPreflight(
-                                geometryPreflightJob,
-                              )
-                                ? void retryGeometryPreflight()
-                                : geometryPreflightJob === null
-                                  ? void startGeometryPreflight()
-                                  : void refreshStatus()
-                            }
-                            type="button"
+                                  LATERAL_PARTIAL_VARIANT
+                                ? 'v1.0 — niepełne boki'
+                                : boardCellProcessingModeLabel(
+                                    boardCellProcessingMode,
+                                  )}
+                      </dd>
+                    </div>
+                    <div className="importMetric">
+                      <dt>Fingerprint profilu</dt>
+                      <dd>
+                        {shortChecksum(
+                          preflight.gridProfileInferenceFingerprint,
+                        )}
+                      </dd>
+                    </div>
+                    <div className="importMetric">
+                      <dt>Test ochronny ≥98%</dt>
+                      <dd>
+                        {preflight.sourceFileCount >= 100 ||
+                        preflight.newSequenceCount >= 500
+                          ? 'oczekuje — wykona się przed materializacją'
+                          : 'niewymagany dla małego importu'}
+                      </dd>
+                    </div>
+                  </dl>
+                ) : null}
+                {active && preflight?.warnings.length ? (
+                  <p className="curatedImportStatus">
+                    Ostrzeżenia: {preflight.warnings.join(' · ')}
+                  </p>
+                ) : null}
+                {active && preflight !== null
+                  ? (() => {
+                      const nextStep = symbolModelNextStep(preflight);
+                      return nextStep === null ? null : (
+                        <p className="curatedImportStatus">{nextStep}</p>
+                      );
+                    })()
+                  : null}
+                {active &&
+                preflight?.geometryEngineVariant ===
+                  CONTRAST_FRAME_GRID_V12_VARIANT ? (
+                  <p className="curatedImportStatus" role="status">
+                    V1.2: po ukończonym preflighcie wszystkich importowanych
+                    zdjęć możesz uruchomić Import. Dopiero import tworzy wycinki
+                    plansz i pól symboli.
+                  </p>
+                ) : null}
+                {active && foreignGeometryGuardJob !== null ? (
+                  <p
+                    className="feedbackBanner feedbackBannerError"
+                    role="alert"
+                  >
+                    IMAGE_GEOMETRY_GUARD_IDENTITY_MISMATCH: guard z runu{' '}
+                    {foreignGeometryGuardJob.id} ma inny manifest, wariant lub
+                    rewizję. Nie zostanie automatycznie przepięty.
+                  </p>
+                ) : null}
+                {active && preflight !== null ? (
+                  <>
+                    {preflight.geometryPreflightRequired ? (
+                      <div className="importActionButtons">
+                        <button
+                          aria-busy={activeAction === 'geometry-preflight'}
+                          className="secondaryButton"
+                          disabled={
+                            busy || !preflight.geometryEngineVariantEnabled
+                          }
+                          onClick={() =>
+                            canRetryPageGeometryPreflight(geometryPreflightJob)
+                              ? void retryGeometryPreflight()
+                              : geometryPreflightJob === null
+                                ? void startGeometryPreflight()
+                                : void refreshStatus()
+                          }
+                          type="button"
+                        >
+                          {activeAction === 'geometry-preflight'
+                            ? 'Tworzenie preflightu…'
+                            : canRetryPageGeometryPreflight(
+                                  geometryPreflightJob,
+                                )
+                              ? 'Ponów preflight'
+                              : geometryPreflightJob === null
+                                ? 'Przygotuj geometrię stron'
+                                : 'Odśwież preflight geometrii'}
+                        </button>
+                        {!preflight.geometryEngineVariantEnabled ? (
+                          <span className="curatedImportStatus" role="status">
+                            {preflight.geometryEngineVariantBlockerCode}:{' '}
+                            {preflight.geometryEngineVariantBlockerMessage}
+                          </span>
+                        ) : preflight.geometryPreflightArtifactBlockerMessage ? (
+                          <span className="curatedImportStatus" role="status">
+                            {preflight.geometryPreflightArtifactBlockerCode}:{' '}
+                            {preflight.geometryPreflightArtifactBlockerMessage}
+                          </span>
+                        ) : null}
+                        {geometryPreflightJob !== null ? (
+                          <span className="curatedImportStatus">
+                            Geometria zdjęć: {geometryPreflightJob.status} ·{' '}
+                            {jobProgressLabel(geometryPreflightJob)} ·
+                            zarejestrowane zdjęcia{' '}
+                            {geometryPreflightJob.progress.succeeded} ·
+                            {pageGeometryPreflightOutcomeLabel(
+                              geometryPreflightJob,
+                              visibleGeometryCorrectionCount,
+                            )}
+                          </span>
+                        ) : null}
+                        {replacementPreview?.uploadId === ready.uploadId &&
+                        geometryPreflightJob === null &&
+                        replacementPreview.source != null &&
+                        !replacementPreview.saved ? (
+                          <section
+                            aria-label="Korekta geometrii strony"
+                            className="pageGeometryCorrection"
                           >
-                            {activeAction === 'geometry-preflight'
-                              ? 'Tworzenie preflightu…'
-                              : canRetryPageGeometryPreflight(
-                                    geometryPreflightJob,
-                                  )
-                                ? 'Ponów preflight'
-                                : geometryPreflightJob === null
-                                  ? 'Przygotuj geometrię stron'
-                                  : 'Odśwież preflight geometrii'}
-                          </button>
-                          {!preflight.geometryEngineVariantEnabled ? (
-                            <span className="curatedImportStatus" role="status">
-                              {preflight.geometryEngineVariantBlockerCode}:{' '}
-                              {preflight.geometryEngineVariantBlockerMessage}
-                            </span>
-                          ) : preflight.geometryPreflightArtifactBlockerMessage ? (
-                            <span className="curatedImportStatus" role="status">
-                              {preflight.geometryPreflightArtifactBlockerCode}:{' '}
-                              {
-                                preflight.geometryPreflightArtifactBlockerMessage
-                              }
-                            </span>
-                          ) : null}
-                          {geometryPreflightJob !== null ? (
-                            <span className="curatedImportStatus">
-                              Geometria zdjęć: {geometryPreflightJob.status} ·{' '}
-                              {jobProgressLabel(geometryPreflightJob)} ·
-                              zarejestrowane zdjęcia{' '}
-                              {geometryPreflightJob.progress.succeeded} ·
-                              {pageGeometryPreflightOutcomeLabel(
-                                geometryPreflightJob,
-                                visibleGeometryCorrectionCount,
-                              )}
-                            </span>
-                          ) : null}
-                          {replacementPreview?.uploadId === ready.uploadId &&
-                          geometryPreflightJob === null &&
-                          replacementPreview.source != null &&
-                          !replacementPreview.saved ? (
-                            <section
-                              aria-label="Korekta geometrii strony"
-                              className="pageGeometryCorrection"
-                            >
-                              <h3>Popraw geometrię podmienionego zdjęcia</h3>
-                              <p>
-                                Po zapisaniu korekty uruchom preflight
-                                przyciskiem powyżej.
-                              </p>
-                              <PageGeometryCorrectionPanel
-                                api={api}
-                                apiBaseUrl={apiBaseUrl}
-                                gameId={gameId}
-                                geometryEngineVariant={geometryEngineVariant}
-                                initialReplacementSource={
-                                  replacementPreview.source
-                                }
-                                onDraftSaved={markReplacementDraftSaved}
-                                onSubmitSaved={
-                                  rerunGeometryPreflightAfterCorrection
-                                }
-                                onSourceReplaced={
-                                  handlePageGeometrySourceReplaced
-                                }
-                                preflightJobId={`replacement-draft:${ready.uploadId}`}
-                                uploadId={ready.uploadId}
-                              />
-                            </section>
-                          ) : null}
-                          {replacementPreview?.uploadId === ready.uploadId &&
-                          geometryPreflightJob === null &&
-                          replacementPreview.saved ? (
-                            <p className="curatedImportStatus" role="status">
-                              Zapisano geometrię podmienionego zdjęcia. Uruchom
-                              preflight przyciskiem powyżej.
+                            <h3>Popraw geometrię podmienionego zdjęcia</h3>
+                            <p>
+                              Po zapisaniu korekty uruchom preflight przyciskiem
+                              powyżej.
                             </p>
-                          ) : null}
-                          {replacementPreview?.uploadId === ready.uploadId &&
-                          geometryPreflightJob !== null &&
-                          geometryPreflightJob.status !== 'completed' ? (
-                            <section
-                              aria-label="Korekta geometrii strony"
-                              className="pageGeometryCorrection"
-                            >
-                              <h3>Preflight podmienionego zdjęcia w toku</h3>
-                              <img
-                                alt="Nowe zdjęcie źródłowe po podmianie"
-                                style={{
-                                  display: 'block',
-                                  maxWidth: '100%',
-                                  height: 'auto',
-                                }}
-                                src={`${resolveAdminApiBaseUrl(apiBaseUrl)}/api/v1/admin/image-imports/browser-selections/${encodeURIComponent(ready.uploadId)}/page-geometry-sources/${encodeURIComponent(replacementPreview.checksum)}/asset?game_id=${encodeURIComponent(gameId)}`}
-                              />
-                              <p>
-                                Po ukończeniu preflightu otworzy się wynik w
-                                edytorze geometrii.
-                              </p>
-                            </section>
-                          ) : null}
-                          {geometryPreflightJob?.status === 'completed' ? (
-                            <details
-                              open={
-                                replacementPreview?.uploadId === ready.uploadId
+                            <PageGeometryCorrectionPanel
+                              api={api}
+                              apiBaseUrl={apiBaseUrl}
+                              gameId={gameId}
+                              geometryEngineVariant={geometryEngineVariant}
+                              initialReplacementSource={
+                                replacementPreview.source
                               }
-                            >
-                              <summary>
-                                Ręczna korekta zdjęć geometrii — zostaw na
-                                koniec ({visibleGeometryCorrectionCount})
-                              </summary>
-                              <p className="curatedImportStatus">
-                                Każda pozycja oznacza jedno zdjęcie zawierające
-                                od jednej do dziewięciu plansz zgodnie z
-                                potwierdzonym zakresem. Ponowna korekta
-                                wcześniej zarejestrowanego zdjęcia zmienia jego
-                                geometrię, ale nie zwiększa licznika
-                                zarejestrowanych. Plansze powstaną dopiero po
-                                uruchomieniu importu.
-                              </p>
-                              <PageGeometryCorrectionPanel
-                                allowRegisteredSourceInspection
-                                api={api}
-                                apiBaseUrl={apiBaseUrl}
-                                focusSourceChecksumSha256={
-                                  replacementPreview?.uploadId ===
-                                  ready.uploadId
-                                    ? replacementPreview.checksum
-                                    : undefined
-                                }
-                                gameId={gameId}
-                                geometryEngineVariant={geometryEngineVariant}
-                                onPendingSourceCountChange={
-                                  handlePendingGeometryCorrectionCountChange
-                                }
-                                onSubmitSaved={
-                                  rerunGeometryPreflightAfterCorrection
-                                }
-                                onSourceReplaced={
-                                  handlePageGeometrySourceReplaced
-                                }
-                                preflightJobId={geometryPreflightJob.id}
-                                uploadId={ready.uploadId}
-                              />
-                            </details>
-                          ) : null}
-                          {failedGeometryGuardJob !== null ? (
-                            <details open>
-                              <summary>
-                                Rozlicz problematyczne plansze
-                                {geometryGuardResolutionManifest === null
-                                  ? ' — wymagane przed nowym importem'
-                                  : ' — manifest gotowy'}
-                              </summary>
-                              <GeometryGuardResolutionPanel
-                                api={api}
-                                apiBaseUrl={apiBaseUrl}
-                                gameId={gameId}
-                                guardJobId={failedGeometryGuardJob.id}
-                                onManifestInvalidated={
-                                  handleGuardManifestInvalidated
-                                }
-                                onManifestSealed={handleGuardManifestSealed}
-                                onPersistedContextLoaded={
-                                  handlePersistedGuardContextLoaded
-                                }
-                                uploadId={ready.uploadId}
-                              />
-                            </details>
-                          ) : null}
-                        </div>
-                      ) : (
-                        <p className="curatedImportStatus">
-                          Ten historyczny raport nie zawiera wymaganego
-                          manifestu geometrii. Odśwież raport przed rozpoczęciem
-                          importu.
-                        </p>
-                      )}
-                    </>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ) : null}
+                              onDraftSaved={markReplacementDraftSaved}
+                              onSubmitSaved={
+                                rerunGeometryPreflightAfterCorrection
+                              }
+                              onSourceReplaced={
+                                handlePageGeometrySourceReplaced
+                              }
+                              preflightJobId={`replacement-draft:${ready.uploadId}`}
+                              uploadId={ready.uploadId}
+                            />
+                          </section>
+                        ) : null}
+                        {replacementPreview?.uploadId === ready.uploadId &&
+                        geometryPreflightJob === null &&
+                        replacementPreview.saved ? (
+                          <p className="curatedImportStatus" role="status">
+                            Zapisano geometrię podmienionego zdjęcia. Uruchom
+                            preflight przyciskiem powyżej.
+                          </p>
+                        ) : null}
+                        {replacementPreview?.uploadId === ready.uploadId &&
+                        geometryPreflightJob !== null &&
+                        geometryPreflightJob.status !== 'completed' ? (
+                          <section
+                            aria-label="Korekta geometrii strony"
+                            className="pageGeometryCorrection"
+                          >
+                            <h3>Preflight podmienionego zdjęcia w toku</h3>
+                            <img
+                              alt="Nowe zdjęcie źródłowe po podmianie"
+                              style={{
+                                display: 'block',
+                                maxWidth: '100%',
+                                height: 'auto',
+                              }}
+                              src={`${resolveAdminApiBaseUrl(apiBaseUrl)}/api/v1/admin/image-imports/browser-selections/${encodeURIComponent(ready.uploadId)}/page-geometry-sources/${encodeURIComponent(replacementPreview.checksum)}/asset?game_id=${encodeURIComponent(gameId)}`}
+                            />
+                            <p>
+                              Po ukończeniu preflightu otworzy się wynik w
+                              edytorze geometrii.
+                            </p>
+                          </section>
+                        ) : null}
+                        {geometryPreflightJob?.status === 'completed' ? (
+                          <details
+                            open={
+                              replacementPreview?.uploadId === ready.uploadId
+                            }
+                          >
+                            <summary>
+                              Ręczna korekta zdjęć geometrii — zostaw na koniec
+                              ({visibleGeometryCorrectionCount})
+                            </summary>
+                            <p className="curatedImportStatus">
+                              Każda pozycja oznacza jedno zdjęcie zawierające od
+                              jednej do dziewięciu plansz zgodnie z
+                              potwierdzonym zakresem. Ponowna korekta wcześniej
+                              zarejestrowanego zdjęcia zmienia jego geometrię,
+                              ale nie zwiększa licznika zarejestrowanych.
+                              Plansze powstaną dopiero po uruchomieniu importu.
+                            </p>
+                            <PageGeometryCorrectionPanel
+                              allowRegisteredSourceInspection
+                              api={api}
+                              apiBaseUrl={apiBaseUrl}
+                              focusSourceChecksumSha256={
+                                replacementPreview?.uploadId === ready.uploadId
+                                  ? replacementPreview.checksum
+                                  : undefined
+                              }
+                              gameId={gameId}
+                              geometryEngineVariant={geometryEngineVariant}
+                              onPendingSourceCountChange={
+                                handlePendingGeometryCorrectionCountChange
+                              }
+                              onSubmitSaved={
+                                rerunGeometryPreflightAfterCorrection
+                              }
+                              onSourceReplaced={
+                                handlePageGeometrySourceReplaced
+                              }
+                              preflightJobId={geometryPreflightJob.id}
+                              uploadId={ready.uploadId}
+                            />
+                          </details>
+                        ) : null}
+                        {failedGeometryGuardJob !== null ? (
+                          <details open>
+                            <summary>
+                              Rozlicz problematyczne plansze
+                              {geometryGuardResolutionManifest === null
+                                ? ' — wymagane przed nowym importem'
+                                : ' — manifest gotowy'}
+                            </summary>
+                            <GeometryGuardResolutionPanel
+                              api={api}
+                              apiBaseUrl={apiBaseUrl}
+                              gameId={gameId}
+                              guardJobId={failedGeometryGuardJob.id}
+                              onManifestInvalidated={
+                                handleGuardManifestInvalidated
+                              }
+                              onManifestSealed={handleGuardManifestSealed}
+                              onPersistedContextLoaded={
+                                handlePersistedGuardContextLoaded
+                              }
+                              uploadId={ready.uploadId}
+                            />
+                          </details>
+                        ) : null}
+                      </div>
+                    ) : (
+                      <p className="curatedImportStatus">
+                        Ten historyczny raport nie zawiera wymaganego manifestu
+                        geometrii. Odśwież raport przed rozpoczęciem importu.
+                      </p>
+                    )}
+                  </>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      </section>
 
       <div className="importActionToolbar">
-        <label>
-          Dopasowanie geometrii zdjęcia
-          <select
-            disabled={busy}
-            onChange={(event) =>
-              setPageRegistrationVariant(
-                event.target.value as PageRegistrationVariant,
-              )
-            }
-            value={pageRegistrationVariant}
-          >
-            <option value="standard_v0_10">Standardowe v0.10</option>
-            <option value="board_area_test">Obszar plansz — testowe</option>
-          </select>
-        </label>
+        {!usesNeuralGrid ? (
+          <label>
+            Dopasowanie geometrii zdjęcia
+            <select
+              disabled={busy}
+              onChange={(event) =>
+                setPageRegistrationVariant(
+                  event.target.value as PageRegistrationVariant,
+                )
+              }
+              value={pageRegistrationVariant}
+            >
+              <option value="standard_v0_10">Standardowe v0.10</option>
+              <option value="board_area_test">Obszar plansz — testowe</option>
+            </select>
+          </label>
+        ) : null}
         <div className="importActionButtons">
           <button
             aria-busy={activeAction === 'start-ready'}

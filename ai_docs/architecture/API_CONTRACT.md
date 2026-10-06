@@ -3914,6 +3914,15 @@ trwałym stagingiem:
   przyjmuje `gameId`, `manifestChecksumSha256` i checksumę preflightu.
 
 Start jest idempotentny po `gameId + uploadId + manifestChecksumSha256`.
+
+TASK-0889: fizyczny gotowy staging może przetrwać usunięcie swojej gry.
+Odczyt jego opcjonalnego `boardImportStatus` zwraca wtedy `null` wyłącznie
+dla błędu routingu `GAME_NOT_FOUND`, zamiast przerywać całą listę. `gameId`
+stagingu pozostaje niezmieniony; Admin nadal filtruje listę do kontekstu gry.
+Nie usuwa się plików ani nie udziela uprawnienia do importu w innej grze.
+Pozostałe błędy routingu i infrastruktury propagują się. Kontrakt nie zyskuje
+nowych pól ani operacji.
+
 Nieaktualny manifest lub projekcja kanoniczna kończy się stabilnym konfliktem,
 a odpowiedź z `created=false` wskazuje już istniejący job. Typy i klient tych
 operacji są zawsze generowane z OpenAPI; Admin nie utrzymuje ręcznych kopii

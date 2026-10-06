@@ -62,7 +62,7 @@ test('a new replacement stays editable until the operator starts preflight', () 
   assert.match(panelSource, /preflightJobId=\{`replacement-draft:/);
   assert.match(
     panelSource,
-    /Po zapisaniu korekty uruchom preflight\s+przyciskiem powyżej/,
+    /Po zapisaniu korekty uruchom preflight\s+przyciskiem\s+powyżej/,
   );
   assert.match(panelSource, /onDraftSaved=\{markReplacementDraftSaved\}/);
   assert.match(panelSource, /replacementPreview\.saved/);
@@ -100,7 +100,7 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
   assert.match(panelSource, /startReadyBrowserImageImport/);
   assert.doesNotMatch(panelSource, /createImageFolderImport|startImport\(/);
   assert.doesNotMatch(actionsSource, /createImageFolderImport/);
-  assert.match(panelSource, /Gotowy staging do wznowienia/);
+  assert.match(panelSource, /Przesłane foldery/);
   assert.match(panelSource, /readyBoardImportLifecycleLabel/);
   assert.match(
     panelSource,
@@ -165,7 +165,10 @@ test('shows the real geometry phase and distinguishes provisional from final cou
     panelSource,
     /onPendingSourceCountChange=\{\s*handlePendingGeometryCorrectionCountChange\s*\}/,
   );
-  assert.match(panelSource, /koniec \(\{visibleGeometryCorrectionCount\}\)/);
+  assert.match(
+    panelSource,
+    /koniec\s*\(\s*\{visibleGeometryCorrectionCount\}\s*\)/,
+  );
 });
 
 test('keeps optional registered-source geometry inspection available before import', () => {
@@ -202,13 +205,13 @@ test('starts page geometry only after the explicit operator action', () => {
   assert.doesNotMatch(reportFlow, /startBrowserPageGeometryPreflight/);
   assert.match(explicitFlow, /startBrowserPageGeometryPreflight/);
   assert.match(panelSource, /Kliknij „Przygotuj geometrię stron”/);
-  assert.match(panelSource, /historia zakończonych importów pozostaje w/);
+  assert.match(panelSource, /Historia\s+zakończonych importów pozostaje w/);
 });
 
 test('reopens the completed engine variant and replays a report without dispatch', () => {
   assert.match(panelSource, /v1\.0 — niepełne boki/);
   const stagingActions = panelSource.slice(
-    panelSource.indexOf('{readySelections.length > 0 ?'),
+    panelSource.indexOf('aria-labelledby="ready-layout-staging-title"'),
     panelSource.indexOf('{active && preflight !== null ?'),
   );
   assert.match(
@@ -363,7 +366,7 @@ test('shows the Mumie neural profile and keeps the classical default without dep
     panelSource,
     /className="secondaryButton"\s*disabled=\{busy \|\| enginePolicy === null\}[\s\S]*?'Wybierz folder'/,
   );
-  assert.match(panelSource, /Gotowy staging do wznowienia/);
+  assert.match(panelSource, /Przesłane foldery/);
 });
 
 test('provides styled actions and accessible import help', () => {
@@ -484,7 +487,8 @@ test('keeps pinned reprocess and manual continuation but hides the forced V1.0 a
 test('bumps refreshToken on every refreshJobs call', () => {
   const refreshJobsFlow = panelSource.slice(
     panelSource.indexOf('const refreshJobs = useCallback'),
-    panelSource.indexOf('}, [api, gameId]);') + '}, [api, gameId]);'.length,
+    panelSource.indexOf('}, [api, gameId, refreshReadySelections]);') +
+      '}, [api, gameId, refreshReadySelections]);'.length,
   );
   assert.match(
     refreshJobsFlow,

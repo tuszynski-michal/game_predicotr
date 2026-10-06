@@ -149,7 +149,8 @@ async function mount(prior = null, processing = false, options = {}) {
     }),
     getJob: async () => ({ data: geometry }),
     listCuratedImageImportSources: async () => ({ data: [] }),
-    listReadyBrowserImageSelections: async () => ({ data: [source] }),
+    listReadyBrowserImageSelections: async () =>
+      options.readyResult?.() ?? { data: [source] },
     getImageImportEnginePolicy: async () => ({
       data: {
         policy: 'structured_lattice_v3',
@@ -165,7 +166,7 @@ async function mount(prior = null, processing = false, options = {}) {
     listIncompleteGeometryImages: unavailable,
     previewReadyBrowserImageImport: async (...args) => {
       reportCalls.push(args);
-      return { data: report };
+      return options.previewResult?.() ?? { data: report };
     },
     startBrowserPageGeometryPreflight: async (...args) => {
       preflightCalls.push(args);
@@ -187,6 +188,7 @@ async function mount(prior = null, processing = false, options = {}) {
         }
       );
     },
+    ...options.clientOverrides,
   };
   const root = createRoot(document.getElementById('root'));
   await act(async () =>
@@ -204,7 +206,7 @@ async function mount(prior = null, processing = false, options = {}) {
   );
   if (options.openReport !== false)
     await act(async () => button('Pokaż raport').click());
-  return { root, calls, reportCalls, preflightCalls };
+  return { root, calls, reportCalls, preflightCalls, api, source };
 }
 
 test('existing Import button is enabled for a completed 99-review neural report and sends pinned manifest only on explicit click', async () => {
@@ -272,6 +274,7 @@ test('fresh Mumie mounts show selected V3, hide classical choices and do not sta
         /V3 — sieć neuronowa/,
       );
       assert.equal(button('Przetwórz w v1.1'), undefined);
+      assert.equal(document.querySelector('select'), null);
       assert.match(document.body.textContent, /przeznaczone do usunięcia/);
       assert.equal(reportCalls.length, 0);
       assert.equal(preflightCalls.length, 0);
@@ -287,6 +290,18 @@ test('Mumie explicit geometry preparation omits the classical variant', async ()
     noGeometry: true,
   });
   try {
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Wariant dopasowania zdjęcia/,
+    );
+    assert.match(document.body.textContent, /Źródło geometrii neuronowej/);
+    const reportVersion = [...document.querySelectorAll('dt')].find(
+      (element) => element.textContent === 'Wersja silnika siatki',
+    );
+    assert.match(
+      reportVersion.nextElementSibling.textContent,
+      /V3 — sieć neuronowa/,
+    );
     await act(async () => button('Przygotuj geometrię stron').click());
     assert.equal(preflightCalls.length, 1);
     assert.equal(
@@ -299,10 +314,11 @@ test('Mumie explicit geometry preparation omits the classical variant', async ()
   }
 });
 
-test('777 keeps V1.1 with the same structural storage policy and no V3 label', async () => {
-  const { root, reportCalls } = await mount(null, false, {
+test('777 keeps V1.1, classical registration and its selected request value', async () => {
+  const { root, reportCalls, preflightCalls } = await mount(null, false, {
     openReport: false,
     profile: 'framed_full_page_v2',
+    noGeometry: true,
   });
   try {
     const radios = [
@@ -318,6 +334,17 @@ test('777 keeps V1.1 with the same structural storage policy and no V3 label', a
     assert.equal(
       reportCalls[0][1].geometryEngineVariant,
       'selective_board_review_v1_1',
+    );
+    const registration = document.querySelector('select');
+    assert.ok(registration);
+    await act(async () => {
+      registration.value = 'board_area_test';
+      registration.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    await act(async () => button('Przygotuj geometrię stron').click());
+    assert.equal(
+      preflightCalls[0][1].pageRegistrationVariant,
+      'board_area_test',
     );
   } finally {
     await act(async () => root.unmount());
@@ -344,6 +371,7 @@ test('opening a pinned classical V1.2 report preserves its version while the dep
       reportCalls[0][1].geometryEngineVariant,
       'contrast_frame_grid_v1_2',
     );
+    assert.match(document.body.textContent, /Wariant dopasowania zdjęcia/);
     assert.match(
       document.body.textContent,
       /Otwarty raport historyczny używa v1.2/,
@@ -377,6 +405,190 @@ test('polling a processing frozen neural preflight unlocks Import when its 99-re
     await act(async () => {});
     assert.equal(button('Rozpocznij import Mumii z korektą').disabled, false);
     assert.equal(calls.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('folder list failure is visible and refresh recovers the actionable folder after remount', async () => {
+  let failed = true;
+  const options = {
+    openReport: false,
+    noGeometry: true,
+    readyResult: () =>
+      failed
+        ? { error: { code: 'LIST_FAILURE', message: 'temporary list failure' } }
+        : undefined,
+  };
+  let { root, calls, preflightCalls } = await mount(null, false, options);
+  try {
+    assert.match(
+      document.body.textContent,
+      /Nie udało się wczytać przesłanych folderów/,
+    );
+    assert.match(document.body.textContent, /temporary list failure/);
+    assert.equal(button('Pokaż raport'), undefined);
+    failed = false;
+    await act(async () => button('Odśwież status').click());
+    assert.doesNotMatch(document.body.textContent, /temporary list failure/);
+    assert.ok(button('Pokaż raport'));
+    assert.equal(calls.length, 0);
+    assert.equal(preflightCalls.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
+  ({ root, calls, preflightCalls } = await mount(null, false, options));
+  try {
+    assert.ok(button('Pokaż raport'));
+    assert.equal(calls.length, 0);
+    assert.equal(preflightCalls.length, 0);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('failed folder-list refresh preserves a previously loaded card', async () => {
+  let failed = false;
+  const { root } = await mount(null, false, {
+    openReport: false,
+    noGeometry: true,
+    readyResult: () =>
+      failed
+        ? { error: { code: 'LIST_FAILURE', message: 'list offline' } }
+        : undefined,
+  });
+  try {
+    assert.ok(button('Pokaż raport'));
+    failed = true;
+    await act(async () => button('Odśwież status').click());
+    assert.ok(button('Pokaż raport'));
+    assert.match(document.body.textContent, /list offline/);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('empty and loading folder states are explicit', async () => {
+  let resolveList;
+  const pending = new Promise((resolve) => {
+    resolveList = resolve;
+  });
+  const { root } = await mount(null, false, {
+    openReport: false,
+    noGeometry: true,
+    clientOverrides: { listReadyBrowserImageSelections: () => pending },
+  });
+  try {
+    assert.match(document.body.textContent, /Wczytywanie przesłanych folderów/);
+    await act(async () => resolveList({ data: [] }));
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Wczytywanie przesłanych folderów/,
+    );
+    assert.match(
+      document.body.textContent,
+      /Brak przesłanych folderów dla tej gry/,
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('late older folder list cannot remove a folder recovered by refresh', async () => {
+  let resolveOldList;
+  const oldList = new Promise((resolve) => {
+    resolveOldList = resolve;
+  });
+  let listCalls = 0;
+  let storedSource;
+  const { root, source } = await mount(null, false, {
+    openReport: false,
+    noGeometry: true,
+    clientOverrides: {
+      listReadyBrowserImageSelections: () =>
+        ++listCalls === 1 ? oldList : Promise.resolve({ data: [storedSource] }),
+    },
+  });
+  storedSource = source;
+  try {
+    await act(async () => button('Odśwież status').click());
+    assert.ok(button('Pokaż raport'));
+    await act(async () => resolveOldList({ data: [] }));
+    assert.ok(button('Pokaż raport'));
+    assert.doesNotMatch(document.body.textContent, /Brak przesłanych folderów/);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('finalized upload stays visible and retryable when its report fails', async () => {
+  let finalized = false;
+  let reportFailed = true;
+  let storedSource;
+  const file = new File(['jpeg'], 'seq_1-9.jpg', { type: 'image/jpeg' });
+  Object.defineProperty(file, 'webkitRelativePath', {
+    value: 'Mumie/seq_1-9.jpg',
+  });
+  const { root, source, calls, preflightCalls } = await mount(null, false, {
+    openReport: false,
+    noGeometry: true,
+    readyResult: () => ({ data: finalized ? [storedSource] : [] }),
+    previewResult: () =>
+      reportFailed
+        ? {
+            error: {
+              code: 'REPORT_FAILURE',
+              message: 'report temporarily unavailable',
+            },
+          }
+        : undefined,
+    clientOverrides: {
+      planBrowserImageSelectionUpload: async () => ({
+        data: {
+          filesToUpload: [{ sourceIndex: 0, uploadIndex: 0 }],
+          uploadFileCount: 1,
+          selectedFileCount: 1,
+          skippedCompleteSourceCount: 0,
+          skippedCanonicalRanges: [],
+          skippedCompleteSources: [],
+          planChecksumSha256: 'a'.repeat(64),
+        },
+      }),
+      createBrowserImageSelection: async () => ({
+        data: { uploadId: 'selection' },
+      }),
+      uploadBrowserImageSelectionFile: async () => ({ data: {} }),
+      finalizeBrowserImageSelection: async () => {
+        finalized = true;
+        return { data: { status: 'selected', supportedFileCount: 1 } };
+      },
+      cancelBrowserImageSelection: async () => {
+        assert.fail('finalized upload must remain');
+      },
+    },
+  });
+  storedSource = source;
+  try {
+    const input = document.querySelector('input[type="file"]');
+    Object.defineProperty(input, 'files', {
+      configurable: true,
+      value: [file],
+    });
+    await act(async () =>
+      input.dispatchEvent(new Event('change', { bubbles: true })),
+    );
+    assert.equal(finalized, true);
+    assert.ok(button('Odśwież raport'));
+    assert.match(document.body.textContent, /report temporarily unavailable/);
+    reportFailed = false;
+    await act(async () => button('Odśwież raport').click());
+    assert.doesNotMatch(
+      document.body.textContent,
+      /report temporarily unavailable/,
+    );
+    assert.ok(button('Przygotuj geometrię stron'));
+    assert.equal(calls.length, 0);
+    assert.equal(preflightCalls.length, 0);
   } finally {
     await act(async () => root.unmount());
   }

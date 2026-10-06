@@ -6,6 +6,27 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0889 — import folder recovery and V3 registration (done)
+
+- Diagnosis: GET browser-selections fails with GAME_NOT_FOUND for finalized
+  staging owned by deleted game 2a46d3a6-bc56-4a13-8f98-dd51c88df0b2.
+  Actual new Mumie folder „1 - 23175 cut” has2575 files, staging b770bcc8.
+- Scope: optional retention status is null only for a deleted game; preserve
+  staging files/ownership and propagate other storage failures. Panel exposes
+  list errors/loading/empty states and refreshes finalized folders before
+  report preparation. V3 hides classical registration; V1.1 retains it.
+- Accepted repair scope: delivery/IMPORT_FOLDER_RECOVERY_EXECUTION_PLAN.md.
+  No new import/preflight, DB migration, cleanup or model activation.
+- Backend68 and focused4 PASS; Admin unit66/interaction13 PASS. Scoped
+  lint/format/types and final Admin build PASS (35.48s), existing img warning only.
+- Real API root40856/listener7244, health ok. Initial10s startup probe expired;
+  process subsequently ready, no duplicate API. New folder returned as ready
+  and shown with report action after page reload. V3 select absent.
+- Actual read-only report:2575 sources,23175 new boards, symbol model ready.
+  Fresh report labels configured V3 and hides the obsolete registration metric;
+  pinned classical report labels remain. No geometry/import job was started.
+- Completion v1.7.231; full commit hash recorded after commit.
+
 ### TASK-0888 — current Mumie symbol feedback analysis (done)
 
 - Read-only MAIN analysis:126 current human-approved crops from34 photos,

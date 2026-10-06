@@ -16,7 +16,11 @@ from game_predictor_api.application.browser_staging_retention import (
 )
 from game_predictor_api.domain.jobs import JobConflictError
 from game_predictor_api.storage.game_entity_locator import GameEntityLocator
-from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageIntent,
+    GameStorageRouter,
+    GameStorageRoutingError,
+)
 
 from .models import (
     BrowserSelectionRetentionModel,
@@ -73,7 +77,14 @@ class SqlAlchemyBrowserStagingRetentionRepository:
         if game_id is None:
             return None
         with self._session_factory() as session:
-            GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ)
+            try:
+                GameStorageRouter().bind(session, game_id, intent=GameStorageIntent.READ)
+            except GameStorageRoutingError as error:
+                if error.code != "GAME_NOT_FOUND":
+                    raise
+                # Physical finalized folders can outlive a deleted game. Its
+                # optional status must not break listing other games' uploads.
+                return None
             row = session.get(BrowserSelectionRetentionModel, upload_id)
             if row is None or row.game_id not in {None, game_id}:
                 return None

@@ -18,6 +18,21 @@ Opisy dawnych wyborów poniżej zachowują kontekst historycznych przebiegów,
 ale nie rozszerzają obecnego pickera. Wyjątek D-523 dopuszcza pełne,
 przypisane sloty sieci do cropów bez ręcznej akceptacji wszystkich siatek.
 
+## Widoczność przesłanych folderów — TASK-0889
+
+Panel pokazuje sekcję „Przesłane foldery” także podczas ładowania, przy pustej
+liście i po błędzie odczytu. Błąd ma jawny komunikat i ponowienie przez
+„Odśwież status”; poprzednia poprawna lista pozostaje dostępna. Po finalizacji
+uploadu lista jest odświeżana przed raportem, więc błąd raportu nie ukrywa
+zapisanych zdjęć. Trwałe stagingi innych gier nie są przepinane ani usuwane.
+Staging po usuniętej grze nie może blokować odczytu innych folderów; brak
+opcjonalnego statusu retencji nie jest zgodą na zmianę właściciela.
+
+Wybór „Dopasowanie geometrii zdjęcia” jest dostępny tylko przy klasycznej
+geometrii. Profil Mumii V3 nie korzysta z dopasowania ORB do wzorca; jawny
+wariant `board_area_test` jest sprzeczny ze snapshotem neuronowym. V3 używa
+domyślnego żądania własnej geometrii. V1.1 zachowuje oba warianty klasyczne.
+
 ## Kompletność geometrii zdjęcia — D-484
 
 Jednostką geometrii jest zdjęcie źródłowe, nie plansza. Oczekiwaną liczbę

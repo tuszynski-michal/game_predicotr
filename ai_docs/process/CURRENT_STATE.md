@@ -6,6 +6,31 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0888 — current Mumie symbol feedback analysis (done)
+
+- Read-only MAIN analysis:126 current human-approved crops from34 photos,
+  versus40 at0886;122 disagree with stored predictions. This deliberately
+  edited sample is not population accuracy. All126 approved/current crop
+  identities and render checks match. Fourteen preview crops visually reviewed.
+- Existing preview selects81 diverse samples from30 photos/62 boards,
+  no stale/missing/grid/unreadable exclusions. Q,A,Mumia absent; several
+  other classes lack four source families. Freeze readiness is not training
+  class/split readiness. No new cohort/job/training/activation performed.
+- Active lab R2 ONNX and registry verified:3 Conv layers,RGB64,10 classes.
+  Earlier283 human development/84 validation remain;443 bundle files,
+  6.64MB verified. Recommend a separate qualified lab candidate combining
+  current exact DB feedback with earlier human corpus, without inventing
+  approvals or moving held-out sources into training. DB preview alone
+  does not combine lab/DB labels; no fresh user annotation request now.
+- Most corrections:A→Sarkofag42,K→Faraon22,Mumia→Sarkofag15. Visual sample
+  includes blur,glare,gold frames. All disagreement confidence below0.62.
+- model-quality.activeModel is hard-coded null although registry is active;
+  recorded as a separate presentation gap. Whole-photo versus recording
+  split limitation remains explicit. MAIN application code/runtime unchanged.
+- Report: quality/MUMIE_SYMBOL_FEEDBACK_ANALYSIS_20261006.md; read-only
+  evidence artifacts/mumie-feedback-analysis-20261006/. Completion v1.7.230;
+  full hash recorded after commit.
+
 ### TASK-0887 — V3 import presentation and application inventory (done)
 
 - MAIN import now shows the real Mumie neural profile as V3, omits classical

@@ -6,6 +6,18 @@ last_updated: 2026-10-01
 
 # Import i rozpoznawanie zdjęć
 
+## Bieżący wybór w panelu — TASK-0887
+
+Mumie z profilem `grid_profile_mumie_v1` pokazują V3 (sieć neuronowa)
+i korzystają z istniejącej ścieżki `neural-auto-crop-v1` D-523. Admin pomija
+argument klasycznego wariantu. V1.1 pozostaje dla klasycznych gier, w tym 777.
+V1.0/V1.2 są ukryte w nowych wyborach i oznaczone do późniejszego usunięcia.
+Historyczny raport nadal odtwarza swoją przypiętą wersję; zwykłe ponowienie
+nie przepisuje danych i modeli. Nie zmienia się kontrakt ani schemat bazy.
+Opisy dawnych wyborów poniżej zachowują kontekst historycznych przebiegów,
+ale nie rozszerzają obecnego pickera. Wyjątek D-523 dopuszcza pełne,
+przypisane sloty sieci do cropów bez ręcznej akceptacji wszystkich siatek.
+
 ## Kompletność geometrii zdjęcia — D-484
 
 Jednostką geometrii jest zdjęcie źródłowe, nie plansza. Oczekiwaną liczbę

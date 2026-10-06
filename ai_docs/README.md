@@ -38,6 +38,8 @@ implementacyjnym.
 
 - [Mobile app](requirements/MOBILE_APP.md)
 - [Admin app](requirements/ADMIN_APP.md)
+- [Aplikacja V3 — rejestr przeglądu ekranów](requirements/APP_V3_FUNCTIONAL_INVENTORY.md)
+  — robocze potrzeby, funkcje do zachowania/przeniesienia i oddzielny panel online.
 - [Admin app 0.2 proposal](requirements/ADMIN_APP_V0_2.md)
 - [Algorithms](requirements/ALGORITHMS.md)
 - [Image ingestion](requirements/IMAGE_INGESTION.md)

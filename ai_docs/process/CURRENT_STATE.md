@@ -6,6 +6,28 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0887 — V3 import presentation and application inventory (done)
+
+- MAIN import now shows the real Mumie neural profile as V3, omits classical
+  variant arguments, and reports V3 on success. 777 keeps V1.1. V1.0/V1.2
+  choices and forced V1.0 UI reprocess are hidden; history/backend retained.
+- Responsive picker, existing API only; game/profile remount isolates state.
+  Fresh MAIN page/reload and actual 777 picker verified without real upload.
+- Import unit66 and interaction8 PASS; Admin types, scoped lint, format and
+  production build PASS (34.11s). Existing Next img warning documented.
+- MUMIE_MAIN_APP_OPERATOR_GUIDE expanded with exact steps and pooled symbol
+  training. Draft APP_V3_FUNCTIONAL_INVENTORY.md records screen changes,
+  future shared online panel, neural-grid training gap and misleading legacy
+  geometry readiness/completeness descriptions for separate tasks.
+- Read-only storage: main51.73GB,777 partitions48.16GB,Mumie71MB. Retained
+  restore-test database46.97GB,zero connections; backup13.60GB on D retained.
+  Windows C free32.16GiB; Docker VHDX106.04GB. No guaranteed host-space
+  recovery without separate compaction. No data cleanup/migration/training,
+  activation,push,merge or other function removal performed.
+- D-524; evidence artifacts/app-v3-review-20261006/. Other pre-existing dirty
+  completion hashes and unrelated folders preserved. Completion v1.7.229;
+  full hash recorded after commit.
+
 ### TASK-0886 — automatic Mumie import and recoverable symbol verification (done)
 
 - New neural-auto-crop-v1 imports render exact 24-node full bound lattices

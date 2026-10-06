@@ -80,6 +80,13 @@ jest zgodą na import ani automatycznym uruchomieniem preflightu.
 
 ## Warianty geometrii nowych stagingów — TASK-0562/0563/0579
 
+Wyjątek pilota Mumii: profil `grid_profile_mumie_v1` wybiera istniejącą
+trasę neural; API normalizuje brak wariantu lub klasyczne V1.1 do `null`.
+Admin od TASK-0887 pokazuje V3 na podstawie istniejącego pola
+`GameResponse.shapeGeometryConfiguration` i pomija `geometryEngineVariant`.
+Nie dodano endpointu, enumu ani pola odpowiedzi. Inne gry zachowują V1.1;
+ukrycie pozostałych wyborów UI nie usuwa obsługi historycznych payloadów.
+
 Brak `geometryEngineVariant` w żądaniu raportu, preflightu lub startu nowego
 przeglądarkowego stagingu oznacza techniczne
 `selective_board_review_v1_1` (v1.1). Jawne

@@ -106,10 +106,7 @@ test('recovers finalized staging and requires a checksum-bound preflight start',
     panelSource,
     /staging \{ready\.uploadId\.slice\(0, 8\)\} · \{lifecycleLabel\}/,
   );
-  assert.match(
-    panelSource,
-    /Rozpocznij import \$\{geometryEngineVariant === SELECTIVE_BOARD_VARIANT/,
-  );
+  assert.match(panelSource, /Rozpocznij import \$\{executionEngineLabel\}/);
   assert.match(panelSource, /startBrowserPageGeometryPreflight/);
   assert.match(panelSource, /Standardowe v0\.10/);
   assert.match(panelSource, /Obszar plansz — testowe/);
@@ -339,9 +336,23 @@ test('defers geometry guard effect initialization and cancels stale callbacks', 
   );
 });
 
-test('defaults to v1.1 while preserving the v1.0 choice and historical labels', () => {
+test('shows the Mumie neural profile and keeps the classical default without deprecated radio choices', () => {
   assert.match(panelSource, /v1\.0 — niepełne boki/);
   assert.match(panelSource, />\(DEFAULT_GEOMETRY_ENGINE_VARIANT\)/);
+  assert.match(
+    panelSource,
+    /shapeGeometryConfiguration === 'grid_profile_mumie_v1'/,
+  );
+  assert.match(panelSource, /V3 — sieć neuronowa \(Mumie\)/);
+  assert.doesNotMatch(
+    panelSource,
+    /setGeometryEngineVariant\(LATERAL_PARTIAL_VARIANT\)/,
+  );
+  assert.doesNotMatch(
+    panelSource,
+    /setGeometryEngineVariant\(CONTRAST_FRAME_GRID_V12_VARIANT\)/,
+  );
+  assert.match(panelSource, /przeznaczone\s+do usunięcia/);
   assert.doesNotMatch(panelSource, /<BoardCellProcessingModePicker/);
   assert.doesNotMatch(panelSource, /changeEnginePolicy/);
   assert.doesNotMatch(panelSource, /v20 — geometria i cropy v19/);
@@ -403,7 +414,7 @@ test('contains completeness and source controls inside responsive components', (
 test('isolates folder selection state when the active game changes', () => {
   assert.match(
     workspaceSource,
-    /<ImageFolderImportPanel[\s\S]*gameId=\{activeGame\.id\}[\s\S]*key=\{activeGame\.id\}/,
+    /<ImageFolderImportPanel[\s\S]*gameId=\{activeGame\.id\}[\s\S]*key=\{`\$\{activeGame\.id\}-\$\{activeGame\.shapeGeometryConfiguration/,
   );
 });
 
@@ -432,7 +443,7 @@ test('replaces the completeness card and import history with the missing-boards 
   assert.match(actionsSource, /'getBoardImportCoverage'/);
 });
 
-test('keeps the reprocess actions in a collapsed details block with all three buttons', () => {
+test('keeps pinned reprocess and manual continuation but hides the forced V1.0 action', () => {
   const reprocessBlock = panelSource.slice(
     panelSource.indexOf('<details className="importMissingSequences">'),
     panelSource.lastIndexOf('</section>'),
@@ -442,17 +453,14 @@ test('keeps the reprocess actions in a collapsed details block with all three bu
     /<summary>Ponowne przetwarzanie importów<\/summary>/,
   );
   assert.match(reprocessBlock, /Przetwórz ponownie z oryginałów/);
-  assert.match(reprocessBlock, /Przetwórz w v1\.0/);
+  assert.doesNotMatch(reprocessBlock, /Przetwórz w v1\.0/);
   assert.match(reprocessBlock, /Kontynuuj z ręczną korektą/);
   assert.match(reprocessBlock, /<ImportGeometryReviewSummary/);
   assert.match(
     reprocessBlock,
     /onClick=\{\(\) => void reprocessImport\(job\)\}/,
   );
-  assert.match(
-    reprocessBlock,
-    /onClick=\{\(\) => void reprocessManagedV4\(job\)\}/,
-  );
+  assert.doesNotMatch(reprocessBlock, /reprocessManagedV4/);
   assert.match(
     reprocessBlock,
     /onClick=\{\(\) => void reprocessImport\(job, true\)\}/,
@@ -466,10 +474,7 @@ test('keeps the reprocess actions in a collapsed details block with all three bu
     /!\['created', 'processing'\]\.includes\(job\.status\) \? \(/,
   );
   assert.match(reprocessBlock, /disabled=\{busy\}/);
-  assert.match(
-    reprocessBlock,
-    /disabled=\{busy \|\| !lateralVariantAvailable\}/,
-  );
+  assert.doesNotMatch(reprocessBlock, /lateralVariantAvailable/);
   assert.match(
     reprocessBlock,
     /technicalErrorCount=\{outcome\?\.failedImages \?\? 0\}/,

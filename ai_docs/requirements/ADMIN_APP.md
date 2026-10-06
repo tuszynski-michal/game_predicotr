@@ -1591,6 +1591,18 @@ Import zdjęć i automatyczny build APK mogą być realizowane w kolejnych piona
 9. Publikuje niezmienną wersję datasetu i reguł.
 ## Bezpieczne ustawienie silnika importu plansz
 
+**Aktualna prezentacja TASK-0887:** dla profilu `grid_profile_mumie_v1`
+panel pokazuje **V3 — sieć neuronowa (Mumie)**, zgodnie z rzeczywistą ścieżką
+neural. W pozostałych grach zachowuje V1.1, także dla istniejących siódemek.
+V1.0/V1.2 i jawne wymuszenie V1.0 z oryginałów są ukryte w nowych wyborach,
+z informacją o wycofaniu do późniejszego usunięcia. Odczyt historycznych
+raportów, przypięte wersje i zwykłe ponowienie pozostają. Nie usunięto
+silników backendu, danych ani pozostałych sekcji zarządzania grą.
+Szczegóły rzeczywistego przepływu: `guides/MUMIE_MAIN_APP_OPERATOR_GUIDE_20261006.md`.
+Proponowane zmiany ekranów: `requirements/APP_V3_FUNCTIONAL_INVENTORY.md`.
+Poniższy opis presetów v20/shadow jest historyczny i nie określa aktualnego
+pickera V3/V1.1.
+
 Panel importu pokazuje ustawienie przypisane do wybranej gry. Operator może
 wybrać stabilny `v20 — geometria i cropy v19` albo pomiarowy silnik 0.10 w
 trybie shadow. Zapis korzysta z rewizjonowanego preview, nie zmienia istniejących

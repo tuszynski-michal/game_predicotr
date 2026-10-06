@@ -5114,6 +5114,34 @@ div.imageJobInlineError {
   line-height: 1.55;
 }
 
+.importComposer .importEngineChoice {
+  align-items: stretch;
+  flex-direction: column;
+  padding: 16px;
+  border-radius: 12px;
+}
+
+.importComposer .importEngineChoice label {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+}
+
+.importComposer .importEngineChoice input[type='radio'] {
+  width: 20px;
+  height: 20px;
+  min-height: 20px;
+  flex: 0 0 20px;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
+.importEngineChoice p {
+  margin: 0;
+}
+
 .gameRow {
   display: flex;
   min-height: 104px;

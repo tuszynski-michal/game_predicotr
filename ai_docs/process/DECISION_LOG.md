@@ -6,6 +6,20 @@ last_updated: 2026-10-06
 
 # Decision Log
 
+## D-524 — show the actual neural import and retire old UI choices
+
+- **Status:** accepted user scope, 2026-10-06, TASK-0887. Hide obsolete engines
+  while retaining V1.1 for occasional 777 imports; inventory other screen
+  functions before moving or removing them.
+- **Decision:** Mumie's existing game profile identifies V3 in Admin. The
+  structural policy named structured_lattice_v3 does not identify a neural
+  model. Other games retain V1.1. New UI choices exclude V1.0/V1.2 and their
+  forced reprocess entry point; backend history and pinned retries remain.
+- **Boundary:** no model activation, game data operation or API expansion.
+  The future shared online reviewer and grid-network training UI are recorded
+  requirements/proposals, not delivered features. Storage analysis is a
+  read-only preview; cleanup execution needs concrete confirmation.
+
 ## D-523 — operational neural crops and recoverable symbol verification
 
 - **Status:** accepted user scope, 2026-10-06, TASK-0886. The operator explicitly

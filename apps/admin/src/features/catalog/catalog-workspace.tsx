@@ -424,12 +424,15 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
                           <ImageFolderImportPanel
                             apiBaseUrl={apiBaseUrl}
                             gameId={activeGame.id}
+                            shapeGeometryConfiguration={
+                              activeGame.shapeGeometryConfiguration
+                            }
                             initialHandoff={
                               imageSelectionHandoff?.gameId === activeGame.id
                                 ? imageSelectionHandoff
                                 : null
                             }
-                            key={`${activeGame.id}-${imageSelectionHandoff?.selectionId ?? 'folder'}`}
+                            key={`${activeGame.id}-${activeGame.shapeGeometryConfiguration ?? 'classical'}-${imageSelectionHandoff?.selectionId ?? 'folder'}`}
                             onHandoffConsumed={() =>
                               setImageSelectionHandoff(null)
                             }

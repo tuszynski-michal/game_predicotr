@@ -10,6 +10,50 @@ Pilot TASK-0879–0884 działa w głównym checkoutcie na gałęzi
 v1.1-vision-lab-hybrid-geometry. Admin jest na porcie3000, Reviewer na3001.
 Port3102 pozostaje laboratorium. Model Mumii jest aktywny.
 
+## Nowy folder — krok po kroku
+
+1. Otwórz [Admin na 3000](http://127.0.0.1:3000), wybierz
+   **Zarządzanie grami → Szkice → Mumie → Import plansz**.
+   Mumie są obecnie szkicem; nie zobaczysz ich w filtrze samych aktywnych gier.
+2. Panel pokazuje **V3 — sieć neuronowa (Mumie)**. Nie wybieraj starego
+   wariantu geometrii. V1.1 zostaje dla siódemek; V1.0/V1.2 są wycofane
+   z nowych wyborów. Wgrany folder nie zmienia silnika historycznego importu.
+3. Kliknij **Wybierz folder**. Wskaż katalog z JPEG-ami `seq_*`, najlepiej
+   kolejne około **500 zdjęć**. To zdjęcia źródłowe, nie 500 pojedynczych
+   plansz; zdjęcie może zawierać kilka plansz. Aplikacja przesyła cały folder.
+   Jeśli folder ma więcej zdjęć, przygotuj mniejszy katalog partii.
+4. Po przesłaniu otwiera się raport; dla wcześniej przesłanego folderu
+   wybierz **Pokaż raport**. Sprawdź grę, liczbę plików i zakresy. Kliknij
+   **Przygotuj geometrię stron**. To preflight sieci: wykrywa plansze,
+   ich podział i przypisanie do numerów. Sam raport/preflight nie tworzy
+   jeszcze komórek symboli w grze.
+5. Poczekaj na ukończenie; **Odśwież preflight geometrii** odczytuje zapisany
+   stan. Jeśli zadanie się nie powiedzie, użyj **Ponów preflight**.
+   Po gotowym manifeście kliknij **Rozpocznij import Mumii z korektą**.
+6. Import zachowuje numery plansz, przygotowuje pełne siatki 3×5, wycinki
+   15 komórek i propozycje symboli z aktywnego modelu. Te etapy wykonuje
+   worker; nie musisz osobno uruchamiać każdego cięcia ani zatwierdzać
+   geometrii każdej poprawnej planszy.
+7. Brakujące/niepełne siatki poprawiaj w **Korekcie cięcia siatki**.
+   Niejednoznaczne przypisanie numerów albo ucięty zakres poprawiaj w
+   **Ręcznej korekcie zdjęć geometrii** w raporcie folderu. Właściwe sloty
+   nie zmieniają swoich numerów przez brak sąsiada. Poprawne pełne cropy
+   trafiają dalej niezależnie od korekty pozostałych.
+8. Otwórz **Weryfikacja symboli**, wybierz **Mumie**, ustaw do **2000**
+   cropów na stronę. Zatwierdzaj wiele poprawnych cropów naraz, a błędnym
+   przypisuj właściwy symbol. **Zła siatka** zgłasza problem cięcia.
+
+**Import** uruchamia rozpoznawanie aktywnym modelem. **Trening** jest osobną
+akcją z zebranych zatwierdzeń; nowy folder nie wymaga uczenia od początku.
+Status importu `waiting_for_review` może oznaczać oczekującą zbiorczą
+weryfikację symboli, a nie obowiązek ręcznego zatwierdzania każdej siatki.
+
+Historyczna sekcja **Kompletność siatek zdjęć** nadal pokazuje akceptację
+geometrii całego zdjęcia. Przy V3 jej „Siatka niepotwierdzona” nie oznacza,
+że wszystkie cropy są niedostępne. Dostępność sprawdzaj w **Weryfikacji
+symboli**. Te opisy i liczniki zapisano do osobnej korekty w
+[rejestrze ekranów](../requirements/APP_V3_FUNCTIONAL_INVENTORY.md).
+
 ## Pierwsza partia
 
 Pierwsze100 zdjęć z trzech nagrań zostało już wgrane. Nie wgrywaj tej partii
@@ -77,6 +121,20 @@ dotyczy poprzedniego cropa. Zapis samego symbolu zachowuje poprawną geometrię.
    kolejnych zdjęć. Upload i korekta nadal działają.
 4. Trening zamraża wybraną pulę i tworzy nowego kandydata. Ocena i aktywacja
    kolejnej wersji są osobnymi akcjami.
+
+Do panelu uczenia wejdziesz przez **Zarządzanie grami → Mumie → Jakość
+rozpoznawania**. Uruchamiaj **Ulepsz rozpoznawanie** po zebraniu różnorodnych
+poprawek z jednej lub kilku partii, gdy preview nie zgłasza braków klas
+w niezależnych częściach podziału. Nie ma wymogu „30 od nowa” dla każdego
+folderu. Wybieraj trudne i różne przykłady: ucięcie, perspektywa, jasność,
+złote ramki i pomyłki klas; same niemal identyczne cropy dają mniej informacji.
+Sprawdź raport kandydata i regresje przed **Aktywuj ostatniego kandydata**.
+Nowy model obowiązuje kolejne importy. Dla wcześniej oczekujących symboli
+użyj **Przelicz oczekujące plansze**; ręczne decyzje są chronione.
+
+Wgranie ani zgłoszenie błędu nie aktualizuje wag sieci natychmiast. Poprawka
+zapisuje przykład do następnego treningu. Zatwierdzaj to, co potrafisz ocenić;
+predykcja modelu sama nie staje się prawdziwą etykietą do uczenia.
 
 Zdjęcia kontrolne, także ponownie zapisane pliki z tymi samymi pikselami,
 pozostają poza treningiem. Nowe iteracje gwarantują podział po całych

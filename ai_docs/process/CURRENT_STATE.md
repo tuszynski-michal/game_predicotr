@@ -6,6 +6,27 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0869 — nowe osiem zatwierdzeń Mumii (done)
+
+- Exact human8/revision8 z pełnym history/receipt/dictionary/source/quad/PNG.
+  Pierwszy film poza symboldevelopment312/327,0photo/pixel overlap.
+  Category nadaje własne caseIDs; join pełnym bindingiem, previous_case_id zachowane.
+- Actual sześć ONNX:control3 wszyscy3/3;directed5 V3 RGB5/gray2/fuzja2,
+  V4 5/3/5,R2 5/3/4. All8 RGB8 każda generacja,gray5/6/6,fuzja5/8/7.
+  R2 RGB noweperclass/group gates PASS; wcześniejszehuman26 RGB26/26,łącznie34/34
+  na dwóch wybranych zestawach. Nie jest to accuracy całego katalogu.
+- Zero accepted AI/humanconflicts;7dawnychunresolved rozstrzygnięte przez człowieka,
+  52pozostałe AI-only. Żadnych nadpisanych ocen, pseudo-zgód ani training/refit.
+- Proof9d02a5…c5833, actual75.09s/fresh81.67s byte-identical.
+  Replay11.86s:9349pins,rerender8,5negativeguards PASS,setSHAd715e61…da9d51.
+  Human26 i oba61-output sets zachowane;43pytest,2helperRuff/format/types PASS.
+- Independent final audit PASS,0openP0–P2;DoD/sixcriteria/plan1–4.
+  Quality MUMIE_FIRST_HUMAN_CHECK_20261006.md;commit `v1.7.217`.
+- Accepted MUMIE_FIRST_HUMAN_CONTINUATION_20261006.md:po audit/commicie kontynuować
+ 0870 conditional RGB-only diagnostic istniejących8100, bez nowej pary/aktywacji.
+  QualifiedV4/rejectedR2combined bez zmian. Bez DB/Super/API/UI/merge/push/deploy.
+  Wcześniejsze dirty metadata wyłączyć ze stagingu. Nie potrzeba kolejnych8/folderu.
+
 ### TASK-0868 — drugi izolowany eksperyment Mumii (done)
 
 - Etap0867–0868 wykonany bez interakcji operatora; oba taski mają osobne commity.

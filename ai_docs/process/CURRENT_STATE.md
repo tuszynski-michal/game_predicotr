@@ -6,6 +6,29 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0891 — neural preflight presentation (done)
+
+- Actual completed job1e5c0d7d uses Mumie neural Run3/iteration03-f896da7196431be2.
+  Read-only immutable manifest analysis:2575 bound photos,23175 full lattices
+  eligible for neural-auto-crop-v1,zero pending slots. All2575 review flags are
+  NEURAL_GRID_GATE_UNCALIBRATED, not evidence of failed geometry.
+- Assumption: repair UI interpretation only; keep D-523 and source truth.
+  Plan: delivery/NEURAL_PREFLIGHT_PRESENTATION_EXECUTION_PLAN.md. Record user
+  request for separate shared Laboratory and main DB candidate registration.
+- No DB writes, API contract changes, migration, import, training or activation.
+- Fixed neural proposal/lifecycle/analysis labels and actual model export.
+  Closed neural preview no longer requests all source details (actual manifest
+  270.98MB); optional shared-editor labels omit classical pattern calibration.
+- Unit68/interaction30 PASS, scoped format/types/lint PASS (four existing
+  warnings), final Admin build PASS30.20s. Fresh actual MAIN report after
+  controlled API restart shows2575/2575, correct export and enabled import;
+  no closed-preview review-source request. Mobile390px has no horizontal overflow.
+- API parent19632, health ok; verified old owner40856/7244 stopped. No active
+  job in latest30. Explicit source inspection/report validation remain costly;
+  pagination is outside this UI repair. Laboratory integration recorded in
+  MODEL-09, not implemented. D-526; evidence artifacts/mumie-preflight-diagnosis-20261007/.
+- Completion v1.7.233; full hash recorded after commit.
+
 ### TASK-0890 — grid diagnostics placement (done)
 
 - User explicitly places grid problems in Korekta cięcia siatki rather than

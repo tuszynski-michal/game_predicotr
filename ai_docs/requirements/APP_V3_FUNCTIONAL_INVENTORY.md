@@ -38,7 +38,7 @@ z kolejną decyzją operatora; pozostałe pozycje czekają na przegląd.
 | IMPORT-03 | Pokaż raport, Przygotuj geometrię stron | Zachować jawny preflight i start. Docelowo przedstawić jako proste etapy: folder → analiza → import → weryfikacja. | działa / propozycja układu | osobny task po przeglądzie |
 | IMPORT-04 | Detekcja wielu plansz i zakres seq_* | Zachować kolejność oraz liczbę z potwierdzonej nazwy; nie dopisywać brakującej planszy ani przesuwać kolejnych numerów. Niepewny zakres/binding do korekty źródła. | działa | D-523 |
 | IMPORT-05 | Przygotowanie pełnych siatek 3×5 i cropów | Automatycznie udostępniać pełne, przypisane siatki w weryfikacji symboli; bez ręcznego zatwierdzania każdej planszy. Braki i częściowe do korekty. | działa | D-523 |
-| IMPORT-06 | Ręczna korekta zdjęć geometrii przed importem | Zachować dla niejednoznacznego zdjęcia i numeracji. Odróżnić od korekty cięcia pojedynczej planszy po imporcie. | działa / potrzebne wyjaśnienie | instrukcja |
+| IMPORT-06 | Edytor zdjęcia i numeracji przed importem | V3 pokazuje propozycje sieci, nie obowiązkowe błędy. Pełne siatki idą do importu bez akceptacji każdej planszy. Zachować edytor dla niejednoznacznego przypisania numerów; cięcie pojedynczej planszy poprawiamy po imporcie. | naprawiona prezentacja | D-526, TASK-0891 |
 | IMPORT-07 | Dopasowanie geometrii zdjęcia: Standardowe v0.10 / Obszar plansz — testowe | Ukryte dla Mumii V3 na prośbę użytkownika. Zachowane dla klasycznej geometrii V1.1; wybrany wariant nadal trafia do jej preflightu. | wdrożone | TASK-0889 |
 | IMPORT-08 | Brakujące plansze, diagnostyka siatek zdjęć | Raport brakujących numerów zostaje w imporcie. Diagnostyka zdjęć przeniesiona do Korekty cięcia siatki; opis uwzględnia D-523. Historyczne liczniki całego zdjęcia nie mierzą dostępności wszystkich cropów V3. | przeniesione; semantyka liczników zachowana | D-525, TASK-0890 |
 | IMPORT-09 | Ponowne przetwarzanie z oryginałów, kontynuacja korekty | Zachować wznowienie i ochronę ręcznych decyzji. Ukryto osobne wymuszenie V1.0. Diagnostyka pozostaje w szczegółach. | działa / wycofane V1.0 | TASK-0887 |
@@ -58,6 +58,28 @@ z kolejną decyzją operatora; pozostałe pozycje czekają na przegląd.
 | MODEL-06 | Ulepsz cięcie siatki | Obecnie kalibracja klasycznego profilu, nie trening sieci V3. Potrzebna osobna czytelna obsługa snapshotu 24 punktów, treningu i oceny sieci z panelu. Nie udawać, że obecny przycisk to wykonuje. | brak funkcji V3 w panelu | przyszły osobny plan/task |
 | MODEL-07 | Różne foldery z różnych filmów | Potrzebny trwały identyfikator nagrania i kontrola niezależnego testu. Obecny trening DB dzieli całe zdjęcia; nie gwarantuje podziału po filmach. | potrzebne | przyszły task |
 | MODEL-08 | Złota ramka i supergra Mumii | Oddzielić bazowy symbol, flagę złotej ramki i symbol wybrany na serię darmowych gier. Ręczny wybór symbolu serii po ≥3 mumiach jest kierunkiem użytkownika; licznik/retrigger wymagają osobnego dopracowania. | potrzebne, poza dzisiejszym zakresem | osobny plan |
+| MODEL-09 | Osobne Laboratorium w głównej aplikacji | Wspólna zakładka dla każdej gry: dane z prawdziwej bazy, uczenie siatek i symboli, raporty, rejestr wersji i aktywacja. Udany trening zapisuje kandydata w głównej bazie, bez ręcznego przenoszenia z osobnej aplikacji. | wymaganie użytkownika 2026-10-07; niewdrożone | D-526; osobny pion integracji |
+
+### Laboratorium — zaakceptowany kierunek, jeszcze bez implementacji
+
+Operator wybiera grę oraz model **cięcia siatek** albo **rozpoznawania
+symboli**. Dane treningowe pochodzą z zapisanych korekt i zatwierdzeń tej
+gry; predykcje nie stają się automatycznie etykietami. Nie mieszamy danych
+Mumii,777 ani kolejnej gry. System pokazuje nowe przykłady, pokrycie klas,
+niezależny zbiór oceny i postęp trwałego zadania.
+
+Po treningu aplikacja rejestruje wersję kandydującą w **głównej bazie**:
+gra, rodzaj modelu, wersja, kohorta/snapshot, metryki, status oraz ścieżki
+i checksumy niezmiennych artefaktów. Wagi pozostają plikami, nie dużymi
+blobami w tabelach domenowych. Utracona odpowiedź lub restart nie tworzy
+drugiej wersji i nie gubi wyniku. Niekompletny/błędny trening nie staje się
+gotowym kandydatem. Aktywacja pozostaje oddzielną decyzją po porównaniu
+z bieżącą wersją; poprzednia wersja służy do powrotu.
+
+Istniejący panel Ulepsz rozpoznawanie i registry symboli są podstawą do
+integracji, nie należy tworzyć drugiego pipeline. Obecne plikowe laboratorium
+oraz eksport sieci cięcia wymagają adaptacji do głównego cyklu zadań i rejestru.
+TASK-0891 zapisuje ten zakres, ale nie dodaje jeszcze zakładki ani migracji.
 
 ## Pozostałe sekcje i ekrany — do wspólnego przeglądu
 
@@ -71,7 +93,7 @@ z kolejną decyzją operatora; pozostałe pozycje czekają na przegląd.
 | Kalibracja etykiet V7 | Oddzielny proces siódemek/OCR. Nie uruchamiać ani usuwać przy Mumii. Ocenić przyszłe położenie w narzędziach starszej gry. | zachować do przeglądu |
 | Pamięć i czyszczenie | Zachować raport, preview, retencję i zgodę. Oddzielić dane treningowe/model od odtwarzalnych wyników i baz testowych. | potrzebne |
 | Wersje Android | Poza bieżącym importem i modelem; przejrzeć po ukończeniu ekranów operatora. | poza tym etapem |
-| Laboratorium na 3102 | Środowisko eksperymentów. Główny operator importuje i ocenia w Adminie 3000; wynik lab nie jest automatycznie etykietą DB. | działa; uproszczenie do przeglądu |
+| Laboratorium na 3102 | Środowisko eksperymentów. Docelowo osobna zakładka w głównej aplikacji zgodnie z MODEL-09; zapisane kandydaty i ich raporty należą do głównej bazy. | integracja wymagana; jeszcze niewdrożona |
 
 ## Oddzielny panel weryfikacji online — kierunek użytkownika
 

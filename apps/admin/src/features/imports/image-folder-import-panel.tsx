@@ -74,6 +74,7 @@ import { ImportGeometryReviewSummary } from './import-geometry-review-summary';
 import {
   canResumeNeuralImport,
   isNeuralGeometryPreflight,
+  neuralImportSnapshot,
   readySelectionHasNeuralImport,
 } from './neural-import-preflight-state';
 
@@ -270,6 +271,9 @@ export function ImageFolderImportPanel({
     useState<BrowserImageImportPreflightResponse | null>(null);
   const [geometryPreflightJob, setGeometryPreflightJob] =
     useState<JobResponse | null>(null);
+  const [neuralPreviewJobId, setNeuralPreviewJobId] = useState<string | null>(
+    null,
+  );
   const [pendingGeometryCorrectionState, setPendingGeometryCorrectionState] =
     useState<{
       readonly jobId: string;
@@ -1740,13 +1744,28 @@ export function ImageFolderImportPanel({
                       </dd>
                     </div>
                     <div className="importMetric">
-                      <dt>Pokrycie geometrii źródeł</dt>
+                      <dt>
+                        {isNeuralGeometryPreflight(geometryPreflightJob)
+                          ? 'Przeanalizowane zdjęcia'
+                          : 'Pokrycie geometrii źródeł'}
+                      </dt>
                       <dd>
                         {geometryPreflightJob === null
                           ? 'oczekuje'
-                          : `${geometryPreflightJob.progress.succeeded.toLocaleString('pl-PL')}/${preflight.sourceFileCount.toLocaleString('pl-PL')}`}
+                          : `${(isNeuralGeometryPreflight(geometryPreflightJob) ? geometryPreflightJob.progress.current : geometryPreflightJob.progress.succeeded).toLocaleString('pl-PL')}/${preflight.sourceFileCount.toLocaleString('pl-PL')}`}
                       </dd>
                     </div>
+                    {isNeuralGeometryPreflight(geometryPreflightJob) ? (
+                      <div className="importMetric">
+                        <dt>Model siatki — wersja</dt>
+                        <dd>
+                          {
+                            neuralImportSnapshot(geometryPreflightJob)?.model
+                              .exportId
+                          }
+                        </dd>
+                      </div>
+                    ) : null}
                     {!isNeuralGeometryPreflight(
                       activeBrowserGeometryPreflightJob,
                     ) && !configuredNeuralReport ? (
@@ -1878,11 +1897,14 @@ export function ImageFolderImportPanel({
                           <span className="curatedImportStatus">
                             Geometria zdjęć: {geometryPreflightJob.status} ·{' '}
                             {jobProgressLabel(geometryPreflightJob)} ·
-                            zarejestrowane zdjęcia{' '}
-                            {geometryPreflightJob.progress.succeeded} ·
+                            {isNeuralGeometryPreflight(geometryPreflightJob)
+                              ? `przeanalizowane zdjęcia ${geometryPreflightJob.progress.current}`
+                              : `zarejestrowane zdjęcia ${geometryPreflightJob.progress.succeeded}`}{' '}
+                            ·{' '}
                             {pageGeometryPreflightOutcomeLabel(
                               geometryPreflightJob,
                               visibleGeometryCorrectionCount,
+                              isNeuralGeometryPreflight(geometryPreflightJob),
                             )}
                           </span>
                         ) : null}
@@ -1953,44 +1975,63 @@ export function ImageFolderImportPanel({
                         {geometryPreflightJob?.status === 'completed' ? (
                           <details
                             open={
-                              replacementPreview?.uploadId === ready.uploadId
+                              replacementPreview?.uploadId === ready.uploadId ||
+                              neuralPreviewJobId === geometryPreflightJob.id
                             }
+                            onToggle={(event) => {
+                              if (
+                                isNeuralGeometryPreflight(geometryPreflightJob)
+                              )
+                                setNeuralPreviewJobId(
+                                  event.currentTarget.open
+                                    ? geometryPreflightJob.id
+                                    : null,
+                                );
+                            }}
                           >
                             <summary>
-                              Ręczna korekta zdjęć geometrii — zostaw na koniec
+                              {isNeuralGeometryPreflight(geometryPreflightJob)
+                                ? 'Podgląd propozycji sieci i numeracji zdjęć'
+                                : 'Ręczna korekta zdjęć geometrii — zostaw na koniec'}{' '}
                               ({visibleGeometryCorrectionCount})
                             </summary>
                             <p className="curatedImportStatus">
-                              Każda pozycja oznacza jedno zdjęcie zawierające od
-                              jednej do dziewięciu plansz zgodnie z
-                              potwierdzonym zakresem. Ponowna korekta wcześniej
-                              zarejestrowanego zdjęcia zmienia jego geometrię,
-                              ale nie zwiększa licznika zarejestrowanych.
+                              {isNeuralGeometryPreflight(geometryPreflightJob)
+                                ? 'Licznik obejmuje propozycje sieci, a nie liczbę błędnych zdjęć. Rozpocznij import bez zatwierdzania każdej planszy. Pełne, przypisane siatki zostaną automatycznie pocięte i rozpoznane. Brakujące lub częściowe siatki znajdziesz w Korekcie cięcia siatki; tutaj poprawiaj niejednoznaczną numerację zdjęcia.'
+                                : 'Każda pozycja oznacza jedno zdjęcie zawierające od jednej do dziewięciu plansz zgodnie z potwierdzonym zakresem. Ponowna korekta wcześniej zarejestrowanego zdjęcia zmienia jego geometrię, ale nie zwiększa licznika zarejestrowanych.'}{' '}
                               Plansze powstaną dopiero po uruchomieniu importu.
                             </p>
-                            <PageGeometryCorrectionPanel
-                              allowRegisteredSourceInspection
-                              api={api}
-                              apiBaseUrl={apiBaseUrl}
-                              focusSourceChecksumSha256={
-                                replacementPreview?.uploadId === ready.uploadId
-                                  ? replacementPreview.checksum
-                                  : undefined
-                              }
-                              gameId={gameId}
-                              geometryEngineVariant={geometryEngineVariant}
-                              onPendingSourceCountChange={
-                                handlePendingGeometryCorrectionCountChange
-                              }
-                              onSubmitSaved={
-                                rerunGeometryPreflightAfterCorrection
-                              }
-                              onSourceReplaced={
-                                handlePageGeometrySourceReplaced
-                              }
-                              preflightJobId={geometryPreflightJob.id}
-                              uploadId={ready.uploadId}
-                            />
+                            {!isNeuralGeometryPreflight(geometryPreflightJob) ||
+                            replacementPreview?.uploadId === ready.uploadId ||
+                            neuralPreviewJobId === geometryPreflightJob.id ? (
+                              <PageGeometryCorrectionPanel
+                                allowRegisteredSourceInspection
+                                api={api}
+                                apiBaseUrl={apiBaseUrl}
+                                focusSourceChecksumSha256={
+                                  replacementPreview?.uploadId ===
+                                  ready.uploadId
+                                    ? replacementPreview.checksum
+                                    : undefined
+                                }
+                                gameId={gameId}
+                                geometryEngineVariant={geometryEngineVariant}
+                                onPendingSourceCountChange={
+                                  handlePendingGeometryCorrectionCountChange
+                                }
+                                onSubmitSaved={
+                                  rerunGeometryPreflightAfterCorrection
+                                }
+                                onSourceReplaced={
+                                  handlePageGeometrySourceReplaced
+                                }
+                                preflightJobId={geometryPreflightJob.id}
+                                neuralPreflight={isNeuralGeometryPreflight(
+                                  geometryPreflightJob,
+                                )}
+                                uploadId={ready.uploadId}
+                              />
+                            ) : null}
                           </details>
                         ) : null}
                         {failedGeometryGuardJob !== null ? (
@@ -2063,7 +2104,7 @@ export function ImageFolderImportPanel({
               : preflight === null
                 ? 'Przygotuj raport, aby rozpocząć import'
                 : isNeuralGeometryPreflight(activeBrowserGeometryPreflightJob)
-                  ? 'Rozpocznij import Mumii z korektą'
+                  ? 'Rozpocznij import Mumii'
                   : geometryPreflightJob !== null &&
                       geometryPreflightJob.progress.review > 0
                     ? 'Importuj rozpoznane strony'

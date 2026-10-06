@@ -28,6 +28,7 @@ const snapshot = {
     profile: 'grid_profile_mumie_v1',
     modelKind: 'neural_grid',
     schemaVersion: 'grid-engine-model-manifest-v1',
+    exportId: 'iteration03-f896da7196431be2',
   },
 };
 const progress = {
@@ -195,7 +196,7 @@ async function mount(prior = null, processing = false, options = {}) {
     root.render(
       React.createElement(ImageFolderImportPanel, {
         client: api,
-        apiBaseUrl: 'http://fixture',
+        apiBaseUrl: 'http://localhost',
         gameId: 'game',
         shapeGeometryConfiguration:
           options.profile === undefined
@@ -212,7 +213,7 @@ async function mount(prior = null, processing = false, options = {}) {
 test('existing Import button is enabled for a completed 99-review neural report and sends pinned manifest only on explicit click', async () => {
   const { root, calls, reportCalls } = await mount();
   try {
-    const start = button('Rozpocznij import Mumii z korektą');
+    const start = button('Rozpocznij import Mumii');
     assert.ok(start);
     assert.equal(start.disabled, false);
     assert.equal(calls.length, 0);
@@ -227,6 +228,101 @@ test('existing Import button is enabled for a completed 99-review neural report 
     );
   } finally {
     await act(async () => root.unmount());
+  }
+});
+
+test('restored all-review neural report shows proposals and actual analysis without dispatching import', async () => {
+  const allReview = {
+    ...geometry,
+    progress: {
+      ...progress,
+      succeeded: 0,
+      review: 100,
+      pageGeometryPreflight: {
+        ...progress.pageGeometryPreflight,
+        provisionalReviewRequired: 100,
+      },
+    },
+  };
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let reviewRequests = 0;
+    const { root, calls, preflightCalls } = await mount(null, false, {
+      historyGeometry: allReview,
+      clientOverrides: {
+        listBrowserPageGeometryReviewSources: async () => {
+          reviewRequests++;
+          return {
+            data: {
+              sources: Array.from({ length: 100 }, (_, index) => ({
+                reviewReason: 'review_required',
+                savedSincePreflight: false,
+                sourceRelativePath: `seq_${index * 9 + 1}-${index * 9 + 9}.jpg`,
+                sourceChecksumSha256: index.toString(16).padStart(64, '0'),
+                expectedBoardCount: 9,
+                neuralProposalBinding: null,
+                neuralProposal: {
+                  contractVersion: 'neural-grid-proposal-v1',
+                  gameId: 'game',
+                  sourceSelectionId: 'selection',
+                  sourceChecksumSha256: index.toString(16).padStart(64, '0'),
+                  proposalChecksumSha256: 'f'.repeat(64),
+                  sourceWidth: 600,
+                  sourceHeight: 400,
+                  originalRange: {
+                    sequenceRangeStart: index * 9 + 1,
+                    sequenceRangeEnd: index * 9 + 9,
+                  },
+                  engineSnapshot: snapshot,
+                  detections: [],
+                },
+              })),
+              reviewRequiredSourceCount: 100,
+              geometryManifestChecksumSha256: 'c'.repeat(64),
+            },
+          };
+        },
+      },
+    });
+    try {
+      assert.equal(
+        reviewRequests,
+        0,
+        'closed preview must not load all neural sources',
+      );
+      assert.equal(
+        document.querySelector('[aria-label="Propozycje sieci zdjęcia"]'),
+        null,
+      );
+      const details = [...document.querySelectorAll('details')].find(
+        (element) =>
+          element
+            .querySelector('summary')
+            ?.textContent.includes('Podgląd propozycji sieci'),
+      );
+      assert.ok(details);
+      await act(async () => {
+        details.open = true;
+        details.dispatchEvent(new Event('toggle'));
+      });
+      assert.equal(reviewRequests, 1);
+      const text = document.body.textContent;
+      assert.match(text, /Podgląd propozycji sieci i numeracji zdjęć \(100\)/);
+      assert.match(
+        text,
+        /Licznik obejmuje propozycje sieci, a nie liczbę błędnych zdjęć/,
+      );
+      assert.match(text, /Przeanalizowane zdjęcia100\/100/);
+      assert.match(text, /Model siatki — wersjaiteration03-f896da7196431be2/);
+      assert.doesNotMatch(
+        text,
+        /Ręczna korekta zdjęć geometrii|odroczone zdjęcia|zarejestrowane zdjęcia 0|Pokrycie geometrii źródeł|Oddzielna pula niepełnych siatek|Wzorzec wymaga/,
+      );
+      assert.equal(button('Rozpocznij import Mumii').disabled, false);
+      assert.deepEqual(calls, []);
+      assert.deepEqual(preflightCalls, []);
+    } finally {
+      await act(async () => root.unmount());
+    }
   }
 });
 
@@ -269,7 +365,7 @@ test('a successful Mumie import reports V3 rather than the undefined classical f
     startResult: { data: { created: true, job } },
   });
   try {
-    await act(async () => button('Rozpocznij import Mumii z korektą').click());
+    await act(async () => button('Rozpocznij import Mumii').click());
     assert.equal(calls.length, 1);
     assert.match(
       document.body.textContent,
@@ -416,7 +512,7 @@ test('after restart pending-only neural history keeps source correction/report a
   const { root, calls } = await mount(JSON.parse(JSON.stringify(previous)));
   try {
     assert.ok(button('Odśwież raport'));
-    assert.equal(button('Rozpocznij import Mumii z korektą').disabled, false);
+    assert.equal(button('Rozpocznij import Mumii').disabled, false);
     assert.match(document.body.textContent, /Źródła oczekujące na przypisanie/);
     assert.equal(calls.length, 0);
   } finally {
@@ -428,7 +524,7 @@ test('polling a processing frozen neural preflight unlocks Import when its 99-re
   const { root, calls } = await mount(null, true);
   try {
     await act(async () => {});
-    assert.equal(button('Rozpocznij import Mumii z korektą').disabled, false);
+    assert.equal(button('Rozpocznij import Mumii').disabled, false);
     assert.equal(calls.length, 0);
   } finally {
     await act(async () => root.unmount());

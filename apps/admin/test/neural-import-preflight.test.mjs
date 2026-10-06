@@ -106,8 +106,30 @@ test('completed frozen neural manifest permits import with 99 review sources, in
         boardImportStatus: 'ready',
       },
     }),
-    /gotowe do importu z korektą/,
+    /gotowe do importu · propozycje sieci dla zdjęć 99/,
   );
+});
+
+test('neural proposal counts preserve durable import stages without declaring manual errors', () => {
+  for (const boardImportStatus of ['boards_imported', 'importing', 'failed']) {
+    const label = readyBoardImportLifecycleLabel({
+      geometryPreflightJobs: [geometry],
+      reportPrepared: true,
+      selection: {
+        uploadId: report.uploadId,
+        manifestChecksumSha256: report.manifestChecksumSha256,
+        boardImportStatus,
+      },
+    });
+    assert.match(label, /propozycje sieci dla zdjęć 99/);
+    assert.doesNotMatch(label, /wymaga korekty|odroczone zdjęcia/);
+    if (boardImportStatus === 'boards_imported')
+      assert.match(label, /import zakończony.*weryfikacja symboli/);
+    if (boardImportStatus === 'importing')
+      assert.match(label, /trwa import plansz/);
+    if (boardImportStatus === 'failed')
+      assert.match(label, /błąd przetwarzania importu/);
+  }
 });
 
 test('neural identity rejects foreign snapshot, managed owner, manifest and unversioned policy', () => {

@@ -1,7 +1,7 @@
 ---
 title: Mumie — upload, korekta i wspólne uczenie
 status: live_pilot
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 ---
 
 # Mumie w głównej aplikacji
@@ -33,14 +33,17 @@ Port3102 pozostaje laboratorium. Model Mumii jest aktywny.
    jeszcze komórek symboli w grze.
 5. Poczekaj na ukończenie; **Odśwież preflight geometrii** odczytuje zapisany
    stan. Jeśli zadanie się nie powiedzie, użyj **Ponów preflight**.
-   Po gotowym manifeście kliknij **Rozpocznij import Mumii z korektą**.
+   Po gotowym manifeście kliknij **Rozpocznij import Mumii**.
+   **Podgląd propozycji sieci i numeracji zdjęć** nie jest listą obowiązkowych
+   poprawek. Licznik obejmuje propozycje bez ręcznej akceptacji, także poprawne
+   pełne siatki. Nie musisz otwierać ani zatwierdzać każdej z nich.
 6. Import zachowuje numery plansz, przygotowuje pełne siatki 3×5, wycinki
    15 komórek i propozycje symboli z aktywnego modelu. Te etapy wykonuje
    worker; nie musisz osobno uruchamiać każdego cięcia ani zatwierdzać
    geometrii każdej poprawnej planszy.
 7. Brakujące/niepełne siatki poprawiaj w **Korekcie cięcia siatki**.
    Niejednoznaczne przypisanie numerów albo ucięty zakres poprawiaj w
-   **Ręcznej korekcie zdjęć geometrii** w raporcie folderu. Właściwe sloty
+   **Podglądzie propozycji sieci i numeracji zdjęć** w raporcie folderu. Właściwe sloty
    nie zmieniają swoich numerów przez brak sąsiada. Poprawne pełne cropy
    trafiają dalej niezależnie od korekty pozostałych.
 8. Otwórz **Weryfikacja symboli**, wybierz **Mumie**, ustaw do **2000**
@@ -59,6 +62,13 @@ odczytuje bieżący stan. Import zawiera nadal raport brakujących numerów.
 Raport geometrii całego zdjęcia zachowuje historyczne reguły: przy V3
 „Siatka niepotwierdzona” nie oznacza, że wszystkie cropy są niedostępne.
 Dostępność sprawdzaj w **Weryfikacji symboli**.
+
+Preflight folderu **1 - 23175 cut** z2575 zdjęć wykonała sieć Run3, eksport
+**iteration03-f896da7196431be2**. Wszystkie23175 przypisanych siatek spełniają
+warunki obecnej polityki automatycznego cięcia. Dawny licznik ręcznej korekty
+2575 wynikał z oznaczenia niekalibrowanych propozycji, nie z wykrycia2575
+błędnych zdjęć. Jest to kwalifikacja struktury, nie pomiar dokładności względem
+ręcznej prawdy. Import przygotuje cropy i symbole do oceny zbiorczej.
 
 ## Pierwsza partia
 
@@ -151,6 +161,12 @@ Uczenie sieci cięcia ma osobny eksport zatwierdzonych 24 punktów i snapshot.
 Istniejąca akcja **Ulepsz cięcie siatki** buduje profil kalibracji; nie jest
 treningiem nowej wersji sieci neural_grid_v1. Iterację tej sieci uruchamia
 wykonawca na osobnym snapshotcie i przedstawia osobny raport.
+
+Użytkownik wskazał osobną zakładkę **Laboratorium** dla wszystkich gier.
+Ma połączyć trening obu rodzajów modeli z korektami w głównej bazie i
+rejestrować tam wersje kandydujące po treningu. Nie jest jeszcze wdrożona;
+szczegóły potrzeb zapisano w APP_V3_FUNCTIONAL_INVENTORY.md, MODEL-09.
+Rejestracja wyniku nie oznacza automatycznej aktywacji nowego modelu.
 
 ## Zwiększanie partii
 

@@ -45,7 +45,7 @@ test('a replacement recovers its preflight and opens geometry correction when re
   assert.match(panelSource, /focusSourceChecksumSha256=\{/);
   assert.match(
     panelSource,
-    /<details\s+open=\{\s*replacementPreview\?\.uploadId === ready\.uploadId\s*\}\s*>/,
+    /<details\s+open=\{\s*replacementPreview\?\.uploadId === ready\.uploadId \|\|\s*neuralPreviewJobId === geometryPreflightJob\.id\s*\}/,
   );
 });
 
@@ -167,7 +167,7 @@ test('shows the real geometry phase and distinguishes provisional from final cou
   );
   assert.match(
     panelSource,
-    /koniec\s*\(\s*\{visibleGeometryCorrectionCount\}\s*\)/,
+    /Ręczna korekta zdjęć geometrii — zostaw na koniec/,
   );
 });
 

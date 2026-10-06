@@ -309,6 +309,28 @@ test('labels the correction queue as final only after preflight completion', () 
   );
 });
 
+test('neural review flags describe proposals rather than mandatory correction', () => {
+  assert.equal(
+    pageGeometryPreflightOutcomeLabel(
+      { status: 'completed', progress: {} },
+      2575,
+      true,
+    ),
+    `propozycje sieci dla zdjęć ${(2575).toLocaleString('pl-PL')}`,
+  );
+  assert.equal(
+    pageGeometryPreflightOutcomeLabel(
+      {
+        status: 'processing',
+        progress: { pageGeometryPreflight: { provisionalReviewRequired: 20 } },
+      },
+      0,
+      true,
+    ),
+    'trwa analiza siecią; wynik końcowy jeszcze niegotowy',
+  );
+});
+
 test('does not claim a final count for a legacy active checkpoint', () => {
   assert.equal(
     pageGeometryPreflightOutcomeLabel(

@@ -133,7 +133,9 @@ export function readyBoardImportLifecycleLabel(
       ?.provisionalReviewRequired;
   const geometrySuffix =
     typeof reviewRequired === 'number' && reviewRequired > 0
-      ? ` · wymaga korekty geometrii · odroczone zdjęcia ${reviewRequired.toLocaleString('pl-PL')}`
+      ? isNeuralGeometryPreflight(latestCompletedGeometry)
+        ? ` · propozycje sieci dla zdjęć ${reviewRequired.toLocaleString('pl-PL')}`
+        : ` · wymaga korekty geometrii · odroczone zdjęcia ${reviewRequired.toLocaleString('pl-PL')}`
       : '';
   switch (state.selection.boardImportStatus) {
     case 'boards_imported':
@@ -141,7 +143,7 @@ export function readyBoardImportLifecycleLabel(
         isNeuralGeometryPreflight(latestCompletedGeometry) &&
         (reviewRequired ?? 0) > 0
       ) {
-        return `import zakończony${geometrySuffix} · źródła do korekty pozostają dostępne`;
+        return `import zakończony${geometrySuffix} · weryfikacja symboli poza importem`;
       }
       return `plansze utworzone${geometrySuffix} · weryfikacja symboli poza importem`;
     case 'importing':
@@ -153,7 +155,7 @@ export function readyBoardImportLifecycleLabel(
   }
   if (typeof reviewRequired === 'number' && reviewRequired > 0) {
     if (isNeuralGeometryPreflight(latestCompletedGeometry)) {
-      return `gotowe do importu z korektą · zdjęcia do sprawdzenia ${reviewRequired.toLocaleString('pl-PL')}`;
+      return `gotowe do importu${geometrySuffix}`;
     }
     return `wymaga korekty geometrii · odroczone zdjęcia ${reviewRequired.toLocaleString('pl-PL')}`;
   }
@@ -190,14 +192,19 @@ export function canStartReadyImport(state: ReadyImportStartState): boolean {
 export function pageGeometryPreflightOutcomeLabel(
   job: Pick<JobResponse, 'progress' | 'status'>,
   visibleGeometryCorrectionCount: number,
+  neuralPreflight = false,
 ): string {
   if (job.status === 'completed') {
+    if (neuralPreflight)
+      return `propozycje sieci dla zdjęć ${visibleGeometryCorrectionCount.toLocaleString('pl-PL')}`;
     return `odroczone zdjęcia ${visibleGeometryCorrectionCount.toLocaleString('pl-PL')}`;
   }
 
   const provisionalReviewRequired =
     job.progress.pageGeometryPreflight?.provisionalReviewRequired;
   if (typeof provisionalReviewRequired === 'number') {
+    if (neuralPreflight)
+      return 'trwa analiza siecią; wynik końcowy jeszcze niegotowy';
     return `jeszcze nierozstrzygnięte zdjęcia ${provisionalReviewRequired.toLocaleString('pl-PL')}`;
   }
 

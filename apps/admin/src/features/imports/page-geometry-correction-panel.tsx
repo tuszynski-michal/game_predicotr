@@ -103,6 +103,7 @@ interface PageGeometryCorrectionPanelProps {
   readonly initialReplacementSource?: BrowserPageGeometryReviewSourceResponse;
   readonly gameId: string;
   readonly geometryEngineVariant?: GeometryEngineVariant;
+  readonly neuralPreflight?: boolean;
   readonly onPendingSourceCountChange?: (count: number) => void;
   readonly onDraftSaved?: () => void;
   readonly onSubmitSaved: (managedSourceJobId?: string) => Promise<void>;
@@ -361,6 +362,7 @@ function PageGeometryCorrectionPanelContent({
   initialReplacementSource,
   gameId,
   geometryEngineVariant,
+  neuralPreflight = false,
   onPendingSourceCountChange,
   onDraftSaved,
   onSubmitSaved,
@@ -1728,23 +1730,33 @@ function PageGeometryCorrectionPanelContent({
   return (
     <section
       className="pageGeometryCorrection"
-      aria-label="Korekta geometrii strony"
+      aria-label={
+        neuralPreflight
+          ? 'Propozycje sieci zdjęcia'
+          : 'Korekta geometrii strony'
+      }
     >
       <div className="pageGeometryCorrectionHeader">
         <div>
-          <h3>Korekta geometrii strony</h3>
+          <h3>
+            {neuralPreflight
+              ? 'Propozycje sieci zdjęcia'
+              : 'Korekta geometrii strony'}
+          </h3>
           <p>
             Liczniki dotyczą zdjęć źródłowych, nie pojedynczych plansz. Jedno
             zdjęcie zawiera od jednej do dziewięciu plansz zgodnie z zakresem
             zapisanym w nazwie; zostaną one utworzone dopiero w imporcie po
             zakończeniu preflightu geometrii.
           </p>
-          <p>
-            Oddzielna pula niepełnych siatek: {partialTrainingPool.samples}{' '}
-            próbek z {partialTrainingPool.sources} zdjęć; gotowe wzorce:{' '}
-            {partialTrainingPool.readyPatterns}. Wzorzec wymaga co najmniej 3
-            różnych zdjęć.
-          </p>
+          {!neuralPreflight ? (
+            <p>
+              Oddzielna pula niepełnych siatek: {partialTrainingPool.samples}{' '}
+              próbek z {partialTrainingPool.sources} zdjęć; gotowe wzorce:{' '}
+              {partialTrainingPool.readyPatterns}. Wzorzec wymaga co najmniej 3
+              różnych zdjęć.
+            </p>
+          ) : null}
         </div>
         <div className="pageGeometryCorrectionHeaderActions">
           {allowRegisteredSourceInspection ? (
@@ -1766,7 +1778,9 @@ function PageGeometryCorrectionPanelContent({
                 onClick={() => inspectionInputRef.current?.click()}
                 type="button"
               >
-                Wskaż zarejestrowane zdjęcie
+                {neuralPreflight
+                  ? 'Wskaż zdjęcie do podglądu'
+                  : 'Wskaż zarejestrowane zdjęcie'}
               </button>
               {inspectionSourceChecksumSha256 !== null ? (
                 <button
@@ -1817,13 +1831,19 @@ function PageGeometryCorrectionPanelContent({
         </p>
       ) : null}
       {loading ? (
-        <p className="curatedImportStatus">Ładowanie stron do korekty…</p>
+        <p className="curatedImportStatus">
+          {neuralPreflight
+            ? 'Ładowanie propozycji sieci…'
+            : 'Ładowanie stron do korekty…'}
+        </p>
       ) : null}
       {!loading && sources.length === 0 ? (
         <p className="curatedImportStatus">
-          {allowRegisteredSourceInspection
-            ? 'Nie ma stron oczekujących na korektę. Możesz wskazać zarejestrowane zdjęcie powyżej; jego lokalny plik służy tylko do porównania checksumy i nie zostanie przesłany.'
-            : 'Nie ma już stron oczekujących na korektę geometrii.'}
+          {neuralPreflight
+            ? 'Brak propozycji zdjęć do przeglądu.'
+            : allowRegisteredSourceInspection
+              ? 'Nie ma stron oczekujących na korektę. Możesz wskazać zarejestrowane zdjęcie powyżej; jego lokalny plik służy tylko do porównania checksumy i nie zostanie przesłany.'
+              : 'Nie ma już stron oczekujących na korektę geometrii.'}
         </p>
       ) : null}
       {source?.neuralProposal != null ? (

@@ -1,10 +1,28 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 ---
 
 # Decision Log
+
+## D-526 — neural proposals are not mandatory correction; shared Laboratory direction
+
+- **Status:** accepted user scope, 2026-10-07, TASK-0891.
+- **Decision:** neural review source counts describe unapproved proposals,
+  not rejected geometry or mandatory manual work. Show actual processed
+  source progress and pinned model export; retain the explicit import action
+  and all D-523 crop/sequence/training safeguards. Legacy labels remain.
+- **Evidence:** preflight1e5c0d7d used Run3/iteration03-f896da7196431be2;
+  its2575 photos contain23175 bound full operationally eligible lattices.
+  This does not assert population cutting accuracy or calibrated confidence.
+- **Product direction:** user requests a separate shared Laboratory tab,
+  per-game grid/symbol training from MAIN feedback and candidate/version
+  registration in MAIN DB. Retain artifact files/checksums, independent
+  evaluation and separate explicit activation. MODEL-09 records the feature;
+  its implementation/schema design is not delivered by this UI repair.
+- **Boundary:** no model activation, data operation, API change, migration,
+  new training pipeline or merge. Existing registry/training should be reused.
 
 ## D-525 — grid diagnostics belong to correction, not import
 

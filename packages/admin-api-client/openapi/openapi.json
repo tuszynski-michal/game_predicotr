@@ -26096,6 +26096,18 @@
             "title": "Excludedcellreviewids",
             "type": "array"
           },
+          "importJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobid"
+          },
           "kind": {
             "const": "filter",
             "title": "Kind",
@@ -35625,6 +35637,23 @@
               ],
               "title": "Changedto"
             }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Importjobid"
+            }
           }
         ],
         "responses": {
@@ -36232,6 +36261,23 @@
               ],
               "title": "Changedto"
             }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Importjobid"
+            }
           }
         ],
         "responses": {
@@ -36440,6 +36486,23 @@
                 }
               ],
               "title": "Changedto"
+            }
+          },
+          {
+            "in": "query",
+            "name": "importJobId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Importjobid"
             }
           },
           {

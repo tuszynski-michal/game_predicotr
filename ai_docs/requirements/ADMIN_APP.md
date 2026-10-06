@@ -895,6 +895,11 @@ a pozostałe tworzą rozłączne przedziały: odpowiednio `1.0`, od `0.8` do
 wartości niższej niż `1.0`, od `0.6` do wartości niższej niż `0.8` oraz
 wartości niższe niż `0.6`; wybór zmienia keyset, liczniki i jawne targety
 kolejnej operacji.
+Po wybraniu gry może dodatkowo ograniczyć cropy do jednego katalogu importu
+obrazów albo pozostawić `Wszystkie katalogi`. Selektor pokazuje bezpieczną
+etykietę jobu, nie ścieżkę lokalnego źródła; zmiana gry czyści ten filtr.
+Wybór katalogu zmienia keyset, liczniki i scope wszystkich kolejnych operacji
+masowych, więc nie może objąć cropów innego importu.
 Ostatni wariant pokazuje wyłącznie bieżące, zatwierdzone cropy należące do
 niezmiennej kohorty modelu wskazanego przez najnowszą aktywację wybranej gry.
 Crop zmieniony od zamrożenia kohorty jest wykluczony; brak aktywnego modelu daje
@@ -917,7 +922,7 @@ do krytycznej ścieżki listy: są pobierane osobno dla gry i rewizji
 katalogu. Wolny albo niedostępny licznik nie blokuje oglądania ani decyzji, a
 spóźniona odpowiedź poprzedniej gry jest odrzucana. Workspace utrzymuje po
 jednym aktywnym odczycie strony, prefetchu i liczników. Zmiana gry, symbolu,
-stanu, confidence, rozmiaru strony albo kursora aktywnie anuluje nieaktualne
+stanu, katalogu importu, confidence, rozmiaru strony albo kursora aktywnie anuluje nieaktualne
 requesty; identyfikator requestu i zakres filtra pozostają dodatkową ochroną
 przed klientem ignorującym sygnał. Świadome anulowanie nie jest prezentowane
 jako awaria połączenia. Backend ogranicza pojedyncze zapytanie strony do 5

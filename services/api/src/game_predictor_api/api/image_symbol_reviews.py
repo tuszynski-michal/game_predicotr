@@ -504,6 +504,7 @@ def create_image_symbol_reviews_router(
         ] = None,
         changed_from: Annotated[AwareDatetime | None, Query(alias="changedFrom")] = None,
         changed_to: Annotated[AwareDatetime | None, Query(alias="changedTo")] = None,
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
         limit: Annotated[int, Query(ge=1, le=2500)] = DEFAULT_SYMBOL_CELL_REVIEW_PAGE_SIZE,
     ) -> SymbolCellReviewPageResponse:
         parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
@@ -523,6 +524,7 @@ def create_image_symbol_reviews_router(
                     prediction_source=prediction_source,
                     changed_from=changed_from,
                     changed_to=changed_to,
+                    import_job_id=import_job_id,
                     limit=limit,
                     include_all_symbols=include_all_symbols,
                     outside_only=outside_only,
@@ -553,6 +555,7 @@ def create_image_symbol_reviews_router(
         ] = None,
         changed_from: Annotated[AwareDatetime | None, Query(alias="changedFrom")] = None,
         changed_to: Annotated[AwareDatetime | None, Query(alias="changedTo")] = None,
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
     ) -> SymbolCellReviewSkipResponse:
         parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_skip_response(
@@ -571,6 +574,7 @@ def create_image_symbol_reviews_router(
                     prediction_source=prediction_source,
                     changed_from=changed_from,
                     changed_to=changed_to,
+                    import_job_id=import_job_id,
                     count=count,
                     include_all_symbols=include_all_symbols,
                     outside_only=outside_only,
@@ -599,6 +603,7 @@ def create_image_symbol_reviews_router(
         ] = None,
         changed_from: Annotated[AwareDatetime | None, Query(alias="changedFrom")] = None,
         changed_to: Annotated[AwareDatetime | None, Query(alias="changedTo")] = None,
+        import_job_id: Annotated[UUID | None, Query(alias="importJobId")] = None,
     ) -> SymbolCellReviewCountSnapshotResponse:
         parsed_symbol_id, include_all_symbols, outside_only = _parse_symbol_filter(symbol_id)
         return to_symbol_cell_review_count_snapshot_response(
@@ -616,6 +621,7 @@ def create_image_symbol_reviews_router(
                     prediction_source=prediction_source,
                     changed_from=changed_from,
                     changed_to=changed_to,
+                    import_job_id=import_job_id,
                     include_all_symbols=include_all_symbols,
                     outside_only=outside_only,
                 ),

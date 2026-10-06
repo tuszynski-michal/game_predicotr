@@ -58,6 +58,9 @@ export function createSymbolReviewBulkCommand(
               ...(selection.snapshot.changedTo === undefined
                 ? {}
                 : { changedTo: selection.snapshot.changedTo }),
+              ...(selection.snapshot.importJobId === undefined
+                ? {}
+                : { importJobId: selection.snapshot.importJobId }),
               state: selection.snapshot.state,
               symbolId: selection.snapshot.symbolId,
             },

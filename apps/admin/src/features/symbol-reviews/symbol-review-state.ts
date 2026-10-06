@@ -37,6 +37,7 @@ export interface SymbolReviewFilters {
   readonly changedTo: string | null;
   readonly confidence: SymbolReviewConfidenceFilter;
   readonly gameId: string | null;
+  readonly importJobId: string | null;
   readonly predictionSource: SymbolReviewPredictionSourceFilter;
   readonly pageSize: number;
   readonly state: SymbolCellReviewFilterState;
@@ -118,7 +119,7 @@ export function symbolReviewConfidenceRange(
 export function symbolReviewExtendedFilters(
   filters: Pick<
     SymbolReviewFilters,
-    'changedFrom' | 'changedTo' | 'predictionSource'
+    'changedFrom' | 'changedTo' | 'importJobId' | 'predictionSource'
   >,
 ): SymbolCellReviewExtendedFilterOptions {
   return {
@@ -129,6 +130,9 @@ export function symbolReviewExtendedFilters(
       ? {}
       : { changedFrom: filters.changedFrom }),
     ...(filters.changedTo === null ? {} : { changedTo: filters.changedTo }),
+    ...(filters.importJobId === null
+      ? {}
+      : { importJobId: filters.importJobId }),
   };
 }
 

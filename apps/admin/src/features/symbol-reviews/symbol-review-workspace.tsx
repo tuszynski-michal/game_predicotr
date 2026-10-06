@@ -24,6 +24,7 @@ import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 import {
   loadSymbolReviewGames,
   loadSymbolReviewCounts,
+  loadSymbolReviewImportFolders,
   loadSymbolReviewPage,
   loadSymbolReviewProjection,
   loadSymbolReviewSymbols,
@@ -31,6 +32,7 @@ import {
   startSymbolReviewProjection,
   type LoadSymbolReviewPageOptions,
   type SymbolReviewClient,
+  type SymbolReviewImportFolder,
 } from './symbol-review-actions';
 import {
   isSymbolReviewTextEntryTarget,
@@ -118,6 +120,7 @@ const INITIAL_FILTERS: SymbolReviewFilters = {
   changedTo: null,
   confidence: 'all',
   gameId: null,
+  importJobId: null,
   pageSize: DEFAULT_SYMBOL_REVIEW_PAGE_SIZE,
   predictionSource: 'all',
   state: 'all',
@@ -165,8 +168,14 @@ export function SymbolReviewWorkspace({
     createSymbolReviewWorkspaceState,
   );
   const [games, setGames] = useState<readonly GameResponse[]>([]);
+  const [importFolders, setImportFolders] = useState<
+    readonly SymbolReviewImportFolder[]
+  >([]);
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
   const [gamesState, setGamesState] = useState<LoadState>('loading');
+  const [importFoldersState, setImportFoldersState] =
+    useState<LoadState>('ready');
+  const [importFoldersError, setImportFoldersError] = useState('');
   const [symbolsState, setSymbolsState] = useState<LoadState>('ready');
   const [pageState, setPageState] = useState<LoadState>('ready');
   const [countsState, setCountsState] = useState<
@@ -231,6 +240,7 @@ export function SymbolReviewWorkspace({
   const [previewAvailability, setPreviewAvailability] =
     useState<SymbolReviewPreviewAvailability>(emptyPreviewAvailability);
   const gamesRequestId = useRef(0);
+  const importFoldersRequestId = useRef(0);
   const symbolsRequestId = useRef(0);
   const pageRequestId = useRef(0);
   const countsRequestId = useRef(0);
@@ -334,6 +344,11 @@ export function SymbolReviewWorkspace({
       setSourceContextItem(null);
       if (previousFilters.gameId !== nextFilters.gameId) {
         setProjectionStarting(false);
+        setImportFolders([]);
+        setImportFoldersError('');
+        setImportFoldersState(
+          nextFilters.gameId === null ? 'ready' : 'loading',
+        );
         setSymbols([]);
         setSymbolsState(nextFilters.gameId === null ? 'ready' : 'loading');
         setProjectionStatus(null);
@@ -350,6 +365,8 @@ export function SymbolReviewWorkspace({
     requestCoordinator.cancelAll();
     setError('');
     setGamesState('loading');
+    setImportFoldersState(currentFilters.gameId === null ? 'ready' : 'loading');
+    setImportFoldersError('');
     setSymbolsState(currentFilters.gameId === null ? 'ready' : 'loading');
     setProjectionState(currentFilters.gameId === null ? 'ready' : 'loading');
     setProjectionStatus(null);
@@ -481,6 +498,7 @@ export function SymbolReviewWorkspace({
         applyFilters({
           ...currentFilters,
           gameId: selectedGameId,
+          importJobId: null,
           symbolId: null,
         });
       }
@@ -489,6 +507,27 @@ export function SymbolReviewWorkspace({
       gamesRequestId.current += 1;
     };
   }, [api, applyFilters, reloadRevision]);
+
+  useEffect(() => {
+    if (filters.gameId === null) return;
+    const gameId = filters.gameId;
+    const requestId = ++importFoldersRequestId.current;
+    void loadSymbolReviewImportFolders(api, gameId).then((result) => {
+      if (requestId !== importFoldersRequestId.current) return;
+      if (!result.ok) {
+        setImportFolders([]);
+        setImportFoldersError(result.error);
+        setImportFoldersState('error');
+        return;
+      }
+      setImportFolders(result.folders);
+      setImportFoldersError('');
+      setImportFoldersState('ready');
+    });
+    return () => {
+      importFoldersRequestId.current += 1;
+    };
+  }, [api, filters.gameId, reloadRevision]);
 
   useEffect(() => {
     if (filters.gameId === null) return;
@@ -1345,6 +1384,7 @@ export function SymbolReviewWorkspace({
               requestFilterChange({
                 ...filters,
                 gameId: event.target.value || null,
+                importJobId: null,
                 symbolId: null,
               })
             }
@@ -1359,6 +1399,43 @@ export function SymbolReviewWorkspace({
               </option>
             ))}
           </select>
+        </label>
+        <label>
+          Katalog importu
+          <select
+            disabled={
+              filters.gameId === null ||
+              importFoldersState !== 'ready' ||
+              interactionBusy
+            }
+            onChange={(event) =>
+              requestFilterChange({
+                ...filters,
+                importJobId: event.target.value || null,
+              })
+            }
+            value={filters.importJobId ?? ''}
+          >
+            <option value="">
+              {filters.gameId === null
+                ? 'Wybierz grę'
+                : importFoldersState === 'loading'
+                  ? 'Pobieranie katalogów…'
+                  : importFoldersState === 'error'
+                    ? 'Katalogi niedostępne'
+                    : 'Wszystkie katalogi importu'}
+            </option>
+            {importFolders.map((folder) => (
+              <option key={folder.id} value={folder.id}>
+                {folder.label}
+              </option>
+            ))}
+          </select>
+          {importFoldersState === 'error' ? (
+            <p className={styles.changeRangeError} role="alert">
+              {importFoldersError}
+            </p>
+          ) : null}
         </label>
         <label>
           Symbol
@@ -2566,6 +2643,7 @@ function symbolReviewFilterScope(
     filters.predictionSource ?? null,
     filters.changedFrom ?? null,
     filters.changedTo ?? null,
+    filters.importJobId ?? null,
   ]);
 }
 

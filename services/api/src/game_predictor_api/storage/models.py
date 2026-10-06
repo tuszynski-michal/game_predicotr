@@ -2748,6 +2748,15 @@ class ImageSymbolReviewCellModel(Base):
             "review_item_id",
         ),
         Index(
+            "v2_ix_symbol_review_list_import",
+            "game_id",
+            "import_job_id",
+            "sequence_number",
+            "cell_index",
+            "id",
+            postgresql_where=text("source_available OR source_visibility = 'outside'"),
+        ),
+        Index(
             "ix_image_symbol_review_cells_grid_quality_issue",
             "game_id",
             "review_item_id",

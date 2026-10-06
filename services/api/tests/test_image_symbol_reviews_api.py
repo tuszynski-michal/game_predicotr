@@ -1569,8 +1569,8 @@ def test_list_endpoint_binds_confidence_filter_to_keyset_cursor(tmp_path: Path) 
     assert invalid_scope.json()["code"] == "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID"
 
 
-def test_list_endpoint_passes_prediction_source_and_changed_range(tmp_path: Path) -> None:
-    game_id, symbol_id = uuid4(), uuid4()
+def test_list_endpoint_passes_extended_filters(tmp_path: Path) -> None:
+    game_id, symbol_id, import_job_id = uuid4(), uuid4(), uuid4()
     items = tuple(
         _item(
             game_id=game_id,
@@ -1588,6 +1588,7 @@ def test_list_endpoint_passes_prediction_source_and_changed_range(tmp_path: Path
         "predictionSource": "reference_library",
         "changedFrom": "2026-09-30T00:00:00+02:00",
         "changedTo": "2026-09-30T23:59:59+02:00",
+        "importJobId": str(import_job_id),
     }
 
     with _client(repository, artifact_root=tmp_path) as client:
@@ -1620,10 +1621,12 @@ def test_list_endpoint_passes_prediction_source_and_changed_range(tmp_path: Path
     assert review_filter.changed_from is not None
     assert review_filter.changed_from.utcoffset() is not None
     assert review_filter.changed_to is not None
+    assert review_filter.import_job_id == import_job_id
     assert cross_scope.status_code == 409
     assert cross_scope.json()["code"] == "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID"
     assert counts.status_code == 200
     assert counts_filter.prediction_source is not None
+    assert counts_filter.import_job_id == import_job_id
     assert naive.status_code == 422
     assert unknown_source.status_code == 422
 
@@ -2153,10 +2156,10 @@ def test_bulk_operation_endpoints_are_local_actor_bound_and_idempotent(tmp_path:
     assert selection.max_confidence == 0.8
 
 
-def test_bulk_filter_selection_carries_prediction_source_and_changed_range(
+def test_bulk_filter_selection_carries_extended_filters(
     tmp_path: Path,
 ) -> None:
-    game_id, symbol_id = uuid4(), uuid4()
+    game_id, symbol_id, import_job_id = uuid4(), uuid4(), uuid4()
     reviews = MemorySymbolCellReviewRepository(game_id=game_id, symbol_id=symbol_id, items=())
     bulk = MemorySymbolCellReviewBulkRepository(game_id=game_id)
     selection = {
@@ -2168,6 +2171,7 @@ def test_bulk_filter_selection_carries_prediction_source_and_changed_range(
         "predictionSource": "reference_library",
         "changedFrom": "2026-09-30T00:00:00+02:00",
         "changedTo": "2026-09-30T23:59:59.999999+02:00",
+        "importJobId": str(import_job_id),
     }
     url = f"/api/v1/admin/games/{game_id}/symbol-cell-review-operations/preview"
 
@@ -2196,6 +2200,7 @@ def test_bulk_filter_selection_carries_prediction_source_and_changed_range(
     assert filter_selection.changed_from is not None
     assert filter_selection.changed_from.utcoffset() is not None
     assert filter_selection.changed_to is not None
+    assert filter_selection.import_job_id == import_job_id
     assert reversed_range.status_code == 422
     assert naive.status_code == 422
 

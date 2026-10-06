@@ -1034,7 +1034,7 @@ def _current_prediction_entry_exists(
 def extended_symbol_cell_review_filter_clauses(
     review_filter: SymbolCellReviewListFilter,
 ) -> tuple[ColumnElement[bool], ...]:
-    """Prediction-source and changed-range conditions shared by pages, counts and bulk scopes."""
+    """Extended conditions shared by pages, counts and bulk scopes."""
 
     cell = ImageSymbolReviewCellModel
     clauses: list[ColumnElement[bool]] = []
@@ -1055,6 +1055,8 @@ def extended_symbol_cell_review_filter_clauses(
         clauses.append(cell.updated_at >= review_filter.changed_from)
     if review_filter.changed_to is not None:
         clauses.append(cell.updated_at <= review_filter.changed_to)
+    if review_filter.import_job_id is not None:
+        clauses.append(cell.import_job_id == review_filter.import_job_id)
     return tuple(clauses)
 
 

@@ -28,6 +28,11 @@ test('loads crops only after selecting both a game and a symbol scope', () => {
   assert.match(source, /Weryfikacja symboli/);
   assert.match(source, /wszystkie aktualne cropy[\s\S]*wybranej gry/);
   assert.match(source, /Symbol\s*<select/);
+  assert.match(source, /Katalog importu/);
+  assert.match(source, /Wszystkie katalogi importu/);
+  assert.match(source, /loadSymbolReviewImportFolders/);
+  assert.match(source, /importJobId: null/);
+  assert.match(source, /importFoldersState/);
   assert.match(source, /Wybierz grę/);
   assert.match(source, /Wybierz symbol lub zakres/);
   assert.match(source, /Na stronę\s*<select/);
@@ -53,6 +58,7 @@ test('loads crops only after selecting both a game and a symbol scope', () => {
   assert.match(source, /state: filters\.state/);
   assert.match(source, /symbolId: null/);
   assert.match(source, /symbolReviewFiltersReady\(filters\)/);
+  assert.match(source, /filters\.importJobId \?\? null/);
   assert.match(source, /startSymbolReviewBulkOperation/);
   assert.match(source, /mark_grid_issue/);
   assert.match(source, /mark_unreadable/);

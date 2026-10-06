@@ -14812,6 +14812,10 @@ export type SymbolCellReviewBulkFilterSelectionRequest = {
    */
   excludedCellReviewIds?: Array<string>;
   /**
+   * Importjobid
+   */
+  importJobId?: string | null;
+  /**
    * Kind
    */
   kind: 'filter';
@@ -19892,6 +19896,10 @@ export type GetSymbolCellReviewCountsData = {
      * Changedto
      */
     changedTo?: string | null;
+    /**
+     * Importjobid
+     */
+    importJobId?: string | null;
   };
   url: '/api/v1/admin/games/{game_id}/symbol-cell-review-counts';
 };
@@ -20190,6 +20198,10 @@ export type SkipSymbolCellReviewsData = {
      * Changedto
      */
     changedTo?: string | null;
+    /**
+     * Importjobid
+     */
+    importJobId?: string | null;
   };
   url: '/api/v1/admin/games/{game_id}/symbol-cell-review-skip';
 };
@@ -20268,6 +20280,10 @@ export type ListSymbolCellReviewsData = {
      * Changedto
      */
     changedTo?: string | null;
+    /**
+     * Importjobid
+     */
+    importJobId?: string | null;
     /**
      * Limit
      */

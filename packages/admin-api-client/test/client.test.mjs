@@ -2759,6 +2759,7 @@ test('symbol cell review client sends prediction source and change range only wh
   const filters = {
     changedFrom: '2026-09-30T00:00:00+02:00',
     changedTo: '2026-09-30T23:59:59+02:00',
+    importJobId: '11111111-1111-4111-8111-111111111111',
     predictionSource: 'reference_library',
   };
 
@@ -2782,11 +2783,13 @@ test('symbol cell review client sends prediction source and change range only wh
     assert.equal(url.searchParams.get('predictionSource'), 'reference_library');
     assert.equal(url.searchParams.get('changedFrom'), filters.changedFrom);
     assert.equal(url.searchParams.get('changedTo'), filters.changedTo);
+    assert.equal(url.searchParams.get('importJobId'), filters.importJobId);
   }
   const unfiltered = new URL(requests[3].url);
   assert.equal(unfiltered.searchParams.has('predictionSource'), false);
   assert.equal(unfiltered.searchParams.has('changedFrom'), false);
   assert.equal(unfiltered.searchParams.has('changedTo'), false);
+  assert.equal(unfiltered.searchParams.has('importJobId'), false);
 });
 
 test('symbol cell review client sends every prediction source value (TASK-0872)', async () => {

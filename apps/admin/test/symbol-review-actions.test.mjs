@@ -3,6 +3,7 @@ import test from 'node:test';
 
 import {
   loadSymbolReviewCounts,
+  loadSymbolReviewImportFolders,
   loadSymbolReviewProjection,
   loadSymbolReviewPage,
   loadSymbolReviewSymbols,
@@ -20,6 +21,7 @@ const page = {
 function client(overrides = {}) {
   return {
     listGames: async () => ({ data: [] }),
+    listJobs: async () => ({ data: [] }),
     getSymbolCellReviewCounts: async () => ({
       data: {
         catalogRevision: 7,
@@ -128,6 +130,7 @@ test('loads a bounded, checksum-independent metadata page with its keyset cursor
     {
       afterCursor: 'after-page',
       gameId,
+      importJobId: '22222222-2222-4222-8222-222222222222',
       limit: 42,
       state: 'pending',
       symbolId: 'unknown',
@@ -137,6 +140,7 @@ test('loads a bounded, checksum-independent metadata page with its keyset cursor
   assert.deepEqual(request, {
     afterCursor: 'after-page',
     gameId,
+    importJobId: '22222222-2222-4222-8222-222222222222',
     limit: 42,
     state: 'pending',
     symbolId: 'unknown',
@@ -161,6 +165,7 @@ test('loads counts independently and binds them to the page catalog revision', a
     {
       catalogRevision: 7,
       gameId,
+      importJobId: '22222222-2222-4222-8222-222222222222',
       state: 'pending',
       symbolId: 'unknown',
     },
@@ -169,11 +174,61 @@ test('loads counts independently and binds them to the page catalog revision', a
   assert.deepEqual(request, {
     catalogRevision: 7,
     gameId,
+    importJobId: '22222222-2222-4222-8222-222222222222',
     state: 'pending',
     symbolId: 'unknown',
   });
   assert.equal(result.ok, true);
   if (result.ok) assert.equal(result.snapshot.counts.pendingCount, 1);
+});
+
+test('lists only safe image-directory import folders in newest-first order', async () => {
+  let request;
+  const result = await loadSymbolReviewImportFolders(
+    client({
+      listJobs: async (options) => {
+        request = options;
+        return {
+          data: [
+            {
+              createdAt: '2026-10-07T08:00:00Z',
+              gameId,
+              id: 'import-new',
+              inputPayload: {
+                importKind: 'image_directory',
+                sourceDisplayName: '200–300',
+              },
+              jobType: 'import',
+            },
+            {
+              createdAt: '2026-10-06T08:00:00Z',
+              gameId,
+              id: 'import-old',
+              inputPayload: { importKind: 'image_directory' },
+              jobType: 'import',
+            },
+            {
+              createdAt: '2026-10-08T08:00:00Z',
+              gameId,
+              id: 'not-a-folder',
+              inputPayload: { importKind: 'manual' },
+              jobType: 'import',
+            },
+          ],
+        };
+      },
+    }),
+    gameId,
+  );
+
+  assert.deepEqual(request, { gameId, jobType: 'import', limit: 200 });
+  assert.deepEqual(result, {
+    folders: [
+      { id: 'import-new', label: '200–300 · import-n' },
+      { id: 'import-old', label: 'Import bez nazwy katalogu · import-o' },
+    ],
+    ok: true,
+  });
 });
 
 test('forwards abort signals to page and counts reads', async () => {

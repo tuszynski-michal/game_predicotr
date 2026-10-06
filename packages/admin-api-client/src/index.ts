@@ -969,8 +969,10 @@ export interface ListOperationalImageReviewItemsOptions extends OperationalImage
   readonly limit?: number;
 }
 
-/** Optional filters by prediction source and change time (D-466). */
+/** Optional symbol-review filters beyond game, symbol, state and confidence. */
 export interface SymbolCellReviewExtendedFilterOptions {
+  /** Immutable job that imported the folder from which the crop originated. */
+  readonly importJobId?: string;
   readonly predictionSource?: SymbolCellReviewPredictionSource;
   /** Inclusive lower bound of the cell's last change, ISO 8601 with an offset. */
   readonly changedFrom?: string;
@@ -982,6 +984,9 @@ function symbolCellReviewExtendedFilterQuery(
   options: SymbolCellReviewExtendedFilterOptions,
 ): SymbolCellReviewExtendedFilterOptions {
   return {
+    ...(options.importJobId === undefined
+      ? {}
+      : { importJobId: options.importJobId }),
     ...(options.predictionSource === undefined
       ? {}
       : { predictionSource: options.predictionSource }),

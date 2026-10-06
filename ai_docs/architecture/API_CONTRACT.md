@@ -719,6 +719,7 @@ POST /api/v1/admin/games/{gameId}/symbol-cell-review-projection
 
 GET /api/v1/admin/games/{gameId}/symbol-cell-reviews
   ?symbolId={UUID|all|unknown}
+  &importJobId={UUID}
   &state=all|approved|pending|active_model_cohort
   &minConfidence=0..1
   &maxConfidence=0..1
@@ -766,6 +767,12 @@ komórką kohorty. Cursor v5 zawiera identyfikator rozwiązanej kohorty, dlatego
 aktywacja innego modelu unieważnia wcześniejszą paginację. Brak aktywacji daje
 pustą stronę i zerowe liczniki. Operacje masowe obejmujące cały taki filtr są
 odrzucane; jawna lista checksum-bound targetów pozostaje dozwolona.
+
+Opcjonalne `importJobId` ogranicza listę do bieżących cropów zapisanych przez
+wskazany job importu katalogu obrazów. Ten sam scope obowiązuje liczniki,
+bezpośrednie przejście, kursory keysetowe oraz snapshot selekcji operacji
+masowej; cursor z innego importu jest nieważny. Identyfikator pochodzi z
+lokalnego katalogu jobów Admina, który nie zwraca ścieżki źródłowej.
 
 Klient Admina przekazuje standardowy `AbortSignal` do odczytu strony i
 liczników. Jeden workspace utrzymuje najwyżej jeden aktywny request każdego

@@ -81,6 +81,7 @@ class SymbolCellReviewBulkFilterSelection:
     prediction_source: SymbolCellReviewPredictionSource | None = None
     changed_from: datetime | None = None
     changed_to: datetime | None = None
+    import_job_id: UUID | None = None
 
     def __post_init__(self) -> None:
         if (self.outside_only or self.include_all_symbols) and (
@@ -264,6 +265,12 @@ class SymbolCellReviewBulkRequest:
                             None
                             if self.filter_selection.changed_to is None
                             else utc_isoformat(self.filter_selection.changed_to),
+                        ),
+                        (
+                            "importJobId",
+                            None
+                            if self.filter_selection.import_job_id is None
+                            else str(self.filter_selection.import_job_id),
                         ),
                     )
                     if value is not None

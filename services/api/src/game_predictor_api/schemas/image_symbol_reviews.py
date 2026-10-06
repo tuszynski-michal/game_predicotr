@@ -202,6 +202,7 @@ class SymbolCellReviewBulkFilterSelectionRequest(ApiModel):
     prediction_source: SymbolCellReviewPredictionSource | None = None
     changed_from: AwareDatetime | None = None
     changed_to: AwareDatetime | None = None
+    import_job_id: UUID | None = None
     catalog_revision: int = Field(ge=0)
     excluded_cell_review_ids: tuple[UUID, ...] = Field(
         default=(),
@@ -607,6 +608,7 @@ def to_symbol_cell_review_bulk_request(
             prediction_source=selection.prediction_source,
             changed_from=selection.changed_from,
             changed_to=selection.changed_to,
+            import_job_id=selection.import_job_id,
             catalog_revision=selection.catalog_revision,
             excluded_cell_review_ids=selection.excluded_cell_review_ids,
         ),

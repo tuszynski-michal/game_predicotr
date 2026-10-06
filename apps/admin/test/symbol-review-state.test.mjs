@@ -196,6 +196,7 @@ test('extended filters are sent only when set', () => {
     symbolReviewExtendedFilters({
       changedFrom: null,
       changedTo: null,
+      importJobId: null,
       predictionSource: 'all',
     }),
     {},
@@ -204,9 +205,14 @@ test('extended filters are sent only when set', () => {
     symbolReviewExtendedFilters({
       changedFrom: '2026-09-29T22:00:00.000Z',
       changedTo: null,
+      importJobId: 'import-1',
       predictionSource: 'model',
     }),
-    { changedFrom: '2026-09-29T22:00:00.000Z', predictionSource: 'model' },
+    {
+      changedFrom: '2026-09-29T22:00:00.000Z',
+      importJobId: 'import-1',
+      predictionSource: 'model',
+    },
   );
 });
 
@@ -216,6 +222,7 @@ test('RGB v2 prediction sources are sent as their API values (TASK-0872)', () =>
       symbolReviewExtendedFilters({
         changedFrom: null,
         changedTo: null,
+        importJobId: null,
         predictionSource,
       }),
       { predictionSource },

@@ -6,6 +6,19 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0893 — symbol-review import folder filter (done)
+
+- `Weryfikacja symboli` has a game-scoped `Katalog importu` selector. It lists
+  only image-directory jobs through the existing local job catalog, displays a
+  safe label rather than a source path and clears on a game change.
+- `importJobId` now binds page, count, direct navigation, keyset cursor and
+  filter-scoped bulk selection. V2 has migration `0146` with a matching
+  visible-current-cells index; no data migration, cleanup or job dispatch.
+- Focused API 35/35, Admin review 40/40 and API-client 75/75 PASS; OpenAPI
+  drift check, scoped lint/format/types and Admin production build PASS. The
+  wider API suite retains one unrelated 5 s-vs-20 s timeout assertion.
+- Completion v1.7.235; full hash recorded after commit.
+
 ### TASK-0892 — shared model family requirements (done)
 
 - User requests published Laboratory models in the game creation catalog,

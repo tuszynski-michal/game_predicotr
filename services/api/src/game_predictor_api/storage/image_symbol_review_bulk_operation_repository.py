@@ -696,6 +696,7 @@ def _visible_cells_statement(
         prediction_source=selection.prediction_source,
         changed_from=selection.changed_from,
         changed_to=selection.changed_to,
+        import_job_id=selection.import_job_id,
     )
     statement = statement.where(_symbol_scope_filter_clause(review_filter))
     statement = statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))

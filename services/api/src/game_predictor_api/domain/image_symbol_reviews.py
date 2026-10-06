@@ -138,6 +138,7 @@ class SymbolCellReviewListFilter:
     prediction_source: SymbolCellReviewPredictionSource | None = None
     changed_from: datetime | None = None
     changed_to: datetime | None = None
+    import_job_id: UUID | None = None
 
     @property
     def has_extended_filters(self) -> bool:
@@ -145,6 +146,7 @@ class SymbolCellReviewListFilter:
             self.prediction_source is not None
             or self.changed_from is not None
             or self.changed_to is not None
+            or self.import_job_id is not None
         )
 
     def __post_init__(self) -> None:
@@ -1036,6 +1038,8 @@ def _extended_filter_payload(review_filter: SymbolCellReviewListFilter) -> dict[
         payload["changedFrom"] = utc_isoformat(review_filter.changed_from)
     if review_filter.changed_to is not None:
         payload["changedTo"] = utc_isoformat(review_filter.changed_to)
+    if review_filter.import_job_id is not None:
+        payload["importJobId"] = str(review_filter.import_job_id)
     return payload
 
 
@@ -1093,7 +1097,7 @@ def decode_symbol_cell_review_cursor(
         # Older cursors omit the extended filters; absence means "not filtered".
         parsed_extended = {
             key: payload.get(key)
-            for key in ("predictionSource", "changedFrom", "changedTo")
+            for key in ("predictionSource", "changedFrom", "changedTo", "importJobId")
             if payload.get(key) is not None
         }
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as error:

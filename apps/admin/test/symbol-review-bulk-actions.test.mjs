@@ -183,6 +183,7 @@ test('filter selection forwards prediction source and change range when set', ()
     createAllMatchingFilterSymbolReviewSelection({
       ...snapshot,
       changedFrom: '2026-09-29T22:00:00.000Z',
+      importJobId: 'import-1',
       predictionSource: 'reference_library',
     }),
     null,
@@ -201,9 +202,11 @@ test('filter selection forwards prediction source and change range when set', ()
     filtered?.request.selection.changedFrom,
     '2026-09-29T22:00:00.000Z',
   );
+  assert.equal(filtered?.request.selection.importJobId, 'import-1');
   assert.equal('changedTo' in (filtered?.request.selection ?? {}), false);
   assert.equal('predictionSource' in (plain?.request.selection ?? {}), false);
   assert.equal('changedFrom' in (plain?.request.selection ?? {}), false);
+  assert.equal('importJobId' in (plain?.request.selection ?? {}), false);
 });
 
 test('filter selection forwards the RGB v2 prediction sources (TASK-0872)', () => {

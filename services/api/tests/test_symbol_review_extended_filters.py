@@ -126,6 +126,16 @@ def test_changed_range_bounds_updated_at() -> None:
     assert "<=" in clauses[1]
 
 
+def test_import_job_filter_is_an_extended_scope_condition() -> None:
+    import_job_id = uuid4()
+    review_filter = _filter(import_job_id=import_job_id)
+    (clause,) = _sql(review_filter)
+
+    assert review_filter.has_extended_filters is True
+    assert "image_symbol_review_cells.import_job_id" in clause
+    assert str(import_job_id) in clause
+
+
 @pytest.mark.parametrize(
     "changes",
     [
@@ -164,6 +174,28 @@ def test_cursor_is_bound_to_extended_filters() -> None:
     assert error.value.code == "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID"
 
 
+def test_cursor_is_bound_to_import_job_scope() -> None:
+    import_job_id = uuid4()
+    filtered = _filter(import_job_id=import_job_id)
+    other_import = _filter(import_job_id=uuid4())
+    key = (5, 3, uuid4())
+    cursor = encode_symbol_cell_review_cursor(
+        review_filter=filtered, direction=SymbolCellReviewCursorDirection.AFTER, key=key
+    )
+
+    assert (
+        decode_symbol_cell_review_cursor(
+            cursor, review_filter=filtered, direction=SymbolCellReviewCursorDirection.AFTER
+        )
+        == key
+    )
+    with pytest.raises(SymbolCellReviewError) as error:
+        decode_symbol_cell_review_cursor(
+            cursor, review_filter=other_import, direction=SymbolCellReviewCursorDirection.AFTER
+        )
+    assert error.value.code == "SYMBOL_CELL_REVIEW_CURSOR_SCOPE_INVALID"
+
+
 def test_unfiltered_cursor_payload_has_no_extended_keys() -> None:
     cursor = encode_symbol_cell_review_cursor(
         review_filter=_filter(),
@@ -173,7 +205,7 @@ def test_unfiltered_cursor_payload_has_no_extended_keys() -> None:
 
     payload = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
 
-    assert not {"predictionSource", "changedFrom", "changedTo"} & set(payload)
+    assert not {"predictionSource", "changedFrom", "changedTo", "importJobId"} & set(payload)
 
 
 def _command(selection: SymbolCellReviewBulkFilterSelection) -> str:
@@ -199,13 +231,14 @@ def test_bulk_fingerprint_changes_only_when_extended_filters_are_set() -> None:
 
     base = _command(selection())
 
-    assert base == _command(selection(prediction_source=None, changed_to=None))
+    assert base == _command(selection(prediction_source=None, changed_to=None, import_job_id=None))
     assert base != _command(
         selection(
             prediction_source=SymbolCellReviewPredictionSource.REFERENCE_LIBRARY,
             changed_from=datetime(2026, 9, 30, tzinfo=UTC),
         )
     )
+    assert base != _command(selection(import_job_id=uuid4()))
 
 
 def test_bulk_selection_rejects_a_reversed_range() -> None:
@@ -260,6 +293,7 @@ def _v2_statements(review_filter: SymbolCellReviewListFilter) -> dict[str, str]:
                 prediction_source=review_filter.prediction_source,
                 changed_from=review_filter.changed_from,
                 changed_to=review_filter.changed_to,
+                import_job_id=review_filter.import_job_id,
             ),
         ),
     }
@@ -302,6 +336,7 @@ def test_v2_scope_statements_read_only_the_current_cell_projection() -> None:
         prediction_source=SymbolCellReviewPredictionSource.REFERENCE_LIBRARY,
         changed_from=MIDNIGHT,
         changed_to=MIDNIGHT + timedelta(days=1),
+        import_job_id=uuid4(),
     )
 
     statements = _v2_statements(review_filter)
@@ -316,6 +351,7 @@ def test_v2_scope_statements_read_only_the_current_cell_projection() -> None:
         assert sql.count("image_symbol_prediction_revisions") == 1, name
         assert "image_symbol_review_cells.updated_at >= " in sql, name
         assert "image_symbol_review_cells.updated_at <= " in sql, name
+        assert "image_symbol_review_cells.import_job_id = " in sql, name
     for name in ("visible", "count", "candidate_seek"):
         from_clause = statements[name].split("\nWHERE ")[0].split("\nFROM ")[1]
         assert from_clause == "image_symbol_review_cells ", name

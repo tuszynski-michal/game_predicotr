@@ -1209,7 +1209,12 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   1 plansza `stale` (flaga jakości).
 - TASK-0876 done: pasmo 80–90% — 590 komórek RGB v2 na 563 planszach, 0 błędów.
 - TASK-0877 done: pasmo 90–99% — 3 279 komórek RGB v2 na 2 985 planszach, 0 błędów.
-  Następne: pasmo 99–100% (TASK-0878) — bramka u operatora (skala zapisów 0,50).
+- TASK-0878 w toku: operator zdecydował 2026-10-06 — w paśmie 99–100% tylko
+  zmiany symbolu. Podgląd 120 części trwa (dwa sterowniki od 05:59 UTC, koniec
+  ~2026-10-07 05:00 UTC), potem zapis. Przekazanie stanu i poleceń:
+  `ai_docs/guides/SYMBOL_RGB_V2_HANDOFF_20261006.md`. Gałąź
+  `feat/symbol-reference-library-port` niescalona (merge i restart API czekają
+  na operatora).
 
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 

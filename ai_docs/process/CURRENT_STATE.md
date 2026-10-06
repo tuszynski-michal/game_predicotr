@@ -6,6 +6,28 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0865 — ocena modeli na nowych oznaczeniach człowieka (done)
+
+-26 latest approve/revision27 qualified exact pack, pełne history/receipt/source
+  i dictionary guards; jedna historyczna decyzja zastąpiona. Bez wpisów agenta.
+-22 withheld: V3 RGB19/gray18/fuzja18; V4 RGB21/gray22/fuzja22. Wszystkie10
+  klas obecne.4 oddzielne diagnostic: V3 4/0/2, V4 4/4/4. Wynik22/22 jest
+  teraz względem człowieka.0 konfliktów AI/human, RGB myli A z Faraonem.
+- Wszystkie26 crop/pełne-photo SHA poza development312; bez treningu,
+  recalibration/threshold/epoch selection. Same-film/kierowany dobór nadal
+  ograniczają wnioski; nie accuracy całego folderu ani niezależnego filmu.
+- Actual ONNX4 z frozen preprocess/settings zgodne z dawnymi propozycjami;
+  qualified40.22s i nowy proces43.61s reprodukują identyczny raport7d3c0e…b38d9.
+ 5771 input SHA, w tym oryginalne61output SHA, bez zmian.4 negative checks PASS.
+-46 pytest, helper Ruff/format/scoped strict mypy PASS; niezależny audit
+  source render26/ONNX/metrics/isolation/hash PASS, bez otwartychP0–P2.
+  DoD/7 acceptance criteria/plan1–5 spełnione; raport MUMIE_HUMAN_AUDIT_20261006.md.
+- Commit `v1.7.213`; feat/grid-engine-v3, wcześniejsze obce metadata pominięte.
+  Bez zmian aplikacji/API/UI/runtime, DB/Super/aktywacji/merge/push/wdrożenia.
+- Następny etap: większa human-referenced próba z nagrania wyłączonego z V4
+  po kwalifikacji lokalizacji; sprawdzić istniejące katalogi przed pytaniem
+  o nowy. Obecne26 zachować jako ocenę zamrożonego modelu; nie powtarzać oznaczeń.
+
 ### TASK-0864 — autonomiczny przegląd AI i eksperyment Mumii (done)
 
 - D-505: jawna zgoda na nocny trening/wewnętrzne AI. Dwa blind review79 exact

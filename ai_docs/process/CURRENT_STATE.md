@@ -1205,6 +1205,8 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
 - TASK-0874 done: pasmo < 60% — 336 komórek RGB v2 na 324 planszach, 0 błędów.
   Reguła bramki `library_keeps_current` (poprawka D-520): niepewna propozycja
   CNN nie nadpisuje symbolu, który jednogłośna biblioteka potwierdza.
+- TASK-0875 done: pasmo 60–80% — 599 komórek RGB v2 na 553 planszach, 0 błędów,
+  1 plansza `stale` (flaga jakości).
 
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 

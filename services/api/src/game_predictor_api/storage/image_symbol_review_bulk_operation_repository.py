@@ -122,7 +122,22 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
         request: SymbolCellReviewBulkRequest,
         idempotency_key: UUID,
     ) -> tuple[SymbolCellReviewBulkOperation, bool]:
-        state = _require_ready_state(self._session, game_id=game_id, for_update=True)
+        # Target inserts take FK locks on board/cell rows. The worker and
+        # geometry editor lock those rows before catalog state, so start must
+        # not hold catalog state while waiting for the target FK checks.
+        state = _require_ready_state(self._session, game_id=game_id, for_update=False)
+        # Serialize retries of this command only. The previous early catalog
+        # lock also serialized identical keys; unrelated jobs need no such lock.
+        self._session.execute(
+            select(
+                func.pg_advisory_xact_lock(
+                    func.hashtextextended(
+                        f"symbol-review-bulk-start:{game_id}:{idempotency_key}",
+                        0,
+                    )
+                )
+            )
+        )
         existing = self._session.scalar(
             select(ImageSymbolReviewBulkOperationModel)
             .where(
@@ -215,6 +230,10 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
                 for target in self._snapshot_explicit_targets(game_id=game_id, request=request)
             )
         self._session.flush()
+        # All target FK checks precede the catalog lock. Revalidate after any
+        # wait: a worker may have changed crop revisions or the frozen filter.
+        state = _require_ready_state(self._session, game_id=game_id, for_update=True)
+        self._preview_counts(game_id=game_id, request=request, state=state)
         return _operation_from_model(operation), True
 
     def get(self, *, game_id: UUID, operation_id: UUID) -> SymbolCellReviewBulkOperation | None:
@@ -271,9 +290,9 @@ class SqlAlchemySymbolCellReviewBulkOperationRepository(SymbolCellReviewBulkOper
         _bind_game_store(self._session, game_id)
         rows = tuple(
             self._session.scalars(
-                _visible_cells_statement(game_id=game_id).where(
-                    ImageSymbolReviewCellModel.id.in_(tuple(requested))
-                )
+                _visible_cells_statement(game_id=game_id)
+                .where(ImageSymbolReviewCellModel.id.in_(tuple(requested)))
+                .execution_options(populate_existing=True)
             )
         )
         actual = {row.id: row for row in rows}
@@ -605,7 +624,7 @@ def _require_ready_state(
         ImageSymbolReviewStateModel.game_id == game_id
     )
     if for_update:
-        statement = statement.with_for_update()
+        statement = statement.with_for_update().execution_options(populate_existing=True)
     state = session.scalar(statement)
     if state is None or not symbol_cell_review_projection_is_available(
         session,

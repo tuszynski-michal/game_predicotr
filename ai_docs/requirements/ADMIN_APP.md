@@ -1022,6 +1022,9 @@ operacja masowa przechodzi do tła: jej dokładne widoczne targety pozostają
 wyszarzone ze spinnerem, ale operator może przejść na inną stronę i uruchomić
 kolejną niezależną operację. Zablokowane pozostają wyłącznie targety już wysłane
 oraz krótki foreground start/preview bieżącej decyzji.
+Limit 10 000 jawnych pól dotyczy jednej komendy, nie sumy operacji w tle.
+`Zaznacz stronę` pomija pola aktywnych i zakończonych operacji, zablokowane do
+odświeżenia. Gdy cała strona jest zablokowana, przycisk jest nieaktywny.
 
 **TASK-0709 / D-451:** istniejący filtr `symbolId` obejmuje także `outside`.
 Pozycja bez obrazu i bez symbolu należy do „Poza zdjęciem”, także z oznaczeniem

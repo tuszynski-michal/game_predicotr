@@ -6,6 +6,23 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0897 — concurrent symbol review job starts (done)
+
+- MAIN logs confirm start/worker deadlocks at board FK insertion. Start now
+  flushes FK references before catalog locking, then refreshes and revalidates
+  state/targets. A per-game/idempotency-key advisory lock protects retries only.
+  Page selection skips pending/settled cards. API and 10,000 per-job cap stay.
+- Real isolated PostgreSQL 4/4, focused backend/API 24/24, Admin interactions
+  16/16 and helpers 40/40 PASS. Format/lint/types PASS in the scoped modules;
+  dependency-following mypy timed out, local module/protocol mypy PASS. Admin
+  build PASS (23.58 s). Wider backend/API: 51 PASS / 1 pre-existing timeout
+  assertion failure (5,000 ms expected; HEAD already uses 20,000 ms).
+- Requirements, API contract, guide, plan and completed task updated. No
+  production mutation, migration, training, cleanup, restart, deployment, push
+  or merge. Running API/Admin need a controlled restart to load this fix.
+  Evidence: artifacts/symbol-review-concurrent-jobs-20261007/verification.json.
+- Completion v1.7.240; full hash is recorded after commit.
+
 ### TASK-0896 — collapsible single-row symbol filters (done)
 
 - State/confidence/source options have one full-width row each. Radio filters

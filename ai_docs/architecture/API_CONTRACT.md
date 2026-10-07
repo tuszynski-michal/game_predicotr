@@ -997,7 +997,16 @@ wspólną bramkę jakości.
 Preview nie zmienia danych. Start sprawdza aktualność rewizji katalogu i
 zamraża targety, tworząc idempotentny job `image_symbol_review_bulk`; powtórne
 żądanie z tym samym kluczem i tą samą komendą zwraca istniejącą operację,
-natomiast inna komenda z tym kluczem zwraca konflikt. Status zwraca liczniki
+natomiast inna komenda z tym kluczem zwraca konflikt.
+Start serializuje wyłącznie powtórzenia tej samej pary gra + klucz idempotencji
+transakcyjną blokadą advisory. Różne klucze nie mają wspólnego limitu jobów.
+Kontrola FK zamrożonych targetów poprzedza blokadę stanu katalogu, zgodnie
+z kolejnością blokad workera. Po flush i uzyskaniu blokady start odświeża stan
+oraz ponownie sprawdza rewizję filtra albo bieżące rewizje i tożsamości jawnych
+cropów. Konflikt wycofuje całą transakcję startu wraz z jobem i targetami.
+Limit 10 000 jawnych targetów dotyczy pojedynczej komendy.
+
+Status zwraca liczniki
 `pending`, `applied`, `conflict` i `failed`, identyfikator joba oraz
 kontrolowany komunikat błędu. Operacja ma częściową semantykę: każda plansza
 jest atomowa, ale awaria może pozostawić wcześniej zapisane targety jako

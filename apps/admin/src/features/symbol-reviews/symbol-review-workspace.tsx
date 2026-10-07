@@ -280,6 +280,13 @@ export function SymbolReviewWorkspace({
     }
     return ids;
   }, [directPendingCellIds, trackedOperations]);
+  const selectableItems = useMemo(
+    () =>
+      currentItems.filter(
+        (item) => !pendingCellIds.has(item.id) && !settledCellIds.has(item.id),
+      ),
+    [currentItems, pendingCellIds, settledCellIds],
+  );
   const selectedCount =
     currentPage === null ? 0 : selectedSymbolReviewCount(selection);
   const currentFilteredCount =
@@ -1066,11 +1073,11 @@ export function SymbolReviewWorkspace({
   }
 
   function selectVisiblePage() {
-    const change = selectVisibleSymbolReviewItems(selection, currentItems);
+    const change = selectVisibleSymbolReviewItems(selection, selectableItems);
     setSelection(change.selection);
     setDeselectedCellIds((current) => {
       const next = new Set(current);
-      for (const item of currentItems) next.delete(item.id);
+      for (const item of selectableItems) next.delete(item.id);
       return next;
     });
     if (change.rejectedCount > 0) {
@@ -1081,6 +1088,7 @@ export function SymbolReviewWorkspace({
   }
 
   function toggleItem(item: SymbolCellReviewListItemResponse) {
+    if (pendingCellIds.has(item.id) || settledCellIds.has(item.id)) return;
     const wasSelected = isSymbolReviewItemSelected(selection, item);
     const change = toggleSymbolReviewItem(selection, item);
     setSelection(change.selection);
@@ -1770,7 +1778,7 @@ export function SymbolReviewWorkspace({
         <SymbolReviewSelectionToolbar
           busy={interactionBusy}
           hasNoImageSelection={selectedWithoutImage}
-          canSelectVisible={currentItems.length > 0}
+          canSelectVisible={selectableItems.length > 0}
           hasActiveSymbols={symbols.length > 0}
           markBlurry={markBlurry}
           onClear={() => {

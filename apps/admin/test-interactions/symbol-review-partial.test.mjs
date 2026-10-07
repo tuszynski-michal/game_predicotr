@@ -842,6 +842,128 @@ test('unified save keeps the explicit target on a blurry approval', async () => 
   }
 });
 
+for (const firstStatus of ['processing', 'completed']) {
+  test(`independent bulk jobs skip ${firstStatus} cards without refreshing`, async () => {
+    const fixture = await createPartialReviewClient();
+    const full = fixture.cells.find((cell) => cell.id === 'full-cell');
+    for (let index = 3; index < 6; index++) {
+      fixture.cells.push({
+        ...full,
+        id: `full-cell-${index}`,
+        cellIndex: index,
+        columnIndex: index % 5,
+        rowIndex: Math.floor(index / 5),
+      });
+    }
+    const starts = [];
+    const operations = new Map();
+    fixture.api.startSymbolCellReviewBulkOperation = async (game, request) => {
+      starts.push(request);
+      const status = starts.length === 1 ? firstStatus : 'created';
+      if (status === 'completed') {
+        for (const target of request.selection.targets) {
+          await fixture.api.applySymbolCellReviewDecision(
+            game,
+            target.cellReviewId,
+            {
+              ...target,
+              action: request.action,
+              targetSymbolId: request.targetSymbolId,
+            },
+          );
+        }
+      }
+      const operation = {
+        id: `bulk-${starts.length}`,
+        gameId: game,
+        action: request.action,
+        status,
+        targetCount: request.selection.targets.length,
+        appliedCount:
+          status === 'completed' ? request.selection.targets.length : 0,
+        conflictCount: 0,
+        failedCount: 0,
+        pendingCount:
+          status === 'completed' ? 0 : request.selection.targets.length,
+        catalogRevision: null,
+      };
+      operations.set(operation.id, operation);
+      return { data: { created: true, operation } };
+    };
+    fixture.api.getSymbolCellReviewBulkOperation = async (_game, id) => ({
+      data: operations.get(id),
+    });
+    const { root, calls } = await mount(fixture);
+    const card = (position) =>
+      buttons().find((node) =>
+        node
+          .getAttribute('aria-label')
+          ?.endsWith(`crop z planszy 62287, pozycja ${position}`),
+      );
+    try {
+      await choose(1, 'cherry');
+      await eventually(() => card('2/1'));
+      const pageReads = calls.pages.length;
+      await click(card('1/3'));
+      await click(card('1/4'));
+      await chooseSymbolField('Symbol do zatwierdzenia', 'cherry');
+      await click(button('Zapisz i zatwierdź'));
+      await eventually(() =>
+        buttons().some((node) => node.textContent === 'Uruchom operację'),
+      );
+      await click(button('Uruchom operację'));
+      assert.equal(starts.length, 1);
+      assert.equal(card('1/3').disabled, true);
+      assert.equal(card('1/4').disabled, true);
+      assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
+      assert.equal(button('Zaznacz stronę').disabled, false);
+      await click(button('Zaznacz stronę'));
+      assert.ok(
+        [...document.querySelectorAll('strong')].some(
+          (node) => node.textContent === 'Wybrane: 2',
+        ),
+      );
+      await chooseSymbolField('Symbol do zatwierdzenia', 'cherry');
+      await click(button('Zapisz i zatwierdź'));
+      await eventually(() =>
+        buttons().some((node) => node.textContent === 'Uruchom operację'),
+      );
+      await click(button('Uruchom operację'));
+      assert.equal(starts.length, 2);
+      assert.deepEqual(
+        starts.map((request) =>
+          request.selection.targets.map((target) => target.cellReviewId).sort(),
+        ),
+        [
+          ['full-cell', 'full-cell-3'],
+          ['full-cell-4', 'full-cell-5'],
+        ],
+      );
+      assert.notEqual(starts[0].idempotencyKey, starts[1].idempotencyKey);
+      assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
+      assert.equal(button('Zaznacz stronę').disabled, true);
+      if (firstStatus === 'processing') {
+        operations.set('bulk-1', {
+          ...operations.get('bulk-1'),
+          status: 'completed',
+          appliedCount: 2,
+          pendingCount: 0,
+        });
+        await eventually(() =>
+          document.body.textContent.includes('Operacja zakończona: 2 symboli.'),
+        );
+        assert.equal(button('Zaznacz stronę').disabled, true);
+      }
+      for (const position of ['1/3', '1/4', '1/5', '2/1']) {
+        assert.equal(card(position).disabled, true);
+      }
+      assert.equal(calls.pages.length, pageReads);
+    } finally {
+      await act(async () => root.unmount());
+    }
+  });
+}
+
 test('Mumie same-symbol bulk save approves pending crops and freezes the current page', async () => {
   const fixture = await createPartialReviewClient();
   fixture.api.listGames = async () => ({

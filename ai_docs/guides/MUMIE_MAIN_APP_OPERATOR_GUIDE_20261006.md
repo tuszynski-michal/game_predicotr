@@ -96,6 +96,10 @@ Nie musisz zatwierdzać każdej planszy, żeby rozpocząć ocenę symboli.
    brakujące lub ucięte sloty wymagają **Korekty cięcia siatki**.
 4. Zapisane decyzje pozostają widoczne na stronie do odświeżenia. Kolejna
    partia i trening nie wymagają ponownego oceniania tych samych cropów.
+   Możesz uruchamiać kolejne joby dla innych wycinków, gdy wcześniejsze jeszcze
+   pracują. Limit wynosi **10 000 symboli na jeden job**, także z kilku stron.
+   **Zaznacz stronę** pomija już wysłane wycinki. Nie ma wspólnego limitu
+   symboli dla wszystkich jobów. Kolejne joby mogą oczekiwać na wolny worker.
 
 Przygotowanie weryfikacji jest trwałym zadaniem. Stan bez aktywnego zadania
 jest automatycznie wznawiany raz po wejściu do panelu; dostępny jest też

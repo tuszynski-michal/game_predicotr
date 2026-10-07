@@ -43,6 +43,7 @@ from game_predictor_api.domain.image_geometry_v2 import (
 )
 from game_predictor_api.domain.jobs import Job
 from game_predictor_api.domain.neural_crop_policy import NEURAL_AUTO_CROP_POLICY
+from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
 from game_predictor_api.domain.symbol_model_snapshots import (
     SymbolModelJobSnapshot,
     SymbolModelStorageRoot,
@@ -396,13 +397,13 @@ class ProductionImageImportWorkflow:
         artifact_root: Path,
         *,
         repository_root: Path,
-        hard_reserve_bytes: int = 30 * 1024**3,
-        resume_target_bytes: int = 80 * 1024**3,
+        hard_reserve_bytes: int = StorageRetentionPolicy().hard_reserve_bytes,
     ) -> None:
+        if hard_reserve_bytes <= 0:
+            raise ValueError("hard_reserve_bytes must be positive.")
         self._artifact_root = artifact_root.resolve()
         self._repository_root = repository_root.resolve()
         self._hard_reserve_bytes = hard_reserve_bytes
-        self._resume_target_bytes = resume_target_bytes
         self._original_store = ManagedOriginalStore(self._artifact_root)
         self._source_handler = ImageSourceIngestionHandler(
             self._original_store,
@@ -686,13 +687,9 @@ class ProductionImageImportWorkflow:
         )
         pipeline(cast(JobExecutionContext, pipeline_context), job)
 
-    def _has_pipeline_capacity(self, job: Job) -> bool:
-        required = (
-            self._resume_target_bytes
-            if job.stage == "waiting_for_storage"
-            else self._hard_reserve_bytes
-        )
-        return shutil.disk_usage(self._artifact_root).free >= required
+    def _has_pipeline_capacity(self, _job: Job) -> bool:
+        # The GC target is not a second admission threshold for a paused import.
+        return shutil.disk_usage(self._artifact_root).free >= self._hard_reserve_bytes
 
     def _record_browser_staging_handoff(
         self,

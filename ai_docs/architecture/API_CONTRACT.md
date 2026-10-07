@@ -4138,9 +4138,12 @@ twardą rezerwę woluminu. Browser staging o purpose
 źródła do wyboru i nie tworzy cropów. Nadal może zwrócić
 `IMAGE_BROWSER_SELECTION_DISK_SPACE_INSUFFICIENT`, gdy zadeklarowany upload
 wraz z rezerwą 512 MiB nie mieści się fizycznie na woluminie stagingu. Poniżej
-progu automatycznego GC system tworzy jeden idempotentny run `automatic`;
-trwający pipeline pokazuje etap `waiting_for_storage` zamiast kończyć się
-błędem.
+progu automatycznego GC system tworzy jeden idempotentny run `automatic`.
+Trwający pipeline poniżej twardej rezerwy pokazuje etap `waiting_for_storage`
+zamiast kończyć się błędem. Wznawia ten sam job z zapisanych checkpointów,
+gdy wolne miejsce osiąga tę samą rezerwę, domyślnie 5 GiB. Cel GC 80 GiB
+nie blokuje kontynuacji importu. Worker zachowuje odstęp pollingu po
+odroczeniu; statusy i kształt odpowiedzi HTTP pozostają bez zmian.
 
 `POST /api/v1/admin/image-imports/{sourceJobId}/reprocess` tworzy dla nowych
 wykonań payload schema v6. Odpowiedź zawiera `managedSourceJobId`, checksumę

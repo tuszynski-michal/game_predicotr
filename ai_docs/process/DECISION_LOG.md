@@ -6,6 +6,26 @@ last_updated: 2026-10-07
 
 # Decision Log
 
+## D-534 — Image import resumption uses the hard reserve, not the GC target
+
+- **Date:** 2026-10-07.
+- **Status:** accepted explicit repair instruction, TASK-0928.
+- **Decision:** source ingestion and in-flight image pipeline checks use the
+  configured hard reserve in every job stage, including persisted
+  `waiting_for_storage`; default 5 GiB and equality allowed. The 80 GiB GC
+  target cannot become a separate condition for restarting an import.
+- **Liveness:** retain durable checkpoint/requeue and fenced leases. The
+  polling worker waits its existing positive interval after storage deferral
+  rather than entering an immediate reclaim loop. Restarted code interprets
+  existing storage-wait checkpoints with the same reserve, without changing
+  their job identity or reprocessing settled source checkpoints.
+- **Preserved:** conservative admission estimates, reserve override,
+  warning/automatic-GC/GC-target thresholds, deletion eligibility and all
+  domain/sequence/source protections. No schema or API shape change.
+- **Operations:** the user separately authorizes only the general-worker
+  restart after tests for the existing Mumie import. API/Admin, cleanup,
+  manual state mutation, push and merge are outside this authorization.
+
 ## D-532 — Integrate the complete V7 code into the main vision lab branch
 
 - **Date:** 2026-10-07.

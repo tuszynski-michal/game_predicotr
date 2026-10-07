@@ -1179,6 +1179,15 @@ nadpisać tę rezerwę; ten sam próg trafia do receiptów GC. Brak bezpiecznych
 kandydatów pozostawia blokadę i wymaga decyzji użytkownika — system nie
 rozszerza wtedy automatycznie zakresu usuwania.
 
+Istniejący import z etapem `waiting_for_storage` wznawia się przy tej samej
+twardej rezerwie, domyślnie 5 GiB, również przy dokładnej równości. Nie musi
+osiągnąć celu GC 80 GiB. Worker zachowuje checkpoint, nie powtarza
+zakończonych etapów źródeł i czeka interwał pollingu pomiędzy odroczeniami.
+Nie twórz drugiego importu ani nie zmieniaj ręcznie jego stanu w bazie.
+Po aktualizacji kodu worker wymaga osobnego restartu; przed zatrzymaniem
+sprawdź zgodność wersji schematu, aby nowy proces mógł wystartować.
+API i Admin pozostają uruchamiane oraz restartowane ręcznie przez użytkownika.
+
 Podczas rozwoju można nadal jawnie uruchomić `npm run reviewer:dev`; przycisk
 lokalny wykorzysta gotowy proces na porcie 3001. Przycisk
 `Utwórz link i wystaw online` zachowuje osobny zdalny workflow: uruchamia tunel,

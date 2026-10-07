@@ -30,6 +30,7 @@ from game_predictor_api.application.remote_manual_selection_removal import (
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.jobs import JobExecutionSlot, JobType
+from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
 from game_predictor_api.domain.worker_lanes import WorkerLaneName
 from game_predictor_api.storage.database import (
     create_cross_game_owner_session_factory,
@@ -430,8 +431,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
             session_factory,
             artifact_root,
             repository_root=Path.cwd(),
-            hard_reserve_bytes=getattr(settings, "storage_hard_reserve_gib", 30) * 1024**3,
-            resume_target_bytes=getattr(settings, "storage_target_gib", 80) * 1024**3,
+            hard_reserve_bytes=getattr(
+                settings,
+                "storage_hard_reserve_gib",
+                StorageRetentionPolicy().hard_reserve_bytes // 1024**3,
+            )
+            * 1024**3,
         )
         import_dispatch_handler = ImportJobDispatchHandler(
             import_handler,

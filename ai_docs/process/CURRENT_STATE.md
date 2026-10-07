@@ -6,6 +6,27 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0928 — image import storage resumption (in progress)
+
+- Mumie job 092ff7a4-e652-4273-9c0a-a30e38ebd8cc stalls at 535/2915 sources
+  with `waiting_for_storage`, despite 50.23 GiB free. Attempts increase;
+  the worker wrongly uses the 80 GiB GC target to resume instead of reserve.
+- D-534: same configured hard reserve for copying, normal pipeline and resume,
+  default 5 GiB. Keep GC policy and admission estimates unchanged; add the
+  existing polling delay after storage deferral instead of immediate reclaims.
+- The user separately authorized restarting only worker general after tests.
+  No API/Admin lifecycle, data cleanup, new import or manual state mutation.
+- Implementation verified: 119 worker tests (including 24 new regressions),
+  71 API capacity/config/retention tests, scoped strict mypy and Ruff pass.
+  Four old CLI fixture failures reproduce on unchanged HEAD; left outside
+  this fix. No API schema change or GC-policy change.
+- Live rollout blocked before stopping general: DB is
+  `0146_symbol_review_import_filter_index`, current code requires
+  `0147_merge_v7_main`. At 19:22:52 UTC, 50.14 GiB free and the same job still
+  at 535/2915. Existing PID 6984/19496 and API/Admin remain untouched.
+  V7 migration needs separate authorization/user-run service maintenance;
+  do not include the unrelated in-progress management migration 0148.
+
 ### TASK-0920 — pełna integracja V7 na głównym branchu (done)
 
 - v1.1-vision-lab-hybrid-geometry now contains the complete calibrated V7

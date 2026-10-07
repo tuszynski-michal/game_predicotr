@@ -1598,6 +1598,13 @@ każdym spinie.
   jeden GC przy 60 GiB i wymaga 5 GiB wolnego miejsca po konserwatywnej
   estymacji materializowanych artefaktów; ustawienia środowiskowe nadpisują te
   progi spójnie w obu ścieżkach,
+- worker używa tej samej konfigurowalnej twardej rezerwy podczas kopiowania
+  managed originals, przetwarzania i wznowienia `waiting_for_storage`.
+  Domyślne 5 GiB dopuszcza kontynuację także przy dokładnej równości;
+  cel GC 80 GiB nie trafia do warunku wznowienia. Odroczenie nadal zapisuje
+  checkpoint, zwalnia ogrodzony lease i pozostawia job do wznowienia.
+  Pętla pollingu czeka swój dodatni interwał po odroczeniu, zamiast natychmiast
+  przejmować ten sam job ponownie,
 - `storage_pipeline_compaction` usuwa po 24 godzinach wyłącznie odtwarzalne,
   późne payloady etapów z terminalnych wykonań. Preview jest keysetowym JSONL,
   a worker przed każdą partią ponownie sprawdza execution, zależności,

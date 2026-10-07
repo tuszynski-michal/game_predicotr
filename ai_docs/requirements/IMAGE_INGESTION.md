@@ -1646,6 +1646,14 @@ konserwatywnej estymacji pozostawić co najmniej 5 GiB na każdym woluminie
 `artifact_root`/`import_root`. Ostrzeżenie przy 80 GiB i automatyczny GC przy
 60 GiB pozostają niezależnymi progami operacyjnymi.
 
+Kopiowanie managed originals i przetwarzanie źródeł w istniejącym imporcie
+korzystają z tej samej konfigurowalnej twardej rezerwy, domyślnie 5 GiB.
+Dotyczy to również wznowienia z `waiting_for_storage`: cel GC 80 GiB nie
+jest dodatkowym warunkiem kontynuacji. Dokładnie tyle wolnego miejsca, ile
+wynosi rezerwa, pozwala na wznowienie. Poniżej rezerwy worker zachowuje
+checkpoint i zwalnia lease; ponowienia mają odstęp równy interwałowi pollingu.
+Nowy proces wznawia ten sam job bez powtarzania zakończonych etapów źródeł.
+
 Przed utworzeniem joba Admin wywołuje preflight związany z `gameId` i checksumą
 manifestu. Raport pokazuje nowe i kanonicznie użyte ponownie numery, pominięte
 źródła, częściowe zakresy, alternatywne checksumy oraz pierwszy i ostatni

@@ -14,7 +14,8 @@ registerHooks({
       return {
         format: 'module',
         shortCircuit: true,
-        source: 'export function GridQualityPanel() { return null; }',
+        source:
+          "import React from 'react'; export function GridQualityPanel() { const [n,setN]=React.useState(0); return React.createElement('button', { 'data-grid-control': true, onClick:()=>setN(n+1) }, 'Ustaw siatkę '+n); }",
       };
     if (url.endsWith('/lab-candidate-registry-panel.tsx'))
       return {
@@ -47,13 +48,150 @@ const { ModelQualityWorkspace } =
   await import('../src/features/model-quality/model-quality-workspace.tsx');
 after(() => dom.window.close());
 
-function quality(gameId, count = 12) {
+test('grid stays mounted and usable during a stalled overview without a timeout', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  let resolveOverview;
+  const root = await mount(
+    client({
+      getModelQuality: (gameId, options) => {
+        assert.equal(options.view, 'overview');
+        return new Promise((resolve) => {
+          resolveOverview = resolve;
+        });
+      },
+    }),
+  );
+  try {
+    await act(async () =>
+      document.querySelector('[data-grid-control]').click(),
+    );
+    await act(async () => t.mock.timers.tick(60_000));
+    assert.match(document.body.textContent, /Ustaw siatkę 1/);
+    assert.equal(document.querySelector('[role="alert"]'), null);
+    await act(async () => resolveOverview({ data: quality('one') }));
+    assert.match(document.body.textContent, /Pokrycie symboli/);
+    assert.match(document.body.textContent, /Ustaw siatkę 1/);
+  } finally {
+    await unmount(root);
+    t.mock.timers.reset();
+  }
+});
+
+test('exact cohort runs only on training intent and leaves grid usable while preparing', async () => {
+  const views = [];
+  let fullSignal;
+  const root = await mount(
+    client({
+      getModelQuality: (gameId, options) => {
+        views.push(options.view ?? 'full');
+        if (options.view === 'overview')
+          return Promise.resolve({ data: quality(gameId) });
+        fullSignal = options.signal;
+        return new Promise(() => {});
+      },
+    }),
+  );
+  try {
+    assert.deepEqual(views, ['overview']);
+    const improve = [...document.querySelectorAll('button')].find(
+      (b) => b.textContent === 'Ulepsz rozpoznawanie',
+    );
+    await act(async () => improve.click());
+    assert.deepEqual(views, ['overview', 'full']);
+    assert.match(document.body.textContent, /Sprawdzanie wycinków do treningu/);
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Potwierdź niezmienny manifest/,
+    );
+    await act(async () =>
+      document.querySelector('[data-grid-control]').click(),
+    );
+    assert.match(document.body.textContent, /Ustaw siatkę 1/);
+  } finally {
+    await unmount(root);
+  }
+  assert.equal(fullSignal.aborted, true);
+});
+
+test('training requires the attested full checksum and never freezes overview counts', async () => {
+  let freezeCommand;
+  const root = await mount(
+    client({
+      getModelQuality: async (gameId, options) => ({
+        data:
+          options.view === 'overview' ? quality(gameId) : fullQuality(gameId),
+      }),
+      freezeVerifiedTrainingCohort: async (_game, command) => {
+        freezeCommand = command;
+        return {
+          data: { cohort: { id: 'cohort-1', gameId: 'one' }, created: true },
+        };
+      },
+      createSymbolTraining: async () => ({
+        data: { iteration: { iterationNumber: 1 }, job: {} },
+      }),
+    }),
+  );
+  try {
+    const button = (text) =>
+      [...document.querySelectorAll('button')].find(
+        (b) => b.textContent === text,
+      );
+    assert.equal(button('Potwierdź manifest'), undefined);
+    await act(async () => button('Ulepsz rozpoznawanie').click());
+    assert.match(document.body.textContent, /Potwierdź niezmienny manifest/);
+    assert.equal(freezeCommand, undefined);
+    await act(async () => button('Potwierdź manifest').click());
+    assert.equal(freezeCommand.expectedManifestChecksumSha256, 'a'.repeat(64));
+    assert.match(document.body.textContent, /Uruchomiono trening iteracji #1/);
+    assert.ok(document.querySelector('[data-grid-control]'));
+  } finally {
+    await unmount(root);
+  }
+});
+
+test('an empty exact cohort does not offer confirmation despite metadata approvals', async () => {
+  const root = await mount(
+    client({
+      getModelQuality: async (gameId, options) => ({
+        data:
+          options.view === 'overview'
+            ? quality(gameId)
+            : {
+                ...fullQuality(gameId),
+                canFreeze: false,
+                cellSampleCount: 0,
+                resolvedLayoutCount: 0,
+              },
+      }),
+    }),
+  );
+  try {
+    await act(async () =>
+      [...document.querySelectorAll('button')]
+        .find((b) => b.textContent === 'Ulepsz rozpoznawanie')
+        .click(),
+    );
+    assert.match(
+      document.body.textContent,
+      /Brak wycinków spełniających warunki/,
+    );
+    assert.doesNotMatch(
+      document.body.textContent,
+      /Potwierdź niezmienny manifest/,
+    );
+  } finally {
+    await unmount(root);
+  }
+});
+
+function fullQuality(gameId, count = 12) {
   return {
     gameId,
     activeHeavyJob: false,
     activeModel: null,
     advisoryThresholds: [],
-    canFreeze: false,
+    canFreeze: true,
     cellSampleCount: count,
     incompleteItemCount: 0,
     latestCohort: null,
@@ -74,6 +212,18 @@ function quality(gameId, count = 12) {
       unreadable: 0,
     },
     warnings: [],
+  };
+}
+function quality(gameId, count = 12) {
+  return {
+    view: 'overview',
+    gameId,
+    activeHeavyJob: false,
+    latestCohort: null,
+    approvedCellCount: count,
+    approvedLayoutCount: count,
+    sourceImageCount: 1,
+    symbolCoverage: [{ symbolCode: 'class-' + gameId, sampleCount: count }],
   };
 }
 function client(overrides = {}) {
@@ -133,8 +283,7 @@ test('renders quality while pending preview is stalled, then cancels on unmount'
   assert.equal(pendingSignal.aborted, true);
 });
 
-test('shows timeout and recovers on retry after a lost response', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+test('a real symbol read error leaves grid available and recovers on retry', async () => {
   let calls = 0;
   let firstSignal;
   const root = await mount(
@@ -143,19 +292,17 @@ test('shows timeout and recovers on retry after a lost response', async (t) => {
         calls++;
         if (calls === 1) {
           firstSignal = signal;
-          return new Promise(() => {});
+          return Promise.resolve({
+            error: { detail: { message: 'API unavailable' } },
+          });
         }
         return Promise.resolve({ data: quality(gameId) });
       },
     }),
   );
   try {
-    assert.match(document.body.textContent, /Ładowanie jakości modelu/);
-    await act(async () => t.mock.timers.tick(45_000));
-    assert.match(
-      document.querySelector('[role="alert"]').textContent,
-      /Odczyt trwa zbyt długo/,
-    );
+    assert.ok(document.querySelector('[role="alert"]'));
+    assert.ok(document.querySelector('[data-grid-control]'));
     assert.equal(firstSignal.aborted, true);
     const retry = [...document.querySelectorAll('button')].find(
       (b) => b.textContent === 'Spróbuj ponownie',
@@ -166,7 +313,6 @@ test('shows timeout and recovers on retry after a lost response', async (t) => {
     assert.equal(calls, 2);
   } finally {
     await unmount(root);
-    t.mock.timers.reset();
   }
 });
 
@@ -218,13 +364,11 @@ test('game change cancels old reads and ignores their late responses', async () 
   }
 });
 
-test('a pending-preview timeout keeps the loaded report visible and retryable', async (t) => {
-  t.mock.timers.enable({ apis: ['setTimeout'] });
+test('pending preview failure keeps quality and grid available', async () => {
   const root = await mount(
-    client({ previewPendingSymbolReinference: () => new Promise(() => {}) }),
+    client({ previewPendingSymbolReinference: async () => ({ error: {} }) }),
   );
   try {
-    await act(async () => t.mock.timers.tick(45_000));
     assert.match(document.body.textContent, /Pokrycie symboli/);
     assert.match(
       document.querySelector('[role="alert"]').textContent,
@@ -237,6 +381,5 @@ test('a pending-preview timeout keeps the loaded report visible and retryable', 
     );
   } finally {
     await unmount(root);
-    t.mock.timers.reset();
   }
 });

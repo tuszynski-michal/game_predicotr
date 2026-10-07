@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  ModelQualityOverviewResponse,
   ModelQualityResponse,
   PendingSymbolReinferencePreviewResponse,
   SymbolModelActivationAction,
@@ -18,6 +19,7 @@ import {
   freezeModelQualityCohort,
   confirmModelActivation,
   loadModelQuality,
+  prepareModelQualityCohort,
   previewModelActivation,
   previewPendingSymbolReinference as loadPendingSymbolReinference,
   startPendingSymbolReinference,
@@ -54,7 +56,7 @@ function shortChecksum(value: string): string {
   return `${value.slice(0, 12)}…${value.slice(-8)}`;
 }
 
-export function ModelQualityWorkspace({
+function SymbolQualityWorkspace({
   apiBaseUrl,
   client,
   gameId,
@@ -67,7 +69,11 @@ export function ModelQualityWorkspace({
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
   );
-  const [quality, setQuality] = useState<ModelQualityResponse | null>(null);
+  const [quality, setQuality] = useState<ModelQualityOverviewResponse | null>(
+    null,
+  );
+  const [preparedQuality, setPreparedQuality] =
+    useState<ModelQualityResponse | null>(null);
   const [preview, setPreview] =
     useState<VerifiedTrainingCohortPreviewResponse | null>(null);
   const [iterations, setIterations] = useState<
@@ -87,16 +93,23 @@ export function ModelQualityWorkspace({
   const [activating, setActivating] = useState(false);
   const [loading, setLoading] = useState(true);
   const [freezing, setFreezing] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const idempotencyKeyRef = useRef<string | null>(null);
   const activationIdempotencyKeyRef = useRef<string | null>(null);
   const refreshControllerRef = useRef<AbortController | null>(null);
+  const prepareControllerRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
       if (signal?.aborted) return;
+      prepareControllerRef.current?.abort();
+      setPreparing(false);
+      setConfirming(false);
+      setPreview(null);
+      setPreparedQuality(null);
       refreshControllerRef.current?.abort();
       const controller = new AbortController();
       refreshControllerRef.current = controller;
@@ -129,7 +142,6 @@ export function ModelQualityWorkspace({
         return;
       }
       setQuality(result.quality);
-      setPreview(result.preview);
       setIterations(result.iterations);
       setActivations(result.activations);
       setLoading(false);
@@ -151,11 +163,49 @@ export function ModelQualityWorkspace({
     return () => {
       controller.abort();
       refreshControllerRef.current?.abort();
+      prepareControllerRef.current?.abort();
     };
   }, [refresh]);
 
+  async function prepareCohort() {
+    if (preparing || quality === null || quality.activeHeavyJob) return;
+    prepareControllerRef.current?.abort();
+    const controller = new AbortController();
+    prepareControllerRef.current = controller;
+    setPreparing(true);
+    setError('');
+    setNotice('');
+    setPreview(null);
+    setPreparedQuality(null);
+    const result = await prepareModelQualityCohort(
+      api,
+      gameId,
+      controller.signal,
+    );
+    if (controller.signal.aborted) return;
+    setPreparing(false);
+    if (!result.ok) {
+      if (result.error !== 'REQUEST_ABORTED') setError(result.error);
+      return;
+    }
+    setPreparedQuality(result.quality);
+    setPreview(result.preview);
+    if (result.quality.canFreeze) setConfirming(true);
+    else
+      setNotice(
+        result.quality.activeHeavyJob
+          ? 'Inna ciężka operacja tej gry jest aktywna. Poczekaj na jej zakończenie.'
+          : 'Brak wycinków spełniających warunki treningu. Sprawdź wykluczenia poniżej.',
+      );
+  }
+
   async function confirmFreeze() {
-    if (preview === null || quality === null || freezing || !quality.canFreeze)
+    if (
+      preview === null ||
+      preparedQuality === null ||
+      freezing ||
+      !preparedQuality.canFreeze
+    )
       return;
     setFreezing(true);
     setError('');
@@ -261,7 +311,7 @@ export function ModelQualityWorkspace({
     );
   }
 
-  if (quality === null || preview === null) {
+  if (quality === null) {
     return (
       <section className="modelQualityWorkspace">
         <div className="modelQualityError" role="alert">
@@ -274,7 +324,6 @@ export function ModelQualityWorkspace({
             Spróbuj ponownie
           </button>
         </div>
-        <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
         <LabCandidateRegistryPanel
           apiBaseUrl={apiBaseUrl}
           gameId={gameId}
@@ -340,19 +389,22 @@ export function ModelQualityWorkspace({
             </code>
           </article>
           <article>
-            <span>Plansze reprezentowane w kohorcie</span>
+            <span>Plansze z zatwierdzonymi symbolami</span>
             <strong>
-              {quality.resolvedLayoutCount.toLocaleString('pl-PL')}
+              {quality.approvedLayoutCount.toLocaleString('pl-PL')}
             </strong>
             <small>
-              Nowe cropy od kohorty: {quality.newVerifiedLayoutCount}
+              Nowe próbki do treningu:{' '}
+              {preparedQuality?.newVerifiedLayoutCount ??
+                'po przygotowaniu danych'}
             </small>
           </article>
           <article>
             <span>Zdjęcia źródłowe</span>
             <strong>{quality.sourceImageCount.toLocaleString('pl-PL')}</strong>
             <small>
-              Próbki komórek: {quality.cellSampleCount.toLocaleString('pl-PL')}
+              Zatwierdzone symbole:{' '}
+              {quality.approvedCellCount.toLocaleString('pl-PL')}
             </small>
           </article>
           <article>
@@ -378,7 +430,8 @@ export function ModelQualityWorkspace({
             <header>
               <h3 id="symbol-coverage-title">Pokrycie symboli</h3>
               <p>
-                Pełna liczba ręcznie potwierdzonych cropów dla każdego symbolu.
+                Zapisane zatwierdzenia dla każdego symbolu. Dane do treningu są
+                sprawdzane po kliknięciu „Ulepsz rozpoznawanie”.
               </p>
             </header>
             {quality.symbolCoverage.length === 0 ? (
@@ -401,10 +454,14 @@ export function ModelQualityWorkspace({
           >
             <header>
               <h3 id="readiness-title">Gotowość iteracji</h3>
-              <p>Progi 100 i 1000 są wskazówką, nie automatyczną blokadą.</p>
+              <p>
+                Przygotowanie danych sprawdzi bieżące wycinki i pokaże próbki
+                wybrane do treningu. Liczba zatwierdzeń nie jest liczbą próbek
+                treningowych.
+              </p>
             </header>
             <ul className="modelQualityThresholds">
-              {quality.advisoryThresholds.map((threshold) => (
+              {(preparedQuality?.advisoryThresholds ?? []).map((threshold) => (
                 <li key={threshold.layoutCount}>
                   <span aria-hidden="true">
                     {threshold.reached ? '✓' : '○'}
@@ -418,44 +475,46 @@ export function ModelQualityWorkspace({
                 </li>
               ))}
             </ul>
-            <dl className="modelQualityDecisionCounts">
-              <div>
-                <dt>Oczekujące</dt>
-                <dd>{quality.pendingItemCount}</dd>
-              </div>
-              <div>
-                <dt>Odrzucone</dt>
-                <dd>{quality.rejectedItemCount}</dd>
-              </div>
-              <div>
-                <dt>Niekompletne</dt>
-                <dd>{quality.incompleteItemCount}</dd>
-              </div>
-              <div>
-                <dt>Chronione decyzje</dt>
-                <dd>{quality.protectedItemCount}</dd>
-              </div>
-              <div>
-                <dt>Wykluczone: nowy crop</dt>
-                <dd>{quality.trainingExclusions.changedCrop}</dd>
-              </div>
-              <div>
-                <dt>Wykluczone: nieczytelne</dt>
-                <dd>{quality.trainingExclusions.unreadable}</dd>
-              </div>
-              <div>
-                <dt>Wykluczone: zła siatka</dt>
-                <dd>{quality.trainingExclusions.gridIssue}</dd>
-              </div>
-              <div>
-                <dt>Wykluczone: ?</dt>
-                <dd>{quality.trainingExclusions.unknown}</dd>
-              </div>
-              <div>
-                <dt>Wykluczone: brak pliku</dt>
-                <dd>{quality.trainingExclusions.missingAsset}</dd>
-              </div>
-            </dl>
+            {preparedQuality !== null ? (
+              <dl className="modelQualityDecisionCounts">
+                <div>
+                  <dt>Oczekujące</dt>
+                  <dd>{preparedQuality.pendingItemCount}</dd>
+                </div>
+                <div>
+                  <dt>Odrzucone</dt>
+                  <dd>{preparedQuality.rejectedItemCount}</dd>
+                </div>
+                <div>
+                  <dt>Niekompletne</dt>
+                  <dd>{preparedQuality.incompleteItemCount}</dd>
+                </div>
+                <div>
+                  <dt>Chronione decyzje</dt>
+                  <dd>{preparedQuality.protectedItemCount}</dd>
+                </div>
+                <div>
+                  <dt>Wykluczone: nowy crop</dt>
+                  <dd>{preparedQuality.trainingExclusions.changedCrop}</dd>
+                </div>
+                <div>
+                  <dt>Wykluczone: nieczytelne</dt>
+                  <dd>{preparedQuality.trainingExclusions.unreadable}</dd>
+                </div>
+                <div>
+                  <dt>Wykluczone: zła siatka</dt>
+                  <dd>{preparedQuality.trainingExclusions.gridIssue}</dd>
+                </div>
+                <div>
+                  <dt>Wykluczone: ?</dt>
+                  <dd>{preparedQuality.trainingExclusions.unknown}</dd>
+                </div>
+                <div>
+                  <dt>Wykluczone: brak pliku</dt>
+                  <dd>{preparedQuality.trainingExclusions.missingAsset}</dd>
+                </div>
+              </dl>
+            ) : null}
           </section>
         </div>
 
@@ -655,14 +714,14 @@ export function ModelQualityWorkspace({
           onChanged={refresh}
         />
 
-        {quality.warnings.length > 0 ? (
+        {(preparedQuality?.warnings.length ?? 0) > 0 ? (
           <aside
             className="modelQualityWarnings"
             aria-label="Ostrzeżenia jakości"
           >
             <strong>Ostrzeżenia</strong>
             <ul>
-              {quality.warnings.map((warning) => (
+              {preparedQuality?.warnings.map((warning) => (
                 <li key={warning}>{warningLabel(warning)}</li>
               ))}
             </ul>
@@ -701,19 +760,25 @@ export function ModelQualityWorkspace({
           </div>
         ) : null}
 
-        {!confirming ? (
+        {preparing ? (
+          <p role="status">
+            Sprawdzanie wycinków do treningu… Możesz korzystać z sekcji siatki.
+          </p>
+        ) : null}
+        {!confirming || preview === null ? (
           <div className="buttonRow">
             <button
               className="primaryButton"
-              disabled={!quality.canFreeze || loading}
-              onClick={() => {
-                setError('');
-                setNotice('');
-                setConfirming(true);
-              }}
+              disabled={
+                quality.approvedCellCount === 0 ||
+                quality.activeHeavyJob ||
+                loading ||
+                preparing
+              }
+              onClick={() => void prepareCohort()}
               type="button"
             >
-              Ulepsz rozpoznawanie
+              {preparing ? 'Przygotowywanie danych…' : 'Ulepsz rozpoznawanie'}
             </button>
             <button
               className="secondaryButton"
@@ -803,7 +868,18 @@ export function ModelQualityWorkspace({
           </section>
         )}
       </section>
+    </section>
+  );
+}
 
+export function ModelQualityWorkspace(props: {
+  readonly apiBaseUrl: string;
+  readonly client?: ModelQualityClient;
+  readonly gameId: string;
+}) {
+  return (
+    <section className="modelQualityWorkspace">
+      <SymbolQualityWorkspace key={props.gameId} {...props} />
       <section
         className="modelQualityWorkflowGroup"
         aria-labelledby="grid-quality-workflow-title"
@@ -817,7 +893,11 @@ export function ModelQualityWorkspace({
             symboli. Zmiana tej sekcji nie aktywuje nowego klasyfikatora.
           </p>
         </header>
-        <GridQualityPanel apiBaseUrl={apiBaseUrl} gameId={gameId} />
+        <GridQualityPanel
+          key={props.gameId}
+          apiBaseUrl={props.apiBaseUrl}
+          gameId={props.gameId}
+        />
       </section>
     </section>
   );

@@ -9,6 +9,7 @@ import type {
   GridProfileActivationPreviewResponse,
   GridProfileActivationResponse,
   ModelQualityResponse,
+  ModelQualityOverviewResponse,
   JobResponse,
   PendingSymbolReinferencePreviewResponse,
   PendingGridReinferencePreviewResponse,
@@ -45,18 +46,12 @@ export type PendingSymbolReinferenceResult =
     }
   | { readonly error: string; readonly ok: false };
 
-const MODEL_QUALITY_READ_TIMEOUT_MS = 45_000;
-
-class ModelQualityReadTimeout extends Error {}
-
-async function boundedModelQualityRead<T>(
+async function cancellableModelQualityRead<T>(
   request: (signal: AbortSignal) => Promise<T>,
   signal: AbortSignal | undefined,
-  timeoutMs: number,
 ): Promise<T> {
   if (signal?.aborted) throw new DOMException('Request aborted', 'AbortError');
   const controller = new AbortController();
-  let timer: ReturnType<typeof setTimeout> | undefined;
   let abort: (() => void) | undefined;
   const interrupted = new Promise<never>((_resolve, reject) => {
     abort = () => {
@@ -64,24 +59,16 @@ async function boundedModelQualityRead<T>(
       controller.abort();
     };
     signal?.addEventListener('abort', abort, { once: true });
-    timer = setTimeout(() => {
-      reject(new ModelQualityReadTimeout());
-      controller.abort();
-    }, timeoutMs);
   });
   try {
     return await Promise.race([request(controller.signal), interrupted]);
   } finally {
-    clearTimeout(timer);
     if (abort) signal?.removeEventListener('abort', abort);
     controller.abort();
   }
 }
 
 function modelQualityReadError(error: unknown): string {
-  if (error instanceof ModelQualityReadTimeout) {
-    return 'Odczyt trwa zbyt długo. Spróbuj ponownie.';
-  }
   if (error instanceof DOMException && error.name === 'AbortError') {
     return 'REQUEST_ABORTED';
   }
@@ -92,14 +79,12 @@ export async function previewPendingSymbolReinference(
   api: ModelQualityClient,
   gameId: string,
   signal?: AbortSignal,
-  timeoutMs = MODEL_QUALITY_READ_TIMEOUT_MS,
 ): Promise<PendingSymbolReinferenceResult> {
   try {
-    const result = await boundedModelQualityRead(
+    const result = await cancellableModelQualityRead(
       (readSignal) =>
         api.previewPendingSymbolReinference(gameId, { signal: readSignal }),
       signal,
-      timeoutMs,
     );
     if (result.error !== undefined || result.data === undefined) {
       return {
@@ -407,8 +392,7 @@ export async function confirmGridActivation(
 export type ModelQualityLoadResult =
   | {
       readonly ok: true;
-      readonly preview: VerifiedTrainingCohortPreviewResponse;
-      readonly quality: ModelQualityResponse;
+      readonly quality: ModelQualityOverviewResponse;
       readonly iterations: readonly SymbolModelIterationResponse[];
       readonly activations: readonly SymbolModelActivationResponse[];
     }
@@ -440,14 +424,16 @@ export async function loadModelQuality(
   api: ModelQualityClient,
   gameId: string,
   signal?: AbortSignal,
-  timeoutMs = MODEL_QUALITY_READ_TIMEOUT_MS,
 ): Promise<ModelQualityLoadResult> {
   try {
     const [qualityResult, iterationResult, activationResult] =
-      await boundedModelQualityRead(
+      await cancellableModelQualityRead(
         (readSignal) =>
           Promise.all([
-            api.getModelQuality(gameId, { signal: readSignal }),
+            api.getModelQuality(gameId, {
+              view: 'overview',
+              signal: readSignal,
+            }),
             api.listSymbolModelIterations(gameId, {
               limit: 20,
               signal: readSignal,
@@ -458,7 +444,6 @@ export async function loadModelQuality(
             }),
           ]),
         signal,
-        timeoutMs,
       );
     if (
       qualityResult.error !== undefined ||
@@ -484,9 +469,14 @@ export async function loadModelQuality(
         ok: false,
       };
     }
+    if (!('approvedCellCount' in qualityResult.data)) {
+      return {
+        ok: false,
+        error: 'API nie obsługuje jeszcze szybkiego panelu jakości.',
+      };
+    }
     return {
       ok: true,
-      preview: modelQualityPreview(qualityResult.data),
       quality: qualityResult.data,
       iterations: iterationResult.data,
       activations: activationResult.data,
@@ -496,6 +486,51 @@ export async function loadModelQuality(
       error: modelQualityReadError(error),
       ok: false,
     };
+  }
+}
+
+export async function prepareModelQualityCohort(
+  api: ModelQualityClient,
+  gameId: string,
+  signal?: AbortSignal,
+): Promise<
+  | {
+      readonly ok: true;
+      readonly quality: ModelQualityResponse;
+      readonly preview: VerifiedTrainingCohortPreviewResponse;
+    }
+  | { readonly ok: false; readonly error: string }
+> {
+  try {
+    const result = await cancellableModelQualityRead(
+      (readSignal) => api.getModelQuality(gameId, { signal: readSignal }),
+      signal,
+    );
+    if (result.error !== undefined || result.data === undefined) {
+      return {
+        ok: false,
+        error: apiErrorMessage(
+          result.error,
+          'Nie udało się przygotować danych do treningu.',
+        ),
+      };
+    }
+    if (result.data.gameId !== gameId) {
+      return { ok: false, error: 'Odpowiedź API nie należy do wybranej gry.' };
+    }
+    if (!('manifestChecksumSha256' in result.data)) {
+      return {
+        ok: false,
+        error: 'API nie zwróciło sprawdzonego manifestu treningu.',
+      };
+    }
+    return {
+      ok: true,
+      quality: result.data,
+      preview: modelQualityPreview(result.data),
+    };
+  } catch (error) {
+    return { ok: false, error: modelQualityReadError(error) };
   }
 }
 

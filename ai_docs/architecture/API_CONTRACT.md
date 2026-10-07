@@ -3455,6 +3455,20 @@ wersji 0.2.
 
 ### GET `/api/v1/admin/games/{gameId}/model-quality`
 
+Opcjonalny `view=overview` (D-529, TASK-0899) zwraca osobny typ
+`ModelQualityOverviewResponse`: `view`, `gameId`, `approvedLayoutCount`,
+`approvedCellCount`, `sourceImageCount`, `symbolCoverage`, `latestCohort`
+i `activeHeavyJob`. Są to logiczne zatwierdzenia bieżących właścicieli plansz
+dla aktywnych realnych symboli, w tym etykiety, których piksele mogą zostać
+wykluczone przed treningiem. Agregacja SQL i pojedynczy rekord kohorty nie
+odczytują zdjęć, render spec ani zbioru kontrolnego. Odpowiedź nie zawiera
+checksumy manifestu, delty treningowej ani `canFreeze`.
+
+Domyślny `view=full` zachowuje poniższy dokładny kontrakt. Admin wybiera
+overview przy wejściu; full dopiero w akcji przygotowania treningu. Oba tryby
+są generowane z backendowego OpenAPI. Sekcja siatki nie zależy od odpowiedzi
+sekcji symboli, a odczyty zachowują anulowanie bez arbitralnego timeoutu UI.
+
 Zwraca aktywny model (albo jawne `null` przed wdrożeniem rejestru), wersję
 manifestu, liczby
 próbek wybranych do kohorty i próbki zmienione od ostatniej kohorty,

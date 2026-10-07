@@ -31,7 +31,9 @@ from game_predictor_api.domain.symbol_cell_training_cohorts import (
 )
 from game_predictor_api.domain.verified_training_cohorts import (
     CumulativeVerifiedTrainingSnapshot,
+    ModelQualityOverview,
     ModelQualitySummary,
+    SymbolApprovalSummary,
     SymbolCellTrainingExclusionCounts,
     VerifiedTrainingCohort,
     VerifiedTrainingCohortSnapshot,
@@ -69,6 +71,8 @@ class VerifiedTrainingCohortSourceRepository(Protocol):
 
 class VerifiedTrainingCohortRepository(Protocol):
     def get(self, *, cohort_id: UUID) -> VerifiedTrainingCohort | None: ...
+
+    def latest_metadata(self, *, game_id: UUID) -> VerifiedTrainingCohort | None: ...
 
     def latest_snapshot(
         self,
@@ -114,6 +118,8 @@ class SymbolCellTrainingSourceInventory:
 
 class SymbolCellTrainingSourceRepository(Protocol):
     def active_symbol_codes(self, game_id: UUID) -> Sequence[str]: ...
+
+    def approval_summary(self, *, game_id: UUID) -> SymbolApprovalSummary: ...
 
     def inventory(self, *, game_id: UUID, lock_game: bool) -> SymbolCellTrainingSourceInventory: ...
 
@@ -229,6 +235,20 @@ class VerifiedTrainingCohortService:
             source=source,
             active_symbol_codes=self._source_repository.active_symbol_codes(game_id),
             latest_snapshot=self._cohort_repository.latest_snapshot(game_id=game_id),
+            active_heavy_job=self._source_repository.has_active_heavy_job(game_id=game_id),
+        )
+
+    def model_quality_overview(self, *, game_id: UUID) -> ModelQualityOverview:
+        repository = self._symbol_cell_source_repository
+        if repository is None:
+            raise ImageReviewConflictError(
+                "MODEL_QUALITY_OVERVIEW_UNAVAILABLE",
+                "The symbol approval metadata repository is not configured.",
+            )
+        return ModelQualityOverview(
+            game_id=game_id,
+            approvals=repository.approval_summary(game_id=game_id),
+            latest_cohort=self._cohort_repository.latest_metadata(game_id=game_id),
             active_heavy_job=self._source_repository.has_active_heavy_job(game_id=game_id),
         )
 

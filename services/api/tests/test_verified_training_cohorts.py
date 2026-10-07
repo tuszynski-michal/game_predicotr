@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
+from unittest.mock import Mock
 from uuid import UUID, uuid4
 
 import pytest
@@ -26,6 +27,8 @@ from game_predictor_api.domain.image_reviews import (
 )
 from game_predictor_api.domain.verified_training_cohorts import (
     CumulativeVerifiedTrainingSnapshot,
+    SymbolApprovalSummary,
+    SymbolTrainingCoverage,
     VerifiedTrainingCohort,
     VerifiedTrainingCohortSnapshot,
     VerifiedTrainingCohortSource,
@@ -162,6 +165,13 @@ class MemoryCohortRepository(VerifiedTrainingCohortRepository):
     def __init__(self) -> None:
         self.values: list[tuple[VerifiedTrainingCohort, str, UUID]] = []
         self.item_checksums: dict[UUID, frozenset[str]] = {}
+
+    def latest_metadata(self, *, game_id: UUID) -> VerifiedTrainingCohort | None:
+        return max(
+            (cohort for cohort, _command, _key in self.values if cohort.game_id == game_id),
+            key=lambda cohort: cohort.iteration_number,
+            default=None,
+        )
 
     def latest_snapshot(
         self,
@@ -564,6 +574,60 @@ def test_verified_training_cohort_api_exposes_preview_and_freeze(tmp_path: Path)
     assert freeze.status_code == 200
     assert freeze.json()["created"] is True
     assert freeze.json()["cohort"]["iterationNumber"] == 1
+
+
+def test_overview_http_reads_metadata_without_preview_artifact_or_snapshot(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from fastapi import FastAPI
+    from game_predictor_api.api.verified_training_cohorts import (
+        create_verified_training_cohort_router,
+    )
+
+    _old, source, cohorts, game_id = _service(tmp_path)
+    symbols = Mock()
+    symbols.approval_summary.return_value = SymbolApprovalSummary(
+        approved_layout_count=2,
+        approved_cell_count=30,
+        source_image_count=2,
+        symbol_coverage=(SymbolTrainingCoverage("lemon", 30), SymbolTrainingCoverage("seven", 0)),
+    )
+    artifacts = VerifiedTrainingCohortArtifactStore(tmp_path)
+    service = VerifiedTrainingCohortService(source, cohorts, artifacts, symbols)
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("Overview must not prepare or read a training artifact.")
+
+    monkeypatch.setattr(service, "preview", forbidden)
+    monkeypatch.setattr(cohorts, "latest_snapshot", forbidden)
+    monkeypatch.setattr(artifacts, "write", forbidden)
+    monkeypatch.setattr(artifacts, "verify", forbidden)
+    symbols.inventory.side_effect = forbidden
+    app = FastAPI()
+    app.include_router(create_verified_training_cohort_router(lambda: service), prefix="/api/v1")
+    with TestClient(app) as client:
+        response = client.get(f"/api/v1/admin/games/{game_id}/model-quality?view=overview")
+        invalid = client.get(f"/api/v1/admin/games/{game_id}/model-quality?view=invalid")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "view": "overview",
+        "gameId": str(game_id),
+        "approvedLayoutCount": 2,
+        "approvedCellCount": 30,
+        "sourceImageCount": 2,
+        "symbolCoverage": [
+            {"symbolCode": "lemon", "sampleCount": 30},
+            {"symbolCode": "seven", "sampleCount": 0},
+        ],
+        "latestCohort": None,
+        "activeHeavyJob": False,
+    }
+    assert invalid.status_code == 422
+    assert source.read_snapshot_count == 0
+    assert source.lock_snapshot_count == 0
+    symbols.inventory.assert_not_called()
+    symbols.approval_summary.assert_called_once_with(game_id=game_id)
 
 
 def test_model_quality_reports_delta_symbols_thresholds_and_protected_items(

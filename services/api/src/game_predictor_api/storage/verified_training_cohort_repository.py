@@ -37,6 +37,15 @@ class SqlAlchemyVerifiedTrainingCohortRepository(VerifiedTrainingCohortRepositor
         record = self._session.get(VerifiedTrainingCohortModel, cohort_id)
         return None if record is None else _to_cohort(record)
 
+    def latest_metadata(self, *, game_id: UUID) -> VerifiedTrainingCohort | None:
+        record = self._session.scalar(
+            select(VerifiedTrainingCohortModel)
+            .where(VerifiedTrainingCohortModel.game_id == game_id)
+            .order_by(VerifiedTrainingCohortModel.iteration_number.desc())
+            .limit(1)
+        )
+        return None if record is None else _to_cohort(record)
+
     def find_by_idempotency(
         self,
         *,

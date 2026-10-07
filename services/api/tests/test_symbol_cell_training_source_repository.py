@@ -33,6 +33,55 @@ def _png_bytes(color: tuple[int, int, int]) -> bytes:
     return output.getvalue()
 
 
+def test_approval_overview_aggregates_current_owner_metadata_without_image_reads(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from game_predictor_api.storage import symbol_cell_training_source_repository as module
+
+    def forbidden(*_args: object, **_kwargs: object) -> None:
+        raise AssertionError("Metadata overview cannot read or attest image assets.")
+
+    monkeypatch.setattr(module, "load_protected_sources", forbidden)
+    monkeypatch.setattr(module, "_with_manifest_render_specs", forbidden)
+    monkeypatch.setattr(module, "VirtualSymbolCellImageRenderer", forbidden)
+    session = Mock()
+    game_id = uuid4()
+    session.scalar.return_value = game_id
+    session.scalars.return_value.all.return_value = ["cherry", "lemon", "?"]
+    session.execute.return_value.mappings.return_value = [
+        {"symbol_code": "cherry", "cell_count": 20, "layout_count": 5, "source_count": 2},
+        {"symbol_code": None, "cell_count": 20, "layout_count": 5, "source_count": 2},
+    ]
+    repository = SqlAlchemySymbolCellTrainingSourceRepository(session, tmp_path)
+    result = repository.approval_summary(game_id=game_id)
+    assert result.approved_cell_count == 20
+    assert result.approved_layout_count == 5
+    assert result.source_image_count == 2
+    assert [(item.symbol_code, item.sample_count) for item in result.symbol_coverage] == [
+        ("cherry", 20),
+        ("lemon", 0),
+    ]
+    query, bindings = session.execute.call_args.args
+    assert bindings == {"game_id": game_id}
+    sql = str(query)
+    assert "d.review_item_id = c.review_item_id" in sql
+    assert "s.game_id = c.game_id" in sql
+    assert "c.review_state = 'approved'" in sql
+    assert "s.status = 'active'" in sql
+    assert "render_spec" not in sql
+    assert "source_rank" not in sql
+
+
+def test_approval_overview_missing_game_does_not_query_cells(tmp_path: Path) -> None:
+    session = Mock()
+    session.scalar.return_value = None
+    repository = SqlAlchemySymbolCellTrainingSourceRepository(session, tmp_path)
+    with pytest.raises(ImageReviewConflictError) as error:
+        repository.approval_summary(game_id=uuid4())
+    assert error.value.code == "VERIFIED_TRAINING_COHORT_GAME_NOT_FOUND"
+    session.execute.assert_not_called()
+
+
 def test_visual_descriptor_is_deterministic_and_color_sensitive() -> None:
     red = _png_bytes((200, 10, 10))
     blue = _png_bytes((10, 10, 200))

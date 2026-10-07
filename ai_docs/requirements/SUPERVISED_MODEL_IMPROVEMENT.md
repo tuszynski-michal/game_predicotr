@@ -257,12 +257,24 @@ decyzji i nowego niezmiennego raportu.
 
 ## Panel jakości rozpoznawania
 
-Odczyt zachowuje dokładny, deterministyczny preview kohorty. Przygotowanie
-nie powtarza dekodowania tego samego źródła dla każdej komórki i nie wymaga
-rozgrzanego cache procesu. Niezależny licznik ponownej inferencji nie blokuje
-raportu jakości. Po 45 sekundach bez odpowiedzi Admin pokazuje błąd i możliwość
-ponowienia; przejście do innej gry lub zamknięcie panelu anuluje odczyty i
-ignoruje ich spóźnione wyniki. Ten odczyt nie rozpoczyna treningu.
+Wejście do panelu odczytuje wyłącznie metadane zatwierdzeń bieżących
+właścicieli plansz dla aktywnych symboli oraz rejestr modeli (D-529).
+Liczba zatwierdzeń jest prawdą logiczną, nie deklaracją liczby próbek
+kwalifikujących się do treningu. Panel nie odczytuje zdjęć ani nie przygotowuje
+kohorty przy otwieraniu lub odświeżaniu. Sekcja siatki jest dostępna niezależnie
+od ładowania i błędów sekcji symboli oraz przygotowania treningu.
+
+„Ulepsz rozpoznawanie” przygotowuje dokładny, deterministyczny preview kohorty,
+pokazuje wybrane próbki, przyrost, wykluczenia i checksumę, a następnie wymaga
+potwierdzenia manifestu. Bez poprawnego preview nie ma zamrożenia ani treningu.
+Kontrola bieżących pikseli i źródeł chronionych pozostaje obowiązkowa przed
+treningiem. Przygotowanie nie powtarza dekodowania tego samego źródła dla każdej
+komórki i nie wymaga rozgrzanego cache procesu.
+
+Niezależny licznik ponownej inferencji nie blokuje raportu jakości. Odczyty UI
+nie mają arbitralnego 45-sekundowego timeoutu. Błąd połączenia pozwala ponowić
+odczyt; zmiana gry lub zamknięcie panelu anuluje odczyty i ignoruje spóźnione
+wyniki. Sam odczyt i preview nie rozpoczynają treningu.
 
 Panel Admina dla aktywnej gry pokazuje co najmniej:
 

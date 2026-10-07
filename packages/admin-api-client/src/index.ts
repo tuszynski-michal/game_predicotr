@@ -1,4 +1,6 @@
 import { createClient as createGeneratedClient } from './generated/client';
+import type { GetModelQualityData } from './generated/types.gen';
+export type { ModelQualityOverviewResponse } from './generated/types.gen';
 export type {
   SourceLatticePoint,
   NeuralDetectionPayload,
@@ -2372,11 +2374,17 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       }),
     getModelQuality: (
       gameId: string,
-      options: { readonly signal?: AbortSignal } = {},
+      options: {
+        readonly signal?: AbortSignal;
+        readonly view?: NonNullable<GetModelQualityData['query']>['view'];
+      } = {},
     ) =>
       getGeneratedModelQuality({
         client,
         path: { game_id: gameId },
+        ...(options.view === undefined
+          ? {}
+          : { query: { view: options.view } }),
         ...(options.signal === undefined ? {} : { signal: options.signal }),
       }),
     previewVerifiedTrainingCohort: (

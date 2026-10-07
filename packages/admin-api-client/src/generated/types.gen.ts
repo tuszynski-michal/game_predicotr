@@ -9575,6 +9575,41 @@ export type ModelQualityAdvisoryThresholdResponse = {
 };
 
 /**
+ * ModelQualityOverviewResponse
+ */
+export type ModelQualityOverviewResponse = {
+  /**
+   * Activeheavyjob
+   */
+  activeHeavyJob: boolean;
+  /**
+   * Approvedcellcount
+   */
+  approvedCellCount: number;
+  /**
+   * Approvedlayoutcount
+   */
+  approvedLayoutCount: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  latestCohort: VerifiedTrainingCohortResponse | null;
+  /**
+   * Sourceimagecount
+   */
+  sourceImageCount: number;
+  /**
+   * Symbolcoverage
+   */
+  symbolCoverage: Array<SymbolTrainingCoverageResponse>;
+  /**
+   * View
+   */
+  view?: 'overview';
+};
+
+/**
  * ModelQualityResponse
  */
 export type ModelQualityResponse = {
@@ -19623,7 +19658,14 @@ export type GetModelQualityData = {
      */
     game_id: string;
   };
-  query?: never;
+  query?: {
+    /**
+     * View
+     *
+     * overview reads approval metadata only; full attests the exact cohort
+     */
+    view?: 'full' | 'overview';
+  };
   url: '/api/v1/admin/games/{game_id}/model-quality';
 };
 
@@ -19647,9 +19689,11 @@ export type GetModelQualityError =
 
 export type GetModelQualityResponses = {
   /**
+   * Response Getmodelquality
+   *
    * Successful Response
    */
-  200: ModelQualityResponse;
+  200: ModelQualityResponse | ModelQualityOverviewResponse;
 };
 
 export type GetModelQualityResponse =

@@ -3,12 +3,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from pydantic import Field
 
 from game_predictor_api.domain.verified_training_cohorts import (
+    ModelQualityOverview,
     ModelQualitySummary,
     SymbolCellTrainingExclusionCounts,
     VerifiedTrainingCohort,
@@ -85,6 +86,17 @@ class VerifiedTrainingCohortFreezeResponse(ApiModel):
     created: bool
 
 
+class ModelQualityOverviewResponse(ApiModel):
+    view: Literal["overview"] = "overview"
+    game_id: UUID
+    approved_layout_count: int = Field(ge=0)
+    approved_cell_count: int = Field(ge=0)
+    source_image_count: int = Field(ge=0)
+    symbol_coverage: list[SymbolTrainingCoverageResponse]
+    latest_cohort: VerifiedTrainingCohortResponse | None
+    active_heavy_job: bool
+
+
 class ModelQualityResponse(ApiModel):
     game_id: UUID
     active_model: ActiveSymbolModelResponse | None
@@ -137,6 +149,27 @@ def to_preview_response(
         ),
         warnings=list(value.warnings),
         training_exclusions=_training_exclusions(value.training_exclusions),
+    )
+
+
+def to_model_quality_overview_response(
+    value: ModelQualityOverview,
+) -> ModelQualityOverviewResponse:
+    return ModelQualityOverviewResponse(
+        game_id=value.game_id,
+        approved_layout_count=value.approvals.approved_layout_count,
+        approved_cell_count=value.approvals.approved_cell_count,
+        source_image_count=value.approvals.source_image_count,
+        symbol_coverage=[
+            SymbolTrainingCoverageResponse(
+                symbol_code=coverage.symbol_code, sample_count=coverage.sample_count
+            )
+            for coverage in value.approvals.symbol_coverage
+        ],
+        latest_cohort=(
+            None if value.latest_cohort is None else to_cohort_response(value.latest_cohort)
+        ),
+        active_heavy_job=value.active_heavy_job,
     )
 
 

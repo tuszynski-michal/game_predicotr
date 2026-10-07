@@ -197,8 +197,20 @@ pierwotnej kolejności SQL przed deterministyczną selekcją. Odczyt manifestów
 renderu może poprzedzać attestation, ale render komórki następuje wyłącznie
 po przejściu bramki źródła. Zamrożenie i nowy proces nie polegają na cache
 deskryptorów; nie zapisujemy nowych bitmap na dysku. API i manifest pozostają
-identyczne. Admin nie czeka na niezależny licznik reinferencji i kończy odczyt
-po 45 sekundach błędem z retry; zmiana gry/unmount anuluje wcześniejsze odczyty.
+identyczne. Admin nie czeka na niezależny licznik reinferencji; zmiana
+gry/unmount anuluje wcześniejsze odczyty.
+
+D-529 / TASK-0899 rozdziela panel od przygotowania datasetu. Istniejący GET
+model-quality z `view=overview` wykonuje agregację SQL logicznych zatwierdzeń
+bieżącego właściciela sekwencji dla aktywnych symboli oraz lekki odczyt
+metadanych ostatniej kohorty. Nie czyta oryginałów, render spec, chronionych
+fotografii ani checksum wszystkich próbek poprzedniej kohorty. Osobny typ
+odpowiedzi nie udaje kwalifikacji treningowej ani nie wystawia checksumy
+lub `canFreeze`. Domyślny full pozostaje dokładnym raportem przygotowywanym
+przy „Ulepsz rozpoznawanie”; dopiero jego wynik otwiera potwierdzenie freeze.
+Odczyty UI zachowują AbortSignal i ochronę przed spóźnioną odpowiedzią bez
+arbitralnego timeoutu. Osobny komponent siatki montuje się niezależnie od
+loading/error/preparation symboli i nie traci stanu po zakończeniu odczytu.
 
 Read-only preview nie blokuje gry ani pozycji review. Dla wszystkich pozycji
 czyta lekką projekcję stanu potrzebną do deterministycznego manifestu, natomiast

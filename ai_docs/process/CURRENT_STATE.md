@@ -1,10 +1,34 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-06
+last_updated: 2026-10-07
 ---
 
 # Current State
+
+### TASK-0899 — fast quality overview and independent grid (done)
+
+- User rejected the 45-second timeout. Page entry now requests SQL-only
+  current-owner logical approvals; exact cohort preparation is explicit at
+  training intent. Counts do not claim pixel attestation/training eligibility.
+  Grid controls mount independently of symbol loading/errors/preparation.
+- D-529; plan MODEL_QUALITY_OVERVIEW_FIX_PLAN_20261007.md. Fresh-process
+  read-only HTTP overview: 200 in 0.922 s, 29201 logical approvals across
+  6146 boards / 1384 sources. No image reads or production writes.
+- Exact preview runs only at explicit training intent and retains checksum,
+  source protection and freeze guards. UI has cancellation and no arbitrary
+  45-second timeout. OpenAPI and generated-client contracts agree.
+- Python 64/64, Admin helpers/contracts 17/17, rendered interactions 8/8 and
+  client 76/76 PASS; scoped lint/format/types and API/client drift PASS.
+  Isolated Admin build PASS in 31.7 s; live build directory untouched.
+- Existing API reload serves overview: HTTP 200 in 0.937 s; generated-client
+  metadata reads below 0.5 s each. No manual restart/deployment was performed.
+  Test browser showed independent grid but network failures also affected game
+  catalog/RSC; complete live UI walkthrough is unconfirmed. Rendered grid-state
+  preservation, errors, cancellation and training confirmation tests PASS.
+- No production mutation, migration, training, activation, cleanup, push or merge.
+  Evidence: artifacts/model-quality-overview-20261007/verification.json.
+- Completion v1.7.242; full commit hash recorded after commit.
 
 ### TASK-0898 — bounded model-quality loading (done)
 

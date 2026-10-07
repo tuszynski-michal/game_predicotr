@@ -1,21 +1,23 @@
 """Admin API for previewing and freezing cumulative training cohorts."""
 
 from collections.abc import Callable
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 
 from game_predictor_api.application.verified_training_cohorts import (
     VerifiedTrainingCohortService,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
 from game_predictor_api.schemas.verified_training_cohorts import (
+    ModelQualityOverviewResponse,
     ModelQualityResponse,
     VerifiedTrainingCohortFreezeCommand,
     VerifiedTrainingCohortFreezeResponse,
     VerifiedTrainingCohortPreviewResponse,
     to_cohort_response,
+    to_model_quality_overview_response,
     to_model_quality_response,
     to_preview_response,
 )
@@ -39,7 +41,7 @@ def create_verified_training_cohort_router(
 
     @router.get(
         "/model-quality",
-        response_model=ModelQualityResponse,
+        response_model=ModelQualityResponse | ModelQualityOverviewResponse,
         operation_id="getModelQuality",
         summary="Read model and verified-data readiness for one game",
         responses=ERROR_RESPONSES,
@@ -47,7 +49,17 @@ def create_verified_training_cohort_router(
     def get_model_quality(
         game_id: UUID,
         service: Annotated[VerifiedTrainingCohortService, service_parameter],
-    ) -> ModelQualityResponse:
+        view: Annotated[
+            Literal["full", "overview"],
+            Query(
+                description="overview reads approval metadata only; full attests the exact cohort"
+            ),
+        ] = "full",
+    ) -> ModelQualityResponse | ModelQualityOverviewResponse:
+        if view == "overview":
+            return to_model_quality_overview_response(
+                service.model_quality_overview(game_id=game_id)
+            )
         return to_model_quality_response(service.model_quality(game_id=game_id))
 
     @router.get(

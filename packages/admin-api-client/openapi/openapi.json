@@ -17038,6 +17038,69 @@
         "title": "ModelQualityAdvisoryThresholdResponse",
         "type": "object"
       },
+      "ModelQualityOverviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "activeHeavyJob": {
+            "title": "Activeheavyjob",
+            "type": "boolean"
+          },
+          "approvedCellCount": {
+            "minimum": 0.0,
+            "title": "Approvedcellcount",
+            "type": "integer"
+          },
+          "approvedLayoutCount": {
+            "minimum": 0.0,
+            "title": "Approvedlayoutcount",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "latestCohort": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerifiedTrainingCohortResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "sourceImageCount": {
+            "minimum": 0.0,
+            "title": "Sourceimagecount",
+            "type": "integer"
+          },
+          "symbolCoverage": {
+            "items": {
+              "$ref": "#/components/schemas/SymbolTrainingCoverageResponse"
+            },
+            "title": "Symbolcoverage",
+            "type": "array"
+          },
+          "view": {
+            "const": "overview",
+            "default": "overview",
+            "title": "View",
+            "type": "string"
+          }
+        },
+        "required": [
+          "gameId",
+          "approvedLayoutCount",
+          "approvedCellCount",
+          "sourceImageCount",
+          "symbolCoverage",
+          "latestCohort",
+          "activeHeavyJob"
+        ],
+        "title": "ModelQualityOverviewResponse",
+        "type": "object"
+      },
       "ModelQualityResponse": {
         "additionalProperties": false,
         "properties": {
@@ -35106,6 +35169,22 @@
               "title": "Game Id",
               "type": "string"
             }
+          },
+          {
+            "description": "overview reads approval metadata only; full attests the exact cohort",
+            "in": "query",
+            "name": "view",
+            "required": false,
+            "schema": {
+              "default": "full",
+              "description": "overview reads approval metadata only; full attests the exact cohort",
+              "enum": [
+                "full",
+                "overview"
+              ],
+              "title": "View",
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -35113,7 +35192,15 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ModelQualityResponse"
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ModelQualityResponse"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ModelQualityOverviewResponse"
+                    }
+                  ],
+                  "title": "Response Getmodelquality"
                 }
               }
             },

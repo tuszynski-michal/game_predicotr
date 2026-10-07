@@ -48,7 +48,9 @@ from game_predictor_api.domain.symbol_cell_training_cohorts import (
     ApprovedSymbolCellCandidate,
 )
 from game_predictor_api.domain.verified_training_cohorts import (
+    SymbolApprovalSummary,
     SymbolCellTrainingExclusionCounts,
+    SymbolTrainingCoverage,
 )
 from game_predictor_api.storage.cell_render_specs import (
     CellRenderSpecKey,
@@ -76,6 +78,50 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 )
                 .order_by(SymbolModel.display_order, SymbolModel.code)
             ).all()
+        )
+
+    def approval_summary(self, *, game_id: UUID) -> SymbolApprovalSummary:
+        if self._session.scalar(select(GameModel.id).where(GameModel.id == game_id)) is None:
+            raise ImageReviewConflictError(
+                "VERIFIED_TRAINING_COHORT_GAME_NOT_FOUND",
+                "The selected training cohort game does not exist.",
+            )
+        # Logical labels only: recropped, unavailable or protected pixels can
+        # contribute here and are independently excluded by exact preview.
+        rows = tuple(
+            self._session.execute(
+                text("""
+                SELECT s.code AS symbol_code, count(*) AS cell_count,
+                       count(DISTINCT c.recognized_board_id) AS layout_count,
+                       count(DISTINCT rb.source_image_id) AS source_count
+                FROM image_symbol_review_cells c
+                JOIN symbols s ON s.id = c.assigned_symbol_id AND s.game_id = c.game_id
+                JOIN recognized_boards rb ON rb.id = c.recognized_board_id
+                JOIN image_board_search_fast_documents d
+                  ON d.game_id = c.game_id AND d.sequence_number = c.sequence_number
+                 AND d.review_item_id = c.review_item_id
+                WHERE c.game_id = :game_id AND c.review_state = 'approved'
+                  AND s.status = 'active' AND s.code <> '?'
+                GROUP BY GROUPING SETS ((s.code), ())
+                """),
+                {"game_id": game_id},
+            ).mappings()
+        )
+        total = next(row for row in rows if row["symbol_code"] is None)
+        coverage = {
+            str(row["symbol_code"]): int(row["cell_count"])
+            for row in rows
+            if row["symbol_code"] is not None
+        }
+        return SymbolApprovalSummary(
+            approved_layout_count=int(total["layout_count"]),
+            approved_cell_count=int(total["cell_count"]),
+            source_image_count=int(total["source_count"]),
+            symbol_coverage=tuple(
+                SymbolTrainingCoverage(code, coverage.get(code, 0))
+                for code in self.active_symbol_codes(game_id)
+                if code != "?"
+            ),
         )
 
     def inventory(self, *, game_id: UUID, lock_game: bool) -> SymbolCellTrainingSourceInventory:

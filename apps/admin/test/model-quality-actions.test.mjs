@@ -8,6 +8,7 @@ import {
   confirmModelActivation,
   freezeModelQualityCohort,
   loadModelQuality,
+  prepareModelQualityCohort,
   previewPendingSymbolReinference,
   loadGridQuality,
   previewGridActivation,
@@ -69,13 +70,25 @@ const preview = {
   warnings: [],
 };
 
-test('loads one summary and derives its checksum-bound preview without a duplicate request', async () => {
+const overview = {
+  view: 'overview',
+  gameId,
+  activeHeavyJob: false,
+  latestCohort: null,
+  approvedCellCount: 1500,
+  approvedLayoutCount: 100,
+  sourceImageCount: 12,
+  symbolCoverage: quality.symbolCoverage,
+};
+
+test('loads only SQL overview on entry without preparing a training cohort', async () => {
   let previewCalls = 0;
   const result = await loadModelQuality(
     {
-      getModelQuality: async (requestedGameId) => {
+      getModelQuality: async (requestedGameId, options) => {
         assert.equal(requestedGameId, gameId);
-        return { data: quality };
+        assert.equal(options.view, 'overview');
+        return { data: overview };
       },
       previewVerifiedTrainingCohort: async (requestedGameId) => {
         assert.equal(requestedGameId, gameId);
@@ -95,20 +108,20 @@ test('loads one summary and derives its checksum-bound preview without a duplica
   );
 
   assert.equal(result.ok, true);
-  assert.equal(result.quality.newVerifiedLayoutCount, 100);
-  assert.equal(result.preview.manifestChecksumSha256, checksum);
+  assert.equal(result.quality.approvedCellCount, 1500);
+  assert.equal(result.preview, undefined);
   assert.deepEqual(result.iterations, []);
   assert.deepEqual(result.activations, []);
   assert.equal(previewCalls, 0);
 });
 
-test('does not start the heavy grid panel while the primary quality request is loading', () => {
-  const loadingBranch = workspaceSource.slice(
-    workspaceSource.indexOf('if (loading && quality === null)'),
-    workspaceSource.indexOf('if (quality === null || preview === null)'),
+test('mounts grid independently from conditional symbol loading', () => {
+  const workspace = workspaceSource.slice(
+    workspaceSource.indexOf('export function ModelQualityWorkspace'),
   );
-
-  assert.doesNotMatch(loadingBranch, /GridQualityPanel/);
+  assert.match(workspace, /SymbolQualityWorkspace/);
+  assert.match(workspace, /GridQualityPanel/);
+  assert.doesNotMatch(workspace, /if \(loading/);
 });
 
 test('rejects a response from another game', async () => {
@@ -127,26 +140,24 @@ test('rejects a response from another game', async () => {
   });
 });
 
-test('bounds a lost quality response and aborts all outstanding reads', async () => {
+test('does not create an artificial timeout for a pending overview', async () => {
+  const controller = new AbortController();
   const signals = [];
   const lost = (_game, { signal }) => {
     signals.push(signal);
     return new Promise(() => {});
   };
-  const result = await loadModelQuality(
+  const reading = loadModelQuality(
     {
       getModelQuality: lost,
       listSymbolModelIterations: lost,
       listSymbolModelActivations: lost,
     },
     gameId,
-    undefined,
-    10,
+    controller.signal,
   );
-  assert.deepEqual(result, {
-    ok: false,
-    error: 'Odczyt trwa zbyt długo. Spróbuj ponownie.',
-  });
+  controller.abort();
+  assert.deepEqual(await reading, { ok: false, error: 'REQUEST_ABORTED' });
   assert.equal(signals.length, 3);
   assert.ok(signals.every((signal) => signal.aborted));
 });
@@ -171,7 +182,8 @@ test('cancels a hanging request without waiting for its network response', async
   assert.equal(childSignal.aborted, true);
 });
 
-test('bounds and validates pending preview separately', async () => {
+test('cancels and validates pending preview separately', async () => {
+  const controller = new AbortController();
   let signal;
   const api = {
     previewPendingSymbolReinference: (_game, options) => {
@@ -179,13 +191,13 @@ test('bounds and validates pending preview separately', async () => {
       return new Promise(() => {});
     },
   };
-  assert.deepEqual(
-    await previewPendingSymbolReinference(api, gameId, undefined, 10),
-    {
-      ok: false,
-      error: 'Odczyt trwa zbyt długo. Spróbuj ponownie.',
-    },
+  const reading = previewPendingSymbolReinference(
+    api,
+    gameId,
+    controller.signal,
   );
+  controller.abort();
+  assert.deepEqual(await reading, { ok: false, error: 'REQUEST_ABORTED' });
   assert.equal(signal.aborted, true);
   assert.deepEqual(
     await previewPendingSymbolReinference(
@@ -198,6 +210,49 @@ test('bounds and validates pending preview separately', async () => {
     ),
     { ok: false, error: 'Odpowiedź API nie należy do wybranej gry.' },
   );
+});
+
+test('explicit preparation derives a checksum-bound preview from the unchanged full report', async () => {
+  let calls = 0;
+  const result = await prepareModelQualityCohort(
+    {
+      getModelQuality: async (id, options) => {
+        calls++;
+        assert.equal(id, gameId);
+        assert.equal(options.view, undefined);
+        return { data: quality };
+      },
+    },
+    gameId,
+  );
+  assert.equal(calls, 1);
+  assert.equal(result.ok, true);
+  assert.equal(result.preview.manifestChecksumSha256, checksum);
+  assert.equal(result.quality.newVerifiedLayoutCount, 100);
+});
+
+test('overview cannot masquerade as an attested training preview', async () => {
+  const result = await prepareModelQualityCohort(
+    {
+      getModelQuality: async () => ({ data: overview }),
+    },
+    gameId,
+  );
+  assert.equal(result.ok, false);
+  assert.match(result.error, /sprawdzonego manifestu/);
+});
+
+test('explicit preparation rejects the full report of a different game', async () => {
+  const result = await prepareModelQualityCohort(
+    {
+      getModelQuality: async () => ({ data: { ...quality, gameId: 'other' } }),
+    },
+    gameId,
+  );
+  assert.deepEqual(result, {
+    ok: false,
+    error: 'Odpowiedź API nie należy do wybranej gry.',
+  });
 });
 
 test('previews and activates an exact checksum-bound model candidate', async () => {

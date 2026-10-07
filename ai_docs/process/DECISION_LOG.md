@@ -6,6 +6,24 @@ last_updated: 2026-10-07
 
 # Decision Log
 
+## D-529 — metadata overview precedes exact training cohort preparation
+
+- **Status:** accepted root fix requested by the user, 2026-10-07, TASK-0899.
+- **Decision:** page entry reads current-owner logical symbol approvals and
+  registry metadata through the existing model-quality endpoint with
+  view=overview. It does not render images, attest protected sources or build
+  a dataset. These counts are explicitly not training-eligible sample counts.
+- **Exact workflow:** Ulepsz rozpoznawanie explicitly prepares the unchanged
+  full checksum-bound report. Only its successful preview can open freeze/
+  training confirmation. Freeze still revalidates pixels, revisions, current
+  owner and protected sources. No eligibility or manifest rules are relaxed.
+- **Independence:** grid controls mount independently of symbol reads, errors
+  and training preparation. Changing game/unmount cancels outstanding reads.
+  Remove the arbitrary 45-second UI timeout introduced in TASK-0898; genuine
+  connection errors remain retryable and do not gate geometry.
+- **Boundary:** compatible API query/response extension, generated client and
+  UI only; no schema migration, production mutation, training or activation.
+
 ## D-528 — one explicit save-and-approve action in symbol verification
 
 - **Status:** accepted user request, 2026-10-07, TASK-0894.

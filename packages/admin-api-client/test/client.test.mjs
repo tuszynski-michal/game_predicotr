@@ -331,6 +331,29 @@ test('generated client reads model quality and freezes the confirmed manifest', 
   );
 });
 
+test('model quality overview is an explicit compatible query on the existing endpoint', async () => {
+  let captured;
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      captured = request;
+      return Response.json({ view: 'overview', approvedCellCount: 30 });
+    },
+  });
+  const controller = new AbortController();
+  const result = await client.getModelQuality('game-1', {
+    view: 'overview',
+    signal: controller.signal,
+  });
+  assert.equal(
+    new URL(captured.url).pathname,
+    '/api/v1/admin/games/game-1/model-quality',
+  );
+  assert.equal(new URL(captured.url).searchParams.get('view'), 'overview');
+  assert.equal(result.data.approvedCellCount, 30);
+  assert.equal(captured.method, 'GET');
+});
+
 test('generated client creates a scoped durable symbol training job', async () => {
   let captured;
   const gameId = '11111111-1111-4111-8111-111111111111';

@@ -6,6 +6,24 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0910 — audited import report performance plan (done)
+
+- Proposed plan: IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md. Eight dependent
+  tasks cover immutable source/geometry indexes, single-request validation,
+  range-bound canonical/job queries, game-scoped staging catalog, local
+  cross-process source locking, fast API/Admin views and acceptance/rollout.
+- Explicit user authorization for gpt-6-astra / high audit. Seven P1/P2 design
+  findings were incorporated; final independent review has no open P0–P2.
+  Review: IMPORT_REPORT_PERFORMANCE_ASTRA_REVIEW_20261007.md.
+- Existing file-only audit measured 19.870 s manifest validation and 3.606 s
+  source hashing. The proposed 2 s overview / 5 s canonical targets are not
+  measured HTTP/SQL results. Live SQL/HTTP and restart/race tests remain gates.
+- Plan is proposed for independent Claude Code review and user acceptance;
+  model assignments do not authorize implementation. No product code, data,
+  migration, service restart, training, cleanup, activation, push or merge.
+- Documentation path checks: 38 valid links; eight tasks/eight model rows.
+  Completion version v1.7.245; hash recorded after the documentation commit.
+
 ### TASK-0902 — read-only owner lookup during unrelated maintenance (done)
 
 - The exact Mumie staging and completed preflight belong exclusively to Mumie.

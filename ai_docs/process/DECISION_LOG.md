@@ -30,6 +30,11 @@ last_updated: 2026-10-07
   required. No new Redis/accounts/hosting/synchronization, automatic service
   lifecycle, production data manipulation, push or deployment. User controls
   API/Admin and rollout. See requirements/architecture/MANAGEMENT_PANEL.md.
+- **T2 transaction clarification:** mutation/receipt locks use READ COMMITTED;
+  a bounded read-only REPEATABLE READ application-role game session captures
+  coherent rows/rules/start symbols. Numeric snapshots represent that read
+  instant; result/slot/receipt/audit commit together in the primary transaction.
+  This preserves concurrent exact retries without privileged database reads.
 
 ## D-534 — Image import resumption uses the hard reserve, not the GC target
 

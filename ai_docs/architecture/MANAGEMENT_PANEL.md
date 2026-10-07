@@ -15,8 +15,9 @@ New domain/application/repository modules own points/machines/assignments and
 machine/game/stake saves. New shared public metadata tables use stable UUIDs,
 additive Alembic migrations, preserved history and no image blobs. Existing game
 registry/routing remains authoritative for eligibility/read/write availability.
-Mutations validate ancestry and live eligibility under transactional locks; only
-new saves require active attachment. Archived/detached history remains readable.
+Mutations validate ancestry and live eligibility under transactional locks.
+Save, clear, refresh and current game operations require active attachment.
+Archived/detached saved history remains readable without current game operations.
 
 Immutable compact result versions include numeric payout rows, start symbols,
 published rules and data fingerprint; identical semantic results are shared.
@@ -83,3 +84,25 @@ The Admin tab uses generated contracts and persists an uncertain command in
 per-tab session storage. Reload retries the same UUID/body; an ambiguous server
 or transport failure does not discard its identity. Definite validation/conflict
 responses require refreshed data before a new operation.
+
+## T2 transaction boundaries
+
+Mutations use READ COMMITTED so an operation waiting on the UUID advisory lock
+can observe the preceding committed receipt. A separate bounded, read-only
+REPEATABLE READ `GameStorageSession`, using the same application engine/role,
+captures numeric rows, published rules and start symbols from one coherent read
+instant. It does not write or use owner privileges. Eligibility, slot revision,
+result version, receipt and journal remain protected by the primary mutation
+transaction. Later recalculation can detect data committed after that instant.
+Immediate symbol corrections and their before/after audit share the primary
+transaction; recalculation follows their commit.
+
+Migration `0149_management_stake_saves` adds slots, immutable result versions and
+search contexts, and extends the journal with game/stake/result references.
+Compact card summaries contain at most256 chart points plus exact pin values
+and the published spin cost. Full payout rows are loaded only through an opened
+result. Restoring the exact current slot/context/start under CAS permits range/
+pin changes by another authorized actor without repeating top-hit selection.
+History routes bypass implicit current-game routing; current game adapters bind
+their read/write game scope explicitly. The public T5 adapter must additionally
+sanitize search responses and install commit-bound capability revalidation.

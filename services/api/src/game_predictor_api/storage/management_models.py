@@ -78,6 +78,14 @@ class ManagementJournalModel(Base):
     machine_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("public.management_machines.id", ondelete="RESTRICT"), index=True
     )
+    game_id: Mapped[UUID | None] = mapped_column(ForeignKey("games.id", ondelete="RESTRICT"))
+    stake_grosze: Mapped[int | None] = mapped_column(Integer)
+    before_result_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("public.management_result_versions.id", ondelete="RESTRICT")
+    )
+    after_result_id: Mapped[UUID | None] = mapped_column(
+        ForeignKey("public.management_result_versions.id", ondelete="RESTRICT")
+    )
     before: Mapped[dict[str, object]] = mapped_column(JSON)
     after: Mapped[dict[str, object]] = mapped_column(JSON)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=now, index=True)

@@ -54,6 +54,9 @@ import type {
   CancelSemiAutomaticImageSelectionData,
   CancelSemiAutomaticImageSelectionErrors,
   CancelSemiAutomaticImageSelectionResponses,
+  ClearManagementStakeData,
+  ClearManagementStakeErrors,
+  ClearManagementStakeResponses,
   CloseReviewerWorkAssignmentData,
   CloseReviewerWorkAssignmentErrors,
   CloseReviewerWorkAssignmentResponses,
@@ -69,6 +72,9 @@ import type {
   CorrectBoardSearchShareCellData,
   CorrectBoardSearchShareCellErrors,
   CorrectBoardSearchShareCellResponses,
+  CorrectManagementBoardCellData,
+  CorrectManagementBoardCellErrors,
+  CorrectManagementBoardCellResponses,
   CreateBoardSearchShareSessionData,
   CreateBoardSearchShareSessionErrors,
   CreateBoardSearchShareSessionResponses,
@@ -353,9 +359,21 @@ import type {
   GetLayoutImportIntegrityReportData,
   GetLayoutImportIntegrityReportErrors,
   GetLayoutImportIntegrityReportResponses,
+  GetManagementApproximateWinData,
+  GetManagementApproximateWinErrors,
+  GetManagementApproximateWinResponses,
+  GetManagementBoardDetailData,
+  GetManagementBoardDetailErrors,
+  GetManagementBoardDetailResponses,
+  GetManagementResultData,
+  GetManagementResultErrors,
+  GetManagementResultResponses,
   GetManagementSnapshotData,
   GetManagementSnapshotErrors,
   GetManagementSnapshotResponses,
+  GetManagementStakeData,
+  GetManagementStakeErrors,
+  GetManagementStakeResponses,
   GetManualImageSelectionFileData,
   GetManualImageSelectionFileErrors,
   GetManualImageSelectionFileResponses,
@@ -577,6 +595,12 @@ import type {
   ListLayoutImportNormalizedRowsData,
   ListLayoutImportNormalizedRowsErrors,
   ListLayoutImportNormalizedRowsResponses,
+  ListManagementJournalData,
+  ListManagementJournalErrors,
+  ListManagementJournalResponses,
+  ListManagementStakesData,
+  ListManagementStakesErrors,
+  ListManagementStakesResponses,
   ListMobileReleasesData,
   ListMobileReleasesErrors,
   ListMobileReleasesResponses,
@@ -769,6 +793,9 @@ import type {
   RefreshImageStorageInventoryData,
   RefreshImageStorageInventoryErrors,
   RefreshImageStorageInventoryResponses,
+  RefreshManagementStakeData,
+  RefreshManagementStakeErrors,
+  RefreshManagementStakeResponses,
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
@@ -838,6 +865,9 @@ import type {
   RollbackSymbolModelData,
   RollbackSymbolModelErrors,
   RollbackSymbolModelResponses,
+  SaveManagementStakeData,
+  SaveManagementStakeErrors,
+  SaveManagementStakeResponses,
   SaveUnreadableBoardReviewData,
   SaveUnreadableBoardReviewErrors,
   SaveUnreadableBoardReviewResponses,
@@ -850,6 +880,9 @@ import type {
   SearchGameBoardsData,
   SearchGameBoardsErrors,
   SearchGameBoardsResponses,
+  SearchManagementBoardsData,
+  SearchManagementBoardsErrors,
+  SearchManagementBoardsResponses,
   SelectApprovedSymbolReferenceCandidateData,
   SelectApprovedSymbolReferenceCandidateErrors,
   SelectApprovedSymbolReferenceCandidateResponses,
@@ -5423,6 +5456,244 @@ export const updateManagementAssignments = <
       'Content-Type': 'application/json',
       ...options.headers,
     },
+  });
+
+/**
+ * Preview
+ */
+export const getManagementApproximateWin = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetManagementApproximateWinData, ThrowOnError>,
+): RequestResult<
+  GetManagementApproximateWinResponses,
+  GetManagementApproximateWinErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetManagementApproximateWinResponses,
+    GetManagementApproximateWinErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/approximate-win',
+    ...options,
+  });
+
+/**
+ * Detail
+ */
+export const getManagementBoardDetail = <ThrowOnError extends boolean = false>(
+  options: Options<GetManagementBoardDetailData, ThrowOnError>,
+): RequestResult<
+  GetManagementBoardDetailResponses,
+  GetManagementBoardDetailErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetManagementBoardDetailResponses,
+    GetManagementBoardDetailErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/boards/{sequence}',
+    ...options,
+  });
+
+/**
+ * Result
+ */
+export const getManagementResult = <ThrowOnError extends boolean = false>(
+  options: Options<GetManagementResultData, ThrowOnError>,
+): RequestResult<
+  GetManagementResultResponses,
+  GetManagementResultErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetManagementResultResponses,
+    GetManagementResultErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/results/{version_id}',
+    ...options,
+  });
+
+/**
+ * Search
+ */
+export const searchManagementBoards = <ThrowOnError extends boolean = false>(
+  options: Options<SearchManagementBoardsData, ThrowOnError>,
+): RequestResult<
+  SearchManagementBoardsResponses,
+  SearchManagementBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SearchManagementBoardsResponses,
+    SearchManagementBoardsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/search',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Slots
+ */
+export const listManagementStakes = <ThrowOnError extends boolean = false>(
+  options: Options<ListManagementStakesData, ThrowOnError>,
+): RequestResult<
+  ListManagementStakesResponses,
+  ListManagementStakesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListManagementStakesResponses,
+    ListManagementStakesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes',
+    ...options,
+  });
+
+/**
+ * Slot
+ */
+export const getManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<GetManagementStakeData, ThrowOnError>,
+): RequestResult<
+  GetManagementStakeResponses,
+  GetManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetManagementStakeResponses,
+    GetManagementStakeErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}',
+    ...options,
+  });
+
+/**
+ * Save
+ */
+export const saveManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<SaveManagementStakeData, ThrowOnError>,
+): RequestResult<
+  SaveManagementStakeResponses,
+  SaveManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    SaveManagementStakeResponses,
+    SaveManagementStakeErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Correct
+ */
+export const correctManagementBoardCell = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CorrectManagementBoardCellData, ThrowOnError>,
+): RequestResult<
+  CorrectManagementBoardCellResponses,
+  CorrectManagementBoardCellErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CorrectManagementBoardCellResponses,
+    CorrectManagementBoardCellErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/boards/{sequence}/cells/{cell}/decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Clear
+ */
+export const clearManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<ClearManagementStakeData, ThrowOnError>,
+): RequestResult<
+  ClearManagementStakeResponses,
+  ClearManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ClearManagementStakeResponses,
+    ClearManagementStakeErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/clear',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Refresh
+ */
+export const refreshManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<RefreshManagementStakeData, ThrowOnError>,
+): RequestResult<
+  RefreshManagementStakeResponses,
+  RefreshManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RefreshManagementStakeResponses,
+    RefreshManagementStakeErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/refresh',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Journal
+ */
+export const listManagementJournal = <ThrowOnError extends boolean = false>(
+  options: Options<ListManagementJournalData, ThrowOnError>,
+): RequestResult<
+  ListManagementJournalResponses,
+  ListManagementJournalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListManagementJournalResponses,
+    ListManagementJournalErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/management/machines/{machine_id}/journal',
+    ...options,
   });
 
 /**

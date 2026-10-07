@@ -16757,6 +16757,138 @@
         "title": "ManagementAssignmentResponse",
         "type": "object"
       },
+      "ManagementChartPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "balanceCredits": {
+            "title": "Balancecredits",
+            "type": "integer"
+          },
+          "spinNumber": {
+            "title": "Spinnumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "spinNumber",
+          "balanceCredits"
+        ],
+        "title": "ManagementChartPoint",
+        "type": "object"
+      },
+      "ManagementClearCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmed": {
+            "const": true,
+            "title": "Confirmed",
+            "type": "boolean"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "operationId": {
+            "format": "uuid",
+            "title": "Operationid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "expectedRevision",
+          "confirmed"
+        ],
+        "title": "ManagementClearCommand",
+        "type": "object"
+      },
+      "ManagementCorrectionCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "enum": [
+              "approve",
+              "reassign",
+              "mark_unreadable",
+              "mark_grid_issue"
+            ],
+            "title": "Action",
+            "type": "string"
+          },
+          "expectedCellVersion": {
+            "pattern": "^[a-f0-9]{64}$",
+            "title": "Expectedcellversion",
+            "type": "string"
+          },
+          "expectedRevision": {
+            "default": 0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "operationId": {
+            "format": "uuid",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "searchContextId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Searchcontextid"
+          },
+          "spinCount": {
+            "anyOf": [
+              {
+                "maximum": 100000.0,
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spincount"
+          },
+          "startSequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startsequencenumber"
+          },
+          "targetSymbolCode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Targetsymbolcode"
+          }
+        },
+        "required": [
+          "operationId",
+          "expectedCellVersion",
+          "action"
+        ],
+        "title": "ManagementCorrectionCommand",
+        "type": "object"
+      },
       "ManagementGameResponse": {
         "additionalProperties": false,
         "properties": {
@@ -16775,6 +16907,148 @@
           "name"
         ],
         "title": "ManagementGameResponse",
+        "type": "object"
+      },
+      "ManagementJournalEntry": {
+        "additionalProperties": false,
+        "properties": {
+          "action": {
+            "title": "Action",
+            "type": "string"
+          },
+          "actor": {
+            "title": "Actor",
+            "type": "string"
+          },
+          "after": {
+            "additionalProperties": true,
+            "title": "After",
+            "type": "object"
+          },
+          "afterResultId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Afterresultid"
+          },
+          "before": {
+            "additionalProperties": true,
+            "title": "Before",
+            "type": "object"
+          },
+          "beforeResultId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Beforeresultid"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "gameId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gameid"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "machineId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Machineid"
+          },
+          "pointId": {
+            "format": "uuid",
+            "title": "Pointid",
+            "type": "string"
+          },
+          "stakeGrosze": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stakegrosze"
+          }
+        },
+        "required": [
+          "id",
+          "actor",
+          "action",
+          "pointId",
+          "machineId",
+          "gameId",
+          "stakeGrosze",
+          "beforeResultId",
+          "afterResultId",
+          "before",
+          "after",
+          "createdAt"
+        ],
+        "title": "ManagementJournalEntry",
+        "type": "object"
+      },
+      "ManagementJournalResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "entries": {
+            "items": {
+              "$ref": "#/components/schemas/ManagementJournalEntry"
+            },
+            "title": "Entries",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          }
+        },
+        "required": [
+          "entries",
+          "nextCursor"
+        ],
+        "title": "ManagementJournalResponse",
         "type": "object"
       },
       "ManagementMachineCommand": {
@@ -16858,6 +17132,30 @@
           "assignments"
         ],
         "title": "ManagementMachineResponse",
+        "type": "object"
+      },
+      "ManagementPinnedPoint": {
+        "additionalProperties": false,
+        "properties": {
+          "available": {
+            "title": "Available",
+            "type": "boolean"
+          },
+          "balanceCredits": {
+            "title": "Balancecredits",
+            "type": "integer"
+          },
+          "spinNumber": {
+            "title": "Spinnumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "spinNumber",
+          "balanceCredits",
+          "available"
+        ],
+        "title": "ManagementPinnedPoint",
         "type": "object"
       },
       "ManagementPointCommand": {
@@ -16961,6 +17259,258 @@
         "title": "ManagementPointResponse",
         "type": "object"
       },
+      "ManagementQueryCell": {
+        "additionalProperties": false,
+        "properties": {
+          "cellIndex": {
+            "maximum": 14.0,
+            "minimum": 0.0,
+            "title": "Cellindex",
+            "type": "integer"
+          },
+          "symbolCode": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolcode"
+          }
+        },
+        "required": [
+          "cellIndex"
+        ],
+        "title": "ManagementQueryCell",
+        "type": "object"
+      },
+      "ManagementRefreshCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "operationId": {
+            "format": "uuid",
+            "title": "Operationid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "expectedRevision"
+        ],
+        "title": "ManagementRefreshCommand",
+        "type": "object"
+      },
+      "ManagementRefreshResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "title": "Changed",
+            "type": "boolean"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "slot": {
+            "$ref": "#/components/schemas/ManagementStakeResponse"
+          },
+          "status": {
+            "enum": [
+              "current",
+              "stale",
+              "empty"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "slot",
+          "changed",
+          "status"
+        ],
+        "title": "ManagementRefreshResponse",
+        "type": "object"
+      },
+      "ManagementResultResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "calculation": {
+            "$ref": "#/components/schemas/ApproximateWinResponse"
+          },
+          "contentSha256": {
+            "title": "Contentsha256",
+            "type": "string"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "title": "Createdat",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "rulesSnapshot": {
+            "additionalProperties": true,
+            "title": "Rulessnapshot",
+            "type": "object"
+          },
+          "startSymbolCodes": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "title": "Startsymbolcodes",
+            "type": "array"
+          }
+        },
+        "required": [
+          "id",
+          "contentSha256",
+          "createdAt",
+          "calculation",
+          "startSymbolCodes",
+          "rulesSnapshot"
+        ],
+        "title": "ManagementResultResponse",
+        "type": "object"
+      },
+      "ManagementSaveCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "operationId": {
+            "format": "uuid",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "pinnedSpinPositions": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "maxItems": 6,
+            "title": "Pinnedspinpositions",
+            "type": "array"
+          },
+          "searchContextId": {
+            "format": "uuid",
+            "title": "Searchcontextid",
+            "type": "string"
+          },
+          "spinCount": {
+            "maximum": 100000.0,
+            "minimum": 1.0,
+            "title": "Spincount",
+            "type": "integer"
+          },
+          "startSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Startsequencenumber",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "operationId",
+          "expectedRevision",
+          "searchContextId",
+          "startSequenceNumber",
+          "spinCount"
+        ],
+        "title": "ManagementSaveCommand",
+        "type": "object"
+      },
+      "ManagementSearchCommand": {
+        "additionalProperties": false,
+        "properties": {
+          "cells": {
+            "items": {
+              "$ref": "#/components/schemas/ManagementQueryCell"
+            },
+            "maxItems": 15,
+            "minItems": 1,
+            "title": "Cells",
+            "type": "array"
+          },
+          "expectedRevision": {
+            "default": 0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "limit": {
+            "default": 10,
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Limit",
+            "type": "integer"
+          },
+          "operationId": {
+            "format": "uuid",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/BoardSearchScope",
+            "default": "all_searchable"
+          },
+          "stakeGrosze": {
+            "$ref": "#/components/schemas/ManagementStake"
+          }
+        },
+        "required": [
+          "operationId",
+          "stakeGrosze",
+          "cells"
+        ],
+        "title": "ManagementSearchCommand",
+        "type": "object"
+      },
+      "ManagementSearchResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "search": {
+            "$ref": "#/components/schemas/BoardSearchResponse"
+          },
+          "searchContextId": {
+            "format": "uuid",
+            "title": "Searchcontextid",
+            "type": "string"
+          }
+        },
+        "required": [
+          "searchContextId",
+          "search"
+        ],
+        "title": "ManagementSearchResponse",
+        "type": "object"
+      },
       "ManagementSnapshotResponse": {
         "additionalProperties": false,
         "properties": {
@@ -16984,6 +17534,241 @@
           "activeGames"
         ],
         "title": "ManagementSnapshotResponse",
+        "type": "object"
+      },
+      "ManagementStake": {
+        "enum": [
+          2000,
+          1000,
+          600,
+          400,
+          200,
+          120
+        ],
+        "title": "ManagementStake",
+        "type": "integer"
+      },
+      "ManagementStakeListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/ManagementStakeResponse"
+            },
+            "maxItems": 6,
+            "minItems": 6,
+            "title": "Slots",
+            "type": "array"
+          }
+        },
+        "required": [
+          "slots"
+        ],
+        "title": "ManagementStakeListResponse",
+        "type": "object"
+      },
+      "ManagementStakeResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "chartPoints": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ManagementChartPoint"
+            },
+            "maxItems": 256,
+            "title": "Chartpoints",
+            "type": "array"
+          },
+          "empty": {
+            "title": "Empty",
+            "type": "boolean"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "machineId": {
+            "format": "uuid",
+            "title": "Machineid",
+            "type": "string"
+          },
+          "pinnedPoints": {
+            "default": [],
+            "items": {
+              "$ref": "#/components/schemas/ManagementPinnedPoint"
+            },
+            "maxItems": 6,
+            "title": "Pinnedpoints",
+            "type": "array"
+          },
+          "pinnedSpinPositions": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Pinnedspinpositions",
+            "type": "array"
+          },
+          "query": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Query"
+          },
+          "resultVersionId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resultversionid"
+          },
+          "revision": {
+            "title": "Revision",
+            "type": "integer"
+          },
+          "savedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Savedat"
+          },
+          "searchContextId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Searchcontextid"
+          },
+          "spinCost": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spincost"
+          },
+          "spinCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spincount"
+          },
+          "stakeGrosze": {
+            "$ref": "#/components/schemas/ManagementStake"
+          },
+          "staleErrorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Staleerrorcode"
+          },
+          "startSequenceNumber": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startsequencenumber"
+          },
+          "startSymbolCodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Startsymbolcodes"
+          },
+          "summary": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ApproximateWinSummaryResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "unavailablePinPositions": {
+            "default": [],
+            "items": {
+              "type": "integer"
+            },
+            "title": "Unavailablepinpositions",
+            "type": "array"
+          },
+          "updatedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Updatedat"
+          }
+        },
+        "required": [
+          "machineId",
+          "gameId",
+          "stakeGrosze",
+          "revision",
+          "empty"
+        ],
+        "title": "ManagementStakeResponse",
         "type": "object"
       },
       "ManualSourceGeometryPoint": {
@@ -49664,6 +50449,1081 @@
           }
         ],
         "summary": "Assignments",
+        "tags": [
+          "management"
+        ]
+      }
+    },
+    "/api/v1/admin/management/machines/{machine_id}/game/{game_id}/approximate-win": {
+      "get": {
+        "operationId": "getManagementApproximateWin",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "startSequenceNumber",
+            "required": true,
+            "schema": {
+              "minimum": 1,
+              "title": "Startsequencenumber",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "spinCount",
+            "required": true,
+            "schema": {
+              "maximum": 100000,
+              "minimum": 1,
+              "title": "Spincount",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApproximateWinResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Preview",
+        "tags": [
+          "management"
+        ]
+      }
+    },
+    "/api/v1/admin/management/machines/{machine_id}/game/{game_id}/boards/{sequence}": {
+      "get": {
+        "operationId": "getManagementBoardDetail",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence",
+            "required": true,
+            "schema": {
+              "title": "Sequence",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchSharePublicBoardDetailResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Detail",
+        "tags": [
+          "management"
+        ]
+      }
+    },
+    "/api/v1/admin/management/machines/{machine_id}/game/{game_id}/results/{version_id}": {
+      "get": {
+        "operationId": "getManagementResult",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "version_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Version Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementResultResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Result",
+        "tags": [
+          "management"
+        ]
+      }
+    },
+    "/api/v1/admin/management/machines/{machine_id}/game/{game_id}/search": {
+      "post": {
+        "operationId": "searchManagementBoards",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagementSearchCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementSearchResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Search",
+        "tags": [
+          "management"
+        ]
+      }
+    },
+    "/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes": {
+      "get": {
+        "operationId": "listManagementStakes",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementStakeListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Slots",
+        "tags": [
+          "management"
+        ]
+      }
+    },
+    "/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}": {
+      "get": {
+        "operationId": "getManagementStake",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "stake",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ManagementStake"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementStakeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Slot",
+        "tags": [
+          "management"
+        ]
+      },
+      "put": {
+        "operationId": "saveManagementStake",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "stake",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ManagementStake"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagementSaveCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementStakeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Save",
+        "tags": [
+          "management"
+        ]
+      }
+    },
+    "/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/boards/{sequence}/cells/{cell}/decision": {
+      "post": {
+        "operationId": "correctManagementBoardCell",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "stake",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ManagementStake"
+            }
+          },
+          {
+            "in": "path",
+            "name": "sequence",
+            "required": true,
+            "schema": {
+              "title": "Sequence",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "path",
+            "name": "cell",
+            "required": true,
+            "schema": {
+              "title": "Cell",
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagementCorrectionCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BoardSearchShareCellCorrectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Correct",
+        "tags": [
+          "management"
+        ]
+      }
+    },
+    "/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/clear": {
+      "post": {
+        "operationId": "clearManagementStake",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "stake",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ManagementStake"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagementClearCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementStakeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Clear",
+        "tags": [
+          "management"
+        ]
+      }
+    },
+    "/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/refresh": {
+      "post": {
+        "operationId": "refreshManagementStake",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "stake",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ManagementStake"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ManagementRefreshCommand"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementRefreshResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Refresh",
+        "tags": [
+          "management"
+        ]
+      }
+    },
+    "/api/v1/admin/management/machines/{machine_id}/journal": {
+      "get": {
+        "operationId": "listManagementJournal",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "machine_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Machine Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "gameId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Gameid"
+            }
+          },
+          {
+            "in": "query",
+            "name": "stakeGrosze",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/ManagementStake"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Stakegrosze"
+            }
+          },
+          {
+            "in": "query",
+            "name": "before",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Before"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 20,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ManagementJournalResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Journal",
         "tags": [
           "management"
         ]

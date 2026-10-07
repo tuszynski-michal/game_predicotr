@@ -6,6 +6,22 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0922 — Durable stake selections (done)
+
+- Six independent slots, server-validated search contexts, compact immutable
+  deduplicated results, Save/Clear/Refresh and paginated retained journal.
+  Existing calculator and human writer supply current data; correction/audit
+  and slot/result/receipt/audit commit atomically. Additive migration0149.
+- READ COMMITTED receipt visibility; bounded read-only RR snapshot on the same
+  application-role engine with NullPool. Stored history reads avoid current
+  game routing; trusted same-slot/context/start can be edited by another actor.
+- API/calculator/search regressions95 PASS, real app-role PostgreSQL1 PASS
+  (19.57s), wrappers4 PASS, scoped mypy8/lint/format/types and contract drift PASS.
+  Independent astra/high review PASS, no P0–P2. PG verifies lost-response retries,
+  CAS, rollback, zero hits, coherent races, stale results and process restart.
+- Commit pending. No live services/data, full build or public rollout.
+  Earlier V7 ownership omissions remain outside scope. Next T3 / TASK-0923.
+
 ### TASK-0921 — Management points and machines (done)
 
 - Local Panel Administracyjny tab has editable point/machine hierarchy,
@@ -20,8 +36,8 @@ last_updated: 2026-10-07
 - Earlier unmapped V7 tables still fail the broad ownership gate; new shared
   tables are classified. Full transitive mypy reaches unrelated worker errors;
   scoped changed modules pass. No user service lifecycle or production migration.
-- Completion commit pending. TASK-0928 concurrently consumed v1.7.251; next
-  patch comes from actual branch log. Next TASK-0922 / T2, whole plan authorized.
+- Completion v1.7.252 / c708c6e63d8ee00c8a879b0beab4ed73a62fcd62.
+  TASK-0928 concurrently consumed v1.7.251. Next TASK-0922 / T2, whole plan authorized.
 
 ### TASK-0921–0927 — Management panel implementation (in progress)
 
@@ -31,7 +47,10 @@ last_updated: 2026-10-07
 - Explicit Save only; draft pins/browsing, confirmed slot-only Clear, immutable
   prior results and retained journal, current recalculation, UUID/revision guards.
   Whole-panel named recipient, local link administration,48/72h plus old shares.
-- Executors/reviewers follow accepted model table. T1 audited; T2 next.
+- Executors/reviewers follow accepted model table. T1 committed; T2 audited, T3 next.
+- T2 mutations use READ COMMITTED for UUID-lock retry visibility. A bounded
+  read-only REPEATABLE READ application-role session captures coherent numeric
+  snapshots; primary transaction commits result/slot/receipt/audit atomically.
   Baseline branch v1.7.250 /88d5019c7e436e5bd2895220d8fe0187f9ea177a;
   pre-existing modified CURRENT_STATE/completed task receipts remain user-owned.
 - No API/Admin lifecycle, production migration/data edits, hosting, push/merge,

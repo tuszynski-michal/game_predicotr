@@ -1,11 +1,47 @@
 import {
   getManagementSnapshot,
+  listManagementStakes,
+  getManagementStake,
+  getManagementResult,
+  searchManagementBoards,
+  saveManagementStake,
+  clearManagementStake,
+  refreshManagementStake,
+  listManagementJournal,
+  getManagementBoardDetail,
+  correctManagementBoardCell,
+  getManagementApproximateWin,
   createManagementPoint,
   updateManagementPoint,
   createManagementMachine,
   updateManagementMachine,
   updateManagementAssignments,
 } from './generated/sdk.gen';
+import type {
+  ManagementStake,
+  ManagementSearchCommand,
+  ManagementSaveCommand,
+  ManagementClearCommand,
+  ManagementRefreshCommand,
+  ManagementCorrectionCommand,
+} from './generated/types.gen';
+export type {
+  ManagementStake,
+  ManagementSearchCommand,
+  ManagementSaveCommand,
+  ManagementClearCommand,
+  ManagementRefreshCommand,
+  ManagementCorrectionCommand,
+  ManagementStakeResponse,
+  ManagementStakeListResponse,
+  ManagementResultResponse,
+  ManagementSearchResponse,
+  ManagementRefreshResponse,
+  ManagementJournalResponse,
+  ManagementJournalEntry,
+  ManagementChartPoint,
+  ManagementPinnedPoint,
+} from './generated/types.gen';
 import type {
   ManagementPointCommand,
   ManagementMachineCommand,
@@ -1129,6 +1165,154 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getManagementSnapshot: () => getManagementSnapshot({ client }),
+    listManagementStakes: (
+      machineId: string,
+      gameId: string,
+      signal?: AbortSignal,
+    ) =>
+      listManagementStakes({
+        client,
+        path: { machine_id: machineId, game_id: gameId },
+        signal,
+      }),
+    getManagementStake: (
+      machineId: string,
+      gameId: string,
+      stake: ManagementStake,
+      signal?: AbortSignal,
+    ) =>
+      getManagementStake({
+        client,
+        path: { machine_id: machineId, game_id: gameId, stake },
+        signal,
+      }),
+    getManagementResult: (
+      machineId: string,
+      gameId: string,
+      versionId: string,
+      signal?: AbortSignal,
+    ) =>
+      getManagementResult({
+        client,
+        path: { machine_id: machineId, game_id: gameId, version_id: versionId },
+        signal,
+      }),
+    searchManagementBoards: (
+      machineId: string,
+      gameId: string,
+      body: ManagementSearchCommand,
+      signal?: AbortSignal,
+    ) =>
+      searchManagementBoards({
+        client,
+        path: { machine_id: machineId, game_id: gameId },
+        body,
+        signal,
+      }),
+    saveManagementStake: (
+      machineId: string,
+      gameId: string,
+      stake: ManagementStake,
+      body: ManagementSaveCommand,
+      signal?: AbortSignal,
+    ) =>
+      saveManagementStake({
+        client,
+        path: { machine_id: machineId, game_id: gameId, stake },
+        body,
+        signal,
+      }),
+    clearManagementStake: (
+      machineId: string,
+      gameId: string,
+      stake: ManagementStake,
+      body: ManagementClearCommand,
+      signal?: AbortSignal,
+    ) =>
+      clearManagementStake({
+        client,
+        path: { machine_id: machineId, game_id: gameId, stake },
+        body,
+        signal,
+      }),
+    refreshManagementStake: (
+      machineId: string,
+      gameId: string,
+      stake: ManagementStake,
+      body: ManagementRefreshCommand,
+      signal?: AbortSignal,
+    ) =>
+      refreshManagementStake({
+        client,
+        path: { machine_id: machineId, game_id: gameId, stake },
+        body,
+        signal,
+      }),
+    listManagementJournal: (
+      machineId: string,
+      options: {
+        gameId?: string;
+        stakeGrosze?: ManagementStake;
+        before?: string;
+        limit?: number;
+        signal?: AbortSignal;
+      } = {},
+    ) =>
+      listManagementJournal({
+        client,
+        path: { machine_id: machineId },
+        query: {
+          gameId: options.gameId,
+          stakeGrosze: options.stakeGrosze,
+          before: options.before,
+          limit: options.limit,
+        },
+        signal: options.signal,
+      }),
+    getManagementBoardDetail: (
+      machineId: string,
+      gameId: string,
+      sequence: number,
+      signal?: AbortSignal,
+    ) =>
+      getManagementBoardDetail({
+        client,
+        path: { machine_id: machineId, game_id: gameId, sequence },
+        signal,
+      }),
+    correctManagementBoardCell: (
+      machineId: string,
+      gameId: string,
+      stake: ManagementStake,
+      sequence: number,
+      cell: number,
+      body: ManagementCorrectionCommand,
+      signal?: AbortSignal,
+    ) =>
+      correctManagementBoardCell({
+        client,
+        path: { machine_id: machineId, game_id: gameId, stake, sequence, cell },
+        body,
+        signal,
+      }),
+    getManagementApproximateWin: (
+      machineId: string,
+      gameId: string,
+      options: {
+        startSequenceNumber: number;
+        spinCount: number;
+        signal?: AbortSignal;
+      },
+    ) =>
+      getManagementApproximateWin({
+        client,
+        path: { machine_id: machineId, game_id: gameId },
+        query: {
+          startSequenceNumber: options.startSequenceNumber,
+          spinCount: options.spinCount,
+        },
+        signal: options.signal,
+      }),
     createManagementPoint: (body: ManagementPointCommand) =>
       createManagementPoint({ client, body }),
     updateManagementPoint: (pointId: string, body: ManagementPointCommand) =>

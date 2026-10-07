@@ -6920,3 +6920,4 @@ class BoardSearchShareQueryEventModel(Base):
 
 # Register independently owned management control-plane mappings.
 from game_predictor_api.storage import management_models as management_models  # noqa: E402
+from game_predictor_api.storage import management_stake_models as management_stake_models  # noqa: E402

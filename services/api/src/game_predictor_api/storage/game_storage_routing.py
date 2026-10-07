@@ -111,6 +111,10 @@ def game_id_from_request(path: str, query: Mapping[str, str]) -> UUID | None:
     never scoped by a caller-supplied parameter.
     """
 
+    # Management history is control-plane data and remains readable when a
+    # game's store is unavailable. Its game adapters bind explicitly as needed.
+    if path.startswith("/api/v1/admin/management"):
+        return None
     game_id = game_id_from_path(path)
     if game_id is not None or not path.startswith(_QUERY_SCOPED_PREFIXES):
         return game_id

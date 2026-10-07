@@ -139,7 +139,7 @@ Concurrent TASK-0928 consumed v1.7.251; this task follows the actual branch log.
 TASK-0922 / T2, durable stake saves and immutable results. Whole-plan execution
 remains authorized; lead continues after this task's audit and separate commit.
 
-Commit: pending lead commit, next patch from fresh branch log.
+Commit: v1.7.252 / `c708c6e63d8ee00c8a879b0beab4ed73a62fcd62`.
 
 ### Reproduction commands
 

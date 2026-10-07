@@ -9404,6 +9404,76 @@ export type ManagementAssignmentResponse = {
 };
 
 /**
+ * ManagementChartPoint
+ */
+export type ManagementChartPoint = {
+  /**
+   * Balancecredits
+   */
+  balanceCredits: number;
+  /**
+   * Spinnumber
+   */
+  spinNumber: number;
+};
+
+/**
+ * ManagementClearCommand
+ */
+export type ManagementClearCommand = {
+  /**
+   * Confirmed
+   */
+  confirmed: true;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Operationid
+   */
+  operationId: string;
+};
+
+/**
+ * ManagementCorrectionCommand
+ */
+export type ManagementCorrectionCommand = {
+  /**
+   * Action
+   */
+  action: 'approve' | 'reassign' | 'mark_unreadable' | 'mark_grid_issue';
+  /**
+   * Expectedcellversion
+   */
+  expectedCellVersion: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision?: number;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Searchcontextid
+   */
+  searchContextId?: string | null;
+  /**
+   * Spincount
+   */
+  spinCount?: number | null;
+  /**
+   * Startsequencenumber
+   */
+  startSequenceNumber?: number | null;
+  /**
+   * Targetsymbolcode
+   */
+  targetSymbolCode?: string | null;
+};
+
+/**
  * ManagementGameResponse
  */
 export type ManagementGameResponse = {
@@ -9415,6 +9485,78 @@ export type ManagementGameResponse = {
    * Name
    */
   name: string;
+};
+
+/**
+ * ManagementJournalEntry
+ */
+export type ManagementJournalEntry = {
+  /**
+   * Action
+   */
+  action: string;
+  /**
+   * Actor
+   */
+  actor: string;
+  /**
+   * After
+   */
+  after: {
+    [key: string]: unknown;
+  };
+  /**
+   * Afterresultid
+   */
+  afterResultId: string | null;
+  /**
+   * Before
+   */
+  before: {
+    [key: string]: unknown;
+  };
+  /**
+   * Beforeresultid
+   */
+  beforeResultId: string | null;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Gameid
+   */
+  gameId: string | null;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Machineid
+   */
+  machineId: string | null;
+  /**
+   * Pointid
+   */
+  pointId: string;
+  /**
+   * Stakegrosze
+   */
+  stakeGrosze: number | null;
+};
+
+/**
+ * ManagementJournalResponse
+ */
+export type ManagementJournalResponse = {
+  /**
+   * Entries
+   */
+  entries: Array<ManagementJournalEntry>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
 };
 
 /**
@@ -9471,6 +9613,24 @@ export type ManagementMachineResponse = {
    * Updatedat
    */
   updatedAt: string;
+};
+
+/**
+ * ManagementPinnedPoint
+ */
+export type ManagementPinnedPoint = {
+  /**
+   * Available
+   */
+  available: boolean;
+  /**
+   * Balancecredits
+   */
+  balanceCredits: number;
+  /**
+   * Spinnumber
+   */
+  spinNumber: number;
 };
 
 /**
@@ -9542,6 +9702,147 @@ export type ManagementPointResponse = {
 };
 
 /**
+ * ManagementQueryCell
+ */
+export type ManagementQueryCell = {
+  /**
+   * Cellindex
+   */
+  cellIndex: number;
+  /**
+   * Symbolcode
+   */
+  symbolCode?: string | null;
+};
+
+/**
+ * ManagementRefreshCommand
+ */
+export type ManagementRefreshCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Operationid
+   */
+  operationId: string;
+};
+
+/**
+ * ManagementRefreshResponse
+ */
+export type ManagementRefreshResponse = {
+  /**
+   * Changed
+   */
+  changed: boolean;
+  /**
+   * Errorcode
+   */
+  errorCode?: string | null;
+  slot: ManagementStakeResponse;
+  /**
+   * Status
+   */
+  status: 'current' | 'stale' | 'empty';
+};
+
+/**
+ * ManagementResultResponse
+ */
+export type ManagementResultResponse = {
+  calculation: ApproximateWinResponse;
+  /**
+   * Contentsha256
+   */
+  contentSha256: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Rulessnapshot
+   */
+  rulesSnapshot: {
+    [key: string]: unknown;
+  };
+  /**
+   * Startsymbolcodes
+   */
+  startSymbolCodes: Array<string | null>;
+};
+
+/**
+ * ManagementSaveCommand
+ */
+export type ManagementSaveCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Pinnedspinpositions
+   */
+  pinnedSpinPositions?: Array<number>;
+  /**
+   * Searchcontextid
+   */
+  searchContextId: string;
+  /**
+   * Spincount
+   */
+  spinCount: number;
+  /**
+   * Startsequencenumber
+   */
+  startSequenceNumber: number;
+};
+
+/**
+ * ManagementSearchCommand
+ */
+export type ManagementSearchCommand = {
+  /**
+   * Cells
+   */
+  cells: Array<ManagementQueryCell>;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision?: number;
+  /**
+   * Limit
+   */
+  limit?: number;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  scope?: BoardSearchScope;
+  stakeGrosze: ManagementStake;
+};
+
+/**
+ * ManagementSearchResponse
+ */
+export type ManagementSearchResponse = {
+  search: BoardSearchResponse;
+  /**
+   * Searchcontextid
+   */
+  searchContextId: string;
+};
+
+/**
  * ManagementSnapshotResponse
  */
 export type ManagementSnapshotResponse = {
@@ -9553,6 +9854,110 @@ export type ManagementSnapshotResponse = {
    * Points
    */
   points: Array<ManagementPointResponse>;
+};
+
+/**
+ * ManagementStake
+ */
+export type ManagementStake = 2000 | 1000 | 600 | 400 | 200 | 120;
+
+/**
+ * ManagementStakeListResponse
+ */
+export type ManagementStakeListResponse = {
+  /**
+   * Slots
+   */
+  slots: [
+    ManagementStakeResponse,
+    ManagementStakeResponse,
+    ManagementStakeResponse,
+    ManagementStakeResponse,
+    ManagementStakeResponse,
+    ManagementStakeResponse,
+  ];
+};
+
+/**
+ * ManagementStakeResponse
+ */
+export type ManagementStakeResponse = {
+  /**
+   * Chartpoints
+   */
+  chartPoints?: Array<ManagementChartPoint>;
+  /**
+   * Empty
+   */
+  empty: boolean;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Machineid
+   */
+  machineId: string;
+  /**
+   * Pinnedpoints
+   */
+  pinnedPoints?: Array<ManagementPinnedPoint>;
+  /**
+   * Pinnedspinpositions
+   */
+  pinnedSpinPositions?: Array<number>;
+  /**
+   * Query
+   */
+  query?: {
+    [key: string]: unknown;
+  } | null;
+  /**
+   * Resultversionid
+   */
+  resultVersionId?: string | null;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Savedat
+   */
+  savedAt?: string | null;
+  /**
+   * Searchcontextid
+   */
+  searchContextId?: string | null;
+  /**
+   * Spincost
+   */
+  spinCost?: number | null;
+  /**
+   * Spincount
+   */
+  spinCount?: number | null;
+  stakeGrosze: ManagementStake;
+  /**
+   * Staleerrorcode
+   */
+  staleErrorCode?: string | null;
+  /**
+   * Startsequencenumber
+   */
+  startSequenceNumber?: number | null;
+  /**
+   * Startsymbolcodes
+   */
+  startSymbolCodes?: Array<string | null> | null;
+  summary?: ApproximateWinSummaryResponse | null;
+  /**
+   * Unavailablepinpositions
+   */
+  unavailablePinPositions?: Array<number>;
+  /**
+   * Updatedat
+   */
+  updatedAt?: string | null;
 };
 
 /**
@@ -27262,6 +27667,553 @@ export type UpdateManagementAssignmentsResponses = {
 
 export type UpdateManagementAssignmentsResponse =
   UpdateManagementAssignmentsResponses[keyof UpdateManagementAssignmentsResponses];
+
+export type GetManagementApproximateWinData = {
+  body?: never;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Startsequencenumber
+     */
+    startSequenceNumber: number;
+    /**
+     * Spincount
+     */
+    spinCount: number;
+  };
+  url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/approximate-win';
+};
+
+export type GetManagementApproximateWinErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetManagementApproximateWinError =
+  GetManagementApproximateWinErrors[keyof GetManagementApproximateWinErrors];
+
+export type GetManagementApproximateWinResponses = {
+  /**
+   * Successful Response
+   */
+  200: ApproximateWinResponse;
+};
+
+export type GetManagementApproximateWinResponse =
+  GetManagementApproximateWinResponses[keyof GetManagementApproximateWinResponses];
+
+export type GetManagementBoardDetailData = {
+  body?: never;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence
+     */
+    sequence: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/boards/{sequence}';
+};
+
+export type GetManagementBoardDetailErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetManagementBoardDetailError =
+  GetManagementBoardDetailErrors[keyof GetManagementBoardDetailErrors];
+
+export type GetManagementBoardDetailResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicBoardDetailResponse;
+};
+
+export type GetManagementBoardDetailResponse =
+  GetManagementBoardDetailResponses[keyof GetManagementBoardDetailResponses];
+
+export type GetManagementResultData = {
+  body?: never;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Version Id
+     */
+    version_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/results/{version_id}';
+};
+
+export type GetManagementResultErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetManagementResultError =
+  GetManagementResultErrors[keyof GetManagementResultErrors];
+
+export type GetManagementResultResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementResultResponse;
+};
+
+export type GetManagementResultResponse =
+  GetManagementResultResponses[keyof GetManagementResultResponses];
+
+export type SearchManagementBoardsData = {
+  body: ManagementSearchCommand;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/search';
+};
+
+export type SearchManagementBoardsErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type SearchManagementBoardsError =
+  SearchManagementBoardsErrors[keyof SearchManagementBoardsErrors];
+
+export type SearchManagementBoardsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementSearchResponse;
+};
+
+export type SearchManagementBoardsResponse =
+  SearchManagementBoardsResponses[keyof SearchManagementBoardsResponses];
+
+export type ListManagementStakesData = {
+  body?: never;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes';
+};
+
+export type ListManagementStakesErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListManagementStakesError =
+  ListManagementStakesErrors[keyof ListManagementStakesErrors];
+
+export type ListManagementStakesResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementStakeListResponse;
+};
+
+export type ListManagementStakesResponse =
+  ListManagementStakesResponses[keyof ListManagementStakesResponses];
+
+export type GetManagementStakeData = {
+  body?: never;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    stake: ManagementStake;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}';
+};
+
+export type GetManagementStakeErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetManagementStakeError =
+  GetManagementStakeErrors[keyof GetManagementStakeErrors];
+
+export type GetManagementStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementStakeResponse;
+};
+
+export type GetManagementStakeResponse =
+  GetManagementStakeResponses[keyof GetManagementStakeResponses];
+
+export type SaveManagementStakeData = {
+  body: ManagementSaveCommand;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    stake: ManagementStake;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}';
+};
+
+export type SaveManagementStakeErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type SaveManagementStakeError =
+  SaveManagementStakeErrors[keyof SaveManagementStakeErrors];
+
+export type SaveManagementStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementStakeResponse;
+};
+
+export type SaveManagementStakeResponse =
+  SaveManagementStakeResponses[keyof SaveManagementStakeResponses];
+
+export type CorrectManagementBoardCellData = {
+  body: ManagementCorrectionCommand;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    stake: ManagementStake;
+    /**
+     * Sequence
+     */
+    sequence: number;
+    /**
+     * Cell
+     */
+    cell: number;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/boards/{sequence}/cells/{cell}/decision';
+};
+
+export type CorrectManagementBoardCellErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CorrectManagementBoardCellError =
+  CorrectManagementBoardCellErrors[keyof CorrectManagementBoardCellErrors];
+
+export type CorrectManagementBoardCellResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareCellCorrectionResponse;
+};
+
+export type CorrectManagementBoardCellResponse =
+  CorrectManagementBoardCellResponses[keyof CorrectManagementBoardCellResponses];
+
+export type ClearManagementStakeData = {
+  body: ManagementClearCommand;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    stake: ManagementStake;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/clear';
+};
+
+export type ClearManagementStakeErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ClearManagementStakeError =
+  ClearManagementStakeErrors[keyof ClearManagementStakeErrors];
+
+export type ClearManagementStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementStakeResponse;
+};
+
+export type ClearManagementStakeResponse =
+  ClearManagementStakeResponses[keyof ClearManagementStakeResponses];
+
+export type RefreshManagementStakeData = {
+  body: ManagementRefreshCommand;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    stake: ManagementStake;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/game/{game_id}/stakes/{stake}/refresh';
+};
+
+export type RefreshManagementStakeErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RefreshManagementStakeError =
+  RefreshManagementStakeErrors[keyof RefreshManagementStakeErrors];
+
+export type RefreshManagementStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementRefreshResponse;
+};
+
+export type RefreshManagementStakeResponse =
+  RefreshManagementStakeResponses[keyof RefreshManagementStakeResponses];
+
+export type ListManagementJournalData = {
+  body?: never;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: {
+    /**
+     * Gameid
+     */
+    gameId?: string | null;
+    /**
+     * Stakegrosze
+     */
+    stakeGrosze?: ManagementStake | null;
+    /**
+     * Before
+     */
+    before?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/management/machines/{machine_id}/journal';
+};
+
+export type ListManagementJournalErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListManagementJournalError =
+  ListManagementJournalErrors[keyof ListManagementJournalErrors];
+
+export type ListManagementJournalResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementJournalResponse;
+};
+
+export type ListManagementJournalResponse =
+  ListManagementJournalResponses[keyof ListManagementJournalResponses];
 
 export type CreateManagementPointData = {
   body: ManagementPointCommand;

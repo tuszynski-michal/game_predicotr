@@ -1,6 +1,6 @@
 """Shared management ownership, independent of the frozen game-store manifests."""
 
-VERSION = "management-control-plane-v1"
+VERSION = "management-control-plane-v2"
 SHARED_TABLES = frozenset(
     {
         "public.management_points",
@@ -8,6 +8,9 @@ SHARED_TABLES = frozenset(
         "public.management_assignments",
         "public.management_operations",
         "public.management_journal",
+        "public.management_stake_slots",
+        "public.management_result_versions",
+        "public.management_search_contexts",
     }
 )
 

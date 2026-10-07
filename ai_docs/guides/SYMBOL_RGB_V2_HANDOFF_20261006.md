@@ -49,7 +49,14 @@ Reguły zapisu (ważne przy ocenie wyników):
    inaczej ~1 mln obniżeń do przeglądu przy poprawnym symbolu, głównie cytryny).
 Zmiana reguł = zmiana `WRITE_RULES_VERSION` (klucz wierszy) → podglądy liczą się od nowa.
 
-## Co trwa teraz (TASK-0878, pasmo 99–100%)
+## Aktualizacja 2026-10-07 05:40 UTC
+
+TASK-0878 zakończony: pasmo 99–100% zapisane (2 958 komórek na 2 809
+planszach, 0 błędów, `verify` 120/120). Plan D-520 zakończony — razem 7 762
+komórek `symbol-rgb-v2`. TASK-0832/0833 zamknięte jako zastąpione. Nic nie
+działa w tle. Otwarte zostają punkty 2–3 i 5 z listy „Otwarte decyzje”.
+
+## Co trwało (TASK-0878, pasmo 99–100%) — archiwalnie
 
 - Dwa sterowniki **tylko podglądu** w tle (PowerShell, ukryte okna), start
   2026-10-06 05:59 UTC: symbole `ARBUZ,CYTRYNA,GWIAZDA,POMARANCZ` i

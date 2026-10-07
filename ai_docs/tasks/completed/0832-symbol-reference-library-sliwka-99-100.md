@@ -1,6 +1,6 @@
 ---
 title: TASK-0832 — B5 — zapis biblioteki wzorców dla oczekujących komórek Śliwka z pewnością ≥ 99%
-status: in_progress
+status: done
 last_updated: 2026-10-03
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-03
 
 ## Status
 
-`in_progress`
+`done` — zamknięte jako zastąpione przez D-520 (bez wznowienia).
 
 ## Goal
 
@@ -131,3 +131,8 @@ Szesnaście części, każda kolejno: `apply-preview` do końca, `apply`, `apply
 
   Propozycje (zmiany symbolu / do przeglądu): 01 — 1 463 (Winogron 1 342,
   Wiśnia 70) / 22 164; 02 — 331 (Winogron 311) / 22 971; 03 — 132 / 18 937; 04 — 68 / 13 478; 05 — 49 / 9 584; 06 — 21 / 7 639; 07 — 26 / 5 878; 08 — 29 / 3 403; 09 — 23 / 1 467; 10 — 14 / 2 109; 11 — 4 / 1 187; 12 — 5 / 1 222; 13 — 5 / 1 199; 14 — 4 / 1 201 (nowy podgląd 46 383 komórek po przerwie); 15 — 5 / 1 312.
+- 2026-10-07: zamknięte bez wznowienia, zgodnie z handoffem RGB
+  (`ai_docs/guides/SYMBOL_RGB_FEEDBACK_HANDOFF_20261005.md`) i planem D-520:
+  stare manifesty biblioteki nie są wznawiane; komórki Śliwka przeszły przez
+  RGB v2 w pasmach TASK-0874–0878. Zapisane wcześniej rewizje biblioteki
+  zostają (cofanie przez `apply-revert` D-466).

@@ -1,6 +1,6 @@
 ---
 title: Ponowne przetworzenie oczekujących komórek symboli metodą RGB v2
-status: accepted
+status: done
 last_updated: 2026-10-05
 ---
 

@@ -6,6 +6,14 @@ last_updated: 2026-10-07
 
 # Decision Log
 
+## D-531 — Main Admin offers a local entry to the approved V7 test panel
+
+- **Date:** 2026-10-07.
+- **Status:** accepted; the operator requested access to the implemented semi-automatic workflow from the main Admin link to test and provide feedback.
+- **Decision:** when main V7 remains blocked and selection is enabled, offer ordinary local navigation to the separate V7 panel. The pilot retains its own API, acceptance, run database, source/output picker and estimated drafts. No game/run identity is transferred, no requests are redirected across databases, and no main gate is changed. Only HTTP loopback origins without credentials or extra URL parts are allowed; optional public origin configuration is validated.
+- **Compatibility:** active main V7 and existing run/review/crop behaviour remain. With no existing run, the entry replaces the unusable old setup. This is test access to the calibrated worktree, not production integration or a new API contract.
+- **Operations:** API/Admin processes remain user-controlled under AGENTS.md. No service lifecycle, data migration, automatic approval, branch merge or model activation is implied.
+
 ## D-530 — managed image operations retain five GiB after estimation
 
 - **Status:** accepted user instruction, 2026-10-07, TASK-0900.

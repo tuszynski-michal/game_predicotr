@@ -6,6 +6,21 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0919 — wejście do działającego półautomatu V7 (done)
+
+- Main3000 offers "Otwórz półautomat V7" to working calibration Admin3020.
+  Main API8000 remains blocked/v1; pilot8020 is active/v2. Local-only navigation
+  transfers no game/run identities and preserves existing main run/crop flows.
+- Focused helper/form/contract tests 19/19, rendered regressions 6/6 and
+  Prettier/scoped ESLint/full Admin types PASS. Remount/browser-free SSR verified.
+- Actual user's URL3000 ->3020 has enabled source/output pickers, saved folders,
+  estimated draft JPEG and neighbour correction. Main reload preserves entry;
+  no run start or decision. Existing file-name coverage: 3135/3135 and 3190/3190.
+- D-531; V7_MAIN_PANEL_TEST_ENTRY_PLAN.md; completed/0919-v7-main-panel-test-entry.md.
+  Evidence artifacts/v7-main-panel-entry-20261007/. No service lifecycle, model
+  activation, data transfer, merge, monitoring, push/deployment or full build.
+- Completion v1.7.249; actual hash recorded after commit.
+
 ### TASK-0904 — indexed symbol confidence reads (done)
 
 - Shared confidence-filtered SQL now exposes the existing partial index's

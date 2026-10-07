@@ -1563,3 +1563,22 @@ obrazu. Pomiar skali liczy niezależne źródła po SHA-256, więc wiele nazw dl
 tych samych bajtów nie może spełnić progu 100/300/500. Raport jawnie określa,
 że mierzy historyczny lokalizator V1 i read-only runtime, a nie ranking
 reprezentanta V2 ani writer.
+
+## Dostęp do testowego półautomatu z głównego panelu — TASK-0919
+
+Gdy główny lokalny panel ma starsze V7 z zablokowanym startem, a selekcja jest
+włączona, pokazuje „Otwórz półautomat V7”. Przycisk otwiera odrębny, istniejący
+panel wyborów w worktree kalibracyjnym. Przy braku wcześniejszego runu zastępuje
+niedziałający formularz; wcześniejszy run, jego przegląd i przycinanie pozostają
+dostępne. Wyłączona flaga serwera nie pozwala zaoferować tego wejścia.
+
+Operator wybiera źródło, bazowy katalog zapisu i pierwszy/ostatni zakres.
+Panel wyborów tworzy pod bazowym katalogiem folder o nazwie źródła. Propozycje
+są w jego podfolderze `propozycje`, a zatwierdzone JPEG-i w folderze wynikowym.
+„Otwórz zapisane wybory” lub lista wcześniejszych folderów przywraca przegląd
+bez ponownego skanowania. Numery oszacowane i możliwość korekty są jawne;
+pełne pokrycie propozycjami nie jest dowodem prawidłowego odczytu numerów.
+
+Jest to dostęp do testów, nie aktywacja V7 w głównej bazie. Nawigacja nie
+przenosi gry ani runu pomiędzy bazami, nie uruchamia analizy i nie zatwierdza
+zdjęć. API/Admin uruchamia użytkownik; samo wejście nie zmienia ich stanu.

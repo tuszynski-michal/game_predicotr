@@ -2189,3 +2189,28 @@ bezpośredniego sąsiada. Przy ewikcji LRU chroni jednocześnie bieżący viewpo
 renderowany URL. Benchmark przed uruchomieniem OCR deduplikuje wpisy po
 uprzednio sprawdzonym SHA-256; `availableSourceCount` oznacza liczbę takich
 niezależnych plików, a `availablePathCount` zachowuje liczbę nazw.
+
+## Lokalna nawigacja do panelu testowego V7 — TASK-0919
+
+`localV7PilotHref` buduje zwykły URL workspace'u z originu dokumentu. Akceptuje
+wyłącznie HTTP i `localhost`/`127.0.0.1`/`[::1]`, bez credentials, innej ścieżki,
+query i hash. Domyślny port 3020 odpowiada istniejącemu Adminowi kalibracyjnemu.
+Opcjonalny `NEXT_PUBLIC_V7_SELECTION_PILOT_ORIGIN` musi być zgodnym originem;
+jawnie pusty override wyłącza wejście. Własny origin i zdalny główny panel nie
+dostają linku. SSR używa pustego snapshotu; `useSyncExternalStore` odczytuje
+niezmienny origin dokumentu po hydratacji, bez synchronicznego setState w efekcie.
+
+Entry jest widoczny tylko przy `capabilities.enabled && !v7.startEnabled`.
+Przy braku historycznego runu zastępuje setup, a przy istniejącym runie działa
+obok niego. Active V7, flag-off i crop workflow zachowują poprzedni kontrakt.
+Link zawiera wyłącznie `workspace=semi-automatic-image-selection`: nie przenosi
+game ID, run ID ani storage pomiędzy originami. Nie proxy'uje zapytań, nie osadza
+iframe'u, nie zmienia CORS/CSP ani API8000 i nie obchodzi jego release gate.
+
+Admin3020 używa własnego API8020 przez swój istniejący proxy. Output picker,
+saved-folder review oraz pełne pokrycie propozycji należą do brancha
+kalibracyjnego. Dostęp testowy nie jest transplantem jego backendu/workera do
+głównego checkoutu. Po restarcie procesy uruchamia użytkownik pod kontrolą
+AGENTS.md. Regresje w nowym procesie obejmują routing, SSR, remount, flag-off,
+aktywny formularz i restore historycznego runu; live browser sprawdza nawigację
+oraz source/output picker i zapisane review bez nowych decyzji.

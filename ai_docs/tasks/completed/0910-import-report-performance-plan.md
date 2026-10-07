@@ -140,7 +140,8 @@ use a bounded runner with a maximum 120-second timeout.
   eight explicit model rows; the model assignment is the plan's final section.
 - New Markdown documents formatted with an explicit scoped ignore file because
   the repository's normal Prettier configuration excludes ai_docs.
-- Scoped formatting/whitespace and staged-scope checks are required before commit.
+- Scoped formatting, staged whitespace and scope checks passed. The commit
+  contains only three new planning documents and this task's CURRENT_STATE hunk.
 - Application tests/builds were not run: only documentation changed.
 
 ### Not completed
@@ -154,7 +155,9 @@ use a bounded runner with a maximum 120-second timeout.
 
 - Proposed plan, independent design review, this completed task and its own
   CURRENT_STATE entry. No accepted requirements/architecture/decision was changed.
-- Completion version: v1.7.245; hash recorded after the documentation commit.
+- Initial documentation commit: `v1.7.245 / de62ef98ff5131102b417afdd3cd2564d7526ecc`.
+- Documentation follow-up v1.7.246 corrects proposed task numbering to
+  TASK-0911–0918 after concurrent task reservation. Hash recorded after commit.
 
 ### Recommended next task
 

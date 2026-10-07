@@ -13,7 +13,7 @@ integralności pozostaje warunkiem uruchomienia importu.
 
 **Status: propozycja do oceny użytkownika i Claude Code.** Audyt projektu:
 `gpt-6-astra`, reasoning `high`. Zlecenie przygotowania tego dokumentu nie
-uruchamia jego implementacji, migracji ani wdrożenia. TASK-09111–09118 poniżej
+uruchamia jego implementacji, migracji ani wdrożenia. TASK-0911–0918 poniżej
 są proponowanymi zadaniami; przed uruchomieniem trzeba sprawdzić kolizje numerów.
 
 ## Stan obecny i dowody
@@ -394,7 +394,7 @@ do wypełnienia podczas przyszłej implementacji. Wspólne Relevant docs:
 [GAME_DATA_V2_OWNERSHIP.md](C:/Users/tuszy/Documents/game_predicotr/ai_docs/architecture/GAME_DATA_V2_OWNERSHIP.md),
 [DEFINITION_OF_DONE.md](C:/Users/tuszy/Documents/game_predicotr/ai_docs/process/DEFINITION_OF_DONE.md).
 
-### TASK-09111 — Pomiar zapytań i kontraktu kosztu odczytów
+### TASK-0911 — Pomiar zapytań i kontraktu kosztu odczytów
 
 **Status:** proposed/todo. **Goal:** ustalić baseline oraz mierzalne granice
 bez odczytywania zdjęć w docelowym raportowaniu.
@@ -423,12 +423,12 @@ o użyciu indeksu bez EXPLAIN. **Verification:** V1 oraz bounded instrumentacja.
 blokuje dowód SQL i późniejszy odbiór SLA, nie projekt pozostałych modułów.
 **Outcome:** do wypełnienia przy wykonaniu.
 
-### TASK-09112 — Jednorazowa walidacja niezmiennego neural snapshotu
+### TASK-0912 — Jednorazowa walidacja niezmiennego neural snapshotu
 
 **Status:** proposed/todo. **Goal:** usunąć powtórną walidację tego samego
 payloadu w jednym żądaniu bez osłabienia guards.
 
-**Context / Dependencies:** TASK-09111, znajomość raw-boundary callers.
+**Context / Dependencies:** TASK-0911, znajomość raw-boundary callers.
 **Recommended execution:** `gpt-6.1-sol / high`; zmiana granicy zaufania,
 obowiązkowy niezależny `gpt-6-astra / high` przed commitem.
 
@@ -448,12 +448,12 @@ Wynik exact identyczny z baseline. **Verification:** V1, V2, scoped mypy.
 **Out of scope:** omijanie pełnej walidacji `/start`. **Risks:** wszystkie
 raw callers muszą zachować kontrakt. **Outcome:** do wypełnienia.
 
-### TASK-09113 — Trwałe source index i geometry summary
+### TASK-0913 — Trwałe source index i geometry summary
 
 **Status:** proposed/todo. **Goal:** raport istnieje po restarcie bez czytania
 271 MB geometrii; świeży folder ma metadane jeszcze przed inferencją.
 
-**Dependencies:** TASK-09111–09112; projekt formatu/publikacji z tego planu.
+**Dependencies:** TASK-0911–0912; projekt formatu/publikacji z tego planu.
 **Recommended execution:** `gpt-6.1-sol / high`; immutable provenance i crash
 recovery wymagają niezależnego `gpt-6-astra / high`.
 
@@ -470,7 +470,7 @@ Ten task jest właścicielem minimalnej additive migracji nullable descriptorów
 source/geometry projection oraz `selection_revision` w retention model.
 Nowy zapis ustawia rewizję; legacy NULL nie jest dowodem zgodności i wymaga
 jawnej inicjalizacji w recovery. Numer Alembic ustalić z aktualnego head.
-TASK-09115 dopiero później dodaje metadane/listowanie katalogu.
+TASK-0915 dopiero później dodaje metadane/listowanie katalogu.
 
 **Expected files:** S2, S7, S8; nowe wskazane wyżej; proponowane
 `C:/Users/tuszy/Documents/game_predicotr/services/api/tests/test_browser_import_report.py`.
@@ -488,12 +488,12 @@ strumieniowych, bez benchmarku miliona rekordów.
 **Risks:** koszty jednorazowej projekcji i dysku jawne; osierocone pliki bez
 automatycznego cleanupu. **Outcome:** do wypełnienia.
 
-### TASK-09114 — Zapytania kanoniczności i replay ograniczone do folderu
+### TASK-0914 — Zapytania kanoniczności i replay ograniczone do folderu
 
 **Status:** proposed/todo. **Goal:** koszt raportu nie zależy od całej historii
 plansz/jobów gry, a właściwy replay nie ginie za limitem 10 000.
 
-**Dependencies:** TASK-09111, TASK-09113. EXPLAIN wymagany przed wyborem indeksu.
+**Dependencies:** TASK-0911, TASK-0913. EXPLAIN wymagany przed wyborem indeksu.
 **Recommended execution:** `gpt-6.1-sol / high`; semantyka numeracji i replay,
 niezależny `gpt-6-astra / high`.
 
@@ -521,19 +521,19 @@ izolowany PostgreSQL z query-plan assertion, bez produkcyjnych zapisów.
 **Out of scope:** globalna zmiana schematu canonical. **Risks:** legacy JSON
 job input keys/fingerprint muszą zachować semantykę. **Outcome:** do wypełnienia.
 
-### TASK-09115 — Game-scoped katalog i paginacja gotowych folderów
+### TASK-0915 — Game-scoped katalog i paginacja gotowych folderów
 
 **Status:** proposed/todo. **Goal:** lista aktywnej gry nie skanuje dysku ani
 folderów pozostałych gier; świeży i retained folder da się odnaleźć po restarcie.
 
-**Dependencies:** TASK-09113; zaakceptowane rozszerzenie kontraktu. Implementacja
+**Dependencies:** TASK-0913; zaakceptowane rozszerzenie kontraktu. Implementacja
 API wymaga poinformowania użytkownika, że to opt-in envelope, zanim zacznie się kodowanie.
 **Recommended execution:** `gpt-6.1-sol / high`; własność i zgodność kontraktu,
 niezależny `gpt-6-astra / high`.
 
 **Scope / Technical notes:** reuse retention model, additive nullable columns
 katalogu (purpose, file_count, total_bytes, replacement/current) poza
-descriptor/revision dostarczonymi przez TASK-09113 oraz potwierdzony indeks katalogu;
+descriptor/revision dostarczonymi przez TASK-0913 oraz potwierdzony indeks katalogu;
 keyset game query i zbiorczy job/status lookup;
 brak per-folder session/N+1. Finalize zapisuje małe metadata razem z ready.
 Migracja nie parsuje wszystkich plików w transakcji. Nullable legacy pokazuje
@@ -555,12 +555,12 @@ retry ready bez duplikatu; limit 200; fixed query count bez N+1.
 **Risks:** brak metadanych starego folderu ma jawny recovery, nie ukryte skanowanie.
 **Outcome:** do wypełnienia.
 
-### TASK-09116 — Izolacja operacji folderu i bezpieczny recovery
+### TASK-0916 — Izolacja operacji folderu i bezpieczny recovery
 
 **Status:** proposed/todo. **Goal:** kosztowny odczyt folderu A nie blokuje
 folderu B; rename/delete nie może wyprzedzić kontroli zależności.
 
-**Dependencies:** TASK-09113–09115. **Recommended execution:**
+**Dependencies:** TASK-0913–0915. **Recommended execution:**
 `gpt-6-astra / high`; spójność DB/filesystem i lock failure; niezależny
 `gpt-6.1-sol / high` przed commitem, eskalacja Astra przy nierozstrzygniętej race.
 
@@ -588,12 +588,12 @@ PostgreSQL proces/race test z jawnymi deadline'ami.
 **Risks:** wspólny protokół musi objąć wszystkich mutatorów. Brak pokrycia
 jednego z nich blokuje merge zadania. **Outcome:** do wypełnienia.
 
-### TASK-09117 — Szybki raport w Adminie i jawne przygotowanie legacy
+### TASK-0917 — Szybki raport w Adminie i jawne przygotowanie legacy
 
 **Status:** proposed/todo. **Goal:** „Pokaż raport” renderuje overview bez
 JPEG/monolitu; pełne liczniki i szczegóły doładowują się niezależnie.
 
-**Dependencies:** TASK-09113–09116, zaakceptowany kontrakt rozszerzenia API.
+**Dependencies:** TASK-0913–0916, zaakceptowany kontrakt rozszerzenia API.
 **Recommended execution:** `gpt-6.1-sol / medium`; określony pion UI/API,
 niezależny `gpt-6-astra / high` dla exact/overview boundary i zgodności.
 
@@ -623,12 +623,12 @@ klient drift check, izolowany Admin build dopiero po focused checks.
 **Risks:** globalny worker lane może opóźnić jednorazowe legacy prepare;
 UI pokazuje prawdziwy queued/progress. **Outcome:** do wypełnienia.
 
-### TASK-09118 — Odbiór całego przepływu i instrukcja wdrożenia
+### TASK-0918 — Odbiór całego przepływu i instrukcja wdrożenia
 
 **Status:** proposed/todo. **Goal:** dowody potwierdzają trwałość, zgodność
 i zakres kosztu; użytkownik dostaje gotowy pakiet do osobno zatwierdzanego wdrożenia.
 
-**Dependencies:** TASK-09111–09117, brak otwartych P0–P2; działająca izolowana
+**Dependencies:** TASK-0911–0917, brak otwartych P0–P2; działająca izolowana
 baza/testy, dostępne istniejące read-only dane do pomiaru.
 **Recommended execution:** `gpt-6.1-sol / medium`; odbiór według jawnych
 kryteriów; niezależny finalny `gpt-6-astra / high`.
@@ -750,15 +750,15 @@ nowych testów zostaną zapisane w tasku przed jego kodowaniem.
 
 | Wymaganie                    | Zadania          | Kryterium / test                                                                     |
 | ---------------------------- | ---------------- | ------------------------------------------------------------------------------------ |
-| Szybkie Pokaż raport         | 09113, 09117, 09118 | Zero JPEG i zero parse pełnego geometry manifestu; root niezależny od canonical      |
-| Brak podwójnej walidacji     | 09112             | Licznik raw validator = 1 przy tej samej tożsamości; invalid input nadal fail        |
-| Więcej folderów i gier       | 09114–09116        | Game predicate przed LIMIT, bounded rows/bytes; brak globalnego filesystem scan/lock |
-| Pełna zawartość raportu      | 09113, 09114, 09117 | Canonical scalars zgodne z exact; first/last, alternatywy, skipped i exclusions      |
-| Bez utraty jakości           | 09112–09114, 09117  | Stale/changed-source/current-owner guards; exact nigdy z overview                    |
-| Restart i utracona odpowiedź | 09113, 09115–09118  | Ten sam descriptor/job; atomic pointer, brak częściowego ready                       |
-| Race start/delete/GC         | 09116             | Dwa procesy, lock loss, CAS i pending-operation recovery                             |
-| Kompatybilność V1.1          | 09115, 09117, 09118 | Default API bez zmian, pinned old preflight i stary workflow                         |
-| Ocena schematu i zapytań     | 09111, 09114, 09115 | Live read-only EXPLAIN, zakres folderu; brak nieudowodnionej przebudowy              |
+| Szybkie Pokaż raport         | 0913, 0917, 0918 | Zero JPEG i zero parse pełnego geometry manifestu; root niezależny od canonical      |
+| Brak podwójnej walidacji     | 0912             | Licznik raw validator = 1 przy tej samej tożsamości; invalid input nadal fail        |
+| Więcej folderów i gier       | 0914–0916        | Game predicate przed LIMIT, bounded rows/bytes; brak globalnego filesystem scan/lock |
+| Pełna zawartość raportu      | 0913, 0914, 0917 | Canonical scalars zgodne z exact; first/last, alternatywy, skipped i exclusions      |
+| Bez utraty jakości           | 0912–0914, 0917  | Stale/changed-source/current-owner guards; exact nigdy z overview                    |
+| Restart i utracona odpowiedź | 0913, 0915–0918  | Ten sam descriptor/job; atomic pointer, brak częściowego ready                       |
+| Race start/delete/GC         | 0916             | Dwa procesy, lock loss, CAS i pending-operation recovery                             |
+| Kompatybilność V1.1          | 0915, 0917, 0918 | Default API bez zmian, pinned old preflight i stary workflow                         |
+| Ocena schematu i zapytań     | 0911, 0914, 0915 | Live read-only EXPLAIN, zakres folderu; brak nieudowodnionej przebudowy              |
 
 **Proponowane cele odbioru, jeszcze nie wyniki:** na istniejącym folderze
 2575 zdjęć/23 175 wykrytych plansz, trzy odczyty w nowym procesie: root HTTP
@@ -832,11 +832,11 @@ w sesji 2026-10-07. Tabela nie stanowi zgody na implementację ani delegowanie.
 
 | Zadanie   | Model       | Reasoning | Uzasadnienie                                                                   | Dodatkowy review                                           |
 | --------- | ----------- | --------- | ------------------------------------------------------------------------------ | ---------------------------------------------------------- |
-| TASK-09111 | gpt-6.1-sol | medium    | Ograniczony pomiar istniejących odczytów i SQL; eskalacja przy zmianie guards. | gpt-6-astra / high przed wyborem zmian SQL                 |
-| TASK-09112 | gpt-6.1-sol | high      | Granica zaufania i niezmienność zwalidowanego payloadu.                        | gpt-6-astra / high, obowiązkowy                            |
-| TASK-09113 | gpt-6.1-sol | high      | Provenance, atomowa publikacja i trwałe wersjonowane artefakty.                | gpt-6-astra / high, obowiązkowy                            |
-| TASK-09114 | gpt-6.1-sol | high      | Domain sequence/replay i semantyka aktualnych właścicieli.                     | gpt-6-astra / high, obowiązkowy                            |
-| TASK-09115 | gpt-6.1-sol | high      | Własność stagingu, RLS, schema/API compatibility.                              | gpt-6-astra / high, obowiązkowy                            |
-| TASK-09116 | gpt-6-astra | high      | Ryzyko crash/race oraz spójność DB i filesystemu.                              | gpt-6.1-sol / high, obowiązkowy niezależny; spór eskalować |
-| TASK-09117 | gpt-6.1-sol | medium    | Jawnie zdefiniowany pion API/UI i generator; eskalacja przy zmianie kontraktu. | gpt-6-astra / high, obowiązkowy na exact/overview boundary |
-| TASK-09118 | gpt-6.1-sol | medium    | Odbiór według jawnych kryteriów i procedura operatorska.                       | gpt-6-astra / high, obowiązkowy końcowy                    |
+| TASK-0911 | gpt-6.1-sol | medium    | Ograniczony pomiar istniejących odczytów i SQL; eskalacja przy zmianie guards. | gpt-6-astra / high przed wyborem zmian SQL                 |
+| TASK-0912 | gpt-6.1-sol | high      | Granica zaufania i niezmienność zwalidowanego payloadu.                        | gpt-6-astra / high, obowiązkowy                            |
+| TASK-0913 | gpt-6.1-sol | high      | Provenance, atomowa publikacja i trwałe wersjonowane artefakty.                | gpt-6-astra / high, obowiązkowy                            |
+| TASK-0914 | gpt-6.1-sol | high      | Domain sequence/replay i semantyka aktualnych właścicieli.                     | gpt-6-astra / high, obowiązkowy                            |
+| TASK-0915 | gpt-6.1-sol | high      | Własność stagingu, RLS, schema/API compatibility.                              | gpt-6-astra / high, obowiązkowy                            |
+| TASK-0916 | gpt-6-astra | high      | Ryzyko crash/race oraz spójność DB i filesystemu.                              | gpt-6.1-sol / high, obowiązkowy niezależny; spór eskalować |
+| TASK-0917 | gpt-6.1-sol | medium    | Jawnie zdefiniowany pion API/UI i generator; eskalacja przy zmianie kontraktu. | gpt-6-astra / high, obowiązkowy na exact/overview boundary |
+| TASK-0918 | gpt-6.1-sol | medium    | Odbiór według jawnych kryteriów i procedura operatorska.                       | gpt-6-astra / high, obowiązkowy końcowy                    |

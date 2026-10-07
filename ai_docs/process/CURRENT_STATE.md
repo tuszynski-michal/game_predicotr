@@ -22,7 +22,8 @@ last_updated: 2026-10-07
   model assignments do not authorize implementation. No product code, data,
   migration, service restart, training, cleanup, activation, push or merge.
 - Documentation path checks: 38 valid links; eight tasks/eight model rows.
-  Completion version v1.7.245; hash recorded after the documentation commit.
+  Initial commit v1.7.245; de62ef98ff5131102b417afdd3cd2564d7526ecc.
+  Numbering/format follow-up v1.7.246; hash recorded after commit.
 
 ### TASK-0902 — read-only owner lookup during unrelated maintenance (done)
 

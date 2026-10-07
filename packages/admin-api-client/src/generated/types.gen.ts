@@ -9367,6 +9367,195 @@ export type ManagedImageReprocessJobPayload = {
 };
 
 /**
+ * ManagementAssignmentCommand
+ */
+export type ManagementAssignmentCommand = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Gameids
+   */
+  gameIds: Array<string>;
+  /**
+   * Operationid
+   */
+  operationId: string;
+};
+
+/**
+ * ManagementAssignmentResponse
+ */
+export type ManagementAssignmentResponse = {
+  /**
+   * Attached
+   */
+  attached: boolean;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Gamename
+   */
+  gameName: string;
+  gameStatus: GameStatus;
+};
+
+/**
+ * ManagementGameResponse
+ */
+export type ManagementGameResponse = {
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Name
+   */
+  name: string;
+};
+
+/**
+ * ManagementMachineCommand
+ */
+export type ManagementMachineCommand = {
+  /**
+   * Archived
+   */
+  archived?: boolean;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Operationid
+   */
+  operationId: string;
+};
+
+/**
+ * ManagementMachineResponse
+ */
+export type ManagementMachineResponse = {
+  /**
+   * Archived
+   */
+  archived: boolean;
+  /**
+   * Assignments
+   */
+  assignments: Array<ManagementAssignmentResponse>;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Pointid
+   */
+  pointId: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * ManagementPointCommand
+ */
+export type ManagementPointCommand = {
+  /**
+   * Archived
+   */
+  archived?: boolean;
+  /**
+   * City
+   */
+  city: string;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Street
+   */
+  street: string;
+};
+
+/**
+ * ManagementPointResponse
+ */
+export type ManagementPointResponse = {
+  /**
+   * Archived
+   */
+  archived: boolean;
+  /**
+   * City
+   */
+  city: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Machines
+   */
+  machines: Array<ManagementMachineResponse>;
+  /**
+   * Name
+   */
+  name: string;
+  /**
+   * Revision
+   */
+  revision: number;
+  /**
+   * Street
+   */
+  street: string;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * ManagementSnapshotResponse
+ */
+export type ManagementSnapshotResponse = {
+  /**
+   * Activegames
+   */
+  activeGames: Array<ManagementGameResponse>;
+  /**
+   * Points
+   */
+  points: Array<ManagementPointResponse>;
+};
+
+/**
  * ManualSourceGeometryPoint
  *
  * Signed coordinates; enclosing commands enforce qualified source bounds.
@@ -26998,6 +27187,256 @@ export type RejectLayoutImportStagingResponses = {
 
 export type RejectLayoutImportStagingResponse =
   RejectLayoutImportStagingResponses[keyof RejectLayoutImportStagingResponses];
+
+export type GetManagementSnapshotData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/management';
+};
+
+export type GetManagementSnapshotErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+};
+
+export type GetManagementSnapshotError =
+  GetManagementSnapshotErrors[keyof GetManagementSnapshotErrors];
+
+export type GetManagementSnapshotResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementSnapshotResponse;
+};
+
+export type GetManagementSnapshotResponse =
+  GetManagementSnapshotResponses[keyof GetManagementSnapshotResponses];
+
+export type UpdateManagementAssignmentsData = {
+  body: ManagementAssignmentCommand;
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/machines/{machine_id}/assignments';
+};
+
+export type UpdateManagementAssignmentsErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UpdateManagementAssignmentsError =
+  UpdateManagementAssignmentsErrors[keyof UpdateManagementAssignmentsErrors];
+
+export type UpdateManagementAssignmentsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMachineResponse;
+};
+
+export type UpdateManagementAssignmentsResponse =
+  UpdateManagementAssignmentsResponses[keyof UpdateManagementAssignmentsResponses];
+
+export type CreateManagementPointData = {
+  body: ManagementPointCommand;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/management/points';
+};
+
+export type CreateManagementPointErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateManagementPointError =
+  CreateManagementPointErrors[keyof CreateManagementPointErrors];
+
+export type CreateManagementPointResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementPointResponse;
+};
+
+export type CreateManagementPointResponse =
+  CreateManagementPointResponses[keyof CreateManagementPointResponses];
+
+export type UpdateManagementPointData = {
+  body: ManagementPointCommand;
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/points/{point_id}';
+};
+
+export type UpdateManagementPointErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UpdateManagementPointError =
+  UpdateManagementPointErrors[keyof UpdateManagementPointErrors];
+
+export type UpdateManagementPointResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementPointResponse;
+};
+
+export type UpdateManagementPointResponse =
+  UpdateManagementPointResponses[keyof UpdateManagementPointResponses];
+
+export type CreateManagementMachineData = {
+  body: ManagementMachineCommand;
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/points/{point_id}/machines';
+};
+
+export type CreateManagementMachineErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateManagementMachineError =
+  CreateManagementMachineErrors[keyof CreateManagementMachineErrors];
+
+export type CreateManagementMachineResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMachineResponse;
+};
+
+export type CreateManagementMachineResponse =
+  CreateManagementMachineResponses[keyof CreateManagementMachineResponses];
+
+export type UpdateManagementMachineData = {
+  body: ManagementMachineCommand;
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/points/{point_id}/machines/{machine_id}';
+};
+
+export type UpdateManagementMachineErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UpdateManagementMachineError =
+  UpdateManagementMachineErrors[keyof UpdateManagementMachineErrors];
+
+export type UpdateManagementMachineResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMachineResponse;
+};
+
+export type UpdateManagementMachineResponse =
+  UpdateManagementMachineResponses[keyof UpdateManagementMachineResponses];
 
 export type ListMobileReleasesData = {
   body?: never;

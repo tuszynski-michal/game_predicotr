@@ -24,6 +24,7 @@ from game_predictor_api.storage.game_data_v2_manifest_v5 import (
     VERSION,
     ownership,
 )
+from game_predictor_api.storage.management_manifest import SHARED_TABLES as MANAGEMENT_SHARED
 from game_predictor_api.storage.metadata import Base
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -38,7 +39,7 @@ def config(output: StringIO) -> Config:
 
 
 def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
-    known = CATALOG | SHARED | set(GAME_TABLES)
+    known = CATALOG | SHARED | set(GAME_TABLES) | MANAGEMENT_SHARED
     assert not (CATALOG & SHARED or CATALOG & set(GAME_TABLES) or SHARED & set(GAME_TABLES))
     assert set(Base.metadata.tables) <= known
     assert known - set(Base.metadata.tables) == {

@@ -1,3 +1,25 @@
+import {
+  getManagementSnapshot,
+  createManagementPoint,
+  updateManagementPoint,
+  createManagementMachine,
+  updateManagementMachine,
+  updateManagementAssignments,
+} from './generated/sdk.gen';
+import type {
+  ManagementPointCommand,
+  ManagementMachineCommand,
+  ManagementAssignmentCommand,
+} from './generated/types.gen';
+export type {
+  ManagementSnapshotResponse,
+  ManagementPointResponse,
+  ManagementMachineResponse,
+  ManagementAssignmentResponse,
+  ManagementPointCommand,
+  ManagementMachineCommand,
+  ManagementAssignmentCommand,
+} from './generated/types.gen';
 import { createClient as createGeneratedClient } from './generated/client';
 import type { GetModelQualityData } from './generated/types.gen';
 export type { ModelQualityOverviewResponse } from './generated/types.gen';
@@ -1106,6 +1128,34 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
   });
 
   return {
+    getManagementSnapshot: () => getManagementSnapshot({ client }),
+    createManagementPoint: (body: ManagementPointCommand) =>
+      createManagementPoint({ client, body }),
+    updateManagementPoint: (pointId: string, body: ManagementPointCommand) =>
+      updateManagementPoint({ client, body, path: { point_id: pointId } }),
+    createManagementMachine: (
+      pointId: string,
+      body: ManagementMachineCommand,
+    ) => createManagementMachine({ client, body, path: { point_id: pointId } }),
+    updateManagementMachine: (
+      pointId: string,
+      machineId: string,
+      body: ManagementMachineCommand,
+    ) =>
+      updateManagementMachine({
+        client,
+        body,
+        path: { point_id: pointId, machine_id: machineId },
+      }),
+    updateManagementAssignments: (
+      machineId: string,
+      body: ManagementAssignmentCommand,
+    ) =>
+      updateManagementAssignments({
+        client,
+        body,
+        path: { machine_id: machineId },
+      }),
     getHealth: () => getGeneratedHealth({ client }),
     createV7LabelGeometryCalibrationSession: (
       body: V7LabelGeometrySessionCreate,

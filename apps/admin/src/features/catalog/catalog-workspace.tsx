@@ -26,6 +26,7 @@ import {
 import { BoardSearchWorkspace } from '@/features/board-search/board-search-workspace';
 import { BoardSourceCleanupControl } from '@/features/cleanup/board-source-cleanup-control';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
+import { ManagementWorkspace } from '@/features/management/management-workspace';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { ImageSelectionWorkspace } from '@/features/image-selection/image-selection-workspace';
@@ -50,6 +51,7 @@ const WORKSPACE_OPTIONS: readonly {
   readonly id: AdminWorkspace;
   readonly label: string;
 }[] = [
+  { id: 'management', label: 'Panel Administracyjny' },
   {
     id: 'games',
     label: 'Zarządzanie grami',
@@ -523,6 +525,9 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
           </div>
         ) : null}
 
+        {navigation.workspace === 'management' ? (
+          <ManagementWorkspace apiBaseUrl={apiBaseUrl} />
+        ) : null}
         {navigation.workspace === 'releases' ? (
           <ReleasePanel
             apiBaseUrl={apiBaseUrl}

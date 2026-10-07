@@ -22,6 +22,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
+from game_predictor_api.api.management import create_management_router
 from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryPendingService,
@@ -111,6 +112,7 @@ from game_predictor_api.application.layout_import_reports import (
 from game_predictor_api.application.layout_imports import (
     LayoutImportSourceInspector,
 )
+from game_predictor_api.application.management import ManagementError, ManagementService
 from game_predictor_api.application.mobile_releases import (
     MobileReleaseService,
 )
@@ -391,6 +393,7 @@ from game_predictor_api.storage.lab_symbol_candidate_import_repository import (
 from game_predictor_api.storage.layout_import_report_repository import (
     SqlAlchemyLayoutImportReportRepository,
 )
+from game_predictor_api.storage.management_repository import SqlAlchemyManagementRepository
 from game_predictor_api.storage.mobile_release_repository import (
     SqlAlchemyMobileReleaseRepository,
 )
@@ -526,6 +529,7 @@ def create_app(
     settings: ApiSettings | None = None,
     *,
     local_source_picker: Callable[[], Path | None] | None = None,
+    management_service_dependency: Callable[..., object] | None = None,
     catalog_service_dependency: Callable[..., object] | None = None,
     board_search_service_dependency: Callable[..., object] | None = None,
     board_search_approximate_win_service_dependency: Callable[..., object] | None = None,
@@ -1867,6 +1871,33 @@ def create_app(
         admin_origin=resolved_settings.admin_origin,
         reviewer_origin=resolved_settings.reviewer_origin,
         audit_log=AppendOnlyAdminAuditLog(resolved_settings.artifact_root),
+    )
+
+    def default_management_service_dependency() -> Iterator[ManagementService]:
+        # Control-plane metadata spans games; deliberately no game-store session.
+        with Session(database_engine) as session:
+            try:
+                yield ManagementService(SqlAlchemyManagementRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    @application.exception_handler(ManagementError)
+    async def management_error_handler(request: Request, error: ManagementError) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status,
+            content={
+                "code": error.code,
+                "message": str(error),
+                "details": {},
+            },
+        )
+
+    application.include_router(
+        create_management_router(
+            management_service_dependency or default_management_service_dependency
+        )
     )
     application.state.database_engine = database_engine
     application.include_router(

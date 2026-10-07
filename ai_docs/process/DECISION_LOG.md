@@ -6,6 +6,31 @@ last_updated: 2026-10-07
 
 # Decision Log
 
+## D-533 — Points/machines panel with durable stake saves and whole-panel links
+
+- **Date:** 2026-10-07.
+- **Status:** accepted explicit whole-plan implementation request, T1–T7 /
+  TASK-0921–0927, MANAGEMENT_PANEL_EXECUTION_PLAN.md.
+- **Decision:** add Panel Administracyjny with points (name/city/street), named
+  machines and editable active-game assignments. Archive/detach preserves saves
+  and audit. Six independent stakes20/10/6/4/2/1.20PLN save query/start/range and
+  zero to six pinned spin positions only on explicit **Zapisz układ**. Confirmed
+  Clear removes only the current choice. Symbol corrections retain immediate
+  game-wide semantics. Recalculate current results on opening and preserve
+  immutable previous numeric/chart/start-symbol/rules versions in history.
+- **Consistency:** PostgreSQL owns data, stable identity independent of name,
+  compact deduplicated result versions, no image blobs. Mutation/audit atomic,
+  operation-bound receipts and revision conflicts; no historical deletion UI.
+- **Access:** local admin and one known recipient. Named link plus separate code
+  gives full module management across assigned active games. Link administration
+  stays local; unrelated Admin/model/import/rules operations excluded. Separate
+  multi-game session/proxy with expiry/revoke/lockout; old one-game links retain
+  scope. Add48/72h options to new panel and old board-search shares, default8h.
+- **Operations:** local first, existing Reviewer ingress, computer availability
+  required. No new Redis/accounts/hosting/synchronization, automatic service
+  lifecycle, production data manipulation, push or deployment. User controls
+  API/Admin and rollout. See requirements/architecture/MANAGEMENT_PANEL.md.
+
 ## D-534 — Image import resumption uses the hard reserve, not the GC target
 
 - **Date:** 2026-10-07.

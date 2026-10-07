@@ -99,6 +99,12 @@ import type {
   CreateJobData,
   CreateJobErrors,
   CreateJobResponses,
+  CreateManagementMachineData,
+  CreateManagementMachineErrors,
+  CreateManagementMachineResponses,
+  CreateManagementPointData,
+  CreateManagementPointErrors,
+  CreateManagementPointResponses,
   CreateMobileReleaseData,
   CreateMobileReleaseErrors,
   CreateMobileReleaseResponses,
@@ -347,6 +353,9 @@ import type {
   GetLayoutImportIntegrityReportData,
   GetLayoutImportIntegrityReportErrors,
   GetLayoutImportIntegrityReportResponses,
+  GetManagementSnapshotData,
+  GetManagementSnapshotErrors,
+  GetManagementSnapshotResponses,
   GetManualImageSelectionFileData,
   GetManualImageSelectionFileErrors,
   GetManualImageSelectionFileResponses,
@@ -922,6 +931,15 @@ import type {
   UpdateImageImportEnginePolicyData,
   UpdateImageImportEnginePolicyErrors,
   UpdateImageImportEnginePolicyResponses,
+  UpdateManagementAssignmentsData,
+  UpdateManagementAssignmentsErrors,
+  UpdateManagementAssignmentsResponses,
+  UpdateManagementMachineData,
+  UpdateManagementMachineErrors,
+  UpdateManagementMachineResponses,
+  UpdateManagementPointData,
+  UpdateManagementPointErrors,
+  UpdateManagementPointResponses,
   UpdatePaylineData,
   UpdatePaylineErrors,
   UpdatePaylineResponses,
@@ -5363,6 +5381,144 @@ export const rejectLayoutImportStaging = <ThrowOnError extends boolean = false>(
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/layout-import-validations/{validation_job_id}/staging',
     ...options,
+  });
+
+/**
+ * Snapshot
+ */
+export const getManagementSnapshot = <ThrowOnError extends boolean = false>(
+  options?: Options<GetManagementSnapshotData, ThrowOnError>,
+): RequestResult<
+  GetManagementSnapshotResponses,
+  GetManagementSnapshotErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetManagementSnapshotResponses,
+    GetManagementSnapshotErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/management', ...options });
+
+/**
+ * Assignments
+ */
+export const updateManagementAssignments = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdateManagementAssignmentsData, ThrowOnError>,
+): RequestResult<
+  UpdateManagementAssignmentsResponses,
+  UpdateManagementAssignmentsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdateManagementAssignmentsResponses,
+    UpdateManagementAssignmentsErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/assignments',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create Point
+ */
+export const createManagementPoint = <ThrowOnError extends boolean = false>(
+  options: Options<CreateManagementPointData, ThrowOnError>,
+): RequestResult<
+  CreateManagementPointResponses,
+  CreateManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateManagementPointResponses,
+    CreateManagementPointErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update Point
+ */
+export const updateManagementPoint = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateManagementPointData, ThrowOnError>,
+): RequestResult<
+  UpdateManagementPointResponses,
+  UpdateManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdateManagementPointResponses,
+    UpdateManagementPointErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create Machine
+ */
+export const createManagementMachine = <ThrowOnError extends boolean = false>(
+  options: Options<CreateManagementMachineData, ThrowOnError>,
+): RequestResult<
+  CreateManagementMachineResponses,
+  CreateManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateManagementMachineResponses,
+    CreateManagementMachineErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/machines',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update Machine
+ */
+export const updateManagementMachine = <ThrowOnError extends boolean = false>(
+  options: Options<UpdateManagementMachineData, ThrowOnError>,
+): RequestResult<
+  UpdateManagementMachineResponses,
+  UpdateManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdateManagementMachineResponses,
+    UpdateManagementMachineErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/machines/{machine_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

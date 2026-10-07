@@ -38,6 +38,8 @@ implementacyjnym.
 
 - [Mobile app](requirements/MOBILE_APP.md)
 - [Admin app](requirements/ADMIN_APP.md)
+- [Management panel](requirements/MANAGEMENT_PANEL.md) — points, machines,
+  active games, independent stake saves and whole-panel online access (D-533).
 - [Aplikacja V3 — rejestr przeglądu ekranów](requirements/APP_V3_FUNCTIONAL_INVENTORY.md)
   — robocze potrzeby, funkcje do zachowania/przeniesienia i oddzielny panel online.
 - [Admin app 0.2 proposal](requirements/ADMIN_APP_V0_2.md)
@@ -54,6 +56,7 @@ implementacyjnym.
 
 - [Tech stack](architecture/TECH_STACK.md)
 - [System architecture](architecture/SYSTEM_ARCHITECTURE.md)
+- [Management panel architecture](architecture/MANAGEMENT_PANEL.md)
 - [Data model](architecture/DATA_MODEL.md)
 - [Virtual geometry schema ownership](architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md)
 - [API contract](architecture/API_CONTRACT.md)
@@ -70,6 +73,9 @@ implementacyjnym.
   między planszami); prototyp TASK-0648, status `proposed`.
 
 ### Dostarczanie
+
+- [Management panel execution plan](delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md)
+  — accepted T1–T7, TASK-0921–0927.
 
 - [Roadmap](delivery/ROADMAP.md)
 - [Milestone 01](delivery/MILESTONE_01_MOCKED_MOBILE.md)

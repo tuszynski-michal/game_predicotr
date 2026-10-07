@@ -6916,3 +6916,7 @@ class BoardSearchShareQueryEventModel(Base):
     request: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     result_summary: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
     outcome_code: Mapped[str] = mapped_column(String(100), nullable=False)
+
+
+# Register independently owned management control-plane mappings.
+from game_predictor_api.storage import management_models as management_models  # noqa: E402

@@ -1,5 +1,6 @@
 export const ADMIN_WORKSPACES = [
   'games',
+  'management',
   'releases',
   'jobs',
   'image-selection',

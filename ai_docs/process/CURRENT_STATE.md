@@ -6,6 +6,37 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0921 — Management points and machines (done)
+
+- Local Panel Administracyjny tab has editable point/machine hierarchy,
+  active-game assignments and archive/restore with retained detached history.
+  Additive migration0148 creates shared metadata and immutable audit/receipts.
+- UUID/actor/target/body checks, point-first locks and expected revisions protect
+  retries and concurrent writes. Commit precedes HTTP success; per-tab pending
+  commands survive reload and ambiguous5xx without losing retry identity.
+- Backend/actual PostgreSQL app-role5 PASS, rendered UI4, wrapper request1,
+  Admin/client types, scoped Ruff/mypy/ESLint pass. Independent sol/high review
+  has no open P0–P2. PostgreSQL verifies fresh-process reload and concurrency.
+- Earlier unmapped V7 tables still fail the broad ownership gate; new shared
+  tables are classified. Full transitive mypy reaches unrelated worker errors;
+  scoped changed modules pass. No user service lifecycle or production migration.
+- Completion commit pending. TASK-0928 concurrently consumed v1.7.251; next
+  patch comes from actual branch log. Next TASK-0922 / T2, whole plan authorized.
+
+### TASK-0921–0927 — Management panel implementation (in progress)
+
+- User explicitly started the complete accepted T1–T7 plan on2026-10-07.
+  D-533; delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md and dedicated requirements/
+  architecture/MANAGEMENT_PANEL.md. Point → machine → active game → six stakes.
+- Explicit Save only; draft pins/browsing, confirmed slot-only Clear, immutable
+  prior results and retained journal, current recalculation, UUID/revision guards.
+  Whole-panel named recipient, local link administration,48/72h plus old shares.
+- Executors/reviewers follow accepted model table. T1 audited; T2 next.
+  Baseline branch v1.7.250 /88d5019c7e436e5bd2895220d8fe0187f9ea177a;
+  pre-existing modified CURRENT_STATE/completed task receipts remain user-owned.
+- No API/Admin lifecycle, production migration/data edits, hosting, push/merge,
+  model activation or destructive operation is included. Live rollout user-run.
+
 ### TASK-0928 — image import storage resumption (in progress)
 
 - Mumie job 092ff7a4-e652-4273-9c0a-a30e38ebd8cc stalls at 535/2915 sources

@@ -181,7 +181,7 @@ test('shows only crop thumbnails and exposes durable mutation feedback', () => {
   assert.match(styles, /symbolReviewSpin/);
   assert.match(source, /Ponownie zaznacz odznaczony/);
   assert.match(source, /applySingleSymbolReviewDecision/);
-  assert.match(source, /Symbol został zmieniony/);
+  assert.match(source, /Symbol zapisano i zatwierdzono/);
   assert.match(styles, /\.toastSuccess/);
   assert.match(styles, /bottom: 50px/);
   assert.match(styles, /left: 50px/);

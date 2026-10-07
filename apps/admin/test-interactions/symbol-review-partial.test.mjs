@@ -110,8 +110,18 @@ async function click(node) {
   await act(async () => node.click());
 }
 async function choose(index, value) {
+  await chooseSymbolField(index === 0 ? 'Gra' : 'Symbol', value);
+}
+function symbolField(label) {
+  const node = [...document.querySelectorAll('label')]
+    .find((node) => node.firstChild?.textContent.trim() === label)
+    ?.querySelector('select');
+  assert.ok(node, label);
+  return node;
+}
+async function chooseSymbolField(label, value) {
   await act(async () => {
-    const node = document.querySelectorAll('select')[index];
+    const node = symbolField(label);
     node.value = value;
     node.dispatchEvent(new Event('change', { bubbles: true }));
   });
@@ -230,10 +240,7 @@ test('orphan start in a previous game cannot disable or overwrite preparation in
     failureMessage: null,
   });
   fixture.api.getSymbolCellReviewProjectionStatus = async (gameId) => ({
-    data: status(
-      gameId,
-      gameId === 'game-1' ? 'rebuilding' : 'not_started',
-    ),
+    data: status(gameId, gameId === 'game-1' ? 'rebuilding' : 'not_started'),
   });
   let completeOld;
   fixture.api.startSymbolCellReviewProjectionBackfill = () =>
@@ -286,7 +293,7 @@ test('outside selection, keyboard reassignment and unreadable preserve visibilit
       ),
     );
     assert.equal(button('Ustaw jako grafikę symbolu').disabled, true);
-    assert.equal(button('Zatwierdź').disabled, true);
+    assert.equal(button('Zapisz i zatwierdź').disabled, true);
     assert.equal(button('Nieczytelny').disabled, false);
     await act(async () =>
       window.dispatchEvent(
@@ -363,7 +370,7 @@ test('unassigned outside marked unreadable stays outside and never enters unknow
     await eventually(() =>
       document.body.textContent.includes('Poza zdjęciem · Nieczytelny'),
     );
-    assert.equal(document.querySelectorAll('select')[1].value, 'outside');
+    assert.equal(symbolField('Symbol').value, 'outside');
     assert.doesNotMatch(
       document.body.textContent,
       /Brak pól w wybranej grupie/,
@@ -421,7 +428,7 @@ test('source modal uses current geometry, blocks workspace shortcuts and closes 
   }
 });
 
-test('bulk unreadable reconciles two outside positions in place without changing the group', async () => {
+test('bulk unreadable freezes two outside positions until refresh without changing the group', async () => {
   const { root, calls, cells } = await mount();
   cells.push(
     partialReviewItem({ id: 'outside-second', cellIndex: 5, rowIndex: 1 }),
@@ -441,6 +448,11 @@ test('bulk unreadable reconciles two outside positions in place without changing
     );
     await click(button('Uruchom operację'));
     await eventually(
+      () => document.querySelectorAll('.cardSettled').length === 2,
+    );
+    assert.equal(calls.decisions.length, 2);
+    await click(button('Odśwież cropy'));
+    await eventually(
       () =>
         document.querySelectorAll('.cardBadge').length === 2 &&
         [...document.querySelectorAll('.cardBadge')].every(
@@ -448,7 +460,7 @@ test('bulk unreadable reconciles two outside positions in place without changing
         ),
     );
     assert.equal(calls.decisions.length, 2);
-    assert.equal(document.querySelectorAll('select')[1].value, 'outside');
+    assert.equal(symbolField('Symbol').value, 'outside');
     assert.equal(calls.atlases.length, 0);
   } finally {
     await act(async () => root.unmount());
@@ -504,19 +516,19 @@ test('retained blurry option cannot turn an outside assignment into an image act
           'Zaznacz crop z planszy 62287, pozycja 1/1',
       ),
     );
-    assert.equal(document.querySelectorAll('select')[1].value, 'all');
-    assert.match(document.body.textContent, /Symbol został zmieniony\./);
+    assert.equal(symbolField('Symbol').value, 'all');
+    assert.match(document.body.textContent, /Symbol zapisano i zatwierdzono\./);
     assert.doesNotMatch(
       document.body.textContent,
-      /Symbol został zmieniony i oznaczony jako niewyraźny/,
+      /Symbol zapisano i zatwierdzono jako niewyraźny/,
     );
   } finally {
     await act(async () => root.unmount());
   }
 });
 
-test('legacy approve button stays disabled even for visible crops with a valid selection', async () => {
-  const { root } = await mount();
+test('one explicit symbol save approves the same pending label for a legacy game', async () => {
+  const { root, calls, cells } = await mount();
   try {
     await choose(1, 'all');
     await eventually(() =>
@@ -533,20 +545,145 @@ test('legacy approve button stays disabled even for visible crops with a valid s
           `Zaznacz crop z planszy 62287, pozycja 1/${position}`,
       );
     await click(selectPosition(3));
-    assert.equal(button('Zatwierdź').disabled, true);
+    assert.equal(button('Zapisz i zatwierdź').disabled, true);
+    assert.equal(
+      buttons().some((node) =>
+        ['Zatwierdź', 'Zastosuj zmianę'].includes(node.textContent.trim()),
+      ),
+      false,
+    );
     await act(async () =>
       window.dispatchEvent(
         new KeyboardEvent('keydown', { key: '1', bubbles: true }),
       ),
     );
-    assert.equal(button('Zatwierdź').disabled, true);
-    assert.equal(button('Zastosuj zmianę').disabled, false);
+    assert.equal(button('Zapisz i zatwierdź').disabled, false);
+    await click(button('Zapisz i zatwierdź'));
+    await eventually(() => calls.decisions.length === 1);
+    assert.equal(calls.decisions[0].command.action, 'reassign');
+    assert.equal(calls.decisions[0].command.targetSymbolId, 'cherry');
+    assert.equal(
+      cells.find((cell) => cell.id === 'full-cell').reviewState,
+      'approved',
+    );
+    assert.equal(
+      cells.find((cell) => cell.id === 'full-cell').assignedSymbolId,
+      'cherry',
+    );
+    assert.match(document.body.textContent, /Symbol zapisano i zatwierdzono\./);
+    await eventually(() =>
+      document.body.textContent.includes('zatwierdzone: 1'),
+    );
+    await choose(1, 'cherry');
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
   } finally {
     await act(async () => root.unmount());
   }
 });
 
-test('Mumie enables bulk approval for visible crops and preserves outside protection', async () => {
+test('explicit correction moves a pending crop into its approved target and survives a cold mount', async () => {
+  const fixture = await createPartialReviewClient();
+  fixture.api.listSymbols = async () => ({
+    data: [
+      {
+        id: 'cherry',
+        name: 'Wiśnia',
+        code: 'cherry',
+        status: 'active',
+        displayOrder: 0,
+      },
+      {
+        id: 'plum',
+        name: 'Śliwka',
+        code: 'plum',
+        status: 'active',
+        displayOrder: 1,
+      },
+    ],
+  });
+  const chooseState = async (name) => {
+    const label = [...document.querySelectorAll('label')].find(
+      (node) => node.textContent.trim() === name,
+    );
+    assert.ok(label, name);
+    await click(label.querySelector('input[type="radio"]'));
+  };
+  const crop = () =>
+    buttons().find(
+      (node) =>
+        node.getAttribute('aria-label') ===
+        'Zaznacz crop z planszy 62287, pozycja 1/3',
+    );
+  const { root, calls, cells } = await mount(fixture);
+  try {
+    await choose(1, 'cherry');
+    await chooseState('Oczekujące');
+    await eventually(() => crop());
+    await click(crop());
+    assert.equal(button('Zapisz i zatwierdź').disabled, true);
+    await chooseSymbolField('Symbol do zatwierdzenia', 'plum');
+    await click(button('Zapisz i zatwierdź'));
+    await eventually(() => calls.decisions.length === 1);
+    assert.equal(calls.decisions[0].command.action, 'reassign');
+    assert.equal(calls.decisions[0].command.targetSymbolId, 'plum');
+    assert.equal(
+      cells.find((cell) => cell.id === 'full-cell').assignedSymbolId,
+      'plum',
+    );
+    assert.equal(
+      cells.find((cell) => cell.id === 'full-cell').reviewState,
+      'approved',
+    );
+    await eventually(() => !crop());
+    await choose(1, 'plum');
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
+    await chooseState('Zatwierdzone');
+    await eventually(() => crop());
+    assert.equal(calls.decisions.length, 1);
+  } finally {
+    await act(async () => root.unmount());
+  }
+  const cold = await mount(fixture);
+  try {
+    await choose(1, 'plum');
+    await chooseState('Zatwierdzone');
+    await eventually(() => crop());
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
+    assert.equal(calls.decisions.length, 1);
+  } finally {
+    await act(async () => cold.root.unmount());
+  }
+});
+
+test('unified save keeps the explicit target on a blurry approval', async () => {
+  const { root, calls } = await mount();
+  try {
+    await choose(1, 'cherry');
+    await eventually(() =>
+      buttons().some((node) =>
+        node.getAttribute('aria-label')?.startsWith('Zaznacz crop'),
+      ),
+    );
+    await click(button('Zaznacz stronę'));
+    await chooseSymbolField('Symbol do zatwierdzenia', 'cherry');
+    const checkbox = [...document.querySelectorAll('label')]
+      .find((node) => node.textContent.trim() === 'Niewyraźny')
+      .querySelector('input');
+    await click(checkbox);
+    await click(button('Zapisz i zatwierdź'));
+    await eventually(() => calls.decisions.length === 1);
+    assert.equal(calls.decisions[0].command.action, 'mark_blurry');
+    assert.equal(calls.decisions[0].command.targetSymbolId, 'cherry');
+    assert.match(
+      document.body.textContent,
+      /Symbol zapisano i zatwierdzono jako niewyraźny, poza uczeniem/,
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('Mumie same-symbol bulk save approves pending crops and freezes the current page', async () => {
   const fixture = await createPartialReviewClient();
   fixture.api.listGames = async () => ({
     data: [
@@ -565,7 +702,7 @@ test('Mumie enables bulk approval for visible crops and preserves outside protec
     cellIndex: 3,
     columnIndex: 3,
   });
-  const { root, calls } = await mount(fixture);
+  const { root, calls, cells } = await mount(fixture);
   try {
     await choose(1, 'cherry');
     await eventually(() =>
@@ -575,17 +712,41 @@ test('Mumie enables bulk approval for visible crops and preserves outside protec
           'Zaznacz crop z planszy 62287, pozycja 1/4',
       ),
     );
-    assert.equal(button('Zatwierdź').disabled, true);
+    assert.equal(button('Zapisz i zatwierdź').disabled, true);
     await click(button('Zaznacz stronę'));
-    assert.equal(button('Zatwierdź').disabled, false);
-    await click(button('Zatwierdź'));
+    assert.equal(button('Zapisz i zatwierdź').disabled, true);
+    await chooseSymbolField('Symbol do zatwierdzenia', 'cherry');
+    assert.equal(button('Zapisz i zatwierdź').disabled, false);
+    const pageReads = calls.pages.length;
+    await click(button('Zapisz i zatwierdź'));
     await eventually(() =>
       buttons().some((node) => node.textContent === 'Uruchom operację'),
     );
     await click(button('Uruchom operację'));
     await eventually(() => calls.decisions.length === 2);
+    await eventually(() =>
+      document.body.textContent.includes('Operacja zakończona: 2 symboli.'),
+    );
+    assert.equal(calls.pages.length, pageReads);
     assert.ok(
-      calls.decisions.every((call) => call.command.action === 'approve'),
+      calls.decisions.every(
+        (call) =>
+          call.command.action === 'reassign' &&
+          call.command.targetSymbolId === 'cherry',
+      ),
+    );
+    assert.ok(
+      cells
+        .filter((cell) => cell.assignedSymbolId === 'cherry')
+        .every((cell) => cell.reviewState === 'approved'),
+    );
+    assert.equal(
+      buttons().find((node) =>
+        node
+          .getAttribute('aria-label')
+          ?.endsWith('crop z planszy 62287, pozycja 1/4'),
+      ).disabled,
+      true,
     );
     await choose(1, 'outside');
     await eventually(() =>
@@ -596,7 +757,7 @@ test('Mumie enables bulk approval for visible crops and preserves outside protec
       ),
     );
     await click(button('Zaznacz stronę'));
-    assert.equal(button('Zatwierdź').disabled, true);
+    assert.equal(button('Zapisz i zatwierdź').disabled, true);
   } finally {
     await act(async () => root.unmount());
   }

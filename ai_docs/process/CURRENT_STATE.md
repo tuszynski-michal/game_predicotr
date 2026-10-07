@@ -6,6 +6,23 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0894 — unified symbol save and approval (done)
+
+- `Weryfikacja symboli` now has one `Zapisz i zatwierdź` with an explicit
+  `Symbol do zatwierdzenia`. Same-label pending becomes approved; another
+  selected active class corrects and approves. D-528 applies to all games
+  in this workspace, using existing reassign/mark_blurry contracts.
+- Missing target/selection blocks save. Keyboard, filter target reset,
+  outside/blurry exclusions, crop/revision guards, single direct saves,
+  bulk preview/durable job and frozen page retain their protections.
+- API domain 32/32, Admin interactions 12/12 and focused Admin 40/40 PASS;
+  scoped format/lint/types and Admin production build PASS. MAIN browser
+  check confirms same-Q save is enabled and the two old buttons are absent.
+- No API shape/schema changes or decisions on real user crops, migration,
+  cleanup, training, activation, deployment, push or merge. Updated plan,
+  requirements, contract explanation, guide, inventory and completed task.
+- Completion v1.7.237; full commit hash recorded after commit.
+
 ### TASK-0893 — symbol-review import folder filter (done)
 
 - `Weryfikacja symboli` has a game-scoped `Katalog importu` selector. It lists

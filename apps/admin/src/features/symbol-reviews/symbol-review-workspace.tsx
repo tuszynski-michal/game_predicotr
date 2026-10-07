@@ -1094,15 +1094,13 @@ export function SymbolReviewWorkspace({
   }
 
   async function previewOperation(
-    action: 'approve' | 'mark_grid_issue' | 'mark_unreadable' | 'reassign',
+    action: 'mark_grid_issue' | 'mark_unreadable' | 'reassign',
   ) {
     if (filters.gameId === null || selectedCount === 0) return;
-    if (action === 'approve' && selectedWithoutImage) return;
+    if (action === 'reassign' && reassignTargetSymbolId === null) return;
     const gameId = filters.gameId;
     const effectiveAction =
-      markBlurry &&
-      !selectedWithoutImage &&
-      (action === 'approve' || action === 'reassign')
+      markBlurry && !selectedWithoutImage && action === 'reassign'
         ? ('mark_blurry' as const)
         : action;
     const targetSymbolId =
@@ -1136,15 +1134,11 @@ export function SymbolReviewWorkspace({
         message:
           action === 'reassign'
             ? effectiveAction === 'mark_blurry'
-              ? 'Symbol został zmieniony i oznaczony jako niewyraźny.'
-              : 'Symbol został zmieniony.'
-            : action === 'approve'
-              ? effectiveAction === 'mark_blurry'
-                ? 'Symbol został zatwierdzony jako niewyraźny i wykluczony z nauki.'
-                : 'Symbol został zatwierdzony.'
-              : action === 'mark_grid_issue'
-                ? 'Symbol został oznaczony jako problem siatki.'
-                : 'Symbol został oznaczony jako nieczytelny.',
+              ? 'Symbol zapisano i zatwierdzono jako niewyraźny, poza uczeniem.'
+              : 'Symbol zapisano i zatwierdzono.'
+            : action === 'mark_grid_issue'
+              ? 'Symbol został oznaczony jako problem siatki.'
+              : 'Symbol został oznaczony jako nieczytelny.',
       });
       return;
     }
@@ -1743,15 +1737,11 @@ export function SymbolReviewWorkspace({
 
       {projectionStatus?.status === 'ready' && currentPage !== null ? (
         <SymbolReviewSelectionToolbar
-          allowApproval={
-            activeGame?.shapeGeometryConfiguration === 'grid_profile_mumie_v1'
-          }
           busy={interactionBusy}
           hasNoImageSelection={selectedWithoutImage}
           canSelectVisible={currentItems.length > 0}
           hasActiveSymbols={symbols.length > 0}
           markBlurry={markBlurry}
-          onApprove={() => void previewOperation('approve')}
           onClear={() => {
             setSelection(createEmptySymbolReviewSelection());
             setDeselectedCellIds(new Set());
@@ -1759,7 +1749,7 @@ export function SymbolReviewWorkspace({
           onMarkBlurryChange={setMarkBlurry}
           onMarkGridIssue={() => void previewOperation('mark_grid_issue')}
           onMarkUnreadable={() => void previewOperation('mark_unreadable')}
-          onReassign={() => void previewOperation('reassign')}
+          onSave={() => void previewOperation('reassign')}
           onSelectVisible={selectVisiblePage}
           onSetSymbolImage={() => void setSymbolImage()}
           canSetSymbolImage={
@@ -2185,18 +2175,16 @@ function symbolReviewCardBadge(
 }
 
 function SymbolReviewSelectionToolbar({
-  allowApproval = false,
   busy,
   hasNoImageSelection,
   canSelectVisible,
   hasActiveSymbols,
   markBlurry,
-  onApprove,
   onClear,
   onMarkBlurryChange,
   onMarkGridIssue,
   onMarkUnreadable,
-  onReassign,
+  onSave,
   onSelectVisible,
   onSetSymbolImage,
   canSetSymbolImage,
@@ -2206,7 +2194,6 @@ function SymbolReviewSelectionToolbar({
   symbols,
   readOnly,
 }: {
-  readonly allowApproval?: boolean;
   readonly busy: boolean;
   readonly hasNoImageSelection: boolean;
   readonly canSetSymbolImage: boolean;
@@ -2214,12 +2201,11 @@ function SymbolReviewSelectionToolbar({
   readonly canSelectVisible: boolean;
   readonly hasActiveSymbols: boolean;
   readonly markBlurry: boolean;
-  readonly onApprove: () => void;
   readonly onClear: () => void;
   readonly onMarkBlurryChange: (checked: boolean) => void;
   readonly onMarkGridIssue: () => void;
   readonly onMarkUnreadable: () => void;
-  readonly onReassign: () => void;
+  readonly onSave: () => void;
   readonly onSelectVisible: () => void;
   readonly onTargetSymbolChange: (symbolId: string | null) => void;
   readonly reassignTargetSymbolId: string | null;
@@ -2253,21 +2239,8 @@ function SymbolReviewSelectionToolbar({
         </button>
       </div>
       <div className={styles.toolbarActions}>
-        <button
-          className="primaryButton"
-          disabled={!allowApproval || actionsDisabled || hasNoImageSelection}
-          onClick={onApprove}
-          title={
-            allowApproval
-              ? 'Zatwierdź ocenione cropy z bieżącym obrazem.'
-              : 'Masowe zatwierdzanie jest obecnie wyłączone.'
-          }
-          type="button"
-        >
-          Zatwierdź
-        </button>
         <label>
-          Zmień symbol
+          Symbol do zatwierdzenia
           <select
             disabled={actionsDisabled || !hasActiveSymbols}
             onChange={(event) =>
@@ -2289,12 +2262,13 @@ function SymbolReviewSelectionToolbar({
           </select>
         </label>
         <button
-          className="secondaryButton"
+          className="primaryButton"
           disabled={actionsDisabled || reassignTargetSymbolId === null}
-          onClick={onReassign}
+          onClick={onSave}
+          title="Zapisuje wybrany symbol i zatwierdza zaznaczone pola, także gdy symbol pozostaje ten sam."
           type="button"
         >
-          Zastosuj zmianę
+          Zapisz i zatwierdź
         </button>
         <button
           className="secondaryButton"
@@ -2342,9 +2316,9 @@ function SymbolReviewSelectionToolbar({
       {readOnly ? null : (
         <p className={styles.toolbarShortcuts}>
           Klawiatura: <kbd>1</kbd>–<kbd>9</kbd> wybiera symbol docelowy (
-          {shortcutSymbolsLabel(symbols)}) · <kbd>Enter</kbd> zmienia symbol
-          zaznaczonych cropów lub potwierdza operację · <kbd>Esc</kbd> anuluje
-          okno albo zamyka pełny ekran
+          {shortcutSymbolsLabel(symbols)}) · <kbd>Enter</kbd> zapisuje i
+          zatwierdza zaznaczone cropy lub potwierdza operację · <kbd>Esc</kbd>{' '}
+          anuluje okno albo zamyka pełny ekran
         </p>
       )}
     </aside>
@@ -2689,7 +2663,7 @@ function operationLabel(
     | 'reassign',
 ): string {
   if (action === 'approve') return 'Zatwierdzenie';
-  if (action === 'reassign') return 'Zmiana symbolu';
+  if (action === 'reassign') return 'Zapis i zatwierdzenie symbolu';
   if (action === 'mark_grid_issue') return 'Oznaczenie złej siatki';
   if (action === 'mark_blurry') return 'Oznaczenie niewyraźnego symbolu';
   return 'Oznaczenie nieczytelnego symbolu';

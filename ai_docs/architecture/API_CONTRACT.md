@@ -919,6 +919,16 @@ append-only audytu co worker masowy, ale nie tworzy rekordu operacji ani joba.
 Konflikt tożsamości lub rewizji zwraca `409`; aktor zawsze pochodzi z lokalnego
 kontekstu serwera.
 
+Jedna podstawowa akcja Admina `Zapisz i zatwierdź` (D-528) używa istniejącego
+`reassign` z aktywnym `targetSymbolId`, także identycznym z bieżącym symbolem.
+Oczekujące pole otrzymuje `approved`, aktualną tożsamość dostępnego cropa i
+pochodzenie człowieka; ten sam zapis na już zatwierdzonym bieżącym cropie
+pozostaje idempotentny. Outside zachowuje logiczne zatwierdzenie bez pikseli.
+`Niewyraźny` nadal używa `mark_blurry` z jawnym celem. Pojedynczy zapis oraz
+job masowy zachowują kontrolę rewizji i reguły jakości. Akcja `approve`
+pozostaje w API dla istniejących konsumentów; nie jest osobnym przyciskiem
+w toolbarze Weryfikacji symboli. Nie dodano nowych tras ani typów.
+
 Endpointy `unreadable-board-reviews` są lokalną, game-wide kolejką aktualnych
 właścicieli logicznych plansz. `pending` wymaga co najmniej jednej komórki
 `quality_issue = unreadable` i `review_state = pending`; `all` obejmuje również

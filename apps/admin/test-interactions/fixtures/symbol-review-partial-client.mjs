@@ -116,6 +116,11 @@ export async function createPartialReviewClient() {
           catalogRevision: 1 + calls.decisions.length,
           items: cells
             .filter((cell) => matches(cell, options.symbolId))
+            .filter(
+              (cell) =>
+                !['pending', 'approved'].includes(options.state) ||
+                cell.reviewState === options.state,
+            )
             .map((cell) => ({ ...cell })),
           nextCursor: null,
           previousCursor: null,
@@ -165,11 +170,20 @@ export async function createPartialReviewClient() {
       const item = cells.find((cell) => cell.id === id);
       item.revision += 1;
       item.reviewState = 'approved';
-      if (command.action === 'reassign') {
+      if (
+        command.action === 'reassign' ||
+        (command.action === 'mark_blurry' && command.targetSymbolId)
+      ) {
+        const target = (await api.listSymbols()).data.find(
+          (symbol) => symbol.id === command.targetSymbolId,
+        );
         item.assignedSymbolId = command.targetSymbolId;
-        item.assignedSymbolName = 'Wiśnia';
-        item.assignedSymbolCode = 'cherry';
+        item.assignedSymbolName = target.name;
+        item.assignedSymbolCode = target.code;
         item.isUnknown = false;
+      }
+      if (command.action === 'mark_blurry') {
+        item.qualityIssue = 'blurry';
       }
       if (command.action === 'mark_unreadable') {
         item.qualityIssue = 'unreadable';

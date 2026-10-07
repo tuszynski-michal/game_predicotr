@@ -6,6 +6,22 @@ last_updated: 2026-10-07
 
 # Decision Log
 
+## D-528 — one explicit save-and-approve action in symbol verification
+
+- **Status:** accepted user request, 2026-10-07, TASK-0894.
+- **Decision:** replace the separate approve and apply-change buttons with
+  `Symbol do zatwierdzenia` and `Zapisz i zatwierdź`. An explicit active target
+  is required, including when the current label is correct. Same-label pending
+  becomes approved; another label is corrected and approved atomically.
+- **Reuse:** existing `reassign` and `mark_blurry` contracts, both single and
+  bulk. This removes the profile-specific UI approve gate without bypassing
+  server identity/revision/quality guards. Outside labels remain logical only.
+- **Preserved:** quality exclusions, reference image workflow, preview,
+  idempotent background jobs, frozen bulk page and filter target reset. The
+  existing API `approve` action remains available to its other consumers.
+- **Boundary:** no schema/API shape change, migration, actual user decisions,
+  training, activation, deployment, push or merge.
+
 ## D-527 — shared model families and published game creation catalog
 
 - **Status:** accepted user direction, 2026-10-07, TASK-0892.

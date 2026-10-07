@@ -227,23 +227,27 @@ def test_approve_requires_a_real_active_symbol_and_clears_grid_issue() -> None:
     assert approved.review.revision == review.revision + 2
 
 
-def test_reassign_approves_and_is_idempotent_for_the_same_current_crop() -> None:
+@pytest.mark.parametrize("target_symbol_code", ("cherry", "wild"))
+def test_reassign_approves_and_is_idempotent_for_the_same_current_crop(
+    target_symbol_code: str,
+) -> None:
     review = _mapped_reviews()[4]
 
     reassigned = reassign_symbol_cell_review(
         review,
-        target_symbol_code="wild",
+        target_symbol_code=target_symbol_code,
         active_symbol_codes=("cherry", "wild"),
     )
     repeated = reassign_symbol_cell_review(
         reassigned.review,
-        target_symbol_code="wild",
+        target_symbol_code=target_symbol_code,
         active_symbol_codes=("cherry", "wild"),
     )
 
     assert reassigned.changed is True
-    assert reassigned.review.assigned_symbol_code == "wild"
+    assert reassigned.review.assigned_symbol_code == target_symbol_code
     assert reassigned.review.review_state is SymbolCellReviewState.APPROVED
+    assert reassigned.review.crop_approval_state is SymbolCellCropApprovalState.CURRENT
     assert reassigned.review.assignment_source is SymbolCellAssignmentSource.HUMAN
     assert repeated.changed is False
     assert repeated.review == reassigned.review

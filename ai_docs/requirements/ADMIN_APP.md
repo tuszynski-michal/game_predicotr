@@ -904,7 +904,7 @@ Ostatni wariant pokazuje wyłącznie bieżące, zatwierdzone cropy należące do
 niezmiennej kohorty modelu wskazanego przez najnowszą aktywację wybranej gry.
 Crop zmieniony od zamrożenia kohorty jest wykluczony; brak aktywnego modelu daje
 pusty wynik, bez podstawienia najnowszej nieaktywnej kohorty. Symbol docelowy akcji
-`Zmień symbol` pozostaje niezależnym wyborem. Nie istnieje status cropa
+`Symbol do zatwierdzenia` pozostaje niezależnym wyborem. Nie istnieje status cropa
 `odrzucone`: `Zła siatka` i `Nieczytelny symbol` są odrębnymi problemami
 jakościowymi obsługiwanymi przez ich dedykowane kolejki.
 Widok korzysta z tego samego pojedynczego właściciela logicznego numeru co
@@ -1025,9 +1025,15 @@ Niepełne źródło pozostaje `pending_partial` po decyzjach dotyczących symbol
 Podgląd istniejącego szczegółu planszy zwraca 0–15 rzeczywistych cropów oraz
 pełne zdjęcie i geometrię; logiczna kolejka weryfikacji nadal ma 15 pozycji.
 
-Sticky toolbar pokazuje liczbę wybranych cropów oraz akcje `Zatwierdź`, `Zmień
-symbol`, checkbox `Niewyraźny` i jednoliniowe akcje `Nieczytelny / Zła siatka`.
-Checkbox `Niewyraźny` modyfikuje zatwierdzenie oraz zmianę symbolu: decyzja
+Sticky toolbar pokazuje liczbę wybranych cropów, selektor `Symbol do
+zatwierdzenia` i jeden podstawowy przycisk `Zapisz i zatwierdź` (D-528).
+Operator jawnie wybiera aktywny symbol. Brak celu lub zaznaczenia blokuje zapis.
+Wskazanie tego samego symbolu zatwierdza oczekujące pole, a innego atomowo
+poprawia i zatwierdza przypisanie. Oba przypadki korzystają z istniejącego
+`reassign`, również dla gier innych niż Mumie. Nie ma osobnych przycisków
+`Zatwierdź` i `Zastosuj zmianę`. Zmiana filtra czyści wybór celu.
+Toolbar zachowuje checkbox `Niewyraźny` i akcje `Nieczytelny / Zła siatka`.
+Checkbox `Niewyraźny` modyfikuje zapis i zatwierdzenie: decyzja
 atomowo zachowuje albo przypisuje wskazany symbol jako zatwierdzony, ale
 wyklucza bieżący crop z kohort treningowych. Modyfikator jest resetowany po
 zmianie gry albo zakresu symbolu. `Zła siatka` kieruje pole do kolejki korekty
@@ -1049,8 +1055,9 @@ albo brak aktualnie
 zatwierdzonego, checksum-bound cropa. Podsumowanie pokazuje aktualną i całkowitą liczbę
 stron oraz jednoznaczny zakres pozycji. Każda akcja najpierw pokazuje niezmienny preview
 liczby cropów i plansz, a potem uruchamia idempotentną operację masową.
-`Zatwierdź` działa wyłącznie dla jawnie zaznaczonych cropów; walidacja backendu
-nadal odrzuca próbę zatwierdzenia nierozpoznanego przypisania.
+`Zapisz i zatwierdź` działa wyłącznie dla jawnie zaznaczonych pól; walidacja
+backendu wymaga aktywnego realnego symbolu. Zapis logiczny outside zachowuje
+brak obrazka i nie tworzy przykładu treningowego.
 Status operacji raportuje osobno wykonane, konfliktowe i błędne targety;
 polling każdej operacji nie wysyła nakładających się requestów. Po końcowym
 wyniku Admin nie odświeża automatycznie bieżącej strony ani jej atlasów:
@@ -1081,14 +1088,14 @@ viewport (TASK-0656): filtry, toolbar i podsumowanie pozostają stałe u góry,
 wirtualna siatka wypełnia resztę wysokości i jest jedynym przewijanym
 elementem, a paginacja zostaje na dole. `Esc` albo `Zamknij pełny ekran`
 przywraca zwykły układ. Poza polami tekstowymi i selectami działają skróty:
-`1`–`9` wybiera symbol docelowy `Zmień symbol` (aktywne symbole w kolejności
+`1`–`9` wybiera `Symbol do zatwierdzenia` (aktywne symbole w kolejności
 `displayOrder` z katalogu gry, numer jest widoczny przy nazwie w selekcie),
-`Enter` wykonuje `Zastosuj zmianę` dla zaznaczonych cropów (z uwzględnieniem
+`Enter` wykonuje `Zapisz i zatwierdź` dla zaznaczonych cropów (z uwzględnieniem
 `Niewyraźny`) albo potwierdza otwarty preview operacji masowej, a `Esc`
 zamyka preview.
 
 Przycisk `Ustaw jako grafikę symbolu` (TASK-0692) jest aktywny, gdy zaznaczony
-jest dokładnie jeden crop. Jeżeli w `Zmień symbol` wybrano symbol, crop jest
+jest dokładnie jeden crop. Jeżeli w `Symbol do zatwierdzenia` wybrano symbol, crop jest
 najpierw przypisany do niego i zatwierdzony (`reassign`); w przeciwnym razie
 zatwierdzany jest bieżący symbol (`approve`). Następnie crop zostaje grafiką
 symbolu — tą samą, którą ustawia picker w sekcji `Symbole`, widoczną w

@@ -82,8 +82,11 @@ Nie musisz zatwierdzać każdej planszy, żeby rozpocząć ocenę symboli.
 1. Otwórz [główny Admin](http://127.0.0.1:3000), **Weryfikacja symboli**,
    i wybierz grę **Mumie**.
    Ustaw **Na stronę: 2000**, jeśli potrzebujesz większego wyboru.
-2. Wybierz grupę symbolu albo nierozpoznane cropy. Zaznacz poprawne wycinki
-   zbiorczo i zatwierdź je. Błędnym przypisz właściwy symbol.
+2. Wybierz grupę symbolu albo nierozpoznane cropy. Zaznacz wycinki i wybierz
+   **Symbol do zatwierdzenia**, następnie **Zapisz i zatwierdź**. Ten sam
+   symbol zatwierdzi poprawne wycinki; inny poprawi je i zatwierdzi. Nie trzeba
+   tymczasowo zmieniać poprawnej klasy. Skróty `1`–`9` wybierają symbol,
+   a `Enter` wykonuje ten sam zapis. Większa grupa zachowuje podgląd operacji.
 3. Crop źle wycięty oznacz jako **Zła siatka**. Tylko takie zgłoszenia oraz
    brakujące lub ucięte sloty wymagają **Korekty cięcia siatki**.
 4. Zapisane decyzje pozostają widoczne na stronie do odświeżenia. Kolejna

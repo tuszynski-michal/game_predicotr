@@ -51,7 +51,7 @@ z kolejną decyzją operatora; pozostałe pozycje czekają na przegląd.
 | ID | Obecna funkcja | Potrzeba w V3 / proponowana zmiana | Status | Realizacja |
 | --- | --- | --- | --- | --- |
 | MODEL-01 | Katalog symboli gry i obrazy referencyjne | Zachować tożsamość, kolejność i flagi. Rozdzielić flagi zasad gry od bazowej klasy graficznej. | działa / potrzebne | ekran Symbole |
-| MODEL-02 | Globalna Weryfikacja symboli z wyborem gry | Główny szybki przepływ: grupy, do 2000 cropów, korekta lub zatwierdzenie wielu naraz. Po wyborze gry można zawęzić workflow do katalogu importu obrazów; zapis zamraża stronę do odświeżenia. | działa w Mumii | D-523 |
+| MODEL-02 | Globalna Weryfikacja symboli z wyborem gry | Główny szybki przepływ: grupy, do 2000 cropów, jeden przycisk Zapisz i zatwierdź z jawnym wyborem symbolu. Ten sam symbol zatwierdza, inny poprawia i zatwierdza. Katalog importu zawęża zakres; zapis masowy zamraża stronę do odświeżenia. | działa dla gier workspace | D-523, D-528, TASK-0894 |
 | MODEL-03 | Zła siatka → Korekta cięcia siatki | Kolejka korekty, odroczone geometrie i diagnostyka zdjęć w jednym miejscu. Zmieniamy cięcie tylko przy błędzie pikseli. Dobrze wycięty zły symbol poprawiamy bez ruszania siatki. | działa / diagnostyka przeniesiona | D-525, TASK-0890, instrukcja |
 | MODEL-04 | Weryfikacja symbolu na planszy | Zachować jako wyjątek dla nieczytelnych pojedynczych cropów. To nie obowiązkowe zatwierdzanie wszystkich plansz. | działa | do przeglądu położenia |
 | MODEL-05 | Jakość rozpoznawania → Ulepsz rozpoznawanie | Zachować wspólną pulę zatwierdzeń z wielu uploadów, trening kandydata, raport, osobną aktywację i przeliczenie pending. | działa | istniejący pion uczenia |

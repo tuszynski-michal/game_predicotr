@@ -64,6 +64,18 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 - Nie wykonuj destrukcyjnych operacji na danych bez wyraźnej zgody użytkownika.
 - Nie dodawaj kolejki Redis/Celery, mikroserwisów ani chmury, dopóki pomiary nie pokażą takiej potrzeby.
 
+## Kontrola lokalnych usług API i Admin
+
+- API i Admin uruchamia, zatrzymuje i restartuje ręcznie użytkownik, we własnych
+  terminalach. Agent nie wykonuje tych operacji bez osobnego, wyraźnego
+  polecenia użytkownika w bieżącym zadaniu.
+- Polecenie naprawy, diagnozy lub testowania nie jest zgodą na uruchomienie
+  API/Admin, przejęcie ich portów ani pozostawienie ukrytej instancji w tle.
+  Wcześniejsza zgoda na restart nie obowiązuje automatycznie w kolejnych zadaniach.
+- Jeżeli poprawka wymaga restartu, przekaż użytkownikowi właściwą komendę
+  i pozostaw jej wykonanie użytkownikowi. Status procesu i zajętość portu można
+  sprawdzać bez zmiany stanu; nie kończ cudzych procesów.
+
 ## Trwałość rozwiązań
 
 - Rozwiązując problem, usuwaj jego przyczynę w sposób globalny i trwały dla

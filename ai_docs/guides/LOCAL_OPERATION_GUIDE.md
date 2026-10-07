@@ -1,10 +1,33 @@
 ---
 title: Local operation guide
 status: active
-last_updated: 2026-10-04
+last_updated: 2026-10-07
 ---
 
 # Lokalne uruchamianie i instalacja
+
+## Ręczna kontrola API i Admin
+
+Uruchamianie i restart API oraz Admina pozostają po stronie użytkownika,
+zgodnie z [zasadą kontroli usług](../../AGENTS.md#kontrola-lokalnych-usług-api-i-admin).
+Agent nie zajmuje ich portów ani nie pozostawia własnych serwerów w tle
+w ramach zwykłej naprawy lub weryfikacji.
+
+W katalogu repozytorium uruchom API w swoim terminalu PowerShell:
+
+```powershell
+npm run api:dev
+```
+
+Admin uruchom w drugim terminalu:
+
+```powershell
+npm run admin:dev
+```
+
+Zatrzymaj wybraną usługę przez `Ctrl+C` w jej terminalu. Aby ją zrestartować,
+uruchom ponownie tę samą komendę. Jeżeli port jest zajęty, najpierw ustal
+właściciela procesu; nie zatrzymuj wszystkich procesów Python lub Node.
 
 ## Konfiguracja API do ręcznej kalibracji etykiet V7
 

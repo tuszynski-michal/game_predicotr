@@ -6,6 +6,20 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0903 — user-controlled API and Admin (done)
+
+- User revoked agent-managed API/Admin lifecycle. AGENTS.md now requires a
+  separate explicit current request for any agent start, stop or restart;
+  generic repair/testing and historical restart approval do not grant it.
+- Verified this chat's API launcher 15980 and server 29900, then stopped only
+  those processes. Both are absent; port 8000 was free after cleanup.
+  Admin, workers, import jobs, data and configuration were left untouched.
+- Local operation guide preserves `npm run api:dev` / `npm run admin:dev`
+  in user-owned terminals. No replacement server was launched for verification.
+- Documentation and process/listener checks only; no product-code change,
+  migration, tests requiring service startup, push or merge.
+- Completion v1.7.247; full commit hash recorded after commit.
+
 ### TASK-0910 — audited import report performance plan (done)
 
 - Proposed plan: IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md. Eight dependent

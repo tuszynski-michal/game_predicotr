@@ -2214,3 +2214,36 @@ głównego checkoutu. Po restarcie procesy uruchamia użytkownik pod kontrolą
 AGENTS.md. Regresje w nowym procesie obejmują routing, SSR, remount, flag-off,
 aktywny formularz i restore historycznego runu; live browser sprawdza nawigację
 oraz source/output picker i zapisane review bez nowych decyzji.
+
+## Integracja kompletnego pionu V7 — TASK-0920 / D-532
+
+Kod dotychczas dostępny w kalibracyjnym worktree jest scalony z głównym
+branchem; opis TASK-0919 dotyczy już wyłącznie nawigacji między niezależnymi
+runtime. Zachowane są późniejsze moduły main, klient i role magazynu danych.
+Backend wyznacza OpenAPI; klient jest generowany po scaleniu, a wrapper
+obsługuje oba zestawy operacji.
+
+`v7_draft_coverage.suggest_complete_choices` zachowuje mocne propozycje,
+wybiera monotone kotwice w O(N log N), dzieli pozostałe indeksy i wybiera
+środkowych kandydatów. Wynik jest deterministyczny dla zakresów rosnących
+i malejących. Krótki przedział może jawnie użyć tego samego używalnego źródła
+dla kilku propozycji; nie tworzy fikcyjnego obrazu. `v7_draft_export` kończy
+przygotowanie katalogu `propozycje` na EOF i zapisuje znacznik kompletności.
+Odtworzenie ukończonego przygotowania nie nadpisuje ręcznie usuniętych plików.
+`v7_draft_catalog` i review zachowują indeks, zakres, SHA oraz proweniencję
+`estimated`; żaden fallback nie zmienia dowodu OCR ani kalkulacji targetu.
+
+Niezależne obserwacje trafiają do tabeli kluczowanej runem i indeksem źródła.
+Checkpoint trzyma kursory oraz mały bieżący stan zamiast przepisywać całą
+historię. Postęp i kontrola runu korzystają z przypiętych tożsamości.
+Ograniczone paczki aktualizacji nie zmieniają kolejności domenowej.
+Jawny output command zachowuje UUID, rewizję i właściciela; journal/receipt
+umożliwia odzyskanie po utracie odpowiedzi lub nowym procesie. Zapis
+podmienia tylko kontrolowany plik i nie zatwierdza propozycji automatycznie.
+
+Historyczne migracje obu branchy pozostają niezmienne. Nowa merge revision
+`0147_merge_v7_main` ma dwóch rodziców i nie wykonuje DDL. Główny API i worker
+wymagają pojedynczego połączonego head, a provision ról zachowuje chroniony
+gate i immutable acceptances. Aktualizacja bazy oraz uruchomienie usług
+należą do użytkownika. Aktywacja pozostaje osobnym, sprawdzanym poleceniem;
+main nie przyjmuje danych ani aktywnej konfiguracji z pilot DB przez kopiowanie.

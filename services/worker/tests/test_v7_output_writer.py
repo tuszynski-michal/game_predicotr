@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import subprocess
+import sys
 from dataclasses import replace
 from pathlib import Path
 from threading import Thread
@@ -418,6 +421,38 @@ def test_local_ntfs_validator_rejects_unc_path_without_following_it() -> None:
     assert not _is_supported_local_ntfs(Path(r"\\server\share\source"))
 
 
+def test_publication_checks_output_volume_and_keeps_sources_unchanged(tmp_path: Path) -> None:
+    source, manifest, request = _fixture(tmp_path)
+    output = tmp_path / "separate-output" / "run"
+    checked = []
+
+    def validate(path):
+        checked.append(path)
+        return path != source
+
+    writer = V7OutputWriter(
+        manifest,
+        refresh_manifest=lambda: manifest,
+        output_root=output,
+        filesystem_validator=validate,
+    )
+    result = writer.write_first(request)
+    assert result.state is V7OutputOperationState.COMMITTED
+    assert checked and source not in checked
+    assert (output / request.target_name).read_bytes() == b"original-v7-jpeg-bytes"
+    assert not source.with_name("source cut").exists()
+    assert (source / "frame.jpg").read_bytes() == b"original-v7-jpeg-bytes"
+
+
+@pytest.mark.parametrize("unsafe", ["relative", "source", "inside"])
+def test_output_directory_cannot_be_relative_or_inside_source(tmp_path: Path, unsafe: str) -> None:
+    source, manifest, _ = _fixture(tmp_path)
+    output = {"relative": Path("relative"), "source": source, "inside": source / "output"}[unsafe]
+    with pytest.raises(V7OutputWriterError) as failed:
+        V7OutputWriter(manifest, refresh_manifest=lambda: manifest, output_root=output)
+    assert failed.value.code == "V7_OUTPUT_PATH_UNSAFE"
+
+
 def test_recovery_rejects_partial_journal_and_foreign_temp(tmp_path: Path) -> None:
     source, manifest, request = _fixture(tmp_path)
     writer = _writer(source, manifest)
@@ -544,7 +579,7 @@ def test_manual_replace_requires_range_confirmation(tmp_path: Path) -> None:
     assert error.value.code == "V7_OUTPUT_REQUEST_INVALID"
 
 
-@pytest.mark.parametrize("crash_phase", ["target_replaced", "published"])
+@pytest.mark.parametrize("crash_phase", ["target_replaced", "published", "journal_committed"])
 def test_manual_replace_recovery_commits_after_publication_before_acknowledgement(
     tmp_path: Path,
     crash_phase: str,
@@ -572,6 +607,164 @@ def test_manual_replace_recovery_commits_after_publication_before_acknowledgemen
     )
     second_restart = _writer(source, manifest).recover()
     assert second_restart.operations[0].state is V7OutputOperationState.COMMITTED
+
+
+@pytest.mark.parametrize("crash_phase", ["prepared", "temp_written"])
+def test_replacement_never_adopts_separate_foreign_file_with_new_sha(
+    tmp_path: Path,
+    crash_phase: str,
+) -> None:
+    source, manifest, automatic, replacement = _replacement_fixture(tmp_path)
+    writer = _writer(source, manifest)
+    writer.write_first(automatic)
+    target = writer.output_root / replacement.target_name
+
+    def crash(phase: str, _operation: object) -> None:
+        if phase == crash_phase:
+            foreign = writer.output_root / "foreign.jpg"
+            foreign.write_bytes((source / "replacement.jpg").read_bytes())
+            foreign.replace(target)
+            raise RuntimeError("TEST_CRASH")
+
+    with pytest.raises(RuntimeError, match="TEST_CRASH"):
+        _writer(source, manifest, fault_hook=crash).manual_replace(replacement)
+    journal = _writer(source, manifest).recover()
+    assert journal.operations[1].state is V7OutputOperationState.CONFLICT
+    assert journal.owners[0].operation_id == automatic.operation_id
+    assert target.read_bytes() == (source / "replacement.jpg").read_bytes()
+
+
+def test_equal_sha_replacement_performs_real_rename_before_new_owner(tmp_path: Path) -> None:
+    source, manifest, automatic, _replacement = _replacement_fixture(tmp_path)
+    writer = _writer(source, manifest)
+    writer.write_first(automatic)
+    replacement = _request_for_source(
+        manifest,
+        "first.jpg",
+        operation_id=REPLACEMENT_OPERATION_ID,
+        decision_kind=V7OutputDecisionKind.MANUAL_REPLACE,
+        decision_generation=1,
+        operator_confirmed_range=True,
+        expected_previous_checksum_sha256=automatic.source_checksum_sha256,
+        expected_previous_owner_operation_id=automatic.operation_id,
+    )
+    target = writer.output_root / replacement.target_name
+    old_identity = target.stat().st_ino
+
+    def crash(phase: str, _operation: object) -> None:
+        if phase == "temp_written":
+            raise RuntimeError("TEST_CRASH")
+
+    with pytest.raises(RuntimeError, match="TEST_CRASH"):
+        _writer(source, manifest, fault_hook=crash).manual_replace(replacement)
+    restored = _writer(source, manifest)
+    assert restored.recover().operations[1].state is V7OutputOperationState.PUBLISHING
+    assert target.stat().st_ino == old_identity
+    committed = restored.manual_replace(replacement)
+    assert committed.state is V7OutputOperationState.COMMITTED
+    assert target.stat().st_ino != old_identity
+    assert (target.stat().st_dev, target.stat().st_ino) == committed.publication_file_identity
+
+
+def test_replacement_receipt_recovers_in_a_new_python_process(tmp_path: Path) -> None:
+    source, manifest, automatic, replacement = _replacement_fixture(tmp_path)
+    _writer(source, manifest).write_first(automatic)
+
+    def crash(phase: str, _operation: object) -> None:
+        if phase == "target_replaced":
+            raise RuntimeError("TEST_CRASH")
+
+    with pytest.raises(RuntimeError, match="TEST_CRASH"):
+        _writer(source, manifest, fault_hook=crash).manual_replace(replacement)
+    script = """
+import json, sys
+from pathlib import Path
+from uuid import UUID
+from game_predictor_worker.semi_automatic_selection.local_source_manifest import (
+    build_local_source_manifest,
+)
+from game_predictor_worker.semi_automatic_selection.v7_output_writer import V7OutputWriter
+source = Path(sys.argv[1])
+def manifest():
+    return build_local_source_manifest(
+        source, selection_id=UUID(sys.argv[2]), display_name="V7 output fixture",
+    )
+journal = V7OutputWriter(manifest(), refresh_manifest=manifest).recover()
+print(json.dumps({
+    "owner": str(journal.owners[0].operation_id), "state": journal.operations[-1].state.value,
+}))
+"""
+    repository = Path(__file__).resolve().parents[3]
+    result = subprocess.run(
+        [sys.executable, "-c", script, str(source), str(SELECTION_ID)],
+        env={
+            **os.environ,
+            "PYTHONPATH": os.pathsep.join(
+                [
+                    str(repository / "services" / "worker" / "src"),
+                    str(repository / "services" / "api" / "src"),
+                ]
+            ),
+        },
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    assert json.loads(result.stdout) == {
+        "owner": str(replacement.operation_id),
+        "state": "committed",
+    }
+
+
+def test_legacy_pending_replacement_without_identity_fails_closed_after_rename(
+    tmp_path: Path,
+) -> None:
+    source, manifest, automatic, replacement = _replacement_fixture(tmp_path)
+    writer = _writer(source, manifest)
+    writer.write_first(automatic)
+
+    def crash(phase: str, _operation: object) -> None:
+        if phase == "target_replaced":
+            raise RuntimeError("TEST_CRASH")
+
+    with pytest.raises(RuntimeError, match="TEST_CRASH"):
+        _writer(source, manifest, fault_hook=crash).manual_replace(replacement)
+    path = writer.output_root / ".v7-selection-output" / "journal.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    for operation in payload["operations"]:
+        operation.pop("publicationFileIdentity", None)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    journal = _writer(source, manifest).recover()
+    assert journal.operations[0].state is V7OutputOperationState.COMMITTED
+    assert journal.operations[1].state is V7OutputOperationState.CONFLICT
+    assert journal.owners[0].operation_id == automatic.operation_id
+
+
+@pytest.mark.parametrize("crash_phase", ["prepared", "temp_written", "journal_committed"])
+def test_legacy_replacement_metadata_without_identity_stays_readable(
+    tmp_path: Path,
+    crash_phase: str,
+) -> None:
+    source, manifest, automatic, replacement = _replacement_fixture(tmp_path)
+    writer = _writer(source, manifest)
+    writer.write_first(automatic)
+
+    def crash(phase: str, _operation: object) -> None:
+        if phase == crash_phase:
+            raise RuntimeError("TEST_CRASH")
+
+    with pytest.raises(RuntimeError, match="TEST_CRASH"):
+        _writer(source, manifest, fault_hook=crash).manual_replace(replacement)
+    path = writer.output_root / ".v7-selection-output" / "journal.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    for operation in payload["operations"]:
+        operation.pop("publicationFileIdentity", None)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    restored = _writer(source, manifest)
+    restored.recover()
+    assert restored.manual_replace(replacement).state is V7OutputOperationState.COMMITTED
+    assert restored.recover().owners[0].operation_id == replacement.operation_id
 
 
 def test_second_manual_replace_crash_keeps_every_historical_owner_committed(

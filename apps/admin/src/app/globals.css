@@ -10372,3 +10372,95 @@ div.imageJobInlineError {
   height: 100%;
   object-fit: cover;
 }
+
+.v7ReviewDiagnostics summary,
+.v7ReviewConfirmation summary {
+  min-height: 44px;
+  padding: 12px 0;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.v7ReviewSaveBar {
+  position: sticky;
+  bottom: 8px;
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 12px;
+  margin: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel, #fff);
+  box-shadow: 0 3px 16px #0002;
+}
+
+.v7ReviewSaveBar p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.v7ReviewConfirmation fieldset {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.v7ReviewNavigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  gap: 8px;
+}
+
+.v7ReviewNavigation button {
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-soft);
+  cursor: pointer;
+}
+
+.v7ReviewNavigation button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.v7ReviewNavigation label {
+  display: grid;
+  gap: 4px;
+}
+
+.v7ReviewConfirmation label:has(input[type='checkbox']),
+.v7ReviewConfirmation label:has(select),
+.v7ReviewConfirmation fieldset > p {
+  grid-column: 1 / -1;
+}
+
+.v7ReviewConfirmation input[type='number'],
+.v7ReviewConfirmation select,
+.v7ReviewNavigation select {
+  display: block;
+  width: 100%;
+  margin-top: 4px;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--text);
+  background: var(--panel-soft);
+}
+
+@media (max-width: 640px) {
+  .v7ReviewConfirmation fieldset {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .v7ReviewSaveBar button {
+    flex: 1 1 100%;
+  }
+}

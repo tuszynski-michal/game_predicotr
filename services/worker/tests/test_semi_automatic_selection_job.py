@@ -522,6 +522,32 @@ class _MemoryStore:
         )
         return self.run
 
+    def finalize_v7(
+        self,
+        *,
+        checkpoint: dict[str, object],
+        finalization: object,
+        persisted_at: datetime,
+        **_values: object,
+    ) -> SemiAutomaticSelectionRun:
+        from game_predictor_worker.semi_automatic_selection.v7_review_projection import (
+            build_review_projections,
+        )
+
+        projections = build_review_projections(checkpoint["scanState"], finalization)
+        for projection in projections:
+            key = (projection.range_start, projection.range_end)
+            item = self.ranges[key]
+            self.ranges[key] = replace(
+                item, v7_review=projection.payload, v7_projection_fingerprint=projection.fingerprint
+            )
+        self.run = replace(
+            self.run,
+            status=SemiAutomaticSelectionRunStatus.ANALYSIS_COMPLETE,
+            checkpoint=checkpoint,
+        )
+        return self.run
+
     def begin_filename_verification_cleanup(
         self,
         *,

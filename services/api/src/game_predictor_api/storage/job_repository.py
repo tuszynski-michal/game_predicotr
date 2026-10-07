@@ -45,6 +45,7 @@ from game_predictor_api.storage.models import (
     MobileReleaseModel,
     RecognizedBoardModel,
     RulesVersionModel,
+    SemiAutomaticImageSelectionRunModel,
     SourceImageModel,
 )
 
@@ -256,9 +257,43 @@ class SqlAlchemyJobRepository(JobRepository):
         return None if record is None else job_from_record(record)
 
     def get_job_for_update(self, job_id: UUID) -> Job | None:
+        # Public cancel/retry must serialize with V7 reservations and publication.
+        # Inspect only identity before acquiring Gate -> Job -> Run locks.
+        identity = self._session.get(JobModel, job_id, populate_existing=True)
+        v7_run_id = None
+        if (
+            identity is not None
+            and identity.job_type is JobType.SEMI_AUTOMATIC_IMAGE_SELECTION
+            and identity.input_payload.get("workflow_mode") == "v7_selection"
+        ):
+            from game_predictor_api.storage.semi_automatic_image_selection_repository import (
+                SqlAlchemySemiAutomaticSelectionRepository,
+            )
+
+            selections = SqlAlchemySemiAutomaticSelectionRepository(self._session)
+            selections.get_v7_pilot_gate(for_update=True)
+            v7_run_id = self._session.scalar(
+                select(SemiAutomaticImageSelectionRunModel.id).where(
+                    SemiAutomaticImageSelectionRunModel.job_id == job_id,
+                    SemiAutomaticImageSelectionRunModel.workflow_mode == "v7_selection",
+                )
+            )
         record = self._session.scalar(
-            select(JobModel).where(JobModel.id == job_id).with_for_update()
+            select(JobModel)
+            .where(JobModel.id == job_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
         )
+        if v7_run_id is not None:
+            self._session.scalar(
+                select(SemiAutomaticImageSelectionRunModel)
+                .where(SemiAutomaticImageSelectionRunModel.id == v7_run_id)
+                .with_for_update()
+            )
+            if selections.get_pending_v7_output(v7_run_id) is not None:
+                raise JobConflictError(
+                    "V7_OUTPUT_DECISION_PENDING", "An output decision is still pending."
+                )
         return None if record is None else job_from_record(record)
 
     def get_job_by_input_key(self, input_key: str) -> Job | None:

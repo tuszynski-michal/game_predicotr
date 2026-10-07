@@ -1,3 +1,5 @@
+import type { SemiAutomaticSelectionCreate } from '@game-predictor/admin-api-client';
+
 export type V7SelectionDirection = 'ascending' | 'descending';
 export type V7SelectionMode = 'semi_automatic' | 'automatic';
 export type V7BorderStyle =
@@ -33,17 +35,10 @@ export interface V7NormalizedSelectionForm {
   readonly mode: V7SelectionMode;
 }
 
-export interface V7SelectionCreatePayload {
-  readonly direction: V7SelectionDirection;
-  readonly firstSequenceNumber: number;
-  readonly lastSequenceNumber: number;
+export type V7SelectionCreatePayload = SemiAutomaticSelectionCreate & {
   readonly mode: 'v7_selection';
   readonly selectionToken: string;
-  readonly v7: {
-    readonly borderStyle: V7BorderStyle;
-    readonly mode: V7SelectionMode;
-  };
-}
+};
 
 export type V7SelectionFormNormalization =
   | { readonly code: V7SelectionFormErrorCode; readonly ok: false }
@@ -121,14 +116,21 @@ export function formatV7PageBoundary(boundary: V7PageBoundary): string {
   return `${boundary.start}–${boundary.end}`;
 }
 
-export function deriveV7OutputDirectory(sourcePath: string): string {
+export function deriveV7OutputDirectory(
+  sourcePath: string,
+  outputBase?: string,
+): string {
   const normalized = sourcePath.trim().replace(/[\\/]+$/u, '');
+  if (outputBase !== undefined && outputBase.trim() !== '') {
+    return `${outputBase.trim().replace(/[\\/]+$/u, '')}\\${normalized.split(/[\\/]/u).at(-1)}`;
+  }
   return normalized === '' ? '' : `${normalized} cut`;
 }
 
 export function createV7SelectionPayload(
   configuration: V7NormalizedSelectionForm,
   selectionToken: string,
+  outputBaseDirectory?: string,
 ): V7SelectionCreatePayload {
   return {
     direction: configuration.direction,
@@ -139,6 +141,7 @@ export function createV7SelectionPayload(
     v7: {
       borderStyle: configuration.borderStyle,
       mode: configuration.mode,
+      ...(outputBaseDirectory ? { outputBaseDirectory } : {}),
     },
   };
 }

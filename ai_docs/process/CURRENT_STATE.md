@@ -6,6 +6,25 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0920 — pełna integracja V7 na głównym branchu (done)
+
+- v1.1-vision-lab-hybrid-geometry now contains the complete calibrated V7
+  engine, independent progress, output picker, full editable draft coverage,
+  quick explicit approval and saved-folder review. 131 product/test files
+  integrated three-way from b087ad08b62992c54f5e26191e6408d287b64273;
+  later main work and pre-existing working metadata retained.
+- Immutable migration branches join at 0147_merge_v7_main; no online upgrade
+  or gate activation. Merged backend/OpenAPI/generated client/wrapper agree.
+- Snapshot suites: 814 PASS. Fresh main processes: API 62, writer/recovery 75,
+  rendered UI 62 PASS; strict changed-source mypy (46), Admin/client types,
+  scoped lint/format and contract drift PASS. Offline graph/DDL verified.
+- D-532; V7_BRANCH_INTEGRATION_PLAN.md;
+  completed/0920-v7-main-branch-integration.md contains Outcome and manual steps.
+- No data/profile/acceptance transfer, JPEG writes, service lifecycle, SQL
+  upgrade, monitoring, activation, full build or push. Main runtime needs the
+  user-run migration and its own verified configuration; existing WT untouched.
+- Completion v1.7.250; full commit hash recorded after committing.
+
 ### TASK-0919 — wejście do działającego półautomatu V7 (done)
 
 - Main3000 offers "Otwórz półautomat V7" to working calibration Admin3020.

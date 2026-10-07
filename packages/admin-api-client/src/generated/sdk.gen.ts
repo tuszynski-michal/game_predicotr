@@ -667,6 +667,9 @@ import type {
   OpenOnlineReviewerWorkData,
   OpenOnlineReviewerWorkErrors,
   OpenOnlineReviewerWorkResponses,
+  OpenSemiAutomaticImageSelectionReviewFolderData,
+  OpenSemiAutomaticImageSelectionReviewFolderErrors,
+  OpenSemiAutomaticImageSelectionReviewFolderResponses,
   PauseSemiAutomaticImageSelectionData,
   PauseSemiAutomaticImageSelectionErrors,
   PauseSemiAutomaticImageSelectionResponses,
@@ -847,6 +850,9 @@ import type {
   SelectRemoteManualSelectionHostBaseData,
   SelectRemoteManualSelectionHostBaseErrors,
   SelectRemoteManualSelectionHostBaseResponses,
+  SelectSemiAutomaticImageSelectionOutputFolderData,
+  SelectSemiAutomaticImageSelectionOutputFolderErrors,
+  SelectSemiAutomaticImageSelectionOutputFolderResponses,
   SelectSemiAutomaticImageSelectionSourceFolderData,
   SelectSemiAutomaticImageSelectionSourceFolderErrors,
   SelectSemiAutomaticImageSelectionSourceFolderResponses,
@@ -6517,6 +6523,56 @@ export const getSemiAutomaticImageSelectionCapabilities = <
     ThrowOnError
   >({
     url: '/api/v1/admin/semi-automatic-image-selections/capabilities',
+    ...options,
+  });
+
+/**
+ * Select Output Folder
+ */
+export const selectSemiAutomaticImageSelectionOutputFolder = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    SelectSemiAutomaticImageSelectionOutputFolderData,
+    ThrowOnError
+  >,
+): RequestResult<
+  SelectSemiAutomaticImageSelectionOutputFolderResponses,
+  SelectSemiAutomaticImageSelectionOutputFolderErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    SelectSemiAutomaticImageSelectionOutputFolderResponses,
+    SelectSemiAutomaticImageSelectionOutputFolderErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/output-folder',
+    ...options,
+  });
+
+/**
+ * Open Review Folder
+ */
+export const openSemiAutomaticImageSelectionReviewFolder = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<
+    OpenSemiAutomaticImageSelectionReviewFolderData,
+    ThrowOnError
+  >,
+): RequestResult<
+  OpenSemiAutomaticImageSelectionReviewFolderResponses,
+  OpenSemiAutomaticImageSelectionReviewFolderErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).post<
+    OpenSemiAutomaticImageSelectionReviewFolderResponses,
+    OpenSemiAutomaticImageSelectionReviewFolderErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/semi-automatic-image-selections/review-folder',
     ...options,
   });
 

@@ -14,6 +14,25 @@ const defaults = {
   mode: 'semi_automatic',
 };
 
+test('selected output base preserves the exact source folder name and API field', () => {
+  const result = normalizeV7SelectionForm({
+    ...defaults,
+    firstPage: '77626',
+    lastPage: '106327',
+  });
+  assert.equal(result.ok, true);
+  const base = 'C:\\Users\\tuszy\\Documents\\blazing';
+  assert.equal(
+    deriveV7OutputDirectory('D:\\blazing\\77626 - 106335 cut', base),
+    `${base}\\77626 - 106335 cut`,
+  );
+  assert.equal(
+    createV7SelectionPayload(result.value, 't'.repeat(32), base).v7
+      .outputBaseDirectory,
+    base,
+  );
+});
+
 test('normalizes ascending full-page boundaries to increasing API bounds', () => {
   const result = normalizeV7SelectionForm({
     ...defaults,

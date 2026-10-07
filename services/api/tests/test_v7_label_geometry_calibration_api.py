@@ -50,9 +50,11 @@ def _write_jpeg(path: Path, *, color: tuple[int, int, int], orientation: int | N
     image.save(path, format="JPEG", exif=exif)
 
 
-def _service(tmp_path: Path, *, calibration_count: int = 5) -> V7LabelGeometryCalibrationService:
+def _service(
+    tmp_path: Path, *, calibration_count: int = 5, family: str = FAMILY
+) -> V7LabelGeometryCalibrationService:
     root = tmp_path / "corpus"
-    colors = [((index + 1) * 35, 50, 100) for index in range(calibration_count)]
+    colors = [(((index + 1) * 35) % 256, 50, 100) for index in range(calibration_count)]
     for index, color in enumerate(colors):
         _write_jpeg(root / "777" / f"cal-{index}.jpg", color=color, orientation=6)
     _write_jpeg(root / "development" / "dev.jpg", color=(10, 20, 30))
@@ -69,7 +71,7 @@ def _service(tmp_path: Path, *, calibration_count: int = 5) -> V7LabelGeometryCa
                 "borderStyle": "top_and_sides",
                 "scenarios": ["small_groups"],
                 "expectedDirection": "ascending",
-                "geometryFamilyId": FAMILY,
+                "geometryFamilyId": family,
                 "sourceGameRef": "777",
             },
             {
@@ -79,7 +81,7 @@ def _service(tmp_path: Path, *, calibration_count: int = 5) -> V7LabelGeometryCa
                 "borderStyle": "top_and_sides",
                 "scenarios": ["small_groups"],
                 "expectedDirection": "ascending",
-                "geometryFamilyId": FAMILY,
+                "geometryFamilyId": family,
                 "sourceGameRef": "777",
             },
             {
@@ -89,7 +91,7 @@ def _service(tmp_path: Path, *, calibration_count: int = 5) -> V7LabelGeometryCa
                 "borderStyle": "top_and_sides",
                 "scenarios": ["small_groups"],
                 "expectedDirection": "ascending",
-                "geometryFamilyId": FAMILY,
+                "geometryFamilyId": family,
                 "sourceGameRef": "777",
             },
             {
@@ -99,7 +101,7 @@ def _service(tmp_path: Path, *, calibration_count: int = 5) -> V7LabelGeometryCa
                 "borderStyle": "top_and_sides",
                 "scenarios": ["holdout"],
                 "expectedDirection": "ascending",
-                "geometryFamilyId": FAMILY,
+                "geometryFamilyId": family,
                 "sourceGameRef": "777",
             },
         ],
@@ -401,6 +403,14 @@ def test_complete_session_creates_content_addressed_profile_and_rejects_incomple
     assert profile.profile.calibration.status.value == "passed"
     assert service.get_profile(profile.profile.profile_fingerprint) == profile
     assert service.list_profiles() == (profile,)
+    path = service._profiles_root / f"{profile.profile.profile_fingerprint}.json"
+    original = path.read_bytes()
+    restarted = V7LabelGeometryCalibrationService(
+        runtime_root=tmp_path / "runtime", corpus_manifest_path=tmp_path / "manifest.json"
+    )
+    assert restarted.get_profile(profile.profile.profile_fingerprint) == profile
+    assert restarted.list_profiles() == (profile,)
+    assert path.read_bytes() == original
 
     incomplete = _service(tmp_path / "incomplete")
     incomplete_session = incomplete.create_session(
@@ -414,6 +424,124 @@ def test_complete_session_creates_content_addressed_profile_and_rejects_incomple
         )
     assert rejected.value.code == "V7_CALIBRATION_PROFILE_REJECTED"
     assert incomplete.list_profiles() == ()
+
+
+@pytest.mark.parametrize(
+    "revision",
+    [True, False, "50", 50.0, {"value": 50}],
+    ids=["true", "false", "string", "float", "mapping"],
+)
+def test_immutable_profile_read_rejects_non_integer_revision_after_restart(
+    tmp_path: Path, revision: object
+) -> None:
+    service = _service(tmp_path)
+    session = _complete_calibration_session(service)
+    profile = service.create_profile(session.session_id, expected_revision=session.revision)
+    path = service._profiles_root / f"{profile.profile.profile_fingerprint}.json"
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    payload["profile"]["revision"] = revision
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    original = path.read_bytes()
+    restarted = V7LabelGeometryCalibrationService(
+        runtime_root=tmp_path / "runtime", corpus_manifest_path=tmp_path / "manifest.json"
+    )
+    with pytest.raises(V7LabelGeometryCalibrationApiError) as corrupt:
+        restarted.get_profile(profile.profile.profile_fingerprint)
+
+    assert corrupt.value.code == "V7_CALIBRATION_PROFILE_CORRUPT"
+    assert path.read_bytes() == original
+
+
+def test_v2_profile_request_keeps_occlusion_and_sparse_diagnostics_across_restart(
+    tmp_path: Path,
+) -> None:
+    family = "standard_3x3_numeric_labels_v2"
+    service = _service(tmp_path, calibration_count=11, family=family)
+    session = service.create_session(geometry_family_id=family, corpus_case_ids=("game777",))
+    for index, source in enumerate(session.sources):
+        session, _receipt = _operation(
+            service,
+            session,
+            kind="set_capture_group",
+            source_id=source.source_id,
+            capture_group_id="A" if index < 4 else "B",
+        )
+        for position in range(9):
+            if index == 10 and position != 8:
+                continue
+            unavailable = index < 4 and position == 6
+            session, _receipt = service.mutate_session(
+                session.session_id,
+                service.operation_from_values(
+                    operation_id=str(uuid4()),
+                    expected_revision=session.revision,
+                    kind="unavailable" if unavailable else "annotated",
+                    source_id=source.source_id,
+                    position_index=position,
+                    center_x=None if unavailable else 0.15 + (position % 3) * 0.25,
+                    center_y=None if unavailable else 0.20 + (position // 3) * 0.25,
+                    crop_assessment=None if unavailable else "contained",
+                    capture_group_id=None,
+                ),
+            )
+    original = session.as_dict()
+    app = FastAPI()
+    current_service = [service]
+    app.include_router(
+        create_v7_label_geometry_calibration_router(lambda: current_service[0]), prefix="/api/v1"
+    )
+    client = TestClient(app)
+    base = f"/api/v1/admin/v7-label-geometry/sessions/{session.session_id}"
+    request = {"expectedRevision": session.revision}
+    exported = client.post(f"{base}/exports", json=request)
+    assert exported.status_code == 200, exported.text
+    created = client.post(f"{base}/profiles", json=request)
+    assert created.status_code == 200, created.text
+    body = created.json()
+    calibration = body["calibration"]
+    assert calibration["status"] == "passed"
+    assert calibration["version"] == "v7-calibration-v3"
+    assert calibration["captureGroupPolicy"] == "source_local_lattices_v1"
+    assert calibration["captureGroupCount"] == 2
+    assert calibration["sourceCountByPosition"] == [10, 10, 10, 10, 10, 10, 6, 10, 10]
+    assert calibration["captureGroupCountByPosition"][6] == 1
+    assert calibration["excludedSourceIds"] == [session.sources[10].source_id]
+    assert calibration["maximumP95CenterResidual"] == 0.04
+    assert body["sessionExportChecksumSha256"] == exported.json()["exportChecksumSha256"]
+    # Treat the successful response as lost: a new service must recover the same profile.
+    current_service[0] = V7LabelGeometryCalibrationService(
+        runtime_root=tmp_path / "runtime", corpus_manifest_path=tmp_path / "manifest.json"
+    )
+    assert current_service[0].get_session(session.session_id).as_dict() == original
+    recovered = client.post(f"{base}/profiles", json=request)
+    assert recovered.status_code == 200, recovered.text
+    assert recovered.json() == body
+    read = client.get(f"/api/v1/admin/v7-label-geometry/profiles/{body['profileFingerprint']}")
+    assert read.status_code == 200
+    assert read.json() == body
+    path = current_service[0]._profiles_root / f"{body['profileFingerprint']}.json"
+    original_profile = path.read_bytes()
+    for field in ("captureGroupCount", "minimumCaptureGroups"):
+        for invalid_count in (True, "2", 2.9, {"value": 2}):
+            tampered = json.loads(original_profile)
+            tampered["profile"]["calibration"][field] = invalid_count
+            path.write_text(json.dumps(tampered), encoding="utf-8")
+            corrupted_bytes = path.read_bytes()
+            restarted = V7LabelGeometryCalibrationService(
+                runtime_root=tmp_path / "runtime", corpus_manifest_path=tmp_path / "manifest.json"
+            )
+            with pytest.raises(V7LabelGeometryCalibrationApiError) as corrupt:
+                restarted.get_profile(body["profileFingerprint"])
+            assert corrupt.value.code == "V7_CALIBRATION_PROFILE_CORRUPT"
+            assert path.read_bytes() == corrupted_bytes
+    path.write_bytes(original_profile)
+    assert current_service[0].get_profile(body["profileFingerprint"]).as_dict() == body
+    tampered = json.loads(path.read_text(encoding="utf-8"))
+    tampered["profile"]["calibration"]["captureGroupCount"] = 1
+    path.write_text(json.dumps(tampered), encoding="utf-8")
+    with pytest.raises(V7LabelGeometryCalibrationApiError) as corrupt:
+        current_service[0].get_profile(body["profileFingerprint"])
+    assert corrupt.value.code == "V7_CALIBRATION_PROFILE_CORRUPT"
 
 
 def test_profile_uses_only_contained_annotations_and_keeps_crop_diagnostics(

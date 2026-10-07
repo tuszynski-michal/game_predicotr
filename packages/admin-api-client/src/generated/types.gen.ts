@@ -13794,6 +13794,7 @@ export type SemiAutomaticSelectionRangePageResponse = {
  * SemiAutomaticSelectionRangeResponse
  */
 export type SemiAutomaticSelectionRangeResponse = {
+  acknowledgementReceipt?: V7OutputReceiptResponse | null;
   /**
    * Createdat
    */
@@ -13822,6 +13823,7 @@ export type SemiAutomaticSelectionRangeResponse = {
    * Outputchecksumsha256
    */
   outputChecksumSha256: string | null;
+  outputOperation?: V7OutputOperationResponse | null;
   /**
    * Rangeconfidence
    */
@@ -13867,13 +13869,27 @@ export type SemiAutomaticSelectionRangeResponse = {
    * Updatedat
    */
   updatedAt: string;
+  v7ConfirmedRange?: V7ConfirmedRange | null;
+  /**
+   * V7Outputgeneration
+   */
+  v7OutputGeneration?: number | null;
+  /**
+   * V7Outputowneroperationid
+   */
+  v7OutputOwnerOperationId?: string | null;
+  /**
+   * V7Projectionfingerprint
+   */
+  v7ProjectionFingerprint?: string | null;
+  v7Review?: V7ReviewResponse | null;
 };
 
 /**
  * SemiAutomaticSelectionRangeStatus
  */
 export type SemiAutomaticSelectionRangeStatus =
-  'missing' | 'auto_selected' | 'output_synced' | 'conflict';
+  'missing' | 'proposed' | 'auto_selected' | 'output_synced' | 'conflict';
 
 /**
  * SemiAutomaticSelectionRecognizerVariantResponse
@@ -13974,6 +13990,10 @@ export type SemiAutomaticSelectionRunResponse = {
    */
   lastSequenceNumber: number;
   /**
+   * Outputdirectory
+   */
+  outputDirectory?: string | null;
+  /**
    * Rangeconvention
    */
   rangeConvention: 'seq-inclusive-v1';
@@ -14032,6 +14052,7 @@ export type SemiAutomaticSelectionSourceItemResponse = {
    * Sourceindex
    */
   sourceIndex: number;
+  v7Diagnostics?: V7SourceDiagnosticsResponse | null;
 };
 
 /**
@@ -14097,7 +14118,11 @@ export type SemiAutomaticV7CapabilitiesResponse = {
   /**
    * Activationstatus
    */
-  activationStatus: 'blocked';
+  activationStatus: 'blocked' | 'active';
+  /**
+   * Automaticstartenabled
+   */
+  automaticStartEnabled?: false;
   /**
    * Borderstyles
    */
@@ -14105,18 +14130,31 @@ export type SemiAutomaticV7CapabilitiesResponse = {
   /**
    * Configurationversion
    */
-  configurationVersion: 'v7-selection-configuration-v1';
+  configurationVersion:
+    'v7-selection-configuration-v1' | 'v7-selection-configuration-v2';
   defaultBorderStyle: SemiAutomaticV7BorderStyle;
   defaultDirection: SemiAutomaticSelectionDirection;
   defaultMode: SemiAutomaticV7SelectionMode;
+  /**
+   * Feedbacktraceversion
+   */
+  feedbackTraceVersion?: 'v7-selection-feedback-context-v1';
+  /**
+   * Manualconfirmationrequired
+   */
+  manualConfirmationRequired?: true;
   /**
    * Reason
    */
   reason: string;
   /**
+   * Sourcepolicy
+   */
+  sourcePolicy?: 'exact_sources' | 'operator_selected_local_folder';
+  /**
    * Startenabled
    */
-  startEnabled: false;
+  startEnabled: boolean;
 };
 
 /**
@@ -14143,9 +14181,14 @@ export type SemiAutomaticV7SelectionConfigurationResponse = {
   localizerFingerprint: string;
   mode: SemiAutomaticV7SelectionMode;
   /**
+   * Outputdirectory
+   */
+  outputDirectory?: string | null;
+  pilot?: V7PilotSnapshotResponse | null;
+  /**
    * Version
    */
-  version: 'v7-selection-configuration-v1';
+  version: 'v7-selection-configuration-v1' | 'v7-selection-configuration-v2';
 };
 
 /**
@@ -14154,6 +14197,10 @@ export type SemiAutomaticV7SelectionConfigurationResponse = {
 export type SemiAutomaticV7SelectionCreate = {
   borderStyle?: SemiAutomaticV7BorderStyle;
   mode?: SemiAutomaticV7SelectionMode;
+  /**
+   * Outputbasedirectory
+   */
+  outputBaseDirectory?: string | null;
 };
 
 /**
@@ -14189,9 +14236,14 @@ export type SemiAutomaticV7SelectionJobConfigurationPayload = {
    */
   mode: 'semi_automatic' | 'automatic';
   /**
+   * Outputdirectory
+   */
+  outputDirectory?: string | null;
+  pilot?: V7PilotSnapshotResponse | null;
+  /**
    * Version
    */
-  version: 'v7-selection-configuration-v1';
+  version: 'v7-selection-configuration-v1' | 'v7-selection-configuration-v2';
 };
 
 /**
@@ -16119,6 +16171,68 @@ export type UnreadableUnknownAssignmentRequest = {
 };
 
 /**
+ * V7BlurSeverity
+ */
+export type V7BlurSeverity = 'none' | 'light' | 'heavy' | 'unknown';
+
+/**
+ * V7BoardReadability
+ */
+export type V7BoardReadability =
+  'clear' | 'readable' | 'unreadable' | 'unknown';
+
+/**
+ * V7BoardVisibility
+ */
+export type V7BoardVisibility = 'full' | 'partial' | 'unknown';
+
+/**
+ * V7ConfirmedRange
+ */
+export type V7ConfirmedRange = {
+  /**
+   * End
+   */
+  end: number;
+  /**
+   * Start
+   */
+  start: number;
+};
+
+/**
+ * V7DecorationVisibility
+ */
+export type V7DecorationVisibility =
+  'complete' | 'partial' | 'missing' | 'not_applicable' | 'unknown';
+
+/**
+ * V7DraftResponse
+ */
+export type V7DraftResponse = {
+  /**
+   * Directory
+   */
+  directory: string;
+  /**
+   * Estimated
+   */
+  estimated: boolean;
+  /**
+   * Reason
+   */
+  reason: string;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+};
+
+/**
  * V7LabelGeometryAdoptionCreate
  */
 export type V7LabelGeometryAdoptionCreate = {
@@ -16422,6 +16536,420 @@ export type V7LabelGeometrySlotResponse = {
    */
   state: 'unreviewed' | 'annotated' | 'unavailable';
 };
+
+/**
+ * V7LabelSlotResponse
+ */
+export type V7LabelSlotResponse = {
+  blur: V7BlurSeverity;
+  decoration: V7DecorationVisibility;
+  occlusion: V7OcclusionSeverity;
+  /**
+   * Positionconfidence
+   */
+  positionConfidence?: number | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  readability: V7BoardReadability;
+  /**
+   * Recognitionconfidence
+   */
+  recognitionConfidence?: number | null;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber?: number | null;
+  /**
+   * State
+   */
+  state: 'not_observed' | 'observed_without_number' | 'recognized';
+  symbolContentLoss: V7SymbolContentLoss;
+  visibility: V7BoardVisibility;
+};
+
+/**
+ * V7OcclusionSeverity
+ */
+export type V7OcclusionSeverity =
+  'none' | 'partial' | 'significant' | 'unknown';
+
+/**
+ * V7OutputDecisionRequest
+ */
+export type V7OutputDecisionRequest = {
+  confirmedRange: V7ConfirmedRange;
+  /**
+   * Correctionreason
+   */
+  correctionReason?:
+    'blur' | 'occlusion' | 'range_error' | 'framing' | 'other' | null;
+  /**
+   * Expectedowneroperationid
+   */
+  expectedOwnerOperationId?: string | null;
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Expectedsourcechecksumsha256
+   */
+  expectedSourceChecksumSha256: string;
+  /**
+   * Expectedtargetchecksumsha256
+   */
+  expectedTargetChecksumSha256?: string | null;
+  /**
+   * Kind
+   */
+  kind: 'manual_first' | 'manual_no_ocr' | 'manual_replace';
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Operatorconfirmedincompletepage
+   */
+  operatorConfirmedIncompletePage?: boolean;
+  /**
+   * Operatorconfirmedrange
+   */
+  operatorConfirmedRange: boolean;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Workflowmode
+   */
+  workflowMode: 'v7_selection';
+};
+
+/**
+ * V7OutputFolderSelectionResponse
+ */
+export type V7OutputFolderSelectionResponse = {
+  /**
+   * Path
+   */
+  path?: string | null;
+  /**
+   * Status
+   */
+  status: 'selected' | 'cancelled';
+};
+
+/**
+ * V7OutputOperationResponse
+ */
+export type V7OutputOperationResponse = {
+  confirmedRange: V7ConfirmedRange;
+  /**
+   * Decisiongeneration
+   */
+  decisionGeneration: number;
+  /**
+   * Errorcode
+   */
+  errorCode?: string | null;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * State
+   */
+  state: 'reserved' | 'recovery_required' | 'committed' | 'conflict' | 'failed';
+};
+
+/**
+ * V7OutputReceiptResponse
+ */
+export type V7OutputReceiptResponse = {
+  confirmedRange: V7ConfirmedRange;
+  /**
+   * Decisiongeneration
+   */
+  decisionGeneration: number;
+  /**
+   * Errorcode
+   */
+  errorCode: string | null;
+  /**
+   * Operationid
+   */
+  operationId: string;
+  /**
+   * Outputchecksumsha256
+   */
+  outputChecksumSha256: string | null;
+  /**
+   * Owneroperationid
+   */
+  ownerOperationId: string | null;
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * State
+   */
+  state: 'committed' | 'conflict' | 'failed';
+  /**
+   * Targetname
+   */
+  targetName: string;
+};
+
+/**
+ * V7PilotSnapshotResponse
+ */
+export type V7PilotSnapshotResponse = {
+  /**
+   * Bindingfingerprint
+   */
+  bindingFingerprint: string;
+  /**
+   * Geometryfamilyid
+   */
+  geometryFamilyId: string;
+  /**
+   * Observerfingerprint
+   */
+  observerFingerprint: string;
+  /**
+   * Ocrmodelfingerprint
+   */
+  ocrModelFingerprint: string;
+  /**
+   * Pilotgeneration
+   */
+  pilotGeneration: number;
+  /**
+   * Profilefingerprint
+   */
+  profileFingerprint: string;
+  /**
+   * Receiptfingerprint
+   */
+  receiptFingerprint: string;
+  /**
+   * Sourcegameref
+   */
+  sourceGameRef: string | null;
+  /**
+   * Sourcepolicy
+   */
+  sourcePolicy?: 'exact_sources' | 'operator_selected_local_folder';
+};
+
+/**
+ * V7ProvenSourceResponse
+ */
+export type V7ProvenSourceResponse = {
+  /**
+   * Occurrenceid
+   */
+  occurrenceId: string;
+  proofKind: V7RangeProofKind;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Supportingsourceids
+   */
+  supportingSourceIds: Array<string>;
+};
+
+/**
+ * V7QualityWarning
+ */
+export type V7QualityWarning =
+  | 'symbol_content_loss'
+  | 'symbol_visibility_unknown'
+  | 'partial_visibility'
+  | 'visibility_unknown'
+  | 'unreadable_board'
+  | 'readability_unknown'
+  | 'blur'
+  | 'occlusion'
+  | 'decoration_loss'
+  | 'decoration_unknown'
+  | 'top_cropped'
+  | 'bottom_cropped'
+  | 'left_cropped'
+  | 'right_cropped';
+
+/**
+ * V7RangeProofKind
+ */
+export type V7RangeProofKind =
+  'none' | 'strong_five_label' | 'multi_frame_three_plus_three';
+
+/**
+ * V7ReviewCandidateResponse
+ */
+export type V7ReviewCandidateResponse = {
+  diagnostics?: V7SourceDiagnosticsResponse | null;
+  /**
+   * Proofkinds
+   */
+  proofKinds: Array<V7RangeProofKind>;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Warnings
+   */
+  warnings: Array<V7QualityWarning>;
+};
+
+/**
+ * V7ReviewFolderResponse
+ */
+export type V7ReviewFolderResponse = {
+  /**
+   * Runid
+   */
+  runId?: string | null;
+  /**
+   * Status
+   */
+  status: 'selected' | 'cancelled';
+};
+
+/**
+ * V7ReviewResponse
+ */
+export type V7ReviewResponse = {
+  candidate: V7ReviewCandidateResponse | null;
+  draft?: V7DraftResponse | null;
+  /**
+   * Manualconfirmationrequired
+   */
+  manualConfirmationRequired: true;
+  /**
+   * Occurrenceid
+   */
+  occurrenceId: string | null;
+  /**
+   * Provensources
+   */
+  provenSources: Array<V7ProvenSourceResponse>;
+  /**
+   * Rangeend
+   */
+  rangeEnd: number;
+  /**
+   * Rangestart
+   */
+  rangeStart: number;
+  /**
+   * Sourcemanifestfingerprint
+   */
+  sourceManifestFingerprint: string;
+  /**
+   * Version
+   */
+  version: 'v7-review-projection-v1';
+};
+
+/**
+ * V7SourceDiagnosticsResponse
+ */
+export type V7SourceDiagnosticsResponse = {
+  proof: V7SourceProofResponse;
+  /**
+   * Slots
+   */
+  slots: [
+    V7LabelSlotResponse,
+    V7LabelSlotResponse,
+    V7LabelSlotResponse,
+    V7LabelSlotResponse,
+    V7LabelSlotResponse,
+    V7LabelSlotResponse,
+    V7LabelSlotResponse,
+    V7LabelSlotResponse,
+    V7LabelSlotResponse,
+  ];
+  /**
+   * Sourcechecksumsha256
+   */
+  sourceChecksumSha256: string;
+  /**
+   * Sourceerrorcode
+   */
+  sourceErrorCode?: string | null;
+  /**
+   * Sourceid
+   */
+  sourceId: string;
+  /**
+   * Sourceindex
+   */
+  sourceIndex: number;
+  /**
+   * Version
+   */
+  version: 'v7-source-diagnostics-v1';
+};
+
+/**
+ * V7SourceProofResponse
+ */
+export type V7SourceProofResponse = {
+  kind: V7RangeProofKind;
+  /**
+   * Rangeend
+   */
+  rangeEnd?: number | null;
+  /**
+   * Rangestart
+   */
+  rangeStart?: number | null;
+  /**
+   * Reasoncodes
+   */
+  reasonCodes: Array<string>;
+  /**
+   * Supportingsourceids
+   */
+  supportingSourceIds: Array<string>;
+};
+
+/**
+ * V7SymbolContentLoss
+ */
+export type V7SymbolContentLoss = 'none' | 'minor' | 'major' | 'unknown';
 
 /**
  * V7ValidationPredictionSnapshotRequest
@@ -28846,6 +29374,84 @@ export type GetSemiAutomaticImageSelectionCapabilitiesResponses = {
 export type GetSemiAutomaticImageSelectionCapabilitiesResponse =
   GetSemiAutomaticImageSelectionCapabilitiesResponses[keyof GetSemiAutomaticImageSelectionCapabilitiesResponses];
 
+export type SelectSemiAutomaticImageSelectionOutputFolderData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/output-folder';
+};
+
+export type SelectSemiAutomaticImageSelectionOutputFolderErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type SelectSemiAutomaticImageSelectionOutputFolderError =
+  SelectSemiAutomaticImageSelectionOutputFolderErrors[keyof SelectSemiAutomaticImageSelectionOutputFolderErrors];
+
+export type SelectSemiAutomaticImageSelectionOutputFolderResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7OutputFolderSelectionResponse;
+};
+
+export type SelectSemiAutomaticImageSelectionOutputFolderResponse =
+  SelectSemiAutomaticImageSelectionOutputFolderResponses[keyof SelectSemiAutomaticImageSelectionOutputFolderResponses];
+
+export type OpenSemiAutomaticImageSelectionReviewFolderData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/semi-automatic-image-selections/review-folder';
+};
+
+export type OpenSemiAutomaticImageSelectionReviewFolderErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Run, range, or source not found
+   */
+  404: ErrorResponse;
+  /**
+   * Durable selection conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Invalid selection input
+   */
+  422: ErrorResponse;
+};
+
+export type OpenSemiAutomaticImageSelectionReviewFolderError =
+  OpenSemiAutomaticImageSelectionReviewFolderErrors[keyof OpenSemiAutomaticImageSelectionReviewFolderErrors];
+
+export type OpenSemiAutomaticImageSelectionReviewFolderResponses = {
+  /**
+   * Successful Response
+   */
+  200: V7ReviewFolderResponse;
+};
+
+export type OpenSemiAutomaticImageSelectionReviewFolderResponse =
+  OpenSemiAutomaticImageSelectionReviewFolderResponses[keyof OpenSemiAutomaticImageSelectionReviewFolderResponses];
+
 export type SelectSemiAutomaticImageSelectionSourceFolderData = {
   body?: never;
   path?: never;
@@ -29248,7 +29854,10 @@ export type ListSemiAutomaticImageSelectionRangesResponse =
   ListSemiAutomaticImageSelectionRangesResponses[keyof ListSemiAutomaticImageSelectionRangesResponses];
 
 export type AcknowledgeSemiAutomaticImageSelectionOutputData = {
-  body: SemiAutomaticSelectionOutputAcknowledgement;
+  /**
+   * Payload
+   */
+  body: SemiAutomaticSelectionOutputAcknowledgement | V7OutputDecisionRequest;
   path: {
     /**
      * Run Id

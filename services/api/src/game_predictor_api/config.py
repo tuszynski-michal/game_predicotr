@@ -50,6 +50,12 @@ class ApiSettings:
     import_root: Path = field(default_factory=lambda: Path("imports").resolve())
     v7_label_geometry_runtime_root: Path = field(default_factory=lambda: Path(".runtime").resolve())
     v7_label_geometry_corpus_manifest: Path | None = None
+    v7_label_geometry_read_only: bool = False
+    v7_pilot_acceptance_scope: str | None = None
+    v7_review_output_base: Path | None = None
+    v7_selection_ocr_model_root: Path = field(
+        default_factory=lambda: Path("artifacts/m5-models/sequence-number-ocr-v1").resolve()
+    )
     import_max_bytes: int = _DEFAULT_IMPORT_MAX_BYTES
     browser_layout_import_max_bytes: int = _DEFAULT_BROWSER_LAYOUT_IMPORT_MAX_BYTES
     image_selection_max_bytes: int = _DEFAULT_IMAGE_SELECTION_MAX_BYTES
@@ -83,6 +89,8 @@ class ApiSettings:
     version: str = "0.1.0"
 
     def __post_init__(self) -> None:
+        if self.v7_pilot_acceptance_scope not in (None, "real_pilot", "technical_fixture"):
+            raise ConfigurationError("Unknown V7 pilot acceptance scope.")
         if self.configured_owner_database_url is not None:
             _require_same_database(self.database_url, self.configured_owner_database_url)
 
@@ -309,6 +317,26 @@ class ApiSettings:
             import_root=import_root,
             v7_label_geometry_runtime_root=v7_runtime_root,
             v7_label_geometry_corpus_manifest=v7_corpus_manifest,
+            v7_label_geometry_read_only=_parse_boolean(
+                source.get("GAME_PREDICTOR_V7_LABEL_GEOMETRY_READ_ONLY", "false"),
+                variable_name="GAME_PREDICTOR_V7_LABEL_GEOMETRY_READ_ONLY",
+            ),
+            v7_pilot_acceptance_scope=source.get("GAME_PREDICTOR_V7_PILOT_ACCEPTANCE_SCOPE"),
+            v7_review_output_base=(
+                _parse_local_root(
+                    source["GAME_PREDICTOR_V7_REVIEW_OUTPUT_BASE"],
+                    variable_name="GAME_PREDICTOR_V7_REVIEW_OUTPUT_BASE",
+                )
+                if source.get("GAME_PREDICTOR_V7_REVIEW_OUTPUT_BASE", "").strip()
+                else None
+            ),
+            v7_selection_ocr_model_root=_parse_local_root(
+                source.get(
+                    "GAME_PREDICTOR_V7_SELECTION_OCR_MODEL_ROOT",
+                    "artifacts/m5-models/sequence-number-ocr-v1",
+                ),
+                variable_name="GAME_PREDICTOR_V7_SELECTION_OCR_MODEL_ROOT",
+            ),
             import_max_bytes=import_max_bytes,
             browser_layout_import_max_bytes=browser_layout_import_max_bytes,
             image_selection_max_bytes=image_selection_max_bytes,

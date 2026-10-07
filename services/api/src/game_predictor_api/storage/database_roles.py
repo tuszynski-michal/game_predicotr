@@ -32,6 +32,8 @@ _SCRAM_ITERATIONS: Final = 4096
 # The application role may read the Alembic revision (startup head guard) but
 # never move it.
 _READ_ONLY_TABLES: Final = ("public.alembic_version",)
+_V7_ACCEPTANCE_TABLE: Final = "public.semi_automatic_selection_v7_pilot_acceptances"
+_V7_GATE_TABLE: Final = "public.semi_automatic_selection_v7_activation_gate"
 
 
 class DatabaseRoleError(RuntimeError):
@@ -193,11 +195,26 @@ def provision_application_role(
         connection.exec_driver_sql(
             f"GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA {quoted_schema} TO {quoted_role}"
         )
-    for table in _READ_ONLY_TABLES:
+    for table in _read_only_tables(connection):
         if _relation_exists(connection, table):
             connection.exec_driver_sql(
-                f"REVOKE INSERT, UPDATE, DELETE ON {table} FROM {quoted_role}"
+                f"REVOKE INSERT, UPDATE, DELETE, TRUNCATE ON {table} FROM {quoted_role}"
             )
+            columns = connection.execute(
+                text(
+                    "SELECT attname FROM pg_attribute WHERE attrelid = CAST(:table AS regclass) "
+                    "AND attnum > 0 AND NOT attisdropped ORDER BY attnum"
+                ),
+                {"table": table},
+            )
+            names = ", ".join(_quote(str(name)) for (name,) in columns)
+            connection.exec_driver_sql(
+                f"REVOKE INSERT ({names}), UPDATE ({names}) ON {table} FROM {quoted_role}"
+            )
+    if _relation_exists(connection, _V7_ACCEPTANCE_TABLE):
+        # PostgreSQL locking SELECT requires UPDATE on at least one column.
+        # CHECK(singleton=TRUE)+PK makes this column an immutable no-op target.
+        connection.exec_driver_sql(f"GRANT UPDATE (singleton) ON {_V7_GATE_TABLE} TO {quoted_role}")
     # Objects created later by the owner (Alembic migrations, partitions of a
     # newly provisioned game, a fresh database's game_data_v2 schema) get the
     # same grants without re-running this function.
@@ -256,6 +273,7 @@ def describe_application_role(connection: Connection, role_name: str) -> Applica
             sequences_without_usage=(),
         )
     schemas = _existing_schemas(connection)
+    read_only_tables = _read_only_tables(connection)
     owned = connection.execute(
         text(
             """SELECT count(*) FROM pg_class c
@@ -287,20 +305,31 @@ def describe_application_role(connection: Connection, role_name: str) -> Applica
                     AND has_table_privilege(:role, c.oid, 'DELETE'))
                 ORDER BY 1"""
             ),
-            {"schemas": list(schemas), "role": role, "read_only": list(_READ_ONLY_TABLES)},
+            {"schemas": list(schemas), "role": role, "read_only": list(read_only_tables)},
         )
     )
     writable_read_only_tables = tuple(
         table
-        for table in _READ_ONLY_TABLES
+        for table in read_only_tables
         if _relation_exists(connection, table)
         and connection.execute(
             text(
                 """SELECT has_table_privilege(:role, CAST(:table AS regclass), 'INSERT')
                        OR has_table_privilege(:role, CAST(:table AS regclass), 'UPDATE')
-                       OR has_table_privilege(:role, CAST(:table AS regclass), 'DELETE')"""
+                       OR has_table_privilege(:role, CAST(:table AS regclass), 'DELETE')
+                       OR has_table_privilege(:role, CAST(:table AS regclass), 'TRUNCATE')
+                       OR EXISTS (
+                           SELECT 1 FROM pg_attribute a
+                           WHERE a.attrelid = CAST(:table AS regclass)
+                             AND a.attnum > 0 AND NOT a.attisdropped
+                             AND (
+                               has_column_privilege(:role, a.attrelid, a.attname, 'INSERT')
+                               OR (has_column_privilege(:role, a.attrelid, a.attname, 'UPDATE')
+                                   AND NOT (:allow_gate_lock AND a.attname = 'singleton'))
+                             )
+                       )"""
             ),
-            {"role": role, "table": table},
+            {"role": role, "table": table, "allow_gate_lock": table == _V7_GATE_TABLE},
         ).scalar_one()
     )
     sequences_without_usage = tuple(
@@ -336,6 +365,13 @@ def describe_application_role(connection: Connection, role_name: str) -> Applica
         writable_read_only_tables=writable_read_only_tables,
         sequences_without_usage=sequences_without_usage,
     )
+
+
+def _read_only_tables(connection: Connection) -> tuple[str, ...]:
+    # 0143/0144 databases keep their existing provisioning contract.
+    if _relation_exists(connection, _V7_ACCEPTANCE_TABLE):
+        return (*_READ_ONLY_TABLES, _V7_ACCEPTANCE_TABLE, _V7_GATE_TABLE)
+    return _READ_ONLY_TABLES
 
 
 def _existing_schemas(connection: Connection) -> tuple[str, ...]:

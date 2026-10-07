@@ -2,6 +2,23 @@ import pytest
 from game_predictor_api.config import ApiSettings, ConfigurationError
 
 
+def test_v7_output_base_is_optional_and_persists_from_environment(tmp_path) -> None:
+    assert ApiSettings.from_environment({}).v7_review_output_base is None
+    assert (
+        ApiSettings.from_environment(
+            {"GAME_PREDICTOR_V7_REVIEW_OUTPUT_BASE": " "}
+        ).v7_review_output_base
+        is None
+    )
+    root = tmp_path / "v7-output"
+    assert (
+        ApiSettings.from_environment(
+            {"GAME_PREDICTOR_V7_REVIEW_OUTPUT_BASE": str(root)}
+        ).v7_review_output_base
+        == root.resolve()
+    )
+
+
 def test_defaults_are_loopback_only() -> None:
     settings = ApiSettings.from_environment({})
 

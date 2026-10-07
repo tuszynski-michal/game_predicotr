@@ -794,6 +794,29 @@ class SemiAutomaticV7ActivationGateModel(Base):
             "status IN ('blocked', 'active')", name="ck_semi_automatic_v7_activation_gate_status"
         ),
         CheckConstraint("generation >= 0", name="ck_semi_automatic_v7_activation_gate_generation"),
+        CheckConstraint(
+            "pilot_status IN ('blocked', 'active') AND pilot_generation >= 0 AND "
+            "pilot_mode = 'semi_automatic' AND jsonb_typeof(pilot_source_bindings) = 'array'",
+            name="ck_v7_pilot_gate_policy",
+        ),
+        CheckConstraint(
+            "pilot_status <> 'active' OR (pilot_geometry_family_id IS NOT NULL AND "
+            "pilot_profile_fingerprint IS NOT NULL AND "
+            "pilot_observer_fingerprint IS NOT NULL AND "
+            "pilot_ocr_model_fingerprint IS NOT NULL AND "
+            "pilot_acceptance_receipt_fingerprint IS NOT NULL AND "
+            "pilot_accepted_at IS NOT NULL AND "
+            "pilot_accepted_by IS NOT NULL AND "
+            "((pilot_source_policy = 'exact_sources' AND pilot_source_game_ref IS NOT NULL AND "
+            "jsonb_array_length(pilot_source_bindings) > 0) OR "
+            "(pilot_source_policy = 'operator_selected_local_folder' AND "
+            "pilot_source_game_ref IS NULL AND jsonb_array_length(pilot_source_bindings) = 0)))",
+            name="ck_v7_pilot_gate_active_identity",
+        ),
+        CheckConstraint(
+            "pilot_source_policy IN ('exact_sources', 'operator_selected_local_folder')",
+            name="ck_v7_pilot_gate_source_policy",
+        ),
     )
 
     singleton: Mapped[bool] = mapped_column(Boolean, primary_key=True, default=True)
@@ -801,11 +824,57 @@ class SemiAutomaticV7ActivationGateModel(Base):
     generation: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     accepted_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    pilot_status: Mapped[str] = mapped_column(String(16), nullable=False, server_default="blocked")
+    pilot_generation: Mapped[int] = mapped_column(BigInteger, nullable=False, server_default="0")
+    pilot_mode: Mapped[str] = mapped_column(
+        String(32), nullable=False, server_default="semi_automatic"
+    )
+    pilot_geometry_family_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    pilot_source_game_ref: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    pilot_source_policy: Mapped[str] = mapped_column(
+        String(40), nullable=False, server_default="exact_sources"
+    )
+    pilot_profile_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pilot_observer_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pilot_ocr_model_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    pilot_source_bindings: Mapped[list[dict[str, object]]] = mapped_column(
+        JSONB, nullable=False, server_default=text("'[]'::jsonb")
+    )
+    pilot_acceptance_receipt_fingerprint: Mapped[str | None] = mapped_column(
+        String(64), nullable=True
+    )
+    pilot_accepted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    pilot_accepted_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class V7PilotAcceptanceModel(Base):
+    __tablename__ = "semi_automatic_selection_v7_pilot_acceptances"
+    __table_args__ = (
+        CheckConstraint(
+            "expected_generation >= 0 AND resulting_generation = expected_generation + 1",
+            name="ck_v7_pilot_acceptance_generation",
+        ),
+        CheckConstraint(
+            "request_fingerprint ~ '^[0-9a-f]{64}$' AND receipt_fingerprint ~ '^[0-9a-f]{64}$'",
+            name="ck_v7_pilot_acceptance_fingerprints",
+        ),
+    )
+    operation_id: Mapped[UUID] = mapped_column(primary_key=True)
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    receipt_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    receipt: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    expected_generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    resulting_generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
     )
 
 
@@ -859,7 +928,7 @@ class SemiAutomaticImageSelectionRangeModel(Base):
             name="ck_semi_automatic_selection_ranges_bounds",
         ),
         CheckConstraint(
-            "status IN ('missing', 'auto_selected', 'output_synced', 'conflict')",
+            "status IN ('missing', 'proposed', 'auto_selected', 'output_synced', 'conflict')",
             name="ck_semi_automatic_selection_ranges_status",
         ),
         CheckConstraint(
@@ -882,6 +951,14 @@ class SemiAutomaticImageSelectionRangeModel(Base):
         CheckConstraint(
             "output_checksum_sha256 IS NULL OR output_checksum_sha256 ~ '^[0-9a-f]{64}$'",
             name="ck_semi_automatic_selection_ranges_output_checksum",
+        ),
+        CheckConstraint(
+            "(v7_output_generation IS NULL OR v7_output_generation >= 0) AND "
+            "((v7_confirmed_range_start IS NULL AND v7_confirmed_range_end IS NULL) OR "
+            "(v7_confirmed_range_start >= range_start AND v7_confirmed_range_end <= range_end "
+            "AND v7_confirmed_range_end >= v7_confirmed_range_start)) AND "
+            "(v7_projection_fingerprint IS NULL OR v7_projection_fingerprint ~ '^[0-9a-f]{64}$')",
+            name="ck_v7_range_output_identity",
         ),
         CheckConstraint(
             "source_relative_path IS NULL OR "
@@ -923,12 +1000,81 @@ class SemiAutomaticImageSelectionRangeModel(Base):
     range_confidence: Mapped[float | None] = mapped_column(Float, nullable=True)
     selection_method: Mapped[str | None] = mapped_column(String(80), nullable=True)
     output_checksum_sha256: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    v7_review: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    v7_projection_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    v7_confirmed_range_start: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    v7_confirmed_range_end: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    v7_output_owner_operation_id: Mapped[UUID | None] = mapped_column(nullable=True)
+    v7_output_generation: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now()
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, server_default=func.now(), onupdate=func.now()
+    )
+
+
+class V7SourceObservationModel(Base):
+    __tablename__ = "semi_automatic_selection_v7_source_observations"
+    __table_args__ = (
+        PrimaryKeyConstraint("run_id", "source_index"),
+        CheckConstraint("source_index >= 0", name="ck_v7_source_observation_index"),
+        CheckConstraint(
+            "source_checksum_sha256 ~ '^[0-9a-f]{64}$' AND "
+            "payload_fingerprint ~ '^[0-9a-f]{64}$' AND jsonb_typeof(payload) = 'object'",
+            name="ck_v7_source_observation_payload",
+        ),
+    )
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("semi_automatic_image_selection_runs.id", ondelete="RESTRICT"), nullable=False
+    )
+    source_index: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    source_checksum_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class V7OutputOperationModel(Base):
+    __tablename__ = "semi_automatic_selection_v7_output_operations"
+    __table_args__ = (
+        CheckConstraint(
+            "state IN ('reserved', 'recovery_required', 'committed', 'conflict', 'failed') AND "
+            "decision_generation >= 0 AND reserved_revision >= 0",
+            name="ck_v7_output_operation_state",
+        ),
+        CheckConstraint(
+            "request_fingerprint ~ '^[0-9a-f]{64}$' AND jsonb_typeof(request_payload) = 'object' "
+            "AND jsonb_typeof(context_payload) = 'object'",
+            name="ck_v7_output_operation_payload",
+        ),
+        Index(
+            "uq_v7_output_operation_pending_run",
+            "run_id",
+            unique=True,
+            postgresql_where=text("state IN ('reserved', 'recovery_required')"),
+        ),
+        Index("ix_v7_output_operation_range_created", "range_id", "created_at"),
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True)
+    run_id: Mapped[UUID] = mapped_column(
+        ForeignKey("semi_automatic_image_selection_runs.id", ondelete="RESTRICT"), nullable=False
+    )
+    range_id: Mapped[UUID] = mapped_column(
+        ForeignKey("semi_automatic_image_selection_ranges.id", ondelete="RESTRICT"), nullable=False
+    )
+    request_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    context_payload: Mapped[dict[str, object]] = mapped_column(JSONB, nullable=False)
+    decision_generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    reserved_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False)
+    receipt: Mapped[dict[str, object] | None] = mapped_column(JSONB, nullable=True)
+    error_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
 

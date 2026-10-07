@@ -10,6 +10,7 @@ from pathlib import Path
 
 from game_predictor_worker.semi_automatic_selection.v7_calibration import (
     V7_CALIBRATION_VERSION,
+    V7_SOURCE_LOCAL_CALIBRATION_VERSION,
     V7CalibrationError,
     V7EvaluationStatus,
     V7HoldoutAcceptanceTruth,
@@ -265,7 +266,7 @@ def _calibration_fingerprint(payload: Mapping[str, object], *, manifest_fingerpr
         raise ValueError("V7 calibration report manifest fingerprint differs.")
     geometry = _mapping(payload.get("geometry"), "calibration geometry")
     if (
-        geometry.get("version") != V7_CALIBRATION_VERSION
+        geometry.get("version") not in {V7_CALIBRATION_VERSION, V7_SOURCE_LOCAL_CALIBRATION_VERSION}
         or geometry.get("status") != V7EvaluationStatus.PASSED.value
         or geometry.get("manifestFingerprint") != manifest_fingerprint
     ):

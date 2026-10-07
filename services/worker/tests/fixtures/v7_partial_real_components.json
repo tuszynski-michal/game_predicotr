@@ -1,0 +1,144 @@
+{
+  "version": "v7-partial-real-components-v1",
+  "originMetadataSha256": "c0f636c343ce0203af01c3a32a4465d7f14fb29e06116e6af053f9b0b3ebddc3",
+  "annotationExportSha256": "c4f569a367faca28af8febbea9b82231073531203ffe11baf71b8b0fe18ab88e",
+  "containsNumericTruth": false,
+  "cases": [
+    {
+      "previewIndex": 3,
+      "sourceChecksumSha256": "de57a68f42afe07a3c1bb1e9861dfd7ecdb0d765810177e72688266a64a12d23",
+      "shape": [820, 1080],
+      "componentBoxes": [
+        [61, 269, 130, 284],
+        [260, 271, 343, 289],
+        [487, 282, 572, 301],
+        [57, 304, 146, 321],
+        [42, 407, 116, 425],
+        [250, 414, 336, 432],
+        [485, 422, 573, 441],
+        [721, 465, 775, 478],
+        [29, 555, 106, 576],
+        [241, 566, 331, 586],
+        [484, 572, 575, 590],
+        [122, 609, 176, 624],
+        [225, 616, 298, 630],
+        [319, 617, 412, 635],
+        [272, 678, 382, 695],
+        [97, 780, 202, 793]
+      ],
+      "locatorConfig": {
+        "cropHeightSpacingRatio": 0.34,
+        "cropWidthSpacingRatio": 0.58,
+        "kind": "dynamic_lattice_v2",
+        "maximumAspectRatio": 1.8,
+        "maximumLatticeResidualRatio": 0.1,
+        "minimumAspectRatio": 1.0,
+        "minimumLatticeMargin": 0.08,
+        "positionConfidence": 0.95
+      },
+      "annotatedCenters": [
+        {
+          "positionIndex": 0,
+          "centerPixels": [91.18594231850889, 275.3023220170128]
+        },
+        {
+          "positionIndex": 1,
+          "centerPixels": [301.3920363079191, 280.66467417682065]
+        },
+        {
+          "positionIndex": 2,
+          "centerPixels": [536.2651719389437, 291.3893784964365]
+        },
+        {
+          "positionIndex": 3,
+          "centerPixels": [77.24370139063984, 412.5785373080952]
+        },
+        {
+          "positionIndex": 4,
+          "centerPixels": [294.95715587967186, 421.1583007637878]
+        },
+        {
+          "positionIndex": 5,
+          "centerPixels": [535.1926918675692, 428.6655937875188]
+        },
+        {
+          "positionIndex": 6,
+          "centerPixels": [64.37394053414535, 565.9418090786012]
+        },
+        {
+          "positionIndex": 7,
+          "centerPixels": [289.5947555227992, 576.666513398217]
+        },
+        {
+          "positionIndex": 8,
+          "centerPixels": [535.1926918675692, 580.9563951260633]
+        }
+      ]
+    },
+    {
+      "previewIndex": 6,
+      "sourceChecksumSha256": "000bef60e7d5a5f582c6ae386338b721f48904c59a39549d74bf1562b6f4f33a",
+      "shape": [1074, 1520],
+      "componentBoxes": [
+        [327, 376, 476, 400],
+        [721, 396, 826, 422],
+        [1072, 427, 1169, 455],
+        [1004, 465, 1207, 491],
+        [294, 572, 446, 602],
+        [703, 599, 807, 628],
+        [1066, 630, 1169, 659],
+        [1020, 796, 1161, 833],
+        [681, 820, 792, 850],
+        [152, 833, 240, 861],
+        [1056, 847, 1162, 876],
+        [608, 887, 726, 908],
+        [762, 895, 902, 921],
+        [749, 925, 846, 945]
+      ],
+      "locatorConfig": {
+        "cropHeightSpacingRatio": 0.34,
+        "cropWidthSpacingRatio": 0.58,
+        "kind": "dynamic_lattice_v2",
+        "maximumAspectRatio": 1.8,
+        "maximumLatticeResidualRatio": 0.1,
+        "minimumAspectRatio": 1.0,
+        "minimumLatticeMargin": 0.08,
+        "positionConfidence": 0.95
+      },
+      "annotatedCenters": [
+        {
+          "positionIndex": 0,
+          "centerPixels": [401.5401384821273, 387.46073399028296]
+        },
+        {
+          "positionIndex": 1,
+          "centerPixels": [750.2153261312283, 407.08287996486507]
+        },
+        {
+          "positionIndex": 2,
+          "centerPixels": [1103.4187629705773, 440.28958853723475]
+        },
+        {
+          "positionIndex": 3,
+          "centerPixels": [363.80472856339344, 591.229172957097]
+        },
+        {
+          "positionIndex": 4,
+          "centerPixels": [735.1211621637348, 613.8701106200763]
+        },
+        {
+          "positionIndex": 5,
+          "centerPixels": [1097.38109738358, 638.0204441272542]
+        },
+        {
+          "positionIndex": 7,
+          "centerPixels": [701.9140014352489, 832.7325080288765]
+        },
+        {
+          "positionIndex": 8,
+          "centerPixels": [1085.305766209585, 864.4298207570475]
+        }
+      ]
+    }
+  ]
+}

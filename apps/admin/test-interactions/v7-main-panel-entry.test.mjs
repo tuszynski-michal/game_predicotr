@@ -5,7 +5,7 @@ import React, { act } from 'react';
 import { renderToString } from 'react-dom/server';
 
 const mainUrl =
-  'http://127.0.0.1:3000/?game=main-game&section=imports&workspace=semi-automatic-image-selection&semiAutomaticRunId=main-run';
+  'http://127.0.0.1:3000/?game=main-game&section=imports&workspace=semi-automatic-image-selection';
 const dom = new JSDOM('<!doctype html><div id="root"></div>', { url: mainUrl });
 for (const key of ['window', 'document', 'HTMLElement', 'Element', 'Event']) {
   Object.defineProperty(globalThis, key, {
@@ -43,6 +43,11 @@ async function withWorkspace(options, inspect) {
     );
   }
   const client = {
+    async listSemiAutomaticImageSelections(mode, offset, limit) {
+      assert.deepEqual([mode, offset, limit], ['v7_selection', 0, 100]);
+      calls.push('saved-runs');
+      return { data: { items: [] } };
+    },
     async getSemiAutomaticImageSelectionCapabilities() {
       calls.push('capabilities');
       return {
@@ -112,7 +117,7 @@ test('blocked main offers pilot navigation without source/create/approve calls',
       once: true,
     });
     await act(async () => link.dispatchEvent(click));
-    assert.deepEqual(calls, ['capabilities']);
+    assert.deepEqual(calls, ['saved-runs', 'capabilities']);
   });
 });
 
@@ -124,7 +129,7 @@ test('active V7 keeps the source picker and original workflow', async () => {
       (button) => button.textContent.trim() === 'Wybierz katalog źródłowy',
     );
     assert.equal(picker.disabled, false);
-    assert.deepEqual(calls, ['capabilities']);
+    assert.deepEqual(calls, ['saved-runs', 'capabilities']);
   });
 });
 
@@ -173,6 +178,7 @@ test('existing main run retains its source restoration and progress alongside th
       container.querySelector('[aria-label="Postęp analizy zakresów"]'),
     );
     assert.deepEqual(calls, [
+      'saved-runs',
       'capabilities',
       'restore:existing-main-run',
       'sources',

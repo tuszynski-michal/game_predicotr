@@ -120,6 +120,15 @@ from game_predictor_worker.semi_automatic_selection.job import (
     SemiAutomaticImageSelectionJobHandler,
     SemiAutomaticSelectionJobStore,
 )
+from game_predictor_worker.semi_automatic_selection.v7_delivery import V7ReviewedDelivery
+from game_predictor_worker.semi_automatic_selection.v7_pilot_configuration import (
+    V7GatedObserverFactory,
+    V7PilotArtifacts,
+)
+from game_predictor_worker.semi_automatic_selection.v7_worker_runtime import (
+    V7CheckpointPolicy,
+    V7WorkerRuntime,
+)
 from game_predictor_worker.snapshots import (
     ProductionSnapshotArtifactPublisher,
     ProductionSnapshotGenerator,
@@ -316,6 +325,12 @@ def main(arguments: Sequence[str] | None = None) -> int:
             DEFAULT_PARALLEL_SCAN_WORKERS,
             max(1, thread_budget - verification_workers),
         )
+        semi_automatic_store = SemiAutomaticSelectionJobStore(session_factory)
+        v7_artifacts = V7PilotArtifacts(
+            settings.v7_label_geometry_runtime_root,
+            settings.v7_selection_ocr_model_root,
+            acceptance_scope=settings.v7_pilot_acceptance_scope,
+        )
         handlers = {
             JobType.IMAGE_SELECTION: ImageSelectionJobHandler(
                 SqlAlchemyImageSelectionJobStore(session_factory),
@@ -327,10 +342,16 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 verification_workers=verification_workers,
             ),
             JobType.SEMI_AUTOMATIC_IMAGE_SELECTION: SemiAutomaticImageSelectionJobHandler(
-                SemiAutomaticSelectionJobStore(session_factory),
+                semi_automatic_store,
                 browser_upload_root=settings.import_root,
                 artifact_root=artifact_root,
                 repository_root=Path.cwd(),
+                v7_runtime=V7WorkerRuntime(
+                    V7GatedObserverFactory(v7_artifacts, semi_automatic_store.read_v7_pilot_gate),
+                    checkpoint_policy=V7CheckpointPolicy(),
+                    independent_progress=True,
+                ),
+                v7_delivery=V7ReviewedDelivery(session_factory, v7_artifacts),
             ),
         }
         execution_slot = JobExecutionSlot.IMAGE_SELECTION

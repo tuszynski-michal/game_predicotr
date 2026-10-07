@@ -24309,6 +24309,16 @@
       "SemiAutomaticSelectionRangeResponse": {
         "additionalProperties": false,
         "properties": {
+          "acknowledgementReceipt": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7OutputReceiptResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "createdAt": {
             "format": "date-time",
             "title": "Createdat",
@@ -24363,6 +24373,16 @@
               }
             ],
             "title": "Outputchecksumsha256"
+          },
+          "outputOperation": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7OutputOperationResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           },
           "rangeConfidence": {
             "anyOf": [
@@ -24462,6 +24482,62 @@
             "format": "date-time",
             "title": "Updatedat",
             "type": "string"
+          },
+          "v7ConfirmedRange": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7ConfirmedRange"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "v7OutputGeneration": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "V7Outputgeneration"
+          },
+          "v7OutputOwnerOperationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "V7Outputowneroperationid"
+          },
+          "v7ProjectionFingerprint": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "V7Projectionfingerprint"
+          },
+          "v7Review": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7ReviewResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -24486,6 +24562,7 @@
       "SemiAutomaticSelectionRangeStatus": {
         "enum": [
           "missing",
+          "proposed",
           "auto_selected",
           "output_synced",
           "conflict"
@@ -24645,6 +24722,17 @@
             "title": "Lastsequencenumber",
             "type": "integer"
           },
+          "outputDirectory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputdirectory"
+          },
           "rangeConvention": {
             "const": "seq-inclusive-v1",
             "title": "Rangeconvention",
@@ -24756,6 +24844,16 @@
             "minimum": 0.0,
             "title": "Sourceindex",
             "type": "integer"
+          },
+          "v7Diagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7SourceDiagnosticsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
@@ -24862,9 +24960,18 @@
         "additionalProperties": false,
         "properties": {
           "activationStatus": {
-            "const": "blocked",
+            "enum": [
+              "blocked",
+              "active"
+            ],
             "title": "Activationstatus",
             "type": "string"
+          },
+          "automaticStartEnabled": {
+            "const": false,
+            "default": false,
+            "title": "Automaticstartenabled",
+            "type": "boolean"
           },
           "borderStyles": {
             "items": {
@@ -24874,7 +24981,10 @@
             "type": "array"
           },
           "configurationVersion": {
-            "const": "v7-selection-configuration-v1",
+            "enum": [
+              "v7-selection-configuration-v1",
+              "v7-selection-configuration-v2"
+            ],
             "title": "Configurationversion",
             "type": "string"
           },
@@ -24887,13 +24997,33 @@
           "defaultMode": {
             "$ref": "#/components/schemas/SemiAutomaticV7SelectionMode"
           },
+          "feedbackTraceVersion": {
+            "const": "v7-selection-feedback-context-v1",
+            "default": "v7-selection-feedback-context-v1",
+            "title": "Feedbacktraceversion",
+            "type": "string"
+          },
+          "manualConfirmationRequired": {
+            "const": true,
+            "default": true,
+            "title": "Manualconfirmationrequired",
+            "type": "boolean"
+          },
           "reason": {
             "minLength": 1,
             "title": "Reason",
             "type": "string"
           },
+          "sourcePolicy": {
+            "default": "exact_sources",
+            "enum": [
+              "exact_sources",
+              "operator_selected_local_folder"
+            ],
+            "title": "Sourcepolicy",
+            "type": "string"
+          },
           "startEnabled": {
-            "const": false,
             "title": "Startenabled",
             "type": "boolean"
           }
@@ -24943,8 +25073,32 @@
           "mode": {
             "$ref": "#/components/schemas/SemiAutomaticV7SelectionMode"
           },
+          "outputDirectory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputdirectory"
+          },
+          "pilot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7PilotSnapshotResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "version": {
-            "const": "v7-selection-configuration-v1",
+            "enum": [
+              "v7-selection-configuration-v1",
+              "v7-selection-configuration-v2"
+            ],
             "title": "Version",
             "type": "string"
           }
@@ -24972,6 +25126,19 @@
           "mode": {
             "$ref": "#/components/schemas/SemiAutomaticV7SelectionMode",
             "default": "semi_automatic"
+          },
+          "outputBaseDirectory": {
+            "anyOf": [
+              {
+                "maxLength": 1024,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputbasedirectory"
           }
         },
         "title": "SemiAutomaticV7SelectionCreate",
@@ -25025,8 +25192,32 @@
             "title": "Mode",
             "type": "string"
           },
+          "outputDirectory": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputdirectory"
+          },
+          "pilot": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7PilotSnapshotResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "version": {
-            "const": "v7-selection-configuration-v1",
+            "enum": [
+              "v7-selection-configuration-v1",
+              "v7-selection-configuration-v2"
+            ],
             "title": "Version",
             "type": "string"
           }
@@ -28619,6 +28810,103 @@
         "title": "UnreadableUnknownAssignmentRequest",
         "type": "object"
       },
+      "V7BlurSeverity": {
+        "enum": [
+          "none",
+          "light",
+          "heavy",
+          "unknown"
+        ],
+        "title": "V7BlurSeverity",
+        "type": "string"
+      },
+      "V7BoardReadability": {
+        "enum": [
+          "clear",
+          "readable",
+          "unreadable",
+          "unknown"
+        ],
+        "title": "V7BoardReadability",
+        "type": "string"
+      },
+      "V7BoardVisibility": {
+        "enum": [
+          "full",
+          "partial",
+          "unknown"
+        ],
+        "title": "V7BoardVisibility",
+        "type": "string"
+      },
+      "V7ConfirmedRange": {
+        "additionalProperties": false,
+        "properties": {
+          "end": {
+            "minimum": 1.0,
+            "title": "End",
+            "type": "integer"
+          },
+          "start": {
+            "minimum": 1.0,
+            "title": "Start",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "V7ConfirmedRange",
+        "type": "object"
+      },
+      "V7DecorationVisibility": {
+        "enum": [
+          "complete",
+          "partial",
+          "missing",
+          "not_applicable",
+          "unknown"
+        ],
+        "title": "V7DecorationVisibility",
+        "type": "string"
+      },
+      "V7DraftResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "directory": {
+            "title": "Directory",
+            "type": "string"
+          },
+          "estimated": {
+            "title": "Estimated",
+            "type": "boolean"
+          },
+          "reason": {
+            "title": "Reason",
+            "type": "string"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "sourceIndex",
+          "sourceChecksumSha256",
+          "estimated",
+          "reason",
+          "directory"
+        ],
+        "title": "V7DraftResponse",
+        "type": "object"
+      },
       "V7LabelGeometryAdoptionCreate": {
         "additionalProperties": false,
         "properties": {
@@ -29164,6 +29452,808 @@
         ],
         "title": "V7LabelGeometrySlotResponse",
         "type": "object"
+      },
+      "V7LabelSlotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "blur": {
+            "$ref": "#/components/schemas/V7BlurSeverity"
+          },
+          "decoration": {
+            "$ref": "#/components/schemas/V7DecorationVisibility"
+          },
+          "occlusion": {
+            "$ref": "#/components/schemas/V7OcclusionSeverity"
+          },
+          "positionConfidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Positionconfidence"
+          },
+          "positionIndex": {
+            "maximum": 8.0,
+            "minimum": 0.0,
+            "title": "Positionindex",
+            "type": "integer"
+          },
+          "readability": {
+            "$ref": "#/components/schemas/V7BoardReadability"
+          },
+          "recognitionConfidence": {
+            "anyOf": [
+              {
+                "maximum": 1.0,
+                "minimum": 0.0,
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognitionconfidence"
+          },
+          "sequenceNumber": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sequencenumber"
+          },
+          "state": {
+            "enum": [
+              "not_observed",
+              "observed_without_number",
+              "recognized"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "symbolContentLoss": {
+            "$ref": "#/components/schemas/V7SymbolContentLoss"
+          },
+          "visibility": {
+            "$ref": "#/components/schemas/V7BoardVisibility"
+          }
+        },
+        "required": [
+          "positionIndex",
+          "state",
+          "visibility",
+          "readability",
+          "blur",
+          "occlusion",
+          "symbolContentLoss",
+          "decoration"
+        ],
+        "title": "V7LabelSlotResponse",
+        "type": "object"
+      },
+      "V7OcclusionSeverity": {
+        "enum": [
+          "none",
+          "partial",
+          "significant",
+          "unknown"
+        ],
+        "title": "V7OcclusionSeverity",
+        "type": "string"
+      },
+      "V7OutputDecisionRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmedRange": {
+            "$ref": "#/components/schemas/V7ConfirmedRange"
+          },
+          "correctionReason": {
+            "anyOf": [
+              {
+                "enum": [
+                  "blur",
+                  "occlusion",
+                  "range_error",
+                  "framing",
+                  "other"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Correctionreason"
+          },
+          "expectedOwnerOperationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedowneroperationid"
+          },
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "expectedSourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Expectedsourcechecksumsha256",
+            "type": "string"
+          },
+          "expectedTargetChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expectedtargetchecksumsha256"
+          },
+          "kind": {
+            "enum": [
+              "manual_first",
+              "manual_no_ocr",
+              "manual_replace"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "operationId": {
+            "format": "uuid",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "operatorConfirmedIncompletePage": {
+            "default": false,
+            "title": "Operatorconfirmedincompletepage",
+            "type": "boolean"
+          },
+          "operatorConfirmedRange": {
+            "title": "Operatorconfirmedrange",
+            "type": "boolean"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          },
+          "workflowMode": {
+            "const": "v7_selection",
+            "title": "Workflowmode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "workflowMode",
+          "operationId",
+          "expectedRevision",
+          "sourceIndex",
+          "expectedSourceChecksumSha256",
+          "kind",
+          "confirmedRange",
+          "operatorConfirmedRange"
+        ],
+        "title": "V7OutputDecisionRequest",
+        "type": "object"
+      },
+      "V7OutputFolderSelectionResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Path"
+          },
+          "status": {
+            "enum": [
+              "selected",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "V7OutputFolderSelectionResponse",
+        "type": "object"
+      },
+      "V7OutputOperationResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmedRange": {
+            "$ref": "#/components/schemas/V7ConfirmedRange"
+          },
+          "decisionGeneration": {
+            "minimum": 0.0,
+            "title": "Decisiongeneration",
+            "type": "integer"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "operationId": {
+            "format": "uuid",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "reserved",
+              "recovery_required",
+              "committed",
+              "conflict",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "state",
+          "decisionGeneration",
+          "sourceIndex",
+          "confirmedRange"
+        ],
+        "title": "V7OutputOperationResponse",
+        "type": "object"
+      },
+      "V7OutputReceiptResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "confirmedRange": {
+            "$ref": "#/components/schemas/V7ConfirmedRange"
+          },
+          "decisionGeneration": {
+            "minimum": 0.0,
+            "title": "Decisiongeneration",
+            "type": "integer"
+          },
+          "errorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Errorcode"
+          },
+          "operationId": {
+            "format": "uuid",
+            "title": "Operationid",
+            "type": "string"
+          },
+          "outputChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Outputchecksumsha256"
+          },
+          "ownerOperationId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owneroperationid"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          },
+          "state": {
+            "enum": [
+              "committed",
+              "conflict",
+              "failed"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "targetName": {
+            "title": "Targetname",
+            "type": "string"
+          }
+        },
+        "required": [
+          "operationId",
+          "state",
+          "sourceIndex",
+          "sourceChecksumSha256",
+          "confirmedRange",
+          "targetName",
+          "ownerOperationId",
+          "decisionGeneration",
+          "outputChecksumSha256",
+          "errorCode"
+        ],
+        "title": "V7OutputReceiptResponse",
+        "type": "object"
+      },
+      "V7PilotSnapshotResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "bindingFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Bindingfingerprint",
+            "type": "string"
+          },
+          "geometryFamilyId": {
+            "title": "Geometryfamilyid",
+            "type": "string"
+          },
+          "observerFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Observerfingerprint",
+            "type": "string"
+          },
+          "ocrModelFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Ocrmodelfingerprint",
+            "type": "string"
+          },
+          "pilotGeneration": {
+            "minimum": 0.0,
+            "title": "Pilotgeneration",
+            "type": "integer"
+          },
+          "profileFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Profilefingerprint",
+            "type": "string"
+          },
+          "receiptFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Receiptfingerprint",
+            "type": "string"
+          },
+          "sourceGameRef": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourcegameref"
+          },
+          "sourcePolicy": {
+            "default": "exact_sources",
+            "enum": [
+              "exact_sources",
+              "operator_selected_local_folder"
+            ],
+            "title": "Sourcepolicy",
+            "type": "string"
+          }
+        },
+        "required": [
+          "geometryFamilyId",
+          "sourceGameRef",
+          "profileFingerprint",
+          "observerFingerprint",
+          "ocrModelFingerprint",
+          "pilotGeneration",
+          "bindingFingerprint",
+          "receiptFingerprint"
+        ],
+        "title": "V7PilotSnapshotResponse",
+        "type": "object"
+      },
+      "V7ProvenSourceResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "occurrenceId": {
+            "title": "Occurrenceid",
+            "type": "string"
+          },
+          "proofKind": {
+            "$ref": "#/components/schemas/V7RangeProofKind"
+          },
+          "rangeEnd": {
+            "minimum": 1.0,
+            "title": "Rangeend",
+            "type": "integer"
+          },
+          "rangeStart": {
+            "minimum": 1.0,
+            "title": "Rangestart",
+            "type": "integer"
+          },
+          "sourceId": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          },
+          "supportingSourceIds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supportingsourceids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sourceIndex",
+          "sourceId",
+          "proofKind",
+          "supportingSourceIds",
+          "occurrenceId",
+          "rangeStart",
+          "rangeEnd"
+        ],
+        "title": "V7ProvenSourceResponse",
+        "type": "object"
+      },
+      "V7QualityWarning": {
+        "enum": [
+          "symbol_content_loss",
+          "symbol_visibility_unknown",
+          "partial_visibility",
+          "visibility_unknown",
+          "unreadable_board",
+          "readability_unknown",
+          "blur",
+          "occlusion",
+          "decoration_loss",
+          "decoration_unknown",
+          "top_cropped",
+          "bottom_cropped",
+          "left_cropped",
+          "right_cropped"
+        ],
+        "title": "V7QualityWarning",
+        "type": "string"
+      },
+      "V7RangeProofKind": {
+        "enum": [
+          "none",
+          "strong_five_label",
+          "multi_frame_three_plus_three"
+        ],
+        "title": "V7RangeProofKind",
+        "type": "string"
+      },
+      "V7ReviewCandidateResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "diagnostics": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7SourceDiagnosticsResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "proofKinds": {
+            "items": {
+              "$ref": "#/components/schemas/V7RangeProofKind"
+            },
+            "title": "Proofkinds",
+            "type": "array"
+          },
+          "sourceId": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          },
+          "warnings": {
+            "items": {
+              "$ref": "#/components/schemas/V7QualityWarning"
+            },
+            "title": "Warnings",
+            "type": "array"
+          }
+        },
+        "required": [
+          "sourceIndex",
+          "sourceId",
+          "proofKinds",
+          "warnings"
+        ],
+        "title": "V7ReviewCandidateResponse",
+        "type": "object"
+      },
+      "V7ReviewFolderResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "runId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Runid"
+          },
+          "status": {
+            "enum": [
+              "selected",
+              "cancelled"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status"
+        ],
+        "title": "V7ReviewFolderResponse",
+        "type": "object"
+      },
+      "V7ReviewResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "candidate": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7ReviewCandidateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "draft": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/V7DraftResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "manualConfirmationRequired": {
+            "const": true,
+            "title": "Manualconfirmationrequired",
+            "type": "boolean"
+          },
+          "occurrenceId": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Occurrenceid"
+          },
+          "provenSources": {
+            "items": {
+              "$ref": "#/components/schemas/V7ProvenSourceResponse"
+            },
+            "title": "Provensources",
+            "type": "array"
+          },
+          "rangeEnd": {
+            "minimum": 1.0,
+            "title": "Rangeend",
+            "type": "integer"
+          },
+          "rangeStart": {
+            "minimum": 1.0,
+            "title": "Rangestart",
+            "type": "integer"
+          },
+          "sourceManifestFingerprint": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcemanifestfingerprint",
+            "type": "string"
+          },
+          "version": {
+            "const": "v7-review-projection-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "rangeStart",
+          "rangeEnd",
+          "candidate",
+          "provenSources",
+          "occurrenceId",
+          "manualConfirmationRequired",
+          "sourceManifestFingerprint"
+        ],
+        "title": "V7ReviewResponse",
+        "type": "object"
+      },
+      "V7SourceDiagnosticsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "proof": {
+            "$ref": "#/components/schemas/V7SourceProofResponse"
+          },
+          "slots": {
+            "items": {
+              "$ref": "#/components/schemas/V7LabelSlotResponse"
+            },
+            "maxItems": 9,
+            "minItems": 9,
+            "title": "Slots",
+            "type": "array"
+          },
+          "sourceChecksumSha256": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourcechecksumsha256",
+            "type": "string"
+          },
+          "sourceErrorCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sourceerrorcode"
+          },
+          "sourceId": {
+            "pattern": "^[0-9a-f]{64}$",
+            "title": "Sourceid",
+            "type": "string"
+          },
+          "sourceIndex": {
+            "minimum": 0.0,
+            "title": "Sourceindex",
+            "type": "integer"
+          },
+          "version": {
+            "const": "v7-source-diagnostics-v1",
+            "title": "Version",
+            "type": "string"
+          }
+        },
+        "required": [
+          "version",
+          "sourceIndex",
+          "sourceId",
+          "sourceChecksumSha256",
+          "slots",
+          "proof"
+        ],
+        "title": "V7SourceDiagnosticsResponse",
+        "type": "object"
+      },
+      "V7SourceProofResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "kind": {
+            "$ref": "#/components/schemas/V7RangeProofKind"
+          },
+          "rangeEnd": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangeend"
+          },
+          "rangeStart": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rangestart"
+          },
+          "reasonCodes": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Reasoncodes",
+            "type": "array"
+          },
+          "supportingSourceIds": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Supportingsourceids",
+            "type": "array"
+          }
+        },
+        "required": [
+          "kind",
+          "supportingSourceIds",
+          "reasonCodes"
+        ],
+        "title": "V7SourceProofResponse",
+        "type": "object"
+      },
+      "V7SymbolContentLoss": {
+        "enum": [
+          "none",
+          "minor",
+          "major",
+          "unknown"
+        ],
+        "title": "V7SymbolContentLoss",
+        "type": "string"
       },
       "V7ValidationPredictionSnapshotRequest": {
         "additionalProperties": false,
@@ -52478,6 +53568,140 @@
         ]
       }
     },
+    "/api/v1/admin/semi-automatic-image-selections/output-folder": {
+      "post": {
+        "operationId": "selectSemiAutomaticImageSelectionOutputFolder",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7OutputFolderSelectionResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Select Output Folder",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/semi-automatic-image-selections/review-folder": {
+      "post": {
+        "operationId": "openSemiAutomaticImageSelectionReviewFolder",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/V7ReviewFolderResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Run, range, or source not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Durable selection conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Invalid selection input"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Open Review Folder",
+        "tags": [
+          "semi-automatic-image-selections"
+        ]
+      }
+    },
     "/api/v1/admin/semi-automatic-image-selections/source-folder": {
       "post": {
         "operationId": "selectSemiAutomaticImageSelectionSourceFolder",
@@ -53231,7 +54455,15 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/SemiAutomaticSelectionOutputAcknowledgement"
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/SemiAutomaticSelectionOutputAcknowledgement"
+                  },
+                  {
+                    "$ref": "#/components/schemas/V7OutputDecisionRequest"
+                  }
+                ],
+                "title": "Payload"
               }
             }
           },

@@ -6,6 +6,34 @@ last_updated: 2026-10-07
 
 # Decision Log
 
+## D-532 — Integrate the complete V7 code into the main vision lab branch
+
+- **Date:** 2026-10-07.
+- **Status:** accepted explicit operator instruction, TASK-0920.
+- **Decision:** transplant the V7 product and tests from calibration HEAD
+  b087ad08b62992c54f5e26191e6408d287b64273 onto
+  v1.1-vision-lab-hybrid-geometry through a three-way merge. Preserve later
+  main changes and the TASK-0919 local entry. Regenerate OpenAPI and the client
+  from the merged backend rather than replacing them with older artifacts.
+- **Workflow:** EOF prepares an editable choice for every configured range
+  when an output directory is configured and usable source images exist.
+  Reliable monotone anchors retain their choices; unknown intervals are
+  partitioned and use a middle candidate. These are explicitly estimated
+  numbers, not OCR proof. Draft JPEGs go to `propozycje`; explicit approvals
+  publish to the chosen source-named result folder. A saved folder/run can
+  reopen review without scanning again. Deliberately removed drafts are not
+  silently recreated by ordinary recovery.
+- **Compatibility:** retain immutable revisions on both migration branches.
+  Metadata-only `0147_merge_v7_main` joins main
+  `0146_symbol_review_import_filter_index` and V7 `0146_v7_operator_sources`.
+  Schema readiness requires the joined head. The acceptance gate and source
+  policy remain authoritative; migration does not activate V7.
+- **Boundary:** code transfer only. Do not copy run databases, acceptance
+  receipts, calibrated profiles, corpus, runtime configuration or output
+  photos. No SQL upgrade, service lifecycle, operator decision, training,
+  monitoring, push or deployment is included. Main runtime preparation is a
+  separate user operation; the existing calibration worktree stays unchanged.
+
 ## D-531 — Main Admin offers a local entry to the approved V7 test panel
 
 - **Date:** 2026-10-07.

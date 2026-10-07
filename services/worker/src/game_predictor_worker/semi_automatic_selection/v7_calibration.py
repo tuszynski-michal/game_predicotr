@@ -22,6 +22,7 @@ from .v7_label_locator import (
 )
 
 V7_CALIBRATION_VERSION = "v7-calibration-v2"
+V7_SOURCE_LOCAL_CALIBRATION_VERSION = "v7-calibration-v3"
 V7_CALIBRATION_MINIMUM_SOURCES_PER_POSITION = 5
 V7_CALIBRATION_MINIMUM_CAPTURE_GROUPS_PER_POSITION = 2
 V7_CALIBRATION_MAXIMUM_P95_CENTER_RESIDUAL = 0.04
@@ -33,6 +34,11 @@ V7_DYNAMIC_GEOMETRY_FAMILY_ID = "standard_3x3_numeric_labels_v2"
 
 class V7CalibrationError(ValueError):
     """The supplied evidence cannot safely calibrate or accept V7."""
+
+
+class V7CaptureGroupPolicy(StrEnum):
+    PER_POSITION = "per_position"
+    SOURCE_LOCAL_LATTICES = "source_local_lattices_v1"
 
 
 class V7AutomaticOutcome(StrEnum):
@@ -156,8 +162,32 @@ class V7GeometryCalibration:
     maximum_p95_center_residual: float
     minimum_sources_per_position: int
     minimum_capture_groups_per_position: int
+    capture_group_policy: V7CaptureGroupPolicy = V7CaptureGroupPolicy.PER_POSITION
+    capture_group_count: int | None = None
+    minimum_capture_groups: int | None = None
+    excluded_source_ids: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
+        if self.capture_group_policy is V7CaptureGroupPolicy.SOURCE_LOCAL_LATTICES:
+            if (
+                self.geometry_family_id != V7_DYNAMIC_GEOMETRY_FAMILY_ID
+                or self.minimum_capture_groups_per_position != 1
+                or self.minimum_capture_groups is None
+                or self.minimum_capture_groups < 2
+                or self.capture_group_count is None
+                or self.capture_group_count < self.minimum_capture_groups
+                or self.capture_group_count < max(self.capture_group_count_by_position, default=0)
+                or any(not isinstance(item, str) or not item for item in self.excluded_source_ids)
+                or tuple(sorted(set(self.excluded_source_ids))) != self.excluded_source_ids
+            ):
+                raise V7CalibrationError("V7 source-local calibration coverage is invalid.")
+        elif (
+            self.capture_group_policy is not V7CaptureGroupPolicy.PER_POSITION
+            or self.capture_group_count is not None
+            or self.minimum_capture_groups is not None
+            or self.excluded_source_ids
+        ):
+            raise V7CalibrationError("V7 calibration capture-group policy is invalid.")
         if (
             not self.geometry_family_id
             or len(self.source_count_by_position) != 9
@@ -200,7 +230,7 @@ class V7GeometryCalibration:
         )
 
     def as_dict(self) -> dict[str, object]:
-        return {
+        result: dict[str, object] = {
             "inputFingerprint": self.input_fingerprint,
             "captureGroupCountByPosition": list(self.capture_group_count_by_position),
             "geometryFamilyId": self.geometry_family_id,
@@ -215,6 +245,17 @@ class V7GeometryCalibration:
             "status": self.status.value,
             "version": V7_CALIBRATION_VERSION,
         }
+        if self.capture_group_policy is V7CaptureGroupPolicy.SOURCE_LOCAL_LATTICES:
+            result.update(
+                {
+                    "version": V7_SOURCE_LOCAL_CALIBRATION_VERSION,
+                    "captureGroupPolicy": self.capture_group_policy.value,
+                    "captureGroupCount": self.capture_group_count,
+                    "minimumCaptureGroups": self.minimum_capture_groups,
+                    "excludedSourceIds": list(self.excluded_source_ids),
+                }
+            )
+        return result
 
 
 @dataclass(frozen=True, slots=True)
@@ -725,6 +766,7 @@ def calibrate_v7_label_geometry(
     minimum_sources_per_position: int = V7_CALIBRATION_MINIMUM_SOURCES_PER_POSITION,
     minimum_capture_groups_per_position: int = (V7_CALIBRATION_MINIMUM_CAPTURE_GROUPS_PER_POSITION),
     maximum_p95_center_residual: float = V7_CALIBRATION_MAXIMUM_P95_CENTER_RESIDUAL,
+    capture_group_policy: V7CaptureGroupPolicy | None = None,
 ) -> V7GeometryCalibration:
     """Build a locator only from independently annotated calibration sources."""
 
@@ -748,6 +790,32 @@ def calibrate_v7_label_geometry(
         raise V7CalibrationError("V7 geometry calibration requires contained label crops.")
     if any(item.geometry_family_id != geometry_family_id for item in values):
         raise V7CalibrationError("V7 geometry calibration mixes incompatible families.")
+    policy = (
+        capture_group_policy
+        if capture_group_policy is not None
+        else (
+            V7CaptureGroupPolicy.SOURCE_LOCAL_LATTICES
+            if geometry_family_id == V7_DYNAMIC_GEOMETRY_FAMILY_ID
+            else V7CaptureGroupPolicy.PER_POSITION
+        )
+    )
+    all_values = values
+    excluded_source_ids: tuple[str, ...] = ()
+    capture_group_count: int | None = None
+    minimum_capture_groups: int | None = None
+    if policy is V7CaptureGroupPolicy.SOURCE_LOCAL_LATTICES:
+        if geometry_family_id != V7_DYNAMIC_GEOMETRY_FAMILY_ID:
+            raise V7CalibrationError("Source-local capture groups require V7 dynamic geometry.")
+        values, excluded_source_ids = _complete_dynamic_lattice_annotations(values)
+        minimum_capture_groups = max(2, minimum_capture_groups_per_position)
+        capture_group_count = len({item.capture_group_id for item in values})
+        if capture_group_count < minimum_capture_groups:
+            raise V7CalibrationError(
+                "V7 dynamic calibration lacks independent capture groups with complete local grids."
+            )
+        minimum_capture_groups_per_position = 1
+    elif policy is not V7CaptureGroupPolicy.PER_POSITION:
+        raise V7CalibrationError("V7 geometry calibration capture-group policy is invalid.")
     positions = tuple(
         tuple(item for item in values if item.position_index == position) for position in range(9)
     )
@@ -800,18 +868,25 @@ def calibrate_v7_label_geometry(
         validate_sha256(manifest_fingerprint, field="manifestFingerprint")
     except ValueError as error:
         raise V7CalibrationError("V7 geometry manifest fingerprint is invalid.") from error
+    fingerprint_input: dict[str, object] = {
+        "annotations": [item.as_dict() for item in sorted(all_values, key=_geometry_sort_key)],
+        "geometryFamilyId": geometry_family_id,
+        "maximumP95CenterResidual": maximum_p95_center_residual,
+        "minimumCaptureGroupsPerPosition": minimum_capture_groups_per_position,
+        "minimumSourcesPerPosition": minimum_sources_per_position,
+    }
+    if policy is V7CaptureGroupPolicy.SOURCE_LOCAL_LATTICES:
+        fingerprint_input.update(
+            {
+                "captureGroupPolicy": policy.value,
+                "minimumCaptureGroups": minimum_capture_groups,
+                "excludedSourceIds": list(excluded_source_ids),
+            }
+        )
     return V7GeometryCalibration(
         manifest_fingerprint=manifest_fingerprint,
         geometry_family_id=geometry_family_id,
-        input_fingerprint=_fingerprint(
-            {
-                "annotations": [item.as_dict() for item in sorted(values, key=_geometry_sort_key)],
-                "geometryFamilyId": geometry_family_id,
-                "maximumP95CenterResidual": maximum_p95_center_residual,
-                "minimumCaptureGroupsPerPosition": minimum_capture_groups_per_position,
-                "minimumSourcesPerPosition": minimum_sources_per_position,
-            }
-        ),
+        input_fingerprint=_fingerprint(fingerprint_input),
         locator_config=config,
         source_count_by_position=source_counts,
         capture_group_count_by_position=capture_group_counts,
@@ -820,7 +895,31 @@ def calibrate_v7_label_geometry(
         maximum_p95_center_residual=maximum_p95_center_residual,
         minimum_sources_per_position=minimum_sources_per_position,
         minimum_capture_groups_per_position=minimum_capture_groups_per_position,
+        capture_group_policy=policy,
+        capture_group_count=capture_group_count,
+        minimum_capture_groups=minimum_capture_groups,
+        excluded_source_ids=excluded_source_ids,
     )
+
+
+def _complete_dynamic_lattice_annotations(
+    values: tuple[V7LabelGeometryAnnotation, ...],
+) -> tuple[tuple[V7LabelGeometryAnnotation, ...], tuple[str, ...]]:
+    """Keep sparse photos in the audit input without using them as profile evidence."""
+    positions_by_source: dict[str, set[int]] = {}
+    for item in values:
+        positions_by_source.setdefault(item.source_id, set()).add(item.position_index)
+    excluded = tuple(
+        sorted(
+            source_id
+            for source_id, positions in positions_by_source.items()
+            if len(positions) < 5
+            or len({position // 3 for position in positions}) < 2
+            or len({position % 3 for position in positions}) < 2
+        )
+    )
+    excluded_set = set(excluded)
+    return tuple(item for item in values if item.source_id not in excluded_set), excluded
 
 
 def _dynamic_lattice_residuals(
@@ -1066,6 +1165,7 @@ def _validate_geometry_source_identity(values: tuple[V7LabelGeometryAnnotation, 
     checksums_by_source: dict[str, str] = {}
     sources_by_checksum: dict[str, str] = {}
     positions_by_source: set[tuple[str, int]] = set()
+    groups_by_source: dict[str, str | None] = {}
     for item in values:
         prior_checksum = checksums_by_source.setdefault(item.source_id, item.source_checksum_sha256)
         if prior_checksum != item.source_checksum_sha256:
@@ -1073,6 +1173,9 @@ def _validate_geometry_source_identity(values: tuple[V7LabelGeometryAnnotation, 
         prior_source = sources_by_checksum.setdefault(item.source_checksum_sha256, item.source_id)
         if prior_source != item.source_id:
             raise V7CalibrationError("V7 geometry sources are byte-identical aliases.")
+        prior_group = groups_by_source.setdefault(item.source_id, item.capture_group_id)
+        if prior_group != item.capture_group_id:
+            raise V7CalibrationError("V7 geometry source has conflicting capture groups.")
         key = (item.source_id, item.position_index)
         if key in positions_by_source:
             raise V7CalibrationError("V7 geometry source position is annotated more than once.")
@@ -1544,7 +1647,9 @@ __all__ = [
     "V7AutomaticOutcome",
     "V7AnnotationState",
     "V7CalibrationError",
+    "V7CaptureGroupPolicy",
     "V7_CALIBRATION_VERSION",
+    "V7_SOURCE_LOCAL_CALIBRATION_VERSION",
     "V7_DYNAMIC_GEOMETRY_FAMILY_ID",
     "V7CropAssessment",
     "V7EvaluationStatus",

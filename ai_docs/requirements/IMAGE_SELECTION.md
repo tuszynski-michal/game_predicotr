@@ -1582,3 +1582,31 @@ pełne pokrycie propozycjami nie jest dowodem prawidłowego odczytu numerów.
 Jest to dostęp do testów, nie aktywacja V7 w głównej bazie. Nawigacja nie
 przenosi gry ani runu pomiędzy bazami, nie uruchamia analizy i nie zatwierdza
 zdjęć. API/Admin uruchamia użytkownik; samo wejście nie zmienia ich stanu.
+
+## Pełny kod V7 na głównym branchu — TASK-0920 / D-532
+
+`v1.1-vision-lab-hybrid-geometry` otrzymuje pełny pion V7, łącznie z obsługą
+częściowo zasłoniętych etykiet, postępem, zapisem, korektą i odtwarzaniem.
+Zasłonięcie jest własnością zdjęcia i pozycji, nie stałą własnością katalogu.
+Ocena numerów pozostaje oddzielna od oceny widoczności symboli i geometrii.
+
+Operator wskazuje bazowy katalog zapisu; pod nim powstaje folder o nazwie
+katalogu źródłowego. Zakończony skan przygotowuje w `propozycje` po jednym
+edytowalnym wyborze dla każdego skonfigurowanego zakresu. Między rozpoznanymi
+kotwicami dzieli indeksy źródeł na brakujące grupy i wybiera ich środkowe
+zdjęcia. Początek, koniec i brak kotwic też dostają oszacowane propozycje.
+Brak używalnego zdjęcia lub błąd zapisu jest jawnym błędem, a nie pustym plikiem.
+Pełne pokrycie oznacza dostępność propozycji, nie gwarancję prawidłowych numerów.
+
+Jedno jawne „Zatwierdź i następny” potwierdza oglądane zdjęcie i przechodzi
+dalej dopiero po trwałym receipt. Nie wymaga dwóch dodatkowych checkboxów.
+Niepewny numer zostaje `manual_no_ocr`; nie jest dowodem dla targetu.
+Sąsiednie zdjęcia i następne propozycje mają ograniczony prefetch. Wymiana
+zachowuje właściciela i indeks źródła. „Otwórz zapisane wybory” oraz lista
+runów przywracają przegląd; nie rozpoczynają ponownego skanu.
+
+Przeniesienie kodu nie przenosi aktywacji, profili ani danych pilota. Główna
+baza wymaga ręcznej migracji użytkownika do `0147_merge_v7_main`; późniejsze
+uruchomienie wymaga zgodnej konfiguracji i istniejącego protokołu odbioru V7.
+Kontrola schematu i bramka startu nie mogą być pomijane. Istniejący panel
+pilota pozostaje oddzielny do czasu osobnego przygotowania głównego runtime.

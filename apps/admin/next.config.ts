@@ -33,8 +33,31 @@ const apiSources = apiOrigins(process.env.NEXT_PUBLIC_ADMIN_API_BASE_URL).join(
   ' ',
 );
 
+/** Keep the isolated pilot on one browser origin; ordinary Admin has no proxy. */
+export function v7PilotApiRewrites(workspaceRoot: string | undefined) {
+  return workspaceRoot === undefined
+    ? []
+    : [
+        {
+          source: '/api/v1/:path*',
+          destination: 'http://127.0.0.1:8020/api/v1/:path*',
+        },
+      ];
+}
+
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  distDir:
+    process.env.GAME_PREDICTOR_ADMIN_WORKSPACE_ROOT === undefined
+      ? undefined
+      : '.next-v7-reviewed-pilot',
+  turbopack:
+    process.env.GAME_PREDICTOR_ADMIN_WORKSPACE_ROOT === undefined
+      ? undefined
+      : { root: process.env.GAME_PREDICTOR_ADMIN_WORKSPACE_ROOT },
+  async rewrites() {
+    return v7PilotApiRewrites(process.env.GAME_PREDICTOR_ADMIN_WORKSPACE_ROOT);
+  },
   async headers() {
     return [
       {

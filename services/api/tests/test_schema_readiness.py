@@ -15,7 +15,29 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0146_symbol_review_import_filter_index"
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0147_merge_v7_main"
+
+
+def test_merged_head_preserves_both_main_and_v7_migration_histories() -> None:
+    script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
+    merged = script.get_revision(schema_readiness.EXPECTED_ALEMBIC_HEAD)
+    assert merged is not None
+    assert set(merged.down_revision) == {
+        "0146_symbol_review_import_filter_index",
+        "0146_v7_operator_sources",
+    }
+    ancestors = {revision.revision for revision in script.walk_revisions()}
+    assert {
+        "0144_lab_symbol_candidate_registry",
+        "0145_neural_page_geometry_binding",
+        "0146_symbol_review_import_filter_index",
+        "0144_v7_reviewed_delivery",
+        "0145_v7_pilot_acceptances",
+        "0146_v7_operator_sources",
+    } <= ancestors
+    # Joining histories is metadata only; both branches keep their own DDL.
+    merged.module.upgrade()
+    merged.module.downgrade()
 
 
 @pytest.mark.parametrize(
@@ -27,6 +49,8 @@ def test_expected_head_is_the_single_alembic_head() -> None:
         "0133_virtual_only_import_policies",
         "0135_virtual_only_asset_modes",
         "0136_drop_cell_render_spec",
+        "0146_symbol_review_import_filter_index",
+        "0146_v7_operator_sources",
         "9999_future",
     ),
 )

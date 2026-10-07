@@ -17,6 +17,7 @@ from fastapi.responses import JSONResponse
 from game_predictor_worker.images.manual_board_cell_symbol_prediction import (
     ManualBoardCellSymbolPredictor,
 )
+from game_predictor_worker.semi_automatic_selection.v7_pilot_configuration import V7PilotArtifacts
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -524,6 +525,7 @@ def _loopback_api_origin(host: str, port: int) -> str:
 def create_app(
     settings: ApiSettings | None = None,
     *,
+    local_source_picker: Callable[[], Path | None] | None = None,
     catalog_service_dependency: Callable[..., object] | None = None,
     board_search_service_dependency: Callable[..., object] | None = None,
     board_search_approximate_win_service_dependency: Callable[..., object] | None = None,
@@ -1063,7 +1065,9 @@ def create_app(
     controlled_folder_picker = WindowsFolderPicker(
         Path.cwd() / "scripts" / "select_local_image_folder.ps1"
     )
-    default_image_folder_selection_service = ImageFolderSelectionService(controlled_folder_picker)
+    default_image_folder_selection_service = ImageFolderSelectionService(
+        local_source_picker or controlled_folder_picker
+    )
     resolved_image_folder_selection_dependency = image_folder_selection_service_dependency or (
         lambda: default_image_folder_selection_service
     )
@@ -1122,6 +1126,13 @@ def create_app(
                     enabled=resolved_settings.semi_automatic_image_selection_enabled,
                     artifact_root=resolved_settings.artifact_root,
                     folder_selection=default_image_folder_selection_service,
+                    v7_output_base=resolved_settings.v7_review_output_base,
+                    output_picker=controlled_folder_picker.choose,
+                    v7_artifacts=V7PilotArtifacts(
+                        resolved_settings.v7_label_geometry_runtime_root,
+                        resolved_settings.v7_selection_ocr_model_root,
+                        acceptance_scope=resolved_settings.v7_pilot_acceptance_scope,
+                    ),
                 )
                 session.commit()
             except BaseException:
@@ -1135,6 +1146,7 @@ def create_app(
     default_v7_label_geometry_calibration_service = V7LabelGeometryCalibrationService(
         runtime_root=resolved_settings.v7_label_geometry_runtime_root,
         corpus_manifest_path=resolved_settings.v7_label_geometry_corpus_manifest,
+        read_only=resolved_settings.v7_label_geometry_read_only,
     )
     resolved_v7_label_geometry_calibration_dependency = (
         v7_label_geometry_calibration_service_dependency
@@ -2258,6 +2270,8 @@ def create_app(
         }:
             status_code = 404
         elif error.code in {
+            "V7_CALIBRATION_READ_ONLY",
+            "V7_CALIBRATION_SESSION_RECOVERY_REQUIRED",
             "V7_CALIBRATION_SESSION_EXISTS",
             "V7_CALIBRATION_SESSION_BLOCKED",
             "V7_CALIBRATION_SESSION_SOURCE_DRIFT",

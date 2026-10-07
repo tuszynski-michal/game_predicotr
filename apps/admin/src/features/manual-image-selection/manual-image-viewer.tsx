@@ -42,6 +42,8 @@ export interface ManualImageViewerInitialView {
   readonly zoom: number;
 }
 
+const NO_PREFETCH_SOURCES: readonly number[] = [];
+
 export function useManualImageViewer(
   images: readonly ManualImageViewerFile[],
   currentImageIndex: number,
@@ -49,12 +51,14 @@ export function useManualImageViewer(
   initialView?: ManualImageViewerInitialView,
   onViewChange?: (view: ManualImageViewerInitialView) => void,
   cacheScope?: string,
+  prefetchSourceIndexes: readonly number[] = NO_PREFETCH_SOURCES,
 ): ManualImageViewerState {
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const imageViewportRef = useRef<HTMLDivElement | null>(null);
   const imageUrlCacheRef = useRef<Map<string, string>>(new Map());
   const imageUrlLoadRef = useRef<Map<string, Promise<string>>>(new Map());
   const imageCacheGenerationRef = useRef(0);
+  const previewKeysRef = useRef<ReadonlySet<string>>(new Set());
   const previousCacheScopeRef = useRef(cacheScope);
   const previousImagesRef = useRef(images);
   const imageScrollLeftRef = useRef(Math.max(0, initialView?.scrollLeft ?? 0));
@@ -154,15 +158,23 @@ export function useManualImageViewer(
     }
 
     const generation = imageCacheGenerationRef.current;
-    const previewIndexes = manualPreviewWindow(
-      currentImageIndex,
-      images.length,
-    );
+    const previewIndexes = [
+      ...new Set([
+        ...manualPreviewWindow(currentImageIndex, images.length),
+        ...prefetchSourceIndexes
+          .filter(
+            (index) =>
+              Number.isInteger(index) && index >= 0 && index < images.length,
+          )
+          .slice(0, 2),
+      ]),
+    ];
     const previewKeys = new Set(
       previewIndexes.map((index) =>
         viewerCacheKey(cacheScope, images[index]!.relativePath),
       ),
     );
+    previewKeysRef.current = previewKeys;
     for (const [key, url] of imageUrlCacheRef.current.entries()) {
       if (!previewKeys.has(key)) {
         URL.revokeObjectURL(url);
@@ -190,14 +202,17 @@ export function useManualImageViewer(
             URL.revokeObjectURL(url);
             throw new Error('STALE_IMAGE_CACHE');
           }
-          if (!previewKeys.has(key)) {
+          if (!previewKeysRef.current.has(key)) {
             URL.revokeObjectURL(url);
             throw new Error('STALE_IMAGE_WINDOW');
           }
           imageUrlCacheRef.current.set(key, url);
           return url;
         })
-        .finally(() => imageUrlLoadRef.current.delete(key));
+        .finally(() => {
+          if (imageUrlLoadRef.current.get(key) === load)
+            imageUrlLoadRef.current.delete(key);
+        });
       imageUrlLoadRef.current.set(key, load);
       return load;
     };
@@ -225,7 +240,14 @@ export function useManualImageViewer(
     return () => {
       cancelled = true;
     };
-  }, [cacheScope, currentImage, currentImageIndex, images, onError]);
+  }, [
+    cacheScope,
+    currentImage,
+    currentImageIndex,
+    images,
+    onError,
+    prefetchSourceIndexes,
+  ]);
 
   useEffect(() => {
     const onFullscreenChange = () =>

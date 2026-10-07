@@ -110,7 +110,18 @@ test('polls one active run and hands terminal analysis to the review workspace',
   assert.match(workspaceSource, /pickSemiAutomaticOutputDirectory/);
   assert.match(workspaceSource, /Wskaż katalog wyniku historycznego/);
   assert.match(workspaceSource, /<V7SelectionReviewWorkspace/);
+  assert.match(
+    workspaceSource,
+    /<V7SelectionReviewWorkspace\s+key=\{run\.id\}/,
+  );
   assert.match(workspaceSource, /loadSemiAutomaticReviewSourceFiles/);
+});
+
+test('ready V7 analysis explains the available review while legacy keeps its next step', () => {
+  assert.match(
+    workspaceSource,
+    /run\.workflowMode === 'v7_selection'\s*\? 'Sprawdź propozycje poniżej\. Zapis wymaga potwierdzenia zdjęcia i zakresu\.'\s*: 'Analiza jest gotowa\. Przegląd automatycznych wyborów i ręczne uzupełnianie luk zostaną udostępnione w kolejnym kroku workflow\.'/,
+  );
 });
 
 test('keeps scan, sequence and exact neighbour preview cursors durable and separate', async () => {
@@ -132,7 +143,7 @@ test('keeps scan, sequence and exact neighbour preview cursors durable and separ
     storageSource,
     /sequenceExpectedIndex:\s*value\.sequenceExpectedIndex \?\? value\.activeExpectedIndex/,
   );
-  assert.match(v7ReviewWorkspaceSource, /PODGLĄD SĄSIADÓW V7/);
+  assert.match(v7ReviewWorkspaceSource, /ZATWIERDZANIE ZDJĘĆ V7/);
   assert.match(v7ReviewWorkspaceSource, /viewSourceIndex: sourceIndex/);
   assert.match(v7ReviewWorkspaceSource, /const persistView = useCallback/);
   assert.match(v7ReviewWorkspaceSource, /scrollLeft: view\.scrollLeft/);
@@ -148,10 +159,7 @@ test('keeps scan, sequence and exact neighbour preview cursors durable and separ
     workspaceSource,
     /run\.workflowMode === 'v7_selection' &&\s*restoreComplete/,
   );
-  assert.match(
-    v7ReviewWorkspaceSource,
-    /podgląd nie zmienia reprezentanta ani[\s\S]*kursora sekwencji/,
-  );
+  assert.match(v7ReviewWorkspaceSource, /podgląd nie zatwierdza wyboru/);
 });
 
 test('reviews a complete range snapshot and locks source editing to one target range', () => {

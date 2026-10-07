@@ -191,10 +191,14 @@ def _evaluate() -> dict[str, object]:
     )
 
 
+@pytest.mark.parametrize("calibration_version", ["v7-calibration-v2", "v7-calibration-v3"])
 def test_evaluator_accepts_only_frozen_holdout_evidence_and_never_activates(
     monkeypatch: pytest.MonkeyPatch,
+    calibration_version: str,
 ) -> None:
     calibration, truth, prediction = _payloads()
+    calibration["geometry"]["version"] = calibration_version
+    prediction["calibrationFingerprint"] = runner._fingerprint(calibration["geometry"])
     _configure_runner(monkeypatch, calibration=calibration, truth=truth, prediction=prediction)
 
     report = _evaluate()
@@ -209,6 +213,13 @@ def test_evaluator_accepts_only_frozen_holdout_evidence_and_never_activates(
         ),
         "status": "blocked",
     }
+
+
+def test_evaluator_rejects_unknown_calibration_version() -> None:
+    calibration, _truth_payload, _prediction_payload = _payloads()
+    calibration["geometry"]["version"] = "v7-calibration-unknown"
+    with pytest.raises(ValueError, match="not a passed calibration"):
+        runner._calibration_fingerprint(calibration, manifest_fingerprint=FINGERPRINT)
 
 
 def test_evaluator_reports_empty_holdout_as_not_evaluable(

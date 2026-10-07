@@ -107,6 +107,11 @@ def _model_identity(model_root: Path) -> tuple[dict[str, str], str]:
     return checksums, fingerprint.hexdigest()
 
 
+def sequence_number_model_fingerprint(model_root: Path) -> str:
+    """Read the same immutable model identity without constructing Paddle."""
+    return _model_identity(model_root)[1]
+
+
 def _characters_from_model(model_root: Path) -> tuple[str, ...]:
     try:
         config_value: Any = yaml.safe_load((model_root / "inference.yml").read_text("utf-8"))

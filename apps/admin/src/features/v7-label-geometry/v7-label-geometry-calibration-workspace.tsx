@@ -8,6 +8,7 @@ import type {
   V7LabelGeometrySlotResponse,
 } from '@game-predictor/admin-api-client';
 import {
+  type KeyboardEvent,
   type MouseEvent,
   useCallback,
   useEffect,
@@ -163,6 +164,7 @@ export function V7LabelGeometryCalibrationWorkspace({
   const flushingRef = useRef(false);
   const discardingRef = useRef(false);
   const [unavailableMode, setUnavailableMode] = useState(false);
+  const workspaceRef = useRef<HTMLElement | null>(null);
 
   const replaceSession = useCallback(
     (next: V7LabelGeometrySessionResponse | null) => {
@@ -186,11 +188,7 @@ export function V7LabelGeometryCalibrationWorkspace({
       } | null,
     ) => {
       const previous = assetRef.current;
-      if (
-        previous !== null &&
-        previous.url !== next?.url &&
-        !previous.cached
-      ) {
+      if (previous !== null && previous.url !== next?.url && !previous.cached) {
         URL.revokeObjectURL(previous.url);
       }
       assetRef.current = next;
@@ -209,68 +207,64 @@ export function V7LabelGeometryCalibrationWorkspace({
     return cached;
   }, []);
 
-  const cacheAsset = useCallback((
-    key: string,
-    blob: Blob,
-    protectedKeys: ReadonlySet<string>,
-  ) => {
-    if (blob.size > MAX_CACHED_ASSET_BYTES) return null;
-    const previous = assetCacheRef.current.get(key);
-    if (previous !== undefined) {
-      assetCacheRef.current.delete(key);
-      URL.revokeObjectURL(previous.url);
-    }
-    const entry: CachedV7LabelGeometryAsset = {
-      byteSize: blob.size,
-      key,
-      url: URL.createObjectURL(blob),
-    };
-    assetCacheRef.current.set(key, entry);
-    let totalBytes = [...assetCacheRef.current.values()].reduce(
-      (total, item) => total + item.byteSize,
-      0,
-    );
-    while (
-      assetCacheRef.current.size > MAX_CACHED_ASSET_COUNT ||
-      totalBytes > MAX_CACHED_ASSET_BYTES
-    ) {
-      const oldest = [...assetCacheRef.current.entries()].find(
-        ([candidateKey]) => !protectedKeys.has(candidateKey),
-      );
-      if (oldest === undefined) {
-        // All cached entries are actively rendered or selected for the current
-        // viewport. A short-lived response must never invalidate that image.
+  const cacheAsset = useCallback(
+    (key: string, blob: Blob, protectedKeys: ReadonlySet<string>) => {
+      if (blob.size > MAX_CACHED_ASSET_BYTES) return null;
+      const previous = assetCacheRef.current.get(key);
+      if (previous !== undefined) {
         assetCacheRef.current.delete(key);
-        URL.revokeObjectURL(entry.url);
-        return null;
+        URL.revokeObjectURL(previous.url);
       }
-      assetCacheRef.current.delete(oldest[0]);
-      totalBytes -= oldest[1].byteSize;
-      URL.revokeObjectURL(oldest[1].url);
-    }
-    return assetCacheRef.current.get(key) ?? null;
-  }, []);
-
-  useEffect(
-    () => {
-      const cache = assetCacheRef.current;
-      const requestKeys = assetRequestKeysRef.current;
-      const attemptedGenerations = assetAttemptedGenerationsRef.current;
-      mountedRef.current = true;
-      return () => {
-        mountedRef.current = false;
-        const active = assetRef.current;
-        if (active !== null && !active.cached) URL.revokeObjectURL(active.url);
-        for (const cached of cache.values()) {
-          URL.revokeObjectURL(cached.url);
-        }
-        cache.clear();
-        requestKeys.clear();
-        attemptedGenerations.clear();
+      const entry: CachedV7LabelGeometryAsset = {
+        byteSize: blob.size,
+        key,
+        url: URL.createObjectURL(blob),
       };
+      assetCacheRef.current.set(key, entry);
+      let totalBytes = [...assetCacheRef.current.values()].reduce(
+        (total, item) => total + item.byteSize,
+        0,
+      );
+      while (
+        assetCacheRef.current.size > MAX_CACHED_ASSET_COUNT ||
+        totalBytes > MAX_CACHED_ASSET_BYTES
+      ) {
+        const oldest = [...assetCacheRef.current.entries()].find(
+          ([candidateKey]) => !protectedKeys.has(candidateKey),
+        );
+        if (oldest === undefined) {
+          // All cached entries are actively rendered or selected for the current
+          // viewport. A short-lived response must never invalidate that image.
+          assetCacheRef.current.delete(key);
+          URL.revokeObjectURL(entry.url);
+          return null;
+        }
+        assetCacheRef.current.delete(oldest[0]);
+        totalBytes -= oldest[1].byteSize;
+        URL.revokeObjectURL(oldest[1].url);
+      }
+      return assetCacheRef.current.get(key) ?? null;
     },
     [],
   );
+
+  useEffect(() => {
+    const cache = assetCacheRef.current;
+    const requestKeys = assetRequestKeysRef.current;
+    const attemptedGenerations = assetAttemptedGenerationsRef.current;
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+      const active = assetRef.current;
+      if (active !== null && !active.cached) URL.revokeObjectURL(active.url);
+      for (const cached of cache.values()) {
+        URL.revokeObjectURL(cached.url);
+      }
+      cache.clear();
+      requestKeys.clear();
+      attemptedGenerations.clear();
+    };
+  }, []);
 
   const makeDefaultView = useCallback(
     (
@@ -379,7 +373,10 @@ export function V7LabelGeometryCalibrationWorkspace({
             code === 'V7_CALIBRATION_SESSION_BLOCKED'
           ) {
             await withQueueTransition(async () => {
-              const stopped = stopV7LabelGeometryQueue(queueRef.current, message);
+              const stopped = stopV7LabelGeometryQueue(
+                queueRef.current,
+                message,
+              );
               replaceQueue(stopped);
               await persistQueueStoppedReason(stopped);
             });
@@ -440,10 +437,14 @@ export function V7LabelGeometryCalibrationWorkspace({
       setBusy(true);
       setError('');
       try {
-        const result = await api.getV7LabelGeometryCalibrationSession(sessionId);
+        const result =
+          await api.getV7LabelGeometryCalibrationSession(sessionId);
         if (result.error !== undefined || result.data === undefined) {
           setError(
-            apiErrorMessage(result.error, 'Nie udało się odczytać sesji kalibracji.'),
+            apiErrorMessage(
+              result.error,
+              'Nie udało się odczytać sesji kalibracji.',
+            ),
           );
           return;
         }
@@ -477,7 +478,7 @@ export function V7LabelGeometryCalibrationWorkspace({
           activePositionIndex: clampPosition(localView.activePositionIndex),
           activeSourceId: sourceExists(current, localView.activeSourceId)
             ? localView.activeSourceId
-            : current.sources[0]?.sourceId ?? null,
+            : (current.sources[0]?.sourceId ?? null),
           manifestFingerprint: current.manifestFingerprint,
           queueStoppedReason: restoredQueue.stoppedReason,
           updatedAt: new Date().toISOString(),
@@ -522,8 +523,22 @@ export function V7LabelGeometryCalibrationWorkspace({
       });
       return;
     }
-    void store
-      .loadMostRecent()
+    const requestedSessionId = new URLSearchParams(window.location.search).get(
+      'v7CalibrationSession',
+    );
+    // A session link must take precedence over another browser's recent view.
+    // loadSession restores only this session's queue; other sessions stay intact.
+    const requestedView =
+      requestedSessionId === null
+        ? store.loadMostRecent()
+        : /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+              requestedSessionId,
+            )
+          ? Promise.resolve({ sessionId: requestedSessionId })
+          : Promise.reject(
+              new Error('Link zawiera nieprawidłowy identyfikator sesji.'),
+            );
+    void requestedView
       .then((saved) => {
         if (cancelled) return;
         setStorageReady(true);
@@ -544,8 +559,9 @@ export function V7LabelGeometryCalibrationWorkspace({
   }, [loadSession, store]);
 
   const activeSource =
-    session?.sources.find((source) => source.sourceId === view?.activeSourceId) ??
-    null;
+    session?.sources.find(
+      (source) => source.sourceId === view?.activeSourceId,
+    ) ?? null;
   const activeAssetKey =
     session === null || activeSource === null
       ? null
@@ -602,15 +618,18 @@ export function V7LabelGeometryCalibrationWorkspace({
         source.sourceId,
         source.sourceChecksumSha256,
       );
-      if (readCachedAsset(key) !== null || assetRequestKeysRef.current.has(key)) {
-        return;
-      }
-      if (assetAttemptedGenerationsRef.current.get(key) === viewportGeneration) {
+      if (
+        readCachedAsset(key) !== null ||
+        assetRequestKeysRef.current.has(key)
+      ) {
         return;
       }
       if (
-        assetRequestKeysRef.current.size >= MAX_IN_FLIGHT_ASSET_REQUESTS
+        assetAttemptedGenerationsRef.current.get(key) === viewportGeneration
       ) {
+        return;
+      }
+      if (assetRequestKeysRef.current.size >= MAX_IN_FLIGHT_ASSET_REQUESTS) {
         return;
       }
       assetAttemptedGenerationsRef.current.set(key, viewportGeneration);
@@ -624,7 +643,8 @@ export function V7LabelGeometryCalibrationWorkspace({
         const responseBecameActive = () => {
           const latestSession = sessionRef.current;
           const latestSource = latestSession?.sources.find(
-            (candidate) => candidate.sourceId === viewRef.current?.activeSourceId,
+            (candidate) =>
+              candidate.sourceId === viewRef.current?.activeSourceId,
           );
           return (
             latestSession?.sessionId === sessionId &&
@@ -759,7 +779,10 @@ export function V7LabelGeometryCalibrationWorkspace({
       });
       if (result.error !== undefined || result.data === undefined) {
         setError(
-          apiErrorMessage(result.error, 'Nie udało się utworzyć sesji kalibracji.'),
+          apiErrorMessage(
+            result.error,
+            'Nie udało się utworzyć sesji kalibracji.',
+          ),
         );
         return;
       }
@@ -790,10 +813,33 @@ export function V7LabelGeometryCalibrationWorkspace({
     const currentSession = sessionRef.current;
     const currentView = viewRef.current;
     if (currentSession === null || currentView === null) return;
+    let cropAssessment = patch.cropAssessment ?? currentView.cropAssessment;
+    if (
+      patch.cropAssessment === undefined &&
+      (patch.activeSourceId !== undefined ||
+        patch.activePositionIndex !== undefined)
+    ) {
+      const sourceId = patch.activeSourceId ?? currentView.activeSourceId;
+      const positionIndex =
+        patch.activePositionIndex ?? currentView.activePositionIndex;
+      const selectedSlot =
+        sourceId === null
+          ? undefined
+          : projectV7LabelGeometryPendingSlots(
+              currentSession.slots,
+              queueRef.current.pending,
+              sourceId,
+            ).find((slot) => slot.positionIndex === positionIndex);
+      // An assessment belongs to one label. Never carry an uncertain or
+      // clipped choice into another position or photo; preserve existing
+      // confirmed and durably queued assessments when returning to them.
+      cropAssessment = selectedSlot?.cropAssessment ?? 'contained';
+    }
     try {
       await persistView({
         ...currentView,
         ...patch,
+        cropAssessment,
         manifestFingerprint: currentSession.manifestFingerprint,
         updatedAt: new Date().toISOString(),
       });
@@ -806,16 +852,63 @@ export function V7LabelGeometryCalibrationWorkspace({
     }
   };
 
+  const handlePositionShortcut = (event: KeyboardEvent<HTMLElement>) => {
+    if (
+      event.defaultPrevented ||
+      event.repeat ||
+      event.nativeEvent.isComposing ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      event.shiftKey ||
+      busy ||
+      sessionRef.current === null ||
+      viewRef.current === null ||
+      !/^[1-9]$/.test(event.key)
+    )
+      return;
+    const target = event.target;
+    if (
+      target instanceof HTMLElement &&
+      target.closest(
+        'input, select, textarea, [contenteditable="true"], [role="textbox"]',
+      ) !== null
+    )
+      return;
+    event.preventDefault();
+    setUnavailableMode(false);
+    void updateView({ activePositionIndex: Number(event.key) - 1 });
+  };
+
+  const advanceAfterAnnotation = async (
+    previous: V7LabelGeometryCalibrationLocalView,
+  ) => {
+    const current = viewRef.current;
+    // A delayed durable append must not override a manual selection made meanwhile.
+    if (
+      current?.sessionId !== previous.sessionId ||
+      current.activeSourceId !== previous.activeSourceId ||
+      current.activePositionIndex !== previous.activePositionIndex
+    )
+      return;
+    workspaceRef.current?.focus({ preventScroll: true });
+    if (previous.activePositionIndex === 8) return;
+    setUnavailableMode(false);
+    await updateView({ activePositionIndex: previous.activePositionIndex + 1 });
+  };
+
   const enqueue = async (
     input: Omit<
       Parameters<typeof enqueueV7LabelGeometryOperation>[1],
       'operationId' | 'sessionId'
     >,
   ) => {
-    if (!storageReady) return;
+    if (!storageReady) return false;
     if (discardingRef.current) {
-      setError('Trwa porzucanie lokalnej kolejki. Poczekaj na odświeżenie sesji.');
-      return;
+      setError(
+        'Trwa porzucanie lokalnej kolejki. Poczekaj na odświeżenie sesji.',
+      );
+      return false;
     }
     try {
       await withQueueTransition(async () => {
@@ -837,12 +930,14 @@ export function V7LabelGeometryCalibrationWorkspace({
       });
       setFeedback('Punkt zapisano do trwałej kolejki.');
       void flushQueue();
+      return true;
     } catch (cause) {
       setError(
         cause instanceof Error
           ? cause.message
           : 'Nie udało się zapisać kliknięcia w trwałej kolejce.',
       );
+      return false;
     }
   };
 
@@ -880,7 +975,7 @@ export function V7LabelGeometryCalibrationWorkspace({
         );
       }
       setUnavailableMode(false);
-      await enqueue({
+      const queued = await enqueue({
         centerX: point.centerX,
         centerY: point.centerY,
         cropAssessment: currentView.cropAssessment,
@@ -888,6 +983,7 @@ export function V7LabelGeometryCalibrationWorkspace({
         positionIndex: currentView.activePositionIndex,
         sourceId: source.sourceId,
       });
+      if (queued) await advanceAfterAnnotation(currentView);
     } catch (cause) {
       setError(
         cause instanceof Error
@@ -897,7 +993,7 @@ export function V7LabelGeometryCalibrationWorkspace({
     }
   };
 
-  const markUnavailable = () => {
+  const markUnavailable = async () => {
     const currentSession = sessionRef.current;
     const currentView = viewRef.current;
     const source = currentSession?.sources.find(
@@ -905,11 +1001,12 @@ export function V7LabelGeometryCalibrationWorkspace({
     );
     if (source === undefined || currentView === null) return;
     setUnavailableMode(true);
-    void enqueue({
+    const queued = await enqueue({
       kind: 'unavailable',
       positionIndex: currentView.activePositionIndex,
       sourceId: source.sourceId,
     });
+    if (queued) await advanceAfterAnnotation(currentView);
   };
 
   const assignCaptureGroup = (sourceId: string, captureGroupId: string) => {
@@ -948,7 +1045,9 @@ export function V7LabelGeometryCalibrationWorkspace({
           throw new Error('V7_LABEL_GEOMETRY_SESSION_CHANGED');
         }
         await store.discardPending(currentSession.sessionId);
-        const discarded = discardPendingV7LabelGeometryOperations(queueRef.current);
+        const discarded = discardPendingV7LabelGeometryOperations(
+          queueRef.current,
+        );
         replaceQueue(discarded);
         await persistQueueStoppedReason(discarded);
       });
@@ -995,6 +1094,9 @@ export function V7LabelGeometryCalibrationWorkspace({
         replaceAsset(null);
         replaceSession(null);
       });
+      const setupUrl = new URL(window.location.href);
+      setupUrl.searchParams.delete('v7CalibrationSession');
+      window.history.replaceState(window.history.state, '', setupUrl);
       setUnavailableMode(false);
       setSelectedCaseIds(DEFAULT_CALIBRATION_CASE_IDS);
       setFeedback(
@@ -1092,6 +1194,9 @@ export function V7LabelGeometryCalibrationWorkspace({
     <section
       aria-label="Kalibracja etykiet V7"
       className="v7LabelGeometryWorkspace"
+      onKeyDown={handlePositionShortcut}
+      ref={workspaceRef}
+      tabIndex={0}
     >
       <header className="v7LabelGeometryHeader">
         <div>
@@ -1101,6 +1206,9 @@ export function V7LabelGeometryCalibrationWorkspace({
             Oznacz środek numeru dla każdej pozycji 3 × 3. To nie uruchamia
             selekcji V7 ani nie zapisuje zdjęć do katalogu cut.
           </p>
+          {session !== null ? (
+            <p>Sesja: {session.sessionId.slice(0, 8)}</p>
+          ) : null}
         </div>
         <span className="semiAutomaticSelectionCapability loading">
           {session === null
@@ -1125,10 +1233,10 @@ export function V7LabelGeometryCalibrationWorkspace({
           <h3>Materiały do kalibracji</h3>
           <p>
             Dostępne są wyłącznie materiały calibration 777. Holdout reels_test
-            pozostaje niewidoczny i zarezerwowany do późniejszego odbioru.
-            Nowa sesja używa trybu V2: każde oznaczane zdjęcie potrzebuje co
-            najmniej {V7_LABEL_GEOMETRY_MINIMUM_DYNAMIC_POINTS_PER_SOURCE}{' '}
-            pełnych numerów w dwóch wierszach i dwóch kolumnach.
+            pozostaje niewidoczny i zarezerwowany do późniejszego odbioru. Nowa
+            sesja używa trybu V2: każde oznaczane zdjęcie potrzebuje co najmniej{' '}
+            {V7_LABEL_GEOMETRY_MINIMUM_DYNAMIC_POINTS_PER_SOURCE} pełnych
+            numerów w dwóch wierszach i dwóch kolumnach.
           </p>
           <div className="v7LabelGeometryCaseList">
             {CALIBRATION_CASES.map((item) => (
@@ -1159,7 +1267,8 @@ export function V7LabelGeometryCalibrationWorkspace({
           </button>
           {!storageReady ? (
             <p className="v7LabelGeometryNotice">
-              Trwała kolejka przeglądarki jest wymagana przed pierwszym kliknięciem.
+              Trwała kolejka przeglądarki jest wymagana przed pierwszym
+              kliknięciem.
             </p>
           ) : null}
         </div>
@@ -1191,11 +1300,12 @@ export function V7LabelGeometryCalibrationWorkspace({
                 onChange={(event) =>
                   activeSource === null
                     ? undefined
-                    : assignCaptureGroup(activeSource.sourceId, event.target.value)
+                    : assignCaptureGroup(
+                        activeSource.sourceId,
+                        event.target.value,
+                      )
                 }
-                value={
-                  activeSource === null ? '' : activeCaptureGroup
-                }
+                value={activeSource === null ? '' : activeCaptureGroup}
               >
                 <option disabled value="">
                   Wybierz ujęcie
@@ -1207,8 +1317,7 @@ export function V7LabelGeometryCalibrationWorkspace({
                 ))}
                 {activeCaptureGroup !== '' &&
                 !CAPTURE_GROUP_OPTIONS.some(
-                  (option) =>
-                    option.id === activeCaptureGroup,
+                  (option) => option.id === activeCaptureGroup,
                 ) ? (
                   <option value={activeCaptureGroup}>
                     Istniejąca grupa: {activeCaptureGroup}
@@ -1263,6 +1372,7 @@ export function V7LabelGeometryCalibrationWorkspace({
               );
               return (
                 <button
+                  aria-keyshortcuts={String(positionIndex + 1)}
                   aria-pressed={view.activePositionIndex === positionIndex}
                   className={
                     view.activePositionIndex === positionIndex
@@ -1291,21 +1401,31 @@ export function V7LabelGeometryCalibrationWorkspace({
               <h3>Gotowość do sprawdzenia profilu</h3>
               <p>
                 Każda pozycja potrzebuje co najmniej{' '}
-                {V7_LABEL_GEOMETRY_MINIMUM_SOURCES_PER_POSITION} różnych zdjęć
-                i {V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION} grup
-                ujęć z pełnym cropem. Serwer sprawdzi jeszcze residual p95.
+                {V7_LABEL_GEOMETRY_MINIMUM_SOURCES_PER_POSITION} różnych zdjęć z
+                pełnym cropem.{' '}
+                {session.geometryFamilyId ===
+                V7_LABEL_GEOMETRY_DYNAMIC_FAMILY_ID
+                  ? 'Dwie grupy ujęć są wymagane dla lokalnych siatek. Zasłonięty numer może mieć pełne oznaczenia tylko z jednej grupy.'
+                  : 'Każda pozycja wymaga dwóch grup ujęć.'}{' '}
+                Serwer sprawdzi jeszcze residual p95.
               </p>
+              {session.geometryFamilyId ===
+              V7_LABEL_GEOMETRY_DYNAMIC_FAMILY_ID ? (
+                <p>
+                  Grupy ujęć z pełną siatką: {readiness.captureGroupCount}/
+                  {V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION}
+                </p>
+              ) : null}
               {readiness.incompleteLatticeSourceIds.length > 0 ? (
-                <p className="v7LabelGeometryNotice" role="alert">
-                  Zdjęcia z za małą siatką:{' '}
+                <p className="v7LabelGeometryNotice" role="status">
+                  Pominięte w profilu — niepełna siatka:{' '}
                   {readiness.incompleteLatticeSourceIds
                     .map((sourceId) => sourceLabel(session, sourceId))
                     .join(', ')}
-                  . Każde oznaczane zdjęcie potrzebuje co najmniej{' '}
+                  . Oznaczenia pozostają zapisane. Zdjęcie wniesie punkty do
+                  profilu po oznaczeniu co najmniej{' '}
                   {V7_LABEL_GEOMETRY_MINIMUM_DYNAMIC_POINTS_PER_SOURCE} pełnych
-                  numerów w dwóch wierszach i dwóch kolumnach. Dodaj brakujące
-                  pełne numery albo wycofaj to zdjęcie, oznaczając każdy jego
-                  punkt jako zasłonięty.
+                  numerów w dwóch wierszach i dwóch kolumnach.
                 </p>
               ) : null}
               <div className="v7LabelGeometryReadinessGrid">
@@ -1324,12 +1444,19 @@ export function V7LabelGeometryCalibrationWorkspace({
                       {V7_LABEL_GEOMETRY_MINIMUM_SOURCES_PER_POSITION}
                     </span>
                     <span>
-                      Grupy: {position.captureGroupCount}/
-                      {V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION}
+                      Grupy: {position.captureGroupCount}
+                      {session.geometryFamilyId !==
+                      V7_LABEL_GEOMETRY_DYNAMIC_FAMILY_ID
+                        ? `/${V7_LABEL_GEOMETRY_MINIMUM_CAPTURE_GROUPS_PER_POSITION}`
+                        : null}
                     </span>
-                    <span>Pełne cropy: {position.containedAnnotationCount}</span>
+                    <span>
+                      Pełne cropy: {position.containedAnnotationCount}
+                    </span>
                     {position.incompleteAnnotationCount > 0 ? (
-                      <span>Niepełne: {position.incompleteAnnotationCount}</span>
+                      <span>
+                        Niepełne: {position.incompleteAnnotationCount}
+                      </span>
                     ) : null}
                     {position.unavailableCount > 0 ? (
                       <span>Niewidoczne: {position.unavailableCount}</span>
@@ -1366,14 +1493,11 @@ export function V7LabelGeometryCalibrationWorkspace({
               <input
                 checked={unavailableMode}
                 disabled={
-                  busy ||
-                  syncing ||
-                  activeSource === null ||
-                  queue.stoppedReason !== null
+                  busy || activeSource === null || queue.stoppedReason !== null
                 }
                 onChange={(event) => {
                   if (event.target.checked) {
-                    markUnavailable();
+                    void markUnavailable();
                   } else {
                     setUnavailableMode(false);
                   }
@@ -1384,8 +1508,12 @@ export function V7LabelGeometryCalibrationWorkspace({
             </label>
             <span>
               Pozycja {view.activePositionIndex + 1}: {slotLabel(activeSlot)}.
-              Zaznacz checkbox, gdy numeru nie widać; odznacz go i kliknij środek
-              numeru, aby zastąpić ten wpis punktem.
+              Zaznacz checkbox, gdy numeru nie widać; odznacz go i kliknij
+              środek numeru, aby zastąpić ten wpis punktem.
+            </span>
+            <span>
+              Klawisze 1–9 wybierają pozycję. Po oznaczeniu przejdziesz do
+              następnej; po 9 zostajesz na tym zdjęciu.
             </span>
           </div>
 
@@ -1399,10 +1527,7 @@ export function V7LabelGeometryCalibrationWorkspace({
                   onClick={(event) => void annotate(event)}
                   src={activeAssetUrl}
                 />
-                <div
-                  aria-hidden="true"
-                  className="v7LabelGeometryPointOverlay"
-                >
+                <div aria-hidden="true" className="v7LabelGeometryPointOverlay">
                   {slots
                     .filter(
                       (slot) =>
@@ -1484,7 +1609,9 @@ function sourceLabel(
   session: V7LabelGeometrySessionResponse,
   sourceId: string,
 ): string {
-  const index = session.sources.findIndex((source) => source.sourceId === sourceId);
+  const index = session.sources.findIndex(
+    (source) => source.sourceId === sourceId,
+  );
   const source = session.sources[index];
   return source === undefined
     ? sourceId

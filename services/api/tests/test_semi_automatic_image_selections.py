@@ -111,6 +111,14 @@ class MemorySemiAutomaticSelectionRepository:
         self.runs[run.id] = run
         return run
 
+    def get_for_v7_review(self, run_id: UUID, *, for_update: bool = False):
+        return self.get(run_id, for_update=for_update)
+
+    def save_v7_review_state(self, run: SemiAutomaticSelectionRun) -> SemiAutomaticSelectionRun:
+        stored = self.runs[run.id]
+        self.runs[run.id] = replace(run, checkpoint=stored.checkpoint)
+        return run
+
     def list_runs(
         self,
         *,
@@ -1204,13 +1212,18 @@ def test_v7_start_is_blocked_before_any_source_or_token_access() -> None:
 
 def test_v7_capabilities_are_blocked_and_legacy_contract_is_unchanged() -> None:
     service = SemiAutomaticImageSelectionService(
-        MemorySemiAutomaticSelectionRepository(), object(), enabled=True  # type: ignore[arg-type]
+        MemorySemiAutomaticSelectionRepository(),
+        object(),
+        enabled=True,  # type: ignore[arg-type]
     )
     capabilities = service.capabilities()
 
     assert capabilities["v7"] == {
         "activationStatus": "blocked",
         "startEnabled": False,
+        "automaticStartEnabled": False,
+        "manualConfirmationRequired": True,
+        "sourcePolicy": "exact_sources",
         "reason": "V7 selection remains blocked until the T12 holdout acceptance is recorded.",
         "configurationVersion": "v7-selection-configuration-v1",
         "defaultMode": "semi_automatic",

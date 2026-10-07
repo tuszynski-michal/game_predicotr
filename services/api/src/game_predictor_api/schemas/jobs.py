@@ -17,6 +17,7 @@ from game_predictor_api.domain.symbol_model_snapshots import LAB_RGB_SYMBOL_MODE
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.grid_shadow import GridShadowJobPayloadResponse
 from game_predictor_api.schemas.neural_grid_proposals import NeuralGridSnapshotPayload
+from game_predictor_api.schemas.v7_selection_delivery import V7PilotSnapshotResponse
 
 
 class ImportJobCreatePayload(ApiModel):
@@ -474,7 +475,9 @@ class ImageSelectionJobPayload(ApiModel):
 
 
 class SemiAutomaticV7SelectionJobConfigurationPayload(ApiModel):
-    version: Literal["v7-selection-configuration-v1"]
+    output_directory: str | None = None
+    version: Literal["v7-selection-configuration-v1", "v7-selection-configuration-v2"]
+    pilot: V7PilotSnapshotResponse | None = None
     mode: Literal["semi_automatic", "automatic"]
     direction: Literal["ascending", "descending"]
     first_sequence_number: int = Field(ge=1)

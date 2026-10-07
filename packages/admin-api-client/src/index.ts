@@ -28,6 +28,20 @@ export type {
   SymbolModelDeactivationCommand,
 } from './generated/types.gen';
 import type {
+  V7OutputDecisionRequest,
+  SemiAutomaticSelectionWorkflowMode,
+} from './generated/types.gen';
+export type {
+  V7OutputDecisionRequest,
+  V7ConfirmedRange,
+  V7OutputOperationResponse,
+  V7OutputReceiptResponse,
+  V7ReviewResponse,
+  V7SourceDiagnosticsResponse,
+  V7PilotSnapshotResponse,
+  V7LabelSlotResponse,
+} from './generated/types.gen';
+import type {
   ListBoardSearchShareCorrectionsData,
   GetBoardSearchShareCorrectionData,
   BoardSearchShareCorrectionReviewRequest,
@@ -289,6 +303,8 @@ import {
   saveUnreadableBoardReview as saveGeneratedUnreadableBoardReview,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
   selectSemiAutomaticImageSelectionSourceFolder as selectGeneratedSemiAutomaticImageSelectionSourceFolder,
+  selectSemiAutomaticImageSelectionOutputFolder as selectGeneratedSemiAutomaticImageSelectionOutputFolder,
+  openSemiAutomaticImageSelectionReviewFolder as openGeneratedSemiAutomaticImageSelectionReviewFolder,
   selectRemoteManualSelectionHostBase as selectGeneratedRemoteManualSelectionHostBase,
   selectImageSequenceSource as selectGeneratedImageSequenceSource,
   selectApprovedSymbolReferenceCandidate as selectGeneratedApprovedSymbolReferenceCandidate,
@@ -881,6 +897,10 @@ export interface AdminApiClientOptions {
 
 export type JobCreate = CreateJobData['body'];
 
+export type V7SourcePolicy = NonNullable<
+  import('./generated/types.gen').SemiAutomaticV7CapabilitiesResponse['sourcePolicy']
+>;
+
 export interface ListJobsOptions {
   readonly status?: JobStatus;
   readonly jobType?: JobType;
@@ -1154,6 +1174,20 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           'semi-automatic-selection:source-folder',
         ),
       }),
+    selectSemiAutomaticImageSelectionOutputFolder: () =>
+      selectGeneratedSemiAutomaticImageSelectionOutputFolder({
+        client,
+        headers: confirmedTargetHeaders(
+          'semi-automatic-selection:output-folder',
+        ),
+      }),
+    openSemiAutomaticImageSelectionReviewFolder: () =>
+      openGeneratedSemiAutomaticImageSelectionReviewFolder({
+        client,
+        headers: confirmedTargetHeaders(
+          'semi-automatic-selection:review-folder',
+        ),
+      }),
     createSemiAutomaticImageSelection: (body: SemiAutomaticSelectionCreate) =>
       createGeneratedSemiAutomaticImageSelection({ body, client }),
     getSemiAutomaticImageSelection: (runId: string) =>
@@ -1162,7 +1196,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         path: { run_id: runId },
       }),
     listSemiAutomaticImageSelections: (
-      workflowMode: 'selection' | 'filename_verification',
+      workflowMode: SemiAutomaticSelectionWorkflowMode,
       offset = 0,
       limit = 20,
     ) =>
@@ -1259,7 +1293,8 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     acknowledgeSemiAutomaticImageSelectionOutput: (
       runId: string,
       expectedIndex: number,
-      body: SemiAutomaticSelectionOutputAcknowledgement,
+      body:
+        SemiAutomaticSelectionOutputAcknowledgement | V7OutputDecisionRequest,
     ) =>
       acknowledgeGeneratedSemiAutomaticImageSelectionOutput({
         body,

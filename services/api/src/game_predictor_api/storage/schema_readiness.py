@@ -14,7 +14,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0146_symbol_review_import_filter_index"
+EXPECTED_ALEMBIC_HEAD: Final = "0147_merge_v7_main"
 
 
 class AlembicHeadMismatchError(RuntimeError):

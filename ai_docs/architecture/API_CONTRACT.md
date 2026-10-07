@@ -818,6 +818,15 @@ atomowo. W tym czasie odczyt zwraca
 `active_model_cohort` nadal wykonują dokładny, indeksowany SQL w limicie czasu.
 Legacy zachowuje agregat `COUNT(*) FILTER` oraz kanoniczny owner join.
 
+Odczyty listy, liczników i kluczy paginacji z dowolnym krańcem confidence
+zawierają jawny predykat `source_available`, zgodny z istniejącym częściowym
+indeksem confidence. Jest on równoważny dotychczasowej widoczności przy tym
+filtrze: constraint źródła wymaga `prediction_confidence IS NULL` dla komórek
+`outside`, a NULL nie spełnia porównań confidence. Bez filtra confidence
+pozostaje widoczność `source_available OR outside`. Zakres `outside` nadal
+ignoruje confidence zgodnie z regułą domenową. Predykat nie zmienia wyników,
+kolejności, izolacji gry, limitu strony ani limitów czasu.
+
 `POST .../symbol-cell-review-projection` jest idempotentny dla aktywnego joba.
 Dla projekcji `ready` jawne wywołanie zachowuje gotowy odczyt podczas
 oczekiwania joba w kolejce. Dopiero worker po przejęciu joba przełącza stan do

@@ -983,6 +983,11 @@ def _visible_cell_scope(
         statement = statement.where(cell.prediction_confidence >= review_filter.min_confidence)
     if review_filter.max_confidence is not None:
         statement = statement.where(cell.prediction_confidence <= review_filter.max_confidence)
+    if review_filter.min_confidence is not None or review_filter.max_confidence is not None:
+        # Outside cells require NULL confidence by the source-asset CHECK, so
+        # every confidence match is already source-available. Expose the bare
+        # boolean predicate used by the partial confidence index to PostgreSQL.
+        statement = statement.where(cell.source_available)
     return statement.where(*extended_symbol_cell_review_filter_clauses(review_filter))
 
 

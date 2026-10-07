@@ -6,6 +6,24 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0904 — indexed symbol confidence reads (done)
+
+- Shared confidence-filtered SQL now exposes the existing partial index's
+  `source_available` predicate. NULL/outside semantics, filters, stable order,
+  page caps and 20 s/15 s runtime guards are unchanged; no migration needed.
+- Exact 777 / Wiśnia / pending / below 60% / limit 2500 GET: HTTP 503 at
+  20.207 s before, HTTP 200 with 939 items at 4.574 s after (later 0.312 s).
+  Read-only 500 + 439 pagination matches the complete page without duplicates.
+- Actual Admin browser view shows all 939 pending items and rendered crops.
+  Focused 51/51, PostgreSQL cancellation 1/1, scoped Ruff and strict mypy PASS.
+  Related suites: 140 PASS, one pre-existing 5 s-test/20 s-config mismatch.
+  Full transitive mypy reaches 120 s with unrelated logging/geometry errors;
+  scoped checks pass. Existing timeout policy and tests were not weakened.
+- Saved source verified in fresh test/client processes; no agent API/Admin
+  lifecycle operation, domain data write, push or merge. Evidence and screenshot:
+  artifacts/symbol-review-list-timeout-20261007/. Completion v1.7.248;
+  full hash is recorded after commit.
+
 ### TASK-0903 — user-controlled API and Admin (done)
 
 - User revoked agent-managed API/Admin lifecycle. AGENTS.md now requires a

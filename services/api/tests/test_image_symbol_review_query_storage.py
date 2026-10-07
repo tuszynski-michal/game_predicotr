@@ -16,11 +16,17 @@ from game_predictor_api.storage.image_symbol_review_repository import (
     _CountedCellState,
     _excluded_cell_count_sql,
 )
-from game_predictor_api.storage.models import GameSymbolModelActivationModel, RecognizedBoardModel
-from sqlalchemy import select
+from game_predictor_api.storage.models import (
+    GameSymbolModelActivationModel,
+    ImageSymbolReviewCellModel,
+    RecognizedBoardModel,
+)
+from sqlalchemy import Column, MetaData, Table, create_engine, select
 from sqlalchemy.dialects import postgresql
+from sqlalchemy.engine import Dialect
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
+from sqlalchemy.sql import ClauseElement
 
 
 class _ScalarSession:
@@ -94,8 +100,8 @@ class _DatabaseFailure(Exception):
 
 def _compiled(statement: object) -> str:
     return str(
-        statement.compile(  # type: ignore[attr-defined]
-            dialect=postgresql.dialect(),
+        cast(ClauseElement, statement).compile(
+            dialect=cast(type[Dialect], postgresql.dialect)(),
             compile_kwargs={"literal_binds": True},
         )
     )
@@ -245,6 +251,190 @@ def test_v2_list_uses_only_the_current_projection_and_materialized_confidence() 
     assert "recognized_boards" not in sql
     assert "image_symbol_review_cells.prediction_confidence" in sql
     assert "JOIN image_review_items" in sql
+
+
+@pytest.mark.parametrize(
+    ("min_confidence", "max_confidence"),
+    [(None, 0.5999999999999999), (0.0, None), (0.0, 0.0), (0.6, 0.8), (1.0, 1.0)],
+)
+@pytest.mark.parametrize(
+    "method", ["_candidate_seek_statement", "_list_statement", "_count_statement"]
+)
+def test_confidence_filters_expose_the_existing_partial_index_predicate(
+    method: str, min_confidence: float | None, max_confidence: float | None
+) -> None:
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=UUID(int=2),
+        state=SymbolCellReviewFilterState.PENDING,
+        min_confidence=min_confidence,
+        max_confidence=max_confidence,
+        storage_generation=2,
+    )
+    sql = _compiled(getattr(repository, method)(review_filter=review_filter))
+
+    # The physical partial index uses the boolean column, not the wider
+    # outside-cell OR or IS TRUE. PostgreSQL must see its exact implication.
+    assert "AND image_symbol_review_cells.source_available" in sql
+    assert "AND image_symbol_review_cells.source_available IS" not in sql
+    assert f"image_symbol_review_cells.game_id = '{review_filter.game_id}'" in sql
+    assert f"image_symbol_review_cells.assigned_symbol_id = '{review_filter.symbol_id}'" in sql
+    assert "image_symbol_review_cells.review_state = 'pending'" in sql
+
+
+@pytest.mark.parametrize("outside_only", [False, True])
+def test_unfiltered_and_outside_reads_keep_their_original_visibility(outside_only: bool) -> None:
+    repository = SqlAlchemySymbolCellReviewQueryRepository(cast(Session, object()))
+    review_filter = SymbolCellReviewListFilter(
+        game_id=UUID(int=1),
+        symbol_id=None,
+        state=SymbolCellReviewFilterState.ALL,
+        include_all_symbols=not outside_only,
+        outside_only=outside_only,
+        # The domain deliberately removes confidence filters for outside-only.
+        min_confidence=0.0 if outside_only else None,
+        max_confidence=1.0 if outside_only else None,
+        storage_generation=2,
+    )
+    sql = _compiled(repository._candidate_seek_statement(review_filter=review_filter))
+
+    assert (
+        "source_available IS true OR image_symbol_review_cells.source_visibility = 'outside'" in sql
+    )
+    assert "AND image_symbol_review_cells.source_available" not in sql
+    assert "prediction_confidence" not in sql
+
+
+@pytest.mark.parametrize(
+    ("min_confidence", "max_confidence"),
+    [
+        (None, None),
+        (None, 0.5999999999999999),
+        (0.0, None),
+        (0.0, 0.0),
+        (0.6, 0.8),
+        (1.0, 1.0),
+    ],
+)
+@pytest.mark.parametrize("descending", [False, True])
+def test_confidence_seek_preserves_rows_counts_and_cursor_order(
+    min_confidence: float | None, max_confidence: float | None, descending: bool
+) -> None:
+    game_id, symbol_id = UUID(int=1), UUID(int=2)
+    metadata = MetaData()
+    columns = (
+        "id",
+        "game_id",
+        "assigned_symbol_id",
+        "review_state",
+        "prediction_confidence",
+        "source_available",
+        "source_visibility",
+        "quality_issue",
+        "sequence_number",
+        "cell_index",
+    )
+    table = Table(
+        "image_symbol_review_cells",
+        metadata,
+        *(Column(name, ImageSymbolReviewCellModel.__table__.c[name].type) for name in columns),
+    )
+    rows: list[dict[str, object]] = []
+    samples: list[dict[str, object]] = [
+        {"prediction_confidence": value}
+        for value in (0.0, 0.3, 0.5999999999999999, 0.6, 0.8, 1.0, None)
+    ]
+    samples.extend(
+        [
+            {
+                "source_available": False,
+                "source_visibility": "outside",
+                "prediction_confidence": None,
+            },
+            {"source_available": False, "prediction_confidence": 0.1},
+            {"game_id": UUID(int=3), "prediction_confidence": 0.1},
+            {"assigned_symbol_id": UUID(int=4), "prediction_confidence": 0.1},
+            {"review_state": "approved", "prediction_confidence": 0.1},
+            {"quality_issue": "grid_issue", "prediction_confidence": 0.1},
+            {"quality_issue": "blurry", "prediction_confidence": 0.2},
+            {"quality_issue": "unreadable", "prediction_confidence": 0.1},
+            {"source_visibility": "partial", "prediction_confidence": 0.4},
+        ]
+    )
+    for index, sample in enumerate(samples):
+        rows.append(
+            {
+                "id": UUID(int=100 + index),
+                "game_id": game_id,
+                "assigned_symbol_id": symbol_id,
+                "review_state": "pending",
+                "source_available": True,
+                "source_visibility": "full",
+                "quality_issue": None,
+                "sequence_number": 100 + index // 3,
+                "cell_index": index % 3,
+                **sample,
+            }
+        )
+    expected: list[tuple[int, int, UUID]] = []
+    for row in rows:
+        confidence = cast(float | None, row["prediction_confidence"])
+        if (
+            row["game_id"] != game_id
+            or row["assigned_symbol_id"] != symbol_id
+            or row["review_state"] != "pending"
+            or (not row["source_available"] and row["source_visibility"] != "outside")
+            or (
+                row["source_visibility"] != "outside"
+                and row["quality_issue"] in ("grid_issue", "unreadable")
+            )
+            or (min_confidence is not None and (confidence is None or confidence < min_confidence))
+            or (max_confidence is not None and (confidence is None or confidence > max_confidence))
+        ):
+            continue
+        expected.append(
+            (cast(int, row["sequence_number"]), cast(int, row["cell_index"]), cast(UUID, row["id"]))
+        )
+    expected.sort(reverse=descending)
+    engine = create_engine("sqlite+pysqlite:///:memory:")
+    try:
+        metadata.create_all(engine)
+        with engine.begin() as connection:
+            connection.execute(table.insert(), rows)
+        with Session(engine) as session:
+            repository = SqlAlchemySymbolCellReviewQueryRepository(session)
+            filters = SymbolCellReviewListFilter(
+                game_id=game_id,
+                symbol_id=symbol_id,
+                state=SymbolCellReviewFilterState.PENDING,
+                min_confidence=min_confidence,
+                max_confidence=max_confidence,
+                storage_generation=2,
+            )
+            actual = repository._seek_visible_keys(
+                review_filter=filters,
+                seek_key=None,
+                descending=descending,
+                needed_count=2501,
+            )
+            assert actual == expected
+            assert tuple(
+                session.execute(repository._count_statement(review_filter=filters)).one()
+            ) == (0, len(expected))
+            if expected:
+                pivot = expected[len(expected) // 2]
+                assert (
+                    repository._seek_visible_keys(
+                        review_filter=filters,
+                        seek_key=pivot,
+                        descending=descending,
+                        needed_count=2501,
+                    )
+                    == expected[len(expected) // 2 + 1 :]
+                )
+    finally:
+        engine.dispose()
 
 
 def test_v2_seek_orders_by_the_stable_cell_projection_identity() -> None:

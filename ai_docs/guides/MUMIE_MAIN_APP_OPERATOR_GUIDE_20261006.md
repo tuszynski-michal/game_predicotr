@@ -86,7 +86,9 @@ Nie musisz zatwierdzać każdej planszy, żeby rozpocząć ocenę symboli.
    **Symbol do zatwierdzenia**, następnie **Zapisz i zatwierdź**. Ten sam
    symbol zatwierdzi poprawne wycinki; inny poprawi je i zatwierdzi. Nie trzeba
    tymczasowo zmieniać poprawnej klasy. Skróty `1`–`9` wybierają symbol,
-   a `Enter` wykonuje ten sam zapis. Większa grupa zachowuje podgląd operacji.
+   a `Enter` wykonuje ten sam zapis. Po kliknięciu wybór symbolu jest czyszczony;
+   przed kolejnym zapisem wybierz go ponownie. Większa grupa zachowuje podgląd
+   operacji z wybranym symbolem, także po wyczyszczeniu selektora.
 3. Crop źle wycięty oznacz jako **Zła siatka**. Tylko takie zgłoszenia oraz
    brakujące lub ucięte sloty wymagają **Korekty cięcia siatki**.
 4. Zapisane decyzje pozostają widoczne na stronie do odświeżenia. Kolejna

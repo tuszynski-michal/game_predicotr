@@ -308,6 +308,8 @@ test('outside selection, keyboard reassignment and unreadable preserve visibilit
     await eventually(() => calls.decisions.length === 1);
     assert.equal(calls.decisions[0].command.action, 'reassign');
     assert.equal(calls.decisions[0].command.expectedCropSampleId, null);
+    assert.equal(calls.decisions[0].command.targetSymbolId, 'cherry');
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
     assert.equal(calls.decisions[0].command.expectedCropChecksumSha256, null);
     assert.equal(calls.decisions[0].command.expectedGeometryRevision, 4);
     await choose(1, 'cherry');
@@ -562,6 +564,7 @@ test('one explicit symbol save approves the same pending label for a legacy game
     await eventually(() => calls.decisions.length === 1);
     assert.equal(calls.decisions[0].command.action, 'reassign');
     assert.equal(calls.decisions[0].command.targetSymbolId, 'cherry');
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
     assert.equal(
       cells.find((cell) => cell.id === 'full-cell').reviewState,
       'approved',
@@ -574,6 +577,24 @@ test('one explicit symbol save approves the same pending label for a legacy game
     await eventually(() =>
       document.body.textContent.includes('zatwierdzone: 1'),
     );
+    await eventually(() => selectPosition(2));
+    await click(selectPosition(2));
+    assert.equal(button('Zapisz i zatwierdź').disabled, true);
+    await act(async () =>
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      ),
+    );
+    assert.equal(calls.decisions.length, 1);
+    await chooseSymbolField('Symbol do zatwierdzenia', 'cherry');
+    await act(async () =>
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      ),
+    );
+    await eventually(() => calls.decisions.length === 2);
+    assert.equal(calls.decisions[1].command.targetSymbolId, 'cherry');
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
     await choose(1, 'cherry');
     assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
   } finally {
@@ -626,6 +647,7 @@ test('explicit correction moves a pending crop into its approved target and surv
     await eventually(() => calls.decisions.length === 1);
     assert.equal(calls.decisions[0].command.action, 'reassign');
     assert.equal(calls.decisions[0].command.targetSymbolId, 'plum');
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
     assert.equal(
       cells.find((cell) => cell.id === 'full-cell').assignedSymbolId,
       'plum',
@@ -655,6 +677,48 @@ test('explicit correction moves a pending crop into its approved target and surv
   }
 });
 
+test('a pending or failed save clears the selector without losing its submitted target', async () => {
+  const fixture = await createPartialReviewClient();
+  let rejectDecision;
+  fixture.api.applySymbolCellReviewDecision = async (game, id, command) => {
+    fixture.calls.decisions.push({ game, id, command });
+    return new Promise((_resolve, reject) => {
+      rejectDecision = reject;
+    });
+  };
+  const { root, calls, cells } = await mount(fixture);
+  try {
+    await choose(1, 'cherry');
+    await eventually(() =>
+      buttons().some((node) =>
+        node.getAttribute('aria-label')?.startsWith('Zaznacz crop'),
+      ),
+    );
+    await click(button('Zaznacz stronę'));
+    await chooseSymbolField('Symbol do zatwierdzenia', 'cherry');
+    await click(button('Zapisz i zatwierdź'));
+    assert.equal(calls.decisions.length, 1);
+    assert.equal(calls.decisions[0].command.targetSymbolId, 'cherry');
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
+    assert.equal(button('Zapisz i zatwierdź').disabled, true);
+    await act(async () => rejectDecision(new Error('Zapis niedostępny')));
+    await eventually(() =>
+      document.body.textContent.includes(
+        'Połączenie z lokalnym Admin API zostało przerwane.',
+      ),
+    );
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
+    assert.equal(button('Zapisz i zatwierdź').disabled, true);
+    assert.equal(calls.decisions.length, 1);
+    assert.equal(
+      cells.find((cell) => cell.id === 'full-cell').reviewState,
+      'pending',
+    );
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('unified save keeps the explicit target on a blurry approval', async () => {
   const { root, calls } = await mount();
   try {
@@ -674,6 +738,7 @@ test('unified save keeps the explicit target on a blurry approval', async () => 
     await eventually(() => calls.decisions.length === 1);
     assert.equal(calls.decisions[0].command.action, 'mark_blurry');
     assert.equal(calls.decisions[0].command.targetSymbolId, 'cherry');
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
     assert.match(
       document.body.textContent,
       /Symbol zapisano i zatwierdzono jako niewyraźny, poza uczeniem/,
@@ -722,12 +787,23 @@ test('Mumie same-symbol bulk save approves pending crops and freezes the current
     await eventually(() =>
       buttons().some((node) => node.textContent === 'Uruchom operację'),
     );
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
+    await click(button('Anuluj'));
+    assert.equal(button('Zapisz i zatwierdź').disabled, true);
+    assert.equal(calls.decisions.length, 0);
+    await chooseSymbolField('Symbol do zatwierdzenia', 'cherry');
+    await click(button('Zapisz i zatwierdź'));
+    await eventually(() =>
+      buttons().some((node) => node.textContent === 'Uruchom operację'),
+    );
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
     await click(button('Uruchom operację'));
     await eventually(() => calls.decisions.length === 2);
     await eventually(() =>
       document.body.textContent.includes('Operacja zakończona: 2 symboli.'),
     );
     assert.equal(calls.pages.length, pageReads);
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, '');
     assert.ok(
       calls.decisions.every(
         (call) =>

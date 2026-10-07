@@ -13,6 +13,10 @@ last_updated: 2026-10-07
   `Symbol do zatwierdzenia` and `Zapisz i zatwierdź`. An explicit active target
   is required, including when the current label is correct. Same-label pending
   becomes approved; another label is corrected and approved atomically.
+- **Follow-up:** TASK-0895 clears the selector immediately after capturing
+  the target on each valid save invocation, including Enter and bulk preview.
+  The submitted command retains its target; errors/cancellation leave the
+  selector blank. The next save requires an explicit fresh target choice.
 - **Reuse:** existing `reassign` and `mark_blurry` contracts, both single and
   bulk. This removes the profile-specific UI approve gate without bypassing
   server identity/revision/quality guards. Outside labels remain logical only.

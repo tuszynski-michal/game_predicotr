@@ -1032,6 +1032,11 @@ Wskazanie tego samego symbolu zatwierdza oczekujące pole, a innego atomowo
 poprawia i zatwierdza przypisanie. Oba przypadki korzystają z istniejącego
 `reassign`, również dla gier innych niż Mumie. Nie ma osobnych przycisków
 `Zatwierdź` i `Zastosuj zmianę`. Zmiana filtra czyści wybór celu.
+Każde poprawne wywołanie `Zapisz i zatwierdź`, także przez `Enter`, natychmiast
+czyści `Symbol do zatwierdzenia` po przechwyceniu celu decyzji. Kolejny zapis
+wymaga ponownego wyboru. Dotyczy pojedynczej decyzji, niewyraźnych i logicznych
+pól oraz przygotowania podglądu masowego. Polecenie podglądu/job zachowuje
+przechwycony symbol; błąd albo anulowanie nie przywraca poprzedniego wyboru.
 Toolbar zachowuje checkbox `Niewyraźny` i akcje `Nieczytelny / Zła siatka`.
 Checkbox `Niewyraźny` modyfikuje zapis i zatwierdzenie: decyzja
 atomowo zachowuje albo przypisuje wskazany symbol jako zatwierdzony, ale

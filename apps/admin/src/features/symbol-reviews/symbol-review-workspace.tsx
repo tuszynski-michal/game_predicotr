@@ -1105,6 +1105,7 @@ export function SymbolReviewWorkspace({
         : action;
     const targetSymbolId =
       action === 'reassign' ? reassignTargetSymbolId : null;
+    if (action === 'reassign') setReassignTargetSymbolId(null);
     const targets =
       selection.kind === 'explicit' ? Object.values(selection.targetsById) : [];
     if (selection.kind === 'explicit' && targets.length === 1) {

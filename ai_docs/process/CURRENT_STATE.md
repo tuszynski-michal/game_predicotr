@@ -6,6 +6,20 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0895 — clear the target on each symbol save (done)
+
+- `Symbol do zatwierdzenia` clears immediately on every valid save click or
+  Enter, after capturing the target for direct/bulk commands. The next save
+  requires a fresh selection. Pending, error/cancel, blurry/outside and bulk
+  preview retain this rule; submitted commands retain their original target.
+- Fresh-process interactions 13/13 and focused Admin contracts/helpers
+  40/40 PASS. Scoped format/lint/types PASS; Admin build PASS in 20.17 s.
+  Existing frozen-page, filter and reference/quality behavior is preserved.
+- D-528, requirements, operator guide, plan and completed task updated. No
+  API/schema/layout change or real data decision, migration, training,
+  activation, restart, deployment, push or merge. No task blocker.
+- Completion v1.7.238; full hash recorded after commit.
+
 ### TASK-0894 — unified symbol save and approval (done)
 
 - `Weryfikacja symboli` now has one `Zapisz i zatwierdź` with an explicit

@@ -68,8 +68,26 @@ scoped format/lint/types oraz build Admina zaliczone. Kontrola przeglądarkowa
 potwierdziła nowy przycisk bez zapisu do danych użytkownika. Szczegóły,
 ograniczenia i wersję commita zawiera Outcome zadania.
 
+## TASK-0895 — czyszczenie symbolu po każdej próbie zapisu
+
+Zadanie: [0895-symbol-review-clear-save-target.md](../tasks/completed/0895-symbol-review-clear-save-target.md).
+Użytkownik doprecyzował, że kolejny zapis zawsze wymaga ponownego wyboru
+symbolu. `previewOperation` przechwytuje cel, następnie czyści selektor przed
+wysłaniem pojedynczej decyzji lub przygotowaniem podglądu masowego. Enter
+korzysta z tego samego wejścia. Podgląd/job zachowuje przechwycony cel; błąd
+lub anulowanie nie przywraca starego wyboru. Inne akcje pozostają bez zmian.
+Testy interakcji sprawdzają pierwszy i kolejny zapis, Enter bez celu, błędy,
+anulowanie, blurry/outside oraz niezmieniony cel operacji masowej. Scoped
+format/lint/types i build potwierdzają jakość; wyniki uzupełni Outcome.
+Nie wykonujemy testowej decyzji na danych użytkownika.
+
+TASK-0895 wykonany. Testy interakcji 13/13 oraz kontraktów/helperów 40/40
+zaliczone. Scoped format/lint/types i build Admina zaliczone. Outcome zawiera
+szczegóły; nie zmieniono kontraktu ani danych użytkownika.
+
 ## Przypisanie modeli do zadań
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 | --- | --- | --- | --- | --- |
 | TASK-0894 | gpt-6.1-sol | high | Zmiana jednego workflow UI z istniejącym kontraktem; sprawdzenie semantyki tego samego symbolu i ochrony cropów. | Audyt własny diffu i testów; bez delegowania. |
+| TASK-0895 | gpt-6.1-sol | high | Mała zmiana stanu UI; sprawdzenie przechwycenia celu i kolejnych zapisów bez ingerencji w kontrakt. | Audyt własny diffu i regresji; bez delegowania. |

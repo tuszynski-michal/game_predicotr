@@ -187,6 +187,19 @@ dopiero potem zapisuje PNG w content-addressed katalogu datasetu. Manifest
 datasetu rozróżnia checksumę bajtów legacy od `rgb-pixel-v1`, dzięki czemu
 kodowanie PNG nie jest mylone z tożsamością pikseli v0.10.
 
+TASK-0898 grupuje ograniczoną pulę preview/freeze po ścieżce i checksumie
+źródła. Maksymalnie siedem grup równolegle utrzymuje po jednej wykonaniowej
+klatce RGB. Loader hashuje i dekoduje te same bajty; ochrona źródła kontrolnego
+oraz render każdej komórki używają tej samej klatki. Każda komórka nadal
+sprawdza geometrię, render spec oraz checksumę wynikowych pikseli. Deskryptor
+jest obliczany bez kodowania i ponownego dekodowania PNG. Wyniki wracają do
+pierwotnej kolejności SQL przed deterministyczną selekcją. Odczyt manifestów
+renderu może poprzedzać attestation, ale render komórki następuje wyłącznie
+po przejściu bramki źródła. Zamrożenie i nowy proces nie polegają na cache
+deskryptorów; nie zapisujemy nowych bitmap na dysku. API i manifest pozostają
+identyczne. Admin nie czeka na niezależny licznik reinferencji i kończy odczyt
+po 45 sekundach błędem z retry; zmiana gry/unmount anuluje wcześniejsze odczyty.
+
 Read-only preview nie blokuje gry ani pozycji review. Dla wszystkich pozycji
 czyta lekką projekcję stanu potrzebną do deterministycznego manifestu, natomiast
 pełną geometrię i 15 cropów materializuje wyłącznie dla `accepted` oraz

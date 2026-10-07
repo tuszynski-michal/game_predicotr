@@ -8,6 +8,7 @@ import {
   confirmModelActivation,
   freezeModelQualityCohort,
   loadModelQuality,
+  previewPendingSymbolReinference,
   loadGridQuality,
   previewGridActivation,
   previewModelActivation,
@@ -124,6 +125,79 @@ test('rejects a response from another game', async () => {
     error: 'Odpowiedź API nie należy do wybranej gry.',
     ok: false,
   });
+});
+
+test('bounds a lost quality response and aborts all outstanding reads', async () => {
+  const signals = [];
+  const lost = (_game, { signal }) => {
+    signals.push(signal);
+    return new Promise(() => {});
+  };
+  const result = await loadModelQuality(
+    {
+      getModelQuality: lost,
+      listSymbolModelIterations: lost,
+      listSymbolModelActivations: lost,
+    },
+    gameId,
+    undefined,
+    10,
+  );
+  assert.deepEqual(result, {
+    ok: false,
+    error: 'Odczyt trwa zbyt długo. Spróbuj ponownie.',
+  });
+  assert.equal(signals.length, 3);
+  assert.ok(signals.every((signal) => signal.aborted));
+});
+
+test('cancels a hanging request without waiting for its network response', async () => {
+  const controller = new AbortController();
+  let childSignal;
+  const loading = loadModelQuality(
+    {
+      getModelQuality: (_game, { signal }) => {
+        childSignal = signal;
+        return new Promise(() => {});
+      },
+      listSymbolModelIterations: async () => ({ data: [] }),
+      listSymbolModelActivations: async () => ({ data: [] }),
+    },
+    gameId,
+    controller.signal,
+  );
+  controller.abort();
+  assert.deepEqual(await loading, { ok: false, error: 'REQUEST_ABORTED' });
+  assert.equal(childSignal.aborted, true);
+});
+
+test('bounds and validates pending preview separately', async () => {
+  let signal;
+  const api = {
+    previewPendingSymbolReinference: (_game, options) => {
+      signal = options.signal;
+      return new Promise(() => {});
+    },
+  };
+  assert.deepEqual(
+    await previewPendingSymbolReinference(api, gameId, undefined, 10),
+    {
+      ok: false,
+      error: 'Odczyt trwa zbyt długo. Spróbuj ponownie.',
+    },
+  );
+  assert.equal(signal.aborted, true);
+  assert.deepEqual(
+    await previewPendingSymbolReinference(
+      {
+        previewPendingSymbolReinference: async () => ({
+          data: { gameId: 'other' },
+        }),
+      },
+      gameId,
+    ),
+    { ok: false, error: 'Odpowiedź API nie należy do wybranej gry.' },
+  );
 });
 
 test('previews and activates an exact checksum-bound model candidate', async () => {

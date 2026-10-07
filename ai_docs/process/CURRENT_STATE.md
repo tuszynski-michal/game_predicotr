@@ -6,6 +6,25 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0898 — bounded model-quality loading (done)
+
+- Exact cohort reads group sources into up to seven execution-scoped RGB
+  frames shared by atomic protection/descriptor checks. No per-cell JPEG
+  decode or PNG round trip. Original SQL order, manifest and eligibility stay.
+  UI reads have 45-second timeout/retry, cancellation and late-response guards;
+  pending reinference preview no longer blocks quality or enables an empty action.
+- Fresh-process read-only Mumie preview: 32.610 s; full FastAPI GET: HTTP 200,
+  39.843 s. Both select 6303 samples / 3074 boards / 813 sources, same checksum
+  138a43d3290d0fcc983d57cccfeb1aabcd41647edb08b6d1182bdd18cd11c7c8.
+- Python regressions 104/104 plus last changed-branch 28/28; Admin helpers/
+  contracts 14/14 and rendered interactions 4/4 PASS. Scoped lint/format/types
+  PASS; Admin build PASS (18.17 s). Requirements, architecture/API narrative,
+  plan and completed task updated. Evidence: artifacts/model-quality-loading-20261007/.
+- No production mutation, migration, training, activation, cleanup, restart,
+  deployment, push or merge. Exact pixel verification still takes tens of
+  seconds; running API/Admin need controlled deployment to load this fix.
+- Completion v1.7.241; commit pending.
+
 ### TASK-0897 — concurrent symbol review job starts (done)
 
 - MAIN logs confirm start/worker deadlocks at board FK insertion. Start now

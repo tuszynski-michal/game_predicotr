@@ -1,16 +1,29 @@
 from __future__ import annotations
 
+import hashlib
 from io import BytesIO
 from pathlib import Path
 from unittest.mock import Mock
 from uuid import uuid4
 
 import pytest
+from game_predictor_api.application.virtual_cell_previews import (
+    VirtualSymbolCellImageRenderer,
+    render_virtual_symbol_cell_png,
+)
+from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.image_reviews import ImageReviewConflictError
+from game_predictor_api.domain.symbol_cell_training_cohorts import (
+    build_symbol_cell_training_manifest,
+    select_symbol_cell_training_samples,
+)
 from game_predictor_api.storage.symbol_cell_training_source_repository import (
     SqlAlchemySymbolCellTrainingSourceRepository,
+    _image_visual_descriptor,
     _visual_descriptor,
 )
+from game_predictor_worker.images.normalization import CanonicalSourceLoader
+from game_predictor_worker.symbols.protected_sources import ProtectedSources
 from PIL import Image
 
 
@@ -235,3 +248,177 @@ def test_inventory_sql_selects_no_render_spec_column(monkeypatch: pytest.MonkeyP
         assert "c.*" not in sql
         assert "c.render_spec," not in sql and "c.render_spec\n" not in sql
     assert "c.render_spec_checksum_sha256" in statements[1]
+
+
+def _source_values(tmp_path: Path) -> dict[str, object]:
+    from test_virtual_cell_previews import _asset
+
+    asset = _asset(tmp_path)
+    values = _virtual_values()
+    for name in (
+        "geometry_revision",
+        "current_geometry_revision",
+        "source_geometry_revision_id",
+        "current_source_geometry_revision_id",
+        "source_checksum_sha256",
+        "normalized_pixel_checksum_sha256",
+        "geometry_checksum_sha256",
+        "logical_cell_key",
+        "render_spec",
+        "render_spec_checksum_sha256",
+        "rendered_pixel_checksum_sha256",
+        "extractor_version",
+        "crop_checksum_sha256",
+    ):
+        values[name] = getattr(asset, name)
+    values["source_relative_path"] = (
+        f"originals/{asset.source_checksum_sha256[:2]}/{asset.source_checksum_sha256}.jpg"
+    )
+    values["approved_crop_checksum_sha256"] = asset.crop_checksum_sha256
+    values["approved_geometry_revision"] = asset.geometry_revision
+    return values
+
+
+def test_grouped_descriptors_decode_once_and_preserve_manifest_order(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from game_predictor_api.storage import symbol_cell_training_source_repository as module
+
+    first = _source_values(tmp_path)
+    rows = tuple(
+        {**first, "id": uuid4(), "cell_index": index, "sequence_number": 8 - index}
+        for index in range(5)
+    )
+    repository = SqlAlchemySymbolCellTrainingSourceRepository(Mock(), tmp_path)
+    legacy = tuple(repository._candidate(row, allow_cached=False) for row in rows)
+    source_opens = []
+    original_load = CanonicalSourceLoader.load
+
+    def load(loader, path, **kwargs):
+        source_opens.append(path)
+        return original_load(loader, path, **kwargs)
+
+    monkeypatch.setattr(CanonicalSourceLoader, "load", load)
+    monkeypatch.setattr(
+        module,
+        "render_virtual_symbol_cell_png",
+        Mock(side_effect=AssertionError("No PNG descriptors")),
+    )
+    grouped = repository._grouped_candidates(rows)
+    assert len(source_opens) == 1
+    assert grouped == legacy
+    assert [c.cell_index for c in grouped] == list(range(5))
+    game_id = uuid4()
+    manifests = [
+        build_symbol_cell_training_manifest(
+            game_id=game_id,
+            selection=select_symbol_cell_training_samples(
+                candidates=candidates, active_symbol_codes=("cherry",)
+            ),
+        )
+        for candidates in (legacy, grouped)
+    ]
+    assert manifests[0] == manifests[1]
+    # A fresh execution attests the source again, instead of relying on process cache.
+    assert repository._grouped_candidates(rows) == grouped
+    assert len(source_opens) == 2
+
+
+def test_grouped_protection_uses_the_render_frame_and_rejects_forged_metadata(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    row = _source_values(tmp_path)
+    protected = ProtectedSources(frozenset(), frozenset())
+    repository = SqlAlchemySymbolCellTrainingSourceRepository(Mock(), tmp_path)
+    calls = []
+    original_load = CanonicalSourceLoader.load
+
+    def load(loader, path, **kwargs):
+        calls.append(path)
+        return original_load(loader, path, **kwargs)
+
+    monkeypatch.setattr(CanonicalSourceLoader, "load", load)
+    assert len(repository._grouped_candidates((row, row), protected=protected)) == 2
+    assert len(calls) == 1
+    with pytest.raises(ImageReviewConflictError) as drift:
+        repository._grouped_candidates(
+            (row, {**row, "normalized_pixel_checksum_sha256": "0" * 64}), protected=protected
+        )
+    assert drift.value.code == "PROTECTED_SOURCE_IDENTITY_DRIFT"
+    with pytest.raises(ImageReviewConflictError) as alias:
+        repository._grouped_candidates(
+            (row,),
+            protected=ProtectedSources(
+                frozenset(), frozenset((row["normalized_pixel_checksum_sha256"],))
+            ),
+        )
+    assert alias.value.code == "PROTECTED_EVALUATION_SOURCE"
+
+
+def test_grouped_missing_and_changed_assets_keep_exclusion_semantics(tmp_path: Path) -> None:
+    row = _source_values(tmp_path)
+    repository = SqlAlchemySymbolCellTrainingSourceRepository(Mock(), tmp_path)
+    assert (
+        repository._grouped_candidates(({**row, "rendered_pixel_checksum_sha256": "0" * 64},)) == ()
+    )
+    source_path = tmp_path / "data" / str(row["source_relative_path"])
+    source_path.unlink()
+    assert repository._grouped_candidates((row,)) == ()
+    with pytest.raises(ImageReviewConflictError) as missing:
+        repository._grouped_candidates((row,), protected=ProtectedSources(frozenset(), frozenset()))
+    assert missing.value.code == "PROTECTED_SOURCE_MISSING"
+
+
+def test_image_and_png_descriptors_are_identical(tmp_path: Path) -> None:
+    from test_virtual_cell_previews import _asset
+
+    asset = _asset(tmp_path)
+    png = render_virtual_symbol_cell_png(artifact_root=tmp_path, asset=asset)
+    with VirtualSymbolCellImageRenderer(tmp_path) as renderer, renderer.render(asset) as image:
+        assert _image_visual_descriptor(image) == _visual_descriptor(png)
+
+
+def test_interleaved_source_groups_return_in_original_row_order(tmp_path: Path) -> None:
+    first = _source_values(tmp_path)
+    source = tmp_path / "data" / str(first["source_relative_path"])
+    content = source.read_bytes() + b"byte-distinct-source"
+    checksum = hashlib.sha256(content).hexdigest()
+    relative = f"originals/{checksum[:2]}/{checksum}.jpg"
+    alias = tmp_path / "data" / relative
+    alias.parent.mkdir(parents=True, exist_ok=True)
+    alias.write_bytes(content)
+    spec = {**first["render_spec"], "sourceChecksumSha256": checksum}
+    second = {
+        **first,
+        "id": uuid4(),
+        "source_checksum_sha256": checksum,
+        "source_relative_path": relative,
+        "render_spec": spec,
+        "render_spec_checksum_sha256": hashlib.sha256(canonical_json_bytes(spec)).hexdigest(),
+    }
+    rows = (first, second, {**first, "id": uuid4()}, {**second, "id": uuid4()})
+    repository = SqlAlchemySymbolCellTrainingSourceRepository(Mock(), tmp_path)
+    grouped = repository._grouped_candidates(rows)
+    assert [candidate.cell_review_id for candidate in grouped] == [row["id"] for row in rows]
+    assert grouped == tuple(repository._candidate(row, allow_cached=False) for row in rows)
+
+
+def test_inventory_counts_changed_crop_as_missing_asset(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from game_predictor_api.storage import symbol_cell_training_source_repository as module
+
+    row = _source_values(tmp_path)
+    session = Mock()
+    session.execute.return_value.mappings.return_value = (
+        row,
+        {**row, "id": uuid4(), "rendered_pixel_checksum_sha256": "0" * 64},
+    )
+    repository = SqlAlchemySymbolCellTrainingSourceRepository(session, tmp_path)
+    monkeypatch.setattr(
+        repository, "_exclusion_counts", lambda _: module.SymbolCellTrainingExclusionCounts()
+    )
+    monkeypatch.setattr(module, "_with_manifest_render_specs", lambda *_, **kw: kw["rows"])
+    result = repository.inventory(game_id=uuid4(), lock_game=False)
+    assert len(result.candidates) == 1
+    assert result.exclusions.missing_asset == 1

@@ -6,6 +6,8 @@ from pathlib import Path, PurePosixPath
 import pytest
 from game_predictor_worker.images.discovery import discover_images
 from game_predictor_worker.images.normalization import (
+    CanonicalSourceLoader,
+    CanonicalSourceLoadError,
     ImageNormalizationError,
     normalize_images,
 )
@@ -30,6 +32,48 @@ EXPECTED_LABELS = {
     7: (("F", "C"), ("E", "B"), ("D", "A")),
     8: (("C", "F"), ("B", "E"), ("A", "D")),
 }
+
+
+def test_canonical_loader_hashes_and_decodes_the_same_bytes(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "source.jpg"
+    _write_pattern_jpeg(path, None)
+    content = path.read_bytes()
+    expected = hashlib.sha256(content).hexdigest()
+    original = Path.read_bytes
+
+    def read_then_replace(candidate):
+        value = original(candidate)
+        if candidate == path:
+            candidate.write_bytes(b"replacement after byte attestation")
+        return value
+
+    monkeypatch.setattr(Path, "read_bytes", read_then_replace)
+    loader = CanonicalSourceLoader()
+    frame = loader.load(path, expected_source_checksum_sha256=expected)
+    assert frame.source.source_checksum_sha256 == expected
+    assert frame.rgb.shape == (20, 30, 3)
+    # A fresh execution cannot reuse that already validated frame.
+    with pytest.raises(CanonicalSourceLoadError) as drift:
+        CanonicalSourceLoader().load(path, expected_source_checksum_sha256=expected)
+    assert drift.value.code == "IMAGE_CANONICAL_SOURCE_CHECKSUM_MISMATCH"
+
+
+def test_canonical_loader_preserves_the_unreadable_source_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    path = tmp_path / "source.jpg"
+    _write_pattern_jpeg(path, None)
+    checksum = hashlib.sha256(path.read_bytes()).hexdigest()
+
+    def unreadable(_path):
+        raise PermissionError("source read denied")
+
+    monkeypatch.setattr(Path, "read_bytes", unreadable)
+    with pytest.raises(CanonicalSourceLoadError) as error:
+        CanonicalSourceLoader().load(path, expected_source_checksum_sha256=checksum)
+    assert error.value.code == "IMAGE_SOURCE_UNREADABLE"
 
 
 def _write_pattern_jpeg(path: Path, orientation: int | None) -> None:

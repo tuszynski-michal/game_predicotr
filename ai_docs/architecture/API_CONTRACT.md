@@ -3481,8 +3481,11 @@ nie warunkiem endpointu.
 GET jest odczytem bez `FOR UPDATE`. Dla v3 pobiera bounded pulę aktualnych
 komórek `approved`, których bieżąca i zatwierdzona tożsamość cropa jest
 identyczna, ponownie sprawdza checksumy plików i wylicza dHash w
-ograniczonej puli maksymalnie 4000 kandydatów per symbol. Deskryptory są liczone
-równolegle i trzymane w bounded cache procesu; `pending`, `?`, grid issue oraz
+ograniczonej puli maksymalnie 4000 kandydatów per symbol. TASK-0898 grupuje
+próbki po źródle: do siedmiu wykonaniowych klatek RGB, jeden decode na grupę,
+wspólna atomowa kontrola bajtów/pikseli źródła i deskryptory bez round trip PNG.
+Kolejność, selekcja, checksum manifestu i kwalifikacja są zachowane. Odczyt
+nie wymaga rozgrzanego cache; `pending`, `?`, grid issue oraz
 stary właściciel sekwencji nie są wybierane. Jawny POST blokuje grę i
 ponownie weryfikuje bajty przed zapisem.
 

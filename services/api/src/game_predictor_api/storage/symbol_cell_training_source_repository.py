@@ -4,18 +4,21 @@ from __future__ import annotations
 
 import json
 import os
+from collections import defaultdict
 from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
-from functools import lru_cache
+from functools import lru_cache, partial
 from io import BytesIO
 from pathlib import Path
 from typing import Any, cast
 from uuid import UUID
 
+from game_predictor_worker.images.normalization import CanonicalSourceLoadError
 from game_predictor_worker.symbols.protected_sources import (
     ProtectedSourceError,
+    ProtectedSources,
     load_protected_sources,
-    source_pixel_identity,
+    managed_path,
 )
 from PIL import Image, ImageStat
 from sqlalchemy import select, text
@@ -25,7 +28,10 @@ from game_predictor_api.application.verified_training_cohorts import (
     SymbolCellTrainingSourceInventory,
     SymbolCellTrainingSourceRepository,
 )
-from game_predictor_api.application.virtual_cell_previews import render_virtual_symbol_cell_png
+from game_predictor_api.application.virtual_cell_previews import (
+    VirtualSymbolCellImageRenderer,
+    render_virtual_symbol_cell_png,
+)
 from game_predictor_api.domain.catalog import SymbolStatus
 from game_predictor_api.domain.image_reviews import ImageReviewConflictError
 from game_predictor_api.domain.image_symbol_reviews import (
@@ -201,47 +207,11 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 },
             ).mappings()
         )
-        # Only the existing bounded pool pays for managed-original reads. SQL
-        # uses checksum-bound geometry metadata to exclude complete protected
-        # photographs before either cap; live reads independently attest it.
-        if protected is not None:
-            identities: dict[tuple[str, str], str] = {}
-            try:
-                for row in selected:
-                    key = (str(row["source_relative_path"]), str(row["source_checksum_sha256"]))
-                    if key not in identities:
-                        identities[key] = source_pixel_identity(self._artifact_root / "data", *key)
-                    pixels = identities[key]
-                    if protected.excludes(key[1], pixels):
-                        raise ProtectedSourceError(
-                            "PROTECTED_EVALUATION_SOURCE",
-                            "A protected source failed its exclusion metadata binding.",
-                        )
-                    if pixels != row["normalized_pixel_checksum_sha256"]:
-                        raise ProtectedSourceError(
-                            "PROTECTED_SOURCE_IDENTITY_DRIFT",
-                            "Selected source pixels differ from checksum-bound geometry metadata.",
-                        )
-            except ProtectedSourceError as error:
-                raise ImageReviewConflictError(error.code, str(error)) from error
         rows = _with_manifest_render_specs(self._session, game_id=game_id, rows=selected)
-        worker_count = min(
-            _MAX_DESCRIPTOR_WORKERS,
-            max(1, os.cpu_count() or 1),
-            max(1, len(rows)),
-        )
-        with ThreadPoolExecutor(
-            max_workers=worker_count,
-            thread_name_prefix="symbol-cohort-descriptor",
-        ) as executor:
-            candidates = tuple(
-                candidate
-                for candidate in executor.map(
-                    lambda row: self._candidate_or_missing(row, allow_cached=not lock_game),
-                    rows,
-                )
-                if candidate is not None
-            )
+        # Only the existing bounded pool pays for managed-original reads.
+        # SQL excludes protected photographs before either cap; the same
+        # atomic byte/RGB attestation is independently checked in each group.
+        candidates = self._grouped_candidates(rows, protected=protected)
         return SymbolCellTrainingSourceInventory(
             candidates=candidates,
             protected_source_exclusions=None if protected is None else protected.reference(),
@@ -254,6 +224,81 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
                 missing_asset=exclusions.missing_asset + (len(rows) - len(candidates)),
             ),
         )
+
+    def _grouped_candidates(
+        self,
+        rows: Sequence[Mapping[str, Any]],
+        *,
+        protected: ProtectedSources | None = None,
+    ) -> tuple[ApprovedSymbolCellCandidate, ...]:
+        groups: dict[tuple[str, str], list[tuple[int, Mapping[str, Any]]]] = defaultdict(list)
+        for index, row in enumerate(rows):
+            key = (str(row["source_relative_path"]), str(row["source_checksum_sha256"]))
+            groups[key].append((index, row))
+        worker_count = min(
+            _MAX_DESCRIPTOR_WORKERS, max(1, os.cpu_count() or 1), max(1, len(groups))
+        )
+        with ThreadPoolExecutor(
+            max_workers=worker_count, thread_name_prefix="symbol-cohort-source"
+        ) as executor:
+            results = [
+                result
+                for group in executor.map(
+                    partial(self._source_candidates, protected=protected), groups.values()
+                )
+                for result in group
+            ]
+        # Grouping must not change SQL's deterministic per-symbol order.
+        return tuple(candidate for _, candidate in sorted(results, key=lambda item: item[0]))
+
+    def _source_candidates(
+        self,
+        rows: Sequence[tuple[int, Mapping[str, Any]]],
+        *,
+        protected: ProtectedSources | None = None,
+    ) -> tuple[tuple[int, ApprovedSymbolCellCandidate], ...]:
+        candidates: list[tuple[int, ApprovedSymbolCellCandidate]] = []
+        with VirtualSymbolCellImageRenderer(self._artifact_root) as renderer:
+            if protected is not None:
+                self._attest_protected_source(renderer, rows, protected)
+            for index, row in rows:
+                candidate = self._candidate_or_missing(row, allow_cached=False, renderer=renderer)
+                if candidate is not None:
+                    candidates.append((index, candidate))
+        return tuple(candidates)
+
+    def _attest_protected_source(
+        self,
+        renderer: VirtualSymbolCellImageRenderer,
+        rows: Sequence[tuple[int, Mapping[str, Any]]],
+        protected: ProtectedSources,
+    ) -> None:
+        try:
+            first = rows[0][1]
+            checksum = str(first["source_checksum_sha256"])
+            source_path = managed_path(
+                self._artifact_root / "data", str(first["source_relative_path"])
+            )
+            frame = renderer.attest_source(source_path, checksum)
+            pixels = frame.source.normalized_pixel_checksum_sha256
+            if protected.excludes(checksum, pixels):
+                raise ProtectedSourceError(
+                    "PROTECTED_EVALUATION_SOURCE",
+                    "A protected source failed its exclusion metadata binding.",
+                )
+            for _, row in rows:
+                if pixels != row["normalized_pixel_checksum_sha256"]:
+                    raise ProtectedSourceError(
+                        "PROTECTED_SOURCE_IDENTITY_DRIFT",
+                        "Selected source pixels differ from checksum-bound geometry metadata.",
+                    )
+        except ProtectedSourceError as error:
+            raise ImageReviewConflictError(error.code, str(error)) from error
+        except CanonicalSourceLoadError as error:
+            raise ImageReviewConflictError(
+                "PROTECTED_SOURCE_DRIFT",
+                "A managed original failed byte or decoded pixel validation.",
+            ) from error
 
     def _exclusion_counts(self, game_id: UUID) -> SymbolCellTrainingExclusionCounts:
         values = (
@@ -327,10 +372,14 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
         )
 
     def _candidate_or_missing(
-        self, values: Mapping[str, Any], *, allow_cached: bool
+        self,
+        values: Mapping[str, Any],
+        *,
+        allow_cached: bool,
+        renderer: VirtualSymbolCellImageRenderer | None = None,
     ) -> ApprovedSymbolCellCandidate | None:
         try:
-            return self._candidate(values, allow_cached=allow_cached)
+            return self._candidate(values, allow_cached=allow_cached, renderer=renderer)
         except ImageReviewConflictError as error:
             if error.code in {
                 "SYMBOL_CELL_TRAINING_CROP_MISSING",
@@ -348,7 +397,11 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
         return self.inventory(game_id=game_id, lock_game=lock_game).candidates
 
     def _candidate(
-        self, values: Mapping[str, Any], *, allow_cached: bool
+        self,
+        values: Mapping[str, Any],
+        *,
+        allow_cached: bool,
+        renderer: VirtualSymbolCellImageRenderer | None = None,
     ) -> ApprovedSymbolCellCandidate:
         expected = str(values["crop_checksum_sha256"])
         asset_mode = str(values["asset_mode"])
@@ -359,7 +412,9 @@ class SqlAlchemySymbolCellTrainingSourceRepository(SymbolCellTrainingSourceRepos
             )
         asset = _virtual_asset(values)
         perceptual_hash, mean_rgb = (
-            _cached_verified_virtual_visual_descriptor(
+            _verified_virtual_image_descriptor(renderer, asset, expected)
+            if renderer is not None
+            else _cached_verified_virtual_visual_descriptor(
                 str(self._artifact_root),
                 str(asset.cell_review_id),
                 asset.revision,
@@ -488,22 +543,49 @@ def _uuid(value: object) -> UUID:
 def _visual_descriptor(content: bytes) -> tuple[int, tuple[int, int, int]]:
     try:
         with Image.open(BytesIO(content)) as image:
-            rgb = image.convert("RGB")
-            grayscale = rgb.convert("L").resize((9, 8), Image.Resampling.BILINEAR)
-            pixels = tuple(cast(Sequence[int], grayscale.get_flattened_data()))
-            value = 0
-            for row in range(8):
-                for column in range(8):
-                    value = (value << 1) | int(
-                        pixels[row * 9 + column] > pixels[row * 9 + column + 1]
-                    )
-            red, green, blue = ImageStat.Stat(rgb.resize((1, 1))).mean
+            return _image_visual_descriptor(image)
     except OSError as error:
         raise ImageReviewConflictError(
             "SYMBOL_CELL_TRAINING_CROP_INVALID",
             "An approved symbol crop is not a decodable image.",
         ) from error
+
+
+def _image_visual_descriptor(image: Image.Image) -> tuple[int, tuple[int, int, int]]:
+    rgb = image.convert("RGB")
+    grayscale = rgb.convert("L").resize((9, 8), Image.Resampling.BILINEAR)
+    pixels = tuple(cast(Sequence[int], grayscale.get_flattened_data()))
+    value = 0
+    for row in range(8):
+        for column in range(8):
+            value = (value << 1) | int(pixels[row * 9 + column] > pixels[row * 9 + column + 1])
+    red, green, blue = ImageStat.Stat(rgb.resize((1, 1))).mean
     return value, (round(red), round(green), round(blue))
+
+
+def _verified_virtual_image_descriptor(
+    renderer: VirtualSymbolCellImageRenderer,
+    asset: SymbolCellReviewAsset,
+    expected_checksum_sha256: str,
+) -> tuple[int, tuple[int, int, int]]:
+    if (
+        asset.rendered_pixel_checksum_sha256 != expected_checksum_sha256
+        or asset.crop_checksum_sha256 != expected_checksum_sha256
+    ):
+        raise ImageReviewConflictError(
+            "SYMBOL_CELL_TRAINING_CROP_CHANGED",
+            "An approved virtual symbol crop differs from its persisted pixel checksum.",
+        )
+    try:
+        with renderer.render(asset) as image:
+            return _image_visual_descriptor(image)
+    except SymbolCellReviewError as error:
+        code = (
+            "SYMBOL_CELL_TRAINING_CROP_MISSING"
+            if error.code == "SYMBOL_CELL_REVIEW_PREVIEW_SOURCE_UNAVAILABLE"
+            else "SYMBOL_CELL_TRAINING_CROP_CHANGED"
+        )
+        raise ImageReviewConflictError(code, str(error)) from error
 
 
 def _virtual_asset(values: Mapping[str, Any]) -> SymbolCellReviewAsset:

@@ -78,6 +78,7 @@ export function ModelQualityWorkspace({
   >([]);
   const [pendingPreview, setPendingPreview] =
     useState<PendingSymbolReinferencePreviewResponse | null>(null);
+  const [pendingError, setPendingError] = useState('');
   const [recalculating, setRecalculating] = useState(false);
   const [activationPreview, setActivationPreview] =
     useState<SymbolModelActivationPreviewResponse | null>(null);
@@ -91,16 +92,37 @@ export function ModelQualityWorkspace({
   const [notice, setNotice] = useState('');
   const idempotencyKeyRef = useRef<string | null>(null);
   const activationIdempotencyKeyRef = useRef<string | null>(null);
+  const refreshControllerRef = useRef<AbortController | null>(null);
 
   const refresh = useCallback(
     async (signal?: AbortSignal) => {
+      if (signal?.aborted) return;
+      refreshControllerRef.current?.abort();
+      const controller = new AbortController();
+      refreshControllerRef.current = controller;
+      const abort = () => controller.abort();
+      signal?.addEventListener('abort', abort, { once: true });
       setLoading(true);
       setError('');
-      const [result, pendingResult] = await Promise.all([
-        loadModelQuality(api, gameId, signal),
-        loadPendingSymbolReinference(api, gameId),
-      ]);
-      if (signal?.aborted) return;
+      setPendingPreview(null);
+      setPendingError('');
+      // This independent count must not hold the quality report in loading.
+      const pendingRead = loadPendingSymbolReinference(
+        api,
+        gameId,
+        controller.signal,
+      ).then((result) => {
+        if (controller.signal.aborted) return;
+        if (result.ok) setPendingPreview(result.preview);
+        else if (result.error !== 'REQUEST_ABORTED')
+          setPendingError(result.error);
+      });
+      const result = await loadModelQuality(api, gameId, controller.signal);
+      // Keep forwarding unmount cancellation until both reads have settled.
+      void pendingRead.finally(() =>
+        signal?.removeEventListener('abort', abort),
+      );
+      if (controller.signal.aborted) return;
       if (!result.ok) {
         if (result.error !== 'REQUEST_ABORTED') setError(result.error);
         setLoading(false);
@@ -110,7 +132,6 @@ export function ModelQualityWorkspace({
       setPreview(result.preview);
       setIterations(result.iterations);
       setActivations(result.activations);
-      if (pendingResult.ok) setPendingPreview(pendingResult.preview);
       setLoading(false);
     },
     [api, gameId],
@@ -119,8 +140,18 @@ export function ModelQualityWorkspace({
   useEffect(() => {
     const controller = new AbortController();
     idempotencyKeyRef.current = null;
-    queueMicrotask(() => void refresh(controller.signal));
-    return () => controller.abort();
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return;
+      setQuality(null);
+      setPreview(null);
+      setIterations([]);
+      setActivations([]);
+      void refresh(controller.signal);
+    });
+    return () => {
+      controller.abort();
+      refreshControllerRef.current?.abort();
+    };
   }, [refresh]);
 
   async function confirmFreeze() {
@@ -644,9 +675,30 @@ export function ModelQualityWorkspace({
           </p>
         ) : null}
         {error ? (
-          <p className="modelQualityError" role="alert">
-            {error}
-          </p>
+          <div className="modelQualityError" role="alert">
+            <p>{error}</p>
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() => void refresh()}
+            >
+              Spróbuj ponownie
+            </button>
+          </div>
+        ) : null}
+        {pendingError ? (
+          <div className="modelQualityError" role="alert">
+            <p>
+              Nie udało się wczytać liczby oczekujących plansz. {pendingError}
+            </p>
+            <button
+              className="secondaryButton"
+              type="button"
+              onClick={() => void refresh()}
+            >
+              Spróbuj ponownie
+            </button>
+          </div>
         ) : null}
 
         {!confirming ? (
@@ -665,7 +717,11 @@ export function ModelQualityWorkspace({
             </button>
             <button
               className="secondaryButton"
-              disabled={recalculating || pendingPreview?.pendingCount === 0}
+              disabled={
+                recalculating ||
+                pendingPreview === null ||
+                pendingPreview.pendingCount === 0
+              }
               onClick={() => void recalculatePendingSymbols()}
               type="button"
             >

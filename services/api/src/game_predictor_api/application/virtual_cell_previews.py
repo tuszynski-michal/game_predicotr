@@ -18,6 +18,7 @@ from uuid import UUID
 import numpy as np
 from game_predictor_worker.images.normalization import (
     RGB_PIXEL_CHECKSUM_VERSION,
+    CanonicalSourceFrame,
     CanonicalSourceLoader,
     CanonicalSourceLoadError,
     rgb_pixel_checksum_sha256,
@@ -534,28 +535,58 @@ def render_virtual_symbol_cell_png(*, artifact_root: Path, asset: SymbolCellRevi
     after all persisted source and render-provenance checks have passed.
     """
 
-    if asset.asset_mode != "virtual_source":
-        raise SymbolCellReviewError(
-            "SYMBOL_REFERENCE_VIRTUAL_ASSET_INVALID",
-            "Only a virtual symbol-cell asset can be materialized as a virtual reference.",
-        )
-    loader = CanonicalSourceLoader()
-    try:
-        frame = loader.load(
-            _managed_virtual_source_path(artifact_root.resolve(), asset),
-            expected_source_checksum_sha256=_required(asset.source_checksum_sha256),
-        )
-        image = _render_virtual_cell_image(asset=asset, frame=frame)
+    with VirtualSymbolCellImageRenderer(artifact_root) as renderer, renderer.render(asset) as image:
         output = BytesIO()
         image.save(output, format="PNG", optimize=False, compress_level=9)
         return output.getvalue()
-    except (CanonicalSourceLoadError, VirtualCellExtractionError) as error:
-        raise SymbolCellReviewError(
-            getattr(error, "code", "SYMBOL_REFERENCE_VIRTUAL_RENDER_FAILED"),
-            str(error),
-        ) from error
-    finally:
-        loader.clear()
+
+
+class VirtualSymbolCellImageRenderer:
+    """Reuse one attested source frame within a bounded execution only.
+
+    The existing canonical loader keeps at most one frame. Each cell still
+    validates source, geometry, render specification and rendered RGB checksum.
+    No pixels or files are cached beyond the caller's execution scope.
+    """
+
+    def __init__(self, artifact_root: Path) -> None:
+        self._artifact_root = artifact_root.resolve()
+        self._loader = CanonicalSourceLoader()
+        self._frame: CanonicalSourceFrame | None = None
+
+    def __enter__(self) -> VirtualSymbolCellImageRenderer:
+        return self
+
+    def __exit__(self, *_args: object) -> None:
+        self._loader.clear()
+        self._frame = None
+
+    def attest_source(self, source_path: Path, checksum: str) -> CanonicalSourceFrame:
+        """Load an attested managed original once for this source group."""
+        self._frame = self._loader.load(source_path, expected_source_checksum_sha256=checksum)
+        return self._frame
+
+    def render(self, asset: SymbolCellReviewAsset) -> Image.Image:
+        if asset.asset_mode != "virtual_source":
+            raise SymbolCellReviewError(
+                "SYMBOL_REFERENCE_VIRTUAL_ASSET_INVALID",
+                "Only a virtual symbol-cell asset can be materialized as a virtual reference.",
+            )
+        try:
+            checksum = _required(asset.source_checksum_sha256)
+            frame = self._frame
+            if frame is None or frame.source.source_checksum_sha256 != checksum:
+                frame = self._loader.load(
+                    _managed_virtual_source_path(self._artifact_root, asset),
+                    expected_source_checksum_sha256=checksum,
+                )
+                self._frame = frame
+            return _render_virtual_cell_image(asset=asset, frame=frame)
+        except (CanonicalSourceLoadError, VirtualCellExtractionError) as error:
+            raise SymbolCellReviewError(
+                getattr(error, "code", "SYMBOL_REFERENCE_VIRTUAL_RENDER_FAILED"),
+                str(error),
+            ) from error
 
 
 def _render_virtual_cell_image(*, asset: SymbolCellReviewAsset, frame: object) -> Image.Image:
@@ -874,4 +905,5 @@ __all__ = [
     "VirtualCellPreviewService",
     "VirtualCellPreviewTarget",
     "VirtualCellPreviewTile",
+    "VirtualSymbolCellImageRenderer",
 ]

@@ -141,9 +141,15 @@ class CanonicalSourceLoader:
             return self._cached_frame
 
         try:
-            actual_checksum = sha256_file(resolved)
-        except ImageFileError as error:
-            raise CanonicalSourceLoadError(error.code, str(error)) from error
+            # Hash and decode the same immutable bytes. Execution-scoped
+            # consumers can safely reuse this attested frame for protection
+            # checks and cell rendering without a second source decode.
+            content = resolved.read_bytes()
+            actual_checksum = hashlib.sha256(content).hexdigest()
+        except OSError as error:
+            raise CanonicalSourceLoadError(
+                "IMAGE_SOURCE_UNREADABLE", "Source image cannot be read."
+            ) from error
         if actual_checksum != expected_source_checksum_sha256:
             raise CanonicalSourceLoadError(
                 "IMAGE_CANONICAL_SOURCE_CHECKSUM_MISMATCH",
@@ -151,7 +157,7 @@ class CanonicalSourceLoader:
             )
 
         try:
-            with Image.open(resolved) as source:
+            with Image.open(io.BytesIO(content)) as source:
                 if source.format != "JPEG":
                     raise CanonicalSourceLoadError(
                         "IMAGE_CANONICAL_SOURCE_FORMAT_UNSUPPORTED",

@@ -257,6 +257,13 @@ decyzji i nowego niezmiennego raportu.
 
 ## Panel jakości rozpoznawania
 
+Odczyt zachowuje dokładny, deterministyczny preview kohorty. Przygotowanie
+nie powtarza dekodowania tego samego źródła dla każdej komórki i nie wymaga
+rozgrzanego cache procesu. Niezależny licznik ponownej inferencji nie blokuje
+raportu jakości. Po 45 sekundach bez odpowiedzi Admin pokazuje błąd i możliwość
+ponowienia; przejście do innej gry lub zamknięcie panelu anuluje odczyty i
+ignoruje ich spóźnione wyniki. Ten odczyt nie rozpoczyna treningu.
+
 Panel Admina dla aktywnej gry pokazuje co najmniej:
 
 - aktywną wersję modelu i jej checksumę,

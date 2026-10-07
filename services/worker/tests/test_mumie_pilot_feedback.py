@@ -132,7 +132,7 @@ def test_preview_excludes_whole_alias_before_pool_and_freeze_rechecks(
     session.execute.side_effect = (source_result, pooled_result)
     session.scalars.return_value.all.return_value = ("A",)
     decode = Mock(side_effect=AssertionError("Unselected photographs must not be decoded."))
-    monkeypatch.setattr(source_repository, "source_pixel_identity", decode)
+    monkeypatch.setattr(source_repository.VirtualSymbolCellImageRenderer, "attest_source", decode)
     repository = SqlAlchemySymbolCellTrainingSourceRepository(session, tmp_path)
     monkeypatch.setattr(
         repository, "_exclusion_counts", lambda _: SymbolCellTrainingExclusionCounts()
@@ -182,8 +182,11 @@ def test_live_pool_gate_rejects_protected_alias_with_forged_metadata(
     monkeypatch.setattr(
         repository, "_exclusion_counts", lambda _: SymbolCellTrainingExclusionCounts()
     )
+    monkeypatch.setattr(
+        source_repository, "_with_manifest_render_specs", lambda *_, **kw: kw["rows"]
+    )
     render = Mock()
-    monkeypatch.setattr(source_repository, "_with_manifest_render_specs", render)
+    monkeypatch.setattr(source_repository.VirtualSymbolCellImageRenderer, "render", render)
     with pytest.raises(ImageReviewConflictError) as caught:
         repository.inventory(game_id=UUID(protection.MUMIE_GAME_ID), lock_game=False)
     assert caught.value.code == "PROTECTED_EVALUATION_SOURCE"
@@ -210,12 +213,23 @@ def test_live_pool_gate_decodes_each_selected_photo_once(
     monkeypatch.setattr(
         repository, "_exclusion_counts", lambda _: SymbolCellTrainingExclusionCounts()
     )
-    monkeypatch.setattr(source_repository, "_with_manifest_render_specs", lambda *_, **__: ())
-    decode = Mock(wraps=source_repository.source_pixel_identity)
-    monkeypatch.setattr(source_repository, "source_pixel_identity", decode)
+    monkeypatch.setattr(
+        source_repository, "_with_manifest_render_specs", lambda *_, **kw: kw["rows"]
+    )
+    monkeypatch.setattr(repository, "_candidate_or_missing", lambda *_, **__: None)
+    from game_predictor_api.application.virtual_cell_previews import VirtualSymbolCellImageRenderer
+
+    original = VirtualSymbolCellImageRenderer.attest_source
+    calls = []
+
+    def decode(renderer, path, expected):
+        calls.append((path, expected))
+        return original(renderer, path, expected)
+
+    monkeypatch.setattr(VirtualSymbolCellImageRenderer, "attest_source", decode)
     inventory = repository.inventory(game_id=UUID(protection.MUMIE_GAME_ID), lock_game=True)
     assert inventory.protected_cell_count == 0
-    decode.assert_called_once_with(tmp_path / "data", relative, checksum)
+    assert calls == [(tmp_path / "data" / relative, checksum)]
 
 
 def _builder(

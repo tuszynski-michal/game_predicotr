@@ -17,7 +17,7 @@ from contextlib import contextmanager
 from typing import Final
 from uuid import UUID
 
-from sqlalchemy import text
+from sqlalchemy import Integer, Uuid, text
 from sqlalchemy.orm import Session
 
 from game_predictor_api.storage.database import assign_session_game, session_game
@@ -42,7 +42,9 @@ class GameEntityLocator:
     def registered_games(self) -> tuple[UUID, ...]:
         with self._session_factory() as session:
             rows = session.execute(
-                text("SELECT game_id FROM public.game_storage_locations ORDER BY game_id")
+                text("SELECT game_id FROM public.game_storage_locations ORDER BY game_id").columns(
+                    game_id=Uuid
+                )
             ).all()
             session.rollback()
         return tuple(row[0] if isinstance(row[0], UUID) else UUID(str(row[0])) for row in rows)
@@ -60,11 +62,13 @@ class GameEntityLocator:
                     continue
                 session, location = bound
                 qualified = router.qualified_game_table(location, table)
+                # Typed SELECT keeps routing read-only. A bare TextClause is
+                # deliberately classified as WRITE by the session safety guard.
                 row = session.execute(
                     text(
-                        f"SELECT 1 FROM {qualified} "
+                        f"SELECT 1 AS owner_probe FROM {qualified} "
                         f'WHERE game_id = :game_id AND "{column}" = :value LIMIT 1'
-                    ),
+                    ).columns(owner_probe=Integer),
                     {"game_id": game_id, "value": value},
                 ).first()
                 if row is not None:

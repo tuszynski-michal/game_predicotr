@@ -1,7 +1,7 @@
 ---
 title: Game data v2 ownership manifest
 status: accepted
-last_updated: 2026-10-01
+last_updated: 2026-10-07
 ---
 
 # Własność tabel game_data_v2 — TASK-0518
@@ -240,6 +240,14 @@ buildem, snapshotem i payoutami, kontrole współdzielonych plików i wykonań
 przy sprzątaniu gry) używają jawnej sesji właściciela `CrossGameOwnerSession`.
 Funkcja polityki `current_game_id_v1()` jest od `0138` `PARALLEL SAFE`
 (bez zmiany polityk i zachowania błędów).
+
+TASK-0902: zapytania właściciela w `GameEntityLocator` są typowanymi
+instrukcjami SELECT SQLAlchemy. Odczyt nie przechodzi przez bramkę WRITE,
+więc stan `migrating`, `deleting` lub `blocked` innej gry nie blokuje
+identyfikacji właściciela. Każda próba zachowuje własny zakres gry,
+jawny predykat `game_id` i RLS; nie przenosi ani nie łączy danych gier.
+Nieznane tekstowe SQL nadal domyślnie wymaga WRITE, a zapis do nieaktywnego
+magazynu pozostaje zablokowany.
 
 ## Greenfield cutover
 

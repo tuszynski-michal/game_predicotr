@@ -6,6 +6,29 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0902 — read-only owner lookup during unrelated maintenance (done)
+
+- The exact Mumie staging and completed preflight belong exclusively to Mumie.
+  Its active store is writable; the failing owner probe accidentally requests
+  WRITE on the independent 777v2 store, which remains `migrating`.
+- Known owner SELECTs are typed reads. RLS, explicit game predicates,
+  ambiguity detection and generic unknown-SQL WRITE fences remain unchanged.
+  Isolated application-role PostgreSQL 25/25 and routing/import 64/64 PASS;
+  scoped Ruff format/lint and strict mypy (implementation and test) PASS.
+- Controlled API restart loads the committed source; health HTTP 200.
+  Authorized staging `27d385b1-1580-4ece-b815-2667da19a1b7` created exactly
+  one Mumie import `d82d9aba-d59c-46f7-9ee8-8a7415565e3d`. Fresh-process
+  HTTP GET 200 and scoped retention read confirm its durable Mumie ownership.
+- Start took about 71 s, outlasting the diagnostic client's 55 s timeout.
+  Server audit confirms success; the durable job survived response loss.
+  It remains `created` in the running general worker's queue; full processing
+  was not awaited. Preflight takes about 32–35 s for this large neural manifest.
+- Neither 777 game was provisioned, activated, reassigned or deleted; their
+  statuses remain original 777 `active`, 777v2 `migrating`. No schema/API shape
+  change, model activation, cleanup, push or merge.
+- Evidence: artifacts/mumie-import-409-20261007/. Completion v1.7.244;
+  full commit hash recorded after commit.
+
 ### TASK-0899 — fast quality overview and independent grid (done)
 
 - User rejected the 45-second timeout. Page entry now requests SQL-only

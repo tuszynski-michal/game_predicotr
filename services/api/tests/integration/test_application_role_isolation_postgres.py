@@ -12,6 +12,7 @@ from __future__ import annotations
 import os
 from collections.abc import Iterator
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import cast
 from uuid import UUID, uuid4
@@ -27,11 +28,19 @@ from game_predictor_api.storage.database import (
 )
 from game_predictor_api.storage.database_roles import describe_application_role
 from game_predictor_api.storage.game_data_v2_manifest_v5 import CREATE_TABLES
+from game_predictor_api.storage.game_entity_locator import GameEntityLocator
 from game_predictor_api.storage.game_partition_lifecycle import partition_name
-from game_predictor_api.storage.game_storage_routing import game_storage_scope
-from game_predictor_api.storage.models import ImageGeometryRolloutStateModel
+from game_predictor_api.storage.game_storage_routing import (
+    GameStorageRoutingError,
+    current_game_storage_scope,
+    game_storage_scope,
+)
+from game_predictor_api.storage.models import (
+    BrowserSelectionRetentionModel,
+    ImageGeometryRolloutStateModel,
+)
 from game_predictor_api.storage.schema_readiness import require_alembic_head
-from sqlalchemy import Engine, select, text
+from sqlalchemy import Engine, delete, select, text, update
 from sqlalchemy.engine import URL
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session, sessionmaker
@@ -153,6 +162,140 @@ def test_unbound_orm_session_fails_instead_of_returning_rows(isolated: _Isolated
     with factory() as session, pytest.raises(DBAPIError) as error:
         session.execute(select(ImageGeometryRolloutStateModel.game_id)).all()
     assert _sqlstate(error.value) == "42P01"
+
+
+@pytest.mark.parametrize("status", ["migrating", "deleting", "blocked"])
+def test_owner_lookup_reads_other_games_without_requesting_write(
+    isolated: _Isolated, status: str
+) -> None:
+    factory = create_session_factory(isolated.app_engine)
+    locator = GameEntityLocator(factory)
+    with isolated.owner_engine.begin() as connection:
+        connection.execute(
+            text("UPDATE public.game_storage_locations SET status = :status WHERE game_id = :id"),
+            {"status": status, "id": isolated.game_b},
+        )
+    try:
+        # Fresh locator sessions must temporarily override the caller's scope
+        # and probe both owners without upgrading a read to a maintenance write.
+        with game_storage_scope(isolated.game_a):
+            assert (
+                locator.locate("image_geometry_rollout_states", "game_id", isolated.game_a)
+                == isolated.game_a
+            )
+            assert (
+                locator.locate("image_geometry_rollout_states", "game_id", isolated.game_b)
+                == isolated.game_b
+            )
+            restored_scope = current_game_storage_scope()
+            assert restored_scope is not None
+            assert restored_scope.game_id == isolated.game_a
+        assert locator.locate("image_geometry_rollout_states", "game_id", uuid4()) is None
+        # Identifying the owner never makes a non-active store writable.
+        with game_storage_scope(isolated.game_b), factory() as session:
+            with pytest.raises(GameStorageRoutingError) as raised:
+                session.execute(
+                    update(ImageGeometryRolloutStateModel)
+                    .where(ImageGeometryRolloutStateModel.game_id == isolated.game_b)
+                    .values(updated_by="must-not-write")
+                )
+            assert raised.value.code == "GAME_STORAGE_WRITE_UNAVAILABLE"
+            assert raised.value.details["gameId"] == str(isolated.game_b)
+            # Unknown text SQL must retain its conservative WRITE classification.
+            with pytest.raises(GameStorageRoutingError) as raw_raised:
+                session.execute(
+                    text("UPDATE image_geometry_rollout_states SET updated_by = 'must-not-write'")
+                )
+            assert raw_raised.value.code == "GAME_STORAGE_WRITE_UNAVAILABLE"
+        assert _ab_rollout_owners(isolated) == {
+            isolated.game_a: _UNTOUCHED,
+            isolated.game_b: _UNTOUCHED,
+        }
+    finally:
+        with isolated.owner_engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE public.game_storage_locations SET status = 'active' WHERE game_id = :id"
+                ),
+                {"id": isolated.game_b},
+            )
+
+
+def test_browser_start_owner_dependency_ignores_unrelated_maintenance(
+    isolated: _Isolated, tmp_path: Path
+) -> None:
+    upload_id = uuid4()
+    factory = create_session_factory(isolated.app_engine)
+    with game_storage_scope(isolated.game_a), factory.begin() as session:
+        session.add(
+            BrowserSelectionRetentionModel(
+                upload_id=upload_id,
+                game_id=isolated.game_a,
+                display_name="isolated game A staging",
+                state="ready",
+                board_import_status="ready",
+                manifest_checksum_sha256="0" * 64,
+                finalized_at=datetime.now(UTC),
+            )
+        )
+    with isolated.owner_engine.begin() as connection:
+        connection.execute(
+            text(
+                "UPDATE public.game_storage_locations SET status = 'migrating' WHERE game_id = :id"
+            ),
+            {"id": isolated.game_b},
+        )
+    application = create_app(
+        ApiSettings(
+            host="127.0.0.1",
+            port=8000,
+            admin_origin="http://127.0.0.1:3000",
+            database_url=isolated.app_url.render_as_string(hide_password=False),
+            configured_owner_database_url=isolated.owner_url.render_as_string(hide_password=False),
+            artifact_root=(tmp_path / "artifacts").resolve(),
+            import_root=(tmp_path / "imports").resolve(),
+            remote_selection_recovery_enabled=False,
+        )
+    )
+    try:
+        with TestClient(application) as client:
+            response = client.post(
+                f"/api/v1/admin/image-imports/browser-selections/{upload_id}/start",
+                json={
+                    "gameId": str(isolated.game_a),
+                    "manifestChecksumSha256": "0" * 64,
+                    "preflightChecksumSha256": "0" * 64,
+                },
+            )
+        # Deliberately no staging files: once owner lookup succeeds, normal
+        # import validation must report the missing source, not game B's 409.
+        assert response.status_code == 422, response.text
+        assert response.json()["code"] == "IMAGE_BROWSER_SELECTION_NOT_FOUND"
+        assert (
+            GameEntityLocator(factory).locate(
+                "browser_selection_retention_states", "upload_id", upload_id
+            )
+            == isolated.game_a
+        )
+        assert _ab_rollout_owners(isolated) == {
+            isolated.game_a: _UNTOUCHED,
+            isolated.game_b: _UNTOUCHED,
+        }
+    finally:
+        application.state.database_engine.dispose()
+        with isolated.owner_engine.begin() as connection:
+            connection.execute(
+                text(
+                    "UPDATE public.game_storage_locations SET status = 'active' WHERE game_id = :id"
+                ),
+                {"id": isolated.game_b},
+            )
+        with game_storage_scope(isolated.game_a), factory.begin() as session:
+            session.execute(
+                delete(BrowserSelectionRetentionModel).where(
+                    BrowserSelectionRetentionModel.upload_id == upload_id
+                )
+            )
 
 
 def test_bound_game_sees_only_its_own_rows(isolated: _Isolated) -> None:

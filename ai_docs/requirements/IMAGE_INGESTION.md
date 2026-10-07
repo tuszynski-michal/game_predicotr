@@ -1,7 +1,7 @@
 ---
 title: Image ingestion requirements
 status: accepted
-last_updated: 2026-10-01
+last_updated: 2026-10-07
 ---
 
 # Import i rozpoznawanie zdjęć
@@ -27,6 +27,9 @@ uploadu lista jest odświeżana przed raportem, więc błąd raportu nie ukrywa
 zapisanych zdjęć. Trwałe stagingi innych gier nie są przepinane ani usuwane.
 Staging po usuniętej grze nie może blokować odczytu innych folderów; brak
 opcjonalnego statusu retencji nie jest zgodą na zmianę właściciela.
+Stan utrzymania innej gry nie może blokować ustalenia właściciela stagingu
+ani rozpoczęcia importu do aktywnej gry. Zapis do gry, której własny magazyn
+jest nieaktywny, pozostaje zablokowany (TASK-0902).
 
 Wybór „Dopasowanie geometrii zdjęcia” jest dostępny tylko przy klasycznej
 geometrii. Profil Mumii V3 nie korzysta z dopasowania ORB do wzorca; jawny

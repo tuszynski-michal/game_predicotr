@@ -1593,6 +1593,11 @@ każdym spinie.
   deduplikuje wspólne woluminy `artifact_root`/`import_root` i zapisuje
   `storage_usage_snapshots`; GET panelu czyta ostatni snapshot oraz bieżące
   metadane wolnego miejsca bez materializowania listy plików,
+- composition root tworzy jedną runtime'ową politykę pojemności dla admission
+  zapisu oraz receiptów `storage_gc`: domyślnie ostrzega przy 80 GiB, uruchamia
+  jeden GC przy 60 GiB i wymaga 5 GiB wolnego miejsca po konserwatywnej
+  estymacji materializowanych artefaktów; ustawienia środowiskowe nadpisują te
+  progi spójnie w obu ścieżkach,
 - `storage_pipeline_compaction` usuwa po 24 godzinach wyłącznie odtwarzalne,
   późne payloady etapów z terminalnych wykonań. Preview jest keysetowym JSONL,
   a worker przed każdą partią ponownie sprawdza execution, zależności,

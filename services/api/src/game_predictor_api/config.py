@@ -24,6 +24,7 @@ _DEFAULT_REMOTE_SELECTION_MAX_FILE_BYTES = 32 * 1024 * 1024
 _DEFAULT_REMOTE_SELECTION_MAX_SESSION_BYTES = 20 * 1024 * 1024 * 1024
 _DEFAULT_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS = 20_000
 _DEFAULT_SYMBOL_REVIEW_COUNTS_STATEMENT_TIMEOUT_MS = 15_000
+_DEFAULT_STORAGE_HARD_RESERVE_GIB = 5
 _DEFAULT_REVIEW_CROP_ROOT = Path("artifacts/m5-reviewed-manual-merge-v16-full-preflight")
 _DEFAULT_REVIEW_SOURCE_ROOT = Path("examples/imgs")
 
@@ -57,7 +58,7 @@ class ApiSettings:
     storage_warning_gib: int = 80
     storage_automatic_gc_gib: int = 60
     storage_target_gib: int = 80
-    storage_hard_reserve_gib: int = 30
+    storage_hard_reserve_gib: int = _DEFAULT_STORAGE_HARD_RESERVE_GIB
     storage_gc_observe_only: bool = False
     review_crop_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_CROP_ROOT.resolve())
     review_source_root: Path = field(default_factory=lambda: _DEFAULT_REVIEW_SOURCE_ROOT.resolve())
@@ -186,7 +187,10 @@ class ApiSettings:
             variable_name="GAME_PREDICTOR_STORAGE_TARGET_GIB",
         )
         storage_hard_reserve_gib = _parse_positive_integer(
-            source.get("GAME_PREDICTOR_STORAGE_HARD_RESERVE_GIB", "30"),
+            source.get(
+                "GAME_PREDICTOR_STORAGE_HARD_RESERVE_GIB",
+                str(_DEFAULT_STORAGE_HARD_RESERVE_GIB),
+            ),
             variable_name="GAME_PREDICTOR_STORAGE_HARD_RESERVE_GIB",
         )
         storage_gc_observe_only = _parse_boolean(

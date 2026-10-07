@@ -15,7 +15,7 @@ class StorageCapacityPolicy:
     warning_bytes: int = 80 * GIB
     automatic_gc_bytes: int = 60 * GIB
     target_bytes: int = 80 * GIB
-    hard_reserve_bytes: int = 30 * GIB
+    hard_reserve_bytes: int = 5 * GIB
     conservative_multiplier: int = 8
     safety_percent: int = 20
 
@@ -74,12 +74,9 @@ def evaluate_storage_capacity(
         for key, (root, free) in sorted(distinct.items())
     )
     warning = any(item.free_bytes < policy.warning_bytes for item in volumes)
-    automatic_gc_required = any(
-        item.free_bytes < policy.automatic_gc_bytes for item in volumes
-    )
+    automatic_gc_required = any(item.free_bytes < policy.automatic_gc_bytes for item in volumes)
     permitted = all(
-        item.free_bytes - item.required_bytes >= policy.hard_reserve_bytes
-        for item in volumes
+        item.free_bytes - item.required_bytes >= policy.hard_reserve_bytes for item in volumes
     )
     return StorageCapacityDecision(
         volumes=volumes,

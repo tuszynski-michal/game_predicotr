@@ -6,6 +6,22 @@ last_updated: 2026-10-07
 
 # Decision Log
 
+## D-530 — managed image operations retain five GiB after estimation
+
+- **Status:** accepted user instruction, 2026-10-07, TASK-0900.
+- **Decision:** the default hard reserve for managed image writes is 5 GiB,
+  measured after the existing conservative artifact estimate on every distinct
+  `artifact_root`/`import_root` volume. Exactly 5 GiB remaining is permitted;
+  less is blocked. The browser-staging physical reserve remains 512 MiB.
+- **Preserved:** warning at 80 GiB, automatic GC at 60 GiB, size limits,
+  conservative multiplier and safety margin. A configured override is shared
+  by write admission and new GC manifests; existing immutable manifests retain
+  their recorded historical policy.
+- **Boundary:** no cleanup, data mutation, registry-state recovery, migration,
+  API shape change, restart, deployment, push or merge. A
+  `GAME_STORAGE_WRITE_UNAVAILABLE` response is a separate non-active game
+  storage status and is not recast as a capacity failure.
+
 ## D-529 — metadata overview precedes exact training cohort preparation
 
 - **Status:** accepted root fix requested by the user, 2026-10-07, TASK-0899.

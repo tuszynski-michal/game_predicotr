@@ -1150,9 +1150,11 @@ wymagają osobnej, jawnej operacji operatorskiej. Procedury opisuje
 Po odbiorze pierwszego cleanupu automatyczne GC jest domyślnie aktywne.
 `GAME_PREDICTOR_STORAGE_GC_OBSERVE_ONLY=true` służy do jego jawnego,
 tymczasowego wyłączenia. Poniżej 60 GiB system tworzy jeden idempotentny GC;
-poniżej rezerwy 30 GiB blokuje nowe operacje zapisujące obrazy. Brak
-bezpiecznych kandydatów pozostawia blokadę i wymaga decyzji użytkownika —
-system nie rozszerza wtedy automatycznie zakresu usuwania.
+poniżej rezerwy 5 GiB po konserwatywnej estymacji importu blokuje nowe operacje
+zapisujące obrazy. `GAME_PREDICTOR_STORAGE_HARD_RESERVE_GIB` może jawnie
+nadpisać tę rezerwę; ten sam próg trafia do receiptów GC. Brak bezpiecznych
+kandydatów pozostawia blokadę i wymaga decyzji użytkownika — system nie
+rozszerza wtedy automatycznie zakresu usuwania.
 
 Podczas rozwoju można nadal jawnie uruchomić `npm run reviewer:dev`; przycisk
 lokalny wykorzysta gotowy proces na porcie 3001. Przycisk

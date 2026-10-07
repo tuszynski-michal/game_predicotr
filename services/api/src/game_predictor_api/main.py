@@ -261,6 +261,7 @@ from game_predictor_api.domain.rules import (
     RulesNotFoundError,
 )
 from game_predictor_api.domain.storage_capacity import GIB, StorageCapacityPolicy
+from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
 from game_predictor_api.security.local_admin import (
     ADMIN_CONFIRMATION_HEADER,
     ADMIN_INTENT_HEADER,
@@ -1072,12 +1073,19 @@ def create_app(
         target_bytes=resolved_settings.storage_target_gib * GIB,
         hard_reserve_bytes=resolved_settings.storage_hard_reserve_gib * GIB,
     )
+    storage_retention_policy = StorageRetentionPolicy(
+        warning_free_bytes=resolved_settings.storage_warning_gib * GIB,
+        automatic_gc_free_bytes=resolved_settings.storage_automatic_gc_gib * GIB,
+        target_free_bytes=resolved_settings.storage_target_gib * GIB,
+        hard_reserve_bytes=resolved_settings.storage_hard_reserve_gib * GIB,
+    )
     automatic_storage_gc_service = StorageGcService(
         SqlAlchemyStorageGcRepository(session_factory),
         StorageGcArtifactStore(
             resolved_settings.artifact_root,
             resolved_settings.import_root,
         ),
+        policy=storage_retention_policy,
     )
     storage_capacity_guard = StorageCapacityGuard(
         {
@@ -1360,6 +1368,7 @@ def create_app(
                             resolved_settings.artifact_root,
                             resolved_settings.import_root,
                         ),
+                        policy=storage_retention_policy,
                     ),
                 )
                 session.commit()

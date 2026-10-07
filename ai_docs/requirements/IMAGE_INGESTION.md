@@ -1638,6 +1638,10 @@ Browserowy import plansz ma osobny limit
 limitu 1 GiB przeznaczonego dla ręcznych plików CSV/JSONL ani limitu selekcji
 zdjęć. Przed utworzeniem stagingu API nadal sprawdza deklarowaną liczbę i
 rozmiar plików oraz zachowuje co najmniej 512 MiB wolnej przestrzeni dyskowej.
+Operacja, która materializuje zarządzane artefakty, musi po swojej
+konserwatywnej estymacji pozostawić co najmniej 5 GiB na każdym woluminie
+`artifact_root`/`import_root`. Ostrzeżenie przy 80 GiB i automatyczny GC przy
+60 GiB pozostają niezależnymi progami operacyjnymi.
 
 Przed utworzeniem joba Admin wywołuje preflight związany z `gameId` i checksumą
 manifestu. Raport pokazuje nowe i kanonicznie użyte ponownie numery, pominięte

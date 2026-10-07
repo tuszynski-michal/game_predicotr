@@ -30,6 +30,21 @@ last_updated: 2026-10-07
   Evidence: artifacts/model-quality-overview-20261007/verification.json.
 - Completion v1.7.242; full commit hash recorded after commit.
 
+### TASK-0900 — five GiB image storage reserve (done)
+
+- Default hard reserve for managed image operations is 5 GiB after the existing
+  conservative estimate, with exactly 5 GiB remaining permitted. Warning at
+  80 GiB, automatic GC at 60 GiB and browser staging's physical 512 MiB reserve
+  remain unchanged.
+- Capacity admission and automatic/manual storage-GC manifests now use the same
+  runtime threshold. Focused policies/configuration: 70 PASS; browser import
+  capacity integration: 4 PASS; scoped Ruff and policy mypy PASS.
+- API, Docker and PostgreSQL were unavailable during diagnosis. The shown
+  `GAME_STORAGE_WRITE_UNAVAILABLE` is a separate non-active game storage
+  status; no registry mutation, restart or import retry was performed. Read it
+  after controlled service start before attempting recovery.
+- Completion version/hash pending commit.
+
 ### TASK-0898 — bounded model-quality loading (done)
 
 - Exact cohort reads group sources into up to seven execution-scoped RGB

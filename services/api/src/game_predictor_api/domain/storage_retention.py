@@ -50,7 +50,7 @@ class StorageRetentionPolicy:
     warning_free_bytes: int = 80 * 1024**3
     automatic_gc_free_bytes: int = 60 * 1024**3
     target_free_bytes: int = 80 * 1024**3
-    hard_reserve_bytes: int = 30 * 1024**3
+    hard_reserve_bytes: int = 5 * 1024**3
 
     def __post_init__(self) -> None:
         if not self.version.strip():

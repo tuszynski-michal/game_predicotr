@@ -88,13 +88,15 @@
 }
 
 .filterActions {
-  display: grid;
-  align-content: end;
-  gap: 6px;
+  grid-column: 1 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
 }
 
 .filterActions button {
-  width: 100%;
+  min-height: 44px;
 }
 
 .filterActions span {
@@ -104,12 +106,84 @@
 }
 
 .filters fieldset {
-  grid-column: 1 / span 3;
-  grid-template-columns: repeat(3, auto);
+  grid-column: 1 / -1;
+  grid-template-columns: minmax(0, 1fr);
   align-content: end;
   align-items: center;
-  justify-content: start;
   gap: 8px 12px;
+}
+
+.filterSection {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
+
+.filterSectionToggle {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.filterSectionToggle > :last-child {
+  margin-left: auto;
+}
+
+.filterSectionDetail {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 500;
+}
+
+.filterSectionContent {
+  display: grid;
+  gap: 8px;
+  min-width: 0;
+  padding-top: 8px;
+}
+
+.filterSectionContent[hidden] {
+  display: none;
+}
+
+.radioOptions {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 12px;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.radioOptions label {
+  flex: 0 0 auto;
+  min-height: 32px;
+}
+
+.radioOptions input[type='radio'] {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+}
+
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .filters legend {
@@ -610,12 +684,21 @@
     grid-template-columns: 1fr;
   }
 
+  .workspaceFullscreen .filters {
+    max-height: 45dvh;
+    overflow-y: auto;
+  }
+
   .filters fieldset {
     grid-column: auto;
   }
 
   .filters fieldset.changeRange {
     grid-template-columns: 1fr;
+  }
+
+  .radioOptions label {
+    min-height: 44px;
   }
 
   .summary,

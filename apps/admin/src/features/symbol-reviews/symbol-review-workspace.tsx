@@ -13,10 +13,12 @@ import type {
 import {
   useCallback,
   useEffect,
+  useId,
   useMemo,
   useReducer,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
@@ -1479,246 +1481,274 @@ export function SymbolReviewWorkspace({
             ))}
           </select>
         </label>
-        <fieldset>
-          <legend>Stan weryfikacji</legend>
-          <label>
-            <input
-              checked={filters.state === 'all'}
-              disabled={interactionBusy}
-              name="symbol-review-state"
-              onChange={() => requestFilterChange({ ...filters, state: 'all' })}
-              type="radio"
-            />
-            Wszystkie
-          </label>
-          <label>
-            <input
-              checked={filters.state === 'pending'}
-              disabled={interactionBusy}
-              name="symbol-review-state"
-              onChange={() =>
-                requestFilterChange({ ...filters, state: 'pending' })
-              }
-              type="radio"
-            />
-            Oczekujące
-          </label>
-          <label>
-            <input
-              checked={filters.state === 'approved'}
-              disabled={interactionBusy}
-              name="symbol-review-state"
-              onChange={() =>
-                requestFilterChange({ ...filters, state: 'approved' })
-              }
-              type="radio"
-            />
-            Zatwierdzone
-          </label>
-          <label>
-            <input
-              checked={filters.state === 'active_model_cohort'}
-              disabled={interactionBusy}
-              name="symbol-review-state"
-              onChange={() =>
-                requestFilterChange({
-                  ...filters,
-                  state: 'active_model_cohort',
-                })
-              }
-              type="radio"
-            />
-            Kohorta aktywnego modelu
-          </label>
-        </fieldset>
-        <fieldset>
-          <legend>Pewność rozpoznania</legend>
-          <label>
-            <input
-              checked={filters.confidence === 'all'}
-              disabled={interactionBusy}
-              name="symbol-review-confidence"
-              onChange={() =>
-                requestFilterChange({ ...filters, confidence: 'all' })
-              }
-              type="radio"
-            />
-            Wszystkie
-          </label>
-          <label>
-            <input
-              checked={filters.confidence === 'exact_100'}
-              disabled={interactionBusy}
-              name="symbol-review-confidence"
-              onChange={() =>
-                requestFilterChange({ ...filters, confidence: 'exact_100' })
-              }
-              type="radio"
-            />
-            Dokładnie 100%
-          </label>
-          <label>
-            <input
-              checked={filters.confidence === 'from_80_to_100'}
-              disabled={interactionBusy}
-              name="symbol-review-confidence"
-              onChange={() =>
-                requestFilterChange({
-                  ...filters,
-                  confidence: 'from_80_to_100',
-                })
-              }
-              type="radio"
-            />
-            80–&lt;100%
-          </label>
-          <label>
-            <input
-              checked={filters.confidence === 'from_80_to_99'}
-              disabled={interactionBusy}
-              name="symbol-review-confidence"
-              onChange={() =>
-                requestFilterChange({
-                  ...filters,
-                  confidence: 'from_80_to_99',
-                })
-              }
-              type="radio"
-            />
-            80–&lt;99%
-          </label>
-          <label>
-            <input
-              checked={filters.confidence === 'from_60_to_80'}
-              disabled={interactionBusy}
-              name="symbol-review-confidence"
-              onChange={() =>
-                requestFilterChange({
-                  ...filters,
-                  confidence: 'from_60_to_80',
-                })
-              }
-              type="radio"
-            />
-            60–&lt;80%
-          </label>
-          <label>
-            <input
-              checked={filters.confidence === 'below_60'}
-              disabled={interactionBusy}
-              name="symbol-review-confidence"
-              onChange={() =>
-                requestFilterChange({ ...filters, confidence: 'below_60' })
-              }
-              type="radio"
-            />
-            Poniżej 60%
-          </label>
-        </fieldset>
-        <fieldset>
-          <legend>Źródło predykcji</legend>
-          {PREDICTION_SOURCE_OPTIONS.map((option) => (
-            <label key={option.value}>
+        <SymbolReviewFilterSection
+          title="Filtry szczegółowe"
+          detail={
+            filters.state !== 'all' ||
+            filters.confidence !== 'all' ||
+            filters.predictionSource !== 'all'
+              ? `Aktywne: ${Number(filters.state !== 'all') + Number(filters.confidence !== 'all') + Number(filters.predictionSource !== 'all')}`
+              : undefined
+          }
+        >
+          <fieldset>
+            <legend>Stan weryfikacji</legend>
+            <div className={styles.radioOptions}>
+              <label>
+                <input
+                  checked={filters.state === 'all'}
+                  disabled={interactionBusy}
+                  name="symbol-review-state"
+                  onChange={() =>
+                    requestFilterChange({ ...filters, state: 'all' })
+                  }
+                  type="radio"
+                />
+                Wszystkie
+              </label>
+              <label>
+                <input
+                  checked={filters.state === 'pending'}
+                  disabled={interactionBusy}
+                  name="symbol-review-state"
+                  onChange={() =>
+                    requestFilterChange({ ...filters, state: 'pending' })
+                  }
+                  type="radio"
+                />
+                Oczekujące
+              </label>
+              <label>
+                <input
+                  checked={filters.state === 'approved'}
+                  disabled={interactionBusy}
+                  name="symbol-review-state"
+                  onChange={() =>
+                    requestFilterChange({ ...filters, state: 'approved' })
+                  }
+                  type="radio"
+                />
+                Zatwierdzone
+              </label>
+              <label>
+                <input
+                  checked={filters.state === 'active_model_cohort'}
+                  disabled={interactionBusy}
+                  name="symbol-review-state"
+                  onChange={() =>
+                    requestFilterChange({
+                      ...filters,
+                      state: 'active_model_cohort',
+                    })
+                  }
+                  type="radio"
+                />
+                Kohorta aktywnego modelu
+              </label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Pewność rozpoznania</legend>
+            <div className={styles.radioOptions}>
+              <label>
+                <input
+                  checked={filters.confidence === 'all'}
+                  disabled={interactionBusy}
+                  name="symbol-review-confidence"
+                  onChange={() =>
+                    requestFilterChange({ ...filters, confidence: 'all' })
+                  }
+                  type="radio"
+                />
+                Wszystkie
+              </label>
+              <label>
+                <input
+                  checked={filters.confidence === 'exact_100'}
+                  disabled={interactionBusy}
+                  name="symbol-review-confidence"
+                  onChange={() =>
+                    requestFilterChange({ ...filters, confidence: 'exact_100' })
+                  }
+                  type="radio"
+                />
+                Dokładnie 100%
+              </label>
+              <label>
+                <input
+                  checked={filters.confidence === 'from_80_to_100'}
+                  disabled={interactionBusy}
+                  name="symbol-review-confidence"
+                  onChange={() =>
+                    requestFilterChange({
+                      ...filters,
+                      confidence: 'from_80_to_100',
+                    })
+                  }
+                  type="radio"
+                />
+                80–&lt;100%
+              </label>
+              <label>
+                <input
+                  checked={filters.confidence === 'from_80_to_99'}
+                  disabled={interactionBusy}
+                  name="symbol-review-confidence"
+                  onChange={() =>
+                    requestFilterChange({
+                      ...filters,
+                      confidence: 'from_80_to_99',
+                    })
+                  }
+                  type="radio"
+                />
+                80–&lt;99%
+              </label>
+              <label>
+                <input
+                  checked={filters.confidence === 'from_60_to_80'}
+                  disabled={interactionBusy}
+                  name="symbol-review-confidence"
+                  onChange={() =>
+                    requestFilterChange({
+                      ...filters,
+                      confidence: 'from_60_to_80',
+                    })
+                  }
+                  type="radio"
+                />
+                60–&lt;80%
+              </label>
+              <label>
+                <input
+                  checked={filters.confidence === 'below_60'}
+                  disabled={interactionBusy}
+                  name="symbol-review-confidence"
+                  onChange={() =>
+                    requestFilterChange({ ...filters, confidence: 'below_60' })
+                  }
+                  type="radio"
+                />
+                Poniżej 60%
+              </label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Źródło predykcji</legend>
+            <div className={styles.radioOptions}>
+              {PREDICTION_SOURCE_OPTIONS.map((option) => (
+                <label key={option.value}>
+                  <input
+                    checked={filters.predictionSource === option.value}
+                    disabled={interactionBusy}
+                    name="symbol-review-prediction-source"
+                    onChange={() =>
+                      requestFilterChange({
+                        ...filters,
+                        predictionSource: option.value,
+                      })
+                    }
+                    type="radio"
+                  />
+                  {option.label}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        </SymbolReviewFilterSection>
+        <SymbolReviewFilterSection
+          title="Data zmiany komórki"
+          detail={
+            filters.changedFrom !== null || filters.changedTo !== null
+              ? `Aktywny: ${changeRangeLabel(filters)}`
+              : undefined
+          }
+        >
+          <fieldset className={styles.changeRange}>
+            <legend className={styles.visuallyHidden}>
+              Data zmiany komórki
+              {filters.changedFrom !== null || filters.changedTo !== null
+                ? ` (aktywny: ${changeRangeLabel(filters)})`
+                : ''}
+            </legend>
+            <label>
+              Od
               <input
-                checked={filters.predictionSource === option.value}
+                aria-label="Data zmiany od"
                 disabled={interactionBusy}
-                name="symbol-review-prediction-source"
-                onChange={() =>
-                  requestFilterChange({
-                    ...filters,
-                    predictionSource: option.value,
-                  })
-                }
-                type="radio"
+                onChange={(event) => {
+                  const from = event.currentTarget.value;
+                  setChangeRangeDraft((current) => ({ ...current, from }));
+                  setChangeRangeError('');
+                }}
+                type="datetime-local"
+                value={changeRangeDraft.from}
               />
-              {option.label}
             </label>
-          ))}
-        </fieldset>
-        <fieldset className={styles.changeRange}>
-          <legend>
-            Data zmiany komórki
-            {filters.changedFrom !== null || filters.changedTo !== null
-              ? ` (aktywny: ${changeRangeLabel(filters)})`
-              : ''}
-          </legend>
-          <label>
-            Od
-            <input
-              aria-label="Data zmiany od"
-              disabled={interactionBusy}
-              onChange={(event) => {
-                const from = event.currentTarget.value;
-                setChangeRangeDraft((current) => ({ ...current, from }));
-                setChangeRangeError('');
-              }}
-              type="datetime-local"
-              value={changeRangeDraft.from}
-            />
-          </label>
-          <label>
-            Do
-            <input
-              aria-label="Data zmiany do"
-              disabled={interactionBusy}
-              onChange={(event) => {
-                const to = event.currentTarget.value;
-                setChangeRangeDraft((current) => ({ ...current, to }));
-                setChangeRangeError('');
-              }}
-              type="datetime-local"
-              value={changeRangeDraft.to}
-            />
-          </label>
-          <div className={styles.changeRangeActions}>
-            <button
-              className="secondaryButton"
-              disabled={interactionBusy}
-              onClick={() => {
-                const draft = {
-                  from: symbolReviewStartOfDayLocal(new Date()),
-                  to: '',
-                };
-                setChangeRangeDraft(draft);
-                applyChangeRange(draft);
-              }}
-              type="button"
-            >
-              Od dziś 00:00
-            </button>
-            <button
-              className="secondaryButton"
-              disabled={interactionBusy}
-              onClick={() => applyChangeRange(changeRangeDraft)}
-              type="button"
-            >
-              Zastosuj zakres
-            </button>
-            <button
-              className="secondaryButton"
-              disabled={
-                interactionBusy ||
-                (filters.changedFrom === null &&
-                  filters.changedTo === null &&
-                  changeRangeDraft.from === '' &&
-                  changeRangeDraft.to === '')
-              }
-              onClick={() => {
-                const draft = { from: '', to: '' };
-                setChangeRangeDraft(draft);
-                applyChangeRange(draft);
-              }}
-              type="button"
-            >
-              Wyczyść
-            </button>
-          </div>
-          {changeRangeError === '' ? null : (
-            <p className={styles.changeRangeError} role="alert">
-              {changeRangeError}
-            </p>
-          )}
-        </fieldset>
+            <label>
+              Do
+              <input
+                aria-label="Data zmiany do"
+                disabled={interactionBusy}
+                onChange={(event) => {
+                  const to = event.currentTarget.value;
+                  setChangeRangeDraft((current) => ({ ...current, to }));
+                  setChangeRangeError('');
+                }}
+                type="datetime-local"
+                value={changeRangeDraft.to}
+              />
+            </label>
+            <div className={styles.changeRangeActions}>
+              <button
+                className="secondaryButton"
+                disabled={interactionBusy}
+                onClick={() => {
+                  const draft = {
+                    from: symbolReviewStartOfDayLocal(new Date()),
+                    to: '',
+                  };
+                  setChangeRangeDraft(draft);
+                  applyChangeRange(draft);
+                }}
+                type="button"
+              >
+                Od dziś 00:00
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={interactionBusy}
+                onClick={() => applyChangeRange(changeRangeDraft)}
+                type="button"
+              >
+                Zastosuj zakres
+              </button>
+              <button
+                className="secondaryButton"
+                disabled={
+                  interactionBusy ||
+                  (filters.changedFrom === null &&
+                    filters.changedTo === null &&
+                    changeRangeDraft.from === '' &&
+                    changeRangeDraft.to === '')
+                }
+                onClick={() => {
+                  const draft = { from: '', to: '' };
+                  setChangeRangeDraft(draft);
+                  applyChangeRange(draft);
+                }}
+                type="button"
+              >
+                Wyczyść
+              </button>
+            </div>
+            {changeRangeError === '' ? null : (
+              <p className={styles.changeRangeError} role="alert">
+                {changeRangeError}
+              </p>
+            )}
+          </fieldset>
+        </SymbolReviewFilterSection>
         <div className={styles.filterActions}>
           <button
             aria-pressed={fullscreen}
@@ -2173,6 +2203,47 @@ function symbolReviewCardBadge(
     return '?';
   }
   return null;
+}
+
+function SymbolReviewFilterSection({
+  children,
+  detail,
+  title,
+}: {
+  readonly children: ReactNode;
+  readonly detail?: string;
+  readonly title: string;
+}) {
+  const contentId = useId();
+  const [expanded, setExpanded] = useState(true);
+  return (
+    <div className={styles.filterSection}>
+      <button
+        aria-controls={contentId}
+        aria-expanded={expanded}
+        className={styles.filterSectionToggle}
+        onClick={() => setExpanded((current) => !current)}
+        onKeyDown={(event) => {
+          // Enter expands this section; it must not submit the global symbol save.
+          if (event.key === 'Enter') event.stopPropagation();
+        }}
+        type="button"
+      >
+        <span>{title}</span>
+        {detail ? (
+          <span className={styles.filterSectionDetail}>{detail}</span>
+        ) : null}
+        <span aria-hidden="true">{expanded ? '−' : '+'}</span>
+      </button>
+      <div
+        className={styles.filterSectionContent}
+        hidden={!expanded}
+        id={contentId}
+      >
+        {children}
+      </div>
+    </div>
+  );
 }
 
 function SymbolReviewSelectionToolbar({

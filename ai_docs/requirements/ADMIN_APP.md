@@ -895,6 +895,18 @@ a pozostałe tworzą rozłączne przedziały: odpowiednio `1.0`, od `0.8` do
 wartości niższej niż `1.0`, od `0.6` do wartości niższej niż `0.8` oraz
 wartości niższe niż `0.6`; wybór zmienia keyset, liczniki i jawne targety
 kolejnej operacji.
+Opcje `Stan weryfikacji`, `Pewność rozpoznania` i `Źródło predykcji` mają
+po jednym pasku bez zawijania. Każda grupa wykorzystuje pełną szerokość;
+na wąskim ekranie jej pasek przewija się poziomo we własnym kontenerze.
+`Filtry szczegółowe` (trzy grupy radio) oraz `Data zmiany komórki` są
+niezależnie zwijane i początkowo rozwinięte. Zwijanie zachowuje aktywne
+warunki, roboczą datę, cropy i zaznaczenie; nie odczytuje danych ani nie
+wykonuje decyzji. Nagłówki pokazują liczbę aktywnych filtrów i aktywny zakres
+dat także po zwinięciu. Przyciski mają aria-expanded/controls; Enter na nich
+obsługuje sekcję i nie uruchamia zapisu symbolu. Pełny ekran zachowuje stan
+zwinięcia, a zwolnioną wysokość otrzymuje lista cropów.
+W pełnym ekranie na wąskim urządzeniu wysoki panel filtrów można przewijać
+pionowo wewnątrz panelu, aby wszystkie jego kontrolki pozostały dostępne.
 Po wybraniu gry może dodatkowo ograniczyć cropy do jednego katalogu importu
 obrazów albo pozostawić `Wszystkie katalogi`. Selektor pokazuje bezpieczną
 etykietę jobu, nie ścieżkę lokalnego źródła; zmiana gry czyści ten filtr.

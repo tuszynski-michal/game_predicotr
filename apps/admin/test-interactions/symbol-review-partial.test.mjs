@@ -677,6 +677,100 @@ test('explicit correction moves a pending crop into its approved target and surv
   }
 });
 
+test('filter sections collapse independently without losing filters, a date draft, selection or fullscreen state', async () => {
+  const { root, calls } = await mount();
+  const toggle = (title) =>
+    buttons().find((node) => node.textContent.startsWith(title));
+  const content = (title) =>
+    document.getElementById(toggle(title).getAttribute('aria-controls'));
+  try {
+    await choose(1, 'all');
+    const pending = [...document.querySelectorAll('label')]
+      .find((node) => node.textContent.trim() === 'Oczekujące')
+      .querySelector('input');
+    await click(pending);
+    await eventually(() =>
+      buttons().some(
+        (node) =>
+          node.getAttribute('aria-label') ===
+          'Zaznacz crop z planszy 62287, pozycja 1/3',
+      ),
+    );
+    await click(
+      buttons().find(
+        (node) =>
+          node.getAttribute('aria-label') ===
+          'Zaznacz crop z planszy 62287, pozycja 1/3',
+      ),
+    );
+    await chooseSymbolField('Symbol do zatwierdzenia', 'cherry');
+    const date = document.querySelector('input[aria-label="Data zmiany od"]');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      ).set.call(date, '2026-10-07T08:00');
+      date.dispatchEvent(new Event('input', { bubbles: true }));
+      date.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    assert.equal(button('Wyczyść').disabled, false);
+    assert.equal(
+      toggle('Filtry szczegółowe').getAttribute('aria-expanded'),
+      'true',
+    );
+    assert.equal(
+      toggle('Data zmiany komórki').getAttribute('aria-expanded'),
+      'true',
+    );
+    assert.match(toggle('Filtry szczegółowe').textContent, /Aktywne: 1/);
+    const reads = [calls.pages.length, calls.atlases.length];
+    await act(async () =>
+      toggle('Filtry szczegółowe').dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      ),
+    );
+    assert.equal(calls.decisions.length, 0);
+    await click(toggle('Filtry szczegółowe'));
+    assert.equal(content('Filtry szczegółowe').hidden, true);
+    assert.equal(content('Data zmiany komórki').hidden, false);
+    await act(async () =>
+      toggle('Data zmiany komórki').dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }),
+      ),
+    );
+    assert.equal(calls.decisions.length, 0);
+    await click(toggle('Data zmiany komórki'));
+    assert.equal(content('Data zmiany komórki').hidden, true);
+    await click(button('Pełny ekran'));
+    assert.ok(document.querySelector('.workspaceFullscreen'));
+    assert.equal(content('Filtry szczegółowe').hidden, true);
+    assert.equal(content('Data zmiany komórki').hidden, true);
+    assert.equal(symbolField('Symbol do zatwierdzenia').value, 'cherry');
+    assert.match(document.body.textContent, /Wybrane: 1/);
+    assert.deepEqual([calls.pages.length, calls.atlases.length], reads);
+    assert.equal(calls.decisions.length, 0);
+    await click(toggle('Filtry szczegółowe'));
+    await click(toggle('Data zmiany komórki'));
+    assert.equal(pending.checked, true);
+    assert.equal(
+      document.querySelector('input[aria-label="Data zmiany od"]'),
+      date,
+    );
+    assert.equal(date.value, '2026-10-07T08:00');
+    assert.equal(button('Wyczyść').disabled, false);
+    await click(button('Wyczyść zaznaczenie'));
+    await click(button('Zastosuj zakres'));
+    await eventually(() =>
+      toggle('Data zmiany komórki').textContent.includes('Aktywny:'),
+    );
+    await click(toggle('Data zmiany komórki'));
+    assert.equal(content('Data zmiany komórki').hidden, true);
+    assert.match(toggle('Data zmiany komórki').textContent, /Aktywny:/);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
 test('a pending or failed save clears the selector without losing its submitted target', async () => {
   const fixture = await createPartialReviewClient();
   let rejectDecision;

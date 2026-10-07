@@ -82,6 +82,9 @@ Nie musisz zatwierdzać każdej planszy, żeby rozpocząć ocenę symboli.
 1. Otwórz [główny Admin](http://127.0.0.1:3000), **Weryfikacja symboli**,
    i wybierz grę **Mumie**.
    Ustaw **Na stronę: 2000**, jeśli potrzebujesz większego wyboru.
+   Kliknij **Filtry szczegółowe** i **Data zmiany komórki**, aby zwinąć
+   nieużywane sekcje i powiększyć listę na pełnym ekranie. Aktywne warunki
+   pozostają włączone; nagłówki pokazują ich liczbę i zastosowany zakres dat.
 2. Wybierz grupę symbolu albo nierozpoznane cropy. Zaznacz wycinki i wybierz
    **Symbol do zatwierdzenia**, następnie **Zapisz i zatwierdź**. Ten sam
    symbol zatwierdzi poprawne wycinki; inny poprawi je i zatwierdzi. Nie trzeba

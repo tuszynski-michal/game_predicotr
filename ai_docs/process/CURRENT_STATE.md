@@ -6,6 +6,21 @@ last_updated: 2026-10-06
 
 # Current State
 
+### TASK-0896 — collapsible single-row symbol filters (done)
+
+- State/confidence/source options have one full-width row each. Radio filters
+  and date have independent accessible sections, initially open. Folding keeps
+  filters, drafts, selection and target; Enter on a toggle never submits save.
+  Headers retain active count/date. Fullscreen retains folding and gains space.
+- Fresh-process interactions 14/14 and focused Admin contracts/helpers 40/40
+  PASS; scoped format/lint/types and Admin build PASS (21.12 s). MAIN browser
+  confirms desktop single rows, greater crop height after folding, 390 px
+  local horizontal/vertical scroll, no document overflow or console errors.
+- Requirements, guide, plan and completed task updated. No API/schema or real
+  data change, training, cleanup, restart, deployment, push or merge. Evidence:
+  artifacts/symbol-review-filter-layout-20261007/. No task blocker.
+- Completion v1.7.239; full hash recorded after commit.
+
 ### TASK-0895 — clear the target on each symbol save (done)
 
 - `Symbol do zatwierdzenia` clears immediately on every valid save click or

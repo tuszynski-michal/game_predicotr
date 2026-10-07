@@ -1188,7 +1188,7 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   podział po `md5(id)`) dla zakresów o jednej pewności (Śliwka 100%: 341 766
   komórek, 6 części po ~57 tys.).
 
-### D-520 — ponowne przetworzenie oczekujących komórek metodą RGB v2 (w toku)
+### D-520 — ponowne przetworzenie oczekujących komórek metodą RGB v2 (zakończone)
 
 - Plan `ai_docs/delivery/SYMBOL_RGB_V2_REPROCESSING_PLAN.md` zaakceptowany
   2026-10-05 (handoff `ai_docs/guides/SYMBOL_RGB_FEEDBACK_HANDOFF_20261005.md`).
@@ -1216,12 +1216,12 @@ Stan sprzed akceptacji (zachowany dla kontekstu):
   1 plansza `stale` (flaga jakości).
 - TASK-0876 done: pasmo 80–90% — 590 komórek RGB v2 na 563 planszach, 0 błędów.
 - TASK-0877 done: pasmo 90–99% — 3 279 komórek RGB v2 na 2 985 planszach, 0 błędów.
-- TASK-0878 w toku: operator zdecydował 2026-10-06 — w paśmie 99–100% tylko
-  zmiany symbolu. Podgląd 120 części trwa (dwa sterowniki od 05:59 UTC, koniec
-  ~2026-10-07 05:00 UTC), potem zapis. Przekazanie stanu i poleceń:
-  `ai_docs/guides/SYMBOL_RGB_V2_HANDOFF_20261006.md`. Gałąź
-  `feat/symbol-reference-library-port` scalona v1.7.222 (2026-10-06); filtr
-  „RGB v2” w Adminie po restarcie API.
+- TASK-0878 done 2026-10-07: pasmo 99–100% — tylko zmiany symbolu (decyzja
+  operatora): 2 958 komórek RGB v2 na 2 809 planszach, 0 błędów. **Plan D-520
+  zakończony:** razem 7 762 komórek z rewizją `symbol-rgb-v2` (wszystkie
+  `pending`). TASK-0832/0833 starej biblioteki zamknięte jako zastąpione.
+  Otwarte (operator): restart API dla filtra „RGB v2”, sprzątanie cache
+  (`ai_docs/guides/SYMBOL_RGB_V2_HANDOFF_20261006.md`).
 
 ### D-467 — usunięcie pozostałości V1/legacy (w toku)
 

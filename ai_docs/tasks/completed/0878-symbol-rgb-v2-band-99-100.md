@@ -1,14 +1,14 @@
 ---
 title: TASK-0878 — B11 — zapis RGB v2 dla pasma 99–100% (osiem symboli)
-status: in_progress
-last_updated: 2026-10-06
+status: done
+last_updated: 2026-10-07
 ---
 
 # TASK-0878 — B11 — zapis RGB v2 dla pasma 99–100% (osiem symboli)
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -45,7 +45,7 @@ pasma należy do operatora. Pasmo: 7 008 583 komórek, 120 części po ≤ 60 00
 ## Acceptance criteria
 
 - [x] Decyzja operatora na bramce: tylko zmiany symbolu (2026-10-06).
-- [ ] Zapis bez błędów; `verify` każdej części zgodny z manifestem.
+- [x] Zapis bez błędów; `verify` każdej części zgodny z manifestem.
 
 ## Technical notes
 
@@ -70,4 +70,19 @@ pasma należy do operatora. Pasmo: 7 008 583 komórek, 120 części po ≤ 60 00
 
 ## Outcome
 
-Brak.
+- Decyzja operatora 2026-10-06: tylko zmiany symbolu (`SYMBOL_CHANGES_ONLY_BANDS`,
+  poprawka D-520).
+- Podgląd 120 części 2026-10-06 05:59 – 2026-10-07 04:53 UTC (dwa sterowniki
+  równolegle, cache wycinków kasowany po części — na C: było 27 GB wolnego);
+  przerwa 17:28 UTC przez chwilowy brak połączenia z bazą
+  (`psycopg.errors.ConnectionTimeout`), wznowienie 17:30 UTC bez utraty części.
+  7 008 583 komórek; zapisy 2 958 (pewne 2 585, niepewne 373). Największe
+  grupy: Śliwka → Pomarańcz 260, → Wiśnia 213, → Gwiazda 144, → Arbuz 142,
+  → Winogron 118, → Siedem 108; Cytryna → Wiśnia 102.
+- Przegląd próbek (miniatury kontekstu): pewne zmiany poprawne (rzeczywiste
+  błędy modelu), niepewne mieszane — część trafnych cytryn; zapisane 0,50 do
+  przeglądu.
+- Zapis 2026-10-07 04:54–05:36 UTC: 2 958 z 2 958 komórek `rgb_prediction` na
+  2 809 planszach, 0 błędów, 0 `stale`; `verify` 120/120 części zgodny.
+  Per symbol obecny: Śliwka 1 168, Cytryna 441, Arbuz 293, Pomarańcz 282,
+  Wiśnia 248, Siedem 200, Winogron 196, Gwiazda 130.

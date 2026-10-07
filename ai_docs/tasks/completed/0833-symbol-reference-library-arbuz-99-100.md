@@ -1,6 +1,6 @@
 ---
 title: TASK-0833 — B6 — zapis biblioteki wzorców dla oczekujących komórek Arbuz z pewnością ≥ 99%
-status: in_progress
+status: done
 last_updated: 2026-10-04
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-04
 
 ## Status
 
-`in_progress`
+`done` — zamknięte jako zastąpione przez D-520 (bez wznowienia).
 
 ## Goal
 
@@ -106,3 +106,8 @@ każda kolejno: `apply-preview` do końca, `apply`, `apply-verify`:
 ## Outcome
 
 W toku.
+- 2026-10-07: zamknięte bez wznowienia, zgodnie z handoffem RGB
+  (`ai_docs/guides/SYMBOL_RGB_FEEDBACK_HANDOFF_20261005.md`) i planem D-520:
+  stare manifesty biblioteki nie są wznawiane; komórki Arbuz przeszły przez
+  RGB v2 w pasmach TASK-0874–0878. Zapisane wcześniej rewizje biblioteki
+  zostają (cofanie przez `apply-revert` D-466).

@@ -73,10 +73,12 @@ class GameModel(Base):
             "expected_layout_count BETWEEN 1 AND 10000000",
             name="ck_games_expected_layout_count_range",
         ),
+        # PostgreSQL regex CHECK (migration 0151_super_game_roles); emitted only
+        # on PostgreSQL so SQLite test schemas built from metadata still work.
         CheckConstraint(
             "super_game_kind ~ '^[a-z][a-z0-9_]{0,63}$'",
             name="ck_games_super_game_kind_format",
-        ),
+        ).ddl_if(dialect="postgresql"),
         UniqueConstraint("code", name="uq_games_code"),
         Index(
             "ix_games_board_topology_rules_version",

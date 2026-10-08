@@ -9,7 +9,7 @@ last_updated: 2026-10-08
 Audytor: niezależny subagent claude-fable-5-1 / high, świeży kontekst, tylko
 odczyt (zamiennik audytu gpt-6-astra do czasu dostępności CLI, D-535).
 Wykonawca: claude-opus-5-5 / high. Zakres: zmiany niezacommitowane względem
-v1.7.266 (bf3148ce) w worktree `mumie-super-game`.
+v1.7.267 (6323939f) w worktree `mumie-super-game`.
 
 ## Werdykt
 

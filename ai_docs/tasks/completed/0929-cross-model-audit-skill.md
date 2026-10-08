@@ -223,7 +223,7 @@ Katalog uruchomienia: worktree `mumie-super-game`; każda komenda z timeoutem
 - Po rundzie poprawek (komendy przez `powershell -NoProfile -ExecutionPolicy Bypass -File`, timeout 110 s):
   `-Task 0930 -Auditor codex -DryRun -Base HEAD -Paths apps/admin,ai_docs/tasks/completed/0930-symbol-review-zero-shortcut.md`
   kończy się kodem 1 („-Paths ... matches no changes (HEAD...HEAD, git diff
-  HEAD, untracked)”), bo TASK-0930 jest już zacommitowany (b230857b) i przy
+  HEAD, untracked)”), bo TASK-0930 jest już zacommitowany (ad058e23) i przy
   `-Base HEAD` nie ma żadnych zmian; to oczekiwane zachowanie nowej
   walidacji. Ta sama lista z `-Base HEAD~1` daje niepustą sekcję
   „Committed changes (HEAD~1...HEAD)” (5 plików, +166/-17), kod 0, brief 23 KB,

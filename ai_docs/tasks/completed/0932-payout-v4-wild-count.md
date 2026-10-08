@@ -133,7 +133,7 @@ npm run quality
 ## Outcome
 
 Wykonane w worktree `worktrees/mumie-super-game` (gałąź
-`feat/mumie-super-game-plan`, start na v1.7.267 = `64907b9c`) przez subagenta
+`feat/mumie-super-game-plan`, start na v1.7.268 = `1aef5870`) przez subagenta
 claude-opus-5-5. Commit, wersję i hash, `CURRENT_STATE.md`, przeniesienie
 taska oraz audyt krzyżowy zapisuje prowadzący sesję.
 
@@ -331,7 +331,7 @@ Komendy z katalogu worktree.
   (1441 minut jest od TASK-0925 dozwolonym czasem) oraz dwa testy kontraktu
   Reviewera wymienione wyżej; żadna zmiana tego zadania ich nie dotyczy.
   Błędy `services/api/tests/test_management.py` (SQLite i CHECK z `~` z
-  TASK-0931) usunęła osobna poprawka v1.7.268.
+  TASK-0931) usunęła osobna poprawka v1.7.269.
 - Runda poprawek po audycie (claude-fable-5-1 / high: PASS, 4 × P2, wszystkie
   naprawione): wspólna stała `RULES_VERSION_QUERY_NAMES` dla udostępnienia i
   panelu zarządzania z testem `rules_version_id`/`RULES_VERSION_ID` na trasach

@@ -7,7 +7,7 @@ last_updated: 2026-10-08 (zaakceptowany po czterech przeglądach Codex, PASS)
 # Gra Mumie — Wild, supergra i super symbol
 
 Plan zaakceptowany przez operatora 2026-10-08 po czterech przeglądach Codex
-(ostatni PASS, v1.7.263). Decyzja D-535. Analiza wykonana bez zmian w
+(ostatni PASS, v1.7.264). Decyzja D-535. Analiza wykonana bez zmian w
 aplikacji i danych.
 Zastępuje część „wypłaty premium” planu
 `MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md` (nieaktualna według D-490).

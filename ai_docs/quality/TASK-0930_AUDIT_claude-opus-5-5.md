@@ -8,7 +8,7 @@ last_updated: 2026-10-08
 
 Audytor: niezależny subagent claude-opus-5-5 / medium, świeży kontekst, tylko
 odczyt (zamiennik audytu Codex do czasu dostępności CLI, D-535). Zakres:
-diff plików zadania względem v1.7.264 w worktree `mumie-super-game`.
+diff plików zadania względem v1.7.265 w worktree `mumie-super-game`.
 
 ## Werdykt
 

@@ -101,7 +101,7 @@ last_updated: 2026-10-08
 - `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` i taski
   TASK-0929–0939 (`todo`) na gałęzi `feat/mumie-super-game-plan`,
   worktree `worktrees/mumie-super-game`. Cztery przeglądy Codex, ostatni
-  PASS (v1.7.263). Zaakceptowany; D-535. Wszystkie taski wykonuje ta sesja
+  PASS (v1.7.264). Zaakceptowany; D-535. Wszystkie taski wykonuje ta sesja
   przez subagentów; audyt Codex zastąpiony subagentem Claude do czasu CLI.
   Etapy: P, S-0, S-A, (T: 0938) S-B, S-C, S-D; start każdego etapu na
   jawne polecenie operatora. Żaden etap nie jest jeszcze uruchomiony.

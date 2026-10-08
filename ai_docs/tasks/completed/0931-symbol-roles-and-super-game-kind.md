@@ -135,8 +135,8 @@ npm run python:lint; npm run python:typecheck
 ## Outcome
 
 Wykonane w worktree `worktrees/mumie-super-game` (gałąź
-`feat/mumie-super-game-plan`, start na v1.7.264, w trakcie pracy wierzchołek
-przesunął się do v1.7.266 przez TASK-0929/0930). Commit, wersja i hash
+`feat/mumie-super-game-plan`, start na v1.7.265, w trakcie pracy wierzchołek
+przesunął się do v1.7.267 przez TASK-0929/0930). Commit, wersja i hash
 zapisuje prowadzący sesję.
 
 ### Audyt i runda poprawek

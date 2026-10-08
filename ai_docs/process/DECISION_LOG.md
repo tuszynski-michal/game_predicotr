@@ -11,7 +11,7 @@ last_updated: 2026-10-08
 - **Date:** 2026-10-08.
 - **Status:** accepted; plan `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md`
   (TASK-0929–0939) zaakceptowany przez operatora po czterech przeglądach
-  Codex zakończonych PASS (v1.7.263).
+  Codex zakończonych PASS (v1.7.264).
 - **Decision:** dotychczasowy „Joker” nazywa się w UI i dokumentach „Wild”
   (kolumna `symbols.is_wildcard` zostaje). Symbol dostaje w katalogu gry
   osobną rolę „Uruchamia supergrę” z progiem 3/4/5 sztuk na pociętej

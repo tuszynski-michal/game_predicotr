@@ -4,6 +4,8 @@
  * shown in "Zarządzanie grami → Symbole".
  */
 export const DIGIT_SHORTCUT_LIMIT = 9;
+/** Symbol review also maps `0` to the tenth symbol. */
+export const EXTENDED_DIGIT_SHORTCUT_LIMIT = 10;
 
 export interface ShortcutKeyboardEvent {
   readonly altKey: boolean;
@@ -23,6 +25,19 @@ export function digitShortcutIndex(key: string): number | null {
 
 export function digitShortcutLabel(index: number): string | null {
   return index >= 0 && index < DIGIT_SHORTCUT_LIMIT ? String(index + 1) : null;
+}
+
+/** `'1'`–`'9'` → 0–8, `'0'` → 9; every other key → null. */
+export function extendedDigitShortcutIndex(key: string): number | null {
+  if (key === '0') return 9;
+  return digitShortcutIndex(key);
+}
+
+/** 0–8 → `'1'`–`'9'`, 9 → `'0'`; every other index → null. */
+export function extendedDigitShortcutLabel(index: number): string | null {
+  if (!Number.isInteger(index) || index < 0) return null;
+  if (index === 9) return '0';
+  return digitShortcutLabel(index);
 }
 
 /** Typing into text fields or a select keeps native keys. */

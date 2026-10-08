@@ -1108,9 +1108,9 @@ viewport (TASK-0656): filtry, toolbar i podsumowanie pozostają stałe u góry,
 wirtualna siatka wypełnia resztę wysokości i jest jedynym przewijanym
 elementem, a paginacja zostaje na dole. `Esc` albo `Zamknij pełny ekran`
 przywraca zwykły układ. Poza polami tekstowymi i selectami działają skróty:
-`1`–`9` wybiera `Symbol do zatwierdzenia` (aktywne symbole w kolejności
-`displayOrder` z katalogu gry, numer jest widoczny przy nazwie w selekcie),
-`Enter` wykonuje `Zapisz i zatwierdź` dla zaznaczonych cropów (z uwzględnieniem
+`1`–`9` oraz `0` dla dziesiątego symbolu wybiera `Symbol do zatwierdzenia`
+(aktywne symbole w kolejności `displayOrder` z katalogu gry, numer jest
+widoczny przy nazwie w selekcie; TASK-0930), `Enter` wykonuje `Zapisz i zatwierdź` dla zaznaczonych cropów (z uwzględnieniem
 `Niewyraźny`) albo potwierdza otwarty preview operacji masowej, a `Esc`
 zamyka preview.
 

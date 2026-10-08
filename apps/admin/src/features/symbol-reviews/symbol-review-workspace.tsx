@@ -2395,10 +2395,10 @@ function SymbolReviewSelectionToolbar({
       </div>
       {readOnly ? null : (
         <p className={styles.toolbarShortcuts}>
-          Klawiatura: <kbd>1</kbd>–<kbd>9</kbd> wybiera symbol docelowy (
-          {shortcutSymbolsLabel(symbols)}) · <kbd>Enter</kbd> zapisuje i
-          zatwierdza zaznaczone cropy lub potwierdza operację · <kbd>Esc</kbd>{' '}
-          anuluje okno albo zamyka pełny ekran
+          Klawiatura: <kbd>1</kbd>–<kbd>9</kbd> i <kbd>0</kbd> (dziesiąty
+          symbol) wybierają symbol docelowy ({shortcutSymbolsLabel(symbols)}) ·{' '}
+          <kbd>Enter</kbd> zapisuje i zatwierdza zaznaczone cropy lub potwierdza
+          operację · <kbd>Esc</kbd> anuluje okno albo zamyka pełny ekran
         </p>
       )}
     </aside>

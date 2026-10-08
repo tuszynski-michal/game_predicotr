@@ -2,7 +2,7 @@
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -49,11 +49,11 @@ plikach. Eskalacja niepotrzebna. Audyt: gpt-6.1-sol / high; do czasu CLI zamienn
 
 ## Acceptance criteria
 
-- [ ] `0` w weryfikacji symboli wybiera dziesiąty aktywny symbol; przy mniej
+- [x] `0` w weryfikacji symboli wybiera dziesiąty aktywny symbol; przy mniej
       niż 10 symbolach `0` nic nie robi.
-- [ ] Modyfikatory (Ctrl/Alt/Meta) i pola tekstowe nadal ignorują skróty.
-- [ ] Etykiety w select i pasku skrótów zawierają `0` dla dziesiątego symbolu.
-- [ ] Istniejące testy klawiatury przechodzą bez zmian zachowania dla `1`–`9`.
+- [x] Modyfikatory (Ctrl/Alt/Meta) i pola tekstowe nadal ignorują skróty.
+- [x] Etykiety w select i pasku skrótów zawierają `0` dla dziesiątego symbolu.
+- [x] Istniejące testy klawiatury przechodzą bez zmian zachowania dla `1`–`9`.
 
 ## Technical notes
 
@@ -89,14 +89,29 @@ npm run lint --workspace @game-predictor/admin
 
 ## Outcome
 
-Wypełnia agent po pracy.
-
 ### Changed
+
+- `apps/admin/src/lib/keyboard-shortcuts.ts`: dodano `EXTENDED_DIGIT_SHORTCUT_LIMIT = 10`, `extendedDigitShortcutIndex` (`1`-`9` na 0-8, `0` na 9) i `extendedDigitShortcutLabel` (0-8 na `1`-`9`, 9 na `0`). Istniejące eksporty bez zmian.
+- `apps/admin/src/features/symbol-reviews/symbol-review-keyboard.ts`: użycie wersji rozszerzonych, `SYMBOL_REVIEW_SHORTCUT_SYMBOL_LIMIT` równe 10.
+- `apps/admin/src/features/symbol-reviews/symbol-review-workspace.tsx`: tekst paska skrótów wspomina `0` (dziesiąty symbol). Etykiety w select i `shortcutSymbolsLabel` dostają `0` automatycznie przez `symbolReviewShortcutLabel`.
+- `apps/admin/test/symbol-review-keyboard.test.mjs`: testy dla `0` (10 symboli, 9 symboli, Ctrl) oraz etykiet 9 i 10; usunięto stare założenie, że `0` jest ignorowane.
+- `packages/board-search-ui` nie zmieniono (tam `0` oznacza „nieznany”).
 
 ### Verification results
 
+- `npm run test --workspace @game-predictor/admin`: 668 pass, 0 fail.
+- `npm run typecheck --workspace @game-predictor/admin`: bez błędów.
+- `npm run lint --workspace @game-predictor/admin`: 0 błędów, 5 ostrzeżeń istniejących wcześniej w plikach spoza zakresu (board-search-share-corrections, image-folder-import-panel, page-geometry-correction-panel).
+
 ### Not completed
+
+Brak. Nie uruchamiano testu wizualnego w przeglądarce.
 
 ### Documentation updates
 
+- `ai_docs/requirements/ADMIN_APP.md` (sekcja weryfikacji symboli, akapit o skrótach): dodano `0` dla dziesiątego symbolu z odwołaniem do TASK-0930.
+- Audyt niezależny (claude-opus-5-5 / medium, tylko odczyt): PASS, cztery znaleziska P2; raport `ai_docs/quality/TASK-0930_AUDIT_claude-opus-5-5.md`. Poprawione przed commitem: formatowanie Prettier dwóch plików, komentarz modułu, ten Outcome i status. Znalezisko o opisie w `apps/admin/src/features/symbols/symbol-catalog.tsx:684` („skróty 1–9 w weryfikacji symboli”) przekazane do TASK-0931, który edytuje ten plik.
+
 ### Recommended next task
+
+TASK-0931 (etap S-A), w toku równolegle; uzupełnić tam opis skrótów w `symbol-catalog.tsx`.

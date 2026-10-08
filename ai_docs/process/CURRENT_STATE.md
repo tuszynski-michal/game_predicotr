@@ -6,6 +6,18 @@ last_updated: 2026-10-08
 
 # Current State
 
+### TASK-0930 — klawisz `0` dla dziesiątego symbolu w weryfikacji symboli (done)
+
+- W weryfikacji symboli `0` wybiera dziesiąty aktywny symbol (Mumia) jako
+  `Symbol do zatwierdzenia`; etykiety w selekcie i pasku skrótów pokazują `0`.
+  Nowe helpery `extendedDigitShortcutIndex/Label` w `apps/admin/src/lib`;
+  wyszukiwanie plansz bez zmian (`0` = nieznany).
+- Admin: testy 668 PASS, typecheck i lint PASS. Audyt niezależny
+  claude-opus-5-5 / medium: PASS, 4 × P2 naprawione przed commitem
+  (`ai_docs/quality/TASK-0930_AUDIT_claude-opus-5-5.md`); uwaga o opisie w
+  `symbol-catalog.tsx` przekazana do TASK-0931.
+- Etap S-0 zamknięty. Równolegle trwają TASK-0929 (etap P) i TASK-0931 (S-A).
+
 ### Plan Mumie: Wild, supergra, audyt krzyżowy (accepted, 2026-10-08)
 
 - `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` i taski

@@ -38,12 +38,11 @@ test('digits select active symbols in catalog order', () => {
   });
 });
 
-test('digits without a matching symbol and 0 are ignored', () => {
+test('digits without a matching symbol are ignored', () => {
   assert.equal(
     resolveSymbolReviewKeyboardCommand(key('4'), symbols.slice(0, 3)),
     null,
   );
-  assert.equal(resolveSymbolReviewKeyboardCommand(key('0'), symbols), null);
   assert.equal(resolveSymbolReviewKeyboardCommand(key('10'), symbols), null);
   assert.equal(resolveSymbolReviewKeyboardCommand(key('a'), symbols), null);
 });
@@ -76,11 +75,27 @@ test('modified keys keep browser shortcuts', () => {
   }
 });
 
-test('shortcut labels cover only the first nine symbols', () => {
-  assert.equal(SYMBOL_REVIEW_SHORTCUT_SYMBOL_LIMIT, 9);
+test('0 selects the tenth symbol only when it exists', () => {
+  assert.deepEqual(resolveSymbolReviewKeyboardCommand(key('0'), symbols), {
+    kind: 'select_target',
+    symbolId: symbols[9].id,
+  });
+  assert.equal(
+    resolveSymbolReviewKeyboardCommand(key('0'), symbols.slice(0, 9)),
+    null,
+  );
+  assert.equal(
+    resolveSymbolReviewKeyboardCommand(key('0', { ctrlKey: true }), symbols),
+    null,
+  );
+});
+
+test('shortcut labels cover the first ten symbols', () => {
+  assert.equal(SYMBOL_REVIEW_SHORTCUT_SYMBOL_LIMIT, 10);
+  assert.equal(symbolReviewShortcutLabel(9), '0');
+  assert.equal(symbolReviewShortcutLabel(10), null);
   assert.equal(symbolReviewShortcutLabel(0), '1');
   assert.equal(symbolReviewShortcutLabel(8), '9');
-  assert.equal(symbolReviewShortcutLabel(9), null);
   assert.equal(symbolReviewShortcutLabel(-1), null);
 });
 

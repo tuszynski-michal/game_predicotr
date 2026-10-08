@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-10-05
+last_updated: 2026-10-08
 ---
 
 # Wymagania modułu administracyjnego
@@ -86,6 +86,15 @@ także przyszłym wersjom gry 777, i pokazuje stan modelu z API (dostępny, brak
 plików, niezgodny SHA-256). Karta gry na liście pokazuje format strony, a dla
 profilu także stan jego modelu. Brak modelu nie blokuje zapisu gry.
 
+Formularz tworzenia i edycji gry ma select „Supergra” (TASK-0931, D-535) z
+opcją „Brak” i rodzajami supergry z rejestru w kodzie
+(`GET /api/v1/admin/super-game-kinds`); pierwszym rodzajem jest „Wild super spins”.
+Admin nie trzyma własnej kopii listy: do czasu wczytania rejestru albo przy
+błędzie API select pokazuje „Brak” i bieżącą wartość gry, a pod polem
+komunikat błędu. Karta gry pokazuje `Supergra: <etykieta>`. Gra 777 zostaje
+bez supergry. Rodzaju nie można zmienić na „Brak”, dopóki którykolwiek symbol
+gry ma rolę „Uruchamia supergrę” (`SUPER_GAME_KIND_IN_USE`).
+
 Po greenfield cutoverze nowa gra jest dostępna do dalszej konfiguracji dopiero,
 gdy API zakończy obowiązkowy provisioning V2 i zwróci
 `storageWriteAvailable=true`. Brak registry jest pokazywany jako `blocked`, a
@@ -106,7 +115,8 @@ Administrator może:
 - dodać symbol do gry,
 - nadać stabilny kod i nazwę,
 - dodać lokalny obraz referencyjny,
-- oznaczyć symbol jako joker,
+- oznaczyć symbol jako Wild,
+- oznaczyć symbol jako „Uruchamia supergrę” i wybrać próg 3, 4 albo 5 sztuk,
 - ustawić kolejność wyświetlania,
 - aktywować lub archiwizować symbol.
 
@@ -120,9 +130,22 @@ grafiki edycja symbolu udostępnia read-only podgląd w modalu. Podgląd pobiera
 checksum-bound asset z Admin API, pokazuje stan ładowania i kontrolowany błąd;
 nie zmienia wskazania grafiki ani pozostałych danych symbolu.
 
-Joker nie ma własnej wypłaty. Jeżeli w przyszłości gra będzie miała więcej niż
-jeden rodzaj symbolu specjalnego, jego semantyka wymaga osobnej reguły zamiast
-ukrytego traktowania wszystkich symboli specjalnych identycznie.
+Formularz symbolu ma checkbox „Wild” (dawniej „Joker”; kolumna
+`symbols.is_wildcard` bez zmian) oraz checkbox „Uruchamia supergrę”
+(TASK-0931, D-535). Zaznaczenie drugiego odsłania select „Trzy symbole /
+Cztery symbole / Pięć symboli” (`superGameTriggerCount` 3/4/5); odznaczenie
+zapisuje `null`. Checkbox „Uruchamia supergrę” jest aktywny tylko wtedy, gdy
+gra ma rodzaj supergry inny niż „Brak”; w przeciwnym razie panel podpowiada
+wybór rodzaju w zakładce Gry, a API zwraca `SUPER_GAME_KIND_REQUIRED`. Już
+zapisaną rolę zawsze można usunąć. Karta symbolu pokazuje znaczniki „Wild” i
+„Uruchamia supergrę: trzy symbole” (odpowiednio dla progu). Symbol może mieć
+obie role jednocześnie (Mumia w grze Mumie).
+
+Wild bez roli „Uruchamia supergrę” nie ma własnej wypłaty. Symbol
+uruchamiający supergrę ma wypłaty za liczbę sztuk na planszy (niezależnie od
+linii) i nie ma minimum liniowego. Kolejne rodzaje symboli specjalnych
+wymagają osobnej, jawnej reguły zamiast ukrytego traktowania wszystkich
+symboli specjalnych identycznie.
 
 ### Paylines
 
@@ -177,9 +200,21 @@ Przykład dla planszy 5-kolumnowej:
 - minimum 3 wymaga payoutów dla długości 3, 4 i 5.
 
 Pierwszy zapis utrwala konfigurację symbolu w konkretnej wersji reguł.
-Podniesienie minimum archiwizuje payouty poniżej nowego progu. Po użyciu
-symbolu w wersji reguł nie można zmienić jego roli zwykły/joker w katalogu,
-ponieważ unieważniłoby to wersjonowane minimum i wypłaty.
+Podniesienie minimum archiwizuje payouty poniżej nowego progu. Role symbolu
+(Wild, „Uruchamia supergrę”) można zmieniać, dopóki symbol nie występuje w
+opublikowanej (lub zarchiwizowanej) wersji reguł; potem API zwraca
+`SYMBOL_RULES_IDENTITY_IN_USE`, ponieważ zmiana unieważniłaby wersjonowane
+minimum i wypłaty (TASK-0931, D-535). Gdy symbol w ten sposób zyskuje rolę
+Wild albo „Uruchamia supergrę”, jego minimum w wersjach roboczych zostaje w tej
+samej transakcji wyczyszczone (`null`); payouty zostają bez zmian, a raport
+gotowości pokazuje ewentualne niezgodności.
+
+Dla symbolu z rolą „Uruchamia supergrę” zakładka payoutów pokazuje pola
+„N sztuk na planszy” dla N od 2 do `rows × columns` zamiast pól „N kolejnych
+symboli” i nie pokazuje minimum. Każde pole jest opcjonalne (puste = brak
+wypłaty dla tej liczby, zapis wyłącza wcześniejszą wypłatę), a wypełnione
+wartości muszą ściśle rosnąć wraz z liczbą sztuk. Istniejące wypłaty Mumii
+3/4/5 → 20/200/2000 pozostają i oznaczają liczbę sztuk na planszy.
 
 Nie można opublikować wersji z brakującą wartością, aktywną regułą poniżej
 minimum albo dwoma aktywnymi wpisami dla tej samej wersji reguł, symbolu i
@@ -200,8 +235,13 @@ następujących warunków:
 - każdy aktywny zwykły symbol ma kompletny payout dla każdej długości od
   własnego minimum do liczby kolumn,
 - payouty symbolu rosną ściśle wraz z długością,
-- joker, nieaktywny symbol oraz długość poza zakresem nie mają aktywnego
-  payoutu.
+- Wild bez roli „Uruchamia supergrę”, nieaktywny symbol oraz długość poza
+  zakresem nie mają aktywnego payoutu,
+- symbol z rolą „Uruchamia supergrę” wymaga gry z rodzajem supergry innym niż
+  „Brak” (`SUPER_GAME_KIND_REQUIRED`), nie ma minimum
+  (`SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED`), a jego wypłaty za sztuki mają
+  liczby `2..rows × columns` i ściśle rosną; nie jest wymagana wypłata dla
+  każdej liczby i symbol nie liczy się jako aktywny zwykły symbol.
 
 Przed publikacją administrator potwierdza, że wersja stanie się niezmienna.
 Panel blokuje podwójne wysłanie żądania. Po publikacji wymiary, koszt spinu,
@@ -581,7 +621,7 @@ ewaluatora i tej samej opublikowanej wersji reguł co wiersz tabeli: każda
 linia liczy się wyłącznie od lewej krawędzi i kończy na pierwszej nieznanej
 komórce, więc plansza przycięta z lewej strony nie pokazuje żadnej linii,
 a nieznane pola są oznaczone `?`. Każda linia ma stały kolor według
-kolejności linii wypłat; pola z jokerem mają dodatkowy znacznik. Legenda
+kolejności linii wypłat; pola z Wildem mają dodatkowy znacznik. Legenda
 ma przełącznik widoczności dla każdej linii osobno oraz „Pokaż wszystkie”
 i „Ukryj wszystkie”, a każdy wpis podaje nazwę linii, symbol, długość i
 wypłatę w wybranej stawce i jednostce. Gdy suma wypłat linii różni się od
@@ -816,7 +856,8 @@ odrzucone. Zdalna sesja Reviewera nie otrzymuje tych ścieżek.
 ### Katalog symboli i grafiki referencyjne
 
 Katalog symboli jest definiowany ręcznie dla każdej gry. Formularz utworzenia
-wymaga wyłącznie nazwy i oznaczenia Jokera; Admin API pod blokadą gry nadaje
+wymaga wyłącznie nazwy, oznaczenia Wild i opcjonalnej roli „Uruchamia
+supergrę” z progiem 3/4/5; Admin API pod blokadą gry nadaje
 stabilny `code`, kolejny `mobileCode` i początkowy `displayOrder`. Edycja
 nazwy nie może zmienić `code` ani `mobileCode`.
 
@@ -1619,7 +1660,7 @@ Import zdjęć i automatyczny build APK mogą być realizowane w kolejnych piona
 ## Kryteria akceptacyjne pierwszej iteracji
 
 1. Administrator tworzy grę 3 × 5 i ustawia koszt spinu.
-2. Dodaje symbole `S1`–`S12` i oznacza joker.
+2. Dodaje symbole `S1`–`S12` i oznacza Wild.
 3. Tworzy trzy poziome paylines przez modal siatki.
 4. Nie może wybrać dwóch komórek w jednej kolumnie ani zapisać niepełnego wzorca.
 5. Nie może zapisać duplikatu `row_path`.

@@ -22,7 +22,10 @@ import {
 import {
   changePayoutCredits,
   changePayoutMinimum,
+  countPayoutLengths,
+  isSuperGameTriggerSymbol,
   type PayoutConfigurationDraft,
+  payoutLengthLabel,
   payoutConfigurationToDraft,
   requiredMatchLengths,
   upsertPayoutRules,
@@ -154,6 +157,7 @@ export function PayoutRulesManagerModal({
       symbol,
       draft,
       rulesVersion.columns,
+      rulesVersion.rows,
     );
     if (!validation.valid) {
       setFormError(validation.error);
@@ -292,12 +296,58 @@ export function PayoutRulesManagerModal({
               />
               Aktywna konfiguracja symbolu
             </label>
-            {editingSymbol.isWildcard ? (
+            {isSuperGameTriggerSymbol(editingSymbol) ? (
+              <>
+                <div className="wildcardNotice">
+                  <strong>
+                    {editingSymbol.isWildcard ? 'Wild · ' : ''}Uruchamia
+                    supergrę
+                  </strong>
+                  <span>
+                    Wypłata za liczbę sztuk tego symbolu na planszy, w dowolnych
+                    miejscach i niezależnie od linii. Symbol nie ma minimum.
+                    Puste pole oznacza brak wypłaty dla tej liczby.
+                  </span>
+                </div>
+                <div className="payoutFields">
+                  {countPayoutLengths(
+                    rulesVersion.rows,
+                    rulesVersion.columns,
+                  ).map((matchLength) => (
+                    <label key={matchLength}>
+                      {payoutLengthLabel(editingSymbol, matchLength)}
+                      <input
+                        inputMode="numeric"
+                        min="0"
+                        onChange={(event) =>
+                          setDraft((current) =>
+                            current
+                              ? changePayoutCredits(
+                                  current,
+                                  matchLength,
+                                  event.target.value,
+                                )
+                              : current,
+                          )
+                        }
+                        placeholder="Brak"
+                        type="number"
+                        value={draft.credits[matchLength] ?? ''}
+                      />
+                    </label>
+                  ))}
+                </div>
+                <p className="fieldHint">
+                  Każda większa liczba sztuk musi mieć większą wypłatę od
+                  mniejszej.
+                </p>
+              </>
+            ) : editingSymbol.isWildcard ? (
               <div className="wildcardNotice">
-                <strong>Joker</strong>
+                <strong>Wild</strong>
                 <span>
-                  Joker nie ma minimum ani własnych wypłat. Zapis utrwala
-                  wartość `null` w tej wersji reguł.
+                  Wild bez roli „Uruchamia supergrę” nie ma minimum ani własnych
+                  wypłat. Zapis utrwala wartość `null` w tej wersji reguł.
                 </span>
               </div>
             ) : rulesVersion.columns < 2 ? (
@@ -331,7 +381,7 @@ export function PayoutRulesManagerModal({
                 <div className="payoutFields">
                   {visibleLengths.map((matchLength) => (
                     <label key={matchLength}>
-                      {matchLength} kolejnych symboli
+                      {payoutLengthLabel(editingSymbol, matchLength)}
                       <input
                         inputMode="numeric"
                         min="0"
@@ -377,7 +427,9 @@ export function PayoutRulesManagerModal({
                 className="primaryButton"
                 disabled={
                   isSubmitting ||
-                  (rulesVersion.columns < 2 && !editingSymbol.isWildcard)
+                  (rulesVersion.columns < 2 &&
+                    !editingSymbol.isWildcard &&
+                    !isSuperGameTriggerSymbol(editingSymbol))
                 }
                 type="submit"
               >
@@ -400,18 +452,23 @@ export function PayoutRulesManagerModal({
                     <div className="gameTitleLine">
                       <h3>{symbol.name}</h3>
                       {symbol.isWildcard ? (
-                        <span className="gameStatus">Joker</span>
+                        <span className="gameStatus">Wild</span>
+                      ) : null}
+                      {isSuperGameTriggerSymbol(symbol) ? (
+                        <span className="gameStatus">Uruchamia supergrę</span>
                       ) : null}
                     </div>
                     <p>
                       {symbol.code} · mobile {symbol.mobileCode}
                     </p>
                     <p className="rulesMetadata">
-                      {symbol.isWildcard
-                        ? 'Bez minimum i payoutów'
-                        : configuration
-                          ? `Minimum ${configuration.minimumMatchLength} · ${activeRules.length} aktywnych wypłat`
-                          : 'Niezapisana konfiguracja · domyślnie minimum 3'}
+                      {isSuperGameTriggerSymbol(symbol)
+                        ? `Bez minimum · ${activeRules.length} wypłat za sztuki na planszy`
+                        : symbol.isWildcard
+                          ? 'Bez minimum i payoutów'
+                          : configuration
+                            ? `Minimum ${configuration.minimumMatchLength} · ${activeRules.length} aktywnych wypłat`
+                            : 'Niezapisana konfiguracja · domyślnie minimum 3'}
                     </p>
                   </div>
                   {canMutate ? (

@@ -86,6 +86,30 @@ export async function savePayoutConfiguration(
       }
       saved.push(result.data);
     }
+    if (draft.archiveUnlistedPayouts === true) {
+      const listed = new Set(draft.payouts.map((item) => item.matchLength));
+      const unlisted = existing.filter(
+        (item) =>
+          item.symbolId === symbolId &&
+          item.isActive &&
+          !listed.has(item.matchLength),
+      );
+      for (const payout of unlisted) {
+        const result = await api.updatePayoutRule(rulesVersionId, payout.id, {
+          isActive: false,
+        } satisfies PayoutRuleUpdate);
+        if (result.error !== undefined || result.data === undefined) {
+          return {
+            error: apiErrorMessage(
+              result.error,
+              `Wypłaty zapisano, ale nie udało się wyłączyć wypłaty dla ${payout.matchLength} sztuk. Ponów zapis.`,
+            ),
+            ok: false,
+          };
+        }
+        saved.push(result.data);
+      }
+    }
     return {
       configuration: configurationResult.data,
       ok: true,

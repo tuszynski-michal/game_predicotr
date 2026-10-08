@@ -73,6 +73,10 @@ class GameModel(Base):
             "expected_layout_count BETWEEN 1 AND 10000000",
             name="ck_games_expected_layout_count_range",
         ),
+        CheckConstraint(
+            "super_game_kind ~ '^[a-z][a-z0-9_]{0,63}$'",
+            name="ck_games_super_game_kind_format",
+        ),
         UniqueConstraint("code", name="uq_games_code"),
         Index(
             "ix_games_board_topology_rules_version",
@@ -102,6 +106,14 @@ class GameModel(Base):
     shape_geometry_configuration: Mapped[str | None] = mapped_column(
         String(64),
         nullable=True,
+    )
+    # D-535: code of a registered super game kind
+    # (game_predictor_worker.domain.super_games); 'none' for games without one.
+    super_game_kind: Mapped[str] = mapped_column(
+        Text,
+        nullable=False,
+        default="none",
+        server_default=text("'none'"),
     )
     board_topology_rules_version_id: Mapped[UUID | None] = mapped_column(
         ForeignKey("rules_versions.id", ondelete="RESTRICT"),
@@ -243,6 +255,10 @@ class SymbolModel(Base):
             "name_en IS NULL OR length(btrim(name_en)) > 0",
             name="ck_symbols_name_en_nonblank",
         ),
+        CheckConstraint(
+            "super_game_trigger_count IS NULL OR super_game_trigger_count IN (3, 4, 5)",
+            name="ck_symbols_super_game_trigger_count",
+        ),
         UniqueConstraint("game_id", "mobile_code", name="uq_symbols_game_mobile_code"),
         UniqueConstraint("game_id", "code", name="uq_symbols_game_code"),
     )
@@ -260,6 +276,8 @@ class SymbolModel(Base):
     name_en: Mapped[str | None] = mapped_column(String(200), nullable=True)
     image_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     is_wildcard: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # D-535: null = no super game trigger role; 3/4/5 = cells on a cut board.
+    super_game_trigger_count: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     display_order: Mapped[int] = mapped_column(Integer, nullable=False)
     status: Mapped[SymbolStatus] = mapped_column(
         Enum(

@@ -162,6 +162,8 @@ export function createManagementPublicAdapter(options: {
             mobileCode: symbol.mobileCode,
             status: symbol.status === 'archived' ? 'archived' : 'active',
             imagePath: symbol.imageRevision ? 'public' : null,
+            // Public symbols carry no catalog roles (D-535).
+            superGameTriggerCount: null,
           };
         });
         return { ...response, data: symbols };

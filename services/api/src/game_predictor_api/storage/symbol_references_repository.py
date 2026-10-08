@@ -218,6 +218,7 @@ class SqlAlchemyApprovedSymbolReferenceRepository(ApprovedSymbolReferenceReposit
             status=symbol.status,
             name_pl=symbol.name_pl,
             name_en=symbol.name_en,
+            super_game_trigger_count=symbol.super_game_trigger_count,
         )
 
     def _locked_current_candidate(

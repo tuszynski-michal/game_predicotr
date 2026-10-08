@@ -1,7 +1,7 @@
 ---
 title: Data model
 status: accepted
-last_updated: 2026-10-05
+last_updated: 2026-10-08
 ---
 
 # Model danych
@@ -394,6 +394,7 @@ Nie dodano migracji: statusy i typ `remove` są już dopuszczone przez schemat
 | status | enum | draft/active/archived |
 | expected_layout_count | bigint | dodatnia konfiguracja, domyślnie 500 000 |
 | shape_geometry_configuration | varchar(64), nullable | `framed_full_page_v2`, `requires_clarification`, `grid_profile_777_v2` lub `grid_profile_mumie_v1` (0140, profil silnika siatek); `NULL` historycznej gry jest odczytywane fail-closed jako potrzeba doprecyzowania |
+| super_game_kind | text, NOT NULL, domyślnie `'none'` | rodzaj supergry gry (0151, D-535): `none` albo kod z rejestru `game_predictor_worker.domain.super_games` (pierwszy: `wild_super_spins`) |
 | created_at | timestamptz | |
 | updated_at | timestamptz | |
 
@@ -401,6 +402,15 @@ Wersjonowane wymiary i koszt spinu znajdują się w `rules_versions`, aby
 historyczne wydanie było odtwarzalne. `expected_layout_count` określa bieżący
 cel kompletności gry. Testowa gra `0.2` może mieć mniejszą wartość; docelna
 wartość domyślna pozostaje `500 000`.
+
+`super_game_kind` (TASK-0931): lista rodzajów i ich mechanika są zaszyte w
+kodzie (rejestr: kod, etykieta, `series_length = 10`, `retrigger_extension =
+10`, `free_spin_cost = 0` dla `wild_super_spins`). Baza sprawdza wyłącznie
+format kodu (`ck_games_super_game_kind_format`, `^[a-z][a-z0-9_]{0,63}$`), aby
+nowy rodzaj nie wymagał migracji; zgodność z rejestrem waliduje domena
+(`INVALID_SUPER_GAME_KIND`). Istniejące gry, w tym 777, mają `none`. Zmiana na
+`none` jest odrzucana (`SUPER_GAME_KIND_IN_USE`), dopóki którykolwiek symbol gry
+ma `super_game_trigger_count`.
 
 ### cleanup_operations
 
@@ -437,7 +447,8 @@ potwierdzonego rekordu finalizuje kwarantannę, a brak rekordu przywraca pliki.
 | name_pl | varchar nullable | polska etykieta prezentacyjna od 0.3 |
 | name_en | varchar nullable | angielska etykieta prezentacyjna od 0.3 |
 | image_path | varchar nullable | ścieżka względna |
-| is_wildcard | boolean | |
+| is_wildcard | boolean | rola Wild (w UI „Wild”, dawniej „Joker”) |
+| super_game_trigger_count | smallint nullable | 0151, D-535: `null` = symbol nie uruchamia supergry; 3/4/5 = liczba jego sztuk na pociętej planszy uruchamiająca supergrę; CHECK `IN (3, 4, 5)` |
 | display_order | integer | |
 | status | enum | active/archived |
 
@@ -456,6 +467,18 @@ utworzonych przed 0.3 oraz klientów starszego kontraktu.
 Symbol nie jest fizycznie usuwany przez publiczne Admin API. `DELETE` oznacza
 archiwizację i nie zmienia historycznego kodu. Po dodaniu wersji reguł i
 datasetów ich klucze obce dodatkowo chronią użyte symbole.
+
+Role symbolu (TASK-0931, D-535): symbol może być jednocześnie Wild i
+uruchamiający supergrę. Ustawienie `super_game_trigger_count` wymaga gry z
+`super_game_kind != 'none'` (`SUPER_GAME_KIND_REQUIRED`). Role (`is_wildcard`,
+`super_game_trigger_count`) można zmieniać, dopóki symbol nie występuje w
+opublikowanej ani zarchiwizowanej wersji reguł
+(`SYMBOL_RULES_IDENTITY_IN_USE`); odwołanie z wersji roboczej nie blokuje
+zmiany. Kolejność walidacji zapisu: gra istnieje → rodzaj supergry gry →
+opublikowane wersje → pola; błąd nie zapisuje nic. Gdy symbol zyskuje rolę
+Wild albo uruchamiającą, w tej samej transakcji jego `minimum_match_length`
+we wszystkich wersjach `draft` zostaje ustawione na `null`; payout rules nie
+są zmieniane.
 
 ### rules_versions
 
@@ -493,7 +516,7 @@ kolumna ani migracja schematu.
 |---|---|---|
 | rules_version_id | UUID | FK rules_versions |
 | symbol_id | UUID | symbol tej samej gry |
-| minimum_match_length | smallint nullable | null wyłącznie dla jokera |
+| minimum_match_length | smallint nullable | null wyłącznie dla Wilda i symbolu uruchamiającego supergrę |
 | is_active | boolean | |
 
 Unikalność: `(rules_version_id, symbol_id)`.
@@ -503,7 +526,10 @@ Walidacja:
 - zwykły symbol ma `2 <= minimum_match_length <= columns`,
 - domyślna wartość nowego zwykłego symbolu wynosi 3 dla wersji mającej co
   najmniej 3 kolumny,
-- joker ma `minimum_match_length = null` i nie otrzymuje payout rules,
+- Wild ma `minimum_match_length = null` i bez roli uruchamiającej nie
+  otrzymuje payout rules,
+- symbol z `super_game_trigger_count` (także Wild) ma
+  `minimum_match_length = null` (`SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED`),
 - konfiguracja należy do wersji reguł, a nie globalnego rekordu `symbols`,
   dzięki czemu historyczne wydania pozostają odtwarzalne.
 
@@ -511,8 +537,9 @@ Pierwsza aktualizacja wykonuje upsert konfiguracji. Zwykły symbol bez
 utrwalonego rekordu jest prezentowany przez panel z domyślnym minimum 3, ale
 nie należy do wersji do czasu zapisu. Aktywne rekordy `rules_version_symbols`
 definiują skład publikowanej wersji; publikacja wymaga co najmniej jednego
-aktywnego zwykłego symbolu. Po utworzeniu rekordu nie można zmienić katalogowej
-roli zwykły/joker tego symbolu.
+aktywnego zwykłego symbolu (symbol uruchamiający supergrę nie jest zwykłym
+symbolem liniowym). Po publikacji wersji używającej symbolu nie można zmienić
+jego katalogowych ról Wild i „Uruchamia supergrę” (TASK-0931).
 
 ### paylines
 
@@ -547,8 +574,8 @@ ponownie aktywowane. Zmiana wymiarów draftu nie może unieważnić istniejąceg
 |---|---|---|
 | id | UUID | |
 | rules_version_id | UUID | |
-| symbol_id | UUID | zwykły symbol tej samej gry |
-| match_length | smallint | od progu symbolu do liczby kolumn |
+| symbol_id | UUID | zwykły albo uruchamiający supergrę symbol tej samej gry |
+| match_length | smallint | zwykły symbol: od progu symbolu do liczby kolumn; symbol uruchamiający: liczba sztuk na planszy `2..rows × columns` |
 | payout_credits | integer | |
 | is_active | boolean | |
 
@@ -556,21 +583,30 @@ Unikalność: `(rules_version_id, symbol_id, match_length)`.
 
 Walidacja:
 
-- `minimum_match_length <= match_length <= columns`,
+- zwykły symbol: `minimum_match_length <= match_length <= columns`,
+- symbol z `super_game_trigger_count` (D-535): `match_length` oznacza liczbę
+  sztuk symbolu w dowolnych miejscach planszy, niezależnie od linii;
+  `2 <= match_length <= rows × columns`, dowolny podzbiór liczb, wypłaty ściśle
+  rosną wraz z liczbą; interpretacja wynika z roli w `symbols`, nie z nowej
+  kolumny ani tabeli,
 - `payout_credits >= 0`,
-- joker nie ma payout rule.
+- Wild bez roli uruchamiającej nie ma payout rule.
 
 Publiczne usunięcie payout rule ustawia `is_active = false`; rekord i klucz
 wersja/symbol/długość pozostają zarezerwowane. PATCH może zmienić kredyty i
 ponownie aktywować rekord. Podniesienie `minimum_match_length` automatycznie
-archiwizuje reguły poniżej nowego progu. Zmniejszenie liczby kolumn nie może
-pozostawić konfiguracji ani payout rule poza zakresem.
+archiwizuje reguły poniżej nowego progu. Zmniejszenie liczby kolumn albo
+wierszy nie może pozostawić konfiguracji ani payout rule poza zakresem (dla
+symbolu uruchamiającego granicą jest `rows × columns`).
 
 Przed precomputingiem i publikacją pełna wersja reguł musi zawierać każdą parę
 `(aktywny zwykły symbol, match_length minimum_match_length..columns)`, nie może
 zawierać aktywnej reguły poniżej progu, a payout danego symbolu musi rosnąć
-ściśle wraz z długością. CRUD draftu może być chwilowo niekompletny; niepełna
-wersja nie może zostać użyta do wydania.
+ściśle wraz z długością. Symbol uruchamiający supergrę wymaga gry z
+`super_game_kind != 'none'` (`SUPER_GAME_KIND_REQUIRED`), nie ma minimum, a
+jego wypłaty za sztuki muszą mieścić się w `2..rows × columns` i ściśle rosnąć;
+nie jest wymagana wypłata dla każdej liczby. CRUD draftu może być chwilowo
+niekompletny; niepełna wersja nie może zostać użyta do wydania.
 
 Reguła nie wskazuje konkretnej payline. Wartość symbol/długość obowiązuje na wszystkich aktywnych paylines.
 

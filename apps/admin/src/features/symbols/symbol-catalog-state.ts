@@ -3,12 +3,62 @@ import type {
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 
+export type SuperGameTriggerCount = 3 | 4 | 5;
+
 export interface SymbolDraft {
   readonly isWildcard: boolean;
   readonly name: string;
+  /** Checkbox „Uruchamia supergrę” (D-535). */
+  readonly triggersSuperGame: boolean;
+  /** Selected threshold; kept while the checkbox is off to restore the choice. */
+  readonly superGameTriggerCount: SuperGameTriggerCount;
 }
 
-export type ValidatedSymbolDraft = SymbolDraft;
+export interface ValidatedSymbolDraft {
+  readonly isWildcard: boolean;
+  readonly name: string;
+  readonly superGameTriggerCount: SuperGameTriggerCount | null;
+}
+
+export const SUPER_GAME_TRIGGER_COUNT_OPTIONS: readonly {
+  readonly label: string;
+  readonly value: SuperGameTriggerCount;
+}[] = [
+  { label: 'Trzy symbole', value: 3 },
+  { label: 'Cztery symbole', value: 4 },
+  { label: 'Pięć symboli', value: 5 },
+];
+
+export const NO_SUPER_GAME_KIND = 'none';
+
+export function superGameTriggerCountLabel(count: number): string {
+  return (
+    SUPER_GAME_TRIGGER_COUNT_OPTIONS.find((option) => option.value === count)
+      ?.label ?? `${count} symbole`
+  );
+}
+
+export function parseSuperGameTriggerCount(
+  value: string,
+): SuperGameTriggerCount {
+  const parsed = Number(value);
+  return parsed === 4 || parsed === 5 ? parsed : 3;
+}
+
+/**
+ * The trigger role needs a game with a super game kind; the API rejects it
+ * otherwise (SUPER_GAME_KIND_REQUIRED). An already saved role stays editable
+ * so the operator can always remove it.
+ */
+export function canEditSuperGameTrigger(
+  game: Pick<GameResponse, 'superGameKind'> | null,
+  draft: Pick<SymbolDraft, 'triggersSuperGame'>,
+): boolean {
+  return (
+    draft.triggersSuperGame ||
+    (game !== null && game.superGameKind !== NO_SUPER_GAME_KIND)
+  );
+}
 
 export type SymbolDraftValidation =
   | { readonly valid: true; readonly value: ValidatedSymbolDraft }
@@ -17,12 +67,18 @@ export type SymbolDraftValidation =
 export const EMPTY_SYMBOL_DRAFT: SymbolDraft = {
   isWildcard: false,
   name: '',
+  superGameTriggerCount: 3,
+  triggersSuperGame: false,
 };
 
 export function symbolToDraft(symbol: SymbolResponse): SymbolDraft {
+  const count = symbol.superGameTriggerCount;
   return {
     isWildcard: symbol.isWildcard,
     name: symbol.name,
+    superGameTriggerCount:
+      count === null ? 3 : parseSuperGameTriggerCount(String(count)),
+    triggersSuperGame: count !== null,
   };
 }
 
@@ -38,7 +94,16 @@ export function validateSymbolDraft(draft: SymbolDraft): SymbolDraftValidation {
     };
   }
 
-  return { valid: true, value: { isWildcard: draft.isWildcard, name } };
+  return {
+    valid: true,
+    value: {
+      isWildcard: draft.isWildcard,
+      name,
+      superGameTriggerCount: draft.triggersSuperGame
+        ? draft.superGameTriggerCount
+        : null,
+    },
+  };
 }
 
 export function selectGameId(

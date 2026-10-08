@@ -44,10 +44,13 @@ export async function saveSymbol(
         ? await api.createSymbol(gameId, {
             isWildcard: draft.isWildcard,
             name: draft.name,
+            superGameTriggerCount: draft.superGameTriggerCount,
           } satisfies SymbolCreate)
         : await api.updateSymbol(gameId, intent.symbolId, {
             isWildcard: draft.isWildcard,
             name: draft.name,
+            // An explicit null removes the trigger role (D-535).
+            superGameTriggerCount: draft.superGameTriggerCount,
           } satisfies SymbolUpdate);
 
     if (result.error !== undefined || result.data === undefined) {

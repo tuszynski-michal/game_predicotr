@@ -5,6 +5,7 @@ import type {
   GridEngineModelStatus,
   GridEngineProfileResponse,
   ShapeGeometryReadinessStatus,
+  SuperGameKindResponse,
 } from '@game-predictor/admin-api-client';
 
 export interface GameDraft {
@@ -13,6 +14,8 @@ export interface GameDraft {
   readonly status: GameStatus;
   readonly expectedLayoutCount: string;
   readonly shapeGeometryConfiguration: GameShapeGeometryConfiguration;
+  /** Code from GET /api/v1/admin/super-game-kinds; 'none' = no super game (D-535). */
+  readonly superGameKind: string;
 }
 
 export type ValidatedGameDraft =
@@ -31,7 +34,40 @@ export const EMPTY_GAME_DRAFT: GameDraft = {
   status: 'draft',
   expectedLayoutCount: '500000',
   shapeGeometryConfiguration: 'requires_clarification',
+  superGameKind: 'none',
 };
+
+// Shown until the API registry loads, or when it cannot be loaded; the API
+// owns the list of kinds, so the Admin never keeps its own copy of the others.
+export const FALLBACK_SUPER_GAME_KINDS: readonly SuperGameKindResponse[] = [
+  { code: 'none', label: 'Brak' },
+];
+
+/**
+ * Options for the „Supergra” select: the API registry, plus the current value
+ * when it is missing from the list (an unloaded registry must never silently
+ * change a saved kind on the next save).
+ */
+export function superGameKindOptions(
+  kinds: readonly SuperGameKindResponse[],
+  currentKind: string,
+): readonly SuperGameKindResponse[] {
+  const available = kinds.length > 0 ? kinds : FALLBACK_SUPER_GAME_KINDS;
+  return available.some((kind) => kind.code === currentKind)
+    ? available
+    : [...available, { code: currentKind, label: currentKind }];
+}
+
+export function superGameKindLabel(
+  kinds: readonly SuperGameKindResponse[],
+  code: string,
+): string {
+  return (
+    kinds.find((kind) => kind.code === code)?.label ??
+    FALLBACK_SUPER_GAME_KINDS.find((kind) => kind.code === code)?.label ??
+    code
+  );
+}
 
 export const GAME_STATUS_LABELS: Record<GameStatus, string> = {
   draft: 'Szkic',
@@ -166,6 +202,7 @@ export function validateGameDraft(draft: GameDraft): ValidatedGameDraft {
       status: draft.status,
       expectedLayoutCount: String(expectedLayoutCount),
       shapeGeometryConfiguration: draft.shapeGeometryConfiguration,
+      superGameKind: draft.superGameKind,
     },
   };
 }

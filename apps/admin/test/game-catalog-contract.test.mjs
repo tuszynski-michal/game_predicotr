@@ -63,3 +63,16 @@ test('page format shows the grid engine profile, its model state and the 777 not
   assert.match(source, /className="gamePageFormat"/);
   assert.match(source, /Format strony:/);
 });
+
+test('TASK-0931: create and edit forms select the super game kind from the API registry', () => {
+  assert.match(source, /<span>Supergra<\/span>/);
+  assert.match(source, /name="superGameKind"/);
+  assert.match(
+    source,
+    /superGameKindOptions\(superGameKinds, draft\.superGameKind\)/,
+  );
+  assert.match(source, /loadSuperGameKinds\(api\)/);
+  assert.match(source, /superGameKind: game\.superGameKind/);
+  assert.match(source, /className="gameSuperGameKind"/);
+  assert.match(stateSource, /superGameKind: 'none'/);
+});

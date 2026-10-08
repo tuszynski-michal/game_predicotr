@@ -716,6 +716,8 @@ import type {
   ListSemiAutomaticImageSelectionSourcesErrors,
   ListSemiAutomaticImageSelectionSourcesResponses,
   ListSemiAutomaticImageSelectionsResponses,
+  ListSuperGameKindsData,
+  ListSuperGameKindsResponses,
   ListSymbolCellReviewsData,
   ListSymbolCellReviewsErrors,
   ListSymbolCellReviewsResponses,
@@ -7440,6 +7442,18 @@ export const getSemiAutomaticImageSelectionSourceAsset = <
     url: '/api/v1/admin/semi-automatic-image-selections/{run_id}/sources/{source_index}/asset',
     ...options,
   });
+
+/**
+ * List super game kinds a game can select
+ */
+export const listSuperGameKinds = <ThrowOnError extends boolean = false>(
+  options?: Options<ListSuperGameKindsData, ThrowOnError>,
+): RequestResult<ListSuperGameKindsResponses, unknown, ThrowOnError> =>
+  (options?.client ?? client).get<
+    ListSuperGameKindsResponses,
+    unknown,
+    ThrowOnError
+  >({ url: '/api/v1/admin/super-game-kinds', ...options });
 
 /**
  * List Adoptions

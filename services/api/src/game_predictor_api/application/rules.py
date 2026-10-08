@@ -20,6 +20,7 @@ from game_predictor_api.domain.rules import (
     RulesVersionSymbol,
     assess_rules_publication,
     ensure_draft,
+    validate_count_payout_match_length,
     validate_dimensions,
     validate_minimum_match_length,
     validate_payline_code,
@@ -103,12 +104,21 @@ class RulesRepository(Protocol):
 
     def delete_payline(self, rules_version_id: UUID, payline_id: UUID) -> None: ...
 
-    def payout_configuration_fits_columns(
+    def payout_configuration_fits_dimensions(
         self,
         rules_version_id: UUID,
         *,
+        rows: int,
         columns: int,
-    ) -> bool: ...
+    ) -> bool:
+        """Whether minimums and payout lengths still fit the requested grid.
+
+        Line payouts must fit ``columns``; super game trigger payouts count
+        cells and must fit ``rows * columns`` (D-535).
+        """
+        ...
+
+    def get_game_super_game_kind(self, game_id: UUID) -> str: ...
 
     def get_rules_symbol_definition(
         self,
@@ -232,11 +242,11 @@ class RulesService:
                 details={"rulesVersionId": str(rules_version_id)},
             )
         if (
-            validated_columns != rules_version.columns
-            and not self._repository.payout_configuration_fits_columns(
-                rules_version_id,
-                columns=validated_columns,
-            )
+            validated_rows != rules_version.rows or validated_columns != rules_version.columns
+        ) and not self._repository.payout_configuration_fits_dimensions(
+            rules_version_id,
+            rows=validated_rows,
+            columns=validated_columns,
         ):
             raise RulesConflictError(
                 "RULES_DIMENSIONS_IN_USE",
@@ -405,6 +415,7 @@ class RulesService:
             minimum_match_length,
             columns=rules_version.columns,
             is_wildcard=symbol.is_wildcard,
+            is_super_game_trigger=symbol.is_super_game_trigger,
         )
         saved = self._repository.save_rules_version_symbol(
             RulesVersionSymbol(
@@ -601,6 +612,7 @@ class RulesService:
             symbol_configurations=configurations,
             payout_rules=self._repository.list_payout_rules(rules_version.id),
             symbols=symbols,
+            super_game_kind=self._repository.get_game_super_game_kind(rules_version.game_id),
         )
 
     def _get_locked_rules_version(self, rules_version_id: UUID) -> RulesVersion:
@@ -663,6 +675,14 @@ class RulesService:
         configuration: RulesVersionSymbol,
         match_length: int,
     ) -> int:
+        if symbol.is_super_game_trigger:
+            # D-535: matchLength of a trigger symbol is a count of its cells
+            # anywhere on the board, independent of paylines and minimums.
+            return validate_count_payout_match_length(
+                match_length,
+                rows=rules_version.rows,
+                columns=rules_version.columns,
+            )
         if symbol.is_wildcard or configuration.minimum_match_length is None:
             raise RulesConflictError(
                 "WILDCARD_PAYOUT_NOT_ALLOWED",

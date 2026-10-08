@@ -13,6 +13,8 @@ from game_predictor_api.domain.catalog import (
     SymbolUsageSummary,
     validate_image_path,
     validate_optional_name,
+    validate_super_game_kind,
+    validate_super_game_trigger_count,
 )
 
 
@@ -72,7 +74,13 @@ class EmptyCatalogRepository(CatalogRepository):
     def save_symbol(self, symbol: Symbol) -> Symbol:
         return symbol
 
-    def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool:
+    def symbol_is_used_in_published_rules(self, symbol_id: UUID) -> bool:
+        return False
+
+    def clear_draft_rule_minimums(self, symbol_id: UUID) -> None:
+        raise AssertionError("Game existence must be checked first.")
+
+    def game_has_super_game_trigger_symbols(self, game_id: UUID) -> bool:
         return False
 
     def add_manual_symbol(self, *, game_id: UUID, name: str, is_wildcard: bool) -> Symbol:
@@ -136,3 +144,21 @@ def test_optional_localized_name_is_trimmed_or_can_be_absent() -> None:
 
     assert error.value.code == "INVALID_NAME"
     assert error.value.details == {"field": "nameEn"}
+
+
+def test_super_game_trigger_count_and_kind_validation() -> None:
+    assert [validate_super_game_trigger_count(value) for value in (None, 3, 4, 5)] == [
+        None,
+        3,
+        4,
+        5,
+    ]
+    for invalid in (0, 2, 6, True):
+        with pytest.raises(CatalogError) as error:
+            validate_super_game_trigger_count(invalid)
+        assert error.value.code == "INVALID_SUPER_GAME_TRIGGER_COUNT"
+    assert validate_super_game_kind("none") == "none"
+    assert validate_super_game_kind("wild_super_spins") == "wild_super_spins"
+    with pytest.raises(CatalogError) as kind_error:
+        validate_super_game_kind("Wild super spins")
+    assert kind_error.value.code == "INVALID_SUPER_GAME_KIND"

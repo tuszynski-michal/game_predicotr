@@ -13,7 +13,10 @@ from game_predictor_api.api.board_search_share_public import (
     create_board_search_share_public_router,
 )
 from game_predictor_api.api.board_search_shares import create_board_search_shares_admin_router
-from game_predictor_api.api.catalog import create_catalog_router
+from game_predictor_api.api.catalog import (
+    create_catalog_router,
+    create_super_game_kinds_router,
+)
 from game_predictor_api.api.cleanup import create_cleanup_router
 from game_predictor_api.api.datasets import create_datasets_router
 from game_predictor_api.api.grid_audit_proposals import create_grid_audit_proposals_router
@@ -138,6 +141,7 @@ def create_api_router(
         )
     )
     router.include_router(create_catalog_router(catalog_service_dependency))
+    router.include_router(create_super_game_kinds_router())
     router.include_router(create_grid_engine_profiles_router(settings.artifact_root))
     router.include_router(
         create_board_search_router(

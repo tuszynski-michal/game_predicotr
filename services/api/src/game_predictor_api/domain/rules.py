@@ -11,8 +11,11 @@ from enum import StrEnum
 from typing import Final
 from uuid import UUID
 
+from game_predictor_api.domain.catalog import NO_SUPER_GAME
+
 MAX_SPIN_COST = 2_147_483_647
 MAX_DISPLAY_ORDER = 2_147_483_647
+MINIMUM_COUNT_PAYOUT_LENGTH = 2
 _PAYLINE_CODE_PATTERN: Final = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
 
@@ -75,6 +78,13 @@ class RulesSymbolDefinition:
     id: UUID
     game_id: UUID
     is_wildcard: bool
+    # D-535: a trigger symbol is paid per count of its cells on the board,
+    # not per line, so its payout rules use count lengths and no minimum.
+    super_game_trigger_count: int | None = None
+
+    @property
+    def is_super_game_trigger(self) -> bool:
+        return self.super_game_trigger_count is not None
 
 
 @dataclass(frozen=True, slots=True)
@@ -210,7 +220,16 @@ def validate_minimum_match_length(
     *,
     columns: int,
     is_wildcard: bool,
+    is_super_game_trigger: bool = False,
 ) -> int | None:
+    if is_super_game_trigger:
+        if minimum_match_length is not None:
+            raise RulesError(
+                "SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED",
+                "A super game trigger symbol is paid per count and has no minimumMatchLength.",
+                details={"field": "minimumMatchLength"},
+            )
+        return None
     if is_wildcard:
         if minimum_match_length is not None:
             raise RulesError(
@@ -250,6 +269,34 @@ def validate_payout_match_length(
     return match_length
 
 
+def count_payout_maximum_length(*, rows: int, columns: int) -> int:
+    """Largest count a trigger symbol can reach: every cell of the board."""
+
+    return rows * columns
+
+
+def validate_count_payout_match_length(
+    match_length: int,
+    *,
+    rows: int,
+    columns: int,
+) -> int:
+    """Validate a trigger symbol payout, where matchLength is a cell count (D-535)."""
+
+    maximum = count_payout_maximum_length(rows=rows, columns=columns)
+    if not MINIMUM_COUNT_PAYOUT_LENGTH <= match_length <= maximum:
+        raise RulesError(
+            "INVALID_PAYOUT_MATCH_LENGTH",
+            "A super game trigger payout count must be between 2 and rows * columns.",
+            details={
+                "field": "matchLength",
+                "minimumCount": MINIMUM_COUNT_PAYOUT_LENGTH,
+                "maximumCount": maximum,
+            },
+        )
+    return match_length
+
+
 def validate_payout_credits(payout_credits: int) -> int:
     if not 0 <= payout_credits <= MAX_SPIN_COST:
         raise RulesError(
@@ -267,8 +314,15 @@ def assess_rules_publication(
     symbol_configurations: Sequence[RulesVersionSymbol],
     payout_rules: Sequence[PayoutRule],
     symbols: Mapping[UUID, RulesSymbolDefinition],
+    super_game_kind: str = NO_SUPER_GAME,
 ) -> RulesPublicationReadiness:
-    """Return every deterministic blocker without changing domain state."""
+    """Return every deterministic blocker without changing domain state.
+
+    A super game trigger symbol (D-535) is not an ordinary line symbol: it has
+    no minimum, its payouts count its cells on the board (``2..rows*columns``,
+    strictly increasing, not every count required) and it needs a game with a
+    super game kind. A Wild without the trigger role keeps the line rules.
+    """
 
     issues: list[RulesPublicationIssue] = []
 
@@ -320,6 +374,10 @@ def assess_rules_publication(
         configuration.symbol_id: configuration for configuration in symbol_configurations
     }
     active_ordinary: list[RulesVersionSymbol] = []
+    active_triggers: list[RulesVersionSymbol] = []
+    count_maximum = count_payout_maximum_length(
+        rows=rules_version.rows, columns=rules_version.columns
+    )
     for configuration in active_configurations:
         symbol = symbols.get(configuration.symbol_id)
         if symbol is None or symbol.game_id != rules_version.game_id:
@@ -328,6 +386,21 @@ def assess_rules_publication(
                 "An active symbol does not belong to the rules version game.",
                 symbolId=str(configuration.symbol_id),
             )
+            continue
+        if symbol.is_super_game_trigger:
+            if super_game_kind == NO_SUPER_GAME:
+                add_issue(
+                    "SUPER_GAME_KIND_REQUIRED",
+                    "A super game trigger symbol requires a game with a super game kind.",
+                    symbolId=str(configuration.symbol_id),
+                )
+            if configuration.minimum_match_length is not None:
+                add_issue(
+                    "SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED",
+                    "A super game trigger symbol cannot have minimumMatchLength.",
+                    symbolId=str(configuration.symbol_id),
+                )
+            active_triggers.append(configuration)
             continue
         if symbol.is_wildcard:
             if configuration.minimum_match_length is not None:
@@ -384,6 +457,23 @@ def assess_rules_publication(
                 payoutRuleId=str(rule.id),
                 symbolId=str(rule.symbol_id),
             )
+            continue
+        if symbol.is_super_game_trigger:
+            if not MINIMUM_COUNT_PAYOUT_LENGTH <= rule.match_length <= count_maximum:
+                add_issue(
+                    "INVALID_PAYOUT_MATCH_LENGTH",
+                    "An active trigger payout count is outside 2..rows*columns.",
+                    payoutRuleId=str(rule.id),
+                    symbolId=str(rule.symbol_id),
+                    matchLength=rule.match_length,
+                )
+            if not 0 <= rule.payout_credits <= MAX_SPIN_COST:
+                add_issue(
+                    "INVALID_PAYOUT_CREDITS",
+                    "An active payout value is outside the supported range.",
+                    payoutRuleId=str(rule.id),
+                    symbolId=str(rule.symbol_id),
+                )
             continue
         if symbol.is_wildcard:
             add_issue(
@@ -447,6 +537,36 @@ def assess_rules_publication(
                 add_issue(
                     "NON_INCREASING_PAYOUT",
                     "Payout credits must increase with every longer match.",
+                    symbolId=str(configuration.symbol_id),
+                    previousMatchLength=previous.match_length,
+                    matchLength=current.match_length,
+                )
+
+    for configuration in active_triggers:
+        trigger_rules = payouts_by_symbol.get(configuration.symbol_id, [])
+        trigger_by_length: dict[int, list[PayoutRule]] = defaultdict(list)
+        for rule in trigger_rules:
+            trigger_by_length[rule.match_length].append(rule)
+        duplicate_counts = sorted(
+            length for length, matches in trigger_by_length.items() if len(matches) > 1
+        )
+        if duplicate_counts:
+            add_issue(
+                "DUPLICATE_ACTIVE_PAYOUT_RULE",
+                "A super game trigger symbol has duplicate active payout counts.",
+                symbolId=str(configuration.symbol_id),
+                matchLengths=duplicate_counts,
+            )
+        ordered_counts = [
+            trigger_by_length[length][0]
+            for length in sorted(trigger_by_length)
+            if len(trigger_by_length[length]) == 1
+        ]
+        for previous, current in zip(ordered_counts, ordered_counts[1:], strict=False):
+            if current.payout_credits <= previous.payout_credits:
+                add_issue(
+                    "NON_INCREASING_PAYOUT",
+                    "Payout credits must increase with every larger symbol count.",
                     symbolId=str(configuration.symbol_id),
                     previousMatchLength=previous.match_length,
                     matchLength=current.match_length,

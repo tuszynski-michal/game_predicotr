@@ -3742,6 +3742,10 @@ export type GameCreate = {
   name: string;
   shapeGeometryConfiguration?: GameShapeGeometryConfiguration;
   status?: GameStatus;
+  /**
+   * Supergamekind
+   */
+  superGameKind?: string;
 };
 
 /**
@@ -3792,6 +3796,10 @@ export type GameResponse = {
    */
   storageWriteAvailable: boolean;
   /**
+   * Supergamekind
+   */
+  superGameKind: string;
+  /**
    * Updatedat
    */
   updatedAt: string;
@@ -3832,6 +3840,10 @@ export type GameUpdate = {
   name?: string | null;
   shapeGeometryConfiguration?: GameShapeGeometryConfiguration | null;
   status?: GameStatus | null;
+  /**
+   * Supergamekind
+   */
+  superGameKind?: string | null;
 };
 
 /**
@@ -15427,6 +15439,22 @@ export type StructuredGeometryCandidateJobSnapshotPayload = {
 };
 
 /**
+ * SuperGameKindResponse
+ *
+ * One code-defined super game kind offered for a game (D-535).
+ */
+export type SuperGameKindResponse = {
+  /**
+   * Code
+   */
+  code: string;
+  /**
+   * Label
+   */
+  label: string;
+};
+
+/**
  * SymbolCellPreviewBatchRequest
  */
 export type SymbolCellPreviewBatchRequest = {
@@ -16183,6 +16211,10 @@ export type SymbolCreate = {
    * Name
    */
   name: string;
+  /**
+   * Supergametriggercount
+   */
+  superGameTriggerCount?: number | null;
 };
 
 /**
@@ -16564,6 +16596,10 @@ export type SymbolResponse = {
    */
   namePl: string | null;
   status: SymbolStatus;
+  /**
+   * Supergametriggercount
+   */
+  superGameTriggerCount: number | null;
 };
 
 /**
@@ -16689,6 +16725,10 @@ export type SymbolUpdate = {
    * Name
    */
   name?: string | null;
+  /**
+   * Supergametriggercount
+   */
+  superGameTriggerCount?: number | null;
 };
 
 /**
@@ -31664,6 +31704,25 @@ export type GetSemiAutomaticImageSelectionSourceAssetResponses = {
    */
   200: unknown;
 };
+
+export type ListSuperGameKindsData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/super-game-kinds';
+};
+
+export type ListSuperGameKindsResponses = {
+  /**
+   * Response Listsupergamekinds
+   *
+   * Successful Response
+   */
+  200: Array<SuperGameKindResponse>;
+};
+
+export type ListSuperGameKindsResponse =
+  ListSuperGameKindsResponses[keyof ListSuperGameKindsResponses];
 
 export type ListV7LabelGeometryAdoptionsData = {
   body?: never;

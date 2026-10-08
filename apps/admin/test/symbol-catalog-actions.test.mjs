@@ -21,7 +21,7 @@ const savedSymbol = {
   namePl: null,
   status: 'active',
 };
-const draft = { isWildcard: false, name: 'Lemon' };
+const draft = { isWildcard: false, name: 'Lemon', superGameTriggerCount: null };
 
 function createClient(overrides = {}) {
   return {
@@ -35,7 +35,7 @@ function createClient(overrides = {}) {
   };
 }
 
-test('creates a manual symbol with only its name and joker flag', async () => {
+test('creates a manual symbol with only its name, Wild flag and trigger role', async () => {
   let request;
   const result = await saveSymbol(
     createClient({
@@ -53,7 +53,7 @@ test('creates a manual symbol with only its name and joker flag', async () => {
   assert.deepEqual(result, { ok: true, symbol: savedSymbol });
 });
 
-test('edits only name and joker flag without changing stable identity', async () => {
+test('edits only name, Wild flag and trigger role without changing stable identity', async () => {
   let request;
   const result = await saveSymbol(
     createClient({
@@ -64,10 +64,14 @@ test('edits only name and joker flag without changing stable identity', async ()
     }),
     gameId,
     { mode: 'edit', symbolId: savedSymbol.id },
-    { isWildcard: true, name: 'Lemon' },
+    { isWildcard: true, name: 'Lemon', superGameTriggerCount: 3 },
   );
 
-  assert.deepEqual(request, { isWildcard: true, name: 'Lemon' });
+  assert.deepEqual(request, {
+    isWildcard: true,
+    name: 'Lemon',
+    superGameTriggerCount: 3,
+  });
   assert.equal(result.ok, true);
 });
 
@@ -146,4 +150,22 @@ test('reorder saves each displayOrder change and stops at the first error', asyn
     requests.map((request) => request.symbolId),
     ['fails'],
   );
+});
+
+test('TASK-0931: clearing the trigger role sends an explicit null', async () => {
+  let request;
+  await saveSymbol(
+    createClient({
+      updateSymbol: async (_currentGameId, _symbolId, body) => {
+        request = body;
+        return { data: savedSymbol };
+      },
+    }),
+    gameId,
+    { mode: 'edit', symbolId: savedSymbol.id },
+    { isWildcard: true, name: 'Mumia', superGameTriggerCount: null },
+  );
+
+  assert.ok(Object.hasOwn(request, 'superGameTriggerCount'));
+  assert.equal(request.superGameTriggerCount, null);
 });

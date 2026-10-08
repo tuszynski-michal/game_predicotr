@@ -397,6 +397,9 @@ function toAdminSymbol(
     nameEn: symbol.nameEn,
     namePl: symbol.namePl,
     status: symbol.status === 'archived' ? 'archived' : 'active',
+    // Public share symbols carry no catalog roles; the trigger role is
+    // resolved server-side (D-535).
+    superGameTriggerCount: null,
   };
 }
 

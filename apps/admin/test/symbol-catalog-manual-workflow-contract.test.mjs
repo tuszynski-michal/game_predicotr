@@ -9,7 +9,8 @@ const source = await readFile(
 
 test('uses the manual symbol catalog workflow without bootstrap or archival controls', () => {
   assert.match(source, />\s*Dodaj symbol\s*</);
-  assert.match(source, />\s*Joker\s*</);
+  assert.match(source, />\s*Wild\s*</);
+  assert.doesNotMatch(source, /Joker/);
   assert.match(source, /Brak zatwierdzonej grafiki referencyjnej/);
   assert.match(source, /<SymbolIdentityMetadata/);
   assert.match(source, />\s*Edytuj\s*</);
@@ -36,4 +37,15 @@ test('opens the approved-crop picker and refreshes the catalog with its saved re
   assert.match(source, /<SymbolImagePickerModal/);
   assert.match(source, /setImagePickerSymbolId\(symbol\.id\)/);
   assert.match(source, /upsertSymbol\(current, savedSymbol\)/);
+});
+
+test('TASK-0931: the symbol editor exposes Wild, the trigger checkbox and its count select', () => {
+  assert.match(source, /name="isWildcard"/);
+  assert.match(source, /Uruchamia supergrę/);
+  assert.match(source, /name="triggersSuperGame"/);
+  assert.match(source, /\{draft\.triggersSuperGame \? \(/);
+  assert.match(source, /name="superGameTriggerCount"/);
+  assert.match(source, /SUPER_GAME_TRIGGER_COUNT_OPTIONS\.map/);
+  assert.match(source, /canEditSuperGameTrigger\(game, draft\)/);
+  assert.match(source, /game=\{selectedGame\}/);
 });

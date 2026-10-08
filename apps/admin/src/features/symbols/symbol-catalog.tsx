@@ -31,6 +31,10 @@ import {
   type SymbolDraft,
   type SymbolMoveDirection,
   symbolToDraft,
+  SUPER_GAME_TRIGGER_COUNT_OPTIONS,
+  canEditSuperGameTrigger,
+  parseSuperGameTriggerCount,
+  superGameTriggerCountLabel,
   upsertSymbol,
   validateSymbolDraft,
 } from '@/features/symbols/symbol-catalog-state';
@@ -423,6 +427,7 @@ export function SymbolCatalog({
             <SymbolEditor
               draft={draft}
               error={formError}
+              game={selectedGame}
               isSubmitting={isSubmitting}
               mode={editor.mode}
               onCancel={closeEditor}
@@ -505,6 +510,7 @@ export function SymbolCatalog({
 interface SymbolEditorProps {
   readonly draft: SymbolDraft;
   readonly error: string;
+  readonly game: GameResponse | null;
   readonly isSubmitting: boolean;
   readonly mode: 'create' | 'edit';
   readonly onCancel: () => void;
@@ -516,6 +522,7 @@ interface SymbolEditorProps {
 function SymbolEditor({
   draft,
   error,
+  game,
   isSubmitting,
   mode,
   onCancel,
@@ -585,10 +592,61 @@ function SymbolEditor({
             type="checkbox"
           />
           <span>
-            Joker
-            <small>Joker nie otrzymuje własnej reguły wypłaty.</small>
+            Wild
+            <small>
+              Wild zastępuje symbol na linii. Bez roli „Uruchamia supergrę” nie
+              otrzymuje własnej reguły wypłaty.
+            </small>
           </span>
         </label>
+
+        <label className="checkboxField">
+          <input
+            checked={draft.triggersSuperGame}
+            disabled={isSubmitting || !canEditSuperGameTrigger(game, draft)}
+            name="triggersSuperGame"
+            onChange={(event) =>
+              onChange({
+                ...draft,
+                triggersSuperGame: event.currentTarget.checked,
+              })
+            }
+            type="checkbox"
+          />
+          <span>
+            Uruchamia supergrę
+            <small>
+              {canEditSuperGameTrigger(game, draft)
+                ? 'Wybrana liczba tych symboli w dowolnych miejscach pociętej planszy uruchamia supergrę. Wypłaty symbolu w regułach liczą sztuki na planszy.'
+                : 'Najpierw wybierz rodzaj supergry w ustawieniach gry (zakładka Gry).'}
+            </small>
+          </span>
+        </label>
+
+        {draft.triggersSuperGame ? (
+          <label>
+            <span>Liczba symboli uruchamiająca supergrę</span>
+            <select
+              disabled={isSubmitting}
+              name="superGameTriggerCount"
+              onChange={(event) =>
+                onChange({
+                  ...draft,
+                  superGameTriggerCount: parseSuperGameTriggerCount(
+                    event.currentTarget.value,
+                  ),
+                })
+              }
+              value={draft.superGameTriggerCount}
+            >
+              {SUPER_GAME_TRIGGER_COUNT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null}
 
         {symbol ? <SymbolIdentityMetadata symbol={symbol} /> : null}
 
@@ -681,8 +739,8 @@ function SymbolsList({
         </div>
         <p>
           Tożsamość nadaje Admin API podczas utworzenia symbolu. Kolejność
-          zmienisz strzałkami; skróty 1–9 w weryfikacji symboli i wyszukiwarce
-          plansz podążają za tą kolejnością.
+          zmienisz strzałkami; skróty 1–9 i 0 w weryfikacji symboli oraz 1–9 w
+          wyszukiwarce plansz podążają za tą kolejnością.
         </p>
       </div>
       <div className="symbolsList">
@@ -727,7 +785,15 @@ function SymbolsList({
                 <div className="gameTitleLine">
                   <h3>{symbol.name}</h3>
                   {symbol.isWildcard ? (
-                    <span className="wildcardBadge">Joker</span>
+                    <span className="wildcardBadge">Wild</span>
+                  ) : null}
+                  {symbol.superGameTriggerCount !== null ? (
+                    <span className="wildcardBadge">
+                      Uruchamia supergrę:{' '}
+                      {superGameTriggerCountLabel(
+                        symbol.superGameTriggerCount,
+                      ).toLowerCase()}
+                    </span>
                   ) : null}
                 </div>
                 <div className="symbolMetadata">

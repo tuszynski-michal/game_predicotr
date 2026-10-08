@@ -16,6 +16,11 @@ _MAX_NAME_LENGTH: Final = 200
 _MAX_IMAGE_PATH_LENGTH: Final = 500
 DEFAULT_EXPECTED_LAYOUT_COUNT: Final = 500_000
 MAX_EXPECTED_LAYOUT_COUNT: Final = 10_000_000
+# Code of the registry entry ``none`` (game_predictor_worker.domain.super_games);
+# kept local so that importing the catalog domain (and the ORM models) never
+# requires the worker package, for example inside Alembic migrations.
+NO_SUPER_GAME: Final = "none"
+SUPER_GAME_TRIGGER_COUNTS: Final = (3, 4, 5)
 
 
 class GameStatus(StrEnum):
@@ -108,6 +113,7 @@ class Game:
     storage_status: str = "active"
     storage_write_available: bool = True
     shape_geometry_configuration: GameShapeGeometryConfiguration | None = None
+    super_game_kind: str = NO_SUPER_GAME
 
 
 @dataclass(frozen=True, slots=True)
@@ -143,6 +149,10 @@ class Symbol:
     status: SymbolStatus
     name_pl: str | None = None
     name_en: str | None = None
+    # D-535: ``None`` = the symbol does not start a super game; 3/4/5 = the
+    # number of its cells on a cut board that starts one. A trigger symbol's
+    # payout rules are paid per count of its cells on the board.
+    super_game_trigger_count: int | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -280,3 +290,44 @@ def validate_image_path(value: str | None) -> str | None:
             details={"field": "imagePath"},
         )
     return value
+
+
+def validate_super_game_kind(value: str) -> str:
+    """Accept only a kind registered in the code registry (D-535)."""
+
+    from game_predictor_worker.domain.super_games import is_known_super_game_kind
+
+    if not isinstance(value, str) or not is_known_super_game_kind(value):
+        raise CatalogError(
+            "INVALID_SUPER_GAME_KIND",
+            "superGameKind must be one of the registered super game kinds.",
+            details={"field": "superGameKind"},
+        )
+    return value
+
+
+def validate_super_game_trigger_count(value: int | None) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, bool) or value not in SUPER_GAME_TRIGGER_COUNTS:
+        raise CatalogError(
+            "INVALID_SUPER_GAME_TRIGGER_COUNT",
+            "superGameTriggerCount must be null, 3, 4 or 5.",
+            details={"field": "superGameTriggerCount"},
+        )
+    return value
+
+
+def ensure_super_game_kind_allows_trigger(game: Game, trigger_count: int | None) -> None:
+    """A super game trigger role requires a game with a super game kind."""
+
+    if trigger_count is not None and game.super_game_kind == NO_SUPER_GAME:
+        raise CatalogError(
+            "SUPER_GAME_KIND_REQUIRED",
+            "Select the game's super game kind before marking a symbol as its trigger.",
+            details={
+                "field": "superGameTriggerCount",
+                "gameId": str(game.id),
+                "superGameKind": game.super_game_kind,
+            },
+        )

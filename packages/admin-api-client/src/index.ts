@@ -274,6 +274,7 @@ import {
   listBrowserPageGeometryReviewSources as listGeneratedBrowserPageGeometryReviewSources,
   listGridCalibrationProfiles as listGeneratedGridCalibrationProfiles,
   listGridEngineProfiles as listGeneratedGridEngineProfiles,
+  listSuperGameKinds as listGeneratedSuperGameKinds,
   listGridProfileActivations as listGeneratedGridProfileActivations,
   getGridCalibrationCohortDiagnostics as getGeneratedGridCalibrationCohortDiagnostics,
   listCuratedImageImportSources as listGeneratedCuratedImageImportSources,
@@ -623,6 +624,7 @@ export type {
   GridEngineModelStatus,
   GridEngineProfileResponse,
   GridEngineReportResultResponse,
+  SuperGameKindResponse,
   CreateGridCalibrationCandidateResponse,
   CreateGridCalibrationCandidateCommand,
   GeometryCohortDiagnosticsResponse,
@@ -3565,6 +3567,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
     updateGame: (gameId: string, body: GameUpdate) =>
       updateGeneratedGame({ body, client, path: { game_id: gameId } }),
     listGridEngineProfiles: () => listGeneratedGridEngineProfiles({ client }),
+    listSuperGameKinds: () => listGeneratedSuperGameKinds({ client }),
     archiveGame: (gameId: string) =>
       archiveGeneratedGame({
         client,

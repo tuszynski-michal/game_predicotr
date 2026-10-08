@@ -6777,6 +6777,13 @@
           "status": {
             "$ref": "#/components/schemas/GameStatus",
             "default": "draft"
+          },
+          "superGameKind": {
+            "default": "none",
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Supergamekind",
+            "type": "string"
           }
         },
         "required": [
@@ -6848,6 +6855,10 @@
             "title": "Storagewriteavailable",
             "type": "boolean"
           },
+          "superGameKind": {
+            "title": "Supergamekind",
+            "type": "string"
+          },
           "updatedAt": {
             "format": "date-time",
             "title": "Updatedat",
@@ -6867,7 +6878,8 @@
           "storageGeneration",
           "storageStatus",
           "storageWriteAvailable",
-          "shapeGeometryReadiness"
+          "shapeGeometryReadiness",
+          "superGameKind"
         ],
         "title": "GameResponse",
         "type": "object"
@@ -6940,6 +6952,19 @@
                 "type": "null"
               }
             ]
+          },
+          "superGameKind": {
+            "anyOf": [
+              {
+                "maxLength": 64,
+                "minLength": 1,
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supergamekind"
           }
         },
         "title": "GameUpdate",
@@ -27277,6 +27302,26 @@
         "title": "StructuredGeometryCandidateJobSnapshotPayload",
         "type": "object"
       },
+      "SuperGameKindResponse": {
+        "additionalProperties": false,
+        "description": "One code-defined super game kind offered for a game (D-535).",
+        "properties": {
+          "code": {
+            "title": "Code",
+            "type": "string"
+          },
+          "label": {
+            "title": "Label",
+            "type": "string"
+          }
+        },
+        "required": [
+          "code",
+          "label"
+        ],
+        "title": "SuperGameKindResponse",
+        "type": "object"
+      },
       "SymbolCellPreviewBatchRequest": {
         "additionalProperties": false,
         "properties": {
@@ -28779,6 +28824,19 @@
             "minLength": 1,
             "title": "Name",
             "type": "string"
+          },
+          "superGameTriggerCount": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 3.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supergametriggercount"
           }
         },
         "required": [
@@ -29527,6 +29585,17 @@
           },
           "status": {
             "$ref": "#/components/schemas/SymbolStatus"
+          },
+          "superGameTriggerCount": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supergametriggercount"
           }
         },
         "required": [
@@ -29539,6 +29608,7 @@
           "nameEn",
           "imagePath",
           "isWildcard",
+          "superGameTriggerCount",
           "displayOrder",
           "status"
         ],
@@ -29747,6 +29817,19 @@
               }
             ],
             "title": "Name"
+          },
+          "superGameTriggerCount": {
+            "anyOf": [
+              {
+                "maximum": 5.0,
+                "minimum": 3.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supergametriggercount"
           }
         },
         "title": "SymbolUpdate",
@@ -57825,6 +57908,31 @@
         "summary": "Source Asset",
         "tags": [
           "semi-automatic-image-selections"
+        ]
+      }
+    },
+    "/api/v1/admin/super-game-kinds": {
+      "get": {
+        "operationId": "listSuperGameKinds",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SuperGameKindResponse"
+                  },
+                  "title": "Response Listsupergamekinds",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List super game kinds a game can select",
+        "tags": [
+          "catalog"
         ]
       }
     },

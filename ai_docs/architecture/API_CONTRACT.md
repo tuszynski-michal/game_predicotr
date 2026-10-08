@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-05
+last_updated: 2026-10-08
 ---
 
 # Kontrakty API i danych mobilnych
@@ -1245,6 +1245,25 @@ Tworzenie gry przyjmuje stabilny `code`, `name` i opcjonalny `status`
 tożsamością domenową. `DELETE` jest idempotentną archiwizacją i zwraca `204`;
 rekord pozostaje w bazie.
 
+`superGameKind` (TASK-0931, D-535) jest polem `GameCreate` (opcjonalne,
+domyślnie `none`), `GameUpdate` (opcjonalne; jawne `null` daje `422
+VALIDATION_ERROR`) i wymaganym polem `GameResponse`. Wartość musi być kodem z
+rejestru rodzajów supergry; inny kod daje `422 INVALID_SUPER_GAME_KIND`.
+Zmiana na `none`, gdy symbol gry ma `superGameTriggerCount`, daje
+`409 SUPER_GAME_KIND_IN_USE`.
+
+```text
+GET    /api/v1/admin/super-game-kinds
+```
+
+Zwraca listę rodzajów supergry z rejestru w kodzie
+(`game_predictor_worker.domain.super_games`), w kolejności prezentacji, jako
+`SuperGameKindResponse { code, label }` (`operationId: listSuperGameKinds`):
+`[{ "code": "none", "label": "Brak" }, { "code": "wild_super_spins",
+"label": "Wild super spins" }]`. Endpoint jest tylko do odczytu, bez parametrów
+i bez danych gry; Admin buduje z niego select „Supergra” i nie trzyma własnej
+kopii listy.
+
 Operacje symboli:
 
 ```text
@@ -1266,6 +1285,17 @@ pole zachowuje poprzednią wartość, natomiast jawne `null` usuwa etykietę.
 `PATCH` symbolu przyjmuje `name`, `isWildcard` i `displayOrder` (liczba
 całkowita `0..2147483647`, TASK-0782); jawne `null` dla tych pól daje `422`.
 `displayOrder` nie jest unikalne — remis rozstrzyga `mobileCode`.
+
+`superGameTriggerCount` (TASK-0931, D-535; `null` albo `3`, `4`, `5`) jest
+opcjonalnym polem `SymbolCreate` i `SymbolUpdate` oraz wymaganym polem
+`SymbolResponse` (`number | null`). W `PATCH` pominięte
+pole zachowuje rolę, a jawne `null` ją usuwa; wartość spoza `3..5` daje `422
+VALIDATION_ERROR`. Wartość różna od `null` wymaga gry z `superGameKind !=
+none` (`422 SUPER_GAME_KIND_REQUIRED`). Zmiana `isWildcard` albo
+`superGameTriggerCount` symbolu użytego w opublikowanej lub zarchiwizowanej
+wersji reguł daje `409 SYMBOL_RULES_IDENTITY_IN_USE`; odwołanie z wersji
+roboczej nie blokuje zmiany, a zyskanie roli Wild albo uruchamiającej czyści
+`minimumMatchLength` symbolu w wersjach roboczych.
 
 Stabilne konflikty i brak zasobu:
 
@@ -1355,8 +1385,14 @@ deterministycznie uporządkowany raport:
 
 Gotowość wymaga co najmniej jednej aktywnej payline, jednej aktywnej
 konfiguracji zwykłego symbolu oraz kompletnej, ściśle rosnącej macierzy
-aktywnych payoutów od `minimumMatchLength` do `columns`. Aktywny payout jokera,
-nieaktywnego symbolu albo długości poza zakresem blokuje publikację.
+aktywnych payoutów od `minimumMatchLength` do `columns`. Aktywny payout Wilda
+bez roli uruchamiającej, nieaktywnego symbolu albo długości poza zakresem
+blokuje publikację. Symbol z `superGameTriggerCount` (D-535) nie jest zwykłym
+symbolem: wymaga gry z rodzajem supergry (`SUPER_GAME_KIND_REQUIRED`), nie ma
+minimum (`SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED`), a jego aktywne payouty to
+wypłaty za liczbę sztuk na planszy `2..rows × columns`, ściśle rosnące
+(`NON_INCREASING_PAYOUT`, `INVALID_PAYOUT_MATCH_LENGTH`), bez wymogu wypłaty
+dla każdej liczby.
 
 POST `publish` blokuje rekord wersji, ponownie wykonuje tę samą walidację i w
 jednej transakcji ustawia `status = published` oraz serwerowy `publishedAt`.
@@ -1471,12 +1507,15 @@ ale staje się częścią wersjonowanej konfiguracji dopiero po zapisie.
 ```
 
 API ustawia wersjonowany próg zwykłego symbolu. Domyślna wartość wynosi 3, a
-dozwolony zakres to `2..columns`. Joker nie przyjmuje tego pola. Zmiana progu w
+dozwolony zakres to `2..columns`. Wild i symbol uruchamiający supergrę nie
+przyjmują tego pola (`WILDCARD_MINIMUM_NOT_ALLOWED`,
+`SUPER_GAME_TRIGGER_MINIMUM_NOT_ALLOWED`). Zmiana progu w
 opublikowanej wersji jest zabroniona; w drafcie zmienia zestaw wymaganych
 payout rules.
 
 Payload zawiera również opcjonalne `isActive` z wartością domyślną `true`.
-Pierwszy PATCH wykonuje upsert. Joker wymaga `minimumMatchLength = null`.
+Pierwszy PATCH wykonuje upsert. Wild i symbol uruchamiający supergrę wymagają
+`minimumMatchLength = null`.
 Podniesienie progu archiwizuje istniejące payout rules poniżej nowego minimum.
 
 ### GET `/api/v1/admin/rules-versions/{rulesVersionId}/payout-rules`
@@ -1496,8 +1535,11 @@ długości.
 
 API blokuje:
 
-- regułę jokera,
-- długość poniżej `minimumMatchLength` symbolu lub większą niż liczba kolumn,
+- regułę Wilda bez roli „Uruchamia supergrę” (`WILDCARD_PAYOUT_NOT_ALLOWED`),
+- dla zwykłego symbolu długość poniżej `minimumMatchLength` symbolu lub większą
+  niż liczba kolumn,
+- dla symbolu z `superGameTriggerCount` liczbę sztuk spoza `2..rows × columns`
+  (`INVALID_PAYOUT_MATCH_LENGTH` z `minimumCount` i `maximumCount`),
 - ujemną wypłatę,
 - duplikat `(rulesVersionId, symbolId, matchLength)`.
 
@@ -2860,8 +2902,9 @@ automatycznego oraz `selectedBy`. Każda zmiana tworzy kolejną rewizję audytu;
 nie usuwa automatycznego rankingu ani historycznej decyzji.
 
 Katalog symboli jest wyłącznie ręczny. `POST /games/{gameId}/symbols` przyjmuje
-jedynie `name` i `isWildcard`; backend nadaje niezmienny kod, następny numer
-mobilny oraz kolejność. `PATCH` może zmienić nazwę i Jokera, ale nie identyfikację
+jedynie `name`, `isWildcard` i opcjonalne `superGameTriggerCount`; backend
+nadaje niezmienny kod, następny numer mobilny oraz kolejność. `PATCH` może
+zmienić nazwę, Wild i rolę „Uruchamia supergrę”, ale nie identyfikację
 symbolu. `DELETE /symbols/{symbolId}` jest fizycznym usunięciem tylko po
 kontroli zależności; `409 SYMBOL_DELETE_BLOCKED` zawiera liczniki reguł, plansz,
 predykcji, kohort, iteracji i aktywacji modelu. Automatyczny bootstrap katalogu

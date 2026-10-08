@@ -7,7 +7,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,7 @@ from game_predictor_api.domain.image_import_engine_policy import (
     DEFAULT_CELL_ASSET_MODE,
     DEFAULT_GEOMETRY_MODE,
 )
+from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.game_data_v2_manifest_v5 import CREATE_TABLES, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleError,
@@ -47,6 +48,7 @@ from game_predictor_api.storage.models import (
     ImageSymbolReviewEventModel,
     JobModel,
     RecognizedBoardModel,
+    RulesVersionModel,
     RulesVersionSymbolModel,
     SourceImageModel,
     SymbolModel,
@@ -123,6 +125,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         status: GameStatus,
         expected_layout_count: int,
         shape_geometry_configuration: GameShapeGeometryConfiguration,
+        super_game_kind: str = "none",
     ) -> Game:
         record = self._session.scalar(select(GameModel).where(GameModel.code == code))
         if record is not None:
@@ -132,6 +135,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
                 status=status,
                 expected_layout_count=expected_layout_count,
                 shape_geometry_configuration=shape_geometry_configuration,
+                super_game_kind=super_game_kind,
             ):
                 raise CatalogConflictError(
                     "GAME_CODE_ALREADY_EXISTS", "A game with this code already exists."
@@ -144,6 +148,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             status=status,
             expected_layout_count=expected_layout_count,
             shape_geometry_configuration=shape_geometry_configuration.value,
+            super_game_kind=super_game_kind,
         )
         self._session.add(record)
         self._flush_or_raise_conflict()
@@ -201,6 +206,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         status: GameStatus,
         expected_layout_count: int,
         shape_geometry_configuration: GameShapeGeometryConfiguration,
+        super_game_kind: str,
     ) -> bool:
         if self._storage_router is None:
             return False
@@ -211,6 +217,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             and record.status == status
             and record.expected_layout_count == expected_layout_count
             and record.shape_geometry_configuration == shape_geometry_configuration.value
+            and record.super_game_kind == super_game_kind
         )
 
     def save_game(self, game: Game) -> Game:
@@ -225,6 +232,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             if game.shape_geometry_configuration is None
             else game.shape_geometry_configuration.value
         )
+        record.super_game_kind = game.super_game_kind
         record.updated_at = datetime.now(UTC)
         self._flush_or_raise_conflict()
         location = (
@@ -277,6 +285,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         is_wildcard: bool,
         display_order: int,
         status: SymbolStatus,
+        super_game_trigger_count: int | None = None,
     ) -> Symbol:
         record = SymbolModel(
             game_id=game_id,
@@ -287,6 +296,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             name_en=name_en,
             image_path=image_path,
             is_wildcard=is_wildcard,
+            super_game_trigger_count=super_game_trigger_count,
             display_order=display_order,
             status=status,
         )
@@ -300,6 +310,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         game_id: UUID,
         name: str,
         is_wildcard: bool,
+        super_game_trigger_count: int | None = None,
     ) -> Symbol:
         game = self._session.execute(
             select(GameModel).where(GameModel.id == game_id).with_for_update()
@@ -320,6 +331,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
             name=name,
             image_path=None,
             is_wildcard=is_wildcard,
+            super_game_trigger_count=super_game_trigger_count,
             display_order=max((item.display_order for item in existing), default=-1) + 1,
             status=SymbolStatus.ACTIVE,
         )
@@ -336,6 +348,7 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record.name_en = symbol.name_en
         record.image_path = symbol.image_path
         record.is_wildcard = symbol.is_wildcard
+        record.super_game_trigger_count = symbol.super_game_trigger_count
         record.display_order = symbol.display_order
         record.status = symbol.status
         self._flush_or_raise_conflict()
@@ -346,11 +359,49 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         )
         return _to_symbol(record, image_path=reference_path)
 
-    def symbol_is_used_in_rules(self, symbol_id: UUID) -> bool:
+    def symbol_is_used_in_published_rules(self, symbol_id: UUID) -> bool:
+        # Archived versions were published first, so they count as published:
+        # their historical results depend on the roles at publication time.
         return (
             self._session.scalar(
                 select(RulesVersionSymbolModel.symbol_id)
-                .where(RulesVersionSymbolModel.symbol_id == symbol_id)
+                .join(
+                    RulesVersionModel,
+                    RulesVersionModel.id == RulesVersionSymbolModel.rules_version_id,
+                )
+                .where(
+                    RulesVersionSymbolModel.symbol_id == symbol_id,
+                    RulesVersionModel.status != RulesVersionStatus.DRAFT,
+                )
+                .limit(1)
+            )
+            is not None
+        )
+
+    def clear_draft_rule_minimums(self, symbol_id: UUID) -> None:
+        draft_version_ids = select(RulesVersionModel.id).where(
+            RulesVersionModel.status == RulesVersionStatus.DRAFT
+        )
+        self._session.execute(
+            update(RulesVersionSymbolModel)
+            .where(
+                RulesVersionSymbolModel.symbol_id == symbol_id,
+                RulesVersionSymbolModel.rules_version_id.in_(draft_version_ids),
+                RulesVersionSymbolModel.minimum_match_length.is_not(None),
+            )
+            .values(minimum_match_length=None)
+            .execution_options(synchronize_session="fetch")
+        )
+        self._session.flush()
+
+    def game_has_super_game_trigger_symbols(self, game_id: UUID) -> bool:
+        return (
+            self._session.scalar(
+                select(SymbolModel.id)
+                .where(
+                    SymbolModel.game_id == game_id,
+                    SymbolModel.super_game_trigger_count.is_not(None),
+                )
                 .limit(1)
             )
             is not None
@@ -500,6 +551,7 @@ def _to_game(record: GameModel, storage: GameStorageLocation | None = None) -> G
             if record.shape_geometry_configuration is None
             else GameShapeGeometryConfiguration(record.shape_geometry_configuration)
         ),
+        super_game_kind=record.super_game_kind,
     )
 
 
@@ -548,4 +600,5 @@ def _to_symbol(record: SymbolModel, *, image_path: str | None = None) -> Symbol:
         is_wildcard=record.is_wildcard,
         display_order=record.display_order,
         status=record.status,
+        super_game_trigger_count=record.super_game_trigger_count,
     )

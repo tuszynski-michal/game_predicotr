@@ -13,12 +13,46 @@ export interface PayoutConfigurationDraft {
 }
 
 export interface ValidatedPayoutConfiguration {
+  /**
+   * Count payouts of a super game trigger symbol (D-535): every active payout
+   * of the symbol that is not listed in `payouts` is archived on save.
+   */
+  readonly archiveUnlistedPayouts?: boolean;
   readonly isActive: boolean;
   readonly minimumMatchLength: number | null;
   readonly payouts: readonly {
     readonly matchLength: number;
     readonly payoutCredits: number;
   }[];
+}
+
+const MINIMUM_COUNT_PAYOUT_LENGTH = 2;
+
+/** A symbol with the „Uruchamia supergrę” role is paid per count on the board. */
+export function isSuperGameTriggerSymbol(
+  symbol: Pick<SymbolResponse, 'superGameTriggerCount'>,
+): boolean {
+  return symbol.superGameTriggerCount !== null;
+}
+
+/** Counts a trigger symbol can be paid for: 2..rows*columns cells. */
+export function countPayoutLengths(
+  rows: number,
+  columns: number,
+): readonly number[] {
+  const maximum = rows * columns;
+  return maximum < MINIMUM_COUNT_PAYOUT_LENGTH
+    ? []
+    : requiredMatchLengths(MINIMUM_COUNT_PAYOUT_LENGTH, maximum);
+}
+
+export function payoutLengthLabel(
+  symbol: Pick<SymbolResponse, 'superGameTriggerCount'>,
+  matchLength: number,
+): string {
+  return isSuperGameTriggerSymbol(symbol)
+    ? `${matchLength} sztuk na planszy`
+    : `${matchLength} kolejnych symboli`;
 }
 
 export type PayoutConfigurationValidation =
@@ -36,13 +70,19 @@ export function payoutConfigurationToDraft(
   payoutRules: readonly PayoutRuleResponse[],
   columns: number,
 ): PayoutConfigurationDraft {
-  const minimum = symbol.isWildcard
-    ? null
-    : (configuration?.minimumMatchLength ?? defaultMinimum(columns));
+  const minimum =
+    symbol.isWildcard || isSuperGameTriggerSymbol(symbol)
+      ? null
+      : (configuration?.minimumMatchLength ?? defaultMinimum(columns));
   return {
     credits: Object.fromEntries(
       payoutRules
-        .filter((item) => item.symbolId === symbol.id)
+        .filter(
+          (item) =>
+            item.symbolId === symbol.id &&
+            // An archived count payout must not reappear as a live value.
+            (item.isActive || !isSuperGameTriggerSymbol(symbol)),
+        )
         .map((item) => [item.matchLength, String(item.payoutCredits)]),
     ),
     isActive: configuration?.isActive ?? true,
@@ -82,7 +122,11 @@ export function validatePayoutConfiguration(
   symbol: SymbolResponse,
   draft: PayoutConfigurationDraft,
   columns: number,
+  rows = 1,
 ): PayoutConfigurationValidation {
+  if (isSuperGameTriggerSymbol(symbol)) {
+    return validateCountPayouts(draft, rows, columns);
+  }
   if (symbol.isWildcard) {
     return {
       valid: true,
@@ -160,6 +204,52 @@ export function upsertPayoutRules(
       left.matchLength - right.matchLength ||
       left.id.localeCompare(right.id),
   );
+}
+
+/**
+ * Trigger symbol payouts (D-535): `matchLength` is a count of cells anywhere on
+ * the board. Any subset of counts may be paid; empty fields mean no payout and
+ * the filled values must strictly increase with the count. No minimum.
+ */
+function validateCountPayouts(
+  draft: PayoutConfigurationDraft,
+  rows: number,
+  columns: number,
+): PayoutConfigurationValidation {
+  const payouts: { matchLength: number; payoutCredits: number }[] = [];
+  for (const matchLength of countPayoutLengths(rows, columns)) {
+    const raw = (draft.credits[matchLength] ?? '').trim();
+    if (raw === '') continue;
+    const credits = parseInteger(raw);
+    if (credits === null || credits < 0 || credits > MAX_CREDITS) {
+      return {
+        error: `Podaj całkowitą wartość kredytów 0–${MAX_CREDITS} dla ${matchLength} sztuk na planszy albo zostaw pole puste.`,
+        valid: false,
+      };
+    }
+    payouts.push({ matchLength, payoutCredits: credits });
+  }
+  if (
+    payouts.some(
+      (item, index) =>
+        index > 0 && item.payoutCredits <= payouts[index - 1]!.payoutCredits,
+    )
+  ) {
+    return {
+      error:
+        'Wartość wypłaty musi ściśle rosnąć wraz z liczbą sztuk na planszy.',
+      valid: false,
+    };
+  }
+  return {
+    valid: true,
+    value: {
+      archiveUnlistedPayouts: true,
+      isActive: draft.isActive,
+      minimumMatchLength: null,
+      payouts,
+    },
+  };
 }
 
 function parseInteger(value: string): number | null {

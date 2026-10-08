@@ -26,6 +26,7 @@ class MemoryRulesRepository(RulesRepository):
         self.symbols: dict[UUID, RulesSymbolDefinition] = {}
         self.rules_symbols: dict[tuple[UUID, UUID], RulesVersionSymbol] = {}
         self.payout_rules: dict[UUID, PayoutRule] = {}
+        self.super_game_kind = "none"
 
     def game_exists(self, game_id: UUID) -> bool:
         return game_id == self.game_id
@@ -195,21 +196,30 @@ class MemoryRulesRepository(RulesRepository):
     def delete_payline(self, rules_version_id: UUID, payline_id: UUID) -> None:
         del self.paylines[payline_id]
 
-    def payout_configuration_fits_columns(
+    def payout_configuration_fits_dimensions(
         self,
         rules_version_id: UUID,
         *,
+        rows: int,
         columns: int,
     ) -> bool:
+        def limit(symbol_id: UUID) -> int:
+            symbol = self.symbols.get(symbol_id)
+            trigger = symbol is not None and symbol.is_super_game_trigger
+            return rows * columns if trigger else columns
+
         return all(
             item.minimum_match_length is None or item.minimum_match_length <= columns
             for item in self.rules_symbols.values()
             if item.rules_version_id == rules_version_id
         ) and all(
-            item.match_length <= columns
+            item.match_length <= limit(item.symbol_id)
             for item in self.payout_rules.values()
             if item.rules_version_id == rules_version_id
         )
+
+    def get_game_super_game_kind(self, game_id: UUID) -> str:
+        return self.super_game_kind
 
     def get_rules_symbol_definition(
         self,

@@ -5,6 +5,7 @@ import type {
   GameResponse,
   GameStatus,
   GridEngineProfileResponse,
+  SuperGameKindResponse,
 } from '@game-predictor/admin-api-client';
 import {
   type FormEvent,
@@ -22,6 +23,7 @@ import {
   archiveGameIdentity,
   type GamesClient,
   loadGridEngineProfiles,
+  loadSuperGameKinds,
   restoreGameIdentity,
   saveGameIdentity,
 } from '@/features/games/game-catalog-actions';
@@ -39,6 +41,8 @@ import {
   SHAPE_GEOMETRY_CONFIGURATION_LABELS,
   SHAPE_GEOMETRY_READINESS_LABELS,
   shapeGeometryConfigurationLabel,
+  superGameKindLabel,
+  superGameKindOptions,
   type GameDraft,
   markGameArchived,
   upsertGame,
@@ -90,6 +94,10 @@ export function GameCatalog({
     readonly GridEngineProfileResponse[]
   >([]);
   const [gridEngineProfilesError, setGridEngineProfilesError] = useState('');
+  const [superGameKinds, setSuperGameKinds] = useState<
+    readonly SuperGameKindResponse[]
+  >([]);
+  const [superGameKindsError, setSuperGameKindsError] = useState('');
   const loadRequestId = useRef(0);
   const mutationInProgress = useRef(false);
   const statusCounts = useMemo(() => countGamesByStatus(games), [games]);
@@ -162,6 +170,24 @@ export function GameCatalog({
     };
   }, [api]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void loadSuperGameKinds(api).then((result) => {
+      if (cancelled) {
+        return;
+      }
+      if (result.ok) {
+        setSuperGameKinds(result.kinds);
+        setSuperGameKindsError('');
+      } else {
+        setSuperGameKindsError(result.error);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
   function openCreateEditor() {
     setDraft(EMPTY_GAME_DRAFT);
     setFormError('');
@@ -177,6 +203,7 @@ export function GameCatalog({
       expectedLayoutCount: String(game.expectedLayoutCount),
       shapeGeometryConfiguration:
         game.shapeGeometryConfiguration ?? 'requires_clarification',
+      superGameKind: game.superGameKind,
     });
     setFormError('');
     setNotice('');
@@ -207,6 +234,7 @@ export function GameCatalog({
       name,
       shapeGeometryConfiguration,
       status,
+      superGameKind,
     } = validation.value;
 
     mutationInProgress.current = true;
@@ -220,7 +248,14 @@ export function GameCatalog({
         editor.mode === 'create'
           ? { mode: 'create' }
           : { gameId: editor.game.id, mode: 'edit' },
-        { code, expectedLayoutCount, name, shapeGeometryConfiguration, status },
+        {
+          code,
+          expectedLayoutCount,
+          name,
+          shapeGeometryConfiguration,
+          status,
+          superGameKind,
+        },
       );
 
       if (!result.ok) {
@@ -359,6 +394,8 @@ export function GameCatalog({
           gridEngineProfilesError={gridEngineProfilesError}
           isSubmitting={isSubmitting}
           mode={editor.mode}
+          superGameKinds={superGameKinds}
+          superGameKindsError={superGameKindsError}
           onCancel={closeEditor}
           onChange={setDraft}
           onSubmit={submitGame}
@@ -421,6 +458,7 @@ export function GameCatalog({
                     game={game}
                     gridEngineProfiles={gridEngineProfiles}
                     key={game.id}
+                    superGameKinds={superGameKinds}
                     onArchive={() => setArchiveCandidateId(game.id)}
                     onArchiveCancel={() => setArchiveCandidateId(null)}
                     onArchiveConfirm={() => void confirmArchive(game)}
@@ -456,6 +494,8 @@ interface GameEditorProps {
   readonly onCancel: () => void;
   readonly onChange: (draft: GameDraft) => void;
   readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
+  readonly superGameKinds: readonly SuperGameKindResponse[];
+  readonly superGameKindsError: string;
 }
 
 function GameEditor({
@@ -468,6 +508,8 @@ function GameEditor({
   onCancel,
   onChange,
   onSubmit,
+  superGameKinds,
+  superGameKindsError,
 }: GameEditorProps) {
   return (
     <section
@@ -595,6 +637,36 @@ function GameEditor({
         </label>
 
         <label>
+          <span>Supergra</span>
+          <select
+            disabled={isSubmitting}
+            name="superGameKind"
+            onChange={(event) =>
+              onChange({
+                ...draft,
+                superGameKind: event.currentTarget.value,
+              })
+            }
+            value={draft.superGameKind}
+          >
+            {superGameKindOptions(superGameKinds, draft.superGameKind).map(
+              (kind) => (
+                <option key={kind.code} value={kind.code}>
+                  {kind.label}
+                </option>
+              ),
+            )}
+          </select>
+          <small>
+            Rodzaj supergry jest zaszyty w kodzie. Symbol z rolą „Uruchamia
+            supergrę” wymaga rodzaju innego niż „Brak”.
+          </small>
+          {superGameKindsError ? (
+            <small role="alert">{superGameKindsError}</small>
+          ) : null}
+        </label>
+
+        <label>
           <span>Status</span>
           <select
             disabled={isSubmitting}
@@ -696,6 +768,7 @@ interface GameRowProps {
   readonly restorePending: boolean;
   readonly selectable: boolean;
   readonly selected: boolean;
+  readonly superGameKinds: readonly SuperGameKindResponse[];
 }
 
 function GameRow({
@@ -712,6 +785,7 @@ function GameRow({
   restorePending,
   selectable,
   selected,
+  superGameKinds,
 }: GameRowProps) {
   const readiness = game.shapeGeometryReadiness;
   const readinessStatus = readiness?.status ?? 'requires_clarification';
@@ -782,6 +856,9 @@ function GameRow({
                     : ''
                 }`
               : ''}
+          </small>
+          <small className="gameSuperGameKind">
+            Supergra: {superGameKindLabel(superGameKinds, game.superGameKind)}
           </small>
           <small className="gameGeometryState">
             Geometria: {SHAPE_GEOMETRY_READINESS_LABELS[readinessStatus]}

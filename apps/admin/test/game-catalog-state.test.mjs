@@ -11,6 +11,9 @@ import {
   markGameArchived,
   SHAPE_GEOMETRY_CONFIGURATION_LABELS,
   shapeGeometryConfigurationLabel,
+  EMPTY_GAME_DRAFT,
+  superGameKindLabel,
+  superGameKindOptions,
   upsertGame,
   validateGameDraft,
 } from '../src/features/games/game-catalog-state.ts';
@@ -86,6 +89,7 @@ test('validates and normalizes the game identity draft', () => {
       name: ' Game 1 ',
       shapeGeometryConfiguration: 'framed_full_page_v2',
       status: 'draft',
+      superGameKind: 'wild_super_spins',
     }),
     {
       valid: true,
@@ -95,6 +99,7 @@ test('validates and normalizes the game identity draft', () => {
         name: 'Game 1',
         shapeGeometryConfiguration: 'framed_full_page_v2',
         status: 'draft',
+        superGameKind: 'wild_super_spins',
       },
     },
   );
@@ -180,4 +185,27 @@ test('presents stable API error text and hides unknown transport details', () =>
     apiErrorMessage(new Error('socket details'), 'Fallback'),
     'Fallback',
   );
+});
+
+test('TASK-0931: the super game select uses the API registry and keeps the saved value', () => {
+  const kinds = [
+    { code: 'none', label: 'Brak' },
+    { code: 'wild_super_spins', label: 'Wild super spins' },
+  ];
+
+  assert.equal(EMPTY_GAME_DRAFT.superGameKind, 'none');
+  assert.deepEqual(superGameKindOptions(kinds, 'wild_super_spins'), kinds);
+  // Before the registry loads only „Brak” is offered, plus the saved kind.
+  assert.deepEqual(superGameKindOptions([], 'none'), [
+    { code: 'none', label: 'Brak' },
+  ]);
+  assert.deepEqual(superGameKindOptions([], 'wild_super_spins'), [
+    { code: 'none', label: 'Brak' },
+    { code: 'wild_super_spins', label: 'wild_super_spins' },
+  ]);
+  assert.equal(
+    superGameKindLabel(kinds, 'wild_super_spins'),
+    'Wild super spins',
+  );
+  assert.equal(superGameKindLabel([], 'none'), 'Brak');
 });

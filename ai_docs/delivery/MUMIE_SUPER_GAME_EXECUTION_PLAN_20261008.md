@@ -1,12 +1,14 @@
 ---
 title: Gra Mumie — Wild, supergra „Wild super spins” i proces audytu krzyżowego (plan wykonawczy)
-status: proposed
-last_updated: 2026-10-08 (rewizja 4 po trzecim przeglądzie Codex)
+status: accepted
+last_updated: 2026-10-08 (zaakceptowany po czterech przeglądach Codex, PASS)
 ---
 
 # Gra Mumie — Wild, supergra i super symbol
 
-Plan do akceptacji operatora. Analiza wykonana bez zmian w aplikacji i danych.
+Plan zaakceptowany przez operatora 2026-10-08 po czterech przeglądach Codex
+(ostatni PASS, v1.7.263). Decyzja D-535. Analiza wykonana bez zmian w
+aplikacji i danych.
 Zastępuje część „wypłaty premium” planu
 `MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md` (nieaktualna według D-490).
 Decyzje operatora z 2026-10-08 są wpisane; pozostała jedna otwarta (D-1).
@@ -352,9 +354,10 @@ zgody, zmiany sygnatury layoutu, inne rodzaje supergry.
 
 ## Decyzje operatora
 
-- D-1 (otwarta): kolejność etapu T względem S-A — operator wskazał, że
-  oszczędność tokenów jest potrzebna; plan proponuje TASK-0938 przed S-B
-  (najwięcej sesji dopiero przed nami), TASK-0939 równolegle z S-B.
+- D-1 (rozstrzygnięta 2026-10-08 przez przyjęcie propozycji planu):
+  TASK-0938 przed etapem S-B, TASK-0939 równolegle z S-B.
+- Wykonanie: wszystkie taski w tej sesji Claude Code (operator nie ma czasu
+  na uruchamianie Codex jako wykonawcy); tabela poniżej zaktualizowana.
 - Rozstrzygnięte 2026-10-08: nazwa rodzaju „Wild super spins”; checkbox
   „Uruchamia supergrę”; komórki z predykcją liczą się do progu, plansza
   musi być pocięta.
@@ -364,18 +367,26 @@ zgody, zmiany sygnatury layoutu, inne rodzaje supergry.
 Dostępność potwierdzona w tym środowisku: Claude — `claude-fable-5-1`,
 `claude-opus-5-5`, `claude-sonnet-5-5` (low/medium/high/xhigh/max); Codex —
 `gpt-6-astra` (konfiguracja użytkownika, `high`), `gpt-6.1-sol` (`high`).
-Audytor zawsze z drugiej rodziny niż wykonawca.
+Tryb audytu (decyzja operatora 2026-10-08, „wszystko zostaje w tej sesji”):
+wykonawcą każdego taska jest subagent Claude uruchamiany z tej sesji z
+modelem i poziomem z tabeli; audyt wykonuje **niezależny subagent z innym
+modelem Claude niż wykonawca**, w świeżym kontekście, tylko do odczytu,
+z raportem w `ai_docs/quality/TASK-09xx_AUDIT_<model>.md`. Audyt Codex z
+tabeli obowiązuje od chwili, gdy TASK-0929 i zainstalowane CLI pozwolą go
+uruchomić bez udziału operatora; do tego czasu kolumna „Dodatkowy review”
+jest realizowana przez wskazany zamiennik Claude. Odstępstwo jest jawne i
+odnotowane w D-535.
 
 | Zadanie | Model | Reasoning | Uzasadnienie | Dodatkowy review |
 |---|---|---|---|---|
-| TASK-0929 | claude-sonnet-5-5 | high | Skrypt PowerShell, dwa skille, edycja `AGENTS.md`; brak logiki domenowej. | Wymagany: gpt-6.1-sol, high |
-| TASK-0930 | claude-sonnet-5-5 | medium | Mała zmiana TS z testem jednostkowym. | Wymagany: gpt-6.1-sol, high |
-| TASK-0931 | claude-opus-5-5 | high | Migracja, walidacje domeny, rejestr rodzajów, kontrakt API pionem, formularze Adminu. | Wymagany: gpt-6-astra, high |
-| TASK-0932 | gpt-6.1-sol | high | Ewaluator w Pythonie i TS, golden cases, regresja 777. | Wymagany: claude-opus-5-5, high |
-| TASK-0933 | claude-opus-5-5 | high | Tabela partycjonowana, wyprowadzanie z przypadkami brzegowymi, job, API. | Wymagany: gpt-6-astra, high |
-| TASK-0934 | gpt-6.1-sol | high | Nowy ekran Adminu na istniejących komponentach, CAS. | Wymagany: claude-opus-5-5, medium |
-| TASK-0935 | claude-sonnet-5-5 | high | Znacznik w projekcji i współdzielonym UI, trzy konsumenty. | Wymagany: gpt-6.1-sol, high |
-| TASK-0936 | gpt-6-astra | high | Logika rozwinięcia, koszt per pozycja, regresja 777, dokumenty. | Wymagany: claude-opus-5-5, high |
-| TASK-0937 | claude-sonnet-5-5 | medium | Skrypt pomiarowy i raport. | Wymagany: gpt-6.1-sol, medium |
-| TASK-0938 | claude-sonnet-5-5 | medium | Przeniesienie treści bez zmian merytorycznych, kontrola linków. | Wymagany: gpt-6.1-sol, medium |
-| TASK-0939 | claude-sonnet-5-5 | high | Konfiguracja narzędzi, hook, skrypt mapy kodu i pomiar; brak logiki domenowej. | Wymagany: gpt-6.1-sol, high |
+| TASK-0929 | claude-sonnet-5-5 | high | Skrypt PowerShell, dwa skille, edycja `AGENTS.md`; brak logiki domenowej. | Wymagany: gpt-6.1-sol, high; zamiennik do czasu CLI: claude-opus-5-5, high |
+| TASK-0930 | claude-sonnet-5-5 | medium | Mała zmiana TS z testem jednostkowym. | Wymagany: gpt-6.1-sol, high; zamiennik: claude-opus-5-5, medium |
+| TASK-0931 | claude-opus-5-5 | high | Migracja, walidacje domeny, rejestr rodzajów, kontrakt API pionem, formularze Adminu. | Wymagany: gpt-6-astra, high; zamiennik: claude-fable-5-1, high |
+| TASK-0932 | claude-opus-5-5 | high | Ewaluator w Pythonie i TS, golden cases, regresja 777; wykonanie w tej sesji zamiast Codex. | Wymagany: gpt-6.1-sol, high; zamiennik: claude-fable-5-1, high |
+| TASK-0933 | claude-opus-5-5 | high | Tabela partycjonowana, wyprowadzanie z przypadkami brzegowymi, job, API. | Wymagany: gpt-6-astra, high; zamiennik: claude-fable-5-1, high |
+| TASK-0934 | claude-sonnet-5-5 | high | Nowy ekran Adminu na istniejących komponentach, CAS; wykonanie w tej sesji zamiast Codex. | Wymagany: gpt-6.1-sol, high; zamiennik: claude-opus-5-5, medium |
+| TASK-0935 | claude-sonnet-5-5 | high | Znacznik w projekcji i współdzielonym UI, trzy konsumenty. | Wymagany: gpt-6.1-sol, high; zamiennik: claude-opus-5-5, high |
+| TASK-0936 | claude-opus-5-5 | high | Logika rozwinięcia, koszt per pozycja, regresja 777, dokumenty; wykonanie w tej sesji zamiast Codex. | Wymagany: gpt-6-astra, high; zamiennik: claude-fable-5-1, high |
+| TASK-0937 | claude-sonnet-5-5 | medium | Skrypt pomiarowy i raport. | Wymagany: gpt-6.1-sol, medium; zamiennik: claude-opus-5-5, medium |
+| TASK-0938 | claude-sonnet-5-5 | medium | Przeniesienie treści bez zmian merytorycznych, kontrola linków. | Wymagany: gpt-6.1-sol, medium; zamiennik: claude-opus-5-5, medium |
+| TASK-0939 | claude-sonnet-5-5 | high | Konfiguracja narzędzi, hook, skrypt mapy kodu i pomiar; brak logiki domenowej. | Wymagany: gpt-6.1-sol, high; zamiennik: claude-opus-5-5, high |

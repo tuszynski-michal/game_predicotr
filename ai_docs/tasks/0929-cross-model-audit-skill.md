@@ -34,7 +34,7 @@ proces sprzeczny z `AGENTS.md`). Plan:
 claude-sonnet-5-5 / high. Skrypt PowerShell, dwa pliki skilli i edycja
 dokumentu; brak logiki domenowej. Eskalacja do claude-opus-5-5 / high, jeżeli
 uruchamianie CLI wymaga obsługi kodowania lub procesów trudnej do
-przetestowania. Audyt: gpt-6.1-sol / high.
+przetestowania. Audyt: gpt-6.1-sol / high; do czasu CLI zamiennik claude-opus-5-5 / high.
 
 ## Relevant docs
 

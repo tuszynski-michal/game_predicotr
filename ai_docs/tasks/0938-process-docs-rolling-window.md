@@ -26,7 +26,7 @@ Plan: etap T.
 ## Recommended execution
 
 claude-sonnet-5-5 / medium. Przeniesienie treści bez zmian merytorycznych,
-kontrola linków. Eskalacja niepotrzebna. Audyt: gpt-6.1-sol / medium.
+kontrola linków. Eskalacja niepotrzebna. Audyt: gpt-6.1-sol / medium; do czasu CLI zamiennik claude-opus-5-5 / medium.
 
 ## Relevant docs
 

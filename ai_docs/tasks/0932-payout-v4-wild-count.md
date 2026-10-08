@@ -27,9 +27,11 @@ operator włącza Wild i testuje w modalu linii.
 
 ## Recommended execution
 
-gpt-6.1-sol / high. Ewaluator w Pythonie i TS, złote przypadki, regresja 777.
-Eskalacja do gpt-6-astra / high przy rozbieżności wyników Python/TS. Audyt:
-claude-opus-5-5 / high.
+claude-opus-5-5 / high (subagent z tej sesji; wykonanie zamiast Codex na
+decyzję operatora 2026-10-08). Ewaluator w Pythonie i TS, złote przypadki,
+regresja 777. Eskalacja do claude-fable-5-1 / high przy rozbieżności wyników
+Python/TS. Audyt: gpt-6.1-sol / high; do czasu CLI zamiennik
+claude-fable-5-1 / high (niezależny subagent, tylko odczyt).
 
 ## Relevant docs
 

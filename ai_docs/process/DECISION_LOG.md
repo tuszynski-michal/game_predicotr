@@ -1,10 +1,48 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-10-07
+last_updated: 2026-10-08
 ---
 
 # Decision Log
+
+## D-535 — Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins”
+
+- **Date:** 2026-10-08.
+- **Status:** accepted; plan `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md`
+  (TASK-0929–0939) zaakceptowany przez operatora po czterech przeglądach
+  Codex zakończonych PASS (v1.7.263).
+- **Decision:** dotychczasowy „Joker” nazywa się w UI i dokumentach „Wild”
+  (kolumna `symbols.is_wildcard` zostaje). Symbol dostaje w katalogu gry
+  osobną rolę „Uruchamia supergrę” z progiem 3/4/5 sztuk na pociętej
+  planszy (`super_game_trigger_count`); jego reguły wypłat są wypłatą za
+  liczbę sztuk na planszy, niezależnie od pozycji. Gra ma rodzaj supergry
+  (`super_game_kind`, domyślnie `none`); pierwszy rodzaj `wild_super_spins`:
+  10 darmowych spinów o koszcie 0 na kolejnych pozycjach sekwencji, ≥N
+  symboli uruchamiających w serii przedłuża ją o 10 bez nowego symbolu,
+  super symbol (zwykły symbol wylosowany przez automat, widoczny jako złota
+  ramka) rozwija się na całe kolumny i przykrywa symbole pod sobą, liczy się
+  liczba kolumn (także niesąsiednich) od progu symbolu, wypłata = wypłata
+  liniowa × liczba linii. Mechanika rodzajów jest zaszyta w kodzie w
+  rozszerzalnym rejestrze; operator steruje rolami i rodzajem z Adminu.
+- **Series and data:** serie wyprowadzane deterministycznie z komórek z
+  przypisanym symbolem (także predykcje plansz `pending`), tylko plansze
+  pocięte; sekwencja startuje w trybie bazowym; brakująca plansza w serii
+  jest pusta i zużywa spin. Super symbol definiuje operator ręcznie.
+  Nieaktualność serii wynika z licznika wejścia per gra; wynik planszy serii
+  bez symbolu, w stanie nieaktualnym albo z nieznaną komórką jest
+  prowizoryczny, nie dolnym ograniczeniem. Role w katalogu są niezmienne po
+  publikacji wersji reguł używającej symbolu; testy na drafcie przez wybór
+  wersji reguł w Adminie.
+- **Boundaries:** 777 i 777 v2 bez zmian zachowania (bramka regresji);
+  aplikacja mobilna poza zakresem do odrębnej decyzji; wersjonowanie ról
+  per wersja reguł poza zakresem; trening modelu złotej ramki po pilocie.
+- **Process:** audyt krzyżowy po każdym tasku (TASK-0929 daje skill);
+  operator 2026-10-08 zdecydował, że wszystkie taski wykonuje ta sesja
+  Claude Code przez subagentów według tabeli planu, a audyt Codex jest do
+  czasu dostępności CLI zastępowany niezależnym subagentem Claude z innym
+  modelem niż wykonawca. Etap T (TASK-0938 przed S-B, TASK-0939 równolegle)
+  obniża zużycie tokenów bez obniżania jakości, z pomiarem.
 
 ## D-533 — Points/machines panel with durable stake saves and whole-panel links
 

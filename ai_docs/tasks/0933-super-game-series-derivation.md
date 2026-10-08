@@ -31,7 +31,7 @@ Plan: etap S-B, sekcja „Supergra jako stan sekwencji”.
 claude-opus-5-5 / high. Tabela partycjonowana, wyprowadzanie z przypadkami
 brzegowymi, durable job, API pionem. Eskalacja do claude-fable-5-1 / high
 przy problemach z RLS lub wydajnością przejścia po 500 000 pozycji. Audyt:
-gpt-6-astra / high.
+gpt-6-astra / high; do czasu CLI zamiennik claude-fable-5-1 / high.
 
 ## Relevant docs
 

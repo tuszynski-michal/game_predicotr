@@ -29,7 +29,7 @@ kodzie, briefy z całymi dokumentami procesu. Plan: etap T.
 
 claude-sonnet-5-5 / high. Konfiguracja narzędzi, hook, skrypt mapy kodu i
 protokół pomiaru; brak logiki domenowej. Eskalacja do claude-opus-5-5 / high,
-jeżeli hook lub MCP destabilizują sesję. Audyt: gpt-6.1-sol / high.
+jeżeli hook lub MCP destabilizują sesję. Audyt: gpt-6.1-sol / high; do czasu CLI zamiennik claude-opus-5-5 / high.
 
 ## Relevant docs
 

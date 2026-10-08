@@ -27,7 +27,7 @@ pytanie. Plan: etap S-D (warunkowy).
 ## Recommended execution
 
 claude-sonnet-5-5 / medium. Skrypt pomiarowy i raport. Eskalacja
-niepotrzebna. Audyt: gpt-6.1-sol / medium.
+niepotrzebna. Audyt: gpt-6.1-sol / medium; do czasu CLI zamiennik claude-opus-5-5 / medium.
 
 ## Relevant docs
 

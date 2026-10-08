@@ -25,9 +25,11 @@ wyników wyszukiwania (← / →) są bazą.
 
 ## Recommended execution
 
-gpt-6.1-sol / high. Nowy ekran Adminu na istniejących komponentach, zapis
-CAS. Eskalacja do gpt-6-astra / high przy konieczności zmiany kontraktu
-komponentów współdzielonych. Audyt: claude-opus-5-5 / medium.
+claude-sonnet-5-5 / high (subagent z tej sesji; wykonanie zamiast Codex na
+decyzję operatora 2026-10-08). Nowy ekran Adminu na istniejących
+komponentach, zapis CAS. Eskalacja do claude-opus-5-5 / high przy
+konieczności zmiany kontraktu komponentów współdzielonych. Audyt:
+gpt-6.1-sol / high; do czasu CLI zamiennik claude-opus-5-5 / medium.
 
 ## Relevant docs
 

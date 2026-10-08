@@ -31,7 +31,7 @@ sterować rolami sam, bez reguł wpisywanych przez agenta. Plan:
 
 claude-opus-5-5 / high. Migracja, walidacje domeny, rejestr rodzajów,
 kontrakt API pionem i formularze Adminu. Eskalacja do claude-fable-5-1 / high
-przy konflikcie z gotowością wydania 777. Audyt: gpt-6-astra / high.
+przy konflikcie z gotowością wydania 777. Audyt: gpt-6-astra / high; do czasu CLI zamiennik claude-fable-5-1 / high.
 
 ## Relevant docs
 

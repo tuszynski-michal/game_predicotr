@@ -25,7 +25,7 @@ nich w definicję super symbolu. Plan: etap S-B.
 
 claude-sonnet-5-5 / high. Znacznik w projekcji API i współdzielonym UI,
 trzech konsumentów. Eskalacja do claude-opus-5-5 / high przy zmianie
-kontraktu publicznego panelu. Audyt: gpt-6.1-sol / high.
+kontraktu publicznego panelu. Audyt: gpt-6.1-sol / high; do czasu CLI zamiennik claude-opus-5-5 / high.
 
 ## Relevant docs
 

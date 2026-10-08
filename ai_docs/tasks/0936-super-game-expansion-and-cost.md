@@ -24,10 +24,11 @@ minimum symbolu, wypłata × liczba linii, koszt 0, brakująca plansza = pusta.
 
 ## Recommended execution
 
-gpt-6-astra / high. Logika rozwinięcia, koszt per pozycja, trzech
+claude-opus-5-5 / high (subagent z tej sesji; wykonanie zamiast Codex na
+decyzję operatora 2026-10-08). Logika rozwinięcia, koszt per pozycja, trzech
 konsumentów, regresja 777, dokumenty domenowe. Eskalacja do claude-fable-5-1
 / high przy niezgodności z obserwowanymi wygranymi na pierwszej serii.
-Audyt: claude-opus-5-5 / high.
+Audyt: gpt-6-astra / high; do czasu CLI zamiennik claude-fable-5-1 / high.
 
 ## Relevant docs
 

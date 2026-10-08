@@ -23,7 +23,7 @@ Brak. W wyszukiwaniu plansz `0` i `?` oznaczają „nieznany”
 ## Recommended execution
 
 claude-sonnet-5-5 / medium. Mała zmiana TS z testem jednostkowym w dwóch
-plikach. Eskalacja niepotrzebna. Audyt: gpt-6.1-sol / high.
+plikach. Eskalacja niepotrzebna. Audyt: gpt-6.1-sol / high; do czasu CLI zamiennik claude-opus-5-5 / medium.
 
 ## Relevant docs
 

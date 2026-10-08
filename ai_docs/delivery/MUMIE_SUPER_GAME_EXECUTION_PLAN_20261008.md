@@ -237,7 +237,7 @@ wyniki 777 identyczne (bramka regresji).
 
 ## Etapy i zadania
 
-Numery TASK-0929–0939 sprawdzone na wierzchołku
+Numery TASK-0929–0940 sprawdzone na wierzchołku
 `v1.1-vision-lab-hybrid-geometry` (v1.7.259). Każde zadanie: osobny worktree,
 implementacja, **niezależny audyt drugą rodziną modeli** (tabela na końcu),
 poprawki, commit `vX.Y.N`, `Outcome`, `CURRENT_STATE.md`. Raport audytu:
@@ -312,7 +312,14 @@ z pomiarem na tym repozytorium, nie na obietnicach producenta.
   audytora); do stałego użytku wchodzi tylko to, co obniża tokeny bez
   spadku jakości.
 
-Szczegóły każdego zadania: pliki `ai_docs/tasks/0929…0939`.
+- **TASK-0940** — zielona bramka `npm run quality`: naprawa błędów testów,
+  lintu i typów istniejących przed planem (błąd kolekcji V7, manifest tabel
+  V2, tabele `management_*` w teście bazowym, dwa testy kontraktowe
+  Reviewera, test limitu 1441 min, ruff, mypy), bez osłabiania asercji.
+  Zaakceptowane przez operatora 2026-10-08; wykonywane przed etapem S-B,
+  a TASK-0938/0939 po S-B na jego polecenie.
+
+Szczegóły każdego zadania: pliki `ai_docs/tasks/0929…0940`.
 
 ## Mapa wymaganie → zadanie → kryterium
 
@@ -332,6 +339,7 @@ Szczegóły każdego zadania: pliki `ai_docs/tasks/0929…0939`.
 | Rozwinięcie kolumn, niesąsiednie, × linie, koszt 0 | 0936 | golden cases, §D |
 | Audyt krzyżowy po każdym tasku | 0929 | raporty w `ai_docs/quality/` |
 | Mniejsze zużycie tokenów bez utraty jakości | 0938, 0939 | rozmiar plików procesu; pomiar przed/po |
+| Zielona bramka jakości bez „znanych błędów” | 0940 | `npm run quality` kod 0 |
 
 ## Ryzyka
 
@@ -390,3 +398,4 @@ odnotowane w D-535.
 | TASK-0937 | claude-sonnet-5-5 | medium | Skrypt pomiarowy i raport. | Wymagany: gpt-6.1-sol, medium; zamiennik: claude-opus-5-5, medium |
 | TASK-0938 | claude-sonnet-5-5 | medium | Przeniesienie treści bez zmian merytorycznych, kontrola linków. | Wymagany: gpt-6.1-sol, medium; zamiennik: claude-opus-5-5, medium |
 | TASK-0939 | claude-sonnet-5-5 | high | Konfiguracja narzędzi, hook, skrypt mapy kodu i pomiar; brak logiki domenowej. | Wymagany: gpt-6.1-sol, high; zamiennik: claude-opus-5-5, high |
+| TASK-0940 | claude-sonnet-5-5 | high | Naprawy testów, lintu i typów bez zmian zachowania; wiele małych poprawek. | Wymagany: gpt-6.1-sol, high; zamiennik: claude-opus-5-5, high |

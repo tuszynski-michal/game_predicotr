@@ -33,7 +33,9 @@ last_updated: 2026-10-08
   Reviewera, `main.py:2005` mypy.
 - Etap S-A zamknięty. Operator może testować Wild na drafcie Mumii
   (instrukcja w Outcome TASK-0931 i TASK-0932) po wdrożeniu migracji 0151.
-  Następny etap: TASK-0938 (okno dokumentów) przed S-B, na polecenie.
+  Operator 2026-10-08: migracja 0151, `npm install` i `worker:poll` wykonane;
+  zaakceptował TASK-0940 (zielona bramka) i polecił przejść od razu do etapu
+  S-B bez pytań o zgodę; TASK-0938/0939 po S-B.
 
 ### TASK-0931 — Wild, „Uruchamia supergrę” i rodzaj supergry (done)
 

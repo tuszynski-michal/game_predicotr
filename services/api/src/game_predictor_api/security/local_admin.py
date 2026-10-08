@@ -192,6 +192,12 @@ HIGH_IMPACT_OPERATIONS: dict[tuple[str, str], HighImpactOperation] = {
         "revoke-remote-manual-selection-session",
         "remote-manual-selection-session:{session_id}",
     ),
+    ("POST", "/api/v1/admin/management/sessions"): HighImpactOperation(
+        "create-management-session", "management-session:new"
+    ),
+    ("POST", "/api/v1/admin/management/sessions/{session_id}/revoke"): HighImpactOperation(
+        "revoke-management-session", "management-session:{session_id}"
+    ),
     # D-471: a share link exposes one game's board search online.
     (
         "POST",

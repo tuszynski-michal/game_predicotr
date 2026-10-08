@@ -3796,3 +3796,20 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 }
 
 export type AdminApiClient = ReturnType<typeof createAdminApiClient>;
+
+export {
+  createManagementLinkClient,
+  createManagementPublicApiClient,
+} from './management';
+export type {
+  ManagementPublicApiClient,
+  ManagementLinkClient,
+} from './management';
+export type {
+  ManagementSessionCreate,
+  ManagementSessionCreated,
+  ManagementSessionList,
+  ManagementSessionContext,
+  ManagementSessionResponse,
+  ManagementPublicSearchResponse,
+} from './generated/types.gen';

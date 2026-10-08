@@ -80,6 +80,7 @@ class ApiSettings:
     remote_selection_materialization_max_actions_per_cycle: int = 4
     remote_selection_recovery_enabled: bool = True
     board_search_share_enabled: bool = True
+    management_share_enabled: bool = True
     remote_selection_recovery_limit: int = 100
     symbol_review_page_statement_timeout_ms: int = _DEFAULT_SYMBOL_REVIEW_PAGE_STATEMENT_TIMEOUT_MS
     symbol_review_counts_statement_timeout_ms: int = (
@@ -373,6 +374,9 @@ class ApiSettings:
             ),
             remote_selection_recovery_enabled=remote_selection_recovery_enabled,
             board_search_share_enabled=board_search_share_enabled,
+            management_share_enabled=_parse_boolean_fail_closed(
+                source.get("GAME_PREDICTOR_MANAGEMENT_SHARE_ENABLED", "true")
+            ),
             remote_selection_recovery_limit=remote_selection_recovery_limit,
             symbol_review_page_statement_timeout_ms=(symbol_review_page_statement_timeout_ms),
             symbol_review_counts_statement_timeout_ms=(symbol_review_counts_statement_timeout_ms),

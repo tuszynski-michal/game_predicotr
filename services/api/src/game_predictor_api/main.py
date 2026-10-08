@@ -10,7 +10,7 @@ from typing import Annotated, Any, Final
 from urllib.parse import urlparse
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Cookie, Depends, FastAPI, Header, Query, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -23,6 +23,15 @@ from sqlalchemy.orm import Session
 
 from game_predictor_api.api.image_selections import MANUAL_FILE_NAME_HEADER
 from game_predictor_api.api.management import create_management_router
+from game_predictor_api.api.management_public import (
+    create_management_public_router,
+    require_management_proxy,
+)
+from game_predictor_api.api.management_public_stakes import create_management_public_stake_router
+from game_predictor_api.api.management_public_structure import (
+    create_management_public_structure_router,
+)
+from game_predictor_api.api.management_sessions import create_management_sessions_router
 from game_predictor_api.api.management_stakes import create_management_stake_router
 from game_predictor_api.api.router import create_api_router
 from game_predictor_api.application.board_cell_geometry_pending import (
@@ -114,6 +123,9 @@ from game_predictor_api.application.layout_imports import (
     LayoutImportSourceInspector,
 )
 from game_predictor_api.application.management import ManagementError, ManagementService
+from game_predictor_api.application.management_access import ManagementAccessService
+from game_predictor_api.application.management_ingress import stop_unused_shared_ingress
+from game_predictor_api.application.management_public import ManagementPublicGuard
 from game_predictor_api.application.management_stakes import ManagementStakeService
 from game_predictor_api.application.mobile_releases import (
     MobileReleaseService,
@@ -240,6 +252,12 @@ from game_predictor_api.domain.jobs import (
     JobConflictError,
     JobError,
     JobNotFoundError,
+)
+from game_predictor_api.domain.management_sessions import (
+    MANAGEMENT_COOKIE,
+    MANAGEMENT_EXPECTED_SESSION_HEADER,
+    ManagementAccessError,
+    invalid_access,
 )
 from game_predictor_api.domain.mobile_releases import (
     MobileReleaseConflictError,
@@ -396,6 +414,9 @@ from game_predictor_api.storage.layout_import_report_repository import (
     SqlAlchemyLayoutImportReportRepository,
 )
 from game_predictor_api.storage.management_repository import SqlAlchemyManagementRepository
+from game_predictor_api.storage.management_session_repository import (
+    SqlAlchemyManagementSessionRepository,
+)
 from game_predictor_api.storage.management_stake_repository import (
     SqlAlchemyManagementStakeRepository,
 )
@@ -534,6 +555,7 @@ def create_app(
     settings: ApiSettings | None = None,
     *,
     local_source_picker: Callable[[], Path | None] | None = None,
+    management_access_service_dependency: Callable[..., object] | None = None,
     management_service_dependency: Callable[..., object] | None = None,
     management_stake_service_dependency: Callable[..., object] | None = None,
     catalog_service_dependency: Callable[..., object] | None = None,
@@ -597,6 +619,7 @@ def create_app(
     custom_service_dependency_supplied = any(
         dependency is not None
         for dependency in (
+            management_access_service_dependency,
             catalog_service_dependency,
             board_search_service_dependency,
             board_search_approximate_win_service_dependency,
@@ -1815,6 +1838,9 @@ def create_app(
                     reviewer_access_service(session),
                     reviewer_ingress_service,
                     recover_other_games=recover_other_games_online,
+                    stop_shared_ingress=lambda: stop_unused_shared_ingress(
+                        database_engine, reviewer_ingress_service
+                    ),
                 )
                 session.commit()
             except BaseException:
@@ -1922,6 +1948,133 @@ def create_app(
             management_stake_service_dependency or default_management_stake_service_dependency
         )
     )
+
+    def default_management_access_dependency() -> Iterator[ManagementAccessService]:
+        with Session(database_engine) as session:
+            try:
+                yield ManagementAccessService(
+                    SqlAlchemyManagementSessionRepository(session),
+                    enabled=resolved_settings.management_share_enabled,
+                )
+                session.commit()
+            except ManagementAccessError as error:
+                if error.code in {"MANAGEMENT_CODE_INVALID", "MANAGEMENT_CODE_LOCKED"}:
+                    session.commit()  # Persist failed codes only, never a failed domain mutation.
+                else:
+                    session.rollback()
+                raise
+            except BaseException:
+                session.rollback()
+                raise
+
+    @application.exception_handler(ManagementAccessError)
+    async def management_access_error_handler(
+        request: Request, error: ManagementAccessError
+    ) -> JSONResponse:
+        return JSONResponse(
+            status_code=error.status,
+            content={"code": error.code, "message": str(error), "details": {}},
+        )
+
+    def public_management_guard_dependency(
+        request: Request,
+        expected: Annotated[UUID | None, Header(alias=MANAGEMENT_EXPECTED_SESSION_HEADER)] = None,
+        expected_asset: Annotated[UUID | None, Query(alias="expectedSessionId")] = None,
+        token: Annotated[str | None, Cookie(alias=MANAGEMENT_COOKIE)] = None,
+        _proxy: None = Depends(require_management_proxy),
+    ) -> Iterator[ManagementPublicGuard]:
+        asset = request.url.path.endswith(("/image", "/view"))
+        identity = expected_asset if asset else expected
+        if (
+            identity is None
+            or token is None
+            or (expected is not None and expected_asset is not None and expected != expected_asset)
+        ):
+            raise invalid_access()
+        # Plain metadata sessions never implicitly bind all assigned games.
+        factory = (
+            session_factory
+            if "/game/" in request.url.path
+            and not (
+                "/results/" in request.url.path
+                or "/stakes" in request.url.path
+                and request.method == "GET"
+            )
+            else lambda: Session(database_engine)
+        )
+        with factory() as session:
+            try:
+                guard = ManagementPublicGuard(
+                    session,
+                    ManagementAccessService(
+                        SqlAlchemyManagementSessionRepository(session),
+                        enabled=resolved_settings.management_share_enabled,
+                    ),
+                    token,
+                    identity,
+                )
+                machine = request.path_params.get("machine_id")
+                game = request.path_params.get("game_id") or request.query_params.get("gameId")
+                if machine and game:
+                    historical = (
+                        "/results/" in request.url.path
+                        or request.url.path.endswith("/journal")
+                        or "/stakes" in request.url.path
+                        and request.method == "GET"
+                    )
+                    guard.game(UUID(str(machine)), UUID(str(game)), live=not historical)
+                yield guard
+                guard.before_commit()  # flush structural writes, then check fresh expiry/token.
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    def public_management_structure_dependency(
+        guard: Annotated[
+            ManagementPublicGuard, Depends(public_management_guard_dependency, scope="function")
+        ],
+    ) -> ManagementService:
+        return ManagementService(
+            SqlAlchemyManagementRepository(guard.session), actor=guard.context.actor
+        )
+
+    def public_management_stake_dependency(
+        guard: Annotated[
+            ManagementPublicGuard, Depends(public_management_guard_dependency, scope="function")
+        ],
+    ) -> Iterator[ManagementStakeService]:
+        service = ManagementStakeService(
+            SqlAlchemyManagementStakeRepository(guard.session, revalidate=guard.revalidate),
+            actor=guard.context.actor,
+        )
+        yield service
+        service.before_commit()
+
+    application.include_router(
+        create_management_sessions_router(
+            management_access_service_dependency or default_management_access_dependency,
+            resolved_reviewer_ingress_dependency,
+        )
+    )
+    application.include_router(
+        create_management_public_structure_router(public_management_structure_dependency)
+    )
+    application.include_router(
+        create_management_public_stake_router(public_management_stake_dependency)
+    )
+    application.include_router(
+        create_management_public_router(
+            access_dependency=management_access_service_dependency
+            or default_management_access_dependency,
+            guard_dependency=public_management_guard_dependency,
+            catalog_dependency=resolved_catalog_dependency,
+            reference_dependency=resolved_symbol_reference_dependency,
+            view_dependency=resolved_board_search_board_view_dependency,
+            artifact_root=resolved_settings.artifact_root,
+        )
+    )
+
     application.state.database_engine = database_engine
     application.include_router(
         create_api_router(

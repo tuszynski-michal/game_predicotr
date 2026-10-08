@@ -3,6 +3,8 @@
 VERSION = "management-control-plane-v2"
 SHARED_TABLES = frozenset(
     {
+        "public.management_sessions",
+        "public.management_session_audit",
         "public.management_points",
         "public.management_machines",
         "public.management_assignments",

@@ -6,6 +6,27 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0925 — Panel sessions and48/72-hour links (done)
+
+- Independent multi-game capability sessions, separate code/token/cookie and
+  stable sessionUUID actor. Local-only link creation/list/revoke, five failed
+  codes lock access. New lifetimes1/4/8/24/48/72h, default8; old one-game shares
+  gain48/72h options without changing scope or existing expiry timestamps.
+- Allowlisted public API and Reviewer management proxy check expected session
+  identity, machine/game ancestry and live association for current operations.
+  Retained history remains scoped without requiring a live game. Public data
+  excludes storage paths, secrets and internal review IDs.
+- Mutation flush and locked session revalidation precede commit. Access failure
+  cannot become stale-success. Shared ingress retention protects active panel
+  and board-search links when the final Reviewer assignment closes.
+- Bounded request/response streams, origin checks, dedicated secure cookie;
+  obsolete401 responses cannot clear a newer session in another browser tab.
+- Additive0150 migration and startup schema guard aligned. Backend/OpenAPI,
+  generated client, wrappers and request tests update together. Focused evidence
+  and independent astra/high PASS are recorded in completed Outcome.
+- Commit receipt follows actual branch history. Next T6 / TASK-0926.
+  No live services/tunnel, production migration/data writes or deployment.
+
 ### TASK-0924 — Stake overview and retained history (done)
 
 - Selected machine/game loads six compact cards, saved board/pins/date and
@@ -23,7 +44,7 @@ last_updated: 2026-10-07
 - Focused interactions19 plus existing management4 PASS, direct Admin types and
   scoped lint/format PASS; final broader evidence is in completed task Outcome.
   Independent sol/high review PASS, no unresolved P0–P2.
-- Commit receipt follows branch history. Next T5 / TASK-0925.
+- Completion v1.7.256 /71931a1b8fdf5830f761736ca26f1666acc14d5b. Next T5 / TASK-0925.
   No backend contract change, service lifecycle, production migration or build.
 
 ### TASK-0923 — Shared search with explicit Save (done)
@@ -84,7 +105,7 @@ last_updated: 2026-10-07
 - Explicit Save only; draft pins/browsing, confirmed slot-only Clear, immutable
   prior results and retained journal, current recalculation, UUID/revision guards.
   Whole-panel named recipient, local link administration,48/72h plus old shares.
-- Executors/reviewers follow accepted model table. T1–T4 committed; T5 is next.
+- Executors/reviewers follow accepted model table. T1–T5 committed; T6 is next.
 - Startup schema guard now requires `0149_management_stake_saves`, matching
   Alembic head after T2. Fix v1.7.254 / `3cb140dd874ffd6378c009aa1152a9001fed6b48`;
   schema-readiness tests 12/12 PASS. API was not started.

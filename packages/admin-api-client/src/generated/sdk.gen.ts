@@ -57,6 +57,9 @@ import type {
   ClearManagementStakeData,
   ClearManagementStakeErrors,
   ClearManagementStakeResponses,
+  ClearPublicManagementStakeData,
+  ClearPublicManagementStakeErrors,
+  ClearPublicManagementStakeResponses,
   CloseReviewerWorkAssignmentData,
   CloseReviewerWorkAssignmentErrors,
   CloseReviewerWorkAssignmentResponses,
@@ -75,6 +78,9 @@ import type {
   CorrectManagementBoardCellData,
   CorrectManagementBoardCellErrors,
   CorrectManagementBoardCellResponses,
+  CorrectPublicManagementBoardCellData,
+  CorrectPublicManagementBoardCellErrors,
+  CorrectPublicManagementBoardCellResponses,
   CreateBoardSearchShareSessionData,
   CreateBoardSearchShareSessionErrors,
   CreateBoardSearchShareSessionResponses,
@@ -111,6 +117,9 @@ import type {
   CreateManagementPointData,
   CreateManagementPointErrors,
   CreateManagementPointResponses,
+  CreateManagementSessionData,
+  CreateManagementSessionErrors,
+  CreateManagementSessionResponses,
   CreateMobileReleaseData,
   CreateMobileReleaseErrors,
   CreateMobileReleaseResponses,
@@ -126,6 +135,12 @@ import type {
   CreatePayoutRuleData,
   CreatePayoutRuleErrors,
   CreatePayoutRuleResponses,
+  CreatePublicManagementMachineData,
+  CreatePublicManagementMachineErrors,
+  CreatePublicManagementMachineResponses,
+  CreatePublicManagementPointData,
+  CreatePublicManagementPointErrors,
+  CreatePublicManagementPointResponses,
   CreateRemoteManualSelectionBatchData,
   CreateRemoteManualSelectionBatchErrors,
   CreateRemoteManualSelectionBatchResponses,
@@ -368,6 +383,9 @@ import type {
   GetManagementResultData,
   GetManagementResultErrors,
   GetManagementResultResponses,
+  GetManagementSessionContextData,
+  GetManagementSessionContextErrors,
+  GetManagementSessionContextResponses,
   GetManagementSnapshotData,
   GetManagementSnapshotErrors,
   GetManagementSnapshotResponses,
@@ -410,6 +428,27 @@ import type {
   GetPendingBoardCellGeometrySourceData,
   GetPendingBoardCellGeometrySourceErrors,
   GetPendingBoardCellGeometrySourceResponses,
+  GetPublicManagementApproximateWinData,
+  GetPublicManagementApproximateWinErrors,
+  GetPublicManagementApproximateWinResponses,
+  GetPublicManagementBoardDetailData,
+  GetPublicManagementBoardDetailErrors,
+  GetPublicManagementBoardDetailResponses,
+  GetPublicManagementBoardViewData,
+  GetPublicManagementBoardViewErrors,
+  GetPublicManagementBoardViewResponses,
+  GetPublicManagementResultData,
+  GetPublicManagementResultErrors,
+  GetPublicManagementResultResponses,
+  GetPublicManagementSnapshotData,
+  GetPublicManagementSnapshotErrors,
+  GetPublicManagementSnapshotResponses,
+  GetPublicManagementStakeData,
+  GetPublicManagementStakeErrors,
+  GetPublicManagementStakeResponses,
+  GetPublicManagementSymbolImageData,
+  GetPublicManagementSymbolImageErrors,
+  GetPublicManagementSymbolImageResponses,
   GetRemoteManualSelectionContextData,
   GetRemoteManualSelectionContextErrors,
   GetRemoteManualSelectionContextResponses,
@@ -598,6 +637,9 @@ import type {
   ListManagementJournalData,
   ListManagementJournalErrors,
   ListManagementJournalResponses,
+  ListManagementSessionsData,
+  ListManagementSessionsErrors,
+  ListManagementSessionsResponses,
   ListManagementStakesData,
   ListManagementStakesErrors,
   ListManagementStakesResponses,
@@ -619,6 +661,15 @@ import type {
   ListPendingBoardCellGeometryData,
   ListPendingBoardCellGeometryErrors,
   ListPendingBoardCellGeometryResponses,
+  ListPublicManagementJournalData,
+  ListPublicManagementJournalErrors,
+  ListPublicManagementJournalResponses,
+  ListPublicManagementStakesData,
+  ListPublicManagementStakesErrors,
+  ListPublicManagementStakesResponses,
+  ListPublicManagementSymbolsData,
+  ListPublicManagementSymbolsErrors,
+  ListPublicManagementSymbolsResponses,
   ListReadyBrowserImageSelectionsData,
   ListReadyBrowserImageSelectionsErrors,
   ListReadyBrowserImageSelectionsResponses,
@@ -796,6 +847,9 @@ import type {
   RefreshManagementStakeData,
   RefreshManagementStakeErrors,
   RefreshManagementStakeResponses,
+  RefreshPublicManagementStakeData,
+  RefreshPublicManagementStakeErrors,
+  RefreshPublicManagementStakeResponses,
   RegisterCuratedImageImportSourceData,
   RegisterCuratedImageImportSourceErrors,
   RegisterCuratedImageImportSourceResponses,
@@ -853,6 +907,9 @@ import type {
   RevokeBoardSearchShareSessionData,
   RevokeBoardSearchShareSessionErrors,
   RevokeBoardSearchShareSessionResponses,
+  RevokeManagementSessionData,
+  RevokeManagementSessionErrors,
+  RevokeManagementSessionResponses,
   RevokeRemoteManualSelectionSessionData,
   RevokeRemoteManualSelectionSessionErrors,
   RevokeRemoteManualSelectionSessionResponses,
@@ -868,6 +925,9 @@ import type {
   SaveManagementStakeData,
   SaveManagementStakeErrors,
   SaveManagementStakeResponses,
+  SavePublicManagementStakeData,
+  SavePublicManagementStakeErrors,
+  SavePublicManagementStakeResponses,
   SaveUnreadableBoardReviewData,
   SaveUnreadableBoardReviewErrors,
   SaveUnreadableBoardReviewResponses,
@@ -883,6 +943,9 @@ import type {
   SearchManagementBoardsData,
   SearchManagementBoardsErrors,
   SearchManagementBoardsResponses,
+  SearchPublicManagementBoardsData,
+  SearchPublicManagementBoardsErrors,
+  SearchPublicManagementBoardsResponses,
   SelectApprovedSymbolReferenceCandidateData,
   SelectApprovedSymbolReferenceCandidateErrors,
   SelectApprovedSymbolReferenceCandidateResponses,
@@ -952,6 +1015,9 @@ import type {
   UnlockBoardSearchShareSessionData,
   UnlockBoardSearchShareSessionErrors,
   UnlockBoardSearchShareSessionResponses,
+  UnlockManagementSessionData,
+  UnlockManagementSessionErrors,
+  UnlockManagementSessionResponses,
   UnlockRemoteManualSelectionSessionData,
   UnlockRemoteManualSelectionSessionErrors,
   UnlockRemoteManualSelectionSessionResponses,
@@ -979,6 +1045,15 @@ import type {
   UpdatePayoutRuleData,
   UpdatePayoutRuleErrors,
   UpdatePayoutRuleResponses,
+  UpdatePublicManagementAssignmentsData,
+  UpdatePublicManagementAssignmentsErrors,
+  UpdatePublicManagementAssignmentsResponses,
+  UpdatePublicManagementMachineData,
+  UpdatePublicManagementMachineErrors,
+  UpdatePublicManagementMachineResponses,
+  UpdatePublicManagementPointData,
+  UpdatePublicManagementPointErrors,
+  UpdatePublicManagementPointResponses,
   UpdateRulesVersionData,
   UpdateRulesVersionErrors,
   UpdateRulesVersionResponses,
@@ -5793,6 +5868,66 @@ export const updateManagementMachine = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * List Sessions
+ */
+export const listManagementSessions = <ThrowOnError extends boolean = false>(
+  options?: Options<ListManagementSessionsData, ThrowOnError>,
+): RequestResult<
+  ListManagementSessionsResponses,
+  ListManagementSessionsErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    ListManagementSessionsResponses,
+    ListManagementSessionsErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/management/sessions', ...options });
+
+/**
+ * Create
+ */
+export const createManagementSession = <ThrowOnError extends boolean = false>(
+  options: Options<CreateManagementSessionData, ThrowOnError>,
+): RequestResult<
+  CreateManagementSessionResponses,
+  CreateManagementSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreateManagementSessionResponses,
+    CreateManagementSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/sessions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Revoke
+ */
+export const revokeManagementSession = <ThrowOnError extends boolean = false>(
+  options: Options<RevokeManagementSessionData, ThrowOnError>,
+): RequestResult<
+  RevokeManagementSessionResponses,
+  RevokeManagementSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevokeManagementSessionResponses,
+    RevokeManagementSessionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/sessions/{session_id}/revoke',
+    ...options,
+  });
+
+/**
  * List immutable mobile releases
  */
 export const listMobileReleases = <ThrowOnError extends boolean = false>(
@@ -7783,6 +7918,498 @@ export const getHealth = <ThrowOnError extends boolean = false>(
   (options?.client ?? client).get<GetHealthResponses, unknown, ThrowOnError>({
     url: '/api/v1/health',
     ...options,
+  });
+
+/**
+ * Snapshot
+ */
+export const getPublicManagementSnapshot = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetPublicManagementSnapshotData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementSnapshotResponses,
+  GetPublicManagementSnapshotErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetPublicManagementSnapshotResponses,
+    GetPublicManagementSnapshotErrors,
+    ThrowOnError
+  >({ url: '/api/v1/management-public', ...options });
+
+/**
+ * Context
+ */
+export const getManagementSessionContext = <
+  ThrowOnError extends boolean = false,
+>(
+  options?: Options<GetManagementSessionContextData, ThrowOnError>,
+): RequestResult<
+  GetManagementSessionContextResponses,
+  GetManagementSessionContextErrors,
+  ThrowOnError
+> =>
+  (options?.client ?? client).get<
+    GetManagementSessionContextResponses,
+    GetManagementSessionContextErrors,
+    ThrowOnError
+  >({ url: '/api/v1/management-public/context', ...options });
+
+/**
+ * Assignments
+ */
+export const updatePublicManagementAssignments = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdatePublicManagementAssignmentsData, ThrowOnError>,
+): RequestResult<
+  UpdatePublicManagementAssignmentsResponses,
+  UpdatePublicManagementAssignmentsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdatePublicManagementAssignmentsResponses,
+    UpdatePublicManagementAssignmentsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/assignments',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview
+ */
+export const getPublicManagementApproximateWin = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPublicManagementApproximateWinData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementApproximateWinResponses,
+  GetPublicManagementApproximateWinErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementApproximateWinResponses,
+    GetPublicManagementApproximateWinErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/approximate-win',
+    ...options,
+  });
+
+/**
+ * Detail
+ */
+export const getPublicManagementBoardDetail = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPublicManagementBoardDetailData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementBoardDetailResponses,
+  GetPublicManagementBoardDetailErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementBoardDetailResponses,
+    GetPublicManagementBoardDetailErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/boards/{sequence}',
+    ...options,
+  });
+
+/**
+ * Board View
+ */
+export const getPublicManagementBoardView = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPublicManagementBoardViewData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementBoardViewResponses,
+  GetPublicManagementBoardViewErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementBoardViewResponses,
+    GetPublicManagementBoardViewErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/boards/{sequence}/view',
+    ...options,
+  });
+
+/**
+ * Result
+ */
+export const getPublicManagementResult = <ThrowOnError extends boolean = false>(
+  options: Options<GetPublicManagementResultData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementResultResponses,
+  GetPublicManagementResultErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementResultResponses,
+    GetPublicManagementResultErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/results/{version_id}',
+    ...options,
+  });
+
+/**
+ * Search
+ */
+export const searchPublicManagementBoards = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SearchPublicManagementBoardsData, ThrowOnError>,
+): RequestResult<
+  SearchPublicManagementBoardsResponses,
+  SearchPublicManagementBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    SearchPublicManagementBoardsResponses,
+    SearchPublicManagementBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/search',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Slots
+ */
+export const listPublicManagementStakes = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListPublicManagementStakesData, ThrowOnError>,
+): RequestResult<
+  ListPublicManagementStakesResponses,
+  ListPublicManagementStakesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListPublicManagementStakesResponses,
+    ListPublicManagementStakesErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes',
+    ...options,
+  });
+
+/**
+ * Slot
+ */
+export const getPublicManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<GetPublicManagementStakeData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementStakeResponses,
+  GetPublicManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementStakeResponses,
+    GetPublicManagementStakeErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}',
+    ...options,
+  });
+
+/**
+ * Save
+ */
+export const savePublicManagementStake = <ThrowOnError extends boolean = false>(
+  options: Options<SavePublicManagementStakeData, ThrowOnError>,
+): RequestResult<
+  SavePublicManagementStakeResponses,
+  SavePublicManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    SavePublicManagementStakeResponses,
+    SavePublicManagementStakeErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Correct
+ */
+export const correctPublicManagementBoardCell = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CorrectPublicManagementBoardCellData, ThrowOnError>,
+): RequestResult<
+  CorrectPublicManagementBoardCellResponses,
+  CorrectPublicManagementBoardCellErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CorrectPublicManagementBoardCellResponses,
+    CorrectPublicManagementBoardCellErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}/boards/{sequence}/cells/{cell}/decision',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Clear
+ */
+export const clearPublicManagementStake = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ClearPublicManagementStakeData, ThrowOnError>,
+): RequestResult<
+  ClearPublicManagementStakeResponses,
+  ClearPublicManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    ClearPublicManagementStakeResponses,
+    ClearPublicManagementStakeErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}/clear',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Refresh
+ */
+export const refreshPublicManagementStake = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RefreshPublicManagementStakeData, ThrowOnError>,
+): RequestResult<
+  RefreshPublicManagementStakeResponses,
+  RefreshPublicManagementStakeErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RefreshPublicManagementStakeResponses,
+    RefreshPublicManagementStakeErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}/refresh',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Symbols
+ */
+export const listPublicManagementSymbols = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListPublicManagementSymbolsData, ThrowOnError>,
+): RequestResult<
+  ListPublicManagementSymbolsResponses,
+  ListPublicManagementSymbolsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListPublicManagementSymbolsResponses,
+    ListPublicManagementSymbolsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/symbols',
+    ...options,
+  });
+
+/**
+ * Symbol Image
+ */
+export const getPublicManagementSymbolImage = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<GetPublicManagementSymbolImageData, ThrowOnError>,
+): RequestResult<
+  GetPublicManagementSymbolImageResponses,
+  GetPublicManagementSymbolImageErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetPublicManagementSymbolImageResponses,
+    GetPublicManagementSymbolImageErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/symbols/{symbol_id}/image',
+    ...options,
+  });
+
+/**
+ * Journal
+ */
+export const listPublicManagementJournal = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<ListPublicManagementJournalData, ThrowOnError>,
+): RequestResult<
+  ListPublicManagementJournalResponses,
+  ListPublicManagementJournalErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListPublicManagementJournalResponses,
+    ListPublicManagementJournalErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/journal',
+    ...options,
+  });
+
+/**
+ * Create Point
+ */
+export const createPublicManagementPoint = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreatePublicManagementPointData, ThrowOnError>,
+): RequestResult<
+  CreatePublicManagementPointResponses,
+  CreatePublicManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreatePublicManagementPointResponses,
+    CreatePublicManagementPointErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update Point
+ */
+export const updatePublicManagementPoint = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdatePublicManagementPointData, ThrowOnError>,
+): RequestResult<
+  UpdatePublicManagementPointResponses,
+  UpdatePublicManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdatePublicManagementPointResponses,
+    UpdatePublicManagementPointErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Create Machine
+ */
+export const createPublicManagementMachine = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<CreatePublicManagementMachineData, ThrowOnError>,
+): RequestResult<
+  CreatePublicManagementMachineResponses,
+  CreatePublicManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    CreatePublicManagementMachineResponses,
+    CreatePublicManagementMachineErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/machines',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Update Machine
+ */
+export const updatePublicManagementMachine = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<UpdatePublicManagementMachineData, ThrowOnError>,
+): RequestResult<
+  UpdatePublicManagementMachineResponses,
+  UpdatePublicManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    UpdatePublicManagementMachineResponses,
+    UpdatePublicManagementMachineErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/machines/{machine_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Unlock
+ */
+export const unlockManagementSession = <ThrowOnError extends boolean = false>(
+  options: Options<UnlockManagementSessionData, ThrowOnError>,
+): RequestResult<
+  UnlockManagementSessionResponses,
+  UnlockManagementSessionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    UnlockManagementSessionResponses,
+    UnlockManagementSessionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/sessions/{session_id}/unlock',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
   });
 
 /**

@@ -13,10 +13,10 @@ function session(sessionId, status, createdAt) {
   return { createdAt, sessionId, status };
 }
 
-test('lifetimes are 1, 4, 8 and 24 hours with 8 hours by default', () => {
+test('lifetimes are 1, 4, 8, 24, 48 and 72 hours with 8 hours by default', () => {
   assert.deepEqual(
     BOARD_SEARCH_SHARE_LIFETIMES.map((option) => option.minutes),
-    [60, 240, 480, 1440],
+    [60, 240, 480, 1440, 2880, 4320],
   );
   assert.equal(BOARD_SEARCH_SHARE_DEFAULT_LIFETIME_MINUTES, 480);
 });

@@ -484,7 +484,7 @@ parametrów.
 POST /api/v1/admin/board-search-shares/sessions
 operationId: createBoardSearchShareSession
 body: { gameId, label?: string (≤ 100 znaków po normalizacji),
-        lifetimeMinutes: 5..1440 = 480 }
+        lifetimeMinutes: 5..4320 = 480 }
 201:  { session: <sesja>, accessCode: "XXXX-XXXX" }
 
 GET  /api/v1/admin/board-search-shares/sessions?gameId=&limit=1..100
@@ -536,6 +536,53 @@ TASK-0767/0771) `board_search_share_query_events` z ograniczeniami rodzaju i
 rozmiaru (4 KiB / 2 KiB) oraz indeksem `(session_id, occurred_at DESC, id
 DESC)`. Migracja jest addytywna; downgrade jest zablokowany, bo tabele
 trzymają audyt i dziennik zapytań.
+
+### Sesje Panelu Administracyjnego (D-533, TASK-0925)
+
+Nowy typ dostępu jest niezależny od linków pojedynczej gry. Lokalna rodzina
+`/api/v1/admin/management/sessions` udostępnia `POST` tworzenia, `GET` listy
+oraz `POST /{sessionId}/revoke`. Tworzenie przyjmuje `label` i
+`lifetimeMinutes: 60|240|480|1440|2880|4320`, domyślnie 480. Kod pojawia się
+wyłącznie w lokalnej odpowiedzi tworzenia. Lista nie zwraca sekretów.
+Link wskazuje `/management?share={sessionId}`. Tworzenie i odwołanie
+wymagają lokalnych nagłówków potwierdzenia operacji wysokiego wpływu.
+
+Publiczna rodzina `/api/v1/management-public` obejmuje wyłącznie kontekst
+sesji, punkty, maszyny, przypisania gier, zapisy stawek, dziennik, wyniki,
+wyszukiwanie, przybliżone wygrane, symbole, podglądy i korekty plansz.
+`POST /sessions/{sessionId}/unlock` przyjmuje `accessCode`. Odpowiedź JSON
+zawiera tylko `sessionId`, etykietę i termin wygaśnięcia; token jest wydawany
+przez HttpOnly cookie. Backendowy OpenAPI i wygenerowany klient są źródłem
+dokładnych parametrów i odpowiedzi. Publiczne trasy nie obejmują tworzenia
+linków, importów, modeli, reguł ani pozostałego Admin API.
+
+Reviewer przekazuje te operacje przez allowlistę `/management-api`.
+Cookie `gp_management_token` jest niezależne od cookie wyszukiwarki;
+ma Secure, HttpOnly, SameSite=Strict i ścieżkę `/management-api`.
+Każde uwierzytelnione żądanie zawiera `X-Management-Session` wskazujący
+sesję, w której rozpoczęto pracę. Obrazy zawierają odpowiednik
+`expectedSessionId` w URL. Zastąpienie cookie innym linkiem nie może
+przypisać operacji ze starej karty nowemu autorowi. Błąd starej karty
+nie usuwa cookie nowej sesji.
+
+Backend ponownie sprawdza sesję, przodków maszyny i powiązanie z grą.
+Bieżące operacje wymagają aktywnego powiązania; zachowana historia pozostaje
+dostępna w granicach panelu. Zapis wykonuje flush i ponowne sprawdzenie
+autoryzacji przed atomowym commit. Wygaśnięcie, odwołanie albo blokada
+zatrzymują nowe odczyty i zapisy. Pięć błędnych kodów blokuje sesję.
+Tożsamość autora zawiera UUID sesji, a publiczny dziennik pokazuje etykietę linku.
+
+Migracja `0150_management_sessions` dodaje wspólne tabele sesji i audytu.
+Flaga `GAME_PREDICTOR_MANAGEMENT_SHARE_ENABLED` kontroluje nowy typ dostępu.
+Wspólny tunel jest chroniony przed automatycznym zatrzymaniem przez
+zamknięcie ostatniego zadania Reviewera, jeżeli istnieje aktywny link panelu
+lub wyszukiwarki. Tworzenie linku panelu i sprawdzenie zatrzymania współdzielą
+blokadę transakcyjną.
+
+TASK-0925 rozszerza także maksimum istniejących linków wyszukiwarki do
+4320 minut i dodaje wybory 48/72 h. Ich zakres pozostaje ograniczony do jednej
+gry, a wcześniejsze daty wygaśnięcia nie są zmieniane. Nie zmienia to czasu
+życia pozostałych rodzajów sesji Reviewera.
 
 ### Dziennik zapytań linku w Adminie (D-472, TASK-0771)
 

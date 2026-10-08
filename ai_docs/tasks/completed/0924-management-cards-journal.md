@@ -166,3 +166,5 @@ independent review. Full commit receipt is appended after the commit.
 ### Recommended next task
 
 T5 / TASK-0925: independent panel sessions and public API, plus48/72h links.
+
+Completion commit: v1.7.256 / 71931a1b8fdf5830f761736ca26f1666acc14d5b.

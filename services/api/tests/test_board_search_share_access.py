@@ -79,8 +79,8 @@ def test_create_stores_only_hashes_and_returns_the_code_once() -> None:
     assert not hasattr(listed[0], "code_hash")
 
 
-@pytest.mark.parametrize("minutes", [4, 1441, 0, -5])
-def test_lifetime_outside_5_minutes_to_24_hours_is_rejected(minutes: int) -> None:
+@pytest.mark.parametrize("minutes", [4, 4321, 0, -5])
+def test_lifetime_outside_5_minutes_to_72_hours_is_rejected(minutes: int) -> None:
     service, repository, _clock, _checked = _service()
     with pytest.raises(BoardSearchShareError) as error:
         service.create(game_id=GAME_ID, lifetime_minutes=minutes, label=None)

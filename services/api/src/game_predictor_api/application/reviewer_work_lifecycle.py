@@ -68,10 +68,12 @@ class ReviewerWorkLifecycleService:
         ingress: ReviewerProcessLifecycle | ReviewerIngressService,
         *,
         recover_other_games: Callable[[UUID | None], None] | None = None,
+        stop_shared_ingress: Callable[[], None] | None = None,
     ) -> None:
         self._assignments = assignments
         self._access = access
         self._ingress = ingress
+        self._stop_shared_ingress = stop_shared_ingress
         # TASK-0797: this service's transaction reads one game (application
         # role, RLS). Expired online leases of the other games are recovered
         # (lease expired, access session revoked) in their own transactions
@@ -264,6 +266,9 @@ class ReviewerWorkLifecycleService:
             self._access.revoke(assignment.reviewer_access_session_id)
 
     def _stop_shared_ingress_if_current(self) -> None:
+        if self._stop_shared_ingress is not None:
+            self._stop_shared_ingress()
+            return
         status = self._ingress.status()
         if status.instance_id is None:
             return

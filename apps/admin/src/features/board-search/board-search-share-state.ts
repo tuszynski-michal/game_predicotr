@@ -7,6 +7,8 @@ export const BOARD_SEARCH_SHARE_LIFETIMES = [
   { label: '4 h', minutes: 240 },
   { label: '8 h', minutes: 480 },
   { label: '24 h', minutes: 1440 },
+  { label: '48 h', minutes: 2880 },
+  { label: '72 h', minutes: 4320 },
 ] as const;
 export const BOARD_SEARCH_SHARE_DEFAULT_LIFETIME_MINUTES = 480;
 

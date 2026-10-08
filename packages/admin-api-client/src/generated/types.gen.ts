@@ -9702,6 +9702,17 @@ export type ManagementPointResponse = {
 };
 
 /**
+ * ManagementPublicSearchResponse
+ */
+export type ManagementPublicSearchResponse = {
+  search: BoardSearchSharePublicSearchResponse;
+  /**
+   * Searchcontextid
+   */
+  searchContextId: string;
+};
+
+/**
  * ManagementQueryCell
  */
 export type ManagementQueryCell = {
@@ -9840,6 +9851,119 @@ export type ManagementSearchResponse = {
    * Searchcontextid
    */
   searchContextId: string;
+};
+
+/**
+ * ManagementSessionContext
+ */
+export type ManagementSessionContext = {
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Label
+   */
+  label: string;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+};
+
+/**
+ * ManagementSessionCreate
+ */
+export type ManagementSessionCreate = {
+  /**
+   * Label
+   */
+  label: string;
+  /**
+   * Lifetimeminutes
+   */
+  lifetimeMinutes?: 60 | 240 | 480 | 1440 | 2880 | 4320;
+};
+
+/**
+ * ManagementSessionCreated
+ */
+export type ManagementSessionCreated = {
+  /**
+   * Accesscode
+   */
+  accessCode: string;
+  session: ManagementSessionResponse;
+};
+
+/**
+ * ManagementSessionList
+ */
+export type ManagementSessionList = {
+  /**
+   * Sessions
+   */
+  sessions: Array<ManagementSessionResponse>;
+};
+
+/**
+ * ManagementSessionResponse
+ */
+export type ManagementSessionResponse = {
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Expiresat
+   */
+  expiresAt: string;
+  /**
+   * Failedattempts
+   */
+  failedAttempts: number;
+  /**
+   * Label
+   */
+  label: string;
+  /**
+   * Lastunlockedat
+   */
+  lastUnlockedAt: string | null;
+  /**
+   * Lockedat
+   */
+  lockedAt: string | null;
+  /**
+   * Ready
+   */
+  ready: boolean;
+  /**
+   * Revokedat
+   */
+  revokedAt: string | null;
+  /**
+   * Sessionid
+   */
+  sessionId: string;
+  /**
+   * Shareurl
+   */
+  shareUrl: string | null;
+  /**
+   * Status
+   */
+  status: 'active' | 'locked' | 'expired' | 'revoked';
+};
+
+/**
+ * ManagementSessionUnlock
+ */
+export type ManagementSessionUnlock = {
+  /**
+   * Accesscode
+   */
+  accessCode: string;
 };
 
 /**
@@ -28390,6 +28514,113 @@ export type UpdateManagementMachineResponses = {
 export type UpdateManagementMachineResponse =
   UpdateManagementMachineResponses[keyof UpdateManagementMachineResponses];
 
+export type ListManagementSessionsData = {
+  body?: never;
+  path?: never;
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/management/sessions';
+};
+
+export type ListManagementSessionsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListManagementSessionsError =
+  ListManagementSessionsErrors[keyof ListManagementSessionsErrors];
+
+export type ListManagementSessionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementSessionList;
+};
+
+export type ListManagementSessionsResponse =
+  ListManagementSessionsResponses[keyof ListManagementSessionsResponses];
+
+export type CreateManagementSessionData = {
+  body: ManagementSessionCreate;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path?: never;
+  query?: never;
+  url: '/api/v1/admin/management/sessions';
+};
+
+export type CreateManagementSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreateManagementSessionError =
+  CreateManagementSessionErrors[keyof CreateManagementSessionErrors];
+
+export type CreateManagementSessionResponses = {
+  /**
+   * Successful Response
+   */
+  201: ManagementSessionCreated;
+};
+
+export type CreateManagementSessionResponse =
+  CreateManagementSessionResponses[keyof CreateManagementSessionResponses];
+
+export type RevokeManagementSessionData = {
+  body?: never;
+  headers: {
+    'X-Admin-Confirmation': 'confirmed';
+    'X-Admin-Target': string;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/management/sessions/{session_id}/revoke';
+};
+
+export type RevokeManagementSessionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RevokeManagementSessionError =
+  RevokeManagementSessionErrors[keyof RevokeManagementSessionErrors];
+
+export type RevokeManagementSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementSessionResponse;
+};
+
+export type RevokeManagementSessionResponse =
+  RevokeManagementSessionResponses[keyof RevokeManagementSessionResponses];
+
 export type ListMobileReleasesData = {
   body?: never;
   path?: never;
@@ -32560,6 +32791,1273 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type GetPublicManagementSnapshotData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public';
+};
+
+export type GetPublicManagementSnapshotErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetPublicManagementSnapshotError =
+  GetPublicManagementSnapshotErrors[keyof GetPublicManagementSnapshotErrors];
+
+export type GetPublicManagementSnapshotResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementSnapshotResponse;
+};
+
+export type GetPublicManagementSnapshotResponse =
+  GetPublicManagementSnapshotResponses[keyof GetPublicManagementSnapshotResponses];
+
+export type GetManagementSessionContextData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/context';
+};
+
+export type GetManagementSessionContextErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetManagementSessionContextError =
+  GetManagementSessionContextErrors[keyof GetManagementSessionContextErrors];
+
+export type GetManagementSessionContextResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementSessionContext;
+};
+
+export type GetManagementSessionContextResponse =
+  GetManagementSessionContextResponses[keyof GetManagementSessionContextResponses];
+
+export type UpdatePublicManagementAssignmentsData = {
+  body: ManagementAssignmentCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/assignments';
+};
+
+export type UpdatePublicManagementAssignmentsErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UpdatePublicManagementAssignmentsError =
+  UpdatePublicManagementAssignmentsErrors[keyof UpdatePublicManagementAssignmentsErrors];
+
+export type UpdatePublicManagementAssignmentsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMachineResponse;
+};
+
+export type UpdatePublicManagementAssignmentsResponse =
+  UpdatePublicManagementAssignmentsResponses[keyof UpdatePublicManagementAssignmentsResponses];
+
+export type GetPublicManagementApproximateWinData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query: {
+    /**
+     * Startsequencenumber
+     */
+    startSequenceNumber: number;
+    /**
+     * Spincount
+     */
+    spinCount: number;
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/approximate-win';
+};
+
+export type GetPublicManagementApproximateWinErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetPublicManagementApproximateWinError =
+  GetPublicManagementApproximateWinErrors[keyof GetPublicManagementApproximateWinErrors];
+
+export type GetPublicManagementApproximateWinResponses = {
+  /**
+   * Successful Response
+   */
+  200: ApproximateWinResponse;
+};
+
+export type GetPublicManagementApproximateWinResponse =
+  GetPublicManagementApproximateWinResponses[keyof GetPublicManagementApproximateWinResponses];
+
+export type GetPublicManagementBoardDetailData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence
+     */
+    sequence: number;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/boards/{sequence}';
+};
+
+export type GetPublicManagementBoardDetailErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetPublicManagementBoardDetailError =
+  GetPublicManagementBoardDetailErrors[keyof GetPublicManagementBoardDetailErrors];
+
+export type GetPublicManagementBoardDetailResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchSharePublicBoardDetailResponse;
+};
+
+export type GetPublicManagementBoardDetailResponse =
+  GetPublicManagementBoardDetailResponses[keyof GetPublicManagementBoardDetailResponses];
+
+export type GetPublicManagementBoardViewData = {
+  body?: never;
+  headers?: {
+    /**
+     * If-None-Match
+     */
+    'If-None-Match'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Sequence
+     */
+    sequence: number;
+  };
+  query: {
+    /**
+     * Expectedboardchecksumsha256
+     */
+    expectedBoardChecksumSha256: string;
+    /**
+     * Viewrevision
+     */
+    viewRevision?: string | null;
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/boards/{sequence}/view';
+};
+
+export type GetPublicManagementBoardViewErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetPublicManagementBoardViewError =
+  GetPublicManagementBoardViewErrors[keyof GetPublicManagementBoardViewErrors];
+
+export type GetPublicManagementBoardViewResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type GetPublicManagementResultData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Version Id
+     */
+    version_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/results/{version_id}';
+};
+
+export type GetPublicManagementResultErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetPublicManagementResultError =
+  GetPublicManagementResultErrors[keyof GetPublicManagementResultErrors];
+
+export type GetPublicManagementResultResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementResultResponse;
+};
+
+export type GetPublicManagementResultResponse =
+  GetPublicManagementResultResponses[keyof GetPublicManagementResultResponses];
+
+export type SearchPublicManagementBoardsData = {
+  body: ManagementSearchCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/search';
+};
+
+export type SearchPublicManagementBoardsErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type SearchPublicManagementBoardsError =
+  SearchPublicManagementBoardsErrors[keyof SearchPublicManagementBoardsErrors];
+
+export type SearchPublicManagementBoardsResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementPublicSearchResponse;
+};
+
+export type SearchPublicManagementBoardsResponse =
+  SearchPublicManagementBoardsResponses[keyof SearchPublicManagementBoardsResponses];
+
+export type ListPublicManagementStakesData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes';
+};
+
+export type ListPublicManagementStakesErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListPublicManagementStakesError =
+  ListPublicManagementStakesErrors[keyof ListPublicManagementStakesErrors];
+
+export type ListPublicManagementStakesResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementStakeListResponse;
+};
+
+export type ListPublicManagementStakesResponse =
+  ListPublicManagementStakesResponses[keyof ListPublicManagementStakesResponses];
+
+export type GetPublicManagementStakeData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    stake: ManagementStake;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}';
+};
+
+export type GetPublicManagementStakeErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetPublicManagementStakeError =
+  GetPublicManagementStakeErrors[keyof GetPublicManagementStakeErrors];
+
+export type GetPublicManagementStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementStakeResponse;
+};
+
+export type GetPublicManagementStakeResponse =
+  GetPublicManagementStakeResponses[keyof GetPublicManagementStakeResponses];
+
+export type SavePublicManagementStakeData = {
+  body: ManagementSaveCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    stake: ManagementStake;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}';
+};
+
+export type SavePublicManagementStakeErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type SavePublicManagementStakeError =
+  SavePublicManagementStakeErrors[keyof SavePublicManagementStakeErrors];
+
+export type SavePublicManagementStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementStakeResponse;
+};
+
+export type SavePublicManagementStakeResponse =
+  SavePublicManagementStakeResponses[keyof SavePublicManagementStakeResponses];
+
+export type CorrectPublicManagementBoardCellData = {
+  body: ManagementCorrectionCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    stake: ManagementStake;
+    /**
+     * Sequence
+     */
+    sequence: number;
+    /**
+     * Cell
+     */
+    cell: number;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}/boards/{sequence}/cells/{cell}/decision';
+};
+
+export type CorrectPublicManagementBoardCellErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CorrectPublicManagementBoardCellError =
+  CorrectPublicManagementBoardCellErrors[keyof CorrectPublicManagementBoardCellErrors];
+
+export type CorrectPublicManagementBoardCellResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardSearchShareCellCorrectionResponse;
+};
+
+export type CorrectPublicManagementBoardCellResponse =
+  CorrectPublicManagementBoardCellResponses[keyof CorrectPublicManagementBoardCellResponses];
+
+export type ClearPublicManagementStakeData = {
+  body: ManagementClearCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    stake: ManagementStake;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}/clear';
+};
+
+export type ClearPublicManagementStakeErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ClearPublicManagementStakeError =
+  ClearPublicManagementStakeErrors[keyof ClearPublicManagementStakeErrors];
+
+export type ClearPublicManagementStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementStakeResponse;
+};
+
+export type ClearPublicManagementStakeResponse =
+  ClearPublicManagementStakeResponses[keyof ClearPublicManagementStakeResponses];
+
+export type RefreshPublicManagementStakeData = {
+  body: ManagementRefreshCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    stake: ManagementStake;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/stakes/{stake}/refresh';
+};
+
+export type RefreshPublicManagementStakeErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type RefreshPublicManagementStakeError =
+  RefreshPublicManagementStakeErrors[keyof RefreshPublicManagementStakeErrors];
+
+export type RefreshPublicManagementStakeResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementRefreshResponse;
+};
+
+export type RefreshPublicManagementStakeResponse =
+  RefreshPublicManagementStakeResponses[keyof RefreshPublicManagementStakeResponses];
+
+export type ListPublicManagementSymbolsData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/symbols';
+};
+
+export type ListPublicManagementSymbolsErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListPublicManagementSymbolsError =
+  ListPublicManagementSymbolsErrors[keyof ListPublicManagementSymbolsErrors];
+
+export type ListPublicManagementSymbolsResponses = {
+  /**
+   * Response Listpublicmanagementsymbols
+   *
+   * Successful Response
+   */
+  200: Array<BoardSearchSharePublicSymbolResponse>;
+};
+
+export type ListPublicManagementSymbolsResponse =
+  ListPublicManagementSymbolsResponses[keyof ListPublicManagementSymbolsResponses];
+
+export type GetPublicManagementSymbolImageData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Symbol Id
+     */
+    symbol_id: string;
+  };
+  query: {
+    /**
+     * Revision
+     */
+    revision: string;
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/game/{game_id}/symbols/{symbol_id}/image';
+};
+
+export type GetPublicManagementSymbolImageErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type GetPublicManagementSymbolImageError =
+  GetPublicManagementSymbolImageErrors[keyof GetPublicManagementSymbolImageErrors];
+
+export type GetPublicManagementSymbolImageResponses = {
+  /**
+   * Successful Response
+   */
+  200: unknown;
+};
+
+export type ListPublicManagementJournalData = {
+  body?: never;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: {
+    /**
+     * Gameid
+     */
+    gameId?: string | null;
+    /**
+     * Stakegrosze
+     */
+    stakeGrosze?: ManagementStake | null;
+    /**
+     * Before
+     */
+    before?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/machines/{machine_id}/journal';
+};
+
+export type ListPublicManagementJournalErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type ListPublicManagementJournalError =
+  ListPublicManagementJournalErrors[keyof ListPublicManagementJournalErrors];
+
+export type ListPublicManagementJournalResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementJournalResponse;
+};
+
+export type ListPublicManagementJournalResponse =
+  ListPublicManagementJournalResponses[keyof ListPublicManagementJournalResponses];
+
+export type CreatePublicManagementPointData = {
+  body: ManagementPointCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path?: never;
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/points';
+};
+
+export type CreatePublicManagementPointErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreatePublicManagementPointError =
+  CreatePublicManagementPointErrors[keyof CreatePublicManagementPointErrors];
+
+export type CreatePublicManagementPointResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementPointResponse;
+};
+
+export type CreatePublicManagementPointResponse =
+  CreatePublicManagementPointResponses[keyof CreatePublicManagementPointResponses];
+
+export type UpdatePublicManagementPointData = {
+  body: ManagementPointCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/points/{point_id}';
+};
+
+export type UpdatePublicManagementPointErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UpdatePublicManagementPointError =
+  UpdatePublicManagementPointErrors[keyof UpdatePublicManagementPointErrors];
+
+export type UpdatePublicManagementPointResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementPointResponse;
+};
+
+export type UpdatePublicManagementPointResponse =
+  UpdatePublicManagementPointResponses[keyof UpdatePublicManagementPointResponses];
+
+export type CreatePublicManagementMachineData = {
+  body: ManagementMachineCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/points/{point_id}/machines';
+};
+
+export type CreatePublicManagementMachineErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type CreatePublicManagementMachineError =
+  CreatePublicManagementMachineErrors[keyof CreatePublicManagementMachineErrors];
+
+export type CreatePublicManagementMachineResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMachineResponse;
+};
+
+export type CreatePublicManagementMachineResponse =
+  CreatePublicManagementMachineResponses[keyof CreatePublicManagementMachineResponses];
+
+export type UpdatePublicManagementMachineData = {
+  body: ManagementMachineCommand;
+  headers?: {
+    /**
+     * X-Management-Session
+     */
+    'X-Management-Session'?: string | null;
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Point Id
+     */
+    point_id: string;
+    /**
+     * Machine Id
+     */
+    machine_id: string;
+  };
+  query?: {
+    /**
+     * Expectedsessionid
+     */
+    expectedSessionId?: string | null;
+  };
+  url: '/api/v1/management-public/points/{point_id}/machines/{machine_id}';
+};
+
+export type UpdatePublicManagementMachineErrors = {
+  /**
+   * Not Found
+   */
+  404: ErrorResponse;
+  /**
+   * Conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UpdatePublicManagementMachineError =
+  UpdatePublicManagementMachineErrors[keyof UpdatePublicManagementMachineErrors];
+
+export type UpdatePublicManagementMachineResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementMachineResponse;
+};
+
+export type UpdatePublicManagementMachineResponse =
+  UpdatePublicManagementMachineResponses[keyof UpdatePublicManagementMachineResponses];
+
+export type UnlockManagementSessionData = {
+  body: ManagementSessionUnlock;
+  headers?: {
+    /**
+     * X-Management-Public-Proxy
+     */
+    'X-Management-Public-Proxy'?: string | null;
+  };
+  path: {
+    /**
+     * Session Id
+     */
+    session_id: string;
+  };
+  query?: never;
+  url: '/api/v1/management-public/sessions/{session_id}/unlock';
+};
+
+export type UnlockManagementSessionErrors = {
+  /**
+   * Validation Error
+   */
+  422: HttpValidationError;
+};
+
+export type UnlockManagementSessionError =
+  UnlockManagementSessionErrors[keyof UnlockManagementSessionErrors];
+
+export type UnlockManagementSessionResponses = {
+  /**
+   * Successful Response
+   */
+  200: ManagementSessionContext;
+};
+
+export type UnlockManagementSessionResponse =
+  UnlockManagementSessionResponses[keyof UnlockManagementSessionResponses];
 
 export type PutRemoteManualSelectionFileContentData = {
   body: Blob | File;

@@ -11,7 +11,7 @@ from enum import StrEnum
 from typing import Final
 
 BOARD_SEARCH_SHARE_MIN_LIFETIME_MINUTES: Final = 5
-BOARD_SEARCH_SHARE_MAX_LIFETIME_MINUTES: Final = 24 * 60
+BOARD_SEARCH_SHARE_MAX_LIFETIME_MINUTES: Final = 72 * 60
 BOARD_SEARCH_SHARE_DEFAULT_LIFETIME_MINUTES: Final = 8 * 60
 BOARD_SEARCH_SHARE_MAX_FAILED_ATTEMPTS: Final = 5
 BOARD_SEARCH_SHARE_MAX_ACTIVE_SESSIONS: Final = 5
@@ -88,7 +88,7 @@ def validate_board_search_share_lifetime(lifetime_minutes: int) -> int:
     ):
         raise BoardSearchShareError(
             "BOARD_SEARCH_SHARE_LIFETIME_INVALID",
-            "Share lifetime must be between 5 minutes and 24 hours.",
+            "Share lifetime must be between 5 minutes and 72 hours.",
         )
     return lifetime_minutes
 

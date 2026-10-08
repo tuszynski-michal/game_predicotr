@@ -35,6 +35,13 @@ last_updated: 2026-10-07
   coherent rows/rules/start symbols. Numeric snapshots represent that read
   instant; result/slot/receipt/audit commit together in the primary transaction.
   This preserves concurrent exact retries without privileged database reads.
+- **T5 authorization clarification:** public requests bind the originating
+  session UUID in a header, or asset URL, in addition to the dedicated cookie.
+  Equal human labels never share actor/receipt identity. Session locks and
+  post-flush authorization checks protect commit; obsolete-tab failures cannot
+  clear a newer browser session. Panel-link creation and automatic shared
+  ingress shutdown share a transaction lock. These implement the accepted
+  access and retry boundary without broadening old one-game capabilities.
 
 ## D-534 — Image import resumption uses the hard reserve, not the GC target
 

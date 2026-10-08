@@ -27,6 +27,7 @@ import {
   managementSessionStorage,
 } from './management-client';
 import { ManagementGameWorkspace } from './management-game-workspace';
+import { ManagementSharePanel } from './management-share-panel';
 import {
   managementSlotWritesAllowed,
   managementSlotsAvailable,
@@ -351,6 +352,7 @@ export function ManagementWorkspace({
   return (
     <section className="catalog-panel" aria-label="Panel Administracyjny">
       <h2>Panel Administracyjny</h2>
+      {client === undefined && <ManagementSharePanel apiBaseUrl={apiBaseUrl} />}
       <div className="management-actions">
         <button onClick={() => void load()} disabled={busy}>
           Odśwież

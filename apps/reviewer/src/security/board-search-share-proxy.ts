@@ -65,6 +65,9 @@ const FREE_TEXT_KEYS = new Set([
   'nameen',
   'namepl',
   'paylinename',
+  'city',
+  'street',
+  'actor',
 ]);
 
 type Route =
@@ -317,7 +320,7 @@ function publicPathToApiPath(pathname: string): string {
   return pathname.slice(BOARD_SEARCH_SHARE_PUBLIC_PREFIX.length);
 }
 
-function validateRequestOrigin(request: Request): Response | null {
+export function validateRequestOrigin(request: Request): Response | null {
   const fetchSite = request.headers.get('sec-fetch-site');
   const mutation = request.method !== 'GET';
   if (
@@ -345,7 +348,7 @@ function validateRequestOrigin(request: Request): Response | null {
   }
 }
 
-function internalApiOrigin(configured: string | undefined): string {
+export function internalApiOrigin(configured: string | undefined): string {
   // Same override as the Reviewer's own proxy; loopback is still enforced.
   const parsed = new URL(
     (
@@ -378,7 +381,7 @@ async function unlockedResponse(upstream: Response): Promise<Response> {
   if (!Number.isFinite(expiry.getTime())) return invalidUpstream();
   const maxAge = Math.max(
     0,
-    Math.min(24 * 60 * 60, Math.floor((expiry.getTime() - Date.now()) / 1000)),
+    Math.min(72 * 60 * 60, Math.floor((expiry.getTime() - Date.now()) / 1000)),
   );
   const headers = jsonHeaders();
   headers.append(
@@ -456,8 +459,8 @@ export function cappedCacheControl(value: string | null): string {
     : 'private, no-cache';
 }
 
-async function boundedBody(
-  upstream: Response,
+export async function boundedBody(
+  upstream: Pick<Response, 'headers' | 'body'>,
   limit: number,
 ): Promise<Uint8Array<ArrayBuffer> | null> {
   const declared = Number(upstream.headers.get('content-length') ?? '0');
@@ -490,7 +493,7 @@ async function boundedBody(
   return joined;
 }
 
-function isJson(upstream: Response): boolean {
+export function isJson(upstream: Response): boolean {
   return (
     upstream.headers
       .get('content-type')
@@ -518,7 +521,7 @@ export function containsSensitiveData(payload: unknown): boolean {
   return false;
 }
 
-function readCookie(header: string | null, name: string): string | null {
+export function readCookie(header: string | null, name: string): string | null {
   if (header === null) return null;
   for (const rawPart of header.split(';')) {
     const separator = rawPart.indexOf('=');

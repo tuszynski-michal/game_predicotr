@@ -146,3 +146,30 @@ navigation, including popstate, require the draft discard guard. Current-data
 corrections refresh summaries/journal without remounting the draft. Historical
 chart/table/start symbols stay frozen; opening its editor clearly targets current
 game data and formats money using the current published spin cost.
+
+## T5 capability boundary
+
+Migration 0150 creates independent capability sessions and their secret-free
+audit. Local link administration shares the existing ingress controller;
+public structure/history use metadata sessions, while current game operations
+retain their explicit game-store binding. Separate access errors cannot be
+swallowed as a stale recalculation result. Failed unlock attempts are persisted
+without accidentally committing a denied management mutation.
+
+The expected session UUID travels in X-Management-Session, or in the asset URL
+for browser image requests. Authentication locks the originating session and
+revalidates after flush before mutation commit. Actor identity includes the
+session UUID even when link labels match. Public search/symbol responses expose
+opaque revisions and safe display fields; they omit storage paths and secrets.
+
+The Reviewer proxy accepts only enumerated module routes and parameters,
+checks request origin and forwards only the dedicated capability cookie.
+It never forwards general Admin access. A denied obsolete request cannot clear
+a newer session cookie shared by another tab. Bounded streaming applies to
+request and response bodies, including valid maximum-length result tables.
+
+An ingress retention guard checks unexpired, unlocked, unrevoked panel and
+board-search sessions before the final Reviewer assignment stops the tunnel.
+Panel creation and this check share a transaction advisory lock covering
+ingress readiness and session commit. This protects existing shared links;
+it does not guarantee computer or Quick Tunnel uptime.

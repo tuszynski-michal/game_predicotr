@@ -14,7 +14,7 @@ from sqlalchemy import Engine, text
 from sqlalchemy.exc import DBAPIError
 
 # Keep equal to `alembic heads`; test_schema_readiness asserts it.
-EXPECTED_ALEMBIC_HEAD: Final = "0149_management_stake_saves"
+EXPECTED_ALEMBIC_HEAD: Final = "0150_management_sessions"
 
 
 class AlembicHeadMismatchError(RuntimeError):

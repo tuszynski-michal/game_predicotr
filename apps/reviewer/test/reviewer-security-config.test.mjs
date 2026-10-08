@@ -3,6 +3,25 @@ import test from 'node:test';
 
 import nextConfig from '../next.config.ts';
 
+test('public management pages and proxy have same-origin-only CSP', async () => {
+  const rules = await nextConfig.headers();
+  const global = rules.find((rule) =>
+    rule.source.includes('?!manual-selection'),
+  );
+  assert.match(global.source, /management\(\?:\/\|\$\)/);
+  assert.match(global.source, /management-api\(\?:\/\|\$\)/);
+  for (const source of ['/management/:path*', '/management-api/:path*']) {
+    const rule = rules.find((candidate) => candidate.source === source);
+    assert.ok(rule);
+    const policy = rule.headers.find(
+      (header) => header.key === 'Content-Security-Policy',
+    ).value;
+    assert.match(policy, /connect-src 'self';/);
+    assert.match(policy, /img-src 'self' data: blob:/);
+    assert.doesNotMatch(policy, /https?:\/\//);
+  }
+});
+
 test('CSP permits Next bootstrap while keeping scripts same-origin', async () => {
   const rules = await nextConfig.headers();
   const policy = rules

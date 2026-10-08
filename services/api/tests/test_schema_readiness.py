@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[3]
 def test_expected_head_is_the_single_alembic_head() -> None:
     script = ScriptDirectory.from_config(Config(str(ROOT / "alembic.ini")))
     assert script.get_heads() == [schema_readiness.EXPECTED_ALEMBIC_HEAD]
-    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0149_management_stake_saves"
+    assert schema_readiness.EXPECTED_ALEMBIC_HEAD == "0150_management_sessions"
 
 
 def test_v7_merge_preserves_both_main_and_v7_migration_histories() -> None:

@@ -41,19 +41,21 @@ Audyt: claude-opus-5-5 / high.
 ## Scope
 
 - `super_games/wild_super_spins.py`: `evaluate_series_board(board,
-  super_symbol, rules)` według kroków 1–4 planu; wynik z osobnymi
-  składowymi: linie, sztuki, rozwinięcie, oraz `is_lower_bound` gdy
-  `super_symbol` jest `null`.
+  super_symbol, rules)` według kroków 1–4 planu (przekształcenie planszy
+  tylko przy `k ≥ minimum(X)`); wynik z osobnymi składowymi: linie, sztuki,
+  rozwinięcie, oraz `payout_kind = provisional` gdy `super_symbol` jest
+  `null`.
 - Projekcja per pozycja (`mode`, `super_symbol_id`, `remaining_spins`,
-  `spin_cost_credits`, `payout_credits`, `is_lower_bound`) budowana z serii
+  `spin_cost_credits`, `payout_credits`, `payout_kind`) budowana z serii
   i kanonicznych plansz; przybliżona wygrana §D i kalkulator stawek panelu
-  sumują koszt per pozycja; podsumowanie pokazuje liczbę pozycji z dolnym
-  ograniczeniem.
+  sumują koszt per pozycja; podsumowanie pokazuje osobno sumę wyników
+  prowizorycznych i liczbę takich pozycji.
 - Modal linii: dla planszy w serii pokazuje planszę rozwiniętą i wiersz
   „Rozwinięcie K ×3 kolumny → 10 × 5 linii = 50”.
 - Golden cases (Python + TS): K w kolumnach 2,4,5; K w 2,4 (brak); przykrycie
   usuwa wygraną symbolu pod spodem; zastąpienie wygranych liniowych X;
-  retrigger w serii; seria bez symbolu = dolne ograniczenie.
+  retrigger w serii; `k < minimum(X)` bez przekształcenia planszy; seria bez
+  symbolu = wynik prowizoryczny.
 - `ALGORITHMS.md` §B/§D i `MANAGEMENT_PANEL.md`: opis trybu; wpis
   `DECISION_LOG.md` (następny wolny numer).
 
@@ -66,14 +68,16 @@ Audyt: claude-opus-5-5 / high.
 - [ ] Golden cases z zakresu przechodzą w Pythonie i TS z identycznymi wynikami.
 - [ ] Dla 777 wyniki przybliżonej wygranej i stawek panelu są bajt w bajt
       identyczne z wynikami przed zmianą (test porównawczy na fixture).
-- [ ] Seria bez super symbolu: podsumowanie oznaczone jako dolne ograniczenie;
-      po definicji wynik nie maleje (test własności).
+- [ ] Seria bez super symbolu: wynik `provisional` liczony osobno w
+      podsumowaniu; test pokazuje, że po definicji wynik może wzrosnąć i może
+      zmaleć (przykrycie), więc nie jest prezentowany jako minimum.
 - [ ] Koszt serii = 0 w podsumowaniu; pozycja wyzwalająca ma koszt normalny.
 
 ## Technical notes
 
-- Rozwinięcie liczone na planszy oryginalnej (`k` kolumn z X), linie na
-  planszy rozwiniętej, sztuki Mumii na oryginalnej.
+- `k` liczone na planszy oryginalnej; przekształcenie tylko przy
+  `k ≥ minimum(X)`; linie na planszy rozwiniętej, sztuki Mumii na
+  oryginalnej.
 - Wygrane liniowe X są zastępowane rozwinięciem, gdy `k ≥ minimum(X)`.
 
 ## Expected files

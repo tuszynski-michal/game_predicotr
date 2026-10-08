@@ -48,8 +48,11 @@ komponentów współdzielonych. Audyt: claude-opus-5-5 / medium.
   planszy”, retriggery oznaczone; wybór super symbolu: select + skróty
   `1`–`9`, `0` (rozszerzona mapa z TASK-0930); `Enter` zapisuje z
   `expectedRevision`; 409 → komunikat i odświeżenie bez nadpisania.
-- Stan `incomplete` i `unverified` czytelnie oznaczone; `null` (wyczyść
-  symbol) dostępny.
+- Trzy niezależne oznaczenia serii: kompletność (`incomplete`), symbol
+  (zdefiniowany / do zdefiniowania), wiarygodność przebiegu (`unverified`,
+  gdy trigger lub retrigger opiera się na predykcji); `null` (wyczyść
+  symbol) dostępny. Zapis symbolu nie zmienia kompletności ani
+  wiarygodności.
 - Testy stanu (node --test) i kontrakt renderu; wrapper klienta.
 
 ## Out of scope
@@ -60,8 +63,9 @@ komponentów współdzielonych. Audyt: claude-opus-5-5 / medium.
 
 - [ ] Lista serii stronicowana kursorem, filtry działają.
 - [ ] Karuzela pokazuje wszystkie pozycje serii, w tym brakujące.
-- [ ] Zapis super symbolu: sukces aktualizuje status na `defined`; konflikt
-      rewizji nie nadpisuje i pokazuje aktualny stan.
+- [ ] Zapis super symbolu: sukces ustawia symbol, a oznaczenia kompletności
+      i wiarygodności pozostają; konflikt rewizji nie nadpisuje i pokazuje
+      aktualny stan.
 - [ ] Skróty klawiszowe nie działają w polach tekstowych i z modyfikatorami.
 - [ ] Gra `none` nie pokazuje zakładki.
 

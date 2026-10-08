@@ -18,8 +18,10 @@ pytanie. Plan: etap S-D (warunkowy).
 
 ## Dependencies / entry conditions
 
-- Co najmniej 5 serii ze zdefiniowanym super symbolem (TASK-0934) jako prawda
-  odniesienia.
+- Co najmniej 5 serii ze zdefiniowanym super symbolem (TASK-0934) do doboru
+  próby. Prawdą odniesienia są **niezależne ręczne etykiety obecności ramki**
+  (`tak` / `nie` / `częściowo`) nadane przez operatora na próbie, osobno od
+  klasy symbolu; sam fakt „komórka X w serii” nie jest etykietą.
 - Tylko odczyt danych i plików; żadnych zmian w bazie ani modelach.
 
 ## Recommended execution
@@ -38,9 +40,11 @@ niepotrzebna. Audyt: gpt-6.1-sol / medium.
 
 - Skrypt `scripts/m8_gold_frame_pilot.py` (proponowany, tylko odczyt):
   dla 30–50 komórek z plansz serii (symbol X i inne) pobiera wycinek V3 i
-  wycinek z marginesem 8 % z obrazu źródłowego; liczy udział „złotych”
-  pikseli na obwodzie; raportuje precyzję/czułość względem prawdy
-  (komórki X w serii = ramka).
+  wycinek z marginesem 8 % z obrazu źródłowego; generuje arkusz
+  kontaktowy do ręcznego etykietowania (CSV: komórka, ramka tak/nie/częściowo);
+  liczy udział „złotych” pikseli na obwodzie; raportuje precyzję/czułość
+  względem ręcznych etykiet, a dodatkowo zgodność etykiet z „komórka X w
+  serii” jako kontrolę założenia.
 - Raport `ai_docs/quality/MUMIE_GOLD_FRAME_PILOT_<data>.md`: widoczność
   ramki w wycinkach V3 (tak/nie/częściowo), wynik heurystyki, rekomendacja:
   cecha komórki + propozycja automatyczna albo rezygnacja.
@@ -51,7 +55,8 @@ niepotrzebna. Audyt: gpt-6.1-sol / medium.
 
 ## Acceptance criteria
 
-- [ ] Raport z liczbami na co najmniej 30 komórkach i decyzją „dalej / nie”.
+- [ ] Co najmniej 30 komórek z ręcznymi etykietami ramki (operator, ok.
+      10 minut) i raport z liczbami oraz decyzją „dalej / nie”.
 - [ ] Skrypt uruchamialny ponownie bez zapisu do bazy.
 
 ## Expected files

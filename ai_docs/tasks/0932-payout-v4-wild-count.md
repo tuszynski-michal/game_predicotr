@@ -45,11 +45,22 @@ claude-opus-5-5 / high.
   `_ordinary_symbols_by_display_order`; Wild bez zmian; nowy rodzaj
   dopasowania `count` (symbol, liczba sztuk, komórki, kredyty) z reguł
   symbolu uruchamiającego; `total = linie + count`. Nieznane komórki (`0`)
-  nie liczą się jako sztuki (dolne ograniczenie zachowane).
+  nie liczą się jako sztuki (nie zgadujemy; w trybie bazowym nadal dolne
+  ograniczenie).
 - Wersja algorytmu `payout-v4-wild-count` wybierana per gra: gra bez symbolu
   uruchamiającego używa `v3` bez zmian (identyczne wyniki i audyt).
-- Kontrakty (`PayoutMatch`/`PayoutEvaluation`): pole `match_kind`
-  (`line` | `count`) z domyślną wartością `line`, zgodność wstecz raportów.
+- Kontrakty: `PayoutMatch` (linia) bez zmian; `PayoutEvaluation` dostaje
+  osobną listę `count_matches` (`symbol_mobile_code`, `count`,
+  `matched_cells`, `payout_credits`), więc dopasowanie za sztuki nie udaje
+  linii i nie wymaga `payline_id`. Pion: schemat odpowiedzi szczegółu
+  planszy (`countMatches[]`), OpenAPI, `npm run openapi:generate`, klient,
+  wrappery `board-search-ui`, request test; modal renderuje sekcję „Sztuki
+  na planszy” obok linii.
+- Podgląd draftu w Adminie: `GET …/boards/{sequenceNumber}` i przybliżona
+  wygrana przyjmują opcjonalny `rulesVersionId` (wersja tej gry, `draft`
+  albo `published`); domyślnie najnowsza opublikowana; udostępniony panel
+  i Reviewer nie przekazują parametru (walidacja odrzuca). Admin: select
+  „Wersja reguł” w modalu i przybliżonej wygranej z etykietą „draft”.
 - `packages/shared-ts/src/validation.ts` i kalkulator TS: ta sama reguła;
   złote przypadki w `payout-golden-cases.json`.
 - Admin: modal linii pokazuje wiersz „Mumia ×3 (sztuki na planszy) → 20”;
@@ -59,6 +70,7 @@ claude-opus-5-5 / high.
 ## Out of scope
 
 - Rozwinięcie super symbolu i koszt per pozycja (TASK-0936).
+- Przeniesienie ról do wersji reguł (odłożone).
 - Serie (TASK-0933). Aplikacja mobilna.
 
 ## Acceptance criteria
@@ -69,15 +81,20 @@ claude-opus-5-5 / high.
       uruchamiającego identyczna z v3.
 - [ ] Wszystkie istniejące złote przypadki 777 bez zmian wyników.
 - [ ] Python i TS dają identyczne wyniki na wszystkich przypadkach.
-- [ ] Modal linii i przybliżona wygrana pokazują wypłatę za sztuki.
+- [ ] Modal linii i przybliżona wygrana pokazują wypłatę za sztuki w osobnej
+      sekcji; odpowiedź API ma `countMatches[]`; request test pokrywa oba
+      rodzaje.
+- [ ] Admin liczy modal i przybliżoną wygraną z wybranej wersji `draft`;
+      panel udostępniony i Reviewer odrzucają `rulesVersionId`.
 
 ## Technical notes
 
 Wejście → wynik (Mumie, Mumia = Wild + trigger 3, reguły Mumii 3→20):
 `[10, Mumia, 10, 10, J / K, K, Mumia, Q, Q / Mumia, A, A, A, 10]` →
 linia A: `10 ×4` (Mumia jako 10); linia B: `K ×3` (Mumia jako K);
-linia C: brak (prefiks A nie zaczyna się w kolumnie 1; Mumia sama nie liczy
-się jako ciąg); sztuki Mumii = 3 → 20; suma = payout(10,4) + payout(K,3) + 20.
+linia C: `A ×4` (Mumia w kolumnie 1 jako A; ciąg kończy się na `10`);
+sztuki Mumii = 3 → 20; suma = payout(10,4) + payout(K,3) + payout(A,4) + 20.
+Ciąg złożony wyłącznie z Mumii nadal nie wygrywa jako linia.
 
 ## Expected files
 

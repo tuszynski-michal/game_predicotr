@@ -1,7 +1,7 @@
 ---
 title: Gra Mumie — Wild, supergra „Wild super spins” i proces audytu krzyżowego (plan wykonawczy)
 status: proposed
-last_updated: 2026-10-08
+last_updated: 2026-10-08 (rewizja 2 po przeglądzie Codex)
 ---
 
 # Gra Mumie — Wild, supergra i super symbol
@@ -46,6 +46,10 @@ Decyzje operatora z 2026-10-08 są wpisane; pozostała jedna otwarta (D-1).
   E `[2,1,0,1,2]`). Symbole w kolejności: 10, J, Q, K, A, Sarkofag, Ra, Faraon,
   Sfinks, **Mumia** (`display_order 9`, `is_wildcard = false`, reguły liniowe
   3/4/5 → 20/200/2000, minimum 3). Dziś Mumia **nie** podmienia się na linii.
+- Modal linii i przybliżona wygrana liczą wyłącznie z **opublikowanej**
+  wersji reguł (`latest_published_rules`,
+  `application/board_search_board_detail.py`); Mumie mają tylko `draft`,
+  więc dziś nie da się obejrzeć wyniku bez publikacji.
 - Gra `777` ma `is_wildcard = false` u wszystkich symboli i nie może zmienić
   zachowania.
 - Skróty: `DIGIT_SHORTCUT_LIMIT = 9` (`apps/admin/src/lib/keyboard-shortcuts.ts`
@@ -133,40 +137,65 @@ Zasady:
 
 ### Supergra jako stan sekwencji
 
-- Seria: `trigger_sequence_number`, `start = trigger + 1`,
-  `length = 10 + 10 × retriggery`, `retrigger_sequence_numbers[]`,
-  `super_symbol_id` (null do definicji), `status` ∈
-  {`pending_symbol`, `defined`, `incomplete`},
-  `trigger_verification` ∈ {`verified`, `unverified`}, `revision`.
+- Seria: tożsamość `(game_id, trigger_sequence_number)`; `start = trigger + 1`,
+  `length = 10 + 10 × retriggery`, `retrigger_sequence_numbers integer[]`
+  (numery do 500 000, więc nie `smallint`). Trzy niezależne atrybuty:
+  `completeness` ∈ {`complete`, `incomplete`} (czy wszystkie pozycje serii są
+  znane), `super_symbol_id` (null = do zdefiniowania), `run_verification` ∈
+  {`verified`, `unverified`} (czy trigger **i wszystkie retriggery** opierają
+  się wyłącznie na decyzjach człowieka). `revision` chroni zapis symbolu.
 - Wyprowadzanie: jedno przejście po pozycjach `1…expected_layout_count` w
   trybie bazowym na starcie. Pocięta plansza w trybie bazowym z ≥N
   komórkami o przypisanym symbolu uruchamiającym otwiera serię; w serii ≥N
   przedłuża bieżącą. Brak planszy w serii = pusta plansza, spin zużyty.
-  Seria, której koniec wypada poza ostatnią znaną planszę, ma status
-  `incomplete` (pokazywany, liczony jako dolne ograniczenie).
-- `trigger_verification = verified`, gdy wszystkie komórki liczone do progu
-  mają decyzję człowieka; inaczej `unverified` (widoczne w UI, liczone).
+  Seria, której koniec wypada poza ostatnią znaną planszę, ma
+  `completeness = incomplete` (pokazywana, liczona prowizorycznie).
+- `run_verification = verified`, gdy wszystkie komórki liczone do progu
+  triggera i każdego retriggera mają decyzję człowieka; inaczej
+  `unverified` (widoczne w UI, liczone).
+- Tożsamość i przedłużenie: nowo odkryty retrigger **przedłuża** serię o tej
+  samej tożsamości i nie zmienia `super_symbol_id` ani `revision`. Seria
+  znika tylko, gdy jej trigger przestaje być triggerem (np. korekta symbolu)
+  albo gdy wcześniejsza seria wydłużyła się i pochłonęła jej trigger jako
+  retrigger; wtedy wybrany symbol trafia do audytu, a wcześniejsza seria
+  zachowuje własny symbol.
+- Spójność przeliczania: job buduje **kompletną generację** serii w partiach
+  do tabeli roboczej i podmienia ją w jednej transakcji końcowej; pośredni
+  stan nigdy nie jest widoczny; restart joba zaczyna generację od nowa.
+  Na starcie job zapisuje znacznik wejścia (najwyższy `updated_at`/rewizja
+  kanonicznych plansz gry, rewizja katalogu symboli i rodzaj gry); przed
+  podmianą sprawdza go ponownie; przy zmianie oznacza generację jako
+  `stale` i kolejkuje jeden ponowny przebieg (deduplikacja na grę). Zapis
+  super symbolu (CAS po `revision`) jest przenoszony do nowej generacji po
+  tożsamości serii. Wyzwalacze przeliczenia: zakończenie importu (nowe
+  plansze), nowe predykcje symboli, korekty symboli i siatki, zmiana roli
+  symbolu lub rodzaju gry, publikacja wersji reguł.
 - Super symbol pochodzi wyłącznie od operatora (zdjęcia ze złotą ramką).
 
-**„Dolne ograniczenie”:** dla planszy w serii bez znanego super symbolu
-system liczy linie z Wildem i wypłaty za sztuki, ale nie liczy wygranej z
-rozwinięcia, bo nie wie, który symbol się rozwija. Pokazana suma jest więc
-**nie większa** niż prawdziwa i jawnie oznaczona „super symbol
-niezdefiniowany”. Po definicji wynik rośnie albo zostaje, nigdy nie maleje.
-To ta sama zasada, którą §D stosuje dla plansz z nieznanymi komórkami.
+**Wynik prowizoryczny (korekta po przeglądzie Codex):** dla planszy w serii
+bez znanego super symbolu system liczy linie z Wildem i wypłaty za sztuki,
+ale nie zna rozwinięcia. Rozwinięcie może zarówno **dodać** wygraną, jak i
+**usunąć** wygrane innych symboli przykryte kolumnami, więc taki wynik nie
+jest dolnym ograniczeniem. Jest oznaczany jako **prowizoryczny**
+(`payout_kind = provisional`) i w podsumowaniu §D liczony osobno od wyników
+`exact`/`confirmed_minimum`; po definicji symbolu wynik może wzrosnąć albo
+zmaleć. Gwarancja dolnego ograniczenia obowiązuje nadal wyłącznie dla
+nieznanych komórek w trybie bazowym (§D).
 
 ### Wypłata planszy w serii (rodzaj `wild_super_spins`)
 
-1. Zbuduj planszę rozwiniętą: każda kolumna zawierająca super symbol X
-   zostaje w całości wypełniona X (przykrycie).
-2. Policz linie na planszy rozwiniętej jak w trybie bazowym (Wild podmienia;
-   sztuki symbolu uruchamiającego liczone na planszy **oryginalnej**, bo
-   przykrycie nie dodaje sztuk Mumii).
-3. Rozwinięcie: `k` = liczba kolumn z X na planszy oryginalnej. Jeśli
-   `k ≥ minimum_match_length(X)`: `payout_line(X, k) × liczba aktywnych
-   linii`. Wygrane liniowe X z kroku 2 są wtedy **zastąpione** tą wartością
-   (nie sumują się), bo opisują to samo rozwinięcie; wygrane innych symboli
-   zostają.
+1. Policz `k` = liczba kolumn planszy oryginalnej zawierających super
+   symbol X. Jeśli `k < minimum_match_length(X)`, plansza **nie jest
+   przekształcana**: linie i sztuki liczone jak w trybie bazowym, bez
+   rozwinięcia.
+2. Jeśli `k ≥ minimum_match_length(X)`: zbuduj planszę rozwiniętą, w której
+   każda z tych `k` kolumn jest w całości wypełniona X (przykrycie usuwa
+   symbole pod spodem, także Wildy).
+3. Policz linie na planszy rozwiniętej (Wild podmienia); sztuki symbolu
+   uruchamiającego licz na planszy **oryginalnej**. Wygrane liniowe X z
+   planszy rozwiniętej są **zastąpione** wartością rozwinięcia
+   `payout_line(X, k) × liczba aktywnych linii` (nie sumują się); wygrane
+   innych symboli z planszy rozwiniętej zostają.
 4. Koszt spinu = 0. Plansza serii z ≥N symbolami uruchamiającymi dostaje
    wypłatę za sztuki i przedłuża serię.
 
@@ -177,7 +206,8 @@ kolumnach 2 i 4 → `k = 2 < 3` → bez rozwinięcia; linie liczone normalnie.
 ### Projekcja per pozycja
 
 `mode` (`base` | `super`), `super_symbol_id`, `remaining_spins`,
-`spin_cost_credits` (0 w `super`), `payout_credits`, `is_lower_bound`.
+`spin_cost_credits` (0 w `super`), `payout_credits`, `payout_kind`
+(`exact` | `confirmed_minimum` | `provisional`).
 Przybliżona wygrana §D i stawki panelu sumują koszt per pozycja. Dla gry z
 `super_game_kind = none` projekcja ma wszędzie `base` i stały koszt —
 wyniki 777 identyczne (bramka regresji).
@@ -212,6 +242,16 @@ poprawki, commit `vX.Y.N`, `Outcome`, `CURRENT_STATE.md`. Raport audytu:
 - **TASK-0930** — klawisz `0` dla dziesiątego symbolu w weryfikacji symboli.
 
 ### Etap S-A — role w Adminie i ewaluator (po nim operator testuje Wild)
+
+Ścieżka testowania na drafcie (korekta po przeglądzie Codex): TASK-0932
+dodaje do modalu linii i przybliżonej wygranej w Adminie opcjonalny wybór
+wersji reguł (`rulesVersionId`, domyślnie najnowsza opublikowana; draft
+dostępny tylko lokalnie w Adminie, nigdy w udostępnionym panelu). Operator
+zmienia role w katalogu, poprawia draft i ogląda wynik bez publikacji.
+Publikacja pozostaje świadomą decyzją; po niej rola jest zamrożona dla tej
+wersji, a kolejne zmiany ról wymagają nowego draftu i nowej publikacji
+(alternatywa przeniesienia ról do `rules_version_symbols` odłożona jako
+większa zmiana kontraktu mobilnego).
 
 - **TASK-0931** — migracja `super_game_trigger_count` i `super_game_kind`,
   walidacje domeny, rejestr rodzajów, API/OpenAPI/klient, formularze Adminu
@@ -272,6 +312,8 @@ Szczegóły każdego zadania: pliki `ai_docs/tasks/0929…0939`.
 | ≥N → seria 10, retrigger +10, brak planszy = pusta | 0933 | testy wyprowadzania |
 | Komórki z predykcją liczą się, oznaczenie niezweryfikowane | 0933, 0934 | pole `trigger_verification`, UI |
 | Ręczna definicja super symbolu z karuzelą | 0934 | zapis CAS |
+| Testowanie Wilda na drafcie bez publikacji | 0932 | wybór wersji reguł w Adminie |
+| Spójne przeliczanie serii (generacja, stale, restart) | 0933 | testy restartu i równoczesnej korekty |
 | Złote oznaczenie w wyszukiwaniu | 0935 | znacznik w projekcji, test UI |
 | Rozwinięcie kolumn, niesąsiednie, × linie, koszt 0 | 0936 | golden cases, §D |
 | Audyt krzyżowy po każdym tasku | 0929 | raporty w `ai_docs/quality/` |

@@ -40,7 +40,7 @@ kontraktu publicznego panelu. Audyt: gpt-6.1-sol / high.
 - API: odpowiedź wyniku wyszukiwania i wiersza przybliżonej wygranej
   dostaje opcjonalne `superGame`: `{ kind: 'trigger' | 'in_series',
   seriesId, spinIndex, seriesLength, superSymbolCode | null,
-  verification }`; brak pola = tryb bazowy. Publiczny panel: to samo pole,
+  completeness, runVerification }`; brak pola = tryb bazowy. Publiczny panel: to samo pole,
   bez `seriesId`.
 - UI (`board-search-ui`): złote wyróżnienie karty wyniku i wiersza; etykieta
   „Supergra: spin 3/10, symbol K” lub „Supergra: super symbol do

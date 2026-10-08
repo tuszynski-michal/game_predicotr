@@ -173,3 +173,23 @@ board-search sessions before the final Reviewer assignment stops the tunnel.
 Panel creation and this check share a transaction advisory lock covering
 ingress readiness and session commit. This protects existing shared links;
 it does not guarantee computer or Quick Tunnel uptime.
+
+## T6 shared recipient interface
+
+Management components and their CSS live in the board-search-ui package. Local
+Admin keeps its configured client and local link controls in a thin wrapper;
+Reviewer mounts the same hierarchy through its management gate and generated
+public adapter. Neither consumer keeps manually divergent response types.
+Public assets and requests retain their originating capability identity.
+
+Session access is distinct from game/assignment eligibility. A live access fence
+guards structure reads/writes, search, corrections, result loads, recovery and
+late callbacks. Expiry or denial preserves the mounted dirty editor, acknowledged
+history and uncertain operation. Recovery namespaces include the capability
+identity and use per-tab storage. A later cookie cannot transfer an old command
+to a different author. Human labels are formatted for both journal consumers;
+stable session UUIDs remain part of the persisted actor/receipt identity.
+
+Existing Admin imports are retained through compatibility wrappers. The previous
+search/share workflow keeps its default behavior; focused regressions protect
+its navigation, corrections, saved-selection ports and rendering.

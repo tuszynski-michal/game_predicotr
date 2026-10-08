@@ -8,7 +8,56 @@
       "types": "./src/index.ts",
       "default": "./src/index.ts"
     },
-    "./board-search.css": "./src/board-search.css"
+    "./board-search.css": "./src/board-search.css",
+    "./management": {
+      "types": "./src/management/index.ts",
+      "default": "./src/management/index.ts"
+    },
+    "./management/*": {
+      "types": "./src/management/*.ts",
+      "default": "./src/management/*.ts"
+    },
+    "./management/management-workspace": {
+      "types": "./src/management/management-workspace.tsx",
+      "default": "./src/management/management-workspace.tsx"
+    },
+    "./management/management-client": {
+      "types": "./src/management/management-client.ts",
+      "default": "./src/management/management-client.ts"
+    },
+    "./management/management-operation": {
+      "types": "./src/management/management-operation.ts",
+      "default": "./src/management/management-operation.ts"
+    },
+    "./management/management-data-source": {
+      "types": "./src/management/management-data-source.ts",
+      "default": "./src/management/management-data-source.ts"
+    },
+    "./management/management-game-workspace": {
+      "types": "./src/management/management-game-workspace.tsx",
+      "default": "./src/management/management-game-workspace.tsx"
+    },
+    "./management/management-cards": {
+      "types": "./src/management/management-cards.tsx",
+      "default": "./src/management/management-cards.tsx"
+    },
+    "./management/management-journal": {
+      "types": "./src/management/management-journal.tsx",
+      "default": "./src/management/management-journal.tsx"
+    },
+    "./management/management-result-view": {
+      "types": "./src/management/management-result-view.tsx",
+      "default": "./src/management/management-result-view.tsx"
+    },
+    "./management/management-slot-operation": {
+      "types": "./src/management/management-slot-operation.ts",
+      "default": "./src/management/management-slot-operation.ts"
+    },
+    "./management/management-slot-state": {
+      "types": "./src/management/management-slot-state.ts",
+      "default": "./src/management/management-slot-state.ts"
+    },
+    "./management.css": "./src/management/management.css"
   },
   "scripts": {
     "lint": "eslint .",

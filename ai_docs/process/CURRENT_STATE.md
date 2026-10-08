@@ -6,6 +6,23 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0926 — Complete recipient panel (done)
+
+- Shared hierarchy, cards, game search/save/correction, immutable result and
+  journal components plus management CSS serve both thin local Admin wrapper
+  and the dedicated Reviewer /management gate. Local link controls stay local.
+- Generated public adapter and machine-bound transport preserve the originating
+  session identity for requests/assets. Journal displays retained human labels
+  locally and online while receipts retain stable UUID actor identity.
+- Session termination blocks new reads/writes and obsolete callbacks without
+  discarding mounted drafts, acknowledged history or uncertain operation
+  identities. Per-session/per-tab recovery prevents mixing browser tabs/links.
+- Focused rendered recipient and existing local/shared/Reviewer regressions,
+  scoped format/lint/types and independent astra/high PASS are recorded in
+  completed Outcome; no unresolved P0–P2. Next T7 integrated acceptance.
+- Commit receipt follows actual branch history. No live service lifecycle,
+  production migration/data operation, deployment or accounts.
+
 ### TASK-0925 — Panel sessions and48/72-hour links (done)
 
 - Independent multi-game capability sessions, separate code/token/cookie and
@@ -24,7 +41,7 @@ last_updated: 2026-10-07
 - Additive0150 migration and startup schema guard aligned. Backend/OpenAPI,
   generated client, wrappers and request tests update together. Focused evidence
   and independent astra/high PASS are recorded in completed Outcome.
-- Commit receipt follows actual branch history. Next T6 / TASK-0926.
+- Completion v1.7.257 / a829b2e5a90f3c7c09c696ec3ca83bce44ce0213. Next T6 / TASK-0926.
   No live services/tunnel, production migration/data writes or deployment.
 
 ### TASK-0924 — Stake overview and retained history (done)
@@ -105,7 +122,7 @@ last_updated: 2026-10-07
 - Explicit Save only; draft pins/browsing, confirmed slot-only Clear, immutable
   prior results and retained journal, current recalculation, UUID/revision guards.
   Whole-panel named recipient, local link administration,48/72h plus old shares.
-- Executors/reviewers follow accepted model table. T1–T5 committed; T6 is next.
+- Executors/reviewers follow accepted model table. T1–T6 committed; T7 is next.
 - Startup schema guard now requires `0149_management_stake_saves`, matching
   Alembic head after T2. Fix v1.7.254 / `3cb140dd874ffd6378c009aa1152a9001fed6b48`;
   schema-readiness tests 12/12 PASS. API was not started.

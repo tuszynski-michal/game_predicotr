@@ -174,3 +174,5 @@ and CURRENT_STATE. Full completion version/hash follows after commit.
 ### Recommended next task
 
 T6 / TASK-0926, complete shared recipient interface.
+
+Completion commit: v1.7.257 / a829b2e5a90f3c7c09c696ec3ca83bce44ce0213.

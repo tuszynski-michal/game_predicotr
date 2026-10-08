@@ -2,8 +2,21 @@ import assert from 'node:assert/strict';
 import { after, test } from 'node:test';
 import { JSDOM } from 'jsdom';
 import React, { act } from 'react';
+globalThis.React = React;
 
-import { ManagementWorkspace } from '../src/features/management/management-workspace.tsx';
+import { registerHooks } from 'node:module';
+const reactUrl = import.meta.resolve('react'),
+  jsxUrl = import.meta.resolve('react/jsx-runtime');
+registerHooks({
+  resolve(specifier, context, next) {
+    if (specifier === 'react') return { url: reactUrl, shortCircuit: true };
+    if (specifier === 'react/jsx-runtime')
+      return { url: jsxUrl, shortCircuit: true };
+    return next(specifier, context);
+  },
+});
+const { ManagementWorkspace } =
+  await import('../src/features/management/management-workspace.tsx');
 import {
   MANAGEMENT_PENDING_KEY,
   readManagementOperation,
@@ -127,7 +140,7 @@ test('unrelated assignment preserves attached inactive history and prevents doub
   );
   const checkbox = document.querySelector('fieldset input');
   await click(checkbox);
-  assert.deepEqual(calls[0].body.gameIds.sort(), ['new-game', 'old-game']);
+  assert.deepEqual([...calls[0].body.gameIds].sort(), ['new-game', 'old-game']);
   assert.equal(document.querySelector('fieldset').disabled, true);
   await click(checkbox);
   assert.equal(calls.length, 1);

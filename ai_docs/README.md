@@ -76,6 +76,8 @@ implementacyjnym.
 
 - [Management panel execution plan](delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md)
   — accepted T1–T7, TASK-0921–0927.
+- [Mumie: Wild, supergra i audyt krzyżowy](delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md)
+  — proposed, etapy P/S-0/S-A–S-D/T, TASK-0929–0939; czeka na przegląd Codex.
 
 - [Roadmap](delivery/ROADMAP.md)
 - [Milestone 01](delivery/MILESTONE_01_MOCKED_MOBILE.md)

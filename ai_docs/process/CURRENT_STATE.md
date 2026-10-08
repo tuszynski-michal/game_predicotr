@@ -6,6 +6,14 @@ last_updated: 2026-10-08
 
 # Current State
 
+### Plan Mumie: Wild, supergra, audyt krzyżowy (proposed, 2026-10-08)
+
+- `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` i taski
+  TASK-0929–0939 (`todo`) na gałęzi `feat/mumie-super-game-plan`. Analiza
+  bez zmian w kodzie i danych. Plan czeka na przegląd Codex i akceptację
+  operatora; żaden etap nie jest uruchomiony. Wpis `DECISION_LOG.md` przy
+  akceptacji (D-534 zajmuje TASK-0928).
+
 ### TASK-0927 — Integrated acceptance and operator guide (done)
 
 - Final requirement/evidence matrix covers the accepted T1–T7 implementation.

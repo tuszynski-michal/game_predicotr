@@ -65,13 +65,30 @@ gpt-6-astra / high.
   i `defined_*`). Przedłużenie przez nowy retrigger **nie** kasuje symbolu.
   Restart joba kasuje tabelę roboczą tej generacji i zaczyna od nowa; żaden
   stan pośredni nie jest widoczny w API.
-- Znacznik wejścia: na starcie job zapisuje najwyższą rewizję/`updated_at`
-  kanonicznych plansz gry, rewizję katalogu symboli i `super_game_kind`;
-  przed podmianą sprawdza ponownie; przy zmianie podmienia generację, ale
-  oznacza ją `stale = true` i kolejkuje dokładnie jeden ponowny przebieg
-  (deduplikacja na grę przez istniejący mechanizm jobów). CAS zapisu symbolu
-  sprawdza `revision` i tożsamość serii; zapis na serii `stale` jest
-  dozwolony i przenosi się po tożsamości.
+- Źródło wejścia: komórki z przypisanym symbolem (decyzja człowieka albo
+  predykcja, także plansze `pending`) z projekcji weryfikacji komórek, nie
+  z kanonicznej projekcji `accepted/corrected`; plansza liczy się tylko po
+  pocięciu siatką (komplet komórek z geometrią). Zbiór wejścia = te komórki
+  + katalog ról symboli + `super_game_kind` + aktywna wersja reguł.
+- Wersja wejścia (zamiast maksimum rewizji/`updated_at`, które nie wykrywa
+  każdej zmiany ani usunięcia): tabela `super_game_derivation_state`
+  (`game_id` PK, `input_version bigint`, `current_generation_id`,
+  `input_version_of_generation`, `is_stale`, `updated_at`). Każdy zapis
+  zmieniający zbiór wejścia (zapis/usunięcie predykcji, korekta symbolu,
+  korekta i unieważnienie siatki, import plansz, zmiana roli symbolu,
+  zmiana rodzaju gry, publikacja reguł) inkrementuje `input_version` **w tej
+  samej transakcji** co zapis; lista punktów zapisu jest wyliczona w kodzie
+  i pokryta testem. Job odczytuje `input_version` na starcie; transakcja
+  publikacji blokuje wiersz stanu (`FOR UPDATE`) i porównuje wersję
+  atomowo z podmianą.
+- Kandydat nieaktualny: jeżeli wersja się zmieniła, generacja robocza jest
+  **odrzucana** (nie podmienia obowiązujących serii), wiersz stanu dostaje
+  `is_stale = true`, a job kolejkuje dokładnie jeden ponowny przebieg
+  (deduplikacja na grę). Do zakończenia przeliczenia API serwuje ostatnią
+  opublikowaną generację z flagą `stale` w odpowiedziach; konsumenci
+  (TASK-0935, TASK-0936) pokazują ostrzeżenie i liczą plansze serii jako
+  `provisional`. CAS zapisu symbolu sprawdza `revision` i tożsamość serii;
+  zapis w stanie `stale` jest dozwolony i przenosi się po tożsamości.
 - Wyzwalanie: durable job lane `general` po: zakończeniu importu (nowe
   plansze), zapisie predykcji symboli, korekcie symboli, korekcie siatki,
   zmianie roli symbolu lub rodzaju gry, publikacji wersji reguł; z
@@ -102,8 +119,14 @@ gpt-6-astra / high.
 - [ ] Retrigger o numerze 40 000 zapisuje się i odczytuje poprawnie.
 - [ ] Restart joba w połowie: API nie pokazuje stanu pośredniego; po
       ponownym przebiegu wynik identyczny z przebiegiem bez restartu.
-- [ ] Korekta symbolu w trakcie joba: generacja `stale`, dokładnie jeden
-      ponowny przebieg, wynik uwzględnia korektę.
+- [ ] Korekta symbolu w trakcie joba: kandydat odrzucony, obowiązujące serie
+      bez zmian i oznaczone `stale`, dokładnie jeden ponowny przebieg, wynik
+      uwzględnia korektę; po nim `is_stale = false`.
+- [ ] Każdy punkt zapisu z listy wejścia inkrementuje `input_version` w tej
+      samej transakcji (test parametryczny po liście); usunięcie predykcji
+      też.
+- [ ] Zmiana rekordu o niskiej rewizji przy innym rekordzie o wyższej
+      (scenariusz 100 / 1→2) jest wykrywana.
 - [ ] `PUT super-symbol` z nieaktualnym `expectedRevision` → 409, bez zapisu.
 - [ ] Bramka własności tabel V2 klasyfikuje nową tabelę.
 
@@ -114,8 +137,9 @@ gpt-6-astra / high.
 - Sekwencja startuje w trybie bazowym na pozycji 1; zawinięcie `N → 1` nie
   przenosi serii (plan, Z-1 poprzedniej rewizji).
 - Granice transakcji: tabela robocza zapisywana partiami (osobne
-  transakcje), podmiana w jednej transakcji końcowej; rozmiar partii i
-  pomiar pamięci w Outcome.
+  transakcje), podmiana w jednej transakcji końcowej razem z porównaniem
+  `input_version` pod blokadą wiersza stanu; rozmiar partii i pomiar
+  pamięci w Outcome.
 
 ## Expected files
 

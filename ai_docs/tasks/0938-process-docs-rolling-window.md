@@ -37,9 +37,25 @@ kontrola linków. Eskalacja niepotrzebna. Audyt: gpt-6.1-sol / medium.
 
 ## Scope
 
-- `CURRENT_STATE.md`: zostają sekcje zadań `in_progress` i ostatnich 10
-  `done` plus krótkie wskaźniki; reszta przeniesiona bez edycji do
-  `ai_docs/archive/CURRENT_STATE_2026Q3.md` (i kolejnych).
+- `CURRENT_STATE.md`: obowiązkowy spis elementów zachowanych w oknie:
+  (1) sekcja każdego taska ze statusem `in_progress`, `blocked` lub `todo`
+  mającego plik w `ai_docs/tasks/`; (2) każdy plan o statusie `proposed`
+  lub `accepted` z niezakończonymi taskami, z listą tasków pozostałych;
+  (3) nierozstrzygnięte decyzje i pytania (wskaźniki do
+  `OPEN_QUESTIONS.md`/`DECISION_LOG.md`); (4) aktywne ograniczenia
+  operacyjne ze starszych wpisów (np. stan migracji bazy operatora,
+  uruchomione usługi i joby, zgody wymagane przed wdrożeniem, znane
+  blokady), wyniesione do osobnej sekcji „Obowiązujące ograniczenia”;
+  (5) ostatnie 10 sekcji `done`. Reszta przeniesiona bez edycji do
+  `ai_docs/archive/CURRENT_STATE_2026Q3.md` (i kolejnych). Przed
+  przeniesieniem każdy starszy wpis jest przejrzany pod kątem (3) i (4);
+  wyniesione ograniczenia dostają odnośnik do archiwum.
+- Reguła utrzymania (do `AGENTS.md`): przy zamykaniu taska agent dopisuje
+  jego sekcję `done`, przenosi do archiwum sekcje `done` ponad limit 10 i
+  aktualizuje „Obowiązujące ograniczenia”. Skrypt
+  `scripts/check_current_state_window.py` (proponowany) sprawdza, że każdy
+  aktywny plik taska ma sekcję, że limit `done` jest zachowany i że rozmiar
+  pliku nie przekracza progu; uruchamiany w `npm run quality`.
 - `DECISION_LOG.md`: na górze indeks (numer, tytuł, status, data, jedno
   zdanie, link do pełnego wpisu); pełne wpisy w
   `ai_docs/process/decisions/DECISION_LOG_2026.md` (lub podział kwartalny),
@@ -56,6 +72,8 @@ kontrola linków. Eskalacja niepotrzebna. Audyt: gpt-6.1-sol / medium.
 
 - [ ] Oba pliki < 100 KB; archiwa zawierają przeniesioną treść bez zmian
       (diff treści = przeniesienie).
+- [ ] Sekcja „Obowiązujące ograniczenia” istnieje i każdy aktywny task,
+      plan i otwarta decyzja ma wpis; `check_current_state_window.py` PASS.
 - [ ] Wszystkie linki `DECISION_LOG.md#d-` w `ai_docs/` rozwiązują się.
 - [ ] `AGENTS.md`/`README.md` opisują nowy obowiązkowy odczyt.
 

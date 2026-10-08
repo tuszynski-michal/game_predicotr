@@ -1,7 +1,7 @@
 ---
 title: Gra Mumie — Wild, supergra „Wild super spins” i proces audytu krzyżowego (plan wykonawczy)
 status: proposed
-last_updated: 2026-10-08 (rewizja 2 po przeglądzie Codex)
+last_updated: 2026-10-08 (rewizja 3 po drugim przeglądzie Codex)
 ---
 
 # Gra Mumie — Wild, supergra i super symbol
@@ -162,12 +162,16 @@ Zasady:
 - Spójność przeliczania: job buduje **kompletną generację** serii w partiach
   do tabeli roboczej i podmienia ją w jednej transakcji końcowej; pośredni
   stan nigdy nie jest widoczny; restart joba zaczyna generację od nowa.
-  Na starcie job zapisuje znacznik wejścia (najwyższy `updated_at`/rewizja
-  kanonicznych plansz gry, rewizja katalogu symboli i rodzaj gry); przed
-  podmianą sprawdza go ponownie; przy zmianie oznacza generację jako
-  `stale` i kolejkuje jeden ponowny przebieg (deduplikacja na grę). Zapis
-  super symbolu (CAS po `revision`) jest przenoszony do nowej generacji po
-  tożsamości serii. Wyzwalacze przeliczenia: zakończenie importu (nowe
+  Wejście = komórki z przypisanym symbolem (także predykcje plansz
+  `pending`) pociętych plansz, role symboli, rodzaj gry i aktywne reguły.
+  Zmianę wejścia wykrywa licznik `input_version` per gra, inkrementowany w
+  tej samej transakcji co każdy zapis zmieniający wejście (w tym usunięcia);
+  publikacja generacji porównuje licznik atomowo pod blokadą wiersza stanu.
+  Nieaktualny kandydat jest odrzucany, obowiązująca generacja dostaje
+  flagę `stale` i kolejkowany jest jeden ponowny przebieg; do tego czasu
+  odczyty serwują ostatnią generację z flagą, a plansze serii liczą się
+  jako `provisional`. Zapis super symbolu (CAS po `revision`) jest
+  przenoszony do nowej generacji po tożsamości serii. Wyzwalacze przeliczenia: zakończenie importu (nowe
   plansze), nowe predykcje symboli, korekty symboli i siatki, zmiana roli
   symbolu lub rodzaju gry, publikacja wersji reguł.
 - Super symbol pochodzi wyłącznie od operatora (zdjęcia ze złotą ramką).
@@ -248,10 +252,12 @@ dodaje do modalu linii i przybliżonej wygranej w Adminie opcjonalny wybór
 wersji reguł (`rulesVersionId`, domyślnie najnowsza opublikowana; draft
 dostępny tylko lokalnie w Adminie, nigdy w udostępnionym panelu). Operator
 zmienia role w katalogu, poprawia draft i ogląda wynik bez publikacji.
-Publikacja pozostaje świadomą decyzją; po niej rola jest zamrożona dla tej
-wersji, a kolejne zmiany ról wymagają nowego draftu i nowej publikacji
-(alternatywa przeniesienia ról do `rules_version_symbols` odłożona jako
-większa zmiana kontraktu mobilnego).
+Publikacja pozostaje świadomą decyzją. Role żyją w katalogu (`symbols`),
+więc po publikacji wersji reguł, która używa symbolu, jego role są
+**niezmienne** (tak jak dziś), bo zmiana podmieniłaby historyczne wyniki.
+Operator ustala role Mumii na drafcie i publikuje dopiero po testach.
+Wersjonowanie ról per wersja reguł (`rules_version_symbols`) jest jawnie
+poza zakresem tego planu jako osobna, większa zmiana kontraktu.
 
 - **TASK-0931** — migracja `super_game_trigger_count` i `super_game_kind`,
   walidacje domeny, rejestr rodzajów, API/OpenAPI/klient, formularze Adminu

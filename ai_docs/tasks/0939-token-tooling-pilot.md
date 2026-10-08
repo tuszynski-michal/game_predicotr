@@ -56,10 +56,19 @@ jeżeli hook lub MCP destabilizują sesję. Audyt: gpt-6.1-sol / high.
    wynikiem w formie wniosków; briefy audytu tylko z taskiem, planem i
    diffem; zakaz wklejania całych dokumentów procesu do promptów.
 6. **Pomiar**: trzy typowe zadania (lokalizacja miejsca zmiany w Adminie,
-   zmiana domeny w API z testem, analiza błędu w workerze) wykonane
-   przed/po na tym samym modelu; metryki: tokeny wejścia sesji, liczba
-   odczytów plików, czas, ocena jakości wyniku przez audytora (PASS/REVISE).
-   Raport `ai_docs/quality/TOKEN_TOOLING_PILOT_<data>.md`.
+   zmiana domeny w API z testem, analiza błędu w workerze), każde na tym
+   samym commicie repo, w niezależnych świeżych sesjach, na tym samym
+   modelu i poziomie rozumowania, co najmniej 2 przebiegi na wariant.
+   Warianty: baza (bez narzędzi) oraz osobno każde narzędzie 1–5; brak
+   łączenia wariantów w pilocie. Metryka kosztu = **suma tokenów wszystkich
+   wywołań** (agent główny + subagenci + wywołania narzędzi modelowych)
+   z użycia sesji, osobno: tokeny wejścia, wyjścia, cache; koszt
+   jednorazowy indeksowania (Serena, Graphify) raportowany oddzielnie i
+   amortyzowany na założoną liczbę sesji. Jakość: stała rubryka na zadanie
+   (kryteria akceptacji spełnione, testy zielone, audyt drugiej rodziny
+   PASS); wynik gorszy od bazy dyskwalifikuje wariant niezależnie od
+   tokenów. Raport `ai_docs/quality/TOKEN_TOOLING_PILOT_<data>.md` z
+   tabelą wariant × zadanie × przebieg.
 
 ## Out of scope
 

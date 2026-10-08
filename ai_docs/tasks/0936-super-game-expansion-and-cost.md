@@ -43,13 +43,16 @@ Audyt: claude-opus-5-5 / high.
 - `super_games/wild_super_spins.py`: `evaluate_series_board(board,
   super_symbol, rules)` według kroków 1–4 planu (przekształcenie planszy
   tylko przy `k ≥ minimum(X)`); wynik z osobnymi składowymi: linie, sztuki,
-  rozwinięcie, oraz `payout_kind` według reguły: `provisional`, gdy
-  `super_symbol` jest `null`, gdy stan serii jest `stale`, albo gdy plansza
-  ma nieznaną komórkę **poza** kolumnami już przykrytymi przez X (nieznana
-  komórka może dodać kolumnę X, przekroczyć próg i przykryć wcześniejszą
-  wygraną, więc `confirmed_minimum` nie jest bezpieczne); nieznane komórki
-  wyłącznie wewnątrz kolumn już przykrytych nie zmieniają wyniku i
-  dopuszczają `exact`.
+  rozwinięcie, oraz `payout_kind` według reguły: w trybie `super`
+  `provisional`, gdy `super_symbol` jest `null`, gdy
+  `superGameState.fresh = false`, albo gdy plansza ma **jakąkolwiek**
+  nieznaną komórkę. Uzasadnienie: nieznana komórka poza kolumnami X może
+  dodać kolumnę, przekroczyć próg i przykryć wcześniejszą wygraną; nieznana
+  komórka wewnątrz kolumny już przykrytej nie zmienia linii po rozwinięciu,
+  ale nadal może zmienić wypłatę za sztuki i retrigger (sztuki liczone na
+  planszy oryginalnej), więc żadna składowa nie jest bezpieczna. `exact`
+  tylko dla planszy w pełni znanej; `confirmed_minimum` w trybie `super`
+  nie występuje.
 - Projekcja per pozycja (`mode`, `super_symbol_id`, `remaining_spins`,
   `spin_cost_credits`, `payout_credits`, `payout_kind`) budowana z serii
   i kanonicznych plansz; przybliżona wygrana §D i kalkulator stawek panelu
@@ -62,8 +65,11 @@ Audyt: claude-opus-5-5 / high.
   retrigger w serii; `k < minimum(X)` bez przekształcenia planszy; seria bez
   symbolu = wynik prowizoryczny; nieznana komórka poza kolumnami X przy
   `k = minimum − 1` → `provisional`, a po uzupełnieniu jej jako X wynik
-  zmienia się przez przykrycie (test przekroczenia progu); nieznana komórka
-  w kolumnie już przykrytej → `exact`; stan `stale` → `provisional`.
+  zmienia się przez przykrycie (test przekroczenia progu); dwie znane Mumie
+  i nieznana komórka w kolumnie przykrytej przez K → `provisional`, a po
+  uzupełnieniu jej jako Mumii dochodzi wypłata za trzy sztuki i retrigger
+  przy niezmienionych liniach (test składowej sztuk); plansza w pełni znana
+  → `exact`; `superGameState.fresh = false` → `provisional`.
 - `ALGORITHMS.md` §B/§D i `MANAGEMENT_PANEL.md`: opis trybu; wpis
   `DECISION_LOG.md` (następny wolny numer).
 

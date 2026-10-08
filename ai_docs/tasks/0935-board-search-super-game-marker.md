@@ -40,10 +40,13 @@ kontraktu publicznego panelu. Audyt: gpt-6.1-sol / high.
 - API: odpowiedź wyniku wyszukiwania i wiersza przybliżonej wygranej
   dostaje opcjonalne `superGame`: `{ kind: 'trigger' | 'in_series',
   seriesId, spinIndex, seriesLength, superSymbolCode | null,
-  completeness, runVerification, stale }`; brak pola = tryb bazowy; `stale`
-  pochodzi z `super_game_derivation_state.is_stale` i oznacza, że serie są
-  w trakcie przeliczania (ostrzeżenie w UI, bez blokady). Publiczny panel: to samo pole,
-  bez `seriesId`.
+  completeness, runVerification }`; brak pola = tryb bazowy **według
+  obowiązującej generacji**. Niezależnie od pola per plansza odpowiedź
+  wyszukiwania i przybliżonej wygranej niesie na poziomie odpowiedzi
+  `superGameState: { fresh, inputVersion, generationInputVersion }`
+  (TASK-0933); przy `fresh = false` UI pokazuje ostrzeżenie „serie w
+  trakcie przeliczania” dla całego wyniku, także dla plansz bez `superGame`.
+  Publiczny panel: te same pola, bez `seriesId`.
 - UI (`board-search-ui`): złote wyróżnienie karty wyniku i wiersza; etykieta
   „Supergra: spin 3/10, symbol K” lub „Supergra: super symbol do
   zdefiniowania”; w Adminie link „Zdefiniuj super symbol” do TASK-0934;
@@ -80,6 +83,8 @@ kontraktu publicznego panelu. Audyt: gpt-6.1-sol / high.
 - Wynik na pozycji 105 w serii 101–120 → `in_series`, `spinIndex 5`.
 - Pozycja 100 (trigger) → `trigger`.
 - Seria bez symbolu → `superSymbolCode null`, etykieta „do zdefiniowania”.
+- Nowy trigger przed uruchomieniem joba → brak `superGame` dla pozycji,
+  `superGameState.fresh = false`, ostrzeżenie widoczne.
 
 ## Verification
 

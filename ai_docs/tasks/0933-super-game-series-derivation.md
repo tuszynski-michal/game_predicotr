@@ -73,7 +73,11 @@ gpt-6-astra / high.
 - Wersja wejścia (zamiast maksimum rewizji/`updated_at`, które nie wykrywa
   każdej zmiany ani usunięcia): tabela `super_game_derivation_state`
   (`game_id` PK, `input_version bigint`, `current_generation_id`,
-  `input_version_of_generation`, `is_stale`, `updated_at`). Każdy zapis
+  `input_version_of_generation`, `updated_at`; nieaktualność **nie jest
+  osobną kolumną**, lecz wynika zawsze z porównania
+  `input_version != input_version_of_generation`, więc jest widoczna od
+  pierwszej zmiany wejścia, także przed startem joba i w trakcie jego
+  pracy). Każdy zapis
   zmieniający zbiór wejścia (zapis/usunięcie predykcji, korekta symbolu,
   korekta i unieważnienie siatki, import plansz, zmiana roli symbolu,
   zmiana rodzaju gry, publikacja reguł) inkrementuje `input_version` **w tej
@@ -82,12 +86,16 @@ gpt-6-astra / high.
   publikacji blokuje wiersz stanu (`FOR UPDATE`) i porównuje wersję
   atomowo z podmianą.
 - Kandydat nieaktualny: jeżeli wersja się zmieniła, generacja robocza jest
-  **odrzucana** (nie podmienia obowiązujących serii), wiersz stanu dostaje
-  `is_stale = true`, a job kolejkuje dokładnie jeden ponowny przebieg
-  (deduplikacja na grę). Do zakończenia przeliczenia API serwuje ostatnią
-  opublikowaną generację z flagą `stale` w odpowiedziach; konsumenci
-  (TASK-0935, TASK-0936) pokazują ostrzeżenie i liczą plansze serii jako
-  `provisional`. CAS zapisu symbolu sprawdza `revision` i tożsamość serii;
+  **odrzucana** (nie podmienia obowiązujących serii), a job kolejkuje
+  dokładnie jeden ponowny przebieg (deduplikacja na grę). Do zakończenia
+  przeliczenia API serwuje ostatnią opublikowaną generację, a każda
+  odpowiedź kalkulacji i wyszukiwania niesie na **poziomie odpowiedzi**
+  pole `superGameState: { fresh: boolean, inputVersion,
+  generationInputVersion }` wyliczone z porównania wersji, niezależnie od
+  tego, czy dana plansza ma `superGame`; konsumenci (TASK-0935, TASK-0936)
+  pokazują ostrzeżenie i liczą wszystkie plansze gry jako `provisional`,
+  gdy `fresh = false` (nowy trigger mógł powstać tam, gdzie poprzednia
+  generacja miała tryb bazowy). CAS zapisu symbolu sprawdza `revision` i tożsamość serii;
   zapis w stanie `stale` jest dozwolony i przenosi się po tożsamości.
 - Wyzwalanie: durable job lane `general` po: zakończeniu importu (nowe
   plansze), zapisie predykcji symboli, korekcie symboli, korekcie siatki,
@@ -120,8 +128,12 @@ gpt-6-astra / high.
 - [ ] Restart joba w połowie: API nie pokazuje stanu pośredniego; po
       ponownym przebiegu wynik identyczny z przebiegiem bez restartu.
 - [ ] Korekta symbolu w trakcie joba: kandydat odrzucony, obowiązujące serie
-      bez zmian i oznaczone `stale`, dokładnie jeden ponowny przebieg, wynik
-      uwzględnia korektę; po nim `is_stale = false`.
+      bez zmian, `superGameState.fresh = false`, dokładnie jeden ponowny
+      przebieg, wynik uwzględnia korektę; po nim `fresh = true`.
+- [ ] Nowy trigger zapisany przed startem joba: odpowiedź wyszukiwania dla
+      tej pozycji nie ma jeszcze `superGame`, ale `superGameState.fresh =
+      false`; w trakcie pracy joba nadal `false`; po publikacji `true` i
+      `superGame.kind = trigger`.
 - [ ] Każdy punkt zapisu z listy wejścia inkrementuje `input_version` w tej
       samej transakcji (test parametryczny po liście); usunięcie predykcji
       też.
@@ -132,8 +144,10 @@ gpt-6-astra / high.
 
 ## Technical notes
 
-- Źródło prawdy komórek: kanoniczna projekcja plansz używana przez
-  wyszukiwanie (`domain/board_search*.py`, `image_sequence_canonical.py`).
+- Źródło prawdy komórek: wyłącznie kontrakt z sekcji Scope (projekcja
+  weryfikacji komórek z przypisanym symbolem, także plansze `pending`,
+  pocięte siatką); kanoniczna projekcja `accepted/corrected`
+  (`image_sequence_canonical.py`) **nie** jest źródłem wyprowadzania.
 - Sekwencja startuje w trybie bazowym na pozycji 1; zawinięcie `N → 1` nie
   przenosi serii (plan, Z-1 poprzedniej rewizji).
 - Granice transakcji: tabela robocza zapisywana partiami (osobne

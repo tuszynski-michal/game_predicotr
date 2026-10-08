@@ -1,7 +1,7 @@
 ---
 title: Gra Mumie — Wild, supergra „Wild super spins” i proces audytu krzyżowego (plan wykonawczy)
 status: proposed
-last_updated: 2026-10-08 (rewizja 3 po drugim przeglądzie Codex)
+last_updated: 2026-10-08 (rewizja 4 po trzecim przeglądzie Codex)
 ---
 
 # Gra Mumie — Wild, supergra i super symbol
@@ -167,10 +167,16 @@ Zasady:
   Zmianę wejścia wykrywa licznik `input_version` per gra, inkrementowany w
   tej samej transakcji co każdy zapis zmieniający wejście (w tym usunięcia);
   publikacja generacji porównuje licznik atomowo pod blokadą wiersza stanu.
-  Nieaktualny kandydat jest odrzucany, obowiązująca generacja dostaje
-  flagę `stale` i kolejkowany jest jeden ponowny przebieg; do tego czasu
-  odczyty serwują ostatnią generację z flagą, a plansze serii liczą się
-  jako `provisional`. Zapis super symbolu (CAS po `revision`) jest
+  Nieaktualność jest zawsze pochodną porównania `input_version` z wersją
+  obowiązującej generacji (widoczna od pierwszej zmiany wejścia, także
+  przed startem i w trakcie joba), nie osobną flagą. Nieaktualny kandydat
+  jest odrzucany i kolejkowany jest jeden ponowny przebieg; do tego czasu
+  odczyty serwują ostatnią generację, każda odpowiedź niesie
+  `superGameState.fresh = false` na poziomie całej odpowiedzi (także dla
+  plansz bez serii, bo nowy trigger mógł powstać w trybie bazowym), a
+  wszystkie plansze gry liczą się jako `provisional`. W trybie `super`
+  każda nieznana komórka daje `provisional`, bo może zmienić linie,
+  sztuki albo retrigger. Zapis super symbolu (CAS po `revision`) jest
   przenoszony do nowej generacji po tożsamości serii. Wyzwalacze przeliczenia: zakończenie importu (nowe
   plansze), nowe predykcje symboli, korekty symboli i siatki, zmiana roli
   symbolu lub rodzaju gry, publikacja wersji reguł.

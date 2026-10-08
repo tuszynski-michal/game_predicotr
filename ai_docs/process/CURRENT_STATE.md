@@ -6,6 +6,27 @@ last_updated: 2026-10-08
 
 # Current State
 
+### TASK-0929 — skill audytu krzyżowego i sekcja „Audyt krzyżowy” (done)
+
+- `scripts/audit_task.ps1` (PowerShell 5.1, ASCII, limity czasu, UTF-8)
+  składa brief taska (plik taska, fragment planu, `Verification results`,
+  diffy ograniczone `-Paths`, pliki nieśledzone) do ignorowanego
+  `artifacts/audits/` i uruchamia audytora tylko do odczytu (`codex exec
+  --sandbox read-only` lub `claude -p --permission-mode plan`); raport trafia
+  do `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md` tylko z wierszem werdyktu.
+  Bez CLI na PATH tryb „tylko brief” (kod 0). Skille `.claude/skills/audit-task`
+  i `.codex/skills/claude-audit`; szablon `ai_docs/quality/AUDIT_REPORT_TEMPLATE.md`.
+- `AGENTS.md`: sekcja „Audyt krzyżowy” (rodziny modeli, zastępstwo subagentem
+  Claude do czasu CLI, jedna runda audytu + jedna poprawek, otwarte P0/P1
+  blokują commit, wyjątek czasowy 600 s dla przebiegu audytu); punkt 8
+  „Po kodowaniu” ujednolicony.
+- Audyt claude-opus-5-5 / high: runda 1 REVISE (2 × P1: `-Paths` z przecinkami,
+  wstrzyknięcie przez `-Model` na shimach `.cmd`; 5 × P2), po poprawkach
+  runda 2 PASS; 3 × P2 naprawione przez leada. Prawdziwe CLI `codex`/`claude`
+  nie są zainstalowane: operator instaluje i loguje je sam, potem jeden
+  przebieg bez `-DryRun` z zapisem wersji.
+- Etap P zamknięty. Trwa TASK-0931 (etap S-A).
+
 ### TASK-0930 — klawisz `0` dla dziesiątego symbolu w weryfikacji symboli (done)
 
 - W weryfikacji symboli `0` wybiera dziesiąty aktywny symbol (Mumia) jako

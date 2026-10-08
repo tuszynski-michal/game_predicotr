@@ -238,10 +238,54 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
    etap albo cały plan bez etapów. Wtedy po audycie, osobnym commicie,
    Outcome i aktualizacji CURRENT_STATE.md każdego taska kontynuuj do końca
    zleconego zakresu. Zatrzymaj się na końcu etapu albo przy sprzeczności
-   wymagań, koniecznej decyzji, niedostępnym modelu/reasoning, nierozwiązanych
-   uwagach P0–P2 po dwóch cyklach poprawek lub przed operacją czy kosztem poza
-   zatwierdzonym zakresem. Nie wykonuj automatycznego push, merge, aktywacji
-   modelu ani wdrożenia.
+   wymagań, koniecznej decyzji, niedostępnym modelu/reasoning, otwartych uwagach
+   audytu P0/P1 po jednej rundzie poprawek (uwagi P2 odnotowane w `Outcome`
+   nie zatrzymują; zasady w sekcji „Audyt krzyżowy”) lub przed operacją czy
+   kosztem poza zatwierdzonym zakresem. Nie wykonuj automatycznego push,
+   merge, aktywacji modelu ani wdrożenia.
+
+## Audyt krzyżowy
+
+- Zmiany taska audytuje model z innej rodziny niż wykonawca: pracę Claude
+  audytuje Codex, a pracę Codex audytuje Claude. Wykonawca nie audytuje
+  własnej pracy. Audyt jest wymagany po każdym tasku, który wskazuje go w
+  kolumnie `Dodatkowy review` zaakceptowanego planu, przed commitem.
+- Do czasu, gdy oba CLI (`codex`, `claude`) są zainstalowane i zalogowane przez
+  operatora, audytorem jest niezależny subagent Claude z innym modelem niż
+  wykonawca, w świeżym kontekście i wyłącznie do odczytu. Zastępstwo musi być
+  jawnie odnotowane w `Outcome` taska i zgodne z kolumną `Dodatkowy review`
+  planu; brak dostępnego modelu zatrzymuje task zgodnie z `PLAN_STANDARD.md`.
+- Brief audytu buduje `scripts/audit_task.ps1` (skill `audit-task` w Claude
+  Code, lustrzany skill `claude-audit` w Codex). Skrypt składa plik taska,
+  fragment planu, `git diff <base>...HEAD` wraz ze zmianami niezacommitowanymi
+  (domyślnie `-Base HEAD`, czyli audyt przed commitem; `-Paths` ogranicza
+  diff do plików taska) i linie weryfikacji z `Outcome`, zapisuje brief w
+  `artifacts/audits/` (katalog ignorowany przez git), a gdy CLI audytora jest
+  dostępne, uruchamia je w trybie tylko do odczytu z limitem czasu. Bez CLI
+  skrypt kończy się na briefie, a audyt wykonuje się ręcznie lub zastępczym
+  subagentem.
+- Wyjątek od domyślnego limitu 120 s z sekcji „Limity czasu i procesy
+  długotrwałe”: uruchomienie audytu może mieć timeout narzędzia do 600 s,
+  przy czym własny `-TimeoutSec` skryptu musi być niższy (zalecane 480 s,
+  bo po jego upływie skrypt potrzebuje jeszcze około 25 s na sprzątanie).
+  Alternatywnie uruchom skrypt jako kontrolowany proces w tle i monitoruj go.
+- Audytor nie zmienia plików. Przegląd jest statyczny: ocenia zgodność z
+  zakresem, kryteriami akceptacji, planem i regułami tego pliku, a nie
+  rozszerza zakresu.
+- Raport leży w `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md`, jest pisany
+  normalną prozą po polsku i ma format z
+  `ai_docs/quality/AUDIT_REPORT_TEMPLATE.md`: werdykt `PASS` albo `REVISE`,
+  znaleziska P0–P2 z `plik:linia`, listy zamkniętych i otwartych uwag,
+  proponowane testy oraz oświadczenie „przegląd statyczny, bez zmian w
+  plikach”. Raport wchodzi do commita taska.
+- Otwarte uwagi P0 i P1 blokują commit. Uwagi P2 wykonawca naprawia albo
+  odnotowuje w `Outcome` jako zaakceptowane ryzyko z uzasadnieniem.
+- Obowiązuje jedna runda audytu i jedna runda poprawek. Ponowny audyt
+  wykonuje się wyłącznie na żądanie operatora albo gdy poprawka zmieniła
+  zachowanie objęte uwagą P0/P1; nie powstaje automatyczna pętla. Jeżeli po
+  poprawkach uwaga P0/P1 pozostaje otwarta, zatrzymaj task i zgłoś to
+  operatorowi zgodnie z punktem 8 sekcji „Po kodowaniu”.
+- Poświadczeń CLI nie wpisuje agent: instalację i logowanie wykonuje operator.
 
 ## Hierarchia źródeł prawdy
 

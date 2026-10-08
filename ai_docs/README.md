@@ -125,6 +125,9 @@ implementacyjnym.
 - [Standard planów](process/PLAN_STANDARD.md) — obowiązkowy odczyt przed
   planowaniem, aktualizacją lub wykonaniem planu.
 - [Test strategy](quality/TEST_STRATEGY.md)
+- [Szablon raportu audytu krzyżowego](quality/AUDIT_REPORT_TEMPLATE.md) —
+  format raportu `TASK-NNNN_AUDIT_<model>.md`; skill `/audit-task`,
+  skrypt `scripts/audit_task.ps1` (TASK-0929, D-535).
 - [Version 0.3 Mobile acceptance](quality/V0_3_MOBILE_ACCEPTANCE.md)
 - [Board-cell geometry v19 rollout closure](quality/BOARD_CELL_GEOMETRY_V19_ROLLOUT.md)
 - [Virtual geometry 0.10 cutover acceptance](quality/V0_10_VIRTUAL_GEOMETRY_CUTOVER.md)

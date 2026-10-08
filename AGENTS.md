@@ -64,6 +64,31 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
 - Nie wykonuj destrukcyjnych operacji na danych bez wyraźnej zgody użytkownika.
 - Nie dodawaj kolejki Redis/Celery, mikroserwisów ani chmury, dopóki pomiary nie pokażą takiej potrzeby.
 
+## Budżet tokenów i zgoda na kosztowne prace
+
+- Zasada obowiązuje Codex, Claude Code i wszystkich innych agentów pracujących
+  w repozytorium, w tym subagentów, wykonawców oraz audytorów.
+- Przed rozpoczęciem długiej lub bardzo złożonej zmiany, która może zużyć
+  około 10% lub więcej pakietu użytkownika, agent musi ostrzec użytkownika
+  i uzyskać jego wyraźną zgodę na taki koszt. Do czasu odpowiedzi nie rozpoczyna
+  kosztownej implementacji, delegowania, audytów ani szerokich testów.
+- Ostrzeżenie musi zawierać zakres, powód złożoności, przewidywany czas oraz
+  szacunek zużycia tokenów lub pakietu, jeśli jest wiarygodnie dostępny.
+  Nie podawaj zmyślonych procentów. Gdy nie można wiarygodnie oszacować kosztu,
+  długą lub bardzo złożoną pracę również poprzedź ostrzeżeniem i zgodą użytkownika.
+- Koszt obejmuje łącznie pracę głównego agenta, subagentów, audyty, ponowne
+  odczyty dokumentacji i powtarzane kontrole. Nie dziel zadania na mniejsze
+  kroki w celu obejścia obowiązku uzyskania zgody.
+- Ogólne polecenia „kontynuuj”, „dokończ” lub „pracuj samodzielnie” nie zastępują
+  zgody na duże zużycie pakietu, jeśli użytkownik nie został wcześniej ostrzeżony
+  o przewidywanym koszcie. Zatwierdzony zakres nie upoważnia do nieograniczonego
+  zużycia tokenów.
+- Jeżeli w trakcie pracy przewidywany koszt lub czas istotnie wzrośnie,
+  zatrzymaj kosztowną część, podaj dotychczasowy wynik i pozostały zakres,
+  a następnie uzyskaj zgodę na kontynuację. Przestrzegaj limitów czasu i budżetu
+  wskazanych przez użytkownika. Wykorzystuj aktualne wyniki weryfikacji zamiast
+  niepotrzebnie powtarzać audyty i testy.
+
 ## Kontrola lokalnych usług API i Admin
 
 - API i Admin uruchamia, zatrzymuje i restartuje ręcznie użytkownik, we własnych

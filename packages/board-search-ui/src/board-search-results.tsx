@@ -14,7 +14,10 @@ import {
   BoardSearchBoardLinesModal,
   type BoardLinesClient,
 } from './board-search-board-lines-modal';
-import type { BoardSearchDataSource } from './board-search-data-source';
+import type {
+  BoardSearchDataSource,
+  BoardSearchCorrectionContext,
+} from './board-search-data-source';
 import {
   formatApproximateWinAmount,
   loadApproximateWinDisplay,
@@ -47,6 +50,8 @@ interface BoardSearchResultsProps {
   /** A cell correction was saved in the board window: search again. */
   readonly onBoardEdited: () => void;
   readonly symbols: readonly SymbolResponse[];
+  readonly fixedStakeGrosze?: number;
+  readonly correctionContext?: BoardSearchCorrectionContext;
 }
 
 export function BoardSearchResults({
@@ -56,6 +61,8 @@ export function BoardSearchResults({
   onStateChange,
   state,
   symbols,
+  fixedStakeGrosze,
+  correctionContext,
 }: BoardSearchResultsProps) {
   const current = activeBoardSearchResult(state);
   const [boardOpen, setBoardOpen] = useState(false);
@@ -189,6 +196,8 @@ export function BoardSearchResults({
           rulesVersionId={null}
           sequenceNumber={current.sequenceNumber}
           symbols={symbols}
+          fixedStakeGrosze={fixedStakeGrosze}
+          correctionContext={correctionContext}
         />
       ) : null}
 

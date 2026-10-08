@@ -228,6 +228,34 @@ export function approximateWinAxisTicks(
 
 export const APPROXIMATE_WIN_PIN_LIMIT = 6;
 
+/** Resolve an end-of-spin position without inventing payout rows. */
+export function approximateWinPointAtSpin(
+  result: ApproximateWinResponse,
+  spinNumber: number,
+): ApproximateWinChartPoint | null {
+  if (
+    !Number.isInteger(spinNumber) ||
+    spinNumber < 0 ||
+    spinNumber > result.evaluatedSpinCount
+  )
+    return null;
+  let payout = 0;
+  for (const row of result.rows) {
+    if (row.spinNumber > spinNumber) break;
+    payout = row.cumulativePayoutCredits;
+  }
+  return {
+    spinNumber,
+    kind:
+      spinNumber === 0
+        ? 'start'
+        : spinNumber === result.evaluatedSpinCount
+          ? 'end'
+          : 'payout',
+    cumulativeBalanceCredits: payout - spinNumber * result.rules.spinCost,
+  };
+}
+
 /** Chart geometry in SVG units, shared with the label layout tests. */
 export const APPROXIMATE_WIN_CHART_WIDTH = 800;
 /**

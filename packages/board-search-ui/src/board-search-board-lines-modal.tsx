@@ -7,6 +7,12 @@ import type {
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 
 import { apiErrorMessage } from './api-error';
+import {
+  formatApproximateWinAmount,
+  loadApproximateWinDisplay,
+  type ApproximateWinAmountUnit,
+  scaleApproximateWinAmountAtStake,
+} from './board-search-stake';
 import type {
   BoardSearchDataSource,
   BoardSearchEditableCell,
@@ -88,6 +94,8 @@ export function BoardSearchBoardLinesModal({
   reviewPanel,
   onCorrectionSaved,
   changedCellIndices = [],
+  fixedStakeGrosze,
+  fixedStakeUnit = loadApproximateWinDisplay().unit,
 }: {
   readonly api: BoardLinesClient;
   readonly formatAmount: (baseCredits: number) => string;
@@ -114,6 +122,9 @@ export function BoardSearchBoardLinesModal({
       }) => ReactNode);
   readonly onCorrectionSaved?: () => void;
   readonly changedCellIndices?: readonly number[];
+  /** Optional management stake, scaled using this modal's fresh rules. */
+  readonly fixedStakeGrosze?: number;
+  readonly fixedStakeUnit?: ApproximateWinAmountUnit;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [attempt, setAttempt] = useState(0);
@@ -196,6 +207,18 @@ export function BoardSearchBoardLinesModal({
   };
 
   const detail = state.kind === 'ready' ? state.detail : null;
+  const displayAmount =
+    fixedStakeGrosze === undefined || detail === null
+      ? formatAmount
+      : (credits: number) =>
+          formatApproximateWinAmount(
+            scaleApproximateWinAmountAtStake(
+              credits,
+              fixedStakeGrosze,
+              detail.rules.spinCost,
+            ),
+            fixedStakeUnit,
+          ) + (fixedStakeUnit === 'credits' ? ' kredytów' : '');
   // After a saved correction the table row is known to be stale, so only the
   // lines themselves must still add up to the board payout.
   const consistency =
@@ -529,13 +552,13 @@ export function BoardSearchBoardLinesModal({
             {headerValues !== null ? (
               <p>
                 {headerValues.prefix}
-                {formatAmount(headerValues.payoutCredits)}
+                {displayAmount(headerValues.payoutCredits)}
                 {headerValues.payoutKind === 'confirmed_minimum'
                   ? ' · częściowa (potwierdzone minimum)'
                   : ''}{' '}
                 · {boardStatusLabel(headerValues.boardStatus)}
                 {headerValues.staleTableCredits !== null
-                  ? ` (w tabeli ${formatAmount(headerValues.staleTableCredits)} do przeliczenia)`
+                  ? ` (w tabeli ${displayAmount(headerValues.staleTableCredits)} do przeliczenia)`
                   : ''}
                 . Linia liczy się tylko od lewej krawędzi i kończy na pierwszym
                 nieznanym polu.
@@ -594,7 +617,7 @@ export function BoardSearchBoardLinesModal({
           <BoardLinesView
             api={api}
             detail={detail}
-            formatAmount={formatAmount}
+            formatAmount={displayAmount}
             gameId={gameId}
             imageFailed={imageFailed}
             onImageError={() => setImageFailed(true)}

@@ -106,3 +106,21 @@ pin changes by another authorized actor without repeating top-hit selection.
 History routes bypass implicit current-game routing; current game adapters bind
 their read/write game scope explicitly. The public T5 adapter must additionally
 sanitize search responses and install commit-bound capability revalidation.
+
+## T3 shared selection ports
+
+`BoardSearchWorkspace` optionally accepts a fixed stake, saved selection,
+controlled draft callbacks and an explicit asynchronous Save callback. The host
+resolves Save only after its durable receipt; failure leaves the full draft dirty.
+Saved starts load by trusted sequence without selecting the first ranked hit.
+Controlled pins store spin positions, including zero and losing spins; numeric
+values derive from the latest calculation and inaccessible pins remain explicit.
+
+Hosts provide a stable machine/game/stake `scopeKey`. Background saved-result
+identity changes within that scope do not remount or replace a draft. Explicit
+Open/Search again/Clear transitions require the host discard guard and a deliberate
+new workspace identity. Without a scopeKey, saved-selection identity is the
+optional mount key. Page-exit warnings and dirty callbacks cover outer navigation.
+Current symbol corrections remain immediate; recalculation refreshes values without
+changing the trusted start/context or controlled pins. Both board modals calculate
+fixed-stake amounts using the freshly loaded rules, including a changed spin cost.

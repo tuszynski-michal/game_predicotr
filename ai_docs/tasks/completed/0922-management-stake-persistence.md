@@ -195,3 +195,5 @@ generated management client wrappers; T5 supplies the existing revalidation hook
 - `packages/admin-api-client/src/generated/sdk.gen.ts`
 - `packages/admin-api-client/src/index.ts`
 - `packages/admin-api-client/test/management-stakes-request.test.mjs`
+
+Completion commit: v1.7.253 / 1a93bc521316c92eaaed8443e26e2f382a72c25a.

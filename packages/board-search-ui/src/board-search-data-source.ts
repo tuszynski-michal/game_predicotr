@@ -21,6 +21,8 @@ import type {
 export type BoardSearchApiResult<T> = Promise<{
   readonly data?: T;
   readonly error?: unknown;
+  /** Optional trusted management search receipt; ordinary clients omit it. */
+  readonly searchContextId?: string;
 }>;
 
 export type BoardSearchModalDetail =

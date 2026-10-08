@@ -32,6 +32,7 @@ import {
   approximateWinChartPoints,
   approximateWinExtremes,
   approximateWinPointKey,
+  approximateWinPointAtSpin,
   approximateWinMachineCashAtPoint,
   approximateWinStakeToPoint,
   approximateWinRequestKey,
@@ -86,6 +87,14 @@ interface BoardSearchApproximateWinProps {
    */
   readonly searchKey: string;
   readonly selectedResult: BoardSearchResultResponse | null;
+  /** Trusted saved sequence may be outside the current search ranking. */
+  readonly selectedSequenceNumber?: number | null;
+  readonly fixedStakeGrosze?: number;
+  readonly spinCount?: number;
+  readonly onSpinCountChange?: (value: number) => void;
+  readonly pinnedSpinPositions?: readonly number[];
+  readonly onPinsChange?: (value: readonly number[]) => void;
+  readonly onCalculationChange?: (value: ApproximateWinResponse) => void;
   /** Game symbols for the fallback board schema in the payline modal. */
   readonly symbols?: readonly SymbolResponse[];
 }
@@ -106,6 +115,13 @@ export function BoardSearchApproximateWin({
   replay = null,
   searchKey,
   selectedResult,
+  selectedSequenceNumber,
+  fixedStakeGrosze,
+  spinCount,
+  onSpinCountChange,
+  pinnedSpinPositions,
+  onPinsChange,
+  onCalculationChange,
   symbols = [],
 }: BoardSearchApproximateWinProps) {
   const appliedReplayId = useRef<string | null>(null);
@@ -116,7 +132,12 @@ export function BoardSearchApproximateWin({
   const [rangeInput, setRangeInput] = useState(
     String(APPROXIMATE_WIN_RANGE_DEFAULT),
   );
-  const [range, setRange] = useState(APPROXIMATE_WIN_RANGE_DEFAULT);
+  const [localRange, setRange] = useState(APPROXIMATE_WIN_RANGE_DEFAULT);
+  const range = spinCount ?? localRange;
+  const sequenceNumber =
+    selectedSequenceNumber === undefined
+      ? (selectedResult?.sequenceNumber ?? null)
+      : selectedSequenceNumber;
   const [rangeError, setRangeError] = useState<string | null>(null);
   const [state, setState] = useState<ApproximateWinState>(
     APPROXIMATE_WIN_IDLE_STATE,
@@ -131,13 +152,15 @@ export function BoardSearchApproximateWin({
   const [knownSpinCost, setKnownSpinCost] = useState<number | null>(null);
   // With no spin cost there is no stake to choose: złote are credits / 10.
   const stakeChosen =
+    fixedStakeGrosze !== undefined ||
     (knownSpinCost !== null && knownSpinCost <= 0) ||
     (stakeChoice !== null && stakeChoice.searchKey === searchKey);
   const display: ApproximateWinDisplay = {
     stakeGrosze:
-      stakeChoice !== null && stakeChoice.searchKey === searchKey
+      fixedStakeGrosze ??
+      (stakeChoice !== null && stakeChoice.searchKey === searchKey
         ? stakeChoice.stakeGrosze
-        : null,
+        : null),
     unit,
   };
 
@@ -146,9 +169,14 @@ export function BoardSearchApproximateWin({
     saveApproximateWinDisplay({ stakeGrosze: null, unit: next });
   }
 
-  const resultIdentity = selectedResult
-    ? boardSearchResultIdentity(selectedResult)
-    : null;
+  const resultIdentity =
+    selectedSequenceNumber !== undefined
+      ? sequenceNumber === null
+        ? null
+        : `saved:${sequenceNumber}:${searchKey}`
+      : selectedResult
+        ? boardSearchResultIdentity(selectedResult)
+        : null;
   const requestKey =
     resultIdentity !== null
       ? approximateWinRequestKey({
@@ -184,6 +212,7 @@ export function BoardSearchApproximateWin({
         }
         setKnownSpinCost(data.rules.spinCost);
         setState({ key, kind: 'ready', result: data });
+        onCalculationChange?.(data);
       })
       .catch(() => {
         if (requestId === requestIdRef.current) {
@@ -198,14 +227,15 @@ export function BoardSearchApproximateWin({
   }
 
   useEffect(() => {
+    // Invalidate immediately, including the debounce interval and unmount.
+    requestIdRef.current += 1;
     if (!shouldRequestApproximateWin({ isOpen: true, requestKey, state })) {
       return;
     }
-    if (requestKey === null || selectedResult === null) {
+    if (requestKey === null || sequenceNumber === null) {
       return;
     }
     const key = requestKey;
-    const sequenceNumber = selectedResult.sequenceNumber;
     // The section is always open (D-476): browsing results must not fire a
     // calculation per keystroke, so the request waits for the selection to
     // settle; a superseded request is dropped by its id.
@@ -213,12 +243,20 @@ export function BoardSearchApproximateWin({
       () => runCalculation(key, sequenceNumber),
       CALCULATION_DELAY_MS,
     );
-    return () => window.clearTimeout(timeout);
+    return () => {
+      window.clearTimeout(timeout);
+      requestIdRef.current += 1;
+    };
     // Re-run only when the (board, range) key changes; `state` is read for
     // the guard above but must not itself retrigger this effect, or every
     // setState here would immediately refire it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [requestKey]);
+
+  useEffect(() => {
+    if (spinCount !== undefined)
+      queueMicrotask(() => setRangeInput(String(spinCount)));
+  }, [spinCount]);
 
   useEffect(() => {
     if (replay === null || appliedReplayId.current === replay.id) return;
@@ -249,6 +287,7 @@ export function BoardSearchApproximateWin({
     setRangeError(null);
     setRangeInput(String(parsed.value));
     setRange(parsed.value);
+    onSpinCountChange?.(parsed.value);
   }
 
   const visibleResult = visibleApproximateWinResult(state, requestKey);
@@ -331,11 +370,14 @@ export function BoardSearchApproximateWin({
             onUnitChange={changeUnit}
             spinCost={spinCost}
             stakeChosen={stakeChosen}
+            fixedStakeGrosze={fixedStakeGrosze}
           />
           <small className="boardSearchApproximateWinControlsHint">
             Liczba kolejnych spinów po wybranej planszy (S+1…S+N), niezależna od
-            „Liczby wyników”. Stawka jest wybierana osobno dla każdego
-            wyszukanego wzoru.
+            „Liczby wyników”.{' '}
+            {fixedStakeGrosze === undefined
+              ? 'Stawka jest wybierana osobno dla każdego wyszukanego wzoru.'
+              : 'Stawka jest ustalona przez wybrany zapis.'}
           </small>
         </div>
         {rangeError ? (
@@ -344,15 +386,15 @@ export function BoardSearchApproximateWin({
           </p>
         ) : null}
 
-        {selectedResult === null ? (
+        {sequenceNumber === null ? (
           <p className="boardSearchEmptyPalette">
             Najpierw wybierz wynik wyszukiwania.
           </p>
         ) : null}
 
-        {selectedResult !== null && showLoading ? (
+        {sequenceNumber !== null && showLoading ? (
           <p className="boardSearchFeedback" role="status">
-            Obliczanie dla planszy #{selectedResult.sequenceNumber} ·{' '}
+            Obliczanie dla planszy #{sequenceNumber} ·{' '}
             {range.toLocaleString('pl-PL')} spinów…
           </p>
         ) : null}
@@ -365,8 +407,8 @@ export function BoardSearchApproximateWin({
             <button
               className="secondaryButton"
               onClick={() =>
-                requestKey !== null && selectedResult !== null
-                  ? runCalculation(requestKey, selectedResult.sequenceNumber)
+                requestKey !== null && sequenceNumber !== null
+                  ? runCalculation(requestKey, sequenceNumber)
                   : undefined
               }
               type="button"
@@ -389,8 +431,8 @@ export function BoardSearchApproximateWin({
             display={display}
             gameId={gameId}
             onRecalculate={() =>
-              requestKey !== null && selectedResult !== null
-                ? runCalculation(requestKey, selectedResult.sequenceNumber)
+              requestKey !== null && sequenceNumber !== null
+                ? runCalculation(requestKey, sequenceNumber)
                 : undefined
             }
             boardRequest={boardRequest}
@@ -404,6 +446,9 @@ export function BoardSearchApproximateWin({
             }}
             result={visibleResult}
             symbols={symbols}
+            pinnedSpinPositions={pinnedSpinPositions}
+            onPinsChange={onPinsChange}
+            fixedStakeGrosze={fixedStakeGrosze}
           />
         ) : null}
       </div>
@@ -450,6 +495,9 @@ function ApproximateWinResultView({
   onRecalculate,
   result,
   symbols,
+  pinnedSpinPositions,
+  onPinsChange,
+  fixedStakeGrosze,
 }: {
   readonly api: BoardLinesClient;
   readonly boardRequest: {
@@ -465,6 +513,9 @@ function ApproximateWinResultView({
   readonly onRecalculate: () => void;
   readonly result: ApproximateWinResponse;
   readonly symbols: readonly SymbolResponse[];
+  readonly pinnedSpinPositions?: readonly number[];
+  readonly onPinsChange?: (value: readonly number[]) => void;
+  readonly fixedStakeGrosze?: number;
 }) {
   const [minimumPayoutCredits, setMinimumPayoutCredits] = useState(0);
   const [linesRow, setLinesRow] = useState<ApproximateWinRowResponse | null>(
@@ -547,6 +598,8 @@ function ApproximateWinResultView({
           </p>
           <ApproximateWinBalanceChart
             display={display}
+            pinnedSpinPositions={pinnedSpinPositions}
+            onPinsChange={onPinsChange}
             key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
             result={result}
           />
@@ -555,6 +608,8 @@ function ApproximateWinResultView({
         <>
           <ApproximateWinBalanceChart
             display={display}
+            pinnedSpinPositions={pinnedSpinPositions}
+            onPinsChange={onPinsChange}
             key={`${result.startSequenceNumber}:${result.requestedSpinCount}:${result.dataFingerprintSha256}`}
             result={result}
           />
@@ -620,6 +675,8 @@ function ApproximateWinResultView({
           ) : null}
           {linesRow !== null ? (
             <BoardSearchBoardLinesModal
+              fixedStakeGrosze={fixedStakeGrosze}
+              fixedStakeUnit={display.unit}
               api={api}
               formatAmount={(credits) =>
                 `${amount(credits)}${unitNoun(display.unit)}`
@@ -654,6 +711,7 @@ function ApproximateWinDisplayControls({
   onUnitChange,
   spinCost,
   stakeChosen,
+  fixedStakeGrosze,
 }: {
   readonly display: ApproximateWinDisplay;
   readonly onStakeChange: (stakeGrosze: number | null) => void;
@@ -661,6 +719,7 @@ function ApproximateWinDisplayControls({
   /** Unknown until the first result of this game arrived. */
   readonly spinCost: number | null;
   readonly stakeChosen: boolean;
+  readonly fixedStakeGrosze?: number;
 }) {
   const options = spinCost === null ? [] : approximateWinStakeOptions(spinCost);
   const stakeDisabled = spinCost === null || spinCost <= 0;
@@ -672,30 +731,34 @@ function ApproximateWinDisplayControls({
     <>
       <label>
         <span>Stawka</span>
-        <select
-          aria-describedby={
-            stakeDisabled ? undefined : 'approximateWinStakeHint'
-          }
-          aria-label="Stawka"
-          disabled={stakeDisabled}
-          onChange={(event) => {
-            const grosze = Number(event.currentTarget.value);
-            const option = options.find((item) => item.grosze === grosze);
-            if (option === undefined) return;
-            // The base option follows the game's spin cost, not a fixed amount.
-            onStakeChange(option.isBase ? null : grosze);
-          }}
-          value={stakeDisabled || !stakeChosen ? '' : String(stake)}
-        >
-          <option disabled={!stakeDisabled} value="">
-            {stakeDisabled ? '—' : 'wybierz stawkę'}
-          </option>
-          {options.map((option) => (
-            <option key={option.grosze} value={String(option.grosze)}>
-              {option.label}
+        {fixedStakeGrosze !== undefined ? (
+          <output aria-label="Stawka">{formatZloty(fixedStakeGrosze)}</output>
+        ) : (
+          <select
+            aria-describedby={
+              stakeDisabled ? undefined : 'approximateWinStakeHint'
+            }
+            aria-label="Stawka"
+            disabled={stakeDisabled}
+            onChange={(event) => {
+              const grosze = Number(event.currentTarget.value);
+              const option = options.find((item) => item.grosze === grosze);
+              if (option === undefined) return;
+              // The base option follows the game's spin cost, not a fixed amount.
+              onStakeChange(option.isBase ? null : grosze);
+            }}
+            value={stakeDisabled || !stakeChosen ? '' : String(stake)}
+          >
+            <option disabled={!stakeDisabled} value="">
+              {stakeDisabled ? '—' : 'wybierz stawkę'}
             </option>
-          ))}
-        </select>
+            {options.map((option) => (
+              <option key={option.grosze} value={String(option.grosze)}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
       </label>
       <label>
         <span>Jednostka</span>
@@ -769,10 +832,15 @@ export function ApproximateWinBalanceChart({
   compact = false,
   display,
   result,
+  pinnedSpinPositions,
+  onPinsChange,
 }: {
   readonly compact?: boolean;
   readonly display: ApproximateWinDisplay;
   readonly result: ApproximateWinResponse;
+  /** Controlled end-of-spin positions, independent of payouts and SVG geometry. */
+  readonly pinnedSpinPositions?: readonly number[];
+  readonly onPinsChange?: (value: readonly number[]) => void;
 }) {
   const rows = result.rows;
   // Several charts can be on one page, so the ids are per instance.
@@ -782,14 +850,30 @@ export function ApproximateWinBalanceChart({
   const labelling = compact
     ? { 'aria-label': 'Kasa na czysto według liczby spinów' }
     : { 'aria-labelledby': headingId };
-  const [hoveredPoint, setHoveredPoint] =
+  const [localHoveredPoint, setHoveredPoint] =
     useState<ApproximateWinChartPoint | null>(null);
-  const [pinnedPoints, setPinnedPoints] = useState<
+  const [localPinnedPoints, setPinnedPoints] = useState<
     readonly ApproximateWinChartPoint[]
   >([]);
   const [pinLimitReached, setPinLimitReached] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
-  if (rows.length === 0) {
+  const controlled = pinnedSpinPositions !== undefined;
+  const hoveredPoint =
+    controlled && localHoveredPoint !== null
+      ? approximateWinPointAtSpin(result, localHoveredPoint.spinNumber)
+      : localHoveredPoint;
+  const pinnedPoints = controlled
+    ? pinnedSpinPositions.flatMap((spin) => {
+        const point = approximateWinPointAtSpin(result, spin);
+        return point === null ? [] : [point];
+      })
+    : localPinnedPoints;
+  const unavailable = controlled
+    ? pinnedSpinPositions.filter(
+        (spin) => approximateWinPointAtSpin(result, spin) === null,
+      )
+    : [];
+  if (rows.length === 0 && !controlled) {
     return (
       <section {...labelling} className="boardSearchApproximateWinChart">
         {compact ? null : (
@@ -833,11 +917,20 @@ export function ApproximateWinBalanceChart({
     `${whole(baseCredits)}${unitNoun(display.unit)}`;
   // What must be in hand from zero to get as far as this point (TASK-0778).
   const stakeLabel = (point: ApproximateWinChartPoint) =>
-    labelAmount(approximateWinStakeToPoint(rows, spinCost, point));
+    labelAmount(
+      controlled && point.spinNumber === 0
+        ? 0
+        : approximateWinStakeToPoint(rows, spinCost, point),
+    );
   // Stake plus net cash is what is on the machine, always in whole credits
   // whatever the unit (TASK-0787).
   const creditsLabel = (point: ApproximateWinChartPoint) =>
-    whole(approximateWinMachineCashAtPoint(rows, spinCost, point), 'credits');
+    whole(
+      controlled && point.spinNumber === 0
+        ? 0
+        : approximateWinMachineCashAtPoint(rows, spinCost, point),
+      'credits',
+    );
   const yTicks = approximateWinAxisTicks(
     plotValue(minimumBalance),
     plotValue(maximumBalance),
@@ -917,16 +1010,31 @@ export function ApproximateWinBalanceChart({
         })[0]
       : undefined;
   const pointByKey = new Map(
-    labelPoints.map((point) => [approximateWinPointKey(point), point]),
+    [
+      ...labelPoints,
+      ...pinnedPoints,
+      ...(hoveredPoint === null ? [] : [hoveredPoint]),
+    ].map((point) => [approximateWinPointKey(point), point]),
   );
 
   const closestPoint = (pointerX: number) =>
-    labelPoints.reduce((best, point) =>
-      Math.abs(toX(point.spinNumber) - pointerX) <
-      Math.abs(toX(best.spinNumber) - pointerX)
-        ? point
-        : best,
-    );
+    controlled
+      ? approximateWinPointAtSpin(
+          result,
+          Math.max(
+            0,
+            Math.min(
+              result.evaluatedSpinCount,
+              Math.round(((pointerX - chartLeft) / chartWidth) * xHigh),
+            ),
+          ),
+        )!
+      : labelPoints.reduce((best, point) =>
+          Math.abs(toX(point.spinNumber) - pointerX) <
+          Math.abs(toX(best.spinNumber) - pointerX)
+            ? point
+            : best,
+        );
   const pointerToViewBoxX = (event: MouseEvent<SVGSVGElement>) => {
     const bounds = event.currentTarget.getBoundingClientRect();
     return bounds.width === 0
@@ -934,6 +1042,20 @@ export function ApproximateWinBalanceChart({
       : ((event.clientX - bounds.left) / bounds.width) * CHART_WIDTH;
   };
   const togglePin = (point: ApproximateWinChartPoint) => {
+    if (controlled) {
+      if (onPinsChange === undefined) return;
+      const exists = pinnedSpinPositions.includes(point.spinNumber);
+      const limitReached =
+        !exists && pinnedSpinPositions.length >= APPROXIMATE_WIN_PIN_LIMIT;
+      setPinLimitReached(limitReached);
+      if (!limitReached)
+        onPinsChange(
+          exists
+            ? pinnedSpinPositions.filter((spin) => spin !== point.spinNumber)
+            : [...pinnedSpinPositions, point.spinNumber].sort((a, b) => a - b),
+        );
+      return;
+    }
     const next = toggleApproximateWinPinnedPoint(pinnedPoints, point);
     setPinLimitReached(next.limitReached);
     setPinnedPoints(next.pins);
@@ -963,11 +1085,29 @@ export function ApproximateWinBalanceChart({
     if (event.key === 'ArrowRight' || event.key === 'ArrowLeft') {
       event.preventDefault();
       setHoveredPoint(
-        moveApproximateWinHighlight(
-          points,
-          hoveredPoint === null ? null : approximateWinPointKey(hoveredPoint),
-          event.key === 'ArrowRight' ? 1 : -1,
-        ),
+        controlled
+          ? approximateWinPointAtSpin(
+              result,
+              Math.max(
+                0,
+                Math.min(
+                  result.evaluatedSpinCount,
+                  hoveredPoint === null
+                    ? event.key === 'ArrowRight'
+                      ? 0
+                      : result.evaluatedSpinCount
+                    : hoveredPoint.spinNumber +
+                        (event.key === 'ArrowRight' ? 1 : -1),
+                ),
+              ),
+            )
+          : moveApproximateWinHighlight(
+              points,
+              hoveredPoint === null
+                ? null
+                : approximateWinPointKey(hoveredPoint),
+              event.key === 'ArrowRight' ? 1 : -1,
+            ),
       );
       return;
     }
@@ -1059,7 +1199,7 @@ export function ApproximateWinBalanceChart({
         <text x={left + 6} y={top + 40}>
           Kredyty maszyna: {creditsLabel(point)}
         </text>
-        {pinned ? (
+        {pinned && (!controlled || onPinsChange !== undefined) ? (
           <g
             aria-label={`Odepnij punkt: ${description}`}
             className="boardSearchApproximateWinChartUnpin"
@@ -1220,6 +1360,29 @@ export function ApproximateWinBalanceChart({
           któryś, aby przypiąć kolejny.
         </p>
       ) : null}
+      {unavailable.length > 0 ? (
+        <ul aria-label="Niedostępne przypięte punkty">
+          {unavailable.map((spin) => (
+            <li key={spin}>
+              Spin {spin.toLocaleString('pl-PL')} — niedostępny w bieżącym
+              zakresie
+              {onPinsChange === undefined ? null : (
+                <button
+                  className="textButton"
+                  type="button"
+                  onClick={() =>
+                    onPinsChange(
+                      pinnedSpinPositions!.filter((value) => value !== spin),
+                    )
+                  }
+                >
+                  Odepnij niedostępny punkt {spin}
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      ) : null}
       {pinnedPoints.length > 0 ? (
         <div className="boardSearchApproximateWinChartPins">
           <ul aria-label="Przypięte punkty wykresu">
@@ -1233,28 +1396,33 @@ export function ApproximateWinBalanceChart({
                   · kasa na czysto {wholeLabel(point.cumulativeBalanceCredits)}{' '}
                   · kredyty maszyna {creditsLabel(point)}
                 </span>
-                <button
-                  aria-label={`Odepnij punkt ${point.spinNumber.toLocaleString('pl-PL')} spinów`}
-                  className="textButton"
-                  onClick={() => unpin(point)}
-                  type="button"
-                >
-                  Odepnij
-                </button>
+                {controlled && onPinsChange === undefined ? null : (
+                  <button
+                    aria-label={`Odepnij punkt ${point.spinNumber.toLocaleString('pl-PL')} spinów`}
+                    className="textButton"
+                    onClick={() => unpin(point)}
+                    type="button"
+                  >
+                    Odepnij
+                  </button>
+                )}
               </li>
             ))}
           </ul>
-          <button
-            className="secondaryButton"
-            onClick={() => {
-              setPinnedPoints([]);
-              setPinLimitReached(false);
-              svgRef.current?.focus();
-            }}
-            type="button"
-          >
-            Wyczyść punkty
-          </button>
+          {controlled && onPinsChange === undefined ? null : (
+            <button
+              className="secondaryButton"
+              onClick={() => {
+                if (controlled) onPinsChange?.([]);
+                else setPinnedPoints([]);
+                setPinLimitReached(false);
+                svgRef.current?.focus();
+              }}
+              type="button"
+            >
+              Wyczyść punkty
+            </button>
+          )}
         </div>
       ) : null}
     </section>

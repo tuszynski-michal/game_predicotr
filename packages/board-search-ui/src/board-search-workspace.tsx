@@ -7,6 +7,7 @@ import type {
   BoardSearchResponse,
   BoardSearchScope,
   SymbolResponse,
+  SearchGameBoardsOptions,
 } from '@game-predictor/admin-api-client';
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
 
@@ -35,6 +36,15 @@ import {
   undoBoardSearchEdit,
 } from './board-search-editor-state';
 import { BoardSearchApproximateWin } from './board-search-approximate-win';
+import { BoardSearchBoardLinesModal } from './board-search-board-lines-modal';
+import { APPROXIMATE_WIN_RANGE_DEFAULT } from './board-search-approximate-win-state';
+import {
+  boardSearchDraftKey,
+  type BoardSearchDraft,
+  type BoardSearchSavedSelection,
+} from './board-search-saved-selection';
+import { BoardSearchSavedBoard } from './board-search-saved-board';
+import { formatApproximateWinAmount } from './board-search-stake';
 import {
   BOARD_SEARCH_UNKNOWN_SHORTCUT,
   resolveBoardSearchKeyboardCommand,
@@ -83,7 +93,7 @@ export type BoardSearchApproximateWinReplay = {
   readonly boardSequenceNumber: number | null;
 };
 
-interface BoardSearchWorkspaceProps {
+export interface BoardSearchWorkspaceProps {
   /** Must keep its identity between renders (the Admin memoises it). */
   readonly client: BoardSearchDataSource;
   readonly gameId: string;
@@ -96,32 +106,105 @@ interface BoardSearchWorkspaceProps {
    * remount of the section does not replay again.
    */
   readonly onReplayApplied?: (id: string) => void;
+  /** Stable machine/game/stake identity; change only for intentional navigation. */
+  readonly scopeKey?: string;
+  readonly fixedStakeGrosze?: number;
+  /** Initial selection; background updates never replace the mounted draft. */
+  readonly savedSelection?: BoardSearchSavedSelection | null;
+  readonly onDraftChange?: (draft: BoardSearchDraft) => void;
+  readonly onDirtyChange?: (dirty: boolean) => void;
+  /** Resolve only after a successful durable receipt; throw on failure. */
+  readonly onSave?: (draft: BoardSearchDraft) => Promise<void>;
 }
 
-export function BoardSearchWorkspace({
+export function BoardSearchWorkspace(props: BoardSearchWorkspaceProps) {
+  return (
+    <BoardSearchWorkspaceContent
+      key={`${props.gameId}:${props.scopeKey ?? props.savedSelection?.id ?? ''}`}
+      {...props}
+    />
+  );
+}
+
+function BoardSearchWorkspaceContent({
   client: api,
   gameId,
   headerActions,
   onReplayApplied,
   replay = null,
+  fixedStakeGrosze,
+  savedSelection = null,
+  onDraftChange,
+  onDirtyChange,
+  onSave,
 }: BoardSearchWorkspaceProps) {
+  const managed =
+    onSave !== undefined ||
+    savedSelection !== null ||
+    fixedStakeGrosze !== undefined;
+  const [query, setQuery] = useState<SearchGameBoardsOptions>(
+    savedSelection?.query ?? {
+      cells: [],
+      limit: BOARD_SEARCH_LIMIT_DEFAULT,
+      scope: 'all_searchable',
+    },
+  );
+  const [searchContextId, setSearchContextId] = useState<string | null>(
+    savedSelection?.searchContextId ?? null,
+  );
+  const [savedSequence, setSavedSequence] = useState<number | null>(
+    savedSelection?.startSequenceNumber ?? null,
+  );
+  const [spinCount, setSpinCount] = useState(
+    savedSelection?.spinCount ?? APPROXIMATE_WIN_RANGE_DEFAULT,
+  );
+  const [pins, setPins] = useState<readonly number[]>(
+    savedSelection?.pinnedSpinPositions ?? [],
+  );
+  const [savedBoardOpen, setSavedBoardOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const saveInFlight = useRef(false);
+  const mounted = useRef(true);
+  const hostCallbacks = useRef({ onDraftChange, onDirtyChange });
+  useEffect(() => {
+    hostCallbacks.current = { onDraftChange, onDirtyChange };
+  });
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [baseline, setBaseline] = useState<string | null>(
+    savedSelection === null ? null : boardSearchDraftKey(savedSelection),
+  );
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
   const [symbolsState, setSymbolsState] = useState<LoadState>('loading');
   const [symbolsError, setSymbolsError] = useState('');
-  const [editor, setEditor] = useState(createBoardSearchEditorState);
+  const [editor, setEditor] = useState(() =>
+    savedSelection === null
+      ? createBoardSearchEditorState()
+      : boardSearchEditorFromPattern(
+          savedSelection.query.cells,
+          new Set(
+            savedSelection.query.cells.flatMap((cell) =>
+              cell.symbolCode === null ? [] : [cell.symbolCode],
+            ),
+          ),
+        ).state,
+  );
   const [entryOrder, setEntryOrder] =
     useState<BoardSearchEntryOrder>('columns');
   const [searchState, setSearchState] = useState<SearchState>({ kind: 'idle' });
   const [resultsState, setResultsState] =
     useState<BoardSearchResultsState | null>(null);
-  const [limit, setLimit] = useState(BOARD_SEARCH_LIMIT_DEFAULT);
+  const [limit, setLimit] = useState(
+    savedSelection?.query.limit ?? BOARD_SEARCH_LIMIT_DEFAULT,
+  );
   const [limitInput, setLimitInput] = useState(
-    String(BOARD_SEARCH_LIMIT_DEFAULT),
+    String(savedSelection?.query.limit ?? BOARD_SEARCH_LIMIT_DEFAULT),
   );
   const [limitError, setLimitError] = useState<string | null>(null);
   // Identity of the last searched pattern; the approximate win keeps its
   // stake per pattern (D-476).
-  const [searchKey, setSearchKey] = useState('');
+  const [searchKey, setSearchKey] = useState(
+    savedSelection === null ? '' : `saved:${savedSelection.id}`,
+  );
   const symbolsRequestId = useRef(0);
   const searchRequestId = useRef(0);
   const composerRef = useRef<HTMLDivElement>(null);
@@ -130,6 +213,90 @@ export function BoardSearchWorkspace({
   const [replayNotices, setReplayNotices] = useState<readonly string[]>([]);
   const [approximateReplay, setApproximateReplay] =
     useState<BoardSearchApproximateWinReplay | null>(null);
+
+  const draft: BoardSearchDraft = {
+    query:
+      searchContextId === null
+        ? { ...query, cells: patternBoardSearchCells(editor), limit }
+        : query,
+    searchContextId,
+    startSequenceNumber:
+      savedSequence ??
+      (resultsState === null
+        ? null
+        : (activeBoardSearchResult(resultsState)?.sequenceNumber ?? null)),
+    spinCount,
+    pinnedSpinPositions: pins,
+  };
+  const draftKey = boardSearchDraftKey(draft);
+  const dirty =
+    managed &&
+    (baseline === null
+      ? draft.query.cells.length > 0 ||
+        draft.startSequenceNumber !== null ||
+        pins.length > 0 ||
+        spinCount !== APPROXIMATE_WIN_RANGE_DEFAULT ||
+        limit !== BOARD_SEARCH_LIMIT_DEFAULT
+      : baseline !== draftKey);
+  useEffect(() => {
+    if (managed) hostCallbacks.current.onDraftChange?.(draft);
+  }, [draftKey, managed]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    hostCallbacks.current.onDirtyChange?.(dirty);
+  }, [dirty]);
+  useEffect(() => {
+    const prevent = (event: BeforeUnloadEvent) => {
+      if (dirty) {
+        event.preventDefault();
+        event.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', prevent);
+    return () => window.removeEventListener('beforeunload', prevent);
+  }, [dirty]);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  async function saveDraft() {
+    if (
+      onSave === undefined ||
+      saveInFlight.current ||
+      draft.startSequenceNumber === null ||
+      draft.searchContextId === null
+    )
+      return;
+    saveInFlight.current = true;
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await onSave(draft);
+      if (mounted.current) setBaseline(draftKey);
+    } catch (error) {
+      if (mounted.current)
+        setSaveError(
+          apiErrorMessage(
+            error,
+            'Nie udało się zapisać układu. Zachowano niezapisane zmiany. Spróbuj ponownie.',
+          ),
+        );
+    } finally {
+      saveInFlight.current = false;
+      if (mounted.current) setSaving(false);
+    }
+  }
+
+  function invalidateDraft() {
+    searchRequestId.current += 1;
+    if (managed) {
+      setSearchContextId(null);
+      setSavedSequence(null);
+      setQuery({ cells: [], limit, scope: 'all_searchable' });
+    }
+  }
 
   const selectedCells = selectedBoardSearchCells(editor);
   const patternCellCount = boardSearchPatternCellCount(editor);
@@ -197,6 +364,7 @@ export function BoardSearchWorkspace({
   }
 
   function placeSymbol(symbolCode: string) {
+    invalidateDraft();
     setEditor((current) =>
       placeBoardSearchSymbol(current, symbolCode, entryOrder),
     );
@@ -205,6 +373,7 @@ export function BoardSearchWorkspace({
   }
 
   function placeUnknown() {
+    invalidateDraft();
     setEditor((current) => placeBoardSearchUnknown(current, entryOrder));
     setSearchState({ kind: 'idle' });
     setResultsState(null);
@@ -218,12 +387,14 @@ export function BoardSearchWorkspace({
   }
 
   function undo() {
+    invalidateDraft();
     setEditor((current) => undoBoardSearchEdit(current));
     setSearchState({ kind: 'idle' });
     setResultsState(null);
   }
 
   function reset() {
+    invalidateDraft();
     setEditor((current) => resetBoardSearchEditor(current));
     setSearchState({ kind: 'idle' });
     setResultsState(null);
@@ -279,7 +450,16 @@ export function BoardSearchWorkspace({
           return;
         }
         setSearchState({ kind: 'ready', result: data });
-        setSearchKey(patternKey);
+        if (managed) {
+          setQuery({
+            cells: patternCells,
+            limit: effectiveLimit,
+            scope: 'all_searchable',
+          });
+          setSearchContextId(result.searchContextId ?? null);
+          if (!preserveSelection) setSavedSequence(null);
+        }
+        setSearchKey(managed ? `${patternKey}:${requestId}` : patternKey);
         if (options.onResults !== undefined) {
           const fresh = createBoardSearchResultsState(data.results);
           setResultsState(fresh);
@@ -314,6 +494,12 @@ export function BoardSearchWorkspace({
     setLimitInput(String(parsed.value));
     const changed = parsed.value !== limit;
     setLimit(parsed.value);
+    if (managed && changed) {
+      invalidateDraft();
+      setResultsState(null);
+      setSearchState({ kind: 'idle' });
+      return;
+    }
     if (
       changed &&
       resultsState !== null &&
@@ -463,6 +649,32 @@ export function BoardSearchWorkspace({
           <div className="boardSearchHeaderActions">{headerActions}</div>
         ) : null}
       </header>
+      {onSave !== undefined ? (
+        <div className="boardSearchActions">
+          <button
+            className="primaryButton"
+            type="button"
+            disabled={
+              saving ||
+              !dirty ||
+              draft.startSequenceNumber === null ||
+              draft.searchContextId === null ||
+              searchState.kind === 'loading'
+            }
+            onClick={() => void saveDraft()}
+          >
+            {saving ? 'Zapisywanie…' : 'Zapisz układ'}
+          </button>
+          <span role="status">
+            {dirty ? 'Niezapisane zmiany układu' : 'Układ zapisany'}
+          </span>
+        </div>
+      ) : null}
+      {saveError === null ? null : (
+        <p role="alert" className="feedbackBanner feedbackBannerError">
+          {saveError}
+        </p>
+      )}
 
       <div className="boardSearchResultLimit">
         <label>
@@ -700,21 +912,93 @@ export function BoardSearchWorkspace({
             client={api}
             gameId={gameId}
             onBoardEdited={() => runSearch({ preserveSelection: true })}
-            onStateChange={setResultsState}
+            onStateChange={(state) => {
+              setSavedSequence(null);
+              setResultsState(state);
+            }}
             state={resultsState}
             symbols={symbols}
+            fixedStakeGrosze={fixedStakeGrosze}
+            correctionContext={
+              managed && draft.startSequenceNumber !== null
+                ? {
+                    startSequenceNumber: draft.startSequenceNumber,
+                    spinCount,
+                    stakeGrosze: fixedStakeGrosze,
+                  }
+                : undefined
+            }
           />
+          {!managed ? (
+            <BoardSearchApproximateWin
+              client={api}
+              gameId={gameId}
+              searchKey={searchKey}
+              onReplayNotice={(notice) =>
+                setReplayNotices((current) => [...current, notice])
+              }
+              replay={approximateReplay}
+              selectedResult={activeBoardSearchResult(resultsState)}
+              symbols={symbols}
+            />
+          ) : null}
+        </>
+      ) : null}
+      {managed && draft.startSequenceNumber !== null ? (
+        <>
+          {savedSequence === null ? null : (
+            <BoardSearchSavedBoard
+              key={`${savedSequence}:${searchKey}`}
+              client={api}
+              gameId={gameId}
+              sequenceNumber={savedSequence}
+              onOpen={() => setSavedBoardOpen(true)}
+            />
+          )}
           <BoardSearchApproximateWin
             client={api}
             gameId={gameId}
             searchKey={searchKey}
-            onReplayNotice={(notice) =>
-              setReplayNotices((current) => [...current, notice])
+            selectedResult={
+              resultsState === null
+                ? null
+                : activeBoardSearchResult(resultsState)
             }
-            replay={approximateReplay}
-            selectedResult={activeBoardSearchResult(resultsState)}
+            selectedSequenceNumber={draft.startSequenceNumber}
+            fixedStakeGrosze={fixedStakeGrosze}
+            spinCount={spinCount}
+            onSpinCountChange={setSpinCount}
+            pinnedSpinPositions={pins}
+            onPinsChange={setPins}
             symbols={symbols}
           />
+          {savedBoardOpen ? (
+            <BoardSearchBoardLinesModal
+              api={api}
+              gameId={gameId}
+              sequenceNumber={draft.startSequenceNumber}
+              symbols={symbols}
+              row={null}
+              rulesVersionId={null}
+              correctionContext={{
+                startSequenceNumber: draft.startSequenceNumber,
+                spinCount,
+                stakeGrosze: fixedStakeGrosze,
+              }}
+              fixedStakeGrosze={fixedStakeGrosze}
+              formatAmount={(credits) =>
+                formatApproximateWinAmount(credits * 10, 'pln')
+              }
+              onClose={(edited) => {
+                setSavedBoardOpen(false);
+                if (edited) setSearchKey((key) => `${key}:edited`);
+              }}
+              onRecalculate={() => {
+                setSavedBoardOpen(false);
+                setSearchKey((key) => `${key}:refresh`);
+              }}
+            />
+          ) : null}
         </>
       ) : null}
     </section>

@@ -1,10 +1,30 @@
 ---
 title: Management panel requirements
 status: accepted
-last_updated: 2026-10-07
+last_updated: 2026-10-08
 ---
 
 # Management panel — D-533
+
+## Accepted compact redesign — D-536
+
+The [compact execution plan](../delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
+supersedes structural retention and UI rules below where indicated.
+TASK-0940–0943 implement hierarchical point → machine → game/stake navigation
+with Home/back, maximum320px clickable tiles, sibling edit/delete icons and
+atomic modal machine name/game assignments. Six compact stakes restore the
+saved start/query/range/pins. New/reset is draft-only until explicit replacement.
+Quick rows use the shared chart's investment/net/machine-cash semantics;
+chart, full table and journal are collapsed, with spin/PLN axes when expanded.
+
+Local owner and valid whole-panel recipients may hard-delete a point, machine
+or detached machine/game after a scoped expiring preview and confirmation.
+This deletes management saves, contexts and journal, including correction
+audit entries; actual global corrections and game-owned data remain.
+Only a minimal retryable delete receipt persists. Former scoped responses are
+redacted and cannot recreate entities. Independent session audit remains.
+No archive/hide controls; historical archived API fields stay compatible.
+Production migration/deletion requires separate operator confirmation.
 
 User accepted the complete
 [execution plan](../delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md), which owns
@@ -15,8 +35,8 @@ task breakdown and rollout gates. This module is named **Panel Administracyjny**
 Points have editable name/city/street and compact tiles. Machines have editable
 names and belong to a point. Machine game assignments are editable and drawn
 only from current `active` catalog games. Draft/archived games cannot receive
-new operations. Detach/archive retains saves/history; restore/reattach restores
-access. Names are display values, not identifiers. No hard deletion UI.
+new operations. Historical archive fields remain compatible; structural
+delete/detach follows D-536. Names are display values, not identifiers.
 
 ## Saved machine/game/stake view
 
@@ -42,7 +62,8 @@ immutable; editing a historic entry's board explicitly edits current data.
 Persistent journal below chart/table records time/actor/query/start sequence,
 search including no hits, save/replace/clear, saved range/pins, corrections with
 before/after, result changes and structural management edits. Page size20 by
-default. No journal deletion. Local actor versus named share link suffices; user
+default. Structural scope deletion follows D-536; ordinary slot Clear retains
+journal. Local actor versus named share link suffices; user
 and one recipient, no accounts. Operation UUID plus body binding and expected
 revision prevent lost-response duplicates or silent concurrent overwrite.
 

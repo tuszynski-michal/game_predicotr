@@ -6,6 +6,32 @@ last_updated: 2026-10-08
 
 # Current State
 
+### Minimalistyczny Panel Administracyjny — D-536, TASK-0940–0943 (execution authorized)
+
+- Operator accepted and started the whole plan on 2026-10-08, including the
+  disclosed 3–6 hours of work excluding manual audit waits; no reliable token
+  estimate was available. Do not ask again for the same approved cost/scope.
+- Source of truth: `ai_docs/delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md`,
+  active task files 0940–0943, and D-536. Both operator-supplied plan audits
+  are preserved under `ai_docs/quality/ADMIN_COMPACT_PANEL_PLAN_AUDIT_ROUND_*.md`.
+- Worktree: `C:\Users\tuszy\.codex\worktrees\admin-compact-panel\game_predicotr`;
+  branch `codex/admin-compact-panel`; committed starting tip
+  `3bc6c64bcf8a5f07baf48df4800949097ffed19a` (`v1.7.271`).
+  Main checkout user changes are excluded. Task IDs 0940–0943 and D-536
+  are reserved for this independent track; recheck identifiers/tip at integration.
+- Mumie TASK-0933–0936 do not block panel start. Proposed unique migration
+  `0152_management_compact_panel` follows0151; second integrator owns the merge
+  migration/single-head check. Check main/shared components before TASK-0942.
+- Current handoff: plan/task materialization; implementation TASK-0940 next.
+  Read active task and matching plan sections before code; each task closes
+  with tests, manual cross-family audit, one commit, Outcome and state update
+  before advancing. CLI Claude unavailable locally; operator approved manual
+  `claude-fable-5-1 / high` (0940/0942) and
+  `claude-opus-5-5 / medium` (0941/0943).
+- No production DB mutation, push, merge, deployment or API/Admin lifecycle
+  authorized. Use disposable test DB; deletion implementation is not permission
+  to delete operator data. Next commit version must be checked against git log.
+
 ### TASK-0932 — ewaluator `payout-v4-wild-count` (done)
 
 - `services/worker/.../domain/payout.py`: symbole z rolą uruchamiającą poza

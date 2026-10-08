@@ -6,6 +6,23 @@ last_updated: 2026-10-08
 
 # Management panel — D-533
 
+## Compact redesign override — D-536
+
+The [compact execution plan](../delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
+owns TASK-0940–0943 and supersedes archive-only structural retention.
+Preview-bound POST delete/update mutations use both local/public prefixes.
+Restricted SECURITY DEFINER purge uses fixed search_path and explicit grants;
+SECURITY INVOKER immutable triggers require effective owner identity and
+transaction-local maintenance mode. GUC alone cannot bypass immutability,
+and independent session audit remains protected. Minimal pure-delete receipts
+stay retryable; former scoped responses are redacted. Read-only migration
+preview precedes owner-run receipt backfill. Unique migration after0151
+remains independent of Mumie; second integrator reconciles the two heads.
+Shared UI gains small tiles, atomic modals and optional compact search ports,
+preserving ordinary search/share defaults. Cached nullable pin investment/cash
+uses frozen results and bounded read-only legacy fallback, never another
+calculator. No production migration/deletion or API/Admin lifecycle authorized.
+
 See [requirements](../requirements/MANAGEMENT_PANEL.md) and
 [accepted execution plan](../delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md).
 
@@ -17,7 +34,8 @@ additive Alembic migrations, preserved history and no image blobs. Existing game
 registry/routing remains authoritative for eligibility/read/write availability.
 Mutations validate ancestry and live eligibility under transactional locks.
 Save, clear, refresh and current game operations require active attachment.
-Archived/detached saved history remains readable without current game operations.
+Archived saved history remains readable without current game operations.
+Explicit structural delete/detach removes its scoped history under D-536.
 
 Immutable compact result versions include numeric payout rows, start symbols,
 published rules and data fingerprint; identical semantic results are shared.
@@ -58,7 +76,8 @@ PC/API/DB availability is required for online search and writes. Agents never
 start/stop/restart API/Admin absent a separate current instruction. Migration and
 live rollout are handed to the user; isolated DB/test-process restart verifies
 persistence without lifecycle changes to user services. Saved history has no GC
-or destructive downgrade after user records exist. Expiry preserves history.
+or destructive downgrade after user records exist. Explicit D-536 scope purge
+is the sole structural retention exception. Expiry preserves history.
 Future server deployment is separate and must explicitly place backend/data;
 front-end hosting alone does not create offline-computer availability.
 
@@ -199,7 +218,8 @@ its navigation, corrections, saved-selection ports and rendering.
 Fresh application-role PostgreSQL processes verify retained saves/history and
 capability denial independently of the original application session. Existing
 archived-game deletion preflight discovers management RESTRICT references and
-rejects before its destructive lifecycle. No new deletion mechanism is added.
+rejects before its destructive lifecycle. The original implementation had no
+deletion mechanism; D-536 adds separately confirmed structural scope purge.
 
 `npm run reviewer:management:browser` prepares a finite static fixture and runs
 installed Chrome/Edge with its own headless profile. Actual shared React/CSS,

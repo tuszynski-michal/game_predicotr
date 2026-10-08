@@ -74,6 +74,10 @@ implementacyjnym.
 
 ### Dostarczanie
 
+- [Minimalistyczny Panel Administracyjny](delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
+  — accepted and execution authorized (D-536), TASK-0940–0943; independent worktree,
+  manual Claude review before each task commit.
+
 - [Management panel execution plan](delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md)
   — accepted T1–T7, TASK-0921–0927.
 - [Mumie: Wild, supergra i audyt krzyżowy](delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md)

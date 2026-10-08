@@ -1,7 +1,6 @@
 'use client';
 
 import type {
-  AdminApiClient,
   ManagementPointResponse,
   ManagementMachineResponse,
   ManagementSnapshotResponse,
@@ -21,20 +20,27 @@ import {
   type ManagementOperation,
 } from './management-operation';
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
+import { confirmBoardSearchDiscardDraft } from '@game-predictor/board-search-ui';
+import {
+  type ManagementGameClient,
+  type ManagementStructureClient,
+  managementSessionStorage,
+} from './management-client';
+import { ManagementGameWorkspace } from './management-game-workspace';
+import {
+  managementSlotWritesAllowed,
+  managementSlotsAvailable,
+} from './management-data-source';
+import { readManagementSlotOperation } from './management-slot-operation';
 
-export type ManagementClient = Pick<
-  AdminApiClient,
-  | 'getManagementSnapshot'
-  | 'createManagementPoint'
-  | 'updateManagementPoint'
-  | 'createManagementMachine'
-  | 'updateManagementMachine'
-  | 'updateManagementAssignments'
->;
+export type ManagementClient = ManagementStructureClient &
+  Partial<ManagementGameClient>;
 
 interface Props {
   apiBaseUrl: string;
   client?: ManagementClient;
+  storageNamespace?: string;
+  onDirtyChange?: (dirty: boolean) => void;
 }
 type Editor =
   | { kind: 'point'; point?: ManagementPointResponse }
@@ -45,7 +51,12 @@ type Editor =
     }
   | null;
 
-export function ManagementWorkspace({ apiBaseUrl, client }: Props) {
+export function ManagementWorkspace({
+  apiBaseUrl,
+  client,
+  storageNamespace = 'local-owner',
+  onDirtyChange,
+}: Props) {
   const api = useMemo(
     () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl, client],
@@ -59,6 +70,18 @@ export function ManagementWorkspace({ apiBaseUrl, client }: Props) {
   const busyRef = useRef(false);
   const loadGeneration = useRef(0);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [machineId, setMachineId] = useState<string | null>(null);
+  const [gameId, setGameId] = useState<string | null>(null);
+  const draftDirty = useRef(false);
+  const changeDirty = useCallback(
+    (dirty: boolean) => {
+      draftDirty.current = dirty;
+      onDirtyChange?.(dirty);
+    },
+    [onDirtyChange],
+  );
+  const navigationAllowed = () =>
+    confirmBoardSearchDiscardDraft(draftDirty.current);
   const [editor, setEditor] = useState<Editor>(null);
   const [name, setName] = useState('');
   const [city, setCity] = useState('');
@@ -109,6 +132,46 @@ export function ManagementWorkspace({ apiBaseUrl, client }: Props) {
       );
     }
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    void Promise.resolve().then(() => {
+      if (!active) return;
+      const storage = managementSessionStorage();
+      try {
+        const pendingSlot = readManagementSlotOperation(
+          storage,
+          storageNamespace,
+        );
+        const raw: unknown = JSON.parse(
+          storage?.getItem(
+            `game-predictor:management:selection:${storageNamespace}`,
+          ) ?? 'null',
+        );
+        if (pendingSlot) {
+          setMachineId(pendingSlot.machineId);
+          setGameId(pendingSlot.gameId);
+        } else if (
+          raw &&
+          typeof raw === 'object' &&
+          'machineId' in raw &&
+          typeof raw.machineId === 'string' &&
+          'gameId' in raw &&
+          typeof raw.gameId === 'string'
+        ) {
+          setMachineId(raw.machineId);
+          setGameId(raw.gameId);
+        }
+      } catch (cause) {
+        setError(
+          cause instanceof Error ? cause.message : 'Błąd odzyskiwania wyboru.',
+        );
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, [storageNamespace]);
 
   const run = async (operation: ManagementOperation) => {
     if (busyRef.current) return;
@@ -203,6 +266,7 @@ export function ManagementWorkspace({ apiBaseUrl, client }: Props) {
     }
   };
   const archivePoint = (point: ManagementPointResponse) => {
+    if (!navigationAllowed()) return;
     if (
       !point.archived &&
       !window.confirm(
@@ -224,6 +288,7 @@ export function ManagementWorkspace({ apiBaseUrl, client }: Props) {
     point: ManagementPointResponse,
     machine: ManagementMachineResponse,
   ) => {
+    if (!navigationAllowed()) return;
     if (
       !machine.archived &&
       !window.confirm(
@@ -249,6 +314,7 @@ export function ManagementWorkspace({ apiBaseUrl, client }: Props) {
     gameId: string,
     attach: boolean,
   ) => {
+    if (!navigationAllowed()) return;
     const retained = machine.assignments
       .filter((row) => row.attached && row.gameId !== gameId)
       .map((row) => row.gameId);
@@ -260,7 +326,28 @@ export function ManagementWorkspace({ apiBaseUrl, client }: Props) {
     void run({ kind: 'assignments', machineId: machine.id, body });
   };
   const disabled = busy || retryAvailable;
-  const selected = snapshot?.points.find((point) => point.id === selectedId);
+  const selected =
+    snapshot?.points.find((point) => point.id === selectedId) ??
+    snapshot?.points.find((point) =>
+      point.machines.some((machine) => machine.id === machineId),
+    );
+  const machine = selected?.machines.find((row) => row.id === machineId);
+  const assignment = machine?.assignments.find((row) => row.gameId === gameId);
+  const chooseGame = (nextMachine: string, nextGame: string | null) => {
+    if (nextMachine === machineId && nextGame === gameId) return;
+    if (!navigationAllowed()) return;
+    changeDirty(false);
+    setMachineId(nextMachine);
+    setGameId(nextGame);
+    try {
+      managementSessionStorage()?.setItem(
+        `game-predictor:management:selection:${storageNamespace}`,
+        JSON.stringify({ machineId: nextMachine, gameId: nextGame }),
+      );
+    } catch {
+      /* Selection preference is optional; mutation receipts are stored separately. */
+    }
+  };
   return (
     <section className="catalog-panel" aria-label="Panel Administracyjny">
       <h2>Panel Administracyjny</h2>
@@ -306,7 +393,13 @@ export function ManagementWorkspace({ apiBaseUrl, client }: Props) {
             <article className="management-tile" key={point.id}>
               <button
                 aria-pressed={selectedId === point.id}
-                onClick={() => setSelectedId(point.id)}
+                onClick={() => {
+                  if (!navigationAllowed()) return;
+                  changeDirty(false);
+                  setSelectedId(point.id);
+                  setMachineId(null);
+                  setGameId(null);
+                }}
               >
                 <strong>{point.name}</strong>
                 <span>
@@ -354,6 +447,20 @@ export function ManagementWorkspace({ apiBaseUrl, client }: Props) {
                     {machine.name}
                     {machine.archived ? ' · Archiwalna' : ''}
                   </h4>
+                  <button
+                    onClick={() =>
+                      chooseGame(
+                        machine.id,
+                        machine.assignments.find(
+                          (row) => row.attached && row.gameStatus === 'active',
+                        )?.gameId ??
+                          machine.assignments[0]?.gameId ??
+                          null,
+                      )
+                    }
+                  >
+                    Otwórz gry maszyny {machine.name}
+                  </button>
                   <div className="management-actions">
                     <button
                       disabled={disabled || selected.archived}
@@ -422,6 +529,51 @@ export function ManagementWorkspace({ apiBaseUrl, client }: Props) {
                 </article>
               ))}
           </div>
+        </section>
+      ) : null}
+      {machine ? (
+        <section aria-label={`Gry maszyny: ${machine.name}`}>
+          <h3>{machine.name} — gry i zapisane stawki</h3>
+          <label>
+            Gra
+            <select
+              aria-label="Gra maszyny"
+              value={gameId ?? ''}
+              onChange={(event) => chooseGame(machine.id, event.target.value)}
+            >
+              <option value="" disabled>
+                Wybierz grę
+              </option>
+              {machine.assignments.map((row) => (
+                <option key={row.gameId} value={row.gameId}>
+                  {row.gameName}
+                  {!row.attached
+                    ? ' · Odłączona'
+                    : row.gameStatus !== 'active'
+                      ? ' · Archiwalna'
+                      : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!machine.assignments.length ? (
+            <p>Przypisz grę do maszyny, aby zapisać układ.</p>
+          ) : null}
+          {assignment && selected && managementSlotsAvailable(api) ? (
+            <ManagementGameWorkspace
+              key={`${machine.id}:${assignment.gameId}`}
+              api={api as ManagementGameClient}
+              machineId={machine.id}
+              gameId={assignment.gameId}
+              writeAllowed={managementSlotWritesAllowed(
+                selected.archived,
+                machine.archived,
+                assignment,
+              )}
+              storageNamespace={storageNamespace}
+              onDirtyChange={changeDirty}
+            />
+          ) : null}
         </section>
       ) : null}
       {editor ? (

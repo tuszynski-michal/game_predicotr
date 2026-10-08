@@ -5,6 +5,7 @@ import type {
   ImageSelectionHandoffResponse,
 } from '@game-predictor/admin-api-client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { confirmBoardSearchDiscardDraft } from '@game-predictor/board-search-ui';
 
 import { createConfiguredAdminApiClient } from '@/api/admin-api-client';
 
@@ -27,6 +28,7 @@ import { BoardSearchWorkspace } from '@/features/board-search/board-search-works
 import { BoardSourceCleanupControl } from '@/features/cleanup/board-source-cleanup-control';
 import { CleanupControl } from '@/features/cleanup/cleanup-control';
 import { ManagementWorkspace } from '@/features/management/management-workspace';
+import type { ManagementClient } from '@/features/management/management-workspace';
 import { GameCatalog } from '@/features/games/game-catalog';
 import { ImageFolderImportPanel } from '@/features/imports/image-folder-import-panel';
 import { ImageSelectionWorkspace } from '@/features/image-selection/image-selection-workspace';
@@ -45,6 +47,7 @@ import { UnreadableBoardReviewWorkspace } from '@/features/unreadable-board-revi
 
 interface CatalogWorkspaceProps {
   readonly apiBaseUrl: string;
+  readonly managementClient?: ManagementClient;
 }
 
 const WORKSPACE_OPTIONS: readonly {
@@ -139,7 +142,10 @@ const GAME_SECTION_OPTIONS: readonly {
   },
 ];
 
-export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
+export function CatalogWorkspace({
+  apiBaseUrl,
+  managementClient,
+}: CatalogWorkspaceProps) {
   const api = useMemo(
     () => createConfiguredAdminApiClient(apiBaseUrl),
     [apiBaseUrl],
@@ -152,6 +158,10 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
   const [imageSelectionHandoff, setImageSelectionHandoff] =
     useState<ImageSelectionHandoffResponse | null>(null);
   const navigationRef = useRef(navigation);
+  const managementDirty = useRef(false);
+  const managementDirtyChanged = useCallback((dirty: boolean) => {
+    managementDirty.current = dirty;
+  }, []);
   const [replayEventId, setReplayEventId] = useState<string | null>(null);
   const [boardSearchReplay, setBoardSearchReplay] =
     useState<BoardSearchReplayHandoff | null>(null);
@@ -165,7 +175,24 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
 
   useEffect(() => {
     const restoreFromUrl = () => {
-      setNavigation(parseAdminNavigation(window.location.search));
+      const next = parseAdminNavigation(window.location.search);
+      if (
+        navigationRef.current.workspace === 'management' &&
+        next.workspace !== 'management' &&
+        !confirmBoardSearchDiscardDraft(managementDirty.current)
+      ) {
+        const search = serializeAdminNavigation(
+          window.location.search,
+          navigationRef.current,
+        );
+        window.history.replaceState(
+          null,
+          '',
+          `${window.location.pathname}${search}${window.location.hash}`,
+        );
+        return;
+      }
+      setNavigation(next);
       setReplayEventId(readBoardSearchReplayParameter(window.location.search));
     };
     restoreFromUrl();
@@ -175,6 +202,12 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
 
   const commitNavigation = useCallback(
     (next: AdminNavigationState, mode: 'push' | 'replace' = 'push') => {
+      if (
+        navigationRef.current.workspace === 'management' &&
+        next.workspace !== 'management' &&
+        !confirmBoardSearchDiscardDraft(managementDirty.current)
+      )
+        return;
       setNavigation(next);
       const search = serializeAdminNavigation(window.location.search, next);
       const url = `${window.location.pathname}${search}${window.location.hash}`;
@@ -231,6 +264,11 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
           section: 'board-search' as const,
           workspace: 'games' as const,
         };
+        if (
+          navigationRef.current.workspace === 'management' &&
+          !confirmBoardSearchDiscardDraft(managementDirty.current)
+        )
+          return;
         setNavigation(next);
         const search = serializeAdminNavigation(url.search, next);
         window.history.replaceState(
@@ -526,7 +564,11 @@ export function CatalogWorkspace({ apiBaseUrl }: CatalogWorkspaceProps) {
         ) : null}
 
         {navigation.workspace === 'management' ? (
-          <ManagementWorkspace apiBaseUrl={apiBaseUrl} />
+          <ManagementWorkspace
+            apiBaseUrl={apiBaseUrl}
+            client={managementClient}
+            onDirtyChange={managementDirtyChanged}
+          />
         ) : null}
         {navigation.workspace === 'releases' ? (
           <ReleasePanel

@@ -155,3 +155,10 @@ Commands run from repository root unless a package directory is stated.
 ### Recommended next task
 
 T4 / TASK-0924 after independent audit and a separate T3 commit.
+
+Completion commit: v1.7.255 / 85a8914dc2195e986f4c807c4a0cb468e9f312de.
+
+Pre-task startup schema readiness was separately fixed in v1.7.254 /
+3cb140dd874ffd6378c009aa1152a9001fed6b48 (12 focused tests PASS; no service
+lifecycle or production migration). This change preceded T3 and is retained
+as entry-condition evidence.

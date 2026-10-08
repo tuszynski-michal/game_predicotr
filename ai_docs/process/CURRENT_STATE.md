@@ -6,6 +6,26 @@ last_updated: 2026-10-07
 
 # Current State
 
+### TASK-0924 — Stake overview and retained history (done)
+
+- Selected machine/game loads six compact cards, saved board/pins/date and
+  at most two cancellable current refreshes. Full immutable chart/rows load only
+  on Open/history; rows paginate50 and journal defaults20. No eager point charts.
+- Search draft reuses T3, explicit host Save and confirmed slot-only Clear.
+  Per-tab recovery keeps exact UUID/body/CAS through response loss and reload.
+  Conflicts retain the draft; acknowledged retry advances only its own revision.
+- Cards and visible saved result share scope/revision gates. Late refresh cannot
+  undo Save/Clear; old lost-response receipts retain newer data and mark stale
+  with recheck instruction. Capability changes preserve dirty draft read-only.
+- Frozen history preserves prior numeric values; current editor uses fresh
+  fixed-stake rules and explicitly labels global current-data corrections.
+  Internal and outer tab/popstate navigation guards preserve cancelled drafts.
+- Focused interactions19 plus existing management4 PASS, direct Admin types and
+  scoped lint/format PASS; final broader evidence is in completed task Outcome.
+  Independent sol/high review PASS, no unresolved P0–P2.
+- Commit receipt follows branch history. Next T5 / TASK-0925.
+  No backend contract change, service lifecycle, production migration or build.
+
 ### TASK-0923 — Shared search with explicit Save (done)
 
 - Optional fixed stake, trusted saved start/query/range, controlled0–6 spin pins
@@ -18,7 +38,7 @@ last_updated: 2026-10-07
 - Focused managed interactions10 PASS; all shared interactions49 and unit77
   PASS. Scoped formatting/lint/shared and direct Admin/Reviewer types pass.
   Independent sol/high review PASS; no unresolved P0–P2.
-- Commit receipt follows actual branch history. Next T4 / TASK-0924.
+- Completion v1.7.255 /85a8914dc2195e986f4c807c4a0cb468e9f312de. Next T4 / TASK-0924.
   Sandbox SWC route typegen AccessDenied is recorded; no routes changed.
   No service lifecycle, production data writes or full build; builds remain T7.
 
@@ -64,7 +84,7 @@ last_updated: 2026-10-07
 - Explicit Save only; draft pins/browsing, confirmed slot-only Clear, immutable
   prior results and retained journal, current recalculation, UUID/revision guards.
   Whole-panel named recipient, local link administration,48/72h plus old shares.
-- Executors/reviewers follow accepted model table. T1–T3 committed; T4 is next.
+- Executors/reviewers follow accepted model table. T1–T4 committed; T5 is next.
 - Startup schema guard now requires `0149_management_stake_saves`, matching
   Alembic head after T2. Fix v1.7.254 / `3cb140dd874ffd6378c009aa1152a9001fed6b48`;
   schema-readiness tests 12/12 PASS. API was not started.

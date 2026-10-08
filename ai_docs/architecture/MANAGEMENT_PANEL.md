@@ -1,7 +1,7 @@
 ---
 title: Management panel architecture
 status: accepted
-last_updated: 2026-10-07
+last_updated: 2026-10-08
 ---
 
 # Management panel — D-533
@@ -124,3 +124,25 @@ optional mount key. Page-exit warnings and dirty callbacks cover outer navigatio
 Current symbol corrections remain immediate; recalculation refreshes values without
 changing the trusted start/context or controlled pins. Both board modals calculate
 fixed-stake amounts using the freshly loaded rules, including a changed spin cost.
+
+## T4 cards and history
+
+The local management hierarchy injects generated-client ports into its game view.
+Only the selected machine/game loads six bounded summaries. Two shared queue
+workers refresh nonempty slots with AbortSignal and expected revision checks.
+Cards and opened current-result identity use the same acceptance gate; historical
+result identity is never automatically replaced. Full numeric rows load on demand
+and paginate50. Journal pages default20 and use backend-owned action names.
+
+Exact pending search/save/clear/correction commands remain in per-tab session
+storage until a definitive response. A new command cannot replace an uncertain
+operation. Explicit recovery acknowledges only the matching editor revision and
+retains a subsequently modified draft. An older refresh receipt cannot revert a
+newer save; it marks the retained result stale with a recheck instruction.
+
+Machine/game identity remains stable when live eligibility changes, preserving
+the draft while current mutation controls are removed. Parent and outer Admin
+navigation, including popstate, require the draft discard guard. Current-data
+corrections refresh summaries/journal without remounting the draft. Historical
+chart/table/start symbols stay frozen; opening its editor clearly targets current
+game data and formats money using the current published spin cost.

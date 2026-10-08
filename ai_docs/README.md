@@ -140,6 +140,8 @@ implementacyjnym.
 
 ### Instrukcje operatorskie
 
+- [Management panel operations](process/MANAGEMENT_PANEL_OPERATIONS.md) —
+  rollout prerequisites, backups, local/recipient access and live acceptance gates.
 - [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
 - [Utrzymanie bazy danych](guides/DATABASE_MAINTENANCE.md) — raport

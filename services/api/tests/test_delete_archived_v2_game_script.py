@@ -76,3 +76,86 @@ def test_preview_digest_ignores_itself_and_tracks_content() -> None:
     digest = script.preview_digest(preview)
     assert script.preview_digest({**preview, "previewSha256": digest}) == digest
     assert script.preview_digest({**preview, "partitions": {"rows": 2}}) != digest
+
+
+def test_management_history_restrict_references_block_before_deletion(monkeypatch, capsys) -> None:
+    """The dynamic preflight covers retained management rows before any partition drop."""
+
+    class Result:
+        def __init__(self, value):
+            self.value = value
+
+        def all(self):
+            return self.value
+
+        def scalar_one(self):
+            return self.value
+
+    class ReadOnlySession:
+        def __init__(self, _engine):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            pass
+
+        def execute(self, statement, parameters):
+            sql = str(statement)
+            assert parameters.get("game_id", GAME_ID) == GAME_ID
+            if "FROM pg_constraint" in sql:
+                assert "fk.confdeltype <> 'c'" in sql
+                return Result(
+                    [
+                        ("management_assignments", "games", "assignment_game_fk", 1, "game_id"),
+                        ("management_result_versions", "games", "result_game_fk", 1, "game_id"),
+                        ("management_journal", "games", "journal_game_fk", 1, "game_id"),
+                    ]
+                )
+            assert sql.startswith('SELECT count(*) FROM public."management_')
+            return Result(1)
+
+    references = script._uncovered_references(ReadOnlySession(None), GAME_ID)
+    assert {reference["table"] for reference in references} == {
+        "management_assignments",
+        "management_result_versions",
+        "management_journal",
+    }
+    blockers = script.collect_blockers(
+        game_status="archived",
+        location=_location(),
+        active_job_count=0,
+        mobile_release_rows=0,
+        uncovered_references=references,
+    )
+    calls = []
+    monkeypatch.setattr(script, "Session", ReadOnlySession)
+    monkeypatch.setattr(script, "_engine", lambda **kwargs: calls.append(kwargs) or object())
+    monkeypatch.setattr(
+        script,
+        "build_preview",
+        lambda *_args: {
+            "blockers": blockers,
+            "confirmation": "confirmed",
+            "previewSha256": "digest",
+        },
+    )
+    monkeypatch.setattr(script, "_has_running_delete", lambda *_args: False)
+    monkeypatch.setattr(script, "execute_deletion", lambda *_args: calls.append("delete"))
+    assert (
+        script.main(
+            [
+                "--game-id",
+                str(GAME_ID),
+                "--execute",
+                "--confirmation",
+                "confirmed",
+                "--expected-preview-sha256",
+                "digest",
+            ]
+        )
+        == 1
+    )
+    assert calls == [{"read_only": True}]
+    assert "GAME_DELETION_BLOCKED" in capsys.readouterr().out

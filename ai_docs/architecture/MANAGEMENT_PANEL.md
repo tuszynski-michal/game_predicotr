@@ -193,3 +193,28 @@ stable session UUIDs remain part of the persisted actor/receipt identity.
 Existing Admin imports are retained through compatibility wrappers. The previous
 search/share workflow keeps its default behavior; focused regressions protect
 its navigation, corrections, saved-selection ports and rendering.
+
+## T7 acceptance and operations
+
+Fresh application-role PostgreSQL processes verify retained saves/history and
+capability denial independently of the original application session. Existing
+archived-game deletion preflight discovers management RESTRICT references and
+rejects before its destructive lifecycle. No new deletion mechanism is added.
+
+`npm run reviewer:management:browser` prepares a finite static fixture and runs
+installed Chrome/Edge with its own headless profile. Actual shared React/CSS,
+touch events and390px geometry protect the recipient hierarchy/search/save/open/
+clear workflow. Mock transport retains the generated public shape and originating
+session identity. This fixture does not start API/Admin/Reviewer/tunnel services
+or exercise production assets. The runner has bounded commands, a flow deadline
+and cleanup restricted to its own browser process.
+
+Management-specific controls use existing theme variables and44px targets; the
+shared board-search defaults remain unchanged. Final isolated source copies
+protect the operator's running application build directories during acceptance.
+
+See [the operator guide](../process/MANAGEMENT_PANEL_OPERATIONS.md) for the exact
+migration ancestry, verified binary backups, restricted application role,
+manual local/public startup, session recovery/revocation and availability limits.
+Physical devices, live ingress, a computer reboot and production-data timings
+remain explicit rollout gates. Automated fixtures do not imply those checks.

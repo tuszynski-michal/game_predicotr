@@ -468,6 +468,7 @@ test('phone-width public gate completes point/machine assignment, search, indepe
   });
   const root = await mount(adapter);
   assert.match(text(), /Podaj kod/);
+  assert.ok(document.querySelector('.management-access-gate'));
   await input(document.querySelector('input'), 'ABCD-EFGH');
   await submit(document.querySelector('form'));
   await until(() => button('Dodaj punkt'));
@@ -824,6 +825,10 @@ test('code errors and actor labels use actual backend values; common responsive 
   );
   assert.match(css, /overflow-wrap: anywhere/);
   assert.match(css, /min-height: 44px/);
+  assert.match(
+    css,
+    /\.management-access-gate input,\s*\.management-access-gate button\s*\{\s*min-height: 44px;/,
+  );
   assert.match(css, /@media \(max-width: 640px\)/);
   for (const path of [
     '../../admin/src/app/layout.tsx',

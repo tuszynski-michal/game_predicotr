@@ -26,6 +26,7 @@
     "admin:dev": "npm run dev --workspace @game-predictor/admin",
     "admin:start": "npm run start --workspace @game-predictor/admin",
     "reviewer:build": "npm run build --workspace @game-predictor/reviewer",
+    "reviewer:management:browser": ".venv\\Scripts\\python.exe scripts/prepare_management_browser_fixture.py && node scripts/verify_management_panel_browser.mjs",
     "reviewer:dev": "npm run dev --workspace @game-predictor/reviewer",
     "reviewer:start": "npm run start --workspace @game-predictor/reviewer",
     "reviewer:remote:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/setup_remote_reviewer_tunnel.ps1",

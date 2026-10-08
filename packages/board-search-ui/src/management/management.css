@@ -5,7 +5,8 @@
   margin: 16px 0;
 }
 .management-tile {
-  border: 1px solid var(--border, #d5dce5);
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
   border-radius: 12px;
   padding: 16px;
 }
@@ -46,7 +47,7 @@
   min-height: 34px;
   min-width: 0;
   overflow-wrap: anywhere;
-  border: 1px solid var(--border, #d5dce5);
+  border: 1px solid var(--line);
   border-radius: 4px;
   padding: 3px;
   font-size: 0.75rem;
@@ -54,11 +55,17 @@
 .management-mini-chart {
   display: block;
   width: 100%;
-  color: var(--accent, #4c75dd);
+  color: var(--accent);
 }
 .management-result {
   min-width: 0;
   margin-top: 20px;
+}
+.management-result .boardSearchApproximateWinTable th,
+.management-result .boardSearchApproximateWinTable td:nth-child(3),
+.management-result .boardSearchApproximateWinTable td:nth-child(4) {
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 .management-result pre,
 .management-journal pre {
@@ -73,7 +80,7 @@
   padding-left: 24px;
 }
 .management-journal li {
-  border-bottom: 1px solid var(--border, #d5dce5);
+  border-bottom: 1px solid var(--line);
   padding: 12px 0;
   overflow-wrap: anywhere;
 }
@@ -115,4 +122,56 @@
   margin: 0;
   padding: 0;
   min-width: 0;
+}
+.management-access-gate input,
+.management-access-gate button {
+  min-height: 44px;
+}
+:where(
+  .management-actions > button,
+  .management-tile > button,
+  .management-journal > button,
+  .management-result > button,
+  .management-result td > button,
+  .management-workspace > section > button,
+  .management-draft > button,
+  .management-workspace .feedbackBanner > button
+) {
+  min-height: 44px;
+  padding: 8px 15px;
+  border: 1px solid var(--line-strong);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.035);
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 750;
+}
+:where(
+    .management-actions > button,
+    .management-tile > button,
+    .management-journal > button,
+    .management-result > button,
+    .management-result td > button,
+    .management-workspace > section > button,
+    .management-draft > button,
+    .management-workspace .feedbackBanner > button
+  ):hover:not(:disabled) {
+  border-color: rgba(112, 225, 180, 0.36);
+  background: var(--accent-soft);
+}
+.management-workspace > form > label,
+.management-workspace > section > label {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+.management-workspace > form > label > input,
+.management-workspace > section > label > select {
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: var(--panel-soft);
+  color: var(--text);
 }

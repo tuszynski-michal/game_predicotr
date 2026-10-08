@@ -1,10 +1,30 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-07
+last_updated: 2026-10-08
 ---
 
 # Current State
+
+### TASK-0927 — Integrated acceptance and operator guide (done)
+
+- Final requirement/evidence matrix covers the accepted T1–T7 implementation.
+  Focused backend31 and broader94, isolated application-role PostgreSQL3 with
+  true child-process reads, shared49 interactions/77 units, local25 and public13
+  rendered tests, generated requests5, contract drift, scoped quality/types and
+  final isolated Admin/Reviewer builds pass. Independent astra/high PASS.
+- Real Chrome touch emulation at390px checks six complete flow stages without
+  horizontal overflow using actual shared React/CSS. Management controls use
+  existing theme variables and44px touch targets. This is mock-data browser
+  evidence, not physical Android or live-public acceptance.
+- Full Reviewer233/235 pass; two pre-existing source-contract failures reproduce
+  on baseline and remain outside scope. The five former loopback failures pass
+  with test-only permissions. No unresolved delivery P0–P2.
+- Durable browser runner and operator guide are committed. Additive migration
+  graph, binary backup, restricted role and manual service/link rollout are
+  explicit. Physical phone/live ingress/reboot and production timings remain
+  operator checks. No user services, production migration/data, deployment,
+  hosting, Redis, push or merge. Commit receipt follows actual branch history.
 
 ### TASK-0926 — Complete recipient panel (done)
 
@@ -20,7 +40,7 @@ last_updated: 2026-10-07
 - Focused rendered recipient and existing local/shared/Reviewer regressions,
   scoped format/lint/types and independent astra/high PASS are recorded in
   completed Outcome; no unresolved P0–P2. Next T7 integrated acceptance.
-- Commit receipt follows actual branch history. No live service lifecycle,
+- Completion v1.7.258 / ce64a194e4c7a806c59df25e90b2b174666321b4. No live service lifecycle,
   production migration/data operation, deployment or accounts.
 
 ### TASK-0925 — Panel sessions and48/72-hour links (done)
@@ -114,7 +134,7 @@ last_updated: 2026-10-07
 - Completion v1.7.252 / c708c6e63d8ee00c8a879b0beab4ed73a62fcd62.
   TASK-0928 concurrently consumed v1.7.251. Next TASK-0922 / T2, whole plan authorized.
 
-### TASK-0921–0927 — Management panel implementation (in progress)
+### TASK-0921–0927 — Management panel implementation (done)
 
 - User explicitly started the complete accepted T1–T7 plan on2026-10-07.
   D-533; delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md and dedicated requirements/
@@ -122,9 +142,9 @@ last_updated: 2026-10-07
 - Explicit Save only; draft pins/browsing, confirmed slot-only Clear, immutable
   prior results and retained journal, current recalculation, UUID/revision guards.
   Whole-panel named recipient, local link administration,48/72h plus old shares.
-- Executors/reviewers follow accepted model table. T1–T6 committed; T7 is next.
-- Startup schema guard now requires `0149_management_stake_saves`, matching
-  Alembic head after T2. Fix v1.7.254 / `3cb140dd874ffd6378c009aa1152a9001fed6b48`;
+- Executors/reviewers follow accepted model table. T1–T7 implemented, audited and delivered; operator rollout remains manual.
+- Startup schema guard now requires `0150_management_sessions`; the earlier
+  T2 guard required `0149_management_stake_saves`. Fix v1.7.254 / `3cb140dd874ffd6378c009aa1152a9001fed6b48`;
   schema-readiness tests 12/12 PASS. API was not started.
 - T2 mutations use READ COMMITTED for UUID-lock retry visibility. A bounded
   read-only REPEATABLE READ application-role session captures coherent numeric

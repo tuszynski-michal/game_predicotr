@@ -1,6 +1,8 @@
 """Real app-role capability persistence, rollback, public scope and code-failure commits."""
 
 import os
+import subprocess
+import sys
 import time
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import contextmanager
@@ -401,6 +403,57 @@ def test_real_public_sessions_durability_scope_and_atomic_expiry(tmp_path):
             )
         with public_client(db.settings(tmp_path)) as client:
             assert client.get("/api/v1/management-public", headers=headers).status_code == 401
+        # A new OS process logs in with the real application role. Revocation
+        # survives process replacement and never removes retained history.
+        process = subprocess.run(
+            [
+                sys.executable,
+                "-c",
+                """
+import os
+from uuid import UUID
+from sqlalchemy import create_engine, func, select
+from sqlalchemy.orm import Session
+from game_predictor_api.application.management_access import ManagementAccessService
+from game_predictor_api.domain.management_sessions import ManagementAccessError
+from game_predictor_api.storage.management_models import ManagementJournalModel
+from game_predictor_api.storage.management_repository import SqlAlchemyManagementRepository
+from game_predictor_api.storage.management_session_repository import (
+    SqlAlchemyManagementSessionRepository,
+)
+engine = create_engine(os.environ["MANAGEMENT_TEST_URL"], connect_args={"connect_timeout": 5})
+with Session(engine) as session:
+    repository = SqlAlchemyManagementSessionRepository(session)
+    record = repository.get(UUID(os.environ["MANAGEMENT_TEST_SESSION"]))
+    assert record is not None and record.revoked_at is not None
+    assert record.label == "Same recipient"
+    assert session.scalar(select(func.count()).select_from(ManagementJournalModel)) > 0
+    points = SqlAlchemyManagementRepository(session).snapshot().points
+    machine = next(machine for point in points for machine in point.machines
+                   if str(machine.id) == os.environ["MANAGEMENT_TEST_MACHINE"])
+    assert not machine.assignments[0].attached
+    try:
+        ManagementAccessService(repository).authenticate(
+            os.environ["MANAGEMENT_TEST_TOKEN"], record.id)
+    except ManagementAccessError as error:
+        assert error.code == "MANAGEMENT_TOKEN_INVALID", error.code
+    else:
+        raise AssertionError("revoked token accepted in fresh process")
+engine.dispose()
+""",
+            ],
+            env={
+                **os.environ,
+                "MANAGEMENT_TEST_URL": db.app_url.render_as_string(hide_password=False),
+                "MANAGEMENT_TEST_SESSION": str(record.id),
+                "MANAGEMENT_TEST_MACHINE": str(machine.id),
+                "MANAGEMENT_TEST_TOKEN": token,
+            },
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        assert process.returncode == 0, process.stderr
         with ThreadPoolExecutor(max_workers=2) as pool:
             locked = Event()
             release = Event()

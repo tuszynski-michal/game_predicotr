@@ -179,3 +179,5 @@ CURRENT_STATE. Full completion version/hash follows after the commit.
 ### Recommended next task
 
 T7 / TASK-0927: integrated acceptance, regressions, builds and operator guide.
+
+Completion commit: v1.7.258 / ce64a194e4c7a806c59df25e90b2b174666321b4.

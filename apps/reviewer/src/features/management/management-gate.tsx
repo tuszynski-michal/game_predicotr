@@ -95,7 +95,7 @@ export function ManagementGate({
   };
   if (!sessionId || !context)
     return (
-      <main className="reviewerAccessShell">
+      <main className="reviewerAccessShell management-access-gate">
         <section className="reviewerAccessCard" aria-live="polite">
           <p className="eyebrow">Panel Administracyjny</p>
           {!sessionId ? (

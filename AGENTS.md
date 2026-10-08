@@ -285,6 +285,7 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
   zachowanie objęte uwagą P0/P1; nie powstaje automatyczna pętla. Jeżeli po
   poprawkach uwaga P0/P1 pozostaje otwarta, zatrzymaj task i zgłoś to
   operatorowi zgodnie z punktem 8 sekcji „Po kodowaniu”.
+- Domyślny audyt jest **szybki** (decyzja operatora 2026-10-09): audytor to `gpt-6-astra` na poziomie `medium` (poziom `high` tylko dla tasków zmieniających schemat bazy, migracje, wypłaty albo dane dowodowe), brief ograniczony `-Paths` do plików taska, a raport skupia się na P0 i P1; uwag P2 podaje najwyżej pięć najważniejszych. Audytor zastępczy Claude stosuje ten sam zakres i poziom `medium`, chyba że tabela planu wymaga `high`. Jedna runda audytu, jedna runda poprawek, bez pętli; brak odpowiedzi audytora w limicie czasu nie zatrzymuje taska, tylko jest odnotowany w `Outcome`.
 - Poświadczeń CLI nie wpisuje agent: instalację i logowanie wykonuje operator.
 
 ## Hierarchia źródeł prawdy

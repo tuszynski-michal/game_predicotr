@@ -41,8 +41,11 @@ numer taska (`/audit-task 0930`). Nie uruchamiaj skilla w pętli.
 
    Inne parametry: `-Base <ref>` dla audytu po commicie (ref sprzed taska, np.
    `-Base HEAD~1` albo `-Base v1.1-vision-lab-hybrid-geometry`),
-   `-Model <nazwa>` (np. `gpt-6.1-sol`; tylko litery, cyfry i `. _ : -`; trafia do
-   nazwy raportu), `-DryRun` (tylko brief).
+   `-Model <nazwa>` (np. `gpt-6-astra`; tylko litery, cyfry i `. _ : -`; trafia do
+   nazwy raportu), `-Effort low|medium|high` (domyślnie `medium`, szybki audyt;
+   `high` tylko gdy tabela planu tego wymaga), `-CodexWindowsSandbox`
+   (domyślnie `unelevated`, bo piaskownica `elevated` aplikacji ChatGPT nie
+   działa z CLI), `-DryRun` (tylko brief).
 3. Odczytaj wynik:
    - Kod 0 i komunikat „Report stored”: otwórz
      `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md` i przeczytaj werdykt.

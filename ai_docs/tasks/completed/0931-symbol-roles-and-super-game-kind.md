@@ -220,6 +220,8 @@ wymaga żadnej akcji (rodzaj „Brak”, brak ról specjalnych).
 
 ### Changed
 
+- Commit v1.7.268 / 1aef5870ee22287b0e17f1278276cddf7793a9b5 (zapis dodany po commicie przez leada).
+
 - Migracja `services/api/alembic/versions/0151_super_game_roles.py`
   (addytywna, po `0150_management_sessions`): `symbols.super_game_trigger_count
   smallint NULL` z CHECK `ck_symbols_super_game_trigger_count` (`IN (3,4,5)`),

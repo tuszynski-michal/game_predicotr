@@ -91,6 +91,8 @@ npm run lint --workspace @game-predictor/admin
 
 ### Changed
 
+- Commit v1.7.266 / ad058e23a487a70f543636c6b024d779006c9bdb (zapis dodany po commicie przez leada).
+
 - `apps/admin/src/lib/keyboard-shortcuts.ts`: dodano `EXTENDED_DIGIT_SHORTCUT_LIMIT = 10`, `extendedDigitShortcutIndex` (`1`-`9` na 0-8, `0` na 9) i `extendedDigitShortcutLabel` (0-8 na `1`-`9`, 9 na `0`). Istniejące eksporty bez zmian.
 - `apps/admin/src/features/symbol-reviews/symbol-review-keyboard.ts`: użycie wersji rozszerzonych, `SYMBOL_REVIEW_SHORTCUT_SYMBOL_LIMIT` równe 10.
 - `apps/admin/src/features/symbol-reviews/symbol-review-workspace.tsx`: tekst paska skrótów wspomina `0` (dziesiąty symbol). Etykiety w select i `shortcutSymbolsLabel` dostają `0` automatycznie przez `symbolReviewShortcutLabel`.

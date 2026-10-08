@@ -116,6 +116,8 @@ nadaje lead po audycie.
 
 ### Changed
 
+- Commit v1.7.267 / 6323939f41d93501a537463eb82ce127ab1f04b3 (zapis dodany po commicie przez leada).
+
 - Nowy `scripts/audit_task.ps1` (Windows PowerShell 5.1, plik wyłącznie ASCII,
   CRLF zgodnie z `.gitattributes`). Parametry: `-Task NNNN` (także `TASK-NNNN`),
   `-Auditor codex|claude`, `-Base` (po poprawkach domyślnie `HEAD`, patrz niżej),

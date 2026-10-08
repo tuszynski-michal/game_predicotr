@@ -8,6 +8,7 @@ last_updated: 2026-10-08
 
 ### TASK-0940 — zielona bramka `npm run quality` (done)
 
+- Commit v1.7.273 / 60ba1f74de09d82d159f42bf9706240dcb662123.
 - Pełna bramka zielona: format (Prettier `endOfLine: auto` dla checkoutu
   autocrlf), openapi, lint, typecheck (mypy 836 plików po naprawie
   konfiguracji i 79 realnych błędów typów bez ogólnych ignore), testy JS,
@@ -31,6 +32,7 @@ last_updated: 2026-10-08
 
 ### TASK-0932 — ewaluator `payout-v4-wild-count` (done)
 
+- Commit v1.7.270 / 123953086aa11ba8454489298b1b4f1015128d4c.
 - `services/worker/.../domain/payout.py`: symbole z rolą uruchamiającą poza
   liniami; Wild bez zmian (ta sama komórka jako różne symbole na różnych
   liniach, same Wildy nie wygrywają); nowe `count_matches` (największa
@@ -62,6 +64,7 @@ last_updated: 2026-10-08
 
 ### TASK-0931 — Wild, „Uruchamia supergrę” i rodzaj supergry (done)
 
+- Commit v1.7.268 / 1aef5870ee22287b0e17f1278276cddf7793a9b5.
 - Migracja `0151_super_game_roles` (addytywna): `symbols.super_game_trigger_count`
   (null/3/4/5) i `games.super_game_kind` (domyślnie `none`); strażnik
   schematu startowego wymaga teraz `0151`. Rejestr rodzajów supergry w
@@ -90,6 +93,7 @@ last_updated: 2026-10-08
 
 ### TASK-0929 — skill audytu krzyżowego i sekcja „Audyt krzyżowy” (done)
 
+- Commit v1.7.267 / 6323939f41d93501a537463eb82ce127ab1f04b3.
 - `scripts/audit_task.ps1` (PowerShell 5.1, ASCII, limity czasu, UTF-8)
   składa brief taska (plik taska, fragment planu, `Verification results`,
   diffy ograniczone `-Paths`, pliki nieśledzone) do ignorowanego
@@ -111,6 +115,7 @@ last_updated: 2026-10-08
 
 ### TASK-0930 — klawisz `0` dla dziesiątego symbolu w weryfikacji symboli (done)
 
+- Commit v1.7.266 / ad058e23a487a70f543636c6b024d779006c9bdb.
 - W weryfikacji symboli `0` wybiera dziesiąty aktywny symbol (Mumia) jako
   `Symbol do zatwierdzenia`; etykiety w selekcie i pasku skrótów pokazują `0`.
   Nowe helpery `extendedDigitShortcutIndex/Label` w `apps/admin/src/lib`;

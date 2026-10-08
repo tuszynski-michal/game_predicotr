@@ -179,6 +179,8 @@ zadaniem.
 
 ### Changed
 
+- Commit v1.7.270 / 123953086aa11ba8454489298b1b4f1015128d4c (zapis dodany po commicie przez leada).
+
 - Ewaluator workera (`services/worker/src/game_predictor_worker/domain/`):
   `payout.py` ma stałe `PAYOUT_V3_ALGORITHM_VERSION` i
   `PAYOUT_V4_ALGORITHM_VERSION`, funkcję `payout_algorithm_version(game)`

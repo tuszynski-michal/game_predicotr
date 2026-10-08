@@ -57,6 +57,15 @@ script exits with code 1 instead of writing an empty brief.
 .PARAMETER DryRun
 Write the brief and print what would be executed; never start the auditor.
 
+.PARAMETER Effort
+Reasoning effort passed to the Codex auditor (low, medium, high; default medium,
+the quick audit of AGENTS.md "Audyt krzyżowy"). Ignored for the Claude auditor.
+
+.PARAMETER CodexWindowsSandbox
+Windows sandbox mode for the Codex CLI run (default unelevated; the elevated mode
+registered by the ChatGPT desktop app fails from the CLI). "none" keeps the
+operator's config.toml value.
+
 .PARAMETER TimeoutSec
 Timeout for the auditor run in seconds (default 480, so the script can clean up within a 600 s tool timeout).
 
@@ -77,6 +86,12 @@ param(
     [string]$Plan = '',
 
     [string]$Model = '',
+
+    [ValidateSet('', 'low', 'medium', 'high')]
+    [string]$Effort = 'medium',
+
+    [ValidateSet('unelevated', 'elevated', 'none')]
+    [string]$CodexWindowsSandbox = 'unelevated',
 
     [string[]]$Paths = @(),
 
@@ -472,6 +487,28 @@ Rules:
         exit 0
     }
 
+    # npm installs a .cmd shim that goes through cmd.exe, which cannot carry quoted
+    # TOML overrides (-c key="value"). When the shim's JavaScript entry point and
+    # node.exe are available, launch node directly instead of the shim.
+    $cliPrefixArguments = @()
+    if ([System.IO.Path]::GetExtension($cliPath).ToLowerInvariant() -in @('.cmd', '.bat')) {
+        $shimDirectory = Split-Path -Parent $cliPath
+        $entryCandidates = @(
+            (Join-Path $shimDirectory 'node_modules\@openai\codex\bin\codex.js'),
+            (Join-Path $shimDirectory 'node_modules\@anthropic-ai\claude-code\cli.js')
+        )
+        $entryScript = $entryCandidates |
+            Where-Object { (Split-Path -Leaf $_) -like "*$Auditor*" -or ($Auditor -eq 'claude' -and $_ -like '*claude-code*') } |
+            Where-Object { Test-Path -LiteralPath $_ -PathType Leaf } |
+            Select-Object -First 1
+        $nodeCommand = Get-Command -Name 'node' -CommandType Application -ErrorAction SilentlyContinue |
+            Where-Object { $_.Source -like '*.exe' } | Select-Object -First 1
+        if ($null -ne $entryScript -and $null -ne $nodeCommand) {
+            $cliPrefixArguments = @($entryScript)
+            $cliPath = $nodeCommand.Source
+        }
+    }
+
     $cliArguments = @()
     $requiredFlags = @()
     $helpArguments = @('--help')
@@ -479,6 +516,15 @@ Rules:
         $helpArguments = @('exec', '--help')
         $requiredFlags = @('--sandbox', '--output-last-message')
         $cliArguments = @('exec', '--sandbox', 'read-only', '--output-last-message', $rawPath)
+        # The ChatGPT desktop app registers an "elevated" Windows sandbox core that the
+        # CLI cannot reuse (helper_unknown_error), so the CLI run overrides it unless
+        # the operator asks for another mode. Reasoning effort follows the plan table.
+        if ($CodexWindowsSandbox -ne 'none') {
+            $cliArguments += @('-c', ('windows.sandbox="{0}"' -f $CodexWindowsSandbox))
+        }
+        if ($Effort -ne '') {
+            $cliArguments += @('-c', ('model_reasoning_effort="{0}"' -f $Effort))
+        }
     }
     else {
         $requiredFlags = @('--permission-mode', '--print')
@@ -498,19 +544,19 @@ Rules:
         }
     }
 
-    $versionResult = Invoke-BoundedProcess -FilePath $cliPath -Arguments @('--version') `
+    $versionResult = Invoke-BoundedProcess -FilePath $cliPath -Arguments ($cliPrefixArguments + @('--version')) `
         -WorkingDirectory $repositoryRoot -TimeoutSeconds 30
     $versionText = ($versionResult.StdOut + ' ' + $versionResult.StdErr).Trim()
     Write-Host "Auditor CLI: $cliPath (version: $versionText)"
 
     if ($DryRun) {
         Write-Host 'DryRun: the auditor was not started. Command that would run:'
-        Write-Host ("  {0} {1}" -f $cliPath, (($cliArguments | ForEach-Object { ConvertTo-QuotedArgument $_ }) -join ' '))
+        Write-Host ("  {0} {1}" -f $cliPath, ((($cliPrefixArguments + $cliArguments) | ForEach-Object { ConvertTo-QuotedArgument $_ }) -join ' '))
         Write-Host "Timeout: $TimeoutSec s. Report would be stored as $reportRelative."
         exit 0
     }
 
-    $helpResult = Invoke-BoundedProcess -FilePath $cliPath -Arguments $helpArguments `
+    $helpResult = Invoke-BoundedProcess -FilePath $cliPath -Arguments ($cliPrefixArguments + $helpArguments) `
         -WorkingDirectory $repositoryRoot -TimeoutSeconds 30
     $helpText = $helpResult.StdOut + "`n" + $helpResult.StdErr
     foreach ($flag in $requiredFlags) {
@@ -522,7 +568,7 @@ Rules:
     # ------------------------------------------------------------------ run
     if (Test-Path -LiteralPath $rawPath) { Remove-Item -LiteralPath $rawPath -Force }
     Write-Host "Running the $Auditor auditor read-only (timeout $TimeoutSec s)..."
-    $run = Invoke-BoundedProcess -FilePath $cliPath -Arguments $cliArguments `
+    $run = Invoke-BoundedProcess -FilePath $cliPath -Arguments ($cliPrefixArguments + $cliArguments) `
         -WorkingDirectory $repositoryRoot -TimeoutSeconds $TimeoutSec
 
     if ($run.TimedOut) {

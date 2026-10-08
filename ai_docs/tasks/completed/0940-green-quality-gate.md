@@ -120,6 +120,8 @@ wycofane z jawnym `skip`, testy korpusowe M5 pomijane przez wspólny helper.
 
 ### Changed
 
+- Commit v1.7.273 / 60ba1f74de09d82d159f42bf9706240dcb662123 (zapis dodany po commicie przez leada).
+
 Format i konfiguracja
 - `.prettierrc.json`: `endOfLine: auto`. Przy `core.autocrlf=true` (systemowy
   gitconfig tej maszyny) każdy checkout ma CRLF, a Prettier domyślnie wymaga LF,

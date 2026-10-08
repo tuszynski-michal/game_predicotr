@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import replace
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
@@ -83,6 +84,7 @@ class MemoryBoardSearchApproximateWinRepository:
         self._documents_by_sequence = {document.sequence_number: document for document in documents}
         self._asset_mode = asset_mode
         self.range_calls: list[tuple[int, int]] = []
+        self.selectable: dict[UUID, RulesPayoutConfiguration] = {}
 
     def game_sequence_length(self, game_id: UUID) -> int:
         if game_id != self.game_id:
@@ -91,6 +93,11 @@ class MemoryBoardSearchApproximateWinRepository:
 
     def latest_published_rules(self, game_id: UUID) -> RulesPayoutConfiguration | None:
         return self._configuration
+
+    def rules_configuration(
+        self, *, game_id: UUID, rules_version_id: UUID
+    ) -> RulesPayoutConfiguration | None:
+        return self.selectable.get(rules_version_id)
 
     def range_documents(
         self,
@@ -345,3 +352,104 @@ def test_approximate_win_endpoint_does_not_find_results_in_an_empty_range() -> N
     assert payload["summary"]["recognizedPayoutCredits"] == 0
     assert payload["summary"]["spinCostCredits"] == 100
     assert payload["completeness"]["missingBoardCount"] == 5
+
+
+# --- payout-v4-wild-count and the Admin draft preview (TASK-0932) ----------
+
+_DRAFT_ID = uuid4()
+
+
+def _draft_with_trigger() -> RulesPayoutConfiguration:
+    """Adds M (mobile code 9), Wild and super game trigger: 3 pay 20, 4 pay 200."""
+
+    published = _configuration()
+    return replace(
+        published,
+        rules_version_id=_DRAFT_ID,
+        version=4,
+        status=RulesVersionStatus.DRAFT,
+        symbols=(
+            *published.symbols,
+            SymbolDefinition(
+                mobile_code=9,
+                code="M",
+                name="Mumia",
+                is_wildcard=True,
+                display_order=1,
+                super_game_trigger_count=3,
+            ),
+        ),
+        payout_rules=(
+            *published.payout_rules,
+            PayoutRuleDefinition(symbol_mobile_code=9, match_length=3, payout_credits=20),
+            PayoutRuleDefinition(symbol_mobile_code=9, match_length=4, payout_credits=200),
+        ),
+    )
+
+
+def test_draft_rules_version_pays_counts_inside_the_row_payout() -> None:
+    repository = MemoryBoardSearchApproximateWinRepository(
+        _GAME_ID,
+        sequence_length=100,
+        configuration=_configuration(),
+        # top: M,A,A,? is A x3 = 10 (M as A); M on cells 0, 7 and 12 pays 20.
+        documents=(_document(2, (9, 1, 1, None, None, None, None, 9, None, None, None, None, 9)),),
+    )
+    repository.selectable[_DRAFT_ID] = _draft_with_trigger()
+
+    with _client(repository) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{_GAME_ID}/board-search/approximate-win",
+            params={"startSequenceNumber": 1, "spinCount": 2, "rulesVersionId": str(_DRAFT_ID)},
+        )
+        default = client.get(
+            f"/api/v1/admin/games/{_GAME_ID}/board-search/approximate-win",
+            params={"startSequenceNumber": 1, "spinCount": 2},
+        )
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["rules"]["rulesVersionId"] == str(_DRAFT_ID)
+    assert body["rules"]["algorithmVersion"] == "payout-v4-wild-count"
+    [row] = body["rows"]
+    assert row["payoutCredits"] == 30
+    assert row["payoutKind"] == "confirmed_minimum"
+    assert row["countMatches"] == [
+        {"symbolCode": "M", "count": 3, "cells": [0, 7, 12], "payoutCredits": 20}
+    ]
+    # Without the query the latest published rules apply (no symbol 9 there).
+    assert default.status_code == 409, default.text
+    assert default.json()["code"] == "APPROXIMATE_WIN_BOARD_SYMBOL_OUTSIDE_RULES"
+
+
+def test_published_rules_rows_have_no_count_matches_and_report_v3() -> None:
+    repository = MemoryBoardSearchApproximateWinRepository(
+        _GAME_ID,
+        sequence_length=100,
+        configuration=_configuration(),
+        documents=(_document(2, (1,) * 15, status="accepted"),),
+    )
+
+    with _client(repository) as client:
+        body = client.get(
+            f"/api/v1/admin/games/{_GAME_ID}/board-search/approximate-win",
+            params={"startSequenceNumber": 1, "spinCount": 1},
+        ).json()
+
+    assert body["rules"]["algorithmVersion"] == "payout-v3-unknown-prefix-stop"
+    assert [row["countMatches"] for row in body["rows"]] == [[]]
+
+
+def test_unknown_rules_version_is_not_found() -> None:
+    repository = MemoryBoardSearchApproximateWinRepository(
+        _GAME_ID, sequence_length=100, configuration=_configuration()
+    )
+
+    with _client(repository) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{_GAME_ID}/board-search/approximate-win",
+            params={"startSequenceNumber": 1, "spinCount": 2, "rulesVersionId": str(uuid4())},
+        )
+
+    assert response.status_code == 404, response.text
+    assert response.json()["code"] == "APPROXIMATE_WIN_RULES_VERSION_NOT_FOUND"

@@ -23,6 +23,7 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 
 from game_predictor_api.domain.board_search import BOARD_SEARCH_CELL_COUNT, BoardSearchError
+from game_predictor_api.domain.board_search_board_detail import BoardCountMatch
 
 # Reuse the same 3x5 cell count as partial board search: both read the same
 # `image_board_search_fast_documents` projection.
@@ -74,6 +75,18 @@ class ApproximateWinRow:
     """`"exact"` for a complete board, `"confirmed_minimum"` for a partial
     board whose visible prefix already guarantees this payout."""
     board_status: str
+    count_matches: tuple[BoardCountMatch, ...] = ()
+    """Count payouts of super game trigger symbols, already included in
+    `payout_credits` (`payout-v4-wild-count`); empty for other games."""
+
+
+@dataclass(frozen=True, slots=True)
+class ApproximateWinSpinEvaluation:
+    """An `evaluate` result with its count payouts; a plain `int` total is
+    accepted too and means no count matches."""
+
+    payout_credits: int
+    count_matches: tuple[BoardCountMatch, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -150,7 +163,7 @@ def calculate_approximate_win(
     requested_spin_count: int,
     sequence_length: int,
     documents: Sequence[ApproximateWinDocument],
-    evaluate: Callable[[Sequence[int]], int],
+    evaluate: Callable[[Sequence[int]], int | ApproximateWinSpinEvaluation],
     spin_cost: int,
 ) -> ApproximateWinResult:
     """Calculate the approximate-win range `S+1..S+N`.
@@ -213,7 +226,13 @@ def calculate_approximate_win(
         cells = tuple(
             _UNKNOWN_MOBILE_CODE if code is None else code for code in document.mobile_codes
         )
-        payout_credits = evaluate(cells)
+        evaluation = evaluate(cells)
+        if isinstance(evaluation, ApproximateWinSpinEvaluation):
+            payout_credits = evaluation.payout_credits
+            count_matches = evaluation.count_matches
+        else:
+            payout_credits = evaluation
+            count_matches = ()
         cumulative_payout += payout_credits
 
         if payout_credits > 0:
@@ -227,6 +246,7 @@ def calculate_approximate_win(
                     cumulative_balance_credits=cumulative_payout - cumulative_cost,
                     payout_kind="exact" if document.is_complete else "confirmed_minimum",
                     board_status=document.status,
+                    count_matches=count_matches,
                 )
             )
 
@@ -261,6 +281,7 @@ __all__ = [
     "ApproximateWinDocument",
     "ApproximateWinResult",
     "ApproximateWinRow",
+    "ApproximateWinSpinEvaluation",
     "ApproximateWinSummary",
     "calculate_approximate_win",
     "plan_approximate_win_positions",

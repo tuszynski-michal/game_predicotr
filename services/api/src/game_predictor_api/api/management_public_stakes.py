@@ -6,6 +6,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
 
+from game_predictor_api.api.board_search import reject_rules_version_query
 from game_predictor_api.application.management_stakes import ManagementStakeService
 from game_predictor_api.schemas.board_search_approximate_win import ApproximateWinResponse
 from game_predictor_api.schemas.board_search_shares import (
@@ -47,6 +48,7 @@ def create_management_public_stake_router(service_dependency: Callable[..., obje
         base + "/approximate-win",
         response_model=ApproximateWinResponse,
         operation_id="getPublicManagementApproximateWin",
+        dependencies=[Depends(reject_rules_version_query)],
     )
     def preview(
         machine_id: UUID,
@@ -184,6 +186,7 @@ def create_management_public_stake_router(service_dependency: Callable[..., obje
         base + "/boards/{sequence}",
         response_model=BoardSearchSharePublicBoardDetailResponse,
         operation_id="getPublicManagementBoardDetail",
+        dependencies=[Depends(reject_rules_version_query)],
     )
     def detail(
         machine_id: UUID,

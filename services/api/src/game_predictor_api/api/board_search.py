@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, Query, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi import Path as ApiPath
 
 from game_predictor_api.application.board_search import BoardSearchService
@@ -37,13 +37,24 @@ from game_predictor_api.schemas.catalog import ErrorResponse
 
 BoardSearchServiceDependency = Callable[..., object]
 BoardSearchApproximateWinServiceDependency = Callable[..., object]
+RULES_VERSION_QUERY = "rulesVersionId"
+RULES_VERSION_QUERY_NAMES = frozenset({"rulesversionid", "rules_version_id"})
+"""Lower-cased query names of the Admin-only draft preview, refused on the
+online share and the management panel (compared with `name.lower()`)."""
+RULES_VERSION_QUERY_DESCRIPTION = (
+    "Admin-only draft preview (D-535): a draft or published rules version of "
+    "this game. Omitted: the latest published rules version."
+)
 ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
     404: {"model": ErrorResponse, "description": "Game not found"},
     409: {"model": ErrorResponse, "description": "Board-search projection not ready"},
     422: {"model": ErrorResponse, "description": "Invalid partial board query"},
 }
 APPROXIMATE_WIN_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
-    404: {"model": ErrorResponse, "description": "Game not found"},
+    404: {
+        "model": ErrorResponse,
+        "description": "Game, or the selected rules version of this game, not found",
+    },
     409: {
         "model": ErrorResponse,
         "description": (
@@ -67,6 +78,15 @@ BOARD_DETAIL_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
         ),
     },
     422: {"model": ErrorResponse, "description": "Invalid path parameters"},
+}
+BOARD_DETAIL_WITH_RULES_ERROR_RESPONSES: dict[int | str, dict[str, object]] = {
+    **BOARD_DETAIL_ERROR_RESPONSES,
+    404: {
+        "model": ErrorResponse,
+        "description": (
+            "Game, board-search document or the selected rules version of this game not found"
+        ),
+    },
 }
 
 
@@ -126,11 +146,16 @@ def create_board_search_router(
             int,
             Query(alias="spinCount", ge=1, le=APPROXIMATE_WIN_SPIN_COUNT_MAX),
         ],
+        rules_version_id: Annotated[
+            UUID | None,
+            Query(alias=RULES_VERSION_QUERY, description=RULES_VERSION_QUERY_DESCRIPTION),
+        ] = None,
     ) -> ApproximateWinResponse:
         calculation = service.calculate(
             game_id=game_id,
             start_sequence_number=start_sequence_number,
             requested_spin_count=spin_count,
+            rules_version_id=rules_version_id,
         )
         return to_approximate_win_response(calculation)
 
@@ -138,16 +163,24 @@ def create_board_search_router(
         "/{game_id}/board-search/boards/{sequence_number}",
         response_model=BoardSearchBoardDetailResponse,
         operation_id="getBoardSearchBoardDetail",
-        summary="Winning paylines and cropped-view cell polygons of one board",
-        responses=BOARD_DETAIL_ERROR_RESPONSES,
+        summary="Winning paylines, count payouts and cropped-view cell polygons of one board",
+        responses=BOARD_DETAIL_WITH_RULES_ERROR_RESPONSES,
     )
     def get_board_search_board_detail(
         game_id: UUID,
         sequence_number: Annotated[int, ApiPath(ge=1)],
         service: Annotated[BoardSearchBoardDetailService, board_detail_service_parameter],
+        rules_version_id: Annotated[
+            UUID | None,
+            Query(alias=RULES_VERSION_QUERY, description=RULES_VERSION_QUERY_DESCRIPTION),
+        ] = None,
     ) -> BoardSearchBoardDetailResponse:
         return to_board_search_board_detail_response(
-            service.detail(game_id=game_id, sequence_number=sequence_number)
+            service.detail(
+                game_id=game_id,
+                sequence_number=sequence_number,
+                rules_version_id=rules_version_id,
+            )
         )
 
     @router.post(
@@ -241,6 +274,21 @@ def _parse_cells(values: list[str]) -> tuple[BoardSearchQueryCell, ...]:
     return tuple(parsed)
 
 
+def reject_rules_version_query(request: Request) -> None:
+    """Refuse the Admin-only draft preview on shared and management surfaces.
+
+    The online share and the management panel always evaluate the latest
+    published rules (D-535); an explicit `rulesVersionId` there is a client
+    error, never silently ignored.
+    """
+
+    if any(name.lower() in RULES_VERSION_QUERY_NAMES for name in request.query_params):
+        raise BoardSearchError(
+            "BOARD_SEARCH_RULES_VERSION_NOT_ALLOWED",
+            "Selecting a rules version is available only in the local Admin.",
+        )
+
+
 def parse_board_search_cells(values: list[str]) -> tuple[BoardSearchQueryCell, ...]:
     """Parse `cellIndex:symbolCode|?` query values (also used by the online
     share surface, D-471)."""
@@ -248,4 +296,10 @@ def parse_board_search_cells(values: list[str]) -> tuple[BoardSearchQueryCell, .
     return _parse_cells(values)
 
 
-__all__ = ["create_board_search_router", "parse_board_search_cells"]
+__all__ = [
+    "RULES_VERSION_QUERY",
+    "RULES_VERSION_QUERY_NAMES",
+    "create_board_search_router",
+    "parse_board_search_cells",
+    "reject_rules_version_query",
+]

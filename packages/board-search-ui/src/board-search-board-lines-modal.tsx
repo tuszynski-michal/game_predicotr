@@ -25,10 +25,17 @@ import {
   applyBoardCellCorrection,
   boardCellCorrectionPalette,
 } from './board-search-board-cell-correction';
+import { BoardSearchRulesVersionSelect } from './board-search-rules-version-select';
+import {
+  type BoardSearchRulesVersionOption,
+  boardCountMatchLabel,
+} from './board-search-rules-versions';
 import {
   BOARD_SCHEMA_CELL,
   type BoardLinePoint,
   type BoardLineVisibility,
+  boardCountMatches,
+  boardCountedCells,
   boardLineKey,
   boardLineOffset,
   boardLineStyles,
@@ -96,6 +103,8 @@ export function BoardSearchBoardLinesModal({
   changedCellIndices = [],
   fixedStakeGrosze,
   fixedStakeUnit = loadApproximateWinDisplay().unit,
+  rulesVersions = null,
+  requestedRulesVersionId = null,
 }: {
   readonly api: BoardLinesClient;
   readonly formatAmount: (baseCredits: number) => string;
@@ -125,6 +134,17 @@ export function BoardSearchBoardLinesModal({
   /** Optional management stake, scaled using this modal's fresh rules. */
   readonly fixedStakeGrosze?: number;
   readonly fixedStakeUnit?: ApproximateWinAmountUnit;
+  /**
+   * Admin-only draft preview (D-535): the game's draft and published rules
+   * versions for the „Wersja reguł” select. `null` (online share, management
+   * panel) shows no select and always reads the latest published rules.
+   */
+  readonly rulesVersions?: readonly BoardSearchRulesVersionOption[] | null;
+  /**
+   * The rules version the table was calculated with when it was chosen
+   * explicitly; `null` is the latest published version.
+   */
+  readonly requestedRulesVersionId?: string | null;
 }) {
   const dialog = useRef<HTMLDialogElement>(null);
   const [attempt, setAttempt] = useState(0);
@@ -145,6 +165,13 @@ export function BoardSearchBoardLinesModal({
   // Between a save and the refetch the shown board is outdated: no header
   // "after correction" values and no cell targets with old revisions.
   const [refreshing, setRefreshing] = useState(false);
+  // The rules version this modal evaluates; changing it away from the
+  // table's version shows the board's own reading, never the table row.
+  const [selectedRulesVersionId, setSelectedRulesVersionId] = useState<
+    string | null
+  >(requestedRulesVersionId);
+  const tableComparable =
+    row !== null && selectedRulesVersionId === requestedRulesVersionId;
 
   useEffect(() => {
     const element = dialog.current;
@@ -163,8 +190,13 @@ export function BoardSearchBoardLinesModal({
         previous.kind === 'ready' ? previous : { kind: 'loading' },
       );
       setImageFailed(false);
-      void api
-        .getBoardSearchBoardDetail(gameId, sequenceNumber)
+      void (
+        selectedRulesVersionId === null
+          ? api.getBoardSearchBoardDetail(gameId, sequenceNumber)
+          : api.getBoardSearchBoardDetail(gameId, sequenceNumber, {
+              rulesVersionId: selectedRulesVersionId,
+            })
+      )
         .then((result) => {
           if (cancelled) return;
           if (result.error !== undefined || result.data === undefined) {
@@ -194,7 +226,7 @@ export function BoardSearchBoardLinesModal({
     return () => {
       cancelled = true;
     };
-  }, [api, gameId, sequenceNumber, attempt]);
+  }, [api, gameId, sequenceNumber, attempt, selectedRulesVersionId]);
 
   // Close the native modal first: while it is open everything else is
   // inert, so the parent could not move focus back to the row button.
@@ -224,7 +256,7 @@ export function BoardSearchBoardLinesModal({
   const consistency =
     detail === null
       ? null
-      : edited || row === null || rulesVersionId === null
+      : edited || row === null || !tableComparable || rulesVersionId === null
         ? boardLinesConsistency(
             detail,
             detail.payoutCredits,
@@ -235,7 +267,7 @@ export function BoardSearchBoardLinesModal({
   // them; opened from the search results there is no table, so the board's
   // own reading is the only source.
   const freshReading =
-    detail !== null && !refreshing && (row === null || edited);
+    detail !== null && !refreshing && (!tableComparable || edited);
   const headerValues =
     freshReading && detail !== null
       ? {
@@ -247,8 +279,11 @@ export function BoardSearchBoardLinesModal({
               ? 'Wygrana '
               : correctionSaved
                 ? 'Po poprawce: wygrana '
-                : 'Po odświeżeniu: wygrana ',
+                : edited
+                  ? 'Po odświeżeniu: wygrana '
+                  : 'Dla wybranej wersji reguł: wygrana ',
           staleTableCredits: row === null ? null : row.payoutCredits,
+          tableNote: edited ? 'do przeliczenia' : 'dla innej wersji reguł',
         }
       : row !== null
         ? {
@@ -257,6 +292,7 @@ export function BoardSearchBoardLinesModal({
             payoutKind: row.payoutKind,
             prefix: 'Wygrana ',
             staleTableCredits: null,
+            tableNote: '',
           }
         : null;
   const editableCells = new Map(
@@ -558,13 +594,21 @@ export function BoardSearchBoardLinesModal({
                   : ''}{' '}
                 · {boardStatusLabel(headerValues.boardStatus)}
                 {headerValues.staleTableCredits !== null
-                  ? ` (w tabeli ${displayAmount(headerValues.staleTableCredits)} do przeliczenia)`
+                  ? ` (w tabeli ${displayAmount(headerValues.staleTableCredits)} ${headerValues.tableNote})`
                   : ''}
                 . Linia liczy się tylko od lewej krawędzi i kończy na pierwszym
                 nieznanym polu.
               </p>
             ) : null}
           </div>
+          {rulesVersions !== null ? (
+            <BoardSearchRulesVersionSelect
+              disabled={saving || state.kind === 'loading'}
+              onChange={setSelectedRulesVersionId}
+              options={rulesVersions}
+              value={selectedRulesVersionId}
+            />
+          ) : null}
           <button
             className="secondaryButton"
             disabled={saving}
@@ -756,6 +800,8 @@ function BoardLinesView({
     return ys.length === 0 ? 0 : Math.max(...ys) - Math.min(...ys);
   };
   const styles = boardLineStyles(detail.matches);
+  const countMatches = boardCountMatches(detail);
+  const countedCells = boardCountedCells(countMatches);
   const symbolByCode = new Map(symbols.map((symbol) => [symbol.code, symbol]));
   const visibleMatches = detail.matches.filter((match) =>
     visibility.has(boardLineKey(match)),
@@ -836,6 +882,18 @@ function BoardLinesView({
               </g>
             ) : null,
           )}
+          {cells.map((cell, index) =>
+            countedCells.has(index) ? (
+              <polygon
+                aria-label={`Pole ${index + 1}: liczone w sztukach na planszy`}
+                className="boardSearchBoardLinesCount"
+                key={`count:${index}`}
+                points={pointsText(cell)}
+                pointerEvents="none"
+                vectorEffect="non-scaling-stroke"
+              />
+            ) : null,
+          )}
           {visibleMatches.map((match) => {
             const style = styles.get(boardLineKey(match));
             const color = style?.color ?? '#ffffff';
@@ -895,7 +953,7 @@ function BoardLinesView({
                         x={centre.x}
                         y={centre.y + cellHeight(cellIndex) * 0.06}
                       >
-                        J
+                        W
                       </text>
                     </g>
                   );
@@ -1029,7 +1087,7 @@ function BoardLinesView({
                       <strong>{match.paylineName}</strong> ·{' '}
                       {symbol?.name ?? match.symbolCode} × {match.matchedLength}
                       {match.jokerCells.length > 0
-                        ? ` (joker: ${match.jokerCells.length})`
+                        ? ` (Wild: ${match.jokerCells.length})`
                         : ''}{' '}
                       · {formatAmount(match.payoutCredits)}
                     </span>
@@ -1039,6 +1097,32 @@ function BoardLinesView({
             })}
           </ul>
         )}
+        {countMatches.length > 0 ? (
+          <section
+            aria-label="Sztuki na planszy"
+            className="boardSearchBoardLinesCounts"
+          >
+            <h3>Sztuki na planszy</h3>
+            <ul>
+              {countMatches.map((match) => (
+                <li key={match.symbolCode}>
+                  <span
+                    aria-hidden="true"
+                    className="boardSearchBoardLinesCountSwatch"
+                  />
+                  <span>
+                    <strong>{boardCountMatchLabel(match, symbols)}</strong> →{' '}
+                    {formatAmount(match.payoutCredits)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="boardSearchBoardLinesNote">
+              Sztuki liczą się w dowolnym miejscu planszy; nieznane pole (?) nie
+              jest liczone.
+            </p>
+          </section>
+        ) : null}
       </aside>
     </div>
   );

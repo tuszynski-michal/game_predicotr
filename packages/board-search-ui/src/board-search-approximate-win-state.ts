@@ -55,8 +55,13 @@ export function approximateWinRequestKey(params: {
   readonly gameId: string;
   readonly resultIdentity: string;
   readonly spinCount: number;
+  /** Admin draft preview (D-535); omitted or `null`: latest published. */
+  readonly rulesVersionId?: string | null;
 }): string {
-  return `${params.gameId}|${params.resultIdentity}|${params.spinCount}`;
+  const key = `${params.gameId}|${params.resultIdentity}|${params.spinCount}`;
+  return params.rulesVersionId === undefined || params.rulesVersionId === null
+    ? key
+    : `${key}|rules:${params.rulesVersionId}`;
 }
 
 export type ApproximateWinState =

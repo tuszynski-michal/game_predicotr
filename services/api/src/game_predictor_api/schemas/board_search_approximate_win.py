@@ -10,6 +10,7 @@ from pydantic import Field
 from game_predictor_api.application.board_search_approximate_win import ApproximateWinCalculation
 from game_predictor_api.application.board_search_board_detail import BoardSearchBoardDetail
 from game_predictor_api.domain.board_search import BoardSearchAssetMode
+from game_predictor_api.domain.board_search_board_detail import BoardCountMatch
 from game_predictor_api.schemas.catalog import ApiModel
 
 
@@ -32,6 +33,30 @@ class ApproximateWinCompletenessResponse(ApiModel):
     missing_board_count: int = Field(ge=0)
 
 
+class BoardSearchCountMatchResponse(ApiModel):
+    """A super game trigger symbol paid per count of its cells anywhere on
+    the board (`payout-v4-wild-count`); unknown cells are never counted."""
+
+    symbol_code: str
+    count: int = Field(ge=1)
+    cells: tuple[int, ...]
+    payout_credits: int = Field(ge=0)
+
+
+def _count_match_responses(
+    count_matches: tuple[BoardCountMatch, ...],
+) -> tuple[BoardSearchCountMatchResponse, ...]:
+    return tuple(
+        BoardSearchCountMatchResponse(
+            symbol_code=match.symbol_code,
+            count=match.count,
+            cells=match.cells,
+            payout_credits=match.payout_credits,
+        )
+        for match in count_matches
+    )
+
+
 class ApproximateWinRowResponse(ApiModel):
     spin_number: int = Field(ge=1)
     sequence_number: int = Field(ge=1)
@@ -41,6 +66,14 @@ class ApproximateWinRowResponse(ApiModel):
     cumulative_balance_credits: int
     payout_kind: Literal["exact", "confirmed_minimum"]
     board_status: str
+    count_matches: tuple[BoardSearchCountMatchResponse, ...] = Field(
+        default=(),
+        description=(
+            "Count payouts of super game trigger symbols, already included in "
+            "payoutCredits. Empty for games without a trigger symbol and in "
+            "frozen management result history."
+        ),
+    )
 
 
 class ApproximateWinResponse(ApiModel):
@@ -99,6 +132,7 @@ def to_approximate_win_response(
                 cumulative_balance_credits=row.cumulative_balance_credits,
                 payout_kind=row.payout_kind,  # type: ignore[arg-type]
                 board_status=row.board_status,
+                count_matches=_count_match_responses(row.count_matches),
             )
             for row in result.rows
         ),
@@ -160,6 +194,12 @@ class BoardSearchBoardDetailResponse(ApiModel):
     payout_credits: int = Field(ge=0)
     payout_kind: Literal["exact", "confirmed_minimum", "none"]
     matches: tuple[BoardSearchLineMatchResponse, ...]
+    count_matches: tuple[BoardSearchCountMatchResponse, ...] = Field(
+        description=(
+            "Count payouts of super game trigger symbols; payoutCredits is the "
+            "sum of matches and countMatches."
+        )
+    )
     view: BoardSearchBoardViewResponse | None
     document_stale: bool = Field(
         description=(
@@ -217,6 +257,7 @@ def to_board_search_board_detail_response(
             )
             for match in detail.matches
         ),
+        count_matches=_count_match_responses(detail.count_matches),
         view=None
         if detail.view is None
         else BoardSearchBoardViewResponse(
@@ -256,6 +297,7 @@ __all__ = [
     "BoardSearchBoardDetailResponse",
     "BoardSearchBoardRefreshResponse",
     "BoardSearchBoardViewResponse",
+    "BoardSearchCountMatchResponse",
     "BoardSearchLineMatchResponse",
     "BoardSearchViewPointResponse",
     "ApproximateWinResponse",

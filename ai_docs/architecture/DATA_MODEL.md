@@ -707,6 +707,13 @@ Klucz logiczny:
 
 Oddzielna tabela zapobiega uznaniu payoutu za aktualny po zmianie reguł.
 
+Gra z symbolem uruchamiającym supergrę jest liczona algorytmem
+`payout-v4-wild-count` (TASK-0932, `ALGORITHMS.md` §B). Zadanie payout nie
+prekomputuje jeszcze tej wersji i odrzuca zlecenie v2/v3 dla takiej gry
+(`PAYOUT_ALGORITHM_GAME_MISMATCH`), więc `layout_payouts` nigdy nie zawiera
+wyniku v4 pod etykietą v3; gry bez symbolu uruchamiającego (777) zachowują
+`payout-v3-unknown-prefix-stop` i identyczne wyniki.
+
 Wyniki są zapisywane przez worker partiami po kluczu logicznym. FK do
 `(dataset_version_id, sequence_number)` gwarantuje, że payout wskazuje
 istniejący layout, `total_payout` jest nieujemny, a `algorithm_version` nie może

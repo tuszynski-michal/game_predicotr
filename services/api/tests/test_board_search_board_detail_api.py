@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import replace
 from uuid import UUID, uuid4
 
 from fastapi.testclient import TestClient
@@ -102,9 +103,15 @@ class MemoryBoardDetailRepository:
         self._configuration = configuration
         self._geometry = geometry
         self._current_checksum = current_checksum
+        self.selectable: dict[UUID, RulesPayoutConfiguration] = {}
 
     def latest_published_rules(self, game_id: UUID) -> RulesPayoutConfiguration | None:
         return self._configuration
+
+    def rules_configuration(
+        self, *, game_id: UUID, rules_version_id: UUID
+    ) -> RulesPayoutConfiguration | None:
+        return self.selectable.get(rules_version_id)
 
     def board_document(
         self, *, game_id: UUID, sequence_number: int
@@ -208,6 +215,7 @@ def test_complete_board_returns_both_lines_in_payline_order_and_view_polygons() 
     assert sum(match["payoutCredits"] for match in body["matches"]) == body["payoutCredits"]
     assert body["symbolCodes"][:5] == ["A"] * 5
     assert body["rules"]["algorithmVersion"] == "payout-v3-unknown-prefix-stop"
+    assert body["countMatches"] == []
     view = body["view"]
     assert view["width"] == 700 and view["height"] == 420
     assert len(view["revision"]) == 64
@@ -440,3 +448,116 @@ def test_a_partial_set_of_cell_records_is_not_offered_for_correction() -> None:
     )
     repository.cell_count = 14  # type: ignore[attr-defined]
     assert _get(repository).json()["cells"] is None
+
+
+# --- payout-v4-wild-count and the Admin draft preview (TASK-0932) ----------
+
+_DRAFT_RULES_VERSION_ID = uuid4()
+
+
+def _wild_count_configuration(
+    *,
+    rules_version_id: UUID = _DRAFT_RULES_VERSION_ID,
+    status: RulesVersionStatus = RulesVersionStatus.DRAFT,
+) -> RulesPayoutConfiguration:
+    """W is both Wild and a super game trigger symbol: 3 on the board pay 20,
+    4 pay 200."""
+
+    published = _configuration()
+    return replace(
+        published,
+        rules_version_id=rules_version_id,
+        version=5,
+        status=status,
+        symbols=tuple(
+            replace(symbol, super_game_trigger_count=3) if symbol.is_wildcard else symbol
+            for symbol in published.symbols
+        ),
+        payout_rules=(
+            *published.payout_rules,
+            PayoutRuleDefinition(symbol_mobile_code=W, match_length=3, payout_credits=20),
+            PayoutRuleDefinition(symbol_mobile_code=W, match_length=4, payout_credits=200),
+        ),
+    )
+
+
+# top: A,W,A,A,B pays A x4 = 25; middle: B,B,W,A,A pays B x3 = 10;
+# W on cells 1, 7 and 10 pays the count rule 3 = 20.
+_WILD_COUNT_BOARD = (A, W, A, A, B, B, B, W, A, A, W, A, B, A, B)
+
+
+def _get_with_rules(repository: MemoryBoardDetailRepository, rules_version_id: UUID):  # type: ignore[no-untyped-def]
+    return _client(repository).get(
+        f"/api/v1/admin/games/{_GAME_ID}/board-search/boards/42",
+        params={"rulesVersionId": str(rules_version_id)},
+    )
+
+
+def test_selected_draft_rules_add_count_matches_to_the_lines() -> None:
+    repository = MemoryBoardDetailRepository(
+        document=_document(_WILD_COUNT_BOARD), configuration=_configuration()
+    )
+    repository.selectable[_DRAFT_RULES_VERSION_ID] = _wild_count_configuration()
+
+    response = _get_with_rules(repository, _DRAFT_RULES_VERSION_ID)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["rules"]["rulesVersionId"] == str(_DRAFT_RULES_VERSION_ID)
+    assert body["rules"]["algorithmVersion"] == "payout-v4-wild-count"
+    assert [
+        (match["paylineId"], match["symbolCode"], match["matchedLength"], match["jokerCells"])
+        for match in body["matches"]
+    ] == [("middle", "B", 3, [7]), ("top", "A", 4, [1])]
+    assert body["countMatches"] == [
+        {"symbolCode": "W", "count": 3, "cells": [1, 7, 10], "payoutCredits": 20}
+    ]
+    assert body["payoutCredits"] == 25 + 10 + 20
+    assert body["payoutKind"] == "exact"
+
+
+def test_default_rules_stay_the_latest_published_version() -> None:
+    repository = MemoryBoardDetailRepository(
+        document=_document(_WILD_COUNT_BOARD), configuration=_configuration()
+    )
+    repository.selectable[_DRAFT_RULES_VERSION_ID] = _wild_count_configuration()
+
+    body = _get(repository).json()
+
+    assert body["rules"]["rulesVersionId"] == str(_RULES_VERSION_ID)
+    assert body["rules"]["algorithmVersion"] == "payout-v3-unknown-prefix-stop"
+    assert body["countMatches"] == []
+
+
+def test_an_unknown_cell_is_never_counted_and_keeps_a_confirmed_minimum() -> None:
+    codes = (*_WILD_COUNT_BOARD[:14], _)
+    repository = MemoryBoardDetailRepository(
+        document=_document(codes), configuration=_configuration()
+    )
+    repository.selectable[_DRAFT_RULES_VERSION_ID] = _wild_count_configuration()
+
+    body = _get_with_rules(repository, _DRAFT_RULES_VERSION_ID).json()
+
+    assert body["countMatches"] == [
+        {"symbolCode": "W", "count": 3, "cells": [1, 7, 10], "payoutCredits": 20}
+    ]
+    assert body["payoutKind"] == "confirmed_minimum"
+
+
+def test_rules_version_of_another_game_or_an_archived_version_is_not_found() -> None:
+    repository = MemoryBoardDetailRepository(
+        document=_document(_WILD_COUNT_BOARD), configuration=_configuration()
+    )
+    archived_id = uuid4()
+    foreign_id = uuid4()
+    repository.selectable[archived_id] = _wild_count_configuration(
+        rules_version_id=archived_id, status=RulesVersionStatus.ARCHIVED
+    )
+    repository.selectable[foreign_id] = replace(
+        _wild_count_configuration(rules_version_id=foreign_id), rules_game_id=uuid4()
+    )
+
+    for rules_version_id in (archived_id, foreign_id, uuid4()):
+        response = _get_with_rules(repository, rules_version_id)
+        assert response.status_code == 404, response.text
+        assert response.json()["code"] == "APPROXIMATE_WIN_RULES_VERSION_NOT_FOUND"

@@ -1955,3 +1955,176 @@ test('a data source without mutations shows a read-only board modal', async (con
   );
   await act(async () => root.unmount());
 });
+
+test('without a rules version list (share, management) there is no rules version choice', async () => {
+  const calls = [];
+  const client = makeClient({
+    approximateWinImpl: async (_gameId, options) => {
+      calls.push(options);
+      return { data: approximateWinResponse(options.startSequenceNumber) };
+    },
+    searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+  });
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  assert.equal(
+    document.querySelector('select[aria-label="Wersja reguł"]'),
+    null,
+  );
+  assert.ok(calls.length > 0);
+  assert.ok(calls.every((options) => !('rulesVersionId' in options)));
+  await act(async () => root.unmount());
+});
+
+test('the Admin draft preview evaluates a chosen rules version and shows count payouts', async (context) => {
+  withDialogSupport();
+  context.after(() => dom.window.localStorage.clear());
+  const mumia = {
+    ...symbol,
+    code: 'mumia',
+    displayOrder: 1,
+    id: 'symbol-mumia',
+    mobileCode: 9,
+    name: 'Mumia',
+  };
+  const counted = [
+    { cells: [1, 7, 10], count: 3, payoutCredits: 20, symbolCode: 'mumia' },
+  ];
+  const draftRules = {
+    algorithmVersion: 'payout-v4-wild-count',
+    rulesVersion: 2,
+    rulesVersionId: 'rules-draft',
+    spinCost: 20,
+  };
+  const rangeCalls = [];
+  const detailCalls = [];
+  const client = {
+    ...makeClient({
+      approximateWinImpl: async (_gameId, options) => {
+        rangeCalls.push(options);
+        if (options.rulesVersionId !== 'rules-draft') {
+          return { data: approximateWinResponse(options.startSequenceNumber) };
+        }
+        return {
+          data: approximateWinResponse(options.startSequenceNumber, {
+            evaluatedSpinCount: 10,
+            requestedSpinCount: 10,
+            rows: [
+              {
+                boardStatus: 'accepted',
+                countMatches: counted,
+                cumulativeBalanceCredits: 100,
+                cumulativeCostCredits: 20,
+                cumulativePayoutCredits: 120,
+                payoutCredits: 120,
+                payoutKind: 'exact',
+                sequenceNumber: 11,
+                spinNumber: 1,
+              },
+            ],
+            rules: draftRules,
+          }),
+        };
+      },
+      searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+    }),
+    listSymbols: async () => ({ data: [symbol, mumia] }),
+    listRulesVersions: async () => ({
+      data: [
+        { id: 'rules-0', status: 'archived', version: 0 },
+        { id: 'rules-1', status: 'published', version: 1 },
+        { id: 'rules-draft', status: 'draft', version: 2 },
+      ],
+    }),
+    getBoardSearchBoardDetail: async (_gameId, sequenceNumber, options) => {
+      detailCalls.push([sequenceNumber, options]);
+      return {
+        data:
+          options?.rulesVersionId === 'rules-draft'
+            ? linesDetail(sequenceNumber, {
+                countMatches: counted,
+                payoutCredits: 120,
+                payoutKind: 'exact',
+                rules: draftRules,
+              })
+            : linesDetail(sequenceNumber),
+      };
+    },
+  };
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      [
+        ...(document.querySelector('select[aria-label="Wersja reguł"]')
+          ?.options ?? []),
+      ].length === 3,
+    'the select offers latest published plus draft and published versions',
+  );
+  const rules = selectByLabel('Wersja reguł');
+  assert.deepEqual(
+    [...rules.options].map((option) => option.textContent),
+    ['Najnowsza opublikowana', 'v2 · draft', 'v1 · opublikowana'],
+  );
+  await act(async () => {
+    rules.value = 'rules-draft';
+    rules.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  await eventually(
+    () =>
+      document.querySelector('.boardSearchApproximateWin tbody tr') !== null,
+    'the draft calculation renders its row',
+  );
+  assert.equal(rangeCalls.at(-1).rulesVersionId, 'rules-draft');
+  assert.match(
+    document.querySelector(
+      '.boardSearchApproximateWin tbody tr td:nth-child(3)',
+    ).textContent,
+    /w tym sztuki: Mumia ×3 → 20/,
+  );
+
+  await click(
+    document.querySelector(
+      'button[aria-label="Pokaż planszę #11 z liniami wypłat"]',
+    ),
+  );
+  await eventually(
+    () => document.querySelector('.boardSearchBoardLinesCounts') !== null,
+    'the modal lists the count payouts',
+  );
+  assert.deepEqual(detailCalls.at(-1), [11, { rulesVersionId: 'rules-draft' }]);
+  assert.match(
+    document.querySelector('.boardSearchBoardLinesCounts').textContent,
+    /Sztuki na planszy.*Mumia ×3 → 20/,
+  );
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesCount').length,
+    3,
+  );
+  // Lines and counts explain the table row, so the lines are drawn.
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesMatch').length,
+    2,
+  );
+
+  // Switching the modal back to the latest published version reads the
+  // board again with the default rules and no count section.
+  const modalRules = document.querySelector(
+    '.boardSearchBoardLinesDialog select[aria-label="Wersja reguł"]',
+  );
+  assert.equal(modalRules.value, 'rules-draft');
+  await act(async () => {
+    modalRules.value = '';
+    modalRules.dispatchEvent(new dom.window.Event('change', { bubbles: true }));
+  });
+  await eventually(
+    () => document.querySelector('.boardSearchBoardLinesCounts') === null,
+    'the published reading has no count payouts',
+  );
+  assert.deepEqual(detailCalls.at(-1), [11, undefined]);
+  assert.match(
+    document.querySelector('#board-lines-title').parentElement.textContent,
+    /Dla wybranej wersji reguł: wygrana .* \(w tabeli .* dla innej wersji reguł\)/,
+  );
+  await act(async () => root.unmount());
+});

@@ -3,9 +3,11 @@
 The admin "Przybliżona wygrana" table lists winning spins; this module turns
 one of those boards into the evidence a modal needs to draw the winning
 paylines: which lines paid, over which cells, and where those cells sit on a
-cropped view of the source photo. Payouts come from the same payout-v3
-evaluator as the range calculator, so a line counts only from the left edge
-and stops at the first unknown cell (`payout-v3-unknown-prefix-stop`).
+cropped view of the source photo. Payouts come from the same evaluator as
+the range calculator, so a line counts only from the left edge and stops at
+the first unknown cell (`payout-v3-unknown-prefix-stop`); a game with a super
+game trigger symbol (`payout-v4-wild-count`, D-535) additionally pays that
+symbol per count of its known cells on the whole board.
 
 No I/O here: geometry arrives as the board's stored JSON and images are
 rendered by the application layer.
@@ -101,6 +103,17 @@ class BoardSearchLineMatch:
 
 
 @dataclass(frozen=True, slots=True)
+class BoardCountMatch:
+    """A super game trigger symbol paid per count of its cells on the board
+    (`payout-v4-wild-count`); unknown cells are never counted."""
+
+    symbol_code: str
+    count: int
+    cells: tuple[int, ...]
+    payout_credits: int
+
+
+@dataclass(frozen=True, slots=True)
 class BoardViewCrop:
     """Integer crop box in source pixels and the rendered output size."""
 
@@ -125,7 +138,12 @@ class BoardSearchBoardView:
 
 def board_payout_kind(payout_credits: int, mobile_codes: Sequence[int | None]) -> BoardPayoutKind:
     """`none` without payout; `exact` for a complete board; otherwise the
-    visible left prefix guarantees a `confirmed_minimum`."""
+    visible left prefix guarantees a `confirmed_minimum`.
+
+    `payout_credits` includes count matches: an unknown cell is never counted
+    as a trigger symbol, so on a partial board the count, like every line
+    prefix, is a lower bound and the board stays `confirmed_minimum`.
+    """
 
     if payout_credits <= 0:
         return "none"
@@ -352,6 +370,7 @@ __all__ = [
     "BOARD_VIEW_MAX_SIDE",
     "BOARD_VIEW_PADDING_FACTOR",
     "BOARD_VIEW_RENDERER_VERSION",
+    "BoardCountMatch",
     "BoardPayoutKind",
     "BoardSearchBoardCell",
     "BoardSearchBoardDocument",

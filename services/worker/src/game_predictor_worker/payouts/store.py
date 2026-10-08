@@ -79,6 +79,7 @@ def load_rules_payout_configuration(
             name=symbol.name,
             is_wildcard=symbol.is_wildcard,
             display_order=symbol.display_order,
+            super_game_trigger_count=symbol.super_game_trigger_count,
         )
         for _, symbol in configured_symbols
     )

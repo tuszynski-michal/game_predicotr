@@ -3364,7 +3364,22 @@ test('getBoardSearchApproximateWin passes gameId as path and options as query pa
     '10',
   );
   assert.equal(new URL(requests[0].url).searchParams.get('spinCount'), '5');
+  assert.equal(
+    new URL(requests[0].url).searchParams.has('rulesVersionId'),
+    false,
+  );
   assert.equal(result.data.evaluatedSpinCount, 0);
+
+  // TASK-0932: the Admin draft preview names the rules version explicitly.
+  await client.getBoardSearchApproximateWin(gameId, {
+    rulesVersionId: '33333333-3333-4333-8333-333333333333',
+    spinCount: 5,
+    startSequenceNumber: 10,
+  });
+  assert.equal(
+    new URL(requests[1].url).searchParams.get('rulesVersionId'),
+    '33333333-3333-4333-8333-333333333333',
+  );
 });
 
 test('getBoardSearchBoardDetail and the board view URL use the board-search paths', async () => {
@@ -3402,12 +3417,26 @@ test('getBoardSearchBoardDetail and the board view URL use the board-search path
     new URL(requests[0].url).pathname,
     `/api/v1/admin/games/${gameId}/board-search/boards/42`,
   );
+  assert.equal(new URL(requests[0].url).search, '');
   assert.equal(result.data.payoutKind, 'none');
   await client.refreshBoardSearchBoardDocument(gameId, 42);
   assert.equal(requests[1].method, 'POST');
   assert.equal(
     new URL(requests[1].url).pathname,
     `/api/v1/admin/games/${gameId}/board-search/boards/42/refresh`,
+  );
+  // TASK-0932: the Admin draft preview names the rules version explicitly.
+  const draftId = '33333333-3333-4333-8333-333333333333';
+  await client.getBoardSearchBoardDetail(gameId, 42, {
+    rulesVersionId: draftId,
+  });
+  assert.equal(
+    new URL(requests[2].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/boards/42`,
+  );
+  assert.equal(
+    new URL(requests[2].url).searchParams.get('rulesVersionId'),
+    draftId,
   );
   assert.equal(
     client.boardSearchBoardViewUrl(gameId, 42, 'c'.repeat(64)),

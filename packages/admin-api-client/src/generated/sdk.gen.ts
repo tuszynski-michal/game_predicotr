@@ -1503,7 +1503,7 @@ export const getBoardSearchApproximateWin = <
   });
 
 /**
- * Winning paylines and cropped-view cell polygons of one board
+ * Winning paylines, count payouts and cropped-view cell polygons of one board
  */
 export const getBoardSearchBoardDetail = <ThrowOnError extends boolean = false>(
   options: Options<GetBoardSearchBoardDetailData, ThrowOnError>,

@@ -505,3 +505,46 @@ def test_fingerprint_changes_when_evaluated_board_data_changes(mutate) -> None:
         ).data_fingerprint_sha256
 
     assert result_for(baseline) != result_for(mutated)
+
+
+def test_evaluation_with_count_matches_is_carried_into_the_row() -> None:
+    """TASK-0932: an evaluator may return count payouts with the total; the
+    row keeps them, and a plain int result means no count matches."""
+
+    from game_predictor_api.domain.board_search_approximate_win import (
+        ApproximateWinDocument,
+        ApproximateWinSpinEvaluation,
+        calculate_approximate_win,
+    )
+    from game_predictor_api.domain.board_search_board_detail import BoardCountMatch
+
+    count = BoardCountMatch(symbol_code="M", count=3, cells=(0, 7, 12), payout_credits=20)
+
+    def evaluate(cells: Sequence[int]) -> int | ApproximateWinSpinEvaluation:
+        if cells[0] == 9:
+            return ApproximateWinSpinEvaluation(payout_credits=30, count_matches=(count,))
+        return 5
+
+    documents = tuple(
+        ApproximateWinDocument(
+            sequence_number=sequence_number,
+            status="accepted",
+            board_checksum_sha256=f"{sequence_number:0>64}",
+            mobile_codes=(first,) + (1,) * 14,
+        )
+        for sequence_number, first in ((2, 9), (3, 1))
+    )
+
+    result = calculate_approximate_win(
+        start_sequence_number=1,
+        requested_spin_count=2,
+        sequence_length=10,
+        documents=documents,
+        evaluate=evaluate,
+        spin_cost=1,
+    )
+
+    assert [(row.payout_credits, row.count_matches) for row in result.rows] == [
+        (30, (count,)),
+        (5, ()),
+    ]

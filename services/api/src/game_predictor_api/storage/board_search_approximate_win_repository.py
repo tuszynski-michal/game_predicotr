@@ -80,6 +80,25 @@ class SqlAlchemyBoardSearchApproximateWinRepository:
             return None
         return load_rules_payout_configuration(self._session, rules_version_id)
 
+    def rules_configuration(
+        self, *, game_id: UUID, rules_version_id: UUID
+    ) -> RulesPayoutConfiguration | None:
+        """One draft or published rules version of this game, for the
+        Admin-only draft preview (TASK-0932); `None` for any other version.
+        """
+        found = self._session.scalar(
+            select(RulesVersionModel.id).where(
+                RulesVersionModel.id == rules_version_id,
+                RulesVersionModel.game_id == game_id,
+                RulesVersionModel.status.in_(
+                    (RulesVersionStatus.DRAFT, RulesVersionStatus.PUBLISHED)
+                ),
+            )
+        )
+        if found is None:
+            return None
+        return load_rules_payout_configuration(self._session, found)
+
     def range_documents(
         self,
         *,

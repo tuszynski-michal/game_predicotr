@@ -178,6 +178,12 @@ export type ApproximateWinRowResponse = {
    */
   boardStatus: string;
   /**
+   * Countmatches
+   *
+   * Count payouts of super game trigger symbols, already included in payoutCredits. Empty for games without a trigger symbol and in frozen management result history.
+   */
+  countMatches?: Array<BoardSearchCountMatchResponse>;
+  /**
    * Cumulativebalancecredits
    */
   cumulativeBalanceCredits: number;
@@ -1165,6 +1171,12 @@ export type BoardSearchBoardDetailResponse = {
    * Editable cell review records of a pending operational board; null for resolved and archive boards.
    */
   cells: Array<BoardSearchBoardCellResponse> | null;
+  /**
+   * Countmatches
+   *
+   * Count payouts of super game trigger symbols; payoutCredits is the sum of matches and countMatches.
+   */
+  countMatches: Array<BoardSearchCountMatchResponse>;
   dataSource: BoardSearchAssetMode;
   /**
    * Documentstale
@@ -1255,6 +1267,31 @@ export type BoardSearchBoardViewResponse = {
    * Width
    */
   width: number;
+};
+
+/**
+ * BoardSearchCountMatchResponse
+ *
+ * A super game trigger symbol paid per count of its cells anywhere on
+ * the board (`payout-v4-wild-count`); unknown cells are never counted.
+ */
+export type BoardSearchCountMatchResponse = {
+  /**
+   * Cells
+   */
+  cells: Array<number>;
+  /**
+   * Count
+   */
+  count: number;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits: number;
+  /**
+   * Symbolcode
+   */
+  symbolCode: string;
 };
 
 /**
@@ -1635,6 +1672,10 @@ export type BoardSearchSharePublicBoardDetailResponse = {
    * Cells
    */
   cells: Array<BoardSearchSharePublicCellResponse> | null;
+  /**
+   * Countmatches
+   */
+  countMatches: Array<BoardSearchCountMatchResponse>;
   /**
    * Datasource
    */
@@ -19204,13 +19245,19 @@ export type GetBoardSearchApproximateWinData = {
      * Spincount
      */
     spinCount: number;
+    /**
+     * Rulesversionid
+     *
+     * Admin-only draft preview (D-535): a draft or published rules version of this game. Omitted: the latest published rules version.
+     */
+    rulesVersionId?: string | null;
   };
   url: '/api/v1/admin/games/{game_id}/board-search/approximate-win';
 };
 
 export type GetBoardSearchApproximateWinErrors = {
   /**
-   * Game not found
+   * Game, or the selected rules version of this game, not found
    */
   404: ErrorResponse;
   /**
@@ -19248,13 +19295,20 @@ export type GetBoardSearchBoardDetailData = {
      */
     sequence_number: number;
   };
-  query?: never;
+  query?: {
+    /**
+     * Rulesversionid
+     *
+     * Admin-only draft preview (D-535): a draft or published rules version of this game. Omitted: the latest published rules version.
+     */
+    rulesVersionId?: string | null;
+  };
   url: '/api/v1/admin/games/{game_id}/board-search/boards/{sequence_number}';
 };
 
 export type GetBoardSearchBoardDetailErrors = {
   /**
-   * Game or board-search document not found
+   * Game, board-search document or the selected rules version of this game not found
    */
   404: ErrorResponse;
   /**

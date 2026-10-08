@@ -290,6 +290,15 @@
             "title": "Boardstatus",
             "type": "string"
           },
+          "countMatches": {
+            "default": [],
+            "description": "Count payouts of super game trigger symbols, already included in payoutCredits. Empty for games without a trigger symbol and in frozen management result history.",
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchCountMatchResponse"
+            },
+            "title": "Countmatches",
+            "type": "array"
+          },
           "cumulativeBalanceCredits": {
             "title": "Cumulativebalancecredits",
             "type": "integer"
@@ -1959,6 +1968,14 @@
             "description": "Editable cell review records of a pending operational board; null for resolved and archive boards.",
             "title": "Cells"
           },
+          "countMatches": {
+            "description": "Count payouts of super game trigger symbols; payoutCredits is the sum of matches and countMatches.",
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchCountMatchResponse"
+            },
+            "title": "Countmatches",
+            "type": "array"
+          },
           "dataSource": {
             "$ref": "#/components/schemas/BoardSearchAssetMode"
           },
@@ -2037,6 +2054,7 @@
           "payoutCredits",
           "payoutKind",
           "matches",
+          "countMatches",
           "view",
           "documentStale",
           "cells"
@@ -2117,6 +2135,41 @@
           "cellPolygons"
         ],
         "title": "BoardSearchBoardViewResponse",
+        "type": "object"
+      },
+      "BoardSearchCountMatchResponse": {
+        "additionalProperties": false,
+        "description": "A super game trigger symbol paid per count of its cells anywhere on\nthe board (`payout-v4-wild-count`); unknown cells are never counted.",
+        "properties": {
+          "cells": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Cells",
+            "type": "array"
+          },
+          "count": {
+            "minimum": 1.0,
+            "title": "Count",
+            "type": "integer"
+          },
+          "payoutCredits": {
+            "minimum": 0.0,
+            "title": "Payoutcredits",
+            "type": "integer"
+          },
+          "symbolCode": {
+            "title": "Symbolcode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbolCode",
+          "count",
+          "cells",
+          "payoutCredits"
+        ],
+        "title": "BoardSearchCountMatchResponse",
         "type": "object"
       },
       "BoardSearchLineMatchResponse": {
@@ -2812,6 +2865,13 @@
             ],
             "title": "Cells"
           },
+          "countMatches": {
+            "items": {
+              "$ref": "#/components/schemas/BoardSearchCountMatchResponse"
+            },
+            "title": "Countmatches",
+            "type": "array"
+          },
           "dataSource": {
             "title": "Datasource",
             "type": "string"
@@ -2889,6 +2949,7 @@
           "payoutCredits",
           "payoutKind",
           "matches",
+          "countMatches",
           "view",
           "documentStale",
           "cells"
@@ -34321,6 +34382,25 @@
               "title": "Spincount",
               "type": "integer"
             }
+          },
+          {
+            "description": "Admin-only draft preview (D-535): a draft or published rules version of this game. Omitted: the latest published rules version.",
+            "in": "query",
+            "name": "rulesVersionId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Admin-only draft preview (D-535): a draft or published rules version of this game. Omitted: the latest published rules version.",
+              "title": "Rulesversionid"
+            }
           }
         ],
         "responses": {
@@ -34342,7 +34422,7 @@
                 }
               }
             },
-            "description": "Game not found"
+            "description": "Game, or the selected rules version of this game, not found"
           },
           "409": {
             "content": {
@@ -34394,6 +34474,25 @@
               "title": "Sequence Number",
               "type": "integer"
             }
+          },
+          {
+            "description": "Admin-only draft preview (D-535): a draft or published rules version of this game. Omitted: the latest published rules version.",
+            "in": "query",
+            "name": "rulesVersionId",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "uuid",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Admin-only draft preview (D-535): a draft or published rules version of this game. Omitted: the latest published rules version.",
+              "title": "Rulesversionid"
+            }
           }
         ],
         "responses": {
@@ -34415,7 +34514,7 @@
                 }
               }
             },
-            "description": "Game or board-search document not found"
+            "description": "Game, board-search document or the selected rules version of this game not found"
           },
           "409": {
             "content": {
@@ -34438,7 +34537,7 @@
             "description": "Invalid path parameters"
           }
         },
-        "summary": "Winning paylines and cropped-view cell polygons of one board",
+        "summary": "Winning paylines, count payouts and cropped-view cell polygons of one board",
         "tags": [
           "board-search"
         ]

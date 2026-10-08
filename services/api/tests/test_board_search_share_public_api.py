@@ -677,3 +677,24 @@ def test_default_limits_and_range_calculation_limit(tmp_path: Path) -> None:
     assert first.status_code == 200, first.text
     assert second.status_code == 429
     assert second.json()["code"] == "BOARD_SEARCH_SHARE_RATE_LIMITED"
+
+
+def test_a_rules_version_parameter_is_refused(client: tuple[TestClient, Harness]) -> None:
+    """TASK-0932: the draft preview is Admin-only; the share always uses the
+    latest published rules and refuses `rulesVersionId` instead of ignoring it."""
+
+    test_client, harness = client
+    _signed_in(test_client, harness, DETAIL_GAME_ID)
+    rules_version = {"rulesVersionId": "00000000-0000-4000-8000-000000000001"}
+    responses = (
+        test_client.get(f"{BASE}/boards/42", params=rules_version, headers=PROXY),
+        test_client.get(
+            f"{BASE}/approximate-win",
+            params={"startSequenceNumber": 1, "spinCount": 5, **rules_version},
+            headers=PROXY,
+        ),
+    )
+    for response in responses:
+        assert response.status_code == 422, response.text
+        assert response.json()["code"] == "BOARD_SEARCH_SHARE_PARAMETER_FORBIDDEN"
+    assert harness.log.entries == []

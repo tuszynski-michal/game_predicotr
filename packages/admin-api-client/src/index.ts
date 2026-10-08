@@ -539,6 +539,7 @@ export type {
   BoardSearchBoardCellResponse,
   BoardSearchBoardDetailResponse,
   BoardSearchBoardViewResponse,
+  BoardSearchCountMatchResponse,
   BoardSearchLineMatchResponse,
   BoardSearchViewPointResponse,
   ApproximateWinRowResponse,
@@ -1146,6 +1147,16 @@ export interface BoardSearchQueryCell {
 export interface GetBoardSearchApproximateWinOptions {
   readonly startSequenceNumber: number;
   readonly spinCount: number;
+  /**
+   * Admin-only draft preview (D-535): a draft or published rules version of
+   * the game. Omitted: the latest published rules version.
+   */
+  readonly rulesVersionId?: string;
+}
+
+export interface GetBoardSearchBoardDetailOptions {
+  /** Admin-only draft preview (D-535); omitted: latest published rules. */
+  readonly rulesVersionId?: string;
 }
 
 export function createAdminApiClient(options: AdminApiClientOptions) {
@@ -2552,12 +2563,22 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
         query: {
           startSequenceNumber: options.startSequenceNumber,
           spinCount: options.spinCount,
+          ...(options.rulesVersionId === undefined
+            ? {}
+            : { rulesVersionId: options.rulesVersionId }),
         },
       }),
-    getBoardSearchBoardDetail: (gameId: string, sequenceNumber: number) =>
+    getBoardSearchBoardDetail: (
+      gameId: string,
+      sequenceNumber: number,
+      options: GetBoardSearchBoardDetailOptions = {},
+    ) =>
       getGeneratedBoardSearchBoardDetail({
         client,
         path: { game_id: gameId, sequence_number: sequenceNumber },
+        ...(options.rulesVersionId === undefined
+          ? {}
+          : { query: { rulesVersionId: options.rulesVersionId } }),
       }),
     /** Rebuild one board's stale search document (TASK-0773). */
     refreshBoardSearchBoardDocument: (gameId: string, sequenceNumber: number) =>

@@ -1,12 +1,15 @@
 import type {
   BoardSearchBoardDetailResponse,
+  BoardSearchCountMatchResponse,
   BoardSearchLineMatchResponse,
 } from '@game-predictor/admin-api-client';
 
 /**
  * Pure state for the board payline modal (D-470, TASK-0764). Lines come from
- * the API's payout-v3 evaluation, so a line starts only at the left edge and
- * stops at the first unknown cell; this module only draws what paid.
+ * the API's payout evaluation, so a line starts only at the left edge and
+ * stops at the first unknown cell; a game with a super game trigger symbol
+ * (`payout-v4-wild-count`, D-535) also pays that symbol per count of its
+ * cells on the board. This module only draws what paid.
  */
 
 export interface BoardLinePoint {
@@ -119,7 +122,12 @@ export function boardLinesConsistency(
   detail: Pick<
     BoardSearchBoardDetailResponse,
     'matches' | 'payoutCredits' | 'rules'
-  >,
+  > & {
+    readonly countMatches?: readonly Pick<
+      BoardSearchCountMatchResponse,
+      'payoutCredits'
+    >[];
+  },
   rowPayoutCredits: number,
   rulesVersionId: string,
 ): BoardLinesConsistency {
@@ -129,14 +137,34 @@ export function boardLinesConsistency(
   if (detail.payoutCredits !== rowPayoutCredits) {
     return { kind: 'inconsistent', reason: 'payout' };
   }
-  const sum = detail.matches.reduce(
-    (total, match) => total + match.payoutCredits,
-    0,
-  );
+  // Lines and count payouts together must explain the board payout.
+  const sum =
+    detail.matches.reduce((total, match) => total + match.payoutCredits, 0) +
+    boardCountMatches(detail).reduce(
+      (total, match) => total + match.payoutCredits,
+      0,
+    );
   if (sum !== detail.payoutCredits) {
     return { kind: 'inconsistent', reason: 'lines' };
   }
   return { kind: 'consistent' };
+}
+
+/**
+ * Count payouts of a board detail; empty for games without a super game
+ * trigger symbol (and for readers of an older response without the field).
+ */
+export function boardCountMatches<T>(detail: {
+  readonly countMatches?: readonly T[];
+}): readonly T[] {
+  return detail.countMatches ?? [];
+}
+
+/** Cells counted for any trigger symbol, for highlighting on the board. */
+export function boardCountedCells(
+  countMatches: readonly Pick<BoardSearchCountMatchResponse, 'cells'>[],
+): ReadonlySet<number> {
+  return new Set(countMatches.flatMap((match) => match.cells));
 }
 
 /**

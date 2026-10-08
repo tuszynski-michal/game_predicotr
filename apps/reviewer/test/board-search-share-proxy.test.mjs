@@ -377,3 +377,16 @@ test('owner-typed names that look like paths are not mistaken for storage paths'
   );
   assert.equal(response.status, 200);
 });
+
+test('the Admin-only rules version choice is refused without an upstream call', async () => {
+  // TASK-0932: the draft preview (`rulesVersionId`) never reaches the API
+  // through the online share; the API refuses it as well.
+  for (const path of [
+    `/boards/42?rulesVersionId=${sessionId}`,
+    `/approximate-win?startSequenceNumber=1&spinCount=5&rulesVersionId=${sessionId}`,
+  ]) {
+    const { response, upstream } = await proxy(request(path));
+    assert.equal(response.status, 403, path);
+    assert.equal(upstream.calls.length, 0, path);
+  }
+});

@@ -1,6 +1,7 @@
 """Framework-independent Game Predictor domain contracts."""
 
 from game_predictor_worker.domain.contracts import (
+    CountMatch,
     ForecastInput,
     ForecastPeak,
     ForecastResult,
@@ -16,9 +17,12 @@ from game_predictor_worker.domain.contracts import (
 )
 from game_predictor_worker.domain.errors import DomainErrorCode, DomainValidationError
 from game_predictor_worker.domain.payout import (
+    PAYOUT_V3_ALGORITHM_VERSION,
+    PAYOUT_V4_ALGORITHM_VERSION,
     PreparedPayoutEvaluator,
     evaluate_payout,
     evaluate_payout_v2,
+    payout_algorithm_version,
     prepare_payout_evaluator,
 )
 from game_predictor_worker.domain.signature import (
@@ -44,6 +48,7 @@ from game_predictor_worker.domain.validation import (
 )
 
 __all__ = [
+    "CountMatch",
     "DomainErrorCode",
     "DomainValidationError",
     "ForecastInput",
@@ -53,6 +58,8 @@ __all__ = [
     "JokerInterpretation",
     "MAX_SIGNATURE_CELL_WIDTH",
     "MAX_SYMBOL_MOBILE_CODE",
+    "PAYOUT_V3_ALGORITHM_VERSION",
+    "PAYOUT_V4_ALGORITHM_VERSION",
     "PaylineDefinition",
     "PayoutEvaluation",
     "PayoutMatch",
@@ -68,6 +75,7 @@ __all__ = [
     "encode_signature_prefix",
     "evaluate_payout",
     "evaluate_payout_v2",
+    "payout_algorithm_version",
     "prepare_payout_evaluator",
     "validate_board_dimensions",
     "validate_board_prefix",

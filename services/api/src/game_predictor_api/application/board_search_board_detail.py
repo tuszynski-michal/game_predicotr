@@ -1,8 +1,10 @@
 """Application boundary for one board's payline detail and cropped view (D-470).
 
 `BoardSearchBoardDetailService` evaluates one board-search document with the
-same published rules and payout-v3 evaluator as the range calculator and
-returns the winning lines plus the cell polygons of a cropped view.
+same rules and evaluator as the range calculator (latest published, or an
+Admin-selected draft or published version) and returns the winning lines,
+the count payouts of super game trigger symbols and the cell polygons of a
+cropped view.
 `BoardSearchBoardViewService` renders that cropped view as WebP through a
 disposable, checksum-keyed file cache shared by the whole process.
 
@@ -29,13 +31,15 @@ from game_predictor_worker.payouts.contracts import RulesPayoutConfiguration
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from game_predictor_api.application.board_search_approximate_win import (
-    APPROXIMATE_WIN_PAYOUT_ALGORITHM_VERSION,
+    board_count_matches,
     prepare_approximate_win_evaluator,
+    resolve_rules_configuration,
 )
 from game_predictor_api.application.board_search_assets import resolve_board_search_image
 from game_predictor_api.domain.board_search import BoardSearchAssetMode, BoardSearchError
 from game_predictor_api.domain.board_search_board_detail import (
     BOARD_VIEW_MAX_CROP_PIXELS,
+    BoardCountMatch,
     BoardPayoutKind,
     BoardSearchBoardCell,
     BoardSearchBoardDocument,
@@ -62,6 +66,10 @@ _VIEW_MAX_SOURCE_PIXELS = 100_000_000
 
 class BoardSearchBoardDetailRepository(Protocol):
     def latest_published_rules(self, game_id: UUID) -> RulesPayoutConfiguration | None: ...
+
+    def rules_configuration(
+        self, *, game_id: UUID, rules_version_id: UUID
+    ) -> RulesPayoutConfiguration | None: ...
 
     def board_document(
         self, *, game_id: UUID, sequence_number: int
@@ -99,6 +107,7 @@ class BoardSearchBoardDetail:
     payout_credits: int
     payout_kind: BoardPayoutKind
     matches: tuple[BoardSearchLineMatch, ...]
+    count_matches: tuple[BoardCountMatch, ...]
     view: BoardSearchBoardView | None
     cells: tuple[BoardSearchBoardCell, ...] | None
     document_stale: bool
@@ -180,17 +189,15 @@ class BoardSearchBoardDetailService:
         game_id: UUID,
         sequence_number: int,
         include_cells: bool = True,
+        rules_version_id: UUID | None = None,
     ) -> BoardSearchBoardDetail:
         """`include_cells=False` is the online share (D-471): cell records carry
-        review identities and correction is Admin-only (D-473)."""
+        review identities and correction is Admin-only (D-473).
+        `rules_version_id` is the Admin-only draft preview (D-535); `None`
+        evaluates with the latest published rules."""
         if sequence_number < 1:
             raise _board_not_found()
-        configuration = self._repository.latest_published_rules(game_id)
-        if configuration is None:
-            raise BoardSearchError(
-                "APPROXIMATE_WIN_RULES_NOT_PUBLISHED",
-                "The game has no published rules version to calculate payout against.",
-            )
+        configuration = resolve_rules_configuration(self._repository, game_id, rules_version_id)
         evaluator = prepare_approximate_win_evaluator(game_id, configuration)
         document = _load_document(self._repository, game_id, sequence_number)
         try:
@@ -219,7 +226,7 @@ class BoardSearchBoardDetailService:
                 # here is a data defect, never a line to hide silently.
                 raise BoardSearchError(
                     "APPROXIMATE_WIN_RULES_INVALID",
-                    "A winning payline or symbol is missing from the published rules.",
+                    "A winning payline or symbol is missing from the selected rules.",
                 )
             matches.append(
                 BoardSearchLineMatch(
@@ -261,13 +268,14 @@ class BoardSearchBoardDetailService:
             rules_version_id=configuration.rules_version_id,
             rules_version=configuration.version,
             spin_cost=configuration.spin_cost,
-            algorithm_version=APPROXIMATE_WIN_PAYOUT_ALGORITHM_VERSION,
+            algorithm_version=evaluator.algorithm_version,
             symbol_codes=tuple(
                 None if code is None else codes.get(code) for code in document.mobile_codes
             ),
             payout_credits=evaluation.total_payout,
             payout_kind=board_payout_kind(evaluation.total_payout, document.mobile_codes),
             matches=tuple(matches),
+            count_matches=board_count_matches(evaluation, configuration),
             view=view,
             cells=cells,
             document_stale=stale,

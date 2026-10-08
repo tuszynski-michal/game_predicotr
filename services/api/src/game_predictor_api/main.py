@@ -2257,6 +2257,9 @@ def create_app(
             "BOARD_SEARCH_BOARD_NOT_FOUND",
             "BOARD_SEARCH_BOARD_VIEW_UNAVAILABLE",
             "BOARD_SEARCH_BOARD_VIEW_SOURCE_NOT_FOUND",
+            # TASK-0932 Admin draft preview: the selected rules version is not
+            # a draft or published version of this game.
+            "APPROXIMATE_WIN_RULES_VERSION_NOT_FOUND",
         }:
             status_code = 404
         # "APPROXIMATE_WIN_SPIN_COUNT_INVALID" and any other/unknown code

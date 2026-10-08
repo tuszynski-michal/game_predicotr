@@ -499,8 +499,22 @@ Pod podglądem aktualnie wybranej znalezionej planszy dostępna jest rozwijana
 podsekcja „Przybliżona wygrana”. Liczy ostrożne, dolnoograniczone
 oszacowanie payoutu dla `N` kolejnych pozycji sekwencji po wybranej planszy
 `S` (zakres `S+1…S+N`; `S` nigdy nie wchodzi do wyniku), używając tego
-samego kalkulatora payoutu co wydania mobilne (`payout-v3-unknown-prefix-stop`)
+samego kalkulatora payoutu co wydania mobilne (`payout-v3-unknown-prefix-stop`;
+dla gry z symbolem uruchamiającym supergrę `payout-v4-wild-count`)
 i tej samej definicji pełnego cyklu z zawijaniem co mobilna prognoza celu.
+
+**Wersja reguł (D-535, TASK-0932).** W lokalnym Adminie obok kontrolek
+zakresu stoi select „Wersja reguł”: „Najnowsza opublikowana” (domyślnie)
+oraz wersje `draft` i opublikowane gry, np. „v2 · draft”, „v1 ·
+opublikowana” (wersje zarchiwizowane są pominięte). Wybór wersji `draft`
+pokazuje notę „Podgląd wersji roboczej” i liczy zakres z tej wersji bez jej
+publikowania; wybór nie jest zapamiętywany. Okno „Pokaż planszę” otwarte z
+wiersza liczy tą samą wersją i ma ten sam select; zmiana wersji w oknie
+pokazuje odczyt planszy dla wybranej wersji z dopiskiem „Dla wybranej wersji
+reguł” zamiast porównania z tabelą. Udostępniony panel online i panel
+zarządzania nie mają tego selectu. W wierszu tabeli wypłata za sztuki symbolu
+uruchamiającego jest pokazana jako dopisek „w tym sztuki: Mumia ×3 → 20”
+(już wliczona do wypłaty wiersza).
 „Zakres wygranej” (domyślnie 2 500, maksymalnie 100 000) jest niezależny od
 „Liczby wyników”.
 
@@ -623,8 +637,12 @@ komórce, więc plansza przycięta z lewej strony nie pokazuje żadnej linii,
 a nieznane pola są oznaczone `?`. Każda linia ma stały kolor według
 kolejności linii wypłat; pola z Wildem mają dodatkowy znacznik. Legenda
 ma przełącznik widoczności dla każdej linii osobno oraz „Pokaż wszystkie”
-i „Ukryj wszystkie”, a każdy wpis podaje nazwę linii, symbol, długość i
-wypłatę w wybranej stawce i jednostce. Gdy suma wypłat linii różni się od
+i „Ukryj wszystkie”, a każdy wpis podaje nazwę linii, symbol, długość,
+liczbę pól Wild i wypłatę w wybranej stawce i jednostce. Dla gry z symbolem
+uruchamiającym supergrę (`payout-v4-wild-count`) legenda ma sekcję „Sztuki
+na planszy” z wierszami „Mumia ×3 → 20”, a policzone pola są podświetlone
+na planszy; nieznane pole (`?`) nie jest liczone jako sztuka. Gdy suma
+wypłat linii i sztuk różni się od
 wypłaty wiersza albo wynik dotyczy innej wersji reguł, modal pokazuje
 komunikat i „Przelicz ponownie” zamiast niespójnego rysunku; przycisk
 zamyka modal i liczy zakres od nowa. Błąd pobrania planszy pokazuje

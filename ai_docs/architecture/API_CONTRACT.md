@@ -312,6 +312,7 @@ sprzeczności, status zatwierdzony, `sequence_number` i UUID.
 GET /api/v1/admin/games/{gameId}/board-search/approximate-win
   ?startSequenceNumber={S}
   &spinCount={N, 1..100000}
+  [&rulesVersionId={uuid}]
 ```
 
 Endpoint jest wyłącznie do odczytu, na tym samym routerze co wyszukiwanie
@@ -323,8 +324,12 @@ zasadzie co pełny cykl mobilnej prognozy celu
 (`image_board_search_fast_documents`) w co najwyżej dwóch zapytaniach zakresowych (dwa tylko gdy zakres
 przechodzi przez koniec sekwencji), plus jedno dodatkowe zapytanie o status
 planszy startowej. Payout liczony jest tym samym kalkulatorem co wydania
-mobilne (`payout-v3-unknown-prefix-stop`) na podstawie najnowszej
-opublikowanej wersji reguł gry.
+mobilne (`payout-v3-unknown-prefix-stop`; gra z symbolem uruchamiającym
+supergrę: `payout-v4-wild-count`, `ALGORITHMS.md` §B) na podstawie
+najnowszej opublikowanej wersji reguł gry. Opcjonalny `rulesVersionId`
+(TASK-0932, D-535) wybiera w lokalnym Adminie wersję `draft` albo
+`published` tej samej gry; `rules.rulesVersionId` i
+`rules.algorithmVersion` odpowiedzi opisują faktycznie użytą wersję.
 
 Odpowiedź:
 
@@ -346,7 +351,16 @@ rows[]:                 # wyłącznie spiny z payoutCredits > 0
   cumulativePayoutCredits, cumulativeCostCredits, cumulativeBalanceCredits,
   payoutKind             # "exact"|"confirmed_minimum"
   boardStatus
+  countMatches[]         # domyślnie []; payout-v4-wild-count, już w payoutCredits
+    symbolCode, count, cells[], payoutCredits
 ```
+
+`countMatches` jest puste dla gier bez symbolu uruchamiającego. Cały panel
+zarządzania (lokalny i publiczny) pokazuje wiersze bez rozbicia na sztuki —
+także świeże podglądy, bo `preview` rozwija snapshot wyniku w formacie v1,
+którego wiersze mają tylko `ROW_FIELDS`; wypłata wiersza i bilans już
+zawierają wypłaty za sztuki. To zaakceptowane ograniczenie do czasu formatu
+wyniku v2.
 
 `completeness` jest rozłączna i sumuje się do `evaluatedSpinCount`: kompletna
 (15/15 znanych symboli), częściowa (≥1 nieznany, również gdy naliczono dla
@@ -365,6 +379,8 @@ wymiarach innych niż 3 × 5 albo niekompletna/niemonotoniczna macierz payout);
 `409 APPROXIMATE_WIN_BOARD_SYMBOL_OUTSIDE_RULES` (plansza w zakresie zawiera
 kod symbolu spoza aktywnych symboli reguł — cała kalkulacja zakresu jest
 wtedy przerywana, żadna plansza nie jest po cichu pomijana);
+`404 APPROXIMATE_WIN_RULES_VERSION_NOT_FOUND` (`rulesVersionId` nie jest
+wersją `draft` ani `published` tej gry);
 `422 APPROXIMATE_WIN_SPIN_COUNT_INVALID` albo standardowa walidacja FastAPI
 dla brakujących/nieprawidłowych parametrów zapytania.
 
@@ -376,14 +392,18 @@ zatwierdzeń czy danych treningowych; nie ma serwerowego cache — każde
 
 ```text
 GET /api/v1/admin/games/{gameId}/board-search/boards/{sequenceNumber}
+  [?rulesVersionId={uuid}]
 GET /api/v1/admin/games/{gameId}/board-search/boards/{sequenceNumber}/view
   ?expectedBoardChecksumSha256={sha256}[&viewRevision={sha256}]
 ```
 
 Oba endpointy są tylko do odczytu i czytają ten sam dokument wyszukiwania co
 `board-search` i kalkulator zakresu. Szczegóły (`getBoardSearchBoardDetail`)
-oceniają jedną planszę tym samym ewaluatorem `payout-v3-unknown-prefix-stop`
-i tą samą najnowszą opublikowaną wersją reguł. Linia jest liczona wyłącznie
+oceniają jedną planszę tym samym ewaluatorem (`payout-v3-unknown-prefix-stop`
+albo `payout-v4-wild-count`) i tą samą najnowszą opublikowaną wersją reguł;
+opcjonalny `rulesVersionId` działa jak w kalkulatorze zakresu (podgląd
+wersji `draft`/`published` w lokalnym Adminie, nieznana wersja:
+`404 APPROXIMATE_WIN_RULES_VERSION_NOT_FOUND`). Linia jest liczona wyłącznie
 od lewej krawędzi i kończy się na pierwszej nieznanej komórce, więc plansza
 przycięta z lewej nie ma żadnej linii.
 
@@ -399,6 +419,8 @@ payoutKind              # "exact"|"confirmed_minimum"|"none"
 matches[]:              # posortowane po displayOrder linii
   paylineId, paylineCode, paylineName, paylineDisplayOrder, rowPath[5],
   symbolCode, matchedLength, matchedCells[], jokerCells[], payoutCredits
+countMatches[]:         # payout-v4-wild-count: wypłata za sztuki symbolu
+  symbolCode, count, cells[], payoutCredits   # uruchamiającego; inaczej []
 view: null | { width, height, revision, cellPolygons: null | [15][4] {x, y} }
 documentStale           # TASK-0773: plansza zmieniła się po zapisaniu dokumentu
 cells: null | [15]:     # D-473: rekordy weryfikacji pól do poprawki
@@ -417,7 +439,11 @@ gdy jest ich dokładnie 15. Nieaktualny dokument, archiwum i niepełny zestaw da
 rekordu. Publiczna powierzchnia udostępniania (D-471) nie może zwracać
 wewnętrznych pól `cells`; D-492 zwraca osobny publiczny kształt z SHA wersji.
 
-`sum(matches.payoutCredits) == payoutCredits`. `view` opisuje przycięty widok
+`sum(matches.payoutCredits) + sum(countMatches.payoutCredits) ==
+payoutCredits`. `jokerCells` zachowuje historyczną nazwę i oznacza komórki
+Wilda. Nieznana komórka nigdy nie jest liczona jako sztuka, więc plansza
+częściowa z wypłatą za sztuki ma `payoutKind = "confirmed_minimum"`.
+`view` opisuje przycięty widok
 planszy operacyjnej: obrys komórek z zapisanej geometrii plus 20% z każdej
 strony, dłuższy bok najwyżej 1280 px; `cellPolygons` są we współrzędnych 0–1
 tego widoku (punkty planszy uciętej przez krawędź zdjęcia mogą wyjść poza
@@ -555,6 +581,10 @@ zawiera tylko `sessionId`, etykietę i termin wygaśnięcia; token jest wydawany
 przez HttpOnly cookie. Backendowy OpenAPI i wygenerowany klient są źródłem
 dokładnych parametrów i odpowiedzi. Publiczne trasy nie obejmują tworzenia
 linków, importów, modeli, reguł ani pozostałego Admin API.
+`approximate-win` i `boards/{sequence}` tej rodziny zawsze liczą z najnowszej
+opublikowanej wersji reguł; parametr `rulesVersionId` daje
+`422 BOARD_SEARCH_RULES_VERSION_NOT_ALLOWED` (TASK-0932), a allowlista
+Reviewera i tak go nie przepuszcza (`403`).
 
 Reviewer przekazuje te operacje przez allowlistę `/management-api`.
 Cookie `gp_management_token` jest niezależne od cookie wyszukiwarki;
@@ -698,7 +728,9 @@ nagłówek `X-Board-Search-Share-Proxy: reviewer-board-search-v1`
 zły, wygasły, zablokowany albo unieważniony:
 `401 BOARD_SEARCH_SHARE_TOKEN_INVALID`). Gra pochodzi wyłącznie z sesji;
 parametr `gameId`/`game_id` w zapytaniu daje
-`422 BOARD_SEARCH_SHARE_PARAMETER_FORBIDDEN`. Odczyty danych działają w
+`422 BOARD_SEARCH_SHARE_PARAMETER_FORBIDDEN`; tak samo `rulesVersionId`/
+`rules_version_id` (TASK-0932: podgląd wersji roboczej jest wyłącznie lokalny,
+udostępnienie zawsze liczy z najnowszej opublikowanej wersji reguł). Odczyty danych działają w
 zakresie magazynu gry z sesji (`game_storage_scope`).
 
 ```text
@@ -724,7 +756,7 @@ POST /api/v1/board-search-shares/boards/{sequenceNumber}/cells/{cellIndex}/decis
   `importJobId` i `assetMode`; D-492 dodaje `searchContextId` udanego wpisu
   tego wyszukiwania. `approximate-win` ma kształt Admina;
   `boards/{n}` ma publiczne `cells` dla bieżącej edytowalnej planszy, inaczej
-  `null`. Pole zawiera `cellIndex`, `cellVersion` (SHA-256),
+  `null`, oraz `countMatches[]` jak szczegóły Admina. Pole zawiera `cellIndex`, `cellVersion` (SHA-256),
   `assignedSymbolCode`, `reviewState`, `qualityIssue`; bez wewnętrznych ID
   lub sum cropów. Nie ma publicznego odświeżania odczytu. Oba
   kształty Admina zawierają `gameId` i `rulesVersionId`: to nie są sekrety,

@@ -25,6 +25,21 @@ def json_value(value: object) -> Any:
     return json.loads(json.dumps(value, default=str, sort_keys=True))
 
 
+def rules_snapshot(configuration: RulesPayoutConfiguration) -> Any:
+    """JSON rules snapshot of a frozen result.
+
+    `super_game_trigger_count` (TASK-0932) is kept only for trigger symbols,
+    so snapshots and content digests of games without a trigger symbol stay
+    byte-identical to those written before it existed.
+    """
+
+    snapshot = json_value(asdict(configuration))
+    for symbol in snapshot["symbols"]:
+        if symbol.get("super_game_trigger_count") is None:
+            symbol.pop("super_game_trigger_count", None)
+    return snapshot
+
+
 def freeze_result(
     calculation: ApproximateWinResponse,
     configuration: RulesPayoutConfiguration,
@@ -40,7 +55,7 @@ def freeze_result(
         "rows": [[row[key] for key in ROW_FIELDS] for row in rows],
         "startSymbolCodes": list(start_symbols),
         "startBoardChecksumSha256": start_checksum,
-        "rulesSnapshot": json_value(asdict(configuration)),
+        "rulesSnapshot": rules_snapshot(configuration),
     }
     digest = hashlib.sha256(
         json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()

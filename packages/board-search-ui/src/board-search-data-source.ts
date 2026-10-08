@@ -9,6 +9,7 @@ import type {
   BoardSearchShareCellCorrectionResponse,
   BoardSearchResponse,
   GetBoardSearchApproximateWinOptions,
+  GetBoardSearchBoardDetailOptions,
   SearchGameBoardsOptions,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
@@ -42,6 +43,8 @@ export type BoardSearchCorrectionContext = {
  *
  * Correction has separate optional ports for local identity and public position.
  * Without mutations the section hides correction; stale-reading refresh is local.
+ * Only a source with `listRulesVersions` (the Admin) offers the „Wersja reguł”
+ * draft preview (D-535) and passes `rulesVersionId`; other sources never do.
  * Without the full-photo
  * members the carousel has no fallback when the cropped view is unavailable.
  */
@@ -59,6 +62,7 @@ export type BoardSearchDataSource = {
   readonly getBoardSearchBoardDetail: (
     gameId: string,
     sequenceNumber: number,
+    options?: GetBoardSearchBoardDetailOptions,
   ) => BoardSearchApiResult<BoardSearchModalDetail>;
   readonly correctBoardSearchCell?: (
     gameId: string,
@@ -102,6 +106,7 @@ export type BoardSearchDataSource = {
     AdminApiClient,
     | 'applySymbolCellReviewDecision'
     | 'getOperationalImageReviewItem'
+    | 'listRulesVersions'
     | 'operationalImageReviewBoardAssetUrl'
     | 'refreshBoardSearchBoardDocument'
   >

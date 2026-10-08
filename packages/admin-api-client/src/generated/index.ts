@@ -456,6 +456,7 @@ export type {
   BoardSearchBoardDetailResponse,
   BoardSearchBoardRefreshResponse,
   BoardSearchBoardViewResponse,
+  BoardSearchCountMatchResponse,
   BoardSearchLineMatchResponse,
   BoardSearchResponse,
   BoardSearchResultResponse,

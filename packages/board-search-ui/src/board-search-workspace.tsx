@@ -37,6 +37,7 @@ import {
 } from './board-search-editor-state';
 import { BoardSearchApproximateWin } from './board-search-approximate-win';
 import { BoardSearchBoardLinesModal } from './board-search-board-lines-modal';
+import { useBoardSearchRulesVersions } from './board-search-rules-version-select';
 import { APPROXIMATE_WIN_RANGE_DEFAULT } from './board-search-approximate-win-state';
 import {
   boardSearchDraftKey,
@@ -174,6 +175,8 @@ function BoardSearchWorkspaceContent({
     savedSelection === null ? null : boardSearchDraftKey(savedSelection),
   );
   const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
+  // Admin-only draft preview (D-535); `null` for share and management sources.
+  const rulesVersions = useBoardSearchRulesVersions(api, gameId);
   const [symbolsState, setSymbolsState] = useState<LoadState>('loading');
   const [symbolsError, setSymbolsError] = useState('');
   const [editor, setEditor] = useState(() =>
@@ -911,6 +914,7 @@ function BoardSearchWorkspaceContent({
           <BoardSearchResults
             client={api}
             gameId={gameId}
+            rulesVersions={rulesVersions}
             onBoardEdited={() => runSearch({ preserveSelection: true })}
             onStateChange={(state) => {
               setSavedSequence(null);
@@ -933,6 +937,7 @@ function BoardSearchWorkspaceContent({
             <BoardSearchApproximateWin
               client={api}
               gameId={gameId}
+              rulesVersions={rulesVersions}
               searchKey={searchKey}
               onReplayNotice={(notice) =>
                 setReplayNotices((current) => [...current, notice])

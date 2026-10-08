@@ -15,7 +15,10 @@ from uuid import UUID
 from fastapi import APIRouter, Cookie, Depends, Header, Query, Request, Response
 from fastapi import Path as ApiPath
 
-from game_predictor_api.api.board_search import parse_board_search_cells
+from game_predictor_api.api.board_search import (
+    RULES_VERSION_QUERY_NAMES,
+    parse_board_search_cells,
+)
 from game_predictor_api.api.symbol_references import resolve_symbol_reference_asset
 from game_predictor_api.application.board_search import BoardSearchService
 from game_predictor_api.application.board_search_approximate_win import (
@@ -93,7 +96,10 @@ _T = TypeVar("_T")
 # Recipients' browsers may keep images for a day (§4.5); the URLs are bound
 # to checksums, so a changed image always gets a new URL.
 IMAGE_CACHE_CONTROL = "private, immutable, max-age=86400"
-_FORBIDDEN_QUERY_PARAMETERS = frozenset({"gameid", "game_id"})
+# The game comes only from the session, and the rules are always the
+# latest published version: the Admin-only draft preview (`rulesVersionId`,
+# TASK-0932) is refused here like a game parameter.
+_FORBIDDEN_QUERY_PARAMETERS = frozenset({"gameid", "game_id", *RULES_VERSION_QUERY_NAMES})
 # `cellIndex:` (up to 3 characters) plus a catalog symbol code (up to 64).
 _MAX_CELL_VALUE_LENGTH = 3 + 64
 
@@ -610,13 +616,14 @@ def _require_share_proxy(
 
 
 def _reject_game_parameter(request: Request) -> None:
-    """The game comes only from the session; a request naming one is refused
-    instead of silently ignored."""
+    """The game comes only from the session and the rules are the latest
+    published version; a request naming either is refused instead of
+    silently ignored."""
 
     if any(name.lower() in _FORBIDDEN_QUERY_PARAMETERS for name in request.query_params):
         raise BoardSearchShareError(
             "BOARD_SEARCH_SHARE_PARAMETER_FORBIDDEN",
-            "The shared game is fixed by the link and cannot be chosen.",
+            "The shared game and its rules are fixed by the link and cannot be chosen.",
         )
 
 

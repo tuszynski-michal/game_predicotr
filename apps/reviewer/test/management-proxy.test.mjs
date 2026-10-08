@@ -204,3 +204,28 @@ test('expanded100000-row contract fits dedicated bounded JSON budget', () => {
   assert(Buffer.byteLength(JSON.stringify(row)) * 100000 < 64 * 1024 * 1024);
   assert(Buffer.byteLength(JSON.stringify(row)) * 100000 > 16 * 1024 * 1024);
 });
+
+test('the Admin-only rules version choice is not a public panel parameter', () => {
+  // TASK-0932: the draft preview stays local; the API refuses it as well.
+  const game = `${API}/machines/${MACHINE}/game/${GAME}`;
+  const range = managementPublicRoute('GET', `${game}/approximate-win`);
+  assert(range);
+  assert.equal(
+    range.query(new URLSearchParams('startSequenceNumber=1&spinCount=5')),
+    true,
+  );
+  assert.equal(
+    range.query(
+      new URLSearchParams(
+        `startSequenceNumber=1&spinCount=5&rulesVersionId=${SESSION}`,
+      ),
+    ),
+    false,
+  );
+  const board = managementPublicRoute('GET', `${game}/boards/42`);
+  assert(board);
+  assert.equal(
+    board.query(new URLSearchParams(`rulesVersionId=${SESSION}`)),
+    false,
+  );
+});

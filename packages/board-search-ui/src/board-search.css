@@ -640,6 +640,53 @@
   font-size: 12px;
 }
 
+/* TASK-0932: cells counted for a super game trigger symbol (D-535). */
+.boardSearchBoardLinesCount {
+  fill: rgb(255 159 28 / 18%);
+  stroke: #ff9f1c;
+  stroke-width: 3;
+}
+
+.boardSearchBoardLinesCounts {
+  display: grid;
+  gap: 6px;
+}
+
+.boardSearchBoardLinesCounts h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.boardSearchBoardLinesCounts li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.boardSearchBoardLinesCountSwatch {
+  inline-size: 14px;
+  block-size: 14px;
+  border: 3px solid #ff9f1c;
+  border-radius: 3px;
+  background: rgb(255 159 28 / 18%);
+}
+
+.boardSearchRulesVersion {
+  display: grid;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.boardSearchRulesVersionDraftNote {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.boardSearchApproximateWinCounts {
+  color: var(--muted);
+}
+
 .boardSearchBoardLinesLegend {
   display: grid;
   gap: 10px;

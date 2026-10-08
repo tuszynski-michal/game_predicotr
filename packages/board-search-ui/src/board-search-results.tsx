@@ -18,6 +18,7 @@ import type {
   BoardSearchDataSource,
   BoardSearchCorrectionContext,
 } from './board-search-data-source';
+import type { BoardSearchRulesVersionOption } from './board-search-rules-versions';
 import {
   formatApproximateWinAmount,
   loadApproximateWinDisplay,
@@ -52,6 +53,8 @@ interface BoardSearchResultsProps {
   readonly symbols: readonly SymbolResponse[];
   readonly fixedStakeGrosze?: number;
   readonly correctionContext?: BoardSearchCorrectionContext;
+  /** Admin-only „Wersja reguł” choice in the board window (D-535). */
+  readonly rulesVersions?: readonly BoardSearchRulesVersionOption[] | null;
 }
 
 export function BoardSearchResults({
@@ -63,6 +66,7 @@ export function BoardSearchResults({
   symbols,
   fixedStakeGrosze,
   correctionContext,
+  rulesVersions = null,
 }: BoardSearchResultsProps) {
   const current = activeBoardSearchResult(state);
   const [boardOpen, setBoardOpen] = useState(false);
@@ -194,6 +198,7 @@ export function BoardSearchResults({
           onRecalculate={onBoardEdited}
           row={null}
           rulesVersionId={null}
+          rulesVersions={rulesVersions}
           sequenceNumber={current.sequenceNumber}
           symbols={symbols}
           fixedStakeGrosze={fixedStakeGrosze}

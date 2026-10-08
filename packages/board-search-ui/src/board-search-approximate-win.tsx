@@ -65,6 +65,12 @@ import {
   scaleApproximateWinAmountAtStake,
 } from './board-search-stake';
 
+import { BoardSearchRulesVersionSelect } from './board-search-rules-version-select';
+import {
+  type BoardSearchRulesVersionOption,
+  boardCountMatchLabel,
+} from './board-search-rules-versions';
+
 type ApproximateWinClient = Pick<
   BoardSearchDataSource,
   'getBoardSearchApproximateWin' | 'recordBoardSearchApproximateWinStake'
@@ -97,6 +103,12 @@ interface BoardSearchApproximateWinProps {
   readonly onCalculationChange?: (value: ApproximateWinResponse) => void;
   /** Game symbols for the fallback board schema in the payline modal. */
   readonly symbols?: readonly SymbolResponse[];
+  /**
+   * Admin-only draft preview (D-535): rules versions for the „Wersja reguł”
+   * select. `null` or omitted (share, management): no select, latest
+   * published rules only.
+   */
+  readonly rulesVersions?: readonly BoardSearchRulesVersionOption[] | null;
 }
 
 /** The chosen stake for one search pattern; `null` until the operator picks. */
@@ -123,8 +135,11 @@ export function BoardSearchApproximateWin({
   onPinsChange,
   onCalculationChange,
   symbols = [],
+  rulesVersions = null,
 }: BoardSearchApproximateWinProps) {
   const appliedReplayId = useRef<string | null>(null);
+  // `null` is the latest published rules version (the default).
+  const [rulesVersionId, setRulesVersionId] = useState<string | null>(null);
   const [boardRequest, setBoardRequest] = useState<{
     readonly id: string;
     readonly sequenceNumber: number;
@@ -182,6 +197,7 @@ export function BoardSearchApproximateWin({
       ? approximateWinRequestKey({
           gameId,
           resultIdentity,
+          rulesVersionId,
           spinCount: range,
         })
       : null;
@@ -193,6 +209,7 @@ export function BoardSearchApproximateWin({
       .getBoardSearchApproximateWin(gameId, {
         spinCount: range,
         startSequenceNumber: sequenceNumber,
+        ...(rulesVersionId === null ? {} : { rulesVersionId }),
       })
       .then((result) => {
         if (requestId !== requestIdRef.current) {
@@ -372,6 +389,14 @@ export function BoardSearchApproximateWin({
             stakeChosen={stakeChosen}
             fixedStakeGrosze={fixedStakeGrosze}
           />
+          {rulesVersions !== null ? (
+            <BoardSearchRulesVersionSelect
+              disabled={state.kind === 'loading'}
+              onChange={setRulesVersionId}
+              options={rulesVersions}
+              value={rulesVersionId}
+            />
+          ) : null}
           <small className="boardSearchApproximateWinControlsHint">
             Liczba kolejnych spinów po wybranej planszy (S+1…S+N), niezależna od
             „Liczby wyników”.{' '}
@@ -449,6 +474,8 @@ export function BoardSearchApproximateWin({
             pinnedSpinPositions={pinnedSpinPositions}
             onPinsChange={onPinsChange}
             fixedStakeGrosze={fixedStakeGrosze}
+            rulesVersions={rulesVersions}
+            requestedRulesVersionId={rulesVersionId}
           />
         ) : null}
       </div>
@@ -498,6 +525,8 @@ function ApproximateWinResultView({
   pinnedSpinPositions,
   onPinsChange,
   fixedStakeGrosze,
+  rulesVersions,
+  requestedRulesVersionId,
 }: {
   readonly api: BoardLinesClient;
   readonly boardRequest: {
@@ -516,6 +545,8 @@ function ApproximateWinResultView({
   readonly pinnedSpinPositions?: readonly number[];
   readonly onPinsChange?: (value: readonly number[]) => void;
   readonly fixedStakeGrosze?: number;
+  readonly rulesVersions: readonly BoardSearchRulesVersionOption[] | null;
+  readonly requestedRulesVersionId: string | null;
 }) {
   const [minimumPayoutCredits, setMinimumPayoutCredits] = useState(0);
   const [linesRow, setLinesRow] = useState<ApproximateWinRowResponse | null>(
@@ -648,6 +679,17 @@ function ApproximateWinResultView({
                       {row.payoutKind === 'confirmed_minimum'
                         ? ' · częściowa (potwierdzone minimum)'
                         : ''}
+                      {(row.countMatches ?? []).length > 0 ? (
+                        <small className="boardSearchApproximateWinCounts">
+                          {' · w tym sztuki: '}
+                          {(row.countMatches ?? [])
+                            .map(
+                              (match) =>
+                                `${boardCountMatchLabel(match, symbols)} → ${whole(match.payoutCredits)}`,
+                            )
+                            .join(', ')}
+                        </small>
+                      ) : null}
                     </td>
                     <td>{whole(row.cumulativeBalanceCredits)}</td>
                     <td>
@@ -687,6 +729,8 @@ function ApproximateWinResultView({
               onRecalculate={onRecalculate}
               row={linesRow}
               rulesVersionId={result.rules.rulesVersionId}
+              rulesVersions={rulesVersions}
+              requestedRulesVersionId={requestedRulesVersionId}
               sequenceNumber={linesRow.sequenceNumber}
               symbols={symbols}
               correctionContext={{

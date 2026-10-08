@@ -118,7 +118,10 @@ domenę/backend, OpenAPI, wygenerowany klient, wrappery, lokalny/publiczny adapt
 proxy i request tests. Panel nie ma własnego kalkulatora.
 
 `ManagementMachineCommand`: opcjonalne gameIds i previewToken; brak gameIds
-pozostawia przypisania. Pusta lista jest jawnym odpięciem i wymaga preview.
+pozostawia przypisania. Pusta lista jest jawnym odpięciem i wymaga preview,
+jeżeli usuwa istniejące przypisania, również legacy `attached=false`.
+Utworzenie nowej maszyny bez gier oraz zapis pustej już maszyny nie kasują
+żadnego zakresu i nie wymagają preview.
 Endpoint assignments zostaje, korzysta z tego samego mechanizmu, z jedną pozycją
 journal na komendę, nie dwiema przy atomowej edycji. archived zostaje w kontrakcie.
 
@@ -257,7 +260,7 @@ Worktree izoluje pliki, nie bazę ani porty.
 | Domyślni konsumenci | 0942, 0943 | istniejące search/share/regression testy |
 | Trwałość i kontynuacja | wszystkie | nowe procesy i izolowana DB; plan/task/Outcome/audyt/commit |
 
-1. [TASK-0940](../tasks/0940-management-atomic-edit-and-delete.md): backend,
+1. [TASK-0940](../tasks/completed/0940-management-atomic-edit-and-delete.md): backend,
    kontrakt, role/migracja, pin metadata, pion klient/proxy, regresje API.
 2. [TASK-0941](../tasks/0941-management-compact-navigation.md): wspólna hierarchia,
    kafelki/modale i bezpieczna nawigacja/preview usuwania.
@@ -297,7 +300,9 @@ delete zaakceptowane, ślad tylko receipt, pure delete wyłączone z redakcji,
 POST zamiast DELETE, bez zależności startowej od Mumii, backfill preview,
 bounded cleanup/fallback/agregaty, rola owner+GUC, URL bez szkicu, izolowane dist.
 Modele Codex potwierdzone w katalogu bieżącego środowiska; modele Claude
-operator potwierdził do ręcznego audytu zewnętrznego, CLI lokalnie niedostępne.
+operator potwierdził do audytu zewnętrznego. Claude Code jest dostępny w pakiecie
+Claude Desktop, lecz osobny proces zgłasza brak logowania. Samodzielne wysyłanie
+audytów jest autoryzowane; możliwość headless dispatch pozostaje niezweryfikowana.
 
 ## Przypisanie modeli do zadań
 

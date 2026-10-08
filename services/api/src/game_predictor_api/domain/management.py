@@ -1,6 +1,7 @@
 """Management value objects and validation, independent of HTTP and persistence."""
 
 from datetime import datetime
+from typing import Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -49,6 +50,17 @@ class ManagementPointCommand(ManagementCommand):
 class ManagementMachineCommand(ManagementCommand):
     name: str = Field(min_length=1, max_length=200)
     archived: bool = False
+    game_ids: list[UUID] | None = Field(default=None, max_length=200)
+    preview_token: str | None = Field(default=None, min_length=43, max_length=43)
+
+    @field_validator("game_ids")
+    @classmethod
+    def unique_games(cls, values: list[UUID] | None) -> list[UUID] | None:
+        if values is None:
+            return None
+        if len(set(values)) != len(values):
+            raise ValueError("Game assignments must be unique.")
+        return sorted(values, key=str)
 
     @field_validator("name")
     @classmethod
@@ -61,6 +73,7 @@ class ManagementMachineCommand(ManagementCommand):
 
 class ManagementAssignmentCommand(ManagementCommand):
     game_ids: list[UUID] = Field(max_length=200)
+    preview_token: str | None = Field(default=None, min_length=43, max_length=43)
 
     @field_validator("game_ids")
     @classmethod
@@ -68,6 +81,42 @@ class ManagementAssignmentCommand(ManagementCommand):
         if len(set(values)) != len(values):
             raise ValueError("Game assignments must be unique.")
         return sorted(values, key=str)
+
+
+class ManagementDeletePreviewCommand(ManagementValue):
+    expected_revision: int = Field(ge=1)
+
+
+class ManagementDeleteCommand(ManagementCommand):
+    preview_token: str = Field(min_length=43, max_length=43)
+    confirmed: Literal[True]
+
+
+class ManagementUpdatePreviewCommand(ManagementValue):
+    command: ManagementMachineCommand | ManagementAssignmentCommand
+
+
+class ManagementMutationCounts(ManagementValue):
+    points: int = 0
+    machines: int = 0
+    assignments: int = 0
+    slots: int = 0
+    search_contexts: int = 0
+    journal_entries: int = 0
+
+
+class ManagementMutationPreviewResponse(ManagementValue):
+    preview_token: str
+    expires_at: datetime
+    counts: ManagementMutationCounts
+
+
+class ManagementDeleteResponse(ManagementValue):
+    operation_id: UUID
+    point_id: UUID
+    machine_id: UUID | None = None
+    deleted: Literal[True] = True
+    counts: ManagementMutationCounts
 
 
 class ManagementAssignmentResponse(ManagementValue):

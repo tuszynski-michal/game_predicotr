@@ -1,10 +1,77 @@
 ---
 title: Management panel operator guide
 status: active
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 ---
 
 # Panel Administracyjny — operations
+
+## D-536 compact redesign — migration and destructive scope gate
+
+TASK-0940 adds `0152_management_compact_panel` after 0151 in its independent
+worktree. This section is the operator gate, not permission to execute it.
+Before production migration, make and verify a binary backup with the existing
+guide below. Restore it into a separate database and confirm representative
+saved results, receipts and history. Structural deletion has no data downgrade.
+
+The classifier requires exactly `0151_super_game_roles`. If `current` reports
+an earlier revision (the last recorded production check was 0149), first review
+the pending predecessor SQL, verify the backup and obtain operator authorization
+for that prerequisite upgrade. During the maintenance window, stop at 0151;
+do not run `upgrade head` from 0149, because it would also apply 0152 before
+the receipt preview gate. All commands in this section are operator actions.
+
+```powershell
+.venv\Scripts\python.exe -m alembic current
+.venv\Scripts\python.exe -m alembic upgrade 0151_super_game_roles
+if ($LASTEXITCODE -ne 0) { throw 'Prerequisite upgrade failed; keep services stopped.' }
+.venv\Scripts\python.exe -m alembic current
+```
+
+After confirming the single current revision is 0151, and before applying
+0152 or changing receipts, run the read-only receipt classifier:
+
+```powershell
+.venv\Scripts\python.exe scripts/preview_management_receipt_migration.py
+```
+
+It reports journal/context/response-derived receipts and the exceptional
+`legacy_redacted` count. Review that count before separately confirming
+migration/backfill. Unknown receipts become fail-closed markers; they cannot
+be retried as new operations. Migration uses the owner maintenance mode while
+preserving operation UUID, actor, checksum and timestamp.
+
+Only after explicit operator confirmation: apply the branch's single-head
+migration using the existing manual migration/provisioning procedure, then
+run `scripts/provision_database_roles.py --check`. It must verify owner,
+fixed search_path, SECURITY DEFINER purge, SECURITY INVOKER trigger,
+no PUBLIC execute on purge and a distinct application role without memberships.
+Agents do not start/restart API/Admin. If Mumie is integrated second, the
+integrator must reconcile DDL and add a merge revision, with one Alembic head
+and matching startup guard; migration numbers alone do not merge two heads.
+
+```powershell
+.venv\Scripts\python.exe -m alembic upgrade head
+if ($LASTEXITCODE -ne 0) { throw 'Compact migration failed; keep services stopped.' }
+.venv\Scripts\python.exe scripts/provision_database_roles.py
+if ($LASTEXITCODE -ne 0) { throw 'Application role provisioning failed.' }
+.venv\Scripts\python.exe scripts/provision_database_roles.py --check
+if ($LASTEXITCODE -ne 0) { throw 'Application role check failed.' }
+```
+
+Until TASK-0941 replaces the existing assignment form, removing a game through
+that form returns `409 MANAGEMENT_PREVIEW_REQUIRED`. Legacy `attached=false`
+rows omitted by the old form can also require preview when adding a game.
+Do not bypass confirmation or treat this intermediate backend commit as a
+complete compact-panel rollout.
+
+Point/machine/game-detach confirmation displays preview counts. The ten-minute
+token is actor/body/scope-bound; expiry or intervening writes requires a new
+preview. Both local owner and valid online recipients have this accepted
+destructive capability. It removes scoped management journal/saves, including
+correction audit entries, while actual global corrections and game data remain.
+Only the minimal pure-delete receipt persists and stays retryable.
+Ordinary slot Clear still retains history.
 
 The local PostgreSQL database is authoritative. The local Admin and recipient
 Reviewer use the same panel components. Recipient access covers this module and
@@ -22,8 +89,9 @@ Check other running workers and finish or safely pause their work first.
 An earlier production check recorded `0146_symbol_review_import_filter_index`.
 The final read-only T7 check on 2026-10-08 returned
 `0149_management_stake_saves`; acceptance did not apply that change. Always
-read the actual current revision again before rollout. Current delivery requires
-`0150_management_sessions`. The intervening graph includes the V7 branch
+read the actual current revision again before rollout. The original T1–T7
+delivery requires `0150_management_sessions`; the D-536 compact delivery
+requires `0152_management_compact_panel` and its predecessors. The intervening graph includes the V7 branch
 `0146_v7_operator_sources` joined by `0147_merge_v7_main`; the merge itself is
 empty, but its other ancestry can contain real DDL. Do not assume the entire
 upgrade is limited to the management additions. Review the exact pending SQL

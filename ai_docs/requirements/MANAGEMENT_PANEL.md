@@ -1,7 +1,7 @@
 ---
 title: Management panel requirements
 status: accepted
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 ---
 
 # Management panel — D-533
@@ -25,6 +25,18 @@ Only a minimal retryable delete receipt persists. Former scoped responses are
 redacted and cannot recreate entities. Independent session audit remains.
 No archive/hide controls; historical archived API fields stay compatible.
 Production migration/deletion requires separate operator confirmation.
+
+Machine name and final game assignments save atomically. Omitting game
+assignments preserves them; removing an existing assignment requires the
+preview confirmation. A changed scope or saved stake invalidates the preview.
+Wrong actor/body/scope and expired tokens cannot delete anything. Old mutation
+retries fail explicitly after scoped deletion; retrying the successful delete
+returns its minimal receipt, including after a later parent deletion.
+
+Compact pin metadata includes nullable required investment and machine cash.
+Spin zero is all-zero; unavailable pins have no invented investment/cash.
+Old metadata is recovered from the frozen result without changing the database
+or reinterpreting the historical result using current game rules.
 
 User accepted the complete
 [execution plan](../delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md), which owns

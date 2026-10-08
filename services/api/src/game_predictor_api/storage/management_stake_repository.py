@@ -141,6 +141,10 @@ class SqlAlchemyManagementStakeRepository:
                 actor=actor,
                 request_checksum=checksum,
                 response=response.model_dump(mode="json", by_alias=True),
+                action=action,
+                point_id=point_id,
+                machine_id=machine_id,
+                game_id=game_id,
             )
         )
         self.session.flush()
@@ -220,6 +224,24 @@ class SqlAlchemyManagementStakeRepository:
                     pin for pin in slot.pinned_spin_positions if pin > summary["evaluatedSpinCount"]
                 ],
             )
+            if any(
+                point.get("available")
+                and (
+                    point.get("requiredStakeCredits") is None
+                    or point.get("machineCashCredits") is None
+                )
+                for point in slot.pinned_points
+            ):
+                # At most six pins per slot and six slots per list. No GET writes
+                # and no current rules: only the already frozen result payload.
+                payload = self.session.scalar(
+                    select(ManagementResultVersionModel.payload).where(
+                        ManagementResultVersionModel.id == slot.result_version_id
+                    )
+                )
+                if payload is None:
+                    raise RuntimeError("Saved management result is missing.")
+                values["pinned_points"] = pin_values(payload, list(slot.pinned_spin_positions))
             context = self.session.get(ManagementSearchContextModel, slot.search_context_id)
             values["query"] = context.query if context else None
         return ManagementStakeResponse(**values)

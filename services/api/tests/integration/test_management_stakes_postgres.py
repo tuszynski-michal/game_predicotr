@@ -12,6 +12,8 @@ import pytest
 from _application_role_database import application_role_database
 from game_predictor_api.domain.management import (
     ManagementAssignmentCommand,
+    ManagementDeleteCommand,
+    ManagementDeletePreviewCommand,
     ManagementError,
     ManagementMachineCommand,
     ManagementPointCommand,
@@ -31,6 +33,7 @@ from game_predictor_api.storage.management_models import (
     ManagementOperationModel,
 )
 from game_predictor_api.storage.management_repository import SqlAlchemyManagementRepository
+from game_predictor_api.storage.management_stake_models import ManagementStakeSlotModel
 from game_predictor_api.storage.management_stake_repository import (
     SqlAlchemyManagementStakeRepository,
 )
@@ -42,6 +45,7 @@ from game_predictor_api.storage.models import (
     RulesVersionSymbolModel,
     SymbolModel,
 )
+from sqlalchemy import event as sqlalchemy_event
 from sqlalchemy import select, text
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
@@ -240,6 +244,56 @@ def test_complete_saved_stake_flow_app_role_retry_cas_history_and_new_process(
             assert initial.start_symbol_codes == ("first",) * 15
             assert initial.rules_snapshot["spin_cost"] == 20
             assert slots[0].pinned_points[-1].balance_credits == -40
+        # Old pins are filled from the frozen result only, without a GET write.
+        # The bounded list reads at most one payload for each of its six slots.
+        with factory() as session, session.begin():
+            stored = session.scalars(
+                select(ManagementStakeSlotModel).where(
+                    ManagementStakeSlotModel.machine_id == machine.id
+                )
+            ).all()
+            for slot in stored:
+                slot.pinned_points = [
+                    {
+                        key: value
+                        for key, value in pin.items()
+                        if key not in {"requiredStakeCredits", "machineCashCredits"}
+                    }
+                    for pin in slot.pinned_points
+                ]
+        reads, writes = [], []
+
+        def observe_sql(_conn, _cursor, statement, *_args):
+            lowered = statement.lower().lstrip()
+            if lowered.startswith("select") and "management_result_versions.payload" in lowered:
+                reads.append(statement)
+            if lowered.startswith(("insert", "update", "delete")):
+                writes.append(statement)
+
+        sqlalchemy_event.listen(db.app_engine, "before_cursor_execute", observe_sql)
+        try:
+            with factory() as session:
+                recovered = (
+                    SqlAlchemyManagementStakeRepository(session).list_slots(machine.id, game).slots
+                )
+                assert len(reads) == 6 and not writes
+                assert all(
+                    slot.pinned_points[0].required_stake_credits == 0
+                    and slot.pinned_points[0].machine_cash_credits == 0
+                    for slot in recovered
+                )
+                assert all(
+                    slot.pinned_points[-1].required_stake_credits is not None for slot in recovered
+                )
+            with factory() as session:
+                stored = session.scalars(
+                    select(ManagementStakeSlotModel).where(
+                        ManagementStakeSlotModel.machine_id == machine.id
+                    )
+                ).all()
+                assert all("requiredStakeCredits" not in slot.pinned_points[0] for slot in stored)
+        finally:
+            sqlalchemy_event.remove(db.app_engine, "before_cursor_execute", observe_sql)
         assert invoke("save", 2000, commands[2000]).revision == 1
         with pytest.raises(ManagementError, match="already used"):
             invoke("save", 2000, commands[2000].model_copy(update={"spin_count": 6}))
@@ -409,10 +463,13 @@ def test_complete_saved_stake_flow_app_role_retry_cas_history_and_new_process(
         )
         assert shrink.changed and shrink.slot.unavailable_pin_positions == (7,)
         assert not shrink.slot.pinned_points[-1].available
+        clear_command = ManagementClearCommand(
+            operation_id=uuid4(), expected_revision=5, confirmed=True
+        )
         clear = invoke(
             "clear",
             2000,
-            ManagementClearCommand(operation_id=uuid4(), expected_revision=5, confirmed=True),
+            clear_command,
         )
         assert clear.empty and clear.revision == 6
         with factory() as session:
@@ -425,8 +482,7 @@ def test_complete_saved_stake_flow_app_role_retry_cas_history_and_new_process(
             assert not {event.id for event in page.entries} & {event.id for event in second.entries}
 
         # A fresh process sees saved selection and immutable original chart.
-        env = dict(
-            os.environ,
+        env = db.subprocess_environment(
             MANAGEMENT_TEST_URL=db.app_url.render_as_string(hide_password=False),
             MANAGEMENT_MACHINE=str(machine.id),
             MANAGEMENT_GAME=str(game),
@@ -489,3 +545,40 @@ engine.dispose()
                 1000,
                 commands[1000].model_copy(update={"operation_id": uuid4(), "expected_revision": 1}),
             )
+        # Structural purge redacts ALL historical retries, including a cleared slot
+        # and an ordinary machine update, while keeping the actual game catalog.
+        with factory() as session, session.begin():
+            meta = SqlAlchemyManagementRepository(session)
+            _, current = meta.lock_machine(machine.id)
+            rename = ManagementMachineCommand(
+                operation_id=uuid4(), expected_revision=current.revision, name="Before deletion"
+            )
+            renamed = meta.machine(point.id, machine.id, rename, "local-owner")
+            preview = meta.delete_preview(
+                point.id,
+                machine.id,
+                ManagementDeletePreviewCommand(expected_revision=renamed.revision),
+                "local-owner",
+            )
+            meta.delete_scope(
+                point.id,
+                machine.id,
+                ManagementDeleteCommand(
+                    operation_id=uuid4(),
+                    expected_revision=renamed.revision,
+                    preview_token=preview.preview_token,
+                    confirmed=True,
+                ),
+                "local-owner",
+            )
+            with pytest.raises(ManagementError) as deleted:
+                meta.machine(point.id, machine.id, rename, "local-owner")
+            assert deleted.value.code == "MANAGEMENT_TARGET_DELETED"
+            assert session.get(GameModel, game) is not None
+        for method, stake, old_command in (
+            ("save", 1000, commands[1000]),
+            ("clear", 2000, clear_command),
+        ):
+            with pytest.raises(ManagementError) as deleted:
+                invoke(method, stake, old_command)
+            assert deleted.value.code == "MANAGEMENT_TARGET_DELETED"

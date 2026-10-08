@@ -102,6 +102,11 @@ export function createManagementPublicAdapter(options: {
     createManagementMachine: api.createManagementMachine,
     updateManagementMachine: api.updateManagementMachine,
     updateManagementAssignments: api.updateManagementAssignments,
+    previewManagementPointDeletion: api.previewManagementPointDeletion,
+    deleteManagementPoint: api.deleteManagementPoint,
+    previewManagementMachineDeletion: api.previewManagementMachineDeletion,
+    deleteManagementMachine: api.deleteManagementMachine,
+    previewManagementMachineUpdate: api.previewManagementMachineUpdate,
   };
   const machines = new Map<string, ManagementGameClient>();
   function forMachine(machineId: string): ManagementGameClient {

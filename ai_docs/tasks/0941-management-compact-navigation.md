@@ -74,6 +74,13 @@ aktualizacji, bez ukrytej zamiany modelu.
 
 ## Technical notes
 
+Handoff z audytu TASK-0940 (P2-2): formularz musi wywołać machine
+`update-preview` dla końcowej komendy przed usunięciem istniejącego przypisania,
+także legacy `attached=false`. Nie wyznaczaj zakresu wyłącznie z aktualnie
+widocznych/aktywnych gier. Po potwierdzeniu przekaż token z tym samym UUID,
+body i rewizją. Do zamknięcia tego taska stary formularz nie obsługuje tokenu
+i odpięcie zwraca 409; nie omijaj tej ochrony backendu.
+
 Obowiązuje sekcja „Nawigacja i ochrona szkicu” planu. Lokalny namespace i publiczny session UUID są odrębne. Wybrane mpStake oznacza tile, nie jest serializacją szkicu. Controls edit/delete to rodzeństwo pełnego button, nie nested HTML. Reload pending nie ponawia mutacji automatycznie. Restore zakresu służy odzyskiwaniu, nie zastępuje wyboru URL innymi danymi bez guardu. Nie kopiować wrapperów do nowych niezależnych implementacji.
 
 ## Expected files

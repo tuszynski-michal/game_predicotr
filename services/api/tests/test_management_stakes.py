@@ -63,11 +63,41 @@ def test_compact_result_roundtrip_dedup_rules_start_and_exact_arbitrary_pins():
     assert summary["spinCost"] == 20
     assert len(summary["chartPoints"]) <= 256
     assert pin_values(payload, [0, 1, 2, 7, 9]) == [
-        {"spinNumber": 0, "balanceCredits": 0, "available": True},
-        {"spinNumber": 1, "balanceCredits": -20, "available": True},
-        {"spinNumber": 2, "balanceCredits": 10, "available": True},
-        {"spinNumber": 7, "balanceCredits": -90, "available": True},
-        {"spinNumber": 9, "balanceCredits": -130, "available": False},
+        {
+            "spinNumber": 0,
+            "balanceCredits": 0,
+            "available": True,
+            "requiredStakeCredits": 0,
+            "machineCashCredits": 0,
+        },
+        {
+            "spinNumber": 1,
+            "balanceCredits": -20,
+            "available": True,
+            "requiredStakeCredits": 20,
+            "machineCashCredits": 0,
+        },
+        {
+            "spinNumber": 2,
+            "balanceCredits": 10,
+            "available": True,
+            "requiredStakeCredits": 40,
+            "machineCashCredits": 50,
+        },
+        {
+            "spinNumber": 7,
+            "balanceCredits": -90,
+            "available": True,
+            "requiredStakeCredits": 90,
+            "machineCashCredits": 0,
+        },
+        {
+            "spinNumber": 9,
+            "balanceCredits": -130,
+            "available": False,
+            "requiredStakeCredits": None,
+            "machineCashCredits": None,
+        },
     ]
 
 

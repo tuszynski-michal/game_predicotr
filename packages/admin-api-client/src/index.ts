@@ -16,6 +16,11 @@ import {
   createManagementMachine,
   updateManagementMachine,
   updateManagementAssignments,
+  previewManagementPointDeletion,
+  deleteManagementPoint,
+  previewManagementMachineDeletion,
+  deleteManagementMachine,
+  previewManagementMachineUpdate,
 } from './generated/sdk.gen';
 import type {
   ManagementStake,
@@ -46,9 +51,18 @@ import type {
   ManagementPointCommand,
   ManagementMachineCommand,
   ManagementAssignmentCommand,
+  ManagementDeletePreviewCommand,
+  ManagementDeleteCommand,
+  ManagementUpdatePreviewCommand,
 } from './generated/types.gen';
 export type {
   ManagementSnapshotResponse,
+  ManagementMutationPreviewResponse,
+  ManagementMutationCounts,
+  ManagementDeleteResponse,
+  ManagementDeletePreviewCommand,
+  ManagementDeleteCommand,
+  ManagementUpdatePreviewCommand,
   ManagementPointResponse,
   ManagementMachineResponse,
   ManagementAssignmentResponse,
@@ -1178,6 +1192,46 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
 
   return {
     getManagementSnapshot: () => getManagementSnapshot({ client }),
+    previewManagementPointDeletion: (
+      pointId: string,
+      body: ManagementDeletePreviewCommand,
+    ) =>
+      previewManagementPointDeletion({
+        client,
+        body,
+        path: { point_id: pointId },
+      }),
+    deleteManagementPoint: (pointId: string, body: ManagementDeleteCommand) =>
+      deleteManagementPoint({ client, body, path: { point_id: pointId } }),
+    previewManagementMachineDeletion: (
+      pointId: string,
+      machineId: string,
+      body: ManagementDeletePreviewCommand,
+    ) =>
+      previewManagementMachineDeletion({
+        client,
+        body,
+        path: { point_id: pointId, machine_id: machineId },
+      }),
+    deleteManagementMachine: (
+      pointId: string,
+      machineId: string,
+      body: ManagementDeleteCommand,
+    ) =>
+      deleteManagementMachine({
+        client,
+        body,
+        path: { point_id: pointId, machine_id: machineId },
+      }),
+    previewManagementMachineUpdate: (
+      machineId: string,
+      body: ManagementUpdatePreviewCommand,
+    ) =>
+      previewManagementMachineUpdate({
+        client,
+        body,
+        path: { machine_id: machineId },
+      }),
     listManagementStakes: (
       machineId: string,
       gameId: string,

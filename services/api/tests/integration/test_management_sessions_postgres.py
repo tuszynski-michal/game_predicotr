@@ -19,6 +19,7 @@ from game_predictor_api.application.management_ingress import stop_unused_shared
 from game_predictor_api.application.management_public import ManagementPublicGuard
 from game_predictor_api.domain.management import (
     ManagementAssignmentCommand,
+    ManagementDeleteCommand,
     ManagementError,
     ManagementMachineCommand,
     ManagementPointCommand,
@@ -233,8 +234,68 @@ def test_real_public_sessions_durability_scope_and_atomic_expiry(tmp_path):
                 is None
             )
 
-        # The same commit guard covers T2, without stale-success or receipt leakage.
+        # Actual public preview/delete routes share the same final session guard.
         factory = create_session_factory(db.app_engine)
+        with public_client(db.settings(tmp_path)) as client:
+            candidate = client.post(
+                "/api/v1/management-public/points",
+                json={**body, "operationId": str(uuid4()), "name": "Deletion candidate"},
+                headers=headers,
+            )
+            assert candidate.status_code == 200, candidate.text
+            candidate_id = candidate.json()["id"]
+            base = f"/api/v1/management-public/points/{candidate_id}"
+            preview = client.post(
+                base + "/delete-preview",
+                json={"expectedRevision": candidate.json()["revision"]},
+                headers=headers,
+            )
+            assert preview.status_code == 200, preview.text
+            command = ManagementDeleteCommand(
+                operationId=uuid4(),
+                expectedRevision=candidate.json()["revision"],
+                previewToken=preview.json()["previewToken"],
+                confirmed=True,
+            )
+        clock[0] = datetime.now(UTC)
+        with factory() as session:
+            guard = ManagementPublicGuard(
+                session,
+                ManagementAccessService(
+                    SqlAlchemyManagementSessionRepository(session), now=lambda: clock[0]
+                ),
+                token,
+                record.id,
+            )
+            SqlAlchemyManagementRepository(session).delete_scope(
+                __import__("uuid").UUID(candidate_id), None, command, guard.context.actor
+            )
+            clock[0] = record.expires_at
+            with pytest.raises(ManagementAccessError):
+                guard.before_commit()
+            session.rollback()
+        with factory() as fresh:
+            assert (
+                fresh.get(ManagementPointModel, __import__("uuid").UUID(candidate_id)) is not None
+            )
+            assert fresh.get(ManagementOperationModel, command.operation_id) is None
+        with public_client(db.settings(tmp_path)) as client:
+            deleted = client.post(
+                base + "/delete",
+                json=command.model_dump(mode="json", by_alias=True),
+                headers=headers,
+            )
+            assert deleted.status_code == 200 and deleted.json()["deleted"], deleted.text
+            assert (
+                client.post(
+                    base + "/delete",
+                    json=command.model_dump(mode="json", by_alias=True),
+                    headers=headers,
+                ).json()
+                == deleted.json()
+            )
+
+        # The same commit guard covers T2, without stale-success or receipt leakage.
         clock[0] = datetime.now(UTC)
         with factory() as session:
             guard = ManagementPublicGuard(
@@ -379,23 +440,26 @@ def test_real_public_sessions_durability_scope_and_atomic_expiry(tmp_path):
             )
 
         with Session(db.app_engine) as session, session.begin():
-            SqlAlchemyManagementRepository(session).assignments(
+            repository = SqlAlchemyManagementRepository(session)
+            detach = ManagementAssignmentCommand(
+                operationId=uuid4(), expectedRevision=machine.revision, gameIds=[]
+            )
+            preview = repository.update_preview(machine.id, detach, "local-owner")
+            repository.assignments(
                 machine.id,
-                ManagementAssignmentCommand(
-                    operationId=uuid4(), expectedRevision=machine.revision, gameIds=[]
-                ),
+                detach.model_copy(update={"preview_token": preview.preview_token}),
                 "local-owner",
             )
         with public_client(db.settings(tmp_path)) as client:
             base = f"/api/v1/management-public/machines/{machine.id}/game/{game}"
-            assert client.get(base + "/stakes", headers=headers).status_code == 200
-            assert client.get(base + "/symbols", headers=headers).status_code == 409
+            assert client.get(base + "/stakes", headers=headers).status_code == 404
+            assert client.get(base + "/symbols", headers=headers).status_code == 404
             assert (
                 client.get(
                     f"/api/v1/management-public/machines/{machine.id}/journal?gameId={game}",
                     headers=headers,
                 ).status_code
-                == 200
+                == 404
             )
         with Session(db.app_engine) as session, session.begin():
             ManagementAccessService(SqlAlchemyManagementSessionRepository(session)).revoke(
@@ -431,7 +495,7 @@ with Session(engine) as session:
     points = SqlAlchemyManagementRepository(session).snapshot().points
     machine = next(machine for point in points for machine in point.machines
                    if str(machine.id) == os.environ["MANAGEMENT_TEST_MACHINE"])
-    assert not machine.assignments[0].attached
+    assert machine.assignments == []
     try:
         ManagementAccessService(repository).authenticate(
             os.environ["MANAGEMENT_TEST_TOKEN"], record.id)
@@ -443,7 +507,7 @@ engine.dispose()
 """,
             ],
             env={
-                **os.environ,
+                **db.subprocess_environment(),
                 "MANAGEMENT_TEST_URL": db.app_url.render_as_string(hide_password=False),
                 "MANAGEMENT_TEST_SESSION": str(record.id),
                 "MANAGEMENT_TEST_MACHINE": str(machine.id),

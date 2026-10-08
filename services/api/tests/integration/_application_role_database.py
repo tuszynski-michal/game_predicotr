@@ -49,6 +49,17 @@ class ApplicationRoleDatabase:
     owner_role: str
     games: dict[str, UUID]
 
+    def subprocess_environment(self, **changes: str) -> dict[str, str]:
+        """Pin fresh processes to this checkout, even with a shared editable venv."""
+        import os
+
+        root = Path(__file__).resolve().parents[4]
+        sources = [str(root / name) for name in ("services/api/src", "services/worker/src")]
+        existing = os.environ.get("PYTHONPATH")
+        if existing:
+            sources.append(existing)
+        return {**os.environ, "PYTHONPATH": os.pathsep.join(sources), **changes}
+
     def settings(self, root: Path) -> ApiSettings:
         """API settings whose runtime sessions log in as the application role."""
 
@@ -91,7 +102,7 @@ def provision_game(engine: Engine, code: str) -> UUID:
 
 @contextmanager
 def application_role_database(
-    prefix: str, game_codes: tuple[str, ...]
+    prefix: str, game_codes: tuple[str, ...], *, migration_revision: str = "head"
 ) -> Iterator[ApplicationRoleDatabase]:
     suffix = uuid4().hex[:12]
     name = f"game_predictor_{prefix}_{suffix}_test"
@@ -118,7 +129,7 @@ def application_role_database(
         config.set_main_option(
             "sqlalchemy.url", owner_url.render_as_string(hide_password=False).replace("%", "%%")
         )
-        command.upgrade(config, "head")
+        command.upgrade(config, migration_revision)
         games = {code: provision_game(owner_engine, code) for code in game_codes}
         with owner_engine.begin() as connection:
             owner_role = str(connection.execute(text("SELECT current_user")).scalar_one())

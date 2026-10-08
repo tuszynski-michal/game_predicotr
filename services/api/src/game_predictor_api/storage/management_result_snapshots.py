@@ -7,6 +7,7 @@ from typing import Any
 
 from game_predictor_worker.payouts.contracts import RulesPayoutConfiguration
 
+from game_predictor_api.domain.management_pin_metrics import approximate_win_pin_metrics
 from game_predictor_api.schemas.board_search_approximate_win import ApproximateWinResponse
 
 ROW_FIELDS = (
@@ -98,16 +99,14 @@ def pin_values(payload: dict[str, Any], pins: list[int]) -> list[dict[str, Any]]
     result = expand_result(payload)
     values = []
     for pin in pins:
-        cumulative = 0
-        for row in result.rows:
-            if row.spin_number > pin:
-                break
-            cumulative = row.cumulative_payout_credits
+        balance, investment, cash = approximate_win_pin_metrics(result, pin)
         values.append(
             {
                 "spinNumber": pin,
-                "balanceCredits": cumulative - pin * result.rules.spin_cost,
+                "balanceCredits": balance,
                 "available": pin <= result.evaluated_spin_count,
+                "requiredStakeCredits": investment,
+                "machineCashCredits": cash,
             }
         )
     return values

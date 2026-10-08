@@ -1,7 +1,7 @@
 ---
 title: Management panel architecture
 status: accepted
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 ---
 
 # Management panel — D-533
@@ -22,6 +22,44 @@ Shared UI gains small tiles, atomic modals and optional compact search ports,
 preserving ordinary search/share defaults. Cached nullable pin investment/cash
 uses frozen results and bounded read-only legacy fallback, never another
 calculator. No production migration/deletion or API/Admin lifecycle authorized.
+
+### TASK-0940 storage and transport contract
+
+Migration `0152_management_compact_panel` follows `0151_super_game_roles`.
+It introduces `management_mutation_previews`, receipt scope fields and the
+restricted `management_purge_scope(uuid,uuid,uuid[])` function. The ownership
+manifest is `management-control-plane-v3`; schema readiness expects this head.
+Provisioning checks function ownership, fixed search_path, security mode and
+the purge EXECUTE boundary in addition to existing role restrictions.
+
+Both management prefixes expose POST point/machine `delete-preview` and
+`delete`, plus machine `update-preview`. The latter wraps the intended machine
+or assignment command in `command`. Optional machine `gameIds` leaves games
+unchanged when absent; removing existing assignments requires `previewToken`.
+An empty new machine does not purge anything and needs no deletion preview.
+
+Preview tokens contain 256 random bits, live for ten minutes and are stored
+only as SHA-256 hashes. Actor/action/scope/body and structural/history
+fingerprints bind confirmation to the preview. Creating a preview removes at
+most 100 expired rows belonging to that actor. Operation/session identity is
+checked before retry; an exact pure-delete receipt is returned even if its
+parent was subsequently deleted. Redacted older mutations fail with
+`MANAGEMENT_TARGET_DELETED`; unclassifiable legacy receipts fail with
+`MANAGEMENT_LEGACY_RECEIPT_REDACTED`.
+
+Purge and frozen-result dedup acquire the same advisory digest lock. Purge
+locks digests in sorted order and checks references across all management
+scopes before deleting a result. Ordinary app DML cannot bypass immutable
+history by setting the maintenance GUC. Session audit never uses the purge
+bypass. API dependencies flush and revalidate a public session before commit.
+
+The read-only `scripts/preview_management_receipt_migration.py` reports four
+backfill categories on an unchanged single-head 0151 database, without dumping
+responses or credentials. Applying the backfill requires a separate operator
+decision. Pin metadata uses `domain/management_pin_metrics.py`, verified
+against the existing TypeScript chart helpers with shared golden fixtures.
+Legacy missing metadata is filled from frozen payloads only, with at most six
+payload reads per selected machine/game list and no GET writes.
 
 See [requirements](../requirements/MANAGEMENT_PANEL.md) and
 [accepted execution plan](../delivery/MANAGEMENT_PANEL_EXECUTION_PLAN.md).

@@ -207,12 +207,24 @@ import type {
   DeleteCancelledImageSelectionJobData,
   DeleteCancelledImageSelectionJobErrors,
   DeleteCancelledImageSelectionJobResponses,
+  DeleteManagementMachineData,
+  DeleteManagementMachineErrors,
+  DeleteManagementMachineResponses,
+  DeleteManagementPointData,
+  DeleteManagementPointErrors,
+  DeleteManagementPointResponses,
   DeleteMobileReleaseData,
   DeleteMobileReleaseErrors,
   DeleteMobileReleaseResponses,
   DeletePaylineData,
   DeletePaylineErrors,
   DeletePaylineResponses,
+  DeletePublicManagementMachineData,
+  DeletePublicManagementMachineErrors,
+  DeletePublicManagementMachineResponses,
+  DeletePublicManagementPointData,
+  DeletePublicManagementPointErrors,
+  DeletePublicManagementPointResponses,
   DeleteSemiAutomaticFilenameVerificationHistoryData,
   DeleteSemiAutomaticFilenameVerificationHistoryErrors,
   DeleteSemiAutomaticFilenameVerificationHistoryResponses,
@@ -786,6 +798,15 @@ import type {
   PreviewLabSymbolCandidateImportData,
   PreviewLabSymbolCandidateImportErrors,
   PreviewLabSymbolCandidateImportResponses,
+  PreviewManagementMachineDeletionData,
+  PreviewManagementMachineDeletionErrors,
+  PreviewManagementMachineDeletionResponses,
+  PreviewManagementMachineUpdateData,
+  PreviewManagementMachineUpdateErrors,
+  PreviewManagementMachineUpdateResponses,
+  PreviewManagementPointDeletionData,
+  PreviewManagementPointDeletionErrors,
+  PreviewManagementPointDeletionResponses,
   PreviewMobileReleaseDeletionData,
   PreviewMobileReleaseDeletionErrors,
   PreviewMobileReleaseDeletionResponses,
@@ -804,6 +825,15 @@ import type {
   PreviewPendingSymbolReinferenceData,
   PreviewPendingSymbolReinferenceErrors,
   PreviewPendingSymbolReinferenceResponses,
+  PreviewPublicManagementMachineDeletionData,
+  PreviewPublicManagementMachineDeletionErrors,
+  PreviewPublicManagementMachineDeletionResponses,
+  PreviewPublicManagementMachineUpdateData,
+  PreviewPublicManagementMachineUpdateErrors,
+  PreviewPublicManagementMachineUpdateResponses,
+  PreviewPublicManagementPointDeletionData,
+  PreviewPublicManagementPointDeletionErrors,
+  PreviewPublicManagementPointDeletionResponses,
   PreviewReadyBrowserImageImportData,
   PreviewReadyBrowserImageImportErrors,
   PreviewReadyBrowserImageImportResponses,
@@ -5774,6 +5804,32 @@ export const listManagementJournal = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Preview Update
+ */
+export const previewManagementMachineUpdate = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewManagementMachineUpdateData, ThrowOnError>,
+): RequestResult<
+  PreviewManagementMachineUpdateResponses,
+  PreviewManagementMachineUpdateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewManagementMachineUpdateResponses,
+    PreviewManagementMachineUpdateErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/machines/{machine_id}/update-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Create Point
  */
 export const createManagementPoint = <ThrowOnError extends boolean = false>(
@@ -5822,6 +5878,56 @@ export const updateManagementPoint = <ThrowOnError extends boolean = false>(
   });
 
 /**
+ * Delete Point
+ */
+export const deleteManagementPoint = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteManagementPointData, ThrowOnError>,
+): RequestResult<
+  DeleteManagementPointResponses,
+  DeleteManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeleteManagementPointResponses,
+    DeleteManagementPointErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/delete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Point
+ */
+export const previewManagementPointDeletion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewManagementPointDeletionData, ThrowOnError>,
+): RequestResult<
+  PreviewManagementPointDeletionResponses,
+  PreviewManagementPointDeletionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewManagementPointDeletionResponses,
+    PreviewManagementPointDeletionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/delete-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Create Machine
  */
 export const createManagementMachine = <ThrowOnError extends boolean = false>(
@@ -5862,6 +5968,56 @@ export const updateManagementMachine = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/management/points/{point_id}/machines/{machine_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete Machine
+ */
+export const deleteManagementMachine = <ThrowOnError extends boolean = false>(
+  options: Options<DeleteManagementMachineData, ThrowOnError>,
+): RequestResult<
+  DeleteManagementMachineResponses,
+  DeleteManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeleteManagementMachineResponses,
+    DeleteManagementMachineErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/machines/{machine_id}/delete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Machine
+ */
+export const previewManagementMachineDeletion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewManagementMachineDeletionData, ThrowOnError>,
+): RequestResult<
+  PreviewManagementMachineDeletionResponses,
+  PreviewManagementMachineDeletionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewManagementMachineDeletionResponses,
+    PreviewManagementMachineDeletionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/management/points/{point_id}/machines/{machine_id}/delete-preview',
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -8304,6 +8460,31 @@ export const listPublicManagementJournal = <
   });
 
 /**
+ * Preview Update
+ */
+export const previewPublicManagementMachineUpdate = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPublicManagementMachineUpdateData, ThrowOnError>,
+): RequestResult<
+  PreviewPublicManagementMachineUpdateResponses,
+  PreviewPublicManagementMachineUpdateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPublicManagementMachineUpdateResponses,
+    PreviewPublicManagementMachineUpdateErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/machines/{machine_id}/update-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Create Point
  */
 export const createPublicManagementPoint = <
@@ -8354,6 +8535,56 @@ export const updatePublicManagementPoint = <
   });
 
 /**
+ * Delete Point
+ */
+export const deletePublicManagementPoint = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeletePublicManagementPointData, ThrowOnError>,
+): RequestResult<
+  DeletePublicManagementPointResponses,
+  DeletePublicManagementPointErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeletePublicManagementPointResponses,
+    DeletePublicManagementPointErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/delete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Point
+ */
+export const previewPublicManagementPointDeletion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPublicManagementPointDeletionData, ThrowOnError>,
+): RequestResult<
+  PreviewPublicManagementPointDeletionResponses,
+  PreviewPublicManagementPointDeletionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPublicManagementPointDeletionResponses,
+    PreviewPublicManagementPointDeletionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/delete-preview',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
  * Create Machine
  */
 export const createPublicManagementMachine = <
@@ -8396,6 +8627,56 @@ export const updatePublicManagementMachine = <
     ThrowOnError
   >({
     url: '/api/v1/management-public/points/{point_id}/machines/{machine_id}',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Delete Machine
+ */
+export const deletePublicManagementMachine = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<DeletePublicManagementMachineData, ThrowOnError>,
+): RequestResult<
+  DeletePublicManagementMachineResponses,
+  DeletePublicManagementMachineErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeletePublicManagementMachineResponses,
+    DeletePublicManagementMachineErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/machines/{machine_id}/delete',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview Machine
+ */
+export const previewPublicManagementMachineDeletion = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewPublicManagementMachineDeletionData, ThrowOnError>,
+): RequestResult<
+  PreviewPublicManagementMachineDeletionResponses,
+  PreviewPublicManagementMachineDeletionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    PreviewPublicManagementMachineDeletionResponses,
+    PreviewPublicManagementMachineDeletionErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/management-public/points/{point_id}/machines/{machine_id}/delete-preview',
     ...options,
     headers: {
       'Content-Type': 'application/json',

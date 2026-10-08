@@ -63,6 +63,70 @@ after(() => dom.window.close());
 const sessionId = '11111111-1111-4111-8111-111111111111';
 const otherSession = '22222222-2222-4222-8222-222222222222';
 const stakes = [2000, 1000, 600, 400, 200, 120];
+
+test('new structural ports preserve the public identity fence before and after session end', async () => {
+  const server = backend();
+  const calls = [];
+  const adapter = createManagementPublicAdapter({
+    sessionId,
+    fetchImplementation: async (request) => {
+      if (new URL(request.url).pathname.endsWith('/context'))
+        return server.fetch(request);
+      calls.push({
+        path: new URL(request.url).pathname,
+        session: request.headers.get('X-Management-Session'),
+        body: await request.json(),
+      });
+      return new Response('{}', {
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  });
+  await adapter.context();
+  const preview = { expectedRevision: 1 };
+  const deletion = {
+    operationId: 'operation',
+    expectedRevision: 1,
+    previewToken: 'p'.repeat(43),
+    confirmed: true,
+  };
+  const actions = [
+    () => adapter.client.previewManagementPointDeletion('point', preview),
+    () => adapter.client.deleteManagementPoint('point', deletion),
+    () =>
+      adapter.client.previewManagementMachineDeletion(
+        'point',
+        'machine',
+        preview,
+      ),
+    () => adapter.client.deleteManagementMachine('point', 'machine', deletion),
+    () =>
+      adapter.client.previewManagementMachineUpdate('machine', {
+        command: {
+          operationId: 'edit',
+          expectedRevision: 1,
+          name: 'M',
+          gameIds: [],
+        },
+      }),
+  ];
+  for (const action of actions) await action();
+  assert.equal(calls.length, 5);
+  assert(
+    calls.every(
+      (call) =>
+        call.session === sessionId && call.path.includes('/management-public/'),
+    ),
+  );
+  assert.deepEqual(calls[1].body, deletion);
+  adapter.end();
+  for (const action of actions) {
+    const result = await action();
+    assert.equal(result.data, undefined);
+    assert.match(result.error.message, /zakończony/);
+  }
+  assert.equal(calls.length, 5);
+});
 const symbol = {
   code: 'cherry',
   displayOrder: 0,

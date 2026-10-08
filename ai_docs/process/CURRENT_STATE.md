@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 ---
 
 # Current State
@@ -22,12 +22,62 @@ last_updated: 2026-10-08
 - Mumie TASK-0933–0936 do not block panel start. Proposed unique migration
   `0152_management_compact_panel` follows0151; second integrator owns the merge
   migration/single-head check. Check main/shared components before TASK-0942.
-- Current handoff: plan/task materialization; implementation TASK-0940 next.
-  Read active task and matching plan sections before code; each task closes
-  with tests, manual cross-family audit, one commit, Outcome and state update
-  before advancing. CLI Claude unavailable locally; operator approved manual
+- Plan materialization committed as `v1.7.272`,
+  `32f78371d7deebae820c807a62178e4f2596925e`; diff checks passed, clean
+  worktree after commit. This documentation commit is not task completion.
+- Current handoff (2026-10-09): TASK-0940 audit received from the operator,
+  `claude-fable-5-1 / high`, round1 REVISE, one P1 and six P2. One correction
+  round added default HTTP tests and documentation; no runtime behavior changed.
+  P1 closed with evidence; P2-1 accepted with explicit fail-closed/stale-response
+  rationale, remaining P2 resolved. Original Claude verdict is preserved; the
+  executor resolution does not claim a new Claude PASS. No automatic second
+  audit is required for test-only P1 corrections under AGENTS.md.
+  Task commit: v1.7.273; record the full hash after committing. Next task0941
+  uses gpt-6-sol / medium; reread its task and plan before implementation.
+  Each task closes with tests, cross-family audit, one commit, Outcome/state
+  and completed move before advancing. Operator approved manual
   `claude-fable-5-1 / high` (0940/0942) and
   `claude-opus-5-5 / medium` (0941/0943).
+- On 2026-10-09 the operator explicitly authorized autonomous audit dispatch
+  and continuation of this plan. Use scripts/audit_task.ps1 to send each audit,
+  collect the report and follow the existing single correction-round gate once
+  the approved Claude auditor is available. No repeated dispatch permission is
+  needed. The operator uses Claude Code inside Claude Desktop. The bundled CLI
+  was found and its version/help verified (2.1.293); installation is not missing.
+  Its callable physical path is under
+  `%LOCALAPPDATA%\Packages\Claude_pzs8sxrjxfjjc\LocalCache\Roaming\Claude\claude-code\2.1.293\83cb0bd7fed4\claude.exe`.
+  The logical `%APPDATA%` path reported by Desktop processes is virtualized and
+  cannot be used by the external runner. Future discovery must handle changing
+  package/version directories rather than hard-code this example or change PATH.
+  A separate `auth status --json` returned `loggedIn=false`, `authMethod=none`;
+  this does not negate the active Desktop login, but autonomous headless dispatch
+  is not verified. No credentials were read/copied and no login was attempted.
+  The operator supplied the completed TASK-0940 report; it is now preserved as
+  `ai_docs/quality/TASK-0940_AUDIT_claude-fable-5-1.md`. Do not dispatch a duplicate.
+  A different
+  `TASK-0940_AUDIT_claude-opus-5-5.md` in `worktrees/mumie-super-game` audits
+  repository quality and is not evidence for this panel task. This confirms a
+  task-number collision that must be resolved explicitly at integration.
+  Headless dispatch for later audits remains unverified; login belongs to the operator
+  under AGENTS.md. Do not substitute a Codex self-review or skip the gate.
+- Implemented: atomic machine edit; preview-bound local/public scope purge;
+  scoped retry redaction/backfill; immutable privilege checks; nullable pin
+  investment/cash and bounded read-only legacy fallback. No new compact UI yet.
+- Verification: Python 59 after audit corrections, PostgreSQL five targeted modules, client 104,
+  shared helpers 85, proxy 11 and public interactions 14 PASS; generated contract,
+  scoped Ruff/strict mypy 25, scoped lint and all four affected typechecks PASS.
+  Full Reviewer 236/238 retains two documented source-contract failures outside
+  management. Full transitive mypy retains unrelated errors/120s timeout;
+  scoped verification and precise limitations are recorded in task Outcome.
+- Intermediate UI limitation until0941: the existing assignment form omits
+  previewToken, so detach returns409 MANAGEMENT_PREVIEW_REQUIRED. Legacy
+  attached=false rows omitted by that form can require preview even on attach.
+  TASK-0941 must integrate update-preview/confirmation for every removed row;
+  this backend commit alone is not the compact UI rollout.
+- Borrowed main Python venv is read-only; tests/export explicitly use worktree
+  sources, including fresh subprocesses. Node24.21.0/npm11.19.0 run via explicit
+  runtime paths; no service lifecycle or global toolchain change. Empty new
+  machines need no purge preview; removing an existing assignment always does.
 - No production DB mutation, push, merge, deployment or API/Admin lifecycle
   authorized. Use disposable test DB; deletion implementation is not permission
   to delete operator data. Next commit version must be checked against git log.

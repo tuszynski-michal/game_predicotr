@@ -28,6 +28,10 @@ last_updated: 2026-10-08
   delete receipts remain retryable even after parent deletion. Unknown legacy
   receipt scope is an exceptional counted migration-preview category, not a
   general backfill shortcut.
+- **Empty assignments clarification (2026-10-09):** preview is required when
+  the final game list removes an existing assignment row, including legacy
+  `attached=false`. A new machine with no games and a machine whose assignments
+  are already empty have no destructive scope and require no preview.
 - **Database protection:** unique additive Alembic migration after0151,
   restricted SECURITY DEFINER purge, owner+transaction-local maintenance check
   in SECURITY INVOKER immutable trigger, fixed search_path, explicit grants.

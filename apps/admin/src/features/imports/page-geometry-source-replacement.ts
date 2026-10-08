@@ -11,7 +11,8 @@ export function pendingReplacementMatchesSource(
   source: { sourceChecksumSha256: string; sourceRelativePath: string } | null,
   candidate: unknown,
 ): candidate is PendingPageGeometryReplacement {
-  if (source === null || candidate === null || typeof candidate !== 'object') return false;
+  if (source === null || candidate === null || typeof candidate !== 'object')
+    return false;
   const pending = candidate as Partial<PendingPageGeometryReplacement>;
   return (
     pending.sourceChecksum === source.sourceChecksumSha256 &&
@@ -48,7 +49,10 @@ async function sourceFileHandle(
 }
 
 async function sha256(file: Blob): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    await file.arrayBuffer(),
+  );
   return Array.from(new Uint8Array(digest), (byte) =>
     byte.toString(16).padStart(2, '0'),
   ).join('');
@@ -95,7 +99,9 @@ export async function replacePageGeometryCutSource(
     throw cause;
   }
   if ((await sha256(await handle.getFile())) !== replacementChecksum) {
-    throw new Error('Nie udało się potwierdzić zapisu nowego zdjęcia w katalogu cut.');
+    throw new Error(
+      'Nie udało się potwierdzić zapisu nowego zdjęcia w katalogu cut.',
+    );
   }
   return replacementChecksum;
 }

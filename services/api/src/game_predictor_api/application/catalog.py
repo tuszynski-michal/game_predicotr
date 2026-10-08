@@ -171,9 +171,7 @@ class CatalogService:
         return game
 
     def shape_geometry_readiness(self, game: Game) -> ShapeGeometryReadiness:
-        return self._shape_geometry_readiness_resolver.resolve(
-            game.shape_geometry_configuration
-        )
+        return self._shape_geometry_readiness_resolver.resolve(game.shape_geometry_configuration)
 
     def create_game(
         self,

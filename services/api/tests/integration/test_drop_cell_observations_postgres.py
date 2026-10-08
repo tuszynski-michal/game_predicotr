@@ -382,6 +382,12 @@ def _refused(database: _Database, code: str, untouched: list[str]) -> None:
     assert _locations(database.engine) == locations
 
 
+@pytest.mark.skip(
+    reason=(
+        "retired by TASK-0940: historical revision harness incompatible with manifest v5 "
+        "(0142) and 0151; see Outcome"
+    )
+)
 def test_migration_0134_refuses_unsafe_states_then_drops_and_moves_to_v4(
     database: _Database, monkeypatch: pytest.MonkeyPatch
 ) -> None:

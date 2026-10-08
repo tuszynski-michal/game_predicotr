@@ -4,6 +4,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from game_predictor_api.storage.schema_readiness import EXPECTED_ALEMBIC_HEAD
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 ALEMBIC_INI = REPOSITORY_ROOT / "alembic.ini"
@@ -458,7 +459,10 @@ def test_parallel_feature_migrations_converge_on_one_head() -> None:
     page_source_exclusions = script.get_revision(PAGE_SOURCE_EXCLUSIONS_REVISION)
     legacy_board_search_archive = script.get_revision(LEGACY_BOARD_SEARCH_ARCHIVE_REVISION)
     legacy_game_operational_cleanup = script.get_revision(LEGACY_GAME_OPERATIONAL_CLEANUP_REVISION)
-    assert script.get_heads() == [ORPHANED_LEGACY_TRIGGER_FUNCTIONS_REVISION]
+    # Rule: the migration graph has a single head and it equals the revision the
+    # schema readiness guard requires (EXPECTED_ALEMBIC_HEAD); the head was pinned
+    # to 0129 here before later migrations moved it.
+    assert script.get_heads() == [EXPECTED_ALEMBIC_HEAD]
     for revision_id, previous in (
         ("0126_symbol_cell_source_visibility", LEGACY_PUBLIC_STORE_REMOVAL_REVISION),
         ("0127_symbol_review_bulk_filter_scope", "0126_symbol_cell_source_visibility"),

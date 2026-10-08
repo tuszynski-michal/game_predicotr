@@ -181,7 +181,9 @@ def test_symbol_mutation_locks_board_before_shared_state():
     repository._acquire_board_locks = lambda **kw: events.append("sequence")
     repository._locked_current_rows = lambda _: events.append("source") or []
 
-    def state(_):
+    # TASK-0885: the ready-state lookup also receives the locked board's current
+    # state, so the stand-in accepts that keyword.
+    def state(_, current_board=None):
         events.append("state")
         raise StopAtLock
 

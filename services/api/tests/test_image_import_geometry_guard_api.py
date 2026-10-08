@@ -185,6 +185,8 @@ def _preview_quad() -> list[dict[str, int]]:
     ]
 
 
+# v0.10.298 removed the legacy import-creation dependency, the router's first
+# positional parameter; the calls below start with the browser selection service.
 def _unused() -> object:
     return object()
 
@@ -221,7 +223,6 @@ def test_board_exception_queue_is_exposed_by_the_http_contract(tmp_path: Path) -
     app = FastAPI()
     app.include_router(
         create_image_imports_router(
-            _unused,
             _unused,
             lambda: job_service,
             _unused,
@@ -281,7 +282,6 @@ def test_legacy_report_reconstruction_is_started_as_a_separate_job(tmp_path: Pat
     app.include_router(
         create_image_imports_router(
             _unused,
-            _unused,
             lambda: job_service,
             _unused,
             _unused,
@@ -328,7 +328,6 @@ def test_guard_decision_preview_reads_exact_staging_bytes_and_returns_fifteen_ce
     app = FastAPI()
     app.include_router(
         create_image_imports_router(
-            _unused,
             lambda: browser_service,
             _unused,
             _unused,
@@ -387,7 +386,6 @@ def test_guard_decision_preview_accepts_ready_board_from_same_review_source(
     app = FastAPI()
     app.include_router(
         create_image_imports_router(
-            _unused,
             lambda: browser_service,
             _unused,
             _unused,
@@ -443,7 +441,6 @@ def test_qualified_save_uses_verified_exif_header_and_never_saves_tampered_sourc
     app = FastAPI()
     app.include_router(
         create_image_imports_router(
-            _unused,
             lambda: browser,
             _unused,
             _unused,

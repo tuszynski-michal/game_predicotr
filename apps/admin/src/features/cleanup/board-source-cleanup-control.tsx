@@ -30,11 +30,7 @@ function parseSequenceNumbers(value: string): number[] | null {
     .filter(Boolean);
   if (rawValues.length === 0 || rawValues.length > 500) return null;
   const numbers = rawValues.map(Number);
-  if (
-    numbers.some(
-      (number) => !Number.isSafeInteger(number) || number <= 0,
-    )
-  ) {
+  if (numbers.some((number) => !Number.isSafeInteger(number) || number <= 0)) {
     return null;
   }
   return [...new Set(numbers)].sort((left, right) => left - right);
@@ -164,8 +160,8 @@ export function BoardSourceCleanupControl({
           <p className="eyebrow">Usuwanie źródeł</p>
           <h3>Usuń całe źródła plansz</h3>
           <p>
-            Wpisz numery plansz. Dla bezpieczeństwa system usuwa wyłącznie
-            pełne zakresy jednego zdjęcia, np. cały zakres <code>456789–456797</code>.
+            Wpisz numery plansz. Dla bezpieczeństwa system usuwa wyłącznie pełne
+            zakresy jednego zdjęcia, np. cały zakres <code>456789–456797</code>.
           </p>
         </div>
         <button
@@ -205,7 +201,10 @@ export function BoardSourceCleanupControl({
             ? 'Operacja była już ukończona; odtworzono zapisany wynik.'
             : `Usunięto dane ${completed.deletedCounts
                 .filter((item) => item.count > 0)
-                .map((item) => `${item.count.toLocaleString('pl-PL')} ${item.name}`)
+                .map(
+                  (item) =>
+                    `${item.count.toLocaleString('pl-PL')} ${item.name}`,
+                )
                 .join(', ')}.`}
         </p>
       ) : null}

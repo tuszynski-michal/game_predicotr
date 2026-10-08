@@ -76,8 +76,10 @@ def test_unaugmented_validation_and_v1_dataset_are_unchanged(tmp_path):
 
 def test_generation_registry_and_budget_preserve_v1():
     assert model_pair() == MODELS and model_pair(2) == ROBUST_MODELS
+    # Generation 3 (feedback) came in v1.7.207 (7647ccb6) and generation 4 (AI) in
+    # v1.7.212 (e6ed2d72), so 5 is the first invalid one.
     with pytest.raises(ValueError, match="GENERATION_INVALID"):
-        model_pair(4)
+        model_pair(5)
     old = request(purpose="train")
     validate_request(old)
     forty = old.configuration.model_copy(update={"epochs": 40})

@@ -11,12 +11,15 @@ import {
 test('keeps an empty geometry review render safe before its source loads', () => {
   assert.equal(pendingReplacementMatchesSource(null, null), false);
   assert.equal(pendingReplacementMatchesSource(null, {}), false);
-  assert.equal(pendingReplacementMatchesSource(null, {
-    sourceChecksum: 'a'.repeat(64),
-    sourceRelativePath: 'cut/seq_1-9.jpg',
-    replacementUploadId: 'revision',
-    replacementChecksum: 'b'.repeat(64),
-  }), false);
+  assert.equal(
+    pendingReplacementMatchesSource(null, {
+      sourceChecksum: 'a'.repeat(64),
+      sourceRelativePath: 'cut/seq_1-9.jpg',
+      replacementUploadId: 'revision',
+      replacementChecksum: 'b'.repeat(64),
+    }),
+    false,
+  );
 });
 
 test('recovers only a valid pending replacement for the loaded source', () => {
@@ -32,7 +35,13 @@ test('recovers only a valid pending replacement for the loaded source', () => {
   };
   assert.equal(pendingReplacementMatchesSource(source, pending), true);
   assert.equal(pendingReplacementMatchesSource(source, null), false);
-  assert.equal(pendingReplacementMatchesSource(source, { ...pending, sourceRelativePath: 'other.jpg' }), false);
+  assert.equal(
+    pendingReplacementMatchesSource(source, {
+      ...pending,
+      sourceRelativePath: 'other.jpg',
+    }),
+    false,
+  );
 });
 
 function checksum(bytes) {

@@ -27,8 +27,8 @@ from game_predictor_worker.semi_automatic_selection.v7_worker_runtime import (
     V7WorkerRuntime,
     V7WorkerRuntimeError,
 )
-from test_v7_run_state import _quality
 from test_v7_worker_runtime import _configuration, _Factory, _jpeg_bytes, _SourceErrorObserver
+from v7_run_state_support import quality as _quality
 
 
 def manifest_with_sources(tmp_path, count=5):

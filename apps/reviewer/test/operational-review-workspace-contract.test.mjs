@@ -148,7 +148,8 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(deferredGeometryEditor, /translateGridRef/);
   assert.match(deferredGeometryEditor, /Wycentruj widok na siatce/);
   assert.doesNotMatch(deferredGeometryEditor, /Aktywne przesuwanie/);
-  assert.match(deferredGeometryEditor, /obraz pozostaje statyczny/i);
+  // The JSX text wraps across lines, so the words are separated by any whitespace.
+  assert.match(deferredGeometryEditor, /obraz pozostaje\s+statyczny/i);
   assert.match(deferredGeometryEditor, /przesunąć cały obrys/i);
   assert.match(
     deferredGeometryEditor,
@@ -157,7 +158,9 @@ test('operational workspace compares square cell crops with one cropped board', 
   assert.match(deferredGeometryEditor, /replaceCorners\(next\);/);
   assert.match(
     deferredGeometryEditor,
-    /replaceCorners\(copyCorners\(context\.suggestedCorners\), \{\s*recenterViewport: true,/,
+    // TASK-0882: resetting a stored board lattice restores the corners of the
+    // lattice boundary, and only a board without one the suggested corners.
+    /replaceCorners\(\s*original === null\s*\?\s*copyCorners\(context\.suggestedCorners\)\s*:\s*boardLatticeCorners\(original\),\s*\{\s*recenterViewport: true,/,
   );
   assert.match(deferredGeometryEditor, /onPointerDown=\{startCanvasGesture\}/);
   assert.match(deferredGeometryEditor, /Zapisz geometrię i dalej/);

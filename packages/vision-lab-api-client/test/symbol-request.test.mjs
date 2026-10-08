@@ -31,12 +31,22 @@ test('symbol wrappers preserve discriminator, CAS, retry identity and read token
       body: request.method === 'POST' ? await request.json() : null,
     });
     const queue = calls.at(-1).body?.kind === 'lab_queue';
-    return new Response(JSON.stringify(queue
-      ? { kind: 'lab_queue', items: [], total: calls.at(-1).body.view === 'assigned' ? 0 : 30,
-          revision: 7, read_token: 'view' }
-      : { revision: 7, kind: 'lab_board' }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
+    return new Response(
+      JSON.stringify(
+        queue
+          ? {
+              kind: 'lab_queue',
+              items: [],
+              total: calls.at(-1).body.view === 'assigned' ? 0 : 30,
+              revision: 7,
+              read_token: 'view',
+            }
+          : { revision: 7, kind: 'lab_board' },
+      ),
+      {
+        headers: { 'Content-Type': 'application/json' },
+      },
+    );
   };
   try {
     const body = {
@@ -94,17 +104,32 @@ test('symbol wrappers preserve discriminator, CAS, retry identity and read token
     const queue = await symbolQueue('local-a', 30, 'view');
     assert.equal(queue.kind, 'lab_queue');
     assert.deepEqual(calls[9].body, {
-      kind: 'lab_queue', game_id: 'local-a', offset: 30, limit: 2000,
-      read_token: 'view', view: 'pending',
+      kind: 'lab_queue',
+      game_id: 'local-a',
+      offset: 30,
+      limit: 2000,
+      read_token: 'view',
+      view: 'pending',
     });
     await symbolQueue('local-a', 0, undefined, 'lemon');
     assert.deepEqual(calls[10].body, {
-      kind: 'lab_queue', game_id: 'local-a', offset: 0, limit: 2000,
-      view: 'assigned', symbol_id: 'lemon',
+      kind: 'lab_queue',
+      game_id: 'local-a',
+      offset: 0,
+      limit: 2000,
+      view: 'assigned',
+      symbol_id: 'lemon',
     });
-    const selective = { op: 'label_cells_decide', request_id: 'selective',
-      expected_revision: 7, actor: 'operator', dictionary_version: 1,
-      dictionary_digest: 'a'.repeat(64), symbol_id: 'lemon', bindings: [{ crop_id: 'id' }] };
+    const selective = {
+      op: 'label_cells_decide',
+      request_id: 'selective',
+      expected_revision: 7,
+      actor: 'operator',
+      dictionary_version: 1,
+      dictionary_digest: 'a'.repeat(64),
+      symbol_id: 'lemon',
+      bindings: [{ crop_id: 'id' }],
+    };
     await writeSymbol(selective);
     assert.deepEqual(calls[11].body, selective);
   } finally {
@@ -118,7 +143,12 @@ test('queue reads 2000 crops in one bounded request and preserves page token', a
   const OriginalRequest = globalThis.Request;
   globalThis.Request = class extends OriginalRequest {
     constructor(input, init) {
-      super(typeof input === 'string' ? new URL(input, 'http://127.0.0.1:3102') : input, init);
+      super(
+        typeof input === 'string'
+          ? new URL(input, 'http://127.0.0.1:3102')
+          : input,
+        init,
+      );
     }
   };
   const calls = [];
@@ -126,13 +156,21 @@ test('queue reads 2000 crops in one bounded request and preserves page token', a
     const body = await request.json();
     calls.push(body);
     const count = Math.min(body.limit, 2020 - body.offset);
-    return new Response(JSON.stringify({
-      kind: 'lab_queue', total: 2020, revision: 4, read_token: 'stable',
-      items: Array.from({ length: count }, (_, i) => ({
-        binding: { crop_id: `crop-${body.offset + i}` },
-        png_base64: 'pixels', status: 'unassigned', reason: null,
-      })),
-    }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(
+      JSON.stringify({
+        kind: 'lab_queue',
+        total: 2020,
+        revision: 4,
+        read_token: 'stable',
+        items: Array.from({ length: count }, (_, i) => ({
+          binding: { crop_id: `crop-${body.offset + i}` },
+          png_base64: 'pixels',
+          status: 'unassigned',
+          reason: null,
+        })),
+      }),
+      { headers: { 'Content-Type': 'application/json' } },
+    );
   };
   try {
     const first = await symbolQueue('game');
@@ -157,18 +195,32 @@ test('queue rejects a changed view if a response requires continuation', async (
   const OriginalRequest = globalThis.Request;
   globalThis.Request = class extends OriginalRequest {
     constructor(input, init) {
-      super(typeof input === 'string' ? new URL(input, 'http://127.0.0.1:3102') : input, init);
+      super(
+        typeof input === 'string'
+          ? new URL(input, 'http://127.0.0.1:3102')
+          : input,
+        init,
+      );
     }
   };
   let calls = 0;
   globalThis.fetch = async () => {
     calls++;
-    return new Response(JSON.stringify({
-      kind: 'lab_queue', total: 500, revision: calls, read_token: `view-${calls}`,
-      items: Array.from({ length: 30 }, (_, i) => ({
-        binding: { crop_id: `crop-${i}` }, png_base64: 'pixels', status: 'unassigned', reason: null,
-      })),
-    }), { headers: { 'Content-Type': 'application/json' } });
+    return new Response(
+      JSON.stringify({
+        kind: 'lab_queue',
+        total: 500,
+        revision: calls,
+        read_token: `view-${calls}`,
+        items: Array.from({ length: 30 }, (_, i) => ({
+          binding: { crop_id: `crop-${i}` },
+          png_base64: 'pixels',
+          status: 'unassigned',
+          reason: null,
+        })),
+      }),
+      { headers: { 'Content-Type': 'application/json' } },
+    );
   };
   try {
     await assert.rejects(symbolQueue('game'), /SYMBOL_QUEUE_VIEW_CHANGED/);
@@ -184,8 +236,12 @@ test('symbol crop previews are FIFO and a failed board releases the queue', asyn
   const OriginalRequest = globalThis.Request;
   globalThis.Request = class extends OriginalRequest {
     constructor(input, init) {
-      super(typeof input === 'string'
-        ? new URL(input, 'http://127.0.0.1:3102') : input, init);
+      super(
+        typeof input === 'string'
+          ? new URL(input, 'http://127.0.0.1:3102')
+          : input,
+        init,
+      );
     }
   };
   const calls = [];
@@ -194,19 +250,36 @@ test('symbol crop previews are FIFO and a failed board releases the queue', asyn
     const body = await request.json();
     calls.push(body.kind);
     if (body.kind === 'lab_board')
-      return await new Promise((resolve) => { rejectBoard = resolve; });
-    return new Response(JSON.stringify({ kind: 'lab_queue', items: [],
-      total: 0, revision: 0, read_token: 'token' }),
-    { headers: { 'Content-Type': 'application/json' } });
+      return await new Promise((resolve) => {
+        rejectBoard = resolve;
+      });
+    return new Response(
+      JSON.stringify({
+        kind: 'lab_queue',
+        items: [],
+        total: 0,
+        revision: 0,
+        read_token: 'token',
+      }),
+      { headers: { 'Content-Type': 'application/json' } },
+    );
   };
   try {
-    const board = symbolBoard({ kind: 'lab_board', source_id: 's', board_index: 0,
-      expected_geometry_revision: 1 });
+    const board = symbolBoard({
+      kind: 'lab_board',
+      source_id: 's',
+      board_index: 0,
+      expected_geometry_revision: 1,
+    });
     const queue = symbolQueue('g');
     await new Promise((resolve) => setTimeout(resolve, 0));
     assert.deepEqual(calls, ['lab_board']);
-    rejectBoard(new Response(JSON.stringify({ detail: 'ANNOTATION_STORE_BUSY' }),
-      { status: 409, headers: { 'Content-Type': 'application/json' } }));
+    rejectBoard(
+      new Response(JSON.stringify({ detail: 'ANNOTATION_STORE_BUSY' }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
     await assert.rejects(board);
     const result = await queue;
     assert.equal(result.kind, 'lab_queue');
@@ -222,8 +295,12 @@ test('a hung preview is aborted on its bound and releases the next preview', asy
   const OriginalRequest = globalThis.Request;
   globalThis.Request = class extends OriginalRequest {
     constructor(input, init) {
-      super(typeof input === 'string'
-        ? new URL(input, 'http://127.0.0.1:3102') : input, init);
+      super(
+        typeof input === 'string'
+          ? new URL(input, 'http://127.0.0.1:3102')
+          : input,
+        init,
+      );
     }
   };
   const calls = [];
@@ -235,13 +312,27 @@ test('a hung preview is aborted on its bound and releases the next preview', asy
       abandonedSignal = request.signal;
       return await new Promise(() => {});
     }
-    return new Response(JSON.stringify({ kind: 'lab_queue', items: [],
-      total: 0, revision: 0, read_token: 'token' }),
-    { headers: { 'Content-Type': 'application/json' } });
+    return new Response(
+      JSON.stringify({
+        kind: 'lab_queue',
+        items: [],
+        total: 0,
+        revision: 0,
+        read_token: 'token',
+      }),
+      { headers: { 'Content-Type': 'application/json' } },
+    );
   };
   try {
-    const hung = symbolCrop({ kind: 'lab_board', source_id: 's', board_index: 0,
-      expected_geometry_revision: 1 }, 20);
+    const hung = symbolCrop(
+      {
+        kind: 'lab_board',
+        source_id: 's',
+        board_index: 0,
+        expected_geometry_revision: 1,
+      },
+      20,
+    );
     const next = symbolQueue('g');
     await assert.rejects(hung, /SYMBOL_PREVIEW_TIMEOUT/);
     assert.equal(abandonedSignal.aborted, true);

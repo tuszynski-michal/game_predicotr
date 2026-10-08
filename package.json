@@ -125,7 +125,7 @@
     "windows:environment:setup": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure_windows_user_environment.ps1",
     "windows:environment:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/configure_windows_user_environment.ps1 -CheckOnly",
     "windows:environment:smoke": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/verify_windows_process_environment.ps1",
-    "python:lint": ".venv\\Scripts\\python.exe -m ruff check services/api services/worker scripts",
+    "python:lint": ".venv\\Scripts\\python.exe -m ruff check services/api services/worker services/test_support scripts",
     "python:test": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/run_python_tests.ps1",
     "python:typecheck": ".venv\\Scripts\\python.exe -m mypy services/api/src services/worker/src scripts",
     "powershell:check": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/check_powershell_syntax.ps1",

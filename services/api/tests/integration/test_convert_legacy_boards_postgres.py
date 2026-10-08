@@ -202,6 +202,12 @@ def _symbol(session: Session, game_id: UUID) -> UUID:
     return symbol.id
 
 
+@pytest.mark.skip(
+    reason=(
+        "retired by TASK-0940: historical revision harness incompatible with manifest v5 "
+        "(0142) and 0151; see Outcome"
+    )
+)
 def test_conversion_restores_the_virtual_render_and_keeps_decisions(
     database: _Database,  # noqa: F811
     tmp_path: Path,

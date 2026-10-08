@@ -13,8 +13,12 @@ const apiUrl = new URL(
 ).href;
 const nextLinkUrl = new URL('./next-link-harness.mjs', import.meta.url).href;
 const harnessRequire = createRequire(import.meta.url);
-const reactUrls = Object.fromEntries(['react', 'react/jsx-runtime', 'react/jsx-dev-runtime']
-  .map((specifier) => [specifier, pathToFileURL(harnessRequire.resolve(specifier)).href]));
+const reactUrls = Object.fromEntries(
+  ['react', 'react/jsx-runtime', 'react/jsx-dev-runtime'].map((specifier) => [
+    specifier,
+    pathToFileURL(harnessRequire.resolve(specifier)).href,
+  ]),
+);
 registerHooks({
   resolve(specifier, context, next) {
     // Renderer and workspace components must share the app's pinned React.
@@ -89,26 +93,67 @@ globalThis.IS_REACT_ACT_ENVIRONMENT = true;
 
 test('assigned gallery filters by symbol and refreshes after label writes', async () => {
   const calls = [];
-  globalThis.labApi = { symbolQueue: async (...args) => {
-    calls.push(args);
-    return { kind: 'lab_queue', revision: calls.length, read_token: 'token', total: 1,
-      items: [{ binding: { crop_id: 'crop-1', source_id: 's', board_index: 1,
-        cell_index: 3 }, png_base64: 'bytes', status: 'assigned' }] };
-  } };
-  const props = { game: 'g', sources: [{ id: 's', filename: 'photo.jpg' }],
-    active: { version: 1, digest: 'dict', entries: [{ id: 'a', display_name: 'Cytryna' }] },
-    readVersion: 0, onError: () => {} };
+  globalThis.labApi = {
+    symbolQueue: async (...args) => {
+      calls.push(args);
+      return {
+        kind: 'lab_queue',
+        revision: calls.length,
+        read_token: 'token',
+        total: 1,
+        items: [
+          {
+            binding: {
+              crop_id: 'crop-1',
+              source_id: 's',
+              board_index: 1,
+              cell_index: 3,
+            },
+            png_base64: 'bytes',
+            status: 'assigned',
+          },
+        ],
+      };
+    },
+  };
+  const props = {
+    game: 'g',
+    sources: [{ id: 's', filename: 'photo.jpg' }],
+    active: {
+      version: 1,
+      digest: 'dict',
+      entries: [{ id: 'a', display_name: 'Cytryna' }],
+    },
+    readVersion: 0,
+    onError: () => {},
+  };
   let root;
-  await act(async () => { root = create(React.createElement(SymbolAssignedGallery, props)); });
+  await act(async () => {
+    root = create(React.createElement(SymbolAssignedGallery, props));
+  });
   try {
     assert.equal(calls.length, 0);
-    await act(async () => root.root.findByType('select').props.onChange({ target: { value: 'a' } }));
+    await act(async () =>
+      root.root.findByType('select').props.onChange({ target: { value: 'a' } }),
+    );
     assert.deepEqual(calls[0], ['g', 0, undefined, 'a']);
     assert.equal(root.root.findAllByType('img').length, 1);
-    assert.match(root.root.findByType('article').findAllByType('span')
-      .map((span) => span.children.join(' ')).join(' '), /Plansza\s+2/);
-    await act(async () => root.update(React.createElement(SymbolAssignedGallery,
-      { ...props, readVersion: 1 })));
+    assert.match(
+      root.root
+        .findByType('article')
+        .findAllByType('span')
+        .map((span) => span.children.join(' '))
+        .join(' '),
+      /Plansza\s+2/,
+    );
+    await act(async () =>
+      root.update(
+        React.createElement(SymbolAssignedGallery, {
+          ...props,
+          readVersion: 1,
+        }),
+      ),
+    );
     assert.equal(calls.length, 2);
   } finally {
     await act(async () => root.unmount());
@@ -116,18 +161,45 @@ test('assigned gallery filters by symbol and refreshes after label writes', asyn
 });
 
 test('queue component requires loaded pixels and refreshes after image failure', async () => {
-  const requests = [], errors = [];
-  const page = { kind: 'lab_queue', revision: 2, read_token: 'token', total: 2,
-    items: [0, 1].map((cell_index) => ({ binding: { crop_id: `crop${cell_index}`,
-      cell_index, source_id: 's', board_index: 0 }, png_base64: 'bytes',
-      status: 'unassigned', reason: null })) };
+  const requests = [],
+    errors = [];
+  const page = {
+    kind: 'lab_queue',
+    revision: 2,
+    read_token: 'token',
+    total: 2,
+    items: [0, 1].map((cell_index) => ({
+      binding: {
+        crop_id: `crop${cell_index}`,
+        cell_index,
+        source_id: 's',
+        board_index: 0,
+      },
+      png_base64: 'bytes',
+      status: 'unassigned',
+      reason: null,
+    })),
+  };
   globalThis.labApi = { symbolQueue: async () => structuredClone(page) };
-  const props = { game: 'g', sources: [{ id: 's', filename: 'photo.jpg' }],
-    active: { version: 1, digest: 'dict', entries: [{ id: 'a', display_name: 'Cytryna' }] },
-    readVersion: 0, enabled: true, disabled: false, onBusy: () => {},
-    onError: (error) => errors.push(error), onSubmit: async (request) => requests.push(request) };
+  const props = {
+    game: 'g',
+    sources: [{ id: 's', filename: 'photo.jpg' }],
+    active: {
+      version: 1,
+      digest: 'dict',
+      entries: [{ id: 'a', display_name: 'Cytryna' }],
+    },
+    readVersion: 0,
+    enabled: true,
+    disabled: false,
+    onBusy: () => {},
+    onError: (error) => errors.push(error),
+    onSubmit: async (request) => requests.push(request),
+  };
   let root;
-  await act(async () => { root = create(React.createElement(SymbolCandidateQueue, props)); });
+  await act(async () => {
+    root = create(React.createElement(SymbolCandidateQueue, props));
+  });
   try {
     const images = root.root.findAllByType('img');
     assert.equal(images.length, 2);
@@ -135,15 +207,29 @@ test('queue component requires loaded pixels and refreshes after image failure',
     await act(async () => images[0].props.onLoad());
     const checkbox = root.root.findAllByType('input')[0];
     assert.equal(checkbox.props.disabled, false);
-    await act(async () => checkbox.props.onChange({ target: { checked: true } }));
-    await act(async () => root.root.findByType('select').props.onChange({ target: { value: 'a' } }));
-    await act(async () => button(root, 'Przypisz zaznaczone (1)').props.onClick());
+    await act(async () =>
+      checkbox.props.onChange({ target: { checked: true } }),
+    );
+    await act(async () =>
+      root.root.findByType('select').props.onChange({ target: { value: 'a' } }),
+    );
+    await act(async () =>
+      button(root, 'Przypisz zaznaczone (1)').props.onClick(),
+    );
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0].bindings, [page.items[0].binding]);
-    await act(async () => root.update(React.createElement(SymbolCandidateQueue, {
-      ...props, active: { version: 2, digest: 'new-dict',
-        entries: [{ id: 'b', display_name: 'Jabłko' }] },
-    })));
+    await act(async () =>
+      root.update(
+        React.createElement(SymbolCandidateQueue, {
+          ...props,
+          active: {
+            version: 2,
+            digest: 'new-dict',
+            entries: [{ id: 'b', display_name: 'Jabłko' }],
+          },
+        }),
+      ),
+    );
     assert.equal(root.root.findByType('select').props.value, '');
     assert.equal(button(root, 'Przypisz zaznaczone (0)').props.disabled, true);
     await act(async () => images[1].props.onError());
@@ -164,22 +250,43 @@ test('queue component requires loaded pixels and refreshes after image failure',
 test('queue waits for parent read and reports a real API error code', async () => {
   let calls = 0;
   const errors = [];
-  globalThis.labApi = { symbolQueue: async () => {
-    calls++;
-    throw { detail: 'HOLDOUT_POLICY_UNRESOLVED' };
-  } };
-  const props = { game: 'g', sources: [], active: null, readVersion: 0,
-    enabled: false, disabled: true, onBusy: () => {},
-    onError: (message) => errors.push(message), onSubmit: async () => {} };
+  globalThis.labApi = {
+    symbolQueue: async () => {
+      calls++;
+      throw { detail: 'HOLDOUT_POLICY_UNRESOLVED' };
+    },
+  };
+  const props = {
+    game: 'g',
+    sources: [],
+    active: null,
+    readVersion: 0,
+    enabled: false,
+    disabled: true,
+    onBusy: () => {},
+    onError: (message) => errors.push(message),
+    onSubmit: async () => {},
+  };
   let root;
-  await act(async () => { root = create(React.createElement(SymbolCandidateQueue, props)); });
+  await act(async () => {
+    root = create(React.createElement(SymbolCandidateQueue, props));
+  });
   try {
     assert.equal(calls, 0);
     assert.deepEqual(errors, []);
-    await act(async () => root.update(React.createElement(SymbolCandidateQueue,
-      { ...props, enabled: true, disabled: false })));
+    await act(async () =>
+      root.update(
+        React.createElement(SymbolCandidateQueue, {
+          ...props,
+          enabled: true,
+          disabled: false,
+        }),
+      ),
+    );
     assert.equal(calls, 1);
-    assert.deepEqual(errors, ['Nie można odczytać poczekalni: HOLDOUT_POLICY_UNRESOLVED']);
+    assert.deepEqual(errors, [
+      'Nie można odczytać poczekalni: HOLDOUT_POLICY_UNRESOLVED',
+    ]);
   } finally {
     await act(async () => root.unmount());
   }
@@ -380,109 +487,286 @@ test('real NextLink resolves and renders its navigation anchor in the Node harne
   }
 });
 test('parent freezes pixels across two writes, permits next selection and retains exact lost-response retry', async () => {
-  let reads = 0, labels = 0, boardReads = 0, failFirst;
+  let reads = 0,
+    labels = 0,
+    boardReads = 0,
+    failFirst;
   const requests = [];
-  const dictionary = { origin: 'lab', game_id: 'g', active: true, status: 'approved',
-    version: 1, digest: 'dict', entries: [{ id: 'a', display_name: 'A' }, { id: 'b', display_name: 'B' }] };
-  const page = { kind: 'lab_queue', revision: 2, read_token: 'queue', total: 2001,
-    items: [0, 1, 2].map((cell_index) => ({ binding: { crop_id: `c${cell_index}`,
-      cell_index, source_id: 's', board_index: 0 }, status: 'unassigned', png_base64: 'pixels' })) };
+  const dictionary = {
+    origin: 'lab',
+    game_id: 'g',
+    active: true,
+    status: 'approved',
+    version: 1,
+    digest: 'dict',
+    entries: [
+      { id: 'a', display_name: 'A' },
+      { id: 'b', display_name: 'B' },
+    ],
+  };
+  const page = {
+    kind: 'lab_queue',
+    revision: 2,
+    read_token: 'queue',
+    total: 2001,
+    items: [0, 1, 2].map((cell_index) => ({
+      binding: {
+        crop_id: `c${cell_index}`,
+        cell_index,
+        source_id: 's',
+        board_index: 0,
+      },
+      status: 'unassigned',
+      png_base64: 'pixels',
+    })),
+  };
   globalThis.labApi = {
-    read: async () => ({ revision: 1, annotations: { 's:0': {
-      source_id: 's', board_index: 0, revision: 1, presence: 'present', full_approved: true } } }),
-    list: async () => ({ sources: [{ id: 's', game_id: 'g', game_name: 'Gra', filename: 'photo' }], total: 1 }),
-    symbolLabels: async () => { labels++; return { items: [], total: 0, revision: 2, read_token: 'labels' }; },
-    symbolDictionaries: async () => ({ items: [dictionary], total: 1, read_token: 'dict' }),
+    read: async () => ({
+      revision: 1,
+      annotations: {
+        's:0': {
+          source_id: 's',
+          board_index: 0,
+          revision: 1,
+          presence: 'present',
+          full_approved: true,
+        },
+      },
+    }),
+    list: async () => ({
+      sources: [{ id: 's', game_id: 'g', game_name: 'Gra', filename: 'photo' }],
+      total: 1,
+    }),
+    symbolLabels: async () => {
+      labels++;
+      return { items: [], total: 0, revision: 2, read_token: 'labels' };
+    },
+    symbolDictionaries: async () => ({
+      items: [dictionary],
+      total: 1,
+      read_token: 'dict',
+    }),
     symbolDictionary: async () => dictionary,
     symbolBoard: async () => {
       boardReads++;
-      return { kind: 'lab_board', revision: 2, dictionary, topology: { columns: 5, rows: 3 },
-        width: 100, height: 60, board_png_base64: 'pixels',
-        nodes: Array.from({ length: 24 }, (_, i) => ({ x: (i % 6) * 20, y: Math.floor(i / 6) * 20 })),
-        cells: Array.from({ length: 15 }, (_, cell_index) => ({ binding: {
-          crop_id: `board-${cell_index}`, cell_index }, png_base64: 'pixels', current: null })) };
+      return {
+        kind: 'lab_board',
+        revision: 2,
+        dictionary,
+        topology: { columns: 5, rows: 3 },
+        width: 100,
+        height: 60,
+        board_png_base64: 'pixels',
+        nodes: Array.from({ length: 24 }, (_, i) => ({
+          x: (i % 6) * 20,
+          y: Math.floor(i / 6) * 20,
+        })),
+        cells: Array.from({ length: 15 }, (_, cell_index) => ({
+          binding: {
+            crop_id: `board-${cell_index}`,
+            cell_index,
+          },
+          png_base64: 'pixels',
+          current: null,
+        })),
+      };
     },
     symbolQueue: async (...args) => {
       reads++;
-      if (args[4] === 1) return { ...page, total: 1999, revision: 4, read_token: 'fresh', items: page.items.slice(0, 1) };
-      if (reads > 1) { assert.equal(args[2], 'fresh'); assert.equal(args[1], 1); }
+      if (args[4] === 1)
+        return {
+          ...page,
+          total: 1999,
+          revision: 4,
+          read_token: 'fresh',
+          items: page.items.slice(0, 1),
+        };
+      if (reads > 1) {
+        assert.equal(args[2], 'fresh');
+        assert.equal(args[1], 1);
+      }
       return structuredClone(page);
     },
     writeSymbol: async (request) => {
       requests.push(request);
-      if (requests.length === 1) return new Promise((_resolve, reject) => { failFirst = reject; });
-      return { revision: request.expected_revision + 1, request_id: request.request_id,
-        label_valid: true, decision_ids: [`d${requests.length}`], replayed: requests.length === 2 };
+      if (requests.length === 1)
+        return new Promise((_resolve, reject) => {
+          failFirst = reject;
+        });
+      return {
+        revision: request.expected_revision + 1,
+        request_id: request.request_id,
+        label_valid: true,
+        decision_ids: [`d${requests.length}`],
+        replayed: requests.length === 2,
+      };
     },
   };
   let root;
-  await act(async () => { root = create(React.createElement(ToastProvider, null,
-    React.createElement(AnnotationProvider, null, React.createElement(SymbolLabelEditor)))); });
+  await act(async () => {
+    root = create(
+      React.createElement(
+        ToastProvider,
+        null,
+        React.createElement(
+          AnnotationProvider,
+          null,
+          React.createElement(SymbolLabelEditor),
+        ),
+      ),
+    );
+  });
   try {
-    await act(async () => root.root.findAllByType('select')[0].props.onChange({ target: { value: 'g' } }));
+    await act(async () =>
+      root.root
+        .findAllByType('select')[0]
+        .props.onChange({ target: { value: 'g' } }),
+    );
     const queue = () => root.root.findByType(SymbolCandidateQueue);
-    await act(async () => root.root.findByType(SymbolBoardEditor).findAllByType('select')[0].props.onChange({ target: { value: 's' } }));
-    await act(async () => root.root.findByType(SymbolBoardEditor).findAllByType('select')[1].props.onChange({ target: { value: '0' } }));
+    await act(async () =>
+      root.root
+        .findByType(SymbolBoardEditor)
+        .findAllByType('select')[0]
+        .props.onChange({ target: { value: 's' } }),
+    );
+    await act(async () =>
+      root.root
+        .findByType(SymbolBoardEditor)
+        .findAllByType('select')[1]
+        .props.onChange({ target: { value: '0' } }),
+    );
     assert.equal(boardReads, 1);
-    await act(async () => queue().findAllByType('img').forEach((image) => image.props.onLoad()));
-    const images = queue().findAllByType('img').map((image) => image.props.src);
-    await act(async () => queue().findByType('select').props.onChange({ target: { value: 'a' } }));
-    await act(async () => queue().findAllByType('input')[0].props.onChange({ target: { checked: true } }));
-    await act(async () => button(root, 'Przypisz zaznaczone (1)').props.onClick());
+    await act(async () =>
+      queue()
+        .findAllByType('img')
+        .forEach((image) => image.props.onLoad()),
+    );
+    const images = queue()
+      .findAllByType('img')
+      .map((image) => image.props.src);
+    await act(async () =>
+      queue()
+        .findByType('select')
+        .props.onChange({ target: { value: 'a' } }),
+    );
+    await act(async () =>
+      queue()
+        .findAllByType('input')[0]
+        .props.onChange({ target: { checked: true } }),
+    );
+    await act(async () =>
+      button(root, 'Przypisz zaznaczone (1)').props.onClick(),
+    );
     assert.equal(queue().findByType('select').props.disabled, false);
     assert.equal(queue().findAllByType('input')[0].props.disabled, true);
     assert.equal(queue().findAllByType('input')[1].props.disabled, false);
     await act(async () => {
-      queue().findByType('select').props.onChange({ target: { value: 'b' } });
-      queue().findAllByType('input')[1].props.onChange({ target: { checked: true } });
+      queue()
+        .findByType('select')
+        .props.onChange({ target: { value: 'b' } });
+      queue()
+        .findAllByType('input')[1]
+        .props.onChange({ target: { checked: true } });
     });
     assert.equal(button(root, 'Przypisz zaznaczone (1)').props.disabled, true);
     await act(async () => failFirst(new Error('lost response')));
     assert.equal(queue().findByType('select').props.disabled, true);
     assert.equal(reads, 1);
-    assert.equal(queue().findAllByType('small')[0].children.join(''), 'Nieprzypisany');
-    await act(async () => button(root, 'Ponów identyczny zapis').props.onClick());
+    assert.equal(
+      queue().findAllByType('small')[0].children.join(''),
+      'Nieprzypisany',
+    );
+    await act(async () =>
+      button(root, 'Ponów identyczny zapis').props.onClick(),
+    );
     assert.equal(requests[1], requests[0]);
-    assert.equal(queue().findAllByType('small')[0].children.join(''), 'Zapisany');
+    assert.equal(
+      queue().findAllByType('small')[0].children.join(''),
+      'Zapisany',
+    );
     assert.equal(queue().findByType('select').props.value, 'b');
     assert.equal(queue().findAllByType('input')[1].props.checked, true);
-    await act(async () => button(root, 'Przypisz zaznaczone (1)').props.onClick());
+    await act(async () =>
+      button(root, 'Przypisz zaznaczone (1)').props.onClick(),
+    );
     assert.equal(requests[2].expected_revision, 3);
     assert.equal(requests[2].symbol_id, 'b');
     assert.equal(reads, 1);
     assert.equal(labels, 1);
     assert.equal(boardReads, 1); // an open board must not start a competing reader after queue writes
     assert.equal(root.root.findByType(SymbolBoardEditor).props.disabled, true);
-    assert.deepEqual(queue().findAllByType('img').map((image) => image.props.src), images);
+    assert.deepEqual(
+      queue()
+        .findAllByType('img')
+        .map((image) => image.props.src),
+      images,
+    );
     assert.equal(queue().findAllByType('input')[2].props.disabled, false);
     await act(async () => button(root, 'Następna strona').props.onClick());
     assert.equal(reads, 3); // one bounded token read, then the requested page
-  } finally { await act(async () => root.unmount()); }
+  } finally {
+    await act(async () => root.unmount());
+  }
 });
 
 test('parent reload stays disabled while queue reads a selected game', async () => {
   let finishQueue;
-  const source = { id: 's', game_id: 'g', game_name: 'Gra', filename: 'photo.jpg' };
+  const source = {
+    id: 's',
+    game_id: 'g',
+    game_name: 'Gra',
+    filename: 'photo.jpg',
+  };
   globalThis.labApi = {
     read: async () => ({ revision: 1, annotations: {} }),
     list: async () => ({ sources: [source], total: 1 }),
-    symbolLabels: async () => ({ items: [], revision: 0, total: 0, read_token: 'labels' }),
-    symbolDictionaries: async () => ({ items: [], total: 0, read_token: 'dict' }),
-    symbolQueue: () => new Promise((resolve) => { finishQueue = resolve; }),
+    symbolLabels: async () => ({
+      items: [],
+      revision: 0,
+      total: 0,
+      read_token: 'labels',
+    }),
+    symbolDictionaries: async () => ({
+      items: [],
+      total: 0,
+      read_token: 'dict',
+    }),
+    symbolQueue: () =>
+      new Promise((resolve) => {
+        finishQueue = resolve;
+      }),
   };
   let root;
   await act(async () => {
-    root = create(React.createElement(ToastProvider, null,
-      React.createElement(AnnotationProvider, null,
-        React.createElement(SymbolLabelEditor))));
+    root = create(
+      React.createElement(
+        ToastProvider,
+        null,
+        React.createElement(
+          AnnotationProvider,
+          null,
+          React.createElement(SymbolLabelEditor),
+        ),
+      ),
+    );
   });
   try {
-    await act(async () => root.root.findAllByType('select')[0].props.onChange(
-      { target: { value: 'g' } }));
+    await act(async () =>
+      root.root
+        .findAllByType('select')[0]
+        .props.onChange({ target: { value: 'g' } }),
+    );
     assert.equal(typeof finishQueue, 'function');
     assert.equal(button(root, 'Odczytaj stan').props.disabled, true);
-    await act(async () => finishQueue({ kind: 'lab_queue', items: [], total: 0,
-      revision: 0, read_token: 'queue' }));
+    await act(async () =>
+      finishQueue({
+        kind: 'lab_queue',
+        items: [],
+        total: 0,
+        revision: 0,
+        read_token: 'queue',
+      }),
+    );
     assert.equal(button(root, 'Odczytaj stan').props.disabled, false);
   } finally {
     await act(async () => root.unmount());

@@ -3,7 +3,7 @@
   "calibrationProfileSetSha256": "fd1c7f32f0a1cc17e4328c12fa24f3b19f5394f47279a963e3f12306f3d3e681",
   "calibrationProfileSetVersion": "expanded-detector-bounding-frame-v2",
   "cellCount": 5805,
-  "corpusManifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+  "corpusManifestSha256": "3c364188d2900a899bb1b72f7ef1417a2fbba5d4bf344dbe0915f43fa7f078f7",
   "croppedImageCount": 43,
   "cropperVersion": "board-cell-crops-v10-wide-frame-preflight-v1",
   "detectionReportSha256": "65094c299fe21eb1bf2cb5cb58679e90c4d01499e92a1c1f148fa2e2a1c221d7",

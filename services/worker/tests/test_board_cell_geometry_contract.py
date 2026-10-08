@@ -26,7 +26,7 @@ from game_predictor_worker.images.pipeline_contract import current_pipeline_mani
 ROOT = Path(__file__).resolve().parents[3]
 DESCRIPTOR = ROOT / "ai_docs" / "quality" / "board-cell-geometry-v19-real-corpus.json"
 SCHEMA = ROOT / "ai_docs" / "quality" / "board-cell-geometry-manifest-v1.schema.json"
-REAL_CORPUS_MANIFEST_SHA256 = "45a82dbb0f86ca62646e1d680f2a0d9ea78a62f38b1d24b72be2ce50764aeb25"
+REAL_CORPUS_MANIFEST_SHA256 = "c352ed0f3ee214c333a76eacf13ce4bb6c80af5f254ffc5a9bb69ef6d66c81be"
 
 
 def _manifest() -> BoardCellGeometryManifestV1:

@@ -42,7 +42,10 @@ pytestmark = pytest.mark.skipif(
 
 
 def test_migration_preserves_legacy_import_recovery_and_deactivation(tmp_path, monkeypatch):
-    with application_role_database("t0881", ("mumie-pilot", "legacy777")) as database:
+    # The database starts at 0143 (not downgraded from head, which 0148-0150 forbid).
+    with application_role_database(
+        "t0881", ("mumie-pilot", "legacy777"), revision="0143_merge_share_grid_shadow"
+    ) as database:
         assert database.owner_url.database.endswith("_test")
         assert database.owner_url.database != "game_predictor"
         game_id = database.games["mumie-pilot"]
@@ -52,7 +55,6 @@ def test_migration_preserves_legacy_import_recovery_and_deactivation(tmp_path, m
             "sqlalchemy.url",
             database.owner_url.render_as_string(hide_password=False).replace("%", "%%"),
         )
-        command.downgrade(config, "0143_merge_share_grid_shadow")
         legacy_job = create_job(
             JobType.VALIDATE,
             game_id=legacy_game,
@@ -107,6 +109,8 @@ def test_migration_preserves_legacy_import_recovery_and_deactivation(tmp_path, m
                 ),
                 {"game": legacy_game, "id": iteration_id},
             )
+        # The product code below reads the current ORM columns, so continue at head.
+        command.upgrade(config, "head")
         model = b"qualified-import-postgres-fixture"
         evidence = {"classes": list(lab.MUMIE_CLASS_LABELS), "eligible": True}
         checksum = lab.digest(evidence)
@@ -253,6 +257,9 @@ finally:
                     game_id=game_id
                 )
             assert error.value.code == "SYMBOL_MODEL_ACTIVATION_REQUIRED"
+        # The downgrade guard of 0144 is exercised through a stamp, because the
+        # retention-only migrations 0148-0150 stop a real downgrade from head.
+        command.stamp(config, "0144_lab_symbol_candidate_registry")
         with pytest.raises(Exception, match="LAB_SYMBOL_REGISTRY_DOWNGRADE_HAS_HISTORY"):
             command.downgrade(config, "0143_merge_share_grid_shadow")
         with (

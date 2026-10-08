@@ -5,7 +5,14 @@ import pytest
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
-from game_predictor_api.storage import models  # noqa: F401
+
+# TASK-0940: `models` registers only some management mappings; the session
+# mappings (migration 0150) are imported explicitly so that the exhaustiveness
+# check below also covers their tables against `management_manifest`.
+from game_predictor_api.storage import (
+    management_session_models,  # noqa: F401
+    models,  # noqa: F401
+)
 from game_predictor_api.storage.game_data_v2_manifest_v1 import GAME_TABLES as V1_GAME_TABLES
 from game_predictor_api.storage.game_data_v2_manifest_v3 import GAME_TABLES as V3_GAME_TABLES
 from game_predictor_api.storage.game_data_v2_manifest_v4 import (
@@ -20,6 +27,7 @@ from game_predictor_api.storage.game_data_v2_manifest_v5 import (
     GAME_TABLES,
     MIGRATE_TABLES,
     PARTITIONED_TABLES,
+    POST_V5_SHARED,
     SHARED,
     VERSION,
     ownership,
@@ -39,7 +47,7 @@ def config(output: StringIO) -> Config:
 
 
 def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
-    known = CATALOG | SHARED | set(GAME_TABLES) | MANAGEMENT_SHARED
+    known = CATALOG | SHARED | POST_V5_SHARED | set(GAME_TABLES) | MANAGEMENT_SHARED
     assert not (CATALOG & SHARED or CATALOG & set(GAME_TABLES) or SHARED & set(GAME_TABLES))
     assert set(Base.metadata.tables) <= known
     assert known - set(Base.metadata.tables) == {

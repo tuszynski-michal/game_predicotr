@@ -78,11 +78,11 @@
     "sources": [
       {
         "relativePath": "ai_docs/quality/m6-spatial-symbol-model-vertical-slice-report.json",
-        "sha256": "d9f56165b808b046bd76bcb647e06ed7472fb89b5288b02f2d05e9b81d762f6b"
+        "sha256": "6c806199932ab7739715cfed65b478506881397631fc8cf10e36a7ac075b8c81"
       },
       {
         "relativePath": "ai_docs/quality/m5-reviewed-manual-merge-v16-full-preflight-report.json",
-        "sha256": "c336a872388d35a4bb28a15626565906cd105345577919f0c6a3b251841ac5b9"
+        "sha256": "59f9bdfac515dfedc5f75c02afb97c952d31ea399e16420631cfeba55f9d4dc0"
       }
     ]
   },

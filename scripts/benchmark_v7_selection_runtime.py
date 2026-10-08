@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass, replace
 from pathlib import Path
 from time import perf_counter
+from typing import cast
 
 import numpy as np
 from PIL import Image, ImageOps
@@ -203,7 +204,7 @@ def _runtime_device() -> dict[str, object]:
     try:
         import paddle
 
-        compiled_with_cuda = bool(paddle.is_compiled_with_cuda())
+        compiled_with_cuda = bool(paddle.is_compiled_with_cuda())  # type: ignore[attr-defined]  # paddle exports it lazily, no stub
         gpu_device_count = int(paddle.device.cuda.device_count()) if compiled_with_cuda else 0
         gpu_available = compiled_with_cuda and gpu_device_count > 0
         return {
@@ -212,7 +213,7 @@ def _runtime_device() -> dict[str, object]:
             "gpuDeviceCount": gpu_device_count,
             "vramBytes": None,
             "vramStatus": "not_collected" if gpu_available else "unavailable_cpu_runtime",
-            "version": str(paddle.__version__),
+            "version": str(paddle.__version__),  # type: ignore[attr-defined]  # paddle exports it lazily, no stub
         }
     except Exception as error:  # The report must explain an unavailable local runtime.
         return {
@@ -294,7 +295,7 @@ def _run_profile(
         "runtime": runtime.metrics.as_dict(),
         "stages": {
             "decodeMilliseconds": round(
-                sum(float(item["decodeMilliseconds"]) for item in observations),
+                sum(float(cast(float, item["decodeMilliseconds"])) for item in observations),
                 4,
             ),
             "finalizationMilliseconds": finalization_milliseconds,
@@ -309,7 +310,10 @@ def _run_profile(
             "ocrMilliseconds": round(ocr_milliseconds, 4),
             "orderedConsumeMilliseconds": round(runtime.metrics.consume_seconds * 1000, 4),
             "sourceFingerprintMilliseconds": round(
-                sum(float(item["sourceFingerprintMilliseconds"]) for item in observations),
+                sum(
+                    float(cast(float, item["sourceFingerprintMilliseconds"]))
+                    for item in observations
+                ),
                 4,
             ),
             "totalMilliseconds": total_milliseconds,
@@ -339,8 +343,8 @@ def _recommended_profile(profiles: Sequence[dict[str, object]]) -> dict[str, obj
     selected = min(
         profiles,
         key=lambda profile: (
-            float((profile["stages"])["totalMilliseconds"]),
-            int((profile["policy"])["prepareWorkers"]),
+            float(cast(dict[str, float], profile["stages"])["totalMilliseconds"]),
+            int(cast(dict[str, int], profile["policy"])["prepareWorkers"]),
         ),
     )
     policy = selected["policy"]
@@ -507,7 +511,7 @@ def main() -> int:
         for policy in policies
     )
     recommendation = _recommended_profile(profiles)
-    payload: dict[str, object] = {
+    payload = {
         "corpusManifestFingerprint": manifest_fingerprint,
         "device": device,
         "profiles": profiles,

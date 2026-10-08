@@ -43,13 +43,16 @@ export function cropV13MinimumHeightPx(crop: {
   return Math.min(
     crop.height,
     Math.ceil(
-      (crop.width * CROP_V13_MINIMUM_HEIGHT_CONFIG.minimumHeightPxAtReferenceWidth) /
+      (crop.width *
+        CROP_V13_MINIMUM_HEIGHT_CONFIG.minimumHeightPxAtReferenceWidth) /
         CROP_V13_MINIMUM_HEIGHT_CONFIG.referenceWidthPx,
     ),
   );
 }
 
-export function cropMeetsV13MinimumHeight(crop: SelectedImageCropBand): boolean {
+export function cropMeetsV13MinimumHeight(
+  crop: SelectedImageCropBand,
+): boolean {
   return crop.bottomY - crop.topY >= cropV13MinimumHeightPx(crop);
 }
 

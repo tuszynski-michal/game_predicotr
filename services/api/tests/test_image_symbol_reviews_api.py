@@ -1196,7 +1196,8 @@ def test_list_endpoint_uses_keyset_cursors_without_duplicates(tmp_path: Path) ->
     assert all_symbols.status_code == 200
     assert len(all_symbols.json()["items"]) == 3
     assert repository.filters[-1].include_all_symbols is True
-    assert (5_000, "list") in repository.bounded_reads
+    # v1.7.32 raised the default list statement timeout from 5 s to 20 s.
+    assert (20_000, "list") in repository.bounded_reads
     assert (15_000, "counts") in repository.bounded_reads
 
 

@@ -614,11 +614,17 @@ test('a stale virtual geometry revision reloads the board (D-467 S6)', async () 
     message: 'The virtual grid review changed after it was loaded.',
   };
   const preview = await previewOperationalReviewGeometry(
-    { previewOperationalImageReviewGeometry: async () => ({ error: conflict }) },
+    {
+      previewOperationalImageReviewGeometry: async () => ({ error: conflict }),
+    },
     options,
   );
   const saved = await saveOperationalReviewGeometry(
-    { createOperationalImageReviewGeometryRevision: async () => ({ error: conflict }) },
+    {
+      createOperationalImageReviewGeometryRevision: async () => ({
+        error: conflict,
+      }),
+    },
     options,
   );
   assert.equal(preview.ok, false);

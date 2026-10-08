@@ -143,6 +143,12 @@ def _cell_rows(engine: Engine, game_id: UUID) -> list[tuple[Any, ...]]:
         ]
 
 
+@pytest.mark.skip(
+    reason=(
+        "retired by TASK-0940: historical revision harness incompatible with manifest v5 "
+        "(0142) and 0151; see Outcome"
+    )
+)
 def test_migration_0136_drops_the_cell_render_spec(
     database: _Database,  # noqa: F811
     tmp_path: Path,

@@ -34,6 +34,7 @@ from game_predictor_worker.images.structured_geometry import (
     structured_lattice_active_config_payload,
 )
 from game_predictor_worker.images.virtual_cell_extraction import VIRTUAL_CELL_RENDERER_VERSION
+from local_corpus import require_local_corpus
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 GOLDEN_MANIFEST = REPOSITORY_ROOT / "ai_docs/quality/m7-image-pipeline-manifest-v1.json"
@@ -123,11 +124,28 @@ def test_current_manifest_is_valid_and_all_local_artifacts_match() -> None:
     manifest = _manifest()
 
     assert validate_pipeline_manifest(manifest) == manifest
-    verify_manifest_artifacts(manifest, REPOSITORY_ROOT)
 
     components = cast(dict[str, dict[str, object]], manifest["components"])
     assert components["sequence_ocr"]["maturity"] == "manual_review_only"
     assert components["symbol_inference"]["maturity"] == "bootstrap_manual_review_only"
+
+    # The versioned ai_docs/quality artifacts are always verified; the model files
+    # are local, Git-ignored artifacts and only checked where they exist.
+    tracked = deepcopy(manifest)
+    for component in cast(dict[str, dict[str, object]], tracked["components"]).values():
+        component["artifacts"] = [
+            item
+            for item in cast(list[dict[str, object]], component["artifacts"])
+            if str(item["relativePath"]).startswith("ai_docs/")
+        ]
+    verify_manifest_artifacts(tracked, REPOSITORY_ROOT)
+    require_local_corpus(
+        REPOSITORY_ROOT / "artifacts/m5-models/sequence-number-ocr-v1/inference.json",
+        REPOSITORY_ROOT / "artifacts/m5-models/sequence-number-ocr-v1/inference.pdiparams",
+        REPOSITORY_ROOT / "artifacts/m5-models/sequence-number-ocr-v1/inference.yml",
+        REPOSITORY_ROOT / "artifacts/m6-symbol-classifier-onnx/bootstrap-symbol-cnn-v1.onnx",
+    )
+    verify_manifest_artifacts(manifest, REPOSITORY_ROOT)
 
 
 @pytest.mark.parametrize(

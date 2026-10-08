@@ -345,6 +345,11 @@ def test_slimming_retention_and_migration_0137(
             text(f"UPDATE {_REVISIONS} SET legacy_predictions_sha256 = 'x' WHERE id = :id"),
             {"id": kept_full},
         )
+    # Migrations 0148-0150 refuse a downgrade, so a real downgrade from head cannot
+    # reach 0136. 0137 is the only revision undone here and nothing later touches
+    # the objects it changes, so the version row is stamped to 0137 first and back
+    # to head at the end.
+    command.stamp(database.config, "0137_prediction_revisions_slim")
     with pytest.raises(Exception, match="PREDICTION_REVISION_LEGACY_DIGEST_PRESENT"):
         command.downgrade(database.config, "0136_drop_cell_render_spec")
     with engine.begin() as connection:
@@ -361,4 +366,5 @@ def test_slimming_retention_and_migration_0137(
             ).scalar_one()
             == 0
         )
-    command.upgrade(database.config, "head")
+    command.upgrade(database.config, "0137_prediction_revisions_slim")
+    command.stamp(database.config, "head")

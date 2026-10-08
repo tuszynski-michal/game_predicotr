@@ -1039,6 +1039,11 @@ def test_migration_0139_downgrade_refuses_an_exception_and_restores_the_columns(
             }
 
     assert len(columns()) == 5
+    # Migrations 0148-0150 refuse a downgrade, so a real downgrade from head cannot
+    # reach 0138. 0139 is the only revision undone here and nothing later touches
+    # the objects it changes, so the version row is stamped to 0139 first and back
+    # to head at the end.
+    command.stamp(database.config, "0139_source_image_geometry_completeness")
     # An operator exception is a human decision a recompute cannot recreate.
     with pytest.raises(Exception, match="SOURCE_IMAGE_GEOMETRY_EXCEPTION_PRESENT"):
         command.downgrade(database.config, "0138_rls_policy_function_parallel_safe")
@@ -1050,7 +1055,8 @@ def test_migration_0139_downgrade_refuses_an_exception_and_restores_the_columns(
         )
     command.downgrade(database.config, "0138_rls_policy_function_parallel_safe")
     assert columns() == set()
-    command.upgrade(database.config, "head")
+    command.upgrade(database.config, "0139_source_image_geometry_completeness")
+    command.stamp(database.config, "head")
     assert len(columns()) == 5
     with database.engine.connect() as connection:
         statuses = connection.execute(

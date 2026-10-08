@@ -221,7 +221,10 @@ test('explicit v13 upgrade can recalculate automatic warnings without touching o
     /selectedImageCropAutomaticCorrectionRecalculationFileNames/u,
   );
   assert.match(source, /isFourPointRegistrationCropPolicy/u);
-  assert.match(source, /preparationPolicyVersion: ACTIVE_SELECTED_IMAGE_CROP_POLICY/u);
+  assert.match(
+    source,
+    /preparationPolicyVersion: ACTIVE_SELECTED_IMAGE_CROP_POLICY/u,
+  );
 });
 
 test('pristine initialization pins the active policy without relying on a racy manifest-existed flag', () => {

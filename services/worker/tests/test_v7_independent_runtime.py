@@ -33,8 +33,8 @@ from game_predictor_worker.semi_automatic_selection.v7_worker_runtime import (
     V7WorkerRuntimeError,
 )
 from test_v7_checkpoint_batching import ProofObserver, manifest_with_sources
-from test_v7_run_state import _quality
 from test_v7_worker_runtime import _configuration, _Factory, _SourceErrorObserver
+from v7_run_state_support import quality as _quality
 
 
 def test_independent_flush_never_builds_full_state_before_finalized(tmp_path, monkeypatch):

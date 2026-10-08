@@ -7,9 +7,7 @@ import type {
 import { restoreV7LabelGeometryQueue } from './v7-label-geometry-calibration-queue.ts';
 
 export type V7LabelGeometryCropAssessment =
-  | 'contained'
-  | 'clipped'
-  | 'uncertain';
+  'contained' | 'clipped' | 'uncertain';
 
 export interface V7LabelGeometryCalibrationLocalView {
   readonly activePositionIndex: number;
@@ -49,10 +47,15 @@ export class V7LabelGeometryCalibrationLocalStore {
     try {
       const [view, records] = await Promise.all([
         requestResult<V7LabelGeometryCalibrationLocalView | null>(
-          database.transaction(VIEW_STORE, 'readonly').objectStore(VIEW_STORE).get(sessionId),
+          database
+            .transaction(VIEW_STORE, 'readonly')
+            .objectStore(VIEW_STORE)
+            .get(sessionId),
         ),
         requestAll<V7LabelGeometryQueueRecord>(
-          database.transaction(QUEUE_STORE, 'readonly').objectStore(QUEUE_STORE),
+          database
+            .transaction(QUEUE_STORE, 'readonly')
+            .objectStore(QUEUE_STORE),
         ),
       ]);
       if (view === null) return null;
@@ -82,7 +85,8 @@ export class V7LabelGeometryCalibrationLocalStore {
       );
       return (
         [...views].sort((left, right) => {
-          const timestamp = Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
+          const timestamp =
+            Date.parse(right.updatedAt) - Date.parse(left.updatedAt);
           return timestamp || right.sessionId.localeCompare(left.sessionId);
         })[0] ?? null
       );
@@ -199,7 +203,9 @@ export class V7LabelGeometryCalibrationLocalStore {
       }
       request.onupgradeneeded = () => {
         if (!request.result.objectStoreNames.contains(VIEW_STORE)) {
-          request.result.createObjectStore(VIEW_STORE, { keyPath: 'sessionId' });
+          request.result.createObjectStore(VIEW_STORE, {
+            keyPath: 'sessionId',
+          });
         }
         if (!request.result.objectStoreNames.contains(QUEUE_STORE)) {
           request.result.createObjectStore(QUEUE_STORE, { keyPath: 'key' });
@@ -207,7 +213,10 @@ export class V7LabelGeometryCalibrationLocalStore {
       };
       request.onsuccess = () => resolve(request.result);
       request.onerror = () =>
-        reject(request.error ?? new Error('V7_LABEL_GEOMETRY_INDEXED_DB_OPEN_FAILED'));
+        reject(
+          request.error ??
+            new Error('V7_LABEL_GEOMETRY_INDEXED_DB_OPEN_FAILED'),
+        );
     });
   }
 }
@@ -259,7 +268,9 @@ function requestResult<T>(request: IDBRequest): Promise<T> {
   return new Promise((resolve, reject) => {
     request.onsuccess = () => resolve((request.result ?? null) as T);
     request.onerror = () =>
-      reject(request.error ?? new Error('V7_LABEL_GEOMETRY_INDEXED_DB_READ_FAILED'));
+      reject(
+        request.error ?? new Error('V7_LABEL_GEOMETRY_INDEXED_DB_READ_FAILED'),
+      );
   });
 }
 
@@ -268,7 +279,9 @@ function requestAll<T>(store: IDBObjectStore): Promise<T[]> {
     const request = store.getAll();
     request.onsuccess = () => resolve(request.result as T[]);
     request.onerror = () =>
-      reject(request.error ?? new Error('V7_LABEL_GEOMETRY_INDEXED_DB_READ_FAILED'));
+      reject(
+        request.error ?? new Error('V7_LABEL_GEOMETRY_INDEXED_DB_READ_FAILED'),
+      );
   });
 }
 
@@ -276,8 +289,12 @@ function transactionComplete(transaction: IDBTransaction): Promise<void> {
   return new Promise((resolve, reject) => {
     transaction.oncomplete = () => resolve();
     transaction.onabort = () =>
-      reject(transaction.error ?? new Error('V7_LABEL_GEOMETRY_INDEXED_DB_ABORTED'));
+      reject(
+        transaction.error ?? new Error('V7_LABEL_GEOMETRY_INDEXED_DB_ABORTED'),
+      );
     transaction.onerror = () =>
-      reject(transaction.error ?? new Error('V7_LABEL_GEOMETRY_INDEXED_DB_FAILED'));
+      reject(
+        transaction.error ?? new Error('V7_LABEL_GEOMETRY_INDEXED_DB_FAILED'),
+      );
   });
 }

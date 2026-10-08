@@ -12,6 +12,7 @@ import math
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
+from typing import cast
 from uuid import UUID
 
 from game_predictor_api.application.image_symbol_reviews import SymbolCellReviewQueryService
@@ -82,7 +83,8 @@ def _targets(
         SymbolCellPreviewTarget(
             cell_review_id=item.cell_review_id,
             expected_revision=item.revision,
-            expected_crop_checksum_sha256=item.crop_checksum_sha256,
+            # A missing crop checksum is rejected by SymbolCellPreviewTarget itself.
+            expected_crop_checksum_sha256=cast(str, item.crop_checksum_sha256),
             expected_render_spec_checksum_sha256=item.render_spec_checksum_sha256,
         )
         for item in items

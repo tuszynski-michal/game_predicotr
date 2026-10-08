@@ -152,7 +152,10 @@ class ContrastFrameGridV12Profile:
                 "IMAGE_CONTRAST_FRAME_GRID_PROFILE_REQUIRED",
                 "V1.2 needs at least one complete manually confirmed frame and grid pair.",
             )
-        return tuple(float(statistics.median(item[index] for item in values)) for index in range(4))
+        left, top, right, bottom = (
+            float(statistics.median(item[index] for item in values)) for index in range(4)
+        )
+        return (left, top, right, bottom)
 
 
 def build_contrast_frame_grid_v12_profile(overrides: Mapping[str, object]) -> dict[str, object]:
@@ -542,8 +545,12 @@ def _refine_frame_by_local_contrast(
     )
     padded_transform = cv2.getPerspectiveTransform(padded_source, padded_rectified)
     padded_inverse = cv2.getPerspectiveTransform(padded_rectified, padded_source)
-    rectified = cv2.warpPerspective(
-        rgb, padded_transform, (_RECTIFIED_WIDTH, _RECTIFIED_HEIGHT), flags=cv2.INTER_LINEAR
+    # OpenCV's stubs widen the dtype; warpPerspective keeps the uint8 input dtype.
+    rectified = cast(
+        NDArray[np.uint8],
+        cv2.warpPerspective(
+            rgb, padded_transform, (_RECTIFIED_WIDTH, _RECTIFIED_HEIGHT), flags=cv2.INTER_LINEAR
+        ),
     )
     pad_x = int(round(_RECTIFIED_WIDTH * _FRAME_SAMPLE_PADDING_RATIO))
     pad_y = int(round(_RECTIFIED_HEIGHT * _FRAME_SAMPLE_PADDING_RATIO))

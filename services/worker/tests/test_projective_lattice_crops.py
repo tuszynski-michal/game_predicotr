@@ -19,10 +19,12 @@ from game_predictor_worker.images.symbol_grid_refinement import (
 from game_predictor_worker.images.symbol_lattice_homography import (
     SymbolLatticeHomography,
 )
+from local_corpus import require_local_corpus
 
 
 def test_sequence_29_fixed_padding_uses_only_source_supported_pixels() -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(root / "examples/imgs/5983122166590934320.jpg")
     source_bgr = cv2.imread(
         str(root / "examples/imgs/5983122166590934320.jpg"),
         cv2.IMREAD_COLOR,

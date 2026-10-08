@@ -229,6 +229,10 @@ class BoardSearchShareQueryRepository(Protocol):
 # A link's searches are grouped in memory; one recipient's log stays far
 # below this bound, and older searches beyond it are simply not grouped in.
 _GROUPED_SEARCH_SCAN_MAX = 10_000
+# The service below defines a `list` method, which shadows the builtin inside
+# the class body; its annotations use these module-level aliases instead.
+_EventGroup = list[BoardSearchShareQueryEvent]
+_EventGroups = list[_EventGroup]
 
 
 def _pattern_key(event: BoardSearchShareQueryEvent) -> str:
@@ -303,7 +307,7 @@ class BoardSearchShareQueryLogService:
             else encode_query_log_cursor(last.occurred_at, last.id),
         )
 
-    def _pattern_groups(self, session_id: UUID) -> list[list[BoardSearchShareQueryEvent]]:
+    def _pattern_groups(self, session_id: UUID) -> _EventGroups:
         """The link's searches by pattern; groups and members newest first."""
 
         groups: dict[str, list[BoardSearchShareQueryEvent]] = {}
@@ -316,7 +320,7 @@ class BoardSearchShareQueryLogService:
             groups.setdefault(_pattern_key(event), []).append(event)
         return list(groups.values())
 
-    def _group_entry(self, group: list[BoardSearchShareQueryEvent]) -> BoardSearchShareQueryEvent:
+    def _group_entry(self, group: _EventGroup) -> BoardSearchShareQueryEvent:
         # The chart is the range of the newest search of this pattern that
         # was followed by one.
         follow_up = next(

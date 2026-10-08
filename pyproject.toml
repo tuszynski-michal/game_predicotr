@@ -38,13 +38,30 @@ where = ["services/api/src", "services/worker/src"]
 
 [tool.pytest.ini_options]
 addopts = "-ra -p no:cacheprovider"
-pythonpath = ["services/api/src", "services/worker/src"]
+pythonpath = ["services/api/src", "services/worker/src", "services/test_support"]
 testpaths = ["services/api/tests", "services/worker/tests"]
 
 [tool.mypy]
 strict = true
 python_version = "3.12"
-mypy_path = ["services/api/src", "services/worker/src"]
+mypy_path = ["services/api/src", "services/worker/src", "."]
+# Map files to modules from explicit bases so scripts/*.py are checked once, as
+# "scripts.<name>" (the name their sibling scripts import), not also as "<name>".
+namespace_packages = true
+explicit_package_bases = true
+
+# Scripts run as `python scripts/<name>.py`, so sys.path[0] is scripts/ and they
+# import their siblings by bare name. mypy maps every file under scripts/ to
+# `scripts.<name>` (see explicit_package_bases), so those bare names cannot
+# resolve; the siblings are still type-checked as their own scripts.
+[[tool.mypy.overrides]]
+module = [
+  "remote_manual_selection_rollout_stage_two",
+  "run_middle_row_range_ocr_v4_acceptance",
+  "run_v20_layout_import",
+  "vision_lab_export",
+]
+ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
 module = [

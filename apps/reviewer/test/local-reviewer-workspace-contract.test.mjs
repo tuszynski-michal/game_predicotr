@@ -60,9 +60,11 @@ test('the grid-audit list is a loopback-only local mode without a proxy route (T
     /gridAuditMode = loopbackLocal && value\(params\.queue\) === 'grid-audit'/,
   );
   assert.match(page, /gridAuditScope=\{gridAuditMode \? \{ gameId \} : null\}/);
+  // TASK-0805 added the loopback-only grid shadow mode to the same API base
+  // URL choice, so the local branch now lists all three local modes.
   assert.match(
     page,
-    /localMode \|\| gridAuditMode\s*\?\s*resolveLocalAdminApiBaseUrl/,
+    /localMode \|\| gridAuditMode \|\| gridShadowMode\s*\?\s*resolveLocalAdminApiBaseUrl/,
   );
   assert.match(
     gate,

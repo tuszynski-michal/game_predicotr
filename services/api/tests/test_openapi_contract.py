@@ -159,7 +159,9 @@ def test_grid_review_openapi_is_topology_aware_and_checksum_bound() -> None:
     cells = schema["components"]["schemas"]["ImageGridReviewGeometryRevisionResponse"][
         "properties"
     ]["cells"]
-    assert cells["minItems"] == 1
+    # v0.10.224 (partial-board revisions) dropped the one-cell minimum: a partial
+    # revision may carry no rendered cell, so the schema has no lower bound.
+    assert "minItems" not in cells
     assert "maxItems" not in cells
 
 

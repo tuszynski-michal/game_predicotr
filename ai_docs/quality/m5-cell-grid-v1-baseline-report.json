@@ -5,7 +5,7 @@
   "cropperVersion": "board-cell-crops-v1",
   "geometryVersion": "source-quad-perspective-grid-v1",
   "goldenAcceptedEntryCount": 27,
-  "goldenSha256": "a25b1753f8d3c74e13827c6803b82921e36e68f9c3eb3d1bccae88ce6d96c533",
+  "goldenSha256": "6bbfba58046009f512a7ce2ff0b10bc160f94c358754b96e55ce620ae6c298fd",
   "goldenVersion": "cell-grid-golden-v1",
   "historicalGrid": {
     "horizontalLines": [

@@ -105,7 +105,13 @@ def test_http_returns_only_new_predictions_and_restart_recovers_artifact(
         suggestions = response.json()["symbolSuggestions"]
         assert suggestions["algorithmVersion"] == algorithm
         assert suggestions["tentativeCellIndices"] == []
-        assert suggestions["previewCommand"] == document["previewCommand"]
+        # TASK-0882 added two optional preview-command fields (lattice nodes and
+        # the expected proposal checksum); the stored command has neither.
+        assert suggestions["previewCommand"] == {
+            **document["previewCommand"],
+            "latticeNodes": None,
+            "expectedProposalChecksumSha256": None,
+        }
         assert len(suggestions["cells"]) == 15
         assert suggestions["cells"][0] == {
             "cellIndex": 0,

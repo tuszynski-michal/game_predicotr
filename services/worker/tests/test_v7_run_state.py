@@ -1,31 +1,16 @@
 from __future__ import annotations
 
-import hashlib
 import json
 from copy import deepcopy
-from pathlib import Path
-from uuid import UUID
 
 import pytest
 from game_predictor_worker.semi_automatic_selection.contracts import (
     SemiAutomaticSelectionRange,
-    SemiAutomaticSelectionSource,
-    fingerprint_sources,
 )
 from game_predictor_worker.semi_automatic_selection.local_source_manifest import (
     LocalSourceManifest,
 )
 from game_predictor_worker.semi_automatic_selection.v7_configuration import V7BorderStyle
-from game_predictor_worker.semi_automatic_selection.v7_quality import (
-    V7BlurSeverity,
-    V7BoardQuality,
-    V7BoardReadability,
-    V7BoardVisibility,
-    V7DecorationVisibility,
-    V7FrameQuality,
-    V7OcclusionSeverity,
-    V7SymbolContentLoss,
-)
 from game_predictor_worker.semi_automatic_selection.v7_range_proof import (
     V7LabelEvidence,
     V7RangeProofKind,
@@ -38,41 +23,11 @@ from game_predictor_worker.semi_automatic_selection.v7_run_state import (
     V7ScanObservation,
     V7ScanRunState,
 )
+from v7_run_state_support import manifest as _manifest
+from v7_run_state_support import manifest_with_paths as _manifest_with_paths
+from v7_run_state_support import quality as _quality
 
 RANGES = (SemiAutomaticSelectionRange(1, 9), SemiAutomaticSelectionRange(10, 18))
-SELECTION_ID = UUID("00000000-0000-0000-0000-000000000701")
-
-
-def _manifest(*contents: bytes) -> LocalSourceManifest:
-    return _manifest_with_paths(
-        tuple((f"frame-{index}.jpg", content) for index, content in enumerate(contents))
-    )
-
-
-def _manifest_with_paths(entries: tuple[tuple[str, bytes], ...]) -> LocalSourceManifest:
-    sources = tuple(
-        SemiAutomaticSelectionSource(
-            source_index=index,
-            relative_path=relative_path,
-            size_bytes=len(content),
-            checksum_sha256=hashlib.sha256(content).hexdigest(),
-        )
-        for index, (relative_path, content) in enumerate(entries)
-    )
-    fingerprint = fingerprint_sources(sources)
-    payload = json.dumps(
-        {"sources": [item.as_dict() for item in sources]}, sort_keys=True, separators=(",", ":")
-    ).encode()
-    return LocalSourceManifest(
-        selection_id=SELECTION_ID,
-        display_name="v7 fixture",
-        source_root=Path("C:/v7-fixture"),
-        sources=sources,
-        source_fingerprint=fingerprint,
-        total_bytes=sum(item.size_bytes for item in sources),
-        content=payload,
-        checksum_sha256=hashlib.sha256(payload).hexdigest(),
-    )
 
 
 def _state(
@@ -84,29 +39,6 @@ def _state(
         border_style=V7BorderStyle.TOP_AND_SIDES,
         checkpoint=checkpoint,
     )
-
-
-def _quality(
-    state: V7ScanRunState, source_index: int, *, major_loss: bool = False
-) -> V7FrameQuality:
-    boards = tuple(
-        V7BoardQuality(
-            position_index=position,
-            symbol_content_loss=(
-                V7SymbolContentLoss.MAJOR
-                if major_loss and position == 4
-                else V7SymbolContentLoss.NONE
-            ),
-            readability=V7BoardReadability.CLEAR,
-            visibility=V7BoardVisibility.FULL,
-            blur=V7BlurSeverity.NONE,
-            occlusion=V7OcclusionSeverity.NONE,
-            decoration=V7DecorationVisibility.COMPLETE,
-        )
-        for position in range(9)
-    )
-    source = state.source_manifest.sources[source_index]
-    return V7FrameQuality(source.source_id, source_index, boards)
 
 
 def _proof(

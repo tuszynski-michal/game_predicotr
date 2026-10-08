@@ -100,9 +100,11 @@ def _reference_quads(raw: Sequence[Sequence[Mapping[str, object]]]) -> tuple[Qua
         cast(
             Quad,
             tuple(
+                # Point is annotated int, but the reference geometry keeps sub-pixel
+                # coordinates for the error measurement, so the floats are passed through.
                 Point(
-                    float(cast(int | float, point["x"])),
-                    float(cast(int | float, point["y"])),
+                    cast(int, float(cast(int | float, point["x"]))),
+                    cast(int, float(cast(int | float, point["y"]))),
                 )
                 for point in raw_quad
             ),

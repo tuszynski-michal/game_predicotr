@@ -16,44 +16,44 @@ import sys
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import cast
 from uuid import NAMESPACE_URL, uuid5
 
-from PIL import Image
+import numpy as np
+from numpy.typing import NDArray
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPOSITORY_ROOT / "services" / "worker" / "src"))
 
-from game_predictor_worker.semi_automatic_selection.contracts import (  # type: ignore[import-untyped]  # noqa: E402
+from game_predictor_worker.semi_automatic_selection.contracts import (  # noqa: E402
     RangeEvidenceResult,
     SemiAutomaticSelectionSource,
     SemiAutomaticSequenceBounds,
 )
-from game_predictor_worker.semi_automatic_selection.middle_row_locator import (  # type: ignore[import-untyped]  # noqa: E402
+from game_predictor_worker.semi_automatic_selection.middle_row_locator import (  # noqa: E402
     MiddleRowTripleLocator,
 )
-from game_predictor_worker.semi_automatic_selection.middle_row_range import (  # type: ignore[import-untyped]  # noqa: E402
+from game_predictor_worker.semi_automatic_selection.middle_row_range import (  # noqa: E402
     ExpectedRangeTable,
 )
-from game_predictor_worker.semi_automatic_selection.middle_row_runtime import (  # type: ignore[import-untyped]  # noqa: E402
+from game_predictor_worker.semi_automatic_selection.middle_row_runtime import (  # noqa: E402
     MiddleRowBatchRuntime,
     MiddleRowRunOrientation,
     MiddleRowSourcePayload,
     build_middle_row_paddle_adapter,
 )
-from game_predictor_worker.semi_automatic_selection.range_only_ocr import (  # type: ignore[import-untyped]  # noqa: E402
+from game_predictor_worker.semi_automatic_selection.range_only_ocr import (  # noqa: E402
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V2,
     RANGE_ONLY_RECOGNIZER_CONTRACT_FINGERPRINT_V3,
     RangeOnlyOcrAdapter,
     build_paddle_range_only_recognizer_for_contract,
 )
-from game_predictor_worker.semi_automatic_selection.range_proof_v5 import (  # type: ignore[import-untyped]  # noqa: E402
+from game_predictor_worker.semi_automatic_selection.range_proof_v5 import (  # noqa: E402
     RowExpectedRangeTable,
 )
-from game_predictor_worker.semi_automatic_selection.row_first_locator_v5 import (  # type: ignore[import-untyped]  # noqa: E402
+from game_predictor_worker.semi_automatic_selection.row_first_locator_v5 import (  # noqa: E402
     RowFirstTripleLocator,
 )
-from game_predictor_worker.semi_automatic_selection.row_first_runtime_v5 import (  # type: ignore[import-untyped]  # noqa: E402
+from game_predictor_worker.semi_automatic_selection.row_first_runtime_v5 import (  # noqa: E402
     RowFirstBatchRuntime,
     RowFirstSourcePayload,
 )
@@ -152,12 +152,12 @@ def _legacy_result(
     )
 
 
-def _canonical_rgb(content: bytes) -> Image.Image:
+def _canonical_rgb(content: bytes) -> NDArray[np.uint8]:
     from game_predictor_worker.semi_automatic_selection.middle_row_locator import (
         canonicalize_source_image,
     )
 
-    return cast(Image.Image, canonicalize_source_image(content).rgb)
+    return canonicalize_source_image(content).rgb
 
 
 def _middle_row_result(

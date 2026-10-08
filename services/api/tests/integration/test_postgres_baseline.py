@@ -33,6 +33,7 @@ from game_predictor_api.domain.reviewer_work_assignments import (
     close_reviewer_work_assignment,
     create_reviewer_work_assignment,
 )
+from game_predictor_api.storage import management_session_models  # noqa: F401  (registers 0150)
 from game_predictor_api.storage.database import create_session_factory
 from game_predictor_api.storage.game_data_v2_manifest_v5 import CREATE_TABLES, GAME_TABLES
 from game_predictor_api.storage.game_entity_locator import GameEntityLocator
@@ -69,6 +70,12 @@ LAST_REVISION_REVERSIBLE_TO_BASE = "0122_board_import_coverage_indexes"
 # 0136 (D-467, TASK-0793) refuses its downgrade (CELL_RENDER_SPEC_DROP_IRREVERSIBLE);
 # the migrations after it must downgrade to it and upgrade again.
 LAST_IRREVERSIBLE_REVISION = "0136_drop_cell_render_spec"
+# TASK-0921, TASK-0922 and TASK-0925 (migrations 0148-0150) retain management
+# history and security audit, so their downgrades always refuse. The last
+# revision before them is where the 0136 downgrade check can still start; the
+# last revision that can be left downward from head is 0150 itself.
+LAST_REVISION_BEFORE_MANAGEMENT = "0147_merge_v7_main"
+LAST_MANAGEMENT_RETENTION_REVISION = "0150_management_sessions"
 # Storage control-plane tables written with raw SQL only (no ORM model).
 STORAGE_CONTROL_TABLES = {
     "alembic_version",
@@ -82,7 +89,12 @@ STORAGE_CONTROL_TABLES = {
 }
 # D-448: public keeps catalog/control/shared tables, game_data_v2 holds exactly
 # the manifest's game tables.
-EXPECTED_PUBLIC_TABLES = (set(Base.metadata.tables) - set(GAME_TABLES)) | STORAGE_CONTROL_TABLES
+# TASK-0940: the management control-plane mappings carry an explicit "public"
+# schema, so their metadata keys are "public.<table>" while the inspector lists
+# plain table names; strip the prefix before comparing.
+EXPECTED_PUBLIC_TABLES = {
+    name.removeprefix("public.") for name in Base.metadata.tables if name not in GAME_TABLES
+} | STORAGE_CONTROL_TABLES
 EXPECTED_GAME_DATA_V2_TABLES = set(GAME_TABLES)
 
 pytestmark = pytest.mark.skipif(
@@ -155,9 +167,11 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
         assert set(inspect(engine).get_table_names()) <= {"alembic_version"}
         assert inspect(engine).get_table_names(schema="game_data_v2") == []
 
+        # The 0136 refusal is checked below the management migrations, which
+        # no longer allow a downgrade through them.
         engine.dispose()
-        command.upgrade(config, "head")
-        _assert_head_schema(engine)
+        command.upgrade(config, LAST_REVISION_BEFORE_MANAGEMENT)
+        assert _current_revision(engine) == LAST_REVISION_BEFORE_MANAGEMENT
 
         engine.dispose()
         command.downgrade(config, LAST_IRREVERSIBLE_REVISION)
@@ -166,6 +180,18 @@ def test_upgrade_downgrade_upgrade_cycle_on_postgres(isolated_database: URL) -> 
             command.downgrade(config, "-1")
         engine.dispose()
         assert _current_revision(engine) == LAST_IRREVERSIBLE_REVISION
+
+        command.upgrade(config, "head")
+        _assert_head_schema(engine)
+
+        # Everything above 0150 is reversible; 0150 and below retain management data.
+        engine.dispose()
+        command.downgrade(config, LAST_MANAGEMENT_RETENTION_REVISION)
+        assert _current_revision(engine) == LAST_MANAGEMENT_RETENTION_REVISION
+        with pytest.raises(Exception, match="Management links and their audit must be retained"):
+            command.downgrade(config, "-1")
+        engine.dispose()
+        assert _current_revision(engine) == LAST_MANAGEMENT_RETENTION_REVISION
 
         command.upgrade(config, "head")
         _assert_head_schema(engine)

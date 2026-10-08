@@ -39,7 +39,7 @@
       "symbolCode": "watermelon"
     }
   ],
-  "datasetSha256": "ed1f9e327fd808da592eafd8be3fcbf88add59d2cfd576fb06cabfb71ad2201a",
+  "datasetSha256": "f3464833a675a34fc9e2df85b70dcee9bda03091908f4ad7b7e66d2e952a25d0",
   "graph": {
     "input": {
       "dataType": "float32",
@@ -116,6 +116,6 @@
     "totalInferenceMs": 136.1199
   },
   "schemaVersion": 1,
-  "splitSha256": "214bb9eeddfc996e47a9582c0e582a098b865aff430d14102e28e0c4e5ab2ec0",
+  "splitSha256": "5f616526bf06f26d15b37019af94fa5f398fdfe02189a7f4edb959f3d20b57e3",
   "status": "bootstrap"
 }

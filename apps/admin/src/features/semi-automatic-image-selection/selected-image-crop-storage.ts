@@ -1400,28 +1400,30 @@ async function openSelectedImageCropSnapshot(
           )
             ? CROP_V13_POLICY
             : legacyManifest.entries.some(
-            (entry) =>
-              entry.result?.autoCropProposal?.policyVersion === CROP_V12_POLICY,
-          ) &&
-          legacyManifest.entries.every(
-            (entry) =>
-              entry.result === null ||
-              entry.result.autoCropProposal?.policyVersion === CROP_V12_POLICY,
-          )
-            ? CROP_V12_POLICY
-            : legacyManifest.entries.some(
-                  (e) =>
-                    e.result?.autoCropProposal?.policyVersion ===
-                    CROP_V11_POLICY,
+                  (entry) =>
+                    entry.result?.autoCropProposal?.policyVersion ===
+                    CROP_V12_POLICY,
                 ) &&
                 legacyManifest.entries.every(
-                  (e) =>
-                    e.result === null ||
-                    e.result.autoCropProposal?.policyVersion ===
-                      CROP_V11_POLICY,
+                  (entry) =>
+                    entry.result === null ||
+                    entry.result.autoCropProposal?.policyVersion ===
+                      CROP_V12_POLICY,
                 )
-              ? CROP_V11_POLICY
-              : null,
+              ? CROP_V12_POLICY
+              : legacyManifest.entries.some(
+                    (e) =>
+                      e.result?.autoCropProposal?.policyVersion ===
+                      CROP_V11_POLICY,
+                  ) &&
+                  legacyManifest.entries.every(
+                    (e) =>
+                      e.result === null ||
+                      e.result.autoCropProposal?.policyVersion ===
+                        CROP_V11_POLICY,
+                  )
+                ? CROP_V11_POLICY
+                : null,
       },
     };
     const migrated: SelectedImageCropSessionSnapshotV2 = {

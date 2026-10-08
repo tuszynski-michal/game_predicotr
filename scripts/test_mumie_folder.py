@@ -337,7 +337,7 @@ def run(args: argparse.Namespace) -> None:
                 "operator_approved",
                 [np.asarray(label["nodes"], dtype=np.float32) for label in labels],
                 [
-                    (np.asarray(b["nodes"], dtype=np.float32), b["valid"])
+                    (np.asarray(b["nodes"], dtype=np.float32), bool(b["valid"]))
                     for b in boards
                     if b["nodes"] is not None
                 ],

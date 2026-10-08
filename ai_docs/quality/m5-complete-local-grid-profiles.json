@@ -1,11 +1,11 @@
 {
   "basisVersion": "detector-bounding-box-v1",
   "corpusId": "m5-representative-corpus-v2",
-  "corpusManifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+  "corpusManifestSha256": "3c364188d2900a899bb1b72f7ef1417a2fbba5d4bf344dbe0915f43fa7f078f7",
   "correctiveReviewSha256": "d44054c51eaea7ba4bdf1de837533fe449d92f1207daa7419bf8dbc95666b581",
   "coveredSourceImageCount": 43,
   "detectorReportSha256": "65094c299fe21eb1bf2cb5cb58679e90c4d01499e92a1c1f148fa2e2a1c221d7",
-  "goldenSha256": "a25b1753f8d3c74e13827c6803b82921e36e68f9c3eb3d1bccae88ce6d96c533",
+  "goldenSha256": "6bbfba58046009f512a7ce2ff0b10bc160f94c358754b96e55ce620ae6c298fd",
   "goldenVersion": "cell-grid-golden-v1",
   "heldoutAnchorCount": 0,
   "missingSourceImageChecksums": [],

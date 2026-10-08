@@ -74,10 +74,7 @@ export function ImportGeometryReviewSummary({
         setError(result.error);
         return;
       }
-      if (
-        !popup ||
-        !navigatePreparedLocalReviewerWindow(popup, base)
-      ) {
+      if (!popup || !navigatePreparedLocalReviewerWindow(popup, base)) {
         setError(
           'Przeglądarka zablokowała otwarcie Reviewera. Zezwól na nowe okno i spróbuj ponownie.',
         );

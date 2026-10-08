@@ -91,8 +91,16 @@ def provision_game(engine: Engine, code: str) -> UUID:
 
 @contextmanager
 def application_role_database(
-    prefix: str, game_codes: tuple[str, ...]
+    prefix: str, game_codes: tuple[str, ...], *, revision: str = "head"
 ) -> Iterator[ApplicationRoleDatabase]:
+    """Create the disposable database migrated to ``revision`` (default: head).
+
+    TASK-0940: migrations 0148-0150 refuse a downgrade, so a test that needs the
+    schema below the head builds it at that revision here instead of
+    downgrading from head. Games are provisioned with the current manifest, so
+    ``revision`` must be 0142 or later.
+    """
+
     suffix = uuid4().hex[:12]
     name = f"game_predictor_{prefix}_{suffix}_test"
     role = f"game_predictor_app_test_{suffix}"
@@ -118,7 +126,7 @@ def application_role_database(
         config.set_main_option(
             "sqlalchemy.url", owner_url.render_as_string(hide_password=False).replace("%", "%%")
         )
-        command.upgrade(config, "head")
+        command.upgrade(config, revision)
         games = {code: provision_game(owner_engine, code) for code in game_codes}
         with owner_engine.begin() as connection:
             owner_role = str(connection.execute(text("SELECT current_user")).scalar_one())

@@ -1992,7 +1992,10 @@ def create_app(
         ):
             raise invalid_access()
         # Plain metadata sessions never implicitly bind all assigned games.
-        factory = (
+        def plain_session() -> Session:
+            return Session(database_engine)
+
+        factory: Callable[[], Session] = (
             session_factory
             if "/game/" in request.url.path
             and not (
@@ -2000,7 +2003,7 @@ def create_app(
                 or "/stakes" in request.url.path
                 and request.method == "GET"
             )
-            else lambda: Session(database_engine)
+            else plain_session
         )
         with factory() as session:
             try:

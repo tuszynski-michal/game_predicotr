@@ -80,7 +80,8 @@ export function FamilyEditor({
                   )
                 }
               />
-              {gameDisplayName(source.game_id, source.game_name)}: {source.filename}
+              {gameDisplayName(source.game_id, source.game_name)}:{' '}
+              {source.filename}
             </label>
           ))}
         </div>

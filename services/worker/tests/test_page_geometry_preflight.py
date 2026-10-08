@@ -342,7 +342,9 @@ def test_preflight_falls_back_to_standalone_frame_lines(
         return result
 
     from game_predictor_worker.images import page_geometry_preflight
-    monkeypatch.setattr(page_geometry_preflight, "_standalone_frame_line_candidate", patched_standalone)
+    monkeypatch.setattr(
+        page_geometry_preflight, "_standalone_frame_line_candidate", patched_standalone
+    )
 
     context = _Context()
 

@@ -16,6 +16,7 @@ from game_predictor_worker.images.symbol_lattice_homography import (
     fit_symbol_lattice_homography,
     ideal_lattice_points,
 )
+from local_corpus import require_local_corpus
 
 
 def _synthetic_centers(
@@ -122,6 +123,7 @@ def test_fit_fails_closed_when_virtual_grid_leaves_expanded_frame() -> None:
 
 def test_sequence_29_derives_virtual_corners_from_complete_symbol_lattice() -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(root / "examples/imgs/5983122166590934320.jpg")
     source_bgr = cv2.imread(
         str(root / "examples/imgs/5983122166590934320.jpg"),
         cv2.IMREAD_COLOR,

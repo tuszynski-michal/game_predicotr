@@ -23,6 +23,7 @@ from game_predictor_worker.images.local_grid_calibration import (
 )
 from game_predictor_worker.images.local_grid_review import LocalGridCalibrationReview
 from game_predictor_worker.images.rectification import BoardGeometry, PageGeometry
+from local_corpus import require_local_corpus
 
 
 def _sha(value: str) -> str:
@@ -263,6 +264,7 @@ def test_real_corrective_review_has_missing_anchors_and_disjoint_heldout(
     tmp_path: Path,
 ) -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(root / "artifacts/m5-board-crops")
     output = tmp_path / "local-review.json"
     arguments = {
         "repository_root": root,

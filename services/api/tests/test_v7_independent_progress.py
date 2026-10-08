@@ -54,8 +54,9 @@ from game_predictor_worker.semi_automatic_selection.v7_worker_runtime import (
 )
 from sqlalchemy import create_engine, event, text
 from sqlalchemy.orm import Session
-from test_v7_run_state import _manifest, _quality
 from test_v7_selection_delivery_api import delivery_fixture
+from v7_run_state_support import manifest as _manifest
+from v7_run_state_support import quality as _quality
 
 
 @pytest.fixture
@@ -396,7 +397,7 @@ def test_recovery_from_a_new_python_process_uses_only_persisted_base_and_sql(ind
                     str(Path(__file__).resolve().parents[3] / "services" / "api" / "src"),
                     str(Path(__file__).resolve().parents[3] / "services" / "worker" / "src"),
                     str(Path(__file__).resolve().parent),
-                    str(Path(__file__).resolve().parents[3] / "services" / "worker" / "tests"),
+                    str(Path(__file__).resolve().parents[3] / "services" / "test_support"),
                 )
             ),
         },

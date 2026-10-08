@@ -138,7 +138,10 @@ def _save(session, proposal, binding, expected):
 
 
 def test_0145_preserves_old_partitions_validates_binding_and_recovers_in_new_process():
-    with application_role_database("t0882", ("mumie-pilot", "legacy777")) as database:
+    # The database starts at 0144 (not downgraded from head, which 0148-0150 forbid).
+    with application_role_database(
+        "t0882", ("mumie-pilot", "legacy777"), revision="0144_lab_symbol_candidate_registry"
+    ) as database:
         assert database.owner_url.database.endswith("_test")
         assert database.owner_url.database != "game_predictor"
         game_id, legacy_id = database.games["mumie-pilot"], database.games["legacy777"]
@@ -147,7 +150,6 @@ def test_0145_preserves_old_partitions_validates_binding_and_recovers_in_new_pro
             "sqlalchemy.url",
             database.owner_url.render_as_string(hide_password=False).replace("%", "%%"),
         )
-        command.downgrade(config, "0144_lab_symbol_candidate_registry")
         legacy_geometry = _geometry(database.owner_engine, legacy_id, "legacy")
         mumie_geometry = _geometry(database.owner_engine, game_id, "mumie")
         old_id = uuid4()

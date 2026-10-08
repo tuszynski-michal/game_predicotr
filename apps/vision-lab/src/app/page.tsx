@@ -225,7 +225,9 @@ export default function Page() {
       <header>
         <p className="eyebrow">WIZJA / ANOTACJE</p>
         <h1>Laboratorium geometrii</h1>
-        {!protection.pending && !busy && <Link href="/symbols">Etykiety symboli</Link>}
+        {!protection.pending && !busy && (
+          <Link href="/symbols">Etykiety symboli</Link>
+        )}
         <button
           disabled={!state || loading || busy || protection.pending}
           onClick={() => {
@@ -369,7 +371,9 @@ export default function Page() {
                     });
                   }}
                 />
-                <strong>{gameDisplayName(source.game_id, source.game_name)}</strong>
+                <strong>
+                  {gameDisplayName(source.game_id, source.game_name)}
+                </strong>
                 <small>{source.filename}</small>
                 {state ? (
                   <small className="annotation-badge">
@@ -424,7 +428,9 @@ export default function Page() {
       />
       {selected && (
         <section id="inspector" className="inspector">
-          <h2>{gameDisplayName(selected.game_id, selected.game_name)} — podgląd</h2>
+          <h2>
+            {gameDisplayName(selected.game_id, selected.game_name)} — podgląd
+          </h2>
           <p>{selected.filename}</p>
           <GeometryEditor
             key={selected.id}

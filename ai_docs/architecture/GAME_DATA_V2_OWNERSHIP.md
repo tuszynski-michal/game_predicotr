@@ -22,6 +22,21 @@ są biblioteką control plane. Nie mają `game_id`, nie mogą wejść do partycj
 gry ani uruchomić `GameStorageRouter`; `source_game_ref` jest wyłącznie
 opisową proweniencją. Nie przechowują danych obrazu ani semantyki gry.
 
+Tabele historii półautomatycznej selekcji V7 (`semi_automatic_selection_v7_output_operations`,
+`semi_automatic_selection_v7_pilot_acceptances`, `semi_automatic_selection_v7_source_observations`;
+TASK-0940) są `shared`: nie mają `game_id`, wskazują wyłącznie wspólne tabele
+`semi_automatic_image_selection_runs`/`_ranges` albo są potwierdzeniem (receipt) singletonowej bramki
+aktywacji V7 (`semi_automatic_selection_v7_activation_gate`, także `shared`).
+Trzy nowe tabele V7 są w osobnym zbiorze `POST_V5_SHARED` manifestu v5, a
+`ownership()` je rozpoznaje. Nie wolno dopisywać ich do `SHARED` (ani do
+zamrożonego `game_data_v2_manifest_v2.SHARED`): migracje 0131, 0134 i 0142
+wstawiają do `game_storage_table_manifest` wiersze z
+`sorted(CATALOG | SHARED | GAME_TABLES | CONTROL_TABLES)`, więc te zbiory muszą
+zawierać tylko tabele istniejące w chwili tych migracji.
+Tabele `management_*` należą do niezależnej kontroli zarządzania
+(`management_manifest.py`, wersja `management-control-plane-v2`), wszystkie `shared`
+w schemacie `public`; w metadanych ORM mają klucze `public.<tabela>`.
+
 ## Reguły i granice
 
 - `catalog`: pojedynczy wspólny katalog/koordynator w `public`. `jobs` pozostaje

@@ -124,6 +124,8 @@ def test_0140_accepts_profiles_keeps_old_values_and_guards_the_downgrade(
         _insert_game(engine, "after-downgrade", "grid_profile_777_v2")
     assert _configurations(engine)["legacy"] is None
 
-    command.upgrade(config, "head")
+    # TASK-0830 owns 0140. The head moved on after it (and 0148-0150 refuse a
+    # downgrade), so the round trip upgrades to the revision under test, not to "head".
+    command.upgrade(config, REVISION)
     assert _revision(engine) == REVISION
     _insert_game(engine, "again", "grid_profile_777_v2")

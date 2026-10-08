@@ -84,6 +84,13 @@ def _replace_dependencies(
             remote_selection_recovery_enabled=True,
             remote_selection_upload_timeout_seconds=120,
             remote_selection_recovery_limit=100,
+            # Read when the handlers are built: the three v7_* settings by the V7 pilot
+            # artifacts (added with the V7 integration, TASK-0920, v1.7.250) and
+            # grid_shadow_enabled by the grid shadow handler (TASK-0805, v1.7.191).
+            v7_label_geometry_runtime_root=Path(".runtime").resolve(),
+            v7_selection_ocr_model_root=Path(".runtime/ocr").resolve(),
+            v7_pilot_acceptance_scope=None,
+            grid_shadow_enabled=False,
         ),
     )
     monkeypatch.setattr(cli, "create_database_engine", lambda _settings: engine)

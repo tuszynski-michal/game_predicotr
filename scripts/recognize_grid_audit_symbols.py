@@ -37,6 +37,7 @@ from game_predictor_worker.symbols.audit_rgb_classifier import (
 )
 from game_predictor_worker.symbols.reference_library import (
     CROP_SIZE,
+    FloatArray,
     combined_descriptor,
     decide,
     descriptor_matrix,
@@ -114,11 +115,8 @@ def preview_command(view: Mapping[str, Any]) -> Json:
             )
         },
     }
-    return cast(
-        Json,
-        ImageGridReviewGeometryPreviewCommand.model_validate(raw).model_dump(
-            by_alias=True, mode="json"
-        ),
+    return ImageGridReviewGeometryPreviewCommand.model_validate(raw).model_dump(
+        by_alias=True, mode="json"
     )
 
 
@@ -176,7 +174,7 @@ def frozen_library(
     arguments: argparse.Namespace,
     audit: Json,
     deadline: float,
-) -> tuple[reference.ActiveModel, NDArray[np.int64], reference.FloatArray, reference.FloatArray]:
+) -> tuple[reference.ActiveModel, NDArray[np.int64], FloatArray, FloatArray]:
     output = cast(Path, arguments.output_dir)
     metadata_path = output / "library.json"
     arrays_path = output / "library.npz"

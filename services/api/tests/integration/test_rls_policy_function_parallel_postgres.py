@@ -126,6 +126,11 @@ def test_downgrade_restores_the_previous_function_and_upgrade_returns(
     database: ApplicationRoleDatabase,
 ) -> None:
     game_a = database.games["t0797-rls-a"]
+    # Migrations 0148-0150 refuse a downgrade, so a real downgrade from head cannot
+    # reach 0138. 0138 is the only revision undone here and nothing later touches
+    # the objects it changes, so the version row is stamped to 0138 first and back
+    # to head afterwards.
+    command.stamp(_config(database), _HEAD)
     command.downgrade(_config(database), _PREVIOUS)
     try:
         assert _function_attributes(database) == ("u", "s")
@@ -143,6 +148,7 @@ def test_downgrade_restores_the_previous_function_and_upgrade_returns(
         assert "legacy_file" in old_check
     finally:
         command.upgrade(_config(database), _HEAD)
+        command.stamp(_config(database), "head")
     assert _function_attributes(database) == ("s", "s")
 
 

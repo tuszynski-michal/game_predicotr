@@ -20,6 +20,7 @@ from game_predictor_worker.images.symbol_review import (
     SymbolReviewError,
 )
 from game_predictor_worker.images.symbol_review_http import create_review_server
+from local_corpus import require_local_corpus
 
 ROOT = Path(__file__).resolve().parents[3]
 QUALITY = ROOT / "ai_docs" / "quality"
@@ -55,6 +56,7 @@ def _review(tmp_path: Path) -> BootstrapSymbolReview:
 
 
 def test_real_calibrated_inventory_is_deterministic_and_complete() -> None:
+    require_local_corpus(CROP_ROOT)
     content, loaded = load_symbol_crop_inventory(INVENTORY)
     rebuilt = _build()
 
@@ -66,6 +68,7 @@ def test_real_calibrated_inventory_is_deterministic_and_complete() -> None:
 
 
 def test_inventory_rejects_quality_gate_drift(tmp_path: Path) -> None:
+    # No local corpus needed: the quality gate is rejected before the crop root is read.
     quality = json.loads(
         (QUALITY / "m5-board-cell-crops-v2-calibrated-quality-report.json").read_text(
             encoding="utf-8"
@@ -82,6 +85,7 @@ def test_inventory_rejects_quality_gate_drift(tmp_path: Path) -> None:
 
 
 def test_board_decisions_are_atomic_idempotent_and_resumable(tmp_path: Path) -> None:
+    require_local_corpus(CROP_ROOT)
     review = _review(tmp_path)
     payload = review.board_state()
     board = payload["board"]
@@ -120,6 +124,7 @@ def test_board_decisions_are_atomic_idempotent_and_resumable(tmp_path: Path) -> 
 def test_active_learning_priority_is_bounded_ordered_and_resumable(
     tmp_path: Path,
 ) -> None:
+    require_local_corpus(CROP_ROOT)
     baseline = _review(tmp_path)
     first = baseline.board_state(status="all", offset=0)["board"]
     second = baseline.board_state(status="all", offset=1)["board"]
@@ -181,6 +186,7 @@ def test_active_learning_priority_is_bounded_ordered_and_resumable(
 def test_active_learning_priority_rejects_duplicate_or_unknown_board(
     tmp_path: Path,
 ) -> None:
+    require_local_corpus(CROP_ROOT)
     baseline = _review(tmp_path)
     board = baseline.board_state(status="all")["board"]
     assert isinstance(board, dict)
@@ -212,6 +218,7 @@ def test_active_learning_priority_rejects_duplicate_or_unknown_board(
 def test_suggestions_are_payload_only_and_never_create_a_decision(
     tmp_path: Path,
 ) -> None:
+    require_local_corpus(CROP_ROOT)
     class Provider:
         def for_sample(self, sample):
             return {
@@ -241,6 +248,7 @@ def test_suggestions_are_payload_only_and_never_create_a_decision(
 
 
 def test_board_update_rejects_foreign_cell_without_partial_write(tmp_path: Path) -> None:
+    require_local_corpus(CROP_ROOT)
     review = _review(tmp_path)
     first = review.board_state(status="all", offset=0)["board"]
     second = review.board_state(status="all", offset=1)["board"]
@@ -268,6 +276,7 @@ def test_board_update_rejects_foreign_cell_without_partial_write(tmp_path: Path)
 
 
 def test_board_image_is_reverified_and_legacy_inventory_is_refused(tmp_path: Path) -> None:
+    require_local_corpus(CROP_ROOT)
     review = _review(tmp_path)
     board = review.board_state()["board"]
     assert isinstance(board, dict)
@@ -288,6 +297,7 @@ def test_board_image_is_reverified_and_legacy_inventory_is_refused(tmp_path: Pat
 
 
 def test_whole_layout_http_serves_board_and_saves_cell(tmp_path: Path) -> None:
+    require_local_corpus(CROP_ROOT)
     review = _review(tmp_path)
     static_root = ROOT / "scripts" / "m6_symbol_review"
     server = create_review_server(review, static_root, host="127.0.0.1", port=0, token="t")

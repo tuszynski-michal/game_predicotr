@@ -11,10 +11,14 @@ from game_predictor_worker.images.v14_projective_overrides import (
     OVERRIDE_SET_VERSION,
     ReviewedV14ProjectiveOverrides,
 )
+from local_corpus import require_local_corpus
 
 
 def test_real_reviewed_v14_overrides_cover_and_crop_all_fourteen_fallbacks() -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(
+        root / "artifacts/m5-v14-projective-fallback-review/reviewed-geometry.json"
+    )
     report_path = root / "ai_docs/quality/m5-global-bbox-fallback-v14-full-preflight-report.json"
     overrides = ReviewedV14ProjectiveOverrides.from_files(
         root / "artifacts/m5-v14-projective-fallback-review/reviewed-geometry.json",

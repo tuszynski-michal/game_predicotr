@@ -1,11 +1,11 @@
 {
   "continuityConflictCount": 208,
-  "corpusManifestSha256": "aeed11c70530bc36280ec7125833edbe5768560e32e9a2a8e0a0252a28a61de6",
+  "corpusManifestSha256": "3c364188d2900a899bb1b72f7ef1417a2fbba5d4bf344dbe0915f43fa7f078f7",
   "decoderPolicy": "ctc-blank-plus-digits-0-9",
   "detectionReportSha256": "65094c299fe21eb1bf2cb5cb58679e90c4d01499e92a1c1f148fa2e2a1c221d7",
   "exactAccuracy": 0.638243,
   "exactCount": 247,
-  "goldenAnnotationsSha256": "92fa6ea06112bb314372153914cf694419e9c5187a7edad33f9ef0502fbe3363",
+  "goldenAnnotationsSha256": "7c1eceb6d3ab980e25082d4dab99d58ad416eec40eee65fbe3bde55fba86b9cb",
   "imageCount": 43,
   "modelFiles": {
     "inference.json": "fd1b6ec722ea841a72d3ba43e527df1d1066d5d7808e0503ee3eec7265188753",

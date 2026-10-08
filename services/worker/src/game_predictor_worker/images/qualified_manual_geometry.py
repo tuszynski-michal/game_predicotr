@@ -105,7 +105,10 @@ def apply_v12_page_geometry(
                     "IMAGE_PAGE_GEOMETRY_INVALID", "A V1.2 symbol grid escapes its board frame."
                 )
     shifted = tuple(
-        cast(Quad, tuple(Point(point.x + width, point.y + height) for point in quad.corners))
+        cast(
+            Quad,
+            tuple(Point(int(point.x + width), int(point.y + height)) for point in quad.corners),
+        )
         for quad in parsed_frames
     )
     if not is_ordered_active_grid(shifted, tuple(range(count)), width * 3 + 1, height * 3 + 1):

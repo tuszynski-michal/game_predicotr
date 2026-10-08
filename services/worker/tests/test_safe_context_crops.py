@@ -14,10 +14,15 @@ from game_predictor_worker.images.safe_context_crops import (
     ProjectiveSafeContextBoardCellCropper,
     SafeContextBoardCellCropper,
 )
+from local_corpus import require_local_corpus
 
 
 def test_safe_context_uses_expanded_frame_and_overlapping_cells() -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(
+        root / "artifacts/m5-normalization/image-normalization-v1/92"
+        / "92cf1df591c082574088fb81ba6150f436f3dd2ebf381c9ad4c1fdeb8e59aec5/normalized.png"
+    )
     calibrator = ExpandedBoundingFrameCalibrator.from_files(
         root / "ai_docs/quality/m5-corpus-manifest.json",
         root / "ai_docs/quality/m5-page-board-detection-report.json",
@@ -74,6 +79,7 @@ def test_safe_context_uses_expanded_frame_and_overlapping_cells() -> None:
 
 def test_sequence_29_projective_expansion_preserves_detector_perspective() -> None:
     root = Path(__file__).resolve().parents[3]
+    require_local_corpus(root / "examples/imgs/5983122166590934320.jpg")
     calibrator = ProjectiveExpandedFrameCalibrator.from_files(
         root / "ai_docs/quality/m5-corpus-manifest.json",
         root / "ai_docs/quality/m5-page-board-detection-report.json",

@@ -13,6 +13,7 @@ from game_predictor_worker.images.structured_geometry.feasibility_spike import (
     load_feasibility_corpus,
     probe_reference_board_signals,
 )
+from local_corpus import require_local_corpus
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[3]
 _INPUT = _REPOSITORY_ROOT / "ai_docs" / "quality" / "structured-geometry-feasibility-input-v1.json"
@@ -59,6 +60,7 @@ def test_pinned_configuration_is_deterministic_and_explicitly_experimental() -> 
 
 
 def test_existing_real_corpus_is_accepted_for_measurement_but_not_representative() -> None:
+    require_local_corpus(_REPOSITORY_ROOT / "examples/imgs/5983122166590934317.jpg")
     corpus = load_feasibility_corpus(_INPUT)
     readiness = assess_corpus_readiness(corpus)
 
@@ -76,6 +78,7 @@ def test_existing_real_corpus_is_accepted_for_measurement_but_not_representative
 
 
 def test_legacy_comparison_is_bound_only_where_reviewed_geometry_exists() -> None:
+    require_local_corpus(_REPOSITORY_ROOT / "examples/imgs/5983122166590934317.jpg")
     corpus = load_feasibility_corpus(_INPUT)
     compared = [
         board

@@ -1064,7 +1064,10 @@ def create_image_imports_router(
                     geometry_engine_variant=effective_variant,
                 ),
             )
-        # Gate before binding staging or selecting/reusing any historical job.
+        # An import that already exists for this selection was returned above
+        # (TASK-0882). From here a new import would be created, so the variant
+        # gate and the lateral source-history checks run before binding staging
+        # or selecting/reusing any historical job.
         try:
             require_geometry_engine_variant_available(effective_variant)
         except LateralPartialContractError as error:

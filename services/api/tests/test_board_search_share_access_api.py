@@ -12,6 +12,7 @@ from game_predictor_api.application.reviewer_ingress import (
 )
 from game_predictor_api.config import ApiSettings
 from game_predictor_api.domain.board_search import BoardSearchError
+from game_predictor_api.domain.board_search_shares import BOARD_SEARCH_SHARE_MAX_LIFETIME_MINUTES
 from game_predictor_api.main import create_app
 from game_predictor_api.storage.board_search_share_repository import (
     InMemoryBoardSearchShareRepository,
@@ -115,8 +116,11 @@ def test_default_lifetime_is_8_hours() -> None:
 
 def test_invalid_lifetime_is_rejected_before_starting_the_ingress() -> None:
     app, repository, ingress = _app(ingress=FakeIngress(online=False))
+    # TASK-0925 raised the link lifetime limit from 24 h to 72 h, so 1441 minutes
+    # is valid now; the first rejected value is one minute above the current limit.
+    too_long = BOARD_SEARCH_SHARE_MAX_LIFETIME_MINUTES + 1
     with TestClient(app, base_url="https://testserver") as client:
-        response = client.post(SESSIONS, json={"gameId": str(GAME_ID), "lifetimeMinutes": 1441})
+        response = client.post(SESSIONS, json={"gameId": str(GAME_ID), "lifetimeMinutes": too_long})
     assert response.status_code == 422
     assert ingress.start_count == 0
     assert repository.records == {}

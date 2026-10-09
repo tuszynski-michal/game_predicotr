@@ -53,6 +53,31 @@ class SqlAlchemyBoardSearchApproximateWinRepository:
         self._session = session
         self._projection = SqlAlchemyBoardSearchProjectionRepository(session)
 
+    def begin_read_snapshot(self) -> None:
+        """Start the request transaction as one REPEATABLE READ snapshot.
+
+        Audit TASK-0936 P0-3: the range calculator and the board detail read
+        the rules, the board documents, the super game markers and the
+        derivation state; one snapshot keeps a correction plus a generation
+        publication committed in between from pairing old boards with a new
+        series generation and ``fresh = true``. It must be the first use of the
+        session (the isolation level is set when the transaction procures its
+        connection); it is not READ ONLY because the game storage router binds
+        unknown statements with write intent. The pool resets the isolation
+        level on release. Applied to every game: for a game without a super
+        game kind it only makes the reads consistent, the numbers are the same.
+        """
+
+        if self._session.get_bind().dialect.name != "postgresql":
+            return
+        if self._session.in_transaction():
+            raise RuntimeError("A board-search read snapshot must be the first use of the session.")
+        connection = self._session.connection(
+            execution_options={"isolation_level": "REPEATABLE READ"}
+        )
+        if connection.get_isolation_level() != "REPEATABLE READ":
+            raise RuntimeError("A board-search read snapshot must be REPEATABLE READ.")
+
     def game_sequence_length(self, game_id: UUID) -> int:
         """The game's current completeness target (`games.expected_layout_count`),
         i.e. the deterministic sequence length `L` used to plan and wrap the

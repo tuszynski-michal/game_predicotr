@@ -1,7 +1,7 @@
 ---
 title: Admin API and mobile data contracts
 status: accepted
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 ---
 
 # Kontrakty API i danych mobilnych
@@ -396,25 +396,62 @@ wrappedAtSequenceEnd    # true, gdy zakres przeszedł przez granicę L → 1
 dataSource              # "operational_review"
 dataFingerprintSha256
 rules: { rulesVersionId, rulesVersion, spinCost, algorithmVersion }
-summary: { recognizedPayoutCredits, spinCostCredits, balanceCredits }
+summary: { recognizedPayoutCredits, spinCostCredits, balanceCredits,
+           provisionalCount, provisionalPayoutCredits,     # TASK-0936, domyślnie 0
+           superSpinRanges[] { startSpin, endSpin },       # darmowe spiny, domyślnie []
+           superSpinCost }                                 # koszt spinu w zakresach (0)
 completeness: { completeBoardCount, partialBoardCount, missingBoardCount }
 rows[]:                 # wyłącznie spiny z payoutCredits > 0
   spinNumber, sequenceNumber, payoutCredits,
   cumulativePayoutCredits, cumulativeCostCredits, cumulativeBalanceCredits,
-  payoutKind             # "exact"|"confirmed_minimum"
+  payoutKind             # "exact"|"confirmed_minimum"|"provisional"
   boardStatus
+  mode?                  # "base"|"super" (TASK-0936); null tylko w historii panelu
+  spinCostCredits?       # koszt tego spinu (0 w serii); null tylko w historii panelu
   countMatches[]         # domyślnie []; payout-v4-wild-count, już w payoutCredits
     symbolCode, count, cells[], payoutCredits
   superGame?             # oznaczenie supergry wiersza (TASK-0935), patrz wyżej
 superGameState           # świeżość generacji serii (TASK-0935), patrz wyżej
 ```
 
-`countMatches` jest puste dla gier bez symbolu uruchamiającego. Cały panel
-zarządzania (lokalny i publiczny) pokazuje wiersze bez rozbicia na sztuki —
-także świeże podglądy, bo `preview` rozwija snapshot wyniku w formacie v1,
-którego wiersze mają tylko `ROW_FIELDS`; wypłata wiersza i bilans już
-zawierają wypłaty za sztuki. To zaakceptowane ograniczenie do czasu formatu
-wyniku v2.
+`countMatches` jest puste dla gier bez symbolu uruchamiającego. Zamrożone
+wyniki panelu zarządzania (historia, `result`) pokazują wiersze bez rozbicia
+na sztuki, bo wiersze formatu v1 mają tylko `ROW_FIELDS`; wypłata wiersza i
+bilans już zawierają wypłaty za sztuki. Świeży podgląd panelu (`preview`, od
+TASK-0936) zwraca bieżącą kalkulację, którą zapis by zamroził, razem ze
+znacznikami, `mode`, `spinCostCredits` i `countMatches` z jednego snapshotu.
+
+**Tryb pozycji i koszt per pozycja (TASK-0936, D-537).** Jedno zapytanie
+znaczników supergry (to samo co w TASK-0935, jeden snapshot) daje tryb każdej
+pozycji zakresu: pozycja objęta opublikowaną serią jako jej spin
+(`trigger + 1 … trigger + length`) ma `mode = "super"`, koszt darmowego spinu
+rodzaju supergry (`wild_super_spins`: 0) i jest liczona oceną planszy serii
+(`ALGORITHMS.md` §B, rozwinięcie super symbolu); każda inna pozycja, także
+plansza wyzwalająca, ma `mode = "base"` i koszt `rules.spinCost`.
+`summary.spinCostCredits` jest sumą kosztów pozycji (brakująca plansza w
+serii też jest darmowym spinem). Wynik planszy serii jest `provisional`, gdy
+super symbol nie jest zdefiniowany (albo nie jest zwykłym symbolem liniowym
+liczonej wersji reguł), gdy `superGameState.fresh = false` albo gdy plansza
+ma jakąkolwiek nieznaną komórkę; inaczej `exact`. `confirmed_minimum` w
+trybie `super` nie występuje. Przy `superGameState.fresh = false` każda
+oceniona plansza gry, także w trybie `base`, ma `payoutKind = "provisional"`
+(nowy trigger mógł już objąć ją serią). Wypłata `provisional` nie wchodzi do
+`recognizedPayoutCredits`, narastających sum ani bilansu: jest sumowana
+osobno w `provisionalPayoutCredits`, a `provisionalCount` liczy wszystkie
+ocenione plansze z wynikiem prowizorycznym (także z wypłatą 0).
+`summary.superSpinRanges` (włączne zakresy numerów spinów w trybie `super`)
+i `summary.superSpinCost` pozwalają klientowi policzyć dokładny koszt i
+bilans dowolnego spinu (wykres, piny, wkład); zapisany wynik panelu niesie
+je w tym samym podsumowaniu. Kalkulator zakresu i szczegóły planszy czytają
+reguły, plansze, znaczniki i stan generacji w jednej migawce
+`REPEATABLE READ` sesji żądania (pierwsze użycie sesji; audyt TASK-0936
+P0-3), także dla gier bez supergry, gdzie zmienia to tylko spójność
+odczytu, nie liczby. Gra bez
+rodzaju supergry (777) ma wszędzie `mode = "base"`, koszt `rules.spinCost` i
+`provisionalCount = 0`; jej liczby, `dataFingerprintSha256` oraz zamrożony
+wynik panelu i jego skrót treści są bajt w bajt takie jak przed TASK-0936.
+Udostępnienie online i publiczny panel zarządzania zwracają te same pola
+(bez `seriesId`).
 
 `completeness` jest rozłączna i sumuje się do `evaluatedSpinCount`: kompletna
 (15/15 znanych symboli), częściowa (≥1 nieznany, również gdy naliczono dla
@@ -469,7 +506,13 @@ dataSource              # "operational_review"
 rules: { rulesVersionId, rulesVersion, spinCost, algorithmVersion }
 symbolCodes[15]         # kod symbolu albo null dla „?”
 payoutCredits           # suma, przy stawce bazowej
-payoutKind              # "exact"|"confirmed_minimum"|"none"
+payoutKind              # "exact"|"confirmed_minimum"|"provisional"|"none"
+mode                    # "base"|"super" (TASK-0936)
+spinCostCredits         # koszt tego spinu (0 w serii supergry)
+expandedSymbolCodes     # null albo [15]: plansza rozwinięta, na której liczono linie
+expansion: null | {     # rozwinięcie super symbolu planszy serii (wild_super_spins)
+  symbolCode, columns[], columnCount, linePayoutCredits, paylineCount,
+  payoutCredits }       # payoutCredits = linePayoutCredits × paylineCount
 matches[]:              # posortowane po displayOrder linii
   paylineId, paylineCode, paylineName, paylineDisplayOrder, rowPath[5],
   symbolCode, matchedLength, matchedCells[], jokerCells[], payoutCredits
@@ -493,10 +536,17 @@ gdy jest ich dokładnie 15. Nieaktualny dokument, archiwum i niepełny zestaw da
 rekordu. Publiczna powierzchnia udostępniania (D-471) nie może zwracać
 wewnętrznych pól `cells`; D-492 zwraca osobny publiczny kształt z SHA wersji.
 
-`sum(matches.payoutCredits) + sum(countMatches.payoutCredits) ==
-payoutCredits`. `jokerCells` zachowuje historyczną nazwę i oznacza komórki
-Wilda. Nieznana komórka nigdy nie jest liczona jako sztuka, więc plansza
-częściowa z wypłatą za sztuki ma `payoutKind = "confirmed_minimum"`.
+`sum(matches.payoutCredits) + sum(countMatches.payoutCredits) +
+(expansion?.payoutCredits ?? 0) == payoutCredits`. `jokerCells` zachowuje
+historyczną nazwę i oznacza komórki Wilda. Nieznana komórka nigdy nie jest
+liczona jako sztuka, więc plansza częściowa z wypłatą za sztuki w trybie
+bazowym ma `payoutKind = "confirmed_minimum"`. Plansza w serii supergry
+(`mode = "super"`, TASK-0936) ma `matches` policzone na planszy rozwiniętej
+(`expandedSymbolCodes`, kolumny z super symbolem wypełnione nim w całości),
+`countMatches` policzone na planszy oryginalnej (`symbolCodes`), a wygrane
+liniowe super symbolu zastąpione wpisem `expansion`; jej `payoutKind` jest
+`provisional` (także przy wypłacie 0) albo `exact`/`none` według reguły z
+kalkulatora zakresu.
 `view` opisuje przycięty widok
 planszy operacyjnej: obrys komórek z zapisanej geometrii plus 20% z każdej
 strony, dłuższy bok najwyżej 1280 px; `cellPolygons` są we współrzędnych 0–1

@@ -3382,6 +3382,119 @@ test('getBoardSearchApproximateWin passes gameId as path and options as query pa
   );
 });
 
+test('super game series payouts pass through the board-search wrappers (TASK-0936)', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const rules = {
+    algorithmVersion: 'payout-v4-wild-count',
+    rulesVersion: 1,
+    rulesVersionId: '22222222-2222-4222-8222-222222222222',
+    spinCost: 100,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      if (new URL(request.url).pathname.endsWith('/approximate-win')) {
+        return Response.json({
+          completeness: {
+            completeBoardCount: 2,
+            missingBoardCount: 0,
+            partialBoardCount: 0,
+          },
+          dataFingerprintSha256: 'a'.repeat(64),
+          dataSource: 'operational_review',
+          evaluatedSpinCount: 2,
+          gameId,
+          requestedSpinCount: 2,
+          rows: [
+            {
+              boardStatus: 'accepted',
+              countMatches: [],
+              cumulativeBalanceCredits: -100,
+              cumulativeCostCredits: 100,
+              cumulativePayoutCredits: 0,
+              mode: 'super',
+              payoutCredits: 15,
+              payoutKind: 'provisional',
+              sequenceNumber: 12,
+              spinCostCredits: 0,
+              spinNumber: 2,
+            },
+          ],
+          rules,
+          sequenceLength: 500000,
+          startBoardStatus: 'accepted',
+          startSequenceNumber: 10,
+          summary: {
+            balanceCredits: -100,
+            provisionalCount: 1,
+            provisionalPayoutCredits: 15,
+            recognizedPayoutCredits: 0,
+            spinCostCredits: 100,
+            superSpinCost: 0,
+            superSpinRanges: [{ endSpin: 2, startSpin: 2 }],
+          },
+          wrappedAtSequenceEnd: false,
+        });
+      }
+      return Response.json({
+        boardChecksumSha256: 'c'.repeat(64),
+        boardStatus: 'accepted',
+        countMatches: [],
+        dataSource: 'operational_review',
+        documentStale: false,
+        expandedSymbolCodes: Array.from({ length: 15 }, () => 'K'),
+        expansion: {
+          columnCount: 3,
+          columns: [1, 3, 4],
+          linePayoutCredits: 10,
+          paylineCount: 5,
+          payoutCredits: 50,
+          symbolCode: 'K',
+        },
+        gameId,
+        matches: [],
+        mode: 'super',
+        payoutCredits: 50,
+        payoutKind: 'exact',
+        rules,
+        sequenceNumber: 12,
+        spinCostCredits: 0,
+        symbolCodes: Array.from({ length: 15 }, () => null),
+        view: null,
+      });
+    },
+  });
+
+  const range = await client.getBoardSearchApproximateWin(gameId, {
+    spinCount: 2,
+    startSequenceNumber: 10,
+  });
+  assert.equal(range.data.summary.provisionalCount, 1);
+  assert.equal(range.data.summary.provisionalPayoutCredits, 15);
+  assert.deepEqual(range.data.summary.superSpinRanges, [
+    { endSpin: 2, startSpin: 2 },
+  ]);
+  assert.equal(range.data.summary.superSpinCost, 0);
+  assert.deepEqual(
+    [
+      range.data.rows[0].mode,
+      range.data.rows[0].spinCostCredits,
+      range.data.rows[0].payoutKind,
+    ],
+    ['super', 0, 'provisional'],
+  );
+  const detail = await client.getBoardSearchBoardDetail(gameId, 12);
+  assert.equal(
+    new URL(requests[1].url).pathname,
+    `/api/v1/admin/games/${gameId}/board-search/boards/12`,
+  );
+  assert.equal(detail.data.expansion.payoutCredits, 50);
+  assert.deepEqual(detail.data.expansion.columns, [1, 3, 4]);
+  assert.equal(detail.data.mode, 'super');
+});
+
 test('getBoardSearchBoardDetail and the board view URL use the board-search paths', async () => {
   const requests = [];
   const gameId = '11111111-1111-4111-8111-111111111111';

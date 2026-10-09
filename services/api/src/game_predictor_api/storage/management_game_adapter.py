@@ -1,6 +1,7 @@
 """Panel adapters use the existing game search, calculator and human writer."""
 
-from collections.abc import Collection
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import replace
 from typing import Any
 from uuid import UUID
@@ -21,9 +22,11 @@ from game_predictor_api.application.image_symbol_review_mutations import (
 from game_predictor_api.domain.board_search import BoardSearchQueryCell, validate_board_search_query
 from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewAction
 from game_predictor_api.domain.management import ManagementError
-from game_predictor_api.domain.super_game_markers import SuperGameMarkers
 from game_predictor_api.schemas.board_search import BoardSearchResponse, to_board_search_response
-from game_predictor_api.schemas.board_search_approximate_win import to_approximate_win_response
+from game_predictor_api.schemas.board_search_approximate_win import (
+    ApproximateWinResponse,
+    to_approximate_win_response,
+)
 from game_predictor_api.schemas.board_search_shares import (
     BoardSearchShareCellCorrectionResponse,
     BoardSearchSharePublicBoardDetailResponse,
@@ -58,11 +61,6 @@ class SqlAlchemyManagementGameAdapter:
         self.boards = SqlAlchemyBoardSearchApproximateWinRepository(session)
         self.super_game_markers = SqlAlchemySuperGameMarkerRepository(session)
 
-    def super_game_row_markers(self, game_id: UUID, positions: Collection[int]) -> SuperGameMarkers:
-        """Markers of a live preview's rows; frozen snapshots never carry them."""
-
-        return self.super_game_markers.markers(game_id, positions)
-
     def search(self, game_id: UUID, command: ManagementSearchCommand) -> BoardSearchResponse:
         GameStorageRouter().bind(self.session, game_id, intent=GameStorageIntent.READ)
         query = validate_board_search_query(
@@ -88,6 +86,22 @@ class SqlAlchemyManagementGameAdapter:
     def snapshot(
         self, game_id: UUID, start: int, count: int
     ) -> tuple[str, dict[str, Any], dict[str, Any]]:
+        """The frozen result (digest, payload, summary) of a stake save."""
+
+        _live, digest, payload, summary = self._read(game_id, start, count)
+        return digest, payload, summary
+
+    def preview(self, game_id: UUID, start: int, count: int) -> ApproximateWinResponse:
+        """The live calculation a save would freeze, with row markers and the
+        series generation's freshness read in the same snapshot."""
+
+        live, _digest, _payload, _summary = self._read(game_id, start, count)
+        return live
+
+    @contextmanager
+    def _snapshot_reader(self, game_id: UUID, *, read_only: bool = True) -> Iterator[Session]:
+        """A separate REPEATABLE READ session bound to the game (one snapshot)."""
+
         bind = self.session.get_bind()
         if not isinstance(bind, Engine):
             raise RuntimeError("Management snapshot requires an application engine.")
@@ -102,40 +116,61 @@ class SqlAlchemyManagementGameAdapter:
         try:
             with GameStorageSession(snapshot_engine) as reader:
                 connection = reader.connection()
-                connection.exec_driver_sql("SET TRANSACTION READ ONLY")
+                if read_only:
+                    connection.exec_driver_sql("SET TRANSACTION READ ONLY")
                 connection.exec_driver_sql("SET LOCAL statement_timeout = '20s'")
                 connection.exec_driver_sql("SET LOCAL lock_timeout = '3s'")
                 GameStorageRouter().bind(reader, game_id, intent=GameStorageIntent.READ)
-                return self._snapshot(
-                    SqlAlchemyBoardSearchApproximateWinRepository(reader), game_id, start, count
-                )
+                yield reader
         finally:
             snapshot_engine.dispose()
 
+    def _read(
+        self, game_id: UUID, start: int, count: int
+    ) -> tuple[ApproximateWinResponse, str, dict[str, Any], dict[str, Any]]:
+        with self._snapshot_reader(game_id) as reader:
+            return self._snapshot(
+                SqlAlchemyBoardSearchApproximateWinRepository(reader),
+                SqlAlchemySuperGameMarkerRepository(reader),
+                game_id,
+                start,
+                count,
+            )
+
     @staticmethod
     def _snapshot(
-        boards: SqlAlchemyBoardSearchApproximateWinRepository, game_id: UUID, start: int, count: int
-    ) -> tuple[str, dict[str, Any], dict[str, Any]]:
+        boards: SqlAlchemyBoardSearchApproximateWinRepository,
+        markers: SqlAlchemySuperGameMarkerRepository,
+        game_id: UUID,
+        start: int,
+        count: int,
+    ) -> tuple[ApproximateWinResponse, str, dict[str, Any], dict[str, Any]]:
         configuration = boards.latest_published_rules(game_id)
         _mode, document = boards.board_document(game_id=game_id, sequence_number=start)
         if document is None:
             raise ManagementError(
                 "MANAGEMENT_START_BOARD_MISSING", "The starting board is unavailable."
             )
-        calculation = to_approximate_win_response(
-            BoardSearchApproximateWinService(boards).calculate(
-                game_id=game_id,
-                start_sequence_number=start,
-                requested_spin_count=count,
-            )
+        # The per-position mode projection (TASK-0936) is read in the same
+        # REPEATABLE READ snapshot as the boards; a game without a super game
+        # kind projects every position as base mode, so its frozen result is
+        # byte-identical to the one written before the projection existed.
+        domain_calculation = BoardSearchApproximateWinService(boards, markers).calculate(
+            game_id=game_id,
+            start_sequence_number=start,
+            requested_spin_count=count,
         )
+        calculation = to_approximate_win_response(domain_calculation)
         if configuration is None:
             raise AssertionError("Calculator accepted missing published rules.")
         if configuration.rules_version_id != calculation.rules.rules_version_id:
             raise AssertionError("Management calculation rules changed within one snapshot.")
         codes = boards.symbol_codes(game_id)
         symbols = tuple(None if code is None else codes.get(code) for code in document.mobile_codes)
-        return freeze_result(calculation, configuration, symbols, document.board_checksum_sha256)
+        digest, payload, summary = freeze_result(
+            calculation, configuration, symbols, document.board_checksum_sha256
+        )
+        return calculation, digest, payload, summary
 
     def detail(
         self, game_id: UUID, sequence_number: int
@@ -144,10 +179,19 @@ class SqlAlchemyManagementGameAdapter:
             to_board_search_board_detail_response,
         )
 
-        GameStorageRouter().bind(self.session, game_id, intent=GameStorageIntent.READ)
-        detail = BoardSearchBoardDetailService(self.boards).detail(
-            game_id=game_id, sequence_number=sequence_number
-        )
+        if self.session.get_bind().dialect.name == "postgresql":
+            # Rules, document, markers and state from one snapshot (audit
+            # TASK-0936 P0-3); not READ ONLY, like the request detail.
+            with self._snapshot_reader(game_id, read_only=False) as reader:
+                detail = BoardSearchBoardDetailService(
+                    SqlAlchemyBoardSearchApproximateWinRepository(reader),
+                    SqlAlchemySuperGameMarkerRepository(reader),
+                ).detail(game_id=game_id, sequence_number=sequence_number)
+        else:
+            GameStorageRouter().bind(self.session, game_id, intent=GameStorageIntent.READ)
+            detail = BoardSearchBoardDetailService(self.boards, self.super_game_markers).detail(
+                game_id=game_id, sequence_number=sequence_number
+            )
         response = to_board_search_board_detail_response(detail).model_dump(mode="python")
         response["cells"] = (
             None

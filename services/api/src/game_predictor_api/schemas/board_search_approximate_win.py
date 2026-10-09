@@ -10,7 +10,7 @@ from pydantic import Field
 from game_predictor_api.application.board_search_approximate_win import ApproximateWinCalculation
 from game_predictor_api.application.board_search_board_detail import BoardSearchBoardDetail
 from game_predictor_api.domain.board_search import BoardSearchAssetMode
-from game_predictor_api.domain.board_search_board_detail import BoardCountMatch
+from game_predictor_api.domain.board_search_board_detail import BoardCountMatch, BoardExpansion
 from game_predictor_api.domain.super_game_markers import SuperGameMarkers
 from game_predictor_api.schemas.catalog import ApiModel
 from game_predictor_api.schemas.super_game_markers import (
@@ -27,10 +27,64 @@ class ApproximateWinRulesResponse(ApiModel):
     algorithm_version: str
 
 
+SequenceModeValue = Literal["base", "super"]
+
+ApproximateWinPayoutKind = Literal["exact", "confirmed_minimum", "provisional"]
+
+
+class ApproximateWinSpinRangeResponse(ApiModel):
+    """Inclusive range of spin numbers (1-based within the evaluated range)."""
+
+    start_spin: int = Field(ge=1)
+    end_spin: int = Field(ge=1)
+
+
 class ApproximateWinSummaryResponse(ApiModel):
-    recognized_payout_credits: int = Field(ge=0)
-    spin_cost_credits: int = Field(ge=0)
+    recognized_payout_credits: int = Field(
+        ge=0,
+        description=(
+            "Sum of exact and confirmed_minimum payouts; provisional payouts are "
+            "summed apart in provisionalPayoutCredits and never enter the balance."
+        ),
+    )
+    spin_cost_credits: int = Field(
+        ge=0,
+        description=(
+            "Sum of the cost of every evaluated spin: the rules' spin cost in base "
+            "mode, the free spin cost (0) inside a super game series."
+        ),
+    )
     balance_credits: int
+    provisional_count: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Evaluated super game series boards whose result is provisional (super "
+            "symbol undefined, stale series generation or any unknown cell)."
+        ),
+    )
+    provisional_payout_credits: int = Field(
+        default=0,
+        ge=0,
+        description=(
+            "Sum of provisional payouts; after the super symbol is defined or the "
+            "board completed it may grow or shrink, so it is not a lower bound."
+        ),
+    )
+    super_spin_ranges: tuple[ApproximateWinSpinRangeResponse, ...] = Field(
+        default=(),
+        description=(
+            "Spins evaluated in super mode (free spins of a published super game "
+            "series), as inclusive spin-number ranges; every other spin costs "
+            "rules.spinCost. Empty for a game without a super game kind. Lets a "
+            "client compute the exact cost and balance at any spin."
+        ),
+    )
+    super_spin_cost: int = Field(
+        default=0,
+        ge=0,
+        description="Cost of one spin inside superSpinRanges (0 for wild_super_spins).",
+    )
 
 
 class ApproximateWinCompletenessResponse(ApiModel):
@@ -70,8 +124,29 @@ class ApproximateWinRowResponse(ApiModel):
     cumulative_payout_credits: int = Field(ge=0)
     cumulative_cost_credits: int = Field(ge=0)
     cumulative_balance_credits: int
-    payout_kind: Literal["exact", "confirmed_minimum"]
+    payout_kind: ApproximateWinPayoutKind = Field(
+        description=(
+            "exact: complete board; confirmed_minimum: partial board whose visible "
+            "prefix guarantees the payout; provisional: super game series board "
+            "whose payout can still grow or shrink (not in the cumulative payout)."
+        )
+    )
     board_status: str
+    mode: SequenceModeValue | None = Field(
+        default=None,
+        description=(
+            "Game mode of the position: base, or super inside a published super "
+            "game series. Null only in frozen management result history."
+        ),
+    )
+    spin_cost_credits: int | None = Field(
+        default=None,
+        ge=0,
+        description=(
+            "Cost of this spin (0 inside a super game series). Null only in frozen "
+            "management result history."
+        ),
+    )
     count_matches: tuple[BoardSearchCountMatchResponse, ...] = Field(
         default=(),
         description=(
@@ -160,6 +235,13 @@ def to_approximate_win_response(
             recognized_payout_credits=result.summary.recognized_payout_credits,
             spin_cost_credits=result.summary.spin_cost_credits,
             balance_credits=result.summary.balance_credits,
+            provisional_count=result.summary.provisional_count,
+            provisional_payout_credits=result.summary.provisional_payout_credits,
+            super_spin_ranges=tuple(
+                ApproximateWinSpinRangeResponse(start_spin=first, end_spin=last)
+                for first, last in result.super_spin_ranges
+            ),
+            super_spin_cost=result.super_spin_cost if result.super_spin_ranges else 0,
         ),
         completeness=ApproximateWinCompletenessResponse(
             complete_board_count=result.completeness.complete_board_count,
@@ -176,6 +258,8 @@ def to_approximate_win_response(
                 cumulative_balance_credits=row.cumulative_balance_credits,
                 payout_kind=row.payout_kind,  # type: ignore[arg-type]
                 board_status=row.board_status,
+                mode=row.mode.value,
+                spin_cost_credits=row.spin_cost_credits,
                 count_matches=_count_match_responses(row.count_matches),
                 super_game=marker_response_at(calculation.super_game, row.sequence_number),
             )
@@ -200,6 +284,32 @@ class BoardSearchLineMatchResponse(ApiModel):
     matched_cells: tuple[int, ...]
     joker_cells: tuple[int, ...]
     payout_credits: int = Field(gt=0)
+
+
+class BoardSearchExpansionResponse(ApiModel):
+    """The super symbol expanded over whole columns of a super game series
+    board (`wild_super_spins`): `payoutCredits = linePayoutCredits ×
+    paylineCount`; it replaces the super symbol's own line wins."""
+
+    symbol_code: str
+    columns: tuple[int, ...] = Field(description="0-based columns filled with the super symbol.")
+    column_count: int = Field(ge=1)
+    line_payout_credits: int = Field(ge=0)
+    payline_count: int = Field(ge=1)
+    payout_credits: int = Field(ge=0)
+
+
+def _expansion_response(expansion: BoardExpansion | None) -> BoardSearchExpansionResponse | None:
+    if expansion is None:
+        return None
+    return BoardSearchExpansionResponse(
+        symbol_code=expansion.symbol_code,
+        columns=expansion.columns,
+        column_count=expansion.column_count,
+        line_payout_credits=expansion.line_payout_credits,
+        payline_count=expansion.payline_count,
+        payout_credits=expansion.payout_credits,
+    )
 
 
 class BoardSearchViewPointResponse(ApiModel):
@@ -242,14 +352,30 @@ class BoardSearchBoardDetailResponse(ApiModel):
     rules: ApproximateWinRulesResponse
     symbol_codes: tuple[str | None, ...]
     payout_credits: int = Field(ge=0)
-    payout_kind: Literal["exact", "confirmed_minimum", "none"]
+    payout_kind: Literal["exact", "confirmed_minimum", "provisional", "none"]
     matches: tuple[BoardSearchLineMatchResponse, ...]
     count_matches: tuple[BoardSearchCountMatchResponse, ...] = Field(
         description=(
-            "Count payouts of super game trigger symbols; payoutCredits is the "
-            "sum of matches and countMatches."
+            "Count payouts of super game trigger symbols, counted on the original "
+            "board; payoutCredits is the sum of matches, countMatches and expansion."
         )
     )
+    mode: SequenceModeValue = Field(
+        default="base",
+        description="base, or super for a spin of a published super game series.",
+    )
+    spin_cost_credits: int | None = Field(
+        default=None, ge=0, description="Cost of this spin (0 inside a super game series)."
+    )
+    expanded_symbol_codes: tuple[str | None, ...] | None = Field(
+        default=None,
+        description=(
+            "The board the lines were evaluated on when the super symbol expanded "
+            "(its columns filled with the super symbol); null without an expansion. "
+            "symbolCodes stays the original board."
+        ),
+    )
+    expansion: BoardSearchExpansionResponse | None = None
     view: BoardSearchBoardViewResponse | None
     document_stale: bool = Field(
         description=(
@@ -308,6 +434,10 @@ def to_board_search_board_detail_response(
             for match in detail.matches
         ),
         count_matches=_count_match_responses(detail.count_matches),
+        mode=detail.mode.value,
+        spin_cost_credits=detail.spin_cost_credits,
+        expanded_symbol_codes=detail.expanded_symbol_codes,
+        expansion=_expansion_response(detail.expansion),
         view=None
         if detail.view is None
         else BoardSearchBoardViewResponse(
@@ -348,11 +478,13 @@ __all__ = [
     "BoardSearchBoardRefreshResponse",
     "BoardSearchBoardViewResponse",
     "BoardSearchCountMatchResponse",
+    "BoardSearchExpansionResponse",
     "BoardSearchLineMatchResponse",
     "BoardSearchViewPointResponse",
     "ApproximateWinResponse",
     "ApproximateWinRowResponse",
     "ApproximateWinRulesResponse",
+    "ApproximateWinSpinRangeResponse",
     "ApproximateWinSummaryResponse",
     "apply_super_game_markers",
     "to_approximate_win_response",

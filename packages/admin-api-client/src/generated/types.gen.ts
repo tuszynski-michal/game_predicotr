@@ -200,17 +200,31 @@ export type ApproximateWinRowResponse = {
    */
   cumulativePayoutCredits: number;
   /**
+   * Mode
+   *
+   * Game mode of the position: base, or super inside a published super game series. Null only in frozen management result history.
+   */
+  mode?: 'base' | 'super' | null;
+  /**
    * Payoutcredits
    */
   payoutCredits: number;
   /**
    * Payoutkind
+   *
+   * exact: complete board; confirmed_minimum: partial board whose visible prefix guarantees the payout; provisional: super game series board whose payout can still grow or shrink (not in the cumulative payout).
    */
-  payoutKind: 'exact' | 'confirmed_minimum';
+  payoutKind: 'exact' | 'confirmed_minimum' | 'provisional';
   /**
    * Sequencenumber
    */
   sequenceNumber: number;
+  /**
+   * Spincostcredits
+   *
+   * Cost of this spin (0 inside a super game series). Null only in frozen management result history.
+   */
+  spinCostCredits?: number | null;
   /**
    * Spinnumber
    */
@@ -244,6 +258,22 @@ export type ApproximateWinRulesResponse = {
 };
 
 /**
+ * ApproximateWinSpinRangeResponse
+ *
+ * Inclusive range of spin numbers (1-based within the evaluated range).
+ */
+export type ApproximateWinSpinRangeResponse = {
+  /**
+   * Endspin
+   */
+  endSpin: number;
+  /**
+   * Startspin
+   */
+  startSpin: number;
+};
+
+/**
  * ApproximateWinSummaryResponse
  */
 export type ApproximateWinSummaryResponse = {
@@ -252,13 +282,41 @@ export type ApproximateWinSummaryResponse = {
    */
   balanceCredits: number;
   /**
+   * Provisionalcount
+   *
+   * Evaluated super game series boards whose result is provisional (super symbol undefined, stale series generation or any unknown cell).
+   */
+  provisionalCount?: number;
+  /**
+   * Provisionalpayoutcredits
+   *
+   * Sum of provisional payouts; after the super symbol is defined or the board completed it may grow or shrink, so it is not a lower bound.
+   */
+  provisionalPayoutCredits?: number;
+  /**
    * Recognizedpayoutcredits
+   *
+   * Sum of exact and confirmed_minimum payouts; provisional payouts are summed apart in provisionalPayoutCredits and never enter the balance.
    */
   recognizedPayoutCredits: number;
   /**
    * Spincostcredits
+   *
+   * Sum of the cost of every evaluated spin: the rules' spin cost in base mode, the free spin cost (0) inside a super game series.
    */
   spinCostCredits: number;
+  /**
+   * Superspincost
+   *
+   * Cost of one spin inside superSpinRanges (0 for wild_super_spins).
+   */
+  superSpinCost?: number;
+  /**
+   * Superspinranges
+   *
+   * Spins evaluated in super mode (free spins of a published super game series), as inclusive spin-number ranges; every other spin costs rules.spinCost. Empty for a game without a super game kind. Lets a client compute the exact cost and balance at any spin.
+   */
+  superSpinRanges?: Array<ApproximateWinSpinRangeResponse>;
 };
 
 /**
@@ -1182,7 +1240,7 @@ export type BoardSearchBoardDetailResponse = {
   /**
    * Countmatches
    *
-   * Count payouts of super game trigger symbols; payoutCredits is the sum of matches and countMatches.
+   * Count payouts of super game trigger symbols, counted on the original board; payoutCredits is the sum of matches, countMatches and expansion.
    */
   countMatches: Array<BoardSearchCountMatchResponse>;
   dataSource: BoardSearchAssetMode;
@@ -1193,6 +1251,13 @@ export type BoardSearchBoardDetailResponse = {
    */
   documentStale: boolean;
   /**
+   * Expandedsymbolcodes
+   *
+   * The board the lines were evaluated on when the super symbol expanded (its columns filled with the super symbol); null without an expansion. symbolCodes stays the original board.
+   */
+  expandedSymbolCodes?: Array<string | null> | null;
+  expansion?: BoardSearchExpansionResponse | null;
+  /**
    * Gameid
    */
   gameId: string;
@@ -1201,18 +1266,30 @@ export type BoardSearchBoardDetailResponse = {
    */
   matches: Array<BoardSearchLineMatchResponse>;
   /**
+   * Mode
+   *
+   * base, or super for a spin of a published super game series.
+   */
+  mode?: 'base' | 'super';
+  /**
    * Payoutcredits
    */
   payoutCredits: number;
   /**
    * Payoutkind
    */
-  payoutKind: 'exact' | 'confirmed_minimum' | 'none';
+  payoutKind: 'exact' | 'confirmed_minimum' | 'provisional' | 'none';
   rules: ApproximateWinRulesResponse;
   /**
    * Sequencenumber
    */
   sequenceNumber: number;
+  /**
+   * Spincostcredits
+   *
+   * Cost of this spin (0 inside a super game series).
+   */
+  spinCostCredits?: number | null;
   /**
    * Symbolcodes
    */
@@ -1292,6 +1369,42 @@ export type BoardSearchCountMatchResponse = {
    * Count
    */
   count: number;
+  /**
+   * Payoutcredits
+   */
+  payoutCredits: number;
+  /**
+   * Symbolcode
+   */
+  symbolCode: string;
+};
+
+/**
+ * BoardSearchExpansionResponse
+ *
+ * The super symbol expanded over whole columns of a super game series
+ * board (`wild_super_spins`): `payoutCredits = linePayoutCredits ×
+ * paylineCount`; it replaces the super symbol's own line wins.
+ */
+export type BoardSearchExpansionResponse = {
+  /**
+   * Columncount
+   */
+  columnCount: number;
+  /**
+   * Columns
+   *
+   * 0-based columns filled with the super symbol.
+   */
+  columns: Array<number>;
+  /**
+   * Linepayoutcredits
+   */
+  linePayoutCredits: number;
+  /**
+   * Paylinecount
+   */
+  paylineCount: number;
   /**
    * Payoutcredits
    */
@@ -1701,6 +1814,11 @@ export type BoardSearchSharePublicBoardDetailResponse = {
    */
   documentStale: boolean;
   /**
+   * Expandedsymbolcodes
+   */
+  expandedSymbolCodes?: Array<string | null> | null;
+  expansion?: BoardSearchExpansionResponse | null;
+  /**
    * Gameid
    */
   gameId: string;
@@ -1709,18 +1827,26 @@ export type BoardSearchSharePublicBoardDetailResponse = {
    */
   matches: Array<BoardSearchLineMatchResponse>;
   /**
+   * Mode
+   */
+  mode?: 'base' | 'super';
+  /**
    * Payoutcredits
    */
   payoutCredits: number;
   /**
    * Payoutkind
    */
-  payoutKind: 'exact' | 'confirmed_minimum' | 'none';
+  payoutKind: 'exact' | 'confirmed_minimum' | 'provisional' | 'none';
   rules: ApproximateWinRulesResponse;
   /**
    * Sequencenumber
    */
   sequenceNumber: number;
+  /**
+   * Spincostcredits
+   */
+  spinCostCredits?: number | null;
   /**
    * Symbolcodes
    */

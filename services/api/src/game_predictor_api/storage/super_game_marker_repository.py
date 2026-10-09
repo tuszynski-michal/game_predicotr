@@ -23,7 +23,7 @@ from game_predictor_worker.domain.super_games import (
     get_super_game_kind,
     is_known_super_game_kind,
 )
-from sqlalchemy import text
+from sqlalchemy import column, text
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.super_game_markers import (
@@ -69,7 +69,21 @@ SELECT g.super_game_kind, st.input_version, st.input_version_of_generation,
 FROM g
 LEFT JOIN st ON true
 LEFT JOIN cov ON true
-""")
+""").columns(
+    # A textual SELECT (not a bare text clause): the game storage router then
+    # binds it with READ intent, so the read also runs inside the read-only
+    # REPEATABLE READ snapshot of a management stake save (TASK-0936).
+    column("super_game_kind"),
+    column("input_version"),
+    column("input_version_of_generation"),
+    column("position"),
+    column("series_id"),
+    column("trigger_sequence_number"),
+    column("length"),
+    column("completeness"),
+    column("run_verification"),
+    column("super_symbol_code"),
+)
 
 
 def _has_super_game(kind_code: str) -> bool:
@@ -101,8 +115,9 @@ class SqlAlchemySuperGameMarkerRepository:
             generation_input_version=None if first[2] is None else int(first[2]),
             has_super_game=has_super_game,
         )
+        kind_code = str(first[0])
         if not has_super_game:
-            return SuperGameMarkers(state=state)
+            return SuperGameMarkers(state=state, kind_code=kind_code)
         by_position: dict[int, SuperGameMarker] = {}
         for row in rows:
             if row[3] is None:
@@ -119,7 +134,7 @@ class SqlAlchemySuperGameMarkerRepository:
             )
             if marker is not None:
                 by_position[position] = marker
-        return SuperGameMarkers(state=state, by_position=by_position)
+        return SuperGameMarkers(state=state, by_position=by_position, kind_code=kind_code)
 
 
 __all__ = ["SqlAlchemySuperGameMarkerRepository"]

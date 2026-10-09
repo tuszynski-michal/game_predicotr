@@ -1,4 +1,7 @@
-import type { ApproximateWinResponse } from '@game-predictor/admin-api-client';
+import type {
+  ApproximateWinResponse,
+  ApproximateWinRowResponse,
+} from '@game-predictor/admin-api-client';
 
 /**
  * "Zakres wygranej": how many future spins S+1..S+N are evaluated. Default
@@ -131,9 +134,94 @@ export function visibleApproximateWinResult(
  * before a payout is its cumulative balance minus that payout. The series ends
  * at the last evaluated spin with the summary balance.
  */
+/**
+ * The part of a row's payout that moved the cumulative balance: a
+ * `provisional` payout (super game series board, TASK-0936) is summed apart
+ * and never enters the balance.
+ */
+export function approximateWinBalancePayout(
+  row: Pick<ApproximateWinRowResponse, 'payoutCredits' | 'payoutKind'>,
+): number {
+  return row.payoutKind === 'provisional' ? 0 : row.payoutCredits;
+}
+
+/**
+ * The cost of every spin of a calculated range (TASK-0936): spins inside
+ * `superSpinRanges` (free spins of a super game series) cost `superSpinCost`,
+ * every other spin `spinCost`. A plain number is a range without free spins.
+ */
+export interface ApproximateWinCostSchedule {
+  readonly spinCost: number;
+  readonly superSpinCost: number;
+  readonly superSpinRanges: readonly {
+    readonly endSpin: number;
+    readonly startSpin: number;
+  }[];
+}
+
+export function approximateWinCostSchedule(
+  result: Pick<ApproximateWinResponse, 'rules' | 'summary'>,
+): ApproximateWinCostSchedule {
+  return {
+    spinCost: result.rules.spinCost,
+    superSpinCost: result.summary.superSpinCost ?? 0,
+    superSpinRanges: result.summary.superSpinRanges ?? [],
+  };
+}
+
+function costSchedule(
+  costs: number | ApproximateWinCostSchedule,
+): ApproximateWinCostSchedule {
+  return typeof costs === 'number'
+    ? { spinCost: costs, superSpinCost: 0, superSpinRanges: [] }
+    : costs;
+}
+
+/** Total cost of spins `1..spinNumber`, exact across free spins. */
+export function approximateWinCostAtSpin(
+  costs: number | ApproximateWinCostSchedule,
+  spinNumber: number,
+): number {
+  const schedule = costSchedule(costs);
+  let freeSpins = 0;
+  for (const range of schedule.superSpinRanges) {
+    freeSpins += Math.max(
+      0,
+      Math.min(range.endSpin, spinNumber) - range.startSpin + 1,
+    );
+  }
+  return (
+    (spinNumber - freeSpins) * schedule.spinCost +
+    freeSpins * schedule.superSpinCost
+  );
+}
+
+/** Recognized cumulative payout after `spinNumber` (rows are sorted). */
+function payoutAtSpin(
+  rows: ApproximateWinResponse['rows'],
+  spinNumber: number,
+): number {
+  let payout = 0;
+  for (const row of rows) {
+    if (row.spinNumber > spinNumber) break;
+    payout = row.cumulativePayoutCredits;
+  }
+  return payout;
+}
+
+const CHART_POINT_ORDER: Readonly<
+  Record<ApproximateWinChartPoint['kind'], number>
+> = {
+  start: 0,
+  before_payout: 1,
+  payout: 2,
+  end: 3,
+};
+
 export function approximateWinChartPoints(
   rows: ApproximateWinResponse['rows'],
   end?: { readonly balanceCredits: number; readonly spinNumber: number },
+  costs?: number | ApproximateWinCostSchedule,
 ): readonly ApproximateWinChartPoint[] {
   const points: ApproximateWinChartPoint[] = [
     { cumulativeBalanceCredits: 0, kind: 'start', spinNumber: 0 },
@@ -142,7 +230,7 @@ export function approximateWinChartPoints(
     points.push(
       {
         cumulativeBalanceCredits:
-          row.cumulativeBalanceCredits - row.payoutCredits,
+          row.cumulativeBalanceCredits - approximateWinBalancePayout(row),
         kind: 'before_payout',
         spinNumber: row.spinNumber,
       },
@@ -164,6 +252,35 @@ export function approximateWinChartPoints(
       kind: 'end',
       spinNumber: end.spinNumber,
     });
+  }
+  // Free spins of a super game series keep the balance flat (TASK-0936):
+  // the series' first and last spins become unlabelled corner points, so the
+  // line between payouts follows the real cost instead of a straight slope.
+  const schedule = costs === undefined ? null : costSchedule(costs);
+  if (schedule !== null && schedule.superSpinRanges.length > 0) {
+    const rowSpins = new Set(rows.map((row) => row.spinNumber));
+    const lastSpin = end?.spinNumber ?? Number.POSITIVE_INFINITY;
+    const corners = new Set<number>();
+    for (const range of schedule.superSpinRanges) {
+      corners.add(range.startSpin - 1);
+      corners.add(range.endSpin);
+    }
+    for (const spinNumber of corners) {
+      if (spinNumber <= 0 || spinNumber >= lastSpin || rowSpins.has(spinNumber))
+        continue;
+      points.push({
+        cumulativeBalanceCredits:
+          payoutAtSpin(rows, spinNumber) -
+          approximateWinCostAtSpin(schedule, spinNumber),
+        kind: 'before_payout',
+        spinNumber,
+      });
+    }
+    points.sort(
+      (a, b) =>
+        a.spinNumber - b.spinNumber ||
+        CHART_POINT_ORDER[a.kind] - CHART_POINT_ORDER[b.kind],
+    );
   }
   return points;
 }
@@ -244,11 +361,8 @@ export function approximateWinPointAtSpin(
     spinNumber > result.evaluatedSpinCount
   )
     return null;
-  let payout = 0;
-  for (const row of result.rows) {
-    if (row.spinNumber > spinNumber) break;
-    payout = row.cumulativePayoutCredits;
-  }
+  // Exact at every spin: the cost follows the free spin ranges of the
+  // summary (TASK-0936); without them it is `spinNumber × spinCost`.
   return {
     spinNumber,
     kind:
@@ -257,7 +371,9 @@ export function approximateWinPointAtSpin(
         : spinNumber === result.evaluatedSpinCount
           ? 'end'
           : 'payout',
-    cumulativeBalanceCredits: payout - spinNumber * result.rules.spinCost,
+    cumulativeBalanceCredits:
+      payoutAtSpin(result.rows, spinNumber) -
+      approximateWinCostAtSpin(approximateWinCostSchedule(result), spinNumber),
   };
 }
 
@@ -516,25 +632,31 @@ export function formatApproximateWinCredits(value: number): string {
 
 /**
  * Cash needed from a zero start to reach one chart point (TASK-0778): the
- * deepest trough of the balance from the first spin up to that point, by
- * trough rule: each spin is paid before its payout, so the trough before
- * a payout is `cumulativeBalance - payout`; at least one spin's cost is needed.
+ * deepest trough of the real running balance from zero up to that point.
+ * Each spin is paid before its payout, so the trough before a payout is
+ * `cumulativeBalance - payout`, and the first spin needs its own cost —
+ * which is 0 when the range starts inside a super game series (TASK-0936).
  */
 export function approximateWinStakeToPoint(
   rows: ApproximateWinResponse['rows'],
-  spinCost: number,
+  costs: number | ApproximateWinCostSchedule,
   point: Pick<
     ApproximateWinChartPoint,
     'cumulativeBalanceCredits' | 'spinNumber'
   >,
 ): number {
-  let lowest = Math.min(-spinCost, point.cumulativeBalanceCredits);
+  let lowest = Math.min(
+    -approximateWinCostAtSpin(costs, 1),
+    point.cumulativeBalanceCredits,
+  );
   for (const row of rows) {
     if (row.spinNumber > point.spinNumber) continue;
-    const beforePayout = row.cumulativeBalanceCredits - row.payoutCredits;
+    const beforePayout =
+      row.cumulativeBalanceCredits - approximateWinBalancePayout(row);
     if (beforePayout < lowest) lowest = beforePayout;
   }
-  return -lowest;
+  // `0 - x` keeps a zero stake from turning into -0.
+  return 0 - lowest;
 }
 
 /**
@@ -543,14 +665,14 @@ export function approximateWinStakeToPoint(
  */
 export function approximateWinMachineCashAtPoint(
   rows: ApproximateWinResponse['rows'],
-  spinCost: number,
+  costs: number | ApproximateWinCostSchedule,
   point: Pick<
     ApproximateWinChartPoint,
     'cumulativeBalanceCredits' | 'spinNumber'
   >,
 ): number {
   return (
-    approximateWinStakeToPoint(rows, spinCost, point) +
+    approximateWinStakeToPoint(rows, costs, point) +
     point.cumulativeBalanceCredits
   );
 }

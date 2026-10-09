@@ -762,3 +762,40 @@ test('inline host callbacks can store draft state without render loops or repeat
     await act(async () => root.unmount());
   }
 });
+
+test('restored super game pins use the free spin ranges of the saved summary (TASK-0936)', async () => {
+  const root = createRoot(document.getElementById('root'));
+  // Spins 3..6 are free spins of a series without any payout: a saved
+  // (restored) result carries the ranges in its summary.
+  const restored = {
+    ...calculation(1, 10, []),
+    summary: {
+      recognizedPayoutCredits: 0,
+      spinCostCredits: 6 * 20,
+      balanceCredits: -6 * 20,
+      superSpinRanges: [{ startSpin: 3, endSpin: 6 }],
+      superSpinCost: 0,
+    },
+  };
+  await act(async () =>
+    root.render(
+      React.createElement(ApproximateWinBalanceChart, {
+        compact: true,
+        display: { unit: 'credits', stakeGrosze: 200 },
+        result: restored,
+        pinnedSpinPositions: [6, 10],
+      }),
+    ),
+  );
+  try {
+    const pins = document.querySelector(
+      '[aria-label="Przypięte punkty wykresu"]',
+    ).textContent;
+    // Spin 6: only spins 1 and 2 were paid; spin 10: six paid spins.
+    assert.match(pins, /6 spinów.*-40/s);
+    assert.doesNotMatch(pins, /6 spinów[^0-9-]*-120/);
+    assert.match(pins, /10 spinów.*-120/s);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});

@@ -6,6 +6,62 @@ last_updated: 2026-10-09
 
 # Decision Log
 
+## D-537 — Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja
+
+- **Date:** 2026-10-09.
+- **Status:** accepted; TASK-0936 (etap S-C) w ramach zaakceptowanego planu
+  `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` (D-535, D-536).
+- **Decision:** plansza na pozycji objętej opublikowaną serią supergry jako jej
+  spin jest liczona oceną planszy serii rodzaju gry; dla `wild_super_spins`
+  (`evaluate_series_board`) obowiązują cztery kroki planu: `k` = liczba
+  kolumn planszy oryginalnej z super symbolem `X` (także niesąsiednich);
+  przekształcenie tylko przy `k ≥ minimum_match_length(X)` — wtedy kolumny są
+  w całości wypełnione `X` i przykrywają symbole pod spodem, także Wildy;
+  linie liczone na planszy rozwiniętej, sztuki symbolu uruchamiającego na
+  oryginalnej; wygrane liniowe `X` są zastępowane wartością
+  `payout_line(X, k) × liczba aktywnych linii`, wygrane innych symboli
+  zostają; koszt spinu 0. Przy `k < minimum(X)` plansza jest liczona jak w
+  trybie bazowym. Plansza wyzwalająca serię pozostaje w trybie bazowym.
+  Wynik ma osobne składowe (linie, sztuki, rozwinięcie); rodzaj supergry
+  udostępnia ocenę planszy w rejestrze (`SuperGameKindDefinition.evaluate_series_board`).
+- **Provisional:** wynik planszy serii jest `exact` tylko dla planszy w pełni
+  znanej, ze zdefiniowanym super symbolem i przy świeżej generacji serii;
+  brak symbolu (także symbol, który w liczonej wersji reguł nie jest zwykłym
+  symbolem liniowym), `superGameState.fresh = false` albo jakakolwiek
+  nieznana komórka daje `provisional`. Wynik prowizoryczny nie jest dolnym
+  ograniczeniem (rozwinięcie może dodać albo przykryć wygraną), dlatego nie
+  wchodzi do rozpoznanych wypłat, narastających sum ani bilansu; podsumowanie
+  pokazuje osobno liczbę takich pozycji (`provisionalCount`, także z wypłatą 0)
+  i ich sumę (`provisionalPayoutCredits`). `confirmed_minimum` w trybie
+  `super` nie występuje. Przy `superGameState.fresh = false` prowizoryczna
+  jest **każda** oceniona plansza gry, także w trybie bazowym, bo nowy
+  trigger mógł już objąć ją serią (decyzja leada po audycie Codex TASK-0936,
+  zgodnie z planem, który ma pierwszeństwo przed pierwotnym brzmieniem tego
+  wpisu).
+- **Cost per position:** projekcja per pozycja (`mode`, symbol, pozostałe
+  spiny, koszt, wypłata, rodzaj wypłaty) powstaje z jednego odczytu znaczników
+  supergry TASK-0935 (jedno zapytanie, jeden snapshot ze znacznikami wierszy
+  i `superGameState`); zapytanie jest teraz tekstowym SELECT-em, więc router
+  magazynu gry wiąże je z intencją odczytu i działa w migawce tylko do odczytu
+  zapisu stawki. Przybliżona wygrana §D i kalkulator stawek panelu sumują koszt
+  per pozycja; brakująca plansza w serii zużywa darmowy spin. Podsumowanie
+  odpowiedzi niesie dokładne zakresy darmowych spinów (`superSpinRanges`,
+  `superSpinCost`), z których klient liczy wykres, piny i wkład (start w
+  serii nie wymaga wkładu). Kalkulator zakresu i szczegóły planszy czytają
+  reguły, plansze, znaczniki i stan w jednej migawce `REPEATABLE READ` sesji
+  żądania (dla wszystkich gier; dla 777 bez zmiany liczb), szczegóły panelu
+  w osobnej migawce. Świeży podgląd panelu zwraca kalkulację, którą zapis by
+  zamroził. Zamrożony wynik zostaje w formacie 1, a pola `superSpinRanges`,
+  `superSpinCost` i niezerowe pola prowizoryczne jego podsumowania są
+  zapisywane tylko wtedy, gdy niosą informację.
+- **Boundaries:** gra bez rodzaju supergry (777) ma wszędzie tryb bazowy i
+  stały koszt; jej liczby, odcisk danych, zamrożony wynik i skrót treści są
+  bajt w bajt takie jak przed zmianą (test regresji na fixture v3). Zapisana
+  wcześniej historia panelu nie jest przeliczana. Reguła „× liczba linii” i
+  wypłaty za sztuki w kredytach bezwzględnych (Z-1) czekają na weryfikację na
+  pierwszej serii z pełnymi zdjęciami; rozbieżność to korekta rodzaju w kodzie,
+  nie w danych. Aplikacja mobilna i prekomputacja wydań poza zakresem.
+
 ## D-536 — Serie supergry: manifest v6, licznik wejścia i generacje
 
 - **Date:** 2026-10-09.

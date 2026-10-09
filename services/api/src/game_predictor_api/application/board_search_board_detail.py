@@ -32,14 +32,18 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from game_predictor_api.application.board_search_approximate_win import (
     board_count_matches,
+    count_matches_with_codes,
+    evaluate_position_series_board,
     prepare_approximate_win_evaluator,
     resolve_rules_configuration,
 )
 from game_predictor_api.application.board_search_assets import resolve_board_search_image
+from game_predictor_api.application.super_game_markers import SuperGameMarkerSource
 from game_predictor_api.domain.board_search import BoardSearchAssetMode, BoardSearchError
 from game_predictor_api.domain.board_search_board_detail import (
     BOARD_VIEW_MAX_CROP_PIXELS,
     BoardCountMatch,
+    BoardExpansion,
     BoardPayoutKind,
     BoardSearchBoardCell,
     BoardSearchBoardDocument,
@@ -55,6 +59,10 @@ from game_predictor_api.domain.board_search_board_detail import (
     board_view_revision,
     resized_view_size,
 )
+from game_predictor_api.domain.sequence_mode_projection import (
+    SequenceMode,
+    SequenceModeProjection,
+)
 
 _UNKNOWN_MOBILE_CODE = 0
 _VIEW_CACHE_DIRECTORY = "board-search-views-v1"
@@ -65,6 +73,8 @@ _VIEW_MAX_SOURCE_PIXELS = 100_000_000
 
 
 class BoardSearchBoardDetailRepository(Protocol):
+    def begin_read_snapshot(self) -> None: ...
+
     def latest_published_rules(self, game_id: UUID) -> RulesPayoutConfiguration | None: ...
 
     def rules_configuration(
@@ -111,6 +121,14 @@ class BoardSearchBoardDetail:
     view: BoardSearchBoardView | None
     cells: tuple[BoardSearchBoardCell, ...] | None
     document_stale: bool
+    mode: SequenceMode = SequenceMode.BASE
+    spin_cost_credits: int | None = None
+    """Cost of this spin: the rules' spin cost in base mode, the kind's free
+    spin cost inside a super game series (TASK-0936)."""
+    expanded_symbol_codes: tuple[str | None, ...] | None = None
+    """The board the lines were evaluated on when the super symbol expanded;
+    `None` without an expansion. `symbol_codes` stays the original board."""
+    expansion: BoardExpansion | None = None
 
 
 def _board_not_found() -> BoardSearchError:
@@ -180,10 +198,37 @@ def _prepare_view(
 
 
 class BoardSearchBoardDetailService:
-    def __init__(self, repository: BoardSearchBoardDetailRepository) -> None:
+    def __init__(
+        self,
+        repository: BoardSearchBoardDetailRepository,
+        super_game_markers: SuperGameMarkerSource | None = None,
+        *,
+        read_snapshot: bool = False,
+    ) -> None:
         self._repository = repository
+        self._super_game_markers = super_game_markers
+        self._read_snapshot = read_snapshot
 
     def detail(
+        self,
+        *,
+        game_id: UUID,
+        sequence_number: int,
+        include_cells: bool = True,
+        rules_version_id: UUID | None = None,
+    ) -> BoardSearchBoardDetail:
+        """One board read in one snapshot when ``read_snapshot`` is set (audit
+        TASK-0936 P0-3: rules, document, markers and state together)."""
+        if self._read_snapshot:
+            self._repository.begin_read_snapshot()
+        return self._detail(
+            game_id=game_id,
+            sequence_number=sequence_number,
+            include_cells=include_cells,
+            rules_version_id=rules_version_id,
+        )
+
+    def _detail(
         self,
         *,
         game_id: UUID,
@@ -200,11 +245,28 @@ class BoardSearchBoardDetailService:
         configuration = resolve_rules_configuration(self._repository, game_id, rules_version_id)
         evaluator = prepare_approximate_win_evaluator(game_id, configuration)
         document = _load_document(self._repository, game_id, sequence_number)
+        # The board's mode comes from the same marker read as the range
+        # calculator (TASK-0935/0936); without a marker source it is base mode.
+        modes = (
+            None
+            if self._super_game_markers is None
+            else SequenceModeProjection(
+                markers=self._super_game_markers.markers(game_id, {document.sequence_number}),
+                spin_cost=configuration.spin_cost,
+            )
+        )
+        position_mode = None if modes is None else modes.at(document.sequence_number)
+        board_cells = tuple(
+            _UNKNOWN_MOBILE_CODE if code is None else code for code in document.mobile_codes
+        )
         try:
-            evaluation = evaluator.evaluate(
-                tuple(
-                    _UNKNOWN_MOBILE_CODE if code is None else code for code in document.mobile_codes
+            evaluation = evaluator.evaluate(board_cells)
+            series = (
+                evaluate_position_series_board(
+                    board_cells, position_mode, modes, evaluator, configuration
                 )
+                if position_mode is not None and position_mode.is_super
+                else None
             )
         except DomainValidationError as error:
             raise BoardSearchError(
@@ -217,8 +279,9 @@ class BoardSearchBoardDetailService:
 
         labels = self._repository.payline_labels(configuration.rules_version_id)
         codes = self._repository.symbol_codes(game_id)
+        line_matches = evaluation.matches if series is None else series.matches
         matches: list[BoardSearchLineMatch] = []
-        for match in evaluation.matches:
+        for match in line_matches:
             label = labels.get(match.payline_id)
             symbol_code = codes.get(match.symbol_mobile_code)
             if label is None or symbol_code is None:
@@ -259,6 +322,49 @@ class BoardSearchBoardDetailService:
             # set (e.g. mid-backfill) is offered as not editable.
             cells = records if len(records) == 15 else None
 
+        expansion: BoardExpansion | None = None
+        expanded_symbol_codes: tuple[str | None, ...] | None = None
+        if series is not None and series.expansion is not None:
+            expansion_code = codes.get(series.expansion.symbol_mobile_code)
+            if expansion_code is None:
+                raise BoardSearchError(
+                    "APPROXIMATE_WIN_RULES_INVALID",
+                    "The expanded super symbol is missing from the game catalog.",
+                )
+            expansion = BoardExpansion(
+                symbol_code=expansion_code,
+                columns=series.expansion.columns,
+                column_count=series.expansion.column_count,
+                line_payout_credits=series.expansion.line_payout_credits,
+                payline_count=series.expansion.payline_count,
+                payout_credits=series.expansion.payout_credits,
+            )
+            expanded_symbol_codes = tuple(
+                None if code == _UNKNOWN_MOBILE_CODE else codes.get(code)
+                for code in series.evaluated_cells
+            )
+        if series is None:
+            payout_credits = evaluation.total_payout
+            # A stale series generation makes every board of the game
+            # provisional: a new trigger may already have put this base-mode
+            # board into a series (lead decision on TASK-0936, plan).
+            payout_kind = (
+                "provisional"
+                if position_mode is not None and not position_mode.generation_fresh
+                else board_payout_kind(evaluation.total_payout, document.mobile_codes)
+            )
+            count_matches = board_count_matches(evaluation, configuration)
+        else:
+            payout_credits = series.total_payout
+            # A provisional series board stays provisional even without a
+            # payout yet: an expansion may still add one (D-537).
+            payout_kind = (
+                "provisional"
+                if str(series.payout_kind) == "provisional"
+                else ("exact" if series.total_payout > 0 else "none")
+            )
+            count_matches = count_matches_with_codes(series.count_matches, configuration)
+
         return BoardSearchBoardDetail(
             game_id=game_id,
             sequence_number=document.sequence_number,
@@ -272,13 +378,21 @@ class BoardSearchBoardDetailService:
             symbol_codes=tuple(
                 None if code is None else codes.get(code) for code in document.mobile_codes
             ),
-            payout_credits=evaluation.total_payout,
-            payout_kind=board_payout_kind(evaluation.total_payout, document.mobile_codes),
+            payout_credits=payout_credits,
+            payout_kind=payout_kind,
             matches=tuple(matches),
-            count_matches=board_count_matches(evaluation, configuration),
+            count_matches=count_matches,
             view=view,
             cells=cells,
             document_stale=stale,
+            mode=SequenceMode.BASE if position_mode is None else position_mode.mode,
+            spin_cost_credits=(
+                configuration.spin_cost
+                if position_mode is None
+                else position_mode.spin_cost_credits
+            ),
+            expanded_symbol_codes=expanded_symbol_codes,
+            expansion=expansion,
         )
 
     def refresh(self, *, game_id: UUID, sequence_number: int) -> BoardSearchBoardRefreshResult:
@@ -303,7 +417,8 @@ class BoardSearchBoardDetailService:
         if refreshed is None:
             return BoardSearchBoardRefreshResult(detail=None, document_removed=True)
         return BoardSearchBoardRefreshResult(
-            detail=self.detail(game_id=game_id, sequence_number=sequence_number),
+            # The refresh already wrote in this transaction: no new snapshot.
+            detail=self._detail(game_id=game_id, sequence_number=sequence_number),
             document_removed=False,
         )
 

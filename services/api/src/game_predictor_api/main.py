@@ -745,6 +745,7 @@ def create_app(
                 yield BoardSearchApproximateWinService(
                     SqlAlchemyBoardSearchApproximateWinRepository(session),
                     SqlAlchemySuperGameMarkerRepository(session),
+                    read_snapshot=True,
                 )
                 session.commit()
             except BaseException:
@@ -763,6 +764,8 @@ def create_app(
             try:
                 yield BoardSearchBoardDetailService(
                     SqlAlchemyBoardSearchApproximateWinRepository(session),
+                    SqlAlchemySuperGameMarkerRepository(session),
+                    read_snapshot=True,
                 )
                 session.commit()
             except BaseException:

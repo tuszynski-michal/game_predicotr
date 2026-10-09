@@ -1,7 +1,7 @@
 ---
 title: Management panel requirements
 status: accepted
-last_updated: 2026-10-07
+last_updated: 2026-10-09
 ---
 
 # Management panel — D-533
@@ -30,6 +30,20 @@ persists the start sequence, query, range and pins. Search again preserves the
 old save until replacement. Unsaved navigation warns. Confirmed Clear changes
 only the current slot, retaining audit. Human symbol corrections retain existing
 immediate-write semantics and alter current global game data, not a local copy.
+
+Stake results use the same per-position projection as the Admin approximate
+win (TASK-0936, D-537): spins inside a published super game series are free
+(cost 0) and evaluated with the series board evaluation, the trigger board and
+every other position cost the rules' spin cost, and provisional series payouts
+are shown apart (count and sum) and stay outside the balance. The live preview
+returns the calculation a save would freeze, read in one snapshot; the board
+detail of the panel is read in its own REPEATABLE READ snapshot too. When the
+series generation is stale, every evaluated board is provisional. A frozen
+result keeps format 1: its summary stores the free spin ranges
+(`superSpinRanges`, `superSpinCost`) and non-zero provisional fields only when
+present, so restored charts, pins and stake labels stay exact for a super game
+while results and content digests of a game without a super game kind (777)
+stay byte-identical. Frozen history written earlier is never recalculated.
 
 Show prior result while checking; current data changes recalculate and journal
 before/after without replacing the start sequence. Pins identify spin positions,

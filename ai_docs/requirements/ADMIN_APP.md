@@ -1,7 +1,7 @@
 ---
 title: Admin application requirements
 status: accepted
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 ---
 
 # Wymagania modułu administracyjnego
@@ -529,6 +529,23 @@ reguł” zamiast porównania z tabelą. Udostępniony panel online i panel
 zarządzania nie mają tego selectu. W wierszu tabeli wypłata za sztuki symbolu
 uruchamiającego jest pokazana jako dopisek „w tym sztuki: Mumia ×3 → 20”
 (już wliczona do wypłaty wiersza).
+
+**Supergra w prognozie (D-537, TASK-0936).** Spin serii supergry jest
+darmowy: wiersz ma dopisek „darmowy spin”, a koszt spinów sumuje koszt
+każdej pozycji (0 w serii, koszt reguł poza nią, także na planszy
+wyzwalającej). Wiersz z wynikiem prowizorycznym (seria bez super symbolu,
+plansza serii z nieznanym polem, a w czasie przeliczania serii każda
+plansza gry) ma wyróżniony
+dopisek „prowizoryczny”; nad tabelą komunikat „Wyniki prowizoryczne
+(supergra): N plansz, razem X” wyjaśnia, że nie są wliczone do wypłat ani
+bilansu i mogą wzrosnąć albo zmaleć. Okno „Pokaż planszę” dla planszy serii
+pokazuje kolumny rozwiniętego super symbolu (fioletowe pola z nazwą symbolu)
+i sekcję „Supergra: rozwinięcie” z wierszem w rodzaju „Rozwinięcie K ×3
+kolumny → 10 × 5 linii = 50”; linie rysuje z planszy rozwiniętej, sztuki
+podświetla na planszy oryginalnej, a w nagłówku dopisuje „prowizoryczny” i
+„darmowy spin”. Panel zarządzania pokazuje te same dopiski, komunikat
+prowizoryczny pod bilansem zapisanego wyniku i rodzaj „Prowizoryczna
+(supergra)” w tabeli.
 „Zakres wygranej” (domyślnie 2 500, maksymalnie 100 000) jest niezależny od
 „Liczby wyników”.
 

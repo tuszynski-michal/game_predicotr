@@ -166,7 +166,7 @@ def test_complete_saved_stake_flow_app_role_retry_cas_history_and_new_process(
         # Ambient game scope must not turn transaction setup into WRITE routing.
         original_snapshot = SqlAlchemyManagementGameAdapter._snapshot
 
-        def concurrent_symbol_change(boards, game_id, start, count):
+        def concurrent_symbol_change(boards, markers, game_id, start, count):
             configuration = boards.latest_published_rules(game_id)
             assert configuration.spin_cost == 20
             with db.owner_engine.begin() as connection:
@@ -177,7 +177,7 @@ def test_complete_saved_stake_flow_app_role_retry_cas_history_and_new_process(
                     ),
                     {"game": game_id},
                 )
-            return original_snapshot(boards, game_id, start, count)
+            return original_snapshot(boards, markers, game_id, start, count)
 
         with monkeypatch.context() as patch:
             patch.setattr(

@@ -170,6 +170,11 @@ def test_approximate_win_endpoint_returns_summary_completeness_and_rows() -> Non
         "recognizedPayoutCredits": 55,
         "spinCostCredits": 60,
         "balanceCredits": -5,
+        # TASK-0936: series boards are summed apart; none without a super game.
+        "provisionalCount": 0,
+        "provisionalPayoutCredits": 0,
+        "superSpinRanges": [],
+        "superSpinCost": 0,
     }
     assert payload["completeness"] == {
         "completeBoardCount": 1,
@@ -182,6 +187,7 @@ def test_approximate_win_endpoint_returns_summary_completeness_and_rows() -> Non
     assert rows[0]["payoutCredits"] == 50
     assert rows[0]["payoutKind"] == "exact"
     assert rows[0]["boardStatus"] == "accepted"
+    assert (rows[0]["mode"], rows[0]["spinCostCredits"]) == ("base", 20)
     assert rows[1]["sequenceNumber"] == 3
     assert rows[1]["payoutCredits"] == 5
     assert rows[1]["payoutKind"] == "confirmed_minimum"

@@ -7,6 +7,7 @@ import type {
 } from '@game-predictor/admin-api-client';
 import {
   ApproximateWinBalanceChart,
+  ApproximateWinProvisionalSummary,
   BoardSearchBoardLinesModal,
   type BoardSearchDataSource,
 } from '../index';
@@ -126,6 +127,10 @@ export function ManagementResultView({
         Bilans: {amount(calculation.summary.balanceCredits)} ·{' '}
         {calculation.evaluatedSpinCount.toLocaleString('pl-PL')} spinów
       </p>
+      <ApproximateWinProvisionalSummary
+        formatAmount={amount}
+        result={calculation}
+      />
       <ApproximateWinBalanceChart
         compact
         display={{ stakeGrosze: stake, unit: 'pln' }}
@@ -172,7 +177,9 @@ export function ManagementResultView({
                 <td>
                   {row.payoutKind === 'confirmed_minimum'
                     ? 'Potwierdzone minimum'
-                    : 'Dokładna'}
+                    : row.payoutKind === 'provisional'
+                      ? 'Prowizoryczna (supergra)'
+                      : 'Dokładna'}
                 </td>
                 {writeAllowed ? (
                   <td>

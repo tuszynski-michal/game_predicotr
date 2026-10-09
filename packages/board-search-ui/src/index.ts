@@ -3,7 +3,10 @@ export {
   type BoardSearchReplayRequest,
   type BoardSearchWorkspaceProps,
 } from './board-search-workspace';
-export { ApproximateWinBalanceChart } from './board-search-approximate-win';
+export {
+  ApproximateWinBalanceChart,
+  ApproximateWinProvisionalSummary,
+} from './board-search-approximate-win';
 export { formatZloty } from './board-search-stake';
 export {
   superGameMarkerLabel,

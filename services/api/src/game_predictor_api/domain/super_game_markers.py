@@ -93,6 +93,8 @@ class SuperGameMarkers:
 
     state: SuperGameState
     by_position: Mapping[int, SuperGameMarker] = field(default_factory=lambda: MappingProxyType({}))
+    kind_code: str = "none"
+    """The game's ``super_game_kind`` read in the same statement (TASK-0936)."""
 
     def marker(self, position: int) -> SuperGameMarker | None:
         return self.by_position.get(position)

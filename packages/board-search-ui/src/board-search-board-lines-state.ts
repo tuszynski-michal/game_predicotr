@@ -1,6 +1,7 @@
 import type {
   BoardSearchBoardDetailResponse,
   BoardSearchCountMatchResponse,
+  BoardSearchExpansionResponse,
   BoardSearchLineMatchResponse,
 } from '@game-predictor/admin-api-client';
 
@@ -127,6 +128,10 @@ export function boardLinesConsistency(
       BoardSearchCountMatchResponse,
       'payoutCredits'
     >[];
+    readonly expansion?: Pick<
+      BoardSearchExpansionResponse,
+      'payoutCredits'
+    > | null;
   },
   rowPayoutCredits: number,
   rulesVersionId: string,
@@ -137,13 +142,15 @@ export function boardLinesConsistency(
   if (detail.payoutCredits !== rowPayoutCredits) {
     return { kind: 'inconsistent', reason: 'payout' };
   }
-  // Lines and count payouts together must explain the board payout.
+  // Lines, count payouts and a super symbol expansion (TASK-0936) together
+  // must explain the board payout.
   const sum =
     detail.matches.reduce((total, match) => total + match.payoutCredits, 0) +
     boardCountMatches(detail).reduce(
       (total, match) => total + match.payoutCredits,
       0,
-    );
+    ) +
+    (detail.expansion?.payoutCredits ?? 0);
   if (sum !== detail.payoutCredits) {
     return { kind: 'inconsistent', reason: 'lines' };
   }
@@ -158,6 +165,47 @@ export function boardCountMatches<T>(detail: {
   readonly countMatches?: readonly T[];
 }): readonly T[] {
   return detail.countMatches ?? [];
+}
+
+/**
+ * Cells covered by an expanded super symbol (whole columns of a super game
+ * series board, TASK-0936); empty without an expansion.
+ */
+export function boardExpandedCells(detail: {
+  readonly expansion?: Pick<BoardSearchExpansionResponse, 'columns'> | null;
+}): ReadonlySet<number> {
+  const columns = new Set(detail.expansion?.columns ?? []);
+  const cells = new Set<number>();
+  for (let index = 0; index < 15; index += 1) {
+    if (columns.has(index % 5)) cells.add(index);
+  }
+  return cells;
+}
+
+/**
+ * The expansion row of the modal, e.g. `Rozwinięcie K ×3 kolumny → 10 × 5
+ * linii = 50`; amounts go through the modal's formatter.
+ */
+export function boardExpansionLabel(
+  expansion: Pick<
+    BoardSearchExpansionResponse,
+    | 'columnCount'
+    | 'linePayoutCredits'
+    | 'paylineCount'
+    | 'payoutCredits'
+    | 'symbolCode'
+  >,
+  symbolName: string,
+  formatAmount: (credits: number) => string = (credits) =>
+    credits.toLocaleString('pl-PL'),
+): string {
+  const columns =
+    expansion.columnCount === 1
+      ? 'kolumna'
+      : expansion.columnCount >= 2 && expansion.columnCount <= 4
+        ? 'kolumny'
+        : 'kolumn';
+  return `Rozwinięcie ${symbolName} ×${expansion.columnCount} ${columns} → ${formatAmount(expansion.linePayoutCredits)} × ${expansion.paylineCount} linii = ${formatAmount(expansion.payoutCredits)}`;
 }
 
 /** Cells counted for any trigger symbol, for highlighting on the board. */

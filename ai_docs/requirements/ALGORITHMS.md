@@ -1,7 +1,7 @@
 ---
 title: Algorithms specification
 status: accepted
-last_updated: 2026-09-25
+last_updated: 2026-10-09
 ---
 
 # Specyfikacja algorytmów
@@ -218,6 +218,61 @@ Prekomputacja wydań (`layout_payouts`, snapshot mobilny) nie obsługuje
 jeszcze `payout-v4-wild-count`: zadanie payout odrzuca zlecenie v2/v3 dla gry
 z symbolem uruchamiającym (`PAYOUT_ALGORITHM_GAME_MISMATCH`), aby wynik v4
 nigdy nie został zapisany pod etykietą v3.
+
+### Plansza w serii supergry `wild_super_spins` (D-537, TASK-0936)
+
+Pozycja sekwencji objęta opublikowaną serią supergry jako jej spin
+(`trigger + 1 … trigger + length`, TASK-0933) jest liczona oceną planszy
+serii rodzaju gry (`evaluate_series_board(board, super_symbol, rules)`,
+`services/worker/.../domain/super_games/wild_super_spins.py`). Plansza
+wyzwalająca serię jest w trybie bazowym. Dla rodzaju `wild_super_spins` i
+super symbolu `X` (zwykły symbol liniowy wybrany przez operatora):
+
+1. `k` = liczba kolumn planszy **oryginalnej**, w których występuje `X`
+   (kolumny nie muszą sąsiadować). Gdy `k < minimum_match_length(X)`,
+   plansza nie jest przekształcana: linie (z Wildem) i sztuki liczy się
+   dokładnie jak w trybie bazowym.
+2. Gdy `k ≥ minimum_match_length(X)`: każda z tych `k` kolumn jest w całości
+   wypełniona `X` — przykrycie usuwa symbole pod spodem, także Wildy
+   (plansza rozwinięta).
+3. Linie liczy się na planszy rozwiniętej (Wild nadal podmienia), sztuki
+   symbolu uruchamiającego na planszy **oryginalnej**. Wygrane liniowe `X` z
+   planszy rozwiniętej są **zastąpione** (nie sumują się) wartością
+   rozwinięcia `payout_line(X, k) × liczba aktywnych linii`; wygrane linii
+   innych symboli z planszy rozwiniętej zostają.
+4. Koszt spinu = 0. Plansza serii z co najmniej `N` symbolami
+   uruchamiającymi dostaje wypłatę za sztuki i przedłuża serię
+   (wyprowadzanie serii, TASK-0933).
+
+`total = linie innych symboli (plansza rozwinięta) + sztuki (plansza
+oryginalna) + rozwinięcie`. Wynik ma osobne składowe: linie, sztuki i
+rozwinięcie (`symbol`, kolumny, `k`, `payout_line(X, k)`, liczba linii,
+wypłata).
+
+Przykład (Mumie, `X = K`, minimum 3, `payout_line(K, 3) = 10`, 5 linii):
+K w kolumnach 2, 4 i 5 → `k = 3` → rozwinięcie `10 × 5 = 50`; kolumny 1 i 3
+nie mają znaczenia. K w kolumnach 2 i 4 → `k = 2 < 3` → bez rozwinięcia,
+linie liczone normalnie. Sarkofag (minimum 2) w jednej kolumnie → bez
+rozwinięcia, w dwóch → `payout_line(Sarkofag, 2) × 5`.
+
+**Wynik dokładny albo prowizoryczny.** Wynik planszy serii jest `exact`
+wyłącznie dla planszy w pełni znanej, ze zdefiniowanym super symbolem i przy
+świeżej generacji serii (`superGameState.fresh = true`). Każdy inny przypadek
+jest `provisional`: brak super symbolu (system liczy linie z Wildem i sztuki,
+ale nie zna rozwinięcia, które może zarówno dodać wygraną, jak i przykryć
+wygrane innych symboli), nieaktualna generacja serii albo **jakakolwiek**
+nieznana komórka — nieznana komórka poza kolumnami `X` może dodać kolumnę,
+przekroczyć próg i przykryć wcześniejszą wygraną, a nieznana komórka w
+kolumnie już przykrytej nie zmienia linii, ale nadal może zmienić wypłatę za
+sztuki i retrigger (sztuki liczone są na planszy oryginalnej). Wynik
+prowizoryczny nie jest dolnym ograniczeniem; `confirmed_minimum` w trybie
+`super` nie występuje. Super symbol, który w liczonej wersji reguł nie jest
+zwykłym symbolem liniowym (np. zmieniona rola w drafcie), jest traktowany
+jak niezdefiniowany.
+
+Złote przypadki obu języków (`payout-golden-cases.json`, sekcja
+`wildSuperSpinsScenario`) wykonuje ewaluator workera i lustrzany
+`evaluateSeriesBoard` w `packages/shared-ts`.
 
 ### Wild
 
@@ -505,13 +560,41 @@ Symbol spoza aktywnych symboli opublikowanej wersji reguł (błąd
 integralności danych, nie normalny brak dowodu) przerywa całą kalkulację
 zakresu jako błąd zamiast po cichu pomijać jedną planszę.
 
+### Tryb pozycji i koszt per pozycja (D-537, TASK-0936)
+
+Każda pozycja zakresu ma projekcję `mode` (`base` | `super`),
+`super_symbol_id` (w API kod symbolu), `remaining_spins`,
+`spin_cost_credits`, `payout_credits` i `payout_kind` (`exact` |
+`confirmed_minimum` | `provisional`). Projekcja powstaje z tego samego
+odczytu znaczników supergry co oznaczenia wierszy i `superGameState`
+(jedno zapytanie, jeden snapshot). Pozycja objęta opublikowaną serią jako
+jej spin jest w trybie `super`: koszt darmowego spinu rodzaju gry (0), ocena
+planszy serii z §B z super symbolem tej serii (brak symbolu → wynik
+prowizoryczny). Każda inna pozycja, także plansza wyzwalająca serię, jest w
+trybie `base` z kosztem `spin_cost` reguł. Brakująca plansza w serii zużywa
+darmowy spin (koszt 0, wypłata 0). Przy `superGameState.fresh = false`
+**każda** oceniona plansza gry jest prowizoryczna, także w trybie bazowym, bo
+nowy trigger mógł już objąć ją serią (decyzja leada po audycie TASK-0936,
+zgodna z planem). Reguły, plansze, znaczniki i stan generacji są czytane w
+jednej migawce `REPEATABLE READ`, więc publikacja generacji w trakcie odczytu
+nie łączy starych plansz z nową generacją. Podsumowanie niesie dokładne
+zakresy darmowych spinów (`superSpinRanges`, `superSpinCost`), z których
+klient liczy koszt i bilans dowolnego spinu. Gra bez rodzaju supergry (777) ma wszędzie
+tryb `base` i stały koszt, więc jej wyniki, odcisk danych i zamrożone wyniki
+panelu zarządzania są bajt w bajt takie jak przed projekcją (bramka
+regresji).
+
 ### Podsumowanie i wiersze
 
 Wynik rozdziela trzy wartości: rozpoznane wypłaty (suma naliczonych
-payoutów), koszt spinów (suma kosztu wszystkich `evaluated_spin_count`
-spinów, w tym brakujących) i bilans (wypłaty minus koszt) — bilans może
+payoutów `exact` i `confirmed_minimum`), koszt spinów (suma kosztu
+wszystkich `evaluated_spin_count` pozycji według ich trybu, w tym
+brakujących) i bilans (wypłaty minus koszt) — bilans może
 pozostać ujemny mimo występujących wypłat i nigdy nie jest nazywany
-„zyskiem”. Tabela wyników pokazuje wyłącznie spiny z dodatnią wypłatą, z
+„zyskiem”. Wypłaty `provisional` (plansze serii supergry) są pokazywane
+osobno: liczba takich pozycji i ich suma; nie wchodzą do rozpoznanych
+wypłat, narastających sum ani bilansu, bo po definicji super symbolu,
+przeliczeniu serii albo uzupełnieniu planszy mogą wzrosnąć albo zmaleć. Tabela wyników pokazuje wyłącznie spiny z dodatnią wypłatą, z
 narastającą sumą wypłat/kosztu/bilansu obejmującą wszystkie wcześniejsze
 spiny zakresu — również te bez własnego wiersza w tabeli.
 

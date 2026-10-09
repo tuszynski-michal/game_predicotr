@@ -32,6 +32,14 @@ export {
   payoutAlgorithmVersion,
 } from './payout.js';
 export {
+  WILD_SUPER_SPINS_CODE,
+  evaluateSeriesBoard,
+  type SeriesBoardEvaluation,
+  type SeriesBoardOptions,
+  type SeriesExpansion,
+  type SeriesPayoutKind,
+} from './super-game.js';
+export {
   TARGET_SCAN_LIMIT_DEFAULT,
   TARGET_SCAN_LIMIT_ENGINE_MIN,
   TARGET_SCAN_LIMIT_MAX,

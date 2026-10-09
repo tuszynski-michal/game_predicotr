@@ -348,8 +348,11 @@ def test_approximate_win_rows_carry_markers_and_the_state() -> None:
         "inputVersion": 7,
         "generationInputVersion": 7,
     }
-    # Markers are read for the winning rows only, in one call.
-    assert source.calls == [(GAME_ID, (100, 105, 120, 150))]
+    # One marker read covers every evaluated position (the per-position mode
+    # projection of TASK-0936) and so also the winning rows.
+    assert len(source.calls) == 1
+    assert source.calls[0][0] == GAME_ID
+    assert {100, 105, 120, 150} <= set(source.calls[0][1])
 
 
 def test_approximate_win_with_a_stale_generation_warns_for_rows_without_markers() -> None:

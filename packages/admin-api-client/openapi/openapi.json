@@ -324,15 +324,33 @@
             "title": "Cumulativepayoutcredits",
             "type": "integer"
           },
+          "mode": {
+            "anyOf": [
+              {
+                "enum": [
+                  "base",
+                  "super"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Game mode of the position: base, or super inside a published super game series. Null only in frozen management result history.",
+            "title": "Mode"
+          },
           "payoutCredits": {
             "exclusiveMinimum": 0.0,
             "title": "Payoutcredits",
             "type": "integer"
           },
           "payoutKind": {
+            "description": "exact: complete board; confirmed_minimum: partial board whose visible prefix guarantees the payout; provisional: super game series board whose payout can still grow or shrink (not in the cumulative payout).",
             "enum": [
               "exact",
-              "confirmed_minimum"
+              "confirmed_minimum",
+              "provisional"
             ],
             "title": "Payoutkind",
             "type": "string"
@@ -341,6 +359,19 @@
             "minimum": 1.0,
             "title": "Sequencenumber",
             "type": "integer"
+          },
+          "spinCostCredits": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cost of this spin (0 inside a super game series). Null only in frozen management result history.",
+            "title": "Spincostcredits"
           },
           "spinNumber": {
             "minimum": 1.0,
@@ -404,6 +435,28 @@
         "title": "ApproximateWinRulesResponse",
         "type": "object"
       },
+      "ApproximateWinSpinRangeResponse": {
+        "additionalProperties": false,
+        "description": "Inclusive range of spin numbers (1-based within the evaluated range).",
+        "properties": {
+          "endSpin": {
+            "minimum": 1.0,
+            "title": "Endspin",
+            "type": "integer"
+          },
+          "startSpin": {
+            "minimum": 1.0,
+            "title": "Startspin",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "startSpin",
+          "endSpin"
+        ],
+        "title": "ApproximateWinSpinRangeResponse",
+        "type": "object"
+      },
       "ApproximateWinSummaryResponse": {
         "additionalProperties": false,
         "properties": {
@@ -411,15 +464,47 @@
             "title": "Balancecredits",
             "type": "integer"
           },
+          "provisionalCount": {
+            "default": 0,
+            "description": "Evaluated super game series boards whose result is provisional (super symbol undefined, stale series generation or any unknown cell).",
+            "minimum": 0.0,
+            "title": "Provisionalcount",
+            "type": "integer"
+          },
+          "provisionalPayoutCredits": {
+            "default": 0,
+            "description": "Sum of provisional payouts; after the super symbol is defined or the board completed it may grow or shrink, so it is not a lower bound.",
+            "minimum": 0.0,
+            "title": "Provisionalpayoutcredits",
+            "type": "integer"
+          },
           "recognizedPayoutCredits": {
+            "description": "Sum of exact and confirmed_minimum payouts; provisional payouts are summed apart in provisionalPayoutCredits and never enter the balance.",
             "minimum": 0.0,
             "title": "Recognizedpayoutcredits",
             "type": "integer"
           },
           "spinCostCredits": {
+            "description": "Sum of the cost of every evaluated spin: the rules' spin cost in base mode, the free spin cost (0) inside a super game series.",
             "minimum": 0.0,
             "title": "Spincostcredits",
             "type": "integer"
+          },
+          "superSpinCost": {
+            "default": 0,
+            "description": "Cost of one spin inside superSpinRanges (0 for wild_super_spins).",
+            "minimum": 0.0,
+            "title": "Superspincost",
+            "type": "integer"
+          },
+          "superSpinRanges": {
+            "default": [],
+            "description": "Spins evaluated in super mode (free spins of a published super game series), as inclusive spin-number ranges; every other spin costs rules.spinCost. Empty for a game without a super game kind. Lets a client compute the exact cost and balance at any spin.",
+            "items": {
+              "$ref": "#/components/schemas/ApproximateWinSpinRangeResponse"
+            },
+            "title": "Superspinranges",
+            "type": "array"
           }
         },
         "required": [
@@ -1991,7 +2076,7 @@
             "title": "Cells"
           },
           "countMatches": {
-            "description": "Count payouts of super game trigger symbols; payoutCredits is the sum of matches and countMatches.",
+            "description": "Count payouts of super game trigger symbols, counted on the original board; payoutCredits is the sum of matches, countMatches and expansion.",
             "items": {
               "$ref": "#/components/schemas/BoardSearchCountMatchResponse"
             },
@@ -2006,6 +2091,38 @@
             "title": "Documentstale",
             "type": "boolean"
           },
+          "expandedSymbolCodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The board the lines were evaluated on when the super symbol expanded (its columns filled with the super symbol); null without an expansion. symbolCodes stays the original board.",
+            "title": "Expandedsymbolcodes"
+          },
+          "expansion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchExpansionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -2018,6 +2135,16 @@
             "title": "Matches",
             "type": "array"
           },
+          "mode": {
+            "default": "base",
+            "description": "base, or super for a spin of a published super game series.",
+            "enum": [
+              "base",
+              "super"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
           "payoutCredits": {
             "minimum": 0.0,
             "title": "Payoutcredits",
@@ -2027,6 +2154,7 @@
             "enum": [
               "exact",
               "confirmed_minimum",
+              "provisional",
               "none"
             ],
             "title": "Payoutkind",
@@ -2039,6 +2167,19 @@
             "minimum": 1.0,
             "title": "Sequencenumber",
             "type": "integer"
+          },
+          "spinCostCredits": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cost of this spin (0 inside a super game series).",
+            "title": "Spincostcredits"
           },
           "symbolCodes": {
             "items": {
@@ -2192,6 +2333,54 @@
           "payoutCredits"
         ],
         "title": "BoardSearchCountMatchResponse",
+        "type": "object"
+      },
+      "BoardSearchExpansionResponse": {
+        "additionalProperties": false,
+        "description": "The super symbol expanded over whole columns of a super game series\nboard (`wild_super_spins`): `payoutCredits = linePayoutCredits ×\npaylineCount`; it replaces the super symbol's own line wins.",
+        "properties": {
+          "columnCount": {
+            "minimum": 1.0,
+            "title": "Columncount",
+            "type": "integer"
+          },
+          "columns": {
+            "description": "0-based columns filled with the super symbol.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Columns",
+            "type": "array"
+          },
+          "linePayoutCredits": {
+            "minimum": 0.0,
+            "title": "Linepayoutcredits",
+            "type": "integer"
+          },
+          "paylineCount": {
+            "minimum": 1.0,
+            "title": "Paylinecount",
+            "type": "integer"
+          },
+          "payoutCredits": {
+            "minimum": 0.0,
+            "title": "Payoutcredits",
+            "type": "integer"
+          },
+          "symbolCode": {
+            "title": "Symbolcode",
+            "type": "string"
+          }
+        },
+        "required": [
+          "symbolCode",
+          "columns",
+          "columnCount",
+          "linePayoutCredits",
+          "paylineCount",
+          "payoutCredits"
+        ],
+        "title": "BoardSearchExpansionResponse",
         "type": "object"
       },
       "BoardSearchLineMatchResponse": {
@@ -2924,6 +3113,37 @@
             "title": "Documentstale",
             "type": "boolean"
           },
+          "expandedSymbolCodes": {
+            "anyOf": [
+              {
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "string"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expandedsymbolcodes"
+          },
+          "expansion": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/BoardSearchExpansionResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
           "gameId": {
             "format": "uuid",
             "title": "Gameid",
@@ -2936,6 +3156,15 @@
             "title": "Matches",
             "type": "array"
           },
+          "mode": {
+            "default": "base",
+            "enum": [
+              "base",
+              "super"
+            ],
+            "title": "Mode",
+            "type": "string"
+          },
           "payoutCredits": {
             "title": "Payoutcredits",
             "type": "integer"
@@ -2944,6 +3173,7 @@
             "enum": [
               "exact",
               "confirmed_minimum",
+              "provisional",
               "none"
             ],
             "title": "Payoutkind",
@@ -2956,6 +3186,18 @@
             "minimum": 1.0,
             "title": "Sequencenumber",
             "type": "integer"
+          },
+          "spinCostCredits": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spincostcredits"
           },
           "symbolCodes": {
             "items": {

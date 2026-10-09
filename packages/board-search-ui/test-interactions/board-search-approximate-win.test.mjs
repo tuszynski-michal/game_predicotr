@@ -2128,3 +2128,139 @@ test('the Admin draft preview evaluates a chosen rules version and shows count p
   );
   await act(async () => root.unmount());
 });
+
+test('a super game series row is provisional and its board shows the expansion (TASK-0936)', async (context) => {
+  withDialogSupport();
+  context.after(() => dom.window.localStorage.clear());
+  const king = {
+    ...symbol,
+    code: 'K',
+    displayOrder: 1,
+    id: 'symbol-k',
+    mobileCode: 4,
+    name: 'Król',
+  };
+  const seriesRules = {
+    algorithmVersion: 'payout-v4-wild-count',
+    rulesVersion: 1,
+    rulesVersionId: 'rules-1',
+    spinCost: 20,
+  };
+  const client = {
+    ...makeClient({
+      approximateWinImpl: async (_gameId, options) => ({
+        data: approximateWinResponse(options.startSequenceNumber, {
+          evaluatedSpinCount: 10,
+          requestedSpinCount: 10,
+          rows: [
+            {
+              boardStatus: 'accepted',
+              countMatches: [],
+              cumulativeBalanceCredits: 30,
+              cumulativeCostCredits: 20,
+              cumulativePayoutCredits: 50,
+              mode: 'super',
+              payoutCredits: 50,
+              payoutKind: 'exact',
+              sequenceNumber: 12,
+              spinCostCredits: 0,
+              spinNumber: 2,
+            },
+            {
+              boardStatus: 'accepted',
+              countMatches: [],
+              cumulativeBalanceCredits: 30,
+              cumulativeCostCredits: 20,
+              cumulativePayoutCredits: 50,
+              mode: 'super',
+              payoutCredits: 15,
+              payoutKind: 'provisional',
+              sequenceNumber: 13,
+              spinCostCredits: 0,
+              spinNumber: 3,
+            },
+          ],
+          rules: seriesRules,
+          summary: {
+            balanceCredits: -10,
+            provisionalCount: 1,
+            provisionalPayoutCredits: 15,
+            recognizedPayoutCredits: 50,
+            spinCostCredits: 60,
+          },
+        }),
+      }),
+      searchImpl: async () => ({ data: { results: [boardResult(10)] } }),
+    }),
+    listSymbols: async () => ({ data: [symbol, king] }),
+    getBoardSearchBoardDetail: async (_gameId, sequenceNumber) => ({
+      data: linesDetail(sequenceNumber, {
+        countMatches: [],
+        expandedSymbolCodes: Array.from({ length: 15 }, (_, index) =>
+          [1, 3, 4].includes(index % 5) ? 'K' : 'cherry',
+        ),
+        expansion: {
+          columnCount: 3,
+          columns: [1, 3, 4],
+          linePayoutCredits: 10,
+          paylineCount: 5,
+          payoutCredits: 50,
+          symbolCode: 'K',
+        },
+        matches: [],
+        mode: 'super',
+        payoutCredits: 50,
+        payoutKind: 'exact',
+        rules: seriesRules,
+        spinCostCredits: 0,
+      }),
+    }),
+  };
+  const root = await renderWorkspaceWithResults(client);
+  await toggleDetails(approximateWinDetails(), true);
+  await eventually(
+    () =>
+      document.querySelectorAll('.boardSearchApproximateWin tbody tr')
+        .length === 2,
+    'both series rows render',
+  );
+  const cells = [
+    ...document.querySelectorAll(
+      '.boardSearchApproximateWin tbody tr td:nth-child(3)',
+    ),
+  ].map((node) => node.textContent);
+  assert.match(cells[0], /darmowy spin/);
+  assert.doesNotMatch(cells[0], /prowizoryczny/);
+  assert.match(cells[1], /prowizoryczny/);
+  assert.match(
+    document.querySelector(
+      '[data-testid="approximate-win-provisional-summary"]',
+    ).textContent,
+    /Wyniki prowizoryczne \(supergra\): 1 plansza, razem .*Nie są wliczone do wypłat ani bilansu/,
+  );
+
+  await click(
+    document.querySelector(
+      'button[aria-label="Pokaż planszę #12 z liniami wypłat"]',
+    ),
+  );
+  await eventually(
+    () =>
+      document.querySelector('[data-testid="board-lines-expansion"]') !== null,
+    'the modal shows the expansion row',
+  );
+  assert.match(
+    document.querySelector('[data-testid="board-lines-expansion"]').textContent,
+    /Rozwinięcie Król ×3 kolumny → .* × 5 linii = /,
+  );
+  // Three covered columns of three rows each.
+  assert.equal(
+    document.querySelectorAll('.boardSearchBoardLinesExpanded').length,
+    9,
+  );
+  assert.match(
+    document.querySelector('#board-lines-title').parentElement.textContent,
+    /darmowy spin/,
+  );
+  await act(async () => root.unmount());
+});

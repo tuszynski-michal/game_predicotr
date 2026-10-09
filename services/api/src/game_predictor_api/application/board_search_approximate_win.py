@@ -20,10 +20,11 @@ from dataclasses import dataclass
 from typing import Protocol
 from uuid import UUID
 
-from game_predictor_worker.domain.contracts import GameConfig, PayoutEvaluation
+from game_predictor_worker.domain.contracts import CountMatch, GameConfig, PayoutEvaluation
 from game_predictor_worker.domain.errors import DomainValidationError
 from game_predictor_worker.domain.payout import PreparedPayoutEvaluator, prepare_payout_evaluator
 from game_predictor_worker.domain.signature import MAX_SIGNATURE_CELL_WIDTH
+from game_predictor_worker.domain.super_games import SeriesBoardEvaluation
 from game_predictor_worker.payouts.contracts import RulesPayoutConfiguration
 
 from game_predictor_api.application.super_game_markers import SuperGameMarkerSource
@@ -37,6 +38,10 @@ from game_predictor_api.domain.board_search_approximate_win import (
 )
 from game_predictor_api.domain.board_search_board_detail import BoardCountMatch
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.domain.sequence_mode_projection import (
+    PositionMode,
+    SequenceModeProjection,
+)
 from game_predictor_api.domain.super_game_markers import SuperGameMarkers
 
 # The board-search projection this calculator reads is fixed to the same
@@ -64,6 +69,8 @@ class RulesConfigurationSource(Protocol):
 
 
 class BoardSearchApproximateWinRepository(Protocol):
+    def begin_read_snapshot(self) -> None: ...
+
     def game_sequence_length(self, game_id: UUID) -> int: ...
 
     def latest_published_rules(self, game_id: UUID) -> RulesPayoutConfiguration | None: ...
@@ -105,9 +112,17 @@ class BoardSearchApproximateWinService:
         self,
         repository: BoardSearchApproximateWinRepository,
         super_game_markers: SuperGameMarkerSource | None = None,
+        *,
+        read_snapshot: bool = False,
     ) -> None:
+        """``read_snapshot`` starts every calculation as one REPEATABLE READ
+        snapshot of the request session (rules, boards, markers and state read
+        together, audit TASK-0936 P0-3); a caller that already runs inside a
+        snapshot (management stake save) leaves it off."""
+
         self._repository = repository
         self._super_game_markers = super_game_markers
+        self._read_snapshot = read_snapshot
 
     def calculate(
         self,
@@ -128,18 +143,19 @@ class BoardSearchApproximateWinService:
                 ),
             )
 
+        if self._read_snapshot:
+            self._repository.begin_read_snapshot()
         sequence_length = self._repository.game_sequence_length(game_id)
         # Validates start_sequence_number/sequence_length and applies the
         # same full-cycle clamp as calculate_approximate_win itself; cheap
         # to call twice (pure, no I/O) and lets us fail fast before the
         # rules lookup below.
-        evaluated_spin_count = len(
-            plan_approximate_win_positions(
-                start_sequence_number=start_sequence_number,
-                requested_spin_count=requested_spin_count,
-                sequence_length=sequence_length,
-            )
+        positions = plan_approximate_win_positions(
+            start_sequence_number=start_sequence_number,
+            requested_spin_count=requested_spin_count,
+            sequence_length=sequence_length,
         )
+        evaluated_spin_count = len(positions)
 
         configuration = resolve_rules_configuration(self._repository, game_id, rules_version_id)
         evaluator = prepare_approximate_win_evaluator(game_id, configuration)
@@ -187,6 +203,30 @@ class BoardSearchApproximateWinService:
                 count_matches=board_count_matches(evaluation, configuration),
             )
 
+        # One marker read (one statement, one snapshot) gives the mode of every
+        # evaluated position, the winning rows' markers and the generation's
+        # freshness (TASK-0936 reuses the TASK-0935 marker query).
+        super_game = (
+            None
+            if self._super_game_markers is None
+            else self._super_game_markers.markers(game_id, set(positions))
+        )
+        modes = (
+            None
+            if super_game is None
+            else SequenceModeProjection(markers=super_game, spin_cost=configuration.spin_cost)
+        )
+
+        def evaluate_super(
+            cells: Sequence[int], mode: PositionMode
+        ) -> ApproximateWinSpinEvaluation:
+            series = evaluate_position_series_board(cells, mode, modes, evaluator, configuration)
+            return ApproximateWinSpinEvaluation(
+                payout_credits=series.total_payout,
+                count_matches=count_matches_with_codes(series.count_matches, configuration),
+                payout_kind=str(series.payout_kind),
+            )
+
         try:
             result = calculate_approximate_win(
                 start_sequence_number=start_sequence_number,
@@ -195,6 +235,8 @@ class BoardSearchApproximateWinService:
                 documents=documents,
                 evaluate=evaluate,
                 spin_cost=configuration.spin_cost,
+                modes=modes,
+                evaluate_super=evaluate_super,
             )
         except DomainValidationError as error:
             raise BoardSearchError(
@@ -205,13 +247,6 @@ class BoardSearchApproximateWinService:
                 ),
             ) from error
 
-        super_game = (
-            None
-            if self._super_game_markers is None
-            else self._super_game_markers.markers(
-                game_id, {row.sequence_number for row in result.rows}
-            )
-        )
         return ApproximateWinCalculation(
             game_id=game_id,
             data_source=data_source,
@@ -260,6 +295,13 @@ def board_count_matches(
 ) -> tuple[BoardCountMatch, ...]:
     """Count payouts of super game trigger symbols with their catalog codes."""
 
+    return count_matches_with_codes(evaluation.count_matches, configuration)
+
+
+def count_matches_with_codes(
+    count_matches: Sequence[CountMatch],
+    configuration: RulesPayoutConfiguration,
+) -> tuple[BoardCountMatch, ...]:
     codes = {symbol.mobile_code: symbol.code for symbol in configuration.symbols}
     return tuple(
         BoardCountMatch(
@@ -268,7 +310,32 @@ def board_count_matches(
             cells=tuple(match.matched_cells),
             payout_credits=match.payout_credits,
         )
-        for match in evaluation.count_matches
+        for match in count_matches
+    )
+
+
+def evaluate_position_series_board(
+    cells: Sequence[int],
+    mode: PositionMode,
+    modes: SequenceModeProjection | None,
+    evaluator: PreparedPayoutEvaluator,
+    configuration: RulesPayoutConfiguration,
+) -> SeriesBoardEvaluation:
+    """Evaluate a `super` position with its kind's series board evaluation.
+
+    The super symbol is identified by its catalog code; a code outside the
+    evaluated rules version is treated as undefined (provisional result).
+    """
+
+    kind = None if modes is None else modes.kind
+    if kind is None or kind.evaluate_series_board is None:
+        raise ValueError("A super mode position needs a super game kind with a series evaluation.")
+    mobile_codes = {symbol.code: symbol.mobile_code for symbol in configuration.symbols}
+    super_symbol = (
+        None if mode.super_symbol_code is None else mobile_codes.get(mode.super_symbol_code)
+    )
+    return kind.evaluate_series_board(
+        cells, super_symbol, evaluator, generation_fresh=mode.generation_fresh
     )
 
 
@@ -329,6 +396,8 @@ __all__ = [
     "RulesConfigurationSource",
     "SELECTABLE_RULES_STATUSES",
     "board_count_matches",
+    "count_matches_with_codes",
+    "evaluate_position_series_board",
     "prepare_approximate_win_evaluator",
     "resolve_rules_configuration",
 ]

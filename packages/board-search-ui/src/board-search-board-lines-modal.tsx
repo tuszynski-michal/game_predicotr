@@ -36,6 +36,8 @@ import {
   type BoardLineVisibility,
   boardCountMatches,
   boardCountedCells,
+  boardExpandedCells,
+  boardExpansionLabel,
   boardLineKey,
   boardLineOffset,
   boardLineStyles,
@@ -591,8 +593,12 @@ export function BoardSearchBoardLinesModal({
                 {displayAmount(headerValues.payoutCredits)}
                 {headerValues.payoutKind === 'confirmed_minimum'
                   ? ' · częściowa (potwierdzone minimum)'
-                  : ''}{' '}
-                · {boardStatusLabel(headerValues.boardStatus)}
+                  : ''}
+                {headerValues.payoutKind === 'provisional'
+                  ? ' · prowizoryczny (supergra: może wzrosnąć albo zmaleć)'
+                  : ''}
+                {detail?.mode === 'super' ? ' · darmowy spin' : ''} ·{' '}
+                {boardStatusLabel(headerValues.boardStatus)}
                 {headerValues.staleTableCredits !== null
                   ? ` (w tabeli ${displayAmount(headerValues.staleTableCredits)} ${headerValues.tableNote})`
                   : ''}
@@ -803,6 +809,14 @@ function BoardLinesView({
   const countMatches = boardCountMatches(detail);
   const countedCells = boardCountedCells(countMatches);
   const symbolByCode = new Map(symbols.map((symbol) => [symbol.code, symbol]));
+  // A super game series board (TASK-0936): lines were evaluated on the board
+  // with the super symbol expanded over whole columns.
+  const expansion = detail.expansion ?? null;
+  const expandedCells = boardExpandedCells(detail);
+  const expansionName =
+    expansion === null
+      ? ''
+      : (symbolByCode.get(expansion.symbolCode)?.name ?? expansion.symbolCode);
   const visibleMatches = detail.matches.filter((match) =>
     visibility.has(boardLineKey(match)),
   );
@@ -878,6 +892,30 @@ function BoardLinesView({
                   y={(centroids[index]?.y ?? 0) + cellHeight(index) * 0.15}
                 >
                   ?
+                </text>
+              </g>
+            ) : null,
+          )}
+          {cells.map((cell, index) =>
+            expandedCells.has(index) ? (
+              <g
+                aria-label={`Pole ${index + 1}: rozwinięty super symbol ${expansionName}`}
+                className="boardSearchBoardLinesExpanded"
+                key={`expanded:${index}`}
+                pointerEvents="none"
+                role="img"
+              >
+                <polygon
+                  points={pointsText(cell)}
+                  vectorEffect="non-scaling-stroke"
+                />
+                <text
+                  fontSize={cellHeight(index) * 0.34}
+                  textAnchor="middle"
+                  x={centroids[index]?.x ?? 0}
+                  y={(centroids[index]?.y ?? 0) + cellHeight(index) * 0.12}
+                >
+                  {expansionName}
                 </text>
               </g>
             ) : null,
@@ -1050,8 +1088,34 @@ function BoardLinesView({
             Ukryj wszystkie
           </button>
         </div>
+        {expansion !== null ? (
+          <section
+            aria-label="Rozwinięcie super symbolu"
+            className="boardSearchBoardLinesExpansion"
+          >
+            <h3>Supergra: rozwinięcie</h3>
+            <p data-testid="board-lines-expansion">
+              <span
+                aria-hidden="true"
+                className="boardSearchBoardLinesExpansionSwatch"
+              />
+              <strong>
+                {boardExpansionLabel(expansion, expansionName, formatAmount)}
+              </strong>
+            </p>
+            <p className="boardSearchBoardLinesNote">
+              Kolumny z super symbolem są wypełnione w całości i przykrywają
+              symbole pod spodem; linie liczone są na planszy rozwiniętej, a
+              sztuki na planszy oryginalnej.
+            </p>
+          </section>
+        ) : null}
         {detail.matches.length === 0 ? (
-          <p>Ta plansza nie ma wygrywającej linii.</p>
+          <p>
+            {expansion !== null
+              ? 'Poza rozwinięciem ta plansza nie ma wygrywającej linii.'
+              : 'Ta plansza nie ma wygrywającej linii.'}
+          </p>
         ) : (
           <ul>
             {detail.matches.map((match) => {

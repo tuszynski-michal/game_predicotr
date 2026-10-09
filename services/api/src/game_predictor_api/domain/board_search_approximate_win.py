@@ -24,6 +24,11 @@ from dataclasses import dataclass
 
 from game_predictor_api.domain.board_search import BOARD_SEARCH_CELL_COUNT, BoardSearchError
 from game_predictor_api.domain.board_search_board_detail import BoardCountMatch
+from game_predictor_api.domain.sequence_mode_projection import (
+    PositionMode,
+    SequenceMode,
+    SequenceModeProjection,
+)
 
 # Reuse the same 3x5 cell count as partial board search: both read the same
 # `image_board_search_fast_documents` projection.
@@ -73,11 +78,17 @@ class ApproximateWinRow:
     cumulative_balance_credits: int
     payout_kind: str
     """`"exact"` for a complete board, `"confirmed_minimum"` for a partial
-    board whose visible prefix already guarantees this payout."""
+    board whose visible prefix already guarantees this payout, `"provisional"`
+    for a super game series board whose result can still grow or shrink
+    (D-537); a provisional payout is not part of the cumulative payout."""
     board_status: str
     count_matches: tuple[BoardCountMatch, ...] = ()
     """Count payouts of super game trigger symbols, already included in
     `payout_credits` (`payout-v4-wild-count`); empty for other games."""
+    mode: SequenceMode = SequenceMode.BASE
+    spin_cost_credits: int = 0
+    """The cost of this spin: the rules' spin cost in base mode, the free spin
+    cost of the super game kind in a series (TASK-0936)."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,13 +98,23 @@ class ApproximateWinSpinEvaluation:
 
     payout_credits: int
     count_matches: tuple[BoardCountMatch, ...] = ()
+    payout_kind: str | None = None
+    """`None` derives `exact`/`confirmed_minimum` from the board's
+    completeness (base mode); a series evaluation sets `exact` or
+    `provisional` itself."""
 
 
 @dataclass(frozen=True, slots=True)
 class ApproximateWinSummary:
+    """`recognized_payout_credits` sums `exact` and `confirmed_minimum`
+    payouts only; `provisional` payouts (super game series boards whose result
+    can still change, D-537) are summed apart and never enter the balance."""
+
     recognized_payout_credits: int
     spin_cost_credits: int
     balance_credits: int
+    provisional_count: int = 0
+    provisional_payout_credits: int = 0
 
 
 @dataclass(frozen=True, slots=True)
@@ -118,6 +139,21 @@ class ApproximateWinResult:
     completeness: ApproximateWinCompleteness
     rows: tuple[ApproximateWinRow, ...]
     data_fingerprint_sha256: str
+    super_spin_ranges: tuple[tuple[int, int], ...] = ()
+    """Inclusive spin-number ranges evaluated in super mode (free spins);
+    empty for a game without a super game kind."""
+    super_spin_cost: int = 0
+    """Cost of one super mode spin (the kind's free spin cost)."""
+
+
+def _spin_ranges(spin_numbers: Sequence[int]) -> tuple[tuple[int, int], ...]:
+    ranges: list[tuple[int, int]] = []
+    for spin in spin_numbers:
+        if ranges and ranges[-1][1] == spin - 1:
+            ranges[-1] = (ranges[-1][0], spin)
+        else:
+            ranges.append((spin, spin))
+    return tuple(ranges)
 
 
 def plan_approximate_win_positions(
@@ -165,8 +201,16 @@ def calculate_approximate_win(
     documents: Sequence[ApproximateWinDocument],
     evaluate: Callable[[Sequence[int]], int | ApproximateWinSpinEvaluation],
     spin_cost: int,
+    modes: SequenceModeProjection | None = None,
+    evaluate_super: Callable[[Sequence[int], PositionMode], ApproximateWinSpinEvaluation]
+    | None = None,
 ) -> ApproximateWinResult:
     """Calculate the approximate-win range `S+1..S+N`.
+
+    `modes` (TASK-0936) gives every position its mode: a `super` position
+    costs its free spin cost and is evaluated with `evaluate_super`; without
+    `modes` (or for a game without a super game kind) every position is
+    `base` and costs `spin_cost`, exactly as before.
 
     A missing position (no document) never calls `evaluate`: it contributes
     its spin cost and zero recognized payout, and counts toward
@@ -199,23 +243,39 @@ def calculate_approximate_win(
     complete_count = 0
     partial_count = 0
     missing_count = 0
+    provisional_count = 0
+    provisional_payout = 0
     cumulative_payout = 0
     cumulative_cost = 0
     rows: list[ApproximateWinRow] = []
     fingerprint_parts: list[str] = []
+    super_spins: list[int] = []
+    super_spin_cost = 0
 
     for spin_number, sequence_number in enumerate(positions, start=1):
-        cumulative_cost += spin_cost
+        position_mode = None if modes is None else modes.at(sequence_number)
+        is_super = position_mode is not None and position_mode.is_super
+        position_cost = spin_cost if position_mode is None else position_mode.spin_cost_credits
+        cumulative_cost += position_cost
         document = documents_by_sequence.get(sequence_number)
+        # Only series positions extend the fingerprint, so a game without a
+        # super game kind keeps its fingerprint byte-identical.
+        mode_part = ""
+        if is_super and position_mode is not None:
+            super_spins.append(spin_number)
+            super_spin_cost = position_cost
+            freshness = "fresh" if position_mode.generation_fresh else "stale"
+            mode_part = f":super:{position_mode.super_symbol_code or '-'}:{freshness}"
 
         if document is None:
             missing_count += 1
-            fingerprint_parts.append(f"{sequence_number}:missing")
+            fingerprint_parts.append(f"{sequence_number}:missing{mode_part}")
             continue
 
         fingerprint_parts.append(
             f"{sequence_number}:{document.status}:{document.board_checksum_sha256}:"
             + ",".join("?" if code is None else str(code) for code in document.mobile_codes)
+            + mode_part
         )
 
         if document.is_complete:
@@ -226,14 +286,34 @@ def calculate_approximate_win(
         cells = tuple(
             _UNKNOWN_MOBILE_CODE if code is None else code for code in document.mobile_codes
         )
-        evaluation = evaluate(cells)
+        evaluation: int | ApproximateWinSpinEvaluation
+        if is_super and position_mode is not None:
+            if evaluate_super is None:
+                raise ValueError("A super mode position needs evaluate_super.")
+            evaluation = evaluate_super(cells, position_mode)
+        else:
+            evaluation = evaluate(cells)
+        payout_kind: str | None = None
         if isinstance(evaluation, ApproximateWinSpinEvaluation):
             payout_credits = evaluation.payout_credits
             count_matches = evaluation.count_matches
+            payout_kind = evaluation.payout_kind
         else:
             payout_credits = evaluation
             count_matches = ()
-        cumulative_payout += payout_credits
+        if payout_kind is None:
+            payout_kind = "exact" if document.is_complete else "confirmed_minimum"
+        if position_mode is not None and not position_mode.generation_fresh:
+            # A stale series generation (`superGameState.fresh = false`) makes
+            # every board of the game provisional: a new trigger may already
+            # have put a base-mode board into a series (lead decision on
+            # TASK-0936, plan). A game without a super game kind is always fresh.
+            payout_kind = "provisional"
+        if payout_kind == "provisional":
+            provisional_count += 1
+            provisional_payout += payout_credits
+        else:
+            cumulative_payout += payout_credits
 
         if payout_credits > 0:
             rows.append(
@@ -244,9 +324,11 @@ def calculate_approximate_win(
                     cumulative_payout_credits=cumulative_payout,
                     cumulative_cost_credits=cumulative_cost,
                     cumulative_balance_credits=cumulative_payout - cumulative_cost,
-                    payout_kind="exact" if document.is_complete else "confirmed_minimum",
+                    payout_kind=payout_kind,
                     board_status=document.status,
                     count_matches=count_matches,
+                    mode=SequenceMode.SUPER if is_super else SequenceMode.BASE,
+                    spin_cost_credits=position_cost,
                 )
             )
 
@@ -264,6 +346,8 @@ def calculate_approximate_win(
             recognized_payout_credits=cumulative_payout,
             spin_cost_credits=cumulative_cost,
             balance_credits=cumulative_payout - cumulative_cost,
+            provisional_count=provisional_count,
+            provisional_payout_credits=provisional_payout,
         ),
         completeness=ApproximateWinCompleteness(
             complete_board_count=complete_count,
@@ -272,6 +356,8 @@ def calculate_approximate_win(
         ),
         rows=tuple(rows),
         data_fingerprint_sha256=fingerprint,
+        super_spin_ranges=_spin_ranges(super_spins),
+        super_spin_cost=super_spin_cost,
     )
 
 

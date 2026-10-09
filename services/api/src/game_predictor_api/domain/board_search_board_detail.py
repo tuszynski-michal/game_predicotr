@@ -33,7 +33,7 @@ BOARD_VIEW_MAX_SIDE = 1280
 BOARD_VIEW_RENDERER_VERSION = "board-search-view-v1"
 BOARD_VIEW_MAX_CROP_PIXELS = 60_000_000
 
-BoardPayoutKind = Literal["exact", "confirmed_minimum", "none"]
+BoardPayoutKind = Literal["exact", "confirmed_minimum", "provisional", "none"]
 
 Point = tuple[float, float]
 Quad = tuple[Point, Point, Point, Point]
@@ -110,6 +110,20 @@ class BoardCountMatch:
     symbol_code: str
     count: int
     cells: tuple[int, ...]
+    payout_credits: int
+
+
+@dataclass(frozen=True, slots=True)
+class BoardExpansion:
+    """The super symbol expanded over whole columns of a series board
+    (`wild_super_spins`, D-537): `payout_credits = line_payout_credits ×
+    payline_count`, replacing the super symbol's own line wins."""
+
+    symbol_code: str
+    columns: tuple[int, ...]
+    column_count: int
+    line_payout_credits: int
+    payline_count: int
     payout_credits: int
 
 
@@ -371,6 +385,7 @@ __all__ = [
     "BOARD_VIEW_PADDING_FACTOR",
     "BOARD_VIEW_RENDERER_VERSION",
     "BoardCountMatch",
+    "BoardExpansion",
     "BoardPayoutKind",
     "BoardSearchBoardCell",
     "BoardSearchBoardDocument",

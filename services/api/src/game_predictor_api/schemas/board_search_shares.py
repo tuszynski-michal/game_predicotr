@@ -40,6 +40,7 @@ from game_predictor_api.schemas.board_search_approximate_win import (
     ApproximateWinRulesResponse,
     BoardSearchBoardViewResponse,
     BoardSearchCountMatchResponse,
+    BoardSearchExpansionResponse,
     BoardSearchLineMatchResponse,
 )
 from game_predictor_api.schemas.catalog import ApiModel
@@ -315,9 +316,13 @@ class BoardSearchSharePublicBoardDetailResponse(ApiModel):
     rules: ApproximateWinRulesResponse
     symbol_codes: tuple[str | None, ...]
     payout_credits: int
-    payout_kind: Literal["exact", "confirmed_minimum", "none"]
+    payout_kind: Literal["exact", "confirmed_minimum", "provisional", "none"]
     matches: tuple[BoardSearchLineMatchResponse, ...]
     count_matches: tuple[BoardSearchCountMatchResponse, ...]
+    mode: Literal["base", "super"] = "base"
+    spin_cost_credits: int | None = Field(default=None, ge=0)
+    expanded_symbol_codes: tuple[str | None, ...] | None = None
+    expansion: BoardSearchExpansionResponse | None = None
     view: BoardSearchBoardViewResponse | None
     document_stale: bool
     cells: tuple[BoardSearchSharePublicCellResponse, ...] | None

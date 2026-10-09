@@ -671,6 +671,55 @@
   background: rgb(255 159 28 / 18%);
 }
 
+/* TASK-0936: super symbol expanded over whole columns of a series board. */
+.boardSearchBoardLinesExpanded polygon {
+  fill: rgb(155 93 229 / 30%);
+  stroke: #9b5de5;
+  stroke-width: 2;
+}
+
+.boardSearchBoardLinesExpanded text {
+  fill: #ffffff;
+  font-weight: 800;
+  paint-order: stroke;
+  stroke: #3c1a63;
+  stroke-width: 3px;
+}
+
+.boardSearchBoardLinesExpansion {
+  display: grid;
+  gap: 6px;
+}
+
+.boardSearchBoardLinesExpansion h3 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.boardSearchBoardLinesExpansion p {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+}
+
+.boardSearchBoardLinesExpansionSwatch {
+  inline-size: 14px;
+  block-size: 14px;
+  border: 2px solid #9b5de5;
+  border-radius: 3px;
+  background: rgb(155 93 229 / 30%);
+}
+
+.boardSearchProvisionalPayout {
+  color: #9b5de5;
+  font-weight: 700;
+}
+
+.boardSearchApproximateWinFreeSpin {
+  color: var(--muted);
+}
+
 .boardSearchRulesVersion {
   display: grid;
   gap: 4px;

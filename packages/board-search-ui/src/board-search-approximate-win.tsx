@@ -30,6 +30,7 @@ import {
   type ApproximateWinState,
   approximateWinAxisTicks,
   approximateWinChartPoints,
+  approximateWinCostSchedule,
   approximateWinExtremes,
   approximateWinPointKey,
   approximateWinPointAtSpin,
@@ -620,6 +621,11 @@ function ApproximateWinResultView({
         brakujących
       </p>
 
+      <ApproximateWinProvisionalSummary
+        formatAmount={(credits) => `${whole(credits)}${unitNoun(display.unit)}`}
+        result={result}
+      />
+
       {hasIncompleteData ? (
         <p className="feedbackBanner" role="status">
           Wynik opiera się wyłącznie na dostępnych i rozpoznanych symbolach.
@@ -704,6 +710,16 @@ function ApproximateWinResultView({
                       {row.payoutKind === 'confirmed_minimum'
                         ? ' · częściowa (potwierdzone minimum)'
                         : ''}
+                      {row.payoutKind === 'provisional' ? (
+                        <small className="boardSearchProvisionalPayout">
+                          {' · prowizoryczny'}
+                        </small>
+                      ) : null}
+                      {row.mode === 'super' ? (
+                        <small className="boardSearchApproximateWinFreeSpin">
+                          {' · darmowy spin'}
+                        </small>
+                      ) : null}
                       {(row.countMatches ?? []).length > 0 ? (
                         <small className="boardSearchApproximateWinCounts">
                           {' · w tym sztuki: '}
@@ -771,6 +787,34 @@ function ApproximateWinResultView({
         </>
       )}
     </>
+  );
+}
+
+/**
+ * Super game series boards whose payout can still grow or shrink (TASK-0936):
+ * counted apart from the recognized payouts and outside the balance.
+ */
+export function ApproximateWinProvisionalSummary({
+  formatAmount,
+  result,
+}: {
+  readonly formatAmount: (baseCredits: number) => string;
+  readonly result: Pick<ApproximateWinResponse, 'summary'>;
+}) {
+  const count = result.summary.provisionalCount ?? 0;
+  if (count <= 0) return null;
+  return (
+    <p
+      className="feedbackBanner boardSearchProvisionalSummary"
+      data-testid="approximate-win-provisional-summary"
+      role="status"
+    >
+      Wyniki prowizoryczne (supergra): {count.toLocaleString('pl-PL')}{' '}
+      {count === 1 ? 'plansza' : 'plansz'}, razem{' '}
+      {formatAmount(result.summary.provisionalPayoutCredits ?? 0)}. Nie są
+      wliczone do wypłat ani bilansu: po zdefiniowaniu super symbolu,
+      przeliczeniu serii albo uzupełnieniu planszy mogą wzrosnąć albo zmaleć.
+    </p>
   );
 }
 
@@ -955,10 +999,16 @@ export function ApproximateWinBalanceChart({
     );
   }
 
-  const points = approximateWinChartPoints(rows, {
-    balanceCredits: result.summary.balanceCredits,
-    spinNumber: result.evaluatedSpinCount,
-  });
+  // Exact cost of every spin, free spins of a super game series included.
+  const costs = approximateWinCostSchedule(result);
+  const points = approximateWinChartPoints(
+    rows,
+    {
+      balanceCredits: result.summary.balanceCredits,
+      spinNumber: result.evaluatedSpinCount,
+    },
+    costs,
+  );
   // The point just before a payout draws the drop; only real states get a label.
   const labelPoints = points.filter((point) => point.kind !== 'before_payout');
   const finalPoint = points.at(-1);
@@ -989,7 +1039,7 @@ export function ApproximateWinBalanceChart({
     labelAmount(
       controlled && point.spinNumber === 0
         ? 0
-        : approximateWinStakeToPoint(rows, spinCost, point),
+        : approximateWinStakeToPoint(rows, costs, point),
     );
   // Stake plus net cash is what is on the machine, always in whole credits
   // whatever the unit (TASK-0787).
@@ -997,7 +1047,7 @@ export function ApproximateWinBalanceChart({
     whole(
       controlled && point.spinNumber === 0
         ? 0
-        : approximateWinMachineCashAtPoint(rows, spinCost, point),
+        : approximateWinMachineCashAtPoint(rows, costs, point),
       'credits',
     );
   const yTicks = approximateWinAxisTicks(

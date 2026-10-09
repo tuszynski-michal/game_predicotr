@@ -72,6 +72,87 @@ test('search results are mapped to the Admin shape and cached for five minutes',
   assert.equal(calls[0], '/search?cell=0%3AA&limit=5');
 });
 
+const publicMarker = {
+  completeness: 'complete',
+  kind: 'in_series',
+  runVerification: 'verified',
+  seriesLength: 10,
+  spinIndex: 3,
+  superSymbolCode: 'K',
+};
+
+test('super game markers and the state pass through without a series identity', async () => {
+  const body = {
+    ...searchBody,
+    results: [{ ...searchBody.results[0], superGame: publicMarker }],
+    superGameState: { fresh: true, generationInputVersion: 4, inputVersion: 4 },
+  };
+  const { dataSource } = source(() => ({ body }));
+  const found = await dataSource.searchGameBoards('shared', {
+    cells: [{ cellIndex: 0, symbolCode: 'A' }],
+  });
+  assert.deepEqual(found.data.results[0].superGame, publicMarker);
+  assert.equal('seriesId' in found.data.results[0].superGame, false);
+  assert.deepEqual(found.data.superGameState, body.superGameState);
+  // Boards outside every series keep the historical shape.
+  const plain = await source(() => ({
+    body: searchBody,
+  })).dataSource.searchGameBoards('shared', {
+    cells: [{ cellIndex: 0, symbolCode: 'A' }],
+  });
+  assert.equal('superGame' in plain.data.results[0], false);
+  assert.equal('superGameState' in plain.data, false);
+});
+
+test('a re-search after the super symbol changed returns the new marker', async () => {
+  let symbol = null;
+  const { calls, dataSource } = source(() => ({
+    body: {
+      ...searchBody,
+      results: [
+        {
+          ...searchBody.results[0],
+          superGame: { ...publicMarker, superSymbolCode: symbol },
+        },
+      ],
+      superGameState: {
+        fresh: true,
+        generationInputVersion: 4,
+        inputVersion: 4,
+      },
+    },
+  }));
+  const options = { cells: [{ cellIndex: 0, symbolCode: 'A' }] };
+  const first = await dataSource.searchGameBoards('shared', options);
+  assert.equal(first.data.results[0].superGame.superSymbolCode, null);
+  symbol = 'K';
+  const second = await dataSource.searchGameBoards('shared', options);
+  assert.equal(calls.length, 2, 'an answer with a marker is never cached');
+  assert.equal(second.data.results[0].superGame.superSymbolCode, 'K');
+});
+
+test('an answer while the series are recalculated is not cached', async () => {
+  let fresh = false;
+  const { calls, dataSource } = source(() => ({
+    body: {
+      ...searchBody,
+      superGameState: {
+        fresh,
+        generationInputVersion: 4,
+        inputVersion: fresh ? 4 : 5,
+      },
+    },
+  }));
+  const options = { cells: [{ cellIndex: 0, symbolCode: 'A' }] };
+  await dataSource.searchGameBoards('shared', options);
+  await dataSource.searchGameBoards('shared', options);
+  assert.equal(calls.length, 2, 'a stale generation is asked for again');
+  fresh = true;
+  await dataSource.searchGameBoards('shared', options);
+  await dataSource.searchGameBoards('shared', options);
+  assert.equal(calls.length, 3, 'a fresh answer is cached again');
+});
+
 test('the search cache keeps at most 50 patterns', async () => {
   const { calls, dataSource } = source(() => ({ body: searchBody }));
   for (let index = 0; index <= SEARCH_CACHE_MAX_ENTRIES; index += 1) {

@@ -922,3 +922,51 @@
   color: var(--danger, #ff8a8a);
   fill: var(--danger, #ff8a8a);
 }
+
+/*
+ * TASK-0935: gold super game marker (D-535). Used only on result cards and
+ * approximate-win rows; the board lines window keeps its own orange (counted
+ * cells) and yellow (selected cell) highlights, so the three never share a
+ * surface.
+ */
+.boardSearchResultsSuperGame {
+  border-color: #e8b923;
+  box-shadow:
+    inset 0 0 0 1px rgb(232 185 35 / 55%),
+    0 0 16px rgb(232 185 35 / 18%);
+}
+
+.boardSearchSuperGameRow > td {
+  background: rgb(232 185 35 / 10%);
+}
+
+.boardSearchSuperGameRow > td:first-child {
+  box-shadow: inset 3px 0 0 #e8b923;
+}
+
+.boardSearchSuperGame {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px 10px;
+}
+
+.boardSearchSuperGameLabel,
+.boardSearchSuperGameLink {
+  color: #e8b923;
+  font-weight: 700;
+}
+
+.boardSearchSuperGameLink {
+  text-decoration: underline;
+}
+
+.boardSearchSuperGameSpin,
+.boardSearchSuperGameNote {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.boardSearchSuperGameStale {
+  border-color: var(--warning, #f2c66d);
+}

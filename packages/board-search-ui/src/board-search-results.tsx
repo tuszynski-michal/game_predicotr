@@ -5,6 +5,7 @@
 
 import type {
   BoardSearchResponse,
+  SuperGameStateResponse,
   SymbolResponse,
 } from '@game-predictor/admin-api-client';
 import { type KeyboardEvent, useEffect, useRef, useState } from 'react';
@@ -19,6 +20,10 @@ import type {
   BoardSearchCorrectionContext,
 } from './board-search-data-source';
 import type { BoardSearchRulesVersionOption } from './board-search-rules-versions';
+import {
+  SuperGameMarkerBadge,
+  SuperGameStateBanner,
+} from './board-search-super-game-marker';
 import {
   formatApproximateWinAmount,
   loadApproximateWinDisplay,
@@ -40,6 +45,7 @@ type BoardSearchResultsClient = BoardLinesClient &
     | 'boardSearchBoardViewUrl'
     | 'getOperationalImageReviewItem'
     | 'operationalImageReviewBoardAssetUrl'
+    | 'superGameSeriesHref'
   >;
 type BoardSearchResult = BoardSearchResponse['results'][number];
 
@@ -55,6 +61,8 @@ interface BoardSearchResultsProps {
   readonly correctionContext?: BoardSearchCorrectionContext;
   /** Admin-only „Wersja reguł” choice in the board window (D-535). */
   readonly rulesVersions?: readonly BoardSearchRulesVersionOption[] | null;
+  /** Freshness of the series generation behind the markers (TASK-0935). */
+  readonly superGameState?: SuperGameStateResponse | null;
 }
 
 export function BoardSearchResults({
@@ -67,6 +75,7 @@ export function BoardSearchResults({
   fixedStakeGrosze,
   correctionContext,
   rulesVersions = null,
+  superGameState = null,
 }: BoardSearchResultsProps) {
   const current = activeBoardSearchResult(state);
   const [boardOpen, setBoardOpen] = useState(false);
@@ -101,6 +110,7 @@ export function BoardSearchResults({
   if (current === null) {
     return (
       <section className="boardSearchResults" aria-live="polite">
+        <SuperGameStateBanner state={superGameState} />
         <h2>Wyniki wyszukiwania</h2>
         <p>Żadna plansza nie ma dodatniego dopasowania do wskazanego wzoru.</p>
       </section>
@@ -110,10 +120,15 @@ export function BoardSearchResults({
   return (
     <section
       aria-label="Wyniki wyszukiwania plansz"
-      className="boardSearchResults"
+      className={
+        current.superGame
+          ? 'boardSearchResults boardSearchResultsSuperGame'
+          : 'boardSearchResults'
+      }
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
+      <SuperGameStateBanner state={superGameState} />
       <header>
         <div>
           <p className="eyebrow">Wyniki wyszukiwania</p>
@@ -132,6 +147,14 @@ export function BoardSearchResults({
           </div>
         </dl>
       </header>
+
+      {current.superGame ? (
+        <SuperGameMarkerBadge
+          gameId={gameId}
+          marker={current.superGame}
+          seriesHref={api.superGameSeriesHref}
+        />
+      ) : null}
 
       <BoardCrop
         api={api}

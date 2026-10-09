@@ -27,6 +27,7 @@ _FORBIDDEN = frozenset(
         "authorization",
         "cookie",
         "reviewitemid",
+        "seriesid",
         "recognizedboardid",
         "importjobid",
         "cellreviewid",

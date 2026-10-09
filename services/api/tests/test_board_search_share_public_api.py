@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
+from game_predictor_api.application.board_search import BoardSearchOutcome
 from game_predictor_api.application.board_search_approximate_win import (
     BoardSearchApproximateWinService,
 )
@@ -36,6 +37,7 @@ from game_predictor_api.domain.board_search_shares import (
     BOARD_SEARCH_SHARE_PROXY_INTENT,
 )
 from game_predictor_api.domain.catalog import CatalogNotFoundError, Symbol, SymbolStatus
+from game_predictor_api.domain.super_game_markers import NO_SUPER_GAME_STATE, SuperGameMarkers
 from game_predictor_api.main import create_app
 from game_predictor_api.storage.board_search_share_query_repository import (
     InMemoryBoardSearchShareQueryLog,
@@ -94,6 +96,8 @@ FORBIDDEN_KEYS = frozenset(
         "tokenhash",
         "codehash",
         "codesalt",
+        # TASK-0935: the series identity is Admin-only.
+        "seriesid",
     }
 )
 
@@ -160,8 +164,17 @@ class FakeReferences:
 
 
 class FakeSearch:
-    def __init__(self) -> None:
+    def __init__(self, super_game: SuperGameMarkers | None = None) -> None:
         self.calls: list[dict[str, object]] = []
+        self.super_game = super_game or SuperGameMarkers(state=NO_SUPER_GAME_STATE)
+
+    def search_with_super_game(
+        self, *, game_id: UUID, cells: Any, scope: Any, limit: int
+    ) -> BoardSearchOutcome:
+        return BoardSearchOutcome(
+            results=self.search(game_id=game_id, cells=cells, scope=scope, limit=limit),
+            super_game=self.super_game,
+        )
 
     def search(self, *, game_id: UUID, cells: Any, scope: Any, limit: int) -> Any:
         self.calls.append({"gameId": game_id, "cells": cells, "limit": limit})
@@ -198,6 +211,16 @@ class FakeView:
         return Asset(revision="e" * 64, content=b"RIFFwebp", media_type="image/webp")
 
 
+class FixedMarkerSource:
+    """Serves a fixed published generation, whatever the positions asked."""
+
+    def __init__(self, markers: SuperGameMarkers) -> None:
+        self._markers = markers
+
+    def markers(self, game_id: UUID, positions: Any) -> SuperGameMarkers:
+        return self._markers
+
+
 @dataclass
 class Harness:
     app: FastAPI
@@ -211,6 +234,7 @@ def _harness(
     tmp_path: Path,
     *,
     limits: dict[BoardSearchShareRequestKind, int] | None = None,
+    super_game: SuperGameMarkers | None = None,
 ) -> Harness:
     clock = [NOW]
     repository = InMemoryBoardSearchShareRepository()
@@ -218,7 +242,7 @@ def _harness(
         repository, readiness=lambda game_id: None, enabled=True, now=lambda: clock[0]
     )
     log = InMemoryBoardSearchShareQueryLog()
-    search = FakeSearch()
+    search = FakeSearch(super_game)
     range_repository = MemoryBoardSearchApproximateWinRepository(
         RANGE_GAME_ID,
         configuration=range_configuration(),
@@ -245,7 +269,10 @@ def _harness(
         symbol_reference_service_dependency=FakeReferences,
         board_search_service_dependency=lambda: search,
         board_search_approximate_win_service_dependency=(
-            lambda: BoardSearchApproximateWinService(range_repository)
+            lambda: BoardSearchApproximateWinService(
+                range_repository,
+                None if super_game is None else FixedMarkerSource(super_game),
+            )
         ),
         board_search_board_detail_service_dependency=(
             lambda: BoardSearchBoardDetailService(detail_repository)

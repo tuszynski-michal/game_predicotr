@@ -16,7 +16,10 @@ from game_predictor_api.domain.board_search_share_queries import (
 from game_predictor_api.domain.catalog import GameStatus
 from game_predictor_api.domain.management import ManagementCommand, ManagementError
 from game_predictor_api.domain.management_stakes import MANAGEMENT_STAKES
-from game_predictor_api.schemas.board_search_approximate_win import ApproximateWinResponse
+from game_predictor_api.schemas.board_search_approximate_win import (
+    ApproximateWinResponse,
+    apply_super_game_markers,
+)
 from game_predictor_api.schemas.board_search_shares import (
     BoardSearchShareCellCorrectionResponse,
     BoardSearchSharePublicBoardDetailResponse,
@@ -593,7 +596,15 @@ class SqlAlchemyManagementStakeRepository:
     ) -> ApproximateWinResponse:
         self._target(machine_id, game_id)
         _digest, payload, _summary = self.adapter.snapshot(game_id, start, count)
-        return expand_result(payload)
+        result = expand_result(payload)
+        # The frozen snapshot carries no markers; the live preview reads them
+        # (and the generation's freshness) next to it.
+        return apply_super_game_markers(
+            result,
+            self.adapter.super_game_row_markers(
+                game_id, {row.sequence_number for row in result.rows}
+            ),
+        )
 
     def correct(
         self,

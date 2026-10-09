@@ -90,6 +90,7 @@ from game_predictor_api.schemas.board_search_shares import (
     to_board_search_share_public_search_response,
 )
 from game_predictor_api.schemas.catalog import ErrorResponse
+from game_predictor_api.schemas.super_game_markers import PUBLIC_APPROXIMATE_WIN_EXCLUDE
 from game_predictor_api.storage.game_storage_routing import game_storage_scope
 
 _T = TypeVar("_T")
@@ -357,12 +358,16 @@ def create_board_search_share_public_router(
             limit=limit,
         )
         context_ids: list[UUID | None] = []
-        results = logged(
+        outcome = logged(
             context,
             BoardSearchShareQueryKind.SEARCH,
             request,
-            lambda: search.search(game_id=context.game_id, cells=query, scope=scope, limit=limit),
-            lambda found: search_query_summary([result.sequence_number for result in found]),
+            lambda: search.search_with_super_game(
+                game_id=context.game_id, cells=query, scope=scope, limit=limit
+            ),
+            lambda found: search_query_summary(
+                [result.sequence_number for result in found.results]
+            ),
             on_recorded=context_ids.append,
         )
         response = to_board_search_share_public_search_response(
@@ -370,7 +375,8 @@ def create_board_search_share_public_router(
                 game_id=context.game_id,
                 scope=scope,
                 query_cell_count=len(query),
-                results=results,
+                results=outcome.results,
+                super_game=outcome.super_game,
             )
         )
         response.search_context_id = context_ids[0]
@@ -379,6 +385,7 @@ def create_board_search_share_public_router(
     @router.get(
         "/approximate-win",
         response_model=ApproximateWinResponse,
+        response_model_exclude=PUBLIC_APPROXIMATE_WIN_EXCLUDE,
         operation_id="getBoardSearchShareApproximateWin",
         summary="Calculate the approximate win for a range of the shared game",
         responses=PUBLIC_ERROR_RESPONSES,

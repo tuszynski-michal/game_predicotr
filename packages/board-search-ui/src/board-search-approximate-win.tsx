@@ -67,13 +67,19 @@ import {
 
 import { BoardSearchRulesVersionSelect } from './board-search-rules-version-select';
 import {
+  SuperGameMarkerBadge,
+  SuperGameStateBanner,
+} from './board-search-super-game-marker';
+import {
   type BoardSearchRulesVersionOption,
   boardCountMatchLabel,
 } from './board-search-rules-versions';
 
 type ApproximateWinClient = Pick<
   BoardSearchDataSource,
-  'getBoardSearchApproximateWin' | 'recordBoardSearchApproximateWinStake'
+  | 'getBoardSearchApproximateWin'
+  | 'recordBoardSearchApproximateWinStake'
+  | 'superGameSeriesHref'
 > &
   BoardLinesClient;
 
@@ -470,6 +476,7 @@ export function BoardSearchApproximateWin({
               }
             }}
             result={visibleResult}
+            superGameSeriesHref={api.superGameSeriesHref}
             symbols={symbols}
             pinnedSpinPositions={pinnedSpinPositions}
             onPinsChange={onPinsChange}
@@ -521,6 +528,7 @@ function ApproximateWinResultView({
   onBoardRequestHandled,
   onRecalculate,
   result,
+  superGameSeriesHref,
   symbols,
   pinnedSpinPositions,
   onPinsChange,
@@ -541,6 +549,8 @@ function ApproximateWinResultView({
   readonly gameId: string;
   readonly onRecalculate: () => void;
   readonly result: ApproximateWinResponse;
+  /** Admin only: link of a super game marker to the series view. */
+  readonly superGameSeriesHref?: (gameId: string, seriesId: string) => string;
   readonly symbols: readonly SymbolResponse[];
   readonly pinnedSpinPositions?: readonly number[];
   readonly onPinsChange?: (value: readonly number[]) => void;
@@ -590,6 +600,7 @@ function ApproximateWinResultView({
 
   return (
     <>
+      <SuperGameStateBanner state={result.superGameState} />
       <div className="boardSearchApproximateWinSummaryHeader">
         {result.wrappedAtSequenceEnd ? (
           <p className="feedbackBanner" role="status">
@@ -671,9 +682,23 @@ function ApproximateWinResultView({
               </thead>
               <tbody>
                 {visibleRows.map((row) => (
-                  <tr key={row.sequenceNumber}>
+                  <tr
+                    className={
+                      row.superGame ? 'boardSearchSuperGameRow' : undefined
+                    }
+                    key={row.sequenceNumber}
+                  >
                     <td>{row.spinNumber.toLocaleString('pl-PL')}</td>
-                    <td>#{row.sequenceNumber}</td>
+                    <td>
+                      #{row.sequenceNumber}
+                      {row.superGame ? (
+                        <SuperGameMarkerBadge
+                          gameId={gameId}
+                          marker={row.superGame}
+                          seriesHref={superGameSeriesHref}
+                        />
+                      ) : null}
+                    </td>
                     <td>
                       {whole(row.payoutCredits)}
                       {row.payoutKind === 'confirmed_minimum'

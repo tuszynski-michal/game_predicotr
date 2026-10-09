@@ -11,7 +11,13 @@ from game_predictor_api.application.board_search_approximate_win import Approxim
 from game_predictor_api.application.board_search_board_detail import BoardSearchBoardDetail
 from game_predictor_api.domain.board_search import BoardSearchAssetMode
 from game_predictor_api.domain.board_search_board_detail import BoardCountMatch
+from game_predictor_api.domain.super_game_markers import SuperGameMarkers
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.super_game_markers import (
+    SuperGameMarkerResponse,
+    marker_response_at,
+)
+from game_predictor_api.schemas.super_game_series import SuperGameStateResponse
 
 
 class ApproximateWinRulesResponse(ApiModel):
@@ -74,6 +80,15 @@ class ApproximateWinRowResponse(ApiModel):
             "frozen management result history."
         ),
     )
+    super_game: SuperGameMarkerResponse | None = Field(
+        default=None,
+        description=(
+            "Super game role of this board in the published series generation "
+            "(trigger or spin of a series); absent: base mode according to that "
+            "generation. Never present for a game without a super game kind or "
+            "in frozen management result history."
+        ),
+    )
 
 
 class ApproximateWinResponse(ApiModel):
@@ -90,6 +105,35 @@ class ApproximateWinResponse(ApiModel):
     summary: ApproximateWinSummaryResponse
     completeness: ApproximateWinCompletenessResponse
     rows: tuple[ApproximateWinRowResponse, ...]
+    super_game_state: SuperGameStateResponse | None = Field(
+        default=None,
+        description=(
+            "Freshness of the series generation behind the per-row markers, read "
+            "in the same snapshot; present on every live response, null only in "
+            "frozen management result history. `fresh = false`: the series are "
+            "being recalculated, so even rows without a marker may be part of a "
+            "series."
+        ),
+    )
+
+
+def apply_super_game_markers(
+    response: ApproximateWinResponse, markers: SuperGameMarkers
+) -> ApproximateWinResponse:
+    """A copy of ``response`` carrying the row markers and the generation state
+    (management preview: the frozen snapshot itself never holds markers)."""
+
+    return response.model_copy(
+        update={
+            "super_game_state": SuperGameStateResponse.from_domain(markers.state),
+            "rows": tuple(
+                row.model_copy(
+                    update={"super_game": marker_response_at(markers, row.sequence_number)}
+                )
+                for row in response.rows
+            ),
+        }
+    )
 
 
 def to_approximate_win_response(
@@ -133,8 +177,14 @@ def to_approximate_win_response(
                 payout_kind=row.payout_kind,  # type: ignore[arg-type]
                 board_status=row.board_status,
                 count_matches=_count_match_responses(row.count_matches),
+                super_game=marker_response_at(calculation.super_game, row.sequence_number),
             )
             for row in result.rows
+        ),
+        super_game_state=(
+            None
+            if calculation.super_game is None
+            else SuperGameStateResponse.from_domain(calculation.super_game.state)
         ),
     )
 
@@ -304,6 +354,7 @@ __all__ = [
     "ApproximateWinRowResponse",
     "ApproximateWinRulesResponse",
     "ApproximateWinSummaryResponse",
+    "apply_super_game_markers",
     "to_approximate_win_response",
     "to_board_search_board_detail_response",
 ]

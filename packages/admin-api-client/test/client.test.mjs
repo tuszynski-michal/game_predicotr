@@ -4179,3 +4179,49 @@ test('super game series wrappers use the game-scoped generated routes', async ()
   assert.equal(query.get('limit'), '25');
   assert.deepEqual(requests[4].body, { symbolId, expectedRevision: 2 });
 });
+
+test('board search and approximate win return the super game markers and state unchanged', async () => {
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const marker = {
+    completeness: 'incomplete',
+    kind: 'in_series',
+    runVerification: 'unverified',
+    seriesId: '33333333-3333-4333-8333-333333333333',
+    seriesLength: 10,
+    spinIndex: 5,
+    superSymbolCode: null,
+  };
+  const superGameState = {
+    fresh: false,
+    generationInputVersion: 7,
+    inputVersion: 9,
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) =>
+      Response.json(
+        new URL(request.url).pathname.endsWith('/approximate-win')
+          ? {
+              rows: [{ sequenceNumber: 105, superGame: marker }],
+              superGameState,
+            }
+          : {
+              results: [{ sequenceNumber: 105, superGame: marker }],
+              superGameState,
+            },
+      ),
+  });
+
+  const search = await client.searchGameBoards(gameId, {
+    cells: [{ cellIndex: 0, symbolCode: 'bell' }],
+  });
+  const range = await client.getBoardSearchApproximateWin(gameId, {
+    spinCount: 10,
+    startSequenceNumber: 100,
+  });
+
+  assert.deepEqual(search.data.results[0].superGame, marker);
+  assert.deepEqual(search.data.superGameState, superGameState);
+  assert.deepEqual(range.data.rows[0].superGame, marker);
+  assert.deepEqual(range.data.superGameState, superGameState);
+});

@@ -43,6 +43,11 @@ from game_predictor_api.schemas.board_search_approximate_win import (
     BoardSearchLineMatchResponse,
 )
 from game_predictor_api.schemas.catalog import ApiModel
+from game_predictor_api.schemas.super_game_markers import (
+    SuperGamePublicMarkerResponse,
+    to_super_game_public_marker_response,
+)
+from game_predictor_api.schemas.super_game_series import SuperGameStateResponse
 
 
 class BoardSearchShareCreate(ApiModel):
@@ -175,6 +180,10 @@ class BoardSearchSharePublicSearchResultResponse(ApiModel):
     status: str
     board_checksum_sha256: str = Field(pattern=r"^[a-f0-9]{64}$")
     score: BoardSearchScoreResponse
+    super_game: SuperGamePublicMarkerResponse | None = Field(
+        default=None,
+        description="Super game role of this board; the series identity is never shared.",
+    )
 
 
 class BoardSearchSharePublicSearchResponse(ApiModel):
@@ -182,6 +191,10 @@ class BoardSearchSharePublicSearchResponse(ApiModel):
     query_cell_count: int = Field(ge=1, le=15)
     results: tuple[BoardSearchSharePublicSearchResultResponse, ...] = Field(max_length=100)
     search_context_id: UUID | None = Field(default=None)
+    super_game_state: SuperGameStateResponse | None = Field(
+        default=None,
+        description="Freshness of the series generation behind the per-board markers.",
+    )
 
 
 def to_board_search_share_public_search_response(
@@ -192,12 +205,18 @@ def to_board_search_share_public_search_response(
     return BoardSearchSharePublicSearchResponse(
         scope=value.scope,
         query_cell_count=value.query_cell_count,
+        super_game_state=value.super_game_state,
         results=tuple(
             BoardSearchSharePublicSearchResultResponse(
                 sequence_number=result.sequence_number,
                 status=result.status,
                 board_checksum_sha256=result.board_checksum_sha256,
                 score=result.score,
+                super_game=(
+                    None
+                    if result.super_game is None
+                    else to_super_game_public_marker_response(result.super_game)
+                ),
             )
             for result in value.results
         ),

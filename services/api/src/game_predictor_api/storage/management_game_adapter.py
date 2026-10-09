@@ -1,5 +1,6 @@
 """Panel adapters use the existing game search, calculator and human writer."""
 
+from collections.abc import Collection
 from dataclasses import replace
 from typing import Any
 from uuid import UUID
@@ -20,6 +21,7 @@ from game_predictor_api.application.image_symbol_review_mutations import (
 from game_predictor_api.domain.board_search import BoardSearchQueryCell, validate_board_search_query
 from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewAction
 from game_predictor_api.domain.management import ManagementError
+from game_predictor_api.domain.super_game_markers import SuperGameMarkers
 from game_predictor_api.schemas.board_search import BoardSearchResponse, to_board_search_response
 from game_predictor_api.schemas.board_search_approximate_win import to_approximate_win_response
 from game_predictor_api.schemas.board_search_shares import (
@@ -45,21 +47,31 @@ from game_predictor_api.storage.image_symbol_review_repository import (
 )
 from game_predictor_api.storage.management_result_snapshots import freeze_result
 from game_predictor_api.storage.models import ImageSymbolReviewCellModel, SymbolModel
+from game_predictor_api.storage.super_game_marker_repository import (
+    SqlAlchemySuperGameMarkerRepository,
+)
 
 
 class SqlAlchemyManagementGameAdapter:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.boards = SqlAlchemyBoardSearchApproximateWinRepository(session)
+        self.super_game_markers = SqlAlchemySuperGameMarkerRepository(session)
+
+    def super_game_row_markers(self, game_id: UUID, positions: Collection[int]) -> SuperGameMarkers:
+        """Markers of a live preview's rows; frozen snapshots never carry them."""
+
+        return self.super_game_markers.markers(game_id, positions)
 
     def search(self, game_id: UUID, command: ManagementSearchCommand) -> BoardSearchResponse:
         GameStorageRouter().bind(self.session, game_id, intent=GameStorageIntent.READ)
         query = validate_board_search_query(
             BoardSearchQueryCell(cell.cell_index, cell.symbol_code) for cell in command.cells
         )
-        results = BoardSearchService(
-            SqlAlchemyBoardSearchProjectionRepository(self.session)
-        ).search(
+        outcome = BoardSearchService(
+            SqlAlchemyBoardSearchProjectionRepository(self.session),
+            self.super_game_markers,
+        ).search_with_super_game(
             game_id=game_id,
             cells=query,
             scope=command.scope,
@@ -69,7 +81,8 @@ class SqlAlchemyManagementGameAdapter:
             game_id=game_id,
             scope=command.scope,
             query_cell_count=len(query),
-            results=results,
+            results=outcome.results,
+            super_game=outcome.super_game,
         )
 
     def snapshot(

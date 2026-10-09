@@ -45,6 +45,9 @@ export type BoardSearchCorrectionContext = {
  * Without mutations the section hides correction; stale-reading refresh is local.
  * Only a source with `listRulesVersions` (the Admin) offers the „Wersja reguł”
  * draft preview (D-535) and passes `rulesVersionId`; other sources never do.
+ * Only a source with `superGameSeriesHref` (the Admin) links a super game
+ * marker to the series view (TASK-0935); the online share and the management
+ * panel show the label alone.
  * Without the full-photo
  * members the carousel has no fallback when the cropped view is unavailable.
  */
@@ -89,6 +92,11 @@ export type BoardSearchDataSource = {
     options: SearchGameBoardsOptions,
   ) => BoardSearchApiResult<BoardSearchResponse>;
   readonly symbolImageAssetUrl: (gameId: string, symbolId: string) => string;
+  /**
+   * Admin only (TASK-0935): the URL of a series in the Admin's „Supergry”
+   * view. Without it a super game marker is a label with no link.
+   */
+  readonly superGameSeriesHref?: (gameId: string, seriesId: string) => string;
   /**
    * Online share only (D-487): tells the link's owner which stake the
    * recipient views a calculated range at; `null` is the base stake.

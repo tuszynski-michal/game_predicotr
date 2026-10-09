@@ -5,6 +5,10 @@ export {
 } from './board-search-workspace';
 export { ApproximateWinBalanceChart } from './board-search-approximate-win';
 export { formatZloty } from './board-search-stake';
+export {
+  superGameMarkerLabel,
+  superGameSeriesAdminHref,
+} from './board-search-super-game';
 export type { BoardSearchDataSource } from './board-search-data-source';
 export {
   confirmBoardSearchDiscardDraft,

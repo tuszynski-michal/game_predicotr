@@ -26,6 +26,7 @@ from game_predictor_worker.domain.payout import PreparedPayoutEvaluator, prepare
 from game_predictor_worker.domain.signature import MAX_SIGNATURE_CELL_WIDTH
 from game_predictor_worker.payouts.contracts import RulesPayoutConfiguration
 
+from game_predictor_api.application.super_game_markers import SuperGameMarkerSource
 from game_predictor_api.domain.board_search import BoardSearchAssetMode, BoardSearchError
 from game_predictor_api.domain.board_search_approximate_win import (
     ApproximateWinDocument,
@@ -36,6 +37,7 @@ from game_predictor_api.domain.board_search_approximate_win import (
 )
 from game_predictor_api.domain.board_search_board_detail import BoardCountMatch
 from game_predictor_api.domain.rules import RulesVersionStatus
+from game_predictor_api.domain.super_game_markers import SuperGameMarkers
 
 # The board-search projection this calculator reads is fixed to the same
 # 3x5 layout as partial board search (`BOARD_SEARCH_CELL_COUNT` in
@@ -92,11 +94,20 @@ class ApproximateWinCalculation:
     spin_cost: int
     algorithm_version: str
     result: ApproximateWinResult
+    super_game: SuperGameMarkers | None = None
+    """Markers of the winning rows' positions and the freshness of their
+    generation (TASK-0935); `None` when no marker source was wired (frozen
+    management results never carry markers)."""
 
 
 class BoardSearchApproximateWinService:
-    def __init__(self, repository: BoardSearchApproximateWinRepository) -> None:
+    def __init__(
+        self,
+        repository: BoardSearchApproximateWinRepository,
+        super_game_markers: SuperGameMarkerSource | None = None,
+    ) -> None:
         self._repository = repository
+        self._super_game_markers = super_game_markers
 
     def calculate(
         self,
@@ -194,6 +205,13 @@ class BoardSearchApproximateWinService:
                 ),
             ) from error
 
+        super_game = (
+            None
+            if self._super_game_markers is None
+            else self._super_game_markers.markers(
+                game_id, {row.sequence_number for row in result.rows}
+            )
+        )
         return ApproximateWinCalculation(
             game_id=game_id,
             data_source=data_source,
@@ -203,6 +221,7 @@ class BoardSearchApproximateWinService:
             spin_cost=configuration.spin_cost,
             algorithm_version=evaluator.algorithm_version,
             result=result,
+            super_game=super_game,
         )
 
 

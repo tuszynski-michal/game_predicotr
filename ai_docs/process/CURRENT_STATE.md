@@ -6,6 +6,30 @@ last_updated: 2026-10-08
 
 # Current State
 
+### TASK-0935 — oznaczenie supergry w wyszukiwaniu plansz (done)
+
+- API: wyniki wyszukiwania i wiersze przybliżonej wygranej niosą opcjonalne
+  `superGame` (`trigger` | `in_series`, `spinIndex`, `seriesLength`,
+  `superSymbolCode`, `completeness`, `runVerification`, w Adminie `seriesId`),
+  a każda odpowiedź `superGameState { fresh, inputVersion, generationInputVersion }`;
+  jedno zapytanie SQL (LATERAL po serii pokrywającej pozycję) daje znacznik i
+  świeżość z jednego snapshotu. Trasy publiczne (udostępnienie, panel) bez
+  `seriesId` (osobny model / `response_model_exclude`, strażnik parametrów).
+  Zamrożone wyniki panelu bez znaczników; skróty treści 777 bez zmian.
+- UI (`board-search-ui`): złote wyróżnienie kart i wierszy, etykiety
+  „Supergra: trigger / spin k/len, symbol X / super symbol do zdefiniowania”,
+  dopiski o serii niekompletnej i triggerze z predykcji, baner dla całego
+  wyniku (także pustego) przy `fresh = false`; link „Zdefiniuj super symbol”
+  / „Pokaż serię” tylko gdy źródło danych deklaruje `superGameSeriesHref`
+  (Admin), Reviewer i panel tylko etykieta. Cache wyszukiwania Reviewera
+  pomijany dla odpowiedzi ze znacznikiem lub nieświeżych.
+- Audyt Codex gpt-6-astra / medium: REVISE (P0 baner przy pustym wyniku,
+  P1 brak akapitu w `ADMIN_APP.md`, P2 cache), wszystko naprawione w jednej
+  rundzie (`ai_docs/quality/TASK-0935_AUDIT_gpt-6-astra.md`). API 281 PASS,
+  PG 35 + 8 + 2, board-search-ui 85 + 60, Reviewer 240 + 40, Admin 733 + 188,
+  klient 104, typecheck (mypy 850 plików), lint, format PASS.
+- Etap S-B zamknięty (TASK-0933–0935). Następny: S-C / TASK-0936.
+
 ### TASK-0934 — sekcja „Supergry” w Adminie (done)
 
 - Nowa sekcja gry `super-games` (tylko dla gier z rodzajem supergry):

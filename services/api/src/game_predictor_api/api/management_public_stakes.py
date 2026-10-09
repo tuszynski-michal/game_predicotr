@@ -33,6 +33,7 @@ from game_predictor_api.schemas.management_stakes import (
     ManagementStakeListResponse,
     ManagementStakeResponse,
 )
+from game_predictor_api.schemas.super_game_markers import PUBLIC_APPROXIMATE_WIN_EXCLUDE
 
 
 def create_management_public_stake_router(service_dependency: Callable[..., object]) -> APIRouter:
@@ -47,6 +48,7 @@ def create_management_public_stake_router(service_dependency: Callable[..., obje
     @router.get(
         base + "/approximate-win",
         response_model=ApproximateWinResponse,
+        response_model_exclude=PUBLIC_APPROXIMATE_WIN_EXCLUDE,
         operation_id="getPublicManagementApproximateWin",
         dependencies=[Depends(reject_rules_version_query)],
     )

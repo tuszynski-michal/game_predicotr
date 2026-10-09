@@ -48,6 +48,9 @@ def freeze_result(
 ) -> tuple[str, dict[str, object], dict[str, object]]:
     expanded = calculation.model_dump(mode="json", by_alias=True)
     rows = expanded.pop("rows")
+    # Frozen results are historical: neither the generation's freshness nor
+    # row markers belong to their identity (TASK-0935).
+    expanded.pop("superGameState", None)
     payload: dict[str, object] = {
         "formatVersion": 1,
         "calculation": expanded,

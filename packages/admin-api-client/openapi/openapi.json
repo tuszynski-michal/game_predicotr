@@ -260,6 +260,17 @@
           "summary": {
             "$ref": "#/components/schemas/ApproximateWinSummaryResponse"
           },
+          "superGameState": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuperGameStateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Freshness of the series generation behind the per-row markers, read in the same snapshot; present on every live response, null only in frozen management result history. `fresh = false`: the series are being recalculated, so even rows without a marker may be part of a series."
+          },
           "wrappedAtSequenceEnd": {
             "title": "Wrappedatsequenceend",
             "type": "boolean"
@@ -335,6 +346,17 @@
             "minimum": 1.0,
             "title": "Spinnumber",
             "type": "integer"
+          },
+          "superGame": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuperGameMarkerResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Super game role of this board in the published series generation (trigger or spin of a series); absent: base mode according to that generation. Never present for a game without a super game kind or in frozen management result history."
           }
         },
         "required": [
@@ -2267,6 +2289,17 @@
           },
           "scope": {
             "$ref": "#/components/schemas/BoardSearchScope"
+          },
+          "superGameState": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuperGameStateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Freshness of the series generation behind the per-board markers, read in the same snapshot; present on every live response (null only in a stored management receipt written before the field existed). `fresh = false`: the series are being recalculated, so even boards without a marker may be part of a series."
           }
         },
         "required": [
@@ -2336,6 +2369,17 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "superGame": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuperGameMarkerResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Super game role of this board in the published series generation (trigger or spin of a series); absent: base mode according to that generation. Never present for a game without a super game kind."
           }
         },
         "required": [
@@ -3078,6 +3122,17 @@
               }
             ],
             "title": "Searchcontextid"
+          },
+          "superGameState": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuperGameStateResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Freshness of the series generation behind the per-board markers."
           }
         },
         "required": [
@@ -3107,6 +3162,17 @@
           "status": {
             "title": "Status",
             "type": "string"
+          },
+          "superGame": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SuperGamePublicMarkerResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Super game role of this board; the series identity is never shared."
           }
         },
         "required": [
@@ -27401,6 +27467,132 @@
           "label"
         ],
         "title": "SuperGameKindResponse",
+        "type": "object"
+      },
+      "SuperGameMarkerKind": {
+        "enum": [
+          "trigger",
+          "in_series"
+        ],
+        "title": "SuperGameMarkerKind",
+        "type": "string"
+      },
+      "SuperGameMarkerResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completeness": {
+            "$ref": "#/components/schemas/SeriesCompleteness"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SuperGameMarkerKind"
+          },
+          "runVerification": {
+            "$ref": "#/components/schemas/RunVerification"
+          },
+          "seriesId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Series identity for the Admin series view. Always set by the Admin routes; omitted from the online share and management panel responses (a public marker is therefore also a valid marker without a link).",
+            "title": "Seriesid"
+          },
+          "seriesLength": {
+            "minimum": 1.0,
+            "title": "Serieslength",
+            "type": "integer"
+          },
+          "spinIndex": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1-based spin of the series; null for the trigger board.",
+            "title": "Spinindex"
+          },
+          "superSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code of the defined super symbol; null while it is still to be defined.",
+            "title": "Supersymbolcode"
+          }
+        },
+        "required": [
+          "kind",
+          "seriesLength",
+          "completeness",
+          "runVerification"
+        ],
+        "title": "SuperGameMarkerResponse",
+        "type": "object"
+      },
+      "SuperGamePublicMarkerResponse": {
+        "additionalProperties": false,
+        "description": "The super game role of a board in the published series generation.\n\nAbsent on a board means base mode according to that generation (see the\nresponse's ``superGameState`` for whether the generation is current).",
+        "properties": {
+          "completeness": {
+            "$ref": "#/components/schemas/SeriesCompleteness"
+          },
+          "kind": {
+            "$ref": "#/components/schemas/SuperGameMarkerKind"
+          },
+          "runVerification": {
+            "$ref": "#/components/schemas/RunVerification"
+          },
+          "seriesLength": {
+            "minimum": 1.0,
+            "title": "Serieslength",
+            "type": "integer"
+          },
+          "spinIndex": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "1-based spin of the series; null for the trigger board.",
+            "title": "Spinindex"
+          },
+          "superSymbolCode": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Code of the defined super symbol; null while it is still to be defined.",
+            "title": "Supersymbolcode"
+          }
+        },
+        "required": [
+          "kind",
+          "seriesLength",
+          "completeness",
+          "runVerification"
+        ],
+        "title": "SuperGamePublicMarkerResponse",
         "type": "object"
       },
       "SuperGameSeriesBoardResponse": {

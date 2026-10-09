@@ -67,6 +67,9 @@ from game_predictor_api.storage.models import (
     SourceImageModel,
     SymbolModel,
 )
+from game_predictor_api.storage.super_game_marker_repository import (
+    SqlAlchemySuperGameMarkerRepository,
+)
 from sqlalchemy import Engine, create_engine, func, select, text
 from sqlalchemy.engine import make_url
 from sqlalchemy.orm import Session
@@ -409,7 +412,9 @@ def test_calculates_payout_range_across_complete_partial_and_missing_boards(
         before_counts = _game_owned_row_counts(session, game_id)
 
         repository = SqlAlchemyBoardSearchApproximateWinRepository(session)
-        service = BoardSearchApproximateWinService(repository)
+        service = BoardSearchApproximateWinService(
+            repository, SqlAlchemySuperGameMarkerRepository(session)
+        )
         calculation = service.calculate(
             game_id=game_id,
             start_sequence_number=1,
@@ -419,6 +424,12 @@ def test_calculates_payout_range_across_complete_partial_and_missing_boards(
         after_counts = _game_owned_row_counts(session, game_id)
 
     assert before_counts == after_counts, "approximate-win calculation must not write anything"
+
+    # TASK-0935: a game without a super game kind is always fresh and unmarked.
+    assert calculation.super_game is not None
+    assert calculation.super_game.by_position == {}
+    assert calculation.super_game.state.fresh
+    assert not calculation.super_game.state.has_super_game
 
     result = calculation.result
     assert calculation.data_source.value == "operational_review"

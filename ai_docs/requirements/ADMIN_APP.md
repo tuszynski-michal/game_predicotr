@@ -493,6 +493,20 @@ rankingu ani zakresu wygranej opisanego niżej — to dwa niezależne parametry.
 Jeżeli wybrana plansza pozostaje w nowych wynikach, wybór jest zachowywany;
 w przeciwnym razie operator jednoznacznie wraca do pierwszego wyniku.
 
+Oznaczenie supergry (TASK-0935, D-535): plansza, która w opublikowanej
+generacji serii jest triggerem albo spinem serii, ma na karcie wyniku i w
+wierszu przybliżonej wygranej złote wyróżnienie i etykietę „Supergra: trigger”,
+„Supergra: spin k/długość, symbol X” albo, dopóki serii brak super symbolu,
+„Supergra: super symbol do zdefiniowania”; uzupełniają ją uwagi o serii
+niepełnej i o triggerze opartym na predykcji. Gdy serie są przeliczane
+(`superGameState.fresh = false`), cały wynik — także pusty i plansze bez
+oznaczenia — pokazuje ostrzeżenie „Serie w trakcie przeliczania”. Tylko w
+lokalnym Adminie oznaczenie ma link do widoku serii w sekcji „Supergry”
+(„Zdefiniuj super symbol” dla serii bez symbolu, w pozostałych „Pokaż serię”,
+otwierany w nowej karcie); panel zarządzania i Reviewer pokazują wyłącznie
+etykietę, bez linku i bez identyfikatora serii. Gra bez rodzaju supergry nie ma
+oznaczeń ani ostrzeżenia.
+
 ### Przybliżona wygrana
 
 Pod podglądem aktualnie wybranej znalezionej planszy dostępna jest rozwijana

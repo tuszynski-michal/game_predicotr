@@ -138,6 +138,9 @@ export function createManagementPublicAdapter(options: {
             recognizedBoardId: null,
             reviewItemId: null,
           })),
+          ...(response.data.search.superGameState
+            ? { superGameState: response.data.search.superGameState }
+            : {}),
         };
         return {
           ...response,

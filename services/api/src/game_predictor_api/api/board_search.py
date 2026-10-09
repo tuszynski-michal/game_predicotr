@@ -118,7 +118,7 @@ def create_board_search_router(
         limit: Annotated[int, Query(ge=1, le=100)] = 100,
     ) -> BoardSearchResponse:
         query = validate_board_search_query(_parse_cells(cell or []))
-        results = service.search(
+        outcome = service.search_with_super_game(
             game_id=game_id,
             cells=query,
             scope=scope,
@@ -128,7 +128,8 @@ def create_board_search_router(
             game_id=game_id,
             scope=scope,
             query_cell_count=len(query),
-            results=results,
+            results=outcome.results,
+            super_game=outcome.super_game,
         )
 
     @router.get(

@@ -164,6 +164,10 @@ export type ApproximateWinResponse = {
   startSequenceNumber: number;
   summary: ApproximateWinSummaryResponse;
   /**
+   * Freshness of the series generation behind the per-row markers, read in the same snapshot; present on every live response, null only in frozen management result history. `fresh = false`: the series are being recalculated, so even rows without a marker may be part of a series.
+   */
+  superGameState?: SuperGameStateResponse | null;
+  /**
    * Wrappedatsequenceend
    */
   wrappedAtSequenceEnd: boolean;
@@ -211,6 +215,10 @@ export type ApproximateWinRowResponse = {
    * Spinnumber
    */
   spinNumber: number;
+  /**
+   * Super game role of this board in the published series generation (trigger or spin of a series); absent: base mode according to that generation. Never present for a game without a super game kind or in frozen management result history.
+   */
+  superGame?: SuperGameMarkerResponse | null;
 };
 
 /**
@@ -1357,6 +1365,10 @@ export type BoardSearchResponse = {
    */
   results: Array<BoardSearchResultResponse>;
   scope: BoardSearchScope;
+  /**
+   * Freshness of the series generation behind the per-board markers, read in the same snapshot; present on every live response (null only in a stored management receipt written before the field existed). `fresh = false`: the series are being recalculated, so even boards without a marker may be part of a series.
+   */
+  superGameState?: SuperGameStateResponse | null;
 };
 
 /**
@@ -1389,6 +1401,10 @@ export type BoardSearchResultResponse = {
    * Status
    */
   status: string;
+  /**
+   * Super game role of this board in the published series generation (trigger or spin of a series); absent: base mode according to that generation. Never present for a game without a super game kind.
+   */
+  superGame?: SuperGameMarkerResponse | null;
 };
 
 /**
@@ -1779,6 +1795,10 @@ export type BoardSearchSharePublicSearchResponse = {
    * Searchcontextid
    */
   searchContextId?: string | null;
+  /**
+   * Freshness of the series generation behind the per-board markers.
+   */
+  superGameState?: SuperGameStateResponse | null;
 };
 
 /**
@@ -1798,6 +1818,10 @@ export type BoardSearchSharePublicSearchResultResponse = {
    * Status
    */
   status: string;
+  /**
+   * Super game role of this board; the series identity is never shared.
+   */
+  superGame?: SuperGamePublicMarkerResponse | null;
 };
 
 /**
@@ -15505,6 +15529,72 @@ export type SuperGameKindResponse = {
    * Label
    */
   label: string;
+};
+
+/**
+ * SuperGameMarkerKind
+ */
+export type SuperGameMarkerKind = 'trigger' | 'in_series';
+
+/**
+ * SuperGameMarkerResponse
+ */
+export type SuperGameMarkerResponse = {
+  completeness: SeriesCompleteness;
+  kind: SuperGameMarkerKind;
+  runVerification: RunVerification;
+  /**
+   * Seriesid
+   *
+   * Series identity for the Admin series view. Always set by the Admin routes; omitted from the online share and management panel responses (a public marker is therefore also a valid marker without a link).
+   */
+  seriesId?: string | null;
+  /**
+   * Serieslength
+   */
+  seriesLength: number;
+  /**
+   * Spinindex
+   *
+   * 1-based spin of the series; null for the trigger board.
+   */
+  spinIndex?: number | null;
+  /**
+   * Supersymbolcode
+   *
+   * Code of the defined super symbol; null while it is still to be defined.
+   */
+  superSymbolCode?: string | null;
+};
+
+/**
+ * SuperGamePublicMarkerResponse
+ *
+ * The super game role of a board in the published series generation.
+ *
+ * Absent on a board means base mode according to that generation (see the
+ * response's ``superGameState`` for whether the generation is current).
+ */
+export type SuperGamePublicMarkerResponse = {
+  completeness: SeriesCompleteness;
+  kind: SuperGameMarkerKind;
+  runVerification: RunVerification;
+  /**
+   * Serieslength
+   */
+  seriesLength: number;
+  /**
+   * Spinindex
+   *
+   * 1-based spin of the series; null for the trigger board.
+   */
+  spinIndex?: number | null;
+  /**
+   * Supersymbolcode
+   *
+   * Code of the defined super symbol; null while it is still to be defined.
+   */
+  superSymbolCode?: string | null;
 };
 
 /**

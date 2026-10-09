@@ -215,7 +215,11 @@ export function createBoardSearchShareDataSource(
     searchGameBoards: async (_gameId, searchOptions) => {
       const key = searchCacheKey(searchOptions);
       const cached = searchCache.get(key);
-      if (cached !== undefined && cached.expiresAt > now()) {
+      if (
+        cached !== undefined &&
+        cached.expiresAt > now() &&
+        !hasSuperGameMarkers(cached.value)
+      ) {
         // Refresh the entry's recency for the size limit.
         searchCache.delete(key);
         searchCache.set(key, cached);
@@ -229,11 +233,16 @@ export function createBoardSearchShareDataSource(
       if (result.data === undefined) return { error: result.error };
       const value = toAdminSearch(result.data);
       searchContextId = result.data.searchContextId ?? null;
-      searchCache.set(key, {
-        expiresAt: now() + SEARCH_CACHE_TTL_MS,
-        value,
-        searchContextId,
-      });
+      // Super game markers change with the series (a defined super symbol,
+      // a recalculation): an answer carrying one, or being recalculated
+      // (`fresh = false`), is never kept for five minutes (TASK-0935).
+      if (!hasSuperGameMarkers(value)) {
+        searchCache.set(key, {
+          expiresAt: now() + SEARCH_CACHE_TTL_MS,
+          value,
+          searchContextId,
+        });
+      }
       while (searchCache.size > SEARCH_CACHE_MAX_ENTRIES) {
         const oldest = searchCache.keys().next().value;
         if (oldest === undefined) break;
@@ -359,6 +368,14 @@ export function createBoardSearchShareDataSource(
   };
 }
 
+/** A marker on any result, or series being recalculated: not cacheable. */
+function hasSuperGameMarkers(value: BoardSearchResponse): boolean {
+  return (
+    value.superGameState?.fresh === false ||
+    value.results.some((result) => Boolean(result.superGame))
+  );
+}
+
 function searchCacheKey(options: SearchGameBoardsOptions): string {
   return JSON.stringify([
     [...options.cells]
@@ -418,8 +435,11 @@ function toAdminSearch(
       score: result.score,
       sequenceNumber: result.sequenceNumber,
       status: result.status,
+      // A label only: the share never gets the series identity (TASK-0935).
+      ...(result.superGame ? { superGame: result.superGame } : {}),
     })),
     scope: value.scope,
+    ...(value.superGameState ? { superGameState: value.superGameState } : {}),
   };
 }
 

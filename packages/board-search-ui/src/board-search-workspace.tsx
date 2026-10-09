@@ -915,6 +915,7 @@ function BoardSearchWorkspaceContent({
             client={api}
             gameId={gameId}
             rulesVersions={rulesVersions}
+            superGameState={searchState.result.superGameState ?? null}
             onBoardEdited={() => runSearch({ preserveSelection: true })}
             onStateChange={(state) => {
               setSavedSequence(null);

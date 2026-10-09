@@ -3,6 +3,7 @@
 import {
   BoardSearchWorkspace as SharedBoardSearchWorkspace,
   type BoardSearchDataSource,
+  superGameSeriesAdminHref,
 } from '@game-predictor/board-search-ui';
 import { useMemo } from 'react';
 
@@ -53,7 +54,12 @@ export function BoardSearchWorkspace({
   replayMessage = null,
 }: BoardSearchWorkspaceProps) {
   const api = useMemo<AdminBoardSearchClient>(
-    () => client ?? createConfiguredAdminApiClient(apiBaseUrl),
+    () => ({
+      ...(client ?? createConfiguredAdminApiClient(apiBaseUrl)),
+      // Admin only (TASK-0935): a super game marker links to its series in
+      // the „Supergry” section; Reviewer and the management panel never do.
+      superGameSeriesHref: superGameSeriesAdminHref,
+    }),
     [apiBaseUrl, client],
   );
   const shareClient = useMemo<BoardSearchShareClient | null>(

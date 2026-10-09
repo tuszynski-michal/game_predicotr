@@ -454,6 +454,9 @@ from game_predictor_api.storage.semi_automatic_image_selection_repository import
     SqlAlchemySemiAutomaticSelectionRepository,
 )
 from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
+from game_predictor_api.storage.super_game_marker_repository import (
+    SqlAlchemySuperGameMarkerRepository,
+)
 from game_predictor_api.storage.super_game_series_repository import (
     SqlAlchemySuperGameSeriesRepository,
 )
@@ -721,7 +724,10 @@ def create_app(
     def default_board_search_service_dependency() -> Iterator[BoardSearchService]:
         with session_factory() as session:
             try:
-                yield BoardSearchService(SqlAlchemyBoardSearchProjectionRepository(session))
+                yield BoardSearchService(
+                    SqlAlchemyBoardSearchProjectionRepository(session),
+                    SqlAlchemySuperGameMarkerRepository(session),
+                )
                 session.commit()
             except BaseException:
                 session.rollback()
@@ -737,7 +743,8 @@ def create_app(
         with session_factory() as session:
             try:
                 yield BoardSearchApproximateWinService(
-                    SqlAlchemyBoardSearchApproximateWinRepository(session)
+                    SqlAlchemyBoardSearchApproximateWinRepository(session),
+                    SqlAlchemySuperGameMarkerRepository(session),
                 )
                 session.commit()
             except BaseException:

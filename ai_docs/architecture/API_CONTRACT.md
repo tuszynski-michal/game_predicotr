@@ -306,6 +306,58 @@ Algorytm `partial-board-ranking-v2-unknown-missing-evidence` traktuje zapisane
 rozstrzygane przez score, exact matches, ważone alternatywy, mniejszą liczbę
 sprzeczności, status zatwierdzony, `sequence_number` i UUID.
 
+#### Oznaczenie supergry w wynikach (TASK-0935, D-535)
+
+Wynik wyszukiwania (`results[]`) i wiersz przybliżonej wygranej (`rows[]`)
+dostają opcjonalne `superGame`, a cała odpowiedź obu endpointów —
+`superGameState`:
+
+```text
+superGame?:                  # brak/null = tryb bazowy WEDŁUG obowiązującej generacji serii
+  kind                       # "trigger" | "in_series" (retrigger to spin serii)
+  seriesId                   # tożsamość serii; tylko Admin API, nigdy w publicznych odpowiedziach
+  spinIndex                  # pozycja − trigger (1…length); null dla triggera
+  seriesLength               # 10 + 10 × retriggery
+  superSymbolCode            # kod super symbolu albo null = „do zdefiniowania”
+  completeness               # "complete" | "incomplete"
+  runVerification            # "verified" | "unverified"
+superGameState:              # na poziomie odpowiedzi
+  fresh, inputVersion, generationInputVersion   # jak w super-game-series/state
+```
+
+- Źródłem jest opublikowana generacja `super_game_series`: pozycja `p` należy do
+  serii o największym `triggerSequenceNumber ≤ p`, gdy
+  `p ≤ trigger + length`; `p = trigger` → `trigger`, w przeciwnym razie
+  `in_series`. Opublikowane serie nie zachodzą na siebie, więc wystarcza jedna
+  sonda indeksu `uq_super_game_series_trigger (game_id, trigger_sequence_number)`;
+  nowy indeks i migracja nie są potrzebne.
+- Serie i `superGameState` czytane są **jednym zapytaniem** (jeden snapshot),
+  więc znacznik nigdy nie jest sparowany ze świeżością innej generacji.
+  Wyszukiwanie czyta znaczniki dla znalezionych pozycji, przybliżona wygrana
+  dla pozycji wierszy z wygraną; tabela serii jest czytana raz na odpowiedź.
+- `fresh = false` oznacza przeliczanie serii: odpowiedź dalej niesie ostatnią
+  generację, ale także plansza bez `superGame` może należeć do nowej serii
+  (np. nowy trigger przed uruchomieniem joba). UI pokazuje wtedy dla całego
+  wyniku ostrzeżenie „Serie w trakcie przeliczania”.
+- Gra z `superGameKind = none`: brak `superGame` na planszach i
+  `superGameState.fresh = true` (`generationInputVersion = null`). Odczyt bez
+  źródła serii (fake w testach) daje to samo ze stanem `{0, null}`.
+- Wartości wypłat i `payoutKind` nie zależą od znacznika (wypłaty serii:
+  TASK-0936); `payout-v4-wild-count` liczy plansze serii jak dotąd.
+- Publiczne powierzchnie (udostępnianie online `…/board-search-shares/search` i
+  `…/approximate-win`, panel zarządzania `…/management-public/…/search` i
+  `…/approximate-win`) niosą te same pola **bez `seriesId`**: wyniki
+  wyszukiwania mają osobny model (`SuperGamePublicMarkerResponse`), wiersze
+  przybliżonej wygranej współdzielą model Admina i pomijają pole przez
+  `response_model_exclude`. Proxy Reviewera przepuszcza odpowiedzi GET bez
+  zmian (lista parametrów zapytania bez zmian). Zamrożone wyniki panelu
+  zarządzania (`getManagementResult`, historia, zapisane sloty) są
+  historyczne: nie mają znaczników ani `superGameState` (`null`), a
+  `superGameState` nie wchodzi w skrót treści migawki.
+- W kliencie `superGameState` jest opcjonalne (`null` w zapisanym wcześniej
+  potwierdzeniu wyszukiwania panelu zarządzania i w historii); jego brak UI
+  traktuje jak „świeże”.
+
 ### Przybliżona wygrana (kalkulator zakresu)
 
 ```text
@@ -353,6 +405,8 @@ rows[]:                 # wyłącznie spiny z payoutCredits > 0
   boardStatus
   countMatches[]         # domyślnie []; payout-v4-wild-count, już w payoutCredits
     symbolCode, count, cells[], payoutCredits
+  superGame?             # oznaczenie supergry wiersza (TASK-0935), patrz wyżej
+superGameState           # świeżość generacji serii (TASK-0935), patrz wyżej
 ```
 
 `countMatches` jest puste dla gier bez symbolu uruchamiającego. Cały panel

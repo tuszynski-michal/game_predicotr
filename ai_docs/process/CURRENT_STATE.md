@@ -724,7 +724,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0938 — okno kroczące `CURRENT_STATE.md` i indeks `DECISION_LOG.md` (done)
 
-- Commit v1.7.282 / <hash>
+- Commit v1.7.282 / 2361e6ed77a23f88930cdf372b96371cf24305d7
 - `CURRENT_STATE.md`: 868 364 B / 13 375 linii → ok. 75 KB; sekcje spoza okna
   przeniesione bez zmian do `ai_docs/archive/CURRENT_STATE_2026Q4.md` (od
   2026-10-01) i `CURRENT_STATE_2026Q3.md` (wcześniejsze); dowód: równość

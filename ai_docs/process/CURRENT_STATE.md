@@ -16,7 +16,7 @@ last_updated: 2026-10-09
 - This branch predates0938/0939 process tools. No unrelated process migration is included;
   npm docs:check is unavailable on the baseline, not a passing verification.
 
-## Plany z niezakończonymi taskami
+## Zrealizowane plany
 
 ### Minimalistyczny Panel Administracyjny — D-536, TASK-0940–0943
 
@@ -30,11 +30,13 @@ Audits are dispatched autonomously through the authenticated readonly Claude CLI
 
 ## Aktywne taski
 
+No active compact-panel tasks; unrelated baseline work remains in the historical sections below.
+
 ## Ostatnie 10 ukończonych tasków
 
 ### TASK-0943 — Minimalistyczny panel (done)
 
-- Version: v1.7.276; full hash pending immediate post-commit recording.
+- Version: v1.7.276; commit: d7b37368646a5c9b8a039505646a5fc6f4c55518.
 - Outcome: ai_docs/tasks/completed/0943-management-compact-acceptance.md; independent Claude review without open P0/P1.
 - Final browser10/10 and host production builds PASS; no operator-data/service action.
 

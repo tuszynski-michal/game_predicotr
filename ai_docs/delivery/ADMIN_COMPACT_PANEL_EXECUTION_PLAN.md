@@ -268,11 +268,11 @@ Worktree izoluje pliki, nie bazę ani porty.
 
 1. [TASK-0940](../tasks/completed/0940-management-atomic-edit-and-delete.md): backend,
    kontrakt, role/migracja, pin metadata, pion klient/proxy, regresje API.
-2. [TASK-0941](../tasks/0941-management-compact-navigation.md): wspólna hierarchia,
+2. [TASK-0941](../tasks/completed/0941-management-compact-navigation.md): wspólna hierarchia,
    kafelki/modale i bezpieczna nawigacja/preview usuwania.
-3. [TASK-0942](../tasks/0942-management-compact-stakes.md): kompaktowe stawki,
+3. [TASK-0942](../tasks/completed/0942-management-compact-stakes.md): kompaktowe stawki,
    edytor, szybkie wiersze, wykres na żądanie, default regressions.
-4. [TASK-0943](../tasks/0943-management-compact-acceptance.md): zintegrowany odbiór,
+4. [TASK-0943](../tasks/completed/0943-management-compact-acceptance.md): zintegrowany odbiór,
    skalowane fixture'y i instrukcja operatorska/traceability.
 
 Wyjątek zatwierdzony przez operatora 2026-10-09: przy niedostępnym logowaniu

@@ -74,3 +74,10 @@ upoważnia do usuwania danych operatora; API/Admin uruchamia operator.
 
 Przy przenoszeniu pracy commitowany kod i ai_docs są trwałe. Ignorowane
 artifacts z briefami/screenshotami trzeba skopiować osobno, jeżeli są potrzebne.
+
+## Utrwalone commity
+
+- TASK-0940: v1.7.273, 0625512d4a37072f1d6d44f3f85ef225e7db1835.
+- TASK-0941: v1.7.274, 993ddc763f3946453ea391c1a82ba6288052f866.
+- TASK-0942: v1.7.275, af1218b0685b5d472f2e7eb4842934b205f2ec26.
+- TASK-0943: v1.7.276, d7b37368646a5c9b8a039505646a5fc6f4c55518.

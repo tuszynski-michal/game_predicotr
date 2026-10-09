@@ -176,7 +176,7 @@ Wzrokowy odbiór operatora i migracja jego danych wymagają odrębnego czasu/zgo
 - Nowy proces PowerShell: `python --version` = Python 3.12.10. Ten interpreter
   wykonał stdlib-only preparer przez `npm run reviewer:management:browser`.
 
-### Not completed
+### Not completed at initial handoff (historical)
 
 - Produkcyjny read-only classifier i provisioning `--check` pozostają gate
   operatora po doprowadzeniu jego bazy do właściwej rewizji. Izolowane
@@ -226,3 +226,7 @@ Wzrokowy odbiór operatora i migracja jego danych wymagają odrębnego czasu/zgo
 - Urządzenia fizyczne/live ingress/dane operatora, preview backfillu migracji,
   zweryfikowany backup produkcyjny i restart usług przez operatora pozostają bramkami.
   Nie wykonano push, merge, deployment ani zmiany danych/usług operatora.
+
+### Commit
+
+v1.7.276 — d7b37368646a5c9b8a039505646a5fc6f4c55518. Osobny commit potwierdzony przez git log/show; pełny hash utrwalony w następnym commicie dokumentacyjnym.

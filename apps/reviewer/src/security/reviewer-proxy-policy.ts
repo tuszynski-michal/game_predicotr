@@ -128,7 +128,7 @@ export function reviewerProxyTarget(
   if (
     method === 'POST' &&
     new RegExp(
-      `${pendingGeometryItemPattern.source.slice(0, -1)}/(?:geometry-preview|geometry-symbol-preview|manual-resolution)$`,
+      `${pendingGeometryItemPattern.source.slice(0, -1)}/(?:geometry-preview|geometry-symbol-preview|manual-resolution|rejection)$`,
     ).test(path)
   ) {
     return path;

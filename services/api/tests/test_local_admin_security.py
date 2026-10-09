@@ -336,6 +336,13 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
 
     @app.post(
         "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/"
+        "board-cell-geometry-pending/{pending_id}/rejection"
+    )
+    def reject_pending_geometry(pending_id: str) -> dict[str, str]:
+        return {"pendingId": pending_id, "operation": "rejection"}
+
+    @app.post(
+        "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/"
         "geometry-corrections/{revision_id}/revert"
     )
     def revert_geometry_correction(revision_id: str) -> dict[str, str]:
@@ -404,7 +411,20 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
             "board-cell-geometry-pending/pending/geometry-symbol-preview",
             headers=headers,
         )
+        accepted_pending_rejection = client.post(
+            "/api/v1/admin/games/game/image-imports/import/"
+            "board-cell-geometry-pending/pending/rejection",
+            headers=headers,
+        )
+        foreign_pending_rejection = client.post(
+            "/api/v1/admin/games/game/image-imports/import/"
+            "board-cell-geometry-pending/pending/rejection",
+            headers=headers | {"Origin": "https://attacker.example"},
+        )
 
+    assert accepted_pending_rejection.status_code == 200
+    assert accepted_pending_rejection.json() == {"pendingId": "pending", "operation": "rejection"}
+    assert foreign_pending_rejection.status_code == 403
     assert accepted_revert.status_code == 200
     assert accepted_revert.json() == {"revisionId": "rev"}
     assert accepted.status_code == 200

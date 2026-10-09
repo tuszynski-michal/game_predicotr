@@ -366,6 +366,7 @@ import {
   resumeSemiAutomaticImageSelection as resumeGeneratedSemiAutomaticImageSelection,
   saveUnreadableBoardReview as saveGeneratedUnreadableBoardReview,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
+  rejectPendingBoardCellGeometry as rejectGeneratedPendingBoardCellGeometry,
   listGeometryCorrections as listGeneratedGeometryCorrections,
   previewGeometryCorrectionRevert as previewGeneratedGeometryCorrectionRevert,
   revertGeometryCorrection as revertGeneratedGeometryCorrection,
@@ -413,6 +414,7 @@ import type {
   BoardCellGeometryManualPreviewCommand,
   BoardCellGeometryManualResolutionCommand,
   BoardCellGeometryPendingStatus,
+  BoardCellGeometryRejectionCommand,
   GeometryCorrectionRevertCommand,
   BoardSearchResponse,
   BoardSearchAssetMode,
@@ -599,12 +601,16 @@ export type {
   BoardCellGeometryPendingReason,
   BoardCellGeometryPendingResponse,
   BoardCellGeometryPendingStatus,
+  BoardCellGeometryRejectionCommand,
+  BoardCellGeometryRejectionResponse,
+  BoardRejectionReason,
   GeometryCorrectionKind,
   GeometryCorrectionListResponse,
   GeometryCorrectionResponse,
   GeometryCorrectionRevertCommand,
   GeometryCorrectionRevertPreviewResponse,
   GeometryCorrectionRevertResponse,
+  RejectionTarget,
   RevertBlockingReason,
   BoardSearchResponse,
   BoardSearchAssetMode,
@@ -3417,6 +3423,21 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       body: BoardCellGeometryManualResolutionCommand,
     ) =>
       resolveGeneratedPendingBoardCellGeometryManually({
+        body,
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          pending_id: pendingId,
+        },
+      }),
+    // D-539 (TASK-0949): reject a cropped or blurred deferred slot.
+    rejectPendingBoardCellGeometry: (
+      pendingId: string,
+      context: OperationalImageReviewContext,
+      body: BoardCellGeometryRejectionCommand,
+    ) =>
+      rejectGeneratedPendingBoardCellGeometry({
         body,
         client,
         path: {

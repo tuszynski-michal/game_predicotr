@@ -129,4 +129,4 @@ Raport rundy 3 zachowany w `ai_docs/quality/TASK-0948_AUDIT_gpt-6-astra_round3.m
 
 - Audyt Codex `gpt-6-astra`/`medium`: runda 1 REVISE (P0 ponowienia, P1 testy, P2 fokus), runda 2 REVISE (P0 błąd transportu bez wyjątku), runda 3 REVISE (P0 wyścig podglądu), runda 4 PASS. Raporty rund w `ai_docs/quality/TASK-0948_AUDIT_gpt-6-astra_round{1,2,3}.md`. Rundy 2–3 poprawek to decyzja leada (operator polecił samodzielne rozwiązywanie problemów).
 - Weryfikacja leada: `npm run reviewer:build` → sukces.
-- Commit: v1.7.294.
+- Commit: v1.7.294 / f8fa2ae0ba9ed57e0e8777f7c20c0a205de56040.

@@ -1281,8 +1281,15 @@ z istniejącej rewizji.
 - `image_board_geometry_pending`: status `rejected` z `rejection_reason`
   (`cropped`/`blurred`/`other`, `other` wymaga `rejection_note`),
   `rejection_note`, `rejected_at`, `rejected_by`; slot `pending`/`resolved`
-  nie ma pól odrzucenia, `superseded` może je zachować jako historię. Logika
-  zapisu należy do TASK-0949.
+  nie ma pól odrzucenia, `superseded` może je zachować jako historię.
+- `image_board_geometry_pending_events` (manifest v7, TASK-0949): niezmienna,
+  trwała tożsamość odrzucenia slotu i jego cofnięcia (`action` `rejected` |
+  `rejection_reverted`, `idempotency_key` UNIQUE per gra,
+  `command_sha256`, numer odrzucenia slotu `rejection_revision`, powód, opis,
+  aktor). Slot zapomina odrzucenie przy cofnięciu (CHECK cyklu życia), zdarzenia
+  zostają: powtórzenie polecenia zwraca zapisany wynik, a cofnięcie jest
+  przypięte do zdarzenia odrzucenia (starego żądania nie da się zastosować do
+  nowszego odrzucenia). Bez FK do slotu.
 - `image_geometry_correction_reverts` (manifest v7): jeden wiersz append-only
   na cofnięcie z `kind` (`pending_slot`/`board_revision`), identyfikatorami
   slotu, planszy, pozycji i rewizji (bez FK do usuniętych wierszy), cofaną i

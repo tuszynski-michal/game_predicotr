@@ -115,6 +115,9 @@ from game_predictor_api.storage.game_storage_routing import (
 from game_predictor_api.storage.geometry_correction_revert_models import (
     ImageGeometryCorrectionRevertModel,
 )
+from game_predictor_api.storage.geometry_rejection_revert import (
+    GeometryRejectionRevertOperations,
+)
 from game_predictor_api.storage.image_geometry_completeness_state_repository import (
     BoardRepointDecision,
     apply_board_repoint,
@@ -654,6 +657,8 @@ def _blocked(reason: RevertBlockingReason) -> ImageReviewConflictError:
 class SqlAlchemyGeometryCorrectionRevertRepository:
     def __init__(self, session: Session) -> None:
         self._session = session
+        # TASK-0949: rejections of slots and boards share the list and the revert.
+        self._rejections = GeometryRejectionRevertOperations(session)
 
     # -- reads -------------------------------------------------------------
 
@@ -682,12 +687,22 @@ class SqlAlchemyGeometryCorrectionRevertRepository:
                 continue
             evaluation = self._evaluate(game_id, correction, cas=None)
             entries.append(self._entry(correction, evaluation.blocking_reason))
-        return tuple(entries)
+        entries.extend(
+            self._rejections.list_recent(game_id=game_id, import_job_id=import_job_id, limit=limit)
+        )
+        entries.sort(key=lambda entry: (entry.created_at, entry.board_geometry_revision_id))
+        entries.reverse()
+        return tuple(entries[:limit])
 
     def preview(
         self, *, game_id: UUID, import_job_id: UUID, board_geometry_revision_id: UUID
     ) -> GeometryCorrectionRevertPreview:
         GameStorageRouter().bind(self._session, game_id, intent=GameStorageIntent.READ)
+        rejection = self._rejections.find(
+            game_id=game_id, import_job_id=import_job_id, entry_id=board_geometry_revision_id
+        )
+        if rejection is not None:
+            return self._rejections.preview(rejection)
         correction = self._require_correction(game_id, import_job_id, board_geometry_revision_id)
         evaluation = self._evaluate(game_id, correction, cas=None)
         slot = correction.kind is GeometryCorrectionKind.PENDING_SLOT
@@ -739,6 +754,29 @@ class SqlAlchemyGeometryCorrectionRevertRepository:
                     "Ten klucz idempotencji należy już do cofnięcia innej korekty.",
                 )
             return _result_from_audit(prior, created=False)
+        # One key is one command within the game: besides the audit above, the slot
+        # rejection events and every resolution event are searched before anything
+        # is written (TASK-0949, P0-7).
+        uses = self._rejections.key_uses(game_id, idempotency_key)
+        rejection = self._rejections.find(
+            game_id=game_id, import_job_id=import_job_id, entry_id=board_geometry_revision_id
+        )
+        if rejection is not None:
+            return self._rejections.revert(
+                game_id=game_id,
+                rejection=rejection,
+                idempotency_key=idempotency_key,
+                expected_geometry_revision=expected_geometry_revision,
+                expected_resolution_revision=expected_resolution_revision,
+                actor=actor,
+                reverted_at=reverted_at,
+                uses=uses,
+            )
+        if uses.any:
+            raise ImageReviewConflictError(
+                GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT,
+                "Ten klucz idempotencji należy już do innego polecenia.",
+            )
         correction = self._require_correction(game_id, import_job_id, board_geometry_revision_id)
         if correction.kind is GeometryCorrectionKind.BOARD_REVISION:
             return self._revert_board_revision(

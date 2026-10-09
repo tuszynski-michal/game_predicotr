@@ -15,6 +15,9 @@ import {
 
 import { apiErrorMessage } from '../catalog/catalog-api-error';
 
+import { boardRejectionReasonLabel } from './board-rejection-state.ts';
+import { LOST_CONNECTION, isDefiniteRefusal } from './mutation-outcome.ts';
+
 export type GeometryCorrectionHistoryClient = Pick<
   AdminApiClient,
   | 'listGeometryCorrections'
@@ -31,8 +34,6 @@ interface PendingRevert {
   readonly preview: GeometryCorrectionRevertPreviewResponse | null;
   readonly previewError: string;
 }
-
-const LOST_CONNECTION = 'Połączenie z lokalnym Admin API zostało przerwane.';
 
 /**
  * "Ostatnie korekty" (TASK-0948): the latest manual geometry saves of the
@@ -247,7 +248,9 @@ export function GeometryCorrectionHistory({
     } else {
       // `created: false` is a replayed success and is handled the same way.
       setNotice(
-        'Korekta została cofnięta. Kolejka i lista zostały odświeżone.',
+        correction.kind === 'rejection'
+          ? 'Odrzucenie zostało cofnięte. Kolejka i lista zostały odświeżone.'
+          : 'Korekta została cofnięta. Kolejka i lista zostały odświeżone.',
       );
     }
     await Promise.all([load(), onReverted()]);
@@ -292,7 +295,10 @@ export function GeometryCorrectionHistory({
               <span>{formatLocalTime(item.createdAt)}</span>
               <span>Sekwencja {item.sequenceNumber}</span>
               <span>Pozycja {item.positionIndex}</span>
-              <span>{kindLabel(item.kind)}</span>
+              <span>{kindLabel(item)}</span>
+              {item.kind === 'rejection' ? (
+                <span>{rejectionReasonText(item)}</span>
+              ) : null}
               <span>{item.actor}</span>
               {item.revertable ? (
                 <button
@@ -325,17 +331,27 @@ export function GeometryCorrectionHistory({
             ref={dialogRef}
             tabIndex={-1}
           >
-            <p className="eyebrow">Cofnięcie korekty</p>
+            <p className="eyebrow">
+              {pending.correction.kind === 'rejection'
+                ? 'Cofnięcie odrzucenia'
+                : 'Cofnięcie korekty'}
+            </p>
             <h2 id="geometry-revert-title">
-              Cofnąć korektę sekwencji {pending.correction.sequenceNumber},
-              pozycja {pending.correction.positionIndex}?
+              {pending.correction.kind === 'rejection'
+                ? 'Cofnąć odrzucenie sekwencji'
+                : 'Cofnąć korektę sekwencji'}{' '}
+              {pending.correction.sequenceNumber}, pozycja{' '}
+              {pending.correction.positionIndex}?
             </h2>
             {pending.previewError ? (
               <p role="alert">{pending.previewError}</p>
             ) : pending.preview === null ? (
               <p>Pobieram podgląd skutków.</p>
             ) : (
-              <PreviewSummary preview={pending.preview} />
+              <PreviewSummary
+                correction={pending.correction}
+                preview={pending.preview}
+              />
             )}
             {dialogError ? <p role="alert">{dialogError}</p> : null}
             <div className="buttonRow">
@@ -371,35 +387,26 @@ export function GeometryCorrectionHistory({
   );
 }
 
-/**
- * The generated client never throws on transport errors: it returns
- * `{error, response}` with `response` undefined. Only a 4xx response carrying
- * an API error `code` is a definite refusal; a 5xx may follow a commit, so it
- * stays an unknown outcome and the idempotent retry resolves it.
- */
-function isDefiniteRefusal(
-  result: {
-    readonly error?: unknown;
-    readonly response?: { readonly status: number };
-  } | null,
-): boolean {
-  if (result === null || result.response === undefined) return false;
-  const { status } = result.response;
-  if (status < 400 || status >= 500) return false;
-  const error = result.error;
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    'code' in error &&
-    typeof error.code === 'string'
-  );
-}
-
 function PreviewSummary({
+  correction,
   preview,
 }: {
+  readonly correction: GeometryCorrectionResponse;
   readonly preview: GeometryCorrectionRevertPreviewResponse;
 }) {
+  if (correction.kind === 'rejection') {
+    const slot = correction.rejectionTarget === 'pending_slot';
+    return (
+      <ul className="geometryCorrectionPreview">
+        <li>
+          {slot
+            ? 'Slot wróci do kolejki korekty cięcia siatki.'
+            : 'Plansza wróci do weryfikacji jako oczekująca.'}
+        </li>
+        <li>Zdjęcie nadal czeka na komplet poprawnych plansz.</li>
+      </ul>
+    );
+  }
   return (
     <ul className="geometryCorrectionPreview">
       <li>
@@ -422,8 +429,18 @@ function PreviewSummary({
   );
 }
 
-function kindLabel(kind: GeometryCorrectionResponse['kind']): string {
-  return kind === 'pending_slot' ? 'slot' : 'plansza';
+function kindLabel(item: GeometryCorrectionResponse): string {
+  if (item.kind === 'rejection') {
+    return item.rejectionTarget === 'pending_slot'
+      ? 'odrzucony slot'
+      : 'odrzucona plansza';
+  }
+  return item.kind === 'pending_slot' ? 'slot' : 'plansza';
+}
+
+function rejectionReasonText(item: GeometryCorrectionResponse): string {
+  const label = boardRejectionReasonLabel(item.rejectionReason);
+  return item.rejectionNote ? `${label}: ${item.rejectionNote}` : label;
 }
 
 function formatLocalTime(value: string): string {

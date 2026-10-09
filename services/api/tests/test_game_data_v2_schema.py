@@ -68,7 +68,7 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
     assert len(V4_GAME_TABLES) == 63
     assert len(V5_GAME_TABLES) == 64
     assert len(V6_GAME_TABLES) == 68
-    assert len(GAME_TABLES) == 69
+    assert len(GAME_TABLES) == 70
     assert set(GAME_TABLES) - set(V1_GAME_TABLES) == {
         "board_render_manifests",
         "image_geometry_shadow_results",
@@ -85,8 +85,12 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "super_game_series_audit_events",
         "super_game_series_generation_rows",
     }
-    # TASK-0945: v7 is v6 plus exactly the geometry correction revert audit.
-    assert set(GAME_TABLES) - set(V6_GAME_TABLES) == {"image_geometry_correction_reverts"}
+    # TASK-0945/0949: v7 is v6 plus exactly the geometry correction revert audit
+    # and the durable events of deferred-slot rejections.
+    assert set(GAME_TABLES) - set(V6_GAME_TABLES) == {
+        "image_board_geometry_pending_events",
+        "image_geometry_correction_reverts",
+    }
     assert {ownership(name) for name in ADDED_GAME_TABLES} == {"game"}
     # D-467 S5 (TASK-0759): v4 is v3 without exactly the three dropped tables.
     assert tuple(sorted(set(GAME_TABLES))) == GAME_TABLES

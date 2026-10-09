@@ -196,3 +196,21 @@ test('operational workspace compares square cell crops with one cropped board', 
     /\.operationalReviewApprove:disabled\s*\{[\s\S]*cursor:\s*not-allowed/,
   );
 });
+
+test('the operational screen offers the guarded board rejection (TASK-0949)', async () => {
+  const source = await readFile(workspacePath, 'utf8');
+
+  // One button with a reason picker and a confirmation, sent through the
+  // existing resolution route; a result goes through the normal resolve path.
+  assert.match(source, /<RejectBoardControl/);
+  assert.match(source, /rejectReviewItem\(/);
+  assert.match(source, /onDone=\{onResolved\}/);
+  assert.match(source, /BOARD_REJECT_CANONICAL|Kanonicznego właściciela/);
+  // Symbol shortcuts stay silent while a modal `div` (not only `dialog`) is open.
+  assert.match(source, /\[aria-modal="true"\]/);
+  // A rejected or superseded board has nothing to reject.
+  assert.match(
+    source,
+    /item\.status === 'rejected'\s*\|\|\s*item\.status === 'superseded'/,
+  );
+});

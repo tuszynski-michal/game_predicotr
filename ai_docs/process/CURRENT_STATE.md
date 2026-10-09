@@ -748,10 +748,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
 - Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora (usunięte przez leada 2026-10-09; katalogi nie istnieją).
 
-### TASK-0949 — Odrzucanie przyciętej planszy i slotu odroczonego w Reviewerze (todo)
-
-- Plik zadania: `ai_docs/tasks/0949-board-and-slot-rejection-in-reviewer.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
-
 ### TASK-0950 — Przejęcie sekwencji przez zdjęcie zastępcze i sprzątanie starego zdjęcia (todo)
 
 - Plik zadania: `ai_docs/tasks/0950-replacement-photo-sequence-takeover.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
@@ -762,9 +758,17 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0949 — odrzucanie przyciętej planszy i slotu odroczonego w Reviewerze (done)
+
+- Plik: `ai_docs/tasks/completed/0949-board-and-slot-rejection-in-reviewer.md`; plan etap R3. Commit v1.7.295 (hash dopisuje kolejny commit).
+- Odrzucenie slotu (`rejectPendingBoardCellGeometry`, powód `cropped`/`blurred`/`other`) i planszy (istniejące rozstrzygnięcie `rejected`, odmowa `BOARD_REJECT_CANONICAL`) z przycisku „Odrzuć planszę” w Reviewerze; bramka bez zmian (zdjęcie czeka, W8); odrzucone pozycje wykluczone z weryfikacji symboli, liczników i operacji zbiorczych (`review_item_id NOT IN` odrzuconych), liczniki zwalniane i przywracane przy każdym wyjściu z `rejected`; cofnięcie odrzucenia z listy „Ostatnie korekty” (`GEOMETRY_REVERT_REPLACED` po przejęciu sekwencji).
+- Migracja `0153` rozszerzona (przed wdrożeniem, decyzja leada) o append-only `image_board_geometry_pending_events` (trwała idempotencja i audyt odrzuceń slotów); klucz idempotencji cofnięć unikalny w obrębie gry we wszystkich magazynach.
+- Naprawiona regresja TASK-0945/0946: pokrycie punktów zapisu wersji wejścia supergry (`REAL_OPERATIONS`).
+- Audyt Codex `gpt-6-astra` (`medium`, od rundy 2 `high` z powodu migracji): rundy 1–4 REVISE (widoczność odrzuconych, idempotencja, liczniki, zakres klucza, test `pending_partial`), domknięte; ostatnia runda tylko test. Pełny zestaw API: 5 regresji filtra widoczności naprawione bez zmiany testów.
+
 ### TASK-0948 — sekcja „Ostatnie korekty” w Reviewerze (done)
 
-- Plik: `ai_docs/tasks/completed/0948-geometry-correction-revert-reviewer-ui.md`; plan etap R2. Commit v1.7.294 (hash dopisuje kolejny commit).
+- Plik: `ai_docs/tasks/completed/0948-geometry-correction-revert-reviewer-ui.md`; plan etap R2. Commit v1.7.294 / f8fa2ae0ba9ed57e0e8777f7c20c0a205de56040.
 - `GeometryCorrectionHistory` pod kolejką „Korekta cięcia siatki”: lista ostatnich korekt importu, „Cofnij” tylko dla `revertable`, modal z podglądem skutków i „Potwierdź cofnięcie”; jeden klucz idempotencji na otwarcie modala (ponowienie przy nieznanym wyniku z tym samym kluczem i treścią, odmowa API 4xx z kodem zamyka modal), odpowiedzi podglądu wiązane z otwarciem, fokus w modalu i blokada skrótów edytora; odświeżenie listy po zapisie korekty i listy z kolejką po cofnięciu.
 - Audyt Codex `gpt-6-astra`/`medium`: rundy 1–3 REVISE (bezpieczeństwo ponowień, testy pełnego ekranu, fokus, błędy transportu klienta, wyścig podglądu), runda 4 PASS; dodatkowe rundy poprawek decyzją leada (autonomiczne wykonanie zlecone przez operatora).
 - Testy: Reviewer 241, interakcje 48, typecheck, lint (0 błędów), `reviewer:build` i prettier czyste. Brak ręcznej weryfikacji w przeglądarce (wymaga migracji `0153`).
@@ -906,38 +910,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   lint, prettier PASS. Bez uruchomienia na żywym API.
 - Otwarte drobne: polling także przy ukrytej karcie; kwoty w modalu linii
   jako „N kr.” (formatter złotówek nieeksportowany z `board-search-ui`).
-
-### TASK-0933 — wyprowadzanie serii supergry i API serii (done)
-
-- Commit v1.7.276 / 221e43ed0c645c218e84b2bee34785608ef04f1d.
-- Migracja `0152_super_game_series` (manifest v6 = v5 + 4 tabele gry:
-  `super_game_series`, tabela robocza generacji, stan wyprowadzania, audyt
-  super symbolu; partycje i RLS dla istniejących gier; strażnik schematu
-  wymaga `0152`). D-536.
-- Licznik `input_version` per gra podbijany w tej samej transakcji w 10
-  punktach zapisu (lista w kodzie, test statyczny w obie strony, test PG na
-  12 realnych operacjach z rollbackiem); nieaktualność = porównanie z wersją
-  generacji. Job `super_game_series_derive` (lane general, dedup na grę)
-  buduje generację partiami (5000 pozycji / 500 serii), publikuje w jednej
-  transakcji pod `FOR UPDATE`, odrzuca kandydata przy zmianie wersji.
-  2000 pozycji / 30 serii: ~1 s, szczyt pamięci 0,27 MB.
-- API `/api/v1/admin/games/{gameId}/super-game-series` (lista z kursorem i
-  filtrami, `/derive`, `/{seriesId}/boards`, `PUT /{seriesId}/super-symbol`
-  z CAS, `/state`); OpenAPI, klient i wrappery; etykieta joba w Adminie.
-  Pole `superGameState` w odpowiedziach wyszukiwania przeniesione do
-  TASK-0935 (decyzja leada po audycie).
-- Audyt Codex gpt-6-astra / high (pierwszy audyt przez CLI): runda 1 REVISE
-  (P0: brak podbicia przy zmianie `expected_layout_count`, kompletność na
-  końcu sekwencji; P1: testy punktów zapisu, `superGameState`), poprawki w
-  jednej rundzie, runda 2 w `ai_docs/quality/TASK-0933_AUDIT_gpt-6-astra.md`.
-  Runda 2 i 3 (zawężone): cztery P0 współbieżności (odczyt parametrów pod
-  blokadą stanu; wyścig blokady czyszczenia — wyłączenie usunięte, job
-  blokuje jak każdy; odczyty w snapshocie RR), wszystkie naprawione i pokryte
-  testami PG; commit po rundzie 3 bez kolejnej rundy (reguła szybkiego
-  audytu, decyzja leada). Raporty rund w `ai_docs/quality/`.
-- Wdrożenie u operatora: stop API/worker/Admin → `npm run db:migrate` (0152,
-  manifest v5→v6) → start → `POST …/derive` dla Mumii (komórki sprzed
-  migracji nie podbiły licznika).
 
 ## Archiwum
 

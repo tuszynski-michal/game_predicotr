@@ -4378,3 +4378,55 @@ test('generated client lists, previews and reverts geometry corrections', async 
   assert.equal(new URL(requests[1].url).searchParams.get('limit'), '5');
   assert.deepEqual(await requests[3].clone().json(), command);
 });
+
+test('generated client rejects a deferred slot and a board with their reasons', async () => {
+  const requests = [];
+  const pendingId = '11111111-1111-4111-8111-111111111111';
+  const itemId = '55555555-5555-4555-8555-555555555555';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({});
+    },
+  });
+
+  const slotCommand = {
+    expectedGeometryRevision: 0,
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+    note: 'Ucięty górny rząd',
+    reason: 'other',
+  };
+  await client.rejectPendingBoardCellGeometry(pendingId, context, slotCommand);
+  // The board is rejected through the existing resolution route (D-539).
+  const boardCommand = {
+    action: 'rejected',
+    cells: [],
+    expectedRevision: 3,
+    geometryRevision: 1,
+    idempotencyKey: '66666666-6666-4666-8666-666666666666',
+    rejectionReason: 'cropped',
+    resolvedBy: 'reviewer',
+    sequenceNumber: null,
+  };
+  await client.resolveOperationalImageReviewItem(itemId, context, boardCommand);
+
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      [
+        'POST',
+        `/api/v1/admin/games/${context.gameId}/image-imports/${context.importJobId}/board-cell-geometry-pending/${pendingId}/rejection`,
+      ],
+      ['POST', `/api/v1/admin/image-review-items/${itemId}/resolution`],
+    ],
+  );
+  assert.deepEqual(await requests[0].clone().json(), slotCommand);
+  const resolutionBody = await requests[1].clone().json();
+  assert.equal(resolutionBody.action, 'rejected');
+  assert.equal(resolutionBody.rejectionReason, 'cropped');
+});

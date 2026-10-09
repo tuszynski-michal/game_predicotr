@@ -307,7 +307,13 @@ def test_a_resolved_review_item_refuses_the_revert(
     finally:
         app.state.database_engine.dispose()
     assert rejected.status_code == 200, rejected.text
-    [entry] = _entries(factory, seed)
+    # TASK-0949: the rejection of the item is listed as well (kind ``rejection``);
+    # the correction itself is blocked by the resolved item as before.
+    [entry] = [
+        value
+        for value in _entries(factory, seed)
+        if value.kind is GeometryCorrectionKind.PENDING_SLOT
+    ]
     assert entry.blocking_reason is RevertBlockingReason.RESOLVED
     _refused(factory, seed, entry, RevertBlockingReason.RESOLVED)
 

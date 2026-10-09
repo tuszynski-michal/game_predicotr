@@ -22,11 +22,19 @@ import {
   GeometryCorrectionHistory,
   type GeometryCorrectionHistoryClient,
 } from './geometry-correction-history';
+import {
+  type BoardRejectionClient,
+  rejectDeferredSlot,
+  rejectReviewItem,
+} from './board-rejection-actions.ts';
+import type { BoardRejectionRequest } from './board-rejection-state.ts';
+import { RejectBoardControl } from './reject-board-control';
 import { buildOperationalReviewSymbolShortcuts } from './operational-review-state';
 
 type LoadState = 'error' | 'loading' | 'ready';
 
 export type BoardGeometryCorrectionClient = GeometryCorrectionHistoryClient &
+  BoardRejectionClient &
   Pick<
     AdminApiClient,
     | 'createImageGridReviewGeometryRevision'
@@ -203,6 +211,57 @@ export function BoardGeometryCorrectionWorkspace({
     [loadPage],
   );
 
+  // TASK-0949: a rejected slot or board leaves the queue; the history lists
+  // the rejection so it can be undone until a replacement owns the sequence.
+  const handleRejected = useCallback(async () => {
+    setNotice(
+      'Plansza została odrzucona. Zdjęcie czeka na zdjęcie zastępcze albo wyjątek operatora.',
+    );
+    setHistoryRefresh((value) => value + 1);
+    await loadPage(undefined, { preserveNotice: true, resetHistory: true });
+  }, [loadPage]);
+
+  const handleRejectionRefused = useCallback(
+    async (message: string) => {
+      setNotice(message);
+      setHistoryRefresh((value) => value + 1);
+      await loadPage(undefined, { preserveNotice: true, resetHistory: true });
+    },
+    [loadPage],
+  );
+
+  const submitRejection = useCallback(
+    (request: BoardRejectionRequest) => {
+      if (item === null) throw new Error('No board to reject.');
+      const scope = { gameId: item.gameId, importJobId: item.importJobId };
+      if (item.slotKind === 'deferred_geometry' && item.pendingGeometryId) {
+        return rejectDeferredSlot(
+          api,
+          scope,
+          {
+            expectedGeometryRevision: item.geometryRevision,
+            pendingGeometryId: item.pendingGeometryId,
+          },
+          request,
+        );
+      }
+      if (item.reviewItemId === null) {
+        throw new Error('The board has no review item.');
+      }
+      return rejectReviewItem(
+        api,
+        scope,
+        {
+          geometryRevision: item.geometryRevision,
+          resolutionRevision: item.resolutionRevision,
+          reviewItemId: item.reviewItemId,
+        },
+        request,
+      );
+    },
+    [api, item],
+  );
+
   const handleReverted = useCallback(async () => {
     await loadPage(undefined, { preserveNotice: true, resetHistory: true });
   }, [loadPage]);
@@ -268,6 +327,16 @@ export function BoardGeometryCorrectionWorkspace({
         </div>
       ) : (
         <>
+          <div className="boardRejectionBar">
+            <RejectBoardControl<unknown>
+              consequences={rejectionConsequences(item)}
+              key={target.key}
+              onDone={handleRejected}
+              onRefused={handleRejectionRefused}
+              subject={`sekwencja ${item.sequenceNumber}, pozycja ${item.positionIndex}`}
+              submit={submitRejection}
+            />
+          </div>
           <BoardGeometryCorrectionEditor
             key={target.key}
             onConflict={handleConflict}
@@ -317,6 +386,26 @@ export function BoardGeometryCorrectionWorkspace({
       />
     </section>
   );
+}
+
+/** What the confirmation says the rejection does (plan: W7, W8, risks). */
+function rejectionConsequences(
+  item: ImageGridReviewItemResponse,
+): readonly string[] {
+  const common = [
+    'Zdjęcie zostaje niekompletne i czeka na zdjęcie zastępcze albo wyjątek operatora; pozostałe plansze tego zdjęcia nie są cięte na symbole.',
+    'Odrzucenie można cofnąć w sekcji „Ostatnie korekty”, dopóki sekwencji nie przejmie inna plansza.',
+  ];
+  return item.slotKind === 'deferred_geometry'
+    ? [
+        'Slot zniknie z kolejki korekty cięcia siatki i nie powstanie z niego plansza.',
+        ...common,
+      ]
+    : [
+        'Plansza wypadnie z kolejki korekty, z weryfikacji symboli i z wyszukiwarki. Weryfikacje symboli już zapisane na niej zostają w historii.',
+        'Kanonicznego właściciela sekwencji nie można odrzucić.',
+        ...common,
+      ];
 }
 
 function useBoardCorrectionTarget(

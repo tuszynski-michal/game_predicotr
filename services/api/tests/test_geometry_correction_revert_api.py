@@ -33,6 +33,7 @@ from game_predictor_api.domain.geometry_correction_reverts import (
     GEOMETRY_REVERT_RENDER_FAILED,
     GEOMETRY_REVERT_RENDERER_UNAVAILABLE,
     GeometryCorrectionKind,
+    RejectionTarget,
     RevertBlockingReason,
     blocking_reason_message,
 )
@@ -106,7 +107,9 @@ class MemoryRevertRepository(GeometryCorrectionRevertRepository):
             removed_cell_count=15,
             repointed_board_count=1,
             restored_cell_decision_count=0,
-            reverted_source_geometry_revision_id=uuid4(),
+            reverted_source_geometry_revision_id=(
+                None if entry.kind is GeometryCorrectionKind.REJECTION else uuid4()
+            ),
             restored_source_geometry_revision_id=uuid4(),
             restored_source_engine_kind="neural_grid_v1",
             restored_source_status="current",
@@ -471,3 +474,84 @@ def test_default_wiring_gives_the_service_a_virtual_render_verifier(tmp_path: Pa
         assert isinstance(verifier, VirtualRestoredRenderVerifier)
     finally:
         generator.close()
+
+
+def _rejection_entry(
+    *, target: RejectionTarget, reason: str = "cropped"
+) -> GeometryCorrectionEntry:
+    slot = target is RejectionTarget.PENDING_SLOT
+    return replace(
+        _entry(kind=GeometryCorrectionKind.REJECTION),
+        recognized_board_id=None if slot else uuid4(),
+        review_item_id=None if slot else uuid4(),
+        pending_geometry_id=uuid4() if slot else None,
+        rejection_target=target,
+        rejection_reason=reason,
+        rejection_note="Ucięty górny rząd" if reason == "other" else None,
+    )
+
+
+def test_list_and_preview_describe_a_rejection_without_a_board_or_source_revision(
+    tmp_path: Path,
+) -> None:
+    repository = MemoryRevertRepository()
+    slot = _rejection_entry(target=RejectionTarget.PENDING_SLOT, reason="other")
+    board = replace(
+        _rejection_entry(target=RejectionTarget.REVIEW_ITEM),
+        blocking_reason=RevertBlockingReason.REPLACED,
+        created_at=NOW - timedelta(minutes=5),
+    )
+    repository.entries = [board, slot]
+    with _client(tmp_path, repository) as client:
+        listed = client.get(_base())
+        preview = client.get(f"{_base()}/{slot.board_geometry_revision_id}/revert-preview")
+
+    first, second = listed.json()["items"]
+    assert first["kind"] == "rejection" and first["rejectionTarget"] == "pending_slot"
+    assert first["recognizedBoardId"] is None and first["reviewItemId"] is None
+    assert first["pendingGeometryId"] == str(slot.pending_geometry_id)
+    assert first["rejectionReason"] == "other"
+    assert first["rejectionNote"] == "Ucięty górny rząd"
+    assert second["rejectionTarget"] == "review_item"
+    assert second["recognizedBoardId"] == str(board.recognized_board_id)
+    assert second["pendingGeometryId"] is None
+    assert second["rejectionNote"] is None
+    assert second["revertable"] is False
+    assert second["blockingReasonCode"] == "GEOMETRY_REVERT_REPLACED"
+    assert preview.status_code == 200
+    assert preview.json()["revertedSourceGeometryRevisionId"] is None
+    assert preview.json()["correction"]["kind"] == "rejection"
+
+
+def test_a_rejection_revert_result_has_no_board_or_source_revision(tmp_path: Path) -> None:
+    repository = MemoryRevertRepository()
+    slot = _rejection_entry(target=RejectionTarget.PENDING_SLOT)
+    repository.entries = [slot]
+    result = GeometryCorrectionRevertResult(
+        revert_id=uuid4(),
+        created=True,
+        kind=GeometryCorrectionKind.REJECTION,
+        board_geometry_revision_id=slot.board_geometry_revision_id,
+        pending_geometry_id=slot.pending_geometry_id,
+        recognized_board_id=None,
+        review_item_id=None,
+        reverted_source_geometry_revision_id=None,
+        restored_source_geometry_revision_id=None,
+        repointed_board_ids=(),
+        removed_cell_count=0,
+        source_image_geometry_status=SourceImageGeometryStatus.GEOMETRY_INCOMPLETE,
+        snapshot_checksum_sha256="a" * 64,
+        created_at=NOW,
+    )
+    command = _command()
+    repository.results[UUID(str(command["idempotencyKey"]))] = result
+    with _client(tmp_path, repository) as client:
+        response = client.post(f"{_base()}/{slot.board_geometry_revision_id}/revert", json=command)
+
+    assert response.status_code == 200, response.text
+    body = response.json()
+    assert body["kind"] == "rejection"
+    assert body["recognizedBoardId"] is None and body["reviewItemId"] is None
+    assert body["revertedSourceGeometryRevisionId"] is None
+    assert body["restoredSourceGeometryRevisionId"] is None
+    assert body["pendingGeometryId"] == str(slot.pending_geometry_id)

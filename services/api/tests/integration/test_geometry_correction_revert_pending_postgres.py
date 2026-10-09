@@ -533,13 +533,23 @@ def test_migration_0153_downgrade_refuses_revert_history_and_round_trips(
             "WHERE game_id = :game_id",
         ),
     )
+    event = (
+        "INSERT INTO game_data_v2.image_board_geometry_pending_events "
+        "(game_id, id, import_job_id, pending_geometry_id, rejection_revision, action, "
+        "idempotency_key, command_sha256, reason, actor) "
+        "VALUES (:game_id, gen_random_uuid(), :job_id, gen_random_uuid(), 1, 'rejected', "
+        "gen_random_uuid(), repeat('a', 64), 'cropped', 'task-0949')",
+        "DELETE FROM game_data_v2.image_board_geometry_pending_events WHERE game_id = :game_id",
+    )
+    histories = (*histories, event)
     for apply, undo in histories:
+        parameters = {"game_id": game_id, "job_id": seed.import_job_id}
         with database.engine.begin() as connection:
-            connection.execute(text(apply), {"game_id": game_id})
+            connection.execute(text(apply), parameters)
         with pytest.raises(Exception, match="GEOMETRY_CORRECTION_REVERT_DOWNGRADE_HAS_HISTORY"):
             command.downgrade(database.config, "0152_super_game_series")
         with database.engine.begin() as connection:
-            connection.execute(text(undo), {"game_id": game_id})
+            connection.execute(text(undo), parameters)
 
     # Rejected-slot rules of the lifecycle CHECK (W7 schema).
     with database.engine.begin() as connection, pytest.raises(Exception, match="rejection"):
@@ -567,6 +577,12 @@ def test_migration_0153_downgrade_refuses_revert_history_and_round_trips(
             ).scalar_one()
             is None
         )
+        assert (
+            connection.execute(
+                text("SELECT to_regclass('game_data_v2.image_board_geometry_pending_events')")
+            ).scalar_one()
+            is None
+        )
         unique = connection.execute(
             text(
                 "SELECT pg_get_constraintdef(oid) FROM pg_constraint "
@@ -589,6 +605,15 @@ def test_migration_0153_downgrade_refuses_revert_history_and_round_trips(
                 text(
                     "SELECT count(*) FROM pg_inherits WHERE inhparent = "
                     "'game_data_v2.image_geometry_correction_reverts'::regclass"
+                )
+            ).scalar_one()
+            == 1
+        )
+        assert (
+            connection.execute(
+                text(
+                    "SELECT count(*) FROM pg_inherits WHERE inhparent = "
+                    "'game_data_v2.image_board_geometry_pending_events'::regclass"
                 )
             ).scalar_one()
             == 1

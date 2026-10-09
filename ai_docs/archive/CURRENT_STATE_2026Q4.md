@@ -13,6 +13,38 @@ Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z plik
 ponad limit 10 dopisuj na początku najnowszego pliku archiwum. Aktualny stan:
 [CURRENT_STATE.md](../process/CURRENT_STATE.md).
 
+### TASK-0933 — wyprowadzanie serii supergry i API serii (done)
+
+- Commit v1.7.276 / 221e43ed0c645c218e84b2bee34785608ef04f1d.
+- Migracja `0152_super_game_series` (manifest v6 = v5 + 4 tabele gry:
+  `super_game_series`, tabela robocza generacji, stan wyprowadzania, audyt
+  super symbolu; partycje i RLS dla istniejących gier; strażnik schematu
+  wymaga `0152`). D-536.
+- Licznik `input_version` per gra podbijany w tej samej transakcji w 10
+  punktach zapisu (lista w kodzie, test statyczny w obie strony, test PG na
+  12 realnych operacjach z rollbackiem); nieaktualność = porównanie z wersją
+  generacji. Job `super_game_series_derive` (lane general, dedup na grę)
+  buduje generację partiami (5000 pozycji / 500 serii), publikuje w jednej
+  transakcji pod `FOR UPDATE`, odrzuca kandydata przy zmianie wersji.
+  2000 pozycji / 30 serii: ~1 s, szczyt pamięci 0,27 MB.
+- API `/api/v1/admin/games/{gameId}/super-game-series` (lista z kursorem i
+  filtrami, `/derive`, `/{seriesId}/boards`, `PUT /{seriesId}/super-symbol`
+  z CAS, `/state`); OpenAPI, klient i wrappery; etykieta joba w Adminie.
+  Pole `superGameState` w odpowiedziach wyszukiwania przeniesione do
+  TASK-0935 (decyzja leada po audycie).
+- Audyt Codex gpt-6-astra / high (pierwszy audyt przez CLI): runda 1 REVISE
+  (P0: brak podbicia przy zmianie `expected_layout_count`, kompletność na
+  końcu sekwencji; P1: testy punktów zapisu, `superGameState`), poprawki w
+  jednej rundzie, runda 2 w `ai_docs/quality/TASK-0933_AUDIT_gpt-6-astra.md`.
+  Runda 2 i 3 (zawężone): cztery P0 współbieżności (odczyt parametrów pod
+  blokadą stanu; wyścig blokady czyszczenia — wyłączenie usunięte, job
+  blokuje jak każdy; odczyty w snapshocie RR), wszystkie naprawione i pokryte
+  testami PG; commit po rundzie 3 bez kolejnej rundy (reguła szybkiego
+  audytu, decyzja leada). Raporty rund w `ai_docs/quality/`.
+- Wdrożenie u operatora: stop API/worker/Admin → `npm run db:migrate` (0152,
+  manifest v5→v6) → start → `POST …/derive` dla Mumii (komórki sprzed
+  migracji nie podbiły licznika).
+
 ### TASK-0940 — zielona bramka `npm run quality` (done)
 
 - Commit v1.7.273 / 60ba1f74de09d82d159f42bf9706240dcb662123.

@@ -25,7 +25,7 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 - `services/api/src/game_predictor_api/application/` (86 py) - use case'y (orkiestracja, transakcje); Application use cases; populated by later M2 vertical slices.
 - `services/api/src/game_predictor_api/domain/` (70 py) - czysta logika domenowa bez I/O; Administrative domain layer independent of FastAPI and storage.
 - `services/api/src/game_predictor_api/schemas/` (48 py) - modele Pydantic (kontrakt OpenAPI); Transport schemas published through OpenAPI.
-- `services/api/src/game_predictor_api/storage/` (110 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
+- `services/api/src/game_predictor_api/storage/` (111 py) - repozytoria SQLAlchemy, modele tabel; Persistence adapters for the canonical PostgreSQL database.
 - `services/api/src/game_predictor_api/security/` (2 py) - autoryzacja i polityki dostępu; Security boundaries for the local administration surface.
 - `services/api/src/game_predictor_api/main.py` - fabryka aplikacji FastAPI
 - `services/api/src/game_predictor_api/config.py` - konfiguracja (tylko loopback)
@@ -42,8 +42,8 @@ Warstwy: `api/` (routery HTTP) -> `application/` (use case'y) -> `domain/` (czys
 
 ### Testy
 
-- `services/api/tests/` (324 plików w katalogu testów, rekurencyjnie)
-- `services/api/tests/integration/` (76 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/` (325 plików w katalogu testów, rekurencyjnie)
+- `services/api/tests/integration/` (77 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 
@@ -157,13 +157,13 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Katalogi
 
-- `apps/reviewer/src/features/` (38 ts/tsx) - funkcje (podkatalogi poniżej)
+- `apps/reviewer/src/features/` (43 ts/tsx) - funkcje (podkatalogi poniżej)
   - `access/` (2 plików): LocalReviewerWorkspace, ReviewerAccessGate
   - `board-search-share/` (3 plików): BOARD_SEARCH_SHARE_API_BASE, BOARD_SEARCH_SHARE_GAME_ID, SEARCH_CACHE_TTL_MS, SEARCH_CACHE_MAX_ENTRIES, BoardSearchShareDataSourceOptions, BoardSearchShareDataSource, createBoardSearchShareDataSource, BoardSearchShareGate (+2)
   - `catalog/` (1 plików): apiErrorMessage
   - `management/` (3 plików): MANAGEMENT_SESSION_ID, managementStorageNamespace, managementAccessMessage, ManagementGate, MANAGEMENT_API_BASE, createManagementPublicAdapter, ManagementPublicAdapter
   - `manual-selection/` (12 plików): OperatorLocalOutputManifestV1, OperatorLocalOutputManifestV2, OperatorLocalOutputManifest, OperatorLocalOutputDirectoryState, OperatorLocalOutputResult, resetOperatorLocalOutputDirectory, writeOperatorLocalSelection, removeOperatorLocalSelection (+85)
-  - `operational-reviews/` (17 plików): gridReviewCorners, gridReviewQualification, gridReviewGeometryPreviewCommand, parseGeometryCorners, gridCellsWithoutPixels, gridCellPolygonsWithoutPixels, BoardGeometryCorrectionView, BoardGeometryCorrectionFact (+137)
+  - `operational-reviews/` (22 plików): gridReviewCorners, gridReviewQualification, gridReviewGeometryPreviewCommand, parseGeometryCorners, gridCellsWithoutPixels, gridCellPolygonsWithoutPixels, BoardGeometryCorrectionView, BoardGeometryCorrectionFact (+160)
 - `apps/reviewer/src/app/` (9 ts/tsx) - trasy i route handlery
 - `apps/reviewer/src/security/` (4 ts/tsx) - proxy i polityka allowlisty
 - `apps/reviewer/src/api/` (1 ts/tsx) - wrapper klienta API
@@ -175,8 +175,8 @@ Zdalny/lokalny UI przeglądu i selekcji; proxy allowlisty do API z cookie sesji 
 
 ### Testy
 
-- `apps/reviewer/test/` (32 plików w katalogu testów, rekurencyjnie)
-- `apps/reviewer/test-interactions/` (8 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test/` (33 plików w katalogu testów, rekurencyjnie)
+- `apps/reviewer/test-interactions/` (10 plików w katalogu testów, rekurencyjnie)
 
 ### Komendy
 

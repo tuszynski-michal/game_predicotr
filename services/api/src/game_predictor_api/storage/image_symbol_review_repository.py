@@ -19,6 +19,7 @@ from sqlalchemy import (
     case,
     column,
     delete,
+    exists,
     false,
     func,
     or_,
@@ -193,8 +194,23 @@ class _CountedCellState:
 
 
 def _logical_cell_visible_clause() -> ColumnElement[bool]:
+    """Cells that take part in symbol verification (lists, counts, bulk scopes).
+
+    A cell is visible when it has source pixels (or is a fully outside cell)
+    and its review item is not rejected (TASK-0949, W7): a rejected board
+    leaves symbol verification while its rows and decision history stay, so
+    reverting the rejection brings it back unchanged.
+    """
+
     cell = ImageSymbolReviewCellModel
-    return or_(cell.source_available.is_(True), cell.source_visibility == "outside")
+    owner = aliased(ImageReviewItemModel)
+    # An uncorrelated ``NOT IN`` over the (small) set of rejected items: hashed once
+    # per statement, and no extra EXISTS next to the prediction-revision filters.
+    # ``review_item_id`` is NOT NULL, so the NULL rule of ``NOT IN`` never applies.
+    return and_(
+        or_(cell.source_available.is_(True), cell.source_visibility == "outside"),
+        cell.review_item_id.not_in(select(owner.id).where(owner.status == "rejected")),
+    )
 
 
 def _count_scope_keys(cell: _CountedCellState | None) -> tuple[str, ...]:
@@ -2175,6 +2191,66 @@ class SymbolCellReviewWriteThroughCoordinator:
             actor=actor,
         )
 
+    def release_cells_of_rejected_board(self, *, game_id: UUID, review_item_id: UUID) -> int:
+        """Take a just-rejected board's cells out of the exact counters (TASK-0949).
+
+        The rows and events stay as decision history; the visible scope
+        already excludes rejected items. Call it once, on the transition of
+        the item into ``rejected``.
+        """
+
+        cells = self._cells_of_item(game_id, review_item_id)
+        state = self._state_if_initialized(game_id)
+        if state is None:
+            return len(cells)
+        _apply_count_deltas(state, before=tuple(_CountedCellState.from_model(c) for c in cells))
+        self._touch_catalog_revision(state)
+        return len(cells)
+
+    def restore_cells_of_reopened_board(self, *, game_id: UUID, review_item_id: UUID) -> int:
+        """Put the cells of a board whose rejection was undone back into the counters.
+
+        Call it once, on the transition out of ``rejected`` and before the
+        regular write-through synchronization of the reactivated item.
+        """
+
+        cells = self._cells_of_item(game_id, review_item_id)
+        state = self._state_if_initialized(game_id)
+        if state is None:
+            return len(cells)
+        _apply_count_deltas(state, after=tuple(_CountedCellState.from_model(c) for c in cells))
+        self._touch_catalog_revision(state)
+        return len(cells)
+
+    def _cells_of_item(
+        self, game_id: UUID, review_item_id: UUID
+    ) -> tuple[ImageSymbolReviewCellModel, ...]:
+        # Both callers run inside the resolution/revert transaction, which has
+        # already bound the game store.
+        return tuple(
+            self._session.scalars(
+                select(ImageSymbolReviewCellModel)
+                .where(
+                    ImageSymbolReviewCellModel.game_id == game_id,
+                    ImageSymbolReviewCellModel.review_item_id == review_item_id,
+                )
+                .order_by(ImageSymbolReviewCellModel.cell_index)
+                .with_for_update()
+            )
+        )
+
+    def _rejected_item_ids(self, review_item_ids: set[UUID]) -> set[UUID]:
+        if not review_item_ids:
+            return set()
+        return set(
+            self._session.scalars(
+                select(ImageReviewItemModel.id).where(
+                    ImageReviewItemModel.id.in_(review_item_ids),
+                    ImageReviewItemModel.status == "rejected",
+                )
+            )
+        )
+
     def synchronize_after_projection_change(self, *, game_id: UUID) -> bool:
         """Advance the filter snapshot after a canonical owner changes."""
 
@@ -2461,7 +2537,16 @@ class SymbolCellReviewWriteThroughCoordinator:
             cell.cell_index: cell
             for cell in self._session.scalars(existing_statement.with_for_update())
         }
-        count_before = tuple(_CountedCellState.from_model(cell) for cell in existing.values())
+        # Cells of a rejected previous owner were taken out of the exact counters
+        # when it was rejected, so they are not subtracted again (TASK-0949).
+        rejected_owner_ids = self._rejected_item_ids(
+            {cell.review_item_id for cell in existing.values()} - {item.id}
+        )
+        count_before = tuple(
+            _CountedCellState.from_model(cell)
+            for cell in existing.values()
+            if cell.review_item_id not in rejected_owner_ids
+        )
         # Logical V2 cells can move from a previous owner of this sequence;
         # that owner's search evidence must be refreshed as well (D-462 R8).
         previous_owner_ids = {cell.review_item_id for cell in existing.values()} - {item.id}
@@ -4404,7 +4489,14 @@ class SqlAlchemyImageSymbolReviewRepository:
                 ImageSymbolReviewCellModel.quality_issue,
                 ImageSymbolReviewCellModel.source_visibility,
             )
-            .where(ImageSymbolReviewCellModel.game_id == game_id)
+            .where(
+                ImageSymbolReviewCellModel.game_id == game_id,
+                # TASK-0949: cells of rejected boards are not counted.
+                ~exists().where(
+                    ImageReviewItemModel.id == ImageSymbolReviewCellModel.review_item_id,
+                    ImageReviewItemModel.status == "rejected",
+                ),
+            )
             .order_by(ImageSymbolReviewCellModel.id)
             .limit(batch_size)
         )

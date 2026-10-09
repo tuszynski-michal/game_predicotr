@@ -85,6 +85,7 @@ test('exposes only unlock, scoped context and operational review routes', () => 
     ['POST', 'geometry-preview'],
     ['POST', 'geometry-symbol-preview'],
     ['POST', 'manual-resolution'],
+    ['POST', 'rejection'],
   ]) {
     const path =
       `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/` +
@@ -94,6 +95,14 @@ test('exposes only unlock, scoped context and operational review routes', () => 
   const pendingCollection =
     `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/` +
     'board-cell-geometry-pending';
+  // The rejection is a mutation: no other method may reach it.
+  for (const method of ['GET', 'PUT', 'DELETE']) {
+    assert.equal(
+      reviewerProxyTarget(method, `${pendingCollection}/${itemId}/rejection`),
+      null,
+      method,
+    );
+  }
   assert.equal(
     reviewerProxyTarget('GET', pendingCollection),
     pendingCollection,

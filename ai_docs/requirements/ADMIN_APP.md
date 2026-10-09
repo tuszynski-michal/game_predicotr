@@ -808,6 +808,22 @@ potwierdzenie z podglądem skutków, a `Potwierdź cofnięcie` wysyła jedno
 odświeżają się kolejka i lista; błąd 409 pokazuje komunikat i odświeża listę.
 Lista odświeża się też po każdym zapisie korekty.
 
+Odrzucanie przyciętych plansz (TASK-0949, W7/W8): w „Korekta cięcia siatki”
+nad edytorem oraz na ekranie operacyjnym pozycji jest przycisk
+`Odrzuć planszę`. Otwiera okno z wyborem powodu („Plansza przycięta”,
+„Rozmyta”, „Inny” z obowiązkowym opisem), skutkami (zdjęcie zostaje
+niekompletne i czeka na zdjęcie zastępcze albo wyjątek operatora, pozostałe
+plansze nie są cięte; weryfikacje symboli już zapisane na planszy zostają w
+historii, ale plansza wypada z wyszukiwarki; kanonicznego właściciela
+sekwencji nie można odrzucić) i potwierdzeniem `Potwierdź odrzucenie`. Slot
+odroczony jest odrzucany trasą slotu, istniejąca plansza trasą rozstrzygnięcia
+pozycji. Okno trzyma jeden klucz idempotencji na otwarcie; po utraconej
+odpowiedzi zamraża wybór i pozwala powtórzyć to samo żądanie. Odpowiedź 4xx
+z kodem (np. `BOARD_REJECT_CANONICAL`) zamyka okno, pokazuje komunikat i
+odświeża kolejkę. Odrzucenie trafia na listę „Ostatnie korekty” (rodzaj
+`odrzucony slot` / `odrzucona plansza` z powodem) i można je cofnąć, dopóki
+sekwencji nie przejmie inna plansza (`GEOMETRY_REVERT_REPLACED`).
+
 Zapis geometrii kończy zadanie korekty. Usuwa zgłoszenia `Zła siatka` tej
 planszy; komórki o zmienionym wycinku wracają do zwykłej `Weryfikacji symboli`
 z dotychczasową etykietą jako podpowiedzią, a komórki o niezmienionych

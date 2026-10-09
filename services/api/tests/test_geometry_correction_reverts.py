@@ -17,9 +17,13 @@ from game_predictor_api.domain.geometry_correction_reverts import (
     CORRECTION_TRANSACTION_CELL_ACTIONS,
     GeometryCorrectionKind,
     PreviousCellDecision,
+    RejectionRevertFacts,
     RestoredCellDecision,
     RevertBlockingReason,
     RevertEligibilityFacts,
+    decode_board_rejection_reason,
+    encode_board_rejection_reason,
+    evaluate_rejection_revert_eligibility,
     evaluate_revert_eligibility,
     image_admission_blocks_revert,
     predicted_status_after_slot_revert,
@@ -318,3 +322,77 @@ def test_case_a_transaction_actions_are_the_geometry_write_and_d488_symbols() ->
         "reassign",
         "mark_unreadable",
     } == CORRECTION_TRANSACTION_CELL_ACTIONS
+
+
+# -- TASK-0949: rejections -------------------------------------------------
+
+
+def _rejection_facts(**changes: Any) -> RejectionRevertFacts:
+    values: dict[str, Any] = {
+        "still_rejected": True,
+        "cas_matches": True,
+        "position_free": True,
+        "replaced": False,
+    }
+    values.update(changes)
+    return RejectionRevertFacts(**values)
+
+
+def test_a_standing_rejection_is_revertable_with_or_without_cas() -> None:
+    assert evaluate_rejection_revert_eligibility(_rejection_facts()) is None
+    assert evaluate_rejection_revert_eligibility(_rejection_facts(cas_matches=None)) is None
+
+
+@pytest.mark.parametrize(
+    ("changes", "reason"),
+    (
+        ({"still_rejected": False}, RevertBlockingReason.NOT_LATEST),
+        ({"position_free": False}, RevertBlockingReason.NOT_LATEST),
+        ({"cas_matches": False}, RevertBlockingReason.STALE),
+        ({"replaced": True}, RevertBlockingReason.REPLACED),
+    ),
+)
+def test_a_rejection_revert_refuses_on_its_own_rule(
+    changes: dict[str, Any], reason: RevertBlockingReason
+) -> None:
+    assert evaluate_rejection_revert_eligibility(_rejection_facts(**changes)) is reason
+
+
+def test_the_first_failing_rejection_rule_wins() -> None:
+    every = _rejection_facts(still_rejected=False, cas_matches=False, replaced=True)
+
+    assert evaluate_rejection_revert_eligibility(every) is RevertBlockingReason.NOT_LATEST
+    assert (
+        evaluate_rejection_revert_eligibility(_rejection_facts(cas_matches=False, replaced=True))
+        is RevertBlockingReason.STALE
+    )
+
+
+def test_the_replaced_code_is_stable_and_has_a_polish_message() -> None:
+    assert RevertBlockingReason.REPLACED.value == "GEOMETRY_REVERT_REPLACED"
+    assert "sekwencj" in BLOCKING_REASON_MESSAGES[RevertBlockingReason.REPLACED]
+    assert GeometryCorrectionKind.REJECTION.value == "rejection"
+
+
+@pytest.mark.parametrize(
+    ("reason", "note", "text"),
+    (
+        ("cropped", None, "cropped"),
+        ("cropped", "ignored", "cropped"),
+        ("blurred", None, "blurred"),
+        ("other", "Ucięty górny rząd", "other: Ucięty górny rząd"),
+    ),
+)
+def test_the_board_rejection_reason_text_round_trips(
+    reason: str, note: str | None, text: str
+) -> None:
+    assert encode_board_rejection_reason(reason, note) == text
+    decoded_reason, decoded_note = decode_board_rejection_reason(text)
+    assert decoded_reason == reason
+    assert decoded_note == (note if reason == "other" else None)
+
+
+def test_a_free_text_board_rejection_reason_is_kept_as_a_note() -> None:
+    assert decode_board_rejection_reason("blur") == (None, "blur")
+    assert decode_board_rejection_reason(None) == (None, None)
+    assert decode_board_rejection_reason("other:") == ("other", None)

@@ -108,6 +108,8 @@ function fakeApi(state) {
     preview: [],
     corrections: [],
     previewRevert: [],
+    rejectBoard: [],
+    rejectSlot: [],
     resolve: [],
     revert: [],
     save: [],
@@ -185,6 +187,23 @@ function fakeApi(state) {
           reviewItemId: 'new-review',
         },
       };
+    },
+    // TASK-0949: the rejection of a deferred slot and of a reported board.
+    rejectPendingBoardCellGeometry: async (id, scope, command) => {
+      calls.rejectSlot.push({ command, id, scope });
+      const scripted = state.rejectResults?.shift();
+      if (scripted === 'throw') throw new Error('lost response');
+      if (scripted !== undefined) return scripted;
+      state.queue = state.queue.filter((item) => item.pendingGeometryId !== id);
+      return { data: { counts: {}, created: true, item: { id } } };
+    },
+    resolveOperationalImageReviewItem: async (id, scope, command) => {
+      calls.rejectBoard.push({ command, id, scope });
+      const scripted = state.rejectResults?.shift();
+      if (scripted === 'throw') throw new Error('lost response');
+      if (scripted !== undefined) return scripted;
+      state.queue = state.queue.filter((item) => item.reviewItemId !== id);
+      return { data: { created: true, item: { id, status: 'rejected' } } };
     },
     listGeometryCorrections: async (options) => {
       calls.corrections.push(options);
@@ -698,5 +717,177 @@ test('a revert re-fetches the history and the queue and the restored slot appear
   assert.equal(calls.list.length, queueLoads + 1);
   assert.match(document.body.textContent, /Do korekty: 1/);
   assert.doesNotMatch(document.body.textContent, /Brak plansz do korekty/);
+  await act(async () => root.unmount());
+});
+
+function typeInto(element, value) {
+  const prototype =
+    element instanceof dom.window.HTMLTextAreaElement
+      ? dom.window.HTMLTextAreaElement.prototype
+      : dom.window.HTMLInputElement.prototype;
+  Object.getOwnPropertyDescriptor(prototype, 'value').set.call(element, value);
+  element.dispatchEvent(new dom.window.Event('input', { bubbles: true }));
+}
+
+const radio = (reason) =>
+  document.querySelector(
+    `input[name="board-rejection-reason"][value="${reason}"]`,
+  );
+const confirmRejection = () => button('Potwierdź odrzucenie');
+
+test('rejecting a deferred slot asks for a reason, sends one request and refreshes the queue and the list', async () => {
+  const state = { corrections: [], queue: [deferredSlot()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+  const queueLoads = calls.list.length;
+  const listLoads = calls.corrections.length;
+
+  await act(async () => button('Odrzuć planszę').click());
+  const dialog = document.querySelector('[role="dialog"]');
+  assert.ok(dialog);
+  assert.match(dialog.textContent, /Plansza przycięta/);
+  assert.match(dialog.textContent, /Rozmyta/);
+  assert.match(dialog.textContent, /Inny/);
+  assert.match(dialog.textContent, /czeka na zdjęcie zastępcze/);
+  // No reason yet: nothing can be confirmed.
+  assert.equal(confirmRejection().disabled, true);
+
+  await act(async () => radio('cropped').click());
+  assert.equal(confirmRejection().disabled, false);
+  // A double click still sends exactly one request.
+  await act(async () => {
+    confirmRejection().click();
+    confirmRejection().click();
+  });
+  await settle();
+
+  assert.equal(calls.rejectSlot.length, 1);
+  const [request] = calls.rejectSlot;
+  assert.equal(request.id, 'p1');
+  assert.deepEqual(request.scope, { gameId: 'g', importJobId: 'j' });
+  assert.equal(request.command.reason, 'cropped');
+  assert.equal(request.command.note, null);
+  assert.equal(request.command.expectedGeometryRevision, 2);
+  assert.match(request.command.idempotencyKey, /^[0-9a-f-]{36}$/);
+  assert.equal(calls.rejectBoard.length, 0);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(calls.list.length, queueLoads + 1);
+  assert.equal(calls.corrections.length, listLoads + 1);
+  assert.match(document.body.textContent, /Plansza została odrzucona/);
+  assert.match(document.body.textContent, /Brak plansz do korekty/);
+  await act(async () => root.unmount());
+});
+
+test('rejecting a reported board uses the resolution route with the reason "Inny" and its note', async () => {
+  const state = { corrections: [], queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+
+  await act(async () => button('Odrzuć planszę').click());
+  assert.match(
+    document.querySelector('[role="dialog"]').textContent,
+    /zostają w historii/,
+  );
+  await act(async () => radio('other').click());
+  // The reason "Inny" needs a description.
+  assert.equal(confirmRejection().disabled, true);
+  await act(async () =>
+    typeInto(document.querySelector('textarea'), '  Ucięty górny rząd  '),
+  );
+  assert.equal(confirmRejection().disabled, false);
+  await act(async () => confirmRejection().click());
+  await settle();
+
+  assert.equal(calls.rejectSlot.length, 0);
+  assert.equal(calls.rejectBoard.length, 1);
+  const [request] = calls.rejectBoard;
+  assert.equal(request.id, 'r1');
+  assert.deepEqual(request.scope, { gameId: 'g', importJobId: 'j' });
+  assert.equal(request.command.action, 'rejected');
+  assert.equal(request.command.rejectionReason, 'other: Ucięty górny rząd');
+  assert.equal(request.command.expectedRevision, 0);
+  assert.equal(request.command.geometryRevision, 2);
+  assert.deepEqual(request.command.cells, []);
+  assert.equal(request.command.sequenceNumber, null);
+  assert.match(document.body.textContent, /Brak plansz do korekty/);
+  await act(async () => root.unmount());
+});
+
+test('a lost rejection response keeps the dialog, the key and the draft for an identical retry', async () => {
+  const state = {
+    corrections: [],
+    queue: [deferredSlot()],
+    rejectResults: ['throw'],
+  };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+
+  await act(async () => button('Odrzuć planszę').click());
+  await act(async () => radio('blurred').click());
+  await act(async () => confirmRejection().click());
+  await settle();
+
+  assert.ok(document.querySelector('[role="dialog"]'));
+  assert.match(document.body.textContent, /Wynik operacji jest nieznany/);
+  // The draft is frozen, so the retry cannot differ from the first request.
+  assert.equal(radio('cropped').matches(':disabled'), true);
+  await act(async () => button('Spróbuj ponownie').click());
+  await settle();
+
+  assert.equal(calls.rejectSlot.length, 2);
+  assert.deepEqual(calls.rejectSlot[1], calls.rejectSlot[0]);
+  assert.equal(calls.rejectSlot[0].command.reason, 'blurred');
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  await act(async () => root.unmount());
+});
+
+test('a refusal such as the canonical owner closes the dialog, shows the reason and reloads the queue', async () => {
+  const state = {
+    corrections: [],
+    queue: [reportedBoard()],
+    rejectResults: [
+      {
+        error: {
+          code: 'BOARD_REJECT_CANONICAL',
+          message: 'Ta plansza jest kanonicznym właścicielem swojej sekwencji.',
+        },
+        response: { status: 409 },
+      },
+    ],
+  };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+  const queueLoads = calls.list.length;
+
+  await act(async () => button('Odrzuć planszę').click());
+  await act(async () => radio('cropped').click());
+  await act(async () => confirmRejection().click());
+  await settle();
+
+  assert.equal(calls.rejectBoard.length, 1);
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.match(document.body.textContent, /kanonicznym właścicielem/);
+  assert.match(document.body.textContent, /BOARD_REJECT_CANONICAL/);
+  assert.equal(calls.list.length, queueLoads + 1);
+  // The board is still in the queue: nothing was rejected.
+  assert.match(document.body.textContent, /Do korekty: 1/);
+  await act(async () => root.unmount());
+});
+
+test('Escape closes the rejection dialog without sending anything', async () => {
+  const state = { corrections: [], queue: [deferredSlot()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+
+  await act(async () => button('Odrzuć planszę').click());
+  const dialog = document.querySelector('.operationalReviewConfirmDialog');
+  await act(async () =>
+    dialog.dispatchEvent(
+      new dom.window.KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }),
+    ),
+  );
+
+  assert.equal(document.querySelector('[role="dialog"]'), null);
+  assert.equal(calls.rejectSlot.length + calls.rejectBoard.length, 0);
   await act(async () => root.unmount());
 });

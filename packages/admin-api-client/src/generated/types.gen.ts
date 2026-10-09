@@ -562,6 +562,10 @@ export type BoardCellGeometryJobCountsResponse = {
    */
   pending: number;
   /**
+   * Rejected
+   */
+  rejected?: number;
+  /**
    * Resolved
    */
   resolved: number;
@@ -840,6 +844,19 @@ export type BoardCellGeometryPendingResponse = {
    */
   recognizedBoardId: string | null;
   /**
+   * Rejectedat
+   */
+  rejectedAt?: string | null;
+  /**
+   * Rejectedby
+   */
+  rejectedBy?: string | null;
+  /**
+   * Rejectionnote
+   */
+  rejectionNote?: string | null;
+  rejectionReason?: BoardRejectionReason | null;
+  /**
    * Resolvedat
    */
   resolvedAt: string | null;
@@ -882,7 +899,44 @@ export type BoardCellGeometryPendingResponse = {
  * BoardCellGeometryPendingStatus
  */
 export type BoardCellGeometryPendingStatus =
-  'pending' | 'resolved' | 'superseded';
+  'pending' | 'resolved' | 'superseded' | 'rejected';
+
+/**
+ * BoardCellGeometryRejectionCommand
+ *
+ * Reject an open deferred slot (TASK-0949); ``note`` is required for ``other``.
+ */
+export type BoardCellGeometryRejectionCommand = {
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+  /**
+   * Note
+   */
+  note?: string | null;
+  reason: BoardRejectionReason;
+};
+
+/**
+ * BoardCellGeometryRejectionResponse
+ */
+export type BoardCellGeometryRejectionResponse = {
+  counts: BoardCellGeometryJobCountsResponse;
+  /**
+   * Created
+   */
+  created: boolean;
+  item: BoardCellGeometryPendingResponse;
+  /**
+   * Rejectionid
+   */
+  rejectionId: string;
+};
 
 /**
  * BoardCellProcessingJobSnapshotPayload
@@ -1165,6 +1219,13 @@ export type BoardImportCoverageSegmentResponse = {
  * Which side of D-437 coverage a page request lists.
  */
 export type BoardImportCoverageView = 'missing' | 'added';
+
+/**
+ * BoardRejectionReason
+ *
+ * Why an operator rejects a cropped board or a deferred slot (W7).
+ */
+export type BoardRejectionReason = 'cropped' | 'blurred' | 'other';
 
 /**
  * BoardSearchAssetMode
@@ -4256,7 +4317,8 @@ export type GeometryCompletenessSourceStatusCountResponse = {
 /**
  * GeometryCorrectionKind
  */
-export type GeometryCorrectionKind = 'pending_slot' | 'board_revision';
+export type GeometryCorrectionKind =
+  'pending_slot' | 'board_revision' | 'rejection';
 
 /**
  * GeometryCorrectionListResponse
@@ -4307,7 +4369,16 @@ export type GeometryCorrectionResponse = {
   /**
    * Recognizedboardid
    */
-  recognizedBoardId: string;
+  recognizedBoardId: string | null;
+  /**
+   * Rejectionnote
+   */
+  rejectionNote?: string | null;
+  /**
+   * Rejectionreason
+   */
+  rejectionReason?: string | null;
+  rejectionTarget?: RejectionTarget | null;
   /**
    * Resolutionrevision
    */
@@ -4319,7 +4390,7 @@ export type GeometryCorrectionResponse = {
   /**
    * Reviewitemid
    */
-  reviewItemId: string;
+  reviewItemId: string | null;
   /**
    * Sequencenumber
    */
@@ -4392,7 +4463,7 @@ export type GeometryCorrectionRevertPreviewResponse = {
   /**
    * Revertedsourcegeometryrevisionid
    */
-  revertedSourceGeometryRevisionId: string;
+  revertedSourceGeometryRevisionId: string | null;
 };
 
 /**
@@ -4419,7 +4490,7 @@ export type GeometryCorrectionRevertResponse = {
   /**
    * Recognizedboardid
    */
-  recognizedBoardId: string;
+  recognizedBoardId: string | null;
   /**
    * Removedcellcount
    */
@@ -4439,7 +4510,7 @@ export type GeometryCorrectionRevertResponse = {
   /**
    * Restoredsourcegeometryrevisionid
    */
-  restoredSourceGeometryRevisionId: string;
+  restoredSourceGeometryRevisionId: string | null;
   /**
    * Revertid
    */
@@ -4447,11 +4518,11 @@ export type GeometryCorrectionRevertResponse = {
   /**
    * Revertedsourcegeometryrevisionid
    */
-  revertedSourceGeometryRevisionId: string;
+  revertedSourceGeometryRevisionId: string | null;
   /**
    * Reviewitemid
    */
-  reviewItemId: string;
+  reviewItemId: string | null;
   /**
    * Snapshotchecksumsha256
    */
@@ -12433,6 +12504,13 @@ export type PinnedManagedImageReprocessJobPayload = {
 };
 
 /**
+ * RejectionTarget
+ *
+ * What a ``rejection`` entry rejected.
+ */
+export type RejectionTarget = 'pending_slot' | 'review_item';
+
+/**
  * RemoteManualSelectionBaseCapabilityResponse
  */
 export type RemoteManualSelectionBaseCapabilityResponse = {
@@ -13557,7 +13635,8 @@ export type RevertBlockingReason =
   | 'GEOMETRY_REVERT_PINNED'
   | 'GEOMETRY_REVERT_REOPENED_RESOLUTION'
   | 'GEOMETRY_REVERT_HISTORY_INCOMPLETE'
-  | 'GEOMETRY_REVERT_NOT_SUPPORTED';
+  | 'GEOMETRY_REVERT_NOT_SUPPORTED'
+  | 'GEOMETRY_REVERT_REPLACED';
 
 /**
  * ReviewAlternative
@@ -21407,6 +21486,58 @@ export type ResolvePendingBoardCellGeometryManuallyResponses = {
 
 export type ResolvePendingBoardCellGeometryManuallyResponse =
   ResolvePendingBoardCellGeometryManuallyResponses[keyof ResolvePendingBoardCellGeometryManuallyResponses];
+
+export type RejectPendingBoardCellGeometryData = {
+  body: BoardCellGeometryRejectionCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Pending Id
+     */
+    pending_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/rejection';
+};
+
+export type RejectPendingBoardCellGeometryErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Deferred geometry item not found
+   */
+  404: ErrorResponse;
+  /**
+   * Deferred geometry state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RejectPendingBoardCellGeometryError =
+  RejectPendingBoardCellGeometryErrors[keyof RejectPendingBoardCellGeometryErrors];
+
+export type RejectPendingBoardCellGeometryResponses = {
+  /**
+   * Successful Response
+   */
+  200: BoardCellGeometryRejectionResponse;
+};
+
+export type RejectPendingBoardCellGeometryResponse =
+  RejectPendingBoardCellGeometryResponses[keyof RejectPendingBoardCellGeometryResponses];
 
 export type GetPendingBoardCellGeometrySourceData = {
   body?: never;

@@ -3521,11 +3521,12 @@ GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry
 GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/source
 POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/geometry-preview
 POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/manual-resolution
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/board-cell-geometry-pending/{pendingId}/rejection
 ```
 
 Lista ma stabilny keyset cursor po `(sequence_number, position_index, id)`,
 opcjonalny filtr `status`, limit maksymalnie 200 oraz liczniki `total`,
-`pending`, `resolved`, `superseded` dla wskazanego joba. Element zwraca reason
+`pending`, `resolved`, `superseded`, `rejected` dla wskazanego joba. Element zwraca reason
 code, scope źródła, opcjonalne identyfikatory planszy/review, checksumę i
 ścieżkę niezmiennego manifestu, fingerprint pipeline'u oraz oczekiwane i
 wynikowe rewizje. Kontekst zwraca wymiary źródła, pinned quad planszy i te same
@@ -3541,6 +3542,36 @@ modelu lub rewizji jest fail-closed. Endpointy są dostępne dla lokalnego
 administratora i bearer sesji Reviewera po autoryzacji dokładnego scope'u
 `gameId + importJobId`; proxy Reviewera nie przepuszcza pozostałego Admin API.
 Kontrakt nie aktywuje v19/v20 ani nie zmienia domyślnego pipeline'u.
+
+Odrzucenie slotu (`rejectPendingBoardCellGeometry`, TASK-0949, plan D-539)
+przyjmuje `{idempotencyKey, reason, note?, expectedGeometryRevision}`, gdzie
+`reason` to `cropped` („Plansza przycięta”), `blurred` („Rozmyta”) albo `other`
+(wymaga `note` 1-1000 znaków; przy pozostałych powodach notatka jest
+pomijana). Tylko slot `pending` bez planszy na swojej pozycji przechodzi w
+status `rejected` z powodem, notatką, czasem i autorem (`rejectionReason`,
+`rejectionNote`, `rejectedAt`, `rejectedBy` elementu); slot znika z widoku
+`correction` i jego liczników, a bramka zdjęcia jest przeliczana w tej samej
+transakcji i liczy odrzuconą pozycję jak brak planszy (zdjęcie zostaje
+`geometry_incomplete`, żadna jego plansza nie dostaje komórek; reguła D-484
+bez zmian). Blokady jak przy rozstrzygnięciu slotu: sekwencje, zdjęcie, slot.
+Idempotencja jest trwała: każde odrzucenie slotu zapisuje niezmienne zdarzenie
+w `image_board_geometry_pending_events` (klucz, suma kontrolna polecenia,
+numer odrzucenia `rejection_revision`, aktor). To samo polecenie z tym samym
+kluczem zwraca zapisane odrzucenie (`created=false`, to samo `rejectionId`)
+bez zmiany stanu, także po jego cofnięciu; ten sam klucz z innym poleceniem
+daje `409 IMAGE_BOARD_CELL_PENDING_IDEMPOTENCY_CONFLICT`; inny klucz dla już
+odrzuconego slotu `409 IMAGE_BOARD_CELL_PENDING_ALREADY_REJECTED`; slot
+rozstrzygnięty, zastąpiony albo z istniejącą planszą `409
+IMAGE_BOARD_CELL_PENDING_NOT_EDITABLE`; nieaktualna rewizja `409
+IMAGE_BOARD_CELL_PENDING_REVISION_CONFLICT`. Odpowiedź niesie element, liczniki
+joba, `created` i `rejectionId` (id wpisu w „Ostatnich korektach”). Odrzucony
+slot nie jest edytowalny przez `manual-resolution`.
+
+Istniejącą planszę odrzuca się dotychczasowym `POST
+/admin/image-review-items/{id}/resolution` z `action = rejected`. Odrzucenie
+kanonicznego właściciela sekwencji kończy się `409 BOARD_REJECT_CANONICAL`.
+Powód planszy jest jednym tekstem (1-500 znaków): `cropped`, `blurred` albo
+`other: <opis>`.
 
 Cofanie korekt geometrii importu (TASK-0947, plan D-538) udostępniają trzy
 trasy w zakresie gry (`game_storage_scope(gameId)`, D-442):
@@ -3575,11 +3606,36 @@ Błędy używają standardowej koperty `ErrorResponse` (`code`, `message`,
 `_SEQUENCE_OWNERSHIP`, `_IMAGE_ADMITTED`, `_PINNED`, `_REOPENED_RESOLUTION`,
 `_HISTORY_INCOMPLETE`, `_NOT_SUPPORTED`, a także
 `GEOMETRY_REVERT_RENDERER_UNAVAILABLE`, `GEOMETRY_REVERT_RENDER_FAILED` i
-`GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT`. Aktorem zapisu jest
+`GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT`.
+
+Lista zawiera też odrzucenia (TASK-0949): element `kind = rejection` z
+`rejectionTarget` (`pending_slot` | `review_item`), `rejectionReason`
+(`cropped` | `blurred` | `other`, `null` dla dawnego tekstu wolnego) i
+`rejectionNote`. W takim elemencie `boardGeometryRevisionId` jest
+identyfikatorem odrzuconego slotu albo zdarzenia odrzucenia pozycji,
+`recognizedBoardId` i `reviewItemId` są `null` dla slotu (`boardGeometryRevisionId`
+slotu to `rejectionId`, więc cofnięcie starego odrzucenia nie cofa nowszego), a
+tokeny CAS to rewizje oczekiwane slotu albo rewizje planszy i pozycji. To samo
+`revert-preview` i `revert` cofają odrzucenie: slot wraca do `pending`,
+pozycja wraca do `pending` przez nowe zdarzenie rozstrzygnięcia `reopened`
+(klucz idempotencji zapisany przy zdarzeniu, więc powtórzenie zwraca zapisany
+wynik; dla slotu cofnięcie zapisuje zdarzenie `rejection_reverted` z kluczem,
+a jego `revertId` jest identyfikatorem tego zdarzenia). Podgląd i cofnięcie
+odrzucenia, które nie jest już bieżące (cofnięte w innej karcie), kończą się
+`409 GEOMETRY_REVERT_NOT_LATEST`. Pola rewizji źródła w podglądzie i wyniku są
+wtedy `null`. Cofnięcie jest
+odmawiane kodem `409 GEOMETRY_REVERT_REPLACED`, gdy numer sekwencji ma żywą
+pozycję (`pending`, `accepted`, `corrected`) na innym zdjęciu. Plansza odrzucona
+znika ze wspólnego zakresu weryfikacji symboli (listy, liczniki, operacje
+zbiorcze) bez usuwania wierszy i historii; cofnięcie przywraca ją.
+
+Aktorem zapisu jest
 `reviewer-session:{id}` dla bearer sesji Reviewera (po autoryzacji scope'u
 `gameId + importJobId`), w pozostałych przypadkach `local-admin`. Proxy
-Reviewera przepuszcza wyłącznie te trzy trasy z powyższymi metodami; nagłówek
-`Origin` Reviewera jest akceptowany tylko dla `POST .../revert`. Serwis dostaje
+Reviewera przepuszcza wyłącznie te trzy trasy z powyższymi metodami (oraz
+`POST .../board-cell-geometry-pending/{pendingId}/rejection`); nagłówek
+`Origin` Reviewera jest akceptowany tylko dla `POST .../revert` i `POST
+.../rejection`. Serwis dostaje
 `VirtualRestoredRenderVerifier` z konfigurowanym korzeniem artefaktów, więc
 cofnięcie istniejącej planszy (A) sprawdza rzeczywiste piksele przywracanego
 renderu.

@@ -18,8 +18,14 @@ Schema of the geometry correction revert and of the rejected deferred slot:
   reason, note, time and actor (W7; the write logic belongs to TASK-0949);
 - the new game table ``image_geometry_correction_reverts`` keeps one
   append-only audit row with a checksummed snapshot of the deleted rows per
-  revert. It has no foreign key to the deleted rows; it moves the game stores
-  to the frozen storage manifest v7.
+  revert. It has no foreign key to the deleted rows;
+- the new game table ``image_board_geometry_pending_events`` keeps the durable,
+  append-only identity of every rejection of a deferred slot and of its revert
+  (TASK-0949): the idempotency key, the command checksum, the per-slot
+  ``rejection_revision`` and the actor. A slot row forgets its rejection when
+  the rejection is reverted (lifecycle CHECK); the events keep it, so retries
+  replay the stored result and a stale revert cannot undo a newer rejection.
+  Both new tables move the game stores to the frozen storage manifest v7.
 
 No existing row is rewritten. Downgrade refuses while any revert history,
 rejection or ``previous_assignment_source`` value exists (no silent loss).
@@ -47,6 +53,7 @@ depends_on: str | Sequence[str] | None = None
 V6 = "game-data-v2-manifest-v6"
 V7 = "game-data-v2-manifest-v7"
 AUDIT = "image_geometry_correction_reverts"
+PENDING_EVENTS = "image_board_geometry_pending_events"
 SOURCE_REVISIONS = "game_data_v2.image_source_geometry_revisions"
 PENDING = "game_data_v2.image_board_geometry_pending"
 BOARD_EVENTS = "game_data_v2.image_board_geometry_review_events"
@@ -264,6 +271,50 @@ def upgrade() -> None:
             FOREIGN KEY(game_id,import_job_id)
             REFERENCES public.jobs(game_id,id) ON DELETE RESTRICT
     ) PARTITION BY LIST(game_id)""")
+    # 4b. Durable identity of the rejection of a deferred slot (TASK-0949). The
+    # slot id has no foreign key: the row must outlive any later slot cleanup.
+    op.execute(f"""CREATE TABLE game_data_v2.{PENDING_EVENTS} (
+        game_id UUID NOT NULL DEFAULT game_data_v2.current_game_id_v1(),
+        id UUID NOT NULL,
+        import_job_id UUID NOT NULL,
+        pending_geometry_id UUID NOT NULL,
+        rejection_revision INTEGER NOT NULL,
+        action VARCHAR(30) NOT NULL,
+        idempotency_key UUID NOT NULL,
+        command_sha256 VARCHAR(64) NOT NULL,
+        reason VARCHAR(20),
+        note TEXT,
+        actor VARCHAR(200) NOT NULL,
+        created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
+        CONSTRAINT v2_pk_image_board_geometry_pending_events PRIMARY KEY (game_id,id),
+        CONSTRAINT uq_image_board_geometry_pending_events_idempotency
+            UNIQUE (game_id,idempotency_key),
+        CONSTRAINT uq_image_board_geometry_pending_events_revision
+            UNIQUE (game_id,pending_geometry_id,rejection_revision,action),
+        CONSTRAINT ck_image_board_geometry_pending_events_shape CHECK (
+            rejection_revision >= 1
+            AND action IN ('rejected','rejection_reverted')
+            AND length(btrim(actor)) > 0
+            AND command_sha256 ~ '^[0-9a-f]{{64}}$'
+            AND (reason IS NULL OR reason IN ('cropped','blurred','other'))
+            AND (note IS NULL OR length(btrim(note)) BETWEEN 1 AND 1000)
+            AND (reason IS DISTINCT FROM 'other' OR note IS NOT NULL)
+            AND ((action = 'rejected' AND reason IS NOT NULL)
+                 OR (action = 'rejection_reverted' AND reason IS NULL AND note IS NULL))),
+        CONSTRAINT v2_owner_image_board_geometry_pending_events FOREIGN KEY(game_id)
+            REFERENCES public.games(id) ON DELETE RESTRICT,
+        CONSTRAINT v2_fk_image_board_geometry_pending_events_job
+            FOREIGN KEY(game_id,import_job_id)
+            REFERENCES public.jobs(game_id,id) ON DELETE RESTRICT
+    ) PARTITION BY LIST(game_id)""")
+    op.execute(
+        f"CREATE INDEX ix_image_board_geometry_pending_events_import "
+        f"ON game_data_v2.{PENDING_EVENTS} (game_id,import_job_id,created_at DESC)"
+    )
+    op.execute(
+        f"CREATE INDEX ix_image_board_geometry_pending_events_slot "
+        f"ON game_data_v2.{PENDING_EVENTS} (game_id,pending_geometry_id,rejection_revision DESC)"
+    )
     op.execute(
         f"CREATE INDEX ix_image_geometry_correction_reverts_import ON game_data_v2.{AUDIT} "
         "(game_id,import_job_id,created_at DESC)"
@@ -316,11 +367,12 @@ def downgrade() -> None:
     # BYPASSRLS fails here rather than silently dropping revert history.
     op.execute("SET LOCAL row_security = off")
     op.execute(
-        f"LOCK TABLE game_data_v2.{AUDIT}, {SOURCE_REVISIONS}, {PENDING}, {BOARD_EVENTS}, "
-        f"{CELL_EVENTS} IN ACCESS EXCLUSIVE MODE"
+        f"LOCK TABLE game_data_v2.{AUDIT}, game_data_v2.{PENDING_EVENTS}, "
+        f"{SOURCE_REVISIONS}, {PENDING}, {BOARD_EVENTS}, {CELL_EVENTS} IN ACCESS EXCLUSIVE MODE"
     )
     op.execute(f"""DO $guard$ BEGIN
         IF EXISTS (SELECT 1 FROM game_data_v2.{AUDIT})
+           OR EXISTS (SELECT 1 FROM game_data_v2.{PENDING_EVENTS})
            OR EXISTS (SELECT 1 FROM {SOURCE_REVISIONS} WHERE status = 'reverted')
            OR EXISTS (SELECT 1 FROM {BOARD_EVENTS} WHERE action = 'geometry_reverted')
            OR EXISTS (SELECT 1 FROM {CELL_EVENTS} WHERE action = 'geometry_reverted')
@@ -335,6 +387,7 @@ def downgrade() -> None:
         END IF;
     END $guard$""")
     op.execute(f"DROP TABLE game_data_v2.{AUDIT}")
+    op.execute(f"DROP TABLE game_data_v2.{PENDING_EVENTS}")
 
     op.execute(f"ALTER TABLE {PENDING} DROP CONSTRAINT ck_image_board_geometry_pending_rejection")
     _replace_check(PENDING, "ck_image_board_geometry_pending_lifecycle", _PENDING_LIFECYCLE_V1)

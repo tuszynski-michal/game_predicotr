@@ -882,6 +882,9 @@ import type {
   RejectLayoutImportStagingData,
   RejectLayoutImportStagingErrors,
   RejectLayoutImportStagingResponses,
+  RejectPendingBoardCellGeometryData,
+  RejectPendingBoardCellGeometryErrors,
+  RejectPendingBoardCellGeometryResponses,
   ReopenRemoteManualSelectionBatchData,
   ReopenRemoteManualSelectionBatchErrors,
   ReopenRemoteManualSelectionBatchResponses,
@@ -2198,6 +2201,32 @@ export const resolvePendingBoardCellGeometryManually = <
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/manual-resolution',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Reject a deferred board slot (cropped, blurred or other)
+ */
+export const rejectPendingBoardCellGeometry = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<RejectPendingBoardCellGeometryData, ThrowOnError>,
+): RequestResult<
+  RejectPendingBoardCellGeometryResponses,
+  RejectPendingBoardCellGeometryErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RejectPendingBoardCellGeometryResponses,
+    RejectPendingBoardCellGeometryErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/rejection',
     ...options,
     headers: {
       'Content-Type': 'application/json',

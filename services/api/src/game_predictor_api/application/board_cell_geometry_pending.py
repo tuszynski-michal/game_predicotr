@@ -28,8 +28,10 @@ from game_predictor_api.domain.board_cell_geometry_pending import (
     BoardCellGeometryPendingReason,
     BoardCellGeometryPendingStatus,
     BoardCellProcessingManifestV1,
+    BoardRejectionReason,
     ImageBoardGeometryPending,
     board_cell_processing_artifact_relative_path,
+    normalized_rejection_note,
 )
 from game_predictor_api.domain.geometry_qualification import GeometryQualification
 from game_predictor_api.domain.image_geometry_v2 import SourceLatticeNodes
@@ -60,6 +62,15 @@ class BoardCellGeometryCorrectionContext:
     board_geometry: Mapping[str, object]
     board_confidence: float
     symbol_model: SymbolModelJobSnapshot
+
+
+@dataclass(frozen=True, slots=True)
+class BoardCellGeometryRejection:
+    pending: ImageBoardGeometryPending
+    counts: BoardCellGeometryJobCounts
+    created: bool
+    # The durable event of the rejection (its id is what the revert addresses).
+    rejection_id: UUID
 
 
 @dataclass(frozen=True, slots=True)
@@ -108,6 +119,20 @@ class BoardCellGeometryPendingRepository(Protocol):
         game_id: UUID,
         import_job_id: UUID,
     ) -> BoardCellGeometryCorrectionContext | None: ...
+
+    def reject(
+        self,
+        *,
+        pending_id: UUID,
+        game_id: UUID,
+        import_job_id: UUID,
+        idempotency_key: UUID,
+        expected_geometry_revision: int,
+        reason: BoardRejectionReason,
+        note: str | None,
+        rejected_by: str,
+        rejected_at: datetime,
+    ) -> tuple[ImageBoardGeometryPending, UUID, bool]: ...
 
 
 class BoardCellProcessingManifestStore(Protocol):
@@ -457,6 +482,57 @@ class BoardCellGeometryPendingService:
             created=result.created,
         )
 
+    def reject(
+        self,
+        pending_id: UUID,
+        *,
+        game_id: UUID,
+        import_job_id: UUID,
+        idempotency_key: UUID,
+        expected_geometry_revision: int,
+        reason: BoardRejectionReason,
+        note: str | None,
+        rejected_by: str,
+        rejected_at: datetime,
+    ) -> BoardCellGeometryRejection:
+        """Reject an open deferred slot (TASK-0949); the image keeps waiting.
+
+        The slot leaves the correction queue and its counters, is never cut
+        and counts as a missing board for the completeness gate (W8). A retry
+        of the same command (same key) returns the stored rejection
+        (``created=False``) even after it was reverted; another command with
+        the same key, or any other key on a rejected slot, conflicts.
+        """
+
+        if expected_geometry_revision < 0:
+            raise JobConflictError(
+                "IMAGE_BOARD_CELL_PENDING_REVISION_CONFLICT",
+                "The expected geometry revision cannot be negative.",
+            )
+        actor = rejected_by.strip()
+        if not actor or len(actor) > 200:
+            raise JobError(
+                "IMAGE_BOARD_CELL_PENDING_REJECTION_INVALID",
+                "The rejecting actor must have 1-200 characters.",
+            )
+        pending, rejection_id, created = self._repository.reject(
+            pending_id=pending_id,
+            game_id=game_id,
+            import_job_id=import_job_id,
+            idempotency_key=idempotency_key,
+            expected_geometry_revision=expected_geometry_revision,
+            reason=reason,
+            note=normalized_rejection_note(reason, note),
+            rejected_by=actor,
+            rejected_at=rejected_at,
+        )
+        return BoardCellGeometryRejection(
+            pending=pending,
+            counts=self._repository.counts(game_id=game_id, import_job_id=import_job_id),
+            created=created,
+            rejection_id=rejection_id,
+        )
+
     @staticmethod
     def _require_pending_command(
         context: BoardCellGeometryCorrectionContext,
@@ -480,9 +556,10 @@ class BoardCellGeometryPendingService:
                 "IMAGE_BOARD_CELL_PENDING_REVISION_CONFLICT",
                 "The deferred geometry item changed after it was loaded.",
             )
-        if pending.status is BoardCellGeometryPendingStatus.SUPERSEDED or (
-            pending.status is BoardCellGeometryPendingStatus.RESOLVED and not allow_resolved
-        ):
+        if pending.status in {
+            BoardCellGeometryPendingStatus.SUPERSEDED,
+            BoardCellGeometryPendingStatus.REJECTED,
+        } or (pending.status is BoardCellGeometryPendingStatus.RESOLVED and not allow_resolved):
             raise JobConflictError(
                 "IMAGE_BOARD_CELL_PENDING_NOT_EDITABLE",
                 "The deferred geometry item is no longer editable.",
@@ -524,6 +601,7 @@ __all__ = [
     "BoardCellGeometryPendingPage",
     "BoardCellGeometryPendingRepository",
     "BoardCellGeometryPendingService",
+    "BoardCellGeometryRejection",
     "BoardCellProcessingManifestStore",
     "ManagedBoardCellProcessingManifestStore",
     "decode_board_cell_pending_cursor",

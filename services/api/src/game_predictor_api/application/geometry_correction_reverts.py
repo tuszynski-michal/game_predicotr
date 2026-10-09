@@ -30,6 +30,7 @@ from game_predictor_api.domain.geometry_correction_reverts import (
     MAX_GEOMETRY_CORRECTION_LIST_LIMIT,
     MAX_GEOMETRY_REVERT_ACTOR_LENGTH,
     GeometryCorrectionKind,
+    RejectionTarget,
     RevertBlockingReason,
     blocking_reason_message,
 )
@@ -45,8 +46,9 @@ class GeometryCorrectionEntry:
 
     board_geometry_revision_id: UUID
     kind: GeometryCorrectionKind
-    recognized_board_id: UUID
-    review_item_id: UUID
+    # ``None`` for the rejection of a deferred slot, which has no board yet.
+    recognized_board_id: UUID | None
+    review_item_id: UUID | None
     pending_geometry_id: UUID | None
     source_image_id: UUID
     sequence_number: int
@@ -56,6 +58,12 @@ class GeometryCorrectionEntry:
     geometry_revision: int
     resolution_revision: int
     blocking_reason: RevertBlockingReason | None
+    # ``rejection`` entries only: ``board_geometry_revision_id`` is then the id
+    # of the rejected slot (``pending_slot``) or of the rejection event of the
+    # review item (``review_item``).
+    rejection_target: RejectionTarget | None = None
+    rejection_reason: str | None = None
+    rejection_note: str | None = None
 
     @property
     def revertable(self) -> bool:
@@ -77,7 +85,7 @@ class GeometryCorrectionRevertPreview:
     removed_cell_count: int
     repointed_board_count: int
     restored_cell_decision_count: int
-    reverted_source_geometry_revision_id: UUID
+    reverted_source_geometry_revision_id: UUID | None
     restored_source_geometry_revision_id: UUID | None
     restored_source_engine_kind: str | None
     restored_source_status: str | None
@@ -90,10 +98,11 @@ class GeometryCorrectionRevertResult:
     kind: GeometryCorrectionKind
     board_geometry_revision_id: UUID
     pending_geometry_id: UUID | None
-    recognized_board_id: UUID
-    review_item_id: UUID
-    reverted_source_geometry_revision_id: UUID
-    restored_source_geometry_revision_id: UUID
+    recognized_board_id: UUID | None
+    review_item_id: UUID | None
+    # ``None`` for the revert of a rejection (no geometry revision moves).
+    reverted_source_geometry_revision_id: UUID | None
+    restored_source_geometry_revision_id: UUID | None
     repointed_board_ids: tuple[UUID, ...]
     removed_cell_count: int
     source_image_geometry_status: SourceImageGeometryStatus | None

@@ -14,6 +14,10 @@ A *correction* is one manual geometry save of one board, identified by its
   board; its revert appends revision ``N + 1`` with the geometry and render of
   the board's previous revision and restores the cells' decisions from the
   earliest event of the correction transaction (TASK-0946).
+
+TASK-0949 adds the ``rejection`` kind to the same list: an operator's rejection
+of a deferred slot or of a cropped board. Its revert restores the slot (or the
+review item) to ``pending`` unless a replacement owns the sequence.
 """
 
 from __future__ import annotations
@@ -63,6 +67,14 @@ GEOMETRY_REVERT_RENDERER_UNAVAILABLE: Final = "GEOMETRY_REVERT_RENDERER_UNAVAILA
 class GeometryCorrectionKind(StrEnum):
     PENDING_SLOT = "pending_slot"
     BOARD_REVISION = "board_revision"
+    REJECTION = "rejection"
+
+
+class RejectionTarget(StrEnum):
+    """What a ``rejection`` entry rejected."""
+
+    PENDING_SLOT = "pending_slot"
+    REVIEW_ITEM = "review_item"
 
 
 class RevertBlockingReason(StrEnum):
@@ -80,6 +92,8 @@ class RevertBlockingReason(StrEnum):
     REOPENED_RESOLUTION = "GEOMETRY_REVERT_REOPENED_RESOLUTION"
     HISTORY_INCOMPLETE = "GEOMETRY_REVERT_HISTORY_INCOMPLETE"
     NOT_SUPPORTED = "GEOMETRY_REVERT_NOT_SUPPORTED"
+    # TASK-0949: another live board owns the rejected sequence (a replacement).
+    REPLACED = "GEOMETRY_REVERT_REPLACED"
 
 
 BLOCKING_REASON_MESSAGES: Final[Mapping[RevertBlockingReason, str]] = {
@@ -120,6 +134,9 @@ BLOCKING_REASON_MESSAGES: Final[Mapping[RevertBlockingReason, str]] = {
     RevertBlockingReason.NOT_SUPPORTED: (
         "Tej korekty nie można cofnąć automatycznie: zapis historyczny bez geometrii "
         "zdjęcia, plansza z kwalifikacją geometrii albo niepełna historia komórek."
+    ),
+    RevertBlockingReason.REPLACED: (
+        "Tę sekwencję przejęła już inna plansza (zdjęcie zastępcze); odrzucenia nie można cofnąć."
     ),
 }
 
@@ -208,6 +225,70 @@ def evaluate_revert_eligibility(facts: RevertEligibilityFacts) -> RevertBlocking
     if not facts.revert_supported:
         return RevertBlockingReason.NOT_SUPPORTED
     return None
+
+
+# -- rejections (TASK-0949) ---------------------------------------------------
+
+BOARD_REJECT_CANONICAL: Final = "BOARD_REJECT_CANONICAL"
+_OTHER_REASON_PREFIX: Final = "other:"
+
+
+@dataclass(frozen=True, slots=True)
+class RejectionRevertFacts:
+    """Facts about one rejection, read from storage (under lock for a revert).
+
+    ``still_rejected`` is true while the slot (or the review item, at the
+    revision of the rejection event) is still rejected; ``position_free`` is
+    false when a newer open slot or a board already sits at a rejected slot's
+    position (restoring would duplicate it); ``replaced`` means a live review
+    item of another image owns the sequence number (TASK-0950 replaces the
+    rejected owner this way). ``cas_matches`` is ``None`` when no tokens were
+    supplied (list and preview).
+    """
+
+    still_rejected: bool
+    cas_matches: bool | None
+    position_free: bool
+    replaced: bool
+
+
+def evaluate_rejection_revert_eligibility(
+    facts: RejectionRevertFacts,
+) -> RevertBlockingReason | None:
+    """First failing rule for a rejection (fail-closed); ``None`` = revertable."""
+
+    if not facts.still_rejected or not facts.position_free:
+        return RevertBlockingReason.NOT_LATEST
+    if facts.cas_matches is False:
+        return RevertBlockingReason.STALE
+    if facts.replaced:
+        return RevertBlockingReason.REPLACED
+    return None
+
+
+def encode_board_rejection_reason(reason: str, note: str | None) -> str:
+    """The ``rejection_reason`` text of the board resolution command.
+
+    The resolution route keeps one free text (1-500 characters): ``cropped``,
+    ``blurred`` or ``other: <note>``. The list decodes it back.
+    """
+
+    if reason == "other":
+        return f"{_OTHER_REASON_PREFIX} {(note or '').strip()}"
+    return reason
+
+
+def decode_board_rejection_reason(text: str | None) -> tuple[str | None, str | None]:
+    """``(reason, note)`` of a stored board rejection; ``(None, text)`` if free text."""
+
+    if text is None:
+        return None, None
+    value = text.strip()
+    if value in {"cropped", "blurred"}:
+        return value, None
+    if value.startswith(_OTHER_REASON_PREFIX):
+        return "other", value[len(_OTHER_REASON_PREFIX) :].strip() or None
+    return None, value or None
 
 
 # -- case A: restoring the cells and the board approval (TASK-0946) ----------
@@ -352,6 +433,7 @@ def snapshot_checksum_sha256(snapshot: Mapping[str, object]) -> str:
 
 __all__ = [
     "BLOCKING_REASON_MESSAGES",
+    "BOARD_REJECT_CANONICAL",
     "CORRECTION_TRANSACTION_CELL_ACTIONS",
     "DEFAULT_GEOMETRY_CORRECTION_LIST_LIMIT",
     "GEOMETRY_CORRECTION_NOT_FOUND",
@@ -367,11 +449,16 @@ __all__ = [
     "SNAPSHOT_SCHEMA_VERSION",
     "GeometryCorrectionKind",
     "PreviousCellDecision",
+    "RejectionRevertFacts",
+    "RejectionTarget",
     "RestoredCellDecision",
     "RevertBlockingReason",
     "RevertEligibilityFacts",
     "blocking_reason_message",
     "canonical_snapshot_bytes",
+    "decode_board_rejection_reason",
+    "encode_board_rejection_reason",
+    "evaluate_rejection_revert_eligibility",
     "evaluate_revert_eligibility",
     "image_admission_blocks_revert",
     "predicted_status_after_slot_revert",

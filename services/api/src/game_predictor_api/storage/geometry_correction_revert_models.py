@@ -21,6 +21,7 @@ from sqlalchemy import (
     Integer,
     SmallInteger,
     String,
+    Text,
     UniqueConstraint,
     func,
     text,
@@ -104,4 +105,73 @@ class ImageGeometryCorrectionRevertModel(Base):
     )
 
 
-__all__ = ["ImageGeometryCorrectionRevertModel"]
+class ImageBoardGeometryPendingEventModel(Base):
+    """One rejection of a deferred slot, or the revert of that rejection (TASK-0949).
+
+    Append-only. ``rejection_revision`` numbers the rejections of one slot; the
+    revert of a rejection carries the revision of the rejection it undoes, so a
+    stale revert is told apart from the revert of the newest rejection. The
+    unique idempotency key makes both commands replayable.
+    """
+
+    __tablename__ = "image_board_geometry_pending_events"
+    __table_args__ = (
+        UniqueConstraint(
+            "game_id",
+            "idempotency_key",
+            name="uq_image_board_geometry_pending_events_idempotency",
+        ),
+        UniqueConstraint(
+            "game_id",
+            "pending_geometry_id",
+            "rejection_revision",
+            "action",
+            name="uq_image_board_geometry_pending_events_revision",
+        ),
+        CheckConstraint(
+            "rejection_revision >= 1 "
+            "AND action IN ('rejected', 'rejection_reverted') "
+            "AND length(btrim(actor)) > 0 "
+            "AND command_sha256 ~ '^[0-9a-f]{64}$' "
+            "AND (reason IS NULL OR reason IN ('cropped', 'blurred', 'other')) "
+            "AND (note IS NULL OR length(btrim(note)) BETWEEN 1 AND 1000) "
+            "AND (reason IS DISTINCT FROM 'other' OR note IS NOT NULL) "
+            "AND ((action = 'rejected' AND reason IS NOT NULL) "
+            "OR (action = 'rejection_reverted' AND reason IS NULL AND note IS NULL))",
+            name="ck_image_board_geometry_pending_events_shape",
+        ),
+        Index(
+            "ix_image_board_geometry_pending_events_import",
+            "game_id",
+            "import_job_id",
+            text("created_at DESC"),
+        ),
+        Index(
+            "ix_image_board_geometry_pending_events_slot",
+            "game_id",
+            "pending_geometry_id",
+            text("rejection_revision DESC"),
+        ),
+    )
+
+    game_id: Mapped[UUID] = mapped_column(
+        ForeignKey("games.id", ondelete="RESTRICT"), primary_key=True
+    )
+    id: Mapped[UUID] = mapped_column(primary_key=True, default=uuid4)
+    import_job_id: Mapped[UUID] = mapped_column(
+        ForeignKey("jobs.id", ondelete="RESTRICT"), nullable=False
+    )
+    pending_geometry_id: Mapped[UUID] = mapped_column(nullable=False)
+    rejection_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    action: Mapped[str] = mapped_column(String(30), nullable=False)
+    idempotency_key: Mapped[UUID] = mapped_column(nullable=False)
+    command_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actor: Mapped[str] = mapped_column(String(200), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, server_default=func.now()
+    )
+
+
+__all__ = ["ImageBoardGeometryPendingEventModel", "ImageGeometryCorrectionRevertModel"]

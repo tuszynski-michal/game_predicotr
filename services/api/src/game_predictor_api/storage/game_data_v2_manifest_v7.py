@@ -1,4 +1,5 @@
-"""Frozen v7 ownership: add the geometry correction revert audit (TASK-0945)."""
+"""Frozen v7 ownership: the geometry correction revert audit (TASK-0945) and the
+durable events of deferred-slot rejections (TASK-0949)."""
 
 from game_predictor_api.storage.game_data_v2_manifest_v6 import (
     CATALOG,
@@ -15,7 +16,8 @@ VERSION = "game-data-v2-manifest-v7"
 # The audit of reverted grid-geometry corrections holds a snapshot of one
 # game's deleted rows, so it lives in the game's partitioned store under RLS
 # and is dropped with the game by the partition lifecycle.
-ADDED_GAME_TABLES = ("image_geometry_correction_reverts",)
+# The slot events keep the idempotency identity of a rejection and its revert.
+ADDED_GAME_TABLES = ("image_board_geometry_pending_events", "image_geometry_correction_reverts")
 GAME_TABLES = tuple(sorted((*_V6_GAME_TABLES, *ADDED_GAME_TABLES)))
 PARTITIONED_TABLES = CREATE_TABLES = MIGRATE_TABLES = DELETE_TABLES = GAME_TABLES
 

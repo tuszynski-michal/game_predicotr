@@ -13,13 +13,17 @@ todo
 ## Goal
 
 Show the machine list and selected machine's games/stakes together on the
-point page, with consistent spacing and explicit selection.
+point page, with consistent spacing, explicit selection and saved pin summaries
+visible on every saved stake without selecting it.
 
 ## Context
 
 ManagementWorkspace hides the list under selected && !machine. Correct the
 render boundary rather than just adding a color. Preserve existing navigation
 state, URL restoration, dirty-draft confirmation and shared search ports.
+ManagementCards currently omits pinnedPoints; the only summary renderer in
+ManagementGameWorkspace is gated by selectedStake && !editor. The operator
+requires summaries on all saved cards immediately after Save and on reopen.
 
 ## Dependencies / entry conditions
 
@@ -52,6 +56,14 @@ change or the existing acceptance tools cannot establish the required behavior.
   unchanged on click. Point/Home push history; machine/game/stake replace it.
   Point title/Home source tile receive focus; machine click retains tile focus.
 - Compact stake text/symbol placement per plan; preserve20px assets and fallback.
+- Show all0-6 saved pins on every saved stake from its summary, independent of
+  selectedStake or editor. Reuse existing pin row presentation with optional
+  compact/currency ports, preserving the default credit table for other consumers.
+- Use frozen requiredStakeCredits/balanceCredits/machineCashCredits with existing
+  amount formatting; preserve negative/zero/unavailable/null semantics.
+- After successful Save refresh that card's summary even while its editor stays
+  open. Draft/reset keeps saved rows until explicit commit; scope switch/reload
+  must show only current machine/game summaries, without full-result fetches.
 
 ## Out of scope
 
@@ -72,6 +84,15 @@ service lifecycle, push/merge and unrelated operator changes.
 - [ ] Back does not traverse machine/game/stake choices; direct links keep
   standard browser history. Focus follows the plan without stealing tile focus.
 
+- [ ] With no selected stake, each saved card shows all saved pin spin/value rows.
+- [ ] Two saved stakes show their own different pins without opening either.
+- [ ] Save updates the visible summary while editor remains open; draft/reset
+  does not alter the saved summary before Save.
+- [ ] Reload/reopen restores rows; machine/game switch has no leaked previous rows.
+- [ ]0/1/6 pins, spin0, signed losses, unavailable/null metadata and currency
+  units are readable; cards are not clipped. Frozen super-spin/provisional
+  semantics are preserved without adding a calculator.
+
 ## Technical notes
 
 Use existing components/helpers. Read and apply the corresponding plan section;
@@ -82,12 +103,19 @@ newly proposed UI behavior is not evidence of already working implementation.
 - packages/board-search-ui/src/management/management-workspace.tsx: ManagementWorkspace.
 - packages/board-search-ui/src/management/management.css: grid, tiles, section spacing.
 - apps/admin/test-interactions/management.test.mjs: selection/navigation regressions.
-- scripts/management_browser_flow.mjs: persistent list geometry and selection.
+- scripts/management_browser_flow.mjs: persistent list geometry, selection and saved summaries.
+- packages/board-search-ui/src/management/management-cards.tsx: ManagementCards.
+- packages/board-search-ui/src/management/management-game-workspace.tsx: summary placement.
+- packages/board-search-ui/src/board-search-approximate-win.tsx: ApproximateWinPinRows optional display ports.
+- apps/admin/test-interactions/management-cards.test.mjs: per-card saved pin visibility.
+- Shared pin-row tests: default presentation regression if optional props are added.
 
 ## Verification
 
 From apps/admin: node ../../node_modules/tsx/dist/cli.mjs --tsconfig tsconfig.json
---test test-interactions/management.test.mjs (120s). Then shared workspace lint
+--test test-interactions/management.test.mjs test-interactions/management-cards.test.mjs
+(120s). Include the existing shared pin helper/interaction regression when its
+presentation changes. Then shared workspace lint
 and typecheck via existing npm scripts (120s each). One Chromium390x844
 case is mandatory here (existing fixture/browser scripts,120s per step).
 Broader two-host browser evidence follows in0949.

@@ -67,8 +67,13 @@ Select a game above six independent stake cards (20,10,6,4,2,1.20 PLN descending
 Compact cards show the stake, saved state and existing symbol thumbnails (with
 a code or `?` fallback). Selecting a card opens its search draft. A saved card
 restores the start/query/range/pins without choosing a search hit. Only the
-selected machine/game loads six bounded summaries. The selected stake shows
-quick pinned rows; its chart, full payout table and journal open on demand.
+selected machine/game loads six bounded summaries. Every saved stake shows all its saved0-6 pin rows immediately on the selected
+machine/game page, without selecting a stake or opening its chart/result.
+Rows show spin, required investment, net win and machine cash from frozen
+summary data, with explicit units and unavailable/null handling. Successful
+Save updates that card even while its editor remains open. Draft/reset does
+not replace saved rows before commit; reopen/reload restores them. Charts,
+full payout tables and journals remain on-demand.
 
 Search uses existing search/approximate-win/payline editor. Fixed stake comes
 from the card. Board browsing and0–6 pin choices are draft-only; **Zapisz układ**

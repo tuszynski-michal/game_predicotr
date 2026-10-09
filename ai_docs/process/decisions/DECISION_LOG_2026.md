@@ -23,6 +23,13 @@ początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
   its tile and updates games/stakes below the list on that same page.
   Selecting a stake also preserves the machine list and displays its workspace
   in place. One Home/back action returns to points; no machine-level back view.
+- **Saved-pin visibility clarification (2026-10-09):** on the selected
+  machine/game page, every saved stake shows all saved0-6 pin spin/investment/
+  net-win/machine-cash rows without selecting a stake or opening a chart.
+  Save updates the visible summary even with an editor open; draft/reset keeps
+  saved rows until commit. Reload/reopen restores summaries without full-result
+  fetches. This supersedes the selected-stake-only placement, preserving frozen
+  metrics, null/unavailable handling, units and receipt/payout contracts.
 - **Consistency:** preserve UUID-based URL/restoration, revision-bound writes,
   dirty-draft confirmation and one active shared machine/game workspace.
   A cancelled transition preserves selection, URL and draft together.

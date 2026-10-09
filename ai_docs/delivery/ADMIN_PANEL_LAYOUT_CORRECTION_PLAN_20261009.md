@@ -28,6 +28,12 @@ zapisu, migracji ani restartu. Niedokończone, niezweryfikowane zmiany formularz
 z poprzedniego podejścia odłożono do ignorowanego patcha; nie są implementacją
 tego planu i nie należy ich nakładać bez ponownego sprawdzenia.
 
+Potwierdzona dodatkowa rozbieżność: `ManagementCards` nie renderuje
+`slot.pinnedPoints`. `ManagementGameWorkspace` pokazuje `ApproximateWinPinRows`
+wyłącznie przy `selectedStake && !editor`. Dlatego samo wyświetlenie maszyny
+ani zapis z nadal otwartym szkicem nie zapewnia oczekiwanego podglądu. Dane
+są w istniejącym summary; to błąd miejsca prezentacji, nie dowód utraty pinów.
+
 ## Docelowy widok
 
 1. **Lista punktów:** małe kafelki; kliknięcie otwiera wybrany punkt.
@@ -36,8 +42,11 @@ tego planu i nie należy ich nakładać bez ponownego sprawdzenia.
 3. **Wybór maszyny:** lista maszyn pozostaje. Wybrany kafelek ma obramowanie,
    delikatne tło i `aria-pressed`. Poniżej tej samej listy pojawiają się nazwa
    maszyny, wybór gry i stawki. Przełączenie maszyny podmienia tylko ten obszar.
+   **Każda zapisana stawka od razu pokazuje wszystkie zapisane punkty wykresu,
+   bez klikania stawki, otwierania wykresu ani pełnego wyniku.**
 4. **Wybór stawki:** podświetla stawkę i rozwija wspólną wyszukiwarkę pod nią.
-   Lista maszyn i stawki pozostają; wynik, wykres i dziennik są rozwijane osobno.
+   Lista maszyn, stawki i ich zapisane podsumowania pozostają widoczne także
+   podczas pracy nad szkicem; wynik, wykres i dziennik są rozwijane osobno.
 
 Nie powstaje ekran maszyny ani przycisk „Cofnij do maszyn”. Na liście punktów
 przycisk powrotu nazywa się „Punkty”; w punkcie „Cofnij do punktów”. To jedna
@@ -64,11 +73,43 @@ akcja w nagłówku, bez dwóch przycisków prowadzących w to samo miejsce.
   lewej, miniatura symboli po prawej. Zachować symbole20px i ich fallback;
   przy wąskiej karcie miniatura może przejść niżej. Wysokość wynika z treści;
   nie wymuszać pustych, dużych kart ani ucinania komunikatów.
+- Pod nagłówkiem każdej zapisanej stawki wyświetlić0–6 zapisanych wierszy:
+  **Spin | Wkład | Wygrana netto | Na maszynie**. Wszystkie wybrane piny są
+  widoczne, bez „Pokaż więcej”. Wiersze mają czytelny, gęsty układ; karta może
+  być wyższa, gdy zawiera więcej punktów. Dostępności danych nie zastępować
+  sztucznym ograniczeniem wysokości. Bez pinów: „Nie wybrano punktów na wykresie”.
+- Kwoty podawać w złotych przez istniejący `managementAmount`, używając
+  `stakeGrosze` i zapisanego bazowego `spinCost`. Brak danych do przeliczenia
+  oznacza jawnie opisane kredyty lub „—”, nigdy wymyśloną kwotę w złotych.
+  `requiredStakeCredits` jest wymaganym kapitałem, nie sumą kosztów spinów;
+  `balanceCredits` jest wygraną netto, a `machineCashCredits` kwotą na maszynie.
+  Zachować znaki zysku/straty i spin zero. `available=false` wyświetla
+  „niedostępny”; brak nullable metryki wyświetla „—”. To zapisane prognozy
+  dla danych spinów, nie deklaracja przyszłych gwarantowanych wygranych.
 - Gra pozostaje opisanym selektorem, zamiast dodawania kolejnej szerokiej
   siatki. Na telefonie elementy układają się pionowo, bez poziomego overflow.
 - Dodawanie/edycja zachowuje istniejący modal i atomowy zapis nazwy oraz gier.
   Komunikaty są przy działaniu, którego dotyczą; szczegóły techniczne nie
   trafiają do podstawowego widoku.
+
+## Zapisane piny bez dodatkowego kliknięcia
+
+Źródło podglądu: `ManagementStakeResponse.pinnedPoints` wszystkich sześciu stawek
+wybranej maszyny i gry. Nie pobierać sześciu pełnych wyników i nie wyliczać pinów
+ponownie na froncie. Użyć istniejącego `ApproximateWinPinRows` z opcjonalnym
+wariantem kompaktowym/formatowaniem albo jego obecnych mechanizmów prezentacji;
+domyślny tabelaryczny widok w kredytach i inni konsumenci pozostają bez zmian.
+Nowy wariant wewnątrz klikalnej karty musi zachować poprawny HTML i dostępność,
+bez zagnieżdżonych przycisków czy niepoprawnej tabeli wewnątrz button.
+
+Po udanym Save natychmiast odświeżyć summary konkretnej stawki. Podgląd nie
+zależy od `selectedStake`, zamknięcia edytora, wykresu ani pełnego wyniku.
+Nowy/reset i zmiana pinów w szkicu pozostawiają ostatnie zapisane wiersze aż do
+potwierdzonego zapisu; nie prezentować szkicu jako już zapisanego wyniku.
+Po powrocie do punktu/maszyny i reload podsumowania odtwarzają się z serwera.
+Zmiana gry/maszyny nie może zachować wierszy poprzedniego zakresu. Podczas
+sprawdzania/nieaktualności zachować opis stanu; nie sugerować aktualnej wygranej,
+jeśli istniejący kontrakt oznacza wynik jako wymagający sprawdzenia.
 
 ## Zachowanie i ochrona danych
 
@@ -118,7 +159,7 @@ modala i odczyt/usunięcie historycznych danych, bez przywracania.
 
 | Zadanie | Rezultat | Dowód odbioru |
 |---|---|---|
-| TASK-0947 | Jedna strona punktu, stale dostępna lista maszyn, podświetlenie wyboru, czytelne sekcje i kompaktowe stawki | Kliknięcie A/B zachowuje tę samą listę, zmienia jeden workspace i stan wyboru; dirty cancel/URL/reload plus pomiar Chromium390×844 |
+| TASK-0947 | Jedna strona punktu, stale dostępna lista maszyn, podświetlenie wyboru, czytelne sekcje, kompaktowe stawki i wszystkie zapisane piny bez klikania | Kliknięcie A/B zachowuje tę samą listę, zmienia jeden workspace i stan wyboru; dirty cancel/URL/reload, podgląd po Save bez wybrania stawki i pomiar Chromium390×844 |
 | TASK-0948 | Czytelne odzyskiwanie formularza i dostęp do historycznych kafelków | Błąd/retry/close w dialogu, ten sam UUID po remount, archiwalne dane bez utraty przypisań |
 | TASK-0949 | Odbiór rzeczywistego renderowania obu hostów i przekazanie operatorowi | Zrzuty390/1440/1920px,40 maszyn,6 stawek, długie nazwy, fokus/scroll/overflow i oddzielny status testu na żywo |
 
@@ -132,6 +173,12 @@ Już przed zamknięciem0947 uruchomić ograniczony przypadek Chromium390×844:
 wyraźne różnice computed tła i obramowania wybranego kafelka, nagłówek wyników
 nie dalej niż1,5 wysokości viewportu od początku widoku.0949 poszerza odbiór,
 ale nie odkłada podstawowej weryfikacji wyglądu do końca planu.
+Obowiązkowe przypadki pinów już w0947: brak wybranej stawki; dwie zapisane
+stawki z różnymi pinami; Save przy otwartym szkicu; reload; zmiana maszyny/gry;
+0/1/6 pinów, spin0, straty, niedostępny punkt i brak starszej nullable metryki.
+Test ma sprawdzać wiersze widoczne przy właściwej karcie, nie tylko tekst w DOM.
+0949 obejmuje w obu hostach wąskie karty z sześcioma pinami i różną liczbą
+zapisanych stawek, bez ucinania danych ani mylenia stawek.
 
 ## Granice weryfikacji i koszt
 
@@ -160,6 +207,11 @@ Chromium już w0947. Doprecyzowano fokus, region klawiatury i4xx usuwania.
 Stan ten oznacza poprawiony plan po konsultacji, nie drugi werdykt PASS ani
 odbiór działającego UI. Filtr nazw maszyn pozostaje poza bieżącym zakresem;
 nie jest konieczny do poprawy błędnego modelu wyboru.
+
+Doprecyzowanie operatora po tym przeglądzie: zapisane piny mają być widoczne
+przy wszystkich zapisanych stawkach bez wyboru stawki. Włączono je do0947 i0949
+oraz wymagań/D-539. Nie uruchomiono nowej rundy Claude dla tego dopisku; przyszły
+ograniczony audyt implementacji0947 musi objąć także tę zmianę.
 
 ## Przypisanie modeli do zadań
 

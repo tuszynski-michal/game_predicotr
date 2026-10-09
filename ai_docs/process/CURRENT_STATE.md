@@ -23,7 +23,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Panel / D-539:** tylko punkt jest poziomem nawigacji; maszyna i stawka to wybór na jego stronie. Plan korekty jest proposed. Wcześniejszego patcha0947 nie traktować jako przetestowanej implementacji.
+- **Panel / D-539:** tylko punkt jest poziomem nawigacji; maszyna i stawka to wybór na jego stronie. Zapisane piny każdej stawki mają być widoczne od razu, bez klikania stawki i także przy otwartym edytorze. Plan korekty jest proposed. Wcześniejszego patcha0947 nie traktować jako przetestowanej implementacji.
 
 - **Kompaktowy panel / TASK-0945:** integracja D-538 (historyczny D-536 panelu) z D-536/D-537 Mumii w osobnym worktree. Baza operatora nie jest migrowana; przed0153 obowiązuje podgląd receipts i osobna zgoda/backup. Niezapisana praca main jest chroniona hashami. Kod i audyt zamknięte; lokalny main scalony, bez push/rollout. Pełne hashe zapisano w Outcome0945.
 
@@ -101,6 +101,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 ### TASK-0947 — czytelny widok punktu (todo)
 
 - D-539: tylko punkt otwiera widok; maszyna podświetla się i pozostawia listę.
+- Doprecyzowanie operatora: wszystkie zapisane piny przy wszystkich zapisanych stawkach od razu. Kod nadal ogranicza podgląd przez selectedStake && !editor; do poprawy w0947, bez zmiany API.
 - Plan korekty proposed; Claude Code omówiony, trzyP1 doprecyzowane w jednej rundzie. Oczekuje uruchomienia przez operatora.
 - Task: `ai_docs/tasks/0947-management-point-workspace-layout.md`.
 
@@ -112,7 +113,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ### TASK-0949 — wizualny odbiór układu (todo)
 
-- Odrębne fixture Admin/Reviewer i scenariusze utrzymania listy maszyn.
+- Odrębne fixture Admin/Reviewer, utrzymanie listy maszyn i widoczne podsumowania pinów bez wyboru stawki, po Save/reload.
 - Task: `ai_docs/tasks/0949-management-layout-visual-acceptance.md`.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290

@@ -62,6 +62,11 @@ service lifecycle, push/merge and unrelated operator changes.
 - [ ] Exactly one selected machine and stake; labels/context match displayed data.
 - [ ]40-machine list is bounded by min(288px,40dvh) and accessible; no scroll jump/hidden selection.
 - [ ]16px content/action insets,44px targets, no overlap/nested buttons/overflow.
+- [ ] Without selecting a stake, both hosts show all saved pins under the correct
+  saved cards immediately after Save and after reload, including two differently
+  pinned stakes. Open editor/draft/reset does not hide or replace saved rows.
+- [ ] At390px,6 pins per saved card remain readable with no clipping/overflow;
+  empty/unavailable/negative/null rows and explicit monetary units are covered.
 - [ ] Host builds and ordinary search/share regressions pass.
 - [ ] Live saves are marked operator-unverified unless an actual run is recorded.
 

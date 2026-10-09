@@ -34,8 +34,13 @@ uses frozen results and bounded read-only legacy fallback, never another
 calculator. No production migration/deletion or API/Admin lifecycle authorized.
 The browser acceptance uses the actual shared React/CSS with a finite mock
 transport. Its 1/4/40 point and 40-machine cases test layout only; they do not
-claim database throughput. The selected saved stake shows quick pin rows from
-summary data. Full result, chart and journal mount only after expansion.
+claim database throughput. All saved stake cards show their0-6 pin rows from the existing bounded
+summaries, regardless of selectedStake/editor. Save refreshes that summary;
+draft/reset retains the stored rows. Only expanded result/chart/journal loads
+a full payload; displaying six card summaries never fetches six full results.
+Use the existing shared pin presenter with optional compact/currency ports,
+preserving default behavior. These are D-539's explicit visibility rules; the
+layout correction itself remains planned.
 
 ### TASK-0940 storage and transport contract
 

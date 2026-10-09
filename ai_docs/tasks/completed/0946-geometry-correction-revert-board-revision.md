@@ -360,4 +360,4 @@ Pozostaje: HTTP (TASK-0947) musi zbudować serwis z
 - Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE, runda poprawek, runda 2 PASS (`ai_docs/quality/TASK-0946_AUDIT_gpt-6-astra.md`, runda 1 w `_round1.md`).
 - P2-2 poprawione przez leada (`DATA_MODEL.md`: kopiowanie specyfikacji komórek i checksumy pikseli z ponownego renderu). P2-1 przyjęte jako ryzyko: test cofnięcia do rewizji 0 używa zapisanych checksum, bo fixture importu nie zawiera renderowalnej specyfikacji; pozostałe cofnięcia używają rzeczywistego renderera.
 - Decyzje leada (P0-4, P1-1) wpisane w plan (`Przypadek A` pkt 3, tabela warunków) i do zapisania w D-538.
-- Commit: v1.7.292.
+- Commit: v1.7.292 / 3aa7d04525c9df391a9f82d5839e5ecca4d32e2b.

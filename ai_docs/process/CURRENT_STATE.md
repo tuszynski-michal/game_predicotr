@@ -748,10 +748,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
 - Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora (usunięte przez leada 2026-10-09; katalogi nie istnieją).
 
-### TASK-0947 — API listy, podglądu i cofnięcia korekt geometrii (todo)
-
-- Plik zadania: `ai_docs/tasks/0947-geometry-correction-revert-api.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
-
 ### TASK-0948 — Sekcja „Ostatnie korekty” w Reviewerze (todo)
 
 - Plik zadania: `ai_docs/tasks/0948-geometry-correction-revert-reviewer-ui.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
@@ -770,9 +766,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0947 — API listy, podglądu i cofnięcia korekt geometrii (done)
+
+- Plik: `ai_docs/tasks/completed/0947-geometry-correction-revert-api.md`; plan etap R1 (ostatni task etapu). Commit v1.7.293 (hash dopisuje kolejny commit).
+- Trasy `listGeometryCorrections`, `previewGeometryCorrectionRevert`, `revertGeometryCorrection` (`/api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections…`) w `game_storage_scope`; serwis z `VirtualRestoredRenderVerifier(artifact_root)`; błędy przez istniejący handler (404/409/422 z kodem i polskim komunikatem); aktor `reviewer-session:{id}` albo `local-admin`; allowlisty `local_admin.py` i proxy Reviewera; OpenAPI, klient i wrappery.
+- Audyt Codex `gpt-6-astra`/`medium`: REVISE (P1: brak testu `GEOMETRY_REVERT_RENDER_FAILED`) → test dopisany przez leada; ponowny audyt zbędny (zmiana tylko testu).
+- Testy: API 21 + bezpieczeństwo, kontrakt OpenAPI 18, klient 106, Reviewer 241; ruff i mypy czyste.
+
 ### TASK-0946 — cofnięcie korekty istniejącej planszy (rewizja N + 1 = N − 1) (done)
 
-- Plik: `ai_docs/tasks/completed/0946-geometry-correction-revert-board-revision.md`; plan etap R1. Commit v1.7.292 (hash dopisuje kolejny commit).
+- Plik: `ai_docs/tasks/completed/0946-geometry-correction-revert-board-revision.md`; plan etap R1. Commit v1.7.292 / 3aa7d04525c9df391a9f82d5839e5ecca4d32e2b.
 - Przypadek A: rewizja `N + 1` z geometrią i specyfikacją renderu `N − 1`, wskazująca poprzednią rewizję źródła; piksele sprawdzane rzeczywistym renderem (`VirtualRestoredRenderVerifier`, bez renderera `GEOMETRY_REVERT_RENDERER_UNAVAILABLE`); decyzje komórek z najwcześniejszego zdarzenia transakcji korekty (Z1 potwierdzone: wspólne `created_at`); zatwierdzenie tylko przy identycznych pikselach (D-462); `GEOMETRY_REVERT_HISTORY_INCOMPLETE` zamiast rekonstrukcji z mieszanej proweniencji; silnik z proweniencji rewizji.
 - Decyzje leada (do D-538): zatwierdzenie dokładnie przywracanej rewizji przechodzi na `N + 1` z pierwotnym czasem i autorem; `PINNED` dla predykcji i operacji zbiorczych tylko przy odniesieniu do odrzucanego renderu (kohorty i biblioteka wzorców blokują zawsze).
 - TASK-0947 musi podłączyć serwis z `VirtualRestoredRenderVerifier(artifact_root)`.
@@ -956,38 +959,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Odłożone jawnie: 3 testy historycznych migracji (skip z powodem), testy
   korpusów M5 bez korpusu, test junction tylko w worktree.
 - Następny etap: S-B (TASK-0933 → 0934/0935), zgodnie z poleceniem operatora.
-
-### TASK-0932 — ewaluator `payout-v4-wild-count` (done)
-
-- Commit v1.7.270 / 123953086aa11ba8454489298b1b4f1015128d4c.
-- `services/worker/.../domain/payout.py`: symbole z rolą uruchamiającą poza
-  liniami; Wild bez zmian (ta sama komórka jako różne symbole na różnych
-  liniach, same Wildy nie wygrywają); nowe `count_matches` (największa
-  reguła ≤ liczbie sztuk, komórki `0` nie liczone); suma linie + sztuki.
-  Wersja per gra: bez triggera wyniki i wersja identyczne z v3 (777 bez
-  zmian), z triggerem `payout-v4-wild-count`. Lustrzany ewaluator TS
-  `packages/shared-ts/src/payout.ts`; 10 złotych przypadków v4 w
-  `domain-fixtures` wykonywanych w Pythonie i TS.
-- API: `countMatches[]` w szczególe planszy i wierszach przybliżonej wygranej;
-  `rulesVersionId` (draft/published tej samej gry) w modalu linii i
-  przybliżonej wygranej Adminu; udostępnienie i panel publiczny odrzucają
-  parametr (422), proxy Reviewera 403. UI: select „Wersja reguł” tylko w
-  Adminie, sekcja „Sztuki na planszy”, „w tym sztuki” w wierszach.
-- Nieobjęte (jawny follow-up): prekomputacja v4 (job wypłat, `layout_payouts`,
-  snapshot mobilny) — strażnik `PAYOUT_ALGORITHM_GAME_MISMATCH` odrzuca job
-  v3 dla gry z triggerem; `create_payout_job` nadal tylko v3. Panel
-  zarządzania (format v1) nie pokazuje rozbicia na sztuki, wypłata wiersza
-  je zawiera.
-- Audyt claude-fable-5-1 / high: PASS, 4 × P2 naprawione, 4 odstępstwa
-  zaakceptowane (`ai_docs/quality/TASK-0932_AUDIT_claude-fable-5-1.md`).
-  Worker 88, API 101, shared-ts 46, board-search-ui 80+51, Admin 679/679,
-  `openapi:check` aktualne. Istniejące wcześniej: 2 testy kontraktowe
-  Reviewera, `main.py:2005` mypy.
-- Etap S-A zamknięty. Operator może testować Wild na drafcie Mumii
-  (instrukcja w Outcome TASK-0931 i TASK-0932) po wdrożeniu migracji 0151.
-  Operator 2026-10-08: migracja 0151, `npm install` i `worker:poll` wykonane;
-  zaakceptował TASK-0940 (zielona bramka) i polecił przejść od razu do etapu
-  S-B bez pytań o zgodę; TASK-0938/0939 po S-B.
 
 ## Archiwum
 

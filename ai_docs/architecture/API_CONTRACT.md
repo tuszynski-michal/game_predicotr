@@ -3542,6 +3542,48 @@ administratora i bearer sesji Reviewera po autoryzacji dokładnego scope'u
 `gameId + importJobId`; proxy Reviewera nie przepuszcza pozostałego Admin API.
 Kontrakt nie aktywuje v19/v20 ani nie zmienia domyślnego pipeline'u.
 
+Cofanie korekt geometrii importu (TASK-0947, plan D-538) udostępniają trzy
+trasy w zakresie gry (`game_storage_scope(gameId)`, D-442):
+
+```text
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections?limit=20
+GET /api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections/{boardGeometryRevisionId}/revert-preview
+POST /api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections/{boardGeometryRevisionId}/revert
+```
+
+`listGeometryCorrections` zwraca `{items}` z ostatnimi zapisami korekt importu,
+najnowszymi najpierw (`limit` 1-50, domyślnie 20). Element niesie
+`boardGeometryRevisionId`, `kind` (`pending_slot` | `board_revision`),
+identyfikatory planszy, pozycji przeglądu, slotu i zdjęcia, `sequenceNumber`,
+`positionIndex`, `createdAt`, `actor`, `geometryRevision`,
+`resolutionRevision`, `revertable` oraz pierwszy niespełniony warunek
+(`blockingReasonCode`, polski `blockingReasonMessage`).
+`previewGeometryCorrectionRevert` nie zapisuje niczego i zwraca korektę, skutki
+(`removesBoard`, `removedCellCount`, `repointedBoardCount`,
+`restoredCellDecisionCount`, rewizje źródła cofanego i przywracanego, silnik i
+status przywracanego) oraz tokeny CAS (`expectedGeometryRevision`,
+`expectedResolutionRevision`). `revertGeometryCorrection` przyjmuje
+`{idempotencyKey, expectedGeometryRevision, expectedResolutionRevision}` i
+zwraca identyfikator audytu (`revertId`), `created`, liczniki i stan zdjęcia
+po cofnięciu; powtórzenie tego samego klucza zwraca zapisany wynik z
+`created=false`.
+
+Błędy używają standardowej koperty `ErrorResponse` (`code`, `message`,
+`details`): `404 GEOMETRY_CORRECTION_NOT_FOUND`; `422` dla walidacji żądania;
+`409` z kodem blokady `GEOMETRY_REVERT_NOT_LATEST`, `_STALE`,
+`_SOURCE_ADVANCED`, `_SHARED_SOURCE_REVISION`, `_CELLS_CHANGED`, `_RESOLVED`,
+`_SEQUENCE_OWNERSHIP`, `_IMAGE_ADMITTED`, `_PINNED`, `_REOPENED_RESOLUTION`,
+`_HISTORY_INCOMPLETE`, `_NOT_SUPPORTED`, a także
+`GEOMETRY_REVERT_RENDERER_UNAVAILABLE`, `GEOMETRY_REVERT_RENDER_FAILED` i
+`GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT`. Aktorem zapisu jest
+`reviewer-session:{id}` dla bearer sesji Reviewera (po autoryzacji scope'u
+`gameId + importJobId`), w pozostałych przypadkach `local-admin`. Proxy
+Reviewera przepuszcza wyłącznie te trzy trasy z powyższymi metodami; nagłówek
+`Origin` Reviewera jest akceptowany tylko dla `POST .../revert`. Serwis dostaje
+`VirtualRestoredRenderVerifier` z konfigurowanym korzeniem artefaktów, więc
+cofnięcie istniejącej planszy (A) sprawdza rzeczywiste piksele przywracanego
+renderu.
+
 `JobProgressResponse.boardCellGeometry` jest opcjonalną projekcją checkpointu
 o statusie `processing | waiting_for_geometry | complete` i licznikach
 `total`, `processed`, `succeeded`, `pending`, `resolved`, `superseded`.

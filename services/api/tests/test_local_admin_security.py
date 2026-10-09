@@ -334,6 +334,13 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
     def preview_pending_symbols(pending_id: str) -> dict[str, str]:
         return {"pendingId": pending_id, "operation": "symbols"}
 
+    @app.post(
+        "/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/"
+        "geometry-corrections/{revision_id}/revert"
+    )
+    def revert_geometry_correction(revision_id: str) -> dict[str, str]:
+        return {"revisionId": revision_id}
+
     headers = {
         "Origin": "http://127.0.0.1:3001",
         "X-Admin-Intent": "local-owner",
@@ -343,6 +350,10 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
         base_url="http://127.0.0.1:8000",
         client=("127.0.0.1", 42002),
     ) as client:
+        accepted_revert = client.post(
+            "/api/v1/admin/games/game/image-imports/import/geometry-corrections/rev/revert",
+            headers=headers,
+        )
         accepted = client.post(
             "/api/v1/admin/image-review-items/review-item/geometry-preview",
             headers=headers,
@@ -394,6 +405,8 @@ def test_local_reviewer_origin_can_only_mutate_reviewer_resources(tmp_path: Path
             headers=headers,
         )
 
+    assert accepted_revert.status_code == 200
+    assert accepted_revert.json() == {"revisionId": "rev"}
     assert accepted.status_code == 200
     assert accepted.json() == {"itemId": "review-item"}
     for removed in (

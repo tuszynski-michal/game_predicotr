@@ -596,6 +596,9 @@ import type {
   ListDatasetVersionsResponses,
   ListGamesData,
   ListGamesResponses,
+  ListGeometryCorrectionsData,
+  ListGeometryCorrectionsErrors,
+  ListGeometryCorrectionsResponses,
   ListGridAuditProposalsData,
   ListGridAuditProposalsErrors,
   ListGridAuditProposalsResponses,
@@ -780,6 +783,9 @@ import type {
   PreviewGameLayoutDataResetData,
   PreviewGameLayoutDataResetErrors,
   PreviewGameLayoutDataResetResponses,
+  PreviewGeometryCorrectionRevertData,
+  PreviewGeometryCorrectionRevertErrors,
+  PreviewGeometryCorrectionRevertResponses,
   PreviewGridProfileActivationData,
   PreviewGridProfileActivationErrors,
   PreviewGridProfileActivationResponses,
@@ -915,6 +921,9 @@ import type {
   RetryJobData,
   RetryJobErrors,
   RetryJobResponses,
+  RevertGeometryCorrectionData,
+  RevertGeometryCorrectionErrors,
+  RevertGeometryCorrectionResponses,
   ReviewBoardSearchShareCorrectionData,
   ReviewBoardSearchShareCorrectionErrors,
   ReviewBoardSearchShareCorrectionResponses,
@@ -2215,6 +2224,72 @@ export const getPendingBoardCellGeometrySource = <
   >({
     security: [{ scheme: 'bearer', type: 'http' }],
     url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/board-cell-geometry-pending/{pending_id}/source',
+    ...options,
+  });
+
+/**
+ * List the latest manual geometry corrections of an import
+ */
+export const listGeometryCorrections = <ThrowOnError extends boolean = false>(
+  options: Options<ListGeometryCorrectionsData, ThrowOnError>,
+): RequestResult<
+  ListGeometryCorrectionsResponses,
+  ListGeometryCorrectionsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListGeometryCorrectionsResponses,
+    ListGeometryCorrectionsErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections',
+    ...options,
+  });
+
+/**
+ * Revert one manual geometry correction atomically
+ */
+export const revertGeometryCorrection = <ThrowOnError extends boolean = false>(
+  options: Options<RevertGeometryCorrectionData, ThrowOnError>,
+): RequestResult<
+  RevertGeometryCorrectionResponses,
+  RevertGeometryCorrectionErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    RevertGeometryCorrectionResponses,
+    RevertGeometryCorrectionErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections/{board_geometry_revision_id}/revert',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * Preview the effects of reverting one geometry correction without writing
+ */
+export const previewGeometryCorrectionRevert = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<PreviewGeometryCorrectionRevertData, ThrowOnError>,
+): RequestResult<
+  PreviewGeometryCorrectionRevertResponses,
+  PreviewGeometryCorrectionRevertErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    PreviewGeometryCorrectionRevertResponses,
+    PreviewGeometryCorrectionRevertErrors,
+    ThrowOnError
+  >({
+    security: [{ scheme: 'bearer', type: 'http' }],
+    url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections/{board_geometry_revision_id}/revert-preview',
     ...options,
   });
 

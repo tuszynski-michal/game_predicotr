@@ -366,6 +366,9 @@ import {
   resumeSemiAutomaticImageSelection as resumeGeneratedSemiAutomaticImageSelection,
   saveUnreadableBoardReview as saveGeneratedUnreadableBoardReview,
   resolvePendingBoardCellGeometryManually as resolveGeneratedPendingBoardCellGeometryManually,
+  listGeometryCorrections as listGeneratedGeometryCorrections,
+  previewGeometryCorrectionRevert as previewGeneratedGeometryCorrectionRevert,
+  revertGeometryCorrection as revertGeneratedGeometryCorrection,
   selectSemiAutomaticImageSelectionSourceFolder as selectGeneratedSemiAutomaticImageSelectionSourceFolder,
   selectSemiAutomaticImageSelectionOutputFolder as selectGeneratedSemiAutomaticImageSelectionOutputFolder,
   openSemiAutomaticImageSelectionReviewFolder as openGeneratedSemiAutomaticImageSelectionReviewFolder,
@@ -410,6 +413,7 @@ import type {
   BoardCellGeometryManualPreviewCommand,
   BoardCellGeometryManualResolutionCommand,
   BoardCellGeometryPendingStatus,
+  GeometryCorrectionRevertCommand,
   BoardSearchResponse,
   BoardSearchAssetMode,
   BoardSearchResultResponse,
@@ -595,6 +599,13 @@ export type {
   BoardCellGeometryPendingReason,
   BoardCellGeometryPendingResponse,
   BoardCellGeometryPendingStatus,
+  GeometryCorrectionKind,
+  GeometryCorrectionListResponse,
+  GeometryCorrectionResponse,
+  GeometryCorrectionRevertCommand,
+  GeometryCorrectionRevertPreviewResponse,
+  GeometryCorrectionRevertResponse,
+  RevertBlockingReason,
   BoardSearchResponse,
   BoardSearchAssetMode,
   BoardSearchResultResponse,
@@ -1148,6 +1159,10 @@ export interface ListUnreadableBoardReviewsOptions {
 export interface ListPendingBoardCellGeometryOptions extends OperationalImageReviewContext {
   readonly status?: BoardCellGeometryPendingStatus;
   readonly cursor?: string;
+  readonly limit?: number;
+}
+
+export interface ListGeometryCorrectionsOptions extends OperationalImageReviewContext {
   readonly limit?: number;
 }
 
@@ -3408,6 +3423,43 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           game_id: context.gameId,
           import_job_id: context.importJobId,
           pending_id: pendingId,
+        },
+      }),
+    listGeometryCorrections: (options: ListGeometryCorrectionsOptions) =>
+      listGeneratedGeometryCorrections({
+        client,
+        path: {
+          game_id: options.gameId,
+          import_job_id: options.importJobId,
+        },
+        query: {
+          ...(options.limit === undefined ? {} : { limit: options.limit }),
+        },
+      }),
+    previewGeometryCorrectionRevert: (
+      boardGeometryRevisionId: string,
+      context: OperationalImageReviewContext,
+    ) =>
+      previewGeneratedGeometryCorrectionRevert({
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          board_geometry_revision_id: boardGeometryRevisionId,
+        },
+      }),
+    revertGeometryCorrection: (
+      boardGeometryRevisionId: string,
+      context: OperationalImageReviewContext,
+      body: GeometryCorrectionRevertCommand,
+    ) =>
+      revertGeneratedGeometryCorrection({
+        body,
+        client,
+        path: {
+          game_id: context.gameId,
+          import_job_id: context.importJobId,
+          board_geometry_revision_id: boardGeometryRevisionId,
         },
       }),
     resolveOperationalImageReviewItem: (

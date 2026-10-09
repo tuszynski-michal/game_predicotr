@@ -133,6 +133,26 @@ export function reviewerProxyTarget(
   ) {
     return path;
   }
+  // D-538 (TASK-0947): list, preview and revert of manual geometry corrections.
+  const geometryCorrectionCollectionPattern = new RegExp(
+    `^/api/v1/admin/games/${UUID}/image-imports/${UUID}/geometry-corrections$`,
+  );
+  const geometryCorrectionItemPattern = `${geometryCorrectionCollectionPattern.source.slice(0, -1)}/${UUID}`;
+  if (method === 'GET' && geometryCorrectionCollectionPattern.test(path)) {
+    return path;
+  }
+  if (
+    method === 'GET' &&
+    new RegExp(`${geometryCorrectionItemPattern}/revert-preview$`).test(path)
+  ) {
+    return path;
+  }
+  if (
+    method === 'POST' &&
+    new RegExp(`${geometryCorrectionItemPattern}/revert$`).test(path)
+  ) {
+    return path;
+  }
   if (!path.startsWith('/api/v1/admin/image-review-items')) {
     return null;
   }

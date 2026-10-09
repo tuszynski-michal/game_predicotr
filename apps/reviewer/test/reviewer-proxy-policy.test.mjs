@@ -104,6 +104,30 @@ test('exposes only unlock, scoped context and operational review routes', () => 
   );
 });
 
+test('admits only the three geometry-correction revert routes with their methods', () => {
+  const base = `/api/v1/admin/games/${gameId}/image-imports/${importJobId}/geometry-corrections`;
+  for (const [method, path] of [
+    ['GET', base],
+    ['GET', `${base}/${itemId}/revert-preview`],
+    ['POST', `${base}/${itemId}/revert`],
+  ]) {
+    assert.equal(reviewerProxyTarget(method, path), path, `${method} ${path}`);
+  }
+  for (const [method, path] of [
+    ['POST', base],
+    ['DELETE', base],
+    ['DELETE', `${base}/${itemId}/revert`],
+    ['GET', `${base}/${itemId}/revert`],
+    ['POST', `${base}/${itemId}/revert-preview`],
+    ['PUT', `${base}/${itemId}/revert`],
+    ['GET', `${base}/${itemId}`],
+    ['POST', `${base}/${itemId}/other`],
+    ['POST', `${base}/${itemId}/revert/extra`],
+  ]) {
+    assert.equal(reviewerProxyTarget(method, path), null, `${method} ${path}`);
+  }
+});
+
 test('rejects Admin CRUD, jobs mutations, exports and releases', () => {
   for (const [method, path] of [
     ['POST', '/api/v1/admin/games'],

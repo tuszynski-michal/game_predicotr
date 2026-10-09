@@ -4254,6 +4254,212 @@ export type GeometryCompletenessSourceStatusCountResponse = {
 };
 
 /**
+ * GeometryCorrectionKind
+ */
+export type GeometryCorrectionKind = 'pending_slot' | 'board_revision';
+
+/**
+ * GeometryCorrectionListResponse
+ */
+export type GeometryCorrectionListResponse = {
+  /**
+   * Items
+   */
+  items: Array<GeometryCorrectionResponse>;
+};
+
+/**
+ * GeometryCorrectionResponse
+ *
+ * One manual geometry save of an import with its revert eligibility.
+ */
+export type GeometryCorrectionResponse = {
+  /**
+   * Actor
+   */
+  actor: string;
+  blockingReasonCode: RevertBlockingReason | null;
+  /**
+   * Blockingreasonmessage
+   */
+  blockingReasonMessage: string | null;
+  /**
+   * Boardgeometryrevisionid
+   */
+  boardGeometryRevisionId: string;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  /**
+   * Geometryrevision
+   */
+  geometryRevision: number;
+  kind: GeometryCorrectionKind;
+  /**
+   * Pendinggeometryid
+   */
+  pendingGeometryId: string | null;
+  /**
+   * Positionindex
+   */
+  positionIndex: number;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Resolutionrevision
+   */
+  resolutionRevision: number;
+  /**
+   * Revertable
+   */
+  revertable: boolean;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Sourceimageid
+   */
+  sourceImageId: string;
+};
+
+/**
+ * GeometryCorrectionRevertCommand
+ */
+export type GeometryCorrectionRevertCommand = {
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Idempotencykey
+   */
+  idempotencyKey: string;
+};
+
+/**
+ * GeometryCorrectionRevertPreviewResponse
+ */
+export type GeometryCorrectionRevertPreviewResponse = {
+  correction: GeometryCorrectionResponse;
+  /**
+   * Expectedgeometryrevision
+   */
+  expectedGeometryRevision: number;
+  /**
+   * Expectedresolutionrevision
+   */
+  expectedResolutionRevision: number;
+  /**
+   * Removedcellcount
+   */
+  removedCellCount: number;
+  /**
+   * Removesboard
+   */
+  removesBoard: boolean;
+  /**
+   * Repointedboardcount
+   */
+  repointedBoardCount: number;
+  /**
+   * Restoredcelldecisioncount
+   */
+  restoredCellDecisionCount: number;
+  /**
+   * Restoredsourceenginekind
+   */
+  restoredSourceEngineKind: string | null;
+  /**
+   * Restoredsourcegeometryrevisionid
+   */
+  restoredSourceGeometryRevisionId: string | null;
+  /**
+   * Restoredsourcestatus
+   */
+  restoredSourceStatus: string | null;
+  /**
+   * Revertedsourcegeometryrevisionid
+   */
+  revertedSourceGeometryRevisionId: string;
+};
+
+/**
+ * GeometryCorrectionRevertResponse
+ */
+export type GeometryCorrectionRevertResponse = {
+  /**
+   * Boardgeometryrevisionid
+   */
+  boardGeometryRevisionId: string;
+  /**
+   * Created
+   */
+  created: boolean;
+  /**
+   * Createdat
+   */
+  createdAt: string;
+  kind: GeometryCorrectionKind;
+  /**
+   * Pendinggeometryid
+   */
+  pendingGeometryId: string | null;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string;
+  /**
+   * Removedcellcount
+   */
+  removedCellCount: number;
+  /**
+   * Repointedboardids
+   */
+  repointedBoardIds: Array<string>;
+  /**
+   * Restoredcelldecisioncount
+   */
+  restoredCellDecisionCount: number;
+  /**
+   * Restoredgeometryrevision
+   */
+  restoredGeometryRevision?: number | null;
+  /**
+   * Restoredsourcegeometryrevisionid
+   */
+  restoredSourceGeometryRevisionId: string;
+  /**
+   * Revertid
+   */
+  revertId: string;
+  /**
+   * Revertedsourcegeometryrevisionid
+   */
+  revertedSourceGeometryRevisionId: string;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string;
+  /**
+   * Snapshotchecksumsha256
+   */
+  snapshotChecksumSha256: string;
+  sourceImageGeometryStatus: SourceImageGeometryStatus | null;
+};
+
+/**
  * GeometryEngineVariant
  */
 export type GeometryEngineVariant =
@@ -13335,6 +13541,25 @@ export type ResolvedBrowserImageImportJobPayload = {
 };
 
 /**
+ * RevertBlockingReason
+ *
+ * Why a correction cannot be reverted; the first failing rule wins.
+ */
+export type RevertBlockingReason =
+  | 'GEOMETRY_REVERT_NOT_LATEST'
+  | 'GEOMETRY_REVERT_STALE'
+  | 'GEOMETRY_REVERT_SOURCE_ADVANCED'
+  | 'GEOMETRY_REVERT_SHARED_SOURCE_REVISION'
+  | 'GEOMETRY_REVERT_CELLS_CHANGED'
+  | 'GEOMETRY_REVERT_RESOLVED'
+  | 'GEOMETRY_REVERT_SEQUENCE_OWNERSHIP'
+  | 'GEOMETRY_REVERT_IMAGE_ADMITTED'
+  | 'GEOMETRY_REVERT_PINNED'
+  | 'GEOMETRY_REVERT_REOPENED_RESOLUTION'
+  | 'GEOMETRY_REVERT_HISTORY_INCOMPLETE'
+  | 'GEOMETRY_REVERT_NOT_SUPPORTED';
+
+/**
  * ReviewAlternative
  */
 export type ReviewAlternative = {
@@ -21227,6 +21452,155 @@ export type GetPendingBoardCellGeometrySourceResponses = {
    */
   200: unknown;
 };
+
+export type ListGeometryCorrectionsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+  };
+  query?: {
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections';
+};
+
+export type ListGeometryCorrectionsErrors = {
+  /**
+   * Geometry correction not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revert blocked or state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListGeometryCorrectionsError =
+  ListGeometryCorrectionsErrors[keyof ListGeometryCorrectionsErrors];
+
+export type ListGeometryCorrectionsResponses = {
+  /**
+   * Successful Response
+   */
+  200: GeometryCorrectionListResponse;
+};
+
+export type ListGeometryCorrectionsResponse =
+  ListGeometryCorrectionsResponses[keyof ListGeometryCorrectionsResponses];
+
+export type RevertGeometryCorrectionData = {
+  body: GeometryCorrectionRevertCommand;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Board Geometry Revision Id
+     */
+    board_geometry_revision_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections/{board_geometry_revision_id}/revert';
+};
+
+export type RevertGeometryCorrectionErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Geometry correction not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revert blocked or state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type RevertGeometryCorrectionError =
+  RevertGeometryCorrectionErrors[keyof RevertGeometryCorrectionErrors];
+
+export type RevertGeometryCorrectionResponses = {
+  /**
+   * Successful Response
+   */
+  200: GeometryCorrectionRevertResponse;
+};
+
+export type RevertGeometryCorrectionResponse =
+  RevertGeometryCorrectionResponses[keyof RevertGeometryCorrectionResponses];
+
+export type PreviewGeometryCorrectionRevertData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Import Job Id
+     */
+    import_job_id: string;
+    /**
+     * Board Geometry Revision Id
+     */
+    board_geometry_revision_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/image-imports/{import_job_id}/geometry-corrections/{board_geometry_revision_id}/revert-preview';
+};
+
+export type PreviewGeometryCorrectionRevertErrors = {
+  /**
+   * Geometry correction not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revert blocked or state conflict
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type PreviewGeometryCorrectionRevertError =
+  PreviewGeometryCorrectionRevertErrors[keyof PreviewGeometryCorrectionRevertErrors];
+
+export type PreviewGeometryCorrectionRevertResponses = {
+  /**
+   * Successful Response
+   */
+  200: GeometryCorrectionRevertPreviewResponse;
+};
+
+export type PreviewGeometryCorrectionRevertResponse =
+  PreviewGeometryCorrectionRevertResponses[keyof PreviewGeometryCorrectionRevertResponses];
 
 export type OpenLocalReviewerWorkData = {
   body: ReviewerWorkOpenCommand;

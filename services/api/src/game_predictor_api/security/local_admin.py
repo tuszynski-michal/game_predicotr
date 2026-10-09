@@ -257,6 +257,9 @@ _REVIEWER_MUTATION_PATTERNS = tuple(
         r"board-cell-geometry-pending/[^/]+/geometry-symbol-preview$",
         r"^/api/v1/admin/games/[^/]+/image-imports/[^/]+/"
         r"board-cell-geometry-pending/[^/]+/manual-resolution$",
+        # D-538 (TASK-0947): revert of one geometry correction of the import.
+        r"^/api/v1/admin/games/[^/]+/image-imports/[^/]+/"
+        r"geometry-corrections/[^/]+/revert$",
     )
 )
 

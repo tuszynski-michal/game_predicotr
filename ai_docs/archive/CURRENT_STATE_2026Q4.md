@@ -13,6 +13,38 @@ Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z plik
 ponad limit 10 dopisuj na początku najnowszego pliku archiwum. Aktualny stan:
 [CURRENT_STATE.md](../process/CURRENT_STATE.md).
 
+### TASK-0932 — ewaluator `payout-v4-wild-count` (done)
+
+- Commit v1.7.270 / 123953086aa11ba8454489298b1b4f1015128d4c.
+- `services/worker/.../domain/payout.py`: symbole z rolą uruchamiającą poza
+  liniami; Wild bez zmian (ta sama komórka jako różne symbole na różnych
+  liniach, same Wildy nie wygrywają); nowe `count_matches` (największa
+  reguła ≤ liczbie sztuk, komórki `0` nie liczone); suma linie + sztuki.
+  Wersja per gra: bez triggera wyniki i wersja identyczne z v3 (777 bez
+  zmian), z triggerem `payout-v4-wild-count`. Lustrzany ewaluator TS
+  `packages/shared-ts/src/payout.ts`; 10 złotych przypadków v4 w
+  `domain-fixtures` wykonywanych w Pythonie i TS.
+- API: `countMatches[]` w szczególe planszy i wierszach przybliżonej wygranej;
+  `rulesVersionId` (draft/published tej samej gry) w modalu linii i
+  przybliżonej wygranej Adminu; udostępnienie i panel publiczny odrzucają
+  parametr (422), proxy Reviewera 403. UI: select „Wersja reguł” tylko w
+  Adminie, sekcja „Sztuki na planszy”, „w tym sztuki” w wierszach.
+- Nieobjęte (jawny follow-up): prekomputacja v4 (job wypłat, `layout_payouts`,
+  snapshot mobilny) — strażnik `PAYOUT_ALGORITHM_GAME_MISMATCH` odrzuca job
+  v3 dla gry z triggerem; `create_payout_job` nadal tylko v3. Panel
+  zarządzania (format v1) nie pokazuje rozbicia na sztuki, wypłata wiersza
+  je zawiera.
+- Audyt claude-fable-5-1 / high: PASS, 4 × P2 naprawione, 4 odstępstwa
+  zaakceptowane (`ai_docs/quality/TASK-0932_AUDIT_claude-fable-5-1.md`).
+  Worker 88, API 101, shared-ts 46, board-search-ui 80+51, Admin 679/679,
+  `openapi:check` aktualne. Istniejące wcześniej: 2 testy kontraktowe
+  Reviewera, `main.py:2005` mypy.
+- Etap S-A zamknięty. Operator może testować Wild na drafcie Mumii
+  (instrukcja w Outcome TASK-0931 i TASK-0932) po wdrożeniu migracji 0151.
+  Operator 2026-10-08: migracja 0151, `npm install` i `worker:poll` wykonane;
+  zaakceptował TASK-0940 (zielona bramka) i polecił przejść od razu do etapu
+  S-B bez pytań o zgodę; TASK-0938/0939 po S-B.
+
 ### TASK-0931 — Wild, „Uruchamia supergrę” i rodzaj supergry (done)
 
 - Commit v1.7.268 / 1aef5870ee22287b0e17f1278276cddf7793a9b5.

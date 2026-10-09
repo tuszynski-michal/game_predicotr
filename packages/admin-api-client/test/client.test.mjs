@@ -4338,3 +4338,43 @@ test('board search and approximate win return the super game markers and state u
   assert.deepEqual(range.data.rows[0].superGame, marker);
   assert.deepEqual(range.data.superGameState, superGameState);
 });
+
+test('generated client lists, previews and reverts geometry corrections', async () => {
+  const requests = [];
+  const revisionId = '11111111-1111-4111-8111-111111111111';
+  const context = {
+    gameId: '22222222-2222-4222-8222-222222222222',
+    importJobId: '33333333-3333-4333-8333-333333333333',
+  };
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      requests.push(request);
+      return Response.json({ items: [] });
+    },
+  });
+
+  await client.listGeometryCorrections(context);
+  await client.listGeometryCorrections({ ...context, limit: 5 });
+  await client.previewGeometryCorrectionRevert(revisionId, context);
+  const command = {
+    expectedGeometryRevision: 2,
+    expectedResolutionRevision: 4,
+    idempotencyKey: '44444444-4444-4444-8444-444444444444',
+  };
+  await client.revertGeometryCorrection(revisionId, context, command);
+
+  const base = `/api/v1/admin/games/${context.gameId}/image-imports/${context.importJobId}/geometry-corrections`;
+  assert.deepEqual(
+    requests.map((request) => [request.method, new URL(request.url).pathname]),
+    [
+      ['GET', base],
+      ['GET', base],
+      ['GET', `${base}/${revisionId}/revert-preview`],
+      ['POST', `${base}/${revisionId}/revert`],
+    ],
+  );
+  assert.equal(new URL(requests[0].url).searchParams.has('limit'), false);
+  assert.equal(new URL(requests[1].url).searchParams.get('limit'), '5');
+  assert.deepEqual(await requests[3].clone().json(), command);
+});

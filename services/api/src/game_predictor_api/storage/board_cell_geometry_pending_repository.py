@@ -491,6 +491,13 @@ def _validated_detected_board_geometry(
     source_width: int,
     source_height: int,
 ) -> dict[str, object]:
+    """Accept the pinned draft within the manual edit bounds, not the image.
+
+    A detected board may extend past the image edge (partially visible cells,
+    D-436). The draft only seeds manual correction, so it uses the same
+    one-width/one-height margin as ``SourceQuad.require_manual_edit_bounds``;
+    the save path still validates the corrected geometry on its own.
+    """
     if not isinstance(value, Mapping):
         raise JobConflictError(
             "IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID",
@@ -520,12 +527,12 @@ def _validated_detected_board_geometry(
             or not isinstance(y, int | float)
             or not math.isfinite(float(x))
             or not math.isfinite(float(y))
-            or not 0 <= float(x) <= source_width
-            or not 0 <= float(y) <= source_height
+            or not -source_width <= float(x) <= 2 * source_width
+            or not -source_height <= float(y) <= 2 * source_height
         ):
             raise JobConflictError(
                 "IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID",
-                "The pinned board quad is outside the immutable source bounds.",
+                "The pinned board quad exceeds the manual edit bounds of the source.",
             )
     return dict(value)
 

@@ -489,10 +489,10 @@ export type BoardCellGeometryCorrectionContextResponse = {
    * Boardquad
    */
   boardQuad: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
   /**
    * Expectedproposalchecksumsha256
@@ -546,10 +546,10 @@ export type BoardCellGeometryCorrectionContextResponse = {
    * Suggestedcorners
    */
   suggestedCorners: [
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
   ];
 };
 
@@ -11113,20 +11113,6 @@ export type OperationalImageReviewGeometryCommand = {
         SourceLatticePoint,
       ]
     | null;
-};
-
-/**
- * OperationalImageReviewGeometryPoint
- */
-export type OperationalImageReviewGeometryPoint = {
-  /**
-   * X
-   */
-  x: number;
-  /**
-   * Y
-   */
-  y: number;
 };
 
 /**

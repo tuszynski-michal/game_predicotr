@@ -782,6 +782,57 @@ def test_manual_resolution_without_virtual_geometry_is_unavailable() -> None:
     assert error.value.code == "IMAGE_BOARD_CELL_MANUAL_PREVIEW_UNAVAILABLE"
 
 
+def test_correction_context_api_returns_corners_past_the_image_edge(tmp_path: Path) -> None:
+    repository = MemoryPendingRepository()
+    pending, _ = BoardCellGeometryPendingService(repository, MemoryManifestStore()).defer(
+        manifest=_manifest(),
+        reason_code=BoardCellGeometryPendingReason.INCOMPLETE_LATTICE,
+    )
+    quad = [
+        {"x": -12.4, "y": -56.2},
+        {"x": 300.0, "y": -50.0},
+        {"x": 310.0, "y": 421.75},
+        {"x": -10.0, "y": 419.0},
+    ]
+    repository.contexts[pending.id] = BoardCellGeometryCorrectionContext(
+        pending=pending,
+        source_order_index=0,
+        source_width=620,
+        source_height=420,
+        board_geometry={"quad": quad, "source": "detected"},
+        board_confidence=0.5,
+        symbol_model=bootstrap_symbol_model_snapshot(),
+    )
+    service = BoardCellGeometryPendingService(repository, MemoryManifestStore())
+    app = create_app(
+        ApiSettings.from_environment(
+            {
+                "GAME_PREDICTOR_DATABASE_URL": (
+                    "postgresql+psycopg://unused:unused@localhost:5432/unused"
+                ),
+                "GAME_PREDICTOR_ARTIFACT_ROOT": str(tmp_path),
+            }
+        ),
+        board_cell_geometry_pending_service_dependency=lambda: service,
+    )
+
+    with TestClient(app) as client:
+        response = client.get(
+            f"/api/v1/admin/games/{pending.game_id}/image-imports/{pending.import_job_id}/"
+            f"board-cell-geometry-pending/{pending.id}/correction-context"
+        )
+
+    assert response.status_code == 200
+    expected = [
+        {"x": -12, "y": -56},
+        {"x": 300, "y": -50},
+        {"x": 310, "y": 422},
+        {"x": -10, "y": 419},
+    ]
+    assert response.json()["boardQuad"] == expected
+    assert response.json()["suggestedCorners"] == expected
+
+
 def test_missing_final_quad_recovers_only_matching_manual_draft() -> None:
     import pytest
     from game_predictor_api.domain.jobs import JobConflictError
@@ -820,3 +871,46 @@ def test_missing_final_quad_recovers_only_matching_manual_draft() -> None:
                 position_index=1,
                 sequence_number=149636,
             )
+
+
+def test_detected_quad_past_the_image_edge_seeds_manual_correction() -> None:
+    from game_predictor_api.domain.jobs import JobConflictError
+    from game_predictor_api.schemas.board_cell_geometry_pending import _quad
+    from game_predictor_api.storage.board_cell_geometry_pending_repository import (
+        _validated_detected_board_geometry,
+    )
+
+    # Mumie import d82d9aba: the bottom-right board (positionIndex 8) of a
+    # 1520x904 page is detected 1.75 px below the last pixel row.
+    bottom = {
+        "quad": [
+            {"x": 987.27, "y": 745.85},
+            {"x": 1200.04, "y": 794.58},
+            {"x": 1187.11, "y": 905.75},
+            {"x": 970.61, "y": 858.83},
+        ]
+    }
+    assert (
+        _validated_detected_board_geometry(bottom, source_width=1520, source_height=904) == bottom
+    )
+    top = {
+        "pageBoardQuad": [
+            {"x": -40.0, "y": -56.2},
+            {"x": 300.0, "y": -50.0},
+            {"x": 310.0, "y": 60.0},
+            {"x": -30.0, "y": 55.0},
+        ]
+    }
+    assert _validated_detected_board_geometry(top, source_width=1520, source_height=904) == top
+    # The correction context response keeps the signed corners for the editor.
+    assert [(point.x, point.y) for point in _quad(top)] == [
+        (-40, -56),
+        (300, -50),
+        (310, 60),
+        (-30, 55),
+    ]
+    for point in ({"x": -1521.0, "y": 10.0}, {"x": 10.0, "y": 1809.0}):
+        beyond = {"quad": [point, *bottom["quad"][1:]]}
+        with pytest.raises(JobConflictError) as error:
+            _validated_detected_board_geometry(beyond, source_width=1520, source_height=904)
+        assert error.value.code == "IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID"

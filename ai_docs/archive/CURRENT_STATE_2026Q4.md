@@ -13,6 +13,19 @@ Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z plik
 ponad limit 10 dopisuj na początku najnowszego pliku archiwum. Aktualny stan:
 [CURRENT_STATE.md](../process/CURRENT_STATE.md).
 
+### TASK-0930 — klawisz `0` dla dziesiątego symbolu w weryfikacji symboli (done)
+
+- Commit v1.7.266 / ad058e23a487a70f543636c6b024d779006c9bdb.
+- W weryfikacji symboli `0` wybiera dziesiąty aktywny symbol (Mumia) jako
+  `Symbol do zatwierdzenia`; etykiety w selekcie i pasku skrótów pokazują `0`.
+  Nowe helpery `extendedDigitShortcutIndex/Label` w `apps/admin/src/lib`;
+  wyszukiwanie plansz bez zmian (`0` = nieznany).
+- Admin: testy 668 PASS, typecheck i lint PASS. Audyt niezależny
+  claude-opus-5-5 / medium: PASS, 4 × P2 naprawione przed commitem
+  (`ai_docs/quality/TASK-0930_AUDIT_claude-opus-5-5.md`); uwaga o opisie w
+  `symbol-catalog.tsx` przekazana do TASK-0931.
+- Etap S-0 zamknięty. Równolegle trwają TASK-0929 (etap P) i TASK-0931 (S-A).
+
 ### TASK-0927 — Integrated acceptance and operator guide (done)
 
 - Final requirement/evidence matrix covers the accepted T1–T7 implementation.

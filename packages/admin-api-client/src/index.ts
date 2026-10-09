@@ -783,7 +783,7 @@ export type {
   OperationalImageReviewCountsResponse,
   OperationalImageReviewGeometryCellResponse,
   OperationalImageReviewGeometryCommand,
-  OperationalImageReviewGeometryPoint,
+  ManualSourceGeometryPoint as OperationalImageReviewGeometryPoint,
   OperationalImageReviewGeometryPreviewCommand,
   OperationalImageReviewGeometryResponse,
   OperationalImageReviewGeometryRevisionResponse,

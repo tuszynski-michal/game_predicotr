@@ -1966,7 +1966,6 @@ export type {
   OperationalImageReviewCountsResponse,
   OperationalImageReviewGeometryCellResponse,
   OperationalImageReviewGeometryCommand,
-  OperationalImageReviewGeometryPoint,
   OperationalImageReviewGeometryPreviewCommand,
   OperationalImageReviewGeometryResponse,
   OperationalImageReviewGeometryRevisionResponse,

@@ -797,16 +797,16 @@
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Boardquad",
@@ -863,16 +863,16 @@
             "minItems": 4,
             "prefixItems": [
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               },
               {
-                "$ref": "#/components/schemas/OperationalImageReviewGeometryPoint"
+                "$ref": "#/components/schemas/ManualSourceGeometryPoint"
               }
             ],
             "title": "Suggestedcorners",
@@ -19691,27 +19691,6 @@
           "correctedBy"
         ],
         "title": "OperationalImageReviewGeometryCommand",
-        "type": "object"
-      },
-      "OperationalImageReviewGeometryPoint": {
-        "additionalProperties": false,
-        "properties": {
-          "x": {
-            "minimum": 0.0,
-            "title": "X",
-            "type": "integer"
-          },
-          "y": {
-            "minimum": 0.0,
-            "title": "Y",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "x",
-          "y"
-        ],
-        "title": "OperationalImageReviewGeometryPoint",
         "type": "object"
       },
       "OperationalImageReviewGeometryPreviewCommand": {

@@ -315,11 +315,6 @@ class OperationalImageReviewResolutionResponse(ApiModel):
     queue_version: int = Field(ge=1)
 
 
-class OperationalImageReviewGeometryPoint(ApiModel):
-    x: int = Field(ge=0)
-    y: int = Field(ge=0)
-
-
 class OperationalImageReviewGeometryPreviewCommand(ApiModel):
     lattice_nodes: SourceLatticeNodesPayload | None = None
     expected_proposal_checksum_sha256: Sha256 | None = None

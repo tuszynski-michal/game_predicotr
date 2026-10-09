@@ -26,7 +26,6 @@ from game_predictor_api.schemas.geometry_qualification import (
     GridCorrectionCellSymbolPayload,
     ManualSourceGeometryPoint,
 )
-from game_predictor_api.schemas.image_reviews import OperationalImageReviewGeometryPoint
 from game_predictor_api.schemas.source_lattice_geometry import (
     SourceLatticeNodesPayload,
     lattice_nodes_payload,
@@ -81,16 +80,16 @@ class BoardCellGeometryCorrectionContextResponse(ApiModel):
     source_height: int = Field(gt=0)
     source_order_index: int = Field(ge=0)
     board_quad: tuple[
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ]
     suggested_corners: tuple[
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
-        OperationalImageReviewGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
+        ManualSourceGeometryPoint,
     ]
 
 
@@ -202,32 +201,32 @@ def to_manual_resolution_response(
 def _quad(
     geometry: object,
 ) -> tuple[
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
-    OperationalImageReviewGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
+    ManualSourceGeometryPoint,
 ]:
     if not isinstance(geometry, Mapping):
         raise ValueError("The pending board geometry is invalid.")
     raw = geometry.get("quad") or geometry.get("pageBoardQuad")
     if not isinstance(raw, list | tuple) or len(raw) != 4:
         raise ValueError("The pending board quad is unavailable.")
-    points: list[OperationalImageReviewGeometryPoint] = []
+    points: list[ManualSourceGeometryPoint] = []
     for value in raw:
         if not isinstance(value, Mapping):
             raise ValueError("The pending board quad is invalid.")
         points.append(
-            OperationalImageReviewGeometryPoint(
+            ManualSourceGeometryPoint(
                 x=round(float(value["x"])),
                 y=round(float(value["y"])),
             )
         )
     return cast(
         tuple[
-            OperationalImageReviewGeometryPoint,
-            OperationalImageReviewGeometryPoint,
-            OperationalImageReviewGeometryPoint,
-            OperationalImageReviewGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
+            ManualSourceGeometryPoint,
         ],
         tuple(points),
     )

@@ -68,3 +68,9 @@ work/
 # Unreadable pytest temp roots left by earlier runs
 t07-pytest-*/
 t6?/
+
+# Serena MCP local state (project.yml is versioned; TASK-0939)
+.serena/cache/
+.serena/logs/
+.serena/project.local.yml
+.serena/memories/

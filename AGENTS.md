@@ -19,6 +19,19 @@ Przed rozpoczęciem każdego zadania przeczytaj:
 6. aktywne zadanie znajdujące się bezpośrednio w `ai_docs/tasks/`, jeśli
    istnieje.
 
+<!-- [mapa kodu] -->
+
+Szukając kodu, zacznij od `ai_docs/architecture/CODE_MAP.md` (obszar → katalogi,
+moduły wejściowe, testy, komendy), potem użyj `rg` na
+`ai_docs/architecture/CODE_MAP_SYMBOLS.md` (jedna linia na moduł) i dopiero na
+końcu otwórz konkretny plik z `offset`/`limit` (pilot TASK-0939: obowiązuje do
+czasu pomiaru; stałe włączenie zależy od wyniku). Mapa jest generowana
+(`scripts/generate_code_map.py`); jej aktualność sprawdza `npm run
+code-map:check` (poza `docs:check` i `quality`, żeby równoległe gałęzie nie
+psuły bramki przy niezwiązanych zmianach symboli). Zamykając task, który dodaje,
+usuwa lub przenosi moduł albo zmienia publiczny symbol, zregeneruj mapę
+(`python scripts/generate_code_map.py`) i dołącz ją do commita taska.
+
 Nie czytaj całej dokumentacji bez potrzeby. Otwieraj dokumenty wskazane w sekcji `Relevant docs` aktywnego zadania.
 Nie wczytuj `ai_docs/tasks/completed/` ani `ai_docs/archive/`, chyba że aktywne
 zadanie odwołuje się do nich jawnie. Pełne wpisy decyzji
@@ -97,6 +110,25 @@ review`. Każdy task ma własny wiersz z dokładnym dostępnym modelem i
   a następnie uzyskaj zgodę na kontynuację. Przestrzegaj limitów czasu i budżetu
   wskazanych przez użytkownika. Wykorzystuj aktualne wyniki weryfikacji zamiast
   niepotrzebnie powtarzać audyty i testy.
+
+### Oszczędzanie kontekstu
+
+Pilot TASK-0939: obowiązuje do czasu pomiaru; stałe włączenie zależy od wyniku.
+
+- Szeroką eksplorację (szukanie miejsca zmiany w wielu plikach, ustalanie
+  przepływu) deleguj subagentowi na tańszym modelu. Subagent zwraca wnioski:
+  ścieżkę, symbol, zakres linii i 1–3 zdania, a nie zrzuty plików.
+- Brief audytu zawiera wyłącznie plik taska, fragment planu i diff (tak składa go
+  `scripts/audit_task.ps1`). Nie wklejaj całych dokumentów procesu
+  (`CURRENT_STATE.md`, `DECISION_LOG.md`, plany, archiwa) do promptów
+  subagentów ani audytorów; podaj ścieżkę i zakres do przeczytania.
+- Plik większy niż 200 KB czytaj tylko z `offset`/`limit`; hook `PreToolUse` w
+  `.claude/settings.json` odrzuca inny odczyt. Wyłączenie hooka i narzędzia
+  pilotowe (Serena, Graphify): `ai_docs/guides/TOKEN_TOOLING.md`.
+- Gdy MCP z narzędziami symbolowymi (Serena) jest włączone w sesji, preferuj
+  `find_symbol` i `find_referencing_symbols` nad czytaniem całych plików. Serena i
+  Graphify są pilotem: stały wpis o nich w tym pliku powstaje dopiero po werdykcie
+  „zostaje” z `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md`.
 
 ## Kontrola lokalnych usług API i Admin
 

@@ -16,7 +16,7 @@ niegotowych części systemu.
 
 Przed rozpoczęciem pracy czytaj w tej kolejności:
 
-1. ten indeks,
+1. ten indeks (szukając kodu, zacznij od [mapy kodu](architecture/CODE_MAP.md)),
 2. [Current State](process/CURRENT_STATE.md) — plik z oknem kroczącym:
    obowiązujące ograniczenia, plany z niezakończonymi taskami, taski aktywne
    i 10 ostatnich sekcji `done`,
@@ -64,6 +64,10 @@ domyślnym kontekstem implementacyjnym.
 
 - [Tech stack](architecture/TECH_STACK.md)
 - [System architecture](architecture/SYSTEM_ARCHITECTURE.md)
+- [Code map](architecture/CODE_MAP.md) — **pierwsze miejsce szukania kodu**:
+  obszar → katalogi, moduły wejściowe, testy, komendy; generowana przez
+  `scripts/generate_code_map.py`. Indeks symboli do `rg`:
+  [CODE_MAP_SYMBOLS.md](architecture/CODE_MAP_SYMBOLS.md) (nie czytać w całości).
 - [Management panel architecture](architecture/MANAGEMENT_PANEL.md)
 - [Data model](architecture/DATA_MODEL.md)
 - [Virtual geometry schema ownership](architecture/VIRTUAL_GEOMETRY_SCHEMA_OWNERSHIP.md)
@@ -138,6 +142,9 @@ domyślnym kontekstem implementacyjnym.
 - [Standard planów](process/PLAN_STANDARD.md) — obowiązkowy odczyt przed
   planowaniem, aktualizacją lub wykonaniem planu.
 - [Test strategy](quality/TEST_STRATEGY.md)
+- [Protokół pomiaru narzędzi tokenowych](quality/TOKEN_TOOLING_PILOT_PROTOCOL.md)
+  — zadania pomiarowe, warianty, rubryka jakości i reguła decyzyjna pilota
+  (TASK-0939); zużycie zbiera `scripts/token_pilot_collect.py`.
 - [Szablon raportu audytu krzyżowego](quality/AUDIT_REPORT_TEMPLATE.md) —
   format raportu `TASK-NNNN_AUDIT_<model>.md`; skill `/audit-task`,
   skrypt `scripts/audit_task.ps1` (TASK-0929, D-535).
@@ -162,6 +169,8 @@ domyślnym kontekstem implementacyjnym.
   rollout prerequisites, backups, local/recipient access and live acceptance gates.
 - [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
+- [Narzędzia oszczędzania tokenów](guides/TOKEN_TOOLING.md) — mapa kodu, hook
+  odczytu, pilot Serena MCP i Graphify, wyłączanie i rejestracja (TASK-0939).
 - [Utrzymanie bazy danych](guides/DATABASE_MAINTENANCE.md) — raport
   zajętości, VACUUM po dużych przebiegach, kompaktacja wyników pipeline,
   kompaktowanie `docker_data.vhdx`, kopia i migracja danych na inny dysk.

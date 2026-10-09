@@ -53,6 +53,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - **Kolizje numeracji.** Pliki TASK-0649–0653 (silnik V3 neural) kolidują z ukończoną serią „Przybliżona wygrana” (D-445), a TASK-0825 użyto w dwóch torach; identyfikuj plik pełną ścieżką. Równoległe sesje kolidują też w numerach TASK, D- i `vX.Y.N`: przed numerowaniem sprawdź czubek gałęzi integracyjnej. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q3.md`, sekcja „TASK-0649 — „Liczba wyników” wyszukiwania plansz + kontrolowany wybór wyniku (1/6, plan D-445)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „Hybrydowy silnik siatek V3 — plan zaakceptowany, etap V3-0 w toku (2026-10-01)”.
 - **Odroczony plan przybliżonego snapshotu mobilnego** (`APPROXIMATE_MOBILE_SNAPSHOT_EXECUTION_PLAN.md`, `deferred`) wymaga nowej decyzji (proponowane D-463; zmienia zasadę D-462/P4); do tego czasu zmiany tylko w aplikacji webowej.
 - **Aplikacja mobilna** pozostaje w pełni offline: źródłem jest wyłącznie wersjonowany snapshot SQLite w APK, bez uprawnienia `INTERNET` w wydaniu (`CLAUDE.md`, `apps/mobile`).
+- **Narzędzia tokenowe (pilot TASK-0939, obowiązują do czasu pomiaru; stałe włączenie zależy od wyniku):** hook w `.claude/settings.json` blokuje `Read` pliku > 200 KB bez `offset`/`limit` (mapa kodu: `ai_docs/architecture/CODE_MAP.md`; wyłączenie: `ai_docs/guides/TOKEN_TOOLING.md`). Serena MCP i Graphify to pilot bez stałego wpisu w `AGENTS.md` do czasu pomiaru; aktualność mapy kodu sprawdza osobno `npm run code-map:check` (poza `docs:check` i `quality`); zamykając task zmieniający moduły lub publiczne symbole, zregeneruj mapę (`python scripts/generate_code_map.py`).
 
 ## Plany z niezakończonymi taskami
 
@@ -714,11 +715,15 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   wtedy można wykonać pomiar i sformułować wniosek o automatycznej propozycji
   super symbolu.
 
-### TASK-0939 — Narzędzia oszczędzania tokenów z pomiarem (mapa kodu, Serena, Graphify, hook) (todo)
+### TASK-0939 — Narzędzia oszczędzania tokenów z pomiarem (mapa kodu, Serena, Graphify, hook) (in_progress)
 
 - Plik zadania: `ai_docs/tasks/0939-token-tooling-pilot.md`.
-- Status: `todo`
+- Status: `in_progress` (dostarczono narzędzia i protokół; brak przebiegów pomiaru).
 - Cel: Zestaw narzędzi nawigacji po repozytorium i reguł pracy, który mierzalnie obniża tokeny wejścia typowych zadań bez spadku jakości wyniku; do stałego użytku wchodzi tylko to, co pomiar potwierdził.
+- Gotowe (commit dostarczający narzędzia: `v1.7.284`, hash do dopisania po commicie): mapa kodu `ai_docs/architecture/CODE_MAP.md` i `CODE_MAP_SYMBOLS.md` generowane `scripts/generate_code_map.py` (`npm run code-map:check`, ok. 3 s, poza `docs:check`); hook `PreToolUse` w `.claude/settings.json` blokujący `Read` pliku > 200 KB bez zakresu (`scripts/hooks/block_large_read.py`); reguły „Oszczędzanie kontekstu” w `AGENTS.md`; Serena MCP i Graphify zainstalowane w izolowanym venv `.tooling/venv-tokens` (test dymny i pomiary czasu w `ai_docs/guides/TOKEN_TOOLING.md`), rejestracja MCP wyłącznie decyzją operatora (`claude mcp add`).
+- Audyt Codex gpt-6-astra / medium, runda 1: REVISE (`ai_docs/quality/TASK-0939_AUDIT_gpt-6-astra.md`); poprawki wykonane w jednej rundzie (patrz Outcome).
+- Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
+- Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora.
 
 ## Ostatnie 10 ukończonych tasków
 

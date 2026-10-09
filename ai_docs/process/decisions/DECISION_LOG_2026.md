@@ -14,6 +14,26 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
 
+## D-539 — Wybór maszyny na widoku punktu
+
+- **Date:** 2026-10-09.
+- **Status:** accepted explicit operator clarification; implementation not started.
+- **Decision:** only selecting a point opens a nested view. The point page
+  retains its machine tiles after selection. Selecting a machine highlights
+  its tile and updates games/stakes below the list on that same page.
+  Selecting a stake also preserves the machine list and displays its workspace
+  in place. One Home/back action returns to points; no machine-level back view.
+- **Consistency:** preserve UUID-based URL/restoration, revision-bound writes,
+  dirty-draft confirmation and one active shared machine/game workspace.
+  A cancelled transition preserves selection, URL and draft together.
+- **Supersedes:** D-538's machine-as-navigation-level UI rule only. Delete,
+  receipts, immutable results, payout semantics and access rules remain.
+- **Boundary:** operator requested a correction plan and Claude Code discussion,
+  not immediate execution of the new full plan. Historical restore and bounded
+  list height are proposed in that plan and are not accepted by this decision.
+- **Source:** latest operator clarification in this conversation;
+  ai_docs/delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md.
+
 ## D-538 — Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu
 
 - **Status:** accepted; operator authorized the complete TASK-0940–0943 plan

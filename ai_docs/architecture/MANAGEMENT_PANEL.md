@@ -6,6 +6,16 @@ last_updated: 2026-10-09
 
 # Management panel — D-533
 
+## Persistent machine selection — D-539
+
+The selected point owns one page with an always-mounted machine list and one
+selected-machine/game detail region. Machine/stake UUIDs remain selection state
+and URL parameters, not extra view levels. Reuse the existing workspace and
+navigation helpers, preserving dirty-draft cancellation before changing any
+selection. Rendering the list must not fetch all machine results.
+The [layout correction plan](../delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md)
+is proposed; this section records the operator's explicit selection rule only.
+
 ## Compact redesign override — D-538
 
 The [compact execution plan](../delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)

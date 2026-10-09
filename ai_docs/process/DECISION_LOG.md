@@ -16,8 +16,8 @@ Reguły:
 - Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
   tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
   albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 535 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
-  (177 wierszy); starsze (357 wierszy) są w
+- Indeks obejmuje 536 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
+  (178 wierszy); starsze (357 wierszy) są w
   [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
   Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
   rozróżnia tytuł i kotwica.
@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-539](decisions/DECISION_LOG_2026.md#d-539--wybór-maszyny-na-widoku-punktu) | Wybór maszyny na widoku punktu | accepted | 2026-10-09 | Punkt otwiera widok; maszyna pozostaje podświetlonym wyborem na tej samej liście. |
 | [D-538](decisions/DECISION_LOG_2026.md#d-538--minimalistyczny-panel-administracyjny-i-jawne-usuwanie-zakresu) | Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu | accepted | 2026-10-09 | Hierarchical compact navigation, explicit bound-preview scope deletion, restored saves; import of panel D-536. |
 | [D-537](decisions/DECISION_LOG_2026.md#d-537--wypłata-planszy-w-serii-supergry-wynik-prowizoryczny-i-koszt-per-pozycja) | Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja | accepted | 2026-10-09 | plansza na pozycji objętej opublikowaną serią supergry jako jej spin jest liczona oceną planszy serii… |
 | [D-536](decisions/DECISION_LOG_2026.md#d-536--serie-supergry-manifest-v6-licznik-wejścia-i-generacje) | Serie supergry: manifest v6, licznik wejścia i generacje | accepted | 2026-10-09 | serie supergry są danymi pochodnymi wyprowadzanymi z komórek pociętych plansz z przypisanym symbolem… |
@@ -217,8 +218,28 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Poniżej pełne kopie pięciu najnowszych wpisów (D-533..D-537), identyczne z `decisions/DECISION_LOG_2026.md`.
+Poniżej pełne kopie pięciu najnowszych wpisów (D-539, D-538, D-537, D-536, D-535), identyczne z `decisions/DECISION_LOG_2026.md`.
 Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
+
+## D-539 — Wybór maszyny na widoku punktu
+
+- **Date:** 2026-10-09.
+- **Status:** accepted explicit operator clarification; implementation not started.
+- **Decision:** only selecting a point opens a nested view. The point page
+  retains its machine tiles after selection. Selecting a machine highlights
+  its tile and updates games/stakes below the list on that same page.
+  Selecting a stake also preserves the machine list and displays its workspace
+  in place. One Home/back action returns to points; no machine-level back view.
+- **Consistency:** preserve UUID-based URL/restoration, revision-bound writes,
+  dirty-draft confirmation and one active shared machine/game workspace.
+  A cancelled transition preserves selection, URL and draft together.
+- **Supersedes:** D-538's machine-as-navigation-level UI rule only. Delete,
+  receipts, immutable results, payout semantics and access rules remain.
+- **Boundary:** operator requested a correction plan and Claude Code discussion,
+  not immediate execution of the new full plan. Historical restore and bounded
+  list height are proposed in that plan and are not accepted by this decision.
+- **Source:** latest operator clarification in this conversation;
+  ai_docs/delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md.
 
 ## D-538 — Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu
 
@@ -403,46 +424,3 @@ The integrated head is `0153_merge_compact_super_games`, joining both0152 parent
   czasu dostępności CLI zastępowany niezależnym subagentem Claude z innym
   modelem niż wykonawca. Etap T (TASK-0938 przed S-B, TASK-0939 równolegle)
   obniża zużycie tokenów bez obniżania jakości, z pomiarem.
-
-## D-533 — Points/machines panel with durable stake saves and whole-panel links
-
-**2026-10-08 clarification:** D-538 supersedes this decision's archive-only UI,
-card Open/Search again/Clear workflow and structural history retention for
-point/machine/detached-game scopes. Ordinary slot Clear and independent session
-audit retain their history. The earlier T1–T7 text below is historical where
-D-538 changes these behaviors.
-
-- **Date:** 2026-10-07.
-- **Status:** accepted explicit whole-plan implementation request, T1–T7 /
-  TASK-0921–0927, MANAGEMENT_PANEL_EXECUTION_PLAN.md.
-- **Decision:** add Panel Administracyjny with points (name/city/street), named
-  machines and editable active-game assignments. Archive/detach preserves saves
-  and audit. Six independent stakes20/10/6/4/2/1.20PLN save query/start/range and
-  zero to six pinned spin positions only on explicit **Zapisz układ**. Confirmed
-  Clear removes only the current choice. Symbol corrections retain immediate
-  game-wide semantics. Recalculate current results on opening and preserve
-  immutable previous numeric/chart/start-symbol/rules versions in history.
-- **Consistency:** PostgreSQL owns data, stable identity independent of name,
-  compact deduplicated result versions, no image blobs. Mutation/audit atomic,
-  operation-bound receipts and revision conflicts; no historical deletion UI.
-- **Access:** local admin and one known recipient. Named link plus separate code
-  gives full module management across assigned active games. Link administration
-  stays local; unrelated Admin/model/import/rules operations excluded. Separate
-  multi-game session/proxy with expiry/revoke/lockout; old one-game links retain
-  scope. Add48/72h options to new panel and old board-search shares, default8h.
-- **Operations:** local first, existing Reviewer ingress, computer availability
-  required. No new Redis/accounts/hosting/synchronization, automatic service
-  lifecycle, production data manipulation, push or deployment. User controls
-  API/Admin and rollout. See requirements/architecture/MANAGEMENT_PANEL.md.
-- **T2 transaction clarification:** mutation/receipt locks use READ COMMITTED;
-  a bounded read-only REPEATABLE READ application-role game session captures
-  coherent rows/rules/start symbols. Numeric snapshots represent that read
-  instant; result/slot/receipt/audit commit together in the primary transaction.
-  This preserves concurrent exact retries without privileged database reads.
-- **T5 authorization clarification:** public requests bind the originating
-  session UUID in a header, or asset URL, in addition to the dedicated cookie.
-  Equal human labels never share actor/receipt identity. Session locks and
-  post-flush authorization checks protect commit; obsolete-tab failures cannot
-  clear a newer browser session. Panel-link creation and automatic shared
-  ingress shutdown share a transaction lock. These implement the accepted
-  access and retry boundary without broadening old one-game capabilities.

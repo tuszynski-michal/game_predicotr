@@ -122,4 +122,4 @@ Operator visual acceptance on the already running panel.
 
 ### Commit
 
-Pending task commit (expected v1.7.291; confirm tip before numbering).
+v1.7.291 / 1332c91013855f9d519cd0075a94eb8d3d69fe96. Concurrent operator commit v1.7.290 was observed before numbering.

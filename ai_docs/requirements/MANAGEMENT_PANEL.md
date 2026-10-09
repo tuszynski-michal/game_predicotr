@@ -6,6 +6,15 @@ last_updated: 2026-10-09
 
 # Management panel — D-533
 
+## Point-page selection clarification — D-539
+
+Only a point opens a nested view. Its machine grid remains visible after a
+machine is selected; that tile is highlighted and its games/stakes appear below
+the same list. Stake selection also keeps the machine grid visible. Dirty-draft
+confirmation and URL/reload recovery remain. The correction execution plan is
+proposed; historical restore and exact layout sizes await its acceptance.
+See [correction plan](../delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md).
+
 ## Accepted compact redesign — D-538
 
 The [compact execution plan](../delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)

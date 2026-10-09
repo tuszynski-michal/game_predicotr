@@ -23,6 +23,8 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Panel / D-539:** tylko punkt jest poziomem nawigacji; maszyna i stawka to wybór na jego stronie. Plan korekty jest proposed. Wcześniejszego patcha0947 nie traktować jako przetestowanej implementacji.
+
 - **Kompaktowy panel / TASK-0945:** integracja D-538 (historyczny D-536 panelu) z D-536/D-537 Mumii w osobnym worktree. Baza operatora nie jest migrowana; przed0153 obowiązuje podgląd receipts i osobna zgoda/backup. Niezapisana praca main jest chroniona hashami. Kod i audyt zamknięte; lokalny main scalony, bez push/rollout. Pełne hashe zapisano w Outcome0945.
 
 Ograniczenia operacyjne nadal obowiązujące, wyniesione ze starszych wpisów
@@ -59,6 +61,14 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
+### Plan korekty układu panelu (proposed, 2026-10-09)
+
+- `delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md`, TASK-0947–0949.
+- D-539 zatwierdza model wyboru maszyny; pełny plan oczekuje akceptacji/uruchomienia.
+- Claude Code opus5.5/medium: pierwotnyREVISE, trzyP1 uwzględniono w jednej korekcie planu; bez ponownegoPASS/implementacji. Raport `quality/ADMIN_PANEL_LAYOUT_PLAN_REVIEW_CLAUDE_20261009.md`.
+- Niezweryfikowany patch formularza odłożono; kod pozostaje na poprawce paddingu0946.
+- Odczyt operatora: API snapshot200, dwa archiwalne punkty, baza0153; zapis według operatora działa. Brak produkcyjnych zmian i lifecycle usług.
+
 ### Plan Mumie: Wild, supergra, audyt krzyżowy (accepted, 2026-10-08)
 
 - `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` i taski
@@ -87,6 +97,23 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-0947 — czytelny widok punktu (todo)
+
+- D-539: tylko punkt otwiera widok; maszyna podświetla się i pozostawia listę.
+- Plan korekty proposed; Claude Code omówiony, trzyP1 doprecyzowane w jednej rundzie. Oczekuje uruchomienia przez operatora.
+- Task: `ai_docs/tasks/0947-management-point-workspace-layout.md`.
+
+### TASK-0948 — formularz i historyczne kafelki (todo)
+
+- Zapis działa według operatora; plan zabezpiecza widoczność błędu i retry w modalu.
+- Przywracanie historycznych danych jest propozycją, nie nowym zaakceptowanym kontraktem.
+- Task: `ai_docs/tasks/0948-management-modal-recovery-and-legacy-access.md`.
+
+### TASK-0949 — wizualny odbiór układu (todo)
+
+- Odrębne fixture Admin/Reviewer i scenariusze utrzymania listy maszyn.
+- Task: `ai_docs/tasks/0949-management-layout-visual-acceptance.md`.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
@@ -706,7 +733,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 - Spójne16px dla ikon, stawek i archiwalnych kafelków; miejsce na dwa przyciski44px.
 - Browser10/10 PASS; nowa asercja odtwarza błąd4px, sprawdza odstępy i brak kolizji. Prettier i składnia PASS; bez ponownego pełnego builda/audytu.
-- Outcome: `ai_docs/tasks/completed/0946-management-tile-padding.md`; commit oczekuje zapisu.
+- Outcome: `ai_docs/tasks/completed/0946-management-tile-padding.md`; commit v1.7.291 / 1332c91013855f9d519cd0075a94eb8d3d69fe96.
 - Bez zmian danych, uruchamiania usług i push. Kontrola na stronie operatora pozostaje do odbioru.
 
 ### TASK-0945 — Integracja kompaktowego panelu z main (done)

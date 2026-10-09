@@ -87,6 +87,9 @@ domyślnym kontekstem implementacyjnym.
 
 ### Dostarczanie
 
+- [Korekta układu panelu](delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md)
+  — proposed, TASK-0947–0949; punkt otwiera widok, maszyna jest wyborem (D-539).
+
 - [Minimalistyczny Panel Administracyjny](delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
   — accepted and execution authorized (D-536), TASK-0940–0943; independent worktree,
   manual Claude review before each task commit.

@@ -72,7 +72,13 @@ def test_handler_reports_progress_and_final_generation() -> None:
     job = _job()
     handler(context, job)  # type: ignore[arg-type]
     assert derivation.game_ids == [job.game_id]  # type: ignore[attr-defined]
-    assert [item["current"] for item in context.checkpoints] == [5_000, 10_000, 3]
+    # Counters never decrease (JOB_PROGRESS_REGRESSION): the final checkpoint
+    # keeps the last position window, the series count goes to success_count.
+    assert [item["current"] for item in context.checkpoints] == [5_000, 10_000, 10_000]
+    assert [item["total"] for item in context.checkpoints] == [10_000, 10_000, 10_000]
+    assert context.checkpoints[-1]["success_count"] == 3
+    currents = [int(item["current"]) for item in context.checkpoints]
+    assert currents == sorted(currents)
     final = context.checkpoints[-1]["checkpoint_payload"]
     assert isinstance(final, dict)
     assert final["status"] == "published" and final["series_count"] == 3

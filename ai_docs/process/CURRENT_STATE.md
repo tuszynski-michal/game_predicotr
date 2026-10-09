@@ -63,6 +63,11 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
+### Plan braków geometrii zdjęć w lokalnym Reviewerze (accepted, 2026-10-10)
+
+- `delivery/REVIEWER_GEOMETRY_GAPS_EXECUTION_PLAN.md`, TASK-0961–0965 na gałęzi `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`.
+- Zakres wybrany przez operatora: realne braki (nie „Siatka niepotwierdzona”), zakres całej gry bez selecta importu, filtry stanów w Reviewerze, Admin tylko z licznikami. Zaakceptowany poleceniem „Realizuj cały plan”; etapy A (0961–0963) i B (0964–0965) wykonywane w jednym przebiegu.
+
 ### Plan korekty układu panelu (proposed, 2026-10-09)
 
 - `delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md`, TASK-0947–0949.
@@ -99,6 +104,31 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-0961 — tanie liczniki korekty i filtr realnych braków (todo)
+
+- API: `counts=correction` w `grid-reviews`, `gapsOnly` w `incomplete-images`, flaga `humanApproved` pozycji; budżety ≤ 3 s i ≤ 12 s.
+- Task: `ai_docs/tasks/0961-geometry-gaps-api-counts-and-filter.md`.
+
+### TASK-0962 — lokalny Reviewer w zakresie gry i zakładki (todo)
+
+- `importJobId` opcjonalny w trybie lokalnym; zakładki „Do korekty” i „Braki zdjęć”; tanie liczniki.
+- Task: `ai_docs/tasks/0962-reviewer-game-scope-and-tabs.md`.
+
+### TASK-0963 — zakładka „Braki zdjęć” w Reviewerze (todo)
+
+- Lista zdjęć z realnymi brakami, prawdziwe zdjęcie z siatką, filtry stanów, edycja pozycji istniejącym edytorem.
+- Task: `ai_docs/tasks/0963-reviewer-image-gaps-tab.md`.
+
+### TASK-0964 — odchudzona Diagnostyka siatek i launcher (todo)
+
+- Admin bez selecta importu; Diagnostyka tylko z licznikami i przyciskiem Reviewera; UI wyjątków bramki znika (API zostaje).
+- Task: `ai_docs/tasks/0964-admin-diagnostics-slim-and-launcher.md`.
+
+### TASK-0965 — decyzja D-540, dokumentacja i odbiór (todo)
+
+- Wpis D-540, aktualizacja dokumentacji i odbiór na żywych danych Mumii i 777.
+- Task: `ai_docs/tasks/0965-geometry-gaps-acceptance-and-docs.md`.
 
 ### TASK-0947 — czytelny widok punktu (todo)
 

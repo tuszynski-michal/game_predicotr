@@ -1637,6 +1637,65 @@ ograniczony czas oczekiwania, a stop usuwa stan tunelu. Tryb CLI
 `reviewer:remote:start/status/stop` pozostaje awaryjnym odpowiednikiem tych
 samych kontrolowanych operacji.
 
+### Sekcja „Supergry” (TASK-0934, D-535, D-536)
+
+Zakładka gry (`?workspace=games&game=<id>&section=super-games`) widoczna tylko
+dla gier z rodzajem supergry innym niż `none`; dla gry `none` zakładki nie ma,
+a adres z `section=super-games` jest czyszczony do braku sekcji. Opcjonalny
+parametr `series=<seriesId>` otwiera od razu widok serii (używa go
+wyszukiwanie plansz z TASK-0935) i jest odczytywany oraz zapisywany w adresie
+wyłącznie w tej sekcji. Dane pochodzą z tras `…/super-game-series`
+(`API_CONTRACT.md`); Admin nie liczy serii sam.
+
+Lista serii:
+
+- stronicowanie kursorem (50 na stronę, „Wczytaj kolejne”) i trzy filtry:
+  kompletność (`complete`/`incomplete`), wiarygodność przebiegu
+  (`verified`/`unverified`) oraz super symbol (z symbolem / do
+  zdefiniowania); zmiana filtru zaczyna listę od nowa, a spóźniona odpowiedź
+  poprzedniego filtru jest ignorowana,
+- licznik „serii bez super symbolu” liczy się osobnym zapytaniem
+  `defined=false&limit=200`, niezależnie od filtrów listy; przy pełnej stronie
+  pokazuje dolne ograniczenie (`200+`),
+- przycisk „Przelicz serie” wywołuje `deriveSuperGameSeries` i pokazuje toast
+  z numerem joba (osobny komunikat, gdy job był już zakolejkowany),
+- gdy `superGameState.fresh = false`, nad listą i widokiem serii jest baner
+  „Serie w trakcie przeliczania…”; Admin co 5 s czyta `…/state` i po
+  powrocie do `fresh = true` odświeża listę oraz otwartą serię,
+- każdy wiersz ma trzy niezależne oznaczenia: kompletność (`Kompletna` /
+  `Niekompletna`), symbol (`Symbol: <nazwa>` / `Do zdefiniowania`) i
+  wiarygodność przebiegu (`Przebieg zweryfikowany` / `Przebieg
+  niezweryfikowany`, gdy wyzwalacz lub retrigger opiera się na predykcji).
+
+Widok serii:
+
+- karuzela ma kartę dla każdej pozycji `trigger … start + length − 1`;
+  pierwsza karta to plansza wyzwalająca, a pozycje serii (`start …
+  start + length − 1`) są kolejnymi kartami. Pozycja bez planszy (znana luka
+  albo za ostatnim układem gry) to pusta karta „brak planszy”, retriggery mają
+  znacznik „Retrigger”. Pasek pozycji pozwala przejść do dowolnej karty,
+  a ← / → i przyciski „Poprzednia” / „Następna” przesuwają o jedną,
+- karta pokazuje kadr planszy (ten sam co wyniki wyszukiwania), układ symboli
+  3×5 z wyróżnionymi komórkami symbolu uruchamiającego (komórki są też
+  zaznaczone na kadrze, gdy API zwraca wielokąty komórek) oraz przycisk
+  „Pokaż planszę z liniami”, który otwiera okno linii z wyszukiwania plansz.
+  Symbole komórek są czytane z wersji reguł: najnowszy draft, a przy jego
+  braku najnowsza opublikowana,
+- panel „Super symbol” ma select wyłącznie ze zwykłymi symbolami (aktywne, nie
+  Wild, nie uruchamiające supergrę) w kolejności katalogu, z numerem skrótu
+  przy opcji: `1`–`9`, a `0` wybiera dziesiąty symbol listy. `Enter` zapisuje,
+  `Esc` odrzuca wybór, a „Wyczyść symbol” ustawia `null` (zapis po `Enter`
+  albo „Zapisz”). Skróty nie działają w polach tekstowych i selectach, z
+  klawiszami Ctrl/Alt/Meta/Shift ani przy otwartym oknie linii; `Enter` na
+  sfokusowanym przycisku wykonuje ten przycisk,
+- zapis wysyła `expectedRevision` równe rewizji widocznej na ekranie. Sukces
+  ustawia symbol i podbija rewizję, a kompletność i wiarygodność przebiegu
+  zostają bez zmian. Konflikt rewizji (409) niczego nie zapisuje: Admin
+  pokazuje komunikat, czyta serię od nowa i porzuca nieaktualny wybór.
+  Odmowa API (Wild, symbol uruchamiający albo zarchiwizowany, 422) jest
+  pokazywana w komunikacie, bez zmiany serii. Wybór symbolu uruchamiającego
+  jest zablokowany po stronie Admina, zanim zapytanie zostanie wysłane.
+
 ### Mobile releases
 
 Panel zawiera sekcję lub przycisk przygotowania wersji Android.

@@ -6,6 +6,29 @@ last_updated: 2026-10-08
 
 # Current State
 
+### TASK-0934 — sekcja „Supergry” w Adminie (done)
+
+- Nowa sekcja gry `super-games` (tylko dla gier z rodzajem supergry):
+  lista serii z kursorem, filtrami (kompletność, weryfikacja przebiegu,
+  symbol zdefiniowany) i licznikiem „do zdefiniowania”; „Przelicz serie” z
+  baner „Serie w trakcie przeliczania” (polling stanu co 5 s); widok serii
+  z karuzelą trigger + wszystkie pozycje (karty „brak planszy”, retriggery),
+  komórki symbolu uruchamiającego podświetlone, modal linii; wybór super
+  symbolu (tylko zwykłe symbole, cyfry `1`–`9`/`0`, `Enter`), zapis z
+  `expectedRevision` (409 → odświeżenie bez nadpisania), „Wyczyść symbol”.
+  Link z wyszukiwania: `?workspace=games&game=<id>&section=super-games&series=<id>`.
+- Odpowiedzi zapisu związane z cyklem otwarcia serii (także nawigacja
+  historią), strony listy z generacją ładowania, lista odświeżana po zmianie
+  symbolu zgodnie z filtrem, obraz planszy związany z rewizją szczegółu.
+- Audyt Codex gpt-6.1-sol (zamiast gpt-6-astra: „at capacity”): runda 1
+  REVISE (3 × P0 opóźnione odpowiedzi/filtry/strony, P1 mapowanie cyfr —
+  decyzja: cyfry = lista zwykłych symboli z selecta), runda 2 jeden P0
+  (historia przeglądarki) naprawiony; `ai_docs/quality/TASK-0934_AUDIT_gpt-6.1-sol*.md`.
+  Admin 733/733, interakcje jsdom 19/19 (`npm run test:geometry`), typecheck,
+  lint, prettier PASS. Bez uruchomienia na żywym API.
+- Otwarte drobne: polling także przy ukrytej karcie; kwoty w modalu linii
+  jako „N kr.” (formatter złotówek nieeksportowany z `board-search-ui`).
+
 ### TASK-0933 — wyprowadzanie serii supergry i API serii (done)
 
 - Migracja `0152_super_game_series` (manifest v6 = v5 + 4 tabele gry:

@@ -14,6 +14,8 @@ import {
   type AdminNavigationState,
   type AdminWorkspace,
   type GameSection,
+  isGameSectionAvailable,
+  normalizeAdminNavigation,
   parseAdminNavigation,
   serializeAdminNavigation,
 } from '@/features/catalog/admin-navigation-state';
@@ -43,6 +45,7 @@ import { RulesVersionCatalog } from '@/features/rules/rules-version-catalog';
 import { SymbolCatalog } from '@/features/symbols/symbol-catalog';
 import { SymbolReviewWorkspace } from '@/features/symbol-reviews/symbol-review-workspace';
 import { StorageWorkspace } from '@/features/storage/storage-workspace';
+import { SuperGameSeriesWorkspace } from '@/features/super-games/super-game-series-workspace';
 import { UnreadableBoardReviewWorkspace } from '@/features/unreadable-board-reviews/unreadable-board-review-workspace';
 
 interface CatalogWorkspaceProps {
@@ -140,6 +143,12 @@ const GAME_SECTION_OPTIONS: readonly {
     title: 'Jakość rozpoznawania',
     description: 'Gotowość danych i zamrażanie kohort do kolejnych iteracji.',
   },
+  {
+    id: 'super-games',
+    title: 'Supergry',
+    description:
+      'Serie supergry, plansze serii i wybór super symbolu (tylko gry z supergrą).',
+  },
 ];
 
 export function CatalogWorkspace({
@@ -201,7 +210,8 @@ export function CatalogWorkspace({
   }, []);
 
   const commitNavigation = useCallback(
-    (next: AdminNavigationState, mode: 'push' | 'replace' = 'push') => {
+    (requested: AdminNavigationState, mode: 'push' | 'replace' = 'push') => {
+      const next = normalizeAdminNavigation(requested);
       if (
         navigationRef.current.workspace === 'management' &&
         next.workspace !== 'management' &&
@@ -258,12 +268,12 @@ export function CatalogWorkspace({
           plan: replay.kind === 'plan' ? replay.plan : null,
         });
         setReplayEventId(null);
-        const next = {
+        const next = normalizeAdminNavigation({
           ...navigationRef.current,
           gameId: data.event.gameId,
           section: 'board-search' as const,
           workspace: 'games' as const,
-        };
+        });
         if (
           navigationRef.current.workspace === 'management' &&
           !confirmBoardSearchDiscardDraft(managementDirty.current)
@@ -304,7 +314,22 @@ export function CatalogWorkspace({
         !loadedGames.some((game) => game.id === currentNavigation.gameId)
       ) {
         commitNavigation(
-          { ...currentNavigation, gameId: null, section: null },
+          { ...currentNavigation, gameId: null, section: null, seriesId: null },
+          'replace',
+        );
+        return;
+      }
+      const loadedActive = loadedGames.find(
+        (game) => game.id === currentNavigation.gameId,
+      );
+      if (
+        currentNavigation.section === 'super-games' &&
+        loadedActive !== undefined &&
+        !isGameSectionAvailable('super-games', loadedActive)
+      ) {
+        // The game has no super game (any more): the section does not exist.
+        commitNavigation(
+          { ...currentNavigation, section: null, seriesId: null },
           'replace',
         );
       }
@@ -341,13 +366,14 @@ export function CatalogWorkspace({
         ...navigation,
         gameId,
         section: gameId === null ? null : navigation.section,
+        seriesId: null,
       });
     }
   }
 
   function toggleSection(section: GameSection) {
     const nextSection = navigation.section === section ? null : section;
-    commitNavigation({ ...navigation, section: nextSection });
+    commitNavigation({ ...navigation, section: nextSection, seriesId: null });
     if (nextSection !== null) {
       window.requestAnimationFrame(() => {
         sectionHeaderRefs.current[nextSection]?.scrollIntoView({
@@ -359,7 +385,7 @@ export function CatalogWorkspace({
   }
 
   function openSection(section: GameSection) {
-    commitNavigation({ ...navigation, section });
+    commitNavigation({ ...navigation, section, seriesId: null });
     window.requestAnimationFrame(() => {
       sectionHeaderRefs.current[section]?.scrollIntoView({
         behavior: 'smooth',
@@ -428,6 +454,9 @@ export function CatalogWorkspace({
                 </header>
 
                 {GAME_SECTION_OPTIONS.map((section) => {
+                  if (!isGameSectionAvailable(section.id, activeGame)) {
+                    return null;
+                  }
                   const expanded = navigation.section === section.id;
                   return (
                     <article
@@ -544,6 +573,20 @@ export function CatalogWorkspace({
                             key={activeGame.id}
                           />
                         ) : null}
+                        {expanded && section.id === 'super-games' ? (
+                          <SuperGameSeriesWorkspace
+                            apiBaseUrl={apiBaseUrl}
+                            gameId={activeGame.id}
+                            key={activeGame.id}
+                            onSeriesChange={(seriesId) =>
+                              commitNavigation({
+                                ...navigationRef.current,
+                                seriesId,
+                              })
+                            }
+                            seriesId={navigation.seriesId}
+                          />
+                        ) : null}
                       </div>
                     </article>
                   );
@@ -553,7 +596,11 @@ export function CatalogWorkspace({
                   apiBaseUrl={apiBaseUrl}
                   onCompleted={() => {
                     setGamesRevision((revision) => revision + 1);
-                    commitNavigation({ ...navigation, section: null });
+                    commitNavigation({
+                      ...navigation,
+                      section: null,
+                      seriesId: null,
+                    });
                   }}
                   target={{ id: activeGame.id, kind: 'game-layout-data' }}
                   targetLabel={`${activeGame.name} · ${activeGame.code}`}
@@ -607,6 +654,7 @@ export function CatalogWorkspace({
                 commitNavigation({
                   gameId: activeGame.id,
                   section: 'imports',
+                  seriesId: null,
                   workspace: 'games',
                 });
               }}

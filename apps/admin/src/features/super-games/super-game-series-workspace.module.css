@@ -1,0 +1,372 @@
+.workspace {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.header h3,
+.header p {
+  margin: 0;
+}
+
+.header p {
+  color: var(--muted);
+}
+
+.banner {
+  padding: 12px 16px;
+  border: 1px solid rgba(242, 198, 109, 0.28);
+  border-radius: 12px;
+  background: rgba(242, 198, 109, 0.08);
+  color: var(--warning);
+}
+
+.error {
+  padding: 12px 16px;
+  border: 1px solid rgba(255, 139, 139, 0.28);
+  border-radius: 12px;
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+.notice {
+  padding: 12px 16px;
+  border: 1px solid rgba(112, 225, 180, 0.28);
+  border-radius: 12px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 14px;
+}
+
+.counter {
+  display: grid;
+  gap: 2px;
+  padding: 8px 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--panel-soft);
+}
+
+.counter strong {
+  font-size: 22px;
+  line-height: 1.1;
+}
+
+.counter span {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-left: auto;
+}
+
+.filters label,
+.symbolField {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.table th,
+.table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.table th {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.badgeOk {
+  border-color: rgba(112, 225, 180, 0.36);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.badgeWarning {
+  border-color: rgba(242, 198, 109, 0.36);
+  background: rgba(242, 198, 109, 0.08);
+  color: var(--warning);
+}
+
+.badgeNeutral {
+  color: var(--muted);
+}
+
+.empty {
+  padding: 22px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.listFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.viewHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px 18px;
+}
+
+.viewHeader h3 {
+  margin: 0;
+}
+
+.viewLayout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(260px, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+
+@media (max-width: 960px) {
+  .viewLayout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .filters {
+    margin-left: 0;
+  }
+}
+
+.carousel,
+.symbolPanel {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-soft);
+}
+
+.carousel:focus-visible {
+  outline: 2px solid var(--accent);
+}
+
+.cardHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px 14px;
+}
+
+.cardHeader h4 {
+  margin: 0;
+}
+
+.tag {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(242, 198, 109, 0.16);
+  color: var(--warning);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.chip {
+  min-width: 44px;
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.chipActive {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.chipRetrigger {
+  border-color: var(--warning);
+  color: var(--warning);
+}
+
+.chipMissing {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.boardFrame {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  border-radius: 10px;
+  background: var(--panel);
+}
+
+.boardImage {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.boardOverlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.boardOverlay polygon {
+  fill: rgba(242, 198, 109, 0.28);
+  stroke: var(--warning);
+  stroke-width: 0.006;
+}
+
+.missingCard {
+  display: grid;
+  min-height: 220px;
+  place-items: center;
+  border: 2px dashed var(--line-strong);
+  border-radius: 12px;
+  color: var(--muted);
+  font-weight: 700;
+  text-align: center;
+}
+
+.symbolGrid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.symbolGrid li {
+  padding: 6px 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font-size: 12px;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.symbolGrid .triggerCell {
+  border-color: var(--warning);
+  background: rgba(242, 198, 109, 0.16);
+  color: var(--warning);
+  font-weight: 800;
+}
+
+.hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.navigation {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.toast {
+  position: fixed;
+  z-index: 40;
+  bottom: 50px;
+  left: 50px;
+  max-width: min(420px, calc(100vw - 100px));
+  padding: 12px 16px;
+  border: 1px solid var(--line-strong);
+  border-radius: 12px;
+  color: var(--text);
+  box-shadow: 0 14px 34px rgb(0 0 0 / 30%);
+}
+
+.toastSuccess {
+  background: color-mix(in srgb, var(--accent) 24%, var(--panel));
+}
+
+.toastError {
+  background: color-mix(in srgb, var(--danger) 24%, var(--panel));
+}

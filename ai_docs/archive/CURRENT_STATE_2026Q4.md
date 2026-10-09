@@ -13,6 +13,30 @@ Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z plik
 ponad limit 10 dopisuj na początku najnowszego pliku archiwum. Aktualny stan:
 [CURRENT_STATE.md](../process/CURRENT_STATE.md).
 
+### TASK-0940 — zielona bramka `npm run quality` (done)
+
+- Commit v1.7.273 / 60ba1f74de09d82d159f42bf9706240dcb662123.
+- Pełna bramka zielona: format (Prettier `endOfLine: auto` dla checkoutu
+  autocrlf), openapi, lint, typecheck (mypy 836 plików po naprawie
+  konfiguracji i 79 realnych błędów typów bez ogólnych ignore), testy JS,
+  snapshot/fixture; API pytest z PostgreSQL 2725 PASS, worker 2781 PASS.
+- Naprawy u źródła: współdzielony `services/test_support/` (helper V7,
+  `require_local_corpus`), `services/api/tests/conftest.py` (loggery po
+  Alembic), tabele `semi_automatic_selection_v7_*` jako `POST_V5_SHARED`
+  w manifeście v5, `EXPECTED_PUBLIC_TABLES` i testy PG dostosowane do
+  migracji bez downgrade (0148–0150), testy zaktualizowane do bieżących
+  reguł z cytatem taska (TASK-0925, 0882, 0885, 0805, v0.10.298…).
+- Łańcuch sum dowodów `ai_docs/quality/*.json` przepięty z CRLF na LF do
+  punktu stałego (78 plików, tylko wartości sha256); nowy checker
+  `scripts/check_quality_evidence_digests.py` + tabela
+  `evidence-digest-references.json` + test workera pilnują dryfu.
+- Audyt claude-opus-5-5 / high: runda 1 REVISE (P0: skip ukrywał błąd
+  łańcucha), runda 2 jedna P1 (punkt stały), domknięta i zweryfikowana
+  (`ai_docs/quality/TASK-0940_AUDIT_claude-opus-5-5.md`).
+- Odłożone jawnie: 3 testy historycznych migracji (skip z powodem), testy
+  korpusów M5 bez korpusu, test junction tylko w worktree.
+- Następny etap: S-B (TASK-0933 → 0934/0935), zgodnie z poleceniem operatora.
+
 ### TASK-0932 — ewaluator `payout-v4-wild-count` (done)
 
 - Commit v1.7.270 / 123953086aa11ba8454489298b1b4f1015128d4c.

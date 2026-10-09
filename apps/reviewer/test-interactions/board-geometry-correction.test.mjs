@@ -106,7 +106,10 @@ function fakeApi(state) {
   const calls = {
     list: [],
     preview: [],
+    corrections: [],
+    previewRevert: [],
     resolve: [],
+    revert: [],
     save: [],
     symbols: [],
   };
@@ -182,6 +185,30 @@ function fakeApi(state) {
           reviewItemId: 'new-review',
         },
       };
+    },
+    listGeometryCorrections: async (options) => {
+      calls.corrections.push(options);
+      return { data: { items: structuredClone(state.corrections ?? []) } };
+    },
+    previewGeometryCorrectionRevert: async (id, scope) => {
+      calls.previewRevert.push({ id, scope });
+      return {
+        data: {
+          expectedGeometryRevision: 3,
+          expectedResolutionRevision: 5,
+          removedCellCount: 15,
+          removesBoard: true,
+          repointedBoardCount: 0,
+          restoredCellDecisionCount: 0,
+          restoredSourceEngineKind: null,
+          restoredSourceStatus: null,
+        },
+      };
+    },
+    revertGeometryCorrection: async (id, scope, body) => {
+      calls.revert.push({ body, id, scope });
+      state.onRevert?.();
+      return { data: { created: true } };
     },
     listPendingBoardCellGeometry: async () => assert.fail('not used'),
     // D-488: the catalogue and the read-only suggestions of the symbol picker.
@@ -609,5 +636,67 @@ test('a save without a chosen symbol sends no symbols and stored ones are only h
 
   assert.equal(calls.save.length, 1);
   assert.equal('cellSymbols' in calls.save[0].command, false);
+  await act(async () => root.unmount());
+});
+
+const correctionRow = () => ({
+  actor: 'reviewer-session:1',
+  blockingReasonCode: null,
+  blockingReasonMessage: null,
+  boardGeometryRevisionId: 'rev1',
+  createdAt: '2026-10-09T10:00:00Z',
+  geometryRevision: 3,
+  kind: 'pending_slot',
+  pendingGeometryId: 'p1',
+  positionIndex: 5,
+  recognizedBoardId: 'b1',
+  resolutionRevision: 5,
+  revertable: true,
+  reviewItemId: 'r1',
+  sequenceNumber: 77,
+  sourceImageId: 'src',
+});
+
+test('a saved correction re-fetches the recent corrections list', async () => {
+  const state = { corrections: [correctionRow()], queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+  assert.equal(calls.corrections.length, 1);
+  assert.deepEqual(calls.corrections[0], { gameId: 'g', importJobId: 'j' });
+
+  await act(async () => button('Zapisz geometrię i dalej').click());
+  await settle();
+
+  assert.equal(calls.save.length, 1);
+  assert.equal(calls.corrections.length, 2);
+  await act(async () => root.unmount());
+});
+
+test('a revert re-fetches the history and the queue and the restored slot appears', async () => {
+  const state = { corrections: [correctionRow()], queue: [] };
+  state.onRevert = () => {
+    state.queue = [deferredSlot()];
+    state.corrections = [];
+  };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api);
+  assert.match(document.body.textContent, /Brak plansz do korekty/);
+  const queueLoads = calls.list.length;
+
+  await act(async () => button('Cofnij').click());
+  await settle();
+  // The editor shortcuts stay silent while the modal is open.
+  await act(async () => button('Potwierdź cofnięcie').click());
+  await settle();
+
+  assert.equal(calls.previewRevert.length, 1);
+  assert.equal(calls.revert.length, 1);
+  assert.equal(calls.revert[0].id, 'rev1');
+  assert.equal(calls.revert[0].body.expectedGeometryRevision, 3);
+  assert.equal(calls.revert[0].body.expectedResolutionRevision, 5);
+  assert.equal(calls.corrections.length, 2);
+  assert.equal(calls.list.length, queueLoads + 1);
+  assert.match(document.body.textContent, /Do korekty: 1/);
+  assert.doesNotMatch(document.body.textContent, /Brak plansz do korekty/);
   await act(async () => root.unmount());
 });

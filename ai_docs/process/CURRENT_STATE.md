@@ -748,10 +748,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
 - Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora (usunięte przez leada 2026-10-09; katalogi nie istnieją).
 
-### TASK-0948 — Sekcja „Ostatnie korekty” w Reviewerze (todo)
-
-- Plik zadania: `ai_docs/tasks/0948-geometry-correction-revert-reviewer-ui.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
-
 ### TASK-0949 — Odrzucanie przyciętej planszy i slotu odroczonego w Reviewerze (todo)
 
 - Plik zadania: `ai_docs/tasks/0949-board-and-slot-rejection-in-reviewer.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
@@ -766,9 +762,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0948 — sekcja „Ostatnie korekty” w Reviewerze (done)
+
+- Plik: `ai_docs/tasks/completed/0948-geometry-correction-revert-reviewer-ui.md`; plan etap R2. Commit v1.7.294 (hash dopisuje kolejny commit).
+- `GeometryCorrectionHistory` pod kolejką „Korekta cięcia siatki”: lista ostatnich korekt importu, „Cofnij” tylko dla `revertable`, modal z podglądem skutków i „Potwierdź cofnięcie”; jeden klucz idempotencji na otwarcie modala (ponowienie przy nieznanym wyniku z tym samym kluczem i treścią, odmowa API 4xx z kodem zamyka modal), odpowiedzi podglądu wiązane z otwarciem, fokus w modalu i blokada skrótów edytora; odświeżenie listy po zapisie korekty i listy z kolejką po cofnięciu.
+- Audyt Codex `gpt-6-astra`/`medium`: rundy 1–3 REVISE (bezpieczeństwo ponowień, testy pełnego ekranu, fokus, błędy transportu klienta, wyścig podglądu), runda 4 PASS; dodatkowe rundy poprawek decyzją leada (autonomiczne wykonanie zlecone przez operatora).
+- Testy: Reviewer 241, interakcje 48, typecheck, lint (0 błędów), `reviewer:build` i prettier czyste. Brak ręcznej weryfikacji w przeglądarce (wymaga migracji `0153`).
+
 ### TASK-0947 — API listy, podglądu i cofnięcia korekt geometrii (done)
 
-- Plik: `ai_docs/tasks/completed/0947-geometry-correction-revert-api.md`; plan etap R1 (ostatni task etapu). Commit v1.7.293 (hash dopisuje kolejny commit).
+- Plik: `ai_docs/tasks/completed/0947-geometry-correction-revert-api.md`; plan etap R1 (ostatni task etapu). Commit v1.7.293 / cbf0d588803f20ccfc2a732b7350b2c5c4ff3ff0.
 - Trasy `listGeometryCorrections`, `previewGeometryCorrectionRevert`, `revertGeometryCorrection` (`/api/v1/admin/games/{gameId}/image-imports/{importJobId}/geometry-corrections…`) w `game_storage_scope`; serwis z `VirtualRestoredRenderVerifier(artifact_root)`; błędy przez istniejący handler (404/409/422 z kodem i polskim komunikatem); aktor `reviewer-session:{id}` albo `local-admin`; allowlisty `local_admin.py` i proxy Reviewera; OpenAPI, klient i wrappery.
 - Audyt Codex `gpt-6-astra`/`medium`: REVISE (P1: brak testu `GEOMETRY_REVERT_RENDER_FAILED`) → test dopisany przez leada; ponowny audyt zbędny (zmiana tylko testu).
 - Testy: API 21 + bezpieczeństwo, kontrakt OpenAPI 18, klient 106, Reviewer 241; ruff i mypy czyste.
@@ -935,30 +938,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Wdrożenie u operatora: stop API/worker/Admin → `npm run db:migrate` (0152,
   manifest v5→v6) → start → `POST …/derive` dla Mumii (komórki sprzed
   migracji nie podbiły licznika).
-
-### TASK-0940 — zielona bramka `npm run quality` (done)
-
-- Commit v1.7.273 / 60ba1f74de09d82d159f42bf9706240dcb662123.
-- Pełna bramka zielona: format (Prettier `endOfLine: auto` dla checkoutu
-  autocrlf), openapi, lint, typecheck (mypy 836 plików po naprawie
-  konfiguracji i 79 realnych błędów typów bez ogólnych ignore), testy JS,
-  snapshot/fixture; API pytest z PostgreSQL 2725 PASS, worker 2781 PASS.
-- Naprawy u źródła: współdzielony `services/test_support/` (helper V7,
-  `require_local_corpus`), `services/api/tests/conftest.py` (loggery po
-  Alembic), tabele `semi_automatic_selection_v7_*` jako `POST_V5_SHARED`
-  w manifeście v5, `EXPECTED_PUBLIC_TABLES` i testy PG dostosowane do
-  migracji bez downgrade (0148–0150), testy zaktualizowane do bieżących
-  reguł z cytatem taska (TASK-0925, 0882, 0885, 0805, v0.10.298…).
-- Łańcuch sum dowodów `ai_docs/quality/*.json` przepięty z CRLF na LF do
-  punktu stałego (78 plików, tylko wartości sha256); nowy checker
-  `scripts/check_quality_evidence_digests.py` + tabela
-  `evidence-digest-references.json` + test workera pilnują dryfu.
-- Audyt claude-opus-5-5 / high: runda 1 REVISE (P0: skip ukrywał błąd
-  łańcucha), runda 2 jedna P1 (punkt stały), domknięta i zweryfikowana
-  (`ai_docs/quality/TASK-0940_AUDIT_claude-opus-5-5.md`).
-- Odłożone jawnie: 3 testy historycznych migracji (skip z powodem), testy
-  korpusów M5 bez korpusu, test junction tylko w worktree.
-- Następny etap: S-B (TASK-0933 → 0934/0935), zgodnie z poleceniem operatora.
 
 ## Archiwum
 

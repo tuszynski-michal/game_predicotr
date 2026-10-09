@@ -865,6 +865,8 @@ export function BoardGeometryCorrectionEditor({
       if (event.repeat || event.altKey || event.ctrlKey || event.metaKey)
         return;
       if (isTextEntryTarget(event.target)) return;
+      // A modal dialog (e.g. the correction revert) owns the keyboard.
+      if (document.querySelector('[aria-modal="true"]') !== null) return;
       const key = event.key.toLocaleLowerCase('en-US');
       if (key === unknownSymbolShortcut?.toLocaleLowerCase('en-US')) {
         event.preventDefault();

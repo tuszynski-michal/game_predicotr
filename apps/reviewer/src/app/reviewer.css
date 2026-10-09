@@ -1141,3 +1141,78 @@ a:focus-visible {
   color: var(--muted);
   font-size: 13px;
 }
+
+.geometryCorrectionHistory {
+  display: grid;
+  gap: 10px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(5, 12, 22, 0.72);
+}
+
+.geometryCorrectionHistoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.geometryCorrectionHistoryHeader h3,
+.geometryCorrectionHistory p {
+  margin: 0;
+}
+
+.geometryCorrectionHistoryList,
+.geometryCorrectionPreview {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.geometryCorrectionHistoryRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel-soft);
+}
+
+.geometryCorrectionHistoryBlocked {
+  color: var(--muted);
+}
+
+.operationalReviewDialogBackdrop {
+  position: fixed;
+  z-index: 100;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(3, 8, 15, 0.78);
+}
+
+.operationalReviewConfirmDialog {
+  width: min(460px, 100%);
+  padding: 22px;
+  border: 1px solid var(--line-strong);
+  border-radius: 16px;
+  background: var(--panel);
+}
+
+.operationalReviewConfirmDialog h2 {
+  margin: 5px 0 9px;
+  font-size: 21px;
+}
+
+.operationalReviewConfirmDialog .buttonRow {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 18px;
+}

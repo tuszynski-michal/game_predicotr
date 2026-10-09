@@ -114,4 +114,4 @@ TASK-0948: sekcja „Ostatnie korekty” w Reviewerze z podglądem i potwierdzen
 ### Zamknięcie (lead)
 
 - Audyt Codex `gpt-6-astra`/`medium`: REVISE, jedno P1 (brak przypadku `GEOMETRY_REVERT_RENDER_FAILED` w teście mapowania 409). Lead dopisał przypadek z kontrolą `code` i `message` (`test_stale_cas_history_incomplete_and_renderer_errors_map_to_409`); `pytest services/api/tests/test_geometry_correction_revert_api.py` → 21 passed, ruff czysty. Ponowny audyt pominięty (zmiana wyłącznie testu).
-- Commit: v1.7.293.
+- Commit: v1.7.293 / cbf0d588803f20ccfc2a732b7350b2c5c4ff3ff0.

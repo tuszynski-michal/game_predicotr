@@ -799,6 +799,15 @@ wyłącznie nawigacji. `Niepełna plansza` jest dostępna dla slotów odroczonyc
 plansz `virtual_source`; plansza z zapisaną kwalifikacją geometrii otwiera się
 z nią i zapis ją zachowuje (także `complete`).
 
+Pod kolejką ekran ma sekcję `Ostatnie korekty` (TASK-0948): lista ostatnich
+zapisów korekty importu (godzina lokalna, sekwencja, pozycja, rodzaj `slot` /
+`plansza`, autor). `Cofnij` jest dostępne tylko dla korekt oznaczonych przez
+API jako `revertable`; pozostałe pokazują komunikat blokady. `Cofnij` otwiera
+potwierdzenie z podglądem skutków, a `Potwierdź cofnięcie` wysyła jedno
+żądanie z nowym kluczem idempotencji i tokenami CAS z podglądu. Po sukcesie
+odświeżają się kolejka i lista; błąd 409 pokazuje komunikat i odświeża listę.
+Lista odświeża się też po każdym zapisie korekty.
+
 Zapis geometrii kończy zadanie korekty. Usuwa zgłoszenia `Zła siatka` tej
 planszy; komórki o zmienionym wycinku wracają do zwykłej `Weryfikacji symboli`
 z dotychczasową etykietą jako podpowiedzią, a komórki o niezmienionych

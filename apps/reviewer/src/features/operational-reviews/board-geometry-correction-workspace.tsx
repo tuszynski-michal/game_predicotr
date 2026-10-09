@@ -18,24 +18,29 @@ import {
   BoardGeometryCorrectionEditor,
   type CorrectionSymbol,
 } from './deferred-board-cell-geometry-editor';
+import {
+  GeometryCorrectionHistory,
+  type GeometryCorrectionHistoryClient,
+} from './geometry-correction-history';
 import { buildOperationalReviewSymbolShortcuts } from './operational-review-state';
 
 type LoadState = 'error' | 'loading' | 'ready';
 
-export type BoardGeometryCorrectionClient = Pick<
-  AdminApiClient,
-  | 'createImageGridReviewGeometryRevision'
-  | 'getImageGridReviewCorrectionSymbols'
-  | 'getPendingBoardCellGeometryCorrectionContext'
-  | 'imageGridReviewSourceAssetUrl'
-  | 'listImageGridReviews'
-  | 'listPendingBoardCellGeometry'
-  | 'listSymbols'
-  | 'previewImageGridReviewGeometry'
-  | 'previewPendingBoardCellGeometryCorrection'
-  | 'previewPendingBoardCellGeometrySymbols'
-  | 'resolvePendingBoardCellGeometryManually'
->;
+export type BoardGeometryCorrectionClient = GeometryCorrectionHistoryClient &
+  Pick<
+    AdminApiClient,
+    | 'createImageGridReviewGeometryRevision'
+    | 'getImageGridReviewCorrectionSymbols'
+    | 'getPendingBoardCellGeometryCorrectionContext'
+    | 'imageGridReviewSourceAssetUrl'
+    | 'listImageGridReviews'
+    | 'listPendingBoardCellGeometry'
+    | 'listSymbols'
+    | 'previewImageGridReviewGeometry'
+    | 'previewPendingBoardCellGeometryCorrection'
+    | 'previewPendingBoardCellGeometrySymbols'
+    | 'resolvePendingBoardCellGeometryManually'
+  >;
 
 /**
  * The single manual grid-correction screen (D-462, TASK-0726): one board and
@@ -65,6 +70,7 @@ export function BoardGeometryCorrectionWorkspace({
   const [symbols, setSymbols] = useState<readonly CorrectionSymbol[]>([]);
   const mounted = useRef(true);
   const requestId = useRef(0);
+  const [historyRefresh, setHistoryRefresh] = useState(0);
 
   useEffect(() => {
     let active = true;
@@ -191,10 +197,15 @@ export function BoardGeometryCorrectionWorkspace({
             : 'Siatka zapisana. Pola ze zmienionym wycinkiem wróciły do Weryfikacji symboli.',
       );
       // The saved board leaves the queue; the next one is the new first entry.
+      setHistoryRefresh((value) => value + 1);
       await loadPage(undefined, { preserveNotice: true, resetHistory: true });
     },
     [loadPage],
   );
+
+  const handleReverted = useCallback(async () => {
+    await loadPage(undefined, { preserveNotice: true, resetHistory: true });
+  }, [loadPage]);
 
   const handleConflict = useCallback(
     async (message: string) => {
@@ -297,6 +308,13 @@ export function BoardGeometryCorrectionWorkspace({
           </footer>
         </>
       )}
+      <GeometryCorrectionHistory
+        api={api}
+        gameId={gameId}
+        importJobId={importJobId}
+        onReverted={handleReverted}
+        refreshToken={historyRefresh}
+      />
     </section>
   );
 }

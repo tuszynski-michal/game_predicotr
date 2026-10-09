@@ -110,6 +110,8 @@ Codex (runda 1: P0-1, P1-1, P2-1) naniesione w jednej rundzie. Bez migracji i be
 
 ### Changed
 
+- Commit v1.7.278 / bf0dd8617b449da7109b4b438f46b6ea7433bb3c (zapis dodany po commicie przez leada).
+
 - **Domena i port.** `domain/super_game_markers.py`: `SuperGameMarker`
   (`kind` `trigger|in_series`, `series_id`, `spin_index` = pozycja − trigger,
   `null` dla triggera, `series_length`, `super_symbol_code`, `completeness`,

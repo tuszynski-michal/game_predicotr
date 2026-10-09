@@ -203,6 +203,8 @@ sesja prowadząca.
 
 ### Changed
 
+- Commit v1.7.276 / 221e43ed0c645c218e84b2bee34785608ef04f1d (zapis dodany po commicie przez leada).
+
 - **Schemat i manifest.** Migracja `0152_super_game_series` (po
   `0151_super_game_roles`) tworzy w `game_data_v2` cztery tabele
   partycjonowane `LIST (game_id)` z wymuszonym RLS `game_scope_v1`:

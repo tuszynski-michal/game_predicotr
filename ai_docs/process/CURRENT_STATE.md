@@ -8,6 +8,7 @@ last_updated: 2026-10-08
 
 ### TASK-0935 — oznaczenie supergry w wyszukiwaniu plansz (done)
 
+- Commit v1.7.278 / bf0dd8617b449da7109b4b438f46b6ea7433bb3c.
 - API: wyniki wyszukiwania i wiersze przybliżonej wygranej niosą opcjonalne
   `superGame` (`trigger` | `in_series`, `spinIndex`, `seriesLength`,
   `superSymbolCode`, `completeness`, `runVerification`, w Adminie `seriesId`),
@@ -32,6 +33,7 @@ last_updated: 2026-10-08
 
 ### TASK-0934 — sekcja „Supergry” w Adminie (done)
 
+- Commit v1.7.277 / 9a2bbc685e2763553ce31b621c5e3c112e78e671.
 - Nowa sekcja gry `super-games` (tylko dla gier z rodzajem supergry):
   lista serii z kursorem, filtrami (kompletność, weryfikacja przebiegu,
   symbol zdefiniowany) i licznikiem „do zdefiniowania”; „Przelicz serie” z
@@ -55,6 +57,7 @@ last_updated: 2026-10-08
 
 ### TASK-0933 — wyprowadzanie serii supergry i API serii (done)
 
+- Commit v1.7.276 / 221e43ed0c645c218e84b2bee34785608ef04f1d.
 - Migracja `0152_super_game_series` (manifest v6 = v5 + 4 tabele gry:
   `super_game_series`, tabela robocza generacji, stan wyprowadzania, audyt
   super symbolu; partycje i RLS dla istniejących gier; strażnik schematu

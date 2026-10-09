@@ -120,6 +120,8 @@ TASK-0933.
 
 ### Changed
 
+- Commit v1.7.277 / 9a2bbc685e2763553ce31b621c5e3c112e78e671 (zapis dodany po commicie przez leada).
+
 - **Nawigacja.** `admin-navigation-state.ts`: sekcja `super-games` w
   `GAME_SECTIONS`, pole `seriesId: string | null` stanu nawigacji
   (parametr `series`, odczytywany i zapisywany w adresie tylko w sekcji

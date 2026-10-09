@@ -146,8 +146,11 @@ def _world(factory: sessionmaker[Session], game_id: UUID) -> dict[str, Any]:
     return world
 
 
-def _service(session: Session) -> GeometryCorrectionRevertService:
-    return GeometryCorrectionRevertService(SqlAlchemyGeometryCorrectionRevertRepository(session))
+def _service(session: Session, verifier: Any = None) -> GeometryCorrectionRevertService:
+    # TASK-0946: a board-revision revert renders its restored cells.
+    return GeometryCorrectionRevertService(
+        SqlAlchemyGeometryCorrectionRevertRepository(session), render_verifier=verifier
+    )
 
 
 def _symbol_id(factory: sessionmaker[Session], game_id: UUID, code: str) -> UUID:
@@ -203,11 +206,12 @@ def _revert(
     *,
     key: UUID,
     geometry_revision: int | None = None,
+    verifier: Any = None,
 ) -> Any:
     from datetime import UTC, datetime
 
     with game_storage_scope(seed.game_id), factory.begin() as session:
-        return _service(session).revert(
+        return _service(session, verifier).revert(
             game_id=seed.game_id,
             import_job_id=seed.import_job_id,
             board_geometry_revision_id=entry.board_geometry_revision_id,

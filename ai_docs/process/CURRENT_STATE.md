@@ -748,10 +748,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
 - Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora (usunięte przez leada 2026-10-09; katalogi nie istnieją).
 
-### TASK-0946 — Cofnięcie korekty istniejącej planszy (rewizja N + 1 = N − 1) (todo)
-
-- Plik zadania: `ai_docs/tasks/0946-geometry-correction-revert-board-revision.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
-
 ### TASK-0947 — API listy, podglądu i cofnięcia korekt geometrii (todo)
 
 - Plik zadania: `ai_docs/tasks/0947-geometry-correction-revert-api.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
@@ -774,9 +770,17 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0946 — cofnięcie korekty istniejącej planszy (rewizja N + 1 = N − 1) (done)
+
+- Plik: `ai_docs/tasks/completed/0946-geometry-correction-revert-board-revision.md`; plan etap R1. Commit v1.7.292 (hash dopisuje kolejny commit).
+- Przypadek A: rewizja `N + 1` z geometrią i specyfikacją renderu `N − 1`, wskazująca poprzednią rewizję źródła; piksele sprawdzane rzeczywistym renderem (`VirtualRestoredRenderVerifier`, bez renderera `GEOMETRY_REVERT_RENDERER_UNAVAILABLE`); decyzje komórek z najwcześniejszego zdarzenia transakcji korekty (Z1 potwierdzone: wspólne `created_at`); zatwierdzenie tylko przy identycznych pikselach (D-462); `GEOMETRY_REVERT_HISTORY_INCOMPLETE` zamiast rekonstrukcji z mieszanej proweniencji; silnik z proweniencji rewizji.
+- Decyzje leada (do D-538): zatwierdzenie dokładnie przywracanej rewizji przechodzi na `N + 1` z pierwotnym czasem i autorem; `PINNED` dla predykcji i operacji zbiorczych tylko przy odniesieniu do odrzucanego renderu (kohorty i biblioteka wzorców blokują zawsze).
+- TASK-0947 musi podłączyć serwis z `VirtualRestoredRenderVerifier(artifact_root)`.
+- Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE (5×P0, 1×P1), runda 2 PASS; P2-2 (sprzeczny opis w `DATA_MODEL.md`) poprawione przez leada, P2-1 (test rewizji 0 z zastępczym weryfikatorem, bo fixture importu nie ma renderowalnej specyfikacji) przyjęte jako ryzyko.
+
 ### TASK-0945 — migracja 0153, status `reverted` i cofnięcie korekty slotu odroczonego (done)
 
-- Plik: `ai_docs/tasks/completed/0945-geometry-correction-revert-pending-slot.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (etap R1). Commit v1.7.291 (hash dopisuje kolejny commit).
+- Plik: `ai_docs/tasks/completed/0945-geometry-correction-revert-pending-slot.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (etap R1). Commit v1.7.291 / 25a7c099c10a11da7dec6be86aa56c2505e8d362.
 - Migracja `0153_geometry_correction_revert` (manifest v7, `EXPECTED_ALEMBIC_HEAD = 0153`): status `reverted` rewizji źródła z częściowym UNIQUE checksumy, akcje `geometry_reverted`, `previous_assignment_source` w zdarzeniach komórek, schemat slotu `rejected`, tabela audytu `image_geometry_correction_reverts`. **Nie wykonana na bazie operatora**; kod gałęzi wymaga `0153` — nie scalać do gałęzi integracyjnej przed migracją (stop usług → scalenie → `db:migrate` → start).
 - `GeometryCorrectionRevertService` (`list_recent`, `preview`, `revert`) cofa rozstrzygnięcie slotu w jednej transakcji z migawką; korekty istniejących plansz na liście z `GEOMETRY_REVERT_NOT_SUPPORTED` do TASK-0946; „latest” rewizji źródła pomija `reverted` (API i worker).
 - Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE (3×P0, 1×P1), runda 2 REVISE (1×P1 kohorta), druga runda poprawek zamknęła P1 i naprawiła błąd kodu blokady; trzeciego audytu nie było (zmiana tylko testu i jednej linii zapytania). Raporty: `ai_docs/quality/TASK-0945_AUDIT_gpt-6-astra*.md`.
@@ -984,35 +988,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   Operator 2026-10-08: migracja 0151, `npm install` i `worker:poll` wykonane;
   zaakceptował TASK-0940 (zielona bramka) i polecił przejść od razu do etapu
   S-B bez pytań o zgodę; TASK-0938/0939 po S-B.
-
-### TASK-0931 — Wild, „Uruchamia supergrę” i rodzaj supergry (done)
-
-- Commit v1.7.268 / 1aef5870ee22287b0e17f1278276cddf7793a9b5.
-- Migracja `0151_super_game_roles` (addytywna): `symbols.super_game_trigger_count`
-  (null/3/4/5) i `games.super_game_kind` (domyślnie `none`); strażnik
-  schematu startowego wymaga teraz `0151`. Rejestr rodzajów supergry w
-  `services/worker/.../domain/super_games/` (`none`, `wild_super_spins`:
-  10 spinów, +10 przy retriggerze, koszt 0).
-- Domena: zmiana ról Wild/trigger dozwolona tylko bez opublikowanej lub
-  zarchiwizowanej wersji reguł; rola trigger wymaga rodzaju gry ≠ `none`
-  (`SUPER_GAME_KIND_REQUIRED`, `SUPER_GAME_KIND_IN_USE`); symbol trigger ma
-  `minimum_match_length = null`, a jego wypłaty znaczą liczbę sztuk
-  2…rows×columns (rosnące); przy zyskaniu roli minimum w draftach jest
-  czyszczone w tej samej transakcji. 777 bez zmian zachowania.
-- API: pola w schematach gry i symbolu (`superGameTriggerCount` wymagane,
-  `superGameKind`), `GET /api/v1/admin/super-game-kinds`, OpenAPI i klient
-  zregenerowane, wrapper `listSuperGameKinds`, request testy. Admin: etykieta
-  „Wild”, checkbox „Uruchamia supergrę” + select 3/4/5, select „Supergra”
-  w tworzeniu i edycji gry, pola „sztuk na planszy” w regułach.
-- Audyt claude-fable-5-1 / high: PASS, 4 × P2 naprawione, 8 odstępstw
-  zaakceptowanych (`ai_docs/quality/TASK-0931_AUDIT_claude-fable-5-1.md`).
-  Pytest skupiony 72 PASS, PG katalog 4 PASS, cykl migracji na bazie
-  jednorazowej OK, `openapi:check` aktualne, Admin 679/679, Reviewer
-  typecheck PASS.
-- Wdrożenie u operatora (po merge): zatrzymać API/Admin, `npm run db:migrate`
-  (0147→0151 na bazie operatora wymaga osobnej zgody, patrz TASK-0928),
-  restart. Nie publikować reguł Mumii przed TASK-0932 (stary ewaluator liczy
-  Mumię jako symbol liniowy). Instrukcja operatora w Outcome taska.
 
 ## Archiwum
 

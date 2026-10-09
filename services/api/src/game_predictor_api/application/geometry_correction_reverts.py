@@ -1,21 +1,31 @@
 """Use cases: list, preview and revert the last manual grid-geometry correction.
 
-TASK-0945 (plan D-538). The repository evaluates every rule from facts read
-from storage (under lock for a revert) with
+TASK-0945/TASK-0946 (plan D-538). The repository evaluates every rule from
+facts read from storage (under lock for a revert) with
 ``domain.geometry_correction_reverts.evaluate_revert_eligibility`` and performs
 the revert in the caller's single transaction; this service validates the
-request and delegates. HTTP adapters come with TASK-0947.
+request and delegates. Both kinds are reverted without rendering: a deferred
+slot loses the rows its save created, an existing board gets revision
+``N + 1`` that reuses the stored render of its previous revision. HTTP
+adapters come with TASK-0947.
 """
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Protocol
+from pathlib import Path
+from typing import Any, Protocol
 from uuid import UUID
 
+from game_predictor_api.application.image_review_assets import (
+    resolve_grid_review_source_asset,
+)
+from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.geometry_correction_reverts import (
     DEFAULT_GEOMETRY_CORRECTION_LIST_LIMIT,
+    GEOMETRY_REVERT_RENDER_FAILED,
     GEOMETRY_REVERT_REQUEST_INVALID,
     MAX_GEOMETRY_CORRECTION_LIST_LIMIT,
     MAX_GEOMETRY_REVERT_ACTOR_LENGTH,
@@ -24,7 +34,9 @@ from game_predictor_api.domain.geometry_correction_reverts import (
     blocking_reason_message,
 )
 from game_predictor_api.domain.image_geometry_completeness import SourceImageGeometryStatus
-from game_predictor_api.domain.image_reviews import ImageReviewError
+from game_predictor_api.domain.image_grid_reviews import ImageGridReviewSourceAsset
+from game_predictor_api.domain.image_reviews import ImageReviewConflictError, ImageReviewError
+from game_predictor_api.domain.image_symbol_reviews import SymbolCellReviewError
 
 
 @dataclass(frozen=True, slots=True)
@@ -87,6 +99,103 @@ class GeometryCorrectionRevertResult:
     source_image_geometry_status: SourceImageGeometryStatus | None
     snapshot_checksum_sha256: str
     created_at: datetime
+    # Case A (TASK-0946): the revision ``N + 1`` the revert wrote and the
+    # number of cells whose decisions it restored.
+    restored_geometry_revision: int | None = None
+    restored_cell_decision_count: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class RestoredRenderRequest:
+    """The stored cell renders a case-A revert restores (TASK-0946).
+
+    ``render_specs`` maps each cell index to the ``renderSpec`` of the
+    restored revision's manifest entry.
+    """
+
+    review_item_id: UUID
+    source_image_id: UUID
+    source_relative_path: str
+    source_checksum_sha256: str
+    source_width: int
+    source_height: int
+    geometry_revision: int
+    resolution_revision: int
+    topology: BoardTopology
+    render_specs: Mapping[int, Mapping[str, object]]
+
+
+class RestoredRenderVerifier(Protocol):
+    def rendered_pixel_checksums(self, request: RestoredRenderRequest) -> Mapping[int, str]:
+        """The checksum of the pixels each spec renders now, by cell index."""
+        ...
+
+
+class VirtualRestoredRenderVerifier:
+    """Render the restored cells as every preview does (D-462 on real pixels).
+
+    The revert reuses the stored render specification of the restored
+    revision; the pixels it produces today decide whether an approval comes
+    back. The render is the preview's source-direct warp of the attested
+    managed original, so a cell approved here is shown with exactly the
+    checksum it carries.
+    """
+
+    def __init__(self, artifact_root: Path) -> None:
+        self._artifact_root = artifact_root.resolve()
+
+    def rendered_pixel_checksums(self, request: RestoredRenderRequest) -> Mapping[int, str]:
+        from game_predictor_worker.images.normalization import (
+            CanonicalSourceLoader,
+            CanonicalSourceLoadError,
+            rgb_pixel_checksum_sha256,
+        )
+        from game_predictor_worker.images.virtual_cell_extraction import (
+            VirtualCellExtractionError,
+        )
+
+        if not request.render_specs:
+            return {}
+        path = resolve_grid_review_source_asset(
+            ImageGridReviewSourceAsset(
+                review_item_id=request.review_item_id,
+                source_image_id=request.source_image_id,
+                source_relative_path=request.source_relative_path,
+                source_checksum_sha256=request.source_checksum_sha256,
+                source_width=request.source_width,
+                source_height=request.source_height,
+                geometry_revision=request.geometry_revision,
+                resolution_revision=request.resolution_revision,
+                topology=request.topology,
+            ),
+            self._artifact_root,
+        ).path
+        loader = CanonicalSourceLoader()
+        try:
+            frame = loader.load(
+                path, expected_source_checksum_sha256=request.source_checksum_sha256
+            )
+            return {
+                index: rgb_pixel_checksum_sha256(self._render(spec, frame))
+                for index, spec in sorted(request.render_specs.items())
+            }
+        except (
+            CanonicalSourceLoadError,
+            VirtualCellExtractionError,
+            SymbolCellReviewError,
+        ) as error:
+            raise ImageReviewConflictError(
+                GEOMETRY_REVERT_RENDER_FAILED,
+                "Nie udało się odtworzyć renderu przywracanych komórek: "
+                f"{getattr(error, 'code', type(error).__name__)}.",
+            ) from error
+        finally:
+            loader.clear()
+
+    def _render(self, spec: Mapping[str, object], frame: Any) -> Any:
+        from game_predictor_api.application.virtual_cell_previews import render_spec_cell_rgb
+
+        return render_spec_cell_rgb(render_spec=spec, frame=frame)
 
 
 class GeometryCorrectionRevertRepository(Protocol):
@@ -109,6 +218,7 @@ class GeometryCorrectionRevertRepository(Protocol):
         expected_resolution_revision: int,
         actor: str,
         reverted_at: datetime,
+        render_verifier: RestoredRenderVerifier | None = None,
     ) -> GeometryCorrectionRevertResult: ...
 
 
@@ -131,8 +241,21 @@ def _require_actor(actor: str) -> str:
 
 
 class GeometryCorrectionRevertService:
-    def __init__(self, repository: GeometryCorrectionRevertRepository) -> None:
+    def __init__(
+        self,
+        repository: GeometryCorrectionRevertRepository,
+        *,
+        render_verifier: RestoredRenderVerifier | None = None,
+    ) -> None:
+        """``render_verifier`` renders the cells a board-revision revert restores.
+
+        Without it a board-revision revert is refused
+        (``GEOMETRY_REVERT_RENDERER_UNAVAILABLE``); deferred-slot reverts never
+        render.
+        """
+
         self._repository = repository
+        self._render_verifier = render_verifier
 
     def list_recent(
         self,
@@ -194,6 +317,7 @@ class GeometryCorrectionRevertService:
             ),
             actor=_require_actor(actor),
             reverted_at=reverted_at,
+            render_verifier=self._render_verifier,
         )
 
 
@@ -203,4 +327,7 @@ __all__ = [
     "GeometryCorrectionRevertRepository",
     "GeometryCorrectionRevertResult",
     "GeometryCorrectionRevertService",
+    "RestoredRenderRequest",
+    "RestoredRenderVerifier",
+    "VirtualRestoredRenderVerifier",
 ]

@@ -1302,6 +1302,38 @@ z istniejącej rewizji.
   wersję wejścia supergry (`geometry_correction_revert`).
   `source_images.processed_at` nie jest przywracane (brak zapisu wartości
   sprzed korekty).
+- Cofnięcie korekty istniejącej planszy (przypadek A, TASK-0946) niczego nie
+  usuwa: dopisuje rewizję `N + 1` z geometrią (`geometry`, `corners`)
+  poprzedniej rewizji planszy (`N − 1`; dla `0` — `image_review_items.snapshot`
+  importu i wpis slotu rewizji źródła), wskazującą poprzednią rewizję
+  źródła planszy. Specyfikacje komórek renderu są kopiowane z manifestu
+  rewizji `N − 1`, a checksumy pikseli w nowym wierszu `board_render_manifests`
+  dla `N + 1` pochodzą z ponownego renderowania tych specyfikacji obecnym
+  rendererem (`VirtualRestoredRenderVerifier`); bez renderera cofnięcie
+  odmawia (`GEOMETRY_REVERT_RENDERER_UNAVAILABLE`). Komórki dostają render z tego manifestu i decyzje z
+  `previous_*` najwcześniejszego zdarzenia transakcji korekty (wspólne
+  `created_at` = `now()` transakcji; kolejność w komórce = `cell_revision`);
+  zatwierdzenie wraca tylko przy identycznych pikselach (D-462), inaczej jako
+  podpowiedź `pending`. `approved_geometry_revision` planszy wraca z
+  `previous_approved_geometry_revision` zdarzenia korekty, a zatwierdzenie
+  dokładnie przywracanej rewizji przechodzi na `N + 1` (czas i aktor ze
+  zdarzenia, które je zapisało). Zdarzenia `geometry_reverted` planszy
+  (`approved_geometry_revision` NOT NULL: przy braku zatwierdzenia zapisuje
+  `N + 1`, wiarygodny jest wiersz planszy) i komórek (pełne `previous_*`).
+  Od TASK-0946 zdarzenia `geometry_invalidated` korekty zapisują też
+  `previous_approved_asset_mode`, `..._source_geometry_revision_id`,
+  `..._render_spec_checksum_sha256` i `..._rendered_pixel_checksum_sha256`.
+  Runda poprawek audytu: komórki przywracanej rewizji są renderowane ponownie
+  (render podglądu); manifest `N + 1` zapisuje dzisiejsze sumy pikseli, a
+  D-462 porównuje je z zatwierdzeniem. Pochodzenie zatwierdzenia bez pełnego
+  zapisu w zdarzeniach (ani w komórce) → odmowa
+  `GEOMETRY_REVERT_HISTORY_INCOMPLETE`; silnik oraz czas i aktor
+  zatwierdzenia rewizji zapisanej przez wcześniejsze cofnięcie pochodzą z
+  migawki `board.after` jego wiersza audytu. `PINNED` (A): kohorty i
+  biblioteka wzorców zawsze; cele operacji zbiorczych, gdy
+  `expected_geometry_revision >= N`; rewizje predykcji, gdy
+  `virtualCell.renderSpecChecksumSha256` (albo suma pikseli spoza renderów
+  `< N`) wskazuje render `N`, a bez tożsamości — gdy powstały po korekcie.
 
 ### image_pipeline_stage_results
 

@@ -11,7 +11,9 @@ A *correction* is one manual geometry save of one board, identified by its
   board, its review item and cells; the revert deletes them and reopens the
   slot;
 * ``board_revision`` (case A): the save added revision ``N`` of an existing
-  board; its revert (a new revision ``N + 1``) belongs to TASK-0946.
+  board; its revert appends revision ``N + 1`` with the geometry and render of
+  the board's previous revision and restores the cells' decisions from the
+  earliest event of the correction transaction (TASK-0946).
 """
 
 from __future__ import annotations
@@ -22,12 +24,18 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import Final
+from uuid import UUID
 
 from game_predictor_api.domain.image_geometry_completeness import (
     ADMITTED_SOURCE_IMAGE_STATUSES,
     GeometryImageState,
     SourceImageGeometryStatus,
     recomputed_status,
+)
+from game_predictor_api.domain.image_symbol_reviews import (
+    SymbolCellAssignmentSource,
+    SymbolCellQualityIssue,
+    SymbolCellReviewState,
 )
 
 REVERTED_SOURCE_GEOMETRY_STATUS: Final = "reverted"
@@ -47,6 +55,9 @@ GEOMETRY_CORRECTION_NOT_FOUND: Final = "GEOMETRY_CORRECTION_NOT_FOUND"
 GEOMETRY_CORRECTION_REVERTED: Final = "GEOMETRY_CORRECTION_REVERTED"
 GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT: Final = "GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT"
 GEOMETRY_REVERT_REQUEST_INVALID: Final = "GEOMETRY_REVERT_REQUEST_INVALID"
+# Case A renders the restored cells (TASK-0946 audit P0-3).
+GEOMETRY_REVERT_RENDER_FAILED: Final = "GEOMETRY_REVERT_RENDER_FAILED"
+GEOMETRY_REVERT_RENDERER_UNAVAILABLE: Final = "GEOMETRY_REVERT_RENDERER_UNAVAILABLE"
 
 
 class GeometryCorrectionKind(StrEnum):
@@ -67,6 +78,7 @@ class RevertBlockingReason(StrEnum):
     IMAGE_ADMITTED = "GEOMETRY_REVERT_IMAGE_ADMITTED"
     PINNED = "GEOMETRY_REVERT_PINNED"
     REOPENED_RESOLUTION = "GEOMETRY_REVERT_REOPENED_RESOLUTION"
+    HISTORY_INCOMPLETE = "GEOMETRY_REVERT_HISTORY_INCOMPLETE"
     NOT_SUPPORTED = "GEOMETRY_REVERT_NOT_SUPPORTED"
 
 
@@ -101,8 +113,13 @@ BLOCKING_REASON_MESSAGES: Final[Mapping[RevertBlockingReason, str]] = {
         "Korekta ponownie otworzyła rozstrzygniętą pozycję; cofnięcie nie przywróci "
         "rozstrzygnięcia."
     ),
+    RevertBlockingReason.HISTORY_INCOMPLETE: (
+        "Historia planszy nie pozwala dokładnie odtworzyć stanu sprzed korekty "
+        "(brak pochodzenia wcześniejszego zatwierdzenia komórki albo geometrii)."
+    ),
     RevertBlockingReason.NOT_SUPPORTED: (
-        "Cofnięcie korekty istniejącej planszy nie jest jeszcze dostępne."
+        "Tej korekty nie można cofnąć automatycznie: zapis historyczny bez geometrii "
+        "zdjęcia, plansza z kwalifikacją geometrii albo niepełna historia komórek."
     ),
 }
 
@@ -134,6 +151,8 @@ class RevertEligibilityFacts:
     pinned: bool
     reopened_resolution: bool
     revert_supported: bool
+    # Case A: the provenance of every restored approval is recorded (TASK-0946).
+    history_complete: bool = True
 
 
 def image_admission_blocks_revert(
@@ -184,9 +203,139 @@ def evaluate_revert_eligibility(facts: RevertEligibilityFacts) -> RevertBlocking
         return RevertBlockingReason.PINNED
     if facts.reopened_resolution:
         return RevertBlockingReason.REOPENED_RESOLUTION
+    if not facts.history_complete:
+        return RevertBlockingReason.HISTORY_INCOMPLETE
     if not facts.revert_supported:
         return RevertBlockingReason.NOT_SUPPORTED
     return None
+
+
+# -- case A: restoring the cells and the board approval (TASK-0946) ----------
+
+# Cell events a correction transaction writes itself: the geometry write
+# (``geometry_invalidated``) and the operator's D-488 symbols.
+CORRECTION_TRANSACTION_CELL_ACTIONS: Final = frozenset(
+    {"geometry_invalidated", "reassign", "mark_unreadable"}
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PreviousCellDecision:
+    """A cell's decision before the correction.
+
+    The values are the ``previous_*`` columns of the earliest cell event of
+    the correction transaction; ``assignment_source`` is ``None`` for events
+    written before migration ``0153``.
+    """
+
+    assigned_symbol_id: UUID | None
+    review_state: str
+    quality_issue: str | None
+    assignment_source: str | None
+    verification_outcome: str | None
+    verified_symbol_id_v2: UUID | None
+
+
+@dataclass(frozen=True, slots=True)
+class RestoredCellDecision:
+    """The decision a reverted cell gets back.
+
+    ``approval_restored`` rebinds the approval to the restored render.
+    ``verification_outcome`` is ``None`` when the verification must be
+    derived again from the restored state (an approval that came back as a
+    pending suggestion).
+    """
+
+    assigned_symbol_id: UUID | None
+    review_state: str
+    quality_issue: str | None
+    assignment_source: str
+    approval_restored: bool
+    verification_outcome: str | None
+    verified_symbol_id_v2: UUID | None
+
+
+def restored_assignment_source(
+    *,
+    previous_assignment_source: str | None,
+    previous_review_state: str,
+    previous_quality_issue: str | None,
+) -> str:
+    """The recorded source, else the plan's rule for events before ``0153``.
+
+    A previous approval was a human decision; a partially visible cell was
+    labelled by the partial-geometry rule; anything else came from the model.
+    """
+
+    if previous_assignment_source is not None:
+        return SymbolCellAssignmentSource(previous_assignment_source).value
+    if previous_review_state == SymbolCellReviewState.APPROVED.value:
+        return SymbolCellAssignmentSource.HUMAN.value
+    if previous_quality_issue == SymbolCellQualityIssue.PARTIAL_VISIBILITY.value:
+        return SymbolCellAssignmentSource.GEOMETRY_PARTIAL.value
+    return SymbolCellAssignmentSource.MODEL.value
+
+
+def restore_cell_decision(
+    previous: PreviousCellDecision, *, approval_pixels_identical: bool
+) -> RestoredCellDecision:
+    """Restore a cell's decision on the restored render (D-462).
+
+    An approval comes back only on identical pixels. Otherwise the human
+    label stays as a pending suggestion and the pixel-bound quality flag of
+    the approval does not carry over (as ``_recheck_after_virtual_recrop``).
+    A pending decision comes back unchanged, including ``grid_issue``.
+    """
+
+    state = SymbolCellReviewState(previous.review_state)
+    source = restored_assignment_source(
+        previous_assignment_source=previous.assignment_source,
+        previous_review_state=state.value,
+        previous_quality_issue=previous.quality_issue,
+    )
+    if state is SymbolCellReviewState.APPROVED and not approval_pixels_identical:
+        return RestoredCellDecision(
+            assigned_symbol_id=previous.assigned_symbol_id,
+            review_state=SymbolCellReviewState.PENDING.value,
+            quality_issue=None,
+            assignment_source=source,
+            approval_restored=False,
+            verification_outcome=None,
+            verified_symbol_id_v2=None,
+        )
+    return RestoredCellDecision(
+        assigned_symbol_id=previous.assigned_symbol_id,
+        review_state=state.value,
+        quality_issue=previous.quality_issue,
+        assignment_source=source,
+        approval_restored=state is SymbolCellReviewState.APPROVED,
+        verification_outcome=previous.verification_outcome,
+        verified_symbol_id_v2=(
+            previous.verified_symbol_id_v2 if previous.verification_outcome is not None else None
+        ),
+    )
+
+
+def restored_approved_geometry_revision(
+    previous_approved_geometry_revision: int | None,
+    *,
+    restored_from_revision: int,
+    written_revision: int,
+) -> int | None:
+    """Board ``approved_geometry_revision`` after a case-A revert.
+
+    The value recorded by the correction comes back. An approval of exactly
+    the revision whose geometry is restored follows that geometry to the new
+    revision ``N + 1`` (same corners, same render), as the legacy conversion
+    carries an approval over to its new revision; otherwise the board would
+    look unapproved although its geometry is the approved one.
+    """
+
+    if previous_approved_geometry_revision is None:
+        return None
+    if previous_approved_geometry_revision == restored_from_revision:
+        return written_revision
+    return previous_approved_geometry_revision
 
 
 def canonical_snapshot_bytes(snapshot: Mapping[str, object]) -> bytes:
@@ -203,17 +352,22 @@ def snapshot_checksum_sha256(snapshot: Mapping[str, object]) -> str:
 
 __all__ = [
     "BLOCKING_REASON_MESSAGES",
+    "CORRECTION_TRANSACTION_CELL_ACTIONS",
     "DEFAULT_GEOMETRY_CORRECTION_LIST_LIMIT",
     "GEOMETRY_CORRECTION_NOT_FOUND",
     "GEOMETRY_CORRECTION_REVERTED",
     "GEOMETRY_REVERTED_ACTION",
     "GEOMETRY_REVERT_IDEMPOTENCY_CONFLICT",
+    "GEOMETRY_REVERT_RENDERER_UNAVAILABLE",
+    "GEOMETRY_REVERT_RENDER_FAILED",
     "GEOMETRY_REVERT_REQUEST_INVALID",
     "MAX_GEOMETRY_CORRECTION_LIST_LIMIT",
     "MAX_GEOMETRY_REVERT_ACTOR_LENGTH",
     "REVERTED_SOURCE_GEOMETRY_STATUS",
     "SNAPSHOT_SCHEMA_VERSION",
     "GeometryCorrectionKind",
+    "PreviousCellDecision",
+    "RestoredCellDecision",
     "RevertBlockingReason",
     "RevertEligibilityFacts",
     "blocking_reason_message",
@@ -221,5 +375,8 @@ __all__ = [
     "evaluate_revert_eligibility",
     "image_admission_blocks_revert",
     "predicted_status_after_slot_revert",
+    "restore_cell_decision",
+    "restored_approved_geometry_revision",
+    "restored_assignment_source",
     "snapshot_checksum_sha256",
 ]

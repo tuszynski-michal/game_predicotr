@@ -121,7 +121,9 @@ lista korekt pokazuje pierwszy niespełniony warunek zamiast przycisku.
 | `GEOMETRY_REVERT_RESOLVED` | pozycja przeglądu jest rozstrzygnięta (`accepted`/`corrected`/`rejected`/`superseded`) albo ma zdarzenia rozstrzygnięcia z transakcji korekty lub późniejsze |
 | `GEOMETRY_REVERT_SEQUENCE_OWNERSHIP` | korekta zastąpiła inną pozycję sekwencji albo przejęła jej komórki (B) |
 | `GEOMETRY_REVERT_IMAGE_ADMITTED` | korekta dopuściła zdjęcie przez bramkę kompletności (stan zdjęcia `geometry_complete`/`geometry_exception`, a przed korektą był inny) — cofnięcie nie „odcina” sąsiadów |
-| `GEOMETRY_REVERT_PINNED` | planszę lub komórki wskazują `verified_training_cohort_*`, `symbol_reference_images`, `image_symbol_review_bulk_targets` albo `image_symbol_prediction_revisions` |
+| `GEOMETRY_REVERT_PINNED` | planszę lub komórki wskazują `verified_training_cohort_*` albo `symbol_reference_images` (zawsze); `image_symbol_review_bulk_targets` albo `image_symbol_prediction_revisions` blokują tylko, gdy odnoszą się do odrzucanego renderu (rewizja `N` lub późniejsza) — rekordy przywracanego renderu nie blokują (decyzja leada 2026-10-09: predykcje importu ma ok. 99% plansz) |
+| `GEOMETRY_REVERT_RENDERER_UNAVAILABLE` | (A) serwis nie ma renderera do sprawdzenia rzeczywistych pikseli przywracanego renderu |
+| `GEOMETRY_REVERT_HISTORY_INCOMPLETE` | historia zdarzeń nie pozwala jednoznacznie odtworzyć zatwierdzeń komórek sprzed korekty (brak rekonstrukcji z mieszanej proweniencji) |
 | `GEOMETRY_REVERT_REOPENED_RESOLUTION` | (A) korekta ponownie otworzyła rozstrzygniętą pozycję (`reopened` w transakcji korekty) — przywrócenie roszczenia kanonicznego jest poza zakresem |
 
 „Transakcja korekty” jest wyznaczana strukturalnie, nie zegarem aplikacji:
@@ -178,10 +180,15 @@ poprzedniej rewizji źródła (dla 69004: `neural_grid_v1`).
    nowy manifest renderu dla `N + 1`.
 2. Rewizja źródła korekty: `status = 'reverted'`; odwrotne przepięcie
    sąsiadów jak w B.6.
-3. Projekcja planszy: geometria, kwalifikacja, checksum, silnik z rewizji
-   `N − 1`; `approved_geometry_revision` = `previous_approved_geometry_revision`
-   ze zdarzenia korekty (może być `NULL`); `geometry_approved_at/by` ze
-   zdarzenia, które zatwierdziło tę wartość, albo `NULL`.
+3. Projekcja planszy: geometria, kwalifikacja, checksum, silnik z
+   proweniencji rewizji `N − 1` (także gdy `N − 1` powstała z cofnięcia).
+   `approved_geometry_revision`: jeżeli przed korektą zatwierdzona była
+   dokładnie rewizja `N − 1`, zatwierdzenie przechodzi na `N + 1` (ta sama
+   geometria; bramka wymaga zatwierdzenia bieżącej rewizji), z pierwotnym
+   czasem i autorem; w pozostałych przypadkach wartość sprzed korekty (może
+   być `NULL`). Czas i autor zatwierdzenia nigdy nie pochodzą z samego
+   cofnięcia; po wcześniejszym cofnięciu odczytuje się je z historii
+   cofnięcia (decyzja leada 2026-10-09 po audycie TASK-0946, do D-538).
 4. Komórki: przeliczenie renderu dla `N + 1`, potem przywrócenie decyzji z
    najwcześniejszego zdarzenia transakcji korekty dla każdej komórki
    (`previous_assigned_symbol_id`, `previous_review_state`,

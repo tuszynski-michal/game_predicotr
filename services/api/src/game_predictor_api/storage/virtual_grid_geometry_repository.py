@@ -1256,6 +1256,24 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
                     previous_approved_geometry_revision=previous["approved_geometry_revision"],
                     approved_geometry_revision=cell.approved_geometry_revision,
+                    # TASK-0946: the full approval provenance, so a revert of
+                    # this correction restores the approval history exactly.
+                    previous_approved_asset_mode=previous["approved_asset_mode"],
+                    approved_asset_mode=cell.approved_asset_mode,
+                    previous_approved_source_geometry_revision_id=previous[
+                        "approved_source_geometry_revision_id"
+                    ],
+                    approved_source_geometry_revision_id=cell.approved_source_geometry_revision_id,
+                    previous_approved_render_spec_checksum_sha256=previous[
+                        "approved_render_spec_checksum_sha256"
+                    ],
+                    approved_render_spec_checksum_sha256=cell.approved_render_spec_checksum_sha256,
+                    previous_approved_rendered_pixel_checksum_sha256=previous[
+                        "approved_rendered_pixel_checksum_sha256"
+                    ],
+                    approved_rendered_pixel_checksum_sha256=(
+                        cell.approved_rendered_pixel_checksum_sha256
+                    ),
                     operation_id=None,
                     actor=actor,
                 )
@@ -1801,6 +1819,24 @@ class SqlAlchemyVirtualGridGeometryRepository:
                     approved_crop_checksum_sha256=cell.approved_crop_checksum_sha256,
                     previous_approved_geometry_revision=previous["approved_geometry_revision"],
                     approved_geometry_revision=cell.approved_geometry_revision,
+                    # TASK-0946: the full approval provenance, so a revert of
+                    # this correction restores the approval history exactly.
+                    previous_approved_asset_mode=previous["approved_asset_mode"],
+                    approved_asset_mode=cell.approved_asset_mode,
+                    previous_approved_source_geometry_revision_id=previous[
+                        "approved_source_geometry_revision_id"
+                    ],
+                    approved_source_geometry_revision_id=cell.approved_source_geometry_revision_id,
+                    previous_approved_render_spec_checksum_sha256=previous[
+                        "approved_render_spec_checksum_sha256"
+                    ],
+                    approved_render_spec_checksum_sha256=cell.approved_render_spec_checksum_sha256,
+                    previous_approved_rendered_pixel_checksum_sha256=previous[
+                        "approved_rendered_pixel_checksum_sha256"
+                    ],
+                    approved_rendered_pixel_checksum_sha256=(
+                        cell.approved_rendered_pixel_checksum_sha256
+                    ),
                     operation_id=None,
                     actor=actor,
                 )
@@ -2669,6 +2705,10 @@ def _event_previous(cell: ImageSymbolReviewCellModel) -> dict[str, Any]:
         "approved_crop_sample_id": cell.approved_crop_sample_id,
         "approved_crop_checksum_sha256": cell.approved_crop_checksum_sha256,
         "approved_geometry_revision": cell.approved_geometry_revision,
+        "approved_asset_mode": cell.approved_asset_mode,
+        "approved_source_geometry_revision_id": cell.approved_source_geometry_revision_id,
+        "approved_render_spec_checksum_sha256": cell.approved_render_spec_checksum_sha256,
+        "approved_rendered_pixel_checksum_sha256": cell.approved_rendered_pixel_checksum_sha256,
         "assignment_source": cell.assignment_source,
     }
 

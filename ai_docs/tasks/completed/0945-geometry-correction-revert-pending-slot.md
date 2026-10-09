@@ -379,4 +379,4 @@ kohorty treningowej).
 
 - Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE → poprawki; runda 2 REVISE (P1 kohorta) → druga runda poprawek (decyzja leada; operator polecił samodzielne rozwiązywanie problemów). Trzeci audyt pominięty: poprawka dotyczyła testu i jednej linii `_OTHER_REFERENCES_SQL`; do ponownego audytu Codex na końcu planu.
 - Weryfikacja leada: `test_geometry_correction_reverts.py` + oba pliki PG cofania — 36 passed (przed testem kohorty); regresja `test_virtual_deferred_resolution_postgres.py`, `test_image_geometry_completeness_gate.py`, `test_image_geometry_completeness_repository.py`, `test_grid_correction_cell_symbols_postgres.py` — 43 passed.
-- Commit: v1.7.291.
+- Commit: v1.7.291 / 25a7c099c10a11da7dec6be86aa56c2505e8d362.

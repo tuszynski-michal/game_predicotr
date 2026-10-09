@@ -98,6 +98,15 @@ SUPER_GAME_INPUT_WRITE_POINTS: Final[tuple[SuperGameInputWritePoint, ...]] = (
         ),
     ),
     SuperGameInputWritePoint(
+        source="geometry_correction_revert",
+        module="storage.geometry_correction_revert_repository",
+        qualname="SqlAlchemyGeometryCorrectionRevertRepository._revert_board_revision",
+        covers=(
+            "revert of an existing board's correction (TASK-0946): restored cell "
+            "symbols and decisions"
+        ),
+    ),
+    SuperGameInputWritePoint(
         source="game_layout_reset",
         module="storage.cleanup_repository",
         qualname="SqlAlchemyCleanupRepository.reset_game",

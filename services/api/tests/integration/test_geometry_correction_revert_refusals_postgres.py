@@ -20,6 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 from game_predictor_api.application.geometry_correction_reverts import (
     GeometryCorrectionRevertService,
+    VirtualRestoredRenderVerifier,
 )
 from game_predictor_api.domain.geometry_correction_reverts import (
     GeometryCorrectionKind,
@@ -419,15 +420,16 @@ def test_a_pinned_board_refuses_the_revert(
     _refused(factory, seed, entry, RevertBlockingReason.PINNED)
 
 
-def test_a_board_revision_correction_is_listed_and_refused_as_not_supported(
+def test_a_board_revision_correction_of_a_withheld_board_is_reverted(
     database: _Database,  # noqa: F811
     tmp_path: Path,
 ) -> None:
-    """Case A (TASK-0946 owns its revert): the current contract only."""
+    """Case A on a slot board without cells (TASK-0946; was NOT_SUPPORTED in 0945)."""
 
     factory, seed, artifact_root = _seeded(database, tmp_path, "task0945-case-a", 2)
     _resolve(factory, artifact_root, seed, 0, key=uuid4())
     [slot] = _entries(factory, seed)
+    before = _world(factory, seed.game_id)
     base, query = _review_path(seed, slot.review_item_id)
     app = _app(database, artifact_root)
     try:
@@ -449,13 +451,34 @@ def test_a_board_revision_correction_is_listed_and_refused_as_not_supported(
     board_revision, slot = _entries(factory, seed)
     assert board_revision.kind is GeometryCorrectionKind.BOARD_REVISION
     assert board_revision.geometry_revision == slot.geometry_revision + 1
-    assert not board_revision.revertable
+    assert board_revision.revertable, board_revision.blocking_reason
     assert slot.kind is GeometryCorrectionKind.PENDING_SLOT
     assert slot.blocking_reason is RevertBlockingReason.NOT_LATEST
-    _refused(factory, seed, board_revision, RevertBlockingReason.NOT_SUPPORTED)
     _refused(factory, seed, slot, RevertBlockingReason.NOT_LATEST)
-    before = _world(factory, seed.game_id)
-    assert before["image_geometry_correction_reverts"] == []
+
+    result = _revert(
+        factory,
+        seed,
+        board_revision,
+        key=uuid4(),
+        verifier=VirtualRestoredRenderVerifier(artifact_root),
+    )
+    assert result.kind is GeometryCorrectionKind.BOARD_REVISION
+    assert result.restored_geometry_revision == board_revision.geometry_revision + 1
+    assert result.restored_cell_decision_count == 0
+    after = _world(factory, seed.game_id)
+    assert after["image_symbol_review_cells"] == []
+    [board_before] = before["recognized_boards"]
+    [board_after] = after["recognized_boards"]
+    # The slot save's geometry and approval come back on revision N + 1.
+    moved = ("geometry_revision", "approved_geometry_revision")
+    assert {k: v for k, v in board_after.items() if k not in moved} == {
+        k: v for k, v in board_before.items() if k not in moved
+    }
+    assert board_after["approved_geometry_revision"] == board_after["geometry_revision"]
+    assert len(after["image_geometry_correction_reverts"]) == 1
+    # The slot correction stays behind the board's newer revisions.
+    _refused(factory, seed, slot, RevertBlockingReason.NOT_LATEST)
 
 
 def _pin_in_cohort(factory: sessionmaker[Session], seed: _Seed, board_id: UUID) -> None:

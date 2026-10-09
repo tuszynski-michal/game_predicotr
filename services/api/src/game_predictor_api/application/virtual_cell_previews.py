@@ -28,6 +28,7 @@ from game_predictor_worker.images.virtual_cell_extraction import (
     VirtualCellExtractionError,
     source_direct_warp_rgb,
 )
+from numpy.typing import NDArray
 from PIL import Image
 
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
@@ -598,21 +599,33 @@ def _render_virtual_cell_image(*, asset: SymbolCellReviewAsset, frame: object) -
         raise TypeError("frame must be a CanonicalSourceFrame")
     spec = dict(_required(asset.render_spec))
     _require_virtual_asset_contract(asset=asset, frame=frame, render_spec=spec)
-    configuration = _mapping(spec.get("configuration"), "configuration")
-    width = _positive_int(configuration.get("outputWidth"), "outputWidth")
-    height = _positive_int(configuration.get("outputHeight"), "outputHeight")
-    rgb = source_direct_warp_rgb(
-        frame.rgb,
-        source_quad=_quad(spec.get("paddedSourceQuad")),
-        output_width=width,
-        output_height=height,
-    )
+    rgb = render_spec_cell_rgb(render_spec=spec, frame=frame)
     if rgb_pixel_checksum_sha256(rgb) != _required(asset.rendered_pixel_checksum_sha256):
         raise SymbolCellReviewError(
             "SYMBOL_CELL_REVIEW_PREVIEW_PIXEL_CHECKSUM_MISMATCH",
             "The virtual preview pixels differ from the current rendered-cell checksum.",
         )
     return Image.fromarray(np.asarray(rgb), mode="RGB")
+
+
+def render_spec_cell_rgb(
+    *, render_spec: Mapping[str, object], frame: CanonicalSourceFrame
+) -> NDArray[np.uint8]:
+    """The source-direct pixels of one stored cell render specification.
+
+    The single render every preview and the geometry correction revert
+    (TASK-0946) compare with a cell's ``rendered_pixel_checksum_sha256``.
+    """
+
+    configuration = _mapping(render_spec.get("configuration"), "configuration")
+    width = _positive_int(configuration.get("outputWidth"), "outputWidth")
+    height = _positive_int(configuration.get("outputHeight"), "outputHeight")
+    return source_direct_warp_rgb(
+        frame.rgb,
+        source_quad=_quad(render_spec.get("paddedSourceQuad")),
+        output_width=width,
+        output_height=height,
+    )
 
 
 def _managed_virtual_source_path(artifact_root: Path, asset: SymbolCellReviewAsset) -> Path:
@@ -898,6 +911,7 @@ __all__ = [
     "MAX_VIRTUAL_CELL_PREVIEW_BATCH_SIZE",
     "SymbolCellPreviewTarget",
     "SymbolCellPreviewRendererMode",
+    "render_spec_cell_rgb",
     "render_virtual_symbol_cell_png",
     "symbol_cell_preview_renderer_fingerprint",
     "symbol_cell_preview_renderer_version",

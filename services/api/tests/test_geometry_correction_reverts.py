@@ -1,4 +1,4 @@
-"""TASK-0945: pure rules and the service contract of the geometry correction revert."""
+"""TASK-0945/TASK-0946: pure rules and the service contract of the geometry correction revert."""
 
 from __future__ import annotations
 
@@ -14,12 +14,18 @@ from game_predictor_api.application.geometry_correction_reverts import (
 )
 from game_predictor_api.domain.geometry_correction_reverts import (
     BLOCKING_REASON_MESSAGES,
+    CORRECTION_TRANSACTION_CELL_ACTIONS,
     GeometryCorrectionKind,
+    PreviousCellDecision,
+    RestoredCellDecision,
     RevertBlockingReason,
     RevertEligibilityFacts,
     evaluate_revert_eligibility,
     image_admission_blocks_revert,
     predicted_status_after_slot_revert,
+    restore_cell_decision,
+    restored_approved_geometry_revision,
+    restored_assignment_source,
     snapshot_checksum_sha256,
 )
 from game_predictor_api.domain.image_geometry_completeness import SourceImageGeometryStatus
@@ -60,6 +66,7 @@ VIOLATIONS: tuple[tuple[RevertBlockingReason, dict[str, Any]], ...] = (
     ),
     (RevertBlockingReason.PINNED, {"pinned": True}),
     (RevertBlockingReason.REOPENED_RESOLUTION, {"reopened_resolution": True}),
+    (RevertBlockingReason.HISTORY_INCOMPLETE, {"history_complete": False}),
     (RevertBlockingReason.NOT_SUPPORTED, {"revert_supported": False}),
 )
 
@@ -203,3 +210,111 @@ def test_entry_exposes_revertable_and_the_reason_message() -> None:
     )
     assert replace(entry, blocking_reason=None).revertable is True
     assert replace(entry, blocking_reason=None).blocking_reason_message is None
+
+
+# -- case A (TASK-0946) --------------------------------------------------------
+
+SYMBOL = uuid4()
+
+
+def _previous(**overrides: Any) -> PreviousCellDecision:
+    values: dict[str, Any] = {
+        "assigned_symbol_id": SYMBOL,
+        "review_state": "approved",
+        "quality_issue": None,
+        "assignment_source": "human",
+        "verification_outcome": "verified_symbol",
+        "verified_symbol_id_v2": SYMBOL,
+    }
+    values.update(overrides)
+    return PreviousCellDecision(**values)
+
+
+def test_assignment_source_is_the_recorded_one_else_the_plan_rule() -> None:
+    def source(recorded: str | None, state: str, issue: str | None) -> str:
+        return restored_assignment_source(
+            previous_assignment_source=recorded,
+            previous_review_state=state,
+            previous_quality_issue=issue,
+        )
+
+    assert source("board_decision", "approved", None) == "board_decision"
+    assert source("model", "pending", "partial_visibility") == "model"
+    # Events written before 0153 carry no source.
+    assert source(None, "approved", None) == "human"
+    assert source(None, "approved", "partial_visibility") == "human"
+    assert source(None, "pending", "partial_visibility") == "geometry_partial"
+    assert source(None, "pending", "grid_issue") == "model"
+    assert source(None, "pending", None) == "model"
+    with pytest.raises(ValueError):
+        source("guess", "pending", None)
+
+
+def test_an_approval_comes_back_only_on_identical_pixels() -> None:
+    same = restore_cell_decision(_previous(quality_issue="blurry"), approval_pixels_identical=True)
+    assert (same.review_state, same.quality_issue, same.approval_restored) == (
+        "approved",
+        "blurry",
+        True,
+    )
+    assert (same.verification_outcome, same.verified_symbol_id_v2) == ("verified_symbol", SYMBOL)
+
+    # D-462: other pixels -> the old symbol as a pending human suggestion;
+    # the pixel-bound flag and the verification do not carry over.
+    other = restore_cell_decision(
+        _previous(quality_issue="blurry", assignment_source=None),
+        approval_pixels_identical=False,
+    )
+    assert other == RestoredCellDecision(
+        assigned_symbol_id=SYMBOL,
+        review_state="pending",
+        quality_issue=None,
+        assignment_source="human",
+        approval_restored=False,
+        verification_outcome=None,
+        verified_symbol_id_v2=None,
+    )
+
+
+def test_a_pending_decision_comes_back_unchanged_whatever_the_pixels() -> None:
+    grid_issue = _previous(
+        review_state="pending",
+        quality_issue="grid_issue",
+        assignment_source="model",
+        verification_outcome="grid_issue",
+        verified_symbol_id_v2=None,
+    )
+    for identical in (True, False):
+        restored = restore_cell_decision(grid_issue, approval_pixels_identical=identical)
+        assert (
+            restored.review_state,
+            restored.quality_issue,
+            restored.assignment_source,
+            restored.approval_restored,
+            restored.verification_outcome,
+        ) == ("pending", "grid_issue", "model", False, "grid_issue")
+    # A history without a verification value is derived again.
+    unknown = restore_cell_decision(
+        _previous(review_state="pending", verification_outcome=None, verified_symbol_id_v2=SYMBOL),
+        approval_pixels_identical=True,
+    )
+    assert (unknown.verification_outcome, unknown.verified_symbol_id_v2) == (None, None)
+
+
+def test_the_board_approval_follows_the_restored_geometry() -> None:
+    def approved(previous: int | None) -> int | None:
+        return restored_approved_geometry_revision(
+            previous, restored_from_revision=1, written_revision=3
+        )
+
+    assert approved(None) is None
+    assert approved(1) == 3  # the approved geometry is the restored one
+    assert approved(0) == 0  # an older approval stays as it was
+
+
+def test_case_a_transaction_actions_are_the_geometry_write_and_d488_symbols() -> None:
+    assert {
+        "geometry_invalidated",
+        "reassign",
+        "mark_unreadable",
+    } == CORRECTION_TRANSACTION_CELL_ACTIONS

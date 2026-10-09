@@ -13,6 +13,35 @@ Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z plik
 ponad limit 10 dopisuj na początku najnowszego pliku archiwum. Aktualny stan:
 [CURRENT_STATE.md](../process/CURRENT_STATE.md).
 
+### TASK-0931 — Wild, „Uruchamia supergrę” i rodzaj supergry (done)
+
+- Commit v1.7.268 / 1aef5870ee22287b0e17f1278276cddf7793a9b5.
+- Migracja `0151_super_game_roles` (addytywna): `symbols.super_game_trigger_count`
+  (null/3/4/5) i `games.super_game_kind` (domyślnie `none`); strażnik
+  schematu startowego wymaga teraz `0151`. Rejestr rodzajów supergry w
+  `services/worker/.../domain/super_games/` (`none`, `wild_super_spins`:
+  10 spinów, +10 przy retriggerze, koszt 0).
+- Domena: zmiana ról Wild/trigger dozwolona tylko bez opublikowanej lub
+  zarchiwizowanej wersji reguł; rola trigger wymaga rodzaju gry ≠ `none`
+  (`SUPER_GAME_KIND_REQUIRED`, `SUPER_GAME_KIND_IN_USE`); symbol trigger ma
+  `minimum_match_length = null`, a jego wypłaty znaczą liczbę sztuk
+  2…rows×columns (rosnące); przy zyskaniu roli minimum w draftach jest
+  czyszczone w tej samej transakcji. 777 bez zmian zachowania.
+- API: pola w schematach gry i symbolu (`superGameTriggerCount` wymagane,
+  `superGameKind`), `GET /api/v1/admin/super-game-kinds`, OpenAPI i klient
+  zregenerowane, wrapper `listSuperGameKinds`, request testy. Admin: etykieta
+  „Wild”, checkbox „Uruchamia supergrę” + select 3/4/5, select „Supergra”
+  w tworzeniu i edycji gry, pola „sztuk na planszy” w regułach.
+- Audyt claude-fable-5-1 / high: PASS, 4 × P2 naprawione, 8 odstępstw
+  zaakceptowanych (`ai_docs/quality/TASK-0931_AUDIT_claude-fable-5-1.md`).
+  Pytest skupiony 72 PASS, PG katalog 4 PASS, cykl migracji na bazie
+  jednorazowej OK, `openapi:check` aktualne, Admin 679/679, Reviewer
+  typecheck PASS.
+- Wdrożenie u operatora (po merge): zatrzymać API/Admin, `npm run db:migrate`
+  (0147→0151 na bazie operatora wymaga osobnej zgody, patrz TASK-0928),
+  restart. Nie publikować reguł Mumii przed TASK-0932 (stary ewaluator liczy
+  Mumię jako symbol liniowy). Instrukcja operatora w Outcome taska.
+
 ### TASK-0929 — skill audytu krzyżowego i sekcja „Audyt krzyżowy” (done)
 
 - Commit v1.7.267 / 6323939f41d93501a537463eb82ce127ab1f04b3.

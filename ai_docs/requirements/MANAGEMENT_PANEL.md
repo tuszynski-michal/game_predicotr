@@ -12,7 +12,9 @@ The [compact execution plan](../delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md)
 supersedes structural retention and UI rules below where indicated.
 TASK-0940–0943 implement hierarchical point → machine → game/stake navigation
 with Home/back, maximum320px clickable tiles, sibling edit/delete icons and
-atomic modal machine name/game assignments. Six compact stakes restore the
+atomic modal machine name/game assignments. Tile content and corner actions
+use consistent16px insets while preserving the maximum320px width and44px
+touch targets. Six compact stakes restore the
 saved start/query/range/pins. New/reset is draft-only until explicit replacement.
 Quick rows use the shared chart's investment/net/machine-cash semantics;
 chart, full table and journal are collapsed, with spin/PLN axes when expanded.

@@ -200,6 +200,29 @@ function checkLayout(stage) {
     if (node.getBoundingClientRect().height < 43.9)
       throw Error('Tile control shorter than 44px at ' + stage);
   }
+  for (const tile of document.querySelectorAll('.management-tile')) {
+    const bounds = tile.getBoundingClientRect();
+    const choice = tile.matches('button')
+      ? tile
+      : tile.querySelector('.management-tile-choice');
+    const name = choice?.querySelector('strong');
+    if (name) {
+      const content = name.getBoundingClientRect();
+      if (content.left - bounds.left < 15.9 || content.top - bounds.top < 15.9)
+        throw Error('Tile content touches the edge at ' + stage);
+    }
+    const controls = tile.querySelector('.management-tile-controls');
+    if (controls) {
+      const actions = controls.getBoundingClientRect();
+      if (
+        actions.top - bounds.top < 15.9 ||
+        bounds.right - actions.right < 15.9
+      )
+        throw Error('Tile controls touch the edge at ' + stage);
+      if (name && name.getBoundingClientRect().right > actions.left - 8)
+        throw Error('Tile name overlaps controls at ' + stage);
+    }
+  }
   window.layoutChecks.push({
     stage,
     width: innerWidth,
@@ -323,6 +346,11 @@ window.acceptance = (async () => {
       () => document.querySelectorAll('.management-tile-choice').length === 40,
     );
     await checkLayout(`machines-${scenario}`);
+    await touch(document.querySelector('.management-tile-choice'));
+    await until(
+      () => document.querySelectorAll('.management-stake-choice').length === 6,
+    );
+    await checkLayout(`stakes-${scenario}`);
     return {
       passed: true,
       scenario,

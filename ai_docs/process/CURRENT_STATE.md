@@ -702,6 +702,13 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0946 — odstępy kafelków panelu (done)
+
+- Spójne16px dla ikon, stawek i archiwalnych kafelków; miejsce na dwa przyciski44px.
+- Browser10/10 PASS; nowa asercja odtwarza błąd4px, sprawdza odstępy i brak kolizji. Prettier i składnia PASS; bez ponownego pełnego builda/audytu.
+- Outcome: `ai_docs/tasks/completed/0946-management-tile-padding.md`; commit oczekuje zapisu.
+- Bez zmian danych, uruchamiania usług i push. Kontrola na stronie operatora pozostaje do odbioru.
+
 ### TASK-0945 — Integracja kompaktowego panelu z main (done)
 
 - Merge commit: v1.7.288 / 9cea1a8a363aa2efad6d012889a86aced34d613a; plan `ai_docs/delivery/ADMIN_COMPACT_PANEL_INTEGRATION_PLAN.md`, Outcome `ai_docs/tasks/completed/0945-compact-panel-main-integration.md`.
@@ -825,30 +832,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   PG 35 + 8 + 2, board-search-ui 85 + 60, Reviewer 240 + 40, Admin 733 + 188,
   klient 104, typecheck (mypy 850 plików), lint, format PASS.
 - Etap S-B zamknięty (TASK-0933–0935). Następny: S-C / TASK-0936.
-
-### TASK-0934 — sekcja „Supergry” w Adminie (done)
-
-- Commit v1.7.277 / 9a2bbc685e2763553ce31b621c5e3c112e78e671.
-- Nowa sekcja gry `super-games` (tylko dla gier z rodzajem supergry):
-  lista serii z kursorem, filtrami (kompletność, weryfikacja przebiegu,
-  symbol zdefiniowany) i licznikiem „do zdefiniowania”; „Przelicz serie” z
-  baner „Serie w trakcie przeliczania” (polling stanu co 5 s); widok serii
-  z karuzelą trigger + wszystkie pozycje (karty „brak planszy”, retriggery),
-  komórki symbolu uruchamiającego podświetlone, modal linii; wybór super
-  symbolu (tylko zwykłe symbole, cyfry `1`–`9`/`0`, `Enter`), zapis z
-  `expectedRevision` (409 → odświeżenie bez nadpisania), „Wyczyść symbol”.
-  Link z wyszukiwania: `?workspace=games&game=<id>&section=super-games&series=<id>`.
-- Odpowiedzi zapisu związane z cyklem otwarcia serii (także nawigacja
-  historią), strony listy z generacją ładowania, lista odświeżana po zmianie
-  symbolu zgodnie z filtrem, obraz planszy związany z rewizją szczegółu.
-- Audyt Codex gpt-6.1-sol (zamiast gpt-6-astra: „at capacity”): runda 1
-  REVISE (3 × P0 opóźnione odpowiedzi/filtry/strony, P1 mapowanie cyfr —
-  decyzja: cyfry = lista zwykłych symboli z selecta), runda 2 jeden P0
-  (historia przeglądarki) naprawiony; `ai_docs/quality/TASK-0934_AUDIT_gpt-6.1-sol*.md`.
-  Admin 733/733, interakcje jsdom 19/19 (`npm run test:geometry`), typecheck,
-  lint, prettier PASS. Bez uruchomienia na żywym API.
-- Otwarte drobne: polling także przy ukrytej karcie; kwoty w modalu linii
-  jako „N kr.” (formatter złotówek nieeksportowany z `board-search-ui`).
 
 ## Archiwum
 

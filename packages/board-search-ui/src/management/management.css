@@ -20,19 +20,21 @@
   width: 100%;
   min-height: 100px;
   gap: 6px;
-  padding: 16px 104px 16px 16px;
+  padding: 16px 120px 16px 16px;
   text-align: left;
 }
 .management-tile-controls {
   position: absolute;
-  right: 4px;
-  top: 4px;
+  right: 16px;
+  top: 16px;
   display: flex;
   gap: 4px;
 }
 .management-tile-controls button {
+  width: 44px;
   min-width: 44px;
   min-height: 44px;
+  padding: 0;
 }
 .management-tile-choice:focus-visible,
 .management-tile-choice[aria-pressed='true'] {
@@ -63,6 +65,9 @@
 .management-legacy {
   margin: 16px 0;
 }
+.management-legacy .management-tile {
+  padding: 16px;
+}
 .management-actions {
   display: flex;
   flex-wrap: wrap;
@@ -79,12 +84,12 @@
 .management-stake-cards {
   align-items: start;
 }
-.management-stake-choice {
+.management-tile.management-stake-choice {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   gap: 4px;
-  padding: 12px;
+  padding: 16px;
   text-align: left;
 }
 .management-stake-choice:focus-visible {

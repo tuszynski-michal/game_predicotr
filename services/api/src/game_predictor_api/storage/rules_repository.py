@@ -26,6 +26,7 @@ from game_predictor_api.storage.models import (
     RulesVersionSymbolModel,
     SymbolModel,
 )
+from game_predictor_api.storage.super_game_input_version import record_super_game_input_change
 
 _CONFLICTS = {
     "uq_rules_versions_game_version": (
@@ -112,9 +113,15 @@ class SqlAlchemyRulesRepository(RulesRepository):
         record.rows = rules_version.rows
         record.columns = rules_version.columns
         record.spin_cost = rules_version.spin_cost
+        status_changed = record.status != rules_version.status
         record.status = rules_version.status
         record.published_at = rules_version.published_at
         self._flush_or_raise_conflict()
+        if status_changed and rules_version.status is not RulesVersionStatus.DRAFT:
+            # Publication (or archival) changes the active rules of the game.
+            record_super_game_input_change(
+                self._session, rules_version.game_id, source="rules_publication"
+            )
         return _to_rules_version(record)
 
     def get_or_clone_current_draft(

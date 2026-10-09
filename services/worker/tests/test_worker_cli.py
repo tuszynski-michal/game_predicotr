@@ -129,6 +129,7 @@ def test_cli_runs_one_claim_attempt_and_disposes_engine(
     assert JobType.IMPORT in FakeWorker.instances[0].handlers
     assert JobType.VALIDATE in FakeWorker.instances[0].handlers
     assert JobType.STORAGE_PIPELINE_COMPACTION in FakeWorker.instances[0].handlers
+    assert JobType.SUPER_GAME_SERIES_DERIVE in FakeWorker.instances[0].handlers
     assert JobType.IMAGE_SELECTION not in FakeWorker.instances[0].handlers
     assert FakeWorker.instances[0].options["execution_slot"] is JobExecutionSlot.GENERAL
     assert callable(FakeWorker.instances[0].options["auxiliary_work"])

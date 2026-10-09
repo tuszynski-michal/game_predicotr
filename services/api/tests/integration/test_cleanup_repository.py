@@ -1,7 +1,8 @@
 import os
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid4
 
 import pytest
 from _application_role_database import provision_game
@@ -308,5 +309,92 @@ def test_release_delete_preserves_selected_game_and_records_receipt(
                 "android-releases/release-delete-test",
             )
             assert session.scalar(select(func.count()).select_from(CleanupOperationModel)) == 1
+    finally:
+        engine.dispose()
+
+
+def _derive_job(status: JobStatus, game_id: UUID) -> JobModel:
+    """A super game derivation job (TASK-0933), queued or running."""
+
+    now = datetime.now(UTC)
+    running = status is JobStatus.PROCESSING
+    return JobModel(
+        job_type=JobType.SUPER_GAME_SERIES_DERIVE,
+        game_id=game_id,
+        status=status,
+        input_payload={"schema_version": 1, "reason": "test", "request_id": str(uuid4())},
+        input_key=uuid4().hex * 2,
+        execution_slot=1 if running else None,
+        lease_owner="cleanup-test" if running else None,
+        lease_token=uuid4() if running else None,
+        lease_expires_at=now + timedelta(minutes=5) if running else None,
+        heartbeat_at=now if running else None,
+    )
+
+
+def test_a_queued_super_game_derive_job_blocks_and_the_reset_queues_a_new_one(
+    isolated_cleanup_database: URL,
+) -> None:
+    """Audit TASK-0933 P0-4: a derivation job blocks cleanup like any other job.
+
+    Once the worker has finished it, the reset runs and its own input-version
+    bump queues a fresh derivation of the reset game.
+    """
+
+    command.upgrade(_migration_config(isolated_cleanup_database), "head")
+    engine = create_engine(isolated_cleanup_database, pool_pre_ping=True)
+    release_factory = create_cross_game_owner_session_factory(engine)
+    game_id = provision_game(engine, "derive-blocker")
+    try:
+        with release_factory() as session:
+            game = session.get(GameModel, game_id)
+            assert game is not None
+            game.super_game_kind = "wild_super_spins"
+            job = _derive_job(JobStatus.CREATED, game_id)
+            session.add(job)
+            session.commit()
+            job_id = job.id
+
+        def derive_jobs() -> list[UUID]:
+            with release_factory() as session:
+                return list(
+                    session.scalars(
+                        select(JobModel.id).where(
+                            JobModel.game_id == game_id,
+                            JobModel.job_type == JobType.SUPER_GAME_SERIES_DERIVE,
+                            JobModel.status == JobStatus.CREATED,
+                        )
+                    )
+                )
+
+        with game_storage_scope(game_id), create_session_factory(engine)() as game_session:
+            service = CleanupService(
+                SqlAlchemyCleanupRepository(game_session, release_factory), RecordingArtifacts()
+            )
+            assert "ACTIVE_GAME_JOB" in service.preview_game_reset(game_id).snapshot.blockers
+            game_session.rollback()
+
+        # The worker finished the derivation; the reset is no longer blocked.
+        with release_factory() as session:
+            session.delete(session.get(JobModel, job_id))
+            session.commit()
+        assert derive_jobs() == []
+        with game_storage_scope(game_id), create_session_factory(engine)() as game_session:
+            service = CleanupService(
+                SqlAlchemyCleanupRepository(game_session, release_factory), RecordingArtifacts()
+            )
+            preview = service.preview_game_reset(game_id)
+            assert "ACTIVE_GAME_JOB" not in preview.snapshot.blockers
+            service.reset_game(
+                game_id,
+                CleanupCommand(
+                    preview_token=preview.preview_token,
+                    confirmation_target=str(game_id),
+                    confirmed=True,
+                ),
+            )
+            game_session.commit()
+        queued = derive_jobs()
+        assert len(queued) == 1 and queued[0] != job_id
     finally:
         engine.dispose()

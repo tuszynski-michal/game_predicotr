@@ -219,6 +219,9 @@ import type {
   DeleteSymbolData,
   DeleteSymbolErrors,
   DeleteSymbolResponses,
+  DeriveSuperGameSeriesData,
+  DeriveSuperGameSeriesErrors,
+  DeriveSuperGameSeriesResponses,
   DiscardBrowserPageGeometrySourceReplacementData,
   DiscardBrowserPageGeometrySourceReplacementErrors,
   DiscardBrowserPageGeometrySourceReplacementResponses,
@@ -504,6 +507,9 @@ import type {
   GetStorageGcRunData,
   GetStorageGcRunErrors,
   GetStorageGcRunResponses,
+  GetSuperGameSeriesStateData,
+  GetSuperGameSeriesStateErrors,
+  GetSuperGameSeriesStateResponses,
   GetSymbolCellPreviewAtlasData,
   GetSymbolCellPreviewAtlasErrors,
   GetSymbolCellPreviewAtlasResponses,
@@ -718,6 +724,12 @@ import type {
   ListSemiAutomaticImageSelectionsResponses,
   ListSuperGameKindsData,
   ListSuperGameKindsResponses,
+  ListSuperGameSeriesBoardsData,
+  ListSuperGameSeriesBoardsErrors,
+  ListSuperGameSeriesBoardsResponses,
+  ListSuperGameSeriesData,
+  ListSuperGameSeriesErrors,
+  ListSuperGameSeriesResponses,
   ListSymbolCellReviewsData,
   ListSymbolCellReviewsErrors,
   ListSymbolCellReviewsResponses,
@@ -969,6 +981,9 @@ import type {
   SetSourceImageGeometryExceptionData,
   SetSourceImageGeometryExceptionErrors,
   SetSourceImageGeometryExceptionResponses,
+  SetSuperGameSeriesSuperSymbolData,
+  SetSuperGameSeriesSuperSymbolErrors,
+  SetSuperGameSeriesSuperSymbolResponses,
   SkipSymbolCellReviewsData,
   SkipSymbolCellReviewsErrors,
   SkipSymbolCellReviewsResponses,
@@ -2366,6 +2381,106 @@ export const createRulesVersion = <ThrowOnError extends boolean = false>(
   >({
     security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
     url: '/api/v1/admin/games/{game_id}/rules-versions',
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+/**
+ * List published super game series of a game
+ */
+export const listSuperGameSeries = <ThrowOnError extends boolean = false>(
+  options: Options<ListSuperGameSeriesData, ThrowOnError>,
+): RequestResult<
+  ListSuperGameSeriesResponses,
+  ListSuperGameSeriesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSuperGameSeriesResponses,
+    ListSuperGameSeriesErrors,
+    ThrowOnError
+  >({ url: '/api/v1/admin/games/{game_id}/super-game-series', ...options });
+
+/**
+ * Queue (or reuse the queued) super game series derivation job
+ */
+export const deriveSuperGameSeries = <ThrowOnError extends boolean = false>(
+  options: Options<DeriveSuperGameSeriesData, ThrowOnError>,
+): RequestResult<
+  DeriveSuperGameSeriesResponses,
+  DeriveSuperGameSeriesErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).post<
+    DeriveSuperGameSeriesResponses,
+    DeriveSuperGameSeriesErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/super-game-series/derive',
+    ...options,
+  });
+
+/**
+ * Freshness of the published super game series
+ */
+export const getSuperGameSeriesState = <ThrowOnError extends boolean = false>(
+  options: Options<GetSuperGameSeriesStateData, ThrowOnError>,
+): RequestResult<
+  GetSuperGameSeriesStateResponses,
+  GetSuperGameSeriesStateErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    GetSuperGameSeriesStateResponses,
+    GetSuperGameSeriesStateErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/super-game-series/state',
+    ...options,
+  });
+
+/**
+ * Boards of one series from the trigger to the last spin
+ */
+export const listSuperGameSeriesBoards = <ThrowOnError extends boolean = false>(
+  options: Options<ListSuperGameSeriesBoardsData, ThrowOnError>,
+): RequestResult<
+  ListSuperGameSeriesBoardsResponses,
+  ListSuperGameSeriesBoardsErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).get<
+    ListSuperGameSeriesBoardsResponses,
+    ListSuperGameSeriesBoardsErrors,
+    ThrowOnError
+  >({
+    url: '/api/v1/admin/games/{game_id}/super-game-series/{series_id}/boards',
+    ...options,
+  });
+
+/**
+ * Define or clear the super symbol of a series (compare-and-set)
+ */
+export const setSuperGameSeriesSuperSymbol = <
+  ThrowOnError extends boolean = false,
+>(
+  options: Options<SetSuperGameSeriesSuperSymbolData, ThrowOnError>,
+): RequestResult<
+  SetSuperGameSeriesSuperSymbolResponses,
+  SetSuperGameSeriesSuperSymbolErrors,
+  ThrowOnError
+> =>
+  (options.client ?? client).put<
+    SetSuperGameSeriesSuperSymbolResponses,
+    SetSuperGameSeriesSuperSymbolErrors,
+    ThrowOnError
+  >({
+    security: [{ name: 'X-Admin-Intent', type: 'apiKey' }],
+    url: '/api/v1/admin/games/{game_id}/super-game-series/{series_id}/super-symbol',
     ...options,
     headers: {
       'Content-Type': 'application/json',

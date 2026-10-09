@@ -1,10 +1,47 @@
 ---
 title: Architecture decision log
 status: active
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 ---
 
 # Decision Log
+
+## D-536 — Serie supergry: manifest v6, licznik wejścia i generacje
+
+- **Date:** 2026-10-09.
+- **Status:** accepted; TASK-0933 w ramach zaakceptowanego planu
+  `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` (D-535).
+- **Decision:** serie supergry są danymi pochodnymi wyprowadzanymi z komórek
+  pociętych plansz z przypisanym symbolem (decyzja człowieka albo predykcja),
+  przechowywanymi w czterech nowych tabelach gry (`super_game_series`, tabela
+  robocza generacji, stan wyprowadzania i audyt super symbolu). Nowa tabela gry
+  wymaga nowej wersji manifestu własności, dlatego migracja `0152` wprowadza
+  manifest v6 (v5 plus dokładnie cztery tabele) i przenosi lokalizacje gier na
+  v6; downgrade odmawia, gdy istnieje zdefiniowany super symbol, wpis audytu
+  albo aktywny job wyprowadzania.
+- **Input version:** każdy zapis zmieniający wejście wyprowadzania (predykcje
+  i ich usunięcie, korekty symboli i siatki, materializacja plansz importu,
+  role symboli, rodzaj gry, `expected_layout_count`, publikacja reguł, reset
+  gry i usuwanie źródeł) podbija licznik `input_version` gry w tej samej
+  transakcji; lista punktów zapisu jest wyliczona w kodzie i pilnowana testem
+  statycznym w obie strony oraz testami PostgreSQL na realnych operacjach.
+  Nieaktualność serii wynika z porównania `input_version` z wersją
+  opublikowanej generacji, bez osobnej flagi.
+- **Generations:** job `super_game_series_derive` (lane `general`, jeden
+  w kolejce na grę) buduje kompletną generację w tabeli roboczej partiami,
+  publikuje ją w jednej transakcji pod blokadą wiersza stanu i odrzuca
+  kandydata przy zmianie wersji wejścia, kolejkując dokładnie jeden ponowny
+  przebieg; tożsamość serii `(game_id, trigger)` zachowuje super symbol i
+  rewizję przy przedłużeniu retriggerem. Kompletność porównuje rzeczywisty
+  koniec serii z ostatnią znaną pociętą planszą, także na końcu sekwencji.
+- **Cleanup:** job wyprowadzania blokuje czyszczenie jak każdy inny job
+  (`ACTIVE_GAME_JOB`); po czyszczeniu podbicie licznika kolejkuje nowe
+  wyprowadzenie. Odczyty listy, plansz serii i stanu świeżości wykonują się
+  w jednym snapshocie `REPEATABLE READ`, żeby seria i `fresh` pochodziły z
+  tej samej generacji.
+- **Boundaries:** pole `superGameState` w odpowiedziach wyszukiwania plansz i
+  kalkulacji dostarcza TASK-0935; wypłaty serii TASK-0936; `apply_board_repoint`
+  nie jest punktem zapisu (zmienia tylko identyfikatory geometrii).
 
 ## D-535 — Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins”
 

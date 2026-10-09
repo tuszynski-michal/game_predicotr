@@ -27,7 +27,7 @@ from game_predictor_api.domain.image_import_engine_policy import (
     DEFAULT_GEOMETRY_MODE,
 )
 from game_predictor_api.domain.rules import RulesVersionStatus
-from game_predictor_api.storage.game_data_v2_manifest_v5 import CREATE_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v6 import CREATE_TABLES, VERSION
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleError,
     GamePartitionLifecycleKind,
@@ -56,6 +56,7 @@ from game_predictor_api.storage.models import (
     SymbolReferenceImageModel,
     VerifiedTrainingCohortModel,
 )
+from game_predictor_api.storage.super_game_input_version import record_super_game_input_change
 
 _CONFLICTS = {
     "uq_games_code": (
@@ -224,6 +225,10 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record = self._session.get(GameModel, game.id)
         if record is None:
             raise RuntimeError("Game disappeared during a catalog transaction.")
+        # Both changes alter the derivation input; compare before assigning.
+        kind_changed = record.super_game_kind != game.super_game_kind
+        # The derivation walks 1..expected_layout_count (audit TASK-0933 P0-1).
+        layout_count_changed = record.expected_layout_count != game.expected_layout_count
         record.name = game.name
         record.status = game.status
         record.expected_layout_count = game.expected_layout_count
@@ -235,6 +240,11 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record.super_game_kind = game.super_game_kind
         record.updated_at = datetime.now(UTC)
         self._flush_or_raise_conflict()
+        if kind_changed:
+            record_super_game_input_change(self._session, game.id, source="super_game_kind")
+        if layout_count_changed:
+            # One bump per transaction: a kind change in the same save already counted.
+            record_super_game_input_change(self._session, game.id, source="expected_layout_count")
         location = (
             self._storage_router.describe(self._session, game.id)
             if self._storage_router is not None
@@ -302,6 +312,8 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         )
         self._session.add(record)
         self._flush_or_raise_conflict()
+        if super_game_trigger_count is not None:
+            record_super_game_input_change(self._session, game_id, source="symbol_role")
         return _to_symbol(record)
 
     def add_manual_symbol(
@@ -337,6 +349,9 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         )
         self._session.add(record)
         self._flush_or_raise_conflict()
+        if super_game_trigger_count is not None:
+            # Same write point as ``add_symbol`` (symbol_role).
+            record_super_game_input_change(self._session, game_id, source="symbol_role")
         return _to_symbol(record)
 
     def save_symbol(self, symbol: Symbol) -> Symbol:
@@ -347,11 +362,17 @@ class SqlAlchemyCatalogRepository(CatalogRepository):
         record.name_pl = symbol.name_pl
         record.name_en = symbol.name_en
         record.image_path = symbol.image_path
+        role_changed = (
+            record.is_wildcard != symbol.is_wildcard
+            or record.super_game_trigger_count != symbol.super_game_trigger_count
+        )
         record.is_wildcard = symbol.is_wildcard
         record.super_game_trigger_count = symbol.super_game_trigger_count
         record.display_order = symbol.display_order
         record.status = symbol.status
         self._flush_or_raise_conflict()
+        if role_changed:
+            record_super_game_input_change(self._session, symbol.game_id, source="symbol_role")
         reference_path = self._session.scalar(
             select(SymbolReferenceImageModel.image_relative_path).where(
                 SymbolReferenceImageModel.symbol_id == record.id

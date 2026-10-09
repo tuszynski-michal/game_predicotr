@@ -8664,6 +8664,7 @@ export type JobResponse = {
     | StorageGcJobPayload
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
+    | SuperGameSeriesDeriveJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload;
   jobType: JobType;
@@ -8721,7 +8722,8 @@ export type JobType =
   | 'image_geometry_rollout_backfill'
   | 'storage_gc'
   | 'storage_inventory'
-  | 'storage_pipeline_compaction';
+  | 'storage_pipeline_compaction'
+  | 'super_game_series_derive';
 
 /**
  * LabSymbolCandidateImportJobPayloadResponse
@@ -14234,6 +14236,11 @@ export type RulesVersionUpdate = {
 };
 
 /**
+ * RunVerification
+ */
+export type RunVerification = 'verified' | 'unverified';
+
+/**
  * SaveUnreadableBoardCellRequest
  *
  * One exact visible cell decision supplied by the board workspace.
@@ -15037,6 +15044,11 @@ export type SequenceRangeValueResponse = {
 };
 
 /**
+ * SeriesCompleteness
+ */
+export type SeriesCompleteness = 'complete' | 'incomplete';
+
+/**
  * ShapeGeometryReadinessResponse
  */
 export type ShapeGeometryReadinessResponse = {
@@ -15493,6 +15505,214 @@ export type SuperGameKindResponse = {
    * Label
    */
   label: string;
+};
+
+/**
+ * SuperGameSeriesBoardResponse
+ *
+ * One position of a series in the board-search result format.
+ *
+ * The board fields are those of a board-search result
+ * (``assetMode`` … ``boardChecksumSha256``); they are ``null`` and
+ * ``missing`` is ``true`` when the position has no board.
+ */
+export type SuperGameSeriesBoardResponse = {
+  /**
+   * Assetmode
+   */
+  assetMode: 'operational_review' | null;
+  /**
+   * Boardchecksumsha256
+   */
+  boardChecksumSha256?: string | null;
+  /**
+   * Importjobid
+   */
+  importJobId: string | null;
+  /**
+   * Missing
+   */
+  missing: boolean;
+  /**
+   * Recognizedboardid
+   */
+  recognizedBoardId: string | null;
+  /**
+   * Reviewitemid
+   */
+  reviewItemId: string | null;
+  /**
+   * Role
+   */
+  role: 'trigger' | 'retrigger' | 'spin';
+  /**
+   * Sequencenumber
+   */
+  sequenceNumber: number;
+  /**
+   * Spinindex
+   */
+  spinIndex?: number | null;
+  /**
+   * Status
+   */
+  status: 'pending' | 'accepted' | 'corrected' | null;
+};
+
+/**
+ * SuperGameSeriesBoardsResponse
+ */
+export type SuperGameSeriesBoardsResponse = {
+  /**
+   * Boards
+   */
+  boards: Array<SuperGameSeriesBoardResponse>;
+  series: SuperGameSeriesResponse;
+  superGameState: SuperGameStateResponse;
+};
+
+/**
+ * SuperGameSeriesDeriveJobPayload
+ *
+ * Payload of a super game series derivation (TASK-0933); queued per game.
+ */
+export type SuperGameSeriesDeriveJobPayload = {
+  /**
+   * Reason
+   */
+  reason: string;
+  /**
+   * Requestid
+   */
+  requestId: string;
+  /**
+   * Schemaversion
+   */
+  schemaVersion?: 1;
+};
+
+/**
+ * SuperGameSeriesDeriveResponse
+ */
+export type SuperGameSeriesDeriveResponse = {
+  /**
+   * Deduplicated
+   */
+  deduplicated: boolean;
+  /**
+   * Jobid
+   */
+  jobId: string;
+  superGameState: SuperGameStateResponse;
+};
+
+/**
+ * SuperGameSeriesListResponse
+ */
+export type SuperGameSeriesListResponse = {
+  /**
+   * Items
+   */
+  items: Array<SuperGameSeriesResponse>;
+  /**
+   * Nextcursor
+   */
+  nextCursor: string | null;
+  /**
+   * Supergamekind
+   */
+  superGameKind: string;
+  superGameState: SuperGameStateResponse;
+};
+
+/**
+ * SuperGameSeriesResponse
+ */
+export type SuperGameSeriesResponse = {
+  completeness: SeriesCompleteness;
+  /**
+   * Definedat
+   */
+  definedAt: string | null;
+  /**
+   * Definedby
+   */
+  definedBy: string | null;
+  /**
+   * Endsequencenumber
+   */
+  endSequenceNumber: number;
+  /**
+   * Gameid
+   */
+  gameId: string;
+  /**
+   * Id
+   */
+  id: string;
+  /**
+   * Length
+   */
+  length: number;
+  /**
+   * Retriggersequencenumbers
+   */
+  retriggerSequenceNumbers: Array<number>;
+  /**
+   * Revision
+   */
+  revision: number;
+  runVerification: RunVerification;
+  /**
+   * Startsequencenumber
+   */
+  startSequenceNumber: number;
+  /**
+   * Supersymbolid
+   */
+  superSymbolId: string | null;
+  /**
+   * Triggersequencenumber
+   */
+  triggerSequenceNumber: number;
+  /**
+   * Updatedat
+   */
+  updatedAt: string;
+};
+
+/**
+ * SuperGameStateResponse
+ *
+ * Freshness of the published series, always derived from the two versions.
+ */
+export type SuperGameStateResponse = {
+  /**
+   * Fresh
+   */
+  fresh: boolean;
+  /**
+   * Generationinputversion
+   */
+  generationInputVersion?: number | null;
+  /**
+   * Inputversion
+   */
+  inputVersion: number;
+};
+
+/**
+ * SuperSymbolUpdate
+ */
+export type SuperSymbolUpdate = {
+  /**
+   * Expectedrevision
+   */
+  expectedRevision: number;
+  /**
+   * Symbolid
+   */
+  symbolId: string | null;
 };
 
 /**
@@ -21156,6 +21376,243 @@ export type CreateRulesVersionResponses = {
 
 export type CreateRulesVersionResponse =
   CreateRulesVersionResponses[keyof CreateRulesVersionResponses];
+
+export type ListSuperGameSeriesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: {
+    /**
+     * Completeness
+     */
+    completeness?: SeriesCompleteness | null;
+    /**
+     * Runverification
+     */
+    runVerification?: RunVerification | null;
+    /**
+     * Defined
+     */
+    defined?: boolean | null;
+    /**
+     * Cursor
+     */
+    cursor?: string | null;
+    /**
+     * Limit
+     */
+    limit?: number;
+  };
+  url: '/api/v1/admin/games/{game_id}/super-game-series';
+};
+
+export type ListSuperGameSeriesErrors = {
+  /**
+   * Game or series not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revision conflict or projection not ready
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListSuperGameSeriesError =
+  ListSuperGameSeriesErrors[keyof ListSuperGameSeriesErrors];
+
+export type ListSuperGameSeriesResponses = {
+  /**
+   * Successful Response
+   */
+  200: SuperGameSeriesListResponse;
+};
+
+export type ListSuperGameSeriesResponse =
+  ListSuperGameSeriesResponses[keyof ListSuperGameSeriesResponses];
+
+export type DeriveSuperGameSeriesData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/super-game-series/derive';
+};
+
+export type DeriveSuperGameSeriesErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or series not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revision conflict or projection not ready
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type DeriveSuperGameSeriesError =
+  DeriveSuperGameSeriesErrors[keyof DeriveSuperGameSeriesErrors];
+
+export type DeriveSuperGameSeriesResponses = {
+  /**
+   * Successful Response
+   */
+  202: SuperGameSeriesDeriveResponse;
+};
+
+export type DeriveSuperGameSeriesResponse =
+  DeriveSuperGameSeriesResponses[keyof DeriveSuperGameSeriesResponses];
+
+export type GetSuperGameSeriesStateData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/super-game-series/state';
+};
+
+export type GetSuperGameSeriesStateErrors = {
+  /**
+   * Game or series not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revision conflict or projection not ready
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type GetSuperGameSeriesStateError =
+  GetSuperGameSeriesStateErrors[keyof GetSuperGameSeriesStateErrors];
+
+export type GetSuperGameSeriesStateResponses = {
+  /**
+   * Successful Response
+   */
+  200: SuperGameStateResponse;
+};
+
+export type GetSuperGameSeriesStateResponse =
+  GetSuperGameSeriesStateResponses[keyof GetSuperGameSeriesStateResponses];
+
+export type ListSuperGameSeriesBoardsData = {
+  body?: never;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Series Id
+     */
+    series_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/super-game-series/{series_id}/boards';
+};
+
+export type ListSuperGameSeriesBoardsErrors = {
+  /**
+   * Game or series not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revision conflict or projection not ready
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type ListSuperGameSeriesBoardsError =
+  ListSuperGameSeriesBoardsErrors[keyof ListSuperGameSeriesBoardsErrors];
+
+export type ListSuperGameSeriesBoardsResponses = {
+  /**
+   * Successful Response
+   */
+  200: SuperGameSeriesBoardsResponse;
+};
+
+export type ListSuperGameSeriesBoardsResponse =
+  ListSuperGameSeriesBoardsResponses[keyof ListSuperGameSeriesBoardsResponses];
+
+export type SetSuperGameSeriesSuperSymbolData = {
+  body: SuperSymbolUpdate;
+  path: {
+    /**
+     * Game Id
+     */
+    game_id: string;
+    /**
+     * Series Id
+     */
+    series_id: string;
+  };
+  query?: never;
+  url: '/api/v1/admin/games/{game_id}/super-game-series/{series_id}/super-symbol';
+};
+
+export type SetSuperGameSeriesSuperSymbolErrors = {
+  /**
+   * Local Admin security guard rejected the request
+   */
+  403: ErrorResponse;
+  /**
+   * Game or series not found
+   */
+  404: ErrorResponse;
+  /**
+   * Revision conflict or projection not ready
+   */
+  409: ErrorResponse;
+  /**
+   * Validation error
+   */
+  422: ErrorResponse;
+};
+
+export type SetSuperGameSeriesSuperSymbolError =
+  SetSuperGameSeriesSuperSymbolErrors[keyof SetSuperGameSeriesSuperSymbolErrors];
+
+export type SetSuperGameSeriesSuperSymbolResponses = {
+  /**
+   * Successful Response
+   */
+  200: SuperGameSeriesResponse;
+};
+
+export type SetSuperGameSeriesSuperSymbolResponse =
+  SetSuperGameSeriesSuperSymbolResponses[keyof SetSuperGameSeriesSuperSymbolResponses];
 
 export type CreateSymbolCellPreviewBatchData = {
   body: SymbolCellPreviewBatchRequest;

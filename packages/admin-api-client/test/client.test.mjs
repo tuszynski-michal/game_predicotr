@@ -4127,3 +4127,55 @@ test('board-search share query log wrappers use their Admin paths', async () => 
   assert.equal(new URL(requests[1].url).searchParams.get('before'), 'abc');
   assert.equal(new URL(requests[1].url).searchParams.get('limit'), '10');
 });
+
+test('super game series wrappers use the game-scoped generated routes', async () => {
+  const requests = [];
+  const gameId = '11111111-1111-4111-8111-111111111111';
+  const seriesId = '33333333-3333-4333-8333-333333333333';
+  const symbolId = '44444444-4444-4444-8444-444444444444';
+  const client = createAdminApiClient({
+    baseUrl: 'http://127.0.0.1:8000',
+    fetch: async (request) => {
+      const url = new URL(request.url);
+      requests.push({
+        path: url.pathname,
+        search: url.search,
+        method: request.method,
+        body: request.method === 'PUT' ? await request.clone().json() : null,
+      });
+      return Response.json({});
+    },
+  });
+  await client.listSuperGameSeries(gameId, {
+    completeness: 'incomplete',
+    runVerification: 'unverified',
+    defined: false,
+    cursor: '120',
+    limit: 25,
+  });
+  await client.getSuperGameSeriesState(gameId);
+  await client.deriveSuperGameSeries(gameId);
+  await client.listSuperGameSeriesBoards(gameId, seriesId);
+  await client.setSuperGameSeriesSuperSymbol(gameId, seriesId, {
+    symbolId,
+    expectedRevision: 2,
+  });
+  const prefix = `/api/v1/admin/games/${gameId}/super-game-series`;
+  assert.deepEqual(
+    requests.map((request) => [request.method, request.path]),
+    [
+      ['GET', prefix],
+      ['GET', prefix + '/state'],
+      ['POST', prefix + '/derive'],
+      ['GET', prefix + `/${seriesId}/boards`],
+      ['PUT', prefix + `/${seriesId}/super-symbol`],
+    ],
+  );
+  const query = new URLSearchParams(requests[0].search);
+  assert.equal(query.get('completeness'), 'incomplete');
+  assert.equal(query.get('runVerification'), 'unverified');
+  assert.equal(query.get('defined'), 'false');
+  assert.equal(query.get('cursor'), '120');
+  assert.equal(query.get('limit'), '25');
+  assert.deepEqual(requests[4].body, { symbolId, expectedRevision: 2 });
+});

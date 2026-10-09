@@ -137,6 +137,7 @@ from game_predictor_worker.snapshots import (
 )
 from game_predictor_worker.storage_gc import StorageGcHandler
 from game_predictor_worker.storage_inventory import StorageInventoryHandler
+from game_predictor_worker.super_game_series import SuperGameSeriesDeriveHandler
 from game_predictor_worker.symbols.lab_candidate_import import LabSymbolCandidateImportHandler
 from game_predictor_worker.symbols.review_backfill import SymbolCellReviewBackfillHandler
 from game_predictor_worker.symbols.review_bulk import SymbolCellReviewBulkHandler
@@ -507,6 +508,7 @@ def main(arguments: Sequence[str] | None = None) -> int:
                 artifact_root,
                 owner_engine,
             ),
+            JobType.SUPER_GAME_SERIES_DERIVE: SuperGameSeriesDeriveHandler(session_factory),
         }
         execution_slot = JobExecutionSlot.GENERAL
     worker = LocalJobWorker(

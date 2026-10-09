@@ -1,7 +1,7 @@
 ---
 title: Game data v2 ownership manifest
 status: accepted
-last_updated: 2026-10-07
+last_updated: 2026-10-09
 ---
 
 # Własność tabel game_data_v2 — TASK-0518
@@ -33,6 +33,22 @@ zamrożonego `game_data_v2_manifest_v2.SHARED`): migracje 0131, 0134 i 0142
 wstawiają do `game_storage_table_manifest` wiersze z
 `sorted(CATALOG | SHARED | GAME_TABLES | CONTROL_TABLES)`, więc te zbiory muszą
 zawierać tylko tabele istniejące w chwili tych migracji.
+## Manifest v6 — serie supergry (TASK-0933, D-535)
+
+`game_data_v2_manifest_v6.py` (migracja `0152_super_game_series`) dodaje do
+`GAME_TABLES` dokładnie cztery tabele klasy `game`:
+`super_game_series`, `super_game_series_generation_rows`,
+`super_game_derivation_state` i `super_game_series_audit_events`. Wszystkie
+mają NOT NULL `game_id`, partycję `LIST (game_id)`, wymuszone RLS
+`game_scope_v1` i FK właściciela do `games`; seria ma dodatkowo FK
+`(game_id, super_symbol_id)` → `symbols`. Migracja tworzy puste partycje
+istniejących gier, wpisuje wiersze manifestu v6 i przestawia
+`game_storage_locations` z v5 na v6; nowa gra dostaje partycje z
+`CREATE_TABLES` v6. Bieżące moduły (routing, cykl życia partycji, katalog,
+`scripts/delete_archived_v2_game.py`) importują v6; v5 pozostaje zamrożony.
+Downgrade odmawia, gdy istnieje zdefiniowany super symbol, wpis audytu albo
+niezakończony job wyprowadzania; wiersze wyprowadzone są odtwarzalne.
+
 Tabele `management_*` należą do niezależnej kontroli zarządzania
 (`management_manifest.py`, wersja `management-control-plane-v2`), wszystkie `shared`
 w schemacie `public`; w metadanych ORM mają klucze `public.<tabela>`.
@@ -161,6 +177,10 @@ w schemacie `public`; w metadanych ORM mają klucze `public.<tabela>`.
 | `storage_usage_snapshots` | shared | — |
 | `symbol_model_iterations` | game | `games`, `jobs`, `verified_training_cohorts` |
 | `symbol_reference_images` | game | `games`, `image_review_items`, `recognized_boards`, `symbols` (FK do `cell_observations` usunięty w `0132`) |
+| `super_game_derivation_state` | game | `games` |
+| `super_game_series` | game | `games`, `symbols` |
+| `super_game_series_audit_events` | game | `games` |
+| `super_game_series_generation_rows` | game | `games` |
 | `symbols` | catalog | `games` |
 | `verified_training_cohort_cells` | game | `image_review_items`, `image_source_geometry_revisions`, `image_symbol_review_cells`, `recognized_boards`, `source_images`, `verified_training_cohorts` |
 | `verified_training_cohort_items` | game | `image_review_items`, `jobs`, `recognized_boards`, `source_images`, `verified_training_cohorts` |

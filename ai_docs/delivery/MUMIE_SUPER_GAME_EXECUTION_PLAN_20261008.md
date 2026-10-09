@@ -280,7 +280,10 @@ poza zakresem tego planu jako osobna, większa zmiana kontraktu.
 - **TASK-0933** — tabela `super_game_series`, wyprowadzanie serii, job, API.
 - **TASK-0934** — sekcja „Supergry” w Adminie z karuzelą i zapisem CAS.
 - **TASK-0935** — złote oznaczenie serii w wyszukiwaniu plansz (Admin,
-  Reviewer, panel zarządzania tylko znacznik).
+  Reviewer, panel zarządzania tylko znacznik). Dostarcza też pole
+  `superGameState` na poziomie odpowiedzi wyszukiwania plansz i przybliżonej
+  wygranej (przesunięte z TASK-0933, decyzja leada 2026-10-09 po audycie
+  Codex; TASK-0933 daje trasę `…/super-game-series/state`).
 
 ### Etap S-C — wypłaty serii i prognoza w Adminie
 

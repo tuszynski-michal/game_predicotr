@@ -23,6 +23,7 @@ from alembic import command
 from alembic.config import Config
 from game_predictor_api.domain.grid_shadow import shadow_digest
 from game_predictor_api.domain.jobs import JobStatus, JobType, create_job
+from game_predictor_api.storage.game_data_v2_manifest_v6 import VERSION
 from game_predictor_api.storage.game_partition_lifecycle import partition_name
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 from game_predictor_api.storage.grid_shadow import SqlAlchemyGridShadowRepository
@@ -275,7 +276,7 @@ def test_publisher_waits_for_game_before_acquiring_source_during_reset() -> None
         assert result.output_checksum_sha256 == shadow_digest(args["output"])
 
 
-def test_new_games_receive_manifest_v5_parent_and_child_policy() -> None:
+def test_new_games_receive_current_manifest_parent_and_child_policy() -> None:
     with application_role_database("t0805", ("shadow-a", "shadow-b")) as database:
         a, b = database.games["shadow-a"], database.games["shadow-b"]
         parent = "image_geometry_shadow_results"
@@ -289,7 +290,7 @@ def test_new_games_receive_manifest_v5_parent_and_child_policy() -> None:
                 .scalars()
                 .all()
             )
-            assert versions == ["game-data-v2-manifest-v5"] * 2
+            assert versions == [VERSION] * 2
             policies = connection.execute(
                 text("""SELECT c.relname, c.relrowsecurity,
                 c.relforcerowsecurity, count(p.oid) FROM pg_class c

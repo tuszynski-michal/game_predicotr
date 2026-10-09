@@ -145,6 +145,7 @@ from game_predictor_api.storage.models import (
     SymbolModelIterationModel,
     VerifiedTrainingCohortCellModel,
 )
+from game_predictor_api.storage.super_game_input_version import record_super_game_input_change
 from game_predictor_api.storage.symbol_cell_source_visibility import (
     current_source_visibilities,
     pinned_visibility_geometry,
@@ -3240,6 +3241,9 @@ class SymbolCellReviewWriteThroughCoordinator:
         if state.game_id not in marker.game_ids:
             state.catalog_revision += 1
             marker.game_ids.add(state.game_id)
+            # The super game derivation input changes with every cell write
+            # (TASK-0933); recorded in this same transaction.
+            record_super_game_input_change(self._session, state.game_id, source="symbol_cells")
 
     @staticmethod
     def _mark_integrity_failure(
@@ -4640,6 +4644,7 @@ class SqlAlchemyImageSymbolReviewRepository:
             state.count_projection_status = "ready"
             state.count_projection_failure_message = None
         state.catalog_revision += 1
+        record_super_game_input_change(self._session, game_id, source="symbol_cell_backfill")
         state.cell_count = self._current_selected_cell_count(game_id)
         state.missing_sequence_count = 0
         state.invalid_crop_count = 0

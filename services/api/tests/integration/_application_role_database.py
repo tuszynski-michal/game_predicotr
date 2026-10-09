@@ -25,7 +25,7 @@ from game_predictor_api.storage.database_roles import (
     ApplicationRoleSpec,
     provision_application_role,
 )
-from game_predictor_api.storage.game_data_v2_manifest_v5 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v6 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,

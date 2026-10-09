@@ -27,7 +27,7 @@ from game_predictor_api.domain.board_render_manifests import sha256_canonical_js
 from game_predictor_api.domain.image_geometry_v2 import canonical_json_bytes
 from game_predictor_api.domain.rules import RulesVersionStatus
 from game_predictor_api.storage.database import GameStorageSession
-from game_predictor_api.storage.game_data_v2_manifest_v5 import CREATE_TABLES
+from game_predictor_api.storage.game_data_v2_manifest_v6 import CREATE_TABLES
 from game_predictor_api.storage.game_partition_lifecycle import (
     GamePartitionLifecycleKind,
     GamePartitionLifecycleRepository,

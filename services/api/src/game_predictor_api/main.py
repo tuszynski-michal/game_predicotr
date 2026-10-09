@@ -34,6 +34,7 @@ from game_predictor_api.api.management_public_structure import (
 from game_predictor_api.api.management_sessions import create_management_sessions_router
 from game_predictor_api.api.management_stakes import create_management_stake_router
 from game_predictor_api.api.router import create_api_router
+from game_predictor_api.api.super_game_series import create_super_game_series_router
 from game_predictor_api.application.board_cell_geometry_pending import (
     BoardCellGeometryPendingService,
     ManagedBoardCellProcessingManifestStore,
@@ -182,6 +183,7 @@ from game_predictor_api.application.semi_automatic_image_selections import (
 )
 from game_predictor_api.application.storage_capacity import StorageCapacityGuard
 from game_predictor_api.application.storage_gc import StorageGcArtifactStore, StorageGcService
+from game_predictor_api.application.super_game_series import SuperGameSeriesService
 from game_predictor_api.application.symbol_model_iterations import SymbolModelIterationService
 from game_predictor_api.application.symbol_model_registry import SymbolModelRegistryService
 from game_predictor_api.application.symbol_references import (
@@ -285,6 +287,11 @@ from game_predictor_api.domain.rules import (
 )
 from game_predictor_api.domain.storage_capacity import GIB, StorageCapacityPolicy
 from game_predictor_api.domain.storage_retention import StorageRetentionPolicy
+from game_predictor_api.domain.super_game_series import (
+    SuperGameSeriesConflictError,
+    SuperGameSeriesError,
+    SuperGameSeriesNotFoundError,
+)
 from game_predictor_api.security.local_admin import (
     ADMIN_CONFIRMATION_HEADER,
     ADMIN_INTENT_HEADER,
@@ -447,6 +454,9 @@ from game_predictor_api.storage.semi_automatic_image_selection_repository import
     SqlAlchemySemiAutomaticSelectionRepository,
 )
 from game_predictor_api.storage.storage_gc_repository import SqlAlchemyStorageGcRepository
+from game_predictor_api.storage.super_game_series_repository import (
+    SqlAlchemySuperGameSeriesRepository,
+)
 from game_predictor_api.storage.symbol_cell_training_source_repository import (
     SqlAlchemySymbolCellTrainingSourceRepository,
 )
@@ -614,6 +624,7 @@ def create_app(
     remote_manual_selection_control_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_transfer_service_dependency: Callable[..., object] | None = None,
     remote_manual_selection_recovery_service_dependency: Callable[..., object] | None = None,
+    super_game_series_service_dependency: Callable[..., object] | None = None,
 ) -> FastAPI:
     resolved_settings = settings or get_settings()
     custom_service_dependency_supplied = any(
@@ -673,6 +684,7 @@ def create_app(
             remote_manual_selection_control_service_dependency,
             remote_manual_selection_transfer_service_dependency,
             remote_manual_selection_recovery_service_dependency,
+            super_game_series_service_dependency,
         )
     )
     database_engine = create_database_engine(resolved_settings)
@@ -1991,6 +2003,7 @@ def create_app(
             or (expected is not None and expected_asset is not None and expected != expected_asset)
         ):
             raise invalid_access()
+
         # Plain metadata sessions never implicitly bind all assigned games.
         def plain_session() -> Session:
             return Session(database_engine)
@@ -2076,6 +2089,36 @@ def create_app(
             view_dependency=resolved_board_search_board_view_dependency,
             artifact_root=resolved_settings.artifact_root,
         )
+    )
+
+    def default_super_game_series_service_dependency() -> Iterator[SuperGameSeriesService]:
+        with session_factory() as session:
+            try:
+                yield SuperGameSeriesService(SqlAlchemySuperGameSeriesRepository(session))
+                session.commit()
+            except BaseException:
+                session.rollback()
+                raise
+
+    @application.exception_handler(SuperGameSeriesError)
+    async def handle_super_game_series_error(
+        _request: Request, error: SuperGameSeriesError
+    ) -> JSONResponse:
+        status_code = 422
+        if isinstance(error, SuperGameSeriesNotFoundError):
+            status_code = 404
+        elif isinstance(error, SuperGameSeriesConflictError):
+            status_code = 409
+        return JSONResponse(
+            status_code=status_code,
+            content={"code": error.code, "message": error.message, "details": error.details},
+        )
+
+    application.include_router(
+        create_super_game_series_router(
+            super_game_series_service_dependency or default_super_game_series_service_dependency
+        ),
+        prefix="/api/v1",
     )
 
     application.state.database_engine = database_engine

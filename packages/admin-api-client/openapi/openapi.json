@@ -15447,6 +15447,9 @@
                 "$ref": "#/components/schemas/StoragePipelineCompactionJobPayload"
               },
               {
+                "$ref": "#/components/schemas/SuperGameSeriesDeriveJobPayload"
+              },
+              {
                 "$ref": "#/components/schemas/PendingSymbolReinferenceJobPayload"
               },
               {
@@ -15571,7 +15574,8 @@
           "image_geometry_rollout_backfill",
           "storage_gc",
           "storage_inventory",
-          "storage_pipeline_compaction"
+          "storage_pipeline_compaction",
+          "super_game_series_derive"
         ],
         "title": "JobType",
         "type": "string"
@@ -25089,6 +25093,14 @@
         "title": "RulesVersionUpdate",
         "type": "object"
       },
+      "RunVerification": {
+        "enum": [
+          "verified",
+          "unverified"
+        ],
+        "title": "RunVerification",
+        "type": "string"
+      },
       "SaveUnreadableBoardCellRequest": {
         "additionalProperties": false,
         "description": "One exact visible cell decision supplied by the board workspace.",
@@ -26653,6 +26665,14 @@
         "title": "SequenceRangeValueResponse",
         "type": "object"
       },
+      "SeriesCompleteness": {
+        "enum": [
+          "complete",
+          "incomplete"
+        ],
+        "title": "SeriesCompleteness",
+        "type": "string"
+      },
       "ShapeGeometryReadinessResponse": {
         "additionalProperties": false,
         "properties": {
@@ -27381,6 +27401,418 @@
           "label"
         ],
         "title": "SuperGameKindResponse",
+        "type": "object"
+      },
+      "SuperGameSeriesBoardResponse": {
+        "additionalProperties": false,
+        "description": "One position of a series in the board-search result format.\n\nThe board fields are those of a board-search result\n(``assetMode`` … ``boardChecksumSha256``); they are ``null`` and\n``missing`` is ``true`` when the position has no board.",
+        "properties": {
+          "assetMode": {
+            "anyOf": [
+              {
+                "const": "operational_review",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Assetmode"
+          },
+          "boardChecksumSha256": {
+            "anyOf": [
+              {
+                "pattern": "^[0-9a-f]{64}$",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Boardchecksumsha256"
+          },
+          "importJobId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Importjobid"
+          },
+          "missing": {
+            "title": "Missing",
+            "type": "boolean"
+          },
+          "recognizedBoardId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Recognizedboardid"
+          },
+          "reviewItemId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reviewitemid"
+          },
+          "role": {
+            "enum": [
+              "trigger",
+              "retrigger",
+              "spin"
+            ],
+            "title": "Role",
+            "type": "string"
+          },
+          "sequenceNumber": {
+            "minimum": 1.0,
+            "title": "Sequencenumber",
+            "type": "integer"
+          },
+          "spinIndex": {
+            "anyOf": [
+              {
+                "minimum": 1.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Spinindex"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "enum": [
+                  "pending",
+                  "accepted",
+                  "corrected"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status"
+          }
+        },
+        "required": [
+          "sequenceNumber",
+          "role",
+          "missing",
+          "assetMode",
+          "reviewItemId",
+          "recognizedBoardId",
+          "importJobId",
+          "status"
+        ],
+        "title": "SuperGameSeriesBoardResponse",
+        "type": "object"
+      },
+      "SuperGameSeriesBoardsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "boards": {
+            "items": {
+              "$ref": "#/components/schemas/SuperGameSeriesBoardResponse"
+            },
+            "title": "Boards",
+            "type": "array"
+          },
+          "series": {
+            "$ref": "#/components/schemas/SuperGameSeriesResponse"
+          },
+          "superGameState": {
+            "$ref": "#/components/schemas/SuperGameStateResponse"
+          }
+        },
+        "required": [
+          "series",
+          "boards",
+          "superGameState"
+        ],
+        "title": "SuperGameSeriesBoardsResponse",
+        "type": "object"
+      },
+      "SuperGameSeriesDeriveJobPayload": {
+        "additionalProperties": false,
+        "description": "Payload of a super game series derivation (TASK-0933); queued per game.",
+        "properties": {
+          "reason": {
+            "maxLength": 64,
+            "minLength": 1,
+            "title": "Reason",
+            "type": "string"
+          },
+          "requestId": {
+            "format": "uuid",
+            "title": "Requestid",
+            "type": "string"
+          },
+          "schemaVersion": {
+            "const": 1,
+            "default": 1,
+            "title": "Schemaversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "reason",
+          "requestId"
+        ],
+        "title": "SuperGameSeriesDeriveJobPayload",
+        "type": "object"
+      },
+      "SuperGameSeriesDeriveResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "deduplicated": {
+            "title": "Deduplicated",
+            "type": "boolean"
+          },
+          "jobId": {
+            "format": "uuid",
+            "title": "Jobid",
+            "type": "string"
+          },
+          "superGameState": {
+            "$ref": "#/components/schemas/SuperGameStateResponse"
+          }
+        },
+        "required": [
+          "jobId",
+          "deduplicated",
+          "superGameState"
+        ],
+        "title": "SuperGameSeriesDeriveResponse",
+        "type": "object"
+      },
+      "SuperGameSeriesListResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SuperGameSeriesResponse"
+            },
+            "title": "Items",
+            "type": "array"
+          },
+          "nextCursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nextcursor"
+          },
+          "superGameKind": {
+            "title": "Supergamekind",
+            "type": "string"
+          },
+          "superGameState": {
+            "$ref": "#/components/schemas/SuperGameStateResponse"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor",
+          "superGameKind",
+          "superGameState"
+        ],
+        "title": "SuperGameSeriesListResponse",
+        "type": "object"
+      },
+      "SuperGameSeriesResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "completeness": {
+            "$ref": "#/components/schemas/SeriesCompleteness"
+          },
+          "definedAt": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definedat"
+          },
+          "definedBy": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Definedby"
+          },
+          "endSequenceNumber": {
+            "minimum": 2.0,
+            "title": "Endsequencenumber",
+            "type": "integer"
+          },
+          "gameId": {
+            "format": "uuid",
+            "title": "Gameid",
+            "type": "string"
+          },
+          "id": {
+            "format": "uuid",
+            "title": "Id",
+            "type": "string"
+          },
+          "length": {
+            "minimum": 1.0,
+            "title": "Length",
+            "type": "integer"
+          },
+          "retriggerSequenceNumbers": {
+            "items": {
+              "type": "integer"
+            },
+            "title": "Retriggersequencenumbers",
+            "type": "array"
+          },
+          "revision": {
+            "minimum": 0.0,
+            "title": "Revision",
+            "type": "integer"
+          },
+          "runVerification": {
+            "$ref": "#/components/schemas/RunVerification"
+          },
+          "startSequenceNumber": {
+            "minimum": 2.0,
+            "title": "Startsequencenumber",
+            "type": "integer"
+          },
+          "superSymbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Supersymbolid"
+          },
+          "triggerSequenceNumber": {
+            "minimum": 1.0,
+            "title": "Triggersequencenumber",
+            "type": "integer"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "title": "Updatedat",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "gameId",
+          "triggerSequenceNumber",
+          "startSequenceNumber",
+          "endSequenceNumber",
+          "length",
+          "retriggerSequenceNumbers",
+          "completeness",
+          "runVerification",
+          "superSymbolId",
+          "definedBy",
+          "definedAt",
+          "revision",
+          "updatedAt"
+        ],
+        "title": "SuperGameSeriesResponse",
+        "type": "object"
+      },
+      "SuperGameStateResponse": {
+        "additionalProperties": false,
+        "description": "Freshness of the published series, always derived from the two versions.",
+        "properties": {
+          "fresh": {
+            "title": "Fresh",
+            "type": "boolean"
+          },
+          "generationInputVersion": {
+            "anyOf": [
+              {
+                "minimum": 0.0,
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Generationinputversion"
+          },
+          "inputVersion": {
+            "minimum": 0.0,
+            "title": "Inputversion",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "fresh",
+          "inputVersion"
+        ],
+        "title": "SuperGameStateResponse",
+        "type": "object"
+      },
+      "SuperSymbolUpdate": {
+        "additionalProperties": false,
+        "properties": {
+          "expectedRevision": {
+            "minimum": 0.0,
+            "title": "Expectedrevision",
+            "type": "integer"
+          },
+          "symbolId": {
+            "anyOf": [
+              {
+                "format": "uuid",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Symbolid"
+          }
+        },
+        "required": [
+          "symbolId",
+          "expectedRevision"
+        ],
+        "title": "SuperSymbolUpdate",
         "type": "object"
       },
       "SymbolCellPreviewBatchRequest": {
@@ -38011,6 +38443,459 @@
         "summary": "Create draft rules version",
         "tags": [
           "rules"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/super-game-series": {
+      "get": {
+        "operationId": "listSuperGameSeries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "completeness",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/SeriesCompleteness"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Completeness"
+            }
+          },
+          {
+            "in": "query",
+            "name": "runVerification",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "$ref": "#/components/schemas/RunVerification"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Runverification"
+            }
+          },
+          {
+            "in": "query",
+            "name": "defined",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Defined"
+            }
+          },
+          {
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 9,
+                  "pattern": "^[0-9]+$",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuperGameSeriesListResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or series not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision conflict or projection not ready"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "List published super game series of a game",
+        "tags": [
+          "super-game-series"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/super-game-series/derive": {
+      "post": {
+        "operationId": "deriveSuperGameSeries",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuperGameSeriesDeriveResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or series not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision conflict or projection not ready"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Queue (or reuse the queued) super game series derivation job",
+        "tags": [
+          "super-game-series"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/super-game-series/state": {
+      "get": {
+        "operationId": "getSuperGameSeriesState",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuperGameStateResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or series not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision conflict or projection not ready"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Freshness of the published super game series",
+        "tags": [
+          "super-game-series"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/super-game-series/{series_id}/boards": {
+      "get": {
+        "operationId": "listSuperGameSeriesBoards",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuperGameSeriesBoardsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or series not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision conflict or projection not ready"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "summary": "Boards of one series from the trigger to the last spin",
+        "tags": [
+          "super-game-series"
+        ]
+      }
+    },
+    "/api/v1/admin/games/{game_id}/super-game-series/{series_id}/super-symbol": {
+      "put": {
+        "operationId": "setSuperGameSeriesSuperSymbol",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "game_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Game Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "format": "uuid",
+              "title": "Series Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SuperSymbolUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SuperGameSeriesResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Local Admin security guard rejected the request"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Game or series not found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Revision conflict or projection not ready"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            },
+            "description": "Validation error"
+          }
+        },
+        "security": [
+          {
+            "LocalAdminIntent": []
+          }
+        ],
+        "summary": "Define or clear the super symbol of a series (compare-and-set)",
+        "tags": [
+          "super-game-series"
         ]
       }
     },

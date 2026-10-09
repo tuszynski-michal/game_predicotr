@@ -29,6 +29,7 @@ from game_predictor_api.storage.models import (
     MobileReleaseModel,
     SourceImageModel,
 )
+from game_predictor_api.storage.super_game_input_version import record_super_game_input_change
 
 
 class SqlAlchemyCleanupRepository(CleanupRepository):
@@ -265,6 +266,9 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
         parameters = {"game_id": snapshot.target_id}
         for statement in _GAME_RESET_STATEMENTS:
             self._session.execute(text(statement), parameters)
+        record_super_game_input_change(
+            self._session, snapshot.target_id, source="game_layout_reset"
+        )
         self._record(result)
 
     def _game_has_grid_shadow_history(self, game_id: UUID) -> bool:
@@ -899,6 +903,10 @@ class SqlAlchemyCleanupRepository(CleanupRepository):
             "DELETE FROM image_board_search_projection_states WHERE game_id = :game_id",
             game_id=scope.game_id,
         )
+        # Deleting boards, cells and prediction revisions changes the super
+        # game derivation input; recorded in this cleanup transaction, after the
+        # symbol-review state row (same lock order as the cell write-through).
+        record_super_game_input_change(self._session, scope.game_id, source="board_source_cleanup")
         for job_id, execution_key in scope.source_job_execution_pairs:
             self._session.execute(
                 text(
@@ -1278,6 +1286,12 @@ _GAME_RESET_STATEMENTS = (
     """DELETE FROM paylines WHERE rules_version_id IN
        (SELECT id FROM rules_versions WHERE game_id = :game_id)""",
     "DELETE FROM rules_versions WHERE game_id = :game_id",
+    # TASK-0933: derived series reference symbols (super symbol); the audit and
+    # working rows go with them. The derivation state row stays: its input
+    # version only grows, so an older running derivation can never publish.
+    "DELETE FROM super_game_series_audit_events WHERE game_id = :game_id",
+    "DELETE FROM super_game_series_generation_rows WHERE game_id = :game_id",
+    "DELETE FROM super_game_series WHERE game_id = :game_id",
     "DELETE FROM symbols WHERE game_id = :game_id",
 )
 

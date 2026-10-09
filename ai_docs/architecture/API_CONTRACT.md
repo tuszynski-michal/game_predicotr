@@ -1343,6 +1343,54 @@ VALIDATION_ERROR
 Konflikty unikalności zwracają `409`, brak zasobu `404`, a walidacja `422`.
 Każda odpowiedź błędu ma wspólny kontrakt `code`, `message`, `details`.
 
+## Serie supergry (TASK-0933, D-535)
+
+```text
+GET    /api/v1/admin/games/{gameId}/super-game-series?completeness&runVerification&defined&cursor&limit
+GET    /api/v1/admin/games/{gameId}/super-game-series/state
+POST   /api/v1/admin/games/{gameId}/super-game-series/derive
+GET    /api/v1/admin/games/{gameId}/super-game-series/{seriesId}/boards
+PUT    /api/v1/admin/games/{gameId}/super-game-series/{seriesId}/super-symbol
+```
+
+- `listSuperGameSeries` zwraca `SuperGameSeriesListResponse { items,
+  nextCursor, superGameKind, superGameState }`, posortowane po
+  `triggerSequenceNumber`. Filtry: `completeness` (`complete|incomplete`),
+  `runVerification` (`verified|unverified`), `defined` (`true` = z super
+  symbolem). `cursor` to numer ostatniego triggera poprzedniej strony
+  (cyfry), `limit` 1–200 (domyślnie 50). Seria
+  (`SuperGameSeriesResponse`): `id`, `gameId`, `triggerSequenceNumber`,
+  `startSequenceNumber`, `endSequenceNumber`, `length`,
+  `retriggerSequenceNumbers`, `completeness`, `runVerification`,
+  `superSymbolId`, `definedBy`, `definedAt`, `revision`, `updatedAt`. Gra z
+  `superGameKind = none` zwraca pustą listę.
+- `superGameState { fresh, inputVersion, generationInputVersion }` jest na
+  poziomie odpowiedzi i wynika zawsze z porównania licznika wejścia gry z
+  licznikiem opublikowanej generacji (`fresh = false` od pierwszej zmiany
+  wejścia do publikacji nowej generacji; gra bez supergry jest zawsze
+  świeża). Do czasu publikacji API serwuje ostatnią opublikowaną generację.
+  `getSuperGameSeriesState` zwraca sam ten obiekt.
+- `deriveSuperGameSeries` (202) kolejkuje job `super_game_series_derive`
+  (lane `general`) albo zwraca już zakolejkowany job gry:
+  `SuperGameSeriesDeriveResponse { jobId, deduplicated, superGameState }`.
+  Ten sam job powstaje automatycznie po każdym zapisie zmieniającym wejście.
+- `listSuperGameSeriesBoards` zwraca `SuperGameSeriesBoardsResponse
+  { series, boards, superGameState }`; `boards` obejmuje pozycje
+  `trigger … start + length − 1` (bez pozycji poza `expectedLayoutCount`).
+  Pozycja: `sequenceNumber`, `role` (`trigger|retrigger|spin`),
+  `spinIndex` (1… dla spinów), `missing` oraz pola wyniku wyszukiwania plansz
+  (`assetMode`, `reviewItemId`, `recognizedBoardId`, `importJobId`, `status`,
+  `boardChecksumSha256`), `null` dla `missing: true`. Projekcja wyszukiwania
+  plansz, która nie jest gotowa, daje 409 `BOARD_SEARCH_PROJECTION_INCOMPLETE`.
+- `setSuperGameSeriesSuperSymbol` przyjmuje `SuperSymbolUpdate { symbolId |
+  null, expectedRevision }` i zwraca serię z `revision + 1`, `definedBy`,
+  `definedAt` oraz wpisem audytu. Nieaktualny `expectedRevision` → 409
+  `SUPER_GAME_SERIES_REVISION_CONFLICT` bez zapisu; symbol spoza gry → 422
+  `SUPER_SYMBOL_NOT_FOUND`; Wild, symbol uruchamiający albo zarchiwizowany →
+  422 `SUPER_SYMBOL_NOT_ORDINARY`; nieznana seria (także w grze `none`) → 404
+  `SUPER_GAME_SERIES_NOT_FOUND`. Zapis w stanie nieaktualnym jest dozwolony i
+  przechodzi do nowej generacji po tożsamości serii.
+
 ## Rules versions
 
 Operacje wersji reguł:

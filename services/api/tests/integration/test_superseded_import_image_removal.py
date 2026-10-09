@@ -32,7 +32,7 @@ from _virtual_board_fixtures import (
 from alembic import command
 from alembic.config import Config
 from game_predictor_api.config import ApiSettings
-from game_predictor_api.storage.game_data_v2_manifest_v5 import GAME_TABLES, VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v6 import GAME_TABLES, VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,

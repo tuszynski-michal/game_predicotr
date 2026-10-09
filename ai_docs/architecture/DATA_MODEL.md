@@ -610,6 +610,66 @@ niekompletny; niepełna wersja nie może zostać użyta do wydania.
 
 Reguła nie wskazuje konkretnej payline. Wartość symbol/długość obowiązuje na wszystkich aktywnych paylines.
 
+### Serie supergry (TASK-0933, D-535, migracja `0152`)
+
+Cztery tabele w `game_data_v2`, partycjonowane `LIST (game_id)` z RLS
+`game_scope_v1` (manifest v6, klasa `game`); partycje nowej gry tworzy cykl
+życia partycji, istniejące gry dostają je w migracji.
+
+`super_game_series` — opublikowane serie gry; tożsamość
+`(game_id, trigger_sequence_number)`, unikalna.
+
+| Pole | Typ | Uwagi |
+|---|---|---|
+| game_id, id | UUID | PK `(game_id, id)`; `id` stały dla tożsamości |
+| trigger_sequence_number | integer | pozycja triggera, 1…10 000 000 |
+| start_sequence_number | integer | zawsze `trigger + 1` (CHECK) |
+| length | integer | `10 + 10 × retriggery` dla `wild_super_spins` |
+| retrigger_sequence_numbers | integer[] | numery retriggerów (do 500 000, nie `smallint`) |
+| completeness | varchar(20) | `complete` / `incomplete` (koniec serii poza ostatnią znaną pociętą planszą) |
+| run_verification | varchar(20) | `verified` tylko, gdy trigger i każdy retrigger osiągają próg na komórkach z decyzją człowieka |
+| super_symbol_id | UUID null | FK `(game_id, super_symbol_id)` → `symbols`; zwykły symbol (nie Wild, nie uruchamiający) |
+| defined_by, defined_at | varchar(200), timestamptz null | ostatni zapis super symbolu; oba albo żadne |
+| revision | integer | CAS zapisu super symbolu; wyprowadzanie go nie zmienia |
+| generation_id | UUID | generacja, która ostatnio zapisała wiersz |
+| created_at, updated_at | timestamptz | `updated_at` zmienia się tylko przy zmianie treści serii |
+
+`super_game_series_generation_rows` — wiersze robocze nieopublikowanej
+generacji (`PK (game_id, generation_id, trigger_sequence_number)`, te same
+pola serii bez symbolu). Wybór: ta sama partycja gry co serie, a nie wspólny
+staging, bo wiersze są danymi jednej gry (RLS, usuwanie z grą przez cykl
+życia partycji) i podmiana czyta je w tym samym zakresie gry. Nigdy nie są
+serwowane przez API; start joba usuwa wiersze wcześniejszych, nieopublikowanych
+generacji gry.
+
+`super_game_derivation_state` — `game_id` PK, `input_version bigint`
+(licznik wejścia), `current_generation_id`, `input_version_of_generation`
+(oba albo żadne; `input_version_of_generation ≤ input_version`),
+`updated_at`. Nieaktualność nie jest kolumną: `fresh` wynika zawsze z
+`input_version = input_version_of_generation` (gra z rodzajem `none` jest
+zawsze świeża). Wiersz powstaje przy pierwszym zapisie wejścia (upsert) i
+nie jest usuwany przy resecie danych gry, więc licznik tylko rośnie.
+
+`super_game_series_audit_events` — `event_kind` `super_symbol_defined`
+(poprzedni i nowy symbol, `previous_revision`, `revision = previous + 1`,
+aktor) albo `series_removed` (seria nieobecna w nowej generacji: utrata
+triggera albo pochłonięcie przez wcześniejszą serię; zapisuje poprzedni
+symbol i `generation_id`). Bez FK do serii, aby przeżyć jej usunięcie.
+
+Wejście wyprowadzania: komórki `image_symbol_review_cells` z przypisanym
+symbolem (decyzja człowieka albo predykcja, także plansze `pending`)
+aktywnych elementów przeglądu (`pending`, `accepted`, `corrected`); na
+pozycję liczy się plansza kanoniczna, a bez niej aktywny element o
+najmniejszym `id`. Plansza liczy się tylko po pocięciu: 15 komórek, każda z
+geometrią (`asset_mode <> 'none'`) w bieżącej rewizji geometrii planszy.
+Komórka ma decyzję człowieka, gdy jest `approved` albo ma
+`assignment_source` `human`/`board_decision`. Każdy zapis zmieniający
+wejście (lista `SUPER_GAME_INPUT_WRITE_POINTS` w
+`storage/super_game_input_version.py`) inkrementuje `input_version` w tej
+samej transakcji i kolejkuje co najwyżej jeden job
+`super_game_series_derive` na grę (gra z rodzajem `none` tylko przy zmianie
+rodzaju).
+
 ### dataset_versions
 
 | Pole | Typ | Uwagi |

@@ -275,6 +275,11 @@ import {
   listGridCalibrationProfiles as listGeneratedGridCalibrationProfiles,
   listGridEngineProfiles as listGeneratedGridEngineProfiles,
   listSuperGameKinds as listGeneratedSuperGameKinds,
+  listSuperGameSeries as listGeneratedSuperGameSeries,
+  listSuperGameSeriesBoards as listGeneratedSuperGameSeriesBoards,
+  getSuperGameSeriesState as getGeneratedSuperGameSeriesState,
+  deriveSuperGameSeries as deriveGeneratedSuperGameSeries,
+  setSuperGameSeriesSuperSymbol as setGeneratedSuperGameSeriesSuperSymbol,
   listGridProfileActivations as listGeneratedGridProfileActivations,
   getGridCalibrationCohortDiagnostics as getGeneratedGridCalibrationCohortDiagnostics,
   listCuratedImageImportSources as listGeneratedCuratedImageImportSources,
@@ -462,6 +467,8 @@ import type {
   GameCreate,
   GameShapeGeometryConfiguration,
   GameUpdate,
+  ListSuperGameSeriesData,
+  SuperSymbolUpdate,
   PaylineCreate,
   PaylineUpdate,
   PayoutRuleCreate,
@@ -626,6 +633,16 @@ export type {
   GridEngineProfileResponse,
   GridEngineReportResultResponse,
   SuperGameKindResponse,
+  ListSuperGameSeriesData,
+  RunVerification,
+  SeriesCompleteness,
+  SuperGameSeriesBoardResponse,
+  SuperGameSeriesBoardsResponse,
+  SuperGameSeriesDeriveResponse,
+  SuperGameSeriesListResponse,
+  SuperGameSeriesResponse,
+  SuperGameStateResponse,
+  SuperSymbolUpdate,
   CreateGridCalibrationCandidateResponse,
   CreateGridCalibrationCandidateCommand,
   GeometryCohortDiagnosticsResponse,
@@ -3589,6 +3606,35 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
       updateGeneratedGame({ body, client, path: { game_id: gameId } }),
     listGridEngineProfiles: () => listGeneratedGridEngineProfiles({ client }),
     listSuperGameKinds: () => listGeneratedSuperGameKinds({ client }),
+    // TASK-0933: published super game series of a game (D-535).
+    listSuperGameSeries: (
+      gameId: string,
+      query?: NonNullable<ListSuperGameSeriesData['query']>,
+    ) =>
+      listGeneratedSuperGameSeries({
+        client,
+        path: { game_id: gameId },
+        query,
+      }),
+    getSuperGameSeriesState: (gameId: string) =>
+      getGeneratedSuperGameSeriesState({ client, path: { game_id: gameId } }),
+    deriveSuperGameSeries: (gameId: string) =>
+      deriveGeneratedSuperGameSeries({ client, path: { game_id: gameId } }),
+    listSuperGameSeriesBoards: (gameId: string, seriesId: string) =>
+      listGeneratedSuperGameSeriesBoards({
+        client,
+        path: { game_id: gameId, series_id: seriesId },
+      }),
+    setSuperGameSeriesSuperSymbol: (
+      gameId: string,
+      seriesId: string,
+      body: SuperSymbolUpdate,
+    ) =>
+      setGeneratedSuperGameSeriesSuperSymbol({
+        body,
+        client,
+        path: { game_id: gameId, series_id: seriesId },
+      }),
     archiveGame: (gameId: string) =>
       archiveGeneratedGame({
         client,

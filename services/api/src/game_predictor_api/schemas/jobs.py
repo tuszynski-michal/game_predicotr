@@ -735,6 +735,14 @@ class StoragePipelineCompactionJobPayload(ApiModel):
     mode: Literal["observe_only", "execute"]
 
 
+class SuperGameSeriesDeriveJobPayload(ApiModel):
+    """Payload of a super game series derivation (TASK-0933); queued per game."""
+
+    schema_version: Literal[1] = 1
+    reason: str = Field(min_length=1, max_length=64)
+    request_id: UUID
+
+
 class ImportJobCreate(ApiModel):
     job_type: Literal[JobType.IMPORT]
     game_id: UUID
@@ -806,6 +814,7 @@ JobPayloadResponse = (
     | StorageGcJobPayload
     | StorageInventoryJobPayload
     | StoragePipelineCompactionJobPayload
+    | SuperGameSeriesDeriveJobPayload
     | PendingSymbolReinferenceJobPayload
     | PendingGridReinferenceJobPayload
 )
@@ -1310,6 +1319,8 @@ def _payload_from_domain(job: Job) -> JobPayloadResponse:
         return StorageInventoryJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.STORAGE_PIPELINE_COMPACTION:
         return StoragePipelineCompactionJobPayload.model_validate(job.input_payload)
+    if job.job_type is JobType.SUPER_GAME_SERIES_DERIVE:
+        return SuperGameSeriesDeriveJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_SYMBOL_REINFERENCE:
         return PendingSymbolReinferenceJobPayload.model_validate(job.input_payload)
     if job.job_type is JobType.IMAGE_GRID_REINFERENCE:

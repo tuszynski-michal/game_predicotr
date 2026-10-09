@@ -65,6 +65,7 @@ praktyce (ich taski leżą w `ai_docs/tasks/completed/`).
 
 | Plan (`ai_docs/delivery/…`) | Status planu | Pozostałe taski |
 |---|---|---|
+| `GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (proponowane D-538) | proposed | TASK-0945–0949 (`todo`), gałąź `feat/geometry-correction-revert`, worktree `worktrees/geometry-correction-revert` |
 | `MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` (D-535) | accepted | TASK-0937 (pilot złotej ramki, etap S-D, `blocked` na etykietach operatora), TASK-0939 (narzędzia oszczędzania tokenów, etap T); TASK-0929–0936, 0938 i 0940 ukończone |
 | `VISION_LAB_EXECUTION_PLAN.md` (D-447) | accepted | TASK-0668 (`in_progress`), TASK-0671 (`blocked`), TASK-0672–0678 (`todo`) |
 | `GAME_777_GRID_REVERIFICATION_EXECUTION_PLAN.md` | active | TASK-0645, 0646, 0647 (`blocked`, D-445/D-447) |
@@ -80,6 +81,20 @@ praktyce (ich taski leżą w `ai_docs/tasks/completed/`).
 Sekcja planu Mumie poniżej jest bez zmian względem poprzedniej wersji tego
 pliku; zdanie „Żaden etap nie jest jeszcze uruchomiony” jest historyczne
 (ukończono S-0, S-A, S-B i S-C, patrz sekcje `done` na końcu pliku).
+
+### Plan cofania korekty cięcia siatki (proposed, 2026-10-09)
+
+- `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` i taski
+  TASK-0945–0949 (`todo`) na gałęzi `feat/geometry-correction-revert`,
+  worktree `worktrees/geometry-correction-revert`. Decyzje operatora
+  W1–W6 z 2026-10-09 wpisane w plan (przywrócenie stanu sprzed korekty,
+  tylko ostatnia korekta, lista „Ostatnie korekty” w Reviewerze, migracja
+  `0153`, oba rodzaje korekt, fizyczne usuwanie w przypadku slotu z audytem).
+- Etapy: R1 (TASK-0945–0947, backend), R2 (TASK-0948, Reviewer), R3
+  (TASK-0949, D-538 i odbiór). Start każdego etapu na polecenie operatora.
+  Kod wymagający `0153` nie trafia do gałęzi integracyjnej przed migracją
+  operatora. Slotu 69004 (gra Mumie) agenci nie cofają; robi to operator w
+  Reviewerze po wdrożeniu.
 
 ### Plan Mumie: Wild, supergra, audyt krzyżowy (accepted, 2026-10-08)
 
@@ -725,6 +740,26 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Audyt Codex gpt-6-astra / medium, runda 1: REVISE (`ai_docs/quality/TASK-0939_AUDIT_gpt-6-astra.md`); poprawki wykonane w jednej rundzie (patrz Outcome).
 - Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
 - Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora (usunięte przez leada 2026-10-09; katalogi nie istnieją).
+
+### TASK-0945 — Migracja 0153, status `reverted` i cofnięcie korekty slotu odroczonego (todo)
+
+- Plik zadania: `ai_docs/tasks/0945-geometry-correction-revert-pending-slot.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
+
+### TASK-0946 — Cofnięcie korekty istniejącej planszy (rewizja N + 1 = N − 1) (todo)
+
+- Plik zadania: `ai_docs/tasks/0946-geometry-correction-revert-board-revision.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
+
+### TASK-0947 — API listy, podglądu i cofnięcia korekt geometrii (todo)
+
+- Plik zadania: `ai_docs/tasks/0947-geometry-correction-revert-api.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
+
+### TASK-0948 — Sekcja „Ostatnie korekty” w Reviewerze (todo)
+
+- Plik zadania: `ai_docs/tasks/0948-geometry-correction-revert-reviewer-ui.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
+
+### TASK-0949 — D-538, dokumentacja i odbiór cofania korekt (todo)
+
+- Plik zadania: `ai_docs/tasks/0949-geometry-correction-revert-acceptance.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
 
 ## Ostatnie 10 ukończonych tasków
 

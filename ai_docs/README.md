@@ -91,6 +91,9 @@ domyślnym kontekstem implementacyjnym.
 - [Mumie: Wild, supergra i audyt krzyżowy](delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md)
   — accepted (D-535), etapy P/S-0/S-A–S-D/T, TASK-0929–0939.
 
+- [Cofnięcie korekty cięcia siatki](delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md)
+  — proposed, etapy R1–R3, TASK-0945–0949.
+
 - [Roadmap](delivery/ROADMAP.md)
 - [Milestone 01](delivery/MILESTONE_01_MOCKED_MOBILE.md)
 - [Milestone 01 execution plan](delivery/MILESTONE_01_EXECUTION_PLAN.md)

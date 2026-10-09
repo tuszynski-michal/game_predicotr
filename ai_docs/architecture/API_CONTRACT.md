@@ -1458,7 +1458,7 @@ PUT    /api/v1/admin/games/{gameId}/super-game-series/{seriesId}/super-symbol
 ```
 
 - `listSuperGameSeries` zwraca `SuperGameSeriesListResponse { items,
-  nextCursor, superGameKind, superGameState }`, posortowane po
+  nextCursor, superGameKind, superGameState, counts }`, posortowane po
   `triggerSequenceNumber`. Filtry: `completeness` (`complete|incomplete`),
   `runVerification` (`verified|unverified`), `defined` (`true` = z super
   symbolem). `cursor` to numer ostatniego triggera poprzedniej strony
@@ -1468,6 +1468,10 @@ PUT    /api/v1/admin/games/{gameId}/super-game-series/{seriesId}/super-symbol
   `retriggerSequenceNumbers`, `completeness`, `runVerification`,
   `superSymbolId`, `definedBy`, `definedAt`, `revision`, `updatedAt`. Gra z
   `superGameKind = none` zwraca pustą listę.
+- `counts { total, undefined }` (TASK-0951) to dokładna liczba wszystkich
+  opublikowanych serii gry i serii bez super symbolu, niezależnie od
+  filtrów, kursora i `limit`; pochodzi z tego samego odczytu co strona.
+  Gra `none` zwraca `{ total: 0, undefined: 0 }`.
 - `superGameState { fresh, inputVersion, generationInputVersion }` jest na
   poziomie odpowiedzi i wynika zawsze z porównania licznika wejścia gry z
   licznikiem opublikowanej generacji (`fresh = false` od pierwszej zmiany

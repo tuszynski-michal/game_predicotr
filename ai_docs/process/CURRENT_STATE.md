@@ -44,11 +44,11 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - **Obowiązkowa kolejność dla `apply` manifestu Arbuz < 60%** (sha256 `1e4be8ce…`, 2 703 plansze): nie uruchamiać równolegle z weryfikacją w Adminie ani z jobem przeliczania predykcji. W chwili wpisu nic nie zapisano w bazie. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q3.md`, sekcja „D-464 — biblioteka wzorców symboli, etap A (w toku)”.
 - **Operacje destrukcyjne na danych.** Implementacja mechanizmu destrukcyjnego (GC, cleanup, legacy deletion, `db:reset:local`) nie jest zgodą na jego wykonanie; wymaga osobnego preview i jawnego potwierdzenia. TASK-0517: baza starej gry usunięta, częściowy GC zatrzymany; dalsze usuwanie tylko za jawną zgodą. Źródło: sekcja „TASK-0517 — baza starej gry usunięta, częściowy GC bezpiecznie zatrzymany” w tym pliku.
 - **Rezerwa dysku (D-534, D-530):** twarda rezerwa 5 GiB (domyślnie) dla kopiowania, normalnego pipeline i wznowienia; polityka GC i szacunki przyjęcia bez zmian. Brak migracji ani czyszczenia danych w TASK-0928. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
-- **Gra Mumie jest w statusie `draft`** (profil `grid_profile_mumie_v1`, gra `fea55cc1-ebf4-4cee-b3ab-a520017ed1be`). Operator testuje Wild na drafcie; wyniki planszy w serii są `provisional`, dopóki super symbol nie jest zdefiniowany i generacja serii nie jest świeża (D-537): nie wchodzą do bilansu ani rozpoznanych wypłat. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0843 — Mumie w głównej aplikacji (done: upload i preflight)”; sekcja „TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)” w tym pliku.
+- **Gra Mumie jest w statusie `draft`** (profil `grid_profile_mumie_v1`, gra `fea55cc1-ebf4-4cee-b3ab-a520017ed1be`). Operator testuje Wild na drafcie; wyniki planszy w serii są `provisional`, dopóki super symbol nie jest zdefiniowany i generacja serii nie jest świeża (D-537): nie wchodzą do bilansu ani rozpoznanych wypłat. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0843 — Mumie w głównej aplikacji (done: upload i preflight)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)”.
 - **Modele symboli Mumii:** kandydat V5 odrzucony (10/18 porównań nie przechodzi), etapu TASK-0873 nie uruchamiać z tym kandydatem; obowiązuje baseline R2 RGB. Historycznego CLI `verified_v19` nie uruchamiać (nowy CLI: `scripts/run_mumie_image_import.py`). Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0872 — większy izolowany RGB Mumii (done; candidate rejected)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0843 — Mumie w głównej aplikacji (done: upload i preflight)”.
 - **Plan symboli premium Mumii** (`MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md`, `proposed`) czeka na decyzje operatora; od 2026-10-04 obowiązuje zakres `MUMIE_TRAINING_RESUME_20261004.md`. Zakres Super jest realizowany osobnym planem `MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` (D-535). Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „Hybrydowy silnik siatek V3 — plan zaakceptowany, etap V3-0 w toku (2026-10-01)”.
 - **Plan Mumie (D-535):** start każdego etapu na jawne polecenie operatora; 2026-10-08 operator zezwolił na przejście do etapu S-B bez pytań. Audyt krzyżowy wykonuje subagent Claude z innej rodziny modeli niż wykonawca do czasu zainstalowania i zalogowania CLI `codex`; zastępstwo odnotowuje `Outcome`. Merge i push tylko za zgodą operatora (merge do gałęzi integracyjnej obejmuje push). Źródło: sekcja „Plan Mumie: Wild, supergra, audyt krzyżowy (accepted, 2026-10-08)” w tym pliku.
-- **TASK-0937 (pilot złotej ramki) jest `blocked`:** narzędzie gotowe (v1.7.281), odblokowanie wymaga migracji `0152` na bazie operatora, wyprowadzonej serii, co najmniej 5 zdefiniowanych super symboli i etykiet operatora (co najmniej 30 komórek na wariant wycinka); pomiar, bez zmiany produktu. TASK-0939 (narzędzia oszczędzania tokenów) jest zadaniem z pomiarem. Źródło: sekcja „TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)” w tym pliku.
+- **TASK-0937 (pilot złotej ramki) jest `blocked`:** narzędzie gotowe (v1.7.281), odblokowanie wymaga migracji `0152` na bazie operatora, wyprowadzonej serii, co najmniej 5 zdefiniowanych super symboli i etykiet operatora (co najmniej 30 komórek na wariant wycinka); pomiar, bez zmiany produktu. TASK-0939 (narzędzia oszczędzania tokenów) jest zadaniem z pomiarem. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)”.
 - **Znane odłożone braki bramki jakości (TASK-0940, zielona `npm run quality`):** 3 testy historycznych migracji pomijane z powodem, testy korpusów M5 bez korpusu, test junction tylko w worktree. Cztery stare testy CLI (fixture) padają także na niezmienionym HEAD (TASK-0928). Nie rozszerzać zakresu zadania o ich naprawę bez decyzji. Źródło: sekcja „TASK-0940 — zielona bramka `npm run quality` (done)” w tym pliku; sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
 - **TASK-0645–0647 (reweryfikacja siatek 777) są `blocked`:** D-445 wstrzymała stary weryfikator, D-447 nie upoważnia do uzupełniania slotów historycznego 777 siecią ani do zapisu na żywych danych; wznowienie wymaga osobnej decyzji i korekty planu `GAME_777_GRID_REVERIFICATION_EXECUTION_PLAN.md`.
 - **Usunięcie legacy public store (TASK-0687–0691):** DDL wymaga odrębnej zgody operacyjnej (`guides/LEGACY_PUBLIC_STORE_REMOVAL.md`); TASK-0694/0695/0698 zależą od rozstrzygnięcia sprzecznych zasad (TASK-0698). Plan ma w nagłówku `completed`, a pliki tasków są nadal aktywne: rozbieżność do wyjaśnienia. Źródło: sekcja „TASK-0687 — T08 readiness release V2-only: krytyczna bramka przed T09–T12” w tym pliku.
@@ -731,6 +731,13 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0951 — dokładny licznik serii supergry (done)
+
+- `listSuperGameSeries` zwraca `counts { total, undefined }`: dokładne liczby wszystkich serii gry i serii bez super symbolu, niezależne od filtrów i strony, z tego samego snapshotu. Admin pokazuje „<undefined> z <total> serii bez super symbolu” zamiast `200+`; osobne zapytanie licznika usunięte.
+- Odczyt API Mumii 2026-10-09 (generacja nieświeża): 2553 serie, 4 z super symbolem, 2549 do zdefiniowania.
+- API 10/10, PostgreSQL 3/3, Admin 733/733, typecheck, lint, mypy, `openapi:check` PASS. Bez migracji, zmian danych, usług i push.
+- Outcome: `ai_docs/tasks/completed/0951-super-game-series-exact-counts.md`.
+
 ### TASK-0950 — Management pending modal recovery (done)
 
 - Visible edit/delete dialogs now contain errors and exact retry; failed writes can be closed without losing pending identity. Fields remain locked during active/uncertain writes.
@@ -814,37 +821,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   `services/worker/tests/test_check_decision_links_script.py`.
 - Audyt Codex gpt-6-astra / medium: REVISE (2 × P1, 1 × P2), jedna runda
   poprawek (`ai_docs/quality/TASK-0938_AUDIT_gpt-6-astra.md`).
-
-### TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)
-
-- Commit v1.7.280 / 8629be40e01d49a230ec703d27b89057d37d6d73.
-- `wild_super_spins.evaluate_series_board`: `k` kolumn z X na planszy
-  oryginalnej; przekształcenie tylko przy `k ≥ minimum(X)` (kolumny
-  wypełnione X, przykrycie usuwa symbole pod spodem); linie na planszy
-  rozwiniętej, sztuki na oryginalnej, wygrane liniowe X zastąpione
-  `payout_line(X, k) × liczba linii`; `payout_kind`: w serii `provisional`
-  bez super symbolu, przy nieświeżym stanie (wtedy wszystkie plansze gry,
-  także bazowe — decyzja leada wg planu) albo z jakąkolwiek nieznaną komórką;
-  `exact` tylko dla pełnej planszy. Lustro TS `packages/shared-ts/src/super-game.ts`;
-  16 złotych przypadków `wildSuperSpinsScenario` w Pythonie i TS. D-537.
-- Projekcja per pozycja (`domain/sequence_mode_projection.py`) z zapytania
-  znaczników (jeden snapshot): koszt 0 w serii, trigger z kosztem normalnym;
-  §D sumuje koszt per pozycja, wyniki prowizoryczne poza bilansem z osobną
-  sumą i licznikiem; `superSpinRanges`/`superSpinCost` w podsumowaniu (Admin,
-  udostępnienie, panel, zapisane wyniki); wykres, piny i wkład liczone z tych
-  zakresów; modal pokazuje planszę rozwiniętą i wiersz rozwinięcia.
-  Kalkulator, szczegół planszy i panel czytają w jednym snapshocie
-  `REPEATABLE READ` (dla wszystkich gier; 777 bajt w bajt bez zmian —
-  test regresji ze skrótami z v1.7.279).
-- Audyt Codex gpt-6-astra / high: runda 1 REVISE (3 × P0: koszt darmowych
-  spinów w wykresie i pinach, wkład przy starcie w serii, wspólny snapshot),
-  runda 2 PASS, P2 miniatury zaakceptowane (`ai_docs/quality/TASK-0936_AUDIT_gpt-6-astra*.md`).
-  Worker 118, API 305 + PG 13, shared-ts 65, board-search-ui 94 + 62, Admin
-  733 + 188, Reviewer 240 + 40, klient 105, `openapi:check`, typecheck
-  (mypy 851), lint, format, fixture PASS.
-- Etap S-C zamknięty. Następne: TASK-0938/0939 (etap T), TASK-0937 (pilot,
-  wymaga etykiet operatora).
-
 
 ## Archiwum
 

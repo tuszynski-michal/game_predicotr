@@ -16,6 +16,7 @@ from game_predictor_api.application.super_game_series import (
     PublicationStatus,
     SeriesBoardDocument,
     SuperGameKindParameters,
+    SuperGameSeriesCounts,
     SuperGameSeriesDerivation,
     SuperGameSeriesFilter,
     SuperGameSeriesRecord,
@@ -105,6 +106,12 @@ class MemorySeriesRepository:
             )
             and (filters.defined is None or (row.super_symbol_id is not None) is filters.defined)
         ][:limit]
+
+    def series_counts(self, game_id: UUID) -> SuperGameSeriesCounts:
+        return SuperGameSeriesCounts(
+            total=len(self.series),
+            undefined=sum(row.super_symbol_id is None for row in self.series.values()),
+        )
 
     def get_series(
         self, game_id: UUID, series_id: UUID, *, for_update: bool = False
@@ -202,6 +209,10 @@ def test_list_filters() -> None:
     assert triggers(runVerification="unverified") == [50]
     assert triggers(defined="true") == [90]
     assert triggers(defined="false") == [10, 50]
+    # The counts cover every series of the game, whatever the filters or page.
+    for params in ({}, {"defined": "true", "limit": "1"}, {"completeness": "incomplete"}):
+        counts = client.get(_url(repository), params=params).json()["counts"]
+        assert counts == {"total": 3, "undefined": 2}
     assert client.get(_url(repository), params={"completeness": "x"}).status_code == 422
 
 
@@ -213,6 +224,7 @@ def test_game_without_super_game_lists_nothing_and_is_fresh() -> None:
     client = _client(repository)
     body = client.get(_url(repository)).json()
     assert body["items"] == [] and body["superGameKind"] == "none"
+    assert body["counts"] == {"total": 0, "undefined": 0}
     assert body["superGameState"]["fresh"] is True
     assert client.get(_url(repository, f"/{record.id}/boards")).status_code == 404
 

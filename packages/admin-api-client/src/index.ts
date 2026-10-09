@@ -657,6 +657,7 @@ export type {
   SuperGamePublicMarkerResponse,
   SuperGameSeriesBoardResponse,
   SuperGameSeriesBoardsResponse,
+  SuperGameSeriesCountsResponse,
   SuperGameSeriesDeriveResponse,
   SuperGameSeriesListResponse,
   SuperGameSeriesResponse,

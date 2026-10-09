@@ -1685,9 +1685,10 @@ Lista serii:
   (`verified`/`unverified`) oraz super symbol (z symbolem / do
   zdefiniowania); zmiana filtru zaczyna listę od nowa, a spóźniona odpowiedź
   poprzedniego filtru jest ignorowana,
-- licznik „serii bez super symbolu” liczy się osobnym zapytaniem
-  `defined=false&limit=200`, niezależnie od filtrów listy; przy pełnej stronie
-  pokazuje dolne ograniczenie (`200+`),
+- licznik pokazuje dokładną liczbę serii bez super symbolu i liczbę wszystkich
+  serii („2549 z 2553 serii bez super symbolu”), niezależnie od filtrów listy;
+  wartości pochodzą z `counts` każdej strony listy (TASK-0951), a zapis
+  symbolu przeładowuje listę, więc i licznik,
 - przycisk „Przelicz serie” wywołuje `deriveSuperGameSeries` i pokazuje toast
   z numerem joba (osobny komunikat, gdy job był już zakolejkowany),
 - gdy `superGameState.fresh = false`, nad listą i widokiem serii jest baner

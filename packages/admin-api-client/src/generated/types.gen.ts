@@ -15904,6 +15904,22 @@ export type SuperGameSeriesBoardsResponse = {
 };
 
 /**
+ * SuperGameSeriesCountsResponse
+ *
+ * Exact counts of all published series of the game, independent of filters.
+ */
+export type SuperGameSeriesCountsResponse = {
+  /**
+   * Total
+   */
+  total: number;
+  /**
+   * Undefined
+   */
+  undefined: number;
+};
+
+/**
  * SuperGameSeriesDeriveJobPayload
  *
  * Payload of a super game series derivation (TASK-0933); queued per game.
@@ -15942,6 +15958,7 @@ export type SuperGameSeriesDeriveResponse = {
  * SuperGameSeriesListResponse
  */
 export type SuperGameSeriesListResponse = {
+  counts: SuperGameSeriesCountsResponse;
   /**
    * Items
    */

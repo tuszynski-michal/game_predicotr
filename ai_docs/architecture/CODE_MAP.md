@@ -122,7 +122,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
   - `rules/` (13 plików): PaylinesClient, SavePaylineIntent, SavePaylineResult, savePayline, ArchivePaylineResult, archivePayline, DeletePaylineResult, deletePayline (+73)
   - `semi-automatic-image-selection/` (24 plików): localV7PilotHref, SELECTED_IMAGE_CROP_ATLAS_BATCH_SIZE, SELECTED_IMAGE_CROP_THUMBNAIL_WIDTH, SELECTED_IMAGE_CROP_THUMBNAIL_HEIGHT, SelectedImageCropAtlas, loadSelectedImageCropAtlases, selectedImageCropAtlasPosition, SelectedImageCropSourceSelection (+139)
   - `storage/` (1 plików): StorageWorkspace
-  - `super-games/` (3 plików): SUPER_GAME_SERIES_SHORTCUT_SYMBOL_LIMIT, SuperGameSeriesKeyboardCommand, SuperGameSeriesKeyboardEvent, superGameSeriesShortcutLabel, resolveSuperGameSeriesKeyboardCommand, isSuperGameSeriesTextEntryTarget, isSuperGameSeriesShortcutBlocked, SERIES_PAGE_LIMIT (+76)
+  - `super-games/` (3 plików): SUPER_GAME_SERIES_SHORTCUT_SYMBOL_LIMIT, SuperGameSeriesKeyboardCommand, SuperGameSeriesKeyboardEvent, superGameSeriesShortcutLabel, resolveSuperGameSeriesKeyboardCommand, isSuperGameSeriesTextEntryTarget, isSuperGameSeriesShortcutBlocked, SERIES_PAGE_LIMIT (+72)
   - `symbol-reviews/` (13 plików): SymbolReviewClient, SymbolReviewImportFolder, SymbolReviewProjectionResult, loadSymbolReviewProjection, startSymbolReviewProjection, LoadSymbolReviewPageOptions, LoadSymbolReviewCountsOptions, SymbolReviewCountsResult (+95)
   - `symbols/` (5 plików): SymbolsClient, SaveSymbolIntent, SaveSymbolResult, saveSymbol, DeleteSymbolResult, deleteSymbol, ReorderSymbolsResult, reorderSymbols (+25)
   - `unreadable-board-reviews/` (2 plików): UnreadableBoardReviewClient, loadUnreadableBoardPage, loadUnreadableBoardDetail, loadUnreadableBoardSymbols, saveUnreadableBoard, UnreadableBoardReviewWorkspace
@@ -136,7 +136,7 @@ Panel administracyjny; funkcje w `src/features/<nazwa>/`, trasy w `src/app/`.
 ### Moduły wejściowe i symbole
 
 - `apps/admin/src/features/super-games/super-game-series-workspace.tsx`: SuperGameSeriesClient, SuperGameSeriesWorkspace
-- `apps/admin/src/features/super-games/super-game-series-state.ts`: SERIES_PAGE_LIMIT, UNDEFINED_COUNT_LIMIT, SERIES_STATE_POLL_INTERVAL_MS, CompletenessFilter, RunVerificationFilter, DefinedFilter, SeriesFilters, DEFAULT_SERIES_FILTERS (+67)
+- `apps/admin/src/features/super-games/super-game-series-state.ts`: SERIES_PAGE_LIMIT, SERIES_STATE_POLL_INTERVAL_MS, CompletenessFilter, RunVerificationFilter, DefinedFilter, SeriesFilters, DEFAULT_SERIES_FILTERS, COMPLETENESS_FILTER_OPTIONS (+63)
 
 ### Testy
 

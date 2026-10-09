@@ -2625,6 +2625,7 @@ export type {
   SuperGamePublicMarkerResponse,
   SuperGameSeriesBoardResponse,
   SuperGameSeriesBoardsResponse,
+  SuperGameSeriesCountsResponse,
   SuperGameSeriesDeriveJobPayload,
   SuperGameSeriesDeriveResponse,
   SuperGameSeriesListResponse,

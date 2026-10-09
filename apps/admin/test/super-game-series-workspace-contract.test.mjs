@@ -20,8 +20,9 @@ const navigation = await readFile(
 
 test('lists series with filters, a cursor page button and the undefined counter', () => {
   assert.match(workspace, /listSuperGameSeries\(gameId, seriesListQuery\(/);
-  assert.match(workspace, /undefinedSeriesCountQuery\(\)/);
-  assert.match(workspace, /serii bez super symbolu/);
+  assert.doesNotMatch(workspace, /undefinedSeriesCountQuery/);
+  assert.match(workspace, /undefinedSeriesCountLabel\(list\.counts\)/);
+  assert.match(workspace, /seriesCountsCaption\(list\.counts\)/);
   assert.match(workspace, /data-testid="undefined-series-count"/);
   assert.match(workspace, /Kompletność/);
   assert.match(workspace, /Wiarygodność przebiegu/);

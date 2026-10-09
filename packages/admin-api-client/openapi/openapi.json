@@ -28203,6 +28203,28 @@
         "title": "SuperGameSeriesBoardsResponse",
         "type": "object"
       },
+      "SuperGameSeriesCountsResponse": {
+        "additionalProperties": false,
+        "description": "Exact counts of all published series of the game, independent of filters.",
+        "properties": {
+          "total": {
+            "minimum": 0.0,
+            "title": "Total",
+            "type": "integer"
+          },
+          "undefined": {
+            "minimum": 0.0,
+            "title": "Undefined",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total",
+          "undefined"
+        ],
+        "title": "SuperGameSeriesCountsResponse",
+        "type": "object"
+      },
       "SuperGameSeriesDeriveJobPayload": {
         "additionalProperties": false,
         "description": "Payload of a super game series derivation (TASK-0933); queued per game.",
@@ -28259,6 +28281,9 @@
       "SuperGameSeriesListResponse": {
         "additionalProperties": false,
         "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/SuperGameSeriesCountsResponse"
+          },
           "items": {
             "items": {
               "$ref": "#/components/schemas/SuperGameSeriesResponse"
@@ -28289,7 +28314,8 @@
           "items",
           "nextCursor",
           "superGameKind",
-          "superGameState"
+          "superGameState",
+          "counts"
         ],
         "title": "SuperGameSeriesListResponse",
         "type": "object"

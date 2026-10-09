@@ -42,6 +42,7 @@ from game_predictor_api.application.super_game_series import (
     PublicationStatus,
     SeriesBoardDocument,
     SuperGameKindParameters,
+    SuperGameSeriesCounts,
     SuperGameSeriesFilter,
     SuperGameSeriesRecord,
     SuperSymbolCandidate,
@@ -354,6 +355,16 @@ class SqlAlchemySuperGameSeriesRepository:
             statement = statement.where(SuperGameSeriesModel.super_symbol_id.is_(None))
         statement = statement.order_by(SuperGameSeriesModel.trigger_sequence_number).limit(limit)
         return [_record(model) for model in self._session.scalars(statement)]
+
+    def series_counts(self, game_id: UUID) -> SuperGameSeriesCounts:
+        self._router.bind(self._session, game_id, intent=GameStorageIntent.READ)
+        total, undefined = self._session.execute(
+            select(
+                func.count(),
+                func.count().filter(SuperGameSeriesModel.super_symbol_id.is_(None)),
+            ).where(SuperGameSeriesModel.game_id == game_id)
+        ).one()
+        return SuperGameSeriesCounts(total=int(total), undefined=int(undefined))
 
     def get_series(
         self, game_id: UUID, series_id: UUID, *, for_update: bool = False

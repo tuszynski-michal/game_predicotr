@@ -29,6 +29,7 @@ from game_predictor_api.application.super_game_series import (
     PublicationStatus,
     SeriesBoardDocument,
     SuperGameSeriesDerivation,
+    SuperGameSeriesFilter,
     SuperGameSeriesRecord,
     SuperGameSeriesService,
 )
@@ -267,6 +268,14 @@ def _derive(
         ).derive(fixture.game_id)
 
 
+def _counts(fixture: Fixture) -> tuple[int, int]:
+    """Total and undefined series; a filtered one-row page must not change them."""
+    with fixture.factory() as session, session.begin(), game_storage_scope(fixture.game_id):
+        service = SuperGameSeriesService(SqlAlchemySuperGameSeriesRepository(session))
+        page = service.list(fixture.game_id, filters=SuperGameSeriesFilter(defined=True), limit=1)
+        return page.counts.total, page.counts.undefined
+
+
 def _series(
     fixture: Fixture,
 ) -> list[tuple[int, int, int, tuple[int, ...], str, str, UUID | None, int, UUID]]:
@@ -396,8 +405,10 @@ def test_generation_swap_keeps_identity_symbol_and_audits_removals(fixture: Fixt
     _derive(fixture)
     first = {row[0]: row for row in _series(fixture)}
     assert set(first) == {100, 115, 150}
+    assert _counts(fixture) == (3, 3)
     for trigger in (100, 115, 150):
         _define(fixture, first[trigger][8], fixture.ordinary_symbol, 0)
+    assert _counts(fixture) == (3, 0)
 
     # Re-derivation without changes keeps revision and symbol.
     report = _derive(fixture)
@@ -413,6 +424,7 @@ def test_generation_swap_keeps_identity_symbol_and_audits_removals(fixture: Fixt
     _derive(fixture)
     rows = {row[0]: row for row in _series(fixture)}
     assert set(rows) == {100}
+    assert _counts(fixture) == (1, 0)
     assert rows[100][2] == 130 and rows[100][3] == (108, 115)
     assert rows[100][6] == fixture.ordinary_symbol and rows[100][7] == 1
     assert rows[100][8] == first[100][8]

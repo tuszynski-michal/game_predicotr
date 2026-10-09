@@ -1,7 +1,7 @@
 ---
 title: Decision log — full entries 2026
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 ---
 
 # Decision Log — wpisy 2026
@@ -13,6 +13,36 @@ są zachowane, więc kotwice `#d-nnn-…` działają jak dotychczas. Spis i inde
 [DECISION_INDEX_ARCHIVE.md](DECISION_INDEX_ARCHIVE.md). Nowe wpisy dopisuj na
 początku tego pliku (najnowsze pierwsze), a wiersz indeksu dodaj w
 `DECISION_LOG.md`; szablon wpisu jest w sekcji „Szablon nowej decyzji”.
+
+## D-540 — Przeniesienie aplikacji i bazy na dysk D
+
+- **Date:** 2026-10-10.
+- **Status:** accepted by the operator ("przenieś tą aplikację, jak skończą
+  się wszystkie procesy job"); stage A runs now, stage B1 waits for an empty
+  job queue and for the operator.
+- **Decision:** the application is run from `D:\game_predicotr`; the C
+  checkout is abandoned after acceptance. PostgreSQL moves with the Docker
+  Desktop WSL disk image (Settings → Resources → Advanced → Disk image
+  location), not through `pg_dump`/`pg_restore` and not through a bind mount.
+  The compose project name `game-predictor` makes `docker compose` from D
+  reuse the same container and volume.
+- **Safeguards:** a `pg_dump -Fc` with `--globals-only` roles and a full
+  `pg_restore --file=/dev/null` read before the cutover; an independent
+  SHA-256-verified copy of `docker_data.vhdx` on D after Docker Desktop and
+  WSL are shut down; ignored data directories copied by
+  `scripts/sync_data_directories_to_d.ps1` (Initial/Final modes, SHA-256
+  manifests); every C worktree secured by bundle, binary patches and copies.
+- **Cutover boundary:** stop producers, drain the `general` queue, stop the
+  worker, re-check jobs and leases, write the reference report, compare it
+  with the post-move report before any provisioning or service start.
+- **Boundaries:** no application code or schema changes. Absolute C paths in
+  `jobs.input_payload.source_directory` (173 jobs) and
+  `remote_manual_selection_sessions.host_base_path` (13 sessions) are settled
+  before deleting C; deleting C, test databases and the old disk image each
+  need separate operator consent. Service lifecycle and the Docker Desktop
+  setting stay operator actions.
+- **Source:** ai_docs/delivery/DISK_D_MIGRATION_PLAN_20261009.md (Codex
+  gpt-6.1-sol review, five rounds, final PASS); TASK-0952–0957.
 
 ## D-539 — Wybór maszyny na widoku punktu
 

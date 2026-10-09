@@ -1,7 +1,7 @@
 ---
 title: Przeniesienie aplikacji i bazy na dysk D
-status: proposed
-last_updated: 2026-10-09
+status: accepted
+last_updated: 2026-10-10
 ---
 
 # Przeniesienie aplikacji i bazy na dysk D
@@ -366,8 +366,20 @@ awaryjnej (TASK-0955), pełna ścieżka `git -C` (TASK-0957), skrót w
 Runda 5: `Werdykt: PASS`; wszystkie punkty rundy 4 RESOLVED, brak nowych
 P0/P1/P2. Raport
 `ai_docs/quality/DISK_D_MIGRATION_PLAN_REVIEW_CODEX_20261009_round5.md`.
-PASS dotyczy planu, nie wykonania migracji. Plan czeka na akceptację
-operatora (status `proposed`); przy akceptacji powstaje wpis D-540.
+PASS dotyczy planu, nie wykonania migracji.
+
+## Akceptacja i wykonanie
+
+2026-10-10 operator zaakceptował plan poleceniem „przenieś tą aplikację,
+jak skończą się wszystkie procesy job” (D-540). Elementy możliwe wcześniej
+(etap A) startują od razu; monitoring kolejki jobów co 30 min od 5:00.
+B1 startuje po opróżnieniu kolejki `general` i zakończeniu pracy dwóch
+równoległych sesji Claude Code („Interfejs korekcji siatek plansz”,
+„Cofnięcie zatwierdzenia siatki”), których commity muszą trafić na
+`origin`. Zatrzymanie usług i zmiana lokalizacji obrazu dysku w Docker
+Desktop pozostają czynnościami operatora. Wykonawca: sesja Claude Code na
+`claude-opus-5-5` (zmiana modelu przez operatora); odstępstwa od tabeli
+modeli odnotowuje `Outcome` każdego taska.
 
 ## Przypisanie modeli do zadań
 

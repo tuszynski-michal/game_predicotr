@@ -63,7 +63,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
-### Plan przeniesienia aplikacji i bazy na dysk D (proposed, 2026-10-09)
+### Plan przeniesienia aplikacji i bazy na dysk D (accepted, 2026-10-10)
 
 - `delivery/DISK_D_MIGRATION_PLAN_20261009.md`, TASK-0952–0957 (`todo`),
   gałąź `feat/disk-d-migration-plan`, worktree `worktrees/disk-migration`.
@@ -79,8 +79,9 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 - Pięć rund przeglądu Codex (gpt-6.1-sol, high, tylko odczyt): rundy 1–4
   REVISE, runda 5 PASS; raporty
   `quality/DISK_D_MIGRATION_PLAN_REVIEW_CODEX_20261009_round1–5.md`.
-  Plan czeka na akceptację operatora (D-540 przy akceptacji). Brak
-  implementacji i brak zmian w systemie.
+  Zaakceptowany 2026-10-10 (D-540): etap A w toku; B1 po opróżnieniu
+  kolejki jobów i zakończeniu pracy dwóch równoległych sesji; usługi i
+  Docker Desktop przełącza operator.
 
 ### Plan korekty układu panelu (proposed, 2026-10-09)
 

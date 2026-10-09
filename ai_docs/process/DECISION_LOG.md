@@ -1,7 +1,7 @@
 ---
 title: Architecture decision log — index
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 ---
 
 # Decision Log
@@ -16,8 +16,8 @@ Reguły:
 - Czytaj indeks poniżej oraz pięć najnowszych wpisów w pełnej postaci na końcu
   tego pliku. Pełny wpis otwieraj dopiero, gdy `Relevant docs` taska go wskazuje
   albo gdy indeks nie wystarcza do oceny sprzeczności.
-- Indeks obejmuje 536 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
-  (178 wierszy); starsze (357 wierszy) są w
+- Indeks obejmuje 537 wpisów. Ten plik zawiera wiersze od D-359 wzwyż
+  (179 wierszy); starsze (357 wierszy) są w
   [decisions/DECISION_INDEX_ARCHIVE.md](decisions/DECISION_INDEX_ARCHIVE.md).
   Numery D-416..D-429 występują w dwóch torach (kolizja numeracji); wiersze
   rozróżnia tytuł i kotwica.
@@ -34,6 +34,7 @@ Reguły:
 
 | Nr | Tytuł | Status | Data | Jedno zdanie |
 |---|---|---|---|---|
+| [D-540](decisions/DECISION_LOG_2026.md#d-540--przeniesienie-aplikacji-i-bazy-na-dysk-d) | Przeniesienie aplikacji i bazy na dysk D | accepted | 2026-10-10 | aplikacja z D, baza z obrazem dysku Docker Desktop, kopie i bramki przełączenia według planu DISK_D. |
 | [D-539](decisions/DECISION_LOG_2026.md#d-539--wybór-maszyny-na-widoku-punktu) | Wybór maszyny na widoku punktu | accepted | 2026-10-09 | Punkt otwiera widok; maszyna pozostaje podświetlonym wyborem na tej samej liście. |
 | [D-538](decisions/DECISION_LOG_2026.md#d-538--minimalistyczny-panel-administracyjny-i-jawne-usuwanie-zakresu) | Minimalistyczny Panel Administracyjny i jawne usuwanie zakresu | accepted | 2026-10-09 | Hierarchical compact navigation, explicit bound-preview scope deletion, restored saves; import of panel D-536. |
 | [D-537](decisions/DECISION_LOG_2026.md#d-537--wypłata-planszy-w-serii-supergry-wynik-prowizoryczny-i-koszt-per-pozycja) | Wypłata planszy w serii supergry, wynik prowizoryczny i koszt per pozycja | accepted | 2026-10-09 | plansza na pozycji objętej opublikowaną serią supergry jako jej spin jest liczona oceną planszy serii… |
@@ -218,8 +219,38 @@ Reguły:
 
 # Najnowsze wpisy (pełne kopie)
 
-Poniżej pełne kopie pięciu najnowszych wpisów (D-539, D-538, D-537, D-536, D-535), identyczne z `decisions/DECISION_LOG_2026.md`.
+Poniżej pełne kopie pięciu najnowszych wpisów (D-540, D-539, D-538, D-537, D-536), identyczne z `decisions/DECISION_LOG_2026.md`.
 Przy dodaniu nowego wpisu usuń z tej sekcji najstarszą kopię.
+
+## D-540 — Przeniesienie aplikacji i bazy na dysk D
+
+- **Date:** 2026-10-10.
+- **Status:** accepted by the operator ("przenieś tą aplikację, jak skończą
+  się wszystkie procesy job"); stage A runs now, stage B1 waits for an empty
+  job queue and for the operator.
+- **Decision:** the application is run from `D:\game_predicotr`; the C
+  checkout is abandoned after acceptance. PostgreSQL moves with the Docker
+  Desktop WSL disk image (Settings → Resources → Advanced → Disk image
+  location), not through `pg_dump`/`pg_restore` and not through a bind mount.
+  The compose project name `game-predictor` makes `docker compose` from D
+  reuse the same container and volume.
+- **Safeguards:** a `pg_dump -Fc` with `--globals-only` roles and a full
+  `pg_restore --file=/dev/null` read before the cutover; an independent
+  SHA-256-verified copy of `docker_data.vhdx` on D after Docker Desktop and
+  WSL are shut down; ignored data directories copied by
+  `scripts/sync_data_directories_to_d.ps1` (Initial/Final modes, SHA-256
+  manifests); every C worktree secured by bundle, binary patches and copies.
+- **Cutover boundary:** stop producers, drain the `general` queue, stop the
+  worker, re-check jobs and leases, write the reference report, compare it
+  with the post-move report before any provisioning or service start.
+- **Boundaries:** no application code or schema changes. Absolute C paths in
+  `jobs.input_payload.source_directory` (173 jobs) and
+  `remote_manual_selection_sessions.host_base_path` (13 sessions) are settled
+  before deleting C; deleting C, test databases and the old disk image each
+  need separate operator consent. Service lifecycle and the Docker Desktop
+  setting stay operator actions.
+- **Source:** ai_docs/delivery/DISK_D_MIGRATION_PLAN_20261009.md (Codex
+  gpt-6.1-sol review, five rounds, final PASS); TASK-0952–0957.
 
 ## D-539 — Wybór maszyny na widoku punktu
 
@@ -393,41 +424,3 @@ The integrated head is `0153_merge_compact_super_games`, joining both0152 parent
 - **Boundaries:** pole `superGameState` w odpowiedziach wyszukiwania plansz i
   kalkulacji dostarcza TASK-0935; wypłaty serii TASK-0936; `apply_board_repoint`
   nie jest punktem zapisu (zmienia tylko identyfikatory geometrii).
-
-## D-535 — Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins”
-
-- **Date:** 2026-10-08.
-- **Status:** accepted; plan `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md`
-  (TASK-0929–0939) zaakceptowany przez operatora po czterech przeglądach
-  Codex zakończonych PASS (v1.7.264).
-- **Decision:** dotychczasowy „Joker” nazywa się w UI i dokumentach „Wild”
-  (kolumna `symbols.is_wildcard` zostaje). Symbol dostaje w katalogu gry
-  osobną rolę „Uruchamia supergrę” z progiem 3/4/5 sztuk na pociętej
-  planszy (`super_game_trigger_count`); jego reguły wypłat są wypłatą za
-  liczbę sztuk na planszy, niezależnie od pozycji. Gra ma rodzaj supergry
-  (`super_game_kind`, domyślnie `none`); pierwszy rodzaj `wild_super_spins`:
-  10 darmowych spinów o koszcie 0 na kolejnych pozycjach sekwencji, ≥N
-  symboli uruchamiających w serii przedłuża ją o 10 bez nowego symbolu,
-  super symbol (zwykły symbol wylosowany przez automat, widoczny jako złota
-  ramka) rozwija się na całe kolumny i przykrywa symbole pod sobą, liczy się
-  liczba kolumn (także niesąsiednich) od progu symbolu, wypłata = wypłata
-  liniowa × liczba linii. Mechanika rodzajów jest zaszyta w kodzie w
-  rozszerzalnym rejestrze; operator steruje rolami i rodzajem z Adminu.
-- **Series and data:** serie wyprowadzane deterministycznie z komórek z
-  przypisanym symbolem (także predykcje plansz `pending`), tylko plansze
-  pocięte; sekwencja startuje w trybie bazowym; brakująca plansza w serii
-  jest pusta i zużywa spin. Super symbol definiuje operator ręcznie.
-  Nieaktualność serii wynika z licznika wejścia per gra; wynik planszy serii
-  bez symbolu, w stanie nieaktualnym albo z nieznaną komórką jest
-  prowizoryczny, nie dolnym ograniczeniem. Role w katalogu są niezmienne po
-  publikacji wersji reguł używającej symbolu; testy na drafcie przez wybór
-  wersji reguł w Adminie.
-- **Boundaries:** 777 i 777 v2 bez zmian zachowania (bramka regresji);
-  aplikacja mobilna poza zakresem do odrębnej decyzji; wersjonowanie ról
-  per wersja reguł poza zakresem; trening modelu złotej ramki po pilocie.
-- **Process:** audyt krzyżowy po każdym tasku (TASK-0929 daje skill);
-  operator 2026-10-08 zdecydował, że wszystkie taski wykonuje ta sesja
-  Claude Code przez subagentów według tabeli planu, a audyt Codex jest do
-  czasu dostępności CLI zastępowany niezależnym subagentem Claude z innym
-  modelem niż wykonawca. Etap T (TASK-0938 przed S-B, TASK-0939 równolegle)
-  obniża zużycie tokenów bez obniżania jakości, z pomiarem.

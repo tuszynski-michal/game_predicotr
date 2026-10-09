@@ -23,7 +23,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Wymiana 275 zdjęć Mumii (2026-10-09):** operator zatwierdził usunięcie pełnych zakresów i zażądał trwałej listy zdjęć. [Manifest ze statusami i zakresami](../quality/MUMIE_SOURCE_REPLACEMENT_20261009.md) oraz CSV w tym samym katalogu przypinają nazwy, source/job IDs i stare checksumy. Usunięto pierwsze 55 źródeł (443 plansze, 6645 komórek); 220 źródeł pozostaje. Druga partia zwróciła HTTP 500, bez receiptu; odczyt po błędzie potwierdził 220 źródeł i 1755 plansz. Partie 3–5 niewykonane. Przed kontynuacją zdiagnozować błąd API, sprawdzić rollback artefaktów w magazynie używanym przez działające API i wykonać świeży podgląd; nie obchodzić blokad ani triggerów. Nowa paczka operatora ma zachować dokładne nazwy i zakresy wszystkich 275 zdjęć. Katalog symboli, modele i kohorty pozostają poza zatwierdzonym zakresem. Usług nie restartowano.
+- **Wymiana 275 zdjęć Mumii (2026-10-09): zakończona.** Wszystkie zatwierdzone źródła usunięto przez pięć operacji API: 2198 plansz i 32970 komórek. [Manifest ze statusami i zakresami](../quality/MUMIE_SOURCE_REPLACEMENT_20261009.md) oraz CSV zachowują nazwy, ID i checksumy. TASK-0960 naprawił usuwanie licznika całego importu przy częściowym cleanupie; odtworzono siedem liczników z pozycji kolejki, zachowując 217 accepted reviews. Nowy odczyt: zero wskazanych źródeł, plansz, symboli i pending geometry; pięć receiptów, brak niespójnych liczników. Przygotować nową paczkę 275 zdjęć z identycznymi nazwami/rangami, jako nowy import. Oryginalne foldery i staging zachowano. Nie restartowano usług. Claude audit niedostępny (brak CLI), mypy timeout; ograniczenia zapisano w Outcome TASK-0960.
 
 - **Panel / D-539:** tylko punkt jest poziomem nawigacji; maszyna i stawka to wybór na jego stronie. Zapisane piny każdej stawki mają być widoczne od razu, bez klikania stawki i także przy otwartym edytorze. Plan korekty jest proposed. Wcześniejszego patcha0947 nie traktować jako przetestowanej implementacji.
 
@@ -99,7 +99,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
 
 ### TASK-0947 — czytelny widok punktu (todo)
 
@@ -733,6 +732,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0960 — kolejka po częściowym usuwaniu źródeł (done)
+
+- Przyczyna HTTP500: kasowanie image_review_queue_states całego importu przy pozostających review items. Licznik utrzymuje teraz istniejący trigger, który usuwa go dopiero po ostatniej pozycji.
+- Odtworzono siedem liczników z poprawnych projekcji; nowe wersje unieważniają stare kursory. Zachowano 217 accepted reviews.
+- Usunięto 275 zatwierdzonych źródeł (2198 plansz, 32970 komórek) przez pięć potwierdzonych API batches. Nowy odczyt: zero rekordów celu, brak niespójnych liczników, pięć receiptów.
+- Test PostgreSQL dwóch partii w nowych sesjach: 1 passed; domain/API: 10 passed; Ruff PASS. Mypy dwukrotnie timeout, Claude CLI niedostępny — brief i ograniczenia zapisane, brak deklaracji PASS audytu.
+- Manifest i CSV: `ai_docs/quality/MUMIE_SOURCE_REPLACEMENT_20261009.*`. Task: `ai_docs/tasks/completed/0960-board-source-cleanup-queue-state.md`. Bez restartów, migracji, push i nowego importu.
+
 ### TASK-0950 — Management pending modal recovery (done)
 
 - Visible edit/delete dialogs now contain errors and exact retry; failed writes can be closed without losing pending identity. Fields remain locked during active/uncertain writes.
@@ -816,39 +823,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   `services/worker/tests/test_check_decision_links_script.py`.
 - Audyt Codex gpt-6-astra / medium: REVISE (2 × P1, 1 × P2), jedna runda
   poprawek (`ai_docs/quality/TASK-0938_AUDIT_gpt-6-astra.md`).
-
-### TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)
-
-- Commit v1.7.280 / 8629be40e01d49a230ec703d27b89057d37d6d73.
-- `wild_super_spins.evaluate_series_board`: `k` kolumn z X na planszy
-  oryginalnej; przekształcenie tylko przy `k ≥ minimum(X)` (kolumny
-  wypełnione X, przykrycie usuwa symbole pod spodem); linie na planszy
-  rozwiniętej, sztuki na oryginalnej, wygrane liniowe X zastąpione
-  `payout_line(X, k) × liczba linii`; `payout_kind`: w serii `provisional`
-  bez super symbolu, przy nieświeżym stanie (wtedy wszystkie plansze gry,
-  także bazowe — decyzja leada wg planu) albo z jakąkolwiek nieznaną komórką;
-  `exact` tylko dla pełnej planszy. Lustro TS `packages/shared-ts/src/super-game.ts`;
-  16 złotych przypadków `wildSuperSpinsScenario` w Pythonie i TS. D-537.
-- Projekcja per pozycja (`domain/sequence_mode_projection.py`) z zapytania
-  znaczników (jeden snapshot): koszt 0 w serii, trigger z kosztem normalnym;
-  §D sumuje koszt per pozycja, wyniki prowizoryczne poza bilansem z osobną
-  sumą i licznikiem; `superSpinRanges`/`superSpinCost` w podsumowaniu (Admin,
-  udostępnienie, panel, zapisane wyniki); wykres, piny i wkład liczone z tych
-  zakresów; modal pokazuje planszę rozwiniętą i wiersz rozwinięcia.
-  Kalkulator, szczegół planszy i panel czytają w jednym snapshocie
-  `REPEATABLE READ` (dla wszystkich gier; 777 bajt w bajt bez zmian —
-  test regresji ze skrótami z v1.7.279).
-- Audyt Codex gpt-6-astra / high: runda 1 REVISE (3 × P0: koszt darmowych
-  spinów w wykresie i pinach, wkład przy starcie w serii, wspólny snapshot),
-  runda 2 PASS, P2 miniatury zaakceptowane (`ai_docs/quality/TASK-0936_AUDIT_gpt-6-astra*.md`).
-  Worker 118, API 305 + PG 13, shared-ts 65, board-search-ui 94 + 62, Admin
-  733 + 188, Reviewer 240 + 40, klient 105, `openapi:check`, typecheck
-  (mypy 851), lint, format, fixture PASS.
-- Etap S-C zamknięty. Następne: TASK-0938/0939 (etap T), TASK-0937 (pilot,
-  wymaga etykiet operatora).
-
-
-## Archiwum
-
-- Q4 2026 (od 2026-10-01): `ai_docs/archive/CURRENT_STATE_2026Q4.md`.
-- Q3 2026 i starsze tory: `ai_docs/archive/CURRENT_STATE_2026Q3.md`.

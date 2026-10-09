@@ -6,6 +6,42 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)
+
+- Commit v1.7.280 / 8629be40e01d49a230ec703d27b89057d37d6d73.
+- `wild_super_spins.evaluate_series_board`: `k` kolumn z X na planszy
+  oryginalnej; przekształcenie tylko przy `k ≥ minimum(X)` (kolumny
+  wypełnione X, przykrycie usuwa symbole pod spodem); linie na planszy
+  rozwiniętej, sztuki na oryginalnej, wygrane liniowe X zastąpione
+  `payout_line(X, k) × liczba linii`; `payout_kind`: w serii `provisional`
+  bez super symbolu, przy nieświeżym stanie (wtedy wszystkie plansze gry,
+  także bazowe — decyzja leada wg planu) albo z jakąkolwiek nieznaną komórką;
+  `exact` tylko dla pełnej planszy. Lustro TS `packages/shared-ts/src/super-game.ts`;
+  16 złotych przypadków `wildSuperSpinsScenario` w Pythonie i TS. D-537.
+- Projekcja per pozycja (`domain/sequence_mode_projection.py`) z zapytania
+  znaczników (jeden snapshot): koszt 0 w serii, trigger z kosztem normalnym;
+  §D sumuje koszt per pozycja, wyniki prowizoryczne poza bilansem z osobną
+  sumą i licznikiem; `superSpinRanges`/`superSpinCost` w podsumowaniu (Admin,
+  udostępnienie, panel, zapisane wyniki); wykres, piny i wkład liczone z tych
+  zakresów; modal pokazuje planszę rozwiniętą i wiersz rozwinięcia.
+  Kalkulator, szczegół planszy i panel czytają w jednym snapshocie
+  `REPEATABLE READ` (dla wszystkich gier; 777 bajt w bajt bez zmian —
+  test regresji ze skrótami z v1.7.279).
+- Audyt Codex gpt-6-astra / high: runda 1 REVISE (3 × P0: koszt darmowych
+  spinów w wykresie i pinach, wkład przy starcie w serii, wspólny snapshot),
+  runda 2 PASS, P2 miniatury zaakceptowane (`ai_docs/quality/TASK-0936_AUDIT_gpt-6-astra*.md`).
+  Worker 118, API 305 + PG 13, shared-ts 65, board-search-ui 94 + 62, Admin
+  733 + 188, Reviewer 240 + 40, klient 105, `openapi:check`, typecheck
+  (mypy 851), lint, format, fixture PASS.
+- Etap S-C zamknięty. Następne: TASK-0938/0939 (etap T), TASK-0937 (pilot,
+  wymaga etykiet operatora).
+
+
+## Archiwum
+
+- Q4 2026 (od 2026-10-01): `ai_docs/archive/CURRENT_STATE_2026Q4.md`.
+- Q3 2026 i starsze tory: `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
+
 Archiwum sekcji przeniesionych z `ai_docs/process/CURRENT_STATE.md` przy
 wprowadzeniu okna kroczącego (TASK-0938, wejściowy HEAD `8629be40`). Zakres: 91 sekcji, które zaczynały się w źródle powyżej sekcji „D-470 / D-471” (wiersz 2455), czyli wpisy datowane 2026-10-01 .. 2026-10-09 (IV kwartał).
 Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z pliku

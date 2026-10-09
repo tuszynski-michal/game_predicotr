@@ -734,6 +734,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0960 — kolejka po częściowym usuwaniu źródeł (done)
 
+- Commit: `v1.7.298` — `91ecf6a04a017a5723ea9f8336957221766cf043` (lokalnie, bez push).
 - Przyczyna HTTP500: kasowanie image_review_queue_states całego importu przy pozostających review items. Licznik utrzymuje teraz istniejący trigger, który usuwa go dopiero po ostatniej pozycji.
 - Odtworzono siedem liczników z poprawnych projekcji; nowe wersje unieważniają stare kursory. Zachowano 217 accepted reviews.
 - Usunięto 275 zatwierdzonych źródeł (2198 plansz, 32970 komórek) przez pięć potwierdzonych API batches. Nowy odczyt: zero rekordów celu, brak niespójnych liczników, pięć receiptów.

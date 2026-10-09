@@ -132,3 +132,7 @@ or queue state. Preserve existing cleanup blockers and retry receipts.
   restart, new upload, push or deployment.
 - Photo/range/checksum manifest remains in `ai_docs/quality/`; all 275 rows
   now carry `removed` and their actual batch number.
+
+### Commit
+
+- `v1.7.298` — `91ecf6a04a017a5723ea9f8336957221766cf043` (local main branch; not pushed).

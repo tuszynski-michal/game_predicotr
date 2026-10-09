@@ -444,6 +444,7 @@ import type {
   ImageJobFileRetryRequest,
   ImageGridReviewGeometryCommand,
   ImageGridReviewGeometryPreviewCommand,
+  ImageGridReviewCountsMode,
   ImageGridReviewView,
   ImageImportEnginePolicyPreviewRequest,
   ImageImportEnginePolicyResponse,
@@ -697,6 +698,7 @@ export type {
   GridAuditQueueCountsResponse,
   GridAuditQueueItemResponse,
   GridAuditQueuePageResponse,
+  ImageGridReviewCountsMode,
   ImageGridReviewState,
   ImageGridReviewView,
   ImageSelectionCreate,
@@ -1040,6 +1042,9 @@ export interface ListImageGridReviewsOptions {
   readonly afterCursor?: string;
   readonly beforeCursor?: string;
   readonly limit?: number;
+  // TASK-0961: `correction` computes only `counts.correction`; the other
+  // counters come back as 0.
+  readonly counts?: ImageGridReviewCountsMode;
 }
 
 export interface GetBoardImportCoverageOptions {
@@ -1066,6 +1071,9 @@ export interface ListIncompleteGeometryImagesOptions {
     SourceImageGeometryStatus,
     'geometry_complete'
   >;
+  // TASK-0961: only the four real-gap states in one request; the server
+  // refuses it together with `imageState` or `completenessStatus` (422).
+  readonly gapsOnly?: boolean;
   readonly afterCursor?: string;
   readonly limit?: number;
 }
@@ -2558,6 +2566,9 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
           ...(options.completenessStatus === undefined
             ? {}
             : { completenessStatus: options.completenessStatus }),
+          ...(options.gapsOnly === undefined
+            ? {}
+            : { gapsOnly: options.gapsOnly }),
           ...(options.afterCursor === undefined
             ? {}
             : { afterCursor: options.afterCursor }),
@@ -3084,6 +3095,7 @@ export function createAdminApiClient(options: AdminApiClientOptions) {
             ? {}
             : { beforeCursor: options.beforeCursor }),
           ...(options.limit === undefined ? {} : { limit: options.limit }),
+          ...(options.counts === undefined ? {} : { counts: options.counts }),
         },
       }),
     listGridAuditProposals: (options: ListGridAuditProposalsOptions) =>

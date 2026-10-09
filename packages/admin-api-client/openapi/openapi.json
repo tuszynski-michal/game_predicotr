@@ -7601,6 +7601,12 @@
       "GeometryCompletenessPositionResponse": {
         "additionalProperties": false,
         "properties": {
+          "humanApproved": {
+            "default": false,
+            "description": "True when a human approved the current geometry of the board at this position (approvedGeometryRevision == geometryRevision); false without a board.",
+            "title": "Humanapproved",
+            "type": "boolean"
+          },
           "positionIndex": {
             "maximum": 8.0,
             "minimum": 0.0,
@@ -11580,8 +11586,18 @@
         "title": "ImageGeometrySystemicGuardPolicyJobPayload",
         "type": "object"
       },
+      "ImageGridReviewCountsMode": {
+        "description": "Which counters a grid review page computes (TASK-0961).\n\n``ALL`` keeps the full set (seven aggregate queries over every current\nboard of the game). ``CORRECTION`` computes only ``correction`` — the\nreported boards plus the deferred slots of the D-462 R4 queue — and\nreports every other counter as ``0``; the Reviewer polls the correction\nqueue after every board and must not pay for the full set each time.",
+        "enum": [
+          "all",
+          "correction"
+        ],
+        "title": "ImageGridReviewCountsMode",
+        "type": "string"
+      },
       "ImageGridReviewCountsResponse": {
         "additionalProperties": false,
+        "description": "Counters of the page.\n\nWith `counts=correction` only `correction` is computed; every other\ncounter is 0 and must not be read as an empty queue (TASK-0961).",
         "properties": {
           "approved": {
             "minimum": 0.0,
@@ -15213,6 +15229,11 @@
             "format": "uuid",
             "title": "Gameid",
             "type": "string"
+          },
+          "gapsOnly": {
+            "default": false,
+            "title": "Gapsonly",
+            "type": "boolean"
           },
           "imageState": {
             "anyOf": [
@@ -37011,6 +37032,17 @@
               "title": "Limit",
               "type": "integer"
             }
+          },
+          {
+            "description": "Which counters the page computes. `all` (default) returns the full set. `correction` computes only `counts.correction` (reported boards plus deferred slots) and returns every other counter as 0.",
+            "in": "query",
+            "name": "counts",
+            "required": false,
+            "schema": {
+              "$ref": "#/components/schemas/ImageGridReviewCountsMode",
+              "default": "all",
+              "description": "Which counters the page computes. `all` (default) returns the full set. `correction` computes only `counts.correction` (reported boards plus deferred slots) and returns every other counter as 0."
+            }
           }
         ],
         "responses": {
@@ -47584,6 +47616,18 @@
               "minimum": 1,
               "title": "Limit",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Only images with a real geometry gap: `incomplete_missing`, `incomplete_partial`, `import_failed`, `no_source_geometry` (no `incomplete_uncertain`, no `superseded`). Cannot be combined with `imageState` or `completenessStatus` (422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`).",
+            "in": "query",
+            "name": "gapsOnly",
+            "required": false,
+            "schema": {
+              "default": false,
+              "description": "Only images with a real geometry gap: `incomplete_missing`, `incomplete_partial`, `import_failed`, `no_source_geometry` (no `incomplete_uncertain`, no `superseded`). Cannot be combined with `imageState` or `completenessStatus` (422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`).",
+              "title": "Gapsonly",
+              "type": "boolean"
             }
           }
         ],

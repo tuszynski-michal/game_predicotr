@@ -61,6 +61,7 @@ from game_predictor_api.storage.image_geometry_completeness_repository import (
     GeometrySourceImageAsset,
     IncompleteGeometryImagePage,
     LowQualityBoardsReport,
+    geometry_completeness_filter_conflict,
 )
 from game_predictor_api.storage.image_geometry_completeness_state_repository import (
     SourceImageGeometryException,
@@ -232,6 +233,7 @@ class ImageGeometryCompletenessRepository(Protocol):
         after: GeometryImageCursor | None = None,
         limit: int = MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
         completeness_status: SourceImageGeometryStatus | None = None,
+        gaps_only: bool = False,
     ) -> IncompleteGeometryImagePage | None: ...
 
     def low_quality_boards(
@@ -633,6 +635,7 @@ class OperationalImageReviewService:
         after: GeometryImageCursor | None,
         limit: int,
         completeness_status: SourceImageGeometryStatus | None = None,
+        gaps_only: bool = False,
     ) -> IncompleteGeometryImagePage:
         repository = self._require_geometry_completeness_repository()
         if not 1 <= limit <= MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE:
@@ -645,6 +648,9 @@ class OperationalImageReviewService:
                 "IMAGE_GEOMETRY_COMPLETENESS_STATE_INVALID",
                 "The incomplete image list cannot be filtered by the complete state.",
             )
+        if gaps_only and (image_state is not None or completeness_status is not None):
+            # TASK-0961: no silent choice between the two filters.
+            raise geometry_completeness_filter_conflict()
         page = repository.incomplete_images(
             game_id,
             import_job_id=import_job_id,
@@ -652,6 +658,7 @@ class OperationalImageReviewService:
             after=after,
             limit=limit,
             completeness_status=completeness_status,
+            gaps_only=gaps_only,
         )
         if page is None:
             raise _geometry_completeness_game_not_found()

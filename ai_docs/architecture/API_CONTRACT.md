@@ -3010,6 +3010,32 @@ bieżącej), `null` gdy rewizja nie ma czworokąta. Pole `previewReviewItemId`
 (TASK-0806) zostało usunięte: podgląd każdego zdjęcia, także bez planszy, daje
 endpoint po `sourceImageId`.
 
+**TASK-0961 (realne braki i flaga zatwierdzenia ręcznego):**
+
+```text
+GET /api/v1/admin/image-review-items/geometry-completeness/{gameId}/incomplete-images?gapsOnly=true
+```
+
+Parametr boolowski `gapsOnly` (domyślnie `false`) zawęża listę jednym
+zapytaniem do czterech stanów realnych braków: `incomplete_missing`,
+`incomplete_partial`, `import_failed`, `no_source_geometry` (stała
+`REAL_GAP_IMAGE_STATES` w `domain/image_geometry_completeness.py`). Nie
+obejmuje `incomplete_uncertain` (automatyczna siatka bez potwierdzenia
+człowieka — wyłącznie licznik) ani `superseded`. Połączenie `gapsOnly=true` z
+`imageState` albo `completenessStatus` daje `422
+IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT` (bez cichego wyboru jednego z
+filtrów). Strona odpowiedzi ma pole `gapsOnly` (echo filtra). Kursor i
+sortowanie są takie same jak w liście domyślnej; klasyfikacja D-484 nie
+zmienia się.
+
+Każda pozycja (`positions[]`) ma pole `humanApproved: bool` — `true`, gdy
+człowiek zatwierdził bieżącą geometrię planszy na tej pozycji
+(`approved_geometry_revision == geometry_revision`, ten sam fakt
+`geometry_approved`, który czyta klasyfikator), `false` bez żywej planszy.
+Plansza częściowa zakwalifikowana ręcznie (D-449) pozostaje w stanie `partial`;
+flaga pozwala Reviewerowi domyślnie ukryć zdjęcia, których wszystkie pozycje
+`partial` są już zatwierdzone.
+
 `GET .../images/{sourceImageId}/source` zwraca plik zdjęcia źródłowego (`200`
 `image/jpeg|png|webp`, `Cache-Control: private, immutable, max-age=31536000`).
 Używa tego samego resolvera co `getOperationalImageReviewSourceAsset`
@@ -3283,6 +3309,21 @@ TASK-0727 usunął `POST .../image-reviews/{reviewItemId}/geometry-approval`,
 `POST .../grid-reviews/source-geometry-revisions` (jedynym konsumentem był
 usunięty ekran całego zdjęcia). Lokalny origin Reviewera nie ma ich na
 allowliście.
+
+**TASK-0961 (tanie liczniki korekty):** `GET .../grid-reviews` przyjmuje
+opcjonalny parametr `counts` o wartościach `all` (domyślna, liczniki i
+zachowanie bez zmian) i `correction`. W trybie `correction` odpowiedź ma
+poprawne `counts.correction` (plansze ze zgłoszeniem „Zła siatka” plus sloty
+odroczone bez żywej planszy — D-462 R4, te same predykaty co lista
+`view=correction`), a pozostałe liczniki (`needsValidation`,
+`needsCorrection`, `approved`, `total`, `fullGrids`,
+`lateralPartialProposals`, `confirmedPartialGrids`, `manualCorrection`) są
+równe `0` i nie oznaczają pustej kolejki; opis parametru i schematu
+`ImageGridReviewCountsResponse` w OpenAPI mówi to wprost. Implementacja:
+osobna metoda repozytorium `grid_review_correction_count` (dwa zliczenia
+zamiast siedmiu agregatów `grid_review_counts`), wybierana w
+`ImageGridReviewService.list`. Reviewer woła `counts=correction` po każdej
+planszy w zakresie całej gry.
 
 **D-488 (TASK-0820):** komendy zapisu `image-reviews/{reviewItemId}/geometry-revisions`
 oraz `board-cell-geometry-pending/{pendingId}/manual-resolution` przyjmują

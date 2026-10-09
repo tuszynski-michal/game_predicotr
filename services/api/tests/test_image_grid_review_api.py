@@ -31,6 +31,7 @@ from game_predictor_api.application.virtual_grid_geometry import (
 from game_predictor_api.domain.board_topology import BoardTopology
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewCounts,
+    ImageGridReviewCountsMode,
     ImageGridReviewError,
     ImageGridReviewListFilter,
     ImageGridReviewListItem,
@@ -119,6 +120,8 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
     def __init__(self, items: tuple[ImageGridReviewListItem, ...], source_path: str) -> None:
         self.items = items
         self.source_path = source_path
+        # Which counting method each ``list`` call used (TASK-0961).
+        self.count_calls: list[str] = []
 
     def require_game(self, game_id: UUID) -> None:
         if not self.items or self.items[0].game_id != game_id:
@@ -165,12 +168,10 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
             has_next=bool(visible and self.items[-1].cursor_key > visible[-1].cursor_key),
         )
 
-    def grid_review_counts(
-        self,
-        *,
-        review_filter: ImageGridReviewListFilter,
-    ) -> ImageGridReviewCounts:
-        items = tuple(
+    def _scoped_items(
+        self, review_filter: ImageGridReviewListFilter
+    ) -> tuple[ImageGridReviewListItem, ...]:
+        return tuple(
             item
             for item in self.items
             if review_filter.import_job_id is None
@@ -178,6 +179,14 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
             if review_filter.source_image_id is None
             or item.source_image_id == review_filter.source_image_id
         )
+
+    def grid_review_counts(
+        self,
+        *,
+        review_filter: ImageGridReviewListFilter,
+    ) -> ImageGridReviewCounts:
+        self.count_calls.append("all")
+        items = self._scoped_items(review_filter)
         return ImageGridReviewCounts(
             needs_validation=sum(
                 item.state is ImageGridReviewState.NEEDS_VALIDATION for item in items
@@ -187,6 +196,17 @@ class MemoryGridReviewRepository(ImageGridReviewRepository):
             ),
             approved=sum(item.state is ImageGridReviewState.APPROVED for item in items),
             correction=sum(item.state is ImageGridReviewState.NEEDS_CORRECTION for item in items),
+        )
+
+    def grid_review_correction_count(
+        self,
+        *,
+        review_filter: ImageGridReviewListFilter,
+    ) -> int:
+        self.count_calls.append("correction")
+        return sum(
+            item.state is ImageGridReviewState.NEEDS_CORRECTION
+            for item in self._scoped_items(review_filter)
         )
 
     def get_grid_review_source_asset(
@@ -968,6 +988,67 @@ def test_correction_view_lists_reported_boards_with_their_cells(tmp_path: Path) 
     assert [item["sequenceNumber"] for item in page.json()["items"]] == [3]
     assert page.json()["items"][0]["reportedCellIndices"] == [2, 7]
     assert page.json()["counts"]["correction"] == 1
+
+
+def test_counts_correction_mode_skips_the_full_counters(tmp_path: Path) -> None:
+    """TASK-0961: ``counts=correction`` counts only the queue; the rest is 0."""
+
+    client, repository, items = _client(tmp_path)
+    url = f"/api/v1/admin/games/{items[0].game_id}/grid-reviews"
+
+    cheap = client.get(url, params={"view": "correction", "limit": 1, "counts": "correction"})
+    full = client.get(url, params={"view": "correction", "limit": 1})
+    explicit_all = client.get(url, params={"view": "correction", "limit": 1, "counts": "all"})
+    invalid = client.get(url, params={"view": "correction", "counts": "cheap"})
+
+    assert cheap.status_code == 200, cheap.text
+    assert cheap.json()["counts"] == {
+        "needsValidation": 0,
+        "needsCorrection": 0,
+        "approved": 0,
+        "total": 0,
+        "fullGrids": 0,
+        "lateralPartialProposals": 0,
+        "confirmedPartialGrids": 0,
+        "manualCorrection": 0,
+        "correction": 1,
+    }
+    assert [item["sequenceNumber"] for item in cheap.json()["items"]] == [3]
+    assert full.status_code == 200 and explicit_all.status_code == 200
+    assert full.json()["counts"] == explicit_all.json()["counts"]
+    assert full.json()["counts"]["correction"] == cheap.json()["counts"]["correction"] == 1
+    assert full.json()["counts"]["needsValidation"] == 2
+    assert invalid.status_code == 422
+    assert repository.count_calls == ["correction", "all", "all"]
+
+
+def test_service_counts_mode_selects_the_repository_method() -> None:
+    game_id, import_job_id = uuid4(), uuid4()
+    repository = MemoryGridReviewRepository(
+        (
+            _item(game_id, import_job_id, 1, ImageGridReviewState.NEEDS_CORRECTION),
+            _item(game_id, import_job_id, 2, ImageGridReviewState.APPROVED),
+        ),
+        "sources/source.jpg",
+    )
+    service = ImageGridReviewService(repository)
+    common = {
+        "game_id": game_id,
+        "view": ImageGridReviewView.CORRECTION,
+        "import_job_id": None,
+        "source_image_id": None,
+        "after_cursor": None,
+        "before_cursor": None,
+    }
+
+    cheap = service.list(**common, counts=ImageGridReviewCountsMode.CORRECTION)
+    default = service.list(**common)
+
+    assert cheap.counts == ImageGridReviewCounts(
+        needs_validation=0, needs_correction=0, approved=0, full_grids=0, correction=1
+    )
+    assert default.counts.correction == 1 and default.counts.approved == 1
+    assert repository.count_calls == ["correction", "all"]
 
 
 def test_correction_view_sql_keeps_one_entry_per_board_slot() -> None:

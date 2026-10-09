@@ -32,6 +32,7 @@ from sqlalchemy.orm import Session
 from game_predictor_api.domain.image_geometry_completeness import (
     INCOMPLETE_IMAGE_STATES,
     MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
+    REAL_GAP_IMAGE_STATES,
     SOURCE_IMAGE_GEOMETRY_INCOMPLETE,
     GeometryImageCursor,
     GeometryImageState,
@@ -480,6 +481,11 @@ class GeometryImagePosition:
     reason_code: str | None
     recognized_board_id: UUID | None
     quad: Quad | None
+    # A human approved the board's current geometry (``approved_geometry_revision
+    # == geometry_revision``); ``False`` without a live board (TASK-0961). A
+    # ``partial`` position keeps its state after a manual qualification (D-449),
+    # so this flag is the only sign that it was already handled.
+    human_approved: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -520,6 +526,8 @@ class IncompleteGeometryImagePage:
     images: tuple[IncompleteGeometryImage, ...]
     next_cursor: GeometryImageCursor | None
     completeness_status: SourceImageGeometryStatus | None = None
+    # The page lists only ``REAL_GAP_IMAGE_STATES`` (TASK-0961).
+    gaps_only: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -670,6 +678,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
         after: GeometryImageCursor | None = None,
         limit: int = MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE,
         completeness_status: SourceImageGeometryStatus | None = None,
+        gaps_only: bool = False,
     ) -> IncompleteGeometryImagePage | None:
         if not 1 <= limit <= MAX_GEOMETRY_COMPLETENESS_PAGE_SIZE:
             raise ImageReviewError(
@@ -686,6 +695,8 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 "IMAGE_GEOMETRY_COMPLETENESS_STATUS_INVALID",
                 "The image queue cannot be filtered by the complete status.",
             )
+        if gaps_only and (image_state is not None or completeness_status is not None):
+            raise geometry_completeness_filter_conflict()
         if not self._bind(game_id, import_job_id):
             return None
         params = self._scope_params(game_id, import_job_id)
@@ -693,15 +704,18 @@ class SqlAlchemyImageGeometryCompletenessRepository:
         import_filter = self._import_filter(import_job_id)
         # The default list is "all incomplete": complete and superseded images
         # are left out unless the superseded state is asked for explicitly.
-        # The gate queue (TASK-0807) selects by the persisted status instead;
-        # the classified state then only narrows it further.
+        # ``gaps_only`` (TASK-0961) narrows it to the real gaps, without the
+        # unconfirmed automatic grids. The gate queue (TASK-0807) selects by
+        # the persisted status instead; the classified state then only narrows
+        # it further. State lists are built from enum values, never from input.
         if completeness_status is not None:
             import_filter += " AND s.geometry_completeness_status = :completeness_status"
             params["completeness_status"] = completeness_status.value
             state_filter = "true"
+        elif gaps_only:
+            state_filter = _state_in_sql(REAL_GAP_IMAGE_STATES)
         elif image_state is None:
-            states = ", ".join(f"'{state.value}'" for state in INCOMPLETE_IMAGE_STATES)
-            state_filter = f"image_state IN ({states})"
+            state_filter = _state_in_sql(INCOMPLETE_IMAGE_STATES)
         else:
             state_filter = "true"
         if image_state is not None:
@@ -764,6 +778,7 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                 else None
             ),
             completeness_status=completeness_status,
+            gaps_only=gaps_only,
         )
 
     def source_image_asset(
@@ -924,9 +939,24 @@ class SqlAlchemyImageGeometryCompletenessRepository:
                     reason_code=classification.reason_code,
                     recognized_board_id=row[2],
                     quad=extract_position_quad(row[7] if isinstance(row[7], dict) else None),
+                    # The same ``geometry_approved`` fact the classifier read.
+                    human_approved=bool(row[4]),
                 )
             )
         return {image_id: tuple(positions) for image_id, positions in grouped.items()}
+
+
+def _state_in_sql(states: Sequence[GeometryImageState]) -> str:
+    """``image_state IN (...)`` over enum values (never request input)."""
+
+    return "image_state IN (" + ", ".join(f"'{state.value}'" for state in states) + ")"
+
+
+def geometry_completeness_filter_conflict() -> ImageReviewError:
+    return ImageReviewError(
+        "IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT",
+        "gapsOnly cannot be combined with imageState or completenessStatus.",
+    )
 
 
 def classify_source_images(
@@ -1004,4 +1034,5 @@ __all__ = [
     "LowQualityBoardsReport",
     "SqlAlchemyImageGeometryCompletenessRepository",
     "classify_source_images",
+    "geometry_completeness_filter_conflict",
 ]

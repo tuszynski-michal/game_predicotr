@@ -1496,6 +1496,7 @@ export type {
   ImageGeometryRolloutStatusResponse,
   ImageGeometrySystemicGuardJobProgressResponse,
   ImageGeometrySystemicGuardPolicyJobPayload,
+  ImageGridReviewCountsMode,
   ImageGridReviewCountsResponse,
   ImageGridReviewGeometryCellResponse,
   ImageGridReviewGeometryCommand,

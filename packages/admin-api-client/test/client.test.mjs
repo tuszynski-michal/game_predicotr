@@ -3768,6 +3768,11 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
     gameId,
     imageState: 'superseded',
   });
+  await client.listIncompleteGeometryImages({
+    gameId,
+    gapsOnly: true,
+    limit: 25,
+  });
   await client.getImageGeometryLowQualityBoards({ gameId });
   await client.getImageGeometryLowQualityBoards({
     gameId,
@@ -3777,10 +3782,18 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
     limit: 20,
   });
 
-  assert.equal(requests.length, 7);
+  assert.equal(requests.length, 8);
   const base = `/api/v1/admin/image-review-items/geometry-completeness/${gameId}`;
-  const [report, reportImport, list, listFull, listSuperseded, low, lowFull] =
-    requests.map((request) => new URL(request.url));
+  const [
+    report,
+    reportImport,
+    list,
+    listFull,
+    listSuperseded,
+    listGaps,
+    low,
+    lowFull,
+  ] = requests.map((request) => new URL(request.url));
   assert.equal(report.pathname, base);
   assert.equal(report.search, '');
   assert.equal(reportImport.pathname, base);
@@ -3797,6 +3810,12 @@ test('geometry completeness wrappers pass gameId as path and filters as query pa
   });
   assert.deepEqual(Object.fromEntries(listSuperseded.searchParams.entries()), {
     imageState: 'superseded',
+  });
+  // TASK-0961: the real-gap queue in one request, without `imageState`.
+  assert.equal(listGaps.pathname, `${base}/incomplete-images`);
+  assert.deepEqual(Object.fromEntries(listGaps.searchParams.entries()), {
+    gapsOnly: 'true',
+    limit: '25',
   });
   assert.equal(low.pathname, `${base}/low-quality-boards`);
   assert.equal(low.search, '');
@@ -4004,12 +4023,28 @@ test('listImageGridReviews requests the single correction queue (D-462)', async 
     limit: 1,
     view: 'correction',
   });
+  await client.listImageGridReviews({
+    gameId,
+    limit: 1,
+    view: 'correction',
+    counts: 'correction',
+  });
 
   const url = new URL(requests[0].url);
   assert.equal(url.pathname, `/api/v1/admin/games/${gameId}/grid-reviews`);
   assert.equal(url.searchParams.get('view'), 'correction');
   assert.equal(url.searchParams.get('importJobId'), importJobId);
   assert.equal(url.searchParams.get('limit'), '1');
+  // The default request never sends `counts` (server default `all`).
+  assert.equal(url.searchParams.has('counts'), false);
+  // TASK-0961: the cheap counters mode in the game-wide scope.
+  const cheap = new URL(requests[1].url);
+  assert.equal(cheap.pathname, `/api/v1/admin/games/${gameId}/grid-reviews`);
+  assert.deepEqual(Object.fromEntries(cheap.searchParams.entries()), {
+    view: 'correction',
+    limit: '1',
+    counts: 'correction',
+  });
 });
 
 test('grid-audit proposal wrappers read the queue and one proposal (TASK-0840)', async () => {

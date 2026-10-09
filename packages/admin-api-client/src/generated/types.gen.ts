@@ -4209,6 +4209,12 @@ export type GeometryCompletenessPositionCountResponse = {
  */
 export type GeometryCompletenessPositionResponse = {
   /**
+   * Humanapproved
+   *
+   * True when a human approved the current geometry of the board at this position (approvedGeometryRevision == geometryRevision); false without a board.
+   */
+  humanApproved?: boolean;
+  /**
    * Positionindex
    */
   positionIndex: number;
@@ -6566,7 +6572,25 @@ export type ImageGeometrySystemicGuardPolicyJobPayload = {
 };
 
 /**
+ * ImageGridReviewCountsMode
+ *
+ * Which counters a grid review page computes (TASK-0961).
+ *
+ * ``ALL`` keeps the full set (seven aggregate queries over every current
+ * board of the game). ``CORRECTION`` computes only ``correction`` — the
+ * reported boards plus the deferred slots of the D-462 R4 queue — and
+ * reports every other counter as ``0``; the Reviewer polls the correction
+ * queue after every board and must not pay for the full set each time.
+ */
+export type ImageGridReviewCountsMode = 'all' | 'correction';
+
+/**
  * ImageGridReviewCountsResponse
+ *
+ * Counters of the page.
+ *
+ * With `counts=correction` only `correction` is computed; every other
+ * counter is 0 and must not be read as an empty queue (TASK-0961).
  */
 export type ImageGridReviewCountsResponse = {
   /**
@@ -8611,6 +8635,10 @@ export type IncompleteGeometryImagePageResponse = {
    * Gameid
    */
   gameId: string;
+  /**
+   * Gapsonly
+   */
+  gapsOnly?: boolean;
   imageState: GeometryImageState | null;
   /**
    * Images
@@ -20610,6 +20638,10 @@ export type ListImageGridReviewsData = {
      * Limit
      */
     limit?: number;
+    /**
+     * Which counters the page computes. `all` (default) returns the full set. `correction` computes only `counts.correction` (reported boards plus deferred slots) and returns every other counter as 0.
+     */
+    counts?: ImageGridReviewCountsMode;
   };
   url: '/api/v1/admin/games/{game_id}/grid-reviews';
 };
@@ -26063,6 +26095,12 @@ export type ListIncompleteGeometryImagesData = {
      * Limit
      */
     limit?: number;
+    /**
+     * Gapsonly
+     *
+     * Only images with a real geometry gap: `incomplete_missing`, `incomplete_partial`, `import_failed`, `no_source_geometry` (no `incomplete_uncertain`, no `superseded`). Cannot be combined with `imageState` or `completenessStatus` (422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`).
+     */
+    gapsOnly?: boolean;
   };
   url: '/api/v1/admin/image-review-items/geometry-completeness/{game_id}/incomplete-images';
 };

@@ -7,11 +7,12 @@ can select the gate queue by that persisted status.
 
 The unit is the source image. Its expected boards are the
 ``active_board_slots`` of the newest ``image_source_geometry_revisions`` row
-(the *current* revision); the state of each expected position comes from the
-``recognized_boards`` row at that position and the revision that board points
-to (see ``domain.image_geometry_completeness`` for the rules). Counters are
-aggregated in SQL per image; the position-level query, which feeds the pure
-classifier, only runs for one page of at most 100 images.
+that is not ``reverted`` (the *current* revision, TASK-0945); the state of each
+expected position comes from the ``recognized_boards`` row at that position and
+the revision that board points to (see ``domain.image_geometry_completeness``
+for the rules). Counters are aggregated in SQL per image; the position-level
+query, which feeds the pure classifier, only runs for one page of at most 100
+images.
 
 Nothing here writes: every statement is a ``SELECT`` (plus a transaction-local
 ``SET`` of the statement timeout for the low-quality signal).
@@ -111,7 +112,7 @@ WITH images AS (
     r.active_board_slots, r.oriented_width, r.oriented_height
   FROM image_source_geometry_revisions r
   JOIN images i ON i.id = r.source_image_id
-  WHERE r.game_id = :game_id
+  WHERE r.game_id = :game_id AND r.status <> 'reverted'
   ORDER BY r.source_image_id, r.revision DESC
 ), board_counts AS (
   SELECT b.source_image_id,
@@ -238,6 +239,7 @@ JOIN LATERAL (
   SELECT r.sequence_range_start, r.active_board_slots
   FROM image_source_geometry_revisions r
   WHERE r.game_id = :game_id AND r.source_image_id = g.source_image_id
+    AND r.status <> 'reverted'
   ORDER BY r.revision DESC
   LIMIT 1
 ) c ON g.position_index = ANY (c.active_board_slots)
@@ -283,6 +285,7 @@ WITH current_revision AS (
     r.source_image_id, r.sequence_range_start, r.active_board_slots, r.board_geometries
   FROM image_source_geometry_revisions r
   WHERE r.game_id = :game_id AND r.source_image_id = ANY (:image_ids)
+    AND r.status <> 'reverted'
   ORDER BY r.source_image_id, r.revision DESC
 ), pending AS (
   SELECT g.source_image_id, g.position_index, min(g.reason_code) AS reason_code
@@ -327,7 +330,7 @@ WITH batch AS (
   SELECT s.id, s.checksum_sha256, s.import_job_id, s.file_execution_key,
     EXISTS (
       SELECT 1 FROM image_source_geometry_revisions r
-      WHERE r.game_id = :game_id AND r.source_image_id = s.id
+      WHERE r.game_id = :game_id AND r.source_image_id = s.id AND r.status <> 'reverted'
     ) AS has_source_geometry,
     EXISTS (
       SELECT 1 FROM recognized_boards b

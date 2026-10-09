@@ -49,6 +49,20 @@ istniejących gier, wpisuje wiersze manifestu v6 i przestawia
 Downgrade odmawia, gdy istnieje zdefiniowany super symbol, wpis audytu albo
 niezakończony job wyprowadzania; wiersze wyprowadzone są odtwarzalne.
 
+## Manifest v7 — audyt cofnięć korekt siatki (TASK-0945)
+
+`game_data_v2_manifest_v7.py` (migracja `0153_geometry_correction_revert`)
+dodaje do `GAME_TABLES` dokładnie jedną tabelę klasy `game`:
+`image_geometry_correction_reverts` (NOT NULL `game_id`, partycja
+`LIST (game_id)`, wymuszone RLS `game_scope_v1`, FK właściciela do `games` i
+FK `(game_id, import_job_id)` → `jobs`). Audyt celowo nie ma FK do usuwanych
+wierszy (plansza, pozycja, komórki, rewizja planszy); ich treść jest w
+`snapshot`. Migracja tworzy puste partycje istniejących gier, wpisuje wiersze
+manifestu v7 i przestawia `game_storage_locations` z v6 na v7; bieżące moduły
+importują v7, v6 pozostaje zamrożony. Downgrade odmawia przy jakiejkolwiek
+historii cofnięć (wiersz audytu, rewizja źródła `reverted`, zdarzenie
+`geometry_reverted`, wypełnione `previous_assignment_source`, odrzucony slot).
+
 Tabele `management_*` należą do niezależnej kontroli zarządzania
 (`management_manifest.py`, wersja `management-control-plane-v2`), wszystkie `shared`
 w schemacie `public`; w metadanych ORM mają klucze `public.<tabela>`.

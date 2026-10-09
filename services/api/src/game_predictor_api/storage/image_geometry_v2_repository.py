@@ -17,6 +17,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.geometry_correction_reverts import (
+    REVERTED_SOURCE_GEOMETRY_STATUS,
+)
 from game_predictor_api.domain.geometry_qualification import (
     GeometryQualification,
     GeometryQualificationError,
@@ -137,11 +140,14 @@ class SqlAlchemyImageSourceGeometryRepository:
             active_board_slots=value.active_board_slots,
         )
 
+        # TASK-0945: a reverted revision never deduplicates a new write; the
+        # same geometry saved after a revert appends a new revision.
         existing = self._session.execute(
             select(ImageSourceGeometryRevisionModel).where(
                 ImageSourceGeometryRevisionModel.source_image_id == value.source_image_id,
                 ImageSourceGeometryRevisionModel.geometry_checksum_sha256
                 == value.geometry_checksum_sha256,
+                ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
             )
         ).scalar_one_or_none()
         if existing is not None:
@@ -152,6 +158,7 @@ class SqlAlchemyImageSourceGeometryRepository:
                 created=False,
             )
 
+        # Numbering counts every row, reverted ones included (UNIQUE revision).
         latest_revision = self._session.execute(
             select(ImageSourceGeometryRevisionModel.revision)
             .where(ImageSourceGeometryRevisionModel.source_image_id == value.source_image_id)

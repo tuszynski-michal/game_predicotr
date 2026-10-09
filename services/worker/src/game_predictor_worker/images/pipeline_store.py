@@ -14,6 +14,9 @@ from game_predictor_api.domain.board_render_manifests import (
     build_observation_render_manifest,
 )
 from game_predictor_api.domain.catalog import SymbolStatus
+from game_predictor_api.domain.geometry_correction_reverts import (
+    REVERTED_SOURCE_GEOMETRY_STATUS,
+)
 from game_predictor_api.domain.image_geometry_v2 import SOURCE_COORDINATE_SPACE
 from game_predictor_api.domain.jobs import require_active_job_lease
 from game_predictor_api.storage.additive_virtual_geometry_contracts import (
@@ -421,6 +424,9 @@ class SqlAlchemyImagePipelineStore:
                         ImageSourceGeometryRevisionModel.source_image_id == source.id,
                         ImageSourceGeometryRevisionModel.geometry_checksum_sha256
                         == geometry_checksum,
+                        # TASK-0945: a reverted revision never stands for a
+                        # geometry; at most one live row has this checksum.
+                        ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
                     )
                 )
                 if geometry_checksum is not None

@@ -107,7 +107,7 @@ class Game:
     expected_layout_count: int
     created_at: datetime
     updated_at: datetime
-    storage_version: str = "game-data-v2-manifest-v6"
+    storage_version: str = "game-data-v2-manifest-v7"
     storage_schema: str = "game_data_v2"
     storage_generation: int = 2
     storage_status: str = "active"

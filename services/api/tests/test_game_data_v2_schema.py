@@ -23,6 +23,9 @@ from game_predictor_api.storage.game_data_v2_manifest_v5 import (
     GAME_TABLES as V5_GAME_TABLES,
 )
 from game_predictor_api.storage.game_data_v2_manifest_v6 import (
+    GAME_TABLES as V6_GAME_TABLES,
+)
+from game_predictor_api.storage.game_data_v2_manifest_v7 import (
     ADDED_GAME_TABLES,
     CATALOG,
     CONTROL_TABLES,
@@ -60,23 +63,30 @@ def test_manifest_is_exhaustive_disjoint_and_fail_closed() -> None:
         "game_deletion_batches",
     }
     assert CREATE_TABLES == MIGRATE_TABLES == DELETE_TABLES == PARTITIONED_TABLES == GAME_TABLES
-    assert VERSION == "game-data-v2-manifest-v6"
+    assert VERSION == "game-data-v2-manifest-v7"
     assert len(V3_GAME_TABLES) == 66
     assert len(V4_GAME_TABLES) == 63
     assert len(V5_GAME_TABLES) == 64
-    assert len(GAME_TABLES) == 68
+    assert len(V6_GAME_TABLES) == 68
+    assert len(GAME_TABLES) == 69
     assert set(GAME_TABLES) - set(V1_GAME_TABLES) == {
         "board_render_manifests",
         "image_geometry_shadow_results",
+        "super_game_derivation_state",
+        "super_game_series",
+        "super_game_series_audit_events",
+        "super_game_series_generation_rows",
         *ADDED_GAME_TABLES,
     }
     # TASK-0933: v6 is v5 plus exactly the four super game series tables.
-    assert set(GAME_TABLES) - set(V5_GAME_TABLES) == {
+    assert set(V6_GAME_TABLES) - set(V5_GAME_TABLES) == {
         "super_game_derivation_state",
         "super_game_series",
         "super_game_series_audit_events",
         "super_game_series_generation_rows",
     }
+    # TASK-0945: v7 is v6 plus exactly the geometry correction revert audit.
+    assert set(GAME_TABLES) - set(V6_GAME_TABLES) == {"image_geometry_correction_reverts"}
     assert {ownership(name) for name in ADDED_GAME_TABLES} == {"game"}
     # D-467 S5 (TASK-0759): v4 is v3 without exactly the three dropped tables.
     assert tuple(sorted(set(GAME_TABLES))) == GAME_TABLES

@@ -11,6 +11,9 @@ from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
 from game_predictor_api.domain.catalog import GameShapeGeometryConfiguration
+from game_predictor_api.domain.geometry_correction_reverts import (
+    REVERTED_SOURCE_GEOMETRY_STATUS,
+)
 from game_predictor_api.domain.grid_shadow import (
     GRID_SHADOW_VALIDATION_KIND,
     GridShadowError,
@@ -84,6 +87,8 @@ class SqlAlchemyGridShadowRepository:
             .where(
                 ImageSourceGeometryRevisionModel.game_id == game_id,
                 SourceImageModel.id == source_image_id,
+                # TASK-0945: a reverted revision is never the current one.
+                ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
             )
             .order_by(ImageSourceGeometryRevisionModel.revision.desc())
             .limit(1)

@@ -36,7 +36,7 @@ from game_predictor_api.domain.image_reviews import (
     ImageReviewNotFoundError,
 )
 from game_predictor_api.storage import image_geometry_completeness_repository as repository_module
-from game_predictor_api.storage.game_data_v2_manifest_v6 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v7 import VERSION
 from game_predictor_api.storage.game_storage_routing import (
     GameStorageIntent,
     GameStorageRouter,

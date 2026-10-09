@@ -1263,6 +1263,46 @@ odtworzyć predykcję po retencji ciężkich stage payloadów. Rewizja powstaje
 wyłącznie dla nadal oczekującego review itemu; retry identycznego joba korzysta
 z istniejącej rewizji.
 
+#### Cofnięcie korekty cięcia siatki (TASK-0945, migracja `0153`)
+
+- `image_source_geometry_revisions.status` dopuszcza `reverted`. Rewizja
+  cofniętej korekty zostaje (historia, FK zdarzeń), ale nigdy nie jest
+  „bieżąca”: każde zapytanie „latest” wybiera najwyższą `revision` o statusie
+  różnym od `reverted`; numeracja `max + 1` nadal liczy wszystkie wiersze.
+  Pełne UNIQUE `(game_id, source_image_id, geometry_checksum_sha256)` zastąpił
+  indeks częściowy `v2_uq_source_geometry_revisions_live_checksum`
+  (`WHERE status <> 'reverted'`); deduplikacja po checksumie (API i worker)
+  pomija `reverted`, więc ponowny zapis tej samej geometrii tworzy nową
+  rewizję.
+- Akcje `geometry_reverted` w `image_board_geometry_review_events` i
+  `image_symbol_review_events`; nowa kolumna
+  `image_symbol_review_events.previous_assignment_source` (słownik
+  `assignment_source` komórki), zapisywana przez każde nowe zdarzenie komórki.
+- `image_board_geometry_pending`: status `rejected` z `rejection_reason`
+  (`cropped`/`blurred`/`other`, `other` wymaga `rejection_note`),
+  `rejection_note`, `rejected_at`, `rejected_by`; slot `pending`/`resolved`
+  nie ma pól odrzucenia, `superseded` może je zachować jako historię. Logika
+  zapisu należy do TASK-0949.
+- `image_geometry_correction_reverts` (manifest v7): jeden wiersz append-only
+  na cofnięcie z `kind` (`pending_slot`/`board_revision`), identyfikatorami
+  slotu, planszy, pozycji i rewizji (bez FK do usuniętych wierszy), cofaną i
+  przywróconą rewizją źródła, `reverted_idempotency_key` (klucz cofniętego
+  zapisu — strażnik powtórzeń `GEOMETRY_CORRECTION_REVERTED`),
+  `idempotency_key` (UNIQUE per gra), JSONB `snapshot` usuniętych wierszy w
+  kolejności usuwania (`to_jsonb`, UUID i daty jako tekst) z
+  `snapshot_checksum_sha256` kanonicznego JSON, `actor`, `created_at`.
+  UNIQUE `(game_id, reverted_board_geometry_revision_id)` blokuje drugie
+  cofnięcie tej samej korekty.
+- Cofnięcie slotu (przypadek B) w jednej transakcji usuwa zdarzenia komórek,
+  komórki, zdarzenie i rewizję geometrii planszy, pozycję przeglądu (wyzwalacz
+  i CASCADE: wpis kolejki, kandydat i dokument wyszukiwarki) oraz planszę
+  (CASCADE: manifest renderu), przywraca slot do `pending`, oznacza rewizję
+  źródła `reverted`, przepina sąsiadów `geometry_revision = 0` z powrotem na
+  poprzednią rewizję i przelicza liczniki, wyszukiwarkę, bramkę zdjęcia oraz
+  wersję wejścia supergry (`geometry_correction_revert`).
+  `source_images.processed_at` nie jest przywracane (brak zapisu wartości
+  sprzed korekty).
+
 ### image_pipeline_stage_results
 
 | Pole | Typ | Uwagi |

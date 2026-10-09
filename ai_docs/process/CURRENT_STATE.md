@@ -30,6 +30,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 (odczyt, bez zmian w systemie).
 
 - **Stan migracji bazy operatora.** Ostatni zapis: 2026-10-08 operator wykonał migrację `0151_super_game_roles`, `npm install` i `worker:poll`. Kod tej gałęzi wymaga `0152_super_game_series` (strażnik schematu startowego). Wdrożenie `0152` nie jest nigdzie odnotowane jako wykonane: stop API/worker/Admin → `npm run db:migrate` → start → `POST …/derive` dla Mumii (komórki sprzed migracji nie podbiły licznika). Przed poleganiem na tym stanie sprawdź `alembic current` (odczyt, bez zmian). Źródło: sekcja „TASK-0933 — wyprowadzanie serii supergry i API serii (done)” w tym pliku; sekcja „TASK-0932 — ewaluator `payout-v4-wild-count` (done)” w tym pliku.
+- **Gałąź `feat/geometry-correction-revert` wymaga migracji `0153_geometry_correction_revert`** (manifest v7). Nie scalać do gałęzi integracyjnej przed wykonaniem migracji przez operatora (stop API/worker/Admin/Reviewer → scalenie → `npm run db:migrate` → start); agenci nie migrują bazy operatora. Źródło: sekcja „TASK-0945 — migracja 0153, status `reverted` i cofnięcie korekty slotu odroczonego (done)” w tym pliku.
 - **Migracje panelu zarządzania `0148`–`0150`** (addytywne, strażnik wymaga `0150_management_sessions`) wdraża operator ręcznie; agenci nie wykonywali migracji produkcyjnej, wdrożenia ani zmian danych. Fizyczny telefon, publiczny ingress, restart komputera i czasy produkcyjne pozostają kontrolami operatora. Źródło: `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0921–0927 — Management panel implementation (done)”; `ai_docs/archive/CURRENT_STATE_2026Q4.md`, sekcja „TASK-0927 — Integrated acceptance and operator guide (done)”.
 - **TASK-0928 (`in_progress`): wdrożenie na żywo zablokowane.** Job importu Mumii `092ff7a4-e652-4273-9c0a-a30e38ebd8cc` utknął na 535/2915 w `waiting_for_storage`; baza wtedy `0146_symbol_review_import_filter_index`, kod wymaga `0147_merge_v7_main`. Migracja V7 wymaga osobnej zgody lub serwisowego przejścia wykonanego przez użytkownika; nie włączać niezwiązanej migracji `0148`. Późniejsza migracja `0151` operatora sugeruje, że łańcuch jest już zastosowany: zweryfikować przed wznowieniem. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
 - **Restart workera.** Zgoda użytkownika na restart wyłącznie workera `general` dotyczyła TASK-0928 i po testach; nie przenosi się na inne taski. Istniejące procesy API/Admin (wtedy PID 6984/19496) nie są ruszane. Źródło: sekcja „TASK-0928 — image import storage resumption (in progress)” w tym pliku.
@@ -747,10 +748,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Pozostało (pomiar należy do operatora; task zostaje otwarty): przebiegi pomiaru wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` (36 sesji operatora, najpierw kalibracja i zgoda na koszt; zbieranie zużycia `scripts/token_pilot_collect.py`), raport `TOKEN_TOOLING_PILOT_<data>.md` z decyzjami „zostaje / wypada”, audyt drugiej rodziny.
 - Poza repozytorium po nieudanej próbie `uvx`: katalogi `uv` w `%APPDATA%` (ok. 67 MB) i `%LOCALAPPDATA%`, do ręcznego usunięcia przez operatora (usunięte przez leada 2026-10-09; katalogi nie istnieją).
 
-### TASK-0945 — Migracja 0153, status `reverted` i cofnięcie korekty slotu odroczonego (todo)
-
-- Plik zadania: `ai_docs/tasks/0945-geometry-correction-revert-pending-slot.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
-
 ### TASK-0946 — Cofnięcie korekty istniejącej planszy (rewizja N + 1 = N − 1) (todo)
 
 - Plik zadania: `ai_docs/tasks/0946-geometry-correction-revert-board-revision.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
@@ -776,6 +773,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Plik zadania: `ai_docs/tasks/0951-geometry-correction-revert-acceptance.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md`.
 
 ## Ostatnie 10 ukończonych tasków
+
+### TASK-0945 — migracja 0153, status `reverted` i cofnięcie korekty slotu odroczonego (done)
+
+- Plik: `ai_docs/tasks/completed/0945-geometry-correction-revert-pending-slot.md`; plan `delivery/GEOMETRY_CORRECTION_REVERT_EXECUTION_PLAN.md` (etap R1). Commit v1.7.291 (hash dopisuje kolejny commit).
+- Migracja `0153_geometry_correction_revert` (manifest v7, `EXPECTED_ALEMBIC_HEAD = 0153`): status `reverted` rewizji źródła z częściowym UNIQUE checksumy, akcje `geometry_reverted`, `previous_assignment_source` w zdarzeniach komórek, schemat slotu `rejected`, tabela audytu `image_geometry_correction_reverts`. **Nie wykonana na bazie operatora**; kod gałęzi wymaga `0153` — nie scalać do gałęzi integracyjnej przed migracją (stop usług → scalenie → `db:migrate` → start).
+- `GeometryCorrectionRevertService` (`list_recent`, `preview`, `revert`) cofa rozstrzygnięcie slotu w jednej transakcji z migawką; korekty istniejących plansz na liście z `GEOMETRY_REVERT_NOT_SUPPORTED` do TASK-0946; „latest” rewizji źródła pomija `reverted` (API i worker).
+- Audyt Codex `gpt-6-astra`/`high`: runda 1 REVISE (3×P0, 1×P1), runda 2 REVISE (1×P1 kohorta), druga runda poprawek zamknęła P1 i naprawiła błąd kodu blokady; trzeciego audytu nie było (zmiana tylko testu i jednej linii zapytania). Raporty: `ai_docs/quality/TASK-0945_AUDIT_gpt-6-astra*.md`.
+- Testy: nowe 22 jednostkowe + 16 PG (cofnięcie, odmowy, współbieżność, migracja), regresja bramki/slotów/symboli 43 passed, ruff i mypy czyste.
 
 ### TASK-0944 — szkic planszy poza krawędzią obrazu blokował ręczną korektę (done)
 
@@ -1008,28 +1013,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   (0147→0151 na bazie operatora wymaga osobnej zgody, patrz TASK-0928),
   restart. Nie publikować reguł Mumii przed TASK-0932 (stary ewaluator liczy
   Mumię jako symbol liniowy). Instrukcja operatora w Outcome taska.
-
-### TASK-0929 — skill audytu krzyżowego i sekcja „Audyt krzyżowy” (done)
-
-- Commit v1.7.267 / 6323939f41d93501a537463eb82ce127ab1f04b3.
-- `scripts/audit_task.ps1` (PowerShell 5.1, ASCII, limity czasu, UTF-8)
-  składa brief taska (plik taska, fragment planu, `Verification results`,
-  diffy ograniczone `-Paths`, pliki nieśledzone) do ignorowanego
-  `artifacts/audits/` i uruchamia audytora tylko do odczytu (`codex exec
-  --sandbox read-only` lub `claude -p --permission-mode plan`); raport trafia
-  do `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md` tylko z wierszem werdyktu.
-  Bez CLI na PATH tryb „tylko brief” (kod 0). Skille `.claude/skills/audit-task`
-  i `.codex/skills/claude-audit`; szablon `ai_docs/quality/AUDIT_REPORT_TEMPLATE.md`.
-- `AGENTS.md`: sekcja „Audyt krzyżowy” (rodziny modeli, zastępstwo subagentem
-  Claude do czasu CLI, jedna runda audytu + jedna poprawek, otwarte P0/P1
-  blokują commit, wyjątek czasowy 600 s dla przebiegu audytu); punkt 8
-  „Po kodowaniu” ujednolicony.
-- Audyt claude-opus-5-5 / high: runda 1 REVISE (2 × P1: `-Paths` z przecinkami,
-  wstrzyknięcie przez `-Model` na shimach `.cmd`; 5 × P2), po poprawkach
-  runda 2 PASS; 3 × P2 naprawione przez leada. Prawdziwe CLI `codex`/`claude`
-  nie są zainstalowane: operator instaluje i loguje je sam, potem jeden
-  przebieg bez `-DryRun` z zapisem wersji.
-- Etap P zamknięty. Trwa TASK-0931 (etap S-A).
 
 ## Archiwum
 

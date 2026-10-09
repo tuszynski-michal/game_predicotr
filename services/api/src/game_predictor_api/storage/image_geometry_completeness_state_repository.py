@@ -474,6 +474,7 @@ WITH newest AS (
     r.normalized_pixel_checksum_sha256
   FROM image_source_geometry_revisions r
   WHERE r.game_id = :game_id AND r.source_image_id = ANY (:image_ids)
+    AND r.status <> 'reverted'
   ORDER BY r.source_image_id, r.revision DESC
 )
 SELECT b.id, b.source_image_id, b.position_index, b.geometry_revision, b.geometry_checksum_sha256,

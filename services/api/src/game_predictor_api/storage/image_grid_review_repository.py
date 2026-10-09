@@ -17,6 +17,9 @@ from game_predictor_api.application.image_grid_reviews import (
     ImageGridReviewRepository,
 )
 from game_predictor_api.domain.board_topology import BoardTopology
+from game_predictor_api.domain.geometry_correction_reverts import (
+    REVERTED_SOURCE_GEOMETRY_STATUS,
+)
 from game_predictor_api.domain.image_grid_reviews import (
     ImageGridReviewCounts,
     ImageGridReviewError,
@@ -409,6 +412,8 @@ class SqlAlchemyImageGridReviewRepository(ImageGridReviewRepository):
                 ImageSourceGeometryRevisionModel.game_id == review_filter.game_id,
                 ImageSourceGeometryRevisionModel.source_image_id
                 == ImageBoardGeometryPendingModel.source_image_id,
+                # TASK-0945: a reverted revision is never the current one.
+                ImageSourceGeometryRevisionModel.status != REVERTED_SOURCE_GEOMETRY_STATUS,
             )
             .order_by(ImageSourceGeometryRevisionModel.revision.desc())
             .limit(1)

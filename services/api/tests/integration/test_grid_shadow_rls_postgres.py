@@ -23,7 +23,7 @@ from alembic import command
 from alembic.config import Config
 from game_predictor_api.domain.grid_shadow import shadow_digest
 from game_predictor_api.domain.jobs import JobStatus, JobType, create_job
-from game_predictor_api.storage.game_data_v2_manifest_v6 import VERSION
+from game_predictor_api.storage.game_data_v2_manifest_v7 import VERSION
 from game_predictor_api.storage.game_partition_lifecycle import partition_name
 from game_predictor_api.storage.game_storage_routing import GameStorageIntent, GameStorageRouter
 from game_predictor_api.storage.grid_shadow import SqlAlchemyGridShadowRepository

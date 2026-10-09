@@ -2400,6 +2400,8 @@ def create_app(
             # delegation to the virtual path, D-467 S6 / TASK-0796).
             "IMAGE_REVIEW_GEOMETRY_IDEMPOTENCY_CONFLICT",
             "IMAGE_REVIEW_SUPERSEDED",
+            # TASK-0945: a retry of a reverted correction is refused.
+            "GEOMETRY_CORRECTION_REVERTED",
         }:
             status_code = 409
         return JSONResponse(

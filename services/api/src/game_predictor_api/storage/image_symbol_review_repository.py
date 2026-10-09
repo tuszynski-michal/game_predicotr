@@ -3300,6 +3300,8 @@ class _CellPreviousState:
     rendered_pixel_checksum_sha256: str | None
     verification_outcome: str | None
     verified_symbol_id_v2: UUID | None
+    # TASK-0945: recorded on every event so a revert can restore it.
+    assignment_source: str | None = None
 
     @classmethod
     def from_model(cls, cell: ImageSymbolReviewCellModel) -> _CellPreviousState:
@@ -3341,6 +3343,7 @@ class _CellPreviousState:
                 if previous_v2 is None
                 else previous_v2.verified_symbol_id
             ),
+            assignment_source=cell.assignment_source,
         )
 
 
@@ -3973,6 +3976,7 @@ def _append_symbol_cell_event(
             review_state=cell.review_state,
             previous_quality_issue=previous.quality_issue,
             quality_issue=cell.quality_issue,
+            previous_assignment_source=previous.assignment_source,
             previous_verification_outcome=previous.verification_outcome,
             verification_outcome=cell.verification_outcome,
             previous_verified_symbol_id_v2=previous.verified_symbol_id_v2,

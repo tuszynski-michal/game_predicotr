@@ -2106,7 +2106,7 @@ class ImageSourceGeometryRevisionModel(Base):
         ),
         CheckConstraint(
             "geometry_source IN ('auto', 'manual', 'backfill') "
-            "AND status IN ('pending', 'accepted', 'needs_review', 'rejected') "
+            "AND status IN ('pending', 'accepted', 'needs_review', 'rejected', 'reverted') "
             "AND (processing_time_ms IS NULL OR processing_time_ms >= 0) "
             "AND length(btrim(created_by)) > 0",
             name="ck_image_source_geometry_revisions_state",
@@ -2125,10 +2125,14 @@ class ImageSourceGeometryRevisionModel(Base):
             "revision",
             name="uq_image_source_geometry_revisions_source_revision",
         ),
-        UniqueConstraint(
+        # TASK-0945: a reverted revision keeps its row but frees its checksum,
+        # so the same geometry saved again appends a new revision.
+        Index(
+            "uq_image_source_geometry_revisions_live_checksum",
             "source_image_id",
             "geometry_checksum_sha256",
-            name="uq_image_source_geometry_revisions_source_checksum",
+            unique=True,
+            postgresql_where=text("status <> 'reverted'"),
         ),
         Index(
             "ix_image_source_geometry_revisions_source_created",
@@ -3044,8 +3048,13 @@ class ImageSymbolReviewEventModel(Base):
         CheckConstraint(
             "action IN ('approve', 'reassign', 'mark_grid_issue', 'mark_blurry', "
             "'mark_unreadable', "
-            "'board_synchronized', 'geometry_invalidated')",
+            "'board_synchronized', 'geometry_invalidated', 'geometry_reverted')",
             name="ck_image_symbol_review_events_action",
+        ),
+        CheckConstraint(
+            "previous_assignment_source IS NULL OR previous_assignment_source IN "
+            "('model', 'human', 'board_decision', 'backfill', 'geometry_partial')",
+            name="ck_image_symbol_review_events_previous_assignment_source",
         ),
         CheckConstraint(
             "previous_review_state IN ('pending', 'approved') "
@@ -3179,6 +3188,8 @@ class ImageSymbolReviewEventModel(Base):
     review_state: Mapped[str] = mapped_column(String(20), nullable=False)
     previous_quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
     quality_issue: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    # TASK-0945: the cell's assignment source before this event (NULL before 0153).
+    previous_assignment_source: Mapped[str | None] = mapped_column(String(30), nullable=True)
     previous_verification_outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
     verification_outcome: Mapped[str | None] = mapped_column(String(30), nullable=True)
     previous_verified_symbol_id_v2: Mapped[UUID | None] = mapped_column(
@@ -3529,7 +3540,7 @@ class ImageBoardGeometryReviewEventModel(Base):
             name="ck_image_board_geometry_review_events_checksum",
         ),
         CheckConstraint(
-            "action IN ('approved', 'geometry_saved', 'backfilled')",
+            "action IN ('approved', 'geometry_saved', 'backfilled', 'geometry_reverted')",
             name="ck_image_board_geometry_review_events_action",
         ),
         Index(
@@ -3702,7 +3713,7 @@ class ImageBoardGeometryPendingModel(Base):
             name="ck_image_board_geometry_pending_checksums",
         ),
         CheckConstraint(
-            "status IN ('pending', 'resolved', 'superseded')",
+            "status IN ('pending', 'resolved', 'superseded', 'rejected')",
             name="ck_image_board_geometry_pending_status",
         ),
         CheckConstraint(
@@ -3710,15 +3721,29 @@ class ImageBoardGeometryPendingModel(Base):
             "'residual_too_high', 'source_unavailable')",
             name="ck_image_board_geometry_pending_reason",
         ),
+        # TASK-0945 (migration 0153): ``rejected`` schema for W7; a rejected
+        # slot superseded later by a replacement keeps its rejection history.
         CheckConstraint(
             "(status = 'pending' AND resolved_geometry_revision IS NULL "
-            "AND resolved_at IS NULL AND superseded_at IS NULL) OR "
+            "AND resolved_at IS NULL AND superseded_at IS NULL AND rejected_at IS NULL) OR "
             "(status = 'resolved' AND resolved_geometry_revision IS NOT NULL "
             "AND resolved_geometry_revision > expected_geometry_revision "
-            "AND resolved_at IS NOT NULL AND superseded_at IS NULL) OR "
+            "AND resolved_at IS NOT NULL AND superseded_at IS NULL AND rejected_at IS NULL) OR "
             "(status = 'superseded' AND resolved_geometry_revision IS NULL "
-            "AND resolved_at IS NULL AND superseded_at IS NOT NULL)",
+            "AND resolved_at IS NULL AND superseded_at IS NOT NULL) OR "
+            "(status = 'rejected' AND resolved_geometry_revision IS NULL "
+            "AND resolved_at IS NULL AND superseded_at IS NULL AND rejected_at IS NOT NULL)",
             name="ck_image_board_geometry_pending_lifecycle",
+        ),
+        CheckConstraint(
+            "(rejection_reason IS NULL OR rejection_reason IN ('cropped', 'blurred', 'other')) "
+            "AND (rejection_reason IS NULL) = (rejected_at IS NULL) "
+            "AND (rejected_at IS NULL) = (rejected_by IS NULL) "
+            "AND (rejected_by IS NULL OR length(btrim(rejected_by)) > 0) "
+            "AND (rejection_note IS NULL OR (rejection_reason IS NOT NULL "
+            "AND length(btrim(rejection_note)) BETWEEN 1 AND 1000)) "
+            "AND (rejection_reason IS DISTINCT FROM 'other' OR rejection_note IS NOT NULL)",
+            name="ck_image_board_geometry_pending_rejection",
         ),
         CheckConstraint(
             r"length(btrim(source_relative_path)) > 0 "
@@ -3788,6 +3813,10 @@ class ImageBoardGeometryPendingModel(Base):
     )
     resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     superseded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rejection_reason: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    rejection_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rejected_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    rejected_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
 class ReviewerAccessSessionModel(Base):
@@ -6939,6 +6968,9 @@ class BoardSearchShareQueryEventModel(Base):
 
 
 # Register independently owned management control-plane mappings.
+from game_predictor_api.storage import (  # noqa: E402
+    geometry_correction_revert_models as geometry_correction_revert_models,
+)
 from game_predictor_api.storage import (  # noqa: E402
     management_models as management_models,
 )

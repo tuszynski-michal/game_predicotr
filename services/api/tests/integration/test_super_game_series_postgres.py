@@ -640,7 +640,7 @@ def test_migration_downgrade_refuses_decisions_and_round_trips() -> None:
                 connection.execute(
                     text("SELECT manifest_version FROM public.game_storage_locations")
                 ).scalar_one()
-                == "game-data-v2-manifest-v6"
+                == "game-data-v2-manifest-v7"
             )
             for table in (
                 "super_game_series",

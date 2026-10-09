@@ -69,7 +69,7 @@ przenosimy bez zmiany treści do archiwum, a mapy dokładnego indeksu generujemy
 narzędziem0939 odczytanym z main. Nie włączamy przy tym całej niezwiązanej
 migracji procesu ani nie deklarujemy PASS nieistniejącej bramki.
 
-Aktualny main `1b97ad65472809709e07903b785264182796729b` (`v1.7.285`)
+Checkpoint main podczas audytu `1b97ad65472809709e07903b785264182796729b` (`v1.7.285`)
 zawiera już TASK-0935/0936 i własną migrację0152. Przed scaleniem trzeba
 rozwiązać konflikty wspólnych komponentów, zachować koszt per pozycja,
 utworzyć migrację scalającą głowy i sprawdzić kontrakt po integracji.

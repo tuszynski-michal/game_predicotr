@@ -61,11 +61,17 @@ Kod i audyty wszystkich tasków zamknięte bez otwartychP0/P1. Każdy task ma
 osobny commit i plik completed. Pełne hashe są w Outcome i CURRENT_STATE;
 plan oraz raporty można przejąć bez historii czatu.
 
-Przed merge: aktualny main `1b97ad65472809709e07903b785264182796729b` (`v1.7.285`)
+Przed merge: checkpoint main z końcowego audytu
+`1b97ad65472809709e07903b785264182796729b` (`v1.7.285`)
 zawiera0935/0936 i `0152_super_game_series`. Drugi integrator rozwiązuje konflikty
 shared UI, zachowuje koszt per pozycja, scala głowy migracji i weryfikuje
 OpenAPI/klienta/testy po integracji. Numery wersji/tasków/decyzji sprawdzić
 ponownie przy tym kroku. Nie wykonywać automatycznego push/merge/deploy.
+
+Przy końcowym zapisie main przesunął się niezależnie do
+`fc3d188862dbd85e6aa2fe247e47942c56a9fd67` (`v1.7.287`, metadane TASK-0944).
+Panel go nie modyfikował. Audyt nie obejmuje tego nowszego stanu; integrator
+musi ponownie odczytać tip przed rebase/merge, zamiast przyjmować starszy checkpoint.
 
 Oddzielny odbiór operatora: fizyczny Android/touch/klawiatura, live ingress,
 restart usług/komputera, backup produkcyjny i restore, preview backfillu,

@@ -79,8 +79,10 @@ akcja w nagłówku, bez dwóch przycisków prowadzących w to samo miejsce.
   być wyższa, gdy zawiera więcej punktów. Dostępności danych nie zastępować
   sztucznym ograniczeniem wysokości. Bez pinów: „Nie wybrano punktów na wykresie”.
 - Kwoty podawać w złotych przez istniejący `managementAmount`, używając
-  `stakeGrosze` i zapisanego bazowego `spinCost`. Brak danych do przeliczenia
-  oznacza jawnie opisane kredyty lub „—”, nigdy wymyśloną kwotę w złotych.
+  `stakeGrosze` i zapisanego bazowego `spinCost`. Wywoływać ten formatter dla
+  pinów wyłącznie przy `spinCost > 0` i znanym `stakeGrosze`; w pozostałych
+  przypadkach pokazać kredyty z jawną etykietą. Gałąź `credits * 10` nie jest
+  używana dla pinów. Brak samej metryki oznacza „—”, nigdy wymyśloną kwotę.
   `requiredStakeCredits` jest wymaganym kapitałem, nie sumą kosztów spinów;
   `balanceCredits` jest wygraną netto, a `machineCashCredits` kwotą na maszynie.
   Zachować znaki zysku/straty i spin zero. `available=false` wyświetla
@@ -108,8 +110,9 @@ Nowy/reset i zmiana pinów w szkicu pozostawiają ostatnie zapisane wiersze aż 
 potwierdzonego zapisu; nie prezentować szkicu jako już zapisanego wyniku.
 Po powrocie do punktu/maszyny i reload podsumowania odtwarzają się z serwera.
 Zmiana gry/maszyny nie może zachować wierszy poprzedniego zakresu. Podczas
-sprawdzania/nieaktualności zachować opis stanu; nie sugerować aktualnej wygranej,
-jeśli istniejący kontrakt oznacza wynik jako wymagający sprawdzenia.
+sprawdzania/nieaktualności zapisane, zamrożone wiersze pozostają widoczne
+z etykietą z istniejącego kontraktu, np. „Wymaga sprawdzenia”. Nie ukrywać ich
+ani nie przedstawiać jako aktualnych; nie przeliczać starego wyniku w tle.
 
 ## Zachowanie i ochrona danych
 
@@ -175,7 +178,8 @@ nie dalej niż1,5 wysokości viewportu od początku widoku.0949 poszerza odbiór
 ale nie odkłada podstawowej weryfikacji wyglądu do końca planu.
 Obowiązkowe przypadki pinów już w0947: brak wybranej stawki; dwie zapisane
 stawki z różnymi pinami; Save przy otwartym szkicu; reload; zmiana maszyny/gry;
-0/1/6 pinów, spin0, straty, niedostępny punkt i brak starszej nullable metryki.
+0/1/6 pinów, spin0, straty, niedostępny punkt, brak starszej nullable metryki,
+nieznany/zerowy spinCost (jawne kredyty) i widoczne wiersze wyniku nieaktualnego.
 Test ma sprawdzać wiersze widoczne przy właściwej karcie, nie tylko tekst w DOM.
 0949 obejmuje w obu hostach wąskie karty z sześcioma pinami i różną liczbą
 zapisanych stawek, bez ucinania danych ani mylenia stawek.
@@ -208,10 +212,15 @@ Stan ten oznacza poprawiony plan po konsultacji, nie drugi werdykt PASS ani
 odbiór działającego UI. Filtr nazw maszyn pozostaje poza bieżącym zakresem;
 nie jest konieczny do poprawy błędnego modelu wyboru.
 
-Doprecyzowanie operatora po tym przeglądzie: zapisane piny mają być widoczne
-przy wszystkich zapisanych stawkach bez wyboru stawki. Włączono je do0947 i0949
-oraz wymagań/D-539. Nie uruchomiono nowej rundy Claude dla tego dopisku; przyszły
-ograniczony audyt implementacji0947 musi objąć także tę zmianę.
+Po doprecyzowaniu pinów operator poprosił o potwierdzenie gotowości planu.
+Claude Code sprawdził aktualną wersję, w tym wszystkie piny bez wybrania stawki:
+[końcowy raport](../quality/ADMIN_PANEL_LAYOUT_PLAN_FINAL_REVIEW_CLAUDE_20261009.md)
+ma **PASS**, bezP0/P1. Dwie P2 doprecyzowano w planie/tasku: konwersja na złote
+wyłącznie przy dodatnim znanym spinCost (bez fallbacku credits×10), a stare
+wiersze przy nieaktualności pozostają widoczne z opisem stanu. `spinCost` już
+istnieje jako nullable pole wygenerowanego `ManagementStakeResponse`.
+Nie potrzeba następnej rundy przeglądu; audyt implementacji0947 sprawdzi te
+reguły. PASS potwierdza gotowość planu, nie działającego UI. Zadania nadal todo.
 
 ## Przypisanie modeli do zadań
 

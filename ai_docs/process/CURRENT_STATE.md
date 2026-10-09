@@ -65,7 +65,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - `delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md`, TASK-0947–0949.
 - D-539 zatwierdza model wyboru maszyny; pełny plan oczekuje akceptacji/uruchomienia.
-- Claude Code opus5.5/medium: pierwotnyREVISE, trzyP1 uwzględniono w jednej korekcie planu; bez ponownegoPASS/implementacji. Raport `quality/ADMIN_PANEL_LAYOUT_PLAN_REVIEW_CLAUDE_20261009.md`.
+- Claude Code opus5.5/medium: pierwszyREVISE, trzyP1 doprecyzowane; końcowy przegląd aktualnej wersji na prośbę operatora PASS bezP0/P1. DwieP2 doprecyzowano (waluta i stare piny). Raport `quality/ADMIN_PANEL_LAYOUT_PLAN_FINAL_REVIEW_CLAUDE_20261009.md`; bez implementacji.
 - Niezweryfikowany patch formularza odłożono; kod pozostaje na poprawce paddingu0946.
 - Odczyt operatora: API snapshot200, dwa archiwalne punkty, baza0153; zapis według operatora działa. Brak produkcyjnych zmian i lifecycle usług.
 
@@ -102,7 +102,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 - D-539: tylko punkt otwiera widok; maszyna podświetla się i pozostawia listę.
 - Doprecyzowanie operatora: wszystkie zapisane piny przy wszystkich zapisanych stawkach od razu. Kod nadal ogranicza podgląd przez selectedStake && !editor; do poprawy w0947, bez zmiany API.
-- Plan korekty proposed; Claude Code omówiony, trzyP1 doprecyzowane w jednej rundzie. Oczekuje uruchomienia przez operatora.
+- Plan korekty gotowy do implementacji po końcowymClaudePASS obejmującym piny; statusproposed/todo, wykonanie jeszcze nie uruchomione.
 - Task: `ai_docs/tasks/0947-management-point-workspace-layout.md`.
 
 ### TASK-0948 — formularz i historyczne kafelki (todo)

@@ -60,7 +60,9 @@ change or the existing acceptance tools cannot establish the required behavior.
   selectedStake or editor. Reuse existing pin row presentation with optional
   compact/currency ports, preserving the default credit table for other consumers.
 - Use frozen requiredStakeCredits/balanceCredits/machineCashCredits with existing
-  amount formatting; preserve negative/zero/unavailable/null semantics.
+  amount formatting only for known stakeGrosze and spinCost>0; otherwise label
+  credits explicitly, never use the credits*10 fallback. Preserve negative/
+  zero/unavailable/null semantics; stale frozen rows stay visible with status.
 - After successful Save refresh that card's summary even while its editor stays
   open. Draft/reset keeps saved rows until explicit commit; scope switch/reload
   must show only current machine/game summaries, without full-result fetches.
@@ -92,6 +94,9 @@ service lifecycle, push/merge and unrelated operator changes.
 - [ ]0/1/6 pins, spin0, signed losses, unavailable/null metadata and currency
   units are readable; cards are not clipped. Frozen super-spin/provisional
   semantics are preserved without adding a calculator.
+- [ ] Missing/zero spinCost labels credits; positive stored spinCost formats
+  currency through the existing helper. Stale/checking rows remain visible
+  with an explicit status, rather than being hidden or claimed current.
 
 ## Technical notes
 

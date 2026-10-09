@@ -306,4 +306,6 @@ Kontrole po poprawkach: skoncentrowany Python59 PASS (27.54s), Ruff check/format
 Prettier fixture i git diff --check dla dokumentacji
 i pięć testów helperów TS. Wcześniejszych kosztownych kontroli PG/klienta/types
 nie powtarzano: poprawki nie zmieniają wykonywalnego kodu ani wygenerowanego API.
-Commit taska: v1.7.273; pełny hash uzupełniany po wykonaniu commita.
+Commit taska: **v1.7.273**, `0625512d4a37072f1d6d44f3f85ef225e7db1835`.
+Po commicie sprawdzono git show --stat i czysty git status. Ten zapis pełnego
+hasha powstał po commicie; pozostaje metadanymi do utrwalenia z następnym taskiem.

@@ -56,6 +56,9 @@ export function ManagementGameWorkspace({
   accessAllowed = true,
   storageNamespace = 'local-owner',
   onDirtyChange,
+  pauseRefresh = false,
+  selectedStake,
+  onStakeSelected,
 }: {
   api: ManagementGameClient;
   machineId: string;
@@ -64,6 +67,9 @@ export function ManagementGameWorkspace({
   accessAllowed?: boolean;
   storageNamespace?: string;
   onDirtyChange?: (dirty: boolean) => void;
+  pauseRefresh?: boolean;
+  selectedStake?: number | null;
+  onStakeSelected?: (stake: ManagementStake) => void;
 }) {
   const mutationAllowed = writeAllowed && accessAllowed;
   const [cards, setCards] = useState<readonly ManagementCardState[]>([]);
@@ -87,6 +93,11 @@ export function ManagementGameWorkspace({
   const listId = useRef(0);
   const controllers = useRef(new Set<AbortController>());
   const refreshController = useRef<AbortController | null>(null);
+  const pauseRefreshRef = useRef(pauseRefresh);
+  pauseRefreshRef.current = pauseRefresh;
+  useEffect(() => {
+    if (pauseRefresh) refreshController.current?.abort();
+  }, [pauseRefresh]);
   const storage = managementSessionStorage();
   const recovery = useMemo(
     () =>
@@ -183,6 +194,7 @@ export function ManagementGameWorkspace({
       const controller = new AbortController();
       refreshController.current = controller;
       if (
+        pauseRefreshRef.current ||
         !accessRef.current ||
         !allowedRef.current ||
         recovery.pending ||
@@ -194,6 +206,7 @@ export function ManagementGameWorkspace({
         controller.signal,
         async (expected) => {
           if (
+            pauseRefreshRef.current ||
             !accessRef.current ||
             controller.signal.aborted ||
             !mounted.current ||
@@ -448,6 +461,7 @@ export function ManagementGameWorkspace({
       return;
     const slot = managementSlotFor(cardsRef.current, stake);
     if (!slot) return;
+    onStakeSelected?.(stake);
     try {
       const next = {
         stake,
@@ -712,6 +726,7 @@ export function ManagementGameWorkspace({
   const open = (stake: ManagementStake) => {
     if (!accessRef.current) return;
     const slot = managementSlotFor(cardsRef.current, stake);
+    onStakeSelected?.(stake);
     if (slot?.resultVersionId)
       setView({
         stake,
@@ -775,7 +790,13 @@ export function ManagementGameWorkspace({
         onOpen={open}
         onSearch={prepareEditor}
         onClear={(stake) => void clear(stake)}
+        selectedStake={selectedStake}
       />
+      {selectedStake ? (
+        <p>
+          Wybrana stawka: {(selectedStake / 100).toLocaleString('pl-PL')} zł
+        </p>
+      ) : null}
       {editor && editorSource ? (
         <fieldset
           disabled={!accessAllowed}

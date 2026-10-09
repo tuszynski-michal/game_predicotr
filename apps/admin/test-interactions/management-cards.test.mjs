@@ -940,7 +940,11 @@ test('point catalog does not load cards; internal machine/game navigation warns 
       n.textContent.includes('PunktMiasto'),
     ),
   );
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await click(button('Szukaj ponownie', card()));
   await range(11);
   let confirms = 0;
@@ -1230,7 +1234,11 @@ test('outer Admin workspace click and popstate both guard dirty management draft
         n.textContent.includes('PunktMiasto'),
       ),
     );
-    await click(button('Otwórz gry maszyny Maszyna'));
+    await click(
+      [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+        node.textContent.includes('Maszyna'),
+      ),
+    );
     await click(button('Szukaj ponownie', card()));
     await range(11);
     let prompts = 0;
@@ -1256,5 +1264,128 @@ test('outer Admin workspace click and popstate both guard dirty management draft
   } finally {
     await unmount(root);
     globalThis.fetch = originalFetch;
+  }
+});
+
+test('outer Admin navigation prompts once and retains a dirty structure modal', async () => {
+  dom.window.sessionStorage.clear();
+  dom.window.history.replaceState(null, '', '/?workspace=management');
+  const { CatalogWorkspace } =
+    await import('../src/features/catalog/catalog-workspace.tsx');
+  const point = {
+    id: '11111111-1111-4111-8111-111111111111',
+    name: 'Punkt',
+    city: 'Miasto',
+    street: 'Ulica',
+    archived: false,
+    revision: 1,
+    updatedAt: '2026-10-07T00:00:00Z',
+    machines: [],
+  };
+  const api = client({
+    getManagementSnapshot: async () => ({
+      data: { points: [point], activeGames: [] },
+    }),
+  });
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async () =>
+    new Response('[]', {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () =>
+      root.render(
+        React.createElement(CatalogWorkspace, {
+          apiBaseUrl: 'http://127.0.0.1:8000',
+          managementClient: api,
+        }),
+      ),
+    );
+    await click(
+      document.querySelector('button[aria-label="Edytuj punkt Punkt"]'),
+    );
+    const input = document.querySelector('.management-modal input');
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(
+        dom.window.HTMLInputElement.prototype,
+        'value',
+      ).set.call(input, 'Mój szkic');
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    let prompts = 0;
+    dom.window.confirm = () => {
+      prompts++;
+      return false;
+    };
+    await click(button('Zarządzanie grami'));
+    assert.equal(prompts, 1);
+    assert.ok(document.querySelector('.management-modal'));
+    await act(async () => {
+      dom.window.history.pushState(null, '', '/?workspace=games');
+      window.dispatchEvent(new PopStateEvent('popstate'));
+    });
+    assert.equal(prompts, 2);
+    assert.match(dom.window.location.search, /workspace=management/);
+    assert.equal(input.value, 'Mój szkic');
+  } finally {
+    await unmount(root);
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test('mpStake URL selects its tile without opening a draft editor', async () => {
+  dom.window.sessionStorage.clear();
+  const pointId = '11111111-1111-4111-8111-111111111111';
+  const machineId = '22222222-2222-4222-8222-222222222222';
+  const gameId = '33333333-3333-4333-8333-333333333333';
+  dom.window.history.replaceState(
+    null,
+    '',
+    `/?workspace=management&mpPoint=${pointId}&mpMachine=${machineId}&mpGame=${gameId}&mpStake=1000`,
+  );
+  const machine = {
+    id: machineId,
+    pointId,
+    name: 'Maszyna',
+    archived: false,
+    revision: 1,
+    updatedAt: '2026-10-07T00:00:00Z',
+    assignments: [
+      { gameId, gameName: 'Gra', gameStatus: 'active', attached: true },
+    ],
+  };
+  const point = {
+    id: pointId,
+    name: 'Punkt',
+    city: 'Miasto',
+    street: 'Ulica',
+    archived: false,
+    revision: 1,
+    updatedAt: machine.updatedAt,
+    machines: [machine],
+  };
+  const api = client({
+    getManagementSnapshot: async () => ({
+      data: {
+        points: [point],
+        activeGames: [{ id: gameId, name: 'Gra' }],
+      },
+    }),
+  });
+  const root = createRoot(document.getElementById('root'));
+  try {
+    await act(async () =>
+      root.render(React.createElement(ManagementWorkspace, { client: api })),
+    );
+    await until(() =>
+      document.querySelector('.management-stake-cards > button'),
+    );
+    assert.equal(card(1000).getAttribute('aria-pressed'), 'true');
+    assert.equal(document.querySelector('[aria-label="Szkic układu"]'), null);
+    assert.equal(document.querySelector('.management-modal'), null);
+  } finally {
+    await unmount(root);
   }
 });

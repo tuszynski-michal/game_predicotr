@@ -269,10 +269,20 @@ Worktree izoluje pliki, nie bazę ani porty.
 4. [TASK-0943](../tasks/0943-management-compact-acceptance.md): zintegrowany odbiór,
    skalowane fixture'y i instrukcja operatorska/traceability.
 
+Wyjątek zatwierdzony przez operatora 2026-10-09: przy niedostępnym logowaniu
+Claude można dokończyć kod i testy TASK-0942–0943 przed audytem TASK-0941.
+Zachowujemy osobne snapshoty etapów i dowody testów w ignorowanym
+`artifacts/audits/`, aby późniejsze audyty i commity miały jednoznaczny zakres.
+Task nie otrzymuje statusu done przed wymaganym audytem, rozwiązaniem uwag
+i osobnym commitem. Brak audytu nadal blokuje zamknięcie całego planu oraz merge.
+Poniższa normalna kolejność zamykania tasków pozostaje obowiązująca po
+udostępnieniu audytora; nie blokuje już przygotowania kolejnego kodu/testów.
+
 Taski są wykonywane kolejno. Po każdym: testy, dokumentacja, Outcome, ręczny
 audyt Claude, jedna runda poprawek, osobny commit, wersja/hash w Outcome i
 CURRENT_STATE, przeniesienie done do completed. PASS planu nie jest audytem
-implementacji. Brak raportu taska lub otwarte P0/P1 zatrzymuje przejście dalej.
+implementacji. Brak raportu taska lub otwarte P0/P1 blokuje jego zamknięcie;
+odroczone audyty powyżej pozwalają przygotować kod i testy kolejnego taska.
 P2 naprawić lub zapisać ryzyko. Nowy audyt tylko na polecenie albo gdy poprawka
 zmienia zachowanie objęte P0/P1. Raporty według AUDIT_REPORT_TEMPLATE.
 
@@ -301,8 +311,28 @@ POST zamiast DELETE, bez zależności startowej od Mumii, backfill preview,
 bounded cleanup/fallback/agregaty, rola owner+GUC, URL bez szkicu, izolowane dist.
 Modele Codex potwierdzone w katalogu bieżącego środowiska; modele Claude
 operator potwierdził do audytu zewnętrznego. Claude Code jest dostępny w pakiecie
-Claude Desktop, lecz osobny proces zgłasza brak logowania. Samodzielne wysyłanie
-audytów jest autoryzowane; możliwość headless dispatch pozostaje niezweryfikowana.
+Claude Desktop. Operator2026-10-09 zalogował zewnętrzny CLI; świeży proces
+potwierdził dostęp, a niezależny audyt0941 został uruchomiony i zwrócił raport.
+Samodzielne wysyłanie audytów jest autoryzowane i faktycznie zweryfikowane.
+
+## Końcowy audyt i ograniczenie kosztu — polecenie operatora 2026-10-09
+
+Operator ponownie zlecił dokończenie całego planu oraz samodzielne przekazywanie
+audytów i informacji do Claude Code, gdy dostęp pozwoli na rzeczywiste
+uruchomienie audytora. Nie należy ponownie prosić o zgodę na samo przekazanie.
+Na końcu TASK-0943 audyt ma ocenić cały przepływ, minimalizm UI, ochronę danych,
+regresje zwykłego search/share oraz zgodność z pierwotnymi wymaganiami.
+Operator wyjaśnił, że nazwy „Gy” i „RooPaudit” były błędem transkrypcji
+Aqua Voice. Końcowy audyt ma być wykonany z Claude Code; nie obejmuje
+dodatkowych audytorów i nie wymaga wyjaśniania tych nazw.
+
+Dla każdego audytu obowiązuje jedna runda zebrania uwag i jedna ograniczona
+runda poprawek. Naprawiamy potwierdzone błędy w zakresie; nie dokładamy
+kosmetycznych refaktorów. Po poprawkach ponawiamy tylko testy zmienionego
+zachowania. Kolejny audyt jest dopuszczalny wyłącznie według istniejącej reguły
+P0/P1 lub na wyraźne polecenie operatora, bez automatycznej pętli. Końcowy audyt
+wykorzystuje raporty i wyniki wcześniejszych tasków, zamiast powtarzać całość.
+Brak dostępu do audytora pozostaje jawnie niewykonanym krokiem, nigdy PASS.
 
 ## Przypisanie modeli do zadań
 

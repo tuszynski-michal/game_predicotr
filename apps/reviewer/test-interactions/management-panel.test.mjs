@@ -378,6 +378,7 @@ function backend({ existing = true, locked = false } = {}) {
     }
     if (path === '/points/point/machines' && body) {
       Object.assign(machine, body);
+      machine.assignments = (body.gameIds ?? []).map(() => assignment);
       point.machines = [machine];
       return json(machine);
     }
@@ -549,9 +550,13 @@ test('phone-width public gate completes point/machine assignment, search, indepe
     'form[aria-label="Edycja maszyny"]',
   );
   await input(machineForm.querySelector('input'), 'Maszyna');
+  await click(machineForm.querySelector('input[type="checkbox"]'));
   await submit(machineForm);
-  await click(document.querySelector('fieldset input'));
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await until(() => card());
   assert.equal(
     document.querySelectorAll('.management-stake-cards article').length,
@@ -598,7 +603,11 @@ test('lost committed response survives reload; identical UUID/body retries once 
   });
   let root = await mount(adapter);
   await click(document.querySelector('.management-tile > button'));
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await until(() => card());
   await click(button('Szukaj ponownie', card()));
   await range(11);
@@ -640,7 +649,11 @@ test('401 termination retains mounted dirty draft, loaded history and exact pend
   });
   const root = await mount(adapter);
   await click(document.querySelector('.management-tile > button'));
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await until(() => card());
   await click(button('Otwórz', card()));
   await until(() => text().includes('Ostatni zapisany wynik'));
@@ -917,7 +930,11 @@ test('public modal writes current symbol immediately with opaque version, fixed 
   });
   const root = await mount(adapter);
   await click(document.querySelector('.management-tile > button'));
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await until(() => card());
   await click(button('Otwórz', card()));
   await until(() => button('Edytuj bieżącą planszę startową'));
@@ -1130,7 +1147,11 @@ test('public correction lost response reload retries original opaque request and
     }),
   );
   await click(document.querySelector('.management-tile > button'));
-  await click(button('Otwórz gry maszyny Maszyna'));
+  await click(
+    [...document.querySelectorAll('.management-tile-choice')].find((node) =>
+      node.textContent.includes('Maszyna'),
+    ),
+  );
   await until(() => card());
   await click(button('Otwórz', card()));
   await until(() => button('Edytuj bieżącą planszę startową'));

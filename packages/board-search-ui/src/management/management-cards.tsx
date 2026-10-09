@@ -103,6 +103,7 @@ export function ManagementCards({
   onOpen,
   onSearch,
   onClear,
+  selectedStake,
 }: {
   cards: readonly ManagementCardState[];
   writeAllowed: boolean;
@@ -110,6 +111,7 @@ export function ManagementCards({
   onOpen: (stake: ManagementStake) => void;
   onSearch: (stake: ManagementStake) => void;
   onClear: (stake: ManagementStake) => void;
+  selectedStake?: number | null;
 }) {
   return (
     <div className="management-tiles management-stake-cards">
@@ -118,6 +120,9 @@ export function ManagementCards({
           className="management-tile"
           key={slot.stakeGrosze}
           aria-label={`Stawka ${formatZloty(slot.stakeGrosze)}`}
+          data-selected={
+            selectedStake === slot.stakeGrosze ? 'true' : undefined
+          }
         >
           <h4>{formatZloty(slot.stakeGrosze)}</h4>
           {slot.empty ? (

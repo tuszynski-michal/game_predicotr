@@ -22,7 +22,10 @@ zostały uzgodnione. Nie trzeba rekonstruować historii rozmowy.
 
 ## Dependencies / entry conditions
 
-TASK-0940–0942 zakończone z audytami/commitami; D-536 i aktualne API/UI udokumentowane. Bez zgody na rollout danych/usług operatora.
+TASK-0940 zakończony, kod/testy0941–0942 przygotowane; D-536 i aktualne API/UI
+udokumentowane. Zgoda operatora z2026-10-09 pozwala przygotować kod/testy0943
+przed odroczonymi audytami i commitami0941–0942. Cały plan nadal wymaga tych
+audytów przed done i merge. Bez zgody na rollout danych/usług operatora.
 
 ## Recommended execution
 
@@ -72,6 +75,14 @@ aktualizacji, bez ukrytej zamiany modelu.
 - [ ] Audyt Claude, Outcome i osobny commit kończą zlecony plan; brak push/merge/deployment.
 
 ## Technical notes
+
+Polecenie operatora z 2026-10-09 obejmuje końcowy audyt całej funkcjonalności
+z Claude Code. Operator sprostował, że „Gy” i „RooPaudit” były błędem
+transkrypcji Aqua Voice, a nie dodatkowymi audytorami. Końcowy brief ma reużyć wcześniejsze raporty
+i wyniki, oceniać pełny przepływ oraz wygodę kompaktowego UI. Jedna runda uwag,
+jedna ograniczona runda poprawek, testy tylko zmienionego zachowania; żadnej
+automatycznej pętli audytów. Zasady P0/P1 i wymagany model Claude pozostają
+zgodne z zaakceptowanym planem.
 
 Regresje wcześniejszych tasków nie są ponawiane bez potrzeby: końcowy test obejmuje realny zintegrowany przepływ i nowe rozmiary. Istniejący browser runner uruchamia kontrolowaną headless przeglądarkę i statyczną fixture, nie usługi operatora. Fizyczne urządzenie, live tunnel/ingress i reboot operatora pozostają gates. Nie uznawać mock za wynik realnej produkcji. Dokładny nextversion z gitlog, nie z nazwy branch.
 

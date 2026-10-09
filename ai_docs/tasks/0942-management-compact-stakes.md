@@ -22,7 +22,11 @@ zostały uzgodnione. Nie trzeba rekonstruować historii rozmowy.
 
 ## Dependencies / entry conditions
 
-TASK-0940/0941 zakończone z audytami/commitami. Bezpośrednio przed startem sprawdzić main pod TASK-0935/0936 i zastosować regułę integracji planu; nie czekać na nie, jeśli jeszcze nie weszły.
+TASK-0940 zakończony z audytem/commitem, kod i testy TASK-0941 gotowe.
+Operator 2026-10-09 jawnie pozwolił wykonać kod/testy0942–0943 przed audytem0941.
+Audyty i osobne commity pozostają wymagane przed zamknięciem planu/merge.
+Bezpośrednio przed startem sprawdzić main pod TASK-0935/0936 i zastosować regułę
+integracji planu; nie czekać na nie, jeśli jeszcze nie weszły.
 
 ## Recommended execution
 
@@ -115,7 +119,8 @@ Ruff i mypy odpowiednich plików z istniejącej konfiguracji; TS: lint/typecheck
 zmienionych workspace. PG ownership/provisioning uruchamiaj tylko na bazie
 izolowanej. Każde pominięcie/skip i istniejący niezwiązany błąd podaj w Outcome.
 Warunek zakończenia: kryteria potwierdzone, wymagany audyt bez otwartych P0/P1,
-osobny commit i dokumentacja stanu. Brak audytu zatrzymuje następny task.
+osobny commit i dokumentacja stanu. Według zgody operatora z2026-10-09
+brak audytu nie blokuje kodu/testów0943, ale blokuje done i merge.
 
 ## Risks / open questions
 
@@ -141,4 +146,4 @@ Przed startem odnotować wynik sprawdzenia wspólnych plików i main. Modyfikacj
 
 ### Recommended next task
 
-- TASK-0943 dopiero po zamknięciu tego taska.
+- Kod/testy TASK-0943 po przygotowaniu tego taska, według zgody operatora z2026-10-09; formalne zamknięcie po odroczonych audytach/commitach.

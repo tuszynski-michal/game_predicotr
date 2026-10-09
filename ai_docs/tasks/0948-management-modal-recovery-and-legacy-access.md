@@ -22,6 +22,11 @@ Code still places error/retry behind the modal while its Cancel is disabled
 by retryAvailable. Previous tests saw document text, not dialog accessibility.
 Historical restore is a proposed exception to D-538 requiring plan acceptance.
 
+The standalone [TASK-0950 recovery fix](completed/0950-management-pending-modal-recovery.md)
+now covers visible edit/delete error/retry, close/remount and ended-session guards.
+Reuse its verified behavior; this task remains todo for the remaining historical
+access and layout acceptance scope. Do not repeat the same implementation/audit.
+
 ## Dependencies / entry conditions
 
 Plan status proposed. Do not implement until the operator authorizes execution.

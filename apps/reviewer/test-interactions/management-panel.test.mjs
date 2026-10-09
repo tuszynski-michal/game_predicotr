@@ -1205,3 +1205,193 @@ test('public correction lost response reload retries original opaque request and
   assert.match(text(), /Odbiorca/);
   await unmount(root);
 });
+
+for (const entity of ['point', 'machine']) {
+  for (const action of ['edit', 'delete']) {
+    for (const endAccess of [false, true]) {
+      test(`shared ${entity} ${action} failure exposes dialog retry (${endAccess ? 'ended' : 'active'} access)`, async () => {
+        dom.window.sessionStorage.clear();
+        dom.window.history.replaceState(
+          null,
+          '',
+          `/management?share=${sessionId}`,
+        );
+        const server = backend();
+        const baseFetch = server.fetch;
+        const mutations = [];
+        const target =
+          entity === 'point'
+            ? '/points/point'
+            : '/points/point/machines/machine';
+        const json = (value, status = 200) =>
+          new Response(JSON.stringify(value), {
+            status,
+            headers: { 'Content-Type': 'application/json' },
+          });
+        server.fetch = async (request) => {
+          const path = new URL(request.url).pathname.replace(
+            '/management-api/api/v1/management-public',
+            '',
+          );
+          if (path === `${target}/delete-preview`)
+            return json({
+              previewToken: 'p'.repeat(43),
+              expiresAt: '2099-01-01T00:00:00Z',
+              counts: { points: entity === 'point' ? 1 : 0, machines: 1 },
+            });
+          if (path === (action === 'edit' ? target : `${target}/delete`)) {
+            mutations.push({
+              body: await request.clone().json(),
+              session: request.headers.get('X-Management-Session'),
+            });
+            if (mutations.length === 1)
+              return json({ message: 'Nieznany wynik zapisu' }, 502);
+            if (action === 'delete') {
+              if (entity === 'point') server.points = [];
+              else server.points[0].machines = [];
+              return json({
+                deleted: true,
+                operationId: mutations.at(-1).body.operationId,
+              });
+            }
+          }
+          return baseFetch(request);
+        };
+        const adapter = createManagementPublicAdapter({
+          sessionId,
+          fetchImplementation: server.fetch,
+        });
+        let root = await mount(adapter);
+        try {
+          if (entity === 'machine')
+            await click(document.querySelector('.management-tile-choice'));
+          const label = `${action === 'edit' ? 'Edytuj' : 'Usuń'} ${entity === 'point' ? 'punkt Punkt' : 'maszynę Maszyna'}`;
+          await click(document.querySelector(`button[aria-label="${label}"]`));
+          if (action === 'edit') {
+            await input(
+              document.querySelector('.management-modal input'),
+              'Zmieniona nazwa',
+            );
+            await submit(document.querySelector('.management-modal'));
+          } else await click(button('Potwierdź usunięcie'));
+          const dialog = document.querySelector('[role="dialog"]');
+          assert.match(
+            dialog.querySelector('[role="alert"]').textContent,
+            /Nieznany wynik/,
+          );
+          assert.equal(button('Ponów ten sam zapis', dialog).disabled, false);
+          assert.equal(button('Anuluj', dialog).disabled, false);
+          if (action === 'edit')
+            assert.equal(dialog.querySelector('input').disabled, true);
+          const stored = dom.window.sessionStorage.getItem(
+            managementPendingKey(managementStorageNamespace(sessionId)),
+          );
+          assert.ok(stored);
+          if (endAccess) {
+            adapter.end();
+            await until(() => button('Ponów ten sam zapis', dialog).disabled);
+            const commitButton = button(
+              action === 'edit' ? 'Zapisz' : 'Potwierdź usunięcie',
+              dialog,
+            );
+            assert.equal(commitButton.disabled, true);
+            await click(button('Ponów ten sam zapis', dialog));
+            await click(commitButton);
+            assert.equal(mutations.length, 1);
+            assert.equal(
+              dom.window.sessionStorage.getItem(
+                managementPendingKey(managementStorageNamespace(sessionId)),
+              ),
+              stored,
+            );
+            return;
+          }
+          if (entity === 'point' && action === 'edit') {
+            await click(button('Anuluj', dialog));
+            assert.equal(document.querySelector('[role="dialog"]'), null);
+            assert.equal(
+              dom.window.sessionStorage.getItem(
+                managementPendingKey(managementStorageNamespace(sessionId)),
+              ),
+              stored,
+            );
+            await unmount(root);
+            root = await mount(adapter);
+          }
+          await click(button('Ponów ten sam zapis'));
+          assert.equal(mutations.length, 2);
+          assert.deepEqual(mutations[1], mutations[0]);
+          assert.equal(mutations[0].session, sessionId);
+          assert.equal(
+            dom.window.sessionStorage.getItem(
+              managementPendingKey(managementStorageNamespace(sessionId)),
+            ),
+            null,
+          );
+          assert.equal(document.querySelector('[role="dialog"]'), null);
+          if (entity === 'point' && action === 'edit') {
+            await click(button('Punkty'));
+            assert.equal(
+              document.querySelector(
+                'button[aria-label="Edytuj punkt Zmieniona nazwa"]',
+              ).disabled,
+              false,
+            );
+            assert.equal(
+              document.querySelector(
+                'button[aria-label="Usuń punkt Zmieniona nazwa"]',
+              ).disabled,
+              false,
+            );
+          }
+        } finally {
+          await unmount(root);
+        }
+      });
+    }
+  }
+}
+
+test('shared definite edit rejection keeps the error and editable draft inside the modal', async () => {
+  dom.window.sessionStorage.clear();
+  dom.window.history.replaceState(null, '', `/management?share=${sessionId}`);
+  const server = backend();
+  const baseFetch = server.fetch;
+  server.fetch = (request) =>
+    request.method === 'PUT'
+      ? Promise.resolve(
+          new Response(JSON.stringify({ message: 'Nieprawidłowa nazwa' }), {
+            status: 422,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+      : baseFetch(request);
+  const root = await mount(
+    createManagementPublicAdapter({
+      sessionId,
+      fetchImplementation: server.fetch,
+    }),
+  );
+  try {
+    await click(
+      document.querySelector('button[aria-label="Edytuj punkt Punkt"]'),
+    );
+    await submit(document.querySelector('.management-modal'));
+    const dialog = document.querySelector('[role="dialog"]');
+    assert.match(
+      dialog.querySelector('[role="alert"]').textContent,
+      /Nieprawidłowa nazwa/,
+    );
+    assert.equal(dialog.querySelector('input').disabled, false);
+    assert.equal(button('Zapisz', dialog).disabled, false);
+    assert.equal(button('Ponów ten sam zapis', dialog), undefined);
+    assert.equal(
+      dom.window.sessionStorage.getItem(
+        managementPendingKey(managementStorageNamespace(sessionId)),
+      ),
+      null,
+    );
+  } finally {
+    await unmount(root);
+  }
+});

@@ -114,6 +114,12 @@ journal. Local actor versus named share link suffices; user
 and one recipient, no accounts. Operation UUID plus body binding and expected
 revision prevent lost-response duplicates or silent concurrent overwrite.
 
+Structural edit/delete dialogs show write errors and exact retry within the
+visible dialog. After a completed failed request, closing the dialog preserves
+its pending operation UUID/body. Fields/new writes stay locked until an uncertain
+operation resolves; ended access blocks retry. Definite validation rejection
+keeps the draft editable. TASK-0950 fixes this shared/local recovery behavior.
+
 ## Online access and style
 
 Recipient has full management of this module and assigned-game search/correction;

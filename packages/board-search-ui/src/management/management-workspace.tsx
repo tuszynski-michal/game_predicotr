@@ -805,8 +805,8 @@ export function ManagementWorkspace({
           ) : null}
         </div>
         {loading ? <p role="status">Ładowanie punktów…</p> : null}
-        {error ? <p role="alert">{error}</p> : null}
-        {retryAvailable ? (
+        {error && !editor && !deleteTarget ? <p role="alert">{error}</p> : null}
+        {retryAvailable && !editor && !deleteTarget ? (
           <button
             disabled={busy || !accessAllowed}
             onClick={() => {
@@ -1056,6 +1056,13 @@ export function ManagementWorkspace({
           street={street}
           gameIds={gameIds}
           disabled={disabled}
+          saving={busy || confirming}
+          error={error}
+          retryAvailable={retryAvailable}
+          retryDisabled={busy || confirming || !accessAllowed}
+          onRetry={() => {
+            if (pending.current) void run(pending.current);
+          }}
           conflict={editorConflict}
           nameInput={nameInput}
           setName={setName}
@@ -1064,7 +1071,8 @@ export function ManagementWorkspace({
           setGameIds={setGameIds}
           onSave={save}
           onClose={() => {
-            if (navigationAllowed()) setEditor(null);
+            if (!busyRef.current && !confirming && navigationAllowed())
+              setEditor(null);
           }}
         />
       ) : null}
@@ -1080,10 +1088,21 @@ export function ManagementWorkspace({
           </h3>
           <p>{formatCounts(deleteCounts)}</p>
           <p>Zapisy, konteksty i dziennik tego zakresu zostaną usunięte.</p>
+          {error ? <p role="alert">{error}</p> : null}
           <div className="management-actions">
             <button disabled={disabled} onClick={() => void confirmDelete()}>
               Potwierdź usunięcie
             </button>
+            {retryAvailable ? (
+              <button
+                disabled={busy || !accessAllowed}
+                onClick={() => {
+                  if (pending.current) void run(pending.current);
+                }}
+              >
+                Ponów ten sam zapis
+              </button>
+            ) : null}
             <button
               disabled={busy}
               onClick={() => {

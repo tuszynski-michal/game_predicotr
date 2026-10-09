@@ -98,6 +98,7 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
+
 ### TASK-0947 — czytelny widok punktu (todo)
 
 - D-539: tylko punkt otwiera widok; maszyna podświetla się i pozostawia listę.
@@ -730,6 +731,14 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0950 — Management pending modal recovery (done)
+
+- Visible edit/delete dialogs now contain errors and exact retry; failed writes can be closed without losing pending identity. Fields remain locked during active/uncertain writes.
+- Admin13/13, Reviewer23/23 (nine new cases), proxy11/11; scoped lint/shared typecheck PASS. One Claude medium static audit PASS, both P2 closed.
+- Operator shared edit/delete complaint remains unconfirmed. Read-only API: active session, one active and two archived points. No public live write, data deletion, service lifecycle or deployment.
+- See [task](../tasks/completed/0950-management-pending-modal-recovery.md) and [audit](../quality/TASK-0950_AUDIT_claude-opus-5-5.md). Commit metadata follows after commit.
+
+
 ### TASK-0946 — odstępy kafelków panelu (done)
 
 - Spójne16px dla ikon, stawek i archiwalnych kafelków; miejsce na dwa przyciski44px.
@@ -836,30 +845,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Etap S-C zamknięty. Następne: TASK-0938/0939 (etap T), TASK-0937 (pilot,
   wymaga etykiet operatora).
 
-### TASK-0935 — oznaczenie supergry w wyszukiwaniu plansz (done)
-
-- Commit v1.7.278 / bf0dd8617b449da7109b4b438f46b6ea7433bb3c.
-- API: wyniki wyszukiwania i wiersze przybliżonej wygranej niosą opcjonalne
-  `superGame` (`trigger` | `in_series`, `spinIndex`, `seriesLength`,
-  `superSymbolCode`, `completeness`, `runVerification`, w Adminie `seriesId`),
-  a każda odpowiedź `superGameState { fresh, inputVersion, generationInputVersion }`;
-  jedno zapytanie SQL (LATERAL po serii pokrywającej pozycję) daje znacznik i
-  świeżość z jednego snapshotu. Trasy publiczne (udostępnienie, panel) bez
-  `seriesId` (osobny model / `response_model_exclude`, strażnik parametrów).
-  Zamrożone wyniki panelu bez znaczników; skróty treści 777 bez zmian.
-- UI (`board-search-ui`): złote wyróżnienie kart i wierszy, etykiety
-  „Supergra: trigger / spin k/len, symbol X / super symbol do zdefiniowania”,
-  dopiski o serii niekompletnej i triggerze z predykcji, baner dla całego
-  wyniku (także pustego) przy `fresh = false`; link „Zdefiniuj super symbol”
-  / „Pokaż serię” tylko gdy źródło danych deklaruje `superGameSeriesHref`
-  (Admin), Reviewer i panel tylko etykieta. Cache wyszukiwania Reviewera
-  pomijany dla odpowiedzi ze znacznikiem lub nieświeżych.
-- Audyt Codex gpt-6-astra / medium: REVISE (P0 baner przy pustym wyniku,
-  P1 brak akapitu w `ADMIN_APP.md`, P2 cache), wszystko naprawione w jednej
-  rundzie (`ai_docs/quality/TASK-0935_AUDIT_gpt-6-astra.md`). API 281 PASS,
-  PG 35 + 8 + 2, board-search-ui 85 + 60, Reviewer 240 + 40, Admin 733 + 188,
-  klient 104, typecheck (mypy 850 plików), lint, format PASS.
-- Etap S-B zamknięty (TASK-0933–0935). Następny: S-C / TASK-0936.
 
 ## Archiwum
 

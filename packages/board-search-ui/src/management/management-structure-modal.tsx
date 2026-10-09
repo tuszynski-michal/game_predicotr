@@ -28,6 +28,11 @@ interface Props {
   street: string;
   gameIds: readonly string[];
   disabled: boolean;
+  saving: boolean;
+  error: string;
+  retryAvailable: boolean;
+  retryDisabled: boolean;
+  onRetry: () => void;
   conflict?: boolean;
   nameInput: RefObject<HTMLInputElement | null>;
   setName: (value: string) => void;
@@ -46,6 +51,11 @@ export function ManagementStructureModal({
   street,
   gameIds,
   disabled,
+  saving,
+  error,
+  retryAvailable,
+  retryDisabled,
+  onRetry,
   conflict = false,
   nameInput,
   setName,
@@ -74,6 +84,7 @@ export function ManagementStructureModal({
       aria-label={editor.kind === 'point' ? 'Edycja punktu' : 'Edycja maszyny'}
     >
       <h3>{editor.kind === 'point' ? 'Punkt' : 'Maszyna'}</h3>
+      {error ? <p role="alert">{error}</p> : null}
       {conflict ? (
         <p role="alert">
           Ten punkt lub maszyna zmieniły się w innym oknie. Twój formularz
@@ -88,6 +99,7 @@ export function ManagementStructureModal({
           required
           maxLength={200}
           value={name}
+          disabled={saving || retryAvailable}
           onChange={(event) => setName(event.target.value)}
         />
       </label>
@@ -99,6 +111,7 @@ export function ManagementStructureModal({
               required
               maxLength={200}
               value={city}
+              disabled={saving || retryAvailable}
               onChange={(event) => setCity(event.target.value)}
             />
           </label>
@@ -108,6 +121,7 @@ export function ManagementStructureModal({
               required
               maxLength={200}
               value={street}
+              disabled={saving || retryAvailable}
               onChange={(event) => setStreet(event.target.value)}
             />
           </label>
@@ -119,6 +133,7 @@ export function ManagementStructureModal({
             <label className="management-game" key={game.id}>
               <input
                 type="checkbox"
+                disabled={saving || retryAvailable}
                 checked={gameIds.includes(game.id)}
                 onChange={(event) => toggleGame(game.id, event.target.checked)}
               />
@@ -140,6 +155,7 @@ export function ManagementStructureModal({
               <label className="management-game" key={row.gameId}>
                 <input
                   type="checkbox"
+                  disabled={saving || retryAvailable}
                   checked={gameIds.includes(row.gameId)}
                   onChange={(event) =>
                     toggleGame(row.gameId, event.target.checked)
@@ -173,7 +189,12 @@ export function ManagementStructureModal({
         >
           Zapisz
         </button>
-        <button type="button" disabled={disabled} onClick={onClose}>
+        {retryAvailable ? (
+          <button type="button" disabled={retryDisabled} onClick={onRetry}>
+            Ponów ten sam zapis
+          </button>
+        ) : null}
+        <button type="button" disabled={saving} onClick={onClose}>
           Anuluj
         </button>
       </div>

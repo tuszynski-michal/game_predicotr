@@ -736,7 +736,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Visible edit/delete dialogs now contain errors and exact retry; failed writes can be closed without losing pending identity. Fields remain locked during active/uncertain writes.
 - Admin13/13, Reviewer23/23 (nine new cases), proxy11/11; scoped lint/shared typecheck PASS. One Claude medium static audit PASS, both P2 closed.
 - Operator shared edit/delete complaint remains unconfirmed. Read-only API: active session, one active and two archived points. No public live write, data deletion, service lifecycle or deployment.
-- See [task](../tasks/completed/0950-management-pending-modal-recovery.md) and [audit](../quality/TASK-0950_AUDIT_claude-opus-5-5.md). Commit metadata follows after commit.
+- See [task](../tasks/completed/0950-management-pending-modal-recovery.md) and [audit](../quality/TASK-0950_AUDIT_claude-opus-5-5.md). Commit `v1.7.295` / `25f91c842fbdad8c35e7c2622fe697fe04f65dd1`.
 
 
 ### TASK-0946 — odstępy kafelków panelu (done)

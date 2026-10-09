@@ -74,6 +74,8 @@ Operator button state/error is still requested. Archived entities follow current
 
 ## Outcome
 
+Commit: `v1.7.295` / `25f91c842fbdad8c35e7c2622fe697fe04f65dd1`.
+
 ### Changed
 
 Edit and deletion dialogs own their error/retry controls. Cancel after a failed request preserves pending identity. Fields are locked for active or uncertain writes. This corrects the confirmed recovery defect; the operator complaint is not yet reproduced on the public live panel.

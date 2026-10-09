@@ -1,14 +1,14 @@
 ---
 title: TASK-0952 — Kopia zapasowa bazy na D przed przeniesieniem
-status: todo
-last_updated: 2026-10-09
+status: done
+last_updated: 2026-10-10
 ---
 
 # TASK-0952 — Kopia zapasowa bazy na D przed przeniesieniem
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -129,24 +129,57 @@ Get-FileHash "$dir\game_predictor-$stamp.dump", "$dir\globals-$stamp.sql" -Algor
 
 ## Outcome
 
-Wypełnia agent po pracy.
+Executed 2026-10-10 01:00–01:43 local time by Claude Code (`claude-opus-5-5`,
+model switched by the operator; the plan table assigns `claude-sonnet-5-5`
+medium, so this is a recorded deviation to a stronger model). The dump ran
+while the Mumie `validate` job was processing, as the task allows.
 
 ### Changed
 
-- ...
+- New directory `D:\game_predictor_backup` (outside the repository) with:
+  - `game_predictor-20261010-0100.dump`: 33 815 750 791 bytes,
+    SHA-256 `94E5DB9B064CF80B96F72426B58357472C327B42F8A40BA9438DB478B73D6053`;
+  - `globals-20261010-0100.sql`: 4 743 bytes, 26 `CREATE/ALTER ROLE` lines,
+    SHA-256 `6629ED0E66258EE4F62EF959BBC3CDE12F55EA215988F934A852E3EF02DB5C4C`;
+  - `game_predictor-20261010-0100.toc.txt`: 481 073 bytes (archive list);
+  - `task0952-20261010-0100.log`: 797 bytes (exit codes, durations, hashes).
+- Stage-A database report: `artifacts/maintenance/disk-d-migration/db-state-stage-a.md`
+  (ignored directory of the plan worktree, as the task requires).
+- No change to the database, services or repository code.
 
 ### Verification results
 
-- ...
+- `pg_dumpall --globals-only`: exit 0.
+- `pg_dump -Fc -Z 1`: exit 0, 1 594 s (26.5 min).
+- `pg_restore --list`: exit 0, 4 727 entries, 263 `TABLE DATA` entries
+  counted with `^\d+; \d+ \d+ TABLE DATA ` (59 in `public`, 204 in
+  `game_data_v2`; partitioned parents carry no data). The first log line said
+  264 because the plain substring also matched an ACL on `dataset_versions`.
+- `pg_restore --file=/dev/null` (full read of every data block): exit 0, 943 s.
+- Free space on D: 1 834.2 GB before, 1 802.7 GB after.
+- `docs:check` (both scripts, run with the main checkout's `.venv` because
+  the worktree has none): `check_decision_links: OK (537 …)`,
+  `check_current_state_window: OK (44 active tasks, 10 done sections)`.
+- Codex audit round 1 (gpt-6.1-sol, medium): REVISE, documentation only
+  (toc size, report location, docs:check evidence, TABLE DATA count);
+  report `ai_docs/quality/TASK-0952_AUDIT_gpt-6.1-sol.md`. All fixed here.
+- Stage-A report: `game_predictor` 88 GB, Alembic
+  `0153_merge_compact_super_games`, 272 tables in `game_data_v2`, 59 in
+  `public`, 839 jobs (770 completed, 51 waiting_for_review, 10 failed,
+  5 cancelled, 2 created, 1 processing), 13 remote selection sessions,
+  `mumie_0884_restore_20261006_155101_test` 44 GB, `game_predictor_v7_pilot`
+  188 MB and 19 small test databases. The database grew from 85 GB
+  (2026-10-09) to 88 GB because of the running Mumie pipelines.
 
 ### Not completed
 
-- ...
+- Trial restore into a separate database: out of scope by design (the B1
+  disk-image copy is the recovery basis).
 
 ### Documentation updates
 
-- ...
+- This Outcome and `ai_docs/process/CURRENT_STATE.md`.
 
 ### Recommended next task
 
-- TASK-0953
+- TASK-0953 (first `Initial` copy is already running).

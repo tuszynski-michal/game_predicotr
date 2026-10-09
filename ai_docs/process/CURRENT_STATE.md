@@ -120,14 +120,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Aktywne taski
 
-### TASK-0952 — kopia zapasowa bazy na D (todo)
-
-- Etap A planu przeniesienia na D: `pg_dump -Fc -Z 1` i
-  `pg_dumpall --globals-only` na D, kody wyjścia 0, pełny odczyt
-  `pg_restore --file=/dev/null`; wczesny raport stanu (raport odniesienia
-  powstaje w B1 po zatrzymaniu zapisów).
-- Task: `ai_docs/tasks/0952-disk-d-database-backup.md`.
-
 ### TASK-0953 — przyrostowa kopia katalogów danych na D (todo)
 
 - Etap A: skrypt `scripts/sync_data_directories_to_d.ps1` (proponowany):
@@ -799,6 +791,18 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0952 — kopia zapasowa bazy na D (done)
+
+- Etap A planu przeniesienia na D (D-540). `D:\game_predictor_backup`:
+  zrzut `game_predictor-20261010-0100.dump` (33,8 GB, SHA-256 `94E5DB9B…`),
+  role `globals-20261010-0100.sql`, spis i log. Kody wyjścia 0 dla
+  `pg_dumpall`, `pg_dump` (26,5 min), `pg_restore --list` (263 `TABLE DATA`)
+  i pełnego odczytu `pg_restore --file=/dev/null` (15,7 min).
+- Raport etapu A: baza 88 GB, `0153`, 272/59 tabel, 839 jobów, 13 sesji
+  zdalnej selekcji. Bez zmian w bazie i usługach. Wykonawca opus-5-5 zamiast
+  sonnet-5-5 (zmiana modelu przez operatora).
+- Task: `ai_docs/tasks/completed/0952-disk-d-database-backup.md`.
+
 ### TASK-0960 — kolejka po częściowym usuwaniu źródeł (done)
 
 - Commit: `v1.7.298` — `91ecf6a04a017a5723ea9f8336957221766cf043` (lokalnie, bez push).
@@ -873,21 +877,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   integracyjnej (API z `--reload` w głównym checkoucie) i przebudowy Reviewera.
 - Weryfikacja na żywej bazie (kontekst korekty dla 25 plansz, odczyt) nie
   wykonana: Docker Desktop zwracał 500, PostgreSQL nie przyjmował połączeń.
-
-### TASK-0938 — okno kroczące `CURRENT_STATE.md` i indeks `DECISION_LOG.md` (done)
-
-- Commit v1.7.282 / 2361e6ed77a23f88930cdf372b96371cf24305d7
-- `CURRENT_STATE.md`: 868 364 B / 13 375 linii → ok. 75 KB; sekcje spoza okna
-  przeniesione bez zmian do `ai_docs/archive/CURRENT_STATE_2026Q4.md` (od
-  2026-10-01) i `CURRENT_STATE_2026Q3.md` (wcześniejsze); dowód: równość
-  multizbiorów bloków z HEAD. Nowa sekcja „Obowiązujące ograniczenia” (25
-  punktów ze wskazaniem źródła).
-- `DECISION_LOG.md`: 787 675 B → ok. 70 KB (nagłówek z regułami, indeks D-359..
-  D-537, pięć najnowszych pełnych wpisów); pełne wpisy w
-  `ai_docs/process/decisions/DECISION_LOG_2026.md` (kotwice bez zmian), starszy
-  indeks w `decisions/DECISION_INDEX_ARCHIVE.md`.
-- `scripts/check_decision_links.py` i `scripts/check_current_state_window.py`
-  w `npm run docs:check` (część `quality`, ok. 2 s); testy
-  `services/worker/tests/test_check_decision_links_script.py`.
-- Audyt Codex gpt-6-astra / medium: REVISE (2 × P1, 1 × P2), jedna runda
-  poprawek (`ai_docs/quality/TASK-0938_AUDIT_gpt-6-astra.md`).

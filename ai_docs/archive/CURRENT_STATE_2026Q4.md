@@ -6,6 +6,25 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0938 — okno kroczące `CURRENT_STATE.md` i indeks `DECISION_LOG.md` (done)
+
+- Commit v1.7.282 / 2361e6ed77a23f88930cdf372b96371cf24305d7
+- `CURRENT_STATE.md`: 868 364 B / 13 375 linii → ok. 75 KB; sekcje spoza okna
+  przeniesione bez zmian do `ai_docs/archive/CURRENT_STATE_2026Q4.md` (od
+  2026-10-01) i `CURRENT_STATE_2026Q3.md` (wcześniejsze); dowód: równość
+  multizbiorów bloków z HEAD. Nowa sekcja „Obowiązujące ograniczenia” (25
+  punktów ze wskazaniem źródła).
+- `DECISION_LOG.md`: 787 675 B → ok. 70 KB (nagłówek z regułami, indeks D-359..
+  D-537, pięć najnowszych pełnych wpisów); pełne wpisy w
+  `ai_docs/process/decisions/DECISION_LOG_2026.md` (kotwice bez zmian), starszy
+  indeks w `decisions/DECISION_INDEX_ARCHIVE.md`.
+- `scripts/check_decision_links.py` i `scripts/check_current_state_window.py`
+  w `npm run docs:check` (część `quality`, ok. 2 s); testy
+  `services/worker/tests/test_check_decision_links_script.py`.
+- Audyt Codex gpt-6-astra / medium: REVISE (2 × P1, 1 × P2), jedna runda
+  poprawek (`ai_docs/quality/TASK-0938_AUDIT_gpt-6-astra.md`).
+
+
 ### TASK-0936 — rozwinięcie super symbolu i koszt per pozycja (done)
 
 - Commit v1.7.280 / 8629be40e01d49a230ec703d27b89057d37d6d73.

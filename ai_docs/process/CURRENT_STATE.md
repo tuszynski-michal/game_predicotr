@@ -1,7 +1,7 @@
 ---
 title: Current project state
 status: active
-last_updated: 2026-10-09
+last_updated: 2026-10-10
 ---
 
 # Current State
@@ -104,11 +104,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-0962 — lokalny Reviewer w zakresie gry i zakładki (todo)
-
-- `importJobId` opcjonalny w trybie lokalnym; zakładki „Do korekty” i „Braki zdjęć”; tanie liczniki.
-- Task: `ai_docs/tasks/0962-reviewer-game-scope-and-tabs.md`.
 
 ### TASK-0963 — zakładka „Braki zdjęć” w Reviewerze (todo)
 
@@ -757,9 +752,16 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
-### TASK-0961 — tanie liczniki korekty, filtr realnych braków i flaga `humanApproved` (done)
+### TASK-0962 — lokalny Reviewer w zakresie gry, zakładki i tanie liczniki (done)
 
 - Commit: dopisuje orkiestrator po audycie (gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
+- `/?mode=local&gameId=<uuid>` otwiera lokalny Reviewer bez `importJobId`; `importJobId` jest opcjonalny (brak albo UUID), niepoprawny nie włącza trybu lokalnego. Kolejka woła `listImageGridReviews` z `counts=correction` i bez `importJobId`, gdy go nie podano.
+- `LocalReviewerWorkspace`: zakładki „Do korekty” (domyślna) i „Braki zdjęć” (zaślepka do TASK-0963, nie wydawać bez niego); oba panele zostają zamontowane (stan edytora nie ginie), a edytor w ukrytej zakładce nie reaguje na klawisze symboli (`keyboardEnabled`). Zdalna ścieżka sesji bez zmian.
+- Testy: Reviewer `test` 243/243, `test:geometry` 53/53 (3 nowe), typecheck PASS, lint 0 błędów, `format:check` PASS. Task: `ai_docs/tasks/completed/0962-reviewer-game-scope-and-tabs.md`.
+
+### TASK-0961 — tanie liczniki korekty, filtr realnych braków i flaga `humanApproved` (done)
+
+- Commit: `e2aee8fa` (`v1.7.301`, gałąź `feat/reviewer-geometry-gaps`, worktree `worktrees/reviewer-geometry-gaps`).
 - `GET .../grid-reviews?counts=correction` liczy tylko `counts.correction` (nowa metoda repozytorium `grid_review_correction_count`, pozostałe liczniki `0`); `GET .../incomplete-images?gapsOnly=true` zwraca cztery stany realnych braków (`REAL_GAP_IMAGE_STATES`) jednym zapytaniem, konflikt z `imageState`/`completenessStatus` → 422 `IMAGE_GEOMETRY_COMPLETENESS_FILTER_CONFLICT`; pozycja ma `humanApproved`, strona `gapsOnly`. OpenAPI, klient i wrapper zregenerowane; domyślne zachowanie obu endpointów bez zmian.
 - Pomiar 2026-10-10 (nowy kod, instancja tymczasowa 8011): `counts=correction` 1,08 s / 1,00 s (Mumie 0, 777 255; stary kod 21,8 s / 26,9 s); strona `gapsOnly` 3,9–5,7 s (Mumie 4 zdjęcia, 777 76 `incomplete_partial`, z czego 73 z zatwierdzonymi ręcznie pozycjami). Budżety ≤ 3 s i ≤ 12 s spełnione bez indeksu.
 - Testy: API/serwis 148 passed, PostgreSQL 30 passed (4 nowe), klient 107 passed, ruff PASS, `check:generated` PASS. Task: `ai_docs/tasks/completed/0961-geometry-gaps-api-counts-and-filter.md`.
@@ -820,21 +822,3 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 - Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.
 - Outcome: `ai_docs/tasks/completed/0940-management-atomic-edit-and-delete.md`; separate panel-branch task, independent of main's historical TASK-0940 quality task.
 - Atomic final name/game edits, bound preview/confirmed scope purge, preserved independent security audit and redacted retry receipts. Original Claude report retained, required regression tests added before the task commit.
-
-### TASK-0944 — szkic planszy poza krawędzią obrazu blokował ręczną korektę (done)
-
-- Commit v1.7.286 / 2c30ac59309da9e5d3173f9f6088d936bb10a26a
-- Zgłoszenie operatora: import Mumie `d82d9aba-…` w Reviewerze kończył się
-  `IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID` („The pinned board quad is outside
-  the immutable source bounds.”). Wszystkie 25 odłożonych plansz w bazie miały
-  wykryty narożnik poza obrazem (0,1–56 px), więc żadnej nie dało się poprawić.
-- `_validated_detected_board_geometry` przyjmuje szkic w granicach ręcznej edycji
-  (`-W..2W`, `-H..2H`, jak `SourceQuad.require_manual_edit_bounds` i D-436);
-  zapis korekty waliduje geometrię niezależnie. Odpowiedź `correction-context`
-  (`boardQuad`, `suggestedCorners`) używa punktu ze znakiem
-  (`ManualSourceGeometryPoint`); OpenAPI i klient zregenerowane, wrapper klienta
-  zachowuje nazwę `OperationalImageReviewGeometryPoint` dla Reviewera.
-- Bez migracji i zmian danych. Działanie na żywo wymaga scalenia do gałęzi
-  integracyjnej (API z `--reload` w głównym checkoucie) i przebudowy Reviewera.
-- Weryfikacja na żywej bazie (kontekst korekty dla 25 plansz, odczyt) nie
-  wykonana: Docker Desktop zwracał 500, PostgreSQL nie przyjmował połączeń.

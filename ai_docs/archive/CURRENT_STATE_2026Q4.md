@@ -6,6 +6,24 @@ last_updated: 2026-10-09
 
 # Current State — archiwum 2026Q4
 
+### TASK-0944 — szkic planszy poza krawędzią obrazu blokował ręczną korektę (done)
+
+- Commit v1.7.286 / 2c30ac59309da9e5d3173f9f6088d936bb10a26a
+- Zgłoszenie operatora: import Mumie `d82d9aba-…` w Reviewerze kończył się
+  `IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID` („The pinned board quad is outside
+  the immutable source bounds.”). Wszystkie 25 odłożonych plansz w bazie miały
+  wykryty narożnik poza obrazem (0,1–56 px), więc żadnej nie dało się poprawić.
+- `_validated_detected_board_geometry` przyjmuje szkic w granicach ręcznej edycji
+  (`-W..2W`, `-H..2H`, jak `SourceQuad.require_manual_edit_bounds` i D-436);
+  zapis korekty waliduje geometrię niezależnie. Odpowiedź `correction-context`
+  (`boardQuad`, `suggestedCorners`) używa punktu ze znakiem
+  (`ManualSourceGeometryPoint`); OpenAPI i klient zregenerowane, wrapper klienta
+  zachowuje nazwę `OperationalImageReviewGeometryPoint` dla Reviewera.
+- Bez migracji i zmian danych. Działanie na żywo wymaga scalenia do gałęzi
+  integracyjnej (API z `--reload` w głównym checkoucie) i przebudowy Reviewera.
+- Weryfikacja na żywej bazie (kontekst korekty dla 25 plansz, odczyt) nie
+  wykonana: Docker Desktop zwracał 500, PostgreSQL nie przyjmował połączeń.
+
 ### TASK-0938 — okno kroczące `CURRENT_STATE.md` i indeks `DECISION_LOG.md` (done)
 
 - Commit v1.7.282 / 2361e6ed77a23f88930cdf372b96371cf24305d7

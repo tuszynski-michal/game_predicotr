@@ -49,11 +49,15 @@ export function BoardGeometryCorrectionWorkspace({
   apiBaseUrl,
   gameId,
   importJobId,
+  keyboardEnabled = true,
 }: {
   readonly api: BoardGeometryCorrectionClient;
   readonly apiBaseUrl: string;
   readonly gameId: string;
-  readonly importJobId: string;
+  /** Optional: without it the queue spans the whole game (TASK-0962). */
+  readonly importJobId?: string | undefined;
+  /** False while a sibling tab is shown; keeps the editor mounted. */
+  readonly keyboardEnabled?: boolean;
 }) {
   const [page, setPage] = useState<ImageGridReviewPageResponse | null>(null);
   const [history, setHistory] = useState<
@@ -108,7 +112,10 @@ export function BoardGeometryCorrectionWorkspace({
       try {
         result = await api.listImageGridReviews({
           gameId,
-          importJobId,
+          ...(importJobId === undefined ? {} : { importJobId }),
+          // TASK-0961: the queue needs only the correction counter, which
+          // keeps the whole-game scope cheap.
+          counts: 'correction',
           limit: 1,
           view: 'correction',
           ...(afterCursor === undefined ? {} : { afterCursor }),
@@ -251,14 +258,15 @@ export function BoardGeometryCorrectionWorkspace({
         <div className="deferredGeometryComplete">
           <h3>Brak plansz do korekty</h3>
           <p>
-            Ten import nie ma plansz odrzuconych przez algorytm ani zgłoszonych
-            jako „Zła siatka”.
+            W tym zakresie nie ma plansz odrzuconych przez algorytm ani
+            zgłoszonych jako „Zła siatka”.
           </p>
         </div>
       ) : (
         <>
           <BoardGeometryCorrectionEditor
             key={target.key}
+            keyboardEnabled={keyboardEnabled}
             onConflict={handleConflict}
             onSaved={handleSaved}
             symbols={symbols}

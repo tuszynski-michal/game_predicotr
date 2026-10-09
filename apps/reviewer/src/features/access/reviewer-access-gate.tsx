@@ -30,7 +30,8 @@ export function ReviewerAccessGate({
   readonly gridValidationEnabled?: boolean;
   readonly localScope?: {
     readonly gameId: string;
-    readonly importJobId: string;
+    /** Absent: the local Reviewer works on the whole game (TASK-0962). */
+    readonly importJobId?: string | undefined;
   } | null;
   readonly sessionId: string;
 }) {
@@ -69,7 +70,7 @@ export function ReviewerAccessGate({
   if (localScope !== null) {
     return (
       <main className="reviewerShell">
-        {gridValidationEnabled ? (
+        {gridValidationEnabled || localScope.importJobId === undefined ? (
           <LocalReviewerWorkspace
             api={api}
             apiBaseUrl={apiBaseUrl}

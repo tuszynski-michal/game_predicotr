@@ -1,6 +1,6 @@
 ---
 title: TASK-0962 — Lokalny Reviewer w zakresie gry, zakładki i tanie liczniki
-status: todo
+status: done
 last_updated: 2026-10-10
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-10
 
 ## Status
 
-`todo`
+`done`
 
 ## Goal
 
@@ -67,15 +67,15 @@ miejsce (pusty stan) i przełącznik.
 
 ## Acceptance criteria
 
-- [ ] `/?mode=local&gameId=<uuid>` otwiera lokalny Reviewer bez `importJobId`.
-- [ ] `/?mode=local&gameId=<uuid>&importJobId=<uuid>` działa jak dotąd.
-- [ ] `/?mode=local&gameId=<uuid>&importJobId=zly` nie włącza trybu lokalnego.
-- [ ] Wywołanie `listImageGridReviews` z Reviewera zawiera `counts=correction`
+- [x] `/?mode=local&gameId=<uuid>` otwiera lokalny Reviewer bez `importJobId`.
+- [x] `/?mode=local&gameId=<uuid>&importJobId=<uuid>` działa jak dotąd.
+- [x] `/?mode=local&gameId=<uuid>&importJobId=zly` nie włącza trybu lokalnego.
+- [x] Wywołanie `listImageGridReviews` z Reviewera zawiera `counts=correction`
       i nie zawiera `importJobId`, gdy go nie podano.
-- [ ] Przełączenie zakładek nie gubi stanu edytora zakładki „Do korekty”
+- [x] Przełączenie zakładek nie gubi stanu edytora zakładki „Do korekty”
       (komponent nie jest odmontowywany ani remontowany bez potrzeby —
       sprawdzić; jeśli remontuje, ukrywać CSS-em).
-- [ ] `npm run test --workspace @game-predictor/reviewer`,
+- [x] `npm run test --workspace @game-predictor/reviewer`,
       `test:geometry`, typecheck i lint zielone.
 
 ## Technical notes
@@ -126,24 +126,46 @@ Zaliczenie: wszystkie zielone. Testy planowane nie są wynikami wykonania.
 
 ## Outcome
 
-Wypełnia agent po pracy.
-
 ### Changed
 
-- ...
+- `apps/reviewer/src/app/page.tsx`: tryb lokalny wymaga `importJobId === ''` albo UUID; do bramki trafia `importJobId: undefined`, gdy go brak. `grid-audit` i `grid-shadow` bez zmian.
+- `reviewer-access-gate.tsx`: `localScope.importJobId` opcjonalny; bez importu zawsze `LocalReviewerWorkspace`. Ścieżka sesji z kodem dostępu bez zmian.
+- `local-reviewer-workspace.tsx`: zakładki „Do korekty” (domyślna) i „Braki zdjęć” (zaślepka z jednym zdaniem, do TASK-0963). Oba panele są stale zamontowane, nieaktywny ma `hidden`; edytor nie jest odmontowywany ani przeładowywany.
+- `board-geometry-correction-workspace.tsx`: `importJobId` opcjonalny i pomijany w żądaniu, gdy brak; `counts: 'correction'`; teksty bez wzmianki o imporcie; nowy prop `keyboardEnabled`.
+- `deferred-board-cell-geometry-editor.tsx`: prop `keyboardEnabled` (domyślnie `true`) wyłącza klawisze symboli w ukrytej zakładce (odstępstwo od opisu taska: bez tego ukryty edytor reagowałby na klawisze z drugiej zakładki).
+- `reviewer.css`: style zakładek i `[hidden]` panelu.
+- Testy: 3 nowe w `board-geometry-correction.test.mjs` (zakres bez importu, zakładki zachowują ten sam węzeł edytora bez nowych żądań, klawisze nieaktywne w zakładce braków), asercja `counts: 'correction'` w istniejącym teście, dwa testy źródła (`reviewer-access-gate-contract`, `local-reviewer-workspace-contract`).
 
 ### Verification results
 
-- ...
+- `npm run test --workspace @game-predictor/reviewer` — 243/243 PASS.
+- `npm run test:geometry --workspace @game-predictor/reviewer` — 53/53 PASS.
+- `npm run typecheck --workspace @game-predictor/reviewer` — PASS.
+- `npm run lint --workspace @game-predictor/reviewer` — 0 błędów, 1 istniejące ostrzeżenie (`board-search-share-data-source.ts`, poza zakresem).
+- `npm run format:check` — PASS.
 
 ### Not completed
 
-- ...
+- Zawartość zakładki „Braki zdjęć” (TASK-0963). Zaślepka nie może trafić do użytkownika bez TASK-0963.
+- Brak odbioru na żywo (TASK-0965); brak audytu (zawieszony przez operatora), commit wykonuje orkiestrator.
 
 ### Documentation updates
 
-- ...
+- `ai_docs/process/CURRENT_STATE.md` (okno kroczące; TASK-0944 przeniesiony do `ai_docs/archive/CURRENT_STATE_2026Q4.md`).
 
 ### Recommended next task
 
 - TASK-0963
+
+### Audit
+
+Niezależny audyt tylko do odczytu: subagent Claude `haiku` (`medium`), niższy
+model niż wykonawca (Codex niedostępny z powodu wyczerpanego limitu;
+zastępstwo zgodne z poleceniem operatora z 2026-10-10). Werdykt: PASS z
+uwagami P2, brak P0/P1. Uwagi P2 (bez zmian w kodzie, odnotowane):
+
+- trzy warianty parametrów strony są sprawdzane asercjami na źródle, bez testu
+  wykonawczego `HomePage` z mockowanymi `searchParams`/`headers`;
+- warunek `gridValidationEnabled || localScope.importJobId === undefined` w
+  bramce jest zbędny (gałąź `OperationalReviewWorkspace` dla lokalnego zakresu
+  była martwa już przed zmianą).

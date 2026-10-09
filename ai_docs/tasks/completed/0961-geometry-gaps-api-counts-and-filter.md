@@ -155,8 +155,8 @@ Testy planowane nie są wynikami wykonania.
 
 Wykonawca: `claude-fable-5-1`, 2026-10-10, worktree
 `worktrees/reviewer-geometry-gaps` (gałąź `feat/reviewer-geometry-gaps`, baza
-`v1.7.300`). Bez migracji i bez zmian klasyfikacji D-484. Commit i wersję
-dopisuje orkiestrator po audycie.
+`v1.7.300`). Bez migracji i bez zmian klasyfikacji D-484. Commit `e2aee8fa`
+(`v1.7.301`) po audycie.
 
 ### Changed
 

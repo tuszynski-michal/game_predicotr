@@ -40,6 +40,8 @@ URL.revokeObjectURL = () => {};
 const { createRoot } = await import('react-dom/client');
 const { BoardGeometryCorrectionWorkspace } =
   await import('../src/features/operational-reviews/board-geometry-correction-workspace.tsx');
+const { LocalReviewerWorkspace } =
+  await import('../src/features/access/local-reviewer-workspace.tsx');
 after(() => dom.window.close());
 
 const QUAD = [
@@ -203,15 +205,19 @@ const settle = () =>
     await new Promise((resolve) => setTimeout(resolve, 220));
   });
 
-async function render(api) {
+async function render(
+  api,
+  props = { importJobId: 'j' },
+  component = BoardGeometryCorrectionWorkspace,
+) {
   const root = createRoot(document.getElementById('root'));
   await act(async () =>
     root.render(
-      React.createElement(BoardGeometryCorrectionWorkspace, {
+      React.createElement(component, {
         api,
         apiBaseUrl: 'http://localhost',
         gameId: 'g',
-        importJobId: 'j',
+        ...props,
       }),
     ),
   );
@@ -243,6 +249,7 @@ test('the 3001 screen corrects one reported board at a time and moves on after s
   assert.deepEqual(calls.list[0], {
     gameId: 'g',
     importJobId: 'j',
+    counts: 'correction',
     limit: 1,
     view: 'correction',
   });
@@ -609,5 +616,82 @@ test('a save without a chosen symbol sends no symbols and stored ones are only h
 
   assert.equal(calls.save.length, 1);
   assert.equal('cellSymbols' in calls.save[0].command, false);
+  await act(async () => root.unmount());
+});
+
+test('without an import the queue spans the game and asks only for the correction counter (TASK-0962)', async () => {
+  const state = { queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api, {});
+
+  assert.deepEqual(calls.list[0], {
+    counts: 'correction',
+    gameId: 'g',
+    limit: 1,
+    view: 'correction',
+  });
+  assert.equal('importJobId' in calls.list[0], false);
+  assert.doesNotMatch(document.body.textContent, /import/i);
+  assert.match(document.body.textContent, /Do korekty: 1/);
+  await act(async () => root.unmount());
+});
+
+test('the local Reviewer tabs keep the editor of "Do korekty" mounted (TASK-0962)', async () => {
+  const state = { queue: [reportedBoard()] };
+  const { api, calls } = fakeApi(state);
+  const root = await render(api, {}, LocalReviewerWorkspace);
+
+  const tab = (name) =>
+    [...document.querySelectorAll('[role="tab"]')].find(
+      (candidate) => candidate.textContent === name,
+    );
+  const panel = (id) => document.getElementById(id);
+  assert.equal(tab('Do korekty').getAttribute('aria-selected'), 'true');
+  assert.equal(panel('reviewer-tab-correction').hidden, false);
+  assert.equal(panel('reviewer-tab-gaps').hidden, true);
+  assert.match(document.body.textContent, /Numer planszy1234/);
+
+  const canvas = document.querySelector('canvas');
+  const listCalls = calls.list.length;
+  const previewCalls = calls.preview.length;
+  await act(async () => tab('Braki zdjęć').click());
+  assert.equal(panel('reviewer-tab-correction').hidden, true);
+  assert.equal(panel('reviewer-tab-gaps').hidden, false);
+  assert.match(
+    panel('reviewer-tab-gaps').textContent,
+    /Lista braków pojawi się w kolejnym kroku/,
+  );
+
+  await act(async () => tab('Do korekty').click());
+  await settle();
+  assert.equal(panel('reviewer-tab-correction').hidden, false);
+  // The same DOM node: the editor was neither unmounted nor reloaded.
+  assert.equal(document.querySelector('canvas'), canvas);
+  assert.equal(calls.list.length, listCalls);
+  assert.equal(calls.preview.length, previewCalls);
+  assert.match(document.body.textContent, /Numer planszy1234/);
+  await act(async () => root.unmount());
+});
+
+test('symbol keys are inert while the "Braki zdjęć" tab is shown (TASK-0962)', async () => {
+  const state = {
+    queue: [deferredSlot()],
+    suggestions: [{ cellIndex: 0, origin: 'predicted', symbolId: 'sym-seven' }],
+    symbols: SYMBOLS,
+  };
+  const { api } = fakeApi(state);
+  const root = await render(api, {}, LocalReviewerWorkspace);
+  const tab = (name) =>
+    [...document.querySelectorAll('[role="tab"]')].find(
+      (candidate) => candidate.textContent === name,
+    );
+
+  await act(async () => cropButton('Crop 1 — podpowiedź: Siódemka').click());
+  await act(async () => tab('Braki zdjęć').click());
+  await pressKey('2');
+  await act(async () => tab('Do korekty').click());
+  assert.ok(cropButton('Crop 1 — podpowiedź: Siódemka'));
+  await pressKey('2');
+  assert.ok(cropButton('Crop 1 — wybrany symbol: Star'));
   await act(async () => root.unmount());
 });

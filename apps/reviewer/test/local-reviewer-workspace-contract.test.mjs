@@ -49,6 +49,15 @@ test('the local reviewer is only the correction screen; remote stays restricted'
   assert.doesNotMatch(proxy, /\/image-reviews\//);
 });
 
+test('the local reviewer has the correction and gaps tabs over one mounted editor (TASK-0962)', () => {
+  assert.match(localWorkspace, /Do korekty/);
+  assert.match(localWorkspace, /Braki zdjęć/);
+  assert.match(localWorkspace, /Lista braków pojawi się w kolejnym kroku/);
+  // Both panels stay mounted; the inactive one is only hidden.
+  assert.match(localWorkspace, /hidden=\{tab !== 'correction'\}/);
+  assert.match(localWorkspace, /keyboardEnabled=\{tab === 'correction'\}/);
+});
+
 test('the grid-audit list is a loopback-only local mode without a proxy route (TASK-0840)', () => {
   // Same loopback gate as the local correction screen; scoped by game only.
   assert.match(

@@ -130,6 +130,7 @@ export function DeferredBoardCellGeometryEditor({
 export function BoardGeometryCorrectionEditor({
   autoSelectFirstCell = false,
   canvasLabel = 'Plansza z edytowalną siatką 5 na 3',
+  keyboardEnabled = true,
   onConflict,
   onSaved,
   previewWhileSourceLoads = false,
@@ -141,6 +142,8 @@ export function BoardGeometryCorrectionEditor({
 }: {
   readonly autoSelectFirstCell?: boolean;
   readonly canvasLabel?: string;
+  /** False while the editor is mounted but hidden: symbol keys stay inert. */
+  readonly keyboardEnabled?: boolean;
   readonly onConflict: (message: string) => Promise<void>;
   readonly onSaved: (reviewItemId: string | null) => Promise<void>;
   readonly previewWhileSourceLoads?: boolean;
@@ -854,6 +857,7 @@ export function BoardGeometryCorrectionEditor({
   // the selected cell, so labelling needs no mouse trip to the palette.
   useEffect(() => {
     if (
+      !keyboardEnabled ||
       !canAssignSymbols ||
       !previewIsCurrent ||
       selectedCell === null ||
@@ -880,6 +884,7 @@ export function BoardGeometryCorrectionEditor({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [
     canAssignSymbols,
+    keyboardEnabled,
     previewIsCurrent,
     saving,
     selectedCell,

@@ -1141,3 +1141,18 @@ a:focus-visible {
   color: var(--muted);
   font-size: 13px;
 }
+
+.reviewerTabs {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.reviewerTabs button[aria-selected='true'] {
+  border-color: var(--accent, #f4d35e);
+  font-weight: 700;
+}
+
+.reviewerTabPanel[hidden] {
+  display: none;
+}

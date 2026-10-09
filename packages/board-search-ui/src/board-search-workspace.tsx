@@ -62,6 +62,9 @@ import {
 } from './board-search-results-state';
 
 type LoadState = 'loading' | 'ready' | 'error';
+
+/** A host cancelled its save confirmation without attempting a mutation. */
+export class BoardSearchSaveCancelled extends Error {}
 type SearchState =
   | { readonly kind: 'idle' }
   | { readonly kind: 'loading' }
@@ -116,6 +119,9 @@ export interface BoardSearchWorkspaceProps {
   readonly onDirtyChange?: (dirty: boolean) => void;
   /** Resolve only after a successful durable receipt; throw on failure. */
   readonly onSave?: (draft: BoardSearchDraft) => Promise<void>;
+  /** Management presentation only; ordinary search/share retain their controls. */
+  readonly compact?: boolean;
+  readonly saveLabel?: string;
 }
 
 export function BoardSearchWorkspace(props: BoardSearchWorkspaceProps) {
@@ -138,6 +144,8 @@ function BoardSearchWorkspaceContent({
   onDraftChange,
   onDirtyChange,
   onSave,
+  compact = false,
+  saveLabel = 'Zapisz układ',
 }: BoardSearchWorkspaceProps) {
   const managed =
     onSave !== undefined ||
@@ -171,6 +179,7 @@ function BoardSearchWorkspaceContent({
     hostCallbacks.current = { onDraftChange, onDirtyChange };
   });
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [baseline, setBaseline] = useState<string | null>(
     savedSelection === null ? null : boardSearchDraftKey(savedSelection),
   );
@@ -275,11 +284,14 @@ function BoardSearchWorkspaceContent({
     saveInFlight.current = true;
     setSaving(true);
     setSaveError(null);
+    setSaveNotice(null);
     try {
       await onSave(draft);
       if (mounted.current) setBaseline(draftKey);
     } catch (error) {
-      if (mounted.current)
+      if (mounted.current && error instanceof BoardSearchSaveCancelled)
+        setSaveNotice(error.message);
+      else if (mounted.current)
         setSaveError(
           apiErrorMessage(
             error,
@@ -401,6 +413,10 @@ function BoardSearchWorkspaceContent({
     setEditor((current) => resetBoardSearchEditor(current));
     setSearchState({ kind: 'idle' });
     setResultsState(null);
+    if (compact && managed) {
+      setPins([]);
+      setSpinCount(APPROXIMATE_WIN_RANGE_DEFAULT);
+    }
   }
 
   function runSearch(
@@ -638,12 +654,21 @@ function BoardSearchWorkspaceContent({
   }, [replay?.id, symbolsState]);
 
   return (
-    <section aria-label="Wyszukaj plansze" className="boardSearchWorkspace">
+    <section
+      aria-label="Wyszukaj plansze"
+      className={`boardSearchWorkspace${compact ? ' boardSearchWorkspaceCompact' : ''}`}
+    >
       <header className="pageHeader boardSearchHeader">
         <div>
-          <p className="eyebrow">Plansze · częściowy układ 3 × 5</p>
-          <h1>Wyszukaj plansze</h1>
-          <p className="lead">
+          {compact ? (
+            <h3>Wyszukaj plansze</h3>
+          ) : (
+            <>
+              <p className="eyebrow">Plansze · częściowy układ 3 × 5</p>
+              <h1>Wyszukaj plansze</h1>
+            </>
+          )}
+          <p className="lead" hidden={compact}>
             Wstaw tylko symbole, które znasz. Wyszukiwanie ocenia pozycje
             niezależnie, dlatego nie wymaga pełnej planszy.
           </p>
@@ -666,7 +691,7 @@ function BoardSearchWorkspaceContent({
             }
             onClick={() => void saveDraft()}
           >
-            {saving ? 'Zapisywanie…' : 'Zapisz układ'}
+            {saving ? 'Zapisywanie…' : saveLabel}
           </button>
           <span role="status">
             {dirty ? 'Niezapisane zmiany układu' : 'Układ zapisany'}
@@ -678,6 +703,7 @@ function BoardSearchWorkspaceContent({
           {saveError}
         </p>
       )}
+      {saveNotice === null ? null : <p role="status">{saveNotice}</p>}
 
       <div className="boardSearchResultLimit">
         <label>
@@ -912,6 +938,7 @@ function BoardSearchWorkspaceContent({
       {searchState.kind === 'ready' && resultsState !== null ? (
         <>
           <BoardSearchResults
+            compact={compact}
             client={api}
             gameId={gameId}
             rulesVersions={rulesVersions}
@@ -961,6 +988,7 @@ function BoardSearchWorkspaceContent({
             />
           )}
           <BoardSearchApproximateWin
+            compact={compact}
             client={api}
             gameId={gameId}
             searchKey={searchKey}

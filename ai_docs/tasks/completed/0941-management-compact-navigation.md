@@ -203,3 +203,7 @@ Nie rozszerzać zmian domyślnego search/share. Największe ryzyko: popstate/dir
   treści; mapy dla dokładnego indeksu powstają aktualnym generatorem z main tylko
   do odczytu. Baza gałęzi poprzedza narzędzia TASK-0938/0939. `npm run docs:check`
   zwraca Missing script; nie deklarujemy PASS ani nie włączamy niezwiązanej migracji procesu.
+
+### Commit
+
+v1.7.274 — 993ddc763f3946453ea391c1a82ba6288052f866. Osobny commit potwierdzony przez git log/show; zapis dołączany do dokumentacji następnego taska.

@@ -4,6 +4,7 @@ import type {
   ManagementStake,
   ManagementStakeResponse,
   ManagementRefreshCommand,
+  SymbolResponse,
 } from '@game-predictor/admin-api-client';
 import {
   BoardSearchWorkspace,
@@ -20,6 +21,8 @@ import {
 import { ManagementCards } from './management-cards';
 import { ManagementJournal } from './management-journal';
 import { ManagementResultView } from './management-result-view';
+import { ApproximateWinPinRows } from '../board-search-approximate-win';
+import { BoardSearchSaveCancelled } from '../board-search-workspace';
 import {
   createManagementDataSource,
   managementSlotFor,
@@ -83,6 +86,36 @@ export function ManagementGameWorkspace({
   const [journalRevision, setJournalRevision] = useState(0);
   const [editor, setEditor] = useState<Editor | null>(null);
   const editorRef = useRef(editor);
+  const [editorDraft, setEditorDraft] = useState<BoardSearchDraft | null>(null);
+  const [symbols, setSymbols] = useState<readonly SymbolResponse[]>([]);
+  const listSymbols = useMemo(() => {
+    let request: ReturnType<ManagementGameClient['listSymbols']> | null = null;
+    return () =>
+      (request ??= api.listSymbols(gameId).then(
+        (response) => {
+          if (!response.data || response.error !== undefined) request = null;
+          return response;
+        },
+        (cause: unknown) => {
+          request = null;
+          throw cause;
+        },
+      ));
+  }, [api, gameId]);
+  useEffect(() => {
+    let active = true;
+    if (accessAllowed)
+      void listSymbols()
+        .then((response) => {
+          if (active && response.data) setSymbols(response.data);
+        })
+        .catch(() => {
+          /* Preview falls back to immutable codes. Editor reports catalog errors. */
+        });
+    return () => {
+      active = false;
+    };
+  }, [listSymbols, accessAllowed]);
   const [view, setView] = useState<ResultView | null>(null);
   const dirty = useRef(false);
   const mounted = useRef(true);
@@ -471,6 +504,15 @@ export function ManagementGameWorkspace({
       };
       editorRef.current = next;
       setEditor(next);
+      setEditorDraft(next.initial);
+      void listSymbols()
+        .then((response) => {
+          if (mounted.current && accessRef.current && response.data)
+            setSymbols(response.data);
+        })
+        .catch(() => {
+          /* The shared editor reports the catalog failure. */
+        });
       setDirty(false);
       setError('');
     } catch (cause) {
@@ -489,6 +531,7 @@ export function ManagementGameWorkspace({
     return opened
       ? createManagementDataSource({
           api,
+          listSymbols,
           machineId,
           gameId,
           stake: opened.stake,
@@ -510,6 +553,7 @@ export function ManagementGameWorkspace({
       : null;
   }, [
     api,
+    listSymbols,
     machineId,
     gameId,
     editorIdentity,
@@ -524,6 +568,7 @@ export function ManagementGameWorkspace({
       resultStake !== undefined && writeAllowed
         ? createManagementDataSource({
             api,
+            listSymbols,
             machineId,
             gameId,
             stake: resultStake,
@@ -540,6 +585,7 @@ export function ManagementGameWorkspace({
         : null,
     [
       api,
+      listSymbols,
       machineId,
       gameId,
       resultStake,
@@ -560,6 +606,17 @@ export function ManagementGameWorkspace({
       draft.searchContextId === null
     )
       throw new Error('Brak planszy do zapisania.');
+    const stored = managementSlotFor(cardsRef.current, opened.stake);
+    if (
+      stored &&
+      !stored.empty &&
+      (opened.initial === null ||
+        draft.startSequenceNumber !== stored.startSequenceNumber) &&
+      !window.confirm('Zastąpić zapisany układ tej stawki nowym układem?')
+    )
+      throw new BoardSearchSaveCancelled(
+        'Zastąpienie anulowane. Szkic i zapisany układ pozostają zachowane.',
+      );
     const operation = {
       kind: 'save' as const,
       machineId,
@@ -586,7 +643,11 @@ export function ManagementGameWorkspace({
       if (!mounted.current) return;
       commitSlot(slot);
       if (editorRef.current?.generation === opened.generation) {
-        editorRef.current = { ...opened, expectedRevision: slot.revision };
+        editorRef.current = {
+          ...opened,
+          expectedRevision: slot.revision,
+          initial: managementSavedSelection(slot),
+        };
         setEditor(editorRef.current);
       }
       setNotice('Zapisano układ tej stawki.');
@@ -675,7 +736,11 @@ export function ManagementGameWorkspace({
             opened?.stake === operation.stake &&
             opened.expectedRevision === operation.body.expectedRevision
           ) {
-            editorRef.current = { ...opened, expectedRevision: slot.revision };
+            editorRef.current = {
+              ...opened,
+              expectedRevision: slot.revision,
+              initial: managementSavedSelection(slot),
+            };
             setEditor(editorRef.current);
           }
         }
@@ -789,14 +854,46 @@ export function ManagementGameWorkspace({
         }
         onOpen={open}
         onSearch={prepareEditor}
-        onClear={(stake) => void clear(stake)}
         selectedStake={selectedStake}
+        symbols={symbols}
+        api={accessAllowed ? api : undefined}
+        gameId={gameId}
       />
       {selectedStake ? (
         <p>
           Wybrana stawka: {(selectedStake / 100).toLocaleString('pl-PL')} zł
         </p>
       ) : null}
+      {selectedStake && !editor
+        ? (() => {
+            const slot = managementSlotFor(
+              cards,
+              selectedStake as ManagementStake,
+            );
+            const resultOpen =
+              view !== null &&
+              !view.historical &&
+              view.stake === slot?.stakeGrosze;
+            return slot && !slot.empty ? (
+              <>
+                <ApproximateWinPinRows points={slot.pinnedPoints ?? []} />
+                <details
+                  open={resultOpen}
+                  onToggle={(event) => {
+                    if (event.currentTarget.open && !resultOpen)
+                      open(slot.stakeGrosze);
+                    else if (!event.currentTarget.open && resultOpen)
+                      setView((current) =>
+                        current?.historical ? current : null,
+                      );
+                  }}
+                >
+                  <summary>Pełny zapisany wynik</summary>
+                </details>
+              </>
+            ) : null;
+          })()
+        : null}
       {editor && editorSource ? (
         <fieldset
           disabled={!accessAllowed}
@@ -816,17 +913,57 @@ export function ManagementGameWorkspace({
           >
             Zamknij szkic
           </button>
+          <button
+            disabled={!mutationAllowed || !!pending || busy}
+            onClick={() => {
+              if (!confirmBoardSearchDiscardDraft(dirty.current)) return;
+              const next = {
+                ...editor,
+                generation: editor.generation + 1,
+                initial: null,
+              };
+              editorRef.current = next;
+              setEditor(next);
+              setEditorDraft(null);
+              setDirty(false);
+            }}
+          >
+            Nowy układ
+          </button>
+          <button
+            disabled={
+              !mutationAllowed ||
+              !!pending ||
+              busy ||
+              managementSlotFor(cards, editor.stake)?.empty
+            }
+            onClick={() => void clear(editor.stake)}
+          >
+            Usuń zapisany układ
+          </button>
           <p>
             Poprawianie symboli zapisuje od razu bieżące dane gry. Wybór
-            planszy, zakres i punkty zapisujesz przyciskiem „Zapisz układ”.
+            planszy, zakres i punkty zapisujesz przyciskiem zapisu szkicu.
           </p>
           <BoardSearchWorkspace
+            compact
             client={editorSource.client}
             gameId={gameId}
             scopeKey={`${machineId}:${gameId}:${editor.stake}:${editor.generation}`}
             fixedStakeGrosze={editor.stake}
             savedSelection={editor.initial}
             onDirtyChange={setDirty}
+            onDraftChange={setEditorDraft}
+            saveLabel={
+              managementSlotFor(cards, editor.stake)?.empty
+                ? 'Zapisz układ'
+                : editor.initial !== null &&
+                    editorDraft?.startSequenceNumber ===
+                      managementSlotFor(cards, editor.stake)
+                        ?.startSequenceNumber
+                  ? 'Zapisz zmiany'
+                  : 'Zastąp układ'
+            }
             onSave={mutationAllowed ? save : undefined}
           />
         </fieldset>
@@ -846,6 +983,7 @@ export function ManagementGameWorkspace({
         />
       ) : null}
       <ManagementJournal
+        collapsed
         api={api}
         machineId={machineId}
         gameId={gameId}

@@ -235,7 +235,7 @@ const button = (label, within = document) =>
   );
 const card = (stake = 2000) =>
   document.querySelector(
-    `article[aria-label="Stawka ${(stake / 100).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł"]`,
+    `button[aria-label="Stawka ${(stake / 100).toLocaleString('pl-PL', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} zł"]`,
   );
 async function settle() {
   await act(async () => new Promise((r) => setTimeout(r, 10)));
@@ -246,6 +246,22 @@ async function until(predicate) {
     await settle();
   }
   assert.fail('Missing rendered state: ' + text().slice(-1000));
+}
+async function expand(label) {
+  const summary = [...document.querySelectorAll('summary')].find(
+    (node) => node.textContent === label,
+  );
+  assert.ok(summary, `Missing disclosure: ${label}`);
+  await act(async () => {
+    summary.parentElement.open = true;
+    summary.parentElement.dispatchEvent(new Event('toggle'));
+  });
+  await settle();
+}
+async function openSavedResult() {
+  if (!button('Zamknij szkic')) await click(card());
+  await click(button('Zamknij szkic'));
+  await expand('Pełny zapisany wynik');
 }
 async function click(node) {
   assert.ok(node);
@@ -559,10 +575,10 @@ test('phone-width public gate completes point/machine assignment, search, indepe
   );
   await until(() => card());
   assert.equal(
-    document.querySelectorAll('.management-stake-cards article').length,
+    document.querySelectorAll('.management-stake-cards > button').length,
     6,
   );
-  await click(button('Wyszukaj układ', card()));
+  await click(card());
   await until(() => document.querySelector('.boardSearchPaletteGrid button'));
   await click(
     [...document.querySelectorAll('.boardSearchPaletteGrid button')].find((n) =>
@@ -580,11 +596,12 @@ test('phone-width public gate completes point/machine assignment, search, indepe
   await until(() => server.entries.length === 1);
   assert.equal(server.slots.find((s) => s.stakeGrosze === 1000).empty, true);
   assert.equal(server.slots.find((s) => s.stakeGrosze === 2000).empty, false);
-  await click(button('Otwórz', card()));
+  await openSavedResult();
   await until(() => text().includes('Ostatni zapisany wynik'));
   assert.match(text(), /Odbiorca/);
   assert.doesNotMatch(text(), new RegExp(sessionId));
-  await click(button('Wyczyść', card()));
+  await click(card());
+  await click(button('Usuń zapisany układ'));
   await until(() => server.entries.length === 2);
   assert.equal(server.slots.find((s) => s.stakeGrosze === 2000).empty, true);
   assert.equal(server.entries[1].action, 'stake.clear');
@@ -609,10 +626,10 @@ test('lost committed response survives reload; identical UUID/body retries once 
     ),
   );
   await until(() => card());
-  await click(button('Szukaj ponownie', card()));
+  await click(card());
   await range(11);
   server.lost = true;
-  await click(button('Zapisz układ'));
+  await click(button('Zapisz zmiany'));
   const pending = JSON.parse(
     dom.window.sessionStorage.getItem(managementSlotPendingKey(namespace)),
   );
@@ -655,9 +672,9 @@ test('401 termination retains mounted dirty draft, loaded history and exact pend
     ),
   );
   await until(() => card());
-  await click(button('Otwórz', card()));
+  await openSavedResult();
   await until(() => text().includes('Ostatni zapisany wynik'));
-  await click(button('Szukaj ponownie', card()));
+  await click(card());
   await click(
     document.querySelector('.boardSearchPaletteGrid button[title=\"Wiśnia\"]'),
   );
@@ -668,7 +685,7 @@ test('401 termination retains mounted dirty draft, loaded history and exact pend
   );
   assert.ok(draftCell);
   server.deny = true;
-  await click(button('Zapisz układ'));
+  await click(button('Zapisz zmiany'));
   await until(() => document.querySelector('.management-draft')?.disabled);
   assert.match(text(), /Dostęp zakończony/);
   assert.ok(
@@ -936,7 +953,7 @@ test('public modal writes current symbol immediately with opaque version, fixed 
     ),
   );
   await until(() => card());
-  await click(button('Otwórz', card()));
+  await openSavedResult();
   await until(() => button('Edytuj bieżącą planszę startową'));
   await click(button('Edytuj bieżącą planszę startową'));
   await until(() => document.querySelector('.boardSearchBoardCellTarget'));
@@ -952,6 +969,7 @@ test('public modal writes current symbol immediately with opaque version, fixed 
   assert.equal(call.body.targetSymbolCode, 'cherry');
   assert.equal(call.body.expectedRevision, 1);
   assert.match(call.path, /stakes\/2000/);
+  await expand('Dziennik');
   await until(() => text().includes('Korekta symbolu'));
   assert.match(text(), /Przed:.*Symbol: nieznany/);
   assert.match(text(), /Po:.*Symbol: cherry/);
@@ -1153,7 +1171,7 @@ test('public correction lost response reload retries original opaque request and
     ),
   );
   await until(() => card());
-  await click(button('Otwórz', card()));
+  await openSavedResult();
   await until(() => button('Edytuj bieżącą planszę startową'));
   await click(button('Edytuj bieżącą planszę startową'));
   await until(() => document.querySelector('.boardSearchBoardCellTarget'));

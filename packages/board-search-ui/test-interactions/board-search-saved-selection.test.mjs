@@ -30,7 +30,7 @@ dom.window.HTMLDialogElement.prototype.close = function () {
   this.removeAttribute('open');
 };
 const { createRoot } = await import('react-dom/client');
-const { BoardSearchWorkspace } =
+const { BoardSearchWorkspace, BoardSearchSaveCancelled } =
   await import('../src/board-search-workspace.tsx');
 const { ApproximateWinBalanceChart } =
   await import('../src/board-search-approximate-win.tsx');
@@ -312,6 +312,53 @@ test('explicit Save locks duplicates and failed/lost response retains complete d
     assert.equal(dirty.at(-1), false);
   } finally {
     if (resolve) await act(async () => resolve());
+    await act(async () => root.unmount());
+  }
+});
+
+test('host save cancellation is a status, preserves dirty draft and allows explicit retry', async () => {
+  const api = client(),
+    dirty = [];
+  let cancelled = true;
+  const root = await render({
+    client: api.value,
+    gameId: 'game',
+    compact: true,
+    fixedStakeGrosze: 600,
+    savedSelection: saved({ pinnedSpinPositions: [] }),
+    onDirtyChange: (value) => dirty.push(value),
+    onSave: async () => {
+      if (cancelled)
+        throw new BoardSearchSaveCancelled(
+          'Zastąpienie anulowane. Szkic zachowany.',
+        );
+    },
+  });
+  try {
+    await eventually(() =>
+      document.body.textContent.includes('Brak przypiętych punktów'),
+    );
+    assert.match(document.body.textContent, /Brak przypiętych punktów/);
+    assert.equal(document.querySelector('.management-pin-rows'), null);
+    await input('Zakres wygranej — liczba kolejnych spinów', 9);
+    await click(button('Zapisz układ'));
+    assert.equal(
+      document.querySelector('p.feedbackBannerError[role="alert"]') !== null,
+      false,
+    );
+    assert.ok(
+      [...document.querySelectorAll('[role="status"]')].some((node) =>
+        node.textContent.includes('Zastąpienie anulowane.'),
+      ),
+    );
+    assert.equal(dirty.at(-1), true);
+    assert.equal(button('Zapisz układ').disabled, false);
+    cancelled = false;
+    await click(button('Zapisz układ'));
+    assert.doesNotMatch(document.body.textContent, /Zastąpienie anulowane/);
+    assert.equal(dirty.at(-1), false);
+    assert.equal(button('Zapisz układ').disabled, true);
+  } finally {
     await act(async () => root.unmount());
   }
 });
@@ -758,6 +805,91 @@ test('inline host callbacks can store draft state without render loops or repeat
     );
     await input('Zakres wygranej — liczba kolejnych spinów', 7);
     assert.equal(calls, 2);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+async function expandCompact(label) {
+  const summary = [...document.querySelectorAll('summary')].find(
+    (node) => node.textContent === label,
+  );
+  assert.ok(summary);
+  await act(async () => {
+    summary.parentElement.open = true;
+    summary.parentElement.dispatchEvent(new Event('toggle'));
+  });
+}
+
+test('compact saved editor restores trusted start, exposes pin credits and mounts chart/table only after disclosure', async () => {
+  const api = client(),
+    drafts = [];
+  const root = await render({
+    client: api.value,
+    gameId: 'game',
+    compact: true,
+    fixedStakeGrosze: 2000,
+    savedSelection: saved(),
+    onDraftChange: (draft) => drafts.push(draft),
+    onSave: async () => assert.fail('No automatic save'),
+  });
+  try {
+    await eventually(() => document.querySelector('.management-pin-rows'));
+    assert.equal(api.calls.search.length, 0);
+    assert.equal(api.calls.calc.at(-1).startSequenceNumber, 999);
+    assert.equal(document.querySelector('svg'), null);
+    assert.equal(document.querySelector('.importRowsTable'), null);
+    const rows = [
+      ...document.querySelectorAll('.management-pin-rows tbody tr'),
+    ].map((row) => [...row.cells].map((cell) => cell.textContent));
+    assert.deepEqual(rows[0], ['0', '0', '0', '0']);
+    assert.deepEqual(rows[1], ['3', '60', '-60', '0']);
+    assert.deepEqual(rows.at(-1), [
+      '12',
+      'niedostępny',
+      'niedostępny',
+      'niedostępny',
+    ]);
+    await expandCompact('Wybierz punkty na wykresie');
+    assert.match(document.querySelector('svg').textContent, /spiny/);
+    assert.match(document.querySelector('svg').textContent, /zł/);
+    assert.match(document.querySelector('svg').textContent, /0/);
+    await click(button('Resetuj'));
+    assert.equal(document.querySelector('.management-pin-rows'), null);
+    assert.equal(drafts.at(-1).startSequenceNumber, null);
+    assert.deepEqual(drafts.at(-1).pinnedSpinPositions, []);
+  } finally {
+    await act(async () => root.unmount());
+  }
+});
+
+test('compact results select entire result buttons and crop opens the existing board modal without nested buttons', async () => {
+  const api = client(),
+    drafts = [];
+  const root = await render({
+    client: api.value,
+    gameId: 'game',
+    compact: true,
+    fixedStakeGrosze: 2000,
+    savedSelection: saved(),
+    onDraftChange: (draft) => drafts.push(draft),
+  });
+  try {
+    await eventually(() => button('Szukaj plansz'));
+    await click(button('Szukaj plansz'));
+    await eventually(
+      () =>
+        document.querySelectorAll('.boardSearchCompactResults button')
+          .length === 2,
+    );
+    const resultButtons = [
+      ...document.querySelectorAll('.boardSearchCompactResults button'),
+    ];
+    await click(resultButtons[1]);
+    assert.equal(drafts.at(-1).startSequenceNumber, 2);
+    assert.equal(resultButtons[1].getAttribute('aria-pressed'), 'true');
+    assert.equal(document.querySelector('button button'), null);
+    assert.ok(document.querySelector('button.boardSearchCompactBoard'));
   } finally {
     await act(async () => root.unmount());
   }

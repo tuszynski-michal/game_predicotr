@@ -1,5 +1,21 @@
 # Archived current state — compact panel closure
 
+### TASK-0923 — Shared search with explicit Save (done)
+
+- Optional fixed stake, trusted saved start/query/range, controlled0–6 spin pins
+  and explicit Save callback preserve existing default consumers. Browsing,
+  hover and pins never autosave. Save failure retains draft and blocks duplicates.
+- Stable scope protects drafts from background snapshots and obsolete responses;
+  delayed symbols cannot overwrite edits. Dirty composition/range/pins warn on
+  page exit and expose a host navigation guard. Current symbol corrections stay
+  immediate and trigger calculation refresh; both modals use fresh spin cost.
+- Focused managed interactions10 PASS; all shared interactions49 and unit77
+  PASS. Scoped formatting/lint/shared and direct Admin/Reviewer types pass.
+  Independent sol/high review PASS; no unresolved P0–P2.
+- Completion v1.7.255 /85a8914dc2195e986f4c807c4a0cb468e9f312de. Next T4 / TASK-0924.
+  Sandbox SWC route typegen AccessDenied is recorded; no routes changed.
+  No service lifecycle, production data writes or full build; builds remain T7.
+
 ### TASK-0922 — Durable stake selections (done)
 
 - Six independent slots, server-validated search contexts, compact immutable

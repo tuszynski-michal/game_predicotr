@@ -911,7 +911,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 
 - api-error.ts: apiErrorMessage
 - board-search-approximate-win-state.ts: APPROXIMATE_WIN_RANGE_DEFAULT, APPROXIMATE_WIN_RANGE_MAX, ApproximateWinChartPoint, ParsedApproximateWinRange, parseApproximateWinRange, approximateWinRequestKey, ApproximateWinState, APPROXIMATE_WIN_IDLE_STATE, shouldRequestApproximateWin, visibleApproximateWinResult, approximateWinChartPoints, approximateWinExtremes, approximateWinAxisTicks, APPROXIMATE_WIN_PIN_LIMIT, approximateWinPointAtSpin, APPROXIMATE_WIN_CHART_WIDTH, APPROXIMATE_WIN_CHART_LABEL, approximateWinPointKey, toggleApproximateWinPinnedPoint, moveApproximateWinHighlight, ApproximateWinLabelRequest, ApproximateWinLabelPlacement, ApproximateWinLabelArea, layoutApproximateWinPointLabels, filterApproximateWinRows, formatApproximateWinCredits, approximateWinStakeToPoint, approximateWinMachineCashAtPoint
-- board-search-approximate-win.tsx: BoardSearchApproximateWin, unitNoun, ApproximateWinBalanceChart
+- board-search-approximate-win.tsx: BoardSearchApproximateWin, unitNoun, ApproximateWinPinMetrics, ApproximateWinPinRows, ApproximateWinBalanceChart
 - board-search-board-cell-correction.ts: BoardCellCorrectionChoice, BoardCellCorrectionClient, boardCellCorrectionRequest, boardCellCorrectionPalette, BoardCellCorrectionResult, applyBoardCellCorrection
 - board-search-board-lines-modal.tsx: BoardLinesClient, BoardLinesTableRow, BoardSearchBoardLinesModal
 - board-search-board-lines-state.ts: BoardLinePoint, BOARD_LINE_COLORS, BoardLineStyle, boardLineStyle, boardLineKey, boardLineStyles, boardLinesPolygonCentroid, BoardLineVisibility, initialBoardLineVisibility, toggleBoardLineVisibility, setAllBoardLinesVisibility, BoardLinesConsistency, boardLinesConsistency, boardCountMatches, boardCountedCells, boardLineOffset, BOARD_SCHEMA_CELL, boardSchemaCellPolygon
@@ -925,7 +925,7 @@ Plik **generowany**; nie czytaj w całości, przeszukuj `rg`. Format linii: `śc
 - board-search-saved-board.tsx: BoardSearchSavedBoard
 - board-search-saved-selection.ts: BoardSearchDraft, BoardSearchSavedSelection, boardSearchDraftKey, confirmBoardSearchDiscardDraft
 - board-search-stake.ts: ApproximateWinAmountUnit, ApproximateWinDisplay, APPROXIMATE_WIN_STAKES_GROSZE, APPROXIMATE_WIN_DEFAULT_DISPLAY, APPROXIMATE_WIN_DISPLAY_STORAGE_KEY, ApproximateWinStakeOption, approximateWinBaseStakeGrosze, approximateWinStakeOptions, effectiveApproximateWinStakeGrosze, roundDivideHalfAwayFromZero, scaleApproximateWinAmount, scaleApproximateWinAmountAtStake, approximateWinDisplayValue, formatApproximateWinAmount, formatApproximateWinWholeAmount, formatApproximateWinAxisValue, approximateWinStakeMultiplier, formatZloty, loadApproximateWinDisplay, saveApproximateWinDisplay
-- board-search-workspace.tsx: BoardSearchReplayRequest, BoardSearchApproximateWinReplay, BoardSearchWorkspaceProps, BoardSearchWorkspace
+- board-search-workspace.tsx: BoardSearchSaveCancelled, BoardSearchReplayRequest, BoardSearchApproximateWinReplay, BoardSearchWorkspaceProps, BoardSearchWorkspace
 - keyboard-shortcuts.ts: DIGIT_SHORTCUT_LIMIT, ShortcutKeyboardEvent, hasShortcutModifier, digitShortcutIndex, digitShortcutLabel, isTextEntryKeyboardTarget
 - management/management-cards.tsx: managementAmount, managementDate, ManagementBoardPreview, ManagementCards
 - management/management-client.ts: ManagementGameClient, ManagementStructureClient, managementError, managementSessionStorage

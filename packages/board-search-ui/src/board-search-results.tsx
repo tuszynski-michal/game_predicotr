@@ -44,6 +44,7 @@ type BoardSearchResultsClient = BoardLinesClient &
 type BoardSearchResult = BoardSearchResponse['results'][number];
 
 interface BoardSearchResultsProps {
+  readonly compact?: boolean;
   readonly client: BoardSearchResultsClient;
   readonly gameId: string;
   readonly state: BoardSearchResultsState;
@@ -58,6 +59,7 @@ interface BoardSearchResultsProps {
 }
 
 export function BoardSearchResults({
+  compact = false,
   client: api,
   gameId,
   onBoardEdited,
@@ -133,12 +135,47 @@ export function BoardSearchResults({
         </dl>
       </header>
 
-      <BoardCrop
-        api={api}
-        gameId={gameId}
-        key={`${current.assetMode}:${current.sequenceNumber}`}
-        result={current}
-      />
+      {compact ? (
+        <div
+          className="boardSearchCompactResults"
+          aria-label="Wybierz planszę startową"
+        >
+          {state.results.map((result, index) => (
+            <button
+              type="button"
+              key={result.sequenceNumber}
+              aria-pressed={index === state.activeIndex}
+              onClick={() => onStateChange({ ...state, activeIndex: index })}
+            >
+              Plansza #{result.sequenceNumber} · {result.score.score.toFixed(1)}
+              %
+            </button>
+          ))}
+        </div>
+      ) : null}
+      {compact ? (
+        <button
+          className="boardSearchCompactBoard"
+          type="button"
+          aria-label={`Pokaż planszę #${current.sequenceNumber} z liniami wypłat`}
+          onClick={() => setBoardOpen(true)}
+          ref={boardTriggerRef}
+        >
+          <BoardCrop
+            api={api}
+            gameId={gameId}
+            key={`${current.assetMode}:${current.sequenceNumber}`}
+            result={current}
+          />
+        </button>
+      ) : (
+        <BoardCrop
+          api={api}
+          gameId={gameId}
+          key={`${current.assetMode}:${current.sequenceNumber}`}
+          result={current}
+        />
+      )}
 
       <dl className="boardSearchEvidence">
         <div>
@@ -159,20 +196,22 @@ export function BoardSearchResults({
         </div>
       </dl>
 
-      <div className="boardSearchResultNavigation">
-        <button
-          aria-label={`Pokaż planszę #${current.sequenceNumber} z liniami wypłat`}
-          className="secondaryButton"
-          onClick={() => setBoardOpen(true)}
-          ref={boardTriggerRef}
-          type="button"
-        >
-          Pokaż planszę
-        </button>
-        <span>
-          Otwiera planszę z liniami wypłat; w oknie możesz poprawić pola.
-        </span>
-      </div>
+      {compact ? null : (
+        <div className="boardSearchResultNavigation">
+          <button
+            aria-label={`Pokaż planszę #${current.sequenceNumber} z liniami wypłat`}
+            className="secondaryButton"
+            onClick={() => setBoardOpen(true)}
+            ref={boardTriggerRef}
+            type="button"
+          >
+            Pokaż planszę
+          </button>
+          <span>
+            Otwiera planszę z liniami wypłat; w oknie możesz poprawić pola.
+          </span>
+        </div>
+      )}
 
       {boardOpen ? (
         <BoardSearchBoardLinesModal

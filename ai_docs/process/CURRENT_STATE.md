@@ -30,19 +30,21 @@ Audits are dispatched autonomously through the authenticated readonly Claude CLI
 
 ## Aktywne taski
 
-### TASK-0942 — Kompaktowe stawki (in progress)
-
-Implementation/tests/audit prepared; next separate closure after0941.
-
 ### TASK-0943 — Odbiór kompaktowego panelu (in progress)
 
 Final evidence prepared; whole-feature Claude review and separate commit pending.
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0942 — Minimalistyczny panel (done)
+
+- Version: v1.7.275; full hash pending immediate post-commit recording.
+- Outcome: ai_docs/tasks/completed/0942-management-compact-stakes.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
 ### TASK-0941 — Minimalistyczny panel (done)
 
-- Version: v1.7.274; full hash pending immediate post-commit recording.
+- Version: v1.7.274; commit: 993ddc763f3946453ea391c1a82ba6288052f866.
 - Outcome: ai_docs/tasks/completed/0941-management-compact-navigation.md; independent Claude review without open P0/P1.
 - Final browser10/10 and host production builds PASS; no operator-data/service action.
 
@@ -224,22 +226,6 @@ Final evidence prepared; whole-feature Claude review and separate commit pending
   Independent sol/high review PASS, no unresolved P0–P2.
 - Completion v1.7.256 /71931a1b8fdf5830f761736ca26f1666acc14d5b. Next T5 / TASK-0925.
   No backend contract change, service lifecycle, production migration or build.
-
-### TASK-0923 — Shared search with explicit Save (done)
-
-- Optional fixed stake, trusted saved start/query/range, controlled0–6 spin pins
-  and explicit Save callback preserve existing default consumers. Browsing,
-  hover and pins never autosave. Save failure retains draft and blocks duplicates.
-- Stable scope protects drafts from background snapshots and obsolete responses;
-  delayed symbols cannot overwrite edits. Dirty composition/range/pins warn on
-  page exit and expose a host navigation guard. Current symbol corrections stay
-  immediate and trigger calculation refresh; both modals use fresh spin cost.
-- Focused managed interactions10 PASS; all shared interactions49 and unit77
-  PASS. Scoped formatting/lint/shared and direct Admin/Reviewer types pass.
-  Independent sol/high review PASS; no unresolved P0–P2.
-- Completion v1.7.255 /85a8914dc2195e986f4c807c4a0cb468e9f312de. Next T4 / TASK-0924.
-  Sandbox SWC route typegen AccessDenied is recorded; no routes changed.
-  No service lifecycle, production data writes or full build; builds remain T7.
 
 ### TASK-0928 — image import storage resumption (in progress)
 

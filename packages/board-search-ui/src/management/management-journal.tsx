@@ -185,6 +185,24 @@ function describeState(state: ManagementJournalEntry['after']): string {
 }
 
 export function ManagementJournal({
+  collapsed = false,
+  ...props
+}: Parameters<typeof ManagementJournalContent>[0] & { collapsed?: boolean }) {
+  const [open, setOpen] = useState(false);
+  if (!collapsed) return <ManagementJournalContent {...props} />;
+  return (
+    <details
+      className="management-journal"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      <summary>Dziennik</summary>
+      {open ? <ManagementJournalContent {...props} /> : null}
+    </details>
+  );
+}
+
+function ManagementJournalContent({
   api,
   machineId,
   gameId,

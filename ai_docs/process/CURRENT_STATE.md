@@ -63,6 +63,25 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
+### Plan przeniesienia aplikacji i bazy na dysk D (proposed, 2026-10-09)
+
+- `delivery/DISK_D_MIGRATION_PLAN_20261009.md`, TASK-0952–0957 (`todo`),
+  gałąź `feat/disk-d-migration-plan`, worktree `worktrees/disk-migration`.
+- Etapy: A (kopia `pg_dump`, przyrostowy `robocopy` katalogów danych,
+  push gałęzi) bez przestoju; B1 (przeniesienie `docker_data.vhdx` przez
+  Docker Desktop, jedyny niepodzielny krok) i B2 (pierwszy start z
+  `D:\game_predicotr`) po zakończeniu joba `d9a49da0`; C (sprzątanie,
+  osobne zgody). Baza nie jest kopiowana przez `pg_dump`/`pg_restore`;
+  compose z D podłącza się do tego samego kontenera (identyczny hash).
+- Inwestygacja 2026-10-09 (tylko odczyt): ścieżki w `game_data_v2`
+  względne; ścieżki C tylko w `jobs.input_payload.source_directory`
+  (173 jobów) i `remote_manual_selection_sessions.host_base_path` (13).
+- Pięć rund przeglądu Codex (gpt-6.1-sol, high, tylko odczyt): rundy 1–4
+  REVISE, runda 5 PASS; raporty
+  `quality/DISK_D_MIGRATION_PLAN_REVIEW_CODEX_20261009_round1–5.md`.
+  Plan czeka na akceptację operatora (D-540 przy akceptacji). Brak
+  implementacji i brak zmian w systemie.
+
 ### Plan korekty układu panelu (proposed, 2026-10-09)
 
 - `delivery/ADMIN_PANEL_LAYOUT_CORRECTION_PLAN_20261009.md`, TASK-0947–0949.
@@ -99,6 +118,53 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
+
+### TASK-0952 — kopia zapasowa bazy na D (todo)
+
+- Etap A planu przeniesienia na D: `pg_dump -Fc -Z 1` i
+  `pg_dumpall --globals-only` na D, kody wyjścia 0, pełny odczyt
+  `pg_restore --file=/dev/null`; wczesny raport stanu (raport odniesienia
+  powstaje w B1 po zatrzymaniu zapisów).
+- Task: `ai_docs/tasks/0952-disk-d-database-backup.md`.
+
+### TASK-0953 — przyrostowa kopia katalogów danych na D (todo)
+
+- Etap A: skrypt `scripts/sync_data_directories_to_d.ps1` (proponowany):
+  inwentarz wpisów ignorowanych (zachowywane vs odtwarzalne), `robocopy /E`
+  w trybach `Initial`/`Final`, bez `/MIR` poza ostatnim przebiegiem,
+  manifesty SHA-256 i `-VerifyOnly -Manifest` dla bramki w etapie C.
+- Task: `ai_docs/tasks/0953-disk-d-data-directory-sync.md`.
+
+### TASK-0954 — zabezpieczenie repozytorium przed porzuceniem C (todo)
+
+- Etap A: commit lub patch 27 niecommitowanych zmian z C, push gałęzi bez
+  `origin` (`feat/grid-engine-v3`, `feat/mumie-super-game-plan`,
+  `feat/super-game-series-count`, `task-0860`), `git fetch` na D.
+- Task: `ai_docs/tasks/0954-disk-d-repository-handover.md`.
+
+### TASK-0955 — przeniesienie obrazu dysku Dockera na D (todo)
+
+- Etap B1: po zakończeniu joba `d9a49da0` i zatrzymaniu usług przez
+  operatora: ostatni przebieg kopii, Docker Desktop → Disk image location
+  → D (operator w UI), weryfikacja wolumenu, `db:current` = `0153`, raport
+  stanu równy raportowi odniesienia z B1 (po zatrzymaniu zapisów, przed
+  provisioningiem). Jedyny niepodzielny krok planu.
+- Task: `ai_docs/tasks/0955-disk-d-database-cutover.md`.
+
+### TASK-0956 — pierwsze uruchomienie aplikacji z D i odbiór (todo)
+
+- Etap B2: `windows:environment:setup` z D, czyszczenie stanu `.runtime`
+  z C, `reviewer:build`, start usług przez operatora, odbiór (zdjęcia
+  plansz, kropy ze statusami, nowy tunel i sesja udostępnienia),
+  aktualizacja przewodników.
+- Task: `ai_docs/tasks/0956-disk-d-application-startup.md`.
+
+### TASK-0957 — sprzątanie po przeniesieniu i ścieżki C w jobach (todo)
+
+- Etap C, osobne zgody: podgląd i przepisanie `source_directory` w
+  `jobs.input_payload`, usunięcie baz testowych (44 GB + 15 małych),
+  kompaktowanie vhdx, usunięcie katalogu i starego vhdx na C.
+- Task: `ai_docs/tasks/0957-disk-d-cleanup-and-job-paths.md`.
 
 ### TASK-0947 — czytelny widok punktu (todo)
 

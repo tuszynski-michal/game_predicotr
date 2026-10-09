@@ -730,7 +730,7 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ### TASK-0944 — szkic planszy poza krawędzią obrazu blokował ręczną korektę (done)
 
-- Commit v1.7.286 (hash dopisuje kolejny commit dokumentacyjny).
+- Commit v1.7.286 / 2c30ac59309da9e5d3173f9f6088d936bb10a26a
 - Zgłoszenie operatora: import Mumie `d82d9aba-…` w Reviewerze kończył się
   `IMAGE_BOARD_CELL_PENDING_DETECTION_INVALID` („The pinned board quad is outside
   the immutable source bounds.”). Wszystkie 25 odłożonych plansz w bazie miały

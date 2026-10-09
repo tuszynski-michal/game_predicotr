@@ -23,6 +23,8 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
+- **Wymiana 275 zdjęć Mumii (2026-10-09):** operator zatwierdził usunięcie pełnych zakresów i zażądał trwałej listy zdjęć. [Manifest ze statusami i zakresami](../quality/MUMIE_SOURCE_REPLACEMENT_20261009.md) oraz CSV w tym samym katalogu przypinają nazwy, source/job IDs i stare checksumy. Usunięto pierwsze 55 źródeł (443 plansze, 6645 komórek); 220 źródeł pozostaje. Druga partia zwróciła HTTP 500, bez receiptu; odczyt po błędzie potwierdził 220 źródeł i 1755 plansz. Partie 3–5 niewykonane. Przed kontynuacją zdiagnozować błąd API, sprawdzić rollback artefaktów w magazynie używanym przez działające API i wykonać świeży podgląd; nie obchodzić blokad ani triggerów. Nowa paczka operatora ma zachować dokładne nazwy i zakresy wszystkich 275 zdjęć. Katalog symboli, modele i kohorty pozostają poza zatwierdzonym zakresem. Usług nie restartowano.
+
 - **Panel / D-539:** tylko punkt jest poziomem nawigacji; maszyna i stawka to wybór na jego stronie. Zapisane piny każdej stawki mają być widoczne od razu, bez klikania stawki i także przy otwartym edytorze. Plan korekty jest proposed. Wcześniejszego patcha0947 nie traktować jako przetestowanej implementacji.
 
 - **Kompaktowy panel / TASK-0945:** integracja D-538 (historyczny D-536 panelu) z D-536/D-537 Mumii w osobnym worktree. Baza operatora nie jest migrowana; przed0153 obowiązuje podgląd receipts i osobna zgoda/backup. Niezapisana praca main jest chroniona hashami. Kod i audyt zamknięte; lokalny main scalony, bez push/rollout. Pełne hashe zapisano w Outcome0945.

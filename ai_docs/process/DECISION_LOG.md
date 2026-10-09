@@ -49,6 +49,10 @@ last_updated: 2026-10-08
 - **Source:** ai_docs/delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md and two
   operator-supplied plan audits. Codex execution / manual Claude audit per the
   plan table, separate task commits; all four tasks authorized sequentially.
+- **Acceptance boundary:** TASK-0943 uses a finite real-browser fixture for
+  390/1440/1920px layout and mock transport. It does not establish live device,
+  ingress, reboot, production-data or backup recovery readiness. These remain
+  separate operator gates; no audit or fixture authorizes production mutation.
 
 ## D-535 — Gra Mumie: Wild, symbol uruchamiający supergrę i rodzaj supergry „Wild super spins”
 
@@ -90,9 +94,11 @@ last_updated: 2026-10-08
 
 ## D-533 — Points/machines panel with durable stake saves and whole-panel links
 
-**2026-10-08 clarification:** D-536 supersedes this decision's archive-only UI
-and structural history retention for point/machine/detached-game scopes.
-Ordinary slot Clear and independent session audit retain their history.
+**2026-10-08 clarification:** D-536 supersedes this decision's archive-only UI,
+card Open/Search again/Clear workflow and structural history retention for
+point/machine/detached-game scopes. Ordinary slot Clear and independent session
+audit retain their history. The earlier T1–T7 text below is historical where
+D-536 changes these behaviors.
 
 - **Date:** 2026-10-07.
 - **Status:** accepted explicit whole-plan implementation request, T1–T7 /

@@ -1,12 +1,18 @@
 ---
 title: Minimalistyczny Panel Administracyjny — plan wykonania
 status: accepted
-last_updated: 2026-10-08
+last_updated: 2026-10-09
 ---
 
 # Minimalistyczny Panel Administracyjny — D-536
 
 ## Zlecenie i kontynuacja
+
+Realizacja TASK-0940–0943 zakończona2026-10-09 w osobnym worktree.
+Audyt końcowy Claude PASS, brak otwartychP0/P1; osobne commity i completed.
+Dowody: ai_docs/quality/ADMIN_COMPACT_PANEL_ACCEPTANCE.md. Integracja z aktualnym
+main, odbiór urządzeń/live ingress i migracja danych operatora pozostają
+odrębnymi bramkami; ten status nie oznacza merge ani rolloutu.
 
 Operator zaakceptował cały zakres TASK-0940–0943, osobny worktree oraz zapis
 planu i tasków w repozytorium. Zgoda obejmuje wykonanie całego planu w kolejności,

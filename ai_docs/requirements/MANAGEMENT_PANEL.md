@@ -53,15 +53,20 @@ delete/detach follows D-536. Names are display values, not identifiers.
 ## Saved machine/game/stake view
 
 Select a game above six independent stake cards (20,10,6,4,2,1.20 PLN descending).
-Cards show board preview/sequence, chart and saved labels, save date, Open/Search
-again/Clear. Empty cards are explicit. Only selected machine/game is loaded.
+Compact cards show the stake, saved state and existing symbol thumbnails (with
+a code or `?` fallback). Selecting a card opens its search draft. A saved card
+restores the start/query/range/pins without choosing a search hit. Only the
+selected machine/game loads six bounded summaries. The selected stake shows
+quick pinned rows; its chart, full payout table and journal open on demand.
 
 Search uses existing search/approximate-win/payline editor. Fixed stake comes
 from the card. Board browsing and0–6 pin choices are draft-only; **Zapisz układ**
-persists the start sequence, query, range and pins. Search again preserves the
-old save until replacement. Unsaved navigation warns. Confirmed Clear changes
-only the current slot, retaining audit. Human symbol corrections retain existing
-immediate-write semantics and alter current global game data, not a local copy.
+persists the start sequence, query, range and pins. **Nowy układ** resets only
+the draft. **Zapisz zmiany** updates the current start; **Zastąp układ** needs
+confirmation for a different start. **Usuń zapisany układ** needs confirmation
+and clears only the current slot, retaining its ordinary journal. Unsaved
+navigation warns. Human symbol corrections retain immediate-write semantics
+and alter current global game data, not a local copy.
 
 Show prior result while checking; current data changes recalculate and journal
 before/after without replacing the start sequence. Pins identify spin positions,
@@ -71,7 +76,7 @@ immutable; editing a historic entry's board explicitly edits current data.
 
 ## Journal and concurrent writes
 
-Persistent journal below chart/table records time/actor/query/start sequence,
+The collapsed persistent journal records time/actor/query/start sequence,
 search including no hits, save/replace/clear, saved range/pins, corrections with
 before/after, result changes and structural management edits. Page size20 by
 default. Structural scope deletion follows D-536; ordinary slot Clear retains

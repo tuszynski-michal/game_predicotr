@@ -1,5 +1,25 @@
 # Archived current state — compact panel closure
 
+### TASK-0924 — Stake overview and retained history (done)
+
+- Selected machine/game loads six compact cards, saved board/pins/date and
+  at most two cancellable current refreshes. Full immutable chart/rows load only
+  on Open/history; rows paginate50 and journal defaults20. No eager point charts.
+- Search draft reuses T3, explicit host Save and confirmed slot-only Clear.
+  Per-tab recovery keeps exact UUID/body/CAS through response loss and reload.
+  Conflicts retain the draft; acknowledged retry advances only its own revision.
+- Cards and visible saved result share scope/revision gates. Late refresh cannot
+  undo Save/Clear; old lost-response receipts retain newer data and mark stale
+  with recheck instruction. Capability changes preserve dirty draft read-only.
+- Frozen history preserves prior numeric values; current editor uses fresh
+  fixed-stake rules and explicitly labels global current-data corrections.
+  Internal and outer tab/popstate navigation guards preserve cancelled drafts.
+- Focused interactions19 plus existing management4 PASS, direct Admin types and
+  scoped lint/format PASS; final broader evidence is in completed task Outcome.
+  Independent sol/high review PASS, no unresolved P0–P2.
+- Completion v1.7.256 /71931a1b8fdf5830f761736ca26f1666acc14d5b. Next T5 / TASK-0925.
+  No backend contract change, service lifecycle, production migration or build.
+
 ### TASK-0923 — Shared search with explicit Save (done)
 
 - Optional fixed stake, trusted saved start/query/range, controlled0–6 spin pins

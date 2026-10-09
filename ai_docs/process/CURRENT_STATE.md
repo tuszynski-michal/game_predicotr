@@ -20,25 +20,27 @@ last_updated: 2026-10-09
 
 ### Minimalistyczny Panel Administracyjny — D-536, TASK-0940–0943
 
-Approved plan: ai_docs/delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md.
+Completed implementation plan: ai_docs/delivery/ADMIN_COMPACT_PANEL_EXECUTION_PLAN.md.
 0940 committed v1.7.273/0625512d4a37072f1d6d44f3f85ef225e7db1835.
 941 Claude round2 PASS;942 Claude PASS, bounded P2 corrections complete.
-943 final independent whole-feature audit and closure pending.
+943 final independent whole-feature audit PASS; all0940–0943 closed in separate commits.
 Final browser10/10, Reviewer geometry41/41 and both production builds PASS.
 Detailed evidence: ai_docs/quality/ADMIN_COMPACT_PANEL_ACCEPTANCE.md.
 Audits are dispatched autonomously through the authenticated readonly Claude CLI.
 
 ## Aktywne taski
 
-### TASK-0943 — Odbiór kompaktowego panelu (in progress)
-
-Final evidence prepared; whole-feature Claude review and separate commit pending.
-
 ## Ostatnie 10 ukończonych tasków
+
+### TASK-0943 — Minimalistyczny panel (done)
+
+- Version: v1.7.276; full hash pending immediate post-commit recording.
+- Outcome: ai_docs/tasks/completed/0943-management-compact-acceptance.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
 
 ### TASK-0942 — Minimalistyczny panel (done)
 
-- Version: v1.7.275; full hash pending immediate post-commit recording.
+- Version: v1.7.275; commit: af1218b0685b5d472f2e7eb4842934b205f2ec26.
 - Outcome: ai_docs/tasks/completed/0942-management-compact-stakes.md; independent Claude review without open P0/P1.
 - Final browser10/10 and host production builds PASS; no operator-data/service action.
 
@@ -206,26 +208,6 @@ Final evidence prepared; whole-feature Claude review and separate commit pending
   and independent astra/high PASS are recorded in completed Outcome.
 - Completion v1.7.257 / a829b2e5a90f3c7c09c696ec3ca83bce44ce0213. Next T6 / TASK-0926.
   No live services/tunnel, production migration/data writes or deployment.
-
-### TASK-0924 — Stake overview and retained history (done)
-
-- Selected machine/game loads six compact cards, saved board/pins/date and
-  at most two cancellable current refreshes. Full immutable chart/rows load only
-  on Open/history; rows paginate50 and journal defaults20. No eager point charts.
-- Search draft reuses T3, explicit host Save and confirmed slot-only Clear.
-  Per-tab recovery keeps exact UUID/body/CAS through response loss and reload.
-  Conflicts retain the draft; acknowledged retry advances only its own revision.
-- Cards and visible saved result share scope/revision gates. Late refresh cannot
-  undo Save/Clear; old lost-response receipts retain newer data and mark stale
-  with recheck instruction. Capability changes preserve dirty draft read-only.
-- Frozen history preserves prior numeric values; current editor uses fresh
-  fixed-stake rules and explicitly labels global current-data corrections.
-  Internal and outer tab/popstate navigation guards preserve cancelled drafts.
-- Focused interactions19 plus existing management4 PASS, direct Admin types and
-  scoped lint/format PASS; final broader evidence is in completed task Outcome.
-  Independent sol/high review PASS, no unresolved P0–P2.
-- Completion v1.7.256 /71931a1b8fdf5830f761736ca26f1666acc14d5b. Next T5 / TASK-0925.
-  No backend contract change, service lifecycle, production migration or build.
 
 ### TASK-0928 — image import storage resumption (in progress)
 

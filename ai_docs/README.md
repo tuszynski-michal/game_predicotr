@@ -38,8 +38,9 @@ implementacyjnym.
 
 - [Mobile app](requirements/MOBILE_APP.md)
 - [Admin app](requirements/ADMIN_APP.md)
-- [Management panel](requirements/MANAGEMENT_PANEL.md) — points, machines,
-  active games, independent stake saves and whole-panel online access (D-533).
+- [Management panel](requirements/MANAGEMENT_PANEL.md) — compact point/machine
+  navigation, independent stake saves, scoped deletion and online access
+  (D-533, D-536).
 - [Aplikacja V3 — rejestr przeglądu ekranów](requirements/APP_V3_FUNCTIONAL_INVENTORY.md)
   — robocze potrzeby, funkcje do zachowania/przeniesienia i oddzielny panel online.
 - [Admin app 0.2 proposal](requirements/ADMIN_APP_V0_2.md)
@@ -150,7 +151,12 @@ implementacyjnym.
 ### Instrukcje operatorskie
 
 - [Management panel operations](process/MANAGEMENT_PANEL_OPERATIONS.md) —
-  rollout prerequisites, backups, local/recipient access and live acceptance gates.
+  compact rollout prerequisites, binary backup/restore, local/recipient access
+  and live acceptance gates.
+- [Compact management acceptance](quality/ADMIN_COMPACT_PANEL_ACCEPTANCE.md) —
+  bounded browser/database evidence and open operator rollout gates (TASK-0943).
+- [Compact management Claude handoff](quality/ADMIN_COMPACT_PANEL_CLAUDE_HANDOFF.md)
+  — deferred audit scopes, corrected stage snapshots and remaining closure work.
 - [Lokalne uruchamianie i instalacja](guides/LOCAL_OPERATION_GUIDE.md) —
   środowisko Windows, aplikacja mobilna, panel Admin i aplikacja Reviewer.
 - [Utrzymanie bazy danych](guides/DATABASE_MAINTENANCE.md) — raport

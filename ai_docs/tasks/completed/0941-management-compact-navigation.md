@@ -145,7 +145,7 @@ Nie rozszerzać zmian domyślnego search/share. Największe ryzyko: popstate/dir
 - `@game-predictor/reviewer` management-panel interaction: 14/14 PASS po przejściu testu na modal atomowy i nową hierarchię. Testy komponentu w obu aplikacjach korzystają ze wspólnego UI.
 - Typecheck `board-search-ui`, Admin i Reviewer: PASS. Scoped ESLint zmienionych modułów board-search-ui: PASS. Pełny lint Admin i Reviewer: exit0, odpowiednio pięć i jedno wcześniejsze ostrzeżenie poza panelem. Prettier zmienionych plików UI/testów: PASS.
 
-### Not completed
+### Not completed at initial handoff (historical)
 
 - Niezależny ręczny audyt `claude-opus-5-5 / medium`, ewentualna jedna runda poprawek, commit `v1.7.274` i przeniesienie taska do completed czekają na raport audytora. Nie wykonywano działań na danych operatora, migracji produkcyjnej ani lifecycle API/Admin.
 - Fizyczny odbiór układu na ekranach 390/1440/1920 px i danych operatora należy do TASK-0943; obecne testy potwierdzają kontrakt interakcji i reguły CSS, nie pomiar przeglądarki produkcyjnej.

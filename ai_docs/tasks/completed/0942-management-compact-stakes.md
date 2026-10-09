@@ -164,7 +164,7 @@ Wszystkie poniższe skończone kroki miały wymuszony `subprocess.run(timeout=12
 - `npm run test:geometry --workspace @game-predictor/reviewer`: pierwsze uruchomienie ujawniło5 testów panelu opartych na starych selektorach kart i eager journal. Pozostałe testy były zielone. Po dostosowaniu kontraktu ponowiono wyłącznie zmieniony pion: `node node_modules/tsx/dist/cli.mjs --tsconfig apps/reviewer/tsconfig.json --test apps/reviewer/test-interactions/management-panel.test.mjs`: PASS,14/14.
 - Scoped `git diff --check`: PASS. Istniejące ostrzeżenia React o powtarzanych kluczach w niezwiązanych fixtures zwykłego search/Admin nie powodują niepowodzeń; nie rozszerzano zakresu.
 
-### Not completed
+### Not completed at initial handoff (historical)
 
 - Osobny commit i formalne przeniesienie taska do completed. Audyt jest `PASS`, nie ma otwartych P0/P1; P2-1–P2-4 zostały poprawione, a P2-5 wymaga końcowego wyniku pełnej suite Reviewer od leada. Nie oznaczono taska jako done.
 - Browser acceptance `npm run reviewer:management:browser`, fizyczny odbiór1440/1920/390px i końcowy odbiór całego przepływu należą do TASK-0943. Nie powtarzano całej suite Reviewer po zielonym ponownym sprawdzeniu zmienionego pionu.
@@ -192,3 +192,7 @@ Wszystkie poniższe skończone kroki miały wymuszony `subprocess.run(timeout=12
 - Main po rozpoczęciu implementacji przesunął się do1b97ad65/v1.7.285 i zawiera
   TASK-0935/0936. Przed integracją trzeba rozwiązać konflikty wspólnych komponentów
   i sprawdzić koszt per pozycja. Osobna gałąź nie została scalona.
+
+### Commit
+
+v1.7.275 — af1218b0685b5d472f2e7eb4842934b205f2ec26. Osobny commit potwierdzony przez git log/show; zapis dołączany z dokumentacją kolejnego taska.

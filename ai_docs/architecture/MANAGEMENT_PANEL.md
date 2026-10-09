@@ -22,6 +22,10 @@ Shared UI gains small tiles, atomic modals and optional compact search ports,
 preserving ordinary search/share defaults. Cached nullable pin investment/cash
 uses frozen results and bounded read-only legacy fallback, never another
 calculator. No production migration/deletion or API/Admin lifecycle authorized.
+The browser acceptance uses the actual shared React/CSS with a finite mock
+transport. Its 1/4/40 point and 40-machine cases test layout only; they do not
+claim database throughput. The selected saved stake shows quick pin rows from
+summary data. Full result, chart and journal mount only after expansion.
 
 ### TASK-0940 storage and transport contract
 
@@ -72,8 +76,8 @@ additive Alembic migrations, preserved history and no image blobs. Existing game
 registry/routing remains authoritative for eligibility/read/write availability.
 Mutations validate ancestry and live eligibility under transactional locks.
 Save, clear, refresh and current game operations require active attachment.
-Archived saved history remains readable without current game operations.
-Explicit structural delete/detach removes its scoped history under D-536.
+Archived saved history remains readable without current game operations until
+an explicit structural delete/detach removes its scoped history under D-536.
 
 Immutable compact result versions include numeric payout rows, start symbols,
 published rules and data fingerprint; identical semantic results are shared.
@@ -175,7 +179,7 @@ values derive from the latest calculation and inaccessible pins remain explicit.
 
 Hosts provide a stable machine/game/stake `scopeKey`. Background saved-result
 identity changes within that scope do not remount or replace a draft. Explicit
-Open/Search again/Clear transitions require the host discard guard and a deliberate
+Stake selection/Nowy układ/Zastąp/Usuń zapisany układ transitions require the host discard guard and a deliberate
 new workspace identity. Without a scopeKey, saved-selection identity is the
 optional mount key. Page-exit warnings and dirty callbacks cover outer navigation.
 Current symbol corrections remain immediate; recalculation refreshes values without
@@ -261,8 +265,9 @@ deletion mechanism; D-536 adds separately confirmed structural scope purge.
 
 `npm run reviewer:management:browser` prepares a finite static fixture and runs
 installed Chrome/Edge with its own headless profile. Actual shared React/CSS,
-touch events and390px geometry protect the recipient hierarchy/search/save/open/
-clear workflow. Mock transport retains the generated public shape and originating
+touch events and 390/1440/1920px geometry protect the recipient hierarchy,
+search and save flow. Scenarios have 1/4/40 points, 40 machines per point and
+200 game IDs. Mock transport retains the generated public shape and originating
 session identity. This fixture does not start API/Admin/Reviewer/tunnel services
 or exercise production assets. The runner has bounded commands, a flow deadline
 and cleanup restricted to its own browser process.

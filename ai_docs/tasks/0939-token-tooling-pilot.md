@@ -2,7 +2,7 @@
 
 ## Status
 
-`in_progress`
+`blocked` (narzędzia gotowe i zacommitowane w v1.7.284; pomiar 36 sesji wg `ai_docs/quality/TOKEN_TOOLING_PILOT_PROTOCOL.md` i raport z decyzjami „zostaje / wypada” wykonuje operator po zgodzie na koszt)
 
 ## Goal
 
@@ -115,6 +115,8 @@ Commit dostarczający narzędzia ma wersję `v1.7.284` (hash dopisuje lead).
 
 ### Changed
 
+- Commit v1.7.284 / 6f783932b05f0c11d0579086e9d464756304f046 (zapis dodany po commicie przez leada).
+
 - **Mapa kodu:** `scripts/generate_code_map.py` generuje deterministycznie
   `ai_docs/architecture/CODE_MAP.md` (obszary: API, worker, Admin, Reviewer,
   pakiety, mobile, skrypty, docs; katalogi, moduły wejściowe z symbolami, testy,
@@ -179,7 +181,7 @@ Commit dostarczający narzędzia ma wersję `v1.7.284` (hash dopisuje lead).
   3,0–5,2 s; wyniki poprawne; koszt stały: 7 narzędzi, ok. 10 KB definicji (ok.
   2,6 tys. tokenów; 21 narzędzi i ok. 5,8 tys. przed wyłączeniem edycji/pamięci).
   Awarie po drodze i naprawy: brak `uvx` w PATH (uv w venv + PATH w skrypcie);
-  `uvx -p 3.13` pobierający Pythona do `%APPDATA%\uv` kończył błędem (przekierowanie
+  `uvx -p 3.13` pobierający Pythona do `%APPDATA%\uv` kończył błędem (przekierowanie (usunięte przez leada 2026-10-09; katalogi nie istnieją).
   `UV_PYTHON_INSTALL_DIR` do `.tooling/`).
 - Graphify: `extract --code-only` 45 s, `cluster-only --no-label --no-viz` 12 s,
   eksport Obsidian 22 s; 358 plików → 9124 węzłów, 33 506 krawędzi, 203

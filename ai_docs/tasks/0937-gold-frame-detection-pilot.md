@@ -81,6 +81,8 @@ Dostarczone: narzędzie pomiarowe, przepływ etykietowania, testy i szkic raport
 
 ### Changed
 
+- Commit v1.7.281 / 7b7b0a7e4b1b63fbde4518ccdabe336443ef1728 (zapis dodany po commicie przez leada).
+
 - `scripts/m8_gold_frame_pilot.py` (nowy, tylko odczyt bazy i plików; wyniki wyłącznie w `artifacts/gold-frame-pilot/`):
   - `--prepare` dobiera do 50 komórek w trzech grupach (po 1/3): (1) super symbol w planszach serii, (2) inne komórki plansz serii, (3) komórki z plansz poza seriami (`in_series=false`). Dla każdej zapisuje wycinek ciasny (96 px z `sourceQuad`) i wycinek z marginesem 8 %, arkusz `index.html` i `labels.csv`. Arkusz zadaje dwa niezależne pytania na komórkę („Ramka widoczna na wycinku V3 (ciasnym)?” i „…na wycinku z marginesem 8 %?”), każde z przyciskami tak/nie/częściowo, nie pokazuje klasy symbolu i ma eksport CSV. `labels.csv` ma kolumny `cell_id, board_sequence_number, cell_index, symbol_code, in_series, is_super_symbol, frame_label_tight, frame_label_margin`.
   - `--prepare` odmawia zapisu do istniejącego katalogu przebiegu (kod wyjścia 1, komunikat z `--run <new name>`); nigdy nie nadpisuje etykiet ani obrazów.

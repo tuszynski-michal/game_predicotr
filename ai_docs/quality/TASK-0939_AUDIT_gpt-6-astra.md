@@ -59,3 +59,7 @@ Otwarte: P0-1, P0-2, P1-1, P1-2, P2-1, P2-2.
 Przeczytano brief, task, fragment etapu T zaakceptowanego planu, zmiany instrukcji repozytorium, skrypty, konfigurację, testy oraz dokumentację instalacji i pomiaru. Brief nie zawierał fragmentu planu; odpowiedni fragment odczytano z pliku wskazanego przez task.
 
 Nie uruchamiano testów, instalacji, serwerów, indeksowania ani sesji pomiarowych. Wyniki testów i testów dymnych zapisane w `Outcome` pozostają deklaracjami wykonawcy. Nie modyfikowano żadnych plików.
+
+## Nota leada po rundzie 1 (2026-10-09)
+
+P0-2, P1-1, P1-2, P2-1, P2-2 naprawione (reguły oznaczone jako pilot do czasu pomiaru, kontrola mapy poza bramką `quality`, `<PILOT>` = commit narzędzi v1.7.284, przygotowanie venv per worktree w protokole, pełny indeks symboli, przypięte wersje). P0-1 to blokada zewnętrzna: pomiar wykonuje operator, task pozostaje `blocked`. Wyciek katalogów `uv` w AppData usunięty przez leada.

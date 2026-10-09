@@ -23,7 +23,7 @@ sprawdza `scripts/check_current_state_window.py` (część `npm run docs:check`)
 
 ## Obowiązujące ograniczenia
 
-- **Kompaktowy panel / TASK-0945:** integracja D-538 (historyczny D-536 panelu) z D-536/D-537 Mumii w osobnym worktree. Baza operatora nie jest migrowana; przed0153 obowiązuje podgląd receipts i osobna zgoda/backup. Niezapisana praca main jest chroniona hashami. Audyt integracji i fast-forward pozostają w toku.
+- **Kompaktowy panel / TASK-0945:** integracja D-538 (historyczny D-536 panelu) z D-536/D-537 Mumii w osobnym worktree. Baza operatora nie jest migrowana; przed0153 obowiązuje podgląd receipts i osobna zgoda/backup. Niezapisana praca main jest chroniona hashami. Kod i audyt zamknięte; lokalny main scalony, bez push/rollout. Pełne hashe zapisano w Outcome0945.
 
 Ograniczenia operacyjne nadal obowiązujące, wyniesione ze starszych wpisów
 (przeszukanie słów kluczowych: migracja, zgoda, blokada, PID, job, „nie
@@ -59,35 +59,6 @@ daty wpisu może być nieaktualny, więc przed poleganiem na nim zweryfikuj go
 
 ## Plany z niezakończonymi taskami
 
-### Integracja kompaktowego panelu — TASK-0945 (accepted, 2026-10-09)
-
-- Plan: `ai_docs/delivery/ADMIN_COMPACT_PANEL_INTEGRATION_PLAN.md`; TASK-0945 in_progress.
-- Zakres obejmuje oba0152, wspólne kwoty/komponenty i bezpieczne lokalne scalenie; bez rollout/push.
-
-Kryterium: plan o statusie `proposed`/`accepted`/`active`/`deferred`, którego
-taski mają aktywne pliki w `ai_docs/tasks/` albo który czeka na decyzję.
-Statusy czytane z nagłówków `ai_docs/delivery/*.md` w dniu przeniesienia
-(2026-10-09); pozostałe plany `accepted` bez aktywnych tasków są zamknięte w
-praktyce (ich taski leżą w `ai_docs/tasks/completed/`).
-
-| Plan (`ai_docs/delivery/…`) | Status planu | Pozostałe taski |
-|---|---|---|
-| `MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` (D-535) | accepted | TASK-0937 (pilot złotej ramki, etap S-D, `blocked` na etykietach operatora), TASK-0939 (narzędzia oszczędzania tokenów, etap T); TASK-0929–0936, 0938 i 0940 ukończone |
-| `VISION_LAB_EXECUTION_PLAN.md` (D-447) | accepted | TASK-0668 (`in_progress`), TASK-0671 (`blocked`), TASK-0672–0678 (`todo`) |
-| `GAME_777_GRID_REVERIFICATION_EXECUTION_PLAN.md` | active | TASK-0645, 0646, 0647 (`blocked`, D-445/D-447) |
-| `V2_READINESS_REMEDIATION_PLAN.md` | accepted | TASK-0694 (`blocked`), TASK-0695 (`todo`), TASK-0698 (`blocked`, wymaga decyzji) |
-| `LEGACY_PUBLIC_STORE_REMOVAL_EXECUTION_PLAN.md` | completed (w nagłówku) | TASK-0687 (`blocked`), TASK-0688–0691 (`todo`): rozbieżność z nagłówkiem do wyjaśnienia |
-| `GRID_ENGINE_V3_HYBRID_EXECUTION_PLAN.md` | accepted | TASK-0802 (`in_progress`) |
-| `MUMIE_SYMBOLS_PREMIUM_EXECUTION_PLAN.md` | proposed | brak aktywnych plików; czeka na decyzje operatora (zakres częściowo przejęty przez plany Mumie z 2026-10-04..08) |
-| `IMPORT_REPORT_PERFORMANCE_PLAN_20261007.md` | proposed | TASK-0910 ukończony; TASK-0911–0918 nie mają plików w `ai_docs/tasks/` |
-| `APPROXIMATE_MOBILE_SNAPSHOT_EXECUTION_PLAN.md` | deferred | wymaga nowej decyzji (D-463 nie przyjęta) |
-| `MILESTONE_06_EXECUTION_PLAN.md` | in_progress (nagłówek z 2026-07-29) | brak aktywnych plików; status nagłówka przestarzały |
-| bez planu w `delivery/` | n/a | TASK-0290, 0305, 0472, 0517, 0603, 0611, 0654, 0928 (sekcje w „Aktywne taski”) |
-
-Sekcja planu Mumie poniżej jest bez zmian względem poprzedniej wersji tego
-pliku; zdanie „Żaden etap nie jest jeszcze uruchomiony” jest historyczne
-(ukończono S-0, S-A, S-B i S-C, patrz sekcje `done` na końcu pliku).
-
 ### Plan Mumie: Wild, supergra, audyt krzyżowy (accepted, 2026-10-08)
 
 - `delivery/MUMIE_SUPER_GAME_EXECUTION_PLAN_20261008.md` i taski
@@ -116,16 +87,6 @@ pliku; zdanie „Żaden etap nie jest jeszcze uruchomiony” jest historyczne
   `ai_docs/archive/CURRENT_STATE_2026Q3.md`.
 
 ## Aktywne taski
-
-### TASK-0945 — Integracja kompaktowego panelu z main (in_progress)
-
-- Worktree `admin-compact-panel`, gałąź `codex/admin-compact-integration`; main fc3d188/v1.7.287, panel433d8bfe/v1.7.278.
-- Merge zachowuje D-536 serii; decyzję panelu importuje jakoD-538. Dwa historyczne TASK-0940 mają osobne pliki.
-- Migracja merge0153 i regresje kosztów per pozycja; kontrole oraz Claude przed commitem.
-
-Sekcje tasków `in_progress`, `blocked` i `todo` (każdy plik w `ai_docs/tasks/`),
-posortowane po numerze. Krótkie wpisy „TASK-… (status)” wskazują plik zadania i
-historię w archiwum; po rozpoczęciu pracy agent zastępuje wpis pełną sekcją.
 
 ### Benchmark i kontrolowany rollout zdalnej ręcznej selekcji — TASK-0290
 
@@ -741,6 +702,39 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
 
 ## Ostatnie 10 ukończonych tasków
 
+### TASK-0945 — Integracja kompaktowego panelu z main (done)
+
+- Merge commit: v1.7.288 / 9cea1a8a363aa2efad6d012889a86aced34d613a; plan `ai_docs/delivery/ADMIN_COMPACT_PANEL_INTEGRATION_PLAN.md`, Outcome `ai_docs/tasks/completed/0945-compact-panel-main-integration.md`.
+- Zachowano D-536/D-537 Mumii i geometrię0944; historyczny D-536 panelu mapuje się na D-538. Oba historyczne TASK-0940 zachowują osobne pliki i oryginalne commity.
+- Jedna głowa0153, oba rodzice0152; frozen i compact piny używają free-spin/provisional kosztów. Digest oraz dawny kontrakt777 bez zmian, nowe metryki sprawdzone osobno.
+- Claude opus5.5/high PASS,0 P0/P1; pięć P2 poprawiono i zweryfikowano w jednej rundzie. API client107/107, TS helpers34/34, scoped interactions17/17, Admin39/39, Reviewer proxy/geometry31/31, Python focused31/31, API supergame35 plus7772/2; final backend20/20 i saved-selection15/15. PG trzy ścieżki merge, dwa krytyczne scenariusze oraz wzmocniona macierz3/3 PASS. Buildy, Chromium10/10, OpenAPI/docs/maps, lint/types PASS.
+- Jeden szerszy moduł PG osiągnął limit120s; nie deklarujemy pełnego PASS. Własną pozostałość testową usunięto, starsze bazy pozostawiono. Zawężone wymagane kontrole PASS.
+- Main fast-forward zweryfikowany,25 niezapisanych ścieżek i v7-output zachowane. Bez push, migracji operatora ani API/Admin lifecycle. Do odbioru na żywo wymagana osobna procedura0153 i backup/preview.
+
+### TASK-0943 — Minimalistyczny panel (done)
+
+- Version: v1.7.276; commit: d7b37368646a5c9b8a039505646a5fc6f4c55518.
+- Outcome: ai_docs/tasks/completed/0943-management-compact-acceptance.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
+### TASK-0942 — Minimalistyczny panel (done)
+
+- Version: v1.7.275; commit: af1218b0685b5d472f2e7eb4842934b205f2ec26.
+- Outcome: ai_docs/tasks/completed/0942-management-compact-stakes.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
+### TASK-0941 — Minimalistyczny panel (done)
+
+- Version: v1.7.274; commit: 993ddc763f3946453ea391c1a82ba6288052f866.
+- Outcome: ai_docs/tasks/completed/0941-management-compact-navigation.md; independent Claude review without open P0/P1.
+- Final browser10/10 and host production builds PASS; no operator-data/service action.
+
+### TASK-0940 — Atomic management edit and explicit scope deletion (done)
+
+- Version v1.7.273; commit0625512d4a37072f1d6d44f3f85ef225e7db1835.
+- Outcome: `ai_docs/tasks/completed/0940-management-atomic-edit-and-delete.md`; separate panel-branch task, independent of main's historical TASK-0940 quality task.
+- Atomic final name/game edits, bound preview/confirmed scope purge, preserved independent security audit and redacted retry receipts. Original Claude report retained, required regression tests added before the task commit.
+
 ### TASK-0944 — szkic planszy poza krawędzią obrazu blokował ręczną korektę (done)
 
 - Commit v1.7.286 / 2c30ac59309da9e5d3173f9f6088d936bb10a26a
@@ -855,145 +849,6 @@ Adminie` z dowodem, że naliczenie z widocznego prefiksu jest bezpiecznym
   lint, prettier PASS. Bez uruchomienia na żywym API.
 - Otwarte drobne: polling także przy ukrytej karcie; kwoty w modalu linii
   jako „N kr.” (formatter złotówek nieeksportowany z `board-search-ui`).
-
-### TASK-0933 — wyprowadzanie serii supergry i API serii (done)
-
-- Commit v1.7.276 / 221e43ed0c645c218e84b2bee34785608ef04f1d.
-- Migracja `0152_super_game_series` (manifest v6 = v5 + 4 tabele gry:
-  `super_game_series`, tabela robocza generacji, stan wyprowadzania, audyt
-  super symbolu; partycje i RLS dla istniejących gier; strażnik schematu
-  wymaga `0152`). D-536.
-- Licznik `input_version` per gra podbijany w tej samej transakcji w 10
-  punktach zapisu (lista w kodzie, test statyczny w obie strony, test PG na
-  12 realnych operacjach z rollbackiem); nieaktualność = porównanie z wersją
-  generacji. Job `super_game_series_derive` (lane general, dedup na grę)
-  buduje generację partiami (5000 pozycji / 500 serii), publikuje w jednej
-  transakcji pod `FOR UPDATE`, odrzuca kandydata przy zmianie wersji.
-  2000 pozycji / 30 serii: ~1 s, szczyt pamięci 0,27 MB.
-- API `/api/v1/admin/games/{gameId}/super-game-series` (lista z kursorem i
-  filtrami, `/derive`, `/{seriesId}/boards`, `PUT /{seriesId}/super-symbol`
-  z CAS, `/state`); OpenAPI, klient i wrappery; etykieta joba w Adminie.
-  Pole `superGameState` w odpowiedziach wyszukiwania przeniesione do
-  TASK-0935 (decyzja leada po audycie).
-- Audyt Codex gpt-6-astra / high (pierwszy audyt przez CLI): runda 1 REVISE
-  (P0: brak podbicia przy zmianie `expected_layout_count`, kompletność na
-  końcu sekwencji; P1: testy punktów zapisu, `superGameState`), poprawki w
-  jednej rundzie, runda 2 w `ai_docs/quality/TASK-0933_AUDIT_gpt-6-astra.md`.
-  Runda 2 i 3 (zawężone): cztery P0 współbieżności (odczyt parametrów pod
-  blokadą stanu; wyścig blokady czyszczenia — wyłączenie usunięte, job
-  blokuje jak każdy; odczyty w snapshocie RR), wszystkie naprawione i pokryte
-  testami PG; commit po rundzie 3 bez kolejnej rundy (reguła szybkiego
-  audytu, decyzja leada). Raporty rund w `ai_docs/quality/`.
-- Wdrożenie u operatora: stop API/worker/Admin → `npm run db:migrate` (0152,
-  manifest v5→v6) → start → `POST …/derive` dla Mumii (komórki sprzed
-  migracji nie podbiły licznika).
-
-### TASK-0940 — zielona bramka `npm run quality` (done)
-
-- Commit v1.7.273 / 60ba1f74de09d82d159f42bf9706240dcb662123.
-- Pełna bramka zielona: format (Prettier `endOfLine: auto` dla checkoutu
-  autocrlf), openapi, lint, typecheck (mypy 836 plików po naprawie
-  konfiguracji i 79 realnych błędów typów bez ogólnych ignore), testy JS,
-  snapshot/fixture; API pytest z PostgreSQL 2725 PASS, worker 2781 PASS.
-- Naprawy u źródła: współdzielony `services/test_support/` (helper V7,
-  `require_local_corpus`), `services/api/tests/conftest.py` (loggery po
-  Alembic), tabele `semi_automatic_selection_v7_*` jako `POST_V5_SHARED`
-  w manifeście v5, `EXPECTED_PUBLIC_TABLES` i testy PG dostosowane do
-  migracji bez downgrade (0148–0150), testy zaktualizowane do bieżących
-  reguł z cytatem taska (TASK-0925, 0882, 0885, 0805, v0.10.298…).
-- Łańcuch sum dowodów `ai_docs/quality/*.json` przepięty z CRLF na LF do
-  punktu stałego (78 plików, tylko wartości sha256); nowy checker
-  `scripts/check_quality_evidence_digests.py` + tabela
-  `evidence-digest-references.json` + test workera pilnują dryfu.
-- Audyt claude-opus-5-5 / high: runda 1 REVISE (P0: skip ukrywał błąd
-  łańcucha), runda 2 jedna P1 (punkt stały), domknięta i zweryfikowana
-  (`ai_docs/quality/TASK-0940_AUDIT_claude-opus-5-5.md`).
-- Odłożone jawnie: 3 testy historycznych migracji (skip z powodem), testy
-  korpusów M5 bez korpusu, test junction tylko w worktree.
-- Następny etap: S-B (TASK-0933 → 0934/0935), zgodnie z poleceniem operatora.
-
-### TASK-0932 — ewaluator `payout-v4-wild-count` (done)
-
-- Commit v1.7.270 / 123953086aa11ba8454489298b1b4f1015128d4c.
-- `services/worker/.../domain/payout.py`: symbole z rolą uruchamiającą poza
-  liniami; Wild bez zmian (ta sama komórka jako różne symbole na różnych
-  liniach, same Wildy nie wygrywają); nowe `count_matches` (największa
-  reguła ≤ liczbie sztuk, komórki `0` nie liczone); suma linie + sztuki.
-  Wersja per gra: bez triggera wyniki i wersja identyczne z v3 (777 bez
-  zmian), z triggerem `payout-v4-wild-count`. Lustrzany ewaluator TS
-  `packages/shared-ts/src/payout.ts`; 10 złotych przypadków v4 w
-  `domain-fixtures` wykonywanych w Pythonie i TS.
-- API: `countMatches[]` w szczególe planszy i wierszach przybliżonej wygranej;
-  `rulesVersionId` (draft/published tej samej gry) w modalu linii i
-  przybliżonej wygranej Adminu; udostępnienie i panel publiczny odrzucają
-  parametr (422), proxy Reviewera 403. UI: select „Wersja reguł” tylko w
-  Adminie, sekcja „Sztuki na planszy”, „w tym sztuki” w wierszach.
-- Nieobjęte (jawny follow-up): prekomputacja v4 (job wypłat, `layout_payouts`,
-  snapshot mobilny) — strażnik `PAYOUT_ALGORITHM_GAME_MISMATCH` odrzuca job
-  v3 dla gry z triggerem; `create_payout_job` nadal tylko v3. Panel
-  zarządzania (format v1) nie pokazuje rozbicia na sztuki, wypłata wiersza
-  je zawiera.
-- Audyt claude-fable-5-1 / high: PASS, 4 × P2 naprawione, 4 odstępstwa
-  zaakceptowane (`ai_docs/quality/TASK-0932_AUDIT_claude-fable-5-1.md`).
-  Worker 88, API 101, shared-ts 46, board-search-ui 80+51, Admin 679/679,
-  `openapi:check` aktualne. Istniejące wcześniej: 2 testy kontraktowe
-  Reviewera, `main.py:2005` mypy.
-- Etap S-A zamknięty. Operator może testować Wild na drafcie Mumii
-  (instrukcja w Outcome TASK-0931 i TASK-0932) po wdrożeniu migracji 0151.
-  Operator 2026-10-08: migracja 0151, `npm install` i `worker:poll` wykonane;
-  zaakceptował TASK-0940 (zielona bramka) i polecił przejść od razu do etapu
-  S-B bez pytań o zgodę; TASK-0938/0939 po S-B.
-
-### TASK-0931 — Wild, „Uruchamia supergrę” i rodzaj supergry (done)
-
-- Commit v1.7.268 / 1aef5870ee22287b0e17f1278276cddf7793a9b5.
-- Migracja `0151_super_game_roles` (addytywna): `symbols.super_game_trigger_count`
-  (null/3/4/5) i `games.super_game_kind` (domyślnie `none`); strażnik
-  schematu startowego wymaga teraz `0151`. Rejestr rodzajów supergry w
-  `services/worker/.../domain/super_games/` (`none`, `wild_super_spins`:
-  10 spinów, +10 przy retriggerze, koszt 0).
-- Domena: zmiana ról Wild/trigger dozwolona tylko bez opublikowanej lub
-  zarchiwizowanej wersji reguł; rola trigger wymaga rodzaju gry ≠ `none`
-  (`SUPER_GAME_KIND_REQUIRED`, `SUPER_GAME_KIND_IN_USE`); symbol trigger ma
-  `minimum_match_length = null`, a jego wypłaty znaczą liczbę sztuk
-  2…rows×columns (rosnące); przy zyskaniu roli minimum w draftach jest
-  czyszczone w tej samej transakcji. 777 bez zmian zachowania.
-- API: pola w schematach gry i symbolu (`superGameTriggerCount` wymagane,
-  `superGameKind`), `GET /api/v1/admin/super-game-kinds`, OpenAPI i klient
-  zregenerowane, wrapper `listSuperGameKinds`, request testy. Admin: etykieta
-  „Wild”, checkbox „Uruchamia supergrę” + select 3/4/5, select „Supergra”
-  w tworzeniu i edycji gry, pola „sztuk na planszy” w regułach.
-- Audyt claude-fable-5-1 / high: PASS, 4 × P2 naprawione, 8 odstępstw
-  zaakceptowanych (`ai_docs/quality/TASK-0931_AUDIT_claude-fable-5-1.md`).
-  Pytest skupiony 72 PASS, PG katalog 4 PASS, cykl migracji na bazie
-  jednorazowej OK, `openapi:check` aktualne, Admin 679/679, Reviewer
-  typecheck PASS.
-- Wdrożenie u operatora (po merge): zatrzymać API/Admin, `npm run db:migrate`
-  (0147→0151 na bazie operatora wymaga osobnej zgody, patrz TASK-0928),
-  restart. Nie publikować reguł Mumii przed TASK-0932 (stary ewaluator liczy
-  Mumię jako symbol liniowy). Instrukcja operatora w Outcome taska.
-
-### TASK-0929 — skill audytu krzyżowego i sekcja „Audyt krzyżowy” (done)
-
-- Commit v1.7.267 / 6323939f41d93501a537463eb82ce127ab1f04b3.
-- `scripts/audit_task.ps1` (PowerShell 5.1, ASCII, limity czasu, UTF-8)
-  składa brief taska (plik taska, fragment planu, `Verification results`,
-  diffy ograniczone `-Paths`, pliki nieśledzone) do ignorowanego
-  `artifacts/audits/` i uruchamia audytora tylko do odczytu (`codex exec
-  --sandbox read-only` lub `claude -p --permission-mode plan`); raport trafia
-  do `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md` tylko z wierszem werdyktu.
-  Bez CLI na PATH tryb „tylko brief” (kod 0). Skille `.claude/skills/audit-task`
-  i `.codex/skills/claude-audit`; szablon `ai_docs/quality/AUDIT_REPORT_TEMPLATE.md`.
-- `AGENTS.md`: sekcja „Audyt krzyżowy” (rodziny modeli, zastępstwo subagentem
-  Claude do czasu CLI, jedna runda audytu + jedna poprawek, otwarte P0/P1
-  blokują commit, wyjątek czasowy 600 s dla przebiegu audytu); punkt 8
-  „Po kodowaniu” ujednolicony.
-- Audyt claude-opus-5-5 / high: runda 1 REVISE (2 × P1: `-Paths` z przecinkami,
-  wstrzyknięcie przez `-Model` na shimach `.cmd`; 5 × P2), po poprawkach
-  runda 2 PASS; 3 × P2 naprawione przez leada. Prawdziwe CLI `codex`/`claude`
-  nie są zainstalowane: operator instaluje i loguje je sam, potem jeden
-  przebieg bez `-DryRun` z zapisem wersji.
-- Etap P zamknięty. Trwa TASK-0931 (etap S-A).
 
 ## Archiwum
 

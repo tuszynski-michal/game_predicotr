@@ -1,6 +1,6 @@
 ---
 title: Integracja kompaktowego panelu z main
-status: in_progress
+status: done
 last_updated: 2026-10-09
 ---
 
@@ -8,7 +8,7 @@ last_updated: 2026-10-09
 
 ## Status
 
-`in_progress`
+`done`
 
 ## Goal
 
@@ -51,13 +51,13 @@ Push, rollout/migracja bazy operatora, API/Admin lifecycle, benchmarki, nowe fun
 
 ## Acceptance criteria
 
-- [ ] Obie funkcje zachowane: compact UI i supergame/provisional/free-spin koszty.
-- [ ] Jedna głowa0153; oba rodzice0152 osiągalne, izolowany upgrade bez utraty triggerów/manifestuv6.
-- [ ] Wkład/netto/na maszynie dla darmowych pinów zgodne backend/frontend;777 regresja bez zmiany digestu.
-- [ ] OpenAPI/klient, scoped testy/lint/types i buildy przechodzą; docs/maps aktualne.
-- [ ] D-538 i oba historyczne0940 nie nadpisują istniejącej dokumentacji; okno10done zachowane.
-- [ ] Claude review bez P0/P1, osobny merge commit, pełny hash i finalny main zawiera panel.
-- [ ] Hash niezapisanych plików operatora i untracked v7-output zachowane; brak zmian usług/danych.
+- [x] Obie funkcje zachowane: compact UI i supergame/provisional/free-spin koszty.
+- [x] Jedna głowa0153; oba rodzice0152 osiągalne, izolowany upgrade bez utraty triggerów/manifestuv6.
+- [x] Wkład/netto/na maszynie dla darmowych pinów zgodne backend/frontend;777 regresja bez zmiany digestu.
+- [x] OpenAPI/klient, scoped testy/lint/types i buildy przechodzą; docs/maps aktualne.
+- [x] D-538 i oba historyczne0940 nie nadpisują istniejącej dokumentacji; okno10done zachowane.
+- [x] Claude review bez P0/P1, osobny merge commit, pełny hash i finalny main zawiera panel.
+- [x] Hash niezapisanych plików operatora i untracked v7-output zachowane; brak zmian usług/danych.
 
 ## Expected files
 
@@ -115,7 +115,7 @@ Raport Claude pozostaje oryginalny. P2-1–P2-5 zamknięto zmianami i kontrolami
 
 ### Not completed
 
-Commit i fast-forward main czekają na końcową kontrolę. Nie wykonano push, migracji bazy operatora, uruchomienia/restartu usług ani odbioru na żywym urządzeniu/ingress. Pełny szeroki moduł PG nie ukończył się w limicie; zastąpiono go wymaganymi testami migracji i dwoma krytycznymi scenariuszami.
+Merge commit oraz lokalny fast-forward main wykonano i zweryfikowano. Nie wykonano push, migracji bazy operatora, uruchomienia/restartu usług ani odbioru na żywym urządzeniu/ingress. Pełny szeroki moduł PG nie ukończył się w limicie; zastąpiono go wymaganymi testami migracji i dwoma krytycznymi scenariuszami.
 
 ### Documentation updates
 
@@ -127,4 +127,6 @@ Odbiór operatora i jawnie autoryzowany rollout danych, poza tym scaleniem.
 
 ### Integration checkpoint
 
-Kod i audyt są gotowe do merge commita v1.7.288. Finalny fast-forward oraz pełny hash zapisujemy po wykonaniu operacji.
+Merge commit: **v1.7.288 / 9cea1a8a363aa2efad6d012889a86aced34d613a**. Main zawiera oba rodzice (fc3d188 i433d8bfe). Weryfikacja25 niezapisanych ścieżek: hash bez zmian, brak nakładania ścieżek; v7-output zachowany. Commit dokumentacyjny v1.7.289 zapisuje ten checkpoint.
+
+Final documentation checks after closure: npm docs:check PASS (535 decisions,36 active tasks,10 done sections,70KB state); npm code-map:check PASS. Original audit report is unchanged.

@@ -13,6 +13,145 @@ Tekst sekcji jest przeniesiony bez zmian (byte-identyczny), w kolejności z plik
 ponad limit 10 dopisuj na początku najnowszego pliku archiwum. Aktualny stan:
 [CURRENT_STATE.md](../process/CURRENT_STATE.md).
 
+### TASK-0933 — wyprowadzanie serii supergry i API serii (done)
+
+- Commit v1.7.276 / 221e43ed0c645c218e84b2bee34785608ef04f1d.
+- Migracja `0152_super_game_series` (manifest v6 = v5 + 4 tabele gry:
+  `super_game_series`, tabela robocza generacji, stan wyprowadzania, audyt
+  super symbolu; partycje i RLS dla istniejących gier; strażnik schematu
+  wymaga `0152`). D-536.
+- Licznik `input_version` per gra podbijany w tej samej transakcji w 10
+  punktach zapisu (lista w kodzie, test statyczny w obie strony, test PG na
+  12 realnych operacjach z rollbackiem); nieaktualność = porównanie z wersją
+  generacji. Job `super_game_series_derive` (lane general, dedup na grę)
+  buduje generację partiami (5000 pozycji / 500 serii), publikuje w jednej
+  transakcji pod `FOR UPDATE`, odrzuca kandydata przy zmianie wersji.
+  2000 pozycji / 30 serii: ~1 s, szczyt pamięci 0,27 MB.
+- API `/api/v1/admin/games/{gameId}/super-game-series` (lista z kursorem i
+  filtrami, `/derive`, `/{seriesId}/boards`, `PUT /{seriesId}/super-symbol`
+  z CAS, `/state`); OpenAPI, klient i wrappery; etykieta joba w Adminie.
+  Pole `superGameState` w odpowiedziach wyszukiwania przeniesione do
+  TASK-0935 (decyzja leada po audycie).
+- Audyt Codex gpt-6-astra / high (pierwszy audyt przez CLI): runda 1 REVISE
+  (P0: brak podbicia przy zmianie `expected_layout_count`, kompletność na
+  końcu sekwencji; P1: testy punktów zapisu, `superGameState`), poprawki w
+  jednej rundzie, runda 2 w `ai_docs/quality/TASK-0933_AUDIT_gpt-6-astra.md`.
+  Runda 2 i 3 (zawężone): cztery P0 współbieżności (odczyt parametrów pod
+  blokadą stanu; wyścig blokady czyszczenia — wyłączenie usunięte, job
+  blokuje jak każdy; odczyty w snapshocie RR), wszystkie naprawione i pokryte
+  testami PG; commit po rundzie 3 bez kolejnej rundy (reguła szybkiego
+  audytu, decyzja leada). Raporty rund w `ai_docs/quality/`.
+- Wdrożenie u operatora: stop API/worker/Admin → `npm run db:migrate` (0152,
+  manifest v5→v6) → start → `POST …/derive` dla Mumii (komórki sprzed
+  migracji nie podbiły licznika).
+
+### TASK-0940 — zielona bramka `npm run quality` (done)
+
+- Commit v1.7.273 / 60ba1f74de09d82d159f42bf9706240dcb662123.
+- Pełna bramka zielona: format (Prettier `endOfLine: auto` dla checkoutu
+  autocrlf), openapi, lint, typecheck (mypy 836 plików po naprawie
+  konfiguracji i 79 realnych błędów typów bez ogólnych ignore), testy JS,
+  snapshot/fixture; API pytest z PostgreSQL 2725 PASS, worker 2781 PASS.
+- Naprawy u źródła: współdzielony `services/test_support/` (helper V7,
+  `require_local_corpus`), `services/api/tests/conftest.py` (loggery po
+  Alembic), tabele `semi_automatic_selection_v7_*` jako `POST_V5_SHARED`
+  w manifeście v5, `EXPECTED_PUBLIC_TABLES` i testy PG dostosowane do
+  migracji bez downgrade (0148–0150), testy zaktualizowane do bieżących
+  reguł z cytatem taska (TASK-0925, 0882, 0885, 0805, v0.10.298…).
+- Łańcuch sum dowodów `ai_docs/quality/*.json` przepięty z CRLF na LF do
+  punktu stałego (78 plików, tylko wartości sha256); nowy checker
+  `scripts/check_quality_evidence_digests.py` + tabela
+  `evidence-digest-references.json` + test workera pilnują dryfu.
+- Audyt claude-opus-5-5 / high: runda 1 REVISE (P0: skip ukrywał błąd
+  łańcucha), runda 2 jedna P1 (punkt stały), domknięta i zweryfikowana
+  (`ai_docs/quality/TASK-0940_AUDIT_claude-opus-5-5.md`).
+- Odłożone jawnie: 3 testy historycznych migracji (skip z powodem), testy
+  korpusów M5 bez korpusu, test junction tylko w worktree.
+- Następny etap: S-B (TASK-0933 → 0934/0935), zgodnie z poleceniem operatora.
+
+### TASK-0932 — ewaluator `payout-v4-wild-count` (done)
+
+- Commit v1.7.270 / 123953086aa11ba8454489298b1b4f1015128d4c.
+- `services/worker/.../domain/payout.py`: symbole z rolą uruchamiającą poza
+  liniami; Wild bez zmian (ta sama komórka jako różne symbole na różnych
+  liniach, same Wildy nie wygrywają); nowe `count_matches` (największa
+  reguła ≤ liczbie sztuk, komórki `0` nie liczone); suma linie + sztuki.
+  Wersja per gra: bez triggera wyniki i wersja identyczne z v3 (777 bez
+  zmian), z triggerem `payout-v4-wild-count`. Lustrzany ewaluator TS
+  `packages/shared-ts/src/payout.ts`; 10 złotych przypadków v4 w
+  `domain-fixtures` wykonywanych w Pythonie i TS.
+- API: `countMatches[]` w szczególe planszy i wierszach przybliżonej wygranej;
+  `rulesVersionId` (draft/published tej samej gry) w modalu linii i
+  przybliżonej wygranej Adminu; udostępnienie i panel publiczny odrzucają
+  parametr (422), proxy Reviewera 403. UI: select „Wersja reguł” tylko w
+  Adminie, sekcja „Sztuki na planszy”, „w tym sztuki” w wierszach.
+- Nieobjęte (jawny follow-up): prekomputacja v4 (job wypłat, `layout_payouts`,
+  snapshot mobilny) — strażnik `PAYOUT_ALGORITHM_GAME_MISMATCH` odrzuca job
+  v3 dla gry z triggerem; `create_payout_job` nadal tylko v3. Panel
+  zarządzania (format v1) nie pokazuje rozbicia na sztuki, wypłata wiersza
+  je zawiera.
+- Audyt claude-fable-5-1 / high: PASS, 4 × P2 naprawione, 4 odstępstwa
+  zaakceptowane (`ai_docs/quality/TASK-0932_AUDIT_claude-fable-5-1.md`).
+  Worker 88, API 101, shared-ts 46, board-search-ui 80+51, Admin 679/679,
+  `openapi:check` aktualne. Istniejące wcześniej: 2 testy kontraktowe
+  Reviewera, `main.py:2005` mypy.
+- Etap S-A zamknięty. Operator może testować Wild na drafcie Mumii
+  (instrukcja w Outcome TASK-0931 i TASK-0932) po wdrożeniu migracji 0151.
+  Operator 2026-10-08: migracja 0151, `npm install` i `worker:poll` wykonane;
+  zaakceptował TASK-0940 (zielona bramka) i polecił przejść od razu do etapu
+  S-B bez pytań o zgodę; TASK-0938/0939 po S-B.
+
+### TASK-0931 — Wild, „Uruchamia supergrę” i rodzaj supergry (done)
+
+- Commit v1.7.268 / 1aef5870ee22287b0e17f1278276cddf7793a9b5.
+- Migracja `0151_super_game_roles` (addytywna): `symbols.super_game_trigger_count`
+  (null/3/4/5) i `games.super_game_kind` (domyślnie `none`); strażnik
+  schematu startowego wymaga teraz `0151`. Rejestr rodzajów supergry w
+  `services/worker/.../domain/super_games/` (`none`, `wild_super_spins`:
+  10 spinów, +10 przy retriggerze, koszt 0).
+- Domena: zmiana ról Wild/trigger dozwolona tylko bez opublikowanej lub
+  zarchiwizowanej wersji reguł; rola trigger wymaga rodzaju gry ≠ `none`
+  (`SUPER_GAME_KIND_REQUIRED`, `SUPER_GAME_KIND_IN_USE`); symbol trigger ma
+  `minimum_match_length = null`, a jego wypłaty znaczą liczbę sztuk
+  2…rows×columns (rosnące); przy zyskaniu roli minimum w draftach jest
+  czyszczone w tej samej transakcji. 777 bez zmian zachowania.
+- API: pola w schematach gry i symbolu (`superGameTriggerCount` wymagane,
+  `superGameKind`), `GET /api/v1/admin/super-game-kinds`, OpenAPI i klient
+  zregenerowane, wrapper `listSuperGameKinds`, request testy. Admin: etykieta
+  „Wild”, checkbox „Uruchamia supergrę” + select 3/4/5, select „Supergra”
+  w tworzeniu i edycji gry, pola „sztuk na planszy” w regułach.
+- Audyt claude-fable-5-1 / high: PASS, 4 × P2 naprawione, 8 odstępstw
+  zaakceptowanych (`ai_docs/quality/TASK-0931_AUDIT_claude-fable-5-1.md`).
+  Pytest skupiony 72 PASS, PG katalog 4 PASS, cykl migracji na bazie
+  jednorazowej OK, `openapi:check` aktualne, Admin 679/679, Reviewer
+  typecheck PASS.
+- Wdrożenie u operatora (po merge): zatrzymać API/Admin, `npm run db:migrate`
+  (0147→0151 na bazie operatora wymaga osobnej zgody, patrz TASK-0928),
+  restart. Nie publikować reguł Mumii przed TASK-0932 (stary ewaluator liczy
+  Mumię jako symbol liniowy). Instrukcja operatora w Outcome taska.
+
+### TASK-0929 — skill audytu krzyżowego i sekcja „Audyt krzyżowy” (done)
+
+- Commit v1.7.267 / 6323939f41d93501a537463eb82ce127ab1f04b3.
+- `scripts/audit_task.ps1` (PowerShell 5.1, ASCII, limity czasu, UTF-8)
+  składa brief taska (plik taska, fragment planu, `Verification results`,
+  diffy ograniczone `-Paths`, pliki nieśledzone) do ignorowanego
+  `artifacts/audits/` i uruchamia audytora tylko do odczytu (`codex exec
+  --sandbox read-only` lub `claude -p --permission-mode plan`); raport trafia
+  do `ai_docs/quality/TASK-NNNN_AUDIT_<model>.md` tylko z wierszem werdyktu.
+  Bez CLI na PATH tryb „tylko brief” (kod 0). Skille `.claude/skills/audit-task`
+  i `.codex/skills/claude-audit`; szablon `ai_docs/quality/AUDIT_REPORT_TEMPLATE.md`.
+- `AGENTS.md`: sekcja „Audyt krzyżowy” (rodziny modeli, zastępstwo subagentem
+  Claude do czasu CLI, jedna runda audytu + jedna poprawek, otwarte P0/P1
+  blokują commit, wyjątek czasowy 600 s dla przebiegu audytu); punkt 8
+  „Po kodowaniu” ujednolicony.
+- Audyt claude-opus-5-5 / high: runda 1 REVISE (2 × P1: `-Paths` z przecinkami,
+  wstrzyknięcie przez `-Model` na shimach `.cmd`; 5 × P2), po poprawkach
+  runda 2 PASS; 3 × P2 naprawione przez leada. Prawdziwe CLI `codex`/`claude`
+  nie są zainstalowane: operator instaluje i loguje je sam, potem jeden
+  przebieg bez `-DryRun` z zapisem wersji.
+- Etap P zamknięty. Trwa TASK-0931 (etap S-A).
+
 ### TASK-0930 — klawisz `0` dla dziesiątego symbolu w weryfikacji symboli (done)
 
 - Commit v1.7.266 / ad058e23a487a70f543636c6b024d779006c9bdb.

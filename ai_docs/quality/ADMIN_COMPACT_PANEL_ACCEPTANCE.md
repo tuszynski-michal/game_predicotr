@@ -1,10 +1,25 @@
 ---
 title: Odbiór kompaktowego Panelu Administracyjnego
-status: in_progress
+status: done
 last_updated: 2026-10-09
 ---
 
 # Odbiór kompaktowego Panelu Administracyjnego — TASK-0943
+
+## Integration completed — TASK-0945 (2026-10-09)
+
+Local `v1.1-vision-lab-hybrid-geometry` contains merge **v1.7.288 / 9cea1a8a363aa2efad6d012889a86aced34d613a**,
+joining audited panel433d8bfe with mainfc3d188. Compact decision is now D-538;
+main D-536 still describes Mumie series. Head is `0153_merge_compact_super_games`.
+Claude opus5.5/high gave PASS with no P0/P1; all five P2 were corrected in one round.
+Integration tests/builds/browser/contracts/docs/maps passed in the scoped ranges
+recorded in `ai_docs/tasks/completed/0945-compact-panel-main-integration.md`.
+The old branch-specific missing docs gate and pending integration statements
+below are historical checkpoints, superseded by this section. New receipt preview
+accepts0151 or installed0152series; an installed compact branch has already applied
+its backfill. Follow `ai_docs/process/MANAGEMENT_PANEL_OPERATIONS.md` before live use.
+All25 uncommitted main paths and v7-output were preserved. No push, operator DB
+migration, service lifecycle or live ingress/device acceptance was performed.
 
 ## Zakres dowodów
 
